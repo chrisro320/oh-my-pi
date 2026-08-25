@@ -26,3 +26,24 @@ Replaced the generic cron scheduler with a session-local prompt-cache keepalive,
 ### Status
 
 [OK] **Completed**
+
+
+## Session 2: Bound finite cache keepalive runs
+
+**Date**: 2026-08-25
+**Task**: Bound finite cache keepalive runs
+**Branch**: `master`
+
+### Summary
+
+Replaced unbounded cache keepalive repetition with finite command/tool budgets, hardened zero-budget reschedule races, synchronized the live extension, updated the runtime contract, and verified narrow harnesses plus live Codex cache-hit/disable behavior.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8a0a8e8` | (see git log) |
+
+### Status
+
+[OK] **Completed**
