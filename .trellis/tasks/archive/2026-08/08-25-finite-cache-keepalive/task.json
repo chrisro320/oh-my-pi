@@ -1,0 +1,28 @@
+{
+  "id": "finite-cache-keepalive",
+  "name": "finite-cache-keepalive",
+  "title": "Finite cache keepalive runs",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-08-25",
+  "completedAt": "2026-08-25",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "spec_update": "backend/extension-runtime-contracts.md"
+  }
+}
