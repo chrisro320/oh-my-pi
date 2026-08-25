@@ -1,2 +1,13 @@
 # Trellis workspace journals
 .trellis/workspace/*/journal-*.log
+
+# Trellis runtime and developer state
+.trellis/.developer
+.trellis/.runtime/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local logs
+*.log
