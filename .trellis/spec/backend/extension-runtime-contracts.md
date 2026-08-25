@@ -41,9 +41,10 @@ Current keepalive surfaces:
 ```text
 /cron
 /cron status
-/cron <duration>
+/cron <duration>                  # one attempt, then disabled
+/cron loop.<n> <duration>         # 2 <= n <= 10, then disabled
 /cron off
-cron({ action: "status" | "enable" | "disable", every?: string })
+cron({ action: "status" | "enable" | "disable", every?: string, runs?: number })
 ```
 
 ### 3. Contracts
@@ -74,17 +75,29 @@ cron({ action: "status" | "enable" | "disable", every?: string })
 - An idle response keeps model, system prompt, tools, transformed history, and
   prompt-cache key session-owned. Its virtual user tail and assistant reply are
   never appended to `SessionManager` or main agent messages.
-- Keepalive interval state is extension-factory-local and process-local. The
-  minimum is 240,000 ms; the maximum is 2,147,483,647 ms. No default interval is
-  persisted.
-- Keepalive disables on session switch, branch, shutdown, and process restart.
-  Main turns cancel active work; terminal `agent_end` starts a new full countdown.
+- Keepalive interval and run-budget state are extension-factory-local and
+  process-local. The minimum interval is 240,000 ms; the maximum is
+  2,147,483,647 ms. No interval or budget is persisted.
+- `/cron <duration>` and tool `enable` without `runs` create a one-attempt
+  schedule. `/cron loop.<n> <duration>` accepts integer `n` from 2 through 10;
+  tool `runs` accepts integers from 1 through 10. No unbounded mode exists.
+- Duration, run count, and active model validation must finish before replacing
+  live state. Re-enabling creates a fresh total/remaining budget independent of
+  process-lifetime diagnostic counters.
+- Preflight skips before `runIdleEphemeralTurn()` preserve the budget. Decrement
+  immediately before invoking it; hit, miss, provider error, abort, throw, or
+  `undefined` then consumes one attempt. Only a positive remaining budget may
+  schedule another full countdown.
+- Keepalive disables on exhausted budget, session switch, branch, shutdown, and
+  process restart. Main turns cancel active work; terminal `agent_end` may start
+  a new full countdown only while the current finite budget remains positive.
 - A completed diagnostic is `cache-hit` only when `usage.cacheRead > 0`; zero or
   missing cache-read usage is never reported as a hit.
 - `OMP_CACHE_KEEPALIVE_LOG` is an optional verification override. Otherwise JSONL
   diagnostics append to `~/.omp/agent/cache-keepalive.log` and rotate at 1 MiB.
 - The extension is not a general scheduler: no HTTP, shell, URL, persisted job,
-  repeat-count, or manual-run operation may be added under the `cron` surface.
+  manual-run operation, or unlimited repeat may be added under the `cron`
+  surface.
 
 ### 4. Validation & Error Matrix
 
@@ -92,6 +105,14 @@ cron({ action: "status" | "enable" | "disable", every?: string })
 |---|---|
 | Interval is below `240000` ms | Reject without replacing the existing timer |
 | Interval exceeds `2147483647` ms | Reject without replacing the existing timer |
+| Command `loop.<n>` is malformed, `n < 2`, or `n > 10` | Reject without replacing the existing timer |
+| Tool `runs` is not an integer in `1..10` | Reject without replacing the existing timer |
+| `/cron <duration>` or tool enable omits `runs` | Set total/remaining to 1 |
+| A valid schedule replaces an older schedule | Reset total/remaining; lifetime diagnostics remain cumulative |
+| Busy/model/queued preflight skips before guarded invocation | Preserve remaining budget and schedule a full countdown |
+| Guarded invocation starts, then hits, misses, errors, aborts, throws, or returns `undefined` | Consume exactly one attempt |
+| A settled attempt leaves remaining budget above zero | Schedule exactly one replacement timer |
+| A settled attempt leaves zero budget | Disable fully; no lifecycle event may recreate a timer |
 | No active model at enable or dispatch | Return/record provider error and do not dispatch |
 | Session/model changed before timeout | Skip; switch/branch disables, model change rebinds a full countdown |
 | Main turn, compaction, tree navigation, queued message, or second reservation | Return `undefined`; no provider overlap |
@@ -108,9 +129,14 @@ cron({ action: "status" | "enable" | "disable", every?: string })
 
 - **Good:** a settled session runs `/cron 4m`; one invisible side request runs
   after four idle minutes, reports `cacheRead > 0`, leaves transcript entry count
-  unchanged, and schedules one new full countdown.
-- **Base:** the timer fires while the session is busy or queued; it records a skip
-  and does not send a provider request.
+  unchanged, disables the schedule, and leaves no replacement timer.
+- **Good:** `/cron loop.3 20m` invokes at most three side requests. Attempts one
+  and two each schedule one replacement; attempt three disables.
+- **Base:** the timer fires while the session is busy or queued; it records a skip,
+  preserves the remaining budget, and starts one new full countdown without a
+  provider request.
+- **Bad:** decrementing on timer fire consumes finite budget for busy preflight
+  skips. Decrement only immediately before guarded provider invocation.
 - **Bad:** an extension checks `ctx.isIdle()` and then calls raw
   `runEphemeralTurn()`. A user prompt can enter between those operations and make
   both provider calls overlap.
@@ -123,8 +149,10 @@ Run these assertion points for changes to this contract:
 
 ```sh
 bun patches/verify-session-cache-keepalive.ts
-# Asserts interval bounds, single timer, lifecycle cancellation, factory
-# isolation, cache hit/miss/error classification, and removed scheduler surface.
+# Asserts interval bounds, atomic command/tool validation, default single-run,
+# exact finite repetition, fresh re-enable budgets, preflight/invoked accounting,
+# lifecycle cancellation, factory isolation, diagnostics, and removed scheduler
+# surface.
 
 bun patches/verify-idle-ephemeral-reservation.ts
 # Must cover ordered main dispatch, abort/reset with a replacement epoch, raw
@@ -149,8 +177,9 @@ grep -n -E 'CronJob|spawn|fetch|watchFile|cron\.json|\burl\b|runAtStart|maxRuns'
 ```
 
 A live provider smoke is mandatory for a keepalive behavior change: warm one
-ordinary turn, wait the real four-minute minimum, require `cacheRead > 0`, and
-compare transcript entry count before/after.
+ordinary turn, record transcript size, run the default `/cron 4m`, wait the real
+four-minute minimum, require exactly one diagnostic with `cacheRead > 0`, require
+disabled status with no replacement timer, and require unchanged transcript size.
 
 ### 7. Wrong vs Correct
 
@@ -174,3 +203,24 @@ if (!response) return; // busy, reserved, or superseded by a main turn
 
 The session claims the reservation synchronously. Main-turn entries abort and
 wait for that reservation before their own provider dispatch.
+
+#### Wrong finite scheduling
+
+```ts
+if (state.enabled) schedule(ctx, "keepalive settled");
+```
+
+This resurrects a timer after the finite budget reaches zero.
+
+#### Correct finite scheduling
+
+```ts
+if ((state.remainingRuns ?? 0) <= 0) {
+  disable(ctx);
+  return;
+}
+schedule(ctx, "keepalive settled");
+```
+
+Re-enable must set a fresh schedule budget; cumulative `attempts` is diagnostic
+only and must never decide whether another timer exists.

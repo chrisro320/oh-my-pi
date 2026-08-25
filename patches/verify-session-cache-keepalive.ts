@@ -18,12 +18,18 @@ try {
 interface FakeSchema {
 	optional(): FakeSchema;
 	describe(): FakeSchema;
+	int(): FakeSchema;
+	min(): FakeSchema;
+	max(): FakeSchema;
 }
 
 function fakeSchema(): FakeSchema {
 	return {
 		optional: fakeSchema,
 		describe: fakeSchema,
+		int: fakeSchema,
+		min: fakeSchema,
+		max: fakeSchema,
 	};
 }
 
@@ -39,6 +45,7 @@ const fakeZod = {
 		return fakeSchema();
 	},
 	string: () => fakeSchema(),
+	number: () => fakeSchema(),
 };
 
 class FakeTimers {
@@ -77,7 +84,7 @@ interface TestToolResult {
 interface TestTool {
 	execute(
 		toolCallId: string,
-		params: { action: "status" | "enable" | "disable"; every?: string },
+		params: { action: "status" | "enable" | "disable"; every?: string; runs?: number },
 		signal: AbortSignal | undefined,
 		onUpdate: undefined,
 		ctx: ExtensionContext,
@@ -207,8 +214,13 @@ function makeResponse(cacheRead: number): IdleEphemeralTurnResult {
 	};
 }
 
-async function toolText(harness: Harness, action: "status" | "enable" | "disable", every?: string): Promise<string> {
-	const result = await harness.tool.execute("test", { action, every }, undefined, undefined, harness.ctx);
+async function toolText(
+	harness: Harness,
+	action: "status" | "enable" | "disable",
+	every?: string,
+	runs?: number,
+): Promise<string> {
+	const result = await harness.tool.execute("test", { action, every, runs }, undefined, undefined, harness.ctx);
 	return result.content[0]?.text ?? "";
 }
 
@@ -225,6 +237,14 @@ assert.equal(intervals.timers.callbacks.size, 1, "enable must replace the prior 
 assert.match(await toolText(intervals, "enable", "1000h"), /safe one-shot timer range/);
 assert.equal(intervals.timers.callbacks.size, 1, "invalid replacement must preserve the active schedule");
 assert.deepEqual([...intervals.timers.delays.values()], [600_000]);
+assert.match(await toolText(intervals, "enable", "4m", 0), /runs/);
+assert.match(await toolText(intervals, "enable", "4m", 11), /runs/);
+assert.match(await toolText(intervals, "enable", "4m", 2.5), /runs/);
+assert.equal(intervals.timers.callbacks.size, 1, "invalid run counts must preserve the active schedule");
+assert.deepEqual([...intervals.timers.delays.values()], [600_000]);
+assert.match(await toolText(intervals, "enable", "4m", 2), /remaining 2\/2 attempts/);
+assert.equal(intervals.timers.callbacks.size, 1, "valid run count must replace the active schedule");
+assert.deepEqual([...intervals.timers.delays.values()], [240_000]);
 
 const busy = await createHarness();
 let busyCalls = 0;
@@ -238,11 +258,13 @@ await busy.timers.fireNext();
 assert.equal(busyCalls, 0);
 assert.equal(busy.timers.callbacks.size, 1);
 assert.match(await toolText(busy, "status"), /skipped 1/);
+assert.match(await toolText(busy, "status"), /remaining 1\/1 attempts/, "busy preflight must preserve the budget");
 busy.setIdle(true);
 busy.setPending(true);
 await busy.timers.fireNext();
 assert.equal(busyCalls, 0);
 assert.match(await toolText(busy, "status"), /skipped 2/);
+assert.match(await toolText(busy, "status"), /remaining 1\/1 attempts/, "queued preflight must preserve the budget");
 
 const outcomes = await createHarness();
 let observedPrompt: string | undefined;
@@ -250,18 +272,25 @@ outcomes.setRun(async options => {
 	observedPrompt = options.promptText;
 	return makeResponse(123);
 });
-await toolText(outcomes, "enable", "4m");
+await toolText(outcomes, "enable", "4m", 3);
+assert.match(await toolText(outcomes, "status"), /remaining 3\/3 attempts/);
 await outcomes.timers.fireNext();
 assert.match(await toolText(outcomes, "status"), /hits 1/);
+assert.match(await toolText(outcomes, "status"), /remaining 2\/3 attempts/);
+assert.equal(outcomes.timers.callbacks.size, 1, "settled hit schedules exactly one replacement");
 assert.equal(observedPrompt, "Prompt-cache keepalive. Reply with exactly `.` and do not call tools.");
 outcomes.setRun(async () => makeResponse(0));
 await outcomes.timers.fireNext();
 assert.match(await toolText(outcomes, "status"), /misses 1/);
+assert.match(await toolText(outcomes, "status"), /remaining 1\/3 attempts/);
+assert.equal(outcomes.timers.callbacks.size, 1, "settled miss schedules exactly one replacement");
 outcomes.setRun(async () => {
 	throw new Error("provider unavailable");
 });
 await outcomes.timers.fireNext();
 assert.match(await toolText(outcomes, "status"), /errors 1/);
+assert.match(await toolText(outcomes, "status"), /disabled/);
+assert.equal(outcomes.timers.callbacks.size, 0, "third attempt disables and leaves no replacement");
 
 const abort = await createHarness();
 let observedSignal: AbortSignal | undefined;
@@ -271,7 +300,7 @@ abort.setRun(options => {
 	options.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
 	return promise;
 });
-await toolText(abort, "enable", "4m");
+await toolText(abort, "enable", "4m", 2);
 const firing = abort.timers.fireNext();
 await Promise.resolve();
 assert(observedSignal && !observedSignal.aborted);
@@ -281,8 +310,44 @@ await firing;
 assert.equal(abort.timers.callbacks.size, 0, "stale completion must not reschedule");
 await abort.emit("agent_end", { willContinue: true, messages: [] });
 assert.equal(abort.timers.callbacks.size, 0);
-await abort.emit("agent_end", { willContinue: false, messages: [] });
-assert.equal(abort.timers.callbacks.size, 1);
+const staleZero = await createHarness();
+staleZero.setRun(options => {
+	const { promise, reject } = Promise.withResolvers<IdleEphemeralTurnResult | undefined>();
+	options.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+	return promise;
+});
+await toolText(staleZero, "enable", "4m");
+const staleFiring = staleZero.timers.fireNext();
+await Promise.resolve();
+await staleZero.emit("agent_start");
+await staleFiring;
+assert.equal(staleZero.timers.callbacks.size, 0);
+assert.match(await toolText(staleZero, "status"), /disabled/, "zero-budget stale settle must fully disable");
+await staleZero.emit("agent_end", { willContinue: true, messages: [] });
+assert.equal(staleZero.timers.callbacks.size, 0, "agent_end(willContinue) must not resurrect a zero-budget schedule");
+assert.match(await toolText(staleZero, "status"), /disabled/);
+await staleZero.emit("agent_end", { willContinue: false, messages: [] });
+assert.equal(staleZero.timers.callbacks.size, 0, "agent_end must not recreate a zero-budget timer");
+assert.match(await toolText(staleZero, "status"), /disabled/);
+
+const zeroBeforeSettle = await createHarness();
+let releaseZero: (() => void) | undefined;
+zeroBeforeSettle.setRun(async () => {
+	await new Promise<void>(resolve => {
+		releaseZero = resolve;
+	});
+	return makeResponse(0);
+});
+await toolText(zeroBeforeSettle, "enable", "4m");
+const zeroFiring = zeroBeforeSettle.timers.fireNext();
+await Promise.resolve();
+assert.match(await toolText(zeroBeforeSettle, "status"), /in-flight/);
+assert.match(await toolText(zeroBeforeSettle, "status"), /remaining 0\/1 attempts/);
+await zeroBeforeSettle.emit("agent_end", { willContinue: false, messages: [] });
+assert.match(await toolText(zeroBeforeSettle, "status"), /disabled/);
+assert.equal(zeroBeforeSettle.timers.callbacks.size, 0, "agent_end must disable before scheduling at zero budget");
+releaseZero?.();
+await zeroFiring;
 
 const lifecycle = await createHarness();
 await toolText(lifecycle, "enable", "4m");
@@ -323,17 +388,157 @@ await changedModel.timers.fireNext();
 assert.match(await toolText(changedModel, "status"), /model changed/);
 assert.equal(changedModel.timers.callbacks.size, 1);
 assert.deepEqual([...changedModel.timers.delays.values()], [240_000]);
+assert.match(await toolText(changedModel, "status"), /remaining 1\/1 attempts/, "model-change rebound preserves the budget");
+
+const singleCommand = await createHarness();
+let singleCalls = 0;
+singleCommand.setRun(async () => {
+	singleCalls += 1;
+	return makeResponse(100);
+});
+await singleCommand.command.handler("20m", singleCommand.ctx as ExtensionCommandContext);
+assert.equal(singleCommand.timers.callbacks.size, 1);
+assert.deepEqual([...singleCommand.timers.delays.values()], [1_200_000]);
+assert.match(singleCommand.notifications.at(-1) ?? "", /remaining 1\/1 attempts/);
+await singleCommand.timers.fireNext();
+assert.equal(singleCalls, 1);
+assert.equal(singleCommand.timers.callbacks.size, 0, "single-run attempt must leave no replacement timer");
+assert.match(await toolText(singleCommand, "status"), /disabled/);
+
+const loopCommand = await createHarness();
+let loopCalls = 0;
+loopCommand.setRun(async () => {
+	loopCalls += 1;
+	return makeResponse(100);
+});
+await loopCommand.command.handler("loop.3 20m", loopCommand.ctx as ExtensionCommandContext);
+assert.equal(loopCommand.timers.callbacks.size, 1);
+assert.deepEqual([...loopCommand.timers.delays.values()], [1_200_000]);
+assert.match(loopCommand.notifications.at(-1) ?? "", /remaining 3\/3 attempts/);
+await loopCommand.timers.fireNext();
+assert.equal(loopCalls, 1);
+assert.equal(loopCommand.timers.callbacks.size, 1, "first settled attempt schedules exactly one replacement");
+await loopCommand.timers.fireNext();
+assert.equal(loopCalls, 2);
+assert.equal(loopCommand.timers.callbacks.size, 1, "second settled attempt schedules exactly one replacement");
+assert.match(await toolText(loopCommand, "status"), /remaining 1\/3 attempts/);
+await loopCommand.timers.fireNext();
+assert.equal(loopCalls, 3);
+assert.equal(loopCommand.timers.callbacks.size, 0, "third attempt leaves no replacement timer");
+assert.match(await toolText(loopCommand, "status"), /disabled/);
+
+const undefinedRun = await createHarness();
+let undefinedCalls = 0;
+undefinedRun.setRun(async () => {
+	undefinedCalls += 1;
+	return undefined;
+});
+await toolText(undefinedRun, "enable", "4m", 2);
+await undefinedRun.timers.fireNext();
+assert.equal(undefinedCalls, 1);
+assert.match(await toolText(undefinedRun, "status"), /remaining 1\/2 attempts/, "superseded reservation consumes one");
+assert.equal(undefinedRun.timers.callbacks.size, 1, "undefined result reschedules while budget remains");
+await undefinedRun.timers.fireNext();
+assert.equal(undefinedCalls, 2);
+assert.equal(undefinedRun.timers.callbacks.size, 0, "last undefined result disables");
+assert.match(await toolText(undefinedRun, "status"), /disabled/);
+
+const invalidLoop = await createHarness();
+await invalidLoop.command.handler("loop.3 20m", invalidLoop.ctx as ExtensionCommandContext);
+assert.equal(invalidLoop.timers.callbacks.size, 1);
+assert.deepEqual([...invalidLoop.timers.delays.values()], [1_200_000]);
+for (const bad of [
+	"loop.1 20m",
+	"loop.0 20m",
+	"loop.11 20m",
+	"loop 20m",
+	"loop.x 20m",
+	"loop. 20m",
+	"loop.3",
+	"loop.2.5 20m",
+	"loop.-1 20m",
+	"loop",
+]) {
+	await invalidLoop.command.handler(bad, invalidLoop.ctx as ExtensionCommandContext);
+	assert.match(invalidLoop.notifications.at(-1) ?? "", /error/, `${bad} must be rejected`);
+	assert.equal(invalidLoop.timers.callbacks.size, 1, `${bad} must preserve the active schedule`);
+	assert.deepEqual([...invalidLoop.timers.delays.values()], [1_200_000], `${bad} must not replace the live timer`);
+}
+
+const toolRuns = await createHarness();
+let toolRunsCalls = 0;
+toolRuns.setRun(async () => {
+	toolRunsCalls += 1;
+	return makeResponse(100);
+});
+await toolText(toolRuns, "enable", "4m", 3);
+assert.match(await toolText(toolRuns, "status"), /remaining 3\/3 attempts/);
+assert.match(await toolText(toolRuns, "enable", "4m", 0), /runs/);
+assert.match(await toolText(toolRuns, "enable", "4m", 11), /runs/);
+assert.match(await toolText(toolRuns, "enable", "4m", 2.5), /runs/);
+assert.match(await toolText(toolRuns, "status"), /remaining 3\/3 attempts/, "invalid runs must preserve the active schedule");
+assert.equal(toolRuns.timers.callbacks.size, 1);
+assert.deepEqual([...toolRuns.timers.delays.values()], [240_000]);
+await toolRuns.timers.fireNext();
+assert.equal(toolRunsCalls, 1);
+assert.equal(toolRuns.timers.callbacks.size, 1);
+await toolRuns.timers.fireNext();
+assert.equal(toolRunsCalls, 2);
+assert.equal(toolRuns.timers.callbacks.size, 1);
+await toolRuns.timers.fireNext();
+assert.equal(toolRunsCalls, 3);
+assert.equal(toolRuns.timers.callbacks.size, 0, "runs=3 repeats exactly three times, then disables");
+assert.match(await toolText(toolRuns, "status"), /disabled/);
+
+const toolSingle = await createHarness();
+let toolSingleCalls = 0;
+toolSingle.setRun(async () => {
+	toolSingleCalls += 1;
+	return makeResponse(100);
+});
+await toolText(toolSingle, "enable", "4m");
+assert.match(await toolText(toolSingle, "status"), /remaining 1\/1 attempts/);
+await toolSingle.timers.fireNext();
+assert.equal(toolSingleCalls, 1);
+assert.equal(toolSingle.timers.callbacks.size, 0, "default tool enable performs exactly one attempt");
+assert.match(await toolText(toolSingle, "status"), /disabled/);
+
+const reenable = await createHarness();
+let reenableCalls = 0;
+reenable.setRun(async () => {
+	reenableCalls += 1;
+	return makeResponse(100);
+});
+await toolText(reenable, "enable", "4m", 3);
+await reenable.timers.fireNext();
+await reenable.timers.fireNext();
+await reenable.timers.fireNext();
+assert.equal(reenableCalls, 3);
+assert.equal(reenable.timers.callbacks.size, 0);
+assert.match(await toolText(reenable, "status"), /attempts 3/);
+await toolText(reenable, "enable", "4m");
+assert.match(await toolText(reenable, "status"), /remaining 1\/1 attempts/, "re-enable must reset the budget");
+assert.match(await toolText(reenable, "status"), /attempts 3/, "lifetime attempts must not control the new budget");
+await reenable.timers.fireNext();
+assert.equal(reenableCalls, 4);
+assert.equal(reenable.timers.callbacks.size, 0, "fresh single-run budget disables after one attempt");
+assert.match(await toolText(reenable, "status"), /attempts 4/);
 
 const completions = intervals.command.getArgumentCompletions?.("") ?? [];
 assert.deepEqual(
 	completions.map(item => item.value),
-	["status", "off", "4m", "10m", "30m", "1h"],
+	["status", "off", "loop.2 20m", "loop.3 20m", "loop.5 20m", "loop.10 20m", "4m", "10m", "20m", "30m", "50m"],
+);
+assert.ok(!completions.some(item => /^loop$/.test(item.value)), "no unbounded loop completion may exist");
+assert.deepEqual(
+	(intervals.command.getArgumentCompletions?.("loop.") ?? []).map(item => item.value),
+	["loop.2 20m", "loop.3 20m", "loop.5 20m", "loop.10 20m"],
 );
 await intervals.command.handler("run legacy-job", intervals.ctx as ExtensionCommandContext);
 assert.match(intervals.notifications.at(-1) ?? "", /invalid interval/);
 assert.equal(intervals.timers.callbacks.size, 1, "removed command syntax must not replace the active timer");
 assert(observedEnums.every(values => values.join(",") === "status,enable,disable"));
-assert(observedObjectKeys.every(keys => keys.join(",") === "action,every"));
+assert(observedObjectKeys.every(keys => keys.join(",") === "action,every,runs"));
 assert.doesNotMatch(intervals.tool.description, /polling|shell|scheduler job/i);
 
 const logLines = (await Bun.file(LOG_PATH).text())

@@ -1,8 +1,11 @@
 // Current-session prompt-cache keepalive for omp.
 //
-// Command: /cron [status | off | <duration>]
+// Command: /cron [status | off | <duration> | loop.<n> <duration>]
 // Log:     ~/.omp/agent/cache-keepalive.log
 //
+// Every schedule is finite: `/cron <duration>` performs one keepalive attempt
+// and disables; `/cron loop.<n> <duration>` performs at most n (2..10). The
+// tool's optional `runs` (1..10, default 1) is the equivalent bounded repeat.
 // The interval and timer live only in this extension instance. Session changes
 // and process exit discard them; no persistent scheduler configuration exists.
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
@@ -17,6 +20,7 @@ interface StatusTheme {
 interface CronToolParams {
 	action: "status" | "enable" | "disable";
 	every?: string;
+	runs?: number;
 }
 
 type KeepaliveOutcome = "skipped" | "cache-hit" | "cache-miss" | "provider-error";
@@ -39,6 +43,8 @@ interface KeepaliveState {
 	enabled: boolean;
 	intervalMs?: number;
 	intervalLabel?: string;
+	totalRuns?: number;
+	remainingRuns?: number;
 	timer?: Timer;
 	abort?: AbortController;
 	generation: number;
@@ -77,6 +83,24 @@ function parseDuration(raw: string): { intervalMs: number; label: string } | { e
 		return { error: "interval exceeds the safe one-shot timer range" };
 	}
 	return { intervalMs: Math.round(durationMs), label: raw.trim().toLowerCase() };
+}
+
+function parseRunCommand(raw: string): { runs: number; duration: string } | { error: string } {
+	const input = raw.trim();
+	const loop = /^loop\.(\d+)\s+(.+)$/.exec(input);
+	if (loop) {
+		const runs = Number(loop[1]);
+		if (runs < 2 || runs > 10) {
+			return {
+				error: "loop count must be an integer from 2 through 10; `/cron <duration>` is the single-attempt form",
+			};
+		}
+		return { runs, duration: loop[2] };
+	}
+	if (/^loop/.test(input)) {
+		return { error: "invalid loop syntax; use `/cron loop.<n> <duration>` with n from 2 through 10" };
+	}
+	return { runs: 1, duration: input };
 }
 
 function writeDiagnostic(result: KeepaliveResult): void {
@@ -142,6 +166,8 @@ export default function (pi: ExtensionAPI): void {
 		cancelWork(ctx, true);
 		state.intervalMs = undefined;
 		state.intervalLabel = undefined;
+		state.totalRuns = undefined;
+		state.remainingRuns = undefined;
 		state.scheduledSessionId = undefined;
 		state.scheduledProvider = undefined;
 		state.scheduledModel = undefined;
@@ -149,6 +175,10 @@ export default function (pi: ExtensionAPI): void {
 
 	const schedule = (ctx: ExtensionContext, reason: string): void => {
 		if (!state.enabled || state.intervalMs === undefined) return;
+		if ((state.remainingRuns ?? 0) <= 0) {
+			disable(ctx);
+			return;
+		}
 		cancelWork(ctx, true);
 		const model = ctx.model;
 		const sessionId = ctx.sessionManager.getSessionId();
@@ -169,6 +199,14 @@ export default function (pi: ExtensionAPI): void {
 		state.scheduledReason = reason;
 		state.nextRunAt = Date.now() + state.intervalMs;
 		state.timer = ctx.setTimeout(() => runKeepalive(ctx, generation), state.intervalMs);
+	};
+	const scheduleIfBudgeted = (ctx: ExtensionContext, reason: string): void => {
+		if (!state.enabled) return;
+		if ((state.remainingRuns ?? 0) <= 0) {
+			disable(ctx);
+			return;
+		}
+		schedule(ctx, reason);
 	};
 
 	const runKeepalive = async (ctx: ExtensionContext, generation: number): Promise<void> => {
@@ -228,6 +266,7 @@ export default function (pi: ExtensionAPI): void {
 			abort = new AbortController();
 			state.abort = abort;
 			state.attempts += 1;
+			state.remainingRuns = Math.max(0, (state.remainingRuns ?? 1) - 1);
 			const response = await ctx.runIdleEphemeralTurn({ promptText: KEEPALIVE_PROMPT, signal: abort.signal });
 			if (!response) {
 				record({
@@ -288,7 +327,12 @@ export default function (pi: ExtensionAPI): void {
 			});
 		} finally {
 			if (abort && state.abort === abort) state.abort = undefined;
-			if (state.enabled && generation === state.generation) schedule(ctx, "keepalive settled");
+			if (state.enabled && (state.remainingRuns ?? 0) <= 0) {
+				disable(ctx);
+				return;
+			}
+			if (!state.enabled || generation !== state.generation) return;
+			schedule(ctx, "keepalive settled");
 		}
 	};
 
@@ -301,6 +345,9 @@ export default function (pi: ExtensionAPI): void {
 					"muted",
 					`  every ${state.intervalLabel} · ${state.scheduledProvider}/${state.scheduledModel}`,
 				),
+			);
+			lines.push(
+				theme.fg("text", `  remaining ${state.remainingRuns ?? 0}/${state.totalRuns ?? 0} attempts`),
 			);
 			if (state.nextRunAt) {
 				const remainingSeconds = Math.max(0, Math.ceil((state.nextRunAt - Date.now()) / 1000));
@@ -332,14 +379,20 @@ export default function (pi: ExtensionAPI): void {
 		return lines.filter(Boolean).join("\n");
 	};
 
-	const enable = (ctx: ExtensionContext, every: string | undefined): string => {
+	const enable = (ctx: ExtensionContext, every: string | undefined, runs?: number): string => {
 		if (!every) return "error: `enable` requires `every` (for example 4m or 10m)";
 		const parsed = parseDuration(every);
 		if ("error" in parsed) return `error: ${parsed.error}`;
+		const budget = runs ?? 1;
+		if (!Number.isInteger(budget) || budget < 1 || budget > 10) {
+			return "error: `runs` must be an integer from 1 through 10";
+		}
 		if (!ctx.model) return "error: no active model on this session";
 		state.enabled = true;
 		state.intervalMs = parsed.intervalMs;
 		state.intervalLabel = parsed.label;
+		state.totalRuns = budget;
+		state.remainingRuns = budget;
 		schedule(ctx, "enabled");
 		return formatStatus(PLAIN_THEME);
 	};
@@ -350,10 +403,17 @@ export default function (pi: ExtensionAPI): void {
 		label: "Session Cache Keepalive",
 		approval: "write",
 		description:
-			"Manage the current session's prompt-cache keepalive. It sends one invisible LLM side-channel request after the session has been idle for the user-supplied interval. The setting is disabled by default, exists only in this live process, and is lost on session switch, branch, or exit. Minimum interval: 4m.",
+			"Manage the current session's prompt-cache keepalive. It sends one invisible LLM side-channel request after the session has been idle for the user-supplied interval, then disables; pass runs (1-10) for a bounded repeat. The setting is disabled by default, exists only in this live process, and is lost on session switch, branch, or exit. Minimum interval: 4m.",
 		parameters: z.object({
 			action: z.enum(["status", "enable", "disable"]).describe("Operation to perform"),
 			every: z.string().optional().describe('Required for enable, for example "4m", "10m", or "2h"'),
+			runs: z
+				.number()
+				.int()
+				.min(1)
+				.max(10)
+				.optional()
+				.describe("Bounded keepalive attempts for enable; defaults to 1, maximum 10"),
 		}),
 		async execute(_toolCallId, params: CronToolParams, _signal, _onUpdate, ctx) {
 			let text: string;
@@ -362,7 +422,7 @@ export default function (pi: ExtensionAPI): void {
 					text = formatStatus(PLAIN_THEME);
 					break;
 				case "enable":
-					text = enable(ctx, params.every);
+					text = enable(ctx, params.every, params.runs);
 					break;
 				case "disable":
 					disable(ctx);
@@ -374,9 +434,9 @@ export default function (pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("cron", {
-		description: "Current-session prompt-cache keepalive: status | off | <duration>",
+		description: "Current-session prompt-cache keepalive: status | off | <duration> | loop.<n> <duration>",
 		getArgumentCompletions: prefix =>
-			["status", "off", "4m", "10m", "30m", "1h"]
+			["status", "off", "loop.2 20m", "loop.3 20m", "loop.5 20m", "loop.10 20m", "4m", "10m", "20m", "30m", "50m"]
 				.filter(value => value.startsWith(prefix))
 				.map(value => ({ value, label: value })),
 		handler: async (args, ctx) => {
@@ -390,7 +450,12 @@ export default function (pi: ExtensionAPI): void {
 				ctx.ui.notify(formatStatus(ctx.ui.theme), "info");
 				return;
 			}
-			const result = enable(ctx, input);
+			const parsed = parseRunCommand(input);
+			if ("error" in parsed) {
+				ctx.ui.notify(`error: ${parsed.error}`, "error");
+				return;
+			}
+			const result = enable(ctx, parsed.duration, parsed.runs);
 			ctx.ui.notify(result, result.startsWith("error:") ? "error" : "info");
 		},
 	});
@@ -399,21 +464,22 @@ export default function (pi: ExtensionAPI): void {
 		if (state.enabled) cancelWork(ctx, true);
 	});
 	pi.on("agent_end", (event, ctx) => {
-		if (state.enabled && !event.willContinue) schedule(ctx, "main agent settled");
+		if (event.willContinue) return;
+		scheduleIfBudgeted(ctx, "main agent settled");
 	});
 	pi.on("session_before_switch", (_event, ctx) => disable(ctx));
 	pi.on("session_before_branch", (_event, ctx) => disable(ctx));
 	pi.on("session_shutdown", (_event, ctx) => disable(ctx));
 	pi.on("session_before_compact", (_event, ctx) => {
-		if (state.enabled) schedule(ctx, "compaction started");
+		scheduleIfBudgeted(ctx, "compaction started");
 	});
 	pi.on("session_compact", (_event, ctx) => {
-		if (state.enabled) schedule(ctx, "compaction completed");
+		scheduleIfBudgeted(ctx, "compaction completed");
 	});
 	pi.on("session_before_tree", (_event, ctx) => {
-		if (state.enabled) schedule(ctx, "tree navigation started");
+		scheduleIfBudgeted(ctx, "tree navigation started");
 	});
 	pi.on("session_tree", (_event, ctx) => {
-		if (state.enabled) schedule(ctx, "tree navigation completed");
+		scheduleIfBudgeted(ctx, "tree navigation completed");
 	});
 }
