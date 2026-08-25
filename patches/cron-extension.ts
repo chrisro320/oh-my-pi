@@ -1,11 +1,11 @@
 // Current-session prompt-cache keepalive for omp.
 //
-// Command: /cron [status | off | <duration> | loop.<n> <duration>]
+// Command: /cron [status | off | <duration> | loop<n> <duration>]
 // Log:     ~/.omp/agent/cache-keepalive.log
 //
 // Every schedule is finite: `/cron <duration>` performs one keepalive attempt
-// and disables; `/cron loop.<n> <duration>` performs at most n (2..10). The
-// tool's optional `runs` (1..10, default 1) is the equivalent bounded repeat.
+// and disables; `/cron loop<n> <duration>` performs at most n (2..100). The
+// tool's optional `runs` (1..100, default 1) is the equivalent bounded repeat.
 // The interval and timer live only in this extension instance. Session changes
 // and process exit discard them; no persistent scheduler configuration exists.
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
@@ -65,19 +65,19 @@ const PLAIN_THEME: StatusTheme = { fg: (_color, text) => text };
 const LOG_PATH =
 	process.env.OMP_CACHE_KEEPALIVE_LOG ?? join(homedir(), ".omp", "agent", "cache-keepalive.log");
 const LOG_MAX_BYTES = 1024 * 1024;
-const MIN_INTERVAL_MS = 4 * 60 * 1000;
+const MIN_INTERVAL_MS = 3 * 60 * 1000;
 const MAX_INTERVAL_MS = 2_147_483_647;
 const KEEPALIVE_PROMPT = "Prompt-cache keepalive. Reply with exactly `.` and do not call tools.";
 
 function parseDuration(raw: string): { intervalMs: number; label: string } | { error: string } {
 	const match = /^\s*(\d+(?:\.\d+)?)\s*([smh])\s*$/i.exec(raw);
-	if (!match) return { error: "invalid interval; use an explicit duration such as 240s, 10m, or 2h" };
+	if (!match) return { error: "invalid interval; use an explicit duration such as 180s, 10m, or 2h" };
 	const value = Number(match[1]);
 	const unit = match[2].toLowerCase();
 	const multiplier = unit === "s" ? 1000 : unit === "m" ? 60_000 : 3_600_000;
 	const durationMs = value * multiplier;
 	if (!Number.isFinite(durationMs) || durationMs < MIN_INTERVAL_MS) {
-		return { error: "interval must be at least 4m (240s)" };
+		return { error: "interval must be at least 3m (180s)" };
 	}
 	if (durationMs > MAX_INTERVAL_MS) {
 		return { error: "interval exceeds the safe one-shot timer range" };
@@ -87,18 +87,18 @@ function parseDuration(raw: string): { intervalMs: number; label: string } | { e
 
 function parseRunCommand(raw: string): { runs: number; duration: string } | { error: string } {
 	const input = raw.trim();
-	const loop = /^loop\.(\d+)\s+(.+)$/.exec(input);
+	const loop = /^loop(\d+)\s+(.+)$/.exec(input);
 	if (loop) {
 		const runs = Number(loop[1]);
-		if (runs < 2 || runs > 10) {
+		if (runs < 2 || runs > 100) {
 			return {
-				error: "loop count must be an integer from 2 through 10; `/cron <duration>` is the single-attempt form",
+				error: "loop count must be an integer from 2 through 100; `/cron <duration>` is the single-attempt form",
 			};
 		}
 		return { runs, duration: loop[2] };
 	}
 	if (/^loop/.test(input)) {
-		return { error: "invalid loop syntax; use `/cron loop.<n> <duration>` with n from 2 through 10" };
+		return { error: "invalid loop syntax; use `/cron loop<n> <duration>` with n from 2 through 100" };
 	}
 	return { runs: 1, duration: input };
 }
@@ -380,12 +380,12 @@ export default function (pi: ExtensionAPI): void {
 	};
 
 	const enable = (ctx: ExtensionContext, every: string | undefined, runs?: number): string => {
-		if (!every) return "error: `enable` requires `every` (for example 4m or 10m)";
+		if (!every) return "error: `enable` requires `every` (for example 3m or 10m)";
 		const parsed = parseDuration(every);
 		if ("error" in parsed) return `error: ${parsed.error}`;
 		const budget = runs ?? 1;
-		if (!Number.isInteger(budget) || budget < 1 || budget > 10) {
-			return "error: `runs` must be an integer from 1 through 10";
+		if (!Number.isInteger(budget) || budget < 1 || budget > 100) {
+			return "error: `runs` must be an integer from 1 through 100";
 		}
 		if (!ctx.model) return "error: no active model on this session";
 		state.enabled = true;
@@ -403,17 +403,17 @@ export default function (pi: ExtensionAPI): void {
 		label: "Session Cache Keepalive",
 		approval: "write",
 		description:
-			"Manage the current session's prompt-cache keepalive. It sends one invisible LLM side-channel request after the session has been idle for the user-supplied interval, then disables; pass runs (1-10) for a bounded repeat. The setting is disabled by default, exists only in this live process, and is lost on session switch, branch, or exit. Minimum interval: 4m.",
+			"Manage the current session's prompt-cache keepalive. It sends one invisible LLM side-channel request after the session has been idle for the user-supplied interval, then disables; pass runs (1-100) for a bounded repeat. The setting is disabled by default, exists only in this live process, and is lost on session switch, branch, or exit. Minimum interval: 3m.",
 		parameters: z.object({
 			action: z.enum(["status", "enable", "disable"]).describe("Operation to perform"),
-			every: z.string().optional().describe('Required for enable, for example "4m", "10m", or "2h"'),
+			every: z.string().optional().describe('Required for enable, for example "3m", "10m", or "2h"'),
 			runs: z
 				.number()
 				.int()
 				.min(1)
-				.max(10)
+				.max(100)
 				.optional()
-				.describe("Bounded keepalive attempts for enable; defaults to 1, maximum 10"),
+				.describe("Bounded keepalive attempts for enable; defaults to 1, maximum 100"),
 		}),
 		async execute(_toolCallId, params: CronToolParams, _signal, _onUpdate, ctx) {
 			let text: string;
@@ -434,9 +434,9 @@ export default function (pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("cron", {
-		description: "Current-session prompt-cache keepalive: status | off | <duration> | loop.<n> <duration>",
+		description: "Current-session prompt-cache keepalive: status | off | <duration> | loop<n> <duration>",
 		getArgumentCompletions: prefix =>
-			["status", "off", "loop.2 4m", "4m", "10m", "20m", "30m", "50m"]
+			["status", "off", "loop2 3m", "3m", "10m", "20m", "30m", "50m"]
 				.filter(value => value.startsWith(prefix))
 				.map(value => ({ value, label: value })),
 		handler: async (args, ctx) => {

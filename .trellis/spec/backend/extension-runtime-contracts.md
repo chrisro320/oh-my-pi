@@ -42,7 +42,7 @@ Current keepalive surfaces:
 /cron
 /cron status
 /cron <duration>                  # one attempt, then disabled
-/cron loop.<n> <duration>         # 2 <= n <= 10, then disabled
+/cron loop<n> <duration>          # 2 <= n <= 100, then disabled
 /cron off
 cron({ action: "status" | "enable" | "disable", every?: string, runs?: number })
 ```
@@ -76,11 +76,11 @@ cron({ action: "status" | "enable" | "disable", every?: string, runs?: number })
   prompt-cache key session-owned. Its virtual user tail and assistant reply are
   never appended to `SessionManager` or main agent messages.
 - Keepalive interval and run-budget state are extension-factory-local and
-  process-local. The minimum interval is 240,000 ms; the maximum is
+  process-local. The minimum interval is 180,000 ms; the maximum is
   2,147,483,647 ms. No interval or budget is persisted.
 - `/cron <duration>` and tool `enable` without `runs` create a one-attempt
-  schedule. `/cron loop.<n> <duration>` accepts integer `n` from 2 through 10;
-  tool `runs` accepts integers from 1 through 10. No unbounded mode exists.
+  schedule. `/cron loop<n> <duration>` accepts integer `n` from 2 through 100;
+  tool `runs` accepts integers from 1 through 100. No unbounded mode exists.
 - Duration, run count, and active model validation must finish before replacing
   live state. Re-enabling creates a fresh total/remaining budget independent of
   process-lifetime diagnostic counters.
@@ -103,10 +103,10 @@ cron({ action: "status" | "enable" | "disable", every?: string, runs?: number })
 
 | Condition | Required result |
 |---|---|
-| Interval is below `240000` ms | Reject without replacing the existing timer |
+| Interval is below `180000` ms | Reject without replacing the existing timer |
 | Interval exceeds `2147483647` ms | Reject without replacing the existing timer |
-| Command `loop.<n>` is malformed, `n < 2`, or `n > 10` | Reject without replacing the existing timer |
-| Tool `runs` is not an integer in `1..10` | Reject without replacing the existing timer |
+| Command `loop<n>` is malformed, `n < 2`, or `n > 100` | Reject without replacing the existing timer |
+| Tool `runs` is not an integer in `1..100` | Reject without replacing the existing timer |
 | `/cron <duration>` or tool enable omits `runs` | Set total/remaining to 1 |
 | A valid schedule replaces an older schedule | Reset total/remaining; lifetime diagnostics remain cumulative |
 | Busy/model/queued preflight skips before guarded invocation | Preserve remaining budget and schedule a full countdown |
@@ -130,7 +130,7 @@ cron({ action: "status" | "enable" | "disable", every?: string, runs?: number })
 - **Good:** a settled session runs `/cron 4m`; one invisible side request runs
   after four idle minutes, reports `cacheRead > 0`, leaves transcript entry count
   unchanged, disables the schedule, and leaves no replacement timer.
-- **Good:** `/cron loop.3 20m` invokes at most three side requests. Attempts one
+- **Good:** `/cron loop3 20m` invokes at most three side requests. Attempts one
   and two each schedule one replacement; attempt three disables.
 - **Base:** the timer fires while the session is busy or queued; it records a skip,
   preserves the remaining budget, and starts one new full countdown without a
@@ -177,7 +177,7 @@ grep -n -E 'CronJob|spawn|fetch|watchFile|cron\.json|\burl\b|runAtStart|maxRuns'
 ```
 
 A live provider smoke is mandatory for a keepalive behavior change: warm one
-ordinary turn, record transcript size, run the default `/cron 4m`, wait the real
+ordinary turn, record transcript size, run the default `/cron 3m`, wait the real
 four-minute minimum, require exactly one diagnostic with `cacheRead > 0`, require
 disabled status with no replacement timer, and require unchanged transcript size.
 

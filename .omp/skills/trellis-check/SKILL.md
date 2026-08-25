@@ -5,7 +5,7 @@ description: "Comprehensive quality verification: spec compliance, lint, type-ch
 
 # Code Quality Check
 
-Comprehensive quality verification for recently written code. Combines spec compliance, cross-layer safety, and pre-commit checks.
+Comprehensive, read-only quality verification for recently written code. Combines spec compliance, cross-layer safety, and pre-commit checks without mutating repository files.
 
 ---
 
@@ -38,7 +38,7 @@ Read the specific guideline files referenced — the index is a pointer, not the
 
 ## Step 3: Run Project Checks
 
-Run the project's lint, type-check, and test commands. Fix any failures before proceeding.
+Run the project's lint, type-check, and test commands as read-only checks. Do not run autofix or formatting commands.
 
 ## Step 4: Review Against Checklist
 
@@ -101,11 +101,19 @@ Skip this step if your change is confined to a single layer.
 
 ---
 
-## Step 6: Report and Fix
+## Step 6: Report Findings
 
-Report every violation you find. Then:
+Report every violation you find. Do not fix any issue in place.
 
-- Mechanical and local (lint nit, missing type, wrong import, dead branch, failing assertion) → fix in place, then re-run project checks.
-- Design or judgment (naming a shared concept, moving a module boundary, changing a public interface, reassigning where behavior lives) → record the evidence and your recommendation, and stop. Do not rewrite it silently.
+For each finding, include:
+
+- Exact file and line.
+- Observed evidence.
+- Impact and severity.
+- Minimal recommended fix for the main session or implementation owner.
 
 If a fix would touch files outside the current task's scope, say so and stop instead of widening the change.
+
+## Step 7: Review Output
+
+Report `PASS` when no findings remain; otherwise report `FINDINGS` with the structured details above. Always report `filesChanged: []`.

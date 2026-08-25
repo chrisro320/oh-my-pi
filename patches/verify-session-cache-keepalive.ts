@@ -225,9 +225,9 @@ async function toolText(
 }
 
 const intervals = await createHarness();
-assert.match(await toolText(intervals, "enable", "239s"), /at least 4m/);
+assert.match(await toolText(intervals, "enable", "179s"), /at least 3m/);
 assert.equal(intervals.timers.callbacks.size, 0);
-assert.match(await toolText(intervals, "enable", "239.9999s"), /at least 4m/);
+assert.match(await toolText(intervals, "enable", "179.9999s"), /at least 3m/);
 assert.equal(intervals.timers.callbacks.size, 0);
 assert.match(await toolText(intervals, "enable", "4m"), /scheduled/);
 assert.equal(intervals.timers.callbacks.size, 1);
@@ -238,7 +238,7 @@ assert.match(await toolText(intervals, "enable", "1000h"), /safe one-shot timer 
 assert.equal(intervals.timers.callbacks.size, 1, "invalid replacement must preserve the active schedule");
 assert.deepEqual([...intervals.timers.delays.values()], [600_000]);
 assert.match(await toolText(intervals, "enable", "4m", 0), /runs/);
-assert.match(await toolText(intervals, "enable", "4m", 11), /runs/);
+assert.match(await toolText(intervals, "enable", "4m", 101), /runs/);
 assert.match(await toolText(intervals, "enable", "4m", 2.5), /runs/);
 assert.equal(intervals.timers.callbacks.size, 1, "invalid run counts must preserve the active schedule");
 assert.deepEqual([...intervals.timers.delays.values()], [600_000]);
@@ -411,7 +411,7 @@ loopCommand.setRun(async () => {
 	loopCalls += 1;
 	return makeResponse(100);
 });
-await loopCommand.command.handler("loop.3 20m", loopCommand.ctx as ExtensionCommandContext);
+await loopCommand.command.handler("loop3 20m", loopCommand.ctx as ExtensionCommandContext);
 assert.equal(loopCommand.timers.callbacks.size, 1);
 assert.deepEqual([...loopCommand.timers.delays.values()], [1_200_000]);
 assert.match(loopCommand.notifications.at(-1) ?? "", /remaining 3\/3 attempts/);
@@ -444,19 +444,20 @@ assert.equal(undefinedRun.timers.callbacks.size, 0, "last undefined result disab
 assert.match(await toolText(undefinedRun, "status"), /disabled/);
 
 const invalidLoop = await createHarness();
-await invalidLoop.command.handler("loop.3 20m", invalidLoop.ctx as ExtensionCommandContext);
+await invalidLoop.command.handler("loop3 20m", invalidLoop.ctx as ExtensionCommandContext);
 assert.equal(invalidLoop.timers.callbacks.size, 1);
 assert.deepEqual([...invalidLoop.timers.delays.values()], [1_200_000]);
 for (const bad of [
-	"loop.1 20m",
-	"loop.0 20m",
+	"loop1 20m",
+	"loop0 20m",
 	"loop.11 20m",
+	"loop101 20m",
 	"loop 20m",
-	"loop.x 20m",
+	"loopx 20m",
 	"loop. 20m",
-	"loop.3",
-	"loop.2.5 20m",
-	"loop.-1 20m",
+	"loop3",
+	"loop2.5 20m",
+	"loop-1 20m",
 	"loop",
 ]) {
 	await invalidLoop.command.handler(bad, invalidLoop.ctx as ExtensionCommandContext);
@@ -474,7 +475,7 @@ toolRuns.setRun(async () => {
 await toolText(toolRuns, "enable", "4m", 3);
 assert.match(await toolText(toolRuns, "status"), /remaining 3\/3 attempts/);
 assert.match(await toolText(toolRuns, "enable", "4m", 0), /runs/);
-assert.match(await toolText(toolRuns, "enable", "4m", 11), /runs/);
+assert.match(await toolText(toolRuns, "enable", "4m", 101), /runs/);
 assert.match(await toolText(toolRuns, "enable", "4m", 2.5), /runs/);
 assert.match(await toolText(toolRuns, "status"), /remaining 3\/3 attempts/, "invalid runs must preserve the active schedule");
 assert.equal(toolRuns.timers.callbacks.size, 1);
@@ -527,12 +528,12 @@ assert.match(await toolText(reenable, "status"), /attempts 4/);
 const completions = intervals.command.getArgumentCompletions?.("") ?? [];
 assert.deepEqual(
 	completions.map(item => item.value),
-	["status", "off", "loop.2 20m", "loop.3 20m", "loop.5 20m", "loop.10 20m", "4m", "10m", "20m", "30m", "50m"],
+	["status", "off", "loop2 3m", "3m", "10m", "20m", "30m", "50m"],
 );
 assert.ok(!completions.some(item => /^loop$/.test(item.value)), "no unbounded loop completion may exist");
 assert.deepEqual(
-	(intervals.command.getArgumentCompletions?.("loop.") ?? []).map(item => item.value),
-	["loop.2 20m", "loop.3 20m", "loop.5 20m", "loop.10 20m"],
+	(intervals.command.getArgumentCompletions?.("loop") ?? []).map(item => item.value),
+	["loop2 3m"],
 );
 await intervals.command.handler("run legacy-job", intervals.ctx as ExtensionCommandContext);
 assert.match(intervals.notifications.at(-1) ?? "", /invalid interval/);
