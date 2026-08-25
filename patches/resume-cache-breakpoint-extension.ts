@@ -112,10 +112,25 @@ export default function (pi: ExtensionAPI): void {
 			log(`skip already-marked index=${lastAssistant - 1}`);
 			return undefined;
 		}
+		// Anthropic rejects a 5m cache_control block appearing before a 1h block (400 error).
+		// Inherit any TTL used by other cache_control blocks in this payload (e.g. "1h" from OAuth).
+		let ttl: string | undefined;
+		for (let i = messages.length - 1; i >= 0; i--) {
+			const mContent = messages[i]?.content;
+			if (Array.isArray(mContent)) {
+				for (const b of mContent) {
+					if (b?.cache_control?.ttl) {
+						ttl = b.cache_control.ttl;
+						break;
+					}
+				}
+			}
+			if (ttl) break;
+		}
 
-		block.cache_control = { type: "ephemeral" };
-		state.lastAction = `breakpoint added at messages[${lastAssistant - 1}] (${anchor.role}/${block.type})`;
-		log(`added index=${lastAssistant - 1} role=${anchor.role} type=${block.type} messages=${messages.length}`);
+		block.cache_control = ttl ? { type: "ephemeral", ttl } : { type: "ephemeral" };
+		state.lastAction = `breakpoint added at messages[${lastAssistant - 1}] (${anchor.role}/${block.type}${ttl ? ` ttl=${ttl}` : ""})`;
+		log(`added index=${lastAssistant - 1} role=${anchor.role} type=${block.type} ttl=${ttl ?? "default"} messages=${messages.length}`);
 		return payload;
 	});
 
