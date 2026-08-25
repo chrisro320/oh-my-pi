@@ -436,7 +436,7 @@ export default function (pi: ExtensionAPI): void {
 	pi.registerCommand("cron", {
 		description: "Current-session prompt-cache keepalive: status | off | <duration> | loop.<n> <duration>",
 		getArgumentCompletions: prefix =>
-			["status", "off", "loop.2 20m", "loop.3 20m", "loop.5 20m", "loop.10 20m", "4m", "10m", "20m", "30m", "50m"]
+			["status", "off", "loop.2 4m", "4m", "10m", "20m", "30m", "50m"]
 				.filter(value => value.startsWith(prefix))
 				.map(value => ({ value, label: value })),
 		handler: async (args, ctx) => {
