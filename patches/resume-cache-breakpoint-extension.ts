@@ -119,7 +119,7 @@ export default function (pi: ExtensionAPI): void {
 		return payload;
 	});
 
-	// One breakpoint per session, not per process: switching, branching or
+	// One breakpoint per session, not per process: switching, branching, navigating tree or
 	// compacting inside a live omp lands on a different prefix that needs its own
 	// reconnect. `pi.on` is overloaded per event name, so these cannot be looped.
 	pi.on("session_switch", () => {
@@ -129,6 +129,12 @@ export default function (pi: ExtensionAPI): void {
 	pi.on("session_branch", () => {
 		state.armed = true;
 		state.lastAction = "re-armed by session_branch";
+	});
+	pi.on("session_tree", event => {
+		if (event.newLeafId !== event.oldLeafId) {
+			state.armed = true;
+			state.lastAction = "re-armed by session_tree";
+		}
 	});
 	pi.on("session_compact", () => {
 		state.armed = true;
