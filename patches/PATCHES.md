@@ -1,7 +1,7 @@
 # omp 18.0.4 Patch 清单
 
-> 生成 2026-08-25（第三次修订：撤掉 TUI 行为补丁，保留 quota/usage 显示 + hindsight 缓存保护）。
-> 权威 patch 集在 `~/.omp/patches/`（0002-0007 + apply.sh + README.md），本文件是镜像清单。
+> 生成 2026-08-25（第四次修訂：加入目前工作階段 prompt-cache keepalive）。
+> 權威 patch 集在 `~/.omp/patches/`（0002-0007、0010 + apply.sh + README.md），本文件是鏡像清單。
 
 ## 0. 运行模式
 
@@ -9,7 +9,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 补丁（当前生效，0002-0007）
+## 1. src 補丁（目前生效，0002-0007、0010）
 
 ### 0002 / 0003 — cache_turn status-line segment
 - `src/modes/components/status-line/segments.ts` + `settings-schema.ts`（+`"cache_turn"` id）
@@ -26,6 +26,12 @@
 
 ### 0007 — usage fetch 后不强制整屏重绘（0005 配套）
 - `status-line/component.ts`：删除 `usageChanged → #onBranchChange()` 调用——fetch 完成不再 `requestRender()` 整屏重绘（否则 Ctrl+T 展开 thinking 时二次重绘闪屏）；quota 数字等下次自然 redraw 显示
+
+### 0010 — extension 原子 idle ephemeral turn
+- `ExtensionContext.runIdleEphemeralTurn()` 由所有 session host 提供；`AgentSession` 在任何 `await` 前同步保留 idle side channel
+- 主回合入口先記錄 prompt generation 與 in-flight epoch、增加計數、取消 idle request 並等待 transport 收尾；等待後再檢查 generation/disposal，舊 epoch 的 finally 也不能扣掉 reset 後的新主回合
+- tree navigation 在第一個 `await` 前就設 gate，涵蓋 pending bash、before hook、可選 branch summary 到提交/取消；dispose 同步取消 guarded request；compaction 由既有 `isCompacting` gate 阻擋
+- 原本的 `runEphemeralTurn()` 不改，`/btw`、`/omfg` 仍可並行；外部 extension authoring 型別同步更新
 
 ## 2. 已撤下的补丁（2026-08-25 移除）
 
@@ -47,20 +53,16 @@
   - 首次运行会把原 asar 备份到 `app.asar.orig-image-addon`，之后每次都从该备份重建 → 幂等，**Orca 每次升级后必须重跑**（`sudo python3 patches/orca-image-addon-asar-patch.py`）
   - **当前整条链已回滚**（见 §2 的 0009）。omp 侧不能只靠 `~/.bashrc` 导 `PI_FORCE_IMAGE_PROTOCOL`：Orca 不经 login shell 起 omp，env 进不了进程；只能走 pi-tui 源码 patch，而那个 patch 在 addon 未生效时会毁掉 TUI 布局 —— 所以顺序必须是「先证明 addon 活着，再改 omp 侧」
   - `patches/verify-inline-image.sh`：重启 Orca 后在 Orca 终端里跑，肉眼确认棋盘图 + `CSI 16 t` 回报
-- `~/.omp/agent/extensions/cron.ts`（镜像 `patches/cron-extension.ts`）：omp 没有调度器，这个扩展自带 timer 做轮询 ping
-  - 配置 `~/.omp/agent/cron.json`（每 2s stat 一次 mtime 热重载，不用 fs.watch——inotify 在长跑进程里会静默失效），日志 `~/.omp/agent/cron.log`（1MiB 轮转）
-  - job: `{name, every, kind: "http"|"exec", enabled, runAtStart, timeoutMs, maxRuns}`；http 用 `url/method/headers/body`，exec 用 `command`（`bash -lc`）+ `cwd`
-  - `every`: 秒数、`30s`/`5m`/`2h`/`1d`，或 `30m*6` —— 星号后的次数写进 `maxRuns`，跑满自动退休（config 置 `enabled:false` 而非删除，`/cron on <name>` 重新武装并归零计数）
-  - 自写抑制：命令改档后同步 `schedule()`，并记下自己写入的 mtime 让 watcher 跳过；否则 watcher 2 秒后再排一次，同一 job 会有两个 state 各自记数（实测多跑一次）
-  - `/cron [list | add <name> <every> <url|command…> | rm <name> | on <name> | off <name> | reload | run <name> | log [lines]]`；`add` 按 target 是否 `http(s)://` 自动判 kind，exec 的空格原样保留；改档保留 `_readme` 等未知字段；带 job 名的子命令有 tab 补全
-  - timer 全部 unref，不阻止 omp 退出；同名 job 只跑一份（进程级单例）
-  - runs/fail/last 统计挂在 runtime 而非每次调度的临时 map：`off` 期间 job 不在 `states` 里，历史仍要活到进程退出
-  - 输出走 `ctx.ui.notify` → omp 的 dim status 行（`/todo` 同一条路），所以层级只能靠 `ctx.ui.theme.fg()` 上色 + 对齐撑出来，没有卡片边框
-  - `cron` **tool**（`approval: "write"`）：模型按自然语言描述直接建 job，参数 `{action, name, every, url|command, method/headers/body/cwd/timeoutMs/runAtStart}`；`command` 类先 `ctx.ui.confirm` 再落盘（定时任意 shell 是新攻击面）
-  - 成本实测（omp 自己的 `estimateTokens`）：完整 schema 467 tokens，但扩展工具省略 `loadMode` 会 normalize 成 `discoverable`（`sdk.ts:3235`），平时只在 `xd://` 目录占约 27 tokens，完整 schema 只在模型 `read xd://cron` 那一轮载入。要常驻顶层就声明 `loadMode: "essential"`
-  - `execute` 真实签名是 `(toolCallId, params, signal, onUpdate, ctx)`；`examples/extensions/api-demo.ts` 的顺序是过时的。注入的 zod shim 不流经 `Static<TParams>`，`params` 会退化成 `unknown`，所以显式声明了 `CronToolParams`
-  - **omptype 的 `z.record(keySchema, valueSchema)` 必须两个参数**：只给一个会在加载时抛 `undefined is not an object (evaluating 'schema.hasSteps')`（`omptype/src/zod.ts:306` 的 `embed(valueSchema)`），并且**整个 extension 都不加载**
-  - 验证扩展加载必须走真实 discovery（`createAgentSession`）；`-p` + `-e` 的 payload dump 路径不会暴露加载失败。检查 tsc 结果要用 `out=$(bunx tsc); $?`，`bunx tsc | head` 后面的 `$?` 是 `head` 的退出码（假阴性）
+- `~/.omp/agent/extensions/cron.ts`（鏡像 `patches/cron-extension.ts`）：只做目前工作階段的 prompt-cache keepalive，不再是通用排程器
+  - `/cron <duration>` 啟用、`/cron off` 停用、`/cron status` 顯示狀態；tool action 僅有 `status|enable|disable`
+  - interval 接受 `s`/`m`/`h`，最短 4 分鐘，最長 2,147,483,647 ms；沒有預設值，也不持久化
+  - factory-local state + managed one-shot timer；每次主回合、compact、tree navigation 都重新開始完整倒數
+  - session switch、branch、shutdown 立即停用；重開 OMP 後維持停用
+  - timer 到期仍會檢查 session/model/idle/pending，再呼叫 0010 的原子 side-channel seam
+  - request 使用目前 model、system prompt、tools、history 與 prompt-cache key，但虛擬 user tail 和 assistant reply 都不寫入 transcript
+  - 僅 `cacheRead > 0` 判定為命中；JSONL 診斷寫入 `~/.omp/agent/cache-keepalive.log`，1 MiB 輪替
+  - 不讀寫舊 `cron.json`/`cron.log`，不支援 HTTP、shell、URL、job name、repeat count 或手動觸發；舊檔保留但完全不使用
+  - `patches/verify-session-cache-keepalive.ts` 覆蓋 timer/lifecycle/hit-miss-error；`patches/verify-idle-ephemeral-reservation.ts` 用真實 `AgentSession` + mock transport 證明主回合等待 side request 收尾
 
 - `~/.omp/agent/extensions/resume-cache-breakpoint.ts`（镜像 `patches/resume-cache-breakpoint-extension.ts`）：resume 后接回 Anthropic prompt 缓存
   - 根因：omp 的 cache 断点永远只标最后两条 message。resume 后新注入尾部把断点推离服务端已存的前缀边界（实测 `[12]` → `[16]/[17]`），而 `system`/`tools`/`messages[0..10]` 逐字节相同——内容没漂，只是没人去对那一格
@@ -79,5 +81,5 @@
 | Ctrl+T 跳底部 | 官方行为（0008 已撤，接受） |
 | 内嵌图片（离线） | headless Chromium 里用 Orca 同版 xterm（6.1.0-beta.287）+ addon-image beta.300：webgl ok、addon 载入无私有 API 报错、IIP 序列渲出棋盘、`CSI 16 t` 回 `\x1b[6;16;8t` |
 | 内嵌图片（Orca 内） | **未通过，整条链已回滚**。重开时：套 patch → 重启 Orca → `grep IMG_ADDON_PROBE ~/.config/orca/logs/main.trace.ndjson` 判断 addon 是否执行；确认活着之后才重新上 pi-tui 侧的 0009。旧方案 `bash patches/verify-inline-image.sh`，看到棋盘 + cell size 回报才算通过；失败则 `sudo cp /opt/Orca/resources/app.asar.orig-image-addon /opt/Orca/resources/app.asar` 回滚 |
-| cron | 真实 `createAgentSession` 发现路径加载扩展，1s exec job 连续触发（cron.log 有 `exit 0`）；stub 测试覆盖 http/exec/disabled/非法 interval/热重载/`/cron` 四个子命令；`tsc --strict` 干净 |
+| session cache keepalive | fake-timer harness 通過；真實 `AgentSession` mock transport race 順序為 side-dispatch → side-abort → side-settled → main-dispatch；live 4m cache hit 另以實際 provider smoke 驗證 |
 | resume 缓存 | session `01a03894`（sonnet）：live 命中 33230→33451，EXIT 后 12s resume 首轮 **cacheRead=33694 / cacheWrite=703**；对照 baseline（无 fix，session `01a03886`）resume 首轮 cacheRead=0 / cacheWrite=38809 |
