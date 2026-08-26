@@ -1,0 +1,38 @@
+--- a/src/snapcompact.ts
++++ b/src/snapcompact.ts
+@@ -507,6 +507,7 @@
+ 	google: 200,
+ 	"google-vertex": 200,
+ 	"google-gemini-cli": 200,
++	"google-antigravity": 200,
+ 	openrouter: 90,
+ 	umans: 10,
+ };
+@@ -514,14 +515,22 @@
+ /** Safe floor for unknown providers (strictest mainstream measured: Groq ~5). */
+ export const DEFAULT_PROVIDER_IMAGE_BUDGET = 5;
+ 
+-/** Per-request image budget for `provider`; unknown providers get the floor. */
+-export function providerImageBudget(provider: string | undefined): number {
+-	return (provider !== undefined ? PROVIDER_IMAGE_BUDGETS[provider] : undefined) ?? DEFAULT_PROVIDER_IMAGE_BUDGET;
++/** Per-request image budget for `provider`, falling back to the wire `api`
++ *  family before the floor. Provider ids multiply faster than wire apis
++ *  (e.g. `google-antigravity` rides the `google-gemini-cli` api), and silently
++ *  dropping to the floor of 5 makes a single attached image evict the oldest
++ *  snapcompact archive frame — rewriting `contents[0]` and voiding the whole
++ *  prompt-cache prefix. */
++export function providerImageBudget(provider: string | undefined, api?: string | undefined): number {
++	const byProvider = provider !== undefined ? PROVIDER_IMAGE_BUDGETS[provider] : undefined;
++	if (byProvider !== undefined) return byProvider;
++	const byApi = api !== undefined ? PROVIDER_IMAGE_BUDGETS[api] : undefined;
++	return byApi ?? DEFAULT_PROVIDER_IMAGE_BUDGET;
+ }
+ 
+ /** Archive frame cap for `provider`: image budget, never above {@link MAX_FRAMES_DEFAULT}. */
+-export function providerFrameBudget(provider: string | undefined): number {
+-	return Math.min(providerImageBudget(provider), MAX_FRAMES_DEFAULT);
++export function providerFrameBudget(provider: string | undefined, api?: string | undefined): number {
++	return Math.min(providerImageBudget(provider, api), MAX_FRAMES_DEFAULT);
+ }
+ 
+ /** Key under `CompactionEntry.preserveData` holding the frame archive. */

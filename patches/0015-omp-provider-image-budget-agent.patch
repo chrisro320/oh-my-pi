@@ -1,0 +1,69 @@
+--- a/src/session/provider-image-budget.ts
++++ b/src/session/provider-image-budget.ts
+@@ -64,7 +64,7 @@
+ /** Drops oldest transient image blocks so outgoing vision requests fit the active provider's image cap. */
+ export function clampProviderContextImages(context: Context, model: Model): Context {
+ 	if (!model.input.includes("image")) return context;
+-	const limit = providerImageBudget(model.provider);
++	const limit = providerImageBudget(model.provider, model.api);
+ 	const totalImages = countImages(context);
+ 	if (totalImages <= limit) return context;
+ 
+--- a/src/session/snapcompact-inline.ts
++++ b/src/session/snapcompact-inline.ts
+@@ -291,7 +291,7 @@
+ 			if (block.type === "image") existingImages++;
+ 		}
+ 	}
+-	const budget = snapcompact.providerImageBudget(model.provider) - existingImages;
++	const budget = snapcompact.providerImageBudget(model.provider, model.api) - existingImages;
+ 
+ 	const candidates: InlineToolResultCandidate[] = [];
+ 	if (options.renderToolResults) {
+@@ -424,7 +424,7 @@
+ 
+ 		const shape = snapcompact.resolveShape(model, this.options.shape);
+ 		const tokenizer = new Tokenizer(model);
+-		const budget = snapcompact.providerImageBudget(model.provider) - countContextImages(context);
++		const budget = snapcompact.providerImageBudget(model.provider, model.api) - countContextImages(context);
+ 		if (budget <= 0) return context;
+ 
+ 		const messages = [...context.messages];
+--- a/src/session/session-maintenance.ts
++++ b/src/session/session-maintenance.ts
+@@ -2312,7 +2312,7 @@
+ 			return Math.min(
+ 				snapcompact.MAX_FRAMES_DEFAULT,
+ 				snapcompact.maxFramesForDataBudget(),
+-				snapcompact.providerFrameBudget(this.#model?.provider),
++				snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 			);
+ 		}
+ 		const reserve = effectiveReserveTokens(ctxWindow, settings);
+@@ -2355,7 +2355,7 @@
+ 			Math.floor(frameBudget / snapcompact.FRAME_TOKEN_ESTIMATE),
+ 			snapcompact.MAX_FRAMES_DEFAULT,
+ 			snapcompact.maxFramesForDataBudget(),
+-			snapcompact.providerFrameBudget(this.#model?.provider),
++			snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 		);
+ 	}
+ 
+@@ -2636,7 +2636,7 @@
+ 			return Math.min(
+ 				snapcompact.MAX_FRAMES_DEFAULT,
+ 				snapcompact.maxFramesForDataBudget(),
+-				snapcompact.providerFrameBudget(this.#model?.provider),
++				snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 			);
+ 		}
+ 		const thresholdTokens = resolveThresholdTokens(ctxWindow, settings);
+@@ -2656,7 +2656,7 @@
+ 			Math.floor(frameBudget / snapcompact.FRAME_TOKEN_ESTIMATE),
+ 			snapcompact.MAX_FRAMES_DEFAULT,
+ 			snapcompact.maxFramesForDataBudget(),
+-			snapcompact.providerFrameBudget(this.#model?.provider),
++			snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 		);
+ 	}
+ 
