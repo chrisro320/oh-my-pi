@@ -1,0 +1,32 @@
+diff --git a/src/session/session-advisors.ts b/src/session/session-advisors.ts
+index f3c3747..7079f78 100644
+--- a/src/session/session-advisors.ts
++++ b/src/session/session-advisors.ts
+@@ -1514,6 +1514,7 @@ export class SessionAdvisors {
+ 						thinkingLevel: advisorCompactionThinkingLevel,
+ 						convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
+ 						telemetry,
++						systemPrompt: agent.state.systemPrompt,
+ 						tools: agent.state.tools,
+ 						sessionId: advisorProviderSessionId,
+ 						promptCacheKey: advisorProviderSessionId,
+diff --git a/src/session/session-maintenance.ts b/src/session/session-maintenance.ts
+index 57f07d3..c88d1d1 100644
+--- a/src/session/session-maintenance.ts
++++ b/src/session/session-maintenance.ts
+@@ -2181,6 +2181,7 @@ export class SessionMaintenance {
+ 						// via resolveCompactionEffort so unsupported-effort models
+ 						// (xai-oauth/grok-build) don't trip requireSupportedEffort.
+ 						thinkingLevel: this.#host.thinkingLevel(),
++						systemPrompt: this.#host.agent.state.systemPrompt,
+ 						tools: this.#host.agent.state.tools,
+ 						sessionId: this.#host.sessionId(),
+ 						promptCacheKey: this.#host.agent.promptCacheKey ?? this.#host.agent.sessionId,
+@@ -3429,6 +3430,7 @@ export class SessionMaintenance {
+ 									// site. Clamped per-model inside compact() via
+ 									// resolveCompactionEffort.
+ 									thinkingLevel: this.#host.thinkingLevel(),
++									systemPrompt: this.#host.agent.state.systemPrompt,
+ 									tools: this.#host.agent.state.tools,
+ 									sessionId: this.#host.sessionId(),
+ 									promptCacheKey: this.#host.agent.promptCacheKey ?? this.#host.agent.sessionId,

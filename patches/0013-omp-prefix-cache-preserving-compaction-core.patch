@@ -1,0 +1,43 @@
+diff --git a/src/compaction/compaction.ts b/src/compaction/compaction.ts
+index bf20f59..2484139 100644
+--- a/src/compaction/compaction.ts
++++ b/src/compaction/compaction.ts
+@@ -664,6 +664,8 @@ export interface SummaryOptions {
+ 	initiatorOverride?: MessageAttribution;
+ 	metadata?: Record<string, unknown>;
+ 	convertToLlm?: ConvertToLlm;
++	/** Live agent system prompt — when provided, local summarization can preserve the cached prefix. */
++	systemPrompt?: string[];
+ 	/**
+ 	 * Optional telemetry handle. When provided, every LLM call emitted during
+ 	 * compaction is wrapped in an OTEL chat span tagged with
+@@ -892,6 +894,7 @@ export async function generateSummary(
+ 				signal,
+ 				customInstructions,
+ 				options,
++				budget.fits ? window.messages : undefined,
+ 			);
+ 		} catch (error) {
+ 			// The catalog window can overstate what the provider actually accepts:
+@@ -1223,15 +1226,14 @@ async function generateShortSummary(
+ 	options?: SummaryOptions,
+ ): Promise<string> {
+ 	const maxTokens = Math.min(512, Math.floor(0.2 * reserveTokens));
+-	const llmMessages = (options?.convertToLlm ?? defaultConvertToLlm)(recentMessages);
+-	const conversationText = serializeConversationForSummary(llmMessages, preferredDialect(model.id));
+-
+-	let promptText = `<conversation>\n${conversationText}\n</conversation>\n\n`;
++	let promptText: string;
+ 	if (historySummary) {
+-		promptText += `<previous-summary>\n${escapeSummaryBoundaryTags(historySummary)}\n</previous-summary>\n\n`;
++		promptText = `<summary>\n${escapeSummaryBoundaryTags(historySummary)}\n</summary>\n\n${SHORT_SUMMARY_PROMPT}`;
++	} else {
++		const llmMessages = (options?.convertToLlm ?? defaultConvertToLlm)(recentMessages);
++		const conversationText = serializeConversationForSummary(llmMessages, preferredDialect(model.id));
++		promptText = `<conversation>\n${conversationText}\n</conversation>\n\n` + formatAdditionalContext(options?.extraContext) + SHORT_SUMMARY_PROMPT;
+ 	}
+-	promptText += formatAdditionalContext(options?.extraContext);
+-	promptText += SHORT_SUMMARY_PROMPT;
+ 	if (options?.remoteEndpoint) {
+ 		const endpoint = options.remoteEndpoint;
+ 		const remote = await withAuth(

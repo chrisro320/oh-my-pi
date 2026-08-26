@@ -9,8 +9,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前生效，0002-0007、0010、0011、0012）
-### 0002 / 0003 — cache_turn status-line segment
+## 1. src 補丁（目前生效，0002-0007、0010、0011、0012、0013）
 - `src/modes/components/status-line/segments.ts` + `settings-schema.ts`（+`"cache_turn"` id）
 - per-turn 视图：`trn <cacheRead> <hit>%`（最近一条 settled assistant 消息）；`stopReason` 守卫防止流式中途误报
 
@@ -39,6 +38,11 @@
 - `.omp/extensions/trellis/index.ts`：移除 `session_start` 中的 `pi.sendMessage` 持久化消息與 `before_agent_start` 持久化注入，改為在 `ExtensionAPI.on("context")` hook 執行純記憶體 transform，動態組裝 `<session-context>`、`<task-context>` 與 `<workflow-state>`。
 - **效果**：會話 JSONL 磁碟歷史 0 污染，Resume 重開時前綴字節嚴格一致，快取命中率在 snapcompact 後穩定在 93%+，正常對話維持 98%+。
 
+### 0013 — soft 摘要壓縮保留結構化前綴快取
+- `pi-agent-core/src/compaction/compaction.ts` + `pi-coding-agent/src/session/session-maintenance.ts`、`session-advisors.ts`：
+  - 根因：原版 soft 壓縮把所有對話歷史壓平成單一 `<conversation>...</conversation>` 純文字字串、抹去 tools、替換通用系統提示詞發送，造成支援 Prompt Caching 的模型（Kimi/Claude/DeepSeek 等）在 200k+ 長會話進行壓縮時 **100% Cache Miss**，耗費數十萬未快取 Token 與長達 80+ 秒 Prefill 延遲。
+  - 修法：在 `SummaryOptions` 傳遞當前 session 的 `systemPrompt` 與 `tools`；當上下文在預算內且無 remote endpoint 時，直接保留結構化 `messages` 陣列 + 尾部追加 user 摘要提示詞 + 強制 `toolChoice: "none"` 發送；`generateShortSummary` 優先直接總結 `historySummary` 避免重複字串化。
+  - **效果**：同模型執行 soft 壓縮時對話歷史 **100% 命中 KV 快取**（僅計入尾部 ~50 粒新 Token），壓縮呼叫從數十秒縮短至 2~3 秒，徹底杜絕巨額額度浪費。
 ## 2. 已撤下的补丁（2026-08-25 移除）
 
 - **0009 pi-tui orca→iTerm2 图片协议**：把 `imageProtocol` 从 `null` 改成 `Iterm2` 后，omp 相信终端会画图并为 `isImageLine()` 判定的行预留高度；Orca 的 xterm.js 实际把 IIP 序列丢掉，留下空行 → composer/分隔线错位残留。已 `patch -R` 撤回并从 `apply.sh` 移除；`app.asar` 同时回滚到 `app.asar.orig-image-addon`。图片这条路要重开必须先证明 addon 在 renderer 里活着（探针见 `~/orca/projects/orca-update-patch/orca-image-addon-asar-patch.py` 的 `DEBUG_PROBE`）
