@@ -1,6 +1,20 @@
 --- a/src/providers/google-gemini-cli.ts
 +++ b/src/providers/google-gemini-cli.ts
-@@ -1137,6 +1137,10 @@
+@@ -1087,9 +1087,11 @@
+ 					// Commit after a fully successful attempt (content + finish reason);
+ 					// used as the next request's last_execution_id. Overwrite even when
+ 					// undefined so a response without an id can't leave a stale value.
+-					if (providerState) {
++					// Ephemeral side-channel turns (:side:) must not overwrite the main
++					// session's lastExecutionId.
++					const isEphemeral = typeof options?.sessionId === "string" && options.sessionId.includes(":side:");
++					if (providerState && !isEphemeral) {
+ 						providerState.lastExecutionId = lastResponseId;
+-					}
+ 					}
+ 					break;
+ 				} catch (error) {
+@@ -1138,6 +1140,10 @@
  const INT63_MASK = (1n << 63n) - 1n;
  const ANTIGRAVITY_RANDOM_BOUND = 9_000_000_000_000_000_000n;
  
@@ -11,13 +25,20 @@
  function formatSignedDecimalSessionId(value: bigint): string {
  	return `-${value.toString()}`;
  }
-@@ -1235,16 +1239,24 @@
+@@ -1231,20 +1237,34 @@
+  * and `labels.last_step_index` trails the requestId step by one. Without session
+  * state (direct callers/tests) it falls back to ephemeral ids.
+  */
++function buildAntigravityRequestEnvelope(
++	model: Model<"google-gemini-cli">,
  	context: Context,
  	wireModelId: string,
  	state: AntigravityProviderSessionState | undefined,
 +	sessionKeyOverride?: string,
  ): AntigravityRequestEnvelope {
-+	const sessionKey = sessionKeyOverride ?? getFirstUserTextForAntigravitySession(context);
++	const isEphemeral = typeof sessionKeyOverride === "string" && sessionKeyOverride.includes(":side:");
++	const rawSessionKey = sessionKeyOverride ? sessionKeyOverride.replace(/:side:.*$/, "") : getFirstUserTextForAntigravitySession(context);
++	const sessionKey = rawSessionKey;
 +	const defaultAgentId = sessionKey ? deriveDeterministicUuid(sessionKey, "antigravity-agent") : randomUUID();
 +	const defaultTrajectoryId = sessionKey
 +		? deriveDeterministicUuid(sessionKey, "antigravity-trajectory")
@@ -28,21 +49,27 @@
 -		state.agentId ??= randomUUID();
 -		state.trajectoryId ??= randomUUID();
 -		state.sessionId ??= randomSignedDecimalSessionId();
-+		state.agentId ??= defaultAgentId;
-+		state.trajectoryId ??= defaultTrajectoryId;
-+		state.sessionId ??= defaultSessionId;
- 		state.stepIndex = (state.stepIndex ?? 1) + 1;
- 	}
+-		state.stepIndex = (state.stepIndex ?? 1) + 1;
+-	}
 -	const agentId = state?.agentId ?? randomUUID();
 -	const trajectoryId = state?.trajectoryId ?? randomUUID();
 -	const sessionId = state?.sessionId ?? deriveAntigravitySessionId(context);
+-	const step = state?.stepIndex ?? 2;
++		state.agentId ??= defaultAgentId;
++		state.trajectoryId ??= defaultTrajectoryId;
++		state.sessionId ??= defaultSessionId;
++		if (!isEphemeral) {
++			state.stepIndex = (state.stepIndex ?? 1) + 1;
++		}
++	}
 +	const agentId = state?.agentId ?? defaultAgentId;
 +	const trajectoryId = state?.trajectoryId ?? defaultTrajectoryId;
 +	const sessionId = state?.sessionId ?? defaultSessionId;
- 	const step = state?.stepIndex ?? 2;
++	const step = (state?.stepIndex ?? 1) + (isEphemeral ? 1 : 0);
  	const requestId = `agent/${agentId}/${Date.now()}/${trajectoryId}/${step}`;
  	const isClaude = isClaudeModel(model.id);
-@@ -1385,7 +1397,7 @@
+ 	const profile = getAntigravityModelWireProfile(wireModelId);
+@@ -1384,7 +1404,7 @@
  			generationConfig.maxOutputTokens = profile.maxOutputTokens;
  		}
  		const state = getAntigravityProviderSessionState(options.providerSessionState);
