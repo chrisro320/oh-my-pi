@@ -9,8 +9,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前生效，0002-0007、0010、0011）
-
+## 1. src 補丁（目前生效，0002-0007、0010、0011、0012）
 ### 0002 / 0003 — cache_turn status-line segment
 - `src/modes/components/status-line/segments.ts` + `settings-schema.ts`（+`"cache_turn"` id）
 - per-turn 视图：`trn <cacheRead> <hit>%`（最近一条 settled assistant 消息）；`stopReason` 守卫防止流式中途误报
@@ -35,6 +34,10 @@
 
 ### 0011 — statusline 支援 Google / Antigravity daily 配額
 - `status-line/types.ts`、`status-line/component.ts`、`status-line/segments.ts`：擴充狀態列候選視窗識別 `daily`/`24h` 配額，渲染為 `24h <pct>% (<N>h)`，使 Gemini 3.7 Flash 等 Google 原生模型能在狀態列右下角正常顯示每日配額與倒數。
+
+### 0012 — Trellis 純記憶體 context transform 避免歷史前綴污染
+- `.omp/extensions/trellis/index.ts`：移除 `session_start` 中的 `pi.sendMessage` 持久化消息與 `before_agent_start` 持久化注入，改為在 `ExtensionAPI.on("context")` hook 執行純記憶體 transform，動態組裝 `<session-context>`、`<task-context>` 與 `<workflow-state>`。
+- **效果**：會話 JSONL 磁碟歷史 0 污染，Resume 重開時前綴字節嚴格一致，快取命中率在 snapcompact 後穩定在 93%+，正常對話維持 98%+。
 
 ## 2. 已撤下的补丁（2026-08-25 移除）
 
