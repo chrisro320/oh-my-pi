@@ -30,10 +30,26 @@
 // compares). 5m and 1h live in SEPARATE Anthropic pools — byte-identical
 // content queried under the other TTL reads nothing back.
 //
+// Wire formats: OpenAI/Anthropic keep the cached prefix top-level (`messages`,
+// `system`, `tools`); Google Antigravity/Gemini nests it under `request`
+// (`contents`, `systemInstruction`, `tools`). Both shapes are normalized, so a
+// Google-only payload no longer fingerprints as undefined.
+//
+// State isolation: one state file per session
+// (`cache-prefix-state-<safeSessionId>.json`) so concurrent OMP instances
+// (Gemini, Opus, GLM) never overwrite each other's fingerprint. Session id
+// resolution order: explicit override, `request.sessionId`, top-level
+// `sessionId`, then the active session id. `OMP_CACHE_AUDIT_STATE` pins a
+// single file for all sessions (explicit opt-out), and
+// `OMP_CACHE_AUDIT_STATE_DIR` redirects the state directory (bun caches
+// `os.homedir()` at startup, so tests and operators cannot rely on HOME).
+// Header observations are scoped per session+host so cross-process fetch
+// calls cannot trigger HEADER_DRIFT against another session's auth.
+//
 // Observation only: never mutates the payload, never throws into the hook.
 //
-// Log:   ~/.omp/agent/cache-prefix-audit.log   (JSONL, 2 MiB rotation)
-// State: ~/.omp/agent/cache-prefix-state.json  (last fingerprint, cross-process)
+// Log:   ~/.omp/agent/cache-prefix-audit.log  (JSONL, 2 MiB rotation)
+// State: ~/.omp/agent/cache-prefix-state-<session>.json  (last fingerprint, cross-process)
 // Command: /cacheaudit
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { createHash } from "node:crypto";
@@ -43,8 +59,10 @@ import { dirname, join } from "node:path";
 
 const BASE = join(homedir(), ".omp", "agent");
 const LOG_PATH = process.env.OMP_CACHE_AUDIT_LOG ?? join(BASE, "cache-prefix-audit.log");
-const STATE_PATH = process.env.OMP_CACHE_AUDIT_STATE ?? join(BASE, "cache-prefix-state.json");
 const LOG_MAX_BYTES = 2 * 1024 * 1024;
+/** Session key used when no session id can be resolved; keeps the legacy
+ *  single-file cross-process behavior for payloads that carry no identity. */
+const DEFAULT_SESSION = "default";
 /** Chars of a rewritten message kept for identification. Enough to name the
  *  culprit (an `<advisory>` tag, a `<system-reminder>`, a tool result header)
  *  without turning the audit log into a second transcript. */
@@ -67,15 +85,31 @@ interface Fingerprint {
 	 *  "prefix intact but cacheRead=0" signature. Recording only the index (the
 	 *  first version of this tool) cannot see that class at all. */
 	breakpoints: string[];
-	/** sha of every non-prefix top-level field (metadata, thinking,
-	 *  context_management, output_config, max_tokens, ...). Not part of the
-	 *  cached bytes, but `context_management` rewrites history server-side and a
+	/** sha of every non-prefix field at both the top level and the `request`
+	 *  level (metadata, thinking, context_management, output_config,
+	 *  max_tokens, generationConfig, project, ...). Not part of the cached
+	 *  bytes, but `context_management` rewrites history server-side and a
 	 *  changing `metadata.user_id` can partition the cache, so drift here is
 	 *  worth naming rather than silently excluding. */
 	envelope: string;
 	/** Auth/beta header fingerprint of the call this request produced. Attached
 	 *  after the body is fingerprinted, since headers are only visible at fetch. */
 	headers?: string;
+	/** Per-host auth/beta header fingerprints, so a header change is compared
+	 *  within one provider host instead of against whichever host called last. */
+	hostHeaders?: Record<string, string>;
+	/** Session key this fingerprint belongs to ("default" when unresolvable). */
+	sessionId: string;
+	/** Truncated text sample per message for naming the culprit in a rewrite. */
+	samples: string[];
+}
+
+/** Per-session in-memory state. Persisted per session in its own state file;
+ *  loaded lazily on the session's first request. */
+interface SessionState {
+	last?: Fingerprint;
+	lastDiff?: Diff;
+	note: string;
 }
 
 /** Top-level keys that ARE the cached prefix; everything else is envelope. */
@@ -87,6 +121,31 @@ const PREFIX_KEYS: Record<string, true> = {
 	contents: true,
 };
 
+/** Transport/step tracking keys that legitimately vary every turn without
+ *  partitioning the server-side prompt cache. Excluded from envelope diffs. */
+const IGNORED_ENVELOPE_KEYS: Record<string, true> = {
+	requestId: true,
+	sessionId: true,
+};
+
+/** Sub-keys inside `labels` that legitimately increment every turn. Stable
+ *  keys (`trajectory_id`, `model_enum`, `used_claude`) remain tracked. */
+const IGNORED_LABEL_KEYS: Record<string, true> = {
+	last_step_index: true,
+	last_execution_id: true,
+};
+
+function envelopeValue(key: string, value: unknown): string {
+	if ((key === "labels" || key === "request.labels") && isRecord(value)) {
+		const filtered: Record<string, unknown> = {};
+		for (const lk of Object.keys(value).sort()) {
+			if (IGNORED_LABEL_KEYS[lk]) continue;
+			filtered[lk] = value[lk];
+		}
+		return sha(filtered);
+	}
+	return sha(value);
+}
 type DiffKind =
 	| "IDENTICAL"
 	| "APPEND_ONLY"
@@ -105,7 +164,19 @@ interface Diff {
 	ttlShift?: string;
 }
 
-const state: { last?: Fingerprint; lastDiff?: Diff; headers?: string; note: string } = { note: "no request seen yet" };
+/** Session-scoped state, keyed by session id (or "default"). */
+const sessions = new Map<string, SessionState>();
+/** Session that produced the most recent provider request; the header probe
+ *  (which fires inside fetch, outside the event handler) attributes its
+ *  observations to this session. */
+let activeSessionKey = DEFAULT_SESSION;
+/** Per-session per-host header fingerprints observed in THIS process. */
+const headerSeen = new Map<string, Map<string, string>>();
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function sha(value: unknown): string {
 	return createHash("sha256")
 		.update(typeof value === "string" ? value : JSON.stringify(value ?? null))
@@ -131,51 +202,193 @@ function contentForHash(content: unknown): unknown {
 }
 
 /** Flatten a message body to identifying text. Blocks without text (images,
- *  tool calls) contribute their type so a shape change is still visible. */
+ *  tool calls) contribute their type so a shape change is still visible.
+ *  Normalizes every wire-format part kind: Anthropic `text`/`thinking` blocks,
+ *  Google `text`/`functionCall`/`functionResponse` parts, and any typed block
+ *  as a `<type>` fallback. */
 function textOf(content: unknown): string {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";
 	const parts: string[] = [];
 	for (const block of content) {
 		if (block === null || typeof block !== "object") continue;
-		if ("text" in block && typeof block.text === "string") parts.push(block.text);
-		else if ("type" in block && typeof block.type === "string") parts.push(`<${block.type}>`);
+		if ("text" in block && typeof block.text === "string") {
+			parts.push(block.text);
+		} else if ("thinking" in block && typeof block.thinking === "string") {
+			parts.push(block.thinking);
+		} else if ("functionCall" in block && isRecord(block.functionCall)) {
+			const fc = block.functionCall;
+			parts.push(`<functionCall:${typeof fc.name === "string" ? fc.name : "?"}>`);
+		} else if ("functionResponse" in block && isRecord(block.functionResponse)) {
+			const fr = block.functionResponse;
+			parts.push(`<functionResponse:${typeof fr.name === "string" ? fr.name : "?"}>`);
+		} else if ("type" in block && typeof block.type === "string") {
+			parts.push(`<${block.type}>`);
+		}
 	}
 	return parts.join(" ");
 }
 
-function fingerprint(target: object): Fingerprint | undefined {
-	const messages = "messages" in target ? target.messages : undefined;
+/** Normalize a system prompt into ordered blocks for hashing: Anthropic sends a
+ *  block array, Google Antigravity sends a `{role, parts}` systemInstruction
+ *  object, and OpenAI sends a plain string. Each block is hashed separately so
+ *  one drifting block is pinpointed rather than hashed into an opaque whole. */
+function systemBlocks(raw: unknown): unknown[] {
+	if (raw === undefined || raw === null) return [];
+	if (Array.isArray(raw)) return raw;
+	if (isRecord(raw) && Array.isArray(raw.parts)) return raw.parts;
+	return [raw];
+}
+
+/** Pull the cached-prefix sections out of either wire shape.
+ *
+ *  Google Antigravity/Gemini nests the body under `target.request`:
+ *  `{ contents, systemInstruction, tools, ... }`; OpenAI/Anthropic keep
+ *  `messages`/`system`/`tools` top-level. Returns undefined when no message
+ *  array exists anywhere (e.g. a non-conversation payload) so the caller can
+ *  skip it exactly like the old `messages`-only guard did. */
+function extractPayloadSections(target: unknown): {
+	requestLevel: Record<string, unknown> | undefined;
+	messages: unknown[];
+	system: unknown;
+	tools: unknown;
+	model: string;
+} | undefined {
+	if (!isRecord(target)) return undefined;
+	const requestLevel = isRecord(target.request) ? target.request : undefined;
+	const messages = requestLevel?.contents ?? target.contents ?? target.messages;
 	if (!Array.isArray(messages)) return undefined;
+	const system = requestLevel?.systemInstruction ?? target.systemInstruction ?? target.system;
+	const tools = requestLevel?.tools ?? target.tools;
+	const rawModel = requestLevel?.requestModelId ?? target.requestModelId;
+	const model = typeof target.model === "string" ? target.model : typeof rawModel === "string" ? rawModel : "unknown";
+	return { requestLevel, messages, system, tools, model };
+}
 
-	// Anthropic sends `system` as a block array; Google/OpenAI use a single
-	// string or a nested object. Normalize both into an ordered sha list so one
-	// drifting block is pinpointed rather than hashed into an opaque whole.
-	const rawSystem = "system" in target ? target.system : "systemInstruction" in target ? target.systemInstruction : undefined;
-	const system = Array.isArray(rawSystem)
-		? rawSystem.map(block => sha(contentForHash([block])))
-		: rawSystem === undefined
-			? []
-			: [sha(rawSystem)];
-	const model = "model" in target && typeof target.model === "string" ? target.model : "unknown";
-
-	// Envelope = every top-level field that is not the cached prefix itself.
-	const envelopeParts: string[] = [];
-	for (const key of Object.keys(target).sort()) {
-		if (PREFIX_KEYS[key]) continue;
-		const value: unknown = (target as Record<string, unknown>)[key];
-		envelopeParts.push(`${key}=${sha(value)}`);
+/** Resolve the session key for a payload. Priority: explicit override,
+ *  `request.sessionId`, top-level `sessionId` — mirroring where each provider
+ *  puts its conversation identity (Antigravity carries a deterministic id in
+ *  the envelope; OpenAI/Anthropic carry none). Falls back to DEFAULT_SESSION,
+ *  which the hook then replaces with the active session id. */
+function sessionKeyOf(target: unknown, override: string | undefined): string {
+	if (override !== undefined && override.length > 0) return override;
+	if (isRecord(target)) {
+		const requestLevel = isRecord(target.request) ? target.request : undefined;
+		if (requestLevel !== undefined && typeof requestLevel.sessionId === "string" && requestLevel.sessionId.length > 0) {
+			return requestLevel.sessionId;
+		}
+		if (typeof target.sessionId === "string" && target.sessionId.length > 0) return target.sessionId;
 	}
+	return DEFAULT_SESSION;
+}
 
+/** Filesystem-safe state key with collision resistance: sanitizes characters and
+ *  appends a short SHA hash so distinct ids (e.g. `a/b` vs `a_b`) or long IDs
+ *  differing only after the prefix never collide on the filesystem. */
+function safeSessionId(sessionId: string): string {
+	const clean = sessionId.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 64);
+	const hash = sha(sessionId).slice(0, 8);
+	return `${clean || "session"}-${hash}`;
+}
+/** State file base directory. Read at call time: bun caches `os.homedir()` at
+ *  startup, so `OMP_CACHE_AUDIT_STATE_DIR` is the only redirect that works for
+ *  tests and operators without restarting the runtime. */
+function stateBase(): string {
+	const redirect = process.env.OMP_CACHE_AUDIT_STATE_DIR;
+	return redirect !== undefined && redirect.length > 0 ? redirect : BASE;
+}
+
+/** Per-session state file path. `OMP_CACHE_AUDIT_STATE` pins one file for all
+ *  sessions (explicit opt-out of isolation); otherwise each session owns
+ *  `cache-prefix-state-<safeSessionId>.json` under `stateBase()`. */
+function statePathFor(sessionId: string | undefined): string {
+	const pinned = process.env.OMP_CACHE_AUDIT_STATE;
+	if (pinned !== undefined && pinned.length > 0) return pinned;
+	return join(stateBase(), `cache-prefix-state-${safeSessionId(sessionId ?? DEFAULT_SESSION)}.json`);
+}
+
+function isStringArray(arr: unknown): arr is string[] {
+	return Array.isArray(arr) && arr.every(item => typeof item === "string");
+}
+
+function isFingerprint(obj: unknown): obj is Fingerprint {
+	if (!isRecord(obj)) return false;
+	return (
+		typeof obj.at === "string" &&
+		typeof obj.pid === "number" &&
+		Number.isFinite(obj.pid) &&
+		typeof obj.model === "string" &&
+		isStringArray(obj.system) &&
+		typeof obj.tools === "string" &&
+		isStringArray(obj.messages) &&
+		isStringArray(obj.breakpoints) &&
+		typeof obj.envelope === "string" &&
+		typeof obj.sessionId === "string" &&
+		isStringArray(obj.samples)
+	);
+}
+
+/** Get (and lazily restore) the in-memory state for a session key.
+ *
+ *  The previous process's fingerprint is read off disk on the session's FIRST
+ *  request, so the first request after a resume is compared against the last
+ *  request before exit — the only comparison that can locate a resume-induced
+ *  prefix break. A corrupt or partial state file must never block startup;
+ *  the next request simply re-seeds it. */
+function loadState(sessionKey: string): SessionState {
+	const cached = sessions.get(sessionKey);
+	if (cached !== undefined) return cached;
+	const st: SessionState = { note: "no request seen yet" };
+	try {
+		const path = statePathFor(sessionKey);
+		if (existsSync(path)) {
+			const restored = JSON.parse(readFileSync(path, "utf8"));
+			if (isFingerprint(restored)) st.last = restored;
+		}
+	} catch {
+		// Corrupt or partial file: re-seed cleanly on the next request.
+	}
+	sessions.set(sessionKey, st);
+	return st;
+}
+
+function fingerprint(target: object, sessionIdOverride?: string): Fingerprint | undefined {
+	const sections = extractPayloadSections(target);
+	if (sections === undefined) return undefined;
+	const { requestLevel, messages, system: rawSystem, tools, model } = sections;
+
+	// One drifting system block is pinpointed by hashing each block separately;
+	// Google's {role, parts} systemInstruction is split into its parts.
+	const system = systemBlocks(rawSystem).map(block => sha(contentForHash([block])));
+
+	// Envelope = every non-prefix field at the top level and inside `request`
+	// (project, requestId, labels, generationConfig, metadata, ...). The
+	// `request` object itself is skipped because its prefix content (contents/
+	// systemInstruction/tools) is already fingerprinted as the prefix.
+	const envelopeParts: string[] = [];
+	const top = target as Record<string, unknown>;
+	for (const key of Object.keys(top).sort()) {
+		if (key === "request") continue;
+		if (PREFIX_KEYS[key] || IGNORED_ENVELOPE_KEYS[key]) continue;
+		envelopeParts.push(`${key}=${envelopeValue(key, top[key])}`);
+	}
+	if (requestLevel !== undefined) {
+		for (const key of Object.keys(requestLevel).sort()) {
+			if (PREFIX_KEYS[key] || IGNORED_ENVELOPE_KEYS[key]) continue;
+			envelopeParts.push(`request.${key}=${envelopeValue(`request.${key}`, requestLevel[key])}`);
+		}
+	}
+	const sessionId = sessionKeyOf(target, sessionIdOverride);
 	const fp: Fingerprint = {
 		at: new Date().toISOString(),
 		pid: process.pid,
 		model,
 		system,
-		tools: sha("tools" in target ? target.tools : undefined),
+		tools: sha(tools),
 		messages: [],
 		breakpoints: [],
 		envelope: envelopeParts.join(","),
+		sessionId,
 		samples: [],
 	};
 
@@ -263,6 +476,57 @@ function installHeaderProbe(onHeaders: (fp: string, url: string) => void): void 
 	};
 }
 
+/** Record a header observation for one session+host.
+ *
+ *  Header state is scoped per session AND per host: the session's own state
+ *  file carries `hostHeaders`, and within a process each (session, host) pair
+ *  has its own baseline. A fetch from another process or another provider host
+ *  can no longer overwrite the baseline this session compares against.
+ *
+ *  The first observation of a host after a resume compares against the
+ *  previous process's per-host entry (or, for state files written before
+ *  hostHeaders existed, the legacy single `headers` slot) — so an auth-path
+ *  switch across a resume is still caught on the very first request. */
+function observeHeader(sessionKey: string, host: string, fp: string): void {
+	const st = loadState(sessionKey);
+	let perHost = headerSeen.get(sessionKey);
+	if (perHost === undefined) {
+		perHost = new Map();
+		headerSeen.set(sessionKey, perHost);
+	}
+	if (perHost.get(host) === fp) return;
+	const previous =
+		perHost.get(host) ??
+		st.last?.hostHeaders?.[host] ??
+		(st.last?.hostHeaders === undefined ? st.last?.headers : undefined);
+	perHost.set(host, fp);
+	if (st.last) {
+		st.last.headers = fp;
+		st.last.hostHeaders = { ...st.last.hostHeaders, [host]: fp };
+		try {
+			write(statePathFor(sessionKey), JSON.stringify(st.last), false);
+		} catch {
+			// Losing one state write only costs the next comparison.
+		}
+	}
+	if (previous !== undefined && previous !== fp) {
+		write(
+			LOG_PATH,
+			`${JSON.stringify({
+				at: new Date().toISOString(),
+				pid: process.pid,
+				sessionId: sessionKey,
+				event: "HEADER_DRIFT",
+				host,
+				was: previous,
+				now: fp,
+				note: "auth path or beta set changed; prompt cache is scoped per credential and 1h TTL visibility depends on the extended-cache-ttl beta",
+			})}\n`,
+			true,
+		);
+	}
+}
+
 /** Position-independent signature of breakpoint TTL membership.
  *
  *  Marker indexes carry NO signal: they legitimately translate as the tail
@@ -282,7 +546,8 @@ function ttlSignature(breakpoints: string[]): string {
 }
 
 /** Names of envelope fields whose `key=sha` entry changed, to name the culprit
- *  (`metadata`, `thinking`, ...) instead of shouting opaque hashes. */
+ *  (`metadata`, `request.generationConfig`, ...) instead of shouting opaque
+ *  hashes. */
 function envelopeDriftKeys(prev: string, next: string): string {
 	const parse = (joined: string) => {
 		const byKey = new Map<string, string>();
@@ -377,72 +642,52 @@ function write(path: string, body: string, append: boolean): void {
 }
 
 export default function (pi: ExtensionAPI): void {
-	// Load the previous process's fingerprint so the first request after a
-	// resume is compared against the last request before exit — the only
-	// comparison that can locate a resume-induced prefix break.
-	try {
-		if (existsSync(STATE_PATH)) {
-			// Our own serialized Fingerprint; a schema parse would duplicate the
-			// interface for a read-only probe that tolerates a bad file anyway.
-			const restored = JSON.parse(readFileSync(STATE_PATH, "utf8")) as Fingerprint;
-			if (Array.isArray(restored.messages)) state.last = restored;
-		}
-	} catch {
-		// A corrupt or partial state file must never block startup; the next
-		// request simply re-seeds it.
-	}
-
-	// Header drift is compared against the PREVIOUS process's last call, so an
-	// auth-path switch across a resume is caught on the very first request.
-	const priorHeaders = state.last?.headers;
 	installHeaderProbe((fp, url) => {
-		if (state.headers === fp) return;
-		const previous = state.headers ?? priorHeaders;
-		state.headers = fp;
-		if (state.last) state.last.headers = fp;
-		if (previous !== undefined && previous !== fp) {
-			write(
-				LOG_PATH,
-				`${JSON.stringify({
-					at: new Date().toISOString(),
-					pid: process.pid,
-					event: "HEADER_DRIFT",
-					host: url.replace(/^https?:\/\/([^/]+).*$/, "$1"),
-					was: previous,
-					now: fp,
-					note: "auth path or beta set changed; prompt cache is scoped per credential and 1h TTL visibility depends on the extended-cache-ttl beta",
-				})}\n`,
-				true,
-			);
-		}
 		try {
-			if (state.last) write(STATE_PATH, JSON.stringify(state.last), false);
+			const host = url.replace(/^https?:\/\/([^/]+).*$/, "$1") || "unknown";
+			observeHeader(activeSessionKey, host, fp);
 		} catch {
-			// Losing one state write only costs the next comparison.
+			// A probe must never break a provider call.
 		}
 	});
 
-	pi.on("before_provider_request", event => {
+	pi.on("before_provider_request", (event, ctx) => {
 		try {
-			const payload: unknown = event.payload;
-			if (payload === null || typeof payload !== "object") return undefined;
-			// Some providers nest the wire body under `request`.
-			const inner = "request" in payload ? payload.request : undefined;
-			const target = inner !== null && typeof inner === "object" ? inner : payload;
-			const next = fingerprint(target);
-			if (!next) return undefined;
+			const rawPayload: unknown = isRecord(event) && "payload" in event ? event.payload : event;
+			if (rawPayload === null || typeof rawPayload !== "object") return undefined;
+			const payload = rawPayload as Record<string, unknown>;
 
-			const prev = state.last;
+			// Session identity: the payload's own id wins (Antigravity carries a
+			// deterministic conversation id in request.sessionId or sessionId); the
+			// active session id is the last-resort fallback so concurrent OMP
+			// instances (Gemini, Opus, GLM) never share a state file.
+			let sessionKey = sessionKeyOf(payload, undefined);
+			if (sessionKey === DEFAULT_SESSION) {
+				try {
+					const ctxSession = ctx.sessionManager.getSessionId();
+					if (typeof ctxSession === "string" && ctxSession.length > 0) sessionKey = ctxSession;
+					else sessionKey = `pid-${process.pid}`;
+				} catch {
+					sessionKey = `pid-${process.pid}`;
+				}
+			}
+			activeSessionKey = sessionKey;
+			const st = loadState(sessionKey);
+
+			const next = fingerprint(payload, sessionKey);
+			if (!next) return undefined;
+			const prev = st.last;
 			const d: Diff = prev ? diff(prev, next) : { kind: "IDENTICAL", detail: "no baseline" };
 			const crossProcess = prev !== undefined && prev.pid !== next.pid;
-			state.lastDiff = d;
-			state.note = `${d.kind}${d.index !== undefined ? `@${d.index}` : ""}${crossProcess ? " (cross-process)" : ""}`;
+			st.lastDiff = d;
+			st.note = `${d.kind}${d.index !== undefined ? `@${d.index}` : ""}${crossProcess ? " (cross-process)" : ""} session=${sessionKey}`;
 
 			write(
 				LOG_PATH,
 				`${JSON.stringify({
 					at: next.at,
 					pid: next.pid,
+					sessionId: sessionKey,
 					model: next.model,
 					messages: next.messages.length,
 					breakpoints: next.breakpoints,
@@ -451,8 +696,8 @@ export default function (pi: ExtensionAPI): void {
 				})}\n`,
 				true,
 			);
-			state.last = next;
-			write(STATE_PATH, JSON.stringify(next), false);
+			st.last = next;
+			write(statePathFor(sessionKey), JSON.stringify(next), false);
 		} catch {
 			// A probe must never break the run.
 		}
@@ -473,7 +718,8 @@ export default function (pi: ExtensionAPI): void {
 			const cacheWrite = typeof usage.cacheWrite === "number" ? usage.cacheWrite : 0;
 			const input = typeof usage.input === "number" ? usage.input : 0;
 
-			const d = state.lastDiff;
+			const st = loadState(activeSessionKey);
+			const d = st.lastDiff;
 			const broken = d !== undefined && d.kind !== "APPEND_ONLY" && d.kind !== "IDENTICAL";
 			// Diagnostic-only note: annotates ANY verdict, never replaces the
 			// prefix diagnosis. A clean-looking turn that swapped TTL pools
@@ -490,6 +736,7 @@ export default function (pi: ExtensionAPI): void {
 				LOG_PATH,
 				`${JSON.stringify({
 					at: new Date().toISOString(),
+					sessionId: activeSessionKey,
 					usage: { input, cacheRead, cacheWrite },
 					verdict,
 					diff: cacheRead === 0 ? d : undefined,
@@ -507,7 +754,25 @@ export default function (pi: ExtensionAPI): void {
 			const tail = existsSync(LOG_PATH)
 				? readFileSync(LOG_PATH, "utf8").trimEnd().split("\n").slice(-10).join("\n")
 				: "no log yet";
-			ctx.ui.notify(`${state.note}\n${LOG_PATH}\n${tail}`, "info");
+			ctx.ui.notify(`${loadState(activeSessionKey).note}\n${LOG_PATH}\n${tail}`, "info");
 		},
 	});
 }
+
+// Exported for the verification harness (patches/verify-cache-prefix-audit.ts);
+// the extension loader only consumes the default export.
+export {
+	contentForHash,
+	diff,
+	envelopeDriftKeys,
+	extractPayloadSections,
+	fingerprint,
+	headerFingerprint,
+	observeHeader,
+	safeSessionId,
+	sessionKeyOf,
+	statePathFor,
+	systemBlocks,
+	textOf,
+	ttlSignature,
+};

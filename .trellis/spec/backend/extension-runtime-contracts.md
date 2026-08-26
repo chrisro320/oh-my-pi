@@ -224,3 +224,124 @@ schedule(ctx, "keepalive settled");
 
 Re-enable must set a fresh schedule budget; cumulative `attempts` is diagnostic
 only and must never decide whether another timer exists.
+
+## Scenario: Prompt cache prefix audit & cross-process miss attribution
+
+### 1. Scope / Trigger
+
+Apply this contract when developing or modifying prompt-cache diagnostic extensions,
+payload interceptors, or cross-process session state monitors that observe
+`before_provider_request` and `message_end` hooks.
+
+The extension must remain strictly observational: never mutate outgoing payloads,
+never throw into runtime hook lifecycles, normalize across heterogeneous provider
+wire schemas (Anthropic/OpenAI top-level vs Google Antigravity/Gemini nested
+`request.contents`), and isolate persisted comparison state per session to prevent
+false drift alarms under concurrent multi-process execution.
+
+### 2. Signatures
+
+```ts
+interface Fingerprint {
+  at: string;
+  pid: number;
+  model: string;
+  system: string[];
+  tools: string;
+  messages: string[];
+  breakpoints: string[];
+  envelope: string;
+  sessionId: string;
+  samples: string[];
+  headers?: string;
+}
+
+type DiffKind =
+  | "IDENTICAL"
+  | "APPEND_ONLY"
+  | "SYSTEM_DRIFT"
+  | "TOOLS_DRIFT"
+  | "HISTORY_REWRITE"
+  | "TRUNCATED"
+  | "ENVELOPE_DRIFT";
+
+interface Diff {
+  kind: DiffKind;
+  index?: number;
+  detail?: string;
+  ttlShift?: string;
+}
+```
+
+### 3. Contracts
+
+- **Wire-Format Normalization**: `extractPayloadSections()` must support both top-level
+  (`messages`, `system`, `tools`) and nested Google formats (`request.contents`,
+  `request.systemInstruction`, `request.tools`). It must never return `undefined` for a
+  valid conversation payload.
+- **Session Isolation**: State is persisted per session
+  (`cache-prefix-state-<safeSessionId>.json`). Distinct session IDs must produce
+  non-colliding file names by appending a short SHA hash suffix
+  (`${clean}-${sha(sessionId).slice(0, 8)}`). Fallback when unresolvable is
+  `pid-${process.pid}`, never a shared static key.
+- **Schema Validation**: `loadState()` must validate the full structural schema
+  (`isFingerprint()` with deep string array checks `isStringArray()`) before assigning
+  restored state to prevent runtime exceptions in `diff()`.
+- **Dynamic Tracking Exclusion**: Per-turn transport tracking fields (`requestId`,
+  `sessionId`, `labels.last_step_index`, `labels.last_execution_id`) are excluded from
+  `envelope` hashing. Conversation-level metadata (`labels.trajectory_id`,
+  `labels.model_enum`, `labels.used_claude`, `generationConfig`) remains strictly
+  tracked for drift.
+- **Diagnostics & Rotation**: Diagnostics append to
+  `~/.omp/agent/cache-prefix-audit.log` (JSONL, 2 MiB rotation).
+  `OMP_CACHE_AUDIT_STATE_DIR` and `OMP_CACHE_AUDIT_LOG` overrides must be supported for
+  test isolation.
+- **Mirror Parity**: `patches/cache-prefix-audit-extension.ts` and
+  `~/.omp/agent/extensions/cache-prefix-audit.ts` must maintain 100% byte parity.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| Google Antigravity payload (`request.contents`) | Extracted without `undefined`; parts normalized |
+| Anthropic/OpenAI payload (`messages`) | Extracted with blocks normalized |
+| Non-conversation payload | Return `undefined` without error |
+| Multiple OMP processes run concurrently | Isolated to separate state files; zero cross-session drift |
+| Session ID contains slashes or special characters | Sanitized and hash-suffixed; no filesystem escape or collision |
+| State file is corrupt, partial, or contains invalid element types | Ignored; re-seeded on the next request without throwing |
+| `labels.last_step_index` increments | Diff remains `APPEND_ONLY` or `IDENTICAL` |
+| `labels.trajectory_id` changes | Flagged as `ENVELOPE_DRIFT` |
+
+### 5. Good / Base / Bad Cases
+
+- **Good:** Consecutive Antigravity turns produce `APPEND_ONLY` and log `verdict: "hit"`.
+- **Good:** Four OMP processes run concurrently without cross-process diff pollution.
+- **Base:** A resumed session loads its previous process's state and compares across processes (`crossProcess = true`).
+- **Bad:** Hardcoding `messages in target` causes all Google Antigravity requests to be ignored and misreported as `MISS (prefix intact)`.
+- **Bad:** Completely omitting `labels` hides actual `trajectory_id` or model drift.
+
+### 6. Tests Required
+
+Run these assertion points for changes to this contract:
+
+```sh
+bun patches/verify-cache-prefix-audit.ts
+cmp patches/cache-prefix-audit-extension.ts ~/.omp/agent/extensions/cache-prefix-audit.ts
+```
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const messages = target.messages;
+if (!Array.isArray(messages)) return undefined;
+```
+
+#### Correct
+
+```ts
+const requestLevel = isRecord(target.request) ? target.request : undefined;
+const messages = requestLevel?.contents ?? target.contents ?? target.messages;
+if (!Array.isArray(messages)) return undefined;
+```
