@@ -9,8 +9,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前生效，0002-0007、0010、0011、0012、0013）
-- `src/modes/components/status-line/segments.ts` + `settings-schema.ts`（+`"cache_turn"` id）
+## 1. src 補丁（目前生效，0002-0007、0010、0011、0012、0013、0014）
 - per-turn 视图：`trn <cacheRead> <hit>%`（最近一条 settled assistant 消息）；`stopReason` 守卫防止流式中途误报
 
 ### 0004 — token_total 计入 cacheRead
@@ -43,6 +42,12 @@
   - 根因：原版 soft 壓縮把所有對話歷史壓平成單一 `<conversation>...</conversation>` 純文字字串、抹去 tools、替換通用系統提示詞發送，造成支援 Prompt Caching 的模型（Kimi/Claude/DeepSeek 等）在 200k+ 長會話進行壓縮時 **100% Cache Miss**，耗費數十萬未快取 Token 與長達 80+ 秒 Prefill 延遲。
   - 修法：在 `SummaryOptions` 傳遞當前 session 的 `systemPrompt` 與 `tools`；當上下文在預算內且無 remote endpoint 時，直接保留結構化 `messages` 陣列 + 尾部追加 user 摘要提示詞 + 強制 `toolChoice: "none"` 發送；`generateShortSummary` 優先直接總結 `historySummary` 避免重複字串化。
   - **效果**：同模型執行 soft 壓縮時對話歷史 **100% 命中 KV 快取**（僅計入尾部 ~50 粒新 Token），壓縮呼叫從數十秒縮短至 2~3 秒，徹底杜絕巨額額度浪費。
+
+### 0014 — Google Antigravity 確定性 session/trajectory ID 派生
+- `pi-ai/src/providers/google-gemini-cli.ts`：
+  - 根因：原版在 `providerSessionState` 內使用 `randomUUID()` 隨機生成 `trajectoryId`、`agentId` 與 `sessionId`。進程重啟或 `omp resume` 時進程內存清空，導致重啟後的首輪請求發送了全新隨機的 `trajectory_id`，破壞了後端路由對齊，在長會話中引發高達 32 萬 Token 的 Full Cache Miss。
+  - 修法：改為基於穩定的會話識別符（`options.sessionId` 或首條 user 文本）確定性雜湊派生（`deriveDeterministicUuid` / `deriveSignedDecimalFromHash`），確保相同會話在進程重啟前後發送的 `trajectory_id`、`agentId` 與 `sessionId` 永久一致。
+  - **效果**：Resume 重開時 Antigravity 的請求信封與重啟前嚴格一致，最大程度保留 Google 後端 KV 快取路由。
 ## 2. 已撤下的补丁（2026-08-25 移除）
 
 - **0009 pi-tui orca→iTerm2 图片协议**：把 `imageProtocol` 从 `null` 改成 `Iterm2` 后，omp 相信终端会画图并为 `isImageLine()` 判定的行预留高度；Orca 的 xterm.js 实际把 IIP 序列丢掉，留下空行 → composer/分隔线错位残留。已 `patch -R` 撤回并从 `apply.sh` 移除；`app.asar` 同时回滚到 `app.asar.orig-image-addon`。图片这条路要重开必须先证明 addon 在 renderer 里活着（探针见 `~/orca/projects/orca-update-patch/orca-image-addon-asar-patch.py` 的 `DEBUG_PROBE`）
