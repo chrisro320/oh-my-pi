@@ -475,13 +475,16 @@ export default function(pi: ExtensionAPI): void {
       if (!projectRoot) {
          projectRoot = findProjectRoot(ctx.cwd);
       }
+   });
+
+   // context fires before EVERY LLM API call. It returns a pure in-memory
+   // transformed messages array without persisting any message to the session JSONL,
+   // preserving byte-identical history for prompt caching across resumes.
+   pi.on("context", async (event, ctx) => {
       if (!projectRoot) return;
       const contextKey = rememberContextKey(ctx);
 
-      // Persistent injection: workflow state + dynamic context for this turn
       const cached = turnCache.get(projectRoot, contextKey);
-      lastInjectionTs = Date.now();
-
       let turnContent = cached.workflowMsg;
       if (isSubAgent) {
          const { taskDir } = resolveActiveTaskStatus(projectRoot, contextKey);
@@ -501,45 +504,15 @@ export default function(pi: ExtensionAPI): void {
          }
       }
 
-      return {
-         message: {
-            customType: "trellis-workflow-state",
-            content: turnContent,
-            display: false,
-         },
-      };
-   });
+      if (!turnContent) return;
 
-   // context fires before EVERY LLM API call (including tool-use continuations
-   // and post-compaction agent.continue() paths). Acts as a safety net when
-   // before_agent_start's persisted message was removed by compaction.
-   pi.on("context", async (event, ctx) => {
-      if (!projectRoot) return;
-      const contextKey = rememberContextKey(ctx);
-
-      // Fast path: no compaction since last injection — message is still present
-      if (lastInjectionTs > lastCompactionTs) return;
-
-      const cached = turnCache.get(projectRoot, contextKey);
-      if (!cached.workflowMsg) return;
-
-      // Post-compaction: reverse-scan to confirm absence before injecting
-      const messages = event.messages as { role?: string; customType?: string }[];
-      for (let i = messages.length - 1; i >= 0; i--) {
-         if (messages[i].role === "custom" && messages[i].customType === "trellis-workflow-state") {
-            lastInjectionTs = Date.now();
-            return;
-         }
-      }
-
-      lastInjectionTs = Date.now();
       return {
          messages: [
             ...event.messages,
             {
                role: "custom" as const,
                customType: "trellis-workflow-state",
-               content: cached.workflowMsg,
+               content: turnContent,
                display: false,
                timestamp: Date.now(),
             },
