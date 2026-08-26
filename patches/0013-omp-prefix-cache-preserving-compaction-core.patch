@@ -1,8 +1,6 @@
-diff --git a/src/compaction/compaction.ts b/src/compaction/compaction.ts
-index bf20f59..2484139 100644
 --- a/src/compaction/compaction.ts
 +++ b/src/compaction/compaction.ts
-@@ -664,6 +664,8 @@ export interface SummaryOptions {
+@@ -664,6 +664,8 @@
  	initiatorOverride?: MessageAttribution;
  	metadata?: Record<string, unknown>;
  	convertToLlm?: ConvertToLlm;
@@ -11,7 +9,7 @@ index bf20f59..2484139 100644
  	/**
  	 * Optional telemetry handle. When provided, every LLM call emitted during
  	 * compaction is wrapped in an OTEL chat span tagged with
-@@ -892,6 +894,7 @@ export async function generateSummary(
+@@ -892,6 +894,7 @@
  				signal,
  				customInstructions,
  				options,
@@ -19,7 +17,137 @@ index bf20f59..2484139 100644
  			);
  		} catch (error) {
  			// The catalog window can overstate what the provider actually accepts:
-@@ -1223,15 +1226,14 @@ async function generateShortSummary(
+@@ -937,6 +940,7 @@
+ 	signal: AbortSignal | undefined,
+ 	customInstructions: string | undefined,
+ 	options: SummaryOptions | undefined,
++	windowMessages?: Message[],
+ ): Promise<string> {
+ 	// Use update prompt if we have a previous summary, otherwise initial prompt
+ 	let basePrompt = previousSummary ? UPDATE_SUMMARIZATION_PROMPT : SUMMARIZATION_PROMPT;
+@@ -947,21 +951,51 @@
+ 		basePrompt = `${basePrompt}\n\nAdditional focus: ${customInstructions}`;
+ 	}
+ 
+-	// Build the prompt with conversation wrapped in tags
+-	let promptText = `<conversation>\n${conversationText}\n</conversation>\n\n`;
++	let promptText = "";
+ 	if (previousSummary) {
+ 		promptText += `<previous-summary>\n${escapeSummaryBoundaryTags(previousSummary)}\n</previous-summary>\n\n`;
+ 	}
+ 	promptText += formatAdditionalContext(options?.extraContext);
+ 	promptText += basePrompt;
+ 
+-	const summarizationMessages = [
+-		{
+-			role: "user" as const,
+-			content: [{ type: "text" as const, text: promptText }],
+-			timestamp: Date.now(),
+-		},
+-	];
++	// If we have structured messages and a live system prompt, preserve the full multi-turn context
++	// so provider prefix caching (KV cache) hits at 100% instead of cold-missing the entire transcript.
++	const canPreserveCachePrefix =
++		!options?.remoteEndpoint &&
++		Array.isArray(windowMessages) &&
++		windowMessages.length > 0 &&
++		Array.isArray(options?.systemPrompt);
++
++	let requestContext: Context;
++	let toolChoice: "none" | "auto" | undefined;
++
++	if (canPreserveCachePrefix) {
++		requestContext = {
++			systemPrompt: options.systemPrompt,
++			tools: options.tools,
++			messages: [
++				...windowMessages,
++				{
++					role: "user" as const,
++					content: [{ type: "text" as const, text: promptText }],
++					timestamp: Date.now(),
++				},
++			],
++		};
++		toolChoice = "none";
++	} else {
++		let flatPrompt = `<conversation>\n${conversationText}\n</conversation>\n\n` + promptText;
++		requestContext = {
++			systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT],
++			messages: [
++				{
++					role: "user" as const,
++					content: [{ type: "text" as const, text: flatPrompt }],
++					timestamp: Date.now(),
++				},
++			],
++		};
++	}
+ 
+ 	if (options?.remoteEndpoint) {
+ 		const endpoint = options.remoteEndpoint;
+@@ -970,7 +1004,7 @@
+ 			key =>
+ 				requestRemoteCompaction(
+ 					endpoint,
+-					{ systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, prompt: promptText, maxTokens },
++					{ systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, prompt: `<conversation>\n${conversationText}\n</conversation>\n\n` + promptText, maxTokens },
+ 					signal,
+ 					{ fetch: options.fetch, model, apiKey: key },
+ 				),
+@@ -979,14 +1013,15 @@
+ 		return remote.summary;
+ 	}
+ 
+-	const response = await instrumentedCompleteSimple(
++	let response = await instrumentedCompleteSimple(
+ 		model,
+-		{ systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT], messages: summarizationMessages },
++		requestContext,
+ 		{
+ 			maxTokens,
+ 			signal,
+ 			apiKey,
+ 			reasoning: resolveCompactionEffort(model, options?.thinkingLevel),
++			toolChoice,
+ 			initiatorOverride: options?.initiatorOverride,
+ 			metadata: options?.metadata,
+ 			fetch: options?.fetch,
+@@ -1003,6 +1038,33 @@
+ 		},
+ 	);
+ 
++	if (response.stopReason === "error" && toolChoice === "none" && shouldRetryHandoffWithAutoToolChoice(response)) {
++		response = await instrumentedCompleteSimple(
++			model,
++			requestContext,
++			{
++				maxTokens,
++				signal,
++				apiKey,
++				reasoning: resolveCompactionEffort(model, options?.thinkingLevel),
++				toolChoice: "auto",
++				initiatorOverride: options?.initiatorOverride,
++				metadata: options?.metadata,
++				fetch: options?.fetch,
++				sessionId: options?.sessionId,
++				promptCacheKey: options?.promptCacheKey,
++				providerSessionState: options?.providerSessionState,
++				codexCompaction: localCodexCompaction(options),
++			},
++			{
++				telemetry: options?.telemetry,
++				oneshotKind: "compaction_summary",
++				completeImpl: options?.completeImpl,
++				retry: summaryOneshotRetry(options),
++			},
++		);
++	}
++
+ 	if (response.stopReason === "error") {
+ 		throw createSummarizationError("Summarization failed", response);
+ 	}
+@@ -1164,16 +1226,14 @@
  	options?: SummaryOptions,
  ): Promise<string> {
  	const maxTokens = Math.min(512, Math.floor(0.2 * reserveTokens));
@@ -38,6 +166,7 @@ index bf20f59..2484139 100644
  	}
 -	promptText += formatAdditionalContext(options?.extraContext);
 -	promptText += SHORT_SUMMARY_PROMPT;
+-
  	if (options?.remoteEndpoint) {
  		const endpoint = options.remoteEndpoint;
  		const remote = await withAuth(
