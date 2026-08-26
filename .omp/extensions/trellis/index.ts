@@ -1,5 +1,5 @@
-import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import type { AgentMessage, ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { join, dirname, isAbsolute, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -477,12 +477,94 @@ export default function(pi: ExtensionAPI): void {
       }
    });
 
-   // context fires before EVERY LLM API call. It returns a pure in-memory
-   // transformed messages array without persisting any message to the session JSONL,
-   // preserving byte-identical history for prompt caching across resumes.
+   // `context` fires before EVERY provider call, including each tool-continuation
+   // inside one agent turn.
+   //
+   // The previous implementation appended a transient `custom` message to the
+   // tail. That message is never written to the session JSONL, so the NEXT call
+   // rebuilt history from disk without it and the assistant's reply landed on
+   // the very index the transient message had occupied. Verified on live
+   // Antigravity payloads: `contents[603]` was `role: "user"`
+   // (`<session-context>`) in one request and `role: "model"` in the next — a
+   // mid-history role flip, which voids the implicit cache from that index on.
+   // Every tool call therefore re-billed the whole prefix.
+   //
+   // Fix: never change the message COUNT. The text is merged into an existing
+   // user message (the anchor), and every anchor we have ever injected into is
+   // remembered and re-injected identically on later calls. Within a process the
+   // history bytes are then stable, so each request is a pure tail append.
+   //
+   // The anchor map is persisted next to the workflow runtime (NOT into the
+   // session JSONL), so a resumed process replays byte-identical injections and
+   // the first request after resume is a pure tail append too. Keeping it out of
+   // the JSONL preserves what 0012 wanted — no transcript pollution — while
+   // still surviving a restart.
+   const injectedByAnchor = new Map<string, string>();
+   let anchorsLoadedFor: string | null = null;
+
+   // `timestamp` alone is not unique: two sessions can mint a message in the
+   // same millisecond, and reusing another session's text there would inject
+   // the wrong bytes. Hash the ORIGINAL (pre-injection) content into the key —
+   // that content is what a resumed process rebuilds from the JSONL, so the key
+   // is both collision-resistant and stable across restarts.
+   const anchorKey = (message: AgentMessage): string => {
+      const content = (message as { content?: unknown }).content;
+      const signature = createHash("sha256")
+         .update(typeof content === "string" ? content : JSON.stringify(content ?? null))
+         .digest("hex")
+         .slice(0, 16);
+      return `${message.role}:${(message as { timestamp?: number }).timestamp ?? "?"}:${signature}`;
+   };
+
+   const anchorFile = (contextKey: string): string | null =>
+      projectRoot ? join(projectRoot, ".trellis", ".runtime", "omp-anchors", `${contextKey}.json`) : null;
+
+   const loadAnchors = (contextKey: string): void => {
+      if (anchorsLoadedFor === contextKey) return;
+      // Entries belong to exactly one session. On a switch, drop the previous
+      // session's map instead of letting its keys leak into this one.
+      injectedByAnchor.clear();
+      anchorsLoadedFor = contextKey;
+      const file = anchorFile(contextKey);
+      if (!file || !existsSync(file)) return;
+      try {
+         const raw = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+         for (const [key, value] of Object.entries(raw)) {
+            if (typeof value === "string") injectedByAnchor.set(key, value);
+         }
+      } catch {
+         // A corrupt store only costs one re-anchor; never block the turn.
+      }
+   };
+
+   const saveAnchors = (contextKey: string): void => {
+      const file = anchorFile(contextKey);
+      if (!file) return;
+      try {
+         mkdirSync(dirname(file), { recursive: true });
+         writeFileSync(file, JSON.stringify(Object.fromEntries(injectedByAnchor)), { mode: 0o600 });
+      } catch {
+         // Losing one write costs one re-anchor on the next resume.
+      }
+   };
+
+   const withInjectedText = (message: AgentMessage, text: string): AgentMessage => {
+      const content = (message as { content?: unknown }).content;
+      if (typeof content === "string") {
+         return { ...message, content: `${content}\n\n${text}` } as AgentMessage;
+      }
+      if (Array.isArray(content)) {
+         return { ...message, content: [...content, { type: "text" as const, text }] } as AgentMessage;
+      }
+      return message;
+   };
+
    pi.on("context", async (event, ctx) => {
       if (!projectRoot) return;
       const contextKey = rememberContextKey(ctx);
+      // Replay anchors recorded by earlier processes before deciding anything,
+      // so a resumed turn re-injects the exact same bytes it did before exit.
+      if (contextKey) loadAnchors(contextKey);
 
       const cached = turnCache.get(projectRoot, contextKey);
       let turnContent = cached.workflowMsg;
@@ -504,20 +586,43 @@ export default function(pi: ExtensionAPI): void {
          }
       }
 
-      if (!turnContent) return;
+      const messages = event.messages;
+      if (!Array.isArray(messages) || messages.length === 0) return;
 
-      return {
-         messages: [
-            ...event.messages,
-            {
-               role: "custom" as const,
-               customType: "trellis-workflow-state",
-               content: turnContent,
-               display: false,
-               timestamp: Date.now(),
-            },
-         ],
-      };
+      // Anchor on the newest user message. Tool continuations within the same
+      // agent turn append assistant/toolResult entries after it, so the anchor —
+      // and therefore every byte before the appended tail — stays put.
+      let anchor = -1;
+      for (let i = messages.length - 1; i >= 0; i--) {
+         if (messages[i]?.role === "user") {
+            anchor = i;
+            break;
+         }
+      }
+      if (anchor < 0) return;
+
+      if (turnContent) {
+         const key = anchorKey(messages[anchor]);
+         // First sight of this anchor fixes its text; later calls in the same
+         // turn — and every later process — reuse it verbatim rather than
+         // recomputing a drifting snapshot.
+         if (!injectedByAnchor.has(key)) {
+            injectedByAnchor.set(key, turnContent);
+            if (contextKey) saveAnchors(contextKey);
+         }
+      }
+      if (injectedByAnchor.size === 0) return;
+
+      let changed = false;
+      const out = messages.map(message => {
+         if (message.role !== "user") return message;
+         const text = injectedByAnchor.get(anchorKey(message));
+         if (!text) return message;
+         changed = true;
+         return withInjectedText(message, text);
+      });
+      if (!changed) return;
+      return { messages: out };
    });
 
    // OMP passes Bash event.input through to the tool execution parameters, so
