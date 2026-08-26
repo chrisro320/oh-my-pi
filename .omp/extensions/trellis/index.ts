@@ -460,46 +460,9 @@ export default function(pi: ExtensionAPI): void {
 
    pi.on("session_start", async (_event, ctx) => {
       projectRoot = findProjectRoot(ctx.cwd);
-      const contextKey = rememberContextKey(ctx);
-
+      rememberContextKey(ctx);
       if (!projectRoot) return;
-
-      if (isSubAgent) {
-         // Sub-agent: inject precise task context once
-         const { taskDir } = resolveActiveTaskStatus(projectRoot, contextKey);
-         if (taskDir) {
-            const taskContext = buildTaskContext(projectRoot, taskDir, agentType);
-            if (taskContext) {
-               await pi.sendMessage({
-                  customType: "trellis-task-context",
-                  content: taskContext,
-                  display: false,
-               });
-            }
-         }
-      } else {
-         // Main session: inject session context (global map) + task context
-         const sessionContext = buildSessionContext(projectRoot, contextKey);
-         if (sessionContext) {
-            await pi.sendMessage({
-               customType: "trellis-session-context",
-               content: sessionContext,
-               display: false,
-            });
-         }
-
-         const { taskDir } = resolveActiveTaskStatus(projectRoot, contextKey);
-         if (taskDir) {
-            const taskContext = buildTaskContext(projectRoot, taskDir);
-            if (taskContext) {
-               await pi.sendMessage({
-                  customType: "trellis-task-context",
-                  content: taskContext,
-                  display: false,
-               });
-            }
-         }
-
+      if (!isSubAgent) {
          ctx.ui.notify("Trellis workflow system available", "info");
       }
    });
@@ -515,14 +478,33 @@ export default function(pi: ExtensionAPI): void {
       if (!projectRoot) return;
       const contextKey = rememberContextKey(ctx);
 
-      // Persistent injection: workflow state for this turn
+      // Persistent injection: workflow state + dynamic context for this turn
       const cached = turnCache.get(projectRoot, contextKey);
       lastInjectionTs = Date.now();
+
+      let turnContent = cached.workflowMsg;
+      if (isSubAgent) {
+         const { taskDir } = resolveActiveTaskStatus(projectRoot, contextKey);
+         if (taskDir) {
+            const taskContext = buildTaskContext(projectRoot, taskDir, agentType);
+            if (taskContext) {
+               turnContent = `${taskContext}\n\n${turnContent}`;
+            }
+         }
+      } else {
+         const sessionContext = buildSessionContext(projectRoot, contextKey);
+         const { taskDir } = resolveActiveTaskStatus(projectRoot, contextKey);
+         const taskContext = taskDir ? buildTaskContext(projectRoot, taskDir) : null;
+         const prefix = [sessionContext, taskContext].filter(Boolean).join("\n\n");
+         if (prefix) {
+            turnContent = `${prefix}\n\n${turnContent}`;
+         }
+      }
 
       return {
          message: {
             customType: "trellis-workflow-state",
-            content: cached.workflowMsg,
+            content: turnContent,
             display: false,
          },
       };
