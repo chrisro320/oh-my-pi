@@ -75,6 +75,10 @@ interface Fingerprint {
 	/** sha of each system block, in order. */
 	system: string[];
 	tools: string;
+	/** `<name>:<sha>` per tool, in order, so a TOOLS_DRIFT can name the exact
+	 *  tool whose serialization changed instead of one opaque whole-array hash.
+	 *  Optional: state files written before this field existed still load. */
+	toolParts?: string[];
 	/** `<role>:<sha>` per message, so a role flip is visible without content. */
 	messages: string[];
 	/** `<index>:<ttl>` per cache_control marker.
@@ -388,6 +392,18 @@ function loadState(sessionKey: string): SessionState {
 	return st;
 }
 
+/** `<name>:<sha>` per tool entry. Anthropic entries are `{name, ...}`,
+ *  OpenAI nests it under `{type:"function", function:{name, ...}}`;
+ *  nameless entries fall back to their index so position shifts still show. */
+function toolPartsOf(tools: unknown): string[] | undefined {
+	if (!Array.isArray(tools)) return undefined;
+	return tools.map((tool, i) => {
+		const named = isRecord(tool) ? (tool.name ?? (isRecord(tool.function) ? tool.function.name : undefined)) : undefined;
+		const label = typeof named === "string" && named !== "" ? named : `#${i}`;
+		return `${label}:${sha(contentForHash([tool]))}`;
+	});
+}
+
 function fingerprint(target: object, sessionIdOverride?: string): Fingerprint | undefined {
 	const sections = extractPayloadSections(target);
 	if (sections === undefined) return undefined;
@@ -421,6 +437,7 @@ function fingerprint(target: object, sessionIdOverride?: string): Fingerprint | 
 		model,
 		system,
 		tools: sha(tools),
+		toolParts: toolPartsOf(tools),
 		messages: [],
 		breakpoints: [],
 		envelope: envelopeParts.join(","),
@@ -677,8 +694,21 @@ function diff(prev: Fingerprint, next: Fingerprint): Diff {
 			};
 		}
 	}
-	if (prev.tools !== next.tools)
-		return { kind: "TOOLS_DRIFT", detail: `${prev.tools} -> ${next.tools}`, ttlShift };
+	if (prev.tools !== next.tools) {
+		const changed: string[] = [];
+		if (prev.toolParts !== undefined && next.toolParts !== undefined) {
+			for (let i = 0; i < Math.max(prev.toolParts.length, next.toolParts.length); i++) {
+				if (prev.toolParts[i] === next.toolParts[i]) continue;
+				const name = (next.toolParts[i] ?? prev.toolParts[i] ?? `#${i}`).split(":")[0];
+				changed.push(`${name}(${prev.toolParts[i]?.split(":")[1] ?? "-"}->${next.toolParts[i]?.split(":")[1] ?? "-"})`);
+			}
+		}
+		const detail =
+			changed.length > 0
+				? `${prev.tools} -> ${next.tools} | changed: ${changed.join(", ")}`
+				: `${prev.tools} -> ${next.tools}`;
+		return { kind: "TOOLS_DRIFT", detail, ttlShift };
+	}
 
 	const shared = Math.min(prev.messages.length, next.messages.length);
 	for (let i = 0; i < shared; i++) {

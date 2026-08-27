@@ -582,4 +582,32 @@ function createHarness(): {
 	assert.ok(existsSync(subPath), `missing subprocess state file: ${subPath}`);
 }
 
+// Per-tool drift attribution: a TOOLS_DRIFT must name the exact tool whose
+// serialization changed (one tool edited, one untouched), so a resume-induced
+// tools drift points at the culprit instead of an opaque whole-array hash.
+{
+	const base = { model: "m1", system: "sys", messages: [{ role: "user", content: "u" }] };
+	const prevFp = ext.fingerprint({
+		...base,
+		sessionId: "session-tools",
+		tools: [
+			{ name: "read", description: "same" },
+			{ name: "bash", description: "before" },
+		],
+	});
+	const nextFp = ext.fingerprint({
+		...base,
+		sessionId: "session-tools",
+		tools: [
+			{ name: "read", description: "same" },
+			{ name: "bash", description: "after" },
+		],
+	});
+	assert.ok(prevFp && nextFp, "fingerprints must exist");
+	const drift = ext.diff(prevFp, nextFp);
+	assert.equal(drift.kind, "TOOLS_DRIFT");
+	assert.match(drift.detail ?? "", /bash\([0-9a-f]+->[0-9a-f]+\)/, "changed tool must be named with both hashes");
+	assert.ok(!(drift.detail ?? "").includes("read("), "unchanged tool must not be named");
+}
+
 console.log("cache-prefix-audit verification: ok");
