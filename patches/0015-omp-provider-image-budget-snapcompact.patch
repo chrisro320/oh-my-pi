@@ -1,10 +1,14 @@
 --- a/src/snapcompact.ts
 +++ b/src/snapcompact.ts
-@@ -507,6 +507,7 @@
+@@ -507,6 +507,11 @@
  	google: 200,
  	"google-vertex": 200,
  	"google-gemini-cli": 200,
 +	"google-antigravity": 200,
++	"opencode-go": 200,
++	"zhipu-coding-plan": 200,
++	commandcode: 200,
++	"openai-completions": 200,
  	openrouter: 90,
  	umans: 10,
  };

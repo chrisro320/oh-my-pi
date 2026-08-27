@@ -148,6 +148,7 @@ if [[ "$MODE" == "apply" ]]; then
 	bun "${HERE}/verify-antigravity-envelope.ts"
 	bun "${HERE}/verify-prefix-cache-compaction.ts"
 	bun "${HERE}/verify-model-switch-tool-description.ts"
+	bun "${HERE}/verify-provider-image-budget.ts"
 fi
 if [[ "$MODE" != "check" ]]; then
 	printf 'smoke: '
