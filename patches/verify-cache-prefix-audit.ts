@@ -345,10 +345,12 @@ function createHarness(): {
 	const opusPath = ext.statePathFor("session-opus");
 	assert.ok(existsSync(gemPath), `missing gemini state file: ${gemPath}`);
 	assert.ok(existsSync(opusPath), `missing opus state file: ${opusPath}`);
-	const gemFile = JSON.parse(readFileSync(gemPath, "utf8"));
+	const gemRaw = JSON.parse(readFileSync(gemPath, "utf8"));
+	const gemFile = gemRaw.recent ? gemRaw.recent[0] : gemRaw;
 	assert.equal(gemFile.messages.length, 4, "gemini state must hold gemini's last fingerprint");
 	assert.equal(gemFile.sessionId, "session-gemini");
-	const opusFile = JSON.parse(readFileSync(opusPath, "utf8"));
+	const opusRaw = JSON.parse(readFileSync(opusPath, "utf8"));
+	const opusFile = opusRaw.recent ? opusRaw.recent[0] : opusRaw;
 	assert.equal(opusFile.messages.length, 2, "opus state must hold opus's last fingerprint");
 	assert.equal(opusFile.sessionId, "session-opus");
 	// The log shows clean baselines and appends — never a cross-session rewrite.
@@ -426,7 +428,8 @@ function createHarness(): {
 	assert.equal(lastReq.crossProcess, true, "first request after resume must compare across processes");
 	assert.equal(lastReq.diff.kind, "APPEND_ONLY");
 
-	const resumed = JSON.parse(readFileSync(ext.statePathFor("session-resume-x"), "utf8"));
+	const resumedRaw = JSON.parse(readFileSync(ext.statePathFor("session-resume-x"), "utf8"));
+	const resumed = resumedRaw.recent ? resumedRaw.recent[0] : resumedRaw;
 	assert.equal(resumed.messages.length, 4, "resumed session state must be updated in place");
 	assert.notEqual(resumed.pid, 9999, "state must now belong to this process");
 }
