@@ -142,6 +142,11 @@ if [[ $fail -ne 0 ]]; then
 	exit 1
 fi
 
+if [[ "$MODE" == "apply" ]]; then
+	echo "=== Running Patches Regression Test Suite ==="
+	bun "${HERE}/verify-antigravity-envelope.ts"
+	bun "${HERE}/verify-prefix-cache-compaction.ts"
+fi
 if [[ "$MODE" != "check" ]]; then
 	printf 'smoke: '
 	if out="$(cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK' 2>&1)"; then
