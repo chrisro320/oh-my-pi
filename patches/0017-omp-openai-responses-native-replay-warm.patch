@@ -1,0 +1,11 @@
+--- a/src/providers/openai-responses.ts
++++ b/src/providers/openai-responses.ts
+@@ -226,7 +226,7 @@ function createOpenAIResponsesProviderSessionState(): OpenAIResponsesProviderSessionState {
+ 	const state: OpenAIResponsesProviderSessionState = {
+ 		...strictToolsState,
+ 		...reasoningEffortFallbackState,
+-		nativeHistoryReplayWarmed: false,
++		nativeHistoryReplayWarmed: true,
+ 		chains: new Map(),
+ 		close: () => {
+ 			state.nativeHistoryReplayWarmed = false;
