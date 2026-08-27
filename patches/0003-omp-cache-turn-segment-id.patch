@@ -1,0 +1,10 @@
+--- a/src/config/settings-schema.ts
++++ b/src/config/settings-schema.ts
+@@ -253,6 +253,7 @@
+ 	| "cache_read"
+ 	| "cache_write"
+ 	| "cache_hit"
++	| "cache_turn"
+ 	| "session_name"
+ 	| "usage"
+ 	| "collab";

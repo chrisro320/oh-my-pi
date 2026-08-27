@@ -1,0 +1,68 @@
+--- a/src/modes/components/status-line/component.ts
++++ b/src/modes/components/status-line/component.ts
+@@ -290,6 +290,9 @@
+ const EMPTY_MESSAGES: readonly AgentMessage[] = [];
+ const STATUS_USAGE_START_DELAY_MS = 0;
+ const STATUS_USAGE_REFRESH_TIMEOUT_MS = 2_000;
++// Throttle for repaint-triggered usage fetches (keystrokes, git events).
++// Completed LLM requests bypass it — see refreshUsageInBackground.
++const STATUS_USAGE_REFRESH_TTL_MS = 50_000;
+ 
+ function isContextSegment(segment: StatusLineSegmentId): boolean {
+ 	return segment === "context_pct" || segment === "context_total";
+@@ -448,7 +451,7 @@
+ 	#lastTokensPerSecond: number | null = null;
+ 	#lastTokensPerSecondTimestamp: number | null = null;
+ 
+-	// Provider usage caching (5-min TTL, OAuth/sub only)
++	// Provider usage caching (60s TTL, OAuth/sub only)
+ 	#cachedUsage: {
+ 		tier?: string;
+ 		fiveHour?: { percent: number; resetMinutes?: number };
+@@ -459,6 +462,9 @@
+ 	#usageFetchedAt = 0;
+ 	#usageInFlight = false;
+ 	#usageStartTimer: Timer | null = null;
++	// Key of the last completed assistant message we refreshed usage for
++	// (`timestamp:stopReason`). A new key means a request just burned quota.
++	#usageLastTurnKey = "";
+ 	// A timed-out request may still resolve. Its result remains eligible only
+ 	// until a newer request has applied.
+ 	#usageRefreshSequence = 0;
+@@ -1288,8 +1294,26 @@
+ 			this.#usageFetchedAt = 0;
+ 			this.#cachedUsageContextKey = usageContextKey;
+ 		}
++		// Quota only moves when a request runs: force a refresh once per
++		// completed assistant message (LLM output finished), bypassing the TTL.
++		let turnEnded = false;
++		const messages = session.state.messages;
++		for (let i = messages.length - 1; i >= 0; i--) {
++			const message = messages[i];
++			if (message?.role === "assistant") {
++				const stopReason = (message as AssistantMessage).stopReason;
++				if (stopReason) {
++					const turnKey = `${message.timestamp}:${stopReason}`;
++					if (turnKey !== this.#usageLastTurnKey) {
++						this.#usageLastTurnKey = turnKey;
++						turnEnded = true;
++					}
++				}
++				break;
++			}
++		}
+ 		if (this.#usageInFlight || this.#usageStartTimer) return;
+-		if (this.#usageFetchedAt > 0 && now - this.#usageFetchedAt < 5 * 60_000) return;
++		if (!turnEnded && this.#usageFetchedAt > 0 && now - this.#usageFetchedAt < STATUS_USAGE_REFRESH_TTL_MS) return;
+ 		const fetcher = (session as { fetchUsageReports?: (signal?: AbortSignal) => Promise<unknown> }).fetchUsageReports;
+ 		if (typeof fetcher !== "function") return;
+ 		this.#usageInFlight = true;
+@@ -1662,7 +1686,7 @@
+ 	): SegmentContext {
+ 		const state = this.session.state;
+ 
+-		// Trigger background fetch (5-min TTL); render uses cached value
++		// Trigger background fetch (60s TTL); render uses cached value
+ 		this.refreshUsageInBackground();
+ 
+ 		// Get usage statistics
