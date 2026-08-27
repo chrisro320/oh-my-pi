@@ -107,10 +107,31 @@ interface Fingerprint {
 /** Per-session in-memory state. Persisted per session in its own state file;
  *  loaded lazily on the session's first request. */
 interface SessionState {
+	/** Most recent request, whatever kind it was. Kept for continuity of the
+	 *  cross-process check (pid comparison) and for state-file compatibility. */
 	last?: Fingerprint;
+	/** Recent requests, newest first, capped at {@link BASELINE_HISTORY}.
+	 *
+	 *  A single baseline cannot survive a session that interleaves request
+	 *  kinds. Side-channel turns, cron cache-keepalive and the return-recap all
+	 *  carry a VIRTUAL tail — a message the transcript never keeps — so the next
+	 *  real turn puts its own content at that index and the naive comparison
+	 *  reports a mid-history rewrite over untouched cached bytes.
+	 *
+	 *  Rather than trying to RECOGNIZE those requests (a marker list rots, and a
+	 *  session that discusses the markers gets misread as containing them), keep
+	 *  several and compare against whichever shares the longest prefix. The
+	 *  virtual-tail request simply stops being anyone's best match, and the same
+	 *  mechanism keeps distinct models in one session from overwriting each
+	 *  other's baseline. */
+	recent?: Fingerprint[];
 	lastDiff?: Diff;
 	note: string;
 }
+
+/** Enough to span a turn interleaved with keepalive and side-channel traffic;
+ *  small enough that the scan stays a handful of string-array comparisons. */
+const BASELINE_HISTORY = 6;
 
 /** Top-level keys that ARE the cached prefix; everything else is envelope. */
 const PREFIX_KEYS: Record<string, true> = {
@@ -342,8 +363,23 @@ function loadState(sessionKey: string): SessionState {
 	try {
 		const path = statePathFor(sessionKey);
 		if (existsSync(path)) {
-			const restored = JSON.parse(readFileSync(path, "utf8"));
-			if (isFingerprint(restored)) st.last = restored;
+			const restored: unknown = JSON.parse(readFileSync(path, "utf8"));
+			// Persist the WHOLE candidate set, not just the newest fingerprint.
+			// The last request before exit is frequently a keepalive carrying a
+			// virtual tail; restoring only that leaves the first post-resume
+			// request with no real baseline to recognize itself against, which is
+			// exactly when a resume verdict has to be trustworthy.
+			if (isRecord(restored) && Array.isArray(restored.recent)) {
+				const fps = restored.recent.filter(isFingerprint);
+				if (fps.length > 0) {
+					st.recent = fps;
+					st.last = fps[0];
+				}
+			} else if (isFingerprint(restored)) {
+				// Older single-fingerprint file.
+				st.last = restored;
+				st.recent = [restored];
+			}
 		}
 	} catch {
 		// Corrupt or partial file: re-seed cleanly on the next request.
@@ -504,7 +540,7 @@ function observeHeader(sessionKey: string, host: string, fp: string): void {
 		st.last.headers = fp;
 		st.last.hostHeaders = { ...st.last.hostHeaders, [host]: fp };
 		try {
-			write(statePathFor(sessionKey), JSON.stringify(st.last), false);
+			write(statePathFor(sessionKey), JSON.stringify({ recent: st.recent ?? [st.last] }), false);
 		} catch {
 			// Losing one state write only costs the next comparison.
 		}
@@ -563,6 +599,62 @@ function envelopeDriftKeys(prev: string, next: string): string {
 	return [...new Set([...was.keys(), ...now.keys()])]
 		.filter(key => was.get(key) !== now.get(key))
 		.join(",");
+}
+
+/** How many leading messages two requests agree on.
+ *
+ *  This is the quantity prompt caching actually bills on, so it is also the
+ *  right basis for choosing what to compare against: the candidate that shares
+ *  the most prefix is, by definition, the one whose cache this request could
+ *  have reused. System blocks and tools must match too — a divergence there
+ *  invalidates every message that follows, so a candidate that differs in the
+ *  system prompt shares no usable prefix at all. */
+function sharedPrefix(a: Fingerprint, b: Fingerprint): number {
+	if (a.tools !== b.tools) return -1;
+	for (let i = 0; i < Math.max(a.system.length, b.system.length); i++) {
+		if (a.system[i] !== b.system[i]) return -1;
+	}
+	const shared = Math.min(a.messages.length, b.messages.length);
+	let i = 0;
+	while (i < shared && a.messages[i] === b.messages[i]) i++;
+	return i;
+}
+
+/** Choose the baseline this request could plausibly have reused.
+ *
+ *  Ties go to the newest candidate (`recent` is newest-first), which keeps the
+ *  ordinary append-only case comparing against the immediately preceding turn
+ *  instead of drifting back through history. */
+function bestBaseline(candidates: Fingerprint[], next: Fingerprint): Fingerprint | undefined {
+	let best: Fingerprint | undefined;
+	let bestScore = -1;
+	let bestIsFullPrefix = false;
+	for (const candidate of candidates) {
+		const score = sharedPrefix(candidate, next);
+		if (score < 0) continue;
+		// Score alone ties in the case that matters. A side-channel request
+		// APPENDS virtual messages, so with a real baseline P (323 msgs), a side
+		// request V (323 real + 3 virtual) and the next real request R (323 real
+		// + 2 new), both P and V share exactly 323 — and newest-first ordering
+		// then picks V, reporting a phantom rewrite at 323.
+		//
+		// What separates them is whether the candidate is ENTIRELY a prefix of
+		// this request. P is (323 === P.length); V forks at 323 and carries three
+		// messages that never existed. That is also precisely the cache-reuse
+		// condition: past a fork nothing is reusable, however long the agreement
+		// before it.
+		const isFullPrefix = score === candidate.messages.length;
+		const better =
+			best === undefined ||
+			(isFullPrefix && !bestIsFullPrefix) ||
+			(isFullPrefix === bestIsFullPrefix && score > bestScore);
+		if (better) {
+			bestScore = score;
+			bestIsFullPrefix = isFullPrefix;
+			best = candidate;
+		}
+	}
+	return best;
 }
 
 function diff(prev: Fingerprint, next: Fingerprint): Diff {
@@ -676,11 +768,28 @@ export default function (pi: ExtensionAPI): void {
 
 			const next = fingerprint(payload, sessionKey);
 			if (!next) return undefined;
+			// The VERDICT is always measured against the immediately preceding
+			// request. Substituting a better-matching older candidate would silence
+			// real regressions: when some older candidate happens to be a complete
+			// prefix of this request, a genuine rollback or rewrite relative to the
+			// actual predecessor gets relabelled append-only and disappears.
+			const candidates = st.recent ?? (st.last ? [st.last] : []);
 			const prev = st.last;
 			const d: Diff = prev ? diff(prev, next) : { kind: "IDENTICAL", detail: "no baseline" };
 			const crossProcess = prev !== undefined && prev.pid !== next.pid;
 			st.lastDiff = d;
 			st.note = `${d.kind}${d.index !== undefined ? `@${d.index}` : ""}${crossProcess ? " (cross-process)" : ""} session=${sessionKey}`;
+
+			// Annotation only. A side-channel or keepalive predecessor carries a
+			// virtual tail, so the next real turn reads as a mid-history rewrite
+			// against it while some earlier real request is a clean prefix. Naming
+			// that alternative explains the verdict without overriding it; the
+			// paired `usage.cacheRead` decides whether anything was actually lost.
+			const alt = bestBaseline(
+				candidates.filter(c => c.at !== next.at && c.at !== prev?.at),
+				next,
+			);
+			const altDiff = alt ? diff(alt, next) : undefined;
 
 			write(
 				LOG_PATH,
@@ -692,12 +801,32 @@ export default function (pi: ExtensionAPI): void {
 					messages: next.messages.length,
 					breakpoints: next.breakpoints,
 					crossProcess,
+					sharedPrefix: prev ? sharedPrefix(prev, next) : undefined,
 					diff: d,
+					// A rewrite against the predecessor that is a clean append
+					// against an earlier request is the virtual-tail signature.
+					// Still reported, just explained.
+					altBaseline:
+						alt && altDiff
+							? {
+									at: alt.at,
+									messages: alt.messages.length,
+									sharedPrefix: sharedPrefix(alt, next),
+									kind: altDiff.kind,
+									index: altDiff.index,
+									likelyVirtualTail: d.kind === "HISTORY_REWRITE" && altDiff.kind === "APPEND_ONLY",
+								}
+							: undefined,
+					candidates: candidates.length,
 				})}\n`,
 				true,
 			);
 			st.last = next;
-			write(statePathFor(sessionKey), JSON.stringify(next), false);
+			st.recent = [next, ...candidates.filter(c => c.at !== next.at)].slice(0, BASELINE_HISTORY);
+			// Persist the whole candidate set so a resumed process can still tell a
+			// real predecessor from a virtual-tail one; the last request before
+			// exit is often a keepalive.
+			write(statePathFor(sessionKey), JSON.stringify({ recent: st.recent }), false);
 		} catch {
 			// A probe must never break the run.
 		}
