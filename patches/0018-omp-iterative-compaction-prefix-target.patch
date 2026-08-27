@@ -541,3 +541,34 @@
 +
 +## Additional Notes
 +[Other important info not fitting above]
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -2210,7 +2210,7 @@
+ 						...options,
+ 						metadata: this.#host.agent.metadataForProvider(candidate.provider),
+ 						convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
+-						buildCachePreservingContext: this.#buildCachePreservingContext(candidate),
++						buildCachePreservingContext: this.#buildCachePreservingContext(candidate, preparation),
+ 						telemetry,
+ 						// Honor the user's /model thinking selection (incl. `off`) on
+ 						// the manual `/compact` path. Clamped per-model inside compact()
+@@ -3459,7 +3459,7 @@
+ 									metadata: this.#host.agent.metadataForProvider(candidate.provider),
+ 									initiatorOverride: "agent",
+ 									convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
+-									buildCachePreservingContext: this.#buildCachePreservingContext(candidate),
++									buildCachePreservingContext: this.#buildCachePreservingContext(candidate, preparation),
+ 									telemetry,
+ 									// Honor the user's /model thinking selection on the
+ 									// auto-compaction path — the most-fired compaction
+--- a/pi-coding-agent/src/session/session-advisors.ts
++++ b/pi-coding-agent/src/session/session-advisors.ts
+@@ -1624,7 +1624,7 @@
+ 					{
+ 						thinkingLevel: advisorCompactionThinkingLevel,
+ 						convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
+-						buildCachePreservingContext: this.#buildAdvisorCachePreservingContext(agent, candidate),
++						buildCachePreservingContext: this.#buildAdvisorCachePreservingContext(agent, candidate, preparation, pathEntries),
+ 						telemetry,
+ 						tools: agent.state.tools,
+ 						sessionId: advisorProviderSessionId,

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import type { AssistantMessage, Context, Model, SimpleStreamOptions } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/types.ts";
 import { getBundledModel } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-catalog/src/models.ts";
 import {
@@ -387,6 +388,39 @@ assert.notDeepEqual(
 	}).slice(0, prefixOpenAIInput.length),
 	prefixOpenAIInput,
 	"sensitivity fixture no longer detects replacing the live prefix with the history target",
+);
+
+// Callsite wiring contract: the builders close over the active preparation
+// (and advisor pathEntries). A stale one-argument call compiles under bun but
+// throws TypeError inside the callback at runtime and silently kills every
+// cache-preserving compaction; the mock harness above cannot see it.
+const maintenanceSource = readFileSync(
+	"/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-maintenance.ts",
+	"utf8",
+);
+const advisorSource = readFileSync(
+	"/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-advisors.ts",
+	"utf8",
+);
+assert.equal(
+	maintenanceSource.split("this.#buildCachePreservingContext(candidate, preparation)").length - 1,
+	2,
+	"manual and auto compaction must both pass the active preparation",
+);
+assert.equal(
+	maintenanceSource.split("this.#buildCachePreservingContext(candidate)").length - 1,
+	0,
+	"stale one-argument buildCachePreservingContext callsite",
+);
+assert.equal(
+	advisorSource.split("this.#buildAdvisorCachePreservingContext(agent, candidate, preparation, pathEntries)").length - 1,
+	1,
+	"advisor compaction must pass preparation and pathEntries",
+);
+assert.equal(
+	advisorSource.split("this.#buildAdvisorCachePreservingContext(agent, candidate)").length - 1,
+	0,
+	"stale two-argument advisor callsite",
 );
 
 console.log(`PASS prefix-cache compaction: structured=1 flat=1 windows=${windowRequests.length}`);

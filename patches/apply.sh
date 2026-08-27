@@ -78,7 +78,17 @@ superseded_by_0018() {
 }
 
 fail=0
-for entry in "${PATCHES[@]}"; do
+# Revert runs the stack in reverse: 0018 must come off before the 0013 pair it
+# refines, otherwise the 0013 entries are skipped as "superseded" while 0018 is
+# still on, and stay applied forever after 0018 reverts later in the same run.
+ORDER=("${PATCHES[@]}")
+if [[ "$MODE" == "revert" ]]; then
+	ORDER=()
+	for ((i = ${#PATCHES[@]} - 1; i >= 0; i--)); do
+		ORDER+=("${PATCHES[i]}")
+	done
+fi
+for entry in "${ORDER[@]}"; do
 	name="${entry%%:*}"
 	root="${entry##*:}"
 	file="${HERE}/${name}"
