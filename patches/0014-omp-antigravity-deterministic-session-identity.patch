@@ -1,5 +1,5 @@
---- a/src/providers/google-gemini-cli.ts	2026-08-27 04:38:27.415959034 -0400
-+++ b/src/providers/google-gemini-cli.ts	2026-08-27 04:43:30.591648032 -0400
+--- a/src/providers/google-gemini-cli.ts	1985-10-26 04:15:00.000000000 -0400
++++ b/src/providers/google-gemini-cli.ts	2026-08-27 06:59:30.099385728 -0400
 @@ -1087,7 +1087,10 @@
  					// Commit after a fully successful attempt (content + finish reason);
  					// used as the next request's last_execution_id. Overwrite even when
@@ -24,7 +24,7 @@
  function formatSignedDecimalSessionId(value: bigint): string {
  	return `-${value.toString()}`;
  }
-@@ -1235,18 +1243,30 @@
+@@ -1235,17 +1243,29 @@
  	context: Context,
  	wireModelId: string,
  	state: AntigravityProviderSessionState | undefined,
@@ -55,16 +55,14 @@
 -	const trajectoryId = state?.trajectoryId ?? randomUUID();
 -	const sessionId = state?.sessionId ?? deriveAntigravitySessionId(context);
 -	const step = state?.stepIndex ?? 2;
--	const requestId = `agent/${agentId}/${Date.now()}/${trajectoryId}/${step}`;
 +	const agentId = state?.agentId ?? defaultAgentId;
 +	const trajectoryId = state?.trajectoryId ?? defaultTrajectoryId;
 +	const sessionId = state?.sessionId ?? defaultSessionId;
 +	const step = (state?.stepIndex ?? 1) + (isEphemeral ? 1 : 0);
-+	const requestId = `agent/${agentId}/${Date.now()}/${trajectoryId}/${step}`;
+ 	const requestId = `agent/${agentId}/${Date.now()}/${trajectoryId}/${step}`;
  	const isClaude = isClaudeModel(model.id);
  	const profile = getAntigravityModelWireProfile(wireModelId);
- 	const labels: Record<string, string> = {};
-@@ -1385,7 +1404,7 @@
+@@ -1385,7 +1405,7 @@
  			generationConfig.maxOutputTokens = profile.maxOutputTokens;
  		}
  		const state = getAntigravityProviderSessionState(options.providerSessionState);
