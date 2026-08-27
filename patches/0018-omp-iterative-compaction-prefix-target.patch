@@ -1,5 +1,5 @@
---- a/pi-agent-core/src/compaction/compaction.ts	2026-08-27 04:46:30.570004114 -0400
-+++ b/pi-agent-core/src/compaction/compaction.ts	2026-08-27 04:48:37.096719243 -0400
+--- a/pi-agent-core/src/compaction/compaction.ts	2026-08-27 05:14:07.038844102 -0400
++++ b/pi-agent-core/src/compaction/compaction.ts	2026-08-27 05:13:56.223968783 -0400
 @@ -64,7 +64,9 @@
  import compactionShortSummaryPrompt from "./prompts/compaction-short-summary.md" with { type: "text" };
  import compactionSummaryPrompt from "./prompts/compaction-summary.md" with { type: "text" };
@@ -18,7 +18,20 @@
  
  const SHORT_SUMMARY_PROMPT = prompt.render(compactionShortSummaryPrompt);
  
-@@ -668,14 +671,15 @@
+@@ -654,6 +657,12 @@
+ 	const message = response.errorMessage ?? "";
+ 	return /\btool_choice\b/i.test(message) && /\bauto\b/i.test(message) && /\bsupported\b/i.test(message);
+ }
++export type CachePreservingSummaryScope = "history" | "turn-prefix";
++export interface CachePreservingSummaryContext {
++	context: Context;
++	/** The verified live prefix already contains the prior compaction summary. */
++	previousSummaryInPrefix: boolean;
++}
+ 
+ /**
+  * Generate a summary of the conversation using the LLM.
+@@ -668,14 +677,15 @@
  	metadata?: Record<string, unknown>;
  	convertToLlm?: ConvertToLlm;
  	/**
@@ -38,7 +51,7 @@
  	/**
  	 * Optional telemetry handle. When provided, every LLM call emitted during
  	 * compaction is wrapped in an OTEL chat span tagged with
-@@ -868,27 +872,31 @@
+@@ -868,27 +878,31 @@
  ): Promise<string> {
  	const maxTokens = Math.min(Math.floor(0.8 * reserveTokens), MAX_SUMMARY_TOKENS);
  
@@ -86,7 +99,7 @@
  
  	let carriedSummary = previousSummary;
  	while (pending.length > 0) {
-@@ -909,7 +917,8 @@
+@@ -909,7 +923,8 @@
  				customInstructions,
  				options,
  				budget.fits ? window.messages : undefined,
@@ -96,7 +109,7 @@
  			);
  		} catch (error) {
  			// The catalog window can overstate what the provider actually accepts:
-@@ -1038,10 +1047,18 @@
+@@ -1038,10 +1053,18 @@
  	customInstructions: string | undefined,
  	options: SummaryOptions | undefined,
  	windowMessages?: Message[],
@@ -118,7 +131,7 @@
  	if (options?.promptOverride) {
  		basePrompt = options.promptOverride;
  	}
-@@ -1050,40 +1067,30 @@
+@@ -1050,40 +1073,30 @@
  	}
  
  	let promptText = "";
@@ -169,7 +182,7 @@
  				{
  					role: "user" as const,
  					content: [{ type: "text" as const, text: promptText }],
-@@ -1125,13 +1132,14 @@
+@@ -1125,13 +1138,14 @@
  	traceCompaction({
  		k: "summarize.request",
  		model: model.id,
@@ -186,7 +199,7 @@
  	});
  
  	let response = await instrumentedCompleteSimple(
-@@ -1193,7 +1201,7 @@
+@@ -1193,7 +1207,7 @@
  	traceCompaction({
  		k: "summarize.usage",
  		model: model.id,
@@ -195,7 +208,7 @@
  		stopReason: response.stopReason,
  		usage: response.usage,
  	});
-@@ -1429,8 +1437,14 @@
+@@ -1429,8 +1443,14 @@
  	firstKeptEntryId: string;
  	/** Messages that will be summarized and discarded */
  	messagesToSummarize: AgentMessage[];
@@ -210,7 +223,7 @@
  	/** Messages kept in full after compaction (recent history) */
  	recentMessages: AgentMessage[];
  	/** Whether this is a split turn (cut point in middle of turn) */
-@@ -1560,6 +1574,11 @@
+@@ -1560,6 +1580,11 @@
  	const firstKeptEntryId = firstKeptEntry.id;
  
  	const historyEnd = cutPoint.isSplitTurn ? cutPoint.turnStartIndex : cutPoint.firstKeptEntryIndex;
@@ -222,14 +235,15 @@
  
  	// Messages to summarize (will be discarded after summary)
  	const messagesToSummarize: AgentMessage[] = [];
-@@ -1583,23 +1602,41 @@
+@@ -1582,24 +1607,42 @@
+ 	for (let i = cutPoint.firstKeptEntryIndex; i < boundaryEnd; i++) {
  		const msg = getMessageFromEntry(pathEntries[i]);
  		if (msg) recentMessages.push(msg);
- 	}
+-	}
 -	// Nothing to summarize means compaction would be a no-op.
 -	if (messagesToSummarize.length === 0 && turnPrefixMessages.length === 0) {
 -		return undefined;
--	}
+ 	}
 -
 -	// Get previous summary and preserved data for iterative updates
 +	// A later local compaction drops the messages kept verbatim by the previous
@@ -272,7 +286,7 @@
  	// Also extract file ops from turn prefix if splitting
  	if (cutPoint.isSplitTurn) {
  		for (const msg of turnPrefixMessages) {
-@@ -1610,7 +1647,10 @@
+@@ -1610,7 +1653,10 @@
  	return {
  		firstKeptEntryId,
  		messagesToSummarize,
@@ -283,7 +297,7 @@
  		recentMessages,
  		isSplitTurn: cutPoint.isSplitTurn,
  		tokensBefore,
-@@ -1626,6 +1666,7 @@
+@@ -1626,6 +1672,7 @@
  // ============================================================================
  
  const TURN_PREFIX_SUMMARIZATION_PROMPT = prompt.render(compactionTurnPrefixPrompt);
@@ -291,7 +305,7 @@
  
  function openAiCompatSupportsImageDetailOriginal(model: Model): boolean {
  	const compat = model.compat;
-@@ -1723,6 +1764,7 @@
+@@ -1723,6 +1770,7 @@
  	const {
  		firstKeptEntryId,
  		messagesToSummarize,
@@ -299,7 +313,7 @@
  		turnPrefixMessages,
  		recentMessages,
  		isSplitTurn,
-@@ -1734,7 +1776,7 @@
+@@ -1734,7 +1782,7 @@
  	} = preparation;
  
  	const reserveTokens = settings.reserveTokens ?? DEFAULT_RESERVE_TOKENS;
@@ -308,7 +322,7 @@
  	const summaryOptions: SummaryOptions = {
  		promptOverride: options?.promptOverride,
  		extraContext: options?.extraContext,
-@@ -1925,9 +1967,9 @@
+@@ -1925,9 +1973,9 @@
  	} else if (isSplitTurn && turnPrefixMessages.length > 0) {
  		// Generate both summaries in parallel
  		const [historyResult, turnPrefixResult] = await Promise.all([
@@ -320,7 +334,7 @@
  						model,
  						reserveTokens,
  						apiKey,
-@@ -1941,10 +1983,10 @@
+@@ -1941,10 +1989,10 @@
  		]);
  		// Merge into single summary
  		summary = `${historyResult}\n\n---\n\n**Turn Context (split turn):**\n\n${turnPrefixResult}`;
@@ -333,7 +347,7 @@
  			model,
  			reserveTokens,
  			apiKey,
-@@ -2009,24 +2051,41 @@
+@@ -2009,24 +2057,41 @@
  	const maxTokens = Math.min(Math.floor(0.5 * reserveTokens), MAX_SUMMARY_TOKENS); // Smaller budget for turn prefix
  
  	const llmMessages = (options?.convertToLlm ?? defaultConvertToLlm)(messages);
