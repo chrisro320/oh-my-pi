@@ -345,3 +345,148 @@ const requestLevel = isRecord(target.request) ? target.request : undefined;
 const messages = requestLevel?.contents ?? target.contents ?? target.messages;
 if (!Array.isArray(messages)) return undefined;
 ```
+
+## Scenario: Cache-preserving soft compaction side requests
+
+### 1. Scope / Trigger
+
+Apply this contract whenever local soft compaction sends a summary request that
+is expected to read the active session's provider prompt cache. The summary is a
+side request, but its reusable prefix must be produced by the same owning Agent
+and session/provider transformation path as the live turn. A merely similar
+system/tools/messages shape is not cache identity.
+
+### 2. Signatures
+
+```ts
+interface SummaryOptions {
+  buildCachePreservingContext?: (
+    messages: AgentMessage[],
+    candidate: Model,
+    signal?: AbortSignal,
+  ) => Promise<Context | undefined>;
+}
+
+function sharesActivePromptCacheIdentity(
+  candidate: Model | undefined,
+  activeModel: Model | undefined,
+): boolean;
+```
+
+`undefined` means identity could not be proven. It selects the ordinary flat
+summary fallback; it must not borrow the active Agent's provider context for a
+different candidate.
+
+### 3. Contracts
+
+- Call `buildCachePreservingContext` once, before token/window planning. Use the
+  returned provider-ready `Context.messages` for serialization, token planning,
+  and structured windows; append only the summary user tail to each window.
+- Primary session order is `AgentSession.convertMessagesToLlm(messages, signal)`
+  followed by the active `Agent.buildSideRequestContext(llmMessages)`. Do not
+  reconstruct system prompts, normalized tools, date/cwd reminders, extension
+  context, or provider transforms in compaction code.
+- Advisor compaction uses the advisor's own converter, Agent, model, tools, and
+  provider transform. Primary session hooks/state must not shape advisor input.
+- Identity requires the exact active runtime model object plus equal `provider`,
+  `api`, `id`, and effective wire id `(requestModelId ?? id)`. Recheck before and
+  after asynchronous conversion because Agent context construction reads live
+  state. Exact object identity is the conservative proof for runtime overlays
+  and `compat` state that catalog field equality does not capture.
+- Remote compaction, standalone callers, unproven/different candidates, and an
+  oversized individual message that cannot retain structured window messages
+  keep the flat `<conversation>` fallback.
+- Structured summary requests set `toolChoice: "none"`; a provider-specific 400
+  requiring `auto` may use the existing retry. Both attempts preserve the same
+  Context and normal cache policy.
+- Never set summary `cacheRetention` to `"none"` to hide a miss. Cache retention
+  continues through the normal settings resolver so existing 1h/5m breakpoints
+  remain readable and writable.
+- `summarize.request` must expose `structured`, `messages`, `systemParts`,
+  `tools`, `windowMessages`, and `hasCachePreservingContext`.
+  `summarize.wire` is the provider-converted payload fingerprint;
+  `summarize.usage` is the only final provider hit evidence.
+- Real acceptance uses
+  `cacheRead / (cacheRead + cacheWrite + input) * 100` and requires a strict
+  result above 90%. A nonzero `cacheRead` alone is only a partial hit.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| Candidate is the active runtime model object and all wire identity fields match | Build and use the owning Agent's provider-ready Context |
+| Candidate is a catalog clone, has a different API/id/wire id, or is not the active object | Return `undefined`; use flat fallback without active Agent context |
+| Active model changes while async message conversion runs | Post-conversion identity check returns `undefined`; do not call/use stale Agent context |
+| Advisor candidate matches its advisor Agent | Use advisor-owned conversion and provider context only |
+| Advisor candidate differs or only matches the primary Agent | Return `undefined`; never apply primary transforms/tools |
+| Callback is absent or returns `undefined` | Keep the pre-existing flat summary behavior |
+| Provider-ready history needs multiple windows | Keep every window structured; only the first is expected to read the old live-history prefix |
+| One message exceeds the structured window budget | Flatten only that safe fallback path; do not claim a cache-preserving request |
+| Summary usage has `cacheRead > 0` but hit rate is `<= 90%` | Fail real acceptance and inspect `summarize.wire`; do not disable cache writes |
+| Summary usage hit rate is `> 90%` | Pass the provider acceptance gate |
+
+### 5. Good / Base / Bad Cases
+
+- **Good:** a warmed Opus 5 session emits a structured summary with the same wire
+  depth/breakpoints as a prior live prefix and reports `input=2`,
+  `cacheRead=66104`, `cacheWrite=2010`: `97.046215%`, which passes.
+- **Base:** a fallback compaction model is not the active model object; compaction
+  uses the flat request and makes no prompt-cache identity claim.
+- **Bad:** copy `agent.state.systemPrompt`, `agent.state.tools`, and independently
+  converted messages into a summary request. The shape can look correct while
+  message zero or provider-normalized bytes differ, producing a full miss.
+- **Bad:** report success because `cacheRead` is nonzero. A large cache write or
+  uncached input can still leave most of the prompt outside the readable prefix.
+
+### 6. Tests Required
+
+```sh
+bun patches/verify-prefix-cache-compaction.ts
+# Assert exact-object allow, clone/wire mismatch deny, provider-ready
+# system/tools/messages propagation, flat fallback, normal retention, and
+# multi-window structured behavior without a provider request.
+
+~/.omp/patches/apply.sh --check
+# Both 0013 patches and the source entrypoint must report APPLIED.
+
+grep -R -n -E 'summaryCacheRetention = "none"|cacheRetention: summaryCacheRetention' \
+  ~/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/compaction \
+  patches/0013-omp-prefix-cache-preserving-compaction-*.patch
+# No output.
+```
+
+A live behavior change requires one real warmed summary request. Read the
+matching `summarize.request`, `summarize.wire`, and `summarize.usage` records;
+calculate the formula above and require `> 90%`. Mock `completeImpl` usage and a
+zero-network replay prove routing/content differences only, never provider hits.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const requestContext = {
+  systemPrompt: agent.state.systemPrompt,
+  tools: agent.state.tools,
+  messages: convertToLlm(messages),
+};
+```
+
+This bypasses session context hooks and provider normalization/transform state.
+It also becomes invalid when the compaction candidate differs from the Agent.
+
+#### Correct
+
+```ts
+if (!sharesActivePromptCacheIdentity(candidate, agent.state.model)) {
+  return undefined;
+}
+const llmMessages = await session.convertMessagesToLlm(messages, signal);
+if (!sharesActivePromptCacheIdentity(candidate, agent.state.model)) {
+  return undefined;
+}
+return agent.buildSideRequestContext(llmMessages);
+```
+
+The owning session and Agent remain the only provider-ready Context authority;
+an unproven identity degrades safely instead of borrowing the wrong prefix.

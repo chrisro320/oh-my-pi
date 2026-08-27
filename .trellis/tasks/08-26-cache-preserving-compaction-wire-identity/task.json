@@ -1,0 +1,30 @@
+{
+  "id": "cache-preserving-compaction-wire-identity",
+  "name": "cache-preserving-compaction-wire-identity",
+  "title": "修复摘要缓存前缀与 live wire 身份对齐",
+  "description": "让 soft compaction 仅在 candidate 与 active wire model/context identity 一致时复用 live provider-ready 前缀；保留缓存，不接受 none 降级；由用户在真实 TUI 执行压缩，并以 cacheRead / (cacheRead + cacheWrite + input) 严格大于 90% 验收。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-08-26",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "validation": "real-tui",
+    "cache_policy": "preserve",
+    "acceptance_cache_hit_rate": "greater_than_90_percent"
+  }
+}

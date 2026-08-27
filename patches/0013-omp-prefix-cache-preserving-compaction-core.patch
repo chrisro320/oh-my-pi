@@ -1,31 +1,171 @@
 --- a/src/compaction/compaction.ts
 +++ b/src/compaction/compaction.ts
-@@ -664,6 +664,8 @@
- 	initiatorOverride?: MessageAttribution;
+@@ -29,6 +29,9 @@
+ import { convertTools } from "@oh-my-pi/pi-ai/providers/openai-responses";
+ import { buildResponsesInput, resolveOpenAICompatPolicy } from "@oh-my-pi/pi-ai/providers/openai-shared";
+ import { stripOpenAIResponsesOutputOnlyStatusesForReplay } from "@oh-my-pi/pi-ai/utils";
++import { appendFileSync, writeFileSync } from "node:fs";
++import { homedir } from "node:os";
++import { join } from "node:path";
+ import { preferredDialect } from "@oh-my-pi/pi-catalog/identity";
+ import { clampThinkingLevelForModel } from "@oh-my-pi/pi-catalog/model-thinking";
+ import { isRecord, logger, prompt } from "@oh-my-pi/pi-utils";
+@@ -665,6 +668,15 @@
  	metadata?: Record<string, unknown>;
  	convertToLlm?: ConvertToLlm;
-+	/** Live agent system prompt — when provided, local summarization can preserve the cached prefix. */
-+	systemPrompt?: string[];
  	/**
++	 * Builds the active session's provider-ready prefix for this exact candidate.
++	 * Return `undefined` when candidate/context identity cannot be proven.
++	 */
++	buildCachePreservingContext?: (
++		messages: AgentMessage[],
++		candidate: Model,
++		signal?: AbortSignal,
++	) => Promise<Context | undefined>;
++	/**
  	 * Optional telemetry handle. When provided, every LLM call emitted during
  	 * compaction is wrapped in an OTEL chat span tagged with
-@@ -892,6 +894,7 @@
+ 	 * `pi.gen_ai.oneshot.kind` (`compaction_summary`, `compaction_short_summary`,
+@@ -856,9 +868,15 @@
+ ): Promise<string> {
+ 	const maxTokens = Math.min(Math.floor(0.8 * reserveTokens), MAX_SUMMARY_TOKENS);
+ 
+-	// Serialize conversation to text so model doesn't try to continue it
+-	// Convert to LLM messages first (handles custom app messages when caller provides a transformer).
+-	const llmMessages = (options?.convertToLlm ?? defaultConvertToLlm)(currentMessages);
++	// Cache-preserving local summaries must plan their windows from the same
++	// provider-ready messages as the live turn. The host owns that async,
++	// candidate-aware conversion; standalone and remote callers keep the plain
++	// converter path.
++	const cachePreservingContext = !options?.remoteEndpoint
++		? await options?.buildCachePreservingContext?.(currentMessages, model, signal)
++		: undefined;
++	const llmMessages =
++		cachePreservingContext?.messages ?? (options?.convertToLlm ?? defaultConvertToLlm)(currentMessages);
+ 	const dialect = preferredDialect(model.id);
+ 	const tokenizer = new Tokenizer(model);
+ 	const wholeConversation = serializeConversationForSummary(llmMessages, dialect);
+@@ -866,10 +884,8 @@
+ 	// A span that outgrew the summarizer's window is summarized as a fold: each
+ 	// window updates the summary carried out of the previous one, which is the
+ 	// same contract the update prompt already implements for iterative
+-	// compaction. The alternative is a hard provider rejection on a prompt no
+-	// retry can shrink — the state a cross-provider compaction boundary
+-	// (see `prepareCompaction`) puts a long session into. One window is the
+-	// common case and costs exactly the one call it always did.
++	// compaction. Provider-ready messages remain structured in every window;
++	// only the first window is expected to share the live historical prefix.
+ 	const pending: SummaryWindow[] = tokenizer.checkTokenBudget(wholeConversation, budgetTokens).fits
+ 		? [{ messages: llmMessages, budgetTokens, text: wholeConversation }]
+ 		: planSummaryWindows(llmMessages, tokenizer, dialect, budgetTokens).map(messages => ({ messages, budgetTokens }));
+@@ -892,6 +908,8 @@
  				signal,
  				customInstructions,
  				options,
 +				budget.fits ? window.messages : undefined,
++				cachePreservingContext,
  			);
  		} catch (error) {
  			// The catalog window can overstate what the provider actually accepts:
-@@ -937,6 +940,7 @@
+@@ -927,6 +945,88 @@
+ 	return carriedSummary ?? "";
+ }
+ 
++/**
++ * Records what the summarizer actually sent and what it cost, gated on
++ * `OMP_COMPACTION_TRACE` naming a file.
++ *
++ * This has to live inside compaction, not in an extension. Summarization runs
++ * through `completeSimple`, so the `before_provider_request` hook never fires
++ * for it, and wrapping `globalThis.fetch` does not help either: for
++ * `anthropic` + `anthropic-messages`, `defaultFetchForModel` returns the
++ * imported `coworkFetch`, which sends over `node:https` and bypasses the
++ * global entirely (see pi-ai `stream.ts` and `providers/cowork-fetch.ts`).
++ * Every out-of-band vantage point therefore reports nothing for exactly the
++ * model whose compaction cost matters most.
++ *
++ * Message count is the load-bearing field: the flattened `<conversation>`
++ * fallback always sends exactly ONE message, so it distinguishes the cheap
++ * path from the expensive one without relying on any provider's accounting.
++ */
++function traceCompaction(record: Record<string, unknown>): void {
++	if (process.env.OMP_COMPACTION_TRACE_OFF) return;
++	// On by default: a compaction happens a handful of times per session and
++	// writes two lines, while the question it answers — did the summarizer take
++	// the cache-preserving path — is otherwise unobservable after the fact. An
++	// opt-in flag only guarantees the trace is missing on the run that mattered.
++	const target = process.env.OMP_COMPACTION_TRACE ?? join(homedir(), ".omp", "agent", "compaction-trace.log");
++	try {
++		appendFileSync(target, `${JSON.stringify({ at: new Date().toISOString(), pid: process.pid, ...record })}\n`);
++	} catch {
++		// Diagnostics must never take down a compaction.
++	}
++}
++
++/**
++ * Dump the summary request's real wire payload.
++ *
++ * `completeSimple` bypasses `before_provider_request`, so extensions that
++ * archive outbound payloads never see this request — the one request whose
++ * prefix mismatch (measured `cacheRead: 0`) is still unexplained. `onPayload`
++ * is the only hook that observes it after provider conversion, which is the
++ * layer a comparison against an archived live payload is valid at.
++ *
++ * Latest-only, overwritten each time: one file is enough to diff against the
++ * live turn, and these payloads are megabytes.
++ */
++function traceSummaryWirePayload(payload: unknown, modelId: string): void {
++	if (process.env.OMP_COMPACTION_TRACE_OFF) return;
++	try {
++		const target =
++			process.env.OMP_COMPACTION_PAYLOAD ?? join(homedir(), ".omp", "agent", "compaction-payload-latest.json");
++		writeFileSync(target, JSON.stringify(payload));
++		// Fingerprint the prefix in the trace too, so the shape survives even
++		// after the next compaction overwrites the payload file.
++		const bag = payload as { system?: unknown; messages?: unknown; tools?: unknown };
++		const system = Array.isArray(bag.system) ? bag.system : undefined;
++		const messages = Array.isArray(bag.messages) ? bag.messages : undefined;
++		const tools = Array.isArray(bag.tools) ? bag.tools : undefined;
++		traceCompaction({
++			k: "summarize.wire",
++			model: modelId,
++			file: target,
++			systemParts: system?.length,
++			// Lengths, not text: enough to tell "same prefix" from "different
++			// prefix" without copying the transcript into a log.
++			systemLengths: system?.map(part => {
++				const text = (part as { text?: unknown })?.text;
++				return typeof text === "string" ? text.length : null;
++			}),
++			messages: messages?.length,
++			toolNames: tools?.map(tool => (tool as { name?: unknown })?.name),
++			breakpoints: messages?.flatMap((message, index) => {
++				const content = (message as { content?: unknown }).content;
++				if (!Array.isArray(content)) return [];
++				return content.flatMap(block => {
++					const cc = (block as { cache_control?: { ttl?: string } }).cache_control;
++					return cc ? [`${index}:${cc.ttl ?? "5m"}`] : [];
++				});
++			}),
++		});
++	} catch {
++		// Diagnostics must never take down a compaction.
++	}
++}
++
+ /** One summarization call over a single conversation window. */
+ async function summarizeConversationWindow(
+ 	conversationText: string,
+@@ -937,6 +1037,8 @@
  	signal: AbortSignal | undefined,
  	customInstructions: string | undefined,
  	options: SummaryOptions | undefined,
 +	windowMessages?: Message[],
++	cachePreservingContext?: Context,
  ): Promise<string> {
  	// Use update prompt if we have a previous summary, otherwise initial prompt
  	let basePrompt = previousSummary ? UPDATE_SUMMARIZATION_PROMPT : SUMMARIZATION_PROMPT;
-@@ -947,21 +951,51 @@
+@@ -947,21 +1049,62 @@
  		basePrompt = `${basePrompt}\n\nAdditional focus: ${customInstructions}`;
  	}
  
@@ -45,21 +185,32 @@
 -			timestamp: Date.now(),
 -		},
 -	];
-+	// If we have structured messages and a live system prompt, preserve the full multi-turn context
-+	// so provider prefix caching (KV cache) hits at 100% instead of cold-missing the entire transcript.
++	// Structured mode appends only the summarization tail to a provider-ready
++	// live prefix. The earlier 0013 shape-only attempt copied raw system/tools
++	// and converted messages independently; a real Opus run still measured
++	// cacheRead=0/cacheWrite=225650. A zero-network replay later proved one
++	// concrete divergence at message 0 (the live date/cwd reminder was absent),
++	// while source tracing showed the summary path also bypassed the session
++	// context and provider transforms. The host callback above is therefore the
++	// sole cache-preserving authority; do not reconstruct this Context locally.
++	//
++	// Live audit history also proved readable 1h breakpoints existed at this
++	// depth, so disabling cache writes is not a fix. Retention is intentionally
++	// left to the normal request/settings resolver. Real success is measured from
++	// summarize.usage as cacheRead/(cacheRead+cacheWrite+input) > 90%.
++
 +	const canPreserveCachePrefix =
 +		!options?.remoteEndpoint &&
++		cachePreservingContext !== undefined &&
 +		Array.isArray(windowMessages) &&
-+		windowMessages.length > 0 &&
-+		Array.isArray(options?.systemPrompt);
++		windowMessages.length > 0;
 +
 +	let requestContext: Context;
 +	let toolChoice: "none" | "auto" | undefined;
 +
 +	if (canPreserveCachePrefix) {
 +		requestContext = {
-+			systemPrompt: options.systemPrompt,
-+			tools: options.tools,
++			...cachePreservingContext,
 +			messages: [
 +				...windowMessages,
 +				{
@@ -71,7 +222,7 @@
 +		};
 +		toolChoice = "none";
 +	} else {
-+		let flatPrompt = `<conversation>\n${conversationText}\n</conversation>\n\n` + promptText;
++		const flatPrompt = `<conversation>\n${conversationText}\n</conversation>\n\n` + promptText;
 +		requestContext = {
 +			systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT],
 +			messages: [
@@ -86,7 +237,7 @@
  
  	if (options?.remoteEndpoint) {
  		const endpoint = options.remoteEndpoint;
-@@ -970,7 +1004,7 @@
+@@ -970,7 +1113,7 @@
  			key =>
  				requestRemoteCompaction(
  					endpoint,
@@ -95,11 +246,23 @@
  					signal,
  					{ fetch: options.fetch, model, apiKey: key },
  				),
-@@ -979,14 +1013,15 @@
+@@ -979,14 +1122,27 @@
  		return remote.summary;
  	}
  
 -	const response = await instrumentedCompleteSimple(
++	traceCompaction({
++		k: "summarize.request",
++		model: model.id,
++		structured: canPreserveCachePrefix,
++		messages: requestContext.messages.length,
++		systemParts: Array.isArray(requestContext.systemPrompt) ? requestContext.systemPrompt.length : 0,
++		tools: requestContext.tools?.length ?? 0,
++		toolChoice,
++		windowMessages: windowMessages?.length ?? 0,
++		hasCachePreservingContext: cachePreservingContext !== undefined,
++	});
++
 +	let response = await instrumentedCompleteSimple(
  		model,
 -		{ systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT], messages: summarizationMessages },
@@ -113,7 +276,18 @@
  			initiatorOverride: options?.initiatorOverride,
  			metadata: options?.metadata,
  			fetch: options?.fetch,
-@@ -1003,6 +1038,33 @@
+@@ -994,6 +1150,10 @@
+ 			promptCacheKey: options?.promptCacheKey,
+ 			providerSessionState: options?.providerSessionState,
+ 			codexCompaction: localCodexCompaction(options),
++			onPayload: payload => {
++				traceSummaryWirePayload(payload, model.id);
++				return undefined;
++			},
+ 		},
+ 		{
+ 			telemetry: options?.telemetry,
+@@ -1003,6 +1163,41 @@
  		},
  	);
  
@@ -144,10 +318,18 @@
 +		);
 +	}
 +
++	traceCompaction({
++		k: "summarize.usage",
++		model: model.id,
++		structured: canPreserveCachePrefix,
++		stopReason: response.stopReason,
++		usage: response.usage,
++	});
++
  	if (response.stopReason === "error") {
  		throw createSummarizationError("Summarization failed", response);
  	}
-@@ -1164,16 +1226,14 @@
+@@ -1164,16 +1359,14 @@
  	options?: SummaryOptions,
  ): Promise<string> {
  	const maxTokens = Math.min(512, Math.floor(0.2 * reserveTokens));
@@ -170,3 +352,11 @@
  	if (options?.remoteEndpoint) {
  		const endpoint = options.remoteEndpoint;
  		const remote = await withAuth(
+@@ -1535,6 +1728,7 @@
+ 		initiatorOverride: options?.initiatorOverride,
+ 		metadata: options?.metadata,
+ 		convertToLlm: options?.convertToLlm,
++		buildCachePreservingContext: options?.buildCachePreservingContext,
+ 		telemetry: options?.telemetry,
+ 		// Honor /model thinking selection on every fan-out summarizer.
+ 		// Without this propagation, generateSummary / generateTurnPrefixSummary
