@@ -425,42 +425,6 @@
  		};
  	}
  
-@@ -2331,7 +2347,7 @@
- 			return Math.min(
- 				snapcompact.MAX_FRAMES_DEFAULT,
- 				snapcompact.maxFramesForDataBudget(),
--				snapcompact.providerFrameBudget(this.#model?.provider),
-+				snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
- 			);
- 		}
- 		const reserve = effectiveReserveTokens(ctxWindow, settings);
-@@ -2374,7 +2390,7 @@
- 			Math.floor(frameBudget / snapcompact.FRAME_TOKEN_ESTIMATE),
- 			snapcompact.MAX_FRAMES_DEFAULT,
- 			snapcompact.maxFramesForDataBudget(),
--			snapcompact.providerFrameBudget(this.#model?.provider),
-+			snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
- 		);
- 	}
- 
-@@ -2655,7 +2671,7 @@
- 			return Math.min(
- 				snapcompact.MAX_FRAMES_DEFAULT,
- 				snapcompact.maxFramesForDataBudget(),
--				snapcompact.providerFrameBudget(this.#model?.provider),
-+				snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
- 			);
- 		}
- 		const thresholdTokens = resolveThresholdTokens(ctxWindow, settings);
-@@ -2675,7 +2691,7 @@
- 			Math.floor(frameBudget / snapcompact.FRAME_TOKEN_ESTIMATE),
- 			snapcompact.MAX_FRAMES_DEFAULT,
- 			snapcompact.maxFramesForDataBudget(),
--			snapcompact.providerFrameBudget(this.#model?.provider),
-+			snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
- 		);
- 	}
- 
 --- a/pi-coding-agent/src/session/session-advisors.ts	2026-08-27 04:46:30.610358588 -0400
 +++ b/pi-coding-agent/src/session/session-advisors.ts	2026-08-27 04:47:18.508307219 -0400
 @@ -1452,13 +1452,29 @@
