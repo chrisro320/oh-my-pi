@@ -30,22 +30,31 @@ Questions to answer:
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+### Compaction callback imports
 
-(To be filled by the team)
+- Any use of `buildSessionContext` in `session-maintenance.ts` or `session-advisors.ts` MUST have a value import from `"./session-context"`; `import type` alone is insufficient because the function is called at runtime.
+- When a patch changes a callback signature or adds a runtime symbol, the regression contract MUST inspect every affected caller and import, then execute the callback path with zero provider calls where practical.
 
+```ts
+import { buildSessionContext } from "./session-context";
+```
 ---
 
 ## Testing Requirements
 
-<!-- What level of testing is expected -->
+- Bun-based scripts MUST NOT be treated as a type-check: `bun` can run code with missing runtime imports until the affected branch executes.
+- A regression MUST assert both the runtime import and all changed callsite arities; the production package's `check:types` SHOULD also be run when its compiler dependency is available.
+- If the compiler is unavailable in a published/global package, record the exact missing executable and retain the behavioral/static regression instead of claiming type-check coverage.
 
-(To be filled by the team)
+```ts
+assert.match(source, /import\s*\{[^}]*\bbuildSessionContext\b[^}]*\}\s*from "\.\/session-context";/);
+```
 
 ---
 
 ## Code Review Checklist
 
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- [ ] Every newly called runtime symbol has a non-type import.
+- [ ] Every changed callback signature has all production callsites migrated.
+- [ ] The regression fails for the missing-import/stale-callsite shape and passes after the fix.
+- [ ] Validation reports distinguish behavioral coverage from compiler coverage.

@@ -402,6 +402,13 @@ const advisorSource = readFileSync(
 	"/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-advisors.ts",
 	"utf8",
 );
+
+// Both callbacks rebuild a captured SessionEntry branch. Bun transpiles an
+// unbound identifier without type-checking, so missing imports survive startup
+// and fail only when compaction reaches the cache-preserving callback.
+const sessionContextImport = /import\s*\{[^}]*\bbuildSessionContext\b[^}]*\}\s*from "\.\/session-context";/;
+assert.match(maintenanceSource, sessionContextImport, "primary compaction must import buildSessionContext");
+assert.match(advisorSource, sessionContextImport, "advisor compaction must import buildSessionContext");
 assert.equal(
 	maintenanceSource.split("this.#buildCachePreservingContext(candidate, preparation)").length - 1,
 	2,

@@ -49,6 +49,7 @@ PATCHES=(
 	"0013-omp-prefix-cache-preserving-compaction-core.patch:${CORE}"
 	"0013-omp-prefix-cache-preserving-compaction-agent.patch:${AGENT}"
 	"0018-omp-iterative-compaction-prefix-target.patch:${NM}"
+	"0019-omp-model-switch-read-description-refresh.patch:${AGENT}"
 	"0014-omp-antigravity-deterministic-session-identity.patch:${AI}"
 	"0015-omp-provider-image-budget-snapcompact.patch:${SNAP}"
 	"0015-omp-provider-image-budget-agent.patch:${AGENT}"
@@ -146,6 +147,7 @@ if [[ "$MODE" == "apply" ]]; then
 	echo "=== Running Patches Regression Test Suite ==="
 	bun "${HERE}/verify-antigravity-envelope.ts"
 	bun "${HERE}/verify-prefix-cache-compaction.ts"
+	bun "${HERE}/verify-model-switch-tool-description.ts"
 fi
 if [[ "$MODE" != "check" ]]; then
 	printf 'smoke: '

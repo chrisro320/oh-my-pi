@@ -572,3 +572,24 @@
  						telemetry,
  						tools: agent.state.tools,
  						sessionId: advisorProviderSessionId,
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -85,7 +85,7 @@
+ 	resolveRoleModelFull,
+ } from "./role-models";
+ import type { SessionContext } from "./session-context";
+-import { getLatestCompactionEntry, getOpenAiRemoteCompactionPayload } from "./session-context";
++import { buildSessionContext, getLatestCompactionEntry, getOpenAiRemoteCompactionPayload } from "./session-context";
+ import type { CompactionEntry, SessionEntry } from "./session-entries";
+ import type { SessionManager } from "./session-manager";
+ import { sharesActivePromptCacheIdentity } from "./session-provider-boundary";
+--- a/pi-coding-agent/src/session/session-advisors.ts
++++ b/pi-coding-agent/src/session/session-advisors.ts
+@@ -95,6 +95,7 @@
+ 	type RetryFallbackSelector,
+ } from "./retry-fallback-chains";
+ import { formatSessionDumpText } from "./session-dump-format";
++import { buildSessionContext } from "./session-context";
+ import type { CompactionEntry, SessionEntry } from "./session-entries";
+ import { formatSessionHistoryMarkdown } from "./session-history-format";
+ import type { SessionManager } from "./session-manager";
