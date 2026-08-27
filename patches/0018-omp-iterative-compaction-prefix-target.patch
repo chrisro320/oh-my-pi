@@ -1,0 +1,477 @@
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -66,1 +66,2 @@
+ import compactionTurnPrefixPrompt from "./prompts/compaction-turn-prefix.md" with { type: "text" };
++import compactionTurnPrefixFromPrefixPrompt from "./prompts/compaction-turn-prefix-from-prefix.md" with { type: "text" };
+@@ -67,1 +68,2 @@
+ import compactionUpdateSummaryPrompt from "./prompts/compaction-update-summary.md" with { type: "text" };
++import compactionUpdateSummaryFromPrefixPrompt from "./prompts/compaction-update-summary-from-prefix.md" with { type: "text" };
+@@ -575,3 +575,4 @@
+ const UPDATE_SUMMARIZATION_PROMPT = prompt.render(compactionUpdateSummaryPrompt);
++const UPDATE_SUMMARIZATION_FROM_PREFIX_PROMPT = prompt.render(compactionUpdateSummaryFromPrefixPrompt);
+ 
+ const SHORT_SUMMARY_PROMPT = prompt.render(compactionShortSummaryPrompt);
+@@ -680,14 +680,15 @@
+ 	convertToLlm?: ConvertToLlm;
+ 
+ 	/**
+-	 * Builds the active session's provider-ready prefix for this exact candidate.
+-	 * Return `undefined` when candidate/context identity cannot be proven.
++	 * Builds the active session's provider-ready prefix for this exact candidate
++	 * and logical summary scope. Return `undefined` when candidate, session, or
++	 * entry-boundary identity cannot be proven.
+ 	 */
+ 	buildCachePreservingContext?: (
+-		messages: AgentMessage[],
++		scope: CachePreservingSummaryScope,
+ 		candidate: Model,
+ 		signal?: AbortSignal,
+-	) => Promise<Context | undefined>;
++	) => Promise<CachePreservingSummaryContext | undefined>;
+ 	/**
+ 	 * Optional telemetry handle. When provided, every LLM call emitted during
+ 	 * compaction is wrapped in an OTEL chat span tagged with
+@@ -880,29 +881,31 @@
+ ): Promise<string> {
+ 	const maxTokens = Math.min(Math.floor(0.8 * reserveTokens), MAX_SUMMARY_TOKENS);
+ 
+-	// Cache-preserving local summaries must plan their windows from the same
+-	// provider-ready messages as the live turn. The host owns that async,
+-	// candidate-aware conversion; standalone and remote callers keep the plain
+-	// converter path.
+-	const cachePreservingContext = !options?.remoteEndpoint
+-		? await options?.buildCachePreservingContext?.(currentMessages, model, signal)
++	// Target messages own summary semantics and window planning. The optional
++	// provider-ready Context is a distinct live wire prefix reconstructed by the
++	// owning session at a stable entry boundary.
++	const targetMessages = (options?.convertToLlm ?? defaultConvertToLlm)(currentMessages);
++	const cachePreservingSummary = !options?.remoteEndpoint
++		? await options?.buildCachePreservingContext?.("history", model, signal)
+ 		: undefined;
+-	const llmMessages =
+-		cachePreservingContext?.messages ?? (options?.convertToLlm ?? defaultConvertToLlm)(currentMessages);
+ 	const dialect = preferredDialect(model.id);
+ 	const tokenizer = new Tokenizer(model);
+-	const wholeConversation = serializeConversationForSummary(llmMessages, dialect);
++	const wholeConversation = serializeConversationForSummary(targetMessages, dialect);
+ 	const budgetTokens = summaryInputBudgetTokens(model, maxTokens);
+-	// A span that outgrew the summarizer's window is summarized as a fold: each
+-	// window updates the summary carried out of the previous one, which is the
+-	// same contract the update prompt already implements for iterative
+-	// compaction. The alternative is a hard provider rejection on a prompt no
+-	// retry can shrink — the state a cross-provider compaction boundary
+-	// (see `prepareCompaction`) puts a long session into. One window is the
+-	// common case and costs exactly the one call it always did.
+ 	const pending: SummaryWindow[] = tokenizer.checkTokenBudget(wholeConversation, budgetTokens).fits
+-		? [{ messages: llmMessages, budgetTokens, text: wholeConversation }]
+-		: planSummaryWindows(llmMessages, tokenizer, dialect, budgetTokens).map(messages => ({ messages, budgetTokens }));
++		? [{ messages: targetMessages, budgetTokens, text: wholeConversation }]
++		: planSummaryWindows(targetMessages, tokenizer, dialect, budgetTokens).map(messages => ({
++				messages,
++				budgetTokens,
++			}));
++	const livePrefixFits =
++		cachePreservingSummary !== undefined &&
++		pending.length === 1 &&
++		tokenizer.checkTokenBudget(
++			serializeConversationForSummary(cachePreservingSummary.context.messages, dialect),
++			budgetTokens,
++		).fits;
++	let useCachePreservingPrefix = livePrefixFits;
+ 
+ 	let carriedSummary = previousSummary;
+ 	while (pending.length > 0) {
+@@ -922,6 +925,9 @@
+ 				signal,
+ 				customInstructions,
+ 				options,
++				budget.fits ? window.messages : undefined,
++				cachePreservingSummary,
++				useCachePreservingPrefix,
+ 			);
+ 		} catch (error) {
+ 			// The catalog window can overstate what the provider actually accepts:
+@@ -1051,10 +1057,18 @@
+ 	customInstructions: string | undefined,
+ 	options: SummaryOptions | undefined,
+ 	windowMessages?: Message[],
+-	cachePreservingContext?: Context,
++	cachePreservingSummary?: CachePreservingSummaryContext,
++	useCachePreservingPrefix = false,
+ ): Promise<string> {
+-	// Use update prompt if we have a previous summary, otherwise initial prompt
+-	let basePrompt = previousSummary ? UPDATE_SUMMARIZATION_PROMPT : SUMMARIZATION_PROMPT;
++	const priorSummaryComesFromPrefix =
++		useCachePreservingPrefix &&
++		cachePreservingSummary?.previousSummaryInPrefix === true &&
++		options?.promptOverride === undefined;
++	let basePrompt = previousSummary
++		? priorSummaryComesFromPrefix
++			? UPDATE_SUMMARIZATION_FROM_PREFIX_PROMPT
++			: UPDATE_SUMMARIZATION_PROMPT
++		: SUMMARIZATION_PROMPT;
+ 	if (options?.promptOverride) {
+ 		basePrompt = options.promptOverride;
+ 	}
+@@ -1063,40 +1077,30 @@
+ 	}
+ 
+ 	let promptText = "";
+-	if (previousSummary) {
++	if (previousSummary && !priorSummaryComesFromPrefix) {
+ 		promptText += `<previous-summary>\n${escapeSummaryBoundaryTags(previousSummary)}\n</previous-summary>\n\n`;
+ 	}
+ 	promptText += formatAdditionalContext(options?.extraContext);
+ 	promptText += basePrompt;
+ 
+-	// Structured mode appends only the summarization tail to a provider-ready
+-	// live prefix. The earlier 0013 shape-only attempt copied raw system/tools
+-	// and converted messages independently; a real Opus run still measured
+-	// cacheRead=0/cacheWrite=225650. A zero-network replay later proved one
+-	// concrete divergence at message 0 (the live date/cwd reminder was absent),
+-	// while source tracing showed the summary path also bypassed the session
+-	// context and provider transforms. The host callback above is therefore the
+-	// sole cache-preserving authority; do not reconstruct this Context locally.
+-	//
+-	// Live audit history also proved readable 1h breakpoints existed at this
+-	// depth, so disabling cache writes is not a fix. Retention is intentionally
+-	// left to the normal request/settings resolver. Real success is measured from
+-	// summarize.usage as cacheRead/(cacheRead+cacheWrite+input) > 90%.
+-
+-	const canPreserveCachePrefix =
++	// Target messages determine what is summarized. A verified live prefix is a
++	// separate wire concern: use it only when the full prefix fits this request.
++	// Multi-window folds keep provider-ready system/tools but use their target
++	// window and make no live-prefix cache claim.
++	const canUseStructuredContext =
+ 		!options?.remoteEndpoint &&
+-		cachePreservingContext !== undefined &&
++		cachePreservingSummary !== undefined &&
+ 		Array.isArray(windowMessages) &&
+ 		windowMessages.length > 0;
+ 
+ 	let requestContext: Context;
+ 	let toolChoice: "none" | "auto" | undefined;
+ 
+-	if (canPreserveCachePrefix) {
++	if (canUseStructuredContext) {
+ 		requestContext = {
+-			...cachePreservingContext,
++			...cachePreservingSummary.context,
+ 			messages: [
+-				...windowMessages,
++				...(useCachePreservingPrefix ? cachePreservingSummary.context.messages : windowMessages),
+ 				{
+ 					role: "user" as const,
+ 					content: [{ type: "text" as const, text: promptText }],
+@@ -1444,8 +1448,14 @@
+ 	firstKeptEntryId: string;
+ 	/** Messages that will be summarized and discarded */
+ 	messagesToSummarize: AgentMessage[];
++	/** Messages retained by the previous local compaction but discarded now. */
++	previousRetainedMessages: AgentMessage[];
++	/** Stable session-entry leaf for the history summary's live provider prefix. */
++	historyPrefixEntryId?: string;
+ 	/** Messages that will be turned into turn prefix summary (if splitting) */
+ 	turnPrefixMessages: AgentMessage[];
++	/** Stable session-entry leaf for the discarded prefix of a split turn. */
++	turnPrefixEntryId?: string;
+ 	/** Messages kept in full after compaction (recent history) */
+ 	recentMessages: AgentMessage[];
+ 	/** Whether this is a split turn (cut point in middle of turn) */
+@@ -1587,12 +1597,29 @@
+ 		if (msg) messagesToSummarize.push(msg);
+ 	}
+ 
++	// A later local compaction drops the messages kept verbatim by the previous
++	// compaction. They were never part of that previous summary, so fold them
++	// into this history target before they disappear. Provider-native replacement
++	// history owns its retained range and must not be duplicated here.
+ 	let previousSummary: string | undefined;
+ 	let previousPreserveData: Record<string, unknown> | undefined;
++	const previousRetainedMessages: AgentMessage[] = [];
+ 	if (prevCompactionIndex >= 0) {
+ 		const prevCompaction = pathEntries[prevCompactionIndex] as CompactionEntry;
+ 		previousSummary = prevCompaction.summary;
+ 		previousPreserveData = prevCompaction.preserveData;
++		const hasProviderNativeHistory =
++			getCompactionV2PreserveData(previousPreserveData) !== undefined ||
++			getPreservedOpenAiRemoteCompactionData(previousPreserveData) !== undefined;
++		if (!hasProviderNativeHistory) {
++			const previousRetainedStart = pathEntries.findIndex(entry => entry.id === prevCompaction.firstKeptEntryId);
++			if (previousRetainedStart >= 0 && previousRetainedStart < prevCompactionIndex) {
++				for (let i = previousRetainedStart; i < prevCompactionIndex; i++) {
++					const msg = getMessageFromEntry(pathEntries[i]);
++					if (msg) previousRetainedMessages.push(msg);
++				}
++			}
++		}
+ 	}
+ 
+ 	// Messages for turn prefix summary (if splitting a turn)
+@@ -1610,11 +1637,16 @@
+ 		const msg = getMessageFromEntry(pathEntries[i]);
+ 		if (msg) recentMessages.push(msg);
+ 	}
+-	if (messagesToSummarize.length === 0 && turnPrefixMessages.length === 0) {
++	if (
++		previousRetainedMessages.length === 0 &&
++		messagesToSummarize.length === 0 &&
++		turnPrefixMessages.length === 0
++	) {
+ 		return undefined;
+ 	}
+ 
+-	const fileOps = extractFileOperations(messagesToSummarize, pathEntries, prevCompactionIndex);
++	const historyTargetMessages = [...previousRetainedMessages, ...messagesToSummarize];
++	const fileOps = extractFileOperations(historyTargetMessages, pathEntries, prevCompactionIndex);
+ 
+ 	if (cutPoint.isSplitTurn) {
+ 		for (const msg of turnPrefixMessages) {
+@@ -1625,7 +1657,10 @@
+ 	return {
+ 		firstKeptEntryId,
+ 		messagesToSummarize,
++		previousRetainedMessages,
++		historyPrefixEntryId,
+ 		turnPrefixMessages,
++		turnPrefixEntryId,
+ 		recentMessages,
+ 		isSplitTurn: cutPoint.isSplitTurn,
+ 		tokensBefore,
+@@ -1643,3 +1678,4 @@
+ const TURN_PREFIX_SUMMARIZATION_PROMPT = prompt.render(compactionTurnPrefixPrompt);
++const TURN_PREFIX_SUMMARIZATION_FROM_PREFIX_PROMPT = prompt.render(compactionTurnPrefixFromPrefixPrompt);
+ 
+ function openAiCompatSupportsImageDetailOriginal(model: Model): boolean {
+@@ -1724,6 +1759,7 @@
+ 	const {
+ 		firstKeptEntryId,
+ 		messagesToSummarize,
++		previousRetainedMessages,
+ 		turnPrefixMessages,
+ 		recentMessages,
+ 		isSplitTurn,
+@@ -1735,7 +1771,7 @@
+ 	} = preparation;
+ 
+ 	const reserveTokens = settings.reserveTokens ?? DEFAULT_RESERVE_TOKENS;
+-	const historyTargetMessages = messagesToSummarize;
++	const historyTargetMessages = [...previousRetainedMessages, ...messagesToSummarize];
+ 
+ 	const summaryOptions: SummaryOptions = {
+ 		promptOverride: options?.promptOverride,
+@@ -2015,13 +2051,13 @@
+ 	const llmMessages = (options?.convertToLlm ?? defaultConvertToLlm)(messages);
+ 	const dialect = preferredDialect(model.id);
+ 	const conversationText = serializeConversationForSummary(llmMessages, dialect);
+-	const cachePreservingContext = !options?.remoteEndpoint
+-		? await options?.buildCachePreservingContext?.(messages, model, signal)
++	const cachePreservingSummary = !options?.remoteEndpoint
++		? await options?.buildCachePreservingContext?.("turn-prefix", model, signal)
+ 		: undefined;
+ 	const useCachePreservingPrefix =
+-		cachePreservingContext !== undefined &&
++		cachePreservingSummary !== undefined &&
+ 		new Tokenizer(model).checkTokenBudget(
+-			serializeConversationForSummary(cachePreservingContext.context.messages, dialect),
++			serializeConversationForSummary(cachePreservingSummary.context.messages, dialect),
+ 			summaryInputBudgetTokens(model, maxTokens),
+ 		).fits;
+ 	const promptText = useCachePreservingPrefix
+@@ -2034,8 +2070,8 @@
+ 	};
+ 	const requestContext: Context = useCachePreservingPrefix
+ 		? {
+-				...cachePreservingContext.context,
+-				messages: [...cachePreservingContext.context.messages, summarizationTail],
++				...cachePreservingSummary.context,
++				messages: [...cachePreservingSummary.context.messages, summarizationTail],
+ 			}
+ 		: { systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT], messages: [summarizationTail] };
+ 
+--- a/pi-agent-core/dist/types/compaction/compaction.d.ts
++++ b/pi-agent-core/dist/types/compaction/compaction.d.ts
+@@ -156,6 +156,12 @@
+  * Generate a summary of the conversation using the LLM.
+  * If previousSummary is provided, uses the update prompt to merge.
+  */
++export type CachePreservingSummaryScope = "history" | "turn-prefix";
++export interface CachePreservingSummaryContext {
++    context: Context;
++    /** The verified live prefix already contains the prior compaction summary. */
++    previousSummaryInPrefix: boolean;
++}
+ export interface SummaryOptions {
+     promptOverride?: string;
+     extraContext?: string[];
+@@ -164,6 +170,12 @@
+     initiatorOverride?: MessageAttribution;
+     metadata?: Record<string, unknown>;
+     convertToLlm?: ConvertToLlm;
++    /**
++     * Builds the active session's provider-ready prefix for this exact candidate
++     * and logical summary scope. Return `undefined` when candidate, session, or
++     * entry-boundary identity cannot be proven.
++     */
++    buildCachePreservingContext?: (scope: CachePreservingSummaryScope, candidate: Model, signal?: AbortSignal) => Promise<CachePreservingSummaryContext | undefined>;
+     /**
+      * Optional telemetry handle. When provided, every LLM call emitted during
+      * compaction is wrapped in an OTEL chat span tagged with
+@@ -280,8 +292,14 @@
+     firstKeptEntryId: string;
+     /** Messages that will be summarized and discarded */
+     messagesToSummarize: AgentMessage[];
++    /** Messages retained by the previous local compaction but discarded now. */
++    previousRetainedMessages: AgentMessage[];
++    /** Stable session-entry leaf for the history summary's live provider prefix. */
++    historyPrefixEntryId?: string;
+     /** Messages that will be turned into turn prefix summary (if splitting) */
+     turnPrefixMessages: AgentMessage[];
++    /** Stable session-entry leaf for the discarded prefix of a split turn. */
++    turnPrefixEntryId?: string;
+     /** Messages kept in full after compaction (recent history) */
+     recentMessages: AgentMessage[];
+     /** Whether this is a split turn (cut point in middle of turn) */
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -2143,15 +2143,31 @@
+ 		);
+ 	}
+ 
+-	#buildCachePreservingContext(candidate: Model): SummaryOptions["buildCachePreservingContext"] {
++	#buildCachePreservingContext(
++		candidate: Model,
++		preparation: CompactionPreparation,
++	): SummaryOptions["buildCachePreservingContext"] {
+ 		if (!sharesActivePromptCacheIdentity(candidate, this.#host.agent.state.model)) return undefined;
+-		return async (messages, requestModel, signal) => {
++		const branchLeafId = this.#host.sessionManager.getLeafId();
++		const branchEntries = this.#host.sessionManager.getBranch();
++		const entriesById = new Map(branchEntries.map(entry => [entry.id, entry]));
++		return async (scope, requestModel, signal) => {
+ 			if (!sharesActivePromptCacheIdentity(requestModel, this.#host.agent.state.model)) return undefined;
+-			const llmMessages = await this.#host.convertMessagesToLlm(messages, signal);
+-			// Context hooks are async. Refuse to apply the result if model identity
+-			// changed while they ran; buildSideRequestContext reads live Agent state.
++			if (this.#host.sessionManager.getLeafId() !== branchLeafId) return undefined;
++			const prefixEntryId =
++				scope === "history" ? preparation.historyPrefixEntryId : preparation.turnPrefixEntryId;
++			if (!prefixEntryId || !entriesById.has(prefixEntryId)) return undefined;
++			const prefixMessages = buildSessionContext(branchEntries, prefixEntryId, entriesById).messages;
++			const llmMessages = await this.#host.convertMessagesToLlm(prefixMessages, signal);
+ 			if (!sharesActivePromptCacheIdentity(requestModel, this.#host.agent.state.model)) return undefined;
+-			return await this.#host.agent.buildSideRequestContext(llmMessages);
++			if (this.#host.sessionManager.getLeafId() !== branchLeafId) return undefined;
++			const context = await this.#host.agent.buildSideRequestContext(llmMessages);
++			if (!sharesActivePromptCacheIdentity(requestModel, this.#host.agent.state.model)) return undefined;
++			if (this.#host.sessionManager.getLeafId() !== branchLeafId) return undefined;
++			return {
++				context,
++				previousSummaryInPrefix: scope === "history" && preparation.previousSummary !== undefined,
++			};
+ 		};
+ 	}
+ 
+--- a/pi-coding-agent/src/session/session-advisors.ts
++++ b/pi-coding-agent/src/session/session-advisors.ts
+@@ -1374,13 +1374,29 @@
+ 	#buildAdvisorCachePreservingContext(
+ 		agent: Agent,
+ 		candidate: Model,
++		preparation: CompactionPreparation,
++		pathEntries: SessionEntry[],
+ 	): SummaryOptions["buildCachePreservingContext"] {
+ 		if (!sharesActivePromptCacheIdentity(candidate, agent.state.model)) return undefined;
+-		return async (messages, requestModel) => {
++		const messagesSnapshot = agent.state.messages;
++		const entriesById = new Map(pathEntries.map(entry => [entry.id, entry]));
++		return async (scope, requestModel) => {
+ 			if (!sharesActivePromptCacheIdentity(requestModel, agent.state.model)) return undefined;
+-			const llmMessages = this.#host.convertToLlmForSideRequest(messages);
++			if (agent.state.messages !== messagesSnapshot) return undefined;
++			const prefixEntryId =
++				scope === "history" ? preparation.historyPrefixEntryId : preparation.turnPrefixEntryId;
++			if (!prefixEntryId || !entriesById.has(prefixEntryId)) return undefined;
++			const prefixMessages = buildSessionContext(pathEntries, prefixEntryId, entriesById).messages;
++			const llmMessages = this.#host.convertToLlmForSideRequest(prefixMessages);
+ 			if (!sharesActivePromptCacheIdentity(requestModel, agent.state.model)) return undefined;
+-			return await agent.buildSideRequestContext(llmMessages);
++			if (agent.state.messages !== messagesSnapshot) return undefined;
++			const context = await agent.buildSideRequestContext(llmMessages);
++			if (!sharesActivePromptCacheIdentity(requestModel, agent.state.model)) return undefined;
++			if (agent.state.messages !== messagesSnapshot) return undefined;
++			return {
++				context,
++				previousSummaryInPrefix: scope === "history" && preparation.previousSummary !== undefined,
++			};
+ 		};
+ 	}
+ 
+--- /dev/null
++++ b/pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md
+@@ -0,0 +1,17 @@
++The final incomplete turn above is too large; its recent-work suffix will be retained separately.
++
++MUST summarize only that final turn prefix for the retained suffix:
++
++## Original Request
++
++[What did the user ask for in the final turn?]
++
++## Early Progress
++- [Key decisions and work completed in that final turn prefix]
++
++## Context for Suffix
++- [Information needed to understand the retained recent work]
++
++MUST output only the structured summary; NEVER extra text.
++
++MUST concise. MUST preserve exact file paths, function names, error messages, relevant tool outputs, and command results if present. MUST focus on information needed to understand the retained suffix.
+--- /dev/null
++++ b/pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md
+@@ -0,0 +1,44 @@
++Update the existing handoff summary in the first <summary> context block above using every subsequent message in this request for another LLM to resume.
++
++MUST:
++- preserve all existing summary information; add new progress, decisions, context.
++- Progress: move completed "In Progress" items to "Done".
++- update "Next Steps" for completed work.
++- preserve exact file paths, function names, error messages.
++- MAY remove irrelevant content.
++- If new messages end with an unanswered user question/request: add it to Critical Context; replace any previous pending question if answered.
++- output only the structured summary; NEVER extra text.
++- keep sections concise.
++- preserve relevant tool outputs/command results.
++- include mentioned repository state changes (branch, uncommitted changes).
++
++Format (omit inapplicable sections):
++
++## Goal
++[Preserve existing goals; add new ones if task expanded]
++
++## Constraints & Preferences
++- [Preserve existing; add new ones discovered]
++
++## Progress
++
++### Done
++- [x] [Include previously done and newly completed items]
++
++### In Progress
++- [ ] [Current work—update based on progress]
++
++### Blocked
++- [Current blockers—remove if resolved]
++
++## Key Decisions
++- **[Decision]**: [Brief rationale] (preserve all previous, add new)
++
++## Next Steps
++1. [Update based on current state]
++
++## Critical Context
++- [Preserve important context; add new]
++
++## Additional Notes
++[Other important info not fitting above]

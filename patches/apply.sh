@@ -48,6 +48,7 @@ PATCHES=(
 	"0011-omp-statusline-daily-quota.patch:${AGENT}"
 	"0013-omp-prefix-cache-preserving-compaction-core.patch:${CORE}"
 	"0013-omp-prefix-cache-preserving-compaction-agent.patch:${AGENT}"
+	"0018-omp-iterative-compaction-prefix-target.patch:${NM}"
 	"0014-omp-antigravity-deterministic-session-identity.patch:${AI}"
 	"0015-omp-provider-image-budget-snapcompact.patch:${SNAP}"
 	"0015-omp-provider-image-budget-agent.patch:${AGENT}"
@@ -65,6 +66,17 @@ status() { # patch root -> applied|pending|conflict
 	fi
 }
 
+superseded_by_0018() {
+	local name="$1"
+	case "$name" in
+		0013-omp-prefix-cache-preserving-compaction-core.patch|0013-omp-prefix-cache-preserving-compaction-agent.patch) ;;
+		*) return 1 ;;
+	esac
+	local latest="${HERE}/0018-omp-iterative-compaction-prefix-target.patch"
+	[[ -f "$latest" ]] || return 1
+	patch -p1 -R --dry-run --force --silent -d "$NM" <"$latest" >/dev/null 2>&1
+}
+
 fail=0
 for entry in "${PATCHES[@]}"; do
 	name="${entry%%:*}"
@@ -75,6 +87,14 @@ for entry in "${PATCHES[@]}"; do
 		fail=1
 		continue
 	}
+	if superseded_by_0018 "$name"; then
+		case "$MODE" in
+			check) echo "APPLIED  ${name} (superseded by 0018)" ;;
+			apply) echo "SKIP     ${name} (superseded by 0018)" ;;
+			revert) echo "SKIP     ${name} (deferred until 0018 revert)" ;;
+		esac
+		continue
+	fi
 	st="$(status "$file" "$root")"
 	case "$MODE:$st" in
 		check:*) echo "${st^^}  ${name}" ;;

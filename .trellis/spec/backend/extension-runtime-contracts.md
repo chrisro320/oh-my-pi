@@ -346,147 +346,173 @@ const messages = requestLevel?.contents ?? target.contents ?? target.messages;
 if (!Array.isArray(messages)) return undefined;
 ```
 
-## Scenario: Cache-preserving soft compaction side requests
+## Scenario: Iterative cache-preserving soft compaction
 
 ### 1. Scope / Trigger
 
-Apply this contract whenever local soft compaction sends a summary request that
-is expected to read the active session's provider prompt cache. The summary is a
-side request, but its reusable prefix must be produced by the same owning Agent
-and session/provider transformation path as the live turn. A merely similar
-system/tools/messages shape is not cache identity.
+Apply this contract whenever local soft compaction must fold discarded history
+while also preserving a provider prompt-cache prefix from the active session.
+The history target and the live provider prefix are different ranges; neither
+may be reconstructed by message-count arithmetic.
 
 ### 2. Signatures
 
 ```ts
-interface SummaryOptions {
-  buildCachePreservingContext?: (
-    messages: AgentMessage[],
-    candidate: Model,
-    signal?: AbortSignal,
-  ) => Promise<Context | undefined>;
+type CachePreservingSummaryScope = "history" | "turn-prefix";
+
+interface CachePreservingSummaryContext {
+  context: Context;
+  previousSummaryInPrefix: boolean;
 }
 
-function sharesActivePromptCacheIdentity(
-  candidate: Model | undefined,
-  activeModel: Model | undefined,
-): boolean;
+interface SummaryOptions {
+  buildCachePreservingContext?: (
+    scope: CachePreservingSummaryScope,
+    candidate: Model,
+    signal?: AbortSignal,
+  ) => Promise<CachePreservingSummaryContext | undefined>;
+}
+
+interface CompactionPreparation {
+  previousRetainedMessages: AgentMessage[];
+  historyPrefixEntryId?: string;
+  turnPrefixEntryId?: string;
+}
 ```
 
-`undefined` means identity could not be proven. It selects the ordinary flat
-summary fallback; it must not borrow the active Agent's provider context for a
-different candidate.
+`historyPrefixEntryId` is the stable session-entry leaf immediately before the
+new retained tail. `turnPrefixEntryId` is the leaf immediately before the
+retained suffix of a split turn. An absent boundary or callback result means
+that cache identity is unproven and the ordinary safe fallback must be used.
 
 ### 3. Contracts
 
-- Call `buildCachePreservingContext` once, before token/window planning. Use the
-  returned provider-ready `Context.messages` for serialization, token planning,
-  and structured windows; append only the summary user tail to each window.
-- Primary session order is `AgentSession.convertMessagesToLlm(messages, signal)`
-  followed by the active `Agent.buildSideRequestContext(llmMessages)`. Do not
-  reconstruct system prompts, normalized tools, date/cwd reminders, extension
-  context, or provider transforms in compaction code.
-- Advisor compaction uses the advisor's own converter, Agent, model, tools, and
-  provider transform. Primary session hooks/state must not shape advisor input.
-- Identity requires the exact active runtime model object plus equal `provider`,
-  `api`, `id`, and effective wire id `(requestModelId ?? id)`. Recheck before and
-  after asynchronous conversion because Agent context construction reads live
-  state. Exact object identity is the conservative proof for runtime overlays
-  and `compat` state that catalog field equality does not capture.
-- Remote compaction, standalone callers, unproven/different candidates, and an
-  oversized individual message that cannot retain structured window messages
-  keep the flat `<conversation>` fallback.
-- Structured summary requests set `toolChoice: "none"`; a provider-specific 400
-  requiring `auto` may use the existing retry. Both attempts preserve the same
-  Context and normal cache policy.
-- Never set summary `cacheRetention` to `"none"` to hide a miss. Cache retention
-  continues through the normal settings resolver so existing 1h/5m breakpoints
-  remain readable and writable.
-- `summarize.request` must expose `structured`, `messages`, `systemParts`,
-  `tools`, `windowMessages`, and `hasCachePreservingContext`.
-  `summarize.wire` is the provider-converted payload fingerprint;
-  `summarize.usage` is the only final provider hit evidence.
-- Real acceptance uses
-  `cacheRead / (cacheRead + cacheWrite + input) * 100` and requires a strict
-  result above 90%. A nonzero `cacheRead` alone is only a partial hit.
+- `previousRetainedMessages + messagesToSummarize` is the local history target;
+  recent retained messages are in neither the target nor the history summary.
+- Populate `previousRetainedMessages` only for a readable local textual
+  compaction whose retained range is about to disappear. Provider-native V1/V2
+  replacement history owns its retained range and must not be duplicated.
+- Use only the target range for conversion, serialization, token counting, and
+  window planning. A verified provider-ready prefix is a separate wire input.
+- The primary host captures the current branch and leaf when creating the
+  callback, rebuilds `buildSessionContext(branch, prefixEntryId)`, calls
+  `AgentSession.convertMessagesToLlm()`, then calls the active
+  `Agent.buildSideRequestContext()`. Recheck exact model identity and branch
+  leaf before and after asynchronous conversion/context construction.
+- The advisor captures its own synthetic branch and message snapshot, then uses
+  its own Agent, model, tools, converter, and provider transform. Primary state
+  must not shape advisor compaction.
+- History and split-turn prefix calls request independent scopes and stable
+  leaves. The history call folds the history target; the turn-prefix call folds
+  only the discarded prefix of the incomplete turn.
+- A fitting structured request appends one summary instruction to the verified
+  live prefix. If that prefix already contains the prior `<summary>` block, use
+  the dedicated update instruction and do not append a duplicate
+  `<previous-summary>` body. Flat fallback and later fold windows retain the
+  existing tagged previous-summary contract.
+- Multi-window planning remains target-only. Keep fold requests structured with
+  normalized system/tools when possible, but only a request carrying the
+  verified live prefix may claim cache-prefix preservation.
+- Exact active runtime model identity requires the same object and equal
+  `provider`, `api`, `id`, and effective wire id `(requestModelId ?? id)`.
+  Normal cache retention, TTLs, breakpoints, pricing, native compaction, and
+  candidate ordering remain unchanged.
 
 ### 4. Validation & Error Matrix
 
 | Condition | Required result |
 |---|---|
-| Candidate is the active runtime model object and all wire identity fields match | Build and use the owning Agent's provider-ready Context |
-| Candidate is a catalog clone, has a different API/id/wire id, or is not the active object | Return `undefined`; use flat fallback without active Agent context |
-| Active model changes while async message conversion runs | Post-conversion identity check returns `undefined`; do not call/use stale Agent context |
-| Advisor candidate matches its advisor Agent | Use advisor-owned conversion and provider context only |
-| Advisor candidate differs or only matches the primary Agent | Return `undefined`; never apply primary transforms/tools |
-| Callback is absent or returns `undefined` | Keep the pre-existing flat summary behavior |
-| Provider-ready history needs multiple windows | Keep every window structured; only the first is expected to read the old live-history prefix |
-| One message exceeds the structured window budget | Flatten only that safe fallback path; do not claim a cache-preserving request |
-| Summary usage has `cacheRead > 0` but hit rate is `<= 90%` | Fail real acceptance and inspect `summarize.wire`; do not disable cache writes |
-| Summary usage hit rate is `> 90%` | Pass the provider acceptance gate |
+| Candidate is the exact active model and identity fields match | Build the owning provider-ready prefix |
+| Candidate is a clone, differs by API/id/wire id, or is not active | Return `undefined`; use the safe flat fallback |
+| Active model or primary branch leaf changes before/after an async step | Return `undefined`; never use stale context |
+| Prefix boundary is absent or not in the captured branch | Return `undefined`; do not infer it from message counts |
+| Advisor candidate matches its advisor Agent | Use advisor-owned synthetic branch and context only |
+| Advisor candidate differs or matches only primary state | Return `undefined`; never borrow primary context |
+| Remote endpoint or provider-native compaction is selected | Preserve existing remote/native path; do not invoke local prefix callback |
+| History target needs multiple windows | Plan from target only; later windows do not claim the live prefix |
+| Verified live prefix exceeds the summary budget | Use safe target-window fallback; do not claim cache preservation |
+| Verified prefix contains prior summary | Use update-from-prefix instruction without duplicate summary body |
+| Summary usage has hit rate `<= 90%` | Fail provider acceptance; inspect matching wire evidence, do not disable cache writes |
+| Summary usage has hit rate `> 90%` | Pass the real provider acceptance gate |
 
 ### 5. Good / Base / Bad Cases
 
-- **Good:** a warmed Opus 5 session emits a structured summary with the same wire
-  depth/breakpoints as a prior live prefix and reports `input=2`,
-  `cacheRead=66104`, `cacheWrite=2010`: `97.046215%`, which passes.
-- **Base:** a fallback compaction model is not the active model object; compaction
-  uses the flat request and makes no prompt-cache identity claim.
-- **Bad:** copy `agent.state.systemPrompt`, `agent.state.tools`, and independently
-  converted messages into a summary request. The shape can look correct while
-  message zero or provider-normalized bytes differ, producing a full miss.
-- **Bad:** report success because `cacheRead` is nonzero. A large cache write or
-  uncached input can still leave most of the prompt outside the readable prefix.
+- **Good:** a later local compaction rebuilds its prefix at
+  `historyPrefixEntryId`, summarizes prior retained plus newly discarded
+  messages, and sends one provider-ready live prefix with one instruction tail.
+- **Good:** a split turn calls `history` and `turn-prefix` independently; each
+  request receives its own leaf and neither tail serializes a duplicate target.
+- **Base:** a fallback candidate or drifted branch cannot prove identity; it
+  uses the existing flat summary request and makes no cache claim.
+- **Bad:** slice `agent.state.messages` by `recentMessages.length`; compaction
+  summaries, custom transforms, and session entries are not one-to-one.
+- **Bad:** feed the full live prefix into target planning; retained messages then
+  alter summary windows and durable summary semantics.
+- **Bad:** copy `agent.state.systemPrompt` and tools while independently
+  converting the target; date/cwd, extension, image, and provider transforms can
+  change the first wire item and cause a full miss.
+- **Bad:** report success because `cacheRead > 0`; acceptance requires the
+  strict ratio `cacheRead / (cacheRead + cacheWrite + input) * 100 > 90`.
 
 ### 6. Tests Required
 
 ```sh
 bun patches/verify-prefix-cache-compaction.ts
-# Assert exact-object allow, clone/wire mismatch deny, provider-ready
-# system/tools/messages propagation, flat fallback, normal retention, and
-# multi-window structured behavior without a provider request.
+# Assert prior-retained target composition, stable entry reconstruction,
+# exact OpenAI wire-prefix equality, one reminder placement, no duplicate
+# previous summary, split scopes, identity/fallback gates, and multi-window
+# target planning. The sensitivity fixture must fail against sliced context.
 
+bun -e 'await import("/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/compaction/compaction.ts"); console.log("CORE_IMPORT_OK")'
+bun -e 'await Promise.all([import("/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-maintenance.ts"), import("/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-advisors.ts")]); console.log("AGENT_IMPORT_OK")'
+
+patch -p1 --dry-run --force -d /tmp/omp-0018-apply < patches/0018-omp-iterative-compaction-prefix-target.patch
+patch -p1 -R --dry-run --force -d /home/chris/.bun/install/global/node_modules/@oh-my-pi < patches/0018-omp-iterative-compaction-prefix-target.patch
 ~/.omp/patches/apply.sh --check
-# Both 0013 patches and the source entrypoint must report APPLIED.
-
-grep -R -n -E 'summaryCacheRetention = "none"|cacheRetention: summaryCacheRetention' \
-  ~/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/compaction \
-  patches/0013-omp-prefix-cache-preserving-compaction-*.patch
-# No output.
 ```
 
-A live behavior change requires one real warmed summary request. Read the
-matching `summarize.request`, `summarize.wire`, and `summarize.usage` records;
-calculate the formula above and require `> 90%`. Mock `completeImpl` usage and a
-zero-network replay prove routing/content differences only, never provider hits.
+The forbidden-cache-disable scan must produce no output:
+
+```sh
+grep -R -n -E 'summaryCacheRetention = "none"|cacheRetention: summaryCacheRetention' \
+  ~/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/compaction \
+  patches/0013-omp-prefix-cache-preserving-compaction-*.patch \
+  patches/0018-omp-iterative-compaction-prefix-target.patch
+```
+
+A real provider change additionally requires a fresh patched process, a warmed
+`gpt-5.6-sol` session, and matching `summarize.request`, `summarize.wire`, and
+`summarize.usage` records. Only the matching usage record proves the ratio;
+mock transports, ordinary-turn hits, and advisor usage do not.
 
 ### 7. Wrong vs Correct
 
 #### Wrong
 
 ```ts
-const requestContext = {
-  systemPrompt: agent.state.systemPrompt,
-  tools: agent.state.tools,
-  messages: convertToLlm(messages),
-};
+const start = agent.state.messages.length - preparation.recentMessages.length;
+const context = await agent.buildSideRequestContext(
+  convertToLlm(agent.state.messages.slice(0, start)),
+);
 ```
 
-This bypasses session context hooks and provider normalization/transform state.
-It also becomes invalid when the compaction candidate differs from the Agent.
+This conflates the discarded target with the live prefix and assumes runtime
+messages align one-for-one with session entries.
 
 #### Correct
 
 ```ts
-if (!sharesActivePromptCacheIdentity(candidate, agent.state.model)) {
-  return undefined;
-}
-const llmMessages = await session.convertMessagesToLlm(messages, signal);
-if (!sharesActivePromptCacheIdentity(candidate, agent.state.model)) {
-  return undefined;
-}
-return agent.buildSideRequestContext(llmMessages);
+const prefixEntryId =
+  scope === "history" ? preparation.historyPrefixEntryId : preparation.turnPrefixEntryId;
+if (!prefixEntryId || !entriesById.has(prefixEntryId)) return undefined;
+const prefixMessages = buildSessionContext(branch, prefixEntryId, entriesById).messages;
+const llmMessages = await session.convertMessagesToLlm(prefixMessages, signal);
+if (!sharesActivePromptCacheIdentity(candidate, session.agent.state.model)) return undefined;
+return {
+  context: await session.agent.buildSideRequestContext(llmMessages),
+  previousSummaryInPrefix: scope === "history" && preparation.previousSummary !== undefined,
+};
 ```
 
-The owning session and Agent remain the only provider-ready Context authority;
-an unproven identity degrades safely instead of borrowing the wrong prefix.
+The target remains responsible for summary semantics and planning; the owning
+session remains responsible for the provider-ready cache prefix.

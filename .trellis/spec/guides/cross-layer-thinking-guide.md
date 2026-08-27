@@ -325,3 +325,34 @@ state correctly, but several commands still re-parsed event payload fields with
 local casts. The fix was to make the core event layer own `ThreadChannelEvent`
 and `isThreadEvent`, make `reduceChannelMetadata` the only channel metadata
 projection, and make `reduceThreads` the only thread replay reducer.
+
+---
+
+## Iterative Provider-Cache Boundary
+
+Local iterative compaction is a cross-layer boundary between session-entry
+selection, summary-target planning, host message conversion, provider transforms,
+and cache accounting. A callback argument named `messages` is not sufficient to
+prove that the messages are both the durable-summary target and the live wire
+prefix; those ranges diverge after the first compaction.
+
+### Checklist: Before Changing Iterative Compaction
+
+- [ ] Name the history target and live provider prefix separately.
+- [ ] Carry stable `SessionEntry.id` boundaries for every requested scope; never
+      infer a prefix by subtracting runtime message counts.
+- [ ] Plan token budgets and windows from target messages only.
+- [ ] Rebuild a cache-preserving prefix through the owning session pipeline,
+      including conversion, context hooks, tools, and provider transforms.
+- [ ] Recheck model identity and branch/message snapshot after every async step;
+      drift must use the safe fallback.
+- [ ] Test the second compaction, not only the first, and add a sensitivity case
+      that would fail if the prefix were sliced to the target range.
+- [ ] Accept a real provider result only from matching request, wire, and usage
+      records; compute `cacheRead / (cacheRead + cacheWrite + input) * 100`.
+
+**Root-cause lesson**: the first local compaction passed because there was no
+prior summary or retained tail to expose the range mismatch. A single-turn
+regression therefore tested the wrong invariant. The durable prevention is to
+make the two ranges explicit in the API and to keep a cross-layer iterative
+sensitivity regression alongside the provider usage gate.
