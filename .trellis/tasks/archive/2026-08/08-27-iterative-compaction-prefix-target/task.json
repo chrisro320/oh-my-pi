@@ -1,0 +1,30 @@
+{
+  "id": "iterative-compaction-prefix-target",
+  "name": "iterative-compaction-prefix-target",
+  "title": "修复迭代压缩缓存前缀与摘要目标双范围",
+  "description": "第二次及后续 soft compaction 必须复用真实 live provider-ready 前缀，同时保持摘要目标范围独立；正常缓存策略不变，并以真实 GPT 摘要请求命中率严格大于 90% 验收。",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-08-27",
+  "completedAt": "2026-08-27",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "validation": "real-tui",
+    "cache_policy": "preserve",
+    "scope": "iterative-compaction"
+  }
+}
