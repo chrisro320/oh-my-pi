@@ -1,0 +1,40 @@
+--- a/src/hindsight/state.ts
++++ b/src/hindsight/state.ts
+@@ -469,7 +469,13 @@
+ 		if (!this.config.autoRecall || this.hasRecalledForFirstTurn) return undefined;
+ 
+ 		const persisted = this.#loadPersistedSnippet(RECALL_SNIPPET_CUSTOM_TYPE);
+-		if (persisted) {
++		// `!== undefined` and not a truthiness test: an empty snippet is a recorded
++		// answer ("recall was empty when this session first ran"), and replaying it
++		// is what keeps the system-prompt prefix byte-identical across a resume.
++		// `buildSystemPromptForAgentStart` treats the returned "" as "no injection"
++		// (session-tools.ts: `if (!injected) return this.#baseSystemPrompt`), so the
++		// empty case still adds no block — it just stops re-running recall.
++		if (persisted !== undefined) {
+ 			this.hasRecalledForFirstTurn = true;
+ 			this.lastRecallSnippet = persisted;
+ 			return persisted;
+@@ -486,10 +492,19 @@
+ 		if (!ok) return undefined;
+ 
+ 		this.hasRecalledForFirstTurn = true;
+-		if (!context) return undefined;
+-
+ 		this.lastRecallSnippet = context;
+-		this.session.sessionManager?.appendCustomEntry?.(RECALL_SNIPPET_CUSTOM_TYPE, { snippet: context });
++		// Persist BEFORE the empty-result early return: an empty recall must be
++		// frozen too. Without this, a session whose first-turn recall came back
++		// empty writes no marker at all, so every later resume re-runs recall —
++		// and once the bank has accumulated memories in the meantime, that resume
++		// appends a fresh `<memories>` block to the system prompt, shifts the
++		// cached prefix and forces a full recompute. Observed on a 173k-token
++		// Kimi resume: `system[1]` 9340B -> 10977B, `input=158890 / cacheRead=18432`.
++		// `?? ""` is load-bearing: `RecallOutcome.context` is `string | null`, and
++		// `#loadPersistedSnippet` only accepts `typeof snippet === "string"` — a
++		// persisted `null` would read back as "no marker" and reopen the bug.
++		this.session.sessionManager?.appendCustomEntry?.(RECALL_SNIPPET_CUSTOM_TYPE, { snippet: context ?? "" });
++		if (!context) return undefined;
+ 		return context;
+ 	}
+ 
