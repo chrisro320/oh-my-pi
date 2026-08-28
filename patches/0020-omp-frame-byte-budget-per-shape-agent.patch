@@ -1,0 +1,11 @@
+--- a/src/session/session-maintenance.ts
++++ b/src/session/session-maintenance.ts
+@@ -2389,7 +2389,7 @@
+ 		return Math.min(
+ 			Math.floor(frameBudget / snapcompact.FRAME_TOKEN_ESTIMATE),
+ 			snapcompact.MAX_FRAMES_DEFAULT,
+-			snapcompact.maxFramesForDataBudget(),
++			snapcompact.maxFramesForDataBudget(snapcompact.FRAME_DATA_BYTES_BUDGET, shape),
+ 			snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 		);
+ 	}
