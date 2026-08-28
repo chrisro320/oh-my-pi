@@ -250,30 +250,20 @@
  				}
  			},
  			scheduleIdleFlush: run => {
-@@ -3277,8 +3314,13 @@
- 					this.#skipAgentContinue("should-continue-false", options);
- 					return;
- 				}
--				this.#beginInFlight();
-+				const inFlight = this.#beginInFlight();
- 				try {
-+					if (inFlight.idleEphemeralSettled) await inFlight.idleEphemeralSettled;
-+					if (signal.aborted || this.#isDisposed) {
-+						this.#skipAgentContinue("session-unavailable", options);
-+						return;
-+					}
- 					const reverted = await this.#recovery.maybeRestoreRetryFallbackPrimary();
- 					if (signal.aborted || this.#isDisposed) {
- 						this.#skipAgentContinue("post-restore-unavailable", options);
-@@ -3311,7 +3353,7 @@
- 					options?.onError?.(error);
- 				} finally {
+@@ -3532,3 +3532,8 @@
+ 				const inFlight = this.#beginInFlight();
++				if (inFlight.idleEphemeralSettled) await inFlight.idleEphemeralSettled;
++				if (signal.aborted || this.#isDisposed) {
++					this.#skipAgentContinue("session-unavailable", request);
++					return;
++				}
+ 				const coalescedSources = new Set([options.source]);
+ 				const promise = this.#runAgentContinue(signal, request, coalescedSources);
+@@ -3512,3 +3516,3 @@
+ 					}
  					this.#usagePreflightReadyForNextModelCall = false;
 -					this.#endInFlight();
 +					this.#endInFlight(inFlight.epoch);
- 				}
- 			},
- 			{
 @@ -3962,6 +4004,7 @@
  	 */
  	beginDispose(): void {

@@ -1,7 +1,7 @@
-# omp 18.0.6 Patch 清单
+# omp 18.0.9 Patch 清单
 
-> 生成 2026-08-25（第四次修訂：加入目前工作階段 prompt-cache keepalive）。
-> 權威 patch 集在 `~/.omp/patches/`（0002-0007、0010 + apply.sh + README.md），本文件是鏡像清單。
+> 生成 2026-08-28（第五次修訂：适配上游 18.0.9；0011 撤下改由上游原生接管）。
+> 權威 patch 集在 `~/.omp/patches/`（0002-0007、0010 + apply.sh），本文件是鏡像清單。
 
 ## 0. 运行模式
 
@@ -9,8 +9,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前生效，0002-0007、0010、0011、0012、0013、0014、0015、0016）
-- per-turn 视图：`trn <cacheRead> <hit>%`（最近一条 settled assistant 消息）；`stopReason` 守卫防止流式中途误报
+## 1. src 補丁（目前生效，0002-0007、0010、0012、0013、0014、0015、0016）
 
 ### 0004 — token_total 计入 cacheRead
 - `segments.ts`：total = input+output+cacheRead+cacheWrite+orchestration 三项（配额窗口口径）
@@ -60,9 +59,10 @@
 - 主回合入口先記錄 prompt generation 與 in-flight epoch、增加計數、取消 idle request 並等待 transport 收尾；等待後再檢查 generation/disposal，舊 epoch 的 finally 也不能扣掉 reset 後的新主回合
 - tree navigation 在第一個 `await` 前就設 gate，涵蓋 pending bash、before hook、可選 branch summary 到提交/取消；dispose 同步取消 guarded request；compaction 由既有 `isCompacting` gate 阻擋
 - 原本的 `runEphemeralTurn()` 不改，`/btw`、`/omfg` 仍可並行；外部 extension authoring 型別同步更新
+- **18.0.9 适配（2026-08-28）**：上游 #9992 重写 `#scheduleAgentContinue`（`#runAgentContinue` + `#activeAgentContinue` 合并调度，`#endInFlight()` 不再带 epoch 参数、调用点不接返回值）。补丁的两个 hunk（原 @@ -3277 / -3311）重锚到新结构：`#beginInFlight()` 返回值在 `#scheduleAgentContinue` 内接住（3494 区，hunk 改为 `@@ -3494,4 +3494,9`），`idleEphemeralSettled` 等待与 guard 插在 `#runAgentContinue` 发起之后、`attempt` 注册之前；finally 里 `#endInFlight(inFlight.epoch)` 锚定 `usagePreflightReady + #endInFlight()` 两行（该组合在文件内缩进唯一，6168 行同款是 3-tab 不冲突）。
 
-### 0011 — statusline 支援 Google / Antigravity daily 配額
-- `status-line/types.ts`、`status-line/component.ts`、`status-line/segments.ts`：擴充狀態列候選視窗識別 `daily`/`24h` 配額，渲染為 `24h <pct>% (<N>h)`，使 Gemini 3.7 Flash 等 Google 原生模型能在狀態列右下角正常顯示每日配額與倒數。
+### 0011 — statusline daily 配額（已撤下，2026-08-28 由上游 v18.0.9 原生接管）
+- 上游 PR #10000 在 `status-line/{types,component,segments}.ts` 原生实现 daily 配额（`1d <pct>%` 标签、`resetMinutes` 倒数、Antigravity daily usage provider + 按模型后端 counter scope）。补丁已移入 `patches/.retired/`。
 
 ### 0012 — Trellis 純記憶體 context transform 避免歷史前綴污染
 - `.omp/extensions/trellis/index.ts`：移除 `session_start` 中的 `pi.sendMessage` 持久化消息與 `before_agent_start` 持久化注入，改為在 `ExtensionAPI.on("context")` hook 執行純記憶體 transform，動態組裝 `<session-context>`、`<task-context>` 與 `<workflow-state>`。
@@ -128,6 +128,7 @@
   - **效果**（`payload-dump-extension.ts` 零配額實測，同一會話 273k 上下文）：修復前發圖 payload 的 `contents[0]` 由 673,374 → 520,823 字元、歸檔帧 4 → 3、首個差異落在 index 0，可快取前綴 **0%**；修復後純文字與發圖兩份 payload 的 `contents[0]` **逐字節相同**（813,261）、歸檔帧穩定 5 張、首個差異落在 index 361（僅當輪訊息本身），可快取前綴 **96.11%**。歸檔帧數反而由 4 增至 5（預算解開後多保留一頁歷史）。
   - 遺留風險（未修）：`clampProviderContextImages()` 的淘汰順序仍是「丟最老」。預算一旦真的觸頂，它依然會改寫前綴而非犧牲尾部。歸檔帧不該被視為 `transient` 參與淘汰，正解是把 snapcompact 帧排除在該函數之外；目前預算放寬到 200 後此路徑不再觸發，故暫不改動語義。
   - **2026-08-27 擴展（opencode-go 引爆同一炸彈）**：表中始終沒有 `openai-completions` 這個 wire-api 條目，`api` 回退因此是擺設。`opencode-go/glm-5.3-flash` 會話第 6 張圖觸發 `DEFAULT=5` 上限，`clampProviderContextImages()` 丟棄最老的 `messages[10]`（首張截圖），audit 抓到 `HISTORY_REWRITE`，**195,775 token 全量重算**（`cacheRead=0`，14:32:11 UTC）。修法：表補 `"opencode-go" / "zhipu-coding-plan" / commandcode / "openai-completions"` 四條（後者讓 api 回退真正生效，未來任何走該 wire 的新 provider 自動覆蓋）。驗證：`bun patches/verify-provider-image-budget.ts`（覆蓋生產命中對 `opencode-go+openai-completions`、api 回退、0015 原語義不回歸）。注意 200 只是解除這條 5 張淘汰路徑，不承諾發 200 張圖都安全，也與首圖輪的服務端可見性問題（待 Zen/智譜工單回覆）相互獨立。
+  - **18.0.9 适配（2026-08-28）**：上游 #9998 重写 `snapcompact-inline.ts`（`countContextImages` → `countMessageImages(messages)`，混合图文 tool result 的文本也参与渲染、原图保留）。0015-agent 的两处 `providerImageBudget(model.provider)` 调用重锚：estimate 侧（321 行）与 `transform` 侧（446 行）均改为 `providerImageBudget(model.provider, model.api)`；原 hunk 上下文（`existingImages` 内联循环 / `countContextImages`）已不存在，故 hunk2 收紧为 3 行最小上下文。
 
 ### 0016 — Trellis 尾部注入導致 ROLE FLIP，每個 tool call 後 100% Cache Miss
 - `.omp/extensions/trellis/index.ts`（0012 的後續修正）：
@@ -236,6 +237,13 @@
 - **修法**（`hindsight/state.ts` 单点）：倒扫循环遇到 `entry.type === "reset_boundary"` 即 `break`——boundary 之前的标记失效，其后首轮重新 recall 并落新标记（落在 boundary 之后，跨 resume 稳定）。与 boundary 的既定语义一致；代价是 `/clear` 后首轮 system prompt 变化一次（显式重置的可接受成本）。
 - **回归**：`verify-hindsight-recall-snapshot.ts` behaviour 7（boundary 后必须重新 recall、新标记必须位于 boundary 之后、陈旧空标记不得压制）+ 静态断言锁定 break 形状。
 - **顺序约束**：排在 0023 之后（同文件 state.ts）。
+- **18.0.9 适配（2026-08-28）**：0021 在 18.0.9 源码上重挂后 `#loadPersistedSnippet` 的 `customType` 行恢复 3-tab 缩进（0021 补丁内该行是畸形顶格），0024 锚行同步重锚（fuzz 2），语义不变。
+## 4a. 18.0.6 → 18.0.9 升级（2026-08-28）
+
+
+- 上游三版本要点：#10000 statusline daily 配额（0011 撤下）；#10024 snapcompact 不缩反胀时跳过；#9998 混合图文 tool result 压缩；#9992 agent.continue 合并调度（0010 重锚）；`extendedContext` 默认关（1M 窗口需显式开）；git/jj wrapper 移入 `@oh-my-pi/pi-natives/vcs`（SDK breaking）；Z.AI GLM Coding Plan 用量 + glm-5.3-flash 入目录。
+- 未被上游吸收的补丁 27 个中 25 个照挂：hindsight 快照（0006/0021/0023/0024）、cache-preserving compaction（0013/0018）、图片预算（0015/0020/0022，`PROVIDER_IMAGE_BUDGETS` 上游仍无我们的条目）、0025（`usage/ollama.ts` 18.0.6==18.0.9 仍占位）、0002-0007/0014/0017/0019/0010（除重锚外）全部锚点健在。
+- 手工适配 2 处：0010（agent-continue 重写区）与 0015-agent（inline 计数改名）。全链验证：apply.sh 内嵌 5 个 verify + cache-prefix-audit / idle-ephemeral / keepalive / 0025 verify 全 PASS；真实会话 frame-budget 重放 2.08MB ≤ 3MB；LLM 冒烟（`omp run` 回答正确）、TUI 首帧渲染（`OMP_TUI_DEBUG` socket `{"op":"text"}`）、`omp usage` ollama-cloud + Antigravity daily 均正常。
 
 ### 0025 — ollama-cloud 额度显示接通官方 `/api/usage` 端点
 - **失败签名**：statusline 额度区 ollama-cloud 帐户恒显 `no limits`；`pi-ai/src/usage/ollama.ts` 占位实现硬编码 `limits: []` + note「Ollama does not expose a standalone quota usage API」。
@@ -243,4 +251,5 @@
 - **修法**（`pi-ai/src/usage/ollama.ts` 单文件）：ollama-cloud 且 `credential.type==="api_key"` 时请求该端点，映射 session→`5h`、weekly→`7d` 两个 `UsageLimit`（`usedFraction` 夹取 0..1、status 按 `>=1 exhausted / >=0.9 warning` 阈值、models 分布进 notes）；本地 ollama 与无 key 凭据保留说明性 note 且不发请求；非 200 / 缺 `limits` / 网络错误一律返回 `null`（走 omp 既有失败降级）。
 - **运行时验收（2026-08-28 通过）**：面板显示 `Ollama 5 Hour [ok] ~0.1%` / `7 Day [ok] ~1.2%`；cache 表落盘新报告（`limits[0].id=ollama-account:5h`、`window.durationMs=18000000`）。
 - **排障记录（勿重蹈）**：升级后面板仍显旧 note 的真正机制有三层——① `#fetchUsageCached` 在新请求失败时**保留 stale last-good 并续写 24h durable TTL**（新 TUI 断网时段同样延续旧文案，源码 `auth-storage.ts` 3387–3400）；② 旧代码占位实现**不发请求**、直接凭空生成空报告写缓存；③ 长命旧 TUI 进程（昨 10:51 启动）周期 flush 内存旧报告续命缓存。删缓存必须以「污染进程全部关闭 + 网络可达」为前提，否则删了即回写。另有教训：凭据取值只走运行时解析，**禁止**把 key 明文写进命令/回复（本轮已泄露一次，待轮换）。
+- **18.0.9 重验（2026-08-28 通过）**：`omp usage` 实测 `Ollama 5 Hour 35.2% used / 7 Day 21.5% used`（Top consumers: glm-5.3-flash x458），0025 在 18.0.9 上继续生效——上游 v18.0.9 的 `usage/ollama.ts` 仍是占位实现（18.0.6 与 18.0.9 该文件逐字节相同），补丁不可撤。
 - **备注**：三个上游 feature request（#15132/#15663/#16448）要求的是更标准化的格式/headers，不影响本端点可用性；omp 上游若日后自行接入，此补丁可撤。

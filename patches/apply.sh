@@ -48,7 +48,6 @@ PATCHES=(
 	"0024-omp-hindsight-snapshot-reset-boundary.patch:${AGENT}"
 	"0007-omp-usage-fetch-no-forced-repaint.patch:${AGENT}"
 	"0010-omp-extension-idle-ephemeral-turn.patch:${AGENT}"
-	"0011-omp-statusline-daily-quota.patch:${AGENT}"
 	"0013-omp-prefix-cache-preserving-compaction-core.patch:${CORE}"
 	"0013-omp-prefix-cache-preserving-compaction-agent.patch:${AGENT}"
 	"0018-omp-iterative-compaction-prefix-target.patch:${NM}"
