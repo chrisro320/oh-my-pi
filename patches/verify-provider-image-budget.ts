@@ -1,4 +1,4 @@
-// Verify 0020: provider-image budget entries cover the zhipu/opencode/commandcode
+// Verify 0022: provider-image budget entries cover the zhipu/opencode/commandcode
 // routes so the 6th attached image no longer evicts the oldest one (which rewrote
 // the prefix and voided the whole prompt cache — measured 195,775-token recompute
 // on 2026-08-27, session 01a04335 turn 14:32:11 UTC).
@@ -17,6 +17,11 @@ assert.equal(providerImageBudget("commandcode", "openai-completions"), 200);
 assert.equal(providerImageBudget("some-future-gateway", "openai-completions"), 200);
 // Table carries the entries:
 assert.equal(PROVIDER_IMAGE_BUDGETS["openai-completions"], 200);
+assert.equal(PROVIDER_IMAGE_BUDGETS["ollama-chat"], 200);
+// ollama-cloud/glm-5.3-flash (0022): catalog api is `ollama-chat`, yml modelOverrides
+// do not set api, so the resolved pair must hit the api key — not the floor of 5.
+assert.equal(providerImageBudget("ollama-cloud", "ollama-chat"), 200);
+assert.equal(providerFrameBudget("ollama-cloud", "ollama-chat"), 80);
 // Existing 0015 behavior unchanged:
 assert.equal(providerImageBudget("google-antigravity", "google-gemini-cli"), 200);
 assert.equal(providerImageBudget("anthropic"), 90);
