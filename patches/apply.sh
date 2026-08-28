@@ -43,6 +43,9 @@ PATCHES=(
 	"0004-omp-token-total-cacheread.patch:${AGENT}"
 	"0005-omp-usage-refresh-on-turn.patch:${AGENT}"
 	"0006-omp-hindsight-session-snapshot.patch:${AGENT}"
+	"0021-omp-hindsight-recall-snapshot-empty.patch:${AGENT}"
+	"0023-omp-hindsight-mm-first-turn-race.patch:${AGENT}"
+	"0024-omp-hindsight-snapshot-reset-boundary.patch:${AGENT}"
 	"0007-omp-usage-fetch-no-forced-repaint.patch:${AGENT}"
 	"0010-omp-extension-idle-ephemeral-turn.patch:${AGENT}"
 	"0011-omp-statusline-daily-quota.patch:${AGENT}"
@@ -54,6 +57,9 @@ PATCHES=(
 	"0015-omp-provider-image-budget-snapcompact.patch:${SNAP}"
 	"0015-omp-provider-image-budget-agent.patch:${AGENT}"
 	"0017-omp-openai-responses-native-replay-warm.patch:${AI}"
+	"0020-omp-frame-byte-budget-per-shape-snapcompact.patch:${SNAP}"
+	"0020-omp-frame-byte-budget-per-shape-agent.patch:${AGENT}"
+	"0022-omp-provider-image-budget-entries.patch:${SNAP}"
 )
 
 status() { # patch root -> applied|pending|conflict
@@ -76,6 +82,59 @@ superseded_by_0018() {
 	local latest="${HERE}/0018-omp-iterative-compaction-prefix-target.patch"
 	[[ -f "$latest" ]] || return 1
 	patch -p1 -R --dry-run --force --silent -d "$NM" <"$latest" >/dev/null 2>&1
+}
+
+# 0021 rewrites the recall hunk 0006 introduced, so 0006 can no longer be
+# reverse-applied on its own and `status` would report a bogus CONFLICT. Same
+# reverse-order reasoning as the 0013/0018 pair: 0021 sits after 0006 in
+# `PATCHES`, so a revert run takes 0021 off first and 0006 becomes revertible
+# again by the time its turn comes.
+superseded_by_0021() {
+	local name="$1"
+	case "$name" in
+		0006-omp-hindsight-session-snapshot.patch) ;;
+		*) return 1 ;;
+	esac
+	local latest="${HERE}/0021-omp-hindsight-recall-snapshot-empty.patch"
+	[[ -f "$latest" ]] || return 1
+	patch -p1 -R --dry-run --force --silent -d "$AGENT" <"$latest" >/dev/null 2>&1
+}
+
+# 0020 rewrites `maxFramesForDataBudget()` at one of the four call sites 0015
+# touches. That line is a CONTEXT line of 0015's hunk #2, and 0015's hunks #2
+# and #4 share byte-identical context, so a reverse-apply misses at #2, drifts
+# forward, matches #4's location instead, and then reports #3/#4 as FAILED even
+# though all four call sites carry `this.#model?.api` correctly. 0020-agent sits
+# after 0015-agent in `PATCHES`, so a revert run takes 0020 off first and 0015
+# becomes revertible again by the time its turn comes.
+superseded_by_0020() {
+	local name="$1"
+	case "$name" in
+		0015-omp-provider-image-budget-agent.patch) ;;
+		*) return 1 ;;
+	esac
+	local latest="${HERE}/0020-omp-frame-byte-budget-per-shape-agent.patch"
+	[[ -f "$latest" ]] || return 1
+	patch -p1 -R --dry-run --force --silent -d "$AGENT" <"$latest" >/dev/null 2>&1
+}
+
+# 0022 carries the five budget-table entries (`opencode-go`,
+# `zhipu-coding-plan`, `commandcode`, `openai-completions`, `ollama-chat`) that
+# were first made as bare source edits on top of 0015-snapcompact. Those entries sit
+# between 0015's hunk-#1 context lines (`google-antigravity` / `openrouter`),
+# so 0015-snapcompact can no longer reverse-apply once 0022 is in — same
+# shape as the 0006/0021 pair, and 0022 sits after 0015-snapcompact in
+# `PATCHES`, so a revert run takes 0022 off first and 0015-snapcompact
+# becomes revertible again by the time its turn comes.
+superseded_by_0022() {
+	local name="$1"
+	case "$name" in
+		0015-omp-provider-image-budget-snapcompact.patch) ;;
+		*) return 1 ;;
+	esac
+	local latest="${HERE}/0022-omp-provider-image-budget-entries.patch"
+	[[ -f "$latest" ]] || return 1
+	patch -p1 -R --dry-run --force --silent -d "$SNAP" <"$latest" >/dev/null 2>&1
 }
 
 fail=0
@@ -103,6 +162,30 @@ for entry in "${ORDER[@]}"; do
 			check) echo "APPLIED  ${name} (superseded by 0018)" ;;
 			apply) echo "SKIP     ${name} (superseded by 0018)" ;;
 			revert) echo "SKIP     ${name} (deferred until 0018 revert)" ;;
+		esac
+		continue
+	fi
+	if superseded_by_0021 "$name"; then
+		case "$MODE" in
+			check) echo "APPLIED  ${name} (superseded by 0021)" ;;
+			apply) echo "SKIP     ${name} (superseded by 0021)" ;;
+			revert) echo "SKIP     ${name} (deferred until 0021 revert)" ;;
+		esac
+		continue
+	fi
+	if superseded_by_0020 "$name"; then
+		case "$MODE" in
+			check) echo "APPLIED  ${name} (superseded by 0020)" ;;
+			apply) echo "SKIP     ${name} (superseded by 0020)" ;;
+			revert) echo "SKIP     ${name} (deferred until 0020 revert)" ;;
+		esac
+		continue
+	fi
+	if superseded_by_0022 "$name"; then
+		case "$MODE" in
+			check) echo "APPLIED  ${name} (superseded by 0022)" ;;
+			apply) echo "SKIP     ${name} (superseded by 0022)" ;;
+			revert) echo "SKIP     ${name} (deferred until 0022 revert)" ;;
 		esac
 		continue
 	fi
@@ -149,6 +232,7 @@ if [[ "$MODE" == "apply" ]]; then
 	bun "${HERE}/verify-prefix-cache-compaction.ts"
 	bun "${HERE}/verify-model-switch-tool-description.ts"
 	bun "${HERE}/verify-provider-image-budget.ts"
+	bun "${HERE}/verify-hindsight-recall-snapshot.ts"
 fi
 if [[ "$MODE" != "check" ]]; then
 	printf 'smoke: '

@@ -1,0 +1,35 @@
+--- a/src/hindsight/state.ts
++++ b/src/hindsight/state.ts
+@@ -463,7 +463,31 @@
+ 
+ 	async beforeAgentStartPrompt(promptText: string): Promise<string | undefined> {
+ 		if (this.config.mentalModelsEnabled && this.mentalModelsLoadPromise && this.mentalModelsLoadedAt === undefined) {
+-			await Promise.race([this.mentalModelsLoadPromise, Bun.sleep(MENTAL_MODEL_FIRST_TURN_DEADLINE_MS)]);
++			const mmSettled = await Promise.race([
++				this.mentalModelsLoadPromise.then(() => true as const),
++				Bun.sleep(MENTAL_MODEL_FIRST_TURN_DEADLINE_MS).then(() => false as const),
++			]);
++			// Deadline won: the first turn is about to go out WITHOUT the
++			// `<mental_models>` block. Letting the pending `runMentalModelLoad`
++			// finish afterwards would rebuild the base system prompt with a
++			// freshly rendered MM block, trip the content-diff guard in
++			// session-tools (`clearInheritedProviderPromptCacheKey`) and blow the
++			// entire prefix billed on turn one. Freeze the "no MM" answer now, so
++			// the late load replays the empty marker (`persisted.length > 0` is
++			// false -> snippet stays undefined), the rebuild is byte-identical and
++			// the cache key survives. Resume replays the same empty marker;
++			// `/memory mm reload` remains the explicit escape hatch.
++			// Re-check `mentalModelsLoadedAt`: a load that lands in the same tick
++			// as the deadline has already persisted its real snapshot.
++			if (!mmSettled && this.mentalModelsLoadedAt === undefined) {
++				// Freeze the whole first-turn decision, not just the marker: mark
++				// MM as loaded-but-empty so later turns skip this race entirely
++				// instead of re-waiting the deadline and stacking duplicate empty
++				// markers (a hung load would otherwise tax every single turn).
++				this.mentalModelsLoadedAt = Date.now();
++				this.mentalModelsSnippet = undefined;
++				this.session.sessionManager?.appendCustomEntry?.(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE, { snippet: "" });
++			}
+ 		}
+ 
+ 		if (!this.config.autoRecall || this.hasRecalledForFirstTurn) return undefined;

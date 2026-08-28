@@ -1,0 +1,18 @@
+--- a/src/hindsight/state.ts
++++ b/src/hindsight/state.ts
+@@ -450,7 +450,14 @@
+ 		if (!branch) return undefined;
+ 		for (let index = branch.length - 1; index >= 0; index--) {
+ 			const entry = branch[index];
+-if (entry.type !== "custom" || entry.customType !== customType) continue;
++			// Snapshots are per-transcript: a `reset_boundary` (`/clear`, focus
++			// attach, new transcript) starts a new conversation, so markers from
++			// before it must not answer for the post-reset turns. Without this,
++			// a stale non-empty marker replays outdated memories into the new
++			// transcript, and a stale EMPTY marker (0021/0023 freeze) suppresses
++			// recall for the rest of the new conversation.
++			if (entry.type === "reset_boundary") break;
++			if (entry.type !== "custom" || entry.customType !== customType) continue;
+ 			const data = entry.data;
+ 			if (data && typeof data === "object" && "snippet" in data) {
+ 				const snippet = data.snippet;
