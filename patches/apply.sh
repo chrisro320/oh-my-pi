@@ -60,6 +60,7 @@ PATCHES=(
 	"0020-omp-frame-byte-budget-per-shape-snapcompact.patch:${SNAP}"
 	"0020-omp-frame-byte-budget-per-shape-agent.patch:${AGENT}"
 	"0022-omp-provider-image-budget-entries.patch:${SNAP}"
+	"0025-omp-ollama-cloud-usage-api.patch:${AI}"
 )
 
 status() { # patch root -> applied|pending|conflict
