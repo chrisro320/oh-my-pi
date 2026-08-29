@@ -1,0 +1,11 @@
+--- a/src/modes/components/status-line/component.ts
++++ b/src/modes/components/status-line/component.ts
+@@ -1305,7 +1305,8 @@
+ 		// provider whitelist so anthropic is only ever hit by its own turns.
+ 		// Re-entry guard (restore of the 0005-era check 0026 dropped): without
+ 		// it a cold start or slow fetch lets every repaint dispatch another
+ 		// fetchUsageReports while the previous one is still in flight.
++		const activeProvider = session.state.model?.provider ?? session.model?.provider;
+ 		if (this.#usageInFlight || this.#usageStartTimer) return;
+ 		if (activeProvider === "anthropic") {
+ 			if (!turnEnded && this.#usageFetchedAt > 0) return;

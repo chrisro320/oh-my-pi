@@ -63,6 +63,7 @@ PATCHES=(
 	"0026-omp-usage-fetch-anthropic-gate-core.patch:${AI}"
 	"0026-omp-usage-fetch-anthropic-gate-agent.patch:${AGENT}"
 	"0027-omp-usage-refresh-ttl-restore.patch:${AGENT}"
+	"0028-omp-usage-refresh-activeprovider-restore.patch:${AGENT}"
 )
 
 status() { # patch root -> applied|pending|conflict
@@ -109,6 +110,20 @@ superseded_by_0027() {
 		*) return 1 ;;
 	esac
 	local latest="${HERE}/0027-omp-usage-refresh-ttl-restore.patch"
+	[[ -f "$latest" ]] || return 1
+	patch -p1 -R --dry-run --force --silent -d "$AGENT" <"$latest" >/dev/null 2>&1
+}
+
+# 0026-agent's gate hunk dropped the `const activeProvider` declaration that
+# its own body still references; 0027 restored the TTL constant but not this
+# one. 0028 re-inserts it (value identical to 0005's original).
+superseded_by_0028() {
+	local name="$1"
+	case "$name" in
+		0026-omp-usage-fetch-anthropic-gate-agent.patch) ;;
+		*) return 1 ;;
+	esac
+	local latest="${HERE}/0028-omp-usage-refresh-activeprovider-restore.patch"
 	[[ -f "$latest" ]] || return 1
 	patch -p1 -R --dry-run --force --silent -d "$AGENT" <"$latest" >/dev/null 2>&1
 }
@@ -205,6 +220,14 @@ for entry in "${ORDER[@]}"; do
 			check) echo "APPLIED  ${name} (superseded by 0027)" ;;
 			apply) echo "SKIP     ${name} (superseded by 0027)" ;;
 			revert) echo "SKIP     ${name} (deferred until 0027 revert)" ;;
+		esac
+		continue
+	fi
+	if superseded_by_0028 "$name"; then
+		case "$MODE" in
+			check) echo "APPLIED  ${name} (superseded by 0028)" ;;
+			apply) echo "SKIP     ${name} (superseded by 0028)" ;;
+			revert) echo "SKIP     ${name} (deferred until 0028 revert)" ;;
 		esac
 		continue
 	fi
