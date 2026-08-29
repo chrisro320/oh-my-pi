@@ -253,3 +253,28 @@
 - **排障记录（勿重蹈）**：升级后面板仍显旧 note 的真正机制有三层——① `#fetchUsageCached` 在新请求失败时**保留 stale last-good 并续写 24h durable TTL**（新 TUI 断网时段同样延续旧文案，源码 `auth-storage.ts` 3387–3400）；② 旧代码占位实现**不发请求**、直接凭空生成空报告写缓存；③ 长命旧 TUI 进程（昨 10:51 启动）周期 flush 内存旧报告续命缓存。删缓存必须以「污染进程全部关闭 + 网络可达」为前提，否则删了即回写。另有教训：凭据取值只走运行时解析，**禁止**把 key 明文写进命令/回复（本轮已泄露一次，待轮换）。
 - **18.0.9 重验（2026-08-28 通过）**：`omp usage` 实测 `Ollama 5 Hour 35.2% used / 7 Day 21.5% used`（Top consumers: glm-5.3-flash x458），0025 在 18.0.9 上继续生效——上游 v18.0.9 的 `usage/ollama.ts` 仍是占位实现（18.0.6 与 18.0.9 该文件逐字节相同），补丁不可撤。
 - **备注**：三个上游 feature request（#15132/#15663/#16448）要求的是更标准化的格式/headers，不影响本端点可用性；omp 上游若日后自行接入，此补丁可撤。
+
+### 0027 — 0026 刪掉 `STATUS_USAGE_REFRESH_TTL_MS` 定義卻保留引用,statusline 一渲染就崩
+- **失败签名**:`[Uncaught Exception] ReferenceError: STATUS_USAGE_REFRESH_TTL_MS is not defined`,栈为 `refreshUsageInBackground (component.ts:1310)` ← `#buildSegmentContext` ← `#buildStatusLine` ← `getStandaloneTopBorder` ← `editor.render` ← `tui.render` ← `#renderRoots` ← `#doRender`。TUI 每次重绘都抛,进程直接掉到 `[Recovery] omp --resume`。现场 session `01a0493b`(glm-5.3-flash,工作目录 `omp-move`,任务「Fix Claude quota display error」)。
+- **根因**:**0026-agent 自身的疏漏,不是套用冲突。** 它的第一个 hunk(`@@ -297,17 +297,15 @@`)删掉了
+  ```
+  -// Completed LLM requests bypass it — see refreshUsageInBackground.
+  -const STATUS_USAGE_REFRESH_TTL_MS = 50_000;
+  ```
+  只留下孤立的 `// Throttle for repaint-triggered usage fetches` 文档注释;但它的第二个 hunk(`@@ -1295,15 +1293,17 @@`)在非 anthropic 分支里**仍然引用该常量**:
+  ```
+  } else if (!turnEnded && this.#usageFetchedAt > 0 && now - this.#usageFetchedAt < STATUS_USAGE_REFRESH_TTL_MS)
+  ```
+  两个 hunk 的 diff 上下文都对得上,`patch` 干净套用、`apply.sh --check` 报 APPLIED——**补丁栈没有类型检查,抓不到跨 hunk 的未定义引用**。这是本栈第一次出现「补丁能套用但语义已坏」的形态。
+- **修法**(单点,4 行):在 `component.ts` 顶层把定义补回。值取 `50_000`,依据是 0026 自己的注释原文「Non-anthropic sessions keep the regular **50s** repaint cadence」,与 0005 引入时的原值一致。未改 0026(定稿补丁不可变),按规矩追加独立补丁。
+- **supersede 注册**:0027 在 0026 删除的位置重新插入、且重新引入 0005 原本添加的常量,因此 **0005 与 0026-agent 都无法单独反向套用**。已加 `superseded_by_0027()` 覆盖这两个补丁名,并把调用点插在 `superseded_by_0026` **之前**(0027 是最新那层)。未注册前 `--check` 会报 2 个 bogus CONFLICT——已用对照实验坐实:移除 0027 的 4 行后跑旧 `apply.sh`,两者恢复 `APPLIED (superseded by 0026)`。
+- **验收(2026-08-29 全部通过)**:
+  | 项 | 结果 |
+  |---|---|
+  | 符号配对扫描 | `STATUS_USAGE_REFRESH_TTL_MS`/`ANTHROPIC_USAGE_TURN_GATE_MS`/`STATUS_USAGE_REFRESH_TIMEOUT_MS`/`STATUS_USAGE_START_DELAY_MS` 全部 定义=1 引用=1;`ANTHROPIC_USAGE_REFRESH_TTL_MS` 定义=0 引用=0(0026 已彻底移除,一致) |
+  | 模块导入 | `bun -e 'await import(".../component.ts")'` → `IMPORT_OK exports: StatusLineComponent`(顶层 const 已求值,ReferenceError 成因消除) |
+  | `apply.sh --check` | 全表 APPLIED,**CONFLICT 0** |
+  | 幂等 | 连跑两次 `apply.sh`,`^const STATUS_USAGE_REFRESH_TTL_MS` 行数恒为 1 |
+  | LLM/CLI 冒烟 | `omp usage` 退出码 0,Anthropic 5h/7d、Antigravity 3 帐户、Kimi Code 全部正常渲染 |
+- **未覆盖**:TUI 交互式首帧渲染未在本轮复现验证(崩点在 `editor.render` 路径,非交互环境难完全复现)。ReferenceError 成因已消除,但 statusline 实际显示需重启 omp 确认。
+- **教训 / 待办**:`apply.sh` 只验证 diff 能否套用,不验证语义。跨 hunk 增删同一符号的补丁应配一个「未定义引用扫描」的 verify 脚本(比对 `^const X` 定义数与 `X` 出现数),否则同类事故会重演。

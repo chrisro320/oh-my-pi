@@ -1,0 +1,13 @@
+--- a/src/modes/components/status-line/component.ts
++++ b/src/modes/components/status-line/component.ts
+@@ -297,6 +297,10 @@
+ const STATUS_USAGE_START_DELAY_MS = 0;
+ const STATUS_USAGE_REFRESH_TIMEOUT_MS = 2_000;
+ // Throttle for repaint-triggered usage fetches (keystrokes, git events).
++// Completed LLM requests bypass it — see refreshUsageInBackground.
++// 補丁 0027:0026 的第一個 hunk 刪掉了這行定義,卻在 1310 行的 else if 分支保留了引用,
++// 導致 refreshUsageInBackground 一跑就 ReferenceError。值沿用 0026 註解裡的 50s 節奏。
++const STATUS_USAGE_REFRESH_TTL_MS = 50_000;
+ 
+ function isContextSegment(segment: StatusLineSegmentId): boolean {
+ 	return segment === "context_pct" || segment === "context_total";

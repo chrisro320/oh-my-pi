@@ -62,6 +62,7 @@ PATCHES=(
 	"0025-omp-ollama-cloud-usage-api.patch:${AI}"
 	"0026-omp-usage-fetch-anthropic-gate-core.patch:${AI}"
 	"0026-omp-usage-fetch-anthropic-gate-agent.patch:${AGENT}"
+	"0027-omp-usage-refresh-ttl-restore.patch:${AGENT}"
 )
 
 status() { # patch root -> applied|pending|conflict
@@ -94,6 +95,24 @@ superseded_by_0018() {
 # 0005's turn-end/TTL block is fully rewritten by 0026 (anthropic gate +
 # 10min TTL), so 0005 can no longer reverse-apply once 0026 is in. Same
 # reverse-order reasoning as the 0013/0018 pair.
+# 0027 restores the `STATUS_USAGE_REFRESH_TTL_MS` definition that 0026's first
+# hunk deleted while its second hunk kept referencing it (ReferenceError at
+# runtime). Because 0027 re-inserts lines at the exact spot 0026 removed and
+# re-introduces the constant 0005 originally added, neither 0005 nor 0026-agent
+# can reverse-apply on their own once 0027 is in. Same reverse-order reasoning
+# as the 0013/0018 pair: 0027 sits last in `PATCHES`, so a revert run takes it
+# off first and both become revertible again by the time their turn comes.
+superseded_by_0027() {
+	local name="$1"
+	case "$name" in
+		0005-omp-usage-refresh-on-turn.patch|0026-omp-usage-fetch-anthropic-gate-agent.patch) ;;
+		*) return 1 ;;
+	esac
+	local latest="${HERE}/0027-omp-usage-refresh-ttl-restore.patch"
+	[[ -f "$latest" ]] || return 1
+	patch -p1 -R --dry-run --force --silent -d "$AGENT" <"$latest" >/dev/null 2>&1
+}
+
 superseded_by_0026() {
 	local name="$1"
 	case "$name" in
@@ -178,6 +197,14 @@ for entry in "${ORDER[@]}"; do
 			check) echo "APPLIED  ${name} (superseded by 0018)" ;;
 			apply) echo "SKIP     ${name} (superseded by 0018)" ;;
 			revert) echo "SKIP     ${name} (deferred until 0018 revert)" ;;
+		esac
+		continue
+	fi
+	if superseded_by_0027 "$name"; then
+		case "$MODE" in
+			check) echo "APPLIED  ${name} (superseded by 0027)" ;;
+			apply) echo "SKIP     ${name} (superseded by 0027)" ;;
+			revert) echo "SKIP     ${name} (deferred until 0027 revert)" ;;
 		esac
 		continue
 	fi

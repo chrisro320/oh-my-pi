@@ -1,63 +1,25 @@
 --- a/src/modes/components/status-line/component.ts
 +++ b/src/modes/components/status-line/component.ts
-@@ -297,17 +297,15 @@
+@@ -297,6 +297,10 @@
  const STATUS_USAGE_START_DELAY_MS = 0;
  const STATUS_USAGE_REFRESH_TIMEOUT_MS = 2_000;
  // Throttle for repaint-triggered usage fetches (keystrokes, git events).
--// Completed LLM requests bypass it — see refreshUsageInBackground.
--const STATUS_USAGE_REFRESH_TTL_MS = 50_000;
--// Anthropic /oauth/usage rate-limits per IP aggressively (data changes on the
--// scale of hours): non-anthropic sessions stay fully silent, anthropic
--// sessions refresh on turn-end but no more often than 10min.
--const ANTHROPIC_USAGE_REFRESH_TTL_MS = 600_000;
++// Completed LLM requests bypass it — see refreshUsageInBackground.
++// 補丁 0027:0026 的第一個 hunk 刪掉了這行定義,卻在 1310 行的 else if 分支保留了引用,
++// 導致 refreshUsageInBackground 一跑就 ReferenceError。值沿用 0026 註解裡的 50s 節奏。
++const STATUS_USAGE_REFRESH_TTL_MS = 50_000;
  
  function isContextSegment(segment: StatusLineSegmentId): boolean {
  	return segment === "context_pct" || segment === "context_total";
- }
- 
-+// Anthropic /oauth/usage rate-limits per IP aggressively (data changes on the
-+// scale of hours): idle repaints stay silent, a turn boundary refreshes at
-+// most once per three minutes.
-+const ANTHROPIC_USAGE_TURN_GATE_MS = 180_000;
- function hasContextSegment(segments: readonly StatusLineSegmentId[]): boolean {
- 	return segments.includes("context_pct") || segments.includes("context_total");
- }
-@@ -1295,15 +1293,17 @@
- 			}
- 		}
- 		// Anthropic's usage endpoint rate-limits per IP at well under 1 RPM and
--		// its data changes on the scale of hours, so the statusline polls only
--		// the ACTIVE session's provider: anthropic sessions refresh at most
--		// once per 10 minutes (turn-end included, hard gate), every other
--		// session keeps its own 50s cadence but the fan-out is whitelisted to
--		// that provider — anthropic is only hit by anthropic-active turns.
-+		// its data changes on the scale of hours. Rules:
-+		// - anthropic session, NO turn boundary → fully silent (zero requests;
-+		//   repaints only rerender the cached numbers)
-+		// - turn-end → refresh, but throttled to once per 3 minutes
-+		// - provider switch / cold start → one immediate fetch
-+		// Non-anthropic sessions keep the regular 50s repaint cadence with a
-+		// provider whitelist so anthropic is only ever hit by its own turns.
- 		const activeProvider = session.state.model?.provider ?? session.model?.provider;
--		const excludeAnthropic = activeProvider !== "anthropic";
+@@ -1300,7 +1304,10 @@
+ 		// - provider switch / cold start → one immediate fetch
+ 		// Non-anthropic sessions keep the regular 50s repaint cadence with a
+ 		// provider whitelist so anthropic is only ever hit by its own turns.
+-		const activeProvider = session.state.model?.provider ?? session.model?.provider;
++		// Re-entry guard (restore of the 0005-era check 0026 dropped): without
++		// it a cold start or slow fetch lets every repaint dispatch another
++		// fetchUsageReports while the previous one is still in flight.
++		if (this.#usageInFlight || this.#usageStartTimer) return;
  		if (activeProvider === "anthropic") {
--			if (this.#usageFetchedAt > 0 && now - this.#usageFetchedAt < ANTHROPIC_USAGE_REFRESH_TTL_MS) return;
-+			if (!turnEnded && this.#usageFetchedAt > 0) return;
-+			if (this.#usageFetchedAt > 0 && now - this.#usageFetchedAt < ANTHROPIC_USAGE_TURN_GATE_MS) return;
- 		} else if (
- 			!turnEnded &&
- 			this.#usageFetchedAt > 0 &&
-@@ -1313,10 +1313,10 @@
- 		}
- 		const sessionFetcher = session.fetchUsageReports;
- 		if (typeof sessionFetcher !== "function") return;
--		// Whitelist the active provider only: the statusline segment renders a
--		// single session's quota, so poll exactly that provider's endpoint(s).
-+		// Whitelist the active provider: the statusline segment renders a single
-+		// session's quota, so poll exactly that provider's endpoint(s).
- 		const fetcher = (signal?: AbortSignal) =>
--			sessionFetcher.call(session, signal, excludeAnthropic ? ([activeProvider] as readonly string[]) : undefined);
-+			sessionFetcher.call(session, signal, activeProvider ? [activeProvider] : undefined);
- 		this.#usageInFlight = true;
- 		this.#usageStartTimer = setTimeout(() => {
- 			this.#usageStartTimer = null;
+ 			if (!turnEnded && this.#usageFetchedAt > 0) return;
+ 			if (this.#usageFetchedAt > 0 && now - this.#usageFetchedAt < ANTHROPIC_USAGE_TURN_GATE_MS) return;
