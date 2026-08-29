@@ -61,9 +61,12 @@ PATCHES=(
 	"0022-omp-provider-image-budget-entries.patch:${SNAP}"
 	"0025-omp-ollama-cloud-usage-api.patch:${AI}"
 	"0026-omp-usage-fetch-anthropic-gate-core.patch:${AI}"
+	"0029-omp-usage-fetch-gate-merged-agent.patch:${AGENT}"
 	"0026-omp-usage-fetch-anthropic-gate-agent.patch:${AGENT}"
 	"0027-omp-usage-refresh-ttl-restore.patch:${AGENT}"
 	"0028-omp-usage-refresh-activeprovider-restore.patch:${AGENT}"
+	"0030-omp-usage-cache-canonical-baseurl.patch:${AI}"
+	"0031-omp-agent-session-providers-forward.patch:${AGENT}"
 )
 
 status() { # patch root -> applied|pending|conflict
@@ -96,34 +99,21 @@ superseded_by_0018() {
 # 0005's turn-end/TTL block is fully rewritten by 0026 (anthropic gate +
 # 10min TTL), so 0005 can no longer reverse-apply once 0026 is in. Same
 # reverse-order reasoning as the 0013/0018 pair.
-# 0027 restores the `STATUS_USAGE_REFRESH_TTL_MS` definition that 0026's first
-# hunk deleted while its second hunk kept referencing it (ReferenceError at
-# runtime). Because 0027 re-inserts lines at the exact spot 0026 removed and
-# re-introduces the constant 0005 originally added, neither 0005 nor 0026-agent
-# can reverse-apply on their own once 0027 is in. Same reverse-order reasoning
-# as the 0013/0018 pair: 0027 sits last in `PATCHES`, so a revert run takes it
-# off first and both become revertible again by the time their turn comes.
-superseded_by_0027() {
+# 0029 merges the whole anthropic usage-gate change set (0026-agent + 0027 +
+# 0028) into one hunk pair measured from the pristine 18.0.9 file plus 0005 and
+# 0007. The three originals are kept for history but can no longer reverse-apply
+# individually: 0026-agent was regenerated from a source tree that already
+# carried an un-patched bare edit (the 10min `ANTHROPIC_USAGE_REFRESH_TTL_MS`
+# gate + `excludeAnthropic`, never captured as a patch), so the chain could not
+# be rebuilt from upstream at all. 0029 sits last in `PATCHES`, so a revert run
+# takes it off first and the file returns to the 0005+0007 state.
+superseded_by_0029() {
 	local name="$1"
 	case "$name" in
-		0005-omp-usage-refresh-on-turn.patch|0026-omp-usage-fetch-anthropic-gate-agent.patch) ;;
+		0005-omp-usage-refresh-on-turn.patch|0026-omp-usage-fetch-anthropic-gate-agent.patch|0027-omp-usage-refresh-ttl-restore.patch|0028-omp-usage-refresh-activeprovider-restore.patch) ;;
 		*) return 1 ;;
 	esac
-	local latest="${HERE}/0027-omp-usage-refresh-ttl-restore.patch"
-	[[ -f "$latest" ]] || return 1
-	patch -p1 -R --dry-run --force --silent -d "$AGENT" <"$latest" >/dev/null 2>&1
-}
-
-# 0026-agent's gate hunk dropped the `const activeProvider` declaration that
-# its own body still references; 0027 restored the TTL constant but not this
-# one. 0028 re-inserts it (value identical to 0005's original).
-superseded_by_0028() {
-	local name="$1"
-	case "$name" in
-		0026-omp-usage-fetch-anthropic-gate-agent.patch) ;;
-		*) return 1 ;;
-	esac
-	local latest="${HERE}/0028-omp-usage-refresh-activeprovider-restore.patch"
+	local latest="${HERE}/0029-omp-usage-fetch-gate-merged-agent.patch"
 	[[ -f "$latest" ]] || return 1
 	patch -p1 -R --dry-run --force --silent -d "$AGENT" <"$latest" >/dev/null 2>&1
 }
@@ -215,19 +205,11 @@ for entry in "${ORDER[@]}"; do
 		esac
 		continue
 	fi
-	if superseded_by_0027 "$name"; then
+	if superseded_by_0029 "$name"; then
 		case "$MODE" in
-			check) echo "APPLIED  ${name} (superseded by 0027)" ;;
-			apply) echo "SKIP     ${name} (superseded by 0027)" ;;
-			revert) echo "SKIP     ${name} (deferred until 0027 revert)" ;;
-		esac
-		continue
-	fi
-	if superseded_by_0028 "$name"; then
-		case "$MODE" in
-			check) echo "APPLIED  ${name} (superseded by 0028)" ;;
-			apply) echo "SKIP     ${name} (superseded by 0028)" ;;
-			revert) echo "SKIP     ${name} (deferred until 0028 revert)" ;;
+			check) echo "APPLIED  ${name} (superseded by 0029)" ;;
+			apply) echo "SKIP     ${name} (superseded by 0029)" ;;
+			revert) echo "SKIP     ${name} (deferred until 0029 revert)" ;;
 		esac
 		continue
 	fi

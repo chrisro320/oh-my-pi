@@ -1,7 +1,8 @@
 # omp 18.0.9 Patch 清单
 
 > 生成 2026-08-28（第五次修訂：适配上游 18.0.9；0011 撤下改由上游原生接管）。
-> 權威 patch 集在 `~/.omp/patches/`（0002-0007、0010 + apply.sh），本文件是鏡像清單。
+> 權威 patch 集在 `~/.omp/patches/`（實際生效清單以 `apply.sh` 的 `PATCHES` 陣列為準，本文件是鏡像）。
+> 截至 2026-08-29 註冊生效：0002、0003、0004、0005、0006、0007、0010、0013、0014、0015、0017、0018、0019、0020、0021、0022、0023、0024、0025、0026、0027、0028、0029、0030。定稿補丁不可變；被取代者保留存檔並由 `superseded_by_*` 跳過。
 
 ## 0. 运行模式
 
@@ -9,7 +10,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前生效，0002-0007、0010、0012、0013、0014、0015、0016）
+## 1. src 補丁（目前生效：0002、0003、0004、0005、0006、0007、0010、0013、0014、0015、0017、0018、0019、0020、0021、0022、0023、0024、0025、0026、0027、0028、0029、0030）
 
 ### 0004 — token_total 计入 cacheRead
 - `segments.ts`：total = input+output+cacheRead+cacheWrite+orchestration 三项（配额窗口口径）
@@ -278,3 +279,89 @@
   | LLM/CLI 冒烟 | `omp usage` 退出码 0,Anthropic 5h/7d、Antigravity 3 帐户、Kimi Code 全部正常渲染 |
 - **未覆盖**:TUI 交互式首帧渲染未在本轮复现验证(崩点在 `editor.render` 路径,非交互环境难完全复现)。ReferenceError 成因已消除,但 statusline 实际显示需重启 omp 确认。
 - **教训 / 待办**:`apply.sh` 只验证 diff 能否套用,不验证语义。跨 hunk 增删同一符号的补丁应配一个「未定义引用扫描」的 verify 脚本(比对 `^const X` 定义数与 `X` 出现数),否则同类事故会重演。
+
+### 0029 — 合并 anthropic usage-gate 变更集,修复补丁栈无法从上游重建
+- **背景(两个独立缺陷叠加)**:
+  1. **0026-agent 自身的疏漏**:第一个 hunk 删掉 `const STATUS_USAGE_REFRESH_TTL_MS = 50_000;`,第二个 hunk 的非 anthropic 分支仍引用它 → statusline 每次重绘抛 `ReferenceError: STATUS_USAGE_REFRESH_TTL_MS is not defined`,TUI 掉到 `[Recovery]`。**只打非 anthropic 会话**(anthropic 走 `if` 分支不触及该常量),现场是 `omp-move` 的 glm-5.3-flash 会话。
+  2. **链条更早就断了**:`c056735` 是 0026 的首次引入(git `A`),但它期望的前置状态含 `ANTHROPIC_USAGE_REFRESH_TTL_MS = 600_000`(10min gate)与 `excludeAnthropic` —— 这些**从未被补丁化,是直接改进 src 的裸改**。因此从 18.0.9 原版 + 补丁栈**根本重建不出当前 src**,`0026-agent` 3/3 hunks 反向必失败。
+- **我引入的污染(已清除)**:补该常量时在上游源码里写了两行中文注记,又生成进 0027;下游流程基于被污染的 src 重新生成 0026(`5a3ba8c`),把中文烘进 0026 并把「删常量」翻转成「加常量」;我随后清理 src 中文后,0026 与 src 彻底脱钩。**上游源码通篇英文,不得写入中文注记**——背景一律只进 PATCHES.md。
+- **修法**:新增 0029,单一补丁涵盖 0026-agent + 0027 + 0028 的全部语义,基线取 **bun 缓存的原版 18.0.9 + 0005 + 0007**。内容:`ANTHROPIC_USAGE_TURN_GATE_MS = 180_000` gate(idle 静默 / turn-end 限流 3min / 冷启动一次)、in-flight 重入 guard、provider whitelist、保留 0005 的 `STATUS_USAGE_REFRESH_TTL_MS` 引用(**不删其定义**)。2 hunks。
+- **旧补丁全部保留不动**(定稿不可变):0026-agent / 0027 / 0028 留档,由 `superseded_by_0029()` 跳过。0026-core(`pi-ai` 包)独立保留,不受影响。
+- **注册顺序(关键)**:0029 的 active entry 必须排在三个旧 entry **之前**、0005/0007 之后。fresh install 时 supersede 探针在 0029 自身应用前不可能成立,若 0029 排在后面,0026-agent 会先被尝试套用并失败。revert 倒序走则先跳过三个、最后退 0029。
+- **`superseded_by_0029` 覆盖 4 个**:0026-agent / 0027 / 0028 / **0005**。0005 也在内,因为它的 turn-end/TTL 那行被 0029 重写成 anthropic/非 anthropic 分支对,0029 在位时 0005 无法单独反向套用。
+- **清理**:移除先前临时加的 `superseded_by_0027()` 及其调用;同时删掉 `superseded_by_0028()` 的孤儿调用点(该函数只覆盖 0026-agent,已被 0029 涵盖)。
+- **验收(2026-08-29 全部通过)**:
+  | 项 | 结果 |
+  |---|---|
+  | `apply.sh --check` | **28 APPLIED / 0 CONFLICT / 0 MISSING / stderr 0 行** |
+  | fresh install 模拟 | 原版 → 0005 → 0007 → 0029 → 三个 SKIP;结果**逐字节等于现场 src** |
+  | revert 模拟 | 倒序跳过三个 → 退 0029 → 退 0007 → 退 0005;**逐字节回到原版 18.0.9** |
+  | 幂等 | 连跑两次 `apply.sh`,现场 src sha256 不变 |
+  | 现场 src | 全程 `04874e9c685b92d0` 未变 → **运行中的会话零中断** |
+
+  > 表中「28 APPLIED」是 0030 之前的快照；加入 0030 后为 29 APPLIED / 0 CONFLICT。
+  | 模块导入 | `IMPORT_OK exports: StatusLineComponent` |
+  | CLI 冒烟 | `omp usage` 退出码 0 |
+- **未覆盖**:① 非 anthropic 的 TUI statusline 交互式首帧渲染(崩点在 `editor.render`,非交互环境难复现);② **轮询抑制的行为验证**——「多次 repaint 只发一次请求」尚无实测,`IMPORT_OK` 不构成轮询验收。
+- **教训**:`apply.sh` 只验证 diff 能否套用,不验证语义,跨 hunk 增删同一符号抓不到。应补一个「未定义引用扫描」verify(比对 `^const X` 定义数与 `X` 出现数)。另:任何绕过补丁栈的裸改会让整条链在下一次重生成时静默断裂,本次即为实例。
+
+### 0030 — 配额缓存 key 用 canonical baseURL，修读写分裂
+- **症状**:statusline 与 `omp usage` 显示的 Claude 配额长期卡在旧值(实测 `fetched 1d3h ago`,`5h 0% / 7d 51%`),而同一时刻 statusline 曾闪现过 `5h 73%` 的新数字。
+- **已坐实的根因(读写分裂)**:同一账号的配额报告被存成三份互不相干的记录:
+  ```
+  usage_cache:report:3:anthropic:default:oauth|account:5a66efef…
+  usage_cache:report:3:anthropic:https://api.anthropic.com:oauth|account:5a66efef…
+  usage_cache:report:3:anthropic:https://api.anthropic.com/v1:oauth|account:5a66efef…
+  ```
+  `usage/claude.ts` 的 `normalizeClaudeBaseUrl` 把「无 path」「`/v1` 后缀」「缺省」**全部折叠成同一个 `/api/oauth` 端点**去发请求;但 `auth-storage.ts` 的 `#buildUsageReportCacheKey` 只调 `#normalizeUsageBaseUrl`(仅 trim + 去尾斜线),原封保留 raw baseURL 当 key。**一个请求，三个 key**:刷新写进其中一份,读取命中另一份就永远看不到。20 分钟内两次快照对比可直接看到 `/v1` 那份从「过期 23 小时」变成「刚写入」,而另两份没动。
+- **修法**(`pi-ai` 两个文件):
+  1. `usage/claude.ts` 导出 `normalizeClaudeBaseUrl`。
+  2. `#normalizeUsageBaseUrl(baseUrl, provider)` 加 provider 参数;`provider === "anthropic"` 时走 canonical 化,其他 provider 保持 trim-only 原行为。
+  3. `#legacyUsageReportCacheKeys(request)` 列出 canonicalization 之前用过的 key(`default`、去尾斜线的裸 origin、`origin + /v1`、以及 raw 值),排除 canonical 自身。
+  4. `#readUsageReportCached(request, cacheKey, stale)` 统一读取:先读 canonical,未命中则扫 legacy,**按 `fetchedAt` 挑最新的一份**(`expiresAt` 为 null 值失败标记兜底),以原 `expiresAt` 写入 canonical key。**只读不删**,旧数据留在盘上。
+  5. 新鲜读(`#usageCache.get`)与失败回落读(`getStale`)**都改走同一个 fallback**,所以 429 时也能撈回旧快照,不会退化成 `no usage data`。
+- **两次失手(都当场修掉,记录以免重蹈)**:
+  1. 第一版只换 key、没有 fallback → 既有三份记录的名字全部对不上,`omp usage` 从「显示旧数据」变成 **`no usage data`**,比修之前更糟。已撤回重写。
+  2. 第二版 fallback 按数组顺序取第一个命中 → 撈到最旧那份(`1d22h ago`、5h 显示 100%)。改成按 `fetchedAt` 挑最新。
+- **真正的拦路虎不是限流**:0030 落地后 `omp usage invalidate` 强制刷新仍一路回落 stale。当时把方向压在 429 上是**错的**——真凶是 `agent.db` 损坏(见下一节),`auth_credentials` 那棵树坏掉导致凭据解析失败、fetch 拿不到数据;`cache` 表也是坏的那棵树,所以那三份记录有两份根本读不出来。数据库修好后立即恢复正常。
+- **验收(2026-08-29)**:
+  | 项 | 结果 |
+  |---|---|
+  | canonical 折叠 | `undefined` / `""` / 裸 origin / 带尾斜线 / `/v1` / `/v1/` / `/api/oauth` 七种输入 → 同一 endpoint,不同结果数 **1** |
+  | `apply.sh --check` | 29 APPLIED / 0 CONFLICT / 0 MISSING / stderr 0 |
+  | 幂等 | 连跑两次 apply,`^export function normalizeClaudeBaseUrl` 恒为 1 行 |
+  | 可撤回 | 反向 dry-run 通过 |
+  | 修库后实测 | `omp usage` → **`fetched 1.2s ago`**、`5h 90.0% · resets in 2h11m`、`7d 60.0%`;新库中 anthropic 快取**只剩 1 笔**,key 为 `…anthropic:https://api.anthropic.com/api/oauth:oauth\|…` |
+- **未覆盖 / 需修正的表述**:
+  - **节流的行为验证仍然欠着**:四道闸(in-flight 防重入 → anthropic idle 零请求 → turn-end 180s 门槛 → 非 anthropic 50s)只做过**静态确认代码在位**,没有用慢 `fetchUsageReports` mock 量过实际调用次数。`IMPORT_OK` 不构成轮询验收。
+  - **0030 不能让多窗口共用防重入**:`#usageInFlight` 是每个进程/组件各自一份,多个 omp 窗口仍可能各发一次请求。0030 只消除了读写分裂,**不能说「不会再各自撞端点」**。
+  - 三份旧 key 是否全部属于同一请求路径:`normalizeClaudeBaseUrl` 已证明「无 path」与「`/v1`」折叠为同一端点;`default` 那份亦为同账号同 org,但未逐字节验证其 report 内容来源。
+
+## 5. agent.db 结构性损坏与重建(2026-08-29)
+- **发现**:排查配额时对 `~/.omp/agent/agent.db` 跑 `PRAGMA integrity_check`(官方 `.backup` 一致快照与 `mode=ro` 直读**都复现**,不是热 `cp` 造成的假象):
+  ```
+  Tree 5  page 365/295: btreeInitPage() returns error code 11      → 表 cache
+  Tree 5  page 136 cell 0: overflow list length is 1 but should be 29
+  Tree 19 page 148/43: Rowid out of order                          → 表 auth_credentials
+  Tree 8  page 8 cell 65/62: 2nd reference to page 38/164
+  Tree 10 page 263/262: 2nd reference to page 142/103/110/99/95/93
+  ~90 个 "Page N: never used" 孤儿页
+  wrong # of entries in index idx_auth_provider_identity / idx_auth_provider
+  ```
+- **实际危害(可见)**:`auth_credentials` 查询返回 **18 行**,其中 `id=6 deepseek` 与 `id=10 google-antigravity` 各出现两次——id 是主键,重复即 `2nd reference to page` 的直接后果。逐字节核对(两边用完全相同的 `substr(hex(data),1,32)` + `length(data)`)确认**两行内容完全相同**,是索引损坏导致同一行被扫两遍,不是两份不同凭据。
+- **它同时解释了两件事**:① 配额三份记录中两份读不出来(`cache` = Tree 5);② 探测端点时 `getOAuthCredential("anthropic")` 拿不到凭据(`auth_credentials` = Tree 19 + 索引条目数错误),先前误判为 API 用法问题。
+- **重建流程**:
+  1. `.recover` **不可用**——该 sqlite 未编入 `sqlite_dbpage`(`sql error: no such table: sqlite_dbpage`)。
+  2. 改用 `.dump`:输出 2256 行,内含两处 `/****** CORRUPTION ERROR *******/`,结尾自动 `ROLLBACK; -- due to errors` → 直接重建得到 **0 字节空库**。
+  3. `sed` 两处:`ROLLBACK; -- due to errors` → `COMMIT;`;`INSERT INTO` → `INSERT OR IGNORE INTO`(应对损坏产生的重复 rowid)。重建成功,`integrity_check` → **ok**,索引正常。
+- **数据取舍**:
+  | 表 | 原始 | 重建 | |
+  |---|---|---|---|
+  | `auth_credentials` | 18(含 2 笔幽灵) | **16** | 去重,16 个 provider 全齐,`data` 长度与 hex 头逐笔一致 |
+  | `cache` | 207 | 171 | 少 36(配额/MCP 快取,自动重生) |
+  | `usage_history` | 1647 | 1548 | 少 99(小时级历史统计) |
+  | `model_usage` / `command_usage` | 37 / 45 | 37 / 45 | 完整 |
+- **切换方式(用户执行)**:停掉所有 writer 后,`db` / `-wal` / `-shm` 三个文件**全部 `mv` 到带时间戳的备份**(不 `rm`,保住未合并事务),再 `cp` 重建库到位,`integrity_check` 确认 `ok`。**无需重新登录**——切换后实测 `omp usage` 取到 `fetched 1.2s ago` 的真实数据。
+- **备份**:`pre-swap-20260829-124717.db{,-wal,-shm}`(换库前原状)、`agent.db.broken-20260829-124320{,-wal}`(更早快照)、`agent.db.rebuilt-20260829`(重建副本),共约 12 MB,跑稳后可删。
+- **未查明**:**为什么会损坏**。用户当日重新登入过、且同时开着多个 omp 窗口(登入/setup 会大量改写 `auth_credentials` 系列表),时间上吻合,但**没有 WAL/journal 时序证据**,不能定为原因。若是并发写入的结构问题,会再次损坏。
+- **教训**:热 `cp` db+wal+shm 做快照本身可能不一致,不能据此判定损坏;要用 `.backup` 或 `mode=ro` 一致读取复验。
