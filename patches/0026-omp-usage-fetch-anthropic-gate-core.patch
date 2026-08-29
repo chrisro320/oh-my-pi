@@ -1,0 +1,59 @@
+--- a/src/auth-storage.ts
++++ b/src/auth-storage.ts
+@@ -4157,6 +4157,13 @@
+ 		baseUrlResolver?: (provider: Provider) => string | undefined;
+ 		/** Caller's cancel signal; only rejects this caller, never the shared upstream fetch. */
+ 		signal?: AbortSignal;
++		/**
++		 * Restrict the fan-out to these providers. Callers driving an
++		 * aggressive per-provider gate (e.g. the statusline's anthropic
++		 * rate-limit gate) pass the providers they may poll; provider usage
++		 * reports outside the set are neither fetched nor parsed.
++		 */
++		providers?: readonly Provider[];
+ 	}): Promise<UsageReport[] | null> {
+ 		// Caller override > store-level hook > local per-credential fan-out.
+ 		// `RemoteAuthCredentialStore` implements the store hook so a gateway
+@@ -4188,10 +4195,13 @@
+ 		if (!this.#usageProviderResolver && this.#runtimeUsageProviderOverrides.size === 0) return null;
+ 
+ 		const requests = await this.#collectUsageRequests(options);
+-		if (requests.length === 0) return [];
++		const gated = options?.providers
++			? requests.filter(request => options.providers!.includes(request.provider))
++			: requests;
++		if (gated.length === 0) return [];
+ 
+ 		this.#usageLogger?.debug("Usage fetch requested", {
+-			providers: [...new Set(requests.map(request => request.provider))].sort(),
++			providers: [...new Set(gated.map(request => request.provider))].sort(),
+ 		});
+ 
+ 		// Per-credential caching with jitter lives in #fetchUsageCached, so we
+@@ -4199,14 +4209,14 @@
+ 		// a single decorrelation snapshot for 30s, defeating the jitter (some
+ 		// accounts can be missing from one fetch and present in the next; the
+ 		// aggregate cache freezes whichever set landed first).
+-		const forcedRefresh = this.#usageForceRefresh(requests);
+-		const cacheKey = `${this.#buildUsageReportsCacheKey(requests)}\0${this.#usageCacheEpoch}`;
++		const forcedRefresh = this.#usageForceRefresh(gated);
++		const cacheKey = `${this.#buildUsageReportsCacheKey(gated)}\0${this.#usageCacheEpoch}`;
+ 
+ 		const inFlight = this.#usageReportsInFlight.get(cacheKey);
+ 		if (inFlight) return inFlight;
+ 
+ 		const promise = (async () => {
+-			for (const request of requests) {
++			for (const request of gated) {
+ 				this.#usageLogger?.debug("Usage fetch queued", {
+ 					provider: request.provider,
+ 					credentialType: request.credential.type,
+@@ -4216,7 +4226,7 @@
+ 				});
+ 			}
+ 
+-			const results = await this.#fetchUsageRequests(requests, forcedRefresh.providers);
++			const results = await this.#fetchUsageRequests(gated, forcedRefresh.providers);
+ 			const reports = results.filter((report): report is UsageReport => report !== null);
+ 			const deduped = this.#dedupeUsageReports(reports);
+ 			// no outer cache write — see comment above.

@@ -60,6 +60,8 @@ PATCHES=(
 	"0020-omp-frame-byte-budget-per-shape-agent.patch:${AGENT}"
 	"0022-omp-provider-image-budget-entries.patch:${SNAP}"
 	"0025-omp-ollama-cloud-usage-api.patch:${AI}"
+	"0026-omp-usage-fetch-anthropic-gate-core.patch:${AI}"
+	"0026-omp-usage-fetch-anthropic-gate-agent.patch:${AGENT}"
 )
 
 status() { # patch root -> applied|pending|conflict
@@ -89,6 +91,20 @@ superseded_by_0018() {
 # reverse-order reasoning as the 0013/0018 pair: 0021 sits after 0006 in
 # `PATCHES`, so a revert run takes 0021 off first and 0006 becomes revertible
 # again by the time its turn comes.
+# 0005's turn-end/TTL block is fully rewritten by 0026 (anthropic gate +
+# 10min TTL), so 0005 can no longer reverse-apply once 0026 is in. Same
+# reverse-order reasoning as the 0013/0018 pair.
+superseded_by_0026() {
+	local name="$1"
+	case "$name" in
+		0005-omp-usage-refresh-on-turn.patch) ;;
+		*) return 1 ;;
+	esac
+	local latest="${HERE}/0026-omp-usage-fetch-anthropic-gate-agent.patch"
+	[[ -f "$latest" ]] || return 1
+	patch -p1 -R --dry-run --force --silent -d "$AGENT" <"$latest" >/dev/null 2>&1
+}
+
 superseded_by_0021() {
 	local name="$1"
 	case "$name" in
@@ -162,6 +178,14 @@ for entry in "${ORDER[@]}"; do
 			check) echo "APPLIED  ${name} (superseded by 0018)" ;;
 			apply) echo "SKIP     ${name} (superseded by 0018)" ;;
 			revert) echo "SKIP     ${name} (deferred until 0018 revert)" ;;
+		esac
+		continue
+	fi
+	if superseded_by_0026 "$name"; then
+		case "$MODE" in
+			check) echo "APPLIED  ${name} (superseded by 0026)" ;;
+			apply) echo "SKIP     ${name} (superseded by 0026)" ;;
+			revert) echo "SKIP     ${name} (deferred until 0026 revert)" ;;
 		esac
 		continue
 	fi
