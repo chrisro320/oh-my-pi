@@ -1,0 +1,23 @@
+--- a/src/session/agent-session.ts
++++ b/src/session/agent-session.ts
+@@ -351,6 +351,7 @@
+ import { SessionMemory, type SessionMemoryHost } from "./session-memory";
+ import { buildSessionMetadata } from "./session-metadata";
+ import { SessionProviderBoundary, type SessionProviderBoundaryHost } from "./session-provider-boundary";
++import type { Provider } from "@oh-my-pi/pi-ai";
+ import { SessionStatsTracker, type SessionStatsTrackerHost } from "./session-stats";
+ import { SessionTools, type SessionToolsHost } from "./session-tools";
+ import type { ShakeMode, ShakeResult } from "./shake-types";
+@@ -9430,10 +9431,11 @@
+ 		return this.#stats.revision;
+ 	}
+ 
+-	async fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null> {
++	async fetchUsageReports(signal?: AbortSignal, providers?: readonly Provider[]): Promise<UsageReport[] | null> {
+ 		const authStorage = this.#modelRegistry.authStorage;
+ 		if (!authStorage.fetchUsageReports) return null;
+ 		const reports = await authStorage.fetchUsageReports({
++			...(providers && providers.length > 0 ? { providers } : {}),
+ 			baseUrlResolver: provider => {
+ 				if (provider === "google-antigravity") {
+ 					const mode = this.settings.get("providers.antigravityEndpoint");
