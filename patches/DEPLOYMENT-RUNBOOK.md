@@ -102,6 +102,8 @@ CLAUDE_CODE_OAUTH_TOKEN
 → 記錄 credential metadata 基線
 ```
 
+已用零 live omp process 的乾淨窗口驗證過（2026-08-30）：`sqlite3 -readonly … .backup` 這個動作本身就會改動 WAL-mode 的 sidecar——`agent.db-shm` 內容被重寫（inode/size 不變，mtime/hash 變），先前沒有 `-wal`/`-shm` 的庫（例如 `models.db`）會被建出新的（`-wal` 為 0 位元組空檔）。這是 SQLite reader 驗證/重建 wal-index 的正常行為，不是外部寫入或竄改，但代表 sidecar「前後 byte-identical」這個字面標準本來就達不到。驗收改看：DB 本體與已存在的 `-wal` 停機窗口前後 byte-identical、sandbox 副本 `PRAGMA integrity_check` 為 `ok`；sidecar 差異只要能定位成「只來自這次 backup 連線、期間零 omp process」，就視為預期。
+
 ### 3.2 Backup 命令
 
 ```sh
@@ -229,3 +231,4 @@ bun add -g @oh-my-pi/pi-coding-agent@18.0.9
 - 已完成的 reviewer／sandbox 驗證不應重複派代理。
 - 版本、provider、帳號切換事件必須先於 resume 歸因。
 - 研究紀錄必須區分：補丁通過、DB integrity 通過、完整 safety acceptance 通過；三者不可混寫。
+- sidecar「前後 byte-identical」在 backup 方法本身之下不可達成：2026-08-30 用零 live process 的乾淨窗口重跑一次，`agent.db-shm` 與先前不存在的 `models.db-wal`/`models.db-shm` 仍在 backup 當下改動／新建，可歸因於 backup 連線本身、非外部寫入；同一次窗口內 DB 本體與既有 `-wal` 維持 byte-identical、兩個 sandbox 副本 integrity_check 皆 `ok`。
