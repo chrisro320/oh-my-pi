@@ -1,0 +1,215 @@
+diff -ruN a/src/hindsight/state.ts b/src/hindsight/state.ts
+--- a/src/hindsight/state.ts
++++ b/src/hindsight/state.ts
+@@ -5,7 +5,6 @@
+ import type { HindsightConfig } from "./config";
+ import {
+ 	composeRecallQuery,
+-	formatCurrentTime,
+ 	formatMemories,
+ 	type HindsightMessage,
+ 	prepareRetentionTranscript,
+@@ -23,6 +22,24 @@
+ const RETAIN_FLUSH_BATCH_SIZE = 16;
+ const RETAIN_FLUSH_INTERVAL_MS = 5_000;
+ 
++/**
++ * Custom-entry type carrying the first-turn recall block. A resume rebuilds the
++ * system prompt from scratch; re-running recall there would emit a different
++ * block (fresh query, fresh results) and shift the cached prefix, so the
++ * provider re-bills the whole conversation. Replaying the persisted bytes keeps
++ * the prefix identical and the prompt cache warm.
++ */
++const RECALL_SNIPPET_CUSTOM_TYPE = "hindsight_recall_snippet";
++
++/**
++ * Custom-entry type carrying this session's `<mental_models>` snapshot. Same
++ * reasoning as the recall marker: the block lives in the system prompt, so
++ * re-listing it on resume shifts the cache prefix. Mental models change only
++ * when server-side consolidation rewrites them, which no in-flight
++ * conversation depends on.
++ */
++const MENTAL_MODELS_SNIPPET_CUSTOM_TYPE = "hindsight_mental_models_snippet";
++
+ interface PendingRetainItem {
+ 	content: string;
+ 	context?: string;
+@@ -303,7 +320,7 @@
+ 			const results = response.results ?? [];
+ 			if (results.length === 0) return { context: null, ok: true };
+ 			const formatted = formatMemories(results);
+-			const block = `<memories>\n${this.config.recallPromptPreamble}\nCurrent time: ${formatCurrentTime()} UTC\n\n${formatted}\n</memories>`;
++			const block = `<memories>\n${this.config.recallPromptPreamble}\n\n${formatted}\n</memories>`;
+ 			return { context: block, ok: true };
+ 		} catch (err) {
+ 			if (this.config.debug) {
+@@ -422,13 +439,79 @@
+ 		}
+ 	}
+ 
++	/**
++	 * Replays a block this session already injected, so a resume keeps the
++	 * system-prompt prefix byte-identical. Reads the newest marker of that type
++	 * on the branch; `undefined` means the session has none. An empty string is
++	 * a real answer — it records that the block was empty when first loaded.
++	 */
++	#loadPersistedSnippet(customType: string): string | undefined {
++		const branch = this.session.sessionManager?.getBranch?.();
++		if (!branch) return undefined;
++		for (let index = branch.length - 1; index >= 0; index--) {
++			const entry = branch[index];
++			// Snapshots are per-transcript: a `reset_boundary` (`/clear`, focus
++			// attach, new transcript) starts a new conversation, so markers from
++			// before it must not answer for the post-reset turns. Without this,
++			// a stale non-empty marker replays outdated memories into the new
++			// transcript, and a stale EMPTY marker (0021/0023 freeze) suppresses
++			// recall for the rest of the new conversation.
++			if (entry.type === "reset_boundary") break;
++			if (entry.type !== "custom" || entry.customType !== customType) continue;
++			const data = entry.data;
++			if (data && typeof data === "object" && "snippet" in data) {
++				const snippet = data.snippet;
++				if (typeof snippet === "string") return snippet;
++			}
++			return undefined;
++		}
++		return undefined;
++	}
++
+ 	async beforeAgentStartPrompt(promptText: string): Promise<string | undefined> {
+ 		if (this.config.mentalModelsEnabled && this.mentalModelsLoadPromise && this.mentalModelsLoadedAt === undefined) {
+-			await Promise.race([this.mentalModelsLoadPromise, Bun.sleep(MENTAL_MODEL_FIRST_TURN_DEADLINE_MS)]);
++			const mmSettled = await Promise.race([
++				this.mentalModelsLoadPromise.then(() => true as const),
++				Bun.sleep(MENTAL_MODEL_FIRST_TURN_DEADLINE_MS).then(() => false as const),
++			]);
++			// Deadline won: the first turn is about to go out WITHOUT the
++			// `<mental_models>` block. Letting the pending `runMentalModelLoad`
++			// finish afterwards would rebuild the base system prompt with a
++			// freshly rendered MM block, trip the content-diff guard in
++			// session-tools (`clearInheritedProviderPromptCacheKey`) and blow the
++			// entire prefix billed on turn one. Freeze the "no MM" answer now, so
++			// the late load replays the empty marker (`persisted.length > 0` is
++			// false -> snippet stays undefined), the rebuild is byte-identical and
++			// the cache key survives. Resume replays the same empty marker;
++			// `/memory mm reload` remains the explicit escape hatch.
++			// Re-check `mentalModelsLoadedAt`: a load that lands in the same tick
++			// as the deadline has already persisted its real snapshot.
++			if (!mmSettled && this.mentalModelsLoadedAt === undefined) {
++				// Freeze the whole first-turn decision, not just the marker: mark
++				// MM as loaded-but-empty so later turns skip this race entirely
++				// instead of re-waiting the deadline and stacking duplicate empty
++				// markers (a hung load would otherwise tax every single turn).
++				this.mentalModelsLoadedAt = Date.now();
++				this.mentalModelsSnippet = undefined;
++				this.session.sessionManager?.appendCustomEntry?.(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE, { snippet: "" });
++			}
+ 		}
+ 
+ 		if (!this.config.autoRecall || this.hasRecalledForFirstTurn) return undefined;
+ 
++		const persisted = this.#loadPersistedSnippet(RECALL_SNIPPET_CUSTOM_TYPE);
++		// `!== undefined` and not a truthiness test: an empty snippet is a recorded
++		// answer ("recall was empty when this session first ran"), and replaying it
++		// is what keeps the system-prompt prefix byte-identical across a resume.
++		// `buildSystemPromptForAgentStart` treats the returned "" as "no injection"
++		// (session-tools.ts: `if (!injected) return this.#baseSystemPrompt`), so the
++		// empty case still adds no block — it just stops re-running recall.
++		if (persisted !== undefined) {
++			this.hasRecalledForFirstTurn = true;
++			this.lastRecallSnippet = persisted;
++			return persisted;
++		}
++
+ 		const latestPrompt = promptText.trim();
+ 		if (!latestPrompt) return undefined;
+ 
+@@ -440,9 +523,19 @@
+ 		if (!ok) return undefined;
+ 
+ 		this.hasRecalledForFirstTurn = true;
+-		if (!context) return undefined;
+-
+ 		this.lastRecallSnippet = context;
++		// Persist BEFORE the empty-result early return: an empty recall must be
++		// frozen too. Without this, a session whose first-turn recall came back
++		// empty writes no marker at all, so every later resume re-runs recall —
++		// and once the bank has accumulated memories in the meantime, that resume
++		// appends a fresh `<memories>` block to the system prompt, shifts the
++		// cached prefix and forces a full recompute. Observed on a 173k-token
++		// Kimi resume: `system[1]` 9340B -> 10977B, `input=158890 / cacheRead=18432`.
++		// `?? ""` is load-bearing: `RecallOutcome.context` is `string | null`, and
++		// `#loadPersistedSnippet` only accepts `typeof snippet === "string"` — a
++		// persisted `null` would read back as "no marker" and reopen the bug.
++		this.session.sessionManager?.appendCustomEntry?.(RECALL_SNIPPET_CUSTOM_TYPE, { snippet: context ?? "" });
++		if (!context) return undefined;
+ 		return context;
+ 	}
+ 
+@@ -476,11 +569,27 @@
+ 			}
+ 		}
+ 
+-		await this.refreshMentalModelsSnippet();
++		await this.refreshMentalModelsSnippet({ preferPersisted: true });
+ 		await this.#refreshBaseSystemPromptAfter("MM load");
+ 	}
+ 
+-	async refreshMentalModelsSnippet(): Promise<void> {
++	/**
++	 * Loads the `<mental_models>` block. `preferPersisted` replays this session's
++	 * first snapshot instead of re-listing: mental models are a slow variable
++	 * (server-side consolidation rewrites them every 15-35 min in practice), and
++	 * they sit in the system prompt — the provider's cache prefix. Pulling a
++	 * fresher copy mid-session or on resume buys nothing the conversation needs
++	 * and invalidates the entire prefix. A new session picks up the latest.
++	 */
++	async refreshMentalModelsSnippet(options?: { preferPersisted?: boolean }): Promise<void> {
++		if (options?.preferPersisted) {
++			const persisted = this.#loadPersistedSnippet(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE);
++			if (persisted !== undefined) {
++				this.mentalModelsSnippet = persisted.length > 0 ? persisted : undefined;
++				this.mentalModelsLoadedAt = Date.now();
++				return;
++			}
++		}
+ 		const snippet = await loadMentalModelsBlock(
+ 			this.client,
+ 			this.bankId,
+@@ -489,6 +598,7 @@
+ 		);
+ 		this.mentalModelsSnippet = snippet;
+ 		this.mentalModelsLoadedAt = Date.now();
++		this.session.sessionManager?.appendCustomEntry?.(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE, { snippet: snippet ?? "" });
+ 	}
+ 
+ 	async reloadMentalModels(): Promise<boolean> {
+@@ -508,17 +618,17 @@
+ 				// is settled. The queue is also debounced/size-bounded, but
+ 				// flushing here keeps the bank fresh between turns.
+ 				void this.flushRetainQueue();
+-				// MM TTL refresh: re-list once we're past the cache deadline. List
+-				// is cheap (no reflect call); the LLM doesn't see this happen.
+-				if (
+-					this.config.mentalModelsEnabled &&
+-					this.mentalModelsLoadedAt !== undefined &&
+-					Date.now() - this.mentalModelsLoadedAt >= this.config.mentalModelRefreshIntervalMs
+-				) {
+-					void this.refreshMentalModelsSnippet().then(async () => {
+-						await this.#refreshBaseSystemPromptAfter("MM TTL reload");
+-					});
+-				}
++				// No mid-session mental-model re-list. Upstream re-listed here once
++				// past `mentalModelRefreshIntervalMs` and pushed the result into the
++				// system prompt, which silently invalidated the provider's cache
++				// prefix and re-billed the whole conversation. Server-side
++				// consolidation rewrites these summaries on its own schedule
++				// (measured: every 15-35 min while retaining), so this fired for
++				// reasons no in-flight conversation depends on and bought nothing.
++				// Every remaining system-prompt change is now user-initiated.
++				// `mentalModelRefreshIntervalMs` is inert; a new session or a
++				// resume picks up the latest snapshot, and `/memory mm reload`
++				// forces one on demand.
+ 			}
+ 		});
+ 	}

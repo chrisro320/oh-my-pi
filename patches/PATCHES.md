@@ -1,8 +1,8 @@
 # omp 18.0.9 Patch 清单
 
-> 生成 2026-08-28（第五次修訂：适配上游 18.0.9；0011 撤下改由上游原生接管）。
+> 生成 2026-08-28（第六次修訂：18.0.9 功能族 rollup；舊定稿補丁原樣退役）。
 > 權威 patch 集在 `~/.omp/patches/`（實際生效清單以 `apply.sh` 的 `PATCHES` 陣列為準，本文件是鏡像）。
-> 截至 2026-08-30 註冊生效：0002、0003、0004、0005、0006、0007、0010、0013、0014、0015、0017、0018、0019、0020、0021、0022、0023、0024、0025、0026、0027、0028、0029、0030、0031、0032。定稿補丁不可變；被取代者保留存檔並由 `superseded_by_*` 跳過。
+> 截至 2026-08-30 active chain 共 15 項：0004、0010、0014、0017、0019、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037。定稿補丁不可變；被 rollup 取代者原樣保存在 `.retired/08-30-family-rollups/`，不再依賴 `superseded_by_*` 狀態機。
 
 ## 0. 运行模式
 
@@ -10,7 +10,22 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前生效：0002、0003、0004、0005、0006、0007、0010、0013、0014、0015、0017、0018、0019、0020、0021、0022、0023、0024、0025、0026、0027、0028、0029、0030、0031、0032）
+## 1. src 補丁（目前 active：0004、0010、0014、0017、0019、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037）
+
+### 0033–0037 — 功能族 rollup（2026-08-30）
+
+| Rollup | 功能族 | 原樣退役的舊鏈 |
+|---|---|---|
+| 0033 | cache turn status | 0002、0003 |
+| 0034 | Hindsight snapshots | 0006、0021、0023、0024 |
+| 0035 | iterative compaction prefix | 0013-core、0013-agent、0018 |
+| 0036 | provider image/frame budgets | 0015-snapcompact、0015-agent、0020-snapcompact、0020-agent、0022 |
+| 0037 | usage statusline gate | 0005、0007、0029 |
+
+- **目的**：把同一功能的初版、補漏與 supersede 歷史從 active chain 收斂為單一最終補丁；30 個登錄項降為 15 個，`apply.sh` 不再含 `superseded_by_*` 控制流。
+- **生成邊界**：每族都從官方 npm 18.0.9 tarball 建立獨立 `mktemp` sandbox，只套該族舊鏈後生成；禁止從完整 runtime 對 pristine 的整檔 diff，避免 `session-maintenance.ts` 等共用檔案把跨族改動烘入。
+- **歷史保存**：20 個舊補丁內容與 SHA-256 不變，保存於 `.retired/08-30-family-rollups/`；下方既有故障分析仍是設計與除錯依據，但所述舊檔不再位於 active chain。
+- **回歸**：`apply.sh --verify-rollups` 以 pinned tarball SHA-256 驗證五族 old/new 逐字節等價、反向回 pristine、冪等，以及舊有效全鏈 27 項與新 active chain 15 項在四個套件上的完整逐字節等價；`--selftest` 刻意跳過 0033、讓 new-final 保持 pristine，證明比較器會拒絕「沒有 rollup」的假通過。
 
 ### 0004 — token_total 计入 cacheRead
 - `segments.ts`：total = input+output+cacheRead+cacheWrite+orchestration 三项（配额窗口口径）

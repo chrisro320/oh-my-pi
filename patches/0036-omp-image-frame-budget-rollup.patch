@@ -1,0 +1,211 @@
+diff -ruN a/pi-coding-agent/src/session/provider-image-budget.ts b/pi-coding-agent/src/session/provider-image-budget.ts
+--- a/pi-coding-agent/src/session/provider-image-budget.ts
++++ b/pi-coding-agent/src/session/provider-image-budget.ts
+@@ -64,7 +64,7 @@
+ /** Drops oldest transient image blocks so outgoing vision requests fit the active provider's image cap. */
+ export function clampProviderContextImages(context: Context, model: Model): Context {
+ 	if (!model.input.includes("image")) return context;
+-	const limit = providerImageBudget(model.provider);
++	const limit = providerImageBudget(model.provider, model.api);
+ 	const totalImages = countImages(context);
+ 	if (totalImages <= limit) return context;
+ 
+diff -ruN a/pi-coding-agent/src/session/session-maintenance.ts b/pi-coding-agent/src/session/session-maintenance.ts
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -2364,7 +2364,7 @@
+ 			return Math.min(
+ 				snapcompact.MAX_FRAMES_DEFAULT,
+ 				snapcompact.maxFramesForDataBudget(),
+-				snapcompact.providerFrameBudget(this.#model?.provider),
++				snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 			);
+ 		}
+ 		const reserve = effectiveReserveTokens(ctxWindow, settings);
+@@ -2406,8 +2406,8 @@
+ 		return Math.min(
+ 			Math.floor(frameBudget / snapcompact.FRAME_TOKEN_ESTIMATE),
+ 			snapcompact.MAX_FRAMES_DEFAULT,
+-			snapcompact.maxFramesForDataBudget(),
+-			snapcompact.providerFrameBudget(this.#model?.provider),
++			snapcompact.maxFramesForDataBudget(snapcompact.FRAME_DATA_BYTES_BUDGET, shape),
++			snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 		);
+ 	}
+ 
+@@ -2688,7 +2688,7 @@
+ 			return Math.min(
+ 				snapcompact.MAX_FRAMES_DEFAULT,
+ 				snapcompact.maxFramesForDataBudget(),
+-				snapcompact.providerFrameBudget(this.#model?.provider),
++				snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 			);
+ 		}
+ 		const thresholdTokens = resolveThresholdTokens(ctxWindow, settings);
+@@ -2708,7 +2708,7 @@
+ 			Math.floor(frameBudget / snapcompact.FRAME_TOKEN_ESTIMATE),
+ 			snapcompact.MAX_FRAMES_DEFAULT,
+ 			snapcompact.maxFramesForDataBudget(),
+-			snapcompact.providerFrameBudget(this.#model?.provider),
++			snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 		);
+ 	}
+ 
+diff -ruN a/pi-coding-agent/src/session/snapcompact-inline.ts b/pi-coding-agent/src/session/snapcompact-inline.ts
+--- a/pi-coding-agent/src/session/snapcompact-inline.ts
++++ b/pi-coding-agent/src/session/snapcompact-inline.ts
+@@ -318,7 +318,7 @@
+ 	const shape = snapcompact.resolveShape(model, options.shape);
+ 	const tokenizer = new Tokenizer(model);
+ 	const existingImages = countMessageImages(input.messages);
+-	const budget = snapcompact.providerImageBudget(model.provider) - existingImages;
++	const budget = snapcompact.providerImageBudget(model.provider, model.api) - existingImages;
+ 
+ 	const candidates: InlineToolResultCandidate[] = [];
+ 	if (options.renderToolResults) {
+@@ -443,7 +443,7 @@
+ 
+ 		const shape = snapcompact.resolveShape(model, this.options.shape);
+ 		const tokenizer = new Tokenizer(model);
+-		const budget = snapcompact.providerImageBudget(model.provider) - countMessageImages(context.messages);
++		const budget = snapcompact.providerImageBudget(model.provider, model.api) - countMessageImages(context.messages);
+ 		if (budget <= 0) return context;
+ 
+ 		const messages = [...context.messages];
+diff -ruN a/snapcompact/src/snapcompact.ts b/snapcompact/src/snapcompact.ts
+--- a/snapcompact/src/snapcompact.ts
++++ b/snapcompact/src/snapcompact.ts
+@@ -475,6 +475,35 @@
+  *  standing request bodies at large context windows. */
+ export const FRAME_DATA_BYTES_ESTIMATE = 170_000;
+ 
++/** Measured full-page base64 payload bounds per shape variant. Byte weight
++ *  tracks glyph ink per page, not cell area — a CJK `silver16-bw` page weighs
++ *  ~570 KB while an `8x13-bw` page of the same canvas sits near 14 KB — so
++ *  these are per-variant measurements over mixed transcripts with headroom
++ *  rather than a formula. {@link FRAME_DATA_BYTES_ESTIMATE} matches the
++ *  small-glyph `bw` shapes the legacy single estimate was calibrated on.
++ *  Estimates only size the plan; `shedFramesOverBudget` re-checks the real
++ *  rendered bytes because dense content (JSON dumps) renders several times
++ *  heavier than prose at the same shape. */
++export const FRAME_DATA_BYTES_PER_SHAPE: Record<ShapeVariantName, number> = {
++	"8x8r-bw": 30_000,
++	"8x8r-sent": 350_000,
++	"8x8u-bw": 25_000,
++	"8x8u-sent": 340_000,
++	"6x6u-bw": 1_250_000,
++	"6x6u-sent": 7_300_000,
++	"5x8-bw": 50_000,
++	"5x8-sent": 730_000,
++	"6x12-dim": 30_000,
++	"8x13-bw": 25_000,
++	"8on16-bw": 20_000,
++	"8on22-bw": 20_000,
++	"11on16-bw": 80_000,
++	"silver16-bw": 870_000,
++	"doc-8on16-bw": 12_000,
++	"doc-8on16-sent": 190_000,
++	"doc-8on16-sent-dim": 190_000,
++};
++
+ /** Maximum snapcompact image base64 carried in every rebuilt provider request.
+  *  Above this, provider backends can accept the HTTP body but fail mid-stream
+  *  with opaque 5xx errors. Keep this independent from visual-token budgeting:
+@@ -483,8 +512,45 @@
+ export const FRAME_DATA_BYTES_BUDGET = 3_000_000;
+ 
+ /** Frame-count cap implied by {@link FRAME_DATA_BYTES_BUDGET}. */
+-export function maxFramesForDataBudget(maxFrameDataBytes: number = FRAME_DATA_BYTES_BUDGET): number {
+-	return Math.max(1, Math.floor(maxFrameDataBytes / FRAME_DATA_BYTES_ESTIMATE));
++export function maxFramesForDataBudget(
++	maxFrameDataBytes: number = FRAME_DATA_BYTES_BUDGET,
++	shape?: Shape,
++): number {
++	let perFrame = FRAME_DATA_BYTES_ESTIMATE;
++	if (shape) {
++		for (const [name, geo] of Object.entries(SHAPE_VARIANTS)) {
++			if (
++				geo.font === shape.font &&
++				geo.cellWidth === shape.cellWidth &&
++				geo.cellHeight === shape.cellHeight &&
++				geo.variant === shape.variant &&
++				geo.frameSize === shape.frameSize &&
++				(geo.stopwordDim ?? false) === (shape.stopwordDim ?? false) &&
++				(geo.lineRepeat ?? 1) === (shape.lineRepeat ?? 1) &&
++				(geo.columns ?? 1) === (shape.columns ?? 1)
++			) {
++				perFrame = FRAME_DATA_BYTES_PER_SHAPE[name as ShapeVariantName];
++				break;
++			}
++		}
++	}
++	return Math.max(1, Math.floor(maxFrameDataBytes / perFrame));
++}
++
++/** Drop the oldest frames until the archive fits {@link FRAME_DATA_BYTES_BUDGET}
++ *  — the same oldest-first policy {@link MAX_FRAMES_DEFAULT} applies on frame
++ *  count. Returns the input untouched while it already fits, and when nothing
++ *  fits (a single frame over budget is not sheddable), so the caller's hard
++ *  payload check still fails it. */
++export function shedFramesOverBudget(frames: Frame[]): Frame[] {
++	if (frameDataBytes(frames) <= FRAME_DATA_BYTES_BUDGET) return frames;
++	const kept: Frame[] = [];
++	for (let index = frames.length - 1; index >= 0; index--) {
++		const candidate = [frames[index], ...kept];
++		if (frameDataBytes(candidate) > FRAME_DATA_BYTES_BUDGET) break;
++		kept.unshift(frames[index]);
++	}
++	return kept.length > 0 ? kept : frames;
+ }
+ 
+ /** Base64 byte length for persisted snapcompact frames. */
+@@ -507,6 +573,12 @@
+ 	google: 200,
+ 	"google-vertex": 200,
+ 	"google-gemini-cli": 200,
++	"google-antigravity": 200,
++	"opencode-go": 200,
++	"zhipu-coding-plan": 200,
++	commandcode: 200,
++	"openai-completions": 200,
++	"ollama-chat": 200,
+ 	openrouter: 90,
+ 	umans: 10,
+ };
+@@ -514,14 +586,22 @@
+ /** Safe floor for unknown providers (strictest mainstream measured: Groq ~5). */
+ export const DEFAULT_PROVIDER_IMAGE_BUDGET = 5;
+ 
+-/** Per-request image budget for `provider`; unknown providers get the floor. */
+-export function providerImageBudget(provider: string | undefined): number {
+-	return (provider !== undefined ? PROVIDER_IMAGE_BUDGETS[provider] : undefined) ?? DEFAULT_PROVIDER_IMAGE_BUDGET;
++/** Per-request image budget for `provider`, falling back to the wire `api`
++ *  family before the floor. Provider ids multiply faster than wire apis
++ *  (e.g. `google-antigravity` rides the `google-gemini-cli` api), and silently
++ *  dropping to the floor of 5 makes a single attached image evict the oldest
++ *  snapcompact archive frame — rewriting `contents[0]` and voiding the whole
++ *  prompt-cache prefix. */
++export function providerImageBudget(provider: string | undefined, api?: string | undefined): number {
++	const byProvider = provider !== undefined ? PROVIDER_IMAGE_BUDGETS[provider] : undefined;
++	if (byProvider !== undefined) return byProvider;
++	const byApi = api !== undefined ? PROVIDER_IMAGE_BUDGETS[api] : undefined;
++	return byApi ?? DEFAULT_PROVIDER_IMAGE_BUDGET;
+ }
+ 
+ /** Archive frame cap for `provider`: image budget, never above {@link MAX_FRAMES_DEFAULT}. */
+-export function providerFrameBudget(provider: string | undefined): number {
+-	return Math.min(providerImageBudget(provider), MAX_FRAMES_DEFAULT);
++export function providerFrameBudget(provider: string | undefined, api?: string | undefined): number {
++	return Math.min(providerImageBudget(provider, api), MAX_FRAMES_DEFAULT);
+ }
+ 
+ /** Key under `CompactionEntry.preserveData` holding the frame archive. */
+@@ -2122,7 +2202,7 @@
+ 	const textTail = layout.textTail.length > 0 ? (dimOpen ? DIM_ON : "") + layout.textTail : "";
+ 	const textChars = textHead.length + textTail.length;
+ 
+-	const frames = await Promise.all(newFrames);
++	const frames = shedFramesOverBudget(await Promise.all(newFrames));
+ 	const totalChars = frames.reduce((sum, frame) => sum + frame.chars, 0) + textChars;
+ 	const frameCols: number[] = [];
+ 	for (const frame of frames) {
