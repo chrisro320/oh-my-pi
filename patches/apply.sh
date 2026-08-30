@@ -59,7 +59,43 @@ PATCHES=(
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then
+	# Exec before version selection: the rollup gate builds its own pristine
+	# 18.0.9 sandboxes and must not see or fail on OMP_PATCH_VERSION.
 	exec bash "${HERE}/verify-patch-family-rollups.sh"
+fi
+# Versioned 0010 selection (opt-in only). Unset keeps the canonical 18.0.9
+# chain exactly as before; OMP_PATCH_VERSION=18.0.11 swaps entry 0010 for the
+# versioned candidate under .18.0.11-candidates/ (and requires the installed
+# pi-coding-agent to be 18.0.11). Any other value — including an empty string —
+# fails closed before anything is touched.
+
+if [[ -n "${OMP_PATCH_VERSION+x}" ]]; then
+	case "$OMP_PATCH_VERSION" in
+	18.0.9) ;;
+	18.0.11)
+		IDLE0010_CANDIDATE=".18.0.11-candidates/0010-omp-extension-idle-ephemeral-turn-v18.0.11-candidate.patch"
+		pkgjson="${NM}/pi-coding-agent/package.json"
+		installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
+		[[ "$installed" == "18.0.11" ]] || {
+			echo "OMP_PATCH_VERSION=18.0.11 requires pi-coding-agent 18.0.11, found: ${installed:-<unreadable>}" >&2
+			exit 2
+		}
+		[[ -f "${HERE}/${IDLE0010_CANDIDATE}" ]] || {
+			echo "candidate patch missing: ${HERE}/${IDLE0010_CANDIDATE}" >&2
+			exit 2
+		}
+		for i in "${!PATCHES[@]}"; do
+			if [[ "${PATCHES[i]}" == "0010-omp-extension-idle-ephemeral-turn.patch:"* ]]; then
+				PATCHES[i]="${IDLE0010_CANDIDATE}:${PATCHES[i]##*:}"
+			fi
+		done
+		echo "NOTE: OMP_PATCH_VERSION=18.0.11 — 0010 served from ${IDLE0010_CANDIDATE}" >&2
+		;;
+	*)
+		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11)" >&2
+		exit 2
+		;;
+	esac
 fi
 
 status() { # patch root -> applied|pending|conflict
