@@ -3,7 +3,7 @@
   "name": "patch-family-rollups",
   "title": "整併 omp 功能族補丁鏈",
   "description": "將互相覆寫與 supersede 的補丁整併為功能族 rollup，保留獨立故障域並驗證 pristine 正向重放、反向撤銷、冪等與執行結果。",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "chris",
   "assignee": "chris",
   "createdAt": "2026-08-30",
-  "completedAt": null,
+  "completedAt": "2026-08-30",
   "branch": null,
   "base_branch": "master",
   "worktree_path": null,
@@ -22,5 +22,7 @@
   "parent": null,
   "relatedFiles": [],
   "notes": "",
-  "meta": {}
+  "meta": {
+    "spec_update": "backend/patch-rollup-contracts.md, backend/index.md"
+  }
 }

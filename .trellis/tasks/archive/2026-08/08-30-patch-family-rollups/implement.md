@@ -21,7 +21,7 @@
 - [x] 9. 完整功能驗證與實際 `apply.sh` smoke 通過；切換前後 12 個 runtime 受管檔 SHA-256 全部不變。
 - [x] 10. 首次 `trellis-check` 因帳號池 `auth_not_found` 無法啟動；改派唯讀 reviewer，修正其兩項 finding（full-chain oracle 與 npm tgz 選取）後再次覆核，兩項均關閉且無新 blocker。
 - [x] 11. 執行 `trellis-update-spec`：新增 `.trellis/spec/backend/patch-rollup-contracts.md` 七段可執行契約並更新 backend index；補入 pristine/no-rollup 敏感性門檻。
-- [ ] 12. 提交本批變更並執行 Trellis finish-work；不納入原有未追蹤檔。
+- [x] 12. 本批實作與規範已提交為 `47496b4`；Trellis archive 收尾不納入原有未追蹤檔。
 
 ## 驗證命令與契約
 
