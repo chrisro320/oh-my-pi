@@ -151,4 +151,56 @@ resume happened, therefore resume caused the cache miss
 ```text
 usage_limit_reached → credential recovery/provider fallback → cacheRead=0
 is the direct primary cause; resume-related prefix drift is not proven or excluded.
+
+## Scenario: Opting into a versioned patch candidate
+
+### 1. Scope / Trigger
+- Trigger: an upstream release changes patch context while the canonical chain remains valid for its original release.
+- Use an explicit version gate; never silently replace the canonical patch.
+
+### 2. Signatures
+```sh
+OMP_PATCH_VERSION=18.0.11 patches/apply.sh
+OMP_PATCH_VERSION=18.0.11 patches/apply.sh --check
+OMP_PATCH_VERSION=18.0.11 patches/apply.sh --revert
+```
+
+### 3. Contracts
+- Unset `OMP_PATCH_VERSION` MUST preserve the canonical 18.0.9 sequence.
+- `OMP_PATCH_VERSION=18.0.11` MUST verify installed `pi-coding-agent` version `18.0.11` and candidate-file existence before mutation.
+- Only the version-specific conflicting entry may be replaced; all other active entries retain order and roots.
+- `--verify-rollups` MUST execute before version gating because it owns its own fixed pristine baseline.
+
+### 4. Validation & Error Matrix
+| Condition | Required result |
+|---|---|
+| Variable unset | Canonical path, no candidate substitution |
+| Variable empty | Exit 2 before mutation |
+| Unsupported version | Exit 2 before mutation |
+| 18.0.11 with wrong installed package version | Exit 2 before mutation |
+| 18.0.11 candidate missing | Exit 2 before mutation |
+| 18.0.11 package and candidate valid | Select candidate and continue |
+
+### 5. Good / Base / Bad Cases
+- Good: explicit 18.0.11 selects only its candidate; unset remains 18.0.9.
+- Base: a future release is rejected until its pristine candidate is verified.
+- Bad: use the 18.0.11 candidate for 18.0.9 or silently fall back to a nearby version.
+
+### 6. Tests Required
+- Assert unset, empty, unsupported, wrong-package, and missing-candidate behavior.
+- Assert canonical `0010` SHA-256 remains unchanged.
+- Assert exact active sequence and candidate selection from the real `apply.sh`.
+- Assert apply, revert, replay, idempotence, and smoke in a pristine version-matched sandbox.
+
+### 7. Wrong vs Correct
+#### Wrong
+```sh
+# Applies a candidate based on the current date or nearest package version.
+patches/apply.sh
+```
+#### Correct
+```sh
+# Explicit opt-in, exact package match, fail-closed otherwise.
+OMP_PATCH_VERSION=18.0.11 patches/apply.sh
+```
 ```
