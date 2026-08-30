@@ -108,3 +108,47 @@ mapfile -t NEWCHAIN < <(
 packed="$(npm pack --silent "$pkg")" || packed=""
 [[ -n "$packed" && -f "$packed" ]] && f="$packed"
 ```
+
+## Scenario: Diagnosing a resume-adjacent cache miss
+
+### 1. Scope / Trigger
+- Trigger: `cacheRead=0` occurs near resume, retry, credential recovery, or model/provider change.
+- Do not attribute the miss to resume until provider, model, credential recovery, and request usage are correlated.
+
+### 2. Signatures
+- Request evidence: `provider`, `model`, `input`, `cacheRead`, `cacheWrite`, timestamp.
+- Recovery evidence: `usage_limit_reached`, retry status, credential recovery, and model-change events.
+
+### 3. Contracts
+- `cacheRead=0` with positive `cacheWrite` is a cold-start/cache-fill candidate, not by itself a regression.
+- A provider/account/model fallback creates a different cache namespace and is the primary cause when followed by a large request with `cacheRead=0`.
+- Resume may still introduce an independent prefix difference; event evidence MUST NOT claim it is fully excluded without payload comparison.
+
+### 4. Validation & Error Matrix
+| Evidence | Required conclusion |
+|---|---|
+| `cacheRead=0`, `cacheWrite>0` on first request | Cold start; do not call a miss regression |
+| `usage_limit_reached` → recovery/fallback → large `cacheRead=0` | Fallback is direct/primary cause |
+| Resume with no provider/model change | Investigate payload prefix drift |
+| Provider/model change absent payload comparison | Do not fully exclude resume |
+
+### 5. Good / Base / Bad Cases
+- Good: correlate adjacent JSONL events and distinguish cold start, fallback, and true prefix drift.
+- Base: normal first request after process restart writes a fresh cache prefix.
+- Bad: use an older session's usage event to explain a newer resume-adjacent miss.
+
+### 6. Tests Required
+- Parse the exact session JSONL and assert event order: error/recovery, model change, then request usage.
+- Assert `cacheRead=0`/`cacheWrite>0` is classified as cold start.
+- Assert fallback evidence reports primary cause while preserving resume as an unexcluded possibility.
+
+### 7. Wrong vs Correct
+#### Wrong
+```text
+resume happened, therefore resume caused the cache miss
+```
+#### Correct
+```text
+usage_limit_reached → credential recovery/provider fallback → cacheRead=0
+is the direct primary cause; resume-related prefix drift is not proven or excluded.
+```
