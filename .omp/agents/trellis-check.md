@@ -3,7 +3,7 @@ name: trellis-check
 description: |
   Read-only code quality reviewer. Reviews changes against Trellis specs and reports concrete findings; does not mutate repository files.
 tools: read, bash, find, search, ast_grep, lsp
-model: gpt/gpt-5.6-sol:xhigh
+model: openai-codex/gpt-5.6-sol
 ---
 
 # Check Agent
