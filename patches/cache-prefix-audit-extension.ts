@@ -884,12 +884,18 @@ export default function (pi: ExtensionAPI): void {
 			// prefix diagnosis. A clean-looking turn that swapped TTL pools
 			// still misses, so the miss line must carry the swap.
 			const shiftNote = d?.ttlShift !== undefined ? ` | ttl ${d.ttlShift}` : "";
+			// Strict hit ratio per established acceptance convention:
+			// cacheRead / (cacheRead + cacheWrite + input). Below 50% the
+			// turn is reported as a miss even when some bytes were reused —
+			// a near-full recompute must never read as "hit".
+			const denom = cacheRead + cacheWrite + input;
+			const strictPct = denom > 0 ? ((cacheRead / denom) * 100).toFixed(1) : "0.0";
 			const verdict =
-				cacheRead > 0
-					? `hit${shiftNote}`
+				denom > 0 && cacheRead / denom >= 0.5
+					? `hit (strict ${strictPct}%)${shiftNote}`
 					: broken
-						? `MISS CAUSED BY ${d.kind}${shiftNote}`
-						: `MISS (prefix intact${shiftNote} — look at breakpoints/TTL/request envelope)`;
+						? `MISS CAUSED BY ${d.kind} (strict ${strictPct}%)${shiftNote}`
+						: `MISS (prefix intact, strict ${strictPct}% — look at breakpoints/TTL/request envelope)${shiftNote}`;
 
 			write(
 				LOG_PATH,
@@ -898,7 +904,7 @@ export default function (pi: ExtensionAPI): void {
 					sessionId: activeSessionKey,
 					usage: { input, cacheRead, cacheWrite },
 					verdict,
-					diff: cacheRead === 0 ? d : undefined,
+					diff: d,
 				})}\n`,
 				true,
 			);

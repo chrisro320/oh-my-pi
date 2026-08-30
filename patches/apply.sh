@@ -67,6 +67,7 @@ PATCHES=(
 	"0028-omp-usage-refresh-activeprovider-restore.patch:${AGENT}"
 	"0030-omp-usage-cache-canonical-baseurl.patch:${AI}"
 	"0031-omp-agent-session-providers-forward.patch:${AGENT}"
+	"0032-omp-goal-tool-resident.patch:${AGENT}"
 )
 
 status() { # patch root -> applied|pending|conflict

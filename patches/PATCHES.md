@@ -2,7 +2,7 @@
 
 > 生成 2026-08-28（第五次修訂：适配上游 18.0.9；0011 撤下改由上游原生接管）。
 > 權威 patch 集在 `~/.omp/patches/`（實際生效清單以 `apply.sh` 的 `PATCHES` 陣列為準，本文件是鏡像）。
-> 截至 2026-08-29 註冊生效：0002、0003、0004、0005、0006、0007、0010、0013、0014、0015、0017、0018、0019、0020、0021、0022、0023、0024、0025、0026、0027、0028、0029、0030。定稿補丁不可變；被取代者保留存檔並由 `superseded_by_*` 跳過。
+> 截至 2026-08-30 註冊生效：0002、0003、0004、0005、0006、0007、0010、0013、0014、0015、0017、0018、0019、0020、0021、0022、0023、0024、0025、0026、0027、0028、0029、0030、0031、0032。定稿補丁不可變；被取代者保留存檔並由 `superseded_by_*` 跳過。
 
 ## 0. 运行模式
 
@@ -10,7 +10,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前生效：0002、0003、0004、0005、0006、0007、0010、0013、0014、0015、0017、0018、0019、0020、0021、0022、0023、0024、0025、0026、0027、0028、0029、0030）
+## 1. src 補丁（目前生效：0002、0003、0004、0005、0006、0007、0010、0013、0014、0015、0017、0018、0019、0020、0021、0022、0023、0024、0025、0026、0027、0028、0029、0030、0031、0032）
 
 ### 0004 — token_total 计入 cacheRead
 - `segments.ts`：total = input+output+cacheRead+cacheWrite+orchestration 三项（配额窗口口径）
@@ -196,6 +196,7 @@
   - **關鍵設計**：指紋計算**剝離 `cache_control`**。斷點標記是「每次請求的查詢」，不是被快取的字節，且隨尾部增長每輪都合法移動；把它算進 hash 會讓每一輪都像 rewrite，真信號被埋掉——這正是這類 bug 能在 0082 之後倖存的原因。**內容漂移與斷點漂移是兩個獨立診斷**，本工具只管內容，斷點歸 0082。
   - 驗證：`bun patches/verify-cache-prefix-audit.ts` 覆蓋 Google Antigravity wire 解析、Anthropic 格式、多進程並行狀態隔離、Cross-process resume 判定，全部 PASS。
   - 日誌 `~/.omp/agent/cache-prefix-audit.log`（JSONL，2 MiB 輪替）、狀態 `~/.omp/agent/cache-prefix-state-<sessionId>.json`；`/cacheaudit` 看最近 10 筆。
+  - **嚴格命中率 verdict(2026-08-30)**:`message_end` 判定從 `cacheRead>0` 改為 `strict_ratio = cacheRead/(cacheRead+cacheWrite+input) ≥ 0.5` 才標 hit(用戶口徑:<50% 一律 MISS);verdict 文本帶 `strict xx.x%`;usage 行一律攜帶當次 diff(舊邏輯僅 `cacheRead=0` 時攜帶,上述 4.0% 假 hit 正是因此藏掉了 SYSTEM_DRIFT)。案例 `01a051c8` 09:28 在新口徑下記 `MISS CAUSED BY SYSTEM_DRIFT (strict 4.0%)`。回歸:`verify-cache-prefix-audit.ts` 同步更新(96% hit 案例、48% MISS 案例、gemini hit 前綴斷言),全部 PASS;`cache-prefix-audit-baseline-test.ts` PASS。
 - `~/orca/projects/orca-update-patch/orca-image-addon-asar-patch.py` + `orca-xterm-image-addon.mjs`（2026-08-26 移出本仓库）（vendored：`@xterm/addon-image@0.10.0-beta.300` 的 `lib/addon-image.mjs` 原样副本。beta tag 随时会被覆盖或撤掉，缺它 patch 脚本直接不能跑，所以换 77KB 保离线可重现）：给 Orca 的 xterm.js 注入 `@xterm/addon-image@0.10.0-beta.300`，让终端能真正显示内嵌图片（IIP + SIXEL）
   - 改的是 `/opt/Orca/resources/app.asar` 里 `out/renderer/assets/OnboardingInlineCommandTerminal-*.js` 的 `openTerminal()`：`loadAddon(webLinksAddon)` 之后挂 ImageAddon；addon 作为新 asset 追加进同一 assets 目录
   - 首次运行会把原 asar 备份到 `app.asar.orig-image-addon`，之后每次都从该备份重建 → 幂等，**Orca 每次升级后必须重跑**（`sudo python3 ~/orca/projects/orca-update-patch/orca-image-addon-asar-patch.py`）
@@ -336,6 +337,18 @@
   - **节流的行为验证仍然欠着**:四道闸(in-flight 防重入 → anthropic idle 零请求 → turn-end 180s 门槛 → 非 anthropic 50s)只做过**静态确认代码在位**,没有用慢 `fetchUsageReports` mock 量过实际调用次数。`IMPORT_OK` 不构成轮询验收。
   - **0030 不能让多窗口共用防重入**:`#usageInFlight` 是每个进程/组件各自一份,多个 omp 窗口仍可能各发一次请求。0030 只消除了读写分裂,**不能说「不会再各自撞端点」**。
   - 三份旧 key 是否全部属于同一请求路径:`normalizeClaudeBaseUrl` 已证明「无 path」与「`/v1`」折叠为同一端点;`default` 那份亦为同账号同 org,但未逐字节验证其 report 内容来源。
+
+
+### 0032 — goal 工具常駐工具集,消除 /guided-goal 注入/回收週期擊穿前綴
+- **失敗簽名**(2026-08-30,會話 `01a051c8`,k3):`/guided-goal` 觸發 `setActiveToolsByName` 注入 goal 工具 → 工具簽名翻轉 → system 重拼,把會話中途落盤的 trellis skills(9 條,`人山/.claude/skills/`)、項目 AGENTS.md 的 TRELLIS 塊與 persona 工具清單的 `- Goal: goal` 行(合計 +4.3KB)一起拼進 `system[0]` 中段(payload `0250→0251` diff,`system[0]` 指紋 `d9bb81d1dc42 → e9571f3c523f`)→ 前綴在 system 中段斷裂,`input=184389 / cacheRead=7680`(嚴格命中率 4.0%);audit 舊邏輯因 `cacheRead>0` 誤標 `hit`,真相靠 payload 轉儲實 diff 才定位。
+- **根因**:goal 是「Never in the default set」的隱藏工具——初始 active set 無條件剔除(`sdk.ts:3196`),訪談期臨時注入(`interactive-mode.ts:4159-4162`),goal exit 恢復**不含 goal** 的快照(`:3365-3381`)→ 每個 goal 生命週期邊界(enter/create/exit)都翻轉工具簽名 → 強制 system rebuild → 重掃把當時磁碟上的新內容撿進 system 中段 → 全量重算。會話越長、重算越大。
+- **修法**(三文件,`goal.enabled` 時 goal 常駐):
+  1. `sdk.ts`:`goalResident = !restrictToolNames && settings.get("goal.enabled") === true` 時,`defaultInactiveToolNames` 不收集 goal、`requestedActiveToolNames` 不剔除 goal。
+  2. `tools/index.ts` `isToolAllowed`:goal 分支簡化為 `goalEnabled && !restrictToolNames`——paused/dropped/absent 一律放行(舊邏輯 paused/dropped 拒絕)。
+  3. `interactive-mode.ts` 三處(3084/3340/4159)previous-tools 快照**統一補 goal**:`#goalModePreviousTools` 恆為 `enabledTools ∪ {goal}`(即使工具曾被手動停用或 `goal.enabled` 剛開啟、enabledTools 本身不含 goal)→ `#exitGoalMode` 恢復快照後 goal 必在,簽名不變;thread-resume 路徑保留冪等補回動作。v1 曾漏掉「enabledTools 本身不含 goal」的路徑(2026-08-30 review 補洞),v2 就地修正。
+  4. 回歸鎖 `patches/verify-goal-tool-resident.ts`:鎖 sdk goalResident 定義與兩處使用、isToolAllowed 常駐形狀、三處快照的 includes-goal 歸一化(舊 `.filter(name => name !== "goal")` 滅絕檢查)、thread-resume 補回動作。
+- **語義變化(行為改變,非無風險)**:goal 從「臨時工具」變「常駐工具」;paused 期間工具可見可調 resume;非 goal 狀態可 create;每會話常駐 goal schema(約 1-2k token);上游「Never in the default set」設計被推翻,記錄在案。
+- **附帶**:cache-prefix-audit 擴展 verdict 同日改嚴格命中率口徑(見 §3 該條目 2026-08-30 記錄)。
 
 ## 5. agent.db 结构性损坏与重建(2026-08-29)
 - **发现**:排查配额时对 `~/.omp/agent/agent.db` 跑 `PRAGMA integrity_check`(官方 `.backup` 一致快照与 `mode=ro` 直读**都复现**,不是热 `cp` 造成的假象):

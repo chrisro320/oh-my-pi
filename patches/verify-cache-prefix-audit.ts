@@ -132,7 +132,7 @@ const gemTurn2 = [
 	const gemLogs = logLines().filter(l => l.sessionId === "session-gem-direct");
 	const gemReqs = gemLogs.filter(l => l.diff !== undefined && l.usage === undefined);
 	assert.equal(gemReqs.at(-1)?.diff?.kind, "APPEND_ONLY", "Google Antigravity request must log APPEND_ONLY diff in audit log");
-	assert.equal(gemLogs.at(-1)?.verdict, "hit", "Google Antigravity must pair APPEND_ONLY turn with hit verdict");
+	assert.match(gemLogs.at(-1)?.verdict ?? "", /^hit \(strict /, "Google Antigravity must pair APPEND_ONLY turn with a strict-hit verdict");
 	const fSys = ext.fingerprint(
 		antigravityPayload(gemTurn2, {
 			systemInstruction: { role: "user", parts: [{ text: "You are a DIFFERENT agent." }] },
@@ -367,14 +367,18 @@ function createHarness(): {
 	);
 	assert.ok(reqs.every(line => line.crossProcess === false));
 
-	// Usage verdicts: hit on cacheRead>0, honest MISS (prefix intact) otherwise.
+	// Usage verdicts: hit requires strict_ratio = cacheRead / (cacheRead +
+	// cacheWrite + input) >= 0.5; below that, honest MISS (prefix intact).
+	harness.emit("message_end", { message: { role: "assistant", usage: { input: 4, cacheRead: 192, cacheWrite: 4 } } }, "ctx-opus");
 	harness.emit("message_end", { message: { role: "assistant", usage: { input: 100, cacheRead: 96, cacheWrite: 4 } } }, "ctx-opus");
 	harness.emit("message_end", { message: { role: "assistant", usage: { input: 50, cacheRead: 0, cacheWrite: 50 } } }, "ctx-opus");
 	const usageLines = logLines().filter(line => line.sessionId === "session-opus" && line.usage !== undefined);
-	assert.equal(usageLines[0].verdict, "hit");
+	assert.match(usageLines[0].verdict, /^hit \(strict /);
+	assert.match(usageLines[0].verdict, /strict 96\.0%/);
 	assert.equal(usageLines[0].sessionId, "session-opus");
 	assert.match(usageLines[1].verdict, /^MISS \(prefix intact/);
-	// A real rewrite yields the named culprit verdict.
+	assert.match(usageLines[1].verdict, /strict 48\.0%/);
+	assert.match(usageLines[2].verdict, /^MISS \(prefix intact/);
 	harness.emit(
 		"before_provider_request",
 		{
