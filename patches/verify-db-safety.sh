@@ -10,8 +10,8 @@
 #   3. sqlite3 -readonly online backup of agent.db and models.db into a fresh 0700 sandbox
 #      (never copies live -wal/-shm files)
 #   4. PRAGMA integrity_check on the sandbox copies only
-#   5. records post-backup state for the SAME live files and classifies the diff:
-#      main DB changes fail; SQLite-created sidecar changes are expected activity
+#   5. records post-backup state and traces sqlite file activity; sidecar is
+#      expected only when every changed sidecar path appears in that trace
 #   6. leaves the sandbox in place and writes its path to /tmp/omp-db-verify-latest —
 #      credential metadata extraction and final sandbox cleanup are done by the resumed
 #      agent session.
@@ -65,6 +65,21 @@ snap() { # label
 		>"$D/snapshot-$label.txt"
 }
 
+backup_with_trace() {
+	local source="$1" target="$2" prefix="$3"
+	strace -ff -e trace=%file -o "$D/$prefix" \
+		sqlite3 -readonly "$source" ".backup '$target'"
+}
+
+sidecar_attributed_to_backup() {
+	local path
+	[[ -s "$D/sidecar-diff.txt" && -s "$D/backup-file-activity.txt" ]] || return 1
+	while IFS= read -r path; do
+		[[ -n "$path" ]] || continue
+		grep -Fq "$path" "$D/backup-file-activity.txt" || return 1
+	done < <(sed -n 's#^[+-]\(/[^ ]*\) inode=.*#\1#p' "$D/sidecar-diff.txt" | sort -u)
+}
+
 umask 077
 D="$(mktemp -d "${HOME}/omp-db-backup.XXXXXX")"
 chmod 700 "$D"
@@ -76,10 +91,13 @@ echo "=== 1. pre-backup baseline ==="
 snap pre
 cat "$D/snapshot-pre.txt"
 
-echo "=== 2. sqlite3 -readonly online backup ==="
-sqlite3 -readonly "$AGENT_DIR/agent.db" ".backup '$D/agent.db'"
-sqlite3 -readonly "$AGENT_DIR/models.db" ".backup '$D/models.db'"
-chmod 600 "$D/agent.db" "$D/models.db"
+echo "=== 2. sqlite3 -readonly online backup (file-activity traced) ==="
+backup_with_trace "$AGENT_DIR/agent.db" "$D/agent.db" backup-file-activity-agent
+backup_with_trace "$AGENT_DIR/models.db" "$D/models.db" backup-file-activity-models
+shopt -s nullglob
+trace_files=("$D"/backup-file-activity-*)
+cat "${trace_files[@]}" >"$D/backup-file-activity.txt"
+chmod 600 "$D/backup-file-activity.txt" "$D/agent.db" "$D/models.db"
 
 [[ ! -L "$D/agent.db" && ! -L "$D/models.db" ]] || {
 	echo "REFUSING: backup target is a symlink" >&2
@@ -108,6 +126,12 @@ diff -u "$D/snapshot-pre-main.txt" "$D/snapshot-post-main.txt" \
 	>"$D/database-diff.txt" || true
 diff -u "$D/snapshot-pre-sidecar.txt" "$D/snapshot-post-sidecar.txt" \
 	>"$D/sidecar-diff.txt" || true
+sidecar_attributed=0
+if sidecar_attributed_to_backup; then
+	sidecar_attributed=1
+fi
+printf 'sidecar_attributed_to_backup=%s\n' "$sidecar_attributed" >"$D/sidecar-attribution.txt"
+chmod 600 "$D/sidecar-attribution.txt"
 
 post_live="$(live_omp_processes)"
 printf '%s\n' "$post_live" >"$D/processes-post.txt"
@@ -122,8 +146,14 @@ elif [[ -s "$D/database-diff.txt" ]]; then
 	gate_status=1
 	echo "DB_SAFETY_GATE: FAIL (agent.db/models.db changed)" >&2
 elif [[ -s "$D/sidecar-diff.txt" ]]; then
-	echo "DB_SAFETY_GATE: PASS_WITH_EXPECTED_SIDECAR_ACTIVITY"
-	echo "sidecar changes are recorded in $D/sidecar-diff.txt"
+	if (( sidecar_attributed == 1 )); then
+		echo "DB_SAFETY_GATE: PASS_WITH_EXPECTED_SIDECAR_ACTIVITY"
+		echo "sidecar changes are attributed to sqlite backup: $D/sidecar-attribution.txt"
+	else
+		echo "DB_SAFETY_GATE: UNATTRIBUTED_SIDECAR_ACTIVITY" >&2
+		echo "sidecar changes are recorded but not attributed to sqlite backup: $D/sidecar-diff.txt" >&2
+		gate_status=2
+	fi
 else
 	echo "DB_SAFETY_GATE: PASS"
 fi

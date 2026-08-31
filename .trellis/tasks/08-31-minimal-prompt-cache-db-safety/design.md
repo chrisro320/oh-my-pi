@@ -102,7 +102,7 @@ tools        → tools
   → 只對 sandbox 執行 PRAGMA integrity_check
   → stat/hash live DB + WAL/SHM
   → 確認 backup 前後均無 OMP process
-  → DB 本體不變則接受；sidecar 差異記錄為預期 SQLite backup activity
+  → DB 本體不變且 sidecar 無差異則 PASS；sidecar 差異需由 `strace -e trace=%file` 涵蓋每個變動路徑才可歸因為 backup，否則保持未歸因
   → DB 本體變動、OMP process 出現或 integrity 失敗則 fail closed
   → 清除 sandbox
 ```

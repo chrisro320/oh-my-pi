@@ -128,20 +128,23 @@ bash -n patches/verify-db-safety.sh
 - [x] 既有 0038／patch chain replay 證據保留；本次未擴大修改 compaction，符合 PRD 非範圍。
 - [x] `trellis-update-spec`：已更新 extension runtime 與 patch replay executable contracts。
 - [x] runtime audit mirror parity：使用 repository `patches/cache-prefix-audit-extension.ts` 同步至 `~/.omp/patches/` 與 `~/.omp/agent/extensions/cache-prefix-audit.ts`，`cmp` 通過。
-- [x] DB sidecar 驗收語義已統一：主 DB 本體必須零變動；無 OMP process、sandbox integrity 通過時，SQLite backup 造成的 WAL/SHM 差異分類為預期副作用，不再單獨失敗。
-- [x] `verify-db-safety.sh` 已輸出明確 gate verdict：`PASS`、`PASS_WITH_EXPECTED_SIDECAR_ACTIVITY` 或 `FAIL`，並分開保存 main/sidecar diff。
+- [x] DB sidecar 驗收語義已統一：主 DB 本體必須零變動；sidecar 差異完整保存，只有 backup 檔案活動 trace 涵蓋每個變動路徑時才歸因為 backup。
+- [x] `verify-db-safety.sh` 已輸出明確 gate verdict：`PASS`、`PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`、`UNATTRIBUTED_SIDECAR_ACTIVITY` 或 `FAIL`，並分開保存 main/sidecar diff 與 attribution evidence。
 - [x] PRD、design、database-guidelines、部署 runbook、`PATCHES.md` 與本 implement 記錄已同步上述契約。
 - [x] `bash -n patches/verify-db-safety.sh`：PASS。
-- [x] fake `HOME`、隔離 SQLite fixture 與 fake `ps` 的行為驗證：正常本體零變動輸出 `PASS`；注入僅 sidecar 差異輸出 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`，並分別產生 `database-diff.txt` 與 `sidecar-diff.txt`；sandbox integrity 均為 `ok`。
-- [x] live DB 新規則 gate：外部終端回報無 OMP process、`agent.db`/`models.db` integrity 均為 `ok`、主 DB 無差異，sidecar 差異分類為 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`。
+- [x] fake `HOME`、隔離 SQLite fixture 與 fake `ps` 的行為驗證：正常本體零變動輸出 `PASS`；注入且 trace 涵蓋 sidecar 路徑時輸出 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`，否則輸出 `UNATTRIBUTED_SIDECAR_ACTIVITY`，並保留 activity trace。
+- [x] live DB 新規則 gate：外部終端以含 `strace -e trace=%file` 的修正版腳本重跑，回報無 OMP process、兩份 sandbox integrity `ok`、主 DB 無差異，sidecar attribution trace 涵蓋變動路徑並輸出 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`。
+
 - [x] 最終唯讀 `trellis-check`：既有 review 結果 PASS，未發現當時程式 diff 的範圍內缺陷。
 - [x] 已建立 checkpoint commit `0043818`；該 commit 位於 `master` 而非 task branch，不能稱為正式 task-branch finish。
-- [ ] credential metadata 基線：部署前未建立安全 metadata baseline，只能記錄為未驗證，不宣稱前後一致；未輸出 credential 原文。
+- [x] credential metadata safety check：只對 sandbox 執行 metadata-only 查詢，輸出丟棄且未讀取 `data`；無部署前基線，未宣稱前後一致。
 - [ ] 正式 commit 與 `/trellis:finish-work`。
+
+
 
 ## RESUME anchor
 
-- 2026-08-31：外部終端執行舊版 `verify-db-safety.sh` 時確認 `ok: no live omp process detected`、兩個 sandbox `integrity_check` 均為 `ok`，但只有 sidecar 出現差異（`agent.db-shm` 改寫，`models.db-wal`／`models.db-shm` 建立）。依現行契約，這類結果應由新腳本分類為 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`；新腳本尚未對 live DB 重跑，故不可宣稱 live gate 已通過。
-- 已完成：根因分析、0038 provider-only reminder candidate、0039 Responses audit candidate、隔離 fixture、patch apply/revert/replay、spec update、最終唯讀 `trellis-check`（PASS，無 findings）、DB sidecar 規則與腳本 verdict 更新。
-- 未完成：runtime audit mirror 三份 byte parity、使用新規則的 live DB 行為驗證、credential metadata 安全驗證、正式 finish-work。
-- 恢復時：先讀本 anchor 與 `/tmp/omp-db-verify-latest`；不要觸碰 credential 原文，不要重跑已通過的 fixture/replay；只有取得 mirror parity、新安全 gate 行為驗證與安全 credential metadata 證據，才可考慮最後 commit/finish-work；否則維持 blocked。
+- 2026-08-31：外部終端以含 `strace -e trace=%file` 的修正版 `verify-db-safety.sh` 確認無 OMP process、兩個 sandbox `integrity_check` 均為 `ok`、主 DB 無差異；變動 sidecar 路徑均出現在 backup activity trace，輸出 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`。
+- 已完成：根因分析、0038 provider-only reminder candidate、0039 Responses audit candidate、隔離 fixture、patch apply/revert/replay、spec update、最終唯讀 `trellis-check`（PASS，無 findings）、DB sidecar 規則、backup activity attribution 與安全 metadata-only 查詢。
+- 未完成：正式 commit 與 `/trellis:finish-work`。
+- 收尾：不再重跑已通過的 fixture/replay；保留不含 credential data 的 sandbox 證據至提交完成，然後清理並 archive 任務。

@@ -74,13 +74,13 @@ Questions to answer:
 - sandbox integrity 非 `ok` → 立即失敗，不 restore。
 - source／target 相同或 target 是 symlink → 立即失敗。
 - backup 前後 live `agent.db`／`models.db` 本體 inode、size、mtime、SHA-256 任一變動 → DB safety gate 未通過；不得歸因來源，停止後續 live 連線。
-- WAL／SHM inode、size、mtime 或 SHA-256 變動必須完整記錄；SQLite `-readonly .backup` 造成的 sidecar 建立／重寫，在上述無 process、本體不變且 sandbox integrity 通過時，分類為 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`，不單獨使 gate 失敗。
+- WAL／SHM inode、size、mtime 或 SHA-256 變動必須完整記錄；沒有 backup 檔案活動 trace 證明時，輸出 `UNATTRIBUTED_SIDECAR_ACTIVITY` 並保留 diff。只有 `strace -e trace=%file` 顯示每個變動 sidecar 路徑由該 SQLite backup 活動涵蓋，才可分類為 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`。
 - credential `data` 被輸出、OAuth refresh 被觸發或 live DB 出現寫入 → 立即失敗。
 
 ### 5. Good / Base / Bad Cases
 
 - Good：停止 live runtime，backup 前後均無 OMP process，唯讀 online backup 到新 sandbox，sandbox integrity 通過；sidecar 無變動則 `PASS`。
-- Good with expected sidecar activity：同上，但 sidecar 被 SQLite 建立／重寫；本體保持不變則 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`，並保留 diff。
+- Review：主 DB 不變但 sidecar 有差異；若 backup trace 涵蓋每個變動路徑則 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`，否則輸出 `UNATTRIBUTED_SIDECAR_ACTIVITY`，不可勾選 live gate 通過。
 - Bad：sandbox backup integrity 失敗、OMP process 出現、主 DB 變動、使用 `cp agent.db agent.db-wal agent.db-shm`、共用 DB 啟動不同版本、或直接對 live DB 執行 smoke。
 
 ### 6. Tests Required

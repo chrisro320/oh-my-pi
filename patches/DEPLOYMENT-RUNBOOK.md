@@ -102,7 +102,7 @@ CLAUDE_CODE_OAUTH_TOKEN
 → 記錄 credential metadata 基線
 ```
 
-已用零 live omp process 的乾淨窗口驗證過（2026-08-30）：`sqlite3 -readonly … .backup` 這個動作本身就可能改動 WAL-mode 的 sidecar——`agent.db-shm` 內容被重寫（inode/size 不變，mtime/hash 變），先前沒有 `-wal`/`-shm` 的庫（例如 `models.db`）會被建出新的（`-wal` 為 0 位元組空檔）。這是 SQLite reader 驗證/重建 wal-index 的正常行為，不是外部寫入或竄改。驗收必須確認 backup 前後均無 OMP process、`agent.db`／`models.db` 本體 inode/size/mtime/hash 完全一致、sandbox `PRAGMA integrity_check` 均為 `ok`；sidecar 差異完整保留並輸出 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`，sidecar 無差異則輸出 `PASS`。
+已用零 live omp process 的乾淨窗口驗證過（2026-08-30）：`sqlite3 -readonly … .backup` 這個動作本身就可能改動 WAL-mode 的 sidecar——`agent.db-shm` 內容被重寫（inode/size 不變，mtime/hash 變），先前沒有 `-wal`/`-shm` 的庫（例如 `models.db`）會被建出新的（`-wal` 為 0 位元組空檔）。這是 SQLite reader 驗證/重建 wal-index 的可能行為，但邊界快照本身不能證明因果。新版腳本以 `strace -e trace=%file` 保存 backup 檔案活動；只有 trace 涵蓋每個變動 sidecar 路徑才輸出 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`，否則輸出 `UNATTRIBUTED_SIDECAR_ACTIVITY`，sidecar 無差異則輸出 `PASS`。
 
 ### 3.2 Backup 命令
 
