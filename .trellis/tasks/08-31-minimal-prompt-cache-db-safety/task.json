@@ -22,5 +22,7 @@
   "parent": null,
   "relatedFiles": [],
   "notes": "",
-  "meta": {}
+  "meta": {
+    "spec_update": "backend/database-guidelines.md: SQLite sidecar attribution requires file-activity evidence"
+  }
 }
