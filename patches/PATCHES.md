@@ -376,7 +376,7 @@
 - **語義變化(行為改變,非無風險)**:goal 從「臨時工具」變「常駐工具」;paused 期間工具可見可調 resume;非 goal 狀態可 create;每會話常駐 goal schema(約 1-2k token);上游「Never in the default set」設計被推翻,記錄在案。
 - **附帶**:cache-prefix-audit 擴展 verdict 同日改嚴格命中率口徑(見 §3 該條目 2026-08-30 記錄)。
 
-### 0040 — trellis_command 工具:讓 LLM 能在會話中途調用 slash 命令
+### 0040 — trellis_command 工具【已撤銷 RETIRE 2026-08-31·見條目末】
 - **失敗簽名**(2026-08-31):用戶要求 LLM「調用 `/trellis-continue`」→ `Unknown tool from js runtime: slash_command`。文件 slash 命令由 TUI 客戶端在**送給模型之前**展開(`expandSlashCommand` 在 `session.prompt` 管線內),工具註冊表裡從未有這個東西——模型天然無法調用,與安裝對錯無關。
 - **修法**(`.omp/extensions/trellis/index.ts` 新增 `pi.registerTool({ name: "trellis_command" })`):參數 `{command, args?}`;按 omp 本體同一套原語展開(`parseFrontmatter` → `substituteArgs` → `prompt.render` → `appendInlineArgsFallback`,全部 import 自 `@oh-my-pi/pi-coding-agent/utils/command-args`、`config/prompt-templates`、`@oh-my-pi/pi-utils`,零自建語義),掃 `<projectRoot>/.omp/commands/` → `~/.omp/agent/commands/`,回傳展開後全文作 tool result,模型照步驟執行——淨效果等同用戶手打。命令檔無 `{{...}}` 模板語法,渲染為恆等,風險面為零。找不到命令時拋錯並附可用清單。
 - **源頭鏈(一勞永逸)**:canonical 真本 = `~/trellis-custom/extensions/trellis-index.ts`(以本倉庫 omp-move 版為基底,**非** `trellis/omp` fork 那份過時 sendMessage 版);`~/trellis-custom/apply.sh` 新增兩步:① 整檔重放到 npm 模板 `dist/templates/omp/extensions/trellis/index.ts.txt`(新項目 `trellis init` 即帶工具,順帶修掉官方模板落後 0012/0016 的問題)② `backfill_project()` 對 `.omp/extensions/trellis/index.ts` 回灌(舊項目重跑 apply.sh 即得)。**已存在項目需重開 omp 才生效**(無檔案監看)。
@@ -389,6 +389,7 @@
   | 可回滾 | `git apply -R --check patches/0040-trellis-command-tool.patch` 通過 |
 - **代價(記錄在案)**:工具 schema 進工具簽名 → 部署後首輪一次性 `TOOLS_DRIFT` 前綴位移(與 0032 同族),之後穩定;每會話常駐約 120 token schema。
 - **不入 apply.sh 鏈**:與 0012/0016 同類——補丁文件僅作記錄與回滾憑證;實際部署走 trellis-custom → npm 模板 → 項目回灌,`~/.omp/patches/` 鏡像同步由用戶執行(本倉庫不碰 live mirror)。
+- **撤銷記錄**(同日):用戶判定「為 slash 命令造專屬工具」屬過度設計，改走原生 skill 發現鏈（`.omp/skills/trellis-*/SKILL.md` 薄殼，真本仍為 `.omp/commands/*.md`）。本倉庫 `53006f4` 撤回工具版 extension（0012/0016 anchor 修正保留不動）、補丁移 `.retired/`、verify 腳本刪除；trellis-custom canonical 同步為無工具版，npm 模板重放改回無工具真本。教訓：**工具清單任何增刪都翻簽名，跨部署邊界的活會話各斷一次——新增常驻工具前必須先計價，能走 skills/commands/read 原生路徑的不造工具。**
 
 ## 5. agent.db 结构性损坏与重建(2026-08-29)
 - **发现**:排查配额时对 `~/.omp/agent/agent.db` 跑 `PRAGMA integrity_check`(官方 `.backup` 一致快照与 `mode=ro` 直读**都复现**,不是热 `cp` 造成的假象):
