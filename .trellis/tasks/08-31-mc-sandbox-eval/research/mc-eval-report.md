@@ -27,7 +27,7 @@
 
 ## 紅線核查
 
-- **sentinel after 未通/無法歸因（P0 blocked）**: `sentinel-after.txt` 顯示 live `agent.db` size 1,839,104→1,847,296 且 mtime 前移（inode 54945351 不變、無檔案增刪）。按 design「任何差異即 blocked」——雖然時間線上大概率是本 omp 進程自身會話寫入（沙盒 strace 同窗零 live open），但**無法機檢歸因**，不得標紅線通過。證據保留: `sentinel-before.txt` / `sentinel-after.txt`。
+- **sentinel after 差異——無損壞證據,歸因仍未證明（兩件事分開記）**: `sentinel-after.txt` 顯示 live `agent.db` size 1,839,104→1,847,296 且 mtime 前移（inode 54945351 不變、無檔案增刪）。事後機檢: `PRAGMA integrity_check`/`quick_check` 全 **ok**,online backup API 熱備至隔離區再驗亦 **ok**（48 schema 對象、451 頁、WAL 內容完整收入）——**主庫無損壞**。但「那次差異是誰寫的」沒有鐵證（時間線大概率是本 omp 進程自身會話,沙盒 strace 同窗零 live open）——歸因仍未證明,證據保留: `sentinel-before.txt` / `sentinel-after.txt`。
 - strace 證據範圍: 僅證明沙盒進程未 open live agent.db/models.db/auth.json（`strace-run.log` 命中唯一可疑項 `~/.omp/WATCHDOG.md` 讀的是 ns 內 tmpfs 空根）；`.claude`/`.agents` 曾被 ambient 掃描成功開啟（v1 輪）——v2 已補遮蔽，但 runner `CLAUDE_CONFIG_DIR` export 位置錯誤未修完即暫停（遺留項）
 - Anthropic 憑證：全程未觸 ✓
 - commandcode key：用戶授權例外，沙盒專用 `models.yml`（chmod 600，僅 glm-5.3-flash 一個模型），測後隨沙盒清理
