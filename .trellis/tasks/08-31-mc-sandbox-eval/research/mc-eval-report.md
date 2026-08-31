@@ -11,11 +11,12 @@
 - R6：project-overlay 場 setup 直接拒絕——live 環境有 project overlay 時**無法一鍵安裝**（必須手動編輯或移除 overlay）
 - 詳見 `e1-setup-face.md`
 
-### 2. cache 前綴污染（0018 保全） → ⚠️ 部分結論；OMP wire/cacheRead 未測
+### 2. cache 前綴污染（0018 保全） → 🔶 架構與 0018 同源,衝突比預想小（源碼級）
 
-- **確定（源碼靜態）**：頭部 unshift 2 條 synthetic user 消息（m[0]=session-history、m[1]=記憶/文檔塊），歷史消息帶 `§N§` 前綴標記；§tag§ 冪等（`stripTagPrefix` 先剝後加，`tag-content-primitives.ts:108`）
-- **探針有效範圍**：MC 內部 `createTransform`（OpenCode 路徑）重播穩態 byte-stable——**不含 OMP `pi.on("context")` wire，不含 provider cacheRead 實測**
-- **未測**：真實 omp 流量下的 cacheRead%、HARD fold 動態塌陷（`cache_ttl` 預設 "5m"，閒置 >5min 重建 m[0]——schema 提供 `"never"` 逃生門，但 never 模式行為未實測）、compartment 相關 fold（探針 fixture 無 compartment，B/C 場景退化 no-op）
+- **確定（源碼靜態）**：頭部 unshift 2 條 synthetic user 消息——m[0]=凍結前綴（歷史折疊+文檔+記憶快照）、m[1]=易變增量（新記憶/compartment/profile）。歷史消息帶 `§N§` 前綴標記,§tag§ 冪等（`stripTagPrefix` 先剝後加）
+- **設計宣言（inject-compartments.ts:1504 註釋原文）**:"m[0]=frozen-prefix / m[1]=volatile-delta split: a routine historian publish must keep the Anthropic prompt-cache prefix intact"——與 0018 同構,例行記憶發佈不折 m[0]
+- **`cache_ttl` 5m 的真實語義（此前記載有誤,已修正）**:`mustMaterialize` 的 `ttl_idle` 分支只在「Anthropic 已因閒置逐出緩存」時才 fold——註釋原文:"the provider evicted the cache while the user was away. Folding m[1] into m[0] here is free"。塌是 Anthropic 行為,MC 只是搭順風車;且有 lastResponseTime>materializedAt 冪等閘,一輪只折一次。**不需要設 never**（never 反而令 m[1] 增量永不折疊、前綴中段無限堆積）
+- **未測**：真實 omp 流量的 cacheRead%、§N§ 標記對逐消息前綴匹配的實際影響
 - 詳見 `e2-prefix-stability.md`
 
 ### 3. 記憶接管品質 → 🔶 管線活、品質未證
@@ -30,6 +31,15 @@
 - **sentinel after 差異——無損壞證據,歸因仍未證明（兩件事分開記）**: `sentinel-after.txt` 顯示 live `agent.db` size 1,839,104→1,847,296 且 mtime 前移（inode 54945351 不變、無檔案增刪）。事後機檢: `PRAGMA integrity_check`/`quick_check` 全 **ok**,online backup API 熱備至隔離區再驗亦 **ok**（48 schema 對象、451 頁、WAL 內容完整收入）——**主庫無損壞**。但「那次差異是誰寫的」沒有鐵證（時間線大概率是本 omp 進程自身會話,沙盒 strace 同窗零 live open）——歸因仍未證明,證據保留: `sentinel-before.txt` / `sentinel-after.txt`。
 - strace 證據範圍: 僅證明沙盒進程未 open live agent.db/models.db/auth.json（`strace-run.log` 命中唯一可疑項 `~/.omp/WATCHDOG.md` 讀的是 ns 內 tmpfs 空根）；`.claude`/`.agents` 曾被 ambient 掃描成功開啟（v1 輪）——v2 已補遮蔽，但 runner `CLAUDE_CONFIG_DIR` export 位置錯誤未修完即暫停（遺留項）
 - Anthropic 憑證：全程未觸 ✓
+- commandcode key：用戶授權例外，沙盒專用 `models.yml`（chmod 600，僅 glm-5.3-flash 一個模型），測後隨沙盒清理
+## 安裝建議 v2（依 5m 語義修正）
+
+1. ~~`cache_ttl: "never"`~~ **保留默認 5m**——它配 Anthropic 的閒置逐出行為;never 會令 m[1] 增量永不折疊
+2. 先 `memory.enabled=false` 起步（知識層 + 零 context 重寫風險），觀察穩定後再考慮全開
+3. project-overlay 需先手動處理才能過 setup
+4. 安裝前先 `sqlite3 agent.db ".backup ..."` 冷備（用戶 P0: 庫碎不得發生）
+5. 安裝後立跑 `magic-context doctor --harness omp` 確認無兩 context manager 共存
+6. 首週監控 statusline cacheRead%,對照 0018 基線 99.4%
 - commandcode key：用戶授權例外，沙盒專用 `models.yml`（chmod 600，僅 glm-5.3-flash 一個模型），測後隨沙盒清理
 
 ## 安裝建議（若裝）
