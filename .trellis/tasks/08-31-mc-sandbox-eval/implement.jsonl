@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/08-31-mc-sandbox-eval/prd.md", "reason": "紅線與風險清單，實驗設計的唯一需求來源"}
+{"file": ".trellis/tasks/08-31-mc-sandbox-eval/design.md", "reason": "沙盒拓撲、模型選型、實驗矩陣 E0-E4"}
+{"file": ".trellis/tasks/08-31-mc-sandbox-eval/implement.md", "reason": "分階段執行清單與停線規則"}
+{"file": "patches/PATCHES.md", "reason": "0012/0013/0016/0018 補丁的 compaction/cache 實測基線，E0-E3 對照依據"}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "補丁链契約：評估期間 apply.sh/dist 零改動的約束出處"}

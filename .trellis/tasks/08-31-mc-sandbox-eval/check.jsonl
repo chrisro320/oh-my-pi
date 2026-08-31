@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/08-31-mc-sandbox-eval/prd.md", "reason": "驗收標準：R1–R6 逐項結論 + 紅線零變動證明"}
+{"file": ".trellis/tasks/08-31-mc-sandbox-eval/design.md", "reason": "安全哨兵協議：before/after stat+sha256 比對是否執行"}
+{"file": ".trellis/tasks/08-31-mc-sandbox-eval/implement.md", "reason": "Phase 6 報告與清理是否完整"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "報告品質與證據標準"}
