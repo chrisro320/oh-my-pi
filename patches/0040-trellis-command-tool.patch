@@ -1,0 +1,96 @@
+diff --git a/.omp/extensions/trellis/index.ts b/.omp/extensions/trellis/index.ts
+index f0f7f5c..5be8bc6 100644
+--- a/.omp/extensions/trellis/index.ts
++++ b/.omp/extensions/trellis/index.ts
+@@ -1,8 +1,15 @@
+ import type { AgentMessage, ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+ import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+ import { join, dirname, isAbsolute, relative, resolve } from "node:path";
++import { homedir } from "node:os";
+ import { spawnSync } from "node:child_process";
+ import { createHash } from "node:crypto";
++import { parseFrontmatter, prompt } from "@oh-my-pi/pi-utils";
++import { parseCommandArgs, substituteArgs } from "@oh-my-pi/pi-coding-agent/utils/command-args";
++import {
++   appendInlineArgsFallback,
++   templateUsesInlineArgPlaceholders,
++} from "@oh-my-pi/pi-coding-agent/config/prompt-templates";
+ 
+ // ---------------------------------------------------------------------------
+ // Project root detection
+@@ -442,9 +449,75 @@ function detectAgentType(): AgentType {
+ // ---------------------------------------------------------------------------
+ 
+ export default function(pi: ExtensionAPI): void {
++   const z = pi.zod;
+    let projectRoot: string | null = null;
+    const turnCache = new TurnContextCache();
+    const agentType = detectAgentType();
++
++   // -------------------------------------------------------------------------
++   // trellis_command: mid-session slash-command expansion.
++   //
++   // File slash commands (.omp/commands/trellis-*.md) are expanded by the TUI
++   // client BEFORE the text reaches the model, so the LLM can never "call"
++   // them — there is no tool to call. This tool replicates the client-side
++   // pipeline (parseFrontmatter → substituteArgs → prompt.render → inline-args
++   // fallback, the same primitives omp itself uses) and returns the expanded
++   // instruction text as the tool result. The model then executes the steps,
++   // which is net-identical to the user typing the slash command.
++   // -------------------------------------------------------------------------
++   const expandFileCommand = (cwd: string, name: string, argsString: string): string => {
++      const root = projectRoot ?? findProjectRoot(cwd);
++      const dirs = [
++         ...(root ? [join(root, ".omp", "commands")] : []),
++         join(homedir(), ".omp", "agent", "commands"),
++      ];
++      for (const dir of dirs) {
++         const file = join(dir, `${name}.md`);
++         if (!existsSync(file)) continue;
++         const raw = readFileSync(file, "utf8");
++         const { body } = parseFrontmatter(raw, { source: file, level: "warn" });
++         const args = parseCommandArgs(argsString);
++         const argsText = args.join(" ");
++         const usesInline = templateUsesInlineArgPlaceholders(body);
++         const substituted = substituteArgs(body, args);
++         const rendered = prompt.render(substituted, { args, ARGUMENTS: argsText, arguments: argsText });
++         return appendInlineArgsFallback(rendered, argsText, usesInline);
++      }
++      const available = dirs.flatMap(dir =>
++         existsSync(dir)
++            ? readdirSync(dir)
++                 .filter(f => f.endsWith(".md"))
++                 .map(f => `/${f.slice(0, -3)}`)
++            : [],
++      );
++      throw new Error(
++         `command "${name}" not found in ${dirs.join(" or ")}. Available: ${available.join(", ") || "(none)"}`,
++      );
++   };
++
++   pi.registerTool({
++      name: "trellis_command",
++      label: "Trellis Command",
++      description:
++         "Expand a project slash command (e.g. trellis-continue, trellis-finish-work, trellis-paused-work) and return its full instruction text, exactly as if the user had typed it. Execute every step in the returned text.",
++      parameters: z.object({
++         command: z
++            .string()
++            .describe('command name without the leading slash, e.g. "trellis-continue"'),
++         args: z.string().optional().describe("argument string passed to the command template"),
++      }),
++      async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
++         const name = String(params.command ?? "").replace(/^\/+/, "").trim();
++         if (!/^[A-Za-z0-9._-]+$/.test(name)) {
++            throw new Error(`invalid command name: "${params.command}"`);
++         }
++         const expanded = expandFileCommand(ctx.cwd, name, String(params.args ?? ""));
++         return {
++            content: [{ type: "text" as const, text: expanded }],
++            details: { command: name },
++         };
++      },
++   });
+    const isSubAgent = agentType !== null;
+ 
+    // Tracks compaction boundaries — context handler skips scanning when no
