@@ -1,0 +1,139 @@
+# 執行計畫：最小化 Prompt Cache Reminder 與 DB 安全
+
+## 前置狀態
+
+- Task：`.trellis/tasks/08-31-minimal-prompt-cache-db-safety`
+- 基線分支：`master`
+- 目前唯一既有未追蹤檔案：`.trellis/workspace/chris/hindsight-invalidated-2026-08-28.json`；不得修改或納入本任務。
+- 本文件完成且經使用者審核前，不得 `task.py start`，不得修改 runtime source 或建立 patch。
+
+## 本批必讀規範與技能
+
+- `skill://trellis-before-dev`
+- `skill://trellis-check`（實作後唯讀覆核）
+- `skill://trellis-update-spec`（完成前必做一次）
+- `.trellis/workflow.md`
+- `.trellis/spec/backend/index.md`
+- `.trellis/spec/backend/patch-rollup-contracts.md`
+- `.trellis/spec/backend/extension-runtime-contracts.md`
+- `.trellis/spec/backend/database-guidelines.md`
+- `.trellis/spec/backend/quality-guidelines.md`
+- `.trellis/spec/guides/index.md`
+- `.trellis/spec/guides/cross-layer-thinking-guide.md`
+- `.trellis/spec/guides/code-reuse-thinking-guide.md`
+
+## 可機檢規範命令
+
+交付前與 review 時各執行一次；命令輸出不得包含 credential data：
+
+```sh
+grep -n -E 'sqlite3 -readonly|integrity_check|WAL|SHM|credential|OAuth|fail closed|online backup' \
+  .trellis/spec/backend/database-guidelines.md \
+  .trellis/tasks/08-31-minimal-prompt-cache-db-safety/{prd,design,implement}.md
+
+grep -n -E 'input|instructions|trailing|synthetic|APPEND_ONLY|HISTORY_REWRITE|SYSTEM_DRIFT' \
+  .trellis/tasks/08-31-minimal-prompt-cache-db-safety/{prd,design,implement}.md
+```
+
+## 有序步驟
+
+### 1. 規劃審核門
+
+- 確認使用者接受「兩個新 patch layer、先 audit 後 behavior」及最小安全範圍。
+- 確認目前 task 狀態為 planning；只有審核後才執行 `python3 ./.trellis/scripts/task.py start minimal-prompt-cache-db-safety`。
+- 產生 patch 前先從官方 pristine 18.0.11 candidate/目前適用版本建立隔離 sandbox；不得從 live node_modules 或 Bun cache 生成 patch。
+
+### 2. DB / OAuth 安全前置
+
+- 預設禁止使用 live `agent.db`、`models.db` 與 Anthropic OAuth；本任務的 fixture 與零 provider 驗證不需它們。
+- 若任何命令會啟動 OMP 或可能讀 runtime DB，先停止所有 OMP writer/sidecar，記錄 DB/WAL/SHM inode、size、mtime、SHA-256 baseline。
+- 僅在必要時用 `umask 077` + SQLite online backup API 建立 sandbox；禁止 `cp` DB/WAL/SHM。
+- 對 sandbox 執行 `PRAGMA integrity_check;`；不輸出 credential data。
+- 測試時覆寫 `HOME`、XDG config/cache、agent 目錄與暫存路徑，保證不繼承真實 OAuth。
+- 測試後再次記錄 live baseline；任一變動、sidecar 未靜止、source/target 相同、target 是 symlink 或 credential refresh 發生，立即停止，不宣稱通過。
+- 清理 sandbox 並確認不存在；不得以事後重新連線 live DB 補證。
+
+### 3. 建立並驗證 Audit patch
+
+- 在 pristine sandbox 中只加入 Responses `input` / `instructions` extraction 與必要的 `PREFIX_KEYS` 分類。
+- 保持 extension 純觀測：不得 mutation、不得替換 payload、不得把 hook error 傳回 runtime。
+- 增加 fixture：append-only、history rewrite、role flip、system drift、tools drift、envelope drift。
+- 驗證 Responses、Anthropic、Google 三種既有 wire shape 不回歸。
+- 執行 `bun patches/verify-cache-prefix-audit.ts` 及符號配對驗證。
+- 確認 source patch 與 runtime mirror 的 byte parity；不能把 runtime mirror 當權威來源。
+
+### 4. 建立並驗證 Reminder patch
+
+- 只將 `date-cwd-reminder.ts` 的 first-user prepend 改為 provider-only trailing scaffolding。
+- 先檢查 `withDateCwdReminder`、helper 與所有 exported symbol references；不保留誤導性的舊語義 alias。
+- 若 Responses 需要，於 `openai-responses.ts` 最小接上 trailing baseline exclusion/re-attach；不得破壞既有 reasoning scaffolding。
+- 先驗證 `openai-completions.ts` 現有 message transform 與 breakpoint 是否已正確處理 synthetic tail；只有測試證明必要才修改。
+- 先驗證 `anthropic.ts` 現有 trailing pad / breakpoint 行為；只有 synthetic reminder 成為錯誤 boundary 才修改。
+- 對每個 adapter 做零網路 fixture 回歸：同日、跨日、cwd 變更、tool continuation、side-channel、無 session write。
+- 不改 system prompt 內容、不凍結日期/cwd、不改模型或 cache ratio。
+
+### 5. Patch chain 與安全回歸
+
+- 每個新 patch 獨立 apply/revert/replay；不修改既有定稿 patch 或 `.retired` 檔案。
+- 從 `patches/apply.sh` 真實 active sequence 取順序；不得另建手寫 oracle。
+- 執行 `patches/apply.sh --check` 之外，再執行符號配對、雙向 replay、指定 verify scripts。
+- 執行 `bash patches/verify-patch-family-rollups.sh`；若本任務不涉及 rollup，至少執行其安全/鏈完整性相關 gate。
+- 若新補丁依賴 18.0.11，必須顯式使用 `OMP_PATCH_VERSION=18.0.11`，不得改變 canonical 18.0.9 未設定時的路徑。
+
+### 6. 只讀品質覆核
+
+- 派送 `trellis-check`，明確要求不編輯、不格式化、不測試中途改碼。
+- 覆核範圍：最小 diff、所有 callsite、provider wire、歷史前綴、DB/OAuth gate、patch order、mirror parity。
+- 有發現時由主 session 修正，再重新覆核；reviewer 不直接改碼。
+
+### 7. Spec 更新與交付
+
+- 通過 smoke/fixture 後執行 `trellis-update-spec`，記錄本批新增的 provider trailing scaffolding 與 DB safety gate，不碰 `AGENTS.md`。
+- 重新執行所有機檢命令與安全 gate。
+- 只有所有驗收通過後才 commit；commit 前保留既有未追蹤 workspace 檔案不變。
+- 完成後走 `/trellis:finish-work`；中途若必須停止，使用 `/trellis:paused-work`，不得手工歸檔。
+
+## 驗證命令清單
+
+```sh
+bun patches/verify-cache-prefix-audit.ts
+bun patches/verify-date-cwd-reminder.ts <isolated-@oh-my-pi-root>
+
+# patch controller / order / replay
+patches/apply.sh --check
+patches/apply.sh --revert
+patches/apply.sh --check
+
+# 規範機檢
+grep -n -E 'sqlite3 -readonly|integrity_check|WAL|SHM|credential|OAuth|fail closed' \
+  .trellis/spec/backend/database-guidelines.md \
+  .trellis/tasks/08-31-minimal-prompt-cache-db-safety/{prd,design,implement}.md
+```
+
+最後一個 verify 名稱是規劃預留，未建立前不得執行或宣稱存在；所有 provider 真實 smoke 需要另行確認隔離憑證與 DB 基線，否則保持不做。
+
+## Rollback gate
+
+- 任一 fixture 顯示 prefix rewrite、native chain reset、provider rejection 或 cache boundary 漂移：停止，撤銷本輪新 patch，不動既有定稿鏈。
+- 任一 live DB/sidecar fingerprint 變動或 OAuth refresh：停止所有後續命令，保留證據，禁止 restore 或事後補連線。
+- 任一 patch hunk 失敗、`.orig`/`.rej`、unexpected `Only in`：刪除隔離 sandbox，從 pristine 重新開始；不得修補半成品。
+
+## 執行記錄
+
+- [x] 任務啟動；官方 18.0.11 pristine 與 active-chain sandbox 建立完成。
+- [x] 0039 audit candidate 已從目前 repository HEAD 重新生成，包含 process-local fallback 與兩處 fixture 斷言；以乾淨 HEAD sandbox forward replay 並逐字節比對目前兩個檔案：PASS。
+- [x] `bun patches/verify-cache-prefix-audit.ts`：PASS。
+- [x] 0038 的 provider-only reminder 基本隔離 fixture、Responses、Chat Completions、Anthropic、Google 轉換與 chaining 驗證已通過。
+- [x] 既有 0038／patch chain replay 證據保留；本次未擴大修改 compaction，符合 PRD 非範圍。
+- [x] `trellis-update-spec`：已更新 extension runtime 與 patch replay executable contracts。
+- [ ] runtime audit mirror parity：禁止在本階段修改 live `~/.omp`；部署 gate 尚未執行。
+- [ ] live DB quiescent baseline：目前 runtime writer 存活，依 fail-closed 契約不得執行或事後補證。
+- [x] 最終唯讀 `trellis-check`：review 結果 PASS，未發現目前 diff 的範圍內缺陷；環境 gate 仍維持 deferred。
+- [ ] commit 與 `/trellis:finish-work`：因 mirror parity 與 DB safety gate 尚未取得，依安全契約保留未提交狀態。
+
+## RESUME anchor
+
+- 2026-08-31：外部終端已確認 `ok: no live omp process detected` 後執行 `verify-db-safety.sh`；sandbox 兩個 DB 的 `integrity_check` 均為 `ok`，但 `agent.db-shm` 的 mtime/hash 改變，且 `models.db-wal`／`models.db-shm` 在 backup 後出現，因此 quiescent safety gate **FAIL-CLOSED / BLOCKED**，不可宣稱 PASS。
+- 已完成：根因分析、0038 provider-only reminder candidate、0039 Responses audit candidate、隔離 fixture、patch apply/revert/replay、spec update、最終唯讀 `trellis-check`（PASS，無 findings）。
+- 未完成：runtime audit mirror 三份 byte parity、DB/WAL/SHM 零變更安全證明、正式 finish-work。
+- 恢復時：先讀本 anchor 與 `/tmp/omp-db-verify-latest`；不要觸碰 credential 原文，不要重跑已通過的 fixture/replay；只有取得 mirror parity 且安全 gate 前後完全無變更，才可進行最後 commit/finish-work；否則維持 blocked。

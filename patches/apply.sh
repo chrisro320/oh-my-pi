@@ -39,6 +39,15 @@ case "${1:-}" in
 		;;
 esac
 
+OFFLINE_VERIFY="${OMP_PATCH_OFFLINE_VERIFY:-0}"
+case "$OFFLINE_VERIFY" in
+	0 | 1) ;;
+	*)
+		echo "OMP_PATCH_OFFLINE_VERIFY must be 0 or 1" >&2
+		exit 2
+		;;
+esac
+
 # patch-file : package-root
 PATCHES=(
 	"0033-omp-cache-turn-status-rollup.patch:${AGENT}"
@@ -56,6 +65,7 @@ PATCHES=(
 	"0030-omp-usage-cache-canonical-baseurl.patch:${AI}"
 	"0031-omp-agent-session-providers-forward.patch:${AGENT}"
 	"0032-omp-goal-tool-resident.patch:${AGENT}"
+	"0038-omp-date-cwd-reminder-provider-tail.patch:${NM}"
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then
@@ -133,7 +143,7 @@ for entry in "${ORDER[@]}"; do
 		check:*) echo "${st^^}  ${name}" ;;
 		apply:applied) echo "SKIP     ${name} (already applied)" ;;
 		apply:pending)
-			patch -p1 --forward --silent -d "$root" <"$file"
+			patch -p1 --forward --silent --no-backup-if-mismatch -d "$root" <"$file"
 			echo "APPLIED  ${name}"
 			;;
 		apply:conflict)
@@ -141,7 +151,7 @@ for entry in "${ORDER[@]}"; do
 			fail=1
 			;;
 		revert:applied)
-			patch -p1 -R --forward --silent -d "$root" <"$file"
+			patch -p1 -R --forward --silent --no-backup-if-mismatch --remove-empty-files -d "$root" <"$file"
 			echo "REVERTED ${name}"
 			;;
 		revert:*) echo "SKIP     ${name} (not applied)" ;;
@@ -175,16 +185,20 @@ if [[ "$MODE" == "apply" ]]; then
 	bun "${HERE}/verify-hindsight-recall-snapshot.ts"
 fi
 if [[ "$MODE" != "check" ]]; then
-	printf 'smoke: '
-	if out="$(cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK' 2>&1)"; then
-		grep -q PATCH_OK <<<"$out" && echo "ok" || {
-			echo "unexpected output:"
-			echo "$out" | tail -5
-			exit 1
-		}
+	if [[ "$OFFLINE_VERIFY" == "1" ]]; then
+		echo "smoke: skipped by explicit offline replay mode"
 	else
-		echo "FAILED"
-		echo "$out" | tail -10
-		exit 1
+		printf 'smoke: '
+		if out="$(cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK' 2>&1)"; then
+			grep -q PATCH_OK <<<"$out" && echo "ok" || {
+				echo "unexpected output:"
+				echo "$out" | tail -5
+				exit 1
+			}
+		else
+			echo "FAILED"
+			echo "$out" | tail -10
+			exit 1
+		fi
 	fi
 fi

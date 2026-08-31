@@ -275,10 +275,16 @@ interface Diff {
 
 ### 3. Contracts
 
-- **Wire-Format Normalization**: `extractPayloadSections()` must support both top-level
-  (`messages`, `system`, `tools`) and nested Google formats (`request.contents`,
-  `request.systemInstruction`, `request.tools`). It must never return `undefined` for a
-  valid conversation payload.
+- **Wire-Format Normalization**: `extractPayloadSections()` must support top-level
+  Anthropic/OpenAI Chat (`messages`, `system`, `tools`), OpenAI Responses
+  (`input`, `instructions`, `tools`), and nested Google formats
+  (`request.contents`, `request.systemInstruction`, `request.tools`). It must
+  never return `undefined` for a valid conversation payload.
+- **Responses item identity**: role/content items hash normalized content.
+  Role-less Responses items such as `function_call` and
+  `function_call_output` hash the complete wire item except `cache_control` and
+  use `type` as their label. Changing `arguments` or `output` at the same index
+  must produce `HISTORY_REWRITE`; changing only the marker remains `IDENTICAL`.
 - **Session Isolation**: State is persisted per session
   (`cache-prefix-state-<safeSessionId>.json`). Distinct session IDs must produce
   non-colliding file names by appending a short SHA hash suffix
@@ -305,6 +311,8 @@ interface Diff {
 |---|---|
 | Google Antigravity payload (`request.contents`) | Extracted without `undefined`; parts normalized |
 | Anthropic/OpenAI payload (`messages`) | Extracted with blocks normalized |
+| OpenAI Responses payload (`input`, `instructions`) | Map to messages/system; exclude both keys from envelope hashing |
+| Role-less Responses call/output changes in place | Flag as `HISTORY_REWRITE`; never collapse to `?:sha(undefined)` |
 | Non-conversation payload | Return `undefined` without error |
 | Multiple OMP processes run concurrently | Isolated to separate state files; zero cross-session drift |
 | Session ID contains slashes or special characters | Sanitized and hash-suffixed; no filesystem escape or collision |
@@ -318,6 +326,8 @@ interface Diff {
 - **Good:** Four OMP processes run concurrently without cross-process diff pollution.
 - **Base:** A resumed session loads its previous process's state and compares across processes (`crossProcess = true`).
 - **Bad:** Hardcoding `messages in target` causes all Google Antigravity requests to be ignored and misreported as `MISS (prefix intact)`.
+- **Bad:** Hashing only `role` plus `content` maps role-less Responses tool
+  items to the same fingerprint and hides argument/output rewrites.
 - **Bad:** Completely omitting `labels` hides actual `trajectory_id` or model drift.
 
 ### 6. Tests Required
@@ -342,9 +352,141 @@ if (!Array.isArray(messages)) return undefined;
 
 ```ts
 const requestLevel = isRecord(target.request) ? target.request : undefined;
-const messages = requestLevel?.contents ?? target.contents ?? target.messages;
+const messages =
+  requestLevel?.contents ?? target.contents ?? target.messages ?? target.input;
+const system =
+  requestLevel?.systemInstruction ??
+  target.systemInstruction ??
+  target.system ??
+  target.instructions;
 if (!Array.isArray(messages)) return undefined;
 ```
+
+## Scenario: Provider-only date/cwd request tail
+
+### 1. Scope / Trigger
+
+Apply this contract when request-time environment data such as local date or cwd
+must remain visible to every provider without rewriting persisted conversation
+history or the cacheable system/tool prefix.
+
+### 2. Signatures
+
+```ts
+interface UserMessage {
+  providerOnly?: boolean;
+}
+
+function appendDateCwdReminder(
+  messages: Message[],
+  reminder: string,
+): Message[];
+
+function withDateCwdReminder(
+  context: Context,
+  date: string,
+  cwd: string,
+): Context;
+```
+
+Controller verification mode:
+
+```sh
+OMP_PATCH_OFFLINE_VERIFY=1 patches/apply.sh
+```
+
+### 3. Contracts
+
+- Append one synthetic `user` message with `providerOnly: true`; never prepend
+  or rewrite an existing message.
+- Reusing transformed context replaces trailing provider-only messages. Equal
+  reminder text returns the existing array, so tails never accumulate.
+- The helper receives provider context after obfuscation, image normalization,
+  unreadable-image fallback, and blob decoration. It does not receive a
+  `SessionManager` and never writes JSONL.
+- OpenAI Responses counts the converted provider-only tail as transient
+  scaffolding. Native `lastParams` and delta comparison exclude that wire item;
+  the actual request appends it after the delta.
+- Chat Completions, Anthropic, and Google serialize the synthetic user message
+  through their existing converters; no adapter-specific marker branch is
+  needed.
+- Anthropic rolling cache control must mark at least one ordinary message before
+  the transient reminder, so the reminder is not the only boundary.
+- `OMP_PATCH_OFFLINE_VERIFY` accepts only `0` or `1`. Value `1` skips the real
+  provider smoke for isolated apply/revert/replay; it does not claim provider
+  acceptance.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| Date or cwd changes | Replace only the provider-only tail; stable history bytes/order remain equal |
+| Same reminder is transformed again | Return the same message array |
+| Context has no system prompt or no messages | Return it unchanged |
+| Responses native baseline is append-compatible | Preserve `previous_response_id`; send delta plus current reminder |
+| Responses conversion drops or expands the tail unexpectedly | Fail the fixture; never slice by an unverified count |
+| Anthropic applies rolling cache control | At least one pre-reminder ordinary block has `cache_control` |
+| Offline verification value is not `0` or `1` | Exit 2 before patch mutation |
+| Offline mode is enabled | Skip provider smoke; run only separately declared zero-network fixtures |
+
+### 5. Good / Base / Bad Cases
+
+- **Good:** Midnight changes only the final request item; Responses chains with
+  `previous_response_id`, then sends the new date/cwd reminder.
+- **Base:** A normal non-stateful provider receives the same stable history plus
+  one synthetic user tail.
+- **Bad:** Prepending the reminder to `messages[0]` invalidates every later
+  cached byte on date/cwd change.
+- **Bad:** Counting a Context marker without asserting the converted wire tail
+  can slice an unrelated final item.
+
+### 6. Tests Required
+
+```sh
+bun patches/verify-date-cwd-reminder.ts <isolated-@oh-my-pi-root>
+bash patches/verify-patch-family-rollups.sh
+OMP_PATCH_VERSION=18.0.11 \
+OMP_PATCH_OFFLINE_VERIFY=1 \
+HOME=<isolated-home> \
+XDG_CONFIG_HOME=<isolated-config> \
+XDG_CACHE_HOME=<isolated-cache> \
+XDG_DATA_HOME=<isolated-data> \
+patches/apply.sh
+```
+
+The fixture must execute Responses, Chat Completions, Anthropic, and Google
+conversion; verify Responses native chaining across reminder changes; verify a
+pre-reminder Anthropic cache boundary; and leave no instrumented module behind.
+Controller replay must apply, reverse to byte-exact pristine, apply again, and
+leave no `.orig` or `.rej`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+messages[0] = {
+  ...messages[0],
+  content: `${reminder}\n\n${messages[0].content}`,
+};
+```
+
+#### Correct
+
+```ts
+return [
+  ...stableMessages,
+  {
+    role: "user",
+    content: reminder,
+    providerOnly: true,
+    synthetic: true,
+  },
+];
+```
+
+Persisted messages stay untouched; provider adapters own transient wire
+scaffolding and cache baselines.
 
 ## Scenario: Iterative cache-preserving soft compaction
 

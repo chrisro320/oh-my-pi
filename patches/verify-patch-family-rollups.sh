@@ -19,10 +19,10 @@
 #      equal on the family-owned packages; the reversed rollup restores pristine
 #      bytes; on an applied tree a forward dry-run fails and a reverse dry-run
 #      succeeds (idempotence).
-#   3. Full chain: the old effective chain (27 entries; 0026-agent/0027/0028
-#      skipped as superseded) vs the 15-entry new active chain — byte equal
-#      across all four packages including dist/, then reverse/forward dry-run
-#      idempotence for all 15 active entries.
+#   3. Full chain: the old effective chain (28 entries; 0026-agent/0027/0028
+#      skipped as superseded, plus independent 0038) vs the 16-entry active
+#      chain — byte equal across all four packages including dist/, then
+#      reverse/forward dry-run idempotence for all 16 active entries.
 #   4. Failures name the family and the first differing file; every family
 #      prints PASS on success.
 #
@@ -47,7 +47,7 @@ NMROOT="@oh-my-pi"
 # ------------------------------------------------------------- static checks
 entries="$(sed -n '/^PATCHES=(/,/^)/p' "${HERE}/apply.sh" | grep -c 'patch:')" ||
 	die "cannot parse PATCHES array in apply.sh"
-[[ "$entries" == 15 ]] || die "apply.sh PATCHES has ${entries} entries, expected 15"
+[[ "$entries" == 16 ]] || die "apply.sh PATCHES has ${entries} entries, expected 16"
 if grep -q 'superseded_by_' "${HERE}/apply.sh"; then
 	die "apply.sh still contains superseded_by_ control flow"
 fi
@@ -98,7 +98,7 @@ b09b22c227d22efcf2da1f27e6377cee75ec7363b7114102f9bd0dea16b25caa  0026-omp-usage
 db19e8d94f338af06f6683d47328b9831ffa81e5a21c04b3f3d5be1f759a1408  0029-omp-usage-fetch-gate-merged-agent.patch
 EOF
 ) || die "retired patch hashes drifted in ${RETIRED}"
-echo "PASS static: apply.sh chain (15 entries, no supersede), rollup hygiene, retired hashes"
+echo "PASS static: apply.sh chain (16 entries, no supersede), rollup hygiene, retired hashes"
 
 # ---------------------------------------------------------------- sandbox
 G=$(mktemp -d /tmp/pfrollup-verify.XXXXXX)
@@ -333,6 +333,7 @@ OLDCHAIN=(
 	"0030-omp-usage-cache-canonical-baseurl.patch:AI"
 	"0031-omp-agent-session-providers-forward.patch:AGENT"
 	"0032-omp-goal-tool-resident.patch:AGENT"
+	"0038-omp-date-cwd-reminder-provider-tail.patch:NM"
 )
 # The new full-chain oracle is the real controller, not a second hand-maintained
 # list. A missing, duplicate, reordered, or wrongly rooted apply.sh entry must
@@ -376,7 +377,7 @@ for pk in pi-coding-agent pi-agent-core pi-ai snapcompact; do
 	fi
 done
 [[ $fcfail -eq 0 ]] || exit 1
-echo "PASS full chain: old effective (27) == new active (15), byte-equal on all four packages"
+echo "PASS full chain: old effective (28) == new active (16), byte-equal on all four packages"
 
 # idempotence of the whole active chain on the final tree
 local_spec_check() { :; }
@@ -390,6 +391,6 @@ for spec in "${NEWCHAIN[@]}"; do
 		die "full chain: reverse dry-run of ${file} failed on applied tree"
 	fi
 done
-echo "PASS full chain idempotence: all 15 entries reverse-identify as applied, forward dry-run no-ops"
+echo "PASS full chain idempotence: all 16 entries reverse-identify as applied, forward dry-run no-ops"
 
 echo "ALL PASS: patch family rollups verified"

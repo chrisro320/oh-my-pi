@@ -60,9 +60,9 @@ import { dirname, join } from "node:path";
 const BASE = join(homedir(), ".omp", "agent");
 const LOG_PATH = process.env.OMP_CACHE_AUDIT_LOG ?? join(BASE, "cache-prefix-audit.log");
 const LOG_MAX_BYTES = 2 * 1024 * 1024;
-/** Session key used when no session id can be resolved; keeps the legacy
- *  single-file cross-process behavior for payloads that carry no identity. */
-const DEFAULT_SESSION = "default";
+/** Session key used when no session id can be resolved. Keep it process-local so
+ * payloads without identity cannot share a state file across OMP processes. */
+const DEFAULT_SESSION = `pid-${process.pid}`;
 /** Chars of a rewritten message kept for identification. Enough to name the
  *  culprit (an `<advisory>` tag, a `<system-reminder>`, a tool result header)
  *  without turning the audit log into a second transcript. */
@@ -102,10 +102,10 @@ interface Fingerprint {
 	/** Per-host auth/beta header fingerprints, so a header change is compared
 	 *  within one provider host instead of against whichever host called last. */
 	hostHeaders?: Record<string, string>;
-	/** Session key this fingerprint belongs to ("default" when unresolvable). */
-	sessionId: string;
-	/** Truncated text sample per message for naming the culprit in a rewrite. */
-	samples: string[];
+    /** Session key this fingerprint belongs to (process-local when unresolvable). */
+    sessionId: string;
+    /** Truncated text sample per message for naming the culprit in a rewrite. */
+    samples: string[];
 }
 
 /** Per-session in-memory state. Persisted per session in its own state file;
@@ -141,9 +141,11 @@ const BASELINE_HISTORY = 6;
 const PREFIX_KEYS: Record<string, true> = {
 	messages: true,
 	system: true,
+	instructions: true,
 	systemInstruction: true,
 	tools: true,
 	contents: true,
+	input: true,
 };
 
 /** Transport/step tracking keys that legitimately vary every turn without
@@ -189,7 +191,7 @@ interface Diff {
 	ttlShift?: string;
 }
 
-/** Session-scoped state, keyed by session id (or "default"). */
+/** Session-scoped state, keyed by session id or the process-local fallback. */
 const sessions = new Map<string, SessionState>();
 /** Session that produced the most recent provider request; the header probe
  *  (which fires inside fetch, outside the event handler) attributes its
@@ -218,6 +220,10 @@ function sha(value: unknown): string {
  *  class survive patch 0082. Content drift and breakpoint drift are separate
  *  diagnoses; this tool owns content only. */
 function contentForHash(content: unknown): unknown {
+	if (isRecord(content) && "cache_control" in content) {
+		const { cache_control: _dropped, ...rest } = content;
+		return rest;
+	}
 	if (!Array.isArray(content)) return content;
 	return content.map(block => {
 		if (block === null || typeof block !== "object" || !("cache_control" in block)) return block;
@@ -281,9 +287,13 @@ function extractPayloadSections(target: unknown): {
 } | undefined {
 	if (!isRecord(target)) return undefined;
 	const requestLevel = isRecord(target.request) ? target.request : undefined;
-	const messages = requestLevel?.contents ?? target.contents ?? target.messages;
+	const messages = requestLevel?.contents ?? target.contents ?? target.messages ?? target.input;
 	if (!Array.isArray(messages)) return undefined;
-	const system = requestLevel?.systemInstruction ?? target.systemInstruction ?? target.system;
+	const system =
+		requestLevel?.systemInstruction ??
+		target.systemInstruction ??
+		target.system ??
+		target.instructions;
 	const tools = requestLevel?.tools ?? target.tools;
 	const rawModel = requestLevel?.requestModelId ?? target.requestModelId;
 	const model = typeof target.model === "string" ? target.model : typeof rawModel === "string" ? rawModel : "unknown";
@@ -293,8 +303,8 @@ function extractPayloadSections(target: unknown): {
 /** Resolve the session key for a payload. Priority: explicit override,
  *  `request.sessionId`, top-level `sessionId` — mirroring where each provider
  *  puts its conversation identity (Antigravity carries a deterministic id in
- *  the envelope; OpenAI/Anthropic carry none). Falls back to DEFAULT_SESSION,
- *  which the hook then replaces with the active session id. */
+ * the envelope; OpenAI/Anthropic carry none). Falls back to the process-local
+ * key, which the hook then replaces with the active session id when available. */
 function sessionKeyOf(target: unknown, override: string | undefined): string {
 	if (override !== undefined && override.length > 0) return override;
 	if (isRecord(target)) {
@@ -448,8 +458,10 @@ function fingerprint(target: object, sessionIdOverride?: string): Fingerprint | 
 	for (let i = 0; i < messages.length; i++) {
 		const message: unknown = messages[i];
 		const isObject = message !== null && typeof message === "object";
-		const role = isObject && "role" in message && typeof message.role === "string" ? message.role : "?";
-		// Anthropic/OpenAI use `content`; Google uses `parts`.
+		const role = isObject && "role" in message && typeof message.role === "string" ? message.role : undefined;
+		// Responses tool-call items have no role/content: hash the complete typed
+		// item so same-position argument/output rewrites remain observable.
+		const responseType = isObject && "type" in message && typeof message.type === "string" ? message.type : undefined;
 		const content = isObject
 			? "content" in message
 				? message.content
@@ -457,9 +469,9 @@ function fingerprint(target: object, sessionIdOverride?: string): Fingerprint | 
 					? message.parts
 					: undefined
 			: undefined;
-
-		const text = textOf(content).replace(/\s+/g, " ");
-		fp.messages.push(`${role}:${sha(contentForHash(content))}`);
+		const hashInput = content !== undefined ? contentForHash(content) : contentForHash(message);
+		const text = (textOf(content) || responseType || "").replace(/\s+/g, " ");
+		fp.messages.push(`${role ?? responseType ?? "?"}:${sha(hashInput)}`);
 		// Length leads the sample: a tail-appended edit (the common rewrite) is
 		// invisible in a head-truncated excerpt but obvious in the length.
 		fp.samples.push(`len=${text.length} ${text.slice(0, SAMPLE_CHARS)}`);
@@ -779,12 +791,10 @@ export default function (pi: ExtensionAPI): void {
 			if (rawPayload === null || typeof rawPayload !== "object") return undefined;
 			const payload = rawPayload as Record<string, unknown>;
 
-			// Session identity: the payload's own id wins (Antigravity carries a
-			// deterministic conversation id in request.sessionId or sessionId); the
-			// active session id is the last-resort fallback so concurrent OMP
-			// instances (Gemini, Opus, GLM) never share a state file.
-			let sessionKey = sessionKeyOf(payload, undefined);
-			if (sessionKey === DEFAULT_SESSION) {
+            // Session identity: payload id wins; otherwise use the active session id
+            // when available, with a process-local fallback for unresolvable calls.
+            let sessionKey = sessionKeyOf(payload, undefined);
+            if (sessionKey === DEFAULT_SESSION) {
 				try {
 					const ctxSession = ctx.sessionManager.getSessionId();
 					if (typeof ctxSession === "string" && ctxSession.length > 0) sessionKey = ctxSession;

@@ -2,7 +2,7 @@
 
 > 生成 2026-08-28（第六次修訂：18.0.9 功能族 rollup；舊定稿補丁原樣退役）。
 > 權威 patch 集在 `~/.omp/patches/`（實際生效清單以 `apply.sh` 的 `PATCHES` 陣列為準，本文件是鏡像）。
-> 截至 2026-08-30 active chain 共 15 項：0004、0010、0014、0017、0019、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037。定稿補丁不可變；被 rollup 取代者原樣保存在 `.retired/08-30-family-rollups/`，不再依賴 `superseded_by_*` 狀態機。
+> 截至 2026-08-31，active chain 共 16 項：原 15 項加上 0038（provider-only date/cwd reminder）；Responses audit 的 `input` / `instructions` 修改屬手動 extension candidate，不進 apply.sh，待部署時按三副本 parity gate 同步。
 
 ## 0. 运行模式
 
@@ -10,7 +10,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前 active：0004、0010、0014、0017、0019、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037）
+## 1. src 補丁（目前 active：0004、0010、0014、0017、0019、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038）
 
 ### 0033–0037 — 功能族 rollup（2026-08-30）
 
@@ -22,10 +22,17 @@
 | 0036 | provider image/frame budgets | 0015-snapcompact、0015-agent、0020-snapcompact、0020-agent、0022 |
 | 0037 | usage statusline gate | 0005、0007、0029 |
 
-- **目的**：把同一功能的初版、補漏與 supersede 歷史從 active chain 收斂為單一最終補丁；30 個登錄項降為 15 個，`apply.sh` 不再含 `superseded_by_*` 控制流。
+- **目的**：把同一功能的初版、補漏與 supersede 歷史從 active chain 收斂為單一最終補丁；30 個登錄項先降為 15 個，新增獨立 0038 後為 16 個；`apply.sh` 不再含 `superseded_by_*` 控制流。
 - **生成邊界**：每族都從官方 npm 18.0.9 tarball 建立獨立 `mktemp` sandbox，只套該族舊鏈後生成；禁止從完整 runtime 對 pristine 的整檔 diff，避免 `session-maintenance.ts` 等共用檔案把跨族改動烘入。
 - **歷史保存**：20 個舊補丁內容與 SHA-256 不變，保存於 `.retired/08-30-family-rollups/`；下方既有故障分析仍是設計與除錯依據，但所述舊檔不再位於 active chain。
-- **回歸**：`apply.sh --verify-rollups` 以 pinned tarball SHA-256 驗證五族 old/new 逐字節等價、反向回 pristine、冪等，以及舊有效全鏈 27 項與新 active chain 15 項在四個套件上的完整逐字節等價；`--selftest` 刻意跳過 0033、讓 new-final 保持 pristine，證明比較器會拒絕「沒有 rollup」的假通過。
+- **回歸**：`apply.sh --verify-rollups` 以 pinned tarball SHA-256 驗證五族 old/new 逐字節等價、反向回 pristine、冪等，以及加入獨立 0038 後的舊有效全鏈 28 項與 active chain 16 項在四個套件上的完整逐字節等價；`--selftest` 刻意跳過 0033、讓 new-final 保持 pristine，證明比較器會拒絕「沒有 rollup」的假通過。
+
+### 0038 — date/cwd reminder 改為 provider-only 尾端
+
+- `date-cwd-reminder.ts` 不再改寫第一條 user message；改為每次 provider request 附加 synthetic user tail，重用 Context 時替換舊 tail，不持久化、不累積。
+- `pi-ai/src/types.ts` 增加 `providerOnly` 標記；Responses adapter 將尾端標記對應的 wire item 排除 native chaining baseline，再於 delta request 接回。
+- Chat Completions、Anthropic、Google 沿用現有 user-message 轉換，不增加 adapter 特例。fixture 實際執行四種轉換、Responses `previous_response_id` chaining 與 Anthropic cache boundary。
+- `OMP_PATCH_OFFLINE_VERIFY=1` 只供隔離 apply/revert/replay，明確跳過真實 provider smoke；未知值 fail closed。controller 使用 `--no-backup-if-mismatch`，revert 另使用 `--remove-empty-files`，確保回滾樹與 pristine 完全相同且不遺留 `.orig`。
 
 ### 0004 — token_total 计入 cacheRead
 - `segments.ts`：total = input+output+cacheRead+cacheWrite+orchestration 三项（配额窗口口径）
@@ -212,6 +219,9 @@
   - 驗證：`bun patches/verify-cache-prefix-audit.ts` 覆蓋 Google Antigravity wire 解析、Anthropic 格式、多進程並行狀態隔離、Cross-process resume 判定，全部 PASS。
   - 日誌 `~/.omp/agent/cache-prefix-audit.log`（JSONL，2 MiB 輪替）、狀態 `~/.omp/agent/cache-prefix-state-<sessionId>.json`；`/cacheaudit` 看最近 10 筆。
   - **嚴格命中率 verdict(2026-08-30)**:`message_end` 判定從 `cacheRead>0` 改為 `strict_ratio = cacheRead/(cacheRead+cacheWrite+input) ≥ 0.5` 才標 hit(用戶口徑:<50% 一律 MISS);verdict 文本帶 `strict xx.x%`;usage 行一律攜帶當次 diff(舊邏輯僅 `cacheRead=0` 時攜帶,上述 4.0% 假 hit 正是因此藏掉了 SYSTEM_DRIFT)。案例 `01a051c8` 09:28 在新口徑下記 `MISS CAUSED BY SYSTEM_DRIFT (strict 4.0%)`。回歸:`verify-cache-prefix-audit.ts` 同步更新(96% hit 案例、48% MISS 案例、gemini hit 前綴斷言),全部 PASS;`cache-prefix-audit-baseline-test.ts` PASS。
+
+- **0039 audit candidate（未進 apply.sh）**：`patches/cache-prefix-audit-extension.ts` 與 `patches/verify-cache-prefix-audit.ts` 支援 OpenAI Responses `input` / `instructions`，並以完整 wire item 指紋追蹤無 role 的 `function_call` / `function_call_output`；同時使用 `pid-${process.pid}` process-local fallback，fixture 斷言同步更新。`patches/0039-omp-cache-audit-responses-input.patch` 僅作手動 extension 同步候選，部署前須通過三副本 parity gate。
+
 - `~/orca/projects/orca-update-patch/orca-image-addon-asar-patch.py` + `orca-xterm-image-addon.mjs`（2026-08-26 移出本仓库）（vendored：`@xterm/addon-image@0.10.0-beta.300` 的 `lib/addon-image.mjs` 原样副本。beta tag 随时会被覆盖或撤掉，缺它 patch 脚本直接不能跑，所以换 77KB 保离线可重现）：给 Orca 的 xterm.js 注入 `@xterm/addon-image@0.10.0-beta.300`，让终端能真正显示内嵌图片（IIP + SIXEL）
   - 改的是 `/opt/Orca/resources/app.asar` 里 `out/renderer/assets/OnboardingInlineCommandTerminal-*.js` 的 `openTerminal()`：`loadAddon(webLinksAddon)` 之后挂 ImageAddon；addon 作为新 asset 追加进同一 assets 目录
   - 首次运行会把原 asar 备份到 `app.asar.orig-image-addon`，之后每次都从该备份重建 → 幂等，**Orca 每次升级后必须重跑**（`sudo python3 ~/orca/projects/orca-update-patch/orca-image-addon-asar-patch.py`）

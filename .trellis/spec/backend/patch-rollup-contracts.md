@@ -17,6 +17,7 @@ patches/apply.sh
 patches/apply.sh --check
 patches/apply.sh --revert
 patches/apply.sh --verify-rollups
+OMP_PATCH_OFFLINE_VERIFY=1 patches/apply.sh
 ```
 
 Active entries retain the existing file/root contract:
@@ -37,6 +38,12 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 - Finalized old patches MUST remain byte-identical in a retired directory with pinned hashes.
 - Full-chain verification MUST consume the exact file/root/order sequence parsed from `apply.sh`; a second hand-maintained active list is not an oracle.
 - Runtime source bytes MUST remain unchanged when switching from the old effective chain to the rollup chain.
+- Controller patch commands MUST use `--no-backup-if-mismatch`; revert also
+  uses `--remove-empty-files`. Apply/revert/replay must leave no `.orig`, `.rej`,
+  or empty files that were absent from pristine.
+- `OMP_PATCH_OFFLINE_VERIFY` accepts only `0` or `1`. `1` is reserved for
+  isolated zero-provider replay and skips the real provider smoke; unknown
+  values abort before mutation.
 
 ### 4. Validation & Error Matrix
 
@@ -51,10 +58,13 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 | Reverse rollup does not restore pristine/family pre-state | Abort |
 | `apply.sh` active sequence cannot be parsed exactly | Abort full-chain verification |
 | Runtime source hash changes during representation cutover | Stop synchronization and restore the controller from the repository |
+| Apply/revert creates `.orig`, `.rej`, or leaves an added file empty | Abort; fix controller flags and restart from pristine |
+| `OMP_PATCH_OFFLINE_VERIFY` is neither `0` nor `1` | Exit 2 before mutation |
+| Offline replay mode is `1` | Skip provider smoke; do not claim live provider acceptance |
 
 ### 5. Good / Base / Bad Cases
 
-- **Good:** Official tarballs pass pinned hashes; old and new family trees are byte-equal; reverse restores pristine; the full 15-entry sequence is parsed from `apply.sh` and matches the old effective tree.
+- **Good:** Official tarballs pass pinned hashes; old and new family trees are byte-equal; reverse restores pristine; the exact 16-entry active sequence parsed from `apply.sh` matches the 28-entry old effective chain including independent patch 0038.
 - **Base:** A finalized independent patch remains active and is not absorbed merely because it touches the same subsystem.
 - **Bad:** A full runtime-to-pristine diff is used for a family that shares `session-maintenance.ts` with another family; unrelated changes become baked into both rollups.
 
@@ -70,7 +80,8 @@ A permanent rollup verifier MUST assert:
 6. Applied rollups reverse-identify as applied and do not forward-apply again.
 7. Old effective full chain equals the exact active sequence parsed from `apply.sh` across every owned package.
 8. A sensitivity probe omits one rollup, leaves `new-final` pristine, and proves the old-final/new-final comparison fails.
-9. The real `apply.sh` smoke path runs after sandbox verification.
+9. Normal deployment keeps the real `apply.sh` smoke path; isolated replay uses
+   explicit offline mode plus separate zero-provider behavioral fixtures.
 
 Executable gate:
 
@@ -78,6 +89,8 @@ Executable gate:
 bash patches/verify-patch-family-rollups.sh
 bash patches/verify-patch-family-rollups.sh --selftest
 patches/apply.sh --check
+OMP_PATCH_OFFLINE_VERIFY=1 patches/apply.sh
+# Only in an isolated HOME/XDG/package tree; compare revert output to pristine.
 ```
 
 ### 7. Wrong vs Correct

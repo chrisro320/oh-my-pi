@@ -1,0 +1,56 @@
+[
+ {
+  "id": "2ec86122-5754-4492-92c4-79189e1467c4",
+  "rule": "B-官方功能机制",
+  "fact_type": "world",
+  "text": "OMP 内置 `/todo` 结构化任务看板，支持 5 种状态流转（pending、in_progress、completed、dropped、blocked）"
+ },
+ {
+  "id": "980d8d15-2f2f-4ab8-88b9-5e6fb7f196b4",
+  "rule": "B-官方功能机制",
+  "fact_type": "world",
+  "text": "OMP 的 TUI 树状选择器（位于 `src/modes/components/tree-selector.ts`）每行由光标、分支线、链路标记、标签和正文内"
+ },
+ {
+  "id": "a08d8416-407f-4c39-b3a7-77c39789d471",
+  "rule": "B-官方功能机制",
+  "fact_type": "world",
+  "text": "OMP 的 /advisor 顾问系统支持通过 WATCHDOG.yml 配置多顾问团队（Multi-Advisor），在主模型输出后在后台并发进行安全、性能或"
+ },
+ {
+  "id": "34f2ac90-bc93-4d4d-8f3c-ed11bb4a84a2",
+  "rule": "A-任务流水账",
+  "fact_type": "world",
+  "text": "omp 斜杠指令页面重制了视觉与交互，采用磨砂玻璃拟态与暗黑极客主题，支持物理键帽样式渲染与实时模糊联想，生成于本地文件 ./omp-slash-command"
+ },
+ {
+  "id": "3ffc5936-dd14-4e1c-ad50-82a6fcee504f",
+  "rule": "B-官方功能机制",
+  "fact_type": "world",
+  "text": "OMP 的 `/omfg` 命令可将用户的自然语言吐槽自动提炼为底层流式拦截规则（TTSR），保存在项目规则（.omp/rules）或全局规则（~/.omp/a"
+ },
+ {
+  "id": "bc007d8c-8042-4b81-8e50-dc1115f2d98d",
+  "rule": "B-官方功能机制",
+  "fact_type": "world",
+  "text": "OMP 的 /prewalk 采用单向降级切模型机制，在大模型完成代码调研并在首次触发 edit 或 write 修改时，通过 setModelTemporar"
+ },
+ {
+  "id": "27f6c9d3-3994-46e3-9b8d-b3cecf8c774f",
+  "rule": "A-任务流水账",
+  "fact_type": "experience",
+  "text": "Assistant 整理了 omp 全部 40+ 原生斜杠命令（/ commands）的解读并生成了 HTML 单页指南文件 `./omp-slash-comm"
+ },
+ {
+  "id": "09b26aa8-35fc-4aad-94fe-0ccac2b48f7c",
+  "rule": "A-任务流水账",
+  "fact_type": "world",
+  "text": "omp 斜杠指令界面新增了涵盖 6 大痛点场景（上下文瘦身省钱、防翻车架构把关、平行分支时光机、异步打工支线探索、网络断流解卡死、Todo 任务看板协同）的快速"
+ },
+ {
+  "id": "fe0762fc-de93-41ad-aef1-b71b8aeb6b5a",
+  "rule": "D-冗余重复",
+  "fact_type": "experience",
+  "text": "Assistant将hindsight的LLM操作全部切回API三级链（gemini-3.7-flash-high → muse-spark → deepsee"
+ }
+]

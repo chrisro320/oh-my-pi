@@ -182,7 +182,68 @@ const gemTurn2 = [
 }
 
 // ---------------------------------------------------------------------------
-// 2. Anthropic/OpenAI wire format
+// 2. OpenAI Responses wire format
+// ---------------------------------------------------------------------------
+{
+	const responsePayload = (input: unknown[], overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
+		model: "gpt-5.6-sol",
+		instructions: "You are a coding agent.",
+		input,
+		tools: [{ type: "function", name: "read" }],
+		prompt_cache_key: "session-responses",
+		...overrides,
+	});
+	const r1 = ext.fingerprint(responsePayload([{ role: "user", content: [{ type: "input_text", text: "hi" }] }]));
+	assert.ok(r1, "OpenAI Responses input must fingerprint");
+	assert.equal(r1.messages.length, 1);
+	assert.equal(r1.system.length, 1, "Responses instructions must fingerprint as system");
+	assert.doesNotMatch(r1.envelope, /(?:^|,)input=/, "Responses input must not be treated as envelope");
+	assert.doesNotMatch(r1.envelope, /(?:^|,)instructions=/, "Responses instructions must not be treated as envelope");
+	const r2 = ext.fingerprint(
+		responsePayload([
+			{ role: "user", content: [{ type: "input_text", text: "hi" }] },
+			{ role: "assistant", content: [{ type: "output_text", text: "hello" }] },
+		]),
+	);
+	assert.equal(ext.diff(r1, r2).kind, "APPEND_ONLY");
+	const rRewrite = ext.fingerprint(
+		responsePayload([{ role: "user", content: [{ type: "input_text", text: "changed" }] }]),
+	);
+	assert.equal(ext.diff(r1, rRewrite).kind, "HISTORY_REWRITE");
+	const callBase = [
+		{ role: "user", content: [{ type: "input_text", text: "run read" }] },
+		{ type: "function_call", call_id: "call-1", name: "read", arguments: "{\"path\":\"a\"}" },
+		{ type: "function_call_output", call_id: "call-1", output: "file-a" },
+	];
+	const callFp = ext.fingerprint(responsePayload(callBase));
+	const callRewrite = ext.fingerprint(
+		responsePayload([
+			callBase[0],
+			callBase[1],
+			{ type: "function_call_output", call_id: "call-1", output: "file-b" },
+		]),
+	);
+	assert.equal(ext.diff(callFp, callRewrite).kind, "HISTORY_REWRITE", "Responses output rewrites must be visible");
+	const callMarkerOnly = ext.fingerprint(
+		responsePayload([
+			callBase[0],
+			{ ...callBase[1], cache_control: { type: "ephemeral", ttl: "5m" } },
+			callBase[2],
+		]),
+	);
+	assert.equal(ext.diff(callFp, callMarkerOnly).kind, "IDENTICAL", "Responses cache markers are not cached bytes");
+	const rSystem = ext.fingerprint(
+		responsePayload([{ role: "user", content: [{ type: "input_text", text: "hi" }] }], { instructions: "Changed." }),
+	);
+	assert.equal(ext.diff(r1, rSystem).kind, "SYSTEM_DRIFT");
+	const rEnvelope = ext.fingerprint(
+		responsePayload([{ role: "user", content: [{ type: "input_text", text: "hi" }] }], { max_output_tokens: 1 }),
+	);
+	assert.equal(ext.diff(r1, rEnvelope).kind, "ENVELOPE_DRIFT");
+}
+
+// ---------------------------------------------------------------------------
+// 3. Anthropic/OpenAI wire format
 // ---------------------------------------------------------------------------
 {
 	const a1 = anthropicPayload([
@@ -193,7 +254,7 @@ const gemTurn2 = [
 	assert.ok(af1, "Anthropic payload must fingerprint");
 	assert.equal(af1.system.length, 1);
 	assert.equal(af1.messages.length, 2);
-	assert.equal(af1.sessionId, "default", "Anthropic payloads carry no session id");
+    assert.match(af1.sessionId, /^pid-\d+$/, "identity-less payloads use process-local fallback");
 
 	const a2 = anthropicPayload([
 		...a1.messages,
@@ -544,7 +605,7 @@ function createHarness(): {
 	assert.match(ext.safeSessionId("a/b\\c:d"), /^a_b_c_d-[a-f0-9]{8}$/, "unsafe characters must be sanitized");
 	assert.match(ext.safeSessionId(""), /^session-[a-f0-9]{8}$/);
 	assert.equal(ext.statePathFor("session-gemini"), join(HOME, `cache-prefix-state-${ext.safeSessionId("session-gemini")}.json`));
-	assert.equal(ext.sessionKeyOf({}, undefined), "default");
+    assert.match(ext.sessionKeyOf({}, undefined), /^pid-\d+$/);
 	assert.equal(ext.sessionKeyOf({ request: { sessionId: "r1" } }, undefined), "r1");
 	assert.equal(ext.sessionKeyOf({ sessionId: "s1" }, undefined), "s1");
 	assert.equal(ext.sessionKeyOf({ sessionId: "s1" }, "override"), "override", "explicit override must win");
