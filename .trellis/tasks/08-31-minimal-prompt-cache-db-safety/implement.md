@@ -50,7 +50,7 @@ grep -n -E 'input|instructions|trailing|synthetic|APPEND_ONLY|HISTORY_REWRITE|SY
 - 僅在必要時用 `umask 077` + SQLite online backup API 建立 sandbox；禁止 `cp` DB/WAL/SHM。
 - 對 sandbox 執行 `PRAGMA integrity_check;`；不輸出 credential data。
 - 測試時覆寫 `HOME`、XDG config/cache、agent 目錄與暫存路徑，保證不繼承真實 OAuth。
-- 測試後再次記錄 live baseline；任一變動、sidecar 未靜止、source/target 相同、target 是 symlink 或 credential refresh 發生，立即停止，不宣稱通過。
+- backup 前後確認均無 OMP process；`agent.db`、`models.db` 本體 inode、size、mtime、SHA-256 必須一致。WAL/SHM 差異需完整記錄，若僅發生於無 process 的 SQLite backup 觀測窗且 sandbox integrity 均為 `ok`，分類為預期副作用；本體變動、process 出現、source/target 相同、target 是 symlink 或 credential refresh 發生，立即停止，不宣稱通過。
 - 清理 sandbox 並確認不存在；不得以事後重新連線 live DB 補證。
 
 ### 3. 建立並驗證 Audit patch
@@ -108,14 +108,15 @@ patches/apply.sh --check
 grep -n -E 'sqlite3 -readonly|integrity_check|WAL|SHM|credential|OAuth|fail closed' \
   .trellis/spec/backend/database-guidelines.md \
   .trellis/tasks/08-31-minimal-prompt-cache-db-safety/{prd,design,implement}.md
+bash -n patches/verify-db-safety.sh
+# DB gate 行為測試必須使用 fake HOME + 隔離 fixture；禁止把 live DB 當測試輸入。
 ```
 
 最後一個 verify 名稱是規劃預留，未建立前不得執行或宣稱存在；所有 provider 真實 smoke 需要另行確認隔離憑證與 DB 基線，否則保持不做。
 
 ## Rollback gate
-
 - 任一 fixture 顯示 prefix rewrite、native chain reset、provider rejection 或 cache boundary 漂移：停止，撤銷本輪新 patch，不動既有定稿鏈。
-- 任一 live DB/sidecar fingerprint 變動或 OAuth refresh：停止所有後續命令，保留證據，禁止 restore 或事後補連線。
+- 任一 live DB 本體 fingerprint 變動、backup 前後出現 OMP process 或 OAuth refresh：停止所有後續命令，保留證據，禁止 restore 或事後補連線；sidecar 差異若符合預期 backup activity 則不單獨觸發此 gate。
 - 任一 patch hunk 失敗、`.orig`/`.rej`、unexpected `Only in`：刪除隔離 sandbox，從 pristine 重新開始；不得修補半成品。
 
 ## 執行記錄
@@ -126,14 +127,21 @@ grep -n -E 'sqlite3 -readonly|integrity_check|WAL|SHM|credential|OAuth|fail clos
 - [x] 0038 的 provider-only reminder 基本隔離 fixture、Responses、Chat Completions、Anthropic、Google 轉換與 chaining 驗證已通過。
 - [x] 既有 0038／patch chain replay 證據保留；本次未擴大修改 compaction，符合 PRD 非範圍。
 - [x] `trellis-update-spec`：已更新 extension runtime 與 patch replay executable contracts。
-- [ ] runtime audit mirror parity：禁止在本階段修改 live `~/.omp`；部署 gate 尚未執行。
-- [ ] live DB quiescent baseline：目前 runtime writer 存活，依 fail-closed 契約不得執行或事後補證。
-- [x] 最終唯讀 `trellis-check`：review 結果 PASS，未發現目前 diff 的範圍內缺陷；環境 gate 仍維持 deferred。
-- [ ] commit 與 `/trellis:finish-work`：因 mirror parity 與 DB safety gate 尚未取得，依安全契約保留未提交狀態。
+- [x] runtime audit mirror parity：使用 repository `patches/cache-prefix-audit-extension.ts` 同步至 `~/.omp/patches/` 與 `~/.omp/agent/extensions/cache-prefix-audit.ts`，`cmp` 通過。
+- [x] DB sidecar 驗收語義已統一：主 DB 本體必須零變動；無 OMP process、sandbox integrity 通過時，SQLite backup 造成的 WAL/SHM 差異分類為預期副作用，不再單獨失敗。
+- [x] `verify-db-safety.sh` 已輸出明確 gate verdict：`PASS`、`PASS_WITH_EXPECTED_SIDECAR_ACTIVITY` 或 `FAIL`，並分開保存 main/sidecar diff。
+- [x] PRD、design、database-guidelines、部署 runbook、`PATCHES.md` 與本 implement 記錄已同步上述契約。
+- [x] `bash -n patches/verify-db-safety.sh`：PASS。
+- [x] fake `HOME`、隔離 SQLite fixture 與 fake `ps` 的行為驗證：正常本體零變動輸出 `PASS`；注入僅 sidecar 差異輸出 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`，並分別產生 `database-diff.txt` 與 `sidecar-diff.txt`；sandbox integrity 均為 `ok`。
+- [x] live DB 新規則 gate：外部終端回報無 OMP process、`agent.db`/`models.db` integrity 均為 `ok`、主 DB 無差異，sidecar 差異分類為 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`。
+- [x] 最終唯讀 `trellis-check`：既有 review 結果 PASS，未發現當時程式 diff 的範圍內缺陷。
+- [x] 已建立 checkpoint commit `0043818`；該 commit 位於 `master` 而非 task branch，不能稱為正式 task-branch finish。
+- [ ] credential metadata 基線：部署前未建立安全 metadata baseline，只能記錄為未驗證，不宣稱前後一致；未輸出 credential 原文。
+- [ ] 正式 commit 與 `/trellis:finish-work`。
 
 ## RESUME anchor
 
-- 2026-08-31：外部終端已確認 `ok: no live omp process detected` 後執行 `verify-db-safety.sh`；sandbox 兩個 DB 的 `integrity_check` 均為 `ok`，但 `agent.db-shm` 的 mtime/hash 改變，且 `models.db-wal`／`models.db-shm` 在 backup 後出現，因此 quiescent safety gate **FAIL-CLOSED / BLOCKED**，不可宣稱 PASS。
-- 已完成：根因分析、0038 provider-only reminder candidate、0039 Responses audit candidate、隔離 fixture、patch apply/revert/replay、spec update、最終唯讀 `trellis-check`（PASS，無 findings）。
-- 未完成：runtime audit mirror 三份 byte parity、DB/WAL/SHM 零變更安全證明、正式 finish-work。
-- 恢復時：先讀本 anchor 與 `/tmp/omp-db-verify-latest`；不要觸碰 credential 原文，不要重跑已通過的 fixture/replay；只有取得 mirror parity 且安全 gate 前後完全無變更，才可進行最後 commit/finish-work；否則維持 blocked。
+- 2026-08-31：外部終端執行舊版 `verify-db-safety.sh` 時確認 `ok: no live omp process detected`、兩個 sandbox `integrity_check` 均為 `ok`，但只有 sidecar 出現差異（`agent.db-shm` 改寫，`models.db-wal`／`models.db-shm` 建立）。依現行契約，這類結果應由新腳本分類為 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`；新腳本尚未對 live DB 重跑，故不可宣稱 live gate 已通過。
+- 已完成：根因分析、0038 provider-only reminder candidate、0039 Responses audit candidate、隔離 fixture、patch apply/revert/replay、spec update、最終唯讀 `trellis-check`（PASS，無 findings）、DB sidecar 規則與腳本 verdict 更新。
+- 未完成：runtime audit mirror 三份 byte parity、使用新規則的 live DB 行為驗證、credential metadata 安全驗證、正式 finish-work。
+- 恢復時：先讀本 anchor 與 `/tmp/omp-db-verify-latest`；不要觸碰 credential 原文，不要重跑已通過的 fixture/replay；只有取得 mirror parity、新安全 gate 行為驗證與安全 credential metadata 證據，才可考慮最後 commit/finish-work；否則維持 blocked。

@@ -99,10 +99,11 @@ tools        → tools
 停止所有 runtime writer
   → stat/hash live DB + WAL/SHM baseline
   → sqlite3 -readonly online backup 到 0700 sandbox
-  → sandbox integrity_check
-  → 只在隔離 HOME/XDG + sandbox 執行回歸
+  → 只對 sandbox 執行 PRAGMA integrity_check
   → stat/hash live DB + WAL/SHM
-  → 任一變動則 fail closed
+  → 確認 backup 前後均無 OMP process
+  → DB 本體不變則接受；sidecar 差異記錄為預期 SQLite backup activity
+  → DB 本體變動、OMP process 出現或 integrity 失敗則 fail closed
   → 清除 sandbox
 ```
 

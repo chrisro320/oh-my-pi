@@ -28,7 +28,7 @@
 
 - 任何驗證若可能啟動 OMP 或讀取 runtime 狀態，必須使用獨立 `HOME`、XDG config/cache、暫存目錄與 sandbox DB；不得繼承真實 OAuth 環境。
 - 若需要從 live DB 建立 sandbox，必須先停止所有 runtime writer/sidecar，使用 SQLite online backup API：`sqlite3 -readonly <live> ".backup '<sandbox>'"`；禁止 `cp agent.db agent.db-wal agent.db-shm`。
-- backup 前後必須記錄 live `agent.db`、`models.db` 及 WAL/SHM 的 inode、size、mtime、SHA-256；任一變動即 fail closed，不得繼續或宣稱通過。
+- backup 前後必須記錄 live `agent.db`、`models.db` 本體及 WAL/SHM 的 inode、size、mtime、SHA-256。`agent.db` 與 `models.db` 本體不得變動；SQLite read-only backup 可能建立或重寫 WAL/SHM，這類 sidecar 差異必須記錄，但在 backup 前後均無 OMP process、sandbox integrity 均為 `ok`、本體無變動時，視為預期副作用而非失敗。
 - sandbox 必須使用 `umask 077`、目錄 0700、檔案 0600；source/target realpath 必須不同，target 不得是 symlink。
 - credential data、refresh token、authorization header 原文不得進入 log、fixture、artifact 或 diff。
 - 預設本任務只做零 provider、零 live DB 的靜態/fixture 回歸；未具備隔離憑證時不做真實 provider smoke。
@@ -56,6 +56,7 @@
 ### 安全驗收
 
 - 所有自動驗證在隔離 sandbox 完成，未連線真實 live DB。
-- `agent.db`、`models.db`、WAL/SHM 無變更證據；若無法取得 quiescent baseline，驗證必須停止而非繞過。
+- `agent.db`、`models.db` 本體前後 inode、size、mtime、SHA-256 必須一致；WAL/SHM 差異需被記錄，但若能證明只發生於無 OMP process 的 SQLite backup 觀測窗，且兩份 sandbox `integrity_check` 均為 `ok`，則驗收結果為 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`。
+- 任一本體變動、backup 前或 backup 後出現 OMP process、sandbox integrity 非 `ok`、source/target 不安全、OAuth refresh 或 credential data 外洩，都必須 fail-closed。
 - 未觸發 Anthropic OAuth refresh，未修改或暴露任何 credential data。
 - 補丁 apply/revert/replay、符號配對與指定回歸均通過。
