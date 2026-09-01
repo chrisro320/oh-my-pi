@@ -55,6 +55,14 @@ PRD 紅線（prd.md:13）：「嚴禁讀寫 live DB 與憑證……**連『只�
 | R6 插件接線 | glm-5.3 | 關鍵點主會話逐行核實（agent-session.ts 三處、setup-omp.ts:142-176 rollback、paths.ts:242-258 overlay 演算法、Q5 無 bypass 窮舉） | 已核實部分可引用 |
 | R3v2 存儲層覆核 | gemini-3.7（trellis-research 卡，派工正確） | CONFLICT 1 結論被源碼裁決推翻；其餘 VERIFIED 項與 R3 交叉一致 | 交叉一致部分可引用 |
 
+### 五b、V1–V4 補充深讀（2026-09-01，彌補 glm 批次錯讀包）
+
+glm 批次的系統性錯誤：R1/R4/R5 讀的是 `packages/plugin`（OpenCode 側），omp 實際執行 `packages/pi-plugin`。V 批以正確派工（trellis-research / gemini-3.7-flash:high，transcript 逐檔驗證）重讀 pi 側 15,246 行，產出與裁決見 `pi-execution-surface.md`：
+- R1/R4/R5 → **作廢為 omp 證據**（OpenCode 側事實仍真，路徑不對）
+- 衝突 A（message_end 克隆）：V4 與 R6 一致=對；V1 與 R3v2 同錯（信了 MC 過時註釋）——主會話復核 omp :2893-2899/:3927-3939 裁決
+- 新增硬事實：historian=獨立子進程 `--no-session`（零存檔污染、燒用戶額度、每次 10-50K 輸入）；mustMaterializePi 12+1 條件清單（普通 turn 不 bust 前綴）；跨進程重啟零 cache bust 恢復；fail-closed 僅三類
+- 本節不翻案「不可判定」判詞：P0 違反與 E2/E3 缺測仍成立；V 批把「缺的證據」變成「源碼級在案、運行級未測」
+
 ## 六、原「安裝建議 v3」——整節撤回
 
 原第 58-65 行（per-model TTL 表、memory.enabled=false 起步、冷備、doctor、監控 cacheRead%）刪除。理由：安裝建議必須從紅線內完成的評估推出，本報告不具備該資格。§1b 的 TTL 配置表作為**代碼事實**保留在第二節，不作為建議。
