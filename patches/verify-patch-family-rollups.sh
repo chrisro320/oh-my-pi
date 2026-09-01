@@ -19,10 +19,10 @@
 #      equal on the family-owned packages; the reversed rollup restores pristine
 #      bytes; on an applied tree a forward dry-run fails and a reverse dry-run
 #      succeeds (idempotence).
-#   3. Full chain: the old effective chain (28 entries; 0026-agent/0027/0028
-#      skipped as superseded, plus independent 0038) vs the 16-entry active
-#      chain — byte equal across all four packages including dist/, then
-#      reverse/forward dry-run idempotence for all 16 active entries.
+#   3. Full chain: the old effective chain (29 entries; 0026-agent/0027/0028
+#      skipped as superseded, plus independent 0038 and 0041) vs the 17-entry
+#      active chain — byte equal across all four packages including dist/, then
+#      reverse/forward dry-run idempotence for all 17 active entries.
 #   4. Failures name the family and the first differing file; every family
 #      prints PASS on success.
 #
@@ -47,14 +47,17 @@ NMROOT="@oh-my-pi"
 # ------------------------------------------------------------- static checks
 entries="$(sed -n '/^PATCHES=(/,/^)/p' "${HERE}/apply.sh" | grep -c 'patch:')" ||
 	die "cannot parse PATCHES array in apply.sh"
-[[ "$entries" == 16 ]] || die "apply.sh PATCHES has ${entries} entries, expected 16"
+[[ "$entries" == 17 ]] || die "apply.sh PATCHES has ${entries} entries, expected 17"
 if grep -q 'superseded_by_' "${HERE}/apply.sh"; then
 	die "apply.sh still contains superseded_by_ control flow"
 fi
-for old in 0002- 0003- 0005- 0006- 0007- 0013- 0015- 0018- 0020- 0021- 0022- \
-	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029-; do
+# Retired-by-rollup numbers, plus abandoned numbers whose patch file is gone
+# (0011 pin-viewport, 0040 trellis_command — both withdrawn by the user, never
+# to be reused). Documentation cannot enforce non-reuse; this loop can.
+for old in 0002- 0003- 0005- 0006- 0007- 0011- 0013- 0015- 0018- 0020- 0021- 0022- \
+	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029- 0040-; do
 	if sed -n '/^PATCHES=(/,/^)/p' "${HERE}/apply.sh" | grep -q "^	\"${old}"; then
-		die "apply.sh active chain still references retired patch ${old}*"
+		die "apply.sh active chain references retired or abandoned patch number ${old}*"
 	fi
 done
 for rollup in 0033-omp-cache-turn-status-rollup.patch \
@@ -98,7 +101,7 @@ b09b22c227d22efcf2da1f27e6377cee75ec7363b7114102f9bd0dea16b25caa  0026-omp-usage
 db19e8d94f338af06f6683d47328b9831ffa81e5a21c04b3f3d5be1f759a1408  0029-omp-usage-fetch-gate-merged-agent.patch
 EOF
 ) || die "retired patch hashes drifted in ${RETIRED}"
-echo "PASS static: apply.sh chain (16 entries, no supersede), rollup hygiene, retired hashes"
+echo "PASS static: apply.sh chain (17 entries, no supersede), rollup hygiene, retired hashes"
 
 # ---------------------------------------------------------------- sandbox
 G=$(mktemp -d /tmp/pfrollup-verify.XXXXXX)
@@ -334,6 +337,7 @@ OLDCHAIN=(
 	"0031-omp-agent-session-providers-forward.patch:AGENT"
 	"0032-omp-goal-tool-resident.patch:AGENT"
 	"0038-omp-date-cwd-reminder-provider-tail.patch:NM"
+	"0041-omp-anthropic-usage-turn-gate-60s.patch:AGENT"
 )
 # The new full-chain oracle is the real controller, not a second hand-maintained
 # list. A missing, duplicate, reordered, or wrongly rooted apply.sh entry must
@@ -371,26 +375,127 @@ fcfail=0
 for pk in pi-coding-agent pi-agent-core pi-ai snapcompact; do
 	if ! diff -r "${CMPARGS[@]}" "$G/full-old/${NMROOT}/$pk" "$G/full-new/${NMROOT}/$pk" \
 		>"$G/fc-cmp.txt" 2>&1; then
-		echo "FAIL full chain: old effective chain and new active chain disagree in ${pk}"
+		echo "FAIL full chain: pre-rollup chain and active chain disagree in ${pk}"
 		first_diffs "$G/fc-cmp.txt"
 		fcfail=1
 	fi
 done
 [[ $fcfail -eq 0 ]] || exit 1
-echo "PASS full chain: old effective (28) == new active (16), byte-equal on all four packages"
+# Both sides carry the independent patches (0038, 0041), so this proves the
+# rollups smuggled in no behaviour change. It deliberately says nothing about
+# what those independent patches do — calling this side "old effective" would
+# be wrong, no such chain ever shipped. Their behaviour is asserted below.
+echo "PASS rollup equivalence: pre-rollup chain (29) == active chain (17), byte-equal on all four packages"
 
-# idempotence of the whole active chain on the final tree
-local_spec_check() { :; }
-for spec in "${NEWCHAIN[@]}"; do
+# Behaviour of the independent patches. A patch can apply cleanly and still be
+# semantically dead — that failure mode is on record (0027: two hunks applied,
+# `--check` reported APPLIED, and the constant they referenced was gone).
+gate_file="$G/full-new/${NMROOT}/pi-coding-agent/src/modes/components/status-line/component.ts"
+grep -q '^const ANTHROPIC_USAGE_TURN_GATE_MS = 60_000;$' "$gate_file" \
+	|| die "0041 behaviour: ANTHROPIC_USAGE_TURN_GATE_MS is not 60_000 after the active chain
+$(grep -n 'ANTHROPIC_USAGE_TURN_GATE_MS' "$gate_file" || echo '  (constant absent entirely)')"
+[[ "$(grep -c '^const ANTHROPIC_USAGE_TURN_GATE_MS' "$gate_file")" -eq 1 ]] \
+	|| die "0041 behaviour: expected exactly one ANTHROPIC_USAGE_TURN_GATE_MS definition"
+grep -q 'ANTHROPIC_USAGE_TURN_GATE_MS' <(grep -A2 'usageFetchedAt > 0 && now - this.#usageFetchedAt' "$gate_file") \
+	|| die "0041 behaviour: the 60s constant is defined but no longer gates the usage fetch"
+echo "PASS 0041 behaviour: turn gate is 60_000 and still wired into the usage fetch"
+
+# Idempotence of the active chain, stated as the property the stack actually
+# has: peeling every layer in reverse restores pristine bytes. Probing each
+# entry independently on the final tree would be wrong — a later entry may
+# rewrite lines an earlier one introduced (0041 over 0037), and the earlier
+# patch cannot reverse-identify until the layers above it are off.
+mkpkgs "$G/full-pristine" full
+for ((i = ${#NEWCHAIN[@]} - 1; i >= 0; i--)); do
+	spec="${NEWCHAIN[i]}"
 	file="${spec%%:*}" root="${spec##*:}"
 	r="$(patchroot "$G/full-new" "$root")"
-	if patch -p1 --forward --dry-run --force -d "$r" <"${HERE}/${file}" >/dev/null 2>&1; then
-		die "full chain: forward dry-run of ${file} unexpectedly succeeded on applied tree"
+	if [[ -f "${HERE}/${file}" ]]; then p="${HERE}/${file}"; else p="${RETIRED}/${file}"; fi
+	if patch -p1 --forward --dry-run --force -d "$r" <"$p" >/dev/null 2>&1; then
+		die "full chain peel: forward dry-run of ${file} succeeded on a tree that still carries it"
 	fi
-	if ! patch -p1 -R --dry-run --force --silent -d "$r" <"${HERE}/${file}" >/dev/null 2>&1; then
-		die "full chain: reverse dry-run of ${file} failed on applied tree"
-	fi
+	patch -p1 -R --dry-run --force --silent -d "$r" <"$p" >/dev/null 2>&1 \
+		|| die "full chain peel: reverse of ${file} failed at its own stack depth"
+	patch -p1 -R --forward --force --silent --no-backup-if-mismatch --remove-empty-files -d "$r" <"$p" \
+		>/dev/null 2>&1 || die "full chain peel: reverse of ${file} passed its dry run but failed to apply"
 done
-echo "PASS full chain idempotence: all 16 entries reverse-identify as applied, forward dry-run no-ops"
+sweep_check "$G/full-new"
+if ! diff -r "${CMPARGS[@]}" "$G/full-pristine/${NMROOT}" "$G/full-new/${NMROOT}" >"$G/peel-cmp.txt" 2>&1; then
+	echo "FAIL full chain peel: reversing the active chain did not restore pristine bytes"
+	first_diffs "$G/peel-cmp.txt"
+	exit 1
+fi
+echo "PASS full chain peel: reversing all 17 entries in stack order restores pristine bytes"
+
+# Required test #10 — the dry-run gate in the controller's status probe must
+# leave the sandbox byte-identical when a patch is only partially applicable.
+# The probe function is lifted verbatim out of apply.sh so this exercises the
+# shipped code, not a copy that can drift.
+probe_src="$(sed -n '/^probe_apply() {/,/^}/p' "${HERE}/apply.sh")"
+[[ -n "$probe_src" ]] || die "gate #10: cannot lift probe_apply out of apply.sh"
+eval "$probe_src"
+declare -F probe_apply >/dev/null || die "gate #10: probe_apply did not define"
+
+PG="$G/probe-gate"
+mkdir -p "$PG/tree"
+printf 'alpha\nbravo\ncharlie\ndelta\necho\nfoxtrot\ngolf\nhotel\nindia\njuliet\n' >"$PG/tree/f.txt"
+cp "$PG/tree/f.txt" "$PG/original.txt"
+cat >"$PG/partial.patch" <<'PARTIALEOF'
+--- a/f.txt
++++ b/f.txt
+@@ -1,3 +1,3 @@
+ alpha
+-bravo
++BRAVO
+ charlie
+@@ -8,3 +8,3 @@
+ hotel
+-CONTEXT-THAT-DOES-NOT-MATCH
++replacement
+ juliet
+PARTIALEOF
+
+if probe_apply "$PG/tree" "$PG/partial.patch" --forward; then
+	die "gate #10: probe_apply reported success on a patch whose second hunk cannot match"
+fi
+cmp -s "$PG/original.txt" "$PG/tree/f.txt" \
+	|| die "gate #10: probe_apply mutated the tree after a failed hunk — the dry-run gate is gone"
+# Sensitivity: prove the fixture would catch a regression. An ungated apply
+# must write the first hunk, otherwise this gate tests nothing.
+patch -p1 --forward --force --silent --no-backup-if-mismatch -d "$PG/tree" <"$PG/partial.patch" >/dev/null 2>&1 || true
+cmp -s "$PG/original.txt" "$PG/tree/f.txt" \
+	&& die "gate #10: fixture is inert — an ungated apply left the tree unchanged, so the gate proves nothing"
+echo "PASS gate #10: dry-run gate keeps the sandbox byte-identical on a partially applicable patch (fixture proven sensitive)"
+
+# Required test #11 — on a pristine tree the real controller must classify every
+# entry as pending, including entries whose hunk context only exists after a
+# lower layer is applied (0041 needs 0037 replayed first).
+mkpkgs "$G/ctl-pristine" full
+CTL="$G/ctl"
+mkdir -p "$CTL"
+cp -r "${HERE}"/*.patch "${HERE}/apply.sh" "$CTL/" 2>/dev/null || true
+[[ -d "${HERE}/.18.0.11-candidates" ]] && cp -r "${HERE}/.18.0.11-candidates" "$CTL/"
+sed -i "s|^NM=.*|NM=\"$G/ctl-pristine/${NMROOT}\"|; s|^BIN=.*|BIN=\"$CTL/fake-bin\"|" "$CTL/apply.sh"
+ln -sfn /dev/null "$CTL/fake-bin"
+ctl_out="$G/ctl-check.txt"
+# The sandbox tree is a fixed 18.0.9 pristine baseline, so the child controller
+# must not inherit a version opt-in from the caller's environment — with
+# OMP_PATCH_VERSION=18.0.11 set it would check the 18.0.9 package.json and exit
+# 2 before doing anything. apply.sh already documents that this verifier owns
+# its own baseline; strip the variable rather than rely on the caller.
+env -u OMP_PATCH_VERSION bash "$CTL/apply.sh" --check >"$ctl_out" 2>&1 \
+	|| die "gate #11: controller --check exited non-zero on a pristine tree
+$(cat "$ctl_out")"
+pending_n="$(grep -c '^PENDING  .*\.patch$' "$ctl_out" || true)"
+bad_n="$(grep -cE '^(APPLIED|CONFLICT|MISSING)  .*\.patch$' "$ctl_out" || true)"
+[[ "$pending_n" -eq "$entries" ]] \
+	|| die "gate #11: pristine tree reported ${pending_n} pending entries, expected ${entries}
+$(cat "$ctl_out")"
+[[ "$bad_n" -eq 0 ]] \
+	|| die "gate #11: pristine tree reported ${bad_n} non-pending entries
+$(cat "$ctl_out")"
+grep -q '^PENDING  0041-omp-anthropic-usage-turn-gate-60s\.patch$' "$ctl_out" \
+	|| die "gate #11: 0041 was not classified pending on a pristine tree — bottom-up replay is broken"
+echo "PASS gate #11: pristine tree classifies all ${entries} entries pending, including replay-dependent 0041"
 
 echo "ALL PASS: patch family rollups verified"

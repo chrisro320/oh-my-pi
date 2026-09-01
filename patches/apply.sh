@@ -66,6 +66,7 @@ PATCHES=(
 	"0031-omp-agent-session-providers-forward.patch:${AGENT}"
 	"0032-omp-goal-tool-resident.patch:${AGENT}"
 	"0038-omp-date-cwd-reminder-provider-tail.patch:${NM}"
+	"0041-omp-anthropic-usage-turn-gate-60s.patch:${AGENT}"
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then
@@ -108,42 +109,238 @@ if [[ -n "${OMP_PATCH_VERSION+x}" ]]; then
 	esac
 fi
 
-status() { # patch root -> applied|pending|conflict
-	local p="$1" root="$2"
-	if patch -p1 -R --dry-run --force --silent -d "$root" <"$p" >/dev/null 2>&1; then
-		echo applied
-	elif patch -p1 --dry-run --force --silent -d "$root" <"$p" >/dev/null 2>&1; then
-		echo pending
+# Patch state is a property of the whole stack, not of one entry in isolation.
+# A later entry may rewrite lines an earlier one introduced (0041 over 0037);
+# on the final tree that earlier patch no longer reverse-identifies, and a
+# per-entry probe would report a bogus CONFLICT. Mirror every touched file into
+# a sandbox, peel the stack there in reverse, and record what each layer says
+# once the layers above it are gone. Only the sandbox is ever written.
+SANDBOX=""
+PLAN_SANDBOX=""
+cleanup_sandbox() {
+	[[ -n "$SANDBOX" ]] && rm -rf "$SANDBOX"
+	[[ -n "$PLAN_SANDBOX" ]] && rm -rf "$PLAN_SANDBOX"
+	return 0
+}
+trap cleanup_sandbox EXIT
+
+patch_targets() { # patch file -> repo-relative paths it touches
+	sed -n 's|^--- a/||p' "$1" | cut -f1
+}
+
+sandbox_root() { # sandbox base, absolute package root -> mirrored root
+	local sb="$1" root="$2"
+	if [[ "$root" == "$NM" ]]; then
+		printf '%s/nm' "$sb"
 	else
-		echo conflict
+		printf '%s/nm/%s' "$sb" "${root#"$NM"/}"
 	fi
 }
 
-fail=0
-# Revert runs the stack in reverse. Entries are independent (no supersede
-# state machine), so plain reverse order is always safe.
-ORDER=("${PATCHES[@]}")
-if [[ "$MODE" == "revert" ]]; then
-	ORDER=()
+mirror_touched() { # sandbox base -> copy every live file the chain declares
+	local sb="$1"
+	local i entry root file rel src dst sbr
+	for i in "${!PATCHES[@]}"; do
+		entry="${PATCHES[i]}"
+		root="${entry##*:}"
+		file="${HERE}/${entry%%:*}"
+		[[ -f "$file" ]] || continue
+		sbr="$(sandbox_root "$sb" "$root")"
+		while IFS= read -r rel; do
+			[[ -n "$rel" ]] || continue
+			src="${root}/${rel}"
+			dst="${sbr}/${rel}"
+			[[ -e "$dst" ]] && continue
+			[[ -f "$src" ]] || continue
+			mkdir -p "${dst%/*}"
+			cp "$src" "$dst"
+		done < <(patch_targets "$file")
+	done
+}
+
+# A patch that fails midway still rewrites the hunks it already matched, so
+# every mutation is gated on a clean dry run first. A patch that clears its dry
+# run and then still fails means the tree changed underneath us or `patch`
+# misbehaved: the sandbox is now half-written and every later verdict is
+# garbage, so abort rather than return a plain false the caller would read as
+# "not applied".
+probe_apply() { # dir, patch, direction-flag -> mutate only if the dry run is clean
+	local dir="$1" file="$2" dir_flag="$3"
+	patch -p1 "$dir_flag" --force --silent --dry-run -d "$dir" <"$file" >/dev/null 2>&1 || return 1
+	patch -p1 "$dir_flag" --force --silent --no-backup-if-mismatch -d "$dir" <"$file" >/dev/null 2>&1 || {
+		echo "internal: $(basename "$file") cleared its dry run but failed to apply — sandbox is inconsistent" >&2
+		exit 1
+	}
+}
+
+declare -a CHAIN_STATUS=()
+compute_chain_status() { # fills CHAIN_STATUS with applied|pending|conflict|missing
+	SANDBOX="$(mktemp -d)"
+	local i entry root file sbr replay_broken=0
+	for i in "${!PATCHES[@]}"; do
+		if [[ -f "${HERE}/${PATCHES[i]%%:*}" ]]; then
+			CHAIN_STATUS[i]=unknown
+		else
+			CHAIN_STATUS[i]=missing
+		fi
+	done
+	mirror_touched "$SANDBOX"
+	# Phase 1 — peel: walk the stack top-down and strip every layer that
+	# reverse-identifies. Layers that are genuinely absent cover nothing, so
+	# skipping them does not disturb the layers below. A self-consistent tree
+	# ends this phase at pristine.
 	for ((i = ${#PATCHES[@]} - 1; i >= 0; i--)); do
-		ORDER+=("${PATCHES[i]}")
+		[[ "${CHAIN_STATUS[i]}" == missing ]] && continue
+		entry="${PATCHES[i]}"
+		root="${entry##*:}"
+		file="${HERE}/${entry%%:*}"
+		sbr="$(sandbox_root "$SANDBOX" "$root")"
+		if probe_apply "$sbr" "$file" -R; then
+			CHAIN_STATUS[i]=applied
+		fi
+	done
+	# Phase 2 — replay: rebuild the stack bottom-up. Only here can an absent
+	# layer be classified, because its forward feasibility depends on every
+	# layer below it already being on the tree — 0041's hunk context does not
+	# exist until 0037 is laid down.
+	#
+	# If a layer peeled cleanly in phase 1 but will not replay here, the tree is
+	# in a state this chain cannot produce. The sandbox has since diverged from
+	# the live tree (which still carries that layer), so every verdict above it
+	# would be guesswork — stop classifying and mark the rest conflict.
+	for i in "${!PATCHES[@]}"; do
+		[[ "${CHAIN_STATUS[i]}" == missing ]] && continue
+		if [[ $replay_broken -eq 1 ]]; then
+			CHAIN_STATUS[i]=conflict
+			continue
+		fi
+		entry="${PATCHES[i]}"
+		root="${entry##*:}"
+		file="${HERE}/${entry%%:*}"
+		sbr="$(sandbox_root "$SANDBOX" "$root")"
+		if probe_apply "$sbr" "$file" --forward; then
+			[[ "${CHAIN_STATUS[i]}" == applied ]] || CHAIN_STATUS[i]=pending
+		else
+			[[ "${CHAIN_STATUS[i]}" == applied ]] && replay_broken=1
+			CHAIN_STATUS[i]=conflict
+		fi
+	done
+}
+
+fail=0
+compute_chain_status
+
+# Revert peels the stack in reverse; apply lays it down in order. Overlapping
+# entries make the order load-bearing in both directions.
+ORDER_IDX=("${!PATCHES[@]}")
+if [[ "$MODE" == "revert" ]]; then
+	ORDER_IDX=()
+	for ((i = ${#PATCHES[@]} - 1; i >= 0; i--)); do
+		ORDER_IDX+=("$i")
 	done
 fi
-for entry in "${ORDER[@]}"; do
+# Nothing may touch live node_modules until the whole chain is known good.
+# Without this gate a conflict at entry N still lets entries 0..N-1 be written
+# first, and the `exit 1` at the bottom then leaves the tree half-patched.
+if [[ "$MODE" != "check" ]]; then
+	blocked=0
+	for i in "${!PATCHES[@]}"; do
+		case "${CHAIN_STATUS[i]}" in
+			conflict | missing)
+				echo "${CHAIN_STATUS[i]^^}  ${PATCHES[i]%%:*}" >&2
+				blocked=1
+				;;
+		esac
+	done
+	if [[ $blocked -ne 0 ]]; then
+		echo "refusing to modify node_modules — resolve the entries above first" >&2
+		exit 1
+	fi
+fi
+# The verdicts above were computed on a peeled sandbox, which is not the tree we
+# are about to write. In a non-prefix state (an upper layer applied while a
+# lower one is absent) a lower entry can pass only *after* the upper layer is
+# peeled off, yet the live tree still carries that upper layer — its per-entry
+# dry-run would then fail partway through the run, after earlier pending
+# entries were already written. So rehearse the exact plan, in execution order,
+# on a mirror of the live tree, and refuse to write unless the whole plan lands.
+if [[ "$MODE" != "check" ]]; then
+	PLAN_SANDBOX="$(mktemp -d)"
+	mirror_touched "$PLAN_SANDBOX"
+	plan_steps=0
+	for i in "${ORDER_IDX[@]}"; do
+		entry="${PATCHES[i]}"
+		name="${entry%%:*}"
+		root="${entry##*:}"
+		file="${HERE}/${name}"
+		sbr="$(sandbox_root "$PLAN_SANDBOX" "$root")"
+		case "$MODE:${CHAIN_STATUS[i]}" in
+			apply:pending)
+				probe_apply "$sbr" "$file" --forward || {
+					echo "PLAN FAIL ${name} — would not apply at this point in the live sequence" >&2
+					echo "refusing to modify node_modules — nothing was written" >&2
+					exit 1
+				}
+				plan_steps=$((plan_steps + 1))
+				;;
+			revert:applied)
+				probe_apply "$sbr" "$file" -R || {
+					echo "PLAN FAIL ${name} — would not revert at this point in the live sequence" >&2
+					echo "refusing to modify node_modules — nothing was written" >&2
+					exit 1
+				}
+				plan_steps=$((plan_steps + 1))
+				;;
+		esac
+	done
+	rm -rf "$PLAN_SANDBOX"
+	PLAN_SANDBOX=""
+	[[ $plan_steps -eq 0 ]] || echo "plan: ${plan_steps} step(s) rehearsed on a live mirror, all clean" >&2
+fi
+# This loop is not atomic and does not pretend to be. The plan rehearsal above
+# makes a mid-run failure unlikely, not impossible (a concurrent edit or an I/O
+# error still can), and `patch` writes hunk by hunk. So track what actually
+# landed and say so plainly instead of claiming nothing was written.
+written=0
+report_written() { # $1 = "half" when the entry that just failed may be partly written
+	local half="${1:-}"
+	[[ "$half" == half ]] && echo "the entry above may be partially written." >&2
+	if [[ $written -gt 0 ]]; then
+		echo "${written} earlier entr$([[ $written -eq 1 ]] && echo y || echo ies) already landed — the tree is in an intermediate state." >&2
+	elif [[ "$half" == half ]]; then
+		echo "no earlier entries were written." >&2
+	else
+		echo "no entries were written." >&2
+		return 0
+	fi
+	echo "run '$(basename "$0") --check' to see the current chain state before retrying." >&2
+}
+for i in "${ORDER_IDX[@]}"; do
+	entry="${PATCHES[i]}"
 	name="${entry%%:*}"
 	root="${entry##*:}"
 	file="${HERE}/${name}"
-	[[ -f "$file" ]] || {
+	st="${CHAIN_STATUS[i]}"
+	if [[ "$st" == missing ]]; then
 		echo "MISSING  ${name}"
 		fail=1
 		continue
-	}
-	st="$(status "$file" "$root")"
+	fi
 	case "$MODE:$st" in
 		check:*) echo "${st^^}  ${name}" ;;
 		apply:applied) echo "SKIP     ${name} (already applied)" ;;
 		apply:pending)
-			patch -p1 --forward --silent --no-backup-if-mismatch -d "$root" <"$file"
+			patch -p1 --forward --force --silent --dry-run -d "$root" <"$file" >/dev/null 2>&1 || {
+				echo "ABORT    ${name} — forward dry-run failed on the live tree" >&2
+				report_written
+				exit 1
+			}
+			patch -p1 --forward --silent --no-backup-if-mismatch -d "$root" <"$file" || {
+				echo "ABORT    ${name} — cleared its dry run but failed to apply; THIS ENTRY MAY BE HALF-WRITTEN" >&2
+				report_written half
+				exit 1
+			}
+			written=$((written + 1))
 			echo "APPLIED  ${name}"
 			;;
 		apply:conflict)
@@ -151,7 +348,17 @@ for entry in "${ORDER[@]}"; do
 			fail=1
 			;;
 		revert:applied)
-			patch -p1 -R --forward --silent --no-backup-if-mismatch --remove-empty-files -d "$root" <"$file"
+			patch -p1 -R --force --silent --dry-run -d "$root" <"$file" >/dev/null 2>&1 || {
+				echo "ABORT    ${name} — reverse dry-run failed on the live tree" >&2
+				report_written
+				exit 1
+			}
+			patch -p1 -R --forward --silent --no-backup-if-mismatch --remove-empty-files -d "$root" <"$file" || {
+				echo "ABORT    ${name} — cleared its dry run but failed to revert; THIS ENTRY MAY BE HALF-WRITTEN" >&2
+				report_written half
+				exit 1
+			}
+			written=$((written + 1))
 			echo "REVERTED ${name}"
 			;;
 		revert:*) echo "SKIP     ${name} (not applied)" ;;

@@ -2,7 +2,7 @@
 
 > 生成 2026-08-28（第六次修訂：18.0.9 功能族 rollup；舊定稿補丁原樣退役）。
 > 權威 patch 集在 `~/.omp/patches/`（實際生效清單以 `apply.sh` 的 `PATCHES` 陣列為準，本文件是鏡像）。
-> 截至 2026-08-31，active chain 共 16 項：原 15 項加上 0038（provider-only date/cwd reminder）；Responses audit 的 `input` / `instructions` 修改屬手動 extension candidate，不進 apply.sh，待部署時按三副本 parity gate 同步。
+> 截至 2026-09-01，active chain 共 17 項：原 15 項加上 0038（provider-only date/cwd reminder）與 0041（Anthropic usage turn gate 降為 60s）；Responses audit 的 `input` / `instructions` 修改屬手動 extension candidate，不進 apply.sh，待部署時按三副本 parity gate 同步。
 
 ## 0. 运行模式
 
@@ -10,7 +10,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前 active：0004、0010、0014、0017、0019、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038）
+## 1. src 補丁（目前 active：0004、0010、0014、0017、0019、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041）
 
 ### 0033–0037 — 功能族 rollup（2026-08-30）
 
@@ -22,10 +22,10 @@
 | 0036 | provider image/frame budgets | 0015-snapcompact、0015-agent、0020-snapcompact、0020-agent、0022 |
 | 0037 | usage statusline gate | 0005、0007、0029 |
 
-- **目的**：把同一功能的初版、補漏與 supersede 歷史從 active chain 收斂為單一最終補丁；30 個登錄項先降為 15 個，新增獨立 0038 後為 16 個；`apply.sh` 不再含 `superseded_by_*` 控制流。
+- **目的**：把同一功能的初版、補漏與 supersede 歷史從 active chain 收斂為單一最終補丁；30 個登錄項先降為 15 個，新增獨立 0038、0041 後為 17 個；`apply.sh` 不再含 `superseded_by_*` 控制流。
 - **生成邊界**：每族都從官方 npm 18.0.9 tarball 建立獨立 `mktemp` sandbox，只套該族舊鏈後生成；禁止從完整 runtime 對 pristine 的整檔 diff，避免 `session-maintenance.ts` 等共用檔案把跨族改動烘入。
 - **歷史保存**：20 個舊補丁內容與 SHA-256 不變，保存於 `.retired/08-30-family-rollups/`；下方既有故障分析仍是設計與除錯依據，但所述舊檔不再位於 active chain。
-- **回歸**：`apply.sh --verify-rollups` 以 pinned tarball SHA-256 驗證五族 old/new 逐字節等價、反向回 pristine、冪等，以及加入獨立 0038 後的舊有效全鏈 28 項與 active chain 16 項在四個套件上的完整逐字節等價；`--selftest` 刻意跳過 0033、讓 new-final 保持 pristine，證明比較器會拒絕「沒有 rollup」的假通過。
+- **回歸**：`apply.sh --verify-rollups` 以 pinned tarball SHA-256 驗證五族 old/new 逐字節等價、反向回 pristine、冪等，以及加入獨立 0038、0041 後的舊有效全鏈 29 項與 active chain 17 項在四個套件上的完整逐字節等價；`--selftest` 刻意跳過 0033、讓 new-final 保持 pristine，證明比較器會拒絕「沒有 rollup」的假通過。
 
 ### 0038 — date/cwd reminder 改為 provider-only 尾端
 
@@ -33,6 +33,21 @@
 - `pi-ai/src/types.ts` 增加 `providerOnly` 標記；Responses adapter 將尾端標記對應的 wire item 排除 native chaining baseline，再於 delta request 接回。
 - Chat Completions、Anthropic、Google 沿用現有 user-message 轉換，不增加 adapter 特例。fixture 實際執行四種轉換、Responses `previous_response_id` chaining 與 Anthropic cache boundary。
 - `OMP_PATCH_OFFLINE_VERIFY=1` 只供隔離 apply/revert/replay，明確跳過真實 provider smoke；未知值 fail closed。controller 使用 `--no-backup-if-mismatch`，revert 另使用 `--remove-empty-files`，確保回滾樹與 pristine 完全相同且不遺留 `.orig`。
+
+### 0041 — Anthropic usage turn gate 180s → 60s
+
+- `status-line/component.ts`：`ANTHROPIC_USAGE_TURN_GATE_MS` 由 `180_000` 改為 `60_000`。閘門語意不變（僅 turn 邊界可能放行、閒置重繪永不觸發），只縮短同一 turn 序列內的最小重取間隔。
+- 動機：3 分鐘的配額感知延遲太弱，長任務中 statusline 顯示的 5h 窗口用量嚴重落後實際。
+- 為何安全：先前定 180s 的依據是一次 429，事後查明真因為 agent.db 損壞導致雙份憑證併發刷新，並非 `/oauth/usage` 端點限流；60s 仍在保守水位。
+- 追加層而非改 0037：定稿補丁不可就地修改，本項以獨立補丁疊在 0037 之後。編號跳過 0040（該號原屬 `trellis_command` 工具方案，已作廢並刪檔，見下方「編號 0040」條；退役編號不重用）。
+
+### 補丁狀態判定改為兩階段（2026-09-01，隨 0041 落地）
+
+- **問題**：0041 改寫的正是 0037 引入的兩行。舊 `status()` 以「在最終樹上單獨反向 dry-run」判 applied，被覆蓋的下層補丁因此永遠反向失敗 → 0037 被誤報 CONFLICT。這與 0027 時代 `superseded_by_*` 白名單要解的是同一個問題；rollup 廢掉白名單後，該缺陷以更隱蔽的形式回歸。
+- **修法**：`apply.sh` 的 `compute_chain_status()` 把整條鏈鏡像進 `mktemp` sandbox（只複製各補丁 `--- a/` 宣告觸及的檔案），再兩階段判定。**階段一由頂向下反剝**：能反向識別的層標 applied 並實際剝離；未套用的層不覆蓋任何行，跳過不影響下層。**階段二由底向上重演**：applied 層 forward 復原（失敗即代表樹處於本鏈產生不出的狀態，判 conflict）；未定層此時才做 forward 判定——0041 的 hunk 上下文要等 0037 鋪好才存在，單靠反序掃描會把它誤判成 conflict。live node_modules 全程唯讀。
+- **verify 同步**：`verify-patch-family-rollups.sh` 的冪等段從「逐項獨立反向」改為「按棧序逆向剝離全鏈後比對 pristine」，即補丁棧真正成立的那條性質。
+- **驗收**（sandbox 複製 live 五個套件，NM/BIN 改指沙盒）：pristine → 17 全 PENDING；apply → 17 全 APPLIED 且 `ANTHROPIC_USAGE_TURN_GATE_MS = 60_000`；已套樹 `--check` → 18 APPLIED / **CONFLICT 0**；連跑第二次 → 17 SKIP；revert → 17 REVERTED；4081 個檔案 sha256 **逐字節回到 pristine**。另以對照實驗坐實舊判定的誤報：同一棵已疊 0041 的樹，舊式單項探測報 0037「NOT reverse-identifiable」，新式按序剝離報 applied。
+- **副帶修正**：18.0.11 上游在 `beginDispose()` 的 `#isDisposed = true` 之後插入 `#fallbackDiscoveryRevalidationAbortController.abort();`，夾在 0010 兩行上下文之間，使 canonical 0010 在 18.0.11 上反向失敗。`OMP_PATCH_VERSION=18.0.11` 走 `.18.0.11-candidates/` 即恢復 APPLIED；裸跑 `apply.sh --check`（預設 18.0.9 鏈）在 18.0.11 機器上會出現這個 bogus CONFLICT，非鏈斷。
 
 ### 0004 — token_total 计入 cacheRead
 - `segments.ts`：total = input+output+cacheRead+cacheWrite+orchestration 三项（配额窗口口径）
@@ -376,20 +391,11 @@
 - **語義變化(行為改變,非無風險)**:goal 從「臨時工具」變「常駐工具」;paused 期間工具可見可調 resume;非 goal 狀態可 create;每會話常駐 goal schema(約 1-2k token);上游「Never in the default set」設計被推翻,記錄在案。
 - **附帶**:cache-prefix-audit 擴展 verdict 同日改嚴格命中率口徑(見 §3 該條目 2026-08-30 記錄)。
 
-### 0040 — trellis_command 工具【已撤銷 RETIRE 2026-08-31·見條目末】
-- **失敗簽名**(2026-08-31):用戶要求 LLM「調用 `/trellis-continue`」→ `Unknown tool from js runtime: slash_command`。文件 slash 命令由 TUI 客戶端在**送給模型之前**展開(`expandSlashCommand` 在 `session.prompt` 管線內),工具註冊表裡從未有這個東西——模型天然無法調用,與安裝對錯無關。
-- **修法**(`.omp/extensions/trellis/index.ts` 新增 `pi.registerTool({ name: "trellis_command" })`):參數 `{command, args?}`;按 omp 本體同一套原語展開(`parseFrontmatter` → `substituteArgs` → `prompt.render` → `appendInlineArgsFallback`,全部 import 自 `@oh-my-pi/pi-coding-agent/utils/command-args`、`config/prompt-templates`、`@oh-my-pi/pi-utils`,零自建語義),掃 `<projectRoot>/.omp/commands/` → `~/.omp/agent/commands/`,回傳展開後全文作 tool result,模型照步驟執行——淨效果等同用戶手打。命令檔無 `{{...}}` 模板語法,渲染為恆等,風險面為零。找不到命令時拋錯並附可用清單。
-- **源頭鏈(一勞永逸)**:canonical 真本 = `~/trellis-custom/extensions/trellis-index.ts`(以本倉庫 omp-move 版為基底,**非** `trellis/omp` fork 那份過時 sendMessage 版);`~/trellis-custom/apply.sh` 新增兩步:① 整檔重放到 npm 模板 `dist/templates/omp/extensions/trellis/index.ts.txt`(新項目 `trellis init` 即帶工具,順帶修掉官方模板落後 0012/0016 的問題)② `backfill_project()` 對 `.omp/extensions/trellis/index.ts` 回灌(舊項目重跑 apply.sh 即得)。**已存在項目需重開 omp 才生效**(無檔案監看)。
-- **驗收**(2026-08-31):
-  | 項 | 結果 |
-  |---|---|
-  | 功能 | `bun patches/verify-trellis-command-tool.ts` → PASS(靜態形状鎖 + 四命令展開 + frontmatter 剝除 + 未命中報錯) |
-  | E2E | `omp -p --tools read,bash,trellis_command` 讓模型實際調用 → 回傳 `TOOL_OK：恢复当前任务的工作——…`(真實展開文本) |
-  | 源頭 | apply.sh 跑完:模板 `cmp` = canonical = 項目檔(三方 byte parity);冪等連跑兩次通過 |
-  | 可回滾 | `git apply -R --check patches/0040-trellis-command-tool.patch` 通過 |
-- **代價(記錄在案)**:工具 schema 進工具簽名 → 部署後首輪一次性 `TOOLS_DRIFT` 前綴位移(與 0032 同族),之後穩定;每會話常駐約 120 token schema。
-- **不入 apply.sh 鏈**:與 0012/0016 同類——補丁文件僅作記錄與回滾憑證;實際部署走 trellis-custom → npm 模板 → 項目回灌,`~/.omp/patches/` 鏡像同步由用戶執行(本倉庫不碰 live mirror)。
-- **撤銷記錄**(同日):用戶判定「為 slash 命令造專屬工具」屬過度設計，改走原生 skill 發現鏈（`.omp/skills/trellis-*/SKILL.md` 薄殼，真本仍為 `.omp/commands/*.md`）。本倉庫 `53006f4` 撤回工具版 extension（0012/0016 anchor 修正保留不動）、補丁移 `.retired/`、verify 腳本刪除；trellis-custom canonical 同步為無工具版，npm 模板重放改回無工具真本。教訓：**工具清單任何增刪都翻簽名，跨部署邊界的活會話各斷一次——新增常驻工具前必須先計價，能走 skills/commands/read 原生路徑的不造工具。**
+### 編號 0040 —— 作廢，不重用
+
+`trellis_command` 工具方案於 2026-08-31 由用戶判定屬過度設計而全數撤回（改走原生 skill 發現鏈：`.omp/skills/trellis-*/SKILL.md` 薄殼，真本仍為 `.omp/commands/*.md`）。倉庫 `53006f4` 已撤回 extension、trellis-custom canonical 與 npm 模板重放同步改回無工具真本；補丁檔於 2026-09-01 一併刪除，避免退役檔被誤讀成可選方案。編號 0040 就此空置。
+
+留存教訓（與方案無關，普遍成立）：**工具清單任何增刪都會翻轉工具簽名，跨部署邊界的活會話各斷一次前綴——新增常駐工具前必須先計價，能走 skills / commands / read 原生路徑的就不要造工具。** 同族前例見 0032（goal 常駐）。
 
 ## 5. agent.db 结构性损坏与重建(2026-08-29)
 - **发现**:排查配额时对 `~/.omp/agent/agent.db` 跑 `PRAGMA integrity_check`(官方 `.backup` 一致快照与 `mode=ro` 直读**都复现**,不是热 `cp` 造成的假象):

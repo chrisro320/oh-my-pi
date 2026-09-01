@@ -1,0 +1,13 @@
+--- a/src/modes/components/status-line/component.ts
++++ b/src/modes/components/status-line/component.ts
+@@ -310,8 +310,8 @@
+ 
+ // Anthropic /oauth/usage rate-limits per IP aggressively (data changes on the
+ // scale of hours): idle repaints stay silent, a turn boundary refreshes at
+-// most once per three minutes.
+-const ANTHROPIC_USAGE_TURN_GATE_MS = 180_000;
++// most once per minute.
++const ANTHROPIC_USAGE_TURN_GATE_MS = 60_000;
+ function hasContextSegment(segments: readonly StatusLineSegmentId[]): boolean {
+ 	return segments.includes("context_pct") || segments.includes("context_total");
+ }
