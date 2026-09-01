@@ -35,7 +35,8 @@ PRD 紅線（prd.md:13）：「嚴禁讀寫 live DB 與憑證……**連『只�
   - `src/session/agent-session.ts:3927-3939`：分發 `cloneMessageEndNotification(event.message)`，註釋原文 "Detach its payload from agent-owned history"
   - `:2893-2899`：持久化用原始 `event.message`
   - MC `pi-plugin/src/index.ts:2117-2121` 的相反註釋是針對舊版 omp 的過時假設——註釋不能推翻執行碼
-- **精確後果**：user/tool 消息在 transform 之前已落盤，存檔乾淨；但若 LLM 模仿 §N§ 前綴吐進 assistant 文本，MC 的 message_end 剝離在 18.0.11 上**無效（改的是克隆）**，模仿污染會進存檔。transform 每遍重剝只保 wire 功能正確，不救存檔。
+- **精確後果（條件性風險）**：機制裁決僅支持「**若** assistant 回顯 §N§，omp 持久化的是未剝離的原始 message」（:2893-2900 原物件落盤，:3927-3939 才發 clone 給擴展）。transform 每遍重剝只保 wire 功能正確。
+- **A3 回顯率補測（2026-09-01，沙盒舊存檔 18 個 JSONL）**：62 條 assistant 消息中 text 部分自發回顯 §N§ = **0**；8 條含 §N§ 均為 codeword 實驗中**指示性寫入**的 toolCall 參數載體，非自發回顯。樣本侷限：glm-5.3-flash、短會話、無 MC-on 長上下文——風險未證偽，僅在此樣本內未觀測。其他 pre-persistence 清洗路徑仍未窮舉。
 
 ## 四、派工錯誤記錄（R1–R6 全部用錯模型）
 

@@ -9,7 +9,7 @@
 - V1：「message_end 在持久化前剥离，JSONL 恒干净」——**错**（被 MC index.ts:2121 注释误导，与 R3v2 CONFLICT 1 同错）
 - V4：「omp 下发深拷贝快照，MC 就地剥离对落盘是 no-op」——**对**
 - 主会话复核：omp `src/session/agent-session.ts:2893-2899` 持久化用原始 `event.message`；`:3927-3939` 给扩展分发 `cloneMessageEndNotification(event.message)`（注释 "Detach its payload from agent-owned history"）
-- **后果**：LLM 模仿 §N§ 前缀吐进 assistant 文本的内容会进 JSONL 存档；MC 的 message_end 清洗救不了。transform 每轮重剥只保 wire 功能正确。
+- **后果（条件性风险，未实测）**：机制只支持「**若** assistant 回显 §N§，omp 会把未剥离的原始 message 写入 JSONL」。回显率与其他 pre-persistence 清洗路径未查证（A3 将从沙盒旧存档 grep 补测）——不得写成「安装后存档必然永久带 §N§」。transform 每轮重剥只保 wire 功能正确。
 
 ### 冲突 B：glm 批次（R1-R6）与 V 批的关系
 - R1/R4/R5 读 `packages/plugin`（OpenCode 侧）——文件行号真实，但**对 omp 评估无效**：V1 证明 pi 版拥有完全独立管线（context-handler.ts 6228 行独立实现、strip-placeholders-pi 用 splice 剔除而非 OpenCode 的 sentinel 占位、显式去除 stripStructuralNoise/stripReasoningFromMergedAssistants，context-handler.ts:5180-5195）
