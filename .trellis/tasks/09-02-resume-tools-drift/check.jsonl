@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/09-02-resume-tools-drift/prd.md", "reason": "逐條覆核最小範圍與驗收標準。"}
+{"file": ".trellis/spec/backend/index.md", "reason": "後端規範原始索引；覆核時再次原文注入。"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "回歸敏感性與新增符號定義／引用完整性要求。"}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "pristine 全鏈重放與補丁狀態門禁。"}

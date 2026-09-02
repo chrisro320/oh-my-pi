@@ -67,6 +67,7 @@ PATCHES=(
 	"0032-omp-goal-tool-resident.patch:${AGENT}"
 	"0038-omp-date-cwd-reminder-provider-tail.patch:${NM}"
 	"0041-omp-anthropic-usage-turn-gate-60s.patch:${AGENT}"
+	"0042-omp-resume-read-description-refresh.patch:${AGENT}"
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then
@@ -387,7 +388,6 @@ if [[ "$MODE" == "apply" ]]; then
 	# Chain-level rollup verification: `apply.sh --verify-rollups`.
 	bun "${HERE}/verify-antigravity-envelope.ts"
 	bun "${HERE}/verify-prefix-cache-compaction.ts"
-	bun "${HERE}/verify-model-switch-tool-description.ts"
 	bun "${HERE}/verify-provider-image-budget.ts"
 	bun "${HERE}/verify-hindsight-recall-snapshot.ts"
 fi

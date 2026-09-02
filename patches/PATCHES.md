@@ -2,7 +2,7 @@
 
 > 生成 2026-08-28（第六次修訂：18.0.9 功能族 rollup；舊定稿補丁原樣退役）。
 > 權威 patch 集在 `~/.omp/patches/`（實際生效清單以 `apply.sh` 的 `PATCHES` 陣列為準，本文件是鏡像）。
-> 截至 2026-09-01，active chain 共 17 項：原 15 項加上 0038（provider-only date/cwd reminder）與 0041（Anthropic usage turn gate 降為 60s）；Responses audit 的 `input` / `instructions` 修改屬手動 extension candidate，不進 apply.sh，待部署時按三副本 parity gate 同步。
+> 截至 2026-09-02，active chain 共 18 項：原 15 項加上 0038（provider-only date/cwd reminder）、0041（Anthropic usage turn gate 降為 60s）與 0042（resume 後 read description 同步）；Responses audit 的 `input` / `instructions` 修改屬手動 extension candidate，不進 apply.sh，待部署時按三副本 parity gate 同步。
 
 ## 0. 运行模式
 
@@ -10,7 +10,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前 active：0004、0010、0014、0017、0019、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041）
+## 1. src 補丁（目前 active：0004、0010、0014、0017、0019、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041、0042）
 
 ### 0033–0037 — 功能族 rollup（2026-08-30）
 
@@ -22,10 +22,10 @@
 | 0036 | provider image/frame budgets | 0015-snapcompact、0015-agent、0020-snapcompact、0020-agent、0022 |
 | 0037 | usage statusline gate | 0005、0007、0029 |
 
-- **目的**：把同一功能的初版、補漏與 supersede 歷史從 active chain 收斂為單一最終補丁；30 個登錄項先降為 15 個，新增獨立 0038、0041 後為 17 個；`apply.sh` 不再含 `superseded_by_*` 控制流。
+- **目的**：把同一功能的初版、補漏與 supersede 歷史從 active chain 收斂為單一最終補丁；30 個登錄項先降為 15 個，新增獨立 0038、0041、0042 後為 18 個；`apply.sh` 不再含 `superseded_by_*` 控制流。
 - **生成邊界**：每族都從官方 npm 18.0.9 tarball 建立獨立 `mktemp` sandbox，只套該族舊鏈後生成；禁止從完整 runtime 對 pristine 的整檔 diff，避免 `session-maintenance.ts` 等共用檔案把跨族改動烘入。
 - **歷史保存**：20 個舊補丁內容與 SHA-256 不變，保存於 `.retired/08-30-family-rollups/`；下方既有故障分析仍是設計與除錯依據，但所述舊檔不再位於 active chain。
-- **回歸**：`apply.sh --verify-rollups` 以 pinned tarball SHA-256 驗證五族 old/new 逐字節等價、反向回 pristine、冪等，以及加入獨立 0038、0041 後的舊有效全鏈 29 項與 active chain 17 項在四個套件上的完整逐字節等價；`--selftest` 刻意跳過 0033、讓 new-final 保持 pristine，證明比較器會拒絕「沒有 rollup」的假通過。
+- **回歸**：`apply.sh --verify-rollups` 以 pinned tarball SHA-256 驗證五族 old/new 逐字節等價、反向回 pristine、冪等，以及加入獨立 0038、0041、0042 後的舊有效全鏈 30 項與 active chain 18 項在四個套件上的完整逐字節等價；`--selftest` 刻意跳過 0033、讓 new-final 保持 pristine，證明比較器會拒絕「沒有 rollup」的假通過。
 
 ### 0038 — date/cwd reminder 改為 provider-only 尾端
 
@@ -152,6 +152,14 @@
 - **根因**：`ReadTool` 只在建構時快取 `#renderDescription()`；`SessionTools.syncAfterModelChange()` 雖能偵測 hashline↔sloppy 的 `editModeChanged`，卻只重建 system prompt，未刷新 `read.description`。是否曾向舊模型發請求無關，只要工具先於空 session 的模型切換建立便會留下舊 schema。
 - **修法**：`ReadTool.refreshDescription()` 集中重繪動態描述，`syncInspectImageState()` 復用它；模型切換跨 edit-mode family 時，在重建 prompt/tool signature 前刷新 registry 內的 read 工具。
 - **自動回歸**：`bun patches/verify-model-switch-tool-description.ts` 零 provider 呼叫，使用真實 `ReadTool` + `SessionTools` 驗證 GPT→Kimi 與 Kimi→GPT 兩個方向；切換後的完整描述必須逐字等於直接以目標模型啟動的新進程。
+
+### 0042 — resume 後刷新 cached `read.description`
+
+- **失敗簽名**：同一 provider、帳號、model、cache namespace、TTL 與會話內容下，`switchSession()` 後 active model 已恢復為 temporary sloppy model，但 `read.description` 仍保留建構期 hashline 說明，造成 tools bytes 改變與不必要的首輪 prompt-cache miss。
+- **根因**：0019 已修正使用者 `/model` 切換的 `SessionTools.syncAfterModelChange()` 路徑；`AgentSession.switchSession()` 的模型重綁直接走 `agent.setModel()`／provider reset，沒有經過該同步路徑，因此 cached `ReadTool.description` 未重繪。
+- **修法**：在 `switchSession()` 成功尾端，沿用既有 `SessionTools.getToolByName("read")` 取得 `ReadTool`，呼叫其既有 `refreshDescription()` 一次；不改 temporary/default/ephemeral 恢復語義，不重跑整套 model reconcile。
+- **效果**：當 cache namespace、TTL 與會話前綴未變時，resume 前後 tools 指紋保持一致；移除本次由 OMP 自行造成的無端 miss。provider、帳號、model 或 TTL 改變造成的設計性 miss 不屬本補丁。
+- **隔離回歸**：在 canonical 18.0.9 的 0019-only 樹先執行並確認失敗，再在套用 0042 的隔離樹執行並確認與 fresh target `ReadTool` 逐字一致；兩者均為零 provider 呼叫。
 
 ### 0014 — Google Antigravity 確定性 session/trajectory ID 派生
 - `pi-ai/src/providers/google-gemini-cli.ts`：

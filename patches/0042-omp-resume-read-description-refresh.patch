@@ -1,0 +1,16 @@
+--- a/src/session/agent-session.ts
++++ b/src/session/agent-session.ts
+@@ -8511,6 +8511,13 @@
+ 			if (previousSessionState.sessionId !== this.sessionManager.getSessionId()) {
+ 				this.#notifySessionChangeCallbacks();
+ 			}
++			// Resume restores the target model without going through the
++			// user-facing model-switch path, so the read tool's cached
++			// description can still reflect the construction-time model.
++			const readTool = this.#tools.getToolByName("read") as
++				| { refreshDescription?: () => void }
++				| undefined;
++			readTool?.refreshDescription?.();
+ 			return true;
+ 		} catch (error) {
+ 			this.sessionManager.restoreState(previousSessionState);

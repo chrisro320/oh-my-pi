@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/09-02-resume-tools-drift/prd.md", "reason": "本次最小修復邊界、驗收與明確範圍外。"}
+{"file": ".trellis/spec/backend/index.md", "reason": "後端規範原始索引；派工時須原文注入。"}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "active chain、pristine 重放與補丁狀態驗證契約。"}
+{"file": "RESUME_TOOLS_DRIFT_REPORT.md", "reason": "本次 payload 現象與待更正根因鏈。"}

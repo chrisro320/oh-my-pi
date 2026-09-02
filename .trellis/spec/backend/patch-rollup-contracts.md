@@ -47,7 +47,9 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 - A later active entry MAY rewrite lines an earlier one introduced (patch 0041
   over 0037). Patch state is therefore a property of the whole stack: status
   detection MUST peel applied layers top-down and replay them bottom-up in a
-  sandbox, never probe one entry in isolation on the final tree.
+  sandbox, never probe one entry in isolation on the final tree. A pure-insertion
+  patch may pass a forward dry-run after application; its reverse dry-run and
+  stack-level byte comparison remain the required applied-state checks.
 - Every sandbox mutation used for status detection MUST be gated on a clean
   dry run. A patch that fails midway still rewrites the hunks it already
   matched, which would corrupt every verdict computed after it.
@@ -80,7 +82,7 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 
 ### 5. Good / Base / Bad Cases
 
-- **Good:** Official tarballs pass pinned hashes; old and new family trees are byte-equal; reverse restores pristine; the exact 17-entry active sequence parsed from `apply.sh` matches the 29-entry old effective chain including independent patches 0038 and 0041.
+- **Good:** Official tarballs pass pinned hashes; old and new family trees are byte-equal; reverse restores pristine; the exact 18-entry active sequence parsed from `apply.sh` matches the 30-entry old effective chain including independent patches 0038, 0041, and 0042.
 - **Base:** A finalized independent patch remains active and is not absorbed merely because it touches the same subsystem.
 - **Bad:** A full runtime-to-pristine diff is used for a family that shares `session-maintenance.ts` with another family; unrelated changes become baked into both rollups.
 
@@ -93,7 +95,7 @@ A permanent rollup verifier MUST assert:
 3. Rollup paths contain no `.orig`/`.rej` artifacts.
 4. Per-family old-final equals rollup-final byte-for-byte.
 5. Reverse rollup restores pristine/family pre-state.
-6. Reversing the entire active chain in stack order restores pristine bytes; each layer's reverse dry-run succeeds at its own stack depth, and its forward dry-run fails while it is still on the tree. Isolated per-entry probing on the final tree is not a substitute and is forbidden.
+6. Reversing the entire active chain in stack order restores pristine bytes; each layer's reverse dry-run succeeds at its own stack depth, and a forward dry-run MUST fail while it is still on the tree when the patch has removable old text. Pure-insertion patches are exempt from that forward-failure assertion and MUST still pass reverse/byte-equivalence checks. Isolated per-entry probing on the final tree is not a substitute and is forbidden.
 7. Old effective full chain equals the exact active sequence parsed from `apply.sh` across every owned package.
 8. A sensitivity probe omits one rollup, leaves `new-final` pristine, and proves the old-final/new-final comparison fails.
 9. Normal deployment keeps the real `apply.sh` smoke path; isolated replay uses

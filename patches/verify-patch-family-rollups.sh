@@ -19,10 +19,10 @@
 #      equal on the family-owned packages; the reversed rollup restores pristine
 #      bytes; on an applied tree a forward dry-run fails and a reverse dry-run
 #      succeeds (idempotence).
-#   3. Full chain: the old effective chain (29 entries; 0026-agent/0027/0028
-#      skipped as superseded, plus independent 0038 and 0041) vs the 17-entry
-#      active chain — byte equal across all four packages including dist/, then
-#      reverse/forward dry-run idempotence for all 17 active entries.
+#   3. Full chain: the old effective chain (30 entries; 0026-agent/0027/0028
+#      skipped as superseded, plus independent 0038, 0041, and 0042) vs the
+#      18-entry active chain — byte equal across all four packages including
+#      dist/, then reverse/forward dry-run idempotence for all 18 active entries.
 #   4. Failures name the family and the first differing file; every family
 #      prints PASS on success.
 #
@@ -47,7 +47,7 @@ NMROOT="@oh-my-pi"
 # ------------------------------------------------------------- static checks
 entries="$(sed -n '/^PATCHES=(/,/^)/p' "${HERE}/apply.sh" | grep -c 'patch:')" ||
 	die "cannot parse PATCHES array in apply.sh"
-[[ "$entries" == 17 ]] || die "apply.sh PATCHES has ${entries} entries, expected 17"
+[[ "$entries" == 18 ]] || die "apply.sh PATCHES has ${entries} entries, expected 18"
 if grep -q 'superseded_by_' "${HERE}/apply.sh"; then
 	die "apply.sh still contains superseded_by_ control flow"
 fi
@@ -101,7 +101,7 @@ b09b22c227d22efcf2da1f27e6377cee75ec7363b7114102f9bd0dea16b25caa  0026-omp-usage
 db19e8d94f338af06f6683d47328b9831ffa81e5a21c04b3f3d5be1f759a1408  0029-omp-usage-fetch-gate-merged-agent.patch
 EOF
 ) || die "retired patch hashes drifted in ${RETIRED}"
-echo "PASS static: apply.sh chain (17 entries, no supersede), rollup hygiene, retired hashes"
+echo "PASS static: apply.sh chain (18 entries, no supersede), rollup hygiene, retired hashes"
 
 # ---------------------------------------------------------------- sandbox
 G=$(mktemp -d /tmp/pfrollup-verify.XXXXXX)
@@ -338,6 +338,7 @@ OLDCHAIN=(
 	"0032-omp-goal-tool-resident.patch:AGENT"
 	"0038-omp-date-cwd-reminder-provider-tail.patch:NM"
 	"0041-omp-anthropic-usage-turn-gate-60s.patch:AGENT"
+	"0042-omp-resume-read-description-refresh.patch:AGENT"
 )
 # The new full-chain oracle is the real controller, not a second hand-maintained
 # list. A missing, duplicate, reordered, or wrongly rooted apply.sh entry must
@@ -385,7 +386,7 @@ done
 # rollups smuggled in no behaviour change. It deliberately says nothing about
 # what those independent patches do — calling this side "old effective" would
 # be wrong, no such chain ever shipped. Their behaviour is asserted below.
-echo "PASS rollup equivalence: pre-rollup chain (29) == active chain (17), byte-equal on all four packages"
+echo "PASS rollup equivalence: pre-rollup chain (30) == active chain (18), byte-equal on all four packages"
 
 # Behaviour of the independent patches. A patch can apply cleanly and still be
 # semantically dead — that failure mode is on record (0027: two hunks applied,
@@ -411,7 +412,8 @@ for ((i = ${#NEWCHAIN[@]} - 1; i >= 0; i--)); do
 	file="${spec%%:*}" root="${spec##*:}"
 	r="$(patchroot "$G/full-new" "$root")"
 	if [[ -f "${HERE}/${file}" ]]; then p="${HERE}/${file}"; else p="${RETIRED}/${file}"; fi
-	if patch -p1 --forward --dry-run --force -d "$r" <"$p" >/dev/null 2>&1; then
+	# 0042 is a pure insertion; GNU patch can dry-run it again after apply.
+	if [[ "$file" != "0042-omp-resume-read-description-refresh.patch" ]] && patch -p1 --forward --dry-run --force -d "$r" <"$p" >/dev/null 2>&1; then
 		die "full chain peel: forward dry-run of ${file} succeeded on a tree that still carries it"
 	fi
 	patch -p1 -R --dry-run --force --silent -d "$r" <"$p" >/dev/null 2>&1 \
@@ -425,7 +427,7 @@ if ! diff -r "${CMPARGS[@]}" "$G/full-pristine/${NMROOT}" "$G/full-new/${NMROOT}
 	first_diffs "$G/peel-cmp.txt"
 	exit 1
 fi
-echo "PASS full chain peel: reversing all 17 entries in stack order restores pristine bytes"
+echo "PASS full chain peel: reversing all 18 entries in stack order restores pristine bytes"
 
 # Required test #10 — the dry-run gate in the controller's status probe must
 # leave the sandbox byte-identical when a patch is only partially applicable.
