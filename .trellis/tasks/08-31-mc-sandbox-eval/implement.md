@@ -1,6 +1,6 @@
 # Implement: Magic Context 沙盒評估
 
-> RESUME: 3.0 — historian 冒煙（用戶按暫停,待復工指示）。已逾 0.1–0.4/2.1–2.3：哨兵 v1/v2 就緒（mask-check 通、live DB 零開啟、`.claude/.agents` 已補遮蔽）;E1 已歸檔 `research/e1-setup-face.md`;沙盒憑證=commandcode key(用戶授權,glm-5.3-flash 1M 窗,historian/dreamer 同配);MC 管線已活(message_history_source 吞消息,codeword 記憶測過);未觸發 historian_runs(閘=上下文65%)。隔離待復工項:runner `/tmp/mc-nsx.sh`+`/tmp/mc-e2-runx.sh`(CLAUDE_CONFIG_DIR export 位置須修到 exec 前),新 strace log=`strace-run2.log` 需以零 live 命中重驗。
+> RESUME: 用戶待命中（2026-09-01 暫停）。本輪已完成：V1–V4 pi-plugin 深讀歸檔（e4af4d1；派工驗收=trellis-research/gemini-3.7-flash，transcript 逐檔核實）；報告改判「正向收益不可判定」（94fc554，P0 違反如實記錄）；R1/R4/R5 作廢為 omp 證據（錯讀 OpenCode 包）。待辦：①§N§ 回顯率實測＋報告措辭降為條件性風險（編輯曾在待命時被撤回，需用戶重新授權）②修 runner `/tmp/mc-nsx.sh`+`/tmp/mc-e2-runx.sh` 的 CLAUDE_CONFIG_DIR export 位置（須在 exec 前）③3.0 historian 冒煙（閘=上下文 65%）④E2 運行級 cacheRead%／E3 雙 hook 共存。
 
 > ⚠ 2026-08-31 用戶暫停: 長文灌注類實驗(E0對話/E2灌注)全部停;按用戶「主目的對焦」指示,E2 cache 前綴污染(0018 保全)是最關鍵未測項。
 

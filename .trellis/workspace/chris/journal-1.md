@@ -68,3 +68,25 @@ Reused the active Agent provider-ready context under a strict runtime/wire model
 ### Status
 
 [OK] **Completed**
+
+
+## Session 4: 修復 Resume Tools Description 漂移
+
+**Date**: 2026-09-02
+**Task**: 修復 Resume Tools Description 漂移
+**Branch**: `master`
+
+### Summary
+
+修復行程內與新進程 resume 的 cached read.description 漂移，部署 0042 至本機 OMP，並記錄啟動期 late model reclaim 契約。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b439762` | (see git log) |
+| `c5eb069` | (see git log) |
+
+### Status
+
+[OK] **Completed**
