@@ -155,9 +155,9 @@
 
 ### 0042 — resume 後刷新 cached `read.description`
 
-- **失敗簽名**：同一 provider、帳號、model、cache namespace、TTL 與會話內容下，`switchSession()` 後 active model 已恢復為 temporary sloppy model，但 `read.description` 仍保留建構期 hashline 說明，造成 tools bytes 改變與不必要的首輪 prompt-cache miss。
-- **根因**：0019 已修正使用者 `/model` 切換的 `SessionTools.syncAfterModelChange()` 路徑；`AgentSession.switchSession()` 的模型重綁直接走 `agent.setModel()`／provider reset，沒有經過該同步路徑，因此 cached `ReadTool.description` 未重繪。
-- **修法**：在 `switchSession()` 成功尾端，沿用既有 `SessionTools.getToolByName("read")` 取得 `ReadTool`，呼叫其既有 `refreshDescription()` 一次；不改 temporary/default/ephemeral 恢復語義，不重跑整套 model reconcile。
+- **失敗簽名**：同一 provider、帳號、model、cache namespace、TTL 與會話內容下，恢復 temporary sloppy model 後 active model 已切換，但 `read.description` 仍保留建構期 hashline 說明，造成 tools bytes 改變與不必要的首輪 prompt-cache miss。涵蓋兩條路徑：行程內 `AgentSession.switchSession()`，以及新進程 `createAgentSession()` 在 tools 建立後才 reclaim extension-backed temporary model（`src/sdk.ts` 晚期 session-model reclaim）。
+- **根因**：0019 已修正使用者 `/model` 切換的 `SessionTools.syncAfterModelChange()` 路徑；但 `AgentSession.switchSession()` 的模型重綁直接走 `agent.setModel()`／provider reset，而新進程的晚期 reclaim（`model = restoredModel`）發生在 tools 建立之後，兩者都沒有經過該同步路徑，因此 cached `ReadTool.description` 未重繪。
+- **修法**：兩處成功恢復 model 後各刷新一次 read description——`switchSession()` 成功尾端沿用既有 `SessionTools.getToolByName("read")`；`src/sdk.ts` 晚期 reclaim 分支在 `model = restoredModel` 後從 `toolRegistry.get("read")` 取工具並選擇性呼叫既有 `refreshDescription()`。不改 temporary/default/ephemeral 恢復語義，不重跑整套 model reconcile。
 - **效果**：當 cache namespace、TTL 與會話前綴未變時，resume 前後 tools 指紋保持一致；移除本次由 OMP 自行造成的無端 miss。provider、帳號、model 或 TTL 改變造成的設計性 miss 不屬本補丁。
 - **隔離回歸**：在 canonical 18.0.9 的 0019-only 樹先執行並確認失敗，再在套用 0042 的隔離樹執行並確認與 fresh target `ReadTool` 逐字一致；兩者均為零 provider 呼叫。
 

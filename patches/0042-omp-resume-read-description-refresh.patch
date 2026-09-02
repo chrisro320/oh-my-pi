@@ -14,3 +14,15 @@
  			return true;
  		} catch (error) {
  			this.sessionManager.restoreState(previousSessionState);
+--- a/src/sdk.ts
++++ b/src/sdk.ts
+@@ -2228 +2228,8 @@
+-						model = restoredModel;
++						model = restoredModel;
++						// A new process reclaims an extension-backed temporary model only
++						// after tools are built, so the read tool's cached description
++						// still reflects the fallback model and must be re-rendered.
++						const readTool = toolRegistry.get("read") as
++							| { refreshDescription?: () => void }
++							| undefined;
++						readTool?.refreshDescription?.();

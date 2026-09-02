@@ -153,11 +153,15 @@ packed="$(npm pack --silent "$pkg")" || packed=""
 ### 2. Signatures
 - Request evidence: `provider`, `model`, `input`, `cacheRead`, `cacheWrite`, timestamp.
 - Recovery evidence: `usage_limit_reached`, retry status, credential recovery, and model-change events.
+- Resume paths: in-process `AgentSession.switchSession()` and new-process `createAgentSession()` startup.
+- New-process ordering: `createTools()` → extension provider registration → late `restoreSessionModel()` reclaim → `initialTools`/`new Agent()`.
 
 ### 3. Contracts
 - `cacheRead=0` with positive `cacheWrite` is a cold-start/cache-fill candidate, not by itself a regression.
 - A provider/account/model fallback creates a different cache namespace and is the primary cause when followed by a large request with `cacheRead=0`.
 - Resume may still introduce an independent prefix difference; event evidence MUST NOT claim it is fully excluded without payload comparison.
+- Model-dependent tool descriptions are cached at tool construction. If an extension-backed session model is reclaimed after `createTools()`, refresh the affected description after `model = restoredModel` and before `initialTools` is materialized.
+- Do not use full model reconciliation for this startup gap when only the cached `read.description` is stale; model roles, recovery order, provider state, system prompt, and other tools remain unchanged.
 
 ### 4. Validation & Error Matrix
 | Evidence | Required conclusion |
@@ -166,16 +170,21 @@ packed="$(npm pack --silent "$pkg")" || packed=""
 | `usage_limit_reached` → recovery/fallback → large `cacheRead=0` | Fallback is direct/primary cause |
 | Resume with no provider/model change | Investigate payload prefix drift |
 | Provider/model change absent payload comparison | Do not fully exclude resume |
+| Active model restored correctly; only `read.description` differs across resume | Check both resume paths and the tool-construction/model-reclaim ordering; refresh the cached description at the path that changes the model |
 
 ### 5. Good / Base / Bad Cases
 - Good: correlate adjacent JSONL events and distinguish cold start, fallback, and true prefix drift.
 - Base: normal first request after process restart writes a fresh cache prefix.
 - Bad: use an older session's usage event to explain a newer resume-adjacent miss.
+- Good: both in-process switching and new-process late model reclaim refresh only the cached read description after the target model is active.
+- Base: the target model exists before tool construction, so the initial description is already correct and no late reclaim refresh runs.
+- Bad: patch only `switchSession()` and assume a restarted process uses that method; CLI startup restores through `createAgentSession()` instead.
 
 ### 6. Tests Required
 - Parse the exact session JSONL and assert event order: error/recovery, model change, then request usage.
 - Assert `cacheRead=0`/`cacheWrite>0` is classified as cold start.
 - Assert fallback evidence reports primary cause while preserving resume as an unexcluded possibility.
+- For a model-dependent cached tool description, cover both in-process `switchSession()` and new-process late extension-model reclaim; assert the final description equals a fresh tool built for the target model and make no provider request.
 
 ### 7. Wrong vs Correct
 #### Wrong
