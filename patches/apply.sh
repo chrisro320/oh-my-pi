@@ -77,10 +77,12 @@ if [[ "$MODE" == "verify-rollups" ]]; then
 fi
 
 # Shared versioned-candidate machinery. Usage:
-#   _omp_version_candidates VERSION PATCH_ID...
-# Requires the installed pi-coding-agent to be exactly VERSION, replaces each
-# listed chain entry with its .VERSION-candidates/*-vVERSION-candidate.patch
-# (keeping the entry's package root), and fails closed on any mismatch.
+#   _omp_version_candidates VERSION TARGET...
+# Each TARGET is either a patch-id prefix (entry replaced by its
+# .VERSION-candidates/<name>-vVERSION-candidate.patch, keeping the package
+# root) or omit:<prefix> (entry dropped from this version's plan entirely).
+# Requires the installed pi-coding-agent to be exactly VERSION; fails closed
+# on version mismatch or a missing candidate file.
 function _omp_version_candidates {
 	local version="$1"; shift
 	local pkgjson="${NM}/pi-coding-agent/package.json"
@@ -90,29 +92,37 @@ function _omp_version_candidates {
 		echo "OMP_PATCH_VERSION=$version requires pi-coding-agent $version, found: ${installed:-<unreadable>}" >&2
 		exit 2
 	}
-	local entry name root replaced
+	local entry name root target mode candidate
 	declare -a version_patches=()
 	for entry in "${PATCHES[@]}"; do
 		name="${entry%%:*}"
 		root="${entry##*:}"
-		replaced=0
-		local pid
-		for pid in "$@"; do
-			if [[ "$name" == "$pid"-* ]]; then
-				local candidate=".${version}-candidates/${name%.patch}-v${version}-candidate.patch"
-				[[ -f "${HERE}/${candidate}" ]] || {
-					echo "candidate patch missing: ${HERE}/${candidate}" >&2
-					exit 2
-				}
-				version_patches+=("${candidate}:${root}")
-				replaced=1
-				break
-			fi
+		mode=keep
+		for target in "$@"; do
+			case "$target" in
+			omit:*)
+				[[ "$name" == "${target#omit:}"-* ]] && { mode=omit; break; }
+				;;
+			*)
+				[[ "$name" == "$target"-* ]] && { mode=replace; break; }
+				;;
+			esac
 		done
-		[[ $replaced -eq 0 ]] && version_patches+=("$entry")
+		case "$mode" in
+		omit) ;;
+		replace)
+			candidate=".${version}-candidates/${name%.patch}-v${version}-candidate.patch"
+			[[ -f "${HERE}/${candidate}" ]] || {
+				echo "candidate patch missing: ${HERE}/${candidate}" >&2
+				exit 2
+			}
+			version_patches+=("${candidate}:${root}")
+			;;
+		*) version_patches+=("$entry") ;;
+		esac
 	done
 	PATCHES=("${version_patches[@]}")
-	echo "NOTE: OMP_PATCH_VERSION=$version — entries replaced by candidates: $*" >&2
+	echo "NOTE: OMP_PATCH_VERSION=$version — plan targets: $*" >&2
 }
 # Versioned 0010 selection (opt-in only). Unset keeps the canonical 18.0.9
 # chain exactly as before; OMP_PATCH_VERSION=18.0.11 swaps entry 0010 for the
@@ -143,7 +153,7 @@ if [[ -n "${OMP_PATCH_VERSION+x}" ]]; then
 		echo "NOTE: OMP_PATCH_VERSION=18.0.11 — 0010 served from ${IDLE0010_CANDIDATE}" >&2
 		;;
 	18.1.2)
-		_omp_version_candidates "18.1.2" 0010 0030 0038
+		_omp_version_candidates "18.1.2" 0010 0030 omit:0038
 		;;
 	18.1.5)
 		_omp_version_candidates "18.1.5" 0010 0030 0038
