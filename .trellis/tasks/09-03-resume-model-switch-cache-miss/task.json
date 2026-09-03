@@ -23,6 +23,7 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {
-    "description": "已有請求的會話熱切 model 後，首次 resume 的 prompt cache 不得 miss：resume 後首批 bytes 需與熱切時已寫入快取的 bytes 一致"
+    "description": "已有請求的會話熱切 model 後，首次 resume 的 prompt cache 不得 miss：resume 後首批 bytes 需與熱切時已寫入快取的 bytes 一致",
+    "spec_update": "guides/prompt-cache-diagnosis-guide.md, guides/index.md"
   }
 }
