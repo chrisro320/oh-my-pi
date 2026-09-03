@@ -75,6 +75,45 @@ if [[ "$MODE" == "verify-rollups" ]]; then
 	# 18.0.9 sandboxes and must not see or fail on OMP_PATCH_VERSION.
 	exec bash "${HERE}/verify-patch-family-rollups.sh"
 fi
+
+# Shared versioned-candidate machinery. Usage:
+#   _omp_version_candidates VERSION PATCH_ID...
+# Requires the installed pi-coding-agent to be exactly VERSION, replaces each
+# listed chain entry with its .VERSION-candidates/*-vVERSION-candidate.patch
+# (keeping the entry's package root), and fails closed on any mismatch.
+function _omp_version_candidates {
+	local version="$1"; shift
+	local pkgjson="${NM}/pi-coding-agent/package.json"
+	local installed
+	installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
+	[[ "$installed" == "$version" ]] || {
+		echo "OMP_PATCH_VERSION=$version requires pi-coding-agent $version, found: ${installed:-<unreadable>}" >&2
+		exit 2
+	}
+	local entry name root replaced
+	declare -a version_patches=()
+	for entry in "${PATCHES[@]}"; do
+		name="${entry%%:*}"
+		root="${entry##*:}"
+		replaced=0
+		local pid
+		for pid in "$@"; do
+			if [[ "$name" == "$pid"-* ]]; then
+				local candidate=".${version}-candidates/${name%.patch}-v${version}-candidate.patch"
+				[[ -f "${HERE}/${candidate}" ]] || {
+					echo "candidate patch missing: ${HERE}/${candidate}" >&2
+					exit 2
+				}
+				version_patches+=("${candidate}:${root}")
+				replaced=1
+				break
+			fi
+		done
+		[[ $replaced -eq 0 ]] && version_patches+=("$entry")
+	done
+	PATCHES=("${version_patches[@]}")
+	echo "NOTE: OMP_PATCH_VERSION=$version — entries replaced by candidates: $*" >&2
+}
 # Versioned 0010 selection (opt-in only). Unset keeps the canonical 18.0.9
 # chain exactly as before; OMP_PATCH_VERSION=18.0.11 swaps entry 0010 for the
 # versioned candidate under .18.0.11-candidates/ (and requires the installed
@@ -103,8 +142,14 @@ if [[ -n "${OMP_PATCH_VERSION+x}" ]]; then
 		done
 		echo "NOTE: OMP_PATCH_VERSION=18.0.11 — 0010 served from ${IDLE0010_CANDIDATE}" >&2
 		;;
+	18.1.2)
+		_omp_version_candidates "18.1.2" 0010 0030 0038
+		;;
+	18.1.5)
+		_omp_version_candidates "18.1.5" 0010 0030 0038
+		;;
 	*)
-		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11)" >&2
+		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11, 18.1.2, 18.1.5)" >&2
 		exit 2
 		;;
 	esac

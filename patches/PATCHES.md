@@ -3,6 +3,7 @@
 > 生成 2026-08-28（第六次修訂：18.0.9 功能族 rollup；舊定稿補丁原樣退役）。
 > 權威 patch 集在 `~/.omp/patches/`（實際生效清單以 `apply.sh` 的 `PATCHES` 陣列為準，本文件是鏡像）。
 > 截至 2026-09-02，active chain 共 18 項：原 15 項加上 0038（provider-only date/cwd reminder）、0041（Anthropic usage turn gate 降為 60s）與 0042（resume 後 read description 同步）；Responses audit 的 `input` / `instructions` 修改屬手動 extension candidate，不進 apply.sh，待部署時按三副本 parity gate 同步。
+> **版本化 candidates（2026-09-03）**：`OMP_PATCH_VERSION=18.1.2` 換 0010/0030/0038（`.18.1.2-candidates/`）；`=18.1.5` 換同三項（`.18.1.5-candidates/`，自 pristine 18.1.5 + 15 層基底反導，apply→18/18、再跑 18 SKIP 冪等、revert 後四套件與 tarball 逐字節一致）。18.1.2 那批原以「上游 append-only `DateCwdReminderInjector` 已解決跨日」為由退役 0038 candidate——**該判斷已被 2026-09-03 payload 逐字節比對證偽**：同一進程內跨日時 `messages[1]` 仍被原地改寫（0067→0071，`Today: 09-02`→`Today: 09-03`），class 版以物件身份為錨，錨點 churn 即 re-anchor 重注入 firstUser。0038 的 provider-only tail 語義在所有版本仍是必要修復，候選已放回兩條鏈。
 
 ## 0. 运行模式
 

@@ -6,6 +6,8 @@ console.log("=== Testing Antigravity Request Envelope (0014) ===");
 
 const fakeModel: Model<"google-gemini-cli"> = {
 	id: "gemini-3.7-flash",
+	identity: { class: "gemini" },
+	compat: {},
 	provider: "google-antigravity",
 	api: "google-gemini-cli",
 	input: ["text"],

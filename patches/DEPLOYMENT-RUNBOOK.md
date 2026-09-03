@@ -27,15 +27,16 @@ sha256sum patches/*.patch
 ```text
 未設定 OMP_PATCH_VERSION       使用 canonical 18.0.9 路徑
 OMP_PATCH_VERSION=18.0.11      僅使用 18.0.11 candidate 0010
+OMP_PATCH_VERSION=18.1.2       替換 candidates 0010、0030；排除 0038，使用上游實作
 其他值                         exit 2，禁止猜測套用
 ```
 
-18.0.11 部署命令：
+18.1.2 部署命令（最新版；18.0.11 部署命令形狀相同，僅把版本號換回 18.0.11，其門禁只換 `0010` candidate）：
 
 ```sh
-bun add -g @oh-my-pi/pi-coding-agent@18.0.11
-OMP_PATCH_VERSION=18.0.11 ~/.omp/patches/apply.sh
-OMP_PATCH_VERSION=18.0.11 ~/.omp/patches/apply.sh --check
+bun add -g @oh-my-pi/pi-coding-agent@18.1.5
+OMP_PATCH_VERSION=18.1.5 ~/.omp/patches/apply.sh
+OMP_PATCH_VERSION=18.1.5 ~/.omp/patches/apply.sh --check
 ~/.bun/bin/omp --version
 ```
 
@@ -80,7 +81,7 @@ CLAUDE_CODE_OAUTH_TOKEN
 
 判定條件：
 
-- 15/15 active entries 套用成功。
+- 部署版本的 active entries 全部套用成功：18.0.9／18.0.11 為 17/17，18.1.2 為 16/16。
 - `.rej` 為 0；`.orig` 必須按既有 patch(1) 行為分類，不得混入生成的 patch。
 - revert 後非工具殘留差異為 0。
 - 第二輪樹雜湊一致，apply 冪等。
@@ -199,14 +200,14 @@ usage_limit_reached
 
 ```sh
 ~/.bun/bin/omp --version
-OMP_PATCH_VERSION=18.0.11 ~/.omp/patches/apply.sh --check
+OMP_PATCH_VERSION=<部署版本> ~/.omp/patches/apply.sh --check
 ```
 
 確認：
 
 - 版本為預期版本。
-- 15 個補丁均為 `APPLIED`。
-- 18.0.11 的 `0010` candidate 已被選中。
+- 部署版本的補丁全部為 `APPLIED`：18.0.9／18.0.11 為 17 項，18.1.2 為 16 項。
+- 版本選擇正確：18.0.11 換 `0010`；18.1.2 換 `0010`、`0030` 並排除 `0038`，使用上游 `DateCwdReminderInjector`。
 - `bin/omp` 指向 patched `src/cli.ts`。
 - live DB 與 credential 沒有被新版 sandbox 命令接觸。
 
@@ -215,12 +216,11 @@ OMP_PATCH_VERSION=18.0.11 ~/.omp/patches/apply.sh --check
 回退前先停止 runtime，保留獨立的 18.0.9 路徑；不要刪 canonical `0010`。
 
 ```sh
-OMP_PATCH_VERSION=18.0.11 ~/.omp/patches/apply.sh --revert
+OMP_PATCH_VERSION=<部署版本> ~/.omp/patches/apply.sh --revert
 bun add -g @oh-my-pi/pi-coding-agent@18.0.9
 ~/.omp/patches/apply.sh
 ```
-
-回退後重新檢查版本、symlink、補丁狀態與 CLI smoke；不要把 18.0.11 candidate 套到 18.0.9。
+回退後重新檢查版本、symlink、補丁狀態與 CLI smoke；不要把版本 candidates 套到不符的版本（18.0.11 candidate 只在 18.0.11 上，18.1.2 的 0010／0030 candidates 只在 18.1.2 上；回 18.0.9 用 canonical 鏈裸跑 `apply.sh`）。
 
 ## 8. 本次事故教訓
 
