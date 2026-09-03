@@ -1,0 +1,28 @@
+{
+  "id": "resume-model-switch-cache-miss",
+  "name": "resume-model-switch-cache-miss",
+  "title": "修復 switch model 後首次 resume 的 prompt cache miss",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-09-03",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "description": "已有請求的會話熱切 model 後，首次 resume 的 prompt cache 不得 miss：resume 後首批 bytes 需與熱切時已寫入快取的 bytes 一致"
+  }
+}
