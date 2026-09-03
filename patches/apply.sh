@@ -68,6 +68,7 @@ PATCHES=(
 	"0038-omp-date-cwd-reminder-provider-tail.patch:${NM}"
 	"0041-omp-anthropic-usage-turn-gate-60s.patch:${AGENT}"
 	"0042-omp-resume-read-description-refresh.patch:${AGENT}"
+	"0043-omp-interrupt-prune-symmetry.patch:${AGENT}"
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then
@@ -445,6 +446,7 @@ if [[ "$MODE" == "apply" ]]; then
 	bun "${HERE}/verify-prefix-cache-compaction.ts"
 	bun "${HERE}/verify-provider-image-budget.ts"
 	bun "${HERE}/verify-hindsight-recall-snapshot.ts"
+	OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" bun "${HERE}/verify-interrupt-prune-symmetry.ts"
 fi
 if [[ "$MODE" != "check" ]]; then
 	if [[ "$OFFLINE_VERIFY" == "1" ]]; then
