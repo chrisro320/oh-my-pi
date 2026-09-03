@@ -23,7 +23,7 @@ Do **not** hand-copy `.trellis/scripts` from a random tree. The CLI writes `.tre
 
 ## Step 3: Fork overlay (this machine)
 
-Official `session-insight` still says `trellis mem`, which cannot see omp history. Official commands also omit `/trellis-paused-work`. If the local fork exists, overlay those two surfaces. If it does not, skip this step and say so.
+Official 0.6.15 does ship `continue.md` / `finish-work.md` / `paused-work.md`, but they are generic (platform tokens like `{{PYTHON_CMD}}`, `{{CLI_FLAG}}`, `AskUserQuestion`, `TaskCreate`, `/trellis:continue`). The fork edition hard-codes omp equivalents (`python3`, `--platform omp`, `ask`, `todo`, `/trellis-continue`), so the omp build must always win. `trellis-init.md` itself is not shipped by the official template. If the local fork exists, overlay the fork's commands + skills unconditionally; if it does not, skip this step and say so.
 
 Fork root (first path that exists):
 
@@ -31,18 +31,100 @@ Fork root (first path that exists):
 
 ```bash
 FORK="$HOME/orca/projects/trellis/omp"
+HASH_FILE=".trellis/.template-hashes.json"
 
-# paused-work + this init command — official template does not ship them
+# Read the hash the CLI recorded for a shipped path (official original), or ''
+# if the file is not recorded / the hash file is absent. Schema: hashes is a
+# flat map of "path" -> "<sha256 hex>" (plain string, NOT an object).
+hash_of() {
+  [ -f "$HASH_FILE" ] || { printf ''; return; }
+  python3 -c "import json
+try:
+    d = json.load(open('$HASH_FILE'))
+    print(d.get('hashes', {}).get('$1', ''))
+except Exception:
+    print('')"
+}
+
+# Official computeHash: sha256 of CRLF->LF-normalized utf-8 content. Mirror it
+# so a file that is byte-identical-but-CRLF still counts as an untouched
+# original. To be safe we compute over the same normalized bytes.
+current_hash() {
+  python3 -c "import hashlib,sys
+data = open('$1','rb').read().replace(b'\r\n', b'\n')
+print(hashlib.sha256(data).hexdigest())"
+}
+
+# Write the fork file into place. Deliberately do NOT update hashes[key]: the
+# stored hash still describes the official original, so a later 'trellis
+# update' sees the fork content as a user-modified file and preserves it
+# (or asks) rather than silently reverting the omp adaptation to upstream.
+write_managed() {
+  src="$1"; key="$2"
+  cp -L "$src" "$key"
+}
+
+# omp commands: the fork edition hard-codes omp platform tokens and must win
+# over the generic official template, but never clobber a user's edits.
+# Only replace when the on-disk file still matches the hash the CLI recorded
+# (untouched original). Otherwise keep it and drop a .new alongside.
+# trellis-init.md is fork-only (the official template never ships it), so it
+# is installed only when absent.
 mkdir -p .omp/commands
-for f in trellis-paused-work.md trellis-init.md; do
-  if [ ! -e ".omp/commands/$f" ]; then
-    cp -L "$FORK/commands/$f" ".omp/commands/$f"
+for f in trellis-continue.md trellis-finish-work.md trellis-paused-work.md; do
+  key=".omp/commands/$f"
+  if [ ! -f "$key" ]; then
+    write_managed "$FORK/commands/$f" "$key"
+    echo "installed $f (absent)"
+  else
+    orig="$(hash_of "$key")"
+    now="$(current_hash "$key")"
+    if [ -n "$orig" ] && [ "$orig" = "$now" ]; then
+      write_managed "$FORK/commands/$f" "$key"
+      echo "overlaid $f (matches official hash)"
+    else
+      cp -L "$FORK/commands/$f" "$key.new"
+      echo "kept $f (user-modified or unrecorded); wrote $key.new"
+    fi
   fi
 done
+if [ ! -e ".omp/commands/trellis-init.md" ]; then
+  cp -L "$FORK/commands/trellis-init.md" ".omp/commands/trellis-init.md"
+fi
 
-# session-insight must be the omp edition (trellis-mem). Replace the official copy.
-rm -rf .omp/skills/trellis-session-insight
-cp -rL "$FORK/skills/trellis-session-insight" .omp/skills/trellis-session-insight
+# session-insight must be the omp edition (trellis-mem). The official CLI
+# ships a version and records its hash; replace it only when untouched,
+# otherwise preserve the user copy and drop the fork edition as .new.
+si_key=".omp/skills/trellis-session-insight/SKILL.md"
+if [ ! -f "$si_key" ]; then
+  cp -rL "$FORK/skills/trellis-session-insight" .omp/skills/trellis-session-insight
+  echo "installed session-insight (absent)"
+else
+  orig="$(hash_of "$si_key")"
+  now="$(current_hash "$si_key")"
+  if [ -n "$orig" ] && [ "$orig" = "$now" ]; then
+    rm -rf .omp/skills/trellis-session-insight
+    cp -rL "$FORK/skills/trellis-session-insight" .omp/skills/trellis-session-insight
+    echo "overlaid session-insight (matches official hash)"
+  else
+    cp -rL "$FORK/skills/trellis-session-insight" .omp/skills/trellis-session-insight.new
+    echo "kept session-insight (user-modified or unrecorded); wrote .new"
+  fi
+fi
+
+# omp thin-shell skills: omp dispatches slash commands poorly (models trigger
+# skills, not slashes). continue / finish-work / paused-work ship as skill
+# discovery pointers into .omp/commands/. The official scaffold never ships
+# these skill dirs, so install only when absent (preserve any user copy).
+for s in trellis-continue trellis-finish-work trellis-paused-work; do
+  if [ ! -e ".omp/skills/$s/SKILL.md" ]; then
+    mkdir -p ".omp/skills/$s"
+    cp -L "$FORK/skills/$s/SKILL.md" ".omp/skills/$s/SKILL.md"
+    echo "installed thin-shell skill $s (absent)"
+  else
+    echo "kept thin-shell skill $s (already present)"
+  fi
+done
 ```
 
 Do not rewrite the rest of `.omp/` into absolute symlinks. That wiring is kimi-agent-specific and is gitignored there.
