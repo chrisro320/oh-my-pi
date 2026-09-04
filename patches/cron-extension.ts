@@ -67,7 +67,10 @@ const LOG_PATH =
 const LOG_MAX_BYTES = 1024 * 1024;
 const MIN_INTERVAL_MS = 3 * 60 * 1000;
 const MAX_INTERVAL_MS = 2_147_483_647;
-const KEEPALIVE_PROMPT = "Prompt-cache keepalive. Reply with exactly `.` and do not call tools.";
+// The nonce keeps every attempt's final message unique. Kimi bills a
+// byte-identical repeat request as full input (usage `input=0` with cacheRead
+// charged at the input rate); a fresh suffix keeps usage in the cached bucket.
+const KEEPALIVE_PROMPT_BASE = "Prompt-cache keepalive. Reply with exactly `.` and do not call tools.";
 
 function parseDuration(raw: string): { intervalMs: number; label: string } | { error: string } {
 	const match = /^\s*(\d+(?:\.\d+)?)\s*([smh])\s*$/i.exec(raw);
@@ -267,7 +270,8 @@ export default function (pi: ExtensionAPI): void {
 			state.abort = abort;
 			state.attempts += 1;
 			state.remainingRuns = Math.max(0, (state.remainingRuns ?? 1) - 1);
-			const response = await ctx.runIdleEphemeralTurn({ promptText: KEEPALIVE_PROMPT, signal: abort.signal });
+			const promptText = `${KEEPALIVE_PROMPT_BASE}\n[keepalive ${startedAt} ${state.attempts}]`;
+			const response = await ctx.runIdleEphemeralTurn({ promptText, signal: abort.signal });
 			if (!response) {
 				record({
 					at: Date.now(),

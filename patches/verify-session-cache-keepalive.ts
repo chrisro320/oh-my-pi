@@ -278,9 +278,18 @@ await outcomes.timers.fireNext();
 assert.match(await toolText(outcomes, "status"), /hits 1/);
 assert.match(await toolText(outcomes, "status"), /remaining 2\/3 attempts/);
 assert.equal(outcomes.timers.callbacks.size, 1, "settled hit schedules exactly one replacement");
-assert.equal(observedPrompt, "Prompt-cache keepalive. Reply with exactly `.` and do not call tools.");
-outcomes.setRun(async () => makeResponse(0));
+assert.match(
+	observedPrompt ?? "",
+	/^Prompt-cache keepalive\. Reply with exactly `\.` and do not call tools\.\n\[keepalive \d+ \d+\]$/,
+	"each attempt must carry a unique nonce suffix",
+);
+let observedPrompt2: string | undefined;
+outcomes.setRun(async options => {
+	observedPrompt2 = options.promptText;
+	return makeResponse(0);
+});
 await outcomes.timers.fireNext();
+assert.notEqual(observedPrompt2, observedPrompt, "consecutive attempts must not repeat the same prompt");
 assert.match(await toolText(outcomes, "status"), /misses 1/);
 assert.match(await toolText(outcomes, "status"), /remaining 1\/3 attempts/);
 assert.equal(outcomes.timers.callbacks.size, 1, "settled miss schedules exactly one replacement");
