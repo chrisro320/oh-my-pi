@@ -83,6 +83,150 @@ grep -n 'muse' vendor/pi-commandcode-provider/src/commandcode-catalog.ts
 
 ---
 
+## 根因類別：第三方 anthropic 網關被塞 Claude Code 偽裝頭
+
+**症狀**：某個 `api: anthropic-messages` 的第三方網關，同一份歷史在網關自家 web
+能命中快取，走 omp 卻 `cacheRead` 鎖死在某個固定值不隨歷史增長，每輪 input
+全額計費。
+
+**根因**（2026-09-04 hyper.charm.land 案例）：
+
+```ts
+// pi-coding-agent/src/config/custom-models.ts:58
+function resolveCustomModelIsOAuth(api, providerAuth) {
+  if (providerAuth === "oauth") return true;
+  if (providerAuth !== undefined) return undefined;
+  if (api === "anthropic-messages") return true;   // ← 這行
+  return undefined;
+}
+```
+
+自定義 provider 只要 `api: anthropic-messages` 且沒顯式寫 `auth`，就被判定為
+OAuth 客戶端。於是 `anthropic.ts:3845` 的門放行，`buildAnthropicSystemBlocks`
+在 **system[0]** 插入計費頭：
+
+```
+x-anthropic-billing-header: cc_version=2.1.257.9c3; cc_entrypoint=cli; cch=b75b5;
+```
+
+`cch` 是 `wrapFetchForCch` 對**整個 request body** 做的 xxHash64 低 20 位
+（`anthropic.ts:704`）。body 每輪都變 → cch 每輪都變 → 而它躺在整個前綴的**第
+一個 block**，第三方網關按字面前綴比對，從第 0 個 token 就斷。
+
+官方 Anthropic 不受影響：這是 CC 自家協議欄位，服務端不拿它當快取鍵。
+
+**修法**（配置層，不需要 patch）：
+
+```yaml
+  <provider>:
+    api: anthropic-messages
+    compat:
+      injectClaudeCodeInstruction: false
+```
+
+只關 system 注入；CC 的 UA 與 `anthropic-beta` header 照發，鑑權不受影響。
+
+**不要改成 `auth: apiKey`**：那會把憑證從 `Authorization: Bearer` 切成
+`x-api-key`，只認 Bearer 的網關直接 401，而且 omp 會轉去 authStorage 找該
+provider 憑證、忽略 models.yml 裡的 `apiKey`。
+
+**為何不出 patch**：`models.yml` 在家目錄，`bun update` 不會覆蓋；補丁鏈只為
+保護 `node_modules`。改上游那條預設等於改語義（要判「非官方 baseUrl 且 key 不含
+`sk-ant-oat`」），得跟著上游版本走，是淨負債。
+
+**推廣**：以後每接一個 anthropic 相容網關，models.yml 必須帶這個 compat 旗標。
+`openai-completions` / `openai-responses` 的 provider 不走這條路，不受影響——
+這也是為什麼同一個模型在 kimi-code / cpa（completions）正常、只有 anthropic
+端點異常。
+
+---
+
+## 取證方法：錄製反向代理
+
+extension 層的 payload archive 拿到的是 `before_provider_request` 的物件，
+**不等於出站 bytes**。上例的 `cch` 就是在 fetch wrapper 裡才寫進 body 的，
+archive 完全看不見；把 archive 的 payload 重放給網關反而每次都命中，會把人
+引向「網關路由不穩」的錯誤結論。
+
+要看真正的 wire bytes，起一個錄製反代：
+
+1. 本地 HTTP 反代 → 上游 HTTPS，落盤 `{path, headers}` + body，並解析 SSE 的
+   `message_delta.usage`
+2. 隔離 `HOME`（`HOME=/tmp/omp-probe-home`）建最小 `models.yml` / `config.yml`，
+   `baseUrl` 指向反代 — **絕不動 live `~/.omp/agent/`**
+3. `omp -p` 起首輪、`omp -c -p` 續輪，跑 3~5 輪
+4. 逐輪 diff wire body 的 `system[i]` / `tools` / `messages[j]` hash，找第一個分歧點
+
+判讀：`sysdiff=[0]` 每輪都有 = 前綴第一個 block 就在漂，後面全白搭。
+
+改隔離 `models.yml` 後若出現 401 且**反代沒收到任何請求**，是 probe home 的
+`models.db` 快取了舊 provider 定義，刪 `models.db*` `agent.db*` 重跑。
+
+驗收（本案）：
+
+| | 每輪 input | cacheRead |
+|---|---|---|
+| 修前 | 6519 → 6842 遞增 | 11264 鎖死 |
+| 修後 | 321 → 693 | 17408 全命中 |
+
+---
+
+## 暖機窗口：短會話看不到命中，不等於不命中
+
+hyper 的 `kimi-k3` 端**常見第 3~4 輪才開始命中，且不穩定**。同一網關的
+`qwen3.8-flash` 第 2 輪就命中，未見翻車。
+
+對照（同一 probe、隔離 HOME、經錄製反代）：
+
+```
+omp probe        1:16925 miss  2:16693 miss  3:hit 16640  4:hit  5:hit  6:hit
+dsh 多輪          1: 9779 miss  2: 9958 miss  3:10099 miss 4:hit 9952  5:hit  6:hit
+omp wire 重放 #0  1 miss 2 miss 3 miss  4:hit 17728  5:hit 17792
+omp wire 重放 #1  1 miss 2 miss 3 miss  4 miss       5:hit 17728
+```
+
+**omp 與 dsh 行為一致**。使用者「dsh 能命中、omp 不能」的印象，來自兩邊會話
+長度不同：dsh 裡聊十幾輪，omp 裡試三輪就換模型，剛好整段落在暖機窗口內。
+
+首次命中落在第 3~5 輪之間浮動，樣本量不足以定出確切輪數，也沒有後端可見性
+去確認機制（推測是快取寫入異步落盤，未證實）。
+
+診斷紀律：**至少跑 6 輪再下結論**。3 輪全 0 是無效樣本，不能當成 miss 的證據。
+
+---
+
+## 反例：補 breakpoint 可能把事情弄壞
+
+直覺是「omp 的 breakpoint 全在 messages 尾部滾動，system+tools 那段固定前綴
+沒有 breakpoint，補上就會命中」。**實測相反。**
+
+用 `before_provider_request` extension 在 `system[-1]` 與 `tools[-1]` 各釘一個
+固定 `cache_control`，其餘不動：
+
+```
+baseline（2 個 breakpoint，都在 messages 尾部）  3 輪起命中
++extension（4 個 breakpoint）                    6 輪全 miss
+```
+
+4 正好是 Anthropic 的 breakpoint 上限。第三方網關在滿編時行為未定義，這裡是
+整段不寫快取。**動 breakpoint 佈局前必須有 A/B wire 數據，不能靠語義推理。**
+
+---
+
+## 判準：什麼才算根因
+
+這次調查走過的彎路值得寫死成規則：
+
+- **能穩定翻轉（miss → hit）的變體才是根因。** 偶爾在第 4 輪命中的變體是暖機
+  窗口的假象，不是證據。
+- **單項剝離全都翻不動，就不要急著歸咎上游。** 先問樣本長度夠不夠。
+- **合成 body 的填充內容要用真實文本。** 用 `"請忽略這段內容。"×900` 這種高
+  重複字串測出來的「前綴命中遞增」是假象，換真實文本就原形畢露。
+- **對照組要跑同樣的輪數。** headless 每次新會話 vs 多輪增長會話，是兩個完全
+  不同的場景，不能互相佐證。
+
+---
+
 ## 已知會隨模型漂移的 prompt 區段
 
 改模型會改變送出的 bytes，以下是會翻的開關：
@@ -163,6 +307,11 @@ activeModel / input / prefixBinding / readDescLen / hasInspectImage
   `vendor/pi-commandcode-provider` 的 symlink，必須改 repo 那一側以保留 git 可審計性。
 - **不要用「樣本沒出現」當成「不存在」**。
 - **不要分段拋結論**。讀完整條鏈再一次給答案，來回翻覆會讓協作者失去信任。
+- **不要把 extension 層的 payload archive 當成出站 bytes**。fetch wrapper 之後
+  才寫進 body 的欄位（`cch`）在 archive 裡看不見，重放 archive 會誤導成
+  「網關不穩」。要真憑據就起錄製反代。
+- **不要在 live `~/.omp/agent/` 上做 provider 實驗**。用隔離 `HOME`，避免污染
+  live `agent.db` / `models.db` 與憑證。
 
 ---
 
@@ -172,4 +321,6 @@ activeModel / input / prefixBinding / readDescLen / hasInspectImage
 - fork overrides：`vendor/pi-commandcode-provider/src/commandcode-catalog-overrides.ts`
 - 能力查詢：`vendor/pi-commandcode-provider/src/models.ts`
 - 永久審計：`~/.omp/agent/extensions/cache-prefix-audit.ts`
+- 網關偽裝判定：`pi-coding-agent/src/config/custom-models.ts:58`
+- CC 計費頭與 cch：`pi-ai/src/providers/anthropic.ts:655-733`、`:3845`
 - 歷史任務：`.trellis/tasks/archive/*/09-03-resume-model-switch-cache-miss/`
