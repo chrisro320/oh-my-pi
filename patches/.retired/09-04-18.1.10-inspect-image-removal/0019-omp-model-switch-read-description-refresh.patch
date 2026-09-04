@@ -1,0 +1,39 @@
+--- a/src/tools/read.ts
++++ b/src/tools/read.ts
+@@ -660,6 +660,10 @@
+ 			INSPECT_IMAGE_ENABLED: this.#inspectImageActive,
+ 		});
+ 	}
++	/** Re-render model- and mode-dependent guidance after session state changes. */
++	refreshDescription(): void {
++		this.description = this.#renderDescription();
++	}
+ 
+ 	/**
+ 	 * Whether the agent can actually reach `inspect_image` right now: exposed
+@@ -690,7 +694,7 @@
+ 		const active = availableOverride ?? this.#resolveInspectImageAvailability();
+ 		if (active !== this.#inspectImageActive) {
+ 			this.#inspectImageActive = active;
+-			this.description = this.#renderDescription();
++			this.refreshDescription();
+ 		}
+ 		return active;
+ 	}
+--- a/src/session/session-tools.ts
++++ b/src/session/session-tools.ts
+@@ -623,6 +623,14 @@
+ 	async syncAfterModelChange(previousEditMode: EditMode): Promise<void> {
+ 		const currentEditMode = this.resolveActiveEditMode();
+ 		const editModeChanged = previousEditMode !== currentEditMode && this.getActiveToolNames().includes("edit");
++		// ReadTool caches its rendered description; refresh it before rebuilding
++		// prompt/tool signatures when a model switch crosses edit-mode families.
++		if (editModeChanged) {
++			const readTool = this.#toolRegistry.get("read") as
++				| { refreshDescription?: () => void }
++				| undefined;
++			readTool?.refreshDescription?.();
++		}
+ 		// The system prompt selects model-specific policy even when it does not display the model id.
+ 		const modelChanged = this.#currentPromptModelKey() !== this.#promptModelKey;
+ 		if (editModeChanged || modelChanged) {

@@ -159,8 +159,15 @@ if [[ -n "${OMP_PATCH_VERSION+x}" ]]; then
 	18.1.5)
 		_omp_version_candidates "18.1.5" 0010 0030 0038
 		;;
+	18.1.10)
+		# 0019/0042 退役：上游移除 inspect_image 與整套 read description refresh
+		# 機制，兩個補丁修的漂移源不存在了（見 .retired/09-04-18.1.10-inspect-image-removal/）。
+		# 0035 新增候選：上游在 TURN_PREFIX_SUMMARIZATION_PROMPT 之後插入 Codex
+		# 判定函式，擠掉 canonical hunk 的下文。
+		_omp_version_candidates "18.1.10" 0010 0030 0035 0038 omit:0019 omit:0042
+		;;
 	*)
-		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11, 18.1.2, 18.1.5)" >&2
+		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11, 18.1.2, 18.1.5, 18.1.10)" >&2
 		exit 2
 		;;
 	esac
