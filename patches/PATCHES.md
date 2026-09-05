@@ -17,7 +17,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前 active：0004、0010、0014、0017、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041、0043、0044）
+## 1. src 補丁（目前 active：0004、0010、0014、0017、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041、0043、0044、0045）
 
 ### 0033–0037 — 功能族 rollup（2026-08-30）
 
@@ -188,6 +188,17 @@
 - **實測**：函數層 `pixel`／`pqh`／`wanzhao` + `openai-responses` 由 **5 → 200**；行為層以本次現場建模（6 張圖散落在中段 `toolResult`）跑 `clampProviderContextImages`，修後 6 張全留、**零歷史條目改寫**，對照組（api 未登記、floor 5）砍掉最老一張並改寫 1 條，即故障形態本身。
 - **自動回歸**：併入既有 `bun patches/verify-provider-image-budget.ts`（不新建腳本），新增六個 api 鍵斷言、三個網關 id 的解析、provider-id 優先級（`umans` 不被 api 覆蓋）、未登記 api 仍 floor，以及上述 toolResult 現場的行為級雙向斷言（含「被淘汰的必須是最老那張」）。負向對照：把 live `snapcompact.ts` 換回 pristine 後執行，如預期在 `PROVIDER_IMAGE_BUDGETS["openai-responses"]` 斷言處失敗（`undefined !== 200`），還原後 `cmp` identical。
 - **遺留（沿用 0015 的判斷，未修）**：`clampProviderContextImages()` 的淘汰順序仍是「丟最老」，預算真觸頂時依舊改寫前綴而非犧牲尾部。放寬到 200 只是讓這條路徑不再被日常讀圖觸發。
+
+### 0045 — snapcompact 歸檔帧按跨 shape 上限 5024 計價，非 Anthropic 模型的壓縮被誤判「不縮反脹」
+
+- **失敗簽名**（真實會話 `01a06d18-8d5b`，主模型 `gpt-6-astra`，`api: openai-responses`，contextWindow 278528）：手動 `/compact` 報 `Error: Compaction failed: snapcompact would not reduce context locally.`，日誌 `omp.2026-09-05.3373605.log:1062`：`Snapcompact projection would not reduce context {model:gpt-6-astra, projected:123253, reductionBaseline:96527}`（projected 反超 baseline 26.7k）。自動路徑（`session-maintenance.ts:3510`）同判，跳過 snapcompact 轉下個方法。
+- **根因**：reduction 檢查比較「壓縮後預估 token」與「壓縮前基線」，兩側都經 `#projectSnapcompactContextTokens`（`session-maintenance.ts:2540`）→ `tokenizer.countMessage(compactionSummary)`。tokenizer 對 summary 的每個歸檔帧 block 一律計 `snapcompact.FRAME_TOKEN_ESTIMATE = 5024`（`tokenizer.ts:289-295`，即高解析 Anthropic 4784 視覺 token 上限 ×1.05 的**跨 shape 保守上限**）。但 openai 家族實際用 `8on22-bw@1568` shape，每帧真實計價 `frameTokenEstimate = 2882`（`snapcompact.ts:familyBilling`，32px patch ×1.2）；google 家族更是固定 1120。5024 對非 Anthropic 模型是**每帧高估 2142**，直接灌進 reduction 側的 projected。
+- **證據鏈（按失敗時刻精確重放，非推斷）**：以 `previousPreserveData`（前次歸檔 10 帧）餵進 `snapcompact.compact()`，新歸檔渲染為 **18 帧**（舊文字折入重渲染）。逐項拆帳：`S_text`（去帧的 summary 文字）= 8325，`S_ceiling`（含帧）= 98757，帧帳單 = 98757−8325 = **90432 = 18 × 5024**，逐位對上。基線 A（要壓的文字）= 63729、R（保留尾段）= 21665。判定：`projected@5024 = S+R = 120422 ≥ A+R = 85394 → REJECT`（與 live 123253/96527 同一決策，差值來自真實 `findCutPoint` 的 turn-split 與我簡化的 keepRecent 切點）；`projected@2882 = 92999 < 96527 → PASS`。**每帧高估 2142 × 18 = 38556，正是 26.7k gap 的全部來源。**
+- **關鍵不對稱**：`#computeSnapcompactMaxFrames`（cap 側）用 5024 是**對的**——那是窗口適配的保守上限，決定最多塞幾帧。錯的只有 reduction 側拿同一個保守上限去跟基線比「有沒有縮」：對 Anthropic 恰好準確，對 openai/google 系統性高估，把真能縮的壓縮判成反脹。
+- **修法**：只改 `#projectSnapcompactContextTokens` 的 reduction 計價——數出 re-attached 帧數 `frameCount`，減去 `frameCount × max(0, FRAME_TOKEN_ESTIMATE − shape.frameTokenEstimate)`，還原成實際 shape 單價。`shape` 用 `resolveShape(this.#model, snapcompact.shape 設定)` 取，與 cap 側同源。`#computeSnapcompactMaxFrames` 保持 5024 不動，窗口適配仍按保守上限，只有「有沒有縮」這一步改用準確價。
+- **實測**：`bun build --no-bundle` 通過；補丁 reverse→pristine、forward→live 均 `cmp` 逐字節一致。重放斷言：5024 上限 REJECT、shape 重計價 PASS（見下）。
+- **自動回歸**：新增 `bun patches/verify-snapcompact-frame-reprice.ts <session.jsonl>`（獨立重放，同 0020 慣例：import 用絕對路徑避 bun 解析到 cache 舊副本）。斷言三件事：① fixture 在 5024 上限下仍復現 `S+R ≥ A+R` 拒絕、② 按 `shape.frameTokenEstimate` 重計價後 `S_real+R < A+R` 通過、③ `shape.frameTokenEstimate < FRAME_TOKEN_ESTIMATE`（前提未破）。以真實會話 `01a06d18` 執行 `frames=18 real=2882 ceiling=5024 → PASS`。該腳本重放的是**決策算式**（它自己算 S/A/R，不 import 補丁後的 guard），故對 pristine／live 源碼結果相同——補丁與算式的同步由斷言③的 delta 表達式錨定（與補丁減去的 `frameCount × (5024 − shape.frameTokenEstimate)` 同式）；補丁本身正確性由 `bun build --no-bundle`、reverse→pristine／forward→live `cmp` 逐字節、以及 `apply.sh --check` 的 0045 APPLIED 三重把關。
+- **未修（對稱遺留）**：`tokenizer.countMessage` 對 `compactionSummary` 帧的 5024 計價也流入 context-usage 顯示與 threshold 觸發估算（非 Anthropic 模型偏保守、多報幀成本）。本補丁只在 reduction 判定處局部修正，不動全域計數器——全域 model-aware 計價要讓 Tokenizer 拿得到 shape，改動面大，且偏保守不會誤觸發壓縮，暫不改。
 
 ### 0014 — Google Antigravity 確定性 session/trajectory ID 派生
 - `pi-ai/src/providers/google-gemini-cli.ts`：

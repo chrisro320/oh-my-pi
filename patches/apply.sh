@@ -70,6 +70,7 @@ PATCHES=(
 	"0042-omp-resume-read-description-refresh.patch:${AGENT}"
 	"0043-omp-interrupt-prune-symmetry.patch:${AGENT}"
 	"0044-omp-image-budget-wire-api-family.patch:${NM}"
+	"0045-omp-snapcompact-frame-reprice.patch:${AGENT}"
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then

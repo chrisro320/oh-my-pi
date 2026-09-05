@@ -1,0 +1,33 @@
+--- a/src/session/session-maintenance.ts
++++ b/src/session/session-maintenance.ts
+@@ -2536,6 +2536,18 @@
+ 	 * compacted context is rebuilt, so the estimate matches the wire shape, and
+ 	 * lets the caller decide whether snapcompact brought the context under the
+ 	 * window or should fall back to an LLM summary.
++	 *
++	 * The tokenizer bills every re-attached frame at the cross-shape ceiling
++	 * `FRAME_TOKEN_ESTIMATE` (5024, the high-res Anthropic cap +5%). That is
++	 * the right conservative bound for the frame-count cap, but on the
++	 * reduction side it overcharges non-Anthropic archives: an OpenAI-family
++	 * `8on22-bw` frame actually bills 2,882 and a Google-family frame 1,120.
++	 * A 18-frame archive is then priced ~38k tokens too high, and a genuinely
++	 * reducing compaction reads as "would not reduce context" and is rejected
++	 * (patch 0045). Reprice the frame charge to the live shape's
++	 * `frameTokenEstimate`; the `#computeSnapcompactMaxFrames` cap keeps the
++	 * 5024 ceiling, so the window-fit budget still sizes from the conservative
++	 * bound and only the reduction comparison gets the accurate price.
+ 	 */
+ 	#projectSnapcompactContextTokens(
+ 		preparation: CompactionPreparation,
+@@ -2558,6 +2570,11 @@
+ 		let tokens =
+ 			computeNonMessageTokens(this.#host.nonMessageTokenSource(), this.#tokenizer) +
+ 			this.#tokenizer.countMessage(summaryMessage);
++		const frameCount = blocks?.filter(block => block.type !== "text").length ?? 0;
++		if (frameCount > 0) {
++			const shape = snapcompact.resolveShape(this.#model, this.#host.settings.get("snapcompact.shape"));
++			tokens -= frameCount * Math.max(0, snapcompact.FRAME_TOKEN_ESTIMATE - shape.frameTokenEstimate);
++		}
+ 		tokens += this.#tokenizer.countMessages(preparation.recentMessages, options);
+ 		return tokens;
+ 	}
