@@ -500,6 +500,119 @@ function createHarness(): {
 }
 
 // ---------------------------------------------------------------------------
+// 3b. Interleaved MODELS in one session: the verdict must be explained by the
+//     diff of the model whose usage arrived, not by whichever model happened
+//     to send the last request.
+//
+//     The diff is computed when a REQUEST leaves and the verdict is written
+//     when the RESPONSE arrives, so a single diff slot is claimed by the last
+//     requester. Observed on session 01a07221: a parallel `gpt-5.6-luna` agent
+//     slotted 57 requests between `deepseek-v4-pro-0813`'s 37, and one of them
+//     landed between deepseek's request and its response — the deepseek miss
+//     was then blamed on luna's diff, with an index past deepseek's own
+//     message count.
+// ---------------------------------------------------------------------------
+{
+	const SESSION = "session-crosstalk";
+	const MAIN = "deepseek-v4-pro-0813";
+	const INTERLOPER = "gpt-5.6-luna";
+	const harness = createHarness();
+
+	const mainTurn1 = anthropicPayload(
+		[
+			{ role: "user", content: [{ type: "text", text: "read the loader" }] },
+			{ role: "assistant", content: [{ type: "text", text: "reading" }] },
+		],
+		{ model: MAIN, sessionId: SESSION },
+	);
+	// Mid-history rewrite: messages[0] changes in place — the real bug class.
+	const mainTurn2 = anthropicPayload(
+		[
+			{ role: "user", content: [{ type: "text", text: "read the loader EDITED" }] },
+			{ role: "assistant", content: [{ type: "text", text: "reading" }] },
+			{ role: "user", content: [{ type: "text", text: "continue" }] },
+		],
+		{ model: MAIN, sessionId: SESSION },
+	);
+	// The interloper carries its own system prompt, so against the shared
+	// baseline it reads as SYSTEM_DRIFT — a different kind, which is what makes
+	// the misattribution visible.
+	const interloperTurn = anthropicPayload([{ role: "user", content: [{ type: "text", text: "title this" }] }], {
+		model: INTERLOPER,
+		sessionId: SESSION,
+		system: [{ type: "text", text: "You name conversations." }],
+	});
+
+	harness.emit("before_provider_request", { payload: mainTurn1 }, "ctx-crosstalk");
+	harness.emit("before_provider_request", { payload: mainTurn2 }, "ctx-crosstalk");
+	harness.emit("before_provider_request", { payload: interloperTurn }, "ctx-crosstalk");
+
+	const requestKinds = logLines()
+		.filter(line => line.sessionId === SESSION && line.usage === undefined)
+		.map(line => line.diff.kind);
+	assert.deepEqual(
+		requestKinds,
+		["IDENTICAL", "HISTORY_REWRITE", "SYSTEM_DRIFT"],
+		"the two models must produce distinguishable diffs for this fixture to prove anything",
+	);
+
+	harness.emit(
+		"message_end",
+		{ message: { role: "assistant", model: MAIN, usage: { input: 109_005, cacheRead: 0, cacheWrite: 0 } } },
+		"ctx-crosstalk",
+	);
+	const mainVerdict = logLines().at(-1);
+	assert.equal(
+		mainVerdict.diff.kind,
+		"HISTORY_REWRITE",
+		"the main model's miss must be explained by its OWN diff, not the interloper's SYSTEM_DRIFT",
+	);
+	assert.equal(mainVerdict.model, MAIN, "the verdict row must name the model it judged");
+	assert.match(mainVerdict.verdict, /^MISS CAUSED BY HISTORY_REWRITE/);
+
+	// Symmetric: the interloper's own usage still gets its own diff.
+	harness.emit(
+		"message_end",
+		{ message: { role: "assistant", model: INTERLOPER, usage: { input: 800, cacheRead: 0, cacheWrite: 800 } } },
+		"ctx-crosstalk",
+	);
+	const interloperVerdict = logLines().at(-1);
+	assert.equal(interloperVerdict.model, INTERLOPER);
+	assert.equal(interloperVerdict.diff.kind, "SYSTEM_DRIFT", "each model keeps its own slot");
+
+	// A response with no model field (shapes that omit it) must still be
+	// explained when only one model has been seen — single-model sessions keep
+	// the pre-change behaviour, which section 3 above depends on.
+	const soloHarness = createHarness();
+	const solo = anthropicPayload([{ role: "user", content: [{ type: "text", text: "solo" }] }], {
+		model: MAIN,
+		sessionId: "session-solo",
+	});
+	soloHarness.emit("before_provider_request", { payload: solo }, "ctx-solo");
+	soloHarness.emit(
+		"before_provider_request",
+		{
+			payload: anthropicPayload([{ role: "user", content: [{ type: "text", text: "solo EDITED" }] }], {
+				model: MAIN,
+				sessionId: "session-solo",
+			}),
+		},
+		"ctx-solo",
+	);
+	soloHarness.emit(
+		"message_end",
+		{ message: { role: "assistant", usage: { input: 10, cacheRead: 0, cacheWrite: 10 } } },
+		"ctx-solo",
+	);
+	const soloVerdict = logLines().at(-1);
+	assert.match(
+		soloVerdict.verdict,
+		/^MISS CAUSED BY HISTORY_REWRITE/,
+		"a modelless response in a single-model session must fall back to the lone slot",
+	);
+}
+
+// ---------------------------------------------------------------------------
 // 4. Headers: per-session/per-host scoping; TTL + envelope drift detection
 // ---------------------------------------------------------------------------
 {

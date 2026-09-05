@@ -129,7 +129,16 @@ interface SessionState {
 	 *  mechanism keeps distinct models in one session from overwriting each
 	 *  other's baseline. */
 	recent?: Fingerprint[];
-	lastDiff?: Diff;
+	/** Latest diff per model id.
+	 *
+	 *  The verdict is written when the RESPONSE arrives, but the diff is
+	 *  computed when a REQUEST leaves. A single slot is therefore claimed by
+	 *  whichever model requested last — and a session that interleaves models
+	 *  (a parallel agent, a keepalive, a title generator) routinely slots
+	 *  another model's request in between. The verdict then names a rewrite
+	 *  from a history this response never saw, with an index past its own
+	 *  message count, and reads as a confident root cause. */
+	lastDiffByModel?: Record<string, Diff>;
 	note: string;
 }
 
@@ -817,7 +826,7 @@ export default function (pi: ExtensionAPI): void {
 			const prev = st.last;
 			const d: Diff = prev ? diff(prev, next) : { kind: "IDENTICAL", detail: "no baseline" };
 			const crossProcess = prev !== undefined && prev.pid !== next.pid;
-			st.lastDiff = d;
+			st.lastDiffByModel = { ...st.lastDiffByModel, [next.model]: d };
 			st.note = `${d.kind}${d.index !== undefined ? `@${d.index}` : ""}${crossProcess ? " (cross-process)" : ""} session=${sessionKey}`;
 
 			// Annotation only. A side-channel or keepalive predecessor carries a
@@ -887,8 +896,20 @@ export default function (pi: ExtensionAPI): void {
 			const cacheWrite = typeof usage.cacheWrite === "number" ? usage.cacheWrite : 0;
 			const input = typeof usage.input === "number" ? usage.input : 0;
 
+			const model = "model" in message && typeof message.model === "string" ? message.model : undefined;
 			const st = loadState(activeSessionKey);
-			const d = st.lastDiff;
+			// Match the diff to THIS response's model. Single-model sessions keep
+			// the old behaviour via the lone-slot fallback; only an interleaved
+			// session (where the unmatched slot is the actual bug) reports no
+			// diff rather than another model's.
+			const slots = st.lastDiffByModel ?? {};
+			const slotKeys = Object.keys(slots);
+			const d =
+				model !== undefined && slots[model] !== undefined
+					? slots[model]
+					: slotKeys.length === 1
+						? slots[slotKeys[0]]
+						: undefined;
 			const broken = d !== undefined && d.kind !== "APPEND_ONLY" && d.kind !== "IDENTICAL";
 			// Diagnostic-only note: annotates ANY verdict, never replaces the
 			// prefix diagnosis. A clean-looking turn that swapped TTL pools
@@ -912,6 +933,7 @@ export default function (pi: ExtensionAPI): void {
 				`${JSON.stringify({
 					at: new Date().toISOString(),
 					sessionId: activeSessionKey,
+					model: model ?? "unknown",
 					usage: { input, cacheRead, cacheWrite },
 					verdict,
 					diff: d,
