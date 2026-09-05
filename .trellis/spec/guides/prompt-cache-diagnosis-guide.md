@@ -83,6 +83,57 @@ grep -n 'muse' vendor/pi-commandcode-provider/src/commandcode-catalog.ts
 
 ---
 
+## 根因類別：圖片預算表缺 wire-api 鍵（同一顆炸彈已引爆三次）
+
+**症狀**：`cacheRead` 鎖死在某個**固定值**不隨歷史增長、`input` 全額，命中率 10~20%；
+但只有部分輪次中彈，相鄰輪次 98%+。中彈輪次的共同點是「這一輪之前剛讀過一張新圖」。
+
+**根因**：`clampProviderContextImages()`（`pi-coding-agent/src/session/provider-image-budget.ts`）
+以 `providerImageBudget(model.provider, model.api)` 取每請求圖片上限，超額則**從最老處丟棄**。
+查表順序是 provider id → wire api → `DEFAULT_PROVIDER_IMAGE_BUDGET = 5`。
+手寫 `models.yml` 的網關 id（`pixel`、`hyper`、`pqh`…）按設計不在表內，
+**唯一的擋牆就是 wire-api 鍵**；該鍵缺失即落 floor 5，於是每讀一張新圖就砍掉最老那張，
+砍的位置在歷史中段 → 該點之後全部重算。
+
+關鍵欺騙性：**只擦 wire、不動持久化**。session jsonl 裡那條 toolResult 的
+`content[1]` 仍是完整 `blob:sha256:` 引用、`prunedAt` 為空、blob 檔案還在。
+單看 jsonl 或磁碟狀態完全看不出問題，必須比對 payload。
+
+三次引爆同一處：
+
+| 日期 | 缺的鍵 | 觸發者 | 代價 |
+|---|---|---|---|
+| 2026-08-25 | `google-antigravity`（provider） | 發任何一張圖 | 前綴 100% 失效 |
+| 2026-08-27 | `openai-completions`（api） | 第 6 張圖 | 195,775 token 全量重算 |
+| 2026-09-05 | `openai-responses`（api） | 每讀一張新圖 | 12 筆 ×15 萬 token，命中 12% |
+
+**新增自定義 provider 時必查**（雙向驗證過：正向全綠、負向能準確報出未登記的 api）：
+
+```bash
+bun -e '
+const { PROVIDER_IMAGE_BUDGETS } = await import("$HOME/.bun/install/global/node_modules/@oh-my-pi/snapcompact/src/snapcompact.ts");
+const yml = await Bun.file(`${process.env.HOME}/.omp/agent/models.yml`).text();
+let p = null; const bad = [];
+for (const line of yml.split("\n")) {
+  let m = line.match(/^  ([\w.-]+):\s*$/); if (m) { p = m[1]; continue; }
+  m = line.match(/^\s+api:\s*([\w-]+)/);
+  if (m && p && PROVIDER_IMAGE_BUDGETS[p] === undefined && PROVIDER_IMAGE_BUDGETS[m[1]] === undefined)
+    bad.push(`${p} (api: ${m[1]})`);
+}
+console.log(bad.length ? "落到 floor 5:\n  " + bad.join("\n  ") : "全部 provider 都有圖片預算");
+'
+```
+
+輸出非空就補 `PROVIDER_IMAGE_BUDGETS`，值**由同源 provider 條目平移**，不要新估數字
+（responses/openai 家族 200、google 200、anthropic 與 bedrock 90）。補完跑
+`bun patches/verify-provider-image-budget.ts`。
+
+仍未修的語義（0015 起的既有判斷）：淘汰順序仍是「丟最老」，預算真觸頂時照舊改寫前綴
+而非犧牲尾部。把上限放寬只是讓這條路徑不再被日常讀圖觸發——歸檔帧與歷史 toolResult
+本就不該參與淘汰，但既然不觸發就不為一條不走的路徑改語義。
+
+---
+
 ## 根因類別：第三方 anthropic 網關被塞 Claude Code 偽裝頭
 
 **症狀**：某個 `api: anthropic-messages` 的第三方網關，同一份歷史在網關自家 web
@@ -323,4 +374,6 @@ activeModel / input / prefixBinding / readDescLen / hasInspectImage
 - 永久審計：`~/.omp/agent/extensions/cache-prefix-audit.ts`
 - 網關偽裝判定：`pi-coding-agent/src/config/custom-models.ts:58`
 - CC 計費頭與 cch：`pi-ai/src/providers/anthropic.ts:655-733`、`:3845`
+- 圖片預算表：`snapcompact/src/snapcompact.ts` 的 `PROVIDER_IMAGE_BUDGETS` / `providerImageBudget()`
+- 圖片淘汰路徑：`pi-coding-agent/src/session/provider-image-budget.ts:73-94` `clampProviderContextImages()`
 - 歷史任務：`.trellis/tasks/archive/*/09-03-resume-model-switch-cache-miss/`
