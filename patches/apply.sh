@@ -69,6 +69,7 @@ PATCHES=(
 	"0041-omp-anthropic-usage-turn-gate-60s.patch:${AGENT}"
 	"0042-omp-resume-read-description-refresh.patch:${AGENT}"
 	"0043-omp-interrupt-prune-symmetry.patch:${AGENT}"
+	"0044-omp-image-budget-wire-api-family.patch:${NM}"
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then

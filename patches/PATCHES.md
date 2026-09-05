@@ -17,7 +17,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前 active：0004、0010、0014、0017、0019、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041、0042）
+## 1. src 補丁（目前 active：0004、0010、0014、0017、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041、0043、0044）
 
 ### 0033–0037 — 功能族 rollup（2026-08-30）
 
@@ -177,6 +177,17 @@
 - **實測效果**（同一會話，套用後兩次真實 resume）：`19:33:28 input=1247 / cacheRead=276096`（99.6%）、`19:34:44 input=842 / cacheRead=277248`（99.7%）；`crossProcess` 記錄的 `sharedPrefix` 為 `405`（前一筆 406 條）與 `408`（前一筆 409 條），即 `n-1` 的純尾部追加形狀，斷點僅來自 0038 的 provider-only reminder 尾端被下一輪持久訊息取代。修前同一會話為 52.3%／50.1%、斷點落在中段 `78`／`172`。
 - **自動回歸**：`OMP_PATCH_VERIFY_AGENT_ROOT=<tree> bun patches/verify-interrupt-prune-symmetry.ts`，零 provider 呼叫。**兩條路徑分別建模**：rebuild 側 `buildSessionContext(entries, leaf)` → `convertToLlm`；live 側以 `transcript: true` 取得 agent 實際累積的未剪序列（`appendMessage` 從不剪），在殘骸之後插入記憶體 marker，再直接單次 `convertToLlm`（與 `prepareProviderCall` 相同）。斷言兩份 wire `deepEqual`、`aborted` 與 `error` 皆走同一路徑、無 marker 的殘骸在 live 路徑同樣被剪、裸 marker 轉為空、正常 `stop` 回合不受影響、`transcript: true` 仍保留該回合，並以 source guard 鎖住三處條件。負向對照：pristine 副本（僅還原這兩個檔案）執行時 live 側多出整條 `role: assistant / stopReason: aborted` 殘骸，斷言如預期失敗。
 - **遺留（未修，待實測）**：thinking-only 的 `stop` 回合（如 `feedbf18`，`thinkingSignature` 非空故 `isActionableContent` 判為 actionable、`isEmptyAssistantStop` 為 false）兩條清理規則都不覆蓋，`convertToLlm` 實測會保留它，但 resume 後 payload 中該 thinking 零命中，說明由 openai-completions 編碼層丟棄。編碼層無狀態故理論上兩側一致；是否仍需一條「`stop` 且無 text 無 toolCall → 剪」的規則，等下一次帶打斷的受控 resume 現場再定，不憑推斷加規則。
+
+### 0044 — 圖片預算表缺 wire-api 家族，第三方 Responses 網關落到 floor 5、每讀一張新圖改寫歷史中段
+
+- **失敗簽名**（真實會話 `01a06d18-8d5b`，主模型 `gpt-6-astra`，走手寫 `models.yml` 的 `pixel`／`pqh`／`wanzhao` 網關，`api: openai-responses`）：94 筆 astra 請求中 **12 筆**的 `cacheRead` 恰好鎖死在 **22528**、`input` 為全量（107939 → 165591 遞增），命中率 12.0–17.3%；相鄰前後筆為 98–99.8%。命中值恆定在同一個數字，形狀上就不是「隨機抖動」或上游故障。
+- **證據鏈（payload 逐條比對，非推斷）**：存活的 24 份 astra payload 中，`input` 陣列的 `input_image` 數量**恆為 5**，index 序列由 `[244,245,281,282,314]` 變為 `[245,281,282,314,336]`——新圖 336 進來、最老的 244 被砍。被砍的那條 `function_call_output` 從 86843B（帶 `input_image`）變成 118B 純字串，`call_id` 不變；另一條 index 232 同樣由 325848B 變 227B。相鄰 payload 的 `sharedPrefix` 因此落在 **232**（prev 313 條）與 **244**（prev 336 條），而其餘輪次都是 `n-1` 的純尾部追加。信封側全程恆定（`prompt_cache_key`、`instructions` 指紋 `5deb0e307f47`、`tools` 指紋 `d2fb57b38f47`、`client_metadata: null`），故與 tools／system 漂移無關。
+- **關鍵不對稱**：磁碟側完好無損。jsonl 那兩條 toolResult 的 `content[1]` 仍是完整 `blob:sha256:` image 引用、`prunedAt: None`、blob 檔案存在（全會話 41 條圖片 toolResult 一律如此）。也就是說**只擦 wire、不動持久化**，這也是為何 audit 的 `HISTORY_REWRITE` 只在 alt baseline 上偶發、單看 jsonl 完全看不出問題。
+- **根因**：`clampProviderContextImages()`（`pi-coding-agent/src/session/provider-image-budget.ts:73-94`）以 `providerImageBudget(model.provider, model.api)` 取上限，超額則**從最老處丟棄**。`pixel`／`pqh`／`wanzhao` 是手寫網關 id，按設計不在 `PROVIDER_IMAGE_BUDGETS` 表內，於是走 api 回退；而 0036 rollup 雖然建立了 api 回退機制並補了 `openai-completions`／`ollama-chat`，**表裡始終沒有 `openai-responses`**，於是回退撲空、落到 `DEFAULT_PROVIDER_IMAGE_BUDGET = 5`。這正是 0015 註釋自己寫過的失效模式（「silently dropping to the floor of 5 … rewriting `contents[0]` and voiding the whole prompt-cache prefix」），只是這次被砍的不是歸檔帧而是歷史中段的 toolResult。同一張表下 `hyper` 槽（`openai-completions`）不受影響，三個 Responses 網關全中；`gpt-5.6-luna` 同為 `openai-responses`，同樣在射程內。
+- **修法**：`snapcompact/src/snapcompact.ts` 的 `PROVIDER_IMAGE_BUDGETS` 補齊 wire-api 家族鍵，值一律由既有同源 provider 條目平移，不新估任何數字——`openai-responses`／`openai-codex-responses`／`azure-openai-responses` = 200（對 `openai` / `openai-codex`）、`google-generative-ai` = 200（對 `google`）、`anthropic-messages` = 90（對 `anthropic`，Anthropic 硬限 100 之下的保守 cap）、`bedrock-converse-stream` = 90（對 `amazon-bedrock`）。`providerImageBudget()` 先查 provider 再查 api，故 provider id 的既有語義不變（`umans` 仍 10、`openrouter` 仍 90）；`cursor-agent`／`gitlab-duo-agent`／`devin-agent` 刻意不列，未登記的 api 仍落 floor 5，clamp 路徑不會靜默全域放開。
+- **實測**：函數層 `pixel`／`pqh`／`wanzhao` + `openai-responses` 由 **5 → 200**；行為層以本次現場建模（6 張圖散落在中段 `toolResult`）跑 `clampProviderContextImages`，修後 6 張全留、**零歷史條目改寫**，對照組（api 未登記、floor 5）砍掉最老一張並改寫 1 條，即故障形態本身。
+- **自動回歸**：併入既有 `bun patches/verify-provider-image-budget.ts`（不新建腳本），新增六個 api 鍵斷言、三個網關 id 的解析、provider-id 優先級（`umans` 不被 api 覆蓋）、未登記 api 仍 floor，以及上述 toolResult 現場的行為級雙向斷言（含「被淘汰的必須是最老那張」）。負向對照：把 live `snapcompact.ts` 換回 pristine 後執行，如預期在 `PROVIDER_IMAGE_BUDGETS["openai-responses"]` 斷言處失敗（`undefined !== 200`），還原後 `cmp` identical。
+- **遺留（沿用 0015 的判斷，未修）**：`clampProviderContextImages()` 的淘汰順序仍是「丟最老」，預算真觸頂時依舊改寫前綴而非犧牲尾部。放寬到 200 只是讓這條路徑不再被日常讀圖觸發。
 
 ### 0014 — Google Antigravity 確定性 session/trajectory ID 派生
 - `pi-ai/src/providers/google-gemini-cli.ts`：
