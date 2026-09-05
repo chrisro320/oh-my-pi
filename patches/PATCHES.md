@@ -17,7 +17,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前 active：0004、0010、0014、0017、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041、0043、0044、0045）
+## 1. src 補丁（目前 active：0004、0010、0014、0017、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041、0043、0044、0045、0046）
 
 ### 0033–0037 — 功能族 rollup（2026-08-30）
 
@@ -200,6 +200,16 @@
 - **自動回歸**：新增 `OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> bun patches/verify-snapcompact-frame-reprice.ts <session.jsonl>`，雙閘門同跑。**GATE 1（live 源碼結構閘）**：`#projectSnapcompactContextTokens` 是 class 私有方法，外部不可調用，沿 `verify-prefix-cache-compaction.ts` 的源碼斷言慣例，對 `OMP_PATCH_VERIFY_AGENT_ROOT` 指向的**實際執行源碼**斷言四件事——reprice 參數在簽名上、減價式在體內、兩個 reduction callsite 都傳 `shape.frameTokenEstimate`、兩個 window-fit callsite 保持不傳（上限語義未被誤改）。pristine 源碼上此閘必紅，即負向對照。**GATE 2（行為閘）**：重放真實邊界（含 `previousPreserveData` 折入的 10 舊帧 → 18 帧），雙向斷言 5024 上限 `S+R ≥ A+R` 復現拒絕、shape 重計價 `S_real+R < A+R` 通過，並錨定 `shape.frameTokenEstimate < FRAME_TOKEN_ESTIMATE` 前提。
 - **未修（對稱遺留）**：`tokenizer.countMessage` 對 `compactionSummary` 帧的 5024 計價也流入 context-usage 顯示與 threshold 觸發估算（非 Anthropic 模型偏保守、多報幀成本）。本補丁只在 reduction 判定處局部修正，不動全域計數器——全域 model-aware 計價要讓 Tokenizer 拿得到 shape，改動面大，且偏保守不會誤觸發壓縮，暫不改。
 
+### 0046 — supersede 剪枝按「候選之後的 suffix」估價，實際帳單是回退到快取檢查點的距離
+
+- **失敗簽名**（真實會話 `01a07221-26ab`，主模型 `deepseek-v4-pro-0813`，走手寫 `models.yml` 的 `hyper` 網關，`api: openai-completions`）：37 筆請求中第 8 筆 `cacheRead` 從 40832 **倒退**到 32640（其餘輪次一路遞增），該輪 `input=9804`、命中率由 98.8% 掉到 76.9%。倒退不是停滯——`cacheRead` 只在網關的檢查點階梯上跳（24320→32640→40832→…），倒退一格意味著可命中前綴被截短。
+- **證據鏈（payload 逐字節比對，非推斷）**：`payload-archive` 存下的 37 份 deepseek payload 中，只有第 8 筆的共同前綴不是 `n-1` 的純尾部追加——`sharedPrefix=13`（prev 19 條）。第 13 條由 2178B 的 read 結果變成 138B 的 `{"role":"tool","content":"[Superseded by a newer read of this file]"}`，`tool_call_id` 不變；第 15 條是同一檔案的第二次 read，`content` 與原第 13 條**逐字節相同**。`cache-prefix-audit.log` 的獨立指紋記錄同一輪 `HISTORY_REWRITE index 13`，兩套機制互相印證。全會話 `imgs=0`、`tools` 指紋 37 輪恆定，故與 0044 圖片預算、0019/0042 tools 漂移均無關。
+- **根因**：`pruneSupersededToolResults()`（`pi-agent-core/src/compaction/pruning.ts:288-297`）以 `suffixTokens[candidate.index] <= suffixTokenLimit` 決定是否即時改寫，`DEFAULT_SUFFIX_TOKEN_LIMIT = 8000`。`suffixTokens` 是「候選之後所有 message 的估算 token」——本例僅 1122，遠低於閘門，於是放行。但**那不是帳單**：provider 收的是「被改寫的 index 回退到它上一個快取檢查點」的距離，檢查點步長對 harness 不可見。本例回退 8192 token（40832→32640），為省 638 token 的上下文；該網關重算 input 單價約為 `cacheRead` 的 10 倍（實測 `input` 1.65e-6/token vs `cacheRead` 1.65e-7/token），這筆交易需要約 116 個後續輪次才回本，而同一個檔案每被重讀一次就再開一次同樣的洞。`session-maintenance.ts:525` 原本只對 `thinking.prefixBinding === true` 的模型把閘門降到 0——但沒有任何模型能承受暖前綴中段被改寫，這個豁免的範圍本身是錯的。
+- **修法**：`session-maintenance.ts` 的 supersede callsite 改為無條件 `suffixTokenLimit: 0`。語義上這不是關掉功能而是改排程：supersede 候選**按構造必然後面跟著取代它的那條較新結果**，故其 suffix 恆 > 0，即時改寫全部推遲到 `idleFlushMs`（`PRUNE_IDLE_FLUSH_MS`）之後的 idle flush——那時快取已冷，改寫零成本，同一批 entry 照樣回收。共用同一閘門的 `dropUseless` 路徑沒有這個後繼，候選若本身就是最後一條（suffix 0）仍可即時清除，零前綴代價。`pruning.ts` 不動，`cacheWarmSuffixTokens` 守衛與 `pruneToolOutputs` 路徑的既有語義不變。
+- **實測**：`patch -R --dry-run` 對 live 樹 reverse-clean；行為層用本次現場建模（同檔案兩次 read、候選在中段、suffix 1279 token）跑 `pruneSupersededToolResults`：stock 閘門 8000 如期剪枝 1 條、省 490 上下文 token（即故障形態本身），閘門 0 剪 0 條、暖前綴不動，`now + 2h` 的 idle flush 仍剪 1 條。數量級與現場一致（現場 suffix 1122 / 省 638）。
+- **自動回歸**：新增 `OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> OMP_PATCH_VERIFY_CORE_ROOT=<core-root> bun patches/verify-supersede-warm-prefix-guard.ts`，已掛入 `apply.sh` 的回歸套件。雙閘門：**行為閘**跑上述 stock/guarded/idle-flush 三向對照，並斷言「候選的後繼使 suffix 恆 > 0」，讓未來任何「把閘門稍微調高一點」的改動立刻紅；**源碼閘**對 `OMP_PATCH_VERIFY_AGENT_ROOT` 指向的實際執行源碼斷言 callsite 是字面 `suffixTokenLimit: 0` 且不含 `prefixBinding`（pristine 源碼上必紅，即負向對照）。另錨定 `SUPERSEDED_NOTICE` 文本——它就是本補丁定價所依據的 wire 簽名。
+- **未修（同會話的另兩類）**：① 第 32 筆整段重算 108854 token（佔全會話 239316 token 浪費的 45%）——turn31/32 完整 body 逐字節比對顯示前綴一致（分歧只在倒數第 3 條，即 0038 reminder 位置被真實 assistant 消息接續）、`tools` 與全部參數逐字節相同、三個掛 `before_provider_request` 的 extension 均不改 payload（`resume-cache-breakpoint.ts:78` 只認 Anthropic 形狀，openai-completions 直接跳過），且 turn33 命中 108544（命中的是 turn32 寫入的前綴，同一快取域，排除 fallback 換 provider）。omp 側已排乾淨，剩下唯一未覆蓋的是 `before_provider_request` 之後的 HTTP headers 與 fetch 層 body 改寫，需錄製反代取證；已知該層地雷（`cch` 計費頭）只走 `anthropic-messages`，`hyper` 不在射程。② 其餘 35 輪約 121757 token 的階梯滲漏是 openai-completions 自動快取的固有機制（每檢查點存一塊，不滿一塊的尾巴下輪重算），不是缺陷。
+
 ### 0014 — Google Antigravity 確定性 session/trajectory ID 派生
 - `pi-ai/src/providers/google-gemini-cli.ts`：
   - 根因：原版在 `providerSessionState` 內使用 `randomUUID()` 隨機生成 `trajectoryId`、`agentId` 與 `sessionId`。進程重啟或 `omp resume` 時進程內存清空，導致重啟後的首輪請求發送了全新隨機的 `trajectory_id`，破壞了後端路由對齊，在長會話中引發高達 32 萬 Token 的 Full Cache Miss。
@@ -281,6 +291,8 @@
   - 驗證：`bun patches/verify-cache-prefix-audit.ts` 覆蓋 Google Antigravity wire 解析、Anthropic 格式、多進程並行狀態隔離、Cross-process resume 判定，全部 PASS。
   - 日誌 `~/.omp/agent/cache-prefix-audit.log`（JSONL，2 MiB 輪替）、狀態 `~/.omp/agent/cache-prefix-state-<sessionId>.json`；`/cacheaudit` 看最近 10 筆。
   - **嚴格命中率 verdict(2026-08-30)**:`message_end` 判定從 `cacheRead>0` 改為 `strict_ratio = cacheRead/(cacheRead+cacheWrite+input) ≥ 0.5` 才標 hit(用戶口徑:<50% 一律 MISS);verdict 文本帶 `strict xx.x%`;usage 行一律攜帶當次 diff(舊邏輯僅 `cacheRead=0` 時攜帶,上述 4.0% 假 hit 正是因此藏掉了 SYSTEM_DRIFT)。案例 `01a051c8` 09:28 在新口徑下記 `MISS CAUSED BY SYSTEM_DRIFT (strict 4.0%)`。回歸:`verify-cache-prefix-audit.ts` 同步更新(96% hit 案例、48% MISS 案例、gemini hit 前綴斷言),全部 PASS;`cache-prefix-audit-baseline-test.ts` PASS。
+  - **多模型交錯串線修正（2026-09-05）**：`SessionState.lastDiff` 單槽改為 `lastDiffByModel: Record<string, Diff>`，`message_end` 按 `message.model` 取對應槽，usage 行加記 `model` 欄位。根因：diff 在**請求**離站時算出、verdict 在**回應**抵達時寫入，單槽被「最後一個發請求的模型」佔據；同進程並行第二個模型（本例 `gpt-5.6-luna` 的 57 筆請求交錯在 `deepseek-v4-pro-0813` 的 37 筆之間）時，luna 的請求恰好插在 deepseek 的請求與回應之間，於是 deepseek 的 miss 被貼上 luna 的 diff。破綻是 index 越界（會話 `01a07221` 的 turn32 報 `HISTORY_REWRITE index 160`，而該請求只有 74 條 message）與自相矛盾（下一輪貼幾乎相同的 diff 卻判 `hit 98.9%`）——一次要命一次沒事，就不是病因。取槽失敗時回退到「全場僅一個槽」的情形，故單模型會話行為完全不變。以真實 payload 重放該交錯時序做 A/B：修前 turn32 verdict 為 `MISS CAUSED BY SYSTEM_DRIFT@0`（luna 的），修後為 `MISS CAUSED BY HISTORY_REWRITE@71`（deepseek 自己的，落在其 74 條 message 之內）並記下 model。
+  - **已知殘留（未修）**：0038 把 date-cwd reminder 暫存在 provider 尾部，故上一輪的尾條 reminder 在下一輪同位置變成真實 assistant 消息，diff 逐輪判為 `HISTORY_REWRITE@n-1`。命中輪次無害（verdict 仍 hit），但 miss 輪次會把這個正常的尾部接續當成歸因寫進 verdict。`before_provider_request` 行已有 `altBaseline.likelyVirtualTail` 註記可辨識，verdict 行未攜帶。
 
 - **0039 audit candidate（未進 apply.sh）**：`patches/cache-prefix-audit-extension.ts` 與 `patches/verify-cache-prefix-audit.ts` 支援 OpenAI Responses `input` / `instructions`，並以完整 wire item 指紋追蹤無 role 的 `function_call` / `function_call_output`；同時使用 `pid-${process.pid}` process-local fallback，fixture 斷言同步更新。`patches/0039-omp-cache-audit-responses-input.patch` 僅作手動 extension 同步候選，部署前須通過三副本 parity gate。
 
