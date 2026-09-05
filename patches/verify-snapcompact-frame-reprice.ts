@@ -2,44 +2,79 @@
 // frames at the live shape's per-frame estimate, not the cross-shape
 // FRAME_TOKEN_ESTIMATE ceiling.
 //
-// Standalone replay on the real failing session (same convention as
-// verify-snapcompact-frame-budget.ts):
-//   bun patches/verify-snapcompact-frame-reprice.ts <session.jsonl>
+// Two gates, run together:
+//   GATE 1 (structure, live source): the patched guard is a private method
+//     (`#projectSnapcompactContextTokens`) — unreachable from outside the
+//     class, so like verify-prefix-cache-compaction.ts we assert on the live
+//     `session-maintenance.ts` text: the reprice parameter, the subtraction,
+//     and BOTH reduction call sites passing the shape's per-frame estimate.
+//     On pristine source (patch missing/reverted) this gate FAILS — that is
+//     the negative control.
+//   GATE 2 (behavior, decision formula): replay the real failing boundary and
+//     assert the decision flips: at the 5024 ceiling `S+R >= A+R` (the live
+//     rejection), repriced at shape.frameTokenEstimate `S_real+R < A+R`
+//     (genuine reduction admitted).
 //
-// The guard in session-maintenance.ts compares
-//   projected = X + S + R   vs   baseline = X + A + R
-// (X = non-message overhead, A = archived text, R = kept tail, S = new
-// compaction-summary message including its re-attached frames). X and R
-// cancel, so the decision is exactly `S >= A -> reject`. The tokenizer bills
-// every frame block inside S at FRAME_TOKEN_ESTIMATE (5024); for a
-// non-Anthropic model the real per-frame price is shape.frameTokenEstimate
-// (openai 8on22-bw @1568px = 2882, google = 1120). This script replays the
-// real boundary and asserts:
-//   1. at the 5024 ceiling the guard REJECTS (the live failure),
-//   2. repriced at the shape's own estimate the guard PASSES.
+// Usage:
+//   OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> \
+//     bun patches/verify-snapcompact-frame-reprice.ts <session.jsonl>
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import * as snapcompact from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/snapcompact/src/snapcompact.ts";
 import { Tokenizer } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/tokenizer.ts";
 import { createCompactionSummaryMessage } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/compaction/messages.ts";
-import { readFileSync } from "node:fs";
 import type { Model } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/types.ts";
 
 interface SessionEntry {
 	type: string;
 	id?: string;
-	timestamp?: string;
 	summary?: string;
 	firstKeptEntryId?: string;
 	preserveData?: Record<string, unknown>;
 	message?: unknown;
 }
 
-const path = process.argv[2];
-if (!path) {
-	console.error("usage: verify-snapcompact-frame-reprice.ts <session.jsonl>");
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
+assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point at the live agent tree");
+const SESSION_FILE = process.argv[2];
+if (!SESSION_FILE) {
+	console.error("usage: OMP_PATCH_VERIFY_AGENT_ROOT=<root> verify-snapcompact-frame-reprice.ts <session.jsonl>");
 	process.exit(2);
 }
+
+// ---------------------------------------------------------------------------
+// GATE 1: the patch is present in the LIVE source the runtime executes.
+// ---------------------------------------------------------------------------
+const maintenanceSource = readFileSync(`${AGENT_ROOT}/src/session/session-maintenance.ts`, "utf8");
+assert.match(
+	maintenanceSource,
+	/#projectSnapcompactContextTokens\([\s\S]*?options\?: MessageCountOptions,\s*\n\t\tframeTokenEstimate\?: number,/,
+	"patch 0045 missing: #projectSnapcompactContextTokens has no frameTokenEstimate parameter",
+);
+assert.match(
+	maintenanceSource,
+	/tokens -= frameCount \* \(snapcompact\.FRAME_TOKEN_ESTIMATE - frameTokenEstimate\);/,
+	"patch 0045 missing: the reduction-side frame reprice subtraction is absent",
+);
+const reductionCallsites = maintenanceSource.match(/excludeEncryptedReasoning: true,\s*\n\s*\},\s*\n\s*shape\.frameTokenEstimate,\n/g);
+assert.equal(
+	reductionCallsites?.length,
+	2,
+	`patch 0045 missing: both reduction call sites must pass shape.frameTokenEstimate (found ${reductionCallsites?.length ?? 0})`,
+);
+// The window-fit projections must keep the ceiling (no 4th argument).
+const windowFitCallsites = maintenanceSource.match(/#projectSnapcompactContextTokens\(preparation, snapcompactResult\);/g);
+assert.equal(
+	windowFitCallsites?.length,
+	2,
+	`window-fit calls must stay unrepriced (found ${windowFitCallsites?.length ?? 0} of 2)`,
+);
+
+// ---------------------------------------------------------------------------
+// GATE 2: replay the real failing boundary; the decision flips under repricing.
+// ---------------------------------------------------------------------------
 const entries: SessionEntry[] = [];
-for (const line of readFileSync(path, "utf8").split("\n").filter(Boolean)) {
+for (const line of readFileSync(SESSION_FILE, "utf8").split("\n").filter(Boolean)) {
 	try {
 		entries.push(JSON.parse(line) as SessionEntry);
 	} catch {
@@ -52,12 +87,12 @@ for (const line of readFileSync(path, "utf8").split("\n").filter(Boolean)) {
 // new render (this is what made the live archive 18 frames, not 7).
 let lastCompIdx = -1;
 for (let i = entries.length - 1; i >= 0; i--) if (entries[i].type === "compaction") { lastCompIdx = i; break; }
-if (lastCompIdx < 0) { console.error("no compaction entry in session"); process.exit(1); }
+assert.ok(lastCompIdx >= 0, "no compaction entry in session");
 const prev = entries[lastCompIdx];
-if (!snapcompact.getPreservedArchive(prev.preserveData)) {
-	console.error("latest compaction entry carries no snapcompact archive; wrong fixture");
-	process.exit(1);
-}
+assert.ok(
+	snapcompact.getPreservedArchive(prev.preserveData),
+	"latest compaction entry carries no snapcompact archive; wrong fixture",
+);
 let startIdx = entries.findIndex((e) => e.id === prev.firstKeptEntryId);
 if (startIdx < 0) startIdx = lastCompIdx + 1;
 const msgs: never[] = [];
@@ -104,10 +139,7 @@ const result = await snapcompact.compact(
 );
 
 const archive = snapcompact.getPreservedArchive(result.preserveData);
-if (!archive || archive.frames.length === 0) {
-	console.error("replay produced no frames; nothing to price");
-	process.exit(1);
-}
+assert.ok(archive && archive.frames.length > 0, "replay produced no frames; nothing to price");
 const blocks = snapcompact.historyBlocks(archive, { maxFrameDataBytes: snapcompact.FRAME_DATA_BYTES_BUDGET });
 const N = blocks.filter((b) => b.type !== "text").length;
 const summaryMsg = createCompactionSummaryMessage(result.summary, 0, new Date().toISOString(), {
@@ -116,24 +148,22 @@ const summaryMsg = createCompactionSummaryMessage(result.summary, 0, new Date().
 });
 const S_ceiling = tk.countMessage(summaryMsg, opts);
 const shape = snapcompact.resolveShape(model, "auto");
+// Same delta the patched guard applies: frameCount x (ceiling - shape price).
 const S_real = S_ceiling - N * (snapcompact.FRAME_TOKEN_ESTIMATE - shape.frameTokenEstimate);
 
 console.log(`frames=${N} shape=${shape.font}/${shape.variant}@${shape.frameSize} per-frame: ceiling=${snapcompact.FRAME_TOKEN_ESTIMATE} real=${shape.frameTokenEstimate}`);
 console.log(`A=${A} R=${R} S_ceiling=${S_ceiling} S_real=${S_real}`);
 
-let fail = 0;
-if (!(S_ceiling + R >= A + R)) {
-	console.error(`FAIL: fixture no longer reproduces the live rejection at the 5024 ceiling (S+R=${S_ceiling + R} < A+R=${A + R})`);
-	fail = 1;
-}
-if (!(S_real + R < A + R)) {
-	console.error(`FAIL: repriced projection does not reduce (S_real+R=${S_real + R} >= A+R=${A + R}) — fix ineffective on the real session`);
-	fail = 1;
-}
-// The patched guard subtracts exactly this delta; keep the two expressions in sync.
-if (shape.frameTokenEstimate >= snapcompact.FRAME_TOKEN_ESTIMATE) {
-	console.error(`FAIL: shape price ${shape.frameTokenEstimate} not below ceiling ${snapcompact.FRAME_TOKEN_ESTIMATE} — overcharge premise broken`);
-	fail = 1;
-}
-if (!fail) console.log("PASS: 5024 ceiling rejects the real reduction; shape repricing admits it");
-process.exit(fail);
+assert.ok(
+	shape.frameTokenEstimate < snapcompact.FRAME_TOKEN_ESTIMATE,
+	`overcharge premise broken: shape price ${shape.frameTokenEstimate} not below ceiling ${snapcompact.FRAME_TOKEN_ESTIMATE}`,
+);
+assert.ok(
+	S_ceiling + R >= A + R,
+	`fixture no longer reproduces the live rejection at the 5024 ceiling (S+R=${S_ceiling + R} < A+R=${A + R})`,
+);
+assert.ok(
+	S_real + R < A + R,
+	`repriced projection does not reduce (S_real+R=${S_real + R} >= A+R=${A + R}) — fix ineffective on the real session`,
+);
+console.log("PASS: live source carries the reprice; 5024 ceiling rejects the real reduction, shape repricing admits it");
