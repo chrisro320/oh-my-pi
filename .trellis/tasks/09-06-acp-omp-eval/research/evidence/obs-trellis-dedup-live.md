@@ -21,9 +21,9 @@
 ## 2. 因果表述（按 audit 程式實際語義收窄）
 
 audit 的 primary `diff` 用**全域** `st.last`（`cache-prefix-audit-extension.ts:825-826`），不是同模型 predecessor。因此：
-
-- 主線 qwen 行的 `system[0] 419408dd1e25 -> -` 與交錯 gpt-5.6-luna 行的鏡像 `-> 419408dd1e25`：記為**跨模型 baseline 噪音**（`419408dd1e25` 是 luna 的 system[0] 哈希被拿去當 qwen 的 prev）。
-- `altBaseline=APPEND_ONLY`（20:04:38 sp=36/n=38、20:09:08 sp=54/n=56）與低 input 是**觀察證據**；**不**構成「每輪 wire append-only」的直接證明——verdict 口徑下這些行的 primary diff 仍是 SYSTEM_DRIFT。
+   - 20:04:38（sp=36/n=38）與 20:09:08（sp=54/n=56）兩筆是 audit 實際觀測到的 `diff.kind=APPEND_ONLY`
+     指紋行（sp=n-2，純尾部新增）；低 input 是 usage 證據。但交錯輪次的 primary verdict 仍受全域
+     predecessor 影響，故整體只能說「觀察到 APPEND_ONLY 行」，不能推成「每輪 wire append-only 已證明」。
 - 可穩健宣稱的只有：input 248–431 為實測；cr 單調不減與小 input 相互印證。
 
 ## 3. 補丁鏈：只記錄，不動（本任務紅線 prd.md:30/72）
