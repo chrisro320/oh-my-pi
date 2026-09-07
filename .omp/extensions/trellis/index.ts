@@ -548,6 +548,47 @@ export default function(pi: ExtensionAPI): void {
       }
    };
 
+   // Dedup state: the exact bytes of the last FULL injection, persisted per
+   // session. While the rebuilt snapshot matches it, new user messages ride a
+   // short stub instead of re-paying the whole prefix at full input price —
+   // the per-turn 8.5K spike was the same snapshot re-shipping at the tail,
+   // which prefix caching can never cover. Anchors already in `injectedByAnchor`
+   // replay byte-identically either way, so history stays cache-stable.
+   let lastFullContent: string | null | undefined;
+   let lastFullLoadedFor: string | null = null;
+
+   const stateFile = (contextKey: string): string | null => {
+      const f = anchorFile(contextKey);
+      return f ? `${f.slice(0, -5)}.state.json` : null;
+   };
+
+   const loadLastFull = (contextKey: string): void => {
+      if (lastFullLoadedFor === contextKey) return;
+      lastFullLoadedFor = contextKey;
+      const file = stateFile(contextKey);
+      lastFullContent = null;
+      if (!file || !existsSync(file)) return;
+      try {
+         const raw = JSON.parse(readFileSync(file, "utf8")) as { content?: unknown };
+         if (typeof raw.content === "string") lastFullContent = raw.content;
+      } catch {
+         // A corrupt state file only costs one full re-injection.
+      }
+   };
+
+   const saveLastFull = (contextKey: string, content: string): void => {
+      lastFullContent = content;
+      lastFullLoadedFor = contextKey;
+      const file = stateFile(contextKey);
+      if (!file) return;
+      try {
+         mkdirSync(dirname(file), { recursive: true });
+         writeFileSync(file, JSON.stringify({ content }), { mode: 0o600 });
+      } catch {
+         // Losing the write costs one full re-injection next turn; never block.
+      }
+   };
+
    const withInjectedText = (message: AgentMessage, text: string): AgentMessage => {
       const content = (message as { content?: unknown }).content;
       if (typeof content === "string") {
@@ -607,7 +648,31 @@ export default function(pi: ExtensionAPI): void {
          // turn — and every later process — reuse it verbatim rather than
          // recomputing a drifting snapshot.
          if (!injectedByAnchor.has(key)) {
-            injectedByAnchor.set(key, turnContent);
+            let text = turnContent;
+            if (contextKey) {
+               loadLastFull(contextKey);
+               // After a compaction the previous full anchor may have been
+               // summarized away — the model can no longer see the snapshot
+               // the stub points at, so the next injection must be full again.
+               const compacted = lastCompactionTs > lastInjectionTs;
+               if (lastFullContent === turnContent && !compacted) {
+                  // Unchanged since the last full snapshot: ride a stub.
+                  const hash = createHash("sha256").update(turnContent).digest("hex").slice(0, 16);
+                  text = `<trellis-state>\nWorkflow state unchanged since the last full snapshot (${hash}); it still applies. Full snapshot: ${join(projectRoot, ".trellis", ".runtime", "omp-anchors", `${contextKey}.snapshot.md`)}. Read that file if you need the exact contents.\n</trellis-state>`;
+               } else {
+                  try {
+                     const dir = join(projectRoot, ".trellis", ".runtime", "omp-anchors");
+                     mkdirSync(dir, { recursive: true });
+                     writeFileSync(join(dir, `${contextKey}.snapshot.md`), turnContent, { mode: 0o600 });
+                  } catch {
+                     // A lost snapshot only costs the stub its read-back path;
+                     // the full injection below still stands.
+                  }
+                  saveLastFull(contextKey, turnContent);
+                  lastInjectionTs = Date.now();
+               }
+            }
+            injectedByAnchor.set(key, text);
             if (contextKey) saveAnchors(contextKey);
          }
       }
