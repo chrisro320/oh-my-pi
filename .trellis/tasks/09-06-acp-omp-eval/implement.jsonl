@@ -1,0 +1,2 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/09-06-acp-omp-eval/research/plan-v2.md", "reason": "方案 v2：15 條事實核實與 reviewer 逐條反駁，含所有源碼行號錨"}

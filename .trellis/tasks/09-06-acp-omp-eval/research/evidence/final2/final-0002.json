@@ -1,0 +1,19 @@
+{
+ "at": "2026-09-06T17:45:09.291Z",
+ "seq": 2,
+ "method": "POST",
+ "target": "https://hyper.charm.land/v1/chat/completions",
+ "headers": {
+  "accept": "text/event-stream",
+  "accept-encoding": "gzip, deflate, br, zstd",
+  "authorization": "<redacted len=52>",
+  "connection": "keep-alive",
+  "content-length": "70529",
+  "content-type": "application/json",
+  "host": "127.0.0.1:8899",
+  "user-agent": "omp/18.1.10"
+ },
+ "bodyBytes": 70529,
+ "rawSha256": "4973ce5c3d598be9e3e3d2c5ecd28931e2a2f3e8a99898421c9e9d63aa91e171",
+ "rawFile": "final-0002.body"
+}

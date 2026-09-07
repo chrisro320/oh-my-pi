@@ -1,0 +1,22 @@
+NOTE: OMP_PATCH_VERSION=18.1.10 — plan targets: 0010 0030 0035 0038 omit:0019 omit:0042
+APPLIED  0033-omp-cache-turn-status-rollup.patch
+APPLIED  0004-omp-token-total-cacheread.patch
+APPLIED  0034-omp-hindsight-snapshot-rollup.patch
+APPLIED  0037-omp-usage-statusline-gate-rollup.patch
+APPLIED  .18.1.10-candidates/0010-omp-extension-idle-ephemeral-turn-v18.1.10-candidate.patch
+APPLIED  .18.1.10-candidates/0035-omp-compaction-prefix-rollup-v18.1.10-candidate.patch
+APPLIED  0014-omp-antigravity-deterministic-session-identity.patch
+APPLIED  0036-omp-image-frame-budget-rollup.patch
+APPLIED  0017-omp-openai-responses-native-replay-warm.patch
+APPLIED  0025-omp-ollama-cloud-usage-api.patch
+APPLIED  0026-omp-usage-fetch-anthropic-gate-core.patch
+APPLIED  .18.1.10-candidates/0030-omp-usage-cache-canonical-baseurl-v18.1.10-candidate.patch
+APPLIED  0031-omp-agent-session-providers-forward.patch
+APPLIED  0032-omp-goal-tool-resident.patch
+APPLIED  .18.1.10-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.1.10-candidate.patch
+APPLIED  0041-omp-anthropic-usage-turn-gate-60s.patch
+APPLIED  0043-omp-interrupt-prune-symmetry.patch
+APPLIED  0044-omp-image-budget-wire-api-family.patch
+APPLIED  0045-omp-snapcompact-frame-reprice.patch
+APPLIED  0046-omp-supersede-warm-prefix-guard.patch
+APPLIED  bin/omp -> src/cli.ts

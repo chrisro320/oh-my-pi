@@ -1,0 +1,3 @@
+original baseUrl: https://hyper.charm.land/v1
+proxied baseUrl : http://127.0.0.1:8899/v1
+upstream in proxy: https://hyper.charm.land

@@ -1,0 +1,5 @@
+# S0.2 sandbox DB (fresh) 2026-09-06T17:00:14Z
+/tmp/acp-sandbox/home/.omp/agent/agent.db mtime=1788713998 size=163840 inode=6194080
+/tmp/acp-sandbox/home/.omp/agent/models.db mtime=1788713998 size=1388544 inode=6194084
+# auth rows in sandbox agent.db
+0

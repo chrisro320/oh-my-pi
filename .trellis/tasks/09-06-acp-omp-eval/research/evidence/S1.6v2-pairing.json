@@ -1,0 +1,32 @@
+[
+ {
+  "hook": "probe-seq-4106389-0001.json",
+  "final": "final-0001.json",
+  "hook_at": "2026-09-06T17:45:05.221Z",
+  "final_at": "2026-09-06T17:45:05.225Z",
+  "raw_bytes": 70440,
+  "reported_bytes": 70440,
+  "raw_sha256_sidecar": "026f5dbd30e9278c",
+  "raw_sha256_recomputed": "026f5dbd30e9278c",
+  "sidecar_matches_file": true,
+  "hook_canon_sha": "37bc358ae1c072de",
+  "wire_canon_sha": "37bc358ae1c072de",
+  "canonical_equal": true,
+  "hook_is_bytes": false
+ },
+ {
+  "hook": "probe-seq-4106389-0002.json",
+  "final": "final-0002.json",
+  "hook_at": "2026-09-06T17:45:09.289Z",
+  "final_at": "2026-09-06T17:45:09.291Z",
+  "raw_bytes": 70529,
+  "reported_bytes": 70529,
+  "raw_sha256_sidecar": "4973ce5c3d598be9",
+  "raw_sha256_recomputed": "4973ce5c3d598be9",
+  "sidecar_matches_file": true,
+  "hook_canon_sha": "34cdd4f966129991",
+  "wire_canon_sha": "34cdd4f966129991",
+  "canonical_equal": true,
+  "hook_is_bytes": false
+ }
+]

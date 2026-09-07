@@ -1,0 +1,13 @@
+probe-seq-4102443-0001.json	msgs=3	tools=13	sha=695535b7d105	keys=enable_thinking,max_completion_tokens,messages,model,stream,stream_options,tools
+probe-seq-4102443-0002.json	msgs=5	tools=13	sha=47eaef6009a6	keys=enable_thinking,max_completion_tokens,messages,model,stream,stream_options,tools
+probe-seq-4102443-0003.json	msgs=10	tools=13	sha=79f8ca56b2ac	keys=enable_thinking,max_completion_tokens,messages,model,stream,stream_options,tools
+probe-seq-4102443-0004.json	msgs=13	tools=13	sha=a6051b7ee543	keys=enable_thinking,max_completion_tokens,messages,model,stream,stream_options,tools
+probe-seq-4102443-0005.json	msgs=16	tools=13	sha=e96580605d2d	keys=enable_thinking,max_completion_tokens,messages,model,stream,stream_options,tools
+probe-seq-4102443-0006.json	msgs=19	tools=13	sha=fb10b857aa80	keys=enable_thinking,max_completion_tokens,messages,model,stream,stream_options,tools
+probe-seq-4102443-0007.json	msgs=22	tools=13	sha=24c39b0885ef	keys=enable_thinking,max_completion_tokens,messages,model,stream,stream_options,tools
+probe-seq-4102443-0008.json	msgs=24	tools=13	sha=5b2181b2e806	keys=enable_thinking,max_completion_tokens,messages,model,stream,stream_options,tools
+probe-seq-4102443-0009.json	msgs=28	tools=13	sha=91a56c235bc0	keys=enable_thinking,max_completion_tokens,messages,model,stream,stream_options,tools
+probe-seq-4102443-0010.json	msgs=30	tools=13	sha=684af05412bc	keys=enable_thinking,max_completion_tokens,messages,model,stream,stream_options,tools
+probe-seq-4102443-0011.json	msgs=33	tools=13	sha=9389ca9e238b	keys=enable_thinking,max_completion_tokens,messages,model,stream,stream_options,tools
+final-0002.json	FINAL	method=POST	bytes=70440	sha=37bc358ae1c0	headers={"accept": "text/event-stream", "accept-encoding": "gzip, deflate, br, zstd", "authorization": "<redacted len=52>", "connection": "keep-alive", "content-length": "70440", "content-type": "application/json", "host": "127.0.0.1:8899", "user-agent": "omp/18.1.10"}
+final-0003.json	FINAL	method=POST	bytes=70533	sha=f8c53b78a03b	headers={"accept": "text/event-stream", "accept-encoding": "gzip, deflate, br, zstd", "authorization": "<redacted len=52>", "connection": "keep-alive", "content-length": "70533", "content-type": "application/json", "host": "127.0.0.1:8899", "user-agent": "omp/18.1.10"}

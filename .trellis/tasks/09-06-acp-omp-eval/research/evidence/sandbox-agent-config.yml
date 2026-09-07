@@ -1,0 +1,8 @@
+compaction:
+  enabled: false
+  supersedeReads: false
+  dropUseless: false
+  idleEnabled: false
+setupVersion: 2
+marketplace:
+  autoUpdate: 'off'

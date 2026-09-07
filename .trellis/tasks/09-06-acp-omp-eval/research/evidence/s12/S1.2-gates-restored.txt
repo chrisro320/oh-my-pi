@@ -1,0 +1,10 @@
+# S1.2 gate set, final state 2026-09-06T17:55:55Z
+compaction.enabled                 false
+compaction.idleEnabled             false
+compaction.idleThresholdTokens     200000
+compaction.thresholdTokens         -1
+compaction.supersedeReads          false
+compaction.dropUseless             false
+snapcompact.systemPrompt           none
+snapcompact.toolResults            false
+marketplace.autoUpdate             off

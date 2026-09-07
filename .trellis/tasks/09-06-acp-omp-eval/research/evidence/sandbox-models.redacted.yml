@@ -1,0 +1,21 @@
+providers:
+  hyper:
+    api: openai-completions
+    baseUrl: https://hyper.charm.land/v1
+    apiKey: <redacted>
+    models:
+    - id: qwen3.8-flash
+      name: Qwen 3.8 Flash (hyper)
+      reasoning: true
+      input:
+      - text
+      - image
+      contextWindow: 1000000
+      maxTokens: 128000
+      thinking:
+        mode: effort
+        efforts:
+        - low
+        - medium
+        - xhigh
+        defaultLevel: xhigh
