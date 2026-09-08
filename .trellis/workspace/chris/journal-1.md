@@ -133,7 +133,7 @@ repo 收尾：0048 補齊 runtime 同步；0047 沉澱為僅 18.1.10 計畫鏈�
 | `4ddb151` | chore(vendor): bump pi-commandcode-provider → usage provider + pool active |
 | `ae287cb` | feat(patches): 登記 0047/0048 與 vision-warmup；0047 限定 18.1.10 計畫 |
 | `6168299` | docs(agents): 新增 Trellis spec 機制段（換模輪替強制項） |
-| `34f32f3` | docs(trellis): acp-omp-eval S1.7a 靜態隔離證據 + obs 0907 回滾材料易主；journal S6 |
+| `5d26c24` | docs(trellis): acp-omp-eval S1.7a 靜態隔離證據 + obs 0907 回滾材料易主；journal S6 |
 
 ### Status
 
