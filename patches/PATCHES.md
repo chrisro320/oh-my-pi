@@ -17,7 +17,7 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前 active：0004、0010、0014、0017、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041、0043、0044、0045、0046）
+## 1. src 補丁（目前 active：0004、0010、0014、0017、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041、0043、0044、0045、0046、0048）
 
 ### 0033–0037 — 功能族 rollup（2026-08-30）
 
@@ -265,6 +265,36 @@
   - **效果**：中文长会话手动/自动压缩不再失败；silver 会话归档帧从「17 帧必失败」变为 3 帧成功（历史保真度受 3MB 预算物理限制，textHead/textTail 文本边不受影响）；英文小字形会话行为不变。
   - **边界（未修，有意）**：`session-maintenance.ts` 2690 行附近还有第二处 rescue 路径的 `maxFramesForDataBudget()` 调用（"shrink a huge archive" 块），未改传 shape——`compact()` 内的 `shedFramesOverBudget` 已按实际字节兜底，该路径不会再造成 3MB 失败，只是白渲染旧上限的帧数（约 1s），属性能/一致性补全，留给上游。
 
+
+### 0047 — date/cwd reminder 從 provider-only 尾條改騎真實 user 消息（持久錨點凍結）【僅 18.1.10 計畫】
+
+- **失敗簽名**（真實會話 `01a0778e`，claude-opus-5，~620k context）：cache-prefix-audit 每輪報 `HISTORY_REWRITE`，`sharedPrefix` 以 2 為步長推進（314→316→…→328）而非純尾 appended 的 `n-1` 形態；每輪 `cacheWrite` 11 815–12 335 token 對 ~600k `cacheRead`（strict 97.9–98.1%）。短回覆輪次回落到 ~1 600。
+- **根因**：0038 把 date/cwd reminder 做成 provider-only 合成尾條 user 消息——系統提示穩定了一點，但合成尾條佔住一個消息槽，下一輪真實 assistant 回覆落在同一 index，Anthropic 端看到的是歷史中段 **ROLE FLIP**：reminder 和它前面那條真實回覆每輪一起重新計費。2% 缺口在該 context 尺寸下 ≈12k token/輪全價重算，`input` 單價約 `cacheRead` 10 倍。
+- **修法**（`date-cwd-reminder.ts` 重寫 + `sdk.ts` 兩個呼叫點帶 session id）：reminder 改騎**最後一條真實 user 消息**，文本經持久錨點表凍結：
+  - 錨點 key = `role:timestamp:sha256(注入前內容)[0..16]`——對注入**前**的字節做哈希才能在 resume 時重現；只用 `role:timestamp` 會讓同毫秒兩條消息互竊文本（0016 在 Trellis anchor map 踩過的坑）；
+  - 消息計數恆定 → 槽位永不再改寫，前綴回到純 `n-1` 尾 append；一條消息一旦蓋章永遠保留原章，跨輪次、跨 resume、跨進程字節穩定；
+  - 跨日只影響**下一條** user 消息，代價是歷史裡留一條過期 `Today:` 行——遠比每輪重計費兩條消息便宜；
+  - 只有最新真實 user 消息可 mint 新章，舊的未蓋章消息（早於本機制/早於此補丁的 session）必須與 JSONL 字節恒等；
+  - 錨點表落 `~/.omp/agent/date-cwd-anchors/<sessionId>.json`（session 隔離防互竊），原子替換寫、0600；表損壞只退化為重蓋最新章（一個斷點的成本），不炸會話；無 session id 的單發/capture 代理退回進程內表。
+- **驗證**（`OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> bun patches/verify-date-cwd-anchor-stability.ts`，零 provider 呼叫）：GATE1 源碼形態（`appendDateCwdReminder` 滅絕、`applyDateCwdAnchors` 存在、兩個呼叫點都帶 session id；pristine 樹上必掛=反向對照）+ GATE2 行為重放，全 PASS；`OMP_PATCH_VERSION=18.1.10 bash patches/apply.sh --check` 24 檔 APPLIED 零 CONFLICT（0038-candidate→0047 鏈式重寫被 mirror 機制正確判別）；live 樹 `patch -R --fuzz=0` 逐字節吻合。
+- **版本限定（重要）**：0047 的 a 側是 **candidate-0038 的產出形態**（provider-only 尾條 + `appendDateCwdReminder`），對 18.0.9 canonical-0038 樹做 `--fuzz=0` 四個 hunk 全掛（2026-09-08 實測否決）。因此它**不進 `PATCHES` 數組**（base 計畫=18.0.9 鏈必須保持可回退），只在 `OMP_PATCH_VERSION=18.1.10` 分支於 `_omp_version_candidates` 之後 `PATCHES+=`。其他版本計畫（18.0.9/18.0.11/18.1.2/18.1.5）不包含它；18.1.2 連 0038 都 omit，更無從談起。升新版時若 candidate-0038 形態又漂移，0047 需隨之重錨。
+- **效果**：長會話每輪省 ~12k 全價重算；審計日誌回到 `APPEND_ONLY` 形態。跨進程 resume 四次重放全 hit（見 0046 條目驗證表同型實驗）。
+### 0048 — advisor 配额拒绝时，同 provider 换号被当成「已恢复」，导致零退避乒乓
+
+- **失败签名**（真实会话 `2c4a9065`，advisor 走 `openai-codex/gpt-5.6-luna`，两个 codex 凭证 id 7/15）：13 分钟内 244 次 `usage_limit_reached`（`Codex error event: The usage limit has been reached`，HTTP 200 带 SSE error event），约每 2.5s 一发，直到上游自行恢复。**注意：`.omp/logs/omp.log` 里 `retry_fallback_applied` 计数为 0 不能作为「fallback 没触发」的证据**——该事件只在 `emitSessionEvent`(`session-advisors.ts:1510-1515`)发出，不会写这份日志。advisor 独立 transcript 的实际统计是 `openai-codex/gpt-5.6-luna:245、pixel/gpt-5.6-luna:1、google-antigravity/gemini-3.8-flash:2`：fallback 链**确实配了也确实走过**，只是 245 次里只有 3 次走到。
+- **根因**：`session-advisors.ts` 的 `#recoverAdvisorTurn` 在 usage-limit 分支中原为无条件 `if (outcome.switched) return true`。`markUsageLimitReached` 在两个 codex 凭证间轮换时 `switched` 恒为 true，于是：
+  1. `advisor/runtime.ts:1365` 见 `recovered=true` 立即 `#pending.unshift(batch)` **零退避重跑**，并 `#consecutiveFailures = 0`——失败计数永远归零，quota latch（`runtime.ts:1386`，`break` + `notifyQuotaExhausted`）永远到不了；
+  2. 这个 `return true` 抢在 1464 行之后的跨 provider fallback 链之前，链只在 `switched===false` 的那 3 次可达。
+  两者合起来是 A/B 乒乓：兄弟凭证的 block 在下一轮 usage report 落地时被 `#reconcileUsageBlock` 再清掉，于是「永远有兄弟可换」。
+- **修法**：换号授信改为有界（`ADVISOR_USAGE_LIMIT_ROTATION_GRACE = 1`）。首次 `switched` 仍 `return true`（单账号耗尽仍能被救活）；grace 用尽后 **fall through** 到既有的跨 provider fallback 链，链上无候选则 `return false`，让 runtime 落 quota latch。新增 `ActiveAdvisor.usageLimitRotations`（按 provider 记次，换 provider 即重置），`onTurnSuccess` 清零。
+- **验证**（未做端到端 runtime 复现——实例化 `SessionAdvisors` 需完整 host，成本过高）：
+  - 语义等价建模：风暴序列 `[true, fall-through ×5]`（原为 244 次 true）、单账号耗尽 `true`、换 provider 重置为 `true`、`switched=false` 时计数清零；
+  - `oxlint src/session/session-advisors.ts` exit 0；`bun build` 转译通过；
+  - 补丁对 pristine 18.1.10 正向 `--fuzz=0` 通过、对 live 树反向 `--fuzz=0` 通过（幂等）。
+- **预期效果**：单次 advisor 更新的 codex 请求数 244 → ≤2；之后要么落到 pixel/antigravity，要么停在 quota latch（不再发请求）。验收信号是 `retry_fallback_applied` 事件或 advisor transcript 中 codex 计数降到个位数。
+- **边界（未修，有意）**：`grace=1` 按当前 2 个 codex 凭证（id 7/15）定，正好够轮一遍；若凭证加到 3 个，C 拿不到授信机会。通用做法是让 grace 跟随「可用凭证数 - 1」，需额外拉一次凭证列表，留给上游。
+- **前提修正**：本条最初按「fallback 从未触发」写，被纠正为「已触发但仅 3/245」——修补丁注释后重新生成 diff，避免带着错误因果发布。
+
 ## 2. 已撤下的补丁（2026-08-25 移除）
 
 - **0009 pi-tui orca→iTerm2 图片协议**：把 `imageProtocol` 从 `null` 改成 `Iterm2` 后，omp 相信终端会画图并为 `isImageLine()` 判定的行预留高度；Orca 的 xterm.js 实际把 IIP 序列丢掉，留下空行 → composer/分隔线错位残留。已 `patch -R` 撤回并从 `apply.sh` 移除；`app.asar` 同时回滚到 `app.asar.orig-image-addon`。图片这条路要重开必须先证明 addon 在 renderer 里活着（探针见 `~/orca/projects/orca-update-patch/orca-image-addon-asar-patch.py` 的 `DEBUG_PROBE`）
@@ -317,6 +347,12 @@
   - 修法：resume 后**只在第一次请求**，往「最后一条 assistant 之前那条」补一个 `cache_control`（= 上一轮请求的尾部 = 服务端存的前缀）。Anthropic 上限 4 个断点、omp 用 2 个；`session_switch`/`session_branch`/`session_tree`/`session_compact` 会重新 arm
   - 通过 `before_provider_request` 返回值改写 payload（`sdk.ts:3305` → `anthropic.ts:2007` 的 `replacementPayload`），不碰 omp 源码
   - 日志 `~/.omp/agent/resume-cache.log`（断点位置 + 每条 assistant 的 usage），`/cachefix` 看状态
+
+- `~/.omp/agent/extensions/vision-warmup.ts`（鏡像 `patches/vision-warmup-extension.ts`，2026-09-08 `cmp` 逐字節一致）：Hyper 模型（qwen3.8-flash / glm-5.3-flash）視覺路由暖機
+  - 根因：Hyper 的 vision 分類器按 session 黏滯——會話內**第一條帶圖請求**鎖定分類器路由，中途首圖會觸發分類器切換並按全 cache miss 計費（與 context 大小無關）。
+  - 做法：`before_agent_start` 在會話第一輪注入 1×1 PNG 自訂消息（`display: false`：TUI 不可見、照常發給模型），把鎖定成本壓到第一輪的極小 payload 上。
+  - 實測（2026-09-05 會話 01a07257，qwen3.8-flash）：第一輪注入後，turn2-3 無圖輪 cacheRead 26368 命中；turn4 讀真實 64×64 圖保持命中（27136→27904→28160），無全 miss。
+  - 僅手動部署（同 0039 慣例，未進 apply.sh）；升級 omp 後需重拷貝。
 
 ## 4. 验证
 

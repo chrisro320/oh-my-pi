@@ -1,0 +1,63 @@
+--- a/src/session/session-advisors.ts
++++ b/src/session/session-advisors.ts
+@@ -103,2 +103,9 @@
+ const ADVISOR_CODEX_SSE_MAX_ATTEMPTS = 1;
++/**
++ * How many consecutive same-provider quota rotations one advisor may treat as a
++ * recovery before the cross-provider fallback chain takes over. Two rows is the
++ * point where "the other account still has quota" stops being a plausible
++ * single-row exhaustion and starts being an upstream-wide rejection.
++ */
++const ADVISOR_USAGE_LIMIT_ROTATION_GRACE = 1;
+ /** Advisor statistics for the advisor status command. */
+@@ -163,2 +170,4 @@
+ 	retryFallbackPendingSuccess: boolean;
++	/** Same-provider quota rotations already granted to this advisor, bounded by {@link ADVISOR_USAGE_LIMIT_ROTATION_GRACE}. */
++	usageLimitRotations?: { provider: string; count: number };
+ 	signature: string;
+@@ -1098,2 +1107,5 @@
+ 					advisorRef.recorder.commitTurn();
++					// A turn landed, so any quota-rotation grace spent on the way here
++					// was justified and must not carry into the next failure.
++					advisorRef.usageLimitRotations = undefined;
+ 					const fallback = advisorRef.retryFallback;
+@@ -1458,3 +1470,38 @@
+ 			);
+-			if (outcome.switched) return true;
++			// A quota rejection "resolved" by rotating to a sibling credential is
++			// not a recovery: sibling rows draw on the same provider windows, and
++			// `markUsageLimitReached` re-clears the sibling's own block as soon as
++			// the next usage report in the cycle lands. Under a sustained upstream
++			// failure that is a closed A/B ping-pong — the runtime requeues with
++			// zero backoff and resets `#consecutiveFailures` on every `true`, so
++			// the quota latch is never reached and one batch burns a request every
++			// ~2.5s.
++			//
++			// Measured on session 2c4a9065: 244 codex `usage_limit_reached`
++			// rejections across 13 minutes. The fallback chain WAS configured and
++			// did run — the advisor transcript counts pixel/gpt-5.6-luna x1 and
++			// google-antigravity/gemini-3.8-flash x2 — but those are exactly the
++			// turns where `switched` came back false, so the chain was reachable
++			// only by luck. The other ~242 turns returned `true` here and went
++			// straight back to codex.
++			//
++			// Honour the rotation a bounded number of times (it does rescue a
++			// genuinely single-exhausted row), then fall through to the
++			// cross-provider chain; if that has no candidate either, return false
++			// so the runtime latches on quota instead of spinning.
++			if (outcome.switched) {
++				const rotating = advisor.usageLimitRotations;
++				if (rotating?.provider !== currentModel.provider) {
++					advisor.usageLimitRotations = { provider: currentModel.provider, count: 1 };
++					return true;
++				}
++				if (rotating.count < ADVISOR_USAGE_LIMIT_ROTATION_GRACE) {
++					rotating.count++;
++					return true;
++				}
++				// Grace exhausted: keep walking to the cross-provider chain.
++			} else {
++				// Nothing left to rotate within this provider.
++				advisor.usageLimitRotations = undefined;
++			}
+ 		}

@@ -72,6 +72,7 @@ PATCHES=(
 	"0044-omp-image-budget-wire-api-family.patch:${NM}"
 	"0045-omp-snapcompact-frame-reprice.patch:${AGENT}"
 	"0046-omp-supersede-warm-prefix-guard.patch:${AGENT}"
+	"0048-omp-advisor-quota-rotation-bound.patch:${AGENT}"
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then
@@ -168,6 +169,11 @@ if [[ -n "${OMP_PATCH_VERSION+x}" ]]; then
 		# 0035 新增候選：上游在 TURN_PREFIX_SUMMARIZATION_PROMPT 之後插入 Codex
 		# 判定函式，擠掉 canonical hunk 的下文。
 		_omp_version_candidates "18.1.10" 0010 0030 0035 0038 omit:0019 omit:0042
+		# 0047 僅在 18.1.10 計畫可用：它的 a 側是 candidate-0038 的產出形態，對
+		# 18.0.9 canonical-0038 樹 --fuzz=0 四 hunk 全掛（實測否決），故 base 計畫
+		# （= 無 OMP_PATCH_VERSION 的 18.0.9 鏈）不得包含它。與後續條目檔案不相交，
+		# 直接追加鏈尾。
+		PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
 		;;
 	*)
 		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11, 18.1.2, 18.1.5, 18.1.10)" >&2
