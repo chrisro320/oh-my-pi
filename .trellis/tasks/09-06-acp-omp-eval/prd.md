@@ -4,7 +4,7 @@
 
 `ranxianglei` 一系列 ACP（Active Context Pruning）實作提供「模型自主決定何時／壓什麼」的分層壓縮：`compress` / `decompress` / `search_context` / `acp_status` 四個模型可見工具，壓縮塊分 T1→T3 蒸餾，可搜尋、可解壓。宣稱單一 session 可跑數十億累計 token、上下文常駐 ~150K。
 
-起點是評估 `billion-context-pi` v0.1.58 能否遷移。結論：**不能**——它在 omp host 上主動拒絕服務（`src/index.ts:143-151`，`docs/omp.md`）。但作者對 omp 寫過**兩套**實作，本任務評估的是專用那套：
+起點是評估 `billion-context-pi` v0.1.54 能否遷移（**2026-09-07 勘誤**：本行原寫 v0.1.58，與下方表格及本地快照 `/tmp/bcp-base` 的 v0.1.54 不符，屬筆誤；`billion-context-pi` 當前最新為 **v0.1.59**）。結論：**不能**——它在 omp host 上主動拒絕服務（`src/index.ts:143-151`，`docs/omp.md`），v0.1.59 的 `README.md:25` 仍明確寫 OMP 拒絕。但作者對 omp 寫過**兩套**實作，本任務評估的是專用那套：
 
 | | `billion-context-pi` v0.1.54（pi 版最後支援 omp） | **`billion-context-omp` v0.3.3（本任務對象）** |
 |---|---|---|
@@ -25,7 +25,18 @@ v0.3.3 = commit `e961683c`（git ref API 驗證），24 個 src 檔 / 31 個 tes
 
 ## 硬性紅線（P0，違反即任務失敗）
 
-1. **嚴禁讀寫 live DB 與憑證**：不可讀寫 `~/.omp/agent/agent.db`、`models.db`、`auth.json`、OAuth token——連「只讀副本」也不允許。沙盒需遠端模型時走**沙盒內重新登入**（新憑證落沙盒自己的 DB）。
+> **2026-09-07 規格修訂（使用者拍板）**：紅線 1 原文要求「沙盒需遠端模型時走
+> **沙盒內重新登入**（新憑證落沙盒自己的 DB）」。該要求對**靜態 API key 型
+> provider 不可執行**——`hyper` 等 provider 沒有登入流程，沙盒內的「重新登入」
+> 就是把同一把 key 再填一遍，產生的憑證與 live 逐字節相同，隔離收益為零。
+> 原文因此是一條無法滿足的驗收項，而非執行失誤。修訂後放行靜態 key 複用，
+> **隔離判據改為「沙盒 DB 與 OAuth 憑證獨立」**。修訂適用於本任務全程，
+> 修訂前的原文與 S0.2 的原始偏差事實一併保留於
+> `research/evidence/S1-status-v2.md`，供審查者核對時間線。
+
+1. **live DB 與 OAuth 憑證隔離**：不可讀寫 `~/.omp/agent/agent.db`、`models.db`、`auth.json`、OAuth token——連「只讀副本」也不允許。沙盒需遠端模型時：
+   - **OAuth 型 provider**：必須走沙盒內重新登入，新憑證落沙盒自己的 DB。
+   - **靜態 API key 型 provider**（無登入流程，如 `hyper`）：**允許複用 live 的 key**。判據改為①沙盒 `agent.db`/`models.db` 是沙盒路徑下的新檔②沙盒內零 OAuth 憑證行③live `auth.json` 與 OAuth 憑證全程未被讀寫。key 一旦進入任何 payload／transcript／日誌，**須在任務收尾時列出全部落點並建議輪換**。
 2. **嚴禁改 live mirror `~/.omp`**：所有實驗在沙盒 `HOME` 內。
 3. **嚴禁動 `~/.omp/patches/` 與本 repo 補丁鏈**：評估階段 `apply.sh` 零改動、不新增補丁。
 4. **ACP fold checkpoint 必須隔離**：`fold-persist.ts:68-73` 存整份 coreMessages 與 block 內容至 `~/.omp/acp-omp-folds`；沙盒須顯式重定向 `ACP_OMP_FOLD_DIR` + `HOME`，預設路徑不得建立。

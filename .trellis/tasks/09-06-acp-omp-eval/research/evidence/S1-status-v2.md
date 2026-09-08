@@ -126,16 +126,41 @@ so that concern is out of scope for this API-scoped result, not disproven.
 
 ## Open — do not claim
 
-- **S0.2 (credentials) — OPEN by reviewer verdict, pending your disposition.**
-  Sandbox `agent.db`/`models.db` were created at sandbox paths with zero auth
-  rows, and a `history.db` exists. But `prd.md:28-32` requires fresh in-sandbox
-  login; the key was **copied from live `models.yml`**. Sanitizing local
-  artifacts does not retract copies already transmitted or logged. The four
-  original round-trips are unverifiable (captures deleted). Source correctness
-  does not waive the red line — this needs your explicit call.
-  You have since stated Anthropic credentials and live `agent.db` are what
-  matter and both are intact; that is recorded, but the reviewer's verdict on
-  this row stands as written.
+- **S0.2 (credentials) — CLOSED under the 2026-09-07 spec revision.**
+  *Original deviation, retained verbatim*: `prd.md` red line 1 as first
+  written required fresh in-sandbox login; the `hyper` key was **copied from
+  live `models.yml`**. The reviewer judged this row OPEN on that basis, and
+  sanitizing local artifacts does not retract copies already transmitted or
+  logged. The four original round-trips remain unverifiable (captures deleted).
+  *Why the requirement was unsatisfiable*: `hyper` is a static-API-key
+  provider with no login flow — an in-sandbox "login" retypes the same key and
+  yields a byte-identical credential, so the isolation gain is zero. The
+  original wording was an unmeetable acceptance item, not an execution slip.
+  *Revision (user's call, `prd.md:28-39`)*: static-key reuse is permitted; the
+  criterion becomes sandbox-DB-and-OAuth independence. Re-verified against the
+  three new criteria: ① sandbox `agent.db`/`models.db` are fresh files at
+  sandbox paths (`inode=6194080/6194084`, `S0.2-sandbox-db.txt`) — **pass**
+  ② zero auth rows in the sandbox DB — **pass** ③ live `auth.json` and OAuth
+  credentials untouched — **pass ONLY within the ACP sandbox execution window
+  (S0 → S5.2); NOT assertable for the task as a whole.**
+  *Criterion ③ exception, explicitly excluded from S0.2 acceptance*: outside
+  that window the 09-07 main-session repair (a) **read** the live
+  `auth_credentials` row `id=19` including its `access` and `refresh` token
+  values (compared via sha256; plaintext never written to disk) and (b)
+  **replaced the live `agent.db` file that holds that row**. `prd.md:39` still
+  requires live OAuth credentials be neither read nor written, so ③ is
+  satisfied for the sandbox window and **carries a standing exception for the
+  repair**. What remains positively verified across the repair: `auth.json`
+  byte-metadata identical at all three checkpoints
+  (`mtime=1788414915 size=304 inode=54925019`), and the full
+  `auth_credentials` table byte-identical before and after
+  (sha256 `1b45b5dc…1ad330`). Detail: `obs-live-db-rebuild-0907.md:77-94`.
+  *Still owed by the revision*: the key reached this session's transcript,
+  five `pid4102443` bodies and one sandbox session jsonl; all six on-disk
+  occurrences were replaced with `<redacted-apikey>` and the repo archive had
+  zero hits, but `prd.md:39` requires listing every landing site **and
+  recommending rotation** at task close. Rotation is therefore still advised —
+  transcript copies are outside reach.
 - **S1.2 real-threshold behaviour**: closed at an artificially low
   `thresholdTokens=400` (see the S1.2 v2 section). Behaviour at the real auto
   threshold on a 1M window is still unobserved, and v1's "2% peak" was never
@@ -145,16 +170,60 @@ so that concern is out of scope for this API-scoped result, not disproven.
   chat-completions shape, not Responses chaining). If the measurement model
   moves to a Responses API, close this gate first. v1's claim about field
   absence in the deleted four bodies is unverified.
-- **S1.7 (G0.5 isolation)**: the three live files retained the recorded
-  `inode`/`size`/`mtime`; **content equality was not tested and cannot be
-  asserted** without prohibited reads. Live fold path absent, sandbox `folds/`
-  empty — but **runtime fold-write isolation is unexercised** because ACP is
-  not installed. ACP auto-update off via sandbox JSON + `ACP_AUTO_UPDATE=0`;
-  marketplace updates off in the current sandbox config.
+- **S1.7a (G0.5 static isolation) — CLOSED 2026-09-07.** Live fold path
+  `~/.omp/acp-omp-folds` absent, sandbox `folds/` empty, `autoUpdate=false`
+  via both sandbox JSON and `ACP_AUTO_UPDATE=0`, `ACP_OMP_FOLD_DIR`
+  redirected. Evidence: `S1.7a-static-isolation.txt`. **Scope**: proves the
+  static configuration only. The empty `folds/` reflects *no writer* rather
+  than *writes correctly redirected*.
+- **S1.7b (G0.5 runtime isolation) — OPEN, blocks S2.** Runtime fold-write
+  isolation is still unexercised. The original `implement.md` scheduled ACP
+  installation at S2.2, leaving nothing to verify during S1 — a self-contradiction
+  in that document. Resolved (user's call, `implement.md:28-51`) by pulling an
+  **ACP preflight into S1.7b**: trigger one fold write, verify every checkpoint
+  lands under `ACP_OMP_FOLD_DIR` with `~/.omp/acp-omp-folds` still absent. The
+  preflight collects **no cost data**; S2.2's measurement is unchanged.
+  Deferring this to S2.2 was rejected — it would let S2.1 run before GATE 0 is
+  fully green.
+  **The preflight MUST use a separate sandbox `/tmp/acp-preflight`, never
+  `/tmp/acp-sandbox`.** Once ACP runs it leaves fold files, session jsonl,
+  `agent.db`/`history.db` rows and extension-load traces behind; **unloading
+  the extension does not undo those**, and the residue would contaminate the
+  S2.1 BASE group so BASE is no longer a clean baseline. Preflight evidence
+  (fold landing sites with filename/size/sha256 plus a JSON structural key
+  check — `state`/`coreMessages`/`appliedCallIds`/`rejectStreak`, key names and
+  array lengths only — proving a real write rather than a directory that merely
+  exists; **raw checkpoint content must never be archived**, since
+  `fold-persist.ts:51-55,84-86` stores full `coreMessages` and block bodies
+  which may carry user content or sensitive tool output, plus the discovery
+  listing and
+  ACP version fingerprint) is archived under `research/evidence/s17b/` **before**
+  the directory is deleted. Before S2.1 starts, re-verify `/tmp/acp-sandbox`
+  never loaded ACP: re-list the four discovery stages, confirm
+  `/tmp/acp-sandbox/folds` is still empty, and confirm no ACP-related session
+  records exist in that sandbox.
+  **Also note**: the three live-file `inode`/`size`/`mtime` retention that the
+  original S1.7 relied on no longer extends past S5.2 (see the rebuild entry
+  below); content equality was never testable without prohibited reads.
 - **S1.4 behaviour run — INVALID.** The double-read run (11 requests,
   `pid4102443`) shows no supersede notice, but the model issued only **one**
   fixture read, so no candidate ever existed. Absence proves nothing. The gate
   rests on the two source guards, not this run.
+- **S1.7 / S5.2 baseline invalidated after the fact (2026-09-07).** The live
+  `agent.db` was rebuilt by a **separate main-session repair** — the library
+  failed `integrity_check` while the Anthropic quota cache sat frozen, two
+  facts that **coexisted; the causal link was never established** (see
+  `obs-live-db-rebuild-0907.md:21-26`). Its `inode`/`size`/`mtime` changed:
+  `54945351 / 2551808` → `54958551 / 1720320`.
+  The S0.3→S5.2 comparison **still holds for the task window itself** — both
+  captures record the identical triple, so the sandbox did not touch live.
+  What is now unavailable is any `agent.db` triple comparison **after** S5.2;
+  do not diff the current stat against the S0.3/S5.2 files. `models.db`
+  (`inode`/`size` unchanged) and `auth.json` (unchanged) are unaffected.
+  Credentials verified byte-identical across the rebuild. Full record,
+  including a red-line-1 exception disclosure (the main session read live DB
+  contents while diagnosing) and the new baseline:
+  `obs-live-db-rebuild-0907.md`.
 
 ## Archive integrity
 
@@ -173,5 +242,15 @@ The `hyper` static API key reached: this session's transcript (my `grep`), five
 call — location `probe-seq-4102443-0011.json` models.yml tool-result, content
 not reproduced), and one sandbox session jsonl. All six on-disk occurrences
 replaced with `<redacted-apikey>`; the repo archive had zero hits. Rotation is
-still advised: transcript copies are outside my reach. No Anthropic credential
-and no live `agent.db`/`models.db`/`auth.json` was read or written at any point.
+still advised: transcript copies are outside my reach.
+
+**Scope correction (2026-09-07)**: the original wording here claimed no live
+`agent.db`/`models.db`/`auth.json` was ever read or written. That claim is
+**true only within the ACP sandbox execution window** (S0 → S5.2) and is
+restated as such. Outside that window, a separate main session **read live
+`agent.db` contents** (`auth_credentials` including token values, `cache`,
+`usage_history`) and **replaced the live `agent.db` file** while repairing an
+`integrity_check` failure. Live `auth.json` was never read or written at any
+point — its byte-metadata is identical at all three checkpoints. No Anthropic
+credential value was written; credentials were verified byte-identical across
+the rebuild. Full record: `obs-live-db-rebuild-0907.md`.

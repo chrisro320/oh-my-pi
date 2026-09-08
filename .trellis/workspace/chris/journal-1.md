@@ -113,3 +113,28 @@ Reused the active Agent provider-ready context under a strict runtime/wire model
 ### Status
 
 [OK] **Completed**
+
+## Session 6: agent.db 體檢、備份鏈重建與 repo 收尾（0047/0048/vision）
+
+**Date**: 2026-09-08
+**Task**: （無正式 task；運維 + 收尾）
+**Branch**: `master`
+
+### Summary
+
+live `agent.db` 體檢：integrity ok、外鍵無違例、忽略 WAL 的主檔獨立 ok、WAL 1003 幀在 autocheckpoint=1000 正常循環、唯一持有進程為當前會話。隱患集中在備份鏈——9/7 的「credential-safe」與 corrupt-20260907 報錯逐字相同（同為損壞現場複製），全部可信備份停在 8/30/16 憑證。處置：對 live 做 `.backup` 新備份 `credential-safe-20260908-080025.db`（integrity ok、憑證列與 live 逐行 sha256 一致、刪 sidecar 後單檔自足），刪除 36 個過時/損壞備份（含 db-repair-0907/ 整個目錄——其 dump.sql/cred.txt 為 644 明文憑證外泄面），含密鑰 db 全部收斂 600。教訓：本會話早期把 auth_credentials 整表白文打進了 transcript，後續一律 quote→sha256 比對，不回顯。
+
+repo 收尾：0048 補齊 runtime 同步；0047 沉澱為僅 18.1.10 計畫鏈（base 計畫=18.0.9 實測 --fuzz=0 四 hunk 全掛，否決入 base；改在 OMP_PATCH_VERSION=18.1.10 分支 _omp_version_candidates 後 PATCHES+=，live 樹反向逐字節吻合 + GATE1/2 PASS + 18.1.10 全鏈 --check 零衝突）；vision-warmup 鏡像登記 §3（部署版 cmp 逐字節一致）；runtime ~/.omp/patches 零漂移複驗通過。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4ddb151` | chore(vendor): bump pi-commandcode-provider → usage provider + pool active |
+| `ae287cb` | feat(patches): 登記 0047/0048 與 vision-warmup；0047 限定 18.1.10 計畫 |
+| `6168299` | docs(agents): 新增 Trellis spec 機制段（換模輪替強制項） |
+| `34f32f3` | docs(trellis): acp-omp-eval S1.7a 靜態隔離證據 + obs 0907 回滾材料易主；journal S6 |
+
+### Status
+
+[OK] **Completed**

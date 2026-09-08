@@ -68,6 +68,47 @@ v1 已由 reviewer 判 `incorrect`，本版按其行号级证据收窄。
 删/改：`update.ts`；`tool-guardrails.ts` 默认删（与宿主重复兜底）。
 必做：①按 GATE 1，链式管道成立 → **不需要**把 ACP 与 0038/0046 合进同一 handler；需验证转换的**非交换性**与 observer 位置 ②折叠前把 0038 的尾部 synthetic reminder 排除出 fold id 空间（同类先例：kernel 的 openai system-prefix hoist，`wire-fold.ts:73-80`；注意 wire 上已无 `providerOnly` 标记，该字段只在 `pi-ai/src/types.ts:905`） ③把 GATE 0.1 的 stateful 处置落成代码或配置。
 
+### 5.1 Phase 1 前置 — `acp-kernel` 版本落后审计（2026-09-07 新增，使用者提出）
+
+**事实**：ACP 的核心逻辑（`compress` / `decompress` / `refs` / `prune` / `rebuild` /
+`boundaries` / `sync` / `absorb` 等，见 `bcp159` source map 的 372 个源文件）
+全在 `acp-kernel`，v0.3.3 自身只是 omp 侧接线层（24 个 src 檔）。而：
+
+| 包 | 状态 | `acp-kernel` |
+|---|---|---|
+| `billion-context-pi` 0.1.59 | 现役 | **0.0.56** |
+| `billion-context` 0.1.92 | 现役 | **0.0.56** |
+| `billion-context-pi` 0.1.54（`/tmp/bcp-base`） | 旧 | 0.0.48 |
+| **`billion-context-omp` 0.3.3（本任务对象）** | **已弃用** | **0.0.42** |
+
+`acp-kernel` latest = `0.0.56`（2026-09-07T05:24Z）。**三条现役线全在 0.0.56，
+只有本任务要装的 0.3.3 卡在 0.0.42，落后 14 个版本。**
+
+**推论（尚未验证，必须审计）**：v0.3.3 的已知 bug 若集中在压缩语义而非 omp 接线，
+则成因在落后的 kernel，**原样装 stock 0.3.3 等于把已知缺陷一起搬进来**。
+
+**不可简化为「全量回移 pi@0.1.59」**：两边宿主不同——`bcp159/package.json:13-16,60-67`
+是 Pi host + `@earendil-works` 0.83；`bco/package.json:13-16,60-72` 是 OMP host +
+`omp.extensions` manifest + omp 17.3.8。且 `bcp159/README.md:25` **仍明确写 OMP
+拒绝**。pi 版的接线层（`getBranch()+mergeLiveEntries`，context 层改数组）正是
+§1 已否决的路径，不得搬入。
+
+**因此 Phase 1 前置必做**：
+1. **逐 issue / 逐 commit 差异矩阵**：`acp-kernel` 0.0.42 → 0.0.56 的变更，标注哪些是
+   压缩正确性修复、哪些是 host 相关、哪些是新特性。
+2. **API 兼容审计**：0.3.3 接线层对 kernel 的调用面（`compress-tool.ts`、`config.ts`、
+   `commands.ts`、`acp-kernel/panel` 等）在 0.0.56 下是否仍成立。
+3. **逐项移植 + OMP 回归测试**：只移压缩正确性修复，接线层保持 0.3.3 的 wire 层架构。
+4. 完成前 **stock 0.3.3 不得作为可验收的 EXT 对象**，也不得声称「已借鉴新版」。
+
+**对 S1.7b 的影响**：preflight 可以用 stock 0.3.3 跑，但结论**仅限 stock 的落点
+诊断**，不可外推。`src/fold-persist.ts:2` 直接 import `acp-kernel/persist` 的
+`StateStore` / `mergeCompressionState` / `PersistedEnvelope`；落盘目录解析
+（`:68-73`）与 envelope 写入／校验（`:90-102`，含 `FOLD_SCHEMA_VERSION` 与
+`validate`）全部委派 kernel，0.0.42→0.0.56 的持久化行为可能已变。因此升级／移植
+完成后**必须在另一个独立临时 `HOME` 重跑完整 fold-write isolation（S1.7c）**，
+才允许进 S2.2 的 EXT 量测。
+
 ## 6. Phase 2 — patch chain 矩阵（逐条各自证据，不用一份 dump 概括）
 
 需覆盖：**0010**（cron side-channel）、**0017**（Responses native replay + stateful）、**0038**（G2）、**0043**（打断清理）、**0044**（wire-api 图片预算）、**0045**（手动 snapcompact 重计价）、**0046**（持久化 supersede idle flush）、`resume-cache-breakpoint` extension，以及 restart / fallback / interrupt / side-channel / 手动 compact 五条 request path 各自验收。

@@ -1,0 +1,40 @@
+# S1.7a — G0.5 静态隔离复验  2026-09-07
+# 判据来源：implement.md:27（2026-09-07 顺序修正后的 S1.7a 行）
+# 说明：S1.7 原为单一闸；因 ACP 直到 S2.2 才安装，S1 阶段无运行时对象可验，
+#      故拆为 S1.7a（静态，本文件）与 S1.7b（运行时 preflight，仍在 S1 内）。
+
+## ① live fold 路径不得存在
+$ ls -d /home/chris/.omp/acp-omp-folds
+ls: cannot access '/home/chris/.omp/acp-omp-folds': No such file or directory
+=> PASS（默认路径从未建立）
+
+## ② 沙盒 folds/ 为空
+$ ls -la /tmp/acp-sandbox/folds
+total 0
+drwxrwxr-x 2 chris chris  40 Sep  6 12:59 .
+drwxrwxr-x 6 chris chris 180 Sep  6 13:36 ..
+=> PASS（零 fold 文件；ACP 未安装，符合预期）
+
+## ③ autoUpdate 关闭（双路）
+$ cat /tmp/acp-sandbox/home/.omp/acp-omp.json   # 归档为 sandbox-acp-omp.json
+{
+  "autoUpdate": false,
+  "debug": true
+}
+$ grep ACP_ /tmp/acp-sandbox/sandbox.env
+export ACP_OMP_FOLD_DIR=/tmp/acp-sandbox/folds
+export ACP_LOG_FILE=/tmp/acp-sandbox/logs/acp-omp.log
+export ACP_AUTO_UPDATE=0
+=> PASS（config 与 env 两路一致关闭，防基线漂移）
+
+## ④ fold 目录显式重定向
+ACP_OMP_FOLD_DIR=/tmp/acp-sandbox/folds
+=> PASS（`fold-persist.ts:68-73` 的默认 `~/.omp/acp-omp-folds` 被覆盖）
+
+## 判定
+S1.7a = CLOSED（四条全过）
+
+## 作用域限制 — 不可外推
+本文件**仅证明静态配置正确**。它**不证明** ACP 运行时真的把 checkpoint 写进
+重定向后的目录 —— ACP 尚未安装，`folds/` 的空状态是「无写入者」而非「写入被
+正确导向」。运行时行为由 S1.7b 的 preflight 负责，**S1.7b 未绿不得进 S2**。

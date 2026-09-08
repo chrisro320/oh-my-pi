@@ -24,9 +24,49 @@
 | S1.4 | G0.2c 0046 idle 剪枝 | 確認 idle flush 是否仍改寫歷史（`session-maintenance.ts:2084` 早於 enabled 門 `:2087`）；若無 settings 出口 → **列為「只能改宿主」候選並停下請示**，不自行改 | idle 前後 branch entries 對照 |
 | S1.5 | G0.3 載入順序 | **不以檔名或 `extensions[]` 推論順序**。沙盒 `HOME` 重定向後先列出實際被發現的 extension 路徑（四階段：ambient `loader.ts:684-691` / hooks `:697-710` / plugins `:713-715` / explicit `:717-743`），確認前三類是否為空；再在 ACP 與每個 observer 的 `before_provider_request` handler 各打一行帶進程內單調序號的日誌，**以實測序列為唯一證據**。若 ACP 未排在 observer 之前 → 改為在同一 handler 內先折疊後觀測，或接受 observer 記到未折疊 payload 並在報告中標明 | 啟動時的 extension 註冊序列 + 實測 handler 執行序號日誌 |
 | S1.6 | G0.4 最終字節 | 在 fetch 邊界抓最終 body + headers（Anthropic 需覆蓋 `toWellFormedDeep` 後、cch 補完後） | 一份「hook 後 body」vs「最終 body」逐欄 diff |
-| S1.7 | G0.5 隔離複驗 | 確認 `~/.omp/acp-omp-folds` **不存在**、fold 全落沙盒；`autoUpdate=false` | 目錄列表 + config dump |
+| S1.7a | G0.5 隔離**靜態**複驗 | 確認 `~/.omp/acp-omp-folds` **不存在**、沙盒 `folds/` 為空、`autoUpdate=false`（沙盒 JSON + `ACP_AUTO_UPDATE=0`）、marketplace 更新關 | 目錄列表 + config dump |
+| S1.7b | G0.5 隔離**運行時**複驗（ACP preflight） | **在 S1 內完成，且必須在獨立沙盒 `/tmp/acp-preflight` 執行——不得複用 `/tmp/acp-sandbox`**。裝上 v0.3.3，**只觸發一次 fold 寫出即停，不採集任何成本數據**。驗①checkpoint 全落 preflight 的 `ACP_OMP_FOLD_DIR`②`~/.omp/acp-omp-folds` 仍不存在③preflight 沙盒的 live stat 三元組未變。完成後 `rm -rf /tmp/acp-preflight` | fold 檔落點列表：**檔名 + 大小 + sha256 + JSON 結構鍵存在性檢查**（`state` / `coreMessages` / `appliedCallIds` / `rejectStreak`，只記鍵名與陣列長度）+ live 目錄仍缺席 + ACP 版本指紋。**嚴禁落 raw 內容**：`fold-persist.ts:51-55,84-86` 的 checkpoint 含完整 `coreMessages` 與 block 正文，首行可能攜使用者內容或敏感 tool output；結構驗證已足以證明非空且格式正確 |
 
-**Gate**：S1.1–S1.7 任一未綠 → 停，回報，不進 S2。
+**順序修正（2026-09-07，使用者拍板）**：原 S1.7 要求驗「ACP 寫 fold 不污染 live」，
+但原文件把 ACP 安裝排在 S2.2——S1 階段無物可驗，這是本文件自身的順序矛盾。
+
+修正方式**不是**把 S1.7 推遲到 S2.2（那會讓 S2.1 BASE 在 GATE 0 未全綠時先跑，
+違反本節的門），而是**把 ACP 安裝的 preflight 部分提前到 S1.7b**。
+
+**沙盒隔離要求（不可簡化）**：preflight 必須用獨立 `HOME`。理由：ACP 一旦跑起來
+會在沙盒內留下 fold 檔、session jsonl、`agent.db`/`history.db` 記錄與 extension
+載入痕跡；**僅卸載 extension 不足以還原**，S2.1 BASE 組會被這些殘留污染，
+使 BASE 不再是乾淨基線。因此：
+1. preflight 用 `/tmp/acp-preflight`（自己的 `HOME`/`folds`/`logs`/DB），
+   env 檔另存 `preflight.env`。
+2. preflight 的證據（fold 落點、discovery 列表、ACP 版本指紋）在**刪除目錄前**
+   歸檔進 `research/evidence/s17b/`。
+3. preflight 結束後 `rm -rf /tmp/acp-preflight`。
+4. **S2.1 起跑前復驗** `/tmp/acp-sandbox` 從未載入過 ACP：重列 discovery 四階段
+   + 確認 `/tmp/acp-sandbox/folds` 仍為空 + 沙盒內無 ACP 相關 session 記錄。
+
+preflight **不採集成本數據**，S2.2 的量測仍照原計畫在 `/tmp/acp-sandbox` 執行。
+
+**Gate**：S1.1–S1.6 + S1.7a + S1.7b 任一未綠 → 停，回報，不進 S2。
+GATE 0 全綠才允許開始 S2.1。
+
+**S1.7b 的作用域限制（2026-09-07）**：preflight 用 **stock v0.3.3** 跑，其結論
+**僅限 stock 的落點診斷**。
+
+**不可聲稱「隔離結論與 kernel 版本無關」**（此前寫法已撤回）：
+`/tmp/bco/src/fold-persist.ts:2` 直接 `import { StateStore, mergeCompressionState,
+type PersistedEnvelope } from "acp-kernel/persist"`，落盤目錄解析
+（`:68-73` 的 `foldPersistDir`）與 envelope 寫入／校驗（`:90-102` 的
+`createFoldStore`，含 `FOLD_SCHEMA_VERSION` 與 `validate`）全部委派給 kernel。
+**0.0.42 與 0.0.56 之間 `acp-kernel/persist` 的持久化行為可能已變**（目錄佈局、
+envelope 結構、schema 版本、寫入時機），因此 stock 的落點結論不能外推到升級後的
+產物。
+
+**強制要求**：完成 §5.1 的 kernel 升級／移植後，**必須在另一個獨立臨時 `HOME`
+再跑一次完整的 fold-write isolation**（記為 S1.7c），才允許進 S2.2 的 EXT 量測。
+preflight **不構成對 stock 0.3.3 的功能驗收**：0.3.3 釘死 `acp-kernel` 0.0.42，
+而三條現役線（pi 0.1.59 / proxy 0.1.92）皆已在 0.0.56，落後 14 個版本
+（詳見 `research/plan-v2.md` §5.1）。**S2.2 的 EXT 組不得使用 stock 0.3.3**。
 
 ## S2 — 三組量測
 
