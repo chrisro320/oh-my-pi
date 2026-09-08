@@ -12,7 +12,9 @@ spec 規則擋住，屬「改架構」級任務而非清理級，本輪按用戶
 - 現狀：23 個 active 補丁 + 4 套版本候選目錄 + `OMP_PATCH_VERSION` 機制；基線契約仍是
   18.0.9（上古），live 早已 18.1.10，每次操作都要雙計畫心智。
 - 方案（用戶批准方向）：18.1.10 四候選升 canonical → 版本機制退役 → 同檔補丁合併
-  （0037+0041、0026+0030、0045+0046、0038c+0047），23 條收 18 條。
+  （0037+0041、0026+0030、0045+0046、0038c+0047）。算式：18.1.10 計畫 **22 層**
+  （base array 23 條 −`omit:0019 omit:0042` +0047）經四次兩補丁合併 → **18 條**。
+  注意 23 是 base 計畫（18.0.9 鏈）口徑，不是本算式的輸入。
 - 合併策略：產物沿用組內最早編號，被吸收編號進 non-reuse 名單（規避 spec 的編號重用禁令）。
 
 ## 2. 已執行並拿到結果的驗證
@@ -20,7 +22,7 @@ spec 規則擋住，屬「改架構」級任務而非清理級，本輪按用戶
 | 項 | 結果 |
 |---|---|
 | 18.1.10 官方 tarball ×4（pi-coding-agent / pi-ai / pi-agent-core / snapcompact） | 全到手，4/4 通過 registry `dist.integrity` SHA-512 對帳 |
-| tarball SHA 表 | agent `e082f186…46894`、ai `03ced173…4116`、core `402589f3…67bb`、snap `035ce048…1878` |
+| tarball SHA-256 全值 | pi-coding-agent `e082f186e702b657125d9ae1679dfd23f5574604ad922e3cc60a24fd31d46894`；pi-ai `03ced173363b626dc769b1f3ffb4e95746b6eba76d4d7aa8d66572502d4c4116`；pi-agent-core `402589f36afd54694fa2264b98ab01439b93ce3336dce4f29da2c7d62eb667bb`；snapcompact `035ce0488282b1f06d8645d9e8d8519f1bff7bccbd9fe2aed018eab6fd391878` |
 | 主等價：pristine 18.1.10 + 現行 22 層計畫 vs live，47 個受影響檔逐字節 | **46/47 等**；22/22 層 `--fuzz=0` 零 hunk 失敗 |
 | 唯一差異歸因 | `session-advisors.ts:104` 一個空行（pristine 有、live 無），0035c/0048 均不觸及 → **unexplained drift**（放棄 hunk 行號歸因，advisory 糾正正確） |
 | live 完整性覆核 | 0048 grace 常量 / `usageLimitRotations` / `#buildAdvisorCachePreservingContext` 五處標記俱在，本輪回滾無誤傷 |

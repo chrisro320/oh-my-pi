@@ -53,5 +53,5 @@ for entry in "${CHAIN[@]}"; do
   done < <(sed -n 's|^--- a/||p' "$f" | cut -f1 | sort -u)
 done
 echo "compared $n file-pairs"
-[[ $mism -eq 0 ]] && echo "MASTER-EQUIV: sandbox == live" || echo "MASTER-EQUIV: FAIL"
-exit $mism
+[[ $fail -eq 0 && $mism -eq 0 ]] && echo "MASTER-EQUIV: sandbox == live" || echo "MASTER-EQUIV: FAIL"
+exit $(( fail | mism ))
