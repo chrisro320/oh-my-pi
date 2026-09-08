@@ -1,0 +1,10 @@
+--- a/src/session/session-advisors.ts
++++ b/src/session/session-advisors.ts
+@@ -102,7 +102,6 @@
+ import { sharesActivePromptCacheIdentity } from "./session-provider-boundary";
+ import { buildSessionMetadata } from "./session-metadata";
+ import type { YieldQueue } from "./yield-queue";
+-
+ const ADVISOR_CODEX_SSE_MAX_ATTEMPTS = 1;
+ /**
+  * How many consecutive same-provider quota rotations one advisor may treat as a
