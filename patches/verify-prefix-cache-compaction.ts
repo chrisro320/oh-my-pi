@@ -12,11 +12,21 @@ import { sharesActivePromptCacheIdentity } from "/home/chris/.bun/install/global
 import { buildResponsesInput } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/providers/openai-shared.ts";
 import { buildSessionContext } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-context.ts";
 import {
+	applyDateCwdAnchors,
 	renderDateCwdReminder,
-	withDateCwdReminder,
 } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/date-cwd-reminder.ts";
 import { convertToLlm } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/messages.ts";
 import type { SessionEntry } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-entries.ts";
+
+// 0047 replaced the provider-only tail (`withDateCwdReminder`) with anchored
+// stamps on the newest real user message. This shim reproduces exactly the
+// no-session-id branch of `DateCwdReminderInjector.transform`, which is the
+// transform this file needs to mirror the live provider context.
+function withDateCwdReminder(context: Context, date: string, cwd: string): Context {
+	if (!context.systemPrompt || context.systemPrompt.length === 0 || context.messages.length === 0) return context;
+	const { messages } = applyDateCwdAnchors(context.messages, renderDateCwdReminder(date, cwd), {});
+	return messages === context.messages ? context : { ...context, messages };
+}
 
 const model = getBundledModel("anthropic", "claude-opus-5");
 assert.ok(model, "bundled claude-opus-5 must exist");

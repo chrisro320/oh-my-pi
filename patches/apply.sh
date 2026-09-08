@@ -175,8 +175,18 @@ if [[ -n "${OMP_PATCH_VERSION+x}" ]]; then
 		# 直接追加鏈尾。
 		PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
 		;;
+	18.1.14)
+		# 18.1.10 → 18.1.14（上游 4 版：11 retry.waitForUsageReset / bash 複合命令批准、
+		# 12 Muse Code、13 dotenv provenance、14 reasoning-effort fallback）。
+		# 0004/0014/0017/0030 因上下文行侵蝕需新候選（0014 的 isClaude 尾部上下文、
+		# 0030 的 import 區、0004 的 segments 註解塊、0017 的 warm flag 鄰行）；
+		# 0010/0035/0038 沿用 18.1.10 候選字節（已核 cmp 相同），為版本計畫完整性另存一份。
+		_omp_version_candidates "18.1.14" 0004 0010 0014 0017 0030 0035 0038 omit:0019 omit:0042
+		# 0047 同 18.1.10：a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
+		PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
+		;;
 	*)
-		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11, 18.1.2, 18.1.5, 18.1.10)" >&2
+		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11, 18.1.2, 18.1.5, 18.1.10, 18.1.14)" >&2
 		exit 2
 		;;
 	esac

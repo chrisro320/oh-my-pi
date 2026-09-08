@@ -442,6 +442,10 @@ OMP_PATCH_OFFLINE_VERIFY=1 patches/apply.sh
 
 ### 6. Tests Required
 
+**適用口徑（2026-09-08 起）**：本節描述的是 0038 的 provider-only 尾條形態，只適用於**不含 0047 的計畫**（base 18.0.9 / 18.0.11 / 18.1.5）。18.1.10 與 18.1.14 計畫的鏈尾有 0047，它刪除了 `appendDateCwdReminder` 與 `withDateCwdReminder`，對那兩個計畫的 final tree 執行 `verify-date-cwd-reminder.ts` 會以缺少 export 的 `SyntaxError` 中止——那是預期，不是回歸。這兩個計畫的對應 acceptance 是 `verify-date-cwd-anchor-stability.ts`（見 `PATCHES.md` 的 0047 條目）。兩者都是**手動／隔離 acceptance**，不是 `apply.sh` 的 chain gate。
+
+不含 0047 的計畫：
+
 ```sh
 bun patches/verify-date-cwd-reminder.ts <isolated-@oh-my-pi-root>
 bash patches/verify-patch-family-rollups.sh
@@ -452,6 +456,12 @@ XDG_CONFIG_HOME=<isolated-config> \
 XDG_CACHE_HOME=<isolated-cache> \
 XDG_DATA_HOME=<isolated-data> \
 patches/apply.sh
+```
+
+含 0047 的計畫（18.1.10／18.1.14）：
+
+```sh
+OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> bun patches/verify-date-cwd-anchor-stability.ts
 ```
 
 The fixture must execute Responses, Chat Completions, Anthropic, and Google

@@ -29,17 +29,21 @@ sha256sum patches/*.patch
 OMP_PATCH_VERSION=18.0.11      僅使用 18.0.11 candidate 0010
 OMP_PATCH_VERSION=18.1.2       替換 candidates 0010、0030；排除 0038（9/2 批次原樣，未回溯）
 OMP_PATCH_VERSION=18.1.5       替換 candidates 0010、0030、0038（0038 於此版本復活：上游 class 版跨日仍原地改寫 first user）
+OMP_PATCH_VERSION=18.1.10      替換 candidates 0010、0030、0035、0038；排除 0019、0042（上游移除 inspect_image 與 refreshDescription）；鏈尾追加 0047
+OMP_PATCH_VERSION=18.1.14      替換 candidates 0004、0010、0014、0017、0030、0035、0038；排除 0019、0042；鏈尾追加 0047
 其他值                         exit 2，禁止猜測套用
 ```
 
-18.1.5 部署命令（最新版；舊版部署命令形狀相同，僅換版本號與入口包名）：
+18.1.14 部署命令（最新版；舊版部署命令形狀相同，僅換版本號與入口包名）：
 
 ```sh
-bun add -g @oh-my-pi/pi-coding-agent@18.1.5
-OMP_PATCH_VERSION=18.1.5 ~/.omp/patches/apply.sh
-OMP_PATCH_VERSION=18.1.5 ~/.omp/patches/apply.sh --check
+bun add -g @oh-my-pi/pi-coding-agent@18.1.14
+OMP_PATCH_VERSION=18.1.14 ~/.omp/patches/apply.sh
+OMP_PATCH_VERSION=18.1.14 ~/.omp/patches/apply.sh --check
 ~/.bun/bin/omp --version
 ```
+
+`bun update -g` 對本專案無效（global `package.json` pin 死確切版本），必須 `bun add -g <pkg>@<version>`。
 
 `bun add -g` 可能清掉 runtime 補丁與 symlink；套件更新後必須重新同步補丁並執行 `apply.sh`。
 
@@ -82,7 +86,7 @@ CLAUDE_CODE_OAUTH_TOKEN
 
 判定條件：
 
-- 部署版本的 active entries 全部套用成功：18.0.9／18.0.11／18.1.5 為 18/18，18.1.2 為 17/17。
+- 部署版本的 active entries 全部套用成功。層數以 `apply.sh` 的 `PATCHES` 陣列（base 23 條）為基準按計畫增減，**不含 `bin/omp` 狀態行**：18.0.9／18.0.11／18.1.5 為 23，18.1.2 為 22（`omit:0038`），18.1.10／18.1.14 為 22（`omit:0019 omit:0042` 後 +0047）。
 - `.rej` 為 0；`.orig` 必須按既有 patch(1) 行為分類，不得混入生成的 patch。
 - revert 後非工具殘留差異為 0。
 - 第二輪樹雜湊一致，apply 冪等。
@@ -207,8 +211,8 @@ OMP_PATCH_VERSION=<部署版本> ~/.omp/patches/apply.sh --check
 確認：
 
 - 版本為預期版本。
-- 部署版本的補丁全部為 `APPLIED`：18.0.9／18.0.11／18.1.5 為 18 項，18.1.2 為 17 項。
-- 版本選擇正確：18.0.11 換 `0010`；18.1.2 換 `0010`、`0030` 並排除 `0038`（沿用上游 class 版）；18.1.5 換 `0010`、`0030`、`0038`。
+- 部署版本的補丁全部為 `APPLIED`（層數同 §2，**`bin/omp` 狀態行另計**）：18.0.9／18.0.11／18.1.5 為 23 項，18.1.2 為 22 項，18.1.10／18.1.14 為 22 項。
+- 版本選擇正確：18.0.11 換 `0010`；18.1.2 換 `0010`、`0030` 並排除 `0038`（沿用上游 class 版）；18.1.5 換 `0010`、`0030`、`0038`；18.1.10 換 `0010`、`0030`、`0035`、`0038` 並排除 `0019`、`0042`、追加 `0047`；18.1.14 再多換 `0004`、`0014`、`0017`。
 - `bin/omp` 指向 patched `src/cli.ts`。
 - live DB 與 credential 沒有被新版 sandbox 命令接觸。
 

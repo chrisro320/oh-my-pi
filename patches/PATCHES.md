@@ -17,7 +17,17 @@
 `bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
 `dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
 
-## 1. src 補丁（目前 active：0004、0010、0014、0017、0025、0026-core、0030、0031、0032、0033、0034、0035、0036、0037、0038、0041、0043、0044、0045、0046、0048）
+## 1. src 補丁
+
+**三個口徑必須分開讀，混用會算錯層數：**
+
+| 口徑 | 內容 | 層數 |
+|---|---|---|
+| `apply.sh` 的 `PATCHES` 陣列（base 計畫 = 未設 `OMP_PATCH_VERSION` = 18.0.9 鏈） | 0033、0004、0034、0037、0010、0035、0019、0014、0036、0017、0025、0026-core、0030、0031、0032、0038、0041、0042、0043、0044、0045、0046、0048 | **23** |
+| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.14`） | base 23 條 −`omit:0019` −`omit:0042` +鏈尾 0047 | **22** |
+| 18.1.10 計畫 | 同上（候選集合不同） | 22 |
+
+`0042` 只存在於 base 計畫；`0047` 只存在於 18.1.10/18.1.14 計畫（其 a 側是 candidate-0038 的產出形態）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
 ### 0033–0037 — 功能族 rollup（2026-08-30）
 
@@ -266,7 +276,7 @@
   - **边界（未修，有意）**：`session-maintenance.ts` 2690 行附近还有第二处 rescue 路径的 `maxFramesForDataBudget()` 调用（"shrink a huge archive" 块），未改传 shape——`compact()` 内的 `shedFramesOverBudget` 已按实际字节兜底，该路径不会再造成 3MB 失败，只是白渲染旧上限的帧数（约 1s），属性能/一致性补全，留给上游。
 
 
-### 0047 — date/cwd reminder 從 provider-only 尾條改騎真實 user 消息（持久錨點凍結）【僅 18.1.10 計畫】
+### 0047 — date/cwd reminder 從 provider-only 尾條改騎真實 user 消息（持久錨點凍結）【僅 18.1.10／18.1.14 計畫】
 
 - **失敗簽名**（真實會話 `01a0778e`，claude-opus-5，~620k context）：cache-prefix-audit 每輪報 `HISTORY_REWRITE`，`sharedPrefix` 以 2 為步長推進（314→316→…→328）而非純尾 appended 的 `n-1` 形態；每輪 `cacheWrite` 11 815–12 335 token 對 ~600k `cacheRead`（strict 97.9–98.1%）。短回覆輪次回落到 ~1 600。
 - **根因**：0038 把 date/cwd reminder 做成 provider-only 合成尾條 user 消息——系統提示穩定了一點，但合成尾條佔住一個消息槽，下一輪真實 assistant 回覆落在同一 index，Anthropic 端看到的是歷史中段 **ROLE FLIP**：reminder 和它前面那條真實回覆每輪一起重新計費。2% 缺口在該 context 尺寸下 ≈12k token/輪全價重算，`input` 單價約 `cacheRead` 10 倍。
@@ -277,7 +287,7 @@
   - 只有最新真實 user 消息可 mint 新章，舊的未蓋章消息（早於本機制/早於此補丁的 session）必須與 JSONL 字節恒等；
   - 錨點表落 `~/.omp/agent/date-cwd-anchors/<sessionId>.json`（session 隔離防互竊），原子替換寫、0600；表損壞只退化為重蓋最新章（一個斷點的成本），不炸會話；無 session id 的單發/capture 代理退回進程內表。
 - **驗證**（`OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> bun patches/verify-date-cwd-anchor-stability.ts`，零 provider 呼叫）：GATE1 源碼形態（`appendDateCwdReminder` 滅絕、`applyDateCwdAnchors` 存在、兩個呼叫點都帶 session id；pristine 樹上必掛=反向對照）+ GATE2 行為重放，全 PASS；`OMP_PATCH_VERSION=18.1.10 bash patches/apply.sh --check` 24 檔 APPLIED 零 CONFLICT（0038-candidate→0047 鏈式重寫被 mirror 機制正確判別）；live 樹 `patch -R --fuzz=0` 逐字節吻合。
-- **版本限定（重要）**：0047 的 a 側是 **candidate-0038 的產出形態**（provider-only 尾條 + `appendDateCwdReminder`），對 18.0.9 canonical-0038 樹做 `--fuzz=0` 四個 hunk 全掛（2026-09-08 實測否決）。因此它**不進 `PATCHES` 數組**（base 計畫=18.0.9 鏈必須保持可回退），只在 `OMP_PATCH_VERSION=18.1.10` 分支於 `_omp_version_candidates` 之後 `PATCHES+=`。其他版本計畫（18.0.9/18.0.11/18.1.2/18.1.5）不包含它；18.1.2 連 0038 都 omit，更無從談起。升新版時若 candidate-0038 形態又漂移，0047 需隨之重錨。
+- **版本限定（重要）**：0047 的 a 側是 **candidate-0038 的產出形態**（provider-only 尾條 + `appendDateCwdReminder`），對 18.0.9 canonical-0038 樹做 `--fuzz=0` 四個 hunk 全掛（2026-09-08 實測否決）。因此它**不進 `PATCHES` 數組**（base 計畫=18.0.9 鏈必須保持可回退），只在 `OMP_PATCH_VERSION=18.1.10` 與 `18.1.14` 兩個分支於 `_omp_version_candidates` 之後 `PATCHES+=`（兩版的 candidate-0038 逐字節相同，故同一份 0047 通用）。其他版本計畫（18.0.9/18.0.11/18.1.2/18.1.5）不包含它；18.1.2 連 0038 都 omit，更無從談起。升新版時若 candidate-0038 形態又漂移，0047 需隨之重錨。
 - **效果**：長會話每輪省 ~12k 全價重算；審計日誌回到 `APPEND_ONLY` 形態。跨進程 resume 四次重放全 hit（見 0046 條目驗證表同型實驗）。
 ### 0048 — advisor 配额拒绝时，同 provider 换号被当成「已恢复」，导致零退避乒乓
 
@@ -491,6 +501,25 @@
 `trellis_command` 工具方案於 2026-08-31 由用戶判定屬過度設計而全數撤回（改走原生 skill 發現鏈：`.omp/skills/trellis-*/SKILL.md` 薄殼，真本仍為 `.omp/commands/*.md`）。倉庫 `53006f4` 已撤回 extension、trellis-custom canonical 與 npm 模板重放同步改回無工具真本；補丁檔於 2026-09-01 一併刪除，避免退役檔被誤讀成可選方案。編號 0040 就此空置。
 
 留存教訓（與方案無關，普遍成立）：**工具清單任何增刪都會翻轉工具簽名，跨部署邊界的活會話各斷一次前綴——新增常駐工具前必須先計價，能走 skills / commands / read 原生路徑的就不要造工具。** 同族前例見 0032（goal 常駐）。
+
+## 4b. 18.1.10 → 18.1.14 升級（2026-09-08）
+
+- **上游四版要點**：18.1.11 新增 `retry.waitForUsageReset`（provider 報配額耗盡且帶 reset 時間時休眠到重置，而非撞 `retry.maxDelayMs` 失敗）與 `bash.allowCompoundCommands`，修 WorkPool 子會話啟動崩潰；18.1.12 Muse Code 供應商 + OpenCode Go 模型發現補 `x-opencode-session`；18.1.13 修 dotenv launch provenance 污染呼叫方 env；18.1.14 修 reasoning-off 400 不回退最低 effort、Cursor GPT off-tier 裸 `-none` id。
+- **升級前沙盒報價**（不碰 live）：官方 pristine 18.1.14 四件套（registry `dist.integrity` SHA-512 4/4 對帳）+ 現行 18.1.10 計畫 22 層重放 → **18 層 `--fuzz=0` 乾淨、4 層需 fuzz、0 層失敗**。SHA-256：pi-coding-agent `3730edaac7c87245b5244fa1878b6314614c69f784dec8c962fb0737be7e250f`、pi-ai `2ac952cbfe10f7b802ba3050d475982fec2c1a46a50857987326a79c2aee8128`、pi-agent-core `2571b8a7d64a0085e959a7532e52d1c4826062f34204041fcd5217ccd0d98852`、snapcompact `165cdf33f4df6373a8bf4aef40edcc08a5f67f201646dfe83a52c6936d8bc2f3`。
+- **方法論教訓（重要）**：探針腳本第一版先 `--fuzz=0` **實套**、失敗再 `--fuzz=2` 重試，GNU patch 在第一趟已寫入成功的 hunk，第二趟必然衝突 → 報出 0014/0030 假 FAIL，並讓後續層跑在半污染樹上（一度誤判 0030 已被上游吸收）。**逐層必須先 `--dry-run` 判定、只實套一次**。修正後才是 `clean=18 fuzzy=4 failed=0`。
+- **`.18.1.14-candidates/`（7 件）**：
+  - 新生成 4 件（a 側 = 該層在鏈中應用前的樹，b 側 = fuzz 應用後；與源補丁的 `+`/`-` 行集合逐行比對相同，僅上下文重錨）：
+    - `0004` — `segments.ts` 註解塊偏移；
+    - `0014` — 上游把 hunk 尾上下文改成 `model.identity.class === "anthropic"`，canonical 的 `isClaudeModel(model.id)` 不再匹配（18.1.10 已靠 fuzz 過，此輪正式重錨）；
+    - `0017` — warm flag 鄰行偏移；
+    - `0030` — `auth-storage.ts` import 區持續增長（`clinePass`/`devin` 之後又有新項）。
+  - 沿用 3 件（與 `.18.1.10-candidates/` 對應檔 `cmp` 逐字節相同，為版本計畫完整性另存）：`0010`、`0035`、`0038`。canonical 版在 18.1.14 上實測：0038 三 hunk 掛二、連帶 0047 兩 hunk 全掛，故必須走候選。
+- **`apply.sh`**：新增 `18.1.14` 分支 `_omp_version_candidates "18.1.14" 0004 0010 0014 0017 0030 0035 0038 omit:0019 omit:0042` + 鏈尾 `PATCHES+=(0047)`（與 18.1.10 分支同構）；`*)` 的 known 清單同步加 18.1.14。
+- **落地驗收**：`bun add -g @oh-my-pi/pi-coding-agent@18.1.14`（四包同步到 18.1.14）→ repo `patches/` rsync 到 `~/.omp/patches/` 零漂移 → `OMP_PATCH_VERSION=18.1.14 apply.sh`：**plan 22 步 live mirror 全乾淨、22 層全 APPLIED、`bin/omp` 重新指回 `src/cli.ts`**（`bun add` 會把它重置回 `dist/cli.js`）。回歸套件全 PASS：antigravity envelope / prefix-cache compaction / provider-image-budget / hindsight recall+MM / interrupt prune symmetry / supersede warm-prefix guard / smoke。另補跑孤兒腳本：date-cwd anchor stability（GATE1+GATE2 PASS）、goal-tool-resident、ollama-cloud-usage 均 PASS。live 冒煙 `omp -p` 正常出字、`omp models` 正常。
+- **順帶修復 `verify-prefix-cache-compaction.ts`**：它仍 import 0047 已刪除的 `withDateCwdReminder`，套件一啟動就 `SyntaxError` 中止（0047 落地時只跑了 `--check`，沒跑全套，缺陷潛伏至今）。改為 import `applyDateCwdAnchors` 並在檔內定義等價 shim（複製 `DateCwdReminderInjector.transform` 的無 session-id 分支語義），PASS。
+- **`verify-date-cwd-reminder.ts` 的適用口徑（保留，不刪）**：它是 0038 provider-tail 形態的**手動／隔離 acceptance**（非 chain gate，不在 `apply.sh` 套件內），仍匯入 0047 已刪除的 `appendDateCwdReminder`／`withDateCwdReminder`。對含 0047 的計畫（18.1.10／18.1.14）final tree 跑它必然 `SyntaxError`，**那是預期而非回歸**；那兩個計畫的對應 acceptance 是 `verify-date-cwd-anchor-stability.ts`。`.trellis/spec/backend/extension-runtime-contracts.md` §6 已同步標註兩條口徑。
+- **升級前備份**：`/tmp/omp-1810-backup-0908-1140.tgz`（四包 `src/` + `package.json`，18.1.10 已套鏈狀態）。
+- **注意**：`bun update -g` 對本專案無效——`~/.bun/install/global/package.json` 把 `@oh-my-pi/pi-coding-agent` pin 成確切版本，必須 `bun add -g <pkg>@<version>`。該次無效 update 仍會把 `bin/omp` 重置回 `dist/cli.js`（補丁本身未受影響）。
 
 ## 5. agent.db 结构性损坏与重建(2026-08-29)
 - **发现**:排查配额时对 `~/.omp/agent/agent.db` 跑 `PRAGMA integrity_check`(官方 `.backup` 一致快照与 `mode=ro` 直读**都复现**,不是热 `cp` 造成的假象):
