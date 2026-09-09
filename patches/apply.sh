@@ -63,6 +63,7 @@ PATCHES=(
 	"0025-omp-ollama-cloud-usage-api.patch:${AI}"
 	"0026-omp-usage-fetch-anthropic-gate-core.patch:${AI}"
 	"0030-omp-usage-cache-canonical-baseurl.patch:${AI}"
+	"0051-omp-ollama-cache-usage.patch:${AI}"
 	"0031-omp-agent-session-providers-forward.patch:${AGENT}"
 	"0032-omp-goal-tool-resident.patch:${AGENT}"
 	"0038-omp-date-cwd-reminder-provider-tail.patch:${NM}"
