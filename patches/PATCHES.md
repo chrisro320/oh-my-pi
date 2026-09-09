@@ -305,6 +305,30 @@
 - **边界（未修，有意）**：`grace=1` 按当前 2 个 codex 凭证（id 7/15）定，正好够轮一遍；若凭证加到 3 个，C 拿不到授信机会。通用做法是让 grace 跟随「可用凭证数 - 1」，需额外拉一次凭证列表，留给上游。
 - **前提修正**：本条最初按「fallback 从未触发」写，被纠正为「已触发但仅 3/245」——修补丁注释后重新生成 diff，避免带着错误因果发布。
 
+### 0050 — omp -r 會話選擇器支援空白鍵快速歷史預覽與 Enter 直入
+
+- **痛點與場景**：`omp -r`（或 `/session resume`）的會話清單第二行經常因前綴截斷顯示為 `(no messages)`，用戶僅憑標題難以辨識歷史進度，誤按 Enter 進入後退回繁瑣。
+- **架構選擇**：純單檔案閉環（`src/modes/components/session-selector.ts`）。外圍零改動、零新增檔案。
+- **核心機制**：
+  1. **按鍵攔截**：`SessionList.handleInput` 在 `searchInput` 為空時攔截 `Space` 鍵，回調 `onPreviewRequest(selected)`；搜尋框有文字時 `Space` 維持正常字串輸入，絕不誤觸。
+  2. **槽位動態切換**：`SessionSelectorComponent` 複用現有的 `#contentSlot` 容器，將清單無縫切換為私有組件 `SessionPreviewView`；高度精確適配終端視口（`#lineBudget`），絕不撐破視口或污染滾動緩衝區。
+  3. **唯讀安全載入**：重用官方 `loadSessionMessagesReadOnly(session.path)`，不取會話鎖、不建 writer、保留 compaction 與 blob resolution；提取首輪 User 提問 + 尾部上下文結論，並由 `generation counter` 防範快速切換競態。
+  4. **直通操作閉環**：預覽浮層內按 `Enter` 立即直接 resume 進入會話；按 `Esc` 或 `Space` 關閉返回，原清單選中項與過濾字串完好保留；底欄提示自動隨狀態動態切換；依 Reviewer2 審查建議補齊預覽狀態下的 `Ctrl+C` 硬退出支援（`matchesKey(ctrl+c) → onExit()`），生命週期與清單完全對齊。
+  5. **全量滑鼠與滾輪支援**：`SessionPreviewView` 支援 SGR 滑鼠事件處理。浮層開啟時，鼠標滾輪/觸控板上下滑動即時平滑滾動；在右側滾動條軌道/滑塊處點擊或按住鼠標左鍵拖曳時，滑塊緊緊吸附光標動態定位；修復 `toolResult` 重複文字抽取問題。
+  6. **零嵌入換行與寬度嚴格對齊（根治渲染撕裂）**：排查發現正文插入青色滑塊及底欄穿入正文的根本原因：① `toolResult` 文本切片曾使用 `.join("\n")` 塞進單個 block，導致傳入 `ScrollView` 的單個邏輯行實為包含多個 `\n` 的多行字串，`ScrollView` 在末尾拼上 `${styledBar}` 後造成終端換行錯位；② 統一 `SessionPreviewView.render(width)` 寬度與 `SessionSelectorComponent` 的 `innerWidth` 完全一致（移除 `width - 2` 雙重扣減），使滾動條完全貼合外框右側，行數嚴格受控於 `terminalRows - 9`，永不撐破視口。
+  7. **聚焦純人類對話（零機器執行噪音）與消除 ANSI 洩漏**：徹底剔除細碎的 `toolCall` 與 `toolResult` 中間流水帳，僅展示包含實質文字內容的 `User` 提問與 `Assistant` 結論；精確識別伴隨 `toolCall` 的孤立單行圍欄碎片（`nonEmpty.length === 1 && /^```\w*$/.test(...)`）予以剔除，同時 100% 完整保留多行真實代碼塊內容；在抽取文字階段即先行完整剝離 ANSI 序列，杜絕 `[38;2;...m` 裸奔。
+- **自動回歸驗證**：`bun patches/verify-session-history-preview.ts`（全 8 項 PASS）：
+  - 驗證初始清單帶有 `Space preview` 提示；
+  - 驗證按 Space 觸發 `SessionPreviewView` 並渲染真實會話歷史；
+  - 驗證渲染出的所有物理行**嚴格零嵌入換行符 `\n` 與回車符 `\r`**；
+  - 驗證**絕不洩漏未轉義的原始 ANSI 色彩代碼**（`every(!/(?<!\x1b)\[(?:38|48);[25];\d+(?:;\d+)*m/.test(line))`）；
+  - 驗證按 Escape 無損返回清單；
+  - 驗證搜尋文字非空時 Space 為正常字符輸入；
+  - 驗證預覽浮層內按 Enter 直入觸發 `onSelect(session)`；
+  - 驗證預覽浮層內按 Ctrl+C 直通退出 `onExit()`；
+  - 驗證預覽狀態下滑鼠滾輪上下滾動與右側滾動條點擊/拖曳無縫平滑；
+  - 驗證真實多行程式碼圍欄（如 ````ts\nconst greeting = ...\n````）100% 完整保留，絕不誤殺。
+- **Reviewer2 獨立審查結論**：`overall_correctness: "correct"`。generation + disposed 雙重防護完整覆蓋非同步分支，#sessionList 實例復用無損保留游標與過濾狀態，ScrollView 恆定輸出固定高度，超長行/非文本/toolResult/空會話皆優雅降級，未發現 P0–P1 阻斷缺陷。
 ## 2. 已撤下的补丁（2026-08-25 移除）
 
 - **0009 pi-tui orca→iTerm2 图片协议**：把 `imageProtocol` 从 `null` 改成 `Iterm2` 后，omp 相信终端会画图并为 `isImageLine()` 判定的行预留高度；Orca 的 xterm.js 实际把 IIP 序列丢掉，留下空行 → composer/分隔线错位残留。已 `patch -R` 撤回并从 `apply.sh` 移除；`app.asar` 同时回滚到 `app.asar.orig-image-addon`。图片这条路要重开必须先证明 addon 在 renderer 里活着（探针见 `~/orca/projects/orca-update-patch/orca-image-addon-asar-patch.py` 的 `DEBUG_PROBE`）

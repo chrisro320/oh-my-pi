@@ -1,0 +1,374 @@
+--- a/src/modes/components/session-selector.ts
++++ b/src/modes/components/session-selector.ts
+@@ -18,6 +18,8 @@
+ import { matchesAppInterrupt, matchesSelectDown, matchesSelectUp } from "../../modes/utils/keybinding-matchers";
+ import type { SessionInfo, SessionStatus } from "../../session/session-listing";
+ import { shortenPath } from "../../tools/render-utils";
++import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
++import { loadSessionMessagesReadOnly } from "../../session/session-loader";
+ import { HookSelectorComponent } from "./hook-selector";
+ import { bottomBorder, OverlayPanel, row, topBorder } from "./overlay-box";
+ 
+@@ -278,6 +280,7 @@
+ 	readonly #getTerminalRows: () => number;
+ 
+ 	onDeleteRequest?: (session: SessionInfo) => void;
++	onPreviewRequest?: (session: SessionInfo) => void;
+ 
+ 	#allSessions: SessionInfo[];
+ 	#showCwd: boolean;
+@@ -690,7 +693,18 @@
+ 		// combo instead. Regular Backspace on an empty query means "delete
+ 		// session"; with a typed query it stays bound to the search Input so users
+ 		// can still edit their filter text.
++		// Space on an empty search query — request history preview
+ 		if (
++			(matchesKey(keyData, "space") || keyData === " ") &&
++			this.#searchInput.getValue().length === 0
++		) {
++			const selected = this.#filteredSessions[this.#selectedIndex];
++			if (selected && this.onPreviewRequest) {
++				this.onPreviewRequest(selected);
++			}
++			return;
++		}
++		if (
+ 			matchesKey(keyData, "delete") ||
+ 			(matchesKey(keyData, "backspace") && this.#searchInput.getValue().length === 0)
+ 		) {
+@@ -790,6 +804,9 @@
+ export class SessionSelectorComponent extends OverlayPanel {
+ 	#sessionList: SessionList;
+ 	#confirmationDialog: HookSelectorComponent | null = null;
++	#previewView: SessionPreviewView | null = null;
++	readonly #onSelectCallback: (session: SessionInfo) => void;
++	readonly #onExitCallback: () => void;
+ 	// Hosts whichever of `#sessionList` / `#confirmationDialog` is live this
+ 	// frame. The delete dialog REPLACES the list in this slot rather than being
+ 	// appended below the picker chrome, so the picker is always
+@@ -831,6 +848,8 @@
+ 
+ 		this.#messageContainer = new Container();
+ 		this.#onDelete = options.onDelete;
++		this.#onSelectCallback = onSelect;
++		this.#onExitCallback = onExit;
+ 		this.#loadAllSessions = options.loadAllSessions;
+ 		this.#folderSessions = sessions;
+ 		this.#globalSessions = options.allSessions ?? null;
+@@ -871,6 +890,9 @@
+ 		this.#sessionList.onDeleteRequest = (session: SessionInfo) => {
+ 			this.#showDeleteConfirmation(session);
+ 		};
++		this.#sessionList.onPreviewRequest = (session: SessionInfo) => {
++			this.#showPreview(session);
++		};
+ 		if (this.#loadAllSessions || this.#globalSessions) {
+ 			this.#sessionList.onToggleScope = () => {
+ 				void this.#toggleScope();
+@@ -942,10 +964,42 @@
+ 	 * child-walking dispose would miss its pending history-merge timer.
+ 	 */
+ 	override dispose(): void {
++		this.#previewView?.dispose();
+ 		this.#sessionList.dispose();
+ 		super.dispose();
+ 	}
+ 
++	#showPreview(session: SessionInfo): void {
++		if (this.#confirmationDialog) return;
++		this.#previewView = new SessionPreviewView(
++			session,
++			() => this.#closePreview(),
++			() => {
++				this.#previewView?.dispose();
++				this.#sessionList.dispose();
++				this.#onSelectCallback(session);
++			},
++			() => {
++				this.#previewView?.dispose();
++				this.#sessionList.dispose();
++				this.#onExitCallback();
++			},
++			this.#getTerminalRows,
++		);
++		this.#previewView.onRequestRender = () => this.#onRequestRender?.();
++		this.#contentSlot.clear();
++		this.#contentSlot.addChild(this.#previewView);
++		this.#onRequestRender?.();
++	}
++
++	#closePreview(): void {
++		if (!this.#previewView) return;
++		this.#previewView.dispose();
++		this.#previewView = null;
++		this.#contentSlot.clear();
++		this.#contentSlot.addChild(this.#sessionList);
++		this.#onRequestRender?.();
++	}
+ 	#clearError(): void {
+ 		this.#messageContainer.clear();
+ 	}
+@@ -1022,8 +1076,12 @@
+ 
+ 	/** Blank · keybinding hint · bottom border. Rendered by {@link render}. */
+ 	#footerLines(width: number): string[] {
++		if (this.#previewView) {
++			const hint = theme.fg("muted", "[↑/↓/PgUp/PgDn/Home/End scroll · Enter resume · Esc/Space close]");
++			return [row("", width), row(hint, width), row("", width), bottomBorder(width)];
++		}
+ 		const scopeHint = this.#scope === "all" ? "current folder" : "all projects";
+-		const hint = theme.fg("muted", `[Del/⌫ delete · Enter select · Tab ${scopeHint} · Esc cancel]`);
++		const hint = theme.fg("muted", `[Del/⌫ delete · Space preview · Enter select · Tab ${scopeHint} · Esc cancel]`);
+ 		return [row("", width), row(hint, width), row("", width), bottomBorder(width)];
+ 	}
+ 
+@@ -1035,6 +1093,8 @@
+ 		}
+ 		if (this.#confirmationDialog) {
+ 			this.#confirmationDialog.handleInput(keyData);
++		} else if (this.#previewView) {
++			this.#previewView.handleInput(keyData);
+ 		} else {
+ 			this.#sessionList.handleInput(keyData);
+ 		}
+@@ -1048,6 +1108,10 @@
+ 	 */
+ 	#handleMouse(data: string): void {
+ 		if (this.#confirmationDialog) return;
++		if (this.#previewView) {
++			this.#previewView.handleMouse(data, this.#listLineOffset);
++			return;
++		}
+ 		routeSgrMouseInput(data, event => {
+ 			if (event.wheel !== null) {
+ 				this.#sessionList.handleWheel(event.wheel);
+@@ -1064,3 +1128,229 @@
+ 		return this.#sessionList;
+ 	}
+ }
++
++const ANSI_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
++
++function cleanContentText(s: string): string[] {
++	const stripped = s.replace(ANSI_REGEX, "");
++	const noControls = stripped.replace(/\r/g, "").replace(/[\x00-\x08\x0B-\x1F\x7F]/g, "");
++	return replaceTabs(noControls).split("\n").map(l => l.trimEnd());
++}
++
++function extractConversationText(m: AgentMessage): string[] {
++	if (m.role !== "user" && m.role !== "assistant") return [];
++	const raw = "content" in m ? m.content : undefined;
++	if (typeof raw === "string") {
++		return cleanContentText(raw);
++	}
++	if (Array.isArray(raw)) {
++		const hasToolCall = raw.some(b => b && typeof b === "object" && "type" in b && b.type === "toolCall");
++		const lines: string[] = [];
++		for (const block of raw) {
++			if (
++				block &&
++				typeof block === "object" &&
++				"type" in block &&
++				block.type === "text" &&
++				typeof block.text === "string"
++			) {
++				const blockLines = cleanContentText(block.text);
++				if (hasToolCall) {
++					const nonEmpty = blockLines.filter(l => l.trim().length > 0);
++					if (nonEmpty.length === 0 || (nonEmpty.length === 1 && /^```\w*$/.test(nonEmpty[0]!.trim()))) {
++						continue;
++					}
++				}
++				lines.push(...blockLines);
++			}
++		}
++		return lines;
++	}
++	return [];
++}
++
++class SessionPreviewView implements Component {
++	readonly #session: SessionInfo;
++	readonly #onClose: () => void;
++	readonly #onSelect: () => void;
++	readonly #onExit: () => void;
++	readonly #getTerminalRows: () => number;
++	readonly #scrollView: ScrollView;
++	onRequestRender?: () => void;
++	#lines: string[] = [];
++	#generation = 0;
++	#disposed = false;
++	#lastRenderWidth = 80;
++	#lastHeaderRows = 3;
++	#lastScrollViewHeight = 10;
++	#isDraggingScrollbar = false;
++
++	constructor(
++		session: SessionInfo,
++		onClose: () => void,
++		onSelect: () => void,
++		onExit: () => void,
++		getTerminalRows: () => number,
++	) {
++		this.#session = session;
++		this.#onClose = onClose;
++		this.#onSelect = onSelect;
++		this.#onExit = onExit;
++		this.#getTerminalRows = getTerminalRows;
++		this.#lines = [theme.fg("muted", "Loading session history…")];
++		this.#scrollView = new ScrollView(this.#lines, {
++			height: 0,
++			scrollbar: "auto",
++			theme: { track: t => theme.fg("dim", t), thumb: t => theme.fg("accent", t) },
++		});
++		void this.#loadHistory();
++	}
++
++	async #loadHistory(): Promise<void> {
++		const gen = ++this.#generation;
++		try {
++			const messages = await loadSessionMessagesReadOnly(this.#session.path);
++			if (this.#disposed || gen !== this.#generation) return;
++			this.#formatMessages(messages);
++		} catch (err) {
++			if (this.#disposed || gen !== this.#generation) return;
++			this.#lines = [
++				theme.fg("error", `Failed to load preview: ${err instanceof Error ? err.message : String(err)}`),
++			];
++			this.#scrollView.setLines(this.#lines);
++			this.onRequestRender?.();
++		}
++	}
++
++	#formatMessages(messages: AgentMessage[]): void {
++		const lines: string[] = [];
++		const turns: Array<{ role: "user" | "assistant"; textLines: string[] }> = [];
++		for (const m of messages) {
++			if (m.role === "user" || m.role === "assistant") {
++				const textLines = extractConversationText(m);
++				if (textLines.some(l => l.trim().length > 0)) {
++					turns.push({ role: m.role, textLines });
++				}
++			}
++		}
++
++		if (turns.length === 0) {
++			lines.push(theme.fg("muted", "(No conversation messages found in session)"));
++		} else if (turns.length <= 15) {
++			for (const turn of turns) {
++				this.#appendTurnBlock(lines, turn);
++			}
++		} else {
++			for (let i = 0; i < 2; i++) {
++				this.#appendTurnBlock(lines, turns[i]!);
++			}
++			lines.push("");
++			lines.push(theme.fg("dim", `--- … (${turns.length - 12} conversation turns omitted) … ---`));
++			lines.push("");
++			for (let i = turns.length - 10; i < turns.length; i++) {
++				this.#appendTurnBlock(lines, turns[i]!);
++			}
++		}
++		this.#lines = lines;
++		this.#scrollView.setLines(this.#lines);
++		this.onRequestRender?.();
++	}
++
++	#appendTurnBlock(lines: string[], turn: { role: "user" | "assistant"; textLines: string[] }): void {
++		const roleLabel =
++			turn.role === "user" ? theme.fg("accent", theme.bold("User")) : theme.fg("success", theme.bold("Assistant"));
++		lines.push(`[${roleLabel}]`);
++		const maxLines = 20;
++		for (let i = 0; i < Math.min(turn.textLines.length, maxLines); i++) {
++			lines.push(`  ${turn.textLines[i]}`);
++		}
++		if (turn.textLines.length > maxLines) {
++			lines.push(`  ${theme.fg("dim", `… (${turn.textLines.length - maxLines} more lines)`)}`);
++		}
++		lines.push("");
++	}
++
++	dispose(): void {
++		this.#disposed = true;
++		this.#generation++;
++	}
++
++	invalidate(): void {}
++
++	handleInput(keyData: string): void {
++		if (matchesKey(keyData, "ctrl+c")) {
++			this.#onExit();
++			return;
++		}
++		if (matchesKey(keyData, "enter") || matchesKey(keyData, "return") || keyData === "\n") {
++			this.#onSelect();
++			return;
++		}
++		if (matchesKey(keyData, "escape") || matchesKey(keyData, "space") || keyData === " ") {
++			this.#onClose();
++			return;
++		}
++		this.#scrollView.handleScrollKey(keyData);
++		this.onRequestRender?.();
++	}
++
++
++	handleWheel(delta: -1 | 1): void {
++		this.#scrollView.scroll(delta * 2);
++		this.onRequestRender?.();
++	}
++
++	handleMouse(data: string, listLineOffset: number): void {
++		routeSgrMouseInput(data, event => {
++			if (event.wheel !== null) {
++				this.handleWheel(event.wheel);
++				return true;
++			}
++
++			const scrollStartRow = listLineOffset + this.#lastHeaderRows;
++			const scrollEndRow = scrollStartRow + this.#lastScrollViewHeight;
++			const isNearRightEdge = event.col >= Math.max(0, this.#lastRenderWidth - 4);
++
++			if (event.leftClick) {
++				if (isNearRightEdge && event.row >= scrollStartRow && event.row < scrollEndRow) {
++					this.#isDraggingScrollbar = true;
++					this.#scrollToRow(event.row - scrollStartRow);
++					return true;
++				}
++			} else if (event.release) {
++				this.#isDraggingScrollbar = false;
++			} else if (event.motion && this.#isDraggingScrollbar) {
++				this.#scrollToRow(event.row - scrollStartRow);
++				return true;
++			}
++			return true;
++		});
++	}
++
++	#scrollToRow(localRow: number): void {
++		if (this.#lastScrollViewHeight <= 1) return;
++		const ratio = Math.max(0, Math.min(1, localRow / (this.#lastScrollViewHeight - 1)));
++		const targetOffset = Math.round(ratio * this.#scrollView.getMaxScrollOffset());
++		this.#scrollView.setScrollOffset(targetOffset);
++		this.onRequestRender?.();
++	}
++	render(width: number): readonly string[] {
++		this.#lastRenderWidth = width;
++		const lines: string[] = [];
++		const title = this.#session.title || "(Untitled Session)";
++		lines.push(theme.bold(theme.fg("accent", truncateToWidth(title, width))));
++		const status = formatSessionStatus(this.#session.status);
++		const statusStr = status ? ` · ${status}` : "";
++		const meta = `${this.#session.id.slice(0, 8)} · ${shortenPath(this.#session.cwd || "")} · ${formatBytes(this.#session.size)}${statusStr}`;
++		lines.push(theme.fg("dim", truncateToWidth(meta, width)));
++		lines.push(theme.fg("dim", "─".repeat(width)));
++		this.#lastHeaderRows = lines.length;
++
++		const availableHeight = Math.max(4, this.#getTerminalRows() - 9);
++		this.#lastScrollViewHeight = availableHeight;
++		this.#scrollView.setHeight(availableHeight);
++		lines.push(...this.#scrollView.render(width));
++		return lines;
++	}
++}
++

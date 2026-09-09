@@ -73,6 +73,7 @@ PATCHES=(
 	"0045-omp-snapcompact-frame-reprice.patch:${AGENT}"
 	"0046-omp-supersede-warm-prefix-guard.patch:${AGENT}"
 	"0048-omp-advisor-quota-rotation-bound.patch:${AGENT}"
+	"0050-omp-session-history-preview.patch:${AGENT}"
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then
