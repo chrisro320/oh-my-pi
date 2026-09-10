@@ -76,7 +76,6 @@ PATCHES=(
 	"0046-omp-supersede-warm-prefix-guard.patch:${AGENT}"
 	"0048-omp-advisor-quota-rotation-bound.patch:${AGENT}"
 	"0050-omp-session-history-preview.patch:${AGENT}"
-	"0053-omp-snapcompact-frame-budget-consistency.patch:${NM}"
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then
@@ -476,7 +475,6 @@ if [[ "$MODE" == "apply" ]]; then
 	bun "${HERE}/verify-prefix-cache-compaction.ts"
 	bun "${HERE}/verify-provider-image-budget.ts"
 	bun "${HERE}/verify-snapcompact-model-billing.ts"
-	OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT="$SNAP" bun "${HERE}/verify-snapcompact-frame-budget.ts"
 	OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT="$SNAP" bash "${HERE}/verify-spec-contracts.sh"
 	bun "${HERE}/verify-hindsight-recall-snapshot.ts"
 	OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" bun "${HERE}/verify-interrupt-prune-symmetry.ts"

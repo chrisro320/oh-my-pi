@@ -178,14 +178,18 @@
 - **S3 bench 金鑰** `verified` — 已實作候選探活：`resolveKey()` 按序探測並快取，**且刻意探測 chat 端點而非 `/models`**（Cloudflare 對部分路徑回 `error code: 1010`，只有 chat 端點的結論才對 bench 有效）。修前腳本寫 `auth["commandcode-alt"] ?? auth["commandcode"]`，**優先選已欠費的那個**（實測 400 insufficient credits），使每次測量都變成帳務錯誤。
   另修 `fill()` 的填充單位（見上）與 `ask` 的遞迴依賴（拆出 `post`）。
 - **S10 Phase 3.3 `trellis-update-spec`** `verified` — 新增 `.trellis/spec/backend/verification-gate-contracts.md`（兩大 Scenario：閘門可證偽性 ＋ 補丁變更的表示同步），已註冊進 `backend/index.md`。附 machine-checkable 閘門 `patches/verify-spec-contracts.sh`（已掛入 `apply.sh` 套件，從 repo 與 ledger 兩路徑皆 exit 0）。負向對照：① 計費表出現裸前綴鍵 → `billing table contains a bare prefix key` FAILED；② ledger 漂移 → `DRIFTED from the deployed ledger` FAILED；③ 根指向不存在樹 → fail-closed FAILED；④ spec 找不到 → exit 1。
-- **S7b 規劃器／渲染器 shape 失配 ＋ 位元組表低估 ＋ 非基準 edge 查表 miss** `verified: 已修（補丁 0053）`
-  - **⚠ 更正先前的錯誤聲稱**：我曾說「差 44 倍是已發生的 bug」。以**本機真實歸檔文本**驗證，CJK 佔比僅 **6.0%**（門檻 25%），兩條路徑**結果相同**（皆 `8x13`/`8x22`）→ **未在生產觸發**。先前結論來自 46% CJK 的**合成樣本**。此項是**消除隱患**，非修復已觀測故障。
-  - **⚠ 第二處更正**：我曾列 `8x13-bw` 均值 **184,116**、低估 7.4×。按 `(font, variant, cols, rows)` 精確分組後，該數字實屬 **`11on16-bw@1932`（175×120）**；`8x13-bw` 的基準頁為 196×120，**持久化幀中不存在此分組** → 無量測即**維持原值 25,000**，不發明數字。
-  - **已觀測缺陷（709 幀實測）**：`8on22-bw@1568`(196×71) 均值 90,797 對表值 20,000（**4.5×**）；`8on16-bw@1568`(196×98) 121,708 對 20,000（**6.1×**）；`11on16-bw@1932` 184,116 對 80,000（2.3×）；`silver16-bw` 566,313 對 870,000（高估，安全）。後果：規劃 80 幀、實際 7.3MB 超預算、砍到 33 幀，**白渲染 47 幀**。
-  - **第三缺陷**：查表要求 `geo.frameSize === shape.frameSize`，但各 variant 只註冊基準 edge（皆 1568）。模型解析到別的 edge（Gemini 2048）時 **查表 miss → 落回通用 170,000**，量測值全丟。
-  - **修法**：① 兩個 cap 函式加 `resolvedShape`，**四個 `maxFramesForDataBudget` 呼叫點全部**傳 `(BUDGET, shape)`（含 rescue 與兩處早退分支）；② 位元組表改實測均值（`8on22-bw` 105,000、`8on16-bw` 140,000、`11on16-bw` 140,000）；③ 查表移除 `frameSize` 比對，改**按容量面積縮放**。
-  - **為何取均值而非上界**：取上界會讓規劃從 28 幀塌到 10 幀，而預算實際裝 28 幀 → **每次壓縮永久丟歷史**，是回歸。取均值規劃 **28 幀**，與該會話實測歸檔 **25 幀**吻合。
-  - **驗證**：**clean-room 通過**（pristine → 全鏈 → `cmp` 兩檔對 live 逐位元組相等，exit=0）；27 行 APPLIED／0 CONFLICT；九道閘門 PASS；零漂移 10/10。新閘門含**五個負向對照**（含專測內層 `maxFramesForDataBudget` 引數數的那條——先前正是漏在此，綠閘門會把 1.6× 分叉固化）。
+- **S7b 規劃器／渲染器 shape 失配 ＋ 位元組表 ＋ 非基準 edge 查表** `已撤回（0053 全數撤除）`
+  - **撤回理由（實測，非推論）**：本項原宣稱「位元組表低估 4.5–6.1 倍是缺陷」——**該判斷錯誤**。全量掃描 **47 次真實歸檔**證明：
+    - 位元組上限**歷史上從未生效**（最大 plan 35 幀，舊 cap 150/80 皆未觸及）。真實 binder 是 **token 預算**，不是位元組。
+    - 我把表值提到實測均值（20k→105k）後，cap 降到 28，會**鉗制 8 次真實歸檔**（plan 31–35 → 28），而這 8 次全部只佔預算 **97.0–99.5%**（本來塞得下）→ **白丟 2–7 幀歷史**。這是**不可逆的內容損失**。
+    - 根因：位元組上限建模**單一 shape**，而真實佈局是 **foveated 混合**（`HQ_EDGE_FRAMES=3`，即 6×HQ@~90–94k + (N−6)×LQ@~123–133k）。單一標量在數學上表達不了分段代價。
+  - **foveation 反推（逐位元組吻合，無歧義）**：`plan = 6HQ + (N−6)LQ`；12:25Z 存活 25（3HQ+22LQ）→ **plan 28** = 3,269,462 B > 3MB → shed 由最舊端丟 3 個 HQ → 25 ✓；15:27Z 存活 23 → **plan 26** = 3,139,032 B → 丟 3 → 23 ✓。舊/新表在此皆 `min(26, 80, 150|28, 80) = 26` → **0053 在本會話惰性**。
+  - **S5 的「規劃階段永不超發」被證偽**：該結論只分析了 silver 路徑（870k/幀 → 3 幀），未分析 foveated 混合路徑——後者 plan 26 幀即超發。已更正。
+  - **被否決的第三項修法（面積縮放）**：曾把查表的 `frameSize` 全等比對改為按容量面積縮放，用以修 Gemini 2048px 路徑的查表 miss。實測效果：`cap 17（鉗制）→ cap 87`，但真實頁 ~160KB 只裝得下 **18 幀**——**多渲染 69 幀只多留 1 幀**，且 `shedFramesOverBudget` 本來就會精確裁到 18。**淨負**，一併撤回。
+  - **結論**：`shedFramesOverBudget` 已是**精確**的 3MB 兜底（按實際 base64 從最舊端裁切）。規劃值**悲觀 = 丟內容（不可逆）**，**樂觀 = 多渲染（可丟棄）**。故上限應**寬鬆而非收緊**——上游原值即是正確行為。正解在 `planArchive` 內部（該處已知 `hiPages.length`，可按位元組建構佈局），但那需等「規劃器/渲染器統一 shape」一併重做，且**不是本批既定目標**。
+  - **保留的**：無。0053 補丁、閘門擴充、apply.sh 掛載、PATCHES.md 條目全數撤除；`patches/verify-snapcompact-frame-budget.ts`（屬補丁 **0020**，我誤刪後已自 `1c03b9c^` 逐位元組還原）。
+  - **驗證**：clean-room pristine → 全鏈 → 兩檔對 live **逐位元組相等**（exit=0）；**26 行 APPLIED（25 補丁 + bin）**／0 CONFLICT；十道閘門全 PASS；零漂移。
+
 ### 待辦（下次接續）
 
 - **S7 CJK 可讀性** `blocked: 無可用視覺通道` — 前提已被推翻（見上），且**實驗通道亦不可用**。
