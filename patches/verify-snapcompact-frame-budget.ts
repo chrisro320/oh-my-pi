@@ -83,6 +83,25 @@ for (const call of rescueCalls) {
 	assert.equal(call.slice(0, -1).split(",").length, 3, "the rescue cap call must pass the resolved shape");
 }
 
+// The INNER byte cap must also receive a shape. Passing a shape into the outer
+// helper proves nothing about what the helper does with it: the rescue path
+// previously called `maxFramesForDataBudget()` bare, so its byte ceiling came
+// from the legacy generic estimate while the main path used the measured table
+// — a 1.6x divergence between two routes over the same archive. Assert the
+// inner argument directly.
+const byteCapCalls = maintenance.match(/maxFramesForDataBudget\(([^)]*)\)/g) ?? [];
+assert.ok(byteCapCalls.length >= 4, `expected at least four maxFramesForDataBudget references, found ${byteCapCalls.length}`);
+for (const call of byteCapCalls) {
+	if (call.includes("maxFrameDataBytes: number")) continue; // the declaration
+	const args = call.slice(0, -1).split(",").length;
+	assert.equal(
+		args,
+		2,
+		`maxFramesForDataBudget called with ${args} arg(s); every call must pass (FRAME_DATA_BYTES_BUDGET, shape) ` +
+			`so both the main and rescue paths size the byte ceiling from the measured table`,
+	);
+}
+
 // The byte table must carry the measured pages, not the old 20k placeholder.
 const table = source.slice(source.indexOf("FRAME_DATA_BYTES_PER_SHAPE"));
 const entry = (name: string) => {
@@ -90,12 +109,28 @@ const entry = (name: string) => {
 	assert.ok(m, `byte table is missing ${name}`);
 	return Number(m[1].replaceAll("_", ""));
 };
-// Measured means over 709 persisted frames: 8on22-bw ~90.8 KB, 8on16-bw
-// ~121.7 KB. The old 20k values planned 3-6x the frames the budget holds.
+// Measured means over persisted frames, at each variant's CANONICAL frame edge
+// (the table is area-scaled from there to whatever edge a model resolves to):
+// 8on22-bw ~90.8 KB and 8on16-bw ~121.7 KB at 1568, 11on16-bw ~184.1 KB at
+// 1932 -> ~122 KB at its canonical 1568. The old 20k values planned 3-6x the
+// frames the budget holds.
 assert.ok(entry("8on22-bw") >= 90_000, `8on22-bw entry ${entry("8on22-bw")} understates the measured page`);
 assert.ok(entry("8on16-bw") >= 120_000, `8on16-bw entry ${entry("8on16-bw")} understates the measured page`);
+assert.ok(entry("11on16-bw") >= 120_000, `11on16-bw entry ${entry("11on16-bw")} understates the canonical page`);
 // silver must stay an upper bound: its worst observed page was 772,992 B.
 assert.ok(entry("silver16-bw") >= 772_992, `silver16-bw entry ${entry("silver16-bw")} no longer covers the worst observed page`);
+// 8x13-bw has no measured group (its canonical page is 196x120, which no
+// persisted frame used), so it must keep its original value rather than an
+// invented one.
+assert.equal(entry("8x13-bw"), 25_000, "8x13-bw has no measurement; it must keep its original value, not an invented one");
+
+// The lookup must scale with page area so a non-canonical frame edge keeps
+// using the measurement instead of dropping to the generic estimate.
+assert.match(
+	source,
+	/perFrame = Math\.round\(FRAME_DATA_BYTES_PER_SHAPE\[name as ShapeVariantName\] \* \(actual \/ canonical\)\)/,
+	"patch 0053 missing: the byte lookup does not scale the measurement by page area",
+);
 
 // ---------------------------------------------------------------------------
 // GATE 2: the plan must match what the budget actually holds.
