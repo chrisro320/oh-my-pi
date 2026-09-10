@@ -178,20 +178,20 @@
 - **S3 bench 金鑰** `verified` — 已實作候選探活：`resolveKey()` 按序探測並快取，**且刻意探測 chat 端點而非 `/models`**（Cloudflare 對部分路徑回 `error code: 1010`，只有 chat 端點的結論才對 bench 有效）。修前腳本寫 `auth["commandcode-alt"] ?? auth["commandcode"]`，**優先選已欠費的那個**（實測 400 insufficient credits），使每次測量都變成帳務錯誤。
   另修 `fill()` 的填充單位（見上）與 `ask` 的遞迴依賴（拆出 `post`）。
 - **S10 Phase 3.3 `trellis-update-spec`** `verified` — 新增 `.trellis/spec/backend/verification-gate-contracts.md`（兩大 Scenario：閘門可證偽性 ＋ 補丁變更的表示同步），已註冊進 `backend/index.md`。附 machine-checkable 閘門 `patches/verify-spec-contracts.sh`（已掛入 `apply.sh` 套件，從 repo 與 ledger 兩路徑皆 exit 0）。負向對照：① 計費表出現裸前綴鍵 → `billing table contains a bare prefix key` FAILED；② ledger 漂移 → `DRIFTED from the deployed ledger` FAILED；③ 根指向不存在樹 → fail-closed FAILED；④ spec 找不到 → exit 1。
+- **S7b 規劃器／渲染器 shape 失配 ＋ 位元組表低估** `verified: 已修（補丁 0053）`
+  - **⚠ 更正先前的錯誤聲稱**：我曾說「差 44 倍是已發生的 bug」。以**本機真實歸檔文本**驗證後發現，真實歸檔 CJK 佔比僅 **6.0%**（閾值 25%），兩條路徑**結果相同**（皆 `8x13`/`8x22`）→ **失配未在生產觸發**。先前結論來自 46% CJK 的**合成文本**，不反映實際語料。此項是**消除隱患**，不是修復已觀測故障。
+  - **第二項缺陷確為已觀測**：`8on*` 位元組表嚴重低估。全量 **709 幀**實測：`8on22-bw` 均值 90,797 對表值 20,000（**4.5×**）、`8on16-bw` 121,708 對 20,000（**6.1×**）、`8x13-bw` 184,116 對 25,000（**7.4×**）。後果：規劃 80 幀、實際 7.3MB 超預算、砍到 33 幀，**白渲染 47 幀**。
+  - **修法**：① 兩個 cap 函式加 `resolvedShape` 參數，三個呼叫點傳入實際渲染形狀；② 位元組表改**實測均值**（`8on22-bw` 105,000、`8on16-bw` 140,000、`11on16-bw` 185,000、`8x13-bw` 30,000），**silver 維持 870,000**（仍是上界）。
+  - **為何取均值而非上界**：此值除預算、決定幀數。取上界（279,000）規劃降到 **10 幀**，而預算實際裝 28 幀 → **每次壓縮永久丟歷史**，是回歸。取均值規劃 **28 幀**，與該會話實測歸檔 **25 幀**吻合。
+  - **驗證**：apply exit=0 且兩檔 sha256 前後不變；**27 行 APPLIED／0 CONFLICT**；九道閘門 PASS；零漂移 10/10。新閘門 `verify-snapcompact-frame-budget.ts` 兩閘門 ＋ 兩個負向對照（訊息可區分）。
+
 ### 待辦（下次接續）
 
 - **S7 CJK 可讀性** `blocked: 無可用視覺通道` — 前提已被推翻（見上），且**實驗通道亦不可用**。
+  - **cellH=19 實測（2026-09-10，commandcode，3 次）**：**0/3**，且三次都讀出**同一個錯誤值 400** → 系統性定位偏差，非隨機誤讀。與歷史對照：`cellH=16` → 3/15、`cellH=19` → 0/3、`cellH=22` → 3/5，**非單調** → **此方法無區分力**，不足以支撐行高取捨。**結論：不改行高**，不再投入額度。
   - **`cbcn` 視覺路由壞死**（2026-09-10 實測）：`cbcn/deepseek-v4.1-flash` 與 `cbcn/glm-5.3-flash` **純文字皆 HTTP 200，凡帶圖皆 HTTP 404**，錯誤訊息 `[sensenova/sensenova-6.7-flash-lite] [404]: model route not found`。兩模型表現一致 → 是本地代理 `omni_route`（`localhost:20128`）的**視覺路由指向了不存在的上游**，非模型問題。附註：該代理的 404 是**間歇性**的（同一純文字請求重試即恢復 200），但帶圖路徑穩定失敗。
   - **唯一可用視覺通道是 `commandcode`**（`api.commandcode.ai`，Eval kernel 內可達），需消耗額度。故本項**暫停**，待用戶認可預算後再跑。
   - **重測設計（待執行）**：`cellHeight` 連續可取（16→22 掃描已證），每 +1px 約多付 5% token。應測 18 / 19 / 20 三檔，配合 `cellHeight=22` 作上界對照，找出「可讀的最低行高」。**必測中段行**（末行受邊界效應干擾），每檔 ≥15 次重複。
-
-- **S7b 規劃器／渲染器 shape 失配（新發現，零額度可修）** `verified: 待修` — 純 bug，與可讀性取捨無關。
-  - 規劃器 `session-maintenance.ts:2533` 用 `resolveShape` → `8on22-bw`（表值 20,000 B/幀）
-  - 渲染器 `session-maintenance.ts:2937` 用 `resolveShapeForText` → 中文被切成 `silver16-bw`（表值 870,000 B/幀）
-  - 實測：規劃器認為可放 **150 幀**，渲染器實際每幀 870,000 B → 真正只能 **3 幀**，**差 44 倍**。後果是白渲染 + 由 `shedFramesOverBudget` 靜默砍掉大半歷史。
-  - **附帶發現：位元組表對 `8on*` 系列普遍低估 4.5–7.4 倍**（全量 709 幀實測）：`8on22-bw`(71行) 均值 90,797 對表值 20,000；`8on16-bw`(98行) 均值 121,708 對 20,000；`8x13-bw`(120行) 均值 184,116 對 25,000。**即使不切 silver，規劃器本身也過度自信。**
-  - 修法（補丁 0053，零額度）：① 規劃器改用 `resolveShapeForText` 並傳同一份文本，消除失配；② `8on*` 表值改為實測上界；③ **不碰** silver 切換（屬行高取捨，待 S7 有結論再定）。 — 原假設「把 `silver16-bw` 的 frameSize 從 1568 降到 1280」建基於作廢的舊數據。重測顯示 `cellHeight=16` 的兩個 variant（`8on16-bw`／`silver16-bw`）表現**相同**（皆 1/5），而 `cellHeight=22` 的 `8on22-bw` 為 3/5 → **可讀性跟 `cellHeight` 走，不是 `frameSize`**。降 frameSize 只改 cols/rows，不動行高，**很可能無效**。
-  下一步應改為：加大每次重複數（≥15）並改測**畫面中段行**（排除末行邊緣效應），確認 `cellHeight` 假說；若成立，S7 的正解是換 variant（如 CJK 時走 `8on22-bw`）而非改尺寸。另須注意 runtime 規劃器走 `resolveShape`，且 `8on22-bw` 的 `FRAME_DATA_BYTES_PER_SHAPE` 為 20,000（比 silver 的 870,000 小 43×），換 variant 反而**大幅**降低位元組壓力。
 
 ### 未落地 / 已知中間態（勿誤認為完成）
 

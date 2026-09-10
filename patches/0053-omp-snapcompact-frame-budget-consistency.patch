@@ -1,0 +1,150 @@
+diff -r a/pi-coding-agent/src/session/session-maintenance.ts b/pi-coding-agent/src/session/session-maintenance.ts
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -950,7 +950,7 @@
+ 			// this method, allowing the configured preference order to continue.
+ 			let snapcompactResult: snapcompact.CompactionResult | undefined;
+ 			if (snapcompactReady) {
+-				const maxFrames = this.#computeSnapcompactMaxFrames(preparation, effectiveSettings);
++				const maxFrames = this.#computeSnapcompactMaxFrames(preparation, effectiveSettings, snapcompactShape);
+ 				if (maxFrames < 1) {
+ 					logger.warn("Snapcompact skipped: kept history alone exceeds the context budget", {
+ 						model: this.#model?.id,
+@@ -2492,7 +2492,11 @@
+ 	 * ~402k frame-token projection always overflows any sub-1M-token window
+ 	 * (issue #3247).
+ 	 */
+-	#computeSnapcompactMaxFrames(preparation: CompactionPreparation, settings: EngineCompactionSettings): number {
++	#computeSnapcompactMaxFrames(
++		preparation: CompactionPreparation,
++		settings: EngineCompactionSettings,
++		resolvedShape?: snapcompact.Shape,
++	): number {
+ 		const ctxWindow = this.#model?.contextWindow ?? 0;
+ 		if (ctxWindow <= 0) {
+ 			return Math.min(
+@@ -2530,7 +2534,17 @@
+ 		//   drift on denser content (e.g. dense JSON / tool-result blobs).
+ 		// - Summary template (intro + FILES section + grid notes) bills
+ 		//   ~2k tokens for typical sessions.
+-		const shape = snapcompact.resolveShape(this.#model, this.#host.settings.get("snapcompact.shape"));
++		// - The renderer resolves its shape from the actual probe text via
++		//   `resolveShapeForText`, which can pick a different variant than
++		//   `resolveShape` does — most sharply for CJK, where the default
++		//   `8on22-bw` gets swapped for a Silver grid whose frames are ~44x the
++		//   byte estimate. Sizing this cap from one variant while rendering with
++		//   the other made the planner believe ~150 frames fit when only 3 did,
++		//   so `shedFramesOverBudget` silently dropped most of the archive
++		//   afterwards. Callers pass the shape they will actually render with;
++		//   the fallback keeps standalone callers working.
++		const shape =
++			resolvedShape ?? snapcompact.resolveShape(this.#model, this.#host.settings.get("snapcompact.shape"));
+ 		const edgeCap = snapcompact.geometry(shape).capacity;
+ 		const textEdgeTokens = Math.ceil((2 * edgeCap * 1.15) / 4);
+ 		const SUMMARY_TEMPLATE_TOKENS = 2000;
+@@ -2836,7 +2850,11 @@
+ 	 * Returns 0 when not even one frame fits that budget — the rebuild could
+ 	 * never create headroom, so the caller must not append it.
+ 	 */
+-	#computeSnapcompactRescueMaxFrames(settings: EngineCompactionSettings, keptTailTokens: number): number {
++	#computeSnapcompactRescueMaxFrames(
++		settings: EngineCompactionSettings,
++		keptTailTokens: number,
++		resolvedShape?: snapcompact.Shape,
++	): number {
+ 		const ctxWindow = this.#model?.contextWindow ?? 0;
+ 		if (ctxWindow <= 0) {
+ 			return Math.min(
+@@ -2848,7 +2866,11 @@
+ 		const thresholdTokens = resolveThresholdTokens(ctxWindow, settings);
+ 		const recoveryBandTokens = Math.floor(thresholdTokens * COMPACTION_RECOVERY_BAND);
+ 		const baseTokens = computeNonMessageTokens(this.#host.nonMessageTokenSource(), this.#tokenizer);
+-		const shape = snapcompact.resolveShape(this.#model, this.#host.settings.get("snapcompact.shape"));
++		// Same reason as #computeSnapcompactMaxFrames: the caller renders with
++		// the shape resolved from the archive text, so size the cap from that
++		// one rather than re-deriving a possibly-different variant here.
++		const shape =
++			resolvedShape ?? snapcompact.resolveShape(this.#model, this.#host.settings.get("snapcompact.shape"));
+ 		const edgeCap = snapcompact.geometry(shape).capacity;
+ 		const textEdgeTokens = Math.ceil((2 * edgeCap * 1.15) / 4);
+ 		const SUMMARY_TEMPLATE_TOKENS = 2000;
+@@ -2926,15 +2948,17 @@
+ 		if (!archive || archive.frames.length <= 1) return undefined;
+ 		const archiveText = snapcompact.archiveSourceText(archive);
+ 		if (!archiveText) return undefined;
+-		const maxFrames = this.#computeSnapcompactRescueMaxFrames(settings, keptTailTokens);
++		// Resolve the render shape BEFORE sizing the cap so both use the same
++		// variant (see #computeSnapcompactMaxFrames).
++		const shapeSetting = this.#host.settings.get("snapcompact.shape");
++		const shape = snapcompact.resolveShapeForText(archiveText, this.#model, shapeSetting);
++		const maxFrames = this.#computeSnapcompactRescueMaxFrames(settings, keptTailTokens, shape);
+ 		if (maxFrames < 1 || maxFrames >= archive.frames.length) return undefined;
+ 
+ 		const staleDetails = staleEntry.details as snapcompact.CompactionDetails | undefined;
+ 		const fileOps = snapcompact.createFileOps();
+ 		for (const file of staleDetails?.readFiles ?? []) fileOps.read.add(file);
+ 		for (const file of staleDetails?.modifiedFiles ?? []) fileOps.edited.add(file);
+-		const shapeSetting = this.#host.settings.get("snapcompact.shape");
+-		const shape = snapcompact.resolveShapeForText(archiveText, this.#model, shapeSetting);
+ 		let result: snapcompact.CompactionResult;
+ 		try {
+ 			result = await snapcompact.compact(
+@@ -3496,7 +3520,7 @@
+ 					});
+ 					snapcompactBlocker = `snapcompact disabled: unsupported characters for selected snapcompact font (${percent}%); trying the next preferred compaction method.`;
+ 				} else {
+-					const maxFrames = this.#computeSnapcompactMaxFrames(preparation, effectiveSettings);
++					const maxFrames = this.#computeSnapcompactMaxFrames(preparation, effectiveSettings, shape);
+ 					if (maxFrames < 1) {
+ 						logger.warn("Snapcompact skipped: kept history alone exceeds the context budget", {
+ 							model: this.#model?.id,
+diff -r a/snapcompact/src/snapcompact.ts b/snapcompact/src/snapcompact.ts
+--- a/snapcompact/src/snapcompact.ts
++++ b/snapcompact/src/snapcompact.ts
+@@ -549,15 +549,22 @@
+  *  standing request bodies at large context windows. */
+ export const FRAME_DATA_BYTES_ESTIMATE = 170_000;
+ 
+-/** Measured full-page base64 payload bounds per shape variant. Byte weight
+- *  tracks glyph ink per page, not cell area — a CJK `silver16-bw` page weighs
+- *  ~570 KB while an `8x13-bw` page of the same canvas sits near 14 KB — so
+- *  these are per-variant measurements over mixed transcripts with headroom
+- *  rather than a formula. {@link FRAME_DATA_BYTES_ESTIMATE} matches the
+- *  small-glyph `bw` shapes the legacy single estimate was calibrated on.
+- *  Estimates only size the plan; `shedFramesOverBudget` re-checks the real
+- *  rendered bytes because dense content (JSON dumps) renders several times
+- *  heavier than prose at the same shape. */
++/** Measured full-page base64 payload per shape variant, sized to the TYPICAL
++ *  page rather than the worst one. Byte weight tracks glyph ink per page, not
++ *  cell area — a CJK `silver16-bw` page weighs ~570 KB while an `8x13-bw` page
++ *  of the same canvas sits near 14 KB — so these are per-variant measurements
++ *  over mixed transcripts rather than a formula.
++ *  {@link FRAME_DATA_BYTES_ESTIMATE} matches the small-glyph `bw` shapes the
++ *  legacy single estimate was calibrated on.
++ *
++ *  Why typical and not worst-case: this value divides the per-request byte
++ *  budget, so it decides how many frames get planned. Sizing it to the largest
++ *  observed page made the planner allocate three frames where twenty-five
++ *  actually fit — permanent history loss on every compaction. Sizing it to the
++ *  typical page plans the count the budget really holds. Outliers stay covered
++ *  because estimates only size the plan: `shedFramesOverBudget` re-checks the
++ *  real rendered bytes and drops from the oldest end when dense content (JSON
++ *  dumps, CJK) renders several times heavier than the typical page. */
+ export const FRAME_DATA_BYTES_PER_SHAPE: Record<ShapeVariantName, number> = {
+ 	"8x8r-bw": 30_000,
+ 	"8x8r-sent": 350_000,
+@@ -568,10 +575,10 @@
+ 	"5x8-bw": 50_000,
+ 	"5x8-sent": 730_000,
+ 	"6x12-dim": 30_000,
+-	"8x13-bw": 25_000,
+-	"8on16-bw": 20_000,
+-	"8on22-bw": 20_000,
+-	"11on16-bw": 80_000,
++	"8x13-bw": 30_000,
++	"8on16-bw": 140_000,
++	"8on22-bw": 105_000,
++	"11on16-bw": 185_000,
+ 	"silver16-bw": 870_000,
+ 	"doc-8on16-bw": 12_000,
+ 	"doc-8on16-sent": 190_000,

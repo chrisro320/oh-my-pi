@@ -9,10 +9,10 @@
 | 項目 | 值 |
 |---|---|
 | 當前部署 | `OMP_PATCH_VERSION=18.1.14` |
-| APPLIED | **26 行**（25 補丁 ＋ `bin/omp -> src/cli.ts` 連結）／0 CONFLICT／0 PENDING |
-| base 計畫 | 未設 `OMP_PATCH_VERSION`（目標 18.0.9）；`PATCHES` 陣列 **26 項** |
+| APPLIED | **27 行**（26 補丁 ＋ `bin/omp -> src/cli.ts` 連結）／0 CONFLICT／0 PENDING |
+| base 計畫 | 未設 `OMP_PATCH_VERSION`（目標 18.0.9）；`PATCHES` 陣列 **27 項** |
 | 最近遷移 | 18.1.10 → 18.1.14（2026-09-08），見 §5 |
-| 回歸套件 | **8 道閘門**，見 §6.1 |
+| 回歸套件 | **9 道閘門**，見 §6.1 |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -29,8 +29,8 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 | 口徑 | 內容 | 層數 |
 |---|---|---|
-| `apply.sh` 的 `PATCHES` 陣列（base 計畫 = 未設 `OMP_PATCH_VERSION` = 18.0.9 鏈） | 0033、0004、0034、0037、0010、0035、0019、0014、0036、0017、0025、0026-core、0030、0051、0031、0032、0038、0041、0042、0043、0044、0052、0045、0046、0048、0050 | **26** |
-| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.14`） | base 26 條 −`omit:0019` −`omit:0042` +鏈尾 0047 | **25** |
+| `apply.sh` 的 `PATCHES` 陣列（base 計畫 = 未設 `OMP_PATCH_VERSION` = 18.0.9 鏈） | 0033、0004、0034、0037、0010、0035、0019、0014、0036、0017、0025、0026-core、0030、0051、0031、0032、0038、0041、0042、0043、0044、0052、0045、0046、0048、0050、0053 | **27** |
+| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.14`） | base 27 條 −`omit:0019` −`omit:0042` +鏈尾 0047 | **26** |
 | 18.1.10 計畫 | 同上（候選集合不同） | 25 |
 
 `0042` 只存在於 base 計畫；`0047` 只存在於 18.1.10/18.1.14 計畫（其 a 側是 candidate-0038 的產出形態）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
@@ -396,6 +396,18 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **三個負向對照（實測，排除理論）**：① **移除預設 pin、恢復掃描全部 candidates** → 選中 `6bc7f78b`（降序首個，天花板拒絕成立），但該邊界窗口未封閉（EOF），回放 19 幀不翻轉 → `AssertionError: repriced projection does not reduce (S_real+R=86956 >= A+R=38051)`。這證明**釘住邊界是必要的**，也證明「掃描找任一能翻轉者」會變成可挑選的 green fixture。② **`nextCompactionAfter` 退化為「第一個 i > compIdx」**（`boundaryIndices` 為降序表，故等於取**最大**者）→ pin `5fa568bc`（index 433，其後尚有 3 個 compaction：577／1002／1260）時窗口由 `[433, 577)` 撐成 `[433, 1260)`，跨過中間兩個、止於最後一個 `6bc7f78b`（index 1260；EOF 1333 是 `6bc7f78b` **自身**窗口的終點，不是本次窗口），`A+R` 由修正版的 `112027` 暴增到 `308326`。直接量測佐證：修正版 `nextCompactionAfter(433) = 577`、降序版 `= 1260`。該 bug 在預設 fixture 上**潛伏**（`6375bca4` 之後只有一個 compaction），必須用多後繼邊界才能暴露。③ **刪掉 `session-maintenance.ts:3542` 的 `shape.frameTokenEstimate`**（md5 由 `5e423bfb…` 變為 `94a654d5…`）→ GATE 1 以 `both reduction call sites must pass shape.frameTokenEstimate (found 1)` 失敗；還原後 md5 一致並恢復 PASS。
 - **型別檢查（scoped）**：本機無 PATH `tsc`，用 `/home/chris/.local/bin/tsc`（v6.0.3）。裸跑會出現 6 個 `Boundary | undefined` 窄化錯誤，但那是**缺 `@types/node` 的假象**（`assert.ok` 不被識別為斷言函數；HEAD 版的 `assert.ok(archive && …)` 同樣報 `Archive | undefined`）。加 `--typeRoots <global>/@types --types node` 後：HEAD 版自身錯誤 **2**、本修改版自身錯誤 **2**，且兩處完全相同（`TS2459 Model` 既有 import、`TS2322 ConvertToLlm` 既有 mock）→ **零新增型別錯誤**。
 
+### 0053 — snapcompact 規劃與渲染用不同 shape，幀數算錯 8 倍；位元組表低估 4.5–7.4 倍
+
+- **失敗簽名（潛在，非已觀測）**：`#computeSnapcompactMaxFrames` 用 `resolveShape` 取形狀，呼叫方卻用 `resolveShapeForText` 渲染。兩者只在 **CJK-heavy 文本**上分歧——`resolveShapeForText` 會換成 Silver 網格，而該 variant 的 `FRAME_DATA_BYTES_PER_SHAPE` 是 **870,000**，比 `8on22-bw` 的 20,000 大 44 倍。規劃因此認為可放 150 幀，實際只放得下 3 幀，`shedFramesOverBudget` 事後靜默砍掉大半歸檔。
+  **必須說清楚**：以本機真實歸檔文本驗證，CJK 佔比僅 **6.0%**（閾值 25%），**兩條路徑結果相同（皆 `8x13`/`8x22`），失配未在生產觸發**。這是消除隱患，不是修復已觀測故障。
+- **第二個缺陷（已觀測）**：`8on*` 系列位元組表值嚴重低估。全量 **709 個持久化幀**實測（base64）：`8on22-bw` 均值 **90,797** 對表值 20,000（4.5×）；`8on16-bw` 均值 **121,708** 對 20,000（6.1×）；`8x13-bw` 均值 **184,116** 對 25,000（7.4×）。即**不切 silver 也過度自信**：規劃 80 幀（`MAX_FRAMES_DEFAULT` 夾住），實際 7.3MB 超預算，砍到 33 幀，白渲染 47 幀。
+- **修法**：① 兩個 cap 計算函式加可選 `resolvedShape` 參數，三個呼叫點傳入實際要渲染的形狀（rescue 路徑把形狀解析提前到算 cap 之前）；② 位元組表改為**實測均值**（`8on22-bw` 105,000、`8on16-bw` 140,000、`11on16-bw` 185,000、`8x13-bw` 30,000），**silver 維持 870,000**（已高於實測最大 772,992，仍是上界）。
+- **為何取均值而非上界**：此值除預算、決定規劃幀數。取上界（實測最大 ×1.15 = 279,000）會讓規劃降到 **10 幀**，而預算實際裝得下 28 幀——**每次壓縮都永久丟失歷史**，是明確回歸。取均值規劃 **28 幀**，與該會話實測歸檔 **25 幀**吻合，shed 僅微調 3 幀。離群值仍由 `shedFramesOverBudget` 按實際位元組兜底。
+- **實測**：`patch -R --dry-run` 乾淨；`OMP_PATCH_VERSION=18.1.14 apply.sh` exit=0 且 **兩個檔案 sha256 前後不變**（全鏈重建 == 現狀）；**27 行 APPLIED（26 補丁 + bin）／0 CONFLICT**。
+- **自動回歸**：新增 `OMP_PATCH_VERIFY_AGENT_ROOT=$AGENT OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT=$SNAP bun patches/verify-snapcompact-frame-budget.ts`，已掛入套件。兩閘門：**GATE 1** 源碼斷言（兩個 cap 皆有 `resolvedShape` 參數、皆實際使用它、**每個呼叫點都傳 3 個引數**、位元組表 ≥ 實測值）；**GATE 2** 行為斷言（用真實表與真實解析器算規劃幀數，要求 `planned / realFrames ≤ 1.5`）。
+- **負向對照（皆如預期失敗且訊息可區分）**：① 規劃器忽略傳入形狀 → `the cap does not prefer the resolved shape`；② 位元組表退回 20,000 → `8on22-bw entry 20000 understates the measured page`。還原後 PASS。
+- **未修（同批）**：silver 主動切換仍保留。已證實它**多餘**（預設 `8on22-bw` 渲染純中文 `?` 佔比 **0.0%**），但**是否移除取決於行高可讀性**——`cellH=22` 比 `16` 每幀少裝 28%（1,420 vs 1,960 字），即**多付約 38% token**。小樣本結果非單調（`16`→3/15、`19`→0/3、`22`→3/5），**方法無區分力**，故不動。
+
 ### 0046 — supersede 剪枝按「候選之後的 suffix」估價，實際帳單是回退到快取檢查點的距離
 - **失敗簽名**（真實會話 `01a07221-26ab`，主模型 `deepseek-v4-pro-0813`，走手寫 `models.yml` 的 `hyper` 網關，`api: openai-completions`）：37 筆請求中第 8 筆 `cacheRead` 從 40832 **倒退**到 32640（其餘輪次一路遞增），該輪 `input=9804`、命中率由 98.8% 掉到 76.9%。倒退不是停滯——`cacheRead` 只在網關的檢查點階梯上跳（24320→32640→40832→…），倒退一格意味著可命中前綴被截短。
 - **證據鏈（`before_provider_request` 層 payload 逐字節比對，非推斷）**：`payload-archive` 存下的 37 份 deepseek payload 中，只有第 8 筆的共同前綴不是 `n-1` 的純尾部追加——`sharedPrefix=13`（prev 19 條）。第 13 條由 2178B 的 read 結果變成 138B 的 `{"role":"tool","content":"[Superseded by a newer read of this file]"}`，`tool_call_id` 不變；第 15 條是同一檔案的第二次 read，`content` 與原第 13 條**逐字節相同**。`cache-prefix-audit.log` 的獨立指紋記錄同一輪 `HISTORY_REWRITE index 13`，兩套機制互相印證。全會話 `imgs=0`、`tools` 指紋 37 輪恆定，故與 0044 圖片預算、0019/0042 tools 漂移均無關。
@@ -604,7 +616,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 ## 6. 驗證矩陣
 
-### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 8 道）
+### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 9 道）
 
 | 閘門 | 職責 | 所需 env |
 |---|---|---|
@@ -612,6 +624,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-prefix-cache-compaction.ts` | 0035／0047 壓縮前綴保留、identity gate、12 結構化窗口 | — |
 | `verify-provider-image-budget.ts` | 0022／0044 圖片預算條目與 wire-api 家族回退 | — |
 | `verify-snapcompact-model-billing.ts` | 0052 DeepSeek 計費階梯表、wrapper、命名空間回退（三閘門） | `OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT` |
+| `verify-snapcompact-frame-budget.ts` | 0053 規劃/渲染同形狀、位元組表對齊實測 | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT` |
 | `verify-spec-contracts.sh` | spec 自身可證偽性、補丁表示同步、repo↔ledger 零漂移 | `OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT` |
 | `verify-hindsight-recall-snapshot.ts` | 0034／0021／0023 快照落盤與 MM deadline 凍結（7 個 behaviour） | — |
 | `verify-interrupt-prune-symmetry.ts` | 0043 打斷殘骸在 rebuild 與 live 兩條路徑對稱剪除 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
