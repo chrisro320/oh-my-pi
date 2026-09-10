@@ -1,9 +1,18 @@
-# omp 18.1.14 Patch 清單
+# omp Patch 清單
 
 > 本文件是 `~/.omp/patches/` 的鏡像；**實際生效清單以 `apply.sh` 的 `PATCHES` 陣列為準**。
-> 當前部署：`OMP_PATCH_VERSION=18.1.14` → **26 行 APPLIED（25 補丁 + bin 連結）／0 CONFLICT**。
-> base `PATCHES` 陣列 26 項（未設 `OMP_PATCH_VERSION`，目標 18.0.9）；三種口徑必須分開讀，見 §1。
-> 回歸套件共 8 道閘門，見 §6。
+> 標題刻意**不綁版本**：本文件同時記錄 base 18.0.9 鏈、歷史 18.1.5／18.1.10／18.1.14 遷移，以及當前部署。
+> 讀任何數字前先確認它屬於哪個口徑——見 §1。
+
+## 當前狀態（2026-09-10）
+
+| 項目 | 值 |
+|---|---|
+| 當前部署 | `OMP_PATCH_VERSION=18.1.14` |
+| APPLIED | **26 行**（25 補丁 ＋ `bin/omp -> src/cli.ts` 連結）／0 CONFLICT／0 PENDING |
+| base 計畫 | 未設 `OMP_PATCH_VERSION`（目標 18.0.9）；`PATCHES` 陣列 **26 項** |
+| 最近遷移 | 18.1.10 → 18.1.14（2026-09-08），見 §5 |
+| 回歸套件 | **8 道閘門**，見 §6.1 |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -602,13 +611,13 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-antigravity-envelope.ts` | 0014 Antigravity 請求信封確定性（session/trajectory/agent id 派生） | — |
 | `verify-prefix-cache-compaction.ts` | 0035／0047 壓縮前綴保留、identity gate、12 結構化窗口 | — |
 | `verify-provider-image-budget.ts` | 0022／0044 圖片預算條目與 wire-api 家族回退 | — |
-| `verify-snapcompact-model-billing.ts` | 0052 DeepSeek 計費階梯表、wrapper、命名空間回退（三閘門） | `SNAPCOMPACT_ROOT` |
-| `verify-spec-contracts.sh` | spec 自身可證偽性、補丁表示同步、repo↔ledger 零漂移 | `SNAPCOMPACT_ROOT` |
+| `verify-snapcompact-model-billing.ts` | 0052 DeepSeek 計費階梯表、wrapper、命名空間回退（三閘門） | `OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT` |
+| `verify-spec-contracts.sh` | spec 自身可證偽性、補丁表示同步、repo↔ledger 零漂移 | `OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT` |
 | `verify-hindsight-recall-snapshot.ts` | 0034／0021／0023 快照落盤與 MM deadline 凍結（7 個 behaviour） | — |
-| `verify-interrupt-prune-symmetry.ts` | 0043 打斷殘骸在 rebuild 與 live 兩條路徑對稱剪除 | `AGENT_ROOT` |
-| `verify-supersede-warm-prefix-guard.ts` | 0046 supersede 不得改寫暖前綴中段的 tool result | `AGENT_ROOT`、`CORE_ROOT` |
+| `verify-interrupt-prune-symmetry.ts` | 0043 打斷殘骸在 rebuild 與 live 兩條路徑對稱剪除 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
+| `verify-supersede-warm-prefix-guard.ts` | 0046 supersede 不得改寫暖前綴中段的 tool result | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_CORE_ROOT` |
 
-環境變數由 `apply.sh` 自動注入（`SNAP` / `AGENT` / `CORE` 皆由 `NM` 推導），手動單跑時需自行指定。
+環境變數由 `apply.sh` 自動注入（其 `SNAP` / `AGENT` / `CORE` 皆由 `NM` 推導後傳給上述 `OMP_PATCH_VERIFY_*` 變數）；手動單跑時需自行指定**完整名稱**。
 
 ### 6.2 端到端驗收（人工／真實 provider）
 

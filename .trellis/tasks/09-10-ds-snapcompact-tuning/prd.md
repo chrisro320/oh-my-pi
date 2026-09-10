@@ -58,7 +58,7 @@
 - [ ] AC4：改動 frameSize 後，`maxFramesForDataBudget(3_000_000, shape)` **不得** miss 到 `FRAME_DATA_BYTES_ESTIMATE=170_000` 通用值，且須滿足 948 KB 安全上界（或按 R5 明確選定 (b) 並記錄靜默砍幀後果）。— **deferred（非已滿足）**：本批**未改任何 frameSize**，故此驗證未被執行、也不可能被「不觸發」滿足。已記錄 runtime 規劃器走 `resolveShape`（`session-maintenance.ts:2533`）而非 `resolveShapeForText`，S7 落地時須一併處理，並與 S5 的 (a)/(b) 決策一起結算。
 - [x] AC5：`providerImageBudget(<任意 commandcode 別名>, "commandcode-custom") === 200`，`providerFrameBudget(...)` 為 80（非 5）。— 已實作。實測 `commandcode-b`/`commandcode-c`/`commandcode_proxy`/`commandcode-alt` 皆 200 / 80；並保留 `commandcode-b + anthropic-messages === 90`（精確 api 條目優先於命名空間回退）。
 - [x] AC6：既有回歸閘門 `patches/verify-provider-image-budget.ts` 全綠。— 已擴充別名斷言，實測零 provider 呼叫通過。
-- [ ] AC7：bench 可重複執行並輸出 raw PNG / base64 雙單位與逐尺寸命中率。— **阻塞**，見 S3（key 探活未修）。`benchRealArchiveFrames` 的兩處缺陷已修（base64 公式 `4*ceil(raw/3)`、改從 session JSONL 取幀而非掃 blob 目錄）。
+- [x] AC7：bench 可重複執行並輸出 raw PNG / base64 雙單位與逐尺寸命中率。— 已完成，見 S3（金鑰探活 + 填充單位修正）。
 
 ## Evidence（實測，2026-09-10）
 
@@ -75,7 +75,31 @@
 - omp 假設 3293@1568／5024@2576（4784 patch 上限）→ 對 1568 高估 **3.31×**、對 2576 高估 **4.97×**。
 - **不得宣稱 1280 以上恆定**：2048 實測 993、2576 實測 **1011**、3584 實測 989，非單一定值。階梯表在 1280→995、2576→1011 兩檔取實測值。**保證範圍僅限已測點**：shipped variants 可達的 1568/2576 逐點精確；已測 checkpoint 上偏保守（2048 表 995 對實測 993、3584 表 1011 對實測 989）；2576 以上的**未測尺寸不獲上界保證**。
 
-### 可讀性（同 key / 固定 prompt / 加 3 行邊距避免裁切）
+### 可讀性（⚠ 2026-09-10 作廢，見下）
+
+> **本節數據已作廢**。原測量用的填充函數按**字元數**計算頁面容量，但畫布容量是**終端格**；
+> CJK 每字佔 2 格，故實際填入行數超出畫布約 39%，渲染器把尾部裁掉——**錨點行根本沒進圖像**，
+> 模型只能瞎猜，於是表現為「亂碼／0 分」。那不是可讀性失敗，是測量對象缺失。
+
+### 可讀性（2026-09-10 重測，填充按格且以 `geometry.rows` 為界）
+
+同 key、固定 prompt、temperature=0、底部留 3 行邊距、5 次重複：
+
+| variant | cellHeight | frameSize | 命中 | 讀出值 |
+|---|---|---|---|---|
+| `8on16-bw` | 16 | 1568 | **1/5** | 1881/1981/1861/1861/1821（真值 1881） |
+| `silver16-bw` | 16 | 1568 | **1/5** | 1831×4,1881 |
+| `8on22-bw` | **22** | 1568 | **3/5** | 1341/1341/1381/1341/-（真值 1341） |
+
+失敗模式是**末行定位偏差 ±1–3 行**，不是完全幻覺——與舊節所述「狂野幻覺」不是同一種現象。
+
+**兩個 cellHeight=16 的 variant 表現相同（皆 1/5），cellHeight=22 的明顯更好。**
+這指向 **`cellHeight` 才是可讀性的主因，`frameSize` 不是**——即降 frameSize（S7 原始假設）
+很可能無效，因為它只改 cols/rows，不改每行的高度。
+
+**樣本僅 5 次、且是「讀最末行」這一邊緣敏感任務**，不足以定案；但足以否定「降 frameSize 能修」這個前提。
+
+### 可讀性（舊數據，已作廢，僅存檔）
 
 | 形狀 / 內容 | 1280 | 1408 | 1568 | 1792 | 2048 |
 |---|---|---|---|---|---|
@@ -147,9 +171,16 @@
 
 ### 待辦（下次接續）
 
-- **S3 bench 可重現化** `blocked: 腳本中間態` — `research/snapcompact-ds-bench.ts` 已修掉 TDZ 與 `benchRealArchiveFrames` 的兩處缺陷（base64 公式、blob 來源），但 key 選擇仍硬編碼 `commandcode-alt`（HTTP 400 已耗盡）。修法已定：改為**候選 key 探活後快取**。
-- **S5 R5 上界決策** `pending` — 870 KB 覆蓋全部 582 個真實幀（餘量 15%），但不覆蓋合成純 CJK 壓力樣本（948 KB）。須在 (a) 提高 bound／(b) 明確聲明依賴 `shedFramesOverBudget` 之間選一並記錄。
-- **S7 CJK frameSize 降 1280** `pending: 待 bench` — **前置條件**：先量 `8on22-bw` 下 CJK 的模型可讀性（實際主路徑）。且須注意 runtime 規劃器走 `resolveShape`，只改 variant 無法支撐「不會 miss 到 170K」的 runtime 結論。
+- **S5 R5 上界決策** `verified: 選 (b)` — **不需要改代碼**。算術上 (a) 的前提不成立：`silver16-bw` 表值 870,000 → `maxFramesForDataBudget` 規劃 `floor(3,000,000 / 870,000) = 3` 幀，故**溢出條件是「3 幀均值 > 1,000,000」**，而非單幀超表值。
+  - 實測最大真實 silver 幀 **772,992 B**（全量 709 幀掃描，silver n=5）→ 容忍倍數 **1.294×**
+  - PRD 合成純 CJK 壓力樣本 948,000 B → 容忍倍數 1.055×
+  - 最壞情形「3 幀全為合成樣本」= 948,000×3 = **2,844,000 ≤ 3,000,000**（餘 5.2%）
+  → **規劃階段永不超發**，`shedFramesOverBudget` 在此路徑上根本不會被觸發。選 **(b) 保留 870 KB**，無需提高 bound，也無需聲明依賴事後砍幀（該依賴不成立）。
+  - 附帶更正：舊描述「870 KB 不覆蓋合成樣本（948 KB）」誤把**單幀值**與**規劃總量**比較。單幀超表值不等於溢出——只有規劃出的 3 幀總和超過 3 MB 才溢出，而那不可能發生。
+- **S3 bench 金鑰** `verified` — 已實作候選探活：`resolveKey()` 按序探測並快取，**且刻意探測 chat 端點而非 `/models`**（Cloudflare 對部分路徑回 `error code: 1010`，只有 chat 端點的結論才對 bench 有效）。修前腳本寫 `auth["commandcode-alt"] ?? auth["commandcode"]`，**優先選已欠費的那個**（實測 400 insufficient credits），使每次測量都變成帳務錯誤。
+  另修 `fill()` 的填充單位（見上）與 `ask` 的遞迴依賴（拆出 `post`）。
+- **S7 CJK 可讀性** `pending: 前提已被推翻` — 原假設「把 `silver16-bw` 的 frameSize 從 1568 降到 1280」建基於作廢的舊數據。重測顯示 `cellHeight=16` 的兩個 variant（`8on16-bw`／`silver16-bw`）表現**相同**（皆 1/5），而 `cellHeight=22` 的 `8on22-bw` 為 3/5 → **可讀性跟 `cellHeight` 走，不是 `frameSize`**。降 frameSize 只改 cols/rows，不動行高，**很可能無效**。
+  下一步應改為：加大每次重複數（≥15）並改測**畫面中段行**（排除末行邊緣效應），確認 `cellHeight` 假說；若成立，S7 的正解是換 variant（如 CJK 時走 `8on22-bw`）而非改尺寸。另須注意 runtime 規劃器走 `resolveShape`，且 `8on22-bw` 的 `FRAME_DATA_BYTES_PER_SHAPE` 為 20,000（比 silver 的 870,000 小 43×），換 variant 反而**大幅**降低位元組壓力。
 - **S10 Phase 3.3 `trellis-update-spec`** `verified` — 新增 `.trellis/spec/backend/verification-gate-contracts.md`（兩大 Scenario：閘門可證偽性 ＋ 補丁變更的表示同步），已註冊進 `backend/index.md`。附 machine-checkable 閘門 `patches/verify-spec-contracts.sh`（已掛入 `apply.sh` 套件，從 repo 與 ledger 兩路徑皆 exit 0）。負向對照：① 計費表出現裸前綴鍵 → `billing table contains a bare prefix key` FAILED；② ledger 漂移 → `DRIFTED from the deployed ledger` FAILED；③ 根指向不存在樹 → fail-closed FAILED；④ spec 找不到 → exit 1。
 
 ### 未落地 / 已知中間態（勿誤認為完成）

@@ -6,6 +6,21 @@
 
 ---
 
+> **⚠ 本檔是 2026-09-10 08:05 的**歷史快照**，不是現狀報告。**
+> 撰寫當時補丁 0052 僅在工作區（未 commit），故 §2 的「未 Git Commit／25 檔」等描述皆已過期。
+> 下列為撰寫後發生的變化，**現狀一律以 `patches/PATCHES.md` 為準**：
+>
+> | 本檔寫的 | 現況 |
+> |---|---|
+> | 0052 未 Git Commit | 已提交 `b059edc`（主體）＋ `8377e67`／`9a29472`（收尾與數據更正） |
+> | `--check` 25 檔 APPLIED | **26 行**（25 補丁 + `bin/omp` 連結） |
+> | 計費 @2576 高估 3.26× | **4.97×**（公式 4784 上限使誤差隨尺寸增長：1568→3293、2576→5024） |
+> | S11 spec 回寫尚未做 | 已完成，新增 `verification-gate-contracts.md` + `verify-spec-contracts.sh` |
+>
+> §3 的架構級遺留分析（圖片淘汰、Tokenizer 偏高、rescue 漏傳 shape、未登記 provider）**不隨補丁提交而改變，仍然有效**。
+
+---
+
 ## 1. 執行摘要
 
 本報告系統性盤點當前 `snapcompact` 體系的全部已知隱患、邊界與技術債。分析分為三層：
@@ -19,7 +34,7 @@
 
 | 項目 | 當前狀態 | 說明與邊界 |
 |---|---|---|
-| **補丁 0052 (DS計費與別名預算)** | **本地 APPLIED、未 Git Commit** | 補丁檔案已生成並掛入 `patches/apply.sh`；`OMP_PATCH_VERSION=18.1.14 apply.sh --check` 25 檔全數 APPLIED，雙閘門驗證通過。但代碼變更仍在 `trellis/ds-snapcompact-tuning` 工作區，尚未正式 git commit 或發布。 |
+| **補丁 0052 (DS計費與別名預算)** | ~~本地 APPLIED、未 Git Commit~~ **→ 已提交 `b059edc`／`8377e67`／`9a29472`（見頂部快照說明）** | 補丁檔案已生成並掛入 `patches/apply.sh`；`OMP_PATCH_VERSION=18.1.14 apply.sh --check` 25 檔全數 APPLIED，雙閘門驗證通過。但代碼變更仍在 `trellis/ds-snapcompact-tuning` 工作區，尚未正式 git commit 或發布。 |
 | **DeepSeek 誤拒判定性** | **推論，非已觀測故障** | 全量日誌中僅觀測到 2 次 `Snapcompact projection would not reduce context`，**兩次均為 gemini-3.8-flash（google 家族，1120）**。0052 修復 DS 估價的價值在於**防止未來長會話被誤拒 ＋ 確保投影精確性**，不可宣稱為修復已觀測故障。 |
 | **計費覆寫範圍** | **精確 model id 匹配** | 實測證實 Command Code 閘道下 `deepseek-v4-pro` 為 6、`deepseek-v4-flash-fast` 為 0，因此補丁嚴格以 `deepseek/deepseek-v4.1-flash` 等精確 id 匹配，拒絕 `^deepseek/` 前綴映射。 |
 

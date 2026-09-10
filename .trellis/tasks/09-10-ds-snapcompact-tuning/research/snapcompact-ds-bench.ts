@@ -28,7 +28,14 @@ const MODEL = "deepseek/deepseek-v4-flash-vision-exp";
 const sc = await import(SC);
 const { readFileSync } = await import("node:fs");
 const auth = JSON.parse(readFileSync(AUTH, "utf8"));
-const KEY = (auth["commandcode-alt"] ?? auth["commandcode"]).key;
+// Accounts in preference order. A credential's presence says nothing about its
+// usability — `commandcode-alt` sat here, first in line, after its credits ran
+// out (HTTP 400 "insufficient credits"), which turned every measurement into a
+// billing error instead of a legibility verdict. Probe, don't assume.
+const ACCOUNT_ORDER = ["commandcode", "commandcode-alt"];
+
+let KEY = "";
+let ACCOUNT = "";
 
 // DeepSeek's vision model is a long-reasoning model: a small max_tokens budget
 // is consumed entirely by reasoning and the answer comes back EMPTY. 16000 is
@@ -63,22 +70,50 @@ function cjkLines(n) {
 	return out;
 }
 
+/** Display width in terminal CELLS: CJK/fullwidth occupy two, everything else one.
+ *  Counting characters instead made a CJK page fill ~39% past the canvas, so the
+ *  renderer clipped the tail and the anchor line never reached the image — every
+ *  CJK measurement read as a legibility failure when the line was simply absent. */
+function cellWidth(s) {
+	let n = 0;
+	for (const ch of s) {
+		const c = ch.codePointAt(0);
+		n +=
+			c >= 0x1100 &&
+			(c <= 0x115f ||
+				c === 0x2329 ||
+				c === 0x232a ||
+				(c >= 0x2e80 && c <= 0xa4cf) ||
+				(c >= 0xac00 && c <= 0xd7a3) ||
+				(c >= 0xf900 && c <= 0xfaff) ||
+				(c >= 0xfe30 && c <= 0xfe6f) ||
+				(c >= 0xff00 && c <= 0xff60) ||
+				(c >= 0xffe0 && c <= 0xffe6))
+				? 2
+				: 1;
+	}
+	return n;
+}
+
 /**
- * Fill `size` to capacity with a bottom margin, so the anchor line is fully
- * inked rather than page-clipped.
+ * Fill the page to `rows - marginLines`, so the anchor line is fully inked
+ * rather than page-clipped.
+ *
+ * The bound is `geometry.rows`, not `capacity`: capacity is in cells, and a
+ * generator line that overflowed `cols` would be wrapped by the renderer into
+ * rows the caller never budgeted for. Bounding by row count keeps the mapping
+ * from generator lines to canvas rows one-to-one, which is what makes the
+ * anchor's row position predictable.
  */
 function fill(shape, size, { cjk = false, marginLines = 3 } = {}) {
 	const g = sc.geometry(shape, size);
-	const lineLen = cjk ? 66 : 78;
-	const budget = g.capacity - (cjk ? 70 : 90) - marginLines * lineLen;
+	const maxLines = Math.max(1, g.rows - marginLines);
 	const gen = cjk ? cjkLines : asciiLines;
 	const lines = [];
-	let len = 0;
-	for (let i = 0; len < budget; i++) {
+	for (let i = 0; i < maxLines; i++) {
 		const s = gen(i + 1).pop();
-		if (len + s.length + 1 > budget) break;
+		if (cellWidth(s) > g.cols) break; // let the caller see a short page, not a wrapped one
 		lines.push(s);
-		len += s.length + 1;
 	}
 	const text = lines.join("\n");
 	const re = cjk ? /偏移=(\d+)/ : /offset=(\d+)/;
@@ -89,14 +124,16 @@ function fill(shape, size, { cjk = false, marginLines = 3 } = {}) {
 // Transport
 // ---------------------------------------------------------------------------
 
-async function ask(imgB64, question, mt) {
+/** One wire call with an explicit credential. Kept separate from {@link ask} so
+ *  the probe can test a key without recursing through key resolution. */
+async function post(key, imgB64, question, mt) {
 	const askQ = question === undefined ? FIXED_PROMPT : question;
 	const askMt = mt === undefined ? ASK_MAX_TOKENS : mt;
 	const content = [{ type: "text", text: askQ }];
 	if (imgB64) content.push({ type: "image_url", image_url: { url: `data:image/png;base64,${imgB64}` } });
 	const res = await fetch(BASE, {
 		method: "POST",
-		headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
+		headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
 		body: JSON.stringify({ model: MODEL, messages: [{ role: "user", content }], max_tokens: askMt, temperature: 1 }),
 	});
 	const txt = await res.text();
@@ -107,6 +144,47 @@ async function ask(imgB64, question, mt) {
 		promptTokens: o.usage?.prompt_tokens,
 		reasoningTokens: o.usage?.completion_tokens_details?.reasoning_tokens,
 	};
+}
+
+/**
+ * Resolve the first credential that actually authorises, once per process.
+ * Caching matters: the vision calls are the expensive half, so re-probing would
+ * add a request to every measurement.
+ *
+ * Probes the CHAT endpoint, not `/models` — a Cloudflare rule answers
+ * `error code: 1010` on some paths, and it is the chat endpoint the bench
+ * actually depends on, so it is the only probe whose verdict transfers.
+ */
+async function resolveKey() {
+	if (KEY) return;
+	const names = [
+		...ACCOUNT_ORDER,
+		...Object.keys(auth).filter((n) => n.startsWith("commandcode") && !ACCOUNT_ORDER.includes(n)),
+	];
+	const tried = [];
+	for (const name of names) {
+		const key = auth[name]?.key;
+		if (!key) {
+			tried.push(`${name}: no key`);
+			continue;
+		}
+		// 16 tokens is enough to distinguish authorised from refused, and keeps
+		// the probe's own cost negligible against a full legibility sweep.
+		const probe = await post(key, null, "Reply with exactly: OK", 16);
+		if (!probe.err) {
+			KEY = key;
+			ACCOUNT = name;
+			console.log(`account: ${name} (probe ok)`);
+			return;
+		}
+		tried.push(`${name}: ${probe.err.slice(0, 60)}`);
+	}
+	throw new Error(`no usable commandcode credential — tried: ${tried.join(" | ")}`);
+}
+
+async function ask(imgB64, question, mt) {
+	await resolveKey();
+	return post(KEY, imgB64, question, mt);
 }
 
 // ---------------------------------------------------------------------------
