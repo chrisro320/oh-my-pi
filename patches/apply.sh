@@ -475,7 +475,7 @@ if [[ "$MODE" == "apply" ]]; then
 	bun "${HERE}/verify-prefix-cache-compaction.ts"
 	bun "${HERE}/verify-provider-image-budget.ts"
 	bun "${HERE}/verify-snapcompact-model-billing.ts"
-	bash "${HERE}/verify-spec-contracts.sh"
+	OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT="$SNAP" bash "${HERE}/verify-spec-contracts.sh"
 	bun "${HERE}/verify-hindsight-recall-snapshot.ts"
 	OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" bun "${HERE}/verify-interrupt-prune-symmetry.ts"
 	OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" OMP_PATCH_VERIFY_CORE_ROOT="$CORE" bun "${HERE}/verify-supersede-warm-prefix-guard.ts"

@@ -33,8 +33,10 @@
 // for them today, but their divergence is exactly why the override is keyed by
 // exact model id instead of a `^deepseek/` prefix.
 // The curve is NOT flat above 1280: 2576 bills 1011 (not 995) and 3584 bills
-// 989, so the table carries a 2576 step. In the gaps it stays conservative —
-// 2048 bills 995 against a measured 993, and 3584 bills 1011 against 989.
+// 989, so the table carries a 2576 step. The table is exact at the two sizes
+// shipped variants reach (1568, 2576) and conservative at the measured
+// checkpoints inside the steps — 2048 would bill 995 against a measured 993,
+// 3584 would bill 1011 against 989. Unmeasured sizes above 2576 are NOT bounded.
 //
 // Usage:
 //   bun patches/verify-snapcompact-model-billing.ts

@@ -4,7 +4,7 @@
 
 修正 omp snapcompact 在 **Command Code / DeepSeek** 路徑上的三類偏差：
 
-1. **計費（已實作，補丁 0052）**：`commandcode-custom` 落 `billingFamily=unknown`，DS 每幀估 3293，實測 **995**（高估 3.31×，1280px 起飽和），會讓 `projectedForReduction >= reductionBaseline` 誤判、錯誤拒絕本可縮減的 snapcompact。
+1. **計費（已實作，補丁 0052）**：`commandcode-custom` 落 `billingFamily=unknown`，DS 每幀估 3293，實測 **995@1568 / 1011@2576**（高估 3.31×／3.26×），會讓 `projectedForReduction >= reductionBaseline` 誤判、錯誤拒絕本可縮減的 snapcompact。
 2. **圖片預算（已實作，補丁 0052）**：別名帳號（`commandcode-<slug>`）的 provider id 與 wire api 都是**運行時生成**，兩次查表全 miss → floor 5 → archive 被夾到 5 幀。
 3. **幾何（未實作，待 bench）**：`resolveShapeForText` 對 CJK-heavy 文字自動選 `silver16@1568`，該組合實測可讀性失效（0/5），最佳點是 **1280**。但此路徑**罕見**——677 個持久化幀中 silver 僅 5 個（0.7%）；真實語料（中文指令混英文工具輸出）wide 佔比低於 25% 門檻，實際主路徑是 8x13 經 Silver TrueType fallback 全寬兩格渲染（已驗證正常）。改動前須先補 `8on22-bw` 的 CJK bench。
 
@@ -16,13 +16,13 @@
 
 - 禁止把 `billingFamily("commandcode-custom")` 全局映射成 DS 的 995。Claude 目前估 5000 是**正確**的（`unknown` 與 `anthropic` 家族在 `familyBilling` 走同一 default 分支），全局映射會把它砸到 995 → 5× 低估 → 投影以為幀近乎免費 → 超配幀 → 爆窗。
 - 實作須以 **per-model billing override**（或顯式 wireApi）表達。
-- 995 僅在 `frameSize >= 1280` 成立；以下為斜坡 198 / 198 / 363 / 653（256/512/768/1024）。禁止把整條曲線硬寫成定值。
+- 計費隨尺寸變化：256/512→198、768→363、1024→653、1280→995、1568→995、2048→993、2576→1011、3584→989。**1280 以上並非定值**（2576 為 1011）。禁止把整條曲線硬寫成單一定值。
 - 未量測模型（glm-5.3-flash 等）**不得發明數字**，保持現值。
 
 ### R2 — CJK 走 silver 時 frameSize 降至 1280
 
 - `resolveShapeForText` 的 CJK 分支目前選 `silver16@1568`；實測該組合 0/5，`@1280` 4/5 且 `@1408` 1/5（懸崖落在 1280–1568 之間，單調）。
-- 1280 同時是**計費飽和點**（每圖 995 token 自 1280 起跳），故 1280 在可讀性與計費兩軸同時最優。
+- 1280 同時位於**計費平坦段**（1280 與 1568 皆 995 token/圖），故 1280 在可讀性與計費兩軸同時最優；2576 反而升至 1011，故降到 1280 不會增加計費。
 - 改動若採「覆寫 frameSize」，**必須同步更新 `FRAME_DATA_BYTES_PER_SHAPE`**：`maxFramesForDataBudget` 按 font+cell+variant+frameSize+stopwordDim+lineRepeat+columns **全等**匹配（`snapcompact.ts:520-540`），尺寸一變就 miss → 掉回 `FRAME_DATA_BYTES_ESTIMATE=170_000` → 規劃 17 幀 → 由 `shedFramesOverBudget` 事後靜默砍幀。
 
 ### R3 — `providerImageBudget` 補自訂 api 兜底
@@ -73,7 +73,7 @@
 - 可加性：2×1568 = 1990、2×2576 = **2022**（皆嚴格可加；2576 兩次複測數字完全一致）。
 - 1568 與 2576 是 shipped variant 唯一可達的兩個尺寸（17 個 variant 皆為 1568 或 2576）。
 - omp 假設 3293 → 對 1568 高估 **3.31×**。
-- **不得宣稱 1280 以上恆定**：2048 實測 993、2576 實測 **1011**、3584 實測 989，非單一定值。階梯表在 1280→995、2576→1011 兩檔取實測值，缺口處（2048→995、3584→1011）刻意偏向保守側。
+- **不得宣稱 1280 以上恆定**：2048 實測 993、2576 實測 **1011**、3584 實測 989，非單一定值。階梯表在 1280→995、2576→1011 兩檔取實測值。**保證範圍僅限已測點**：shipped variants 可達的 1568/2576 逐點精確；已測 checkpoint 上偏保守（2048 表 995 對實測 993、3584 表 1011 對實測 989）；2576 以上的**未測尺寸不獲上界保證**。
 
 ### 可讀性（同 key / 固定 prompt / 加 3 行邊距避免裁切）
 
@@ -119,7 +119,7 @@
 
 ## Resume
 
-> RESUME: S7（幾何）—— 先補 `8on22-bw` 的 CJK 可讀性 bench，再決定 `silver16-bw` 是否降到 1280。S5 的 R5 上界決策同時待定。計費（S6）與圖額（S8）已由補丁 0052 落地並經三輪 reviewer 判定 correct。
+> RESUME: S7（幾何）—— 先補 `8on22-bw` 的 CJK 可讀性 bench，再決定 `silver16-bw` 是否降到 1280。S5 的 R5 上界決策同時待定。計費（S6）與圖額（S8）已由補丁 0052 落地；S11 已修正措辭過度聲稱與 root 傳遞，並經 BillingRecheck 複審。
 
 本任務目前為 **PRD-only**（無 `design.md` / `implement.md`），故 RESUME 指針落在本節。
 
@@ -136,7 +136,14 @@
 - **S6 計費修正實作** `verified` — 補丁 **0052**：`MODEL_FRAME_TOKEN_STEPS`（**精確 model id 為鍵**，非前綴）+ `resolveShape` wrapper。Claude 維持 5000 未被污染；`v4-pro`／`v4-flash-fast` 維持家族公式 3293。初版用 `^deepseek/` 前綴，經 reviewer 判為 P1，已收窄。**曲線亦經修正**：初版只量到 1568 便誤把 995 當成全尺寸定值，複測後補上 `[2576, 1011]` 檔（詳見 Evidence）；表尾兩檔 `[1280, 995]`／`[2576, 1011]` 皆為實測值，缺口處偏保守側。
 - **S9b 0045 閘門邊界穩定性修正** `verified` — 回歸時發現 `verify-snapcompact-frame-reprice.ts` 的 GATE 2 取「最後一個 compaction」，而 session 是 append-only，回放窗口隨增長而關閉 → **偶發變紅**（pristine 與 patched 失敗完全一致，證明與 0052 無關）。修法三處：窗口止於下一個 compaction（`nextCompactionAfter` 取最小的 `i > compIdx`）、預設釘住 `6375bca4`（`OMP_PATCH_VERIFY_REPRICE_BOUNDARY` 可覆寫）、找不到即失敗。修正後三次運行逐位一致，且與 PATCHES.md 原記載四位數字吻合。三個負向對照：① 移除 pin 恢復掃描 → 選中 `6bc7f78b` 且 flip 斷言失敗（證明 pin 必要）；② `nextCompactionAfter` 降序 bug → 窗口跨頭，`A+R` 由 112027 暴增到 308326；③ 刪 `session-maintenance.ts:3542` 的參數 → GATE 1 失敗。
 - **S8 圖片預算兜底實作** `verified` — 補丁 **0052**：`COMMAND_CODE_NAMESPACE` 回退，位置在 provider exact → api exact 之後。
-- **S9 回歸閘門** `verified` — 新增 `verify-snapcompact-model-billing.ts`（兩閘門 ＋ 十個負向對照全部觸發）；擴充 `verify-provider-image-budget.ts`；已掛入 `apply.sh` 回歸套件；`OMP_PATCH_VERSION=18.1.14 apply.sh --check` 全 **26** 條 APPLIED。另修正 0045 的 `verify-snapcompact-frame-reprice.ts` 邊界穩定性（見 S9b）。
+- **S9 回歸閘門** `verified` — 新增 `verify-snapcompact-model-billing.ts`（三閘門 ＋ 十個負向對照全部觸發）；擴充 `verify-provider-image-budget.ts`；已掛入 `apply.sh` 回歸套件；`OMP_PATCH_VERSION=18.1.14 apply.sh --check` 全 **26** 條 APPLIED。另修正 0045 的 `verify-snapcompact-frame-reprice.ts` 邊界穩定性（見 S9b）。
+
+- **S11 措辭準確性與 root 傳遞修正** `verified` — 交付前複查抓到三處真缺陷：
+  ① **`apply.sh` 未傳 root 給 spec 閘門**：調用 `verify-spec-contracts.sh` 時漏了 `OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT="$SNAP"`，違反 spec 自己寫的 root-redirection 合同——sandbox／offline 或換安裝根時，閘門會退回固定 global 路徑去驗**另一棵樹**。已修，並以**區分性**負向對照證明 root 確被尊重（指向刪掉該表的副本 → `MODEL_FRAME_TOKEN_STEPS table is absent` FAIL；指向 live → PASS）。
+  ② **計費註釋過度聲稱**：原文宣稱「曲線在缺口處保守（2048 表 995 對實測 993、3584 表 1011 對實測 989）」。2048/3584 只是**兩個採樣點**，不足以替「未測區間」或「最後一檔覆蓋的所有 >2576 尺寸」建立上界——拿一個 3000px 的幀就能推翻。已改為精確限定：**表在 shipped variants 可達的 1568／2576 逐點精確**（兩者皆實測）、**僅在已測 checkpoint 上偏保守**、**2576 以上的未測尺寸不獲上界保證**。同步 live 註釋、閘門頭註釋、0052 patch、`PATCHES.md`、本 PRD。
+  ③ **`PATCHES.md` 對 0045 降序 bug 的描述不準**：原文寫「窗口跨過中間兩個**直抵 EOF**」。實測 `nextCompactionAfter(433)`：修正版 **577**、降序版 **1260**（`boundaryIndices` 降序 = 1260/1002/577/433，取最大者）；而 EOF **1333** 是 `6bc7f78b` **自身**窗口的終點，不是本次窗口的。已改為精確 index 並附兩版實測數字。
+  另修計數與舊說法：`PATCHES.md` 閘門數 2→**3**（實際有 GATE 1／2／2b）、負向變體數 9→**10**、`prd.md` 三處「1280 起飽和」改為實測曲線。
+  **驗證**：round-trip（live `-R` patch → pristine，再 `+` patch）**逐字節 == live**；`patch -R --dry-run --fuzz=0` reverse-clean；hunk header 同步 `+255,62 → +255,65`；`apply.sh` exit=0 且 **live sha256 前後不變**（`56ba523deea2baf2`）；26 APPLIED／無 CONFLICT；四閘門 PASS；零漂移 7/7。**旁證**：新閘門在同步前確實報出 `apply.sh DRIFTED`／`PATCHES.md DRIFTED` 並以 exit=1 結束——它抓到了真實漂移，而非恆綠。
 
 ### 待辦（下次接續）
 
@@ -147,7 +154,7 @@
 
 ### 未落地 / 已知中間態（勿誤認為完成）
 
-- **補丁 0052 尚未提交**（工作區在 `trellis/ds-snapcompact-tuning` 分支）。
+- **補丁 0052 已提交 `b059edc`**；但 **S11 的措辭修正（live 註釋、0052 patch、`apply.sh` root 傳遞、`verify-spec-contracts.sh`）尚未提交**——工作區在 `trellis/ds-snapcompact-tuning` 分支。
 - **silver 幾何未改**：`silver16-bw.frameSize` 仍是 1568。
 - **PRD 的 AC3 未實作**（CJK frameSize == 1280），因為 S7 未動。
 - **S4 的「DS 被誤拒」是推論非觀測**：全量日誌僅 2 次 `Snapcompact projection would not reduce context`，**兩次都是 gemini-3.8-flash**（google 家族，1120），且 0045 早於兩者部署。DS 路徑的收益是**防止未來誤拒 ＋ 投影準確性**，不可宣稱修好了一個已觀測故障。

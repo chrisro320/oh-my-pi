@@ -1,6 +1,6 @@
 --- a/snapcompact/src/snapcompact.ts	2026-09-10 07:55:37.476313349 -0400
 +++ b/snapcompact/src/snapcompact.ts	2026-09-10 07:55:37.476313349 -0400
-@@ -255,6 +255,62 @@
+@@ -255,6 +255,65 @@
  	return { ...base, ...familyBilling(family, base.frameSize) };
  }
  
@@ -28,9 +28,12 @@
 + * Entries are `[frameEdge, tokensPerFrame]` in ascending edge order; the last
 + * edge at or below the resolved frame size wins. A frame below the first
 + * measured edge counts as unmeasured. Every step is a measurement, and each
-+ * value covers the sizes above it up to the next edge, so the curve stays
-+ * *conservative* in the gaps (2048 bills 995 against a measured 993; 3584
-+ * bills 1011 against a measured 989).
++ * value covers the sizes above it up to the next edge, and the final step also
++ * covers everything above it. The table is exact at the two sizes shipped
++ * variants reach (1568 and 2576, both measured) and conservative at the
++ * measured checkpoints inside the steps (2048 would bill 995 against a measured
++ * 993; 3584 would bill 1011 against 989). It is NOT an upper bound for
++ * unmeasured sizes above 2576 — only measured points carry a guarantee.
 + */
 +const DEEPSEEK_VISION_FRAME_TOKENS: ReadonlyArray<readonly [number, number]> = [
 +	[256, 198],
