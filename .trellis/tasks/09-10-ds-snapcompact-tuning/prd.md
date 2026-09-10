@@ -154,7 +154,7 @@
 
 ### 未落地 / 已知中間態（勿誤認為完成）
 
-- **補丁 0052 已提交 `b059edc`**；但 **S11 的措辭修正（live 註釋、0052 patch、`apply.sh` root 傳遞、`verify-spec-contracts.sh`）尚未提交**——工作區在 `trellis/ds-snapcompact-tuning` 分支。
+- **補丁 0052 已提交 `b059edc`**；**S11 措辭修正與 root 傳遞已提交 `8377e67`**。本任務產物已全部落地，工作區在 `trellis/ds-snapcompact-tuning` 分支（剩下的未提交項皆非本任務）。
 - **silver 幾何未改**：`silver16-bw.frameSize` 仍是 1568。
 - **PRD 的 AC3 未實作**（CJK frameSize == 1280），因為 S7 未動。
 - **S4 的「DS 被誤拒」是推論非觀測**：全量日誌僅 2 次 `Snapcompact projection would not reduce context`，**兩次都是 gemini-3.8-flash**（google 家族，1120），且 0045 早於兩者部署。DS 路徑的收益是**防止未來誤拒 ＋ 投影準確性**，不可宣稱修好了一個已觀測故障。
