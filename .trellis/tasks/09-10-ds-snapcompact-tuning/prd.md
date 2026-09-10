@@ -2,10 +2,11 @@
 
 ## Goal
 
-修正 omp snapcompact 在 **Command Code / DeepSeek** 路徑上的兩類偏差，使中文（CJK）archive 既**讀得回來**又**不被計費高估誤拒**：
+修正 omp snapcompact 在 **Command Code / DeepSeek** 路徑上的三類偏差：
 
-1. **幾何**：`resolveShapeForText` 對 CJK-heavy 文字自動選 `silver16@1568`，而該組合實測可讀性失效（0/5）；最佳點是 **1280**。
-2. **計費**：`commandcode-custom` 落 `billingFamily=unknown`，DS 每幀估 3293，實測固定 **995**（高估 3.31×），會讓 `projectedForReduction >= reductionBaseline` 誤判、錯誤拒絕本可縮減的 snapcompact。
+1. **計費（已實作，補丁 0052）**：`commandcode-custom` 落 `billingFamily=unknown`，DS 每幀估 3293，實測 **995**（高估 3.31×，1280px 起飽和），會讓 `projectedForReduction >= reductionBaseline` 誤判、錯誤拒絕本可縮減的 snapcompact。
+2. **圖片預算（已實作，補丁 0052）**：別名帳號（`commandcode-<slug>`）的 provider id 與 wire api 都是**運行時生成**，兩次查表全 miss → floor 5 → archive 被夾到 5 幀。
+3. **幾何（未實作，待 bench）**：`resolveShapeForText` 對 CJK-heavy 文字自動選 `silver16@1568`，該組合實測可讀性失效（0/5），最佳點是 **1280**。但此路徑**罕見**——677 個持久化幀中 silver 僅 5 個（0.7%）；真實語料（中文指令混英文工具輸出）wide 佔比低於 25% 門檻，實際主路徑是 8x13 經 Silver TrueType fallback 全寬兩格渲染（已驗證正常）。改動前須先補 `8on22-bw` 的 CJK bench。
 
 ## Requirements
 
@@ -41,7 +42,7 @@
 
 `frameDataBytes()` 累加的是 `Frame.data.length`，即 **base64 字串長度**（`snapcompact.ts:562-563`），故 `FRAME_DATA_BYTES_BUDGET = 3_000_000` 是 **base64 單位**。一切與預算比較的數字必須用 base64，不可混用解碼後 PNG bytes（差約 1.33×）。
 
-上界本身有缺陷：`FRAME_DATA_BYTES_PER_SHAPE["silver16-bw"] = 870_000` **不能覆蓋目前觀測到的最壞樣本（948 KB）**。實作必須在 Evidence 的 (a)/(b) 之間明確選一，不得含糊：
+上界覆蓋範圍須精確界定：870 KB **覆蓋全部 582 個已觀測真實幀**（最大 754.9 KB），但**不覆蓋**合成純 CJK 壓力樣本（948 KB）。實作必須在 Evidence 的 (a)/(b) 之間明確選一，不得含糊：
 
 - 選 **(a)** 者：把估計值提高到實際覆蓋最壞觀測（含餘量），並在 PRD 記錄選定值與依據。
 - 選 **(b)** 者：必須在 PRD 明確聲明「規劃值可能低於實際、依賴 `shedFramesOverBudget` 事後砍幀」，並承認其靜默丟資料的後果。
@@ -50,24 +51,29 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1：`resolveShape({api:"commandcode-custom", id:"claude-opus-5"})` 的 `frameTokenEstimate` **仍為 5000**（未被 DS 的 995 污染）。
-- [ ] AC2：`resolveShape({api:"commandcode-custom", id:"deepseek/deepseek-v4-flash-vision-exp"})` 在 `frameSize >= 1280` 時 `frameTokenEstimate === 995`；`frameSize < 1280` 時不套用 995。
-- [ ] AC3：CJK-heavy 文字經 `resolveShapeForText` 解析後的 frameSize 為 **1280**（非 1568）。
-- [ ] AC4：改動 frameSize 後，`maxFramesForDataBudget(3_000_000, shape)` **不得** miss 到 `FRAME_DATA_BYTES_ESTIMATE=170_000` 通用值（尺寸一變即 miss，見 R2）。且該值作為**安全上界**驗證：對已觀測最壞樣本（純 CJK 散文 @1568 = 948 KB base64），規劃幀數 × 估計值須 ≥ 可容幀數 × 實際位元組，或已按 R5 明確選定 (b) 並記錄其靜默砍幀後果。**不得**聲稱對任意內容「與實測一致」。
-- [ ] AC5：`providerImageBudget(<任意 commandcode 別名>, "commandcode-custom") === 200`，`providerFrameBudget(...)` 為 80（非 5）。
-- [ ] AC6：既有回歸閘門 `patches/verify-provider-image-budget.ts` 全綠。
-- [ ] AC7：bench 可重複執行並輸出 raw PKG / base64 雙單位與逐尺寸命中率。
+- [x] AC1：`resolveShape({api:"commandcode-custom", id:"claude-opus-5"})` 的 `frameTokenEstimate` **仍為 5000**（未被 DS 的 995 污染）。— 已實作並由 `verify-snapcompact-model-billing.ts` GATE 2 斷言（另含 `anthropic-messages` 與 `claude-fable-latest` 兩條對照）。
+- [x] AC2a：`resolveShapeForText`/`resolveShape` 在**已量測尺寸**上回傳實測值：1568→**995**、2576→**1011**。— 已實作；GATE 2 逐個 shipped variant 對照量測曲線斷言（非硬編碼 995），並單獨釘住 `5x8-bw@2576 === 1011`。行為層負向對照已驗證：把查表結果鉗到 995（表文本不變，GATE 1 仍過）→ `DeepSeek @5x8-bw (frameSize 2576) must price at the measured 1011` 失敗。
+- [x] AC2b：`frameSize < 1280` 時套用實測斜坡（256/512→198、768→363、1024→653），**不得**抹成定值。— 階梯表已含這四檔且被 GATE 1 的「未被抹平」正則鎖定；但當前 17 個 shipped variant 全部 ≥1568，故該分支**在 runtime 不可達**，僅在顯式指定小尺寸 variant 時生效。此為 source-level 覆蓋，非 runtime 覆蓋。
+- [ ] AC3：CJK-heavy 文字經 `resolveShapeForText` 解析後的 frameSize 為 **1280**（非 1568）。— **未實作**，待 `8on22-bw` CJK bench 決定（見 S7）。
+- [ ] AC4：改動 frameSize 後，`maxFramesForDataBudget(3_000_000, shape)` **不得** miss 到 `FRAME_DATA_BYTES_ESTIMATE=170_000` 通用值，且須滿足 948 KB 安全上界（或按 R5 明確選定 (b) 並記錄靜默砍幀後果）。— **deferred（非已滿足）**：本批**未改任何 frameSize**，故此驗證未被執行、也不可能被「不觸發」滿足。已記錄 runtime 規劃器走 `resolveShape`（`session-maintenance.ts:2533`）而非 `resolveShapeForText`，S7 落地時須一併處理，並與 S5 的 (a)/(b) 決策一起結算。
+- [x] AC5：`providerImageBudget(<任意 commandcode 別名>, "commandcode-custom") === 200`，`providerFrameBudget(...)` 為 80（非 5）。— 已實作。實測 `commandcode-b`/`commandcode-c`/`commandcode_proxy`/`commandcode-alt` 皆 200 / 80；並保留 `commandcode-b + anthropic-messages === 90`（精確 api 條目優先於命名空間回退）。
+- [x] AC6：既有回歸閘門 `patches/verify-provider-image-budget.ts` 全綠。— 已擴充別名斷言，實測零 provider 呼叫通過。
+- [ ] AC7：bench 可重複執行並輸出 raw PNG / base64 雙單位與逐尺寸命中率。— **阻塞**，見 S3（key 探活未修）。`benchRealArchiveFrames` 的兩處缺陷已修（base64 公式 `4*ceil(raw/3)`、改從 session JSONL 取幀而非掃 blob 目錄）。
 
 ## Evidence（實測，2026-09-10）
 
 ### 計費曲線（真幀 + 同段文字 baseline 減除，嚴格可加）
 
-| frameSize | 256 | 512 | 768 | 1024 | **1280** | 1568 | 2048 | 2576 | 3584 |
-|---|---|---|---|---|---|---|---|---|---|
-| tokens/圖 | 198 | 198 | 363 | 653 | **995** | 995 | 995 | 995 | 987 |
+對 `commandcode-custom` 的**三條已量測 DeepSeek id**（`v4-flash-vision-exp`／`v4.1-flash`／`v4-flash`）逐尺寸量測，**九個尺寸上逐點相同**：
 
-- 可加性：2×1568 = 1990；2×2576 = 1990（尺寸差 0）。
-- omp 假設 3293 → **高估 3.31×**。
+| frameSize | 256 | 512 | 768 | 1024 | 1280 | 1568 | 2048 | 2576 | 3584 |
+|---|---|---|---|---|---|---|---|---|---|
+| tokens/圖 | 198 | 198 | 363 | 653 | 995 | 995 | 993 | **1011** | 989 |
+
+- 可加性：2×1568 = 1990、2×2576 = **2022**（皆嚴格可加；2576 兩次複測數字完全一致）。
+- 1568 與 2576 是 shipped variant 唯一可達的兩個尺寸（17 個 variant 皆為 1568 或 2576）。
+- omp 假設 3293 → 對 1568 高估 **3.31×**。
+- **不得宣稱 1280 以上恆定**：2048 實測 993、2576 實測 **1011**、3584 實測 989，非單一定值。階梯表在 1280→995、2576→1011 兩檔取實測值，缺口處（2048→995、3584→1011）刻意偏向保守側。
 
 ### 可讀性（同 key / 固定 prompt / 加 3 行邊距避免裁切）
 
@@ -81,16 +87,23 @@
 
 ### 位元組（base64 單位）
 
-| 內容 | frameSize | raw PNG | base64 | frames@3MB |
-|---|---|---|---|---|
-| **真實 archive 幀**（session blob `34723125…`） | 1568 | 461 KB | **630 KB** | **4** |
-| 合成純 CJK 散文（最壞情況） | 1568 | 711 KB | **948 KB** | **3** |
-| 合成純 CJK 散文 | 1280 | 499 KB | **666 KB** | **4** |
-| silver + ASCII | 1568 | 209 KB | 278 KB | 10 |
+`frameDataBytes()` 加總 `Frame.data.length`（base64），故 3 MB 預算是 base64 單位。磁碟上 archive 幀外部化為 `blob:sha256:<hash>`，blob 檔存的是**解碼後 PNG**，所以運行時 base64 長度須由檔案大小還原：`4 * ceil(raw / 3)`。
 
-觀測區間：**混合真實幀約 630 KB；目前觀測最壞（純 CJK 散文 @1568）948 KB**。
+**全量實測：582 個真實 archive 幀**（掃自各 session JSONL 的 `preserveData.snapcompact.frames[].data` 參照，非目錄掃描——blob 目錄另有 752 個無關圖片）
 
-源碼估計值 `FRAME_DATA_BYTES_PER_SHAPE["silver16-bw"] = 870_000`（base64 單位）**對最壞樣本不足**——它落在兩個實測值之間：對 630 KB 的真實幀有約 38% 餘量，但對 948 KB 的最壞樣本低估約 8%。故此值**不能**被描述為「保守上界」。
+| 規模 | raw PNG | base64 | frames@3MB |
+|---|---|---|---|
+| 最大真實幀（`b02345a0…`） | 566.2 KB | **754.9 KB** | **3** |
+| 次大（`34723125…`） | 461.1 KB | 614.8 KB | 4 |
+| 第三（`36e1adfc…`） | 428.2 KB | 570.9 KB | 5 |
+| 第四（`1a693f42…`） | 419.3 KB | 559.1 KB | 5 |
+| 其餘 578 個 | 1.6–199 KB | 2.1–265.6 KB | ≥11 |
+
+合成壓力樣本（純 CJK 散文 @1568，非真實語料）：raw 711 KB → base64 **948 KB** → 3 幀。
+
+**修正後的判斷**：源碼估計值 `FRAME_DATA_BYTES_PER_SHAPE["silver16-bw"] = 870_000` **覆蓋全部 582 個已觀測真實幀**（最大 754.9 KB，餘量約 15%），但**不覆蓋**合成純 CJK 壓力樣本（948 KB，超出約 9%）。
+
+故「870 KB 保守」須限定為「**對已觀測真實語料保守，對合成最壞樣本不足**」——這兩句不能互相取代。
 
 必須二選一並在實作中明確（見 R5）：
 
@@ -106,32 +119,35 @@
 
 ## Resume
 
-> RESUME: S3 — 先修 `research/snapcompact-ds-bench.ts` 的 key 選擇（目前硬編碼已耗盡的 `commandcode-alt`，任何量測都回 `undefined`），再跑 bench 產出 R4 要求的可重複數據。
+> RESUME: S7（幾何）—— 先補 `8on22-bw` 的 CJK 可讀性 bench，再決定 `silver16-bw` 是否降到 1280。S5 的 R5 上界決策同時待定。計費（S6）與圖額（S8）已由補丁 0052 落地並經三輪 reviewer 判定 correct。
 
 本任務目前為 **PRD-only**（無 `design.md` / `implement.md`），故 RESUME 指針落在本節。
 
 ### 已完成
 
 - **S0 現狀勘查** `verified` — 定位 snapcompact 源碼、供應商插件、`billingFamily` / `PROVIDER_IMAGE_BUDGETS` / `FRAME_DATA_BYTES_*` 三條路徑。
-- **S1 計費量測** `verified` — DS 每圖固定 **995**（1280px 飽和、嚴格可加）；omp 假設 3293 → 高估 3.31×。
-- **S2 可讀性量測** `verified`（初步，n=5）— silver+CJK：@1280 4/5、@1408 1/5、@1568 **0/5**；8on22+ASCII：@1280 3/3、@1568 2/3、@1792 與 @2048 0/3。
-- **S2b 位元組量測** `verified` — raw 與 base64 雙單位；真實 archive 幀 630 KB、最壞 948 KB（base64）。
-- **S2c 預算路徑審查** `verified` — `maxFramesForDataBudget` 按 font+cell+variant+frameSize+… **全等**匹配，改尺寸即 miss。
-- **S2d `providerImageBudget` 兜底缺陷** `verified` — `commandcode-custom` 與 `commandcode-<slug>` 雙 miss → floor 5。
-- **S4 PRD 撰寫** `verified` — R1–R5、AC1–AC7、Evidence 全部實測值；R5/AC4 的矛盾（870 KB 不覆蓋最壞 948 KB）已於暫停前修正。
+- **S1 計費量測** `verified` — **全 5 條 deepseek 模型逐條量測**：`v4-flash`／`v4-flash-vision-exp`／`v4.1-flash` 三條在**九個尺寸（256–3584）上逐點相同**（198/198/363/653/995/995/**993**/**1011**/**989**）；但 **`v4-pro` 實測 6、`v4-flash-fast` 實測 0** —— 供應商同一前綴下計費**不統一**，這是覆寫必須按精確 model id 的實證依據。omp 假設 3293 → 對 1568 高估 3.31×。**1280 以上並非恆定**（2576 實測 1011，與 1568 的 995 差 16），故階梯表帶 [2576, 1011] 檔。
+- **S2 可讀性量測** `verified`（初步，n=5）— silver+CJK：@1280 4/5、@1408 1/5、@1568 **0/5**；8on22+ASCII：@1280 3/3、@1568 2/3、@1792 與 @2048 0/3。**注意：此為 silver 路徑，生產佔比僅 5/677 幀。**
+- **S2b 位元組量測** `verified` — 全量掃描 **582 個真實 archive 幀**（最大 base64 754.9 KB）；最壞合成樣本 948 KB。
+- **S2c 預算路徑審查** `verified` — `maxFramesForDataBudget` 按幾何**全等**匹配；runtime 規劃器（`session-maintenance.ts:2533`）走 `resolveShape` 而非 `resolveShapeForText`。
+- **S2d 圖片預算兜底缺陷** `verified` — 別名帳號雙 miss → floor 5（`providerFrameBudget("commandcode-b","commandcode-custom-b")` 修前 = 5）。
+- **S2e CJK 渲染契約釐清** `verified` — 8x13 **沒有**缺字問題：經 embedded Silver TrueType fallback 以全寬兩格渲染（README 明載；200 個 CJK 字元 → PNG 高 66px ÷ cellHeight 22 = 3 行 = `ceil(200/98)`，即每字 2 格）。先前「中文被壓扁／缺字偵測失明」的判斷**已撤回**。
+- **S4 PRD 撰寫** `verified`。
+- **S6 計費修正實作** `verified` — 補丁 **0052**：`MODEL_FRAME_TOKEN_STEPS`（**精確 model id 為鍵**，非前綴）+ `resolveShape` wrapper。Claude 維持 5000 未被污染；`v4-pro`／`v4-flash-fast` 維持家族公式 3293。初版用 `^deepseek/` 前綴，經 reviewer 判為 P1，已收窄。**曲線亦經修正**：初版只量到 1568 便誤把 995 當成全尺寸定值，複測後補上 `[2576, 1011]` 檔（詳見 Evidence）；表尾兩檔 `[1280, 995]`／`[2576, 1011]` 皆為實測值，缺口處偏保守側。
+- **S9b 0045 閘門邊界穩定性修正** `verified` — 回歸時發現 `verify-snapcompact-frame-reprice.ts` 的 GATE 2 取「最後一個 compaction」，而 session 是 append-only，回放窗口隨增長而關閉 → **偶發變紅**（pristine 與 patched 失敗完全一致，證明與 0052 無關）。修法三處：窗口止於下一個 compaction（`nextCompactionAfter` 取最小的 `i > compIdx`）、預設釘住 `6375bca4`（`OMP_PATCH_VERIFY_REPRICE_BOUNDARY` 可覆寫）、找不到即失敗。修正後三次運行逐位一致，且與 PATCHES.md 原記載四位數字吻合。三個負向對照：① 移除 pin 恢復掃描 → 選中 `6bc7f78b` 且 flip 斷言失敗（證明 pin 必要）；② `nextCompactionAfter` 降序 bug → 窗口跨頭，`A+R` 由 112027 暴增到 308326；③ 刪 `session-maintenance.ts:3542` 的參數 → GATE 1 失敗。
+- **S8 圖片預算兜底實作** `verified` — 補丁 **0052**：`COMMAND_CODE_NAMESPACE` 回退，位置在 provider exact → api exact 之後。
+- **S9 回歸閘門** `verified` — 新增 `verify-snapcompact-model-billing.ts`（兩閘門 ＋ 十個負向對照全部觸發）；擴充 `verify-provider-image-budget.ts`；已掛入 `apply.sh` 回歸套件；`OMP_PATCH_VERSION=18.1.14 apply.sh --check` 全 **26** 條 APPLIED。另修正 0045 的 `verify-snapcompact-frame-reprice.ts` 邊界穩定性（見 S9b）。
 
 ### 待辦（下次接續）
 
-- **S3 bench 可重現化** `blocked: 腳本中間態` — `research/snapcompact-ds-bench.ts` 已修掉 TDZ（default 參數捕獲外層 const 的 transform 產物），但 key 選擇仍硬編碼 `commandcode-alt`（HTTP 400 已耗盡）→ `baseline prompt_tokens` 為 `undefined`。修法已定：改為**候選 key 探活後快取**（先試 `commandcode-alt` 再 `commandcode`，以 HTTP 200 為準）。修完須跑通 `benchBilling` / `benchLegibility` / `benchRealArchiveFrames` 三者。
-- **S5 R5 上界決策** `pending` — 在 (a) 提高 `FRAME_DATA_BYTES_PER_SHAPE["silver16-bw"]` 至覆蓋最壞，與 (b) 依賴 `shedFramesOverBudget` 之間選一並記錄依據。
-- **S6 計費修正實作** `pending` — **per-model** 覆寫（禁全域映射 `commandcode-custom`，否則 claude 由 5000 砸成 995）；995 僅適用 `frameSize >= 1280`；glm 未量測不得發明數字。
-- **S7 CJK frameSize 降 1280** `pending` — 同時更新 `FRAME_DATA_BYTES_PER_SHAPE` 匹配，否則規劃 miss → 靜默 shed。
-- **S8 `providerImageBudget` 補自訂 api 兜底** `pending` — 加 `commandcode-custom` 鍵或支援 `commandcode-*` 前綴。
-- **S9 回歸閘門** `pending` — `patches/verify-provider-image-budget.ts`（AC6）；新增 AC1–AC5、AC7 的斷言。
-- **S10 Phase 3.3 `trellis-update-spec`** `pending` — 回寫 spec。
+- **S3 bench 可重現化** `blocked: 腳本中間態` — `research/snapcompact-ds-bench.ts` 已修掉 TDZ 與 `benchRealArchiveFrames` 的兩處缺陷（base64 公式、blob 來源），但 key 選擇仍硬編碼 `commandcode-alt`（HTTP 400 已耗盡）。修法已定：改為**候選 key 探活後快取**。
+- **S5 R5 上界決策** `pending` — 870 KB 覆蓋全部 582 個真實幀（餘量 15%），但不覆蓋合成純 CJK 壓力樣本（948 KB）。須在 (a) 提高 bound／(b) 明確聲明依賴 `shedFramesOverBudget` 之間選一並記錄。
+- **S7 CJK frameSize 降 1280** `pending: 待 bench` — **前置條件**：先量 `8on22-bw` 下 CJK 的模型可讀性（實際主路徑）。且須注意 runtime 規劃器走 `resolveShape`，只改 variant 無法支撐「不會 miss 到 170K」的 runtime 結論。
+- **S10 Phase 3.3 `trellis-update-spec`** `verified` — 新增 `.trellis/spec/backend/verification-gate-contracts.md`（兩大 Scenario：閘門可證偽性 ＋ 補丁變更的表示同步），已註冊進 `backend/index.md`。附 machine-checkable 閘門 `patches/verify-spec-contracts.sh`（已掛入 `apply.sh` 套件，從 repo 與 ledger 兩路徑皆 exit 0）。負向對照：① 計費表出現裸前綴鍵 → `billing table contains a bare prefix key` FAILED；② ledger 漂移 → `DRIFTED from the deployed ledger` FAILED；③ 根指向不存在樹 → fail-closed FAILED；④ spec 找不到 → exit 1。
 
 ### 未落地 / 已知中間態（勿誤認為完成）
 
-- `research/snapcompact-ds-bench.ts` — **不可用**（見 S3），已入 git 追蹤範圍外的未提交狀態。
-- 本任務全部檔案**未提交**（工作區在 `master`，依 `/trellis-paused-work` 規範不在默認分支做 WIP commit）。
-- 所有量測結論來自 **Eval kernel 記憶體**中的探針；探針腳本未全部落盤，唯 `research/snapcompact-ds-bench.ts` 為持久化產物。
+- **補丁 0052 尚未提交**（工作區在 `trellis/ds-snapcompact-tuning` 分支）。
+- **silver 幾何未改**：`silver16-bw.frameSize` 仍是 1568。
+- **PRD 的 AC3 未實作**（CJK frameSize == 1280），因為 S7 未動。
+- **S4 的「DS 被誤拒」是推論非觀測**：全量日誌僅 2 次 `Snapcompact projection would not reduce context`，**兩次都是 gemini-3.8-flash**（google 家族，1120），且 0045 早於兩者部署。DS 路徑的收益是**防止未來誤拒 ＋ 投影準確性**，不可宣稱修好了一個已觀測故障。

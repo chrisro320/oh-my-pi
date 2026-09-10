@@ -162,18 +162,102 @@ export async function benchLegibility(shape, sizes, { cjk = false, reps = 3 } = 
 	return rows;
 }
 
-/** Real persisted archive frame sizes, read straight from the session blob store. */
-export async function benchRealArchiveFrames() {
-	const { readdirSync, statSync } = await import("node:fs");
-	const dir = "/home/chris/.omp/agent/blobs";
-	const out = [];
-	for (const name of readdirSync(dir)) {
-		if (!name.endsWith(".png")) continue;
-		const raw = statSync(`${dir}/${name}`).size;
-		out.push({ name: name.slice(0, 16), rawKB: +(raw / 1024).toFixed(1), b64KB: +((raw * 4) / 3 / 1024).toFixed(1), frames3MB: Math.floor(3_000_000 / Math.ceil(raw / 3) / 4 * 3) });
+/**
+ * Base64 length of a `rawBytes`-sized binary — the unit `frameDataBytes()`
+ * sums (`Frame.data.length`) and therefore the unit `FRAME_DATA_BYTES_BUDGET`
+ * is stated in. Persisted frames externalize to `blob:sha256:<hash>` and the
+ * blob file holds the DECODED PNG, so the runtime base64 length must be
+ * reconstructed from the file size — never compared raw-to-budget directly.
+ */
+export function base64Length(rawBytes) {
+	return 4 * Math.ceil(rawBytes / 3);
+}
+
+/**
+ * How many frames of `rawBytes` fit the base64 budget. **0 means a single
+ * frame already exceeds it** — `shedFramesOverBudget` cannot shed that case, so
+ * the caller's hard payload check fails it rather than silently dropping.
+ */
+export function framesInBudget(rawBytes, budget = 3_000_000) {
+	return Math.floor(budget / base64Length(rawBytes));
+}
+
+/** Snapcompact frame blob hashes referenced by one session JSONL, read from
+ *  `preserveData.snapcompact.frames[].data` specifically — a bare
+ *  `/blob:sha256:/` scan also matches unrelated blob users. */
+function frameHashesFromSession(text) {
+	const hashes = [];
+	for (const line of text.split("\n")) {
+		if (!line.includes("snapcompact")) continue;
+		let entry;
+		try {
+			entry = JSON.parse(line);
+		} catch {
+			continue;
+		}
+		const frames = entry?.preserveData?.snapcompact?.frames;
+		if (!Array.isArray(frames)) continue;
+		for (const frame of frames) {
+			const m = /^blob:sha256:([0-9a-f]{64})$/.exec(frame?.data ?? "");
+			if (m) hashes.push(m[1]);
+		}
 	}
-	console.log(`real archive frames: ${out.length}`);
-	for (const r of out.slice(0, 8)) console.log(`  ${r.name} raw=${r.rawKB}KB b64=${r.b64KB}KB`);
+	return hashes;
+}
+
+/**
+ * Real persisted snapcompact archive frames.
+ *
+ * Sourced from the session JSONL's `blob:sha256:` references, NOT from a
+ * directory scan of the blob store: that store also holds tool-output and
+ * image spills (752 PNGs here, 0.6 KB – 3.0 MB), so scanning it reports
+ * unrelated images as archive frames and silently inflates the sample.
+ */
+export async function benchRealArchiveFrames() {
+	const { readFileSync, readdirSync, statSync } = await import("node:fs");
+	const sessionsDir = "/home/chris/.omp/agent/sessions";
+	const blobsDir = "/home/chris/.omp/agent/blobs";
+	const hashes = new Set();
+	for (const session of readdirSync(sessionsDir)) {
+		let files;
+		try {
+			files = readdirSync(`${sessionsDir}/${session}`);
+		} catch {
+			continue;
+		}
+		for (const file of files) {
+			if (!file.endsWith(".jsonl")) continue;
+			let text;
+			try {
+				text = readFileSync(`${sessionsDir}/${session}/${file}`, "utf8");
+			} catch {
+				continue;
+			}
+			if (!text.includes("snapcompact")) continue;
+			for (const hash of frameHashesFromSession(text)) hashes.add(hash);
+		}
+	}
+	const out = [];
+	for (const hash of hashes) {
+		let raw;
+		try {
+			raw = statSync(`${blobsDir}/${hash}.png`).size;
+		} catch {
+			continue; // blob evicted; cannot measure this frame
+		}
+		const b64 = base64Length(raw);
+		out.push({
+			name: hash.slice(0, 16),
+			rawKB: +(raw / 1024).toFixed(1),
+			b64KB: +(b64 / 1024).toFixed(1),
+			frames3MB: framesInBudget(raw),
+		});
+	}
+	out.sort((a, b) => a.rawKB - b.rawKB);
+	console.log(`referenced archive frames: ${out.length}`);
+	for (const r of out) {
+		console.log(`  ${r.name} raw=${r.rawKB}KB b64=${r.b64KB}KB frames@3MB=${r.frames3MB}`);
+	}
 	return out;
 }
 

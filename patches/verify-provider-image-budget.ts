@@ -108,5 +108,39 @@ const survivors = preFixClamped.messages
 	.map((p: { data?: string }) => p.data);
 assert.deepEqual(survivors, ["b64-tool-1", "b64-tool-2", "b64-tool-3", "b64-tool-4", "b64-tool-5"], "oldest image must be the one evicted");
 
+// ---------------------------------------------------------------------------
+// 0052: Command Code *account* names are minted at runtime, so they can never be
+// enumerated in PROVIDER_IMAGE_BUDGETS. The plugin derives one provider id and
+// one wire api per configured account — `commandcode`/`commandcode-custom` for
+// the primary, `commandcode-b`/`commandcode-custom-b` for each alias added via
+// COMMANDCODE_ACCOUNTS (vendor/pi-commandcode-provider/index.ts `apiIdForAccount`,
+// src/accounts.ts `parseAccounts`). Before 0052 all of those missed both table
+// lookups and fell to the floor of 5.
+assert.equal(providerImageBudget("commandcode-b", "commandcode-custom-b"), 200);
+assert.equal(providerImageBudget("commandcode-c", "commandcode-custom-c"), 200);
+assert.equal(providerImageBudget("commandcode_proxy", "commandcode-custom"), 200);
+assert.equal(providerImageBudget("commandcode-alt", "commandcode-custom"), 200);
+assert.equal(providerImageBudget("commandcode-b", "openai-completions"), 200);
+// The alias api alone is enough (provider id absent from the pair):
+assert.equal(providerImageBudget(undefined, "commandcode-custom-b"), 200);
+assert.equal(providerImageBudget("commandcode-b"), 200);
+assert.equal(providerFrameBudget("commandcode-b", "commandcode-custom-b"), 80);
+// The floor still binds for anything outside the gateway's namespace, and an
+// explicit provider-id entry still outranks it:
+assert.equal(providerImageBudget("totally-unknown", "cursor-agent"), 5);
+assert.equal(providerImageBudget("umans", "commandcode-custom"), 10);
+// An unrelated id sharing the prefix must NOT be rescued (unbounded prefix bug):
+assert.equal(providerImageBudget("commandcodex", "cursor-agent"), 5);
+assert.equal(providerImageBudget("xcommandcode"), 5);
+// An exact wire-api entry outranks the namespace fallback — `commandcode-b`
+// really shipped a turn on `anthropic-messages` (2026-09-03):
+assert.equal(providerImageBudget("commandcode-b", "anthropic-messages"), 90);
+assert.equal(providerImageBudget("commandcode-b", "bedrock-converse-stream"), 90);
+// Behaviour-level: the measured 2-account pair must stop evicting images.
+const aliasModel = { provider: "commandcode-b", api: "commandcode-custom-b", input: ["text", "image"] } as never;
+const aliasClamped = clampProviderContextImages(toolCtx as never, aliasModel);
+const aliasRewritten = aliasClamped.messages.filter((m: unknown, i: number) => m !== toolCtx.messages[i]).length;
+assert.equal(aliasRewritten, 0, "a Command Code alias must not rewrite any history entry");
+assert.ok(!JSON.stringify(aliasClamped).includes("[image omitted"), "no omission notice expected on the alias pair");
 
 console.log("provider-image-budget verification: ok");
