@@ -4,7 +4,7 @@
 
 修正 omp snapcompact 在 **Command Code / DeepSeek** 路徑上的三類偏差：
 
-1. **計費（已實作，補丁 0052）**：`commandcode-custom` 落 `billingFamily=unknown`，DS 每幀估 3293，實測 **995@1568 / 1011@2576**（高估 3.31×／3.26×），會讓 `projectedForReduction >= reductionBaseline` 誤判、錯誤拒絕本可縮減的 snapcompact。
+1. **計費（已實作，補丁 0052）**：`commandcode-custom` 落 `billingFamily=unknown`，DS 每幀估 3293@1568、5024@2576（28px 面積公式帶 4784 patch 上限，誤差隨尺寸增長），實測 **995@1568 / 1011@2576**（高估 3.31×／4.97×），會讓 `projectedForReduction >= reductionBaseline` 誤判、錯誤拒絕本可縮減的 snapcompact。
 2. **圖片預算（已實作，補丁 0052）**：別名帳號（`commandcode-<slug>`）的 provider id 與 wire api 都是**運行時生成**，兩次查表全 miss → floor 5 → archive 被夾到 5 幀。
 3. **幾何（未實作，待 bench）**：`resolveShapeForText` 對 CJK-heavy 文字自動選 `silver16@1568`，該組合實測可讀性失效（0/5），最佳點是 **1280**。但此路徑**罕見**——677 個持久化幀中 silver 僅 5 個（0.7%）；真實語料（中文指令混英文工具輸出）wide 佔比低於 25% 門檻，實際主路徑是 8x13 經 Silver TrueType fallback 全寬兩格渲染（已驗證正常）。改動前須先補 `8on22-bw` 的 CJK bench。
 
@@ -72,7 +72,7 @@
 
 - 可加性：2×1568 = 1990、2×2576 = **2022**（皆嚴格可加；2576 兩次複測數字完全一致）。
 - 1568 與 2576 是 shipped variant 唯一可達的兩個尺寸（17 個 variant 皆為 1568 或 2576）。
-- omp 假設 3293 → 對 1568 高估 **3.31×**。
+- omp 假設 3293@1568／5024@2576（4784 patch 上限）→ 對 1568 高估 **3.31×**、對 2576 高估 **4.97×**。
 - **不得宣稱 1280 以上恆定**：2048 實測 993、2576 實測 **1011**、3584 實測 989，非單一定值。階梯表在 1280→995、2576→1011 兩檔取實測值。**保證範圍僅限已測點**：shipped variants 可達的 1568/2576 逐點精確；已測 checkpoint 上偏保守（2048 表 995 對實測 993、3584 表 1011 對實測 989）；2576 以上的**未測尺寸不獲上界保證**。
 
 ### 可讀性（同 key / 固定 prompt / 加 3 行邊距避免裁切）
@@ -126,7 +126,7 @@
 ### 已完成
 
 - **S0 現狀勘查** `verified` — 定位 snapcompact 源碼、供應商插件、`billingFamily` / `PROVIDER_IMAGE_BUDGETS` / `FRAME_DATA_BYTES_*` 三條路徑。
-- **S1 計費量測** `verified` — **全 5 條 deepseek 模型逐條量測**：`v4-flash`／`v4-flash-vision-exp`／`v4.1-flash` 三條在**九個尺寸（256–3584）上逐點相同**（198/198/363/653/995/995/**993**/**1011**/**989**）；但 **`v4-pro` 實測 6、`v4-flash-fast` 實測 0** —— 供應商同一前綴下計費**不統一**，這是覆寫必須按精確 model id 的實證依據。omp 假設 3293 → 對 1568 高估 3.31×。**1280 以上並非恆定**（2576 實測 1011，與 1568 的 995 差 16），故階梯表帶 [2576, 1011] 檔。
+- **S1 計費量測** `verified` — **全 5 條 deepseek 模型逐條量測**：`v4-flash`／`v4-flash-vision-exp`／`v4.1-flash` 三條在**九個尺寸（256–3584）上逐點相同**（198/198/363/653/995/995/**993**/**1011**/**989**）；但 **`v4-pro` 實測 6、`v4-flash-fast` 實測 0** —— 供應商同一前綴下計費**不統一**，這是覆寫必須按精確 model id 的實證依據。omp 假設 3293@1568／5024@2576 → 對 1568 高估 3.31×、對 2576 高估 4.97×。**1280 以上並非恆定**（2576 實測 1011，與 1568 的 995 差 16），故階梯表帶 [2576, 1011] 檔。
 - **S2 可讀性量測** `verified`（初步，n=5）— silver+CJK：@1280 4/5、@1408 1/5、@1568 **0/5**；8on22+ASCII：@1280 3/3、@1568 2/3、@1792 與 @2048 0/3。**注意：此為 silver 路徑，生產佔比僅 5/677 幀。**
 - **S2b 位元組量測** `verified` — 全量掃描 **582 個真實 archive 幀**（最大 base64 754.9 KB）；最壞合成樣本 948 KB。
 - **S2c 預算路徑審查** `verified` — `maxFramesForDataBudget` 按幾何**全等**匹配；runtime 規劃器（`session-maintenance.ts:2533`）走 `resolveShape` 而非 `resolveShapeForText`。

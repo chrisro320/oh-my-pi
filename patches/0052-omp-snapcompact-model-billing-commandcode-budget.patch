@@ -1,6 +1,6 @@
 --- a/snapcompact/src/snapcompact.ts	2026-09-10 07:55:37.476313349 -0400
 +++ b/snapcompact/src/snapcompact.ts	2026-09-10 07:55:37.476313349 -0400
-@@ -255,6 +255,65 @@
+@@ -255,6 +255,68 @@
  	return { ...base, ...familyBilling(family, base.frameSize) };
  }
  
@@ -10,11 +10,14 @@
 + * `commandcode-custom` is ONE api shared by every model the Command Code
 + * gateway serves, so {@link billingFamily} prices all of them with the
 + * Anthropic pixel-area formula. That is right for the Claude routes it carries
-+ * (Opus reads 1932px at 5,000) and a 3.3x overcharge on the DeepSeek vision
-+ * routes, which bill ~1,000/image above 1280px instead. The overcharge lands on
-+ * the reduction guard: the archived frames are priced ~2,300 tokens too high
-+ * each, so a compaction that genuinely shrinks the request reads as "would not
-+ * reduce context" and may be rejected back to an LLM summary.
++ * (Opus reads 1932px at 5,000) and a 3.3x-5.0x overcharge on the DeepSeek
++ * vision routes, which bill ~1,000/image above 1280px instead. The formula's
++ * 4784-patch cap makes the error grow with frame size: a 1568px frame is priced
++ * 3,293 against a measured 995 (+2,298), and a 2576px frame 5,024 against 1,011
++ * (+4,013). The overcharge lands on the reduction guard: the archived frames are
++ * priced thousands of tokens too high each, so a compaction that genuinely
++ * shrinks the request reads as "would not reduce context" and may be rejected
++ * back to an LLM summary.
 + *
 + * Keyed by EXACT model id, not by a provider prefix, because this vendor's
 + * per-image price is not uniform across a model line. The same 2026-09-10
@@ -66,7 +69,7 @@
  /** Eval-validated shapes, keyed by the provider family they won on. */
  export const SHAPES = {
  	/** `11on16-bw`: 8x13 glyphs on an 11px advance (extra tracking), black ink.
-@@ -398,10 +454,17 @@
+@@ -398,10 +457,17 @@
   * eval-winning shape — and frame size — for its model line, falling back to
   * the API family's winner when the model is unmeasured. Billing (token
   * estimate, detail hint) always follows the API family actually carrying
@@ -86,7 +89,7 @@
  	const family = billingFamily(model?.api);
  	if (variant && variant !== "auto") return priceShape(SHAPE_VARIANTS[variant], family);
  	const ideal = model?.id ? idealShapeVariant(model.id) : undefined;
-@@ -605,6 +668,18 @@
+@@ -605,6 +671,18 @@
  	"google-generative-ai": 200,
  };
  
@@ -105,7 +108,7 @@
  /** Safe floor for unknown providers (strictest mainstream measured: Groq ~5). */
  export const DEFAULT_PROVIDER_IMAGE_BUDGET = 5;
  
-@@ -613,12 +688,26 @@
+@@ -613,12 +691,26 @@
   *  (e.g. `google-antigravity` rides the `google-gemini-cli` api), and silently
   *  dropping to the floor of 5 makes a single attached image evict the oldest
   *  snapcompact archive frame — rewriting `contents[0]` and voiding the whole
