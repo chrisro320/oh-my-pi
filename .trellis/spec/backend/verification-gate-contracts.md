@@ -61,6 +61,19 @@ suite. A gate that no suite invokes is not a gate.
   superseding entry, so its numbers are a function of the fixture rather than
   of the session's current length.
 
+- A probe script MUST live inside the package tree it is probing. `bun`
+  resolves an import relative to the SCRIPT's location, so a probe in `/tmp`
+  falls back to the global install cache and silently measures a DIFFERENT
+  package version. In this repo that cache holds several versions; probing from
+  `/tmp` reported the pre-patch price and nearly produced a false "the patch is
+  not loaded" conclusion. Gates avoid this by importing an absolute
+  `<ROOT>`-derived path — do the same in any ad-hoc probe.
+- `~/.bun/install/global/node_modules/@oh-my-pi/<pkg>` is a real directory, not
+  a symlink into `~/.bun/install/cache/`, but the cache holds other versions of
+  the same packages. Resolution is only trustworthy when it is anchored in the
+  package tree; always print `import.meta.resolve(...)` in the probe and check
+  the reported path and version before trusting a number.
+
 ### 4. Validation & Error Matrix
 
 | Condition | Required result |
