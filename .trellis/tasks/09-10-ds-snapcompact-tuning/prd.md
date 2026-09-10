@@ -178,6 +178,8 @@
 - **S3 bench 金鑰** `verified` — 已實作候選探活：`resolveKey()` 按序探測並快取，**且刻意探測 chat 端點而非 `/models`**（Cloudflare 對部分路徑回 `error code: 1010`，只有 chat 端點的結論才對 bench 有效）。修前腳本寫 `auth["commandcode-alt"] ?? auth["commandcode"]`，**優先選已欠費的那個**（實測 400 insufficient credits），使每次測量都變成帳務錯誤。
   另修 `fill()` 的填充單位（見上）與 `ask` 的遞迴依賴（拆出 `post`）。
 - **S10 Phase 3.3 `trellis-update-spec`** `verified` — 新增 `.trellis/spec/backend/verification-gate-contracts.md`（兩大 Scenario：閘門可證偽性 ＋ 補丁變更的表示同步），已註冊進 `backend/index.md`。附 machine-checkable 閘門 `patches/verify-spec-contracts.sh`（已掛入 `apply.sh` 套件，從 repo 與 ledger 兩路徑皆 exit 0）。負向對照：① 計費表出現裸前綴鍵 → `billing table contains a bare prefix key` FAILED；② ledger 漂移 → `DRIFTED from the deployed ledger` FAILED；③ 根指向不存在樹 → fail-closed FAILED；④ spec 找不到 → exit 1。
+- **⚠ 歷史提交警示（勿 cherry-pick）**：`1c03b9c` 與 `cc03e4a` 引入的 0053（含位元組表抬值 20k→105k/140k、面積縮放查表）**已由 `c28d371` 全數撤回**。這兩個提交保留於 git 歷史供審計，但**不得從中撈回任何改動**——表值抬值經 47 次真實歸檔實測會鉗制 8 次本可塞進 3MB 的歸檔，造成不可逆歷史損失。同理，`patches/verify-snapcompact-frame-budget.ts` 屬補丁 **0020**（非 0053 新增），1c03b9c 僅修改過它；清理時誤刪，已自 `1c03b9c^` 逐位元組還原，並保留其在 `~/.omp/patches/` 的原有台賬成員身分。
+
 - **S7b 規劃器／渲染器 shape 失配 ＋ 位元組表 ＋ 非基準 edge 查表** `已撤回（0053 全數撤除）`
   - **撤回理由（實測，非推論）**：本項原宣稱「位元組表低估 4.5–6.1 倍是缺陷」——**該判斷錯誤**。全量掃描 **47 次真實歸檔**證明：
     - 位元組上限**歷史上從未生效**（最大 plan 35 幀，舊 cap 150/80 皆未觸及）。真實 binder 是 **token 預算**，不是位元組。
