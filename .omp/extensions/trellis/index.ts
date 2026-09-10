@@ -609,8 +609,12 @@ export default function(pi: ExtensionAPI): void {
 
       const cached = turnCache.get(projectRoot, contextKey);
       let turnContent = cached.workflowMsg;
+      let activeTaskTitle: string | null = null;
+      let activeTaskStatus: string | null = null;
       if (isSubAgent) {
-         const { taskDir } = resolveActiveTaskStatus(projectRoot, contextKey);
+         const { taskDir, taskTitle, status } = resolveActiveTaskStatus(projectRoot, contextKey);
+         activeTaskTitle = taskTitle;
+         activeTaskStatus = status;
          if (taskDir) {
             const taskContext = buildTaskContext(projectRoot, taskDir, agentType);
             if (taskContext) {
@@ -619,7 +623,9 @@ export default function(pi: ExtensionAPI): void {
          }
       } else {
          const sessionContext = buildSessionContext(projectRoot, contextKey);
-         const { taskDir } = resolveActiveTaskStatus(projectRoot, contextKey);
+         const { taskDir, taskTitle, status } = resolveActiveTaskStatus(projectRoot, contextKey);
+         activeTaskTitle = taskTitle;
+         activeTaskStatus = status;
          const taskContext = taskDir ? buildTaskContext(projectRoot, taskDir) : null;
          const prefix = [sessionContext, taskContext].filter(Boolean).join("\n\n");
          if (prefix) {
@@ -655,21 +661,32 @@ export default function(pi: ExtensionAPI): void {
                // summarized away — the model can no longer see the snapshot
                // the stub points at, so the next injection must be full again.
                const compacted = lastCompactionTs > lastInjectionTs;
+               const isFirstOrCompacted = !lastFullContent || compacted;
+               const snapshotPath = join(projectRoot, ".trellis", ".runtime", "omp-anchors", `${contextKey}.snapshot.md`);
+
                if (lastFullContent === turnContent && !compacted) {
                   // Unchanged since the last full snapshot: ride a stub.
                   const hash = createHash("sha256").update(turnContent).digest("hex").slice(0, 16);
-                  text = `<trellis-state>\nWorkflow state unchanged since the last full snapshot (${hash}); it still applies. Full snapshot: ${join(projectRoot, ".trellis", ".runtime", "omp-anchors", `${contextKey}.snapshot.md`)}. Read that file if you need the exact contents.\n</trellis-state>`;
+                  text = `<trellis-state>\nWorkflow state unchanged since the last full snapshot (${hash}); it still applies. Full snapshot: ${snapshotPath}. Read that file if you need the exact contents.\n</trellis-state>`;
                } else {
                   try {
                      const dir = join(projectRoot, ".trellis", ".runtime", "omp-anchors");
                      mkdirSync(dir, { recursive: true });
-                     writeFileSync(join(dir, `${contextKey}.snapshot.md`), turnContent, { mode: 0o600 });
+                     writeFileSync(snapshotPath, turnContent, { mode: 0o600 });
                   } catch {
                      // A lost snapshot only costs the stub its read-back path;
                      // the full injection below still stands.
                   }
                   saveLastFull(contextKey, turnContent);
                   lastInjectionTs = Date.now();
+
+                  if (!isFirstOrCompacted) {
+                     // Delta Stub (Option A): state updated, snapshot refreshed on disk.
+                     // Never re-ship the 12-15KB full PRD text at full input price.
+                     const hash = createHash("sha256").update(turnContent).digest("hex").slice(0, 16);
+                     const taskLine = activeTaskTitle ? `- Active Task: ${activeTaskTitle} (${activeTaskStatus ?? "active"})\n` : "";
+                     text = `<trellis-state>\nWorkflow state updated (${hash}). Full snapshot refreshed at: ${snapshotPath}.\n${taskLine}Read that file if full PRD/spec details needed.\n</trellis-state>`;
+                  }
                }
             }
             injectedByAnchor.set(key, text);

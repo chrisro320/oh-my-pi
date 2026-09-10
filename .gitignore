@@ -14,3 +14,6 @@ __pycache__/
 
 # Session exports (large, regenerable artifacts)
 omp-session-*.html
+
+# Local workflow-config backup (never tracked)
+workdlowbak/
