@@ -95,29 +95,35 @@ function cellWidth(s) {
 	return n;
 }
 
-/**
- * Fill the page to `rows - marginLines`, so the anchor line is fully inked
- * rather than page-clipped.
+/** Fill the canvas by CELL CAPACITY, leaving one row of margin so the anchor
+ *  line is fully inked rather than page-clipped.
  *
- * The bound is `geometry.rows`, not `capacity`: capacity is in cells, and a
- * generator line that overflowed `cols` would be wrapped by the renderer into
- * rows the caller never budgeted for. Bounding by row count keeps the mapping
- * from generator lines to canvas rows one-to-one, which is what makes the
- * anchor's row position predictable.
- */
-function fill(shape, size, { cjk = false, marginLines = 3 } = {}) {
+ *  Filling by `rows` (as this used to) silently produced a ~31% full page:
+ *  `sc.render` does NOT honour `\n` — it reflows the text as one continuous
+ *  stream wrapped at `cols`. So `rows - margin` generator lines, each ~63
+ *  cells wide, covered only ~5k of a ~16k-cell canvas. Every CJK legibility
+ *  number measured against that layout described a mostly-empty page, not the
+ *  dense page a real archive renders.
+ *
+ *  Verified: `"AAAA\nBBBB\nCCCC"` renders 14 chars on ONE row, so generator
+ *  line count does not map to visual rows. Fill by capacity; the anchor is the
+ *  offset of the last line fed in, which lands on the last visual row. */
+function fill(shape, size, { cjk = false, marginLines = 1 } = {}) {
 	const g = sc.geometry(shape, size);
-	const maxLines = Math.max(1, g.rows - marginLines);
+	const budgetCells = Math.max(g.cols, g.capacity - marginLines * g.cols);
 	const gen = cjk ? cjkLines : asciiLines;
 	const lines = [];
-	for (let i = 0; i < maxLines; i++) {
+	let used = 0;
+	for (let i = 0; ; i++) {
 		const s = gen(i + 1).pop();
-		if (cellWidth(s) > g.cols) break; // let the caller see a short page, not a wrapped one
+		if (cellWidth(s) > g.cols) break; // a too-wide line would wrap unpredictably
+		if (used + cellWidth(s) > budgetCells) break;
 		lines.push(s);
+		used += cellWidth(s);
 	}
 	const text = lines.join("\n");
 	const re = cjk ? /偏移=(\d+)/ : /offset=(\d+)/;
-	return { geo: g, text, lines: lines.length, truth: re.exec(lines[lines.length - 1])[1] };
+	return { geo: g, text, lines: lines.length, cells: used, truth: re.exec(lines[lines.length - 1])[1] };
 }
 
 // ---------------------------------------------------------------------------
@@ -224,6 +230,7 @@ export async function benchLegibility(shape, sizes, { cjk = false, reps = 3 } = 
 			size,
 			cols: F.geo.cols,
 			lines: F.lines,
+			cells: F.cells,
 			chars: f.chars,
 			rawKB: +(raw / 1024).toFixed(1),
 			b64KB: +(f.data.length / 1024).toFixed(1),
@@ -234,7 +241,7 @@ export async function benchLegibility(shape, sizes, { cjk = false, reps = 3 } = 
 			reps,
 		});
 		console.log(
-			`${String(size).padStart(5)}px cols=${String(F.geo.cols).padStart(3)} lines=${String(F.lines).padStart(3)} raw=${rows.at(-1).rawKB}KB b64=${rows.at(-1).b64KB}KB frames@3MB=${rows.at(-1).frames3MB} truth=${F.truth} got=[${got.join(",")}] ${pass}/${reps}`,
+			`${String(size).padStart(5)}px cols=${String(F.geo.cols).padStart(3)} rows=${String(F.geo.rows).padStart(3)} lines=${String(F.lines).padStart(3)} cells=${String(F.cells).padStart(5)} raw=${rows.at(-1).rawKB}KB b64=${rows.at(-1).b64KB}KB frames@3MB=${rows.at(-1).frames3MB} truth=${F.truth} got=[${got.join(",")}] ${pass}/${reps}`,
 		);
 	}
 	return rows;
