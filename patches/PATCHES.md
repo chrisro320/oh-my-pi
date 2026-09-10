@@ -426,6 +426,16 @@
   - 實測（2026-09-05 會話 01a07257，qwen3.8-flash）：第一輪注入後，turn2-3 無圖輪 cacheRead 26368 命中；turn4 讀真實 64×64 圖保持命中（27136→27904→28160），無全 miss。
   - 僅手動部署（同 0039 慣例，未進 apply.sh）；升級 omp 後需重拷貝。
 
+- `~/.omp/agent/extensions/auto-continue.ts`（鏡像 `patches/auto-continue-extension.ts`，2026-09-10 三副本 `cmp` 逐字節一致）：原地自動續寫與代理抖動重試
+  - 核心約束：**堅決不換 IP／Key／模型**。重試一律在原節點原地進行，避免多節點輪換觸發供應商風控。
+  - 場景 A（`stopReason === "length"`，輸出被單次 token 上限截斷）：回 `continue: true` ＋ 隱式上下文，明令「緊接上一次輸出的末尾斷點續寫，嚴禁重複已輸出文字」。這樣續寫不會重發前文，前綴維持純尾部追加。
+  - 場景 B（`stopReason === "error"` 且錯誤訊息命中網路抖動樣式）：原地 `sleep(3000)` 等代理重連後重發同請求。樣式表覆蓋 `ECONNRESET`／`ECONNREFUSED`／`ETIMEDOUT`／`EPIPE`／`ENOTFOUND`／`EAI_AGAIN`／`socket hang up`／`premature close`／`fetch failed`／`Bad Gateway`／`Gateway Timeout`／`Service Unavailable`／`50[234]`。
+  - 閘門與重置：預設連續上限 2 次（`/autocontinue max <1-10>` 可調），達上限即停並發 warning 等人工確認；使用者手動輸入（`input` 事件）或 Esc 中斷（`signal.aborted`）都立即重置計數。`sleep` 期間偵測 abort 即放棄重試。
+  - 命令：`/autocontinue [on|off|max <n>]` 查狀態與開關；`/unfreeze` 清空計數與鎖定（假性 401 誤殺時原地解凍，配合 `/commandcode-pool use 1` 可解除 Key Pool 鎖定）。
+  - 事件接線：全生命週期走 OMP 原生 `session_stop`，注入訊息以 `display: false` 派發——不寫入 transcript、TUI 不可見。
+  - 自動回歸：`bun patches/verify-auto-continue.ts`（7 項，含 reviewer 要求的 in-flight abort 與 listener cleanup）全過。
+  - 僅手動部署（同 0039／vision-warmup 慣例，未進 apply.sh）；升級 omp 後需重拷貝。
+
 ## 4. 验证
 
 | 项 | 验证 |
