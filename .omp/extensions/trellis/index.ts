@@ -669,23 +669,27 @@ export default function(pi: ExtensionAPI): void {
                   const hash = createHash("sha256").update(turnContent).digest("hex").slice(0, 16);
                   text = `<trellis-state>\nWorkflow state unchanged since the last full snapshot (${hash}); it still applies. Full snapshot: ${snapshotPath}. Read that file if you need the exact contents.\n</trellis-state>`;
                } else {
+                  let snapshotWritten = false;
                   try {
                      const dir = join(projectRoot, ".trellis", ".runtime", "omp-anchors");
                      mkdirSync(dir, { recursive: true });
                      writeFileSync(snapshotPath, turnContent, { mode: 0o600 });
+                     snapshotWritten = true;
                   } catch {
-                     // A lost snapshot only costs the stub its read-back path;
-                     // the full injection below still stands.
+                     // A lost snapshot falls back to full injection so the model isn't blinded.
                   }
-                  saveLastFull(contextKey, turnContent);
-                  lastInjectionTs = Date.now();
 
-                  if (!isFirstOrCompacted) {
-                     // Delta Stub (Option A): state updated, snapshot refreshed on disk.
-                     // Never re-ship the 12-15KB full PRD text at full input price.
-                     const hash = createHash("sha256").update(turnContent).digest("hex").slice(0, 16);
-                     const taskLine = activeTaskTitle ? `- Active Task: ${activeTaskTitle} (${activeTaskStatus ?? "active"})\n` : "";
-                     text = `<trellis-state>\nWorkflow state updated (${hash}). Full snapshot refreshed at: ${snapshotPath}.\n${taskLine}Read that file if full PRD/spec details needed.\n</trellis-state>`;
+                  if (snapshotWritten) {
+                     saveLastFull(contextKey, turnContent);
+                     lastInjectionTs = Date.now();
+
+                     if (!isFirstOrCompacted) {
+                        // Delta Stub (Option A): state updated, snapshot refreshed on disk.
+                        // Never re-ship the 12-15KB full PRD text at full input price.
+                        const hash = createHash("sha256").update(turnContent).digest("hex").slice(0, 16);
+                        const taskLine = activeTaskTitle ? `- Active Task: ${activeTaskTitle} (${activeTaskStatus ?? "active"})\n` : "";
+                        text = `<trellis-state>\nWorkflow state updated (${hash}). Full snapshot refreshed at: ${snapshotPath}.\n${taskLine}Read that file if full PRD/spec details needed.\n</trellis-state>`;
+                     }
                   }
                }
             }

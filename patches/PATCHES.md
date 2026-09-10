@@ -67,6 +67,11 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 ### 0012 — Trellis 純記憶體 context transform 避免歷史前綴污染
 - `.omp/extensions/trellis/index.ts`：移除 `session_start` 中的 `pi.sendMessage` 持久化消息與 `before_agent_start` 持久化注入，改為在 `ExtensionAPI.on("context")` hook 執行純記憶體 transform，動態組裝 `<session-context>`、`<task-context>` 與 `<workflow-state>`。
 - **效果**：會話 JSONL 磁碟歷史 0 污染，Resume 重開時前綴字節嚴格一致。
+- **注入三態（2026-09-10，`a247ab4` ＋ Delta Stub）**：每輪 `<trellis-state>` 有三種形態，取決於狀態是否變過、以及是否剛壓縮過：
+  1. **全文**——首輪，或上一輪之後發生過壓縮（舊快照已被摘要掉，模型看不到 stub 指向的內容）。
+  2. **未變存根**（`a247ab4`）——內容與上次全文相同且未壓縮，只發 hash ＋ 快照路徑。
+  3. **Delta Stub**——狀態**已更新**、快照**已落盤**，但未壓縮：只發 hash ＋ 快照路徑 ＋ 一行 Active Task，**不再重發 12–15KB 的完整 PRD 正文**。此前第 3 態會退回全文，等於每次 todo 翻頁都付全價 input。
+  落盤失敗必須退回全文注入：`snapshotWritten` 同時守衛 `saveLastFull` 與 stub 發送。若寫盤失敗仍發 stub，模型會被指向一個不存在的檔案，而 `saveLastFull` 已記為「已交付全文」→ 下一輪走「未變存根」分支 → **永久失明**。
 - ⚠ **副作用（已由 0016 修正）**：純記憶體注入的訊息不寫磁碟，下一次請求從 JSONL 重建時，該 index 被模型回覆頂替 → 歷史中段 **ROLE FLIP** → 每個 tool call 之後 100% cache miss。詳見 0016。
 
 ### 0013 — soft 摘要壓縮復用 live provider-ready 前綴
