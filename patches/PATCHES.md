@@ -560,11 +560,11 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - 通过 `before_provider_request` 返回值改写 payload（`sdk.ts:3305` → `anthropic.ts:2007` 的 `replacementPayload`），不碰 omp 源码
   - 日志 `~/.omp/agent/resume-cache.log`（断点位置 + 每条 assistant 的 usage），`/cachefix` 看状态
 
-- `~/.omp/agent/extensions/vision-warmup.ts`（鏡像 `patches/vision-warmup-extension.ts`，2026-09-08 `cmp` 逐字節一致）：Hyper 模型（qwen3.8-flash / glm-5.3-flash）視覺路由暖機
+- ~~`~/.omp/agent/extensions/vision-warmup.ts`~~ **已於 2026-09-11 卸載**（源碼保留於 `patches/vision-warmup-extension.ts` 與 `~/.omp/patches/`，兩副本卸載前 `cmp` 逐字節一致，需要時原樣重部署）：Hyper 模型（qwen3.8-flash / glm-5.3-flash）視覺路由暖機
   - 根因：Hyper 的 vision 分類器按 session 黏滯——會話內**第一條帶圖請求**鎖定分類器路由，中途首圖會觸發分類器切換並按全 cache miss 計費（與 context 大小無關）。
   - 做法：`before_agent_start` 在會話第一輪注入 1×1 PNG 自訂消息（`display: false`：TUI 不可見、照常發給模型），把鎖定成本壓到第一輪的極小 payload 上。
   - 實測（2026-09-05 會話 01a07257，qwen3.8-flash）：第一輪注入後，turn2-3 無圖輪 cacheRead 26368 命中；turn4 讀真實 64×64 圖保持命中（27136→27904→28160），無全 miss。
-  - 僅手動部署（同 0039 慣例，未進 apply.sh）；升級 omp 後需重拷貝。
+  - 曾僅手動部署（同 0039 慣例，未進 apply.sh）。**卸載後 `~/.omp/agent/extensions/` 不再有此檔，升級 omp 後亦無需重拷貝**；若要恢復，從 `patches/vision-warmup-extension.ts` 拷回並改名為 `vision-warmup.ts`。
 
 - `~/.omp/agent/extensions/auto-continue.ts`（鏡像 `patches/auto-continue-extension.ts`，2026-09-10 三副本 `cmp` 逐字節一致）：原地自動續寫與代理抖動重試
   - 核心約束：**堅決不換 IP／Key／模型**。重試一律在原節點原地進行，避免多節點輪換觸發供應商風控。
