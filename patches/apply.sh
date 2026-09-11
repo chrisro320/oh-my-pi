@@ -76,6 +76,7 @@ PATCHES=(
 	"0046-omp-supersede-warm-prefix-guard.patch:${AGENT}"
 	"0048-omp-advisor-quota-rotation-bound.patch:${AGENT}"
 	"0050-omp-session-history-preview.patch:${AGENT}"
+	"0054-omp-antigravity-drop-requesttype-agent.patch:${AI}"
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then

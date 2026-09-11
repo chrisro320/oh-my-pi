@@ -9,8 +9,8 @@
 | 項目 | 值 |
 |---|---|
 | 當前部署 | `OMP_PATCH_VERSION=18.1.14` |
-| APPLIED | **27 行**（26 補丁 ＋ `bin/omp -> src/cli.ts` 連結）／0 CONFLICT／0 PENDING |
-| base 計畫 | 未設 `OMP_PATCH_VERSION`（目標 18.0.9）；`PATCHES` 陣列 **27 項** |
+| APPLIED | **28 行**（27 補丁 ＋ `bin/omp -> src/cli.ts` 連結）／0 CONFLICT／0 PENDING |
+| base 計畫 | 未設 `OMP_PATCH_VERSION`（目標 18.0.9）；`PATCHES` 陣列 **28 項** |
 | 最近遷移 | 18.1.10 → 18.1.14（2026-09-08），見 §5 |
 | 回歸套件 | **9 道閘門**，見 §6.1 |
 
@@ -29,8 +29,8 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 | 口徑 | 內容 | 層數 |
 |---|---|---|
-| `apply.sh` 的 `PATCHES` 陣列（base 計畫 = 未設 `OMP_PATCH_VERSION` = 18.0.9 鏈） | 0033、0004、0034、0037、0010、0035、0019、0014、0036、0017、0025、0026-core、0030、0051、0031、0032、0038、0041、0042、0043、0044、0052、0045、0046、0048、0050 | **26** |
-| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.14`） | base 27 條 −`omit:0019` −`omit:0042` +鏈尾 0047 | **26** |
+| `apply.sh` 的 `PATCHES` 陣列（base 計畫 = 未設 `OMP_PATCH_VERSION` = 18.0.9 鏈） | 0033、0004、0034、0037、0010、0035、0019、0014、0036、0017、0025、0026-core、0030、0051、0031、0032、0038、0041、0042、0043、0044、0052、0045、0046、0048、0050、0054 | **27** |
+| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.14`） | base 28 條 −`omit:0019` −`omit:0042` +鏈尾 0047 | **27** |
 | 18.1.10 計畫 | 同上（候選集合不同） | 25 |
 
 `0042` 只存在於 base 計畫；`0047` 只存在於 18.1.10/18.1.14 計畫（其 a 側是 candidate-0038 的產出形態）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
@@ -496,6 +496,16 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **負向對照（10 個變體全部如預期失敗，且能區分失敗層級）**：完整原樣包必須 PASS（`/tmp/g0`）。① pristine → `MODEL_FRAME_TOKEN_STEPS table is absent`；② 表截斷（移除 `v4.1-flash`）→ **行為層** `v4.1-flash measured 995 and must price`（證明 GATE 2 真的在測變體包，而非只測 live）；③ 階梯抹成 `[256,995]` → `step curve is absent or flattened`；④ 命名空間回退提前 → `ordering broken (... provider@31070, api@31403, namespace@31208)`；⑤ 命名空間去邊界 → `matcher is absent or unbounded`；⑥ wrapper 移除（純行為變體，結構 regex 仍在）→ `resolveShape does not apply the per-model billing override`；⑦ 不完整包（只有 `src/snapcompact.ts`，缺 `src/prompts/`）→ `GATE 2 cannot load ... (Cannot find module './prompts/...')`，即 fail-closed 生效；⑧ `[2576, 1011]` 檔被刪（退化 flat 995）→ GATE 1 結構層攔下；⑨ `[2576, 1011]` 被改成 995 → 同上；⑩ **純行為層**：表文本完全不動（GATE 1 全過），只把查表結果鉗成 `Math.min(price, 995)` → `DeepSeek @5x8-bw (frameSize 2576) must price at the measured 1011` 失敗，證明該斷言有獨立鑑別力、不依賴結構正則。**注意 fault tree 必須是完整套件副本**（`src/` 含 `prompts/` ＋ 以符號連結掛 `node_modules`），只放單檔會因模組缺失而誤判。
 - **未修（同批留待 bench）**：`silver16-bw` 的 `frameSize` 仍為 1568。純中文散文會走 CJK 分支選中它，實測可讀性 0/5（@1280 為 4/5），但**這是罕見路徑**——677 個持久化幀中 silver 僅 5 個（0.7%），真實語料（中文指令混英文工具輸出）wide 字元佔比低於 25% 門檻，根本不觸發該分支，實際主路徑是 8x13 經 Silver TrueType fallback **全寬兩格**渲染（README 明載契約，已以 200 個 CJK 字元渲染驗證：PNG 高 66px ÷ cellHeight 22 = 3 行 = `ceil(200/98)`，即每字 2 格）。改動前需先補「8on22-bw 下 CJK 的模型可讀性」bench，且**注意 runtime 規劃器走的是 `resolveShape` 而非 `resolveShapeForText`**（`session-maintenance.ts:2533`），只改 variant 無法支撐「不會 miss 到 170K」的 runtime 結論。
 - **未修（同批）**：`FRAME_DATA_BYTES_PER_SHAPE["silver16-bw"] = 870_000` 對已觀測的 **582 個真實歸檔幀**（最大 base64 754.9 KB）留約 15% 餘量，但對合成的純中文 @1568 壓力樣本（948 KB）不足約 9%。此為 R5 的 (a)/(b) 待決項，尚未選定。
+
+### 0054 — Antigravity `requestType: "agent"` 觸發 Cloud Code Assist 假 429（Gemini 模型全線不可用）
+
+- **失敗簽名**：`google-antigravity` 任一模型、任一回合一開始即報 `Cloud Code Assist API error (429): {"error":{"code":429,"message":"Resource has been exhausted (e.g. check quota).","status":"RESOURCE_EXHAUSTED"}}`，且 body **無 `details`、無 `RetryInfo`**。omp 的 `parseRateLimitReason` 因該樣板含 `exhausted`／`quota` 而歸為 `QUOTA_EXHAUSTED` → 合成 30 分鐘退避 → 撞 `retry.maxDelayMs`（預設 300000）→ `Retry failed after 1 attempts: Provider requested …ms wait, exceeds retry.maxDelayMs`。顯示的等待值（1,597,391／1,714,258 ms）**不是上游所述**（上游若給會是 `RetryInfo` 的 `"retryDelay": "17955.68s"` 形態），而是本地 `reportResetAtMs − now` 的殘值。
+- **決定性反證（本機實測）**：狀態欄配額 0%、`omp usage` 尚有 95% 配額，故與配額無關。同一 bearer、同一 `project`、同一份 live 91KB payload（含 55KB tools）逐項分離：**原樣 → 429**；**僅把 `<system-conventions>` 改成 `<system_conventions>` → 200**；**僅刪 `requestType` → 200**。控制組以 A/B 交替 5 次（原樣 5/5 = 429、中性對照 5/5 = 200），並在**換全新 `sessionId`／`trajectory_id` 後仍 429** → 排除會話級限流。中性文字填充至 29k tokens → 200 → **與 payload 大小無關**。前綴掃描顯示觸發字串**起點錨定**於 `systemInstruction.parts[0]` 開頭（`[0,80)` → 200、`[0,90)` → 429），故子區間單獨測試皆 200 而非矛盾。
+- **與 gcli2api「反代能用」的關係**：gcli2api **同樣**在 payload 送 `requestType: "agent"`（`src/api/antigravity.py:wrap_cli_request`，header 亦送），但它的會話系統提示不含該字串 → 不觸發。故差異不是「反代 vs 直連」，而是**同一帳號、同一端點下是否踩到該指紋**；omp 因為系統提示固定開頭而被 100% 攔截。
+- **修法（1 行，`${AI}`）**：`buildRequest` 的 antigravity 分支回傳物件刪除 `requestType: "agent"`。型別 `requestType?: string`（同檔 :437）為可選，**刪除型別安全、無其他呼叫點**（全樹僅此一處賦值）。省略後走標準互動配額。
+- **刻意不動 prompt 檔**：`<system-conventions>` 有三處（`prompts/system/system-prompt.md`、`prompts/advisor/system.md`、`live/prompts/live-instructions.md`），皆為維護者所有的提示內容。改名可繞過，但①不消除閘門（Google 改規則即失效）②每次上游編輯 prompt 都重新衝突。線路修法同時符合官方 Antigravity CLI 的 envelope 形態。
+- **驗證**：`patch -p1` 正向／反向／**偏移 +5 行**三重乾淨（偏移測試的比對基準須含 pad 行，否則誤報差異）；`OMP_PATCH_VERSION=18.1.14 bash apply.sh --check` → **28 行 APPLIED（27 補丁 ＋ `bin/omp` 連結）／0 CONFLICT**；live 冒煙 `omp -p --model google-antigravity/gemini-3.8-flash "say hi"` 8.9s 正常回覆（修前必 429）；工具呼叫 `讀取 /tmp/omp-smoke.txt` **3/3 成功**復述 `SMOKE_OK_12345`（驗證 agent 模式未被 `requestType` 移除影響）。此間歇出現的 `unknown certificate verification error` 為 **sandbox 端點**（`daily-cloudcode-pa.sandbox.googleapis.com`）的既有 flake，非本補丁引入。
+- **未納入（同批）**：上游 #11693 的另一半——把無 `details` 的 429 在 `pi-ai/src/error/rate-limit.ts` 由 `QUOTA_EXHAUSTED` 重新歸類為暫時性。那治的是「誤判成 30 分鐘」的次生症狀，非本次 429 的成因；本補丁只做最小修復。副作用是：其他 provider 的真·暫時性 429 仍會被 fail-fast 擋下。
 
 ## 3. 已撤下的補丁（2026-08-25 移除）
 
