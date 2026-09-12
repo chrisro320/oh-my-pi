@@ -616,14 +616,40 @@
 +[Other important info not fitting above]
 --- a/pi-coding-agent/src/session/agent-session.ts
 +++ b/pi-coding-agent/src/session/agent-session.ts
-@@ -1921,6 +1921,7 @@
+@@ -1921,6 +1921,9 @@
  			drainStrandedQueuedMessages: () => this.#drainStrandedQueuedMessages(),
  			buildDisplaySessionContext: () => this.buildDisplaySessionContext(),
  			convertToLlmForSideRequest: messages => this.#convertToLlmForSideRequest(messages),
 +			convertMessagesToLlm: (messages, signal) => this.convertMessagesToLlm(messages, signal),
++			convertMessagesToLlmWithSource: (messages, signal) =>
++				this.convertMessagesToLlmWithSource(messages, signal),
  			obfuscateTextForProvider: text => this.#obfuscateTextForProvider(text),
  			obfuscatePreparationForProvider: preparation => this.#obfuscatePreparationForProvider(preparation),
  			closeCodexProviderSessionsForHistoryRewrite: () => this.#closeCodexProviderSessionsForHistoryRewrite(),
+@@ -1968,6 +1971,8 @@
+ 			obfuscateTextForProvider: text => this.#obfuscateTextForProvider(text),
+ 			deobfuscateFromProvider: text => this.#deobfuscateFromProvider(text),
+ 			convertMessagesToLlm: (messages, signal) => this.convertMessagesToLlm(messages, signal),
++			convertMessagesToLlmWithSource: (messages, signal) =>
++				this.convertMessagesToLlmWithSource(messages, signal),
+ 			prepareSimpleStreamOptions: (options, provider) => this.prepareSimpleStreamOptions(options, provider),
+ 			effectiveServiceTier: model => this.#models.effectiveServiceTier(model),
+ 		};
+@@ -5603,6 +5608,14 @@
+ 		return await this.#providerBoundary.convertMessagesToLlm(messages, signal);
+ 	}
+ 
++	/** {@link convertMessagesToLlm} plus the post-transform array it converted. */
++	async convertMessagesToLlmWithSource(
++		messages: AgentMessage[],
++		signal?: AbortSignal,
++	): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }> {
++		return await this.#providerBoundary.convertMessagesToLlmWithSource(messages, signal);
++	}
++
+ 	/** Apply session-level stream hooks to a direct side request. */
+ 	prepareSimpleStreamOptions(options: SimpleStreamOptions, provider = "anthropic"): SimpleStreamOptions {
+ 		return this.#providerBoundary.prepareSimpleStreamOptions(options, provider);
 --- a/pi-coding-agent/src/session/session-advisors.ts
 +++ b/pi-coding-agent/src/session/session-advisors.ts
 @@ -19,6 +19,7 @@
@@ -642,11 +668,11 @@
  import type { CompactionEntry, SessionEntry } from "./session-entries";
  import { formatSessionHistoryMarkdown } from "./session-history-format";
  import type { SessionManager } from "./session-manager";
-+import { sharesActivePromptCacheIdentity } from "./session-provider-boundary";
++import { prefixCarriesCompactionSummary, sharesActivePromptCacheIdentity } from "./session-provider-boundary";
  import { buildSessionMetadata } from "./session-metadata";
  import type { YieldQueue } from "./yield-queue";
  
-@@ -1582,6 +1585,45 @@
+@@ -1582,6 +1585,40 @@
  		}
  	}
  
@@ -674,17 +700,12 @@
 +			if (agent.state.messages !== messagesSnapshot) return undefined;
 +			return {
 +				context,
-+				// The claim must follow the rebuilt prefix, not just the presence of a
-+				// previous summary. Upstream 18.1.18 rewinds `boundaryStart` into the
-+				// previous compaction's retained tail, so `historyPrefixEntryId` can
-+				// land *before* that compaction record — the rebuilt prefix then carries
-+				// no `compactionSummary`. Claiming otherwise makes the summarizer pick
-+				// UPDATE_SUMMARIZATION_FROM_PREFIX_PROMPT and skip the
-+				// `<previous-summary>` injection, silently dropping the prior summary.
++				// `convertToLlmForSideRequest` runs no extension chain, so the rebuilt
++				// array is what ships. Same contract as the primary path.
 +				previousSummaryInPrefix:
 +					scope === "history" &&
 +					preparation.previousSummary !== undefined &&
-+					prefixMessages.some(message => message.role === "compactionSummary"),
++					prefixCarriesCompactionSummary(prefixMessages),
 +			};
 +		};
 +	}
@@ -692,7 +713,7 @@
  	async #maintainAdvisorContext(
  		advisor: ActiveAdvisor,
  		incoming: AgentMessage,
-@@ -1732,6 +1774,7 @@
+@@ -1732,6 +1769,7 @@
  					{
  						thinkingLevel: advisorCompactionThinkingLevel,
  						convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
@@ -706,19 +727,23 @@
  import { buildSessionContext, getLatestCompactionEntry, getOpenAiRemoteCompactionPayload } from "./session-context";
  import type { CompactionEntry, SessionEntry } from "./session-entries";
  import type { SessionManager } from "./session-manager";
-+import { sharesActivePromptCacheIdentity } from "./session-provider-boundary";
++import { prefixCarriesCompactionSummary, sharesActivePromptCacheIdentity } from "./session-provider-boundary";
  import type { ShakeMode, ShakeResult } from "./shake-types";
  import { resolveSpeculationLeadTokens, SPECULATION_LEAD_MIN_TOKENS } from "./speculation-lead";
  import experimentalContextNotesReminderPrompt from "../prompts/system/experimental-context-notes-reminder.md" with { type: "text" };
-@@ -318,6 +319,7 @@
+@@ -318,6 +319,11 @@
  	drainStrandedQueuedMessages(): void;
  	buildDisplaySessionContext(): SessionContext;
  	convertToLlmForSideRequest(messages: AgentMessage[]): Message[];
 +	convertMessagesToLlm(messages: AgentMessage[], signal?: AbortSignal): Promise<Message[]>;
++	convertMessagesToLlmWithSource(
++		messages: AgentMessage[],
++		signal?: AbortSignal,
++	): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }>;
  	obfuscateTextForProvider(text: string | undefined): string | undefined;
  	obfuscatePreparationForProvider(preparation: CompactionPreparation): CompactionPreparation;
  	closeCodexProviderSessionsForHistoryRewrite(): void;
-@@ -2671,6 +2673,44 @@
+@@ -2671,6 +2677,44 @@
  		);
  	}
  
@@ -737,7 +762,10 @@
 +				scope === "history" ? preparation.historyPrefixEntryId : preparation.turnPrefixEntryId;
 +			if (!prefixEntryId || !entriesById.has(prefixEntryId)) return undefined;
 +			const prefixMessages = buildSessionContext(branchEntries, prefixEntryId, entriesById).messages;
-+			const llmMessages = await this.#host.convertMessagesToLlm(prefixMessages, signal);
++			const { transformed, llmMessages } = await this.#host.convertMessagesToLlmWithSource(
++				prefixMessages,
++				signal,
++			);
 +			if (!sharesActivePromptCacheIdentity(requestModel, this.#host.agent.state.model)) return undefined;
 +			if (this.#host.sessionManager.getLeafId() !== branchLeafId) return undefined;
 +			const context = await this.#host.agent.buildSideRequestContext(llmMessages);
@@ -745,17 +773,14 @@
 +			if (this.#host.sessionManager.getLeafId() !== branchLeafId) return undefined;
 +			return {
 +				context,
-+				// The claim must follow the rebuilt prefix, not just the presence of a
-+				// previous summary. Upstream 18.1.18 rewinds `boundaryStart` into the
-+				// previous compaction's retained tail, so `historyPrefixEntryId` can
-+				// land *before* that compaction record — the rebuilt prefix then carries
-+				// no `compactionSummary`. Claiming otherwise makes the summarizer pick
-+				// UPDATE_SUMMARIZATION_FROM_PREFIX_PROMPT and skip the
-+				// `<previous-summary>` injection, silently dropping the prior summary.
++				// Derived from `transformed`, not from `prefixMessages`: the `context`
++				// extension chain inside `convertMessagesToLlmWithSource` may drop the
++				// summary, and this flag decides whether the summarizer skips the
++				// `<previous-summary>` injection.
 +				previousSummaryInPrefix:
 +					scope === "history" &&
 +					preparation.previousSummary !== undefined &&
-+					prefixMessages.some(message => message.role === "compactionSummary"),
++					prefixCarriesCompactionSummary(transformed),
 +			};
 +		};
 +	}
@@ -763,7 +788,7 @@
  	async #compactWithFallbackModel(
  		preparation: CompactionPreparation,
  		customInstructions: string | undefined,
-@@ -2705,6 +2745,7 @@
+@@ -2705,6 +2749,7 @@
  						...options,
  						metadata: this.#host.agent.metadataForProvider(candidate.provider),
  						convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
@@ -771,7 +796,7 @@
  						telemetry,
  						// Honor the user's /model thinking selection (incl. `off`) on
  						// the manual `/compact` path. Clamped per-model inside compact()
-@@ -4066,6 +4107,7 @@
+@@ -4066,6 +4111,7 @@
  									metadata: this.#host.agent.metadataForProvider(candidate.provider),
  									initiatorOverride: "agent",
  									convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
@@ -781,8 +806,24 @@
  									// auto-compaction path — the most-fired compaction
 --- a/pi-coding-agent/src/session/session-provider-boundary.ts
 +++ b/pi-coding-agent/src/session/session-provider-boundary.ts
-@@ -24,6 +24,22 @@
+@@ -22,8 +22,38 @@
+ import type { BuildSessionContextOptions, SessionContext } from "./session-context";
+ import type { SessionManager } from "./session-manager";
  
++/**
++ * Whether a rebuilt cache-preserving prefix actually carries the previous
++ * compaction summary. `buildSessionContext` materializes every prior-compaction
++ * shape — plain summary, Anthropic native replay, OpenAI remote/V2 replacement
++ * history, snapcompact archive — as a single `compactionSummary` message
++ * (native payloads ride along on that message), so this role is the one
++ * carrier. A false answer only costs one redundant `<previous-summary>`
++ * injection; a false `true` makes the summarizer skip the injection while the
++ * prefix has no summary either, silently dropping the whole prior history.
++ */
++export function prefixCarriesCompactionSummary(messages: AgentMessage[]): boolean {
++	return messages.some(message => message.role === "compactionSummary");
++}
++
  type NormalizableContentBlock = AssistantMessage["content"][number] | TextContent | ImageContent;
  
 +/**
@@ -804,3 +845,29 @@
  /** Capabilities borrowed from the owning AgentSession. */
  export interface SessionProviderBoundaryHost {
  	agent: Agent;
+@@ -138,8 +168,23 @@
+ 
+ 	/** Converts session messages using the configured pre-LLM pipeline. */
+ 	async convertMessagesToLlm(messages: AgentMessage[], signal?: AbortSignal): Promise<Message[]> {
+-		const transformedMessages = await this.#host.transformContext(messages, signal);
+-		return await this.#host.convertToLlm(transformedMessages);
++		return (await this.convertMessagesToLlmWithSource(messages, signal)).llmMessages;
++	}
++
++	/**
++	 * Same pipeline as {@link convertMessagesToLlm}, but also returns the
++	 * post-`transformContext` `AgentMessage[]` that was actually converted.
++	 * `transformContext` runs the public `context` extension chain, whose
++	 * handlers may replace the array wholesale, so a caller that needs to assert
++	 * what ships (e.g. whether a compaction summary survived) must inspect this
++	 * array rather than its own input.
++	 */
++	async convertMessagesToLlmWithSource(
++		messages: AgentMessage[],
++		signal?: AbortSignal,
++	): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }> {
++		const transformed = await this.#host.transformContext(messages, signal);
++		return { transformed, llmMessages: await this.#host.convertToLlm(transformed) };
+ 	}
+ 
+ 	/** Applies session-level stream hooks and provider defaults to a side request. */

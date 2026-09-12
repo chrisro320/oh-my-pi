@@ -8,7 +8,10 @@ import {
 	prepareCompaction,
 } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/compaction/compaction.ts";
 import type { AgentMessage } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/types.ts";
-import { sharesActivePromptCacheIdentity } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-provider-boundary.ts";
+import {
+	prefixCarriesCompactionSummary,
+	sharesActivePromptCacheIdentity,
+} from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-provider-boundary.ts";
 import { buildResponsesInput } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/providers/openai-shared.ts";
 import { buildSessionContext } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-context.ts";
 import {
@@ -449,11 +452,32 @@ assert.equal(
 // retained tail, so `historyPrefixEntryId` can land *before* that compaction
 // record and the rebuilt prefix then carries no `compactionSummary`. Claiming
 // the summary is in the prefix in that state drops the prior summary from both
-// the prefix and the prompt. The claim must therefore be derived from the
-// rebuilt `prefixMessages`, not from `preparation.previousSummary` alone.
-// The mock harness above cannot catch this: it hard-codes the flag.
+// the prefix and the prompt.
+//
+// Two layers, because the mock harness above hard-codes the flag and a pure
+// regex over the assignment cannot see boolean semantics:
+//  1. behaviour — the production helper both sites call, exercised directly;
+//  2. wiring — each site must route through that helper, and the primary path
+//     must feed it the *post-transform* array (`transformContext` runs the
+//     public `context` extension chain, which may drop the summary).
+const summaryPrefixMessage = {
+	role: "compactionSummary",
+	summary: "PRIOR",
+	timestamp: 1,
+} as unknown as AgentMessage;
+assert.equal(prefixCarriesCompactionSummary([]), false, "empty prefix carries no summary");
+assert.equal(
+	prefixCarriesCompactionSummary([retainedBeforeMarker]),
+	false,
+	"a prefix of plain messages must not be reported as carrying the prior summary",
+);
+assert.equal(
+	prefixCarriesCompactionSummary([summaryPrefixMessage, retainedBeforeMarker]),
+	true,
+	"a prefix whose head is the compaction summary must be reported as carrying it",
+);
+
 const bareClaim = /previousSummaryInPrefix:\s*scope === "history" && preparation\.previousSummary !== undefined,/;
-const derivedClaim = /prefixMessages\.some\(message => message\.role === "compactionSummary"\)/;
 for (const [label, source] of [
 	["primary compaction", maintenanceSource],
 	["advisor compaction", advisorSource],
@@ -463,7 +487,41 @@ for (const [label, source] of [
 		bareClaim,
 		`${label} claims previousSummaryInPrefix without checking the rebuilt prefix`,
 	);
-	assert.match(source, derivedClaim, `${label} must derive previousSummaryInPrefix from prefixMessages`);
+	assert.match(
+		source,
+		/prefixCarriesCompactionSummary\(/,
+		`${label} must route previousSummaryInPrefix through prefixCarriesCompactionSummary`,
+	);
 }
+assert.match(
+	maintenanceSource,
+	/convertMessagesToLlmWithSource\(/,
+	"primary compaction must convert through the variant that exposes the post-transform array",
+);
+assert.match(
+	maintenanceSource,
+	/prefixCarriesCompactionSummary\(transformed\)/,
+	"primary compaction must judge the post-transform array, not its own input",
+);
+assert.doesNotMatch(
+	maintenanceSource,
+	/convertMessagesToLlm\(prefixMessages/,
+	"primary compaction must not fall back to the transform-blind conversion for the cache prefix",
+);
+assert.doesNotMatch(
+	maintenanceSource,
+	/previousSummary !== undefined \|\| prefixCarriesCompactionSummary/,
+	"the helper must gate the claim, not be OR-ed into it",
+);
+assert.doesNotMatch(
+	advisorSource,
+	/previousSummary !== undefined \|\| prefixCarriesCompactionSummary/,
+	"the helper must gate the claim, not be OR-ed into it",
+);
+assert.match(
+	advisorSource,
+	/prefixCarriesCompactionSummary\(prefixMessages\)/,
+	"advisor compaction runs no extension chain, so it must judge the rebuilt array",
+);
 
 console.log(`PASS prefix-cache compaction: structured=1 flat=1 windows=${windowRequests.length}`);
