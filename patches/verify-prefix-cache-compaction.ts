@@ -300,7 +300,6 @@ await compact(
 	{
 		firstKeptEntryId: "recent-user",
 		messagesToSummarize: [retainedBeforeMarker],
-		previousRetainedMessages: [],
 		historyPrefixEntryId: "retained",
 		turnPrefixMessages: [discardedAfterMarker],
 		turnPrefixEntryId: "discarded-user",
@@ -443,5 +442,28 @@ assert.equal(
 	0,
 	"stale two-argument advisor callsite",
 );
+
+// `previousSummaryInPrefix` decides whether the summarizer skips the
+// `<previous-summary>` injection (compaction.ts `priorSummaryComesFromPrefix`).
+// Upstream 18.1.18 rewinds `boundaryStart` into the previous compaction's
+// retained tail, so `historyPrefixEntryId` can land *before* that compaction
+// record and the rebuilt prefix then carries no `compactionSummary`. Claiming
+// the summary is in the prefix in that state drops the prior summary from both
+// the prefix and the prompt. The claim must therefore be derived from the
+// rebuilt `prefixMessages`, not from `preparation.previousSummary` alone.
+// The mock harness above cannot catch this: it hard-codes the flag.
+const bareClaim = /previousSummaryInPrefix:\s*scope === "history" && preparation\.previousSummary !== undefined,/;
+const derivedClaim = /prefixMessages\.some\(message => message\.role === "compactionSummary"\)/;
+for (const [label, source] of [
+	["primary compaction", maintenanceSource],
+	["advisor compaction", advisorSource],
+] as const) {
+	assert.doesNotMatch(
+		source,
+		bareClaim,
+		`${label} claims previousSummaryInPrefix without checking the rebuilt prefix`,
+	);
+	assert.match(source, derivedClaim, `${label} must derive previousSummaryInPrefix from prefixMessages`);
+}
 
 console.log(`PASS prefix-cache compaction: structured=1 flat=1 windows=${windowRequests.length}`);

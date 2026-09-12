@@ -646,7 +646,7 @@
  import { buildSessionMetadata } from "./session-metadata";
  import type { YieldQueue } from "./yield-queue";
  
-@@ -1582,6 +1585,35 @@
+@@ -1582,6 +1585,45 @@
  		}
  	}
  
@@ -674,7 +674,17 @@
 +			if (agent.state.messages !== messagesSnapshot) return undefined;
 +			return {
 +				context,
-+				previousSummaryInPrefix: scope === "history" && preparation.previousSummary !== undefined,
++				// The claim must follow the rebuilt prefix, not just the presence of a
++				// previous summary. Upstream 18.1.18 rewinds `boundaryStart` into the
++				// previous compaction's retained tail, so `historyPrefixEntryId` can
++				// land *before* that compaction record — the rebuilt prefix then carries
++				// no `compactionSummary`. Claiming otherwise makes the summarizer pick
++				// UPDATE_SUMMARIZATION_FROM_PREFIX_PROMPT and skip the
++				// `<previous-summary>` injection, silently dropping the prior summary.
++				previousSummaryInPrefix:
++					scope === "history" &&
++					preparation.previousSummary !== undefined &&
++					prefixMessages.some(message => message.role === "compactionSummary"),
 +			};
 +		};
 +	}
@@ -682,7 +692,7 @@
  	async #maintainAdvisorContext(
  		advisor: ActiveAdvisor,
  		incoming: AgentMessage,
-@@ -1732,6 +1764,7 @@
+@@ -1732,6 +1774,7 @@
  					{
  						thinkingLevel: advisorCompactionThinkingLevel,
  						convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
@@ -708,7 +718,7 @@
  	obfuscateTextForProvider(text: string | undefined): string | undefined;
  	obfuscatePreparationForProvider(preparation: CompactionPreparation): CompactionPreparation;
  	closeCodexProviderSessionsForHistoryRewrite(): void;
-@@ -2671,6 +2673,34 @@
+@@ -2671,6 +2673,44 @@
  		);
  	}
  
@@ -735,7 +745,17 @@
 +			if (this.#host.sessionManager.getLeafId() !== branchLeafId) return undefined;
 +			return {
 +				context,
-+				previousSummaryInPrefix: scope === "history" && preparation.previousSummary !== undefined,
++				// The claim must follow the rebuilt prefix, not just the presence of a
++				// previous summary. Upstream 18.1.18 rewinds `boundaryStart` into the
++				// previous compaction's retained tail, so `historyPrefixEntryId` can
++				// land *before* that compaction record — the rebuilt prefix then carries
++				// no `compactionSummary`. Claiming otherwise makes the summarizer pick
++				// UPDATE_SUMMARIZATION_FROM_PREFIX_PROMPT and skip the
++				// `<previous-summary>` injection, silently dropping the prior summary.
++				previousSummaryInPrefix:
++					scope === "history" &&
++					preparation.previousSummary !== undefined &&
++					prefixMessages.some(message => message.role === "compactionSummary"),
 +			};
 +		};
 +	}
@@ -743,7 +763,7 @@
  	async #compactWithFallbackModel(
  		preparation: CompactionPreparation,
  		customInstructions: string | undefined,
-@@ -2705,6 +2735,7 @@
+@@ -2705,6 +2745,7 @@
  						...options,
  						metadata: this.#host.agent.metadataForProvider(candidate.provider),
  						convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
@@ -751,7 +771,7 @@
  						telemetry,
  						// Honor the user's /model thinking selection (incl. `off`) on
  						// the manual `/compact` path. Clamped per-model inside compact()
-@@ -4066,6 +4097,7 @@
+@@ -4066,6 +4107,7 @@
  									metadata: this.#host.agent.metadataForProvider(candidate.provider),
  									initiatorOverride: "agent",
  									convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
