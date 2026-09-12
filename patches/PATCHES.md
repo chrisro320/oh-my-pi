@@ -462,7 +462,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - 驗證真實多行程式碼圍欄（如 ````ts\nconst greeting = ...\n````）100% 完整保留，絕不誤殺。
 - **Reviewer2 獨立審查結論**：`overall_correctness: "correct"`。generation + disposed 雙重防護完整覆蓋非同步分支，#sessionList 實例復用無損保留游標與過濾狀態，ScrollView 恆定輸出固定高度，超長行/非文本/toolResult/空會話皆優雅降級，未發現 P0–P1 阻斷缺陷。
 
-### 0051 — Ollama 上游 prompt cache 字段映射進 usage（cache_turn/cache_hit 顯示）【18.1.18 起退役：上游逐字採納】
+### 0051 — Ollama 上游 prompt cache 字段映射進 usage（cache_turn/cache_hit 顯示）【上游 18.1.17 逐字採納，18.1.18 計畫起 omit】
 
 - **失敗簽名**：`ollama-cloud/deepseek-v4-flash:0731` 會話狀態欄 `cache_turn`/`cache_hit` 段從不顯示；`cache-prefix-audit.log` 每輪 `usage: {"input": 5xxxx, "cacheRead": 0, "cacheWrite": 0}`、verdict 恆為 `MISS`，即使 `sharedPrefix` 逐輪 +2 純尾追加（前綴完整）。
 - **根因**：`pi-ai/src/providers/ollama.ts` 的 `OllamaChatChunk` 型別沒有 `prompt_eval_cached_count` 欄位，done 處理只賦 `input = prompt_eval_count`、`output = eval_count`，`cacheRead`/`cacheWrite` 保持初始化 0。Ollama Cloud 上游確實回傳快取拆分（`prompt_eval_cached_count` = 命中 token，`prompt_eval_count` = 總數），但被配接器丟棄；本地 Ollama 0.24.0 實測不回傳該欄位。狀態欄 `cacheTurnSegment`/`cacheHitSegment` 有 `if (!usage?.cacheRead) return { content: "", visible: false }` 守衛，`cacheRead=0` 時段必然隱藏——**不是 UI 開關問題**。
@@ -479,7 +479,11 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - **字段名勘誤**：初版誤用 OpenAI 風格的 `prompt_cache_hit_tokens`/`prompt_cache_miss_tokens`，實測 ollama.com `/api/chat`（非流式與流式 done chunk）確認實際字段是 `prompt_eval_cached_count`，已修正。
 - **版本通用性**：done 處理與 chunk 型別在 18.0.9 與 18.1.14 逐字一致（`diff` 驗證），0051 的 hunk 上下文對 base 計畫（18.0.9 鏈）與 18.1.10/18.1.14 計畫全部匹配，故直接進 `PATCHES` 陣列（`${AI}` 根），無需版本候選。
 - **驗證**：`OMP_PATCH_VERSION=18.1.14 bash apply.sh --check` → 25 行 APPLIED（24 補丁 + bin 連結，**該補丁落地當時的口徑**；現為 26 行／25 補丁）、0 CONFLICT / 0 PENDING；`bun build src/providers/ollama.ts` 轉譯通過。生效後 `cache_turn`/`cache_hit` 段在 Ollama Cloud 命中時顯示，`cache-prefix-audit` 的 `cacheRead` 不再恆 0。
-- **退役（2026-09-12，18.1.18）**：上游把本補丁**逐字採納**進 `pi-ai/src/providers/ollama.ts`——`prompt_eval_cached_count` 欄位、兩處賦值、連七行註解全部一致（pristine 18.1.18 對本補丁 `patch -R --dry-run` 乾淨通過＝上游樹已含 `+` 側）。故 18.1.18 計畫用 `omit:0051`；base／18.1.10／18.1.14 計畫保持不變（那些版本上游還沒有）。**復活判據**：若某版上游回退了這段映射（`grep prompt_eval_cached_count pi-ai/src/providers/ollama.ts` 無結果），把 `omit:0051` 從該版分支去掉即可，補丁本體無需改。
+- **退役（2026-09-12）— 上游 18.1.17 逐字採納，已用官方 tarball 坐實**：
+  - 官方 `@oh-my-pi/pi-ai` tarball 逐版取 `src/providers/ollama.ts` 的 sha256：18.1.14／15／16 全部 `48c9c6611cceb583…`（`grep -c prompt_eval_cached_count` = **0**），18.1.17／18 全部 `a33bd1361829d87f…`（= **3**）。**吸收發生在 18.1.17**。
+  - 逐字節鐵證：官方 18.1.16 的 `ollama.ts` ＋ 本補丁 `patch -p1 --fuzz=0` → 與官方 **18.1.18 的同檔 `cmp` 完全一致**。即上游那一版對此檔的唯一改動就是本補丁的內容（欄位、兩處賦值、七行註解全同）。
+  - live 樹 `ollama.ts` 與官方 18.1.18 `cmp` 一致＝`omit:0051` 生效、無重複套用、無漂移。
+  - 故 18.1.18 計畫用 `omit:0051`；base／18.1.10／18.1.14 計畫保持不變（那些版本上游還沒有）。**復活判據**：若某版上游回退了這段映射（`grep prompt_eval_cached_count pi-ai/src/providers/ollama.ts` 無結果），把 `omit:0051` 從該版分支去掉即可，補丁本體無需改。
 
 ### 0052 — Command Code 閘道兩種誤價：DeepSeek 視覺每幀高估 3.31×（@1568）／4.97×（@2576）、別名帳號圖片預算塌到 floor 5
 
@@ -620,7 +624,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **上游四版要點**：18.1.15 `retry.waitForUsageReset`（配額耗盡帶 reset 時間則休眠到重置）、`advisor.maxNotesPerUpdate`、headless 瀏覽器閒置凍結；18.1.16 `/rename` 無標題時用 tiny model 生成、實驗性 notes-backed context window、`/resume` 標記 `current` 行（與 0050 的預覽同一個選擇器，實測不衝突）；18.1.17 Ctrl+C 草稿可 Up 召回、`tui.vimMode` + `vim` statusline 段；18.1.18 `tui.mouse` 點擊聚焦 subagent 卡、`display.pinnedAgents`、**`remote` 壓縮方法擴及 Claude**（Anthropic server-side compaction `compact-2026-01-12` beta，走既有 `compaction.methodOrder` / `remoteEnabled` 閘）、**`providers.cacheRetention: auto` 改為 Anthropic OAuth 訂閱 1h／API key 5m**（此前兩者都是 5m）。
 - **與本機補丁的交互**：① `cacheRetention: auto` 的 1h 語義與本機既有判斷一致（MC `cache_ttl` 早已顯式設 `1h` 對齊上游訂閱），無需改補丁；② Anthropic server-side compaction 是 `remote` 方法的新分支，0035 修的是 **local** 摘要路徑（`prepareCompaction` 的 boundary/prefix），兩者由 `methodOrder` 分流不重疊，但上游同版還修了「provider-native compaction 改發 live turn 實際送出的 system prompt」——這正是 0013/0018 家族關心的前綴一致性方向，後續若要退役本機補丁需單獨立項比對。
 - **分類結果**（pristine 18.1.18 上按鏈序逐層 `--dry-run` 判定，只實套一次）：18.1.14 計畫 26 條裡 **23 條可直接落地**（21 條零 fuzz——其中 5 條沿用 18.1.14 候選字節；另 2 條 canonical `0033`／`0043` 只能靠 `fuzz=1`，已另存零 fuzz 候選）、**1 條被上游吸收**（`0051`）、**2 條需重寫**（`0010`、`0035`）。18.1.18 計畫因此收到 **25 條**。
-- **0051 退役**：上游逐字採納（欄位＋兩處賦值＋七行註解全同），pristine 樹對它 `patch -R --dry-run` 乾淨。18.1.18 分支用 `omit:0051`，補丁本體保留以供舊版計畫與回退，詳見 §2 的 0051 條目。
+- **0051 退役**：上游 **18.1.17** 逐字採納（官方 tarball 比對：18.1.16 的 `ollama.ts` ＋ 本補丁 = 官方 18.1.18 同檔 `cmp` 一致；18.1.14/15/16 sha256 相同且 `grep` = 0，18.1.17/18 相同且 = 3）。18.1.18 分支用 `omit:0051`，補丁本體保留以供舊版計畫與回退，詳見 §2 的 0051 條目。
 - **0010 重寫（`#wakeForIrc`）**：上游把 dispatch 改成 `void this.whenWorkPoolYieldSettled().then(...)`，prompt 呼叫點移進 `.then()` 內，且在註解裡明確要求「同步 ownership 檢查與 `agent.prompt()` 之間不得有 await」。若照 18.1.14 候選把 `await inFlight.idleEphemeralSettled` 插在 prompt 前，就正好違反該不變式。候選改成把 idleEphemeral 等待**併到 join 之前**（`inFlight.idleEphemeralSettled.then(() => this.whenWorkPoolYieldSettled())`），並在 `.then()` 開頭補 `#isDisposed` / `#promptGeneration` 複檢 → 失效時 `queueDeferredWake`（上游把 18.1.14 的 `deferWake` 改名為 `queueDeferredWake`）。其餘 22 個 hunk 沿用。
 - **0035 重寫（`prepareCompaction`）**：上游自己實現了本補丁的攜帶語義——在 `prepareCompaction` 內把 `boundaryStart` 回退到上一次 compaction 的 `firstKeptEntryId`（僅 local 摘要，native replay 排除），於是那批「上次保留、本次丟棄」的消息直接落在 `compactionMessages` 裡。候選因此退掉 `previousRetainedMessages` 欄位（interface／return／解構共 3 處），`historyTargetMessages` 直接等於 `messagesToSummarize`。
 - **順帶修掉 0035 自身的索引基準錯誤**：`historyPrefixEntryId` / `turnPrefixEntryId` 原本用 `pathEntries[historyEnd - 1]`，但 `historyEnd` / `firstKeptEntryIndex` 是 **`compactionEntries` 的索引**（該數組從 `boundaryStart` 起算且跳過非 message entry）。18.1.14 下 boundaryStart 恰好讓兩者對齊，缺陷不可見；18.1.18 把 boundaryStart 回退進上次保留尾後立刻暴露（`verify-prefix-cache-compaction.ts` 報 `history prefix leaf drifted`，拿到 `discarded-user` 而非 `discarded-assistant`）。候選改為 `compactionEntries[...]`，這是這兩個字段本來就該有的基準。
