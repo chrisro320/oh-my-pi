@@ -497,6 +497,7 @@ if [[ "$MODE" == "apply" ]]; then
 	bun "${HERE}/verify-hindsight-recall-snapshot.ts"
 	OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" bun "${HERE}/verify-interrupt-prune-symmetry.ts"
 	OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" OMP_PATCH_VERIFY_CORE_ROOT="$CORE" bun "${HERE}/verify-supersede-warm-prefix-guard.ts"
+	bun "${HERE}/verify-resume-cache-breakpoint.ts"
 fi
 if [[ "$MODE" != "check" ]]; then
 	if [[ "$OFFLINE_VERIFY" == "1" ]]; then

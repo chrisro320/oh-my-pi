@@ -14,9 +14,16 @@
 //
 // Fix: on the first request of a resumed session, add one breakpoint at the end
 // of the previous request's message list — the last message before the final
-// assistant message — which is exactly the prefix the server stored. Anthropic
-// allows 4 breakpoints and omp uses 2, so this stays in budget, and it is
-// applied once per process because every extra breakpoint can bill a write.
+// assistant message — which is exactly the prefix the server stored. It is
+// applied once per session because every extra breakpoint can bill a write.
+//
+// Budget: Anthropic hard-rejects a 5th `cache_control` block. Up to 18.1.14 the
+// head spent one breakpoint (`applyHeadCaching` bailed out via `headAlreadyCached`
+// once the OAuth identity system block was anchored), so head 1 + tail 2 + this
+// one fit exactly. 18.1.18 removed that early exit and anchors tools *and*
+// system, so the wire already carries 4 and a naive add is a hard 400. This
+// extension therefore counts the live budget and releases the interior provider
+// marker before claiming a slot.
 //
 // Log: ~/.omp/agent/resume-cache.log   Command: /cachefix
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
@@ -48,7 +55,8 @@ interface ProviderMessage {
 
 interface AnthropicPayload {
 	messages?: ProviderMessage[];
-	system?: unknown;
+	system?: ContentBlock[];
+	tools?: ContentBlock[];
 }
 
 interface MessageUsage {
@@ -56,6 +64,46 @@ interface MessageUsage {
 	output?: number;
 	cacheRead?: number;
 	cacheWrite?: number;
+}
+
+/** Anthropic rejects any request carrying more than this many `cache_control` blocks. */
+const ANTHROPIC_MAX_BREAKPOINTS = 4;
+
+/** Every breakpoint on the wire: system blocks, tool definitions, message blocks. */
+function countBreakpoints(payload: AnthropicPayload): number {
+	let count = 0;
+	for (const block of payload.system ?? []) if (block?.cache_control) count++;
+	for (const tool of payload.tools ?? []) if (tool?.cache_control) count++;
+	for (const message of payload.messages ?? []) {
+		const content = message?.content;
+		if (!Array.isArray(content)) continue;
+		for (const block of content) if (block?.cache_control) count++;
+	}
+	return count;
+}
+
+/**
+ * Free one slot by dropping the provider's *interior* message marker — the one
+ * between the resume anchor and the newest tail. The newest tail is what the
+ * next turn hits, so it must survive; the interior marker sits within a message
+ * or two of the anchor, so its prefix is nearly the same cache entry.
+ * Returns the message index that was released, or undefined when there is none.
+ */
+function releaseInteriorMarker(messages: ProviderMessage[], anchorIndex: number): number | undefined {
+	let newestSeen = false;
+	for (let index = messages.length - 1; index > anchorIndex; index--) {
+		const content = messages[index]?.content;
+		if (!Array.isArray(content)) continue;
+		const marked = content.find(block => block?.cache_control);
+		if (!marked) continue;
+		if (!newestSeen) {
+			newestSeen = true;
+			continue;
+		}
+		delete marked.cache_control;
+		return index;
+	}
+	return undefined;
 }
 
 const state = { armed: true, lastAction: "not yet armed" };
@@ -75,7 +123,7 @@ export default function (pi: ExtensionAPI): void {
 		const payload = event.payload as AnthropicPayload | null;
 		const messages = payload?.messages;
 		// Anthropic shape only: `system` is an array of blocks there.
-		if (!Array.isArray(messages) || !Array.isArray(payload?.system)) return undefined;
+		if (!payload || !Array.isArray(messages) || !Array.isArray(payload.system)) return undefined;
 
 		let lastAssistant = -1;
 		for (let i = messages.length - 1; i >= 0; i--) {
@@ -111,6 +159,18 @@ export default function (pi: ExtensionAPI): void {
 			state.lastAction = `skipped: breakpoint already at ${lastAssistant - 1}`;
 			log(`skip already-marked index=${lastAssistant - 1}`);
 			return undefined;
+		}
+		// Claiming a slot past the cap is a hard 400, so make room first. Release
+		// until the anchor fits: a future provider policy may hand us more than one
+		// marker of slack to reclaim, and one release would still leave us over.
+		while (countBreakpoints(payload) + 1 > ANTHROPIC_MAX_BREAKPOINTS) {
+			const released = releaseInteriorMarker(messages, lastAssistant - 1);
+			if (released === undefined) {
+				state.lastAction = "skipped: breakpoint budget full, nothing releasable";
+				log(`skip budget-full count=${countBreakpoints(payload)} messages=${messages.length}`);
+				return undefined;
+			}
+			log(`released index=${released} messages=${messages.length}`);
 		}
 		// Anthropic rejects a 5m cache_control block appearing before a 1h block (400 error).
 		// Inherit any TTL used by other cache_control blocks in this payload (e.g. "1h" from OAuth).

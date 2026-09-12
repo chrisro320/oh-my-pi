@@ -565,6 +565,12 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - 修法：resume 后**只在第一次请求**，往「最后一条 assistant 之前那条」补一个 `cache_control`（= 上一轮请求的尾部 = 服务端存的前缀）。Anthropic 上限 4 个断点、omp 用 2 个；`session_switch`/`session_branch`/`session_tree`/`session_compact` 会重新 arm
   - 通过 `before_provider_request` 返回值改写 payload（`sdk.ts:3305` → `anthropic.ts:2007` 的 `replacementPayload`），不碰 omp 源码
   - 日志 `~/.omp/agent/resume-cache.log`（断点位置 + 每条 assistant 的 usage），`/cachefix` 看状态
+  - **2026-09-12 修：18.1.18 讓它變成硬 400**（`A maximum of 4 blocks with cache_control may be provided. Found 5.`）
+    - 上游改動：18.1.14 的 `applyHeadCaching` 有 `headAlreadyCached` 早退（OAuth 已錨 identity system block 就不再錨 tools），head 只佔 **1** 個斷點；18.1.18 刪掉早退，tools 與 system **各佔 1**。`applyPromptCaching` 又用 `ANTHROPIC_MAX_BREAKPOINTS=4` 把 message 尾部填滿 2 個 → 出線已是 4，本擴展再加 anchor 就是第 5 個
+    - 實證：`~/.omp/logs/http-400-requests/1789191520935-3sprmoe8cmiod.json` 計數 5（`system[1]`＋`tools[12]`＋`messages[21]/[22]` 為 provider、`messages[20]` 為本擴展）；`resume-cache.log` 時間線 `05:38:38 added index=20` → `05:38:40 usage 全 0`（400）→ `05:39:44 cacheRead=0 cacheWrite=147014`（重試成功但整段重寫 147k）
+    - 修法：`countBreakpoints`（system＋tools＋messages 全計）＋ `releaseInteriorMarker` —— 搶槽位前釋放 **anchor 與最新尾部之間**那個 provider marker（最新尾部必須留給下一輪命中；interior marker 與 anchor 只差一條消息，前綴幾乎同一筆快取）。釋放採 `while count+1 > 4` 迴圈；無可釋放者直接跳過（寧可不命中也不 400）
+    - 閘門 `patches/verify-resume-cache-breakpoint.ts`（已進 `apply.sh` apply 序列）：直接吃那個真實 400 body，倒回 provider-only 狀態重放 → `4 -> 4`、released 21、anchor 20、最新尾部存活、TTL 繼承 1h、同會話只觸發一次；用 `git show HEAD` 的修復前版本重跑 → `would 400 (cap 4)` 被抓（可 falsify）
+    - 真實進程驗收（兩段）：① `OMP_DUMP_EXIT=1` 抓出站 payload — 證明 hook 在真實路徑改寫（`released index=28 / added index=26`），但請求**未發送**；② 不帶 `OMP_DUMP_EXIT` 真發一輪（複製會話到 `--session-dir`，不污染原會話）— `released index=29 / added index=26 messages=31`，`turn_end in=4 cw=141988 out=456`，`~/.omp/logs/http-400-requests/` 無新增條目
 
 - ~~`~/.omp/agent/extensions/vision-warmup.ts`~~ **已於 2026-09-11 卸載**（源碼保留於 `patches/vision-warmup-extension.ts` 與 `~/.omp/patches/`，兩副本卸載前 `cmp` 逐字節一致，需要時原樣重部署）：Hyper 模型（qwen3.8-flash / glm-5.3-flash）視覺路由暖機
   - 根因：Hyper 的 vision 分類器按 session 黏滯——會話內**第一條帶圖請求**鎖定分類器路由，中途首圖會觸發分類器切換並按全 cache miss 計費（與 context 大小無關）。
