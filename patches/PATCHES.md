@@ -1,17 +1,17 @@
 # omp Patch 清單
 
 > 本文件是 `~/.omp/patches/` 的鏡像；**實際生效清單以 `apply.sh` 的 `PATCHES` 陣列為準**。
-> 標題刻意**不綁版本**：本文件同時記錄 base 18.0.9 鏈、歷史 18.1.5／18.1.10／18.1.14 遷移，以及當前部署。
+> 標題刻意**不綁版本**：本文件同時記錄 base 18.0.9 鏈、歷史 18.1.5／18.1.10／18.1.14／18.1.18 遷移，以及當前部署。
 > 讀任何數字前先確認它屬於哪個口徑——見 §1。
 
-## 當前狀態（2026-09-10）
+## 當前狀態（2026-09-12）
 
 | 項目 | 值 |
 |---|---|
-| 當前部署 | `OMP_PATCH_VERSION=18.1.14` |
-| APPLIED | **28 行**（27 補丁 ＋ `bin/omp -> src/cli.ts` 連結）／0 CONFLICT／0 PENDING |
-| base 計畫 | 未設 `OMP_PATCH_VERSION`（目標 18.0.9）；`PATCHES` 陣列 **28 項** |
-| 最近遷移 | 18.1.10 → 18.1.14（2026-09-08），見 §5 |
+| 當前部署 | `OMP_PATCH_VERSION=18.1.18` |
+| APPLIED | **26 行**（25 補丁 ＋ `bin/omp -> src/cli.ts` 連結）／0 CONFLICT／0 PENDING |
+| base 計畫 | 未設 `OMP_PATCH_VERSION`（目標 18.0.9）；`PATCHES` 陣列 **27 項** |
+| 最近遷移 | 18.1.14 → 18.1.18（2026-09-12），見 §5 |
 | 回歸套件 | **9 道閘門**，見 §6.1 |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
@@ -30,10 +30,11 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 口徑 | 內容 | 層數 |
 |---|---|---|
 | `apply.sh` 的 `PATCHES` 陣列（base 計畫 = 未設 `OMP_PATCH_VERSION` = 18.0.9 鏈） | 0033、0004、0034、0037、0010、0035、0019、0014、0036、0017、0025、0026-core、0030、0051、0031、0032、0038、0041、0042、0043、0044、0052、0045、0046、0048、0050、0054 | **27** |
-| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.14`） | base 28 條 −`omit:0019` −`omit:0042` +鏈尾 0047 | **27** |
+| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.18`） | base 27 條 −`omit:0019` −`omit:0042` −`omit:0051` +鏈尾 0047 | **25** |
+| 18.1.14 計畫 | base 27 條 −`omit:0019` −`omit:0042` +鏈尾 0047 | **26** |
 | 18.1.10 計畫 | 同上（候選集合不同） | 25 |
 
-`0042` 只存在於 base 計畫；`0047` 只存在於 18.1.10/18.1.14 計畫（其 a 側是 candidate-0038 的產出形態）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
+`0042` 只存在於 base 計畫；`0047` 只存在於 18.1.10／18.1.14／18.1.18 計畫（其 a 側是 candidate-0038 的產出形態）；`0051` 自 18.1.18 起退役（上游逐字採納）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
 ### 補丁狀態判定改為兩階段（2026-09-01，隨 0041 落地）
 
@@ -461,7 +462,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - 驗證真實多行程式碼圍欄（如 ````ts\nconst greeting = ...\n````）100% 完整保留，絕不誤殺。
 - **Reviewer2 獨立審查結論**：`overall_correctness: "correct"`。generation + disposed 雙重防護完整覆蓋非同步分支，#sessionList 實例復用無損保留游標與過濾狀態，ScrollView 恆定輸出固定高度，超長行/非文本/toolResult/空會話皆優雅降級，未發現 P0–P1 阻斷缺陷。
 
-### 0051 — Ollama 上游 prompt cache 字段映射進 usage（cache_turn/cache_hit 顯示）
+### 0051 — Ollama 上游 prompt cache 字段映射進 usage（cache_turn/cache_hit 顯示）【18.1.18 起退役：上游逐字採納】
 
 - **失敗簽名**：`ollama-cloud/deepseek-v4-flash:0731` 會話狀態欄 `cache_turn`/`cache_hit` 段從不顯示；`cache-prefix-audit.log` 每輪 `usage: {"input": 5xxxx, "cacheRead": 0, "cacheWrite": 0}`、verdict 恆為 `MISS`，即使 `sharedPrefix` 逐輪 +2 純尾追加（前綴完整）。
 - **根因**：`pi-ai/src/providers/ollama.ts` 的 `OllamaChatChunk` 型別沒有 `prompt_eval_cached_count` 欄位，done 處理只賦 `input = prompt_eval_count`、`output = eval_count`，`cacheRead`/`cacheWrite` 保持初始化 0。Ollama Cloud 上游確實回傳快取拆分（`prompt_eval_cached_count` = 命中 token，`prompt_eval_count` = 總數），但被配接器丟棄；本地 Ollama 0.24.0 實測不回傳該欄位。狀態欄 `cacheTurnSegment`/`cacheHitSegment` 有 `if (!usage?.cacheRead) return { content: "", visible: false }` 守衛，`cacheRead=0` 時段必然隱藏——**不是 UI 開關問題**。
@@ -478,6 +479,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - **字段名勘誤**：初版誤用 OpenAI 風格的 `prompt_cache_hit_tokens`/`prompt_cache_miss_tokens`，實測 ollama.com `/api/chat`（非流式與流式 done chunk）確認實際字段是 `prompt_eval_cached_count`，已修正。
 - **版本通用性**：done 處理與 chunk 型別在 18.0.9 與 18.1.14 逐字一致（`diff` 驗證），0051 的 hunk 上下文對 base 計畫（18.0.9 鏈）與 18.1.10/18.1.14 計畫全部匹配，故直接進 `PATCHES` 陣列（`${AI}` 根），無需版本候選。
 - **驗證**：`OMP_PATCH_VERSION=18.1.14 bash apply.sh --check` → 25 行 APPLIED（24 補丁 + bin 連結，**該補丁落地當時的口徑**；現為 26 行／25 補丁）、0 CONFLICT / 0 PENDING；`bun build src/providers/ollama.ts` 轉譯通過。生效後 `cache_turn`/`cache_hit` 段在 Ollama Cloud 命中時顯示，`cache-prefix-audit` 的 `cacheRead` 不再恆 0。
+- **退役（2026-09-12，18.1.18）**：上游把本補丁**逐字採納**進 `pi-ai/src/providers/ollama.ts`——`prompt_eval_cached_count` 欄位、兩處賦值、連七行註解全部一致（pristine 18.1.18 對本補丁 `patch -R --dry-run` 乾淨通過＝上游樹已含 `+` 側）。故 18.1.18 計畫用 `omit:0051`；base／18.1.10／18.1.14 計畫保持不變（那些版本上游還沒有）。**復活判據**：若某版上游回退了這段映射（`grep prompt_eval_cached_count pi-ai/src/providers/ollama.ts` 無結果），把 `omit:0051` 從該版分支去掉即可，補丁本體無需改。
 
 ### 0052 — Command Code 閘道兩種誤價：DeepSeek 視覺每幀高估 3.31×（@1568）／4.97×（@2576）、別名帳號圖片預算塌到 floor 5
 
@@ -612,6 +614,26 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **`verify-date-cwd-reminder.ts` 的適用口徑（保留，不刪）**：它是 0038 provider-tail 形態的**手動／隔離 acceptance**（非 chain gate，不在 `apply.sh` 套件內），仍匯入 0047 已刪除的 `appendDateCwdReminder`／`withDateCwdReminder`。對含 0047 的計畫（18.1.10／18.1.14）final tree 跑它必然 `SyntaxError`，**那是預期而非回歸**；那兩個計畫的對應 acceptance 是 `verify-date-cwd-anchor-stability.ts`。`.trellis/spec/backend/extension-runtime-contracts.md` §6 已同步標註兩條口徑。
 - **升級前備份**：`/tmp/omp-1810-backup-0908-1140.tgz`（四包 `src/` + `package.json`，18.1.10 已套鏈狀態）。
 - **注意**：`bun update -g` 對本專案無效——`~/.bun/install/global/package.json` 把 `@oh-my-pi/pi-coding-agent` pin 成確切版本，必須 `bun add -g <pkg>@<version>`。該次無效 update 仍會把 `bin/omp` 重置回 `dist/cli.js`（補丁本身未受影響）。
+
+### 18.1.14 → 18.1.18（2026-09-12）
+
+- **上游四版要點**：18.1.15 `retry.waitForUsageReset`（配額耗盡帶 reset 時間則休眠到重置）、`advisor.maxNotesPerUpdate`、headless 瀏覽器閒置凍結；18.1.16 `/rename` 無標題時用 tiny model 生成、實驗性 notes-backed context window、`/resume` 標記 `current` 行（與 0050 的預覽同一個選擇器，實測不衝突）；18.1.17 Ctrl+C 草稿可 Up 召回、`tui.vimMode` + `vim` statusline 段；18.1.18 `tui.mouse` 點擊聚焦 subagent 卡、`display.pinnedAgents`、**`remote` 壓縮方法擴及 Claude**（Anthropic server-side compaction `compact-2026-01-12` beta，走既有 `compaction.methodOrder` / `remoteEnabled` 閘）、**`providers.cacheRetention: auto` 改為 Anthropic OAuth 訂閱 1h／API key 5m**（此前兩者都是 5m）。
+- **與本機補丁的交互**：① `cacheRetention: auto` 的 1h 語義與本機既有判斷一致（MC `cache_ttl` 早已顯式設 `1h` 對齊上游訂閱），無需改補丁；② Anthropic server-side compaction 是 `remote` 方法的新分支，0035 修的是 **local** 摘要路徑（`prepareCompaction` 的 boundary/prefix），兩者由 `methodOrder` 分流不重疊，但上游同版還修了「provider-native compaction 改發 live turn 實際送出的 system prompt」——這正是 0013/0018 家族關心的前綴一致性方向，後續若要退役本機補丁需單獨立項比對。
+- **分類結果**（pristine 18.1.18 上按鏈序逐層 `--dry-run` 判定，只實套一次）：18.1.14 計畫 26 條裡 **23 條可直接落地**（21 條零 fuzz——其中 5 條沿用 18.1.14 候選字節；另 2 條 canonical `0033`／`0043` 只能靠 `fuzz=1`，已另存零 fuzz 候選）、**1 條被上游吸收**（`0051`）、**2 條需重寫**（`0010`、`0035`）。18.1.18 計畫因此收到 **25 條**。
+- **0051 退役**：上游逐字採納（欄位＋兩處賦值＋七行註解全同），pristine 樹對它 `patch -R --dry-run` 乾淨。18.1.18 分支用 `omit:0051`，補丁本體保留以供舊版計畫與回退，詳見 §2 的 0051 條目。
+- **0010 重寫（`#wakeForIrc`）**：上游把 dispatch 改成 `void this.whenWorkPoolYieldSettled().then(...)`，prompt 呼叫點移進 `.then()` 內，且在註解裡明確要求「同步 ownership 檢查與 `agent.prompt()` 之間不得有 await」。若照 18.1.14 候選把 `await inFlight.idleEphemeralSettled` 插在 prompt 前，就正好違反該不變式。候選改成把 idleEphemeral 等待**併到 join 之前**（`inFlight.idleEphemeralSettled.then(() => this.whenWorkPoolYieldSettled())`），並在 `.then()` 開頭補 `#isDisposed` / `#promptGeneration` 複檢 → 失效時 `queueDeferredWake`（上游把 18.1.14 的 `deferWake` 改名為 `queueDeferredWake`）。其餘 22 個 hunk 沿用。
+- **0035 重寫（`prepareCompaction`）**：上游自己實現了本補丁的攜帶語義——在 `prepareCompaction` 內把 `boundaryStart` 回退到上一次 compaction 的 `firstKeptEntryId`（僅 local 摘要，native replay 排除），於是那批「上次保留、本次丟棄」的消息直接落在 `compactionMessages` 裡。候選因此退掉 `previousRetainedMessages` 欄位（interface／return／解構共 3 處），`historyTargetMessages` 直接等於 `messagesToSummarize`。
+- **順帶修掉 0035 自身的索引基準錯誤**：`historyPrefixEntryId` / `turnPrefixEntryId` 原本用 `pathEntries[historyEnd - 1]`，但 `historyEnd` / `firstKeptEntryIndex` 是 **`compactionEntries` 的索引**（該數組從 `boundaryStart` 起算且跳過非 message entry）。18.1.14 下 boundaryStart 恰好讓兩者對齊，缺陷不可見；18.1.18 把 boundaryStart 回退進上次保留尾後立刻暴露（`verify-prefix-cache-compaction.ts` 報 `history prefix leaf drifted`，拿到 `discarded-user` 而非 `discarded-assistant`）。候選改為 `compactionEntries[...]`，這是這兩個字段本來就該有的基準。
+- **三個回歸斷言同步修正**（都是 pin 了已失效契約或偶然 fixture 內容，不是重新 pin 新文本）：
+  - `verify-antigravity-envelope.ts:35` 斷言 `requestType === "agent"`，而 0054 的全部意義就是**移除**該欄位（Cloud Code Assist 會回假 429）。改為 `assert.equal(req1.requestType, undefined)` 並註明 0054。該斷言自 0054 落地（2026-09-10）起就是錯的，當時只跑了 `--check` 沒跑全套。
+  - `verify-prefix-cache-compaction.ts:233` 斷言 `preparation.previousRetainedMessages`，該字段已隨上游吸收退役。改為斷言 `messagesToSummarize[0]` 就是那條 `PREVIOUSLY_RETAINED` 消息——被測契約（保留尾不得從 history target 消失）完全不變，只是換成上游現在承載它的位置。
+  - `verify-session-history-preview.ts` 兩處脆弱 fixture pin：① 斷言預覽首屏含固定句 `骂得太对了`——該句在真實 session 檔裡仍存在（`grep -c` = 9），但首屏位置隨檔案續寫／上游 selector 改動而移動。改為**溯源斷言**：取渲染出的第一條 assistant 正文行，反查它必須出現在該 `.jsonl` 原文中（契約＝「渲染的是真實結論文本而非佔位」，比 pin 一句話更強且不脆弱）。② 滾輪三格後斷言畫面出現 `User`／固定句，同樣依賴那一輪剛好落在第四屏。改為斷言「視口內容確實變了且仍在預覽模式」。
+- **孤兒 verify 腳本口徑（非回歸）**：`verify-model-switch-tool-description.ts` 對應 0019，自 18.1.10 起退役，在含 `omit:0019` 的計畫上必然失敗＝預期；`verify-snapcompact-frame-budget.ts` / `verify-snapcompact-frame-reprice.ts` 需要 `<session.jsonl>` 實參（前者傳任意真實會話即 PASS，實測 2.15 MB ≤ 3.0 MB；後者還需 `OMP_PATCH_VERIFY_REPRICE_BOUNDARY` 指向含該 compaction id 的原始 fixture，換會話必報 `boundary not found`）；`verify-date-cwd-reminder.ts` 在含 0047 的計畫上必然 `SyntaxError`＝預期（見 18.1.14 章節）。本輪實跑通過的孤兒腳本：date-cwd-anchor-stability、goal-tool-resident、ollama-cloud-usage、session-history-preview、idle-ephemeral-reservation、session-cache-keepalive、auto-continue、snapcompact-frame-budget。
+- **`.18.1.18-candidates/`（9 件）**：新生成 4 件（`0010`、`0035`、`0033`、`0043`）；沿用 5 件（`0004`、`0014`、`0017`、`0030`、`0038`，與 `.18.1.14-candidates/` 對應檔 `cmp` 逐字節相同，為版本計畫完整性另存）。
+- **`apply.sh`**：新增 `18.1.18` 分支 `_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0019 omit:0042 omit:0051` + 鏈尾 `PATCHES+=(0047)`；`*)` 的 known 清單同步加 18.1.18。
+- **落地驗收**：`bun add -g @oh-my-pi/pi-coding-agent@18.1.18` → repo `patches/` rsync 到 `~/.omp/patches/` 零漂移（`diff -r` 無輸出）→ `OMP_PATCH_VERSION=18.1.18 apply.sh`：25 層全 APPLIED、`bin/omp` 重指 `src/cli.ts`、`--check` **26 行 APPLIED／0 CONFLICT／0 PENDING**。回歸套件 9 道全 PASS（antigravity envelope／prefix-cache compaction／provider-image-budget／snapcompact model billing／spec-contracts／hindsight recall+MM／interrupt prune symmetry／supersede warm-prefix guard）＋ `smoke: ok`。
+- **升級前備份**：`~/omp-upgrade-backup-18.1.14-20260912-003231/`（`agent.db`／`models.db` 以 `.backup` API 一致快照、六套件 `src/` 打包、`bin/omp` 原 symlink 目標）。
+- **方法論沿用**：候選一律「`t_a` = pristine + 該層之前的鏈；`t_b` = `t_a` + 該層（失敗 hunk 手工錨定）；`diff` 生成；再在第三棵新鮮樹 `t_c` 上重放確認零失敗」。本輪額外要求候選自身 `--fuzz=0` 通過，故連 0033／0043 這兩條只差偏移的 canonical 也另存了候選。
 
 ## 6. 驗證矩陣
 

@@ -2,6 +2,7 @@ import { SessionSelectorComponent } from "/home/chris/.bun/install/global/node_m
 import type { SessionInfo } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-listing";
 import { initThemeSync } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/modes/theme/theme";
 import * as assert from "node:assert";
+import { readFileSync } from "node:fs";
 
 function sleep(ms: number): Promise<void> {
 	const { promise, resolve } = Promise.withResolvers<void>();
@@ -69,7 +70,25 @@ assert.ok(lines.includes("Enter resume"), "Preview footer must show 'Enter resum
 assert.ok(lines.includes("Esc/Space close"), "Preview footer must show 'Esc/Space close'");
 assert.ok(lines.includes("Session History Preview in omp -r"), "Preview must show session title");
 assert.ok(lines.includes("Assistant"), "Preview must show [Assistant] role");
-assert.ok(lines.includes("骂得太对了"), "Preview must contain real assistant conclusion text");
+// Provenance instead of a pinned sentence: take the first rendered assistant
+// line and prove it came out of the real session file. Pinning one sentence
+// ("骂得太对了") broke the moment the preview's first screen moved — the
+// contract is "real conclusion text is rendered", not "that exact line is on
+// screen first".
+const plain = previewLines.map(line => line.replace(/\x1b\[[0-9;]*m/g, ""));
+const assistantIndex = plain.findIndex(line => line.includes("[Assistant]"));
+assert.ok(assistantIndex >= 0, "Preview must show an [Assistant] block");
+const renderedProbe = plain
+	.slice(assistantIndex + 1)
+	.map(line => line.replace(/^[│|]\s*/, "").replace(/[│|█]*\s*$/, "").trim())
+	.find(line => line.length >= 8);
+assert.ok(renderedProbe, "Preview must render assistant body text, not just the role header");
+const sessionRaw = readFileSync(realSessionPath, "utf8");
+const probe = renderedProbe.slice(0, 8);
+assert.ok(
+	sessionRaw.includes(probe),
+	`Preview text must come from the real session file; rendered ${JSON.stringify(probe)} is absent from it`,
+);
 assert.ok(!lines.includes("[Tool Call]"), "Preview must NOT contain machine [Tool Call]");
 assert.ok(!lines.includes("[Result:"), "Preview must NOT contain machine [Result:]");
 assert.ok(!/\[Assistant\]\s*\n\s*```\s*\n\s*\[Assistant\]/.test(lines), "Preview must NOT contain consecutive phantom [Assistant] ``` fences");
@@ -142,15 +161,19 @@ const mouseSelector = new SessionSelectorComponent(
 );
 mouseSelector.handleInput(" "); // Open preview
 await sleep(100);
-mouseSelector.render(100);
+const beforeScroll = mouseSelector.render(100).join("\n");
 
 // 模擬滑鼠滾輪向下滾動 (SGR button 65 = wheel down)
 mouseSelector.handleInput("\x1b[<65;10;10M");
 mouseSelector.handleInput("\x1b[<65;10;10M");
 mouseSelector.handleInput("\x1b[<65;10;10M");
 const scrolledLines = mouseSelector.render(100).join("\n");
-assert.ok(scrolledLines.includes("User") || scrolledLines.includes("等等,你先停"), "Scrolling down must reveal User interaction turns");
-console.log("✓ Mouse wheel down handled smoothly and reveals User turns in preview");
+// Behaviour, not fixture: three wheel-down notches must move the viewport and
+// stay inside the preview. Pinning "User"/a specific sentence only held while
+// that turn happened to land on the fourth screen of one session file.
+assert.notEqual(scrolledLines, beforeScroll, "Wheel down must scroll the preview viewport");
+assert.ok(scrolledLines.includes("Esc/Space close"), "Wheel down must not leave preview mode");
+console.log("✓ Mouse wheel down scrolls the preview viewport and stays in preview");
 // 模擬滑鼠滾輪向上滾動 (SGR button 64 = wheel up)
 mouseSelector.handleInput("\x1b[<64;10;10M");
 console.log("✓ Mouse wheel up handled smoothly in preview");

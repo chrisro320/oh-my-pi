@@ -189,8 +189,25 @@ if [[ -n "${OMP_PATCH_VERSION+x}" ]]; then
 		# 0047 同 18.1.10：a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
 		PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
 		;;
+	18.1.18)
+		# 18.1.14 → 18.1.18（上游 4 版：15/16/17/18）。
+		# 0051 退役：上游逐字採納了本補丁（prompt_eval_cached_count → cacheRead 映射，
+		# 連註解一併進入 pi-ai/src/providers/ollama.ts），再打會 already-applied。
+		# 0010 需重寫：上游把 #wakeForIrc 的 dispatch 改成 whenWorkPoolYieldSettled()
+		# 鏈，idleEphemeral 等待點必須併入該 join 之前，否則破壞「同步 ownership 檢查
+		# 與 dispatch 之間無 await」的上游不變式。
+		# 0035 需重寫：上游在 prepareCompaction 內把 boundaryStart 回退到上一次
+		# compaction 的 firstKeptEntryId，本補丁的 previousRetainedMessages 攜帶列表
+		# 語義已被吸收，故退掉該列表、historyTargetMessages 直接等於 messagesToSummarize。
+		# 0033/0043 另存候選：canonical 在此版需 fuzz=1，候選把上下文重錨到 fuzz=0。
+		# 0004/0014/0017/0030/0038 沿用 18.1.14 候選字節（已核 cmp 相同），
+		# 為版本計畫完整性另存一份。
+		_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0019 omit:0042 omit:0051
+		# 0047 同 18.1.10/18.1.14：a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
+		PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
+		;;
 	*)
-		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11, 18.1.2, 18.1.5, 18.1.10, 18.1.14)" >&2
+		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11, 18.1.2, 18.1.5, 18.1.10, 18.1.14, 18.1.18)" >&2
 		exit 2
 		;;
 	esac

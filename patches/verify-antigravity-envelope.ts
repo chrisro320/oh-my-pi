@@ -32,7 +32,9 @@ assert.match(req1.requestId, /^agent\/[0-9a-f-]{36}\/\d+\/[0-9a-f-]{36}\/\d+$/, 
 assert.ok(req1.request.sessionId, "req1.request.sessionId must exist");
 assert.ok(req1.request.sessionId.startsWith("-"), "Antigravity sessionId must be signed decimal");
 assert.equal(req1.userAgent, "antigravity");
-assert.equal(req1.requestType, "agent");
+// 0054: Antigravity must NOT carry requestType — Cloud Code Assist answers
+// requestType:"agent" with a bogus 429, so the envelope omits the field.
+assert.equal(req1.requestType, undefined, "0054: requestType must be absent");
 
 // 2. Deterministic session identity across separate calls with same sessionId
 const req1Repeat = buildRequest(fakeModel, fakeContext, "test-project-123", { sessionId: "session-abc-1" }, true);

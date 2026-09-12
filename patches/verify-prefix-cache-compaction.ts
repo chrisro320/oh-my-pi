@@ -230,14 +230,18 @@ const preparation = prepareCompaction(
 	model,
 );
 assert.ok(preparation, "iterative fixture must prepare compaction");
+// 18.1.18 absorbed the carry-over: `prepareCompaction` rewinds `boundaryStart`
+// to the prior compaction's `firstKeptEntryId`, so its retained tail arrives
+// inside `messagesToSummarize` instead of a separate list. The contract under
+// test is unchanged — those messages must not vanish from the history target.
 assert.deepEqual(
-	preparation.previousRetainedMessages,
-	[retainedBeforeMarker],
+	preparation.messagesToSummarize[0],
+	retainedBeforeMarker,
 	"previously retained messages would disappear without entering the next history target",
 );
 assert.equal(preparation.historyPrefixEntryId, "discarded-assistant", "history prefix leaf drifted");
 
-const iterativeTarget = [...preparation.previousRetainedMessages, ...preparation.messagesToSummarize];
+const iterativeTarget = [...preparation.messagesToSummarize];
 const rebuiltPrefixMessages = buildSessionContext(entries, preparation.historyPrefixEntryId).messages;
 assert.equal(rebuiltPrefixMessages[0]?.role, "compactionSummary", "rebuilt prefix lost prior compaction summary");
 assert.deepEqual(

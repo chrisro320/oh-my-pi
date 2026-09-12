@@ -1,0 +1,11 @@
+--- a/src/providers/openai-responses.ts
++++ b/src/providers/openai-responses.ts
+@@ -233,7 +233,7 @@
+ 	const state: OpenAIResponsesProviderSessionState = {
+ 		...strictToolsState,
+ 		...reasoningEffortFallbackState,
+-		nativeHistoryReplayWarmed: false,
++		nativeHistoryReplayWarmed: true,
+ 		chains: new Map(),
+ 		effortControls: new Map(),
+ 		close: () => {
