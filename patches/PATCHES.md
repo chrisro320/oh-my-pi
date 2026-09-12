@@ -636,6 +636,12 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **`.18.1.18-candidates/`（9 件）**：新生成 4 件（`0010`、`0035`、`0033`、`0043`）；沿用 5 件（`0004`、`0014`、`0017`、`0030`、`0038`，與 `.18.1.14-candidates/` 對應檔 `cmp` 逐字節相同，為版本計畫完整性另存）。
 - **`apply.sh`**：新增 `18.1.18` 分支 `_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0019 omit:0042 omit:0051` + 鏈尾 `PATCHES+=(0047)`；`*)` 的 known 清單同步加 18.1.18。
 - **落地驗收**：`bun add -g @oh-my-pi/pi-coding-agent@18.1.18` → repo `patches/` rsync 到 `~/.omp/patches/` 零漂移（`diff -r` 無輸出）→ `OMP_PATCH_VERSION=18.1.18 apply.sh`：25 層全 APPLIED、`bin/omp` 重指 `src/cli.ts`、`--check` **26 行 APPLIED／0 CONFLICT／0 PENDING**。回歸套件 9 道全 PASS（antigravity envelope／prefix-cache compaction／provider-image-budget／snapcompact model billing／spec-contracts／hindsight recall+MM／interrupt prune symmetry／supersede warm-prefix guard）＋ `smoke: ok`。
+- **官方字節驗收（2026-09-12 補做，沿用 18.1.14 的標準）**——上一輪只用 live 樹複製做 sandbox，只能證明「在這棵樹上能套」，補齊如下五道：
+  1. **registry integrity 對帳**：官方 18.1.18 六包（pi-coding-agent／pi-ai／pi-agent-core／snapcompact／pi-tui／pi-catalog）tarball 的 `dist.integrity` sha512 **6/6 OK**（本地重算 base64 與 registry 值逐字相同）。
+  2. **live ↔ 官方差異集精確對帳**：`src` ＋ `dist/types` 全量 `diff -rq`，live 與官方的差異文件集 = **34 個**，與 18.1.18 計畫所有補丁 `--- a/` 宣告的目標集 **34 個完全相等**（`comm` 兩側皆空）。即 **零裸改**（沒有補丁棧外的手工改動）＋ **零遺漏**（每條補丁都真落地）。
+  3. **官方樹重放 + 冪等 + 完整回退**：從 tarball 重建 pristine sandbox（`HOME` 改指假家目錄讓 `apply.sh` 原樣跑、`OMP_PATCH_OFFLINE_VERIFY=1`）：apply → **25 層全 APPLIED**；再跑一次 → **26 行全 SKIP**（冪等）；`--revert` → **25 層全 REVERTED**，之後六包 `src` 對官方 pristine **2403 個檔案零差異**、無 `.rej`／`.orig` 殘留。
+  4. **live 樹 = 官方 18.1.18 ＋ 本計畫**：官方樹重放後的 sandbox 與 live `node_modules` 六包 `src` **逐字節一致**。
+  5. **0033／0043 候選確為純重錨**：用候選重放與用 canonical（fuzz=1）重放得到的兩棵樹 `diff -rq` **完全一致**，證明候選只改上下文、不夾帶語義變化。
 - **升級前備份**：`~/omp-upgrade-backup-18.1.14-20260912-003231/`（`agent.db`／`models.db` 以 `.backup` API 一致快照、六套件 `src/` 打包、`bin/omp` 原 symlink 目標）。
 - **方法論沿用**：候選一律「`t_a` = pristine + 該層之前的鏈；`t_b` = `t_a` + 該層（失敗 hunk 手工錨定）；`diff` 生成；再在第三棵新鮮樹 `t_c` 上重放確認零失敗」。本輪額外要求候選自身 `--fuzz=0` 通過，故連 0033／0043 這兩條只差偏移的 canonical 也另存了候選。
 
