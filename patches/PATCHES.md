@@ -4,15 +4,16 @@
 > 標題刻意**不綁版本**：本文件同時記錄 base 18.0.9 鏈、歷史 18.1.5／18.1.10／18.1.14／18.1.18 遷移，以及當前部署。
 > 讀任何數字前先確認它屬於哪個口徑——見 §1。
 
-## 當前狀態（2026-09-12）
+## 當前狀態（2026-09-13）
 
 | 項目 | 值 |
 |---|---|
-| 當前部署 | `OMP_PATCH_VERSION=18.1.18` |
-| APPLIED | **29 行**（28 補丁 ＋ `bin/omp -> src/cli.ts` 連結）／0 CONFLICT／0 PENDING |
-| base 計畫 | 未設 `OMP_PATCH_VERSION`（目標 18.0.9）；`PATCHES` 陣列 **28 項** |
-| 最近遷移 | 18.1.14 → 18.1.18（2026-09-12），見 §5 |
-| 回歸套件 | **11 道閘門**，見 §6.1 |
+| 當前部署 | `OMP_PATCH_VERSION=18.1.18`（未設則按 installed 版本自動路由） |
+| APPLIED | **32 行**（31 補丁 + `bin/omp -> src/cli.ts` 連結）/0 CONFLICT/0 PENDING |
+| canonical 陣列 | `PATCHES` 陣列 **26 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫 |
+| 存活計畫 | 18.1.14（回退，27 層）、18.1.18（當前部署，31 層）；其餘版本分支已退役 |
+| 最近遷移 | 18.1.14 -> 18.1.18（2026-09-12）；死計畫清場（2026-09-13），見 §5 |
+| 回歸套件 | **12 道閘門** + `--verify-rollups` 雙基線全鏈 oracle，見 §6.1 |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -29,16 +30,15 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 | 口徑 | 內容 | 層數 |
 |---|---|---|
-| `apply.sh` 的 `PATCHES` 陣列（base 計畫 = 未設 `OMP_PATCH_VERSION` = 18.0.9 鏈） | 0033、0004、0034、0037、0010、0035、0019、0014、0036、0017、0025、0026-core、0030、0051、0031、0032、0038、0041、0042、0043、0044、0052、0057、0045、0046、0048、0050、0054 | **28** |
-| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.18`） | base 28 條 −`omit:0019` −`omit:0042` −`omit:0051` +鏈尾 0047、0055、0056、0058、0059 | **30** |
-| 18.1.14 計畫 | base 28 條 −`omit:0019` −`omit:0042` +鏈尾 0047 | **27** |
-| 18.1.10 計畫 | 同上（候選集合不同） | 25 |
+| `apply.sh` 的 `PATCHES` 陣列（canonical 母集，非可部署計畫） | 0033、0004、0034、0037、0010、0035、0014、0036、0017、0025、0026-core、0030、0051、0031、0032、0038、0041、0043、0044、0052、0057、0045、0046、0048、0050、0054 | **26** |
+| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.18`） | canonical 26 條 −`omit:0051` +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062 | **31** |
+| 18.1.14 計畫（回退） | canonical 26 條 +候選置換 7 件 +鏈尾 0047 | **27** |
 
-`0042` 只存在於 base 計畫；`0047` 只存在於 18.1.10／18.1.14／18.1.18 計畫（其 a 側是 candidate-0038 的產出形態）；`0051` 自 18.1.18 起退役（上游逐字採納）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
+`0047` 只存在於版本計畫鏈尾（其 a 側是 candidate-0038 的產出形態）；`0051` 自 18.1.18 起退役（上游逐字採納）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
-`0055`／`0056` 只存在於 18.1.18 計畫：devin.ts 的 auth identity 在 18.0.9 仍是 windsurf（`DEVIN_SESSION_TOKEN_PREFIX`），18.1.10+ 才是 `devinCliMetadata`，兩者的 a 側皆以 18.1.18 樹為準。兩條路徑互不相交——`0055` 動 `pi-ai/src/providers/devin.ts`，`0056` 動 `pi-catalog/src/wire/devin.ts`，可各自獨立套用。
+`0055`／`0056`／`0058`／`0060`／`0062` 只存在於 18.1.18 計畫：a 側皆以 18.1.18 樹為準（devin.ts 的 `devinCliMetadata` 形態、0055 套用後的鏈尾形態、0062 的 session-maintenance 形態），舊版本鏈上下文對不上。`0055` 動 `pi-ai/src/providers/devin.ts`，`0056` 動 `pi-catalog/src/wire/devin.ts`，路徑互不相交。
 
-`0058` 同樣只在 18.1.18 計畫：其 a 側是 0055 套用後的 `devin.ts` 形態（18.1.18 鏈尾），舊版本鏈的上下文行對不上。
+未設 `OMP_PATCH_VERSION` 時 apply.sh 讀 installed `pi-coding-agent` 版本**精確路由**到對應計畫（非就近 fallback）；安裝版不屬於存活計畫、或顯式值與安裝版不符，一律 exit 2。
 
 ### 補丁狀態判定改為兩階段（2026-09-01，隨 0041 落地）
 
@@ -168,7 +168,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **三条链路的缓存亲和手段互不相同，不可互相套用**（2026-08-27 实测归档 payload）：Anthropic 原生（`claude-*`）用 `cache_control` 断点 `ttl=1h`，并在 `metadata.user_id` 内嵌 `{"session_id","account_uuid","device_id"}` JSON 字符串，**无** `prompt_cache_key` 字段（协议不存在）；`openai-responses`（`gpt-5.6-*`）传 `prompt_cache_key` = session id（179 份请求全同一值）；`openai-completions`（智谱等）三者皆无。此前「omp 不传 `prompt_cache_key` / 不传 `user_id` / 不注入 session 头」的结论**仅适用于 `openai-completions`**。
 - **观测缺口（未修）**：compaction 的 summarize 请求**不经过 `before_provider_request`**，因此 `payload-archive.ts` 归档不到它（实测 249 份归档 100% 为普通 `main` 请求，0 份 summarize）。其 `kind` 判别只有 `main` / `side` 两值，`side` 专认 cron cache-keepalive 的 tail marker。后果：relay 上出现 summarize miss 时**拿不到请求体做对照 diff**，只能从 `compaction-trace.log` 的 `summarize.request` / `summarize.wire` 字段间接推断。若要归因 relay 侧 miss，需让 0013 的 summarize wire 自行落盘并保留多份（不是改 `payload-archive.ts`）。
 
-### 0019 — 空 session 切模後 resume 的 `read` schema 漂移
+### 0019 — 空 session 切模後 resume 的 `read` schema 漂移【已退役 2026-09-13，見 §3】
 
 - **失敗簽名**：session 先以 `pqh/gpt-5.6-sol` 建立、未發訊息便切到 `kimi-code/k3-256k`；首個 K3 進程一直使用 GPT/hashline 版 `read.description`。resume 後新進程按 K3/sloppy 重建同一工具，原始 payload 唯一實質差異為 `tools[0].description`，整體 tools hash `58302fc94422 → c7905c3395d8`，usage 由 `cacheRead=98816` 跌成 `input=94864 / cacheRead=6656`。
 - **根因**：`ReadTool` 只在建構時快取 `#renderDescription()`；`SessionTools.syncAfterModelChange()` 雖能偵測 hashline↔sloppy 的 `editModeChanged`，卻只重建 system prompt，未刷新 `read.description`。是否曾向舊模型發請求無關，只要工具先於空 session 的模型切換建立便會留下舊 schema。
@@ -358,7 +358,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - 為何安全：先前定 180s 的依據是一次 429，事後查明真因為 agent.db 損壞導致雙份憑證併發刷新，並非 `/oauth/usage` 端點限流；60s 仍在保守水位。
 - 追加層而非改 0037：定稿補丁不可就地修改，本項以獨立補丁疊在 0037 之後。編號跳過 0040（該號原屬 `trellis_command` 工具方案，已作廢並刪檔，見下方「編號 0040」條；退役編號不重用）。
 
-### 0042 — resume 後刷新 cached `read.description`
+### 0042 — resume 後刷新 cached `read.description`【已退役 2026-09-13，見 §3】
 
 - **失敗簽名**：同一 provider、帳號、model、cache namespace、TTL 與會話內容下，恢復 temporary sloppy model 後 active model 已切換，但 `read.description` 仍保留建構期 hashline 說明，造成 tools bytes 改變與不必要的首輪 prompt-cache miss。涵蓋兩條路徑：行程內 `AgentSession.switchSession()`，以及新進程 `createAgentSession()` 在 tools 建立後才 reclaim extension-backed temporary model（`src/sdk.ts` 晚期 session-model reclaim）。
 - **根因**：0019 已修正使用者 `/model` 切換的 `SessionTools.syncAfterModelChange()` 路徑；但 `AgentSession.switchSession()` 的模型重綁直接走 `agent.setModel()`／provider reset，而新進程的晚期 reclaim（`model = restoredModel`）發生在 tools 建立之後，兩者都沒有經過該同步路徑，因此 cached `ReadTool.description` 未重繪。
@@ -411,7 +411,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **自動回歸**：新增 `OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> OMP_PATCH_VERIFY_CORE_ROOT=<core-root> bun patches/verify-supersede-warm-prefix-guard.ts`，已掛入 `apply.sh` 的回歸套件。雙閘門：**行為閘**跑上述 stock/guarded/idle-flush 三向對照，並斷言「候選的後繼使 suffix 恆 > 0」，讓未來任何「把閘門稍微調高一點」的改動立刻紅；**源碼閘**對 `OMP_PATCH_VERIFY_AGENT_ROOT` 指向的實際執行源碼斷言 callsite 是字面 `suffixTokenLimit: 0` 且不含 `prefixBinding`（pristine 源碼上必紅，即負向對照）。另錨定 `SUPERSEDED_NOTICE` 文本——它就是本補丁定價所依據的 wire 簽名。
 - **未修（同會話的另兩類）**：① 第 32 筆整段重算 108854 token（佔全會話 239316 token 浪費的 45%）——turn31/32 在 `before_provider_request` 層的完整 body 逐字節比對顯示前綴一致（該層**不等於出站 bytes**，fetch wrapper 之後寫入的欄位看不見，故本項結論僅限 harness 側）（分歧只在倒數第 3 條，即 0038 reminder 位置被真實 assistant 消息接續）、`tools` 與全部參數逐字節相同、三個掛 `before_provider_request` 的 extension 均不改 payload（`resume-cache-breakpoint.ts:78` 只認 Anthropic 形狀，openai-completions 直接跳過），且 turn33 命中 108544（命中的是 turn32 寫入的前綴，同一快取域，排除 fallback 換 provider）。omp 側已排乾淨，剩下唯一未覆蓋的是 `before_provider_request` 之後的 HTTP headers 與 fetch 層 body 改寫，需錄製反代取證；已知該層地雷（`cch` 計費頭）只走 `anthropic-messages`，`hyper` 不在射程。② 其餘 35 輪約 121757 token 的階梯滲漏是 openai-completions 自動快取的固有機制（每檢查點存一塊，不滿一塊的尾巴下輪重算），不是缺陷。
 
-### 0047 — date/cwd reminder 從 provider-only 尾條改騎真實 user 消息（持久錨點凍結）【僅 18.1.10／18.1.14 計畫】
+### 0047 — date/cwd reminder 從 provider-only 尾條改騎真實 user 消息（持久錨點凍結）【僅版本計畫鏈尾：18.1.14／18.1.18】
 
 - **失敗簽名**（真實會話 `01a0778e`，claude-opus-5，~620k context）：cache-prefix-audit 每輪報 `HISTORY_REWRITE`，`sharedPrefix` 以 2 為步長推進（314→316→…→328）而非純尾 appended 的 `n-1` 形態；每輪 `cacheWrite` 11 815–12 335 token 對 ~600k `cacheRead`（strict 97.9–98.1%）。短回覆輪次回落到 ~1 600。
 - **根因**：0038 把 date/cwd reminder 做成 provider-only 合成尾條 user 消息——系統提示穩定了一點，但合成尾條佔住一個消息槽，下一輪真實 assistant 回覆落在同一 index，Anthropic 端看到的是歷史中段 **ROLE FLIP**：reminder 和它前面那條真實回覆每輪一起重新計費。2% 缺口在該 context 尺寸下 ≈12k token/輪全價重算，`input` 單價約 `cacheRead` 10 倍。
@@ -562,7 +562,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **版本限定**：a 側是 0055 套用後的 devin.ts 形態（18.1.18 鏈尾），舊版本鏈上下文對不上。
 - **驗證**：`bun patches/verify-devin-thinking-signature.ts`——場景 1 發 `deltaThinking → deltaText → deltaSignature`（簽名幀在 `endThinkingBlock` 之後，覆蓋 `lastThinkingBlock` 路徑），斷言 `thinkingSignature` 落盤；場景 2 回放帶簽名的 assistant 歷史，斷言 `chatMessagePrompts` 中 `signature` 與 `signatureType="sealed"` 都進 wire。在未修復基線上場景 1 如期失敗（`thinkingSignature: undefined`）。
 
-### 0059 — ClinePass API Base URL 環境變數覆寫【僅 18.1.18 計畫】
+### 0059 — ClinePass API Base URL 環境變數覆寫【已撤回 2026-09-13，見 §3】
 
 - **目標**：`pi-catalog/src/wire/cline-pass.ts` 裡的 `CLINEPASS_API_BASE_URL` 是寫死常數 `"https://api.cline.bot/api/v1"`，導致 omp 原生 `cline-pass` 無法重新導向至本地代理（如 `cpagw-gateway` 或 `cline-pass-switcher`）來釘死底層算力供應商。
 - **修法（`${NM}`，`pi-catalog/src/wire/cline-pass.ts`）**：改為 `process.env.CLINEPASS_API_BASE_URL?.trim() || process.env.CLINE_PASS_BASE_URL?.trim() || "https://api.cline.bot/api/v1"`。
@@ -579,7 +579,20 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **驗證**：`OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> bun patches/verify-snapcompact-reduction-baseline.ts`（已進 `apply.sh` apply 尾部套件）。GATE 1 源碼形態：helper 存在、基線呼叫它、三處呼叫點都帶形狀價格、無殘留無價格呼叫；pristine 樹上必掛＝負向對照（實測 `AssertionError: patch 0062 missing: the baseline takes no per-frame price for the superseded archive`）。GATE 2 記錄邊界的判定翻轉 + 兩個不得翻轉的對照（25→40 幀且區域 20k 仍 reject；舊幀數 0 的第一次壓縮維持原判）。補丁 forward/reverse 皆 `--fuzz=0` 逐位元往返一致（`cmp` 零差異）。
 - **版本限定**：a 側是 18.1.18 鏈尾（0058／0060 之後）的 `session-maintenance.ts` 形態。
 
-## 3. 已撤下的補丁（2026-08-25 移除）
+## 3. 已撤下的補丁
+
+### 2026-09-13 死計畫清場（`.retired/09-13-dead-plans/`）
+
+版本計畫收斂為 18.1.14（回退）＋18.1.18（當前部署）；`PATCHES` 陣列降為純 canonical 母集（26 項），不再是可部署的 18.0.9 計畫。未設 `OMP_PATCH_VERSION` 改為按 installed 版本精確路由。以下檔案連同 SHA-256 一併退役（manifest 在 `verify-patch-family-rollups.sh`）：
+
+- **0019／0042**：上游 18.1.10 已移除 `inspect_image` 與整套 read description refresh 機制，兩個補丁修的漂移源不存在；在所有存活計畫中本就被 `omit:`，陣列條目移除。
+- **0059**：ClinePass env 覆寫，進過 18.1.18 計畫（commit `cc6596c`）後由用戶撤回；按契約保留 bytes＋pinned hash。
+- **死候選目錄**：`.18.0.11-candidates/`、`.18.1.2-candidates/`、`.18.1.5-candidates/`、`.18.1.10-candidates/`（11 件），對應版本計畫全部刪除。
+- **死閘門腳本**：`verify-model-switch-tool-description.ts`（0019 的閘門）、`verify-date-cwd-reminder.ts`（0038 舊機制 acceptance；所有存活計畫含 0047，對其 final tree 跑必然 SyntaxError）。
+- **編號 0061**：空置不重用（同 0040 慣例）。
+- **既有斷點記錄**：`PATCHES` 陣列中的 0045／0046 在 18.0.9 pristine 上本來就套不上（a 側 `projectedForReduction`／條件式 `suffixTokenLimit` 首見於上游 18.1.5）——「base 計畫＝18.0.9 鏈」自 0045/0046 進陣列起即為名義口徑，本次清場正式廢除該口徑；verify-rollups 的全鏈 oracle 因此改錨 18.1.14（族檢查仍留 18.0.9，退役族成員只在那裡成鏈）。
+
+### 2026-08-25 移除
 
 - **0009 pi-tui orca→iTerm2 图片协议**：把 `imageProtocol` 从 `null` 改成 `Iterm2` 后，omp 相信终端会画图并为 `isImageLine()` 判定的行预留高度；Orca 的 xterm.js 实际把 IIP 序列丢掉，留下空行 → composer/分隔线错位残留。已 `patch -R` 撤回并从 `apply.sh` 移除；`app.asar` 同时回滚到 `app.asar.orig-image-addon`。图片这条路要重开必须先证明 addon 在 renderer 里活着（探针见 `~/orca/projects/orca-update-patch/orca-image-addon-asar-patch.py` 的 `DEBUG_PROBE`）
 
@@ -717,6 +730,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - `verify-antigravity-envelope.ts:35` 斷言 `requestType === "agent"`，而 0054 的全部意義就是**移除**該欄位（Cloud Code Assist 會回假 429）。改為 `assert.equal(req1.requestType, undefined)` 並註明 0054。該斷言自 0054 落地（2026-09-10）起就是錯的，當時只跑了 `--check` 沒跑全套。
   - `verify-prefix-cache-compaction.ts:233` 斷言 `preparation.previousRetainedMessages`，該字段已隨上游吸收退役。改為斷言 `messagesToSummarize[0]` 就是那條 `PREVIOUSLY_RETAINED` 消息——被測契約（保留尾不得從 history target 消失）完全不變，只是換成上游現在承載它的位置。
   - `verify-session-history-preview.ts` 兩處脆弱 fixture pin：① 斷言預覽首屏含固定句 `骂得太对了`——該句在真實 session 檔裡仍存在（`grep -c` = 9），但首屏位置隨檔案續寫／上游 selector 改動而移動。改為**溯源斷言**：取渲染出的第一條 assistant 正文行，反查它必須出現在該 `.jsonl` 原文中（契約＝「渲染的是真實結論文本而非佔位」，比 pin 一句話更強且不脆弱）。② 滾輪三格後斷言畫面出現 `User`／固定句，同樣依賴那一輪剛好落在第四屏。改為斷言「視口內容確實變了且仍在預覽模式」。
+
 - **孤兒 verify 腳本口徑（非回歸）**：`verify-model-switch-tool-description.ts` 對應 0019，自 18.1.10 起退役，在含 `omit:0019` 的計畫上必然失敗＝預期；`verify-snapcompact-frame-budget.ts` / `verify-snapcompact-frame-reprice.ts` 需要 `<session.jsonl>` 實參（前者傳任意真實會話即 PASS，實測 2.15 MB ≤ 3.0 MB；後者還需 `OMP_PATCH_VERIFY_REPRICE_BOUNDARY` 指向含該 compaction id 的原始 fixture，換會話必報 `boundary not found`）；`verify-date-cwd-reminder.ts` 在含 0047 的計畫上必然 `SyntaxError`＝預期（見 18.1.14 章節）。本輪實跑通過的孤兒腳本：date-cwd-anchor-stability、goal-tool-resident、ollama-cloud-usage、session-history-preview、idle-ephemeral-reservation、session-cache-keepalive、auto-continue、snapcompact-frame-budget。
 - **`.18.1.18-candidates/`（9 件）**：新生成 4 件（`0010`、`0035`、`0033`、`0043`）；沿用 5 件（`0004`、`0014`、`0017`、`0030`、`0038`，與 `.18.1.14-candidates/` 對應檔 `cmp` 逐字節相同，為版本計畫完整性另存）。
 - **`apply.sh`**：新增 `18.1.18` 分支 `_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0019 omit:0042 omit:0051` + 鏈尾 `PATCHES+=(0047 0055 0056)`；`*)` 的 known 清單同步加 18.1.18。`0055`（`${AI}`）與 `0056`（`${NM}`）都只在 18.1.18 計畫，理由見 §1。
@@ -729,6 +743,16 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   5. **0033／0043 候選確為純重錨**：用候選重放與用 canonical（fuzz=1）重放得到的兩棵樹 `diff -rq` **完全一致**，證明候選只改上下文、不夾帶語義變化。
 - **升級前備份**：`~/omp-upgrade-backup-18.1.14-20260912-003231/`（`agent.db`／`models.db` 以 `.backup` API 一致快照、六套件 `src/` 打包、`bin/omp` 原 symlink 目標）。
 - **方法論沿用**：候選一律「`t_a` = pristine + 該層之前的鏈；`t_b` = `t_a` + 該層（失敗 hunk 手工錨定）；`diff` 生成；再在第三棵新鮮樹 `t_c` 上重放確認零失敗」。本輪額外要求候選自身 `--fuzz=0` 通過，故連 0033／0043 這兩條只差偏移的 canonical 也另存了候選。
+
+### 死計畫清場（2026-09-13）
+
+- **動機**：`PATCHES` 陣列長期頂著「base 計畫＝18.0.9 鏈」的名義口徑，但 0045/0046 的 a 側（`projectedForReduction`、條件式 `suffixTokenLimit`）首見於上游 18.1.5——該鏈自兩補丁進陣列起就在 18.0.9 上建不起來，口徑本身即過時資訊。同期 `verify-patch-family-rollups.sh` 的 `entries==18`、全鏈段、gate #11 全部失效（既有斷點，非本批造成）。
+- **版本計畫收斂**：刪除 18.0.9／18.0.11／18.1.2／18.1.5／18.1.10 五個死分支與對應候選目錄；存活計畫只剩 18.1.14（回退）與 18.1.18（當前部署）。`PATCHES` 陣列降為純 canonical 母集（26 項，移除 0019/0042）。
+- **unset 改自動路由**：讀 installed `pi-coding-agent` 版本精確匹配存活計畫，保留「`bun add -g` 後裸跑 `apply.sh` 一鍵重套」的文件化路徑；安裝版不符或顯式值跨版本一律 exit 2。
+- **verify-rollups 雙基線**：族檢查留 18.0.9 pinned tarball（退役族成員只在那裡成鏈）；全鏈 oracle／peel／gate #11 移 18.1.14 pinned tarball（最舊存活版、實測全鏈可建）。`OLDCHAIN` 改為 18.1.14 解析計畫的釘死快照（27 項），`NEWCHAIN` 從 apply.sh 的 18.1.14 分支文本即時解析（候選置換＋鏈尾追加，無第二份手維清單）。
+- **bun cache 污染確認**：`pi-ai@18.1.14` cache 副本的 `ollama.ts` sha256 是官方 18.1.18 值、`pi-coding-agent@18.1.14` 的 `session-selector.ts` 已含 0050 產出——in-place 套用寫穿 cache（與 script:13-16 記錄的 auth-storage.ts 同型）。**任何 pristine 需求一律官方 tarball＋SHA-256 pin，禁用 bun cache**。
+- **驗收**：`--verify-rollups` 全綠（5 族＋全鏈 27==27 逐字節＋peel＋gate #10/#11）；18.1.18 官方 tarball 沙盒 apply → 32 行全 APPLIED，五包 `src` 與 live `node_modules` **逐字節一致**（零漂移）；`apply.sh --check`（auto-route）live 全 APPLIED。
+- **退役清單**：見 §3 的 2026-09-13 段。
 
 ## 6. 驗證矩陣
 

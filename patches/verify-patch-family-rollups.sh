@@ -7,22 +7,29 @@
 #   bash verify-patch-family-rollups.sh --keep     keep the sandbox for debugging
 #
 # Contract (design.md 驗證契約):
-#   1. Pristine baseline = the OFFICIAL npm 18.0.9 tarballs, fetched fresh into
-#      a mktemp dir (`npm pack`, falling back to the registry URL) and checked
-#      against the pinned SHA-256 table below. Fail-closed: any digest mismatch
-#      aborts. The Bun install cache is intentionally NOT used as a baseline:
-#      it shares inodes with the live node_modules, and in-place patching has
-#      already written through it once (pi-ai/src/auth-storage.ts carries
-#      0026-core since 2026-08-29).
+#   1. Pristine baselines = OFFICIAL npm tarballs only, fetched fresh into a
+#      mktemp dir (`npm pack`, falling back to the registry URL) and checked
+#      against the pinned SHA-256 tables below. Fail-closed: any digest
+#      mismatch aborts. The Bun install cache is intentionally NOT used as a
+#      baseline: it shares inodes with the live node_modules, and in-place
+#      patching has already written through it (pi-ai@18.1.14's ollama.ts was
+#      found carrying the 18.1.18 file on 2026-09-13; auth-storage.ts has
+#      carried 0026-core since 2026-08-29).
+#      Two baselines, two jobs:
+#        - 18.0.9 (TGZSHA): family checks. The retired pre-rollup members are
+#          18.0.9-shaped and only chain there.
+#        - 18.1.14 (TGZSHA2): full-chain oracle, peel, and gate #11. It is the
+#          oldest supported plan and the oldest version where every active
+#          patch applies (0045/0046 have no a-side before 18.1.5).
 #   2. Per family: pristine + old chain (historical order; retired patches read
 #      from .retired/08-30-family-rollups/) vs pristine + new rollup — byte
 #      equal on the family-owned packages; the reversed rollup restores pristine
 #      bytes; on an applied tree a forward dry-run fails and a reverse dry-run
 #      succeeds (idempotence).
-#   3. Full chain: the old effective chain (30 entries; 0026-agent/0027/0028
-#      skipped as superseded, plus independent 0038, 0041, and 0042) vs the
-#      18-entry active chain — byte equal across all four packages including
-#      dist/, then reverse/forward dry-run idempotence for all 18 active entries.
+#   3. Full chain (18.1.14): the pinned resolved-plan snapshot (OLDCHAIN) vs
+#      the plan resolved live out of apply.sh's own 18.1.14 branch — byte
+#      equal across all four packages including dist/, then reverse/forward
+#      dry-run idempotence for every resolved entry.
 #   4. Failures name the family and the first differing file; every family
 #      prints PASS on success.
 #
@@ -47,16 +54,16 @@ NMROOT="@oh-my-pi"
 # ------------------------------------------------------------- static checks
 entries="$(sed -n '/^PATCHES=(/,/^)/p' "${HERE}/apply.sh" | grep -c 'patch:')" ||
 	die "cannot parse PATCHES array in apply.sh"
-[[ "$entries" == 18 ]] || die "apply.sh PATCHES has ${entries} entries, expected 18"
+[[ "$entries" == 26 ]] || die "apply.sh PATCHES has ${entries} entries, expected 26"
 if grep -q 'superseded_by_' "${HERE}/apply.sh"; then
 	die "apply.sh still contains superseded_by_ control flow"
 fi
 # Retired-by-rollup numbers, plus abandoned numbers whose patch file is gone
 # (0011 pin-viewport, 0040 trellis_command — both withdrawn by the user, never
 # to be reused). Documentation cannot enforce non-reuse; this loop can.
-for old in 0002- 0003- 0005- 0006- 0007- 0011- 0013- 0015- 0018- 0020- 0021- 0022- \
-	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029- 0040-; do
-	if sed -n '/^PATCHES=(/,/^)/p' "${HERE}/apply.sh" | grep -q "^	\"${old}"; then
+for old in 0002- 0003- 0005- 0006- 0007- 0011- 0013- 0015- 0018- 0019- 0020- 0021- 0022- \
+	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029- 0040- 0042- 0059- 0061-; do
+	if grep -q "\"${old}" "${HERE}/apply.sh"; then
 		die "apply.sh active chain references retired or abandoned patch number ${old}*"
 	fi
 done
@@ -101,7 +108,34 @@ b09b22c227d22efcf2da1f27e6377cee75ec7363b7114102f9bd0dea16b25caa  0026-omp-usage
 db19e8d94f338af06f6683d47328b9831ffa81e5a21c04b3f3d5be1f759a1408  0029-omp-usage-fetch-gate-merged-agent.patch
 EOF
 ) || die "retired patch hashes drifted in ${RETIRED}"
-echo "PASS static: apply.sh chain (18 entries, no supersede), rollup hygiene, retired hashes"
+
+# Dead-plan retirements (2026-09-13): patches that entered the active chain
+# plus candidate files and verify scripts of removed version plans. Same
+# byte-identical contract as the rollup retirements above.
+RETIRED2="${HERE}/.retired/09-13-dead-plans"
+[[ -d "$RETIRED2" ]] || die "missing ${RETIRED2}"
+(
+	cd "$RETIRED2" || exit 1
+	sha256sum -c --quiet <<'EOF'
+fa402b2b1927fe5564acd7c9e3ee535901666ce33960e75d1f4b20b9311a5969  0019-omp-model-switch-read-description-refresh.patch
+a6fa465bbf77ef69d627f7397decb84ff0a23b45bf552381b307713640ce72cc  0042-omp-resume-read-description-refresh.patch
+3a22dbd91bd2aaefd5dc7becdcfccda1e382a681412ca565f12d73ad64b798f4  0059-omp-clinepass-base-url-env.patch
+1bf20d465ff6bc6f51f3c0774c522b77045a9a514d62456ba2f53373381dc787  verify-date-cwd-reminder.ts
+e07b466c3710085cf4c424b897279d01b8f60cbe99ebb8104e09cc8f3e61041d  verify-model-switch-tool-description.ts
+f90346c0b1f0398778c7f6365fb44a72fa4e28141ce4e3c2cfa82f02020d1e1d  .18.0.11-candidates/0010-omp-extension-idle-ephemeral-turn-v18.0.11-candidate.patch
+a1cd52fea6761bf7138a3ee9b67692f0ee0d5c7e21f58d9764c18f83c75224df  .18.1.2-candidates/0010-omp-extension-idle-ephemeral-turn-v18.1.2-candidate.patch
+897bb578b207b588bc818ffd6c2eb48f4384336ecf1c0188e2390091398bf9e8  .18.1.2-candidates/0030-omp-usage-cache-canonical-baseurl-v18.1.2-candidate.patch
+798181416d9e80ba1565f1b1f60922c2df7137323e39cd65a05b7fb065cca5e8  .18.1.2-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.1.2-candidate.patch
+512e53c04e4567c595f58d2d6b45007d5c6a71631d3b3a5ec7e1c086753777e5  .18.1.5-candidates/0010-omp-extension-idle-ephemeral-turn-v18.1.5-candidate.patch
+91127df8524f6a52bc52c1d22a14ddbfe060ac71e737e9c662c2df46030ab6ab  .18.1.5-candidates/0030-omp-usage-cache-canonical-baseurl-v18.1.5-candidate.patch
+196c1366ed703980eda0dea4235bf70c0e34a5d3128f640c9371dbc578ec1c33  .18.1.5-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.1.5-candidate.patch
+e28423b34a8989ed6177ef0fe86a7954cecd75d13985cd4ceac01f698b807734  .18.1.10-candidates/0010-omp-extension-idle-ephemeral-turn-v18.1.10-candidate.patch
+91127df8524f6a52bc52c1d22a14ddbfe060ac71e737e9c662c2df46030ab6ab  .18.1.10-candidates/0030-omp-usage-cache-canonical-baseurl-v18.1.10-candidate.patch
+8c748e45928ceaaa1ca5ff9d1f808ea09eedb501f7f424624d295f258fbf3d79  .18.1.10-candidates/0035-omp-compaction-prefix-rollup-v18.1.10-candidate.patch
+196c1366ed703980eda0dea4235bf70c0e34a5d3128f640c9371dbc578ec1c33  .18.1.10-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.1.10-candidate.patch
+EOF
+) || die "retired patch hashes drifted in ${RETIRED2}"
+echo "PASS static: apply.sh chain (26 entries, no supersede), rollup hygiene, retired hashes"
 
 # ---------------------------------------------------------------- sandbox
 G=$(mktemp -d /tmp/pfrollup-verify.XXXXXX)
@@ -118,33 +152,54 @@ declare -A TGZSHA=(
 	[snapcompact]=5b9bac68627b46dac023533af857cf49e9c5146f6d07037dd21dd33c193d71f6
 )
 
-TGZD="${G}/tgz"
-mkdir -p "$TGZD"
-for pkg in pi-coding-agent pi-agent-core pi-ai snapcompact; do
-	f=""
-	if command -v npm >/dev/null 2>&1; then
-		packed="$(cd "$TGZD" && npm pack --silent "@oh-my-pi/${pkg}@18.0.9" 2>/dev/null)" || packed=""
-		packed="${packed##*$'\n'}"
-		[[ -n "$packed" && -f "$TGZD/$packed" ]] && f="$TGZD/$packed"
-	fi
-	if [[ -z "$f" ]]; then
-		f="$TGZD/${pkg}.tgz"
-		curl -fsSL -o "$f" \
-			"https://registry.npmjs.org/@oh-my-pi/${pkg}/-/${pkg}-18.0.9.tgz" \
-			|| die "download failed for ${pkg}"
-	fi
-	got="$(sha256sum "$f" | awk '{print $1}')"
-	[[ "$got" == "${TGZSHA[$pkg]}" ]] \
-		|| die "${pkg} tarball sha256 mismatch (got ${got}, want ${TGZSHA[$pkg]})"
-	[[ "$f" == "$TGZD/${pkg}.tgz" ]] || mv "$f" "$TGZD/${pkg}.tgz"
-done
+# fetch_tgzs <dest-dir> <version> <sha256-assoc-name>: npm pack (registry URL
+# fallback) then pin-check every tarball. Fail-closed on any mismatch.
+fetch_tgzs() {
+	local tgzd="$1" ver="$2"
+	local -n pins="$3"
+	mkdir -p "$tgzd"
+	local pkg f packed got
+	for pkg in pi-coding-agent pi-agent-core pi-ai snapcompact; do
+		f=""
+		if command -v npm >/dev/null 2>&1; then
+			packed="$(cd "$tgzd" && npm pack --silent "@oh-my-pi/${pkg}@${ver}" 2>/dev/null)" || packed=""
+			packed="${packed##*$'\n'}"
+			[[ -n "$packed" && -f "$tgzd/$packed" ]] && f="$tgzd/$packed"
+		fi
+		if [[ -z "$f" ]]; then
+			f="$tgzd/${pkg}.tgz"
+			curl -fsSL -o "$f" \
+				"https://registry.npmjs.org/@oh-my-pi/${pkg}/-/${pkg}-${ver}.tgz" \
+				|| die "download failed for ${pkg}@${ver}"
+		fi
+		got="$(sha256sum "$f" | awk '{print $1}')"
+		[[ "$got" == "${pins[$pkg]}" ]] \
+			|| die "${pkg}@${ver} tarball sha256 mismatch (got ${got}, want ${pins[$pkg]})"
+		[[ "$f" == "$tgzd/${pkg}.tgz" ]] || mv "$f" "$tgzd/${pkg}.tgz"
+	done
+}
+
+TGZD="${G}/tgz-18.0.9"
+fetch_tgzs "$TGZD" 18.0.9 TGZSHA
 echo "PASS baseline: four official 18.0.9 tarballs match pinned SHA-256"
+
+# Second baseline for the full-chain oracle / peel / gate #11: oldest
+# supported plan, and the oldest version where every active patch applies.
+declare -A TGZSHA2=(
+	[pi-coding-agent]=3730edaac7c87245b5244fa1878b6314614c69f784dec8c962fb0737be7e250f
+	[pi-agent-core]=2571b8a7d64a0085e959a7532e52d1c4826062f34204041fcd5217ccd0d98852
+	[pi-ai]=2ac952cbfe10f7b802ba3050d475982fec2c1a46a50857987326a79c2aee8128
+	[snapcompact]=165cdf33f4df6373a8bf4aef40edcc08a5f67f201646dfe83a52c6936d8bc2f3
+)
+TGZD2="${G}/tgz-18.1.14"
+fetch_tgzs "$TGZD2" 18.1.14 TGZSHA2
+echo "PASS baseline: four official 18.1.14 tarballs match pinned SHA-256"
 
 # Extract src trees (mode=src) or full trees incl. dist/ (mode=full) for the
 # listed packages (default: all four) into $1/@oh-my-pi/<pkg>.
-mkpkgs() {
-	local t="$1" mode="$2"
-	shift 2
+mkpkgs() { # $1 tree  $2 tgz dir  $3 mode  [$4.. packages]
+	local t="$1" tgzd="$2" mode="$3"
+	shift 3
 	local p wanted wp
 	mkdir -p "$t/${NMROOT}"
 	for p in pi-coding-agent pi-agent-core pi-ai snapcompact; do
@@ -153,7 +208,7 @@ mkpkgs() {
 		for wp in "$@"; do [[ "$p" == "$wp" ]] && wanted=1; done
 		[[ $wanted -eq 1 ]] || continue
 		mkdir -p "$t/${NMROOT}/$p"
-		tar -xzf "$TGZD/${p}.tgz" -C "$t/${NMROOT}/$p" --strip-components=1
+		tar -xzf "$tgzd/${p}.tgz" -C "$t/${NMROOT}/$p" --strip-components=1
 		[[ "$mode" == "full" ]] || rm -rf "$t/${NMROOT}/$p/dist"
 	done
 }
@@ -205,7 +260,7 @@ run_family() {
 	if [[ "$dfpkgs" == "AGENT-SRC" ]]; then pkgs=(pi-coding-agent); else read -ra pkgs <<<"$dfpkgs"; fi
 
 	# old-final: pristine + retired chain in historical order
-	mkpkgs "$fam/old" src "${pkgs[@]}"
+	mkpkgs "$fam/old" "$TGZD" src "${pkgs[@]}"
 	local spec file root r
 	for spec in "$@"; do
 		file="${spec%%:*}" root="${spec##*:}"
@@ -217,7 +272,7 @@ run_family() {
 
 	# new-final: pristine + rollup. Selftest intentionally omits family 33's
 	# rollup, proving the comparator rejects a pristine/no-rollup false positive.
-	mkpkgs "$fam/new" src "${pkgs[@]}"
+	mkpkgs "$fam/new" "$TGZD" src "${pkgs[@]}"
 	local nroot
 	if [[ "$dfpkgs" == "AGENT-SRC" ]]; then nroot="$(patchroot "$fam/new" AGENT)"
 	else nroot="$(patchroot "$fam/new" NM)"; fi
@@ -227,7 +282,7 @@ run_family() {
 	sweep_check "$fam/new"
 
 	# pristine reference for the reverse check
-	mkpkgs "$fam/prime" src "${pkgs[@]}"
+	mkpkgs "$fam/prime" "$TGZD" src "${pkgs[@]}"
 
 	# old vs new byte equivalence on family packages
 	local diffs=0
@@ -265,7 +320,7 @@ run_family() {
 	fi
 
 	# idempotence on a fresh applied tree
-	mkpkgs "$fam/idem" src "${pkgs[@]}"
+	mkpkgs "$fam/idem" "$TGZD" src "${pkgs[@]}"
 	local iroot
 	if [[ "$dfpkgs" == "AGENT-SRC" ]]; then iroot="$(patchroot "$fam/idem" AGENT)"
 	else iroot="$(patchroot "$fam/idem" NM)"; fi
@@ -308,47 +363,75 @@ run_family 37 AGENT-SRC \
 	"0029-omp-usage-fetch-gate-merged-agent.patch:AGENT"
 
 # ------------------------------------------------------------- full chain
+# OLDCHAIN is the pinned snapshot of the resolved 18.1.14 plan — the exact
+# patch sequence the controller applies on that version (canonical entries
+# with the seven versioned candidates substituted in place, plus the
+# branch-tail 0047). It is the "before" side of the equivalence oracle:
+# any batch that changes the 18.1.14 plan must update this snapshot, and a
+# merge batch proves itself by keeping the two trees byte-equal.
 OLDCHAIN=(
-	"0002-omp-cache-turn-segment.patch:AGENT"
-	"0003-omp-cache-turn-segment-id.patch:AGENT"
-	"0004-omp-token-total-cacheread.patch:AGENT"
-	"0005-omp-usage-refresh-on-turn.patch:AGENT"
-	"0006-omp-hindsight-session-snapshot.patch:AGENT"
-	"0021-omp-hindsight-recall-snapshot-empty.patch:AGENT"
-	"0023-omp-hindsight-mm-first-turn-race.patch:AGENT"
-	"0024-omp-hindsight-snapshot-reset-boundary.patch:AGENT"
-	"0007-omp-usage-fetch-no-forced-repaint.patch:AGENT"
-	"0010-omp-extension-idle-ephemeral-turn.patch:AGENT"
-	"0013-omp-prefix-cache-preserving-compaction-core.patch:CORE"
-	"0013-omp-prefix-cache-preserving-compaction-agent.patch:AGENT"
-	"0018-omp-iterative-compaction-prefix-target.patch:NM"
-	"0019-omp-model-switch-read-description-refresh.patch:AGENT"
-	"0014-omp-antigravity-deterministic-session-identity.patch:AI"
-	"0015-omp-provider-image-budget-snapcompact.patch:SNAP"
-	"0015-omp-provider-image-budget-agent.patch:AGENT"
-	"0017-omp-openai-responses-native-replay-warm.patch:AI"
-	"0020-omp-frame-byte-budget-per-shape-snapcompact.patch:SNAP"
-	"0020-omp-frame-byte-budget-per-shape-agent.patch:AGENT"
-	"0022-omp-provider-image-budget-entries.patch:SNAP"
+	"0033-omp-cache-turn-status-rollup.patch:AGENT"
+	".18.1.14-candidates/0004-omp-token-total-cacheread-v18.1.14-candidate.patch:AGENT"
+	"0034-omp-hindsight-snapshot-rollup.patch:AGENT"
+	"0037-omp-usage-statusline-gate-rollup.patch:AGENT"
+	".18.1.14-candidates/0010-omp-extension-idle-ephemeral-turn-v18.1.14-candidate.patch:AGENT"
+	".18.1.14-candidates/0035-omp-compaction-prefix-rollup-v18.1.14-candidate.patch:NM"
+	".18.1.14-candidates/0014-omp-antigravity-deterministic-session-identity-v18.1.14-candidate.patch:AI"
+	"0036-omp-image-frame-budget-rollup.patch:NM"
+	".18.1.14-candidates/0017-omp-openai-responses-native-replay-warm-v18.1.14-candidate.patch:AI"
 	"0025-omp-ollama-cloud-usage-api.patch:AI"
 	"0026-omp-usage-fetch-anthropic-gate-core.patch:AI"
-	"0029-omp-usage-fetch-gate-merged-agent.patch:AGENT"
-	"0030-omp-usage-cache-canonical-baseurl.patch:AI"
+	".18.1.14-candidates/0030-omp-usage-cache-canonical-baseurl-v18.1.14-candidate.patch:AI"
+	"0051-omp-ollama-cache-usage.patch:AI"
 	"0031-omp-agent-session-providers-forward.patch:AGENT"
 	"0032-omp-goal-tool-resident.patch:AGENT"
-	"0038-omp-date-cwd-reminder-provider-tail.patch:NM"
+	".18.1.14-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.1.14-candidate.patch:NM"
 	"0041-omp-anthropic-usage-turn-gate-60s.patch:AGENT"
-	"0042-omp-resume-read-description-refresh.patch:AGENT"
+	"0043-omp-interrupt-prune-symmetry.patch:AGENT"
+	"0044-omp-image-budget-wire-api-family.patch:NM"
+	"0052-omp-snapcompact-model-billing-commandcode-budget.patch:NM"
+	"0057-omp-devin-image-budget.patch:NM"
+	"0045-omp-snapcompact-frame-reprice.patch:AGENT"
+	"0046-omp-supersede-warm-prefix-guard.patch:AGENT"
+	"0048-omp-advisor-quota-rotation-bound.patch:AGENT"
+	"0050-omp-session-history-preview.patch:AGENT"
+	"0054-omp-antigravity-drop-requesttype-agent.patch:AI"
+	"0047-omp-date-cwd-anchor-stability.patch:AGENT"
 )
-# The new full-chain oracle is the real controller, not a second hand-maintained
-# list. A missing, duplicate, reordered, or wrongly rooted apply.sh entry must
-# therefore affect this verification run directly.
+# NEWCHAIN is resolved live out of apply.sh's own 18.1.14 branch — base array
+# minus omit: entries, candidate substitutions, and PATCHES+= tail appends,
+# every token parsed from the shipped file. A missing, duplicate, reordered,
+# or wrongly rooted entry therefore affects this verification run directly;
+# a plan change that forgets to update OLDCHAIN fails the equality check.
 mapfile -t NEWCHAIN < <(
 	sed -n '/^PATCHES=(/,/^)/p' "${HERE}/apply.sh" |
 		sed -n 's/^[[:space:]]*"\([^"]*\.patch\):${\(AGENT\|CORE\|AI\|SNAP\|NM\)}"$/\1:\2/p'
 )
 [[ ${#NEWCHAIN[@]} -eq "$entries" ]] \
 	|| die "cannot parse exact file/root sequence from apply.sh PATCHES"
+
+branch="$(sed -n '/^18\.1\.14)/,/;;/p' "${HERE}/apply.sh")"
+plan_args="$(sed -n 's/.*_omp_version_candidates "18\.1\.14" \(.*\)/\1/p' <<<"$branch" | head -1)"
+[[ -n "$plan_args" ]] || die "cannot find the 18.1.14 _omp_version_candidates call"
+omits="$(tr ' ' '\n' <<<"$plan_args" | sed -n 's/^omit://p')"
+cands="$(tr ' ' '\n' <<<"$plan_args" | grep -v '^omit:' | grep .)"
+resolved=()
+for spec in "${NEWCHAIN[@]}"; do
+	pfx="${spec%%-*}" file="${spec%%:*}" root="${spec##*:}"
+	skip=0
+	for o in $omits; do [[ "$pfx" == "$o" ]] && skip=1; done
+	[[ $skip -eq 1 ]] && continue
+	for c in $cands; do
+		[[ "$pfx" == "$c" ]] && file=".18.1.14-candidates/${file%.patch}-v18.1.14-candidate.patch"
+	done
+	resolved+=("${file}:${root}")
+done
+while IFS= read -r tail; do
+	resolved+=("$(sed 's/:${\([A-Z]*\)}/:\1/' <<<"$tail")")
+done < <(grep -o 'PATCHES+=("[^"]*")' <<<"$branch" | sed 's/PATCHES+=("//;s/")$//')
+NEWCHAIN=("${resolved[@]}")
+[[ "${NEWCHAIN[*]}" == "${OLDCHAIN[*]}" ]] \
+	|| die "resolved 18.1.14 plan drifted from the pinned OLDCHAIN snapshot"
 
 apply_chain() { # $1 tree  $2 "file:root"...
 	local t="$1"; shift
@@ -366,8 +449,8 @@ apply_chain() { # $1 tree  $2 "file:root"...
 	done
 }
 
-mkpkgs "$G/full-old" full
-mkpkgs "$G/full-new" full
+mkpkgs "$G/full-old" "$TGZD2" full
+mkpkgs "$G/full-new" "$TGZD2" full
 apply_chain "$G/full-old" "${OLDCHAIN[@]}"
 apply_chain "$G/full-new" "${NEWCHAIN[@]}"
 sweep_check "$G/full-old" "$G/full-new"
@@ -376,17 +459,17 @@ fcfail=0
 for pk in pi-coding-agent pi-agent-core pi-ai snapcompact; do
 	if ! diff -r "${CMPARGS[@]}" "$G/full-old/${NMROOT}/$pk" "$G/full-new/${NMROOT}/$pk" \
 		>"$G/fc-cmp.txt" 2>&1; then
-		echo "FAIL full chain: pre-rollup chain and active chain disagree in ${pk}"
+			echo "FAIL full chain: pinned snapshot chain and resolved plan disagree in ${pk}"
 		first_diffs "$G/fc-cmp.txt"
 		fcfail=1
 	fi
 done
 [[ $fcfail -eq 0 ]] || exit 1
-# Both sides carry the independent patches (0038, 0041), so this proves the
-# rollups smuggled in no behaviour change. It deliberately says nothing about
-# what those independent patches do — calling this side "old effective" would
-# be wrong, no such chain ever shipped. Their behaviour is asserted below.
-echo "PASS rollup equivalence: pre-rollup chain (30) == active chain (18), byte-equal on all four packages"
+# Both sides are the same resolved 18.1.14 plan today; the oracle's value is
+# that a future merge batch must keep the trees byte-equal while NEWCHAIN
+# resolves to the merged plan. It deliberately says nothing about what the
+# individual patches do — their behaviour is asserted below.
+echo "PASS rollup equivalence: pinned chain (${#OLDCHAIN[@]}) == resolved plan (${#NEWCHAIN[@]}), byte-equal on all four packages"
 
 # Behaviour of the independent patches. A patch can apply cleanly and still be
 # semantically dead — that failure mode is on record (0027: two hunks applied,
@@ -406,14 +489,13 @@ echo "PASS 0041 behaviour: turn gate is 60_000 and still wired into the usage fe
 # entry independently on the final tree would be wrong — a later entry may
 # rewrite lines an earlier one introduced (0041 over 0037), and the earlier
 # patch cannot reverse-identify until the layers above it are off.
-mkpkgs "$G/full-pristine" full
+mkpkgs "$G/full-pristine" "$TGZD2" full
 for ((i = ${#NEWCHAIN[@]} - 1; i >= 0; i--)); do
 	spec="${NEWCHAIN[i]}"
 	file="${spec%%:*}" root="${spec##*:}"
 	r="$(patchroot "$G/full-new" "$root")"
 	if [[ -f "${HERE}/${file}" ]]; then p="${HERE}/${file}"; else p="${RETIRED}/${file}"; fi
-	# 0042 is a pure insertion; GNU patch can dry-run it again after apply.
-	if [[ "$file" != "0042-omp-resume-read-description-refresh.patch" ]] && patch -p1 --forward --dry-run --force -d "$r" <"$p" >/dev/null 2>&1; then
+	if patch -p1 --forward --dry-run --force -d "$r" <"$p" >/dev/null 2>&1; then
 		die "full chain peel: forward dry-run of ${file} succeeded on a tree that still carries it"
 	fi
 	patch -p1 -R --dry-run --force --silent -d "$r" <"$p" >/dev/null 2>&1 \
@@ -427,7 +509,7 @@ if ! diff -r "${CMPARGS[@]}" "$G/full-pristine/${NMROOT}" "$G/full-new/${NMROOT}
 	first_diffs "$G/peel-cmp.txt"
 	exit 1
 fi
-echo "PASS full chain peel: reversing all 18 entries in stack order restores pristine bytes"
+echo "PASS full chain peel: reversing all ${#NEWCHAIN[@]} entries in stack order restores pristine bytes"
 
 # Required test #10 — the dry-run gate in the controller's status probe must
 # leave the sandbox byte-identical when a patch is only partially applicable.
@@ -472,32 +554,32 @@ echo "PASS gate #10: dry-run gate keeps the sandbox byte-identical on a partiall
 # Required test #11 — on a pristine tree the real controller must classify every
 # entry as pending, including entries whose hunk context only exists after a
 # lower layer is applied (0041 needs 0037 replayed first).
-mkpkgs "$G/ctl-pristine" full
+mkpkgs "$G/ctl-pristine" "$TGZD2" full
 CTL="$G/ctl"
 mkdir -p "$CTL"
 cp -r "${HERE}"/*.patch "${HERE}/apply.sh" "$CTL/" 2>/dev/null || true
-[[ -d "${HERE}/.18.0.11-candidates" ]] && cp -r "${HERE}/.18.0.11-candidates" "$CTL/"
+[[ -d "${HERE}/.18.1.14-candidates" ]] && cp -r "${HERE}/.18.1.14-candidates" "$CTL/"
 sed -i "s|^NM=.*|NM=\"$G/ctl-pristine/${NMROOT}\"|; s|^BIN=.*|BIN=\"$CTL/fake-bin\"|" "$CTL/apply.sh"
 ln -sfn /dev/null "$CTL/fake-bin"
 ctl_out="$G/ctl-check.txt"
-# The sandbox tree is a fixed 18.0.9 pristine baseline, so the child controller
+# The sandbox tree is a fixed 18.1.14 pristine baseline. The child controller
 # must not inherit a version opt-in from the caller's environment — with
-# OMP_PATCH_VERSION=18.0.11 set it would check the 18.0.9 package.json and exit
-# 2 before doing anything. apply.sh already documents that this verifier owns
-# its own baseline; strip the variable rather than rely on the caller.
+# OMP_PATCH_VERSION=18.1.18 set it would check the 18.1.14 package.json and
+# exit 2 before doing anything. Unset auto-routes to the sandbox's own
+# installed version, which is exactly the plan under test.
 env -u OMP_PATCH_VERSION bash "$CTL/apply.sh" --check >"$ctl_out" 2>&1 \
 	|| die "gate #11: controller --check exited non-zero on a pristine tree
 $(cat "$ctl_out")"
 pending_n="$(grep -c '^PENDING  .*\.patch$' "$ctl_out" || true)"
 bad_n="$(grep -cE '^(APPLIED|CONFLICT|MISSING)  .*\.patch$' "$ctl_out" || true)"
-[[ "$pending_n" -eq "$entries" ]] \
-	|| die "gate #11: pristine tree reported ${pending_n} pending entries, expected ${entries}
+[[ "$pending_n" -eq "${#NEWCHAIN[@]}" ]] \
+	|| die "gate #11: pristine tree reported ${pending_n} pending entries, expected ${#NEWCHAIN[@]}
 $(cat "$ctl_out")"
 [[ "$bad_n" -eq 0 ]] \
 	|| die "gate #11: pristine tree reported ${bad_n} non-pending entries
 $(cat "$ctl_out")"
 grep -q '^PENDING  0041-omp-anthropic-usage-turn-gate-60s\.patch$' "$ctl_out" \
 	|| die "gate #11: 0041 was not classified pending on a pristine tree — bottom-up replay is broken"
-echo "PASS gate #11: pristine tree classifies all ${entries} entries pending, including replay-dependent 0041"
+echo "PASS gate #11: pristine tree classifies all ${#NEWCHAIN[@]} entries pending, including replay-dependent 0041"
 
 echo "ALL PASS: patch family rollups verified"

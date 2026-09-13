@@ -56,7 +56,6 @@ PATCHES=(
 	"0037-omp-usage-statusline-gate-rollup.patch:${AGENT}"
 	"0010-omp-extension-idle-ephemeral-turn.patch:${AGENT}"
 	"0035-omp-compaction-prefix-rollup.patch:${NM}"
-	"0019-omp-model-switch-read-description-refresh.patch:${AGENT}"
 	"0014-omp-antigravity-deterministic-session-identity.patch:${AI}"
 	"0036-omp-image-frame-budget-rollup.patch:${NM}"
 	"0017-omp-openai-responses-native-replay-warm.patch:${AI}"
@@ -68,7 +67,6 @@ PATCHES=(
 	"0032-omp-goal-tool-resident.patch:${AGENT}"
 	"0038-omp-date-cwd-reminder-provider-tail.patch:${NM}"
 	"0041-omp-anthropic-usage-turn-gate-60s.patch:${AGENT}"
-	"0042-omp-resume-read-description-refresh.patch:${AGENT}"
 	"0043-omp-interrupt-prune-symmetry.patch:${AGENT}"
 	"0044-omp-image-budget-wire-api-family.patch:${NM}"
 	"0052-omp-snapcompact-model-billing-commandcode-budget.patch:${NM}"
@@ -82,7 +80,8 @@ PATCHES=(
 
 if [[ "$MODE" == "verify-rollups" ]]; then
 	# Exec before version selection: the rollup gate builds its own pristine
-	# 18.0.9 sandboxes and must not see or fail on OMP_PATCH_VERSION.
+	# sandboxes (18.0.9 for family checks, 18.1.14 for the full-chain oracle)
+	# and must not see or fail on OMP_PATCH_VERSION.
 	exec bash "${HERE}/verify-patch-family-rollups.sh"
 fi
 
@@ -134,111 +133,88 @@ function _omp_version_candidates {
 	PATCHES=("${version_patches[@]}")
 	echo "NOTE: OMP_PATCH_VERSION=$version — plan targets: $*" >&2
 }
-# Versioned 0010 selection (opt-in only). Unset keeps the canonical 18.0.9
-# chain exactly as before; OMP_PATCH_VERSION=18.0.11 swaps entry 0010 for the
-# versioned candidate under .18.0.11-candidates/ (and requires the installed
-# pi-coding-agent to be 18.0.11). Any other value — including an empty string —
-# fails closed before anything is touched.
+# Versioned plan selection. The PATCHES array above is the canonical patch
+# set shared by every supported plan; it is NOT itself a deployable chain —
+# its members' a-sides span multiple upstream releases (e.g. 0045/0046 only
+# exist as 18.1.x shapes). Supported plans: 18.1.14 (rollback), 18.1.18
+# (current deployment).
+# Unset OMP_PATCH_VERSION auto-routes by the installed pi-coding-agent
+# version (exact match only) so the documented one-key re-apply flow keeps
+# working; an explicit value must match the installed version or fail
+# closed. Unknown/unsupported values exit 2 before anything is touched.
 
-if [[ -n "${OMP_PATCH_VERSION+x}" ]]; then
-	case "$OMP_PATCH_VERSION" in
-	18.0.9) ;;
-	18.0.11)
-		IDLE0010_CANDIDATE=".18.0.11-candidates/0010-omp-extension-idle-ephemeral-turn-v18.0.11-candidate.patch"
-		pkgjson="${NM}/pi-coding-agent/package.json"
-		installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
-		[[ "$installed" == "18.0.11" ]] || {
-			echo "OMP_PATCH_VERSION=18.0.11 requires pi-coding-agent 18.0.11, found: ${installed:-<unreadable>}" >&2
-			exit 2
-		}
-		[[ -f "${HERE}/${IDLE0010_CANDIDATE}" ]] || {
-			echo "candidate patch missing: ${HERE}/${IDLE0010_CANDIDATE}" >&2
-			exit 2
-		}
-		for i in "${!PATCHES[@]}"; do
-			if [[ "${PATCHES[i]}" == "0010-omp-extension-idle-ephemeral-turn.patch:"* ]]; then
-				PATCHES[i]="${IDLE0010_CANDIDATE}:${PATCHES[i]##*:}"
-			fi
-		done
-		echo "NOTE: OMP_PATCH_VERSION=18.0.11 — 0010 served from ${IDLE0010_CANDIDATE}" >&2
-		;;
-	18.1.2)
-		_omp_version_candidates "18.1.2" 0010 0030 omit:0038
-		;;
-	18.1.5)
-		_omp_version_candidates "18.1.5" 0010 0030 0038
-		;;
-	18.1.10)
-		# 0019/0042 退役：上游移除 inspect_image 與整套 read description refresh
-		# 機制，兩個補丁修的漂移源不存在了（見 .retired/09-04-18.1.10-inspect-image-removal/）。
-		# 0035 新增候選：上游在 TURN_PREFIX_SUMMARIZATION_PROMPT 之後插入 Codex
-		# 判定函式，擠掉 canonical hunk 的下文。
-		_omp_version_candidates "18.1.10" 0010 0030 0035 0038 omit:0019 omit:0042
-		# 0047 僅在 18.1.10 計畫可用：它的 a 側是 candidate-0038 的產出形態，對
-		# 18.0.9 canonical-0038 樹 --fuzz=0 四 hunk 全掛（實測否決），故 base 計畫
-		# （= 無 OMP_PATCH_VERSION 的 18.0.9 鏈）不得包含它。與後續條目檔案不相交，
-		# 直接追加鏈尾。
-		PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
-		;;
-	18.1.14)
-		# 18.1.10 → 18.1.14（上游 4 版：11 retry.waitForUsageReset / bash 複合命令批准、
-		# 12 Muse Code、13 dotenv provenance、14 reasoning-effort fallback）。
-		# 0004/0014/0017/0030 因上下文行侵蝕需新候選（0014 的 isClaude 尾部上下文、
-		# 0030 的 import 區、0004 的 segments 註解塊、0017 的 warm flag 鄰行）；
-		# 0010/0035/0038 沿用 18.1.10 候選字節（已核 cmp 相同），為版本計畫完整性另存一份。
-		_omp_version_candidates "18.1.14" 0004 0010 0014 0017 0030 0035 0038 omit:0019 omit:0042
-		# 0047 同 18.1.10：a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
-		PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
-		;;
-	18.1.18)
-		# 18.1.14 → 18.1.18（上游 4 版：15/16/17/18）。
-		# 0051 退役：上游逐字採納了本補丁（prompt_eval_cached_count → cacheRead 映射，
-		# 連註解一併進入 pi-ai/src/providers/ollama.ts），再打會 already-applied。
-		# 0010 需重寫：上游把 #wakeForIrc 的 dispatch 改成 whenWorkPoolYieldSettled()
-		# 鏈，idleEphemeral 等待點必須併入該 join 之前，否則破壞「同步 ownership 檢查
-		# 與 dispatch 之間無 await」的上游不變式。
-		# 0035 需重寫：上游在 prepareCompaction 內把 boundaryStart 回退到上一次
-		# compaction 的 firstKeptEntryId，本補丁的 previousRetainedMessages 攜帶列表
-		# 語義已被吸收，故退掉該列表、historyTargetMessages 直接等於 messagesToSummarize。
-		# 0033/0043 另存候選：canonical 在此版需 fuzz=1，候選把上下文重錨到 fuzz=0。
-		# 0004/0014/0017/0030/0038 沿用 18.1.14 候選字節（已核 cmp 相同），
-		# 為版本計畫完整性另存一份。
-		_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0019 omit:0042 omit:0051
-		# 0047 同 18.1.10/18.1.14：a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
-		PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
-		# 0055 僅 18.1.18：devin.ts 的 auth identity 在 18.0.9 仍是 windsurf
-		# （DEVIN_SESSION_TOKEN_PREFIX 行 63），18.1.10+ 才是 devinCliMetadata；
-		# 本補丁的 a 側以 18.1.18 樹為準，舊版本鏈不含它。
-		PATCHES+=("0055-omp-devin-auth-cache-turn-timing.patch:${AI}")
-		# 0056 同 0055 的理由：a 側以 18.1.18 的 devinCliMetadata 為準，舊版本鏈
-		# 不含它。改的是 ${NM}/pi-catalog/src/wire/devin.ts（官方 CLI 身分 tuple 與
-		# per-process sessionId／遞增 requestId），與 0055 的 pi-ai 路徑互不相交。
-		PATCHES+=("0056-omp-devin-metadata-alignment.patch:${NM}")
-		# 0058 同 0055/0056：a 側是 0055 套用後的 devin.ts 形態（18.1.18 鏈尾），
-		# 修 thinking 簽名丟失——服務端把 deltaSignature 放在 deltaThinking 為空的
-		# 獨立末尾幀，原碼只在 deltaThinking 分支內讀取 → 回放歷史無簽名 →
-		# 服務端不認 → 每輪全量 prefill。捕獲獨立簽名幀 + 回放 signatureType=sealed。
-		PATCHES+=("0058-omp-devin-thinking-signature-replay.patch:${AI}")
-		# 0060 僅 18.1.18：idle keepalive 對 devin 傳 conversationId=主 sessionId，
-		# 讓 side request 與主回合共用 cascade_id（cascadeId 還會 seed 每條
-		# messageId），否則 keepalive 每次落在獨立 cascade、暖不到主會話 cache。
-		# /btw//omfg 走 runEphemeralTurn 不帶 conversationId，保留 :side: 隔離；
-		# cursor 以 conversationId 鍵 append-only 狀態，故只對 devin 啟用。
-		PATCHES+=("0060-omp-devin-idle-cascade-pin.patch:${NM}")
-		# 0062 僅 18.1.18：snapcompact 縮減基線漏算「即將被取代的舊歸檔」——
-		# prepareCompaction 對 v2 preserve data 會把前一條 compaction 記錄排除在
-		# 三個區域之外，基線因此看不到它，而投影帶著整份新歸檔（重渲染把舊文字
-		# 折進新幀）。第二次以後壓縮等於拿整份新歸檔去比一個已不含舊歸檔的區域，
-		# 真的會縮的壓縮被判「would not reduce context」而硬失敗。修法：基線以
-		# 與投影相同的 frameTokenEstimate 記入被取代歸檔（淨額：幀數變多仍會拒絕）。
-		PATCHES+=("0062-omp-snapcompact-reduction-baseline-previous-archive.patch:${AGENT}")
+if [[ -z "${OMP_PATCH_VERSION+x}" ]]; then
+	pkgjson="${NM}/pi-coding-agent/package.json"
+	installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
+	case "$installed" in
+	18.1.14|18.1.18)
+		OMP_PATCH_VERSION="$installed"
+		echo "NOTE: OMP_PATCH_VERSION unset — routed to installed ${installed}" >&2
 		;;
 	*)
-		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11, 18.1.2, 18.1.5, 18.1.10, 18.1.14, 18.1.18)" >&2
+		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18); set OMP_PATCH_VERSION explicitly" >&2
 		exit 2
 		;;
 	esac
 fi
+
+case "$OMP_PATCH_VERSION" in
+18.1.14)
+	# 0004/0014/0017/0030 因上下文行侵蝕需新候選（0014 的 isClaude 尾部上下文、
+	# 0030 的 import 區、0004 的 segments 註解塊、0017 的 warm flag 鄰行）；
+	# 0010/0035/0038 沿用 18.1.10 候選字節（已核 cmp 相同），為版本計畫完整性另存一份。
+	_omp_version_candidates "18.1.14" 0004 0010 0014 0017 0030 0035 0038
+	# 0047 的 a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
+	PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
+	;;
+18.1.18)
+	# 18.1.14 → 18.1.18（上游 4 版：15/16/17/18）。
+	# 0051 退役：上游逐字採納了本補丁（prompt_eval_cached_count → cacheRead 映射，
+	# 連註解一併進入 pi-ai/src/providers/ollama.ts），再打會 already-applied。
+	# 0010 需重寫：上游把 #wakeForIrc 的 dispatch 改成 whenWorkPoolYieldSettled()
+	# 鏈，idleEphemeral 等待點必須併入該 join 之前，否則破壞「同步 ownership 檢查
+	# 與 dispatch 之間無 await」的上游不變式。
+	# 0035 需重寫：上游在 prepareCompaction 內把 boundaryStart 回退到上一次
+	# compaction 的 firstKeptEntryId，本補丁的 previousRetainedMessages 攜帶列表
+	# 語義已被吸收，故退掉該列表、historyTargetMessages 直接等於 messagesToSummarize。
+	# 0033/0043 另存候選：canonical 在此版需 fuzz=1，候選把上下文重錨到 fuzz=0。
+	# 0004/0014/0017/0030/0038 沿用 18.1.14 候選字節（已核 cmp 相同），
+	# 為版本計畫完整性另存一份。
+	_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0051
+	# 0047 同 18.1.14：a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
+	PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
+	# 0055 僅 18.1.18：devin.ts 的 auth identity 在舊版仍是 windsurf
+	# （DEVIN_SESSION_TOKEN_PREFIX），18.1.10+ 才是 devinCliMetadata；
+	# 本補丁的 a 側以 18.1.18 樹為準。
+	PATCHES+=("0055-omp-devin-auth-cache-turn-timing.patch:${AI}")
+	# 0056 同 0055 的理由：a 側以 18.1.18 的 devinCliMetadata 為準。
+	# 改的是 ${NM}/pi-catalog/src/wire/devin.ts（官方 CLI 身分 tuple 與
+	# per-process sessionId／遞增 requestId），與 0055 的 pi-ai 路徑互不相交。
+	PATCHES+=("0056-omp-devin-metadata-alignment.patch:${NM}")
+	# 0058 同 0055/0056：a 側是 0055 套用後的 devin.ts 形態（18.1.18 鏈尾），
+	# 修 thinking 簽名丟失——服務端把 deltaSignature 放在 deltaThinking 為空的
+	# 獨立末尾幀，原碼只在 deltaThinking 分支內讀取 → 回放歷史無簽名 →
+	# 服務端不認 → 每輪全量 prefill。捕獲獨立簽名幀 + 回放 signatureType=sealed。
+	PATCHES+=("0058-omp-devin-thinking-signature-replay.patch:${AI}")
+	# 0060 僅 18.1.18：idle keepalive 對 devin 傳 conversationId=主 sessionId，
+	# 讓 side request 與主回合共用 cascade_id（cascadeId 還會 seed 每條
+	# messageId），否則 keepalive 每次落在獨立 cascade、暖不到主會話 cache。
+	# /btw//omfg 走 runEphemeralTurn 不帶 conversationId，保留 :side: 隔離；
+	# cursor 以 conversationId 鍵 append-only 狀態，故只對 devin 啟用。
+	PATCHES+=("0060-omp-devin-idle-cascade-pin.patch:${NM}")
+	# 0062 僅 18.1.18：snapcompact 縮減基線漏算「即將被取代的舊歸檔」——
+	# prepareCompaction 對 v2 preserve data 會把前一條 compaction 記錄排除在
+	# 三個區域之外，基線因此看不到它，而投影帶著整份新歸檔（重渲染把舊文字
+	# 折進新幀）。第二次以後壓縮等於拿整份新歸檔去比一個已不含舊歸檔的區域，
+	# 真的會縮的壓縮被判「would not reduce context」而硬失敗。修法：基線以
+	# 與投影相同的 frameTokenEstimate 記入被取代歸檔（淨額：幀數變多仍會拒絕）。
+	PATCHES+=("0062-omp-snapcompact-reduction-baseline-previous-archive.patch:${AGENT}")
+	;;
+*)
+	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18)" >&2
+	exit 2
+	;;
+esac
 
 # Patch state is a property of the whole stack, not of one entry in isolation.
 # A later entry may rewrite lines an earlier one introduced (0041 over 0037);

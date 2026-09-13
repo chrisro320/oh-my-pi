@@ -82,7 +82,7 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 
 ### 5. Good / Base / Bad Cases
 
-- **Good:** Official tarballs pass pinned hashes; old and new family trees are byte-equal; reverse restores pristine; the exact 18-entry active sequence parsed from `apply.sh` matches the 30-entry old effective chain including independent patches 0038, 0041, and 0042.
+- **Good:** Official tarballs pass pinned hashes; old and new family trees are byte-equal; reverse restores pristine; the resolved 18.1.14 plan parsed live from `apply.sh` matches the pinned OLDCHAIN snapshot byte-for-byte across all four packages.
 - **Base:** A finalized independent patch remains active and is not absorbed merely because it touches the same subsystem.
 - **Bad:** A full runtime-to-pristine diff is used for a family that shares `session-maintenance.ts` with another family; unrelated changes become baked into both rollups.
 
@@ -96,7 +96,7 @@ A permanent rollup verifier MUST assert:
 4. Per-family old-final equals rollup-final byte-for-byte.
 5. Reverse rollup restores pristine/family pre-state.
 6. Reversing the entire active chain in stack order restores pristine bytes; each layer's reverse dry-run succeeds at its own stack depth, and a forward dry-run MUST fail while it is still on the tree when the patch has removable old text. Pure-insertion patches are exempt from that forward-failure assertion and MUST still pass reverse/byte-equivalence checks. Isolated per-entry probing on the final tree is not a substitute and is forbidden.
-7. Old effective full chain equals the exact active sequence parsed from `apply.sh` across every owned package.
+7. The pinned resolved-plan snapshot (OLDCHAIN) equals the plan resolved live from `apply.sh`'s own version branch — candidate substitutions, `omit:` drops, and `PATCHES+=` appends included — across every owned package. A second hand-maintained active list is not an oracle; the resolution MUST be parsed from the shipped controller text.
 8. A sensitivity probe omits one rollup, leaves `new-final` pristine, and proves the old-final/new-final comparison fails.
 9. Normal deployment keeps the real `apply.sh` smoke path; isolated replay uses
    explicit offline mode plus separate zero-provider behavioral fixtures.
@@ -196,55 +196,57 @@ resume happened, therefore resume caused the cache miss
 usage_limit_reached → credential recovery/provider fallback → cacheRead=0
 is the direct primary cause; resume-related prefix drift is not proven or excluded.
 
-## Scenario: Opting into a versioned patch candidate
+## Scenario: Selecting a versioned patch plan
 
 ### 1. Scope / Trigger
-- Trigger: an upstream release changes patch context while the canonical chain remains valid for its original release.
-- Use an explicit version gate; never silently replace the canonical patch.
+- Trigger: the installed `pi-coding-agent` version determines which patch plan applies; an upstream release may also change patch context so a plan needs versioned candidates.
+- The `PATCHES` array is the canonical patch set shared by every supported plan; it is NOT itself a deployable chain (members' a-sides span multiple upstream releases).
+- Supported plans: 18.1.14 (rollback), 18.1.18 (current deployment). Dead version branches are removed, not kept for documentation.
 
 ### 2. Signatures
 ```sh
-OMP_PATCH_VERSION=18.0.11 patches/apply.sh
-OMP_PATCH_VERSION=18.0.11 patches/apply.sh --check
-OMP_PATCH_VERSION=18.0.11 patches/apply.sh --revert
+patches/apply.sh                    # auto-route by installed version
+patches/apply.sh --check
+OMP_PATCH_VERSION=18.1.14 patches/apply.sh --check   # explicit plan
 ```
 
 ### 3. Contracts
-- Unset `OMP_PATCH_VERSION` MUST preserve the canonical 18.0.9 sequence.
-- `OMP_PATCH_VERSION=18.0.11` MUST verify installed `pi-coding-agent` version `18.0.11` and candidate-file existence before mutation.
-- Only the version-specific conflicting entry may be replaced; all other active entries retain order and roots.
-- `--verify-rollups` MUST execute before version gating because it owns its own fixed pristine baseline.
+- Unset `OMP_PATCH_VERSION` MUST auto-route by the installed `pi-coding-agent` version — exact match to a supported plan, never a nearest-version fallback. This preserves the documented one-key re-apply flow.
+- An explicit `OMP_PATCH_VERSION` MUST match the installed package version and every referenced candidate file MUST exist before mutation.
+- An empty, unset-with-unknown-installed, or unsupported value MUST exit 2 before mutation.
+- Only the version-specific conflicting entries may be substituted; all other active entries retain order and roots. `omit:` drops an entry for that plan only.
+- `--verify-rollups` MUST execute before version gating because it owns its own fixed pristine baselines.
 
 ### 4. Validation & Error Matrix
 | Condition | Required result |
 |---|---|
-| Variable unset | Canonical path, no candidate substitution |
+| Variable unset, installed version supported | Auto-route to that plan |
+| Variable unset, installed version unsupported | Exit 2 before mutation |
 | Variable empty | Exit 2 before mutation |
 | Unsupported version | Exit 2 before mutation |
-| 18.0.11 with wrong installed package version | Exit 2 before mutation |
-| 18.0.11 candidate missing | Exit 2 before mutation |
-| 18.0.11 package and candidate valid | Select candidate and continue |
+| Explicit version ≠ installed package version | Exit 2 before mutation |
+| Referenced candidate missing | Exit 2 before mutation |
+| Version and candidates valid | Resolve plan and continue |
 
 ### 5. Good / Base / Bad Cases
-- Good: explicit 18.0.11 selects only its candidate; unset remains 18.0.9.
-- Base: a future release is rejected until its pristine candidate is verified.
-- Bad: use the 18.0.11 candidate for 18.0.9 or silently fall back to a nearby version.
+- Good: unset on an 18.1.18 install routes to the 18.1.18 plan; explicit 18.1.14 on an 18.1.18 install exits 2.
+- Base: a future release is rejected until its plan and candidates are verified.
+- Bad: silently fall back to a nearby version, or keep a dead version branch "for documentation".
 
 ### 6. Tests Required
-- Assert unset, empty, unsupported, wrong-package, and missing-candidate behavior.
-- Assert canonical `0010` SHA-256 remains unchanged.
-- Assert exact active sequence and candidate selection from the real `apply.sh`.
+- Assert unset auto-route, empty, unsupported, wrong-package, and missing-candidate behavior.
+- Assert the resolved plan parsed from the real `apply.sh` equals the pinned snapshot.
 - Assert apply, revert, replay, idempotence, and smoke in a pristine version-matched sandbox.
 
 ### 7. Wrong vs Correct
 #### Wrong
 ```sh
-# Applies a candidate based on the current date or nearest package version.
+# Applies a plan based on the current date or nearest package version.
 patches/apply.sh
 ```
 #### Correct
 ```sh
-# Explicit opt-in, exact package match, fail-closed otherwise.
-OMP_PATCH_VERSION=18.0.11 patches/apply.sh
+# Exact installed-version match, fail-closed otherwise.
+OMP_PATCH_VERSION=18.1.14 patches/apply.sh
 ```
 ```
