@@ -568,6 +568,17 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **修法（`${NM}`，`pi-catalog/src/wire/cline-pass.ts`）**：改為 `process.env.CLINEPASS_API_BASE_URL?.trim() || process.env.CLINE_PASS_BASE_URL?.trim() || "https://api.cline.bot/api/v1"`。
 - **驗證**：無環境變數時保持預設官方端點；配置 `CLINEPASS_API_BASE_URL="http://127.0.0.1:3123/v1"` 後立即覆寫生效。
 
+### 0062 — snapcompact 縮減基線漏算「即將被取代的舊歸檔」，第二次以後的壓縮被系統性誤判「不縮」【僅 18.1.18 計畫】
+
+- **失敗簽名**（真實會話 `01a0993f`，主模型 `devin/swe-2`，api `devin-agent`，ctx 262000，上下文已 90.8%）：手動 `/compact` 報 `Error: Compaction failed: snapcompact would not reduce context locally.`；`~/.omp/logs/omp.2026-09-13.3292566.log`:1125 `Snapcompact projection would not reduce context {model: swe-2, projected: 133797, reductionBaseline: 99819}`（resume 後重試為 133228／99250）。同一會話 03:10 已自動（mid-run）壓過一次，留下 **25 幀** 8x13-bw@1568 歸檔（standing 約 68k server tokens ≈ 上下文 29%）。
+- **根因**：基線由 `prepareCompaction` 切出的三個區域相加（`messagesToSummarize` + `turnPrefixMessages` + `recentMessages`），而它對帶 v2 preserve data 的前次壓縮走 `boundaryStart = prevCompactionIndex + 1`（`pi-agent-core/src/compaction/compaction.ts:1565-1568`）——前一條 compaction 記錄被**結構性排除**（這一排除本身正確：v2 的舊摘要由 preserveData 接手、會被重壓，不能再當普通歷史摘要一次）。投影側不受此限：它是「新摘要訊息（文字 + 整份新歸檔幀）」。於是第二次以後的壓縮實際比的是「區域 → 整份新歸檔」，但真相是「區域 + 舊歸檔 → 新歸檔」：整份新歸檔被拿去比一個**已不含舊歸檔**的區域，幀數與區域的帳互相錯位，真的會縮的壓縮被判「不縮」而硬失敗（自動路徑則靜默落到下一個方法）。
+- **證據鏈**（同一 session.jsonl 重放 `prepareCompaction` + `snapcompact.compact`，maxFrames=30，逐項與日誌對帳）：待壓區域 A=69,109（排除加密推理）、尾段 R=8,293、新計畫 30 幀（摘要文字 7,610）、被取代歸檔 25 幀（摘要文字 7,505）、`swe-2` shape price=3,293（`8on22-bw @1568`）。舊式判定 `projected=114,693 ≥ baseline=77,402` → REJECT（與日誌同型，差額 37,291 即為病徵）；補上被取代歸檔後 `baseline=167,232` → **accept**。以該會話 316 個 turn 的 server usage 回歸（殘差 sd 130）估真實 wire 變化：移除區域 113,105 + 舊 25 幀 68,200，換來新 30 幀 81,840 → 淨減約 **99,500 tokens**（上下文 237,794 → 約 138,000），即守衛拒絕的是一次真實的大幅縮減。
+- **修法**（`${AGENT}`，`src/session/session-maintenance.ts`）：新增 `#projectPreviousArchiveTokens(preparation, frameTokenEstimate?)` —— 讀 `preparation.previousPreserveData` 的歸檔、用與投影相同的 `createCompactionSummaryMessage` + `historyBlocks` 形態計價，並按傳入的 `frameTokenEstimate` 對幀重定價（與 0045 的投影同一個減價式）；`#projectPreSnapcompactContextTokens` 增加該參數並在尾部加上這一項；三處呼叫點（手動 1 處、自動 2 處）都傳 `shape.frameTokenEstimate`。
+- **淨額語義**：判定式因此變成「(新幀數 − 舊幀數) × 幀價 + 摘要文字 − 區域」。幀數變多且區域不夠抵時照樣拒絕，第一次壓縮（無被取代歸檔）行為**逐位元不變**——兩者都在驗證閘裡以負向對照釘住。
+- **未動（刻意）**：自動路徑的 `triggerContextTokens` 分支。它取自 `#estimateStoredContextTokens()`（整份上下文估算），本身就包含被取代歸檔（只是按天花板 5,024／幀計），再補一次即重複計算；改動只落在新鮮基線函式內，該分支與 `preparedContextTokens` 混合分支的語義保持一致。
+- **驗證**：`OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> bun patches/verify-snapcompact-reduction-baseline.ts`（已進 `apply.sh` apply 尾部套件）。GATE 1 源碼形態：helper 存在、基線呼叫它、三處呼叫點都帶形狀價格、無殘留無價格呼叫；pristine 樹上必掛＝負向對照（實測 `AssertionError: patch 0062 missing: the baseline takes no per-frame price for the superseded archive`）。GATE 2 記錄邊界的判定翻轉 + 兩個不得翻轉的對照（25→40 幀且區域 20k 仍 reject；舊幀數 0 的第一次壓縮維持原判）。補丁 forward/reverse 皆 `--fuzz=0` 逐位元往返一致（`cmp` 零差異）。
+- **版本限定**：a 側是 18.1.18 鏈尾（0058／0060 之後）的 `session-maintenance.ts` 形態。
+
 ## 3. 已撤下的補丁（2026-08-25 移除）
 
 - **0009 pi-tui orca→iTerm2 图片协议**：把 `imageProtocol` 从 `null` 改成 `Iterm2` 后，omp 相信终端会画图并为 `isImageLine()` 判定的行预留高度；Orca 的 xterm.js 实际把 IIP 序列丢掉，留下空行 → composer/分隔线错位残留。已 `patch -R` 撤回并从 `apply.sh` 移除；`app.asar` 同时回滚到 `app.asar.orig-image-addon`。图片这条路要重开必须先证明 addon 在 renderer 里活着（探针见 `~/orca/projects/orca-update-patch/orca-image-addon-asar-patch.py` 的 `DEBUG_PROBE`）
@@ -721,7 +732,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 ## 6. 驗證矩陣
 
-### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 11 道）
+### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 12 道）
 
 | 閘門 | 職責 | 所需 env |
 |---|---|---|
@@ -736,6 +747,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-devin-metadata.ts`（條件） | 0056 `devinCliMetadata` 的 per-process `sessionId`／遞增 `requestId`（原始位元組驗 field 10／9）；`pi-catalog` 無 `devinSessionId` 時跳過 | — |
 | `verify-supersede-warm-prefix-guard.ts` | 0046 supersede 不得改寫暖前綴中段的 tool result | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_CORE_ROOT` |
 | `verify-resume-cache-breakpoint.ts` | resume 後首輪快取斷點（`session-maintenance` 側） | — |
+| `verify-snapcompact-reduction-baseline.ts`（條件） | 0062 縮減基線記入被取代歸檔：源碼形態 + 記錄邊界的判定翻轉 + 淨額負向對照；`session-maintenance` 無 `projectPreviousArchiveTokens` 時跳過 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 
 環境變數由 `apply.sh` 自動注入（其 `SNAP` / `AGENT` / `CORE` 皆由 `NM` 推導後傳給上述 `OMP_PATCH_VERIFY_*` 變數）；手動單跑時需自行指定**完整名稱**。
 

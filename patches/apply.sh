@@ -219,9 +219,19 @@ if [[ -n "${OMP_PATCH_VERSION+x}" ]]; then
 		# 獨立末尾幀，原碼只在 deltaThinking 分支內讀取 → 回放歷史無簽名 →
 		# 服務端不認 → 每輪全量 prefill。捕獲獨立簽名幀 + 回放 signatureType=sealed。
 		PATCHES+=("0058-omp-devin-thinking-signature-replay.patch:${AI}")
-		# 0059 僅 18.1.18：支援 CLINEPASS_API_BASE_URL / CLINE_PASS_BASE_URL 環境變數
-		# 覆寫官方端點，以便將原生 cline-pass 重定向至本地代理（如 cpagw-gateway 或 cline-pass-switcher）。
-		PATCHES+=("0059-omp-clinepass-base-url-env.patch:${NM}")
+		# 0060 僅 18.1.18：idle keepalive 對 devin 傳 conversationId=主 sessionId，
+		# 讓 side request 與主回合共用 cascade_id（cascadeId 還會 seed 每條
+		# messageId），否則 keepalive 每次落在獨立 cascade、暖不到主會話 cache。
+		# /btw//omfg 走 runEphemeralTurn 不帶 conversationId，保留 :side: 隔離；
+		# cursor 以 conversationId 鍵 append-only 狀態，故只對 devin 啟用。
+		PATCHES+=("0060-omp-devin-idle-cascade-pin.patch:${NM}")
+		# 0062 僅 18.1.18：snapcompact 縮減基線漏算「即將被取代的舊歸檔」——
+		# prepareCompaction 對 v2 preserve data 會把前一條 compaction 記錄排除在
+		# 三個區域之外，基線因此看不到它，而投影帶著整份新歸檔（重渲染把舊文字
+		# 折進新幀）。第二次以後壓縮等於拿整份新歸檔去比一個已不含舊歸檔的區域，
+		# 真的會縮的壓縮被判「would not reduce context」而硬失敗。修法：基線以
+		# 與投影相同的 frameTokenEstimate 記入被取代歸檔（淨額：幀數變多仍會拒絕）。
+		PATCHES+=("0062-omp-snapcompact-reduction-baseline-previous-archive.patch:${AGENT}")
 		;;
 	*)
 		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11, 18.1.2, 18.1.5, 18.1.10, 18.1.14, 18.1.18)" >&2
@@ -531,6 +541,18 @@ if [[ "$MODE" == "apply" ]]; then
 		bun "${HERE}/verify-devin-thinking-signature.ts"
 	else
 		echo "verify-devin-thinking-signature: skipped (0058 not in this plan)"
+	fi
+	# 0060 同 0055/0058：只在 18.1.18 計畫，以 agent-session 的 devin 分支為標記。
+	if grep -q 'conversationId: this.model?.provider' "${AGENT}/src/session/agent-session.ts" 2>/dev/null; then
+		bun "${HERE}/verify-devin-idle-cascade-pin.ts"
+	else
+		echo "verify-devin-idle-cascade-pin: skipped (0060 not in this plan)"
+	fi
+	# 0062 同 0060：只在 18.1.18 計畫，以基線的舊歸檔項為標記。
+	if grep -q 'projectPreviousArchiveTokens' "${AGENT}/src/session/session-maintenance.ts" 2>/dev/null; then
+		OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" bun "${HERE}/verify-snapcompact-reduction-baseline.ts"
+	else
+		echo "verify-snapcompact-reduction-baseline: skipped (0062 not in this plan)"
 	fi
 	bun "${HERE}/verify-resume-cache-breakpoint.ts"
 fi
