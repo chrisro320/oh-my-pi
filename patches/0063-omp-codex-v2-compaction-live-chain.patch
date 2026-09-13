@@ -1,0 +1,88 @@
+--- a/pi-agent-core/src/compaction/compaction-v2-streaming.ts
++++ b/pi-agent-core/src/compaction/compaction-v2-streaming.ts
+@@ -359,7 +359,10 @@
+ 			sessionId: request.sessionId,
+ 			providerSessionState: options.providerSessionState,
+ 			preferWebsockets: options.preferWebsockets,
+-			responsesLite: model.useResponsesLite,
++			// Lite is connection-scoped and appends `:lite` to the WebSocket session
++			// key, so this must match the live turn (which never opts in) or the
++			// compaction lands on a second, empty socket with no append baseline.
++			responsesLite: false,
+ 			codexCompaction: createOpenAICodexCompactionRequestContext({
+ 				context: options.codexCompaction,
+ 				implementation: "responses_compaction_v2",
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -1873,7 +1873,12 @@
+ 				{
+ 					reasoning: resolveCompactionEffort(model, summaryOptions.thinkingLevel),
+ 					forceReasoningOff: summaryOptions.thinkingLevel === ThinkingLevel.Off,
+-					responsesLite: model.useResponsesLite,
++					// Must stay off for Codex: the compaction request has to land on the
++					// live turn's WebSocket session key so it can reuse that socket's
++					// `previous_response_id` baseline. Lite is connection-scoped, so
++					// `model.useResponsesLite` would key a second, empty socket
++					// (`...:session:lite`) with no append state and force a full replay.
++					responsesLite: false,
+ 					sessionId: summaryOptions.sessionId,
+ 					promptCacheKey: summaryOptions.promptCacheKey,
+ 					providerSessionState: summaryOptions.providerSessionState,
+--- a/pi-ai/src/providers/openai-codex-responses.ts
++++ b/pi-ai/src/providers/openai-codex-responses.ts
+@@ -145,8 +145,10 @@
+ 	serviceTier?: ServiceTier;
+ 	/**
+ 	 * Responses Lite transport opt-in. Normal inference defaults to full
+-	 * Responses; provider-native compaction explicitly follows the model's
+-	 * `useResponsesLite` flag.
++	 * Responses, and provider-native compaction also stays on the full transport
++	 * so it reaches the live turn's WebSocket session key — Lite is
++	 * connection-scoped, so opting in would key a second socket with no append
++	 * baseline and force a full replay on every compaction.
+ 	 */
+ 	responsesLite?: boolean;
+ 	/**
+@@ -3557,12 +3559,41 @@
+  * request schema has no `previous_response_id` (codex-rs carries it only on
+  * websocket `response.create` frames) and strict gateway validators 400 it
+  * with `{"detail":"Unsupported parameter: previous_response_id"}`.
++ *
++ * Codex V2 remote compaction is the one caller that must skip the strict delta
++ * check: it appends a `compaction_trigger` to the live conversation (codex-rs
++ * `compact_remote_v2.rs`), but its prefix is rebuilt from the persisted
++ * transcript, which deliberately excludes per-turn injected context (session
++ * anchors, date/cwd stamps). A rebuilt prefix can therefore never be byte-equal
++ * to what the live socket already sent, so the check would reject a chain that
++ * is in fact still valid and replay the whole transcript at 0% cache. Reuse the
++ * live baseline verbatim instead — the server already holds that prefix — and
++ * send only the trigger. The trailing trigger item is itself the discriminator:
++ * nothing but the compaction path appends one.
+  */
+-function buildCodexChainedRequestBody(
++export function buildCodexChainedRequestBody(
+ 	requestBody: RequestBody,
+ 	state: CodexWebSocketSessionState | undefined,
+ ): RequestBody {
+ 	const chainable = state?.canAppend === true;
++	const lastInput =
++		requestBody.input && requestBody.input.length > 0
++			? requestBody.input[requestBody.input.length - 1]
++			: undefined;
++	if (
++		chainable &&
++		state &&
++		state.lastRequest &&
++		state.lastResponseId &&
++		lastInput?.type === "compaction_trigger"
++	) {
++		return {
++			...state.lastRequest,
++			client_metadata: requestBody.client_metadata,
++			previous_response_id: state.lastResponseId,
++			input: [lastInput],
++		};
++	}
+ 	const appendInput = chainable
+ 		? buildResponsesDeltaInput(
+ 				state.lastRequest,
