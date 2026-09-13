@@ -136,7 +136,7 @@ done
 
 # --- Contract: repository and deployed ledger are byte-identical ------------
 if [[ -d "$LEDGER" ]]; then
-	for f in "${HERE}"/0052-*.patch "${HERE}"/verify-snapcompact-model-billing.ts \
+	for f in "${HERE}"/0052-*.patch "${HERE}"/0057-*.patch "${HERE}"/verify-snapcompact-model-billing.ts \
 		"${HERE}"/verify-snapcompact-frame-reprice.ts "${HERE}"/verify-provider-image-budget.ts \
 		"${HERE}"/apply.sh "${HERE}"/PATCHES.md; do
 		[[ -f "$f" ]] || continue

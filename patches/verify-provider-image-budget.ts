@@ -143,4 +143,17 @@ const aliasRewritten = aliasClamped.messages.filter((m: unknown, i: number) => m
 assert.equal(aliasRewritten, 0, "a Command Code alias must not rewrite any history entry");
 assert.ok(!JSON.stringify(aliasClamped).includes("[image omitted"), "no omission notice expected on the alias pair");
 
+// 0057: devin provider / devin-agent wire api image budget 200, frame budget 80
+assert.equal(providerImageBudget("devin", "devin-agent"), 200);
+assert.equal(providerImageBudget("devin"), 200);
+assert.equal(providerImageBudget(undefined, "devin-agent"), 200);
+assert.equal(providerFrameBudget("devin", "devin-agent"), 80);
+assert.equal(PROVIDER_IMAGE_BUDGETS["devin"], 200);
+assert.equal(PROVIDER_IMAGE_BUDGETS["devin-agent"], 200);
+const devinModel = { provider: "devin", api: "devin-agent", input: ["text", "image"] } as never;
+const devinClamped = clampProviderContextImages(toolCtx as never, devinModel);
+const devinRewritten = devinClamped.messages.filter((m: unknown, i: number) => m !== toolCtx.messages[i]).length;
+assert.equal(devinRewritten, 0, "a budgeted devin provider must not rewrite any history entry");
+assert.ok(!JSON.stringify(devinClamped).includes("[image omitted"), "no omission notice expected on devin pair");
+
 console.log("provider-image-budget verification: ok");

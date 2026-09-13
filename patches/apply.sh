@@ -72,6 +72,7 @@ PATCHES=(
 	"0043-omp-interrupt-prune-symmetry.patch:${AGENT}"
 	"0044-omp-image-budget-wire-api-family.patch:${NM}"
 	"0052-omp-snapcompact-model-billing-commandcode-budget.patch:${NM}"
+	"0057-omp-devin-image-budget.patch:${NM}"
 	"0045-omp-snapcompact-frame-reprice.patch:${AGENT}"
 	"0046-omp-supersede-warm-prefix-guard.patch:${AGENT}"
 	"0048-omp-advisor-quota-rotation-bound.patch:${AGENT}"
@@ -205,6 +206,22 @@ if [[ -n "${OMP_PATCH_VERSION+x}" ]]; then
 		_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0019 omit:0042 omit:0051
 		# 0047 同 18.1.10/18.1.14：a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
 		PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
+		# 0055 僅 18.1.18：devin.ts 的 auth identity 在 18.0.9 仍是 windsurf
+		# （DEVIN_SESSION_TOKEN_PREFIX 行 63），18.1.10+ 才是 devinCliMetadata；
+		# 本補丁的 a 側以 18.1.18 樹為準，舊版本鏈不含它。
+		PATCHES+=("0055-omp-devin-auth-cache-turn-timing.patch:${AI}")
+		# 0056 同 0055 的理由：a 側以 18.1.18 的 devinCliMetadata 為準，舊版本鏈
+		# 不含它。改的是 ${NM}/pi-catalog/src/wire/devin.ts（官方 CLI 身分 tuple 與
+		# per-process sessionId／遞增 requestId），與 0055 的 pi-ai 路徑互不相交。
+		PATCHES+=("0056-omp-devin-metadata-alignment.patch:${NM}")
+		# 0058 同 0055/0056：a 側是 0055 套用後的 devin.ts 形態（18.1.18 鏈尾），
+		# 修 thinking 簽名丟失——服務端把 deltaSignature 放在 deltaThinking 為空的
+		# 獨立末尾幀，原碼只在 deltaThinking 分支內讀取 → 回放歷史無簽名 →
+		# 服務端不認 → 每輪全量 prefill。捕獲獨立簽名幀 + 回放 signatureType=sealed。
+		PATCHES+=("0058-omp-devin-thinking-signature-replay.patch:${AI}")
+		# 0059 僅 18.1.18：支援 CLINEPASS_API_BASE_URL / CLINE_PASS_BASE_URL 環境變數
+		# 覆寫官方端點，以便將原生 cline-pass 重定向至本地代理（如 cpagw-gateway 或 cline-pass-switcher）。
+		PATCHES+=("0059-omp-clinepass-base-url-env.patch:${NM}")
 		;;
 	*)
 		echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION}' unsupported (known: 18.0.9, 18.0.11, 18.1.2, 18.1.5, 18.1.10, 18.1.14, 18.1.18)" >&2
@@ -494,9 +511,27 @@ if [[ "$MODE" == "apply" ]]; then
 	bun "${HERE}/verify-provider-image-budget.ts"
 	bun "${HERE}/verify-snapcompact-model-billing.ts"
 	OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT="$SNAP" bash "${HERE}/verify-spec-contracts.sh"
+	# 0055 僅在 18.1.18 計畫；base 鏈的 devin.ts 沒有 devinAuthCache，跳過而非誤紅。
+	if grep -q 'devinAuthCache' "${AI}/src/providers/devin.ts" 2>/dev/null; then
+		bun "${HERE}/verify-devin-auth-cache.ts"
+	else
+		echo "verify-devin-auth-cache: skipped (0055 not in this plan)"
+	fi
 	bun "${HERE}/verify-hindsight-recall-snapshot.ts"
 	OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" bun "${HERE}/verify-interrupt-prune-symmetry.ts"
+	# 0056 同 0055：只在 18.1.18 計畫，且以 pi-catalog 的 devinCliMetadata 為前提。
+	if grep -q 'devinSessionId' "${NM}/pi-catalog/src/wire/devin.ts" 2>/dev/null; then
+		OMP_PATCH_VERIFY_CATALOG_ROOT="${NM}/pi-catalog" bun "${HERE}/verify-devin-metadata.ts"
+	else
+		echo "verify-devin-metadata: skipped (0056 not in this plan)"
+	fi
 	OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" OMP_PATCH_VERIFY_CORE_ROOT="$CORE" bun "${HERE}/verify-supersede-warm-prefix-guard.ts"
+	# 0058 同 0055/0056：只在 18.1.18 計畫，且以 0055 套用後的 devin.ts 為前提。
+	if grep -q 'lastThinkingBlock' "${AI}/src/providers/devin.ts" 2>/dev/null; then
+		bun "${HERE}/verify-devin-thinking-signature.ts"
+	else
+		echo "verify-devin-thinking-signature: skipped (0058 not in this plan)"
+	fi
 	bun "${HERE}/verify-resume-cache-breakpoint.ts"
 fi
 if [[ "$MODE" != "check" ]]; then

@@ -9,10 +9,10 @@
 | 項目 | 值 |
 |---|---|
 | 當前部署 | `OMP_PATCH_VERSION=18.1.18` |
-| APPLIED | **26 行**（25 補丁 ＋ `bin/omp -> src/cli.ts` 連結）／0 CONFLICT／0 PENDING |
-| base 計畫 | 未設 `OMP_PATCH_VERSION`（目標 18.0.9）；`PATCHES` 陣列 **27 項** |
+| APPLIED | **29 行**（28 補丁 ＋ `bin/omp -> src/cli.ts` 連結）／0 CONFLICT／0 PENDING |
+| base 計畫 | 未設 `OMP_PATCH_VERSION`（目標 18.0.9）；`PATCHES` 陣列 **28 項** |
 | 最近遷移 | 18.1.14 → 18.1.18（2026-09-12），見 §5 |
-| 回歸套件 | **9 道閘門**，見 §6.1 |
+| 回歸套件 | **11 道閘門**，見 §6.1 |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -29,12 +29,16 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 | 口徑 | 內容 | 層數 |
 |---|---|---|
-| `apply.sh` 的 `PATCHES` 陣列（base 計畫 = 未設 `OMP_PATCH_VERSION` = 18.0.9 鏈） | 0033、0004、0034、0037、0010、0035、0019、0014、0036、0017、0025、0026-core、0030、0051、0031、0032、0038、0041、0042、0043、0044、0052、0045、0046、0048、0050、0054 | **27** |
-| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.18`） | base 27 條 −`omit:0019` −`omit:0042` −`omit:0051` +鏈尾 0047 | **25** |
-| 18.1.14 計畫 | base 27 條 −`omit:0019` −`omit:0042` +鏈尾 0047 | **26** |
+| `apply.sh` 的 `PATCHES` 陣列（base 計畫 = 未設 `OMP_PATCH_VERSION` = 18.0.9 鏈） | 0033、0004、0034、0037、0010、0035、0019、0014、0036、0017、0025、0026-core、0030、0051、0031、0032、0038、0041、0042、0043、0044、0052、0057、0045、0046、0048、0050、0054 | **28** |
+| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.18`） | base 28 條 −`omit:0019` −`omit:0042` −`omit:0051` +鏈尾 0047、0055、0056、0058、0059 | **30** |
+| 18.1.14 計畫 | base 28 條 −`omit:0019` −`omit:0042` +鏈尾 0047 | **27** |
 | 18.1.10 計畫 | 同上（候選集合不同） | 25 |
 
 `0042` 只存在於 base 計畫；`0047` 只存在於 18.1.10／18.1.14／18.1.18 計畫（其 a 側是 candidate-0038 的產出形態）；`0051` 自 18.1.18 起退役（上游逐字採納）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
+
+`0055`／`0056` 只存在於 18.1.18 計畫：devin.ts 的 auth identity 在 18.0.9 仍是 windsurf（`DEVIN_SESSION_TOKEN_PREFIX`），18.1.10+ 才是 `devinCliMetadata`，兩者的 a 側皆以 18.1.18 樹為準。兩條路徑互不相交——`0055` 動 `pi-ai/src/providers/devin.ts`，`0056` 動 `pi-catalog/src/wire/devin.ts`，可各自獨立套用。
+
+`0058` 同樣只在 18.1.18 計畫：其 a 側是 0055 套用後的 `devin.ts` 形態（18.1.18 鏈尾），舊版本鏈的上下文行對不上。
 
 ### 補丁狀態判定改為兩階段（2026-09-01，隨 0041 落地）
 
@@ -513,6 +517,57 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **驗證**：`patch -p1` 正向／反向／**偏移 +5 行**三重乾淨（偏移測試的比對基準須含 pad 行，否則誤報差異）；`OMP_PATCH_VERSION=18.1.14 bash apply.sh --check` → **28 行 APPLIED（27 補丁 ＋ `bin/omp` 連結）／0 CONFLICT**；live 冒煙 `omp -p --model google-antigravity/gemini-3.8-flash "say hi"` 8.9s 正常回覆（修前必 429）；工具呼叫 `讀取 /tmp/omp-smoke.txt` **3/3 成功**復述 `SMOKE_OK_12345`（驗證 agent 模式未被 `requestType` 移除影響）。此間歇出現的 `unknown certificate verification error` 為 **sandbox 端點**（`daily-cloudcode-pa.sandbox.googleapis.com`）的既有 flake，非本補丁引入。
 - **未納入（同批）**：上游 #11693 的另一半——把無 `details` 的 429 在 `pi-ai/src/error/rate-limit.ts` 由 `QUOTA_EXHAUSTED` 重新歸類為暫時性。那治的是「誤判成 30 分鐘」的次生症狀，非本次 429 的成因；本補丁只做最小修復。副作用是：其他 provider 的真·暫時性 429 仍會被 fail-fast 擋下。
 
+### 0055 — Devin provider 對齊官方客戶端：JWT 行程內持有 + 每輪分段計時【僅 18.1.18 計畫】
+
+- **失敗簽名**：omp 的 `streamDevin` 每輪無條件先 `GetUserJwt`（串聯 RTT，實測 ~255–850ms）才 POST `GetChatMessage`；官方 chisel 客戶端啟動時建一次 `build_shared_http_client`、整份日誌**未記錄任何 `GetUserJwt` RPC**（可能由長駐行程持有認證，無法從日誌證明其 cache 實作），且 `GetChatMessage` 直接 `reuse idle connection`。兩端「首字」也不是同一事件：官方日誌顯示首個回應 frame（metadata，`delta_tokens:0`）在 latency 0.151s 就到達，真正首 token 在 13s 後；omp 的 ttft 只計 `deltaThinking`/`deltaText`/`deltaToolCalls`。
+- **修法（`${AI}`，`src/providers/devin.ts`）**：
+  - `fetchDevinAuthMetadata` 加行程級 cache：key = (apiKey, baseUrl)（JWT 是 bearer token，綁定認證而非 transport；`streamSimple` 每輪重建 transport wrapper，若 key 含 fetch identity 則每輪都是新槽、永不命中），TTL 取 JWT `exp` − 60s 安全邊界；**無 exp 的 token 永不入 cache**（無法驗證生命週期，預設重取）；不共享 inflight promise（避免跨請求 AbortSignal 串擾），改用 per-key 寫入 epoch——401 強制刷新或 invalidation 期間，較早發出但較晚回來的 auth 結果不得覆寫較新的寫入。
+  - `GetChatMessage` 收到 401/403 時作廢快取、強制重取一次後重試（上限 2 次，無風暴）。
+  - 每輪記錄 `authMs`/`headersMs`/`firstFrameMs`/`serverLatencyMs`（取自回應 frame 的 `latency` 欄位）/`ttftMs`/`durationMs`，成功與失敗路徑都寫 `logger.debug("devin: turn timing")`。
+- **已對齊、不需動**：Bun `fetch` 已內建連線重用（3 次請求共用 1 條 TCP，實測）；`swe-2` 的 `modelRouter: false` 不走 AssignModel，與官方一致；`stream.push({type:"start"})` 在 response headers 到達時即發，早於官方的首個 metadata frame。
+- **驗證**：`bun patches/verify-devin-auth-cache.ts`——九場景全 PASS：兩輪共享一次 GetUserJwt、401 觸發恰好一次重取+重試、過期 JWT 不被快取、turn timing 日誌攜帶六個分段欄位且 `serverLatencyMs` 來自 frame 的 `latency`、不同 fetch transport 共享同一 (apiKey, baseUrl) cache 槽、雙 401 後同 transport 重新 auth、無 exp 的 JWT 永不入 cache、慢速普通 auth 不得覆寫 401 強制刷新後的新 JWT、普通-普通併發時最新發出的 auth 贏得 cache 槽（epoch 守衛）。
+- **版本限定**：見 §1 口徑表。18.0.9 的 `devin.ts` auth identity 是 windsurf，本補丁 hunks 不適用；18.1.10/14 的 `devinCliMetadata` 形態相同但上下文行可能漂移，未驗證前不進那些計畫。
+
+### 0056 — Devin CLI metadata 對齊官方 chisel：版本 tuple 升 `3000.10.23` + per-process `sessionId`／遞增 `requestId`【僅 18.1.18 計畫】
+
+- **失敗簽名**（與 0055 同一個對齊缺口，互補的一半）：`pi-catalog/src/wire/devin.ts` 的 `DEVIN_CLI_METADATA` 宣告 `ideVersion`／`extensionVersion` 皆為 **`3000.6.2`**，落後本機官方 CLI **7 個版本**（`/opt/Devin/.../devin/bin/devin --version` → `devin 3000.10.23 (deb81600)`，`devin.1` 手冊頁 footer 同值）。更關鍵的是**兩個身分欄位完全缺席**：官方 chisel 每次請求帶 `Metadata.sessionId`（行程內固定）與 `Metadata.requestId`（逐呼叫遞增，wire 為 `uint64`），這是後端做**會話路由與請求去重**的鍵。omp 兩者皆無，從而在伺服器眼中每一輪都是「無身分的新客戶端」——與 0055 修掉的「每輪重付 auth RTT」是同一根源的兩種表現（一個在傳輸層、一個在 metadata 層）。
+- **修法（`${NM}`，`pi-catalog/src/wire/devin.ts`）**：
+  - `DEVIN_CLI_METADATA` 的 `ideVersion`／`extensionVersion` → **`3000.10.23`**（對齊本機官方二進位）。
+  - 模組級 `const devinSessionId = crypto.randomUUID()`：**行程內一次**，非每呼叫。用全域 `crypto` 而非 `node:crypto`，維持本檔「不引入任何 import」的既有契約（同步 model seed 走這條路徑）。
+  - 模組級 `let devinRequestId = 0`，`devinCliMetadata` 內以 `BigInt(++devinRequestId)` 發號——**由 1 起算**且逐呼叫 `+1`，`uint64` 對齊。
+  - **刻意不動** `devinDiscoveryMetadata`／`DEVIN_DISCOVERY_METADATA`：那是 `GetCliModelConfigs` 的 dev-channel 身分（`0.0.0-dev`），有自己的 tuple，官方也不帶 `sessionId`／`requestId`。
+- **刻意不做的更大對齊**：官方亦送 `deviceFingerprint`、`planName`、`teamId`、`extensionPath`、`triggerId`、`impersonateTier`，但這些需要 omp 沒有（或不該偽造）的帳號／安裝事實。本補丁只取**最可能影響伺服器端路由與去重**的兩項，其餘留給有實測證據時再談。
+- **驗證**：`bun patches/verify-devin-metadata.ts`（純行程內，無 provider／網路／DB）。除正向斷言外，**直接解 protobuf 原始位元組**確認 `Metadata` field 10（string）帶 `sessionId`、field 9（uint64）帶 `requestId`——因為 codec 的 encode/decode 共用同一份 schema，單靠 round-trip 抓不到**欄位號寫錯**。九個負向對照全部如期失敗且能區分層級：① pristine 樹 → `sessionId must be a string`；② 版本字串退回 `3000.6.2` → `ideVersion must track the released devin CLI`；③ 刪 `sessionId` → 同上層級；④ `sessionId` 改成每呼叫 `crypto.randomUUID()` → `sessionId must be minted once per process, not per call`；⑤ `requestId` 凍結（`BigInt(devinRequestId)`）→ `requestId must increment by exactly 1 per call`；⑥ 污染 `devinDiscoveryMetadata` → `must not carry sessionId`；⑦ `apiKey` 重複前綴 → `not double-prefixed`；⑧ `requestId` 非 bigint → `must be a bigint (uint64 on the wire)`；⑨ 把 `devin-proto.ts` 的 `sessionId`／`requestId` 欄位號挪到 24／8 → `Metadata field 10 must carry the per-process sessionId`。
+- **驗證腳本的根走 `OMP_PATCH_VERIFY_CATALOG_ROOT`（預設為 live 絕對路徑）**，**不用**裸 specifier：`patch` 以 rename 落地，會**打斷 bun install cache 與 global 樹之間的硬連結**（實測 patch 前兩者 inode 相同、`nlink=2`；patch 後分成兩個 inode）。pi-catalog 是本補丁棧**第一個被觸及的 package**，故裸 `@oh-my-pi/pi-catalog/...` 會解析到 cache 裡的 pristine 副本，讓驗證**對著錯的檔案**通過。`apply.sh` 顯式傳 `OMP_PATCH_VERIFY_CATALOG_ROOT="${NM}/pi-catalog"`，官方樹沙盒因此能對自己的副本重放；既有 `verify-devin-auth-cache.ts` 對 pi-ai 用絕對路徑是同一理由。
+- **端到端線上證據（實跑 provider，非腳本推論）**：以測試 transport 攔 `streamDevin` 的實際出站位元組，一次 turn 內解出兩個請求的 `Metadata`——`GetUserJwt` 的 `requestId = 1n`、`GetChatMessage` 的 `requestId = 2n`，**兩者帶同一個 `sessionId`**（如 `fe9871f3-…-e3473a69e263`），且 `ideVersion`／`extensionVersion` 皆為 `3000.10.23`、`apiKey` 帶 `devin-session-token$` 前綴。這證明兩件事是腳本層斷言給不了的：① 同一行程的多個 RPC 共享 session 身分；② 計數器跨呼叫真的前進（而非每次重建）。live 另跑 `omp -p --model devin/swe-2 'say DEVIN_OK'` → `DEVIN_OK`（25.7s，伺服器接受新 tuple）；`omp -p 'say PATCH_OK'` → 冒煙 OK。
+- **版本限定**：見 §1 口徑表。理由同 0055——a 側以 18.1.18 的 `devinCliMetadata` 形態為準，舊版本鏈不含它。與 0055 的 `pi-ai/src/providers/devin.ts` 路徑**互不相交**（本補丁只碰 `pi-catalog/src/wire/devin.ts`），兩者可獨立套用。
+
+### 0057 — Devin provider / devin-agent 圖片預算提升至 200（幀預算 80）
+
+- **失敗簽名**：`snapcompact/src/snapcompact.ts` 的 `PROVIDER_IMAGE_BUDGETS` 查表只有 anthropic、openai、google 等家族鍵，始終沒有 `devin` 與 `devin-agent`，且不屬於 `commandcode` 命名空間。`providerImageBudget("devin", "devin-agent")` 查表兩次皆 miss，落入 safe floor `DEFAULT_PROVIDER_IMAGE_BUDGET = 5`；`providerFrameBudget` 計算取 $\min(5, 80) = 5$。Devin 動態模型目錄中有 260 個支援圖片的模型（如 Claude/GPT 系列在 Devin 上的路由版本），長會話一旦發送圖片且總圖數超過 5 張，便會觸發最老圖片剔除，改寫歷史前綴並導致快取失效。
+- **修法（`${NM}`，`snapcompact/src/snapcompact.ts`）**：在 `PROVIDER_IMAGE_BUDGETS` 中補齊 `devin: 200` 與 `"devin-agent": 200`。
+- **實測**：
+  - `providerImageBudget("devin", "devin-agent")`：由 5 提升至 200；
+  - `providerFrameBudget("devin", "devin-agent")`：由 5 提升至 $\min(200, 80) = 80$；
+  - 行為層：以 6 張圖片的情境測試 `clampProviderContextImages`，修後 6 張全留，零歷史條目改寫。
+- **驗證**：併入既有 `bun patches/verify-provider-image-budget.ts`（涵蓋 provider id、wire-api 單獨查表與配對查表，以及行為層不改寫歷史斷言）。
+
+### 0058 — Devin thinking 簽名捕獲與回放：修復歷史快取 miss【僅 18.1.18 計畫】
+
+- **失敗簽名**：`pi-ai/src/providers/devin.ts` 只在 `if (msg.deltaThinking)` 分支內讀 `deltaSignature`，但服務端把 thinking 簽名放在 `deltaThinking` 為空的**獨立末尾幀**（`thinking_end` 之後才到）→ `thinkingSignature` 永遠丟失 → 回放歷史時 assistant 消息無 `signature`/`signatureType` → 服務端不認這段歷史 → 每輪全量 prefill → TTFT 10-15s。實測修復前 turn2 `cacheRead` 鎖死 8192（只命中 system prompt），修復後 9919（命中 system+歷史），TTFT 8.4s→5.3s。
+- **修法（`${AI}`，`src/providers/devin.ts`，4 處）**：
+  1. 新增 `lastThinkingBlock` 變量，`endThinkingBlock()` 關閉時記錄引用；
+  2. `deltaThinking` 分支外補獨立簽名幀：`if (msg.deltaSignature && !msg.deltaThinking)` 時掛到 `currentThinkingBlock ?? lastThinkingBlock`；
+  3. 回放時 `signatureType: signature ? "sealed" : ""`（原硬編碼 `""`）。
+- **版本限定**：a 側是 0055 套用後的 devin.ts 形態（18.1.18 鏈尾），舊版本鏈上下文對不上。
+- **驗證**：`bun patches/verify-devin-thinking-signature.ts`——場景 1 發 `deltaThinking → deltaText → deltaSignature`（簽名幀在 `endThinkingBlock` 之後，覆蓋 `lastThinkingBlock` 路徑），斷言 `thinkingSignature` 落盤；場景 2 回放帶簽名的 assistant 歷史，斷言 `chatMessagePrompts` 中 `signature` 與 `signatureType="sealed"` 都進 wire。在未修復基線上場景 1 如期失敗（`thinkingSignature: undefined`）。
+
+### 0059 — ClinePass API Base URL 環境變數覆寫【僅 18.1.18 計畫】
+
+- **目標**：`pi-catalog/src/wire/cline-pass.ts` 裡的 `CLINEPASS_API_BASE_URL` 是寫死常數 `"https://api.cline.bot/api/v1"`，導致 omp 原生 `cline-pass` 無法重新導向至本地代理（如 `cpagw-gateway` 或 `cline-pass-switcher`）來釘死底層算力供應商。
+- **修法（`${NM}`，`pi-catalog/src/wire/cline-pass.ts`）**：改為 `process.env.CLINEPASS_API_BASE_URL?.trim() || process.env.CLINE_PASS_BASE_URL?.trim() || "https://api.cline.bot/api/v1"`。
+- **驗證**：無環境變數時保持預設官方端點；配置 `CLINEPASS_API_BASE_URL="http://127.0.0.1:3123/v1"` 後立即覆寫生效。
+
 ## 3. 已撤下的補丁（2026-08-25 移除）
 
 - **0009 pi-tui orca→iTerm2 图片协议**：把 `imageProtocol` 从 `null` 改成 `Iterm2` 后，omp 相信终端会画图并为 `isImageLine()` 判定的行预留高度；Orca 的 xterm.js 实际把 IIP 序列丢掉，留下空行 → composer/分隔线错位残留。已 `patch -R` 撤回并从 `apply.sh` 移除；`app.asar` 同时回滚到 `app.asar.orig-image-addon`。图片这条路要重开必须先证明 addon 在 renderer 里活着（探针见 `~/orca/projects/orca-update-patch/orca-image-addon-asar-patch.py` 的 `DEBUG_PROBE`）
@@ -653,31 +708,34 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - `verify-session-history-preview.ts` 兩處脆弱 fixture pin：① 斷言預覽首屏含固定句 `骂得太对了`——該句在真實 session 檔裡仍存在（`grep -c` = 9），但首屏位置隨檔案續寫／上游 selector 改動而移動。改為**溯源斷言**：取渲染出的第一條 assistant 正文行，反查它必須出現在該 `.jsonl` 原文中（契約＝「渲染的是真實結論文本而非佔位」，比 pin 一句話更強且不脆弱）。② 滾輪三格後斷言畫面出現 `User`／固定句，同樣依賴那一輪剛好落在第四屏。改為斷言「視口內容確實變了且仍在預覽模式」。
 - **孤兒 verify 腳本口徑（非回歸）**：`verify-model-switch-tool-description.ts` 對應 0019，自 18.1.10 起退役，在含 `omit:0019` 的計畫上必然失敗＝預期；`verify-snapcompact-frame-budget.ts` / `verify-snapcompact-frame-reprice.ts` 需要 `<session.jsonl>` 實參（前者傳任意真實會話即 PASS，實測 2.15 MB ≤ 3.0 MB；後者還需 `OMP_PATCH_VERIFY_REPRICE_BOUNDARY` 指向含該 compaction id 的原始 fixture，換會話必報 `boundary not found`）；`verify-date-cwd-reminder.ts` 在含 0047 的計畫上必然 `SyntaxError`＝預期（見 18.1.14 章節）。本輪實跑通過的孤兒腳本：date-cwd-anchor-stability、goal-tool-resident、ollama-cloud-usage、session-history-preview、idle-ephemeral-reservation、session-cache-keepalive、auto-continue、snapcompact-frame-budget。
 - **`.18.1.18-candidates/`（9 件）**：新生成 4 件（`0010`、`0035`、`0033`、`0043`）；沿用 5 件（`0004`、`0014`、`0017`、`0030`、`0038`，與 `.18.1.14-candidates/` 對應檔 `cmp` 逐字節相同，為版本計畫完整性另存）。
-- **`apply.sh`**：新增 `18.1.18` 分支 `_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0019 omit:0042 omit:0051` + 鏈尾 `PATCHES+=(0047)`；`*)` 的 known 清單同步加 18.1.18。
-- **落地驗收**：`bun add -g @oh-my-pi/pi-coding-agent@18.1.18` → repo `patches/` rsync 到 `~/.omp/patches/` 零漂移（`diff -r` 無輸出）→ `OMP_PATCH_VERSION=18.1.18 apply.sh`：25 層全 APPLIED、`bin/omp` 重指 `src/cli.ts`、`--check` **26 行 APPLIED／0 CONFLICT／0 PENDING**。回歸套件 9 道全 PASS（antigravity envelope／prefix-cache compaction／provider-image-budget／snapcompact model billing／spec-contracts／hindsight recall+MM／interrupt prune symmetry／supersede warm-prefix guard）＋ `smoke: ok`。
-- **官方字節驗收（2026-09-12 補做，沿用 18.1.14 的標準；P1／P3 修完後已整套重跑一遍，以下數字是修後結果）**——上一輪只用 live 樹複製做 sandbox，只能證明「在這棵樹上能套」，補齊如下五道：
+- **`apply.sh`**：新增 `18.1.18` 分支 `_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0019 omit:0042 omit:0051` + 鏈尾 `PATCHES+=(0047 0055 0056)`；`*)` 的 known 清單同步加 18.1.18。`0055`（`${AI}`）與 `0056`（`${NM}`）都只在 18.1.18 計畫，理由見 §1。
+- **落地驗收**：`bun add -g @oh-my-pi/pi-coding-agent@18.1.18` → repo `patches/` rsync 到 `~/.omp/patches/` 零漂移（`diff -r` 無輸出）→ `OMP_PATCH_VERSION=18.1.18 apply.sh`：25 層全 APPLIED、`bin/omp` 重指 `src/cli.ts`、`--check` **26 行 APPLIED／0 CONFLICT／0 PENDING**。回歸套件 9 道全 PASS（antigravity envelope／prefix-cache compaction／provider-image-budget／snapcompact model billing／spec-contracts／hindsight recall+MM／interrupt prune symmetry／supersede warm-prefix guard）＋ `smoke: ok`。**（2026-09-12 追加 0055／0056 後重跑：`--check` 為 28 行 APPLIED＝27 補丁＋bin 連結，回歸套件 11 道，見下節。）**
+- **官方字節驗收（2026-09-12 補做，沿用 18.1.14 的標準；P1／P3 修完後已整套重跑一遍；0055／0056 落地後再整套重跑一次，以下數字皆為最後一次結果）**——上一輪只用 live 樹複製做 sandbox，只能證明「在這棵樹上能套」，補齊如下五道：
   1. **registry integrity 對帳**：官方 18.1.18 六包（pi-coding-agent／pi-ai／pi-agent-core／snapcompact／pi-tui／pi-catalog）tarball 的 `dist.integrity` sha512 **6/6 OK**（本地重算 base64 與 registry 值逐字相同）。
-  2. **live ↔ 官方差異集精確對帳**：`src` ＋ `dist/types` 全量 `diff -rq`，live 與官方的差異文件集 = **34 個**，與 18.1.18 計畫所有補丁 `--- a/` 宣告的目標集 **34 個完全相等**（`comm` 兩側皆空）。即 **零裸改**（沒有補丁棧外的手工改動）＋ **零遺漏**（每條補丁都真落地）。
-  3. **官方樹重放 + 冪等 + 完整回退**：從 tarball 重建 pristine sandbox（`HOME` 改指假家目錄讓 `apply.sh` 原樣跑、`OMP_PATCH_OFFLINE_VERIFY=1`）：apply → **25 層全 APPLIED**；再跑一次 → **26 行全 SKIP**（冪等）；`--revert` → **25 層全 REVERTED**，之後六包 `src` 對官方 pristine **2403 個檔案零差異**、無 `.rej`／`.orig` 殘留。
-  4. **live 樹 = 官方 18.1.18 ＋ 本計畫**：官方樹重放後的 sandbox 與 live `node_modules` 六包 `src` **逐字節一致**。
+  2. **live ↔ 官方差異集精確對帳**：`src` ＋ `dist/types` 全量 `diff -rq`（pinned-version 的 bun cache 副本即官方 pristine），live 與官方的差異文件集 = **36 個**，與 18.1.18 計畫所有補丁 `--- a/` 宣告的目標集 **36 個完全相等**（程式化比對 `comm` 兩側皆空）。即 **零裸改**（沒有補丁棧外的手工改動）＋ **零遺漏**（每條補丁都真落地）。較前一輪的 34 是因 0055／0056 新增 `pi-ai/src/providers/devin.ts` 與 `pi-catalog/src/wire/devin.ts`。
+  3. **官方樹重放 + 冪等 + 完整回退**：從 pinned cache 重建 pristine sandbox（`HOME` 改指假家目錄讓 `apply.sh` 原樣跑、`OMP_PATCH_OFFLINE_VERIFY=1`）：apply → **27 層全 APPLIED**；再跑一次 → **28 行全 SKIP**（冪等）；`--revert` → **27 層全 REVERTED**，之後六包 `src` 對官方 pristine **2403 個檔案零差異**、無 `.rej`／`.orig` 殘留。
+  4. **live 樹 = 官方 18.1.18 ＋ 本計畫**：官方樹重放後的 sandbox 與 live `node_modules` 六包 `src`／`dist/types` **逐字節一致**（diff 零輸出）。
   5. **0033／0043 候選確為純重錨**：用候選重放與用 canonical（fuzz=1）重放得到的兩棵樹 `diff -rq` **完全一致**，證明候選只改上下文、不夾帶語義變化。
 - **升級前備份**：`~/omp-upgrade-backup-18.1.14-20260912-003231/`（`agent.db`／`models.db` 以 `.backup` API 一致快照、六套件 `src/` 打包、`bin/omp` 原 symlink 目標）。
 - **方法論沿用**：候選一律「`t_a` = pristine + 該層之前的鏈；`t_b` = `t_a` + 該層（失敗 hunk 手工錨定）；`diff` 生成；再在第三棵新鮮樹 `t_c` 上重放確認零失敗」。本輪額外要求候選自身 `--fuzz=0` 通過，故連 0033／0043 這兩條只差偏移的 canonical 也另存了候選。
 
 ## 6. 驗證矩陣
 
-### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 9 道）
+### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 11 道）
 
 | 閘門 | 職責 | 所需 env |
 |---|---|---|
 | `verify-antigravity-envelope.ts` | 0014 Antigravity 請求信封確定性（session/trajectory/agent id 派生） | — |
 | `verify-prefix-cache-compaction.ts` | 0035／0047 壓縮前綴保留、identity gate、12 結構化窗口 | — |
-| `verify-provider-image-budget.ts` | 0022／0044 圖片預算條目與 wire-api 家族回退 | — |
+| `verify-provider-image-budget.ts` | 0022／0044／0057 圖片預算條目、wire-api 家族回退與 Devin 預算 | — |
 | `verify-snapcompact-model-billing.ts` | 0052 DeepSeek 計費階梯表、wrapper、命名空間回退（三閘門） | `OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT` |
 | `verify-spec-contracts.sh` | spec 自身可證偽性、補丁表示同步、repo↔ledger 零漂移 | `OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT` |
+| `verify-devin-auth-cache.ts`（條件） | 0055 JWT 行程內快取、401 重取、每輪分段計時（九場景）；`pi-ai/src/providers/devin.ts` 無 `devinAuthCache` 時跳過 | — |
 | `verify-hindsight-recall-snapshot.ts` | 0034／0021／0023 快照落盤與 MM deadline 凍結（7 個 behaviour） | — |
 | `verify-interrupt-prune-symmetry.ts` | 0043 打斷殘骸在 rebuild 與 live 兩條路徑對稱剪除 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
+| `verify-devin-metadata.ts`（條件） | 0056 `devinCliMetadata` 的 per-process `sessionId`／遞增 `requestId`（原始位元組驗 field 10／9）；`pi-catalog` 無 `devinSessionId` 時跳過 | — |
 | `verify-supersede-warm-prefix-guard.ts` | 0046 supersede 不得改寫暖前綴中段的 tool result | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_CORE_ROOT` |
+| `verify-resume-cache-breakpoint.ts` | resume 後首輪快取斷點（`session-maintenance` 側） | — |
 
 環境變數由 `apply.sh` 自動注入（其 `SNAP` / `AGENT` / `CORE` 皆由 `NM` 推導後傳給上述 `OMP_PATCH_VERIFY_*` 變數）；手動單跑時需自行指定**完整名稱**。
 

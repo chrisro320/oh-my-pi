@@ -1,0 +1,13 @@
+--- a/pi-catalog/src/wire/cline-pass.ts
++++ b/pi-catalog/src/wire/cline-pass.ts
+@@ -3,7 +3,9 @@
+  * roster discovery, login validation, and usage reporting. One constant so a
+  * host migration touches a single module.
+  */
+-export const CLINEPASS_API_BASE_URL = "https://api.cline.bot/api/v1";
++export const CLINEPASS_API_BASE_URL =
++	process.env.CLINEPASS_API_BASE_URL?.trim() ||
++	"http://127.0.0.1:3123/v1";
+ 
+ /**
+  * Client-identity headers mirroring the official Cline CLI's request layer
