@@ -10,6 +10,8 @@
 - 中途停 → `/trellis:paused-work`；收尾 → `/trellis:finish-work`
 
 ## Phase A — 清場
+> RESUME: Phase B — 合併三組（B1 0036 族重生成含 0044/0052/0057、B2 0037 族重生成含 0041、B3 反向剝離生成 0063）；第一動作：18.0.9 族沙盒重生成 0036（見下方 Phase B 節與 design.md D5）。Phase A 已全交付並提交（b4bf73f），verify-rollups 全綠、ledger 零漂移、live 32 APPLIED。
+
 
 ### Step 0 — 備份與已知良好點
 
@@ -58,8 +60,8 @@
 ### Step 6 — 收尾
 
 - [x] 6.1 spec 更新：`patch-rollup-contracts.md`（fence 修復、auto-route 契約、cache 污染實證、read.description 標 Historical）、`extension-runtime-contracts.md`（anchor gate 實際行為）— verified
-- [ ] 6.2 commit Phase A 全部變更（含 review 修復）
-- [ ] 6.3 `/trellis:finish-work`（Phase B 另開或續任務由用戶定）
+- [x] 6.2 commit Phase A 全部變更（含 review 修復）— `20e5fe9` / `cafced5` / `b4bf73f` — verified
+- [x] 6.3 `/trellis:paused-work` 收尾（用戶決：收 Phase A，Phase B 保留在本任務續做）— RESUME anchor 已置頂
 
 ## Phase B — 合併（Phase A 驗收後另議，預備方案）
 
