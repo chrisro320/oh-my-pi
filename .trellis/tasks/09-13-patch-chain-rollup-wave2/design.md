@@ -9,11 +9,11 @@
 
 ## 決策樹
 
-### D1：unset `OMP_PATCH_VERSION` → fail-closed
+### D1：unset `OMP_PATCH_VERSION` → auto-route（review 修正）
 
-- **選擇**：未設版本即 exit 2，錯誤訊息列支援版本。
-- **為什麼**：base 陣列的 a 側是多版本混合形態（0045/0046 是 18.1.x 形態、canonical 0010/0035 等是 18.0.9 形態），對任何單一版本都不是可部署計畫。留著「unset=18.0.9 鏈」正是本次混淆源。`_omp_version_candidates` 的版本閘本來就會在錯版機器上 fail-closed，行為一致。
-- **否決項**：unset 預設最新版——隱式選計畫違背本倉庫 fail-closed 慣例；`--verify-rollups` 在版本選擇前 exec，不受影響。
+- **選擇**：未設版本時讀 installed `pi-coding-agent` 版本精確路由到存活計畫（18.1.14/18.1.18）；安裝版不符或顯式值跨版本一律 exit 2。
+- **為什麼**：比原設計的 unset→exit 2 更好——保留「`bun add -g` 後裸跑 `apply.sh` 一鍵重套」的文件化路徑，且讓 verify-rollups 的 gate #11 子控制器在 18.1.14 沙盒內自動選對計畫。精確匹配＋非就近 fallback，不違 fail-closed。
+- **否決項**：unset→exit 2（原案）——會破壞一鍵重套路徑，且強迫沙盒子控制器顯式傳版本。
 
 ### D2：死物一律退役留檔，不純刪
 
@@ -21,12 +21,13 @@
 - **為什麼**：`patch-rollup-contracts.md`——進過 active chain 的補丁必須留 bytes＋pinned hash。候選檔是計畫成員同適用。verify 腳本雖非補丁，留檔成本為零且保留復活可能。
 - **0059 特例**：已 staged 刪除，改為 `git mv` 進 .retired（它進過 18.1.18 計畫）。
 
-### D3：verify-rollups 修復而非退役
+### D3：verify-rollups 修復而非退役（review 後定稿架構）
 
-- **選擇**：更新 `entries` 期望值、absence 清單、retired manifest、OLDCHAIN 為「18.0.9 可套的當前語義集」。
-- **為什麼**：腳本已腐壞（`entries==18` 對 28 條必死、OLDCHAIN 缺 0043 以降全部）。它的族等價＋全鏈等價仍是 rollup 正確性的唯一機檢，Phase B 還要用。
-- **OLDCHAIN 口徑**：18.0.9 是**生成/驗證基線**（構建工件），不是部署目標。0045/0046/0063 在 18.0.9 本來套不上，兩側同時不含它們，等價檢查仍成立。
-- **否決項**：基線搬 18.1.14——族舊鏈（0002/0003/0013/0015/0020/0022 等）是 18.0.9 形態，在 18.1.14 多半套不上，等於重寫整套驗證機制。
+- **選擇**：雙基線——族檢查留 18.0.9 pinned tarball（退役族成員只在那裡成鏈）；全鏈 oracle／peel／gate #11/#12 移 18.1.14 pinned tarball（最舊存活版）。
+- **單一 resolver**：`apply.sh --print-plan` 是唯一的計畫解析器（read-only、跳過 installed 閘、仍查候選檔存在性）。verifier 禁止自行解析 `_omp_version_candidates`——第二份手維清單不是 oracle（review HIGH-2）。
+- **EXPECTED_PLAN 與 OLDCHAIN 分離**（review HIGH-1）：`EXPECTED_PLAN`/`EXPECTED_PLAN_18` 釘住兩個存活計畫的解析結果（計畫漂移閘）；`OLDCHAIN` 是等價 oracle 的 before 側（前一表示鏈）。今天兩者相同；Phase B 合併落地時 EXPECTED_PLAN 更新為合併後計畫、OLDCHAIN 保持合併前，樹 diff 證明合併只改表示。
+- **gate #12 fail-closed 矩陣**：6 種壞輸入（空值/不支援/跨版本/installed 不可讀×2/候選檔缺失）全部 exit 2＋套件樹零變動。
+- **absence 閘**：退役編號檢查改為對兩個 resolved plan 判定（含候選置換與鏈尾追加），不再掃原始文本。
 
 ### D4：沙盒只用官方 tarball＋SHA-256
 

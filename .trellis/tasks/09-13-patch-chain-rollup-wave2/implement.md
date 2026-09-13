@@ -50,15 +50,15 @@
 
 - [x] 5.1 `rsync -a --delete patches/ ~/.omp/patches/` → `diff -rq` 零輸出 — verified（dry-run 先確認刪除項全為退役檔）
 - [x] 5.2 沙盒改用官方 tarball 直解（/tmp/official-tgz/，SHA-256 已 pin 進 verify-rollups TGZSHA2）；未另建腳本——verify-rollups 的 fetch_tgzs 即為可重用機制 — verified
-- [x] 5.3 18.1.14 沙盒：由 verify-rollups 全鏈段覆蓋（pinned snapshot == resolved plan 逐字節＋peel 27 層回 pristine＋gate #11 全 PENDING）— verified
-- [x] 5.4 18.1.18 沙盒：官方 tarball 建樹＋子控制器 apply → **32 行全 APPLIED**（31 補丁＋bin），回歸套件跑到 spec-contracts 才停（報 apply.sh DRIFTED——ledger 未同步的預期失敗，rsync 後即消）— verified
+- [x] 5.3 18.1.14 沙盒完整循環：官方 tarball 建樹＋子控制器 apply → **27 APPLIED** → 再跑 **28 SKIP**（27+bin）→ `--revert` 全 REVERTED+bin 回 cli.js → 五包 src 對 pristine **零差異**、無 .orig/.rej — verified
+- [x] 5.4 18.1.18 沙盒完整循環：同法 → **32 APPLIED** → **32 SKIP** → `--revert` → 五包 src 對 pristine **零差異**；另證沙盒樹與 live 五包 src 逐字節一致（spec-contracts 在沙盒內報 apply.sh DRIFTED 為預期——sed 改向的副本本就與 ledger 不同）— verified
 - [x] 5.5 live：ledger `apply.sh --check`（auto-route）→ **32 APPLIED / 0 CONFLICT**；沙盒樹五包 src 與 live **逐字節一致**（零漂移）— verified
-- [ ] 5.6 `trellis-check` agent 覆核 → 修 findings
+- [x] 5.6 `trellis-check` agent 覆核 → 修 findings — **6+ 條全修**：HIGH-1 EXPECTED_PLAN/OLDCHAIN 分離（計畫漂移閘 vs 等價 oracle）；HIGH-2 `apply.sh --print-plan` 單一 resolver（verifier 禁自解析）；MEDIUM-2 absence 閘改查 resolved plan；MEDIUM-3 gate #12 fail-closed 矩陣（6 壞輸入 exit 2＋零變動）；MEDIUM-4 PATCHES.md 閘門數/退役腳本/口徑更新；MEDIUM-5 spec 兩處契約衝突（anchor gate 無 conversion、read.description 標 Historical）；LOW `_example` 行刪除 — verified（`--verify-rollups` 全綠含 gate #12）
 
 ### Step 6 — 收尾
 
-- [ ] 6.1 `trellis-update-spec`（bun cache 污染實例、auto-route 口徑、雙基線理由）
-- [ ] 6.2 commit Phase A 全部變更
+- [x] 6.1 spec 更新：`patch-rollup-contracts.md`（fence 修復、auto-route 契約、cache 污染實證、read.description 標 Historical）、`extension-runtime-contracts.md`（anchor gate 實際行為）— verified
+- [ ] 6.2 commit Phase A 全部變更（含 review 修復）
 - [ ] 6.3 `/trellis:finish-work`（Phase B 另開或續任務由用戶定）
 
 ## Phase B — 合併（Phase A 驗收後另議，預備方案）

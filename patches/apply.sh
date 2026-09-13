@@ -31,10 +31,11 @@ MODE="apply"
 case "${1:-}" in
 	--revert) MODE="revert" ;;
 	--check) MODE="check" ;;
+	--print-plan) MODE="print-plan" ;;
 	--verify-rollups) MODE="verify-rollups" ;;
 	"") ;;
 	*)
-		echo "usage: $0 [--revert|--check|--verify-rollups]" >&2
+		echo "usage: $0 [--revert|--check|--print-plan|--verify-rollups]" >&2
 		exit 2
 		;;
 esac
@@ -96,11 +97,16 @@ function _omp_version_candidates {
 	local version="$1"; shift
 	local pkgjson="${NM}/pi-coding-agent/package.json"
 	local installed
+	# --print-plan is a read-only plan query: the installed-version gate exists
+	# to stop a wrong-version mutation, so it does not apply here. Candidate
+	# existence is still checked — that is a repo completeness property.
+	if [[ "$MODE" != "print-plan" ]]; then
 	installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
 	[[ "$installed" == "$version" ]] || {
 		echo "OMP_PATCH_VERSION=$version requires pi-coding-agent $version, found: ${installed:-<unreadable>}" >&2
 		exit 2
 	}
+	fi
 	local entry name root target mode candidate
 	declare -a version_patches=()
 	for entry in "${PATCHES[@]}"; do
@@ -215,6 +221,21 @@ case "$OMP_PATCH_VERSION" in
 	exit 2
 	;;
 esac
+
+if [[ "$MODE" == "print-plan" ]]; then
+	# Read-only plan dump for verifiers: one "file:ROOT" line per resolved
+	# entry, in application order. This is the single resolver — anything that
+	# needs the plan must read it from here, never re-implement the logic.
+	for entry in "${PATCHES[@]}"; do
+		name="${entry%%:*}"; root="${entry##*:}"
+		case "$root" in
+			"$AGENT") rn=AGENT ;; "$CORE") rn=CORE ;; "$AI") rn=AI ;;
+			"$SNAP") rn=SNAP ;; "$NM") rn=NM ;; *) rn="$root" ;;
+		esac
+		printf '%s:%s\n' "$name" "$rn"
+	done
+	exit 0
+fi
 
 # Patch state is a property of the whole stack, not of one entry in isolation.
 # A later entry may rewrite lines an earlier one introduced (0041 over 0037);

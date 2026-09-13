@@ -342,7 +342,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **目的**：把同一功能的初版、補漏與 supersede 歷史從 active chain 收斂為單一最終補丁；30 個登錄項先降為 15 個，新增獨立 0038、0041、0042 後為 18 個；`apply.sh` 不再含 `superseded_by_*` 控制流。
 - **生成邊界**：每族都從官方 npm 18.0.9 tarball 建立獨立 `mktemp` sandbox，只套該族舊鏈後生成；禁止從完整 runtime 對 pristine 的整檔 diff，避免 `session-maintenance.ts` 等共用檔案把跨族改動烘入。
 - **歷史保存**：20 個舊補丁內容與 SHA-256 不變，保存於 `.retired/08-30-family-rollups/`；下方既有故障分析仍是設計與除錯依據，但所述舊檔不再位於 active chain。
-- **回歸**：`apply.sh --verify-rollups` 以 pinned tarball SHA-256 驗證五族 old/new 逐字節等價、反向回 pristine、冪等，以及加入獨立 0038、0041、0042 後的舊有效全鏈 30 項與 active chain 18 項在四個套件上的完整逐字節等價；`--selftest` 刻意跳過 0033、讓 new-final 保持 pristine，證明比較器會拒絕「沒有 rollup」的假通過。
+- **回歸**：`apply.sh --verify-rollups` 以 pinned tarball SHA-256 驗證五族 old/new 逐字節等價、反向回 pristine、冪等；全鏈 oracle 在 18.1.14 基線上比較 `OLDCHAIN`（釘死的前一表示鏈）與 controller 經 `--print-plan` 解析的現行計畫，兩樹必須逐字節相等；`EXPECTED_PLAN` 獨立釘住計畫漂移。`--selftest` 刻意跳過 0033、讓 new-final 保持 pristine，證明比較器會拒絕「沒有 rollup」的假通過。
 
 ### 0038 — date/cwd reminder 改為 provider-only 尾端
 
@@ -588,7 +588,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **0019／0042**：上游 18.1.10 已移除 `inspect_image` 與整套 read description refresh 機制，兩個補丁修的漂移源不存在；在所有存活計畫中本就被 `omit:`，陣列條目移除。
 - **0059**：ClinePass env 覆寫，進過 18.1.18 計畫（commit `cc6596c`）後由用戶撤回；按契約保留 bytes＋pinned hash。
 - **死候選目錄**：`.18.0.11-candidates/`、`.18.1.2-candidates/`、`.18.1.5-candidates/`、`.18.1.10-candidates/`（11 件），對應版本計畫全部刪除。
-- **死閘門腳本**：`verify-model-switch-tool-description.ts`（0019 的閘門）、`verify-date-cwd-reminder.ts`（0038 舊機制 acceptance；所有存活計畫含 0047，對其 final tree 跑必然 SyntaxError）。
+- **死閘門腳本（已退役至 `.retired/09-13-dead-plans/`）**：`verify-model-switch-tool-description.ts`（0019 的閘門）、`verify-date-cwd-reminder.ts`（0038 舊機制 acceptance；所有存活計畫含 0047，對其 final tree 跑必然 SyntaxError）。
 - **編號 0061**：空置不重用（同 0040 慣例）。
 - **既有斷點記錄**：`PATCHES` 陣列中的 0045／0046 在 18.0.9 pristine 上本來就套不上（a 側 `projectedForReduction`／條件式 `suffixTokenLimit` 首見於上游 18.1.5）——「base 計畫＝18.0.9 鏈」自 0045/0046 進陣列起即為名義口徑，本次清場正式廢除該口徑；verify-rollups 的全鏈 oracle 因此改錨 18.1.14（族檢查仍留 18.0.9，退役族成員只在那裡成鏈）。
 
@@ -700,7 +700,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **`apply.sh`**：新增 `18.1.14` 分支 `_omp_version_candidates "18.1.14" 0004 0010 0014 0017 0030 0035 0038 omit:0019 omit:0042` + 鏈尾 `PATCHES+=(0047)`（與 18.1.10 分支同構）；`*)` 的 known 清單同步加 18.1.14。
 - **落地驗收**：`bun add -g @oh-my-pi/pi-coding-agent@18.1.14`（四包同步到 18.1.14）→ repo `patches/` rsync 到 `~/.omp/patches/` 零漂移 → `OMP_PATCH_VERSION=18.1.14 apply.sh`：**plan 22 步 live mirror 全乾淨、22 層全 APPLIED、`bin/omp` 重新指回 `src/cli.ts`**（`bun add` 會把它重置回 `dist/cli.js`）。回歸套件全 PASS：antigravity envelope / prefix-cache compaction / provider-image-budget / hindsight recall+MM / interrupt prune symmetry / supersede warm-prefix guard / smoke。另補跑孤兒腳本：date-cwd anchor stability（GATE1+GATE2 PASS）、goal-tool-resident、ollama-cloud-usage 均 PASS。live 冒煙 `omp -p` 正常出字、`omp models` 正常。
 - **順帶修復 `verify-prefix-cache-compaction.ts`**：它仍 import 0047 已刪除的 `withDateCwdReminder`，套件一啟動就 `SyntaxError` 中止（0047 落地時只跑了 `--check`，沒跑全套，缺陷潛伏至今）。改為 import `applyDateCwdAnchors` 並在檔內定義等價 shim（複製 `DateCwdReminderInjector.transform` 的無 session-id 分支語義），PASS。
-- **`verify-date-cwd-reminder.ts` 的適用口徑（保留，不刪）**：它是 0038 provider-tail 形態的**手動／隔離 acceptance**（非 chain gate，不在 `apply.sh` 套件內），仍匯入 0047 已刪除的 `appendDateCwdReminder`／`withDateCwdReminder`。對含 0047 的計畫（18.1.10／18.1.14）final tree 跑它必然 `SyntaxError`，**那是預期而非回歸**；那兩個計畫的對應 acceptance 是 `verify-date-cwd-anchor-stability.ts`。`.trellis/spec/backend/extension-runtime-contracts.md` §6 已同步標註兩條口徑。
+- **`verify-date-cwd-reminder.ts` 已退役至 `.retired/09-13-dead-plans/`（2026-09-13）**：它是 0038 provider-tail 形態的手動／隔離 acceptance（非 chain gate），匯入 0047 已刪除的 `appendDateCwdReminder`／`withDateCwdReminder`，對含 0047 的計畫必然 `SyntaxError`；存活計畫的對應 acceptance 是 `verify-date-cwd-anchor-stability.ts`。`.trellis/spec/backend/extension-runtime-contracts.md` §6 已同步。
 - **升級前備份**：`/tmp/omp-1810-backup-0908-1140.tgz`（四包 `src/` + `package.json`，18.1.10 已套鏈狀態）。
 - **注意**：`bun update -g` 對本專案無效——`~/.bun/install/global/package.json` 把 `@oh-my-pi/pi-coding-agent` pin 成確切版本，必須 `bun add -g <pkg>@<version>`。該次無效 update 仍會把 `bin/omp` 重置回 `dist/cli.js`（補丁本身未受影響）。
 
@@ -731,7 +731,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - `verify-prefix-cache-compaction.ts:233` 斷言 `preparation.previousRetainedMessages`，該字段已隨上游吸收退役。改為斷言 `messagesToSummarize[0]` 就是那條 `PREVIOUSLY_RETAINED` 消息——被測契約（保留尾不得從 history target 消失）完全不變，只是換成上游現在承載它的位置。
   - `verify-session-history-preview.ts` 兩處脆弱 fixture pin：① 斷言預覽首屏含固定句 `骂得太对了`——該句在真實 session 檔裡仍存在（`grep -c` = 9），但首屏位置隨檔案續寫／上游 selector 改動而移動。改為**溯源斷言**：取渲染出的第一條 assistant 正文行，反查它必須出現在該 `.jsonl` 原文中（契約＝「渲染的是真實結論文本而非佔位」，比 pin 一句話更強且不脆弱）。② 滾輪三格後斷言畫面出現 `User`／固定句，同樣依賴那一輪剛好落在第四屏。改為斷言「視口內容確實變了且仍在預覽模式」。
 
-- **孤兒 verify 腳本口徑（非回歸）**：`verify-model-switch-tool-description.ts` 對應 0019，自 18.1.10 起退役，在含 `omit:0019` 的計畫上必然失敗＝預期；`verify-snapcompact-frame-budget.ts` / `verify-snapcompact-frame-reprice.ts` 需要 `<session.jsonl>` 實參（前者傳任意真實會話即 PASS，實測 2.15 MB ≤ 3.0 MB；後者還需 `OMP_PATCH_VERIFY_REPRICE_BOUNDARY` 指向含該 compaction id 的原始 fixture，換會話必報 `boundary not found`）；`verify-date-cwd-reminder.ts` 在含 0047 的計畫上必然 `SyntaxError`＝預期（見 18.1.14 章節）。本輪實跑通過的孤兒腳本：date-cwd-anchor-stability、goal-tool-resident、ollama-cloud-usage、session-history-preview、idle-ephemeral-reservation、session-cache-keepalive、auto-continue、snapcompact-frame-budget。
+- **孤兒 verify 腳本口徑（非回歸）**：`verify-snapcompact-frame-budget.ts` / `verify-snapcompact-frame-reprice.ts` 需要 `<session.jsonl>` 實參（前者傳任意真實會話即 PASS，實測 2.15 MB ≤ 3.0 MB；後者還需 `OMP_PATCH_VERIFY_REPRICE_BOUNDARY` 指向含該 compaction id 的原始 fixture，換會話必報 `boundary not found`）；`verify-date-cwd-reminder.ts` 與 `verify-model-switch-tool-description.ts` 已隨死計畫清場退役至 `.retired/09-13-dead-plans/`。本輪實跑通過的孤兒腳本：date-cwd-anchor-stability、goal-tool-resident、ollama-cloud-usage、session-history-preview、idle-ephemeral-reservation、session-cache-keepalive、auto-continue、snapcompact-frame-budget。
 - **`.18.1.18-candidates/`（9 件）**：新生成 4 件（`0010`、`0035`、`0033`、`0043`）；沿用 5 件（`0004`、`0014`、`0017`、`0030`、`0038`，與 `.18.1.14-candidates/` 對應檔 `cmp` 逐字節相同，為版本計畫完整性另存）。
 - **`apply.sh`**：新增 `18.1.18` 分支 `_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0019 omit:0042 omit:0051` + 鏈尾 `PATCHES+=(0047 0055 0056)`；`*)` 的 known 清單同步加 18.1.18。`0055`（`${AI}`）與 `0056`（`${NM}`）都只在 18.1.18 計畫，理由見 §1。
 - **落地驗收**：`bun add -g @oh-my-pi/pi-coding-agent@18.1.18` → repo `patches/` rsync 到 `~/.omp/patches/` 零漂移（`diff -r` 無輸出）→ `OMP_PATCH_VERSION=18.1.18 apply.sh`：25 層全 APPLIED、`bin/omp` 重指 `src/cli.ts`、`--check` **26 行 APPLIED／0 CONFLICT／0 PENDING**。回歸套件 9 道全 PASS（antigravity envelope／prefix-cache compaction／provider-image-budget／snapcompact model billing／spec-contracts／hindsight recall+MM／interrupt prune symmetry／supersede warm-prefix guard）＋ `smoke: ok`。**（2026-09-12 追加 0055／0056 後重跑：`--check` 為 28 行 APPLIED＝27 補丁＋bin 連結，回歸套件 11 道，見下節。）**
@@ -749,9 +749,9 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **動機**：`PATCHES` 陣列長期頂著「base 計畫＝18.0.9 鏈」的名義口徑，但 0045/0046 的 a 側（`projectedForReduction`、條件式 `suffixTokenLimit`）首見於上游 18.1.5——該鏈自兩補丁進陣列起就在 18.0.9 上建不起來，口徑本身即過時資訊。同期 `verify-patch-family-rollups.sh` 的 `entries==18`、全鏈段、gate #11 全部失效（既有斷點，非本批造成）。
 - **版本計畫收斂**：刪除 18.0.9／18.0.11／18.1.2／18.1.5／18.1.10 五個死分支與對應候選目錄；存活計畫只剩 18.1.14（回退）與 18.1.18（當前部署）。`PATCHES` 陣列降為純 canonical 母集（26 項，移除 0019/0042）。
 - **unset 改自動路由**：讀 installed `pi-coding-agent` 版本精確匹配存活計畫，保留「`bun add -g` 後裸跑 `apply.sh` 一鍵重套」的文件化路徑；安裝版不符或顯式值跨版本一律 exit 2。
-- **verify-rollups 雙基線**：族檢查留 18.0.9 pinned tarball（退役族成員只在那裡成鏈）；全鏈 oracle／peel／gate #11 移 18.1.14 pinned tarball（最舊存活版、實測全鏈可建）。`OLDCHAIN` 改為 18.1.14 解析計畫的釘死快照（27 項），`NEWCHAIN` 從 apply.sh 的 18.1.14 分支文本即時解析（候選置換＋鏈尾追加，無第二份手維清單）。
+- **verify-rollups 雙基線**：族檢查留 18.0.9 pinned tarball（退役族成員只在那裡成鏈）；全鏈 oracle／peel／gate #11/#12 移 18.1.14 pinned tarball（最舊存活版、實測全鏈可建）。`OLDCHAIN` 是釘死的前一表示鏈（等價 oracle 的 before 側）；`EXPECTED_PLAN`／`EXPECTED_PLAN_18` 獨立釘住兩個存活計畫的解析結果；`NEWCHAIN` 由 controller 自己的 `--print-plan` 解析（單一 resolver，無第二份手維清單）。
 - **bun cache 污染確認**：`pi-ai@18.1.14` cache 副本的 `ollama.ts` sha256 是官方 18.1.18 值、`pi-coding-agent@18.1.14` 的 `session-selector.ts` 已含 0050 產出——in-place 套用寫穿 cache（與 script:13-16 記錄的 auth-storage.ts 同型）。**任何 pristine 需求一律官方 tarball＋SHA-256 pin，禁用 bun cache**。
-- **驗收**：`--verify-rollups` 全綠（5 族＋全鏈 27==27 逐字節＋peel＋gate #10/#11）；18.1.18 官方 tarball 沙盒 apply → 32 行全 APPLIED，五包 `src` 與 live `node_modules` **逐字節一致**（零漂移）；`apply.sh --check`（auto-route）live 全 APPLIED。
+- **驗收**：`--verify-rollups` 全綠（5 族＋計畫解析 27/31＋全鏈 27==27 逐字節＋peel＋gate #10/#11/#12）；18.1.18 官方 tarball 沙盒 apply → 32 行全 APPLIED，五包 `src` 與 live `node_modules` **逐字節一致**（零漂移）；`apply.sh --check`（auto-route）live 全 APPLIED。
 - **退役清單**：見 §3 的 2026-09-13 段。
 
 ## 6. 驗證矩陣

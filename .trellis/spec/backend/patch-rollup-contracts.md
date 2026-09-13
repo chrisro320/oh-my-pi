@@ -31,7 +31,7 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 ### 3. Contracts
 
 - Pristine input MUST be the official pinned npm release tarball, verified by SHA-256 before extraction.
-- NEVER patch `~/.bun/install/cache` or live `node_modules` to generate or verify a rollup. Bun may hard-link those trees; an in-place patch can mutate both.
+- NEVER patch `~/.bun/install/cache` or live `node_modules` to generate or verify a rollup. Bun may hard-link those trees; an in-place patch can mutate both. The same trees are also unreadable as pristine sources: in-place patching has written through the cache repeatedly (pi-ai@18.1.14's `ollama.ts` was found carrying the 18.1.18 file on 2026-09-13; `auth-storage.ts` has carried 0026-core since 2026-08-29), so any cache copy may already contain patch output. Pristine means an official tarball verified by SHA-256 — nothing else.
 - Generate each family in an isolated `mktemp` tree by applying only that family's old patches in historical order.
 - The rollup touched-file set MUST equal the union of its old family touched-file sets.
 - Any failed hunk, `.orig`, `.rej`, or unexpected `Only in` output MUST abort generation.
@@ -160,8 +160,8 @@ packed="$(npm pack --silent "$pkg")" || packed=""
 - `cacheRead=0` with positive `cacheWrite` is a cold-start/cache-fill candidate, not by itself a regression.
 - A provider/account/model fallback creates a different cache namespace and is the primary cause when followed by a large request with `cacheRead=0`.
 - Resume may still introduce an independent prefix difference; event evidence MUST NOT claim it is fully excluded without payload comparison.
-- Model-dependent tool descriptions are cached at tool construction. If an extension-backed session model is reclaimed after `createTools()`, refresh the affected description after `model = restoredModel` and before `initialTools` is materialized.
-- Do not use full model reconciliation for this startup gap when only the cached `read.description` is stale; model roles, recovery order, provider state, system prompt, and other tools remain unchanged.
+- Model-dependent tool descriptions are cached at tool construction. If an extension-backed session model is reclaimed after `createTools()`, refresh the affected description after `model = restoredModel` and before `initialTools` is materialized. **(Historical — retired 2026-09-13: upstream removed the read.description refresh machinery in 18.1.10; patches 0019/0042 are in `.retired/09-13-dead-plans/`. Kept as a diagnostic record, not an active contract.)**
+- Do not use full model reconciliation for this startup gap when only the cached `read.description` is stale; model roles, recovery order, provider state, system prompt, and other tools remain unchanged. **(Historical — same retirement as above.)**
 
 ### 4. Validation & Error Matrix
 | Evidence | Required conclusion |
@@ -170,21 +170,21 @@ packed="$(npm pack --silent "$pkg")" || packed=""
 | `usage_limit_reached` → recovery/fallback → large `cacheRead=0` | Fallback is direct/primary cause |
 | Resume with no provider/model change | Investigate payload prefix drift |
 | Provider/model change absent payload comparison | Do not fully exclude resume |
-| Active model restored correctly; only `read.description` differs across resume | Check both resume paths and the tool-construction/model-reclaim ordering; refresh the cached description at the path that changes the model |
+| Active model restored correctly; only `read.description` differs across resume | (Historical — mechanism retired 2026-09-13) Check both resume paths and the tool-construction/model-reclaim ordering; refresh the cached description at the path that changes the model |
 
 ### 5. Good / Base / Bad Cases
 - Good: correlate adjacent JSONL events and distinguish cold start, fallback, and true prefix drift.
 - Base: normal first request after process restart writes a fresh cache prefix.
 - Bad: use an older session's usage event to explain a newer resume-adjacent miss.
-- Good: both in-process switching and new-process late model reclaim refresh only the cached read description after the target model is active.
-- Base: the target model exists before tool construction, so the initial description is already correct and no late reclaim refresh runs.
-- Bad: patch only `switchSession()` and assume a restarted process uses that method; CLI startup restores through `createAgentSession()` instead.
+- Good: both in-process switching and new-process late model reclaim refresh only the cached read description after the target model is active. (Historical — retired 2026-09-13)
+- Base: the target model exists before tool construction, so the initial description is already correct and no late reclaim refresh runs. (Historical)
+- Bad: patch only `switchSession()` and assume a restarted process uses that method; CLI startup restores through `createAgentSession()` instead. (Historical)
 
 ### 6. Tests Required
 - Parse the exact session JSONL and assert event order: error/recovery, model change, then request usage.
 - Assert `cacheRead=0`/`cacheWrite>0` is classified as cold start.
 - Assert fallback evidence reports primary cause while preserving resume as an unexcluded possibility.
-- For a model-dependent cached tool description, cover both in-process `switchSession()` and new-process late extension-model reclaim; assert the final description equals a fresh tool built for the target model and make no provider request.
+- For a model-dependent cached tool description, cover both in-process `switchSession()` and new-process late extension-model reclaim; assert the final description equals a fresh tool built for the target model and make no provider request. (Historical — retired 2026-09-13)
 
 ### 7. Wrong vs Correct
 #### Wrong
@@ -195,6 +195,7 @@ resume happened, therefore resume caused the cache miss
 ```text
 usage_limit_reached → credential recovery/provider fallback → cacheRead=0
 is the direct primary cause; resume-related prefix drift is not proven or excluded.
+```
 
 ## Scenario: Selecting a versioned patch plan
 
@@ -248,5 +249,4 @@ patches/apply.sh
 ```sh
 # Exact installed-version match, fail-closed otherwise.
 OMP_PATCH_VERSION=18.1.14 patches/apply.sh
-```
 ```

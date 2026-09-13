@@ -58,13 +58,23 @@ entries="$(sed -n '/^PATCHES=(/,/^)/p' "${HERE}/apply.sh" | grep -c 'patch:')" |
 if grep -q 'superseded_by_' "${HERE}/apply.sh"; then
 	die "apply.sh still contains superseded_by_ control flow"
 fi
+# Resolved plans come from the controller itself — --print-plan is read-only
+# and skips the installed-version gate, so both plans resolve on any host.
+# Anything that needs the plan reads it here; re-implementing the resolver is
+# forbidden (a second hand-maintained list is not an oracle).
+mapfile -t PLAN14 < <(OMP_PATCH_VERSION=18.1.14 bash "${HERE}/apply.sh" --print-plan 2>/dev/null)
+mapfile -t PLAN18 < <(OMP_PATCH_VERSION=18.1.18 bash "${HERE}/apply.sh" --print-plan 2>/dev/null)
+[[ ${#PLAN14[@]} -gt 0 && ${#PLAN18[@]} -gt 0 ]] \
+	|| die "apply.sh --print-plan failed to resolve a supported plan"
 # Retired-by-rollup numbers, plus abandoned numbers whose patch file is gone
-# (0011 pin-viewport, 0040 trellis_command — both withdrawn by the user, never
-# to be reused). Documentation cannot enforce non-reuse; this loop can.
+# (0011 pin-viewport, 0040 trellis_command, 0061 — never to be reused).
+# Documentation cannot enforce non-reuse; this loop can. It checks the
+# resolved plans (canonical entries, candidates, and tail appends included),
+# not raw source text.
 for old in 0002- 0003- 0005- 0006- 0007- 0011- 0013- 0015- 0018- 0019- 0020- 0021- 0022- \
 	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029- 0040- 0042- 0059- 0061-; do
-	if grep -q "\"${old}" "${HERE}/apply.sh"; then
-		die "apply.sh active chain references retired or abandoned patch number ${old}*"
+	if printf '%s\n' "${PLAN14[@]}" "${PLAN18[@]}" | grep -qE "(^|/)${old}"; then
+		die "a resolved plan references retired or abandoned patch number ${old}*"
 	fi
 done
 for rollup in 0033-omp-cache-turn-status-rollup.patch \
@@ -363,12 +373,13 @@ run_family 37 AGENT-SRC \
 	"0029-omp-usage-fetch-gate-merged-agent.patch:AGENT"
 
 # ------------------------------------------------------------- full chain
-# OLDCHAIN is the pinned snapshot of the resolved 18.1.14 plan — the exact
-# patch sequence the controller applies on that version (canonical entries
-# with the seven versioned candidates substituted in place, plus the
-# branch-tail 0047). It is the "before" side of the equivalence oracle:
-# any batch that changes the 18.1.14 plan must update this snapshot, and a
-# merge batch proves itself by keeping the two trees byte-equal.
+# OLDCHAIN is the equivalence oracle's "before" side: the previous
+# representation of the 18.1.14 plan, pinned at the last verified cutover.
+# It is applied side by side with the controller-resolved plan below and the
+# two trees must be byte-equal. A merge batch keeps this list at the
+# pre-merge state (retired members resolve from .retired/) so the diff proves
+# the merge changed representation only — the lists may differ, the trees
+# may not.
 OLDCHAIN=(
 	"0033-omp-cache-turn-status-rollup.patch:AGENT"
 	".18.1.14-candidates/0004-omp-token-total-cacheread-v18.1.14-candidate.patch:AGENT"
@@ -398,40 +409,61 @@ OLDCHAIN=(
 	"0054-omp-antigravity-drop-requesttype-agent.patch:AI"
 	"0047-omp-date-cwd-anchor-stability.patch:AGENT"
 )
-# NEWCHAIN is resolved live out of apply.sh's own 18.1.14 branch — base array
-# minus omit: entries, candidate substitutions, and PATCHES+= tail appends,
-# every token parsed from the shipped file. A missing, duplicate, reordered,
-# or wrongly rooted entry therefore affects this verification run directly;
-# a plan change that forgets to update OLDCHAIN fails the equality check.
-mapfile -t NEWCHAIN < <(
-	sed -n '/^PATCHES=(/,/^)/p' "${HERE}/apply.sh" |
-		sed -n 's/^[[:space:]]*"\([^"]*\.patch\):${\(AGENT\|CORE\|AI\|SNAP\|NM\)}"$/\1:\2/p'
-)
-[[ ${#NEWCHAIN[@]} -eq "$entries" ]] \
-	|| die "cannot parse exact file/root sequence from apply.sh PATCHES"
+# EXPECTED_PLAN is the plan-drift gate: what the resolved 18.1.14 plan must
+# be right now. OLDCHAIN (above) is the equivalence oracle's "before" side —
+# the previous representation. They are identical today and diverge when a
+# merge batch lands: EXPECTED_PLAN then lists the merged plan while OLDCHAIN
+# keeps the pre-merge entries, and the tree diff below proves the merge
+# changed representation only.
+EXPECTED_PLAN=("${OLDCHAIN[@]}")
 
-branch="$(sed -n '/^18\.1\.14)/,/;;/p' "${HERE}/apply.sh")"
-plan_args="$(sed -n 's/.*_omp_version_candidates "18\.1\.14" \(.*\)/\1/p' <<<"$branch" | head -1)"
-[[ -n "$plan_args" ]] || die "cannot find the 18.1.14 _omp_version_candidates call"
-omits="$(tr ' ' '\n' <<<"$plan_args" | sed -n 's/^omit://p')"
-cands="$(tr ' ' '\n' <<<"$plan_args" | grep -v '^omit:' | grep .)"
-resolved=()
-for spec in "${NEWCHAIN[@]}"; do
-	pfx="${spec%%-*}" file="${spec%%:*}" root="${spec##*:}"
-	skip=0
-	for o in $omits; do [[ "$pfx" == "$o" ]] && skip=1; done
-	[[ $skip -eq 1 ]] && continue
-	for c in $cands; do
-		[[ "$pfx" == "$c" ]] && file=".18.1.14-candidates/${file%.patch}-v18.1.14-candidate.patch"
-	done
-	resolved+=("${file}:${root}")
-done
-while IFS= read -r tail; do
-	resolved+=("$(sed 's/:${\([A-Z]*\)}/:\1/' <<<"$tail")")
-done < <(grep -o 'PATCHES+=("[^"]*")' <<<"$branch" | sed 's/PATCHES+=("//;s/")$//')
-NEWCHAIN=("${resolved[@]}")
-[[ "${NEWCHAIN[*]}" == "${OLDCHAIN[*]}" ]] \
-	|| die "resolved 18.1.14 plan drifted from the pinned OLDCHAIN snapshot"
+# EXPECTED_PLAN_18 pins the deployed plan the same way — it is the only
+# coverage of the omit: path (omit:0051), nine candidate substitutions, and
+# six tail appends.
+EXPECTED_PLAN_18=(
+	".18.1.18-candidates/0033-omp-cache-turn-status-rollup-v18.1.18-candidate.patch:AGENT"
+	".18.1.18-candidates/0004-omp-token-total-cacheread-v18.1.18-candidate.patch:AGENT"
+	"0034-omp-hindsight-snapshot-rollup.patch:AGENT"
+	"0037-omp-usage-statusline-gate-rollup.patch:AGENT"
+	".18.1.18-candidates/0010-omp-extension-idle-ephemeral-turn-v18.1.18-candidate.patch:AGENT"
+	".18.1.18-candidates/0035-omp-compaction-prefix-rollup-v18.1.18-candidate.patch:NM"
+	".18.1.18-candidates/0014-omp-antigravity-deterministic-session-identity-v18.1.18-candidate.patch:AI"
+	"0036-omp-image-frame-budget-rollup.patch:NM"
+	".18.1.18-candidates/0017-omp-openai-responses-native-replay-warm-v18.1.18-candidate.patch:AI"
+	"0025-omp-ollama-cloud-usage-api.patch:AI"
+	"0026-omp-usage-fetch-anthropic-gate-core.patch:AI"
+	".18.1.18-candidates/0030-omp-usage-cache-canonical-baseurl-v18.1.18-candidate.patch:AI"
+	"0031-omp-agent-session-providers-forward.patch:AGENT"
+	"0032-omp-goal-tool-resident.patch:AGENT"
+	".18.1.18-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.1.18-candidate.patch:NM"
+	"0041-omp-anthropic-usage-turn-gate-60s.patch:AGENT"
+	".18.1.18-candidates/0043-omp-interrupt-prune-symmetry-v18.1.18-candidate.patch:AGENT"
+	"0044-omp-image-budget-wire-api-family.patch:NM"
+	"0052-omp-snapcompact-model-billing-commandcode-budget.patch:NM"
+	"0057-omp-devin-image-budget.patch:NM"
+	"0045-omp-snapcompact-frame-reprice.patch:AGENT"
+	"0046-omp-supersede-warm-prefix-guard.patch:AGENT"
+	"0048-omp-advisor-quota-rotation-bound.patch:AGENT"
+	"0050-omp-session-history-preview.patch:AGENT"
+	"0054-omp-antigravity-drop-requesttype-agent.patch:AI"
+	"0047-omp-date-cwd-anchor-stability.patch:AGENT"
+	"0055-omp-devin-auth-cache-turn-timing.patch:AI"
+	"0056-omp-devin-metadata-alignment.patch:NM"
+	"0058-omp-devin-thinking-signature-replay.patch:AI"
+	"0060-omp-devin-idle-cascade-pin.patch:NM"
+	"0062-omp-snapcompact-reduction-baseline-previous-archive.patch:AGENT"
+)
+
+# NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
+# by apply.sh --print-plan in the static section. The assertions below pin
+# the expected plans; the oracle then compares OLDCHAIN's tree against
+# NEWCHAIN's, which is only meaningful because the two lists may differ.
+NEWCHAIN=("${PLAN14[@]}")
+[[ "${NEWCHAIN[*]}" == "${EXPECTED_PLAN[*]}" ]] \
+	|| die "resolved 18.1.14 plan drifted from EXPECTED_PLAN"
+[[ "${PLAN18[*]}" == "${EXPECTED_PLAN_18[*]}" ]] \
+	|| die "resolved 18.1.18 plan drifted from EXPECTED_PLAN_18"
+echo "PASS plan resolution: 18.1.14 (${#NEWCHAIN[@]}) and 18.1.18 (${#PLAN18[@]}) match pinned expectations"
 
 apply_chain() { # $1 tree  $2 "file:root"...
 	local t="$1"; shift
@@ -560,6 +592,7 @@ mkdir -p "$CTL"
 cp -r "${HERE}"/*.patch "${HERE}/apply.sh" "$CTL/" 2>/dev/null || true
 [[ -d "${HERE}/.18.1.14-candidates" ]] && cp -r "${HERE}/.18.1.14-candidates" "$CTL/"
 sed -i "s|^NM=.*|NM=\"$G/ctl-pristine/${NMROOT}\"|; s|^BIN=.*|BIN=\"$CTL/fake-bin\"|" "$CTL/apply.sh"
+
 ln -sfn /dev/null "$CTL/fake-bin"
 ctl_out="$G/ctl-check.txt"
 # The sandbox tree is a fixed 18.1.14 pristine baseline. The child controller
@@ -581,5 +614,42 @@ $(cat "$ctl_out")"
 grep -q '^PENDING  0041-omp-anthropic-usage-turn-gate-60s\.patch$' "$ctl_out" \
 	|| die "gate #11: 0041 was not classified pending on a pristine tree — bottom-up replay is broken"
 echo "PASS gate #11: pristine tree classifies all ${#NEWCHAIN[@]} entries pending, including replay-dependent 0041"
+
+# Required test #12 — fail-closed matrix: every bad input must exit 2 with
+# zero mutation to the package tree or bin. The sub-controller and pristine
+# 18.1.14 tree from gate #11 are reused.
+tree_hash() { find "$1" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}'; }
+before="$(tree_hash "$G/ctl-pristine")"
+expect_fail() { # $1 description  $2.. command
+	local desc="$1"; shift
+	if "$@" >"$G/failclosed.txt" 2>&1; then
+		die "gate #12: ${desc} unexpectedly succeeded
+$(cat "$G/failclosed.txt")"
+	fi
+	[[ "$(tree_hash "$G/ctl-pristine")" == "$before" ]] \
+		|| die "gate #12: ${desc} mutated the package tree before failing"
+	echo "  ok    ${desc} -> exit 2, tree unchanged"
+}
+expect_fail "empty OMP_PATCH_VERSION" \
+	env OMP_PATCH_VERSION= bash "$CTL/apply.sh" --check
+expect_fail "unsupported version" \
+	env OMP_PATCH_VERSION=18.1.10 bash "$CTL/apply.sh" --check
+expect_fail "explicit version != installed" \
+	env OMP_PATCH_VERSION=18.1.18 bash "$CTL/apply.sh" --check
+# unreadable installed package.json: auto-route and explicit both fail closed
+mv "$G/ctl-pristine/${NMROOT}/pi-coding-agent/package.json" "$G/pkgjson.bak"
+before="$(tree_hash "$G/ctl-pristine")"
+expect_fail "unreadable installed (unset)" \
+	env -u OMP_PATCH_VERSION bash "$CTL/apply.sh" --check
+expect_fail "unreadable installed (explicit)" \
+	env OMP_PATCH_VERSION=18.1.14 bash "$CTL/apply.sh" --check
+mv "$G/pkgjson.bak" "$G/ctl-pristine/${NMROOT}/pi-coding-agent/package.json"
+before="$(tree_hash "$G/ctl-pristine")"
+# missing candidate file: repo completeness gate must fire before mutation
+mv "$CTL/.18.1.14-candidates/0010-omp-extension-idle-ephemeral-turn-v18.1.14-candidate.patch" "$G/cand.bak"
+expect_fail "missing candidate file" \
+	env OMP_PATCH_VERSION=18.1.14 bash "$CTL/apply.sh" --check
+mv "$G/cand.bak" "$CTL/.18.1.14-candidates/0010-omp-extension-idle-ephemeral-turn-v18.1.14-candidate.patch"
+echo "PASS gate #12: fail-closed matrix — 6 bad inputs all exit 2 with zero mutation"
 
 echo "ALL PASS: patch family rollups verified"

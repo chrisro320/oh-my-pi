@@ -456,11 +456,14 @@ XDG_DATA_HOME=<isolated-data> \
 patches/apply.sh
 ```
 
-The fixture must execute Responses, Chat Completions, Anthropic, and Google
-conversion; verify Responses native chaining across reminder changes; verify a
-pre-reminder Anthropic cache boundary; and leave no instrumented module behind.
-Controller replay must apply, reverse to byte-exact pristine, apply again, and
-leave no `.orig` or `.rej`.
+The anchor gate makes zero provider calls: it asserts the live source shape
+(`appendDateCwdReminder` extinct, `applyDateCwdAnchors`/`dateCwdAnchorKey`
+exported, both injector callsites passing a session id) and replays the
+message-array failure the patch removes — message count never changes, the
+newest user message carries the stamp, already-stamped history stays
+byte-identical. On the pristine tree the source gate must fail; that is the
+negative control. Controller replay must apply, reverse to byte-exact
+pristine, apply again, and leave no `.orig` or `.rej`.
 
 ### 7. Wrong vs Correct
 
