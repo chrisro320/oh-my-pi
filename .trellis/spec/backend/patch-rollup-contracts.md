@@ -37,7 +37,7 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 - Any failed hunk, `.orig`, `.rej`, or unexpected `Only in` output MUST abort generation.
 - Finalized old patches MUST remain byte-identical in a retired directory with pinned hashes.
 - Full-chain verification MUST consume the exact file/root/order sequence parsed from `apply.sh`; a second hand-maintained active list is not an oracle.
-- Runtime source bytes MUST remain unchanged when switching from the old effective chain to the rollup chain.
+- Runtime source bytes MUST remain unchanged when switching from the old effective chain to the rollup chain. This equivalence is discharged per family on the family-generation baseline (old member chain vs rollup, byte-compared) — no single baseline can host both the retired member shapes and the current chain, so a whole-chain old-vs-new oracle is not required and MUST NOT be faked by pointing both sides at the same resolved plan.
 - Controller patch commands MUST use `--no-backup-if-mismatch`; revert also
   uses `--remove-empty-files`. Apply/revert/replay must leave no `.orig`, `.rej`,
   or empty files that were absent from pristine.

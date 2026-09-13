@@ -13,7 +13,7 @@
 | canonical 陣列 | `PATCHES` 陣列 **26 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫 |
 | 存活計畫 | 18.1.14（回退，27 層）、18.1.18（當前部署，31 層）；其餘版本分支已退役 |
 | 最近遷移 | 18.1.14 -> 18.1.18（2026-09-12）；死計畫清場（2026-09-13），見 §5 |
-| 回歸套件 | **12 道閘門** + `--verify-rollups` 雙基線全鏈 oracle，見 §6.1 |
+| 回歸套件 | **14 道閘門** + `--verify-rollups` 雙基線全鏈 oracle，見 §6.1 |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -756,7 +756,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 ## 6. 驗證矩陣
 
-### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 12 道）
+### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 14 道）
 
 | 閘門 | 職責 | 所需 env |
 |---|---|---|
@@ -770,6 +770,8 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-interrupt-prune-symmetry.ts` | 0043 打斷殘骸在 rebuild 與 live 兩條路徑對稱剪除 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 | `verify-devin-metadata.ts`（條件） | 0056 `devinCliMetadata` 的 per-process `sessionId`／遞增 `requestId`（原始位元組驗 field 10／9）；`pi-catalog` 無 `devinSessionId` 時跳過 | — |
 | `verify-supersede-warm-prefix-guard.ts` | 0046 supersede 不得改寫暖前綴中段的 tool result | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_CORE_ROOT` |
+| `verify-devin-thinking-signature.ts`（條件） | 0058 Devin thinking 簽名捕獲與回放（`deltaThinking` 外獨立簽名幀、`signatureType="sealed"`）；`pi-ai` 無 `deltaSignature` 分支時跳過 | — |
+| `verify-devin-idle-cascade-pin.ts`（條件） | 0060 Devin idle cascade pin（`pi-ai/types.ts` 與 `agent-session.ts` 雙點）；無對應上游形態時跳過 | — |
 | `verify-resume-cache-breakpoint.ts` | resume 後首輪快取斷點（`session-maintenance` 側） | — |
 | `verify-snapcompact-reduction-baseline.ts`（條件） | 0062 縮減基線記入被取代歸檔：源碼形態 + 記錄邊界的判定翻轉 + 淨額負向對照；`session-maintenance` 無 `projectPreviousArchiveTokens` 時跳過 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 

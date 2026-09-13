@@ -18,9 +18,9 @@
 ## Requirements — Phase A（清場）
 
 - **RA1 備份**：已完成 repo/runtime `patches/` cp -a、六包 live tarball、bin/omp symlink、live sha256 清單（`~/omp-merge-backup-20260913-071204/`）。未提交 9 檔先 commit 成已知良好點——0059 改為 `git mv` 進 `.retired/`（不純刪）。
-- **RA2 apply.sh**：① PATCHES 陣列移除 0019、0042（所有存活計畫均已 omit，上游 18.1.10 已拆該機制）；② 版本分支只留 `18.1.14`、`18.1.18`，刪 18.0.9/18.0.11/18.1.2/18.1.5/18.1.10 五支與其 omit 殘句；③ `OMP_PATCH_VERSION` 未設 → exit 2 fail-closed（支援清單隨之更新）；④ 尾部 14 道閘門不動。
+- **RA2 apply.sh**：① PATCHES 陣列移除 0019、0042（所有存活計畫均已 omit，上游 18.1.10 已拆該機制）；② 版本分支只留 `18.1.14`、`18.1.18`，刪 18.0.9/18.0.11/18.1.2/18.1.5/18.1.10 五支與其 omit 殘句；③ `OMP_PATCH_VERSION` 未設 → **auto-route**（讀 installed `pi-coding-agent` 版本精確匹配存活計畫，非就近 fallback；安裝版不符或顯式跨版本值 exit 2）——比原案 unset→exit 2 更好：保留「`bun add -g` 後裸跑一鍵重套」文件化路徑，且讓 verify-rollups 沙盒子控制器自動選對計畫；④ 尾部 14 道閘門不動；⑤ 新增 `--print-plan`（read-only 計畫查詢，輸出 `file:ROOT` 行，是 verifier 的唯一 resolver）。
 - **RA3 退役歸檔**：0019、0042、0059 三個 `.patch`＋死候選目錄（.18.0.11/.18.1.2/.18.1.5/.18.1.10）＋死 verify 腳本（verify-model-switch-tool-description.ts、verify-date-cwd-reminder.ts）→ `.retired/09-13-dead-plans/`，逐檔記 SHA-256。
-- **RA4 verify-rollups 修復**：`entries` 期望值改為新陣列數；absence 斷言加 0019-/0042-/0059-/0061-；retired manifest 補新退役檔 SHA-256；OLDCHAIN 同步為「當前語義集在 18.0.9 可套的部分」（去 0019/0042、補 0043/0044/0048/0050/0051/0052/0054/0057，不含 0045/0046/0063——它們在 18.0.9 本來就套不上）。
+- **RA4 verify-rollups 修復**：`entries` 期望值改為新陣列數（26）；absence 斷言加 0019-/0042-/0059-/0061- 且改對 resolved plan 判定；retired manifest 補 `.retired/09-13-dead-plans/` 16 檔 SHA-256；**雙基線**——族檢查留 18.0.9 pinned tarball（退役族成員只在那裡成鏈），全鏈 oracle／peel／gate #11/#12 移 18.1.14 pinned tarball；`OLDCHAIN`＝釘死的前一表示鏈（等價 oracle before 側），`EXPECTED_PLAN`/`EXPECTED_PLAN_18` 獨立釘住兩計畫解析結果（計畫漂移閘），`NEWCHAIN` 由 `apply.sh --print-plan` 解析；新增 gate #12 fail-closed 矩陣（6 壞輸入精確 exit 2＋樹零變動）。
 - **RA5 PATCHES.md 重寫口徑**：§0 狀態表、§1 改為「canonical 清單＋18.1.14/18.1.18 兩計畫」、§2 退役條目標注（含 0012/0016「不進 apply.sh」）、§3 補新退役、§5 `PATCHES+=` 清單、§6.1 補齊 14 道閘門。
 - **RA6 ledger**：全部 repo 修改完成後單次 `rsync -a patches/ ~/.omp/patches/`＋`diff -rq` 零漂移（最後同步，禁止中途同步）。
 - **RA7 驗收**：18.1.14 與 18.1.18 官方 tarball 沙盒各跑 apply→idempotent→revert→pristine 零差異；live `--check` 全 APPLIED 且 live 樹 sha256 不變。

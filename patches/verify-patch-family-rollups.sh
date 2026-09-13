@@ -620,12 +620,14 @@ echo "PASS gate #11: pristine tree classifies all ${#NEWCHAIN[@]} entries pendin
 # 18.1.14 tree from gate #11 are reused.
 tree_hash() { find "$1" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}'; }
 before="$(tree_hash "$G/ctl-pristine")"
-expect_fail() { # $1 description  $2.. command
+expect_fail() { # $1 description  $2.. command — must exit exactly 2 (fail-closed
+	# before mutation), not merely non-zero: --check has a separate rc=1 path
+	# for "incomplete", which would be the wrong failure mode here.
 	local desc="$1"; shift
-	if "$@" >"$G/failclosed.txt" 2>&1; then
-		die "gate #12: ${desc} unexpectedly succeeded
+	local rc=0
+	"$@" >"$G/failclosed.txt" 2>&1 || rc=$?
+	[[ $rc -eq 2 ]] || die "gate #12: ${desc} exited ${rc}, expected 2
 $(cat "$G/failclosed.txt")"
-	fi
 	[[ "$(tree_hash "$G/ctl-pristine")" == "$before" ]] \
 		|| die "gate #12: ${desc} mutated the package tree before failing"
 	echo "  ok    ${desc} -> exit 2, tree unchanged"

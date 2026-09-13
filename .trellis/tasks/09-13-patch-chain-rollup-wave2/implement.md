@@ -33,17 +33,17 @@
 
 ### Step 3 — verify-rollups 修復（RA4）
 
-- [x] 3.1 `entries == 18` → `26`；absence 迴圈加 `0019- 0042- 0059- 0061-` 且掃全檔（含 `PATCHES+=` 形式）— verified
+- [x] 3.1 `entries == 18` → `26`；absence 迴圈加 `0019- 0042- 0059- 0061-` 且改對兩個 resolved plan 判定（`--print-plan` 輸出，含候選置換＋鏈尾追加）— verified
 - [x] 3.2 retired manifest：新增 `.retired/09-13-dead-plans/` 獨立 sha256sum -c 區塊（16 檔）— verified
-- [x] 3.3 **雙基線改造**（比原計畫更大但必要）：族檢查留 18.0.9 pinned tarball；全鏈 oracle/peel/gate#11 移 18.1.14 pinned tarball（TGZSHA2 四包）。OLDCHAIN 改為 18.1.14 解析計畫釘死快照（27 項）；NEWCHAIN 從 apply.sh 18.1.14 分支文本即時解析（候選置換＋omit＋PATCHES+=，無第二份清單）— verified
-- [x] 3.4 `bash patches/verify-patch-family-rollups.sh` 全綠：5 族＋全鏈 27==27 逐字節＋peel 27 層＋gate #10/#11 — verified
+- [x] 3.3 **雙基線＋單一 resolver 改造**（review 後定稿）：族檢查留 18.0.9 pinned tarball；全鏈 oracle/peel/gate#11/#12 移 18.1.14 pinned tarball（TGZSHA2 四包）。`OLDCHAIN`＝釘死前一表示鏈（27 項，oracle before 側）；`EXPECTED_PLAN`/`EXPECTED_PLAN_18` 獨立釘住兩計畫（漂移閘）；`NEWCHAIN` 由 `apply.sh --print-plan` 解析（controller 唯一 resolver，read-only 跳 installed 閘）— verified
+- [x] 3.4 `bash patches/verify-patch-family-rollups.sh` 全綠：5 族＋計畫解析 27/31＋全鏈 27==27 逐字節＋peel 27 層＋gate #10/#11/#12（fail-closed 矩陣 6 壞輸入精確 exit 2＋樹零變動）— verified
 
 ### Step 4 — PATCHES.md 重寫（RA5）
 
 - [x] 4.1 §0 狀態表：部署 18.1.18、存活計畫 {18.1.14, 18.1.18}、APPLIED 32 行、canonical 26 — verified
 - [x] 4.2 §1 口徑表：canonical 母集 26＋18.1.14 計畫 27＋18.1.18 計畫 31；auto-route 說明 — verified
 - [x] 4.3 §2：0019/0042/0059 標退役；0047 標題改「僅版本計畫鏈尾」— verified
-- [x] 4.4 §3 加 2026-09-13 清場段（含既有斷點記錄）；§5 加清場記；§6.1 閘門表已為 12 道（前一 commit）— verified
+- [x] 4.4 §3 加 2026-09-13 清場段（含既有斷點記錄）；§5 加清場記；§6.1 閘門表補齊 **14 道**（加 devin-thinking-signature、devin-idle-cascade-pin 兩列，§0 同步 12→14）— verified
 - [x] 4.5 spec 載體：`patch-rollup-contracts.md`（版本候選 scenario 改寫為 auto-route＋兩計畫）、`extension-runtime-contracts.md:445`（適用口徑改寫）、`DEPLOYMENT-RUNBOOK.md`（版本規則/層數/回退目標改寫）— verified
 
 ### Step 5 — ledger 同步＋雙版沙盒＋live 等價（RA6/RA7，Review Gate）
