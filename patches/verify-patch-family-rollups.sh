@@ -497,11 +497,16 @@ for pk in pi-coding-agent pi-agent-core pi-ai snapcompact; do
 	fi
 done
 [[ $fcfail -eq 0 ]] || exit 1
-# Both sides are the same resolved 18.1.14 plan today; the oracle's value is
-# that a future merge batch must keep the trees byte-equal while NEWCHAIN
-# resolves to the merged plan. It deliberately says nothing about what the
-# individual patches do — their behaviour is asserted below.
-echo "PASS rollup equivalence: pinned chain (${#OLDCHAIN[@]}) == resolved plan (${#NEWCHAIN[@]}), byte-equal on all four packages"
+# When OLDCHAIN and NEWCHAIN are the same list the tree comparison is vacuous
+# — spec forbids presenting it as old-vs-new evidence. It only becomes a real
+# oracle once a merge batch lands: EXPECTED_PLAN then moves to the merged plan
+# while OLDCHAIN keeps the pre-merge entries, and byte-equality proves the
+# merge changed representation only.
+if [[ "${OLDCHAIN[*]}" == "${NEWCHAIN[*]}" ]]; then
+	echo "NOTE rollup equivalence: OLDCHAIN == resolved plan (${#NEWCHAIN[@]}) — oracle vacuous until a merge batch lands (trees byte-equal, as required)"
+else
+	echo "PASS rollup equivalence: pinned chain (${#OLDCHAIN[@]}) == resolved plan (${#NEWCHAIN[@]}), byte-equal on all four packages"
+fi
 
 # Behaviour of the independent patches. A patch can apply cleanly and still be
 # semantically dead — that failure mode is on record (0027: two hunks applied,
