@@ -93,7 +93,7 @@ interface TestTool {
 }
 interface TestCommand {
 	handler: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
-	getArgumentCompletions?: (prefix: string) => Array<{ value: string }> | null;
+	getArgumentCompletions?: (prefix: string) => Array<{ value: string; label?: string }> | null;
 }
 
 type TestHandler = (
@@ -468,6 +468,9 @@ for (const bad of [
 	"loop2.5 20m",
 	"loop-1 20m",
 	"loop",
+	"toString",
+	"constructor",
+	"__proto__",
 ]) {
 	await invalidLoop.command.handler(bad, invalidLoop.ctx as ExtensionCommandContext);
 	assert.match(invalidLoop.notifications.at(-1) ?? "", /error/, `${bad} must be rejected`);
@@ -537,13 +540,31 @@ assert.match(await toolText(reenable, "status"), /attempts 4/);
 const completions = intervals.command.getArgumentCompletions?.("") ?? [];
 assert.deepEqual(
 	completions.map(item => item.value),
-	["status", "off", "loop2 3m", "3m", "10m", "20m", "30m", "50m"],
+	["devin", "anthropic", "openai"],
 );
-assert.ok(!completions.some(item => /^loop$/.test(item.value)), "no unbounded loop completion may exist");
 assert.deepEqual(
-	(intervals.command.getArgumentCompletions?.("loop") ?? []).map(item => item.value),
-	["loop2 3m"],
+	completions.map(item => item.label),
+	["devin · loop30 4m", "anthropic · loop2 55m", "openai · loop4 30m"],
 );
+assert.ok(!completions.some(item => /^loop/.test(item.value)), "no loop completion may exist");
+assert.deepEqual(
+	(intervals.command.getArgumentCompletions?.("dev") ?? []).map(item => item.value),
+	["devin"],
+);
+
+const presetExpectations: Array<[string, string, number, number]> = [
+	["devin", "4m", 30, 4 * 60 * 1000],
+	["anthropic", "55m", 2, 55 * 60 * 1000],
+	["openai", "30m", 4, 30 * 60 * 1000],
+];
+for (const [name, label, runs, ms] of presetExpectations) {
+	const preset = await createHarness();
+	await preset.command.handler(name, preset.ctx as ExtensionCommandContext);
+	const notice = preset.notifications.at(-1) ?? "";
+	assert.match(notice, new RegExp(`every ${label}`), `${name} must expand to its preset duration`);
+	assert.match(notice, new RegExp(`remaining ${runs}/${runs} attempts`), `${name} must expand to its preset budget`);
+	assert.equal(preset.timers.delays.values().next().value, ms, `${name} preset interval`);
+}
 await intervals.command.handler("run legacy-job", intervals.ctx as ExtensionCommandContext);
 assert.match(intervals.notifications.at(-1) ?? "", /invalid interval/);
 assert.equal(intervals.timers.callbacks.size, 1, "removed command syntax must not replace the active timer");

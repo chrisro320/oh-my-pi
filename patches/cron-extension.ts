@@ -1,6 +1,6 @@
 // Current-session prompt-cache keepalive for omp.
 //
-// Command: /cron [status | off | <duration> | loop<n> <duration>]
+// Command: /cron [status | off | <preset> | <duration> | loop<n> <duration>]
 // Log:     ~/.omp/agent/cache-keepalive.log
 //
 // Every schedule is finite: `/cron <duration>` performs one keepalive attempt
@@ -71,6 +71,14 @@ const MAX_INTERVAL_MS = 2_147_483_647;
 // byte-identical repeat request as full input (usage `input=0` with cacheRead
 // charged at the input rate); a fresh suffix keeps usage in the cached bucket.
 const KEEPALIVE_PROMPT_BASE = "Prompt-cache keepalive. Reply with exactly `.` and do not call tools.";
+
+// Named /cron presets: provider-tuned bounded loops. Values reuse the
+// `loop<n> <duration>` grammar so the handler can resolve them verbatim.
+const COMMAND_PRESETS: Record<string, string> = {
+	devin: "loop30 4m",
+	anthropic: "loop2 55m",
+	openai: "loop4 30m",
+};
 
 function parseDuration(raw: string): { intervalMs: number; label: string } | { error: string } {
 	const match = /^\s*(\d+(?:\.\d+)?)\s*([smh])\s*$/i.exec(raw);
@@ -438,11 +446,11 @@ export default function (pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("cron", {
-		description: "Current-session prompt-cache keepalive: status | off | <duration> | loop<n> <duration>",
+		description: "Current-session prompt-cache keepalive: status | off | devin | anthropic | openai | <duration> | loop<n> <duration>",
 		getArgumentCompletions: prefix =>
-			["status", "off", "loop2 3m", "3m", "10m", "20m", "30m", "50m"]
-				.filter(value => value.startsWith(prefix))
-				.map(value => ({ value, label: value })),
+			Object.entries(COMMAND_PRESETS)
+				.filter(([value]) => value.startsWith(prefix))
+				.map(([value, expansion]) => ({ value, label: `${value} · ${expansion}` })),
 		handler: async (args, ctx) => {
 			const input = args.trim().toLowerCase();
 			if (!input || input === "status") {
@@ -454,7 +462,7 @@ export default function (pi: ExtensionAPI): void {
 				ctx.ui.notify(formatStatus(ctx.ui.theme), "info");
 				return;
 			}
-			const parsed = parseRunCommand(input);
+			const parsed = parseRunCommand(Object.hasOwn(COMMAND_PRESETS, input) ? COMMAND_PRESETS[input] : input);
 			if ("error" in parsed) {
 				ctx.ui.notify(`error: ${parsed.error}`, "error");
 				return;
