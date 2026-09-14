@@ -1,0 +1,28 @@
+{
+  "id": "codex-v2-compaction-cache-fix",
+  "name": "codex-v2-compaction-cache-fix",
+  "title": "修復 Codex V2 Remote Compaction 有狀態鏈與前綴快取斷裂",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-09-13",
+  "completedAt": "2026-09-14",
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "spec_update": "backend/verification-gate-contracts.md: new scenario 'Judging provider usage records in session JSONL' — inputTokens includes cached subset, hit rate = cached/input, verdict must implement full PRD predicate with partial-hit exit code"
+  }
+}
