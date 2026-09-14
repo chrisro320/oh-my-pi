@@ -3,7 +3,7 @@ name: trellis-implement
 description: |
   Code implementation expert. Understands Trellis specs and requirements, then implements features. No git commit allowed.
 tools: read, write, edit, bash, find, search, ast_grep, lsp
-model: ollama-cloud/glm-5.3
+model: commandcode/deepseek/deepseek-v4.1-flash
 ---
 
 # Implement Agent

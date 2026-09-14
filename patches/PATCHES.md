@@ -374,6 +374,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **修法**：三處，讓 wire 只是持久化歷史的純函數。① `session-context.ts` 移除 marker 例外，重建路徑上 `aborted`／`error` 殘骸無條件剪除；② `messages.ts` 的 `convertOne` `case "assistant"` 對 `aborted`／`error` 直接 `return []`，**這一處才覆蓋 live 路徑**（只改 ① 的話 live state 裡的殘骸照舊上 wire，兩條路徑仍不對稱）；③ 同檔 `case "custom"` 丟棄 `INTERRUPTED_THINKING_MESSAGE_TYPE`，攔住任何殘留在記憶體（queued messages、advisors、compaction 輸入）的副本。`transcript: true` 的顯示路徑不受影響，TUI 仍完整渲染該回合。代價是模型不再收到「被打斷時的思考」連續性提示——打斷之後使用者通常已給出新指令，該提示價值遠低於每個打斷點一次的全量重算。
 - **實測效果**（同一會話，套用後兩次真實 resume）：`19:33:28 input=1247 / cacheRead=276096`（99.6%）、`19:34:44 input=842 / cacheRead=277248`（99.7%）；`crossProcess` 記錄的 `sharedPrefix` 為 `405`（前一筆 406 條）與 `408`（前一筆 409 條），即 `n-1` 的純尾部追加形狀，斷點僅來自 0038 的 provider-only reminder 尾端被下一輪持久訊息取代。修前同一會話為 52.3%／50.1%、斷點落在中段 `78`／`172`。
 - **自動回歸**：`OMP_PATCH_VERIFY_AGENT_ROOT=<tree> bun patches/verify-interrupt-prune-symmetry.ts`，零 provider 呼叫。**兩條路徑分別建模**：rebuild 側 `buildSessionContext(entries, leaf)` → `convertToLlm`；live 側以 `transcript: true` 取得 agent 實際累積的未剪序列（`appendMessage` 從不剪），在殘骸之後插入記憶體 marker，再直接單次 `convertToLlm`（與 `prepareProviderCall` 相同）。斷言兩份 wire `deepEqual`、`aborted` 與 `error` 皆走同一路徑、無 marker 的殘骸在 live 路徑同樣被剪、裸 marker 轉為空、正常 `stop` 回合不受影響、`transcript: true` 仍保留該回合，並以 source guard 鎖住三處條件。負向對照：pristine 副本（僅還原這兩個檔案）執行時 live 側多出整條 `role: assistant / stopReason: aborted` 殘骸，斷言如預期失敗。
+- **A2 最小修訂（尚未部署）**：`convertToLlm` 同時剪除失敗 assistant 的配對 toolResult，並沿用 append memo 保存 call id；唯一新增 runtime 差異為 `messages.ts`。兩版 0043 已重生，原 bytes 留於 `.retired/09-13-interrupt-pairing/`；不新增測試案例。
 - **遺留（未修，待實測）**：thinking-only 的 `stop` 回合（如 `feedbf18`，`thinkingSignature` 非空故 `isActionableContent` 判為 actionable、`isEmptyAssistantStop` 為 false）兩條清理規則都不覆蓋，`convertToLlm` 實測會保留它，但 resume 後 payload 中該 thinking 零命中，說明由 openai-completions 編碼層丟棄。編碼層無狀態故理論上兩側一致；是否仍需一條「`stop` 且無 text 無 toolCall → 剪」的規則，等下一次帶打斷的受控 resume 現場再定，不憑推斷加規則。
 
 ### 0044 — 圖片預算表缺 wire-api 家族，第三方 Responses 網關落到 floor 5、每讀一張新圖改寫歷史中段
@@ -567,6 +568,10 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **目標**：`pi-catalog/src/wire/cline-pass.ts` 裡的 `CLINEPASS_API_BASE_URL` 是寫死常數 `"https://api.cline.bot/api/v1"`，導致 omp 原生 `cline-pass` 無法重新導向至本地代理（如 `cpagw-gateway` 或 `cline-pass-switcher`）來釘死底層算力供應商。
 - **修法（`${NM}`，`pi-catalog/src/wire/cline-pass.ts`）**：改為 `process.env.CLINEPASS_API_BASE_URL?.trim() || process.env.CLINE_PASS_BASE_URL?.trim() || "https://api.cline.bot/api/v1"`。
 - **驗證**：無環境變數時保持預設官方端點；配置 `CLINEPASS_API_BASE_URL="http://127.0.0.1:3123/v1"` 後立即覆寫生效。
+
+### 0060 — Devin idle cascade 固定主會話【僅 18.1.18 計畫】
+
+`runIdleEphemeralTurn` 僅對 Devin 傳入主會話 `conversationId`；普通 side turn 與其他 provider 不帶此欄位。既有 `verify-devin-idle-cascade-pin.ts` 驗證該邊界。
 
 ### 0062 — snapcompact 縮減基線漏算「即將被取代的舊歸檔」，第二次以後的壓縮被系統性誤判「不縮」【僅 18.1.18 計畫】
 
@@ -793,7 +798,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 **0063 驗收狀態（2026-09-13）**：`apply.sh --verify-rollups` 與 `verify-patch-family-rollups.sh` 在更新 `EXPECTED_PLAN`／`EXPECTED_PLAN_18` 快照（27→28、31→32）後 **EXIT 0 全綠**，新閘 `verify-codex-compaction-chain.ts` 隨計畫執行；smoke（`cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK'`）實測通過。閘門判別力以兩個 fault variant 實測：刪除 chained-body 分支 → §1 行為斷言紅；把兩處 `responsesLite` 改回 `model.useResponsesLite` → §4 接線斷言紅。**E2E 已執行（2026-09-14）**：真實會話 `01a0a05f`（`openai-codex/gpt-5.6-luna`）同行程 live baseline 後 `/compact`，記錄 `provider:"openai-codex"/version:"v2"/inputTokens:24160/cachedInputTokens:23040`——PRD 命中率 `cached/input=95.4%≥80%`，`check-codex-compaction-cache.sh` exit 0；`apply.sh` 目前被 wave2 的 0043 CONFLICT 阻擋於 `mode=apply` 入口，故 15 道閘門改以直接調用驗證、smoke 另行手動執行，該紅燈非 0063 引起。
 
-環境變數由 `apply.sh` 自動注入（其 `SNAP` / `AGENT` / `CORE` 皆由 `NM` 推導後傳給上述 `OMP_PATCH_VERIFY_*` 變數）；手動單跑時需自行指定**完整名稱**。
+A2 修訂以此為準：套件根優先序為 `OMP_PATCH_VERIFY_<AGENT|CORE|AI|SNAPCOMPACT|CATALOG>_ROOT` → `OMP_PATCH_VERIFY_NM` → HOME；controller 注入全部根。0055/0056/0058/0060/0062 閘只按 18.1.18 計畫執行，不再依上表所述的符號存在性跳過；其餘閘兩版執行。`--check` 的 CONFLICT/MISSING→1、APPLIED/PENDING→0、版本錯誤→2；同鏈驗證只建樹一次。以上 repo 修訂尚未部署。
 
 ### 6.2 端到端驗收（人工／真實 provider）
 

@@ -1,4 +1,4 @@
-# Design — 補丁鏈清場＋rollup wave 2
+# Design — 補丁鏈清場、A2 安全修復與 rollup wave 2
 
 ## 術語
 
@@ -52,6 +52,26 @@ commit 未提交檔(0059→.retired) → RA2 apply.sh → RA3 退役歸檔 → R
 
 ## 相容性
 
-- live 樹零差異是硬約束：清場只動 repo `patches/` 與文檔，live 不應有任何寫入；`--check` 全 APPLIED 為證。
+- **Phase A 清場／純表示 rollup** 的 live 樹零差異是硬約束；A2 是明確的行為修復，改由 ACS5 的單檔差異白名單驗收，不把 `--check` APPLIED 當作 byte-equivalence 證據。
 - 退役編號 0019/0042/0059/0061 永不重用（verifier absence 斷言機檢）。
 - 18.1.14 計畫在 live 機器上會被版本閘擋（installed=18.1.18）——正常，它只在 18.1.14 沙盒內跑。
+
+## D7：A2 修復邊界（已確認，只清掃關鍵位置）
+
+最小行為缺口只有：狀態查詢的衝突退出碼、live/rebuild 的中斷工具配對、現役閘驗錯樹／文字回聲。這批不改圖片定價、配額排程或日期錨點語義，不新增合併層。
+
+- **控制器**：僅讓 `check:conflict` 設失敗；MISSING 沿用現有分支，PENDING 維持成功查詢。版本專用閘按已選計畫執行，不靠 `devinAuthCache` 等待驗證符號是否存在決定 SKIP。`--check` 不觸發回歸或 provider smoke。
+- **中斷資料流**：`agent-loop` 產生 aborted/error assistant 與 placeholder toolResult → live `convertToLlm` → provider；JSONL → `buildSessionContext` → 同一轉換。修改落在 `convertToLlm` 所在 `messages.ts`，以被移除 assistant 的 toolCall id 判定配對結果；保留其他 orphan／正常結果，不擴大成所有 toolResult 清洗。保持訊息物件、transcript 與既有 conversion memo 的語義；沒有中斷 tool call 的常見路徑不配置額外集合。
+- **套件根目錄**：沿用既有 `OMP_PATCH_VERIFY_<PACKAGE>_ROOT` 與 `OMP_PATCH_VERIFY_NM` 的模式，具體 package override 優先、再共同 NM、最後本機 HOME。所有 runtime import 和 source read 必須選同一根；type-only import 不算執行。外部依賴可重用安裝依賴，但五個被打補丁套件的執行解析不得回到 live。
+- **閘門分類**：13 個現役 TS 閘中，7 個 runtime import 硬編 live，1 個混合 source ROOT＋live 常數，4 個已有對應根解析，1 個驗 repo extension；第 14 個是混合 meta＋billing source 的 shell gate。先按責任分開負對照，再機檢現役 package gate 的所有根／runtime import 一致性；不能拿純 meta 在 pristine 上仍成功當成漏報，也不能拿整支混合 gate 失敗推論每個 meta 檢查有效。未註冊的 10 個 TS 腳本只記錄分類，不偷偷擴成全量遷移。
+- **假證據**：刪除 reprice 測試訊息／變數名的 grep 回聲，保留其他仍有效的 spec gate。相同 OLDCHAIN/NEWCHAIN 僅重演一次；真正不同的表示仍須使用舊 bytes 做比較，不能以新同名檔偷換 before。
+- **0043 工件**：保留舊 canonical／candidate bytes 與 hash；分別在官方 18.1.14／18.1.18 正確鏈深生成修改後補丁，確保仍可按現有計畫套用。允許的最終源碼差異只有 `messages.ts`；其他補丁、候選及先前行為不得被捲入 diff。
+- **預期檔案**：`patches/apply.sh`（退出碼、計畫感知執行、根傳遞）、`verify-patch-family-rollups.sh`（負對照、同鏈去重、retired pin）、`verify-spec-contracts.sh`（移除空洞斷言）、已註冊的 `verify-*.ts`（根隔離，其中 interrupt gate 增加配對負對照）、0043 canonical／18.1.18 candidate（唯一 runtime 修復）、已有 PATCHES.md／兩份 backend contracts／本任務工件（載體一致）。
+
+## D8：A2 驗收與部署
+
+- 先凍結原始 repo／ledger／live 相關 bytes；來源為官方 tarball，使用本輪審計記錄的 SHA-256 並核 metadata integrity。不可重新啟用 cache pristine 假設。
+- 兩版各以完整套件樹執行 apply→check→idempotent→revert；`OMP_PATCH_OFFLINE_VERIFY=1` 只跳 provider smoke，不能跳本地所屬閘。沙盒依賴必須保持五個被測套件的版本內聚。
+- 獨立覆核只讀本批 diff 與負對照，不再重審全目錄 23 個腳本。審查者不改碼；Main 統一驗證與整合。
+- 展示最終 diff 後另取部署確認。不對已打舊版 0043 的 live 直接跑新控制器求其自行「修復」：新舊內容不匹配可能正確報 CONFLICT。部署先像必須比對已記錄舊 bytes，再把已驗收的唯一變動檔 `messages.ts` 原子替換為目標；保存舊像供回退，最後核對新鏈狀態與 ledger。若實作發現還需更動其他 live 檔，返回範圍審查，不能擴部署。
+- 本批不自動升級 omp、不啟動付費 provider smoke、不提交無關工作樹變更。

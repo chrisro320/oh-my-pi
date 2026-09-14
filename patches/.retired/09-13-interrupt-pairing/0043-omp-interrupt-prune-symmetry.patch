@@ -1,0 +1,70 @@
+--- a/src/session/session-context.ts
++++ b/src/session/session-context.ts
+@@ -10,7 +10,6 @@
+ 	createBranchSummaryMessage,
+ 	createCompactionSummaryMessage,
+ 	createCustomMessage,
+-	INTERRUPTED_THINKING_MESSAGE_TYPE,
+ 	isCustomMessageContent,
+ 	isEmptyErrorTurn,
+ 	normalizeCustomMessagePayload,
+@@ -566,16 +565,18 @@
+ 	// later user message follows through non-context entries (`session_exit`,
+ 	// labels, etc.); otherwise a resumed session replays a dead partial turn
+ 	// and can spend minutes reprocessing old context before the new prompt.
+-	// Keep the interrupted-thinking continuity pair: convertToLlm strips the
+-	// unsafe trailing thinking from that assistant and sends the hidden
+-	// continuity note instead.
++	// The interrupted-thinking continuity marker is never persisted to the
++	// session JSONL, so keeping an abort alive because that marker follows makes
++	// the wire history a function of process-local state: the live process keeps
++	// the turn, a resumed process rebuilding from disk drops it, and the implicit
++	// prompt cache dies at every interrupt point. Prune unconditionally so both
++	// paths render the same sequence; `convertOne` prunes the live path and the
++	// marker itself.
+ 	if (!options?.transcript) {
+ 		for (let i = messages.length - 1; i >= 0; i--) {
+ 			const message = messages[i];
+ 			if (message?.role !== "assistant") continue;
+ 			if (message.stopReason !== "aborted" && message.stopReason !== "error") continue;
+-			const next = messages[i + 1];
+-			if (next?.role === "custom" && next.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) continue;
+ 			// A failed turn that emitted tool calls persists paired synthetic
+ 			// tool_result placeholders after it. Dropping only the assistant would
+ 			// strand those results with no preceding tool_use — a shape providers
+--- a/src/session/messages.ts
++++ b/src/session/messages.ts
+@@ -1257,6 +1257,12 @@
+ 		}
+ 		case "custom": {
+ 			if (!isCustomMessageContent(m.content)) return [];
++			// Process-local marker: minted in memory on abort and never written to
++			// the session JSONL. Sending it would make the wire prefix depend on
++			// which process rendered it — the live turn carries the note, a resumed
++			// turn rebuilt from disk does not — voiding the implicit cache from that
++			// index on.
++			if (m.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) return [];
+ 			if (isSteeringUserMessage(m)) {
+ 				const converted = convertMessageToLlm(wrapSteeringUserMessage(m));
+ 				return converted ? [converted] : [];
+@@ -1284,12 +1290,17 @@
+ 			return converted ? [converted] : [];
+ 		}
+ 		case "assistant": {
++			// An interrupted/failed turn is a transcript event, not replayable
++			// history. `buildSessionContext` prunes it on the rebuild path, but the
++			// live path feeds agent state straight into `convertToLlm`
++			// (`agent-loop.prepareProviderCall`: `messages = context.messages`), so
++			// it must be pruned here too — otherwise the two paths disagree at every
++			// interrupt point and the implicit cache dies from that index on.
++			if (m.stopReason === "aborted" || m.stopReason === "error") return [];
+ 			// Persisted/displayed messages retain interrupted thinking. Signed or
+ 			// encrypted blocks replay natively; incomplete unsigned runs are
+ 			// stripped whether or not they were long enough for a continuity note.
+-			const userInterrupted = m.stopReason === "aborted" && isUserInterruptAbort(m);
+-			const source = interruptedNext || userInterrupted ? stripDemotedThinkingForLlm(m) : m;
+-			if (userInterrupted && !interruptedNext && source.content.length === 0) return [];
++			const source = interruptedNext ? stripDemotedThinkingForLlm(m) : m;
+ 			const converted = convertMessageToLlm(source);
+ 			return converted ? [converted] : [];
+ 		}

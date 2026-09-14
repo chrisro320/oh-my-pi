@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { streamDevin } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/providers/devin.ts";
-import {
-	GetChatMessageRequestSchema,
-	GetChatMessageResponseSchema,
-	GetUserJwtResponseSchema,
-} from "@oh-my-pi/pi-catalog/discovery/devin-proto";
-import { create, fromBinary, toBinary } from "@oh-my-pi/pi-catalog/discovery/protobuf";
-import { logger } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-utils/src/index.ts";
+import { homedir } from "node:os";
+
+// Package imports are runtime-selected so an isolated tree cannot fall back to live.
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
+const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+const { streamDevin } = await import(`${AI_ROOT}/src/providers/devin.ts`);
+const { GetChatMessageRequestSchema, GetChatMessageResponseSchema, GetUserJwtResponseSchema } = await import(
+	`${CATALOG_ROOT}/src/discovery/devin-proto.ts`
+);
+const { create, fromBinary, toBinary } = await import(`${CATALOG_ROOT}/src/discovery/protobuf.ts`);
+const { logger } = await import(`${NM}/pi-utils/src/index.ts`);
 import type { AssistantMessageEventStream, Context, Model } from "@oh-my-pi/pi-ai";
 
 console.log("=== Testing Devin auth cache + turn timing (0055) ===");

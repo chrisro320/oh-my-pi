@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "A2 minimal repository fixes implemented. User explicitly stopped further tests/reviews and scope expansion; no deployment or commit. Existing focused gates passed; 18.1.18 full revert has an uninvestigated compaction.ts residue, not claimed accepted. Keep unrelated 0063 work untouched. Phase B deferred.",
   "meta": {}
 }

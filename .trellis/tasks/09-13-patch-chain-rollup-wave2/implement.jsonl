@@ -1,3 +1,5 @@
 {"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "family rollup 生成法、retired SHA-256、全鏈逐字節等價、編號不重用——本任務核心契約"}
 {"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "閘門可證偽、ledger 最後同步、事實多載體掃描"}
 {"file": ".trellis/tasks/09-13-patch-chain-rollup-wave2/research/patch-chain-analysis.md", "reason": "補丁→檔案矩陣、負載順序、可順序、可併/緩/不可併判定、漂移清單"}
+{"file": ".trellis/spec/backend/index.md", "reason": "A2 開發與派工必讀 backend index；原文須嵌入工單"}
+{"file": ".trellis/spec/backend/extension-runtime-contracts.md", "reason": "A2 live/rebuild provider 邊界與零 provider 隔離驗收契約"}

@@ -1,0 +1,34 @@
+{
+  "scope": [
+    "check conflict exit 1",
+    "0043 tool-result pairing",
+    "registered gate root selection and vacuous checks"
+  ],
+  "further_tests_after_user_zero_limit": 0,
+  "further_reviews_after_user_zero_limit": 0,
+  "prior_suite_results": {
+    "18.1.14": 9,
+    "18.1.18": 14
+  },
+  "prior_old_interrupt_negatives": [
+    [
+      "18.1.14",
+      1,
+      "old paired conversion rejected"
+    ],
+    [
+      "18.1.18",
+      1,
+      "old paired conversion rejected"
+    ]
+  ],
+  "prior_wrong_root_checks": 33,
+  "prior_lifecycle": {
+    "18.1.14": "pass",
+    "18.1.18": "revert comparison failed: pi-agent-core/src/compaction/compaction.ts; reason not investigated"
+  },
+  "new_test_cases": "removed on user request",
+  "reviews": "cancelled; no verdict",
+  "deployment": "not performed",
+  "commit": "not performed"
+}

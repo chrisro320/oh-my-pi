@@ -34,7 +34,15 @@
  			// strand those results with no preceding tool_use — a shape providers
 --- a/src/session/messages.ts
 +++ b/src/session/messages.ts
-@@ -1265,6 +1265,12 @@
+@@ -1186,6 +1186,7 @@
+ 	output: Message[];
+ 	tail: AgentMessage | undefined;
+ 	prefixOutputLen: number;
++	prunedToolCallIds: Set<string> | undefined;
+ }
+ 
+ let convertGeneration = 0;
+@@ -1265,6 +1266,12 @@
  		}
  		case "custom": {
  			if (!isCustomMessageContent(m.content)) return [];
@@ -47,7 +55,7 @@
  			if (isSteeringUserMessage(m)) {
  				const converted = convertMessageToLlm(wrapSteeringUserMessage(m));
  				return converted ? [converted] : [];
-@@ -1292,12 +1298,17 @@
+@@ -1292,12 +1299,17 @@
  			return converted ? [converted] : [];
  		}
  		case "assistant": {
@@ -68,3 +76,41 @@
  			const converted = convertMessageToLlm(source);
  			return converted ? [converted] : [];
  		}
+@@ -1365,6 +1377,7 @@
+ 	// array while swapping earlier identities, forcing a full rebuild.
+ 	let out: Message[];
+ 	let start: number;
++	let prunedToolCallIds: Set<string> | undefined;
+ 	if (
+ 		sameGeneration &&
+ 		len > memo.length &&
+@@ -1374,6 +1387,7 @@
+ 	) {
+ 		out = memo.output.slice(0, memo.prefixOutputLen);
+ 		start = memo.length - 1;
++		prunedToolCallIds = memo.prunedToolCallIds;
+ 	} else {
+ 		out = [];
+ 		start = 0;
+@@ -1385,6 +1399,13 @@
+ 	for (let i = start; i < len; i++) {
+ 		if (i === len - 1) prefixOutputLen = out.length;
+ 		const m = messages[i];
++		if (m.role === "assistant" && (m.stopReason === "aborted" || m.stopReason === "error")) {
++			// Keep synthetic results paired with their discarded call across appends.
++			for (const block of m.content) {
++				if (block.type === "toolCall") (prunedToolCallIds ??= new Set()).add(block.id);
++			}
++		}
++		if (m.role === "toolResult" && prunedToolCallIds?.has(m.toolCallId)) continue;
+ 		const interruptedNext = m.role === "assistant" && followedByInterruptedThinking(messages, i);
+ 		const fragment = convertOneCached(m, interruptedNext);
+ 		for (const msg of fragment) out.push(msg);
+@@ -1399,6 +1420,7 @@
+ 		output: out,
+ 		tail,
+ 		prefixOutputLen,
++		prunedToolCallIds,
+ 	});
+ 	return out;
+ }

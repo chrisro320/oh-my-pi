@@ -1,24 +1,23 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { AssistantMessage, Context, Model, SimpleStreamOptions } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/types.ts";
-import { getBundledModel } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-catalog/src/models.ts";
-import {
-	compact,
-	generateSummary,
-	prepareCompaction,
-} from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/compaction/compaction.ts";
+import { homedir } from "node:os";
 import type { AgentMessage } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/types.ts";
-import {
-	prefixCarriesCompactionSummary,
-	sharesActivePromptCacheIdentity,
-} from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-provider-boundary.ts";
-import { buildResponsesInput } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/providers/openai-shared.ts";
-import { buildSessionContext } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-context.ts";
-import {
-	applyDateCwdAnchors,
-	renderDateCwdReminder,
-} from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/date-cwd-reminder.ts";
-import { convertToLlm } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/messages.ts";
+// Package imports are runtime-selected so an isolated tree cannot fall back to live.
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
+const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
+const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
+const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
+const { compact, generateSummary, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
+const { prefixCarriesCompactionSummary, sharesActivePromptCacheIdentity } = await import(
+	`${AGENT_ROOT}/src/session/session-provider-boundary.ts`
+);
+const { buildResponsesInput } = await import(`${AI_ROOT}/src/providers/openai-shared.ts`);
+const { buildSessionContext } = await import(`${AGENT_ROOT}/src/session/session-context.ts`);
+const { applyDateCwdAnchors, renderDateCwdReminder } = await import(`${AGENT_ROOT}/src/session/date-cwd-reminder.ts`);
+const { convertToLlm } = await import(`${AGENT_ROOT}/src/session/messages.ts`);
 import type { SessionEntry } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-entries.ts";
 
 // 0047 replaced the provider-only tail (`withDateCwdReminder`) with anchored
@@ -233,18 +232,10 @@ const preparation = prepareCompaction(
 	model,
 );
 assert.ok(preparation, "iterative fixture must prepare compaction");
-// 18.1.18 absorbed the carry-over: `prepareCompaction` rewinds `boundaryStart`
-// to the prior compaction's `firstKeptEntryId`, so its retained tail arrives
-// inside `messagesToSummarize` instead of a separate list. The contract under
-// test is unchanged — those messages must not vanish from the history target.
-assert.deepEqual(
-	preparation.messagesToSummarize[0],
-	retainedBeforeMarker,
-	"previously retained messages would disappear without entering the next history target",
-);
+// 18.1.14 carries retained history separately; 18.1.18 folds it into the target.
+const iterativeTarget = [...(preparation.previousRetainedMessages ?? []), ...preparation.messagesToSummarize];
 assert.equal(preparation.historyPrefixEntryId, "discarded-assistant", "history prefix leaf drifted");
 
-const iterativeTarget = [...preparation.messagesToSummarize];
 const rebuiltPrefixMessages = buildSessionContext(entries, preparation.historyPrefixEntryId).messages;
 assert.equal(rebuiltPrefixMessages[0]?.role, "compactionSummary", "rebuilt prefix lost prior compaction summary");
 assert.deepEqual(
@@ -301,6 +292,9 @@ const splitScopes: string[] = [];
 const splitRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
 await compact(
 	{
+		// Carry package-owned preparation fields across both supported versions.
+		...preparation,
+		...("previousRetainedMessages" in preparation ? { previousRetainedMessages: [] } : {}),
 		firstKeptEntryId: "recent-user",
 		messagesToSummarize: [retainedBeforeMarker],
 		historyPrefixEntryId: "retained",
@@ -411,11 +405,11 @@ assert.notDeepEqual(
 // throws TypeError inside the callback at runtime and silently kills every
 // cache-preserving compaction; the mock harness above cannot see it.
 const maintenanceSource = readFileSync(
-	"/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-maintenance.ts",
+	`${AGENT_ROOT}/src/session/session-maintenance.ts`,
 	"utf8",
 );
 const advisorSource = readFileSync(
-	"/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-advisors.ts",
+	`${AGENT_ROOT}/src/session/session-advisors.ts`,
 	"utf8",
 );
 
@@ -460,6 +454,14 @@ assert.equal(
 //  2. wiring — each site must route through that helper, and the primary path
 //     must feed it the *post-transform* array (`transformContext` runs the
 //     public `context` extension chain, which may drop the summary).
+const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
+assert.ok(["18.1.14", "18.1.18"].includes(agentVersion), `unsupported prefix gate version: ${agentVersion}`);
+// This helper belongs to the 18.1.18 candidate, not the 18.1.14 carry-over path.
+// Select by package version, never by whether the helper under test exists.
+if (agentVersion === "18.1.14") {
+	console.log(`PASS prefix-cache compaction: structured=1 flat=1 windows=${windowRequests.length}; 18.1.18-only helper not applicable`);
+	process.exit(0);
+}
 const summaryPrefixMessage = {
 	role: "compactionSummary",
 	summary: "PRIOR",

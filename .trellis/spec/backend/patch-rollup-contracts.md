@@ -38,6 +38,9 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 - Finalized old patches MUST remain byte-identical in a retired directory with pinned hashes.
 - Full-chain verification MUST consume the exact file/root/order sequence parsed from `apply.sh`; a second hand-maintained active list is not an oracle.
 - Runtime source bytes MUST remain unchanged when switching from the old effective chain to the rollup chain. This equivalence is discharged per family on the family-generation baseline (old member chain vs rollup, byte-compared) — no single baseline can host both the retired member shapes and the current chain, so a whole-chain old-vs-new oracle is not required and MUST NOT be faked by pointing both sides at the same resolved plan.
+- Identical OLDCHAIN/resolved plans MUST be materialized only once. A NOTE is not
+  equivalence evidence. When representations differ, OLDCHAIN must name retained
+  original bytes explicitly; resolving an overwritten same-name file is not a before oracle.
 - Controller patch commands MUST use `--no-backup-if-mismatch`; revert also
   uses `--remove-empty-files`. Apply/revert/replay must leave no `.orig`, `.rej`,
   or empty files that were absent from pristine.
@@ -79,10 +82,13 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 | Apply/revert creates `.orig`, `.rej`, or leaves an added file empty | Abort; fix controller flags and restart from pristine |
 | `OMP_PATCH_OFFLINE_VERIFY` is neither `0` nor `1` | Exit 2 before mutation |
 | Offline replay mode is `1` | Skip provider smoke; do not claim live provider acceptance |
+| `--check`: all applied, all pending, or mixed applied/pending | Exit 0; source and bin unchanged |
+| `--check`: any conflict or missing ordinary patch | Exit 1; source and bin unchanged |
+| `--check`: bin missing or not source-linked | Report PENDING, not conflict |
 
 ### 5. Good / Base / Bad Cases
 
-- **Good:** Official tarballs pass pinned hashes; old and new family trees are byte-equal; reverse restores pristine; the resolved 18.1.14 plan parsed live from `apply.sh` matches the pinned OLDCHAIN snapshot byte-for-byte across all four packages.
+- **Good:** Official tarballs pass pinned hashes; each old-family/new-rollup pair is byte-equal; stack reverse restores pristine. An unchanged resolved plan is replayed once, without a second self-comparison tree.
 - **Base:** A finalized independent patch remains active and is not absorbed merely because it touches the same subsystem.
 - **Bad:** A full runtime-to-pristine diff is used for a family that shares `session-maintenance.ts` with another family; unrelated changes become baked into both rollups.
 
@@ -96,7 +102,7 @@ A permanent rollup verifier MUST assert:
 4. Per-family old-final equals rollup-final byte-for-byte.
 5. Reverse rollup restores pristine/family pre-state.
 6. Reversing the entire active chain in stack order restores pristine bytes; each layer's reverse dry-run succeeds at its own stack depth, and a forward dry-run MUST fail while it is still on the tree when the patch has removable old text. Pure-insertion patches are exempt from that forward-failure assertion and MUST still pass reverse/byte-equivalence checks. Isolated per-entry probing on the final tree is not a substitute and is forbidden.
-7. The pinned resolved-plan snapshot (OLDCHAIN) equals the plan resolved live from `apply.sh`'s own version branch — candidate substitutions, `omit:` drops, and `PATCHES+=` appends included — across every owned package. A second hand-maintained active list is not an oracle; the resolution MUST be parsed from the shipped controller text.
+7. The EXPECTED_PLAN / EXPECTED_PLAN_18 snapshots equal the plans emitted by `apply.sh --print-plan`, including candidates, omissions and tail appends. OLDCHAIN is separately reserved for a genuine previous representation, not for parsing the current controller.
 8. A sensitivity probe omits one rollup, leaves `new-final` pristine, and proves the old-final/new-final comparison fails.
 9. Normal deployment keeps the real `apply.sh` smoke path; isolated replay uses
    explicit offline mode plus separate zero-provider behavioral fixtures.

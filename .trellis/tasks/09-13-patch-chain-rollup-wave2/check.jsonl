@@ -2,3 +2,5 @@
 {"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "覆核對照：閘門可證偽性與載體掃描"}
 {"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "覆核對照：通用品質閘"}
 {"file": ".trellis/tasks/09-13-patch-chain-rollup-wave2/research/patch-chain-analysis.md", "reason": "覆核對照：合併判定與不可併清單"}
+{"file": ".trellis/spec/backend/index.md", "reason": "A2 覆核必讀 backend index；原文須嵌入工單"}
+{"file": ".trellis/spec/backend/extension-runtime-contracts.md", "reason": "A2 覆核 provider 邊界及零網路 sandbox 驗收，不擴成全目錄歷史審查"}

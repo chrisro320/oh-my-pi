@@ -3,13 +3,15 @@
 // version tuple. Purely in-process — no provider, network, or DB access.
 import assert from "node:assert/strict";
 import { join } from "node:path";
+import { homedir } from "node:os";
 // Absolute paths on purpose: `patch` rewrites through rename, which breaks the
 // hard links bun's install cache shares with this tree. A bare
 // `@oh-my-pi/pi-catalog/...` specifier would then resolve to the cache's
 // pristine copy and silently verify the wrong file. The override mirrors the
 // `OMP_PATCH_VERIFY_*` convention the other gates use, so an official-tree
 // sandbox can be replayed against its own copy.
-const root = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-catalog";
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const root = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 // Dynamic import is required, not stylistic: the package root is runtime-selected
 // (live tree by default, an official-tree sandbox when apply.sh passes
 // OMP_PATCH_VERIFY_CATALOG_ROOT), so no static specifier can name it. Same

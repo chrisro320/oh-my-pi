@@ -47,10 +47,10 @@
 // isolated variant (see the fault-tree helper in the patch notes).
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 
-const SNAP_ROOT =
-	process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ??
-	"/home/chris/.bun/install/global/node_modules/@oh-my-pi/snapcompact";
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const SNAP_ROOT = process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`;
 
 const COMMAND_CODE_API = "commandcode-custom";
 const ALIAS_API = "commandcode-custom-b";

@@ -18,7 +18,7 @@ A gate that cannot fail is documentation, not verification.
 OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT=<pkg-root> bun patches/verify-<name>.ts
 
 # Behaviour gate: imports the module from that same root (see §3).
-# Agent-tree gates additionally require:
+# Package-specific roots are optional overrides of OMP_PATCH_VERIFY_NM:
 OMP_PATCH_VERIFY_AGENT_ROOT=<pi-coding-agent-root> bun patches/verify-<name>.ts
 ```
 
@@ -42,10 +42,12 @@ suite. A gate that no suite invokes is not a gate.
   variants silently validate only the live tree.
 - Gate loading MUST fail closed. A module that cannot be imported MUST abort
   the gate, never fall through to a passing run.
-- Fault trees MUST be complete package copies — `src/` including non-TS assets
-  (`prompts/`, data files) plus a `node_modules` symlink. A tree holding only
-  the single mutated file fails with `Cannot find module`, and an entry-point
-  guard that also catches load errors is required to tell the two apart.
+- Fault trees MUST contain complete package copies, including non-TS assets
+  (`prompts/`, data files). Dependency resolution for pi-coding-agent,
+  pi-agent-core, pi-ai, snapcompact and pi-catalog MUST remain in the selected
+  version's tree; blindly linking node_modules to live can undo isolation.
+  Unrelated external dependencies may be reused. Missing dependencies are load
+  failures, not evidence that the intended behavioral mutation was detected.
 - Measurement tables in production code MUST be keyed the way the measurement
   was taken. If per-key prices differ, key by the exact identifier and never by
   a shared prefix; a prefix override passes every other assertion while
@@ -61,6 +63,17 @@ suite. A gate that no suite invokes is not a gate.
   superseding entry, so its numbers are a function of the fixture rather than
   of the session's current length.
 
+- Registered gates resolve package-specific `OMP_PATCH_VERIFY_<PACKAGE>_ROOT`
+  before `OMP_PATCH_VERIFY_NM`, then the local HOME default. PACKAGE is AGENT,
+  CORE, AI, SNAPCOMPACT or CATALOG. The controller exports all selected roots;
+  direct invocations retain the same override precedence.
+- Version-specific gates follow the selected plan, never the existence of the
+  symbol they must verify. Missing patch effects must fail rather than select SKIP.
+- Root checks must distinguish type-only imports from runtime imports.
+  Do not grow a second verifier merely to inspect other verification scripts.
+- Do not grep assertion wording or fixture variable names as proof a gate works.
+  Meta/extension gates need their own negative controls; they need not fail just
+  because the package tree is pristine.
 - A probe script MUST live inside the package tree it is probing. `bun`
   resolves an import relative to the SCRIPT's location, so a probe in `/tmp`
   falls back to the global install cache and silently measures a DIFFERENT
@@ -199,6 +212,34 @@ documented. A stale representation is a defect even when the source tree is righ
 1. `cmp` every owned file between repository and ledger.
 2. Applied-tree `cmp` against the recorded target after regeneration.
 3. A keyword scan for superseded values returning zero hits.
+
+## Scenario: Pruning interrupted tool-call pairs
+
+### 1. Scope / Trigger
+0043: live conversion bypasses the resume path's paired-result pruning.
+
+### 2. Signatures
+`convertToLlm(messages: AgentMessage[]): Message[]`.
+
+### 3. Contracts
+Drop failed assistants and their paired results; preserve unrelated results,
+healthy turns and transcript objects. Carry call ids through append memo;
+rebuild on invalidation. Allocate a set only when a failed tool call exists.
+
+### 4. Validation & Error Matrix
+Failed call/result → both absent; healthy/unrelated result → preserved;
+append conversion → same output as fresh conversion.
+
+### 5. Good / Base / Bad Cases
+Good: both paths agree. Base: text-only interruption unchanged.
+Bad: deleting every orphan result or mutating JSONL.
+
+### 6. Verification Boundary
+Use the focused evidence already collected. Do not add or run further tests
+when the user explicitly sets a zero-test boundary.
+
+### 7. Wrong vs Correct
+Wrong: remove only the assistant. Correct: prune its matching results too.
 
 ## Scenario: Judging provider usage records in session JSONL (E2E verdict tools)
 

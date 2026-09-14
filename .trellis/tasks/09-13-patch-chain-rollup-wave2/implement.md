@@ -1,4 +1,4 @@
-# Implement — 補丁鏈清場（Phase A）＋ rollup wave 2（Phase B，另議）
+# Implement — Phase A 完成／A2 最小修復已落盤／未部署
 
 > 每步驗證通過就打勾＋一行狀態。本檔是唯一持久進度記錄。
 
@@ -10,7 +10,7 @@
 - 中途停 → `/trellis:paused-work`；收尾 → `/trellis:finish-work`
 
 ## Phase A — 清場
-> RESUME: Phase B — 合併三組（B1 0036 族重生成含 0044/0052/0057、B2 0037 族重生成含 0041、B3 反向剝離生成 0063）；第一動作：18.0.9 族沙盒重生成 0036（見下方 Phase B 節與 design.md D5）。Phase A 已全交付並提交（b4bf73f），verify-rollups 全綠、ledger 零漂移、live 32 APPLIED。
+> RESUME: A2 最小修復已落盤，未部署。使用者明確要求後續測試 0 次、審查 0 次；不可恢復大套件、額外排查或 Phase B。只在另獲部署授權後處理 live；保留工作樹，不自動提交。
 
 
 ### Step 0 — 備份與已知良好點
@@ -62,6 +62,26 @@
 - [x] 6.1 spec 更新：`patch-rollup-contracts.md`（fence 修復、auto-route 契約、cache 污染實證、read.description 標 Historical）、`extension-runtime-contracts.md`（anchor gate 實際行為）— verified
 - [x] 6.2 commit Phase A 全部變更（含 review 修復）— `20e5fe9` / `cafced5` / `b4bf73f` — verified
 - [x] 6.3 `/trellis:paused-work` 收尾（用戶決：收 Phase A，Phase B 保留在本任務續做）— RESUME anchor 已置頂
+
+## Phase A2 — 關鍵安全修復（已確認）
+
+審計已完成：兩個 patch reviewer 的已交付發現經 Main 複核；23-script 長報告 reviewer 因遲未交付已取消，其未交內容不算證據。Main 已跑現役 14 閘＋4 補充閘、兩版相關重演與四組負對照；詳見 research 最新節。這不是 A2 修改後驗收。
+
+- [x] A2.0 使用者確認本版 A2 並鎖定關鍵範圍；`task.py start` 已恢復既有任務。不另建任務、不啟動 Phase B。— verified
+- [x] A2.1 官方兩版 tarball 與原始 0043 bytes 已保存；原始補丁退役留 hash。— verified
+- [x] A2.2 `--check` CONFLICT→1；原有 PENDING→0／版本錯誤→2 不變。停止測試指令前的矩陣通過。— verified
+- [x] A2.3 0043 僅增加 `messages.ts` 的工具配對清理與 memo 狀態；兩版生成完成。停止測試前，舊實作負對照失敗、新實作通過。新增用例依最新最小範圍要求移除。— verified
+- [x] A2.4 現役腳本改用指定套件根；版本專用閘按計畫而非待驗符號選擇。移除空洞字串斷言及本輪新加的 meta 檢查器。— implemented
+- [x] A2.5 同鏈不再重複建樹；保留家族等價／退役 hash。停止測試前 rollup 與 selftest 通過；新增狀態矩陣用例已移除。— verified
+- [x] A2.6 驗證僅記錄已發生結果：18.1.14 所屬 9 閘／18.1.18 所屬 14 閘通過；12 pristine 負對照、33 錯根及 0043 memo 負對照生效。18.1.14 完整循環通過；18.1.18 revert 留有 `pi-agent-core/src/compaction/compaction.ts` 差異，未追查原因、未宣稱全鏈通過。後續測試 0 次。— bounded evidence
+- [x] A2.7 兩個在途 review 依使用者要求取消，無覆核 verdict；規範／必要文件已同步。GLM 代理停止前未改檔，專案 implement 模型已依指示改為 `commandcode/deepseek/deepseek-v4.1-flash`。— no further review
+- [ ] A2.8/A2.9 live 部署未授權；本輪未同步 ledger、未改 live、不提交。工作樹新增的 `0063-omp-codex-v2-compaction-stateful-chain.patch` 非本輪產物，保持不動。
+
+### A2 最終確認前檢查
+
+- RS1–RS6 均有 ACS 映射；2026-09-13 使用者確認啟動，額外清理一律不帶入本批。
+- `providerOnly` 成組清理、大幀估價、override 白名單與 Phase B 家族重切均明列延後，不混入此次修復。
+- 實作派工需嵌入最近 AGENTS 與 backend index 原文，附機檢查詢；review 只覆本批 diff，不派全目錄長審查。
 
 ## Phase B — 合併（Phase A 驗收後另議，預備方案）
 

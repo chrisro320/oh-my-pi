@@ -24,10 +24,13 @@
 //   OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> bun patches/verify-snapcompact-reduction-baseline.ts
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { FRAME_TOKEN_ESTIMATE } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/snapcompact/src/snapcompact.ts";
+import { homedir } from "node:os";
 
-const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
-assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point at the live agent tree");
+// Package imports are runtime-selected so an isolated tree cannot fall back to live.
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
+const SNAP_ROOT = process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`;
+const { FRAME_TOKEN_ESTIMATE } = await import(`${SNAP_ROOT}/src/snapcompact.ts`);
 const source = readFileSync(`${AGENT_ROOT}/src/session/session-maintenance.ts`, "utf8");
 
 // ---------------------------------------------------------------------------

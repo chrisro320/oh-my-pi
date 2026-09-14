@@ -5,12 +5,16 @@
 // receive the field (cursor keys append-only state off it).
 import assert from "node:assert/strict";
 import { mkdirSync, rmSync } from "node:fs";
-import { createMockModel, registerMockApi, type MockModel } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/providers/mock.ts";
-import {
-	createAgentSession,
-	discoverAuthStorage,
-} from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/sdk.ts";
-import { SessionManager } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-manager.ts";
+import { homedir } from "node:os";
+import type { MockModel } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/providers/mock.ts";
+
+// Package imports are runtime-selected so an isolated tree cannot fall back to live.
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
+const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
+const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
+const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 import type { SimpleStreamOptions } from "@oh-my-pi/pi-ai";
 
 const root = `/tmp/omp-devin-cascade-test-${process.pid}`;

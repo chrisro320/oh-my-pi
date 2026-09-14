@@ -14,8 +14,14 @@
 //
 // Run: bun patches/verify-provider-image-budget.ts   (exits 0 on success)
 import assert from "node:assert/strict";
-import { PROVIDER_IMAGE_BUDGETS, providerImageBudget, providerFrameBudget } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/snapcompact/src/snapcompact.ts";
-import { clampProviderContextImages } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/provider-image-budget.ts";
+import { homedir } from "node:os";
+
+// Package imports are runtime-selected so an isolated tree cannot fall back to live.
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const SNAP_ROOT = process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`;
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
+const { PROVIDER_IMAGE_BUDGETS, providerImageBudget, providerFrameBudget } = await import(`${SNAP_ROOT}/src/snapcompact.ts`);
+const { clampProviderContextImages } = await import(`${AGENT_ROOT}/src/session/provider-image-budget.ts`);
 
 // The production pair that fell through to the floor of 5:
 assert.equal(providerImageBudget("opencode-go", "openai-completions"), 200);

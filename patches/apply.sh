@@ -466,6 +466,7 @@ for i in "${ORDER_IDX[@]}"; do
 		continue
 	fi
 	case "$MODE:$st" in
+		check:conflict) echo "CONFLICT  ${name}"; fail=1 ;;
 		check:*) echo "${st^^}  ${name}" ;;
 		apply:applied) echo "SKIP     ${name} (already applied)" ;;
 		apply:pending)
@@ -524,41 +525,44 @@ fi
 if [[ "$MODE" == "apply" ]]; then
 	echo "=== Running Patches Regression Test Suite ==="
 	# Chain-level rollup verification: `apply.sh --verify-rollups`.
+	# Bind every gate to the tree selected by this controller, not its caller.
+	export OMP_PATCH_VERIFY_NM="$NM"
+	export OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT"
+	export OMP_PATCH_VERIFY_CORE_ROOT="$CORE"
+	export OMP_PATCH_VERIFY_AI_ROOT="$AI"
+	export OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT="$SNAP"
+	export OMP_PATCH_VERIFY_CATALOG_ROOT="${NM}/pi-catalog"
 	bun "${HERE}/verify-antigravity-envelope.ts"
 	bun "${HERE}/verify-prefix-cache-compaction.ts"
 	bun "${HERE}/verify-provider-image-budget.ts"
 	bun "${HERE}/verify-snapcompact-model-billing.ts"
-	OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT="$SNAP" bash "${HERE}/verify-spec-contracts.sh"
-	# 0055 僅在 18.1.18 計畫；base 鏈的 devin.ts 沒有 devinAuthCache，跳過而非誤紅。
-	if grep -q 'devinAuthCache' "${AI}/src/providers/devin.ts" 2>/dev/null; then
+	bash "${HERE}/verify-spec-contracts.sh"
+	# Plan membership selects gates; missing patch effects must fail, not skip.
+	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
 		bun "${HERE}/verify-devin-auth-cache.ts"
 	else
 		echo "verify-devin-auth-cache: skipped (0055 not in this plan)"
 	fi
 	bun "${HERE}/verify-hindsight-recall-snapshot.ts"
-	OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" bun "${HERE}/verify-interrupt-prune-symmetry.ts"
-	# 0056 同 0055：只在 18.1.18 計畫，且以 pi-catalog 的 devinCliMetadata 為前提。
-	if grep -q 'devinSessionId' "${NM}/pi-catalog/src/wire/devin.ts" 2>/dev/null; then
-		OMP_PATCH_VERIFY_CATALOG_ROOT="${NM}/pi-catalog" bun "${HERE}/verify-devin-metadata.ts"
+	bun "${HERE}/verify-interrupt-prune-symmetry.ts"
+	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+		bun "${HERE}/verify-devin-metadata.ts"
 	else
 		echo "verify-devin-metadata: skipped (0056 not in this plan)"
 	fi
-	OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" OMP_PATCH_VERIFY_CORE_ROOT="$CORE" bun "${HERE}/verify-supersede-warm-prefix-guard.ts"
-	# 0058 同 0055/0056：只在 18.1.18 計畫，且以 0055 套用後的 devin.ts 為前提。
-	if grep -q 'lastThinkingBlock' "${AI}/src/providers/devin.ts" 2>/dev/null; then
+	bun "${HERE}/verify-supersede-warm-prefix-guard.ts"
+	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
 		bun "${HERE}/verify-devin-thinking-signature.ts"
 	else
 		echo "verify-devin-thinking-signature: skipped (0058 not in this plan)"
 	fi
-	# 0060 同 0055/0058：只在 18.1.18 計畫，以 agent-session 的 devin 分支為標記。
-	if grep -q 'conversationId: this.model?.provider' "${AGENT}/src/session/agent-session.ts" 2>/dev/null; then
+	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
 		bun "${HERE}/verify-devin-idle-cascade-pin.ts"
 	else
 		echo "verify-devin-idle-cascade-pin: skipped (0060 not in this plan)"
 	fi
-	# 0062 同 0060：只在 18.1.18 計畫，以基線的舊歸檔項為標記。
-	if grep -q 'projectPreviousArchiveTokens' "${AGENT}/src/session/session-maintenance.ts" 2>/dev/null; then
-		OMP_PATCH_VERIFY_AGENT_ROOT="$AGENT" bun "${HERE}/verify-snapcompact-reduction-baseline.ts"
+	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+		bun "${HERE}/verify-snapcompact-reduction-baseline.ts"
 	else
 		echo "verify-snapcompact-reduction-baseline: skipped (0062 not in this plan)"
 	fi

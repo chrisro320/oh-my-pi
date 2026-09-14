@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
-import { buildRequest } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/providers/google-gemini-cli.ts";
 import type { Context, Model } from "@oh-my-pi/pi-ai";
+import { homedir } from "node:os";
+
+// Package imports are runtime-selected so an isolated tree cannot fall back to live.
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
+const { buildRequest } = await import(`${AI_ROOT}/src/providers/google-gemini-cli.ts`);
 
 console.log("=== Testing Antigravity Request Envelope (0014) ===");
 

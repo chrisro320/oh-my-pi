@@ -145,6 +145,15 @@ e28423b34a8989ed6177ef0fe86a7954cecd75d13985cd4ceac01f698b807734  .18.1.10-candi
 196c1366ed703980eda0dea4235bf70c0e34a5d3128f640c9371dbc578ec1c33  .18.1.10-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.1.10-candidate.patch
 EOF
 ) || die "retired patch hashes drifted in ${RETIRED2}"
+
+# Superseded 0043 representations are immutable, not a rollup-equivalence oracle.
+(
+	cd "${HERE}/.retired/09-13-interrupt-pairing" || exit 1
+	sha256sum -c --quiet <<'EOF'
+1d7a213320a9e50d6fb89b55571b37fadafd15c86e6cb5503401718894ff176a  0043-omp-interrupt-prune-symmetry.patch
+53dc0d8f7734a2c7e6d31048f8f5b7684f1d7325dbf4f41b73525bcb7e421be0  .18.1.18-candidates/0043-omp-interrupt-prune-symmetry-v18.1.18-candidate.patch
+EOF
+) || die "retired 0043 patch hashes drifted"
 echo "PASS static: apply.sh chain (26 entries, no supersede), rollup hygiene, retired hashes"
 
 # ---------------------------------------------------------------- sandbox
@@ -453,6 +462,7 @@ EXPECTED_PLAN_18=(
 	"0058-omp-devin-thinking-signature-replay.patch:AI"
 	"0060-omp-devin-idle-cascade-pin.patch:NM"
 	"0062-omp-snapcompact-reduction-baseline-previous-archive.patch:AGENT"
+	"0063-omp-codex-v2-compaction-live-chain.patch:NM"
 )
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
@@ -482,30 +492,23 @@ apply_chain() { # $1 tree  $2 "file:root"...
 	done
 }
 
-mkpkgs "$G/full-old" "$TGZD2" full
 mkpkgs "$G/full-new" "$TGZD2" full
-apply_chain "$G/full-old" "${OLDCHAIN[@]}"
 apply_chain "$G/full-new" "${NEWCHAIN[@]}"
-sweep_check "$G/full-old" "$G/full-new"
+sweep_check "$G/full-new"
 
-fcfail=0
-for pk in pi-coding-agent pi-agent-core pi-ai snapcompact; do
-	if ! diff -r "${CMPARGS[@]}" "$G/full-old/${NMROOT}/$pk" "$G/full-new/${NMROOT}/$pk" \
-		>"$G/fc-cmp.txt" 2>&1; then
-			echo "FAIL full chain: pinned snapshot chain and resolved plan disagree in ${pk}"
-		first_diffs "$G/fc-cmp.txt"
-		fcfail=1
-	fi
-done
-[[ $fcfail -eq 0 ]] || exit 1
-# When OLDCHAIN and NEWCHAIN are the same list the tree comparison is vacuous
-# — spec forbids presenting it as old-vs-new evidence. It only becomes a real
-# oracle once a merge batch lands: EXPECTED_PLAN then moves to the merged plan
-# while OLDCHAIN keeps the pre-merge entries, and byte-equality proves the
-# merge changed representation only.
 if [[ "${OLDCHAIN[*]}" == "${NEWCHAIN[*]}" ]]; then
-	echo "NOTE rollup equivalence: OLDCHAIN == resolved plan (${#NEWCHAIN[@]}) — oracle vacuous until a merge batch lands (trees byte-equal, as required)"
+	echo "NOTE rollup equivalence: same plan (${#NEWCHAIN[@]}); replayed once, no self-comparison claimed"
 else
+	mkpkgs "$G/full-old" "$TGZD2" full
+	apply_chain "$G/full-old" "${OLDCHAIN[@]}"
+	sweep_check "$G/full-old"
+	for pk in pi-coding-agent pi-agent-core pi-ai snapcompact; do
+		if ! diff -r "${CMPARGS[@]}" "$G/full-old/${NMROOT}/$pk" "$G/full-new/${NMROOT}/$pk" \
+			>"$G/fc-cmp.txt" 2>&1; then
+			first_diffs "$G/fc-cmp.txt"
+			die "full chain: pinned snapshot and resolved plan disagree in ${pk}"
+		fi
+	done
 	echo "PASS rollup equivalence: pinned chain (${#OLDCHAIN[@]}) == resolved plan (${#NEWCHAIN[@]}), byte-equal on all four packages"
 fi
 

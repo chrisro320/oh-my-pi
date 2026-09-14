@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 
 // Attribute: an interrupted (aborted/error) assistant turn must produce the same
 // wire history on both request paths.
@@ -16,8 +17,8 @@ import { readFileSync } from "node:fs";
 // prefix a function of which process rendered it, and the implicit cache dies
 // from that index on at every interrupt point.
 
-const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
-assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to an isolated tree");
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 
 // Runtime-selected specifier: the module tree under test is an isolated sandbox
 // named by OMP_PATCH_VERIFY_AGENT_ROOT, so a static import cannot name it.

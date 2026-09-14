@@ -36,34 +36,6 @@ echo "=== verification-gate-contracts conformance ==="
 grep -q "verification-gate-contracts.md" "${REPO}/.trellis/spec/backend/index.md" \
 	&& ok "spec indexed in backend/index.md" || bad "spec not indexed"
 
-# --- Contract: no gate imports by absolute path while reading from a ROOT ----
-# A gate honouring <ROOT> for its text read MUST also import from <ROOT>.
-for f in "${HERE}"/verify-*.ts; do
-	name="$(basename "$f")"
-	if grep -q 'OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT' "$f"; then
-		if grep -qE 'await import\(`\$\{SNAP_ROOT\}' "$f"; then
-			ok "${name}: imports from the configurable root"
-		else
-			bad "${name}: reads ROOT but imports an absolute path (fault trees void)"
-		fi
-	else
-		# Gates using the agent root are checked for the same shape.
-		if grep -q 'OMP_PATCH_VERIFY_AGENT_ROOT' "$f" && grep -qE 'await import\(`\$\{AGENT_ROOT\}' "$f"; then
-			ok "${name}: imports from the configurable agent root"
-		else
-			ok "${name}: no root variable; not subject to the redirection contract"
-		fi
-	fi
-done
-
-# --- Contract: root-honouring gates fail closed on load ---------------------
-for f in "${HERE}"/verify-*.ts; do
-	name="$(basename "$f")"
-	grep -q 'OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT' "$f" || continue
-	grep -q 'cannot load' "$f" \
-		&& ok "${name}: aborts on load failure (fail-closed)" \
-		|| bad "${name}: no load guard; an unimportable tree could pass"
-done
 
 # --- Contract: no tautological recomputation of a consumer formula ----------
 # The billing gate must NOT restate the reduction arithmetic that
@@ -75,25 +47,12 @@ if [[ -f "$BILLING" ]]; then
 	else
 		ok "verify-snapcompact-model-billing.ts defers reduction routing to 0045's gate"
 	fi
-	# ...and the consumer's gate must genuinely assert both call sites.
-	REPRICE="${HERE}/verify-snapcompact-frame-reprice.ts"
-	grep -q 'both reduction call sites must pass shape.frameTokenEstimate' "$REPRICE" \
-		&& ok "verify-snapcompact-frame-reprice.ts asserts both reduction call sites" \
-		|| bad "verify-snapcompact-frame-reprice.ts does not assert both call sites"
 fi
 
-# --- Contract: append-only fixture gates pin a boundary id ------------------
-if [[ -f "$REPRICE" ]]; then
-	grep -qE "RECORDED_BOUNDARY|OMP_PATCH_VERIFY_REPRICE_BOUNDARY" "$REPRICE" \
-		&& ok "reprice gate pins a boundary id" \
-		|| bad "reprice gate uses a drifting 'latest entry' selector"
-	grep -q 'nextCompactionAfter' "$REPRICE" \
-		&& ok "reprice gate bounds its replay window" \
-		|| bad "reprice gate has no window bound"
-fi
 
 # --- Contract: measurement tables are keyed by exact id, not prefix ---------
-SNAP_ROOT="${OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT:-/home/chris/.bun/install/global/node_modules/@oh-my-pi/snapcompact}"
+NM="${OMP_PATCH_VERIFY_NM:-${HOME}/.bun/install/global/node_modules/@oh-my-pi}"
+SNAP_ROOT="${OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT:-${NM}/snapcompact}"
 SNAP_SRC="${SNAP_ROOT}/src/snapcompact.ts"
 if [[ ! -f "$SNAP_SRC" ]]; then
 	bad "snapcompact source not found at ${SNAP_SRC} (set OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT)"

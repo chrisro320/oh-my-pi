@@ -1,14 +1,16 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import {
-	HindsightSessionState,
-	type HindsightSessionStateOptions,
-} from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/hindsight/state.ts";
+import { homedir } from "node:os";
+import type { HindsightSessionStateOptions } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/hindsight/state.ts";
+
+// Package imports are runtime-selected so an isolated tree cannot fall back to live.
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
+const { HindsightSessionState } = await import(`${AGENT_ROOT}/src/hindsight/state.ts`);
 
 console.log("=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===");
 
-const STATE_SRC =
-	"/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/hindsight/state.ts";
+const STATE_SRC = `${AGENT_ROOT}/src/hindsight/state.ts`;
 const RECALL_TYPE = "hindsight_recall_snippet";
 
 interface CustomEntry {
