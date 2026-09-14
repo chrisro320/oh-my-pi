@@ -172,6 +172,9 @@ case "$OMP_PATCH_VERSION" in
 	_omp_version_candidates "18.1.14" 0004 0010 0014 0017 0030 0035 0038
 	# 0047 的 a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
 	PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
+	# 0063 與 18.1.18 共用同一份位元組（理由見該分支）：codex V2 壓縮的 lite
+	# key 分流與前綴重建失配，兩版行為相同。
+	PATCHES+=("0063-omp-codex-v2-compaction-live-chain.patch:${NM}")
 	;;
 18.1.18)
 	# 18.1.14 → 18.1.18（上游 4 版：15/16/17/18）。
@@ -215,6 +218,14 @@ case "$OMP_PATCH_VERSION" in
 	# 真的會縮的壓縮被判「would not reduce context」而硬失敗。修法：基線以
 	# 與投影相同的 frameTokenEstimate 記入被取代歸檔（淨額：幀數變多仍會拒絕）。
 	PATCHES+=("0062-omp-snapcompact-reduction-baseline-previous-archive.patch:${AGENT}")
+	# 0063 兩計畫共用：canonical 的 codex V2 遠端壓縮走 lite 傳輸，算出的
+	# WebSocket session key 帶 `:lite` 後綴，連到一條沒有 append baseline 的
+	# 空 socket；且重建前綴在磁碟上不含每輪注入的 context，嚴格前綴比對必
+	# 然失敗 → 全量重播、cachedInputTokens 0（實測 01a09b46/01a09b50）。
+	# 修法：壓縮路徑關閉 lite，並讓 chained-body 以 live baseline 為底、
+	# 只送尾端 compaction_trigger。a 側形態在 18.1.14 與 18.1.18 相同
+	# （0035 未觸及這三處），故不需版本候選。
+	PATCHES+=("0063-omp-codex-v2-compaction-live-chain.patch:${NM}")
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18)" >&2
@@ -552,6 +563,7 @@ if [[ "$MODE" == "apply" ]]; then
 		echo "verify-snapcompact-reduction-baseline: skipped (0062 not in this plan)"
 	fi
 	bun "${HERE}/verify-resume-cache-breakpoint.ts"
+	bun "${HERE}/verify-codex-compaction-chain.ts"
 fi
 if [[ "$MODE" != "check" ]]; then
 	if [[ "$OFFLINE_VERIFY" == "1" ]]; then

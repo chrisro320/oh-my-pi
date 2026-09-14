@@ -9,11 +9,11 @@
 | 項目 | 值 |
 |---|---|
 | 當前部署 | `OMP_PATCH_VERSION=18.1.18`（未設則按 installed 版本自動路由） |
-| APPLIED | **32 行**（31 補丁 + `bin/omp -> src/cli.ts` 連結）/0 CONFLICT/0 PENDING |
+| APPLIED | **33 行**（32 補丁 + `bin/omp -> src/cli.ts` 連結）/0 CONFLICT/0 PENDING |
 | canonical 陣列 | `PATCHES` 陣列 **26 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫 |
-| 存活計畫 | 18.1.14（回退，27 層）、18.1.18（當前部署，31 層）；其餘版本分支已退役 |
+| 存活計畫 | 18.1.14（回退，28 層）、18.1.18（當前部署，32 層）；其餘版本分支已退役 |
 | 最近遷移 | 18.1.14 -> 18.1.18（2026-09-12）；死計畫清場（2026-09-13），見 §5 |
-| 回歸套件 | **14 道閘門** + `--verify-rollups` 雙基線全鏈 oracle，見 §6.1 |
+| 回歸套件 | **15 道閘門** + `--verify-rollups` 雙基線全鏈 oracle，見 §6.1 |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -31,8 +31,8 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 口徑 | 內容 | 層數 |
 |---|---|---|
 | `apply.sh` 的 `PATCHES` 陣列（canonical 母集，非可部署計畫） | 0033、0004、0034、0037、0010、0035、0014、0036、0017、0025、0026-core、0030、0051、0031、0032、0038、0041、0043、0044、0052、0057、0045、0046、0048、0050、0054 | **26** |
-| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.18`） | canonical 26 條 −`omit:0051` +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062 | **31** |
-| 18.1.14 計畫（回退） | canonical 26 條 +候選置換 7 件 +鏈尾 0047 | **27** |
+| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.18`） | canonical 26 條 −`omit:0051` +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062、0063 | **32** |
+| 18.1.14 計畫（回退） | canonical 26 條 +候選置換 7 件 +鏈尾 0047、0063 | **28** |
 
 `0047` 只存在於版本計畫鏈尾（其 a 側是 candidate-0038 的產出形態）；`0051` 自 18.1.18 起退役（上游逐字採納）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -579,6 +579,20 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **驗證**：`OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> bun patches/verify-snapcompact-reduction-baseline.ts`（已進 `apply.sh` apply 尾部套件）。GATE 1 源碼形態：helper 存在、基線呼叫它、三處呼叫點都帶形狀價格、無殘留無價格呼叫；pristine 樹上必掛＝負向對照（實測 `AssertionError: patch 0062 missing: the baseline takes no per-frame price for the superseded archive`）。GATE 2 記錄邊界的判定翻轉 + 兩個不得翻轉的對照（25→40 幀且區域 20k 仍 reject；舊幀數 0 的第一次壓縮維持原判）。補丁 forward/reverse 皆 `--fuzz=0` 逐位元往返一致（`cmp` 零差異）。
 - **版本限定**：a 側是 18.1.18 鏈尾（0058／0060 之後）的 `session-maintenance.ts` 形態。
 
+### 0063 — Codex V2 遠端壓縮走 live 狀態鏈，修復 cachedInputTokens 0（兩計畫共用）
+
+- **失敗簽名**（真實會話 `01a09b46`/`01a09b50`，`openai-codex/gpt-6-astra`）：每條 `type:"compaction"` 記錄都是 `usage {inputTokens: 236229, cachedInputTokens: 0}`／`{257349, 0}`，而同一會話的 live 回合是 `input 816–2096 / cacheRead 139264–390784`。壓縮耗時 30–90 秒，等於全量 prefill。
+- **根因（兩道獨立斷層，實測釘死）**：
+  1. **`:lite` 通道分流**：`compaction.ts:1876` 與 `compaction-v2-streaming.ts:362` 固定傳 `responsesLite: model.useResponsesLite`（五個 bundled `openai-codex` 模型全為 `true`），而 live 回合從不 opt-in（`resolveCodexResponsesLite(undefined) === false`）。lite 是 **connection-scoped**，`getCodexWebSocketSessionKey` 會加 `:lite` 後綴 → 壓縮撥到第二條空 socket，`canAppend` 必為 false。實物證據：live payload 頂層有 `instructions`+`tools`、`input[0].type === "message"`、帶 `previous_response_id`。
+  2. **重建前綴 vs 注入 context**：壓縮的 input 由磁碟 transcript 重建，而每輪注入的 `<session-context>`／date-cwd stamp 從不落盤。重建前綴因此**不可能**與 live socket 已送的位元組相等，`buildResponsesDeltaInput` 回 `null` → `resetCodexWebSocketAppendState` → 無狀態全量重放。
+- **修法（最小改動，3 檔 / 88 行補丁）**：
+  - `pi-ai/src/providers/openai-codex-responses.ts`：`buildCodexChainedRequestBody` 新增一支自守衛分支——當尾端 item 是 `compaction_trigger`（全樹唯一 append 點，即壓縮路徑）且 `canAppend === true` 時，直接以 `state.lastRequest` 為底派生 frame：`{...lastRequest, client_metadata: <本回合壓縮 metadata>, previous_response_id: lastResponseId, input: [trigger]}`。頂層 `instructions`/`tools`/`include`/`reasoning` 因此全部繼承 live，第 3、4 層斷點自動消失；`client_metadata` 在 `deepEqualsWithout` 的 `TOP_LEVEL_EXCLUDE_MAP` 內，故服務端仍看到 `request_kind:"compaction"`。順帶把 `buildCodexChainedRequestBody` 導出供閘門驅動（型別不導出——閘門自帶本地 `WsState`）。同檔另更正 `OpenAICodexResponsesOptions.responsesLite` 的選項註釋：原文寫「provider-native compaction explicitly follows the model's `useResponsesLite` flag」已被本次 pin 推翻，改述為壓縮同樣留在 full transport。
+  - `compaction.ts` / `compaction-v2-streaming.ts`：兩處 `responsesLite` 改 `false`，落回 live 的 WS session key。
+- **replacement history 不受污染**：保留集合由**客戶端** `request.input` 推導（`compaction-v2-streaming.ts:533-551`），trigger 只加在 wire body（`:344-349`），故落盤仍是磁碟形態訊息。
+- **無 baseline 時**（冷啟首輪、連續二次壓縮）維持全量重建退路，屬預期 miss。
+- **驗證**：`bun patches/verify-codex-compaction-chain.ts`（已進 `apply.sh` apply 尾部套件）。以**真實捕獲的 live payload**（`~/.omp/agent/payloads/01a09be3-…-gpt-6-astra.json`）驅動：修復後 `previous_response_id` 有值、`input === [{type:"compaction_trigger"}]`、`instructions`/`tools` 與 live 逐位元相同；同一 payload 走修復前的 `buildResponsesDeltaInput` 回 `null`（負對照）。export-only 故障樹上行為斷言單獨失敗（`previous_response_id` undefined），pristine 樹上因模組載入失敗而 fail-closed exit 1。補丁 forward/reverse 往返逐位元一致（`cmp` 零差異），在 18.1.14（含 0035 候選）與 18.1.18 全鏈均可 `--fuzz=0` 套用。
+- **版本限定**：無。a 側這三處在 18.1.14/18.1.18 形態相同（0035 未觸及），兩計畫掛同一份位元組。
+
 ## 3. 已撤下的補丁
 
 ### 2026-09-13 死計畫清場（`.retired/09-13-dead-plans/`）
@@ -590,6 +604,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **死候選目錄**：`.18.0.11-candidates/`、`.18.1.2-candidates/`、`.18.1.5-candidates/`、`.18.1.10-candidates/`（11 件），對應版本計畫全部刪除。
 - **死閘門腳本（已退役至 `.retired/09-13-dead-plans/`）**：`verify-model-switch-tool-description.ts`（0019 的閘門）、`verify-date-cwd-reminder.ts`（0038 舊機制 acceptance；所有存活計畫含 0047，對其 final tree 跑必然 SyntaxError）。
 - **編號 0061**：空置不重用（同 0040 慣例）。
+- **編號 0064**：空置不重用。codex V2 壓縮補丁在定稿前由 0064 改號為 0063（0063 當時完全空置，wave2 的 RB3 只是計畫、從未落盤），0063 之前從未有任何 0064 補丁進入 `PATCHES` 或版本計畫，故該號視同未使用。非重用由 `verify-patch-family-rollups.sh` 的 abandoned-number 迴圈斷言（`0064-` 已列入該清單，負對照：把 0063 改名回 0064 進計畫即 die），非僅文件聲明。
 - **既有斷點記錄**：`PATCHES` 陣列中的 0045／0046 在 18.0.9 pristine 上本來就套不上（a 側 `projectedForReduction`／條件式 `suffixTokenLimit` 首見於上游 18.1.5）——「base 計畫＝18.0.9 鏈」自 0045/0046 進陣列起即為名義口徑，本次清場正式廢除該口徑；verify-rollups 的全鏈 oracle 因此改錨 18.1.14（族檢查仍留 18.0.9，退役族成員只在那裡成鏈）。
 
 ### 2026-08-25 移除
@@ -756,7 +771,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 ## 6. 驗證矩陣
 
-### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 14 道）
+### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 15 道）
 
 | 閘門 | 職責 | 所需 env |
 |---|---|---|
@@ -774,6 +789,9 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-devin-idle-cascade-pin.ts`（條件） | 0060 Devin idle cascade pin（`pi-ai/types.ts` 與 `agent-session.ts` 雙點）；無對應上游形態時跳過 | — |
 | `verify-resume-cache-breakpoint.ts` | resume 後首輪快取斷點（`session-maintenance` 側） | — |
 | `verify-snapcompact-reduction-baseline.ts`（條件） | 0062 縮減基線記入被取代歸檔：源碼形態 + 記錄邊界的判定翻轉 + 淨額負向對照；`session-maintenance` 無 `projectPreviousArchiveTokens` 時跳過 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
+| `verify-codex-compaction-chain.ts` | 0063 Codex V2 壓縮以 live baseline 派生 frame：真實 payload 驅動的鏈式斷言 + 非壓縮負對照 + 冷啟退路 + 兩處 `responsesLite:false` 接線 | `OMP_PATCH_VERIFY_AI_ROOT`、`OMP_PATCH_VERIFY_CORE_ROOT` |
+
+**0063 驗收狀態（2026-09-13）**：`apply.sh --verify-rollups` 與 `verify-patch-family-rollups.sh` 在更新 `EXPECTED_PLAN`／`EXPECTED_PLAN_18` 快照（27→28、31→32）後 **EXIT 0 全綠**，新閘 `verify-codex-compaction-chain.ts` 隨計畫執行；smoke（`cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK'`）實測通過。閘門判別力以兩個 fault variant 實測：刪除 chained-body 分支 → §1 行為斷言紅；把兩處 `responsesLite` 改回 `model.useResponsesLite` → §4 接線斷言紅。**E2E 已執行（2026-09-14）**：真實會話 `01a0a05f`（`openai-codex/gpt-5.6-luna`）同行程 live baseline 後 `/compact`，記錄 `provider:"openai-codex"/version:"v2"/inputTokens:24160/cachedInputTokens:23040`——PRD 命中率 `cached/input=95.4%≥80%`，`check-codex-compaction-cache.sh` exit 0；`apply.sh` 目前被 wave2 的 0043 CONFLICT 阻擋於 `mode=apply` 入口，故 15 道閘門改以直接調用驗證、smoke 另行手動執行，該紅燈非 0063 引起。
 
 環境變數由 `apply.sh` 自動注入（其 `SNAP` / `AGENT` / `CORE` 皆由 `NM` 推導後傳給上述 `OMP_PATCH_VERIFY_*` 變數）；手動單跑時需自行指定**完整名稱**。
 
@@ -786,6 +804,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | token_total | 累计值含 cacheRead |
 | 无闪屏 | Ctrl+T 展开时无二次整屏重绘（0007） |
 | Ctrl+T 跳底部 | 官方行为（0008 已撤，接受） |
+| **Codex V2 壓縮快取（0063）** | 需真實 codex 會話（WebSocket + 付費呼叫），**不進 `apply.sh` 自動套件**。手動判讀工具：`patches/check-codex-compaction-cache.sh <session.jsonl>`（讀最新 `type:"compaction"` 的 `preserveData.openaiRemoteCompaction.usage`，`cachedInputTokens>0` 且 `cached/input≥80%` → exit 0；>0 未達標 → exit 3）。完整步驟見 `patches/E2E-codex-compaction-cache-runbook.md`。**2026-09-14 狀態：已執行 PASS**（會話 `01a0a05f`，cached/input=95.4%）；三項前置條件（新行程 `canAppend=false` 需先跑一輪 live、用 `--session-dir` 而非 `--profile`、確認 `provider==="openai-codex"` 且 `version==="v2"`）見 runbook。 |
 | 内嵌图片（离线） | headless Chromium 里用 Orca 同版 xterm（6.1.0-beta.287）+ addon-image beta.300：webgl ok、addon 载入无私有 API 报错、IIP 序列渲出棋盘、`CSI 16 t` 回 `\x1b[6;16;8t` |
 | 内嵌图片（Orca 内） | **未通过，整条链已回滚**。重开时：套 patch → 重启 Orca → `grep IMG_ADDON_PROBE ~/.config/orca/logs/main.trace.ndjson` 判断 addon 是否执行；确认活着之后才重新上 pi-tui 侧的 0009。旧方案 `bash ~/orca/projects/orca-update-patch/verify-inline-image.sh`，看到棋盘 + cell size 回报才算通过；失败则 `sudo cp /opt/Orca/resources/app.asar.orig-image-addon /opt/Orca/resources/app.asar` 回滚 |
 | session cache keepalive | fake-timer harness 通過；真實 `AgentSession` mock transport race 順序為 side-dispatch → side-abort → side-settled → main-dispatch；live 4m cache hit 另以實際 provider smoke 驗證 |

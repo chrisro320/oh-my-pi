@@ -199,3 +199,29 @@ documented. A stale representation is a defect even when the source tree is righ
 1. `cmp` every owned file between repository and ledger.
 2. Applied-tree `cmp` against the recorded target after regeneration.
 3. A keyword scan for superseded values returning zero hits.
+
+## Scenario: Judging provider usage records in session JSONL (E2E verdict tools)
+
+### 1. Scope / Trigger
+Scripts that assert cache/token outcomes from `type:"compaction"` or message
+usage records (e.g. `patches/check-codex-compaction-cache.sh`).
+
+### 2. Contracts
+`preserveData.openaiRemoteCompaction.usage` stores **raw provider usage**:
+`inputTokens` is the provider's `input_tokens` and **includes** the cached
+subset; `cachedInputTokens` = `input_tokens_details.cached_tokens`.
+Proof: `totalTokens == inputTokens + outputTokens` (cached is not additive).
+Hit rate is therefore `cachedInputTokens / inputTokens` — never
+`cached / (cached + input)` (double-counts the cached subset).
+Uncached spend = `inputTokens − cachedInputTokens`.
+
+### 3. Validation & Error Matrix
+Verdict must implement the PRD's full predicate, not a proxy: `cached > 0`
+**and** rate ≥ threshold → pass; `cached > 0` but rate < threshold → distinct
+partial verdict (own exit code), never PASS; `cached == 0` → fail; no record →
+own exit code. Document every exit code in the script header.
+
+### 4. Wrong vs Correct
+Wrong: `cached/(cached+input)` (reports ~49% on a 95% hit — flips a pass to a
+fail); `cached>0` alone as PASS (a 5% partial hit passes). Correct:
+`cached/input` vs the PRD threshold with a separate partial-hit exit.

@@ -67,12 +67,12 @@ mapfile -t PLAN18 < <(OMP_PATCH_VERSION=18.1.18 bash "${HERE}/apply.sh" --print-
 [[ ${#PLAN14[@]} -gt 0 && ${#PLAN18[@]} -gt 0 ]] \
 	|| die "apply.sh --print-plan failed to resolve a supported plan"
 # Retired-by-rollup numbers, plus abandoned numbers whose patch file is gone
-# (0011 pin-viewport, 0040 trellis_command, 0061 — never to be reused).
+# (0011 pin-viewport, 0040 trellis_command, 0061, 0064 — never to be reused).
 # Documentation cannot enforce non-reuse; this loop can. It checks the
 # resolved plans (canonical entries, candidates, and tail appends included),
 # not raw source text.
 for old in 0002- 0003- 0005- 0006- 0007- 0011- 0013- 0015- 0018- 0019- 0020- 0021- 0022- \
-	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029- 0040- 0042- 0059- 0061-; do
+	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029- 0040- 0042- 0059- 0061- 0064-; do
 	if printf '%s\n' "${PLAN14[@]}" "${PLAN18[@]}" | grep -qE "(^|/)${old}"; then
 		die "a resolved plan references retired or abandoned patch number ${old}*"
 	fi
@@ -408,6 +408,7 @@ OLDCHAIN=(
 	"0050-omp-session-history-preview.patch:AGENT"
 	"0054-omp-antigravity-drop-requesttype-agent.patch:AI"
 	"0047-omp-date-cwd-anchor-stability.patch:AGENT"
+	"0063-omp-codex-v2-compaction-live-chain.patch:NM"
 )
 # EXPECTED_PLAN is the plan-drift gate: what the resolved 18.1.14 plan must
 # be right now. OLDCHAIN (above) is the equivalence oracle's "before" side —
