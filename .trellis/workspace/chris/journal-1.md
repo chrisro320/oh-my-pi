@@ -138,3 +138,25 @@ repo 收尾：0048 補齊 runtime 同步；0047 沉澱為僅 18.1.10 計畫鏈�
 ### Status
 
 [OK] **Completed**
+
+
+## Session 6: 0063 Codex V2 compaction E2E PASS + 工作區收尾
+
+**Date**: 2026-09-14
+**Task**: 0063 Codex V2 compaction E2E PASS + 工作區收尾
+**Branch**: `trellis/ds-snapcompact-tuning`
+
+### Summary
+
+E2E verified patch 0063: real session 01a0a05f (openai-codex/gpt-5.6-luna) /compact produced cachedInputTokens=23040, cached/input=95.4% (PRD >=80%), exit 0. Fixed check-codex-compaction-cache.sh formula (cached/input per PRD, not cached/(cached+input)) and added >=80% gate with exit 3 partial-hit. Spec: verification-gate-contracts gained provider usage-record contract. Lane-split commits: 0063 registration hunks separated from wave2 A2 in apply.sh/PATCHES.md/rollups via git apply --cached; wave2 A2 committed separately; three stale task archives + two docs committed; task archived.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4462ba4` | (see git log) |
+| `4f27f66` | (see git log) |
+
+### Status
+
+[OK] **Completed**
