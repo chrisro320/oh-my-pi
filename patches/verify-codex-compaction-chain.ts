@@ -160,6 +160,40 @@ const cold = buildCodexChainedRequestBody(
 assert.equal(cold.previous_response_id, undefined, "cold start has no baseline to chain onto");
 assert.deepEqual(cold.input, compactionBody.input, "cold start must replay the rebuilt input unchanged");
 
+// --- 3b. Socket-scoped baseline: chain decision must follow connection settle ---
+// Measured 2026-09-15 (e2e, PI_REQ_DEBUG wire dumps): every response.create
+// carrying a previous_response_id minted on a prior socket gets
+// 400 invalid_request_error "Invalid `previous_response_id`" — the id is
+// connection-scoped. getOrCreateCodexWebSocketConnection owns the reuse
+// decision (open+auth+healthy → reuse, else reset+reconnect), so the chain
+// decision must read canAppend only after it returns; reading earlier races
+// the reconnect (TOCTOU) and ships a dead prev_id.
+const aiSrc = readFileSync(`${AI_ROOT}/src/providers/openai-codex-responses.ts`, "utf8");
+const transportFnStart = aiSrc.indexOf("async function openCodexWebSocketTransport(");
+const transportFnEnd = aiSrc.indexOf("\nfunction ", transportFnStart);
+const transportFn = aiSrc.slice(transportFnStart, transportFnEnd);
+const getOrCreateAt = transportFn.indexOf("getOrCreateCodexWebSocketConnection(");
+const chainDecisionAt = transportFn.indexOf("buildCodexChainedRequestBody(");
+assert.ok(
+	getOrCreateAt > -1 && chainDecisionAt > -1 && getOrCreateAt < chainDecisionAt,
+	"buildCodexChainedRequestBody must run after getOrCreateCodexWebSocketConnection settles the socket",
+);
+assert.ok(
+	!aiSrc.includes("staleChainBaseline"),
+	"staleChainBaseline must be gone — cross-socket previous_response_id is a confirmed 400",
+);
+// The ordering above is only a gate because getOrCreate still owns the
+// stale-reuse reset: an open-but-unhealthy socket must drop append state
+// before the replacement handshake.
+const getOrCreateStart = aiSrc.indexOf("async function getOrCreateCodexWebSocketConnection(");
+const getOrCreateEnd = aiSrc.indexOf("\nfunction ", getOrCreateStart);
+const getOrCreateFn = aiSrc.slice(getOrCreateStart, getOrCreateEnd);
+assert.match(
+	getOrCreateFn,
+	/close\("stale-reuse"\);\s*\n\s*resetCodexWebSocketAppendState\(state\)/,
+	"getOrCreate must still reset append state when the open socket fails the health check",
+);
+
 // --- 4. Producer wiring: both Codex V2 compaction call sites pin lite off ---
 // Observable defended: the WebSocket session key carries no `:lite` suffix, so
 // compaction dials the same socket the live turn used.

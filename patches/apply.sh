@@ -251,6 +251,16 @@ case "$OMP_PATCH_VERSION" in
 	# 記 cachedInputTokens，Anthropic native 記 provider usage 原值——這是
 	# 0066 唯一缺的真實命中率樣本來源。a 側是 0066 之後的 compaction.ts 形態。
 	PATCHES+=("0067-omp-remote-compaction-lane-trace-live-tools.patch:${NM}")
+	# 0068 僅 18.1.18：實測（PI_REQ_DEBUG wire dump）previous_response_id 是
+	# connection-scoped——跨 socket 一律 400 invalid_request_error，但鏈式
+	# 決策在重連檢查之前，舊代碼會把已死 baseline 的鏈式幀發上新 socket 白
+	# 跑一趟。修法：openCodexWebSocketTransport 在 buildCodexChainedRequestBody
+	# 前先判 connection.isHealthyForReuse()，不可复用即丟棄 baseline 走非鏈
+	# 式；socket 存活時同 socket 鏈式壓縮實測 cached/input=98.0%。另把
+	# compaction 實際 wire 形態（transport/chained/canAppend/inputItems）與
+	# 每-attempt 診斷寫進 summarize.usage／summarize.attempt trace。
+	# a 側是 0063+0067 之後的形態。
+	PATCHES+=("0068-omp-codex-stale-baseline-chain.patch:${NM}")
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18)" >&2
