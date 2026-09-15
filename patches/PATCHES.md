@@ -578,7 +578,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **效果邊界（勿誇大）**：本補丁的作用域**僅限 `cascade_id` 對齊**。`cache-keepalive.log` **只記 usage，不記請求路由身份**，故**不得由 hit 計數反推 0060 是否在跑**——修補前該日誌即有 41 次命中（09-13/14，avg `cacheRead` 141k），即 `cascade_id` 輪換期間命中照樣發生（[INFERENCE] 服務端不以此欄位做唯一快取鍵）。唯一直接證據是 wire 抓取的 `cascade_id`/`message_id` 逐條比對。
 - **與側回合 miss 無關**：keepalive 的 hit/miss 呈**分鐘級整段翻轉**——在**同 session、同模型、同 token 規模**下整段切換（`01a09a28` 恆 172,203；`01a0a323` 恆 26,417）。
   - **措辭紅線：不得稱「同內容」。** `cron.ts:283` 每次 attempts 遞增，尾部 nonce `${startedAt} ${state.attempts}`（`KEEPALIVE_PROMPT_BASE` 見 `cron.ts:70-73`）內容必變——此為刻意設計，避免 byte-identical 重複請求被部分 provider 按 input 全額計費；故 payload **從不逐位元相同**。日誌 `input` 相同**只說明 token 數相同，不能反推請求體或快取鍵相同**（本輪未取樣 payload 本體，差異來源不臆測）。
-  - 該 nonce 在 hit 與 miss 兩側**同等存在、同等變動**，故**不能用它解釋翻轉**；翻轉仍歸因服務端快取狀態／親和性（`reports/06-omp-devin-ttft-audit.md` §10.4 結論不變，惟其「同內容」措辭同步修正為「同 token 規模」）。本補丁**不聲稱修復此現象**。`provider-error`（TLS `unknown certificate verification error`）已歸因為 **VPN 鏈路抖動**（環境因素，非 omp 缺陷），**不計入 miss，亦不追蹤**。
+  - 該 nonce 在 hit 與 miss 兩側**同等存在、同等變動**，故**不能用它解釋翻轉**。翻轉**與服務端快取狀態／親和性漂移一致**（`reports/06-omp-devin-ttft-audit.md` §10.4），惟現有日誌**只證明同 session／同模型／同 token 規模下的交替**，**未證明客戶端無同 token 規模的漂移**——**服務端成因尚未被決定性證實**。本補丁**不聲稱修復此現象**。`provider-error`（TLS `unknown certificate verification error`）歸因 **VPN 鏈路抖動**（環境因素，非 omp 缺陷），**不計入 miss，亦不追蹤**。
 - **驗證**：`verify-devin-idle-cascade-pin.ts` 原僅以 mock api 斷言 `runEphemeralTurn` 的入參，**繞過 `mapOptionsForApi`，故測不出上述丟失**；已補一段直接呼叫該映射函式的斷言（需 `stream.ts` 匯出 `mapOptionsForApi`），並以「撤掉轉發即 FAIL」的負向對照釘住。
 
 ### 0062 — snapcompact 縮減基線漏算「即將被取代的舊歸檔」，第二次以後的壓縮被系統性誤判「不縮」【僅 18.1.18 計畫】
