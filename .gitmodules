@@ -1,0 +1,4 @@
+[submodule "vendor/pi-commandcode-provider"]
+	path = vendor/pi-commandcode-provider
+	url = https://github.com/chrisro320/pi-commandcode-provider.git
+	branch = main
