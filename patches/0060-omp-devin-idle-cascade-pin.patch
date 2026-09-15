@@ -1,7 +1,7 @@
 diff -r a/pi-ai/src/types.ts b/pi-ai/src/types.ts
 --- a/pi-ai/src/types.ts	2026-09-13 02:21:29.106293147 -0400
 +++ b/pi-ai/src/types.ts	2026-09-13 02:21:41.747966566 -0400
-@@ -510,6 +510,14 @@
+@@ -510,6 +510,16 @@
  	 */
  	promptCacheKey?: string;
  	/**
@@ -9,13 +9,35 @@ diff -r a/pi-ai/src/types.ts b/pi-ai/src/types.ts
 +	 * server-side conversations (Devin `cascade_id`, Cursor `conversationId`).
 +	 * Distinct from `sessionId`: a side-channel turn randomizes `sessionId`
 +	 * per request for routing-state isolation but may pin `conversationId` to
-+	 * the main conversation so a cache warmup shares its chain.
++	 * the main conversation so a cache warmup shares its chain. It must be
++	 * forwarded by `mapOptionsForApi` — the provider sees this field only when
++	 * it survives that mapping (alongside `sessionId`/`promptCacheKey`).
 +	 */
 +	conversationId?: string;
 +	/**
  	 * OpenAI GPT-5.6+ prompt-cache policy. Ignored by providers that do not
  	 * support explicit OpenAI cache breakpoints; explicit mode fails locally on
  	 * incompatible OpenAI-compatible endpoints.
+diff -r a/pi-ai/src/stream.ts b/pi-ai/src/stream.ts
+--- a/pi-ai/src/stream.ts	2026-09-13 02:21:29.000000000 -0400
++++ b/pi-ai/src/stream.ts	2026-09-13 02:21:41.000000000 -0400
+@@ -1974,7 +1974,7 @@
+ 	);
+ }
+ 
+-function mapOptionsForApi<TApi extends Api>(
++export function mapOptionsForApi<TApi extends Api>(
+ 	model: Model<TApi>,
+ 	rawOptions?: SimpleStreamOptions,
+ 	apiKey?: string,
+@@ -1999,6 +1999,7 @@
+ 		taskBudget: options?.taskBudget,
+ 		sessionId: options?.sessionId,
+ 		promptCacheKey: options?.promptCacheKey,
++		conversationId: options?.conversationId,
+ 		streamFirstEventTimeoutMs: options?.streamFirstEventTimeoutMs,
+ 		streamIdleTimeoutMs: options?.streamIdleTimeoutMs,
+ 		codexSseMaxAttempts: options?.codexSseMaxAttempts,
 diff -r a/pi-coding-agent/src/session/agent-session.ts b/pi-coding-agent/src/session/agent-session.ts
 --- a/pi-coding-agent/src/session/agent-session.ts	2026-09-13 02:21:29.143628615 -0400
 +++ b/pi-coding-agent/src/session/agent-session.ts	2026-09-13 02:21:41.748808951 -0400

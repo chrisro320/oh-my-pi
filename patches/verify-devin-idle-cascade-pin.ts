@@ -110,6 +110,40 @@ try {
 		);
 	}
 
+	// Forwarding layer: the provider only sees `conversationId` if
+	// `mapOptionsForApi` copies it off SimpleStreamOptions. The mock handler
+	// above runs *before* that mapping, so on its own it cannot catch a pin
+	// that survives `runEphemeralTurn` yet is dropped in `stream.ts` — which is
+	// exactly how 0060 shipped as a no-op. Assert the mapping directly.
+	{
+		const { mapOptionsForApi } = await import(`${AI_ROOT}/src/stream.ts`);
+		assert.equal(
+			typeof mapOptionsForApi,
+			"function",
+			"stream.ts must export the option mapper for this gate",
+		);
+		// `mapOptionsForApi` dispatches on the model's `api`, so this leg needs a
+		// real devin model shape — the mock api has no branch there.
+		const devinModel = { provider: "devin", api: "devin-agent", id: "swe-2" };
+		const mapped: unknown = mapOptionsForApi(devinModel as never, {
+			sessionId: "main-session",
+			conversationId: "main-session",
+		});
+		assert.equal(
+			mapped && typeof mapped === "object" && "conversationId" in mapped ? mapped.conversationId : undefined,
+			"main-session",
+			"mapOptionsForApi must forward conversationId or the provider never receives the pin",
+		);
+		const unpinned: unknown = mapOptionsForApi(devinModel as never, { sessionId: "main-session" });
+		assert.equal(
+			unpinned && typeof unpinned === "object" && "conversationId" in unpinned
+				? unpinned.conversationId
+				: undefined,
+			undefined,
+			"absent conversationId must stay absent",
+		);
+	}
+
 	console.log("devin idle cascade pin verification: ok");
 } finally {
 	rmSync(root, { recursive: true, force: true });
