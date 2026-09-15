@@ -575,8 +575,10 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 - **三處 hunk**（2026-09-15 補齊第三處）：`pi-ai/src/types.ts` 宣告 `conversationId?`；**`pi-ai/src/stream.ts` 的 `mapOptionsForApi` 轉發該欄位**（此處原先缺失，補丁自加入起即為 no-op）；`agent-session.ts` 於 `runIdleEphemeralTurn` 傳值。
 - **失效根因（2026-09-15 實測）**：`SimpleStreamOptions` 上的 `conversationId` 沒有被 `mapOptionsForApi` 的 `base` 白名單複製（該處只轉發 `sessionId`/`promptCacheKey`），`streamDevin` 恆收 `undefined` 而回退到 `:side:` 的唯一 sessionId。wire 實測（devin protobuf `GetChatMessageRequest`）：修補前 idle 回合 `cascade_id` = side 唯一值；補後 = 主 session UUID，且**歷史 `message_id` 與主回合逐條一致**（`cascade_id` 是所有歷史 messageId 的 deterministic seed，見 `devin.ts:862-917`）。
-- **效果邊界（勿誇大）**：本補丁的作用域**僅限 `cascade_id` 對齊**。`cache-keepalive.log` **只記 usage，不記請求路由身份**，故**不得由 hit 計數反推 0060 是否在跑**——修補前該日誌即有 41 次命中（09-13/14，avg `cacheRead` 141k），因服務端按內容前綴匹配、`cascade_id` 換值不必然斷鏈。唯一有效證據是 wire 抓取的 `cascade_id`/`message_id` 逐條比對。
-- **與側回合 miss 無關**：keepalive 的 hit/miss 呈**分鐘級整段翻轉**（同 session、同內容、同間隔），已由 `reports/06-omp-devin-ttft-audit.md` §10.4 定性為**服務端快取狀態／親和性漂移**（session `01a09a28`：11:16–11:29 連 4 miss → 11:33–11:41 連 3 hit，上下文恆定 172,203）。本補丁**不聲稱修復此現象**。`provider-error`（TLS `unknown certificate verification error`）已歸因為 **VPN 鏈路抖動**（環境因素，非 omp 缺陷），**不計入 miss，亦不追蹤**。
+- **效果邊界（勿誇大）**：本補丁的作用域**僅限 `cascade_id` 對齊**。`cache-keepalive.log` **只記 usage，不記請求路由身份**，故**不得由 hit 計數反推 0060 是否在跑**——修補前該日誌即有 41 次命中（09-13/14，avg `cacheRead` 141k），即 `cascade_id` 輪換期間命中照樣發生（[INFERENCE] 服務端不以此欄位做唯一快取鍵）。唯一直接證據是 wire 抓取的 `cascade_id`/`message_id` 逐條比對。
+- **與側回合 miss 無關**：keepalive 的 hit/miss 呈**分鐘級整段翻轉**——在**同 session、同模型、同 token 規模**下整段切換（`01a09a28` 恆 172,203；`01a0a323` 恆 26,417）。
+  - **措辭紅線：不得稱「同內容」。** `cron.ts:283` 每次 attempts 遞增，尾部 nonce `${startedAt} ${state.attempts}`（`KEEPALIVE_PROMPT_BASE` 見 `cron.ts:70-73`）內容必變——此為刻意設計，避免 byte-identical 重複請求被部分 provider 按 input 全額計費；故 payload **從不逐位元相同**。日誌 `input` 相同**只說明 token 數相同，不能反推請求體或快取鍵相同**（本輪未取樣 payload 本體，差異來源不臆測）。
+  - 該 nonce 在 hit 與 miss 兩側**同等存在、同等變動**，故**不能用它解釋翻轉**；翻轉仍歸因服務端快取狀態／親和性（`reports/06-omp-devin-ttft-audit.md` §10.4 結論不變，惟其「同內容」措辭同步修正為「同 token 規模」）。本補丁**不聲稱修復此現象**。`provider-error`（TLS `unknown certificate verification error`）已歸因為 **VPN 鏈路抖動**（環境因素，非 omp 缺陷），**不計入 miss，亦不追蹤**。
 - **驗證**：`verify-devin-idle-cascade-pin.ts` 原僅以 mock api 斷言 `runEphemeralTurn` 的入參，**繞過 `mapOptionsForApi`，故測不出上述丟失**；已補一段直接呼叫該映射函式的斷言（需 `stream.ts` 匯出 `mapOptionsForApi`），並以「撤掉轉發即 FAIL」的負向對照釘住。
 
 ### 0062 — snapcompact 縮減基線漏算「即將被取代的舊歸檔」，第二次以後的壓縮被系統性誤判「不縮」【僅 18.1.18 計畫】
