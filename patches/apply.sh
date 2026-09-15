@@ -63,7 +63,6 @@ PATCHES=(
 	"0025-omp-ollama-cloud-usage-api.patch:${AI}"
 	"0026-omp-usage-fetch-anthropic-gate-core.patch:${AI}"
 	"0030-omp-usage-cache-canonical-baseurl.patch:${AI}"
-	"0051-omp-ollama-cache-usage.patch:${AI}"
 	"0031-omp-agent-session-providers-forward.patch:${AGENT}"
 	"0032-omp-goal-tool-resident.patch:${AGENT}"
 	"0038-omp-date-cwd-reminder-provider-tail.patch:${NM}"
@@ -178,8 +177,10 @@ case "$OMP_PATCH_VERSION" in
 	;;
 18.1.18)
 	# 18.1.14 → 18.1.18（上游 4 版：15/16/17/18）。
-	# 0051 退役：上游逐字採納了本補丁（prompt_eval_cached_count → cacheRead 映射，
-	# 連註解一併進入 pi-ai/src/providers/ollama.ts），再打會 already-applied。
+	# 0051 已於 2026-09-15 完全退役（位元組移入 .retired/09-15-0051-upstream-adopted/）：
+	# 上游 18.1.17 逐字採納（prompt_eval_cached_count → cacheRead 映射，連註解一併
+	# 進入 pi-ai/src/providers/ollama.ts）。它離開 canonical 陣列後 `omit:0051`
+	# 一併移除；`omit:` 分支目前沒有任何存活計畫覆蓋（見 verify-patch-family-rollups.sh）。
 	# 0010 需重寫：上游把 #wakeForIrc 的 dispatch 改成 whenWorkPoolYieldSettled()
 	# 鏈，idleEphemeral 等待點必須併入該 join 之前，否則破壞「同步 ownership 檢查
 	# 與 dispatch 之間無 await」的上游不變式。
@@ -189,7 +190,7 @@ case "$OMP_PATCH_VERSION" in
 	# 0033/0043 另存候選：canonical 在此版需 fuzz=1，候選把上下文重錨到 fuzz=0。
 	# 0004/0014/0017/0030/0038 沿用 18.1.14 候選字節（已核 cmp 相同），
 	# 為版本計畫完整性另存一份。
-	_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0051
+	_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043
 	# 0047 同 18.1.14：a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
 	PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
 	# 0055 僅 18.1.18：devin.ts 的 auth identity 在舊版仍是 windsurf
@@ -226,6 +227,30 @@ case "$OMP_PATCH_VERSION" in
 	# 只送尾端 compaction_trigger。a 側形態在 18.1.14 與 18.1.18 相同
 	# （0035 未觸及這三處），故不需版本候選。
 	PATCHES+=("0063-omp-codex-v2-compaction-live-chain.patch:${NM}")
+	# 0065 僅 18.1.18：pi-catalog 的 compat/rules/providers/commandcode.kdl
+	# 是 18.1.18 才新增的檔（18.1.14 的 rules 樹只有 192 個 kdl，無此檔），
+	# 掛進 canonical 母集會讓 18.1.14 計畫在 full-chain oracle 上「No file to
+	# patch」。編譯產物 src/compat/rules.json 兩版也不同，故不做版本候選。
+	PATCHES+=("0065-omp-commandcode-deepseek-model-record-parity.patch:${NM}")
+	# 0066 僅 18.1.18：Anthropic 原生 server compaction（compact_20260112）
+	# 的請求體繞過宿主管線——messages 走 convertToLlmForSideRequest（不跑
+	# `context` 擴充鏈，Trellis 注入的 <session-context> 位元組缺失）、tools
+	# 直送原始 agent.state.tools（無 normalizeTools 注入的 `i` 欄位）。官方
+	# invalidation 規則：tool definitions 變 → tools/system/messages 全作廢。
+	# 修法：新增 "live" scope，讓 native 分支複用 0035 已驗證的
+	# buildCachePreservingContext（transformContext + buildSideRequestContext）
+	# 取整條 live 上下文；宿主兩處 scope 分派補 leaf 對應。callback 回
+	# undefined 時保留原手拼路徑。a 側是 0035 候選 + 0063 之後的
+	# compaction.ts 形態，故掛鏈尾且不做 18.1.14 候選。
+	PATCHES+=("0066-omp-anthropic-native-compaction-live-context.patch:${NM}")
+	# 0067 僅 18.1.18：把 0066 的不變量推廣到兩條 OpenAI 遠端 lane 並補齊
+	# 儀表。① Codex V2 lane 的 tools/system 同樣改取 buildCachePreservingContext
+	# 的 live context（原為 summaryOptions.tools 原始 agent 工具，缺 intent
+	# 注入的 `i`，tools 層失效即整條作廢）；② 三條 remote lane 補
+	# summarize.request／summarize.usage 的 trace（帶 lane 欄位），Codex V2
+	# 記 cachedInputTokens，Anthropic native 記 provider usage 原值——這是
+	# 0066 唯一缺的真實命中率樣本來源。a 側是 0066 之後的 compaction.ts 形態。
+	PATCHES+=("0067-omp-remote-compaction-lane-trace-live-tools.patch:${NM}")
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18)" >&2
@@ -536,6 +561,8 @@ if [[ "$MODE" == "apply" ]]; then
 	bun "${HERE}/verify-prefix-cache-compaction.ts"
 	bun "${HERE}/verify-provider-image-budget.ts"
 	bun "${HERE}/verify-snapcompact-model-billing.ts"
+	# 0025 兩計畫皆在 canonical 母集，故無條件執行。
+	bun "${HERE}/verify-ollama-cloud-usage.ts"
 	bash "${HERE}/verify-spec-contracts.sh"
 	# Plan membership selects gates; missing patch effects must fail, not skip.
 	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
@@ -568,6 +595,21 @@ if [[ "$MODE" == "apply" ]]; then
 	fi
 	bun "${HERE}/verify-resume-cache-breakpoint.ts"
 	bun "${HERE}/verify-codex-compaction-chain.ts"
+	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+		bun "${HERE}/verify-commandcode-model-record-parity.ts"
+	else
+		echo "verify-commandcode-model-record-parity: skipped (0065 not in this plan)"
+	fi
+	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+		bun "${HERE}/verify-anthropic-native-compaction-live-context.ts"
+	else
+		echo "verify-anthropic-native-compaction-live-context: skipped (0066 not in this plan)"
+	fi
+	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+		bun "${HERE}/verify-compaction-lane-trace.ts"
+	else
+		echo "verify-compaction-lane-trace: skipped (0067 not in this plan)"
+	fi
 fi
 if [[ "$MODE" != "check" ]]; then
 	if [[ "$OFFLINE_VERIFY" == "1" ]]; then

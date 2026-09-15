@@ -54,7 +54,7 @@ NMROOT="@oh-my-pi"
 # ------------------------------------------------------------- static checks
 entries="$(sed -n '/^PATCHES=(/,/^)/p' "${HERE}/apply.sh" | grep -c 'patch:')" ||
 	die "cannot parse PATCHES array in apply.sh"
-[[ "$entries" == 26 ]] || die "apply.sh PATCHES has ${entries} entries, expected 26"
+[[ "$entries" == 25 ]] || die "apply.sh PATCHES has ${entries} entries, expected 25"
 if grep -q 'superseded_by_' "${HERE}/apply.sh"; then
 	die "apply.sh still contains superseded_by_ control flow"
 fi
@@ -67,12 +67,15 @@ mapfile -t PLAN18 < <(OMP_PATCH_VERSION=18.1.18 bash "${HERE}/apply.sh" --print-
 [[ ${#PLAN14[@]} -gt 0 && ${#PLAN18[@]} -gt 0 ]] \
 	|| die "apply.sh --print-plan failed to resolve a supported plan"
 # Retired-by-rollup numbers, plus abandoned numbers whose patch file is gone
-# (0011 pin-viewport, 0040 trellis_command, 0061, 0064 — never to be reused).
+# (0011 pin-viewport, 0040 trellis_command, 0061, 0064 — never to be reused)
+# and numbers retired because upstream adopted them verbatim (0051, adopted in
+# 18.1.17; bytes kept under .retired/09-15-0051-upstream-adopted/).
 # Documentation cannot enforce non-reuse; this loop can. It checks the
 # resolved plans (canonical entries, candidates, and tail appends included),
 # not raw source text.
 for old in 0002- 0003- 0005- 0006- 0007- 0011- 0013- 0015- 0018- 0019- 0020- 0021- 0022- \
-	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029- 0040- 0042- 0059- 0061- 0064-; do
+	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029- 0040- 0042- 0051- \
+	0059- 0061- 0064-; do
 	if printf '%s\n' "${PLAN14[@]}" "${PLAN18[@]}" | grep -qE "(^|/)${old}"; then
 		die "a resolved plan references retired or abandoned patch number ${old}*"
 	fi
@@ -154,7 +157,16 @@ EOF
 53dc0d8f7734a2c7e6d31048f8f5b7684f1d7325dbf4f41b73525bcb7e421be0  .18.1.18-candidates/0043-omp-interrupt-prune-symmetry-v18.1.18-candidate.patch
 EOF
 ) || die "retired 0043 patch hashes drifted"
-echo "PASS static: apply.sh chain (26 entries, no supersede), rollup hygiene, retired hashes"
+
+# Upstream-adopted patch: kept byte-frozen so the revival criterion in
+# PATCHES.md §3 (upstream drops the mapping again) can restore it unchanged.
+(
+	cd "${HERE}/.retired/09-15-0051-upstream-adopted" || exit 1
+	sha256sum -c --quiet <<'EOF'
+52193335fb11a6bafad159051df4e538a20b233fde759fc3d1e0ea745658b414  0051-omp-ollama-cache-usage.patch
+EOF
+) || die "retired 0051 patch hash drifted"
+echo "PASS static: apply.sh chain (25 entries, no supersede), rollup hygiene, retired hashes"
 
 # ---------------------------------------------------------------- sandbox
 G=$(mktemp -d /tmp/pfrollup-verify.XXXXXX)
@@ -402,7 +414,6 @@ OLDCHAIN=(
 	"0025-omp-ollama-cloud-usage-api.patch:AI"
 	"0026-omp-usage-fetch-anthropic-gate-core.patch:AI"
 	".18.1.14-candidates/0030-omp-usage-cache-canonical-baseurl-v18.1.14-candidate.patch:AI"
-	"0051-omp-ollama-cache-usage.patch:AI"
 	"0031-omp-agent-session-providers-forward.patch:AGENT"
 	"0032-omp-goal-tool-resident.patch:AGENT"
 	".18.1.14-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.1.14-candidate.patch:NM"
@@ -427,9 +438,12 @@ OLDCHAIN=(
 # changed representation only.
 EXPECTED_PLAN=("${OLDCHAIN[@]}")
 
-# EXPECTED_PLAN_18 pins the deployed plan the same way — it is the only
-# coverage of the omit: path (omit:0051), nine candidate substitutions, and
-# six tail appends.
+# EXPECTED_PLAN_18 pins the deployed plan the same way — the 18.1.18 candidate
+# substitutions plus its tail appends. It no longer covers the `omit:` path:
+# its only user was omit:0051, retired 2026-09-15 once upstream 18.1.17 adopted
+# that patch verbatim. `_omp_version_candidates` still implements `omit:`; the
+# next plan that needs it restores coverage. Counts are deliberately not spelled
+# out here — the pinned array below is the single source of truth.
 EXPECTED_PLAN_18=(
 	".18.1.18-candidates/0033-omp-cache-turn-status-rollup-v18.1.18-candidate.patch:AGENT"
 	".18.1.18-candidates/0004-omp-token-total-cacheread-v18.1.18-candidate.patch:AGENT"
@@ -463,6 +477,9 @@ EXPECTED_PLAN_18=(
 	"0060-omp-devin-idle-cascade-pin.patch:NM"
 	"0062-omp-snapcompact-reduction-baseline-previous-archive.patch:AGENT"
 	"0063-omp-codex-v2-compaction-live-chain.patch:NM"
+	"0065-omp-commandcode-deepseek-model-record-parity.patch:NM"
+	"0066-omp-anthropic-native-compaction-live-context.patch:NM"
+	"0067-omp-remote-compaction-lane-trace-live-tools.patch:NM"
 )
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced

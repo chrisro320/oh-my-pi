@@ -15,8 +15,14 @@
  * Run: bun ~/.omp/patches/verify-ollama-cloud-usage.ts
  */
 import assert from "node:assert";
+import { homedir } from "node:os";
 
-const AI = `${process.env.HOME}/.bun/install/global/node_modules/@oh-my-pi/pi-ai`;
+// Package-root contract (PATCHES.md §6.1 A2): per-package override first, then
+// the shared node_modules override, then the default global install. A sandbox
+// replay points these at its own tree; without them this gate would assert
+// against the live install instead of the tree under test.
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const AI = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const { ollamaCloudUsageProvider, ollamaUsageProvider } = await import(`${AI}/src/usage/ollama.ts`);
 
 // ── 1. static assertions ────────────────────────────────────────────────

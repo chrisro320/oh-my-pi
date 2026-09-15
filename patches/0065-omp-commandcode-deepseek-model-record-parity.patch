@@ -1,0 +1,395 @@
+--- a/pi-catalog/src/compat/rules/providers/commandcode.kdl
++++ b/pi-catalog/src/compat/rules/providers/commandcode.kdl
+@@ -250,6 +250,19 @@
+ 			cache-read 0.003
+ 			cache-write 0.0
+ 		}
++		// Command Code serves V4.1 Flash with image input and accepts strict tool
++		// schemas; the live /v1/models rows carry neither fact, so the built-in
++		// record and the pi-commandcode-provider record disagreed and every resume
++		// reshaped the request head (system framing, tool schemas, HISTORY modality).
++		input-modalities "text" "image"
++		supports-strict-mode #true
++		// The deepseek class strips images lineage-wide (exempting only vision/ocr
++		// ids); this deployment accepts image_url - verified on the live route.
++		strip-image-input #false
++		// The plugin record flattens the ordered system prompts into one block;
++		// matching it here is what keeps the cached prefix alive across a resume
++		// no matter which registrant wins the model record.
++		supports-multiple-system-messages #false
+ 	}
+ 	models "moonshotai/Kimi-K3" {
+ 		cost-patch {
+--- a/pi-catalog/src/compat/rules.json
++++ b/pi-catalog/src/compat/rules.json
+@@ -8461,17 +8461,26 @@
+ 						"value": "deepseek/deepseek-v4.1-flash"
+ 					}
+ 				],
++				"wire": {
++					"supportsStrictMode": true,
++					"supportsMultipleSystemMessages": false,
++					"stripImageInput": false
++				},
+ 				"catalog": {
+ 					"costPatch": {
+ 						"input": 0.15,
+ 						"output": 0.6,
+ 						"cacheRead": 0.003,
+ 						"cacheWrite": 0
+-					}
++					},
++					"inputModalities": [
++						"text",
++						"image"
++					]
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:254",
++				"source": "providers/commandcode.kdl:267",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8491,7 +8500,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:262",
++				"source": "providers/commandcode.kdl:275",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8511,7 +8520,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:270",
++				"source": "providers/commandcode.kdl:283",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8531,7 +8540,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:278",
++				"source": "providers/commandcode.kdl:291",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8551,7 +8560,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:286",
++				"source": "providers/commandcode.kdl:299",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8571,7 +8580,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:296",
++				"source": "providers/commandcode.kdl:309",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8591,7 +8600,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:304",
++				"source": "providers/commandcode.kdl:317",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8619,7 +8628,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:312",
++				"source": "providers/commandcode.kdl:325",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8639,7 +8648,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:320",
++				"source": "providers/commandcode.kdl:333",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8659,7 +8668,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:329",
++				"source": "providers/commandcode.kdl:342",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8683,7 +8692,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:337",
++				"source": "providers/commandcode.kdl:350",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8703,7 +8712,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:347",
++				"source": "providers/commandcode.kdl:360",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8723,7 +8732,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:355",
++				"source": "providers/commandcode.kdl:368",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8743,7 +8752,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:363",
++				"source": "providers/commandcode.kdl:376",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8763,7 +8772,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:371",
++				"source": "providers/commandcode.kdl:384",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8783,7 +8792,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:379",
++				"source": "providers/commandcode.kdl:392",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8803,7 +8812,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:387",
++				"source": "providers/commandcode.kdl:400",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8823,7 +8832,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:395",
++				"source": "providers/commandcode.kdl:408",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8843,7 +8852,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:403",
++				"source": "providers/commandcode.kdl:416",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8870,7 +8879,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:422",
++				"source": "providers/commandcode.kdl:435",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8897,7 +8906,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:437",
++				"source": "providers/commandcode.kdl:450",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8917,7 +8926,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:445",
++				"source": "providers/commandcode.kdl:458",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8937,7 +8946,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:453",
++				"source": "providers/commandcode.kdl:466",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8957,7 +8966,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:461",
++				"source": "providers/commandcode.kdl:474",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8977,7 +8986,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:469",
++				"source": "providers/commandcode.kdl:482",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -8997,7 +9006,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:477",
++				"source": "providers/commandcode.kdl:490",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9017,7 +9026,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:485",
++				"source": "providers/commandcode.kdl:498",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9041,7 +9050,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:494",
++				"source": "providers/commandcode.kdl:507",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9061,7 +9070,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:502",
++				"source": "providers/commandcode.kdl:515",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9081,7 +9090,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:510",
++				"source": "providers/commandcode.kdl:523",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9101,7 +9110,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:518",
++				"source": "providers/commandcode.kdl:531",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9121,7 +9130,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:526",
++				"source": "providers/commandcode.kdl:539",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9141,7 +9150,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:534",
++				"source": "providers/commandcode.kdl:547",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9161,7 +9170,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:542",
++				"source": "providers/commandcode.kdl:555",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9181,7 +9190,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:550",
++				"source": "providers/commandcode.kdl:563",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9201,7 +9210,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:558",
++				"source": "providers/commandcode.kdl:571",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9229,7 +9238,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:566",
++				"source": "providers/commandcode.kdl:579",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9253,7 +9262,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:574",
++				"source": "providers/commandcode.kdl:587",
+ 				"providers": [
+ 					"commandcode"
+ 				],
+@@ -9273,7 +9282,7 @@
+ 				}
+ 			},
+ 			{
+-				"source": "providers/commandcode.kdl:586",
++				"source": "providers/commandcode.kdl:599",
+ 				"providers": [
+ 					"commandcode"
+ 				],
