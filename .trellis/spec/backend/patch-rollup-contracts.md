@@ -256,3 +256,70 @@ patches/apply.sh
 # Exact installed-version match, fail-closed otherwise.
 OMP_PATCH_VERSION=18.1.14 patches/apply.sh
 ```
+
+## Scenario: Preserving Codex effort history across resume
+
+### 1. Scope / Trigger
+Codex `supportsConfigurationUpdate` conversations that change reasoning effort and
+then reload JSONL or switch branches. Root cause category: cross-layer persistence
+contract plus an implicit assumption that process-local state survives resume.
+
+### 2. Signatures
+- `OpenAIResponsesHistoryPayload.effortControl?: OpenAIEffortControlState<ReasoningConfig["effort"]>`.
+- Snapshot fields: `baseEffort`, `currentEffort`, `transitions[{index, anchor, effort}]`.
+- `buildTransformedCodexRequestBody(...) -> Promise<RequestBody>` stays unchanged;
+  request-local planning also supplies the snapshot saved by Codex finalization.
+
+### 3. Contracts
+- The current branch's latest successful same provider/api/model assistant is the
+  only restoration source. Ignore error/aborted assistants; a matching successful
+  assistant without a snapshot starts fresh, never falls through to older state.
+- Clone before planning: a later effort switch MUST NOT mutate persisted history.
+- Reuse transition index/anchor validation; a history rewrite invalidating any
+  transition resets the baseline. Do not preserve stale transitions by force.
+- Metadata stays in `providerPayload`, never becomes an outgoing request field or
+  native history item. Only supported normal Codex turns with a session id opt in.
+- Do not infer missing old snapshots from the latest UI effort or guess historical
+  insertion positions. Deployment is prospective and requires a new omp process.
+- Stable effort is not transport state: a new socket MUST NOT inherit a
+  `previous_response_id`. Preserving client prefix bytes does not prove server
+  cache hits, TTL, account affinity, or model-routing identity.
+- Compare cache audit baselines within the same model/provider; cross-model
+  `SYSTEM_DRIFT` cannot establish a main model's actual system change.
+
+### 4. Validation & Error Matrix
+| Condition | Required result |
+|---|---|
+| high → xhigh, JSONL reload + new transport state | Top-level high and historical xhigh item unchanged |
+| Fork before the switch | No future transition leakage |
+| Later switch planned | Earlier assistant bytes unchanged |
+| Failed response after successful snapshot | Last successful baseline remains available |
+| Compaction/rewrite invalidates a transition anchor | Fresh baseline, no stale configuration_update |
+| Latest successful response has no snapshot | Use current requested effort, do not invent history |
+| Other provider/model or unsupported model | No foreign snapshot restored |
+| Fresh WebSocket connection | Full replay without old previous_response_id |
+
+### 5. Good / Base / Bad Cases
+- Good: response production → JSONL round-trip → real transport serialization.
+- Base: legacy sessions establish a new baseline after deployment.
+- Bad: helper-only tests with a manually preseeded Map, or lowering actual xhigh
+  to conceal a prefix change.
+
+### 6. Tests Required
+```sh
+bun patches/verify-codex-effort-resume.ts
+OMP_PATCH_VERIFY_AI_ROOT=<isolated-ai> OMP_PATCH_VERIFY_CATALOG_ROOT=<isolated-catalog> \
+  bun patches/verify-codex-effort-resume.ts
+grep -nE '0069|verify-codex-effort-resume' patches/apply.sh patches/verify-patch-family-rollups.sh
+```
+The gate MUST fail without the patch, with the producer/restore link severed,
+without cloning, without anchor synchronization, and when a missing latest
+snapshot revives older state. Missing runtime modules fail closed. Local
+cross-process WebSocket smoke separately verifies ordinary chaining survives
+while resume preserves the full rebuilt prefix on a new connection.
+
+### 7. Wrong vs Correct
+- Wrong: recreate an empty process Map at resume and pin its first effort to the
+  current UI setting; the old request may have pinned a different value.
+- Correct: recover a detached branch-local response snapshot, validate it against
+  the rebuilt input, apply the existing planner, then persist the resulting state.

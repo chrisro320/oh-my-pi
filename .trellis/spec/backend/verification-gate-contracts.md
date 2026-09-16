@@ -69,11 +69,17 @@ suite. A gate that no suite invokes is not a gate.
   direct invocations retain the same override precedence.
 - Version-specific gates follow the selected plan, never the existence of the
   symbol they must verify. Missing patch effects must fail rather than select SKIP.
+  Shared gates select only the version-specific assertions, not the entire
+  script: Codex chain gate 3b reads `${AI_ROOT}/package.json` and runs only for
+  18.1.18; both supported releases must still execute the common 0063 checks.
 - Root checks must distinguish type-only imports from runtime imports.
   Do not grow a second verifier merely to inspect other verification scripts.
 - Do not grep assertion wording or fixture variable names as proof a gate works.
   Meta/extension gates need their own negative controls; they need not fail just
   because the package tree is pristine.
+- Compaction trace events use `k`, including `k: "summarize.attempt"`.
+  Failure-path gates must query the emitted JSONL by that same key and require
+  `final: true` for a non-retryable failure; a new `event` key is not equivalent.
 - A probe script MUST live inside the package tree it is probing. `bun`
   resolves an import relative to the SCRIPT's location, so a probe in `/tmp`
   falls back to the global install cache and silently measures a DIFFERENT
@@ -99,6 +105,9 @@ suite. A gate that no suite invokes is not a gate.
 | Table keyed by prefix while members diverge | Gate MUST pin at least one divergent member to the family value |
 | Fixture selected by "latest" over an append-only file | Reject; pin an id |
 | Ordering asserted by adjacency | Replace with a positional comparison |
+| Shared Codex gate on patched 18.1.14 | Common 0063 checks pass; only 0068 assertions are excluded |
+| Shared Codex gate on 18.1.18 without 0068 | Fail the socket-settle ordering assertion, never skip |
+| Non-retryable V2 failure logged under `event` instead of `k` | Failure trace gate rejects the unqueryable attempt |
 
 ### 5. Good / Base / Bad Cases
 
@@ -124,6 +133,10 @@ A permanent gate MUST ship with:
 4. An unmutated control proving the gate passes on the real tree.
 5. For value-carrying patches: a mutation that severs the producer→consumer
    link, asserted by the consumer's gate.
+6. Shared versioned gates run against every supported official release tree:
+   18.1.14 passes without 0068; 18.1.18 fails without it and passes with it.
+7. `verify-compaction-lane-trace.ts` queries a real failed V2 attempt by `k`;
+   changing only the producer's key to `event` must fail that assertion.
 
 ### 7. Wrong vs Correct
 
@@ -266,3 +279,105 @@ own exit code. Document every exit code in the script header.
 Wrong: `cached/(cached+input)` (reports ~49% on a 95% hit — flips a pass to a
 fail); `cached>0` alone as PASS (a 5% partial hit passes). Correct:
 `cached/input` vs the PRD threshold with a separate partial-hit exit.
+
+## Scenario: Verifying Codex compaction transport and retry boundaries
+
+### 1. Scope / Trigger
+
+Use when changing the Codex V2 chain-only policy, retry classification, accepted
+metadata, or the published provider API. The 0070 review found four regressions
+despite green source-text checks: endpoint overrides bypassed the provider guard,
+healthy WebSocket parse failures were terminal, unknown codes retried permanent
+failures, and `onAccept` was absent from the shipped declaration.
+
+### 2. Signatures
+
+```bash
+OMP_PATCH_VERIFY_NM=<node_modules/@oh-my-pi> \
+  bun patches/verify-codex-compaction-chain-fail-closed.ts
+OMP_PATCH_VERIFY_NM=<node_modules/@oh-my-pi> \
+  bash patches/verify-codex-compaction-chain-fail-closed-faults.sh
+# Prerequisites: Bun and tsc on PATH. No real provider credentials or calls.
+```
+
+`OMP_PATCH_VERIFY_AI_ROOT`, `OMP_PATCH_VERIFY_CORE_ROOT`, and
+`OMP_PATCH_VERIFY_CATALOG_ROOT` override the corresponding package roots.
+
+```ts
+onAccept?: (commit: (recorded: OpenAICodexCompactionResponseMetadata) => void) => void;
+```
+
+This option belongs to both the source and published
+`OpenAICodexCompactionStreamOptions` interfaces.
+
+### 3. Contracts
+
+- Enforce chain-only before every Codex V2 send, including configured
+  `remoteCompaction.v2Endpoint` and `streamingEndpoint`. Unsupported direct-SSE
+  routing must throw `CodexCompactionChainLostError` before issuing HTTP.
+- Keep normal OpenAI/Azure SSE routing unchanged. Rejecting a generic permanent
+  failure must not manufacture the Codex chain-lost sentinel.
+- Preserve real provider codes; event kinds such as `response.failed` are not
+  error codes. Permanent and authentication failures take precedence. Unknown
+  codes fall through existing classification, never default to retry.
+- Reuse `AIError.classify` transient flags and the provider failure classifier.
+  A typed WebSocket parse failure may retry; the next send must still prove a
+  live append chain. A dead socket must never cause full replay.
+- Retry diagnostics must use the actual attempt count, not the retry ceiling.
+- Commit metadata and clear only the affected append baseline after the
+  collector accepts a valid summary. Rejected summaries retain their baseline
+  and cannot commit metadata. Other sessions remain untouched.
+- Exercise real event consumption and outgoing frames on a loopback WebSocket.
+  Source spelling, helper names, and a deliberately disabled transport are not
+  evidence of retry/acceptance correctness.
+- Compile a consumer of the shipped `.d.ts`; Bun's type stripping is not a type
+  check. Missing `tsc` or an unresolved selected runtime must fail the gate.
+- Isolate HOME/XDG and set `OMP_COMPACTION_TRACE_OFF=1` before imports, restoring
+  the environment and removing fixtures afterward.
+- The manual and automatic host ladders still treat chain loss as terminal.
+  Their behavior and advisor fallback policy are separate integration boundaries;
+  do not claim the provider/collector fixture exercises them.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| Either Codex endpoint override | Chain-lost error; zero HTTP requests |
+| Healthy socket, first malformed frame or transient error | Same socket/previous ID retries and succeeds |
+| Dead socket, cold start, or disabled WebSocket | Terminal refusal; no full-history/SSE send |
+| Permanent, auth, code-less unsupported-model, or max-output incomplete frame | One attempt; preserve only a real code |
+| Known transient rate limit | Retry and accept the subsequent valid summary |
+| Accepted summary | Baseline invalidated, metadata committed, unrelated session preserved |
+| Completed stream with no compaction item | Reject; no metadata commit or baseline invalidation |
+| Exhausted chained retries | Terminal chain-lost error, never lane fallback |
+| Consumer passes `onAccept` and `requestDiagnostics` | Published declaration compiles |
+| Consumer passes a primitive metadata target | Type error |
+
+### 5. Good / Base / Bad Cases
+
+- **Good:** old deployed 0070 fails the endpoint fixture; the fixed tree passes;
+  isolated transport, classification, and declaration mutations each fail.
+- **Base:** normal OpenAI/Azure SSE succeeds and preserves its failure semantics.
+- **Bad:** asserting that a catch/helper exists, or accepting any transport error
+  as proof that the streaming branch works.
+
+### 6. Tests Required
+
+The registered `verify-codex-compaction-chain-fail-closed.ts` drives actual
+`requestCompactionV2Streaming` and Codex streams against loopback WebSocket/SSE
+fixtures, then compiles a public API consumer. Its fault harness uses isolated
+package copies and verifies both an unmutated control and a missing-runtime
+failure. Mutations must fail behavior/type assertions, not source regexes.
+
+### 7. Wrong vs Correct
+
+```ts
+// Wrong: every unknown code bypasses auth and message classification.
+if (error.code) return !Object.hasOwn(CODEX_PERMANENT_FAILURE_CODES, error.code);
+
+// Correct: known permanent failures stop; unknown codes continue classification.
+if (error.code && Object.hasOwn(CODEX_PERMANENT_FAILURE_CODES, error.code)) return false;
+const classification = AIError.classify(error);
+if (AIError.is(classification, AIError.Flag.AuthFailed)) return false;
+if (AIError.is(classification, AIError.Flag.Transient)) return true;
+```

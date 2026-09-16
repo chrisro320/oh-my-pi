@@ -43,6 +43,7 @@ interface TraceRow {
 	tools?: number;
 	hasLiveContext?: boolean;
 	stopReason?: string;
+	final?: boolean;
 	usage?: Record<string, unknown>;
 }
 function readTrace(): TraceRow[] {
@@ -249,6 +250,10 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 	const rows = readTrace();
 	const v2Err = rows.find(row => row.k === "summarize.usage" && row.lane === "codex-v2" && row.stopReason === "error");
 	assert.ok(v2Err, "codex-v2 failure must trace summarize.usage with stopReason=error");
+	assert.ok(
+		rows.find(row => row.k === "summarize.attempt" && row.final === true),
+		"the non-retryable V2 failure must be queryable as a final summarize.attempt",
+	);
 	assert.ok(rows.find(row => row.k === "summarize.request" && row.lane === "openai-v1"), "openai-v1 lane must trace summarize.request");
 	assert.ok(
 		rows.find(row => row.k === "summarize.usage" && row.lane === "openai-v1" && row.stopReason === "compaction"),
