@@ -260,7 +260,7 @@
 +			const retrying = isRetryableCompactionError(error) && attempt < V2_COMPACTION_MAX_RETRIES;
 +			const diag = requestDiagnostics.current;
 +			traceCompaction({
-+				event: "summarize.attempt",
++				k: "summarize.attempt",
 +				model: model.id,
 +				attempt: attempt + 1,
 +				final: !retrying,
