@@ -9,11 +9,11 @@
 | 項目 | 值 |
 |---|---|
 | 當前部署 | `OMP_PATCH_VERSION=18.1.18`（未設則按 installed 版本自動路由） |
-| APPLIED | **36 行**（35 補丁 + `bin/omp -> src/cli.ts` 連結）/0 CONFLICT/0 PENDING（2026-09-15 `--check` 實測） |
+| APPLIED | **38 行**（37 補丁 + `bin/omp -> src/cli.ts` 連結）/0 CONFLICT/0 PENDING（2026-09-15 `--check` 實測） |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（回退，27 層）、18.1.18（當前部署，35 層）；其餘版本分支已退役 |
+| 存活計畫 | 18.1.14（回退，27 層）、18.1.18（當前部署，37 層）；其餘版本分支已退役 |
 | 最近遷移 | 18.1.14 -> 18.1.18（2026-09-12）；死計畫清場（2026-09-13），見 §5 |
-| 回歸套件 | **15 道閘門** + `--verify-rollups` 雙基線全鏈 oracle，見 §6.1 |
+| 回歸套件 | **20 道閘門** + `--verify-rollups` 雙基線全鏈 oracle，見 §6.1 |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -31,7 +31,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 口徑 | 內容 | 層數 |
 |---|---|---|
 | `apply.sh` 的 `PATCHES` 陣列（canonical 母集，非可部署計畫） | 0033、0004、0034、0037、0010、0035、0014、0036、0017、0025、0026-core、0030、0031、0032、0038、0041、0043、0044、0052、0057、0045、0046、0048、0050、0054 | **25** |
-| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.18`） | canonical 25 條 +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062、0063、0065、0066、0067、0068 | **36** |
+| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.18`） | canonical 25 條 +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062、0063、0065、0066、0067、0068、0069、0070 | **38** |
 | 18.1.14 計畫（回退） | canonical 25 條 +候選置換 7 件 +鏈尾 0047、0063 | **27** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
@@ -622,9 +622,56 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **舊代碼的實際缺陷**：`openCodexWebSocketTransport` 的鏈式決策（`buildCodexChainedRequestBody`）跑在 `getOrCreateCodexWebSocketConnection` 的 reuse/重連檢查**之前**——socket 已 stale 時仍先組鏈式幀，再重連、把帶死 prev_id 的幀發上新 socket → 必吃 400 → 普通回合靠 `previous_response_not_found` 恢復重試（白跑一趟），compaction 則三次嘗試全 400 後退化到 V1/備援模型。
 - **修法（`${NM}`，`pi-ai/src/providers/openai-codex-responses.ts`）**：把鏈式決策（`buildCodexChainedRequestBody` + `canAppend` 讀取）移到 `getOrCreateCodexWebSocketConnection` **之後**——reuse 判定本就由 getOrCreate 內部完成（open+auth+healthy → 复用，否則 reset+重連），其返回後 `canAppend` 即為真實值：同 socket 复用 → 鏈式；socket 被換 → baseline 已清 → 非鏈式直發。先組幀再取連線的舊順序是 TOCTOU：決策到 getOrCreate 之間 socket 死亡或被判 stale，已組好的 prev_id 幀照樣上新連線吃 400。
 - **E2E 驗收**（`gpt-5.6-luna`，RPC 驅動，compact 於 turn 結束 2s 內發出、socket 存活）：wire frame `input:[compaction_trigger]` + `previous_response_id`，伺服器接受並完成 remote compaction，`cachedInputTokens 36352 / inputTokens 37082 = 98.0%`（`check-codex-compaction-cache.sh` PASS，門檻 ≥80%）。socket 已死的情形無客戶端可救——prev_id 隨連線消滅，只能走非鏈式重建（~10% 命中屬伺服器側限制）。
-- **儀表**：`OpenAICodexCompactionStreamOptions.requestDiagnostics` 出參帶回 `stats.lastTurn.request`（transport／previousResponseIdPresent／canAppendBeforeRequest／inputItemCount），`CompactionV2Response.requestDiagnostics` 透傳；`summarize.usage` trace 補 `transport`/`chained`/`canAppend`/`inputItems` 四欄；`requestCompactionV2Streaming` 每次失敗嘗試（含最終/不可重試）記 `summarize.attempt`。診斷發佈以 `lastTurn.request` 引用變更為準——open 前快照，未記錄不覆寫；SSE fallback 同法，且每輪開始先清空。`traceCompaction` 抽成 `compaction-trace.ts` 獨立模組——v2-streaming 直接 import compaction.ts 會形成模組初始化循環（TDZ 崩潰，實測）。
-- **自動回歸**：`bun patches/verify-codex-compaction-chain.ts` 3b 斷言 `openCodexWebSocketTransport` 內 `getOrCreateCodexWebSocketConnection` 先於 `buildCodexChainedRequestBody`（順序即閘門）、getOrCreate 的 stale-reuse reset 路徑仍在、且 `staleChainBaseline` 已移除。
+- **儀表**：`OpenAICodexCompactionStreamOptions.requestDiagnostics` 出參帶回 `stats.lastTurn.request`（transport／previousResponseIdPresent／canAppendBeforeRequest／inputItemCount），`CompactionV2Response.requestDiagnostics` 透傳；`summarize.usage` trace 補 `transport`/`chained`/`canAppend`/`inputItems` 四欄；`requestCompactionV2Streaming` 每次失敗嘗試（含最終/不可重試）記 `k: "summarize.attempt"`，沿用既有事件欄位，不另用 `event`。診斷發佈以 `lastTurn.request` 引用變更為準——open 前快照，未記錄不覆寫；SSE fallback 同法，且每輪開始先清空。`traceCompaction` 抽成 `compaction-trace.ts` 獨立模組——v2-streaming 直接 import compaction.ts 會形成模組初始化循環（TDZ 崩潰，實測）。
+- **自動回歸**：`bun patches/verify-codex-compaction-chain.ts` 3b 依 `${AI_ROOT}/package.json` 的版本，僅在 18.1.18 斷言 `openCodexWebSocketTransport` 內 `getOrCreateCodexWebSocketConnection` 先於 `buildCodexChainedRequestBody`（順序即閘門）、getOrCreate 的 stale-reuse reset 路徑仍在、且 `staleChainBaseline` 已移除；18.1.14 保留共用 0063 檢查，不執行 3b。`bun patches/verify-compaction-lane-trace.ts` 另斷言不可重試的 V2 失敗可按 `k: "summarize.attempt"` 查到 `final: true` 記錄。`verify-patch-family-rollups.sh` 的 `EXPECTED_PLAN_18` 同步包含 0068。
 - **版本限定**：a 側是 0063+0067 之後的形態，掛 18.1.18 鏈尾，不做 18.1.14 候選。
+
+### 0069 — Codex resume 恢復 effort 基線與歷史切換，避免重建時改写快取前綴（僅 18.1.18）
+
+- **失敗證據**（2026-09-15，session `01a0a5f7-8ad4-7000-aee0-28ad64f35705`）：初始 `high`，隨後設定 `xhigh`；舊行程仍送頂層 `reasoning.effort=high` 並在 input 第 3 項插入 `configuration_update(xhigh)`。resume 改為頂層 `xhigh` 且丟失該歷史項；首輪 `input=148369/cacheRead=0`，下一輪 `cacheRead=148224`。system、tools、model、prompt_cache_key 未變。
+- **根因**：effort 基線只存在 Codex provider 的行程內 Map；既有 JSONL 記錄 UI 等級變更，未保存實際 wire 基線與切換插入位置。這與 0068 的連線生命週期缺陷不同。
+- **修法（`${AI}`，兩檔）**：`src/types.ts` 的 `OpenAIResponsesHistoryPayload` 加可選 `effortControl`；`openai-codex-responses.ts` 從當前分支最近的同 provider/api/model 成功 assistant 複製快照，沿用 `planStableOpenAIEffort` 的位置／錨點校驗，再把本次規劃結果寫入完成響應的 `providerPayload`。Codex 的舊 effort Map 移除，WebSocket 與 metadata 狀態不動。
+- **邊界**：錯誤／中止響應不遮蔽最近成功快照；最新成功響應沒有快照時從當前設定新建，不能跳過它回撈更老狀態。分支不繼承被丟棄未來，後續規劃不修改舊 assistant；歷史改寫／壓縮使 transition 錨點失效時重置。unsupported model 與 compaction 不啟用此機制。
+- **真實客戶端冒煙（本地 WebSocket，零 provider 呼叫）**：行程 `1064887` 先發 high→xhigh，在同 socket 鏈式追加並保存 JSONL；行程 `1064951` 重載後使用新 socket、不帶 previous_response_id，頂層仍 high、第 3 項仍 xhigh；model/reasoning/input/instructions/tools/prompt_cache_key 與不中斷時預構造請求逐值相等。
+- **回歸**：`verify-codex-effort-resume.ts` 用實際 Codex SSE 處理器與序列化請求驗持久化、resume、分支、快照不可變、失敗響應、改寫／壓縮、舊日志及 provider/model 邊界。修前樹在 JSONL reload 前綴斷言失敗；另六個行為故障變體全部被拒，缺模組時 fail closed。18.1.18 專屬註冊，不改 18.1.14 計畫。
+- **重放與部署**：官方 SHA-256 校驗 tarball + 原 36 層生成；0069 零 fuzz、正反 dry-run、重複 forward 拒絕；37 層逆序恢復五個官方套件全部位元組，再按 controller 計畫正序重放等於目標。兩個 live source 以原子替換部署，避免寫穿 Bun cache hardlink。
+- **部署後驗證**：鏡像中的 20 道註冊閘門逐一執行全 PASS（零 provider 呼叫），新 gate 的 Biome lint 無警告；`apply.sh --check` 為 37 補丁 + bin 共 38 行 APPLIED，0 CONFLICT / 0 PENDING。
+- **限制**：須重啟 omp 載入；只對補丁載入後完成並保存的響應建立快照，不猜測回填舊 JSONL。保持實際 xhigh，不跨 socket 恢復 previous_response_id；本地前綴一致不代表已量到上游 cache 命中率。npm 發行包缺 Bun/Node 開發型別，完整 tsc 不可通過；補丁前後各 298 行診斷，正規化行號後無新增診斷。
+
+### 0070 — Codex V2 壓縮：續鏈優先、三層降級全部 fail-closed（僅 18.1.18）
+
+- **量到的失敗**（2026-09-15，session `01a0a5f7-8ad4-7000-aee0-28ad64f35705`，pid 1047924，model `gpt-6-astra`）：一次遠端壓縮**回報成功**，實際 `inputTokens 261873 / cachedInputTokens 22912 = 8.75%`。同 lane 15:45 有 98.03% 的對照樣本，故不是上游能力問題。
+- **根因（四層，都會以「成功」收場）**：
+  1. `openCodexCompactionEventStream` 在**開啟**壓縮流當下就清 append baseline（live 樹 `:1753`，upstream 原生），此時成敗未知；attempt 2 讀到 `canAppend=false`，只能 full replay（`inputItems=449`）。
+  2. `streamCodexCompactionEvents` 遇 WS 傳輸錯自動切 SSE；SSE 端點沒有 `previous_response_id`（嚴格閘道 400），等於**靜默全量**。
+  3. core `compact()` 的 V2 catch 吞錯後續走 V1，再落到 soft/local；宿主 `session-maintenance` 的方法階梯又會遞歸下一種方法。
+  4. core `handleCompactionV2Event` **沒有 `type:"error"` 分支**，該幀落到 generic `"stream closed before response.completed"`，**provider 的 code 被丟棄**——現場那個 `summarize.attempt` 記的正是這個字串，於是「服務端拒收鏈」與「串流被截斷」不可區分。
+- **另一條被忽略的污染**：`response.metadata` 在串流中途抵達，但 collector 要等 generator drain 完才判成功（還要檢查 terminal 事件與 compaction item 數）。邊到邊寫 `turnState`/`modelsEtag`，會讓**失敗嘗試**的 sticky 狀態留到下一輪，把重試鏈死。
+- **修法（`${NM}`，六檔）**：
+  - `pi-ai/src/providers/openai-codex-responses.ts`：新增 `CodexCompactionChainLostError`；新增 `recordOpenAICodexCompactionResponseMetadata` / `applyOpenAICodexCompactionResponseMetadata`（metadata 由 collector 在成功點套用，baseline 的失效沿用既有的 `resetCodexWebSocketAppendState`，未新增專用 helper）；`openCodexWebSocketTransport` 在 `getOrCreate…` **之前**取樣（僅供診斷），並於**送出前**拒絕任何拼不出 `previous_response_id` 的壓縮幀；`refuseSseFallback` 與 `mustChain` **只以 `isCompactionWireBody` 為條件**（判別式是尾端 `compaction_trigger`，故普通 turn 仍保有冷啟全量重放）——壓縮通道一律 chain-only，**冷啟同樣拒絕**，因為重建整份 transcript 與鏈丟失是全價相同的降級；WS 傳輸錯**改為 rethrow**（保持可重試）；移除 `:1753` eager reset；導出 `isCodexStalePreviousResponseError` 判定所需謂詞。
+  - `pi-agent-core/src/compaction/compaction-v2-streaming.ts`：collector 成功返回後才提交 metadata 並失效 baseline；`type:"error"` 保留真正的 provider code，不把事件種類當 code。已知永久錯誤與認證失敗優先拒絕，瞬態判斷重用 `AIError.classify` 與既有 provider classifier，未知碼不預設重試。健康 socket 的 typed parse error 可重試；下次送出仍須續鏈。鏈式嘗試最終失敗升級為 terminal sentinel，錯誤訊息記實際 attempt 次數。自訂 `remoteCompaction.v2Endpoint`／`streamingEndpoint` 若繞過 Codex transport，於 HTTP 前直接拒絕；刪去已不可達的 Codex SSE metadata/header 組裝。普通 OpenAI/Azure SSE 保持原路徑。
+  - `pi-agent-core/src/compaction/compaction.ts`：V2 catch 對 `CodexCompactionChainLostError` 直接上拋。
+  - `pi-coding-agent/src/session/session-maintenance.ts`：**兩條**方法階梯都在遞歸下一方法**之前**攔截該 error——手動 `compact()`（`selectedMethodIndex + 1`）與自動 `runAutoCompaction()`（`methodIndex + 1`）。原本只守住手動那條，自動路徑仍會走到 snapcompact/soft 並以全價「成功」回報；這是 2026-09-16 補上的第二處。另在 `maybeStartSpeculativeCompaction` 與 `deferThresholdCompactionToSpeculation` 跳過 Codex lane 的投機：投機刻意用**隔離 sessionId**（`:spec:`）＋`preferWebsockets:false` 走 SSE，該處不存在可續的鏈，無條件拒絕後只會必然失敗——跳過而非白跑。
+  - `pi-ai/dist/types/providers/openai-codex-responses.d.ts`：同步新增匯出及 `OpenAICodexCompactionStreamOptions.onAccept`／`requestDiagnostics`，metadata 的 session map 使用 `ProviderSessionState`，applier 的 websocket target 限定可寫 `modelsEtag` 物件。嚴格編譯公開 API consumer 通過，primitive target 被型別拒絕。此非完整套件 typecheck：core 單檔差分診斷由 13 減至 11，消除 options/implicit-any 兩項，無新增；仍有既有 Node/Bun 開發型別缺失及 diagnostics narrowing 錯誤。
+  - `pi-ai/src/providers/openai-codex-responses.ts`（續）：**鏈隨 socket 一起死**——`CodexWebSocketConnection` 新增 `onClosed` 通報（我方 `close()` 與對端 `onclose` 都觸發），`getOrCreate` 以**身份守衛**清 append state（被替換的舊 socket 其 close 事件晚到，不得抹掉接替者的鏈），並把斷線原因與時刻記進 `state.lastClose`；`hasCodexAppendBaseline` 追加 `state.connection?.isOpen()` 條件——沒有活 socket 的 baseline 不是 baseline。失敗訊息據此附上 `lastSocketClose="<原因>" <N>s before this request`，直接給出「socket 何時、為何斷」。
+- **契約**：① 開啟時不清 baseline；② collector 接受有效 summary 才提交 metadata、只清自身 baseline；③ Codex V2 一律 chain-only，包含冷啟、自訂端點及 SSE 禁用情境，不能續鏈就在送出前拒絕。健康 socket 的瞬態錯誤沿用同 socket／previous ID 重試；socket 已死不得改全量重放。普通 turn 仍可正常重建；本地續鏈驗證不等同實際 provider cache 命中率。
+- **回歸**：`verify-codex-compaction-chain-fail-closed.ts` 改為真實 loopback WebSocket＋SSE collector＋發布型別 consumer：覆蓋自訂端點零 HTTP、冷啟／禁 WS 零重放、同鏈瞬態與 malformed-frame 恢復、永久／認證／無碼錯誤／incomplete 單次失敗、重試耗盡、成功提交 metadata、無效 summary 回滾、其他 session 隔離及成功後普通 turn 重建。HOME/XDG/trace 全隔離，零 provider 呼叫；需要 Bun 與 `tsc`。移除綁死源碼拼法的斷言，不再把「禁用 transport 後拋任意錯」當成串流驗收；不宣稱這個 fixture 跑過宿主兩條階梯。
+- **故障敏感性**：既有已部署版 0070 在 endpoint override 案例變紅；修正版對照綠。`…-faults.sh` 的 12 個行為／型別變體及 1 個缺模組案例共 **13/13** 被拒，涵蓋端點繞過、解析錯不重試、未知碼誤重試、事件種類冒充錯誤碼、漏 options 宣告、不安全 metadata target、提前清 baseline、SSE／冷啟重放、成功不清 baseline、metadata 丟失及吞 error frame。
+- **2026-09-16 審核修正與部署**：依用戶授權直接修既有 0070，不增加補丁層，計畫仍為 38 件。從 SHA-256 驗證的官方 18.1.18 tarball＋前 37 層重生；38 層完整逆序還原五個官方套件全部位元組，再正向重放與目標一致，重複 forward 被拒。production 增量只有 core streaming 與 provider `.d.ts` 兩檔，原子替換避免寫穿 Bun cache hardlink。隔離 `apply.sh` 全 21 道閘門通過；family verifier 通過，含 18.1.14=27／18.1.18=38 計畫。部署後 `--check` 為 38 補丁＋bin 共 39 行 APPLIED、0 CONFLICT／PENDING，鏡像行為／型別閘門通過；五份補丁／controller／gate／ledger 檔逐位元同步。本輪只跑本地 transport smoke，真實 provider smoke 明確以 offline 模式跳過，不聲稱已量到上游 cache。
+- **限制**：能否命中仍取決於失敗當下 socket 是否存活——prev_id 是 connection-scoped，socket 已死時續鏈必 400，此時正確行為是報錯而非重放。真實 provider 命中率量測需另跑 E2E（同 0063 runbook）。
+- **失敗自述（2026-09-16 加）**：`CodexCompactionChainLostError` 原本只說「鏈沒了」，無法區分 `getOrCreateCodexWebSocketConnection` 的三個清鏈點（`token-refresh` / `stale-reuse` / 無活連接）。現在取三個點——`canAppendAtSample`（`getOrCreate` 前）、`canAppendAtBuild`（`getOrCreate` 後）、`canAppendAfterBuild`（`buildCodexChainedRequestBody` 後，builder 自己也會清鏈）——連同 `socketAtSample`/`socketAtBuild`、`lastResponseIdAfterBuild`、`prewarmed`、`fallbacks`、`lastTransport`、`wsRetry`，外加 `lastSocketClose="<原因>" <N>s before this request (socket #<gen>)`，一併附在錯誤訊息裡。
+  - **`lastClose` 的三個語義約束**（否則它會指錯根因）：① 每個 socket 有 `generation`，**同一 socket 的首次關閉優先**——後續 teardown 的本地 `close("reconnect")` 不得覆蓋對端 `onclose` 的真實原因；② **鏈重新建立時清空**（`canAppend` 置真處），使欄位描述的是「當前這條鏈的 socket 為何死」而非遠古歷史；③ 我方 `close()` 與對端 `onclose` 都會觸發，以身份守衛避免被替換的舊 socket 抹掉接替者的鏈。
+
+  - **兩個槽位，因為單一槽位必然說謊**：`close()` 是**先同步**以我們自己的理由呼叫 `onClosed`、**再**把 socket 交給對端的，所以「首關優先」記下來的幾乎永遠是本地理由（`reconnect`／`stale-reuse`／`token-refresh`）；而真正由對端造成的關閉，其事件是**非同步**到達的，屆時 `state.connection` 早已換人，被身份守衛直接丟棄。故拆為：
+    - `lastLocalClose`（即原 `lastClose`）= **我們為何換掉這條連接**；
+    - `lastPeerClose` = **對端為何關閉它**，於身份守衛**之前**記錄（每 socket 首關優先），鏈重建時一併清空。
+    - 兩者都可能缺席，且**缺席不構成「沒斷線」的證據**：對端若從未關閉，或因守衛而未被記錄，都顯示 `lastPeerClose=not-observed`。
+- **觸發入口不可歸屬（已知觀測缺口，已修）**：`summarize.request`/`summarize.usage`（codex-v2）原本既不記 `sessionId` 也不記發起者，無法在單一行程託管多個 session/agent 時判斷這次壓縮屬於誰。已補 `initiator`（`"primary"` / `"advisor:<slug>"`，`SummaryOptions.initiator`，advisor 路徑於 `session-advisors.ts` 標註）與 `sessionId`。
+  - 為何必要：`#maintainAdvisorContext`（`session-advisors.ts:1673`）是**獨立於主維護階梯的第三個壓縮入口**——有自己的閾值、**直接呼叫核心 `compact()`**、用 `advisorProviderSessionId`（**獨立 provider session 與 websocket**）並傳 `preferWebsockets: this.#host.preferWebsockets`（走 WS）。主 session 的 `shouldCompact:false` **不能**排除「壓縮由 advisor 發起」。其失敗路徑亦與主路徑不同：advisor 的 catch 無 chain-lost 特判，會 `logger.warn("Advisor compaction failed, falling back to re-prime")` 並返回 `true` → 清空 advisor 上下文重建（側信道的既定降級）。
+  - **歸屬已可判，但 03:58 那次的 owner 仍未證**：該次 trace 為 `messages=301, tools=13`，與同刻 primary 的 `msgs=300` 相符（advisor 當時為 `msgs=77`），故**吃的是 primary 的上下文**；已知**不是**主 auto 閾值、**不是**投機、**不是** advisor。真正入口待查。
+- **已知動態（影響可續鏈性）**：上游 `resetOpenAICodexHistoryAfterCompaction`（`pi-coding-agent/src/session/agent-session.ts:8638` → `session-maintenance.ts:1934`，於 `#commitCompactionEntry` 內）會在**壓縮成功後**清掉**所有** codex websocket session 的 append state。故鏈只在「緊接普通輪次之後」才可能被複用；連續兩次壓縮之間不存在可續的基線。
+- **E2E 驗收口徑**（`~/.omp/agent/compaction-trace.log`）：**成功的嘗試不寫 `summarize.attempt`**（該行只在 catch 內產生），因此不得要求「第 2 次 attempt 有 `attempt=2` 行」。正確判據是在**同一 pid／時間窗口**關聯三件事：① `summarize.attempt` 具 `attempt=1, final=false`——證明真的發生過失敗重試；② 緊接的 `summarize.usage` 為 `lane=codex-v2, stopReason=compaction, transport=websocket, chained=true, inputItems=1`——證明重試**續上了鏈**而非全量重放；③ 該 usage 的 `cachedInputTokens/inputTokens` 高。若只有 `summarize.usage` 而**無** `summarize.attempt`，代表首呼即成功、retry 路徑從未被執行，結果只能記為**未覆蓋 retry**，不得宣稱已驗證續鏈。對照樣本（同日同 lane）：15:45:56 `chained=true items=1 cr/in=36352/37082=98.0%`；缺陷樣本 17:24:02 `chained=false items=449 cr/in=22912/261873=8.7%`。
+- **重啟要求（驗收前提）**：本補丁修改 `src/*.ts`，**不會熱載入**；未重啟的行程仍跑舊碼，其 trace 一律算 **修前證據**。已知修前行程：`pid 1463794`（`omp --resume 01a0a5f7-8ad4-7000-aee0-28ad64f35705`，啟動於 2026-09-15 23:48:30，**2026-09-16 03:51 的 `sawChainedAttempt is not defined` 即出自此行程，且該行程當時仍存活**）。重開後若仍見 warning/降級，**先核對該筆 trace 的 `pid` 是否為新行程**，避免把舊行程的同一輪錯誤當成新補丁的結果；`~/.omp/agent/compaction-trace.log` 每行都帶 `pid`，這是唯一可靠的歸屬鍵。
 
 ## 3. 已撤下的補丁
 
@@ -836,7 +883,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 ## 6. 驗證矩陣
 
-### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 19 道）
+### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 21 道）
 
 | 閘門 | 職責 | 所需 env |
 |---|---|---|
@@ -859,6 +906,8 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-commandcode-model-record-parity.ts`（條件） | 0065 Command Code `deepseek/deepseek-v4.1-flash` 兩個註冊方的 model record 對齊：KDL 四條 directive + 編譯產物軸 + `source` 行號 provenance + `resolveModelPolicy` 解析值 + 兄弟型號負對照 + 插件側對齊目標；僅 18.1.18 計畫執行 | — |
 | `verify-anthropic-native-compaction-live-context.ts`（條件） | 0066 Anthropic native 壓縮必請求 `"live"` scope 並複用宿主 live context：fixture 模型資格、live scope、請求體 system/tools/messages 逐值等於宿主回傳、摘要入 entry summary、回退路徑保留原值；僅 18.1.18 計畫執行 | `OMP_PATCH_VERIFY_CORE_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
 | `verify-compaction-lane-trace.ts`（條件） | 0067 三條 remote lane 的 live tools 與 trace：codex-v2 請求體 tools 含 intent 欄位且 trace 記 `cachedInputTokens`、openai-v1 經 V2 失敗回退後各自留痕、anthropic-native usage 記 provider 原值；僅 18.1.18 計畫執行 | `OMP_PATCH_VERIFY_CORE_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
+| `verify-codex-effort-resume.ts`（條件） | 0069 真實 Codex stream 的 effort 快照保存／JSONL 恢復、分支隔離、歷史不可變、錨點失效與舊日志邊界；僅 18.1.18 計畫執行 | `OMP_PATCH_VERIFY_AI_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
+| `verify-codex-compaction-chain-fail-closed.ts`（條件） | 0070 真實本地 WebSocket/SSE：端點拒絕、同鏈重試、錯誤分類、metadata 提交／回滾及跨 session 隔離；`tsc` 檢查發布型別 consumer；僅 18.1.18 | `OMP_PATCH_VERIFY_NM`（含 `AI`／`CORE`／`CATALOG` 覆寫）；Bun、tsc |
 
 **0063 驗收狀態（2026-09-13）**：`apply.sh --verify-rollups` 與 `verify-patch-family-rollups.sh` 在更新 `EXPECTED_PLAN`／`EXPECTED_PLAN_18` 快照（27→28、31→32）後 **EXIT 0 全綠**，新閘 `verify-codex-compaction-chain.ts` 隨計畫執行；smoke（`cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK'`）實測通過。閘門判別力以兩個 fault variant 實測：刪除 chained-body 分支 → §1 行為斷言紅；把兩處 `responsesLite` 改回 `model.useResponsesLite` → §4 接線斷言紅。**E2E 已執行（2026-09-14）**：真實會話 `01a0a05f`（`openai-codex/gpt-5.6-luna`）同行程 live baseline 後 `/compact`，記錄 `provider:"openai-codex"/version:"v2"/inputTokens:24160/cachedInputTokens:23040`——PRD 命中率 `cached/input=95.4%≥80%`，`check-codex-compaction-cache.sh` exit 0。當時 `apply.sh` 被 wave2 的 0043 CONFLICT 阻擋於 `mode=apply` 入口（該紅燈非 0063 引起），故 15 道閘門改以直接調用驗證、smoke 另行手動執行；**該阻塞已於 2026-09-15 解除**，見下方「0043 陳舊變體換手」。
 

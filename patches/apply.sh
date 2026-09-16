@@ -261,6 +261,24 @@ case "$OMP_PATCH_VERSION" in
 	# 每-attempt 診斷寫進 summarize.usage／summarize.attempt trace。
 	# a 側是 0063+0067 之後的形態。
 	PATCHES+=("0068-omp-codex-stale-baseline-chain.patch:${NM}")
+	# 0069 restores Codex effort baselines from branch-local response history.
+	# Source shape is pinned to 18.1.18 after 0068; no older-version candidate.
+	PATCHES+=("0069-omp-codex-effort-history-resume.patch:${AI}")
+	# 0070 僅 18.1.18：Codex V2 壓縮「只准續鏈，不准降級」。實測（session
+	# 01a0a5f7，pid 1047924）一次遠端壓縮回報成功卻只命中 8.75%
+	# （cached 22912 / input 261873），三層都在偷偷全量重放：
+	#   ① openCodexCompactionEventStream 在**開啟**時就清 append baseline，
+	#      該次成敗未知，於是重試必然無鏈可續；
+	#   ② streamCodexCompactionEvents 遇 WS 傳輸錯自動切 SSE，而 SSE 端點
+	#      沒有 previous_response_id（嚴格閘道 400），等於靜默全量；
+	#   ③ compact() 的 V2 catch 吞掉錯誤後續走 V1 與 soft，產出一筆命中
+	#      率極低但看起來成功的壓縮記錄。
+	# The collector commits metadata and invalidates its append baseline only
+	# after accepting the summary. Healthy-chain transient failures may retry.
+	# Codex endpoint overrides and unchainable WS/SSE sends fail closed before
+	# replay; core and both primary-session method ladders preserve the sentinel.
+	# a 側是 0069 之後的形態。
+	PATCHES+=("0070-omp-codex-compaction-chain-fail-closed.patch:${NM}")
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18)" >&2
@@ -617,8 +635,12 @@ if [[ "$MODE" == "apply" ]]; then
 	fi
 	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
 		bun "${HERE}/verify-compaction-lane-trace.ts"
+		bun "${HERE}/verify-codex-effort-resume.ts"
+		bun "${HERE}/verify-codex-compaction-chain-fail-closed.ts"
 	else
 		echo "verify-compaction-lane-trace: skipped (0067 not in this plan)"
+		echo "verify-codex-effort-resume: skipped (0069 not in this plan)"
+		echo "verify-codex-compaction-chain-fail-closed: skipped (0070 not in this plan)"
 	fi
 fi
 if [[ "$MODE" != "check" ]]; then

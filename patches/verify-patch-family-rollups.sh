@@ -480,6 +480,9 @@ EXPECTED_PLAN_18=(
 	"0065-omp-commandcode-deepseek-model-record-parity.patch:NM"
 	"0066-omp-anthropic-native-compaction-live-context.patch:NM"
 	"0067-omp-remote-compaction-lane-trace-live-tools.patch:NM"
+	"0068-omp-codex-stale-baseline-chain.patch:NM"
+	"0069-omp-codex-effort-history-resume.patch:AI"
+	"0070-omp-codex-compaction-chain-fail-closed.patch:NM"
 )
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
