@@ -12,7 +12,9 @@
 	- ⚠ **18.2.3 新競態 #2 — session transition(已核實 pristine 4491–4510 行定義;7 個 `#beginSessionTransition()` 調用點:5084 `resetSessionContext`、8308 `newSession`、8439 `fork`、9486 `switchSession`、9854 `branch`、9962 `branchFromBtw`、10154 `navigateTree`)**:上游新增 `#beginSessionTransition()` 同步置 `isSessionTransitioning`;live 的 idle gate 與 reservation 清理都不知道它。`newSession`/`switchSession` 先 await 後 reset,已保留的 idle 請求可能在舊快照上繼續發 provider 請求。遷移時:`runIdleEphemeralTurn` 同步拒絕 `isSessionTransitioning`;7 個 transition 入口進入時 abort 現有 idle reservation(**不可漏 `resetSessionContext`**);補「reservation→session transition」交錯測試。
  	- ⚠ 定稿驗收(用戶指示 2026-09-17):上游 18.2.3 的 `#scheduleAgentContinue` 仍是裸 `#beginInFlight()` + 直呼 `#runAgentContinue()`——**未吸收 0010**,候選必須完整保留 publish-before-await 的 `ActiveAgentContinue` 包裝與 `#endInFlight(inFlight.epoch)` epoch 配對。定稿後按 `grep -n "#beginInFlight\|#endInFlight"` 逐一核對 18.2.3 全部調用點:每個 `#beginInFlight()` 有返回值接住且 finally 有對應 `#endInFlight(epoch)`;上游若新增調用點(18.2.3 比舊版多出的路徑)漏配對即是缺陷。
 - Plan/Verify/Deploy 未開始。
-- 工作樹:WIP 已提交 `a9c0292`(含 prd/research/implement + 三件候選補丁 + 審計腳本與 log,均已入 repo `patches/.18.2.3-candidates/`);`patches/PATCHES.md` 的既有未提交改動與 `patches/turn-timer-extension.ts` 為遷移前的進行中工作,未納入本次 WIP。
+- 工作樹(2026-09-17 01:43 獨立核實,HEAD `e091806b2aeba5189df993573e07722159d6e889`;`.git/refs/heads/trellis/ds-snapcompact-tuning` 與 `git rev-parse HEAD` 雙路一致):
+  - 已提交:本任務 `prd.md`/`research.md`/`implement.md` + `patches/.18.2.3-candidates/`(4 件:0010/0030/0033 候選 + h9 diff + h18 usable hunk)+ 審計腳本與 log —— 提交鏈 `a9c0292` → `7626204` → `e091806`。
+  - 未提交(非本次遷移操作):`prd.md`/`research.md` 被外部 Trellis 流程於 01:41:09 重組(矩陣移入 research、新增 Planning recovery evidence),並生成 `task.json`/`check.jsonl`/`implement.jsonl`;`patches/PATCHES.md` 與 `patches/turn-timer-extension.ts` 為遷移前的既有進行中工作。**恢復時不要回退這些外部改動。**
 
 ## 關鍵教訓(勿重蹈)
 
