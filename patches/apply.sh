@@ -723,7 +723,9 @@ if [[ "$MODE" != "check" ]]; then
 		echo "smoke: skipped by explicit offline replay mode"
 	else
 		printf 'smoke: '
-		if out="$(cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK' 2>&1)"; then
+		# Cold start re-probes every provider catalog before the first token, which
+		# costs ~90 s on this box; the budget must cover that, not the completion.
+		if out="$(cd /tmp && timeout 300 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK' 2>&1)"; then
 			grep -q PATCH_OK <<<"$out" && echo "ok" || {
 				echo "unexpected output:"
 				echo "$out" | tail -5
