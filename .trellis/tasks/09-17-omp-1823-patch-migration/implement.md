@@ -1,11 +1,15 @@
 # 執行記錄 — 18.2.3 補丁鏈遷移
 
-> **RESUME(修訂 2026-09-17 暫停前):S1-0010 — 用 diff 重生成法重寫 h9/h18,不再手寫 hunk。**
-> 第一個動作:① 以 `pkg/pi-coding-agent/src/session/agent-session.ts` pristine 為 base,取出 h9 區域(lines 3978–3986)與 h18 區域(navigateTree 尾部)為 old 檔;② 按 18.1.18 語義寫 new 檔(h9 = publish-before-await `ActiveAgentContinue` 包裝,h18 = 刪 `#branchSummaryAbortController = undefined;` 兩處);③ `diff -u` 生成後把路徑改 `a/src/session/agent-session.ts`、`@@` 行號平移 +3977;④ 替換候選中對應段落,`patch -d pkg/pi-coding-agent --dry-run -p1` 全鏈驗證。**禁止手寫 hunk 標頭與行索引位元組替換**(本輪已證明易錯)。
+> **RESUME(修訂 2026-09-17 暫停前,已複核):S1-0010 只剩 1 個 hunk 失敗 —— `agent-session.ts` h9(`#scheduleAgentContinue` 的 publish-before-await 包裝);h18、h33、executor hunk 均已通過。**
+> 第一個動作(不依賴 `/tmp`):以 `pkg/pi-coding-agent/src/session/agent-session.ts`(pristine 18.2.3)為 base,取出 3978–3986 行為 old 檔;按 18.1.18 語義寫 new 檔(`const inFlight = this.#beginInFlight();` + `ActiveAgentContinue` IIFE 包裝 + `#endInFlight(inFlight.epoch)` 配對;縮排一律與 pristine 逐字節一致);`diff -u old new` 生成後改路徑為 `a/src/session/agent-session.ts`、`@@` 起始行平移至 3978;替換候選對應段落 → `patch -d pkg/pi-coding-agent --dry-run -p1` 驗證。**禁止手寫 hunk 標頭與行索引位元組替換。**
+> 已入庫現成參照(不依賴 `/tmp`):
+>  - `patches/.18.2.3-candidates/0010-h18-usable-hunk.patch`(sha256 `5c2fcf32…a1117d`)**已可直接套用**:路徑與 `@@` 行號就位,`patch -d <agent-root> --dry-run` 已驗證 CLEAN(區域 B fuzz 1)。h18 由此片段直接替換候選內的舊兩段。
+>  - `patches/.18.2.3-candidates/0010-h9-diff-regen.txt`(sha256 `588b993f…45af20`):h9 的 diff 原生輸出,**尚未**改路徑/平移行號,需按首動作處理。
+>  - 若兩者與候選狀態不符(例如候選又被改動),以 pristine `pkg/pi-coding-agent/src/session/agent-session.ts` 重新生成即可复現。
 - 沙盒衝突矩陣已完成並交叉驗證:**25 CLEAN / 13 CONFLICT / 0 上游逐字採納**(獨立審計腳本 `/tmp/omp1823/replay-audit.sh`,log 與先前矩陣逐字一致)。
-- [ ] S1-0010 候選:h33(`_transition` 行)已修;h9/h18 待以 diff 重生成法替換手寫版;h10(`#endInFlight(inFlight.epoch)`)之後 hunk 未逐一複核(pending — 當前 39 hunk 中 2 個 agent-session hunk 失敗)
+- [ ] S1-0010 候選:僅 h9 未通過(其餘 8/9 agent-session hunk 已 CLEAN,含 h18/h33/executor);待以 diff 重生成法替換手寫版 h9(pending)
 	- ⚠ **18.2.3 新競態 #1 — admission 窗口(2026-09-17 審查發現,已核實 pristine 821/2361/2371/6313 行)**:上游新增 `#admitSubmission()` 包裹 `#prompt`——主 prompt 在圖片歸一化/vision await 期間先 `#admittedSubmissionCount++` 後才 `#beginInFlight()`。18.1.18 的 `runIdleEphemeralTurn` gate(live 8916 行)只查 `#promptInFlightCount`/`isStreaming`/`isCompacting`/`#branchSummaryAbortController`/`queuedMessageCount`/`#idleEphemeralReservation`,**不含 admission**——「已 admit 未 beginInFlight」窗口內 idle side-channel 可搶跑。遷移時把 `this.hasAdmittedSubmission`(或 `#admittedSubmissionCount > 0`)納入同步 gate,並補「admitted→idle 搶跑」交錯回歸斷言。
-	- ⚠ **18.2.3 新競態 #2 — session transition(已核實 pristine 4491–4510 行,8 個 `#beginSessionTransition()` 調用點)**:上游新增 `#beginSessionTransition()` 同步置 `isSessionTransitioning`;live 的 idle gate 與 reservation 清理都不知道它。`newSession`/`switchSession` 先 await 後 reset,已保留的 idle 請求可能在舊快照上繼續發 provider 請求。遷移時:`runIdleEphemeralTurn` 同步拒絕 `isSessionTransitioning`;最外層 `#beginSessionTransition`(8308/8439/9486/9854/9962 入口)進入時 abort 現有 idle reservation;補「reservation→session transition」交錯測試。
+	- ⚠ **18.2.3 新競態 #2 — session transition(已核實 pristine 4491–4510 行定義;7 個 `#beginSessionTransition()` 調用點:5084 `resetSessionContext`、8308 `newSession`、8439 `fork`、9486 `switchSession`、9854 `branch`、9962 `branchFromBtw`、10154 `navigateTree`)**:上游新增 `#beginSessionTransition()` 同步置 `isSessionTransitioning`;live 的 idle gate 與 reservation 清理都不知道它。`newSession`/`switchSession` 先 await 後 reset,已保留的 idle 請求可能在舊快照上繼續發 provider 請求。遷移時:`runIdleEphemeralTurn` 同步拒絕 `isSessionTransitioning`;7 個 transition 入口進入時 abort 現有 idle reservation(**不可漏 `resetSessionContext`**);補「reservation→session transition」交錯測試。
  	- ⚠ 定稿驗收(用戶指示 2026-09-17):上游 18.2.3 的 `#scheduleAgentContinue` 仍是裸 `#beginInFlight()` + 直呼 `#runAgentContinue()`——**未吸收 0010**,候選必須完整保留 publish-before-await 的 `ActiveAgentContinue` 包裝與 `#endInFlight(inFlight.epoch)` epoch 配對。定稿後按 `grep -n "#beginInFlight\|#endInFlight"` 逐一核對 18.2.3 全部調用點:每個 `#beginInFlight()` 有返回值接住且 finally 有對應 `#endInFlight(epoch)`;上游若新增調用點(18.2.3 比舊版多出的路徑)漏配對即是缺陷。
 - Plan/Verify/Deploy 未開始。
 - 工作樹:WIP 已提交 `a9c0292`(含 prd/research/implement + 三件候選補丁 + 審計腳本與 log,均已入 repo `patches/.18.2.3-candidates/`);`patches/PATCHES.md` 的既有未提交改動與 `patches/turn-timer-extension.ts` 為遷移前的進行中工作,未納入本次 WIP。
@@ -26,7 +30,7 @@
 - [x] S0 沙盒矩陣:38 項部署計畫在 pristine 18.2.3 重放,25 CLEAN / 13 CONFLICT,分類與根因全表在 prd.md(verified,audit log 交叉一致)
 - [x] S1-0030 候選:charm-hyper import 行納入上下文,dry-run CLEAN + 實套 + 反向 round-trip OK(verified)
 - [x] S1-0033 候選:settings-schema 陣列形態重錨,3 hunk 全 CLEAN + round-trip OK(verified)
-- [ ] S1-0010 候選:h33(`_transition` 行)已修;h9/h18 待以 diff 重生成法替換手寫版;h10(`#endInFlight(inFlight.epoch)`)之後 hunk 未逐一複核(pending — 當前 39 hunk 中 2 個 agent-session hunk 失敗)
+- [ ] S1-0010 候選:僅 h9 未通過(其餘 8/9 agent-session hunk 已 CLEAN,含 h18/h33/executor);待以 diff 重生成法替換手寫版 h9(pending)
 - [ ] S1-0034 候選(4/8 hunk 需適配 `beginMentalModelsTranscriptReload` 新結構)
 - [ ] S1-0038+0047 候選(0038 頭部註釋重寫;0047 a 側必須取 0038 候選產出形態)
 - [ ] S1-0060 候選(依賴 0010 的 `runIdleEphemeralTurn`;agent-session h1/h3 需重錨)
