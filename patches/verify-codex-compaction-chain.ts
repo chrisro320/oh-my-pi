@@ -130,6 +130,57 @@ assert.equal(
 	"compaction request metadata must survive (otherwise the server sees a plain turn)",
 );
 
+// --- 1b. A moved-on transcript must ride with the trigger ---
+// Measured 2026-09-17 (sessions 01a0addd / 01a0ae09, models gpt-6-astra and
+// gpt-5.6-luna): the trigger-only frame was rejected by the endpoint with
+// `invalid_request_error: No tool output found for function call …` instead of
+// compacting. The server keeps the baseline response's own output, so a
+// mid-turn boundary — where the transcript has already appended the tool
+// results for exactly those calls — leaves the calls unanswered unless the
+// frame carries them. Only the items may move: every top-level field still
+// comes from the live baseline.
+const movedOnState = makeState({
+	lastResponseItems: [
+		{
+			id: "fc_live_1",
+			type: "function_call",
+			call_id: "call_live_1",
+			name: "read",
+			arguments: '{"path":"a.ts"}',
+			status: "completed",
+		},
+	],
+});
+const movedOnBody = {
+	...compactionBody,
+	// The rebuilt compaction body pins options the live baseline does not carry;
+	// they must not veto the chain, because the frame takes all of them from the
+	// live baseline below.
+	tool_choice: "auto",
+	input: [
+		...LIVE_BASELINE.input,
+		{ type: "function_call", call_id: "call_live_1", name: "read", arguments: '{"path":"a.ts"}' },
+		{ type: "function_call_output", call_id: "call_live_1", output: "file contents" },
+		{ type: "compaction_trigger" },
+	],
+};
+const movedOn = buildCodexChainedRequestBody(movedOnBody, movedOnState as never) as Record<string, unknown>;
+assert.equal(movedOn.previous_response_id, "resp_live_1", "a moved-on transcript must still chain");
+assert.deepEqual(
+	movedOn.input,
+	[
+		{ type: "function_call_output", call_id: "call_live_1", output: "file contents" },
+		{ type: "compaction_trigger" },
+	],
+	"the tool result the transcript appended must be sent with the trigger, or the endpoint rejects the frame",
+);
+assert.deepEqual(
+	movedOn.instructions,
+	LIVE_BASELINE.instructions,
+	"pending items must not drag the rebuilt body's top-level options onto the wire",
+);
+assert.equal("tool_choice" in movedOn, false, "the compaction body's own tool_choice must not reach the wire");
+
 // --- 2. Negative control: a non-compaction body must NOT take the baseline branch ---
 // Without the trailing trigger this is an ordinary turn, so the strict check
 // still governs it and a mismatching history must replay rather than chain.

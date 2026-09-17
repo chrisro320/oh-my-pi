@@ -19,11 +19,11 @@ core = "pi-agent-core/src/compaction/compaction-v2-streaming.ts"
 types = "pi-ai/dist/types/providers/openai-codex-responses.d.ts"
 gate = here / "verify-codex-compaction-chain-fail-closed.ts"
 
-def run(tree):
+def run(tree, gate_path=None):
     env = dict(os.environ, OMP_PATCH_VERIFY_NM=str(tree), OMP_COMPACTION_TRACE_OFF="1")
     for key in ("AI", "CORE", "AGENT", "CATALOG"):
         env.pop(f"OMP_PATCH_VERIFY_{key}_ROOT", None)
-    return subprocess.run(["bun", str(gate)], env=env, text=True, capture_output=True, timeout=30)
+    return subprocess.run(["bun", str(gate_path or gate)], env=env, text=True, capture_output=True, timeout=30)
 
 def replace(path, old, new):
     text = path.read_text()
@@ -72,9 +72,33 @@ with tempfile.TemporaryDirectory(prefix="omp-0070-faults-") as temporary:
             print(f"PASS fault: {label}", flush=True)
         finally:
             target.write_bytes(original)
+    # The chain-body gate guards the same frame from the consumer side: a chained
+    # compaction that appends the trigger without the items the transcript has
+    # added on top of the baseline must stop passing it. Measured 2026-09-17
+    # (sessions 01a0addd / 01a0ae09): the endpoint rejected exactly that frame
+    # with `invalid_request_error: No tool output found for function call …`.
+    body_gate = here / "verify-codex-compaction-chain.ts"
+    body_control = run(tree, body_gate)
+    assert body_control.returncode == 0, body_control.stdout + body_control.stderr
+    print("chain-body fault control PASS", flush=True)
+    body_target = tree / ai
+    body_original = body_target.read_bytes()
+    try:
+        replace(
+            body_target,
+            "\t\t\tinput: pending && pending.length > 1 ? pending : [lastInput],",
+            "\t\t\tinput: [lastInput],",
+        )
+        result = run(tree, body_gate)
+        output = result.stdout + result.stderr
+        assert result.returncode != 0, "pending items dropped: broken behavior stayed green"
+        assert "function_call_output" in output, f"failed for the wrong reason\n{output}"
+        print("PASS fault: chained compaction drops the pending items", flush=True)
+    finally:
+        body_target.write_bytes(body_original)
     shutil.rmtree(tree / "pi-ai/src")
     incomplete = run(tree)
     assert incomplete.returncode != 0 and "Cannot find module" in incomplete.stderr, incomplete.stdout + incomplete.stderr
     print("PASS fault: incomplete runtime cannot pass", flush=True)
-print(f"verify-codex-compaction-chain-fail-closed faults: {len(faults) + 1} behavioral/type faults rejected")
+print(f"verify-codex-compaction-chain-fail-closed faults: {len(faults) + 2} behavioral/type faults rejected")
 PY

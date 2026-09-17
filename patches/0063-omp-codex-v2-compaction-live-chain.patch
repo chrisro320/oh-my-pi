@@ -43,21 +43,19 @@
  	 */
  	responsesLite?: boolean;
  	/**
-@@ -3557,12 +3559,41 @@
+@@ -3557,12 +3559,57 @@
   * request schema has no `previous_response_id` (codex-rs carries it only on
   * websocket `response.create` frames) and strict gateway validators 400 it
   * with `{"detail":"Unsupported parameter: previous_response_id"}`.
 + *
-+ * Codex V2 remote compaction is the one caller that must skip the strict delta
-+ * check: it appends a `compaction_trigger` to the live conversation (codex-rs
-+ * `compact_remote_v2.rs`), but its prefix is rebuilt from the persisted
-+ * transcript, which deliberately excludes per-turn injected context (session
-+ * anchors, date/cwd stamps). A rebuilt prefix can therefore never be byte-equal
-+ * to what the live socket already sent, so the check would reject a chain that
-+ * is in fact still valid and replay the whole transcript at 0% cache. Reuse the
-+ * live baseline verbatim instead — the server already holds that prefix — and
-+ * send only the trigger. The trailing trigger item is itself the discriminator:
-+ * nothing but the compaction path appends one.
++ * Codex V2 remote compaction is the one caller whose prefix cannot be compared
++ * byte-wise: it appends a `compaction_trigger` to the live conversation
++ * (codex-rs `compact_remote_v2.rs`) from a body rebuilt off the persisted
++ * transcript, which excludes per-turn injected context (session anchors,
++ * date/cwd stamps) and pins its own top-level options. Reuse the live baseline
++ * verbatim instead — the server already holds that prefix — and send only what
++ * the transcript appended on top of it, trigger last. The trailing trigger item
++ * is itself the discriminator: nothing but the compaction path appends one.
   */
 -function buildCodexChainedRequestBody(
 +export function buildCodexChainedRequestBody(
@@ -76,11 +74,29 @@
 +		state.lastResponseId &&
 +		lastInput?.type === "compaction_trigger"
 +	) {
++		// The server keeps this response's own output, tool calls included, so a
++		// bare trigger lands after function calls that still have no output and the
++		// endpoint rejects the whole frame — `No tool output found for function
++		// call ...` — instead of compacting (measured 2026-09-17, session
++		// 01a0addd: a mid-turn boundary always sits between a tool call and its
++		// result). Send what the transcript appended on top of the baseline — the
++		// tool results for exactly those calls — and keep the trigger last.
++		//
++		// Compare items only: the compaction body's own top-level overrides
++		// (tool_choice, stream, store) must not veto a chain the live baseline can
++		// still carry, and the frame below takes every one of them from the live
++		// baseline anyway.
++		const pending = buildResponsesDeltaInput(
++			state.lastRequest,
++			state.lastResponseItems,
++			{ ...state.lastRequest, input: requestBody.input },
++			CODEX_CHAIN_TOP_LEVEL_EXCLUDE_MAP,
++		);
 +		return {
 +			...state.lastRequest,
 +			client_metadata: requestBody.client_metadata,
 +			previous_response_id: state.lastResponseId,
-+			input: [lastInput],
++			input: pending && pending.length > 1 ? pending : [lastInput],
 +		};
 +	}
  	const appendInput = chainable

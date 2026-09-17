@@ -1142,32 +1142,6 @@
  		const thresholdTokens = resolveThresholdTokens(contextWindow, settings);
  		const graceCapTokens = Math.min(
  			thresholdTokens + resolveSpeculationLeadTokens(thresholdTokens),
-@@ -4953,6 +4976,25 @@
- 					},
- 					options.detachPostCommit === true,
- 				);
-+				return COMPACTION_CHECK_NONE;
-+			}
-+			// A lost Codex chain is terminal for the SAME reason the manual ladder
-+			// treats it as terminal: snapcompact and soft would both compact the
-+			// session at full price and report success for the exact degradation the
-+			// remote lane declined. Without this arm the auto path silently walks
-+			// past the remote method via `methodIndex + 1`.
-+			if (error instanceof CodexCompactionChainLostError) {
-+				await this.#emitLifecycleEvent(
-+					{
-+						type: "auto_compaction_end",
-+						action,
-+						result: undefined,
-+						aborted: false,
-+						willRetry: false,
-+						errorMessage: error.message,
-+					},
-+					options.detachPostCommit === true,
-+				);
- 				return COMPACTION_CHECK_NONE;
- 			}
- 			const errorMessage = error instanceof Error ? error.message : "compaction failed";
 --- a/pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts
 +++ b/pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts
 @@ -76,6 +76,14 @@

@@ -365,9 +365,19 @@ This option belongs to both the source and published
   check. Missing `tsc` or an unresolved selected runtime must fail the gate.
 - Isolate HOME/XDG and set `OMP_COMPACTION_TRACE_OFF=1` before imports, restoring
   the environment and removing fixtures afterward.
-- The manual and automatic host ladders still treat chain loss as terminal.
-  Their behavior and advisor fallback policy are separate integration boundaries;
-  do not claim the provider/collector fixture exercises them.
+- A chained compaction frame must be a valid append of the live baseline: the
+  server already stores that response's own output, tool calls included, so the
+  frame carries whatever the transcript has appended on top of the baseline
+  (normally the results for exactly those calls) ahead of the `compaction_trigger`.
+  Only the items may move — every top-level field still comes from the live
+  baseline. `verify-codex-compaction-chain.ts` §1b drives this with a baseline
+  whose last response emitted a `function_call`, and `…-fail-closed-faults.sh`
+  proves the assertion fails when the pending items are dropped.
+- The manual host ladder still treats chain loss as terminal; the automatic
+  ladder instead falls through to its next preferred method. Both are separate
+  integration boundaries: do not claim the provider/collector fixture exercises
+  them, and do not describe the automatic fallback as a full-price replay — the
+  next live turn replays in full either way.
 
 ### 4. Validation & Error Matrix
 
