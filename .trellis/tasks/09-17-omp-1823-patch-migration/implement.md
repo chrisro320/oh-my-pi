@@ -1,15 +1,14 @@
 # 執行記錄 — 18.2.3 補丁鏈遷移
 
-> **RESUME: S1-0030 完成 → 繼續 Re-anchor 0010 的 h9/h18(用 diff 重生成法),然後 0034/0038/0047/0060/0065/0037+0041/0068/0069/0070**
-> 第一個動作:把 `/tmp/h9-diff.txt`(diff 原生生成的 h9)轉成 candidate 段落格式(行號平移 +3977、路徑改 `a/src/session/agent-session.ts`),替換 0010 候選中的手寫 h9;同法處理 h18(todo/modelMentions 區域);再以 `patch -d pkg/pi-coding-agent --dry-run` 全鏈驗證 0010。
-
-## 狀態總覽(2026-09-17 01:35 暫停)
-
+> **RESUME(修訂 2026-09-17 暫停前):S1-0010 — 用 diff 重生成法重寫 h9/h18,不再手寫 hunk。**
+> 第一個動作:① 以 `pkg/pi-coding-agent/src/session/agent-session.ts` pristine 為 base,取出 h9 區域(lines 3978–3986)與 h18 區域(navigateTree 尾部)為 old 檔;② 按 18.1.18 語義寫 new 檔(h9 = publish-before-await `ActiveAgentContinue` 包裝,h18 = 刪 `#branchSummaryAbortController = undefined;` 兩處);③ `diff -u` 生成後把路徑改 `a/src/session/agent-session.ts`、`@@` 行號平移 +3977;④ 替換候選中對應段落,`patch -d pkg/pi-coding-agent --dry-run -p1` 全鏈驗證。**禁止手寫 hunk 標頭與行索引位元組替換**(本輪已證明易錯)。
 - 沙盒衝突矩陣已完成並交叉驗證:**25 CLEAN / 13 CONFLICT / 0 上游逐字採納**(獨立審計腳本 `/tmp/omp1823/replay-audit.sh`,log 與先前矩陣逐字一致)。
-- Re-anchor 進度:**0030 ✓、0033 ✓**;0010 進行中(h9/h18 手寫重錨卡在 GNU patch 2.7.6 計數陷阱,已解出正解);0034/0038/0047/0060/0065 未開始。
-- Rewrite 未開始:0037+0041(statusline usage 族)、0068/0069/0070(codex compaction 族)。
+- [ ] S1-0010 候選:h33(`_transition` 行)已修;h9/h18 待以 diff 重生成法替換手寫版;h10(`#endInFlight(inFlight.epoch)`)之後 hunk 未逐一複核(pending — 當前 39 hunk 中 2 個 agent-session hunk 失敗)
+	- ⚠ **18.2.3 新競態 #1 — admission 窗口(2026-09-17 審查發現,已核實 pristine 821/2361/2371/6313 行)**:上游新增 `#admitSubmission()` 包裹 `#prompt`——主 prompt 在圖片歸一化/vision await 期間先 `#admittedSubmissionCount++` 後才 `#beginInFlight()`。18.1.18 的 `runIdleEphemeralTurn` gate(live 8916 行)只查 `#promptInFlightCount`/`isStreaming`/`isCompacting`/`#branchSummaryAbortController`/`queuedMessageCount`/`#idleEphemeralReservation`,**不含 admission**——「已 admit 未 beginInFlight」窗口內 idle side-channel 可搶跑。遷移時把 `this.hasAdmittedSubmission`(或 `#admittedSubmissionCount > 0`)納入同步 gate,並補「admitted→idle 搶跑」交錯回歸斷言。
+	- ⚠ **18.2.3 新競態 #2 — session transition(已核實 pristine 4491–4510 行,8 個 `#beginSessionTransition()` 調用點)**:上游新增 `#beginSessionTransition()` 同步置 `isSessionTransitioning`;live 的 idle gate 與 reservation 清理都不知道它。`newSession`/`switchSession` 先 await 後 reset,已保留的 idle 請求可能在舊快照上繼續發 provider 請求。遷移時:`runIdleEphemeralTurn` 同步拒絕 `isSessionTransitioning`;最外層 `#beginSessionTransition`(8308/8439/9486/9854/9962 入口)進入時 abort 現有 idle reservation;補「reservation→session transition」交錯測試。
+ 	- ⚠ 定稿驗收(用戶指示 2026-09-17):上游 18.2.3 的 `#scheduleAgentContinue` 仍是裸 `#beginInFlight()` + 直呼 `#runAgentContinue()`——**未吸收 0010**,候選必須完整保留 publish-before-await 的 `ActiveAgentContinue` 包裝與 `#endInFlight(inFlight.epoch)` epoch 配對。定稿後按 `grep -n "#beginInFlight\|#endInFlight"` 逐一核對 18.2.3 全部調用點:每個 `#beginInFlight()` 有返回值接住且 finally 有對應 `#endInFlight(epoch)`;上游若新增調用點(18.2.3 比舊版多出的路徑)漏配對即是缺陷。
 - Plan/Verify/Deploy 未開始。
-- **工作樹未提交**:prd.md、research.md(在 .trellis/tasks/09-17-omp-1823-patch-migration/)。候選補丁目前在 `/tmp/omp1823/patches-ro/.18.2.3-candidates/`(0030/0033/0010 三件)——**這是 tmp,重啟即失**,恢復時先把它們拷回 repo `patches/.18.2.3-candidates/` 再繼續。
+- 工作樹:WIP 已提交 `a9c0292`(含 prd/research/implement + 三件候選補丁 + 審計腳本與 log,均已入 repo `patches/.18.2.3-candidates/`);`patches/PATCHES.md` 的既有未提交改動與 `patches/turn-timer-extension.ts` 為遷移前的進行中工作,未納入本次 WIP。
 
 ## 關鍵教訓(勿重蹈)
 
