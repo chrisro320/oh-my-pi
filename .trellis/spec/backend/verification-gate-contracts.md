@@ -62,16 +62,47 @@ suite. A gate that no suite invokes is not a gate.
 - A gate over a growing fixture MUST bound its replay window at the next
   superseding entry, so its numbers are a function of the fixture rather than
   of the session's current length.
+- Default sandbox fixtures MUST be synthetic or repository-owned; never
+  automatically read a workstation's live request log or session database.
+  Prove removal with a guard that rejects live paths before access. Private HOME
+  and credential-free environment isolation are not OS-level network isolation.
+- Type-only imports must also be portable: no `/home/<user>/...` paths. Runtime
+  imports remain selected-root absolute paths. A local structural fixture is
+  preferable to a type dependency on an unrelated live install.
+- After an upstream lifecycle change, drive each actual public entry path.
+  `runMentalModelLoad()` does not cover `beginMentalModelsTranscriptReload()`;
+  a preloaded boundary does not cover `AgentSession.resetSessionContext()`.
+  Staged preparation must be observed both before commit and after invalidation.
+- Prompt ownership needs actual prompt/cache observations, not only final
+  state fields. Same-marker fork must retain its inherited cache key without a
+  transient MM removal; tree navigation with failed/timed-out listing must
+  remove the source block from the base prompt. A prompt fixture must first
+  prove memory composition is enabled (`restrictToolNames` disables it).
+- Scheduled continuation faults must observe real `Agent.continue` errors as
+  well as dispatch counts: upstream busy protection can hide duplicate calls
+  without making late active-attempt publication correct.
 
 - Registered gates resolve package-specific `OMP_PATCH_VERIFY_<PACKAGE>_ROOT`
   before `OMP_PATCH_VERIFY_NM`, then the local HOME default. PACKAGE is AGENT,
   CORE, AI, SNAPCOMPACT or CATALOG. The controller exports all selected roots;
   direct invocations retain the same override precedence.
+- Cross-registrant model parity uses the real plugin registration and selected
+  runtime finalization, not source regexes. Compare modality, strict-tool,
+  multi-system and image-stripping policy; retain sibling negative controls.
+  `OMP_PATCH_VERIFY_PLUGIN_ROOT` selects the plugin checkout, defaulting to the
+  repository-relative vendor directory. Missing roots fail, never skip.
+- Public API additions must reach every shipped `.d.ts`; a consumer type-check
+  must use package declaration entry points for all affected public interfaces.
+- An open socket is not necessarily reusable. Exercise an established baseline
+  whose live socket exceeds its health window before compaction, then assert
+  terminal chain loss, zero compaction frames and no HTTP/SSE fallback.
+- Trace ownership assertions cover failed usage and attempt events, including
+  primary/advisor initiators and session IDs, not only successful requests.
 - Version-specific gates follow the selected plan, never the existence of the
   symbol they must verify. Missing patch effects must fail rather than select SKIP.
   Shared gates select only the version-specific assertions, not the entire
-  script: Codex chain gate 3b reads `${AI_ROOT}/package.json` and runs only for
-  18.1.18; both supported releases must still execute the common 0063 checks.
+  script: Codex chain gate 3b selects the 18.1.18 or 18.2.3 transport shape from
+  `${AI_ROOT}/package.json`; 18.1.14 still executes common 0063 checks.
 - Root checks must distinguish type-only imports from runtime imports.
   Do not grow a second verifier merely to inspect other verification scripts.
 - Do not grep assertion wording or fixture variable names as proof a gate works.

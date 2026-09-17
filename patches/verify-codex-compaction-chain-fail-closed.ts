@@ -28,7 +28,14 @@ Object.assign(process.env, {
 });
 
 try {
-	assert.equal(JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version, "18.1.18");
+	// 0070 is bound by both plans that carry the Codex V2 compaction lane.
+	// Selecting explicitly keeps an unknown tree failing closed rather than
+	// running the transport assertions against a tree without the patch.
+	const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
+	assert.ok(
+		["18.1.18", "18.2.3"].includes(aiVersion),
+		`unsupported 0070 transport gate version: ${aiVersion}`,
+	);
 	const ai = await import(`${AI_ROOT}/src/providers/openai-codex-responses.ts`);
 	const core = await import(`${CORE_ROOT}/src/compaction/compaction-v2-streaming.ts`);
 	const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);

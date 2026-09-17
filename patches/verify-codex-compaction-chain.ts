@@ -38,7 +38,13 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
-assert.ok(["18.1.14", "18.1.18"].includes(aiVersion), `unsupported Codex chain gate version: ${aiVersion}`);
+// 0068's contract is present in every plan that binds it: 18.1.14 predates the
+// patch, 18.1.18 and 18.2.3 both carry it. Membership is explicit per version so
+// an unknown tree fails closed instead of silently skipping the 0068 block.
+assert.ok(
+	["18.1.14", "18.1.18", "18.2.3"].includes(aiVersion),
+	`unsupported Codex chain gate version: ${aiVersion}`,
+);
 
 // Runtime-selected specifier is required: the verify-gate contract forbids
 // absolute-path imports, because a gate that reads `<ROOT>` text but imports
@@ -170,9 +176,10 @@ assert.deepEqual(cold.input, compactionBody.input, "cold start must replay the r
 // decision (open+auth+healthy → reuse, else reset+reconnect), so the chain
 // decision must read canAppend only after it returns; reading earlier races
 // the reconnect (TOCTOU) and ships a dead prev_id.
-// 0068 belongs only to the 18.1.18 plan. Select by the bound package version,
-// never by the presence of the code whose absence this gate must detect.
-if (aiVersion === "18.1.18") {
+// 0068 is in both the 18.1.18 and 18.2.3 plans. Select by the bound package
+// version, never by the presence of the code whose absence this gate must
+// detect; 18.1.14 predates the patch, so it is the only tree that may skip.
+if (["18.1.18", "18.2.3"].includes(aiVersion)) {
 	const aiSrc = readFileSync(
 		`${AI_ROOT}/src/providers/openai-codex-responses.ts`,
 		"utf8",

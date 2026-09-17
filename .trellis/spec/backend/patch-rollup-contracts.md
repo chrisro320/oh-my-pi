@@ -32,6 +32,12 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 
 - Pristine input MUST be the official pinned npm release tarball, verified by SHA-256 before extraction.
 - NEVER patch `~/.bun/install/cache` or live `node_modules` to generate or verify a rollup. Bun may hard-link those trees; an in-place patch can mutate both. The same trees are also unreadable as pristine sources: in-place patching has written through the cache repeatedly (pi-ai@18.1.14's `ollama.ts` was found carrying the 18.1.18 file on 2026-09-13; `auth-storage.ts` has carried 0026-core since 2026-08-29), so any cache copy may already contain patch output. Pristine means an official tarball verified by SHA-256 — nothing else.
+- Dependency-complete sandboxes MUST use matching exact registry versions for
+  all five OMP roots. Mixing `file:tgz` direct dependencies with registry
+  transitive dependencies can create nested unpatched copies. Rebuild the
+  sandbox dependency graph when correcting this; editing package.json alone
+  does not remove nested copies. Extract verified targets independently after
+  install so mutable source inodes cannot be shared with Bun's cache.
 - Generate each family in an isolated `mktemp` tree by applying only that family's old patches in historical order.
 - The rollup touched-file set MUST equal the union of its old family touched-file sets.
 - Any failed hunk, `.orig`, `.rej`, or unexpected `Only in` output MUST abort generation.
@@ -65,6 +71,14 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 - A retired or abandoned patch number MUST NOT be reused, whether its file was
   kept or deleted. The verifier MUST assert every abandoned number is absent
   from the `apply.sh` chain; documentation alone is not an acceptance gate.
+- Textual CLEAN, reversible patches, and a green representation oracle do not
+  prove executable source. In 18.2.3, old 0048 fuzzy-applied into invalid scopes.
+  Import the real SDK and launch the source CLI after whole-chain replay; then
+  exercise changed lifecycle behavior. Generate corrections from actual
+  before/after files, never handwritten hunk counts or a cumulative repair layer.
+- The rollup oracle owns representation, plan snapshots, and replay equivalence.
+  Private constant names and source spelling are not runtime behavior gates.
+  In particular, do not inspect a tree for applied behavior after peeling it.
 
 ### 4. Validation & Error Matrix
 
@@ -138,12 +152,9 @@ f="$(ls -t *.tgz | head -1)"
 #### Correct
 
 ```sh
-# Parse the controller's exact ordered file/root contract and fail on omissions.
-mapfile -t NEWCHAIN < <(
-  sed -n '/^PATCHES=(/,/^)/p' patches/apply.sh |
-    sed -n 's/^[[:space:]]*"\([^"]*\.patch\):${\(AGENT\|CORE\|AI\|SNAP\|NM\)}"$/\1:\2/p'
-)
-[[ ${#NEWCHAIN[@]} -eq "$expected" ]] || exit 1
+# Resolve through the controller; the canonical PATCHES array is not a plan.
+mapfile -t NEWCHAIN < <(OMP_PATCH_VERSION=18.2.3 patches/apply.sh --print-plan)
+[[ ${#NEWCHAIN[@]} -eq 37 ]] || exit 1
 
 # Only accept npm pack's returned filename after a successful command.
 packed="$(npm pack --silent "$pkg")" || packed=""
@@ -208,7 +219,7 @@ is the direct primary cause; resume-related prefix drift is not proven or exclud
 ### 1. Scope / Trigger
 - Trigger: the installed `pi-coding-agent` version determines which patch plan applies; an upstream release may also change patch context so a plan needs versioned candidates.
 - The `PATCHES` array is the canonical patch set shared by every supported plan; it is NOT itself a deployable chain (members' a-sides span multiple upstream releases).
-- Supported plans: 18.1.14 (rollback), 18.1.18 (current deployment). Dead version branches are removed, not kept for documentation.
+- Supported plans: 18.1.14 (27 entries, rollback), 18.1.18 (38 entries, existing deployment), 18.2.3 (37 entries, sandbox candidate). The last preserves 38 logical IDs by merging only 0041 into 0037; it does not imply live deployment.
 
 ### 2. Signatures
 ```sh
@@ -223,6 +234,12 @@ OMP_PATCH_VERSION=18.1.14 patches/apply.sh --check   # explicit plan
 - An empty, unset-with-unknown-installed, or unsupported value MUST exit 2 before mutation.
 - Only the version-specific conflicting entries may be substituted; all other active entries retain order and roots. `omit:` drops an entry for that plan only.
 - `--verify-rollups` MUST execute before version gating because it owns its own fixed pristine baselines.
+- Regression applicability follows resolved plan membership (`_omp_plan_has`).
+  Do not gate the entire suite on `version === 18.1.18` or skip because a required
+  symbol is absent. Shared gates select their version-specific API shape.
+- Keep finalized old patch bytes and old plan rows unchanged during migration.
+  Verify the updated candidate chain with real second apply and reverse replay,
+  comparing bytes plus file/directory/symlink sets, not only diff exit status.
 
 ### 4. Validation & Error Matrix
 | Condition | Required result |
@@ -244,6 +261,10 @@ OMP_PATCH_VERSION=18.1.14 patches/apply.sh --check   # explicit plan
 - Assert unset auto-route, empty, unsupported, wrong-package, and missing-candidate behavior.
 - Assert the resolved plan parsed from the real `apply.sh` equals the pinned snapshot.
 - Assert apply, revert, replay, idempotence, and smoke in a pristine version-matched sandbox.
+- Exercise every applicable gate on 18.1.14, 18.1.18, and 18.2.3. The rollup
+  oracle uses official 18.0.9 family, 18.1.14 full-chain, and 18.2.3 replay bases.
+- Machine-check resolver/gate registration before delivery and independent review:
+  `grep -nE '_omp_plan_has|18\.2\.3|EXPECTED_PLAN_1823' patches/apply.sh patches/verify-patch-family-rollups.sh`.
 
 ### 7. Wrong vs Correct
 #### Wrong

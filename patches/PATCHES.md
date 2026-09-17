@@ -1,19 +1,19 @@
 # omp Patch 清單
 
-> 本文件是 `~/.omp/patches/` 的鏡像；**實際生效清單以 `apply.sh` 的 `PATCHES` 陣列為準**。
+> 本文件是倉庫補丁台帳；部署時同步至 `~/.omp/patches/`。**版本計畫以 `apply.sh --print-plan` 為準**，canonical `PATCHES` 陣列不是可部署鏈。
 > 標題刻意**不綁版本**：本文件同時記錄 base 18.0.9 鏈、歷史 18.1.5／18.1.10／18.1.14／18.1.18 遷移，以及當前部署。
 > 讀任何數字前先確認它屬於哪個口徑——見 §1。
 
-## 當前狀態（2026-09-15）
+## 倉庫計畫與部署紀錄（2026-09-17）
 
 | 項目 | 值 |
 |---|---|
-| 當前部署 | `OMP_PATCH_VERSION=18.1.18`（未設則按 installed 版本自動路由） |
-| APPLIED | **38 行**（37 補丁 + `bin/omp -> src/cli.ts` 連結）/0 CONFLICT/0 PENDING（2026-09-15 `--check` 實測） |
+| 當前部署 | `OMP_PATCH_VERSION=18.2.3`（未設則按 installed 版本自動路由） |
+| 當前 live APPLIED | **38 行**（37 補丁 + `bin/omp -> src/cli.ts` 連結），0 unresolved；2026-09-17 正式 apply／CLI／`--check` 均 exit 0 |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（回退，27 層）、18.1.18（當前部署，37 層）；其餘版本分支已退役 |
-| 最近遷移 | 18.1.14 -> 18.1.18（2026-09-12）；死計畫清場（2026-09-13），見 §5 |
-| 回歸套件 | **20 道閘門** + `--verify-rollups` 雙基線全鏈 oracle，見 §6.1 |
+| 存活計畫 | 18.1.14（回退，27 層）、18.1.18（保留計畫，38 層）、18.2.3（當前部署，37 層／38 項邏輯語義） |
+| 最近遷移 | 18.1.18 → 18.2.3 已正式部署，CLI 回報 `omp/18.2.3`；見 §5 |
+| 回歸套件 | **22 道已註冊閘門**，依計畫成員選擇；`--verify-rollups` 三基線 oracle（18.0.9／18.1.14／18.2.3），見 §6.1 |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -31,12 +31,13 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 口徑 | 內容 | 層數 |
 |---|---|---|
 | `apply.sh` 的 `PATCHES` 陣列（canonical 母集，非可部署計畫） | 0033、0004、0034、0037、0010、0035、0014、0036、0017、0025、0026-core、0030、0031、0032、0038、0041、0043、0044、0052、0057、0045、0046、0048、0050、0054 | **25** |
-| **當前部署計畫**（`OMP_PATCH_VERSION=18.1.18`） | canonical 25 條 +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062、0063、0065、0066、0067、0068、0069、0070 | **38** |
+| 18.1.18 計畫（保留） | canonical 25 條 +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062、0063、0065、0066、0067、0068、0069、0070 | **38** |
 | 18.1.14 計畫（回退） | canonical 25 條 +候選置換 7 件 +鏈尾 0047、0063 | **27** |
+| 18.2.3 計畫（已部署） | 保留原 38 項邏輯語義，0041 僅在本版合入 0037；18 份版本候選，其餘沿用原補丁，roots／順序不變 | **37** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
-`0055`／`0056`／`0058`／`0060`／`0062`／`0066`／`0067` 只存在於 18.1.18 計畫：a 側皆以 18.1.18 樹為準（devin.ts 的 `devinCliMetadata` 形態、0055 套用後的鏈尾形態、0062 的 session-maintenance 形態、0066 的 Anthropic native compaction lane 在 18.1.14 尚不存在、0067 的 a 側是 0066 之後的 compaction.ts 形態），舊版本鏈上下文對不上。`0055` 動 `pi-ai/src/providers/devin.ts`，`0056` 動 `pi-catalog/src/wire/devin.ts`，路徑互不相交。
+`0055`／`0056`／`0058`／`0060`／`0062`／`0065`／`0066`／`0067`／`0068`／`0069`／`0070` 存在於 18.1.18 與 18.2.3 計畫，不適用 18.1.14；需要重錨／重寫者由 18.2.3 候選替換。`0055` 動 `pi-ai/src/providers/devin.ts`，`0056` 動 `pi-catalog/src/wire/devin.ts`，路徑互不相交。
 
 未設 `OMP_PATCH_VERSION` 時 apply.sh 讀 installed `pi-coding-agent` 版本**精確路由**到對應計畫（非就近 fallback）；安裝版不屬於存活計畫、或顯式值與安裝版不符，一律 exit 2。
 
@@ -412,7 +413,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **自動回歸**：新增 `OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> OMP_PATCH_VERIFY_CORE_ROOT=<core-root> bun patches/verify-supersede-warm-prefix-guard.ts`，已掛入 `apply.sh` 的回歸套件。雙閘門：**行為閘**跑上述 stock/guarded/idle-flush 三向對照，並斷言「候選的後繼使 suffix 恆 > 0」，讓未來任何「把閘門稍微調高一點」的改動立刻紅；**源碼閘**對 `OMP_PATCH_VERIFY_AGENT_ROOT` 指向的實際執行源碼斷言 callsite 是字面 `suffixTokenLimit: 0` 且不含 `prefixBinding`（pristine 源碼上必紅，即負向對照）。另錨定 `SUPERSEDED_NOTICE` 文本——它就是本補丁定價所依據的 wire 簽名。
 - **未修（同會話的另兩類）**：① 第 32 筆整段重算 108854 token（佔全會話 239316 token 浪費的 45%）——turn31/32 在 `before_provider_request` 層的完整 body 逐字節比對顯示前綴一致（該層**不等於出站 bytes**，fetch wrapper 之後寫入的欄位看不見，故本項結論僅限 harness 側）（分歧只在倒數第 3 條，即 0038 reminder 位置被真實 assistant 消息接續）、`tools` 與全部參數逐字節相同、三個掛 `before_provider_request` 的 extension 均不改 payload（`resume-cache-breakpoint.ts:78` 只認 Anthropic 形狀，openai-completions 直接跳過），且 turn33 命中 108544（命中的是 turn32 寫入的前綴，同一快取域，排除 fallback 換 provider）。omp 側已排乾淨，剩下唯一未覆蓋的是 `before_provider_request` 之後的 HTTP headers 與 fetch 層 body 改寫，需錄製反代取證；已知該層地雷（`cch` 計費頭）只走 `anthropic-messages`，`hyper` 不在射程。② 其餘 35 輪約 121757 token 的階梯滲漏是 openai-completions 自動快取的固有機制（每檢查點存一塊，不滿一塊的尾巴下輪重算），不是缺陷。
 
-### 0047 — date/cwd reminder 從 provider-only 尾條改騎真實 user 消息（持久錨點凍結）【僅版本計畫鏈尾：18.1.14／18.1.18】
+### 0047 — date/cwd reminder 從 provider-only 尾條改騎真實 user 消息（持久錨點凍結）【版本鏈尾：18.1.14／18.1.18／18.2.3】
 
 - **失敗簽名**（真實會話 `01a0778e`，claude-opus-5，~620k context）：cache-prefix-audit 每輪報 `HISTORY_REWRITE`，`sharedPrefix` 以 2 為步長推進（314→316→…→328）而非純尾 appended 的 `n-1` 形態；每輪 `cacheWrite` 11 815–12 335 token 對 ~600k `cacheRead`（strict 97.9–98.1%）。短回覆輪次回落到 ~1 600。
 - **根因**：0038 把 date/cwd reminder 做成 provider-only 合成尾條 user 消息——系統提示穩定了一點，但合成尾條佔住一個消息槽，下一輪真實 assistant 回覆落在同一 index，Anthropic 端看到的是歷史中段 **ROLE FLIP**：reminder 和它前面那條真實回覆每輪一起重新計費。2% 缺口在該 context 尺寸下 ≈12k token/輪全價重算，`input` 單價約 `cacheRead` 10 倍。
@@ -495,7 +496,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **驗證**：`patch -p1` 正向／反向／**偏移 +5 行**三重乾淨（偏移測試的比對基準須含 pad 行，否則誤報差異）；`OMP_PATCH_VERSION=18.1.14 bash apply.sh --check` → **28 行 APPLIED（27 補丁 ＋ `bin/omp` 連結）／0 CONFLICT**；live 冒煙 `omp -p --model google-antigravity/gemini-3.8-flash "say hi"` 8.9s 正常回覆（修前必 429）；工具呼叫 `讀取 /tmp/omp-smoke.txt` **3/3 成功**復述 `SMOKE_OK_12345`（驗證 agent 模式未被 `requestType` 移除影響）。此間歇出現的 `unknown certificate verification error` 為 **sandbox 端點**（`daily-cloudcode-pa.sandbox.googleapis.com`）的既有 flake，非本補丁引入。
 - **未納入（同批）**：上游 #11693 的另一半——把無 `details` 的 429 在 `pi-ai/src/error/rate-limit.ts` 由 `QUOTA_EXHAUSTED` 重新歸類為暫時性。那治的是「誤判成 30 分鐘」的次生症狀，非本次 429 的成因；本補丁只做最小修復。副作用是：其他 provider 的真·暫時性 429 仍會被 fail-fast 擋下。
 
-### 0055 — Devin provider 對齊官方客戶端：JWT 行程內持有 + 每輪分段計時【僅 18.1.18 計畫】
+### 0055 — Devin provider 對齊官方客戶端：JWT 行程內持有 + 每輪分段計時【18.1.18／18.2.3 計畫】
 
 - **失敗簽名**：omp 的 `streamDevin` 每輪無條件先 `GetUserJwt`（串聯 RTT，實測 ~255–850ms）才 POST `GetChatMessage`；官方 chisel 客戶端啟動時建一次 `build_shared_http_client`、整份日誌**未記錄任何 `GetUserJwt` RPC**（可能由長駐行程持有認證，無法從日誌證明其 cache 實作），且 `GetChatMessage` 直接 `reuse idle connection`。兩端「首字」也不是同一事件：官方日誌顯示首個回應 frame（metadata，`delta_tokens:0`）在 latency 0.151s 就到達，真正首 token 在 13s 後；omp 的 ttft 只計 `deltaThinking`/`deltaText`/`deltaToolCalls`。
 - **修法（`${AI}`，`src/providers/devin.ts`）**：
@@ -506,7 +507,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **驗證**：`bun patches/verify-devin-auth-cache.ts`——九場景全 PASS：兩輪共享一次 GetUserJwt、401 觸發恰好一次重取+重試、過期 JWT 不被快取、turn timing 日誌攜帶六個分段欄位且 `serverLatencyMs` 來自 frame 的 `latency`、不同 fetch transport 共享同一 (apiKey, baseUrl) cache 槽、雙 401 後同 transport 重新 auth、無 exp 的 JWT 永不入 cache、慢速普通 auth 不得覆寫 401 強制刷新後的新 JWT、普通-普通併發時最新發出的 auth 贏得 cache 槽（epoch 守衛）。
 - **版本限定**：見 §1 口徑表。18.0.9 的 `devin.ts` auth identity 是 windsurf，本補丁 hunks 不適用；18.1.10/14 的 `devinCliMetadata` 形態相同但上下文行可能漂移，未驗證前不進那些計畫。
 
-### 0056 — Devin CLI metadata 對齊官方 chisel：版本 tuple 升 `3000.10.23` + per-process `sessionId`／遞增 `requestId`【僅 18.1.18 計畫】
+### 0056 — Devin CLI metadata 對齊官方 chisel：版本 tuple 升 `3000.10.23` + per-process `sessionId`／遞增 `requestId`【18.1.18／18.2.3 計畫】
 
 - **失敗簽名**（與 0055 同一個對齊缺口，互補的一半）：`pi-catalog/src/wire/devin.ts` 的 `DEVIN_CLI_METADATA` 宣告 `ideVersion`／`extensionVersion` 皆為 **`3000.6.2`**，落後本機官方 CLI **7 個版本**（`/opt/Devin/.../devin/bin/devin --version` → `devin 3000.10.23 (deb81600)`，`devin.1` 手冊頁 footer 同值）。更關鍵的是**兩個身分欄位完全缺席**：官方 chisel 每次請求帶 `Metadata.sessionId`（行程內固定）與 `Metadata.requestId`（逐呼叫遞增，wire 為 `uint64`），這是後端做**會話路由與請求去重**的鍵。omp 兩者皆無，從而在伺服器眼中每一輪都是「無身分的新客戶端」——與 0055 修掉的「每輪重付 auth RTT」是同一根源的兩種表現（一個在傳輸層、一個在 metadata 層）。
 - **修法（`${NM}`，`pi-catalog/src/wire/devin.ts`）**：
@@ -530,7 +531,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - 行為層：以 6 張圖片的情境測試 `clampProviderContextImages`，修後 6 張全留，零歷史條目改寫。
 - **驗證**：併入既有 `bun patches/verify-provider-image-budget.ts`（涵蓋 provider id、wire-api 單獨查表與配對查表，以及行為層不改寫歷史斷言）。
 
-### 0058 — Devin thinking 簽名捕獲與回放：修復歷史快取 miss【僅 18.1.18 計畫】
+### 0058 — Devin thinking 簽名捕獲與回放：修復歷史快取 miss【18.1.18／18.2.3 計畫】
 
 - **失敗簽名**：`pi-ai/src/providers/devin.ts` 只在 `if (msg.deltaThinking)` 分支內讀 `deltaSignature`，但服務端把 thinking 簽名放在 `deltaThinking` 為空的**獨立末尾幀**（`thinking_end` 之後才到）→ `thinkingSignature` 永遠丟失 → 回放歷史時 assistant 消息無 `signature`/`signatureType` → 服務端不認這段歷史 → 每輪全量 prefill → TTFT 10-15s。實測修復前 turn2 `cacheRead` 鎖死 8192（只命中 system prompt），修復後 9919（命中 system+歷史），TTFT 8.4s→5.3s。
 - **修法（`${AI}`，`src/providers/devin.ts`，4 處）**：
@@ -546,7 +547,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **修法（`${NM}`，`pi-catalog/src/wire/cline-pass.ts`）**：改為 `process.env.CLINEPASS_API_BASE_URL?.trim() || process.env.CLINE_PASS_BASE_URL?.trim() || "https://api.cline.bot/api/v1"`。
 - **驗證**：無環境變數時保持預設官方端點；配置 `CLINEPASS_API_BASE_URL="http://127.0.0.1:3123/v1"` 後立即覆寫生效。
 
-### 0060 — Devin idle cascade 固定主會話【僅 18.1.18 計畫】
+### 0060 — Devin idle cascade 固定主會話【18.1.18／18.2.3 計畫】
 
 `runIdleEphemeralTurn` 僅對 Devin 傳入主會話 `conversationId`；普通 side turn 與其他 provider 不帶此欄位。
 
@@ -558,7 +559,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - 該 nonce 在 hit 與 miss 兩側**同等存在、同等變動**，故**不能用它解釋翻轉**。翻轉**與服務端快取狀態／親和性漂移一致**（`reports/06-omp-devin-ttft-audit.md` §10.4），惟現有日誌**只證明同 session／同模型／同 token 規模下的交替**，**未證明客戶端無同 token 規模的漂移**——**服務端成因尚未被決定性證實**。本補丁**不聲稱修復此現象**。`provider-error`（TLS `unknown certificate verification error`）歸因 **VPN 鏈路抖動**（環境因素，非 omp 缺陷），**不計入 miss，亦不追蹤**。
 - **驗證**：`verify-devin-idle-cascade-pin.ts` 原僅以 mock api 斷言 `runEphemeralTurn` 的入參，**繞過 `mapOptionsForApi`，故測不出上述丟失**；已補一段直接呼叫該映射函式的斷言（需 `stream.ts` 匯出 `mapOptionsForApi`），並以「撤掉轉發即 FAIL」的負向對照釘住。
 
-### 0062 — snapcompact 縮減基線漏算「即將被取代的舊歸檔」，第二次以後的壓縮被系統性誤判「不縮」【僅 18.1.18 計畫】
+### 0062 — snapcompact 縮減基線漏算「即將被取代的舊歸檔」，第二次以後的壓縮被系統性誤判「不縮」【18.1.18／18.2.3 計畫】
 
 - **失敗簽名**（真實會話 `01a0993f`，主模型 `devin/swe-2`，api `devin-agent`，ctx 262000，上下文已 90.8%）：手動 `/compact` 報 `Error: Compaction failed: snapcompact would not reduce context locally.`；`~/.omp/logs/omp.2026-09-13.3292566.log`:1125 `Snapcompact projection would not reduce context {model: swe-2, projected: 133797, reductionBaseline: 99819}`（resume 後重試為 133228／99250）。同一會話 03:10 已自動（mid-run）壓過一次，留下 **25 幀** 8x13-bw@1568 歸檔（standing 約 68k server tokens ≈ 上下文 29%）。
 - **根因**：基線由 `prepareCompaction` 切出的三個區域相加（`messagesToSummarize` + `turnPrefixMessages` + `recentMessages`），而它對帶 v2 preserve data 的前次壓縮走 `boundaryStart = prevCompactionIndex + 1`（`pi-agent-core/src/compaction/compaction.ts:1565-1568`）——前一條 compaction 記錄被**結構性排除**（這一排除本身正確：v2 的舊摘要由 preserveData 接手、會被重壓，不能再當普通歷史摘要一次）。投影側不受此限：它是「新摘要訊息（文字 + 整份新歸檔幀）」。於是第二次以後的壓縮實際比的是「區域 → 整份新歸檔」，但真相是「區域 + 舊歸檔 → 新歸檔」：整份新歸檔被拿去比一個**已不含舊歸檔**的區域，幀數與區域的帳互相錯位，真的會縮的壓縮被判「不縮」而硬失敗（自動路徑則靜默落到下一個方法）。
@@ -569,7 +570,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **驗證**：`OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> bun patches/verify-snapcompact-reduction-baseline.ts`（已進 `apply.sh` apply 尾部套件）。GATE 1 源碼形態：helper 存在、基線呼叫它、三處呼叫點都帶形狀價格、無殘留無價格呼叫；pristine 樹上必掛＝負向對照（實測 `AssertionError: patch 0062 missing: the baseline takes no per-frame price for the superseded archive`）。GATE 2 記錄邊界的判定翻轉 + 兩個不得翻轉的對照（25→40 幀且區域 20k 仍 reject；舊幀數 0 的第一次壓縮維持原判）。補丁 forward/reverse 皆 `--fuzz=0` 逐位元往返一致（`cmp` 零差異）。
 - **版本限定**：a 側是 18.1.18 鏈尾（0058／0060 之後）的 `session-maintenance.ts` 形態。
 
-### 0063 — Codex V2 遠端壓縮走 live 狀態鏈，修復 cachedInputTokens 0（兩計畫共用）
+### 0063 — Codex V2 遠端壓縮走 live 狀態鏈，修復 cachedInputTokens 0（三計畫共用）
 
 - **失敗簽名**（真實會話 `01a09b46`/`01a09b50`，`openai-codex/gpt-6-astra`）：每條 `type:"compaction"` 記錄都是 `usage {inputTokens: 236229, cachedInputTokens: 0}`／`{257349, 0}`，而同一會話的 live 回合是 `input 816–2096 / cacheRead 139264–390784`。壓縮耗時 30–90 秒，等於全量 prefill。
 - **根因（兩道獨立斷層，實測釘死）**：
@@ -583,7 +584,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **驗證**：`bun patches/verify-codex-compaction-chain.ts`（已進 `apply.sh` apply 尾部套件）。以**真實捕獲的 live payload**（`~/.omp/agent/payloads/01a09be3-…-gpt-6-astra.json`）驅動：修復後 `previous_response_id` 有值、`input === [{type:"compaction_trigger"}]`、`instructions`/`tools` 與 live 逐位元相同；同一 payload 走修復前的 `buildResponsesDeltaInput` 回 `null`（負對照）。export-only 故障樹上行為斷言單獨失敗（`previous_response_id` undefined），pristine 樹上因模組載入失敗而 fail-closed exit 1。補丁 forward/reverse 往返逐位元一致（`cmp` 零差異），在 18.1.14（含 0035 候選）與 18.1.18 全鏈均可 `--fuzz=0` 套用。
 - **版本限定**：無。a 側這三處在 18.1.14/18.1.18 形態相同（0035 未觸及），兩計畫掛同一份位元組。
 
-### 0065 — Command Code `deepseek/deepseek-v4.1-flash` 的 model record 兩家不一致，每次 resume 重塑請求頭（兩計畫共用）
+### 0065 — Command Code `deepseek/deepseek-v4.1-flash` 的 model record 兩家不一致，每次 resume 重塑請求頭（18.1.18／18.2.3）
 
 - **失敗簽名**（真實會話 `01a0a05e`）：09-15 07:07 resume 後首個請求 `input 134009 / cacheRead 4608`（命中 3.3%），而同會話穩態是 98–99%。審計判的 `SYSTEM_DRIFT` 不可用——`cache-prefix-audit.ts:827` 的 baseline 只按 sessionId 分片，該行比的是 advisor（`pixel/gpt-5.6-luna`）而非主 lane。
 - **現場比對**（`~/.omp/agent/payloads/01a0a05e-…`，hook 層 payload，非反代錄製的出站 bytes）：resume 前後 envelope（`model`/`stream`/`stream_options`/`max_tokens`）逐值相同；尾端 216/217 條訊息逐位元相同；差異全在頭部三處——system 由 1 條 37,900 字元拆成 3 條（`A[0] == B0+"\n\n"+B1+"\n\n"+B2` 精確成立）、tools 由 10/13 帶 `strict:true` 變 0/13（第 0 個 `read` 即分叉）、`messages[1]` 的 resume 錨點由 27 張圖變純文字。斷點落在第一條 system 末尾：`B[0]` 19,468 字元 ↔ `cacheRead 4608`（72×64，DeepSeek 區塊對齊）。
@@ -591,9 +592,9 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **修法（最小改動，只動 catalog 側，向插件行為對齊）**：`providers/commandcode.kdl` 的 `models "deepseek/deepseek-v4.1-flash"` 區塊補四條 directive——`input-modalities "text" "image"`（`sdk.ts:3405` 的 `activeModel.input.includes("image")` 才是 `[image omitted…]` 的判定）、`supports-strict-mode #true`（strict 是白名單制，commandcode 原不在內）、`strip-image-input #false`（deepseek class 第 69 行對整條譜系 `#true`，只豁免 `vision`/`ocr` token）、`supports-multiple-system-messages #false`（`openai-completions.ts:2037` 的分支）。**同步改編譯產物 `src/compat/rules.json`**——runtime 走 `cascade.ts:13 import rules from "./rules.json"`，只改 KDL 不生效；後續 39 條 commandcode 規則的 `source` 行號一併位移 +10 以保持 provenance 可追。
 - **未涵蓋**：resume 錨點訊息（`messages[1]`）由壓縮記錄每次重渲染，本補丁只讓兩條路徑渲染成同一模態，不保證跨 resume 逐位元一致。
 - **驗證**：`bun patches/verify-commandcode-model-record-parity.ts`（已進 `apply.sh` apply 尾部套件）。六道：KDL 四條 directive、編譯產物 `wire`/`catalog` 軸、39 條 `source` 行號仍指向真 directive（非空行非註解）、`resolveModelPolicy` 四欄實際解析值、同 provider 兄弟型號不受污染（`deepseek-v4-flash` 仍保留剝圖與拆分 system）、插件側仍宣告 image（對齊目標未移動）。
-- **版本限定**：僅 18.1.18 計畫鏈尾。18.1.14 的 `pi-catalog` rules 樹只有 192 個 `.kdl`、**不含** `providers/commandcode.kdl`（18.1.18 為 194 個），編譯產物 `src/compat/rules.json` 兩版 sha256 亦不同；掛進 canonical 母集會讓 full-chain oracle 在 18.1.14 樹上報 `No file to patch`（實測）。不做版本候選——該部署契約在 18.1.14 上不存在。
+- **版本限定**：18.1.18 與 18.2.3 計畫鏈尾；18.2.3 以增量候選補上游未採納的 wire 契約。18.1.14 的 `pi-catalog` rules 樹只有 192 個 `.kdl`、**不含** `providers/commandcode.kdl`（18.1.18 為 194 個）；該契約在 18.1.14 不存在，不掛 canonical 母集、不建立該版候選。
 
-### 0066 — Anthropic 原生 server compaction（`compact_20260112`）請求體繞過宿主管線，摘要請求整體 cache miss（僅 18.1.18）
+### 0066 — Anthropic 原生 server compaction（`compact_20260112`）請求體繞過宿主管線，摘要請求整體 cache miss（18.1.18／18.2.3）
 
 - **觸發面**：18.1.18 新增 `remote` 方法覆蓋 Claude（`pi-coding-agent/CHANGELOG.md:11`）。本機第一方 Anthropic OAuth 憑證存在（`agent.db` `auth_credentials` `anthropic|1`），`claude-opus-5` 命中 catalog 規則 `opus >=4.6 → supports-server-compaction`，`compaction.methodOrder=["remote","snapcompact","soft","handoff"]`，上下文 ≥ 55k（`ANTHROPIC_COMPACTION_MIN_CONTEXT_TOKENS`）即走 `compaction.ts:2038` 的 native 分支。`hyper`（`https://hyper.charm.land/v1`，無 `remoteCompaction.enabled`）不受影響。
 - **根因（兩個獨立斷點，皆只在 native 分支）**：① `tools: summaryOptions.tools`（`compaction.ts:2094`）= 原始 `agent.state.tools`，未經 `normalizeTools()`（`agent-loop.ts:1619`）——live 回合因 `tools.intentTracing=true` 每個工具 schema 都注入 `i` 並加進 `required`（歸檔 payload 實物：`read → properties: i,path / required: ["path","i"]`，13 個工具全有），native 請求沒有。官方 invalidation 表：tool definitions 變 → tools ✘ system ✘ messages ✘。② messages 走 `convertToLlmForSideRequest`（`session-provider-boundary.ts:164`），不跑 `transformContext`（`context` 擴充鏈），Trellis 注入的 `<session-context>`/`<trellis-state>` 位元組缺失。**soft lane 不受影響**：它走 `buildCachePreservingContext`（`session-maintenance.ts:2754`）= `convertMessagesToLlmWithSource` + `buildSideRequestContext`，兩者皆有。
@@ -605,7 +606,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **不變項**：`describeRetainedTail(retainedTail)` 仍以 `convertToLlm(recentMessages)` 計尾部長度；Trellis 只合併文字進既有 user 訊息、不改訊息數，計數正確。若日後有擴充在 `context` 鏈增刪訊息，此處是唯一需重看的點。
 - **版本限定**：a 側是 0035 候選 + 0063 之後的 `compaction.ts` 形態，且 18.1.14 無 Anthropic native lane，不做版本候選。
 
-### 0067 — 把 0066 的不變量推廣到兩條 OpenAI 遠端 lane，並補齊三條 lane 的摘要儀表（僅 18.1.18）
+### 0067 — 把 0066 的不變量推廣到兩條 OpenAI 遠端 lane，並補齊三條 lane 的摘要儀表（18.1.18／18.2.3）
 
 - **兩個缺口（同一張 invalidation 表的兩列）**：① Codex V2 lane 的 tools/system 取自 `summaryOptions.tools` 與 `remoteSystemPrompt`（`compaction.ts:1859/1872/1917`），未經 `normalizeTools`——與 0066 的斷點 ① 同源，只是換一條 lane；`buildTransformedCodexRequestBody`（`openai-codex-responses.ts:1566`）只做 `convertOpenAICodexResponsesTools` 純序列化，不補 intent 欄位，故送入原始工具必然與 live 前綴不同。② 三條 remote lane 全數不寫 `traceCompaction`：`oneshotKind` 分別為 `compaction_native`/V2 streaming/V1 compact，皆不經 soft lane 的 `traceCompaction` 呼叫點，`compaction-trace.log` 因此對「remote 到底有沒有命中快取」完全沉默——0066 修好後仍無真實樣本可驗收。
 - **修法（`${NM}`，`pi-agent-core/src/compaction/compaction.ts`）**：Codex V2 分支加 `const liveV2 = await summaryOptions.buildCachePreservingContext?.("live", model, signal)`，`remoteSystemPrompt`/`remoteTools` 優先取 `liveV2.context.*`，回退原值；`buildTransformedCodexRequestBody` 與 V1 的 `convertTools` 兩處 callsite 一併改用 `remoteTools`。三條 lane 各補 `summarize.request`（含 `lane`、`messages`、`systemParts`、`tools`、`hasLiveContext`）與 `summarize.usage`（成功記 `usage`、失敗記 `stopReason:"error"` + `error`），Codex V2 記 `cachedInputTokens`、Anthropic native 記 provider usage 原值、V1 因回傳無 usage 只記事件。
@@ -615,7 +616,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **不變**：V2 的 messages 仍走 live baseline 追加（0063 已修，不由本地重建前綴），本次只動 tools/system。
 - **後續**：真實命中率仍待第一方 opus-5 或 codex 觸發一次 remote 後，從 `compaction-trace.log` 的 `lane=*` 記錄計算 `cacheRead/(cacheRead+cacheWrite+input)`（Codex 為 `cachedInputTokens/inputTokens` ≥ 80%）。此數字同時是 0066/0067 的驗收，也是投上游 PR 的復現材料。
 
-### 0068 — Codex 鏈式請求的 prev_id 是 connection-scoped：鏈式決策移到連線確定之後，並補齊壓縮 wire 儀表（僅 18.1.18）
+### 0068 — Codex 鏈式請求的 prev_id 是 connection-scoped：鏈式決策移到連線確定之後，並補齊壓縮 wire 儀表（18.1.18／18.2.3）
 
 - **量到的失敗**（2026-09-15，session `01a0a512`，model `gpt-6-astra`）：auto compaction 的 wire frame 無 `previous_response_id`、`cachedInputTokens 24960 / inputTokens 265302 = 9.4%`（只有 developer 前綴命中）。時間線：最後一個鏈式 live turn 13:03:53，wire 發送約 13:06:35——astra socket 空閒 ~2.5 分鐘已死。
 - **關鍵實測（PI_REQ_DEBUG wire dump，e2e gpt-5.6-luna）**：每一個帶 `previous_response_id` 的 `response.create` 在**新 socket** 上都被伺服器回 `400 invalid_request_error: Invalid previous_response_id`（9/9）；同 socket 上則全部成功。即 prev_id 是 **connection-scoped**，socket 一死 baseline 即廢。先前「服務端按 session 解析」的推斷被此證據推翻。
@@ -626,7 +627,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **自動回歸**：`bun patches/verify-codex-compaction-chain.ts` 3b 依 `${AI_ROOT}/package.json` 的版本，僅在 18.1.18 斷言 `openCodexWebSocketTransport` 內 `getOrCreateCodexWebSocketConnection` 先於 `buildCodexChainedRequestBody`（順序即閘門）、getOrCreate 的 stale-reuse reset 路徑仍在、且 `staleChainBaseline` 已移除；18.1.14 保留共用 0063 檢查，不執行 3b。`bun patches/verify-compaction-lane-trace.ts` 另斷言不可重試的 V2 失敗可按 `k: "summarize.attempt"` 查到 `final: true` 記錄。`verify-patch-family-rollups.sh` 的 `EXPECTED_PLAN_18` 同步包含 0068。
 - **版本限定**：a 側是 0063+0067 之後的形態，掛 18.1.18 鏈尾，不做 18.1.14 候選。
 
-### 0069 — Codex resume 恢復 effort 基線與歷史切換，避免重建時改写快取前綴（僅 18.1.18）
+### 0069 — Codex resume 恢復 effort 基線與歷史切換，避免重建時改写快取前綴（18.1.18／18.2.3）
 
 - **失敗證據**（2026-09-15，session `01a0a5f7-8ad4-7000-aee0-28ad64f35705`）：初始 `high`，隨後設定 `xhigh`；舊行程仍送頂層 `reasoning.effort=high` 並在 input 第 3 項插入 `configuration_update(xhigh)`。resume 改為頂層 `xhigh` 且丟失該歷史項；首輪 `input=148369/cacheRead=0`，下一輪 `cacheRead=148224`。system、tools、model、prompt_cache_key 未變。
 - **根因**：effort 基線只存在 Codex provider 的行程內 Map；既有 JSONL 記錄 UI 等級變更，未保存實際 wire 基線與切換插入位置。這與 0068 的連線生命週期缺陷不同。
@@ -638,7 +639,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **部署後驗證**：鏡像中的 20 道註冊閘門逐一執行全 PASS（零 provider 呼叫），新 gate 的 Biome lint 無警告；`apply.sh --check` 為 37 補丁 + bin 共 38 行 APPLIED，0 CONFLICT / 0 PENDING。
 - **限制**：須重啟 omp 載入；只對補丁載入後完成並保存的響應建立快照，不猜測回填舊 JSONL。保持實際 xhigh，不跨 socket 恢復 previous_response_id；本地前綴一致不代表已量到上游 cache 命中率。npm 發行包缺 Bun/Node 開發型別，完整 tsc 不可通過；補丁前後各 298 行診斷，正規化行號後無新增診斷。
 
-### 0070 — Codex V2 壓縮：續鏈優先、三層降級全部 fail-closed（僅 18.1.18）
+### 0070 — Codex V2 壓縮：續鏈優先、三層降級全部 fail-closed（18.1.18／18.2.3）
 
 - **量到的失敗**（2026-09-15，session `01a0a5f7-8ad4-7000-aee0-28ad64f35705`，pid 1047924，model `gpt-6-astra`）：一次遠端壓縮**回報成功**，實際 `inputTokens 261873 / cachedInputTokens 22912 = 8.75%`。同 lane 15:45 有 98.03% 的對照樣本，故不是上游能力問題。
 - **根因（四層，都會以「成功」收場）**：
@@ -680,6 +681,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 上游 **18.1.17** 逐字採納本補丁後，18.1.18 計畫先以 `omit:0051` 停用；本日進一步把它移出 canonical 母集（26→25），`omit:0051` 目標一併刪除——留著會是指向已退役編號的死引用。位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，`sha256 52193335fb11a6bafad159051df4e538a20b233fde759fc3d1e0ea745658b414`，由 `verify-patch-family-rollups.sh` 的退役雜湊區塊守住；編號 `0051-` 同時進入 abandoned-number 迴圈，任何存活計畫再引用即 die。
 
 **覆蓋面代價（必須知道）**：`omit:0051` 是 `_omp_version_candidates` 裡 `omit:` 分支的唯一使用者，退役後該分支沒有任何存活計畫覆蓋；程式碼保留，下一個需要 omit 的計畫自動恢復覆蓋。
+2026-09-17：18.2.3 的 `omit:0041` 已恢復此分支的實際覆蓋；0041 的語義由該版 0037 候選承接，舊版 0041 保持不動。
 另外 18.1.14 回退計畫從此不含這段映射（27 條），在該版上 `cache_turn`／`cache_hit` 會退回上游行為——這是退役的已知取捨，不是缺陷。
 
 **復活判據**（原條目保留於下）：若某版上游回退了這段映射（`grep prompt_eval_cached_count pi-ai/src/providers/ollama.ts` 無結果），把位元組從 `.retired/` 取回、重新掛上該版分支即可，補丁本體無需改。
@@ -794,6 +796,12 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - 自動回歸：`bun patches/verify-auto-continue.ts`（7 項，含 reviewer 要求的 in-flight abort 與 listener cleanup）全過。
   - 僅手動部署（同 0039／vision-warmup 慣例，未進 apply.sh）；升級 omp 後需重拷貝。
 
+- `~/.omp/agent/extensions/turn-timer.ts`（鏡像 `patches/turn-timer-extension.ts`，2026-09-16 三副本 `cmp` 逐字節一致）：working loader 秒級正計時（`Working · 3s`，Devin 式），等待期間的 elapsed 讀數，用於肉眼**估算**首字延遲
+  - 機制：pi-tui `Loader.message` 接受 `string | (() => string)`，`#resolveMessage` 每個 spinner tick（~80ms）重算——官方註釋即「live countdown」用途；擴展在 `turn_start` 安裝同一個 closure（`setMessage` 按 identity 去重，重裝仍生效），無需自開 interval
+  - 每請求歸零：`turn_start`（`event.timestamp`）重置 t0。**不凍結、非精確 TTFT**——首字後繼續遞增，直到模型流式 tool intent（event-controller 的純字串 `setWorkingMessage`）取代函數或下一個 `turn_start`；讀數是「當前請求年齡」，首字延遲由觀察者目測
+  - 清理：`agent_end`／`session_before_switch`／`session_before_branch`／`session_before_tree`／`session_shutdown` 一律 `setWorkingMessage(undefined)`，防止 pending message 殘留到下一個 loader
+  - 僅手動部署（同 0039／auto-continue 慣例，未進 apply.sh）；升級 omp 後需重拷貝。
+
 ## 5. 升級歷史
 
 ### 18.0.6 → 18.0.9（2026-08-28）
@@ -881,9 +889,23 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **驗收**：`--verify-rollups` 全綠（5 族＋計畫解析 27/31＋全鏈 27==27 逐字節＋peel＋gate #10/#11/#12）；18.1.18 官方 tarball 沙盒 apply → 32 行全 APPLIED，五包 `src` 與 live `node_modules` **逐字節一致**（零漂移）；`apply.sh --check`（auto-route）live 全 APPLIED。
 - **退役清單**：見 §3 的 2026-09-13 段。
 
+### 18.1.18 → 18.2.3（2026-09-17，已正式部署）
+
+- **映射**：38 項邏輯語義 → 37 個實體條目；只有 0041 合入 0037。18.1.14／18.1.18 計畫及其 finalized 補丁位元組保持不變。
+- **18 份候選**（`.18.2.3-candidates/`）：0004／0014／0017／0035／0043 為舊候選逐位元組副本；0030／0033 重錨；0010／0060 整合 admission／transition／epoch 與 Devin cascade；0034 保留 staged recall/MM 快照；0038→0047 保留持久 date/cwd 錨點；0037 合併 0041；0048 重新錨定 quota rotation；0065 補齊 KDL 缺少的 wire 契約並重生產物；0068→0069→0070 遷移 Codex 續鏈、effort history 與 fail-closed。
+- **CLEAN 不等於可執行**：最初 0048 的 fuzzy apply 回傳成功，卻把常數、型別欄位、成功回合 reset 插進錯誤作用域。真實 SDK 載入失敗後，從 before/after 生成專版候選；不修改舊補丁。修後 source CLI 回報 `omp/18.2.3`。
+- **狀態欄**：Anthropic 冷啟動一次、idle 靜默，後續須新回合且距前次 ≥60s；其他 provider TTL 50s，新完成回合可 bypass。fetch 完成只清 render cache，不強制 repaint。隔離 runtime probe 12 項通過（含精確 59,999/60,000ms 與 50,000ms 邊界、十分鐘 idle），4 個語義故障負對照全拒；不是 provider 配額端點驗收。
+- **0065 產物**：使用官方 `v18.2.3/packages/catalog/scripts/compile-compat.ts` 及 `@bgotink/kdl@0.4.0` 實跑；`rules.json`、`auth-ids.ts`、`provider-ids.ts` 與候選後態逐位元組一致。
+- **驗收口徑**：三版回歸、第二次 apply、完整 revert 與下列負對照／oracle 是較早候選鏈的歷史證據，不代表最新修訂重跑了全部矩陣。依使用者收斂後的要求，最終候選在現有沙盒 apply＋CLI 啟動成功；正式全域 apply、`omp --version` 與 `--check` 均 exit 0，版本為 `omp/18.2.3`，38 APPLIED（37 補丁＋source link）、0 unresolved。
+- **負對照**：admission 窗口、transition-entry 同步 abort、transition 窗口三個獨立故障均在行為斷言失敗；錯 root 不能借用 live 模組；0070 的 12 個行為／型別故障 + 缺模組案例全部被拒。
+- **控制器**：空／未知／錯配版本、缺候選與無效 offline 值在任何套件或 bin 變動前 exit 2；ordinary patch 缺失在 `--check` exit 1。擴充 rollup oracle 全過；它驗證表示／重放，不再把常數名稱比對稱作行為驗證。
+- **隔離**：五個目標套件源自 registry integrity 驗證的官方 tarball，與 cache inode 分離；依賴用相同精確版本，避免 `file:tgz` 和 registry 混裝產生 nested 未補丁副本。resume breakpoint gate 只用 synthetic fixture，不再偷偷讀 live request log。
+- **部署與邊界**：使用者已授權全域升級；coding-agent／pi-natives／pi-natives-linux-x64 均為 18.2.3。runtime ledger 已同步，排除 `*.bak`／無關 `turn-timer-extension.ts`，同步範圍 checksum 零差異。未操作 live DB／憑證、終止進程、發出真實 provider 請求或提交；未做 TUI／provider cache 命中率驗收。現有 OMP 進程須完全退出重啟，`/resume` 不重載源碼。
+- **回退與證據**：保留 `/home/chris/.omp/backups/omp-before-1823-8n9uswkr/installation.tar`、部署日誌及 `validation-evidence/` 內 95 份既有 log／JSON。重套 runtime ledger 時須顯式指定插件根：`OMP_PATCH_VERIFY_PLUGIN_ROOT=/home/chris/orca/projects/omp-move/vendor/pi-commandcode-provider OMP_PATCH_OFFLINE_VERIFY=1 bash ~/.omp/patches/apply.sh`。
+
 ## 6. 驗證矩陣
 
-### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 21 道）
+### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 22 道）
 
 | 閘門 | 職責 | 所需 env |
 |---|---|---|
@@ -893,27 +915,28 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-snapcompact-model-billing.ts` | 0052 DeepSeek 計費階梯表、wrapper、命名空間回退（三閘門） | `OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT` |
 | `verify-ollama-cloud-usage.ts` | 0025 ollama-cloud `/api/usage` 額度接線：端點常數／5h-7d 窗口／`api_key` 閘門的源碼形態，加 mock 200→兩條 UsageLimit、夾取與 ok/warning/exhausted 門檻、非 200／網路錯誤→null、本地 ollama 與無 key 不發請求 | `OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-spec-contracts.sh` | spec 自身可證偽性、補丁表示同步、repo↔ledger 零漂移 | `OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT` |
-| `verify-devin-auth-cache.ts`（條件） | 0055 JWT 行程內快取、401 重取、每輪分段計時（九場景）；`pi-ai/src/providers/devin.ts` 無 `devinAuthCache` 時跳過 | — |
+| `verify-devin-auth-cache.ts`（條件） | 0055 JWT 行程內快取、401 重取、每輪分段計時；只在計畫含 0055 時執行 | — |
 | `verify-hindsight-recall-snapshot.ts` | 0034／0021／0023 快照落盤與 MM deadline 凍結（7 個 behaviour） | — |
 | `verify-interrupt-prune-symmetry.ts` | 0043 打斷殘骸在 rebuild 與 live 兩條路徑對稱剪除 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
-| `verify-devin-metadata.ts`（條件） | 0056 `devinCliMetadata` 的 per-process `sessionId`／遞增 `requestId`（原始位元組驗 field 10／9）；`pi-catalog` 無 `devinSessionId` 時跳過 | — |
+| `verify-devin-metadata.ts`（條件） | 0056 per-process `sessionId`／遞增 `requestId`，原始位元組驗 field 10／9；只在計畫含 0056 時執行 | — |
 | `verify-supersede-warm-prefix-guard.ts` | 0046 supersede 不得改寫暖前綴中段的 tool result | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_CORE_ROOT` |
-| `verify-devin-thinking-signature.ts`（條件） | 0058 Devin thinking 簽名捕獲與回放（`deltaThinking` 外獨立簽名幀、`signatureType="sealed"`）；`pi-ai` 無 `deltaSignature` 分支時跳過 | — |
-| `verify-devin-idle-cascade-pin.ts`（條件） | 0060 Devin idle cascade pin（`pi-ai/types.ts` 與 `agent-session.ts` 雙點）；無對應上游形態時跳過 | — |
-| `verify-resume-cache-breakpoint.ts` | resume 後首輪快取斷點（`session-maintenance` 側） | — |
-| `verify-snapcompact-reduction-baseline.ts`（條件） | 0062 縮減基線記入被取代歸檔：源碼形態 + 記錄邊界的判定翻轉 + 淨額負向對照；`session-maintenance` 無 `projectPreviousArchiveTokens` 時跳過 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
+| `verify-devin-thinking-signature.ts`（條件） | 0058 獨立 thinking 簽名幀捕獲與 replay；只在計畫含 0058 時執行 | — |
+| `verify-devin-idle-cascade-pin.ts`（條件） | 0060 Devin idle 固定主 cascade、raw side 維持獨立；只在計畫含 0060 時執行 | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_AI_ROOT` |
+| `verify-idle-ephemeral-reservation.ts` | 0010 ordered dispatch、epoch reset、raw concurrency、dispose/tree gate；18.2.3 另驗 admission 與 transition 的同步邊界 | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_AI_ROOT` |
+| `verify-resume-cache-breakpoint.ts` | synthetic resume fixture：4 斷點上限、最新尾部／TTL 保留；不讀 live 日誌 | — |
+| `verify-snapcompact-reduction-baseline.ts`（條件） | 0062 被取代歸檔的縮減基線與固定邊界正反對照；只在計畫含 0062 時執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 | `verify-codex-compaction-chain.ts` | 0063 Codex V2 壓縮以 live baseline 派生 frame：真實 payload 驅動的鏈式斷言 + 非壓縮負對照 + 冷啟退路 + 兩處 `responsesLite:false` 接線 | `OMP_PATCH_VERIFY_AI_ROOT`、`OMP_PATCH_VERIFY_CORE_ROOT` |
-| `verify-commandcode-model-record-parity.ts`（條件） | 0065 Command Code `deepseek/deepseek-v4.1-flash` 兩個註冊方的 model record 對齊：KDL 四條 directive + 編譯產物軸 + `source` 行號 provenance + `resolveModelPolicy` 解析值 + 兄弟型號負對照 + 插件側對齊目標；僅 18.1.18 計畫執行 | — |
-| `verify-anthropic-native-compaction-live-context.ts`（條件） | 0066 Anthropic native 壓縮必請求 `"live"` scope 並複用宿主 live context：fixture 模型資格、live scope、請求體 system/tools/messages 逐值等於宿主回傳、摘要入 entry summary、回退路徑保留原值；僅 18.1.18 計畫執行 | `OMP_PATCH_VERIFY_CORE_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
-| `verify-compaction-lane-trace.ts`（條件） | 0067 三條 remote lane 的 live tools 與 trace：codex-v2 請求體 tools 含 intent 欄位且 trace 記 `cachedInputTokens`、openai-v1 經 V2 失敗回退後各自留痕、anthropic-native usage 記 provider 原值；僅 18.1.18 計畫執行 | `OMP_PATCH_VERIFY_CORE_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
-| `verify-codex-effort-resume.ts`（條件） | 0069 真實 Codex stream 的 effort 快照保存／JSONL 恢復、分支隔離、歷史不可變、錨點失效與舊日志邊界；僅 18.1.18 計畫執行 | `OMP_PATCH_VERIFY_AI_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
-| `verify-codex-compaction-chain-fail-closed.ts`（條件） | 0070 真實本地 WebSocket/SSE：端點拒絕、同鏈重試、錯誤分類、metadata 提交／回滾及跨 session 隔離；`tsc` 檢查發布型別 consumer；僅 18.1.18 | `OMP_PATCH_VERIFY_NM`（含 `AI`／`CORE`／`CATALOG` 覆寫）；Bun、tsc |
+| `verify-commandcode-model-record-parity.ts`（條件） | 0065 KDL／產物 provenance、實際解析值、兄弟型號負對照與插件對齊；依計畫含 0065 執行 | `OMP_PATCH_VERIFY_CATALOG_ROOT` |
+| `verify-anthropic-native-compaction-live-context.ts`（條件） | 0066 `"live"` scope、宿主 system/tools/messages、摘要與回退；依計畫含 0066 執行 | `OMP_PATCH_VERIFY_CORE_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
+| `verify-compaction-lane-trace.ts`（條件） | 0067 三條 remote lane 的 live tools／usage trace，失敗 attempt 使用 `k`；依計畫含 0067 執行 | `OMP_PATCH_VERIFY_CORE_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
+| `verify-codex-effort-resume.ts`（條件） | 0069 實際 Codex stream 持久化／JSONL resume、分支隔離、不可變快照與邊界；依計畫含 0069 執行 | `OMP_PATCH_VERIFY_AI_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
+| `verify-codex-compaction-chain-fail-closed.ts`（條件） | 0070 本地 WebSocket/SSE 的拒絕、重試、metadata 隔離與發布型別 consumer；依計畫含 0070 執行 | `OMP_PATCH_VERIFY_NM`（含 `AI`／`CORE`／`CATALOG` 覆寫）；Bun、tsc |
 
 **0063 驗收狀態（2026-09-13）**：`apply.sh --verify-rollups` 與 `verify-patch-family-rollups.sh` 在更新 `EXPECTED_PLAN`／`EXPECTED_PLAN_18` 快照（27→28、31→32）後 **EXIT 0 全綠**，新閘 `verify-codex-compaction-chain.ts` 隨計畫執行；smoke（`cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK'`）實測通過。閘門判別力以兩個 fault variant 實測：刪除 chained-body 分支 → §1 行為斷言紅；把兩處 `responsesLite` 改回 `model.useResponsesLite` → §4 接線斷言紅。**E2E 已執行（2026-09-14）**：真實會話 `01a0a05f`（`openai-codex/gpt-5.6-luna`）同行程 live baseline 後 `/compact`，記錄 `provider:"openai-codex"/version:"v2"/inputTokens:24160/cachedInputTokens:23040`——PRD 命中率 `cached/input=95.4%≥80%`，`check-codex-compaction-cache.sh` exit 0。當時 `apply.sh` 被 wave2 的 0043 CONFLICT 阻擋於 `mode=apply` 入口（該紅燈非 0063 引起），故 15 道閘門改以直接調用驗證、smoke 另行手動執行；**該阻塞已於 2026-09-15 解除**，見下方「0043 陳舊變體換手」。
 
 **0043 陳舊變體換手（2026-09-15）**：活樹上掛的是 regen 前的 0043 candidate（只有 `session-context.ts` 兩個 hunk + `messages.ts` 的 `convertOne` 剪除），而 repo 在 `6e9d64b`（wave2 Phase A2）已把 candidate regen 成「舊 hunk + tool-pair 剪除」的超集（`prunedToolCallIds` memo 貫穿：`ConvertArrayMemo` 欄位、slice-on-growth 繼承、迴圈內配對丟棄、回寫 memo）。`patch --forward` 對混檔中已套用的 hunk 報 FAILED 而非 skip，故 `mode=apply` 入口紅燈。與 `agent-session.ts` 無關——該補丁不碰那個檔。處置：以 `git show c5f8501:` 取出舊變體位元組，先 `patch -R` 從活樹撤回（dry-run rc=0），再 forward 套用 repo 的 regen 版（dry-run 乾淨）。**不得**改以「重新對活樹 re-derive」收斂——那會讓 candidate 對 pristine 18.1.18 樹套不上，`verify-patch-family-rollups.sh` 的全鏈 oracle 隨即失效。結果：`apply.sh --check` 全 APPLIED、exit 0；`apply.sh` apply 模式跑完 16 道閘門（含 `verify-interrupt-prune-symmetry.ts`）與 smoke，全綠。
 
-A2 修訂以此為準：套件根優先序為 `OMP_PATCH_VERIFY_<AGENT|CORE|AI|SNAPCOMPACT|CATALOG>_ROOT` → `OMP_PATCH_VERIFY_NM` → HOME；controller 注入全部根。0055/0056/0058/0060/0062 閘只按 18.1.18 計畫執行，不再依上表所述的符號存在性跳過；其餘閘兩版執行。`--check` 的 CONFLICT/MISSING→1、APPLIED/PENDING→0、版本錯誤→2；同鏈驗證只建樹一次。以上 repo 修訂尚未部署。
+套件根優先序為 `OMP_PATCH_VERIFY_<AGENT|CORE|AI|SNAPCOMPACT|CATALOG>_ROOT` → `OMP_PATCH_VERIFY_NM` → HOME；controller 注入全部根。條件 gate 依解析後計畫成員選擇，不依符號是否存在或硬編「只有 18.1.18」跳過；共用 gate 僅按確切版本選擇適用測項。`--check` 的 CONFLICT/MISSING→1、APPLIED/PENDING→0、版本／候選錯誤→2；實際 apply 冪等由完整隔離安裝驗證，不用重複 `--check` 冒充。18.2.3 已於 2026-09-17 正式部署；歷史回歸與最終驗收口徑見 §5。
 
 ### 6.2 端到端驗收（人工／真實 provider）
 

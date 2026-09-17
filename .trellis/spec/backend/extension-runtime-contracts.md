@@ -54,6 +54,11 @@ cron({ action: "status" | "enable" | "disable", every?: string, runs?: number })
 - A reservation is rejected when the session is disposed, streaming, compacting,
   navigating the session tree, already running a main turn, has queued messages,
   or already has a reservation.
+- On 18.2.3, admitted submissions and session transitions also reject idle work.
+  Admission precedes `#beginInFlight()`; checking only streaming/in-flight counts
+  misses asynchronous prompt setup. The outermost `#beginSessionTransition()`
+  synchronously aborts an existing idle reservation before its first await.
+  This covers clear/new/fork/switch/branch/branchFromBtw/navigateTree.
 - Every authoritative main provider entry must capture prompt generation, then
   increment the main-turn in-flight count before checking the reservation. When
   one exists, it aborts the idle request and waits for settlement. Generation and
@@ -120,6 +125,9 @@ cron({ action: "status" | "enable" | "disable", every?: string, runs?: number })
 | Abort/reset occurs while main setup awaits idle settlement | Drop the superseded main setup; its stale finalizer must not alter the replacement epoch/count |
 | Session disposal begins during idle transport | Abort the guarded transport synchronously; new idle calls reject |
 | Tree navigation has entered but awaits pending bash output | Reject idle work before that first await |
+| 18.2.3 submission admitted but not yet in-flight | Reject idle request; no provider dispatch |
+| 18.2.3 transition entered with a reservation | Abort synchronously before caller can await |
+| 18.2.3 transition entered without a reservation | Reject a new idle request throughout the transition |
 | Provider throws without internal supersession | Propagate/record provider error |
 | Completed response has `cacheRead = 0` | Record `cache-miss` |
 | Completed response has `cacheRead > 0` | Record `cache-hit` with exact usage |
@@ -158,6 +166,11 @@ bun patches/verify-idle-ephemeral-reservation.ts
 # Must cover ordered main dispatch, abort/reset with a replacement epoch, raw
 # side-channel concurrency, disposal abort, the pre-await tree-entry gate, and
 # zero ephemeral transcript persistence.
+# On 18.2.3 also assert admission rejection, synchronous transition-entry abort,
+# and transition-window rejection without a pre-existing reservation.
+# Drive scheduled continuation through resumeAfterAskReanswer twice while idle
+# settlement is held. Late publication of ActiveAgentContinue must fail:
+# transparent observation of real Agent.continue sees busy/invalid-tail errors.
 
 ~/.omp/patches/apply.sh --check
 # 0010 and the source entrypoint must report APPLIED.
@@ -663,3 +676,100 @@ return {
 
 The target remains responsible for summary semantics and planning; the owning
 session remains responsible for the provider-ready cache prefix.
+
+## Scenario: Transcript-owned Hindsight snapshots on 18.2.3
+
+### 1. Scope / Trigger
+
+Use when migrating 0034 across memory lifecycle changes. Cold bootstrap and
+in-process transcript reload are distinct public paths; testing one does not
+cover the other. The 18.2.3 migration initially passed its shared gate while
+switchSession could overwrite a target marker or freeze the previous session's
+MM block into that target.
+
+### 2. Signatures
+
+```ts
+runMentalModelLoad(scope: BankScope): Promise<void>;
+beginMentalModelsTranscriptReload(): void;
+reloadMentalModels(): Promise<boolean>; // explicit operator refresh
+beforeAgentStartPrompt(text: string): Promise<MemoryPromptPreparation | undefined>;
+// Custom entries: hindsight_recall_snippet / hindsight_mental_models_snippet
+// data: { snippet: string }; "" is a recorded empty answer, not a missing marker.
+```
+
+### 3. Contracts
+
+- Before any branch/file swap, the shared transition entry synchronously
+  invalidates pending MM and staged-recall ownership. Bootstrap and transcript
+  reload wait for the outermost transition barrier, including rollback/cancel,
+  before reading the final branch or starting their load deadline.
+- Once settled, capture the target branch's newest marker before fetch/publication
+  awaits. Stop at the newest `reset_boundary`; replay exact bytes, including an
+  empty answer, without listing models or appending another marker.
+- Preserve the source snapshot while transition code still rebuilds prompts;
+  eagerly clearing it can permanently discard a fork's inherited cache key.
+  After settlement, publish the recorded target or empty target fallback before
+  starting the remote-load deadline. Failure/timeout must never leave source
+  bytes in the actual base prompt. Freeze a marker only if none exists.
+- The first turn awaits this load promise, not a competing timeout. Mandatory
+  publication failures remain rejected and fail the owning turn at commit;
+  attaching a logging catch must not replace the stored rejected promise.
+- `resetSessionContext()` appends the durable boundary BEFORE scheduling its
+  transcript reset. The barrier prevents lookup until adoption is final.
+  A rejected busy clear or cancelled/rolled-back switch must replay the unchanged
+  source marker without emptying or duplicating it.
+- Only explicit `/memory mm reload` bypasses the target snapshot. Generation
+  checks reject superseded list results and delayed prompt publication.
+- Recall preparation does not consume recall, publish its snippet, or write a
+  marker. `commit()` returns false after owner/generation invalidation; a
+  current-owner commit publishes the answer, persisting only a new snapshot.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| Target marker differs from in-memory source block | Publish target bytes, zero list calls/writes |
+| Target marker is empty | No MM block, zero list calls/writes |
+| New transcript load exceeds deadline | Empty target marker; late result cannot publish |
+| Required target prompt rebuild exceeds remote deadline | Turn still waits; remote deadline starts after publication |
+| Another transcript supersedes a pending load | No stale snippet, publication, or marker |
+| Real `/clear` over a pre-clear marker | Fresh answer is written after reset boundary |
+| Prepared recall is invalidated before commit | Return false; no writes or consumed state |
+| Same-marker fork rebuilds prompts during transition | Identical prefix throughout; inherited cache key survives |
+| Tree target has no marker; list fails/hangs | Actual prompt contains no source MM block |
+| Mandatory target publication fails | Owning turn fails; zero provider dispatches |
+
+### 5. Good / Base / Bad Cases
+
+- Good: persisted target differs from source and server; automatic reload never
+  asks the server and publishes exactly the target.
+- Base: explicit reload lists models and records the newly published answer.
+- Bad: replay only for a `"MM load"` reason, leaving transcript reload unguarded.
+- Bad: a session fixture missing `refreshBaseSystemPrompt` silently exercises
+  the swallowed-error path rather than successful snapshot publication.
+
+### 6. Tests Required
+
+```sh
+OMP_PATCH_VERIFY_NM=<isolated-five-package-root> \
+  bun patches/verify-hindsight-recall-snapshot.ts
+grep -nE '0034|verify-hindsight-recall-snapshot' patches/apply.sh
+```
+
+Run all supported versions. On 18.2.3 invoke the actual transcript reload and
+actual SDK clear path, not just bootstrap or a manually inserted boundary.
+Mutation controls must reject source-owned fallback, stale live/replay commits,
+reversed clear ordering, and duplicate timeout markers. Import failures abort.
+
+### 7. Wrong vs Correct
+
+```ts
+// Wrong: lookup starts while the branch still belongs to pre-clear history.
+await memory.resetContextForNewTranscript();
+manager.appendResetBoundary();
+
+// Correct: persistence and runtime lookup share the same transcript boundary.
+manager.appendResetBoundary();
+await memory.resetContextForNewTranscript();
+```

@@ -9,7 +9,7 @@
  import type { OAuthCredentials, OAuthLoginCallbacks } from "@oh-my-pi/pi-ai/oauth/types";
  import type { AutocompleteItem, AutocompleteProvider, Component, ComposerStyle, EditorTheme, KeyId, OverlayHandle, OverlayOptions, TUI } from "@oh-my-pi/pi-tui";
  import type { logger as PiLogger } from "@oh-my-pi/pi-utils";
-@@ -294,6 +294,16 @@
+@@ -305,6 +305,16 @@
  }
  /** Runtime host mode exposed to Pi-compatible extensions. */
  export type ExtensionMode = "tui" | "rpc" | "json" | "print";
@@ -26,7 +26,7 @@
  export interface ExtensionContext {
      /** UI methods for user interaction */
      ui: ExtensionUIContext;
-@@ -337,6 +347,13 @@
+@@ -348,6 +358,13 @@
      isProjectTrusted(): boolean;
      /** Get the current effective system prompt. */
      getSystemPrompt(): string[];
@@ -40,7 +40,7 @@
      /** Structured memory runtime for status/search/save across the configured backend. */
      memory?: MemoryRuntimeContext;
      /**
-@@ -1224,6 +1241,7 @@
+@@ -1245,6 +1262,7 @@
      getContextUsage: () => ContextUsage | undefined;
      compact: (instructionsOrOptions?: string | CompactOptions) => Promise<void>;
      getSystemPrompt: () => string[];
@@ -50,7 +50,7 @@
  export interface ExtensionCommandContextActions {
 --- a/src/extensibility/extensions/runner.ts
 +++ b/src/extensibility/extensions/runner.ts
-@@ -446,6 +446,7 @@
+@@ -452,6 +452,7 @@
  	#getContextUsageFn: () => ContextUsage | undefined = () => undefined;
  	#compactFn: (instructionsOrOptions?: string | CompactOptions) => Promise<void> = async () => {};
  	#getSystemPromptFn: () => string[] = () => [];
@@ -58,7 +58,7 @@
  	#getAsyncJobSnapshotFn: () => AsyncJobSnapshot | null = () => null;
  	#newSessionHandler: NewSessionHandler = async () => ({ cancelled: false });
  	#branchHandler: BranchHandler = async () => ({ cancelled: false });
-@@ -685,6 +686,7 @@
+@@ -700,6 +701,7 @@
  		this.#getContextUsageFn = contextActions.getContextUsage;
  		this.#compactFn = contextActions.compact;
  		this.#getSystemPromptFn = contextActions.getSystemPrompt;
@@ -66,7 +66,7 @@
  
  		// Command context actions (optional, only for interactive mode)
  		if (commandContextActions) {
-@@ -1187,6 +1189,7 @@
+@@ -1202,6 +1204,7 @@
  			hasPendingMessages: () => this.#hasPendingMessagesFn(),
  			shutdown: () => this.#shutdownHandler(),
  			getSystemPrompt: () => this.#getSystemPromptFn(),
@@ -84,7 +84,7 @@
  	AssistantMessageEvent,
  	AssistantMessageEventStream,
  	Context,
-@@ -451,6 +452,18 @@
+@@ -462,6 +463,17 @@
  
  /** Runtime host mode exposed to Pi-compatible extensions. */
  export type ExtensionMode = "tui" | "rpc" | "json" | "print";
@@ -99,11 +99,10 @@
 +	replyText: string;
 +	assistantMessage: AssistantMessage;
 +}
-+
  
  export interface ExtensionContext {
  	/** UI methods for user interaction */
-@@ -495,6 +508,13 @@
+@@ -506,6 +518,13 @@
  	isProjectTrusted(): boolean;
  	/** Get the current effective system prompt. */
  	getSystemPrompt(): string[];
@@ -117,7 +116,7 @@
  	/** Structured memory runtime for status/search/save across the configured backend. */
  	memory?: MemoryRuntimeContext;
  	/**
-@@ -1730,6 +1750,7 @@
+@@ -1752,6 +1771,7 @@
  	getContextUsage: () => ContextUsage | undefined;
  	compact: (instructionsOrOptions?: string | CompactOptions) => Promise<void>;
  	getSystemPrompt: () => string[];
@@ -137,7 +136,7 @@
  			{
 --- a/src/modes/controllers/extension-ui-controller.ts
 +++ b/src/modes/controllers/extension-ui-controller.ts
-@@ -215,6 +215,7 @@
+@@ -211,6 +211,7 @@
  			getContextUsage: () => this.ctx.session.getContextUsage(),
  			compact: instructionsOrOptions => this.#compactSession(instructionsOrOptions),
  			getSystemPrompt: () => this.ctx.session.systemPrompt,
@@ -145,7 +144,7 @@
  		};
  		const commandActions: ExtensionCommandContextActions = {
  			getContextUsage: () => this.ctx.session.getContextUsage(),
-@@ -448,6 +449,7 @@
+@@ -442,6 +443,7 @@
  			getContextUsage: () => this.ctx.session.getContextUsage(),
  			compact: instructionsOrOptions => this.#compactSession(instructionsOrOptions),
  			getSystemPrompt: () => this.ctx.session.systemPrompt,
@@ -155,7 +154,7 @@
  			getContextUsage: () => this.ctx.session.getContextUsage(),
 --- a/src/modes/runtime-init.ts
 +++ b/src/modes/runtime-init.ts
-@@ -119,6 +119,7 @@
+@@ -125,6 +125,7 @@
  			shutdown,
  			getContextUsage: () => session.getContextUsage(),
  			getSystemPrompt: () => session.systemPrompt,
@@ -163,9 +162,19 @@
  			compact: instructionsOrOptions => runExtensionCompact(session, instructionsOrOptions),
  		},
  		// ExtensionCommandContextActions — commands invokable via prompt("/command")
+--- a/src/task/executor.ts
++++ b/src/task/executor.ts
+@@ -3961,6 +3961,7 @@
+ 						shutdown: () => {},
+ 						getContextUsage: () => session.getContextUsage(),
+ 						getSystemPrompt: () => session.systemPrompt,
++						runIdleEphemeralTurn: options => session.runIdleEphemeralTurn(options),
+ 						compact: instructionsOrOptions => runExtensionCompact(session, instructionsOrOptions),
+ 					},
+ 				);
 --- a/src/session/agent-session.ts
 +++ b/src/session/agent-session.ts
-@@ -145,7 +145,12 @@
+@@ -147,7 +147,12 @@
  import { emitSessionShutdownEvent } from "../extensibility/extensions";
  import { ManagedTimers } from "../extensibility/extensions/managed-timers";
  import { createExtensionModelQuery } from "../extensibility/extensions/model-api";
@@ -179,7 +188,7 @@
  import type { HookCommandContext } from "../extensibility/hooks/types";
  import type { Skill, SkillWarning } from "../extensibility/skills";
  import { expandSlashCommand, type FileSlashCommand } from "../extensibility/slash-commands";
-@@ -629,7 +634,7 @@
+@@ -666,7 +671,7 @@
  
  	readonly #maintenance: SessionMaintenance;
  
@@ -188,16 +197,16 @@
  	#branchSummaryAbortController: AbortController | undefined = undefined;
  
  	readonly #handoff: SessionHandoff;
-@@ -775,6 +780,8 @@
+@@ -813,6 +818,8 @@
  	readonly #streamingEditGuard: StreamingEditGuard;
  	readonly #loopGuards: LoopGuards;
  	#promptInFlightCount = 0;
 +	#inFlightEpoch = 0;
 +	#idleEphemeralReservation?: { abort: AbortController; settled: Promise<void> };
  	#abortInProgress = false;
- 	// Wire-level agent_end emission deferred until #promptInFlightCount drops to 0.
- 	// Internal extension hooks and post-emit work (auto-retry, auto-compaction, todo
-@@ -855,14 +862,30 @@
+ 	/** Submissions accepted by prompt()/promptCustomMessage()/sendCustomMessage() that have not
+ 	 *  yet dispatched a turn, queued, or bailed. Preprocessing (manual-compaction wait, slash
+@@ -912,14 +919,30 @@
  		}
  	}
  
@@ -207,16 +216,14 @@
  		if (this.#promptInFlightCount === 1) {
  			this.#acquirePowerAssertion();
  		}
--	}
--
--	#endInFlight(onSettled?: () => void | Promise<void>): void {
 +		const epoch = this.#inFlightEpoch;
 +		const reservation = this.#idleEphemeralReservation;
 +		if (!reservation) return { epoch };
 +		reservation.abort.abort();
 +		return { epoch, idleEphemeralSettled: reservation.settled };
-+	}
-+
+ 	}
+ 
+-	#endInFlight(onSettled?: () => void | Promise<void>): void {
 +	#endInFlight(epoch: number, onSettled?: () => void | Promise<void>): void {
 +		// abort() resets the shared counter while older prompt setup may still be
 +		// waiting for an idle reservation. Its later finally must not decrement a
@@ -232,7 +239,7 @@
  		if (onSettled) this.#inFlightSettledCallbacks.push(onSettled);
  		this.#promptInFlightCount = Math.max(0, this.#promptInFlightCount - 1);
  		if (this.#promptInFlightCount !== 0) return;
-@@ -1039,14 +1062,26 @@
+@@ -1096,14 +1119,26 @@
  		// delaying finishObservation and mis-attributing the successor's RPC
  		// progress to this now-dead wake monitor.
  		const generation = this.#promptGeneration;
@@ -261,7 +268,7 @@
  				// Synchronous ownership check, atomic with the dispatch below:
  				// agent.prompt() claims streaming with no await in between, and the
  				// yield contract above mutates synchronously, so no install can
-@@ -1104,7 +1139,7 @@
+@@ -1161,7 +1196,7 @@
  					);
  					this.#queuedMessageDrainBlocked ||= parkedQueueDrainBlocked;
  				}
@@ -270,7 +277,7 @@
  					try {
  						await finishObservation?.(turnError);
  					} catch (error) {
-@@ -1149,6 +1184,7 @@
+@@ -1206,6 +1241,7 @@
  	}
  
  	#resetInFlight(): void {
@@ -278,7 +285,7 @@
  		this.#promptInFlightCount = 0;
  		this.yieldQueue.requestIdleFlush();
  		this.#releasePowerAssertion();
-@@ -1514,11 +1550,16 @@
+@@ -1583,11 +1619,16 @@
  			injectIdle: async messages => {
  				const first = messages[0];
  				if (!first) return;
@@ -297,38 +304,38 @@
  				}
  			},
  			scheduleIdleFlush: run => {
-@@ -3978,8 +4021,27 @@
+@@ -3978,9 +4019,28 @@
  					return;
  				}
  
--			this.#beginInFlight();
-+			const inFlight = this.#beginInFlight();
- 			const coalescedSources = new Set([options.source]);
--			const promise = this.#runAgentContinue(signal, request, coalescedSources);
-+			// The attempt must be published BEFORE the first await: a second
-+			// scheduled continue arriving while we wait on idleEphemeralSettled
-+			// reads #activeAgentContinue and must coalesce onto this attempt
-+			// rather than dispatching its own runAgentContinue. Wrapping
-+			// settle+guard+run in the attempt's promise keeps that invariant and
-+			// routes every outcome (including the settle-window abort skip)
-+			// through #handleAgentContinueOutcome, so the finally below always
-+			// balances the in-flight epoch (#promptInFlightCount, power
-+			// assertion, settle-drain).
-+			const promise = (async (): Promise<AgentContinueOutcome> => {
-+				try {
-+					if (inFlight.idleEphemeralSettled) await inFlight.idleEphemeralSettled;
-+					if (signal.aborted || this.#isDisposed) {
-+						return { status: "skipped", reason: "session-unavailable" };
+-				this.#beginInFlight();
++				const inFlight = this.#beginInFlight();
+ 				const coalescedSources = new Set([options.source]);
+-				const promise = this.#runAgentContinue(signal, request, coalescedSources);
++				// The attempt must be published BEFORE the first await: a second
++				// scheduled continue arriving while we wait on idleEphemeralSettled
++				// reads #activeAgentContinue and must coalesce onto this attempt
++				// rather than dispatching its own runAgentContinue. Wrapping
++				// settle+guard+run in the attempt's promise keeps that invariant and
++				// routes every outcome (including the settle-window abort skip)
++				// through #handleAgentContinueOutcome, so the finally below always
++				// balances the in-flight epoch (#promptInFlightCount, power
++				// assertion, settle-drain).
++				const promise = (async (): Promise<AgentContinueOutcome> => {
++					try {
++						if (inFlight.idleEphemeralSettled) await inFlight.idleEphemeralSettled;
++						if (signal.aborted || this.#isDisposed) {
++							return { status: "skipped", reason: "session-unavailable" };
++						}
++						return await this.#runAgentContinue(signal, request, coalescedSources);
++					} catch (error) {
++						return { status: "failed", error: error instanceof Error ? error : new Error(String(error)) };
 +					}
-+					return await this.#runAgentContinue(signal, request, coalescedSources);
-+				} catch (error) {
-+					return { status: "failed", error: error instanceof Error ? error : new Error(String(error)) };
-+				}
-+			})();
- 			const attempt: ActiveAgentContinue = {
- 				schedulerToken: request.schedulerToken,
- 				source: options.source,
-@@ -3855,7 +3915,7 @@
++				})();
+ 				const attempt: ActiveAgentContinue = {
+ 					schedulerToken: request.schedulerToken,
+ 					source: options.source,
+@@ -3999,7 +4059,7 @@
  						this.#activeAgentContinue = undefined;
  					}
  					this.#usagePreflightReadyForNextModelCall = false;
@@ -337,7 +344,24 @@
  				}
  			},
  			{
-@@ -4522,6 +4582,7 @@
+@@ -4499,6 +4559,16 @@
+ 
+ 	#beginSessionTransition(): Disposable {
+ 		if (this.#sessionTransitionDepth++ === 0) {
++			// The outermost transition is about to await (extension hooks, session
++			// load, agent reset). An idle-ephemeral reservation acquired before it
++			// must not survive into the new session identity: abort it here,
++			// synchronously, so its provider call stops before the transition's
++			// first await rather than dispatching turn output into the session the
++			// transition is replacing. Every transition entry point (newSession,
++			// fork, switchSession, branch, branchFromBtw, navigateTree,
++			// resetSessionContext) funnels through this method, so none can be
++			// missed by construction.
++			this.#idleEphemeralReservation?.abort.abort();
+ 			const settled = Promise.withResolvers<void>();
+ 			this.#sessionTransitionSettled = settled.promise;
+ 			this.#resolveSessionTransition = settled.resolve;
+@@ -4685,6 +4755,7 @@
  	beginDispose(): void {
  		this.#isDisposed = true;
  		this.#modelDiscoveryAbortController.abort();
@@ -345,21 +369,21 @@
  		this.#queuedMessageDrainBlocked = false;
  		this.#usagePreflightReadyForNextModelCall = false;
  		this.#detachUsageBeforeQueueDequeue?.();
-@@ -6400,10 +6461,12 @@
+@@ -6800,10 +6871,12 @@
  		// every pre-dispatch bail (generation bump from abort, disposal, usage
  		// preflight denial) exits silently, and prompt() uses the outcome to hand
  		// the typed text back to the host instead of losing it.
 -		this.#beginInFlight();
++		const inFlight = this.#beginInFlight();
  		const generation = this.#promptGeneration;
  		this.#promptSequence++;
-+		const inFlight = this.#beginInFlight();
  		try {
 +			if (inFlight.idleEphemeralSettled) await inFlight.idleEphemeralSettled;
 +			if (this.#isDisposed || this.#promptGeneration !== generation) return false;
  			await this.#recovery.maybeRestoreRetryFallbackPrimary();
  			if (!(await this.#runUsageAwarePreflightForNextModelCall())) return false;
  			// Flush any pending bash messages before the new prompt
-@@ -6632,7 +6695,7 @@
+@@ -7004,7 +7077,7 @@
  			// The per-turn before_agent_start override lives only for this turn.
  			this.#tools.clearTurnSystemPromptOverride();
  			this.#usagePreflightReadyForNextModelCall = false;
@@ -368,7 +392,7 @@
  		}
  	}
  
-@@ -6730,6 +6793,7 @@
+@@ -7102,6 +7175,7 @@
  				await this.reload();
  			},
  			getSystemPrompt: () => this.systemPrompt,
@@ -376,7 +400,7 @@
  			setInterval: (callback, ms, ...args) => this.#fallbackTimers().setInterval(callback, ms, ...args),
  			setTimeout: (callback, ms, ...args) => this.#fallbackTimers().setTimeout(callback, ms, ...args),
  			clearTimer: timer => this.#fallbackTimers().clear(timer),
-@@ -7123,8 +7187,11 @@
+@@ -7507,8 +7581,11 @@
  		message: CustomMessage,
  		options?: { acceptTerminalEmptyStop?: boolean },
  	): Promise<boolean> {
@@ -389,7 +413,7 @@
  			if (!(await this.#runUsageAwarePreflightForNextModelCall())) return false;
  			const acceptTerminalEmptyStop = options?.acceptTerminalEmptyStop === true;
  			if (acceptTerminalEmptyStop) {
-@@ -7137,7 +7204,7 @@
+@@ -7521,7 +7598,7 @@
  		} finally {
  			this.#usagePreflightReadyForNextModelCall = false;
  			this.#recovery.setAcceptTerminalEmptyStop(false);
@@ -398,13 +422,26 @@
  		}
  	}
  
-@@ -8828,6 +8895,46 @@
+@@ -9291,6 +9368,61 @@
  	}
  
  	/**
 +	 * Atomically reserve the idle side channel against main-turn dispatch. A
 +	 * main turn that arrives after the reservation aborts this request and waits
 +	 * for it to settle before its own provider call can begin.
++	 *
++	 * Three states can make an apparently idle session unsafe to dispatch on:
++	 *  - a submission admitted by prompt()/promptCustomMessage()/
++	 *    sendCustomMessage() that is still in its preprocessing awaits (image
++	 *    normalization, vision description) and has therefore not yet reached
++	 *    `#beginInFlight()`;
++	 *  - an active session/transcript transition (newSession, fork, switchSession,
++	 *    branch, branchFromBtw, navigateTree, resetSessionContext), whose awaits
++	 *    mean the transcript may be replaced while a side request is in flight;
++	 *  - the busy states the reservation already covered.
++	 * All three are checked synchronously, before the reservation is published,
++	 * so a request that passes them cannot be overtaken by a transition that
++	 * started earlier without holding this method's verdict.
 +	 */
 +	async runIdleEphemeralTurn(
 +		args: IdleEphemeralTurnOptions,
@@ -412,6 +449,8 @@
 +		if (
 +			this.#isDisposed ||
 +			this.#promptInFlightCount > 0 ||
++			this.hasAdmittedSubmission ||
++			this.isSessionTransitioning ||
 +			this.isStreaming ||
 +			this.isCompacting ||
 +			this.#branchSummaryAbortController ||
@@ -445,8 +484,7 @@
  	 * Run a single ephemeral side-channel turn against this session's current
  	 * model + system prompt + history. The main turn's tool catalog is sent
  	 * to preserve the prompt cache, but the model is reminded not to call
-@@ -9661,7 +9768,18 @@
- 		 */
+@@ -10152,6 +10284,17 @@
  		askReanswerCommitted?: boolean;
  	}> {
  		using _transition = this.#beginSessionTransition();
@@ -464,7 +502,7 @@
  		await this.#bash.flushPending();
  		const oldLeafId = this.sessionManager.getLeafId();
  
-@@ -9745,8 +9863,6 @@
+@@ -10236,8 +10379,6 @@
  			userWantsSummary: options.summarize ?? false,
  		};
  
@@ -473,7 +511,7 @@
  		let hookSummary: { summary: string; details?: unknown } | undefined;
  		let fromExtension = false;
  
-@@ -9755,7 +9871,7 @@
+@@ -10246,7 +10387,7 @@
  			const result = (await this.#extensionRunner.emit({
  				type: "session_before_tree",
  				preparation,
@@ -482,7 +520,7 @@
  			})) as SessionBeforeTreeResult | undefined;
  
  			if (result?.cancel) {
-@@ -9781,7 +9897,7 @@
+@@ -10272,7 +10413,7 @@
  			const result = await generateBranchSummary(entriesToSummarize, {
  				model,
  				apiKey: this.#modelRegistry.resolver(model, this.sessionId),
@@ -491,7 +529,7 @@
  				customInstructions: this.#obfuscateTextForProvider(options.customInstructions),
  				reserveTokens: branchSummarySettings.reserveTokens,
  				metadata: this.agent.metadataForProvider(model.provider),
-@@ -9794,7 +9910,6 @@
+@@ -10285,7 +10426,6 @@
  					return stream.result();
  				},
  			});
@@ -499,21 +537,12 @@
  			if (result.aborted) {
  				return { cancelled: true, aborted: true };
  			}
-@@ -9901,8 +10017,6 @@
+@@ -10401,8 +10541,6 @@
  		this.#todo.syncFromBranch();
  		this.#modelMentions.syncFromBranch();
  		this.#closeCodexProviderSessionsForHistoryRewrite();
- 
--		this.#branchSummaryAbortController = undefined;
 -
+-		this.#branchSummaryAbortController = undefined;
+ 
  		// Report a committed `ask` re-answer so the interactive caller can resume
  		// the agent via `resumeAfterAskReanswer()` *after* rebuilding its
- 		// transcript. Scheduling the continue here instead would start a fresh
-@@ -3716,6 +3716,7 @@
- 						shutdown: () => {},
- 						getContextUsage: () => session.getContextUsage(),
- 						getSystemPrompt: () => session.systemPrompt,
-+						runIdleEphemeralTurn: options => session.runIdleEphemeralTurn(options),
- 						compact: instructionsOrOptions => runExtensionCompact(session, instructionsOrOptions),
- 					},
- 				);

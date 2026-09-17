@@ -143,3 +143,65 @@ const text = (m as { content?: unknown }).content;
 const rawContent = "content" in m ? m.content : undefined;
 const text = extractPreviewText(rawContent).trim();
 ```
+
+## Scenario: Turn-gated quota refresh without forced repaint
+
+### 1. Scope / Trigger
+
+0037/0041 migration into 18.2.3's `StatusLineComponent` usage refresh pipeline.
+Preserve quota cadence independently from upstream's five-minute TTL and
+fetch-completion redraw behavior.
+
+### 2. Signatures
+
+- `StatusLineComponent.refreshUsageInBackground()`: starts eligible usage work.
+- Completed-turn identity: latest assistant timestamp/stopReason.
+- Anthropic gate: 60,000 ms; other-provider TTL: 50,000 ms.
+- Fetch completion invalidates render cache, not the render-request callback.
+
+### 3. Contracts
+
+- Anthropic fetches once at cold start; later fetches require a NEW completed
+  turn and elapsed gate. Elapsed time or repeated idle rendering alone must
+  never cause polling.
+- Other eligible providers retain the 50s TTL; a new completed turn bypasses it.
+  Preserve the existing provider whitelist and in-flight/sequence protection.
+- Preserve `#invalidateStatusLineRenderCache()` so a natural redraw shows new
+  values. Remove fetch-triggered `#onBranchChange` repaint, not cache invalidation.
+- The 180s historical Anthropic value is not this plan's contract; 0041 is
+  physically merged into the 18.2.3 0037 candidate, not omitted semantically.
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected observation |
+|---|---|
+| Anthropic cold start | One fetch |
+| Anthropic idle for ten minutes | No additional fetch |
+| New Anthropic turn at 59,999 ms | No fetch |
+| New Anthropic turn at 60,000 ms | Fetch |
+| Other eligible provider at 50,000 ms | TTL refresh allowed |
+| Other provider new completed turn before TTL | Fetch |
+| Ineligible provider | No fetch |
+| Fetch completes | Zero forced repaint callbacks |
+
+### 5. Good / Base / Bad Cases
+
+- Good: mock the clock and provider result, exercise the real component.
+- Base: next natural render consumes the invalidated cache.
+- Bad: remove render-cache invalidation to conceal repaint, or compare constant
+  spelling instead of observing fetch/repaint counts.
+
+### 6. Tests Required
+
+Runtime probes must reject 90s gate, 300s TTL, idle polling, and forced-repaint
+mutations. No real provider calls. Source CLI and offline behavior are not
+equivalent to visual TUI or provider acceptance; report those limits explicitly.
+
+Machine-check representation before delivery/review:
+`grep -nE '0037|omit:0041' patches/apply.sh`.
+
+### 7. Wrong vs Correct
+
+- Wrong: fetch completion calls the branch-change callback to repaint.
+- Correct: fetch completion updates state and invalidates the render cache;
+  existing natural redraws render the next values.

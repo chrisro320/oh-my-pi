@@ -138,11 +138,38 @@ function _omp_version_candidates {
 	PATCHES=("${version_patches[@]}")
 	echo "NOTE: OMP_PATCH_VERSION=$version — plan targets: $*" >&2
 }
+# Gate selection predicate. `_omp_plan_has 0041` is true when the plan resolved
+# for this version carries that patch number. Verifier registration is driven
+# by the resolved plan, never by a version string: a new supported version that
+# still carries a patch must not silently fall into the "not in this plan"
+# branch and lose its gate.
+function _omp_plan_has {
+	local prefix="$1" entry name
+	for entry in "${PATCHES[@]}"; do
+		name="${entry%%:*}"
+		name="${name##*/}"
+		[[ "$name" == "$prefix"-* ]] && return 0
+	done
+	return 1
+}
+# Tail-candidate appender. Tail entries are not canonical PATCHES members, so
+# `_omp_version_candidates` cannot see them; this appends the versioned
+# candidate with the same fail-closed existence check (a missing candidate is a
+# repo-completeness defect and must exit 2 before anything is touched).
+function _omp_tail_candidate {
+	local version="$1" stem="$2" root="$3"
+	local candidate=".${version}-candidates/${stem}-v${version}-candidate.patch"
+	[[ -f "${HERE}/${candidate}" ]] || {
+		echo "candidate patch missing: ${HERE}/${candidate}" >&2
+		exit 2
+	}
+	PATCHES+=("${candidate}:${root}")
+}
 # Versioned plan selection. The PATCHES array above is the canonical patch
 # set shared by every supported plan; it is NOT itself a deployable chain —
 # its members' a-sides span multiple upstream releases (e.g. 0045/0046 only
 # exist as 18.1.x shapes). Supported plans: 18.1.14 (rollback), 18.1.18
-# (current deployment).
+# (previous deployment), 18.2.3 (current target).
 # Unset OMP_PATCH_VERSION auto-routes by the installed pi-coding-agent
 # version (exact match only) so the documented one-key re-apply flow keeps
 # working; an explicit value must match the installed version or fail
@@ -152,12 +179,12 @@ if [[ -z "${OMP_PATCH_VERSION+x}" ]]; then
 	pkgjson="${NM}/pi-coding-agent/package.json"
 	installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
 	case "$installed" in
-	18.1.14|18.1.18)
+	18.1.14|18.1.18|18.2.3)
 		OMP_PATCH_VERSION="$installed"
 		echo "NOTE: OMP_PATCH_VERSION unset — routed to installed ${installed}" >&2
 		;;
 	*)
-		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18); set OMP_PATCH_VERSION explicitly" >&2
+		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3); set OMP_PATCH_VERSION explicitly" >&2
 		exit 2
 		;;
 	esac
@@ -280,8 +307,38 @@ case "$OMP_PATCH_VERSION" in
 	# a 側是 0069 之後的形態。
 	PATCHES+=("0070-omp-codex-compaction-chain-fail-closed.patch:${NM}")
 	;;
+18.2.3)
+	# Preserve the 18.1.18 logical chain on the new upstream tree. The initial
+	# textual replay found 13 conflicts; runtime loading additionally exposed
+	# 0048's fuzzy insertions inside unrelated import/function/object bodies.
+	# Its versioned candidate restores the original quota-rotation semantics.
+	# 0004/0014/0017/0035/0043 retain their 18.1.18 candidate bytes.
+	# 0037 absorbs 0041: 38 logical entries become 37 physical entries while
+	# retaining the 60s Anthropic gate, 50s other-provider TTL and no repaint.
+	_omp_version_candidates "18.2.3" \
+		0004 0010 0014 0017 0030 0033 0034 0035 0037 0038 0043 0048 omit:0041
+	# Tail 條目不在 canonical 母集（它們的 a 側只存在於 18.1.x/18.2.x 鏈尾），
+	# 故逐條附加並維持既有順序：0047 掛在 candidate-0038 產出形態之後；
+	# 0055/0056/0058 是 devin 家族；0060 依賴 0010；0062 在 snapcompact 之後；
+	# 0063→0066→0067→0068→0069→0070 是 codex／remote compaction 鏈（0068 依賴
+	# 0063+0067，0069 依賴 0068，0070 依賴 0069）。標註 cand 者在矩陣中為
+	# CONFLICT，需 18.2.3 候選；未標註者在 18.2.3 上逐字節仍適用。
+	_omp_tail_candidate "18.2.3" "0047-omp-date-cwd-anchor-stability" "${AGENT}"
+	PATCHES+=("0055-omp-devin-auth-cache-turn-timing.patch:${AI}")
+	PATCHES+=("0056-omp-devin-metadata-alignment.patch:${NM}")
+	PATCHES+=("0058-omp-devin-thinking-signature-replay.patch:${AI}")
+	_omp_tail_candidate "18.2.3" "0060-omp-devin-idle-cascade-pin" "${NM}"
+	PATCHES+=("0062-omp-snapcompact-reduction-baseline-previous-archive.patch:${AGENT}")
+	PATCHES+=("0063-omp-codex-v2-compaction-live-chain.patch:${NM}")
+	_omp_tail_candidate "18.2.3" "0065-omp-commandcode-deepseek-model-record-parity" "${NM}"
+	PATCHES+=("0066-omp-anthropic-native-compaction-live-context.patch:${NM}")
+	PATCHES+=("0067-omp-remote-compaction-lane-trace-live-tools.patch:${NM}")
+	_omp_tail_candidate "18.2.3" "0068-omp-codex-stale-baseline-chain" "${NM}"
+	_omp_tail_candidate "18.2.3" "0069-omp-codex-effort-history-resume" "${AI}"
+	_omp_tail_candidate "18.2.3" "0070-omp-codex-compaction-chain-fail-closed" "${NM}"
+	;;
 *)
-	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18)" >&2
+	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3)" >&2
 	exit 2
 	;;
 esac
@@ -585,6 +642,7 @@ if [[ "$MODE" == "apply" ]]; then
 	export OMP_PATCH_VERIFY_AI_ROOT="$AI"
 	export OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT="$SNAP"
 	export OMP_PATCH_VERIFY_CATALOG_ROOT="${NM}/pi-catalog"
+	export OMP_PATCH_VERIFY_PLUGIN_ROOT="${OMP_PATCH_VERIFY_PLUGIN_ROOT-${HERE}/../vendor/pi-commandcode-provider}"
 	bun "${HERE}/verify-antigravity-envelope.ts"
 	bun "${HERE}/verify-prefix-cache-compaction.ts"
 	bun "${HERE}/verify-provider-image-budget.ts"
@@ -593,53 +651,70 @@ if [[ "$MODE" == "apply" ]]; then
 	bun "${HERE}/verify-ollama-cloud-usage.ts"
 	bash "${HERE}/verify-spec-contracts.sh"
 	# Plan membership selects gates; missing patch effects must fail, not skip.
-	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+	# The predicate reads the resolved plan, so a newly supported version that
+	# still carries a patch keeps its gate automatically instead of silently
+	# falling into a version-string `else`.
+	if _omp_plan_has 0055; then
 		bun "${HERE}/verify-devin-auth-cache.ts"
 	else
 		echo "verify-devin-auth-cache: skipped (0055 not in this plan)"
 	fi
 	bun "${HERE}/verify-hindsight-recall-snapshot.ts"
 	bun "${HERE}/verify-interrupt-prune-symmetry.ts"
-	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+	if _omp_plan_has 0056; then
 		bun "${HERE}/verify-devin-metadata.ts"
 	else
 		echo "verify-devin-metadata: skipped (0056 not in this plan)"
 	fi
 	bun "${HERE}/verify-supersede-warm-prefix-guard.ts"
-	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+	if _omp_plan_has 0058; then
 		bun "${HERE}/verify-devin-thinking-signature.ts"
 	else
 		echo "verify-devin-thinking-signature: skipped (0058 not in this plan)"
 	fi
-	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+	if _omp_plan_has 0060; then
 		bun "${HERE}/verify-devin-idle-cascade-pin.ts"
 	else
 		echo "verify-devin-idle-cascade-pin: skipped (0060 not in this plan)"
 	fi
-	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+	# 0010's lifecycle contract: idle/ephemeral reservations vs main work,
+	# session transitions and epoch resets. Reads the selected tree's version
+	# itself and fails closed outside its supported set.
+	if _omp_plan_has 0010; then
+		bun "${HERE}/verify-idle-ephemeral-reservation.ts"
+	else
+		echo "verify-idle-ephemeral-reservation: skipped (0010 not in this plan)"
+	fi
+	if _omp_plan_has 0062; then
 		bun "${HERE}/verify-snapcompact-reduction-baseline.ts"
 	else
 		echo "verify-snapcompact-reduction-baseline: skipped (0062 not in this plan)"
 	fi
 	bun "${HERE}/verify-resume-cache-breakpoint.ts"
 	bun "${HERE}/verify-codex-compaction-chain.ts"
-	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+	if _omp_plan_has 0065; then
 		bun "${HERE}/verify-commandcode-model-record-parity.ts"
 	else
 		echo "verify-commandcode-model-record-parity: skipped (0065 not in this plan)"
 	fi
-	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+	if _omp_plan_has 0066; then
 		bun "${HERE}/verify-anthropic-native-compaction-live-context.ts"
 	else
 		echo "verify-anthropic-native-compaction-live-context: skipped (0066 not in this plan)"
 	fi
-	if [[ "$OMP_PATCH_VERSION" == "18.1.18" ]]; then
+	if _omp_plan_has 0067; then
 		bun "${HERE}/verify-compaction-lane-trace.ts"
-		bun "${HERE}/verify-codex-effort-resume.ts"
-		bun "${HERE}/verify-codex-compaction-chain-fail-closed.ts"
 	else
 		echo "verify-compaction-lane-trace: skipped (0067 not in this plan)"
+	fi
+	if _omp_plan_has 0069; then
+		bun "${HERE}/verify-codex-effort-resume.ts"
+	else
 		echo "verify-codex-effort-resume: skipped (0069 not in this plan)"
+	fi
+	if _omp_plan_has 0070; then
+		bun "${HERE}/verify-codex-compaction-chain-fail-closed.ts"
+	else
 		echo "verify-codex-compaction-chain-fail-closed: skipped (0070 not in this plan)"
 	fi
 fi

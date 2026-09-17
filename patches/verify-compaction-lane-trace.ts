@@ -32,8 +32,19 @@ delete process.env.OMP_COMPACTION_TRACE_OFF;
 
 // Package imports are runtime-selected so an isolated tree cannot fall back to live.
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+// This gate asserts the 0066/0067 lane contracts, which exist in the 18.1.18
+// and 18.2.3 plans. An unknown tree fails closed here instead of surfacing as
+// an unrelated import error. The version is read from the AI root the caller
+// selected, so a sandbox that binds only some roots is still judged on the
+// tree it actually points at.
+const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version as string;
+assert.ok(
+	["18.1.18", "18.2.3"].includes(aiVersion),
+	`unsupported compaction lane trace gate version: ${aiVersion}`,
+);
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 

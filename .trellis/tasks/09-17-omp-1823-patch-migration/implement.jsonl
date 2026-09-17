@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/index.md","reason":"Route backend contracts before candidate and controller edits."}
+{"file":".trellis/spec/frontend/index.md","reason":"Route statusline/TUI conventions for the usage refresh migration."}
+{"file":".trellis/spec/backend/patch-rollup-contracts.md","reason":"Immutable rollback bytes, exact-version plans, authoritative replay and Codex effort history."}
+{"file":".trellis/spec/backend/extension-runtime-contracts.md","reason":"Atomic idle reservation, epoch ownership, main-turn supersession and cache-prefix contracts."}
+{"file":".trellis/spec/backend/verification-gate-contracts.md","reason":"Root-honoring imports, version-selected gates, negative controls and trace schema."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Trace session, provider, controller and generated-representation boundaries."}
+{"file":".trellis/tasks/09-17-omp-1823-patch-migration/research.md","reason":"Saved conflict matrix, partial adoption, sandbox pitfalls and planning recovery evidence."}

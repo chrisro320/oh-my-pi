@@ -455,9 +455,16 @@ assert.equal(
 //     must feed it the *post-transform* array (`transformContext` runs the
 //     public `context` extension chain, which may drop the summary).
 const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-assert.ok(["18.1.14", "18.1.18"].includes(agentVersion), `unsupported prefix gate version: ${agentVersion}`);
-// This helper belongs to the 18.1.18 candidate, not the 18.1.14 carry-over path.
-// Select by package version, never by whether the helper under test exists.
+assert.ok(
+	["18.1.14", "18.1.18", "18.2.3"].includes(agentVersion),
+	`unsupported prefix gate version: ${agentVersion}`,
+);
+// This helper belongs to the 18.1.18+ candidates, not the 18.1.14 carry-over
+// path. Select by package version, never by whether the helper under test
+// exists — a missing helper must fail the import above, not select a skip.
+// 18.2.3 runs the same contract as 18.1.18: its 0035 candidate carries the
+// helper and the post-transform wiring, so the assertions below are the real
+// 18.2.3 behavior contract rather than a version-shaped exemption.
 if (agentVersion === "18.1.14") {
 	console.log(`PASS prefix-cache compaction: structured=1 flat=1 windows=${windowRequests.length}; 18.1.18-only helper not applicable`);
 	process.exit(0);

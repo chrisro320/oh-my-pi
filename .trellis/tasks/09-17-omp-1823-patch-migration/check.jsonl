@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend specification routing for independent read-only review."}
+{"file":".trellis/spec/frontend/index.md","reason":"Statusline/TUI scope routing; verify actual surface evidence where changed."}
+{"file":".trellis/spec/backend/verification-gate-contracts.md","reason":"Require discriminating behavior gates, correct roots and no silent version skips."}
+{"file":".trellis/spec/backend/patch-rollup-contracts.md","reason":"Verify resolved-plan coverage, old-plan preservation, reverse restoration and fail-closed routing."}
+{"file":".trellis/spec/backend/extension-runtime-contracts.md","reason":"Review reservation/epoch lifecycle paths and unchanged raw side-request behavior."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check cross-layer state transitions and evidence-backed findings without editing."}
+{"file":".trellis/tasks/09-17-omp-1823-patch-migration/research.md","reason":"Distinguish historical replay evidence from current candidate and provider acceptance."}

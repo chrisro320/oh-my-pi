@@ -1,20 +1,22 @@
 // Regression gate for `resume-cache-breakpoint-extension.ts`.
 //
-// The live 400 this reproduces:
+// Provenance: the live 400 this reproduces was
 //   A maximum of 4 blocks with cache_control may be provided. Found 5.
-// omp 18.1.18 anchors both tools and system (18.1.14 anchored only one via
+// captured under `~/.omp/logs/http-400-requests/` on 2026-09-11. omp 18.1.18
+// anchors both tools and system (18.1.14 anchored only one via
 // `applyHeadCaching`'s `headAlreadyCached` early exit), so a resumed request
 // already carries 4 markers and the extension's anchor was the illegal 5th.
 //
-// Fixture: the real captured body of that failure when present, otherwise a
-// synthetic payload with the same breakpoint census (system 1, tools 1,
-// messages 2 on the two newest turns).
+// Fixture: `syntheticPayload` below, deterministic and self-contained, with the
+// same breakpoint census as that capture (system 1, tools 1, messages 2 on the
+// two newest turns). The gate deliberately reads no live capture: this runs
+// under an isolated HOME where the live logs are absent, and a gate whose
+// assertions depend on a file outside the sandbox silently degrades into a
+// weaker check on exactly the hosts that matter.
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
 
 import extension from "./resume-cache-breakpoint-extension.ts";
 
-const LIVE_DUMP = "/home/chris/.omp/logs/http-400-requests/1789191520935-3sprmoe8cmiod.json";
 const CAP = 4;
 
 type Block = { type?: string; text?: string; cache_control?: { type: string; ttl?: string } };
@@ -80,26 +82,6 @@ function syntheticPayload(): Payload {
 	};
 }
 
-function loadLivePayload(): Payload | undefined {
-	if (!existsSync(LIVE_DUMP)) return undefined;
-	const dump: unknown = JSON.parse(readFileSync(LIVE_DUMP, "utf8"));
-	if (typeof dump !== "object" || dump === null || !("body" in dump)) return undefined;
-	const raw = (dump as { body: unknown }).body;
-	const body: unknown = typeof raw === "string" ? JSON.parse(raw) : raw;
-	if (typeof body !== "object" || body === null) return undefined;
-	const payload = body as Payload;
-	// The dump is the *rejected* body, so it already carries the extension's
-	// illegal 5th marker. Rewind it to the provider-only state the hook sees.
-	const messages = payload.messages ?? [];
-	const lastAssistant = messages.findLastIndex(message => message.role === "assistant");
-	const anchor = messages[lastAssistant - 1]?.content;
-	assert.ok(Array.isArray(anchor), "live fixture must expose the anchor block list");
-	const marked = anchor.find(block => block.cache_control);
-	assert.ok(marked, "live fixture must carry the extension marker that caused the 400");
-	delete marked.cache_control;
-	return payload;
-}
-
 function run(label: string, payload: Payload): void {
 	reArm({ payload: undefined });
 	const before = census(payload);
@@ -143,12 +125,6 @@ function run(label: string, payload: Payload): void {
 	console.log(`ok ${label}: ${before} -> ${after} breakpoints, released ${released[0]}, anchor ${anchorIndex}`);
 }
 
-const live = loadLivePayload();
-if (live) {
-	run("live 400 payload", live);
-} else {
-	console.log("note: live 400 dump absent, synthetic census only");
-}
 run("synthetic resumed session", syntheticPayload());
 
 console.log("PASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap");

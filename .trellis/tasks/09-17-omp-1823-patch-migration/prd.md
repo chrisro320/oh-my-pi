@@ -1,86 +1,71 @@
-# PRD: omp 18.1.18 → 18.2.3 補丁鏈遷移
+# PRD: OMP 18.1.18 → 18.2.3 patch-chain migration
 
+## Goal and user value
 
-## 優先級聲明（用戶指示 2026-09-17）
+Upgrade the complete supported patch behavior to OMP 18.2.3 without losing the locally verified cache, compaction, session-lifecycle, and statusline semantics. Preserve the 18.1.14 and 18.1.18 rollback plans.
 
-**本機緩存相關補丁的已驗證語義優先級高於上游新行為。** 這些補丁經過大量真實 provider 驗收：
-- 0035 soft 壓縮前綴復用（Opus 5 實測 97.04% 命中）
-- 0038+0047 date/cwd anchor（HISTORY_REWRITE 消除實測）
-- 0068/0069/0070 codex 壓縮鏈（同 socket 98.0% 實測）
-- 0034 hindsight 快照（173k resume 前綴穩定實測）
-- 0010+0060 idle ephemeral / devin cascade pin
-- 0065 commandcode resume 前綴 parity
-- 0033 cache_turn 觀測儀（命中率可見性）
+## Confirmed background
 
-遷移衝突時一律以本機語義為準在上游新結構上重寫，不追隨上游反向變更（例：上游 fetch 後強制重繪 vs 0007 不重繪 → 保留 0007；上游 WS→SSE 靜默回退 vs 0070 fail-closed → 保留 fail-closed）。
-## 背景與目標
+- The saved replay of the 18.1.18 plan onto official 18.2.3 sources covered 38 logical patch entries: 25 CLEAN, 13 CONFLICT, and no patch wholly adopted upstream. The full matrix and partial-adoption evidence are retained in `research.md`; the checked-in audit log is `patches/.18.2.3-candidates/replay-audit-20260917.log`.
+- Prior work recorded completed 0030/0033 candidates and an unfinished 0010 candidate. The exact code-resume point is S1-0010 in `implement.md`, not a fresh migration.
+- The user approved registration/planning recovery and subsequently approved the final implementation plan with “開” on 2026-09-17. The task is now `in_progress` for repository implementation and sandbox verification. Live upgrade/deployment and real-provider smoke still need explicit approval at their risk boundary.
 
-上游 `@oh-my-pi/pi-coding-agent` 已發佈 18.2.3（2026-09-17），當前部署為 18.1.18 + 37 層補丁鏈（`OMP_PATCH_VERSION=18.1.18`）。目標：把整條補丁鏈遷移到 18.2.3，通過沙盒全鏈重放與回歸套件後部署切換，並保留 18.1.14/18.1.18 回退計畫。
+## Requirements
 
-## 沙盒衝突矩陣（2026-09-17 實測，audit log: /tmp/omp1823/replay-audit.log）
+### R1 — Preserve all effective local semantics
 
-38 項部署計畫在 pristine 18.2.3 上重放：**25 CLEAN / 13 CONFLICT / 0 上游逐字採納**。
+Local, provider-verified cache semantics take precedence over conflicting upstream behavior (user decision, 2026-09-17). Preserve:
 
-### 25 項 CLEAN（fuzz≤2 / offset 內自動套用）
-0004(offset 29) 0035(fuzz≤2) 0036 0014 0017 0025 0026 0031 0032 0043 0044 0052 0057 0045 0046 0048 0050 0054 0055(fuzz 2) 0056 0058 0062 0063 0066 0067
+- 0035 soft-compaction prefix reuse (historical Opus 5 observation: 97.04% cache hit).
+- 0038+0047 stable date/cwd anchors (historical elimination of HISTORY_REWRITE).
+- 0068/0069/0070 Codex socket-chain reuse and effort-history restore (historical same-socket observation: 98.0%). Chain loss must fail closed, never silently replay over SSE or another fallback.
+- 0034 hindsight snapshot stability (historical 173k resume-prefix observation).
+- 0010+0060 atomic idle side requests and Devin cascade pinning.
+- 0065 commandcode resume-prefix parity and 0033 cache-turn observability.
+- Statusline semantics: Anthropic turn gate 60s, other-provider TTL 50s, and no forced redraw after usage fetch (0007 semantics), rather than upstream's hardcoded 5min TTL and forced redraw.
 
-### 13 項 CONFLICT 分類
+These historical measurements establish intent, not a claim that the new candidates have passed provider acceptance.
 
-**A. 重錨類（9 項）— 上游插入/重構行打斷 hunk 上下文，語義不變**：
+### R2 — Integrate the new lifecycle boundaries safely
 
-| 補丁 | 失敗根因（上游 18.2.3 變更） | 語義採納度 |
+The 18.2.3 admission window and session-transition paths must not allow idle/main provider overlap or stale-session dispatch. Preserve publish-before-await `ActiveAgentContinue`, epoch-paired in-flight accounting, and raw `/btw`/`/omfg` concurrency. Cover every upstream entry point, including newly introduced paths. The recorded source anchors and two race scenarios remain in `implement.md`.
+
+### R3 — Complete versioned deployment without changing rollback bytes
+
+Keep finalized 18.1.18 patch files immutable; create changed candidates under `patches/.18.2.3-candidates/`. Only add the 18.2.3 version plan and necessary version-aware verifier support. Retain existing roots, dependency ordering, and canonical patch-set semantics. Shrink partially adopted 0038/0065 hunks to the still-missing behavior.
+
+The previously selected 0037+0041 merge represents two logical entries with one physical candidate. Acceptance therefore means **38/38 logical entries covered, 37/37 resolved physical entries applied**. Any different count requires an explicit mapping and review; it must not conceal omitted behavior.
+
+### R4 — Fail closed and verify the actual selected tree
+
+Unknown, empty, mismatched versions and missing candidates must be rejected before mutation. No nearest-version fallback. All applicable existing verification gates must run for 18.2.3; old version predicates must not silently skip them. Replay, behavioral imports, and rollback comparisons must use isolated, version-matched trees derived from pinned official tarballs, not Bun cache or live packages.
+
+### R5 — Preserve user state and a reversible deployment
+
+Preserve the existing uncommitted `patches/PATCHES.md` edits and unrelated `patches/turn-timer-extension.ts`. No direct runtime edits, live DB/WAL/SHM or credential changes during planning or sandbox work. Deployment must include compatible pi-natives, authoritative repository-to-runtime synchronization, executable source-link validation, a rollback rehearsal, and a process-restart notice. Before the live step, refresh the historical process inventory and backup validity rather than assuming the prior count of 49 is current.
+
+### R6 — Keep records and specifications consistent
+
+Update PATCHES.md's plan/count table, migration history and candidate descriptions without discarding existing edits. Complete Phase 2.2 review, Phase 3.3 spec update, and Phase 3.4 commit workflow before task completion. Repository and runtime patch ledgers must have zero relevant drift after deployment, excluding `.bak` files.
+
+## Acceptance criteria
+
+| ID | Observable result | Requirements |
 |---|---|---|
-| 0033 cache_turn | settings-schema.ts 重構：聯合類型 → `STATUS_LINE_SEGMENT_IDS` 陣列；h1 錨失效（h2/h3 segments.ts CLEAN） | cache_turn 段未採納 |
-| 0034 hindsight snapshot | state.ts 加 `beginMentalModelsTranscriptReload` 等；4/8 hunk 失效 | 快照機制未採納 |
-| 0010 idle ephemeral | h18：`#todo.syncFromBranch()` 與 `#closeCodex...` 之間插入 `#modelMentions.syncFromBranch()` | 未採納（upstream 無 runIdleEphemeralTurn） |
-| 0030 canonical baseURL | h1：import 區插入 `charm-hyper` 一行 | 未採納 |
-| 0038 date-cwd provider-tail | h1：頭部註釋塊重寫 | 部分吸收（injector 形態變） |
-| 0047 anchor stability | a 側 = 0038 候選產出形態，級聯 | 未採納 |
-| 0060 devin cascade pin | h1/h3 依賴 0010 引入的 `runIdleEphemeralTurn` API；agent-session 重構 | 未採納 |
-| 0065 commandcode parity | kdl 上游已含 effort/strip-image/input-modalities（**部分採納**）；缺 strict-mode + multi-system-messages；rules.json wire 區塊缺 | **部分採納** |
-| 0037 usage gate | 上游重寫 usage 管線：TTL 硬編 `5 * 60_000`、`#runUsageRefresh`/`#observeLateUsageRefresh` 新結構；h1/h5 失效 | 未採納（upstream 現在 fetch 後強制重繪） |
+| AC1 | 38 original logical entries map to the resolved 18.2.3 plan; all 37 expected physical entries apply with zero conflicts/missing files. Second application is idempotent. The plan comes from `apply.sh --print-plan`, not a private hand-maintained chain. | R1, R3 |
+| AC2 | Reverse replay restores pristine bytes and file set, with no `.orig`, `.rej`, or orphan empty files. Existing 18.1.14/18.1.18 plans and finalized patch bytes remain unchanged. | R3, R4 |
+| AC3 | Extended `--verify-rollups` and every applicable existing gate pass on their selected official baselines, including 18.2.3. Admission/idle and reservation/transition regressions fail without the fix and pass with it; epoch-reset and chain-loss cases remain covered. | R1, R2, R4 |
+| AC4 | Empty/unknown/wrong-version/missing-candidate cases exit 2 before mutation; check-mode conflict reporting retains its documented contract. No unsupported fallback or version-based silent gate skip. | R4 |
+| AC5 | After separately authorized deployment, `omp --version` reports 18.2.3, stack-aware `apply.sh --check` reports all applied, the executable points to source, runtime patch parity holds, and rollback rehearsal is recorded. Required real-provider/TUI smoke is distinguished from offline evidence. | R1, R5 |
+| AC6 | PATCHES.md and relevant specs reflect the migrated behavior/counts. Unrelated user changes remain intact; no credential contents are logged or task-scoped writes made to live databases. | R5, R6 |
 
-**B. 重寫類（4 項）— 上游結構變化，需在新形態上重寫**：
+## Out of scope
 
-| 補丁 | 上游結構變化 | 遷移策略 |
-|---|---|---|
-| 0041 turn-gate 60s | 改寫 0037 引入的 `ANTHROPIC_USAGE_TURN_GATE_MS`；上游無此常量 | 與 0037 合併為一個 18.2.3 候選 |
-| 0068 stale baseline chain | compaction-v2-streaming.ts 重寫：新增 `createOpenAICodexCompatibilityMetadata` 重構；`isHealthyForReuse` gate 未採納 | 在新 codexMetadata 結構上重寫 |
-| 0069 effort history resume | openai-codex-responses.ts 重寫 | 重寫 |
-| 0070 chain fail-closed | 同 0068 + WS→SSE 靜默回退仍在（`streamCodexCompactionEvents` 兜底）；`sawChainedAttempt` 機制未採納 | 12 hunk 大重寫 |
+- Feature additions, unrelated patch-family cleanup, or changes to the turn-timer extension.
+- Replacing local cache semantics with upstream defaults, warmup/racing workarounds, or silent transport/model fallbacks.
+- Rebuilding the OMP monorepo/bundle, editing Bun cache, or modifying finalized rollback patches.
+- Task start, global upgrade, provider traffic, deployment, or automatic process termination under planning approval alone.
 
-### 無冗餘
-38 項中 0 項可整體刪除：無一項被上游逐字採納（對比 0051 於 18.1.17 被採納的前例）。0065 與 0038 部分語義已進上游，遷移時對應 hunk 應縮減（只補上游仍缺的部分），不可盲目全量重套。
+## Planning readiness
 
-## 工作分解
-
-1. **Re-anchor**：9 個重錨類補丁 → `.18.2.3-candidates/`。方法：在沙盒 18.2.3 樹上重演衝突 hunk，以新上游行為 a/b 側重新生成候選補丁（沿用 18.1.14→18.1.18 的候選機制）。
-   - 0065 需先 diff 上游 kdl/rules.json 與 live 期望形態，只保留 strict-mode + multi-system-messages 兩鍵 + rules.json wire 區塊的增量。
-   - 0047 的 a 側必須是 0038 的 18.2.3 候選產出形態（鏈尾約束）。
-   - 0060 的 h1/h3 依賴 0010 候選先落地的 `runIdleEphemeralTurn`，順序約束保持。
-2. **Rewrite-Statusline**：0037+0041 合併重寫為 18.2.3 候選。上游現狀：TTL=5min 硬編碼於 `refreshUsageInBackground`、fetch 後 `#invalidateStatusLineRenderCache()+#onBranchChange?.()` 強制重繪、`#usageRefreshSequence` 序列化、`STATUS_USAGE_REFRESH_TIMEOUT_MS=2_000`。目標語義：保留 anthropic turn-gate 60s + 非 anthropic 50s TTL + fetch 後不強制重繪（0007 語義）；在上游新 `#runUsageRefresh` 結構上重新錨定。
-3. **Rewrite-Codex**：0068/0069/0070 在上游新 codexMetadata/isolateCompactionTransport 結構上重寫；核心不變量保留：連鏈判斷前查 socket 健康、WS→SSE 不得靜默降級、V2 壓縮只准續鏈不准降級、effort baseline 從 branch history 恢復。注意上游 `resetCodexWebSocketAppendState(requestContext.websocketState)` 仍在開流時清 baseline——0070 的 fail-closed 必須覆蓋新路徑。
-4. **Plan**：apply.sh 加 `18.2.3` case：`_omp_version_candidates "18.2.3"` + 鏈尾清單；canonical 陣列不動。auto-route 加 18.2.3。
-5. **Verify**：沙盒 pristine 18.2.3 全鏈重放（38 項全 APPLIED、0 CONFLICT）；`--verify-rollups` 雙基線 oracle；既有 20 道閘門 verify 腳本在沙盒樹上跑通；revert 後逐字節回 pristine。
-6. **Deploy**：`bun add -g @oh-my-pi/pi-coding-agent@18.2.3` → `OMP_PATCH_VERSION=18.2.3 ~/.omp/patches/apply.sh` → bin symlink 檢查 → 進程重啟。回滾：18.1.18 tar 備份（~/.omp/backups/oh-my-pi-18.1.18-patched-20260917-010451.tar.gz, sha256 c78f9454…）+ apply.sh 18.1.18 計畫。
-
-## 約束（繼承補丁治理規範）
-
-- 補丁嚴禁中文註釋；驗證用符號配對 + pristine 全鏈重放，不靠 `--check` 單獨判定。
-- 定稿補丁不可變：18.1.18 鏈現有補丁檔案一律不動，18.2.3 走候選目錄。
-- apply.sh 失敗即 exit 2 fail-closed，不做就近 fallback。
-- 部署前後 `patches/` 與 `~/.omp/patches/` 零漂移（排除 .bak）。
-- 升級前 49 個運行中 omp 進程需知悉：切換後須全部重啟才載入新代碼。
-
-## 備份（已完成 2026-09-17 01:04）
-
-- `~/.omp/backups/oh-my-pi-18.1.18-patched-20260917-010451.tar.gz`（322MB，含已打補丁的完整 @oh-my-pi 目錄）
-- sha256: c78f94549aaa4e9c65d641eedce44957b8409bec6e4c8da5e630cbf2f42a07f2
-
-## 驗收
-
-1. 沙盒 18.2.3 全鏈重放：38/38 APPLIED、CONFLICT 0、連跑兩次冪等。
-2. revert 沙盒後 sha256 逐位元組回 pristine 18.2.3。
-3. `--verify-rollups` 與全部 verify 腳本 PASS。
-4. 部署後 `omp --version` = 18.2.3、`apply.sh --check` 全 APPLIED。
-5. PATCHES.md 更新：§1 口徑表加 18.2.3 計畫、§5 遷移記錄、§2 補丁明細補 18.2.3 候選說明。
+The final planning review was approved and Phase 2.1 is active. Remaining technical work is assigned in `design.md` and `implement.md`; no candidate validation or deployment success is implied by task activation.

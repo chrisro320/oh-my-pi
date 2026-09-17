@@ -20,10 +20,35 @@
  *      registrants agree rather than merely both being wrong
  *
  * Run: bun ~/.omp/patches/verify-commandcode-model-record-parity.ts
+ *
+ * Roots: OMP_PATCH_VERIFY_NM, then the per-package OMP_PATCH_VERIFY_*_ROOT
+ * overrides, then the live install. The controller exports what it patched, so
+ * a sandbox replay cannot silently measure the live tree.
+ *
+ * Parity target: OMP_PATCH_VERIFY_PLUGIN_ROOT, defaulting to
+ * `<this script>/../vendor/pi-commandcode-provider` — repository-relative, not a
+ * workstation path. An explicitly empty value is rejected rather than replaced
+ * by a default, and a missing target fails the gate: a copied ledger has no
+ * sibling `vendor/`, so the deployment must name the authoritative checkout,
+ * and the gate must never report cross-registrant parity it did not measure.
+ *
+ * Mutation hooks for Main (either must make this gate FAIL):
+ *   OMP_PATCH_VERIFY_PLUGIN_ROOT=""              → empty override rejected
+ *   OMP_PATCH_VERIFY_PLUGIN_ROOT=/nonexistent    → parity target missing
+ *   OMP_PATCH_VERIFY_PLUGIN_ROOT=<copy of the checkout whose
+ *     `src/commandcode-catalog.ts` declares `"deepseek/deepseek-v4.1-flash"`
+ *     as `["text"]`>                                  → axes disagree
  */
 import assert from "node:assert";
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 
-const CATALOG = `${process.env.HOME}/.bun/install/global/node_modules/@oh-my-pi/pi-catalog`;
+// Root selection mirrors the other gates: OMP_PATCH_VERIFY_<CATALOG>_ROOT, then
+// OMP_PATCH_VERIFY_NM, then the live install. The controller exports the
+// catalog root it actually patched (apply.sh), so a sandbox replay cannot
+// silently measure the live tree.
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const KDL_PATH = `${CATALOG}/src/compat/rules/providers/commandcode.kdl`;
 const RULES_PATH = `${CATALOG}/src/compat/rules.json`;
 const MODEL_ID = "deepseek/deepseek-v4.1-flash";
@@ -52,13 +77,28 @@ const matches = rules.cascade.rules.filter(
 		JSON.stringify(rule.providers) === JSON.stringify(["commandcode"]) &&
 		JSON.stringify(rule.models) === JSON.stringify([{ kind: "exact", value: MODEL_ID }]),
 );
-assert.equal(matches.length, 1, "exactly one compiled rule owns the model");
-const rule = matches[0];
-assert.deepEqual(
-	rule.wire,
-	{ supportsStrictMode: true, supportsMultipleSystemMessages: false, stripImageInput: false },
-	"compiled wire axes match the KDL",
-);
+assert.ok(matches.length >= 1, "at least one compiled rule owns the model");
+// 18.1.18 compiles the model into ONE rule; 18.2.3 splits capability and cost
+// into two model blocks, so the axes land on different rules. Coalesce them
+// before asserting — the resolved policy below is what the runtime consumes,
+// and it must carry every axis regardless of how the compiler grouped them.
+const rule = {
+	wire: Object.assign({}, ...matches.map(match => match.wire ?? {})),
+	catalog: Object.assign({}, ...matches.map(match => match.catalog ?? {})),
+} as { wire: Record<string, unknown>; catalog: Record<string, unknown> };
+// The three parity axes are pinned by value. Not a whole-object deepEqual:
+// 18.2.3's own effort block contributes `supportsReasoningEffort` to the same
+// coalesced wire (upstream already adopted the effort ladder), and pinning the
+// container would turn that adopted axis into a false failure. The sibling
+// negative control below is what proves these three are model-scoped rather
+// than provider-wide.
+for (const [axis, value] of [
+	["supportsStrictMode", true],
+	["supportsMultipleSystemMessages", false],
+	["stripImageInput", false],
+] as const) {
+	assert.equal(rule.wire[axis], value, `compiled wire axis ${axis} must be ${String(value)}`);
+}
 assert.deepEqual(rule.catalog.inputModalities, ["text", "image"], "compiled catalog axis matches the KDL");
 assert.ok(rule.catalog.costPatch, "pre-existing cost patch preserved");
 
@@ -100,16 +140,27 @@ assert.notEqual(sibling.compat.stripImageInput, false, "sibling keeps the lineag
 assert.notEqual(sibling.compat.supportsMultipleSystemMessages, false, "sibling keeps split system prompts");
 
 // ── 6. the other registrant still agrees ────────────────────────────────
-const PLUGIN = "/home/chris/orca/projects/omp-move/vendor/pi-commandcode-provider";
-const pluginCatalog = Bun.file(`${PLUGIN}/src/commandcode-catalog.ts`);
-if (await pluginCatalog.exists()) {
-	const text = await pluginCatalog.text();
-	assert.ok(
-		text.includes(`"${MODEL_ID}": ["text", "image"]`),
-		"plugin record still declares image input — parity target unchanged",
-	);
-} else {
-	console.log("  (plugin checkout absent; skipped registrant cross-check)");
-}
+// Resolve the checkout that owns the second registrant. The old form hardcoded
+// this workstation's absolute path and exited 0 when it was absent, so on any
+// other machine — and on a deployed ledger, which has no sibling `vendor/` —
+// the named cross-registrant check silently degraded to a no-op. An explicit
+// override is honoured even when empty: falling back to a default the
+// deployment does not have would recreate exactly that silence.
+const PLUGIN_ROOT =
+	process.env.OMP_PATCH_VERIFY_PLUGIN_ROOT ?? `${import.meta.dir}/../vendor/pi-commandcode-provider`;
+assert.ok(
+	PLUGIN_ROOT.trim().length > 0,
+	'OMP_PATCH_VERIFY_PLUGIN_ROOT is empty: the cross-registrant leg needs the authoritative pi-commandcode-provider checkout (repo vendor/ or the checkout the runtime ledger was deployed from)',
+);
+const pluginCatalog = `${PLUGIN_ROOT}/src/commandcode-catalog.ts`;
+assert.ok(
+	existsSync(pluginCatalog),
+	`cross-registrant parity target missing: ${pluginCatalog}. Point OMP_PATCH_VERIFY_PLUGIN_ROOT at the authoritative checkout; this gate fails closed rather than reporting parity it did not measure.`,
+);
+const text = await Bun.file(pluginCatalog).text();
+assert.ok(
+	text.includes(`"${MODEL_ID}": ["text", "image"]`),
+	"plugin record still declares image input — parity target unchanged",
+);
 
 console.log("verify-commandcode-model-record-parity: ok");

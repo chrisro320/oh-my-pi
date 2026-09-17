@@ -1,5 +1,6 @@
 /** Codex effort history must survive JSONL reload and branch changes. Zero provider calls. */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import type { OpenAICodexResponsesOptions } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/providers/openai-codex-responses.ts";
 import type {
@@ -17,6 +18,14 @@ import type {
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+// 0069 exists only in the 18.1.18 and 18.2.3 plans. Fail closed on any other
+// tree rather than running the behavioral assertions against a pi-ai that
+// never carried the patch.
+const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version as string;
+assert.ok(
+	["18.1.18", "18.2.3"].includes(aiVersion),
+	`unsupported Codex effort resume gate version: ${aiVersion}`,
+);
 const { streamOpenAICodexResponses, buildTransformedCodexRequestBody } = await import(
 	`${AI_ROOT}/src/providers/openai-codex-responses.ts`
 );

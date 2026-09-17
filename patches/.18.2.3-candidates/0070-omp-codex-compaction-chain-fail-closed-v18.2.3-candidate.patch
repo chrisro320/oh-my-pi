@@ -1,0 +1,1203 @@
+--- a/pi-agent-core/src/compaction/compaction-v2-streaming.ts
++++ b/pi-agent-core/src/compaction/compaction-v2-streaming.ts
+@@ -12,11 +12,13 @@
+ import { applyCodexResponsesLiteShape } from "@oh-my-pi/pi-ai/providers/openai-codex/request-transformer";
+ import {
+ 	createOpenAICodexCompactionRequestContext,
+-	createOpenAICodexCompatibilityMetadata,
+ 	type OpenAICodexCompactionBody,
+ 	type OpenAICodexTurnRequestDiagnostics,
+-	type OpenAICodexCompatibilityMetadata,
++	CodexCompactionChainLostError,
++	isRetryableCodexFailureEvent,
+ 	openCodexCompactionEventStream,
++	type OpenAICodexCompactionResponseMetadata,
++	recordOpenAICodexCompactionResponseMetadata,
+ } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+ import {
+ 	getOpenAIPromptCacheKey,
+@@ -25,14 +27,7 @@
+ 	resolveOpenAIRequestSetup,
+ } from "@oh-my-pi/pi-ai/providers/openai-shared";
+ import { captureOpenAIHttpError } from "@oh-my-pi/pi-ai/utils/openai-http";
+-import {
+-	applyCodexResidencyHeader,
+-	CODEX_BASE_URL,
+-	codexRoutingHint,
+-	getCodexAccountId,
+-	OPENAI_HEADER_VALUES,
+-	OPENAI_HEADERS,
+-} from "@oh-my-pi/pi-catalog/wire/codex";
++import { CODEX_BASE_URL } from "@oh-my-pi/pi-catalog/wire/codex";
+ import { $env, isUnexpectedSocketCloseMessage, logger, stringifyJson } from "@oh-my-pi/pi-utils";
+ import { traceCompaction } from "./compaction-trace";
+ 
+@@ -277,6 +272,14 @@
+ 		providerSessionState?: Map<string, ProviderSessionState>;
+ 		codexCompaction?: CodexCompactionContext;
+ 		preferWebsockets?: boolean;
++		/**
++		 * Owner and session this compaction belongs to. One process hosts the
++		 * primary session plus every advisor, each with its own provider session
++		 * and websocket, so an attempt record without them cannot be attributed to
++		 * the chain it needed.
++		 */
++		initiator?: string;
++		sessionId?: string;
+ 	},
+ ): Promise<CompactionV2Response> {
+ 	const endpoint = getCompactionV2Endpoint(model);
+@@ -287,29 +290,26 @@
+ 	const fetchImpl = options?.fetch ?? globalThis.fetch;
+ 	const retryWait = options?.retryWait ?? ((delayMs: number) => Bun.sleep(delayMs));
+ 	const isCodexResponses = compactionV2Api(model) === "openai-codex-responses" || model.provider === "openai-codex";
+-	const codexMetadata =
+-		isCodexResponses && !shouldUseCodexProviderTransport(model)
+-			? createOpenAICodexCompatibilityMetadata({
+-					sessionId: request.sessionId,
+-					providerSessionState: options?.providerSessionState,
+-					requestKind: "compaction",
+-					compaction: createOpenAICodexCompactionRequestContext({
+-						context: options?.codexCompaction,
+-						implementation: "responses_compaction_v2",
+-					}),
+-				})
+-			: undefined;
++	if (isCodexResponses && !shouldUseCodexProviderTransport(model)) {
++		throw new CodexCompactionChainLostError("configured Codex V2 endpoint cannot use the live WebSocket chain");
++	}
+ 	let lastError: Error | undefined;
+ 	// One diagnostics box shared across retries: each attempt overwrites it, so
+ 	// a failed attempt still leaves its wire shape (chained? canAppend? item
+ 	// count) observable in the summarize.attempt trace below.
+ 	const requestDiagnostics: { current?: OpenAICodexTurnRequestDiagnostics } = {};
++	// A compaction request that reached the wire chained cannot be allowed to
++	// degrade into a full replay, whatever killed it. Two failure shapes arrive
++	// here as PLAIN errors — the server rejecting the chain, and the collector's
++	// generic `missing terminal` after a stream that ended early (the shape
++	// actually observed at 17:20:27) — so the retry loop records whether any
++	// attempt was chained and escalates the final error itself.
++	let sawChainedAttempt = false;
+ 
+ 	for (let attempt = 0; attempt <= V2_COMPACTION_MAX_RETRIES; attempt++) {
+ 		const timeoutSignal = withRequestTimeout(signal, options?.timeoutMs ?? V2_COMPACTION_TIMEOUT_MS);
+ 		try {
+ 			return await attemptCompactionV2Streaming(endpoint, apiKey, model, request, fetchImpl, timeoutSignal, {
+-				codexMetadata,
+ 				providerSessionState: options?.providerSessionState,
+ 				codexCompaction: options?.codexCompaction,
+ 				preferWebsockets: options?.preferWebsockets,
+@@ -322,10 +322,16 @@
+ 			// Trace every failed attempt — including the final one and
+ 			// non-retryable errors — so the wire shape that failed is never
+ 			// invisible after the fact.
+-			const retrying = isRetryableCompactionError(error) && attempt < V2_COMPACTION_MAX_RETRIES;
+ 			const diag = requestDiagnostics.current;
++			if (diag?.previousResponseIdPresent) sawChainedAttempt = true;
++			const retrying = isRetryableCompactionError(error) && attempt < V2_COMPACTION_MAX_RETRIES;
+ 			traceCompaction({
+ 				k: "summarize.attempt",
++				// Same owner/session as the summarize.request/usage rows of this
++				// compaction: interleaved attempts in one process would otherwise be
++				// unattributable exactly when a failure needs to be diagnosed.
++				initiator: options?.initiator ?? "primary",
++				sessionId: options?.sessionId ?? request.sessionId,
+ 				model: model.id,
+ 				attempt: attempt + 1,
+ 				final: !retrying,
+@@ -347,11 +353,23 @@
+ 				continue;
+ 			}
+ 
+-			throw error;
++			throw chainLossOr(error, attempt + 1);
+ 		}
+ 	}
+ 
+-	throw lastError ?? new Error("V2 compaction failed after max retries");
++	throw chainLossOr(lastError ?? new Error("V2 compaction failed after max retries"), V2_COMPACTION_MAX_RETRIES + 1);
++
++	/** Escalate any failure of a chained attempt into the terminal sentinel. */
++	function chainLossOr(error: Error, attempts: number): Error {
++		if (error instanceof CodexCompactionChainLostError) return error;
++		if (error instanceof CompactionV2StreamFailure && error.chainLost) {
++			return new CodexCompactionChainLostError(`server rejected the chained compaction: ${error.message}`);
++		}
++		if (!sawChainedAttempt) return error;
++		return new CodexCompactionChainLostError(
++			`chained compaction failed after ${attempts} attempts: ${error.message}`,
++		);
++	}
+ }
+ 
+ async function attemptCompactionV2Streaming(
+@@ -362,7 +380,6 @@
+ 	fetchImpl: FetchImpl,
+ 	signal: AbortSignal | undefined,
+ 	options: {
+-		codexMetadata?: OpenAICodexCompatibilityMetadata;
+ 		providerSessionState?: Map<string, ProviderSessionState>;
+ 		codexCompaction?: CodexCompactionContext;
+ 		preferWebsockets?: boolean;
+@@ -378,12 +395,14 @@
+ 		store: false,
+ 		stream: true,
+ 	};
+-	if (options.codexMetadata) {
+-		body.client_metadata = options.codexMetadata.clientMetadata;
+-	}
+ 
+ 	if (shouldUseCodexProviderTransport(model)) {
+ 		const requestDiagnostics = options.requestDiagnostics ?? {};
++		// Session metadata this compaction may commit — only if the collector
++		// accepts the summary. The provider supplies the applier because the state
++		// cells live in its per-request context.
++		const acceptedMetadata: OpenAICodexCompactionResponseMetadata = {};
++		let applyAcceptedMetadata: ((recorded: OpenAICodexCompactionResponseMetadata) => void) | undefined;
+ 		// Clear before opening: a failure before the wire-shape recording would
+ 		// otherwise leave the previous attempt's diagnostics mislabeled as ours.
+ 		requestDiagnostics.current = undefined;
+@@ -403,8 +422,19 @@
+ 				implementation: "responses_compaction_v2",
+ 			}),
+ 			requestDiagnostics,
++			onAccept: commit => {
++				applyAcceptedMetadata = commit;
++			},
+ 		});
+-		const collected = await collectCompactionV2Events(eventStream, request);
++		const collected = await collectCompactionV2Events(eventStream, request, acceptedMetadata);
++		// The summary is accepted, so this attempt's effects may now be committed:
++		// the replacement history supersedes the live prefix (the append baseline is
++		// stale for the next normal turn) and the stream's session metadata becomes
++		// valid. Both are applied by the provider's callback, scoped to the socket
++		// this compaction actually used — invalidating at open time instead (the
++		// previous behaviour) also destroyed the retry baseline, and a blanket map
++		// sweep would cost other sessions their chain.
++		applyAcceptedMetadata?.(acceptedMetadata);
+ 		const diag = requestDiagnostics.current;
+ 		if (diag) {
+ 			collected.requestDiagnostics = {
+@@ -419,7 +449,7 @@
+ 
+ 	const response = await fetchImpl(endpoint, {
+ 		method: "POST",
+-		headers: buildCompactionV2Headers(model, apiKey, request, options.codexMetadata),
++		headers: buildCompactionV2Headers(model, apiKey, request),
+ 		body: stringifyJson(body),
+ 		signal,
+ 	});
+@@ -449,7 +479,6 @@
+ 	model: Model,
+ 	apiKey: string,
+ 	request: CompactionV2Request,
+-	codexMetadata?: OpenAICodexCompatibilityMetadata,
+ ): Record<string, string> {
+ 	const api = compactionV2Api(model);
+ 	const cacheOptions = { sessionId: request.sessionId, promptCacheKey: request.promptCacheKey };
+@@ -469,27 +498,6 @@
+ 						{ apiKey, messages: [], sessionId: request.sessionId ?? routingSessionId, promptCacheSessionId },
+ 					).headers,
+ 				};
+-	if (api === "openai-codex-responses" || model.provider === "openai-codex") {
+-		const accountId = getCodexAccountId(apiKey);
+-		if (accountId) {
+-			headers[OPENAI_HEADERS.ACCOUNT_ID] = accountId;
+-		}
+-		applyCodexResidencyHeader(headers, apiKey);
+-		if (routingSessionId) {
+-			headers[OPENAI_HEADERS.CONVERSATION_ID] = routingSessionId;
+-			headers[OPENAI_HEADERS.SESSION_ID] = routingSessionId;
+-			headers["x-client-request-id"] = routingSessionId;
+-		}
+-		headers[OPENAI_HEADERS.BETA] = OPENAI_HEADER_VALUES.BETA_RESPONSES;
+-		headers[OPENAI_HEADERS.ORIGINATOR] = OPENAI_HEADER_VALUES.ORIGINATOR_CODEX;
+-		headers[OPENAI_HEADERS.CODEX_BETA_FEATURES] = OPENAI_HEADER_VALUES.REMOTE_COMPACTION_V2;
+-		headers[OPENAI_HEADERS.ROUTING_HINT] = codexRoutingHint(request.body.model, undefined);
+-		if (model.useResponsesLite) {
+-			headers[OPENAI_HEADERS.RESPONSES_LITE] = "true";
+-		}
+-	}
+-	if (codexMetadata) Object.assign(headers, codexMetadata.headers);
+-
+ 	return headers;
+ }
+ 
+@@ -512,9 +520,14 @@
+ async function collectCompactionV2Events(
+ 	events: AsyncIterable<Record<string, unknown>>,
+ 	request: CompactionV2Request,
++	metadata?: OpenAICodexCompactionResponseMetadata,
+ ): Promise<CompactionV2Response> {
+ 	const state = createCompactionV2CollectionState();
+ 	for await (const event of events) {
++		// Record session metadata as it arrives, but do NOT apply it: the checks in
++		// finishCompactionV2Collection below can still reject this attempt, and
++		// sticky routing state from a rejected attempt would poison the next turn.
++		if (metadata) recordOpenAICodexCompactionResponseMetadata(event, metadata);
+ 		handleCompactionV2Event(event, undefined, state);
+ 	}
+ 	return finishCompactionV2Collection(state, request);
+@@ -643,8 +656,16 @@
+ 		return;
+ 	}
+ 
+-	if (type === "response.failed" || type === "response.incomplete") {
+-		throw new Error(formatCompactionV2Failure(event, type));
++	if (type === "response.failed" || type === "response.incomplete" || type === "error") {
++		// The `type:"error"` frame previously had NO branch: it fell through to the
++		// generic "stream closed before response.completed" in
++		// finishCompactionV2Collection, discarding the provider's code and making a
++		// rejected chain indistinguishable from a truncated stream. The live
++		// failure measured on 2026-09-15 arrived exactly this way.
++		throw new CompactionV2StreamFailure(formatCompactionV2Failure(event, type), {
++			code: compactionV2FailureCode(event),
++			chainLost: isCodexChainRejection(event),
++		});
+ 	}
+ }
+ 
+@@ -671,23 +692,125 @@
+ 	};
+ }
+ 
+-function formatCompactionV2Failure(event: Record<string, unknown>, type: string): string {
++/**
++ * A terminal compaction failure that preserves the provider's own code.
++ *
++ * The previous shape was `new Error(formatCompactionV2Failure(...))`: a string
++ * with the code embedded, so `isRetryableCompactionError` could only pattern-match
++ * on prose and the caller could not tell a transient upstream blip from a
++ * rejected chain. `chainLost` marks the latter.
++ */
++class CompactionV2StreamFailure extends Error {
++	readonly code?: string;
++	readonly chainLost: boolean;
++
++	constructor(message: string, options: { code?: string; chainLost: boolean }) {
++		super(message);
++		this.name = "CompactionV2StreamFailure";
++		this.code = options.code;
++		this.chainLost = options.chainLost;
++	}
++}
++
++/** Provider codes that will not succeed on a retry. */
++const CODEX_PERMANENT_FAILURE_CODES: Record<string, true> = {
++	invalid_request_error: true,
++	context_length_exceeded: true,
++	unsupported_parameter: true,
++	authentication_error: true,
++	permission_denied: true,
++};
++
++/**
++ * Codes that UNAMBIGUOUSLY mean the chained prefix is gone, on any transport.
++ *
++ * `invalid_request_error` is deliberately NOT here. This collector also serves
++ * plain `openai-responses` / `azure-openai-responses` compactions, which never
++ * send `previous_response_id` at all — treating their generic bad-request code
++ * as a lost chain would wrap unrelated failures in the Codex-specific sentinel
++ * and suppress their normal fallback. Those cases are caught below by requiring
++ * the message to name the chain parameter.
++ */
++const CODEX_CHAIN_REJECTION_CODES: Record<string, true> = {
++	previous_response_not_found: true,
++	codex_previous_response_stale: true,
++};
++
++/**
++ * Provider code for a terminal failure frame.
++ *
++ * The wire shape varies: `type:"error"` carries the code at the TOP level while
++ * `response.failed` nests it under `response.error`. Reading only the nested
++ * form (as the first revision did) silently drops the code on the very frame
++ * this patch exists to classify, so every field the upstream parser reads is
++ * read here too — see `createCodexProviderStreamError`.
++ */
++function compactionV2FailureCode(event: Record<string, unknown>): string | undefined {
+ 	const response = isRecord(event.response) ? event.response : undefined;
+-	const error = isRecord(event.error)
+-		? event.error
+-		: response && isRecord(response.error)
+-			? response.error
+-			: undefined;
+-	const message = error ? stringField(error, "message") : undefined;
+-	const code = error ? (stringField(error, "code") ?? stringField(error, "type")) : undefined;
++	const error = isRecord(event.error) ? event.error : response && isRecord(response.error) ? response.error : undefined;
++	return (
++		(error ? (stringField(error, "code") ?? stringField(error, "type")) : undefined) ??
++		stringField(event, "code")
++	);
++}
++
++/** Provider message for a terminal failure frame, across both wire shapes. */
++function compactionV2FailureMessage(event: Record<string, unknown>): string | undefined {
++	const response = isRecord(event.response) ? event.response : undefined;
++	const error = isRecord(event.error) ? event.error : response && isRecord(response.error) ? response.error : undefined;
++	return (
++		(error ? stringField(error, "message") : undefined) ??
++		stringField(event, "message") ??
++		(response ? stringField(response, "message") : undefined)
++	);
++}
++
++/**
++ * True only when the failure names the chained-prefix parameter itself. This is
++ * shared by both V2 transports, so it must never claim a plain request error is
++ * a lost chain: a bare `invalid_request_error` (context too long, bad tool
++ * schema, …) is only a chain loss when the message says so.
++ */
++function isCodexChainRejection(event: Record<string, unknown>): boolean {
++	const code = compactionV2FailureCode(event);
++	if (code && Object.hasOwn(CODEX_CHAIN_REJECTION_CODES, code)) return true;
++	// The gateway's bare `{"detail":"Unsupported parameter: previous_response_id"}`
++	// carries no code, and neither do some proxy rejections.
++	return /previous[ _]?response[ _]?id/i.test(compactionV2FailureMessage(event) ?? "");
++}
++
++function formatCompactionV2Failure(event: Record<string, unknown>, type: string): string {
++	const code = compactionV2FailureCode(event);
++	const message = compactionV2FailureMessage(event);
+ 	return `V2 compaction stream ${type}${code ? ` (${code})` : ""}${message ? `: ${message}` : ""}`;
+ }
+ 
+ function isRetryableCompactionError(error: Error): boolean {
++	// A lost chain is deterministic ONLY when the socket is gone; when the
++	// connection survives, the retry re-chains and hits cache (measured 98% on
++	// the same lane). The send-point refusal distinguishes the two by throwing
++	// this sentinel exactly when no chainable frame could be built, so a single
++	// failure must not be treated as terminal here.
++	if (error instanceof CodexCompactionChainLostError) return false;
++	// A provider code we now preserve decides retry-vs-terminal explicitly, so a
++	// rejected chain is never retried as if it were a transient blip.
++	if (error instanceof CompactionV2StreamFailure) {
++		if (error.chainLost) return false;
++		if (error.code && Object.hasOwn(CODEX_PERMANENT_FAILURE_CODES, error.code)) return false;
++	}
+ 	// The gateway's synthetic auth_unavailable is an HTTP 503, but the
+ 	// captured response cause classifies it as auth. Let provider fallback run
+ 	// immediately instead of spending the transient retry budget.
+-	if (AIError.is(AIError.classify(error), AIError.Flag.AuthFailed)) return false;
++	const classification = AIError.classify(error);
++	if (AIError.is(classification, AIError.Flag.AuthFailed)) return false;
++	// Includes typed WebSocket parse failures; the next send still requires a live chain.
++	if (AIError.is(classification, AIError.Flag.Transient)) return true;
++	if (
++		error instanceof CompactionV2StreamFailure &&
++		isRetryableCodexFailureEvent({ code: error.code, message: error.message })
++	) {
++		return true;
++	}
+ 	if (
+ 		error.name === "AbortError" ||
+ 		error.name === "TimeoutError" ||
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -27,6 +27,7 @@
+ import * as AIError from "@oh-my-pi/pi-ai/error";
+ import {
+ 	buildTransformedCodexRequestBody,
++	CodexCompactionChainLostError,
+ 	createOpenAICodexCompactionRequestContext,
+ 	type OpenAICodexCompactionBody,
+ } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+@@ -681,6 +682,13 @@
+  * If previousSummary is provided, uses the update prompt to merge.
+  */
+ export interface SummaryOptions {
++	/**
++	 * Who initiated this compaction (`"primary"`, `"advisor:<slug>"`, …). Recorded
++	 * on the codex-v2 trace: one process hosts the primary plus every advisor, each
++	 * with its OWN provider session and websocket, so a compaction record without
++	 * this cannot be attributed to the socket whose chain it needed.
++	 */
++	initiator?: string;
+ 	promptOverride?: string;
+ 	extraContext?: string[];
+ 	remoteEndpoint?: string;
+@@ -1793,6 +1801,7 @@
+ 		extraContext: options?.extraContext,
+ 		remoteEndpoint: settings.remoteEnabled === false ? undefined : settings.remoteEndpoint,
+ 		remoteSystemPrompt: options?.remoteSystemPrompt,
++		initiator: options?.initiator,
+ 		initiatorOverride: options?.initiatorOverride,
+ 		metadata: options?.metadata,
+ 		convertToLlm: options?.convertToLlm,
+@@ -1961,6 +1970,10 @@
+ 				traceCompaction({
+ 					k: "summarize.request",
+ 					lane: "codex-v2",
++					// Which session/agent this compaction belongs to. Without it the
++					// record cannot be attributed when one process hosts several.
++					initiator: summaryOptions.initiator ?? "primary",
++					sessionId: summaryOptions.sessionId,
+ 					model: model.id,
+ 					messages: trimmed.input.length,
+ 					systemParts: remoteSystemPrompt.length,
+@@ -1975,12 +1988,19 @@
+ 							providerSessionState: summaryOptions.providerSessionState,
+ 							preferWebsockets: summaryOptions.preferWebsockets,
+ 							codexCompaction: summaryOptions.codexCompaction,
++							// Same owner/session identity the request/usage rows carry, so
++							// every summarize.attempt of this compaction is attributable
++							// even when it is the only record left behind.
++							initiator: summaryOptions.initiator,
++							sessionId: summaryOptions.sessionId,
+ 						}),
+ 					{ signal },
+ 				);
+ 				traceCompaction({
+ 					k: "summarize.usage",
+ 					lane: "codex-v2",
++					initiator: summaryOptions.initiator ?? "primary",
++					sessionId: summaryOptions.sessionId,
+ 					model: model.id,
+ 					stopReason: "compaction",
+ 					usage: remote.usage,
+@@ -1999,10 +2019,20 @@
+ 				traceCompaction({
+ 					k: "summarize.usage",
+ 					lane: "codex-v2",
++					// A failed compaction is the record that most needs an owner: the
++					// terminal chain-loss and retry rows are exactly what an operator
++					// has to assign to the primary session or to one advisor.
++					initiator: summaryOptions.initiator ?? "primary",
++					sessionId: summaryOptions.sessionId,
+ 					model: model.id,
+ 					stopReason: "error",
+ 					error: err instanceof Error ? err.message : String(err),
+ 				});
++				// A lost chain is terminal. Continuing into the V1 lane and then the
++				// local summarizer would still produce a compaction entry — one whose
++				// low cache hit is invisible in the result. The caller asked for the
++				// chained lane; if it cannot hold its prefix, say so.
++				if (err instanceof CodexCompactionChainLostError) throw err;
+ 				nativeCompactionError = selectNativeCompactionError(nativeCompactionError, err);
+ 				logger.warn("OpenAI V2 remote compaction failed, falling back to V1 remote compaction", {
+ 					error: err instanceof Error ? err.message : String(err),
+--- a/pi-ai/dist/types/providers/openai-codex-responses.d.ts
++++ b/pi-ai/dist/types/providers/openai-codex-responses.d.ts
+@@ -47,6 +47,8 @@
+ /** Transport controls for a provider-native Codex V2 compaction stream. */
+ export interface OpenAICodexCompactionStreamOptions extends OpenAICodexResponsesOptions {
+     apiKey: string;
++    requestDiagnostics?: { current?: OpenAICodexTurnRequestDiagnostics };
++    onAccept?: (commit: (recorded: OpenAICodexCompactionResponseMetadata) => void) => void;
+ }
+ /** Inputs for synthesizing Codex request identity outside the normal stream path. */
+ export interface OpenAICodexCompatibilityMetadataOptions {
+@@ -232,3 +234,30 @@
+ }
+ export declare function isRetryableCodexFailureEvent(rawEvent: Record<string, unknown>): boolean;
+ export declare function createCodexProviderStreamError(rawEvent: Record<string, unknown>): CodexProviderStreamError;
++
++/**
++ * Raised when a Codex V2 compaction request can no longer carry
++ * `previous_response_id`. Sending the rebuilt transcript instead replays the
++ * whole history at a few percent cache hit while still reporting success, so
++ * the lane fails closed instead.
++ */
++export declare class CodexCompactionChainLostError extends Error {
++    readonly code = "codex_compaction_chain_lost";
++    constructor(detail: string);
++}
++/** Session metadata recorded from a compaction stream, applied once accepted. */
++export interface OpenAICodexCompactionResponseMetadata {
++    turnState?: string;
++    modelsEtag?: string;
++    providerSessionState?: Map<string, ProviderSessionState>;
++}
++export declare function recordOpenAICodexCompactionResponseMetadata(
++    event: Record<string, unknown>,
++    into: OpenAICodexCompactionResponseMetadata,
++): void;
++export declare function applyOpenAICodexCompactionResponseMetadata(
++    recorded: OpenAICodexCompactionResponseMetadata,
++    requestContext: { turnState: { value?: string }; websocketState?: { modelsEtag?: string } },
++): void;
++/** True when the failure names an expired/missing `previous_response_id`. */
++export declare function isCodexStalePreviousResponseError(error: unknown): boolean;
+--- a/pi-ai/src/providers/openai-codex-responses.ts
++++ b/pi-ai/src/providers/openai-codex-responses.ts
+@@ -186,6 +186,21 @@
+ 	apiKey: string;
+ 	/** Receives the wire shape of the compaction request actually sent. */
+ 	requestDiagnostics?: { current?: OpenAICodexTurnRequestDiagnostics };
++	/**
++	 * Set once an earlier attempt of THIS request chained. Every later attempt
++	 * must chain too: a retry that quietly rebuilds the transcript is the same
++	 * degradation as the original failure, only harder to notice.
++	 */
++	/**
++	 * Receives a callback that commits the attempt's session metadata AND drops
++	 * its now-stale append baseline. pi-agent-core calls it only after the
++	 * collector accepts the summary, because the generator itself cannot see that
++	 * verdict. Both effects are scoped to the exact websocket state this
++	 * compaction used — a blanket clear over the process's session map would
++	 * destroy other models'/sessions' baselines and cost them a full replay on
++	 * their next turn. Overwritten per attempt, so it always targets the last one.
++	 */
++	onAccept?: (commit: (recorded: OpenAICodexCompactionResponseMetadata) => void) => void;
+ }
+ 
+ /** Inputs for synthesizing Codex request identity outside the normal stream path. */
+@@ -477,6 +492,22 @@
+ 	fallbackCount: number;
+ 	lastFallbackAt?: number;
+ 	prewarmed: boolean;
++	/**
++	 * Why the socket that most recently died went away, when, and which socket it
++	 * was. The chain dies with its connection, so this is the only record of what
++	 * killed a baseline between two requests. Cleared as soon as a new chain is
++	 * established — a stale obituary must not be read as the current cause.
++	 */
++	lastClose?: { reason: string; at: number; generation: number };
++	/**
++	 * The peer's own close, tracked apart from `lastClose` because `close()`
++	 * fires the same callback synchronously with our reason before the socket is
++	 * replaced — with one slot the local teardown always won, and a genuine
++	 * server-side close was never observable. Recorded even for a socket that
++	 * `state.connection` has already moved past, since that close lands
++	 * asynchronously and is the only evidence the peer ended the connection.
++	 */
++	lastPeerClose?: { reason: string; at: number; generation: number };
+ 	stats: OpenAICodexWebSocketDebugStats;
+ };
+ 
+@@ -1672,6 +1703,18 @@
+ 	transport: CodexTransport;
+ }> {
+ 	const { transformedBody, websocketState } = requestContext;
++	// The compaction lane must never reach SSE: SSE has no
++	// `previous_response_id` slot, so the request would replay the whole rebuilt
++	// transcript at full price. That holds for a cold start exactly as much as for
++	// a socket that already lost its chain, so the refusal is unconditional. This has to be checked HERE, before the
++	// fallback fetch goes out — `openCodexSseTransport` performs the HTTP request
++	// internally, so a check on the returned transport would run after the
++	// expensive replay had already been paid for.
++	// Chain-only WITHOUT exception: a cold-start replay costs the same full-price
++	// input as a lost chain, so it is refused rather than merely the degraded
++	// retry. The trailing compaction trigger is the discriminator, so ordinary
++	// turns keep their cold-start replay.
++	const refuseSseFallback = isCompactionWireBody(transformedBody);
+ 	if (websocketState && shouldUseCodexWebSocket(model, websocketState, options?.preferWebsockets)) {
+ 		const websocketRetryBudget = CODEX_WEBSOCKET_RETRY_BUDGET;
+ 		let websocketRetries = 0;
+@@ -1709,10 +1752,21 @@
+ 					});
+ 					continue;
+ 				}
++				if (refuseSseFallback) {
++					throw new CodexCompactionChainLostError(
++						`websocket open failed and SSE cannot chain: ${error.message}`,
++					);
++				}
+ 				break;
+ 			}
+ 		}
+ 	}
++	if (refuseSseFallback) {
++		// No websocket transport was even attempted (disabled or unavailable).
++		throw new CodexCompactionChainLostError(
++			"websocket transport unavailable; SSE cannot carry the append baseline",
++		);
++	}
+ 	return openCodexSseTransport(model, requestContext, requestSetup, options, websocketState, transformedBody);
+ }
+ 
+@@ -1762,12 +1816,27 @@
+ 		}
+ 	}
+ 
++	// Hand the collector a way to commit this attempt's effects after it validates
++	// the summary. Deferred rather than applied here because the terminal-event
++	// and compaction-item checks run after this generator drains. The append
++	// baseline is dropped HERE rather than at open time: the replacement history
++	// only exists once the summary is accepted, and clearing early also destroyed
++	// the retry baseline. Scoped to `requestContext.websocketState` so no other
++	// session or model loses its chain.
++	options.onAccept?.(recorded => {
++		applyOpenAICodexCompactionResponseMetadata(recorded, requestContext);
++		if (requestContext.websocketState) {
++			resetCodexWebSocketAppendState(requestContext.websocketState);
++		}
++	});
+ 	if (requestContext.websocketState) {
+ 		requestContext.websocketState.lastTransport = initial.transport;
+-		// The compaction request may use the existing append baseline, but the
+-		// replacement history makes that baseline stale for the next normal turn.
+-		resetCodexWebSocketAppendState(requestContext.websocketState);
+ 	}
++	// NOTE: the append baseline is deliberately NOT invalidated here. The
++	// replacement history only exists once the collector accepts the summary, so
++	// clearing at open time threw away the retry baseline and forced every retry
++	// into a full replay. The `onAccept` callback above drops it after a
++	// successful collect, scoped to this socket.
+ 	return streamCodexCompactionEvents(model, options, requestSetup, requestContext, initial);
+ }
+ 
+@@ -1786,6 +1855,12 @@
+ 	const websocketState = requestContext.websocketState;
+ 	const previousTurnState = requestContext.turnState.value;
+ 	const previousModelsEtag = websocketState?.modelsEtag;
++	// Session metadata (`response.metadata` frames) is deliberately NOT applied
++	// here. The collector in pi-agent-core decides success only AFTER this
++	// generator is drained — it still checks the terminal event and the exact
++	// compaction-item count — so anything committed here would land for a failed
++	// attempt. The collector applies the recorded headers itself once it accepts
++	// the summary (see `applyOpenAICodexCompactionResponseMetadata`).
+ 	try {
+ 		if (initial.transport === "websocket") {
+ 			// Do not expose a WebSocket attempt until it finishes: an SSE replay
+@@ -1794,7 +1869,28 @@
+ 			try {
+ 				for await (const event of initial.eventStream) bufferedEvents.push(event);
+ 			} catch (error) {
+-				if (options.signal?.aborted || !(error instanceof CodexWebSocketTransportError)) {
++				if (options.signal?.aborted) throw error;
++				// A chained compaction the server rejects is not recoverable by
++				// replaying: `previous_response_not_found` / `invalid_request_error`
++				// mean the prefix this request depended on is gone, and the only
++				// alternative the transport offers is the full-transcript replay this
++				// lane refuses.
++				if (isCompactionWireBody(requestContext.transformedBody) && isCodexStalePreviousResponseError(error)) {
++					throw new CodexCompactionChainLostError(
++						`server rejected the compaction chain: ${error instanceof Error ? error.message : String(error)}`,
++					);
++				}
++				if (!(error instanceof CodexWebSocketTransportError)) {
++					throw error;
++				}
++				// SSE carries no `previous_response_id`, so this fallback is a silent
++				// full-replay: same tokens, ~9% hit, no error surfaced. The compaction
++				// lane must not take it — but it must not be declared unrecoverable
++				// either. Rethrow the transport error so a transient failure on a
++				// still-healthy socket retries and re-chains (the measured 98% case);
++				// a socket that died in the meantime is caught by the send-point
++				// refusal below, which fails closed without writing a frame.
++				if (isCompactionWireBody(requestContext.transformedBody)) {
+ 					throw error;
+ 				}
+ 				const state = requestContext.websocketState;
+@@ -1817,18 +1913,27 @@
+ 					}
+ 				}
+ 				if (state) state.lastTransport = fallback.transport;
+-				yield* drainCodexCompactionEvents(fallback.eventStream, requestContext);
++				yield* drainCodexCompactionEvents(fallback.eventStream);
+ 				completed = true;
+ 				return;
+ 			}
+ 			// Apply metadata only once the WebSocket attempt succeeded: a discarded
+-			// attempt must not leak its `x-codex-turn-state` into the session.
++			// attempt must not leak its `x-codex-turn-state` into the session. Staged
++			// (not written) until the consumer drains without breaking out.
+ 			for (const event of bufferedEvents) {
+-				applyCodexCompactionResponseMetadata(requestContext, event);
+ 				yield event;
+ 			}
+ 		} else {
+-			yield* drainCodexCompactionEvents(initial.eventStream, requestContext);
++			try {
++				yield* drainCodexCompactionEvents(initial.eventStream);
++			} catch (error) {
++				if (!options.signal?.aborted && isCodexStalePreviousResponseError(error)) {
++					throw new CodexCompactionChainLostError(
++						`SSE compaction chain rejected: ${error instanceof Error ? error.message : String(error)}`,
++					);
++				}
++				throw error;
++			}
+ 		}
+ 		completed = true;
+ 	} finally {
+@@ -1840,30 +1945,10 @@
+ 	}
+ }
+ 
+-/**
+- * Capture `x-codex-turn-state`/`x-models-etag` response metadata after a
+- * compaction attempt succeeds.
+- */
+-function applyCodexCompactionResponseMetadata(
+-	requestContext: CodexRequestContext,
+-	event: Record<string, unknown>,
+-): void {
+-	if (event.type !== "response.metadata") return;
+-	updateCodexSessionMetadataFromHeaders(
+-		requestContext.turnState,
+-		requestContext.websocketState,
+-		toCodexHeaders(event.headers),
+-	);
+-}
+-
+ async function* drainCodexCompactionEvents(
+ 	events: AsyncGenerator<Record<string, unknown>>,
+-	requestContext: CodexRequestContext,
+ ): AsyncGenerator<Record<string, unknown>> {
+-	for await (const event of events) {
+-		applyCodexCompactionResponseMetadata(requestContext, event);
+-		yield event;
+-	}
++	yield* events;
+ }
+ async function openCodexWebSocketTransport(
+ 	model: Model<"openai-codex-responses">,
+@@ -1873,6 +1958,12 @@
+ 	websocketState: CodexWebSocketSessionState,
+ 	retry: number,
+ 	onSseEvent?: (event: RawSseEvent) => void,
++	/**
++	 * Set by the compaction lane. While true, a frame that cannot carry
++	 * `previous_response_id` must be refused BEFORE it is sent: the rebuilt
++	 * transcript is a full-price replay, and once it is on the wire the damage is
++	 * done whatever the caller does next.
++	 */
+ ): Promise<{
+ 	eventStream: AsyncGenerator<Record<string, unknown>>;
+ 	requestBodyForState: RequestBody;
+@@ -1892,6 +1983,31 @@
+ 		await getCodexAttestationHeader(requestContext.accountId),
+ 		requestContext.transformedBody,
+ 	);
++	// Sample the baseline BEFORE the connection settles. getOrCreate clears the
++	// append state whenever it reconnects (stale-reuse / token-refresh /
++	// unhealthy), so reading it afterwards cannot distinguish "this request never
++	// had a chain" from "the chain just died with its socket". The compaction
++	// lane fails closed on that difference.
++	const hadAppendBaselineThisAttempt = hasCodexAppendBaseline(websocketState);
++	// Why a chain was lost is otherwise invisible after the fact: all that
++	// remains is the cleared state. Capture the socket's condition on BOTH sides
++	// of getOrCreate so the fail-closed throw names the branch that fired instead
++	// of requiring a debug re-run to find out.
++	const socketBefore = websocketState.connection
++		? websocketState.connection.isOpen()
++			? "open"
++			: websocketState.connection.isConnecting()
++				? "connecting"
++				: "closed"
++		: "none";
++	const appendBefore = websocketState.canAppend === true;
++	const prewarmedBefore = websocketState.prewarmed === true;
++	const fallbacksBefore = websocketState.fallbackCount;
++	// Whether THIS frame must chain is a property of the originating request, not
++	// of the state left behind by a previous failed attempt in the retry loop:
++	// that attempt's failure already cleared the baseline, so a locally-sampled
++	// flag would read false and let the retry send the whole transcript.
++	const mustChain = isCompactionWireBody(requestContext.transformedBody);
+ 	const websocketConnection = await getOrCreateCodexWebSocketConnection(
+ 		websocketState,
+ 		requestContext.turnState,
+@@ -1906,7 +2022,13 @@
+ 	// check may have just reset the append state, and a baseline read earlier
+ 	// would race the reconnect (TOCTOU) and ship a dead prev_id.
+ 	const canAppendBeforeRequest = websocketState.canAppend === true;
++	const socketAfter = websocketState.connection ? (websocketState.connection.isOpen() ? "open" : "not-open") : "none";
+ 	const chainedBody = buildCodexChainedRequestBody(requestContext.transformedBody, websocketState);
++	// The builder itself clears the append state on a prefix/options mismatch
++	// (see its `codex append reset` branch), so the pre-build reading cannot say
++	// whether getOrCreate or the builder dropped the chain. Sample again after it.
++	const canAppendAfterBuild = websocketState.canAppend === true;
++	const lastResponseIdAfterBuild = websocketState.lastResponseId !== undefined;
+ 	// WebSocket frames cannot carry per-request HTTP headers. Canonical Codex
+ 	// request identity is already in `client_metadata`; connection-scoped
+ 	// compatibility values that can change after the upgrade ride alongside it
+@@ -1927,6 +2049,45 @@
+ 	if (replacementWebsocketRequest !== undefined) {
+ 		websocketRequest = replacementWebsocketRequest as typeof websocketRequest;
+ 	}
++	// Codex V2 remote compaction is chain-only. Replaying the rebuilt transcript
++	// costs a full-price input (~9% measured hit) while looking like a success,
++	// so the lane refuses to degrade: if it held a baseline and the settled
++	// socket can no longer carry it, fail before anything reaches the wire. The
++	// ordinary turn path keeps its cold-start full replay.
++	if (mustChain && (websocketRequest as { previous_response_id?: string }).previous_response_id === undefined) {
++		const hadAnyBaseline = hadAppendBaselineThisAttempt || retry > 0;
++		// Three sampling points straddle the two places that can drop the chain:
++		// `canAppendAtSample` (before getOrCreate), `canAppendAtBuild` (after it),
++		// and `canAppendAfterBuild` (after buildCodexChainedRequestBody, which
++		// clears the state itself on a prefix/options mismatch). Reading them in
++		// sequence separates "getOrCreate reset it" from "the builder reset it".
++		const diagnosis =
++			`socketAtSample=${socketBefore}, socketAtBuild=${socketAfter}` +
++			`, baselineAtSample=${hadAppendBaselineThisAttempt}, canAppendAtSample=${appendBefore}` +
++			`, canAppendAtBuild=${canAppendBeforeRequest}, canAppendAfterBuild=${canAppendAfterBuild}` +
++			`, lastResponseIdAfterBuild=${lastResponseIdAfterBuild}` +
++			`, prewarmed=${prewarmedBefore}, fallbacks=${fallbacksBefore}` +
++			`, lastTransport=${websocketState.lastTransport ?? "none"}, wsRetry=${retry}` +
++			// What killed the socket, and how long before this request — the chain
++			// dies with the connection, so this is the cause, not a correlate.
++			(websocketState.lastClose
++				? `, lastSocketClose="${websocketState.lastClose.reason}" ${Math.round((Date.now() - websocketState.lastClose.at) / 1000)}s before this request (socket #${websocketState.lastClose.generation})`
++				: ", lastSocketClose=none") +
++			// `lastSocketClose` is our own teardown reason whenever we replaced the
++			// socket ourselves. The peer's close is the separate question, and it is
++			// absent both when the server never closed and when its close landed on
++			// a socket we had already detached.
++			(websocketState.lastPeerClose
++				? `, lastPeerClose="${websocketState.lastPeerClose.reason}" ${Math.round((Date.now() - websocketState.lastPeerClose.at) / 1000)}s before this request (socket #${websocketState.lastPeerClose.generation})`
++				: ", lastPeerClose=not-observed");
++		throw new CodexCompactionChainLostError(
++			`${
++				hadAnyBaseline
++					? "socket settled without the baseline this compaction request started with"
++					: "compaction request lost its append baseline before the frame was built"
++			} [${diagnosis}]`,
++		);
++	}
+ 	recordCodexTurnRequestDiagnostics(websocketState, websocketRequest, "websocket", canAppendBeforeRequest);
+ 	const requestBodyForState = structuredCloneJSON(requestContext.transformedBody);
+ 	// `onPayload` may rewrite the outgoing frame (e.g. drop `stream_options`);
+@@ -2109,7 +2270,64 @@
+ 	slow_down: true,
+ };
+ 
+-function isCodexStalePreviousResponseError(error: unknown): boolean {
++/**
++ * Exported for the compaction lane: a server-side rejection of a chained request
++ * is the same failure class as a dead socket — the chain this request started
++ * with is gone. The ordinary turn path recovers by replaying with full context
++ * (see `#tryRecoverPreviousResponseNotFound`); the compaction lane must not,
++ * because that replay is precisely the silent degradation it refuses.
++ */
++/**
++ * Snapshot of the session metadata carried by a compaction stream's
++ * `response.metadata` frames.
++ *
++ * The compaction generator cannot apply these itself: pi-agent-core only decides
++ * whether the summary was accepted after the generator is fully drained (it still
++ * validates the terminal event and the exact compaction-item count). Applying on
++ * arrival therefore commits metadata for attempts that later fail. The collector
++ * records the frames as it consumes them and calls
++ * {@link applyOpenAICodexCompactionResponseMetadata} once the summary is accepted.
++ */
++export interface OpenAICodexCompactionResponseMetadata {
++	turnState?: string;
++	modelsEtag?: string;
++	providerSessionState?: Map<string, ProviderSessionState>;
++}
++
++/** Record the session metadata a compaction stream reported, without applying it. */
++export function recordOpenAICodexCompactionResponseMetadata(
++	event: Record<string, unknown>,
++	into: OpenAICodexCompactionResponseMetadata,
++): void {
++	if (event.type !== "response.metadata") return;
++	// `toCodexHeaders` returns undefined for absent/unusable headers, and a
++	// metadata frame is not required to carry any.
++	const headers = toCodexHeaders(event.headers);
++	if (!headers) return;
++	const turnState = headers.get(X_CODEX_TURN_STATE_HEADER);
++	if (turnState && turnState.length > 0) into.turnState = turnState;
++	const modelsEtag = headers.get(X_MODELS_ETAG_HEADER);
++	if (modelsEtag && modelsEtag.length > 0) into.modelsEtag = modelsEtag;
++}
++
++/**
++ * Apply metadata recorded from an ACCEPTED compaction stream. Called by
++ * pi-agent-core after the summary is validated, so a failed attempt never
++ * leaves its sticky routing state on the session.
++ */
++export function applyOpenAICodexCompactionResponseMetadata(
++	recorded: OpenAICodexCompactionResponseMetadata,
++	requestContext: { turnState: CodexTurnStateCell; websocketState?: CodexWebSocketSessionState },
++): void {
++	if (recorded.turnState !== undefined && requestContext.turnState.value === undefined) {
++		requestContext.turnState.value = recorded.turnState;
++	}
++	if (recorded.modelsEtag !== undefined && requestContext.websocketState) {
++		requestContext.websocketState.modelsEtag = recorded.modelsEtag;
++	}
++}
++
++export function isCodexStalePreviousResponseError(error: unknown): boolean {
+ 	if (!(error instanceof Error)) return false;
+ 	if (
+ 		"code" in error &&
+@@ -2634,6 +2852,12 @@
+ 					state.lastResponseId = responseId;
+ 					state.lastResponseItems = replayableResponseItems;
+ 					state.canAppend = rawEvent.type === "response.done" || rawEvent.type === "response.completed";
++					if (state.canAppend) {
++						// A chain exists again, so the previous socket's closing says
++						// nothing about the chain this state now describes.
++						state.lastClose = undefined;
++						state.lastPeerClose = undefined;
++					}
+ 				} else {
+ 					// No response id, or replay sanitization dropped an item the server
+ 					// still holds. Sanitization is 1:1-or-fewer, so either case makes the
+@@ -3006,6 +3230,8 @@
+ 
+ 	async #reopenWebSocketStream(state: CodexWebSocketSessionState): Promise<void> {
+ 		try {
++			// The ordinary turn path: never chain-only, so its cold-start replay and
++			// websocket reconnect behaviour are unchanged.
+ 			const next = await openCodexWebSocketTransport(
+ 				this.model,
+ 				this.options,
+@@ -3661,6 +3887,31 @@
+  * send only the trigger. The trailing trigger item is itself the discriminator:
+  * nothing but the compaction path appends one.
+  */
++/** True when the socket still holds a chained-append baseline usable as `previous_response_id`. */
++function hasCodexAppendBaseline(state: CodexWebSocketSessionState | undefined): boolean {
++	return (
++		state?.canAppend === true &&
++		state.lastRequest !== undefined &&
++		state.lastResponseId !== undefined &&
++		state.lastResponseItems !== undefined &&
++		// The chain is only usable while the socket that minted it is live; a
++		// baseline without one is not a baseline, it is stale state.
++		state.connection?.isOpen() === true
++	);
++}
++
++/**
++ * The trailing `compaction_trigger` is the compaction lane's discriminator:
++ * nothing but the compaction path appends one (see
++ * {@link buildCodexChainedRequestBody}).
++ */
++function isCompactionWireBody(body: RequestBody): boolean {
++	const input = body.input;
++	if (!Array.isArray(input) || input.length === 0) return false;
++	const last = input[input.length - 1] as { type?: string } | undefined;
++	return last?.type === "compaction_trigger";
++}
++
+ export function buildCodexChainedRequestBody(
+ 	requestBody: RequestBody,
+ 	state: CodexWebSocketSessionState | undefined,
+@@ -3733,14 +3984,29 @@
+ 
+ interface CodexWebSocketConnectionOptions {
+ 	onHandshakeHeaders?: (headers: Headers) => void;
++	/**
++	 * Fired once this connection is gone (closed by us or by the peer). The
++	 * append baseline lives on the socket that minted it — `previous_response_id`
++	 * resolves nowhere else — so a connection departure without this notification
++	 * leaves the session state advertising a chain that can no longer be used.
++	 * The callback receives the connection so the owner can ignore a superseded
++	 * socket whose close event lands after its replacement was installed.
++	 */
++	onClosed?: (self: CodexWebSocketConnection, reason: string) => void;
+ 	proxy?: string;
+ }
+ 
++/** Process-local identity for a socket, so a close can be attributed to one. */
++let codexWebSocketGeneration = 0;
++
+ class CodexWebSocketConnection {
++	/** Identifies this socket across its own close notifications. */
++	readonly generation = (codexWebSocketGeneration += 1);
+ 	#url: string;
+ 	#headers: Record<string, string>;
+ 	#proxy?: string;
+ 	#onHandshakeHeaders?: (headers: Headers) => void;
++	#onClosed?: (self: CodexWebSocketConnection, reason: string) => void;
+ 	#socket: Bun.WebSocket | null = null;
+ 	#queue: Array<Record<string, unknown> | Error | null> = [];
+ 	#waiters: Array<() => void> = [];
+@@ -3772,6 +4038,7 @@
+ 		this.#headers = headers;
+ 		this.#proxy = options.proxy;
+ 		this.#onHandshakeHeaders = options.onHandshakeHeaders;
++		this.#onClosed = options.onClosed;
+ 	}
+ 
+ 	isOpen(): boolean {
+@@ -3814,6 +4081,9 @@
+ 		const socket = this.#socket;
+ 		this.#socket = null;
+ 		this.#stopHeartbeat();
++		// Announce the departure even when there was no live socket: the caller's
++		// baseline is equally unusable either way.
++		this.#onClosed?.(this, reason);
+ 		if (!socket || (socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING)) return;
+ 		try {
+ 			socket.close(1000, reason);
+@@ -3904,6 +4174,10 @@
+ 		socket.onclose = event => {
+ 			this.#socket = null;
+ 			this.#stopHeartbeat();
++			// The peer closed the socket without us asking: nothing else in the
++			// process learns about it, so the append baseline would otherwise stay
++			// advertised until the next request discovers there is no connection.
++			this.#onClosed?.(this, `peer (code ${event.code}${event.reason ? `: ${event.reason}` : ""})`);
+ 			if (!settled) {
+ 				settled = true;
+ 				clearPending();
+@@ -4383,6 +4657,25 @@
+ 		onHandshakeHeaders: handshakeHeaders => {
+ 			updateCodexSessionMetadataFromHeaders(turnState, state, handshakeHeaders);
+ 		},
++		onClosed: (self, reason) => {
++			// Peer closes are recorded before the identity guard: they arrive
++			// asynchronously, so a socket we already replaced is exactly the case
++			// where the cause would otherwise be dropped. First close wins per
++			// socket, so the repeat teardown of one connection cannot overwrite it.
++			if (reason.startsWith("peer (") && state.lastPeerClose?.generation !== self.generation) {
++				state.lastPeerClose = { reason, at: Date.now(), generation: self.generation };
++			}
++			// Identity-guarded: a replaced socket's close event lands asynchronously
++			// and must not wipe the baseline belonging to its replacement.
++			if (state.connection !== self) return;
++			// First close wins for a given socket. Teardown calls close() again
++			// (e.g. "reconnect"), and letting that local reason overwrite the peer's
++			// would hide what actually killed the connection.
++			if (state.lastClose?.generation !== self.generation) {
++				state.lastClose = { reason, at: Date.now(), generation: self.generation };
++			}
++			resetCodexWebSocketAppendState(state);
++		},
+ 		proxy,
+ 	});
+ 	await state.connection.connect(signal);
+@@ -4874,6 +5167,21 @@
+ 	return payloads;
+ }
+ 
++/**
++ * Raised when a Codex V2 compaction request that HAD a live append baseline can
++ * no longer carry `previous_response_id`. Sending the rebuilt transcript
++ * instead is not a fallback: it replays the whole history at ~9% cache hit and
++ * still reports success. The lane fails closed and leaves the caller's ladder
++ * to decide what to do.
++ */
++export class CodexCompactionChainLostError extends Error {
++	readonly code = "codex_compaction_chain_lost";
++	constructor(detail: string) {
++		super(`Codex V2 compaction lost its append baseline: ${detail}`);
++		this.name = "CodexCompactionChainLostError";
++	}
++}
++
+ export class CodexWebSocketTransportError extends Error {
+ 	constructor(detail: string, options?: ErrorOptions) {
+ 		super(`${CODEX_WEBSOCKET_TRANSPORT_ERROR_PREFIX}: ${detail}`, options);
+--- a/pi-coding-agent/src/session/session-advisors.ts
++++ b/pi-coding-agent/src/session/session-advisors.ts
+@@ -2063,6 +2063,10 @@
+ 						// The advisor's own live prompt, so a provider-native compaction
+ 						// re-issues the advisor's request shape and reads its cached prefix.
+ 						remoteSystemPrompt: agent.state.systemPrompt,
++						// Names the owner on the compaction trace: the advisor runs on
++						// its own provider session and websocket, so an unattributed
++						// record reads as a primary failure it never was.
++						initiator: `advisor:${advisor.slug}`,
+ 						sessionId: advisorProviderSessionId,
+ 						promptCacheKey: advisorProviderSessionId,
+ 						metadata: advisorMetadata,
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -58,6 +58,7 @@
+ 	ProviderSessionState,
+ } from "@oh-my-pi/pi-ai";
+ import * as AIError from "@oh-my-pi/pi-ai/error";
++import { CodexCompactionChainLostError } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+ import { preferredDialect } from "@oh-my-pi/pi-catalog/identity";
+ import { modelsAreEqual } from "@oh-my-pi/pi-catalog/models";
+ import { isRecord, logger, Snowflake, stringifyJson } from "@oh-my-pi/pi-utils";
+@@ -1454,6 +1455,14 @@
+ 			return compactionResult;
+ 		} catch (error) {
+ 			const err = error instanceof Error ? error : new Error(String(error));
++			// A lost Codex chain is not "this method failed, try the next one".
++			// snapcompact and soft would both compact the session successfully at
++			// full price, reporting success for the exact degradation the caller
++			// declined. Terminal, like a cancellation but with its own message.
++			if (error instanceof CodexCompactionChainLostError) {
++				options?.onError?.(err);
++				throw error;
++			}
+ 			if (error instanceof ManualCompactionNoOpError) rejectedAsNoOp = true;
+ 			if (
+ 				methodAttempted &&
+@@ -2034,6 +2043,13 @@
+ 		if (!model) return;
+ 		const method = resolveSpeculationMethod(model, settings);
+ 		if (!method) return;
++		// The Codex V2 compaction lane is chain-only: it refuses to send a frame
++		// that cannot carry `previous_response_id`. A speculation deliberately runs
++		// on an ISOLATED session (`:spec:`) over SSE (`preferWebsockets: false`),
++		// where no chain can exist by construction, so the run could only ever be
++		// refused. Skip it instead of burning a background pass and logging a
++		// failure on every maintenance boundary.
++		if (method === "remote" && model.api === "openai-codex-responses") return;
+ 		this.#startSpeculationRun(contextTokens, method);
+ 	}
+ 
+@@ -2080,6 +2096,13 @@
+ 		if (!model) return false;
+ 		const method = resolveSpeculationMethod(model, settings);
+ 		if (!method) return false;
++		// The Codex V2 compaction lane is chain-only: it refuses to send a frame
++		// that cannot carry `previous_response_id`. A speculation deliberately runs
++		// on an ISOLATED session (`:spec:`) over SSE (`preferWebsockets: false`),
++		// where no chain can exist by construction, so the run could only ever be
++		// refused. Skip it instead of burning a background pass and logging a
++		// failure on every maintenance boundary.
++		if (method === "remote" && model.api === "openai-codex-responses") return false;
+ 		const thresholdTokens = resolveThresholdTokens(contextWindow, settings);
+ 		const graceCapTokens = Math.min(
+ 			thresholdTokens + resolveSpeculationLeadTokens(thresholdTokens),
+@@ -4953,6 +4976,25 @@
+ 					},
+ 					options.detachPostCommit === true,
+ 				);
++				return COMPACTION_CHECK_NONE;
++			}
++			// A lost Codex chain is terminal for the SAME reason the manual ladder
++			// treats it as terminal: snapcompact and soft would both compact the
++			// session at full price and report success for the exact degradation the
++			// remote lane declined. Without this arm the auto path silently walks
++			// past the remote method via `methodIndex + 1`.
++			if (error instanceof CodexCompactionChainLostError) {
++				await this.#emitLifecycleEvent(
++					{
++						type: "auto_compaction_end",
++						action,
++						result: undefined,
++						aborted: false,
++						willRetry: false,
++						errorMessage: error.message,
++					},
++					options.detachPostCommit === true,
++				);
+ 				return COMPACTION_CHECK_NONE;
+ 			}
+ 			const errorMessage = error instanceof Error ? error.message : "compaction failed";
+--- a/pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts
++++ b/pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts
+@@ -76,6 +76,14 @@
+     providerSessionState?: Map<string, ProviderSessionState>;
+     codexCompaction?: CodexCompactionContext;
+     preferWebsockets?: boolean;
++    /**
++     * Owner and session this compaction belongs to. One process hosts the
++     * primary session plus every advisor, each with its own provider session
++     * and websocket, so an attempt record without them cannot be attributed to
++     * the chain it needed.
++     */
++    initiator?: string;
++    sessionId?: string;
+ }): Promise<CompactionV2Response>;
+ /** Build Codex-style V2 replacement history from prompt input plus compaction output. */
+ export declare function buildCompactionV2ReplacementHistory(input: unknown[], compactionItem: Record<string, unknown>, retainedMessageBudget?: number): {
+--- a/pi-agent-core/dist/types/compaction/compaction.d.ts
++++ b/pi-agent-core/dist/types/compaction/compaction.d.ts
+@@ -169,6 +169,13 @@
+  * If previousSummary is provided, uses the update prompt to merge.
+  */
+ export interface SummaryOptions {
++    /**
++     * Who initiated this compaction (`"primary"`, `"advisor:<slug>"`, …). Recorded
++     * on the codex-v2 trace: one process hosts the primary plus every advisor, each
++     * with its OWN provider session and websocket, so a compaction record without
++     * this cannot be attributed to the socket whose chain it needed.
++     */
++    initiator?: string;
+     promptOverride?: string;
+     extraContext?: string[];
+     remoteEndpoint?: string;

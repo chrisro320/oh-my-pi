@@ -1,0 +1,344 @@
+--- a/src/hindsight/state.ts
++++ b/src/hindsight/state.ts
+@@ -6,7 +6,6 @@
+ import type { HindsightConfig } from "./config";
+ import {
+ 	composeRecallQuery,
+-	formatCurrentTime,
+ 	formatMemories,
+ 	type HindsightMessage,
+ 	prepareRetentionTranscript,
+@@ -25,6 +24,24 @@
+ const RETAIN_FLUSH_INTERVAL_MS = 5_000;
+ const MENTAL_MODEL_LOAD_TIMED_OUT = Symbol("mental-model-load-timed-out");
+ 
++/**
++ * Custom-entry type carrying the first-turn recall block. A resume rebuilds the
++ * system prompt from scratch; re-running recall there would emit a different
++ * block (fresh query, fresh results) and shift the cached prefix, so the
++ * provider re-bills the whole conversation. Replaying the persisted bytes keeps
++ * the prefix identical and the prompt cache warm.
++ */
++const RECALL_SNIPPET_CUSTOM_TYPE = "hindsight_recall_snippet";
++
++/**
++ * Custom-entry type carrying this transcript's `<mental_models>` snapshot. Same
++ * reasoning as the recall marker: the block lives in the system prompt, so
++ * re-listing it on resume shifts the cache prefix. Mental models change only
++ * when server-side consolidation rewrites them, which no in-flight
++ * conversation depends on.
++ */
++const MENTAL_MODELS_SNIPPET_CUSTOM_TYPE = "hindsight_mental_models_snippet";
++
+ interface PendingRetainItem {
+ 	content: string;
+ 	context?: string;
+@@ -428,13 +445,73 @@
+ 		}
+ 	}
+ 
++	/**
++	 * Replays a block this session already injected, so a resume keeps the
++	 * system-prompt prefix byte-identical. Reads the newest marker of that type
++	 * on the branch; `undefined` means the transcript has none. An empty string
++	 * is a real answer — it records that the block was empty when first loaded.
++	 */
++	#loadPersistedSnippet(customType: string): string | undefined {
++		const branch = this.session.sessionManager?.getBranch?.();
++		if (!branch) return undefined;
++		for (let index = branch.length - 1; index >= 0; index--) {
++			const entry = branch[index];
++			// Snapshots are per-transcript: a `reset_boundary` (`/clear`, focus
++			// attach, new transcript) starts a new conversation, so markers from
++			// before it must not answer for the post-reset turns. Without this,
++			// a stale non-empty marker replays outdated memories into the new
++			// transcript, and a stale EMPTY marker (0021/0023 freeze) suppresses
++			// recall for the rest of the new conversation.
++			if (entry.type === "reset_boundary") break;
++			if (entry.type !== "custom" || entry.customType !== customType) continue;
++			const data = entry.data;
++			if (data && typeof data === "object" && "snippet" in data) {
++				const snippet = data.snippet;
++				if (typeof snippet === "string") return snippet;
++			}
++			return undefined;
++		}
++		return undefined;
++	}
++
+ 	async beforeAgentStartPrompt(promptText: string): Promise<MemoryPromptPreparation | undefined> {
+ 		if (this.config.mentalModelsEnabled && this.mentalModelsLoadPromise && this.mentalModelsLoadedAt === undefined) {
+-			await Promise.race([this.mentalModelsLoadPromise, Bun.sleep(MENTAL_MODEL_FIRST_TURN_DEADLINE_MS)]);
++			try {
++				// The load owns the remote deadline. Do not race required target
++				// prompt publication against another timeout and admit stale bytes.
++				await this.mentalModelsLoadPromise;
++			} catch (error) {
++				// Preparation failures are optional in the host; a failed mandatory
++				// snapshot handoff must instead fail the owning turn at commit.
++				return { commit: () => { throw error; } };
++			}
+ 		}
+ 
+ 		if (!this.config.autoRecall || this.hasRecalledForFirstTurn) return undefined;
+ 
++		const persisted = this.#loadPersistedSnippet(RECALL_SNIPPET_CUSTOM_TYPE);
++		// `!== undefined` and not a truthiness test: an empty snippet is a recorded
++		// answer ("recall was empty when this session first ran"), and replaying it
++		// is what keeps the system-prompt prefix byte-identical across a resume.
++		// The host treats a missing/empty `context` as "no injection"
++		// (session-tools.ts: `if (!injected) return this.#baseSystemPrompt`), so the
++		// empty case still adds no block — it just stops re-running recall.
++		if (persisted !== undefined) {
++			const replayGeneration = this.#recallGeneration;
++			return {
++				context: persisted || undefined,
++				// Ownership is staged like the live-recall path below: the replayed
++				// bytes are only published once the host commits this turn, so a
++				// dropped turn cannot mark recall as consumed for the transcript.
++				commit: () => {
++					if (this.#recallGeneration !== replayGeneration) return false;
++					this.hasRecalledForFirstTurn = true;
++					this.lastRecallSnippet = persisted || undefined;
++					return true;
++				},
++			};
++		}
++
+ 		const latestPrompt = promptText.trim();
+ 		if (!latestPrompt) return undefined;
+ 		const generation = ++this.#recallGeneration;
+@@ -447,11 +524,32 @@
+ 		if (!ok) return undefined;
+ 
+ 		return {
+-			context: context ?? undefined,
++			// `|| undefined`, not `?? undefined`: an empty recall is "no block", which
++			// is what 18.1.18 returned for this case. The host treats `undefined`
++			// and `""` alike (`if (!injected)`), but keeping the two paths identical
++			// — the replay path above also maps "" to undefined — means "empty" has
++			// exactly one representation.
++			context: context || undefined,
+ 			commit: () => {
+ 				if (this.#recallGeneration !== generation) return false;
+ 				this.hasRecalledForFirstTurn = true;
+ 				if (context) this.lastRecallSnippet = context;
++				// Persist on commit, never before it: an empty recall must be frozen
++				// too, or a session whose first-turn recall came back empty writes no
++				// marker at all and every later resume re-runs recall. Once the bank
++				// has accumulated memories in the meantime, that resume appends a
++				// fresh `<memories>` block to the system prompt, shifts the cached
++				// prefix and forces a full recompute. Observed on a 173k-token Kimi
++				// resume: `system[1]` 9340B -> 10977B, `input=158890 /
++				// cacheRead=18432`. `?? ""` is load-bearing:
++				// `RecallOutcome.context` is `string | null`, and
++				// `#loadPersistedSnippet` only accepts `typeof snippet === "string"`
++				// — a persisted `null` would read back as "no marker" and reopen the
++				// bug. This runs after the generation check above, so a preparation
++				// that lost ownership writes nothing.
++				this.session.sessionManager?.appendCustomEntry?.(RECALL_SNIPPET_CUSTOM_TYPE, {
++					snippet: context ?? "",
++				});
+ 				return true;
+ 			},
+ 		};
+@@ -470,8 +568,16 @@
+ 	async runMentalModelLoad(scope: BankScope): Promise<void> {
+ 		if (!this.config.mentalModelsEnabled) return;
+ 		const generation = ++this.#mentalModelsLoadGeneration;
+-		const previousSnippet = this.mentalModelsSnippet;
++		if (this.session.isSessionTransitioning) {
++			await this.session.waitForSessionTransition();
++			if (generation !== this.#mentalModelsLoadGeneration) return;
++		}
++		const persisted = this.#loadPersistedSnippet(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE);
++		const previousSnippet = persisted || undefined;
++		this.mentalModelsSnippet = previousSnippet;
+ 		this.mentalModelsLoadedAt = undefined;
++		await this.session.refreshBaseSystemPrompt(() => generation === this.#mentalModelsLoadGeneration);
++		if (generation !== this.#mentalModelsLoadGeneration) return;
+ 
+ 		const bootstrap = (async () => {
+ 			// Create/ensure the bank BEFORE the first mental-model POST so we don't
+@@ -491,33 +597,47 @@
+ 				}
+ 			}
+ 
+-			await this.#loadAndPublishMentalModels(generation, previousSnippet, "MM load");
++			await this.#loadAndPublishMentalModels(generation, previousSnippet, "MM load", persisted);
+ 		})();
+ 		await this.#settleMentalModelsLoadWithinDeadline(bootstrap, generation, previousSnippet);
+ 	}
+ 
+ 	/**
+-	 * Starts a bounded reload for a new transcript without blocking the session
+-	 * transition. A result that misses the first-turn deadline is discarded so
+-	 * the previous snapshot stays frozen for the whole transcript.
++	 * Starts a bounded reload owned by the target transcript. Its recorded
++	 * answer is authoritative; a transcript without one starts empty, never
++	 * inheriting the previous session's snapshot on failure or timeout.
+ 	 */
+ 	beginMentalModelsTranscriptReload(): void {
++		this.#recallGeneration++;
+ 		if (!this.config.mentalModelsEnabled) return;
+ 		const generation = ++this.#mentalModelsLoadGeneration;
+-		const previousSnippet = this.mentalModelsSnippet;
+-		this.mentalModelsLoadedAt = undefined;
+-		const reload = this.#settleMentalModelsLoadWithinDeadline(
+-			this.#loadAndPublishMentalModels(generation, previousSnippet, "MM transcript reload"),
+-			generation,
+-			previousSnippet,
+-		).catch(error => {
+-			if (generation === this.#mentalModelsLoadGeneration) {
+-				this.mentalModelsSnippet = previousSnippet;
+-				this.mentalModelsLoadedAt = Date.now();
+-			}
+-			logger.debug("Hindsight: mental-model transcript reload failed", { error: String(error) });
+-		});
++		const reload = (async () => {
++			// The transition can still cancel or roll back. Do not read a partially
++			// adopted branch, publish, or persist until its outermost scope settles.
++			if (this.session.isSessionTransitioning) await this.session.waitForSessionTransition();
++			if (generation !== this.#mentalModelsLoadGeneration) return;
++			const persisted = this.#loadPersistedSnippet(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE);
++			const previousSnippet = persisted || undefined;
++			this.mentalModelsSnippet = previousSnippet;
++			this.mentalModelsLoadedAt = undefined;
++			await this.session.refreshBaseSystemPrompt(() => generation === this.#mentalModelsLoadGeneration);
++			if (generation !== this.#mentalModelsLoadGeneration) return;
++			await this.#settleMentalModelsLoadWithinDeadline(
++				this.#loadAndPublishMentalModels(generation, previousSnippet, "MM transcript reload", persisted),
++				generation,
++				previousSnippet,
++			).catch(error => {
++				if (generation === this.#mentalModelsLoadGeneration) {
++					this.mentalModelsSnippet = previousSnippet;
++					this.mentalModelsLoadedAt = Date.now();
++				}
++				logger.debug("Hindsight: mental-model transcript reload failed", { error: String(error) });
++			});
++		})();
+ 		this.mentalModelsLoadPromise = reload;
++		void reload.catch(error => {
++			logger.debug("Hindsight: mental-model target publication failed", { error: String(error) });
++		});
+ 	}
+ 
+ 	async #settleMentalModelsLoadWithinDeadline(
+@@ -537,13 +657,47 @@
+ 		this.#mentalModelsLoadGeneration++;
+ 		this.mentalModelsSnippet = previousSnippet;
+ 		this.mentalModelsLoadedAt = Date.now();
++		// Freeze the answer this transcript actually sends. The deadline has now
++		// decided that this transcript goes out with `previousSnippet` (usually no
++		// block at all), and letting the late load land later would rebuild the
++		// base system prompt with a freshly rendered block, trip the content-diff
++		// guard in session-tools (`clearInheritedProviderPromptCacheKey`) and bill
++		// the whole prefix on turn one. Persisting the frozen bytes keeps a later
++		// RESUME byte-identical too: without a marker the resumed session would
++		// re-list, get a real block, and shift the same prefix. `/memory mm
++		// reload` stays the explicit escape hatch.
++		if (this.#loadPersistedSnippet(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE) === undefined) {
++			this.#persistMentalModelsSnippet(previousSnippet);
++		}
++	}
++
++	/**
++	 * Records this transcript's `<mental_models>` answer so a resume replays the
++	 * same bytes instead of re-listing. `?? ""` is load-bearing for the same
++	 * reason as the recall marker: `#loadPersistedSnippet` only accepts
++	 * `typeof snippet === "string"`, so a `null` would read back as "no answer
++	 * recorded" and reopen the prefix shift.
++	 */
++	#persistMentalModelsSnippet(snippet: string | undefined): void {
++		this.session.sessionManager?.appendCustomEntry?.(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE, {
++			snippet: snippet ?? "",
++		});
+ 	}
+ 
+ 	async #loadAndPublishMentalModels(
+ 		generation: number,
+ 		previousSnippet: string | undefined,
+ 		reason: "MM load" | "MM reload" | "MM transcript reload",
++		persisted?: string,
+ 	): Promise<void> {
++		if (generation !== this.#mentalModelsLoadGeneration) return;
++		// Automatic loads capture the target branch's recorded answer before
++		// any await. Only explicit `/memory mm reload` omits that snapshot.
++		if (persisted !== undefined) {
++			this.mentalModelsLoadedAt = Date.now();
++			return;
++		}
++
+ 		const result = await tryLoadMentalModelsBlock(
+ 			this.client,
+ 			this.bankId,
+@@ -552,6 +706,10 @@
+ 		);
+ 		if (generation !== this.#mentalModelsLoadGeneration) return;
+ 		if (!result.ok) {
++			// A fetch failure is not an answer: keep the snapshot that is already
++			// on the wire but record nothing, so a later resume retries the list
++			// instead of freezing a transient outage for the whole transcript.
++			// Mirrors the recall path, where `ok: false` also persists no marker.
+ 			this.mentalModelsLoadedAt = Date.now();
+ 			return;
+ 		}
+@@ -564,6 +722,7 @@
+ 		if (generation !== this.#mentalModelsLoadGeneration) return;
+ 		if (!published) this.mentalModelsSnippet = previousSnippet;
+ 		this.mentalModelsLoadedAt = Date.now();
++		this.#persistMentalModelsSnippet(this.mentalModelsSnippet);
+ 	}
+ 
+ 	async reloadMentalModels(): Promise<boolean> {
+--- a/src/session/agent-session.ts
++++ b/src/session/agent-session.ts
+@@ -4502,6 +4502,11 @@
+ 			const settled = Promise.withResolvers<void>();
+ 			this.#sessionTransitionSettled = settled.promise;
+ 			this.#resolveSessionTransition = settled.resolve;
++			// Invalidate source loads before any branch/file swap. Reload waits
++			// for this scope, including cancellation and rollback, to settle.
++			if (this.settings.get("memory.backend") === "hindsight" && !this.#hindsightSessionState?.aliasOf) {
++				this.#hindsightSessionState?.beginMentalModelsTranscriptReload();
++			}
+ 		}
+ 		return this.#sessionTransitionScope;
+ 	}
+@@ -5147,7 +5152,6 @@
+ 		// Re-prime the advisors across the conversation boundary and undo any
+ 		// memory promotion so the next turn rebuilds from the base system prompt.
+ 		this.#advisors.resetSessionState();
+-		await this.#memory.resetContextForNewTranscript();
+ 
+ 		// Record a durable boundary on the persisted branch. The collapsed live
+ 		// transcript and the model-context rebuild start emission after the latest
+@@ -5155,6 +5159,8 @@
+ 		// on-disk record and the plain `transcript:true` export path keep the full
+ 		// pre-reset history.
+ 		this.sessionManager.appendResetBoundary();
++		// Snapshot lookup must see the boundary before starting a transcript reload.
++		await this.#memory.resetContextForNewTranscript();
+ 
+ 		resetCapabilities();
+ 		await this.refreshBaseSystemPrompt();
+--- a/src/hindsight/backend.ts
++++ b/src/hindsight/backend.ts
+@@ -310,12 +310,13 @@
+ 	previous?.dispose();
+ 	state.attachSessionListeners();
+ 
+-	// Kick off mental-model bootstrap. Resolves asynchronously; the first
+-	// turn races and is covered in `beforeAgentStartPrompt` via
++	// Kick off mental-model bootstrap. The first turn awaits the bounded load
++	// and mandatory target publication in `beforeAgentStartPrompt` via
+ 	// `mentalModelsLoadPromise`. Subsequent turns see the populated cache
+ 	// because `runMentalModelLoad` calls `refreshBaseSystemPrompt`.
+ 	if (config.mentalModelsEnabled) {
+-		state.mentalModelsLoadPromise = state.runMentalModelLoad(scope).catch(err => {
++		state.mentalModelsLoadPromise = state.runMentalModelLoad(scope);
++		void state.mentalModelsLoadPromise.catch(err => {
+ 			logger.debug("Hindsight: mental-model bootstrap failed", { bankId: state.bankId, error: String(err) });
+ 		});
+ 	}
