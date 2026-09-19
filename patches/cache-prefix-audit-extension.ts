@@ -102,6 +102,10 @@ interface Fingerprint {
 	/** Per-host auth/beta header fingerprints, so a header change is compared
 	 *  within one provider host instead of against whichever host called last. */
 	hostHeaders?: Record<string, string>;
+	/** Header fingerprint the UPSTREAM answered with. The request side cannot
+	 *  show which shard served the prefix; if the answer's header set differs
+	 *  from the previous call's, the lineage moved without the body moving. */
+	responseHeaders?: string;
     /** Session key this fingerprint belongs to (process-local when unresolvable). */
     sessionId: string;
     /** Truncated text sample per message for naming the culprit in a rewrite. */
@@ -523,7 +527,20 @@ function headerFingerprint(headers: Headers): string {
 	// Betas are order-sensitive to read but not to semantics; sort so a reordered
 	// list is not misreported as a change.
 	const betas = beta.split(",").map(part => part.trim()).filter(Boolean).sort().join("|");
-	return `auth=${auth} version=${version} betas=${betas}`;
+	// Every remaining header, one hash per field in name order. Routing and cache
+	// sharding hang off headers the JSON body never shows — `x-session-id`,
+	// `x-project-slug`, a rotated `User-Agent` — so a provider can keep its bytes
+	// byte-identical and still land on a shard that never saw the prefix. Hashing
+	// per field means a drift names the culprit instead of only saying "headers
+	// moved".
+	const rest: string[] = [];
+	for (const name of [...new Set([...headers.keys()].map(key => key.toLowerCase()))].sort()) {
+		if (name === "anthropic-beta" || name === "anthropic-version" || name === "authorization" || name === "x-api-key") {
+			continue;
+		}
+		rest.push(`${name}=${sha(headers.get(name) ?? "")}`);
+	}
+	return `auth=${auth} version=${version} betas=${betas} hdr=${rest.join(",")}`;
 }
 
 /** Wrap `fetch` once to capture provider request headers.
@@ -532,25 +549,38 @@ function headerFingerprint(headers: Headers): string {
  *  failure inside the probe is swallowed. If pi-ai captured a `fetch` reference
  *  before this extension loaded, the wrapper simply never fires — it degrades to
  *  no data rather than to wrong data. */
-function installHeaderProbe(onHeaders: (fp: string, url: string) => void): void {
+function installHeaderProbe(onHeaders: (fp: string, url: string, phase: "request" | "response") => void): void {
 	const original = globalThis.fetch;
 	if (typeof original !== "function") return;
 	globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+		const url =
+			typeof input === "string" ? input : input instanceof URL ? input.href : input instanceof Request ? input.url : "";
 		try {
-			const url =
-				typeof input === "string" ? input : input instanceof URL ? input.href : input instanceof Request ? input.url : "";
-			// `commandcode` matters for the same reason as the rest: its key pool
-			// rotates credentials on quota cooldown, and a prompt cache is scoped
-			// per credential/org — the swap costs one full recompute while the
-			// JSON body stays byte-identical, so only the auth fingerprint shows it.
+			// `commandcode` belongs here because nothing else observes it: the
+			// provider sends routing headers (`x-session-id`, `x-project-slug`,
+			// `User-Agent`, plus whatever the host passes through) that the JSON
+			// body never shows, and a prompt cache is scoped per credential — so a
+			// header can move the prefix to a shard that never saw it while every
+			// byte of the body stays identical. This account holds ONE credential,
+			// so the fingerprint is compared for header drift, not key rotation.
 			if (/anthropic|googleapis|openai|cloudcode|commandcode/i.test(url)) {
 				const source = init?.headers ?? (input instanceof Request ? input.headers : undefined);
-				if (source !== undefined) onHeaders(headerFingerprint(new Headers(source)), url);
+				if (source !== undefined) onHeaders(headerFingerprint(new Headers(source)), url, "request");
 			}
 		} catch {
 			// A probe must never break a provider call.
 		}
-		return original(input, init);
+		// The response is the only place the upstream says which shard answered.
+		// Read-only: the same Response goes straight back, unread and uncloned.
+		const response = await original(input, init);
+		try {
+			if (/anthropic|googleapis|openai|cloudcode|commandcode/i.test(url)) {
+				onHeaders(headerFingerprint(response.headers), url, "response");
+			}
+		} catch {
+			// Same rule as above: a probe never changes what the caller receives.
+		}
+		return response;
 	};
 }
 
@@ -565,22 +595,32 @@ function installHeaderProbe(onHeaders: (fp: string, url: string) => void): void 
  *  previous process's per-host entry (or, for state files written before
  *  hostHeaders existed, the legacy single `headers` slot) — so an auth-path
  *  switch across a resume is still caught on the very first request. */
-function observeHeader(sessionKey: string, host: string, fp: string): void {
+function observeHeader(sessionKey: string, host: string, fp: string, phase: "request" | "response" = "request"): void {
 	const st = loadState(sessionKey);
 	let perHost = headerSeen.get(sessionKey);
 	if (perHost === undefined) {
 		perHost = new Map();
 		headerSeen.set(sessionKey, perHost);
 	}
-	if (perHost.get(host) === fp) return;
+	// Request and response fingerprints live in separate slots: the response is
+	// the upstream's, so it must never be compared against the last request's
+	// header set (or the other way round).
+	const slot = `${phase}:${host}`;
+	if (perHost.get(slot) === fp) return;
 	const previous =
-		perHost.get(host) ??
-		st.last?.hostHeaders?.[host] ??
-		(st.last?.hostHeaders === undefined ? st.last?.headers : undefined);
-	perHost.set(host, fp);
+		phase === "request"
+			? (perHost.get(slot) ??
+				st.last?.hostHeaders?.[host] ??
+				(st.last?.hostHeaders === undefined ? st.last?.headers : undefined))
+			: perHost.get(slot);
+	perHost.set(slot, fp);
 	if (st.last) {
-		st.last.headers = fp;
-		st.last.hostHeaders = { ...st.last.hostHeaders, [host]: fp };
+		if (phase === "request") {
+			st.last.headers = fp;
+			st.last.hostHeaders = { ...st.last.hostHeaders, [host]: fp };
+		} else {
+			st.last.responseHeaders = fp;
+		}
 		try {
 			write(statePathFor(sessionKey), JSON.stringify({ recent: st.recent ?? [st.last] }), false);
 		} catch {
@@ -595,10 +635,14 @@ function observeHeader(sessionKey: string, host: string, fp: string): void {
 				pid: process.pid,
 				sessionId: sessionKey,
 				event: "HEADER_DRIFT",
+				phase,
 				host,
 				was: previous,
 				now: fp,
-				note: "auth path or beta set changed; prompt cache is scoped per credential and 1h TTL visibility depends on the extended-cache-ttl beta",
+				note:
+					phase === "request"
+						? "auth path, beta set or a routing header changed; a prompt cache is scoped per credential, and headers the body never shows can decide which shard serves the prefix"
+						: "the upstream answered under a different header set, so this lineage may have moved shards",
 			})}\n`,
 			true,
 		);
@@ -789,10 +833,10 @@ function write(path: string, body: string, append: boolean): void {
 }
 
 export default function (pi: ExtensionAPI): void {
-	installHeaderProbe((fp, url) => {
+	installHeaderProbe((fp, url, phase) => {
 		try {
 			const host = url.replace(/^https?:\/\/([^/]+).*$/, "$1") || "unknown";
-			observeHeader(activeSessionKey, host, fp);
+			observeHeader(activeSessionKey, host, fp, phase);
 		} catch {
 			// A probe must never break a provider call.
 		}
@@ -945,6 +989,7 @@ export default function (pi: ExtensionAPI): void {
 					// intact" cannot be told apart from a credential switch after the
 					// fact — and a credential switch IS one of the causes.
 					headers: st.last?.headers,
+					responseHeaders: st.last?.responseHeaders,
 					diff: d,
 				})}\n`,
 				true,

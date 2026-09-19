@@ -365,29 +365,46 @@ hashline 指引」這條斷言失敗。**判據是跨模型／跨進程的 tools
 
 ---
 
-## 根因類別：憑證／org 切換（多 key pool 的配額冷卻）
+## 已證偽：多 key pool 的憑證輪替（2026-09-19，一天內推翻）
 
-**症狀**：**單筆** cacheRead 跌到近乎 0（`prefix intact`），**下一筆立刻恢復**，前後都是 99%；
-`diff` 回 `APPEND_ONLY`、`envelope` 相同、`tools`／`system` 逐位元組相同——**omp 送出的 bytes 完全一致**。
+**假說**：`pi-commandcode-provider` 的 key pool 在配額探針把某把 key 冷卻後會換憑證，
+而 prompt cache 是 per-credential/org → 換 key 那一筆全量重算，然後 `noteSuccess` 釘住新 key。
 
-**根因**：prompt cache 是 **per-credential/org** 的（同一份 bytes 換一把 key 讀回來是空的）。
-`pi-commandcode-provider` 的 `probePool` 會對每把 key 查配額，把吃緊的
-`annotate({cooldownUntil})` 推入冷卻；而 `index.ts` 每次請求取 `pool.candidates()[0]`,
-於是下一筆換用另一把 key → **該筆必然全量重算**；成功後 `noteSuccess` 把 preferredKey
-釘在新 key，所以「只 miss 一筆」。
+**證偽**：該帳號只有**一個**憑證——`/commandcode-pool` 只列出一條
+（`a460866454mmtr`，$55.16 left）。`COMMANDCODE_KEY_POOL=commandcode,alt` 裡那 2 個 entry
+是 **pool 條目名稱**，不是憑證（`alt` 在 `commandcode-key-pool.json` 裡根本不存在）。
+單憑證 → 沒有輪替可言。
 
-**判別**（2026-09-19 實例，會話 `01a0b7c9`：`in=335550 / cr=384`，7 秒後 `cr=335872`）：
+**教訓**：`env` 的「entry 數量」不等於憑證數量。要判定 pool 內容，看 `/commandcode-pool`
+或 spec 檔，不要用 `len(split(','))` 猜。
 
-- `cache-prefix-audit` 的 usage 記錄現在帶 `headers`（auth 指紋）→ **比對前後筆，auth 變了即為此類**
-- 該 extension 的 header 探針白名單必須涵蓋 provider host；
-  `commandcode` 是 2026-09-19 才補進去的，在那之前**這個 provider 的 headers 完全沒被觀測**
+---
+
+## 根因類別：未觀測的 HTTP headers（進行中，尚未定案）
+
+**現狀**：omp 側所有可觀測維度都已排除——`messages` 前綴逐位元組相同、`envelope`
+（含 `tools`／`system` 的完整內容 `sha`）相同、TTL set 未變（`shiftNote` 為空）、
+`diff.kind` 為 `APPEND_ONLY`。剩下的唯一未觀測通道是 **HTTP headers**。
+
+`strictPct` 是**實測**命中率（`cacheRead / denom`），不是推論。2026-09-19 實例
+（會話 `01a0b7c9`）：`in=335550 / cr=384`，**strict 0.1%**——332330 tokens 的相同前綴
+只讀回 384；7 秒後下一筆 `cr=335872` 恢復。
+
+**已補的觀測**（2026-09-19）：
+
+- request 側：**全部** header 的逐項指紋（`hdr=<name>=<sha>,...`），`HEADER_DRIFT`
+  事件會**指名哪個欄位變了**，而不是只說「headers moved」
+- **response 側：上游回應 header 的指紋**——完全新增，這是唯一能說「換了節點／分片」
+  的證據；request 側看不到誰服務了這次前綴
+
+**判別**：下一次 miss 時比對 usage 記錄的 `headers`／`responseHeaders` 欄位。
+
+**注意 provider 差異**：`breakpoints`／TTL 那套（Anthropic 5m 與 1h 分池）只適用 Anthropic；
+deepseek 走自動前綴匹配、不吃 `cache_control`，所以 verdict 那句
+"look at breakpoints/TTL/request envelope" 對本 provider 只有 "request envelope" 適用。
 
 **不要誤判成多實例競爭**：2026-09-19 用 05:13–05:25 的並發窗口反證過——多個 deepseek
 會話以 0.3 秒間隔交錯請求，**雙方都維持 97–99%**。同模型的並發 session 不會互搶快取。
-
-**不可修的部分**：org 隔離是上游設計，omp 側沒有 namespace 可用（catalog 對該模型宣告
-`supportsPromptCacheKey: false`）。可行的只有「知道它」與「減少不必要的切換」——
-成本上限是一次全量重算（本例 $0.05）。
 
 ---
 
