@@ -358,6 +358,9 @@ case "$OMP_PATCH_VERSION" in
 	# 是逐入口補呼叫，retry.fallbackChains 這條新入口即漏網。a 側是 18.2.3
 	# pristine；read.ts 不在既有鏈任何補丁的觸碰清單，無候選需求。
 	PATCHES+=("0073-omp-read-description-live.patch:${AGENT}")
+	# Extension-modified messages can still be byte-stable across requests.
+	# Keep their rolling Anthropic cache boundary and cache the complete OAuth system.
+	PATCHES+=("0074-omp-anthropic-context-cache-boundaries.patch:${AI}")
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3)" >&2
@@ -748,6 +751,11 @@ if [[ "$MODE" == "apply" ]]; then
 		OMP_PATCH_VERIFY_AGENT_ROOT="${AGENT}" bun "${HERE}/verify-read-description-live.ts"
 	else
 		echo "verify-read-description-live: skipped (0073 not in this plan)"
+	fi
+	if _omp_plan_has 0074; then
+		bun "${HERE}/verify-anthropic-cache-boundaries.ts"
+	else
+		echo "verify-anthropic-cache-boundaries: skipped (0074 not in this plan)"
 	fi
 fi
 if [[ "$MODE" != "check" ]]; then

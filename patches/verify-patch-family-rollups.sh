@@ -565,7 +565,6 @@ EXPECTED_PLAN_1823=(
 	"0050-omp-session-history-preview.patch:AGENT"
 	"0054-omp-antigravity-drop-requesttype-agent.patch:AI"
 	".18.2.3-candidates/0047-omp-date-cwd-anchor-stability-v18.2.3-candidate.patch:AGENT"
-	"0055-omp-devin-auth-cache-turn-timing.patch:AI"
 	"0056-omp-devin-metadata-alignment.patch:NM"
 	"0058-omp-devin-thinking-signature-replay.patch:AI"
 	".18.2.3-candidates/0060-omp-devin-idle-cascade-pin-v18.2.3-candidate.patch:NM"
@@ -577,13 +576,14 @@ EXPECTED_PLAN_1823=(
 	".18.2.3-candidates/0068-omp-codex-stale-baseline-chain-v18.2.3-candidate.patch:NM"
 	".18.2.3-candidates/0069-omp-codex-effort-history-resume-v18.2.3-candidate.patch:AI"
 	".18.2.3-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.2.3-candidate.patch:NM"
+	"0072-omp-session-pin-static-auth-ui.patch:AGENT"
+	"0073-omp-read-description-live.patch:AGENT"
+	"0074-omp-anthropic-context-cache-boundaries.patch:AI"
 )
-# The 38 logical → 37 physical mapping is a documented product decision, so it
-# is pinned as a count too: a plan that silently drops or duplicates an entry
-# would otherwise pass the array comparison above only if the pinned array were
-# edited alongside it. 0041 is the single absorbed entry.
-[[ ${#EXPECTED_PLAN_1823[@]} -eq 37 ]] \
-	|| die "EXPECTED_PLAN_1823 has ${#EXPECTED_PLAN_1823[@]} entries, expected 37"
+# Original migration: 37 entries. Upstream absorbed 0055; 0072-0074 add three
+# independent fixes. Pin the resulting 39-entry plan as well as its contents.
+[[ ${#EXPECTED_PLAN_1823[@]} -eq 39 ]] \
+	|| die "EXPECTED_PLAN_1823 has ${#EXPECTED_PLAN_1823[@]} entries, expected 39"
 if printf '%s\n' "${EXPECTED_PLAN_1823[@]}" | grep -q '/0041-'; then
 	die "EXPECTED_PLAN_1823 still carries a physical 0041 entry — 0037 must absorb it"
 fi

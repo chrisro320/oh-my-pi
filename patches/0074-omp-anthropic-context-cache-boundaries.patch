@@ -1,0 +1,36 @@
+--- a/src/providers/anthropic.ts
++++ b/src/providers/anthropic.ts
+@@ -63,7 +63,6 @@
+ 	copyPerCallContextMessage,
+ 	type ConversationalUserCarrier,
+ 	isConversationalUser,
+-	isPerCallContextMessage,
+ 	isSyntheticUser,
+ 	kConversationalUser,
+ 	kStreamingBlockIndex,
+@@ -3574,7 +3573,6 @@
+ 			{
+ 				type: "text",
+ 				text: claudeCodeSystemInstruction,
+-				cache_control: cacheControl ? cloneAnthropicCacheControl(cacheControl) : { type: "ephemeral" },
+ 			},
+ 		];
+ 
+@@ -3951,13 +3949,13 @@
+ 		params.messages[trailingIndex - 1]?.role === "assistant";
+ 	const messageEnd = hasTrailingAssistantPad ? trailingIndex - 1 : trailingIndex;
+ 
+-	// A breakpoint caches every preceding byte, not only the decorated message.
+-	// Once per-call or turn-scoped content appears, no later message can anchor a
+-	// prefix reusable by the next request.
++	// Server-cleared content cannot anchor a reusable prefix. Extension context,
++	// however, may differ from stored history while staying identical across
++	// calls. Let Anthropic match its bytes instead of vetoing the entire tail.
+ 	let stableMessageEnd = messageEnd;
+ 	for (let index = 0; index <= messageEnd; index++) {
+ 		const message = params.messages[index];
+-		if (message && (message.clear_at === "next_user_message" || isPerCallContextMessage(message))) {
++		if (message?.clear_at === "next_user_message") {
+ 			stableMessageEnd = index - 1;
+ 			break;
+ 		}

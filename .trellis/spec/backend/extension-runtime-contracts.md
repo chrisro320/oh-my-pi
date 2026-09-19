@@ -773,3 +773,81 @@ manager.appendResetBoundary();
 manager.appendResetBoundary();
 await memory.resetContextForNewTranscript();
 ```
+
+## Scenario: Stable extension injection and Anthropic cache boundaries
+
+### 1. Scope / Trigger
+
+Use when `cacheRead` stays fixed while input grows despite append-only request
+history. Incident: 2026-09-19, session `01a0b95b`, local 0016 injection interacting
+with upstream 18.2.3 caching. Root categories: cross-layer contract and implicit
+assumption; extension provenance was mistaken for cross-request byte instability.
+
+### 2. Signatures
+
+`ExtensionRunner.emitContext` → `markPerCallContextMessage` → `convertToLlm`
+→ `applyPromptCaching`; OAuth system assembly uses `buildAnthropicSystemBlocks`.
+Executable gate: `bun patches/verify-anthropic-cache-boundaries.ts`.
+Roots: `OMP_PATCH_VERIFY_AI_ROOT` / `OMP_PATCH_VERIFY_CATALOG_ROOT`, then
+`OMP_PATCH_VERIFY_NM`, then the standard HOME installation.
+
+### 3. Contracts
+
+- A message differing from persisted JSONL can still replay identically on every
+  request. Per-call provenance alone MUST NOT block Anthropic message caching.
+- Do not persist, freeze, suppress, or substitute extension text to force a hit.
+  Anthropic owns byte-prefix matching; changed bytes must remain on the wire.
+- Keep `clear_at: next_user_message` as a barrier: the server removes that content.
+- One OAuth system breakpoint covers the final system block, not just the
+  Claude Code identity block. Share requested TTL with message breakpoints.
+- Keep at most four explicit breakpoints; retention `none` means zero, including
+  OAuth. Other providers' provenance consumers remain unchanged.
+- Compare same-model payloads. Interleaved advisor requests are not evidence that
+  the main model's system prompt drifted.
+
+### 4. Validation & Error Matrix
+
+| Input | Required behavior |
+|---|---|
+| Stable injected first user message | First request writes a message boundary |
+| Tool-use/result continuation | Boundary advances to the latest eligible content |
+| Changed injected content | New bytes reach the provider; no historical substitution |
+| Server-cleared system message | Message boundaries remain before it |
+| OAuth long retention | Complete system coverage; all boundaries use one hour |
+| OAuth/API-key retention none | No boundaries |
+| Missing selected package | Gate fails, never falls back to the live package |
+
+### 5. Good / Base / Bad Cases
+
+- Good: stable Trellis anchors are cached without changing session storage.
+- Base: genuinely changing text creates a new prefix and remains cacheable.
+- Bad: `perCallContext` on message zero disables every later message boundary.
+- Bad: audit comparisons between Opus and its Luna advisor are labeled as a
+  proven Opus system-drift cause.
+
+### 6. Tests Required
+
+Capture final serialized HTTP bytes through an injected fetch, never real auth.
+OAuth's billing wrapper sends `Uint8Array`, while API-key bodies can be strings.
+Run the same gate against pristine (must fail), patched (must pass), a misplaced
+system boundary, a removed clear-at barrier, and a missing package.
+For cross-layer attribution, exercise real extension/runner/converter code with
+temporary anchors, both with and without 0047. Never claim a live hit percentage
+from offline request construction alone.
+
+Machine-check integration:
+`grep -nE '0074|verify-anthropic-cache-boundaries' patches/apply.sh`
+and `bash patches/verify-patch-family-rollups.sh`.
+
+### 7. Wrong vs Correct
+
+```ts
+// Wrong: provenance does not establish cross-request instability.
+if (message.clear_at === "next_user_message" || isPerCallContextMessage(message)) {
+    stableMessageEnd = index - 1;
+}
+// Correct: retain the server-owned lifetime barrier.
+if (message?.clear_at === "next_user_message") {
+    stableMessageEnd = index - 1;
+}
+```
