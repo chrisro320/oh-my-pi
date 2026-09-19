@@ -160,3 +160,25 @@ E2E verified patch 0063: real session 01a0a05f (openai-codex/gpt-5.6-luna) /comp
 ### Status
 
 [OK] **Completed**
+
+
+## Session 7: read 描述 constructor 快照致 resume 斷前綴（0073 getter 化）
+
+**Date**: 2026-09-19
+**Task**: read 描述 constructor 快照致 resume 斷前綴（0073 getter 化）
+**Branch**: `trellis/ds-snapcompact-tuning`
+
+### Summary
+
+用戶報「這次會話又出現 resume 後 cachemiss」：會話 01a0b7c9 首筆 input=16346 / cacheRead=9088（嚴格 35.7%），前一條 99.1%。payload 逐位元組比對：system 與 messages[1..2] 全同，13 個工具只有 read 的描述不同（少 {{#if IS_HL_MODE}} 那一行；tools hash 7e70748d823727f9 → 9ab44c61be923039），斷點與 miss 量吻合。根因：ReadTool.description 只在 constructor 渲染一次，而模板帶模型相關的 IS_HL_MODE（resolveEditMode 對 deepseek 家族強制 hashline → replace）；本會話 tools 建於 gemini-3.8-flash，隨後 retry.fallbackChains 自動降級到 deepseek，而 syncAfterModelChange 只刷 system prompt；resume 後新進程按 stored model 重建工具 → tools bytes 改變 → 前綴斷裂。同族第三次復發：0019／0042 都是入口級補丁，2026-09-13 隨死計畫退役，判據只核對 INSPECT_IMAGE_ENABLED 而漏了同位置的 IS_HL_MODE，觸發源從未消失。修法改為 getter 每次現算（與上游 grep/glob 同形、無入口依賴），落成 0073 並登記 18.2.3 計畫（38 項）；閘門 verify-read-description-live.ts 直接改 active model 斷言與冷啟逐位元組相同，負對照在 pristine 樹失敗。附帶：cache-prefix-audit 多模型串線把 TOOLS_DRIFT 誤報成 SYSTEM_DRIFT（advisor 的 luna 與主線交錯），延後定位；payload 另一差異（reasoning_effort 缺席 + reasoning_content 未重放）落在 0065 領域，機制未坐實，另案。收尾時把另一視窗（session 01a0b7c5）已完成未提交的 0072 session-pin 產出併入（兩者在 apply.sh/PATCHES.md 同一 hunk 無法切分）。未跑獨立 trellis-check agent：驗證由可執行閘門 + 負對照 + apply.sh --check 全 APPLIED + repo/runtime ledger 零漂移承擔。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9cd249a` | (see git log) |
+| `3864190` | (see git log) |
+
+### Status
+
+[OK] **Completed**
