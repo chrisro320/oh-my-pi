@@ -365,6 +365,32 @@ hashline 指引」這條斷言失敗。**判據是跨模型／跨進程的 tools
 
 ---
 
+## 根因類別：憑證／org 切換（多 key pool 的配額冷卻）
+
+**症狀**：**單筆** cacheRead 跌到近乎 0（`prefix intact`），**下一筆立刻恢復**，前後都是 99%；
+`diff` 回 `APPEND_ONLY`、`envelope` 相同、`tools`／`system` 逐位元組相同——**omp 送出的 bytes 完全一致**。
+
+**根因**：prompt cache 是 **per-credential/org** 的（同一份 bytes 換一把 key 讀回來是空的）。
+`pi-commandcode-provider` 的 `probePool` 會對每把 key 查配額，把吃緊的
+`annotate({cooldownUntil})` 推入冷卻；而 `index.ts` 每次請求取 `pool.candidates()[0]`,
+於是下一筆換用另一把 key → **該筆必然全量重算**；成功後 `noteSuccess` 把 preferredKey
+釘在新 key，所以「只 miss 一筆」。
+
+**判別**（2026-09-19 實例，會話 `01a0b7c9`：`in=335550 / cr=384`，7 秒後 `cr=335872`）：
+
+- `cache-prefix-audit` 的 usage 記錄現在帶 `headers`（auth 指紋）→ **比對前後筆，auth 變了即為此類**
+- 該 extension 的 header 探針白名單必須涵蓋 provider host；
+  `commandcode` 是 2026-09-19 才補進去的，在那之前**這個 provider 的 headers 完全沒被觀測**
+
+**不要誤判成多實例競爭**：2026-09-19 用 05:13–05:25 的並發窗口反證過——多個 deepseek
+會話以 0.3 秒間隔交錯請求，**雙方都維持 97–99%**。同模型的並發 session 不會互搶快取。
+
+**不可修的部分**：org 隔離是上游設計，omp 側沒有 namespace 可用（catalog 對該模型宣告
+`supportsPromptCacheKey: false`）。可行的只有「知道它」與「減少不必要的切換」——
+成本上限是一次全量重算（本例 $0.05）。
+
+---
+
 ## 取證方法：payload 逐工具比對
 
 不要只比 whole-array hash，要**逐工具**比對，才能定位是哪一個漂。

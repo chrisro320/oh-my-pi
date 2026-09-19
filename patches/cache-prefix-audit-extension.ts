@@ -539,7 +539,11 @@ function installHeaderProbe(onHeaders: (fp: string, url: string) => void): void 
 		try {
 			const url =
 				typeof input === "string" ? input : input instanceof URL ? input.href : input instanceof Request ? input.url : "";
-			if (/anthropic|googleapis|openai|cloudcode/i.test(url)) {
+			// `commandcode` matters for the same reason as the rest: its key pool
+			// rotates credentials on quota cooldown, and a prompt cache is scoped
+			// per credential/org — the swap costs one full recompute while the
+			// JSON body stays byte-identical, so only the auth fingerprint shows it.
+			if (/anthropic|googleapis|openai|cloudcode|commandcode/i.test(url)) {
 				const source = init?.headers ?? (input instanceof Request ? input.headers : undefined);
 				if (source !== undefined) onHeaders(headerFingerprint(new Headers(source)), url);
 			}
@@ -936,6 +940,11 @@ export default function (pi: ExtensionAPI): void {
 					model: model ?? "unknown",
 					usage: { input, cacheRead, cacheWrite },
 					verdict,
+					// The auth/beta fingerprint of the outbound call. It lives only in
+					// the rolling state otherwise, so a miss whose diff says "prefix
+					// intact" cannot be told apart from a credential switch after the
+					// fact — and a credential switch IS one of the causes.
+					headers: st.last?.headers,
 					diff: d,
 				})}\n`,
 				true,
