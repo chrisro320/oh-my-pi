@@ -1,0 +1,28 @@
+{
+  "id": "read-description-getter",
+  "name": "read-description-getter",
+  "title": "read 描述 getter 化：消除模型切換後的 tools bytes 漂移",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-09-19",
+  "completedAt": "2026-09-19",
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "spec_update": "guides/prompt-cache-diagnosis-guide.md"
+  }
+}
