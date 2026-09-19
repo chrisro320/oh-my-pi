@@ -73,10 +73,11 @@ with tempfile.TemporaryDirectory(prefix="omp-0070-faults-") as temporary:
         finally:
             target.write_bytes(original)
     # The chain-body gate guards the same frame from the consumer side: a chained
-    # compaction that appends the trigger without the items the transcript has
-    # added on top of the baseline must stop passing it. Measured 2026-09-17
-    # (sessions 01a0addd / 01a0ae09): the endpoint rejected exactly that frame
-    # with `invalid_request_error: No tool output found for function call …`.
+    # compaction that appends the trigger without answering the calls the live
+    # baseline left open must stop passing it. Measured 2026-09-17 (sessions
+    # 01a0addd / 01a0ae09) and 2026-09-19 (session 01a0b80a, a custom tool
+    # call): the endpoint rejected exactly that frame with
+    # `invalid_request_error: No tool output found for … call …`.
     body_gate = here / "verify-codex-compaction-chain.ts"
     body_control = run(tree, body_gate)
     assert body_control.returncode == 0, body_control.stdout + body_control.stderr
@@ -86,7 +87,7 @@ with tempfile.TemporaryDirectory(prefix="omp-0070-faults-") as temporary:
     try:
         replace(
             body_target,
-            "\t\t\tinput: pending && pending.length > 1 ? pending : [lastInput],",
+            "\t\t\tinput: [...pendingOutputs, lastInput],",
             "\t\t\tinput: [lastInput],",
         )
         result = run(tree, body_gate)

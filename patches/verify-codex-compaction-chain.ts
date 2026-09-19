@@ -130,15 +130,18 @@ assert.equal(
 	"compaction request metadata must survive (otherwise the server sees a plain turn)",
 );
 
-// --- 1b. A moved-on transcript must ride with the trigger ---
-// Measured 2026-09-17 (sessions 01a0addd / 01a0ae09, models gpt-6-astra and
-// gpt-5.6-luna): the trigger-only frame was rejected by the endpoint with
-// `invalid_request_error: No tool output found for function call …` instead of
-// compacting. The server keeps the baseline response's own output, so a
-// mid-turn boundary — where the transcript has already appended the tool
-// results for exactly those calls — leaves the calls unanswered unless the
-// frame carries them. Only the items may move: every top-level field still
-// comes from the live baseline.
+// --- 1b. The calls the baseline left open must be answered with the trigger ---
+// Measured 2026-09-17 (sessions 01a0addd / 01a0ae09) and again 2026-09-19
+// (session 01a0b80a, gpt-6-astra, `inputItems: 1` on the wire): the frame was
+// rejected with `invalid_request_error: No tool output found for function call
+// …` / `… for custom tool call …` instead of compacting. The server keeps the
+// baseline response's own output, so a mid-turn boundary leaves those calls
+// unanswered unless the frame carries their results.
+//
+// The prefix here is REBUILT (extra developer item, no per-turn injected
+// context), exactly as the compaction body is in production: a strict-prefix
+// delta returns null against it, so pairing must be by call_id. Only the items
+// may move; every top-level field still comes from the live baseline.
 const movedOnState = makeState({
 	lastResponseItems: [
 		{
@@ -158,7 +161,9 @@ const movedOnBody = {
 	// live baseline below.
 	tool_choice: "auto",
 	input: [
-		...LIVE_BASELINE.input,
+		{ type: "additional_tools", role: "developer", tools: [] },
+		{ type: "message", role: "user", content: [{ type: "input_text", text: "hello" }] },
+		{ type: "message", role: "assistant", content: [{ type: "output_text", text: "hi" }] },
 		{ type: "function_call", call_id: "call_live_1", name: "read", arguments: '{"path":"a.ts"}' },
 		{ type: "function_call_output", call_id: "call_live_1", output: "file contents" },
 		{ type: "compaction_trigger" },
@@ -180,6 +185,93 @@ assert.deepEqual(
 	"pending items must not drag the rebuilt body's top-level options onto the wire",
 );
 assert.equal("tool_choice" in movedOn, false, "the compaction body's own tool_choice must not reach the wire");
+
+// --- 1c. A custom tool call the transcript cannot answer gets a placeholder ---
+// Session 01a0b80a: the open call was a `custom_tool_call`, and the tool had
+// not returned when compaction fired, so no result exists anywhere. The frame
+// must still close the pair — with the matching `custom_tool_call_output`
+// kind, because the endpoint validates call kind against output kind.
+const customPendingState = makeState({
+	lastResponseItems: [
+		{
+			id: "ctc_live_1",
+			type: "custom_tool_call",
+			call_id: "call_custom_1",
+			name: "apply_patch",
+			input: "*** Begin Patch",
+			status: "completed",
+		},
+	],
+});
+const customPending = buildCodexChainedRequestBody(
+	{ ...compactionBody, input: [{ type: "message", role: "user", content: [] }, { type: "compaction_trigger" }] },
+	customPendingState as never,
+) as Record<string, unknown>;
+assert.equal(customPending.previous_response_id, "resp_live_1", "an unanswered custom tool call must not break the chain");
+assert.deepEqual(
+	customPending.input,
+	[
+		{
+			type: "custom_tool_call_output",
+			call_id: "call_custom_1",
+			output: "[No tool output recorded: the tool call was interrupted before it produced a result.]",
+		},
+		{ type: "compaction_trigger" },
+	],
+	"an open custom tool call must be closed by a custom_tool_call_output, not left for the endpoint to reject",
+);
+
+// --- 1d. A call nothing can answer must break the chain, not ship a bad frame ---
+// Only a real screenshot payload answers a `computer_call`. Chaining anyway
+// guarantees a 400; the compaction lane's fail-closed path handles the miss.
+const computerCall = { id: "cc_1", type: "computer_call", call_id: "call_computer_1", action: { type: "screenshot" } };
+const computerPending = buildCodexChainedRequestBody(
+	compactionBody,
+	makeState({ lastResponseItems: [computerCall] }) as never,
+) as Record<string, unknown>;
+assert.equal(
+	computerPending.previous_response_id,
+	undefined,
+	"an unanswerable computer_call must break the chain instead of shipping a frame the endpoint rejects",
+);
+// The generic strict-prefix path sits right after this branch, so an exact
+// prefix must NOT be able to re-chain the very frame the branch just refused.
+// Without an explicit reset+return the fall-through hands back
+// `previous_response_id` plus a bare trigger, with the computer_call still open.
+const exactPrefixState = makeState({ lastResponseItems: [computerCall] });
+const exactPrefixComputer = buildCodexChainedRequestBody(
+	{
+		...LIVE_BASELINE,
+		client_metadata: compactionBody.client_metadata,
+		input: [...LIVE_BASELINE.input, computerCall, { type: "compaction_trigger" }],
+	},
+	exactPrefixState as never,
+) as Record<string, unknown>;
+assert.equal(
+	exactPrefixComputer.previous_response_id,
+	undefined,
+	"a byte-exact prefix must not let the generic path re-chain a frame the pairing branch refused",
+);
+assert.equal(exactPrefixState.canAppend, false, "refusing the chain must clear the append baseline, not leave it armed");
+
+// --- 1d2. A computer_call the transcript DID answer must still chain ---
+// The screenshot result exists in history; refusing here would throw away a
+// usable chain (and the whole prefix cache) for no reason.
+const screenshotOutput = {
+	type: "computer_call_output",
+	call_id: "call_computer_1",
+	output: { type: "computer_screenshot", image_url: "data:image/png;base64,iVBORw0KGgo=" },
+};
+const answeredComputer = buildCodexChainedRequestBody(
+	{ ...compactionBody, input: [{ type: "message", role: "user", content: [] }, screenshotOutput, { type: "compaction_trigger" }] },
+	makeState({ lastResponseItems: [computerCall] }) as never,
+) as Record<string, unknown>;
+assert.equal(answeredComputer.previous_response_id, "resp_live_1", "an answered computer_call must not break the chain");
+assert.deepEqual(
+	answeredComputer.input,
+	[screenshotOutput, { type: "compaction_trigger" }],
+	"the transcript's own screenshot result must be forwarded verbatim, not replaced by a placeholder",
+);
 
 // --- 2. Negative control: a non-compaction body must NOT take the baseline branch ---
 // Without the trailing trigger this is an ordinary turn, so the strict check

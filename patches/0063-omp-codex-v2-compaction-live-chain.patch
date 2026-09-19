@@ -43,7 +43,7 @@
  	 */
  	responsesLite?: boolean;
  	/**
-@@ -3557,12 +3559,57 @@
+@@ -3557,12 +3559,107 @@
   * request schema has no `previous_response_id` (codex-rs carries it only on
   * websocket `response.create` frames) and strict gateway validators 400 it
   * with `{"detail":"Unsupported parameter: previous_response_id"}`.
@@ -53,9 +53,10 @@
 + * (codex-rs `compact_remote_v2.rs`) from a body rebuilt off the persisted
 + * transcript, which excludes per-turn injected context (session anchors,
 + * date/cwd stamps) and pins its own top-level options. Reuse the live baseline
-+ * verbatim instead — the server already holds that prefix — and send only what
-+ * the transcript appended on top of it, trigger last. The trailing trigger item
-+ * is itself the discriminator: nothing but the compaction path appends one.
++ * verbatim instead — the server already holds that prefix — answer whatever
++ * tool calls it left open (see the branch below), and otherwise
++ * send only the trigger. The trailing trigger item is itself the discriminator:
++ * nothing but the compaction path appends one.
   */
 -function buildCodexChainedRequestBody(
 +export function buildCodexChainedRequestBody(
@@ -75,28 +76,77 @@
 +		lastInput?.type === "compaction_trigger"
 +	) {
 +		// The server keeps this response's own output, tool calls included, so a
-+		// bare trigger lands after function calls that still have no output and the
++		// bare trigger lands after calls that still have no output and the
 +		// endpoint rejects the whole frame — `No tool output found for function
-+		// call ...` — instead of compacting (measured 2026-09-17, session
-+		// 01a0addd: a mid-turn boundary always sits between a tool call and its
-+		// result). Send what the transcript appended on top of the baseline — the
-+		// tool results for exactly those calls — and keep the trigger last.
++		// call ...`, or `... for custom tool call ...` — instead of compacting
++		// (measured 2026-09-17 session 01a0addd, again 2026-09-19 session
++		// 01a0b80a: a mid-turn boundary always sits between a tool call and its
++		// result).
 +		//
-+		// Compare items only: the compaction body's own top-level overrides
-+		// (tool_choice, stream, store) must not veto a chain the live baseline can
-+		// still carry, and the frame below takes every one of them from the live
-+		// baseline anyway.
-+		const pending = buildResponsesDeltaInput(
-+			state.lastRequest,
-+			state.lastResponseItems,
-+			{ ...state.lastRequest, input: requestBody.input },
-+			CODEX_CHAIN_TOP_LEVEL_EXCLUDE_MAP,
-+		);
++		// A strict-prefix delta cannot answer them: the compaction body is
++		// rebuilt from the persisted transcript, which excludes per-turn injected
++		// context, so it is never byte-equal to the live input array and the
++		// comparison collapses to trigger-only in exactly the case where the tail
++		// is load-bearing. Pair by call_id instead — every call the baseline left
++		// open, answered with the transcript's own result when it already has one
++		// and with the interrupted-call placeholder when the tool never returned
++		// — and keep the trigger last.
++		const baselineItems = [...(state.lastRequest.input ?? []), ...(state.lastResponseItems ?? [])];
++		const answeredCallIds = new Set<string>();
++		for (const item of baselineItems) {
++			if (typeof item.call_id !== "string") continue;
++			if (typeof item.type === "string" && item.type.endsWith("_call_output")) answeredCallIds.add(item.call_id);
++		}
++		const pendingOutputs: InputItem[] = [];
++		let unanswerableCall = false;
++		for (const item of baselineItems) {
++			const callId = typeof item.call_id === "string" ? item.call_id : undefined;
++			if (callId === undefined || answeredCallIds.has(callId)) continue;
++			const outputType =
++				item.type === "function_call"
++					? "function_call_output"
++					: item.type === "custom_tool_call"
++						? "custom_tool_call_output"
++						: item.type === "computer_call"
++							? "computer_call_output"
++							: undefined;
++			if (outputType === undefined) continue;
++			const recordedOutput = requestBody.input?.find(
++				(candidate) => candidate.type === outputType && candidate.call_id === callId,
++			);
++			if (recordedOutput === undefined && item.type === "computer_call") {
++				// Only a real screenshot payload answers a `computer_call`. The
++				// transcript has none, and nothing here can synthesize one, so break
++				// the chain rather than ship a frame the endpoint is certain to reject.
++				unanswerableCall = true;
++				continue;
++			}
++			answeredCallIds.add(callId);
++			pendingOutputs.push(
++				recordedOutput ?? {
++					type: outputType,
++					call_id: callId,
++					output: "[No tool output recorded: the tool call was interrupted before it produced a result.]",
++				},
++			);
++		}
++		if (unanswerableCall) {
++			// Falling through would hand this same frame to the generic strict-prefix
++			// path, which re-chains it whenever the rebuilt prefix happens to match
++			// byte-for-byte — shipping a `previous_response_id` whose chain still
++			// ends on an unanswered `computer_call`. Break the chain here instead.
++			resetCodexWebSocketAppendState(state);
++			state.modelsEtag = undefined;
++			return requestBody;
++		}
++		// The frame takes every top-level field from the live baseline: the
++		// compaction body's own overrides (tool_choice, stream, store) describe a
++		// prefix the server does not hold.
 +		return {
 +			...state.lastRequest,
 +			client_metadata: requestBody.client_metadata,
 +			previous_response_id: state.lastResponseId,
-+			input: pending && pending.length > 1 ? pending : [lastInput],
++			input: [...pendingOutputs, lastInput],
 +		};
 +	}
  	const appendInput = chainable
