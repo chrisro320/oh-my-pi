@@ -1,0 +1,57 @@
+--- a/src/tools/read.ts
++++ b/src/tools/read.ts
+@@ -864,7 +864,23 @@
+ 	};
+ 	readonly label = "Read";
+ 	readonly loadMode = "essential";
+-	description: string;
++	/**
++	 * Computed per read, never captured at construction: the template carries the
++	 * model-dependent `IS_HL_MODE`, so a snapshot would keep shipping the outgoing
++	 * model's schema after a switch, and a resumed process — rebuilding the tool
++	 * under the restored model — would then encode a different `tools` block and
++	 * break the shared prompt-cache prefix. Mirrors `glob`/`grep`, whose
++	 * descriptions are getters for the same reason.
++	 */
++	get description(): string {
++		const displayMode = resolveFileDisplayMode(this.session);
++		return prompt.render(readDescription, {
++			DEFAULT_LIMIT: String(this.#defaultLimit),
++			DEFAULT_MAX_LINES: String(DEFAULT_MAX_LINES),
++			IS_HL_MODE: displayMode.hashLines,
++			IS_LINE_NUMBER_MODE: !displayMode.hashLines && displayMode.lineNumbers,
++		});
++	}
+ 	get parameters(): typeof readSchema {
+ 		// `skillful: false` removes the system-prompt catalog and must also
+ 		// strip the provider-side `skill://` hint, matching sdk.ts:3186.
+@@ -910,7 +926,6 @@
+ 			1,
+ 			Math.min(session.settings.get("read.defaultLimit") ?? DEFAULT_MAX_LINES, DEFAULT_MAX_LINES),
+ 		);
+-		this.description = this.#renderDescription();
+ 	}
+ 
+ 	async #executeSpeculativeRead(
+@@ -1014,21 +1029,6 @@
+ 		} finally {
+ 			this.#speculativeReads.delete(context.toolCall.id);
+ 		}
+-	}
+-
+-	/**
+-	 * Re-render the tool description for the current display mode and the
+-	 * effective inspect_image state (mode setting, `/vision` override, and
+-	 * active-model image capability all feed it, so it can change at runtime).
+-	 */
+-	#renderDescription(): string {
+-		const displayMode = resolveFileDisplayMode(this.session);
+-		return prompt.render(readDescription, {
+-			DEFAULT_LIMIT: String(this.#defaultLimit),
+-			DEFAULT_MAX_LINES: String(DEFAULT_MAX_LINES),
+-			IS_HL_MODE: displayMode.hashLines,
+-			IS_LINE_NUMBER_MODE: !displayMode.hashLines && displayMode.lineNumbers,
+-		});
+ 	}
+ 
+ 	/**

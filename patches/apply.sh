@@ -324,7 +324,12 @@ case "$OMP_PATCH_VERSION" in
 	# 0063+0067，0069 依賴 0068，0070 依賴 0069）。標註 cand 者在矩陣中為
 	# CONFLICT，需 18.2.3 候選；未標註者在 18.2.3 上逐字節仍適用。
 	_omp_tail_candidate "18.2.3" "0047-omp-date-cwd-anchor-stability" "${AGENT}"
-	PATCHES+=("0055-omp-devin-auth-cache-turn-timing.patch:${AI}")
+	# 0055 已被 18.2.3 上游吸收：live devin.ts 逐語義核對含 authMs/headersMs/
+	# firstFrame/serverLatency 四項計時、userJwt 起始空串 + turn.userJwt 回填、
+	# fetchDevinAuthMetadata 每回合取用，且上游更完備（401/403 早失效時
+	# 強制刷新的 2-attempt 復原）。8 個 hunk 全因上下文漂移落空，非邏輯缺失。
+	# 不做文字候選——等效語義已在上游，疊加反而漂移。
+	# PATCHES+=("0055-omp-devin-auth-cache-turn-timing.patch:${AI}")
 	PATCHES+=("0056-omp-devin-metadata-alignment.patch:${NM}")
 	PATCHES+=("0058-omp-devin-thinking-signature-replay.patch:${AI}")
 	_omp_tail_candidate "18.2.3" "0060-omp-devin-idle-cascade-pin" "${NM}"
@@ -336,6 +341,23 @@ case "$OMP_PATCH_VERSION" in
 	_omp_tail_candidate "18.2.3" "0068-omp-codex-stale-baseline-chain" "${NM}"
 	_omp_tail_candidate "18.2.3" "0069-omp-codex-effort-history-resume" "${AI}"
 	_omp_tail_candidate "18.2.3" "0070-omp-codex-compaction-chain-fail-closed" "${NM}"
+	# 0072 僅 18.2.3：/session pin、/login、/logout 共用的 loadProviderAuthUi()
+	# 內 lazy require("@oh-my-pi/pi-ai/index.js") 在已安裝 legacy-pi shim plugin
+	# 的進程中把 Bun resolver 推進 file: 前綴疊加循環，851 層後 NameTooLong
+	# 崩潰（kitty/Orca 皆可重現，與終端無關）。修法：兩個 pi-ai 符號提升為
+	# 頂層靜態 import，對話框組件 require 保留（實測同環境安全）。
+	# a 側是 18.2.3 pristine；selector-controller 不在既有鏈任何補丁的
+	# 觸碰清單，無候選需求。
+	PATCHES+=("0072-omp-session-pin-static-auth-ui.patch:${AGENT}")
+	# 0073 僅 18.2.3：read 工具的 description 原本在 constructor 只渲染一次，而
+	# 模板帶 `IS_HL_MODE`（模型相關：deepseek 家族被 resolveEditMode 降為
+	# replace）。切換模型後仍發舊模型的 schema；resume 時新進程按 stored model
+	# 重建工具 → tools 位元組改變 → prompt cache 前綴在 tools 段斷裂（2026-09-19
+	# 實測 strict 命中 99.1% → 35.7%，cacheRead 24960 → 9088）。改為 getter 每次
+	# 現算，與上游 grep/glob 同形，因此不再依賴任何切換入口——舊修法 0019/0042
+	# 是逐入口補呼叫，retry.fallbackChains 這條新入口即漏網。a 側是 18.2.3
+	# pristine；read.ts 不在既有鏈任何補丁的觸碰清單，無候選需求。
+	PATCHES+=("0073-omp-read-description-live.patch:${AGENT}")
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3)" >&2
@@ -716,6 +738,16 @@ if [[ "$MODE" == "apply" ]]; then
 		bun "${HERE}/verify-codex-compaction-chain-fail-closed.ts"
 	else
 		echo "verify-codex-compaction-chain-fail-closed: skipped (0070 not in this plan)"
+	fi
+	if _omp_plan_has 0072; then
+		OMP_VERIFY_PKG_ROOT="${AGENT}" bun "${HERE}/verify-session-pin-static-auth-ui.ts"
+	else
+		echo "verify-session-pin-static-auth-ui: skipped (0072 not in this plan)"
+	fi
+	if _omp_plan_has 0073; then
+		OMP_PATCH_VERIFY_AGENT_ROOT="${AGENT}" bun "${HERE}/verify-read-description-live.ts"
+	else
+		echo "verify-read-description-live: skipped (0073 not in this plan)"
 	fi
 fi
 if [[ "$MODE" != "check" ]]; then

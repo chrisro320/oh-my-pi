@@ -284,14 +284,18 @@ baseline（2 個 breakpoint，都在 messages 尾部）  3 輪起命中
 
 | 開關 | 影響位置 | 觸發條件 |
 |---|---|---|
-| `inspect_image` | read 描述 + system[0] 宣告 | `model.input` 不含 image |
-| hashline 編輯模式 | edit 描述 | `modelSupportsHashlineEdits()` 為 false |
+| hashline 編輯模式（`IS_HL_MODE`） | **read 描述** + edit 描述 | `resolveEditMode()` 把該模型降為 `replace`（deepseek／kimi／mimo／minimax／stepfun／codex-spark／glm-5.3.0-flash） |
 | code mode | 整組工具呈現 | 模型切到 code-mode 家族 |
+| ~~`inspect_image`~~ | ~~read 描述 + system[0] 宣告~~ | **18.1.10 已移除該工具**，勿再引用 |
+
+**read 描述同時受 `IS_HL_MODE` 影響。** 舊版本表只寫「edit 描述」，
+2026-09-19 因此漏判一次（見下方「工具描述是 constructor 快照」）。
 
 **只有寫進 prompt 的才會造成 miss**。
 `webpExclusionForModel` 之類只影響工具執行期行為，不進 prompt，不造成 miss。
 
-判定函式：`isInspectImageToolActive()`（`utils/inspect-image-mode.ts:33-39`）
+判定函式（**歷史，18.1.10 起 `utils/inspect-image-mode.ts` 與 `inspect_image`
+已刪除，以下僅供舊版計畫參考**）：`isInspectImageToolActive()`（`utils/inspect-image-mode.ts:33-39`）
 
 ```js
 if (mode === "on")  return true;
@@ -302,6 +306,62 @@ return !(model?.input?.includes("image") ?? false);
 read 描述的兩個版本（差 16 字）：
 - true → `Images → metadata; call inspect_image.`（2388）
 - false → `Images → decoded inline.`（2372）
+
+---
+
+## 根因類別：工具描述是 constructor 快照，模型一換就發出舊 schema
+
+**症狀**（2026-09-19，會話 `01a0b7c9`，主模型 `commandcode/deepseek/deepseek-v4.1-flash`）：
+resume 後首個計費請求 `input=16346 / cacheRead=9088`（嚴格命中 **35.7%**），
+前一條 99.1%，resume 後其餘 15 條 89–99%——**只有跨進程那一筆中彈**。
+
+**別被 audit 的 verdict 騙了**：該筆被 `cache-prefix-audit` 記成 `SYSTEM_DRIFT`，
+是**假陽性**——同一 session 內 advisor 的 `gpt-5.6-luna` 請求與主線交錯，
+單槽 diff state 被另一模型佔據。**多模型 session 內只有 `tools` 指紋可靠**，
+`system` 因 wire 形態不同（responses 用 `instructions`）甚至會顯示成空陣列。
+
+**定位**：同一會話前後兩份 payload，`messages[0]`（37534B system）與 `messages[1..2]`
+逐位元組相同；`tools` canonical hash `7e70748d823727f9 → 9ab44c61be923039`，
+**13 個工具逐一比對只有 `read` 不同**——少了 `{{#if IS_HL_MODE}}` 那一行。
+斷點落在 tools 段，與 `cacheRead=9088` 的 miss 量吻合。
+
+**根因**：`ReadTool.description` 只在 constructor 渲染一次（`read.ts` 的
+`this.description = …`，全樹唯一賦值點），而 `read.md` 模板帶 `IS_HL_MODE`；
+`resolveEditMode()`（`utils/edit-mode.ts:43-55`）對 deepseek 家族強制
+`hashline → replace`。本會話工具建於 `google-antigravity/gemini-3.8-flash`
+（hashline），隨後 `retry.fallbackChains` 自動降級到 deepseek（replace），
+而 `SessionTools.syncAfterModelChange()` **只刷新 base system prompt、
+不重繪工具描述**；resume 後新進程按 stored model 重建工具 → tools bytes 改變。
+
+**同族第三次復發，補丁史要看清楚**：
+
+| 補丁 | 覆蓋入口 | 結局 |
+|---|---|---|
+| 0019 | `/model`（走 `syncAfterModelChange`） | 2026-09-13 退役 |
+| 0042 | `switchSession()` + sdk 晚期 reclaim | 2026-09-13 退役 |
+| **0073** | **無入口**（getter 現算） | 現行 |
+
+前兩個都是**入口級**補丁——在每條切換路徑上各補一次「重畫描述」。退役判據
+只核對了「`INSPECT_IMAGE_ENABLED` 分支是否還在」，沒核對「同位置的
+`IS_HL_MODE` 是否仍是模型相關分支」，於是**觸發源從未消失**（只是換了變數名）；
+而新入口 `retry.fallbackChains`（上游 #11983 之後才有）本來就不在覆蓋面內。
+**只要缺陷本體是「快照」，入口枚舉就永遠追不上。**
+
+**判據（寫死）**：
+
+- 修這類缺陷前先問：**這個值是活的還是快照？** 若它在 constructor 賦值且依賴
+  session／model／settings，問題就不是「哪條路徑漏刷」，而是「不該有快照」。
+- 上游 `grep`／`glob` 的 `description` **就是 getter**（每次組 payload 重算）。
+  新增或修 `AGENT_TOOL.description` 時以此為正解形狀。
+- 退役一個補丁時，判據不能只說「目標程式碼不存在」，必須同時回答
+  **「這個缺陷還有別的觸發源嗎」**。否則退役只是把病從「有記錄的未修」
+  變成「無記錄的未修」。
+
+**回歸閘門**：`patches/verify-read-description-live.ts`（`_omp_plan_has 0073` 註冊）。
+以最小 fake session **直接改 active model、不呼叫任何切換 API**——此即「入口無關」
+的證明。負對照：指向 18.2.3 pristine 樹時，在「切到 deepseek 後不得保留舊模型
+hashline 指引」這條斷言失敗。**判據是跨模型／跨進程的 tools bytes 相等，不是
+「功能跑得動」**——這類缺陷沒有任何功能症狀，只在帳單上顯形，而且跨進程才炸。
 
 ---
 

@@ -33,7 +33,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `apply.sh` 的 `PATCHES` 陣列（canonical 母集，非可部署計畫） | 0033、0004、0034、0037、0010、0035、0014、0036、0017、0025、0026-core、0030、0031、0032、0038、0041、0043、0044、0052、0057、0045、0046、0048、0050、0054 | **25** |
 | 18.1.18 計畫（保留） | canonical 25 條 +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062、0063、0065、0066、0067、0068、0069、0070 | **38** |
 | 18.1.14 計畫（回退） | canonical 25 條 +候選置換 7 件 +鏈尾 0047、0063 | **27** |
-| 18.2.3 計畫（已部署） | 保留原 38 項邏輯語義，0041 僅在本版合入 0037；18 份版本候選，其餘沿用原補丁，roots／順序不變 | **37** |
+| 18.2.3 計畫（已部署） | 保留原 38 項邏輯語義，0041 僅在本版合入 0037；18 份版本候選，其餘沿用原補丁，roots／順序不變；另有 18.2.3 專屬追加 0072、0073 | **38** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -679,6 +679,19 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **E2E 驗收口徑**（`~/.omp/agent/compaction-trace.log`）：**成功的嘗試不寫 `summarize.attempt`**（該行只在 catch 內產生），因此不得要求「第 2 次 attempt 有 `attempt=2` 行」。正確判據是在**同一 pid／時間窗口**關聯三件事：① `summarize.attempt` 具 `attempt=1, final=false`——證明真的發生過失敗重試；② 緊接的 `summarize.usage` 為 `lane=codex-v2, stopReason=compaction, transport=websocket, chained=true, inputItems=1`——證明重試**續上了鏈**而非全量重放；③ 該 usage 的 `cachedInputTokens/inputTokens` 高。若只有 `summarize.usage` 而**無** `summarize.attempt`，代表首呼即成功、retry 路徑從未被執行，結果只能記為**未覆蓋 retry**，不得宣稱已驗證續鏈。對照樣本（同日同 lane）：15:45:56 `chained=true items=1 cr/in=36352/37082=98.0%`；缺陷樣本 17:24:02 `chained=false items=449 cr/in=22912/261873=8.7%`。
 - **重啟要求（驗收前提）**：本補丁修改 `src/*.ts`，**不會熱載入**；未重啟的行程仍跑舊碼，其 trace 一律算 **修前證據**。已知修前行程：`pid 1463794`（`omp --resume 01a0a5f7-8ad4-7000-aee0-28ad64f35705`，啟動於 2026-09-15 23:48:30，**2026-09-16 03:51 的 `sawChainedAttempt is not defined` 即出自此行程，且該行程當時仍存活**）。重開後若仍見 warning/降級，**先核對該筆 trace 的 `pid` 是否為新行程**，避免把舊行程的同一輪錯誤當成新補丁的結果；`~/.omp/agent/compaction-trace.log` 每行都帶 `pid`，這是唯一可靠的歸屬鍵。
 
+### 0073 — read 描述由 constructor 快照改為 getter，消除模型切換後 tools bytes 漂移（僅 18.2.3）
+
+- **失敗簽名**（2026-09-19，會話 `01a0b7c9`，主模型 `commandcode/deepseek/deepseek-v4.1-flash`）：resume 後首個計費請求 `input=16346 / cacheRead=9088 / cacheWrite=0`，嚴格命中率 **35.7%**；前一條 99.1%，resume 後其餘 15 條 89–99%。`cache-prefix-audit` 該筆記為 `SYSTEM_DRIFT`——**假陽性**：同 session 內 advisor 的 `gpt-5.6-luna` 請求與主線交錯，單槽 state 被另一模型佔據，真正的 `TOOLS_DRIFT` 因此被掩蓋（同族誤導第二次，前次見 §3 的 8/27 記錄）。
+- **證據鏈（payload 逐位元組比對，非推斷）**：前後兩份 payload 的 `messages[0]`（37534B system）與 `messages[1..2]` 逐位元組相同；`tools` canonical sha256 `7e70748d823727f9 → 9ab44c61be923039`，13 個工具逐一比對**只有 `read` 不同**——少了 `{{#if IS_HL_MODE}}` 那一行（`- File + selector → <code>[foo.ts#1A2B]</code> snapshot header …`）。斷點落在 tools 段，與 `cacheRead=9088` 的 miss 量吻合。
+- **根因**：`ReadTool.description` 在 constructor 只渲染一次（`read.ts:913`，全樹唯一賦值點），而模板帶 `IS_HL_MODE`；`resolveEditMode`（`utils/edit-mode.ts:43-55`）對 `identity.class === "deepseek"` 等強制把 `hashline` 降為 `replace`。本會話 tools 建於 `google-antigravity/gemini-3.8-flash`（hashline），隨後 `retry.fallbackChains` 自動降級到 deepseek（replace）；`SessionTools.syncAfterModelChange()` 只刷新 base system prompt、不重繪工具描述，resume 後新進程按 stored model 重建工具 → tools 位元組改變 → 前綴斷裂。
+- **同族第三次復發**：0019（`/model` 路徑）、0042（`switchSession()` 與 sdk 晚期 reclaim）都是**入口級**修補，2026-09-13 隨死計畫退役（理由：上游 18.1.10 移除整套 refresh 機制）。但退役判據只核對了「`INSPECT_IMAGE_ENABLED` 分支消失」，未核對「同位置的 `IS_HL_MODE` 仍是模型相關分支」——**觸發源從未消失**，只是換了變數名。本次漏網的入口是 `retry.fallbackChains`（上游 #11983 之後才有的路徑），即使舊補丁健在也未必覆蓋。
+- **修法**（`${AGENT}` 單檔 `src/tools/read.ts`）：`description` 由欄位改為 getter，內聯原 `#renderDescription()` 的渲染（該私有方法連同 constructor 賦值一併刪除），與上游 `grep`／`glob` 的描述同形。**入口無關**：任何改變 active model 的路徑都自動取得當前模型的 schema，不再需要逐入口補呼叫。
+- **語義變化（風險）**：`description` 由可寫欄位變 getter；全樹無第二次賦值點、無外部寫入。每次讀取重跑一次模板渲染＋`resolveFileDisplayMode`，頻率與 `grep`／`glob` 相同（上游已接受此成本）。模型切換**本身**造成的 tools 變更成本不變（那是模型變更的固有代價）；本補丁消除的是「切換後持續發錯誤 schema」與「resume 二次斷裂」。
+- **自動回歸**：`verify-read-description-live.ts`（`_omp_plan_has 0073` 註冊），零 provider 呼叫。以最小 fake session **直接改 active model、不呼叫任何切換 API**（此即入口無關的證明）：hashline 模型渲染出 anchored-edit 指引 → 切到 deepseek 後必須消失，且與以目標模型冷啟的 `ReadTool` 描述逐位元組相同；反向亦然。**負對照**：`OMP_PATCH_VERIFY_AGENT_ROOT=/tmp/omp1823/pkg/pi-coding-agent`（18.2.3 pristine）跑同一驗證器，在第二條斷言（不得保留舊模型指引）失敗——即缺陷本體。
+- **未修（已知同族，另案）**：本次 payload 的另一個差異——頂層 `reasoning_effort`（無 → `"high"`）與 `messages[3]` 的 `reasoning_content` 重放——落在 0065（plugin record vs catalog record）的領域內，機制未坐實，本補丁不動。
+- **重放與登記邊界**：`--- a/` 的基準隨 root 而異——root 是 `${AGENT}`（`…/pi-coding-agent`）時寫 `a/src/…`，root 是 `${NM}` 時寫 `a/<pkg>/src/…`（0065、0052 即後者）。本補丁用前者；寫錯時 `patch -d "$root"` 找不到目標檔，且 `mirror_touched` 會一併跳過該檔，於 `--check` 報 CONFLICT（本輪實際踩過，已修正）。沙箱往返須以**該補丁的 root** 為 `-p1` 基準。
+- **生效條件**：需重啟 omp 進程；未重啟的進程仍跑舊碼。
+
 ## 3. 已撤下的補丁
 
 ### 2026-09-15 0051 退役（`.retired/09-15-0051-upstream-adopted/`）
@@ -987,3 +1000,15 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **备份**:`pre-swap-20260829-124717.db{,-wal,-shm}`(换库前原状)、`agent.db.broken-20260829-124320{,-wal}`(更早快照)、`agent.db.rebuilt-20260829`(重建副本),共约 12 MB,跑稳后可删。
 - **未查明**:**为什么会损坏**。用户当日重新登入过、且同时开着多个 omp 窗口(登入/setup 会大量改写 `auth_credentials` 系列表),时间上吻合,但**没有 WAL/journal 时序证据**,不能定为原因。若是并发写入的结构问题,会再次损坏。
 - **教训**:热 `cp` db+wal+shm 做快照本身可能不一致,不能据此判定损坏;要用 `.backup` 或 `mode=ro` 一致读取复验。
+
+### 0072 — /session pin NameTooLong：loadProviderAuthUi 的 pi-ai lazy require 提升為靜態 import（僅 18.2.3）
+
+- **症狀**（2026-09-19，多次復現）：omp 啟動後任何 OAuth UI 路徑——`/session pin`、`/login`、`/logout`、`/usage reset`——觸發 `[Unhandled Rejection] BuildMessage: NameTooLong reading "file:file:…(851 層)…file:/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/index.ts"`，進程整個崩潰（postmortem recovery 提示 resume）。kitty 與 Orca 終端皆崩，與終端宿主無關。
+- **根因**：`selector-controller.ts` 的 `loadProviderAuthUi()` 第一行 `require("@oh-my-pi/pi-ai/index.js")`。在已安裝 `omp:legacy-pi-shim` Bun plugin 的進程（即所有正常啟動的 omp——shim 在 extension 載入時必然註冊）內，對 pi-ai 帶 `.js` 副檔名子路徑的 lazy require 會讓 Bun resolver 進入 `file:` 前綴疊加循環，每輪 `resolve→prefix→re-resolve` 疊一層，直至超出 NAME_MAX。裸 Bun 進程（無 shim）同 require 只是慢（17.9s），不崩——這解釋了為何 `bun -e` 環境難以直接復現。
+- **最小復現**：`installLegacyPiSpecifierShim(); require("@oh-my-pi/pi-ai/index.js")` → 4ms 內 NameTooLong；`require("@oh-my-pi/pi-ai/registry/oauth/index.js")` 同崩。兩處 require 都是 `loadProviderAuthUi()` 內。
+- **修法**（`${AGENT}` 單檔）：`PASTE_CODE_LOGIN_PROVIDERS`（root re-export 自 `./registry`）與 `getOAuthProviders`（`@oh-my-pi/pi-ai/registry/oauth`）提升為頂層靜態 import；三個對話框組件的相鄰 require 實測同環境安全，原樣保留。pi-ai root 本就被此檔靜態 import，零新增載入成本。
+- **為何不是 advisory 原提議的 `require("@oh-my-pi/pi-ai")`**：shim 把 root 攔截到 `legacy-pi-ai-shim.ts`，而 exports map 的 root/subpath 條目只有 `import` 條件無 `require` 條件——shim 環境下 root require 直接 `Cannot find module`。靜態 import 是唯一在兩種環境（shim/裸）都實測通過的載入方式。
+- **回歸**：`verify-session-pin-static-auth-ui.ts`（`_omp_plan_has 0072` 註冊）雙向門：源碼契約（無兩個 lazy require、靜態 import 在位與接線）＋行為門（shim 安裝後靜態 import 鏈載入且兩符號可用；pristine 18.2.3 tree 同驗證器 FAIL=exit 1，patched tree PASS=exit 0）。單檔沙箱無完整 tree 時行為段明確 SKIP 並以源碼門為準。
+- **重放**：18.2.3 pristine 沙箱 `patch -p1` 正向 apply、反向 revert 後逐字節回到 pristine、再正向 re-apply 全通過；補丁字節 repo 與 `~/.omp/patches/` ledger `cmp` 零漂移。
+- **隨同處置**：18.2.3 plan 移除 0055 註冊（tail 條目註釋化）。實證：18.2.3 live `devin.ts` 已含 0055 全部核心語義（`authMs`/`headersMs`/`firstFrameMs`/`serverLatencyMs` 四項計時、`userJwt` 起始空串＋回填、每回合 `fetchDevinAuthMetadata`），且上游更完備（401/403 早失效時強制刷新的 2-attempt 復原）；0055 的 8 個 hunk 全因上下文漂移落空，非邏輯缺失。不做文字候選——等效語義已在上游，疊加必漂移。0056/0058/0060 的 18.2.3 候選不受影響。
+- **生效條件**：需重啟 omp 進程；未重啟的舊進程仍跑舊碼（含本補丁落地前已開的會話）。
