@@ -1,0 +1,84 @@
+{
+  "pi-coding-agent": [
+    {
+      "path": "dist/.omp-zh-backup/cli.js.orig-2026-09-17T15-27-45-180Z",
+      "expected": null,
+      "actual": [
+        "sha256",
+        "0356af6a4f88254e2f9badf2f7648c5448c8ed339c9f0a5c53dfdac420cb8770"
+      ]
+    },
+    {
+      "path": "src/hindsight/backend.ts",
+      "expected": [
+        "sha256",
+        "ecdd96679b2fb740c1ed07d7cb84605b45334c2e5cfdc163eb39df7ae2c9f92f"
+      ],
+      "actual": [
+        "sha256",
+        "22ffcf5c57394a7270d2e85f1b455d7aeca0f79447c363db40cc85d0b8b7e582"
+      ]
+    },
+    {
+      "path": "src/prompts/agents/scout.md",
+      "expected": [
+        "sha256",
+        "c65a6e928a80009acac0510c17bd70dc5cdc688121ffd30976c7e6b0e8ce58fe"
+      ],
+      "actual": [
+        "sha256",
+        "b2ff617ffeb04ec90260886a53154d80c634931de61bdcbb32366dac7e33f613"
+      ]
+    },
+    {
+      "path": "src/session/agent-session.ts",
+      "expected": [
+        "sha256",
+        "c7942f4c91e944d22793efeb2402ccf928b09b62ab0171eb22ecc08c58c862e4"
+      ],
+      "actual": [
+        "sha256",
+        "b5940eeaaebbe2263da271777619b2e766ae5f3d3c7e87563da82d5949897812"
+      ]
+    },
+    {
+      "path": "src/session/session-memory.ts",
+      "expected": [
+        "sha256",
+        "b4a404d1ae682c95355b17116afff0288699c2b1b91113a73f2c37d6240290c0"
+      ],
+      "actual": [
+        "sha256",
+        "0ef2b5371114dca320dbdda087533410d360e15f8c31689ab83fad7988c3cbb6"
+      ]
+    },
+    {
+      "path": "src/session/session-tools.ts",
+      "expected": [
+        "sha256",
+        "a66014ddb2575263b24f46dce9518ab1da5085289ccb5ac7dab5004a105f61b3"
+      ],
+      "actual": [
+        "sha256",
+        "f88139fe1ec228262ba5bf5883a14701f22e598e314acaa52ba13f43b5ac0a90"
+      ]
+    }
+  ],
+  "pi-ai": [
+    {
+      "path": "src/providers/devin.ts",
+      "expected": [
+        "sha256",
+        "7f12e4f16ddf6c0a22d9aa86def62c597caa00ef80f4ba80e9134b77e72ead07"
+      ],
+      "actual": [
+        "sha256",
+        "50c0d9f0d2344474bf0f715195af7b04567c9b9d214118766562b1fd58584bda"
+      ]
+    }
+  ],
+  "pi-agent-core": [],
+  "snapcompact": [],
+  "pi-catalog": [],
+  "pi-tui": []
+}

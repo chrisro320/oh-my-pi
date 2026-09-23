@@ -1,0 +1,148 @@
+{
+  "worker": "ProviderCache",
+  "task": "09-23-omp-update-and-repatch",
+  "target_release": "18.2.10",
+  "owned_candidate_ids": ["0030", "0055", "0071", "0065", "0074"],
+  "owned_verifiers": [
+    "verify-commandcode-model-record-parity.ts",
+    "verify-anthropic-cache-boundaries.ts",
+    "verify-anthropic-request-audit.ts",
+    "verify-devin-auth-cache.ts"
+  ],
+  "pristine_source": "/tmp/omp-18210-plan-yahiqmkw/pristine/<package>/package",
+  "mutable_tree": "/tmp/omp-18210-exec-8cuy1cev/workers/ProviderCache/nm",
+  "generation_trees": "/tmp/omp-18210-exec-8cuy1cev/workers/ProviderCache/gen/<id>/{before,after}",
+  "candidates": [
+    {
+      "id": "0030",
+      "file": ".18.2.10-candidates/0030-omp-usage-cache-canonical-baseurl-v18.2.10-candidate.patch",
+      "plan_root": "AI",
+      "apply": "patch -p1 -d ${AI} < <candidate>",
+      "paths": ["src/auth-storage.ts"],
+      "predecessor": "0026 (unchanged 18.2.10-clean patch, applied locally first; its hunks are disjoint from 0030's)",
+      "local_delta": [
+        "#normalizeUsageBaseUrl(baseUrl, provider) canonicalizes the anthropic form through the upstream helper",
+        "#legacyUsageReportCacheKeys(request): read-only migration name list (default, bare origin, origin/v1, the OAuth endpoint form, the raw value)",
+        "#readUsageReportCached(request, cacheKey, stale): canonical-first, legacy fallback, freshest legacy entry wins by fetchedAt, adopted under the canonical name, never deletes",
+        "both read sites (fresh read and retainLastGood failure read) route through that helper"
+      ],
+      "upstream_subtraction": "18.2.10 moved the canonicalizer out of usage/claude.ts into src/usage/claude-api.ts (normalizeClaudeApiBaseUrl / claudeOAuthBaseUrl / DEFAULT_CLAUDE_API_BASE_URL) and the Claude usage and reset routes now resolve through it. The 18.2.3 candidate's first hunk (exporting a local normalizeClaudeBaseUrl) is therefore dropped: the candidate imports the upstream helper instead. The read/write split 0030 exists for is still present upstream — auth-storage.ts #normalizeUsageBaseUrl is still trim-only and #buildUsageReportCacheKey still keys on the raw value.",
+      "retained_behavior": [
+        "one report cache key per account across an absent baseURL, a bare origin, a /v1 suffix, an /api/oauth suffix and trailing slashes",
+        "reports written by the previously deployed canonicalizing build (the /api/oauth spelling) are still found after the upgrade",
+        "429/stale path keeps the same legacy fallback (never degrades to 'no usage data')",
+        "no retry, transport or retention change"
+      ],
+      "candidate_level_proof": "scoped probe workers/ProviderCache/probe-0030-usage-cache-key.ts against the selected tree: patched key = usage_cache:report:3:anthropic:https://api.anthropic.com:<identity> (one key for /v1, bare origin, /api/oauth and absent spellings, 1 provider fetch total); legacy default + /api/oauth rows are read, the freshest wins and is adopted under the canonical name without deleting rows. Pristine tree fails the same probe with the raw /v1 key."
+    },
+    {
+      "id": "0055",
+      "file": ".18.2.10-candidates/0055-omp-devin-auth-cache-turn-timing-v18.2.10-candidate.patch",
+      "plan_root": "AI",
+      "apply": "patch -p1 -d ${AI} < <candidate>",
+      "paths": ["src/providers/devin.ts"],
+      "predecessor": "none on 18.2.10 pristine devin.ts (generated from pristine)",
+      "local_delta": [
+        "process-lifetime GetUserJwt cache keyed on (apiKey, baseUrl), TTL = JWT exp - 60s, no-exp tokens never cached, per-key write epoch so an older in-flight auth cannot overwrite a newer write",
+        "401/403 on GetChatMessage invalidates the cached JWT and forces exactly one refresh + retry (attempt loop, no retry storm)",
+        "per-turn authMs / headersMs / firstFrameMs / serverLatencyMs / ttftMs / durationMs debug log on both the success and failure paths"
+      ],
+      "upstream_subtraction": "none — verified NOT adopted in 18.2.10. Pristine devin.ts still calls fetchDevinAuthMetadata once per turn with no cache, no epoch, no force-refresh and no timing log; the auth return shape is still { userJwt, baseUrl? }. This confirms the current 18.2.3 plan comment ('0055 absorbed upstream') is wrong: the replayed 39-layer baseline lacks these semantics, only the deployed live tree has them.",
+      "adaptation": "the 18.1.18-era hunk context ended in the old `const text = await response.text(); throw new AIError.DevinApiError(...)` error path; 18.2.10 uses `const payload = new Uint8Array(await response.arrayBuffer()); throw createDevinHttpError(\"API\", response, payload)`. The candidate keeps the 18.2.10 error path untouched and wraps only the send loop.",
+      "candidate_level_proof": "patches/verify-devin-auth-cache.ts passes on the patched selected tree (all nine scenarios) and fails on pristine with 'second turn must reuse cached JWT'."
+    },
+    {
+      "id": "0071",
+      "file": ".18.2.10-candidates/0071-omp-devin-request-dump-v18.2.10-candidate.patch",
+      "plan_root": "AI",
+      "apply": "patch -p1 -d ${AI} < <candidate>",
+      "paths": ["src/providers/devin.ts"],
+      "predecessor": "0055 — this candidate's a-side is the 0055-applied file, so 0071 MUST be registered immediately after 0055 in the same plan",
+      "local_delta": [
+        "OMP_DEVIN_DUMP=<dir> writes the exact outbound GetChatMessage request as <stamp>.bin (protobuf) and <stamp>.json (decoded) before each send attempt",
+        "opt-in only (unset env => no I/O), fire-and-forget, cannot fail the turn"
+      ],
+      "upstream_subtraction": "none — unregistered in every plan and absent from pristine 18.2.10 (toJson is not even imported). Preserved because the live deployment carries it and it is the only wire-level cache-miss forensic for devin.",
+      "candidate_level_proof": "the dump path was exercised (not just compiled): verify-devin-auth-cache.ts run with OMP_DEVIN_DUMP set against the patched tree produced 15 <stamp>.bin + 15 <stamp>.json pairs whose JSON decodes to the named request fields (cascadeId, chatMessagePrompts, chatModelUid, metadata, ...), proving toJson(GetChatMessageRequestSchema, request) resolves under 18.2.10."
+    },
+    {
+      "id": "0065",
+      "file": ".18.2.10-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.2.10-candidate.patch",
+      "plan_root": "NM",
+      "apply": "patch -p1 -d ${NM} < <candidate>",
+      "paths": [
+        "pi-catalog/src/compat/rules/providers/commandcode.kdl",
+        "pi-catalog/src/compat/rules.json"
+      ],
+      "predecessor": "none touching pi-catalog in the 18.2.10 plan (0036/0050/0052 touch pi-coding-agent and snapcompact only)",
+      "local_delta": [
+        "supports-strict-mode #true and supports-multiple-system-messages #false on the models \"deepseek/deepseek-v4.1-flash\" capability block",
+        "the compiled catalog gains exactly those two wire axes on rule 249 and shifts 66 commandcode.kdl provenance line numbers by +9"
+      ],
+      "upstream_subtraction": "the capability/cost split, strip-image-input #false, input-modalities \"text\" \"image\" and the low/high/max effort ladder are already upstream in 18.2.10 and are deliberately not restated (the candidate's comment says so). The remaining local delta is only the two wire axes that the vendored pi-commandcode-provider records and the built-in record disagreed on.",
+      "no_whole_catalog_overwrite": "rules.json is a minified single-line artifact, so the textual hunk is the whole line; the CONTENT delta is confined by construction and by assertion. gen/0065/regen-rules.py re-derives the file from pristine, asserts the pristine provenance lines already point at directives (non-blank, non-comment), asserts the insertion is a pure +9 shift, asserts the shifted numbers still point at directives, and computes a structural leaf delta of exactly 68 fields = 66 source lines + the 2 new wire keys.",
+      "candidate_level_proof": "verify-commandcode-model-record-parity.ts passes on the patched selected tree and fails on pristine at 'KDL carries supports-strict-mode #true'."
+    },
+    {
+      "id": "0074",
+      "file": ".18.2.10-candidates/0074-omp-anthropic-context-cache-boundaries-v18.2.10-candidate.patch",
+      "plan_root": "AI",
+      "apply": "patch -p1 -d ${AI} < <candidate>",
+      "paths": [
+        "src/providers/anthropic.ts",
+        "src/providers/anthropic-request-audit.ts (added by this patch, /dev/null a-side)"
+      ],
+      "predecessor": "none on 18.2.10 pristine anthropic.ts (0074 is the only patch in the chain touching it)",
+      "local_delta": [
+        "buildAnthropicSystemBlocks no longer pre-decorates the Claude Code identity block, so applyHeadCaching anchors the last stable system block and the complete OAuth system sits inside one cached prefix (cacheRetention none now emits no system breakpoint at all)",
+        "applyPromptCaching: clear_at: next_user_message stays the only message barrier; the rolling tail-candidate walk starts at stableMessageEnd and no longer skips extension-injected (per-call) messages",
+        "createAnthropicRequestAudit is wired into the final fetch (below the OAuth cch rewrite) and into the raw SSE observer; side/refresh traffic cannot replace the primary baseline; OMP_PAYLOAD_ARCHIVE_OFF opts out"
+      ],
+      "upstream_subtraction": "partial, documented and NOT accepted as a textual CLEAN. 18.2.10 applyPromptCaching still uses isPerCallContextMessage at :3751 (mark scan) and :3786 (tail-candidate skip) — the only consumers tree-wide besides the import at :65 — and its comment block argues a two-anchor design that keeps a per-call mark as a barrier. That design still zeroes the local contract's single-injected-message case (verifier assertion 'extension-injected first user message must populate the conversation cache'), so both call sites are adapted semantically instead of taking the old hunks verbatim. The identity-breakpoint removal is NOT upstream (the cache_control fallback is still on the block) and is retained.",
+      "import_disposition": "isPerCallContextMessage has zero consumers after both call sites are adapted, so the import is removed deliberately (the deployed 18.2.3 pi-ai anthropic.ts has the same shape: no isPerCallContextMessage import). The producer side is untouched: markPerCallContextMessage (pi-coding-agent runner.ts) and the copyPerCallContextMessage calls still run, exactly as the 18.2.3 feature note records for the deliberate dead marker. Verified by tree-wide grep: after the candidate, pi-ai has zero occurrences and no module outside pi-ai ever consumed the symbol.",
+      "candidate_level_proof": [
+        "verify-anthropic-cache-boundaries.ts passes on the patched selected tree (7 offline captures: growing history, complete system, TTL, disable, changing context, server-cleared boundary) and fails on pristine at 'extension-injected first user message must populate the conversation cache'",
+        "verify-anthropic-request-audit.ts passes on the patched tree (exact OAuth bytes, native prefix equal/different, side/session isolation, raw usage/request id, I/O failure isolation, opt-out) and fails closed on pristine (module absent)",
+        "forward dry-run, applied-vs-target cmp, reverse dry-run and reverse removal of the added file all clean at fuzz=0"
+      ]
+    }
+  ],
+  "gate_updates": [
+    {
+      "verifier": "verify-commandcode-model-record-parity.ts",
+      "change": "none required for 18.2.10 — it already coalesces the two 18.2.3+ capability/cost rules and its block lookup, provenance walk and resolveModelPolicy call are unchanged in shape",
+      "evidence": "exit 0 on the patched selected tree; exit 1 on pristine (missing KDL directive)"
+    },
+    {
+      "verifier": "verify-anthropic-cache-boundaries.ts",
+      "change": "none required for 18.2.10",
+      "evidence": "exit 0 on the patched selected tree; exit 1 on pristine (injected-message cache assertion)"
+    },
+    {
+      "verifier": "verify-anthropic-request-audit.ts",
+      "change": "none required for 18.2.10",
+      "evidence": "exit 0 on the patched selected tree; exit 1 fail-closed on pristine (added module absent)"
+    },
+    {
+      "verifier": "verify-devin-auth-cache.ts",
+      "change": "none required for 18.2.10; its root contract (OMP_PATCH_VERIFY_NM / OMP_PATCH_VERIFY_AI_ROOT / OMP_PATCH_VERIFY_CATALOG_ROOT) is unchanged",
+      "evidence": "exit 0 on the patched selected tree (nine scenarios); exit 1 on pristine ('second turn must reuse cached JWT'); also exercised with OMP_DEVIN_DUMP to prove 0071's dump path",
+      "integration_note": "this gate imports ${NM}/pi-utils/src/index.ts, so the NM root handed to it must be dependency-complete (the harness global install is; the six-package worker nm alone is not)"
+    }
+  ],
+  "registration_notes": [
+    "0055 and 0071 must stay adjacent and in that order: 0071's a-side is the 0055 output. 0055 also verifies CLEAN both before and after 0058 at fuzz=0 (both orders were dry-run), so either 0055 -> 0071 -> 0058 or 0058 -> 0055 -> 0071 applies; the historical 18.1.18 order is 0055 -> 0056 -> 0058.",
+    "0030 has no registered verifier in any plan (unchanged from 18.2.3); its evidence is the scoped probe recorded above.",
+    "0065 stays on the existing tail registration (it is a tail candidate: the only patch in the plan touching pi-catalog)."
+  ],
+  "style_check": {
+    "pattern": "^\\+.*(//|/\\*|\\*|#).*\\p{Han} on patches/.18.2.10-candidates/*.patch",
+    "matches": ["0065 candidate line 24 (the minified rules.json replacement line)"],
+    "assessment": "false positive, not a new Chinese comment. The single Han occurrence in the file is the pre-existing provider label \"name\":\"Zhipu Coding Plan (智谱)\", which exists byte-identically in pristine 18.2.10 rules.json; because that artifact is one line, a minimal content edit necessarily redraws the whole line. No comment was added; 0030/0055/0071/0074 have zero matches."
+  },
+  "non_claims": [
+    "No provider inference, no cloud call and no live install or ~/.omp/agent write was performed.",
+    "Offline fixtures prove request construction and cache-key routing, not server-side cache acceptance or a measured post-fix Anthropic/Devin hit ratio.",
+    "The private verification tree is /tmp/omp-18210-exec-8cuy1cev/workers/ProviderCache/home (harness install hardlinked, pi-ai and pi-catalog copied real); gate runs are scoped to this worker's selected tree, not the project-wide suite."
+  ]
+}

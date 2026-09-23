@@ -1,0 +1,275 @@
+[
+  {
+    "patch": ".18.2.3-candidates/0033-omp-cache-turn-status-rollup-v18.2.3-candidate.patch",
+    "root": "AGENT",
+    "sha256": "e589633809c629f143856d56ed3c2b01a8b2e627bbbe8c1638105a1cec9e5460",
+    "status": "CONFLICT",
+    "dry_run": "checking file src/config/settings-schema.ts\nHunk #1 FAILED at 260.\n1 out of 1 hunk FAILED\ncan't find file to patch at input line 13\nPerhaps you used the wrong -p or --strip option?\nThe text leading up to this was:\n--------------------------\n|--- a/src/modes/components/status-line/segments.ts\n|+++ b/src/modes/components/status-line/segments.ts\n--------------------------\nNo file to patch.  Skipping patch.\n2 out of 2 hunks ignored\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0004-omp-token-total-cacheread-v18.2.3-candidate.patch",
+    "root": "AGENT",
+    "sha256": "0f438cb90a55992d9c2e4e089211e3a53b0377267f699bd6a8c0318c8ee39aab",
+    "status": "CONFLICT",
+    "dry_run": "can't find file to patch at input line 3\nPerhaps you used the wrong -p or --strip option?\nThe text leading up to this was:\n--------------------------\n|--- a/src/modes/components/status-line/segments.ts\n|+++ b/src/modes/components/status-line/segments.ts\n--------------------------\nNo file to patch.  Skipping patch.\n1 out of 1 hunk ignored\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0034-omp-hindsight-snapshot-rollup-v18.2.3-candidate.patch",
+    "root": "AGENT",
+    "sha256": "1af94c052f49be383606d90cf031bba6f0df1233eb8b18aa5c9c65b80c0a04da",
+    "status": "CONFLICT",
+    "dry_run": "checking file src/hindsight/state.ts\nReversed (or previously applied) patch detected!  Skipping patch.\n9 out of 9 hunks ignored\nchecking file src/session/agent-session.ts\nHunk #1 succeeded at 4489 (offset -13 lines).\nHunk #2 succeeded at 5140 (offset -12 lines).\nHunk #3 succeeded at 5147 (offset -12 lines).\nchecking file src/hindsight/backend.ts\nHunk #1 succeeded at 311 (offset 1 line).\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0037-omp-usage-statusline-gate-rollup-v18.2.3-candidate.patch",
+    "root": "AGENT",
+    "sha256": "b688a137ceaa539ba66e68f8102859f4856d2b63db372de25398725ba4cc3d8d",
+    "status": "CONFLICT",
+    "dry_run": "can't find file to patch at input line 3\nPerhaps you used the wrong -p or --strip option?\nThe text leading up to this was:\n--------------------------\n|--- a/src/modes/components/status-line/component.ts\n|+++ b/src/modes/components/status-line/component.ts\n--------------------------\nNo file to patch.  Skipping patch.\n7 out of 7 hunks ignored\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0010-omp-extension-idle-ephemeral-turn-v18.2.3-candidate.patch",
+    "root": "AGENT",
+    "sha256": "73e803e27c2a3ad9846ad5799fdb95319da3d9252ccd8bbf1181ca5d5465833a",
+    "status": "CONFLICT",
+    "dry_run": "checking file dist/types/extensibility/extensions/types.d.ts\nHunk #1 FAILED at 12.\nHunk #2 succeeded at 262 (offset -43 lines).\nHunk #3 succeeded at 315 (offset -43 lines).\nHunk #4 succeeded at 1211 (offset -51 lines).\n1 out of 4 hunks FAILED\nchecking file src/extensibility/extensions/runner.ts\nchecking file src/extensibility/extensions/types.ts\nHunk #1 FAILED at 22.\nHunk #2 succeeded at 424 (offset -38 lines).\nHunk #3 succeeded at 479 (offset -38 lines).\nHunk #4 succeeded at 1713 (offset -57 lines).\n1 out of 4 hunks FAILED\nchecking file src/modes/acp/acp-agent.ts\nHunk #1 succeeded at 2607 (offset 2 lines).\nchecking file src/modes/controllers/extension-ui-controller.ts\nHunk #1 succeeded at 217 (offset 6 lines).\nHunk #2 succeeded at 449 (offset 6 lines).\nchecking file src/modes/runtime-init.ts\nchecking file src/task/executor.ts\nHunk #1 succeeded at 4040 (offset 79 lines).\nchecking file src/session/agent-session.ts\nHunk #1 succeeded at 151 (offset 4 lines).\nHunk #2 succeeded at 667 (offset -4 lines).\nHunk #3 succeeded at 823 (offset 5 lines).\nHunk #4 succeeded at 924 (offset 5 lines).\nHunk #5 succeeded at 1124 (offset 5 lines).\nHunk #6 succeeded at 1201 (offset 5 lines).\nHunk #7 succeeded at 1246 (offset 5 lines).\nHunk #8 succeeded at 1632 (offset 13 lines).\nHunk #9 succeeded at 4006 (offset -13 lines).\nHunk #10 succeeded at 4046 (offset -13 lines).\nHunk #11 succeeded at 4546 (offset -13 lines).\nHunk #12 succeeded at 4742 (offset -13 lines).\nHunk #13 FAILED at 6871.\nHunk #14 FAILED at 7075.\nHunk #15 succeeded at 7197 (offset 24 lines).\nHunk #16 succeeded at 7603 (offset 24 lines).\nHunk #17 succeeded at 7620 (offset 24 lines).\nHunk #18 succeeded at 9399 (offset 33 lines).\nHunk #19 succeeded at 10316 (offset 34 lines).\nHunk #20 succeeded at 10411 (offset 34 lines).\nHunk #21 succeeded at 10419 (offset 34 lines).\nHunk #22 succeeded at 10445 (offset 34 lines).\nHunk #23 succeeded at 10458 (offset 34 lines).\nHunk #24 succeeded at 10573 (offset 34 lines).\n2 out of 24 hunks FAILED\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0035-omp-compaction-prefix-rollup-v18.2.3-candidate.patch",
+    "root": "NM",
+    "sha256": "4985b4b5a5c3584f15147cd93fd6ded7168192ecb07d85203f490e98e40208a4",
+    "status": "CONFLICT",
+    "dry_run": "checking file pi-agent-core/src/compaction/compaction.ts\nHunk #2 succeeded at 86 (offset 1 line).\nHunk #3 succeeded at 584 (offset 1 line).\nHunk #4 succeeded at 668 (offset 1 line).\nHunk #5 succeeded at 689 (offset 1 line).\nHunk #6 succeeded at 890 (offset 1 line).\nHunk #7 succeeded at 934 (offset 1 line).\nHunk #8 succeeded at 972 (offset 1 line).\nHunk #9 succeeded at 1064 (offset 1 line).\nHunk #10 succeeded at 1084 (offset 1 line).\nHunk #11 succeeded at 1138 (offset 1 line).\nHunk #12 succeeded at 1147 (offset 1 line).\nHunk #13 succeeded at 1176 (offset 1 line).\nHunk #14 succeeded at 1189 (offset 1 line).\nHunk #15 succeeded at 1385 (offset 1 line).\nHunk #16 succeeded at 1455 (offset 1 line).\nHunk #17 succeeded at 1637 (offset 23 lines).\nHunk #18 succeeded at 1670 (offset 23 lines).\nHunk #19 succeeded at 1689 (offset 23 lines).\nHunk #20 succeeded at 1811 (offset 23 lines).\nHunk #21 succeeded at 1823 (offset 23 lines).\nHunk #22 succeeded at 2182 (offset 32 lines).\nHunk #23 succeeded at 2198 (offset 32 lines).\nHunk #24 succeeded at 2282 (offset 32 lines).\nchecking file pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md\nchecking file pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md\nchecking file pi-coding-agent/src/session/agent-session.ts\nHunk #1 succeeded at 1967 (offset 46 lines).\nHunk #2 succeeded at 2020 (offset 49 lines).\nHunk #3 succeeded at 5755 (offset 147 lines).\nchecking file pi-coding-agent/src/session/session-advisors.ts\nHunk #1 FAILED at 19.\nHunk #2 FAILED at 98.\nHunk #3 succeeded at 1800 (offset 218 lines).\nHunk #4 succeeded at 2023 (offset 257 lines).\n2 out of 4 hunks FAILED\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #1 succeeded at 101 (offset 12 lines).\nHunk #2 succeeded at 433 (offset 114 lines).\nHunk #3 succeeded at 3231 (offset 554 lines).\nHunk #4 succeeded at 3303 (offset 554 lines).\nHunk #5 succeeded at 4702 (offset 591 lines).\nchecking file pi-coding-agent/src/session/session-provider-boundary.ts\nHunk #1 succeeded at 23 (offset 1 line).\nHunk #2 succeeded at 174 (offset 6 lines).\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0014-omp-antigravity-deterministic-session-identity-v18.2.3-candidate.patch",
+    "root": "AI",
+    "sha256": "d8b9d388d89508c8013255ae505aecca625eadc1de5c7f92fe09cdaf2b0a031d",
+    "status": "CLEAN",
+    "dry_run": "checking file src/providers/google-gemini-cli.ts\nHunk #1 succeeded at 1078 (offset -2 lines).\nHunk #2 succeeded at 1131 (offset -2 lines).\nHunk #3 succeeded at 1234 (offset -2 lines).\nHunk #4 succeeded at 1395 (offset -8 lines).\n"
+  },
+  {
+    "patch": "0036-omp-image-frame-budget-rollup.patch",
+    "root": "NM",
+    "sha256": "49c04140fbd947ea1def1c1cda4ef716b87bdaead783399a999cc8b6e05da965",
+    "status": "CLEAN",
+    "dry_run": "checking file pi-coding-agent/src/session/provider-image-budget.ts\nHunk #1 succeeded at 72 (offset 8 lines).\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #1 succeeded at 3409 (offset 1045 lines).\nHunk #2 succeeded at 3455 (offset 1049 lines).\nHunk #3 succeeded at 3802 (offset 1114 lines).\nHunk #4 succeeded at 3826 (offset 1118 lines).\nchecking file pi-coding-agent/src/session/snapcompact-inline.ts\nchecking file snapcompact/src/snapcompact.ts\nHunk #1 succeeded at 480 (offset 5 lines).\nHunk #2 succeeded at 517 (offset 5 lines).\nHunk #3 succeeded at 578 (offset 5 lines).\nHunk #4 succeeded at 591 (offset 5 lines).\nHunk #5 succeeded at 2274 (offset 72 lines).\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0017-omp-openai-responses-native-replay-warm-v18.2.3-candidate.patch",
+    "root": "AI",
+    "sha256": "baa4416cd896b94a5104f4188a47f22883ef6ea4c98d417cab42aaccbe19f5c3",
+    "status": "CLEAN",
+    "dry_run": "checking file src/providers/openai-responses.ts\nHunk #1 succeeded at 234 (offset 1 line).\n"
+  },
+  {
+    "patch": "0025-omp-ollama-cloud-usage-api.patch",
+    "root": "AI",
+    "sha256": "19218571cc9ba7c8f4c6dee3ea3ff095f3d69d272fd7fee971c353741aa41088",
+    "status": "CLEAN",
+    "dry_run": "checking file src/usage/ollama.ts\n"
+  },
+  {
+    "patch": "0026-omp-usage-fetch-anthropic-gate-core.patch",
+    "root": "AI",
+    "sha256": "3fefe29d81d1ad62cd193a3c6a6988da60dbdd0b4b700963072dbcac5b852f6c",
+    "status": "CLEAN",
+    "dry_run": "checking file src/auth-storage.ts\nHunk #1 succeeded at 4477 (offset 320 lines).\nHunk #2 succeeded at 4515 (offset 320 lines).\nHunk #3 succeeded at 4529 (offset 320 lines).\nHunk #4 succeeded at 4546 (offset 320 lines).\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0030-omp-usage-cache-canonical-baseurl-v18.2.3-candidate.patch",
+    "root": "AI",
+    "sha256": "c2b939c4d6548d95abc25afd8edfd88b56a16899dd8d419e249701df33ea0c14",
+    "status": "CONFLICT",
+    "dry_run": "checking file src/auth-storage.ts\nHunk #1 FAILED at 51.\nHunk #2 succeeded at 3368 (offset 119 lines).\nHunk #3 succeeded at 3496 (offset 119 lines).\nHunk #4 succeeded at 3761 (offset 119 lines).\nHunk #5 succeeded at 3796 (offset 119 lines).\n1 out of 5 hunks FAILED\nchecking file src/usage/claude.ts\nHunk #1 FAILED at 33.\n1 out of 1 hunk FAILED\n"
+  },
+  {
+    "patch": "0031-omp-agent-session-providers-forward.patch",
+    "root": "AGENT",
+    "sha256": "5054863fcfb7f3d9341bb35fd82ce38577ba24d3c18497cd3ec9608e93cb752f",
+    "status": "CLEAN",
+    "dry_run": "checking file src/session/agent-session.ts\nHunk #1 succeeded at 387 (offset 36 lines).\nHunk #2 succeeded at 10629 (offset 1198 lines).\n"
+  },
+  {
+    "patch": "0032-omp-goal-tool-resident.patch",
+    "root": "AGENT",
+    "sha256": "dacf82877843e749ce8124f6b694d93af52158a5353419d17df041b2e73a5c3c",
+    "status": "CLEAN",
+    "dry_run": "checking file src/sdk.ts\nHunk #1 succeeded at 3402 (offset 215 lines).\nchecking file src/tools/index.ts\nHunk #1 succeeded at 675 (offset 34 lines).\nchecking file src/modes/interactive-mode.ts\nHunk #1 succeeded at 3870 (offset 792 lines).\nHunk #2 succeeded at 4165 (offset 823 lines).\nHunk #3 succeeded at 5183 (offset 1023 lines).\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.2.3-candidate.patch",
+    "root": "NM",
+    "sha256": "fa17e916b6a3359092abcbf07c07da7b7e6c2e585679009a6c08d02ef7216671",
+    "status": "CLEAN",
+    "dry_run": "checking file pi-coding-agent/src/session/date-cwd-reminder.ts\nchecking file pi-ai/src/types.ts\nchecking file pi-ai/src/providers/openai-responses.ts\nchecking file pi-coding-agent/src/sdk.ts\nHunk #1 succeeded at 3598 (offset 26 lines).\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0043-omp-interrupt-prune-symmetry-v18.2.3-candidate.patch",
+    "root": "AGENT",
+    "sha256": "9b2b0c777b46006f062aa7a416ddc5b92c144f57c9f9c9f062b14c432e74db00",
+    "status": "CONFLICT",
+    "dry_run": "checking file src/session/session-context.ts\nHunk #1 FAILED at 12.\nHunk #2 succeeded at 682 (offset 25 lines).\n1 out of 2 hunks FAILED\nchecking file src/session/messages.ts\nHunk #1 succeeded at 942 (offset -244 lines).\nHunk #2 succeeded at 1027 (offset -239 lines).\nHunk #3 succeeded at 1060 (offset -239 lines).\nHunk #4 succeeded at 1139 (offset -238 lines).\nHunk #5 succeeded at 1149 (offset -238 lines).\nHunk #6 succeeded at 1161 (offset -238 lines).\nHunk #7 succeeded at 1182 (offset -238 lines).\n"
+  },
+  {
+    "patch": "0044-omp-image-budget-wire-api-family.patch",
+    "root": "NM",
+    "sha256": "7fc8d861d347c8938c39c19305f32f17bce4f4b8024d8ce0d144e3fe2cb4d58d",
+    "status": "CLEAN",
+    "dry_run": "checking file snapcompact/src/snapcompact.ts\n"
+  },
+  {
+    "patch": "0052-omp-snapcompact-model-billing-commandcode-budget.patch",
+    "root": "NM",
+    "sha256": "b61925ebc502340e813e2f8f9c58e5060ae03087f23521ab56c8c2b67ff15535",
+    "status": "CLEAN",
+    "dry_run": "checking file snapcompact/src/snapcompact.ts\n"
+  },
+  {
+    "patch": "0057-omp-devin-image-budget.patch",
+    "root": "NM",
+    "sha256": "58d8b9f62fb011480b3510ebb6d5c22d162c0bd45456e792d365921be0ec099b",
+    "status": "CLEAN",
+    "dry_run": "checking file snapcompact/src/snapcompact.ts\n"
+  },
+  {
+    "patch": "0045-omp-snapcompact-frame-reprice.patch",
+    "root": "AGENT",
+    "sha256": "53fb9f5e272f45a4e039fe1289d96f0801829c618cb091f9b58b15c1bda939d0",
+    "status": "CONFLICT",
+    "dry_run": "checking file src/session/session-maintenance.ts\nHunk #1 succeeded at 1289 (offset 307 lines).\nHunk #2 succeeded at 3484 (offset 941 lines).\nHunk #3 FAILED at 2577.\nHunk #4 succeeded at 4551 (offset 1035 lines).\n1 out of 4 hunks FAILED\n"
+  },
+  {
+    "patch": "0046-omp-supersede-warm-prefix-guard.patch",
+    "root": "AGENT",
+    "sha256": "bda022e84bcdd2273a9356e570acd483de1cbdc7354a729e0f932fa29fa423cc",
+    "status": "CLEAN",
+    "dry_run": "checking file src/session/session-maintenance.ts\nHunk #1 succeeded at 674 (offset 153 lines).\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0048-omp-advisor-quota-rotation-bound-v18.2.3-candidate.patch",
+    "root": "AGENT",
+    "sha256": "f6f9d68aa081c138fffb53c0d6471ab138bacae19aedddb400cc59b6ba3ff93e",
+    "status": "CLEAN",
+    "dry_run": "checking file src/session/session-advisors.ts\n"
+  },
+  {
+    "patch": "0050-omp-session-history-preview.patch",
+    "root": "AGENT",
+    "sha256": "7713f0bf0d6b7826b8e218c7b0c57afe54f5b0ca22ae1651012a9c7858d18b4e",
+    "status": "CONFLICT",
+    "dry_run": "checking file src/session/session-listing.ts\nHunk #1 succeeded at 50 (offset 3 lines).\nHunk #2 succeeded at 187 (offset -6 lines).\nHunk #3 succeeded at 570 (offset 19 lines).\ncan't find file to patch at input line 104\nPerhaps you used the wrong -p or --strip option?\nThe text leading up to this was:\n--------------------------\n|--- a/src/modes/components/session-selector.ts\n|+++ b/src/modes/components/session-selector.ts\n--------------------------\nNo file to patch.  Skipping patch.\n13 out of 13 hunks ignored\n"
+  },
+  {
+    "patch": "0054-omp-antigravity-drop-requesttype-agent.patch",
+    "root": "AI",
+    "sha256": "b9f5e0c6c1beb64c3f74c1df7a9e414c4f7a134992ad05a56e496784ccb7e550",
+    "status": "CLEAN",
+    "dry_run": "checking file src/providers/google-gemini-cli.ts\nHunk #1 succeeded at 1407 (offset -8 lines).\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0047-omp-date-cwd-anchor-stability-v18.2.3-candidate.patch",
+    "root": "AGENT",
+    "sha256": "6368b6788894a2387e104a66b278f1350035f59ee663184e10b4c1bcbd6701c4",
+    "status": "CLEAN",
+    "dry_run": "checking file src/sdk.ts\nHunk #1 succeeded at 3569 (offset 26 lines).\nHunk #2 succeeded at 4295 (offset 23 lines).\nchecking file src/session/date-cwd-reminder.ts\n"
+  },
+  {
+    "patch": "0056-omp-devin-metadata-alignment.patch",
+    "root": "NM",
+    "sha256": "59c6db589d824758b84a38da10cfe87a3a5b99cb27c3a3d44b7ee16b85b18aad",
+    "status": "CLEAN",
+    "dry_run": "checking file pi-catalog/src/wire/devin.ts\n"
+  },
+  {
+    "patch": "0058-omp-devin-thinking-signature-replay.patch",
+    "root": "AI",
+    "sha256": "2019038db5b9210f3e04c4b8716acab5a8ac39bf8a79943450e1e326ba1c3ce3",
+    "status": "CLEAN",
+    "dry_run": "checking file src/providers/devin.ts\nHunk #1 succeeded at 175 (offset 53 lines).\nHunk #2 succeeded at 208 (offset 44 lines).\nHunk #3 succeeded at 403 (offset -12 lines).\nHunk #4 succeeded at 761 (offset -137 lines).\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0060-omp-devin-idle-cascade-pin-v18.2.3-candidate.patch",
+    "root": "NM",
+    "sha256": "d7234c18037d1a6f57c85a04dbd8578f6d693e4f8bf219b168b9e8154b95b53d",
+    "status": "CONFLICT",
+    "dry_run": "checking file pi-ai/src/types.ts\nchecking file pi-ai/src/stream.ts\nHunk #1 succeeded at 2023 (offset -8 lines).\nHunk #2 succeeded at 2048 (offset -8 lines).\nchecking file pi-coding-agent/src/session/agent-session.ts\nHunk #1 FAILED at 9408.\nHunk #2 succeeded at 9345 (offset -98 lines).\nHunk #3 succeeded at 9368 (offset -98 lines).\n1 out of 3 hunks FAILED\n"
+  },
+  {
+    "patch": "0062-omp-snapcompact-reduction-baseline-previous-archive.patch",
+    "root": "AGENT",
+    "sha256": "ec2dd1fd7d9e9ccef28b5f6b94708c2a9b1d2e262efbc743ab0d3e6bec620ff2",
+    "status": "CONFLICT",
+    "dry_run": "checking file src/session/session-maintenance.ts\nHunk #1 FAILED at 1063.\nHunk #2 FAILED at 2000.\nHunk #3 succeeded at 4555 (offset 522 lines).\n2 out of 3 hunks FAILED\n"
+  },
+  {
+    "patch": "0063-omp-codex-v2-compaction-live-chain.patch",
+    "root": "NM",
+    "sha256": "9a39874cf580585791dcd133175dd6b4f5878da00af96bcb750a18b99b9e1413",
+    "status": "CLEAN",
+    "dry_run": "checking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 succeeded at 1678 (offset -195 lines).\nchecking file pi-ai/src/providers/openai-codex-responses.ts\nHunk #1 succeeded at 151 (offset 6 lines).\nHunk #2 succeeded at 3525 (offset -34 lines).\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.2.3-candidate.patch",
+    "root": "NM",
+    "sha256": "0db5c9a00f94d8201b07185401a935fd1d3a452585186fb3ef3877830598d678",
+    "status": "CONFLICT",
+    "dry_run": "checking file pi-catalog/src/compat/rules/providers/commandcode.kdl\nchecking file pi-catalog/src/compat/rules.json\nHunk #1 FAILED at 1.\n1 out of 1 hunk FAILED\n"
+  },
+  {
+    "patch": "0066-omp-anthropic-native-compaction-live-context.patch",
+    "root": "NM",
+    "sha256": "138977863e8fdf91ea95bc9db68dd0767a03ade1fe2dca2b12a3074eeeb3f0dd",
+    "status": "CONFLICT",
+    "dry_run": "checking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 FAILED at 667.\nHunk #2 succeeded at 1881 (offset -195 lines).\nHunk #3 succeeded at 1900 (offset -195 lines).\n1 out of 3 hunks FAILED\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #1 FAILED at 2763.\n1 out of 1 hunk FAILED\nchecking file pi-coding-agent/src/session/session-advisors.ts\nHunk #1 FAILED at 1645.\n1 out of 1 hunk FAILED\n"
+  },
+  {
+    "patch": "0067-omp-remote-compaction-lane-trace-live-tools.patch",
+    "root": "NM",
+    "sha256": "997b1b3f91ee2df87a67f2d253d45858ea9e976aafe9c6e47359dd0cf8aa69fc",
+    "status": "CONFLICT",
+    "dry_run": "checking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 succeeded at 1661 (offset -195 lines).\nHunk #2 succeeded at 1681 (offset -195 lines).\nHunk #3 succeeded at 1726 (offset -195 lines).\nHunk #4 succeeded at 1758 (offset -195 lines).\nHunk #5 succeeded at 1778 (offset -195 lines).\nHunk #6 succeeded at 1792 (offset -195 lines).\nHunk #7 succeeded at 1825 (offset -195 lines).\nHunk #8 succeeded at 1852 (offset -195 lines).\nHunk #9 succeeded at 1860 (offset -195 lines).\nHunk #10 FAILED at 2136.\nHunk #11 succeeded at 1965 (offset -202 lines).\nHunk #12 succeeded at 1981 (offset -202 lines).\n1 out of 12 hunks FAILED\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0068-omp-codex-stale-baseline-chain-v18.2.3-candidate.patch",
+    "root": "NM",
+    "sha256": "d803800f0cdd7c3bb019f9f60d02e025162a677ded3d45e58a39137776bbdb0c",
+    "status": "CONFLICT",
+    "dry_run": "checking file pi-agent-core/src/compaction/compaction-trace.ts\nchecking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\nHunk #1 FAILED at 14.\n1 out of 8 hunks FAILED\nchecking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 FAILED at 34.\nHunk #2 succeeded at 60 (offset -3 lines).\nHunk #3 FAILED at 973.\nHunk #4 FAILED at 2012.\n3 out of 4 hunks FAILED\nchecking file pi-ai/src/providers/openai-codex-responses.ts\nHunk #1 succeeded at 189 (offset 5 lines).\nHunk #2 succeeded at 1666 (offset -47 lines).\nHunk #3 succeeded at 1725 (offset -47 lines).\nHunk #4 succeeded at 1804 (offset -47 lines).\nHunk #5 succeeded at 1854 (offset -47 lines).\nHunk #6 succeeded at 1876 (offset -47 lines).\nchecking file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0069-omp-codex-effort-history-resume-v18.2.3-candidate.patch",
+    "root": "AI",
+    "sha256": "2f1299276976843a5af346ace2531d67109000564966f2d8baf0686120cbb081",
+    "status": "CONFLICT",
+    "dry_run": "checking file src/types.ts\nHunk #2 succeeded at 900 (offset -10 lines).\nchecking file src/providers/openai-codex-responses.ts\nHunk #1 FAILED at 83.\nHunk #2 succeeded at 439 (offset -49 lines).\nHunk #3 succeeded at 746 (offset -49 lines).\nHunk #4 succeeded at 1030 (offset -49 lines).\nHunk #5 succeeded at 1037 (offset -49 lines).\nHunk #6 succeeded at 1050 (offset -49 lines).\nHunk #7 succeeded at 1493 (offset -49 lines).\nHunk #8 succeeded at 1511 (offset -49 lines).\nHunk #9 succeeded at 1567 (offset -49 lines).\nHunk #10 succeeded at 2975 (offset -82 lines).\n1 out of 10 hunks FAILED\nchecking file dist/types/types.d.ts\n"
+  },
+  {
+    "patch": ".18.2.3-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.2.3-candidate.patch",
+    "root": "NM",
+    "sha256": "78cd25186497f3c2d82cf06d32a13e38d01dc218ab4dbf331f419abb222cc03d",
+    "status": "CONFLICT",
+    "dry_run": "checking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\nHunk #1 FAILED at 12.\nHunk #2 FAILED at 25.\nHunk #3 succeeded at 78 (offset -2 lines).\nHunk #4 succeeded at 270 (offset -9 lines).\nHunk #5 FAILED at 297.\nHunk #6 FAILED at 332.\nHunk #7 succeeded at 327 (offset -30 lines).\nHunk #8 succeeded at 358 (offset -30 lines).\nHunk #9 FAILED at 403.\nHunk #10 succeeded at 384 (offset -35 lines).\nHunk #11 FAILED at 429.\nHunk #12 succeeded at 399 (offset -46 lines).\nHunk #13 succeeded at 429 (offset -46 lines).\nHunk #14 succeeded at 448 (offset -46 lines).\nHunk #15 succeeded at 470 (offset -46 lines).\nHunk #16 succeeded at 606 (offset -46 lines).\nHunk #17 succeeded at 642 (offset -46 lines).\n6 out of 17 hunks FAILED\nchecking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 FAILED at 27.\nHunk #2 succeeded at 668 (offset -13 lines).\nHunk #3 succeeded at 1601 (offset -199 lines).\nHunk #4 FAILED at 1966.\nHunk #5 FAILED at 1983.\nHunk #6 FAILED at 2007.\n4 out of 6 hunks FAILED\nchecking file pi-ai/dist/types/providers/openai-codex-responses.d.ts\nHunk #1 succeeded at 13 (offset 3 lines).\nHunk #2 succeeded at 52 (offset 3 lines).\nHunk #3 succeeded at 212 (offset -24 lines).\nchecking file pi-ai/src/providers/openai-codex-responses.ts\nHunk #1 succeeded at 148 (offset 5 lines).\nHunk #2 FAILED at 188.\nHunk #3 succeeded at 418 (offset -49 lines).\nHunk #4 succeeded at 429 (offset -49 lines).\nHunk #5 succeeded at 1464 (offset -44 lines).\nHunk #6 succeeded at 1612 (offset -76 lines).\nHunk #7 succeeded at 1661 (offset -76 lines).\nHunk #8 FAILED at 1802.\nHunk #9 succeeded at 1738 (offset -88 lines).\nHunk #10 FAILED at 1891.\nHunk #11 succeeded at 1810 (offset -104 lines).\nHunk #12 succeeded at 1823 (offset -104 lines).\nHunk #13 FAILED at 1952.\nHunk #14 FAILED at 1960.\nHunk #15 FAILED at 1986.\nHunk #16 succeeded at 2060 (offset -109 lines).\nHunk #17 succeeded at 2642 (offset -109 lines).\nHunk #18 succeeded at 3020 (offset -109 lines).\nHunk #19 succeeded at 3271 (offset -112 lines).\nHunk #20 succeeded at 3293 (offset -112 lines).\nHunk #21 FAILED at 3429.\nHunk #22 succeeded at 3396 (offset -124 lines).\nHunk #23 succeeded at 3656 (offset -124 lines).\nHunk #24 succeeded at 3820 (offset -124 lines).\nHunk #25 succeeded at 3874 (offset -124 lines).\nHunk #26 succeeded at 3917 (offset -124 lines).\nHunk #27 succeeded at 4010 (offset -124 lines).\nHunk #28 succeeded at 4493 (offset -124 lines).\nHunk #29 succeeded at 5025 (offset -102 lines).\n7 out of 29 hunks FAILED\nchecking file pi-coding-agent/src/session/session-advisors.ts\nHunk #1 succeeded at 2021 (offset -42 lines).\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #2 succeeded at 1449 (offset -17 lines).\nHunk #3 succeeded at 2018 (offset -17 lines).\nHunk #4 succeeded at 2071 (offset -17 lines).\nHunk #5 succeeded at 4712 (offset -107 lines).\nHunk #6 succeeded at 4727 (offset -107 lines).\nHunk #7 succeeded at 4760 (offset -107 lines).\nHunk #8 succeeded at 4854 (offset -107 lines).\nHunk #9 succeeded at 4886 (offset -107 lines).\nchecking file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\nHunk #2 succeeded at 71 (offset -7 lines).\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\n"
+  },
+  {
+    "patch": "0072-omp-session-pin-static-auth-ui.patch",
+    "root": "AGENT",
+    "sha256": "d8faac5a37f7f81af74ae3ed90022b1db005c1a4d83c2de9c796ae5951a93f33",
+    "status": "CONFLICT",
+    "dry_run": "checking file src/modes/controllers/selector-controller.ts\nHunk #2 FAILED at 143.\n1 out of 2 hunks FAILED\n"
+  },
+  {
+    "patch": "0073-omp-read-description-live.patch",
+    "root": "AGENT",
+    "sha256": "ca53b769fbbceb14ed5d4b245e9af37e4f3399c6152f9652a79a341363d8470f",
+    "status": "CONFLICT",
+    "dry_run": "checking file src/tools/read.ts\nHunk #1 FAILED at 864.\nHunk #2 succeeded at 874 (offset -36 lines).\nHunk #3 succeeded at 977 (offset -36 lines).\n1 out of 3 hunks FAILED\n"
+  },
+  {
+    "patch": "0074-omp-anthropic-context-cache-boundaries.patch",
+    "root": "AI",
+    "sha256": "cc41e6c5943b8a3c2b17e8cc2b7e98e2fbccb72cbcec983b5d289e96faf79e53",
+    "status": "CONFLICT",
+    "dry_run": "checking file src/providers/anthropic.ts\nHunk #1 succeeded at 56 (offset -1 lines).\nHunk #2 succeeded at 2008 (offset -254 lines).\nHunk #3 succeeded at 2214 (offset -252 lines).\nHunk #4 succeeded at 3365 (offset -218 lines).\nHunk #5 FAILED at 3959.\n1 out of 5 hunks FAILED\nchecking file src/providers/anthropic-request-audit.ts\n"
+  }
+]

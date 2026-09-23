@@ -92,6 +92,39 @@ for g in verify-provider-image-budget verify-snapcompact-model-billing; do
 		&& ok "${g} registered in apply.sh suite" \
 		|| bad "${g} NOT registered in apply.sh suite"
 done
+# The layers this migration carries each own a gate; a gate no suite invokes is
+# documentation, not verification. 0050's preview, 0072's auth UI and 0073's
+# read-description all guard behavior the current plans still ship.
+for g in verify-session-history-preview verify-session-pin-static-auth-ui verify-read-description-live; do
+	grep -q "bun \"\${HERE}/${g}.ts\"" "${HERE}/apply.sh" \
+		&& ok "${g} registered in apply.sh suite" \
+		|| bad "${g} NOT registered in apply.sh suite"
+done
+
+# --- Contract: the moved TUI package is a first-class plan root ------------
+# 18.2.10 moved the status line and the session picker into pi-tui. The
+# controller must resolve, print and export that root exactly like the others:
+# a layer whose root stays AGENT would patch a path upstream no longer has, and
+# every gate reading it would measure the wrong tree.
+if grep -q '^TUI="${NM}/pi-tui"' "${HERE}/apply.sh" \
+	&& grep -q '"$TUI") rn=TUI' "${HERE}/apply.sh" \
+	&& grep -q 'OMP_PATCH_VERIFY_TUI_ROOT="$TUI"' "${HERE}/apply.sh"; then
+	ok "controller declares, prints and exports the TUI root"
+else
+	bad "controller does not treat TUI as a first-class root (declare / print / export)"
+fi
+
+# --- Contract: gates select their tree, never a workstation path -----------
+# A hardcoded live-package path keeps measuring the live install whatever root
+# the suite exported (verification-gate-contracts: "Absolute-path imports defeat
+# root redirection"), and a hardcoded type-only import is not portable either.
+# Repo-owned fixture paths are not package roots and stay allowed.
+offenders="$(grep -lE '"/home/[^"]*/node_modules/' "${HERE}"/verify-*.ts 2>/dev/null || true)"
+if [[ -z "$offenders" ]]; then
+	ok "no gate hardcodes a live package path"
+else
+	for f in $offenders; do bad "$(basename "$f") hardcodes a live package path (selected root is bypassed)"; done
+fi
 
 # --- Contract: repository and deployed ledger are byte-identical ------------
 if [[ -d "$LEDGER" ]]; then

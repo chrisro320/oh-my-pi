@@ -3,6 +3,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 python3 -u - "$HERE" <<'PY'
+import json
 import os
 import shutil
 import subprocess
@@ -18,6 +19,9 @@ ai = "pi-ai/src/providers/openai-codex-responses.ts"
 core = "pi-agent-core/src/compaction/compaction-v2-streaming.ts"
 types = "pi-ai/dist/types/providers/openai-codex-responses.d.ts"
 gate = here / "verify-codex-compaction-chain-fail-closed.ts"
+# 18.2.3 and 18.2.10 (the pending 0070 revision) carry the chain-recovery hook;
+# 18.1.18 predates it, so the fault expectations differ per supported version.
+supports_recovery = json.loads((roots["pi-ai"] / "package.json").read_text())["version"] in ("18.2.3", "18.2.10")
 
 def run(tree, gate_path=None):
     env = dict(os.environ, OMP_PATCH_VERIFY_NM=str(tree), OMP_COMPACTION_TRACE_OFF="1")
@@ -37,9 +41,9 @@ faults = [
     ("event type becomes provider code", core, 'stringField(event, "code")\n', 'stringField(event, "code") ?? stringField(event, "type")\n', "only a real provider code may be preserved"),
     ("missing acceptance type", types, "    onAccept?: (commit: (recorded: OpenAICodexCompactionResponseMetadata) => void) => void;\n", "", "published acceptance API must type-check"),
     ("unsound metadata target type", types, "websocketState?: { modelsEtag?: string }", "websocketState?: unknown", "published acceptance API must type-check"),
-    ("eager baseline reset", ai, "\t\trequestContext.websocketState.lastTransport = initial.transport;", "\t\trequestContext.websocketState.lastTransport = initial.transport;\n\t\tresetCodexWebSocketAppendState(requestContext.websocketState);", "CodexCompactionChainLostError"),
+    ("eager baseline reset", ai, "\t\trequestContext.websocketState.lastTransport = initial.transport;", "\t\trequestContext.websocketState.lastTransport = initial.transport;\n\t\tresetCodexWebSocketAppendState(requestContext.websocketState);", "healthy retries must retain their response baseline" if supports_recovery else "CodexCompactionChainLostError"),
     ("SSE fallback permitted", ai, "const refuseSseFallback = isCompactionWireBody(transformedBody);", "const refuseSseFallback = false;", "sse-disabled: failure must stay terminal"),
-    ("cold full replay permitted", ai, "const mustChain = isCompactionWireBody(requestContext.transformedBody);", "const mustChain = false;", "cold: failure must stay terminal"),
+    ("cold full replay permitted", ai, "const mustChain = isCompactionWireBody(requestContext.transformedBody);", "const mustChain = false;", "cold: every sent compaction must chain" if supports_recovery else "cold: failure must stay terminal"),
     ("acceptance does not reset", core, "\t\tapplyAcceptedMetadata?.(acceptedMetadata);", "\t\tvoid acceptedMetadata;", "accepted summary must invalidate its old baseline"),
     ("accepted metadata dropped", ai, "\t\tapplyOpenAICodexCompactionResponseMetadata(recorded, requestContext);", "\t\tvoid recorded;", "accepted summary must commit metadata"),
     ("raw error swallowed", core, 'type === "response.incomplete" || type === "error"', 'type === "response.incomplete"', "only a real provider code may be preserved"),

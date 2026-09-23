@@ -1,6 +1,10 @@
-// Full compact() replay on the real failing session.
-import * as snapcompact from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/snapcompact/src/snapcompact.ts";
+// Manual archive diagnostic for an explicitly supplied transcript, not a gate.
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const SNAP_ROOT = process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`;
+// Load the explicitly selected installation rather than the running agent's copy.
+const snapcompact = await import(`${SNAP_ROOT}/src/snapcompact.ts`);
 
 interface SessionEntry {
 	type: string;

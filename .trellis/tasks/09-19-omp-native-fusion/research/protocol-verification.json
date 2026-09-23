@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "sourceRoot": "/tmp/omp-fusion-build-4jp7ed5m/home/.bun/install/global/node_modules/@oh-my-pi",
+  "smoke": "/tmp/omp-fusion-build-4jp7ed5m/protocol-smoke.ts",
+  "checks": [
+    "public discovery and resolved compat retain nativeFusion",
+    "lead UID/JWT from controlled assignment",
+    "child field6 independent TLV and field5 omission",
+    "child assignment parent cascade and child-chat cascade separation",
+    "child omits assignment JWT",
+    "same-handoff assignment reused",
+    "new handoff reassigned",
+    "credential change invalidates assignment",
+    "closed provider state renewed",
+    "shipped DevinCompat/StreamOptions/SimpleStreamOptions compile under strict tsc"
+  ],
+  "network": "bwrap disconnected namespace, cleared environment, synthetic fetch fixtures",
+  "sessionAcceptance": "pending"
+}

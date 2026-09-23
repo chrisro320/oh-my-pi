@@ -1,0 +1,618 @@
+--- a/pi-coding-agent/src/session/session-listing.ts
++++ b/pi-coding-agent/src/session/session-listing.ts
+@@ -50,6 +50,12 @@
+ 	 * synthesized {@link SessionInfo}s (cross-project stubs, tests) leave it unset.
+ 	 */
+ 	status?: SessionStatus;
++	/**
++	 * Model the session last used (selector form, "provider/model"), from the
++	 * newest model_change entry or assistant message in the scanned windows.
++	 * Optional for the same reason as {@link status}: empty sessions have none.
++	 */
++	lastModel?: string;
+ }
+ 
+ export interface ResolvedSessionMatch {
+@@ -181,6 +187,77 @@
+ 	return "unknown";
+ }
+ 
++/**
++ * Model shown for a session in the picker: the first model resume would
++ * restore, so the display and the resumed state cannot disagree. That rule
++ * lives in `getRestorableSessionModels` / `getLastModelChangeRole` — the
++ * branch's newest `model_change` decides, and each role keeps its own newest
++ * value. A `default` (or pre-role) transition, and a `fallback` one (retry
++ * swaps recorded by turn-recovery: transient degradations that must never
++ * masquerade as the user's pick), resolve to the default model; any other role
++ * — `smol`, `slow`, `vision`, `plan`, `commit`, `tiny`, `task`, `advisor`, or
++ * a settings-defined one — resolves to that role's own model. When the scanned
++ * windows carry no such transition — pre-`model_change` sessions, or later
++ * events rolled past the tail window — the newest assistant message's model is
++ * the last model that actually served the session: a weaker claim, and the
++ * only one those bytes support.
++ */
++function deriveLastModel(suffix: string, prefix: string): string | undefined {
++	const readEntry = (line: string): TailModelEntry | undefined => {
++		if (line.charCodeAt(0) !== 123) return undefined;
++		try {
++			return JSON.parse(line) as TailModelEntry;
++		} catch {
++			return undefined;
++		}
++	};
++	const lines = suffix.split("\n");
++	// Newest role first (walking backwards), then that role's newest model —
++	// `roleModels` keeps what each role last resolved to. `fallback` resolves
++	// like `default`, so only the role resume would actually use ends the walk.
++	const roleModels = new Map<string, string>();
++	let newestRole: string | undefined;
++	let lastServed: string | undefined;
++	for (let i = lines.length - 1; i >= 0; i--) {
++		const entry = readEntry(lines[i]!);
++		if (!entry) continue;
++		if (entry.type === "model_change" && typeof entry.model === "string" && entry.model) {
++			const role = entry.role ?? "default";
++			newestRole ??= role;
++			if (!roleModels.has(role)) roleModels.set(role, entry.model);
++			const resolved = newestRole === "default" || newestRole === "fallback" ? "default" : newestRole;
++			if (roleModels.has(resolved)) break;
++			continue;
++		}
++		if (
++			lastServed === undefined &&
++			entry.type === "message" &&
++			entry.message?.role === "assistant" &&
++			typeof entry.message.model === "string"
++		) {
++			lastServed = entry.message.model;
++		}
++	}
++	const resolvedRole = !newestRole || newestRole === "default" || newestRole === "fallback" ? "default" : newestRole;
++	const fromTail = roleModels.get(resolvedRole);
++	if (fromTail) return fromTail;
++	for (const line of prefix.split("\n")) {
++		const entry = readEntry(line);
++		if (entry?.type === "model_change" && typeof entry.model === "string" && (entry.role ?? "default") === "default") {
++			return entry.model;
++		}
++	}
++	return lastServed;
++}
++
++/** Tail-window entry shapes this module reads back out of a session file. */
++interface TailModelEntry {
++	type?: string;
++	model?: string;
++	role?: string;
++	message?: { role?: string; model?: string };
++}
++
+ interface TailMessage {
+ 	role?: string;
+ 	stopReason?: string;
+@@ -493,6 +570,7 @@
+ 			size,
+ 			firstMessage: firstMessage || "(no messages)",
+ 			allMessagesText: allMessages.length > 0 ? allMessages.join(" ") : firstMessage,
++			lastModel: deriveLastModel(suffix, content),
+ 			status: withStatus ? deriveSessionStatus(suffix) : undefined,
+ 		};
+ 		// The cache keeps its own shallow copy; hits also hand out copies, so
+--- a/pi-coding-agent/src/modes/controllers/selector-controller.ts
++++ b/pi-coding-agent/src/modes/controllers/selector-controller.ts
+@@ -62,6 +62,7 @@
+ import { isUserRequestEntry } from "@oh-my-pi/pi-tui/chat/transcript-entry";
+ import type { SessionEntry, SessionTreeNode } from "../../session/session-entries";
+ import type { SessionInfo } from "../../session/session-listing";
++import { loadSessionMessagesReadOnly } from "../../session/session-loader";
+ import { SessionManager } from "../../session/session-manager";
+ import { loadPinnedSessionIds } from "../../session/session-pins";
+ import { FileSessionStorage } from "../../session/session-storage";
+@@ -1905,6 +1906,7 @@
+ 					}
+ 				},
+ 				historyMatcher,
++				loadPreviewMessages: loadSessionMessagesReadOnly,
+ 				loadAllSessions: () => SessionManager.listAllForPicker(),
+ 				pinnedIds,
+ 				// Live getter so detach/newSession stays accurate; tolerant of partial
+--- a/pi-tui/src/overlays/session-selector.ts
++++ b/pi-tui/src/overlays/session-selector.ts
+@@ -13,6 +13,7 @@
+ 	truncateToWidth,
+ 	visibleWidth,
+ } from "../index";
++import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+ import { formatBytes } from "@oh-my-pi/pi-utils";
+ import { theme } from "../theme/theme";
+ import { contentRowWidth } from "../chrome/selector-helpers";
+@@ -31,6 +32,11 @@
+ 	firstMessage: string;
+ 	allMessagesText: string;
+ 	status?: SessionSelectorStatus;
++	/**
++	 * Model the session last used (selector form, "provider/model"). Optional for
++	 * the same reason as {@link status}: empty sessions have none.
++	 */
++	lastModel?: string;
+ 	/** Path to the parent session when this one was forked. */
+ 	parentSessionPath?: string;
+ }
+@@ -62,9 +68,29 @@
+ 	}
+ }
+ 
++/**
++ * Compact selector form of a model for the metadata line: keep the id part,
++ * trim to the last two "/"-separated segments so vendor-prefixed ids like
++ * "commandcode/deepseek/deepseek-v4.1-flash" stay recognizable, and drop
++ * an ":tag" suffix ("ollama-cloud/glm-5.3-flash:max" → "glm-5.3-flash").
++ */
++function shortenModelName(selector: string): string {
++	const withoutTag = selector.split(":", 1)[0] ?? selector;
++	const segments = withoutTag.split("/").filter(s => s.length > 0);
++	if (segments.length === 0) return selector;
++	return segments.slice(-2).join("/");
++}
++
+ /** Returns the IDs of sessions whose recorded prompts match a query, best first. */
+ export type SessionHistoryMatcher = (query: string) => string[];
+ 
++/**
++ * Reads one session's transcript for the space-key preview. Host-supplied:
++ * the picker owns no storage, so it renders whatever a `SessionInfo` path
++ * resolves to without knowing the entry format.
++ */
++export type SessionPreviewLoader = (path: string) => Promise<readonly AgentMessage[]>;
++
+ function sessionSearchText(session: SessionSelectorEntry): string {
+ 	const parts = [
+ 		session.id,
+@@ -317,6 +343,7 @@
+ 	readonly #getTerminalRows: () => number;
+ 
+ 	onDeleteRequest?: (session: T) => void;
++	onPreviewRequest?: (session: T) => void;
+ 
+ 	#allSessions: T[];
+ 	#showCwd: boolean;
+@@ -710,6 +737,9 @@
+ 			if (status) {
+ 				metadata += ` ${dot} ${status}`;
+ 			}
++			if (session.lastModel) {
++				metadata += ` ${dot} ${dim(shortenModelName(session.lastModel))}`;
++			}
+ 			if (session.parentSessionPath) {
+ 				metadata += ` ${dot} ${dim(`${theme.icon.branch} fork`)}`;
+ 			}
+@@ -754,6 +784,14 @@
+ 		// combo instead. Regular Backspace on an empty query means "delete
+ 		// session"; with a typed query it stays bound to the search Input so users
+ 		// can still edit their filter text.
++		// Space on an empty search query — request history preview
++		if ((matchesKey(keyData, "space") || keyData === " ") && this.#searchInput.getValue().length === 0) {
++			const selected = this.#menu.selectedItem;
++			if (selected && this.onPreviewRequest) {
++				this.onPreviewRequest(selected);
++			}
++			return;
++		}
+ 		if (
+ 			matchesKey(keyData, "delete") ||
+ 			(matchesKey(keyData, "backspace") && this.#searchInput.getValue().length === 0)
+@@ -822,6 +860,11 @@
+ export interface SessionSelectorOptions<T extends SessionSelectorEntry = SessionSelectorEntry> {
+ 	onDelete?: (session: T) => Promise<boolean>;
+ 	historyMatcher?: SessionHistoryMatcher;
++	/**
++	 * Loads a session transcript for the space-key preview. Omitted by pickers
++	 * with no transcript source; the preview key is then inert.
++	 */
++	loadPreviewMessages?: SessionPreviewLoader;
+ 	/** Loads sessions across all projects for the all-projects scope toggle (Tab). */
+ 	loadAllSessions?: () => Promise<T[]>;
+ 	/** Preloaded all-projects list; cached so the first Tab toggle is instant. */
+@@ -856,6 +899,10 @@
+ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSelectorEntry> extends OverlayPanel {
+ 	#sessionList: SessionList<T>;
+ 	#confirmationDialog: HookSelectorComponent | null = null;
++	#previewView: SessionPreviewView | null = null;
++	readonly #onSelectCallback: (session: T) => void;
++	readonly #onExitCallback: () => void;
++	readonly #loadPreviewMessages?: SessionPreviewLoader;
+ 	// Hosts whichever of `#sessionList` / `#confirmationDialog` is live this
+ 	// frame. The delete dialog REPLACES the list in this slot rather than being
+ 	// appended below the picker chrome, so the picker is always
+@@ -897,6 +944,9 @@
+ 
+ 		this.#messageContainer = new Container();
+ 		this.#onDelete = options.onDelete;
++		this.#onSelectCallback = onSelect;
++		this.#onExitCallback = onExit;
++		this.#loadPreviewMessages = options.loadPreviewMessages;
+ 		this.#loadAllSessions = options.loadAllSessions;
+ 		this.#folderSessions = sessions;
+ 		this.#globalSessions = options.allSessions ?? null;
+@@ -938,6 +988,9 @@
+ 		this.#sessionList.onDeleteRequest = (session: T) => {
+ 			this.#showDeleteConfirmation(session);
+ 		};
++		this.#sessionList.onPreviewRequest = (session: T) => {
++			this.#showPreview(session);
++		};
+ 		if (this.#loadAllSessions || this.#globalSessions) {
+ 			this.#sessionList.onToggleScope = () => {
+ 				void this.#toggleScope();
+@@ -1009,10 +1062,46 @@
+ 	 * child-walking dispose would miss its pending history-merge timer.
+ 	 */
+ 	override dispose(): void {
++		this.#previewView?.dispose();
+ 		this.#sessionList.dispose();
+ 		super.dispose();
+ 	}
+ 
++	#showPreview(session: T): void {
++		if (this.#confirmationDialog) return;
++		const loadMessages = this.#loadPreviewMessages;
++		if (!loadMessages) return;
++		this.#previewView = new SessionPreviewView(
++			session,
++			loadMessages,
++			() => this.#closePreview(),
++			() => {
++				this.#previewView?.dispose();
++				this.#sessionList.dispose();
++				this.#onSelectCallback(session);
++			},
++			() => {
++				this.#previewView?.dispose();
++				this.#sessionList.dispose();
++				this.#onExitCallback();
++			},
++			this.#getTerminalRows,
++		);
++		this.#previewView.onRequestRender = () => this.#onRequestRender?.();
++		this.#contentSlot.clear();
++		this.#contentSlot.addChild(this.#previewView);
++		this.#onRequestRender?.();
++	}
++
++	#closePreview(): void {
++		if (!this.#previewView) return;
++		this.#previewView.dispose();
++		this.#previewView = null;
++		this.#contentSlot.clear();
++		this.#contentSlot.addChild(this.#sessionList);
++		this.#onRequestRender?.();
++	}
++
+ 	#clearError(): void {
+ 		this.#messageContainer.clear();
+ 	}
+@@ -1093,8 +1182,12 @@
+ 
+ 	/** Blank · keybinding hint · bottom border. Rendered by {@link render}. */
+ 	#footerLines(width: number): string[] {
++		if (this.#previewView) {
++			const hint = theme.fg("muted", "[↑/↓/PgUp/PgDn/Home/End scroll · Enter resume · Esc/Space close]");
++			return [row("", width), row(hint, width), row("", width), bottomBorder(width)];
++		}
+ 		const scopeHint = this.#scope === "all" ? "current folder" : "all projects";
+-		const hint = theme.fg("muted", `[Del/⌫ delete · Enter select · Tab ${scopeHint} · Esc cancel]`);
++		const hint = theme.fg("muted", `[Del/⌫ delete · Space preview · Enter select · Tab ${scopeHint} · Esc cancel]`);
+ 		return [row("", width), row(hint, width), row("", width), bottomBorder(width)];
+ 	}
+ 
+@@ -1106,6 +1199,8 @@
+ 		}
+ 		if (this.#confirmationDialog) {
+ 			this.#confirmationDialog.handleInput(keyData);
++		} else if (this.#previewView) {
++			this.#previewView.handleInput(keyData);
+ 		} else {
+ 			this.#sessionList.handleInput(keyData);
+ 		}
+@@ -1119,6 +1214,10 @@
+ 	 */
+ 	#handleMouse(data: string): void {
+ 		if (this.#confirmationDialog) return;
++		if (this.#previewView) {
++			this.#previewView.handleMouse(data, this.#listLineOffset);
++			return;
++		}
+ 		routeSgrMouseInput(data, event => {
+ 			if (event.wheel !== null) {
+ 				this.#sessionList.handleWheel(event.wheel);
+@@ -1135,3 +1234,232 @@
+ 		return this.#sessionList;
+ 	}
+ }
++
++const ANSI_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
++
++function cleanContentText(s: string): string[] {
++	const stripped = s.replace(ANSI_REGEX, "");
++	const noControls = stripped.replace(/\r/g, "").replace(/[\x00-\x08\x0B-\x1F\x7F]/g, "");
++	return replaceTabs(noControls).split("\n").map(l => l.trimEnd());
++}
++
++function extractConversationText(m: AgentMessage): string[] {
++	if (m.role !== "user" && m.role !== "assistant") return [];
++	const raw = "content" in m ? m.content : undefined;
++	if (typeof raw === "string") {
++		return cleanContentText(raw);
++	}
++	if (Array.isArray(raw)) {
++		const hasToolCall = raw.some(b => b && typeof b === "object" && "type" in b && b.type === "toolCall");
++		const lines: string[] = [];
++		for (const block of raw) {
++			if (
++				block &&
++				typeof block === "object" &&
++				"type" in block &&
++				block.type === "text" &&
++				typeof block.text === "string"
++			) {
++				const blockLines = cleanContentText(block.text);
++				if (hasToolCall) {
++					const nonEmpty = blockLines.filter(l => l.trim().length > 0);
++					if (nonEmpty.length === 0 || (nonEmpty.length === 1 && /^```\w*$/.test(nonEmpty[0]!.trim()))) {
++						continue;
++					}
++				}
++				lines.push(...blockLines);
++			}
++		}
++		return lines;
++	}
++	return [];
++}
++
++class SessionPreviewView implements Component {
++	readonly #session: SessionSelectorEntry;
++	readonly #loadMessages: SessionPreviewLoader;
++	readonly #onClose: () => void;
++	readonly #onSelect: () => void;
++	readonly #onExit: () => void;
++	readonly #getTerminalRows: () => number;
++	readonly #scrollView: ScrollView;
++	onRequestRender?: () => void;
++	#lines: string[] = [];
++	#generation = 0;
++	#disposed = false;
++	#lastRenderWidth = 80;
++	#lastHeaderRows = 3;
++	#lastScrollViewHeight = 10;
++	#isDraggingScrollbar = false;
++
++	constructor(
++		session: SessionSelectorEntry,
++		loadMessages: SessionPreviewLoader,
++		onClose: () => void,
++		onSelect: () => void,
++		onExit: () => void,
++		getTerminalRows: () => number,
++	) {
++		this.#session = session;
++		this.#loadMessages = loadMessages;
++		this.#onClose = onClose;
++		this.#onSelect = onSelect;
++		this.#onExit = onExit;
++		this.#getTerminalRows = getTerminalRows;
++		this.#lines = [theme.fg("muted", "Loading session history…")];
++		this.#scrollView = new ScrollView(this.#lines, {
++			height: 0,
++			scrollbar: "auto",
++			theme: { track: t => theme.fg("dim", t), thumb: t => theme.fg("accent", t) },
++		});
++		void this.#loadHistory();
++	}
++
++	async #loadHistory(): Promise<void> {
++		const gen = ++this.#generation;
++		try {
++			const messages = await this.#loadMessages(this.#session.path);
++			if (this.#disposed || gen !== this.#generation) return;
++			this.#formatMessages(messages);
++		} catch (err) {
++			if (this.#disposed || gen !== this.#generation) return;
++			this.#lines = [
++				theme.fg("error", `Failed to load preview: ${err instanceof Error ? err.message : String(err)}`),
++			];
++			this.#scrollView.setLines(this.#lines);
++			this.onRequestRender?.();
++		}
++	}
++
++	#formatMessages(messages: readonly AgentMessage[]): void {
++		const lines: string[] = [];
++		const turns: Array<{ role: "user" | "assistant"; textLines: string[] }> = [];
++		for (const m of messages) {
++			if (m.role === "user" || m.role === "assistant") {
++				const textLines = extractConversationText(m);
++				if (textLines.some(l => l.trim().length > 0)) {
++					turns.push({ role: m.role, textLines });
++				}
++			}
++		}
++
++		if (turns.length === 0) {
++			lines.push(theme.fg("muted", "(No conversation messages found in session)"));
++		} else if (turns.length <= 15) {
++			for (const turn of turns) {
++				this.#appendTurnBlock(lines, turn);
++			}
++		} else {
++			for (let i = 0; i < 2; i++) {
++				this.#appendTurnBlock(lines, turns[i]!);
++			}
++			lines.push("");
++			lines.push(theme.fg("dim", `--- … (${turns.length - 12} conversation turns omitted) … ---`));
++			lines.push("");
++			for (let i = turns.length - 10; i < turns.length; i++) {
++				this.#appendTurnBlock(lines, turns[i]!);
++			}
++		}
++		this.#lines = lines;
++		this.#scrollView.setLines(this.#lines);
++		this.onRequestRender?.();
++	}
++
++	#appendTurnBlock(lines: string[], turn: { role: "user" | "assistant"; textLines: string[] }): void {
++		const roleLabel =
++			turn.role === "user" ? theme.fg("accent", theme.bold("User")) : theme.fg("success", theme.bold("Assistant"));
++		lines.push(`[${roleLabel}]`);
++		const maxLines = 20;
++		for (let i = 0; i < Math.min(turn.textLines.length, maxLines); i++) {
++			lines.push(`  ${turn.textLines[i]}`);
++		}
++		if (turn.textLines.length > maxLines) {
++			lines.push(`  ${theme.fg("dim", `… (${turn.textLines.length - maxLines} more lines)`)}`);
++		}
++		lines.push("");
++	}
++
++	dispose(): void {
++		this.#disposed = true;
++		this.#generation++;
++	}
++
++	invalidate(): void {}
++
++	handleInput(keyData: string): void {
++		if (matchesKey(keyData, "ctrl+c")) {
++			this.#onExit();
++			return;
++		}
++		if (matchesKey(keyData, "enter") || matchesKey(keyData, "return") || keyData === "\n") {
++			this.#onSelect();
++			return;
++		}
++		if (matchesKey(keyData, "escape") || matchesKey(keyData, "space") || keyData === " ") {
++			this.#onClose();
++			return;
++		}
++		this.#scrollView.handleScrollKey(keyData);
++		this.onRequestRender?.();
++	}
++
++	handleWheel(delta: -1 | 1): void {
++		this.#scrollView.scroll(delta * 2);
++		this.onRequestRender?.();
++	}
++
++	handleMouse(data: string, listLineOffset: number): void {
++		routeSgrMouseInput(data, event => {
++			if (event.wheel !== null) {
++				this.handleWheel(event.wheel);
++				return true;
++			}
++
++			const scrollStartRow = listLineOffset + this.#lastHeaderRows;
++			const scrollEndRow = scrollStartRow + this.#lastScrollViewHeight;
++			const isNearRightEdge = event.col >= Math.max(0, this.#lastRenderWidth - 4);
++
++			if (event.leftClick) {
++				if (isNearRightEdge && event.row >= scrollStartRow && event.row < scrollEndRow) {
++					this.#isDraggingScrollbar = true;
++					this.#scrollToRow(event.row - scrollStartRow);
++					return true;
++				}
++			} else if (event.release) {
++				this.#isDraggingScrollbar = false;
++			} else if (event.motion && this.#isDraggingScrollbar) {
++				this.#scrollToRow(event.row - scrollStartRow);
++				return true;
++			}
++			return true;
++		});
++	}
++
++	#scrollToRow(localRow: number): void {
++		if (this.#lastScrollViewHeight <= 1) return;
++		const ratio = Math.max(0, Math.min(1, localRow / (this.#lastScrollViewHeight - 1)));
++		const targetOffset = Math.round(ratio * this.#scrollView.getMaxScrollOffset());
++		this.#scrollView.setScrollOffset(targetOffset);
++		this.onRequestRender?.();
++	}
++
++	render(width: number): readonly string[] {
++		this.#lastRenderWidth = width;
++		const lines: string[] = [];
++		const title = this.#session.title || "(Untitled Session)";
++		lines.push(theme.bold(theme.fg("accent", truncateToWidth(title, width))));
++		const status = formatSessionStatus(this.#session.status);
++		const statusStr = status ? ` · ${status}` : "";
++		const modelStr = this.#session.lastModel ? ` · ${shortenModelName(this.#session.lastModel)}` : "";
++		const meta = `${this.#session.id.slice(0, 8)} · ${shortenPath(this.#session.cwd || "")} · ${formatBytes(this.#session.size)}${modelStr}${statusStr}`;
++		lines.push(theme.fg("dim", truncateToWidth(meta, width)));
++		lines.push(theme.fg("dim", "─".repeat(width)));
++		this.#lastHeaderRows = lines.length;
++
++		const availableHeight = Math.max(4, this.#getTerminalRows() - 9);
++		this.#lastScrollViewHeight = availableHeight;
++		this.#scrollView.setHeight(availableHeight);
++		lines.push(...this.#scrollView.render(width));
++		return lines;
++	}
++}
+--- a/pi-tui/src/apps/session-picker.ts
++++ b/pi-tui/src/apps/session-picker.ts
+@@ -1,6 +1,7 @@
+ import { logger } from "@oh-my-pi/pi-utils";
+ import {
+ 	SessionSelectorComponent,
++	type SessionPreviewLoader,
+ 	type SessionSelectorEntry,
+ 	type SessionHistoryMatcher,
+ } from "../overlays/session-selector";
+@@ -12,6 +13,8 @@
+ 	loadHistoryMatcher?(): SessionHistoryMatcher;
+ 	deleteSession?(session: T): Promise<boolean>;
+ 	loadAllSessions?(): Promise<T[]>;
++	/** Transcript reader for the space-key preview; omit for hosts with no session storage. */
++	loadPreviewMessages?(): SessionPreviewLoader;
+ }
+ 
+ /** Presentation and capability controls for the standalone session picker. */
+@@ -64,6 +67,7 @@
+ 				{
+ 					onDelete: options.allowDelete === false ? undefined : host.deleteSession,
+ 					historyMatcher,
++					loadPreviewMessages: host.loadPreviewMessages?.(),
+ 					loadAllSessions: options.allowGlobalScope === false ? undefined : host.loadAllSessions,
+ 					allSessions: options.allSessions,
+ 					getTerminalRows: () => ui.terminal.rows,
+--- a/pi-coding-agent/src/main.ts
++++ b/pi-coding-agent/src/main.ts
+@@ -137,11 +137,18 @@
+ 
+ /** Resume/import-only graph boundary; ordinary launches never construct a picker. */
+ async function loadSessionPicker(): Promise<SessionPicker> {
+-	const [{ selectSession }, { HistoryStorage }, { loadPinnedSessionIds }, { FileSessionStorage }] = await Promise.all([
++	const [
++		{ selectSession },
++		{ HistoryStorage },
++		{ loadPinnedSessionIds },
++		{ FileSessionStorage },
++		{ loadSessionMessagesReadOnly },
++	] = await Promise.all([
+ 		import("@oh-my-pi/pi-tui/apps/session-picker"),
+ 		import("./session/history-storage"),
+ 		import("./session/session-pins"),
+ 		import("./session/session-storage"),
++		import("./session/session-loader"),
+ 	]);
+ 	return (sessions, options) => {
+ 		const storage = new FileSessionStorage();
+@@ -155,6 +162,7 @@
+ 				await storage.deleteSessionWithArtifacts(session.path);
+ 				return true;
+ 			},
++			loadPreviewMessages: () => loadSessionMessagesReadOnly,
+ 			loadAllSessions: () => SessionManager.listAllForPicker(storage),
+ 		});
+ 	};

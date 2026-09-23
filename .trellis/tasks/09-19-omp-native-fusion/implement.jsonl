@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend scope and authoritative guideline routing"}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "Actual selected-root behavior, negative controls, isolation, public declarations"}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "Verified pristine inputs, canonical chain order, replay and rollback discipline"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared guide routing; session-specific ownership evidence is in native-protocol.md without oversized unrelated extension context"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Typed ownership across discovery, provider, tools and persistence"}
+{"file": ".trellis/tasks/09-19-omp-native-fusion/research/native-protocol.md", "reason": "Pinned native contracts, code anchors, corrected hypotheses and evidence limits"}
+{"file": ".trellis/tasks/09-19-omp-native-fusion/research/evidence-manifest.json", "reason": "Immutable archive and capture hashes for native evidence"}

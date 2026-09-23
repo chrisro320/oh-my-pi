@@ -18,10 +18,10 @@ const { HindsightSessionState } = await import(`${AGENT_ROOT}/src/hindsight/stat
 // measured through the other's shape. An unrecognized version fails closed.
 const agentVersion: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10"].includes(agentVersion),
 	`verify-hindsight-recall-snapshot: unsupported selected tree version ${agentVersion}`,
 );
-const isStagedPreparation = agentVersion === "18.2.3";
+const isStagedPreparation = ["18.2.3", "18.2.10"].includes(agentVersion);
 
 console.log("=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===");
 

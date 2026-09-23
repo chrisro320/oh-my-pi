@@ -15,15 +15,15 @@
 #      patching has already written through it (pi-ai@18.1.14's ollama.ts was
 #      found carrying the 18.1.18 file on 2026-09-13; auth-storage.ts has
 #      carried 0026-core since 2026-08-29).
-#      Three baselines, three jobs:
+#      Four baselines:
 #        - 18.0.9 (TGZSHA): family checks. The retired pre-rollup members are
 #          18.0.9-shaped and only chain there.
 #        - 18.1.14 (TGZSHA2): full-chain oracle, peel, and gate #11. It is the
 #          oldest supported plan and the oldest version where every active
 #          patch applies (0045/0046 have no a-side before 18.1.5).
-#        - 18.2.3 (TGZSHA3): the current target plan's snapshot, apply,
-#          idempotence and peel coverage. Five packages — it is the only
-#          baseline that patches pi-catalog (0056/0065).
+#        - 18.2.3 (TGZSHA3): retained five-package plan and reverse coverage.
+#        - 18.2.10 (TGZSHA4): current six-package plan, including relocated TUI,
+#          add-file status mirroring and fail-closed root/version coverage.
 #   2. Per family: pristine + old chain (historical order; retired patches read
 #      from .retired/08-30-family-rollups/) vs pristine + new rollup — byte
 #      equal on the family-owned packages; the reversed rollup restores pristine
@@ -91,6 +91,10 @@ rm -f "$plan1823_err"
 mapfile -t PLAN1823 <<<"$PLAN1823_OUT"
 [[ -n "${PLAN1823_OUT//[[:space:]]/}" ]] \
 	|| die "18.2.3 plan resolved to zero entries despite a zero exit status"
+PLAN18210_OUT="$(OMP_PATCH_VERSION=18.2.10 bash "${HERE}/apply.sh" --print-plan)" \
+	|| die "apply.sh --print-plan cannot resolve the 18.2.10 plan"
+[[ -n "${PLAN18210_OUT//[[:space:]]/}" ]] || die "18.2.10 plan is empty"
+mapfile -t PLAN18210 <<<"$PLAN18210_OUT"
 # Retired-by-rollup numbers, plus abandoned numbers whose patch file is gone
 # (0011 pin-viewport, 0040 trellis_command, 0061, 0064 — never to be reused)
 # and numbers retired because upstream adopted them verbatim (0051, adopted in
@@ -101,7 +105,7 @@ mapfile -t PLAN1823 <<<"$PLAN1823_OUT"
 for old in 0002- 0003- 0005- 0006- 0007- 0011- 0013- 0015- 0018- 0019- 0020- 0021- 0022- \
 	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029- 0040- 0042- 0051- \
 	0059- 0061- 0064-; do
-	if printf '%s\n' "${PLAN14[@]}" "${PLAN18[@]}" "${PLAN1823[@]}" | grep -qE "(^|/)${old}"; then
+	if printf '%s\n' "${PLAN14[@]}" "${PLAN18[@]}" "${PLAN1823[@]}" "${PLAN18210[@]}" | grep -qE "(^|/)${old}"; then
 		die "a resolved plan references retired or abandoned patch number ${old}*"
 	fi
 done
@@ -266,6 +270,19 @@ TGZD3="${G}/tgz-18.2.3"
 fetch_tgzs "$TGZD3" 18.2.3 TGZSHA3
 echo "PASS baseline: five official 18.2.3 tarballs match pinned SHA-256"
 
+# Exact current release; archives were verified against registry integrity.
+declare -A TGZSHA4=(
+	[pi-coding-agent]=f3a51d5ddeadbe0fc5dce2071f4ec919e67ae802d5f7e52648e664ec2637e751
+	[pi-agent-core]=5a098395e301ad772c0505518a195e49d544934dc78de91b24705466ad65d882
+	[pi-ai]=41210021106d5ebff1d7955933640c24b55dcdd0710a6fdbd87e398906ca5714
+	[pi-catalog]=978375b22daa781156d9ddb18f1830b7ed0f30eb8fad5112b0f24a23366a56dc
+	[snapcompact]=6733a3641efbe352cd3d57296718133cda1b9a1d9b97f89c4596b68dbaa8eaf7
+	[pi-tui]=0540e815ae883b9167648bc3949260c76ec2f7798d14c66e19fe39b12e96c682
+)
+TGZD4="${G}/tgz-18.2.10"
+fetch_tgzs "$TGZD4" 18.2.10 TGZSHA4
+echo "PASS baseline: six official 18.2.10 tarballs match pinned SHA-256"
+
 # Extract src trees (mode=src) or full trees incl. dist/ (mode=full) for the
 # listed packages (default: every package in $2's pinned table) into
 # $1/@oh-my-pi/<pkg>.
@@ -277,6 +294,7 @@ mkpkgs() { # $1 tree  $2 tgz dir  $3 mode  [$4.. packages]
 	# pi-catalog ships in the 18.2.3 baseline only; patch-root NM entries and
 	# 0056/0065 touch it, so it must be extracted whenever its tarball is there.
 	[[ -f "$tgzd/pi-catalog.tgz" ]] && allpkgs+=(pi-catalog)
+	[[ -f "$tgzd/pi-tui.tgz" ]] && allpkgs+=(pi-tui)
 	mkdir -p "$t/${NMROOT}"
 	for p in "${allpkgs[@]}"; do
 		wanted=0
@@ -296,6 +314,7 @@ patchroot() { # $1 tree  $2 rootname
 		AI) echo "$1/${NMROOT}/pi-ai" ;;
 		SNAP) echo "$1/${NMROOT}/snapcompact" ;;
 		CATALOG) echo "$1/${NMROOT}/pi-catalog" ;;
+		TUI) echo "$1/${NMROOT}/pi-tui" ;;
 		NM) echo "$1/${NMROOT}" ;;
 		*) die "bad root $2" ;;
 	esac
@@ -588,6 +607,54 @@ if printf '%s\n' "${EXPECTED_PLAN_1823[@]}" | grep -q '/0041-'; then
 	die "EXPECTED_PLAN_1823 still carries a physical 0041 entry — 0037 must absorb it"
 fi
 
+# Pin the complete target plan, including previously deployed unregistered fixes.
+EXPECTED_PLAN_18210=(
+	".18.2.10-candidates/0033-omp-cache-turn-status-rollup-v18.2.10-candidate.patch:TUI"
+	".18.2.10-candidates/0004-omp-token-total-cacheread-v18.2.10-candidate.patch:TUI"
+	".18.2.10-candidates/0034-omp-hindsight-snapshot-rollup-v18.2.10-candidate.patch:AGENT"
+	".18.2.10-candidates/0037-omp-usage-statusline-gate-rollup-v18.2.10-candidate.patch:NM"
+	".18.2.10-candidates/0010-omp-extension-idle-ephemeral-turn-v18.2.10-candidate.patch:AGENT"
+	".18.2.10-candidates/0035-omp-compaction-prefix-rollup-v18.2.10-candidate.patch:NM"
+	".18.2.10-candidates/0014-omp-antigravity-deterministic-session-identity-v18.2.10-candidate.patch:AI"
+	"0036-omp-image-frame-budget-rollup.patch:NM"
+	".18.2.10-candidates/0017-omp-openai-responses-native-replay-warm-v18.2.10-candidate.patch:AI"
+	"0025-omp-ollama-cloud-usage-api.patch:AI"
+	"0026-omp-usage-fetch-anthropic-gate-core.patch:AI"
+	".18.2.10-candidates/0030-omp-usage-cache-canonical-baseurl-v18.2.10-candidate.patch:AI"
+	"0031-omp-agent-session-providers-forward.patch:AGENT"
+	"0032-omp-goal-tool-resident.patch:AGENT"
+	".18.2.10-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.2.10-candidate.patch:NM"
+	".18.2.10-candidates/0043-omp-interrupt-prune-symmetry-v18.2.10-candidate.patch:AGENT"
+	"0044-omp-image-budget-wire-api-family.patch:NM"
+	"0052-omp-snapcompact-model-billing-commandcode-budget.patch:NM"
+	"0057-omp-devin-image-budget.patch:NM"
+	".18.2.10-candidates/0045-omp-snapcompact-frame-reprice-v18.2.10-candidate.patch:AGENT"
+	"0046-omp-supersede-warm-prefix-guard.patch:AGENT"
+	".18.2.10-candidates/0048-omp-advisor-quota-rotation-bound-v18.2.10-candidate.patch:AGENT"
+	".18.2.10-candidates/0050-omp-session-history-preview-v18.2.10-candidate.patch:NM"
+	"0054-omp-antigravity-drop-requesttype-agent.patch:AI"
+	".18.2.10-candidates/0047-omp-date-cwd-anchor-stability-v18.2.10-candidate.patch:AGENT"
+	".18.2.10-candidates/0055-omp-devin-auth-cache-turn-timing-v18.2.10-candidate.patch:AI"
+	".18.2.10-candidates/0071-omp-devin-request-dump-v18.2.10-candidate.patch:AI"
+	"0056-omp-devin-metadata-alignment.patch:NM"
+	"0058-omp-devin-thinking-signature-replay.patch:AI"
+	".18.2.10-candidates/0060-omp-devin-idle-cascade-pin-v18.2.10-candidate.patch:NM"
+	".18.2.10-candidates/0062-omp-snapcompact-reduction-baseline-previous-archive-v18.2.10-candidate.patch:AGENT"
+	".18.2.10-candidates/0063-omp-codex-v2-compaction-live-chain-v18.2.10-candidate.patch:NM"
+	".18.2.10-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.2.10-candidate.patch:NM"
+	".18.2.10-candidates/0066-omp-anthropic-native-compaction-live-context-v18.2.10-candidate.patch:NM"
+	".18.2.10-candidates/0067-omp-remote-compaction-lane-trace-live-tools-v18.2.10-candidate.patch:NM"
+	".18.2.10-candidates/0068-omp-codex-stale-baseline-chain-v18.2.10-candidate.patch:NM"
+	".18.2.10-candidates/0069-omp-codex-effort-history-resume-v18.2.10-candidate.patch:AI"
+	".18.2.10-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.2.10-candidate.patch:NM"
+	".18.2.10-candidates/0072-omp-session-pin-static-auth-ui-v18.2.10-candidate.patch:AGENT"
+	".18.2.10-candidates/0073-omp-read-description-live-v18.2.10-candidate.patch:AGENT"
+	".18.2.10-candidates/0074-omp-anthropic-context-cache-boundaries-v18.2.10-candidate.patch:AI"
+	".18.2.10-candidates/0075-omp-hindsight-recall-promotion-slot-v18.2.10-candidate.patch:AGENT"
+)
+[[ "${PLAN18210[*]}" == "${EXPECTED_PLAN_18210[*]}" ]] \
+	|| die "resolved 18.2.10 plan drifted from EXPECTED_PLAN_18210"
+
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
 # by apply.sh --print-plan in the static section. The assertions below pin
 # the expected plans; the oracle then compares OLDCHAIN's tree against
@@ -818,6 +885,46 @@ cmp -s "$PG/original.txt" "$PG/tree/f.txt" \
 	&& die "gate #10: fixture is inert — an ungated apply left the tree unchanged, so the gate proves nothing"
 echo "PASS gate #10: dry-run gate keeps the sandbox byte-identical on a partially applicable patch (fixture proven sensitive)"
 
+# Added files must be mirrored and removed when a layer is peeled. Otherwise
+# an applied add-file patch falsely conflicts, or its replay sees an empty file.
+(
+	added_gate="$G/added-file-gate"
+	mkdir -p "$added_gate/live" "$added_gate/patches"
+	printf 'after\n' >"$added_gate/live/existing.txt"
+	printf 'created\n' >"$added_gate/live/added.txt"
+	cat >"$added_gate/patches/change.patch" <<'ADDEDEOF'
+--- a/existing.txt
++++ b/existing.txt
+@@ -1 +1 @@
+-before
++after
+--- /dev/null
++++ b/added.txt
+@@ -0,0 +1 @@
++created
+ADDEDEOF
+	NM="$added_gate/live"
+	HERE="$added_gate/patches"
+	PATCHES=("change.patch:$NM")
+	for fn in patch_targets sandbox_root mirror_touched; do
+		definition="$(sed -n "/^${fn}() {/,/^}/p" "${BASH_SOURCE[0]%/*}/apply.sh")"
+		[[ -n "$definition" ]] || die "added-file gate: missing $fn"
+		eval "$definition"
+	done
+	mirror_touched "$added_gate/mirror"
+	cmp "$NM/added.txt" "$added_gate/mirror/nm/added.txt" \
+		|| die "added-file gate: status mirror omitted an existing added file"
+	probe_apply "$added_gate/mirror/nm" "$HERE/change.patch" -R \
+		|| die "added-file gate: applied layer did not reverse-identify"
+	[[ ! -e "$added_gate/mirror/nm/added.txt" ]] \
+		|| die "added-file gate: peel retained the added file"
+	probe_apply "$added_gate/mirror/nm" "$HERE/change.patch" --forward \
+		|| die "added-file gate: peeled layer could not replay"
+	diff -r "$NM" "$added_gate/mirror/nm" \
+		|| die "added-file gate: replay changed the applied tree"
+)
+echo "PASS added-file gate: mirror, reverse removal and forward replay preserve layer state"
+
 # Required test #11 — on a pristine tree the real controller must classify every
 # entry as pending, including entries whose hunk context only exists after a
 # lower layer is applied (0041 needs 0037 replayed first).
@@ -955,5 +1062,78 @@ expect_fail3 "missing 18.2.3 tail candidate (0068)" \
 	env OMP_PATCH_VERSION=18.2.3 bash "$CTL3/apply.sh" --check
 mv "$G/cand68.bak" "$CTL3/.18.2.3-candidates/0068-omp-codex-stale-baseline-chain-v18.2.3-candidate.patch"
 echo "PASS gate #13: pristine 18.2.3 tree classifies all ${#PLAN1823[@]} entries pending and 6 bad inputs exit 2 with zero mutation"
+
+# Current target: include the moved TUI package in every replay and comparison.
+mkpkgs "$G/current-pristine" "$TGZD4" full
+cp -a "$G/current-pristine" "$G/current"
+CURRENT_CTL="$G/current-controller"
+mkdir -p "$CURRENT_CTL"
+cp "${HERE}/apply.sh" "${HERE}"/*.patch "$CURRENT_CTL/"
+cp -r "${HERE}/.18.2.10-candidates" "$CURRENT_CTL/"
+sed -i "s|^NM=.*|NM=\"$G/current/${NMROOT}\"|; s|^BIN=.*|BIN=\"$CURRENT_CTL/fake-bin\"|" "$CURRENT_CTL/apply.sh"
+ln -s "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts" "$CURRENT_CTL/fake-bin"
+env -u OMP_PATCH_VERSION bash "$CURRENT_CTL/apply.sh" --check >"$G/current-pending.txt" 2>&1 \
+	|| die "18.2.10 pristine status failed: $(cat "$G/current-pending.txt")"
+[[ "$(grep -c '^PENDING  .*\.patch$' "$G/current-pending.txt")" -eq "${#PLAN18210[@]}" ]] \
+	|| die "18.2.10 pristine did not classify every plan entry pending"
+apply_chain "$G/current" "${PLAN18210[@]}"
+sweep_check "$G/current"
+current_applied_hash="$(tree_hash "$G/current")"
+env -u OMP_PATCH_VERSION bash "$CURRENT_CTL/apply.sh" --check >"$G/current-applied.txt" 2>&1 \
+	|| die "18.2.10 applied status failed: $(cat "$G/current-applied.txt")"
+[[ "$(grep -c '^APPLIED  .*\.patch$' "$G/current-applied.txt")" -eq "${#PLAN18210[@]}" ]] \
+	|| die "18.2.10 applied tree has unresolved plan entries"
+[[ "$(tree_hash "$G/current")" == "$current_applied_hash" ]] \
+	|| die "18.2.10 --check changed source bytes"
+
+for ((i = ${#PLAN18210[@]} - 1; i >= 0; i--)); do
+	spec="${PLAN18210[i]}"
+	file="${spec%%:*}"
+	r="$(patchroot "$G/current" "${spec##*:}")"
+	p="${HERE}/${file}"
+	# Pure insertions can forward-match twice; reverse/byte proof remains required.
+	if grep -qE '^-[^-]' "$p" && patch -p1 --forward --force --dry-run -d "$r" <"$p" >/dev/null 2>&1; then
+		die "18.2.10 peel: ${file} still forward-matches despite removed old text"
+	fi
+	patch -p1 -R --force --silent --remove-empty-files --dry-run -d "$r" <"$p" \
+		|| die "18.2.10 peel: ${file} cannot reverse at its stack depth"
+	patch -p1 -R --force --silent --no-backup-if-mismatch --remove-empty-files -d "$r" <"$p" \
+		|| die "18.2.10 peel: ${file} failed after its dry run"
+done
+sweep_check "$G/current"
+diff -r "$G/current-pristine" "$G/current" >"$G/current-reverse-diff.txt" \
+	|| die "18.2.10 reverse changed pristine bytes: $(cat "$G/current-reverse-diff.txt")"
+diff <(cd "$G/current-pristine" && find . -printf '%y %P %l\n' | sort) \
+	<(cd "$G/current" && find . -printf '%y %P %l\n' | sort) \
+	|| die "18.2.10 reverse changed file/directory/symlink sets"
+
+expect_current_fail() {
+	local label="$1" rc=0 before
+	before="$(tree_hash "$G/current")"
+	shift
+	"$@" >"$G/current-failure.txt" 2>&1 || rc=$?
+	[[ "$rc" -eq 2 ]] || die "18.2.10 $label: expected exit 2, got $rc"
+	[[ "$(tree_hash "$G/current")" == "$before" ]] \
+		|| die "18.2.10 $label: modified source before rejecting the input"
+	[[ "$(readlink "$CURRENT_CTL/fake-bin")" == "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts" ]] \
+		|| die "18.2.10 $label: changed the launcher before rejecting the input"
+}
+expect_current_fail "empty version" env OMP_PATCH_VERSION= bash "$CURRENT_CTL/apply.sh" --check
+expect_current_fail "unknown version" env OMP_PATCH_VERSION=0.0.0 bash "$CURRENT_CTL/apply.sh" --check
+expect_current_fail "wrong installed version" env OMP_PATCH_VERSION=18.2.3 bash "$CURRENT_CTL/apply.sh" --check
+expect_current_fail "invalid offline mode" env OMP_PATCH_OFFLINE_VERIFY=2 bash "$CURRENT_CTL/apply.sh" --check
+for candidate in "${PLAN18210[0]%%:*}" ".18.2.10-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.2.10-candidate.patch"; do
+	mv "$CURRENT_CTL/$candidate" "$G/current-missing-candidate"
+	expect_current_fail "missing $candidate" env OMP_PATCH_VERSION=18.2.10 bash "$CURRENT_CTL/apply.sh" --check
+	mv "$G/current-missing-candidate" "$CURRENT_CTL/$candidate"
+done
+mv "$G/current/${NMROOT}/pi-tui/package.json" "$G/current-tui-package.json"
+expect_current_fail "missing TUI package metadata" env OMP_PATCH_VERSION=18.2.10 bash "$CURRENT_CTL/apply.sh" --check
+mv "$G/current-tui-package.json" "$G/current/${NMROOT}/pi-tui/package.json"
+mv "$G/current/${NMROOT}/pi-coding-agent/package.json" "$G/current-agent-package.json"
+printf '{\n  "version": "0.0.0"\n}\n' >"$G/current/${NMROOT}/pi-coding-agent/package.json"
+expect_current_fail "unknown installed version" env -u OMP_PATCH_VERSION bash "$CURRENT_CTL/apply.sh" --check
+mv "$G/current-agent-package.json" "$G/current/${NMROOT}/pi-coding-agent/package.json"
+echo "PASS 18.2.10: complete ordered replay, read-only status, reverse tree identity, and fail-closed inputs"
 
 echo "ALL PASS: patch family rollups verified"

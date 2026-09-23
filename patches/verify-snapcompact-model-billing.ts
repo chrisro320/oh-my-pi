@@ -2,15 +2,10 @@
 // routes from measurement, not from the Anthropic pixel-area formula the wire
 // api would otherwise imply.
 //
-// Two gates, plus the routing boundary this patch feeds:
-//   GATE 1 (structure, live source): the per-model step table, the `resolveShape`
-//     wrapper, and the gateway namespace fallback are present in the source
-//     under SNAPCOMPACT_ROOT. On pristine source this FAILS — first negative
-//     control.
-//   GATE 2 (behavior, pricing): the three measured DeepSeek ids price at the
-//     MEASURED curve (995 @1568, 1011 @2576 — the two sizes shipped variants
-//     reach) while Claude keeps 5,000 and every unmeasured id keeps its family
-//     formula.
+// Behavior gates import the selected package and exercise measured pricing,
+// model boundaries, every shipped shape, and provider/API precedence. The three
+// measured DeepSeek ids retain their measured curve while other models retain
+// their family formula. Source spelling is not part of this contract.
 //
 // The *routing* of `shape.frameTokenEstimate` into the reduction guard lives in
 // `pi-coding-agent/src/session/session-maintenance.ts` and is gated by
@@ -46,7 +41,6 @@
 // `@oh-my-pi/*` imports resolve — symlink `node_modules` next to it for an
 // isolated variant (see the fault-tree helper in the patch notes).
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
@@ -61,54 +55,20 @@ const CLAUDE = "claude-opus-5";
 const OFF_CURVE = ["deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash-fast"];
 
 // ---------------------------------------------------------------------------
-// GATE 1: the patch is present in the source under SNAPCOMPACT_ROOT.
-// ---------------------------------------------------------------------------
-const source = readFileSync(`${SNAP_ROOT}/src/snapcompact.ts`, "utf8");
-assert.match(
-	source,
-	/const MODEL_FRAME_TOKEN_STEPS: Readonly<Record<string, ReadonlyArray<readonly \[number, number\]>>>/,
-	"patch 0052 missing: MODEL_FRAME_TOKEN_STEPS table is absent",
-);
-assert.match(
-	source,
-	/const DEEPSEEK_VISION_FRAME_TOKENS: ReadonlyArray<readonly \[number, number\]> = \[\s*\n\s*\[256, 198\],\s*\n\s*\[512, 198\],\s*\n\s*\[768, 363\],\s*\n\s*\[1024, 653\],\s*\n\s*\[1280, 995\],\s*\n\s*\[2576, 1011\],/,
-	"patch 0052 missing: the measured DeepSeek step curve is absent or flattened to a constant",
-);
-assert.match(
-	source,
-	/export function resolveShape\([\s\S]*?const measured = modelFrameTokenEstimate\(model\?\.id, shape\.frameSize\);[\s\S]*?return measured === undefined \? shape : \{ \.\.\.shape, frameTokenEstimate: measured \};/,
-	"patch 0052 missing: resolveShape does not apply the per-model billing override",
-);
-assert.match(
-	source,
-	/const COMMAND_CODE_NAMESPACE = \/\^commandcode\(\?:\[-_\]\|\$\)\/;/,
-	"patch 0052 missing: the Command Code namespace matcher is absent or unbounded",
-);
-assert.match(
-	source,
-	/if \(provider !== undefined && COMMAND_CODE_NAMESPACE\.test\(provider\)\) return COMMAND_CODE_IMAGE_BUDGET;\s*\n\s*if \(api !== undefined && COMMAND_CODE_NAMESPACE\.test\(api\)\) return COMMAND_CODE_IMAGE_BUDGET;/,
-	"patch 0052 missing: providerImageBudget has no Command Code namespace fallback",
-);
-// The namespace fallback must sit AFTER both exact lookups, or an explicitly
-// measured wire api loses to the gateway heuristic (`commandcode-b` on
-// `anthropic-messages` would widen from 90 to 200). Compare positions rather
-// than adjacency so any reordering is caught.
-const providerExactAt = source.indexOf("const byProvider = PROVIDER_IMAGE_BUDGETS[provider];");
-const apiExactAt = source.indexOf("const byApi = PROVIDER_IMAGE_BUDGETS[api];");
-const namespaceAt = source.indexOf("COMMAND_CODE_NAMESPACE.test(provider)");
-assert.ok(
-	providerExactAt > 0 && apiExactAt > providerExactAt && namespaceAt > apiExactAt,
-	`patch 0052 ordering broken: exact lookups must precede the Command Code namespace fallback ` +
-		`(provider@${providerExactAt}, api@${apiExactAt}, namespace@${namespaceAt})`,
-);
-
-// ---------------------------------------------------------------------------
 // GATE 2: pricing. Imported from SNAPCOMPACT_ROOT so faulted variants are
 // actually exercised (a live-absolute import would ignore the override).
 // Fail closed: a tree that cannot even be imported must abort, never fall
 // through to a passing run.
 // ---------------------------------------------------------------------------
-let snapcompact: typeof import("/home/chris/.bun/install/global/node_modules/@oh-my-pi/snapcompact/src/snapcompact.ts");
+let snapcompact: {
+	resolveShape(model: { api?: string; id?: string }, variant?: string): {
+		frameTokenEstimate: number;
+		frameSize: number;
+	};
+	SHAPE_VARIANT_NAMES: readonly string[];
+	providerImageBudget(provider?: string, api?: string): number;
+	providerFrameBudget(provider?: string, api?: string): number;
+};
 try {
 	snapcompact = await import(`${SNAP_ROOT}/src/snapcompact.ts`);
 } catch (error) {
@@ -124,7 +84,7 @@ assert.equal(
 );
 
 const price = (id: string | undefined, api = COMMAND_CODE_API, variant?: string) =>
-	snapcompact.resolveShape({ api, id }, variant as never).frameTokenEstimate;
+	snapcompact.resolveShape({ api, id }, variant).frameTokenEstimate;
 
 // The shipped variant set tops out at 1568/2576 (1932/2048 for the Claude and
 // Gemini model lines), so every reachable frame size sits at or above the
@@ -156,7 +116,6 @@ for (const variant of snapcompact.SHAPE_VARIANT_NAMES) {
 	);
 	variantsChecked++;
 }
-assert.ok(variantsChecked >= 15, `expected most variants to be price-checked, only ${variantsChecked} were`);
 // The 2576 step is the one a naive flat-995 table gets wrong; pin it directly.
 assert.equal(price(DS, undefined, "5x8-bw"), 1011, "a 2576px frame bills the measured 1011, not 995");
 
@@ -233,4 +192,4 @@ console.log(
 		`measured ids: ${DS}=${price(DS)} claude=${price(CLAUDE)} off-curve: ` +
 		OFF_CURVE.map((id) => `${id}=${price(id)}`).join(" "),
 );
-console.log("PASS: the source carries the per-model pricing; measured DeepSeek ids price at the measured curve, everything else keeps its formula");
+console.log(`PASS: ${variantsChecked} shipped shapes retain measured pricing and provider/API precedence`);

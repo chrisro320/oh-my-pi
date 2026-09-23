@@ -1,8 +1,57 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import type { AssistantMessage, Context, Model, SimpleStreamOptions } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/types.ts";
 import { homedir } from "node:os";
-import type { AgentMessage } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/types.ts";
+
+// Local structural fixture types. A type-only import cannot be root-selected
+// (TS needs a literal specifier), and a live-install path would defeat root
+// redirection (verification-gate-contracts §3). These describe only the fields
+// the fixtures below build and the consumers read; every module this gate
+// exercises is still imported from the selected root.
+interface FixtureTextBlock {
+	type: string;
+	text?: string;
+	[key: string]: unknown;
+}
+interface AgentMessage {
+	role: string;
+	content: FixtureTextBlock[];
+	timestamp?: number;
+	[key: string]: unknown;
+}
+interface AssistantMessage extends AgentMessage {
+	api?: string;
+	provider?: string;
+	model?: string;
+	stopReason?: string;
+}
+interface SessionEntry {
+	type: string;
+	id?: string;
+	message?: unknown;
+	[key: string]: unknown;
+}
+interface Context {
+	systemPrompt?: string[];
+	messages: AgentMessage[];
+	tools?: Array<Record<string, unknown>>;
+	[key: string]: unknown;
+}
+interface SimpleStreamOptions {
+	toolChoice?: string;
+	cacheRetention?: string;
+	[key: string]: unknown;
+}
+interface Model {
+	id: string;
+	provider: string;
+	api: string;
+	contextWindow?: number;
+	maxTokens?: number;
+	compat?: Record<string, unknown>;
+	requestModelId?: string;
+	[key: string]: unknown;
+}
+
 // Package imports are runtime-selected so an isolated tree cannot fall back to live.
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
@@ -18,7 +67,6 @@ const { buildResponsesInput } = await import(`${AI_ROOT}/src/providers/openai-sh
 const { buildSessionContext } = await import(`${AGENT_ROOT}/src/session/session-context.ts`);
 const { applyDateCwdAnchors, renderDateCwdReminder } = await import(`${AGENT_ROOT}/src/session/date-cwd-reminder.ts`);
 const { convertToLlm } = await import(`${AGENT_ROOT}/src/session/messages.ts`);
-import type { SessionEntry } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-entries.ts";
 
 // 0047 replaced the provider-only tail (`withDateCwdReminder`) with anchored
 // stamps on the newest real user message. This shim reproduces exactly the
@@ -456,7 +504,7 @@ assert.equal(
 //     public `context` extension chain, which may drop the summary).
 const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10"].includes(agentVersion),
 	`unsupported prefix gate version: ${agentVersion}`,
 );
 // This helper belongs to the 18.1.18+ candidates, not the 18.1.14 carry-over

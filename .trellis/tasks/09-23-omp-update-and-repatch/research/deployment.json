@@ -1,0 +1,34 @@
+{
+  "status": "deployed",
+  "version": "18.2.10",
+  "appliedPatches": 42,
+  "appliedRowsIncludingLauncher": 43,
+  "commands": [
+    {
+      "exit": 0,
+      "seconds": 0.06,
+      "log": "/home/chris/orca/projects/omp-move/.trellis/tasks/09-23-omp-update-and-repatch/research/live-version.log"
+    },
+    {
+      "exit": 0,
+      "seconds": 0.87,
+      "log": "/home/chris/orca/projects/omp-move/.trellis/tasks/09-23-omp-update-and-repatch/research/live-patch-check.log"
+    },
+    {
+      "exit": 0,
+      "seconds": 2.47,
+      "log": "/home/chris/orca/projects/omp-move/.trellis/tasks/09-23-omp-update-and-repatch/research/live-local-smoke.log"
+    }
+  ],
+  "sourceParity": {
+    "pi-coding-agent": true,
+    "pi-ai": true,
+    "pi-agent-core": true,
+    "snapcompact": true,
+    "pi-catalog": true,
+    "pi-tui": true
+  },
+  "oldInstallation": "/home/chris/.bun/install/omp-18210-stage-icn0d0_g/global",
+  "oldLedger": "/home/chris/.omp/omp-18210-ledger-l0dkgql3/patches",
+  "protectedAgentState": "not targeted; private agent and XDG state used"
+}

@@ -39,10 +39,11 @@ const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
 // 0068's contract is present in every plan that binds it: 18.1.14 predates the
-// patch, 18.1.18 and 18.2.3 both carry it. Membership is explicit per version so
-// an unknown tree fails closed instead of silently skipping the 0068 block.
+// patch, 18.1.18, 18.2.3 and 18.2.10 all carry it. Membership is explicit per
+// version so an unknown tree fails closed instead of silently skipping the 0068
+// block.
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3"].includes(aiVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10"].includes(aiVersion),
 	`unsupported Codex chain gate version: ${aiVersion}`,
 );
 
@@ -53,7 +54,6 @@ assert.ok(
 const { buildCodexChainedRequestBody } = await import(`${AI_ROOT}/src/providers/openai-codex-responses.ts`);
 
 type WsState = {
-	disableWebsocket: boolean;
 	canAppend: boolean;
 	fallbackCount: number;
 	prewarmed: boolean;
@@ -80,7 +80,6 @@ const LIVE_BASELINE = {
 
 function makeState(overrides: Partial<WsState> = {}): WsState {
 	return {
-		disableWebsocket: false,
 		canAppend: true,
 		fallbackCount: 0,
 		prewarmed: false,
@@ -319,10 +318,10 @@ assert.deepEqual(cold.input, compactionBody.input, "cold start must replay the r
 // decision (open+auth+healthy → reuse, else reset+reconnect), so the chain
 // decision must read canAppend only after it returns; reading earlier races
 // the reconnect (TOCTOU) and ships a dead prev_id.
-// 0068 is in both the 18.1.18 and 18.2.3 plans. Select by the bound package
+// 0068 is in the 18.1.18, 18.2.3 and 18.2.10 plans. Select by the bound package
 // version, never by the presence of the code whose absence this gate must
 // detect; 18.1.14 predates the patch, so it is the only tree that may skip.
-if (["18.1.18", "18.2.3"].includes(aiVersion)) {
+if (["18.1.18", "18.2.3", "18.2.10"].includes(aiVersion)) {
 	const aiSrc = readFileSync(
 		`${AI_ROOT}/src/providers/openai-codex-responses.ts`,
 		"utf8",
@@ -376,9 +375,17 @@ assert.doesNotMatch(
 	"compaction.ts must not key the codex compaction request onto the lite socket",
 );
 const v2Src = readFileSync(`${CORE_ROOT}/src/compaction/compaction-v2-streaming.ts`, "utf8");
+// 0070 wires the chain-recovery hook from the request between the transport
+// preference and the lite pin, so the pin is no longer the first line under
+// `preferWebsockets`. 18.1.18 predates that hook, so it is required only where
+// the target carries it — and then it is named exactly, not skipped over.
+const recoveryHook =
+	aiVersion === "18.1.18" ? "" : "\\s*prepareCompactionRecovery: request\\.prepareCompactionRecovery,\\s*\\n";
 assert.match(
 	v2Src,
-	/preferWebsockets: options\.preferWebsockets,\s*\n\s*\/\/[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*responsesLite: false,/,
+	new RegExp(
+		`preferWebsockets: options\\.preferWebsockets,\\s*\\n${recoveryHook}\\s*\\/\\/[^\\n]*\\n(?:\\s*\\/\\/[^\\n]*\\n)*\\s*responsesLite: false,`,
+	),
 	"compaction-v2-streaming.ts must pin responsesLite:false on the codex provider transport",
 );
 

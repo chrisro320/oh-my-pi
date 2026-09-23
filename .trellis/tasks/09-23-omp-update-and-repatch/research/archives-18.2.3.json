@@ -1,0 +1,32 @@
+[
+  {
+    "package": "pi-coding-agent",
+    "version": "18.2.3",
+    "sha256": "5433b265fb264e2e6198c9291a7f5a36b0c1a75ad80b697399851ec0e2534e2b"
+  },
+  {
+    "package": "pi-ai",
+    "version": "18.2.3",
+    "sha256": "689f2547f3a5114abe402f2eadd45c040fe3a96d15d8de23d661166455161ef0"
+  },
+  {
+    "package": "pi-agent-core",
+    "version": "18.2.3",
+    "sha256": "9c0b7360ff6c68c397083e793705206247399c0ccf6ce79e46db340400076c76"
+  },
+  {
+    "package": "snapcompact",
+    "version": "18.2.3",
+    "sha256": "4bad861ec1f1c335d537dbc831ccecc771a6db055600ad7408c1a53c7bf16928"
+  },
+  {
+    "package": "pi-catalog",
+    "version": "18.2.3",
+    "sha256": "abc45e9cd0678bb95dc41f2f70e0ae45c4b58c67648fdf0970d3a92534c4949f"
+  },
+  {
+    "package": "pi-tui",
+    "version": "18.2.3",
+    "sha256": "1df53fde618d7cd07a756c343ac6276e415822628f80a1abfacf187c5a13b206"
+  }
+]

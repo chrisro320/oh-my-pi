@@ -1,0 +1,213 @@
+--- a/pi-coding-agent/src/session/date-cwd-reminder.ts
++++ b/pi-coding-agent/src/session/date-cwd-reminder.ts
+@@ -5,12 +5,12 @@
+  * render tool schemas *after* the system content keep their prefix cache
+  * (#7404). The per-request date/cwd line used to live at the tail of the
+  * system prompt (`project-prompt.md`), which invalidated the whole tool array
+- * on every directory change or day rollover. It now rides on the first user
+- * turn of each provider request instead: built at request time (never stored
+- * in the session), deterministic per `(date, cwd)`, so the bytes are stable
+- * for the lifetime of a session/day and refresh automatically at midnight.
++ * on every directory change or day rollover. It now rides on a provider-only
++ * tail of each provider request: built at request time (never stored in the
++ * session), deterministic per `(date, cwd)`, so the bytes are stable for the
++ * lifetime of a session/day and refresh automatically at midnight.
+  */
+-import type { Context, Message, UserMessage } from "@oh-my-pi/pi-ai";
++import type { Context, Message } from "@oh-my-pi/pi-ai";
+ import { prompt } from "@oh-my-pi/pi-utils";
+ import dateCwdReminderTemplate from "../prompts/system/date-cwd-reminder.md" with { type: "text" };
+ 
+@@ -19,99 +19,35 @@
+ 	return prompt.render(dateCwdReminderTemplate, { date, cwd }).trim();
+ }
+ 
+-function messageStartsWithReminder(message: UserMessage, reminder: string): boolean {
+-	if (typeof message.content === "string") return message.content.startsWith(reminder);
+-	return message.content[0]?.type === "text" && message.content[0].text === reminder;
++/** Appends one replaceable provider-only reminder without mutating session history. */
++export function appendDateCwdReminder(messages: Message[], reminder: string): Message[] {
++	let end = messages.length;
++	while (end > 0) {
++		const message = messages[end - 1]!;
++		if (message.role !== "user" || message.providerOnly !== true) break;
++		end--;
++	}
++	if (end === messages.length - 1 && messages[end]?.content === reminder) return messages;
++	const tail: Message = {
++		role: "user",
++		content: reminder,
++		providerOnly: true,
++		synthetic: true,
++		attribution: "agent",
++		timestamp: Date.now(),
++	};
++	return [...messages.slice(0, end), tail];
+ }
+ 
+-function injectReminder(message: UserMessage, reminder: string): UserMessage {
+-	const content: UserMessage["content"] =
+-		typeof message.content === "string"
+-			? `${reminder}\n\n${message.content}`
+-			: [{ type: "text", text: reminder }, ...message.content];
+-	return { ...message, content };
++export function withDateCwdReminder(context: Context, date: string, cwd: string): Context {
++	if (!context.systemPrompt || context.systemPrompt.length === 0 || context.messages.length === 0) return context;
++	const messages = appendDateCwdReminder(context.messages, renderDateCwdReminder(date, cwd));
++	return messages === context.messages ? context : { ...context, messages };
+ }
+ 
+-/**
+- * Keeps volatile date/cwd reminders append-only across provider requests.
+- *
+- * The first value is attached to the first user turn. A changed value attaches
+- * to a newly appended user turn or a persistent developer turn, leaving every
+- * previously sent message byte-identical.
+- */
++/** Applies the provider-only reminder through the upstream injector contract. */
+ export class DateCwdReminderInjector {
+-	#root: UserMessage | undefined;
+-	#currentReminder: string | undefined;
+-	#injections = new Map<Message, Message>();
+-	#controls: Array<{ anchor: Message; message: Message }> = [];
+-	#seen = new WeakSet<object>();
+-
+-	/** Apply the current reminder while preserving all earlier injected bytes. */
+ 	transform(context: Context, date: string, cwd: string): Context {
+-		if (!context.systemPrompt || context.systemPrompt.length === 0 || context.messages.length === 0) return context;
+-		const reminder = renderDateCwdReminder(date, cwd);
+-		const messages = this.#inject(context.messages, reminder);
+-		return messages === context.messages ? context : { ...context, messages };
+-	}
+-
+-	#inject(messages: Message[], reminder: string): Message[] {
+-		const firstUser = messages.find((message): message is UserMessage => message.role === "user");
+-		if (!firstUser) return messages;
+-		if (this.#root !== firstUser) {
+-			this.#root = firstUser;
+-			this.#currentReminder = reminder;
+-			this.#injections.clear();
+-			this.#controls = [];
+-			this.#seen = new WeakSet();
+-			if (!messageStartsWithReminder(firstUser, reminder)) {
+-				this.#injections.set(firstUser, injectReminder(firstUser, reminder));
+-			}
+-		} else if (this.#currentReminder !== reminder) {
+-			let newUser: UserMessage | undefined;
+-			for (let index = messages.length - 1; index >= 0; index--) {
+-				const candidate = messages[index]!;
+-				if (candidate.role === "user" && !this.#seen.has(candidate)) {
+-					newUser = candidate;
+-					break;
+-				}
+-			}
+-			if (newUser) {
+-				this.#injections.set(newUser, injectReminder(newUser, reminder));
+-			} else {
+-				const anchor = messages.at(-1)!;
+-				this.#controls.push({
+-					anchor,
+-					message: {
+-						role: "developer",
+-						content: reminder,
+-						synthetic: true,
+-						timestamp: Date.now(),
+-					},
+-				});
+-			}
+-			this.#currentReminder = reminder;
+-		}
+-
+-		const controlsByAnchor = new Map<Message, Message[]>();
+-		for (const control of this.#controls) {
+-			const controls = controlsByAnchor.get(control.anchor);
+-			if (controls) controls.push(control.message);
+-			else controlsByAnchor.set(control.anchor, [control.message]);
+-		}
+-
+-		let changed = false;
+-		const out: Message[] = [];
+-		for (const message of messages) {
+-			const injected = this.#injections.get(message);
+-			out.push(injected ?? message);
+-			if (injected) changed = true;
+-			const controls = controlsByAnchor.get(message);
+-			if (controls) {
+-				out.push(...controls);
+-				changed = true;
+-			}
+-			this.#seen.add(message);
+-		}
+-		return changed ? out : messages;
++		return withDateCwdReminder(context, date, cwd);
+ 	}
+ }
+--- a/pi-ai/src/types.ts
++++ b/pi-ai/src/types.ts
+@@ -949,6 +949,8 @@
+ 	content: string | (TextContent | ImageContent)[];
+ 	/** True if the message was injected by the system (e.g., auto-continue). */
+ 	synthetic?: boolean;
++	/** True when present only in a provider request; never persisted or replayed. */
++	providerOnly?: boolean;
+ 	/** True when injected mid-turn as a steer; consumed by the agent's pre-LLM transform to wrap it for emphasis. Never rendered. */
+ 	steering?: boolean;
+ 	/** Timestamp of a client-side history rewrite represented by this message. */
+@@ -965,6 +967,8 @@
+ 	content: string | (TextContent | ImageContent)[];
+ 	/** Who initiated this message for billing/attribution semantics. */
+ 	attribution?: MessageAttribution;
++	/** True when present only in a provider request; never persisted or replayed. */
++	providerOnly?: boolean;
+ 	/** True if the message was injected by the system (e.g., auto-continue) and initiates a fresh run rather than continuing the current one. */
+ 	synthetic?: boolean;
+ 	/** True when the synthetic prompt was a deliberate operator action (`.`, `c` continue shortcut) rather than an automatic continuation — its timestamp is the turn's prompt time. */
+--- a/pi-ai/src/providers/openai-responses.ts
++++ b/pi-ai/src/providers/openai-responses.ts
+@@ -1197,6 +1197,18 @@
+ 	// retain required text/placeholder replay, including DeepSeek's #10690 fallback.
+ 	const canReconstructReasoningReplay =
+ 		!policy.reasoning.filterReasoningHistory || policy.reasoning.allowsSyntheticReasoningContentForToolCalls;
++	// Count the provider-only scaffolding this request appends at the tail (the
++	// date/cwd reminder). Those messages are part of the wire, never history, so
++	// the chained-compaction baseline must exclude them exactly like the juice
++	// instruction below — otherwise the previous turn's synthetic tail lands in
++	// the delta baseline and the transport rebuilds the whole prefix.
++	let trailingScaffoldingItems = 0;
++	for (let i = context.messages.length - 1; i >= 0; i--) {
++		const message = context.messages[i]!;
++		if (message.role !== "user" || message.providerOnly !== true) break;
++		trailingScaffoldingItems++;
++	}
++
+ 	const messages = buildResponsesInput({
+ 		model,
+ 		context,
+@@ -1364,7 +1376,6 @@
+ 	applyOpenAIExtraBody(params, options?.extraBody);
+ 	applyOpenAIResponsesPromptCachePolicy(params, model, options, statefulCacheBaseline);
+ 
+-	let trailingScaffoldingItems = 0;
+ 	if (options?.forceReasoningOff && model.compat.requiresReasoningOffJuiceInstruction) {
+ 		const effort = options.reasoning ?? "medium";
+ 		const juice = getJuiceValue(effort);
+@@ -1372,7 +1383,7 @@
+ 			role: "developer",
+ 			content: [{ type: "input_text", text: `# Juice: ${juice} !important` }],
+ 		});
+-		trailingScaffoldingItems = 1;
++		trailingScaffoldingItems++;
+ 	}
+ 
+ 	return { params, trailingScaffoldingItems, strictToolsApplied };
+--- a/pi-coding-agent/src/sdk.ts
++++ b/pi-coding-agent/src/sdk.ts
+@@ -3572,7 +3572,7 @@
+ 			transformed = await dropUnreadableContextImages(transformed, transformModel);
+ 			if (blobBroker) transformed = await blobBroker.decorateContext(transformed, transformModel);
+ 			// Keep per-request volatility out of the system prompt: the date/cwd
+-			// reminder rides on the first user turn so open-weight providers keep
++			// reminder rides on a provider-only tail so open-weight providers keep
+ 			// their tool-schema prefix cache (#7404).
+ 			return dateCwdReminder.transform(
+ 				transformed,

@@ -19,9 +19,47 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AssistantMessage, Context, Model } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/types.ts";
-import type { AgentMessage } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/types.ts";
-import type { SessionEntry } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-entries.ts";
+
+// Local structural fixture types. A type-only import cannot be root-selected
+// (TS needs a literal specifier), and a live-install path would defeat root
+// redirection (verification-gate-contracts §3). They describe only the fields
+// the fixtures below build and the consumers read; every module this gate
+// exercises is imported from the selected root.
+interface FixtureTextBlock {
+	type: string;
+	text?: string;
+	[key: string]: unknown;
+}
+interface AgentMessage {
+	role: string;
+	content: FixtureTextBlock[];
+	timestamp?: number;
+	[key: string]: unknown;
+}
+interface AssistantMessage extends AgentMessage {
+	api?: string;
+	provider?: string;
+	model?: string;
+	stopReason?: string;
+}
+interface SessionEntry {
+	type: string;
+	id?: string;
+	message?: unknown;
+	[key: string]: unknown;
+}
+interface Context {
+	systemPrompt?: string[];
+	messages: AgentMessage[];
+	tools?: Array<Record<string, unknown>>;
+	[key: string]: unknown;
+}
+interface Model {
+	id: string;
+	provider: string;
+	api: string;
+	[key: string]: unknown;
+}
 
 // Trace target must be set before the module under test is imported: the
 // path is read per call, but an isolated tree must never write the real log.
@@ -35,14 +73,14 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
-// This gate asserts the 0066/0067 lane contracts, which exist in the 18.1.18
-// and 18.2.3 plans. An unknown tree fails closed here instead of surfacing as
-// an unrelated import error. The version is read from the AI root the caller
-// selected, so a sandbox that binds only some roots is still judged on the
-// tree it actually points at.
+// This gate asserts the 0066/0067 lane contracts, which exist in the 18.1.18,
+// 18.2.3 and 18.2.10 plans. An unknown tree fails closed here instead of
+// surfacing as an unrelated import error. The version is read from the AI root
+// the caller selected, so a sandbox that binds only some roots is still judged
+// on the tree it actually points at.
 const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version as string;
 assert.ok(
-	["18.1.18", "18.2.3"].includes(aiVersion),
+	["18.1.18", "18.2.3", "18.2.10"].includes(aiVersion),
 	`unsupported compaction lane trace gate version: ${aiVersion}`,
 );
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);

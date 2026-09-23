@@ -1,0 +1,8 @@
+{"file":".trellis/spec/backend/index.md","reason":"Routes review to every active backend contract touched by the migration."}
+{"file":".trellis/spec/backend/patch-rollup-contracts.md","reason":"Review exact plan preservation, official-source isolation, stack replay, idempotence, and rollback proof."}
+{"file":".trellis/spec/backend/verification-gate-contracts.md","reason":"Review behavioral fault sensitivity, selected-root imports, public types, and plan-driven gate applicability."}
+{"file":".trellis/tasks/09-18-omp-1826-patch-migration/research/0010-runtime-contract.md","reason":"Review the full untruncated 0010 admission/transition/epoch contract and all selected-root fault controls."}
+{"file":".trellis/tasks/09-18-omp-1826-patch-migration/research/status-line-tui-migration-contract.md","reason":"Review TUI-only versus NM-cross-package ownership, root precedence, provider forwarding, sandbox graph, and status-line faults."}
+{"file":".trellis/spec/guides/prompt-cache-diagnosis-guide.md","reason":"Prevent changelog-only or usage-only cache/adoption conclusions."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Review consistency across apply.sh roots, packages, verifiers, and documentation."}
+{"file":".trellis/tasks/09-18-omp-1826-patch-migration/research.md","reason":"Compare implementation claims against the recorded 18.2.6 evidence and unresolved risks."}

@@ -4,10 +4,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
-import type {
-	Model,
-	ProviderSessionState,
-} from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/types.ts";
+// Type-only, so Bun's transpiler erases it: nothing is loaded from a package to
+// run this gate. The specifier is the package's public subpath rather than a
+// machine path, and the runtime imports below resolve through
+// OMP_PATCH_VERIFY_*_ROOT, so the gate follows whichever tree it is pointed at.
+import type { Model, ProviderSessionState } from "@oh-my-pi/pi-ai/src/types.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
@@ -33,9 +34,10 @@ try {
 	// running the transport assertions against a tree without the patch.
 	const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
 	assert.ok(
-		["18.1.18", "18.2.3"].includes(aiVersion),
+		["18.1.18", "18.2.3", "18.2.10"].includes(aiVersion),
 		`unsupported 0070 transport gate version: ${aiVersion}`,
 	);
+	const supportsChainRecovery = ["18.2.3", "18.2.10"].includes(aiVersion);
 	const ai = await import(`${AI_ROOT}/src/providers/openai-codex-responses.ts`);
 	const core = await import(`${CORE_ROOT}/src/compaction/compaction-v2-streaming.ts`);
 	const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
@@ -136,7 +138,7 @@ try {
 
 	type Frame = {
 		socket: number;
-		body: { previous_response_id?: string; input: Array<{ type: string }>; client_metadata?: Record<string, string> };
+		body: { generate?: boolean; previous_response_id?: string; input: Array<{ type: string }>; client_metadata?: Record<string, string> };
 	};
 	let mode = "success";
 	let sequence = 0;
@@ -178,6 +180,12 @@ try {
 			message(ws, data) {
 				const body: Frame["body"] = JSON.parse(String(data));
 				frames.push({ socket: ws.data.id, body });
+				if (body.generate === false) {
+					assert.equal(body.previous_response_id, undefined, "recovery must establish a fresh baseline");
+					assert.deepEqual(body.input, input, "recovery must preserve the supplied history without its trigger");
+					send(ws, { type: "response.completed", response: { id: `resp_${++sequence}`, status: "completed", output: [] } });
+					return;
+				}
 				if (body.input.at(-1)?.type !== "compaction_trigger") return complete(ws, false);
 				compactionSends++;
 				if (mode === "malformed" && compactionSends === 1) {
@@ -188,7 +196,7 @@ try {
 					ws.close(1011, "fixture close");
 					return;
 				}
-				if (mode === "stale") {
+				if (mode === "stale" || (mode === "stale-once" && compactionSends === 1)) {
 					send(ws, { type: "error", code: "previous_response_not_found", message: "gone" });
 					return;
 				}
@@ -232,6 +240,7 @@ try {
 			"closed",
 			"exhausted",
 			"invalid-summary",
+			...(supportsChainRecovery ? ["stale-once"] : []),
 		]) {
 			mode = scenario;
 			frames = [];
@@ -271,14 +280,14 @@ try {
 						retryWait: async () => {},
 					},
 				);
-				if (["success", "transient", "malformed"].includes(scenario)) {
+				if (["success", "transient", "malformed", "stale-once"].includes(scenario) || (supportsChainRecovery && scenario === "cold")) {
 					const result = await operation;
 					assert.equal(
 						result.compactionItem.encrypted_content,
 						"fixture-summary",
 						`${scenario}: same-chain recovery must succeed`,
 					);
-					assert.equal(compactionSends, scenario === "success" ? 1 : 2);
+					assert.equal(compactionSends, ["success", "cold"].includes(scenario) ? 1 : 2);
 					assert.equal(
 						ai.getOpenAICodexTransportDetails(model, options).canAppend,
 						false,
@@ -291,7 +300,7 @@ try {
 					);
 					assert.equal(
 						ai.getOpenAICodexTransportDetails(model, peerOptions).canAppend,
-						true,
+						scenario !== "cold",
 						"acceptance must not clear another session's baseline",
 					);
 					const next = await ai.streamOpenAICodexResponses(model, context, options).result();
@@ -305,7 +314,7 @@ try {
 					await assert.rejects(operation, ai.CodexCompactionChainLostError, `${scenario}: failure must stay terminal`);
 					assert.equal(
 						compactionSends,
-						["cold", "sse-disabled"].includes(scenario) ? 0 : scenario === "exhausted" ? 3 : 1,
+						["cold", "sse-disabled"].includes(scenario) ? 0 : scenario === "exhausted" || (supportsChainRecovery && ["closed", "stale"].includes(scenario)) ? 3 : 1,
 					);
 					if (scenario === "invalid-summary") {
 						const details = ai.getOpenAICodexTransportDetails(model, options);
@@ -318,8 +327,11 @@ try {
 				for (const frame of compactFrames) {
 					assert.ok(frame.body.previous_response_id, `${scenario}: every sent compaction must chain`);
 					assert.deepEqual(frame.body.input, [{ type: "compaction_trigger" }]);
-					assert.equal(frame.socket, compactFrames[0].socket, "retries must stay on the original socket");
-					assert.equal(frame.body.previous_response_id, compactFrames[0].body.previous_response_id);
+					assert.equal(frame.body.generate, undefined, "compaction must generate its summary");
+					if (!(supportsChainRecovery && ["closed", "stale", "stale-once"].includes(scenario))) {
+						assert.equal(frame.socket, compactFrames[0].socket, "healthy retries must stay on the original socket");
+						assert.equal(frame.body.previous_response_id, compactFrames[0].body.previous_response_id, "healthy retries must retain their response baseline");
+					}
 				}
 			} finally {
 				for (const state of states.values()) state.close();

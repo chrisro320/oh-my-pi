@@ -851,3 +851,218 @@ if (message?.clear_at === "next_user_message") {
     stableMessageEnd = index - 1;
 }
 ```
+
+## Scenario: Trellis history injection and safe OMP overlay
+
+### 1. Scope / Trigger
+
+Use when changing `omp/extensions/trellis/index.ts`, its persisted anchor format,
+compaction behavior, or the `trellis-init.md` fork overlay. The contract prevents
+transient context from changing an existing provider-history role/index and
+prevents initialization from overwriting project-owned extension changes.
+
+### 2. Signatures
+
+```text
+anchorKey(message) = <role>:<timestamp-or-?>:<sha256(original-content)[0:16]>
+.trellis/.runtime/omp-anchors/<context-key>.json
+.trellis/.runtime/omp-anchors/<context-key>.state.json
+.trellis/.runtime/omp-anchors/<context-key>.snapshot.md
+
+context(event, ctx) -> undefined | { messages: AgentMessage[] }
+hash_of(path) -> official normalized SHA-256 from .trellis/.template-hashes.json
+current_hash(path) -> SHA-256 after CRLF-to-LF normalization
+```
+
+### 3. Contracts
+
+- Inject into the newest user message; never append a transient message or
+  change message count, role ordering, or earlier anchor bytes.
+- Fix an anchor's injected text on first sight. Tool continuations and resumed
+  processes replay every known anchor byte-for-byte from the per-context map.
+- Isolate anchor/state/snapshot files by session context key and write them with
+  mode `0600`. Corrupt or missing state degrades to a full injection, never a
+  blocked turn.
+- Three states are required: first/compacted injection sends full content;
+  unchanged content sends an unchanged stub; changed content after an earlier
+  full snapshot refreshes the snapshot and sends a delta stub.
+- `session_before_compact` sets process-local boolean state. The next successful
+  injection must be full even when compaction and injection occur in the same
+  millisecond; timestamp comparison is forbidden.
+- A snapshot write failure keeps the full text on the message and must not
+  advance persisted last-full state. A later call must retry the full snapshot.
+- The shared memory CLI remains `shared/scripts/mem/trellis_mem.py`; the OMP
+  reader remains `omp/scripts/mem/omp_mem.py`. The reader is a dependency, not a
+  duplicate wrapper to delete or copy into each project.
+- Initialization installs an absent fork extension. It replaces an existing
+  extension only when its normalized bytes match the official hash recorded by
+  Trellis. Modified or unrecorded files stay untouched and receive the fork
+  candidate as `index.ts.new`.
+- Never update the official recorded hash after overlay. A later official
+  `trellis update` must continue to recognize the fork edition as local content.
+- Project-only roles such as `reviewer2.md` do not enter the fork overlay.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|---|---|
+| First context call for a session | Full text merged into newest user anchor |
+| Tool continuation with no new user message | Same anchor bytes; pure tail append |
+| Process resumes with persisted map | Every prior anchor replays identically |
+| Snapshot equals current workflow state | Unchanged stub points to snapshot |
+| Workflow state changed | Snapshot refresh plus delta stub |
+| Compaction occurred before next injection | Full replay regardless of state equality |
+| Snapshot directory/write fails | Full text; last-full state not advanced |
+| Anchor/state JSON is corrupt | Ignore it and safely re-anchor/replay full |
+| Extension absent during init | Install fork edition |
+| Extension matches recorded official hash | Overlay fork edition |
+| Extension is modified or hash is missing | Preserve original; write `index.ts.new` |
+
+### 5. Good / Base / Bad Cases
+
+- **Good:** a resumed tool continuation has the same message count and identical
+  bytes at all established user anchors, with only new tail messages appended.
+- **Base:** workflow state changes; the model receives a short delta stub and can
+  read the atomically refreshed snapshot when full details are needed.
+- **Bad:** append a transient `custom` message. The next call rebuilds history
+  without it and can place an assistant message at that index, flipping the role
+  and invalidating the provider cache prefix.
+- **Bad:** compare compaction and injection millisecond timestamps. Equal values
+  can suppress the required full replay.
+- **Bad:** copy the fork extension unconditionally during init. This destroys a
+  project's extension logic instead of producing a reviewable `.new` candidate.
+
+### 6. Tests Required
+
+For extension changes, exercise the real hook with assertions for unchanged
+message count, continuation tail append, cross-process anchor replay,
+full/unchanged/delta states, compaction-forced full replay, and snapshot-write
+failure fallback. No real provider request is required.
+
+For initialization changes, run `trellis init --omp --skip-existing --yes` in an
+isolated git repository, then execute the documented fork overlay and assert all
+three extension branches: absent installs, official-hash match overlays, and
+custom/unrecorded content survives with a byte-identical `.new` candidate.
+
+Machine-check before delivery and review:
+
+```sh
+cmp .omp/extensions/trellis/index.ts \
+  ~/orca/projects/trellis/omp/extensions/trellis/index.ts
+grep -nE 'ext_key|hash_of|current_hash|index\.ts\.new' \
+  ~/orca/projects/trellis/omp/commands/trellis-init.md
+test ! -e ~/orca/projects/trellis/omp/agents/reviewer2.md
+python3 ~/orca/projects/trellis/scripts/doctor.py
+```
+
+The doctor may still report independently managed project-version or
+project-skill shadow drift; the Kimi derivation gate must say hooks/templates are
+equal to upstream plus patches.
+
+### 7. Wrong vs Correct
+
+```ts
+// Wrong: changes history length and lets the next rebuilt call reuse this index
+// for a different role.
+return { messages: [...event.messages, transientContextMessage] };
+
+// Correct: preserve the slot and freeze the first injected bytes for its key.
+const text = injectedByAnchor.get(key) ?? selectFullOrStub(turnContent);
+return { messages: replaceNewestUserWithoutChangingLength(event.messages, text) };
+```
+
+```sh
+# Wrong: overwrites project-owned extension content.
+cp "$FORK/extensions/trellis/index.ts" .omp/extensions/trellis/index.ts
+
+# Correct: overwrite only an untouched official file; otherwise stage `.new`.
+[ -n "$orig" ] && [ "$orig" = "$now" ] && write_managed "$src" "$dst" \
+  || cp -L "$src" "$dst.new"
+```
+
+## Scenario: Default Trellis execution policy and legacy lifecycle removal
+
+### 1. Scope / Trigger
+
+Apply when changing the fork defaults used to initialize OMP, Claude, or Kimi
+projects, or when synchronizing the Kimi-derived script scaffold.
+
+### 2. Signatures
+
+```text
+Phase 2 = trellis-implement (complete) -> trellis-check (read-only)
+Findings -> main session or implementation owner -> trellis-check again
+task.py --help must not expose inserted-review lifecycle commands
+```
+
+### 3. Contracts
+
+- Implementation and review are sequential. The implementation worker must exit
+  before the main session dispatches the checker.
+- The checker is independent and read-only: no edits, writes, formatting,
+  autofix, task/spec updates, or mutating commands. It reports path/line,
+  evidence, impact, severity, and minimal repair guidance.
+- The main session or implementation owner applies repairs, then dispatches a
+  fresh checker until it returns `PASS`.
+- Apply the policy consistently to workflow breadcrumbs, Phase 2 instructions,
+  platform check agents/skills, and `.trellis/agents/check.md`.
+- The legacy inserted-review lifecycle is absent from the installed package,
+  derived Kimi templates, and new projects: no module, task subcommand,
+  active-command exemption, run record, or handoff record remains.
+- Kimi script cleanup and OMP safe-overlay verification are separate gates.
+  Kimi synchronization must rebuild scripts from the clean installed scaffold;
+  OMP initialization must independently pass absent, official-hash-match, and
+  custom/unrecorded protection branches.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|---|---|
+| Implement worker still running | Do not dispatch check |
+| Checker finds an issue | Report only; owner repairs; run a fresh check |
+| Checker can access write/edit tools | Default is invalid |
+| Kimi templates contain legacy lifecycle module/command | Sync gate fails |
+| OMP target matches official hash | Overlay fork default |
+| OMP target is absent | Install fork default |
+| OMP target is customized/unrecorded | Preserve it and write `.new` |
+
+### 5. Good / Base / Bad Cases
+
+- **Good:** implementation exits, a read-only reviewer returns findings, the
+  owner repairs them, and a new reviewer returns `PASS`.
+- **Base:** no findings; the checker reports `PASS` and `filesChanged: []`.
+- **Bad:** run implementation and check concurrently against a moving diff.
+- **Bad:** let the checker fix its own findings; those edits lack independent
+  review and blur implementation/review ownership.
+- **Bad:** preserve the removed lifecycle as a hidden local script patch.
+
+### 6. Tests Required
+
+```sh
+trellis-sync-kimi --apply
+trellis-sync-kimi
+cmp ~/orca/projects/trellis/kimi/templates/scripts/task.py \
+  ~/.nvm/versions/node/v24.15.0/lib/node_modules/@mindfoldhq/trellis/dist/templates/trellis/scripts/task.py
+test ! -e ~/orca/projects/trellis/kimi/templates/scripts/common/agora_task.py
+grep -R -n -E 'agora[-_]|Agora' ~/orca/projects/trellis/kimi/templates
+```
+
+The second sync must report everything derivable from upstream in sync; the
+three following commands must succeed with no lifecycle match.
+
+For OMP, initialize an isolated repository, execute the documented fork overlay,
+and test the extension/default-policy files through absent, hash-match, and
+custom/unrecorded branches. Custom content must survive and `.new` must be
+byte-identical to the fork candidate.
+
+### 7. Wrong vs Correct
+
+```text
+Wrong: implement || check -> checker edits -> commit
+Correct: implement exits -> read-only check -> owner repairs -> fresh check -> PASS
+```
+
+```text
+Wrong: keep a removed lifecycle in a local template patch
+Correct: derive task.py and active_task.py byte-for-byte from the clean scaffold
+```

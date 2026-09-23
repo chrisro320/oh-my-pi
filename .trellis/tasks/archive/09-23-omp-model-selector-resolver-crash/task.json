@@ -1,0 +1,31 @@
+{
+  "id": "omp-model-selector-resolver-crash",
+  "name": "omp-model-selector-resolver-crash",
+  "title": "修复 model 选单解析递归崩溃",
+  "description": "修复 /model 的 Bun legacy-pi 同步 package require 递归；统一选单静态载入、隔离行为回归并安全部署。",
+  "status": "completed",
+  "dev_type": "bugfix",
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-09-23",
+  "completedAt": "2026-09-23",
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "patches/.18.2.10-candidates/0072-omp-session-pin-static-auth-ui-v18.2.10-candidate.patch",
+    "patches/verify-session-pin-static-auth-ui.ts",
+    "patches/PATCHES.md",
+    ".trellis/spec/backend/verification-gate-contracts.md"
+  ],
+  "notes": "Deployed atomically after backup; regression fails before and passes after. Actual deployed /model renders; 42-patch forward/reverse replay and live --check pass. No commit or live agent-state changes.",
+  "meta": {}
+}

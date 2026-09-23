@@ -1,0 +1,8 @@
+{
+  "pi-coding-agent": true,
+  "pi-ai": true,
+  "pi-agent-core": true,
+  "snapcompact": true,
+  "pi-catalog": true,
+  "pi-tui": true
+}

@@ -447,10 +447,10 @@ export default function(pi: ExtensionAPI): void {
    const agentType = detectAgentType();
    const isSubAgent = agentType !== null;
 
-   // Tracks compaction boundaries — context handler skips scanning when no
-   // compaction has occurred since last injection.
-   let lastCompactionTs = 0;
-   let lastInjectionTs = 0;
+   // A freshly constructed extension has not injected this process yet. If a
+   // compaction event arrives first, the next context call must replay the full
+   // state even when a prior process left a persisted snapshot.
+   let compactionSinceLastInjection = false;
 
    const rememberContextKey = (ctx?: { sessionManager?: { getSessionId?: () => string | undefined; getSessionFile?: () => string | undefined } }): string | null => {
       const key = deriveContextKey(ctx);
@@ -468,7 +468,7 @@ export default function(pi: ExtensionAPI): void {
    });
 
    pi.on("session_before_compact", async () => {
-      lastCompactionTs = Date.now();
+      compactionSinceLastInjection = true;
    });
 
    pi.on("before_agent_start", async (_event, ctx) => {
@@ -507,13 +507,19 @@ export default function(pi: ExtensionAPI): void {
    // the wrong bytes. Hash the ORIGINAL (pre-injection) content into the key —
    // that content is what a resumed process rebuilds from the JSONL, so the key
    // is both collision-resistant and stable across restarts.
+   const messageContent = (message: AgentMessage): unknown =>
+      "content" in message ? message.content : undefined;
+
+   const messageTimestamp = (message: AgentMessage): number | undefined =>
+      "timestamp" in message && typeof message.timestamp === "number" ? message.timestamp : undefined;
+
    const anchorKey = (message: AgentMessage): string => {
-      const content = (message as { content?: unknown }).content;
+      const content = messageContent(message);
       const signature = createHash("sha256")
          .update(typeof content === "string" ? content : JSON.stringify(content ?? null))
          .digest("hex")
          .slice(0, 16);
-      return `${message.role}:${(message as { timestamp?: number }).timestamp ?? "?"}:${signature}`;
+      return `${message.role}:${messageTimestamp(message) ?? "?"}:${signature}`;
    };
 
    const anchorFile = (contextKey: string): string | null =>
@@ -590,7 +596,7 @@ export default function(pi: ExtensionAPI): void {
    };
 
    const withInjectedText = (message: AgentMessage, text: string): AgentMessage => {
-      const content = (message as { content?: unknown }).content;
+      const content = messageContent(message);
       if (typeof content === "string") {
          return { ...message, content: `${content}\n\n${text}` } as AgentMessage;
       }
@@ -660,7 +666,7 @@ export default function(pi: ExtensionAPI): void {
                // After a compaction the previous full anchor may have been
                // summarized away — the model can no longer see the snapshot
                // the stub points at, so the next injection must be full again.
-               const compacted = lastCompactionTs > lastInjectionTs;
+               const compacted = compactionSinceLastInjection;
                const isFirstOrCompacted = !lastFullContent || compacted;
                const snapshotPath = join(projectRoot, ".trellis", ".runtime", "omp-anchors", `${contextKey}.snapshot.md`);
 
@@ -681,7 +687,7 @@ export default function(pi: ExtensionAPI): void {
 
                   if (snapshotWritten) {
                      saveLastFull(contextKey, turnContent);
-                     lastInjectionTs = Date.now();
+                     compactionSinceLastInjection = false;
 
                      if (!isFirstOrCompacted) {
                         // Delta Stub (Option A): state updated, snapshot refreshed on disk.

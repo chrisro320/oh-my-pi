@@ -1,0 +1,31 @@
+{
+  "id": "omp-native-fusion",
+  "name": "omp-native-fusion",
+  "title": "OMP 原生 Fusion 直接接入",
+  "description": "直接实现 Devin Fusion 协议与会话生命周期，保留 OMP 工具和权限，不使用 ACP 或 task/hub 替代；已有隔离原生协议证据。",
+  "status": "in_progress",
+  "dev_type": "backend",
+  "scope": "devin-fusion",
+  "package": null,
+  "priority": "P1",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-09-19",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "patches/apply.sh",
+    "patches/PATCHES.md",
+    ".trellis/tasks/09-19-omp-native-fusion/research/native-protocol.md",
+    ".trellis/tasks/09-19-omp-native-fusion/research/evidence-manifest.json"
+  ],
+  "notes": "Task creation and planning approved. Direct native Fusion only; no ACP or task/hub substitution. Implementation awaits approval of the final planning summary. Native fixture evidence is not OMP or live-provider acceptance.",
+  "meta": {}
+}

@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "Pinned pristine, exact plan roots, reversible full-chain migration"}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "Selected-root behavior and representation parity"}
+{"file": ".trellis/tasks/09-23-omp-update-and-repatch/research.md", "reason": "Current 39-layer matrix, added-file false conflict, target release boundaries"}

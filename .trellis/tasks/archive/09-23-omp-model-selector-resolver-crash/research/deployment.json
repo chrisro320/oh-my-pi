@@ -1,0 +1,11 @@
+{
+  "backup": "/home/chris/.omp/backups/model-selector-20260923-013254/before.tar.gz",
+  "backupSha256": "e7b7653292977dc3d0bfde10f2aa0e90b38bedc0547bfe4350c2ad086b7b923e",
+  "sourceSha256": "74cbff157944a5c59d472675c338d8256b38899d0c4642956acef91b1a80d64b",
+  "liveGateExit": 0,
+  "ledgerFiles": [
+    ".18.2.10-candidates/0072-omp-session-pin-static-auth-ui-v18.2.10-candidate.patch",
+    "verify-session-pin-static-auth-ui.ts",
+    "PATCHES.md"
+  ]
+}

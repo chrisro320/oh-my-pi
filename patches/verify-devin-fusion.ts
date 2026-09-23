@@ -24,7 +24,7 @@ const NM = process.env.OMP_PATCH_VERIFY_NM;
 assert(NM, "OMP_PATCH_VERIFY_NM must select a dependency-complete isolated package tree");
 const root = resolve(NM);
 if (!process.env.OMP_FUSION_SCENARIO && !process.env.OMP_FUSION_RESTORE_FILE) {
-	for (const mode of ["protocol", "blocking", "background", "failure", "cancel", "boundaries"]) {
+	for (const mode of ["protocol", "blocking", "background", "failure", "cancel", "boundaries", "restore-window", "update-window"]) {
 		const child = Bun.spawn([process.execPath, import.meta.path], {
 			env: { ...process.env, OMP_FUSION_SCENARIO: mode },
 			stdout: "inherit", stderr: "inherit",
@@ -39,13 +39,15 @@ const aiRoot = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? join(root, "pi-ai");
 const catalogRoot = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? join(root, "pi-catalog");
 const restoreFile = process.env.OMP_FUSION_RESTORE_FILE;
 const scenario = process.env.OMP_FUSION_SCENARIO ?? "blocking";
-assert(["protocol", "blocking", "background", "failure", "cancel", "boundaries"].includes(scenario), `unknown Fusion scenario ${scenario}`);
+assert(["protocol", "blocking", "background", "failure", "cancel", "boundaries", "restore-window", "update-window"].includes(scenario), `unknown Fusion scenario ${scenario}`);
 const readStarted = Promise.withResolvers<void>();
 const childHeld = Promise.withResolvers<void>();
 const releaseChild = Promise.withResolvers<void>();
 let readExecutions = 0;
 let deniedExecutions = 0;
 let passed = false;
+/** Set when a scenario already spawned and awaited its own restart process. */
+let handoffVerified = false;
 const workspace = process.env.OMP_FUSION_WORKSPACE ?? await mkdtemp(join(tmpdir(), "fusion-gate-"));
 const requests: Array<{ method: string; body: CapturedRequest }> = [];
 let leadStep = 0;
@@ -173,6 +175,37 @@ async function transport(url: string, init?: RequestInit): Promise<Response> {
 		assert.equal(request.cascadeId, requests.findLast(r => r.method === "AssignModel" && !r.body.observedField6)!.body.cascadeId);
 		assert.equal(request.modelAssignmentJwt, "synthetic-lead-assignment");
 		leadStep++;
+		if (scenario === "update-window") {
+			// Two sidekick calls in ONE assistant message. The wrapper runs them
+			// concurrently: the first pauses inside `#ensureChild`, so the second
+			// reaches `#deliverUpdate` while the child Agent does not exist yet.
+			// Only a queued update survives that window.
+			if (leadStep === 1) {
+				return streamResponse({
+					deltaToolCalls: [
+						create(p.ChatToolCallSchema, { id: "window-claim", name: "sidekick", argumentsJson: JSON.stringify({ message: "WINDOW_FIRST_BRIEF: read sentinel.txt", block: false }) }),
+						create(p.ChatToolCallSchema, { id: "window-update", name: "sidekick", argumentsJson: JSON.stringify({ message: "WINDOW_SECOND_BRIEF: also report the word twice", block: false }) }),
+					],
+					stopReason: 10,
+				});
+			}
+			if (leadStep === 2) return toolResponse("window-wait", "read_subagent", { block: true });
+			return streamResponse({ deltaText: "WINDOW_LEAD_COMPLETE", stopReason: 2 });
+		}
+		if (scenario === "restore-window") {
+			// Parent process: open the handoff, then close the turn with text.
+			// Restored process: a single call that continues the retained
+			// conversation, so the restored brief must not be mistaken for the
+			// original one.
+			if (restoreFile) {
+				if (leadStep === 1) return toolResponse("window-restore", "sidekick", { message: "WINDOW_RESTORED_BRIEF: continue the retained child conversation", block: true });
+				return streamResponse({ deltaText: "WINDOW_LEAD_COMPLETE", stopReason: 2 });
+			}
+			if (leadStep === 1) return toolResponse("window-start", "sidekick", { message: "WINDOW_BRIEF: read sentinel.txt and report its exact contents", block: true });
+			// Terminal text turn: the session must not persist a tail that is still
+			// waiting on a tool result, or a reopened process reports its agent busy.
+			return streamResponse({ deltaText: "WINDOW_LEAD_COMPLETE", stopReason: 2 });
+		}
 		if (scenario === "boundaries" || scenario === "protocol") {
 			if (leadStep === 1) return toolResponse(`boundary-${boundaryStage}`, "sidekick", { message: `BOUNDARY_${boundaryStage}_BRIEF`, block: true });
 			return streamResponse({ deltaText: "BOUNDARY_LEAD_COMPLETE", stopReason: 2 });
@@ -234,6 +267,36 @@ async function transport(url: string, init?: RequestInit): Promise<Response> {
 		if (childStep === 2) return toolResponse("approval-probe", "approval_required", {});
 		assert(request.chatMessagePrompts.some((m: CapturedPrompt) => m.toolCallId === "approval-probe" && /denied|approval|permission|not allowed/i.test(m.prompt)), "background operation is refused without approval");
 		return streamResponse({ deltaText: "BACKGROUND_REPORT", stopReason: 2 });
+	}
+	if (scenario === "update-window") {
+		// Both briefs must reach the child on its single cascade: the first as
+		// the handoff prompt, the second as the steered update. Exactly once each
+		// — a dropped queue loses the update, a double delivery duplicates it.
+		const firstBriefs = request.chatMessagePrompts.filter((m: CapturedPrompt) => m.prompt.includes("WINDOW_FIRST_BRIEF"));
+		const secondBriefs = request.chatMessagePrompts.filter((m: CapturedPrompt) => m.prompt.includes("WINDOW_SECOND_BRIEF"));
+		assert.equal(firstBriefs.length, 1, "child receives the first brief exactly once");
+		assert.equal(secondBriefs.length, 1, "update delivered before the child existed reaches it exactly once");
+		return streamResponse({ deltaText: "WINDOW_CHILD_REPORT", stopReason: 2 });
+	}
+	if (scenario === "restore-window") {
+		if (!restoreFile) {
+			// Parent process: run the handoff to completion so its settle record
+			// carries a real transcript (brief, read result, signed reply).
+			if (childStep === 1) return toolResponse("window-child-read", "read", { path: join(workspace, "sentinel.txt") });
+			assert(request.chatMessagePrompts.some((m: CapturedPrompt) => m.prompt.includes("WINDOW_BRIEF")), "child receives the first brief");
+			return streamResponse(
+				{ deltaThinking: "CHILD_THINKING_SENTINEL" },
+				{ deltaText: "CHILD_REPORT_FUSION_REAL_FILE_SENTINEL", stopReason: p.StopReason.STOP_PATTERN },
+				{ deltaSignature: "child-signature" },
+			);
+		}
+		// Restored process: the delivered-marker record for that handoff was
+		// written with no child Agent present, yet the transcript must survive.
+		assert(request.chatMessagePrompts.some((m: CapturedPrompt) => m.prompt.includes("WINDOW_BRIEF")), "restored child keeps the original brief");
+		assert(request.chatMessagePrompts.some((m: CapturedPrompt) => m.prompt.includes("CHILD_REPORT_FUSION_REAL_FILE_SENTINEL")), "restored child keeps the previous reply");
+		assert(request.chatMessagePrompts.some((m: CapturedPrompt) => m.prompt.includes("WINDOW_RESTORED_BRIEF")), "restored child receives its new brief");
+		assert(request.chatMessagePrompts.some((m: CapturedPrompt) => m.toolCallId === "window-child-read" && m.prompt.includes("FUSION_REAL_FILE_SENTINEL")), "restored tool result retains its correlation and output");
+		return streamResponse({ deltaText: "WINDOW_RESTORED_REPORT", stopReason: 2 });
 	}
 	if (restoreFile) {
 		assert(request.chatMessagePrompts.some((m: CapturedPrompt) => m.prompt.includes("FIRST_BRIEF")), "reloaded child receives the original brief");
@@ -435,6 +498,67 @@ void [compat, full, simple];
 			assert.equal(new Set(children.map(r => r.body.cascadeId)).size, 1, "active update keeps child cascade");
 			assert.equal(requests.filter(r => r.method === "AssignModel" && r.body.observedField6).length, 1, "active update does not assign again");
 			console.log("PASS actual OMP background: concurrent lead, in-progress FIFO read, ordered update, permission refusal, one cascade/assignment");
+		} else if (scenario === "update-window") {
+			await session.prompt("Start a Fusion handoff and update it in the same turn.");
+			assert(childStep >= 1, "child runs the handoff");
+			const children = requests.filter(r => r.method === "GetChatMessage" && r.body.chatModelUid === childUid);
+			assert.equal(new Set(children.map(r => r.body.cascadeId)).size, 1, "concurrent calls collapse onto one handoff cascade");
+			assert.equal(requests.filter(r => r.method === "AssignModel" && r.body.observedField6).length, 1, "the update does not start a second handoff");
+			assert(!children.some(r => !r.body.chatMessagePrompts.some((m: CapturedPrompt) => m.prompt.includes("WINDOW_SECOND_BRIEF"))), "every child request carries the update");
+			console.log("PASS actual OMP update window: concurrent calls share one cascade and the update is delivered");
+		} else if (scenario === "restore-window" && !restoreFile) {
+			await session.prompt("Run the first Fusion handoff to completion.");
+			assert(childStep >= 2, "parent process runs the handoff through its read and report");
+			// Close the lead's turn so the persisted session does not end on a tail
+			// that is still waiting for a tool result.
+			await session.prompt("Summarize the completed handoff.");
+			// Reproduce the crash window: the completed handoff's settle record
+			// carries its transcript, but the process died before delivering its
+			// report. On reload `#ensureRestored()` replays that report and marks
+			// it delivered — persisting a record for a handoff whose child Agent
+			// does not exist yet. That record must not shadow the transcript.
+			const { decodeFusionHandoffRecord } = await import(join(agentRoot, "src/session/fusion-handoff-snapshot.ts"));
+			const settled = manager.getBranch()
+				.filter((entry: { type: string; customType?: string }) => entry.type === "custom" && entry.customType === "fusion-sidekick")
+				.map((entry: { data: unknown }) => decodeFusionHandoffRecord(entry.data))
+				.filter((record: unknown): record is NonNullable<typeof record> => record !== undefined)
+				.find((record: { messages: unknown[] }) => record.messages.length > 0);
+			assert(settled, "completed handoff persisted its transcript");
+			manager.appendCustomEntry("fusion-sidekick", {
+				...settled,
+				delivered: false,
+			});
+			const sessionFile = manager.getSessionFile();
+			assert(sessionFile, "completed Fusion session must have durable storage");
+			await manager.flush();
+			// Let the lead's own turn settle before disposing: a session reopened
+			// mid-turn reports its agent as busy and refuses the first prompt.
+			const settle = Promise.withResolvers<void>();
+			setTimeout(settle.resolve, 250);
+			await settle.promise;
+			await session.dispose();
+			auth.close();
+			const restarted = Bun.spawn([process.execPath, import.meta.path], {
+				env: { ...process.env, OMP_FUSION_RESTORE_FILE: sessionFile, OMP_FUSION_WORKSPACE: workspace, OMP_FUSION_SCENARIO: "restore-window" },
+				stdout: "inherit",
+				stderr: "inherit",
+			});
+			assert.equal(await restarted.exited, 0, "restored session must retain the child transcript across the delivered-marker record");
+			passed = true;
+			handoffVerified = true;
+		} else if (restoreFile && scenario === "restore-window") {
+			// Restored process: the replayed delivered marker already persisted a
+			// record for a handoff with no child Agent. The next handoff must
+			// still see the original transcript. The replayed notification queues
+			// a drain, so let the session reach idle before driving it.
+			await session.waitForIdle();
+			await session.prompt("Continue the restored native Fusion session.");
+			assert(childStep >= 1, "restored session executes the requested handoff");
+			const restoredChild = requests.find(r => r.method === "GetChatMessage" && r.body.chatModelUid === childUid)!.body;
+			assert(restoredChild.chatMessagePrompts.some((m: CapturedPrompt) => m.prompt.includes("WINDOW_BRIEF")), "restored child keeps the original brief");
+			assert(restoredChild.chatMessagePrompts.some((m: CapturedPrompt) => m.prompt.includes("CHILD_REPORT_FUSION_REAL_FILE_SENTINEL")), "restored child keeps the previous reply");
+			assert(restoredChild.chatMessagePrompts.some((m: CapturedPrompt) => m.prompt.includes("WINDOW_RESTORED_BRIEF")), "restored child receives its new brief");
+			console.log("PASS actual OMP crash window: delivered-marker record retains the child transcript");
 		} else if (restoreFile) {
 			await session.prompt("Continue the restored native Fusion session.");
 			assert.equal(childStep, 1, "restored session executes one requested handoff");
@@ -456,12 +580,12 @@ void [compat, full, simple];
 			assert.equal(requests.filter(r => r.method === "AssignModel" && r.body.observedField6).length, 2, "one child assignment per completed handoff, not per tool step");
 			console.log("PASS actual OMP SDK: discovery, role assignment, real read, repeat handoff history, assignment lifetime");
 		}
-		await manager.flush();
+		if (!handoffVerified) await manager.flush();
 	} finally {
-		await session.dispose();
+		if (!handoffVerified) await session.dispose();
 		auth.close();
 	}
-	if (!restoreFile && scenario === "blocking") {
+	if (!handoffVerified && !restoreFile && scenario === "blocking") {
 		const sessionFile = manager.getSessionFile();
 		assert(sessionFile, "completed Fusion session must have durable storage");
 		const restarted = Bun.spawn([process.execPath, import.meta.path], {

@@ -1,3 +1,104 @@
+--- a/src/session/session-listing.ts
++++ b/src/session/session-listing.ts
+@@ -47,6 +47,12 @@
+ 	 * synthesized {@link SessionInfo}s (cross-project stubs, tests) leave it unset.
+ 	 */
+ 	status?: SessionStatus;
++	/**
++	 * Model the session last used (selector form, "provider/model"), from the
++	 * newest model_change entry or assistant message in the scanned windows.
++	 * Optional for the same reason as {@link status}: empty sessions have none.
++	 */
++	lastModel?: string;
+ }
+ 
+ export interface ResolvedSessionMatch {
+@@ -187,6 +193,77 @@
+ 	return "unknown";
+ }
+ 
++/**
++ * Model shown for a session in the picker: the first model resume would
++ * restore, so the display and the resumed state cannot disagree. That rule
++ * lives in `getRestorableSessionModels` / `getLastModelChangeRole` — the
++ * branch's newest `model_change` decides, and each role keeps its own newest
++ * value. A `default` (or pre-role) transition, and a `fallback` one (retry
++ * swaps recorded by turn-recovery: transient degradations that must never
++ * masquerade as the user's pick), resolve to the default model; any other role
++ * — `smol`, `slow`, `vision`, `plan`, `commit`, `tiny`, `task`, `advisor`, or
++ * a settings-defined one — resolves to that role's own model. When the scanned
++ * windows carry no such transition — pre-`model_change` sessions, or later
++ * events rolled past the tail window — the newest assistant message's model is
++ * the last model that actually served the session: a weaker claim, and the
++ * only one those bytes support.
++ */
++function deriveLastModel(suffix: string, prefix: string): string | undefined {
++	const readEntry = (line: string): TailModelEntry | undefined => {
++		if (line.charCodeAt(0) !== 123) return undefined;
++		try {
++			return JSON.parse(line) as TailModelEntry;
++		} catch {
++			return undefined;
++		}
++	};
++	const lines = suffix.split("\n");
++	// Newest role first (walking backwards), then that role's newest model —
++	// `roleModels` keeps what each role last resolved to. `fallback` resolves
++	// like `default`, so only the role resume would actually use ends the walk.
++	const roleModels = new Map<string, string>();
++	let newestRole: string | undefined;
++	let lastServed: string | undefined;
++	for (let i = lines.length - 1; i >= 0; i--) {
++		const entry = readEntry(lines[i]!);
++		if (!entry) continue;
++		if (entry.type === "model_change" && typeof entry.model === "string" && entry.model) {
++			const role = entry.role ?? "default";
++			newestRole ??= role;
++			if (!roleModels.has(role)) roleModels.set(role, entry.model);
++			const resolved = newestRole === "default" || newestRole === "fallback" ? "default" : newestRole;
++			if (roleModels.has(resolved)) break;
++			continue;
++		}
++		if (
++			lastServed === undefined &&
++			entry.type === "message" &&
++			entry.message?.role === "assistant" &&
++			typeof entry.message.model === "string"
++		) {
++			lastServed = entry.message.model;
++		}
++	}
++	const resolvedRole = !newestRole || newestRole === "default" || newestRole === "fallback" ? "default" : newestRole;
++	const fromTail = roleModels.get(resolvedRole);
++	if (fromTail) return fromTail;
++	for (const line of prefix.split("\n")) {
++		const entry = readEntry(line);
++		if (entry?.type === "model_change" && typeof entry.model === "string" && (entry.role ?? "default") === "default") {
++			return entry.model;
++		}
++	}
++	return lastServed;
++}
++
++/** Tail-window entry shapes this module reads back out of a session file. */
++interface TailModelEntry {
++	type?: string;
++	model?: string;
++	role?: string;
++	message?: { role?: string; model?: string };
++}
++
+ interface TailMessage {
+ 	role?: string;
+ 	stopReason?: string;
+@@ -474,6 +551,7 @@
+ 			size,
+ 			firstMessage: firstMessage || "(no messages)",
+ 			allMessagesText: allMessages.length > 0 ? allMessages.join(" ") : firstMessage,
++			lastModel: deriveLastModel(suffix, content),
+ 			status: withStatus ? deriveSessionStatus(suffix) : undefined,
+ 		};
+ 		// The cache keeps its own shallow copy; hits also hand out copies, so
 --- a/src/modes/components/session-selector.ts
 +++ b/src/modes/components/session-selector.ts
 @@ -18,6 +18,8 @@
@@ -9,7 +110,27 @@
  import { HookSelectorComponent } from "./hook-selector";
  import { bottomBorder, OverlayPanel, row, topBorder } from "./overlay-box";
  
-@@ -278,6 +280,7 @@
+@@ -44,6 +46,19 @@
+ 	}
+ }
+ 
++/**
++ * Compact selector form of a model for the metadata line: keep the id part,
++ * trim to the last two "/"-separated segments so vendor-prefixed ids like
++ * "commandcode/deepseek/deepseek-v4.1-flash" stay recognizable, and drop
++ * an ":tag" suffix ("ollama-cloud/glm-5.3-flash:max" → "glm-5.3-flash").
++ */
++function shortenModelName(selector: string): string {
++	const withoutTag = selector.split(":", 1)[0] ?? selector;
++	const segments = withoutTag.split("/").filter(s => s.length > 0);
++	if (segments.length === 0) return selector;
++	return segments.slice(-2).join("/");
++}
++
+ /** Returns the IDs of sessions whose recorded prompts match a query, best first. */
+ export type SessionHistoryMatcher = (query: string) => string[];
+ 
+@@ -300,6 +315,7 @@
  	readonly #getTerminalRows: () => number;
  
  	onDeleteRequest?: (session: SessionInfo) => void;
@@ -17,12 +138,22 @@
  
  	#allSessions: SessionInfo[];
  	#showCwd: boolean;
-@@ -690,7 +693,18 @@
+@@ -697,6 +713,9 @@
+ 			if (status) {
+ 				metadata += ` ${dot} ${status}`;
+ 			}
++			if (session.lastModel) {
++				metadata += ` ${dot} ${dim(shortenModelName(session.lastModel))}`;
++			}
+ 			if (session.parentSessionPath) {
+ 				metadata += ` ${dot} ${dim(`${theme.icon.branch} fork`)}`;
+ 			}
+@@ -747,6 +766,17 @@
  		// combo instead. Regular Backspace on an empty query means "delete
  		// session"; with a typed query it stays bound to the search Input so users
  		// can still edit their filter text.
 +		// Space on an empty search query — request history preview
- 		if (
++		if (
 +			(matchesKey(keyData, "space") || keyData === " ") &&
 +			this.#searchInput.getValue().length === 0
 +		) {
@@ -32,11 +163,10 @@
 +			}
 +			return;
 +		}
-+		if (
+ 		if (
  			matchesKey(keyData, "delete") ||
  			(matchesKey(keyData, "backspace") && this.#searchInput.getValue().length === 0)
- 		) {
-@@ -790,6 +804,9 @@
+@@ -849,6 +879,9 @@
  export class SessionSelectorComponent extends OverlayPanel {
  	#sessionList: SessionList;
  	#confirmationDialog: HookSelectorComponent | null = null;
@@ -46,7 +176,7 @@
  	// Hosts whichever of `#sessionList` / `#confirmationDialog` is live this
  	// frame. The delete dialog REPLACES the list in this slot rather than being
  	// appended below the picker chrome, so the picker is always
-@@ -831,6 +848,8 @@
+@@ -890,6 +923,8 @@
  
  		this.#messageContainer = new Container();
  		this.#onDelete = options.onDelete;
@@ -55,7 +185,7 @@
  		this.#loadAllSessions = options.loadAllSessions;
  		this.#folderSessions = sessions;
  		this.#globalSessions = options.allSessions ?? null;
-@@ -871,6 +890,9 @@
+@@ -931,6 +966,9 @@
  		this.#sessionList.onDeleteRequest = (session: SessionInfo) => {
  			this.#showDeleteConfirmation(session);
  		};
@@ -65,7 +195,7 @@
  		if (this.#loadAllSessions || this.#globalSessions) {
  			this.#sessionList.onToggleScope = () => {
  				void this.#toggleScope();
-@@ -942,10 +964,42 @@
+@@ -1002,10 +1040,42 @@
  	 * child-walking dispose would miss its pending history-merge timer.
  	 */
  	override dispose(): void {
@@ -108,7 +238,7 @@
  	#clearError(): void {
  		this.#messageContainer.clear();
  	}
-@@ -1022,8 +1076,12 @@
+@@ -1086,8 +1156,12 @@
  
  	/** Blank · keybinding hint · bottom border. Rendered by {@link render}. */
  	#footerLines(width: number): string[] {
@@ -122,7 +252,7 @@
  		return [row("", width), row(hint, width), row("", width), bottomBorder(width)];
  	}
  
-@@ -1035,6 +1093,8 @@
+@@ -1099,6 +1173,8 @@
  		}
  		if (this.#confirmationDialog) {
  			this.#confirmationDialog.handleInput(keyData);
@@ -131,7 +261,7 @@
  		} else {
  			this.#sessionList.handleInput(keyData);
  		}
-@@ -1048,6 +1108,10 @@
+@@ -1112,6 +1188,10 @@
  	 */
  	#handleMouse(data: string): void {
  		if (this.#confirmationDialog) return;
@@ -142,7 +272,7 @@
  		routeSgrMouseInput(data, event => {
  			if (event.wheel !== null) {
  				this.#sessionList.handleWheel(event.wheel);
-@@ -1064,3 +1128,229 @@
+@@ -1128,3 +1208,230 @@
  		return this.#sessionList;
  	}
  }
@@ -359,7 +489,8 @@
 +		lines.push(theme.bold(theme.fg("accent", truncateToWidth(title, width))));
 +		const status = formatSessionStatus(this.#session.status);
 +		const statusStr = status ? ` · ${status}` : "";
-+		const meta = `${this.#session.id.slice(0, 8)} · ${shortenPath(this.#session.cwd || "")} · ${formatBytes(this.#session.size)}${statusStr}`;
++		const modelStr = this.#session.lastModel ? ` · ${shortenModelName(this.#session.lastModel)}` : "";
++		const meta = `${this.#session.id.slice(0, 8)} · ${shortenPath(this.#session.cwd || "")} · ${formatBytes(this.#session.size)}${modelStr}${statusStr}`;
 +		lines.push(theme.fg("dim", truncateToWidth(meta, width)));
 +		lines.push(theme.fg("dim", "─".repeat(width)));
 +		this.#lastHeaderRows = lines.length;

@@ -1,0 +1,17 @@
+{
+  "tree": "/tmp/omp-fusion-build-4jp7ed5m/baseline",
+  "version": "18.2.3",
+  "isolation": "bwrap --unshare-user --unshare-net --unshare-pid --clearenv; synthetic credentials; all five package roots pinned to baseline",
+  "fusionNegativeControl": {
+    "gate": "patches/verify-devin-fusion.ts",
+    "scenario": "blocking",
+    "exitCode": 1,
+    "assertion": "discovery must preserve native Fusion identity"
+  },
+  "existingGates": [
+    {"gate": "verify-devin-metadata.ts", "result": "PASS", "exitCode": 0},
+    {"gate": "verify-devin-thinking-signature.ts", "result": "PASS", "exitCode": 0},
+    {"gate": "verify-devin-idle-cascade-pin.ts", "result": "PASS", "exitCode": 0},
+    {"gate": "verify-devin-auth-cache.ts", "result": "BASELINE_FAILURE", "exitCode": 1, "assertion": "second turn must reuse cached JWT", "actual": 2, "expected": 1, "note": "0055 is absent from the resolved 18.2.3 plan. Preserve current upstream auth behavior; this obsolete cache gate is not a passing baseline and must not be claimed as a Fusion regression."}
+  ]
+}

@@ -1,0 +1,44 @@
+[
+  {
+    "package": "pi-coding-agent",
+    "version": "18.2.10",
+    "sha256": "f3a51d5ddeadbe0fc5dce2071f4ec919e67ae802d5f7e52648e664ec2637e751",
+    "integrity": "sha512-srPb9BiCXdq5o9aYKor6pdoRRkezwBF0RYc3EzodMbEXsTpQES954UlP06a8EhBBnFYdbxIRdq6OweHJnIiDTQ==",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-coding-agent/-/pi-coding-agent-18.2.10.tgz"
+  },
+  {
+    "package": "pi-ai",
+    "version": "18.2.10",
+    "sha256": "41210021106d5ebff1d7955933640c24b55dcdd0710a6fdbd87e398906ca5714",
+    "integrity": "sha512-XFyZbgfN8Bi8Nz6H1yMBUlHm8p5rWEqc8VBlP5JW7tOJLn3CEenevDaaDfs5tgF/EB83c65jY6RTMl0EqGrMkw==",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-ai/-/pi-ai-18.2.10.tgz"
+  },
+  {
+    "package": "pi-agent-core",
+    "version": "18.2.10",
+    "sha256": "5a098395e301ad772c0505518a195e49d544934dc78de91b24705466ad65d882",
+    "integrity": "sha512-QsLeiMxVqmD4W3CHuVsj0o3LqTEFBmYHdd/Cgw3ZnQD6zW9FdRWVmfV8u46WOKu0MxJqB4r6kcbfhwgATftBtQ==",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-agent-core/-/pi-agent-core-18.2.10.tgz"
+  },
+  {
+    "package": "snapcompact",
+    "version": "18.2.10",
+    "sha256": "6733a3641efbe352cd3d57296718133cda1b9a1d9b97f89c4596b68dbaa8eaf7",
+    "integrity": "sha512-H4PW1TUzLti64GYQj6JJmUNzICjkfaag6SsKgderF6quRloa9w7g7g2L1wn8UkaN95za033Od/S38Y40VJaeDQ==",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/snapcompact/-/snapcompact-18.2.10.tgz"
+  },
+  {
+    "package": "pi-catalog",
+    "version": "18.2.10",
+    "sha256": "978375b22daa781156d9ddb18f1830b7ed0f30eb8fad5112b0f24a23366a56dc",
+    "integrity": "sha512-EjCfE9bAMdoSNhO7eu3GGlYx/2o2U6cg6WFb8Za/A7Sw43OPG5CT4xlg2m52YW3EcJpD+lQEosKj/ZDbTH5MlQ==",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-catalog/-/pi-catalog-18.2.10.tgz"
+  },
+  {
+    "package": "pi-tui",
+    "version": "18.2.10",
+    "sha256": "0540e815ae883b9167648bc3949260c76ec2f7798d14c66e19fe39b12e96c682",
+    "integrity": "sha512-CXabWoYapU6wCZV/IbKQy9qTNU6GuX8fSNzNuN9+ECsfnbNdzM3Bsxcf0zG38sdrGl4kutoyKq0oOf8EktCEJQ==",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-tui/-/pi-tui-18.2.10.tgz"
+  }
+]

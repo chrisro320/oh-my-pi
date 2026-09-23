@@ -1,8 +1,50 @@
 import assert from "node:assert/strict";
 import { homedir } from "node:os";
-import type { AssistantMessage, Context, Model, SimpleStreamOptions } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/types.ts";
-import type { AgentMessage } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/types.ts";
-import type { SessionEntry } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-entries.ts";
+
+// Local structural fixture types. A type-only import cannot be root-selected
+// (TS needs a literal specifier), and a live-install path would defeat root
+// redirection (verification-gate-contracts §3). They describe only the fields
+// the fixtures below build and the consumers read; every module this gate
+// exercises is imported from the selected root.
+interface FixtureTextBlock {
+	type: string;
+	text?: string;
+	[key: string]: unknown;
+}
+interface AgentMessage {
+	role: string;
+	content: FixtureTextBlock[];
+	timestamp?: number;
+	[key: string]: unknown;
+}
+interface AssistantMessage extends AgentMessage {
+	api?: string;
+	provider?: string;
+	model?: string;
+	stopReason?: string;
+}
+interface SessionEntry {
+	type: string;
+	id?: string;
+	message?: unknown;
+	[key: string]: unknown;
+}
+interface Context {
+	systemPrompt?: string[];
+	messages: AgentMessage[];
+	tools?: Array<Record<string, unknown>>;
+	[key: string]: unknown;
+}
+interface SimpleStreamOptions {
+	anthropicCompaction?: { pauseAfterCompaction?: boolean; [key: string]: unknown };
+	[key: string]: unknown;
+}
+interface Model {
+	id: string;
+	provider: string;
+	api: string;
+	[key: string]: unknown;
+}
 
 // Package imports are runtime-selected so an isolated tree cannot fall back to live.
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;

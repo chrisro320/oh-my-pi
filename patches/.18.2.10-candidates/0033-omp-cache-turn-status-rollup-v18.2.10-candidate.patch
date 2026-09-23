@@ -1,0 +1,53 @@
+--- a/src/status-line/schema.ts
++++ b/src/status-line/schema.ts
+@@ -22,6 +22,7 @@
+ 	"cache_read",
+ 	"cache_write",
+ 	"cache_hit",
++	"cache_turn",
+ 	"session_name",
+ 	"usage",
+ 	"collab",
+--- a/src/status-line/segments.ts
++++ b/src/status-line/segments.ts
+@@ -733,6 +733,32 @@
+ 	},
+ };
+ 
++const cacheTurnSegment: StatusLineSegment = {
++	id: "cache_turn",
++	render(ctx) {
++		// `cache_read` / `cache_hit` are session-cumulative. This is the per-turn
++		// view: cache-read tokens and hit rate of the most recent *settled*
++		// assistant message. The `stopReason` guard is load-bearing — a streaming
++		// message carries partially-filled usage (input lands before cacheRead is
++		// backfilled), which otherwise renders a bogus near-zero hit rate.
++		const messages = ctx.session.messages ?? ctx.session.state.messages;
++		let usage: { input: number; cacheRead: number; cacheWrite: number } | undefined;
++		for (let index = messages.length - 1; index >= 0; index--) {
++			const message = messages[index];
++			if (message?.role !== "assistant") continue;
++			if (!message.stopReason || !message.usage || message.stopReason === "aborted" || message.stopReason === "error") continue;
++			usage = message.usage;
++			break;
++		}
++		if (!usage?.cacheRead) return { content: "", visible: false };
++
++		const total = usage.cacheRead + usage.cacheWrite + usage.input;
++		const rate = total > 0 ? (usage.cacheRead / total) * 100 : 0;
++		const content = `trn ${formatNumber(usage.cacheRead)} ${rate.toFixed(1)}%`;
++		return { content: theme.fg("statusLineOutput", content), visible: true };
++	},
++};
++
+ const sessionNameSegment: StatusLineSegment = {
+ 	id: "session_name",
+ 	render(ctx) {
+@@ -935,6 +961,7 @@
+ 	cache_read: cacheReadSegment,
+ 	cache_write: cacheWriteSegment,
+ 	cache_hit: cacheHitSegment,
++	cache_turn: cacheTurnSegment,
+ 	session_name: sessionNameSegment,
+ 	usage: usageSegment,
+ 	collab: collabSegment,

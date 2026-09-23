@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/index.md","reason":"Package/layer spec routing; work orders must embed this index and repository AGENTS.md verbatim."}
+{"file":".trellis/spec/backend/patch-rollup-contracts.md","reason":"Official pristine, detached sandboxes, pinned version plans, full replay/reverse and atomic deployment."}
+{"file":".trellis/spec/backend/verification-gate-contracts.md","reason":"Falsifiable behavior gates and representation sync; correct the current cold-start ordering claim based on actual main/loader evidence."}
+{"file":".trellis/tasks/09-23-omp-legacy-resolver-cold-start/design.md","reason":"Resolver invariants, rejected guard-only approach, two independent verification layers and rollout constraints."}
+{"file":".trellis/tasks/09-23-omp-legacy-resolver-cold-start/research/summary.json","reason":"Measured residual failure, strict armed-first UI success and explicit coverage limits."}

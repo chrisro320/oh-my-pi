@@ -1,40 +1,193 @@
-import { SessionSelectorComponent } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/modes/components/session-selector";
-import type { SessionInfo } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-listing";
-import { initThemeSync } from "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/modes/theme/theme";
-import * as assert from "node:assert";
-import { readFileSync } from "node:fs";
+// Session history preview (0050) — selected-root behaviour gate.
+//
+// Two roots, because 18.2.10 moved the picker into pi-tui while the session host
+// stayed in pi-coding-agent:
+//   OMP_PATCH_VERIFY_TUI_ROOT   → src/overlays/session-selector.ts, theme
+//   OMP_PATCH_VERIFY_AGENT_ROOT → session-listing.ts, session-storage.ts,
+//                                 session-loader.ts (the transcript reader)
+// Both fall back to OMP_PATCH_VERIFY_NM, then to the local HOME install.
+//
+// Every import below is an absolute <ROOT>-derived path. A bare specifier would
+// resolve from this script's own directory and silently measure whichever OMP
+// build the global cache holds instead of the selected tree.
+//
+// Fixtures are synthetic JSONL written to a private temp dir. The picker's
+// transcript reader is wrapped so any path outside that dir — and any path under
+// live agent state or the Bun cache — aborts the read before it opens, so this
+// gate can run on a workstation without touching a real session store.
+//
+// Assertions are behaviour and provenance, never template wording: the fixture's
+// own title/conclusion/tail text must reach the rendered frame, and mode changes
+// are detected by input semantics (Esc in the preview closes it; Esc in the list
+// cancels the picker).
 
-function sleep(ms: number): Promise<void> {
+import assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${os.homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
+const agentVersion = JSON.parse(fs.readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
+assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
+const movedUi = agentVersion === "18.2.10";
+
+assert.ok(fs.existsSync(AGENT_ROOT), `OMP_PATCH_VERIFY_AGENT_ROOT does not exist: ${AGENT_ROOT}`);
+if (movedUi) assert.ok(fs.existsSync(TUI_ROOT), `OMP_PATCH_VERIFY_TUI_ROOT does not exist: ${TUI_ROOT}`);
+
+// Each specifier is genuinely runtime-selected — the root variables above decide
+// which tree is exercised, so the path only exists at run time. A static import
+// cannot express it.
+
+const { SessionSelectorComponent } = await import(
+	movedUi ? `${TUI_ROOT}/src/overlays/session-selector.ts` : `${AGENT_ROOT}/src/modes/components/session-selector.ts`
+);
+const { initThemeSync } = await import(
+	movedUi ? `${TUI_ROOT}/src/theme/theme.ts` : `${AGENT_ROOT}/src/modes/theme/theme.ts`
+);
+const { listSessions } = await import(`${AGENT_ROOT}/src/session/session-listing.ts`);
+const { FileSessionStorage } = await import(`${AGENT_ROOT}/src/session/session-storage.ts`);
+const { loadSessionMessagesReadOnly } = await import(`${AGENT_ROOT}/src/session/session-loader.ts`);
+
+const FRAME_WIDTH = 100;
+const TERMINAL_ROWS = 30;
+const WHEEL_DOWN = "\x1b[<65;10;10M";
+const WHEEL_UP = "\x1b[<64;10;10M";
+
+/** Let the preview's async transcript load land before the next frame. */
+function settle(): Promise<void> {
 	const { promise, resolve } = Promise.withResolvers<void>();
-	setTimeout(resolve, ms);
+	setTimeout(resolve, 100);
 	return promise;
 }
+
+const stripAnsi = (line: string): string => line.replace(/\x1b\[[0-9;]*m/g, "");
+
+/** One rendered frame, raw plus ANSI-free for text provenance. */
+function frameOf(component: { render(width: number): readonly string[] }): { lines: string[]; plain: string } {
+	const lines = component.render(FRAME_WIDTH).map(line => String(line));
+	return { lines, plain: lines.map(stripAnsi).join("\n") };
+}
+
+const FIXTURE_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "omp-session-preview-"));
+const LIVE_STATE_PREFIXES = [
+	path.join(os.homedir(), ".omp"),
+	path.join(os.homedir(), ".bun", "install", "cache"),
+].map(prefix => path.resolve(prefix) + path.sep);
+
+/**
+ * Wrap the host's transcript reader so it can only ever open a synthetic
+ * fixture. The negative control below drives the live-state branch on a path
+ * that is never opened.
+ */
+function guardFixtureReads<T>(load: (sessionPath: string) => Promise<T>) {
+	return async (sessionPath: string): Promise<T> => {
+		const resolved = path.resolve(sessionPath);
+		for (const live of LIVE_STATE_PREFIXES) {
+			assert.ok(
+				!resolved.startsWith(live),
+				`preview read rejected: ${resolved} is live workstation state, not a fixture`,
+			);
+		}
+		assert.ok(
+			resolved.startsWith(FIXTURE_ROOT + path.sep),
+			`preview read rejected: ${resolved} is outside the fixture dir ${FIXTURE_ROOT}`,
+		);
+		return load(sessionPath);
+	};
+}
+
+const guardedLoader = guardFixtureReads(loadSessionMessagesReadOnly);
+
+const FIXTURE_TITLE = "Session History Preview in omp -r";
+const FIXTURE_LAST_MODEL = "google-antigravity/gemini-3.8-flash";
+const FIXTURE_CONCLUSION = "Conclusion: the preview renders this synthetic sentence verbatim.";
+const FIXTURE_TAIL = "Final note from the tail of the synthetic transcript.";
+const FIXTURE_CODE_LINE = "const greeting = 'hello world';";
+const FIXTURE_FENCE = "```ts";
+
+function sessionHeader(id: string): object {
+	return { type: "session", id, cwd: "/tmp", timestamp: "2026-01-01T00:00:00.000Z" };
+}
+
+const FILLER_TURNS = 6;
+const FILLER_LINES = 6;
+
+/** Turns before the tail, long enough that the preview viewport must scroll. */
+function transcriptFixtureEntries(): object[] {
+	const entries: object[] = [
+		{ type: "model_change", model: FIXTURE_LAST_MODEL },
+		{ type: "message", message: { role: "user", content: FIXTURE_TITLE } },
+		{
+			type: "message",
+			message: {
+				role: "assistant",
+				model: FIXTURE_LAST_MODEL,
+				content: [
+					{ type: "text", text: `${FIXTURE_CONCLUSION}\n${FIXTURE_FENCE}\n${FIXTURE_CODE_LINE}\n${FIXTURE_FENCE}` },
+					{ type: "toolCall", name: "bash", id: "call-1" },
+				],
+			},
+		},
+	];
+	for (let turn = 0; turn < FILLER_TURNS; turn++) {
+		entries.push({ type: "message", message: { role: "user", content: `Filler question ${turn}` } });
+		const filler = Array.from({ length: FILLER_LINES }, (_, line) => `Filler line ${turn}.${line}`).join("\n");
+		entries.push({ type: "message", message: { role: "assistant", model: FIXTURE_LAST_MODEL, content: filler } });
+	}
+	entries.push({ type: "message", message: { role: "user", content: "Anything else?" } });
+	entries.push({ type: "message", message: { role: "assistant", model: FIXTURE_LAST_MODEL, content: FIXTURE_TAIL } });
+	return entries;
+}
+
+function writeFixture(name: string, entries: object[]): string {
+	const file = path.join(FIXTURE_ROOT, `${name}.jsonl`);
+	fs.writeFileSync(file, [JSON.stringify(sessionHeader(name)), ...entries.map(e => JSON.stringify(e))].join("\n") + "\n");
+	return file;
+}
+
 initThemeSync();
 console.log("Starting Session History Preview verification...");
 
-const realSessionPath = "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-09-09T13-05-36-402Z_01a08646-1a92-7000-8d7b-def616102b13.jsonl";
+// --- guard control: the fixture boundary is enforced before any access -------
+await assert.rejects(
+	async () => await guardedLoader(path.join(os.homedir(), ".omp", "agent", "sessions", "not-a-fixture.jsonl")),
+	/live workstation state/,
+	"the fixture guard must reject live agent state before opening it",
+);
+await assert.rejects(
+	async () => await guardedLoader(path.join(os.tmpdir(), "outside-the-fixture.jsonl")),
+	/outside the fixture dir/,
+	"the fixture guard must reject paths outside the fixture dir",
+);
+console.log("✓ fixture guard rejects live state and stray paths before access");
 
-const mockSession: SessionInfo = {
-	id: "01a08646-1a92-7000-8d7b-def616102b13",
-	path: realSessionPath,
-	cwd: "/home/chris/orca/projects/omp-move",
-	title: "Session History Preview in omp -r",
+const fixturePath = writeFixture("preview-fixture", transcriptFixtureEntries());
+const fixtureRaw = fs.readFileSync(fixturePath, "utf8");
+
+const session = {
+	id: "preview-fixture",
+	path: fixturePath,
+	cwd: "/tmp",
+	title: FIXTURE_TITLE,
 	created: new Date(),
 	modified: new Date(),
-	messageCount: 50,
-	size: 102400,
-	firstMessage: "你覺得能不能給omp添加一個插件",
-	allMessagesText: "你覺得能不能給omp添加一個插件 能快速預覽會話歷史",
-	status: "complete",
+	messageCount: 2 + FILLER_TURNS * 2 + 2,
+	size: fixtureRaw.length,
+	firstMessage: FIXTURE_TITLE,
+	allMessagesText: FIXTURE_TITLE,
+	status: "complete" as const,
+	lastModel: FIXTURE_LAST_MODEL,
 };
 
-let selectedSession: SessionInfo | null = null;
+let selectedSession: typeof session | null = null;
 let cancelled = false;
 let exited = false;
 const selector = new SessionSelectorComponent(
-	[mockSession],
-	(session) => {
-		selectedSession = session;
+	[session],
+	chosen => {
+		selectedSession = chosen;
 	},
 	() => {
 		cancelled = true;
@@ -42,192 +195,297 @@ const selector = new SessionSelectorComponent(
 	() => {
 		exited = true;
 	},
-	{
-		title: "Resume Session",
-		getTerminalRows: () => 30,
-	}
+	{ title: "Resume Session", getTerminalRows: () => TERMINAL_ROWS, loadPreviewMessages: guardedLoader },
 );
 
-// 1. 驗證初態渲染
-let lines = selector.render(100).join("\n");
-assert.ok(lines.includes("Space preview"), "Initial footer must include 'Space preview' hint");
-assert.ok(lines.includes("Session History Preview in omp -r"), "Initial list must render session title");
-console.log("✓ Initial list view renders correctly with Space preview hint");
-await sleep(100);
-// 2. 模擬按下 Space 觸發預覽
-selector.handleInput(" ");
-// 等待非同步讀取 loadSessionMessagesReadOnly
-await sleep(100);
-const previewLines = selector.render(100);
-for (let i = 0; i < previewLines.length; i++) {
-	const line = previewLines[i]!;
-	assert.ok(!line.includes("\n"), `Line ${i} must not contain embedded newline: ${JSON.stringify(line)}`);
-	assert.ok(!line.includes("\r"), `Line ${i} must not contain embedded carriage return: ${JSON.stringify(line)}`);
-	assert.ok(!/(?<!\x1b)\[(?:38|48);[25];\d+(?:;\d+)*m/.test(line), `Line ${i} must not leak raw unescaped ANSI color codes: ${JSON.stringify(line)}`);
-}
-lines = previewLines.join("\n");
-assert.ok(lines.includes("Enter resume"), "Preview footer must show 'Enter resume'");
-assert.ok(lines.includes("Esc/Space close"), "Preview footer must show 'Esc/Space close'");
-assert.ok(lines.includes("Session History Preview in omp -r"), "Preview must show session title");
-assert.ok(lines.includes("Assistant"), "Preview must show [Assistant] role");
-// Provenance instead of a pinned sentence: take the first rendered assistant
-// line and prove it came out of the real session file. Pinning one sentence
-// ("骂得太对了") broke the moment the preview's first screen moved — the
-// contract is "real conclusion text is rendered", not "that exact line is on
-// screen first".
-const plain = previewLines.map(line => line.replace(/\x1b\[[0-9;]*m/g, ""));
-const assistantIndex = plain.findIndex(line => line.includes("[Assistant]"));
-assert.ok(assistantIndex >= 0, "Preview must show an [Assistant] block");
-const renderedProbe = plain
-	.slice(assistantIndex + 1)
-	.map(line => line.replace(/^[│|]\s*/, "").replace(/[│|█]*\s*$/, "").trim())
-	.find(line => line.length >= 8);
-assert.ok(renderedProbe, "Preview must render assistant body text, not just the role header");
-const sessionRaw = readFileSync(realSessionPath, "utf8");
-const probe = renderedProbe.slice(0, 8);
+// --- 1. list mode: the scanner's model reaches the row, no transcript body ----
+const listFrame = frameOf(selector);
+assert.ok(listFrame.plain.includes(FIXTURE_TITLE), "list must render the fixture's own title");
 assert.ok(
-	sessionRaw.includes(probe),
-	`Preview text must come from the real session file; rendered ${JSON.stringify(probe)} is absent from it`,
+	listFrame.plain.includes("antigravity/gemini-3.8-flash"),
+	"list metadata must carry the compact form of the session's last model",
 );
-assert.ok(!lines.includes("[Tool Call]"), "Preview must NOT contain machine [Tool Call]");
-assert.ok(!lines.includes("[Result:"), "Preview must NOT contain machine [Result:]");
-assert.ok(!/\[Assistant\]\s*\n\s*```\s*\n\s*\[Assistant\]/.test(lines), "Preview must NOT contain consecutive phantom [Assistant] ``` fences");
-console.log("✓ Space triggers SessionPreviewView and renders real history cleanly (no phantom fences, no tool noise)");
+assert.ok(
+	!listFrame.plain.includes(FIXTURE_CONCLUSION),
+	"list mode must not render transcript body text before the preview opens",
+);
+console.log("✓ list mode renders the fixture title and compact model, no transcript body");
 
-// 3. 模擬在預覽中按 Escape 關閉
-selector.handleInput("\x1b"); // Escape
-lines = selector.render(100).join("\n");
-assert.ok(lines.includes("Space preview"), "After Esc, footer must revert to 'Space preview'");
-assert.ok(!lines.includes("Enter resume"), "After Esc, preview footer must be gone");
-console.log("✓ Escape closes preview and restores session list seamlessly");
-
-// 4. 驗證搜尋框有內容時按 Space 不會誤開預覽
-selector.handleInput("t");
-selector.handleInput("e");
-selector.handleInput("s");
-selector.handleInput("t");
-selector.handleInput(" "); // Space inside search input
-lines = selector.render(100).join("\n");
-assert.ok(lines.includes("Space preview"), "Typing with query must stay in list mode");
-assert.ok(!lines.includes("Enter resume"), "Typing with query must not trigger preview");
-console.log("✓ Space when search query is non-empty acts as normal search input");
-
-for (let i = 0; i < 5; i++) {
-	selector.handleInput("\x7f"); // Backspace exactly 5 characters: 't', 'e', 's', 't', ' '
+// --- 2. Space on an empty query opens the preview ----------------------------
+selector.handleInput(" ");
+await settle();
+const previewFrame = frameOf(selector);
+for (let i = 0; i < previewFrame.lines.length; i++) {
+	const line = previewFrame.lines[i]!;
+	assert.ok(!line.includes("\n"), `Line ${i} must not embed a newline: ${JSON.stringify(line)}`);
+	assert.ok(!line.includes("\r"), `Line ${i} must not embed a carriage return: ${JSON.stringify(line)}`);
+	assert.ok(
+		!/(?<!\x1b)\[(?:38|48);[25];\d+(?:;\d+)*m/.test(line),
+		`Line ${i} must not leak an unescaped ANSI color code: ${JSON.stringify(line)}`,
+	);
 }
-selector.handleInput(" "); // Space to preview again
-await sleep(100);
+assert.ok(previewFrame.plain.includes(FIXTURE_TITLE), "preview must render the fixture's title");
+assert.ok(
+	previewFrame.plain.includes(FIXTURE_CONCLUSION),
+	"preview must render the fixture's assistant text",
+);
+const renderedProbe = previewFrame.plain
+	.split("\n")
+	.map(line => line.replace(/[│|█]/g, "").trim())
+	.find(line => line.includes(FIXTURE_CONCLUSION));
+assert.ok(renderedProbe, "preview must render assistant body text, not only the role header");
+assert.ok(
+	fixtureRaw.includes(renderedProbe),
+	`preview text must come from the fixture file; rendered ${JSON.stringify(renderedProbe)} is absent from it`,
+);
+assert.ok(previewFrame.plain.includes("[Assistant]"), "preview must label the assistant turn");
+assert.ok(!previewFrame.plain.includes("[Tool Call]"), "preview must not render machine [Tool Call] noise");
+assert.ok(!previewFrame.plain.includes("[Result:"), "preview must not render machine [Result:] noise");
+assert.ok(
+	!/\[Assistant\]\s*\n\s*```\s*\n\s*\[Assistant\]/.test(previewFrame.plain),
+	"a tool-call turn must not leave a phantom empty [Assistant] fence block",
+);
+console.log("✓ Space opens the preview and renders the fixture transcript verbatim, without tool noise");
 
-lines = selector.render(100).join("\n");
-assert.ok(lines.includes("Enter resume"), "Preview must be open again");
+// --- 3. Esc in the preview closes it; Esc in the list cancels the picker -----
+selector.handleInput("\x1b");
+const closedFrame = frameOf(selector);
+assert.ok(!closedFrame.plain.includes(FIXTURE_CONCLUSION), "Esc must leave the preview");
+assert.ok(closedFrame.plain.includes(FIXTURE_TITLE), "Esc must restore the session list");
+assert.strictEqual(cancelled, false, "Esc inside the preview must close the preview, not cancel the picker");
 
-// 按 Enter 直入 resume
+const escControl = new SessionSelectorComponent(
+	[session],
+	() => {},
+	() => {
+		cancelled = true;
+	},
+	() => {},
+	{ title: "Resume Session", getTerminalRows: () => TERMINAL_ROWS, loadPreviewMessages: guardedLoader },
+);
+escControl.handleInput("\x1b");
+assert.strictEqual(cancelled, true, "control: Esc in list mode must still reach the picker's cancel path");
+cancelled = false;
+console.log("✓ Esc closes the preview, while Esc in the list still cancels the picker");
+
+// --- 4. Space with a non-empty query stays in the list ----------------------
+for (const key of ["t", "e", "s", "t", " "]) selector.handleInput(key);
+assert.ok(
+	!frameOf(selector).plain.includes(FIXTURE_CONCLUSION),
+	"Space inside a non-empty search query must not open the preview",
+);
+for (let i = 0; i < 5; i++) selector.handleInput("\x7f");
+console.log("✓ Space with a non-empty query edits the search text instead of opening the preview");
+
+// --- 5. Enter inside the preview resumes the selected session ---------------
+selector.handleInput(" ");
+await settle();
+assert.ok(frameOf(selector).plain.includes(FIXTURE_CONCLUSION), "preview must be open again");
 selector.handleInput("\n");
-assert.strictEqual(selectedSession, mockSession, "Enter in preview must trigger onSelect with current session");
-console.log("✓ Enter inside preview directly resumes the selected session");
+assert.strictEqual(selectedSession, session, "Enter in the preview must resume the selected session");
+console.log("✓ Enter inside the preview resumes the selected session");
 
-// 6. 驗證在預覽打開時按 Ctrl+C 能直接退出整個選擇器（Reviewer2 finding）
+// --- 6. Ctrl+C inside the preview exits the whole picker --------------------
 let exitCalled = false;
-const exitTestSelector = new SessionSelectorComponent(
-	[mockSession],
+const exitSelector = new SessionSelectorComponent(
+	[session],
 	() => {},
 	() => {},
 	() => {
 		exitCalled = true;
 	},
-	{
-		title: "Resume Session",
-		getTerminalRows: () => 30,
-	}
+	{ title: "Resume Session", getTerminalRows: () => TERMINAL_ROWS, loadPreviewMessages: guardedLoader },
 );
-exitTestSelector.handleInput(" "); // Open preview
-await sleep(100);
-lines = exitTestSelector.render(100).join("\n");
-assert.ok(lines.includes("Enter resume"), "Preview must be open for Ctrl+C test");
-exitTestSelector.handleInput("\x03"); // Ctrl+C
-assert.strictEqual(exitCalled, true, "Ctrl+C inside preview must trigger onExit");
-console.log("✓ Ctrl+C inside preview triggers onExit cleanly");
+exitSelector.handleInput(" ");
+await settle();
+assert.ok(frameOf(exitSelector).plain.includes(FIXTURE_CONCLUSION), "preview must be open for the Ctrl+C case");
+exitSelector.handleInput("\x03");
+assert.strictEqual(exitCalled, true, "Ctrl+C inside the preview must exit the picker");
+console.log("✓ Ctrl+C inside the preview exits the picker");
 
-// 7. 驗證預覽狀態下的滑鼠滾輪與滾動條點擊/拖曳
+// --- 7. mouse wheel and scrollbar drag move the preview viewport ------------
 const mouseSelector = new SessionSelectorComponent(
-	[mockSession],
+	[session],
 	() => {},
+	() => {
+		cancelled = true;
+	},
 	() => {},
-	() => {},
-	{
-		title: "Resume Session",
-		getTerminalRows: () => 30,
-	}
+	{ title: "Resume Session", getTerminalRows: () => TERMINAL_ROWS, loadPreviewMessages: guardedLoader },
 );
-mouseSelector.handleInput(" "); // Open preview
-await sleep(100);
-const beforeScroll = mouseSelector.render(100).join("\n");
+mouseSelector.handleInput(" ");
+await settle();
+const topFrame = frameOf(mouseSelector);
+assert.ok(topFrame.plain.includes(FIXTURE_CONCLUSION), "preview must open at the head of the transcript");
+assert.ok(!topFrame.plain.includes(FIXTURE_TAIL), "the transcript tail must start off-screen");
 
-// 模擬滑鼠滾輪向下滾動 (SGR button 65 = wheel down)
-mouseSelector.handleInput("\x1b[<65;10;10M");
-mouseSelector.handleInput("\x1b[<65;10;10M");
-mouseSelector.handleInput("\x1b[<65;10;10M");
-const scrolledLines = mouseSelector.render(100).join("\n");
-// Behaviour, not fixture: three wheel-down notches must move the viewport and
-// stay inside the preview. Pinning "User"/a specific sentence only held while
-// that turn happened to land on the fourth screen of one session file.
-assert.notEqual(scrolledLines, beforeScroll, "Wheel down must scroll the preview viewport");
-assert.ok(scrolledLines.includes("Esc/Space close"), "Wheel down must not leave preview mode");
-console.log("✓ Mouse wheel down scrolls the preview viewport and stays in preview");
-// 模擬滑鼠滾輪向上滾動 (SGR button 64 = wheel up)
-mouseSelector.handleInput("\x1b[<64;10;10M");
-console.log("✓ Mouse wheel up handled smoothly in preview");
+for (let i = 0; i < 20; i++) mouseSelector.handleInput(WHEEL_DOWN);
+assert.ok(
+	frameOf(mouseSelector).plain.includes(FIXTURE_TAIL),
+	"wheel-down must scroll the preview to the tail of the transcript",
+);
+for (let i = 0; i < 20; i++) mouseSelector.handleInput(WHEEL_UP);
+assert.ok(
+	frameOf(mouseSelector).plain.includes(FIXTURE_CONCLUSION),
+	"wheel-up must scroll the preview back to the head of the transcript",
+);
+console.log("✓ mouse wheel scrolls the preview viewport across the whole transcript");
 
-// 模擬滑鼠點擊右側滑塊區域 (col 98, row 15)
+// Scrollbar drag: press on the right edge, drag to the last scroll row, release.
+// SGR coordinates are 1-based, so the last row inside the preview's scroll
+// region is 26 for a 100x30 frame with a 21-row viewport.
 mouseSelector.handleInput("\x1b[<0;98;15M");
-// 模擬按住左鍵拖動至 row 20
-mouseSelector.handleInput("\x1b[<32;98;20M");
-// 模擬釋放滑鼠左鍵
-mouseSelector.handleInput("\x1b[<0;98;20m");
-console.log("✓ Mouse click and drag on scrollbar handled smoothly");
+mouseSelector.handleInput("\x1b[<32;98;26M");
+mouseSelector.handleInput("\x1b[<0;98;26m");
+assert.ok(
+	frameOf(mouseSelector).plain.includes(FIXTURE_TAIL),
+	"dragging the scrollbar to the last row must seek to the tail of the transcript",
+);
+mouseSelector.handleInput("\x1b");
+assert.strictEqual(cancelled, false, "Esc after scrolling must close the preview, not cancel the picker");
+assert.ok(!frameOf(mouseSelector).plain.includes(FIXTURE_TAIL), "Esc after scrolling must leave the preview");
+cancelled = false;
+console.log("✓ scrollbar drag seeks the preview and Esc still leaves it cleanly");
 
-// 8. 驗證真實包含多行程式碼圍欄的消息絕不被誤殺
-const codeSessionPath = `/tmp/test-code-session-${Date.now()}.jsonl`;
-await Bun.write(
-	codeSessionPath,
-	[
-		JSON.stringify({ type: "session", id: "code-test", cwd: "/tmp" }),
-		JSON.stringify({
-			type: "message",
-			message: { role: "user", content: "Can you write a sample?" },
-		}),
-		JSON.stringify({
-			type: "message",
-			message: {
-				role: "assistant",
-				content: [
-					{ type: "text", text: "```ts\nconst greeting = 'hello world';\n```" },
-					{ type: "toolCall", name: "bash", id: "c1" },
-				],
-			},
-		}),
-	].join("\n") + "\n"
+// --- 8. a tool-call turn keeps its real multi-line code fence --------------
+const codePath = writeFixture("code-fence", [
+	{ type: "message", message: { role: "user", content: "Can you write a sample?" } },
+	{
+		type: "message",
+		message: {
+			role: "assistant",
+			model: FIXTURE_LAST_MODEL,
+			content: [
+				{ type: "text", text: `${FIXTURE_FENCE}\n${FIXTURE_CODE_LINE}\n${FIXTURE_FENCE}` },
+				{ type: "toolCall", name: "bash", id: "call-2" },
+			],
+		},
+	},
+]);
+const codeSession = { ...session, id: "code-fence", path: codePath, title: "Code Fence Session", lastModel: undefined };
+const codeSelector = new SessionSelectorComponent([codeSession], () => {}, () => {}, () => {}, {
+	title: "Resume Session",
+	getTerminalRows: () => TERMINAL_ROWS,
+	loadPreviewMessages: guardedLoader,
+});
+codeSelector.handleInput(" ");
+await settle();
+const codePreview = frameOf(codeSelector).plain;
+assert.ok(codePreview.includes(FIXTURE_CODE_LINE), "a tool-call turn must keep its multi-line code content");
+assert.ok(codePreview.includes(FIXTURE_FENCE), "a tool-call turn must keep its code fence opener");
+console.log("✓ a tool-call turn keeps its real multi-line code fence");
+
+// --- 9. model producer: the scanner resolves lastModel like resume does ----
+// Consumer assertions above pin that the value reaches both metadata lines;
+// these pin what the value means. Every fixture stays inside FIXTURE_ROOT.
+const storage = new FileSessionStorage();
+const modelDirPath = path.join(FIXTURE_ROOT, "model-scan");
+fs.mkdirSync(modelDirPath, { recursive: true });
+
+function writeModelSession(name: string, entries: object[]): string {
+	const file = path.join(modelDirPath, `${name}.jsonl`);
+	fs.writeFileSync(file, [JSON.stringify(sessionHeader(name)), ...entries.map(e => JSON.stringify(e))].join("\n") + "\n");
+	return file;
+}
+const userTurn = { type: "message", message: { role: "user", content: "hi" } };
+const assistantTurn = (model: string) => ({
+	type: "message",
+	message: { role: "assistant", model, content: [{ type: "text", text: "done" }] },
+});
+const modelChange = (model: string, role?: string) => ({
+	type: "model_change",
+	model,
+	...(role === undefined ? {} : { role }),
+});
+
+const configuredPath = writeModelSession("configured", [
+	modelChange("prov/configured-model"),
+	userTurn,
+	assistantTurn("prov/served-model"),
+]);
+// A retry fallback (role="fallback") is a transient degradation recorded by
+// turn-recovery; it must never replace the configured default, even when it is
+// the newest model_change in the window.
+const fallbackPath = writeModelSession("fallback", [
+	modelChange("prov/configured-model"),
+	modelChange("prov/fallback-model", "fallback"),
+	assistantTurn("prov/fallback-model"),
+]);
+const servedOnlyPath = writeModelSession("served-only", [userTurn, assistantTurn("prov/tail-model")]);
+// `setModelTemporary` records role="temporary" and `getRestorableSessionModels`
+// restores exactly that model when the newest transition carries the role —
+// unless a later fallback supersedes it, which resolves back to the default.
+const temporaryPath = writeModelSession("temporary", [
+	modelChange("prov/configured-model"),
+	modelChange("prov/temporary-model", "temporary"),
+	assistantTurn("prov/temporary-model"),
+]);
+// Role-scoped swaps (smol/slow/vision/plan/commit/tiny/task/advisor and custom
+// roles) resolve to that role's own model, again unless a fallback follows.
+const rolePath = writeModelSession("plan-role", [
+	modelChange("prov/configured-model"),
+	modelChange("prov/plan-model", "plan"),
+	assistantTurn("prov/plan-model"),
+]);
+const roleThenFallbackPath = writeModelSession("plan-then-fallback", [
+	modelChange("prov/configured-model"),
+	modelChange("prov/plan-model", "plan"),
+	modelChange("prov/fallback-model", "fallback"),
+	assistantTurn("prov/fallback-model"),
+]);
+const temporaryThenFallbackPath = writeModelSession("temporary-then-fallback", [
+	modelChange("prov/configured-model"),
+	modelChange("prov/temporary-model", "temporary"),
+	modelChange("prov/fallback-model", "fallback"),
+	assistantTurn("prov/fallback-model"),
+]);
+const emptyPath = writeModelSession("empty", []);
+
+const modelScan = await listSessions(modelDirPath, storage);
+const lastModelOf = (file: string): string | undefined => {
+	const entry = modelScan.find(candidate => candidate.path === file);
+	assert.ok(entry, `synthetic session ${file} must be scannable`);
+	return entry.lastModel;
+};
+assert.strictEqual(
+	lastModelOf(configuredPath),
+	"prov/configured-model",
+	"An explicit default model_change outranks the assistant message's model",
+);
+assert.strictEqual(
+	lastModelOf(fallbackPath),
+	"prov/configured-model",
+	"A role=fallback model_change must be skipped, not shown as the session model",
+);
+assert.strictEqual(
+	lastModelOf(servedOnlyPath),
+	"prov/tail-model",
+	"With no model_change, the newest assistant model is the last-served fallback",
+);
+assert.strictEqual(
+	lastModelOf(temporaryPath),
+	"prov/temporary-model",
+	"A newest role=temporary transition is the model resume restores",
+);
+assert.strictEqual(
+	lastModelOf(temporaryThenFallbackPath),
+	"prov/configured-model",
+	"A temporary swap superseded by a fallback resolves back to the default",
+);
+assert.strictEqual(
+	lastModelOf(rolePath),
+	"prov/plan-model",
+	"A newest role-scoped transition is the model resume restores for that role",
+);
+assert.strictEqual(
+	lastModelOf(roleThenFallbackPath),
+	"prov/configured-model",
+	"A role-scoped swap superseded by a fallback resolves back to the default",
+);
+assert.strictEqual(lastModelOf(emptyPath), undefined, "A session with no turns leaves lastModel unset");
+console.log(
+	"✓ scanner resolves the newest role like resume (default/fallback→default, role-scoped→its model), falls back to last-served, and stays unset when empty",
 );
 
-const codeMockSession: SessionInfo = {
-	id: "code-test",
-	path: codeSessionPath,
-	cwd: "/tmp",
-	title: "Code Fence Session",
-	created: new Date(),
-	modified: new Date(),
-	messageCount: 2,
-	size: 512,
-	firstMessage: "Can you write a sample?",
-	allMessagesText: "sample",
-	status: "complete",
-};
-
-const codeSelector = new SessionSelectorComponent([codeMockSession], () => {}, () => {}, () => {});
-codeSelector.handleInput(" "); // Open preview
-await sleep(100);
-const codePreview = codeSelector.render(100).join("\n");
-assert.ok(codePreview.includes("const greeting = 'hello world';"), "Must retain real multi-line code content even when toolCall is present");
-assert.ok(codePreview.includes("```ts"), "Must retain code fence opener");
-console.log("✓ Real multi-line code fences are 100% preserved even with toolCall present");
+fs.rmSync(FIXTURE_ROOT, { recursive: true, force: true });
 console.log("\nALL VERIFICATIONS PASSED SUCCESSFULLY!");

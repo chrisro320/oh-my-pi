@@ -1,0 +1,35 @@
+{
+  "id": "omp-legacy-resolver-cold-start",
+  "name": "omp-legacy-resolver-cold-start",
+  "title": "根治相容解析器遞迴並補強冷啟動門禁",
+  "description": "處理 Bun legacy-pi 相容層同步 package require 仍可 NameTooLong 的根因，按真實啟動順序補強永久回歸；使用者要求新會話執行，本會話只規劃與保存證據。",
+  "status": "planning",
+  "dev_type": "bugfix",
+  "scope": "legacy-pi resolver and cold-start verification",
+  "package": "patches",
+  "priority": "P1",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-09-23",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "patches/.18.2.10-candidates/0072-omp-session-pin-static-auth-ui-v18.2.10-candidate.patch",
+    "patches/verify-session-pin-static-auth-ui.ts",
+    "patches/PATCHES.md",
+    ".trellis/spec/backend/verification-gate-contracts.md"
+  ],
+  "notes": "User authorized task creation only and requested execution in a new session. Planning artifacts and five evidence files saved. RESUME P1: review latest plan and obtain implementation approval before task.py start. Do not redo completed static-selector fix.",
+  "meta": {
+    "handoff_phase": "1.4",
+    "implementation_approved": false,
+    "previous_task": ".trellis/tasks/09-23-omp-model-selector-resolver-crash"
+  }
+}

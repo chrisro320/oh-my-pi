@@ -4,16 +4,16 @@
 > 標題刻意**不綁版本**：本文件同時記錄 base 18.0.9 鏈、歷史 18.1.5／18.1.10／18.1.14／18.1.18 遷移，以及當前部署。
 > 讀任何數字前先確認它屬於哪個口徑——見 §1。
 
-## 倉庫計畫與部署紀錄（2026-09-17）
+## 倉庫計畫與部署紀錄（2026-09-23）
 
 | 項目 | 值 |
 |---|---|
-| 當前部署 | `OMP_PATCH_VERSION=18.2.3`（未設則按 installed 版本自動路由） |
-| 當前 live APPLIED | **38 行**（37 補丁 + `bin/omp -> src/cli.ts` 連結），0 unresolved；2026-09-17 正式 apply／CLI／`--check` 均 exit 0 |
+| 當前部署 | `OMP_PATCH_VERSION=18.2.10`（未設則按 installed 版本自動路由） |
+| 當前 live APPLIED | **43 行**（42 補丁 + `bin/omp -> src/cli.ts`），0 unresolved；2026-09-23 fresh CLI／`--check`／本機 Ollama turn 均 exit 0 |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（回退，27 層）、18.1.18（保留計畫，38 層）、18.2.3（當前部署，37 層／38 項邏輯語義） |
-| 最近遷移 | 18.1.18 → 18.2.3 已正式部署，CLI 回報 `omp/18.2.3`；見 §5 |
-| 回歸套件 | **22 道已註冊閘門**，依計畫成員選擇；`--verify-rollups` 三基線 oracle（18.0.9／18.1.14／18.2.3），見 §6.1 |
+| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（42 層） |
+| 最近遷移 | 18.2.3 → 18.2.10 已正式部署，CLI 回報 `omp/18.2.10`；見 §5 |
+| 回歸套件 | **29 道 apply 閘門**，依計畫成員選擇；另有 `--verify-rollups` 四基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10） |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -33,11 +33,12 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `apply.sh` 的 `PATCHES` 陣列（canonical 母集，非可部署計畫） | 0033、0004、0034、0037、0010、0035、0014、0036、0017、0025、0026-core、0030、0031、0032、0038、0041、0043、0044、0052、0057、0045、0046、0048、0050、0054 | **25** |
 | 18.1.18 計畫（保留） | canonical 25 條 +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062、0063、0065、0066、0067、0068、0069、0070 | **38** |
 | 18.1.14 計畫（回退） | canonical 25 條 +候選置換 7 件 +鏈尾 0047、0063 | **27** |
-| 18.2.3 計畫（已部署） | 保留原 38 項邏輯語義，0041 僅在本版合入 0037；18 份版本候選，其餘沿用原補丁，roots／順序不變；另有 18.2.3 專屬追加 0072、0073 | **38** |
+| 18.2.3 計畫（保留） | 0041 合入 0037；含後續 0072、0073、0074；不改本次遷移前的計畫列 | **39** |
+| 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；0076 按使用者要求排除 | **42** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
-`0055`／`0056`／`0058`／`0060`／`0062`／`0065`／`0066`／`0067`／`0068`／`0069`／`0070` 存在於 18.1.18 與 18.2.3 計畫，不適用 18.1.14；需要重錨／重寫者由 18.2.3 候選替換。`0055` 動 `pi-ai/src/providers/devin.ts`，`0056` 動 `pi-catalog/src/wire/devin.ts`，路徑互不相交。
+`0055` 在 18.1.18 計畫與 18.2.3 實際源碼中存在，但舊 18.2.3 controller 漏登記；18.2.10 明確按 `0055 → 0071 → 0056/0058` 註冊。`0056`／`0058`／`0060`／`0062`／`0065`／`0066`／`0067`／`0068`／`0069`／`0070` 延續至 18.2.10；需要適配者由專版候選替換。新 UI roots：0004／0033 用 `TUI`，0037／0050 用跨套件 `NM`。
 
 未設 `OMP_PATCH_VERSION` 時 apply.sh 讀 installed `pi-coding-agent` 版本**精確路由**到對應計畫（非就近 fallback）；安裝版不屬於存活計畫、或顯式值與安裝版不符，一律 exit 2。
 
@@ -667,6 +668,12 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **2026-09-17 修正（就地改同一補丁）**：撤回自動階梯的 chain-lost 攔截（見上），使其回到 `methodIndex + 1` 兜底。`verify-codex-compaction-chain-fail-closed.ts` 未涵蓋該 arm，故無既有斷言被此修正改紅；該段行為本身**沒有專用閘門**（無 fixture 驅動 `runAutoCompaction`），目前由全鏈重放＋程式碼檢視支撐。
 - **2026-09-16 審核修正與部署**：依用戶授權直接修既有 0070，不增加補丁層，計畫仍為 38 件。從 SHA-256 驗證的官方 18.1.18 tarball＋前 37 層重生；38 層完整逆序還原五個官方套件全部位元組，再正向重放與目標一致，重複 forward 被拒。production 增量只有 core streaming 與 provider `.d.ts` 兩檔，原子替換避免寫穿 Bun cache hardlink。隔離 `apply.sh` 全 21 道閘門通過；family verifier 通過，含 18.1.14=27／18.1.18=38 計畫。部署後 `--check` 為 38 補丁＋bin 共 39 行 APPLIED、0 CONFLICT／PENDING，鏡像行為／型別閘門通過；五份補丁／controller／gate／ledger 檔逐位元同步。本輪只跑本地 transport smoke，真實 provider smoke 明確以 offline 模式跳過，不聲稱已量到上游 cache。
 - **限制**：能否命中仍取決於失敗當下 socket 是否存活——prev_id 是 connection-scoped，socket 已死時續鏈必 400，此時正確行為是報錯而非重放。真實 provider 命中率量測需另跑 E2E（同 0063 runbook）。
+
+- **2026-09-21，僅 18.2.3 候選：斷鏈自動恢復**：移除 session 級 `disableWebsocket` 永久閂鎖，保留每次請求既有重試與明確禁 WS 設定。無可用 baseline 時先送 `response.create`／`generate:false` 預熱，完成後在同一 socket 以新 response ID 發送增量壓縮；壓縮幀本身仍禁止全量或 SSE 降級。
+- **保快取與落盤分離**：core 的 `prepareCompactionRecovery` 延遲序列化完整 live context；原 `request.input` 仍用於 replacement history，避免把臨時注入內容寫回歷史。拒絕／不完整／缺 ID／意外生成內容的預熱不提交 baseline；伺服器拒絕舊鏈時清除失效 baseline，使後次可重新建立。
+- **恢復版部署與實測**：12:00:42Z 已原子部署，18.1.18 回滾補丁不變。重啟後本 session 遠端壓縮為 WebSocket／chained=true／inputItems=1，cachedInputTokens=219136/219342（99.906%）；此數字不含未單獨記錄的預熱用量。未跑完整套件或全鏈回歸。
+- **同日最小兜底補充（僅 18.2.3）**：可恢復斷鏈／失效 response ID 使用 V2 每輪既有初次＋兩次重試；本輪失敗保留 retryable，繼續自動入口原有 retry/model 階梯，全部遠端恢復耗盡後才進 soft，不繞進 V1，不因新增 soft 縮減遠端預算。移除手動入口的 terminal 攔截，降級提示明確顯示 soft；取消（含事件等待期間取消）不降級、不落盤，未修改全域方法配置。loopback transport/type gate 與實際 manual/auto 宿主煙測通過；宿主煙測的 summarizer 為受控替身，非上游 E2E。
+
 - **失敗自述（2026-09-16 加）**：`CodexCompactionChainLostError` 原本只說「鏈沒了」，無法區分 `getOrCreateCodexWebSocketConnection` 的三個清鏈點（`token-refresh` / `stale-reuse` / 無活連接）。現在取三個點——`canAppendAtSample`（`getOrCreate` 前）、`canAppendAtBuild`（`getOrCreate` 後）、`canAppendAfterBuild`（`buildCodexChainedRequestBody` 後，builder 自己也會清鏈）——連同 `socketAtSample`/`socketAtBuild`、`lastResponseIdAfterBuild`、`prewarmed`、`fallbacks`、`lastTransport`、`wsRetry`，外加 `lastSocketClose="<原因>" <N>s before this request (socket #<gen>)`，一併附在錯誤訊息裡。
   - **`lastClose` 的三個語義約束**（否則它會指錯根因）：① 每個 socket 有 `generation`，**同一 socket 的首次關閉優先**——後續 teardown 的本地 `close("reconnect")` 不得覆蓋對端 `onclose` 的真實原因；② **鏈重新建立時清空**（`canAppend` 置真處），使欄位描述的是「當前這條鏈的 socket 為何死」而非遠古歷史；③ 我方 `close()` 與對端 `onclose` 都會觸發，以身份守衛避免被替換的舊 socket 抹掉接替者的鏈。
 
@@ -923,9 +930,22 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **部署與邊界**：使用者已授權全域升級；coding-agent／pi-natives／pi-natives-linux-x64 均為 18.2.3。runtime ledger 已同步，排除 `*.bak`／無關 `turn-timer-extension.ts`，同步範圍 checksum 零差異。未操作 live DB／憑證、終止進程、發出真實 provider 請求或提交；未做 TUI／provider cache 命中率驗收。現有 OMP 進程須完全退出重啟，`/resume` 不重載源碼。
 - **回退與證據**：保留 `/home/chris/.omp/backups/omp-before-1823-8n9uswkr/installation.tar`、部署日誌及 `validation-evidence/` 內 95 份既有 log／JSON。重套 runtime ledger 時須顯式指定插件根：`OMP_PATCH_VERIFY_PLUGIN_ROOT=/home/chris/orca/projects/omp-move/vendor/pi-commandcode-provider OMP_PATCH_OFFLINE_VERIFY=1 bash ~/.omp/patches/apply.sh`。
 
+### 18.2.3 → 18.2.10（2026-09-23）
+
+- **固定版本**：coding-agent／pi-natives／pi-natives-linux-x64 三個直接依賴一起 pin 到 18.2.10；六個補丁套件來自 SHA 驗證的官方 tarball，脫離 Bun cache hardlink 後套用。使用同檔案系統 staging 安裝及目錄切換，不在舊安裝上逐檔覆寫。
+- **42 層**：每層檔案、root、SHA 與遷移分類見任務 `research/migration-map.json`。舊三版 plan 與所有原有 patch bytes 不變。0055／0071／0075 有舊部署差異證據；不是因為檔案存在就任意入鏈。0076 明確排除。
+- **remotecompact**：保留 pending tool outputs、同 socket 續鏈、非生成恢復、嘗試上限、取消與既有 soft ladder、effort history；loopback transport／公開型別閘門通過，14 個故障注入全部被拒。
+- **cache drift**：結構化摘要前綴、date/cwd 持久錨點、recall/MM 與 promotion slot、打斷配對、模型切換 read 描述、Command Code record parity、Anthropic native context／斷點／final-wire audit 都通過隔離驗證。
+- **控制器修正**：mirror 取 old/new headers 聯集，reverse probe 移除新增檔，修正 0074 假 CONFLICT；敏感性回歸可拒舊實作。完整 42 層重放、實際 second apply、六根反向逐位元組與目錄集合比較、錯版／缺根／缺候選 fail-closed 全通過。
+- **實際啟動**：SDK／TUI import 與 CLI 已實跑；私有 `models.yml` 固定 loopback Ollama `qwen3:8b-nt`，避開非同步 discovery 未完成的 `Model not found`，完整 apply 的本機 smoke 通過。不代表雲端 compaction 接受或 cache hit 改善。
+- **回退**：`python3 /home/chris/.omp/backups/omp-before-18210-20260923-001330/restore.py --restore`；不帶參數只驗證備份。備份含 global 安裝／launcher／ledger，不含受保護的 `~/.omp/agent`。
+- **證據**：`.trellis/tasks/09-23-omp-update-and-repatch/research/`。全量舊版行為套件未重跑；舊版 plan／archive replay 保留，preview 閘門另實跑 18.2.3 與 18.2.10。既有進程須完整退出再開，`/resume` 不重載程式。
+- **審查保留事項（非此次遷移新增）**：0035 在初始單窗口被供應商以 context-overflow 拒絕後，縮窗仍可能重送完整 cache-preserving prefix；0035／0063 部分公開新增符號缺少對應 `.d.ts`。兩項均已存在於 18.2.3，依使用者加速升級／不擴充旁支的要求維持原行為並記錄，不能把本次驗證解讀為這兩項已修復。詳見任務 remote review 證據。
+- **正式切換結果**：Linux `renameat2(RENAME_EXCHANGE)` 分別原子交換完整 global 與 ledger 目錄；fresh `omp --version`＝18.2.10，`--check`＝43 APPLIED／0 unresolved，私有本機模型回覆 `PATCH_OK`，live 六根與已驗證 sandbox 逐位元組一致。未改 `~/.omp/agent`、終止現有進程或提交 Git。
+
 ## 6. 驗證矩陣
 
-### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 22 道）
+### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 29 道）
 
 | 閘門 | 職責 | 所需 env |
 |---|---|---|
@@ -951,12 +971,19 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-compaction-lane-trace.ts`（條件） | 0067 三條 remote lane 的 live tools／usage trace，失敗 attempt 使用 `k`；依計畫含 0067 執行 | `OMP_PATCH_VERIFY_CORE_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
 | `verify-codex-effort-resume.ts`（條件） | 0069 實際 Codex stream 持久化／JSONL resume、分支隔離、不可變快照與邊界；依計畫含 0069 執行 | `OMP_PATCH_VERIFY_AI_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
 | `verify-codex-compaction-chain-fail-closed.ts`（條件） | 0070 本地 WebSocket/SSE 的拒絕、重試、metadata 隔離與發布型別 consumer；依計畫含 0070 執行 | `OMP_PATCH_VERIFY_NM`（含 `AI`／`CORE`／`CATALOG` 覆寫）；Bun、tsc |
+| `verify-snapcompact-frame-reprice.ts` | 0045 synthetic 固定歸檔邊界，實際 shape 重報價翻轉縮減判定 | `OMP_PATCH_VERIFY_NM` |
+| `verify-session-history-preview.ts` | 0050 私有 transcript 的預覽／鍵盤／滑鼠／模型 metadata；依版本選擇 AGENT 或 TUI | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_TUI_ROOT` |
+| `verify-session-pin-static-auth-ui.ts` | 0072：18.2.10 實際開啟、渲染並關閉 model hub／picker／session pin；18.2.3 保留載入門 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
+| `verify-read-description-live.ts` | 0073 model-live 描述與新建工具一致 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
+| `verify-anthropic-cache-boundaries.ts` | 0074 四斷點、TTL、context／clear_at 邊界 | `OMP_PATCH_VERIFY_AI_ROOT` |
+| `verify-anthropic-request-audit.ts` | 0074 真正 final-wire、usage／request-id、隔離與 opt-out | `OMP_PATCH_VERIFY_AI_ROOT` |
+| `verify-hindsight-recall-promotion-slot.ts` | 0075 promotion／rebuild／rollback 邊界 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 
 **0063 驗收狀態（2026-09-13）**：`apply.sh --verify-rollups` 與 `verify-patch-family-rollups.sh` 在更新 `EXPECTED_PLAN`／`EXPECTED_PLAN_18` 快照（27→28、31→32）後 **EXIT 0 全綠**，新閘 `verify-codex-compaction-chain.ts` 隨計畫執行；smoke（`cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK'`）實測通過。閘門判別力以兩個 fault variant 實測：刪除 chained-body 分支 → §1 行為斷言紅；把兩處 `responsesLite` 改回 `model.useResponsesLite` → §4 接線斷言紅。**E2E 已執行（2026-09-14）**：真實會話 `01a0a05f`（`openai-codex/gpt-5.6-luna`）同行程 live baseline 後 `/compact`，記錄 `provider:"openai-codex"/version:"v2"/inputTokens:24160/cachedInputTokens:23040`——PRD 命中率 `cached/input=95.4%≥80%`，`check-codex-compaction-cache.sh` exit 0。當時 `apply.sh` 被 wave2 的 0043 CONFLICT 阻擋於 `mode=apply` 入口（該紅燈非 0063 引起），故 15 道閘門改以直接調用驗證、smoke 另行手動執行；**該阻塞已於 2026-09-15 解除**，見下方「0043 陳舊變體換手」。
 
 **0043 陳舊變體換手（2026-09-15）**：活樹上掛的是 regen 前的 0043 candidate（只有 `session-context.ts` 兩個 hunk + `messages.ts` 的 `convertOne` 剪除），而 repo 在 `6e9d64b`（wave2 Phase A2）已把 candidate regen 成「舊 hunk + tool-pair 剪除」的超集（`prunedToolCallIds` memo 貫穿：`ConvertArrayMemo` 欄位、slice-on-growth 繼承、迴圈內配對丟棄、回寫 memo）。`patch --forward` 對混檔中已套用的 hunk 報 FAILED 而非 skip，故 `mode=apply` 入口紅燈。與 `agent-session.ts` 無關——該補丁不碰那個檔。處置：以 `git show c5f8501:` 取出舊變體位元組，先 `patch -R` 從活樹撤回（dry-run rc=0），再 forward 套用 repo 的 regen 版（dry-run 乾淨）。**不得**改以「重新對活樹 re-derive」收斂——那會讓 candidate 對 pristine 18.1.18 樹套不上，`verify-patch-family-rollups.sh` 的全鏈 oracle 隨即失效。結果：`apply.sh --check` 全 APPLIED、exit 0；`apply.sh` apply 模式跑完 16 道閘門（含 `verify-interrupt-prune-symmetry.ts`）與 smoke，全綠。
 
-套件根優先序為 `OMP_PATCH_VERIFY_<AGENT|CORE|AI|SNAPCOMPACT|CATALOG>_ROOT` → `OMP_PATCH_VERIFY_NM` → HOME；controller 注入全部根。條件 gate 依解析後計畫成員選擇，不依符號是否存在或硬編「只有 18.1.18」跳過；共用 gate 僅按確切版本選擇適用測項。`--check` 的 CONFLICT/MISSING→1、APPLIED/PENDING→0、版本／候選錯誤→2；實際 apply 冪等由完整隔離安裝驗證，不用重複 `--check` 冒充。18.2.3 已於 2026-09-17 正式部署；歷史回歸與最終驗收口徑見 §5。
+套件根優先序為 `OMP_PATCH_VERIFY_<AGENT|CORE|AI|SNAPCOMPACT|CATALOG|TUI>_ROOT` → `OMP_PATCH_VERIFY_NM` → HOME；controller 注入全部根。條件 gate 依解析後計畫成員選擇，共用 gate 僅按確切版本選擇 API 形態。`--check` 的 CONFLICT/MISSING→1、APPLIED/PENDING→0、版本／候選錯誤→2；實際 apply 冪等由完整隔離安裝驗證，不用重複 `--check` 冒充。歷史與本次驗收範圍見 §5。
 
 ### 6.2 端到端驗收（人工／真實 provider）
 
@@ -1003,17 +1030,18 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **未查明**:**为什么会损坏**。用户当日重新登入过、且同时开着多个 omp 窗口(登入/setup 会大量改写 `auth_credentials` 系列表),时间上吻合,但**没有 WAL/journal 时序证据**,不能定为原因。若是并发写入的结构问题,会再次损坏。
 - **教训**:热 `cp` db+wal+shm 做快照本身可能不一致,不能据此判定损坏;要用 `.backup` 或 `mode=ro` 一致读取复验。
 
-### 0072 — /session pin NameTooLong：loadProviderAuthUi 的 pi-ai lazy require 提升為靜態 import（僅 18.2.3）
+### 0072 — 選單 NameTooLong：pi-ai／pi-tui 依賴使用靜態 import（18.2.3、18.2.10）
 
 - **症狀**（2026-09-19，多次復現）：omp 啟動後任何 OAuth UI 路徑——`/session pin`、`/login`、`/logout`、`/usage reset`——觸發 `[Unhandled Rejection] BuildMessage: NameTooLong reading "file:file:…(851 層)…file:/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/index.ts"`，進程整個崩潰（postmortem recovery 提示 resume）。kitty 與 Orca 終端皆崩，與終端宿主無關。
 - **根因**：`selector-controller.ts` 的 `loadProviderAuthUi()` 第一行 `require("@oh-my-pi/pi-ai/index.js")`。在已安裝 `omp:legacy-pi-shim` Bun plugin 的進程（即所有正常啟動的 omp——shim 在 extension 載入時必然註冊）內，對 pi-ai 帶 `.js` 副檔名子路徑的 lazy require 會讓 Bun resolver 進入 `file:` 前綴疊加循環，每輪 `resolve→prefix→re-resolve` 疊一層，直至超出 NAME_MAX。裸 Bun 進程（無 shim）同 require 只是慢（17.9s），不崩——這解釋了為何 `bun -e` 環境難以直接復現。
 - **最小復現**：`installLegacyPiSpecifierShim(); require("@oh-my-pi/pi-ai/index.js")` → 4ms 內 NameTooLong；`require("@oh-my-pi/pi-ai/registry/oauth/index.js")` 同崩。兩處 require 都是 `loadProviderAuthUi()` 內。
-- **修法**（`${AGENT}` 單檔）：`PASTE_CODE_LOGIN_PROVIDERS`（root re-export 自 `./registry`）與 `getOAuthProviders`（`@oh-my-pi/pi-ai/registry/oauth`）提升為頂層靜態 import；三個對話框組件的相鄰 require 實測同環境安全，原樣保留。pi-ai root 本就被此檔靜態 import，零新增載入成本。
+- **修法**（`${AGENT}` 單檔）：18.2.3 提升兩個 pi-ai 符號為靜態 import。18.2.10 再將 model hub、model picker、login dialog、logout account selector、OAuth selector 全部提升；刪除失去用途的兩組 lazy-loader 及其型別／呼叫。先前「三個 pi-tui require 安全」的結論不適用 18.2.10，不得沿用。
 - **為何不是 advisory 原提議的 `require("@oh-my-pi/pi-ai")`**：shim 把 root 攔截到 `legacy-pi-ai-shim.ts`，而 exports map 的 root/subpath 條目只有 `import` 條件無 `require` 條件——shim 環境下 root require 直接 `Cannot find module`。靜態 import 是唯一在兩種環境（shim/裸）都實測通過的載入方式。
-- **回歸**：`verify-session-pin-static-auth-ui.ts`（`_omp_plan_has 0072` 註冊）雙向門：源碼契約（無兩個 lazy require、靜態 import 在位與接線）＋行為門（shim 安裝後靜態 import 鏈載入且兩符號可用；pristine 18.2.3 tree 同驗證器 FAIL=exit 1，patched tree PASS=exit 0）。單檔沙箱無完整 tree 時行為段明確 SKIP 並以源碼門為準。
+- **回歸**：18.2.10 門禁在全新進程中載入控制器、安裝 shim，再實際執行 `showModelSelector()`（hub／temporary picker）與 `showSessionPinSelector()`，驗證可見模型／帳戶內容、Esc 關閉與焦點恢復。修前同門禁 `NameTooLong` exit 1；修後 exit 0。刪除只釘靜態導入圖的偽行為門；18.2.3 僅保留原有 armed-shim 載入檢查，不宣稱其覆蓋選單操作。
 - **重放**：18.2.3 pristine 沙箱 `patch -p1` 正向 apply、反向 revert 後逐字節回到 pristine、再正向 re-apply 全通過；補丁字節 repo 與 `~/.omp/patches/` ledger `cmp` 零漂移。
 - **隨同處置**：18.2.3 plan 移除 0055 註冊（tail 條目註釋化）。實證：18.2.3 live `devin.ts` 已含 0055 全部核心語義（`authMs`/`headersMs`/`firstFrameMs`/`serverLatencyMs` 四項計時、`userJwt` 起始空串＋回填、每回合 `fetchDevinAuthMetadata`），且上游更完備（401/403 早失效時強制刷新的 2-attempt 復原）；0055 的 8 個 hunk 全因上下文漂移落空，非邏輯缺失。不做文字候選——等效語義已在上游，疊加必漂移。0056/0058/0060 的 18.2.3 候選不受影響。
 - **生效條件**：需重啟 omp 進程；未重啟的舊進程仍跑舊碼（含本補丁落地前已開的會話）。
+- **18.2.10 追補證據**（2026-09-23）：隔離新進程的 pi-tui lazy require 同樣堆疊 `file:`；與舊進程快取無關。解析器加重入鎖後仍因 Bun 1.3.14 把 `file:/…` 當檔名而 ENOENT，故未部署該實驗，保持解析器不變並沿用現有靜態載入方式。完整 42 層正向／反向重放通過，六包回到 pristine；實際 TUI `/model`、`/switch` 可顯示。證據位於 `.trellis/tasks/09-23-omp-model-selector-resolver-crash/research/`。
 
 ### 0074 — Anthropic stable extension context loses every message cache boundary (18.2.3)
 
@@ -1026,3 +1054,5 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **Activation/limits**: completely restart OMP, then resume the session. `/resume` inside an existing process does not reload the provider. Offline captures prove request construction, not a measured post-fix Anthropic hit percentage; provider recovery remains observable on the next real turns.
 - **Degradation condition (the removed barrier is a bet on this project's extensions)**: upstream treated the per-call marker as a cache barrier because an extension *may* rewrite history differently on every call. `markPerCallContextMessage` (`pi-coding-agent/src/extensibility/extensions/runner.ts:1702`) actually means "differs from the stored JSONL", not "differs from the previous request" — which is why the local 0016 injection tripped it on every call and zeroed `stableMessageEnd`. The incident's captured prefixes were append-only, so the bet holds here. It stops holding for any extension that rewrites a **head or interior** message with bytes that change per call: the breakpoints then land after the mutation point, the next request cannot read them, and the turn pays one extra write (`1h` retention = 2x base) on top of the miss it already had. `<session-context>` carries git status and task state, so a single change there costs one such turn before it restabilises. Watch `k: cache` audit rows for a write with no matching read on the following turn.
 - **Dead mechanism left in place (deliberate)**: `isPerCallContextMessage` now has zero consumers tree-wide, yet `markPerCallContextMessage` and the six `copyPerCallContextMessage` calls in `anthropic.ts` still run — every `emitContext` keeps paying a full `Bun.deepEquals` over the message array to set a flag nobody reads. Removing the producer would pull `runner.ts` and `block-symbols.ts` into this patch and widen the upstream conflict surface for a per-turn cost that is small next to serialization, so the marker stays. Revisit if an upstream release makes the symbol load-bearing again.
+- **Native diagnostics extension (2026-09-21)**: 0074 also installs `anthropic-request-audit.ts` and wraps the final fetch below OAuth cch rewriting. Native compaction no longer depends on the mutating `before_provider_request` hook for archival. Files live under `payloads/<session>/anthropic-wire/`: final `.body.json`, prefix/breakpoint `.meta.json`, and request-ID/raw-usage `.usage.jsonl`. Native requests compare against the last ordinary outbound request for the same session/provider/endpoint/model; side/refresh traffic cannot replace that baseline. Storage failures never block transport. `OMP_PAYLOAD_ARCHIVE_OFF` also disables this archive.
+- **Diagnostics gate**: `verify-anthropic-request-audit.ts`, in the 0074 apply gate, uses offline fetch/SSE fixtures to exercise exact OAuth bytes, native prefix equality/change, side/session isolation, original usage/iterations and request-ID correlation, opt-out, storage errors and original transport errors. No provider inference or credentials are used. This is observability, not a demonstrated cache-hit improvement or a conclusion about server-side compaction accounting.

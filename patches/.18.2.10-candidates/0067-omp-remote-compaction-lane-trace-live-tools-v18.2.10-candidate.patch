@@ -1,0 +1,177 @@
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -1888,7 +1888,14 @@
+ 				? previousRemoteCompaction.replacementHistory
+ 				: undefined;
+ 		const messages = (summaryOptions.convertToLlm ?? defaultConvertToLlm)(remoteMessages);
+-		const remoteSystemPrompt = summaryOptions.remoteSystemPrompt ?? [SUMMARIZATION_SYSTEM_PROMPT];
++		// Tools and system prompt from the host's live pipeline (normalizeTools,
++		// transformProviderContext), so the request's tool definitions match the
++		// cached prefix byte-for-byte; raw agent tools lack the harness-injected
++		// schema fields and invalidate the tools cache level.
++		const liveV2 = await summaryOptions.buildCachePreservingContext?.("live", model, signal);
++		const remoteSystemPrompt =
++			liveV2?.context.systemPrompt ?? summaryOptions.remoteSystemPrompt ?? [SUMMARIZATION_SYSTEM_PROMPT];
++		const remoteTools = liveV2?.context.tools ?? summaryOptions.tools;
+ 		let codexBody: OpenAICodexCompactionBody | undefined;
+ 		let remoteHistory: Array<Record<string, unknown>>;
+ 		if (isCodexResponsesModel(model)) {
+@@ -1901,7 +1908,7 @@
+ 			}
+ 			codexBody = await buildTransformedCodexRequestBody(
+ 				model,
+-				{ systemPrompt: remoteSystemPrompt, messages, tools: summaryOptions.tools },
++				{ systemPrompt: remoteSystemPrompt, messages, tools: remoteTools },
+ 				{
+ 					reasoning: resolveCompactionEffort(model, summaryOptions.thinkingLevel),
+ 					forceReasoningOff: summaryOptions.thinkingLevel === ThinkingLevel.Off,
+@@ -1946,8 +1953,8 @@
+ 					? Array.isArray(codexBody.tools)
+ 						? codexBody.tools
+ 						: undefined
+-					: summaryOptions.tools
+-						? convertTools(summaryOptions.tools, model.compat.supportsStrictMode, model)
++					: remoteTools
++						? convertTools(remoteTools, model.compat.supportsStrictMode, model)
+ 						: undefined;
+ 				const trimmed = trimRemoteCompactionInputToContextWindow(
+ 					remoteHistory,
+@@ -1978,6 +1985,15 @@
+ 							tools,
+ 							reasoning: buildCompactionV2Reasoning(model, summaryOptions.thinkingLevel),
+ 						});
++				traceCompaction({
++					k: "summarize.request",
++					lane: "codex-v2",
++					model: model.id,
++					messages: trimmed.input.length,
++					systemParts: remoteSystemPrompt.length,
++					tools: tools?.length ?? 0,
++					hasLiveContext: liveV2 !== undefined,
++				});
+ 				const remote = await withAuth(
+ 					apiKey,
+ 					key =>
+@@ -1989,6 +2005,13 @@
+ 						}),
+ 					{ signal },
+ 				);
++				traceCompaction({
++					k: "summarize.usage",
++					lane: "codex-v2",
++					model: model.id,
++					stopReason: "compaction",
++					usage: remote.usage,
++				});
+ 				preserveData = { ...preserveData, ...storeCompactionV2PreserveData(remote, model) };
+ 				usedRemoteCompaction = true;
+ 			} catch (err) {
+@@ -1996,6 +2019,13 @@
+ 				// swallowing it here would downgrade Esc into "fall back to local
+ 				// summarization" and keep compaction running on an aborted signal.
+ 				if (signal?.aborted) throw err;
++				traceCompaction({
++					k: "summarize.usage",
++					lane: "codex-v2",
++					model: model.id,
++					stopReason: "error",
++					error: err instanceof Error ? err.message : String(err),
++				});
+ 				nativeCompactionError = selectNativeCompactionError(nativeCompactionError, err);
+ 				logger.warn("OpenAI V2 remote compaction failed, falling back to V1 remote compaction", {
+ 					error: err instanceof Error ? err.message : String(err),
+@@ -2022,6 +2052,14 @@
+ 			openAiCompatSupportsImageDetailOriginal(model),
+ 		);
+ 		if (remoteHistory.length > 0) {
++			traceCompaction({
++				k: "summarize.request",
++				lane: "openai-v1",
++				model: model.id,
++				messages: remoteHistory.length,
++				systemParts: summaryOptions.remoteSystemPrompt?.length ?? 1,
++				tools: 0,
++			});
+ 			try {
+ 				const remote = await withAuth(
+ 					apiKey,
+@@ -2041,6 +2079,7 @@
+ 						),
+ 					{ signal },
+ 				);
++				traceCompaction({ k: "summarize.usage", lane: "openai-v1", model: model.id, stopReason: "compaction" });
+ 				preserveData = withOpenAiRemoteCompactionPreserveData(previousPreserveData, remote);
+ 				usedRemoteCompaction = true;
+ 			} catch (err) {
+@@ -2048,6 +2087,13 @@
+ 				// swallowing it here would downgrade Esc into "fall back to local
+ 				// summarization" and keep compaction running on an aborted signal.
+ 				if (signal?.aborted) throw err;
++				traceCompaction({
++					k: "summarize.usage",
++					lane: "openai-v1",
++					model: model.id,
++					stopReason: "error",
++					error: err instanceof Error ? err.message : String(err),
++				});
+ 				nativeCompactionError = selectNativeCompactionError(nativeCompactionError, err);
+ 				logger.warn("OpenAI remote compaction failed", {
+ 					error: err instanceof Error ? err.message : String(err),
+@@ -2122,15 +2168,26 @@
+ 			]),
+ 			...retainedTail,
+ 		];
++		const nativeSystemPrompt =
++			live?.context.systemPrompt ?? summaryOptions.remoteSystemPrompt ?? [SUMMARIZATION_SYSTEM_PROMPT];
++		const nativeTools = live?.context.tools ?? summaryOptions.tools;
++		traceCompaction({
++			k: "summarize.request",
++			lane: "anthropic-native",
++			model: model.id,
++			messages: messages.length,
++			systemParts: nativeSystemPrompt.length,
++			tools: nativeTools?.length ?? 0,
++			hasLiveContext: live !== undefined,
++		});
+ 		try {
+ 			const remote = await requestAnthropicNativeCompaction(
+ 				model,
+ 				apiKey,
+ 				{
+-					systemPrompt:
+-						live?.context.systemPrompt ?? summaryOptions.remoteSystemPrompt ?? [SUMMARIZATION_SYSTEM_PROMPT],
++					systemPrompt: nativeSystemPrompt,
+ 					messages,
+-					tools: live?.context.tools ?? summaryOptions.tools,
++					tools: nativeTools,
+ 					instructions: buildAnthropicCompactionInstructions(
+ 						summaryOptions.promptOverride ?? SUMMARIZATION_PROMPT,
+ 						customInstructions,
+@@ -2153,6 +2210,13 @@
+ 					retry: summaryOneshotRetry(summaryOptions),
+ 				},
+ 			);
++			traceCompaction({
++				k: "summarize.usage",
++				lane: "anthropic-native",
++				model: remote.model,
++				stopReason: "compaction",
++				usage: remote.usage,
++			});
+ 			nativeSummary = remote.content;
+ 			nativeEncryptedContent = remote.encryptedContent;
+ 			nativeUsedTokens = calculatePromptTokens(remote.usage);
+@@ -2162,6 +2226,13 @@
+ 			// swallowing it here would downgrade Esc into "fall back to local
+ 			// summarization" and keep compaction running on an aborted signal.
+ 			if (signal?.aborted) throw err;
++			traceCompaction({
++				k: "summarize.usage",
++				lane: "anthropic-native",
++				model: model.id,
++				stopReason: "error",
++				error: err instanceof Error ? err.message : String(err),
++			});
+ 			nativeCompactionError = selectNativeCompactionError(nativeCompactionError, err);
+ 			logger.warn("Anthropic server-side compaction failed", {
+ 				error: err instanceof Error ? err.message : String(err),

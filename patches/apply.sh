@@ -168,8 +168,8 @@ function _omp_tail_candidate {
 # Versioned plan selection. The PATCHES array above is the canonical patch
 # set shared by every supported plan; it is NOT itself a deployable chain —
 # its members' a-sides span multiple upstream releases (e.g. 0045/0046 only
-# exist as 18.1.x shapes). Supported plans: 18.1.14 (rollback), 18.1.18
-# (previous deployment), 18.2.3 (current target).
+# exist as 18.1.x shapes). Supported plans: 18.1.14 (rollback), 18.1.18,
+# 18.2.3 (previous deployment), and 18.2.10 (current target).
 # Unset OMP_PATCH_VERSION auto-routes by the installed pi-coding-agent
 # version (exact match only) so the documented one-key re-apply flow keeps
 # working; an explicit value must match the installed version or fail
@@ -179,12 +179,12 @@ if [[ -z "${OMP_PATCH_VERSION+x}" ]]; then
 	pkgjson="${NM}/pi-coding-agent/package.json"
 	installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
 	case "$installed" in
-	18.1.14|18.1.18|18.2.3)
+	18.1.14|18.1.18|18.2.3|18.2.10)
 		OMP_PATCH_VERSION="$installed"
 		echo "NOTE: OMP_PATCH_VERSION unset — routed to installed ${installed}" >&2
 		;;
 	*)
-		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3); set OMP_PATCH_VERSION explicitly" >&2
+		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10); set OMP_PATCH_VERSION explicitly" >&2
 		exit 2
 		;;
 	esac
@@ -324,12 +324,9 @@ case "$OMP_PATCH_VERSION" in
 	# 0063+0067，0069 依賴 0068，0070 依賴 0069）。標註 cand 者在矩陣中為
 	# CONFLICT，需 18.2.3 候選；未標註者在 18.2.3 上逐字節仍適用。
 	_omp_tail_candidate "18.2.3" "0047-omp-date-cwd-anchor-stability" "${AGENT}"
-	# 0055 已被 18.2.3 上游吸收：live devin.ts 逐語義核對含 authMs/headersMs/
-	# firstFrame/serverLatency 四項計時、userJwt 起始空串 + turn.userJwt 回填、
-	# fetchDevinAuthMetadata 每回合取用，且上游更完備（401/403 早失效時
-	# 強制刷新的 2-attempt 復原）。8 個 hunk 全因上下文漂移落空，非邏輯缺失。
-	# 不做文字候選——等效語義已在上游，疊加反而漂移。
-	# PATCHES+=("0055-omp-devin-auth-cache-turn-timing.patch:${AI}")
+	# Keep this historical plan unchanged. Official-archive comparison during
+	# the 18.2.10 migration disproved the earlier upstream-adoption claim:
+	# 0055/0071 were deployed outside this plan, and are registered in 18.2.10.
 	PATCHES+=("0056-omp-devin-metadata-alignment.patch:${NM}")
 	PATCHES+=("0058-omp-devin-thinking-signature-replay.patch:${AI}")
 	_omp_tail_candidate "18.2.3" "0060-omp-devin-idle-cascade-pin" "${NM}"
@@ -362,8 +359,48 @@ case "$OMP_PATCH_VERSION" in
 	# Keep their rolling Anthropic cache boundary and cache the complete OAuth system.
 	PATCHES+=("0074-omp-anthropic-context-cache-boundaries.patch:${AI}")
 	;;
+18.2.10)
+	_omp_version_candidates "18.2.10" \
+		0004 0010 0014 0017 0030 0033 0034 0035 0037 0038 0043 0045 0048 0050 omit:0041
+	if [[ "$MODE" != "print-plan" ]]; then
+		for package in pi-coding-agent pi-agent-core pi-ai pi-catalog snapcompact pi-tui; do
+			package_version="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "${NM}/${package}/package.json" 2>/dev/null || true)"
+			[[ "$package_version" == "$OMP_PATCH_VERSION" ]] || {
+				echo "${package} must be ${OMP_PATCH_VERSION}, found: ${package_version:-<missing>}" >&2
+				exit 2
+			}
+		done
+	fi
+	# Upstream moved status-line and selector UI ownership into pi-tui.
+	for i in "${!PATCHES[@]}"; do
+		name="${PATCHES[i]%%:*}"
+		case "${name##*/}" in
+			0004-*|0033-*) PATCHES[i]="${name}:${TUI}" ;;
+			0037-*|0050-*) PATCHES[i]="${name}:${NM}" ;;
+		esac
+	done
+	_omp_tail_candidate "18.2.10" "0047-omp-date-cwd-anchor-stability" "${AGENT}"
+	_omp_tail_candidate "18.2.10" "0055-omp-devin-auth-cache-turn-timing" "${AI}"
+	_omp_tail_candidate "18.2.10" "0071-omp-devin-request-dump" "${AI}"
+	PATCHES+=("0056-omp-devin-metadata-alignment.patch:${NM}")
+	PATCHES+=("0058-omp-devin-thinking-signature-replay.patch:${AI}")
+	_omp_tail_candidate "18.2.10" "0060-omp-devin-idle-cascade-pin" "${NM}"
+	_omp_tail_candidate "18.2.10" "0062-omp-snapcompact-reduction-baseline-previous-archive" "${AGENT}"
+	_omp_tail_candidate "18.2.10" "0063-omp-codex-v2-compaction-live-chain" "${NM}"
+	_omp_tail_candidate "18.2.10" "0065-omp-commandcode-deepseek-model-record-parity" "${NM}"
+	_omp_tail_candidate "18.2.10" "0066-omp-anthropic-native-compaction-live-context" "${NM}"
+	_omp_tail_candidate "18.2.10" "0067-omp-remote-compaction-lane-trace-live-tools" "${NM}"
+	_omp_tail_candidate "18.2.10" "0068-omp-codex-stale-baseline-chain" "${NM}"
+	_omp_tail_candidate "18.2.10" "0069-omp-codex-effort-history-resume" "${AI}"
+	_omp_tail_candidate "18.2.10" "0070-omp-codex-compaction-chain-fail-closed" "${NM}"
+	_omp_tail_candidate "18.2.10" "0072-omp-session-pin-static-auth-ui" "${AGENT}"
+	_omp_tail_candidate "18.2.10" "0073-omp-read-description-live" "${AGENT}"
+	_omp_tail_candidate "18.2.10" "0074-omp-anthropic-context-cache-boundaries" "${AI}"
+	# These behaviors were deployed outside the older controller's plan.
+	_omp_tail_candidate "18.2.10" "0075-omp-hindsight-recall-promotion-slot" "${AGENT}"
+	;;
 *)
-	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3)" >&2
+	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10)" >&2
 	exit 2
 	;;
 esac
@@ -376,7 +413,7 @@ if [[ "$MODE" == "print-plan" ]]; then
 		name="${entry%%:*}"; root="${entry##*:}"
 		case "$root" in
 			"$AGENT") rn=AGENT ;; "$CORE") rn=CORE ;; "$AI") rn=AI ;;
-			"$SNAP") rn=SNAP ;; "$NM") rn=NM ;; *) rn="$root" ;;
+			"$SNAP") rn=SNAP ;; "$TUI") rn=TUI ;; "$NM") rn=NM ;; *) rn="$root" ;;
 		esac
 		printf '%s:%s\n' "$name" "$rn"
 	done
@@ -399,7 +436,7 @@ cleanup_sandbox() {
 trap cleanup_sandbox EXIT
 
 patch_targets() { # patch file -> repo-relative paths it touches
-	sed -n 's|^--- a/||p' "$1" | cut -f1
+	sed -n -e 's|^--- a/||p' -e 's|^+++ b/||p' "$1" | cut -f1 | sort -u
 }
 
 sandbox_root() { # sandbox base, absolute package root -> mirrored root
@@ -440,8 +477,10 @@ mirror_touched() { # sandbox base -> copy every live file the chain declares
 # "not applied".
 probe_apply() { # dir, patch, direction-flag -> mutate only if the dry run is clean
 	local dir="$1" file="$2" dir_flag="$3"
-	patch -p1 "$dir_flag" --force --silent --dry-run -d "$dir" <"$file" >/dev/null 2>&1 || return 1
-	patch -p1 "$dir_flag" --force --silent --no-backup-if-mismatch -d "$dir" <"$file" >/dev/null 2>&1 || {
+	local -a reverse_flags=()
+	[[ "$dir_flag" == "-R" ]] && reverse_flags=(--remove-empty-files)
+	patch -p1 "$dir_flag" "${reverse_flags[@]}" --force --silent --dry-run -d "$dir" <"$file" >/dev/null 2>&1 || return 1
+	patch -p1 "$dir_flag" "${reverse_flags[@]}" --force --silent --no-backup-if-mismatch -d "$dir" <"$file" >/dev/null 2>&1 || {
 		echo "internal: $(basename "$file") cleared its dry run but failed to apply — sandbox is inconsistent" >&2
 		exit 1
 	}
@@ -667,6 +706,7 @@ if [[ "$MODE" == "apply" ]]; then
 	export OMP_PATCH_VERIFY_AI_ROOT="$AI"
 	export OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT="$SNAP"
 	export OMP_PATCH_VERIFY_CATALOG_ROOT="${NM}/pi-catalog"
+	export OMP_PATCH_VERIFY_TUI_ROOT="$TUI"
 	export OMP_PATCH_VERIFY_PLUGIN_ROOT="${OMP_PATCH_VERIFY_PLUGIN_ROOT-${HERE}/../vendor/pi-commandcode-provider}"
 	bun "${HERE}/verify-antigravity-envelope.ts"
 	bun "${HERE}/verify-prefix-cache-compaction.ts"
@@ -692,6 +732,12 @@ if [[ "$MODE" == "apply" ]]; then
 		echo "verify-devin-metadata: skipped (0056 not in this plan)"
 	fi
 	bun "${HERE}/verify-supersede-warm-prefix-guard.ts"
+	if _omp_plan_has 0045; then
+		bun "${HERE}/verify-snapcompact-frame-reprice.ts"
+	fi
+	if _omp_plan_has 0050; then
+		bun "${HERE}/verify-session-history-preview.ts"
+	fi
 	if _omp_plan_has 0058; then
 		bun "${HERE}/verify-devin-thinking-signature.ts"
 	else
@@ -743,7 +789,7 @@ if [[ "$MODE" == "apply" ]]; then
 		echo "verify-codex-compaction-chain-fail-closed: skipped (0070 not in this plan)"
 	fi
 	if _omp_plan_has 0072; then
-		OMP_VERIFY_PKG_ROOT="${AGENT}" bun "${HERE}/verify-session-pin-static-auth-ui.ts"
+		bun "${HERE}/verify-session-pin-static-auth-ui.ts"
 	else
 		echo "verify-session-pin-static-auth-ui: skipped (0072 not in this plan)"
 	fi
@@ -754,8 +800,12 @@ if [[ "$MODE" == "apply" ]]; then
 	fi
 	if _omp_plan_has 0074; then
 		bun "${HERE}/verify-anthropic-cache-boundaries.ts"
+		bun "${HERE}/verify-anthropic-request-audit.ts"
 	else
 		echo "verify-anthropic-cache-boundaries: skipped (0074 not in this plan)"
+	fi
+	if _omp_plan_has 0075; then
+		bun "${HERE}/verify-hindsight-recall-promotion-slot.ts"
 	fi
 fi
 if [[ "$MODE" != "check" ]]; then
@@ -763,9 +813,11 @@ if [[ "$MODE" != "check" ]]; then
 		echo "smoke: skipped by explicit offline replay mode"
 	else
 		printf 'smoke: '
+		smoke_args=()
+		[[ -n "${OMP_PATCH_SMOKE_MODEL:-}" ]] && smoke_args+=(--model "$OMP_PATCH_SMOKE_MODEL")
 		# Cold start re-probes every provider catalog before the first token, which
 		# costs ~90 s on this box; the budget must cover that, not the completion.
-		if out="$(cd /tmp && timeout 300 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK' 2>&1)"; then
+		if out="$(cd /tmp && timeout 300 "$BIN" --no-session --no-extensions --no-skills --no-lsp "${smoke_args[@]}" -p 'say PATCH_OK' </dev/null 2>&1)"; then
 			grep -q PATCH_OK <<<"$out" && echo "ok" || {
 				echo "unexpected output:"
 				echo "$out" | tail -5

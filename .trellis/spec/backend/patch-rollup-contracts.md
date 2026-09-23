@@ -23,7 +23,7 @@ OMP_PATCH_OFFLINE_VERIFY=1 patches/apply.sh
 Active entries retain the existing file/root contract:
 
 ```sh
-"<patch-file>:${AGENT|CORE|AI|SNAP|NM}"
+"<patch-file>:${AGENT|CORE|AI|SNAP|TUI|NM}"
 ```
 
 Cross-package rollups use paths such as `pi-agent-core/...` and are applied from `${NM}` with `patch -p1`.
@@ -33,7 +33,7 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 - Pristine input MUST be the official pinned npm release tarball, verified by SHA-256 before extraction.
 - NEVER patch `~/.bun/install/cache` or live `node_modules` to generate or verify a rollup. Bun may hard-link those trees; an in-place patch can mutate both. The same trees are also unreadable as pristine sources: in-place patching has written through the cache repeatedly (pi-ai@18.1.14's `ollama.ts` was found carrying the 18.1.18 file on 2026-09-13; `auth-storage.ts` has carried 0026-core since 2026-08-29), so any cache copy may already contain patch output. Pristine means an official tarball verified by SHA-256 — nothing else.
 - Dependency-complete sandboxes MUST use matching exact registry versions for
-  all five OMP roots. Mixing `file:tgz` direct dependencies with registry
+  all selected OMP roots (six, including pi-tui, for 18.2.10). Mixing `file:tgz` direct dependencies with registry
   transitive dependencies can create nested unpatched copies. Rebuild the
   sandbox dependency graph when correcting this; editing package.json alone
   does not remove nested copies. Extract verified targets independently after
@@ -62,8 +62,9 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 - Every sandbox mutation used for status detection MUST be gated on a clean
   dry run. A patch that fails midway still rewrites the hunks it already
   matched, which would corrupt every verdict computed after it.
-- Status detection MUST NOT write to live `node_modules`; mirror only the files
-  each patch declares in its `--- a/` headers.
+- Status detection MUST NOT write to live `node_modules`; mirror the union of
+  `--- a/` and `+++ b/` paths, excluding `/dev/null`. Reverse dry-run and real
+  peel both use `--remove-empty-files`, including within the status mirror.
 - Nothing in this document weakens the retention rule above: a patch that ever
   entered the active chain MUST keep its bytes and pinned hash in the retired
   directory. Deletion is permitted only for a patch that never entered the
@@ -219,7 +220,7 @@ is the direct primary cause; resume-related prefix drift is not proven or exclud
 ### 1. Scope / Trigger
 - Trigger: the installed `pi-coding-agent` version determines which patch plan applies; an upstream release may also change patch context so a plan needs versioned candidates.
 - The `PATCHES` array is the canonical patch set shared by every supported plan; it is NOT itself a deployable chain (members' a-sides span multiple upstream releases).
-- Supported plans: 18.1.14 (27 entries, rollback), 18.1.18 (38 entries, existing deployment), 18.2.3 (37 entries, sandbox candidate). The last preserves 38 logical IDs by merging only 0041 into 0037; it does not imply live deployment.
+- Supported plans: 18.1.14 (27 entries), 18.1.18 (38), 18.2.3 (39), and 18.2.10 (42). Counts are physical patch rows, excluding the launcher. 0041 is absorbed into 0037 only in the two 18.2.x plans.
 
 ### 2. Signatures
 ```sh
@@ -240,6 +241,17 @@ OMP_PATCH_VERSION=18.1.14 patches/apply.sh --check   # explicit plan
 - Keep finalized old patch bytes and old plan rows unchanged during migration.
   Verify the updated candidate chain with real second apply and reverse replay,
   comparing bytes plus file/directory/symlink sets, not only diff exit status.
+- For 18.2.10, require matching metadata in all six package roots before any
+  mutation. 0004/0033 use TUI; 0037/0050 use NM across the moved UI/host boundary.
+- Inventory deployed deltas against official old-version replay before upgrade.
+  Preserve evidenced unregistered behavior, not merely every patch file present:
+  target 0055 → 0071 preserves deployed Devin behavior; 0075 preserves recall
+  promotion. The user explicitly excluded scout customization/0076.
+- Upgrade directly pinned coding-agent, pi-natives and pi-natives-linux-x64
+  together. Detach mutable package sources from cache hardlinks before patching.
+- `OMP_PATCH_SMOKE_MODEL` optionally pins the controller's exact `$BIN` smoke.
+  Smoke stdin is `/dev/null`; use private agent state and a static loopback-only
+  model definition when discovery is not ready. Never infer cloud acceptance.
 
 ### 4. Validation & Error Matrix
 | Condition | Required result |
@@ -250,6 +262,8 @@ OMP_PATCH_VERSION=18.1.14 patches/apply.sh --check   # explicit plan
 | Unsupported version | Exit 2 before mutation |
 | Explicit version ≠ installed package version | Exit 2 before mutation |
 | Referenced candidate missing | Exit 2 before mutation |
+| Any 18.2.10 package root missing or wrong version | Exit 2 before mutation |
+| Applied patch adds a file | Mirror includes it; reverse peel removes it |
 | Version and candidates valid | Resolve plan and continue |
 
 ### 5. Good / Base / Bad Cases
@@ -261,10 +275,11 @@ OMP_PATCH_VERSION=18.1.14 patches/apply.sh --check   # explicit plan
 - Assert unset auto-route, empty, unsupported, wrong-package, and missing-candidate behavior.
 - Assert the resolved plan parsed from the real `apply.sh` equals the pinned snapshot.
 - Assert apply, revert, replay, idempotence, and smoke in a pristine version-matched sandbox.
-- Exercise every applicable gate on 18.1.14, 18.1.18, and 18.2.3. The rollup
-  oracle uses official 18.0.9 family, 18.1.14 full-chain, and 18.2.3 replay bases.
+- Preserve older plan snapshots and replay bases. The oracle uses official
+  18.0.9 family, 18.1.14 full-chain, 18.2.3 and six-root 18.2.10 replay bases.
+- Retain a synthetic add-file regression sensitive to the old mirror defect.
 - Machine-check resolver/gate registration before delivery and independent review:
-  `grep -nE '_omp_plan_has|18\.2\.3|EXPECTED_PLAN_1823' patches/apply.sh patches/verify-patch-family-rollups.sh`.
+  `grep -nE '_omp_plan_has|18\.2\.10|EXPECTED_PLAN_18210|OMP_PATCH_VERIFY_TUI_ROOT' patches/apply.sh patches/verify-patch-family-rollups.sh`.
 
 ### 7. Wrong vs Correct
 #### Wrong
@@ -344,3 +359,52 @@ while resume preserves the full rebuilt prefix on a new connection.
   current UI setting; the old request may have pinned a different value.
 - Correct: recover a detached branch-local response snapshot, validate it against
   the rebuilt input, apply the existing planner, then persist the resulting state.
+
+## Scenario: Anthropic native compaction wire diagnostics
+
+### 1. Scope / Trigger
+Native compaction bypasses the session payload hook. Extend 0074 in place;
+diagnostics must not alter request content, cache policy, retries or fallback.
+
+### 2. Signatures
+`createAnthropicRequestAudit({ sessionId, provider, sideRequest, refresh })`
+returns `wrapFetch(base)` and `observe(RawSseEvent)` for Anthropic only.
+
+### 3. Contracts
+- Capture the actual fetch body after OAuth cch replacement, including Uint8Array
+  bodies, into `getAgentDir()/payloads/<session>/anthropic-wire/`.
+- UUID-correlated `.body.json`, `.meta.json`, `.usage.jsonl` hold final bytes,
+  classification/prefix comparison, HTTP request ID and untouched SSE usage.
+- Header allowlist: anthropic-beta, anthropic-version, content-type. Never
+  archive Authorization, cookies, URL query parameters or URL credentials.
+- `OMP_PAYLOAD_ARCHIVE_OFF` disables diagnostics; missing session ID skips them.
+- Baseline is the last ordinary outbound request, not proof of server caching.
+  Partition by session/provider/endpoint/model; side/refresh/native calls cannot
+  replace it. Compare old tools/system/messages allowing appended messages;
+  normalize only billing cch and separate cache_control breakpoint movement.
+- Prefix equality is not cache-hit proof. Neither large cache_creation usage nor
+  an offline equal prefix proves a client bug or normal server compaction cost.
+
+### 4. Validation & Error Matrix
+Missing baseline → no-baseline; changed old prefix → prefix-different with path;
+I/O failure → warning only; transport failure → original error unchanged.
+
+### 5. Good / Base / Bad Cases
+Good: native wire + HTTP request ID + raw usage including iterations.
+Base: no baseline after opt-out or deployment; no inferred historical equality.
+Bad: calling a mutating session hook just to archive, or treating Context message
+counts as serialized wire message counts.
+
+### 6. Tests Required
+`OMP_PATCH_VERIFY_NM=<isolated-root> bun patches/verify-anthropic-request-audit.ts`
+must exercise the real provider and OAuth final bytes with an offline fetch.
+Assert prefix changes, side/session isolation, usage correlation, opt-out and
+non-interference on storage and transport failures. Machine check:
+`grep -nE 'createAnthropicRequestAudit|wrapFetch|observe' patches/0074-omp-anthropic-context-cache-boundaries.patch`
+and `grep -n 'verify-anthropic-request-audit' patches/apply.sh`.
+
+### 7. Wrong vs Correct
+Wrong: declare the 20-block lookback or expected server rewrite the root cause
+without the actual native wire payload and provider response evidence.
+Correct: preserve the final body and raw usage first; distinguish client prefix
+changes from provider-side compaction accounting without changing fallback.

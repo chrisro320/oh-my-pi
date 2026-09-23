@@ -42,6 +42,24 @@ suite. A gate that no suite invokes is not a gate.
   variants silently validate only the live tree.
 - Gate loading MUST fail closed. A module that cannot be imported MUST abort
   the gate, never fall through to a passing run.
+- First-use UI failures require invocation, not an import graph or a successful
+  controller import. For 18.2.10 patch 0072, load the controller, install
+  `installLegacyPiSpecifierShim()`, then call
+  `showModelSelector({ temporaryOnly: false | true })` and
+  `showSessionPinSelector()` in a fresh process. Assert rendered fixture data,
+  Escape closure and model-selector editor focus restoration.
+- Bun 1.3.14's synchronous package `require()` under the legacy-pi plugin also
+  breaks pi-tui subpaths; do not infer safety from pi-ai-only coverage. A
+  reentrancy guard alone changes NameTooLong into `file:/…` ENOENT. Keep these
+  controller UI dependencies static; do not ship the incomplete resolver fix.
+- Run `OMP_PATCH_VERIFY_AGENT_ROOT=<isolated-agent-root> bun
+  patches/verify-session-pin-static-auth-ui.ts` against both the pre-fix and
+  fixed trees. The former must fail at the actual first-use loader, not from a
+  missing fixture. Also exercise `/model` and `/switch` in a private TUI.
+  Machine audit: `grep` pattern `require\\(\"@oh-my-pi/(pi-ai|pi-tui)`
+  against the selected `src/modes/controllers/selector-controller.ts` must
+  return no matches. Preserve the historical 18.2.3 load-only gate as such,
+  without claiming it proves first-use behavior.
 - Fault trees MUST contain complete package copies, including non-TS assets
   (`prompts/`, data files). Dependency resolution for pi-coding-agent,
   pi-agent-core, pi-ai, snapcompact and pi-catalog MUST remain in the selected
@@ -84,7 +102,7 @@ suite. A gate that no suite invokes is not a gate.
 
 - Registered gates resolve package-specific `OMP_PATCH_VERIFY_<PACKAGE>_ROOT`
   before `OMP_PATCH_VERIFY_NM`, then the local HOME default. PACKAGE is AGENT,
-  CORE, AI, SNAPCOMPACT or CATALOG. The controller exports all selected roots;
+  CORE, AI, SNAPCOMPACT, CATALOG or TUI. The controller exports all selected roots;
   direct invocations retain the same override precedence.
 - Cross-registrant model parity uses the real plugin registration and selected
   runtime finalization, not source regexes. Compare modality, strict-tool,
@@ -313,6 +331,8 @@ fail); `cached>0` alone as PASS (a 5% partial hit passes). Correct:
 
 ## Scenario: Verifying Codex compaction transport and retry boundaries
 
+The 2026-09-21 18.2.3 recovery and soft-fallback contract below supersedes cold/stale zero-send refusal and manual terminal chain-loss for that version only. The 18.1.18 rollback contract is unchanged.
+
 ### 1. Scope / Trigger
 
 Use when changing the Codex V2 chain-only policy, retry classification, accepted
@@ -422,3 +442,38 @@ const classification = AIError.classify(error);
 if (AIError.is(classification, AIError.Flag.AuthFailed)) return false;
 if (AIError.is(classification, AIError.Flag.Transient)) return true;
 ```
+
+## Scenario: Recovering a Codex compaction chain (18.2.3)
+
+### 1. Scope / Trigger
+Compaction has no usable socket-bound append baseline, including after transport failure.
+
+### 2. Signatures
+`prepareCompactionRecovery?: () => Promise<OpenAICodexCompactionBody>` flows from core's request to the provider. The restoration frame is `response.create` with `generate:false`; its completed response ID anchors the subsequent compaction.
+`CodexCompactionChainLostError(detail, retryable = false)` marks recoverable socket/baseline loss without turning disabled transport or invalid recovery output into transient failures.
+
+### 3. Contracts
+- Failures are attempt-local, never a permanent session WS-disable latch. Explicit WS preferences still apply.
+- Serialize the complete live context lazily for restoration. Keep `request.input` separate for persisted replacement history; ephemeral live injections must not be persisted through recovery.
+- Publish a baseline only after a completed, nonempty response ID, no generated output, no cancellation, and the same still-open socket.
+- Compaction remains incremental and never falls back to full-history/SSE compaction. Healthy chains do not warm up. A rejected stale ID is invalidated for the next attempt.
+- Connection loss is not proof of prompt-cache loss; full-history restoration may hit the prefix cache.
+- Each V2 operation owns at most three attempts (initial plus two retries). Recoverable chain loss and `previous_response_not_found` may rebuild and retry; permanent failures stop early. Exhausted Codex V2 errors bypass V1 but preserve `retryable` for the host's existing automatic retry/model budget. Do not shorten that budget to reach soft sooner. Only after remote recovery is exhausted does the existing method ladder advance; the configured and explicit `/compact remote` ladders put `soft` next.
+- Manual and automatic fallback name the destination in their notice/event. Only the successful method commits history, with its actual method recorded. No persistent settings change; future compactions start with remote again.
+- Caller cancellation, typed `CompactionCancelledError`, or cancellation during the asynchronous fallback event must stop before soft starts.
+
+### 4. Validation & Error Matrix
+Handshake/warmup failure → this attempt fails within existing bounds, later requests can recover. Incomplete/missing-ID/generated-output warmup → no baseline. Successful warmup → same-socket trigger-only compaction. Explicit WS disable → no SSE fallback.
+Recoverable stale ID → rebuild and retry within the V2 operation, then retain eligibility for configured automatic retries. Exhausted remote recovery → soft via the method ladder. Permanent remote failure → no transient retries. Cancel → no fallback and no commit. Healthy remote or successful later recovery → no soft call.
+
+### 5. Good / Base / Bad Cases
+Good: failed handshake, then successful non-generating restoration and compaction in the same session. Base: healthy chain sends only its delta. Bad: permanently disable WS, treat full-history compaction as recovery, or persist warmup input as replacement history.
+
+### 6. Tests Required
+Exercise real provider/collector entry points over loopback: failed-then-successful recovery, same-socket previous ID, no output generation, no SSE, and preserved replacement-history ownership. The existing shared gate must keep 18.1.18 expectations version-scoped. Local fixtures do not establish live provider support or cache hit rates.
+Exercise the real manual and automatic host methods with a controlled summarizer: automatic remote recovery honors `retry.maxRetries` (four configured retries means five V2 operations before soft), success during later recovery never calls soft, and permanently non-retryable errors do not consume that budget. Final fallback commits exactly once as soft; preferences remain unchanged; signal/typed/event-boundary cancellations commit nothing. Keep transport-loopback proof separate from the stubbed summarizer fixture.
+
+### 7. Wrong vs Correct
+Wrong: allow a trigger-containing full-history request when its previous ID is absent.
+Correct: restore with `generate:false`, then send the trigger using the newly completed response ID.
+Wrong: skip the automatic remote retry/model budget as soon as one V2 operation fails, or treat chain loss as terminal at the manual method ladder. Correct: preserve remote recoverability through the existing budget, then explicitly select soft through the existing ladder.

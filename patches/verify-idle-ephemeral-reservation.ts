@@ -30,10 +30,10 @@ import type { MockModel } from "@oh-my-pi/pi-ai/providers/mock";
 
 const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10"].includes(agentVersion),
 	`verify-idle-ephemeral-reservation: unsupported selected tree version ${agentVersion}`,
 );
-const hasSubmissionWindow = agentVersion === "18.2.3";
+const hasSubmissionWindow = ["18.2.3", "18.2.10"].includes(agentVersion);
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
@@ -446,7 +446,7 @@ try {
 	} else {
 		console.log(
 			`note: ${agentVersion} has no admitted-submission window or session-transition funnel; ` +
-				"those legs run on 18.2.3 only",
+				"those legs run on 18.2.3/18.2.10 only",
 		);
 	}
 

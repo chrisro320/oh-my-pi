@@ -27,7 +27,7 @@ const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-a
 
 const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
 assert.ok(
-	["18.1.18", "18.2.3"].includes(agentVersion),
+	["18.1.18", "18.2.3", "18.2.10"].includes(agentVersion),
 	`verify-devin-idle-cascade-pin: 0060 is not part of the ${agentVersion} plan`,
 );
 

@@ -1,0 +1,8 @@
+{"file":".trellis/spec/backend/index.md","reason":"Routes implementation to the active patch, runtime, and verification contracts."}
+{"file":".trellis/spec/backend/patch-rollup-contracts.md","reason":"Defines official tarball isolation, exact plan routing, stack-aware replay, idempotence, and reverse-restoration requirements."}
+{"file":".trellis/spec/backend/verification-gate-contracts.md","reason":"Defines root-aware behavior gates, fault sensitivity, version-plan selection, and fail-closed imports."}
+{"file":".trellis/tasks/09-18-omp-1826-patch-migration/research/0010-runtime-contract.md","reason":"Complete untruncated 0010 contract: admission, transition, epoch, seven entry points, continuation ordering, commands, and fault controls."}
+{"file":".trellis/tasks/09-18-omp-1826-patch-migration/research/status-line-tui-migration-contract.md","reason":"Complete TUI/agent/pi-ai ownership, plan-root, verifier-root, sandbox, host-forwarding, and status-line fault contract."}
+{"file":".trellis/spec/guides/prompt-cache-diagnosis-guide.md","reason":"Defines evidence standards for cache-prefix and provider-wire claims."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Covers controller/package-root/gate boundary consistency for the new pi-tui split."}
+{"file":".trellis/tasks/09-18-omp-1826-patch-migration/research.md","reason":"Pins the 18.2.6 replay matrix and source-level partial-adoption evidence."}

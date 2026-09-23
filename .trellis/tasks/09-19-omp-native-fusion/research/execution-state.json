@@ -1,0 +1,25 @@
+{
+  "status": "implementation-running",
+  "sandbox": "/tmp/omp-fusion-build-4jp7ed5m",
+  "sourceRoot": "/tmp/omp-fusion-build-4jp7ed5m/home/.bun/install/global/node_modules/@oh-my-pi",
+  "baselineRoot": "/tmp/omp-fusion-build-4jp7ed5m/baseline",
+  "sourceVersion": "18.2.3",
+  "basePatchCount": 38,
+  "workers": {
+    "FusionProtocol": [
+      "pi-catalog",
+      "pi-ai"
+    ],
+    "FusionSession": [
+      "pi-coding-agent",
+      "pi-agent-core"
+    ]
+  },
+  "mainOwned": [
+    "patches/verify-devin-fusion.ts",
+    "canonical patch packaging",
+    "final validation"
+  ],
+  "liveRuntimeChanged": false,
+  "liveProviderRequests": false
+}

@@ -64,6 +64,39 @@ write_managed() {
   cp -L "$src" "$key"
 }
 
+# Overlay one fork default without destroying an existing project customization.
+# Missing files install directly; untouched official files are replaced; every
+# other existing file stays in place and receives a reviewable `.new` sibling.
+overlay_default() {
+  src="$1"; key="$2"; label="$3"
+  mkdir -p "$(dirname "$key")"
+  if [ ! -f "$key" ]; then
+    write_managed "$src" "$key"
+    echo "installed $label (absent)"
+    return
+  fi
+  orig="$(hash_of "$key")"
+  now="$(current_hash "$key")"
+  if [ -n "$orig" ] && [ "$orig" = "$now" ]; then
+    write_managed "$src" "$key"
+    echo "overlaid $label (matches official hash)"
+  else
+    cp -L "$src" "$key.new"
+    echo "kept $label (user-modified or unrecorded); wrote $key.new"
+  fi
+}
+
+# Default execution policy: implementation finishes before read-only review.
+# Reviewers report findings; the main session or implementation owner repairs
+# them and dispatches review again. Apply this policy consistently to workflow,
+# OMP roles, the check skill, and the platform-agnostic channel check role.
+overlay_default "$HOME/orca/projects/trellis/defaults/workflow.md" ".trellis/workflow.md" "Trellis workflow"
+for f in trellis-implement.md trellis-check.md trellis-research.md; do
+  overlay_default "$FORK/agents/$f" ".omp/agents/$f" "$f"
+done
+overlay_default "$FORK/skills/trellis-check/SKILL.md" ".omp/skills/trellis-check/SKILL.md" "trellis-check skill"
+overlay_default "$HOME/orca/projects/trellis/defaults/agents/check.md" ".trellis/agents/check.md" "channel check role"
+
 # omp commands: the fork edition hard-codes omp platform tokens and must win
 # over the generic official template, but never clobber a user's edits.
 # Only replace when the on-disk file still matches the hash the CLI recorded
@@ -90,6 +123,26 @@ for f in trellis-continue.md trellis-finish-work.md trellis-paused-work.md; do
 done
 if [ ! -e ".omp/commands/trellis-init.md" ]; then
   cp -L "$FORK/commands/trellis-init.md" ".omp/commands/trellis-init.md"
+fi
+
+# Trellis context injection is cache-sensitive. Replace the official extension
+# only when it is untouched; preserve project-specific edits beside a `.new`
+# candidate instead of collapsing them into the shared overlay.
+ext_key=".omp/extensions/trellis/index.ts"
+mkdir -p "$(dirname "$ext_key")"
+if [ ! -f "$ext_key" ]; then
+  write_managed "$FORK/extensions/trellis/index.ts" "$ext_key"
+  echo "installed trellis extension (absent)"
+else
+  orig="$(hash_of "$ext_key")"
+  now="$(current_hash "$ext_key")"
+  if [ -n "$orig" ] && [ "$orig" = "$now" ]; then
+    write_managed "$FORK/extensions/trellis/index.ts" "$ext_key"
+    echo "overlaid trellis extension (matches official hash)"
+  else
+    cp -L "$FORK/extensions/trellis/index.ts" "$ext_key.new"
+    echo "kept trellis extension (user-modified or unrecorded); wrote $ext_key.new"
+  fi
 fi
 
 # session-insight must be the omp edition (trellis-mem). The official CLI
@@ -125,6 +178,7 @@ for s in trellis-continue trellis-finish-work trellis-paused-work; do
     echo "kept thin-shell skill $s (already present)"
   fi
 done
+
 ```
 
 Do not rewrite the rest of `.omp/` into absolute symlinks. That wiring is kimi-agent-specific and is gitignored there.

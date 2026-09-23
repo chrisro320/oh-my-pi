@@ -1,0 +1,461 @@
+{
+  "target": "18.2.10",
+  "rows": [
+    {
+      "id": "0033",
+      "targetPatch": ".18.2.10-candidates/0033-omp-cache-turn-status-rollup-v18.2.10-candidate.patch",
+      "root": "TUI",
+      "source": [
+        ".18.2.3-candidates/0033-omp-cache-turn-status-rollup-v18.2.3-candidate.patch",
+        "AGENT"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "5be7f3ccf956d19eb0d1e9004cf64bdd121389a44569d288b02c45d504c8ae6a"
+    },
+    {
+      "id": "0004",
+      "targetPatch": ".18.2.10-candidates/0004-omp-token-total-cacheread-v18.2.10-candidate.patch",
+      "root": "TUI",
+      "source": [
+        ".18.2.3-candidates/0004-omp-token-total-cacheread-v18.2.3-candidate.patch",
+        "AGENT"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "e6f4f0cbea45fb1e2af919a3a97c63965f48e2d931996a10e9508f5b52bc1456"
+    },
+    {
+      "id": "0034",
+      "targetPatch": ".18.2.10-candidates/0034-omp-hindsight-snapshot-rollup-v18.2.10-candidate.patch",
+      "root": "AGENT",
+      "source": [
+        ".18.2.3-candidates/0034-omp-hindsight-snapshot-rollup-v18.2.3-candidate.patch",
+        "AGENT"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "28697b2cdb82fd3479ec70500156884da8ac577d16b4f5cd39a6fabd08c56957"
+    },
+    {
+      "id": "0037",
+      "targetPatch": ".18.2.10-candidates/0037-omp-usage-statusline-gate-rollup-v18.2.10-candidate.patch",
+      "root": "NM",
+      "source": [
+        ".18.2.3-candidates/0037-omp-usage-statusline-gate-rollup-v18.2.3-candidate.patch",
+        "AGENT"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "0572464b61e122f7a7b6b4bc78974c866d63ece86be3f9d4da5fffbe1d1d6534"
+    },
+    {
+      "id": "0010",
+      "targetPatch": ".18.2.10-candidates/0010-omp-extension-idle-ephemeral-turn-v18.2.10-candidate.patch",
+      "root": "AGENT",
+      "source": [
+        ".18.2.3-candidates/0010-omp-extension-idle-ephemeral-turn-v18.2.3-candidate.patch",
+        "AGENT"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "49ae75c104f68b8ea7ef984b323b07673f32713ea1f38b6e473a57644c9cdbaf"
+    },
+    {
+      "id": "0035",
+      "targetPatch": ".18.2.10-candidates/0035-omp-compaction-prefix-rollup-v18.2.10-candidate.patch",
+      "root": "NM",
+      "source": [
+        ".18.2.3-candidates/0035-omp-compaction-prefix-rollup-v18.2.3-candidate.patch",
+        "NM"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "362a3afa8e779a256ded75e232fefef45cb7d37e8fc5c8dcfd39c8e6225de99a"
+    },
+    {
+      "id": "0014",
+      "targetPatch": ".18.2.10-candidates/0014-omp-antigravity-deterministic-session-identity-v18.2.10-candidate.patch",
+      "root": "AI",
+      "source": [
+        ".18.2.3-candidates/0014-omp-antigravity-deterministic-session-identity-v18.2.3-candidate.patch",
+        "AI"
+      ],
+      "disposition": "unchanged",
+      "sha256": "d8b9d388d89508c8013255ae505aecca625eadc1de5c7f92fe09cdaf2b0a031d"
+    },
+    {
+      "id": "0036",
+      "targetPatch": "0036-omp-image-frame-budget-rollup.patch",
+      "root": "NM",
+      "source": [
+        "0036-omp-image-frame-budget-rollup.patch",
+        "NM"
+      ],
+      "disposition": "unchanged",
+      "sha256": "49c04140fbd947ea1def1c1cda4ef716b87bdaead783399a999cc8b6e05da965"
+    },
+    {
+      "id": "0017",
+      "targetPatch": ".18.2.10-candidates/0017-omp-openai-responses-native-replay-warm-v18.2.10-candidate.patch",
+      "root": "AI",
+      "source": [
+        ".18.2.3-candidates/0017-omp-openai-responses-native-replay-warm-v18.2.3-candidate.patch",
+        "AI"
+      ],
+      "disposition": "unchanged",
+      "sha256": "baa4416cd896b94a5104f4188a47f22883ef6ea4c98d417cab42aaccbe19f5c3"
+    },
+    {
+      "id": "0025",
+      "targetPatch": "0025-omp-ollama-cloud-usage-api.patch",
+      "root": "AI",
+      "source": [
+        "0025-omp-ollama-cloud-usage-api.patch",
+        "AI"
+      ],
+      "disposition": "unchanged",
+      "sha256": "19218571cc9ba7c8f4c6dee3ea3ff095f3d69d272fd7fee971c353741aa41088"
+    },
+    {
+      "id": "0026",
+      "targetPatch": "0026-omp-usage-fetch-anthropic-gate-core.patch",
+      "root": "AI",
+      "source": [
+        "0026-omp-usage-fetch-anthropic-gate-core.patch",
+        "AI"
+      ],
+      "disposition": "unchanged",
+      "sha256": "3fefe29d81d1ad62cd193a3c6a6988da60dbdd0b4b700963072dbcac5b852f6c"
+    },
+    {
+      "id": "0030",
+      "targetPatch": ".18.2.10-candidates/0030-omp-usage-cache-canonical-baseurl-v18.2.10-candidate.patch",
+      "root": "AI",
+      "source": [
+        ".18.2.3-candidates/0030-omp-usage-cache-canonical-baseurl-v18.2.3-candidate.patch",
+        "AI"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "da1905de3b41e2a4939cfaa97b7213029ddf1b1ccab4619972d8aaa2cfd51304"
+    },
+    {
+      "id": "0031",
+      "targetPatch": "0031-omp-agent-session-providers-forward.patch",
+      "root": "AGENT",
+      "source": [
+        "0031-omp-agent-session-providers-forward.patch",
+        "AGENT"
+      ],
+      "disposition": "unchanged",
+      "sha256": "5054863fcfb7f3d9341bb35fd82ce38577ba24d3c18497cd3ec9608e93cb752f"
+    },
+    {
+      "id": "0032",
+      "targetPatch": "0032-omp-goal-tool-resident.patch",
+      "root": "AGENT",
+      "source": [
+        "0032-omp-goal-tool-resident.patch",
+        "AGENT"
+      ],
+      "disposition": "unchanged",
+      "sha256": "dacf82877843e749ce8124f6b694d93af52158a5353419d17df041b2e73a5c3c"
+    },
+    {
+      "id": "0038",
+      "targetPatch": ".18.2.10-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.2.10-candidate.patch",
+      "root": "NM",
+      "source": [
+        ".18.2.3-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.2.3-candidate.patch",
+        "NM"
+      ],
+      "disposition": "unchanged",
+      "sha256": "fa17e916b6a3359092abcbf07c07da7b7e6c2e585679009a6c08d02ef7216671"
+    },
+    {
+      "id": "0043",
+      "targetPatch": ".18.2.10-candidates/0043-omp-interrupt-prune-symmetry-v18.2.10-candidate.patch",
+      "root": "AGENT",
+      "source": [
+        ".18.2.3-candidates/0043-omp-interrupt-prune-symmetry-v18.2.3-candidate.patch",
+        "AGENT"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "2c112eb9c99f6c18970e7f37c28bad01a7ac4d5396b6544be9a0db23cc0fb92f"
+    },
+    {
+      "id": "0044",
+      "targetPatch": "0044-omp-image-budget-wire-api-family.patch",
+      "root": "NM",
+      "source": [
+        "0044-omp-image-budget-wire-api-family.patch",
+        "NM"
+      ],
+      "disposition": "unchanged",
+      "sha256": "7fc8d861d347c8938c39c19305f32f17bce4f4b8024d8ce0d144e3fe2cb4d58d"
+    },
+    {
+      "id": "0052",
+      "targetPatch": "0052-omp-snapcompact-model-billing-commandcode-budget.patch",
+      "root": "NM",
+      "source": [
+        "0052-omp-snapcompact-model-billing-commandcode-budget.patch",
+        "NM"
+      ],
+      "disposition": "unchanged",
+      "sha256": "b61925ebc502340e813e2f8f9c58e5060ae03087f23521ab56c8c2b67ff15535"
+    },
+    {
+      "id": "0057",
+      "targetPatch": "0057-omp-devin-image-budget.patch",
+      "root": "NM",
+      "source": [
+        "0057-omp-devin-image-budget.patch",
+        "NM"
+      ],
+      "disposition": "unchanged",
+      "sha256": "58d8b9f62fb011480b3510ebb6d5c22d162c0bd45456e792d365921be0ec099b"
+    },
+    {
+      "id": "0045",
+      "targetPatch": ".18.2.10-candidates/0045-omp-snapcompact-frame-reprice-v18.2.10-candidate.patch",
+      "root": "AGENT",
+      "source": [
+        "0045-omp-snapcompact-frame-reprice.patch",
+        "AGENT"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "3cda775638fdc54b4f1472334e663be7d6dc3b018e2d7ee346d33563901b8ea7"
+    },
+    {
+      "id": "0046",
+      "targetPatch": "0046-omp-supersede-warm-prefix-guard.patch",
+      "root": "AGENT",
+      "source": [
+        "0046-omp-supersede-warm-prefix-guard.patch",
+        "AGENT"
+      ],
+      "disposition": "unchanged",
+      "sha256": "bda022e84bcdd2273a9356e570acd483de1cbdc7354a729e0f932fa29fa423cc"
+    },
+    {
+      "id": "0048",
+      "targetPatch": ".18.2.10-candidates/0048-omp-advisor-quota-rotation-bound-v18.2.10-candidate.patch",
+      "root": "AGENT",
+      "source": [
+        ".18.2.3-candidates/0048-omp-advisor-quota-rotation-bound-v18.2.3-candidate.patch",
+        "AGENT"
+      ],
+      "disposition": "unchanged",
+      "sha256": "f6f9d68aa081c138fffb53c0d6471ab138bacae19aedddb400cc59b6ba3ff93e"
+    },
+    {
+      "id": "0050",
+      "targetPatch": ".18.2.10-candidates/0050-omp-session-history-preview-v18.2.10-candidate.patch",
+      "root": "NM",
+      "source": [
+        "0050-omp-session-history-preview.patch",
+        "AGENT"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "27287f1df48804afa69d8ca8f70d07fa3d8c7d19c7b2883c7a5cfe458fe2aab6"
+    },
+    {
+      "id": "0054",
+      "targetPatch": "0054-omp-antigravity-drop-requesttype-agent.patch",
+      "root": "AI",
+      "source": [
+        "0054-omp-antigravity-drop-requesttype-agent.patch",
+        "AI"
+      ],
+      "disposition": "unchanged",
+      "sha256": "b9f5e0c6c1beb64c3f74c1df7a9e414c4f7a134992ad05a56e496784ccb7e550"
+    },
+    {
+      "id": "0047",
+      "targetPatch": ".18.2.10-candidates/0047-omp-date-cwd-anchor-stability-v18.2.10-candidate.patch",
+      "root": "AGENT",
+      "source": [
+        ".18.2.3-candidates/0047-omp-date-cwd-anchor-stability-v18.2.3-candidate.patch",
+        "AGENT"
+      ],
+      "disposition": "unchanged",
+      "sha256": "6368b6788894a2387e104a66b278f1350035f59ee663184e10b4c1bcbd6701c4"
+    },
+    {
+      "id": "0055",
+      "targetPatch": ".18.2.10-candidates/0055-omp-devin-auth-cache-turn-timing-v18.2.10-candidate.patch",
+      "root": "AI",
+      "source": null,
+      "disposition": "preserved-deployed-unregistered",
+      "sha256": "7d5ed1781eec29f959d68493bfa6b3705cbce46463f5d878d2d8fe748833deb6"
+    },
+    {
+      "id": "0071",
+      "targetPatch": ".18.2.10-candidates/0071-omp-devin-request-dump-v18.2.10-candidate.patch",
+      "root": "AI",
+      "source": null,
+      "disposition": "preserved-deployed-unregistered",
+      "sha256": "fed72ea226723344d9ed3e701bdbf6ab15715b1b4851e53bd1f378dafa5d23f4"
+    },
+    {
+      "id": "0056",
+      "targetPatch": "0056-omp-devin-metadata-alignment.patch",
+      "root": "NM",
+      "source": [
+        "0056-omp-devin-metadata-alignment.patch",
+        "NM"
+      ],
+      "disposition": "unchanged",
+      "sha256": "59c6db589d824758b84a38da10cfe87a3a5b99cb27c3a3d44b7ee16b85b18aad"
+    },
+    {
+      "id": "0058",
+      "targetPatch": "0058-omp-devin-thinking-signature-replay.patch",
+      "root": "AI",
+      "source": [
+        "0058-omp-devin-thinking-signature-replay.patch",
+        "AI"
+      ],
+      "disposition": "unchanged",
+      "sha256": "2019038db5b9210f3e04c4b8716acab5a8ac39bf8a79943450e1e326ba1c3ce3"
+    },
+    {
+      "id": "0060",
+      "targetPatch": ".18.2.10-candidates/0060-omp-devin-idle-cascade-pin-v18.2.10-candidate.patch",
+      "root": "NM",
+      "source": [
+        ".18.2.3-candidates/0060-omp-devin-idle-cascade-pin-v18.2.3-candidate.patch",
+        "NM"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "5f49da774d70d6a12d76f0a4b41fd6a612c86bcf796324f66ef8aa9f5dd80077"
+    },
+    {
+      "id": "0062",
+      "targetPatch": ".18.2.10-candidates/0062-omp-snapcompact-reduction-baseline-previous-archive-v18.2.10-candidate.patch",
+      "root": "AGENT",
+      "source": [
+        "0062-omp-snapcompact-reduction-baseline-previous-archive.patch",
+        "AGENT"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "da7c4b4a06859091730b5e5fc0966856e180d659f2a3a3027e42e318b779edfb"
+    },
+    {
+      "id": "0063",
+      "targetPatch": ".18.2.10-candidates/0063-omp-codex-v2-compaction-live-chain-v18.2.10-candidate.patch",
+      "root": "NM",
+      "source": [
+        "0063-omp-codex-v2-compaction-live-chain.patch",
+        "NM"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "d43cfa19599b72b6b338e534a384bc1d589ad4f12e769a599f58889a5f27f029"
+    },
+    {
+      "id": "0065",
+      "targetPatch": ".18.2.10-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.2.10-candidate.patch",
+      "root": "NM",
+      "source": [
+        ".18.2.3-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.2.3-candidate.patch",
+        "NM"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "ca26e8cd9ab7a6bb79039cf07134cf42f2418f932aae00266e5247393af2c95a"
+    },
+    {
+      "id": "0066",
+      "targetPatch": ".18.2.10-candidates/0066-omp-anthropic-native-compaction-live-context-v18.2.10-candidate.patch",
+      "root": "NM",
+      "source": [
+        "0066-omp-anthropic-native-compaction-live-context.patch",
+        "NM"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "cf387138817b7aa556bd9a6693e28bbeeb4c4f2ba9585e2ee8dbdcc995fb9bbb"
+    },
+    {
+      "id": "0067",
+      "targetPatch": ".18.2.10-candidates/0067-omp-remote-compaction-lane-trace-live-tools-v18.2.10-candidate.patch",
+      "root": "NM",
+      "source": [
+        "0067-omp-remote-compaction-lane-trace-live-tools.patch",
+        "NM"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "1b718d669ad6fb41959b75091aecdac914a3f83b5feb670ed84a1c1308fe9745"
+    },
+    {
+      "id": "0068",
+      "targetPatch": ".18.2.10-candidates/0068-omp-codex-stale-baseline-chain-v18.2.10-candidate.patch",
+      "root": "NM",
+      "source": [
+        ".18.2.3-candidates/0068-omp-codex-stale-baseline-chain-v18.2.3-candidate.patch",
+        "NM"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "dc5334ce5983ff29e65f1c163c90dedc3a2d3cf9e477f1b604f91cf39a94e427"
+    },
+    {
+      "id": "0069",
+      "targetPatch": ".18.2.10-candidates/0069-omp-codex-effort-history-resume-v18.2.10-candidate.patch",
+      "root": "AI",
+      "source": [
+        ".18.2.3-candidates/0069-omp-codex-effort-history-resume-v18.2.3-candidate.patch",
+        "AI"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "d21ea459929c952e4776ada3fb0d335d0d6062e22e6768b1305c522f63b78a06"
+    },
+    {
+      "id": "0070",
+      "targetPatch": ".18.2.10-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.2.10-candidate.patch",
+      "root": "NM",
+      "source": [
+        ".18.2.3-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.2.3-candidate.patch",
+        "NM"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "81def58cdce1d4650bd0b4d0459dd21c8dc7ad984669ae159165fab5eef0209a"
+    },
+    {
+      "id": "0072",
+      "targetPatch": ".18.2.10-candidates/0072-omp-session-pin-static-auth-ui-v18.2.10-candidate.patch",
+      "root": "AGENT",
+      "source": [
+        "0072-omp-session-pin-static-auth-ui.patch",
+        "AGENT"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "67e42abc5891c34b8dc8e914011dcc9cc35540bb7018e7adf8e2cdf18dd570f6"
+    },
+    {
+      "id": "0073",
+      "targetPatch": ".18.2.10-candidates/0073-omp-read-description-live-v18.2.10-candidate.patch",
+      "root": "AGENT",
+      "source": [
+        "0073-omp-read-description-live.patch",
+        "AGENT"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "acd0bc06931909556a2d2be0aed216f77cc024c3a0326322898add5e9d5baad2"
+    },
+    {
+      "id": "0074",
+      "targetPatch": ".18.2.10-candidates/0074-omp-anthropic-context-cache-boundaries-v18.2.10-candidate.patch",
+      "root": "AI",
+      "source": [
+        "0074-omp-anthropic-context-cache-boundaries.patch",
+        "AI"
+      ],
+      "disposition": "version-specific-candidate",
+      "sha256": "320b20ff2acfcb8d561c6fe8480657d054c22da4260c62ace86f474c20b63555"
+    },
+    {
+      "id": "0075",
+      "targetPatch": ".18.2.10-candidates/0075-omp-hindsight-recall-promotion-slot-v18.2.10-candidate.patch",
+      "root": "AGENT",
+      "source": null,
+      "disposition": "preserved-deployed-unregistered",
+      "sha256": "0d877ea7c1f67421419a3b626cad169a583cb5ad5b41405c2f722a4b647a9c0b"
+    }
+  ],
+  "excludedByUser": [
+    "0076 scout thinking customization"
+  ]
+}

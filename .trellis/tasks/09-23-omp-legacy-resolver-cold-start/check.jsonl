@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/verification-gate-contracts.md","reason":"Require failure discrimination, real cold-child startup sequence, selected-root isolation and final ledger cmp."}
+{"file":".trellis/spec/backend/patch-rollup-contracts.md","reason":"Verify the complete pinned plan forward/reverse against official pristine and preserve historical patch bytes."}
+{"file":".trellis/tasks/09-23-omp-legacy-resolver-cold-start/prd.md","reason":"R1-R3 scope and AC1-AC6 observable acceptance, including protected runtime-state boundaries."}
+{"file":".trellis/tasks/09-23-omp-legacy-resolver-cold-start/implement.md","reason":"RESUME pointer, execution checklist, validation matrix and rollback gates."}
+{"file":".trellis/tasks/09-23-omp-legacy-resolver-cold-start/research/remaining-shim-risk.log","reason":"Known failing canonical package require to distinguish root repair from static UI mitigation."}

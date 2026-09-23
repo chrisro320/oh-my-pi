@@ -1,0 +1,71 @@
+{
+  "armed_before_controller": {
+    "exit": 0,
+    "covered": [
+      "model hub render/Escape/focus",
+      "temporary picker render/Escape/focus",
+      "session pin render/Escape"
+    ]
+  },
+  "remaining_canonical_require": {
+    "exit": 1,
+    "NameTooLong": true
+  },
+  "browser_real_esm_entry": {
+    "exit": 0,
+    "covered": [
+      "module import",
+      "ARIA ref parsing",
+      "ARIA evaluator generation"
+    ]
+  },
+  "cold_module_results": [
+    {
+      "target": "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/discovery/index.ts",
+      "exit": 0,
+      "output": "LOADED /home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/discovery/index.ts cacheStats,disableProvider,disableUserSource,enableProvider,enableUserSource,getAllCapabilitiesInfo,getAllProvidersInfo,getCapability,getCapabilityInfo,getDisabledProviders,getEnabledProviders,getProviderInfo,initializeWithSettings,invalidate,isForeignUserProvider,isProviderEnabled,isUserSourceEnabled,listCapabilities,loadCapability,reset,resetCapabilityForTests,setDisabledProviders,setEnabledProviders\n"
+    },
+    {
+      "target": "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/tools/browser.ts",
+      "exit": 1,
+      "output": "\n[Uncaught Exception] SyntaxError: Missing 'default' export in module '/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/export/html/tool-views.generated.js'.\n    at <parse> (:0)\n    at unknown\n    at /tmp/omp-upgrade-risk-k4prrv8z/cold-module.ts:7:14\n    at processTicksAndRejections (native:7:39)\n"
+    },
+    {
+      "target": "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/tools/browser/prelude-definition.ts",
+      "exit": 0,
+      "output": "LOADED /home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/tools/browser/prelude-definition.ts createBrowserPreludeDefinition\n"
+    },
+    {
+      "target": "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/tools/browser/recording.ts",
+      "exit": 0,
+      "output": "LOADED /home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/tools/browser/recording.ts BrowserRecordingError,RecordingController\n"
+    },
+    {
+      "target": "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/tools/computer/prelude-definition.ts",
+      "exit": 0,
+      "output": "LOADED /home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/tools/computer/prelude-definition.ts computerPreludeAssets\n"
+    },
+    {
+      "target": "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/utils/video.ts",
+      "exit": 0,
+      "output": "ffmpeg /usr/bin/ffmpeg\nLOADED /home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/utils/video.ts VideoError,buildChangedFrameContactSheetPng,buildVideoContactSheetPng,extractVideoFramePng,formatVideoDetails,formatVideoTimestamp,parseVideoSelector,parseVideoTimestamp,probeVideo,requireMediaBinary,runFfmpeg,splitVideoReadTarget,videoMimeForPath\n"
+    },
+    {
+      "target": "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/overlays/model-browser.ts",
+      "exit": 0,
+      "output": "LOADED /home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/overlays/model-browser.ts CHAT_MODEL_ROLE_IDS,KIND_ROLE_IDS,MODEL_ROLE_IDS,ModelBrowser,buildBrowserItems,buildSearchAffinity,buildSessionModelScope,formatRoleChip,modelSearchText,rankModelItems,resolveRoleAssignments,sortModelItems\n"
+    },
+    {
+      "target": "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/theme/schema-validation.ts",
+      "exit": 0,
+      "output": "LOADED /home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/theme/schema-validation.ts validateThemeJson\n"
+    }
+  ],
+  "production_changes": false,
+  "limits": [
+    "No real OAuth login/logout or account mutation",
+    "No provider inference",
+    "Browser cold module checks are not end-to-end browser operation",
+    "Existing permanent gate ordering is weaker than this fresh-process probe"
+  ]
+}
