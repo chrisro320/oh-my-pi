@@ -34,7 +34,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.1.18 計畫（保留） | canonical 25 條 +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062、0063、0065、0066、0067、0068、0069、0070 | **38** |
 | 18.1.14 計畫（回退） | canonical 25 條 +候選置換 7 件 +鏈尾 0047、0063 | **27** |
 | 18.2.3 計畫（保留） | 0041 合入 0037；含後續 0072、0073、0074；不改本次遷移前的計畫列 | **39** |
-| 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；0076 按使用者要求排除 | **42** |
+| 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化） | **44** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -711,6 +711,16 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **wire 等價**：一次性腳本實測持久化 entry 經 `buildSessionContext` 重建後 `convertToLlm` 與記憶體版本逐位元組相同（含 timestamp；角色為 `developer`）。
 - **自動回歸**：`verify-eval-state-context-persist.ts`（`_omp_plan_has 0076`），真實 `AgentSession` + in-memory session，零 provider 呼叫。GATE 1 帶 eval 歷史開會話→持久化回合→`ingestReplicatedEntry` 模擬重啟，resume 的 wire 必須與 live 逐位元組相同且不重複落盤；GATE 2 唯讀快照與不變狀態的提交重建都不寫；GATE 3 `updateEvalState` 改 runtime 後唯讀不寫、提交寫一次、舊提醒保持索引、最新者在尾且含 `alive`，再重建不重寫；GATE 4 源碼斷言兩個唯讀呼叫點。**負對照**：未套 0076 的 live 在 GATE 1 失敗（提醒 live 在 index 3、resume 移到尾端）。
 - **不救既有記憶體提醒**：套用前已存在於舊進程記憶體、未落盤的提醒無法補回；這類會話 resume 仍會分岔一次，之後穩定。
+- **生效條件**：需重啟 omp 進程。
+
+### 0077 — turn-recovery 重試提醒持久化，resume 後重放於同一位置（僅 18.2.10）
+
+- **觸發面**：`session/turn-recovery.ts` 三處重試提醒（malformed function call、empty stop、unexpected stop），皆為 `role: "developer"`、`attribution: "agent"`，附加後立即 `scheduleAgentContinue` 重試。
+- **根因**：三處只呼叫 `agent.appendMessage`（只進記憶體，不發 `message_end`，不落盤）。重試回覆照常持久化在它**之後**；resume 或行程內重建時提醒消失，wire 自提醒原索引起全段分岔。與 0076 同一類。上游同形的 plan-mode 提醒（`agent-session.ts` `reminderMessage`）已是 `agent.appendMessage(m)` 後 `sessionManager.appendMessage(m)`；本檔 thinking-loop 提醒亦雙寫（custom 形，未改）。
+- **修法**（`${AGENT}`，僅 `turn-recovery.ts`）：新增 `#appendRetryReminder(text)`，建一個 `Message`（原欄位不變）並對同一物件 `agent.appendMessage` + `sessionManager.appendMessage`；三處改呼叫它。仍是 developer 一般訊息，不改用 `appendCustomMessageEntry`，wire 語義不變。型別用 pi-ai `Message`（`SessionManager.appendMessage` 參數聯集不含全部 `AgentMessage`）。
+- **順序**：empty stop 先 `#dropAssistantTurnDurably` 再附加提醒；malformed call 與 unexpected stop 保留失敗回合（已在 `message_end` 落盤）後附加 → 記憶體與檔案順序一致。
+- **自動回歸**：`verify-turn-recovery-reminder-persist.ts`（`_omp_plan_has 0077`），真實 `AgentSession` + in-memory session + mock model（先空 stop、再正常回覆），走真實 empty-stop 恢復路徑。前置：恰重試一次且重試請求帶 developer 提醒；GATE 1 提醒在持久化分支上恰一則；GATE 2 `buildSessionContext` 重建的 wire 與 live 逐位元組相同。**負對照**：未套 0077 的 live 於 GATE 1 失敗（`0 !== 1`）。
+- **監控**：`context-persist-audit` 擴展對未落盤的 developer 尾端當筆報 `live-extra`；套用後此路徑應為 `ok`。
 - **生效條件**：需重啟 omp 進程。
 
 ## 3. 已撤下的補丁
