@@ -39,7 +39,7 @@
  						customInstructions,
 --- a/pi-coding-agent/src/session/session-maintenance.ts
 +++ b/pi-coding-agent/src/session/session-maintenance.ts
-@@ -3317,7 +3317,11 @@
+@@ -3317,7 +3317,18 @@
  			if (!sharesActivePromptCacheIdentity(requestModel, this.#host.agent.state.model)) return undefined;
  			if (this.#host.sessionManager.getLeafId() !== branchLeafId) return undefined;
  			const prefixEntryId =
@@ -50,7 +50,15 @@
 +						? preparation.historyPrefixEntryId
 +						: preparation.turnPrefixEntryId;
  			if (!prefixEntryId || !entriesById.has(prefixEntryId)) return undefined;
- 			const prefixMessages = buildSessionContext(branchEntries, prefixEntryId, entriesById).messages;
+-			const prefixMessages = buildSessionContext(branchEntries, prefixEntryId, entriesById).messages;
++			// The live scope replays what the main turn actually sent: the agent's
++			// in-memory messages. Host-only entries (the eval state reminder) are
++			// never persisted, so a rebuild from session entries drops them and
++			// forks the cached prefix at that position.
++			const prefixMessages =
++				scope === "live"
++					? this.#host.agent.state.messages.slice()
++					: buildSessionContext(branchEntries, prefixEntryId, entriesById).messages;
  			const { transformed, llmMessages } = await this.#host.convertMessagesToLlmWithSource(
 --- a/pi-coding-agent/src/session/session-advisors.ts
 +++ b/pi-coding-agent/src/session/session-advisors.ts

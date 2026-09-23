@@ -611,6 +611,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **自動回歸**：`bun patches/verify-anthropic-native-compaction-live-context.ts`（零 provider 呼叫，已進 `apply.sh` apply 尾部套件，18.1.14 計畫 skip）。GATE 0 fixture 模型必過 `supportsAnthropicCompaction`；GATE 1 native 分支必請求 `"live"` scope 且只發一次 `anthropicCompaction` 請求；GATE 2 請求體 `systemPrompt`/`tools`/`messages` 逐值等於宿主回傳的 live context（tools 含 `i`、messages 含擴充注入文字），`pauseAfterCompaction=true`；GATE 3 API 摘要成為 entry summary；GATE 4 callback 回 `undefined` 時回退到 `remoteSystemPrompt` + 原始 tools。**負向對照**：隔離樹（`/tmp/g0`，僅 `pi-agent-core` 換回修前快照，其餘 symlink live）→ GATE 1 `native lane must request the "live" scope (saw: <none>)`；同樹換回修後檔 → PASS。0035 既有 `verify-prefix-cache-compaction.ts` 修後仍 `PASS structured=1 flat=1 windows=12`。
 - **觀測缺口（未修）**：native lane 標 `oneshotKind: "compaction_native"`，不經 `traceCompaction`，`compaction-trace.log` 無 `summarize.request/usage`；`payload-archive.ts` 亦歸檔不到。真實驗收只能看主 usage 事件：修前應為 `cacheRead=0 / cacheWrite≈全量`，修後應 `cacheRead≈live 水位 / cacheWrite<3k`。尚未在真實會話觸發。
 - **不變項**：`describeRetainedTail(retainedTail)` 仍以 `convertToLlm(recentMessages)` 計尾部長度；Trellis 只合併文字進既有 user 訊息、不改訊息數，計數正確。若日後有擴充在 `context` 鏈增刪訊息，此處是唯一需重看的點。
+- **修正（2026-09-23，原地改 18.2.10 候選，不加層）**：首筆真實樣本（會話 `01a0cce1`，`claude-opus-5-5`，`/compact`）`hasLiveContext:true` 仍幾乎全量重寫——native `cacheRead 41,593 / cacheWrite 139,120（1h）/ output 2,568`，trace 計 $0.76；前一筆 main `cacheRead 192,918`。`anthropic-wire` meta `prefix-different`，首差 `messages[34]`。實證：main 刪掉第 34 則後與 native 前 118 則 md5 相同、tools 相同；system 僅 `system[0]` 的 `cch=` 不同，而相鄰 main 每輪 `cch` 皆變且照常命中，非因。根因：eval 狀態提醒（`agent-session.ts:1387/10604`，`appendMessage`／`replaceMessages`）只進 `agent.state.messages`、不落 session 檔；primary live scope 以 `buildSessionContext(branchEntries…)` 重建，漏掉這則 → 其後全段分岔；斷點在尾端，服務端 20 區塊回溯觸不到第 34 則前的舊前綴，只剩 tools+system 命中。修法：`session-maintenance.ts` live scope 改用 `this.#host.agent.state.messages.slice()`（`appendMessage` 原地 push，故取快照），history/turn-prefix 不動；advisor 版本無此注入，不改。GATE 5（源碼斷言，舊源碼必紅已驗）。18.1.18／18.2.3 候選凍結為回退基線不改。09-21 `opus-5` 樣本（cacheRead 39,113）形狀相同，但 payload 已佚，**未證同因**。「服務端因自訂 instructions 剝 thinking」假說待前綴一致後的下一個真實樣本再驗。
 - **版本限定**：a 側是 0035 候選 + 0063 之後的 `compaction.ts` 形態，且 18.1.14 無 Anthropic native lane，不做版本候選。
 
 ### 0067 — 把 0066 的不變量推廣到兩條 OpenAI 遠端 lane，並補齊三條 lane 的摘要儀表（18.1.18／18.2.3）
@@ -700,6 +701,17 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **未修（已知同族，另案）**：本次 payload 的另一個差異——頂層 `reasoning_effort`（無 → `"high"`）與 `messages[3]` 的 `reasoning_content` 重放——落在 0065（plugin record vs catalog record）的領域內，機制未坐實，本補丁不動。
 - **重放與登記邊界**：`--- a/` 的基準隨 root 而異——root 是 `${AGENT}`（`…/pi-coding-agent`）時寫 `a/src/…`，root 是 `${NM}` 時寫 `a/<pkg>/src/…`（0065、0052 即後者）。本補丁用前者；寫錯時 `patch -d "$root"` 找不到目標檔，且 `mirror_touched` 會一併跳過該檔，於 `--check` 報 CONFLICT（本輪實際踩過，已修正）。沙箱往返須以**該補丁的 root** 為 `-p1` 基準。
 - **生效條件**：需重啟 omp 進程；未重啟的進程仍跑舊碼。
+
+### 0076 — eval 狀態提醒持久化，resume 後重放於同一位置（僅 18.2.10）
+
+- **觸發面**：18.2.10 新增 eval 狀態提醒（`prompts/system/eval-state-context.md`、`eval/state.ts`；18.2.3–18.2.9 tarball 均無，CHANGELOG 未記；18.2.11 同碼）。歷史含 eval 呼叫即注入，內容是 host kernel registry 快照（新進程固定為「No retained eval runtime…」）。
+- **根因**：`agent-session.ts:1387`（constructor）與 `#withEvalStateContext`（`buildDisplaySessionContext()`；壓縮、prune、shake、branch、reload、rewind 的重建都經此）只把提醒推入記憶體 `agent.state.messages`，從不寫 session。之後的回合照常持久化在它**之後**；重啟 resume 從磁碟重建時它在原位消失、新提醒改貼到尾端 → wire 自原索引起全段分岔。會話 `01a0cce1` 壓縮後的 `compaction-replay` 中提醒位於 `messages[19]`（共 127 則），resume 即自該處分岔。上游對同類的 `INTERRUPTED_THINKING` 標記選擇不上 wire（`messages.ts:1029-1034`，註解即此理由）；eval 提醒須給模型看，不能照抄，故改為持久化。
+- **修法**（`${NM}`，`agent-session.ts` + `collab/guest.ts`）：`#nextEvalStateContext(messages)` 純判定——上下文中最新一則 eval 提醒內容相同則不加，否則回傳新提醒；`#persistEvalStateContext` 以 `appendCustomMessageEntry`（同 customType/content/display/attribution/timestamp）落盤。constructor 與提交型重建落盤並附加；`buildDisplaySessionContext({ persistEvalStateContext: false })` 為唯讀快照，只供 `switchSession()` 的比較快照（`:9718`）與 collab guest 副本（副本不得寫 host 沒寫的 entry）。
+- **語義（取捨）**：歷史 append-only。runtime 變化後舊快照留在原索引、新快照附尾，最新者權威（模板本身「NEVER infer variable values from this snapshot」）。不採「替換舊 entry」（改中段歷史即斷前綴）與「每請求尾端動態注入」（每輪換位置，上一輪的位置下一輪必分岔）。session 檔多出 `display:false` 的 custom entry，僅在提醒內容變化時新增；branch 導航後若需提醒，會在目標節點下多一個隱藏子節點。
+- **wire 等價**：一次性腳本實測持久化 entry 經 `buildSessionContext` 重建後 `convertToLlm` 與記憶體版本逐位元組相同（含 timestamp；角色為 `developer`）。
+- **自動回歸**：`verify-eval-state-context-persist.ts`（`_omp_plan_has 0076`），真實 `AgentSession` + in-memory session，零 provider 呼叫。GATE 1 帶 eval 歷史開會話→持久化回合→`ingestReplicatedEntry` 模擬重啟，resume 的 wire 必須與 live 逐位元組相同且不重複落盤；GATE 2 唯讀快照與不變狀態的提交重建都不寫；GATE 3 `updateEvalState` 改 runtime 後唯讀不寫、提交寫一次、舊提醒保持索引、最新者在尾且含 `alive`，再重建不重寫；GATE 4 源碼斷言兩個唯讀呼叫點。**負對照**：未套 0076 的 live 在 GATE 1 失敗（提醒 live 在 index 3、resume 移到尾端）。
+- **不救既有記憶體提醒**：套用前已存在於舊進程記憶體、未落盤的提醒無法補回；這類會話 resume 仍會分岔一次，之後穩定。
+- **生效條件**：需重啟 omp 進程。
 
 ## 3. 已撤下的補丁
 

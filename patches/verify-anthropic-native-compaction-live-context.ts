@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 
 // Local structural fixture types. A type-only import cannot be root-selected
@@ -49,6 +50,7 @@ interface Model {
 // Package imports are runtime-selected so an isolated tree cannot fall back to live.
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
@@ -228,6 +230,20 @@ await compact(
 assert.equal(fallbackRequests.length, 1, "fallback must still issue one native request");
 assert.deepEqual(fallbackRequests[0].systemPrompt, ["STALE_SYSTEM"], "fallback keeps remoteSystemPrompt");
 assert.deepEqual(fallbackRequests[0].tools, rawTools, "fallback keeps the raw tools");
+
+// GATE 5: the host's live scope must replay the agent's in-memory messages,
+// not a rebuild from session entries. The eval state reminder is appended to
+// `agent.state.messages` but never persisted; a session-entry rebuild drops it
+// and the native request forks the main turn's cached prefix at that message
+// (observed: prefix-different at messages[34], cacheWrite 139,120). The array
+// is copied because `appendMessage` pushes in place during the async rebuild.
+// The builder is a private class method, so assert on the selected source text.
+const maintenanceSource = readFileSync(`${AGENT_ROOT}/src/session/session-maintenance.ts`, "utf8");
+assert.match(
+	maintenanceSource,
+	/const prefixMessages =\s*scope === "live"\s*\?\s*this\.#host\.agent\.state\.messages\.slice\(\)\s*:\s*buildSessionContext\(branchEntries, prefixEntryId, entriesById\)\.messages;/,
+	"primary live scope must use a snapshot of agent.state.messages (host-only messages are not in session entries)",
+);
 
 console.log(
 	`PASS anthropic native compaction live context: scopes=${scopes.join(",")} messages=${request.context.messages.length} tools=${request.context.tools?.length}`,

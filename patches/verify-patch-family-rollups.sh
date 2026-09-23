@@ -651,6 +651,7 @@ EXPECTED_PLAN_18210=(
 	".18.2.10-candidates/0073-omp-read-description-live-v18.2.10-candidate.patch:AGENT"
 	".18.2.10-candidates/0074-omp-anthropic-context-cache-boundaries-v18.2.10-candidate.patch:AI"
 	".18.2.10-candidates/0075-omp-hindsight-recall-promotion-slot-v18.2.10-candidate.patch:AGENT"
+	".18.2.10-candidates/0076-omp-eval-state-context-persist-v18.2.10-candidate.patch:NM"
 )
 [[ "${PLAN18210[*]}" == "${EXPECTED_PLAN_18210[*]}" ]] \
 	|| die "resolved 18.2.10 plan drifted from EXPECTED_PLAN_18210"

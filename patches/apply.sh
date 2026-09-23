@@ -398,6 +398,10 @@ case "$OMP_PATCH_VERSION" in
 	_omp_tail_candidate "18.2.10" "0074-omp-anthropic-context-cache-boundaries" "${AI}"
 	# These behaviors were deployed outside the older controller's plan.
 	_omp_tail_candidate "18.2.10" "0075-omp-hindsight-recall-promotion-slot" "${AGENT}"
+	# 0076: the eval state reminder (new in 18.2.10) lived only in memory, so a
+	# resumed process rebuilt from disk dropped it mid-history and re-appended it
+	# at the tail, forking the cached prefix. Committing rebuilds persist it.
+	_omp_tail_candidate "18.2.10" "0076-omp-eval-state-context-persist" "${NM}"
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10)" >&2
@@ -806,6 +810,9 @@ if [[ "$MODE" == "apply" ]]; then
 	fi
 	if _omp_plan_has 0075; then
 		bun "${HERE}/verify-hindsight-recall-promotion-slot.ts"
+	fi
+	if _omp_plan_has 0076; then
+		bun "${HERE}/verify-eval-state-context-persist.ts"
 	fi
 fi
 if [[ "$MODE" != "check" ]]; then
