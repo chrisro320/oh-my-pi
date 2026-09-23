@@ -819,6 +819,17 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
     - 閘門 `patches/verify-resume-cache-breakpoint.ts`（已進 `apply.sh` apply 序列）：直接吃那個真實 400 body，倒回 provider-only 狀態重放 → `4 -> 4`、released 21、anchor 20、最新尾部存活、TTL 繼承 1h、同會話只觸發一次；用 `git show HEAD` 的修復前版本重跑 → `would 400 (cap 4)` 被抓（可 falsify）
     - 真實進程驗收（兩段）：① `OMP_DUMP_EXIT=1` 抓出站 payload — 證明 hook 在真實路徑改寫（`released index=28 / added index=26`），但請求**未發送**；② 不帶 `OMP_DUMP_EXIT` 真發一輪（複製會話到 `--session-dir`，不污染原會話）— `released index=29 / added index=26 messages=31`，`turn_end in=4 cw=141988 out=456`，`~/.omp/logs/http-400-requests/` 無新增條目
 
+- `~/.omp/agent/extensions/context-persist-audit.ts`（镜像 `patches/context-persist-audit-extension.ts`，2026-09-23 三副本 `cmp` 逐字节一致；手动部署，未进 `apply.sh`）：在花钱之前抓出「只存在内存」的上下文消息
+  - 根因类：0076 的 eval 提醒、`turn-recovery.ts` 的重试提醒都是只进 `agent.state.messages`、不写 session 档；live 进程照常发送，一旦从档重建（resume 或进程内 `buildDisplaySessionContext`），它就消失或挪位，下一笔请求从那一格起整段 miss。`cache-prefix-audit` 只能在 miss 已付费后从 wire 上看到
+  - 做法：挂 `context` 事件，每次请求前用 `buildSessionContext(getEntries(), getLeafId())`（与 resume 同一函数）从档重建，两边都过 `convertToLlm`（去掉不上 wire 的 interrupted-thinking 等），逐则比 `role`/`content`/`toolCallId`
+  - 结论：`ok` / `diverged@i`（重建会在第 i 则分叉）/ `live-extra@i`（尾端有内存独有的非输入消息）/ `file-extra`（档有、内存没有的尾端）
+  - 尾端只豁免**输入**：role 为 user／toolResult 的尾端记为 `pendingTail` 不报，因为最新 prompt／tool result 进 `context` 时还没 append 进 session entries（新会话首笔请求 entries 为 0，实际误报过 `live 1, file 0`）。其它 role（`turn-recovery.ts` 重试提醒是 `appendMessage({ role: "developer" })` 后立即 `scheduleAgentContinue`）在第一次带着它的请求就报 `live-extra`。残余盲区：内存独有且 role 为 user／toolResult 的尾端消息，要等后面有消息落档才以 `diverged` 报出
+  - 唯一豁免是 Trellis 每轮注入，且精确匹配：读 Trellis 自己落盘的锚点 `.trellis/.runtime/omp-anchors/omp_<sessionId>.json`（键 `role:timestamp:sha256(content)[0,16]`），两边都按 Trellis 同一规则展开后再严格比对（展开幂等，与扩展加载顺序无关）；user 消息上任何其它尾差都算漂移
+  - 只观察：不改 context、不抛错；首次检查、每个新的非 ok 签名、回到 ok 时各记一行到 `~/.omp/agent/context-persist-audit.log`（JSONL，1 MiB 轮替），非 ok 另发 UI warning。日志**不存消息内容**（hook 跑在 provider 混淆之前），每侧只记 role、序列化长度、sha256 前 16 位
+  - 已知盲区：secret 混淆（重建未反混淆）、snapcompact 懒加载帧（无 blob resolver）可能误报。Trellis 锚点档损坏时照常审计但不做 Trellis 豁免，日志带 `anchorError`
+  - 闸门 `patches/verify-context-persist-audit.ts`（手动跑，未进 `apply.sh`）：真实 in-memory `SessionManager` + 同一 `buildSessionContext`；覆盖新会话首请求、tool 续跑尾端、重试提醒（与 `turn-recovery.ts` 同形）当笔报 `live-extra@1`、回复落档后 `diverged@1`、user 未知尾块、Trellis 精确／错误锚点、坏锚点档。以修正前版本（尾端全豁免）重跑 → 第 3 段 `AssertionError` 被抓（可 falsify）
+  - 冒烟（真实 loader + 本会话档副本，125 则、30 个 Trellis 锚点）：未展开 live 与真实 Trellis handler 展开后的 live 都 `ok`（`trellisInjected 7`，2.3 ms）；user 消息加未知尾块 → `diverged 102`；中段插入内存独有提醒 → `diverged 3`；少一则 → `file-extra 124`；相同签名不重复记录；日志无内容片段；Trellis 锚点档未被改动
+
 - ~~`~/.omp/agent/extensions/vision-warmup.ts`~~ **已於 2026-09-11 卸載**（源碼保留於 `patches/vision-warmup-extension.ts` 與 `~/.omp/patches/`，兩副本卸載前 `cmp` 逐字節一致，需要時原樣重部署）：Hyper 模型（qwen3.8-flash / glm-5.3-flash）視覺路由暖機
   - 根因：Hyper 的 vision 分類器按 session 黏滯——會話內**第一條帶圖請求**鎖定分類器路由，中途首圖會觸發分類器切換並按全 cache miss 計費（與 context 大小無關）。
   - 做法：`before_agent_start` 在會話第一輪注入 1×1 PNG 自訂消息（`display: false`：TUI 不可見、照常發給模型），把鎖定成本壓到第一輪的極小 payload 上。
