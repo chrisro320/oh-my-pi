@@ -406,6 +406,8 @@ case "$OMP_PATCH_VERSION" in
 	# call) lived only in memory the same way; they are now persisted with the
 	# live context, as the plan-mode reminder already is.
 	_omp_tail_candidate "18.2.10" "0077-omp-turn-recovery-reminder-persist" "${AGENT}"
+	_omp_tail_candidate "18.2.10" "0078-omp-python-display-mime-preference" "${AGENT}"
+	_omp_tail_candidate "18.2.10" "0079-omp-kitty-conversion-finalization" "${TUI}"
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10)" >&2
@@ -820,6 +822,12 @@ if [[ "$MODE" == "apply" ]]; then
 	fi
 	if _omp_plan_has 0077; then
 		bun "${HERE}/verify-turn-recovery-reminder-persist.ts"
+	fi
+	if _omp_plan_has 0078; then
+		bun "${HERE}/verify-python-display-mime-preference.ts"
+	fi
+	if _omp_plan_has 0079; then
+		bun "${HERE}/verify-kitty-conversion-finalization.ts"
 	fi
 fi
 if [[ "$MODE" != "check" ]]; then

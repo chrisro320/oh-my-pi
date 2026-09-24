@@ -34,7 +34,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.1.18 計畫（保留） | canonical 25 條 +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062、0063、0065、0066、0067、0068、0069、0070 | **38** |
 | 18.1.14 計畫（回退） | canonical 25 條 +候選置換 7 件 +鏈尾 0047、0063 | **27** |
 | 18.2.3 計畫（保留） | 0041 合入 0037；含後續 0072、0073、0074；不改本次遷移前的計畫列 | **39** |
-| 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化） | **44** |
+| 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化）；2026-09-24 新增 0078（Python display MIME 擇一）、0079（Kitty 非同步轉圖完成屏障） | **46** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -722,6 +722,22 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **自動回歸**：`verify-turn-recovery-reminder-persist.ts`（`_omp_plan_has 0077`），真實 `AgentSession` + in-memory session + mock model（先空 stop、再正常回覆），走真實 empty-stop 恢復路徑。前置：恰重試一次且重試請求帶 developer 提醒；GATE 1 提醒在持久化分支上恰一則；GATE 2 `buildSessionContext` 重建的 wire 與 live 逐位元組相同。**負對照**：未套 0077 的 live 於 GATE 1 失敗（`0 !== 1`）。
 - **監控**：`context-persist-audit` 擴展對未落盤的 developer 尾端當筆報 `live-extra`；套用後此路徑應為 `ok`。
 - **生效條件**：需重啟 omp 進程。
+
+### 0078 — Python display 的 PNG／JPEG 是替代格式，不是兩張圖（僅 18.2.10）
+
+- **根因**：`src/eval/py/display.ts` 的兩個獨立 `if` 把同一 PIL 物件的 PNG 與 JPEG 都輸出；40 次 `display()` 變成 80 個 image part。
+- **修法**：PNG 字串優先，否則選 JPEG；保留獨立 display 呼叫、caption、JSON、Markdown 與 status 的原有語義。不改 runner MIME 收集，也不改既有會話歷史。
+- **回歸**：`OMP_PATCH_VERIFY_AGENT_ROOT=<root> bun patches/verify-python-display-mime-preference.ts`；未修版本在雙 MIME 單圖斷言失敗，修復版本通過。已加入 `apply.sh` 與完整 plan oracle。
+- **邊界**：這只修重複輸出，不代替 Orca 丟圖修復。Orca 的 idle cursor reset 可穿插到 Kitty APC 半包，須在 Orca 側移除合成 ANSI 注入。
+- **生效條件**：需重啟 OMP；舊結果不追溯刪除。
+
+### 0079 — Kitty 非 PNG 圖片轉換完成前，不得提交為不可變歷史（僅 18.2.10）
+
+- **失敗簽名**：真實 Python eval 一次顯示 40 張不同大小圖片，其中 5 張大圖經 `resizeImage` 轉為 WebP。只修 0078 與 Orca idle 注入後，首輪只有 35 個 Kitty transmit／placement；5 張非 PNG 尚在非同步轉換，tool block 已退休。
+- **修法**（`${TUI}`，`src/chat/tool-execution.ts`）：以未完成轉換數阻止 `isTranscriptBlockFinalized()`，優先於 `sealed`；成功或失敗皆在 `finally` 釋放屏障、提升 block/display 版本並排程重繪。僅加版本仍無法補回已提交歷史，已用同一 40 圖現場否證。
+- **回歸**：`verify-kitty-conversion-finalization.ts` 使用真實 WebP→PNG 轉換；seal 後必須等待，成功可畫圖才退休；無效圖片失敗亦釋放屏障，文字結果保留。已加入 `apply.sh` 與完整 plan oracle。
+- **生效條件**：需重啟 OMP；原生冷啟動同構 fixture 已達 40 個 transmit 與 40 個 placement。
+- **本次部署證據**：標準 `apply.sh` 僅新增套用 0078／0079，全部註冊 gate 通過；完整 46 層 pristine oracle 亦通過。正式 `~/.bun/bin/omp` 新程序 PID 2119789 搭配 Orca 1.9.2 隔離冷啟動，40 張混合尺寸 PIL 圖完整傳輸／放置、80 次像素回訪通過。備份：`~/.omp/patches/backups/20260924-kitty-0078-0079/`；未接觸 `agent.db` 或憑證，未重啟使用者程序。
 
 ## 3. 已撤下的補丁
 

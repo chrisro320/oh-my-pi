@@ -477,3 +477,34 @@ Exercise the real manual and automatic host methods with a controlled summarizer
 Wrong: allow a trigger-containing full-history request when its previous ID is absent.
 Correct: restore with `generate:false`, then send the trigger using the newly completed response ID.
 Wrong: skip the automatic remote retry/model budget as soon as one V2 operation fails, or treat chain loss as terminal at the manual method ladder. Correct: preserve remote recoverability through the existing budget, then explicitly select soft through the existing ladder.
+
+## Scenario: Python MIME alternatives and Kitty conversion retirement (18.2.10)
+
+### 1. Scope / Trigger
+Python display bundles with multiple image representations, or image tool results converted asynchronously before transcript retirement.
+
+### 2. Signatures
+`renderKernelDisplay()` selects PNG else JPEG. `ToolExecutionComponent.isTranscriptBlockFinalized()` must remain false while `#pendingImageConversions > 0`, including sealed results.
+Registered gates: `bun patches/verify-python-display-mime-preference.ts` and `bun patches/verify-kitty-conversion-finalization.ts`; replay roots come from `OMP_PATCH_VERIFY_AGENT_ROOT` / `OMP_PATCH_VERIFY_TUI_ROOT`.
+
+### 3. Contracts
+- One MIME bundle's PNG/JPEG are alternatives, not two display events. Prefer PNG; fall back to JPEG. Preserve independent display calls, text/Markdown/JSON and status routing.
+- Do not retire a visible image result until every asynchronous conversion settles. Both success and failure release the barrier and request an updated render. Keep text when conversion fails.
+- Merely incrementing the block version after conversion is insufficient once immutable history has already retired the component.
+- Maintain standard 18.2.10 patches 0078 (AGENT) and 0079 (TUI), exact plan order and full pristine replay. Never edit global source without replayable patches.
+
+### 4. Validation & Error Matrix
+PNG+JPEG → one PNG; JPEG only or absent PNG → one JPEG; two display calls → two images; structured/status data → existing routing. Sealed WebP result → not finalized while conversion is pending; valid conversion → graphics before retirement; invalid conversion → finalized text without a stuck barrier.
+
+### 5. Good / Base / Bad Cases
+Good: real mixed-size PIL batch retains all 40 images, including five non-PNG conversions. Base: small PNG-only fixtures check neither MIME alternatives nor asynchronous conversion. Bad: use provider-clamped image counts as raw tool-output counts, or infer valid PNG from header/IEND without decoding the payload.
+
+### 6. Verification Required
+Both registered regressions must fail on pre-fix source and pass after repair. The tiny WebP fixture tests retirement ordering; it does not replace real native Orca + OMP + Python mixed-image output, protocol capture, full-placement history revisits and screenshots.
+Machine-check at delivery and review using built-in grep:
+`0078|0079|verify-python-display-mime-preference|verify-kitty-conversion-finalization`
+against `patches/apply.sh; patches/verify-patch-family-rollups.sh; patches/PATCHES.md`.
+Also require the full pristine chain oracle, not just `--check` on already-patched source.
+
+### 7. Wrong vs Correct
+Wrong: emit every image MIME, retire while conversion is pending, or remove `image` capability to hide lost terminal output. Correct: select one representation and defer history retirement until conversion has settled.

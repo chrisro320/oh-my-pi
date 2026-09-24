@@ -1,0 +1,43 @@
+--- a/src/chat/tool-execution.ts
++++ b/src/chat/tool-execution.ts
+@@ -284,6 +284,7 @@
+ 	// so a terminal resize re-shapes image-bearing results to rescale them without
+ 	// forcing the common image-free result to re-shape on every resize tick.
+ 	#renderedImageCount = 0;
++	#pendingImageConversions = 0;
+ 	#tool?: AgentTool;
+ 	#renderer?: ToolRenderer;
+ 	#ui: ToolExecutionUi;
+@@ -556,15 +557,20 @@
+ 
+ 			// Convert async - catch errors from processing
+ 			const index = i;
++			this.#pendingImageConversions++;
+ 			convertImageToPng({ type: "image", data: img.data, mimeType: img.mimeType })
+ 				.then(converted => {
+ 					this.#convertedImages.set(index, converted);
++				})
++				.catch(() => {
++					// Keep the text result when an image cannot be converted.
++				})
++				.finally(() => {
++					this.#pendingImageConversions--;
++					this.#blockVersion++;
+ 					this.#displayInputVersion++;
+ 					this.#updateDisplay();
+ 					this.#ui.requestRender();
+-				})
+-				.catch(() => {
+-					// Ignore conversion failures - display will use original image format
+ 				});
+ 		}
+ 	}
+@@ -683,6 +689,8 @@
+ 	 */
+ 	isTranscriptBlockFinalized(): boolean {
+ 		if (!this.#toolActivityVisible) return true;
++		// Retiring before async PNG conversion commits a permanently incomplete image block.
++		if (this.#pendingImageConversions > 0) return false;
+ 		if (this.#sealed) return true;
+ 		if (this.#result === undefined) return false;
+ 		// A parked background task's call already returned; job frames that land
