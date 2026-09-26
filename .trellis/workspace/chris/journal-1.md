@@ -182,3 +182,24 @@ E2E verified patch 0063: real session 01a0a05f (openai-codex/gpt-5.6-luna) /comp
 ### Status
 
 [OK] **Completed**
+
+
+## Session 8: 完成 0080 Kitty 共用 PNG 快取
+
+**Date**: 2026-09-26
+**Task**: 完成 0080 Kitty 共用 PNG 快取
+**Branch**: `trellis/ds-snapcompact-tuning`
+
+### Summary
+
+修正原 Promise 與有界 pending LRU、淘汰後失敗原因及工具/native 槽位碰撞；官方 18.2.10 全鏈重放與 live 離線 gate 通過，已部署但舊 OMP 行程須完整重啟。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `008294b52` | (see git log) |
+
+### Status
+
+[OK] **Completed**
