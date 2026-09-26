@@ -1,0 +1,28 @@
+{
+  "id": "kitty-png-cache-0080",
+  "name": "kitty-png-cache-0080",
+  "title": "收尾 Kitty PNG 共用快取補丁 0080",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-09-25",
+  "completedAt": "2026-09-26",
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "spec_update": "backend/patch-rollup-contracts.md: 0080 bounded pending LRU, promise identity, weak failure reason, disjoint image slots"
+  }
+}
