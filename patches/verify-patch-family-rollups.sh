@@ -655,6 +655,7 @@ EXPECTED_PLAN_18210=(
 	".18.2.10-candidates/0077-omp-turn-recovery-reminder-persist-v18.2.10-candidate.patch:AGENT"
 	".18.2.10-candidates/0078-omp-python-display-mime-preference-v18.2.10-candidate.patch:AGENT"
 	".18.2.10-candidates/0079-omp-kitty-conversion-finalization-v18.2.10-candidate.patch:TUI"
+	".18.2.10-candidates/0080-omp-kitty-shared-png-cache-v18.2.10-candidate.patch:TUI"
 )
 [[ "${PLAN18210[*]}" == "${EXPECTED_PLAN_18210[*]}" ]] \
 	|| die "resolved 18.2.10 plan drifted from EXPECTED_PLAN_18210"

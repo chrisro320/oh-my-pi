@@ -34,7 +34,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.1.18 計畫（保留） | canonical 25 條 +候選置換 9 件 +鏈尾 0047、0055、0056、0058、0060、0062、0063、0065、0066、0067、0068、0069、0070 | **38** |
 | 18.1.14 計畫（回退） | canonical 25 條 +候選置換 7 件 +鏈尾 0047、0063 | **27** |
 | 18.2.3 計畫（保留） | 0041 合入 0037；含後續 0072、0073、0074；不改本次遷移前的計畫列 | **39** |
-| 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化）；2026-09-24 新增 0078（Python display MIME 擇一）、0079（Kitty 非同步轉圖完成屏障） | **46** |
+| 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化）；2026-09-24 新增 0078（Python display MIME 擇一）、0079（Kitty 非同步轉圖完成屏障）、0080（顯示端 PNG 快取與圖片指紋） | **47** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -738,6 +738,12 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **回歸**：`verify-kitty-conversion-finalization.ts` 使用真實 WebP→PNG 轉換；seal 後必須等待，成功可畫圖才退休；無效圖片失敗亦釋放屏障，文字結果保留。已加入 `apply.sh` 與完整 plan oracle。
 - **生效條件**：需重啟 OMP；原生冷啟動同構 fixture 已達 40 個 transmit 與 40 個 placement。
 - **本次部署證據**：標準 `apply.sh` 僅新增套用 0078／0079，全部註冊 gate 通過；完整 46 層 pristine oracle 亦通過。正式 `~/.bun/bin/omp` 新程序 PID 2119789 搭配 Orca 1.9.2 隔離冷啟動，40 張混合尺寸 PIL 圖完整傳輸／放置、80 次像素回訪通過。備份：`~/.omp/patches/backups/20260924-kitty-0078-0079/`；未接觸 `agent.db` 或憑證，未重啟使用者程序。
+
+### 0080 — Kitty 顯示專用 PNG 轉換快取與插槽指紋（僅 18.2.10）
+
+- `src/chat/image-loading.ts` 的 `ensurePng(image, fingerprint?)` 以完整 MIME＋base64 位元組 SHA-256 為鍵；快取保留期間，進行中與已完成項目共用原 Promise。單一 LRU 上限 32 MiB／256 項：pending 按輸入 base64 長度計價，完成後按 PNG 或正整數失敗原因長度重新計價；超額 PNG 不入快取，淘汰後的晚到轉換不復活。失敗原因另外以 Promise 弱鍵保留給當前訂閱者，使淘汰中的失敗仍可顯示真實原因而不強持有記憶體。轉換最多嘗試兩次；`completedPng(hash)` 提供同步繪圖，不改工具回傳或模型訊息內容。
+- `tool-execution.ts`／`assistant-message.ts` 的插槽完成狀態和 async 回調都核對 SHA；assistant 回調還須核對目前 flight token。工具插槽以 `tool:${JSON.stringify(toolCallId)}:<index>` 和 native 插槽隔離，即使工具 ID 是 `native` 也不碰撞；重繪回呼例外另行記錄，不當成圖片解碼失敗。同格 A→B→A 讀取已完成的全域快取，不顯示舊圖；淘汰後允許重新轉圖。工具結果沿用 0079 的退休屏障；原圖與 WebP 模型輸入保持不變。Orca 不在此補丁範圍。
+- 閘門：`OMP_PATCH_VERIFY_TUI_ROOT=<root> bun patches/verify-kitty-shared-png-cache.ts` 驗證八張 2048² WebP Kitty graphics、resize／overlay 重繪、工具及 native/assistant 插槽 A→B→A、工具 ID=`native` 的碰撞負對照、晚到回呼、淘汰中的壞圖真實原因、原 Promise 身分、200 張位元組淘汰及 600 張條目上界；`apply.sh` 在 0079 後註冊此獨立層。
 
 ## 3. 已撤下的補丁
 

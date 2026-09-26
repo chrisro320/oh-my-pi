@@ -408,6 +408,7 @@ case "$OMP_PATCH_VERSION" in
 	_omp_tail_candidate "18.2.10" "0077-omp-turn-recovery-reminder-persist" "${AGENT}"
 	_omp_tail_candidate "18.2.10" "0078-omp-python-display-mime-preference" "${AGENT}"
 	_omp_tail_candidate "18.2.10" "0079-omp-kitty-conversion-finalization" "${TUI}"
+	_omp_tail_candidate "18.2.10" "0080-omp-kitty-shared-png-cache" "${TUI}"
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10)" >&2
@@ -828,6 +829,9 @@ if [[ "$MODE" == "apply" ]]; then
 	fi
 	if _omp_plan_has 0079; then
 		bun "${HERE}/verify-kitty-conversion-finalization.ts"
+	fi
+	if _omp_plan_has 0080; then
+		bun "${HERE}/verify-kitty-shared-png-cache.ts"
 	fi
 fi
 if [[ "$MODE" != "check" ]]; then

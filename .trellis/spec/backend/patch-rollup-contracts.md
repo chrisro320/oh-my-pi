@@ -408,3 +408,36 @@ Wrong: declare the 20-block lookback or expected server rewrite the root cause
 without the actual native wire payload and provider response evidence.
 Correct: preserve the final body and raw usage first; distinguish client prefix
 changes from provider-side compaction accounting without changing fallback.
+
+## Scenario: Kitty display-only PNG conversion (0080)
+
+### 1. Scope / Trigger
+When tool or assistant WebP images must render on Kitty, convert only the display copy. Keep `message.content` and the provider-facing tool result byte-identical; do not change the source encoder or Orca.
+
+### 2. Signatures
+`imageFingerprint(Pick<ImageContent, "data" | "mimeType">): string` hashes full MIME and base64 contents with SHA-256.
+`ensurePng(ImageContent, fingerprint?): Promise<ImageContent | null>` shares a conversion Promise.
+`completedPng(fingerprint): { png: ImageContent | null; reason?: string } | undefined` exposes settled display data synchronously.
+`pngFailureReason(fingerprint, conversion?): string` prefers the exact failed flight's sanitized reason when a Promise is supplied, even if its LRU slot was evicted.
+
+### 3. Contracts
+The global PNG cache is one LRU bounded by 32 MiB of base64 image data and 256 entries. A pending slot reserves its input base64 length; settlement calls `set` again with the same Promise and the PNG or positive failure-reason length. An entry larger than the whole budget is not retained. While retained, pending, successful, and failed entries return the original Promise. Eviction permits later reconversion, but late settlement must not resurrect a slot or overwrite a newer flight. Each miss attempts conversion at most twice and resolves null on failure. Failed flights also put their sanitized reason in a `WeakMap` keyed by the Promise: a still-subscribed UI callback can report the real reason after eviction without a strong unbounded map. Both TUI components compare the full SHA before displaying the result; assistant callbacks also require the current flight token before committing, and `finally` only removes that same token. `imageKey` includes SHA so a reused slot cannot reuse an older graphic. The provider message is never converted.
+Native assistant slots use `native:<index>`; tool-result slots use `tool:${JSON.stringify(toolCallId)}:<index>` and decode that exact tool call ID before lookup or prefix cleanup. Never identify origin solely by the raw tool call ID: `"native"` is a valid opaque tool ID and would collide with `native:0`. Conversion failures resolve null; an exception from an async repaint callback is a separate error and must be logged after identity-guarded cleanup, not mislabeled as a decoder failure or left as an unhandled rejection.
+
+### 4. Validation & Error Matrix
+| Input/state | Display |
+|---|---|
+| PNG | Use source immediately |
+| WebP in flight | Wait; 0079 keeps tool result unfinalized |
+| WebP cached | Render the completed PNG in the same update |
+| Corrupt WebP after two attempts | Show `PNG conversion failed: <reason>` and release retirement gate |
+| Same slot A→B→A | Render B then cached A; stale callbacks cannot overwrite either |
+
+### 5. Good / Base / Bad Cases
+Good: eight 2048² WebPs paint as eight graphics after conversion and remain after width redraw. Base: a JPEG or WebP tool result remains its original MIME/data for the model. Bad: a slot-index-only PNG map renders A when B replaces the slot, or converting the provider message expands the prompt.
+
+### 6. Tests Required
+`OMP_PATCH_VERIFY_TUI_ROOT=<isolated-patched-root> bun patches/verify-kitty-shared-png-cache.ts` checks eight 2048² graphics, tool/native/assistant A→B→A, stale callbacks, a toolCallId of `"native"` alongside native content, exact failure reason even after pending-slot eviction, retained Promise identity, pending versus settled snapshots, 200-image byte eviction and 600-image entry-count eviction. Reproduce the old candidate failure at the settled Promise identity assertion before claiming the fix. Machine-check the integration before delivery and review: `grep -nE '0080-omp-kitty-shared-png-cache|verify-kitty-shared-png-cache' patches/apply.sh patches/verify-patch-family-rollups.sh` and `grep -nE 'ensurePng|completedPng|imageFingerprint' patches/.18.2.10-candidates/0080-omp-kitty-shared-png-cache-v18.2.10-candidate.patch`.
+
+### 7. Wrong vs Correct
+Wrong: key completed PNGs by `toolCallId:index`, replace the original Promise with `Promise.resolve(png)`, or read an evicted failure reason only from the LRU. Correct: compare SHA and flight identity before publishing; retain the original Promise in a bounded slot, reprice on settlement, and let subscribers recover an evicted flight's reason through a weak Promise key.
