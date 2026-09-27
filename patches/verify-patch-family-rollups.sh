@@ -95,6 +95,10 @@ PLAN18210_OUT="$(OMP_PATCH_VERSION=18.2.10 bash "${HERE}/apply.sh" --print-plan)
 	|| die "apply.sh --print-plan cannot resolve the 18.2.10 plan"
 [[ -n "${PLAN18210_OUT//[[:space:]]/}" ]] || die "18.2.10 plan is empty"
 mapfile -t PLAN18210 <<<"$PLAN18210_OUT"
+PLAN1833_OUT="$(OMP_PATCH_VERSION=18.3.3 bash "${HERE}/apply.sh" --print-plan)" \
+	|| die "apply.sh --print-plan cannot resolve the 18.3.3 plan"
+[[ -n "${PLAN1833_OUT//[[:space:]]/}" ]] || die "18.3.3 plan is empty"
+mapfile -t PLAN1833 <<<"$PLAN1833_OUT"
 # Retired-by-rollup numbers, plus abandoned numbers whose patch file is gone
 # (0011 pin-viewport, 0040 trellis_command, 0061, 0064 — never to be reused)
 # and numbers retired because upstream adopted them verbatim (0051, adopted in
@@ -282,6 +286,18 @@ declare -A TGZSHA4=(
 TGZD4="${G}/tgz-18.2.10"
 fetch_tgzs "$TGZD4" 18.2.10 TGZSHA4
 echo "PASS baseline: six official 18.2.10 tarballs match pinned SHA-256"
+
+declare -A TGZSHA5=(
+	[pi-coding-agent]=da7b8e1a5dca68198c4c5e9ef2cb1f30878e79986bbd940e907490ec178842f2
+	[pi-agent-core]=471316c8e4312729744fc4affba970fdca50a1c5d87664897020242a2c60c6a3
+	[pi-ai]=3f58e01ecaa8f9492ce5101b9e845f550bd1535246b77439e8a73b19a2c25a8d
+	[pi-catalog]=66ffad0cf46463c6ffce2433d23e11548503f402124d046dc040bf5b383cb987
+	[snapcompact]=6b6fb88232d316f8494c88bb5f554f50a33f8e15f36760bc32174c1b7ab9b003
+	[pi-tui]=b802f7795378fbde4fe383d02ddec5732f86099a375026d49f1da36dc2c1dcb9
+)
+TGZD5="${G}/tgz-18.3.3"
+fetch_tgzs "$TGZD5" 18.3.3 TGZSHA5
+echo "PASS baseline: six official 18.3.3 tarballs match pinned SHA-256"
 
 # Extract src trees (mode=src) or full trees incl. dist/ (mode=full) for the
 # listed packages (default: every package in $2's pinned table) into
@@ -659,6 +675,18 @@ EXPECTED_PLAN_18210=(
 )
 [[ "${PLAN18210[*]}" == "${EXPECTED_PLAN_18210[*]}" ]] \
 	|| die "resolved 18.2.10 plan drifted from EXPECTED_PLAN_18210"
+
+# 18.3.3 keeps the pinned predecessor capabilities (0073 is upstream) and adds 0081.
+EXPECTED_PLAN_1833=()
+for entry in "${EXPECTED_PLAN_18210[@]}"; do
+	name="${entry%%:*}"; name="${name##*/}"
+	[[ "$name" == 0073-* ]] && continue
+	stem="${name%.patch}"; stem="${stem%-v*-candidate}"
+	EXPECTED_PLAN_1833+=(".18.3.3-candidates/${stem}-v18.3.3-candidate.patch:${entry##*:}")
+done
+EXPECTED_PLAN_1833+=(".18.3.3-candidates/0081-omp-main-cache-footer-v18.3.3-candidate.patch:NM")
+[[ "${#EXPECTED_PLAN_1833[@]}" -eq 47 && "${PLAN1833[*]}" == "${EXPECTED_PLAN_1833[*]}" ]] \
+	|| die "resolved 18.3.3 plan drifted from its 47-entry capability contract"
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
 # by apply.sh --print-plan in the static section. The assertions below pin
@@ -1069,76 +1097,87 @@ mv "$G/cand68.bak" "$CTL3/.18.2.3-candidates/0068-omp-codex-stale-baseline-chain
 echo "PASS gate #13: pristine 18.2.3 tree classifies all ${#PLAN1823[@]} entries pending and 6 bad inputs exit 2 with zero mutation"
 
 # Current target: include the moved TUI package in every replay and comparison.
-mkpkgs "$G/current-pristine" "$TGZD4" full
+TARGET_BASE_G="$G"
+for current_version in 18.2.10 18.3.3; do
+G="$TARGET_BASE_G/target-$current_version"
+mkdir -p "$G"
+if [[ "$current_version" == "18.3.3" ]]; then
+	CURRENT_PLAN=("${PLAN1833[@]}"); CURRENT_TGZD="$TGZD5"
+else
+	CURRENT_PLAN=("${PLAN18210[@]}"); CURRENT_TGZD="$TGZD4"
+fi
+mkpkgs "$G/current-pristine" "$CURRENT_TGZD" full
 cp -a "$G/current-pristine" "$G/current"
 CURRENT_CTL="$G/current-controller"
 mkdir -p "$CURRENT_CTL"
 cp "${HERE}/apply.sh" "${HERE}"/*.patch "$CURRENT_CTL/"
-cp -r "${HERE}/.18.2.10-candidates" "$CURRENT_CTL/"
+cp -r "${HERE}/.${current_version}-candidates" "$CURRENT_CTL/"
 sed -i "s|^NM=.*|NM=\"$G/current/${NMROOT}\"|; s|^BIN=.*|BIN=\"$CURRENT_CTL/fake-bin\"|" "$CURRENT_CTL/apply.sh"
 ln -s "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts" "$CURRENT_CTL/fake-bin"
 env -u OMP_PATCH_VERSION bash "$CURRENT_CTL/apply.sh" --check >"$G/current-pending.txt" 2>&1 \
-	|| die "18.2.10 pristine status failed: $(cat "$G/current-pending.txt")"
-[[ "$(grep -c '^PENDING  .*\.patch$' "$G/current-pending.txt")" -eq "${#PLAN18210[@]}" ]] \
-	|| die "18.2.10 pristine did not classify every plan entry pending"
-apply_chain "$G/current" "${PLAN18210[@]}"
+	|| die "${current_version} pristine status failed: $(cat "$G/current-pending.txt")"
+[[ "$(grep -c '^PENDING  .*\.patch$' "$G/current-pending.txt")" -eq "${#CURRENT_PLAN[@]}" ]] \
+	|| die "${current_version} pristine did not classify every plan entry pending"
+apply_chain "$G/current" "${CURRENT_PLAN[@]}"
 sweep_check "$G/current"
 current_applied_hash="$(tree_hash "$G/current")"
 env -u OMP_PATCH_VERSION bash "$CURRENT_CTL/apply.sh" --check >"$G/current-applied.txt" 2>&1 \
-	|| die "18.2.10 applied status failed: $(cat "$G/current-applied.txt")"
-[[ "$(grep -c '^APPLIED  .*\.patch$' "$G/current-applied.txt")" -eq "${#PLAN18210[@]}" ]] \
-	|| die "18.2.10 applied tree has unresolved plan entries"
+	|| die "${current_version} applied status failed: $(cat "$G/current-applied.txt")"
+[[ "$(grep -c '^APPLIED  .*\.patch$' "$G/current-applied.txt")" -eq "${#CURRENT_PLAN[@]}" ]] \
+	|| die "${current_version} applied tree has unresolved plan entries"
 [[ "$(tree_hash "$G/current")" == "$current_applied_hash" ]] \
-	|| die "18.2.10 --check changed source bytes"
+	|| die "${current_version} --check changed source bytes"
 
-for ((i = ${#PLAN18210[@]} - 1; i >= 0; i--)); do
-	spec="${PLAN18210[i]}"
+for ((i = ${#CURRENT_PLAN[@]} - 1; i >= 0; i--)); do
+	spec="${CURRENT_PLAN[i]}"
 	file="${spec%%:*}"
 	r="$(patchroot "$G/current" "${spec##*:}")"
 	p="${HERE}/${file}"
 	# Pure insertions can forward-match twice; reverse/byte proof remains required.
 	if grep -qE '^-[^-]' "$p" && patch -p1 --forward --force --dry-run -d "$r" <"$p" >/dev/null 2>&1; then
-		die "18.2.10 peel: ${file} still forward-matches despite removed old text"
+		die "${current_version} peel: ${file} still forward-matches despite removed old text"
 	fi
 	patch -p1 -R --force --silent --remove-empty-files --dry-run -d "$r" <"$p" \
-		|| die "18.2.10 peel: ${file} cannot reverse at its stack depth"
+		|| die "${current_version} peel: ${file} cannot reverse at its stack depth"
 	patch -p1 -R --force --silent --no-backup-if-mismatch --remove-empty-files -d "$r" <"$p" \
-		|| die "18.2.10 peel: ${file} failed after its dry run"
+		|| die "${current_version} peel: ${file} failed after its dry run"
 done
 sweep_check "$G/current"
 diff -r "$G/current-pristine" "$G/current" >"$G/current-reverse-diff.txt" \
-	|| die "18.2.10 reverse changed pristine bytes: $(cat "$G/current-reverse-diff.txt")"
+	|| die "${current_version} reverse changed pristine bytes: $(cat "$G/current-reverse-diff.txt")"
 diff <(cd "$G/current-pristine" && find . -printf '%y %P %l\n' | sort) \
 	<(cd "$G/current" && find . -printf '%y %P %l\n' | sort) \
-	|| die "18.2.10 reverse changed file/directory/symlink sets"
+	|| die "${current_version} reverse changed file/directory/symlink sets"
 
 expect_current_fail() {
 	local label="$1" rc=0 before
 	before="$(tree_hash "$G/current")"
 	shift
 	"$@" >"$G/current-failure.txt" 2>&1 || rc=$?
-	[[ "$rc" -eq 2 ]] || die "18.2.10 $label: expected exit 2, got $rc"
+	[[ "$rc" -eq 2 ]] || die "${current_version} $label: expected exit 2, got $rc"
 	[[ "$(tree_hash "$G/current")" == "$before" ]] \
-		|| die "18.2.10 $label: modified source before rejecting the input"
+		|| die "${current_version} $label: modified source before rejecting the input"
 	[[ "$(readlink "$CURRENT_CTL/fake-bin")" == "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts" ]] \
-		|| die "18.2.10 $label: changed the launcher before rejecting the input"
+		|| die "${current_version} $label: changed the launcher before rejecting the input"
 }
 expect_current_fail "empty version" env OMP_PATCH_VERSION= bash "$CURRENT_CTL/apply.sh" --check
 expect_current_fail "unknown version" env OMP_PATCH_VERSION=0.0.0 bash "$CURRENT_CTL/apply.sh" --check
 expect_current_fail "wrong installed version" env OMP_PATCH_VERSION=18.2.3 bash "$CURRENT_CTL/apply.sh" --check
 expect_current_fail "invalid offline mode" env OMP_PATCH_OFFLINE_VERIFY=2 bash "$CURRENT_CTL/apply.sh" --check
-for candidate in "${PLAN18210[0]%%:*}" ".18.2.10-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.2.10-candidate.patch"; do
+for candidate in "${CURRENT_PLAN[0]%%:*}" ".${current_version}-candidates/0070-omp-codex-compaction-chain-fail-closed-v${current_version}-candidate.patch"; do
 	mv "$CURRENT_CTL/$candidate" "$G/current-missing-candidate"
-	expect_current_fail "missing $candidate" env OMP_PATCH_VERSION=18.2.10 bash "$CURRENT_CTL/apply.sh" --check
+	expect_current_fail "missing $candidate" env OMP_PATCH_VERSION="${current_version}" bash "$CURRENT_CTL/apply.sh" --check
 	mv "$G/current-missing-candidate" "$CURRENT_CTL/$candidate"
 done
 mv "$G/current/${NMROOT}/pi-tui/package.json" "$G/current-tui-package.json"
-expect_current_fail "missing TUI package metadata" env OMP_PATCH_VERSION=18.2.10 bash "$CURRENT_CTL/apply.sh" --check
+expect_current_fail "missing TUI package metadata" env OMP_PATCH_VERSION="${current_version}" bash "$CURRENT_CTL/apply.sh" --check
 mv "$G/current-tui-package.json" "$G/current/${NMROOT}/pi-tui/package.json"
 mv "$G/current/${NMROOT}/pi-coding-agent/package.json" "$G/current-agent-package.json"
 printf '{\n  "version": "0.0.0"\n}\n' >"$G/current/${NMROOT}/pi-coding-agent/package.json"
 expect_current_fail "unknown installed version" env -u OMP_PATCH_VERSION bash "$CURRENT_CTL/apply.sh" --check
 mv "$G/current-agent-package.json" "$G/current/${NMROOT}/pi-coding-agent/package.json"
-echo "PASS 18.2.10: complete ordered replay, read-only status, reverse tree identity, and fail-closed inputs"
+echo "PASS ${current_version}: complete ordered replay, read-only status, reverse tree identity, and fail-closed inputs"
+done
+G="$TARGET_BASE_G"
 
 echo "ALL PASS: patch family rollups verified"

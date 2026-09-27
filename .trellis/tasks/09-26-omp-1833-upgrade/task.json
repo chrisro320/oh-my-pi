@@ -1,0 +1,34 @@
+{
+  "id": "omp-1833-upgrade",
+  "name": "omp-1833-upgrade",
+  "title": "OMP 18.3.3 升級：補丁遷移預檢與安全部署規劃",
+  "description": "以 18.2.10 補丁鏈為基線，先隔離盤點 18.3.3 的保留、適配、退役與語義衝突；正式部署另行確認，不直接更新 live。",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-09-26",
+  "completedAt": "2026-09-26",
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-26-read-model-lifecycle",
+    "09-27-omp-1833-deploy"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "Completed the authorized isolated preflight and migration planning only. See research/preflight-report.md and matrix.json. Patch adaptation and live upgrade remain unapproved and unperformed. No archive or commit was requested.",
+  "meta": {
+    "preflight": "completed",
+    "deployment": "not_started",
+    "targetVersion": "18.3.3",
+    "nextApproval": "Patch adaptation scope and diff, then separate live deployment approval"
+  }
+}

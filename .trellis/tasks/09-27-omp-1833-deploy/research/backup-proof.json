@@ -1,0 +1,9 @@
+{
+  "install": {
+    "sha256": "3467e4aab947618340503a6c7cec1a2fa01d2b279aa60fea832257012ab21245",
+    "files": 48123
+  },
+  "version": "18.2.10",
+  "launcher": "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+  "auth_and_session_scope": "excluded; no reads or writes"
+}

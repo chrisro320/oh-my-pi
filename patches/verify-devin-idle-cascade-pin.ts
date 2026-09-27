@@ -27,7 +27,7 @@ const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-a
 
 const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
 assert.ok(
-	["18.1.18", "18.2.3", "18.2.10"].includes(agentVersion),
+	["18.1.18", "18.2.3", "18.2.10", "18.3.3"].includes(agentVersion),
 	`verify-devin-idle-cascade-pin: 0060 is not part of the ${agentVersion} plan`,
 );
 
@@ -44,8 +44,13 @@ async function createTestSession(name: string, model: MockModel) {
 	mkdirSync(cwd, { recursive: true });
 	const agentDir = join(cwd, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	authStorage.setRuntimeApiKey("mock", "test");
-	authStorage.setRuntimeApiKey("devin", "test");
+	if (agentVersion === "18.3.3") {
+		authStorage.keys.setRuntime("mock", "test");
+		authStorage.keys.setRuntime("devin", "test");
+	} else {
+		authStorage.setRuntimeApiKey("mock", "test");
+		authStorage.setRuntimeApiKey("devin", "test");
+	}
 	const { session } = await createAgentSession({
 		cwd,
 		agentDir,

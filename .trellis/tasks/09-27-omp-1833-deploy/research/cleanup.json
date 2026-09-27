@@ -1,0 +1,12 @@
+{
+  "removed_throwaway_generation_scripts": [
+    "regen_all.sh",
+    "verify_all.sh",
+    "reverse_all.sh",
+    "mkft.sh",
+    "mkvariant.sh",
+    "apply66.py",
+    "apply67.py"
+  ],
+  "reason": "Final same-ID candidates plus strict integration/oracle are authoritative; do not retain the unsafe broad regeneration driver"
+}

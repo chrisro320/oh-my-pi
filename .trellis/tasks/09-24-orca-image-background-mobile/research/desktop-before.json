@@ -1,0 +1,150 @@
+{
+  "surface": {
+    "imageCount": 0,
+    "canvas": null,
+    "viewport": 81,
+    "rows": 65,
+    "cols": 175,
+    "visible": true,
+    "renderer": "Et"
+  },
+  "wire": [
+    "\u001b[0 q",
+    "",
+    "",
+    "\u0018\u001b[0m\u000f\u001b(B\u001b[?6l\u001b[?7h\u001b[?45l\u001b[4l\u001b[r\u001b[2J\u001b[3J\u001b[H\u001b7",
+    "\u001b[?2004h\u001b[48;2;15;18;22m                                                                                                                                                                               \r\n \u001b[38;2;229;229;231mimages\u001b[39m                                                                                                                                                                        \r\n                                                                                                                                                                               \r\n\u001b[0m\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n • \u001b[1mRead\u001b[38;2;107;114;128;22m (3)\u001b[0m                                                                                                                                                                    \r\n   \u001b[38;2;107;114;128m├─\u001b[0m \u001b[38;2;0;180;255m/tmp/stress40/img_01.png\u001b[0m                                                                                                                                                 \r\n   \u001b[38;2;107;114;128m├─\u001b[0m \u001b[38;2;0;180;255m/tmp/stress40/img_02.png\u001b[0m                                                                                                                                                 \r\n   \u001b[38;2;107;114;128m└─\u001b[0m \u001b[38;2;0;180;255m/tmp/stress40/img_03.png\u001b[0m                                                                                                                                                 \r\n\r\n Fixture complete; OMP pid=2170173; kitty; no provider network.                                                                                                                \r\n\r\n\u001b[48;2;15;18;22m                                                                                                                                                                               \r\n \u001b[38;2;229;229;231mmore images\u001b[39m                                                                                                                                                                   \r\n                                                                                                                                                                               \r\n\u001b[0m\u001b[175X\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n • \u001b[1mRead\u001b[38;2;107;114;128;22m (3)\u001b[0m                                                                                                                                                                    \r\n   \u001b[38;2;107;114;128m├─\u001b[0m \u001b[38;2;0;180;255m/tmp/stress40/img_01.png\u001b[0m                                                                                                                                                 \r\n   \u001b[38;2;107;114;128m├─\u001b[0m \u001b[38;2;0;180;255m/tmp/stress40/img_02.png\u001b[0m                                                                                                                                                 \r\n   \u001b[38;2;107;114;128m└─\u001b[0m \u001b[38;2;0;180;255m/tmp/stress40/img_03.png\u001b[0m                                                                                                                                                 \r\n\r\n Fixture complete; OMP pid=2170173; kitty; no provider network.                                                                                                                \r\n\r\n\u001b[48;2;15;18;22m \u001b[38;2;107;114;128mπ\u001b[39m \u001b[38;2;42;48;56m>\u001b[39m \u001b[38;2;0;180;255m⬢ Offline tab image fixture\u001b[39m \u001b[38;2;42;48;56m>\u001b[39m \u001b[38;2;232;236;244m🗑 orca-tab-return-TILBDP\u001b[39m \u001b[38;2;42;48;56m>\u001b[39m \u001b[38;2;255;179;71m⑂ master \u001b[38;2;156;163;176m?931\u001b[39m \u001b[38;2;15;18;22;49m▶\u001b[38;2;0;180;255m─────5%\u001b[38;2;42;48;56m────────────────────────────────────────────────────────────────────────\u001b[38;2;57;152;191m┃\u001b[38;2;42;48;56m─────────────\u001b[38;2;57;152;191m200K\u001b[38;2;42;48;56m─\r\n\u001b[38;2;74;80;88m╰─ \u001b[0m                                                                                                                                                                            \u001b[172D\u001b[?2004h\u001b[r\u001b[?6l\u001b[55;1H\u001b7\u001b[?6l\u001b[65;4H",
+    "\u001b[0 q",
+    "",
+    ""
+  ],
+  "trace": [
+    {
+      "op": "render",
+      "at": 1031458.8000001907,
+      "event": {
+        "start": 0,
+        "end": 64
+      },
+      "stack": "Error\n    at owner.<computed> [as render] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:939)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:74241\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:9:22847\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at lr._renderRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92832)\n    at rr._renderCallback (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:89731)\n    at rr._innerRefresh (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:87247)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:86952"
+    },
+    {
+      "op": "rescaleCanvas",
+      "at": 1031458.9000000954
+    },
+    {
+      "op": "render",
+      "at": 1048016.5,
+      "event": {
+        "start": 0,
+        "end": 64
+      },
+      "stack": "Error\n    at owner.<computed> [as render] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:939)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:74241\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:9:22847\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at lr._renderRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92832)\n    at rr._renderCallback (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:89731)\n    at rr._innerRefresh (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:87247)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:86952"
+    },
+    {
+      "op": "rescaleCanvas",
+      "at": 1048016.6999998093
+    },
+    {
+      "op": "render",
+      "at": 1057956,
+      "event": {
+        "start": 0,
+        "end": 64
+      },
+      "stack": "Error\n    at owner.<computed> [as render] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:939)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:74241\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:9:22847\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at lr._renderRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92832)\n    at lr.refreshRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92262)\n    at u (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-render-pause-release-C-96rrca.js:1:688)\n    at Y (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/pane-webgl-renderer-CA1XnWwz.js:1:17733)\n    at Ht (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/pane-webgl-renderer-CA1XnWwz.js:1:17856)"
+    },
+    {
+      "op": "rescaleCanvas",
+      "at": 1057956.1999998093
+    },
+    {
+      "op": "render",
+      "at": 1057986.5,
+      "event": {
+        "start": 0,
+        "end": 64
+      },
+      "stack": "Error\n    at owner.<computed> [as render] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:939)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:74241\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:9:22847\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at lr._renderRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92832)\n    at rr._renderCallback (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:89731)\n    at rr._innerRefresh (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:87247)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:86952"
+    },
+    {
+      "op": "rescaleCanvas",
+      "at": 1057986.5999999046
+    },
+    {
+      "op": "render",
+      "at": 1057988.9000000954,
+      "event": {
+        "start": 0,
+        "end": 64
+      },
+      "stack": "Error\n    at owner.<computed> [as render] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:939)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:74241\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:9:22847\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at lr._renderRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92832)\n    at rr._renderCallback (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:89731)\n    at rr._innerRefresh (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:87247)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:86952"
+    },
+    {
+      "op": "rescaleCanvas",
+      "at": 1057988.9000000954
+    },
+    {
+      "op": "render",
+      "at": 1058225.6999998093,
+      "event": {
+        "start": 64,
+        "end": 64
+      },
+      "stack": "Error\n    at owner.<computed> [as render] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:939)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:74241\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:9:22847\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at lr._renderRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92832)\n    at rr._renderCallback (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:89731)\n    at rr._innerRefresh (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:87247)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:86952"
+    },
+    {
+      "op": "rescaleCanvas",
+      "at": 1058225.8000001907
+    },
+    {
+      "op": "render",
+      "at": 1059976.9000000954,
+      "event": {
+        "start": 0,
+        "end": 64
+      },
+      "stack": "Error\n    at owner.<computed> [as render] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:939)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:74241\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:9:22847\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at lr._renderRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92832)\n    at rr._renderCallback (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:89731)\n    at rr._innerRefresh (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:87247)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:86606"
+    },
+    {
+      "op": "rescaleCanvas",
+      "at": 1059976.9000000954
+    },
+    {
+      "op": "clearAll",
+      "at": 1059977,
+      "stack": "Error\n    at owner.<computed> [as clearAll] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:939)\n    at E.render (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:43184)\n    at storage.render (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:310:5)\n    at owner.<computed> [as render] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:975)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:74241\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:9:22847\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at lr._renderRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92832)\n    at rr._renderCallback (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:89731)"
+    },
+    {
+      "op": "removeLayerFromDom",
+      "at": 1059977,
+      "stack": "Error\n    at owner.<computed> [as removeLayerFromDom] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:939)\n    at E.render (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:43289)\n    at storage.render (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:310:5)\n    at owner.<computed> [as render] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:975)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:74241\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:9:22847\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at lr._renderRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92832)\n    at rr._renderCallback (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:89731)"
+    },
+    {
+      "op": "render",
+      "at": 1059983.5,
+      "event": {
+        "start": 0,
+        "end": 64
+      },
+      "stack": "Error\n    at owner.<computed> [as render] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:939)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:74241\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:9:22847\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at lr._renderRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92832)\n    at rr._renderCallback (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:89731)\n    at rr._innerRefresh (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:87247)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:86952"
+    },
+    {
+      "op": "rescaleCanvas",
+      "at": 1059983.5
+    },
+    {
+      "op": "render",
+      "at": 1060226.8000001907,
+      "event": {
+        "start": 64,
+        "end": 64
+      },
+      "stack": "Error\n    at owner.<computed> [as render] (pptr:evaluate;%3Canonymous%3E%20(%2Fhome%2Fchris%2F.bun%2Finstall%2Fglobal%2Fnode_modules%2F%40oh-my-pi%2Fpi-coding-agent%2Fsrc%2Ftools%2Fbrowser%2Ftab-worker.ts%3A2114%3A27):1:939)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/addon-image-DAd04cB5.js:1:74241\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:9:22847\n    at q.fire (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:3:12991)\n    at lr._renderRows (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:92832)\n    at rr._renderCallback (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:89731)\n    at rr._innerRefresh (file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:87247)\n    at file:///tmp/orca-tab-return-TILBDP/preview/app/resources/app.asar/out/renderer/assets/terminal-native-copy-gutter-B0Ato6le.js:4:86952"
+    },
+    {
+      "op": "rescaleCanvas",
+      "at": 1060226.8000001907
+    }
+  ]
+}

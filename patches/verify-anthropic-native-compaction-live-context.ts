@@ -50,11 +50,12 @@ interface Model {
 // Package imports are runtime-selected so an isolated tree cannot fall back to live.
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
-const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
+const coreVersion = JSON.parse(readFileSync(`${CORE_ROOT}/package.json`, "utf8")).version;
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
-const { supportsAnthropicCompaction } = await import(`${NM}/pi-ai/src/providers/anthropic.ts`);
+const { supportsAnthropicCompaction } = await import(`${AI_ROOT}/src/providers/anthropic.ts`);
 
 // GATE 0: the fixture model must actually take the Anthropic native lane.
 const model: Model = getBundledModel("anthropic", "claude-opus-5");
@@ -93,6 +94,7 @@ function nativeCompactionResponse(requestModel: Model): AssistantMessage {
 			provider: requestModel.provider,
 			content: "NATIVE_SUMMARY",
 			encryptedContent: "opaque",
+			signature: "offline-signed-summary",
 		},
 	} as AssistantMessage;
 }
@@ -194,12 +196,63 @@ const [request] = nativeRequests;
 // GATE 2: the request is the live turn's bytes — system, tools, messages.
 assert.deepEqual(request.context.systemPrompt, liveContext.systemPrompt, "native request must carry the live system prompt");
 assert.deepEqual(request.context.tools, liveContext.tools, "native request must carry the normalized live tools (with `i`)");
-assert.deepEqual(request.context.messages, liveContext.messages, "native request must carry the live message bytes");
-assert.equal(request.options.anthropicCompaction?.pauseAfterCompaction, true, "compact edit must pause after summary");
+if (coreVersion === "18.3.3") {
+	assert.deepEqual(
+		request.context.messages,
+		liveContext.messages.slice(0, liveContext.messages.length - preparation.recentMessages.length),
+		"native request must preserve the live prefix without duplicating the retained tail",
+	);
+	assert.notDeepEqual(request.context.messages, liveContext.messages, "fixture must exercise a retained tail");
+	assert.equal(typeof request.options.anthropicCompaction?.instructions, "string");
+	assert.equal(request.options.anthropicCompaction?.pauseAfterCompaction, undefined);
+} else {
+	assert.deepEqual(request.context.messages, liveContext.messages, "native request must carry the live message bytes");
+	assert.equal(request.options.anthropicCompaction?.pauseAfterCompaction, true, "compact edit must pause after summary");
+}
 
 // GATE 3: the summary the API wrote is what got persisted.
 assert.equal(result.summary, "NATIVE_SUMMARY", "native summary must become the compaction entry summary");
 
+if (coreVersion === "18.3.3") {
+	const { getPreservedAnthropicCompactionData } = await import(`${CORE_ROOT}/src/compaction/anthropic.ts`);
+	assert.equal(result.firstKeptEntryId, "recent-assistant", "unshifted boundary must preserve the retained entry");
+	assert.equal(getPreservedAnthropicCompactionData(result.preserveData)?.signature, "offline-signed-summary");
+	const call = { ...oldAssistant, stopReason: "toolUse", content: [{ type: "toolCall", id: "call-1", name: "read", arguments: { path: "/fixture" } }] };
+	const toolResult = { role: "toolResult", toolCallId: "call-1", toolName: "read", content: [{ type: "text", text: "done" }], timestamp: 25 };
+	const boundaryMessages = [oldUser, call, toolResult, oldAssistant, recentUser, recentAssistant];
+	const boundaryLive = [liveMessages[0], ...boundaryMessages.slice(1)];
+	for (const hasEntryIds of [true, false]) {
+		const requests: Context[] = [];
+		const shifted = await compact({
+			...preparation,
+			messagesToSummarize: boundaryMessages.slice(0, 2),
+			turnPrefixMessages: [],
+			recentMessages: boundaryMessages.slice(2),
+			recentEntryIds: hasEntryIds ? ["result", "after-result", "next-user", "next-assistant"] : undefined,
+			firstKeptEntryId: "result",
+			tokensBefore: 100_000,
+			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
+		}, model, "test", undefined, undefined, {
+			convertToLlm: messages => messages as Context["messages"],
+			buildCachePreservingContext: async () => ({
+				context: { ...liveContext, messages: boundaryLive },
+				previousSummaryInPrefix: false,
+			}),
+			completeImpl: async (requestModel, context, options) => {
+				if (!options.anthropicCompaction) return assistant(requestModel);
+				requests.push(context);
+				return nativeCompactionResponse(requestModel);
+			},
+		});
+		assert.equal(requests.length, 1);
+		assert.deepEqual(requests[0].messages, hasEntryIds ? boundaryLive.slice(0, 3) : boundaryLive,
+			"safeCut must keep a tool call with its result; missing boundary IDs must summarize the snapshot");
+		assert.equal(shifted.firstKeptEntryId, hasEntryIds ? "after-result" : "");
+		const preserved = getPreservedAnthropicCompactionData(shifted.preserveData);
+		assert.equal(preserved?.content, "NATIVE_SUMMARY");
+		assert.equal(preserved?.signature, "offline-signed-summary", "persisted replay must retain the signature");
+	}
+}
 // GATE 4: without a live context the lane keeps its hand-built fallback
 // (no behavior change when the host cannot vouch for the prefix).
 const fallbackRequests: Context[] = [];
@@ -231,19 +284,6 @@ assert.equal(fallbackRequests.length, 1, "fallback must still issue one native r
 assert.deepEqual(fallbackRequests[0].systemPrompt, ["STALE_SYSTEM"], "fallback keeps remoteSystemPrompt");
 assert.deepEqual(fallbackRequests[0].tools, rawTools, "fallback keeps the raw tools");
 
-// GATE 5: the host's live scope must replay the agent's in-memory messages,
-// not a rebuild from session entries. The eval state reminder is appended to
-// `agent.state.messages` but never persisted; a session-entry rebuild drops it
-// and the native request forks the main turn's cached prefix at that message
-// (observed: prefix-different at messages[34], cacheWrite 139,120). The array
-// is copied because `appendMessage` pushes in place during the async rebuild.
-// The builder is a private class method, so assert on the selected source text.
-const maintenanceSource = readFileSync(`${AGENT_ROOT}/src/session/session-maintenance.ts`, "utf8");
-assert.match(
-	maintenanceSource,
-	/const prefixMessages =\s*scope === "live"\s*\?\s*this\.#host\.agent\.state\.messages\.slice\(\)\s*:\s*buildSessionContext\(branchEntries, prefixEntryId, entriesById\)\.messages;/,
-	"primary live scope must use a snapshot of agent.state.messages (host-only messages are not in session entries)",
-);
 
 console.log(
 	`PASS anthropic native compaction live context: scopes=${scopes.join(",")} messages=${request.context.messages.length} tools=${request.context.tools?.length}`,

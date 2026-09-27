@@ -1,0 +1,208 @@
+{
+  "owner": "Codex1833",
+  "role": "trellis-implement (Codex family: 0063/0068/0069/0070)",
+  "active_task": ".trellis/tasks/09-27-omp-1833-deploy",
+  "workspace": {
+    "pristine_183_3": "/tmp/omp-1833-upgrade-9gpapl1n/Codex/nm (byte-identical to /tmp/omp-1833-preflight-b5hpnhn7/18.3.3/<pkg>)",
+    "scripts": [
+      "tools/rebuild.sh - builds the real prerequisite tree, applies my four candidates, regenerates each patch from the actual before/after trees",
+      "tools/verify.sh - strict (--fuzz=0) forward replay, idempotence probe, and full reverse replay back to the prerequisite tree"
+    ],
+    "trees": {
+      "new": "final intended target tree for these four IDs (prerequisites + all four candidates)",
+      "prev": "the before-tree of the last regenerated candidate",
+      "freshpeer": "real prerequisite chain only",
+      "peer67": "prerequisite chain + 0066 + 0067 (reverse-replay comparison base)",
+      "fresh": "fresh replay tree used by the verification probes"
+    },
+    "note": "No shared file (apply.sh, PATCHES.md, .trellis/spec/**, patches/verify-*.ts) was modified, no live ~/.bun or ~/.omp write, no commit, no delegated agent."
+  },
+  "candidates": [
+    {
+      "id": "0063",
+      "path": "patches/.18.3.3-candidates/0063-omp-codex-v2-compaction-live-chain-v18.3.3-candidate.patch",
+      "sha256": "d87d959a55b8be995c40f96f51d029d7cb4abc0c2cc582ccdc2ca34f71535d71",
+      "root": "NM",
+      "apply": "patch -p1 from <NM> (paths pi-ai/..., pi-agent-core/...)",
+      "plan_position": 32,
+      "files": [
+        "pi-ai/src/providers/openai-codex-responses.ts",
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+        "pi-ai/dist/types/providers/openai-codex-responses.d.ts"
+      ]
+    },
+    {
+      "id": "0068",
+      "path": "patches/.18.3.3-candidates/0068-omp-codex-stale-baseline-chain-v18.3.3-candidate.patch",
+      "sha256": "3d0114b4c52dee2529aab320ba6dc94267c5c26f957bc887f83bbb74414f6902",
+      "root": "NM",
+      "apply": "patch -p1 from <NM>",
+      "plan_position": 37,
+      "files": [
+        "pi-ai/src/providers/openai-codex-responses.ts",
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+        "pi-agent-core/src/compaction/compaction-trace.ts (new file)",
+        "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts"
+      ]
+    },
+    {
+      "id": "0069",
+      "path": "patches/.18.3.3-candidates/0069-omp-codex-effort-history-resume-v18.3.3-candidate.patch",
+      "sha256": "63e55bd60667bbbe429e61a654e50863f3fb6937eff8eb33939c7dc1f03c53a0",
+      "root": "AI",
+      "apply": "patch -p1 from <NM>/pi-ai (paths src/..., dist/...)",
+      "plan_position": 38,
+      "files": [
+        "src/types.ts",
+        "src/providers/openai-codex-responses.ts",
+        "dist/types/types.d.ts"
+      ]
+    },
+    {
+      "id": "0070",
+      "path": "patches/.18.3.3-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.3.3-candidate.patch",
+      "sha256": "f66cbf114e28d3fcd63e877049d5939e3f2885359e4d6772698e059e3594aa5d",
+      "root": "NM",
+      "apply": "patch -p1 from <NM>",
+      "plan_position": 39,
+      "files": [
+        "pi-ai/src/providers/openai-codex-responses.ts",
+        "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+        "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction.d.ts",
+        "pi-coding-agent/src/session/session-maintenance.ts",
+        "pi-coding-agent/src/session/session-advisors.ts"
+      ]
+    }
+  ],
+  "integration_defects_fixed": {
+    "exchange_contract": {
+      "reported_by": "Main (verify-codex-compaction-chain-fail-closed.ts aborted in the cold scenario)",
+      "symptom": "CodexCompactionChainLostError: chained compaction failed after 1 attempts: undefined is not an object (evaluating 'ids.some') at compaction-v2-streaming.ts chainLossOr/requestCompactionV2Streaming.",
+      "root_cause": "18.3.3 changed CodexWebSocketConnection.streamRequest from a bare request body (18.2.10) to a CodexWebSocketExchange union ({ send } | { attachSteerIds }); 0070's chain-recovery frame was still a bare body, so `\"send\" in exchange` was false, the stream took the attach branch and dereferenced undefined ids in hasFailedSteer.",
+      "fix": "Recovery frame is now { send: { ...recoveryBody, type: \"response.create\", generate: false } }. All three .streamRequest( call sites audited; recovery was the only non-conforming one.",
+      "evidence": "fault-tree probe reproduced Main's message verbatim pre-fix (same stack frames, same 'ids.some' text) and passes post-fix."
+    },
+    "open_stage_metadata_restore": {
+      "reported_by": "ReviewTransport1833",
+      "root_cause": "getOrCreateCodexWebSocketConnection registers onHandshakeHeaders -> updateCodexSessionMetadataFromHeaders, which writes turnState.value and modelsEtag on the WS 101. 0070's rollback only existed in streamCodexCompactionEvents' finally, so a failure before that generator exists (chain recovery, send-point refusal, dead socket) kept metadata minted for a response that never completed.",
+      "fix": "The pre-open snapshot is now the named closure restoreOpenStageMetadata; the open catch calls it, and streamCodexCompactionEvents' incomplete-drain finally restores the PRE-open snapshot (previously the post-open value, which could already carry a handshake write)."
+    },
+    "collector_rejection_rollback": {
+      "reported_by": "ReviewTransport1833",
+      "root_cause": "The generator can drain a valid terminal (completed -> its finally does not run) and pi-agent-core then rejects the summary in finishCompactionV2Collection (zero/multiple compaction items, missing terminal). onAccept is never called, so neither the open catch nor the generator finally undid the 101 metadata.",
+      "fix": "OpenAICodexCompactionStreamOptions.onAccept now receives (commit, rollback); pi-agent-core calls rollback() in the catch around collectCompactionV2Events. The append baseline is deliberately untouched, so a rejected summary keeps its chain (the gate's canAppend assertion still holds). d.ts carries the same two-parameter signature."
+    },
+    "evidence": [
+      "Fault-tree probe fault/pi-ai/probe-0070-recovery.ts - seven scenarios PASS on the fixed tree: cold recovery is exchange-wrapped and chains on the recovered baseline on the same socket with zero HTTP sends; recovery returning model output fails closed; preferWebsockets:false fails closed with no frame; invalid_request_error stays terminal with its code and no retry; a failed open leaves no 101 metadata; a collector-rejected summary leaves no 101 metadata; an accepted summary keeps it.",
+      "Control A (only the pi-agent-core rollback() call removed): collector-rejection scenario fails with 'a rejected summary must not keep the turn state its 101 committed', failed-open scenario still passes - proves the rejection hook is load-bearing on its own.",
+      "Control B (restore body disabled): failed-open scenario fails with 'a failed open must not keep the turn state its 101 committed' - proves the open-stage restore is load-bearing.",
+      "The fixture mints the session cell at upgrade time because Bun 1.3.14 hides handshake response headers from the client (measured: event.responseHeaders/headers/response and socket.responseHeaders/handshakeHeaders/response all null), so a real 101 cannot deliver x-codex-turn-state/x-models-etag in-process.",
+      "Every fix was applied through tools/fix-0070-*.py (idempotent) before regenerating the candidate, so 0070 is still a real before/after diff and Main's normalized comments are preserved; 0063/0068/0069 were regenerated byte-identically and not rewritten."
+    ]
+  },
+  "main_owned_assets_to_update": {
+    "gate_fixture": "verify-codex-compaction-chain-fail-closed.ts needs an upgrade-time mint of the session turn-state cell plus hasTurnState assertions on invalid-summary/failed-open (false) and success (true); without it those assertions are vacuous because nothing writes turnState through a real 101 on Bun 1.3.14. Snippet and the codexCompaction trap (createCodexRequestMetadata clears turnStates when startNewTurn is inferred) were sent to Main.",
+    "fault_anchors": [
+      "verify-codex-compaction-chain-fail-closed-faults.sh line 42 (\"missing acceptance type\") still matches the old single-line onAccept declaration; retarget the three-line form or the unique fragment '        rollback: () => void,'.",
+      "verify-codex-compaction-chain-fail-closed-faults.sh line 48 (\"accepted metadata dropped\") matches '\\t\\tapplyOpenAICodexCompactionResponseMetadata(recorded, requestContext);' which is now indented one level deeper inside options.onAccept?.(recorded => {.",
+      "No other fault anchor in that file is affected; the gate's one-parameter type probe still type-checks, and extending it with onAccept(commit, rollback) would cover the new surface."
+    ],
+    "consumer_probe": "Suggested gate probe for the new declaration: import { buildCodexChainedRequestBody } from the package declaration entry point (AI_ROOT/dist/types/providers/openai-codex-responses.js), assert `typeof buildCodexChainedRequestBody === 'function'` and type-check a call with a structurally shaped state variable (canAppend plus the optional baseline fields). A one-parameter or structurally narrower argument type is accepted, so passing the provider's own state object still type-checks."
+  },
+  "behaviors_preserved": {
+    "0063_live_chain_baseline": [
+      "buildCodexChainedRequestBody is exported (patches/verify-codex-compaction-chain.ts imports it from the selected AI root) and, for a body whose last input item is a compaction_trigger with a usable baseline, returns the LIVE baseline verbatim ({...state.lastRequest, client_metadata from the compaction body, previous_response_id: state.lastResponseId}); the rebuilt transcript's own top-level options (tool_choice/store/stream/instructions/tools) never reach the wire.",
+      "Calls the baseline left unanswered are paired by call_id: the transcript's recorded *_call_output is forwarded verbatim, otherwise a matching-kind placeholder output is synthesized, with the trigger kept last.",
+      "A computer_call with no recorded screenshot result breaks the chain (resetCodexWebSocketAppendState + modelsEtag cleared) rather than shipping a frame the endpoint rejects; an answered computer_call still chains.",
+      "Codex V2 compaction never keys the Lite socket: pi-agent-core compaction.ts and compaction-v2-streaming.ts pin responsesLite:false so the request reaches the live turn's WebSocket session key where previous_response_id resolves.",
+      "OpenAICodexResponsesOptions.responsesLite documents that provider-native compaction stays on the full transport."
+    ],
+    "0068_stale_baseline_reconnect": [
+      "The chain decision follows the socket: canAppendBeforeRequest + buildCodexChainedRequestBody moved AFTER getOrCreateCodexWebSocketConnection settles, so an auth refresh, stale-reuse or reconnect cannot be raced (TOCTOU) into shipping a dead previous_response_id.",
+      "18.3.3's steering lifecycle is preserved untouched: acceptedSteering capture, the replaced-socket identity check (steered.connection === websocketConnection), planSteeredRequest attach/create/discard branches and the replacement getOrCreate all stay; only the two chain-decision statements moved.",
+      "OpenAICodexCompactionStreamOptions.requestDiagnostics reports the wire shape actually sent; the try/finally publishes only a lastTurn reference this open recorded, so an attempt that died before sending cannot inherit the previous turn's shape.",
+      "The compaction stream's SSE fallback path samples diagnostics across openCodexSseTransport and publishes only a newly recorded shape.",
+      "traceCompaction moved to the new module pi-agent-core/src/compaction/compaction-trace.ts so compaction-v2-streaming can emit per-attempt records without a module-init cycle; the summarize.usage (codex-v2) row carries transport/chained/canAppend/inputItems."
+    ],
+    "0069_effort_history": [
+      "OpenAIResponsesHistoryPayload gains effortControl (durable request baseline + historical effort changes, never sent as a history item).",
+      "The process-local effortControls map is removed from the Codex provider session state; the baseline is restored from the current branch's last matching assistant message (api/model/provider match, stopReason not error/aborted) through providerPayload.effortControl, structured-cloned so a persisted branch snapshot is never mutated, else a fresh control state is created.",
+      "The resolved effort still runs through planStableOpenAIEffort and the control state is written back onto output.providerPayload so resume and branch switches keep the same request prefix.",
+      "The only 18.3.3 strict failure was the second types.ts / types.d.ts hunk: upstream inserted AnthropicOutputEffort / AnthropicToolChange / AnthropicMessagePayload between the payload interface and the old trailing context. Both are re-anchored here with every upstream type preserved; the branch-local effort wire semantics are unchanged."
+    ],
+    "0070_fail_closed_chain": [
+      "A Codex V2 compaction request never degrades into a full-price SSE replay: openInitialCodexEventStream throws CodexCompactionChainLostError when the WebSocket open path fails (retryable=!isFatal) and when no WebSocket transport was even attempted; the compaction stream rethrows WebSocket transport errors instead of taking the silent SSE fallback.",
+      "The send point fails closed: with mustChain true (isCompactionWireBody) and a settled frame lacking previous_response_id, the frame is never written and the error carries a diagnosis assembled from samples taken before/after getOrCreate and after buildCodexChainedRequestBody (socket state, canAppend at each point, lastResponseId, prewarmed, fallbackCount, lastTransport, wsRetry, lastClose/lastPeerClose age+generation).",
+      "A lost baseline is recovered before the throw: with a compaction body and no usable baseline a non-generating `generate:false` response.create rebuilds it (request.prepareCompactionRecovery supplies the live message prefix when available, else the trigger is trimmed off). The frame is sent as the 18.3.3 WebSocket exchange (`{ send: ... }`; the union also carries the `{ attachSteerIds }` steering form). Model output, incomplete/failed response, dead socket or missing response id all fail closed; on success lastRequest/lastResponseId/lastResponseItems/canAppend are re-armed for the next chained request.",
+      "Session metadata and append-baseline invalidation are deferred to acceptance: the collector records response.metadata frames while draining and the provider's onAccept callback applies turnState/modelsEtag and resets this socket's append state only after the summary is accepted, so a failed attempt cannot poison sticky routing state or destroy the retry baseline.",
+      "Socket departures are observable: CodexWebSocketConnection gains a generation id plus onClosed, reporting local teardown and peer closes separately (first close wins per socket, identity-guarded so a replaced socket's async close cannot wipe its replacement's baseline); both obituaries are cleared once a new chain exists.",
+      "WebSocket fallback is attempt-local: disableWebsocket is removed (a failed attempt no longer disables the transport for the session); websocketDisabled is still reported for provider details and is always false.",
+      "Chain classification keeps the provider's own code: CompactionV2StreamFailure carries code + chainLost, the type:\"error\" frame is no longer flattened into the generic truncated-stream message, and isRetryableCompactionError separates permanent codes, chain rejections and transient WebSocket/parse failures.",
+      "compaction-v2-streaming refuses the Codex V2 endpoint when the provider transport cannot be used at all (throws CodexCompactionChainLostError instead of building compatibility metadata or SSE headers), tracks sawChainedAttempt across retries and escalates the final error to the sentinel.",
+      "compaction.ts never falls back to V1 for Codex (a failed Codex V2 compaction throws the sentinel); SummaryOptions.initiator plus initiator/sessionId on the codex-v2 trace rows keep a process's primary and advisors attributable.",
+      "session-maintenance skips a Codex remote speculation outright (it runs on an isolated :spec: session over SSE, where no chain can exist), lets a recoverable chain loss bypass the timeout branch, drives the retry decision from CodexCompactionChainLostError.retryable, rethrows CompactionCancelledError, and names the next method in the fallback notice.",
+      "session-advisors passes initiator:`advisor:${advisor.slug}` so an advisor compaction is not attributed to the primary session."
+    ]
+  },
+  "upstream_18_3_3_interactions": [
+    "0068's old hunks 4-6 (header block / getOrCreate relocation) are obsolete in 18.3.3: createCodexHeaders and getOrCreateCodexWebSocketConnection already precede the chain decision, so the candidate only moves the two chain-decision statements below getOrCreate and adds the TOCTOU comment.",
+    "18.3.3 added a third SSE fallback site in streamCodexCompactionEvents (the dropRejectedCodexAccessPrograms replay). drainCodexCompactionEvents lost its requestContext parameter (0070 defers metadata to onAccept), so both fallback call sites were migrated to the single-argument form; the access-program replay itself is untouched.",
+    "18.3.3 already had isCodexStalePreviousResponseError (non-exported) and disableWebsocket; 0070 only exports the former and removes the latter. This confirms the preflight retraction: there is no duplicate declaration and no upstream absorption of 0070.",
+    "0069's old hunks for the provider applied unmodified (offset only); the strict failure was confined to the two types.ts / types.d.ts hunks described above.",
+    "18.3.3 changed CodexWebSocketConnection.streamRequest from a bare `Record<string, unknown>` body (18.2.10) to the CodexWebSocketExchange union `{ send } | { attachSteerIds }`. The old 0070 recovery frame was a bare body and took the attach branch (TypeError on undefined ids); the candidate now wraps it in `{ send: ... }`. The other two call sites already matched the union."
+  ],
+  "dependencies_for_main": {
+    "generated_against": "pristine 18.3.3 + the already-published peer candidates in plan order: 0035, 0036, 0044, 0052, 0057 (NM), 0045, 0046, 0062 (pi-coding-agent), then my 0063, then 0066, 0067 (NM), then my 0068, 0069",
+    "not_included": [
+      "0065 (pi-catalog KDL/rules.json): touches only pi-catalog, cannot affect my files.",
+      "Session/AuthUI layers not yet published (0043, 0048, 0050, 0072, 0073, 0075, 0076, 0077 and the UI/kitty image layers): none of them touch pi-ai/src/providers/openai-codex-responses.ts, pi-agent-core/src/compaction/*, or pi-ai/src/types.ts. If any of them rewrites pi-coding-agent/src/session/session-maintenance.ts near the two speculation guards or near #runAutoCompaction's catch ladder, 0070's session-maintenance hunks (8 of 69) need reanchoring."
+    ],
+    "verified_interlocks": [
+      "0035 keeps its own bytes: reproduced by applying only 0035-omp-compaction-prefix-rollup-v18.3.3-candidate.patch to pristine and grepping compaction.ts -> responsesLite is still `model.useResponsesLite` (no responsesLite string exists in that candidate). The pin is therefore 0063's, and my 0063 applies at --fuzz=0 on the full prerequisite chain.",
+      "Compaction1833 confirmed (hub) that its 0035 candidate keeps the em-dash bytes my 0068 deletes (its traceCompaction body) and that its 0067 codex-v2 trace rows are byte-identical to the 18.2.10 text/order at compaction.ts lines 2003/2023/2037 in its own tree; my 0068/0070 injections into those rows are anchored on exactly that text.",
+      "Because 0066's `live` scope and 0067's chrome now land before 0068/0070, my regenerated candidates carry the real line numbers of that state (0070's session-maintenance hunks shifted by the 0045/0046/0062 layers)."
+    ],
+    "gate_and_source_changes_main_owns": [
+      "patches/verify-codex-compaction-chain.ts already accepts 18.3.3; I checked its 3b/4 assertions against the final target tree with a read-only python probe: getOrCreateCodexWebSocketConnection( precedes buildCodexChainedRequestBody( inside openCodexWebSocketTransport; getOrCreate still matches close(\"stale-reuse\"); resetCodexWebSocketAppendState(state); compaction.ts has forceReasoningOff -> comment -> responsesLite:false; compaction-v2-streaming has preferWebsockets -> prepareCompactionRecovery: request.prepareCompactionRecovery, -> comment -> responsesLite:false; 'staleChainBaseline' is absent. Run it against the integrated tree - not run here (parallel-work rule).",
+      "Suggested new 18.3.3 assertions (I edited no shared file): (a) a compaction wire body must never reach the SSE transport - drive openInitialCodexEventStream with preferWebsockets:false plus a compaction body and expect CodexCompactionChainLostError, and with a WS that fails to open expect the same sentinel rather than a replay; (b) the send-point refusal must fire when mustChain is true and the built frame has no previous_response_id; (c) a failed attempt must leave turnState/modelsEtag and the append baseline untouched, since onAccept is the only commit path; (d) the failure trace row stays queryable by k:\"summarize.attempt\" with final:true; (e) chain recovery must be non-generating (generate:false) and must reject any model output."
+    ]
+  },
+  "verification_executed": [
+    "Pristine check: diff -rq of all six packages against /tmp/omp-1833-preflight-b5hpnhn7/18.3.3 -> identical.",
+    "Each candidate is generated by diffing real before/after trees in this exact stack (no handwritten hunk counts): 0063 from prereq-chain-minus-0063, 0068 from chain+0063+0066+0067, 0069 from that plus 0068 (pi-ai root), 0070 from that plus 0069.",
+    "Strict forward replay (--fuzz=0) of all four candidates on a freshly built real prerequisite tree reproduces the generated target tree byte-for-byte (PASS), with no .orig/.rej and no empty files.",
+    "Idempotence probe: --dry-run --fuzz=0 of 0063, 0068 and 0070 on the applied tree fails (they are not pure insertions).",
+    "Full reverse replay (0070, 0069, 0068, 0063, --fuzz=0 --remove-empty-files) restores the peer+0066/0067 tree byte-for-byte (PASS), including removal of the new compaction-trace.ts.",
+    "Per-candidate reverse/forward pairs checked individually as well (0068 restores its before-tree and deletes the created file; 0069 restores S1-style state from the pi-ai root).",
+    "Behavioural read-only sweep on the final target tree (26 assertions, all PASS): chained-builder export, compaction-trigger branch, diagnostics option, getOrCreate-before-chain-decision, steering branches intact, refuseSseFallback, send-point refusal, generate:false recovery, lastClose/lastPeerClose, onClosed wiring, no disableWebsocket, effort restored from branch history with no effortControls map, core lite pin, trace module import and removal of the old local traceCompaction, initiator plumbing, no V1 fallback for Codex, chain-only endpoint refusal, sawChainedAttempt escalation, deferred metadata commit, both speculation skips, chain-lost retry gate, advisor initiator.",
+    "ASCII audit: zero non-ASCII added lines in 0063/0069/0070; 0068 has two non-ASCII *deletion* lines inherited from 0035's traceCompaction text (confirmed preserved by its owner); 0070 has one non-ASCII *context* line that is 18.3.3 source.",
+    "Machine audit strings: 'Pristine input MUST', 'Full-chain verification MUST' (patch-rollup-contracts.md) and 'Gate loading MUST fail closed' (verification-gate-contracts.md) each grep to 1 hit.",
+    "Scoped fault-tree probe (fault/pi-ai/probe-0070-recovery.ts; the slice's packages resolve from the fault tree, provider calls are confined to a local WebSocket fixture, HOME/XDG/TMP private): 7 scenarios PASS on the fixed tree - cold recovery is exchange-wrapped and chains on the recovered baseline on the same socket with zero HTTP sends; recovery returning model output fails closed; preferWebsockets:false fails closed with no frame; invalid_request_error stays terminal with its code and no retry; a failed open leaves no 101 metadata; a collector-rejected summary leaves no 101 metadata; an accepted summary keeps it. Controls: removing only the pi-agent-core rollback() call fails the collector-rejection scenario; disabling the restore body fails the failed-open scenario. With the exchange fix reverted the probe reproduces Main's failure verbatim (same chainLossOr/requestCompactionV2Streaming frames, same 'ids.some' text).",
+    "NOT executed (parallel-work rule): formatters, linters, builds, bun test, patches/verify-*.ts, apply.sh, live deployment."
+  ],
+  "not_claimed": [
+    "No behavioral gate or full-chain replay was executed against a dependency-complete tree; Main owns that on the integrated tree.",
+    "The four candidates are valid at plan positions 32/37/38/39 on the prerequisite set recorded above; any later reanchoring of 0035/0066/0067 or of the unpublished session-maintenance layers may invalidate specific hunks (0070's eight session-maintenance hunks are the sensitive ones)."
+  ],
+  "public_surface_audit": {
+    "scope": "every export/no-op added or changed by 0063/0068/0069/0070 in this slice",
+    "result": "16/16 published in the shipped .d.ts files",
+    "entries": [
+      "pi-ai: buildCodexChainedRequestBody + CodexChainedAppendState (0063, new declaration; the internal CodexWebSocketSessionState stays private, matching the structural style 0070 already uses for applyOpenAICodexCompactionResponseMetadata)",
+      "pi-ai: CodexCompactionChainLostError, OpenAICodexCompactionResponseMetadata, recordOpenAICodexCompactionResponseMetadata, applyOpenAICodexCompactionResponseMetadata, isCodexStalePreviousResponseError export (0070)",
+      "pi-ai: OpenAICodexResponsesOptions.prepareCompactionRecovery, OpenAICodexCompactionStreamOptions.requestDiagnostics/onAccept(commit, rollback) (0068/0070)",
+      "pi-ai: OpenAIResponsesHistoryPayload.effortControl (0069)",
+      "pi-agent-core: traceCompaction via the new dist/types/compaction/compaction-trace.d.ts (0068)",
+      "pi-agent-core: CompactionV2Response.requestDiagnostics, requestCompactionV2Streaming options initiator/sessionId, SummaryOptions.initiator (0068/0070)",
+      "pi-coding-agent: no export-surface change",
+      "no new export is missing a declaration; non-exported helpers (hasCodexAppendBaseline, isCompactionWireBody, buildCodexRequestBody, CompactionV2StreamFailure, ...) intentionally stay internal"
+    ],
+    "insertion_note": "0063's declaration is inserted after resolveCodexResponsesUrl (mid-file) so 0070's tail hunk keeps its context; 0070 was therefore NOT reanchored and keeps sha f66cbf114e28d3fcd63e877049d5939e3f2885359e4d6772698e059e3594aa5d"
+  }
+}

@@ -1,0 +1,303 @@
+{
+  "attempts": [
+    {
+      "stage": "reserved-api-fixture",
+      "exit": 1,
+      "stderr": "\n[Uncaught Exception] ConfigurationError: Cannot register custom API \"openai-completions\": built-in API names are reserved.\n    at assertCustomApiName (/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-ai/src/api-registry.ts:66:21)\n    at registerCustomApi (/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-ai/src/api-registry.ts:79:2)\n    at registerProvider (/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-coding-agent/src/config/model-registry.ts:2994:4)\n    at /home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/probe-model-lifecycle.ts:36:10\n    at processTicksAndRejections (native:7:39)\n"
+    },
+    {
+      "stage": "default",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"default\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/default.json\",\"snapshots\":2,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "default-resume",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/default-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "roundtrip",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"roundtrip\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/roundtrip.json\",\"snapshots\":3,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "roundtrip-resume",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/roundtrip-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "ephemeral",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"ephemeral\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/ephemeral.json\",\"snapshots\":2,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "ephemeral-resume",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/ephemeral-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "persistent-temporary",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"temporary\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/persistent-temporary.json\",\"snapshots\":2,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "persistent-temporary-resume",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/persistent-temporary-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "persistent-default",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"default\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/persistent-default.json\",\"snapshots\":2,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "persistent-default-resume",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/persistent-default-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "persistent-roundtrip",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"roundtrip\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/persistent-roundtrip.json\",\"snapshots\":3,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "persistent-roundtrip-resume",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/persistent-roundtrip-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "persistent-ephemeral",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"ephemeral\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/persistent-ephemeral.json\",\"snapshots\":2,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "stage": "persistent-ephemeral-resume",
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/persistent-ephemeral-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    }
+  ],
+  "runtime_object_serialization": {
+    "result": "fails all seven tools comparisons",
+    "reason": "JSON.stringify(context.tools) also serializes non-provider Tool runtime members tool/runner/session/settings.valueCache; use all declared pi-ai Tool fields, not runtime object internals",
+    "checks": [
+      {
+        "label": "temporary: expected same-model prefix after disk resume",
+        "fields": {
+          "model": {
+            "equal": true,
+            "bytes": 96,
+            "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+            "first_difference": null
+          },
+          "system": {
+            "equal": true,
+            "bytes": 7832,
+            "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+            "first_difference": null
+          },
+          "tools": {
+            "equal": false,
+            "bytes": 182924,
+            "sha256": "2275b720d37f1591967ddd5f78f0985541e954ecb1f4a6ccc122c4ca67080285",
+            "first_difference": 697
+          },
+          "effectiveEditMode": {
+            "equal": true,
+            "bytes": 9,
+            "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+            "first_difference": null
+          }
+        }
+      },
+      {
+        "label": "default: expected same-model prefix after disk resume",
+        "fields": {
+          "model": {
+            "equal": true,
+            "bytes": 96,
+            "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+            "first_difference": null
+          },
+          "system": {
+            "equal": true,
+            "bytes": 7832,
+            "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+            "first_difference": null
+          },
+          "tools": {
+            "equal": false,
+            "bytes": 183068,
+            "sha256": "a14f7d3e04af9f5904ef948961889d34b17f9f182d557a4d1f9ed8c96b01edea",
+            "first_difference": 697
+          },
+          "effectiveEditMode": {
+            "equal": true,
+            "bytes": 9,
+            "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+            "first_difference": null
+          }
+        }
+      },
+      {
+        "label": "roundtrip: expected same-model prefix after disk resume",
+        "fields": {
+          "model": {
+            "equal": true,
+            "bytes": 92,
+            "sha256": "5822ae785a00574e5a2bd4ee792a3992522ff6c4d73bf47ec382234f2a9c7266",
+            "first_difference": null
+          },
+          "system": {
+            "equal": true,
+            "bytes": 7820,
+            "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032",
+            "first_difference": null
+          },
+          "tools": {
+            "equal": false,
+            "bytes": 184573,
+            "sha256": "9c85b2b7d47d2da94f9cd700eaba543a19b338cfb925adcdc47492fa07706eba",
+            "first_difference": 697
+          },
+          "effectiveEditMode": {
+            "equal": true,
+            "bytes": 10,
+            "sha256": "52d36755735776d47ae04ac6692beb5041e69ce6d42dcdee0c1270cdd994a5b3",
+            "first_difference": null
+          }
+        }
+      },
+      {
+        "label": "ephemeral: expected same-model prefix after disk resume",
+        "fields": {
+          "model": {
+            "equal": true,
+            "bytes": 92,
+            "sha256": "5822ae785a00574e5a2bd4ee792a3992522ff6c4d73bf47ec382234f2a9c7266",
+            "first_difference": null
+          },
+          "system": {
+            "equal": true,
+            "bytes": 7820,
+            "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032",
+            "first_difference": null
+          },
+          "tools": {
+            "equal": false,
+            "bytes": 92419,
+            "sha256": "21f39937a6bc61632c01b9aaf2df20546c87f6194603c1e60de532f41e730379",
+            "first_difference": 697
+          },
+          "effectiveEditMode": {
+            "equal": true,
+            "bytes": 10,
+            "sha256": "52d36755735776d47ae04ac6692beb5041e69ce6d42dcdee0c1270cdd994a5b3",
+            "first_difference": null
+          }
+        }
+      },
+      {
+        "label": "A -> temporary B -> default A",
+        "fields": {
+          "model": {
+            "equal": true,
+            "bytes": 92,
+            "sha256": "5822ae785a00574e5a2bd4ee792a3992522ff6c4d73bf47ec382234f2a9c7266",
+            "first_difference": null
+          },
+          "system": {
+            "equal": true,
+            "bytes": 7820,
+            "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032",
+            "first_difference": null
+          },
+          "tools": {
+            "equal": false,
+            "bytes": 92419,
+            "sha256": "21f39937a6bc61632c01b9aaf2df20546c87f6194603c1e60de532f41e730379",
+            "first_difference": 697
+          },
+          "effectiveEditMode": {
+            "equal": true,
+            "bytes": 10,
+            "sha256": "52d36755735776d47ae04ac6692beb5041e69ce6d42dcdee0c1270cdd994a5b3",
+            "first_difference": null
+          }
+        }
+      },
+      {
+        "label": "temporary B versus default B",
+        "fields": {
+          "model": {
+            "equal": true,
+            "bytes": 96,
+            "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+            "first_difference": null
+          },
+          "system": {
+            "equal": true,
+            "bytes": 7832,
+            "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+            "first_difference": null
+          },
+          "tools": {
+            "equal": false,
+            "bytes": 182924,
+            "sha256": "2275b720d37f1591967ddd5f78f0985541e954ecb1f4a6ccc122c4ca67080285",
+            "first_difference": 697
+          },
+          "effectiveEditMode": {
+            "equal": true,
+            "bytes": 9,
+            "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+            "first_difference": null
+          }
+        }
+      },
+      {
+        "label": "temporary B versus fresh B",
+        "fields": {
+          "model": {
+            "equal": true,
+            "bytes": 96,
+            "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+            "first_difference": null
+          },
+          "system": {
+            "equal": true,
+            "bytes": 7832,
+            "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+            "first_difference": null
+          },
+          "tools": {
+            "equal": false,
+            "bytes": 182924,
+            "sha256": "2275b720d37f1591967ddd5f78f0985541e954ecb1f4a6ccc122c4ca67080285",
+            "first_difference": 6274
+          },
+          "effectiveEditMode": {
+            "equal": true,
+            "bytes": 9,
+            "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+            "first_difference": null
+          }
+        }
+      }
+    ],
+    "contract": "pi-ai/src/types.ts:1438-1474"
+  }
+}

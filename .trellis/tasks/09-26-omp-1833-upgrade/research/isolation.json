@@ -1,0 +1,15 @@
+{
+  "sandbox": "/tmp/omp-1833-preflight-b5hpnhn7",
+  "environment": {
+    "PATH": "/home/chris/.bun/bin:/home/chris/.local/bin:/home/chris/bin:/home/chris/.grok/bin:/home/chris/.bun/bin:/home/chris/.local/bin:/home/chris/.local/bin:/home/chris/.config/orca/linux-orca-cli-shim:/home/chris/.qoder-cn/entry:/home/chris/.bun/bin:/home/chris/.local/bin:/home/chris/bin:/home/chris/.grok/bin:/home/chris/.nvm/versions/node/v24.15.0/bin:/home/chris/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/chris/.dotnet/tools:/home/chris/.volta/bin:/home/chris/.asdf/shims:/home/chris/.fnm/aliases/default/bin:/home/chris/.local/share/mise/shims:/home/chris/.local/share/pnpm:/home/chris/.yarn/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/home/linuxbrew/.linuxbrew/bin:/nix/var/nix/profiles/default/bin:/home/chris/.nix-profile/bin:/home/chris/.opencode/bin:/home/chris/.vite-plus/bin",
+    "HOME": "/tmp/omp-1833-preflight-b5hpnhn7/private/home",
+    "XDG_CONFIG_HOME": "/tmp/omp-1833-preflight-b5hpnhn7/private/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/omp-1833-preflight-b5hpnhn7/private/xdg-cache",
+    "XDG_DATA_HOME": "/tmp/omp-1833-preflight-b5hpnhn7/private/xdg-data",
+    "BUN_INSTALL_CACHE_DIR": "/tmp/omp-1833-preflight-b5hpnhn7/private/bun-cache",
+    "TMPDIR": "/tmp/omp-1833-preflight-b5hpnhn7/private/tmp",
+    "OMP_PATCH_OFFLINE_VERIFY": "1",
+    "LC_ALL": "C"
+  },
+  "note": "Patch/source-only preflight; no runtime dependency imports yet. No live logs, sessions or credentials."
+}

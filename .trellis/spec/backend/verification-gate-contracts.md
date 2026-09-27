@@ -99,16 +99,24 @@ suite. A gate that no suite invokes is not a gate.
 - Scheduled continuation faults must observe real `Agent.continue` errors as
   well as dispatch counts: upstream busy protection can hide duplicate calls
   without making late active-attempt publication correct.
+- On 18.3.3, auth uses `auth.keys.setRuntime`; settings use typed `cfgX.get/set(settings)` and real `Settings.isolated` fixtures, never `{get()}` stubs. After changing memory backend, await `session.applyMemoryBackend()` before installing fixture state: the settings listener replaces it asynchronously. Adapt fixture wiring without weakening behavior; audit patch-added legacy settings access too.
+- Retiring 0073 needs SDK `setModelTemporary`/`setModel` and cross-process disk
+  resume, not just getter equality. Compare raw serialized system/Tool-contract
+  fields for the same final model; assert fixture metadata/edit-mode separately.
+  In 18.3.3, temporary survives resume; ephemeral restores the durable model.
+  Test persisted defaults with private `Settings.loadIsolated`, flush and reload,
+  not `Settings.isolated`. Reproduction:
+  `.trellis/tasks/09-27-omp-1833-deploy/research/run-model-lifecycle.py` proves eight comparisons across ten processes, including fresh A/B. It does not prove HTTP bytes/cache hits. Store digests, not full prompts; never pin obsolete wording.
 
 - Registered gates resolve package-specific `OMP_PATCH_VERIFY_<PACKAGE>_ROOT`
   before `OMP_PATCH_VERIFY_NM`, then the local HOME default. PACKAGE is AGENT,
   CORE, AI, SNAPCOMPACT, CATALOG or TUI. The controller exports all selected roots;
   direct invocations retain the same override precedence.
-- Cross-registrant model parity uses the real plugin registration and selected
-  runtime finalization, not source regexes. Compare modality, strict-tool,
-  multi-system and image-stripping policy; retain sibling negative controls.
-  `OMP_PATCH_VERIFY_PLUGIN_ROOT` selects the plugin checkout, defaulting to the
-  repository-relative vendor directory. Missing roots fail, never skip.
+- Cross-registrant model parity is gone: the vendored `pi-commandcode-provider`
+  was retired on 2026-09-27, so `commandcode` has one registrant (the bundled
+  pi-catalog cascade). Gates that compared two records now assert the single
+  record's pinned wire axes directly; a retired registrant is not replaced by a
+  second local source.
 - Public API additions must reach every shipped `.d.ts`; a consumer type-check
   must use package declaration entry points for all affected public interfaces.
 - An open socket is not necessarily reusable. Exercise an established baseline
@@ -508,3 +516,29 @@ Also require the full pristine chain oracle, not just `--check` on already-patch
 
 ### 7. Wrong vs Correct
 Wrong: emit every image MIME, retire while conversion is pending, or remove `image` capability to hide lost terminal output. Correct: select one representation and defer history retirement until conversion has settled.
+
+## Scenario: Primary-session cache rate in the status line (18.3.3)
+
+### 1. Scope / Trigger
+`cache_hit` must reflect primary assistant calls even when `find`, advisor, or other auxiliary `model_usage` records are charged to the session.
+
+### 2. Signatures
+`SessionManager.getMainCacheHitRate(): number | undefined` is consumed by `pi-tui/src/status-line/segments.ts` through `StatusLineSession.sessionManager`. The 18.3.3-only cross-package candidate is `0081-omp-main-cache-footer` at the `${NM}` root.
+
+### 3. Contracts
+- `SessionEntryIndex.insert()` increments primary `input`, `cacheRead`, and `cacheWrite` only for `message.role === "assistant"` with usage. `clear()` resets them; every rebuild uses the same insertion path.
+- The getter returns `100 * cacheRead / (input + cacheRead + cacheWrite)` when primary `cacheRead > 0`, otherwise `undefined`. The hot status-line render reads one number, not the full journal.
+- `getUsageStatistics()`, `cache_read`, `token_total`, `/usage`, ACP, budgets, and costs still account for all `model_usage` and `task` results. Do not change their public aggregate contract.
+- Source and shipped `.d.ts` signatures must agree. Gallery session doubles must supply the new getter; their casts to `AgentSession` do not check it at compile time.
+
+### 4. Validation & Error Matrix
+No primary cached input → hide `cache_hit`. Primary `input=100, cacheRead=900` → `90.00%`. An auxiliary `find` entry with `input=9000, cacheRead=0` → still `90.00%`, while aggregate input becomes `9100`. Session reload → same values; gallery cache preview → renders without a missing-method error.
+
+### 5. Good / Base / Bad Cases
+Good: an actual session with auxiliary calls displays primary cache rate but retains full billing usage. Base: a session without auxiliary calls retains its prior hit-rate formula. Bad: a single `find` call drives the footer down or removing `model_usage` from totals makes `/usage` undercount.
+
+### 6. Tests Required
+Run `OMP_PATCH_VERIFY_NM=<isolated-patched-root> bun patches/verify-main-cache-hit.ts` against pre-fix and fixed trees; the pre-fix tree must fail at the diluted footer assertion. Exercise `getSegmentGalleryEntries()`'s `cache_hit` renderer and the real-session numeric replay; run the complete pinned-pristine `--verify-rollups` oracle. Machine-check both at delivery and independent review with grep pattern `getMainCacheHitRate|0081-omp-main-cache-footer|verify-main-cache-hit` scoped to `patches/apply.sh`, the 0081 candidate, the gate, and `patches/PATCHES.md`.
+
+### 7. Wrong vs Correct
+Wrong: omit auxiliary usage from `getUsageStatistics()`, scan every session message per redraw, or hide the gallery error with a missing-method fallback. Correct: keep an O(1) primary-only counter alongside the unchanged aggregate index and pass its rate through a required typed getter.

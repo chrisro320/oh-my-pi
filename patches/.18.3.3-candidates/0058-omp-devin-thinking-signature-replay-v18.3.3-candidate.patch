@@ -1,0 +1,42 @@
+--- a/src/providers/devin.ts
++++ b/src/providers/devin.ts
+@@ -176,6 +176,7 @@
+ 
+ 		let currentTextBlock: TextContent | null = null;
+ 		let currentThinkingBlock: ThinkingContent | null = null;
++		let lastThinkingBlock: ThinkingContent | null = null;
+ 		// Tool-call content blocks keyed by streamed tool-call id, plus the JSON-args text
+ 		// accumulated per id (kept out of the content object so finalized tool calls stay clean).
+ 		const toolBlocks = new Map<string, ToolCall>();
+@@ -216,6 +217,7 @@
+ 			const block = currentThinkingBlock;
+ 			if (!block) return;
+ 			currentThinkingBlock = null;
++			lastThinkingBlock = block;
+ 			stream.push({
+ 				type: "thinking_end",
+ 				contentIndex: output.content.indexOf(block),
+@@ -473,6 +475,14 @@
+ 						});
+ 					}
+ 
++					// The server emits the thinking signature on a standalone trailing
++					// frame (deltaThinking empty) after thinking_end; without this the
++					// signature is dropped and replayed history loses its cache key.
++					if (msg.deltaSignature && !msg.deltaThinking) {
++						const target = currentThinkingBlock ?? lastThinkingBlock;
++						if (target) target.thinkingSignature = msg.deltaSignature;
++					}
++
+ 					if (msg.deltaText) {
+ 						markFirstToken();
+ 						endThinkingBlock();
+@@ -942,7 +952,7 @@
+ 					prompt: promptText,
+ 					thinking: thinkingText,
+ 					signature,
+-					signatureType: "",
++					signatureType: signature ? "sealed" : "",
+ 					toolCalls,
+ 				}),
+ 			);

@@ -1,0 +1,29 @@
+--- a/src/providers/devin.ts
++++ b/src/providers/devin.ts
+@@ -27,7 +27,7 @@
+ 	PromptCacheOptionsSchema,
+ 	StopReason,
+ } from "@oh-my-pi/pi-catalog/discovery/devin-proto";
+-import { create, fromBinary, toBinary } from "@oh-my-pi/pi-catalog/discovery/protobuf";
++import { create, fromBinary, toBinary, toJson } from "@oh-my-pi/pi-catalog/discovery/protobuf";
+ import { calculateCost } from "@oh-my-pi/pi-catalog/models";
+ import { DEVIN_DEFAULT_BASE_URL, devinCliMetadata } from "@oh-my-pi/pi-catalog/wire/devin";
+ import { decodeDevinUnaryMessage } from "@oh-my-pi/pi-catalog/wire/devin-proto";
+@@ -267,6 +267,17 @@
+ 				request = builtRequest;
+ 				reqBytes = builtReqBytes;
+ 				gz = builtGz;
++				const dumpDir = process.env.OMP_DEVIN_DUMP;
++				if (dumpDir) {
++					// Cache-miss forensics: capture the exact wire request so consecutive
++					// payloads can be diffed byte-for-byte after a cacheRead=0 response.
++					const stamp = `${Date.now()}-${process.pid}-a${attempt}`;
++					void Bun.write(`${dumpDir}/${stamp}.bin`, builtReqBytes).catch(() => {});
++					void Bun.write(
++						`${dumpDir}/${stamp}.json`,
++						JSON.stringify(toJson(GetChatMessageRequestSchema, builtRequest)),
++					).catch(() => {});
++				}
+ 				logger.debug("devin: sending chat request", {
+ 					model: model.id,
+ 					tools: context.tools?.length ?? 0,

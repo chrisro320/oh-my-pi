@@ -1,0 +1,14 @@
+{
+  "idempotent": true,
+  "backupRotation": true,
+  "originalBackupPreserved": true,
+  "revertExact": true,
+  "laterChangeProtected": true,
+  "unknownVersionRefused": true,
+  "unknownSuffixRefused": true,
+  "unrelatedEntriesPreserved": true,
+  "previousUpgrade": true,
+  "baselineSha256": "579778520a8010db627df57b8a112a9617562ffd243db0b5ca90354f9933f236",
+  "previousSha256": "52a511a2df9b40b65f93d310159258b9e13f33c3be59e1dd9701650016f107ec",
+  "elapsedSeconds": 7.63
+}

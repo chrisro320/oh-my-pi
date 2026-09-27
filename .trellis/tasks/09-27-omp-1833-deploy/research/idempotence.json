@@ -1,0 +1,8 @@
+{
+  "source_sha256_before_after": {
+    "sha256": "2bc651a4649e15c2271685de432791a80d7efbff3a6ff9b5a1dbd02586ad9a3f",
+    "files": 10776
+  },
+  "launcher_before_after": "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+  "second_apply_exit": 0
+}

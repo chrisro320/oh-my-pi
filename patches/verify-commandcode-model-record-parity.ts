@@ -2,22 +2,22 @@
 /**
  * verify-commandcode-model-record-parity.ts — patch 0065
  *
- * Two registrants answer for provider `commandcode`: the bundled pi-catalog
- * cascade and the vendored `pi-commandcode-provider` plugin. Whichever wins the
- * model record at startup decides image modality, tool strictness and system
- * framing, so a resume that lands on the other registrant reshapes the request
- * head and the served prefix cache dies at the first system block (observed:
- * cacheRead 4608 of a 138,617-token prompt).
+ * `commandcode` used to have two registrants: the bundled pi-catalog cascade
+ * and the vendored `pi-commandcode-provider` plugin. Whichever won the model
+ * record at startup decided image modality, tool strictness and system framing,
+ * so a resume that landed on the other registrant reshaped the request head and
+ * the served prefix cache died at the first system block (observed: cacheRead
+ * 4608 of a 138,617-token prompt).
  *
- * 0065 pins the catalog record for `deepseek/deepseek-v4.1-flash` to the values
- * the plugin record already produces. Verifies:
+ * The plugin was retired on 2026-09-27 (the user moved to the official upstream
+ * endpoint only), so the bundled cascade is now the single registrant. 0065
+ * stays: the four directives it pins are the measured wire contract of that
+ * upstream endpoint, not a plugin private. Verifies:
  *   1. static: all four directives present in the KDL source of record
  *   2. static: the compiled rules.json rule carries the same four axes
  *   3. static: rules.json `source` provenance still points at the real KDL line
- *   4. behavior: resolveModelPolicy returns the plugin-matching record
+ *   4. behavior: resolveModelPolicy returns the pinned record
  *   5. behavior: sibling commandcode models are untouched by the model-scoped rule
- *   6. static: the plugin's own record still declares image input, so the two
- *      registrants agree rather than merely both being wrong
  *
  * Run: bun ~/.omp/patches/verify-commandcode-model-record-parity.ts
  *
@@ -25,22 +25,18 @@
  * overrides, then the live install. The controller exports what it patched, so
  * a sandbox replay cannot silently measure the live tree.
  *
- * Parity target: OMP_PATCH_VERIFY_PLUGIN_ROOT, defaulting to
- * `<this script>/../vendor/pi-commandcode-provider` — repository-relative, not a
- * workstation path. An explicitly empty value is rejected rather than replaced
- * by a default, and a missing target fails the gate: a copied ledger has no
- * sibling `vendor/`, so the deployment must name the authoritative checkout,
- * and the gate must never report cross-registrant parity it did not measure.
+ * No plugin checkout is involved. The retired cross-registrant leg compared the
+ * two records through a real plugin registration; with one registrant left it
+ * had nothing to compare against and was removed rather than left asserting a
+ * checkout that no longer exists.
  *
  * Mutation hooks for Main (either must make this gate FAIL):
- *   OMP_PATCH_VERIFY_PLUGIN_ROOT=""              → empty override rejected
- *   OMP_PATCH_VERIFY_PLUGIN_ROOT=/nonexistent    → parity target missing
- *   OMP_PATCH_VERIFY_PLUGIN_ROOT=<copy of the checkout whose
- *     `src/commandcode-catalog.ts` declares `"deepseek/deepseek-v4.1-flash"`
- *     as `["text"]`>                                  → axes disagree
+ *   any of the four directives removed from the KDL block
+ *   a wire axis flipped in rules.json
+ *   a `source` line shifted onto a blank line or comment
+ *   the sibling's model-scoped rule widened to the sibling
  */
 import assert from "node:assert";
-import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 
 // Root selection mirrors the other gates: OMP_PATCH_VERIFY_<CATALOG>_ROOT, then
@@ -138,29 +134,5 @@ const sibling = resolveModelPolicy({
 });
 assert.notEqual(sibling.compat.stripImageInput, false, "sibling keeps the lineage image strip");
 assert.notEqual(sibling.compat.supportsMultipleSystemMessages, false, "sibling keeps split system prompts");
-
-// ── 6. the other registrant still agrees ────────────────────────────────
-// Resolve the checkout that owns the second registrant. The old form hardcoded
-// this workstation's absolute path and exited 0 when it was absent, so on any
-// other machine — and on a deployed ledger, which has no sibling `vendor/` —
-// the named cross-registrant check silently degraded to a no-op. An explicit
-// override is honoured even when empty: falling back to a default the
-// deployment does not have would recreate exactly that silence.
-const PLUGIN_ROOT =
-	process.env.OMP_PATCH_VERIFY_PLUGIN_ROOT ?? `${import.meta.dir}/../vendor/pi-commandcode-provider`;
-assert.ok(
-	PLUGIN_ROOT.trim().length > 0,
-	'OMP_PATCH_VERIFY_PLUGIN_ROOT is empty: the cross-registrant leg needs the authoritative pi-commandcode-provider checkout (repo vendor/ or the checkout the runtime ledger was deployed from)',
-);
-const pluginCatalog = `${PLUGIN_ROOT}/src/commandcode-catalog.ts`;
-assert.ok(
-	existsSync(pluginCatalog),
-	`cross-registrant parity target missing: ${pluginCatalog}. Point OMP_PATCH_VERIFY_PLUGIN_ROOT at the authoritative checkout; this gate fails closed rather than reporting parity it did not measure.`,
-);
-const text = await Bun.file(pluginCatalog).text();
-assert.ok(
-	text.includes(`"${MODEL_ID}": ["text", "image"]`),
-	"plugin record still declares image input — parity target unchanged",
-);
 
 console.log("verify-commandcode-model-record-parity: ok");

@@ -34,10 +34,10 @@ try {
 	// running the transport assertions against a tree without the patch.
 	const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
 	assert.ok(
-		["18.1.18", "18.2.3", "18.2.10"].includes(aiVersion),
+		["18.1.18", "18.2.3", "18.2.10", "18.3.3"].includes(aiVersion),
 		`unsupported 0070 transport gate version: ${aiVersion}`,
 	);
-	const supportsChainRecovery = ["18.2.3", "18.2.10"].includes(aiVersion);
+	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3"].includes(aiVersion);
 	const ai = await import(`${AI_ROOT}/src/providers/openai-codex-responses.ts`);
 	const core = await import(`${CORE_ROOT}/src/compaction/compaction-v2-streaming.ts`);
 	const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
@@ -145,6 +145,7 @@ try {
 	let socketSequence = 0;
 	let compactionSends = 0;
 	let frames: Frame[] = [];
+	let onUpgrade = () => {};
 	const send = (ws: ServerWebSocket<{ id: number }>, event: unknown) => ws.send(JSON.stringify(event));
 	function complete(ws: ServerWebSocket<{ id: number }>, compact: boolean) {
 		const id = ++sequence;
@@ -173,6 +174,7 @@ try {
 		hostname: "127.0.0.1",
 		port: 0,
 		fetch(req, server) {
+			onUpgrade();
 			if (server.upgrade(req, { data: { id: ++socketSequence } })) return;
 			return new Response("WebSocket only", { status: 400 });
 		},
@@ -183,6 +185,7 @@ try {
 				if (body.generate === false) {
 					assert.equal(body.previous_response_id, undefined, "recovery must establish a fresh baseline");
 					assert.deepEqual(body.input, input, "recovery must preserve the supplied history without its trigger");
+					if (mode === "recovery-invalid") return complete(ws, false);
 					send(ws, { type: "response.completed", response: { id: `resp_${++sequence}`, status: "completed", output: [] } });
 					return;
 				}
@@ -337,6 +340,44 @@ try {
 				for (const state of states.values()) state.close();
 			}
 		}
+		if (aiVersion === "18.3.3") {
+			for (const scenario of ["recovery-invalid", "invalid-summary", "success"]) {
+				mode = scenario;
+				frames = [];
+				compactionSends = 0;
+				const states = new Map<string, ProviderSessionState>();
+				// Bun does not expose response headers on its client open event.
+				// Inject only the handshake write, at the real server upgrade boundary.
+				onUpgrade = () => {
+					const provider = states.get("openai-codex-responses") as
+						| { metadataSessions: Map<string, { turnStates: Map<string, { value?: string }> }> }
+						| undefined;
+					for (const session of provider?.metadataSessions.values() ?? [])
+						for (const cell of session.turnStates.values()) cell.value = "minted-by-101";
+				};
+				const options = {
+					apiKey: "fixture-key", sessionId: `handshake-${scenario}`, providerSessionState: states,
+					preferWebsockets: true,
+					codexCompaction: ai.createOpenAICodexCompactionRequestContext({ implementation: "responses_compaction_v2" }),
+					fetch: async () => { throw new Error("No HTTP replay allowed"); },
+				};
+				try {
+					const operation = core.requestCompactionV2Streaming(model, options.apiKey,
+						{ ...request, sessionId: options.sessionId }, undefined,
+						{ ...options, timeoutMs: 2000, retryWait: async () => {} });
+					if (scenario === "success") await operation;
+					else await assert.rejects(operation, ai.CodexCompactionChainLostError);
+					const details = ai.getOpenAICodexTransportDetails(model, options);
+					assert.equal(details.hasTurnState, scenario === "success",
+						`${scenario}: handshake metadata must commit only after accepted compaction`);
+					if (scenario === "invalid-summary")
+						assert.equal(details.canAppend, true, "collector rejection must retain its baseline");
+				} finally {
+					onUpgrade = () => {};
+					for (const state of states.values()) state.close();
+				}
+			}
+		}
 	} finally {
 		server.stop(true);
 	}
@@ -348,10 +389,57 @@ try {
 		`import { openCodexCompactionEventStream, applyOpenAICodexCompactionResponseMetadata } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  declare const model: Parameters<typeof openCodexCompactionEventStream>[0];
  declare const body: Parameters<typeof openCodexCompactionEventStream>[1];
- void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit) { commit({ turnState: "ok", providerSessionState: new Map() }); } });
+ void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${aiVersion === "18.3.3" ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${aiVersion === "18.3.3" ? "rollback();" : ""} } });
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: {} });
  // @ts-expect-error A primitive cannot store accepted metadata.
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: 1 });
+ ${aiVersion === "18.3.3" ? `
+ import type { SummaryOptions, CachePreservingSummaryScope, CachePreservingSummaryContext } from ${JSON.stringify(`${CORE_ROOT}/dist/types/compaction/compaction.js`)};
+ import { buildCodexChainedRequestBody } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
+ import { createAnthropicRequestAudit } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/anthropic-request-audit.js`)};
+ import { imageFingerprint, ensurePng, completedPng, pngFailureReason } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`}/dist/types/chat/image-loading.js`)};
+ import type { ImageContent } from ${JSON.stringify(`${AI_ROOT}/dist/types/types.js`)};
+ declare const image: ImageContent;
+ void buildCodexChainedRequestBody({ model: "fixture", input: [] }, undefined);
+ void createAnthropicRequestAudit({ provider: "anthropic", sideRequest: false, refresh: false });
+ void imageFingerprint(image); void ensurePng(image); void completedPng("hash"); void pngFailureReason("hash");
+ import { FRAME_DATA_BYTES_PER_SHAPE, maxFramesForDataBudget, shedFramesOverBudget, providerImageBudget, providerFrameBudget } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
+ void FRAME_DATA_BYTES_PER_SHAPE; void maxFramesForDataBudget(1024, undefined); void shedFramesOverBudget([]);
+ void providerImageBudget("anthropic", "anthropic-messages"); void providerFrameBudget("anthropic", "anthropic-messages");
+ import type { AgentSession } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/agent-session.js`)};
+ import type { SessionProviderBoundary } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-provider-boundary.js`)};
+ import type { SessionMaintenanceHost } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-maintenance.js`)};
+ declare const maintenanceHost: SessionMaintenanceHost;
+ void maintenanceHost.convertMessagesToLlm([]); void maintenanceHost.convertMessagesToLlmWithSource([]);
+ declare const session: AgentSession;
+ declare const boundary: SessionProviderBoundary;
+ void boundary.convertMessagesToLlmWithSource([]);
+ void session.convertMessagesToLlmWithSource([]);
+ const liveScope: CachePreservingSummaryScope = "live";
+ declare const liveContext: CachePreservingSummaryContext;
+ const summaryOptions: SummaryOptions = { buildCachePreservingContext: async (scope, candidate) => {
+   const validScope: CachePreservingSummaryScope = scope;
+   void validScope; void candidate; return liveContext;
+ } };
+ void liveScope; void summaryOptions;
+ import { mapOptionsForApi } from ${JSON.stringify(`${AI_ROOT}/dist/types/stream.js`)};
+ import type { UserMessage, DeveloperMessage } from ${JSON.stringify(`${AI_ROOT}/dist/types/types.js`)};
+ import { DateCwdReminderInjector, dateCwdAnchorKey, applyDateCwdAnchors } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/date-cwd-reminder.js`)};
+ import type { SessionMemory } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-memory.js`)};
+ import type { SessionToolsHost } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-tools.js`)};
+ import { traceCompaction } from ${JSON.stringify(`${CORE_ROOT}/dist/types/compaction/compaction-trace.js`)};
+ declare const user: UserMessage; declare const developer: DeveloperMessage;
+ user.providerOnly = true; developer.providerOnly = true;
+ void mapOptionsForApi(model, { conversationId: "fixture" });
+ void new DateCwdReminderInjector(() => "fixture", () => "/tmp");
+ void dateCwdAnchorKey(user, "fixture"); void applyDateCwdAnchors([], "fixture", {});
+ declare const memory: SessionMemory; declare const toolsHost: SessionToolsHost;
+ void memory.promotionTail; memory.capturePromotionSnapshot([], "tail"); memory.restorePromotionSnapshot(undefined, "tail");
+ void toolsHost.memoryPromotionTail(); toolsHost.captureMemoryPromotionSnapshot([], "tail");
+ void session.buildDisplaySessionContext({ persistEvalStateContext: false });
+ void session.runIdleEphemeralTurn({ promptText: "fixture" });
+ traceCompaction({ k: "type-probe" });
+ ` : ""}
  `,
 	);
 	const checked = Bun.spawnSync([

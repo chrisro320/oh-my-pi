@@ -1,0 +1,24 @@
+{
+  "removed": [
+    "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-temporary.json",
+    "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-temporary-resume.json",
+    "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-default.json",
+    "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-default-resume.json",
+    "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-roundtrip.json",
+    "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-roundtrip-resume.json",
+    "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-ephemeral.json",
+    "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-ephemeral-resume.json",
+    "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-fresh-b.json",
+    "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-temporary.json",
+    "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-temporary-resume.json",
+    "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-default.json",
+    "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-default-resume.json",
+    "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-roundtrip.json",
+    "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-roundtrip-resume.json",
+    "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-ephemeral.json",
+    "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-ephemeral-resume.json",
+    "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-fresh-b.json",
+    "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-fresh-a.json"
+  ],
+  "scope": "Generated lifecycle raw comparison outputs only; production state untouched"
+}

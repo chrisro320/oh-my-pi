@@ -1,0 +1,25 @@
+{
+  "matrix_entries": 47,
+  "unique_ids": 47,
+  "strict_text_pass": 21,
+  "default_text_pass": 31,
+  "old_roundtrip": true,
+  "persistence_MIME_patched_gates_pass": 3,
+  "upstream_read_getter_pass": true,
+  "antigravity_runtime_regression_reproduced": true,
+  "real_provider_calls": 0,
+  "full_new_chain_validated": false,
+  "spec_contract_audits": {
+    "delivery": {
+      "path": "spec-audit-delivery.json",
+      "status": "passed"
+    },
+    "review": {
+      "path": "spec-audit-review.json",
+      "status": "passed"
+    }
+  },
+  "0073_retirement": "candidate_only_core_session_verified_pending_production_catalog_and_full_chain",
+  "0073_lifecycle_evidence": "model-lifecycle-results.json",
+  "0073_lifecycle_comparisons_passed": 7
+}

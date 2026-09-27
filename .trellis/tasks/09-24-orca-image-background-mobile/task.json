@@ -1,0 +1,29 @@
+{
+  "id": "orca-image-background-mobile",
+  "name": "orca-image-background-mobile",
+  "title": "Orca 图像会话后台保真与 Android 卡顿",
+  "description": "接续已重现的后台文字快照丢图修补，追查 Android 仅含图终端卡顿；保存隔离验证、用户选择与跨仓库部署边界。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "orca-images",
+  "package": null,
+  "priority": "P1",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-09-24",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "/home/chris/orca/projects/orca-update-patch/bin/orca-kitty-images-patch.py",
+    "/home/chris/orca/projects/orca-update-patch/reference/verify-kitty-patcher.py"
+  ],
+  "notes": "Planning-only pause requested by user. Candidate remains undeployed and fails Terminal replacement coverage; Android end-to-end root cause is unresolved. Resume from implement.md P4; do not start or deploy without fresh planning approval.",
+  "meta": {}
+}

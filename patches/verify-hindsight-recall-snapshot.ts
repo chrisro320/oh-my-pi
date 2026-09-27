@@ -18,10 +18,10 @@ const { HindsightSessionState } = await import(`${AGENT_ROOT}/src/hindsight/stat
 // measured through the other's shape. An unrecognized version fails closed.
 const agentVersion: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3"].includes(agentVersion),
 	`verify-hindsight-recall-snapshot: unsupported selected tree version ${agentVersion}`,
 );
-const isStagedPreparation = ["18.2.3", "18.2.10"].includes(agentVersion);
+const isStagedPreparation = ["18.2.3", "18.2.10", "18.3.3"].includes(agentVersion);
 
 console.log("=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===");
 
@@ -422,7 +422,8 @@ if (isStagedPreparation) {
 	const root = mkdtempSync(join(tmpdir(), "omp-hindsight-clear-"));
 	registerMockApi("hindsight-clear");
 	const authStorage = await discoverAuthStorage(join(root, "agent"));
-	authStorage.setRuntimeApiKey("mock", "test");
+	if (agentVersion === "18.3.3") authStorage.keys.setRuntime("mock", "test");
+	else authStorage.setRuntimeApiKey("mock", "test");
 	const busyStarted = Promise.withResolvers<void>();
 	const releaseBusy = Promise.withResolvers<void>();
 	let mainDispatches = 0;
@@ -441,8 +442,16 @@ if (isStagedPreparation) {
 	});
 	try {
 		const MM_TYPE = "hindsight_mental_models_snippet";
-		session.settings.set("memory.backend", "hindsight");
-		session.settings.set("hindsight.apiUrl", "http://127.0.0.1:1");
+		if (agentVersion === "18.3.3") {
+			const { cfgMemoryBackend } = await import(`${AGENT_ROOT}/src/memory-backend/settings.ts`);
+			const { cfgHindsightApiUrl } = await import(`${AGENT_ROOT}/src/hindsight/settings.ts`);
+			cfgMemoryBackend.set(session.settings, "hindsight");
+			cfgHindsightApiUrl.set(session.settings, "http://127.0.0.1:1");
+			await session.applyMemoryBackend();
+		} else {
+			session.settings.set("memory.backend", "hindsight");
+			session.settings.set("hindsight.apiUrl", "http://127.0.0.1:1");
+		}
 		session.sessionManager.appendMessage({ role: "user", content: "Fork snapshot fixture", timestamp: 1 });
 		session.sessionManager.appendCustomEntry(MM_TYPE, { snippet: "BEFORE CLEAR" });
 		let lists = 0;

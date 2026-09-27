@@ -223,7 +223,7 @@ export default function (pi: ExtensionAPI) {
     handler: async (_args: string, ctx: ExtensionContext) => {
       currentContinueCount = 0;
       ctx.ui.notify(
-        "已重置重試計數器與鎖定狀態。若使用 Command Code Key Pool，可配合執行 `/commandcode-pool use 1` 原地解除 Key 鎖定。",
+        "已重置重試計數器與鎖定狀態。",
         "info",
       );
     },

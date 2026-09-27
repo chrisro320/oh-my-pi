@@ -1,0 +1,143 @@
+{
+  "summary": "十個補丁逐條對照 18.3.3 上游完成。結論：0073 已被上游採納（18.3.3 read.ts 已有 per-access `get description()`），應退役；0034／0038／0047／0065／0069／0075／0076／0077 仍需要，其中 0043 有語義衝突（18.3.3 messages.ts 新增 `requestControls` 重放護欄，補丁的 early-return 會把它整段吃掉）。最上位的漂移阻塞點：①0043 messages.ts hunk 上下文不再相鄰且會誤砍 tool_removal 重放；②0047 sdk.ts 主 callsite 的前置行由 `blobBroker?.prewarm();` 換成 `disposeCallbacks.add(() => blobBroker.dispose());`，此 hunk 失敗會靜默讓 date/cwd 錨點失去 sessionId；③0065 對 `rules.json` 的整檔單行替換在 18.3.3 必定失敗（新增 auth/apple.kdl），需用 `gen:compat` 重生成；④0075 的 session-memory 欄位 hunk 因 18.3.3 新增 `#runtimeCwd` 等欄位而失效，且 0075/0069/0034 的閘門寫死版本清單會 fail-closed。另在 touched path 找到一個未被 0077 覆蓋的同類「只存在記憶體」動態提醒：agent-session.ts `#enforceRewindBeforeYield` 的 `<system-warning>`（18.3.3:9305-9316）。",
+  "architecture": "驗證鏈為 patches/apply.sh（版本路由 + 版本候選 + tail candidate）→ 產出六個套件樹 → patches/verify-*.ts 逐閘門檢查源碼形狀與行為。本批十個補丁分佈在四個套件：pi-coding-agent（0034 hindsight/state.ts+agent-session.ts；0043 session-context.ts+messages.ts；0047 與 0073 的 sdk.ts/read.ts；0075 session-memory.ts+session-tools.ts+agent-session.ts+hindsight/backend.ts；0076 agent-session.ts+collab/guest.ts），pi-ai（0038 types.ts+openai-responses.ts；0069 types.ts+openai-codex-responses.ts+dist .d.ts），pi-catalog（0065 kdl + 產物 rules.json），以及 0077 單檔 turn-recovery.ts。快取漂移的判準是「live wire 與從 session JSONL 重建的 wire 是否逐位元組相同」：0034/0076/0077 對齊『只存在記憶體的動態提醒』，0038/0047 對齊『每回合變動的 date/cwd 位元組與訊息槽位』，0043 對齊『aborted/error 回合在兩條路徑的剪枝一致性』，0069 對齊『effort baseline 不可依賴 process-local state』，0065/0075 對齊『同一請求前綴的 provider 記錄與提示詞槽位唯一』。",
+  "files": [
+    {
+      "path": ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+      "description": "工作單：嵌入 AGENTS.md 與 backend spec index，含機器可檢核 grep 契約"
+    },
+    {
+      "path": ".trellis/spec/backend/patch-rollup-contracts.md",
+      "description": "Rollup 契約：pristine 來源、family 邊界、replay 等價、退役位元組保留；含 codex effort history 場景"
+    },
+    {
+      "path": ".trellis/spec/backend/verification-gate-contracts.md",
+      "description": "閘門契約：可偽證性、fail-closed 載入、0043 打斷配對剪枝的驗證邊界"
+    },
+    {
+      "path": ".trellis/tasks/09-26-omp-1833-upgrade/research/plan-18.2.10.txt",
+      "description": "補丁清單與逐條設計／觸發面／回歸敘述（0076 eval 提醒、0077 重試提醒）"
+    },
+    {
+      "path": "patches/.18.2.10-candidates/0034-omp-hindsight-snapshot-rollup-v18.2.10-candidate.patch",
+      "description": "0034 的 18.2.10 候選：recall/mental-models 快照持久化與 deadline 凍結"
+    },
+    {
+      "path": "patches/.18.2.10-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.2.10-candidate.patch",
+      "description": "0038 候選：把 date/cwd 從首個 user 訊息改為 providerOnly 尾端訊息"
+    },
+    {
+      "path": "patches/.18.2.10-candidates/0043-omp-interrupt-prune-symmetry-v18.2.10-candidate.patch",
+      "description": "0043 候選：session-context/messages 的 aborted/error 剪枝對稱"
+    },
+    {
+      "path": "patches/.18.2.10-candidates/0047-omp-date-cwd-anchor-stability-v18.2.10-candidate.patch",
+      "description": "0047 候選：把提醒改成最後一則真實 user 訊息的持久化 anchor map"
+    },
+    {
+      "path": "patches/.18.2.10-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.2.10-candidate.patch",
+      "description": "0065 候選：commandcode kdl 兩軸 + 對應 rules.json 產物"
+    },
+    {
+      "path": "patches/.18.2.10-candidates/0069-omp-codex-effort-history-resume-v18.2.10-candidate.patch",
+      "description": "0069 候選：effort control 由 process-local map 改為 branch 內 providerPayload 還原"
+    },
+    {
+      "path": "patches/.18.2.10-candidates/0073-omp-read-description-live-v18.2.10-candidate.patch",
+      "description": "0073 候選：read description 由建構期快照改為 getter（已被上游採納）"
+    },
+    {
+      "path": "patches/.18.2.10-candidates/0075-omp-hindsight-recall-promotion-slot-v18.2.10-candidate.patch",
+      "description": "0075 候選：recall 塊改由 system prompt 單一 slot 承載（promotionTail）"
+    },
+    {
+      "path": "patches/.18.2.10-candidates/0076-omp-eval-state-context-persist-v18.2.10-candidate.patch",
+      "description": "0076 候選：eval 提醒持久化 + persistEvalStateContext 選項"
+    },
+    {
+      "path": "patches/.18.2.10-candidates/0077-omp-turn-recovery-reminder-persist-v18.2.10-candidate.patch",
+      "description": "0077 候選：三處重試提醒雙寫 session"
+    },
+    {
+      "path": "patches/verify-eval-state-context-persist.ts",
+      "description": "0076 閘門：真實 AgentSession + in-memory session，含 GATE 4 源碼形狀斷言（155-170）"
+    },
+    {
+      "path": "patches/verify-turn-recovery-reminder-persist.ts",
+      "description": "0077 閘門：走真實 empty-stop 恢復路徑，GATE 1/2"
+    },
+    {
+      "path": "patches/verify-date-cwd-anchor-stability.ts",
+      "description": "0038+0047 閘門：源碼形狀 + anchor map 行為（含 legacy tail 必須被丟棄）"
+    },
+    {
+      "path": "patches/verify-interrupt-prune-symmetry.ts",
+      "description": "0043 閘門：兩條路徑的剪枝對稱 + 源碼護欄"
+    },
+    {
+      "path": "patches/verify-read-description-live.ts",
+      "description": "0073 閘門：寫死 18.2.10 模板字串 HASHLINE_GUIDANCE（28 行），18.3.3 上會假失敗"
+    },
+    {
+      "path": "patches/verify-codex-effort-resume.ts",
+      "description": "0069 閘門：28-32 行寫死 pi-ai 版本清單，18.3.3 會 fail-closed"
+    },
+    {
+      "path": "patches/verify-hindsight-recall-promotion-slot.ts",
+      "description": "0075 閘門：30-34 行寫死 agent 版本清單，18.3.3 會 fail-closed"
+    },
+    {
+      "path": "patches/verify-hindsight-recall-snapshot.ts",
+      "description": "0034 閘門：19-24 行版本清單與 isStagedPreparation 分流"
+    },
+    {
+      "path": "patches/verify-commandcode-model-record-parity.ts",
+      "description": "0065 閘門：KDL 指令、compiled rules.json 軸、resolved policy、跨 registrant parity"
+    },
+    {
+      "path": "patches/apply.sh",
+      "description": "控制器：56-410 行為各版本計畫與 tail candidate 註冊，776-826 行掛載各閘門"
+    },
+    {
+      "path": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-coding-agent/src/session/agent-session.ts",
+      "description": "18.3.3 上游 AgentSession：eval 提醒、memory promotion 接線、session transition、checkpoint 提醒"
+    },
+    {
+      "path": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-coding-agent/src/session/messages.ts",
+      "description": "18.3.3 convertToLlm：assistant 分支新增 requestControls 護欄（0043 衝突點）"
+    },
+    {
+      "path": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-coding-agent/src/session/date-cwd-reminder.ts",
+      "description": "18.3.3 date/cwd injector 類別（與 18.2.10 逐字相同）"
+    },
+    {
+      "path": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-ai/src/types.ts",
+      "description": "18.3.3 訊息型別：新增 liveSteered（0038 的 providerOnly 插入點漂移）"
+    },
+    {
+      "path": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-ai/src/providers/openai-codex-responses.ts",
+      "description": "18.3.3 effortControls process-local Map 未動（0069 仍需要）"
+    },
+    {
+      "path": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-coding-agent/src/tools/read.ts",
+      "description": "18.3.3 read 工具已有 per-access description getter（0073 已被採納）"
+    },
+    {
+      "path": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-coding-agent/src/hindsight/state.ts",
+      "description": "18.3.3 hindsight state：無 recall/MM 快照持久化（0034 仍需要）"
+    },
+    {
+      "path": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-coding-agent/src/session/turn-recovery.ts",
+      "description": "18.3.3 三處重試提醒仍只寫 agent 記憶體（0077 仍需要）"
+    },
+    {
+      "path": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-catalog/src/compat/rules.json",
+      "description": "18.3.3 編譯產物單行檔，內容已異於 18.2.10（0065 產物 hunk 必失敗）"
+    },
+    {
+      "path": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-coding-agent/src/session/session-memory.ts",
+      "description": "18.3.3 promotion API 仍單參數且新增 #runtimeCwd 等欄位（0075 漂移點）"
+    }
+  ],
+  "report": "本報告為唯讀靜態比對：以 `.18.2.10-candidates/*` 的補丁 a/b 側對照 `/tmp/omp-1833-preflight-b5hpnhn7/{18.2.10,18.3.3}/` 的官方樹。未執行任何 apply／provider 呼叫／測試，所有結論皆為源碼證據，非 runtime 驗證。\n\n## 逐補丁判定\n\n### 0034 hindsight 快照 rollup（AGENT）\n- 上游：`18.3.3/pi-coding-agent/src/hindsight/state.ts:429-430`（`await Promise.race([this.mentalModelsLoadPromise, Bun.sleep(MENTAL_MODEL_FIRST_TURN_DEADLINE_MS)])`）、`:433`（`hasRecalledForFirstTurn` 早退）、`:473-477`（`runMentalModelLoad`）、`:507-521`（`beginMentalModelsTranscriptReload`）、`:526-543`（`#settleMentalModelsLoadWithinDeadline`）、`:539-570`（`#loadAndPublishMentalModels`）；`agent-session.ts:4785`（`get isSessionTransitioning`）、`:4790-4792`（`waitForSessionTransition`）、`:4794-4800`（`#beginSessionTransition`）。\n- 原能力：把首輪 recall 塊與 `<mental_models>` 快照持久化為 custom entry，resume 時回放同一 bytes 而非重跑；deadline 先到時凍結「無 MM」答案；移除 mid-session MM 重列。\n- 判定：**still needed**。18.2.10 與 18.3.3 在這些區段逐錨點相同（僅整體位移 +5~+6 行，例如 `mentalModelsLoadedAt = Date.now()` 18.2.10:542 → 18.3.3:536），上游未採納也未改契約。\n- 首次漂移點：無語義漂移；唯一變化是行位移（`Promise.race` 18.2.10:435 → 18.3.3:429-430；`#beginSessionTransition` 4487 → 4794）。\n- 最小遷移建議：保留候選 0034，僅按 18.3.3 行號重新產生 hunk；依賴 API 全部存在（`sessionManager.appendCustomEntry(customType, data?)`＝`session-manager.ts:2951`；`refreshBaseSystemPrompt(commitIf)`＝`hindsight/state.ts:608,616`）。\n- 測試缺口：`patches/verify-hindsight-recall-snapshot.ts:19-24` 把 agent 版本寫死為 `['18.1.14','18.1.18','18.2.3','18.2.10']` 且 `isStagedPreparation` 只認 18.2.x；18.3.3 會 fail-closed。需加入 18.3.3（形狀同 18.2.x），否則 0034 無閘門可驗。\n\n### 0038 date/cwd reminder provider tail（NM）\n- 上游：`18.3.3/pi-coding-agent/src/session/date-cwd-reminder.ts`（`DateCwdReminderInjector`＋`messageStartsWithReminder`＋`injectReminder`，與 18.2.10 逐字相同；`providerOnly` 欄位在上游不存在）；`sdk.ts:3959-3962`（`// reminder rides on the first user turn ...` 註解與 `dateCwdReminder.transform(` 呼叫點）；`pi-ai/src/providers/openai-responses.ts:1199-1200`（`canReconstructReasoningReplay`）與 `:1365-1375`（juice 區塊的 `trailingScaffoldingItems = 1;`）；`pi-ai/src/types.ts:1032-1034`。\n- 原能力：新增 `providerOnly?: boolean` 訊息旗標，把 date/cwd 提醒改為 provider-only 尾端訊息，並在 openai-responses 的 chained-compaction baseline 中排除尾端 scaffolding。\n- 判定：**still needed**（上游 18.3.3 仍無 `providerOnly`）。\n- 首次漂移點：`pi-ai/src/types.ts` hunk 1 的尾端上下文。18.3.3 在 `steering?: boolean;`(`:1034`) 與 `/** Timestamp of a client-side history rewrite ... */`(`:1037`) 之間新增了 `liveSteered?: boolean;`(`:1035-1036`，18.2.10 無此欄位)；hunk 1 期望兩行相鄰，fuzz=0 下會失敗（需 fuzz=1 才勉強套入）。hunk 2（`attribution?` → `synthetic?`）在 18.3.3:1050-1052 完全相符；`openai-responses.ts` 兩個 hunk 皆相符（僅位移 +2）；`sdk.ts` 註解 hunk 在 18.3.3:3959-3961 相符。\n- 最小遷移建議：重錨 types.ts hunk 1，把 `providerOnly?: boolean;` 插在 `synthetic?: boolean;`(:1032) 之後、`steering?: boolean;`(:1034) 之前（即 `liveSteered` 之上），維持 fuzz=0；其餘 hunk 只更新行號。\n- 測試缺口：`verify-date-cwd-anchor-stability.ts` 沒有版本閘門，但其 legacy-tail 斷言（`:138-148`，`providerOnly: true` 尾端必須被丟棄）只有在 0038 先套用後才有意義；若只跑 0047 單獨驗證會失去這段負對照。\n\n### 0043 打斷剪枝對稱（AGENT）\n- 上游：`18.3.3/pi-coding-agent/src/session/session-context.ts:690-724`（`if (!options?.transcript)` 迴圈、`:703-704` 的 `if (next?.role === \"custom\" && next.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) continue;`、以及配對 toolResult 的 `droppedToolCallIds` 刪除邏輯）；`src/session/messages.ts:351`（`INTERRUPTED_THINKING_MESSAGE_TYPE`）、`:430-431`（`followedByInterruptedThinking`）、`:941-944`（memo 結構）、`:1080-1094`（convertToLlm 的 assistant 分支）。\n- 原能力：讓 live 路徑（`convertToLlm`）與 rebuild 路徑（`buildSessionContext`）對 aborted/error 回合做同一種剪枝，並跨 append memo 記住被丟棄的 toolCall id 以刪除配對結果。\n- 判定：**semantic conflict**（不是單純漂移）。`session-context.ts` hunk 仍逐字相符；但 `messages.ts` 的 assistant 分支在 18.3.3 被上游改寫：`:1085` `const userInterrupted = ...`、`:1086` `const source = ...`，其後新增 `:1087-1088` 兩行註解與 `:1089-1091` 的 `if (userInterrupted && !interruptedNext && source.content.length === 0 && m.requestControls === undefined) { return []; }`（空的被打斷回覆仍要保留它那次請求帶的 controls，例如 Anthropic `tool_removal`，供後續請求重放）。候補 hunk 期望 `const converted = convertMessageToLlm(source);` 緊接在被替換的三行之後，18.3.3 中間多了 4 行 → **hunk 直接失敗**。\n- 首次漂移點：`18.3.3/pi-coding-agent/src/session/messages.ts:1087-1091`（新增註解＋`m.requestControls === undefined` 護欄），正是候補 hunk 的尾端上下文位置。\n- 最小遷移建議：重新產生 messages.ts 的兩個 hunk，並且**不要**用候補版本的無條件 `if (m.stopReason === \"aborted\" || m.stopReason === \"error\") return [];` 直接取代——必須保留 18.3.3 的 `requestControls` 重放保證（例如：aborted/error 仍剪枝，但 `m.requestControls !== undefined` 時保留該回合，或把 controls 轉移到相鄰訊息）。`prunedToolCallIds` 的新增式欄位與 memo 傳遞需按 18.3.3 的 `:1148-1190` 重新落點。\n- 測試缺口：`verify-interrupt-prune-symmetry.ts:149-158` 的源碼護欄（`pruneBlock` 不得含 `INTERRUPTED_THINKING_MESSAGE_TYPE`、messages.ts 必須有 `if (m.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) return [];`）在 18.3.3 上仍可判別，但**沒有**任何斷言覆蓋 18.3.3 新出現的 `requestControls` 重放語義；遷移後必須補一條「空被打斷回覆且帶 requestControls 時不得被剪掉」的行為斷言，否則 hunk 誤併不會被任何閘門抓到。\n\n### 0047 date/cwd anchor 穩定（AGENT）\n- 上游：`18.3.3/pi-coding-agent/src/sdk.ts:3927`（`const dateCwdReminder = new DateCwdReminderInjector();`，前一行是 `:3926` `disposeCallbacks.add(() => blobBroker.dispose());`）與 `:4844`（`const captureDateCwdReminder = new DateCwdReminderInjector();`）。\n- 原能力：把提醒改為寫進「最後一則真實 user 訊息」的文字內，並以 `role:timestamp:sha256(pre-injection content)[0..16]` 為鍵、以 session 為單位落地 anchor map，讓訊息數目不再變動、舊訊息位元組永久凍結。\n- 判定：**still needed**（`applyDateCwdAnchors`／`dateCwdAnchorKey`／`memoryPromotionTail` 皆不存在於 18.3.3）。\n- 首次漂移點：**sdk.ts 主 callsite hunk 的前置上下文**。候補 a 側要求 `blobBroker?.prewarm();` 緊接在 `const dateCwdReminder = new DateCwdReminderInjector();` 之前（18.2.10:3563-3564）；18.3.3 已把 blobBroker 換成 `new LiveImageUrlService(...)` 且前一行是 `disposeCallbacks.add(() => blobBroker.dispose());`（`:3926`），`prewarm()` 已不存在 → hunk 1 失敗。capture callsite（`:4843-4844`）與 `date-cwd-reminder.ts` 的其餘 hunk 相符（其 a 側等於 0038 的產出形態，套用順序正確）。\n- 最小遷移建議：重錨 sdk.ts 主 callsite hunk（保留 `() => sessionManager.getSessionId()` 引數），並確認 `sessionManager` 在 `:3927` 作用域內仍可用；capture hunk 僅更新行號。這個 hunk 屬於**靜默失效高風險**：若 hunk 被跳過而 rest 仍 exit 0，主 session 的 injector 就拿不到 sessionId，anchor map 不落地，每次 resume 都重新 stamp → 整個前綴重算，而只在跑閘門時才會被發現。\n- 測試缺口：`verify-date-cwd-anchor-stability.ts:57-63` 已要求兩個 sdk callsite 都帶 session id，可抓到上述靜默失效；但該閘門沒有版本閘門，且 18.3.3 的 `new LiveImageUrlService` 形狀變更需要確認其 source-read 不因 sdk.ts 大改而先炸。\n\n### 0065 commandcode model record parity（NM）\n- 上游：`18.3.3/pi-catalog/src/compat/rules/providers/commandcode.kdl:64-74`（`models \"deepseek/deepseek-v4.1-flash\"` 區塊，僅有 `supports-reasoning-effort`／`thinking-efforts`／`strip-image-input #false`／`input-modalities \"text\" \"image\"`）；`18.3.3/pi-catalog/src/compat/rules.json:1`（單行編譯產物）；產生器在 `pi-catalog/package.json:92`（`\"gen:compat\": \"bun scripts/compile-compat.ts\"`）。\n- 原能力：在 KDL 來源與編譯產物同時補 `supports-strict-mode #true` 與 `supports-multiple-system-messages #false`，讓 built-in record 與 pi-commandcode-provider 外掛一致，避免 resume 後請求前緣被重塑而殺掉快取前綴。\n- 判定：**still needed**，但產物 hunk 需要重生。KDL hunk 的上下文（`// image input, so the opt-out is explicit here.` / `strip-image-input #false` / `input-modalities \"text\" \"image\"` / `}` / 下一個 `models \"google/gemini-...`）在 18.3.3:71-75 相符。\n- 首次漂移點：`rules.json` 的整檔單行 hunk（`@@ -1 +1 @@`）。18.3.3 的檔案清單已不同（在 `auth/anthropic.kdl` 之後插入 `auth/apple.kdl`，見 `rules.json:1` 開頭），因此該 hunk 的 `-` 行逐字不等，必定失敗；這不是可用 fuzz 繞過的類型。\n- 最小遷移建議：套用 KDL hunk 後，用該樹自己的 `bun scripts/compile-compat.ts`（`gen:compat`）對 18.3.3 重生成 `rules.json`，以重生成位元組取代候補的整檔 hunk；切勿手改 JSON。\n- 測試缺口：`verify-commandcode-model-record-parity.ts:64-71` 檢查 KDL 四條指令、`:100-103` 檢查 compiled wire 軸、`:127-130` 檢查 resolved policy；若只重生 KDL 而沒重生 rules.json，`:80-103` 會紅——這正是所需判別力。不需新增閘門。\n\n### 0069 Codex effort history resume（AI）\n- 上游：`18.3.3/pi-ai/src/providers/openai-codex-responses.ts:99`（`getOpenAIEffortControlState`）、`:454-455`（`effortControls: Map<...>`）、`:1046`／`:1054`／`:1069-1070`（建立、清空、型別檢查）、`:1576`（`applyCodexStableEffort(model, body, options);`，無 `context`）、`:1586-1599`（以 `${model.id}\\u0000${sessionId}` 為鍵的 process-local baseline）；`pi-ai/src/types.ts:944-946`；`pi-ai/src/utils.ts:512`（`getOpenAIResponsesHistoryPayload`）。\n- 原能力：把 `configuration_update` 的 effort baseline 由 provider session state 的 Map 改為從 branch 內最後一則符合 model/api/provider 的 assistant 的 `providerPayload.effortControl` 還原（`structuredCloneJSON` 防變更持久快照），並在輸出時把新的 effortControl 寫回 providerPayload。\n- 判定：**still needed**。18.3.3 完全未採納（effortControls Map 仍在；`applyCodexStableEffort` 仍是三參數）。\n- 首次漂移點：僅行位移與產物檔。`src/types.ts` hunk 目標（`items: Array<Record<string, unknown>>;`）18.2.10:900 → **18.3.3:945**；`dist/types/types.d.ts` 在 18.3.3 存在但行號不同，該 hunk 需一併重錨。依賴全部存在：`createOpenAIEffortControlState`（`openai-configuration-update.ts:44`）、`planStableOpenAIEffort`、`getOpenAIResponsesHistoryPayload`（`utils.ts:512`，且已在 `openai-codex-responses.ts:51` import）、`structuredCloneJSON`（來自 `@oh-my-pi/pi-utils`，`:22` 已 import）。\n- 最小遷移建議：保留候選 0069，重錨 `src/types.ts` 與 `dist/types/types.d.ts` 兩處行號；不需改邏輯。\n- 測試缺口：**閘門會直接 fail-closed**——`verify-codex-effort-resume.ts:28-32` 把 pi-ai 版本寫死為 `['18.1.18','18.2.3','18.2.10']` 並在註解宣告「other tree 不跑」。18.3.3 上必須把 18.3.3 加入清單（形狀同 18.2.10），否則 0069 雖可套用卻無法驗收。\n\n### 0073 read description live（AGENT）\n- 上游：`18.3.3/pi-coding-agent/src/tools/read.ts:853-859`：`/** Rendered per access so the hashline guidance follows a live edit.mode change. */ get description(): string { return prompt.render(readDescription, { IS_HL_MODE: resolveFileDisplayMode(this.session).hashLines, BINARY_VIEWS: cfgIdaAvailable.get(this.session.settings) }); }`；18.2.10 則是 `read.ts:828` `description: string;`、`:877` `this.description = this.#renderDescription();`、`:988` `#renderDescription()`。模板亦改：`prompts/tools/read.md` 由 `DEFAULT_LIMIT/DEFAULT_MAX_LINES/IS_HL_MODE/IS_LINE_NUMBER_MODE`（18.2.10:19）改為 `IS_HL_MODE`＋`BINARY_VIEWS`（18.3.3:7,11）。\n- 原能力：description 必須每次讀取時以當前模型重算（模板帶模型相關的 hashline 判斷），不能在建構期快照，否則切模型或 resume 重建工具後 tools 位元組改變、快取前綴在 tools 段斷裂。\n- 判定：**adopted（上游已採納，且實作不同）**。18.3.3 已用 per-access getter 達成同一能力。\n- 首次漂移點：`read.ts:853-859`（getter 已存在，`#renderDescription()` 已移除）＋`prompts/tools/read.md:7,11`（模板參數已換）。候補補丁的 a 側（`description: string;`、`this.description = this.#renderDescription();`、`#renderDescription()`）全部不存在，其 b 側 getter 又引用了已被移除的 `DEFAULT_LIMIT`／`DEFAULT_MAX_LINES`／`IS_LINE_NUMBER_MODE` → 套不了，硬套也不會編譯。\n- 最小遷移建議：**在 18.3.3 計畫中退役 0073**（比照 0019／0042／0051 的上游採納處置，位元組凍結於 `.retired/`），並確認 `apply.sh` 的 18.3.3 計畫不再輸出 0073 與 `_omp_plan_has 0073` 閘門。若仍要保留能力閘門，需改寫成 18.3.3 形狀（見測試缺口），但不可再命名為「0073 missing」。\n- 測試缺口：`verify-read-description-live.ts:28` 寫死 `HASHLINE_GUIDANCE = \"File + selector → \\`[foo.ts#1A2B]\\` snapshot header\"`，這是 18.2.10 模板字串；18.3.3 模板已改成 `- Selected file: \\`[foo.ts#1A2B]\\` snapshot+lines.`，故 `:56` 的斷言在 18.3.3 上會假失敗（行為其實正確）。遷移時必須把 marker 換成 18.3.3 措辭（或改判 `resolveFileDisplayMode` 的 hashline 分支），否則會把已採納的能力誤報為缺漏。\n\n### 0075 hindsight recall promotion slot（AGENT）\n- 上游：`18.3.3/pi-coding-agent/src/hindsight/backend.ts:85`（`const recallSnippet = primary?.lastRecallSnippet;`）、`:88-93`（仍把 `recallSnippet` join 進 developer message）；`src/session/session-tools.ts:79-80`（`clearMemoryPromotionSnapshot(): void; captureMemoryPromotionSnapshot(prompt: string[]): void;`）；`src/session/session-memory.ts:66`（`#baseSystemPromptBeforeMemoryPromotion`）、`:170-187`（`promotionSnapshot`／`clearPromotionSnapshot`／`capturePromotionSnapshot(prompt: string[])`／`restorePromotionSnapshot(prompt: string[] | undefined)` 皆為單參數）、`:230-240`（`resetContextForNewTranscript`）。\n- 原能力：recall 塊不再同時存在於 developer message 與尾部 system message 兩個載體，改為只在 system prompt 佔單一 slot（`promotionTail`），並在整組 base prompt 重建與 transcript reset 時正確重掛／清除。\n- 判定：**still needed**（18.3.3 無 `memoryPromotionTail`，且 backend 仍 join recall、promotion API 仍單參數）。\n- 首次漂移點：`session-memory.ts` 的欄位宣告 hunk（候補 `@@ -35,6 +35,7 @@`）。18.2.10 在 `#baseSystemPromptBeforeMemoryPromotion` 之後直接接空行與 `constructor(`；18.3.3 在 `:66` 之後新增了 `#runtimeCwd`(`:68`)、`#queuedApply`(`:70`)、`#observedSettings`、`#settingsChanges`（`:67-74`）才到 `constructor(`(`:76`)，尾端上下文不符 → hunk 失敗。其餘 hunk 僅位移：`capturePromotionSnapshot` a 側 18.2.10:~63 → 18.3.3:180（相符）、`resetContextForNewTranscript` → 18.3.3:230-240（相符）、`session-tools.ts` 1180→1258、1764→1918-1920、1819→~1975、1829→1981-1983（皆相符）、`agent-session.ts` `captureMemoryPromotionSnapshot` 接線 1690→1788、`restorePromotionSnapshot` 9796→10376（皆相符）。\n- 最小遷移建議：重錨 `session-memory.ts` 的欄位 hunk（把 `#baseSystemPromptPromotionTail` 插在 `:66` 之後、`#runtimeCwd` 之上），其餘只更新行號。注意 18.3.3 的 `SessionMemoryHost.refreshBaseSystemPrompt()` 仍是無參版本，0075 不需要動它。\n- 測試缺口：**閘門 fail-closed**——`verify-hindsight-recall-promotion-slot.ts:30-34` 把 agent 版本寫死為 `['18.2.3','18.2.10']`，18.3.3 會直接中止；必須加入 18.3.3。\n\n### 0076 eval 狀態提醒持久化（NM）\n- 上游：`18.3.3/pi-coding-agent/src/session/agent-session.ts:1447-1448`（建構子 `const initialEvalStateContext = this.#buildEvalStateContextMessage(); if (initialEvalStateContext) this.agent.appendMessage(initialEvalStateContext);`）、`:6007-6015`（`buildDisplaySessionContext()`／`#withEvalStateContext(context)` 皆無選項）、`:6017-6048`（`#buildEvalStateContextMessage`，`customType: \"eval-state-context\"`，`formatEvalStateContext(session, { historyHasEval })`）、重建呼叫點 `:9403`／`:10134`／`:10221`／`:10288`／`:10541`／`:10678`／`:11010`（後者直接呼叫 `#withEvalStateContext`）；`src/collab/guest.ts:563`。\n- 原能力：eval 提醒在所有 commit 型重建（壓縮、prune、shake、branch、reload、rewind、建構子）時以 `appendCustomMessageEntry` 落盤，唯讀快照傳 `persistEvalStateContext: false`，使 resume 從磁碟重建時提醒落在同一索引、不重複。\n- 判定：**still needed**。18.3.3 完全未採納（建構子仍是 memory-only）。\n- 首次漂移點：無語義漂移；呼叫點集合與 18.2.10 **完全相同**（agent-session 6 處、session-maintenance 8 處、guest.ts 1 處，兩版逐一對應），故候補不需新增任何 `persistEvalStateContext: false` 分類。四個 hunk 的 a 側在 18.3.3 皆相符：建構子 `:1446-1448`、`#withEvalStateContext` `:6011-6015`、`previousSessionContext` `:10133-10134`、branch reload `:10540-10541`（`if (!skipConversationRestore)` 在 `:10551`，與候補的 `persistEvalStateContext: !skipConversationRestore` 語義相符）。\n- 最小遷移建議：保留候選 0076，按 18.3.3 行號重產生 hunk。API 已驗證：`SessionManager.appendCustomMessageEntry(customType, content, display, details?, attribution? = \"agent\", timestamp?)`（`session-manager.ts:2974-2991`），且實作偏好訊息自帶的 timestamp（`:2989-2993`）→ 持久化提醒回放時 bytes 與 timestamp 皆不變，正是此補丁成立的前提。\n- 測試缺口：`verify-eval-state-context-persist.ts` 沒有版本閘門（好），但 GATE 4 以正則斷言 `agent-session.ts`／`collab/guest.ts` 的呼叫形狀（`:155-170`）——18.3.3 上這三段候補 b 側文字仍會原樣出現，故可不改；唯一要注意的是它讀 `readFileSync(`${AGENT_ROOT}/src/session/agent-session.ts`)`，路徑在 18.3.3 仍存在。\n\n### 0077 turn-recovery 重試提醒持久化（AGENT）\n- 上游：`18.3.3/pi-coding-agent/src/session/turn-recovery.ts:579-593`（malformed function call 的 `this.#host.agent.appendMessage({ role: \"developer\", content: [{ type: \"text\", text: prompt.render(malformedFunctionCallRetryTemplate, ...) }] })`）、`:929-935`（empty stop）、`:1013-1019`（unexpected stop），三處皆無 `sessionManager` 寫入；host 契約見 `:190-192`（`sessionManager: SessionManager`）、`:216`（`promptGeneration()`）。\n- 原能力：三處重試提醒改由新 `#appendRetryReminder(text)` 同時 `agent.appendMessage` 與 `sessionManager.appendMessage`，使 resume／行程內重建後提醒仍在原索引。\n- 判定：**still needed**（18.3.3 三處仍為 memory-only；`Message` 型別尚未從 pi-ai import）。\n- 首次漂移點：僅行位移。malformed 提醒 a 側 18.2.10:546 → 18.3.3:580；empty stop 896 → 930；unexpected stop 980 → 1014；新 helper 落點按 18.3.3 `:2618-2640` 重錨。import hunk 相符：18.3.3 import block `:13-25` 的順序為 `AssistantRetryRecoveryKind, CodexCompactionContext, Effort, Model, ModelUsageHealth, ...`，`Message,` 插在 `Effort,` 之後正確。\n- 最小遷移建議：保留候選 0077，僅重錨行號；`SessionManager.appendMessage(message: Message | CustomMessage | ...)`（`session-manager.ts:2777-2786`）接受 pi-ai `Message`，型別調整與計畫描述一致。\n- 測試缺口：`verify-turn-recovery-reminder-persist.ts` 無版本閘門，走真實 empty-stop 路徑（`:78-102`），18.3.3 上語義不變；不需新增。但要注意它與 0076 的 audit 擴展（`context-persist-audit`）並非同一份斷言。\n\n## 最上位快取漂移阻塞點（依風險排序）\n1. **0043 messages.ts hunk 失敗且語義衝突**——`18.3.3/pi-coding-agent/src/session/messages.ts:1085-1091`。候補的尾端上下文與新護欄不相鄰，且其無條件 early-return 會吃掉上游新增的 `requestControls`（Anthropic `tool_removal`）重放，屬「套上就靜默掉功能」；這是唯一一個同時有『套不進去』與『套進去也錯』的補丁。\n2. **0047 sdk.ts 主 callsite hunk 失敗**——`18.3.3/pi-coding-agent/src/sdk.ts:3926-3927`（前置行由 `blobBroker?.prewarm();` 變成 `disposeCallbacks.add(() => blobBroker.dispose());`，且 blobBroker 型別已非 optional）。若此 hunk 被略過而流程仍報成功，主 session 的 date/cwd injector 就拿不到 sessionId，anchor map 不落地，每次 resume 重新 stamp → 整個前綴重算。這是本批最貴的靜默失效點。\n3. **0065 rules.json 整檔 hunk**——`18.3.3/pi-catalog/src/compat/rules.json:1`（新增 `auth/apple.kdl`，內容與 18.2.10 不同）。整檔單行替換必定失敗，必須走 `gen:compat`（`pi-catalog/package.json:92`）重生，否則是 runtime 實際 import 的產物缺兩軸 → built-in 與 plugin record 不一致，resume 重塑請求前緣。\n4. **三個閘門 fail-closed 會直接擋下套用流程**——`verify-codex-effort-resume.ts:28-32`（pi-ai 版本清單）、`verify-hindsight-recall-promotion-slot.ts:30-34`（agent 版本清單）與 `verify-hindsight-recall-snapshot.ts:19-24`（agent 版本清單）在 18.3.3 上直接 assert 失敗；這些是「還沒跑到快取斷言就先中止」的部署阻塞。\n5. **0038 pi-ai types.ts hunk 1**——`18.3.3/pi-ai/src/types.ts:1032-1037`（新增 `liveSteered?: boolean;` 打斷相鄰性）。fuzz=1 可勉強套入，但專案契約要求候選「重錨到 fuzz=0」；若改用手改，`providerOnly` 有落入錯誤介面的風險（同一檔案有三處 `attribution?: MessageAttribution;`）。\n6. **0073 退役後的閘門錯位**——`verify-read-description-live.ts:28` 的模板字串在 18.3.3 已不存在，若照舊註冊會把上游已採納的能力誤判為缺漏（false red），掩蓋真正的漂移。\n\n## 新發現：touched path 內其他「只存在記憶體」的動態提醒（有界，非推測）\n- **`agent-session.ts` 的 checkpoint 強制 rewind 警告**：`18.3.3/pi-coding-agent/src/session/agent-session.ts:9305-9316`（`#enforceRewindBeforeYield`，`<system-warning>You are in an active checkpoint...` 以 `role: \"developer\"`、`attribution: \"agent\"` 只寫 `agent.appendMessage`，之後立刻 `#scheduleAgentContinue(source: \"checkpoint-rewind-reminder\")`；同一檔案 18.2.10:8821-8832 亦同，故為**既有**而非 18.3.3 新增）。它與 0077 修的三處形狀完全相同，但 0077 只碰 `turn-recovery.ts`，**沒有覆蓋這一處**；live wire 帶著警告，resume 從 branch 重建時消失，該輪續跑的 assistant 回覆已被持久化在其後 → 前綴自該索引分岔。`context-persist-audit` 擴展會把它報成 `live-extra`（plan-18.2.10.txt 的 audit 條目定義了此分類），所以它會持續出現但不會被 0077 的閘門判紅。建議列入 18.3.3 計畫時明確決策（一併持久化，或接受並記錄為已知殘差）。\n- **同檔但刻意不持久化**：`turn-recovery.ts:1118-1128` `#restoreFailedAssistantTurn`（`if (!isEmptyErrorTurn(assistantMessage)) this.#host.sessionManager.appendMessage(...)`，空的 error 回合只留記憶體）與 18.2.10:1084-1094 相同，且與 `buildSessionContext` 對空 error 回合的剪枝一致，屬刻意設計，非漂移。\n- 其餘 touched path 的 append 皆成對或為 custom entry，無漂移：`agent-session.ts:1437-1440`（eval host 雙寫）、`:3426`＋`:3588`（interrupted-thinking 記憶體與 `appendCustomMessageEntry` 成對；注意 0043 候補註解「never persisted」與此實作不符，屬註解層級的事實偏差）、`:8059`／`:8109`／`:9473-9474`（成對）、`:9364`（rewind-report 有落盤）；`turn-recovery.ts:2740-2751`、`stream-guards.ts:190-194`／`:243-247`、`ttsr-coordinator.ts:606`、`irc-bridge.ts:221-226`（皆成對）；`date-cwd-reminder.ts`／`session-context.ts`／`messages.ts`／`read.ts`／`hindsight/backend.ts` 本身不 append。\n\n## 依賴失敗 vs 上游變更（歸因）\n- **上游採納（應退役）**：0073（`read.ts:853-859` getter）。\n- **上游改了契約、補丁仍必需**：0043（messages.ts assistant 分支新增 requestControls 護欄，`1087-1091`）、0038（types.ts 新增 `liveSteered`，`1035-1036`）、0047（sdk.ts blobBroker 換型別，`3926`）、0065（rules.json 產物內容變動，`rules.json:1`）、0075（session-memory 新增 `#runtimeCwd` 等欄位，`67-74`）、0069（`src/types.ts` 與 `dist/types/types.d.ts` 行位移）。\n- **上游無變化，僅行位移**：0034（state.ts 與 agent-session.ts 的 session transition 區）、0076（呼叫點集合不變）、0077（三處提醒與 import 區）。\n- **自身補丁鏈依賴失敗（非上游問題）**：0047 的 a 側依賴 0038 先套用（`apply.sh:199`／`:221`／`:326` 已記載「0047 的 a 側是 candidate-0038 的產出形態」）；若 0038 的 hunk 落在 18.3.3 上失敗，0047 會連帶全部失敗。同理 `verify-date-cwd-anchor-stability.ts:34-63` 同時要求 `appendDateCwdReminder` 絕跡與 `applyDateCwdAnchors` 存在，只有 0038+0047 都成功才有意義。0076 的閘門也依賴自己新增的 `persistEvalStateContext` 選項。\n\n## 閘門／測試入口整理（遷移時要動的清單）\n- 需加 18.3.3 到版本清單：`verify-hindsight-recall-snapshot.ts:19-24`（0034）、`verify-hindsight-recall-promotion-slot.ts:30-34`（0075）、`verify-codex-effort-resume.ts:28-32`（0069）。\n- 需改寫斷言材料：`verify-read-description-live.ts:28`（模板字串；0073 退役決策相關）。\n- 無版本閘門、可原樣沿用（僅需確認路徑存在）：`verify-eval-state-context-persist.ts`（0076）、`verify-turn-recovery-reminder-persist.ts`（0077）、`verify-date-cwd-anchor-stability.ts`（0038+0047）、`verify-interrupt-prune-symmetry.ts`（0043）、`verify-commandcode-model-record-parity.ts`（0065，需 `OMP_PATCH_VERIFY_PLUGIN_ROOT` 指向 vendor/pi-commandcode-provider）。\n- apply.sh 註冊處：`:777-781`（0065）、`:792-796`（0069）、`:807-811`（0073）、`:818-820`（0075）、`:821-823`（0076）、`:824-826`（0077）；18.2.10 計畫列在 `:363-411`（`_omp_tail_candidate` 逐條）。\n\n## 明確未做（依指示保留）\n未執行任何 formatter／linter／build／測試，未套用補丁，未觸碰 `~/.omp` 或 live `node_modules`，未呼叫 provider。上述行號皆來自靜態閱讀；「hunk 會失敗」的判斷是基於上下文不相鄰的源碼證據推論，實際 patch(1) 的 fuzz 行為與最終落點仍須由 parent 在沙盒重放確認。"
+}

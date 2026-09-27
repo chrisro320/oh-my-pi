@@ -1,0 +1,1039 @@
+{
+  "scope": "Real SDK and registry lifecycle; restricted read/edit tools; synthetic catalog and offline adapter, not real provider HTTP payload or cache hit",
+  "checks": [
+    {
+      "label": "temporary: expected same-model prefix after disk resume",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 96,
+          "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7832,
+          "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 2929,
+          "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 9,
+          "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "default: expected same-model prefix after disk resume",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 96,
+          "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7832,
+          "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 2929,
+          "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 9,
+          "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "roundtrip: expected same-model prefix after disk resume",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 92,
+          "sha256": "5822ae785a00574e5a2bd4ee792a3992522ff6c4d73bf47ec382234f2a9c7266",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7820,
+          "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 4577,
+          "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 10,
+          "sha256": "52d36755735776d47ae04ac6692beb5041e69ce6d42dcdee0c1270cdd994a5b3",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "ephemeral: expected same-model prefix after disk resume",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 92,
+          "sha256": "5822ae785a00574e5a2bd4ee792a3992522ff6c4d73bf47ec382234f2a9c7266",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7820,
+          "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 4577,
+          "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 10,
+          "sha256": "52d36755735776d47ae04ac6692beb5041e69ce6d42dcdee0c1270cdd994a5b3",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "A -> temporary B -> default A",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 92,
+          "sha256": "5822ae785a00574e5a2bd4ee792a3992522ff6c4d73bf47ec382234f2a9c7266",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7820,
+          "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 4577,
+          "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 10,
+          "sha256": "52d36755735776d47ae04ac6692beb5041e69ce6d42dcdee0c1270cdd994a5b3",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "temporary B versus default B",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 96,
+          "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7832,
+          "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 2929,
+          "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 9,
+          "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "temporary B versus fresh B",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 96,
+          "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7832,
+          "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 2929,
+          "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 9,
+          "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "roundtrip A versus fresh A",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 92,
+          "sha256": "5822ae785a00574e5a2bd4ee792a3992522ff6c4d73bf47ec382234f2a9c7266",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7820,
+          "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 4577,
+          "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 10,
+          "sha256": "52d36755735776d47ae04ac6692beb5041e69ce6d42dcdee0c1270cdd994a5b3",
+          "first_difference": null
+        }
+      }
+    }
+  ],
+  "runs": {
+    "temporary": {
+      "scenario": "temporary",
+      "pid": 158791,
+      "sessionFile": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-29-863Z_01a0e141-0507-7000-aae1-a747b2f0c42c.jsonl",
+      "snapshots": [
+        {
+          "label": "initial-A",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        },
+        {
+          "label": "temporary-B",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "96b869e9",
+          "parentId": null,
+          "timestamp": "2026-09-27T05:05:29.911Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "0b5c50a7",
+          "parentId": "10b47fac",
+          "timestamp": "2026-09-27T05:05:29.990Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "temporary",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "temporary-resume": {
+      "scenario": "resume",
+      "pid": 160019,
+      "sessionFile": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-29-863Z_01a0e141-0507-7000-aae1-a747b2f0c42c.jsonl",
+      "snapshots": [
+        {
+          "label": "resumed",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "96b869e9",
+          "parentId": null,
+          "timestamp": "2026-09-27T05:05:29.911Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "0b5c50a7",
+          "parentId": "10b47fac",
+          "timestamp": "2026-09-27T05:05:29.990Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "temporary",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "default": {
+      "scenario": "default",
+      "pid": 160443,
+      "sessionFile": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-31-459Z_01a0e141-0b43-7000-886e-61227e1e9ea5.jsonl",
+      "snapshots": [
+        {
+          "label": "initial-A",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        },
+        {
+          "label": "default-B",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/deepseek-v4.1-flash",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "84a94a80",
+          "parentId": null,
+          "timestamp": "2026-09-27T05:05:31.501Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "46b5bed3",
+          "parentId": "ed8893ab",
+          "timestamp": "2026-09-27T05:05:31.587Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "default",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "default-resume": {
+      "scenario": "resume",
+      "pid": 160543,
+      "sessionFile": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-31-459Z_01a0e141-0b43-7000-886e-61227e1e9ea5.jsonl",
+      "snapshots": [
+        {
+          "label": "resumed",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/deepseek-v4.1-flash",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "84a94a80",
+          "parentId": null,
+          "timestamp": "2026-09-27T05:05:31.501Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "46b5bed3",
+          "parentId": "ed8893ab",
+          "timestamp": "2026-09-27T05:05:31.587Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "default",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "roundtrip": {
+      "scenario": "roundtrip",
+      "pid": 160641,
+      "sessionFile": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-33-025Z_01a0e141-1161-7000-978d-12794889d256.jsonl",
+      "snapshots": [
+        {
+          "label": "initial-A",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        },
+        {
+          "label": "temporary-B",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        },
+        {
+          "label": "returned-A",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "0aa1260c",
+          "parentId": null,
+          "timestamp": "2026-09-27T05:05:33.066Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "6b001475",
+          "parentId": "62c9e679",
+          "timestamp": "2026-09-27T05:05:33.143Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "temporary",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "b9d6d681",
+          "parentId": "bc12720f",
+          "timestamp": "2026-09-27T05:05:33.162Z",
+          "model": "drift-fixture/gpt-4.1",
+          "role": "default",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "roundtrip-resume": {
+      "scenario": "resume",
+      "pid": 160769,
+      "sessionFile": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-33-025Z_01a0e141-1161-7000-978d-12794889d256.jsonl",
+      "snapshots": [
+        {
+          "label": "resumed",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "0aa1260c",
+          "parentId": null,
+          "timestamp": "2026-09-27T05:05:33.066Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "6b001475",
+          "parentId": "62c9e679",
+          "timestamp": "2026-09-27T05:05:33.143Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "temporary",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "b9d6d681",
+          "parentId": "bc12720f",
+          "timestamp": "2026-09-27T05:05:33.162Z",
+          "model": "drift-fixture/gpt-4.1",
+          "role": "default",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "ephemeral": {
+      "scenario": "ephemeral",
+      "pid": 160849,
+      "sessionFile": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-34-562Z_01a0e141-1762-7000-9f2d-7e519c6bbbc0.jsonl",
+      "snapshots": [
+        {
+          "label": "initial-A",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        },
+        {
+          "label": "temporary-B",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "906fc0c8",
+          "parentId": null,
+          "timestamp": "2026-09-27T05:05:34.604Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "11615a5f",
+          "parentId": "bc93e2ce",
+          "timestamp": "2026-09-27T05:05:34.685Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "fallback",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "ephemeral-resume": {
+      "scenario": "resume",
+      "pid": 160949,
+      "sessionFile": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-34-562Z_01a0e141-1762-7000-9f2d-7e519c6bbbc0.jsonl",
+      "snapshots": [
+        {
+          "label": "resumed",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "906fc0c8",
+          "parentId": null,
+          "timestamp": "2026-09-27T05:05:34.604Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "11615a5f",
+          "parentId": "bc93e2ce",
+          "timestamp": "2026-09-27T05:05:34.685Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "fallback",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "fresh-b": {
+      "scenario": "fresh-b",
+      "pid": 161030,
+      "sessionFile": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-36-105Z_01a0e141-1d69-7000-9615-43034c5f59c3.jsonl",
+      "snapshots": [
+        {
+          "label": "initial-B",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/deepseek-v4.1-flash",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "00ed6946",
+          "parentId": null,
+          "timestamp": "2026-09-27T05:05:36.146Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "fresh-a": {
+      "scenario": "fresh-a",
+      "pid": 161147,
+      "sessionFile": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-36-871Z_01a0e141-2067-7000-9d08-24d243373a86.jsonl",
+      "snapshots": [
+        {
+          "label": "initial-A",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "c2716c2e",
+          "parentId": null,
+          "timestamp": "2026-09-27T05:05:36.919Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    }
+  },
+  "commands": [
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-27-omp-1833-deploy/research/probe-model-lifecycle.ts",
+        "temporary",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-temporary.json"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"temporary\",\"output\":\"/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-temporary.json\",\"snapshots\":2,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-27-omp-1833-deploy/research/probe-model-lifecycle.ts",
+        "resume",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-temporary-resume.json",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-29-863Z_01a0e141-0507-7000-aae1-a747b2f0c42c.jsonl"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-temporary-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-27-omp-1833-deploy/research/probe-model-lifecycle.ts",
+        "default",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-default.json"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"default\",\"output\":\"/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-default.json\",\"snapshots\":2,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-27-omp-1833-deploy/research/probe-model-lifecycle.ts",
+        "resume",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-default-resume.json",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-31-459Z_01a0e141-0b43-7000-886e-61227e1e9ea5.jsonl"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-default-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-27-omp-1833-deploy/research/probe-model-lifecycle.ts",
+        "roundtrip",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-roundtrip.json"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"roundtrip\",\"output\":\"/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-roundtrip.json\",\"snapshots\":3,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-27-omp-1833-deploy/research/probe-model-lifecycle.ts",
+        "resume",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-roundtrip-resume.json",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-33-025Z_01a0e141-1161-7000-978d-12794889d256.jsonl"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-roundtrip-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-27-omp-1833-deploy/research/probe-model-lifecycle.ts",
+        "ephemeral",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-ephemeral.json"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"ephemeral\",\"output\":\"/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-ephemeral.json\",\"snapshots\":2,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-27-omp-1833-deploy/research/probe-model-lifecycle.ts",
+        "resume",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-ephemeral-resume.json",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/sessions/2026-09-27T05-05-34-562Z_01a0e141-1762-7000-9f2d-7e519c6bbbc0.jsonl"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-ephemeral-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-27-omp-1833-deploy/research/probe-model-lifecycle.ts",
+        "fresh-b",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-fresh-b.json"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"fresh-b\",\"output\":\"/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-fresh-b.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-27-omp-1833-deploy/research/probe-model-lifecycle.ts",
+        "fresh-a",
+        "/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-fresh-a.json"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"fresh-a\",\"output\":\"/tmp/omp-1833-upgrade-9gpapl1n/Integration/home/.bun/install/global/final-fresh-a.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    }
+  ],
+  "source_verification": {
+    "pi-coding-agent": {
+      "version": "18.3.3"
+    },
+    "pi-agent-core": {
+      "version": "18.3.3"
+    },
+    "pi-ai": {
+      "version": "18.3.3"
+    },
+    "pi-catalog": {
+      "version": "18.3.3"
+    },
+    "snapcompact": {
+      "version": "18.3.3"
+    },
+    "pi-tui": {
+      "version": "18.3.3"
+    }
+  },
+  "passed": true
+}

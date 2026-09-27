@@ -1,0 +1,32 @@
+[
+  {
+    "name": "@oh-my-pi/pi-coding-agent",
+    "resolved": "file:///tmp/omp-1833-preflight-b5hpnhn7/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/index.ts",
+    "version": "18.3.3"
+  },
+  {
+    "name": "@oh-my-pi/pi-agent-core",
+    "resolved": "file:///tmp/omp-1833-preflight-b5hpnhn7/runtime/node_modules/@oh-my-pi/pi-agent-core/src/index.ts",
+    "version": "18.3.3"
+  },
+  {
+    "name": "@oh-my-pi/pi-ai",
+    "resolved": "file:///tmp/omp-1833-preflight-b5hpnhn7/runtime/node_modules/@oh-my-pi/pi-ai/src/index.ts",
+    "version": "18.3.3"
+  },
+  {
+    "name": "@oh-my-pi/pi-catalog",
+    "resolved": "file:///tmp/omp-1833-preflight-b5hpnhn7/runtime/node_modules/@oh-my-pi/pi-catalog/src/index.ts",
+    "version": "18.3.3"
+  },
+  {
+    "name": "@oh-my-pi/snapcompact",
+    "resolved": "file:///tmp/omp-1833-preflight-b5hpnhn7/runtime/node_modules/@oh-my-pi/snapcompact/src/index.ts",
+    "version": "18.3.3"
+  },
+  {
+    "name": "@oh-my-pi/pi-tui",
+    "resolved": "file:///tmp/omp-1833-preflight-b5hpnhn7/runtime/node_modules/@oh-my-pi/pi-tui/src/index.ts",
+    "version": "18.3.3"
+  }
+]

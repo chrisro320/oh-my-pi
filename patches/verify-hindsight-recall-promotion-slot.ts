@@ -29,7 +29,7 @@ assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree 
 // never carried it must fail closed rather than measure a pristine tree.
 const agentVersion: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
-	["18.2.3", "18.2.10"].includes(agentVersion),
+	["18.2.3", "18.2.10", "18.3.3"].includes(agentVersion),
 	`verify-hindsight-recall-promotion-slot: 0075 is not part of the ${agentVersion} plan`,
 );
 
@@ -114,9 +114,10 @@ const { SessionMemory } = await import(`${AGENT_ROOT}/src/session/session-memory
 
 let base: string[] = ["base"];
 let refreshes = 0;
+const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
 const host = {
 	agent: {},
-	settings: { get: () => "off" },
+	settings: Settings.isolated({ "memory.backend": "off" }),
 	modelRegistry: {},
 	isDisposed: () => false,
 	memoryBackendSession: () => ({}),
@@ -183,7 +184,7 @@ const sessionToolsHost = new Proxy(
 				agentPrompt = parts;
 			},
 		},
-		settings: { get: (key: string) => (key === "memory.backend" ? "hindsight" : undefined) },
+		settings: Settings.isolated({ "memory.backend": "hindsight" }),
 		memoryBackendSession: () => memorySessionStub,
 		isDisposed: () => false,
 		clearInheritedProviderPromptCacheKey: () => undefined,

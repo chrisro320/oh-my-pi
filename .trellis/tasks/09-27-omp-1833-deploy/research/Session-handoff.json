@@ -1,0 +1,402 @@
+{
+  "owner": "Session",
+  "task": "09-27-omp-1833-deploy",
+  "generated_at": "2026-09-27",
+  "private_workspace": "/tmp/omp-1833-upgrade-9gpapl1n/Session/nm",
+  "candidate_dir": "patches/.18.3.3-candidates",
+  "candidate_naming": "canonical-stem + -v18.3.3-candidate.patch",
+  "acceptance": {
+    "ids_delivered": ["0010", "0032", "0034", "0038", "0043", "0047", "0060", "0075", "0076", "0077"],
+    "ids_expected": 10,
+    "old_bytes_unchanged": true,
+    "shared_gates_touched": false,
+    "apply_sh_touched": false,
+    "live_trees_touched": false,
+    "commits_made": false
+  },
+  "candidates": [
+    {
+      "id": "0034",
+      "root": "AGENT",
+      "file": ".18.3.3-candidates/0034-omp-hindsight-snapshot-rollup-v18.3.3-candidate.patch",
+      "touched": ["src/hindsight/state.ts", "src/session/agent-session.ts", "src/hindsight/backend.ts"],
+      "generated_on": "pristine 18.3.3 (no earlier chain patches touch these files)",
+      "applies_clean": "yes, fuzz=0, whole file set",
+      "typed_config_fix": "18.3.3 removed the string-keyed Settings.get(id); the transcript-transition gate in agent-session.ts now reads the typed handle `cfgMemoryBackend.get(this.settings) === \"hindsight\"` and imports `cfgMemoryBackend` from ../memory-backend/settings (added to the typed-config import block). Same API class as Main's PRODUCT0032 report.",
+      "body_identical_to_old": "semantically yes; only hunk line numbers re-anchored to 18.3.3; one hunk's context line re-anchored (mentalModelsLoadPromise = reload)",
+      "preserved_behaviors": [
+        "persisted RECALL_SNIPPET_CUSTOM_TYPE / MENTAL_MODELS_SNIPPET_CUSTOM_TYPE custom-entry replay keeps the system-prompt prefix byte-stable across resume",
+        "#loadPersistedSnippet stops at reset_boundary so /clear and focus-attach do not replay stale snippets",
+        "beforeAgentStartPrompt awaits the bounded mental-model load and fails the owning turn at commit",
+        "runMentalModelLoad / beginMentalModelsTranscriptReload freeze the target transcript's answer and persist it on the deadline path",
+        "agent-session #beginSessionTransition calls beginMentalModelsTranscriptReload for hindsight",
+        "resetContextForNewTranscript snapshots after appendResetBoundary",
+        "hindsight/backend.ts bootstrap resolves startup failure inside state.runMentalModelLoad and logs via void promise"
+      ],
+      "referenced_18_3_3_apis_verified_present": [
+        "AgentSession.isSessionTransitioning / waitForSessionTransition",
+        "AgentSession.refreshBaseSystemPrompt(commitIf?: () => boolean)",
+        "SessionManager.appendCustomEntry(customType, data)",
+        "session entry type reset_boundary",
+        "HindsightSessionState.aliasOf"
+      ]
+    },
+    {
+      "id": "0010",
+      "root": "AGENT",
+      "file": ".18.3.3-candidates/0010-omp-extension-idle-ephemeral-turn-v18.3.3-candidate.patch",
+      "touched": [
+        "dist/types/extensibility/extensions/types.d.ts",
+        "src/extensibility/extensions/runner.ts",
+        "src/extensibility/extensions/types.ts",
+        "src/modes/acp/acp-agent.ts",
+        "src/modes/controllers/extension-ui-controller.ts",
+        "src/modes/runtime-init.ts",
+        "src/session/agent-session.ts",
+        "src/task/executor.ts"
+      ],
+      "generated_on": "pristine 18.3.3 + 0034 (0034 only touches agent-session.ts #beginSessionTransition, which 0010 also extends)",
+      "applies_clean": "yes, fuzz=0",
+      "adaptation": [
+        "18.3.3 upstream ADDED ExtensionContext.runEphemeralTurn?/ExtensionContextActions.runEphemeralTurn? and runner #runEphemeralTurnFn. The old patch's insertions all failed because every host action object now already carries a runEphemeralTurn line; runIdleEphemeralTurn is inserted NEXT TO it at all 6 host sites (acp-agent, extension-ui-controller x2, runtime-init, executor, agent-session #createCommandContext).",
+        "IdleEphemeralTurnOptions/IdleEphemeralTurnResult declared after ExtensionMode (src types.ts) and mirrored into the checked-in dist/types .d.ts.",
+        "ExtensionContext.runIdleEphemeralTurn is required (extension-facing); ExtensionContextActions.runIdleEphemeralTurn is required as in the old patch (all 6 host sites supply it).",
+        "agent-session: #inFlightEpoch / #idleEphemeralReservation, #beginInFlight() epoch return, #endInFlight(epoch, onSettled), #resetInFlight epoch bump, injectIdle/continue/prompt/sendCustomMessage settle+generation guards, runIdleEphemeralTurn reservation method, #beginSessionTransition abort, beginDispose abort, navigateTree branchSummaryAbortController local."
+      ],
+      "preserved_behaviors": [
+        "idle side-channel reservation is abortable by a main turn, which waits for it to settle before its own provider call",
+        "in-flight epoch prevents a superseded turn's finally from decrementing a replacement turn",
+        "session transition aborts the reservation synchronously before its first await",
+        "tree navigation holds an exclusive branch-summary reservation for the whole navigation, including extension hooks"
+      ],
+      "integration_note": "If Main adds a new ExtensionContextActions host site for 18.3.3 it MUST supply runIdleEphemeralTurn (declared required)."
+    },
+    {
+      "id": "0032",
+      "root": "AGENT",
+      "file": ".18.3.3-candidates/0032-omp-goal-tool-resident-v18.3.3-candidate.patch",
+      "touched": ["src/sdk.ts", "src/tools/index.ts", "src/modes/interactive-mode.ts"],
+      "generated_on": "pristine 18.3.3 (no earlier chain patch touches these files)",
+      "applies_clean": "yes, fuzz=0",
+      "adaptation": [
+        "18.3.3 removed the string-keyed Settings.get(id); the goal residency check now reads the typed handle: `const goalResident = !restrictToolNames && cfgGoalEnabled.get(settings);` (cfgGoalEnabled already imported at sdk.ts:338 from ./goals/settings). This was Main's PRODUCT0032 runtime failure.",
+        "src/tools/index.ts isToolAllowed failed only on trailing context drift (upstream now reads lsp via cfgLspEnabled.get(session.settings)); the goal branch is re-anchored while keeping the 18.3.3 lsp line.",
+        "sdk.ts and interactive-mode.ts hunks applied with offsets."
+      ],
+      "preserved_behaviors": [
+        "goal.enabled keeps the goal tool a permanent member of the allowlist and the active set across paused/dropped/absent goal states",
+        "exit/interview/interactive-mode snapshots always include goal so a rebuild never flips the tool signature"
+      ]
+    },
+    {
+      "id": "0038",
+      "root": "NM",
+      "file": ".18.3.3-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.3.3-candidate.patch",
+      "touched": ["pi-ai/src/providers/openai-responses.ts", "pi-ai/src/types.ts", "pi-ai/dist/types/types.d.ts", "pi-coding-agent/src/sdk.ts", "pi-coding-agent/src/session/date-cwd-reminder.ts", "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts"],
+      "generated_on": "pristine 18.3.3 (direct file overlap with 0017 is a different hunk region; 0032 touches sdk.ts elsewhere)",
+      "applies_clean": "yes, fuzz=0",
+      "adaptation": [
+        "pi-ai/src/types.ts UserMessage now has liveSteered/historyRewriteAt between synthetic and attribution; providerOnly is inserted directly after synthetic (same logical slot).",
+        "pi-ai/src/types.ts DeveloperMessage providerOnly hunk applied.",
+        "sdk.ts comment hunk failed because blobBroker decoration is no longer wrapped in `if`; only the comment text is updated.",
+        "openai-responses.ts and date-cwd-reminder.ts hunks applied."
+      ],
+      "preserved_behaviors": [
+        "date/cwd reminder rides on a provider-only tail message (providerOnly + synthetic) built per request, never persisted",
+        "appendDateCwdReminder replaces the whole provider-only tail so the wire never carries a stale reminder",
+        "openai-responses trailingScaffoldingItems counts the provider-only tail so the chained-compaction baseline excludes it"
+      ]
+    },
+    {
+      "id": "0043",
+      "root": "AGENT",
+      "file": ".18.3.3-candidates/0043-omp-interrupt-prune-symmetry-v18.3.3-candidate.patch",
+      "touched": ["src/session/messages.ts", "src/session/session-context.ts"],
+      "generated_on": "pristine 18.3.3 (no earlier chain patch touches these files)",
+      "applies_clean": "yes, fuzz=0",
+      "adaptation": [
+        "18.3.3 upstream added the requestControls/tool_removal control-only replay in the assistant conversion. The old unconditional early return would have dropped it. The candidate keeps the new replay: a requestControls carrier survives as convertMessageToLlm({ ...m, content: [] }) (control-only, payload filtered), then the literal `if (m.stopReason === \"aborted\" || m.stopReason === \"error\") return [];` prune stays for everything else.",
+        "isUserInterruptAbort import removal from messages.ts is kept (no remaining reference).",
+        "the control-only carrier deletes the display-only `strippedToolCalls` marker before conversion: `buildSessionContext`'s transcript branch writes that marker for the TUI placeholder, so the live proxy carried it while the rebuild did not; the provider message must not carry it.",
+        "session-context.ts: the rebuild prune loop now keeps a recorded requestControls carrier (skips it and its paired results) so live and rebuilt wire agree; the old patch's removal of the INTERRUPTED_THINKING_MESSAGE_TYPE continuity-pair exception is preserved."
+      ],
+      "preserved_behaviors": [
+        "live convertToLlm prunes aborted/error assistant turns, matching buildSessionContext",
+        "convertOne drops the interrupted-thinking marker",
+        "convertToLlm skips synthetic tool results paired with a pruned turn (prunedToolCallIds carried across append slices)",
+        "18.3.3 Anthropic requestControls carrier survives on BOTH paths as a control-only message: the live path returns convertMessageToLlm({ ...carrier, content: [] }) with the display-only strippedToolCalls marker deleted and the rebuild prune loop skips the carrier (and its paired results) so convertToLlm renders the same sequence"
+      ],
+      "gate_impact": {
+        "shared_gate": "patches/verify-interrupt-prune-symmetry.ts",
+        "unchanged_gate_still_passes": true,
+        "why": "the source guard regex and every existing no-controls fixture are unaffected; the source line /if \\(m\\.stopReason === \"aborted\" \\|\\| m\\.stopReason === \"error\"\\) return \\[\\];/ is preserved verbatim",
+        "symmetry_implemented": "both paths preserve a recorded requestControls carrier and let the shared conversion stage render it control-only. messages.ts convertOne returns convertMessageToLlm({ ...m, content: [] }); session-context.ts rebuild prune loop does `if (message.requestControls !== undefined) continue;`, so the carrier and its paired synthetic results stay in the pre-conversion sequence exactly as the live agent state does, and convertToLlm then drops the results via prunedToolCallIds.",
+        "fixture_cases_for_shared_gate": [
+          "1) controls carrier WITH paired result: entries = [user(u1), assistant(a1, stopReason aborted, content [thinking, text, toolCall c1], requestControls { tools: { declared, deferred, active }, messageIndex: <a1 live index> }), toolResult(t1, toolCallId c1), user(u2)]. Assert rebuildWire(entries, 'u2') deep-equals liveWire(entries, 'u2', <a1 accumulated index>) and both equal [user(u1), assistant(controlOnly), user(u2)]: 3 messages, surviving assistant has content.length === 0 and requestControls preserved, no toolResult survives.",
+          "2) controls carrier WITHOUT a paired result: same entries minus t1; assert length 3, carrier survives control-only on both paths.",
+          "3) no-controls aborted/error turn (existing fixture): unchanged, both paths drop it; length 2, every role user.",
+          "4) source guards: assert messages.ts matches /if \\(m\\.stopReason === \"aborted\" \\|\\| m\\.stopReason === \"error\"\\) return \\[\\];/ and /if \\(m\\.requestControls !== undefined && \\(m\\.stopReason === \"aborted\" \\|\\| m\\.stopReason === \"error\"\\)\\)/; assert the session-context prune block contains /if \\(message\\.requestControls !== undefined\\) continue;/ and does not reference INTERRUPTED_THINKING_MESSAGE_TYPE.",
+          "Main's 4-case regression (both stopReasons x paired/missing result) passes: the carrier has content [] and requestControls preserved on both paths, and neither carries strippedToolCalls. Evidence: a throwaway probe replicating the gate's helpers returned PROBE-0043 OK (6 cases), and the pre-fix variant failed with the same 'carriers must replay identically' assertion (negative control)."
+        ],
+        "residual_asymmetry": "none on the wire: a requestControls carrier is preserved and rendered control-only identically on both paths."
+      }
+    },
+    {
+      "id": "0047",
+      "root": "AGENT",
+      "file": ".18.3.3-candidates/0047-omp-date-cwd-anchor-stability-v18.3.3-candidate.patch",
+      "touched": ["src/sdk.ts", "src/session/date-cwd-reminder.ts", "dist/types/session/date-cwd-reminder.d.ts"],
+      "generated_on": "pristine 18.3.3 + 0038 (0047's a-side is 0038's output: the persistent-anchor rewrite of date-cwd-reminder.ts) + 0032 (sdk.ts, different region)",
+      "applies_clean": "yes, fuzz=0",
+      "adaptation": [
+        "sdk.ts constructor site failed because 18.3.3 inserts `disposeCallbacks.add(() => blobBroker.dispose());` before it instead of `blobBroker?.prewarm();`. The change is exactly `new DateCwdReminderInjector(() => sessionManager.getSessionId())`.",
+        "capture path hunks applied (auto-learn capture injector gets () => captureSessionId).",
+        "date-cwd-reminder.ts hunks applied; getAgentDir is re-exported by @oh-my-pi/pi-utils root in 18.3.3 (verified via pi-utils/src/index.ts `export * from \"./dirs\"`)."
+      ],
+      "preserved_behaviors": [
+        "date/cwd reminder is stamped inside the last real user message, keyed by role:timestamp:sha256(pre-injection content)[0..16]",
+        "frozen stamps replay byte-identical across turns, resume and processes via a per-session anchor file under getAgentDir()/date-cwd-anchors",
+        "only the newest unstamped user message may mint a stamp; older messages stay byte-identical to their JSONL form",
+        "legacy provider-only tails are dropped before stamping",
+        "atomic anchor-file replace; corrupt map degrades to re-stamping, never to a broken turn"
+      ],
+      "combined_contract": "0038 + 0047 final form is what the 18.3.3 plan ships, in that order."
+    },
+    {
+      "id": "0060",
+      "root": "NM",
+      "file": ".18.3.3-candidates/0060-omp-devin-idle-cascade-pin-v18.3.3-candidate.patch",
+      "touched": ["pi-ai/src/types.ts", "pi-ai/src/stream.ts", "pi-ai/dist/types/types.d.ts", "pi-ai/dist/types/stream.d.ts", "pi-coding-agent/src/session/agent-session.ts", "pi-coding-agent/src/session/agent-session-types.ts", "pi-coding-agent/dist/types/session/agent-session-types.d.ts"],
+      "generated_on": "pristine 18.3.3 + 0010 (runIdleEphemeralTurn region) + 0038 (pi-ai types) + 0035 + available peers",
+      "applies_clean": "yes, fuzz=0",
+      "adaptation": [
+        "18.3.3 replaced runEphemeralTurn's inline anonymous args type with EphemeralTurnOptions. conversationId is added to EphemeralTurnOptions in src/session/agent-session-types.ts (NEW touched file vs the old patch) instead of an inline type.",
+        "the option construction inside runEphemeralTurn now uses `preferWebsockets: this.preferWebsockets` (no # field); conversationId: args.conversationId is inserted after promptCacheKey.",
+        "runIdleEphemeralTurn insertion (Devin pins conversationId to this.sessionId) applied with offset.",
+        "pi-ai/src/types.ts SimpleStreamOptions.conversationId and pi-ai/src/stream.ts `export function mapOptionsForApi` + forwarding applied."
+      ],
+      "preserved_behaviors": [
+        "Devin threads conversations by cascade_id: the idle keepalive pins conversationId to the main session so it warms the same cache chain",
+        "/btw and /omfg side turns keep their distinct :side: sessionId lineage; providers keying append-only state off conversationId (cursor) never see the pinned id",
+        "cron extension's runIdleEphemeralTurn API is unchanged"
+      ],
+      "flow_verified_textually": "prepareSimpleStreamOptions spreads options, so conversationId reaches pi-ai; devin.ts already reads options?.conversationId ?? options?.sessionId (pi-ai/src/providers/devin.ts:226)."
+    },
+    {
+      "id": "0075",
+      "root": "AGENT",
+      "file": ".18.3.3-candidates/0075-omp-hindsight-recall-promotion-slot-v18.3.3-candidate.patch",
+      "touched": ["src/hindsight/backend.ts", "src/session/agent-session.ts", "src/session/session-memory.ts", "src/session/session-tools.ts", "dist/types/session/session-memory.d.ts", "dist/types/session/session-tools.d.ts"],
+      "generated_on": "pristine 18.3.3 + 0034 (hindsight/backend.ts) + 0010 + 0060 + available peers",
+      "applies_clean": "yes, fuzz=0",
+      "adaptation": [
+        "hindsight/backend.ts buildDeveloperInstructions: 18.3.3 renders the base part via prompt.render(hindsightInstructions, {...}) instead of STATIC_INSTRUCTIONS; only the recallSnippet removal/comment is re-anchored.",
+        "session-memory.ts field declaration failed because 18.3.3 added #runtimeCwd right after the promotion snapshot field; #baseSystemPromptPromotionTail is inserted before #runtimeCwd.",
+        "session-tools.ts #prepareBaseSystemPrompt commit site: 18.3.3 has `this.#promptSurface = candidate;` after `built.systemPrompt`; the promotionTail re-attach is applied there.",
+        "agent-session.ts hunks (host binding, switchSession snapshot/restore) applied with offsets."
+      ],
+      "preserved_behaviors": [
+        "the promoted recall block gets exactly one carrier (a trailing system prompt message) instead of two (developer-message join + trailing injection)",
+        "base rebuilds re-attach the promoted block from memoryPromotionTail() so it keeps one slot",
+        "resetContextForNewTranscript clears the tail so a fresh transcript re-recalls",
+        "switchSession captures/restores the promotion tail across rollback"
+      ],
+      "note": "18.3.3 upstream already added #runtimeCwd and cwd-scoped retention; this candidate leaves that intact and adds only the promotion-tail lifecycle."
+    },
+    {
+      "id": "0076",
+      "root": "NM",
+      "file": ".18.3.3-candidates/0076-omp-eval-state-context-persist-v18.3.3-candidate.patch",
+      "touched": ["pi-coding-agent/src/collab/guest.ts", "pi-coding-agent/src/session/agent-session.ts", "pi-coding-agent/dist/types/session/agent-session.d.ts"],
+      "generated_on": "pristine 18.3.3 + my earlier chain entries",
+      "applies_clean": "yes, fuzz=0",
+      "body_identical_to_old": "yes (only line numbers shifted)",
+      "preserved_behaviors": [
+        "eval-state reminder is persisted to the session file on commit and replayed at the same index by any later rebuild, including a resumed process",
+        "read-only snapshots (collab guest display rebuild, switchSession previous context) pass persistEvalStateContext: false and write nothing",
+        "#nextEvalStateContext appends only when the newest reminder text changed"
+      ]
+    },
+    {
+      "id": "0077",
+      "root": "AGENT",
+      "file": ".18.3.3-candidates/0077-omp-turn-recovery-reminder-persist-v18.3.3-candidate.patch",
+      "touched": ["src/session/turn-recovery.ts"],
+      "generated_on": "pristine 18.3.3",
+      "applies_clean": "yes, fuzz=0",
+      "body_identical_to_old": "yes (only line numbers shifted)",
+      "preserved_behaviors": [
+        "malformed-function-call, empty-stop and unexpected-stop retry reminders are appended to both the live context and the session file via #appendRetryReminder",
+        "a rebuild from disk replays the reminder at the same index, so the next request keeps the provider's cached prefix"
+      ]
+    }
+  ],
+  "dependencies": {
+    "intra_owner_chronological": {
+      "0010": ["0034"],
+      "0047": ["0038", "0032"],
+      "0060": ["0010", "0038"],
+      "0075": ["0034", "0010", "0060"],
+      "0076": ["0075"],
+      "0034": [],
+      "0032": [],
+      "0038": [],
+      "0043": [],
+      "0077": []
+    },
+    "unowned_prerequisites": {
+      "0017": "file-level overlap with 0038 on pi-ai/src/providers/openai-responses.ts only; hunk regions differ (0017 ~line 233, 0038 ~1197/1376); 0038 applies without it",
+      "0031": "file-level overlap with 0060/0075/0076 on agent-session.ts only; 0031 edits imports (~line 351) and fetchUsageReports (~11426 in 18.3.3), far from my hunk regions (1833 / 9989-10090 / 10360 / 10582); my candidates land without it",
+      "0035": "file-level overlap with 0060/0075/0076 on agent-session.ts; the real .18.3.3-candidates/0035 candidate was applied first in the integration simulation and all my patches still landed"
+    },
+    "unowned_missing_at_generation": [
+      "0037", "0026", "0030", "0031", "0048", "0050", "0072"
+    ],
+    "unowned_missing_note": "AuthUI candidates were not present while I generated. My candidates were re-verified in a plan-ordered simulation WITH every other available candidate (incl. 0035) applied; the missing ones do not touch my hunk regions. No dependency blocks my IDs."
+  },
+  "integration_source_changes_main_needs": [
+    "apply.sh: the 18.3.3 case already lists 0033 0004 0034 0037 0010 0035 0014 0036 0017 0025 0026 0030 0031 0032 0038 0043 0044 0052 0057 0045 0046 0048 0050 0054 omit:0041 plus tails 0047 0055 0071 0056 0058 0060 0062 0063 0065 0066 0067 0068 0069 0070 0074 0075 0076 0077 0078 0079 0080 — no change requested for my IDs; all my candidate stems match the resolver's expected names.",
+    "0060 adds pi-coding-agent/src/session/agent-session-types.ts to its touched set (conversationId on EphemeralTurnOptions). The resolver's mirror_touched already copies every declared path, so no controller change is needed, but PATCHES.md / family docs that list touched files for 0060 should mention it.",
+    "0010 makes ExtensionContextActions.runIdleEphemeralTurn a required member of the host action object; all six 18.3.3 host sites now supply it. Do not add a seventh host site without the member.",
+    "Nothing else in shared source is required from my family."
+  ],
+  "gate_changes_needed": [
+    {
+      "gate": "patches/verify-interrupt-prune-symmetry.ts",
+      "required": "extend with a requestControls carrier case (Main shared gate; no change needed to keep the existing no-controls fixtures green)",
+      "recommended": "add the four cases from the 0043 candidate's gate_impact.fixture_cases_for_shared_gate"
+    },
+    {
+      "gate": "patches/verify-goal-tool-resident.ts (0032)",
+      "required": "register it in the apply-mode regression suite under _omp_plan_has 0032 (it exists but no suite invokes it; pre-existing gap also present at HEAD)",
+      "recommended": "assert goal.enabled keeps goal allowed across paused/dropped/absent states and that restrictToolNames still excludes it"
+    },
+    {
+      "gate": "patches/verify-date-cwd-anchor-stability.ts (0038+0047)",
+      "required": "register it under _omp_plan_has 0047 (exists, unregistered; pre-existing gap also present at HEAD)",
+      "recommended": "keep the same-session anchor-file injection root redirect (the injector takes an injectable anchorRoot so HOME redirection cannot silently fail)"
+    },
+    {
+      "gate": "patches/verify-idle-ephemeral-reservation.ts / verify-devin-idle-cascade-pin.ts / verify-hindsight-recall-snapshot.ts / verify-hindsight-recall-promotion-slot.ts / verify-eval-state-context-persist.ts / verify-turn-recovery-reminder-persist.ts",
+      "required": "registered already (0010/0060/0034/0075/0076/0077)",
+      "recommended": "for 0060, assert conversationId reaches mapOptionsForApi output (the producer is pi-ai) and that the idle turn pins it only for provider devin"
+    }
+  ],
+  "fixture_api_migration": [
+    {
+      "old": "AuthStorage.setRuntimeApiKey(provider, apiKey)",
+      "new": "authStorage.keys.setRuntime(provider, apiKey)",
+      "detail": "18.3.3 removed setRuntimeApiKey; pi-ai/src/auth-storage.ts exposes `keys: KeyCascade` and pi-ai/src/auth/cascade.ts KeyCascade.setRuntime(provider: string, apiKey: string): void. pi-ai/src/auth/types.ts:894 declares setRuntime on the keys cascade; line 906 only mentions setRuntimeApiKey in a stale doc comment."
+    },
+    {
+      "old": "settings stub `{ get: () => ... }`",
+      "new": "real Settings instances",
+      "detail": "in-memory: `Settings.isolated(overrides: Readonly<Record<string, unknown>> = {}, options?: { storage?: AgentStorage | null }): Settings` (sync). persisted disk default: `await Settings.loadIsolated(options?: SettingsOptions): Promise<Settings>` then flush and reload in a fresh process for cross-process default checks. Registry handles no longer accept a plain object with get()."
+    },
+    {
+      "old": "re-serializing the parsed request object for prefix comparison",
+      "new": "capture the raw bytes at the provider adapter entry (`raw.system` / `raw.tools` strings), never re-serialize runtime objects",
+      "detail": "runtime objects carry runner/session/settings caches and runner-managed Tool fields (strict, deferLoading, customFormat, customWireName, native, examples); serialize only the provider Tool schema fields (pi-ai/src/types.ts:1438-1474)."
+    },
+    {
+      "old": "assuming a text-clean patch imports resolve",
+      "new": "execute the affected entry point after whole-chain replay",
+      "detail": "18.3.3 preflight counterexample: 0014 applied cleanly but failed at runtime with `ReferenceError: createHash is not defined` because upstream removed the import. Re-check retained imports for every moved helper."
+    }
+  ],
+  "verification_performed": [
+    "Per-ID strict dry-run then real application into a private 18.3.3 copy, rejects resolved in place, then `diff -uN` from the pre-patch state (no handwritten hunks).",
+    "Per-ID forward dry-run against its own pre-patch tree and reverse dry-run against its post-patch tree: all 10 OK, no .rej/.orig.",
+    "Cumulative plan-order simulation: fresh pristine 18.3.3, applied every available 18.3.3 candidate in the controller's 18.3.3 order (0033 0004 0034 [0037 missing] 0010 0035 0014 0036 0017 0025 [0026 0030 0031 missing] 0032 0038 0043 0044 0052 0057 0045 0046 [0048 0050 missing] 0054 0047 0055 0071 0056 0058 0060 0062 0063 0065 0066 0067 0068 0069 0070 0074 0075 0076 0077 0078 0079 0080). Result: OK for all 10 of my IDs (0034,0010,0032,0038,0043,0047,0060,0075,0076,0077); zero .rej/.orig in the tree.",
+    "Textual API existence checks in the patched 18.3.3 tree for every cross-file symbol my candidates call (appendCustomEntry, reset_boundary, refreshBaseSystemPrompt(commitIf), isSessionTransitioning/waitForSessionTransition, aliasOf, getGoalModeState, getAgentDir re-export, devin conversationId consumption, prepareSimpleStreamOptions spread).",
+    "0043 regenerated after the live/rebuild symmetry requirement: session-context rebuild prune now skips a requestControls carrier; candidate re-derived by diff -uN from pristine, forward dry-run on pristine and reverse dry-run on the patched tree both OK, and the full plan-order simulation re-run with all 10 Session IDs still landing with zero .rej/.orig.",
+    "0043 carrier regression (Main's 4 cases) proven with a throwaway probe inside the private patched tree (node_modules linked to the pristine 18.3.3 runtime): PROBE-0043 OK (6 cases) = 2 no-controls symmetry cases + 4 carrier cases (both stopReasons x paired/missing result), asserting live==rebuilt, roles [user, assistant, user], carrier content [], requestControls preserved, and no strippedToolCalls on the wire. Negative control: reverting the marker deletion reproduced the gate failure 'aborted/paired=false: carriers must replay identically'. Probe and node_modules link deleted afterwards.",
+    "Audits: no CJK characters in any candidate; every non-ASCII added byte is English typographic punctuation (— – … →) ported verbatim from the finalized old patches and, in 0010/0038/0043, pristine 18.3.3 context lines also carry such bytes and cannot be changed without breaking the hunk. My newly authored content is pure ASCII.",
+    "Repo state: only patches/.18.3.3-candidates/ was added by me; no old candidate, canonical patch, apply.sh, shared verify file, or live tree was modified."
+  ],
+  "typed_config_api_audit": {
+    "finding": "18.3.3 removed the string-keyed `settings.get(id)` / `settings.set(id)` form; every setting is read/written through a typed handle `cfgXxx.get(settings)` / `cfgXxx.set(settings, value)` registered in a config module.",
+    "sweep": "grep of every added (+) line across all 10 candidates for `settings.get(\"`, `settings.set(\"`, `.settings.get(` and `.settings.set(` found exactly two hits, both from the ported old patches, both now fixed.",
+    "fixed": [
+      "0032 sdk.ts:3767 `settings.get(\"goal.enabled\") === true` -> `cfgGoalEnabled.get(settings)` (import already present at sdk.ts:338: `import { cfgGoalEnabled } from \"./goals/settings\"`).",
+      "0034 agent-session.ts `this.settings.get(\"memory.backend\") === \"hindsight\"` -> `cfgMemoryBackend.get(this.settings) === \"hindsight\"` plus `import { cfgMemoryBackend } from \"../memory-backend/settings\"` added to the typed-config import block (after `../export/ttsr-settings`)."
+    ],
+    "verification": "in the regenerated plan-order simulation tree, `grep -rn 'settings.get(\"' <pi-coding-agent>/src` returns zero matches, and both replacements appear as `cfgGoalEnabled.get(settings)` (sdk.ts:3767) and `cfgMemoryBackend.get(this.settings)` (agent-session.ts:4882).",
+    "api_provider_lookup_if_more_settings_are_needed": "typed handles live in src/<area>/settings.ts or src/config/*-settings.ts and are imported from there (e.g. cfgGoalEnabled: ./goals/settings, cfgMemoryBackend: ../memory-backend/settings, cfgSecretsEnabled: ../secrets/settings)."
+  },
+  "candidate_hashes_sha256": {
+    "0010-omp-extension-idle-ephemeral-turn-v18.3.3-candidate.patch": "793093e3aae0690d708a4ae83aaf9f181413eb057a9045e7abfcf2358726f365",
+    "0032-omp-goal-tool-resident-v18.3.3-candidate.patch": "9e35dc6fae50130d7c91ea1e132d8891d987e2a40ae6e9354ee492ff0115e452",
+    "0034-omp-hindsight-snapshot-rollup-v18.3.3-candidate.patch": "1ac40c2168db70b6312c90e0d131b9ddf2593fe0d95b0c4f86f062bbdc76b3b3",
+    "0038-omp-date-cwd-reminder-provider-tail-v18.3.3-candidate.patch": "8692b0bfb1fa21ffb0ce7115c487691126f5d0ef7009dc06eb4b0b3738962bee",
+    "0043-omp-interrupt-prune-symmetry-v18.3.3-candidate.patch": "329361d851513c086f357fb6f57a23767b5d00cdf8cf277719b8ddeba3881663",
+    "0047-omp-date-cwd-anchor-stability-v18.3.3-candidate.patch": "631d73db60d560b9749af035e69e3a9bcb4aaed079b327b3408b127160e8327e",
+    "0060-omp-devin-idle-cascade-pin-v18.3.3-candidate.patch": "ac86703e0b57f443c99872f1334da661f25792aec04fbc06c2966f023af4f4e8",
+    "0075-omp-hindsight-recall-promotion-slot-v18.3.3-candidate.patch": "be0eb6d06f55a792edeb5d693b931c6909684a56ede232a4ecaa8e93db2c2465",
+    "0076-omp-eval-state-context-persist-v18.3.3-candidate.patch": "cc249743e67f6b5b1d6c63c4ce4443df5eee6668a35b28f2be849d2bb80a32ec",
+    "0077-omp-turn-recovery-reminder-persist-v18.3.3-candidate.patch": "ab7881b77bf1df0467d6dba7dc041fd65374ba806759236ea07a880e972a959d"
+  },
+  "hindsight_snapshot_fixture_diagnosis": {
+    "reported_failure": "verify-hindsight-recall-snapshot.ts reaches `assert.ok(sourcePrompt.join(\"\\n\").includes(\"BEFORE CLEAR\"), \"fixture must publish source MM\")` and fails after Main adapted the 18.3.3 branch to cfgMemoryBackend.set / cfgHindsightApiUrl.set.",
+    "verdict": "FIXTURE timing, not a 0034 product bug. The 0034 candidate does not touch SessionMemory's listener/apply path or the Settings registry; the state replacement is a direct consequence of writing memory settings on a LIVE session right before the fixture installs its own state.",
+    "mechanism": [
+      "SessionMemory registers a settings listener in its constructor when memory is enabled and an agentDir is present: `value.listen(host, () => this.#observeSettings())` (pi-coding-agent/src/session/session-memory.ts).",
+      "`cfgMemoryBackend.set(session.settings, \"hindsight\")` fires that listener synchronously (Settings.writeValue -> fireIfChanged -> onEffectiveChange).",
+      "`#observeSettings()` -> `#applySettingsChange([\"memory.backend\"])` -> `await this.applyMemoryBackend()` -> `#applyMemoryBackend()`: `await #disposeMemoryBackendState(...)` calls `setHindsightSessionState(undefined)` + `hindsight.dispose()`, then `backend.start(...)` -> `installPrimaryState` installs a FRESH HindsightSessionState and finally `await this.#host.refreshBaseSystemPrompt()`.",
+      "The fixture then constructs its own HindsightSessionState, calls `session.setHindsightSessionState(state)`, sets `state.mentalModelsSnippet = \"BEFORE CLEAR\"` and `await session.refreshBaseSystemPrompt()`. That await yields, so the already-enqueued backend apply completes and REPLACES the fixture state with the fresh one (snippet undefined), leaving no <mental_models> block in the rebuilt prompt."
+    ],
+    "why_it_passed_on_18_2_10": "the old fixture used the string-keyed `session.settings.set(\"memory.backend\", ...)`; on 18.2.10 that write did not drive the same live backend apply before the fixture's await, so the fixture state survived. The typed-handle write on 18.3.3 does.",
+    "exact_fixture_correction": "in the 18.3.3 branch of verify-hindsight-recall-snapshot.ts (around lines 445-453), drain the backend apply before the fixture installs its state: after `cfgMemoryBackend.set(...)` and `cfgHindsightApiUrl.set(...)` add `await session.applyMemoryBackend().catch(() => {});`",
+    "why_applyMemoryBackend_not_settle": "`AgentSession.applyMemoryBackend()` (agent-session.ts:5990) returns the coalesced `#memoryBackendTransition` promise, so awaiting it guarantees the pending apply has fully run (even if it rejected: `#applyMemoryBackend`'s catch rethrows, and `.catch(() => {})` keeps the fixture going; after a failed apply the memory state is simply unset and the fixture installs its own state right after). `settleMemoryBackend()` awaits the raw `#settingsChanges` promises, which can reject and abort the drain early, leaving the apply still in flight.",
+    "no_product_change_needed": "with the drain in place the fixture's own state is the primary state when it calls refreshBaseSystemPrompt, so `HindsightSessionMemory.buildDeveloperInstructions` joins its `mentalModelsSnippet` and the assert holds. My 0034 load lifecycle already guards publication with `generation !== this.#mentalModelsLoadGeneration`, so a replaced/disposed state cannot publish a stale snapshot."
+  },
+  "public_declaration_closure": {
+    "requirement": "every public API addition from my candidates must be present in the package's shipped dist/types declaration, and only in the candidates that touch the corresponding modules.",
+    "method": "materialized the controller's 18.3.3 plan prefix from the current repo candidates, applied the missing declaration edits there, and appended the resulting declaration-only hunks to the three candidate files, preserving Main's normalized-ASCII bytes. Each combined candidate was then re-applied from its true pre-state and every touched file byte-compared to the intended tree.",
+    "candidates_touched": {
+      "0038-omp-date-cwd-reminder-provider-tail-v18.3.3-candidate.patch": ["pi-ai/dist/types/types.d.ts", "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts"],
+      "0047-omp-date-cwd-anchor-stability-v18.3.3-candidate.patch": ["dist/types/session/date-cwd-reminder.d.ts"],
+      "0060-omp-devin-idle-cascade-pin-v18.3.3-candidate.patch": ["pi-ai/dist/types/types.d.ts", "pi-ai/dist/types/stream.d.ts", "pi-coding-agent/dist/types/session/agent-session-types.d.ts"],
+      "0075-omp-hindsight-recall-promotion-slot-v18.3.3-candidate.patch": ["dist/types/session/session-memory.d.ts", "dist/types/session/session-tools.d.ts"],
+      "0076-omp-eval-state-context-persist-v18.3.3-candidate.patch": ["pi-coding-agent/dist/types/session/agent-session.d.ts"]
+    },
+    "declarations_added": [
+      "0038 / pi-ai/dist/types/types.d.ts: UserMessage.providerOnly?: boolean; DeveloperMessage.providerOnly?: boolean; (mirrors the src additions; placed at the same positions).",
+      "0038 / pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts: import Message; export declare function appendDateCwdReminder(messages: Message[], reminder: string): Message[]; export declare function withDateCwdReminder(context: Context, date: string, cwd: string): Context; class DateCwdReminderInjector loses its #private marker and private-field doc (it has no private state in this stage).",
+      "0047 / pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts: replaces the 0038 declaration with the final surface: export declare function dateCwdAnchorKey(message: Message, content: string): string; export declare function applyDateCwdAnchors(messages: Message[], reminder: string, anchors: Record<string, string>): { messages: Message[]; dirty: boolean }; class DateCwdReminderInjector gains #private and constructor(sessionId?: () => string | undefined, anchorRoot?: () => string).",
+      "0060 / pi-ai/dist/types/stream.d.ts: export declare function mapOptionsForApi<TApi extends Api>(model: Model<TApi>, rawOptions?: SimpleStreamOptions, apiKey?: string): OptionsForApi<TApi>; (appended after mapGoogleToolChoice, the last exported declaration in the module).",
+      "0060 / pi-ai/dist/types/types.d.ts: StreamOptions.conversationId?: string; (the field lives on StreamOptions, which SimpleStreamOptions omits apiKey from; placed right after promptCacheKey).",
+      "0060 / pi-coding-agent/dist/types/session/agent-session-types.d.ts: EphemeralTurnOptions.conversationId?: string; (placed right after conversationKey).",
+      "0075 / pi-coding-agent/dist/types/session/session-memory.d.ts: get promotionTail(): string | undefined; added after the promotionSnapshot getter; capturePromotionSnapshot(prompt: string[], tail?: string): void; restorePromotionSnapshot(prompt: string[] | undefined, tail?: string): void (class private field #baseSystemPromptPromotionTail is not declared, as for every private field).",
+      "0075 / pi-coding-agent/dist/types/session/session-tools.d.ts: SessionToolsHost.captureMemoryPromotionSnapshot(prompt: string[], tail?: string): void and a new member memoryPromotionTail(): string | undefined (placed after clearMemoryPromotionSnapshot/captureMemoryPromotionSnapshot).",
+      "0076 / pi-coding-agent/dist/types/session/agent-session.d.ts: buildDisplaySessionContext(options?: { persistEvalStateContext?: boolean }): SessionContext (was buildDisplaySessionContext(): SessionContext); the new private helpers nextEvalStateContext/persistEvalStateContext are not declared."
+    ],
+    "consumer_imports": [
+      "import { mapOptionsForApi } from \"@oh-my-pi/pi-ai/stream\";  (exports \"./*\" -> dist/types/*.d.ts)",
+      "import type { StreamOptions } from \"@oh-my-pi/pi-ai\";  // StreamOptions.conversationId",
+      "import type { UserMessage, DeveloperMessage } from \"@oh-my-pi/pi-ai\";  // .providerOnly",
+      "import { DateCwdReminderInjector, dateCwdAnchorKey, applyDateCwdAnchors, renderDateCwdReminder } from \"@oh-my-pi/pi-coding-agent/session/date-cwd-reminder\";  (exports \"./session/*\" -> dist/types/session/*.d.ts)",
+      "import type { EphemeralTurnOptions } from \"@oh-my-pi/pi-coding-agent/session/agent-session-types\";  // EphemeralTurnOptions.conversationId",
+      "import type { SessionMemory } from \"@oh-my-pi/pi-coding-agent/session/session-memory\";  // .promotionTail, capturePromotionSnapshot(..., tail?), restorePromotionSnapshot(..., tail?)",
+      "import type { SessionToolsHost } from \"@oh-my-pi/pi-coding-agent/session/session-tools\";  // .memoryPromotionTail(), captureMemoryPromotionSnapshot(..., tail?)",
+      "import type { AgentSession } from \"@oh-my-pi/pi-coding-agent/session/agent-session\";  // buildDisplaySessionContext(options?)"
+    ],
+    "audit_remaining_owned_surfaces": [
+      "0010: already declares IdleEphemeralTurnOptions, IdleEphemeralTurnResult, ExtensionContext.runIdleEphemeralTurn, ExtensionContextActions.runIdleEphemeralTurn in dist/types/extensibility/extensions/types.d.ts (confirmed present).",
+      "0032: only internal bodies changed (sdk.ts createAgentSession, tools/index.ts isToolAllowed, interactive-mode.ts goal snapshots); no exported declaration's signature changed, so no .d.ts edit.",
+      "0034: HindsightSessionState public methods are unchanged in signature (runMentalModelLoad(scope: BankScope): Promise<void>, beginMentalModelsTranscriptReload(): void already declared in dist/types/hindsight/state.d.ts); only private helpers were added/changed; hindsight/backend.ts buildDeveloperInstructions signature unchanged. No .d.ts edit.",
+      "0043: messages.ts and session-context.ts exported signatures are unchanged (convertToLlm, INTERRUPTED_THINKING_MESSAGE_TYPE, buildSessionContext, StrippedToolCallsMarker); no .d.ts edit.",
+      "0077: only the private #appendRetryReminder helper was added to TurnRecovery; no exported signature changed; no .d.ts edit.",
+      "new private fields (#inFlightEpoch, #idleEphemeralReservation, #baseSystemPromptPromotionTail, #nextEvalStateContext, #persistEvalStateContext, #loadPersistedSnippet, ...) are never declared, matching the compiler's private-field omission."
+    ],
+    "verification": "each combined candidate applies from its true pre-state (prefix materialized at 0032 for 0038, 0054 for 0047, 0058 for 0060, 0074 for 0075, 0075 for 0076) with rc=0 and every touched file byte-matches the intended tree; the full 46-candidate plan-order simulation still lands every entry with zero .rej/.orig; appended declaration hunks contain zero non-ASCII added lines."
+  },
+  "commands": {
+    "generate": "/tmp/omp-1833-upgrade-9gpapl1n/Session/work/genpatch.sh <ID> <ROOTKIND> <relpaths...>  (diffs $W/before vs $W/nm)",
+    "chain_simulation": "/tmp/omp-1833-upgrade-9gpapl1n/Session/work/simulate_chain.sh"
+  },
+  "do_not": [
+    "Do not re-run my generation script against shared source; it reads patches/.18.2.10-candidates and the private tree only.",
+    "Do not expect 0073-like retirement handling for my IDs; all 10 keep their patch entries."
+  ]
+}

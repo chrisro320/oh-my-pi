@@ -1,0 +1,959 @@
+{
+  "scope": "Real SDK and registry lifecycle; restricted read/edit tools; synthetic catalog and offline adapter, not real provider HTTP payload or cache hit",
+  "checks": [
+    {
+      "label": "temporary: expected same-model prefix after disk resume",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 96,
+          "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7832,
+          "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 2929,
+          "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 9,
+          "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "default: expected same-model prefix after disk resume",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 96,
+          "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7832,
+          "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 2929,
+          "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 9,
+          "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "roundtrip: expected same-model prefix after disk resume",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 92,
+          "sha256": "5822ae785a00574e5a2bd4ee792a3992522ff6c4d73bf47ec382234f2a9c7266",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7820,
+          "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 4577,
+          "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 10,
+          "sha256": "52d36755735776d47ae04ac6692beb5041e69ce6d42dcdee0c1270cdd994a5b3",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "ephemeral: expected same-model prefix after disk resume",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 92,
+          "sha256": "5822ae785a00574e5a2bd4ee792a3992522ff6c4d73bf47ec382234f2a9c7266",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7820,
+          "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 4577,
+          "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 10,
+          "sha256": "52d36755735776d47ae04ac6692beb5041e69ce6d42dcdee0c1270cdd994a5b3",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "A -> temporary B -> default A",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 92,
+          "sha256": "5822ae785a00574e5a2bd4ee792a3992522ff6c4d73bf47ec382234f2a9c7266",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7820,
+          "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 4577,
+          "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 10,
+          "sha256": "52d36755735776d47ae04ac6692beb5041e69ce6d42dcdee0c1270cdd994a5b3",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "temporary B versus default B",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 96,
+          "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7832,
+          "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 2929,
+          "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 9,
+          "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+          "first_difference": null
+        }
+      }
+    },
+    {
+      "label": "temporary B versus fresh B",
+      "fields": {
+        "model": {
+          "equal": true,
+          "bytes": 96,
+          "sha256": "3227e26b66064e45a2628b2f1ae6a66f69b2aa762a66a79feb9bbebaaf52e14b",
+          "first_difference": null
+        },
+        "system": {
+          "equal": true,
+          "bytes": 7832,
+          "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4",
+          "first_difference": null
+        },
+        "tools": {
+          "equal": true,
+          "bytes": 2929,
+          "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f",
+          "first_difference": null
+        },
+        "effectiveEditMode": {
+          "equal": true,
+          "bytes": 9,
+          "sha256": "197d1a176b127ea0b453175db9de47e38f6168ab692a8621f4d4fed58fb7e5ff",
+          "first_difference": null
+        }
+      }
+    }
+  ],
+  "runs": {
+    "temporary": {
+      "scenario": "temporary",
+      "pid": 16670,
+      "sessionFile": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-19-696Z_01a0e102-9bd0-7000-9034-b819478a1cb5.jsonl",
+      "snapshots": [
+        {
+          "label": "initial-A",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        },
+        {
+          "label": "temporary-B",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "afe1a4a2",
+          "parentId": null,
+          "timestamp": "2026-09-27T03:57:19.737Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "788b6609",
+          "parentId": "234d10a2",
+          "timestamp": "2026-09-27T03:57:19.821Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "temporary",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "temporary-resume": {
+      "scenario": "resume",
+      "pid": 16769,
+      "sessionFile": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-19-696Z_01a0e102-9bd0-7000-9034-b819478a1cb5.jsonl",
+      "snapshots": [
+        {
+          "label": "resumed",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "afe1a4a2",
+          "parentId": null,
+          "timestamp": "2026-09-27T03:57:19.737Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "788b6609",
+          "parentId": "234d10a2",
+          "timestamp": "2026-09-27T03:57:19.821Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "temporary",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "default": {
+      "scenario": "default",
+      "pid": 16868,
+      "sessionFile": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-21-417Z_01a0e102-a289-7000-ad28-0fcb4443c80e.jsonl",
+      "snapshots": [
+        {
+          "label": "initial-A",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        },
+        {
+          "label": "default-B",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/deepseek-v4.1-flash",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "f6d962d5",
+          "parentId": null,
+          "timestamp": "2026-09-27T03:57:21.459Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "47faa527",
+          "parentId": "a1b92b1a",
+          "timestamp": "2026-09-27T03:57:21.536Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "default",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "default-resume": {
+      "scenario": "resume",
+      "pid": 16967,
+      "sessionFile": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-21-417Z_01a0e102-a289-7000-ad28-0fcb4443c80e.jsonl",
+      "snapshots": [
+        {
+          "label": "resumed",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/deepseek-v4.1-flash",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "f6d962d5",
+          "parentId": null,
+          "timestamp": "2026-09-27T03:57:21.459Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "47faa527",
+          "parentId": "a1b92b1a",
+          "timestamp": "2026-09-27T03:57:21.536Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "default",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "roundtrip": {
+      "scenario": "roundtrip",
+      "pid": 17066,
+      "sessionFile": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-23-129Z_01a0e102-a939-7000-8012-b0191ad39c66.jsonl",
+      "snapshots": [
+        {
+          "label": "initial-A",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        },
+        {
+          "label": "temporary-B",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        },
+        {
+          "label": "returned-A",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "2e20a7af",
+          "parentId": null,
+          "timestamp": "2026-09-27T03:57:23.170Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "f8ea8b68",
+          "parentId": "1059958d",
+          "timestamp": "2026-09-27T03:57:23.247Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "temporary",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "3e92dfef",
+          "parentId": "b9d30408",
+          "timestamp": "2026-09-27T03:57:23.266Z",
+          "model": "drift-fixture/gpt-4.1",
+          "role": "default",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "roundtrip-resume": {
+      "scenario": "resume",
+      "pid": 17195,
+      "sessionFile": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-23-129Z_01a0e102-a939-7000-8012-b0191ad39c66.jsonl",
+      "snapshots": [
+        {
+          "label": "resumed",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "2e20a7af",
+          "parentId": null,
+          "timestamp": "2026-09-27T03:57:23.170Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "f8ea8b68",
+          "parentId": "1059958d",
+          "timestamp": "2026-09-27T03:57:23.247Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "temporary",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "3e92dfef",
+          "parentId": "b9d30408",
+          "timestamp": "2026-09-27T03:57:23.266Z",
+          "model": "drift-fixture/gpt-4.1",
+          "role": "default",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "ephemeral": {
+      "scenario": "ephemeral",
+      "pid": 17275,
+      "sessionFile": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-24-831Z_01a0e102-afdf-7000-bac6-7a6ad5834d73.jsonl",
+      "snapshots": [
+        {
+          "label": "initial-A",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        },
+        {
+          "label": "temporary-B",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "fc228d4f",
+          "parentId": null,
+          "timestamp": "2026-09-27T03:57:24.872Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "23b38231",
+          "parentId": "00887309",
+          "timestamp": "2026-09-27T03:57:24.956Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "fallback",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "ephemeral-resume": {
+      "scenario": "resume",
+      "pid": 17374,
+      "sessionFile": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-24-831Z_01a0e102-afdf-7000-bac6-7a6ad5834d73.jsonl",
+      "snapshots": [
+        {
+          "label": "resumed",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "gpt-4.1",
+            "api": "lifecycle-probe",
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          "effectiveEditMode": "hashline",
+          "defaultRole": "drift-fixture/gpt-4.1",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7820,
+              "sha256": "f4e591a5ade70e8d3ac14b5367e4d2350fdac2e61264613abbb19a5cf07b7032"
+            },
+            "tools": {
+              "bytes": 4577,
+              "sha256": "e01bd8cbebd4fa20a50e9cde688b9d544db6075297bdeababcef16927915079b"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "fc228d4f",
+          "parentId": null,
+          "timestamp": "2026-09-27T03:57:24.872Z",
+          "model": "drift-fixture/gpt-4.1",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "model_change",
+          "id": "23b38231",
+          "parentId": "00887309",
+          "timestamp": "2026-09-27T03:57:24.956Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "role": "fallback",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    },
+    "fresh-b": {
+      "scenario": "fresh-b",
+      "pid": 17453,
+      "sessionFile": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-26-545Z_01a0e102-b691-7000-b61c-19475295dc2e.jsonl",
+      "snapshots": [
+        {
+          "label": "initial-B",
+          "model": {
+            "provider": "drift-fixture",
+            "id": "deepseek-v4.1-flash",
+            "api": "lifecycle-probe",
+            "input": [
+              "text"
+            ]
+          },
+          "effectiveEditMode": "replace",
+          "defaultRole": "drift-fixture/deepseek-v4.1-flash",
+          "prefix_summary": {
+            "system": {
+              "bytes": 7832,
+              "sha256": "706667b89a406c8985d46b2f84d6aded9f906053cb29b0814494b2486305b0e4"
+            },
+            "tools": {
+              "bytes": 2929,
+              "sha256": "51c8866ba0a3f72ded1e02e7e8cbb1f884ca4d4040244ee77d176583b454ce9f"
+            }
+          }
+        }
+      ],
+      "fetchAttempts": 0,
+      "selectedRoots": {
+        "agentRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-coding-agent",
+        "aiRoot": "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/node_modules/@oh-my-pi/pi-ai"
+      },
+      "modelChanges": [
+        {
+          "type": "model_change",
+          "id": "e5492758",
+          "parentId": null,
+          "timestamp": "2026-09-27T03:57:26.587Z",
+          "model": "drift-fixture/deepseek-v4.1-flash",
+          "resolvedModelIsFallback": false
+        }
+      ]
+    }
+  },
+  "commands": [
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/probe-model-lifecycle.ts",
+        "temporary",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-temporary.json"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"temporary\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-temporary.json\",\"snapshots\":2,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/probe-model-lifecycle.ts",
+        "resume",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-temporary-resume.json",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-19-696Z_01a0e102-9bd0-7000-9034-b819478a1cb5.jsonl"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-temporary-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/probe-model-lifecycle.ts",
+        "default",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-default.json"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"default\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-default.json\",\"snapshots\":2,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/probe-model-lifecycle.ts",
+        "resume",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-default-resume.json",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-21-417Z_01a0e102-a289-7000-ad28-0fcb4443c80e.jsonl"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-default-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/probe-model-lifecycle.ts",
+        "roundtrip",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-roundtrip.json"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"roundtrip\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-roundtrip.json\",\"snapshots\":3,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/probe-model-lifecycle.ts",
+        "resume",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-roundtrip-resume.json",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-23-129Z_01a0e102-a939-7000-8012-b0191ad39c66.jsonl"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-roundtrip-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/probe-model-lifecycle.ts",
+        "ephemeral",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-ephemeral.json"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"ephemeral\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-ephemeral.json\",\"snapshots\":2,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/probe-model-lifecycle.ts",
+        "resume",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-ephemeral-resume.json",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/sessions/2026-09-27T03-57-24-831Z_01a0e102-afdf-7000-bac6-7a6ad5834d73.jsonl"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"resume\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-ephemeral-resume.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/probe-model-lifecycle.ts",
+        "fresh-b",
+        "/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-fresh-b.json"
+      ],
+      "exit": 0,
+      "stdout": "{\"scenario\":\"fresh-b\",\"output\":\"/tmp/omp-1833-preflight-b5hpnhn7/model-lifecycle/final-fresh-b.json\",\"snapshots\":1,\"fetchAttempts\":0}\n",
+      "stderr": ""
+    }
+  ],
+  "source_verification": {
+    "pi-coding-agent": {
+      "version": "18.3.3",
+      "pristine_files_compared": 3012
+    },
+    "pi-agent-core": {
+      "version": "18.3.3",
+      "pristine_files_compared": 89
+    },
+    "pi-ai": {
+      "version": "18.3.3",
+      "pristine_files_compared": 717
+    },
+    "pi-catalog": {
+      "version": "18.3.3",
+      "pristine_files_compared": 391
+    },
+    "snapcompact": {
+      "version": "18.3.3",
+      "pristine_files_compared": 11
+    },
+    "pi-tui": {
+      "version": "18.3.3",
+      "pristine_files_compared": 857
+    }
+  },
+  "passed": true
+}

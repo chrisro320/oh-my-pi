@@ -1,0 +1,9 @@
+{
+  "backup": "/home/chris/.omp/backups/upgrade-18.3.3-20260927-004238",
+  "stage": "/home/chris/.bun/install/global-18.3.3-staged-20260927-004238",
+  "liveglobal": "/home/chris/.bun/install/global",
+  "liveledger": "/home/chris/.omp/patches",
+  "launcher_target": "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+  "old_version": "18.2.10",
+  "ledgerstage": "/home/chris/.omp/patches-staged-20260927-004238"
+}

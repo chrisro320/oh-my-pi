@@ -1,0 +1,8 @@
+startup:
+  setupWizard: false
+  checkUpdate: false
+  quiet: true
+advisor:
+  enabled: false
+tui:
+  maxInlineImages: 0

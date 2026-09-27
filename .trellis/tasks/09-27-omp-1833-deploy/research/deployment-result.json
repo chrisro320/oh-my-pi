@@ -1,0 +1,13 @@
+{
+  "state": "verified",
+  "backup": "/home/chris/.omp/backups/upgrade-18.3.3-20260927-004238",
+  "global": "/home/chris/.bun/install/global",
+  "ledger": "/home/chris/.omp/patches",
+  "source": {
+    "sha256": "2bc651a4649e15c2271685de432791a80d7efbff3a6ff9b5a1dbd02586ad9a3f",
+    "files": 10776
+  },
+  "version": "omp/18.3.3",
+  "applied_patches": 46,
+  "cli_read_smoke": true
+}

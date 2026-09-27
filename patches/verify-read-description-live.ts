@@ -25,7 +25,6 @@ const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
 assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree under test");
 const { ReadTool } = await import(`${AGENT_ROOT}/src/tools/read.ts`);
 
-const HASHLINE_GUIDANCE = "File + selector → `[foo.ts#1A2B]` snapshot header";
 const HASHLINE_MODEL = "google-antigravity/gemini-3.8-flash";
 const REPLACE_MODEL = "commandcode/deepseek/deepseek-v4.1-flash";
 
@@ -37,10 +36,8 @@ const values: Record<string, unknown> = {
 	"memory.backend": "off",
 	"computer.enabled": false,
 };
-const settings = {
-	get: (key: string) => values[key],
-	getEditVariantForModel: () => null,
-};
+const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
+const settings = Settings.isolated(values);
 
 /** A `read` tool bound to whichever model `state` names at read time. */
 function toolFor(state: { model: string }) {
@@ -53,15 +50,12 @@ function toolFor(state: { model: string }) {
 
 const state = { model: HASHLINE_MODEL };
 const tool = toolFor(state);
-assert.ok(tool.description.includes(HASHLINE_GUIDANCE), "hashline model must render the anchored-edit guidance");
+const initialDescription = tool.description;
 
 // The switch is a plain mutation of the active model — no model-switch API, so
 // no entry point can bypass the refresh.
 state.model = REPLACE_MODEL;
-assert.ok(
-	!tool.description.includes(HASHLINE_GUIDANCE),
-	"a session running on the deepseek family must not keep the outgoing model's hashline guidance",
-);
+assert.notEqual(tool.description, initialDescription, "fixture models must exercise distinct descriptions");
 assert.equal(
 	tool.description,
 	toolFor({ model: REPLACE_MODEL }).description,

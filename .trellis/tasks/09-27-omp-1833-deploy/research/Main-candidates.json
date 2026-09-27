@@ -1,0 +1,72 @@
+[
+  {
+    "id": "0033",
+    "path": "patches/.18.3.3-candidates/0033-omp-cache-turn-status-rollup-v18.3.3-candidate.patch",
+    "sha256": "3ca95dfa3b91230379ddbd094f35fc31f86f57bcae2bf7a5dcf1212fb1c55829"
+  },
+  {
+    "id": "0004",
+    "path": "patches/.18.3.3-candidates/0004-omp-token-total-cacheread-v18.3.3-candidate.patch",
+    "sha256": "bc7e94b3bf1cee310a803a89643fb3331790fbc80c9f34646ab2a17e07c19980"
+  },
+  {
+    "id": "0014",
+    "path": "patches/.18.3.3-candidates/0014-omp-antigravity-deterministic-session-identity-v18.3.3-candidate.patch",
+    "sha256": "6c4282ad4b75ec42f76525c2b9968ec6d05f2fbd0a44e6cd5b2d727c8b4f83e5"
+  },
+  {
+    "id": "0017",
+    "path": "patches/.18.3.3-candidates/0017-omp-openai-responses-native-replay-warm-v18.3.3-candidate.patch",
+    "sha256": "55f4551d4369479d0046425648e4a603e4032d3cabf06a49b1ec4cafbb2c8316"
+  },
+  {
+    "id": "0025",
+    "path": "patches/.18.3.3-candidates/0025-omp-ollama-cloud-usage-api-v18.3.3-candidate.patch",
+    "sha256": "19218571cc9ba7c8f4c6dee3ea3ff095f3d69d272fd7fee971c353741aa41088"
+  },
+  {
+    "id": "0054",
+    "path": "patches/.18.3.3-candidates/0054-omp-antigravity-drop-requesttype-agent-v18.3.3-candidate.patch",
+    "sha256": "be108b7616f34a357be6505193aff19163831f1dcbbd46f9a755dada4ac55507"
+  },
+  {
+    "id": "0055",
+    "path": "patches/.18.3.3-candidates/0055-omp-devin-auth-cache-turn-timing-v18.3.3-candidate.patch",
+    "sha256": "30e13615170f790cf123a63d6623693f3659690d3ba75d9d053903ad506eeaa7"
+  },
+  {
+    "id": "0071",
+    "path": "patches/.18.3.3-candidates/0071-omp-devin-request-dump-v18.3.3-candidate.patch",
+    "sha256": "fed72ea226723344d9ed3e701bdbf6ab15715b1b4851e53bd1f378dafa5d23f4"
+  },
+  {
+    "id": "0056",
+    "path": "patches/.18.3.3-candidates/0056-omp-devin-metadata-alignment-v18.3.3-candidate.patch",
+    "sha256": "59c6db589d824758b84a38da10cfe87a3a5b99cb27c3a3d44b7ee16b85b18aad"
+  },
+  {
+    "id": "0058",
+    "path": "patches/.18.3.3-candidates/0058-omp-devin-thinking-signature-replay-v18.3.3-candidate.patch",
+    "sha256": "c81429abfb419466eecdebe41ab1e764d36289f7d7be78ca7979ee75141117e5"
+  },
+  {
+    "id": "0074",
+    "path": "patches/.18.3.3-candidates/0074-omp-anthropic-context-cache-boundaries-v18.3.3-candidate.patch",
+    "sha256": "df3f8c65eb0b05d583934c021dd70d39e13aee53b41abf1c3f20057bb527668b"
+  },
+  {
+    "id": "0078",
+    "path": "patches/.18.3.3-candidates/0078-omp-python-display-mime-preference-v18.3.3-candidate.patch",
+    "sha256": "08f7d67fc6336bde9f6e3540a9fa5118eb71d665d3aa9b0cc0e84923c68580f8"
+  },
+  {
+    "id": "0079",
+    "path": "patches/.18.3.3-candidates/0079-omp-kitty-conversion-finalization-v18.3.3-candidate.patch",
+    "sha256": "06c3ba79f099a8c56255573b65109c1e8f332285137508d57969101f498ceb5d"
+  },
+  {
+    "id": "0080",
+    "path": "patches/.18.3.3-candidates/0080-omp-kitty-shared-png-cache-v18.3.3-candidate.patch",
+    "sha256": "96d55c453a4f81405d55fa8468c00f4f90e5dfc499c4fd703e6b76efb647655c"
+  }
+]

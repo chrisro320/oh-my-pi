@@ -40,7 +40,7 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
   install so mutable source inodes cannot be shared with Bun's cache.
 - Generate each family in an isolated `mktemp` tree by applying only that family's old patches in historical order.
 - The rollup touched-file set MUST equal the union of its old family touched-file sets.
-- Any failed hunk, `.orig`, `.rej`, or unexpected `Only in` output MUST abort generation.
+- Any failed hunk, `.orig`, `.rej`, or unexpected `Only in` output MUST abort generation. Dry-run and exit-code gates apply to owned layers too. For declaration-only closure, retain validated source hunks byte-for-byte and append declaration diffs; broad regeneration once silently dropped 0052's namespace budget despite a green complete replay. Its real image-budget gate caught `5 !== 200`.
 - Finalized old patches MUST remain byte-identical in a retired directory with pinned hashes.
 - Full-chain verification MUST consume the exact file/root/order sequence parsed from `apply.sh`; a second hand-maintained active list is not an oracle.
 - Runtime source bytes MUST remain unchanged when switching from the old effective chain to the rollup chain. This equivalence is discharged per family on the family-generation baseline (old member chain vs rollup, byte-compared) — no single baseline can host both the retired member shapes and the current chain, so a whole-chain old-vs-new oracle is not required and MUST NOT be faked by pointing both sides at the same resolved plan.
@@ -77,6 +77,11 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
   Import the real SDK and launch the source CLI after whole-chain replay; then
   exercise changed lifecycle behavior. Generate corrections from actual
   before/after files, never handwritten hunk counts or a cumulative repair layer.
+- The 18.3.3 preflight reproduced a zero-fuzz counterexample: unchanged 0014
+  applied cleanly, but `verify-antigravity-envelope.ts` called the real
+  `buildRequest` and failed with `ReferenceError: createHash is not defined`
+  because upstream removed its import. Check retained imports and execute the
+  affected entry point before classifying a text-clean patch as reusable.
 - The rollup oracle owns representation, plan snapshots, and replay equivalence.
   Private constant names and source spelling are not runtime behavior gates.
   In particular, do not inspect a tree for applied behavior after peeling it.
@@ -441,3 +446,28 @@ Good: eight 2048² WebPs paint as eight graphics after conversion and remain aft
 
 ### 7. Wrong vs Correct
 Wrong: key completed PNGs by `toolCallId:index`, replace the original Promise with `Promise.resolve(png)`, or read an evicted failure reason only from the LRU. Correct: compare SHA and flight identity before publishing; retain the original Promise in a bounded slot, reprice on settlement, and let subscribers recover an evicted flight's reason through a weak Promise key.
+
+## Scenario: 18.3.3 source migration
+
+### 1. Scope / Trigger
+Upstream API migrations require semantic adaptation even when all old hunks apply.
+
+### 2. Signatures
+`CodexWebSocketConnection.streamRequest` accepts `{send: body}` or `{attachSteerIds}`, never a bare frame. Settings use typed handles; auth uses the `keys`/`usage` facades.
+`OpenAICodexCompactionStreamOptions.onAccept(commit, rollback)` hands collection an acceptance transaction; collector rejection calls rollback even after a valid terminal event. Snapshot metadata before socket opening, not after the 101 handshake.
+
+### 3. Contracts
+The 18.3.3 plan contains 46 physical patches preserving the previous 47 capabilities: 0073 is upstream behavior and keeps its gate. Native Anthropic compaction preserves upstream safeCut/first-kept-entry boundaries; live rendering supplies the prefix only, not the retained tail. Aborted/error `requestControls` survive live and rebuild as empty-content carriers; synthetic results and display-only `strippedToolCalls` must not reach the wire.
+
+### 4. Validation & Error Matrix
+Unsigned native compaction summaries fail; bare WS recovery frames enter the wrong exchange branch and fail; legacy settings reads fail at actual SDK creation. Unknown/mismatched versions must exit 2 without writes.
+
+### 5. Good / Base / Bad Cases
+Good: non-generating recovery sends `{send:{...body,generate:false}}`, then chains compaction on the accepted baseline. Base: ordinary no-controls interrupted turns disappear. Bad: retaining interrupted payload with control metadata, or summarizing both the live prefix and retained tail.
+
+### 6. Tests Required
+Run strict complete replay, real second apply, reverse pristine-byte equality, all root-selected behavior gates, model lifecycle across fresh processes, and source CLI tool execution. `verify-interrupt-prune-symmetry.ts` covers both stop reasons and paired/missing results; native compaction checks retained-tail exclusion; Codex fail-closed checks recovery and failed acceptance.
+Published `.d.ts` files must include every added callable/interface/member, including transitive host methods; the consumer probe invokes rollback, live-scope builders and source-aware conversion. Handshake metadata faults are injected at the real upgrade boundary because Bun hides 101 response headers; failed open and rejected collection must restore the snapshot, acceptance must retain it.
+
+### 7. Wrong vs Correct
+Wrong: re-pin source regexes after an upstream rename, or treat clean hunks as runtime proof. Correct: real SDK/transport fixtures, typed settings, official pinned package sources, generated same-ID candidates, and preserved historical plans.

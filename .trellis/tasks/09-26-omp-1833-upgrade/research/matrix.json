@@ -1,0 +1,2253 @@
+[
+  {
+    "order": 1,
+    "id": "0033",
+    "root": "TUI",
+    "patch": ".18.2.10-candidates/0033-omp-cache-turn-status-rollup-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "cache_turn 顯示上游仍缺；文字通過，未驗 UI。",
+    "paths": [
+      "pi-tui/src/status-line/schema.ts",
+      "pi-tui/src/status-line/segments.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-tui/src/status-line/schema.ts",
+          "pi-tui/src/status-line/segments.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0033",
+        "replay-default-fuzz-18.3.3.json: id=0033",
+        "plan-18.2.10.txt: row=1"
+      ]
+    }
+  },
+  {
+    "order": 2,
+    "id": "0004",
+    "root": "TUI",
+    "patch": ".18.2.10-candidates/0004-omp-token-total-cacheread-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "cacheRead 統計口徑仍需本地政策；未驗 UI。",
+    "paths": [
+      "pi-tui/src/status-line/segments.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-tui/src/status-line/segments.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0004",
+        "replay-default-fuzz-18.3.3.json: id=0004",
+        "plan-18.2.10.txt: row=2"
+      ]
+    }
+  },
+  {
+    "order": 3,
+    "id": "0034",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0034-omp-hindsight-snapshot-rollup-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "記憶快照與 reset/deadline 凍結仍需保留；新版 lifecycle gate 未跑。",
+    "paths": [
+      "pi-coding-agent/src/hindsight/backend.ts",
+      "pi-coding-agent/src/hindsight/state.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "system memory blocks",
+        "location_or_boundary": "Recall/MM snapshot content across resume/reset/deadline",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/hindsight/backend.ts",
+          "pi-coding-agent/src/hindsight/state.ts",
+          "pi-coding-agent/src/session/agent-session.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "durable state/config involved",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0034",
+        "replay-default-fuzz-18.3.3.json: id=0034",
+        "plan-18.2.10.txt: row=3"
+      ]
+    }
+  },
+  {
+    "order": 4,
+    "id": "0037",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0037-omp-usage-statusline-gate-rollup-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": true,
+    "classification": "需適配",
+    "finding": "配額刷新需銜接新 AuthStorage facade；default fuzz 能套但不可直接交付。",
+    "paths": [
+      "pi-coding-agent/src/modes/status-line-host.ts",
+      "pi-tui/src/status-line/component.ts",
+      "pi-tui/src/status-line/host.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/modes/status-line-host.ts",
+          "pi-tui/src/status-line/component.ts",
+          "pi-tui/src/status-line/host.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0037",
+        "replay-default-fuzz-18.3.3.json: id=0037",
+        "plan-18.2.10.txt: row=4"
+      ]
+    }
+  },
+  {
+    "order": 5,
+    "id": "0010",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0010-omp-extension-idle-ephemeral-turn-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "需適配",
+    "finding": "idle reservation/epoch 能力上游仍缺；cron extension 硬依賴，需重錨 lifecycle/types。",
+    "paths": [
+      "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/modes/acp/acp-agent.ts",
+      "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+      "pi-coding-agent/src/modes/runtime-init.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/task/executor.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "side/main request ownership",
+        "location_or_boundary": "Idle request can race main request; first wire difference not measured",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+          "pi-coding-agent/src/extensibility/extensions/runner.ts",
+          "pi-coding-agent/src/extensibility/extensions/types.ts",
+          "pi-coding-agent/src/modes/acp/acp-agent.ts",
+          "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+          "pi-coding-agent/src/modes/runtime-init.ts",
+          "pi-coding-agent/src/session/agent-session.ts",
+          "pi-coding-agent/src/task/executor.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0010",
+        "replay-default-fuzz-18.3.3.json: id=0010",
+        "plan-18.2.10.txt: row=5"
+      ]
+    }
+  },
+  {
+    "order": 6,
+    "id": "0035",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0035-omp-compaction-prefix-rollup-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": true,
+    "classification": "需適配",
+    "finding": "摘要仍未重用完整 live provider-ready 管線；import 鄰接改變，需逐 hunk 審計。",
+    "paths": [
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+      "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts",
+      "pi-coding-agent/src/session/session-provider-boundary.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "summary system/tools/messages prefix",
+        "location_or_boundary": "Side summary pipeline may differ from live normalization",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-agent-core/src/compaction/compaction.ts",
+          "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+          "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+          "pi-coding-agent/src/session/agent-session.ts",
+          "pi-coding-agent/src/session/session-advisors.ts",
+          "pi-coding-agent/src/session/session-maintenance.ts",
+          "pi-coding-agent/src/session/session-provider-boundary.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0035",
+        "replay-default-fuzz-18.3.3.json: id=0035",
+        "plan-18.2.10.txt: row=6"
+      ]
+    }
+  },
+  {
+    "order": 7,
+    "id": "0014",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0014-omp-antigravity-deterministic-session-identity-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "需適配",
+    "finding": "零 fuzz 可套卻在 buildRequest 實測 createHash 未定義；必須修 import，保持 UUID bytes 不變。",
+    "paths": [
+      "pi-ai/src/providers/google-gemini-cli.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "Antigravity request envelope",
+        "location_or_boundary": "agentId/trajectoryId/sessionId; current migration fails before request emission",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/providers/google-gemini-cli.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "patched buildRequest runtime failure",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0014",
+        "replay-default-fuzz-18.3.3.json: id=0014",
+        "plan-18.2.10.txt: row=7",
+        "runtime-gates.json"
+      ]
+    }
+  },
+  {
+    "order": 8,
+    "id": "0036",
+    "root": "NM",
+    "patch": "0036-omp-image-frame-budget-rollup.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": true,
+    "classification": "需適配",
+    "finding": "provider/api 預算與 shape bytes 能力仍缺；依賴鏈需重錨，非保證 200 圖安全。",
+    "paths": [
+      "pi-coding-agent/src/session/provider-image-budget.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts",
+      "pi-coding-agent/src/session/snapcompact-inline.ts",
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "historical image content",
+        "location_or_boundary": "Oldest image/archive removed when provider/frame budget is exceeded",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/session/provider-image-budget.ts",
+          "pi-coding-agent/src/session/session-maintenance.ts",
+          "pi-coding-agent/src/session/snapcompact-inline.ts",
+          "snapcompact/src/snapcompact.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0036",
+        "replay-default-fuzz-18.3.3.json: id=0036",
+        "plan-18.2.10.txt: row=8"
+      ]
+    }
+  },
+  {
+    "order": 9,
+    "id": "0017",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0017-omp-openai-responses-native-replay-warm-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "native replay warm 行為仍需；新版 resume wire 未跑。",
+    "paths": [
+      "pi-ai/src/providers/openai-responses.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "Responses replay items",
+        "location_or_boundary": "Cold-start native-history replay selection",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/providers/openai-responses.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0017",
+        "replay-default-fuzz-18.3.3.json: id=0017",
+        "plan-18.2.10.txt: row=9"
+      ]
+    }
+  },
+  {
+    "order": 10,
+    "id": "0025",
+    "root": "AI",
+    "patch": "0025-omp-ollama-cloud-usage-api.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "Ollama usage 上游仍是空 limits；未呼叫官方 API。",
+    "paths": [
+      "pi-ai/src/usage/ollama.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/usage/ollama.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0025",
+        "replay-default-fuzz-18.3.3.json: id=0025",
+        "plan-18.2.10.txt: row=10"
+      ]
+    }
+  },
+  {
+    "order": 11,
+    "id": "0026",
+    "root": "AI",
+    "patch": "0026-omp-usage-fetch-anthropic-gate-core.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "需適配",
+    "finding": "AuthStorage 拆成 auth/usage.ts，需移植 provider 篩選/節流接線。",
+    "paths": [
+      "pi-ai/src/auth-storage.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/auth-storage.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0026",
+        "replay-default-fuzz-18.3.3.json: id=0026",
+        "plan-18.2.10.txt: row=11"
+      ]
+    }
+  },
+  {
+    "order": 12,
+    "id": "0030",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0030-omp-usage-cache-canonical-baseurl-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "語義衝突／需重設",
+    "finding": "cache key 移到 auth/usage-cache.ts，endpoint canonicalization 與 legacy cache 遷移需重設接線。",
+    "paths": [
+      "pi-ai/src/auth-storage.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-ai/src/auth-storage.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/auth-storage.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0030",
+        "replay-default-fuzz-18.3.3.json: id=0030",
+        "plan-18.2.10.txt: row=12"
+      ]
+    }
+  },
+  {
+    "order": 13,
+    "id": "0031",
+    "root": "AGENT",
+    "patch": "0031-omp-agent-session-providers-forward.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "需適配",
+    "finding": "fetchUsageReports 的 provider 轉發要改用新 facade。",
+    "paths": [
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/session/agent-session.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0031",
+        "replay-default-fuzz-18.3.3.json: id=0031",
+        "plan-18.2.10.txt: row=13"
+      ]
+    }
+  },
+  {
+    "order": 14,
+    "id": "0032",
+    "root": "AGENT",
+    "patch": "0032-omp-goal-tool-resident.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": true,
+    "classification": "需適配",
+    "finding": "goal 工具常駐需配合新 eager/lazy 註冊；工具簽名漂移策略仍為本地政策。",
+    "paths": [
+      "pi-coding-agent/src/modes/interactive-mode.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/tools/index.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "tools and rebuilt system",
+        "location_or_boundary": "Goal lifecycle changes active tool signature",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/modes/interactive-mode.ts",
+          "pi-coding-agent/src/sdk.ts",
+          "pi-coding-agent/src/tools/index.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0032",
+        "replay-default-fuzz-18.3.3.json: id=0032",
+        "plan-18.2.10.txt: row=14"
+      ]
+    }
+  },
+  {
+    "order": 15,
+    "id": "0038",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": true,
+    "classification": "需適配",
+    "finding": "不可單獨部署 provider-only tail；最終 date/cwd 行為依賴 0047，後者未套成。",
+    "paths": [
+      "pi-ai/src/providers/openai-responses.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/date-cwd-reminder.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/sdk.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "date/cwd reminder message",
+        "location_or_boundary": "Synthetic provider-only tail slot replaced by later real history",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/providers/openai-responses.ts",
+          "pi-ai/src/types.ts",
+          "pi-coding-agent/src/sdk.ts",
+          "pi-coding-agent/src/session/date-cwd-reminder.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0038",
+        "replay-default-fuzz-18.3.3.json: id=0038",
+        "plan-18.2.10.txt: row=15"
+      ]
+    }
+  },
+  {
+    "order": 16,
+    "id": "0043",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0043-omp-interrupt-prune-symmetry-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "語義衝突／需重設",
+    "finding": "aborted/error early-return 可能吃掉新版 requestControls/tool_removal 重放，需保留控制語義。",
+    "paths": [
+      "pi-coding-agent/src/session/messages.ts",
+      "pi-coding-agent/src/session/session-context.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "assistant/tool-result history and requestControls",
+        "location_or_boundary": "Interrupted-message conversion differs between live and rebuild",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/session/messages.ts",
+          "pi-coding-agent/src/session/session-context.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0043",
+        "replay-default-fuzz-18.3.3.json: id=0043",
+        "plan-18.2.10.txt: row=16"
+      ]
+    }
+  },
+  {
+    "order": 17,
+    "id": "0044",
+    "root": "NM",
+    "patch": "0044-omp-image-budget-wire-api-family.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": true,
+    "classification": "需適配",
+    "finding": "wire-api 圖片預算鍵仍缺，依賴 0036；觸頂仍可能改歷史。",
+    "paths": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "historical image content",
+        "location_or_boundary": "Missing wire-api budget triggers oldest-image removal",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "snapcompact/src/snapcompact.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0044",
+        "replay-default-fuzz-18.3.3.json: id=0044",
+        "plan-18.2.10.txt: row=17"
+      ]
+    }
+  },
+  {
+    "order": 18,
+    "id": "0052",
+    "root": "NM",
+    "patch": "0052-omp-snapcompact-model-billing-commandcode-budget.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": true,
+    "classification": "需適配",
+    "finding": "精確模型幀價與 commandcode 預算未吸收；需重新驗證實測表消費路徑。",
+    "paths": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "historical image budget and compaction projection",
+        "location_or_boundary": "Provider aliases and model-specific image pricing",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "snapcompact/src/snapcompact.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0052",
+        "replay-default-fuzz-18.3.3.json: id=0052",
+        "plan-18.2.10.txt: row=18"
+      ]
+    }
+  },
+  {
+    "order": 19,
+    "id": "0057",
+    "root": "NM",
+    "patch": "0057-omp-devin-image-budget.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": true,
+    "classification": "需適配",
+    "finding": "Devin 圖片預算仍缺，依賴 0044；未驗端到端圖片。",
+    "paths": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "historical image content",
+        "location_or_boundary": "Devin fallback image budget may evict old content",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "snapcompact/src/snapcompact.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0057",
+        "replay-default-fuzz-18.3.3.json: id=0057",
+        "plan-18.2.10.txt: row=19"
+      ]
+    }
+  },
+  {
+    "order": 20,
+    "id": "0045",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0045-omp-snapcompact-frame-reprice-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "shape-aware reduction 仍需；新版投影行為待驗。",
+    "paths": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "compaction selection/projection",
+        "location_or_boundary": "No direct wire mutation established; reduction guard may select a different compaction path",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/session/session-maintenance.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0045",
+        "replay-default-fuzz-18.3.3.json: id=0045",
+        "plan-18.2.10.txt: row=20"
+      ]
+    }
+  },
+  {
+    "order": 21,
+    "id": "0046",
+    "root": "AGENT",
+    "patch": "0046-omp-supersede-warm-prefix-guard.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "supersede guard 仍需；上游另一 prune pass 加 8k warm suffix，不等於全面 append-only。",
+    "paths": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "historical tool result",
+        "location_or_boundary": "Superseded read content replaced inside prior messages",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/session/session-maintenance.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0046",
+        "replay-default-fuzz-18.3.3.json: id=0046",
+        "plan-18.2.10.txt: row=21"
+      ]
+    }
+  },
+  {
+    "order": 22,
+    "id": "0048",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0048-omp-advisor-quota-rotation-bound-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": true,
+    "classification": "需適配",
+    "finding": "quota 換號仍可能立即 recovered；grace=1 本機限制不應擴大宣稱通用。",
+    "paths": [
+      "pi-coding-agent/src/session/session-advisors.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/session/session-advisors.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/session/session-advisors.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0048",
+        "replay-default-fuzz-18.3.3.json: id=0048",
+        "plan-18.2.10.txt: row=22"
+      ]
+    }
+  },
+  {
+    "order": 23,
+    "id": "0050",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0050-omp-session-history-preview-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "需適配",
+    "finding": "session selector 多檔案需適配，未驗真實 UI。",
+    "paths": [
+      "pi-coding-agent/src/main.ts",
+      "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+      "pi-coding-agent/src/session/session-listing.ts",
+      "pi-tui/src/apps/session-picker.ts",
+      "pi-tui/src/overlays/session-selector.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/main.ts",
+          "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+          "pi-coding-agent/src/session/session-listing.ts",
+          "pi-tui/src/apps/session-picker.ts",
+          "pi-tui/src/overlays/session-selector.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0050",
+        "replay-default-fuzz-18.3.3.json: id=0050",
+        "plan-18.2.10.txt: row=23"
+      ]
+    }
+  },
+  {
+    "order": 24,
+    "id": "0054",
+    "root": "AI",
+    "patch": "0054-omp-antigravity-drop-requesttype-agent.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "requestType:agent 上游仍有；本輪未呼叫 Antigravity 驗證現行服務端反應。",
+    "paths": [
+      "pi-ai/src/providers/google-gemini-cli.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/providers/google-gemini-cli.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0054",
+        "replay-default-fuzz-18.3.3.json: id=0054",
+        "plan-18.2.10.txt: row=24"
+      ]
+    }
+  },
+  {
+    "order": 25,
+    "id": "0047",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0047-omp-date-cwd-anchor-stability-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "需適配",
+    "finding": "sdk sessionId callsite 上下文已變；必須和0038合看最終錨點持久化。",
+    "paths": [
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/date-cwd-reminder.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/date-cwd-reminder.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "date/cwd anchor on user message",
+        "location_or_boundary": "Anchor text/sessionId mapping across rebuild",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/sdk.ts",
+          "pi-coding-agent/src/session/date-cwd-reminder.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "durable state/config involved",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0047",
+        "replay-default-fuzz-18.3.3.json: id=0047",
+        "plan-18.2.10.txt: row=25"
+      ]
+    }
+  },
+  {
+    "order": 26,
+    "id": "0055",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0055-omp-devin-auth-cache-turn-timing-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "Devin auth cache/timing 尚未吸收，需新 provider fixture。",
+    "paths": [
+      "pi-ai/src/providers/devin.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "authentication/session routing",
+        "location_or_boundary": "JWT reuse affects routing/timing; no direct prefix rewrite established",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/providers/devin.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0055",
+        "replay-default-fuzz-18.3.3.json: id=0055",
+        "plan-18.2.10.txt: row=26"
+      ]
+    }
+  },
+  {
+    "order": 27,
+    "id": "0071",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0071-omp-devin-request-dump-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "Devin request dump 仍為本地觀測；私有 HOME 限制必留。",
+    "paths": [
+      "pi-ai/src/providers/devin.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/providers/devin.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0071",
+        "replay-default-fuzz-18.3.3.json: id=0071",
+        "plan-18.2.10.txt: row=27"
+      ]
+    }
+  },
+  {
+    "order": 28,
+    "id": "0056",
+    "root": "NM",
+    "patch": "0056-omp-devin-metadata-alignment.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "Devin metadata tuple/counters 仍未對齊；provider 接受未驗。",
+    "paths": [
+      "pi-catalog/src/wire/devin.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "Devin request metadata",
+        "location_or_boundary": "sessionId/requestId envelope fields",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-catalog/src/wire/devin.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0056",
+        "replay-default-fuzz-18.3.3.json: id=0056",
+        "plan-18.2.10.txt: row=28"
+      ]
+    }
+  },
+  {
+    "order": 29,
+    "id": "0058",
+    "root": "AI",
+    "patch": "0058-omp-devin-thinking-signature-replay.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "末尾獨立 thinking signature + sealed 回放仍需，不能把原有簽名欄位當吸收。",
+    "paths": [
+      "pi-ai/src/providers/devin.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "assistant thinking signature",
+        "location_or_boundary": "Standalone terminal signature and sealed replay",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/providers/devin.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0058",
+        "replay-default-fuzz-18.3.3.json: id=0058",
+        "plan-18.2.10.txt: row=29"
+      ]
+    }
+  },
+  {
+    "order": 30,
+    "id": "0060",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0060-omp-devin-idle-cascade-pin-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "需適配",
+    "finding": "idle cascade pin 依賴0010；前置失敗不能單獨判可用。",
+    "paths": [
+      "pi-ai/src/stream.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "Devin conversation identity",
+        "location_or_boundary": "Idle side-request conversationId must retain intended session ownership",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/stream.ts",
+          "pi-ai/src/types.ts",
+          "pi-coding-agent/src/session/agent-session.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0060",
+        "replay-default-fuzz-18.3.3.json: id=0060",
+        "plan-18.2.10.txt: row=30"
+      ]
+    }
+  },
+  {
+    "order": 31,
+    "id": "0062",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0062-omp-snapcompact-reduction-baseline-previous-archive-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "舊歸檔納入 reduction baseline 仍需；依賴0045。",
+    "paths": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "compaction selection/projection",
+        "location_or_boundary": "Old archive omitted from pre-compaction baseline; indirect effect, no direct wire rewrite established",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/session/session-maintenance.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0062",
+        "replay-default-fuzz-18.3.3.json: id=0062",
+        "plan-18.2.10.txt: row=31"
+      ]
+    }
+  },
+  {
+    "order": 32,
+    "id": "0063",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0063-omp-codex-v2-compaction-live-chain-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "V2 live chain 仍缺；文字可套不代表0068/0070鏈契約成立。",
+    "paths": [
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-agent-core/src/compaction/compaction.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "Codex remote compaction request",
+        "location_or_boundary": "responsesLite and previous_response_id/live transport baseline",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+          "pi-agent-core/src/compaction/compaction.ts",
+          "pi-ai/src/providers/openai-codex-responses.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0063",
+        "replay-default-fuzz-18.3.3.json: id=0063",
+        "plan-18.2.10.txt: row=32"
+      ]
+    }
+  },
+  {
+    "order": 33,
+    "id": "0065",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "需適配",
+    "finding": "catalog KDL 與生成 rules.json 都需更新，不能覆蓋新增上游規則。",
+    "paths": [
+      "pi-catalog/src/compat/rules.json",
+      "pi-catalog/src/compat/rules/providers/commandcode.kdl"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "system/tools/image conversion",
+        "location_or_boundary": "Provider model-record parity affects strict schemas, system split and image policy",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-catalog/src/compat/rules.json",
+          "pi-catalog/src/compat/rules/providers/commandcode.kdl"
+        ]
+      },
+      "persistence": {
+        "relevance": "durable state/config involved",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0065",
+        "replay-default-fuzz-18.3.3.json: id=0065",
+        "plan-18.2.10.txt: row=33"
+      ]
+    }
+  },
+  {
+    "order": 34,
+    "id": "0066",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0066-omp-anthropic-native-compaction-live-context-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "語義衝突／需重設",
+    "finding": "native Anthropic 新 safeCut/snapshot/rewind 只壓 prefix；不能以整份 live messages 覆蓋新邊界。",
+    "paths": [
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "Anthropic compaction system/tools/prefix",
+        "location_or_boundary": "safeCut/nativeFirstKeptEntryId must agree with transformed live prefix",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-agent-core/src/compaction/compaction.ts",
+          "pi-coding-agent/src/session/session-advisors.ts",
+          "pi-coding-agent/src/session/session-maintenance.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0066",
+        "replay-default-fuzz-18.3.3.json: id=0066",
+        "plan-18.2.10.txt: row=34"
+      ]
+    }
+  },
+  {
+    "order": 35,
+    "id": "0067",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0067-omp-remote-compaction-lane-trace-live-tools-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "需適配",
+    "finding": "live tools/system 仍需；Anthropic 部分依賴0066重設，三 lane 需個別驗。",
+    "paths": [
+      "pi-agent-core/src/compaction/compaction.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-agent-core/src/compaction/compaction.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "remote-compaction system/tools",
+        "location_or_boundary": "Three lanes must share live normalization without mixing session/lane ownership",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-agent-core/src/compaction/compaction.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0067",
+        "replay-default-fuzz-18.3.3.json: id=0067",
+        "plan-18.2.10.txt: row=35"
+      ]
+    }
+  },
+  {
+    "order": 36,
+    "id": "0068",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0068-omp-codex-stale-baseline-chain-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "語義衝突／需重設",
+    "finding": "chainedBody 仍先於連線 settle 建立；新增 steering 分支，需重排而非硬套。",
+    "paths": [
+      "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+      "pi-agent-core/src/compaction/compaction-trace.ts",
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-agent-core/src/compaction/compaction.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "Codex chained request envelope",
+        "location_or_boundary": "previous_response_id may be selected before connection settlement",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+          "pi-agent-core/src/compaction/compaction-trace.ts",
+          "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+          "pi-agent-core/src/compaction/compaction.ts",
+          "pi-ai/src/providers/openai-codex-responses.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0068",
+        "replay-default-fuzz-18.3.3.json: id=0068",
+        "plan-18.2.10.txt: row=36"
+      ]
+    }
+  },
+  {
+    "order": 37,
+    "id": "0069",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0069-omp-codex-effort-history-resume-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": true,
+    "classification": "需適配",
+    "finding": "effort仍需branch-local持久化；types.ts及.d.ts的第2 hunk strict拒絕：上游在payload後新增AnthropicOutputEffort/tool-change型別；default fuzz通過，wire行為未驗。",
+    "paths": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-ai/src/types.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-ai/src/types.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "Codex reasoning envelope/history item",
+        "location_or_boundary": "Top-level effort baseline and configuration_update placement",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/dist/types/types.d.ts",
+          "pi-ai/src/providers/openai-codex-responses.ts",
+          "pi-ai/src/types.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "durable state/config involved",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0069",
+        "replay-default-fuzz-18.3.3.json: id=0069",
+        "plan-18.2.10.txt: row=37"
+      ]
+    }
+  },
+  {
+    "order": 38,
+    "id": "0070",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "語義衝突／需重設",
+    "finding": "需協調 steering、rate_limit/slow_down append-state保留、speculation抑制與fail-closed；不是 helper 新增衝突。",
+    "paths": [
+      "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "Codex compaction chain/fallback",
+        "location_or_boundary": "Connection loss, steering, append baseline and accepted metadata",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+          "pi-agent-core/dist/types/compaction/compaction.d.ts",
+          "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+          "pi-agent-core/src/compaction/compaction.ts",
+          "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+          "pi-ai/src/providers/openai-codex-responses.ts",
+          "pi-coding-agent/src/session/session-advisors.ts",
+          "pi-coding-agent/src/session/session-maintenance.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0070",
+        "replay-default-fuzz-18.3.3.json: id=0070",
+        "plan-18.2.10.txt: row=38"
+      ]
+    }
+  },
+  {
+    "order": 39,
+    "id": "0072",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0072-omp-session-pin-static-auth-ui-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "需適配",
+    "finding": "selector auth lazy import 舊補丁衝突；需新程序實際首次呼叫驗證。",
+    "paths": [
+      "pi-coding-agent/src/modes/controllers/selector-controller.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/modes/controllers/selector-controller.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "not established as prompt-cache mutation",
+        "location_or_boundary": "UI/usage/diagnostic policy; no direct provider-prefix rewrite established in this preflight",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/modes/controllers/selector-controller.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0072",
+        "replay-default-fuzz-18.3.3.json: id=0072",
+        "plan-18.2.10.txt: row=39"
+      ]
+    }
+  },
+  {
+    "order": 40,
+    "id": "0073",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0073-omp-read-description-live-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "退役候選（會話核心已驗，待正式catalog與全鏈）",
+    "finding": "18.3.3 pristine上游getter及真實SDK/registry/setModelTemporary/setModel/跨程序磁碟resume已驗；9程序14請求7組同模型system/read/edit前綴相等，fixture input與edit-mode獨立斷言通過。正式provider插件/catalog、全部工具和完整新版補丁鏈未驗，不直接退役。",
+    "paths": [
+      "pi-coding-agent/src/tools/read.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "tools.read.description",
+        "location_or_boundary": "Provider-adapter system/read/edit values: seven same-final-model comparisons equal; hashes and lengths archived",
+        "exact_wire_byte_offset": "No difference in compared adapter fields; real HTTP serialization not measured",
+        "evidence_level": "real SDK lifecycle with synthetic registered catalog and offline transport",
+        "source_paths": [
+          "pi-coding-agent/src/tools/read.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "Session model changes and default role persist; tool descriptions derive from current effective model",
+        "live_rebuild_equivalence_verified": true,
+        "scope": "Separate-process disk resume; restricted read/edit tools; synthetic catalog; temporary, default, roundtrip and ephemeral paths"
+      },
+      "upstream_resolution": {
+        "status": "getter and scoped SDK lifecycle covered; production catalog/plugin and full patched chain still unverified",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "9 processes, 14 offline adapter requests, 7 same-model prefix comparisons PASS",
+        "full_temporary_default_resume_matrix": "Core SDK paths executed with persisted settings; not all tools or real provider adapters",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0073",
+        "replay-default-fuzz-18.3.3.json: id=0073",
+        "plan-18.2.10.txt: row=40",
+        "runtime-gates.json",
+        "probe-verify-read-description-live.ts",
+        "model-lifecycle-results.json",
+        "probe-model-lifecycle.ts",
+        "run-model-lifecycle.py"
+      ]
+    }
+  },
+  {
+    "order": 41,
+    "id": "0074",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0074-omp-anthropic-context-cache-boundaries-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "Anthropic cache boundaries/audit 仍需；未驗真正出站/服務端命中。",
+    "paths": [
+      "pi-ai/src/providers/anthropic-request-audit.ts",
+      "pi-ai/src/providers/anthropic.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "Anthropic cache_control and final request envelope",
+        "location_or_boundary": "Cache boundary placement; hook object is not final wire bytes",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-ai/src/providers/anthropic-request-audit.ts",
+          "pi-ai/src/providers/anthropic.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0074",
+        "replay-default-fuzz-18.3.3.json: id=0074",
+        "plan-18.2.10.txt: row=41"
+      ]
+    }
+  },
+  {
+    "order": 42,
+    "id": "0075",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0075-omp-hindsight-recall-promotion-slot-v18.2.10-candidate.patch",
+    "strict_fuzz0": false,
+    "controller_default_fuzz": false,
+    "classification": "需適配",
+    "finding": "session-memory 增加 runtimeCwd 等欄位；recall promotion 唯一槽需新版本重錨。",
+    "paths": [
+      "pi-coding-agent/src/hindsight/backend.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/session-memory.ts",
+      "pi-coding-agent/src/session/session-tools.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "system recall slot",
+        "location_or_boundary": "Recall promotion ownership across prompt rebuild",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-coding-agent/src/hindsight/backend.ts",
+          "pi-coding-agent/src/session/agent-session.ts",
+          "pi-coding-agent/src/session/session-memory.ts",
+          "pi-coding-agent/src/session/session-tools.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "durable state/config involved",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0075",
+        "replay-default-fuzz-18.3.3.json: id=0075",
+        "plan-18.2.10.txt: row=42"
+      ]
+    }
+  },
+  {
+    "order": 43,
+    "id": "0076",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0076-omp-eval-state-context-persist-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "可沿用（已驗限定場景）",
+    "finding": "本輪 pristine resume wire不等；原patch零fuzz套用後真實AgentSession三組行為PASS。",
+    "paths": [
+      "pi-coding-agent/src/collab/guest.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_file_overlap": [
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "developer eval-state reminder",
+        "location_or_boundary": "Reminder index in live differs from resumed reconstruction on pristine fixture",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "behavior fixture",
+        "source_paths": [
+          "pi-coding-agent/src/collab/guest.ts",
+          "pi-coding-agent/src/session/agent-session.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "durable state/config involved",
+        "live_rebuild_equivalence_verified": true,
+        "scope": "in-memory SessionManager replay fixture, no physical restart"
+      },
+      "upstream_resolution": {
+        "status": "pristine fixture reproduces missing behavior",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "pristine-fail/patched-pass",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0076",
+        "replay-default-fuzz-18.3.3.json: id=0076",
+        "plan-18.2.10.txt: row=43",
+        "runtime-gates.json"
+      ]
+    }
+  },
+  {
+    "order": 44,
+    "id": "0077",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0077-omp-turn-recovery-reminder-persist-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "可沿用（已驗限定場景）",
+    "finding": "本輪 pristine empty-stop reminder持久數0；原patch後恰一則且重建wire相同。",
+    "paths": [
+      "pi-coding-agent/src/session/turn-recovery.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "developer retry reminder",
+        "location_or_boundary": "Reminder absent from persisted branch on pristine empty-stop fixture",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "behavior fixture",
+        "source_paths": [
+          "pi-coding-agent/src/session/turn-recovery.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "durable state/config involved",
+        "live_rebuild_equivalence_verified": true,
+        "scope": "in-memory SessionManager replay fixture, no physical restart"
+      },
+      "upstream_resolution": {
+        "status": "pristine fixture reproduces missing behavior",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "pristine-fail/patched-pass",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0077",
+        "replay-default-fuzz-18.3.3.json: id=0077",
+        "plan-18.2.10.txt: row=44",
+        "runtime-gates.json"
+      ]
+    }
+  },
+  {
+    "order": 45,
+    "id": "0078",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0078-omp-python-display-mime-preference-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "可沿用（已驗限定場景）",
+    "finding": "本輪 pristine雙MIME輸出兩圖；原patch後PNG優先、JPEG-only及獨立display等PASS。",
+    "paths": [
+      "pi-coding-agent/src/eval/py/display.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "tool-result image parts",
+        "location_or_boundary": "Same MIME bundle emits both PNG and JPEG on pristine fixture",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "behavior fixture",
+        "source_paths": [
+          "pi-coding-agent/src/eval/py/display.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "pristine fixture reproduces missing behavior",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "pristine-fail/patched-pass",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0078",
+        "replay-default-fuzz-18.3.3.json: id=0078",
+        "plan-18.2.10.txt: row=45",
+        "runtime-gates.json"
+      ]
+    }
+  },
+  {
+    "order": 46,
+    "id": "0079",
+    "root": "TUI",
+    "patch": ".18.2.10-candidates/0079-omp-kitty-conversion-finalization-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "非同步轉圖退休屏障上游仍缺；本輪只驗文字套用，未驗TUI。",
+    "paths": [
+      "pi-tui/src/chat/tool-execution.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "terminal-only image output",
+        "location_or_boundary": "No provider-prefix mutation intended; pending PNG conversion retirement",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-tui/src/chat/tool-execution.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0079",
+        "replay-default-fuzz-18.3.3.json: id=0079",
+        "plan-18.2.10.txt: row=46"
+      ]
+    }
+  },
+  {
+    "order": 47,
+    "id": "0080",
+    "root": "TUI",
+    "patch": ".18.2.10-candidates/0080-omp-kitty-shared-png-cache-v18.2.10-candidate.patch",
+    "strict_fuzz0": true,
+    "controller_default_fuzz": true,
+    "classification": "證據不足（文字可沿用候選）",
+    "finding": "PNG bounded cache與插槽指紋上游仍缺；本輪只驗文字套用，未驗TUI。",
+    "paths": [
+      "pi-tui/src/chat/assistant-message.ts",
+      "pi-tui/src/chat/image-loading.ts",
+      "pi-tui/src/chat/tool-execution.ts"
+    ],
+    "earlier_failed_file_overlap": [],
+    "cache_contract": {
+      "first_rewrite_position": {
+        "surface": "terminal-only image cache",
+        "location_or_boundary": "No provider-prefix mutation intended; display cache and slot identity",
+        "exact_wire_byte_offset": "not measured",
+        "evidence_level": "static analysis or not established",
+        "source_paths": [
+          "pi-tui/src/chat/assistant-message.ts",
+          "pi-tui/src/chat/image-loading.ts",
+          "pi-tui/src/chat/tool-execution.ts"
+        ]
+      },
+      "persistence": {
+        "relevance": "not a durable-state patch or not established",
+        "live_rebuild_equivalence_verified": false,
+        "scope": "not verified for full session lifecycle"
+      },
+      "upstream_resolution": {
+        "status": "no complete adoption established",
+        "retirement_authorized": false
+      },
+      "gate_capability": {
+        "result": "new-version behavioral gate not executed",
+        "full_temporary_default_resume_matrix": "not executed",
+        "real_provider_cache_hit": "not measured"
+      },
+      "evidence_refs": [
+        "replay-18.3.3.json: id=0080",
+        "replay-default-fuzz-18.3.3.json: id=0080",
+        "plan-18.2.10.txt: row=47"
+      ]
+    }
+  }
+]

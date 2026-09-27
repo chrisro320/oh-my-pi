@@ -1,0 +1,16 @@
+{
+  "scope": "cold native Orca plus real OMP; background 3 additional images; no resize, forced refresh or new output after return",
+  "surface": {
+    "images": 0,
+    "painted": 0,
+    "canvas": null,
+    "visible": false,
+    "viewport": 81,
+    "rows": 65,
+    "cols": 175,
+    "writes": 36,
+    "bytes": 111978,
+    "transmits": 6
+  },
+  "archiveSha256": "84c5688dacda3d0393d680e5660ad2d24b0a07b177ba2ce7c8b7d61927238764"
+}

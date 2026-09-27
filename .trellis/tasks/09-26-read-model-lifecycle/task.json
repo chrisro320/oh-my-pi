@@ -1,0 +1,29 @@
+{
+  "id": "read-model-lifecycle",
+  "name": "read-model-lifecycle",
+  "title": "0073 會話模型切換與跨程序前綴驗證",
+  "description": "已完成0073真實SDK模型切換與跨程序磁碟resume離線實驗；不含正式catalog/plugin與部署。",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-09-26",
+  "completedAt": "2026-09-26",
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "09-26-omp-1833-upgrade",
+  "relatedFiles": [],
+  "notes": "9 processes, 14 offline adapter requests, 7 raw serialized prefix comparisons passed. See parent research/model-lifecycle-results.json. No product patch, live changes, commit or archive.",
+  "meta": {
+    "experiment": "completed",
+    "retirementAuthorized": false
+  }
+}

@@ -154,5 +154,116 @@ const reminder = retryReminder();
 	}
 }
 
+// 7. async-result aside: in flight before its message_end commit.
+{
+	const asyncResult: Msg = {
+		role: "custom",
+		customType: "async-result",
+		content: "<system-notice>Background job bg_3 has completed.</system-notice>",
+		display: true,
+		attribution: "agent",
+		timestamp: clock++,
+	};
+	const { file } = persisted([prompt, assistant("done")]);
+	const result = auditContext([...file, asyncResult], file);
+	assert.equal(result.status, "pending-commit");
+	assert.equal(result.index, 2);
+	assert.equal(result.customType, "async-result");
+	assert.equal(result.pendingTail, 1);
+	// Once the entry lands the live side and the rebuild agree again.
+	const committed = persisted([prompt, assistant("done")]);
+	committed.manager.appendCustomMessageEntry("async-result", asyncResult.content, true, undefined, "agent", asyncResult.timestamp);
+	assert.equal(auditContext([...committed.file], committed.file).status, "ok");
+}
+
+// 7b. The reported shape: the new user prompt is also still unpersisted, so the
+//     tail is `… persisted, user, async-result` (audit pendingTail 2).
+{
+	const asyncResult: Msg = {
+		role: "custom",
+		customType: "async-result",
+		content: "<system-notice>Background job bg_3 has completed.</system-notice>",
+		display: true,
+		attribution: "agent",
+		timestamp: clock++,
+	};
+	const { file } = persisted([prompt, assistant("done")]);
+	const followUp = user("意思就是這個東西具有自癒能力是吧");
+	const result = auditContext([...file, followUp, asyncResult], file);
+	assert.equal(result.status, "pending-commit");
+	assert.equal(result.pendingTail, 2);
+	assert.equal(result.customType, "async-result");
+	// A non-aside custom behind the user prompt is not exempt: the walk bails
+	// at that message and the old live-extra verdict stands.
+	const ttsr: Msg = {
+		role: "custom",
+		customType: "ttsr-injection",
+		content: "injected rule body",
+		display: false,
+		attribution: "agent",
+		timestamp: clock++,
+	};
+	assert.equal(auditContext([...file, followUp, ttsr], file).status, "live-extra");
+	// Same shape with a tool result instead of a user prompt.
+	const call = assistant("calling");
+	const toolResult: Msg = {
+		role: "toolResult",
+		toolCallId: "t1",
+		toolName: "bash",
+		content: [{ type: "text", text: "done" }],
+		isError: false,
+		timestamp: clock++,
+	};
+	const withCall = persisted([prompt, { ...call, content: [{ type: "toolCall", id: "t1", name: "bash", arguments: {} }] }]);
+	const tail = auditContext([...withCall.file, toolResult, asyncResult], withCall.file);
+	assert.equal(tail.status, "pending-commit");
+	assert.equal(tail.pendingTail, 2);
+}
+
+// 8. Image-bearing custom aside splits into developer text + user image: the
+//    whole projection must match the live wire suffix as one unit.
+{
+	const imageAside: Msg = {
+		role: "custom",
+		customType: "image-attachment",
+		content: [
+			{ type: "text", text: "A terminal warning about context persistence." },
+			{ type: "image", data: "blob:sha256:abc", mimeType: "image/webp" },
+		],
+		display: false,
+		attribution: "user",
+		timestamp: clock++,
+	};
+	const { file } = persisted([prompt, assistant("done")]);
+	const live = [...file, imageAside];
+	const wire = auditContext(live, file);
+	assert.equal(wire.status, "pending-commit", "an image-bearing custom aside must classify as pending-commit");
+	assert.equal(wire.liveCount, file.length + 2, "the aside projects to two wire messages");
+	// A shape mismatch on the projected pair falls back to the old live-extra.
+	const tampered: Msg = { ...imageAside, customType: "ttsr-injection" };
+	assert.equal(auditContext([...file, tampered], file).status, "live-extra");
+	// The real first-request shape: `image-attachment` notice, then the user
+	// prompt, then the aside describing it — user in front of the aside.
+	const withUser = auditContext([...file, imageAside, user("這老報這個錯")], file);
+	assert.equal(withUser.status, "pending-commit");
+	assert.equal(withUser.pendingTail, 3, "two wire messages from the aside plus the user prompt");
+}
+
+// 9. A non-aside custom type at the tail is still live-extra.
+{
+	const otherCustom: Msg = {
+		role: "custom",
+		customType: "ttsr-injection",
+		content: "some injected rule",
+		display: false,
+		attribution: "agent",
+		timestamp: clock++,
+	};
+	const { file } = persisted([prompt, assistant("done")]);
+	const result = auditContext([...file, otherCustom], file);
+	assert.equal(result.status, "live-extra");
+	assert.equal(result.index, file.length);
+}
+
 rmSync(dirname(bound), { recursive: true, force: true });
 console.log("context-persist-audit: ALL PASS");

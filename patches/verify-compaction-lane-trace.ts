@@ -80,7 +80,7 @@ const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-cata
 // on the tree it actually points at.
 const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version as string;
 assert.ok(
-	["18.1.18", "18.2.3", "18.2.10"].includes(aiVersion),
+	["18.1.18", "18.2.3", "18.2.10", "18.3.3"].includes(aiVersion),
 	`unsupported compaction lane trace gate version: ${aiVersion}`,
 );
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
@@ -351,6 +351,7 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 						type: "anthropicCompaction",
 						provider: requestModel.provider,
 						content: "NATIVE_SUMMARY",
+						signature: "offline-signed-summary",
 						encryptedContent: "opaque",
 					},
 				} as AssistantMessage;

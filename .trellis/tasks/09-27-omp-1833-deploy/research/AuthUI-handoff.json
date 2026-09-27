@@ -1,0 +1,198 @@
+{
+  "owner": "AuthUI",
+  "task": ".trellis/tasks/09-27-omp-1833-deploy",
+  "privateWorkspace": "/tmp/omp-1833-upgrade-9gpapl1n/AuthUI/nm",
+  "scratch": "/tmp/omp-1833-upgrade-9gpapl1n/AuthUI/scratch",
+  "pristineSource": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3",
+  "ownedIds": [
+    "0026",
+    "0030",
+    "0031",
+    "0037",
+    "0048",
+    "0050",
+    "0072"
+  ],
+  "candidates": [
+    {
+      "id": "0037",
+      "root": "NM",
+      "path": "patches/.18.3.3-candidates/0037-omp-usage-statusline-gate-rollup-v18.3.3-candidate.patch",
+      "sha256": "023bc0af305472cbfae89e82f3356bc16139c654b99590f05fce7ae57e06776c",
+      "files": [
+        "pi-tui/src/status-line/component.ts",
+        "pi-tui/src/status-line/host.ts",
+        "pi-tui/dist/types/status-line/host.d.ts",
+        "pi-coding-agent/src/modes/status-line-host.ts"
+      ],
+      "preservedBehavior": [
+        "Idle repaints are silent for anthropic: with #usageFetchedAt>0 and no new completed assistant turn, refreshUsageInBackground returns before any fetch.",
+        "Event-driven refresh: a completed assistant message (newest assistant timestamp:stopReason != #usageLastTurnKey) bypasses the idle gate, then still respects ANTHROPIC_USAGE_TURN_GATE_MS=60000.",
+        "Non-anthropic providers keep STATUS_USAGE_REFRESH_TTL_MS=50000 for repaint-triggered fetches and let a turn end bypass that TTL.",
+        "Fan-out is whitelisted to the active provider: host.fetchUsageReports(session, signal, [activeProvider]).",
+        "Re-entry guard (#usageInFlight || #usageStartTimer) restored so a slow fetch cannot arm parallel dispatches.",
+        "Status line no longer forces a repaint on a completed fetch (render memo drop only); background polling remains event/poll-gated, never a standing timer."
+      ],
+      "adaptation": "Only pi-coding-agent/src/modes/status-line-host.ts needed re-anchoring: 18.3.3 renamed statusLineHost.activeAccount to authStorage.oauth.identity, so the old hunk context no longer matched at fuzz=0. Whole patch regenerated from real before/after trees. Added the shipped pi-tui/dist/types/status-line/host.d.ts declaration (absent from the 18.2.10 candidate).",
+      "gate": "no registered verify-* gate; scoped probe provided (see probes)."
+    },
+    {
+      "id": "0026",
+      "root": "AI",
+      "path": "patches/.18.3.3-candidates/0026-omp-usage-fetch-anthropic-gate-core-v18.3.3-candidate.patch",
+      "sha256": "854e39239a8b7bdc91e423f51e31d043bd3cd4a66ef3df0ceb64b44654d466d5",
+      "files": [
+        "pi-ai/src/auth/usage.ts",
+        "pi-ai/src/auth/types.ts",
+        "pi-ai/dist/types/auth/usage.d.ts",
+        "pi-ai/dist/types/auth/types.d.ts"
+      ],
+      "preservedBehavior": [
+        "UsageService.reports(options.providers) restricts the aggregate fan-out to the listed providers; gated.length===0 returns [].",
+        "Logger 'providers' line, forcedRefresh(), reportsKey() cache key, the queued-request loop and #fetchUsageRequests all read from the gated list.",
+        "Ungated calls are byte-for-byte the previous behavior."
+      ],
+      "adaptation": "AuthStorage.fetchUsageReports moved to UsageService.reports (pi-ai/src/auth/usage.ts) behind the new auth/usage.ts + auth/usage-cache.ts facade; the option was ported onto UsageApi (src/auth/types.ts) and the two shipped declarations. Old monolithic AuthStorage fields were NOT reintroduced.",
+      "gate": "no registered verify-* gate; scoped probe provided."
+    },
+    {
+      "id": "0030",
+      "root": "AI",
+      "path": "patches/.18.3.3-candidates/0030-omp-usage-cache-canonical-baseurl-v18.3.3-candidate.patch",
+      "sha256": "5ad2b4c23ee4f7dcd5f9e4abfc885843552bac510559225ea21e6689681b0486",
+      "files": [
+        "pi-ai/src/auth/usage-cache.ts",
+        "pi-ai/src/auth/usage.ts",
+        "pi-ai/dist/types/auth/usage-cache.d.ts"
+      ],
+      "preservedBehavior": [
+        "UsageCache.reportKey canonicalizes an anthropic endpoint via normalizeClaudeApiBaseUrl (absent baseURL, bare origin, /v1 and /api/oauth all collapse to one API root); non-anthropic keys keep the trimmed raw baseUrl.",
+        "UsageCache.readReport(request, cacheKey, stale) falls back to pre-canonicalization key names (default, origin, origin+/v1, claudeOAuthBaseUrl, raw), picks the freshest legacy entry by value.fetchedAt then expiresAt, and adopts it under the canonical name preserving the original expiry. Never deletes.",
+        "UsageService.#fetchUsageCached fresh and failure(stale) lookups both go through readReport.",
+        "Upstream 18.3.3 cache semantics (UsageCache epoch/reportKey/reportsKey/get/getStale/set, 24h last-good retention, force-refresh markers) are unchanged; reportsKey deliberately keeps the upstream non-canonical normalize to preserve aggregate in-flight coalescing."
+      ],
+      "adaptation": "The old AuthStorage-internal helpers were re-homed into the new UsageCache class; the canonicalization is applied only to reportKey (as in the 18.2.10 candidate). Shipped declaration for the new public readReport added to pi-ai/dist/types/auth/usage-cache.d.ts (plus the UsageReport import it needs).",
+      "gate": "no registered verify-* gate; scoped probe provided."
+    },
+    {
+      "id": "0031",
+      "root": "AGENT",
+      "path": "patches/.18.3.3-candidates/0031-omp-agent-session-providers-forward-v18.3.3-candidate.patch",
+      "sha256": "a9edd75ebcfdc6277ba6ebed9dcaf08176b6bba3bf0938709b840a85596593a0",
+      "files": [
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts"
+      ],
+      "preservedBehavior": [
+        "AgentSession.fetchUsageReports(signal?, providers?) forwards a non-empty providers list into the usage facade call and leaves the call shape untouched when the list is empty/absent.",
+        "baseUrlResolver and signal forwarding and the reset-sweep heartbeat are unchanged."
+      ],
+      "adaptation": "Callsite now targets authStorage.usage.reports (facade). Provider is added to the existing @oh-my-pi/pi-ai type import instead of a second import statement from the same module; the shipped pi-coding-agent/dist/types/session/agent-session.d.ts declaration mirrors the new signature.",
+      "gate": "covered end-to-end by 0037's probe only through the type contract; no fixture probe run (see verificationLimits)."
+    },
+    {
+      "id": "0048",
+      "root": "AGENT",
+      "path": "patches/.18.3.3-candidates/0048-omp-advisor-quota-rotation-bound-v18.3.3-candidate.patch",
+      "sha256": "112d9398fc767d2c85ffdbcbd015b70a4b2c542e23ed1f75bfe20c6e4493d3c9",
+      "files": [
+        "pi-coding-agent/src/session/session-advisors.ts"
+      ],
+      "preservedBehavior": [
+        "ADVISOR_USAGE_LIMIT_ROTATION_GRACE = 1 unchanged.",
+        "advisor.usageLimitRotations bounds consecutive same-provider quota rotations before the cross-provider fallback chain takes over; a different provider resets the count to 1; a non-switched outcome clears it.",
+        "onTurnSuccess clears usageLimitRotations alongside usageLimitRetries=0."
+      ],
+      "adaptation": "Only the constant's anchor moved (18.3.3 inserted an advisor/settings import block between the YieldQueue import and ADVISOR_CODEX_SSE_MAX_ATTEMPTS). Logic hunks and their contexts are unchanged from the 18.2.10 candidate.",
+      "gate": "no gate; no runtime probe run (see verificationLimits)."
+    },
+    {
+      "id": "0050",
+      "root": "NM",
+      "path": "patches/.18.3.3-candidates/0050-omp-session-history-preview-v18.3.3-candidate.patch",
+      "sha256": "4974a0b045a9d8c09cd9dcbaee8872cdc12d468cc81a8f347d1d3ee8c3c05753",
+      "files": [
+        "pi-coding-agent/src/session/session-listing.ts",
+        "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+        "pi-tui/src/overlays/session-selector.ts",
+        "pi-tui/src/apps/session-picker.ts",
+        "pi-coding-agent/src/main.ts",
+        "pi-tui/dist/types/overlays/session-selector.d.ts",
+        "pi-tui/dist/types/apps/session-picker.d.ts",
+        "pi-coding-agent/dist/types/session/session-listing.d.ts"
+      ],
+      "preservedBehavior": [
+        "SessionInfo.lastModel deriveLastModel(suffix, content): newest role's newest model_change wins; default/fallback roles resolve to the default model; role-scoped transitions resolve to that role's model; falls back to the newest assistant message model, then to a prefix default model_change; unset for empty sessions.",
+        "Space on an empty search query opens the transcript preview; Space inside a query still edits the search text.",
+        "Esc inside the preview closes it while Esc in the list still cancels the picker; Enter resumes; Ctrl+C exits.",
+        "Mouse wheel and scrollbar drag seek the preview; delete/list key handling unchanged.",
+        "Host-supplied SessionPreviewLoader keeps the picker storage-free."
+      ],
+      "adaptation": "One hunk failed at fuzz=0 and was re-derived: 18.3.3 rewrote SessionSelectorComponent.#footerLines to formatKeyHints/formatKeyHint/interruptKey. The preview footer branch was kept verbatim; the list hint now reads formatKeyHint(\"space\") + \" preview\" inside the new helper-based template instead of a literal 'Space'. Shipped declarations for lastModel, SessionPreviewLoader, SessionSelectorOptions.loadPreviewMessages, SessionList.onPreviewRequest, SessionPickerHost.loadPreviewMessages and SessionInfo.lastModel were added (absent from the 18.2.10 candidate).",
+      "gate": "patches/verify-session-history-preview.ts — already 18.3.3-aware (movedUi + version allowlist). No fixture adjustment required."
+    },
+    {
+      "id": "0072",
+      "root": "AGENT",
+      "path": "patches/.18.3.3-candidates/0072-omp-session-pin-static-auth-ui-v18.3.3-candidate.patch",
+      "sha256": "b81cda36056ddfcc8b60a8efdad64cab01b33e1fb28d3fc4cc7b42f66b1c31cf",
+      "files": [
+        "pi-coding-agent/src/modes/controllers/selector-controller.ts"
+      ],
+      "preservedBehavior": [
+        "Controller UI dependencies stay static at module load: LoginDialogComponent, LogoutAccountSelectorComponent, ModelHubComponent (+ModelRoleSelectionScope), ModelPickerComponent, OAuthSelectorComponent, PASTE_CODE_LOGIN_PROVIDERS, getOAuthProviders are imported, not lazily require()d.",
+        "loadModelOverlayComponents() and loadProviderAuthUi() are gone, so no first-use require() boundary exists for model hub, model picker, login dialog, logout selector, oauth selector or session pin."
+      ],
+      "adaptation": "Hunk 3 (loader-block removal) failed at fuzz=0: 18.3.3 removed MANUAL_LOGIN_PROMPT and ProviderToggleModules, so the block now sits directly between the settings import and export class SelectorController; the two loader interfaces/functions were removed at that new anchor. Call-site removals applied with fuzz 2 (authStorage.listStoredCredentials became authStorage.credentials.list) and the surrounding 18.3.3 code is untouched. No shipped declaration changes (nothing exported changed).",
+      "gate": "patches/verify-session-pin-static-auth-ui.ts"
+    }
+  ],
+  "verificationExecuted": {
+    "perCandidateStrictDryRun": "patch -p1 --fuzz=0 --forward --dry-run against pristine 18.3.3: 7/7 clean, each on its own package root (AI for 0026/0030, AGENT for 0031/0048/0072, NM for 0037/0050).",
+    "chainApply": "All 7 applied in 18.3.3 plan order (0037,0026,0030,0031,0048,0050,0072) from the repository candidate paths into a pristine sandbox with --fuzz=0; no .rej/.orig. Only expected offsets appear (0072 hunks 2-10 shift by the +2 lines 0050 adds to the same file).",
+    "reverseReplay": "Reverse-applied in reverse stack order with --remove-empty-files; every touched file byte-equal to pristine (14/14 cmp OK), no artifacts left.",
+    "idempotenceProbe": "Forward dry-run on the applied tree is rejected for all 7 (previously-applied detection), matching the controller's reverse-dry-run status peel.",
+    "behaviorGatesRun": [
+      "OMP_PATCH_VERIFY_TUI_ROOT/AGENT_ROOT on a private patched 18.3.3 copy: bun patches/verify-session-history-preview.ts -> ALL PASSED (11 checks).",
+      "bun patches/verify-session-pin-static-auth-ui.ts -> ALL PASSED (model hub, temporary picker, session pin).",
+      "Negative control (0050 absent): verify-session-history-preview.ts fails with 'list metadata must carry the compact form of the session's last model'."
+    ],
+    "scopedProbes": [
+      "scratch/probe-0037.ts (fake clock, fake host): PASS on the patched tree; FAILS on pristine at the provider-whitelist assertion (undefined vs ['anthropic']). Asserts idle anthropic silence, one fetch per turn inside the 60s gate, provider switch whitelist, and the non-anthropic 50s TTL + turn bypass.",
+      "scratch/probe-0026-0030.ts (real AuthStorage over a temp sqlite db + real UsageCache): PASS on the patched tree; FAILS on pristine at 'a gated fan-out must not poll providers outside the allowlist'. Asserts the allowlist, the ungated fan-out, anthropic key canonicalization for absent/bare//v1//api/oauth, legacy-key migration with preserved expiry, and the stale read path."
+    ],
+    "postNormalizationReverify": "After the ASCII normalization: all 7 applied again in plan order at fuzz=0 with no .rej/.orig; reverse replay restored every touched file byte-equal to pristine; verify-session-history-preview.ts, verify-session-pin-static-auth-ui.ts, probe-0037.ts and probe-0026-0030.ts all still pass on a freshly rebuilt private patched tree (Integration was read-only; the smoke tree was rebuilt from the pristine private nm)."
+  },
+  "verificationLimits": [
+    "0031 and 0048 have no fixture probe: both are exercised only by strict apply, chain apply, reverse byte-equality and declaration parity. 0031's forwarding is a two-line optional spread; 0048's grace logic is embedded in a private recovery method that needs a full SessionAdvisors fixture to drive.",
+    "The 0072 gate currently passes on the PRE-FIX tree too. 18.3.3 upstream added a canonical self-resolution guard in legacy-pi-compat.ts resolveLegacyPiSpecifier (#12293): a canonical specifier that already resolves to the same file from its importer is declined instead of answered, which removes the host-code require() recursion 0072 was created for. So verify-session-pin-static-auth-ui.ts no longer discriminates on 18.3.3 through the host-code path.",
+    "Reproduced the still-live failure mode of the lazy-require form with a minimal scratch fixture (scratch/plugin-local/entry.ts): installLegacyPiSpecifierShim() then require('@oh-my-pi/pi-tui/overlays/model-hub.js') from a directory holding a plugin-local pi-tui copy fails with BuildMessage: ENOENT reading file:.../pi-tui/src/overlays/model-hub.ts (exit 3). Recorded as background evidence only - no gate injection was added.",
+    "No formatter, linter, type-check, build or project-wide test was run (per task constraints). Both behavioural gates were run scoped against a private copy only; nothing under /tmp/omp-1833-upgrade-9gpapl1n/Integration was modified."
+  ],
+  "changesMainNeeds": {
+    "applySh": [
+      "Add an 18.3.3 plan branch that targets 0037 0004 0010 0014 0017 0026 0030 0031 0033 0034 0035 0037 0038 0043 0045 0048 0050 and tail-appends 0026/0031/0072 as applicable, with the same root overrides as 18.2.10: 0004/0033 -> TUI, 0037/0050 -> NM.",
+      "In 18.3.3 both 0026 and 0031 are UNVERSIONED canonical members (their root patches are the 18.1.x a-sides), so they need _omp_version_candidates replacements named 0026-omp-usage-fetch-anthropic-gate-core-v18.3.3-candidate.patch and 0031-omp-agent-session-providers-forward-v18.3.3-candidate.patch. 0037/0030/0048/0050 come from the versioned list; 0072 is a tail candidate (AGENT).",
+      "All 7 files already exist at the canonical stem-v18.3.3-candidate names listed under candidates[]."
+    ],
+    "verifyFixtures": [
+      "verify-session-history-preview.ts: no change needed; it already selects movedUi for 18.3.3 and passed both positively and negatively (negative control fails when 0050 is absent).",
+      "verify-session-pin-static-auth-ui.ts: no change needed. The 18.3.3 branch is already present and passes; keep it as the runtime first-use smoke. Do NOT add artificial fault injection. Record in the gate's comment that upstream 18.3.3 also passes the pre-fix tree because legacy-pi-compat.ts resolveLegacyPiSpecifier now declines canonical self-remaps (#12293), so the pre-fix failure 0072 originally guarded is no longer reachable from host code.",
+      "If a machine check is wanted for 0072, keep the documented audit: grep -nE 'require\\(\"@oh-my-pi/(pi-ai|pi-tui)' against the selected src/modes/controllers/selector-controller.ts must return 0 matches (pristine 18.3.3 returns 7; the candidate returns 0 - measured)."
+    ],
+    "gatesMissing": [
+      "0026/0030/0031/0037/0048 have no registered regression gate. If Main wants permanent coverage, the two scoped probes can be promoted (they are fail-closed, offline, root-selected and already discriminating)."
+    ]
+  },
+  "dependencies": {
+    "unownedPrerequisites": "none — all 7 candidates apply at fuzz=0 against upstream 18.3.3 at their plan position; no owned patch depends on another family's candidate.",
+    "intraFamilyOrder": "0030 must be applied after 0026 (both touch pi-ai/src/auth/usage.ts, disjoint regions). 0050 must be applied before 0072 (both touch pi-coding-agent/src/modes/controllers/selector-controller.ts, disjoint regions; 0072 hunks shift +2 lines if 0050 is already on the tree).",
+    "blockedLayers": "none."
+  },
+  "nonAsciiNote": "Normalized 2026-09-27 at Main's request: every ADDED comment-only line in 0037 (5 lines) and 0050 (8 lines) had em-dash U+2014 -> '--' and arrow U+2192 -> '->'. No removed or context rows were touched (both patches regenerate byte-identical from the normalized work trees), no string literal changed, no behavior changed. The other 5 candidates had no non-ASCII on added comment lines and are byte-unchanged. Non-ASCII inside context rows (inherited pristine prose, e.g. U+2014 in existing comments) and inside UI string literals (arrows, dot separators, ellipsis) is intentionally preserved. 0 added non-ASCII comment lines remain across all 7.",
+  "runtimeSideEffects": "None outside my private trees. patches/apply.sh, patches/PATCHES.md, shared specs and existing verify-*.ts were not modified. No old candidate/finalized patch, live ~/.bun or ~/.omp path was touched.",
+  "scopedProbesPaths": [
+    "/tmp/omp-1833-upgrade-9gpapl1n/AuthUI/scratch/probe-0037.ts",
+    "/tmp/omp-1833-upgrade-9gpapl1n/AuthUI/scratch/probe-0026-0030.ts"
+  ]
+}

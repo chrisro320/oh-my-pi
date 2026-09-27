@@ -16,6 +16,10 @@
 // that reach the wire (role, content, toolCallId). Verdicts:
 //   ok         - live context equals the rebuilt one, except possibly a tail of
 //                user / toolResult messages not yet persisted (`pendingTail`)
+//   pending-commit - the tail is exactly one or more custom asides the runtime
+//                persists from `message_end` (`async-result`, attachment source
+//                notices): in flight before their entry lands. Logged, never a
+//                UI warning — the normal path commits them at the same index.
 //   diverged   - message[i] differs: a rebuild would fork the cache at i
 //   live-extra - live has a trailing message of another role (developer,
 //                custom, ...) the file lacks: a memory-only injection
@@ -29,6 +33,15 @@
 // on the very request that first carries them. Residual gap: a memory-only
 // message with role user/toolResult at the tail is only reported once a later
 // persisted message lands behind it (as `diverged`).
+//
+// Custom asides the runtime persists from `message_end` are a third case:
+// `#persistMessageEnd` → `appendCustomMessageEntry` runs after the provider
+// request that already carries them (background-job `async-result` deliveries,
+// attachment source notices), so during that window they are legitimately
+// live-only. Classified as `pending-commit` — logged, no UI warning — because
+// the next request commits them at the same index and the verdict returns to
+// `ok`. Accepted cost: a crash inside the window drops the message with no
+// visible warning; the log row is the only trace.
 //
 // The only tolerated difference is the Trellis per-turn injection, matched
 // exactly: Trellis persists the injected text per anchor
@@ -58,7 +71,23 @@ import { dirname, join } from "node:path";
 const LOG_PATH = join(homedir(), ".omp", "agent", "context-persist-audit.log");
 const LOG_MAX_BYTES = 1024 * 1024;
 
-type Status = "ok" | "diverged" | "live-extra" | "file-extra";
+type Status = "ok" | "diverged" | "live-extra" | "file-extra" | "pending-commit";
+
+/**
+ * Custom asides the runtime injects into the live context *before* the provider
+ * request and persists from `message_end` (`#persistMessageEnd` →
+ * `appendCustomMessageEntry`) afterwards: background-job completions
+ * (`async-result`, yield-queue) and attachment source notices
+ * (`#createAttachmentSourceNotices`). While one is in flight it is live-only, so
+ * the rebuild legitimately lacks it — a crash inside that window loses the
+ * message, but the normal path commits it at the same index, which is why the
+ * audit returns to `ok`. Logged as `pending-commit`, never a UI warning.
+ */
+const PENDING_COMMIT_CUSTOM_TYPES: Record<string, true> = {
+	"async-result": true,
+	"image-attachment": true,
+	"video-attachment": true,
+};
 
 interface MessageDigest {
 	role: string;
@@ -75,6 +104,7 @@ export interface AuditResult {
 	index?: number;
 	live?: MessageDigest;
 	file?: MessageDigest;
+	customType?: string;
 }
 
 type WireMessage = { role: string; content?: unknown; toolCallId?: string };
@@ -177,12 +207,77 @@ export function auditContext(
 		return { status: "diverged", ...base, index: i, live: digest(live[i]), file: digest(file[i]) };
 	}
 	if (file.length > shared) return { status: "file-extra", ...base, index: shared, file: digest(file[shared]) };
+	const pendingCommit = pendingCommitAsides(liveExpanded.messages, live, shared);
+	if (pendingCommit !== undefined) return { status: "pending-commit", ...base, ...pendingCommit };
 	for (let i = shared; i < live.length; i++) {
 		const role = live[i].role;
 		if (role === "user" || role === "toolResult") continue;
 		return { status: "live-extra", ...base, index: i, live: digest(live[i]) };
 	}
 	return { status: "ok", ...base };
+}
+
+/**
+ * Tail-only classification of live messages whose session entry has not landed
+ * yet but is committed by `message_end` on the normal path (see
+ * {@link PENDING_COMMIT_CUSTOM_TYPES}).
+ *
+ * Walks the raw (pre-`convertToLlm`) live tail backwards from the first
+ * unshared wire message, projecting each candidate custom message on its own
+ * and requiring its wire projection to match the live wire suffix exactly. The
+ * per-message projection is what makes an image-bearing custom (which splits
+ * into a developer text + user image pair) match as a unit instead of being
+ * mistaken for two unrelated tail messages; a mismatch falls through to the
+ * old `live-extra` verdict. Never inspects message content — only role and
+ * shape.
+ *
+ * `user` / `toolResult` raw messages may sit in front of the asides: the newest
+ * prompt or tool result reaches `context` before its entry is appended, so the
+ * real shape is `… persisted, user, async-result`. They are skipped like the
+ * `pendingTail` exemption does — their wire form is compared positionally, so a
+ * drifted user tail still fails and falls through.
+ */
+function pendingCommitAsides(
+	liveRaw: AgentMessage[],
+	live: WireMessage[],
+	shared: number,
+): { index: number; live: MessageDigest; customType: string } | undefined {
+	if (shared >= live.length) return undefined;
+	let wireCursor = live.length;
+	let matchedCustomType: string | undefined;
+	for (let raw = liveRaw.length - 1; raw >= 0 && wireCursor > shared; raw--) {
+		const message = liveRaw[raw];
+		if (!message) return undefined;
+		if (message.role === "user" || message.role === "toolResult") {
+			// Not-yet-persisted input tail: advance past its single wire form.
+			const projected = convertToLlm([message]) as WireMessage[];
+			if (projected.length !== 1) return undefined;
+			const start = wireCursor - 1;
+			if (start < shared) return undefined;
+			if (wireKey(projected[0]) !== wireKey(live[start])) return undefined;
+			wireCursor = start;
+			continue;
+		}
+		if (message.role !== "custom") return undefined;
+		const customType = "customType" in message ? message.customType : undefined;
+		if (typeof customType !== "string" || !PENDING_COMMIT_CUSTOM_TYPES[customType]) return undefined;
+		const projected = convertToLlm([message]) as WireMessage[];
+		if (projected.length === 0) return undefined;
+		const start = wireCursor - projected.length;
+		if (start < shared) return undefined;
+		for (let offset = 0; offset < projected.length; offset++) {
+			if (wireKey(projected[offset]) !== wireKey(live[start + offset])) return undefined;
+		}
+		wireCursor = start;
+		matchedCustomType = customType;
+	}
+	// The walk consumed every unshared wire message: the whole suffix is input
+	// tail plus message_end-persisted asides. Report the first unshared index,
+	// where the pending window opens.
+	if (wireCursor === shared && matchedCustomType !== undefined) {
+		return { index: shared, live: digest(live[shared]) as MessageDigest, customType: matchedCustomType };
+	}
+	return undefined;
 }
 
 function writeLog(record: Record<string, unknown>): void {
@@ -219,7 +314,11 @@ export default function contextPersistAudit(pi: ExtensionAPI): void {
 			if (signature === lastSignature.get(sessionId)) return;
 			lastSignature.set(sessionId, signature);
 			writeLog({ at: new Date().toISOString(), pid: process.pid, sessionId, ms, ...result, anchorError });
-			if (result.status !== "ok" && ctx.hasUI) {
+			// `pending-commit` is the normal in-flight window of a message_end-persisted
+			// aside, not a fork: the next request commits it at the same index and the
+			// verdict returns to ok. It stays in the log (a crash inside the window
+			// really does drop it) but must not raise a warning every turn.
+			if (result.status !== "ok" && result.status !== "pending-commit" && ctx.hasUI) {
 				ctx.ui.notify(
 					`context-persist-audit: ${result.status} at message ${result.index} (live ${result.liveCount}, file ${result.fileCount}); a resume would miss the prompt cache from there`,
 					"warning",

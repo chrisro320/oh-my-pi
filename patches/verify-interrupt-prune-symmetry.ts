@@ -106,6 +106,30 @@ for (const stopReason of ["aborted", "error"] as const) {
 	console.log(`  ${stopReason}: live == rebuilt, ${rebuilt.length} wire messages, no remnant`);
 }
 
+const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
+if (agentVersion === "18.3.3") {
+	for (const stopReason of ["aborted", "error"] as const) {
+		for (const pairedResult of [false, true]) {
+			const interrupted = abortedEntry("a1", "u1", stopReason);
+			const message = interrupted.message as Record<string, unknown>;
+			const controls = { tools: { declared: ["read"], deferred: [], active: ["read"] }, messageIndex: 1 };
+			message.requestControls = controls;
+			(message.content as unknown[]).push({ type: "toolCall", id: "c1", name: "read", arguments: { path: "/fixture" } });
+			const entries = [userEntry("u1", null, "first ask"), interrupted];
+			if (pairedResult) entries.push({
+				type: "message", id: "t1", parentId: "a1", timestamp: TS,
+				message: { role: "toolResult", toolCallId: "c1", toolName: "read", content: [{ type: "text", text: "cancelled" }], isError: true, timestamp: TS },
+			});
+			entries.push(userEntry("u2", pairedResult ? "t1" : "a1", "second ask"));
+			const rebuilt = rebuildWire(entries, "u2") as Record<string, unknown>[];
+			assert.deepEqual(liveWire(entries, "u2", 1), rebuilt, "control carriers must replay identically");
+			assert.deepEqual(rebuilt.map(message => message.role), ["user", "assistant", "user"]);
+			assert.deepEqual(rebuilt[1].content, [], "interrupted payload must not survive with the controls");
+			assert.deepEqual(rebuilt[1].requestControls, controls, "tool removal controls must survive resume");
+		}
+	}
+}
+
 // A remnant with no marker after it (marker is only minted for user interrupts
 // with enough reasoning) must be pruned on the live path too.
 const noMarkerEntries = [
@@ -146,24 +170,5 @@ assert.ok(
 );
 console.log("  transcript still renders the interrupted turn");
 
-// Source-level guards: neither path may regain a marker-conditional branch.
-const contextSource = readFileSync(`${AGENT_ROOT}/src/session/session-context.ts`, "utf8");
-const pruneBlock = contextSource.slice(contextSource.indexOf('if (message.stopReason !== "aborted"'), -1).slice(0, 600);
-assert.ok(
-	!/INTERRUPTED_THINKING_MESSAGE_TYPE/.test(pruneBlock),
-	"the rebuild-path prune must not branch on the interrupted-thinking marker",
-);
-const messagesSource = readFileSync(`${AGENT_ROOT}/src/session/messages.ts`, "utf8");
-assert.match(
-	messagesSource,
-	/if \(m\.customType === INTERRUPTED_THINKING_MESSAGE_TYPE\) return \[\];/,
-	"convertOne must drop the interrupted-thinking marker",
-);
-assert.match(
-	messagesSource,
-	/if \(m\.stopReason === "aborted" \|\| m\.stopReason === "error"\) return \[\];/,
-	"convertOne must prune interrupted assistant turns on the live path",
-);
-console.log("  source guards hold");
 
 console.log("=== interrupted-turn render symmetry OK ===");

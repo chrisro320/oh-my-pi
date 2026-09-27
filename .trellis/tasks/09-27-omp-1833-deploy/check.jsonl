@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/09-27-omp-1833-deploy/work-order.md", "reason": "Exact repo AGENTS and spec index plus ownership"}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "Pristine and immutable historical patches"}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "Behavior gates, root isolation"}
+{"file": ".trellis/tasks/09-26-omp-1833-upgrade/research/preflight-report.md", "reason": "Verified migration findings"}

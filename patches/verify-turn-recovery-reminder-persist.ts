@@ -20,6 +20,7 @@ import type { MockModel } from "@oh-my-pi/pi-ai/providers/mock";
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
+const agentVersion = (await Bun.file(`${AGENT_ROOT}/package.json`).json()).version;
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
@@ -47,7 +48,8 @@ try {
 	const manager = SessionManager.inMemory(cwd);
 	const agentDir = join(root, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	authStorage.setRuntimeApiKey("mock", "test");
+	if (agentVersion === "18.3.3") authStorage.keys.setRuntime("mock", "test");
+	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,
 		agentDir,

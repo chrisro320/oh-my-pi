@@ -26,21 +26,23 @@ sha256sum patches/*.patch
 
 ```text
 未設定 OMP_PATCH_VERSION       依 installed pi-coding-agent 版本自動路由（精確匹配，非就近 fallback）
-OMP_PATCH_VERSION=18.1.14      替換 candidates 0004、0010、0014、0017、0030、0035、0038；鏈尾追加 0047
-OMP_PATCH_VERSION=18.1.18      替換 candidates 0004、0010、0014、0017、0030、0033、0035、0038、0043；排除 0051；鏈尾追加 0047、0055、0056、0058、0060、0062
+OMP_PATCH_VERSION=18.1.14/18.1.18/18.2.3/18.2.10/18.3.3  選擇同版本精確計畫
+18.3.3                       六個官方套件版本必須全為18.3.3；47層，0073上游接管但保留gate
 其他值／顯式值與安裝版不符      exit 2，禁止猜測套用
 ```
 
 `PATCHES` 陣列是所有存活計畫共用的 canonical 補丁母集，本身不是可部署計畫（成員 a 側橫跨多個上游版本）；不存在「canonical 18.0.9 路徑」。
 
-18.1.18 部署命令（當前部署版；舊版部署命令形狀相同，僅換版本號與入口包名）：
+18.3.3 使用隔離安裝驗證後整樹切換，不在正式安裝上逐檔修補：
 
-```sh
-bun add -g @oh-my-pi/pi-coding-agent@18.1.18
-~/.omp/patches/apply.sh
-~/.omp/patches/apply.sh --check
-~/.bun/bin/omp --version
-```
+1. 官方六套件 SHA-256 驗證，獨立解壓以避免 Bun cache hardlink。
+2. 私有 HOME/XDG/TMP 執行完整候選、行為 gates、模型生命週期與 CLI smoke；print-mode smoke 必須給 stdin EOF。
+3. 備份 global 安裝、launcher target、patch ledger；不複製或連線正式 agent DB。
+4. 在正式 global 同檔案系統準備 staged global，在 ledger 同檔案系統準備 staged patches；比較已驗證樹的 bytes 與 symlink targets。
+5. Linux `renameat2(..., RENAME_EXCHANGE)` 原子交換各目錄；第二次交換失敗時立即反交換 global。舊樹與獨立備份均保留。
+6. 新程序使用正式 source CLI、私有 HOME 驗版本與工具呼叫；controller `--check` 唯讀驗47補丁。正式 auth/session 由使用者重啟後沿用。
+
+Ledger 不再依賴 `../vendor/pi-commandcode-provider`：該外掛已於 2026-09-27 退役（使用者改用官方原版端點），其跨註冊校驗腿已隨之移除。
 
 `bun update -g` 對本專案無效（global `package.json` pin 死確切版本），必須 `bun add -g <pkg>@<version>`。
 
@@ -85,7 +87,7 @@ CLAUDE_CODE_OAUTH_TOKEN
 
 判定條件：
 
-- 部署版本的 active entries 全部套用成功。層數以 `apply.sh` 的 `PATCHES` 陣列（canonical 26 條）為基準按計畫增減，**不含 `bin/omp` 狀態行**：18.1.14 為 27（+0047），18.1.18 為 31（−0051、+0047/0055/0056/0058/0060/0062）。
+- active entries 以 `apply.sh --print-plan` 為準，不含 launcher：18.1.14=27、18.1.18=38、18.2.3=39、18.2.10=47、18.3.3=46。0073僅在18.3.3由上游實作接管。
 - `.rej` 為 0；`.orig` 必須按既有 patch(1) 行為分類，不得混入生成的 patch。
 - revert 後非工具殘留差異為 0。
 - 第二輪樹雜湊一致，apply 冪等。

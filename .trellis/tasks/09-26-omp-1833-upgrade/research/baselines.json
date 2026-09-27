@@ -1,0 +1,226 @@
+[
+  {
+    "package": "pi-coding-agent",
+    "version": "18.2.10",
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-coding-agent/-/pi-coding-agent-18.2.10.tgz",
+    "integrity": "sha512-srPb9BiCXdq5o9aYKor6pdoRRkezwBF0RYc3EzodMbEXsTpQES954UlP06a8EhBBnFYdbxIRdq6OweHJnIiDTQ==",
+    "sha256": "f3a51d5ddeadbe0fc5dce2071f4ec919e67ae802d5f7e52648e664ec2637e751",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.2.10/pi-coding-agent",
+    "dependencies": {
+      "axe-core": "4.13.0",
+      "@babel/parser": "^7.29.7",
+      "puppeteer-core": "25.3.0",
+      "@oh-my-pi/pi-ai": "18.2.10",
+      "@oh-my-pi/pi-tui": "18.2.10",
+      "@oh-my-pi/omptype": "18.2.10",
+      "@oh-my-pi/pi-wire": "18.2.10",
+      "@oh-my-pi/pi-utils": "18.2.10",
+      "@opentelemetry/api": "^1.9.1",
+      "@oh-my-pi/omp-stats": "18.2.10",
+      "@oh-my-pi/pi-catalog": "18.2.10",
+      "@oh-my-pi/pi-mnemopi": "18.2.10",
+      "@oh-my-pi/pi-natives": "18.2.10",
+      "@oh-my-pi/snapcompact": "18.2.10",
+      "@oh-my-pi/pi-agent-core": "18.2.10",
+      "@opentelemetry/api-logs": "^0.220.0",
+      "@opentelemetry/sdk-logs": "^0.220.0",
+      "@opentelemetry/resources": "^2.9.0",
+      "@opentelemetry/sdk-metrics": "^2.9.0",
+      "@opentelemetry/sdk-trace-base": "^2.9.0",
+      "@opentelemetry/sdk-trace-node": "^2.9.0",
+      "@opentelemetry/context-async-hooks": "^2.9.0",
+      "@opentelemetry/exporter-logs-otlp-proto": "^0.220.0",
+      "@opentelemetry/exporter-trace-otlp-proto": "^0.220.0",
+      "@opentelemetry/exporter-metrics-otlp-proto": "^0.220.0"
+    }
+  },
+  {
+    "package": "pi-agent-core",
+    "version": "18.2.10",
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-agent-core/-/pi-agent-core-18.2.10.tgz",
+    "integrity": "sha512-QsLeiMxVqmD4W3CHuVsj0o3LqTEFBmYHdd/Cgw3ZnQD6zW9FdRWVmfV8u46WOKu0MxJqB4r6kcbfhwgATftBtQ==",
+    "sha256": "5a098395e301ad772c0505518a195e49d544934dc78de91b24705466ad65d882",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.2.10/pi-agent-core",
+    "dependencies": {
+      "@oh-my-pi/pi-ai": "18.2.10",
+      "@oh-my-pi/pi-wire": "18.2.10",
+      "@oh-my-pi/pi-utils": "18.2.10",
+      "@opentelemetry/api": "^1.9.1",
+      "@oh-my-pi/pi-catalog": "18.2.10",
+      "@oh-my-pi/pi-natives": "18.2.10",
+      "@oh-my-pi/snapcompact": "18.2.10"
+    }
+  },
+  {
+    "package": "pi-ai",
+    "version": "18.2.10",
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-ai/-/pi-ai-18.2.10.tgz",
+    "integrity": "sha512-XFyZbgfN8Bi8Nz6H1yMBUlHm8p5rWEqc8VBlP5JW7tOJLn3CEenevDaaDfs5tgF/EB83c65jY6RTMl0EqGrMkw==",
+    "sha256": "41210021106d5ebff1d7955933640c24b55dcdd0710a6fdbd87e398906ca5714",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.2.10/pi-ai",
+    "dependencies": {
+      "@oh-my-pi/omptype": "18.2.10",
+      "@oh-my-pi/pi-wire": "18.2.10",
+      "@oh-my-pi/pi-utils": "18.2.10",
+      "@oh-my-pi/pi-catalog": "18.2.10",
+      "@oh-my-pi/pi-natives": "18.2.10"
+    }
+  },
+  {
+    "package": "pi-catalog",
+    "version": "18.2.10",
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-catalog/-/pi-catalog-18.2.10.tgz",
+    "integrity": "sha512-EjCfE9bAMdoSNhO7eu3GGlYx/2o2U6cg6WFb8Za/A7Sw43OPG5CT4xlg2m52YW3EcJpD+lQEosKj/ZDbTH5MlQ==",
+    "sha256": "978375b22daa781156d9ddb18f1830b7ed0f30eb8fad5112b0f24a23366a56dc",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.2.10/pi-catalog",
+    "dependencies": {
+      "@oh-my-pi/omptype": "18.2.10",
+      "@oh-my-pi/pi-utils": "18.2.10"
+    }
+  },
+  {
+    "package": "snapcompact",
+    "version": "18.2.10",
+    "url": "https://registry.npmjs.org/@oh-my-pi/snapcompact/-/snapcompact-18.2.10.tgz",
+    "integrity": "sha512-H4PW1TUzLti64GYQj6JJmUNzICjkfaag6SsKgderF6quRloa9w7g7g2L1wn8UkaN95za033Od/S38Y40VJaeDQ==",
+    "sha256": "6733a3641efbe352cd3d57296718133cda1b9a1d9b97f89c4596b68dbaa8eaf7",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.2.10/snapcompact",
+    "dependencies": {
+      "@oh-my-pi/pi-ai": "18.2.10",
+      "@oh-my-pi/pi-wire": "18.2.10",
+      "@oh-my-pi/pi-utils": "18.2.10",
+      "@oh-my-pi/pi-catalog": "18.2.10",
+      "@oh-my-pi/pi-natives": "18.2.10"
+    }
+  },
+  {
+    "package": "pi-tui",
+    "version": "18.2.10",
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-tui/-/pi-tui-18.2.10.tgz",
+    "integrity": "sha512-CXabWoYapU6wCZV/IbKQy9qTNU6GuX8fSNzNuN9+ECsfnbNdzM3Bsxcf0zG38sdrGl4kutoyKq0oOf8EktCEJQ==",
+    "sha256": "0540e815ae883b9167648bc3949260c76ec2f7798d14c66e19fe39b12e96c682",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.2.10/pi-tui",
+    "dependencies": {
+      "@oh-my-pi/pi-ai": "18.2.10",
+      "@oh-my-pi/omptype": "18.2.10",
+      "@oh-my-pi/pi-wire": "18.2.10",
+      "@oh-my-pi/pi-utils": "18.2.10",
+      "@oh-my-pi/pi-catalog": "18.2.10",
+      "@oh-my-pi/pi-natives": "18.2.10",
+      "@oh-my-pi/snapcompact": "18.2.10",
+      "@oh-my-pi/pi-agent-core": "18.2.10"
+    }
+  },
+  {
+    "package": "pi-coding-agent",
+    "version": "18.3.3",
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-coding-agent/-/pi-coding-agent-18.3.3.tgz",
+    "integrity": "sha512-QKj9JD/0IArl4uMwzCEWxcQMMj1GDfyTJfhulUGUtYjsqA685SfmYkIx6d1BKlV88kUtdt+j4hKD2Cir1o1dBQ==",
+    "sha256": "da7b8e1a5dca68198c4c5e9ef2cb1f30878e79986bbd940e907490ec178842f2",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-coding-agent",
+    "dependencies": {
+      "axe-core": "4.13.0",
+      "@babel/parser": "^7.29.7",
+      "puppeteer-core": "25.3.0",
+      "@oh-my-pi/pi-ai": "18.3.3",
+      "@oh-my-pi/pi-tui": "18.3.3",
+      "@oh-my-pi/omptype": "18.3.3",
+      "@oh-my-pi/pi-wire": "18.3.3",
+      "@oh-my-pi/pi-utils": "18.3.3",
+      "@opentelemetry/api": "^1.9.1",
+      "@oh-my-pi/omp-stats": "18.3.3",
+      "@oh-my-pi/pi-catalog": "18.3.3",
+      "@oh-my-pi/pi-mnemopi": "18.3.3",
+      "@oh-my-pi/pi-natives": "18.3.3",
+      "@oh-my-pi/snapcompact": "18.3.3",
+      "@oh-my-pi/pi-agent-core": "18.3.3",
+      "@opentelemetry/api-logs": "^0.220.0",
+      "@opentelemetry/sdk-logs": "^0.220.0",
+      "@opentelemetry/resources": "^2.9.0",
+      "@opentelemetry/sdk-metrics": "^2.9.0",
+      "@opentelemetry/sdk-trace-base": "^2.9.0",
+      "@opentelemetry/sdk-trace-node": "^2.9.0",
+      "@opentelemetry/context-async-hooks": "^2.9.0",
+      "@opentelemetry/exporter-logs-otlp-proto": "^0.220.0",
+      "@opentelemetry/exporter-trace-otlp-proto": "^0.220.0",
+      "@opentelemetry/exporter-metrics-otlp-proto": "^0.220.0"
+    }
+  },
+  {
+    "package": "pi-agent-core",
+    "version": "18.3.3",
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-agent-core/-/pi-agent-core-18.3.3.tgz",
+    "integrity": "sha512-mYKeR3kbx93cBiZe63OjssoZW6sBrxlzd/T43SPzmLm01YCxEVrnK3hpfVBnRCkFDFIJosu7g6zqUfnhSHTptw==",
+    "sha256": "471316c8e4312729744fc4affba970fdca50a1c5d87664897020242a2c60c6a3",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-agent-core",
+    "dependencies": {
+      "@oh-my-pi/pi-ai": "18.3.3",
+      "@oh-my-pi/pi-wire": "18.3.3",
+      "@oh-my-pi/pi-utils": "18.3.3",
+      "@opentelemetry/api": "^1.9.1",
+      "@oh-my-pi/pi-catalog": "18.3.3",
+      "@oh-my-pi/pi-natives": "18.3.3",
+      "@oh-my-pi/snapcompact": "18.3.3"
+    }
+  },
+  {
+    "package": "pi-ai",
+    "version": "18.3.3",
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-ai/-/pi-ai-18.3.3.tgz",
+    "integrity": "sha512-6bISBd23L/Tf2KXtT5nNSIz+wWi50vLnXJsbZ2wtaoSI5WCTNSSBw/7kC+3WVMWj0gNvj9Pgj2TfstLPKRoE9g==",
+    "sha256": "3f58e01ecaa8f9492ce5101b9e845f550bd1535246b77439e8a73b19a2c25a8d",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-ai",
+    "dependencies": {
+      "@oh-my-pi/omptype": "18.3.3",
+      "@oh-my-pi/pi-wire": "18.3.3",
+      "@oh-my-pi/pi-utils": "18.3.3",
+      "@oh-my-pi/pi-catalog": "18.3.3",
+      "@oh-my-pi/pi-natives": "18.3.3"
+    }
+  },
+  {
+    "package": "pi-catalog",
+    "version": "18.3.3",
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-catalog/-/pi-catalog-18.3.3.tgz",
+    "integrity": "sha512-lpxvU63fPNgIDDQ1ZgYhkH7JiYk3GJziZ7ZY6nh8WKjQ23PKO4f285GIxbH8ApeOUohSyInhekBC4cl0pIn6mg==",
+    "sha256": "66ffad0cf46463c6ffce2433d23e11548503f402124d046dc040bf5b383cb987",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-catalog",
+    "dependencies": {
+      "@oh-my-pi/omptype": "18.3.3",
+      "@oh-my-pi/pi-utils": "18.3.3"
+    }
+  },
+  {
+    "package": "snapcompact",
+    "version": "18.3.3",
+    "url": "https://registry.npmjs.org/@oh-my-pi/snapcompact/-/snapcompact-18.3.3.tgz",
+    "integrity": "sha512-Od8x07COIsRsW/iBZQoDh8aFUb37ozGtpT+OBgM0x7FtOrTNk3iGohx95367CiIcX82U5U83r5Gzj7gCoM6FhQ==",
+    "sha256": "6b6fb88232d316f8494c88bb5f554f50a33f8e15f36760bc32174c1b7ab9b003",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/snapcompact",
+    "dependencies": {
+      "@oh-my-pi/pi-ai": "18.3.3",
+      "@oh-my-pi/pi-wire": "18.3.3",
+      "@oh-my-pi/pi-utils": "18.3.3",
+      "@oh-my-pi/pi-catalog": "18.3.3",
+      "@oh-my-pi/pi-natives": "18.3.3"
+    }
+  },
+  {
+    "package": "pi-tui",
+    "version": "18.3.3",
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-tui/-/pi-tui-18.3.3.tgz",
+    "integrity": "sha512-tIe0Tm+CxDaP9QP8VEEQfdD1LYy5PAVyiXRB6k5XBv+/tECZ0qsORBfDk3Va12cPw4CFDMHyWFdbb6dPwCR8ig==",
+    "sha256": "b802f7795378fbde4fe383d02ddec5732f86099a375026d49f1da36dc2c1dcb9",
+    "root": "/tmp/omp-1833-preflight-b5hpnhn7/18.3.3/pi-tui",
+    "dependencies": {
+      "@oh-my-pi/pi-ai": "18.3.3",
+      "@oh-my-pi/omptype": "18.3.3",
+      "@oh-my-pi/pi-wire": "18.3.3",
+      "@oh-my-pi/pi-utils": "18.3.3",
+      "@oh-my-pi/pi-catalog": "18.3.3",
+      "@oh-my-pi/pi-natives": "18.3.3",
+      "@oh-my-pi/snapcompact": "18.3.3",
+      "@oh-my-pi/pi-agent-core": "18.3.3"
+    }
+  }
+]

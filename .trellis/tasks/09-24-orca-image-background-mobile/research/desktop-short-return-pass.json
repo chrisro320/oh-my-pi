@@ -1,0 +1,20 @@
+{
+  "sourceArchive": "84c5688dacda3d0393d680e5660ad2d24b0a07b177ba2ce7c8b7d61927238764",
+  "surface": {
+    "images": 6,
+    "painted": 429440,
+    "canvas": {
+      "width": 1400,
+      "height": 1040,
+      "connected": true
+    },
+    "visible": true,
+    "viewport": 81,
+    "rows": 65,
+    "cols": 175,
+    "writes": 36,
+    "bytes": 111978,
+    "transmits": 6
+  },
+  "screenshot": "/tmp/omp-computer-158c7f55ffc57543.png"
+}

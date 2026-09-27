@@ -1,0 +1,182 @@
+{
+  "stage": "review",
+  "timestamp": "2026-09-27T03:58:29.640730+00:00",
+  "executor": "OMP built-in grep with fail-closed assertions",
+  "status": "passed",
+  "checks": [
+    {
+      "path": ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+      "required": "Trellis spec mechanism",
+      "matched_source_rows": [
+        "*45:## Trellis spec mechanism (mandatory when rotating between models)"
+      ],
+      "passed": true,
+      "raw_tool_output": {
+        "text": "[.trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md#A80B]\n 9:```sh\n*10:grep -nF 'Trellis spec mechanism' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 11:grep -nF '| [Patch Rollup Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 12:grep -nF '| [Verification Gate Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 13:grep -nF 'Pristine input MUST' .trellis/spec/backend/patch-rollup-contracts.md &&\n...\n 44:\n*45:## Trellis spec mechanism (mandatory when rotating between models)\n 46:\n 47:- **A work order must embed the original text of two specs**: the nearest `AGENTS.md` for the target package + the relevant `.trellis/spec/` index.\n 48:- **Specs must be machine-checkable** (attach the grep command, run it before delivery and again at review time); relying on discipline alone always drifts.",
+        "details": {
+          "scopePath": ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+          "searchPath": "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+          "cwd": "/home/chris/orca/projects/omp-move",
+          "matchCount": 2,
+          "fileCount": 1,
+          "files": [
+            ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md"
+          ],
+          "fileMatches": [
+            {
+              "path": ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+              "count": 2
+            }
+          ],
+          "truncated": false,
+          "displayContent": "  9│```sh\n*10│grep -nF 'Trellis spec mechanism' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 11│grep -nF '| [Patch Rollup Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 12│grep -nF '| [Verification Gate Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 13│grep -nF 'Pristine input MUST' .trellis/spec/backend/patch-rollup-contracts.md &&\n   │...\n 44│\n*45│## Trellis spec mechanism (mandatory when rotating between models)\n 46│\n 47│- **A work order must embed the original text of two specs**: the nearest `AGENTS.md` for the target package + the relevant `.trellis/spec/` index.\n 48│- **Specs must be machine-checkable** (attach the grep command, run it before delivery and again at review time); relying on discipline alone always drifts."
+        }
+      }
+    },
+    {
+      "path": ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+      "required": "| [Patch Rollup Contracts]",
+      "matched_source_rows": [
+        "*79:| [Patch Rollup Contracts](./patch-rollup-contracts.md) | Pristine generation, family boundaries, replay equivalence, and immutable retirement | Active |"
+      ],
+      "passed": true,
+      "raw_tool_output": {
+        "text": "[.trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md#A80B]\n 10:grep -nF 'Trellis spec mechanism' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n*11:grep -nF '| [Patch Rollup Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 12:grep -nF '| [Verification Gate Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 13:grep -nF 'Pristine input MUST' .trellis/spec/backend/patch-rollup-contracts.md &&\n 14:grep -nF 'Full-chain verification MUST' .trellis/spec/backend/patch-rollup-contracts.md &&\n...\n 78:| [Extension Runtime Contracts](./extension-runtime-contracts.md) | Atomic session-bound side requests and prompt-cache keepalive | Active |\n*79:| [Patch Rollup Contracts](./patch-rollup-contracts.md) | Pristine generation, family boundaries, replay equivalence, and immutable retirement | Active |\n 80:| [Context Plugin Eval](./context-plugin-eval.md) | Sandbox isolation, sentinel contracts, and cache-prefix probes for context-managing plugins | Active |\n 81:| [Verification Gate Contracts](./verification-gate-contracts.md) | Falsifiable gates, fault-tree construction, pinned fixtures, and representation sync | Active |\n 82:",
+        "details": {
+          "scopePath": ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+          "searchPath": "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+          "cwd": "/home/chris/orca/projects/omp-move",
+          "matchCount": 2,
+          "fileCount": 1,
+          "files": [
+            ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md"
+          ],
+          "fileMatches": [
+            {
+              "path": ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+              "count": 2
+            }
+          ],
+          "truncated": false,
+          "displayContent": " 10│grep -nF 'Trellis spec mechanism' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n*11│grep -nF '| [Patch Rollup Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 12│grep -nF '| [Verification Gate Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 13│grep -nF 'Pristine input MUST' .trellis/spec/backend/patch-rollup-contracts.md &&\n 14│grep -nF 'Full-chain verification MUST' .trellis/spec/backend/patch-rollup-contracts.md &&\n   │...\n 78│| [Extension Runtime Contracts](./extension-runtime-contracts.md) | Atomic session-bound side requests and prompt-cache keepalive | Active |\n*79│| [Patch Rollup Contracts](./patch-rollup-contracts.md) | Pristine generation, family boundaries, replay equivalence, and immutable retirement | Active |\n 80│| [Context Plugin Eval](./context-plugin-eval.md) | Sandbox isolation, sentinel contracts, and cache-prefix probes for context-managing plugins | Active |\n 81│| [Verification Gate Contracts](./verification-gate-contracts.md) | Falsifiable gates, fault-tree construction, pinned fixtures, and representation sync | Active |\n 82│"
+        }
+      }
+    },
+    {
+      "path": ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+      "required": "| [Verification Gate Contracts]",
+      "matched_source_rows": [
+        "*81:| [Verification Gate Contracts](./verification-gate-contracts.md) | Falsifiable gates, fault-tree construction, pinned fixtures, and representation sync | Active |"
+      ],
+      "passed": true,
+      "raw_tool_output": {
+        "text": "[.trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md#A80B]\n 11:grep -nF '| [Patch Rollup Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n*12:grep -nF '| [Verification Gate Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 13:grep -nF 'Pristine input MUST' .trellis/spec/backend/patch-rollup-contracts.md &&\n 14:grep -nF 'Full-chain verification MUST' .trellis/spec/backend/patch-rollup-contracts.md &&\n 15:grep -nF 'Gate loading MUST fail closed' .trellis/spec/backend/verification-gate-contracts.md\n...\n 80:| [Context Plugin Eval](./context-plugin-eval.md) | Sandbox isolation, sentinel contracts, and cache-prefix probes for context-managing plugins | Active |\n*81:| [Verification Gate Contracts](./verification-gate-contracts.md) | Falsifiable gates, fault-tree construction, pinned fixtures, and representation sync | Active |\n 82:\n 83:---\n 84:",
+        "details": {
+          "scopePath": ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+          "searchPath": "/home/chris/orca/projects/omp-move/.trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+          "cwd": "/home/chris/orca/projects/omp-move",
+          "matchCount": 2,
+          "fileCount": 1,
+          "files": [
+            ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md"
+          ],
+          "fileMatches": [
+            {
+              "path": ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md",
+              "count": 2
+            }
+          ],
+          "truncated": false,
+          "displayContent": " 11│grep -nF '| [Patch Rollup Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n*12│grep -nF '| [Verification Gate Contracts]' .trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md &&\n 13│grep -nF 'Pristine input MUST' .trellis/spec/backend/patch-rollup-contracts.md &&\n 14│grep -nF 'Full-chain verification MUST' .trellis/spec/backend/patch-rollup-contracts.md &&\n 15│grep -nF 'Gate loading MUST fail closed' .trellis/spec/backend/verification-gate-contracts.md\n   │...\n 80│| [Context Plugin Eval](./context-plugin-eval.md) | Sandbox isolation, sentinel contracts, and cache-prefix probes for context-managing plugins | Active |\n*81│| [Verification Gate Contracts](./verification-gate-contracts.md) | Falsifiable gates, fault-tree construction, pinned fixtures, and representation sync | Active |\n 82│\n 83│---\n 84│"
+        }
+      }
+    },
+    {
+      "path": ".trellis/spec/backend/patch-rollup-contracts.md",
+      "required": "Pristine input MUST",
+      "matched_source_rows": [
+        "*33:- Pristine input MUST be the official pinned npm release tarball, verified by SHA-256 before extraction."
+      ],
+      "passed": true,
+      "raw_tool_output": {
+        "text": "[.trellis/spec/backend/patch-rollup-contracts.md#D845]\n 32:\n*33:- Pristine input MUST be the official pinned npm release tarball, verified by SHA-256 before extraction.\n 34:- NEVER patch `~/.bun/install/cache` or live `node_modules` to generate or verify a rollup. Bun may hard-link those trees; an in-place patch can mutate both. The same trees are also unreadable as pristine sources: in-place patching has written through the cache repeatedly (pi-ai@18.1.14's `ollama.ts` was found carrying the 18.1.18 file on 2026-09-13; `auth-storage.ts` has carried 0026-core since 2026-08-29), so any cache copy may already contain patch output. Pristine means an official tarball verified b...\n 35:- Dependency-complete sandboxes MUST use matching exact registry versions for\n 36:  all selected OMP roots (six, including pi-tui, for 18.2.10). Mixing `file:tgz` direct dependencies with registry",
+        "details": {
+          "scopePath": ".trellis/spec/backend/patch-rollup-contracts.md",
+          "searchPath": "/home/chris/orca/projects/omp-move/.trellis/spec/backend/patch-rollup-contracts.md",
+          "cwd": "/home/chris/orca/projects/omp-move",
+          "matchCount": 1,
+          "fileCount": 1,
+          "files": [
+            ".trellis/spec/backend/patch-rollup-contracts.md"
+          ],
+          "fileMatches": [
+            {
+              "path": ".trellis/spec/backend/patch-rollup-contracts.md",
+              "count": 1
+            }
+          ],
+          "truncated": false,
+          "displayContent": " 32│\n*33│- Pristine input MUST be the official pinned npm release tarball, verified by SHA-256 before extraction.\n 34│- NEVER patch `~/.bun/install/cache` or live `node_modules` to generate or verify a rollup. Bun may hard-link those trees; an in-place patch can mutate both. The same trees are also unreadable as pristine sources: in-place patching has written through the cache repeatedly (pi-ai@18.1.14's `ollama.ts` was found carrying the 18.1.18 file on 2026-09-13; `auth-storage.ts` has carried 0026-core since 2026-08-29), so any cache copy may already contain patch output. Pristine means an official tarball verified b...\n 35│- Dependency-complete sandboxes MUST use matching exact registry versions for\n 36│  all selected OMP roots (six, including pi-tui, for 18.2.10). Mixing `file:tgz` direct dependencies with registry"
+        }
+      }
+    },
+    {
+      "path": ".trellis/spec/backend/patch-rollup-contracts.md",
+      "required": "Full-chain verification MUST",
+      "matched_source_rows": [
+        "*45:- Full-chain verification MUST consume the exact file/root/order sequence parsed from `apply.sh`; a second hand-maintained active list is not an oracle."
+      ],
+      "passed": true,
+      "raw_tool_output": {
+        "text": "[.trellis/spec/backend/patch-rollup-contracts.md#D845]\n 44:- Finalized old patches MUST remain byte-identical in a retired directory with pinned hashes.\n*45:- Full-chain verification MUST consume the exact file/root/order sequence parsed from `apply.sh`; a second hand-maintained active list is not an oracle.\n 46:- Runtime source bytes MUST remain unchanged when switching from the old effective chain to the rollup chain. This equivalence is discharged per family on the family-generation baseline (old member chain vs rollup, byte-compared) — no single baseline can host both the retired member shapes and the current chain, so a whole-chain old-vs-new oracle is not required and MUST NOT be faked by pointing both sides at the same resolved plan.\n 47:- Identical OLDCHAIN/resolved plans MUST be materialized only once. A NOTE is not\n 48:  equivalence evidence. When representations differ, OLDCHAIN must name retained",
+        "details": {
+          "scopePath": ".trellis/spec/backend/patch-rollup-contracts.md",
+          "searchPath": "/home/chris/orca/projects/omp-move/.trellis/spec/backend/patch-rollup-contracts.md",
+          "cwd": "/home/chris/orca/projects/omp-move",
+          "matchCount": 1,
+          "fileCount": 1,
+          "files": [
+            ".trellis/spec/backend/patch-rollup-contracts.md"
+          ],
+          "fileMatches": [
+            {
+              "path": ".trellis/spec/backend/patch-rollup-contracts.md",
+              "count": 1
+            }
+          ],
+          "truncated": false,
+          "displayContent": " 44│- Finalized old patches MUST remain byte-identical in a retired directory with pinned hashes.\n*45│- Full-chain verification MUST consume the exact file/root/order sequence parsed from `apply.sh`; a second hand-maintained active list is not an oracle.\n 46│- Runtime source bytes MUST remain unchanged when switching from the old effective chain to the rollup chain. This equivalence is discharged per family on the family-generation baseline (old member chain vs rollup, byte-compared) — no single baseline can host both the retired member shapes and the current chain, so a whole-chain old-vs-new oracle is not required and MUST NOT be faked by pointing both sides at the same resolved plan.\n 47│- Identical OLDCHAIN/resolved plans MUST be materialized only once. A NOTE is not\n 48│  equivalence evidence. When representations differ, OLDCHAIN must name retained"
+        }
+      }
+    },
+    {
+      "path": ".trellis/spec/backend/verification-gate-contracts.md",
+      "required": "Gate loading MUST fail closed",
+      "matched_source_rows": [
+        "*43:- Gate loading MUST fail closed. A module that cannot be imported MUST abort"
+      ],
+      "passed": true,
+      "raw_tool_output": {
+        "text": "[.trellis/spec/backend/verification-gate-contracts.md#252B]\n 42:  variants silently validate only the live tree.\n*43:- Gate loading MUST fail closed. A module that cannot be imported MUST abort\n 44:  the gate, never fall through to a passing run.\n 45:- First-use UI failures require invocation, not an import graph or a successful\n 46:  controller import. For 18.2.10 patch 0072, load the controller, install",
+        "details": {
+          "scopePath": ".trellis/spec/backend/verification-gate-contracts.md",
+          "searchPath": "/home/chris/orca/projects/omp-move/.trellis/spec/backend/verification-gate-contracts.md",
+          "cwd": "/home/chris/orca/projects/omp-move",
+          "matchCount": 1,
+          "fileCount": 1,
+          "files": [
+            ".trellis/spec/backend/verification-gate-contracts.md"
+          ],
+          "fileMatches": [
+            {
+              "path": ".trellis/spec/backend/verification-gate-contracts.md",
+              "count": 1
+            }
+          ],
+          "truncated": false,
+          "displayContent": " 42│  variants silently validate only the live tree.\n*43│- Gate loading MUST fail closed. A module that cannot be imported MUST abort\n 44│  the gate, never fall through to a passing run.\n 45│- First-use UI failures require invocation, not an import graph or a successful\n 46│  controller import. For 18.2.10 patch 0072, load the controller, install"
+        }
+      }
+    }
+  ]
+}

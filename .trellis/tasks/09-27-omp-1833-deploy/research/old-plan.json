@@ -1,0 +1,284 @@
+[
+  {
+    "order": 1,
+    "id": "0033",
+    "root": "TUI",
+    "patch": ".18.2.10-candidates/0033-omp-cache-turn-status-rollup-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 2,
+    "id": "0004",
+    "root": "TUI",
+    "patch": ".18.2.10-candidates/0004-omp-token-total-cacheread-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 3,
+    "id": "0034",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0034-omp-hindsight-snapshot-rollup-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 4,
+    "id": "0037",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0037-omp-usage-statusline-gate-rollup-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 5,
+    "id": "0010",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0010-omp-extension-idle-ephemeral-turn-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 6,
+    "id": "0035",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0035-omp-compaction-prefix-rollup-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 7,
+    "id": "0014",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0014-omp-antigravity-deterministic-session-identity-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 8,
+    "id": "0036",
+    "root": "NM",
+    "patch": "0036-omp-image-frame-budget-rollup.patch"
+  },
+  {
+    "order": 9,
+    "id": "0017",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0017-omp-openai-responses-native-replay-warm-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 10,
+    "id": "0025",
+    "root": "AI",
+    "patch": "0025-omp-ollama-cloud-usage-api.patch"
+  },
+  {
+    "order": 11,
+    "id": "0026",
+    "root": "AI",
+    "patch": "0026-omp-usage-fetch-anthropic-gate-core.patch"
+  },
+  {
+    "order": 12,
+    "id": "0030",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0030-omp-usage-cache-canonical-baseurl-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 13,
+    "id": "0031",
+    "root": "AGENT",
+    "patch": "0031-omp-agent-session-providers-forward.patch"
+  },
+  {
+    "order": 14,
+    "id": "0032",
+    "root": "AGENT",
+    "patch": "0032-omp-goal-tool-resident.patch"
+  },
+  {
+    "order": 15,
+    "id": "0038",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 16,
+    "id": "0043",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0043-omp-interrupt-prune-symmetry-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 17,
+    "id": "0044",
+    "root": "NM",
+    "patch": "0044-omp-image-budget-wire-api-family.patch"
+  },
+  {
+    "order": 18,
+    "id": "0052",
+    "root": "NM",
+    "patch": "0052-omp-snapcompact-model-billing-commandcode-budget.patch"
+  },
+  {
+    "order": 19,
+    "id": "0057",
+    "root": "NM",
+    "patch": "0057-omp-devin-image-budget.patch"
+  },
+  {
+    "order": 20,
+    "id": "0045",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0045-omp-snapcompact-frame-reprice-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 21,
+    "id": "0046",
+    "root": "AGENT",
+    "patch": "0046-omp-supersede-warm-prefix-guard.patch"
+  },
+  {
+    "order": 22,
+    "id": "0048",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0048-omp-advisor-quota-rotation-bound-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 23,
+    "id": "0050",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0050-omp-session-history-preview-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 24,
+    "id": "0054",
+    "root": "AI",
+    "patch": "0054-omp-antigravity-drop-requesttype-agent.patch"
+  },
+  {
+    "order": 25,
+    "id": "0047",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0047-omp-date-cwd-anchor-stability-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 26,
+    "id": "0055",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0055-omp-devin-auth-cache-turn-timing-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 27,
+    "id": "0071",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0071-omp-devin-request-dump-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 28,
+    "id": "0056",
+    "root": "NM",
+    "patch": "0056-omp-devin-metadata-alignment.patch"
+  },
+  {
+    "order": 29,
+    "id": "0058",
+    "root": "AI",
+    "patch": "0058-omp-devin-thinking-signature-replay.patch"
+  },
+  {
+    "order": 30,
+    "id": "0060",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0060-omp-devin-idle-cascade-pin-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 31,
+    "id": "0062",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0062-omp-snapcompact-reduction-baseline-previous-archive-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 32,
+    "id": "0063",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0063-omp-codex-v2-compaction-live-chain-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 33,
+    "id": "0065",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 34,
+    "id": "0066",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0066-omp-anthropic-native-compaction-live-context-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 35,
+    "id": "0067",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0067-omp-remote-compaction-lane-trace-live-tools-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 36,
+    "id": "0068",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0068-omp-codex-stale-baseline-chain-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 37,
+    "id": "0069",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0069-omp-codex-effort-history-resume-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 38,
+    "id": "0070",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 39,
+    "id": "0072",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0072-omp-session-pin-static-auth-ui-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 40,
+    "id": "0073",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0073-omp-read-description-live-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 41,
+    "id": "0074",
+    "root": "AI",
+    "patch": ".18.2.10-candidates/0074-omp-anthropic-context-cache-boundaries-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 42,
+    "id": "0075",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0075-omp-hindsight-recall-promotion-slot-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 43,
+    "id": "0076",
+    "root": "NM",
+    "patch": ".18.2.10-candidates/0076-omp-eval-state-context-persist-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 44,
+    "id": "0077",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0077-omp-turn-recovery-reminder-persist-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 45,
+    "id": "0078",
+    "root": "AGENT",
+    "patch": ".18.2.10-candidates/0078-omp-python-display-mime-preference-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 46,
+    "id": "0079",
+    "root": "TUI",
+    "patch": ".18.2.10-candidates/0079-omp-kitty-conversion-finalization-v18.2.10-candidate.patch"
+  },
+  {
+    "order": 47,
+    "id": "0080",
+    "root": "TUI",
+    "patch": ".18.2.10-candidates/0080-omp-kitty-shared-png-cache-v18.2.10-candidate.patch"
+  }
+]

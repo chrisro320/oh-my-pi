@@ -1,0 +1,319 @@
+{
+  "owner": "Compaction",
+  "task": "09-27-omp-1833-deploy",
+  "workspace": "/tmp/omp-1833-upgrade-9gpapl1n/Compaction",
+  "pristine": "/tmp/omp-1833-upgrade-9gpapl1n/Compaction/nm (six packages, all 18.3.3: pi-agent-core, pi-ai, pi-catalog, pi-coding-agent, pi-tui, snapcompact)",
+  "installed_at": "patches/.18.3.3-candidates/",
+  "candidates": [
+    {
+      "id": "0035",
+      "order": 6,
+      "root": "NM",
+      "path": "patches/.18.3.3-candidates/0035-omp-compaction-prefix-rollup-v18.3.3-candidate.patch",
+      "sha256": "635a0f73aff2c09f8d5a0610853a86a1e8cb9e9d8b4b5bab9bea13636bedd9d9",
+      "touched_files": [
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+        "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/session-advisors.ts",
+        "pi-coding-agent/src/session/session-maintenance.ts",
+        "pi-coding-agent/src/session/session-provider-boundary.ts"
+      ],
+      "behaviour_preserved": [
+        "Introduces CachePreservingSummaryScope ('history'|'turn-prefix'), CachePreservingSummaryContext, SummaryOptions.buildCachePreservingContext and the two history/turn-prefix host builders; 18.3.3 had no such machinery.",
+        "prepareCompaction gains historyPrefixEntryId/turnPrefixEntryId, indexed off compactionEntries (not pathEntries) so the 18.1.18-and-later boundary rewind keeps the correct leaf.",
+        "traceCompaction (gated on OMP_COMPACTION_TRACE, on by default) and traceSummaryWirePayload are unchanged in bytes, including the two em-dash comment lines Codex 0068 deletes.",
+        "Structured-context summarization path (windowMessages + cachePreservingSummary + toolChoice:'none' + the shouldRetryHandoffWithAutoToolChoice retry), the update-from-prefix prompts, the <summary>-shaped short summary, and historyTargetMessages = messagesToSummarize.",
+        "Two new prompt assets are file creations (@@ -0,0 +1,N @@)."
+      ]
+    },
+    {
+      "id": "0036",
+      "order": 8,
+      "root": "NM",
+      "path": "patches/.18.3.3-candidates/0036-omp-image-frame-budget-rollup-v18.3.3-candidate.patch",
+      "sha256": "ad0b570acb7dc7f4bbb3c04af576684d353d571592cbe4045a370433ac404af9",
+      "touched_files": [
+        "pi-coding-agent/src/session/provider-image-budget.ts",
+        "pi-coding-agent/src/session/session-maintenance.ts",
+        "pi-coding-agent/src/session/snapcompact-inline.ts",
+        "snapcompact/src/snapcompact.ts"
+      ],
+      "behaviour_preserved": [
+        "Provider/API image-count budgets and glyph-ink frame sizing (8k warm-suffix not treated as prefix-safe), the oldest-first eviction policy and the per-frame token estimate used by the reduction gate.",
+        "Values are byte-identical to the 18.2.10 candidate set; nothing re-invented."
+      ]
+    },
+    {
+      "id": "0044",
+      "order": 17,
+      "root": "NM",
+      "path": "patches/.18.3.3-candidates/0044-omp-image-budget-wire-api-family-v18.3.3-candidate.patch",
+      "sha256": "e59fae270b3d9e199c65ae5ce13f9946f6841476fbb97fb660a45773055f7fea",
+      "touched_files": [
+        "snapcompact/src/snapcompact.ts"
+      ],
+      "behaviour_preserved": [
+        "PROVIDER_IMAGE_BUDGETS keyed by wire api family (anthropic-messages 90, bedrock-converse-stream 90, openai-responses/openai-codex-responses/azure-openai-responses/google-generative-ai 200) so custom gateway providers inherit their upstream cap instead of the floor of 5."
+      ]
+    },
+    {
+      "id": "0052",
+      "order": 18,
+      "root": "NM",
+      "path": "patches/.18.3.3-candidates/0052-omp-snapcompact-model-billing-commandcode-budget-v18.3.3-candidate.patch",
+      "sha256": "6d3a21b082554dd0fb94ded3d0e9c2c222c7d5b7983a5421e408ab3e863c5259",
+      "touched_files": [
+        "snapcompact/src/snapcompact.ts"
+      ],
+      "behaviour_preserved": [
+        "Measured per-model frame prices (exact-id keyed, never shared-prefix), the commandcode namespace budget and the reduction projection that consumes the same frameTokenEstimate."
+      ]
+    },
+    {
+      "id": "0057",
+      "order": 19,
+      "root": "NM",
+      "path": "patches/.18.3.3-candidates/0057-omp-devin-image-budget-v18.3.3-candidate.patch",
+      "sha256": "58d8b9f62fb011480b3510ebb6d5c22d162c0bd45456e792d365921be0ec099b",
+      "touched_files": [
+        "snapcompact/src/snapcompact.ts"
+      ],
+      "behaviour_preserved": [
+        "devin / devin-agent provider ids get the 200-image cap (3-line addition on top of 0044's table)."
+      ]
+    },
+    {
+      "id": "0045",
+      "order": 20,
+      "root": "AGENT",
+      "path": "patches/.18.3.3-candidates/0045-omp-snapcompact-frame-reprice-v18.3.3-candidate.patch",
+      "sha256": "4b251534a1fbf845a997d3720003b03bf1f0484a90519b9a70985f70ef2a1fda",
+      "touched_files": [
+        "src/session/session-maintenance.ts"
+      ],
+      "behaviour_preserved": [
+        "Shape-aware frame reprice in the snapcompact projection (net effect: more frames still gets rejected)."
+      ]
+    },
+    {
+      "id": "0046",
+      "order": 21,
+      "root": "AGENT",
+      "path": "patches/.18.3.3-candidates/0046-omp-supersede-warm-prefix-guard-v18.3.3-candidate.patch",
+      "sha256": "3749721f366a37e63a1279175c544ba70473a917978fe5b2f0be10ffee9b2685",
+      "touched_files": [
+        "src/session/session-maintenance.ts"
+      ],
+      "behaviour_preserved": [
+        "suffixTokenLimit: 0 for every model (not just prefix-bound ones) so a supersede rewrite defers to the idle flush where the cache is already cold; the dropUseless pass keeps its immediate-blank behaviour at zero prefix cost."
+      ]
+    },
+    {
+      "id": "0062",
+      "order": 31,
+      "root": "AGENT",
+      "path": "patches/.18.3.3-candidates/0062-omp-snapcompact-reduction-baseline-previous-archive-v18.3.3-candidate.patch",
+      "sha256": "31b840d8b899a84a906408239d6481a6ff7442dfd37983d71bfe444dcf7b93ca",
+      "touched_files": [
+        "src/session/session-maintenance.ts"
+      ],
+      "behaviour_preserved": [
+        "Previous snapcompact archive is folded into the reduction baseline with the caller's frameTokenEstimate, so a re-summarized archive is not double-counted."
+      ]
+    },
+    {
+      "id": "0065",
+      "order": 33,
+      "root": "NM",
+      "path": "patches/.18.3.3-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.3.3-candidate.patch",
+      "sha256": "b776c13e375e64f2ac375ef86cfd654b21c49528995ecbbb2f734d215721ae72",
+      "touched_files": [
+        "pi-catalog/src/compat/rules/providers/commandcode.kdl",
+        "pi-catalog/src/compat/rules.json"
+      ],
+      "behaviour_preserved": [
+        "deepseek/deepseek-v4.1-flash pins supports-strict-mode #true and supports-multiple-system-messages #false inside its own KDL block, matching the pi-commandcode-provider registrant so resumes stop reshaping the request head.",
+        "rules.json is code-generated from the adapted KDL, not overwritten with old JSON: exactly one cascade rule gains the two wire axes (rule index 254, source providers/commandcode.kdl:64) and the 66 commandcode.kdl source refs after the insertion shift by +9. Every other rule, and all of auth/behavior/cascade/taxonomy/files/providers, is byte-identical to pristine 18.3.3."
+      ]
+    },
+    {
+      "id": "0066",
+      "order": 34,
+      "root": "NM",
+      "path": "patches/.18.3.3-candidates/0066-omp-anthropic-native-compaction-live-context-v18.3.3-candidate.patch",
+      "sha256": "89defa8b98b6730011ba875b2ee9bd53564a0d816e7e05945086c6d88093b5cf",
+      "touched_files": [
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-coding-agent/src/session/session-maintenance.ts",
+        "pi-coding-agent/src/session/session-advisors.ts"
+      ],
+      "behaviour_preserved": [
+        "Adds the 'live' scope to CachePreservingSummaryScope.",
+        "Native Anthropic lane: upstream 18.3.3 cut (originalCut -> findAnthropicCompactionCut -> safeCut -> nativeFirstKeptEntryId -> allMessages.slice(0, safeCut)) is retained untouched.",
+        "The host live context is used for system/tools and for the summarized prefix only: the host rendering is truncated by exactly the retained-tail length, so a tail-bearing request is a strict live prefix and the whole history is never substituted.",
+        "Fallback (no live context, or tail longer than the host rendering) is the previous hand-built [previousSummaryMessage?, ...allMessages.slice(0, safeCut)] list, and system falls back to summaryOptions.remoteSystemPrompt ?? [].",
+        "session-maintenance live scope replays agent.state.messages.slice() (host-only injections survive); session-advisors live scope rebinds the prefix leaf to the path leaf and keeps buildSessionContext."
+      ]
+    },
+    {
+      "id": "0067",
+      "order": 35,
+      "root": "NM",
+      "path": "patches/.18.3.3-candidates/0067-omp-remote-compaction-lane-trace-live-tools-v18.3.3-candidate.patch",
+      "sha256": "2760abe756257032dbc9cc02e259059bd24e50d3d788cc214d81fb7f73dc4c69",
+      "touched_files": [
+        "pi-agent-core/src/compaction/compaction.ts"
+      ],
+      "behaviour_preserved": [
+        "Three lanes stay distinct in the trace: codex-v2, openai-v1, anthropic-native, each with summarize.request and summarize.usage (success + stopReason:'error').",
+        "codex-v2: liveV2 supplies remoteSystemPrompt and remoteTools (both the buildTransformedCodexRequestBody body and the convertTools fallback), byte-identical to the 18.2.10 candidate's expressions.",
+        "anthropic-native: nativeSystemPrompt/nativeTools hoisted from 0066's liveContext and reused in the request; request row carries hasLiveContext and tools count.",
+        "The three codex-v2 trace rows are byte-identical (keys, order, expressions) to the 18.2.10 candidate so Codex 0068/0070's injections stay anchored."
+      ]
+    }
+  ],
+  "generation_method": {
+    "prerequisite_state": "Gated cumulative replay of the 47-entry 18.2.10 plan onto pristine 18.3.3: every non-owned layer is dry-run gated and applied only if the dry run is clean, so no layer is ever half-applied and no .orig/.rej exists at any capture point. Each owned candidate is the real before/after diff of its touched files at its own position in that replay.",
+    "layers_skipped_as_prerequisites": [
+      "0010",
+      "0026",
+      "0030",
+      "0031",
+      "0043",
+      "0050",
+      "0047",
+      "0060",
+      "0068",
+      "0070",
+      "0072",
+      "0073",
+      "0075"
+    ],
+    "skip_consequence": "A skipped prerequisite contributes nothing to my before-state. If the adapted form of one of those layers rewrites lines inside one of my hunks' 3-line context, Main must reanchor; same-file dependencies among my own IDs are already cumulative (0036->0044->0052->0057 share snapcompact.ts; 0035->0036->0045->0046->0062 share session-maintenance.ts; 0035->0066->0067 share compaction.ts).",
+    "0065_codegen": "scripts/compat-compiler (referenced by src/compat/rules.d.json.ts) is NOT shipped in the published pi-catalog tarball, so the two observable compiler effects are emitted by an equivalent generator (scratch/gen65.py, modelled on the documented 18.2.3 round ~/.omp-scratch-cache1823/g65/gen.py): it asserts pristine rules.json round-trips byte-identically through json.dumps(separators=(',',':'), ensure_ascii=False), inserts the axes on the model rule, shifts the following source refs, and asserts every emitted commandcode.kdl source line still lands on a non-comment directive. Key order on the emitted rule matches the 18.2.10 candidate byte-for-byte. If a real compiler becomes available, re-running it should reproduce this file; that is the one generation step Main may want to re-derive independently.",
+    "determinism": "Two full regeneration runs produced byte-identical candidates (hashes above match patches/.18.3.3-candidates copies)."
+  },
+  "dependencies": {
+    "0066_before_0067": "0067 references the liveContext/type-union text introduced by 0066 (plan order 34 < 35). 0067 without 0066 fails closed at hunk 13.",
+    "0035_first": "0035 introduces buildCachePreservingContext/traceCompaction, which 0066 and 0067 build on.",
+    "0068_0070_absent": "verify-compaction-lane-trace.ts line ~302 asserts a *final* k:'summarize.attempt' row, which is produced by 0068/0070 (Codex owner), not by 0067. On a tree without them that assertion is unsatisfiable; it is not a 0067 defect.",
+    "codex_anchor_confirmations": "Confirmed to Codex1833 with evidence: my 0035 candidate contains zero 'responsesLite' lines (the responsesLite:false pin belongs to 0063, verified in 0063-omp-codex-v2-compaction-live-chain.patch); 0035 preserves the em-dash bytes of the two traceCompaction comment lines 0068 deletes; my three codex-v2 trace rows are byte-identical to 18.2.10."
+  },
+  "gate_changes_main_needs": [
+    {
+      "gate": "patches/verify-anthropic-native-compaction-live-context.ts",
+      "why": "Its fixture is 18.2.10-shaped in two ways that are unsatisfiable on 18.3.3.",
+      "change_1_fixture_wiring": "nativeCompactionResponse's providerPayload must add signature (18.3.3 requestAnthropicNativeCompaction requires payload.signature; 18.2.10 accepted content alone). Without it the gate aborts before any assertion with NativeCompactionError: 'Anthropic compaction returned no signed summary'.",
+      "change_2_assertion": "GATE 2's message claim must become the cut-aware one; the current deepEqual(request.context.messages, liveContext.messages) is unsatisfiable on 18.3.3 because upstream sends only the safeCut prefix and replays the tail. Measured on the gate's own fixture (keepRecentTokens:1): messagesToSummarize=2, turnPrefixMessages=1, recentMessages=1, recentEntryIds=['recent-assistant'], firstKeptEntryId='recent-assistant', originalCut=3, findAnthropicCompactionCut=3 => safeCut=3, retained tail=1, live=4 => request=3. Suggested replacement (assert the invariant structurally, then the negative control):\n  const retainedTail = preparation.recentMessages;\n  assert.deepEqual(request.context.messages, liveContext.messages.slice(0, liveContext.messages.length - retainedTail.length), 'native request must carry the live prefix bytes minus the retained tail');\n  assert.notDeepEqual(request.context.messages, liveContext.messages, 'native lane must never substitute the entire live history when a tail is retained');",
+      "change_3_assertion": "GATE 2's pauseAfterCompaction assertion is unsatisfiable on 18.3.3: pi-ai 18.3.3's AnthropicCompactionRequest is { instructions?: string } (triggerInputTokens and pauseAfterCompaction were both removed with the legacy threshold path; buildAnthropicCompactionReplayEdit is replay-only). Replace with a request-shape assertion, e.g. assert typeof options.anthropicCompaction.instructions === 'string' && instructions.length > 0, and assert pauseAfterCompaction/triggerInputTokens are undefined.",
+      "unchanged": "GATE 1 (live scope requested once), GATE 3 (summary persisted), GATE 4 (fallback keeps remoteSystemPrompt + raw tools) and GATE 5 (source-text regex on the agent.state.messages.slice() live branch) all pass unchanged; the GATE 5 regex matches the candidate text exactly."
+    },
+    {
+      "gate": "patches/verify-compaction-lane-trace.ts",
+      "why": "Same 18.2.10 fixture shape for the native lane, plus one assertion whose producer is a different patch family.",
+      "current_repo_state": "Main has already added '18.3.3' to the version whitelist (git diff: the only change in this file). Re-run on my patched tree today: the gate aborts at GATE C with NativeCompactionError: 'Anthropic compaction returned no signed summary' (line ~343 region), and a probe that stops before that reaches GATE B's summarize.attempt assertion at line 302.",
+      "change_1_fixture_wiring": "GATE C's completeImpl providerPayload must add signature (same 18.3.3 requirement as above); without it the gate aborts at NativeCompactionError before any native-lane assertion runs.",
+      "change_2_version_branch": "GATE B's k:'summarize.attempt' && final:true assertion is owned by 0068/0070. Keep it when those entries are in the 18.3.3 plan (they are); if a probe runs on a sub-chain without them it must branch on their presence rather than SKIP the whole script. With that one condition relaxed and the GATE C signature added, the whole gate passes on my candidates.",
+      "unchanged": "GATE A (codex-v2 live intent-injected tools, live instructions, hasLiveContext, tools:1, usage.cachedInputTokens 900) and GATE C (anthropic-native hasLiveContext + tools + verbatim usage) pass against my candidates with only the two fixes above."
+    },
+    {
+      "gate": "patches/verify-commandcode-model-record-parity.ts",
+      "why": "No change needed for 18.3.3 in the assertions themselves.",
+      "detail": "Its rules.json selection already coalesces every matching cascade rule, which is what the 18.3.3 compiler emits (the model appears in 5 rules). Sections 1-4 (KDL directives, coalesced wire axes supportsStrictMode/supportsMultipleSystemMessages/stripImageInput, catalog inputModalities, cost patch, per-rule source provenance landing on real directives, resolved policy via resolveModelPolicy, sibling negative control) pass on the patched tree and fail on a pristine pi-catalog. Main has since rewritten section 5 into a real plugin registration fixture (git diff, +56 lines); on my sandbox that leg aborts with ResolveMessage: Cannot find module '@earendil-works/pi-ai' from vendor/pi-commandcode-provider/index.ts, i.e. a missing-dependency load failure in the vendored checkout, not a parity finding.",
+      "gate_loading_note": "For the deployed ledger (no sibling vendor/) OMP_PATCH_VERIFY_PLUGIN_ROOT must point at the authoritative checkout, or section 5 is a no-op by design. The vendored checkout also needs @earendil-works/pi-ai resolvable for section 5 to run at all."
+    }
+  ],
+  "verification": {
+    "commands": [
+      "bash scratch/regen_all.sh  # gated cumulative replay + candidate emission",
+      "bash scratch/verify_all.sh  # per-ID dry-run + real apply + byte compare vs captured after-state + junk scan",
+      "bash scratch/reverse_all.sh  # second forward apply must fail; -R restores the captured before-state",
+      "bash scratch/mkft.sh / mkvariant.sh  # fault tree: six packages from the replay tree, other deps reused from Main's Integration tree, resolution anchored in the tree",
+      "OMP_PATCH_VERIFY_NM=<FT> ... bun probe-anlc.ts   # adapted 0066 gate",
+      "OMP_PATCH_VERIFY_NM=<FT> ... bun probe-lane.ts   # adapted 0067 gate",
+      "OMP_PATCH_VERIFY_NM=<FT> OMP_PATCH_VERIFY_CATALOG_ROOT=<FT>/pi-catalog bun probe-cc.ts  # 0065 gate sections 1-4"
+    ],
+    "results": [
+      "All 11 candidates: dry_rc=0 real_rc=0 byte_equal=1 junk=0 at their own plan position.",
+      "All 11: second forward apply exits 1 (already applied), reverse apply exits 0 and restores every touched file byte-for-byte (including removing the two files 0035 creates), junk=0.",
+      "bun build --no-bundle --target=node parses all three edited TypeScript files (rc=0) - a parse check only; type/build validation is Main's.",
+      "0066 gate (adapted): PASS anthropic native compaction live context: scopes=live messages=3 tools=1.",
+      "0067 gate (adapted): PASS compaction lane trace: codex-v2 live tools + trace, openai-v1 trace, anthropic-native trace.",
+      "0065 gate sections 1-4: PASS verify-commandcode-model-record-parity."
+    ],
+    "negative_controls": [
+      "0066: making the native lane substitute the whole live list (drop the tail truncation) fails the new assertion 'native request must carry the live prefix bytes minus the retained tail'.",
+      "0067: putting raw agent tools back into both codex-v2 tool call sites fails 'V2 request tools must be the live (intent-injected) definitions, not raw agent tools'.",
+      "0067: deleting the openai-v1 summarize.request row fails 'openai-v1 lane must trace summarize.request'.",
+      "0065: pristine pi-catalog (0065 absent) fails 'KDL carries supports-strict-mode #true'."
+    ],
+    "audit_strings": {
+      "Pristine input MUST": "present (patch-rollup-contracts.md:33)",
+      "Full-chain verification MUST": "present (patch-rollup-contracts.md:45)",
+      "Gate loading MUST fail closed": "present (verification-gate-contracts.md:43)",
+      "resolver_gate_registration": "grep -nE '_omp_plan_has|18\\.2\\.10|EXPECTED_PLAN_18210|OMP_PATCH_VERIFY_TUI_ROOT' patches/apply.sh patches/verify-patch-family-rollups.sh -> 102 matches; Main's apply.sh already carries 29 '18.3.3' occurrences"
+    }
+  },
+  "declaration_closure": {
+    "why": "Public API additions must reach every shipped .d.ts (verification-gate-contracts §3). ReviewTransport1833 and Main's consumer proof both caught the gap; 0035 and 0066 now patch the declaration files too.",
+    "0035_adds": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts: CachePreservingSummaryScope, CachePreservingSummaryContext, SummaryOptions.buildCachePreservingContext, CompactionPreparation.historyPrefixEntryId/turnPrefixEntryId",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts: convertMessagesToLlmWithSource(messages, signal?): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }>",
+      "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts: the same member plus export declare function prefixCarriesCompactionSummary(messages) and sharesActivePromptCacheIdentity(candidate, activeModel)",
+      "pi-coding-agent/dist/types/session/session-maintenance.d.ts: both added host methods on the exported SessionMaintenanceHost interface - convertMessagesToLlm(messages, signal?): Promise<Message[]> and convertMessagesToLlmWithSource(messages, signal?): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }> (0035 adds both to src; the pristine d.ts carried neither)"
+    ],
+    "0036_adds": [
+      "snapcompact/dist/types/snapcompact.d.ts: export declare const FRAME_DATA_BYTES_PER_SHAPE: Record<ShapeVariantName, number>; export declare function shedFramesOverBudget(frames: Frame[]): Frame[]; maxFramesForDataBudget(maxFrameDataBytes?, shape?: Shape); providerImageBudget(provider, api?); providerFrameBudget(provider, api?)"
+    ],
+    "0066_adds": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts: the union widens to \"history\" | \"turn-prefix\" | \"live\""
+    ],
+    "audit": "Complete audit of all 11 candidates: only 0035, 0036 and 0066 add exported symbols, and each now reaches its shipped .d.ts. 0044/0052/0057/0045/0046/0062/0065/0067 add none (0044/0052 mention providerImageBudget/providerFrameBudget in comments only, no signature change).",
+    "verified": "0036 then 0035 (and 0035 alone) applied on pristine: rc=0; snapcompact.d.ts carries FRAME_DATA_BYTES_PER_SHAPE, shedFramesOverBudget, shape? and both api? signatures; session-maintenance.d.ts carries both host methods; no .orig/.rej."
+  },
+  "comment_normalization": {
+    "cause": "Main ASCII-normalized the added comment lines in the installed candidates (em dash -> --, ellipsis -> ...).",
+    "effect_i_fixed": "Because 0052/0057 hunks carry 0044's added comment lines as context, replaying the OLD owned patches no longer matched after normalization. All 11 candidates were regenerated through a replay whose owned layers carry the normalized text, so candidate-vs-candidate order is self-consistent again.",
+    "handoff_to_codex": "Codex 0068 deletes two traceCompaction comment lines from 0035 that now read '--' instead of an em dash; that deletion context needs their re-anchor.",
+    "final_hashes_sha256_prefix16": {
+      "0035": "3c51b78dbdf441e1",
+      "0036": "03940f49dc8388dd",
+      "0044": "768fef05adc6329a",
+      "0045": "4b251534a1fbf845",
+      "0046": "bfd99e42f1606b61",
+      "0052": "ff43a5e3641d810c",
+      "0057": "58d8b9f62fb01148",
+      "0062": "364fe223c9b2b1e1",
+      "0065": "b776c13e375e64f2",
+      "0066": "b999cf3758c40fc5",
+      "0067": "2760abe756257032"
+    },
+    "superseded_hashes_note": "The sha256 values listed per candidate in the `candidates` array above are the pre-normalization generation hashes; the final installed bytes carry the prefix-16 values in this block."
+  },
+  "artifacts": {
+    "generation": [
+      ".trellis/tasks/09-27-omp-1833-deploy/research/regen_all.sh (gated cumulative replay + candidate emission)",
+      ".trellis/tasks/09-27-omp-1833-deploy/research/gen65.py (0065 rules.json code generation; pristine path overridable as argv[3])",
+      ".trellis/tasks/09-27-omp-1833-deploy/research/apply66.py, apply67.py (the exact 0066/0067 edits, every anchor asserted single-match)",
+      ".trellis/tasks/09-27-omp-1833-deploy/research/verify_all.sh, reverse_all.sh (forward/idempotence/reverse + byte compare)",
+      ".trellis/tasks/09-27-omp-1833-deploy/research/mkft.sh, mkvariant.sh (fault trees anchored in the selected packages)"
+    ],
+    "adapted_gate_probes": [
+      ".trellis/tasks/09-27-omp-1833-deploy/research/probe-anlc.ts (0066 gate: signed fixture, cut-aware message assertion, 18.3.3 request-shape assertion)",
+      ".trellis/tasks/09-27-omp-1833-deploy/research/probe-lane.ts (0067 gate: signed native fixture, 0068/0070-dependent attempt assertion made conditional)",
+      ".trellis/tasks/09-27-omp-1833-deploy/research/probe-cc.ts (0065 gate sections 1-4, cross-registrant leg excluded)"
+    ],
+    "note": "regen_all.sh + verify_all.sh are self-contained: they invoke gen65.py for the rules.json artifact, so the pipeline reproduces the published candidates from the pristine tarballs alone. A final re-run reproduced all 11 files byte-identically (cmp silent)."
+  },
+  "boundaries": [
+    "No old baseline file, shared spec, shared gate, apply.sh or PATCHES.md was modified; only the 11 new files under patches/.18.3.3-candidates/ were written.",
+    "Non-ASCII in the candidates is limited to (a) pre-existing English em-dashes/ellipsis carried through from the old patches (0035, 0036, 0044, 0046, 0052, 0062) - kept byte-identical on purpose so Codex 0068's deletion lines match - and (b) upstream rules.json data in 0065 ('Zhipu Coding Plan (智谱)' plus two arrows and a middot), verified present in the pristine 18.3.3 file. No CJK was authored; no CJK appears in any other candidate.",
+    "The 0066 live-prefix truncation derives the retained-tail length with the same converter the fallback uses. If a host rendering maps one AgentMessage to a different number of LLM messages than the fallback converter does, the cut could land one message off; the guard (live length >= tail length) prevents underflow but not that off-by-N. A behavioural gate that pairs a host-only injected message with a retained tail would pin it; none exists today.",
+    "0066 drops the hand-built previousSummaryMessage whenever it substitutes the live prefix, which is correct only while the live conversation actually carries the prior summary (the builder's previousSummaryInPrefix flag stays false for the 'live' scope, as in the 18.2.10 candidate).",
+    "0067's trace-row line numbers in an integrated tree depend on every layer above it; the anchors I gave Codex1833 are the text, not the numbers.",
+    "No formatter, linter, project build or full test suite was run (per the work order); the gate runs above are scoped to the changed behaviour.",
+    "0065's rules.json was generated by the documented compiler emulation because scripts/compat-compiler is absent from the published tarball; everything else about that candidate is a literal byte diff of real files."
+  ]
+}

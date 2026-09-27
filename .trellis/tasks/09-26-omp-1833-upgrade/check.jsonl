@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "Cache-first isolated migration evidence contracts"}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "Cache-first isolated migration evidence contracts"}
+{"file": ".trellis/spec/guides/prompt-cache-diagnosis-guide.md", "reason": "Cache-first isolated migration evidence contracts"}
+{"file": ".trellis/tasks/09-26-omp-1833-upgrade/research/work-order.md", "reason": "Cache-first isolated migration evidence contracts"}

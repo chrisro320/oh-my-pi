@@ -1,0 +1,18 @@
+{
+  "scope": "isolated exact mobile xterm engine; no Android shell or orcaBridge",
+  "metrics": {
+    "terms": 1,
+    "disposed": 0,
+    "writeChars": 13012391,
+    "writeCalls": 267,
+    "maxWriteMs": 8.199999809265137,
+    "pendingWrites": 0,
+    "maxPendingWrites": 1
+  },
+  "remainingQueue": 0,
+  "lines": [
+    "IMAGE 40 - stationary, no repaint loop",
+    "IMAGE FIXTURE COMPLETE",
+    "chris@chris-1:~/orca/projects/orca-update-patch$ "
+  ]
+}

@@ -4,16 +4,16 @@
 > 標題刻意**不綁版本**：本文件同時記錄 base 18.0.9 鏈、歷史 18.1.5／18.1.10／18.1.14／18.1.18 遷移，以及當前部署。
 > 讀任何數字前先確認它屬於哪個口徑——見 §1。
 
-## 倉庫計畫與部署紀錄（2026-09-23）
+## 倉庫計畫與部署紀錄（2026-09-27）
 
 | 項目 | 值 |
 |---|---|
-| 當前部署 | `OMP_PATCH_VERSION=18.2.10`（未設則按 installed 版本自動路由） |
-| 當前 live APPLIED | **43 行**（42 補丁 + `bin/omp -> src/cli.ts`），0 unresolved；2026-09-23 fresh CLI／`--check`／本機 Ollama turn 均 exit 0 |
+| 當前部署 | `OMP_PATCH_VERSION=18.3.3`（未設則按 installed 版本自動路由） |
+| 當前 live APPLIED | **48 行**（47 補丁 + `bin/omp -> src/cli.ts`），0 unresolved；正式 source CLI 版本、主 cache footer 行為閘及 `--check` 通過 |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（42 層） |
-| 最近遷移 | 18.2.3 → 18.2.10 已正式部署，CLI 回報 `omp/18.2.10`；見 §5 |
-| 回歸套件 | **29 道 apply 閘門**，依計畫成員選擇；另有 `--verify-rollups` 四基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10） |
+| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（47 層） |
+| 最近遷移 | 18.2.10 → 18.3.3 已備份並原子部署，正式 CLI 回報 `omp/18.3.3`；47 項舊能力保留，0073 由上游接管 |
+| 回歸套件 | **36 道 TypeScript 行為閘門**及 spec shell 閘門；另有 `--verify-rollups` 五基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10／18.3.3） |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -35,10 +35,15 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.1.14 計畫（回退） | canonical 25 條 +候選置換 7 件 +鏈尾 0047、0063 | **27** |
 | 18.2.3 計畫（保留） | 0041 合入 0037；含後續 0072、0073、0074；不改本次遷移前的計畫列 | **39** |
 | 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化）；2026-09-24 新增 0078（Python display MIME 擇一）、0079（Kitty 非同步轉圖完成屏障）、0080（顯示端 PNG 快取與圖片指紋） | **47** |
+| 18.3.3 計畫 | 保留上述 47 項能力；0073 由上游動態 read getter 接管，追加 0081 主會話 cache footer；其餘同編號專版候選遷移 | **47** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
 `0055` 在 18.1.18 計畫與 18.2.3 實際源碼中存在，但舊 18.2.3 controller 漏登記；18.2.10 明確按 `0055 → 0071 → 0056/0058` 註冊。`0056`／`0058`／`0060`／`0062`／`0065`／`0066`／`0067`／`0068`／`0069`／`0070` 延續至 18.2.10；需要適配者由專版候選替換。新 UI roots：0004／0033 用 `TUI`，0037／0050 用跨套件 `NM`。
+
+18.3.3 遷移使用六個官方 pinned 套件，全部候選在 pristine 上以 `--fuzz=0` 重放。主要介面變更：typed settings／auth facade、Codex WebSocket `{send}` exchange、Anthropic signed summary 與 safeCut retained-tail、interrupt `requestControls` control-only 恢復。0073 不再套補丁，但 SDK 模型切換與跨程序恢復驗證保留。實際 plugin registration 使用新版 legacy loader，custom API 的 wire policy 在原生 adapter 邊界解析，不能直接把尚未解析的 `model.compat` 當成漂移。
+
+本輪證據：`.trellis/tasks/09-27-omp-1833-deploy/research/`。模型生命週期以 10 個程序、15 次離線請求、8 組 raw 前綴比較驗證；倉庫僅保存摘要。CLI smoke 執行真實 read 工具並回傳 `OMP_1833_SMOKE_OK`；不宣稱外部模型 HTTP 命中率。舊版補丁與回退計畫保持原樣。
 
 未設 `OMP_PATCH_VERSION` 時 apply.sh 讀 installed `pi-coding-agent` 版本**精確路由**到對應計畫（非就近 fallback）；安裝版不屬於存活計畫、或顯式值與安裝版不符，一律 exit 2。
 
@@ -745,6 +750,12 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - `tool-execution.ts`／`assistant-message.ts` 的插槽完成狀態和 async 回調都核對 SHA；assistant 回調還須核對目前 flight token。工具插槽以 `tool:${JSON.stringify(toolCallId)}:<index>` 和 native 插槽隔離，即使工具 ID 是 `native` 也不碰撞；重繪回呼例外另行記錄，不當成圖片解碼失敗。同格 A→B→A 讀取已完成的全域快取，不顯示舊圖；淘汰後允許重新轉圖。工具結果沿用 0079 的退休屏障；原圖與 WebP 模型輸入保持不變。Orca 不在此補丁範圍。
 - 閘門：`OMP_PATCH_VERIFY_TUI_ROOT=<root> bun patches/verify-kitty-shared-png-cache.ts` 驗證八張 2048² WebP Kitty graphics、resize／overlay 重繪、工具及 native/assistant 插槽 A→B→A、工具 ID=`native` 的碰撞負對照、晚到回呼、淘汰中的壞圖真實原因、原 Promise 身分、200 張位元組淘汰及 600 張條目上界；`apply.sh` 在 0079 後註冊此獨立層。
 
+### 0081 — footer cache 僅計主會話助理訊息（僅 18.3.3）
+
+- `SessionEntryIndex` 增量維護主助理 `input/cacheRead/cacheWrite`，`getMainCacheHitRate()` 以同一 `cacheRead / (input + cacheRead + cacheWrite)` 公式供 `cache_hit` 狀態欄顯示；`find` 等 `model_usage` 與 `task` 工具結果不稀釋比例，既有 `getUsageStatistics()`／token／費用／`/usage` 全部保留總量。畫廊的兩個會話替身同步提供新讀取方法；源碼與公開 `.d.ts` 同步。
+- **真實會話重算**：`01a0e18c-8de0-7000-bf1f-bbdad21ec183` 的 12 筆 `find` 輔助模型合計 `input=87,996`、`cacheRead=0`，舊 footer 為 `70.02%`，主助理為 `92.00%`；此為口徑修正，不能推論輔助服務端一定完全未命中。
+- **行為閘門**：`OMP_PATCH_VERIFY_NM=<isolated-root> bun patches/verify-main-cache-hit.ts` 在修復前因輔助模型稀釋而失敗，修復後主助理顯示 `90.00%`、總輸入仍含輔助模型，重載一致；18.3.3 完整 pristine 鏈重放、反剝與畫廊 cache 預覽另行驗證。需重啟 OMP 才會載入新源碼。
+
 ## 3. 已撤下的補丁
 
 ### 2026-09-15 0051 退役（`.retired/09-15-0051-upstream-adopted/`）
@@ -854,12 +865,16 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - `~/.omp/agent/extensions/context-persist-audit.ts`（镜像 `patches/context-persist-audit-extension.ts`，2026-09-23 三副本 `cmp` 逐字节一致；手动部署，未进 `apply.sh`）：在花钱之前抓出「只存在内存」的上下文消息
   - 根因类：0076 的 eval 提醒、`turn-recovery.ts` 的重试提醒都是只进 `agent.state.messages`、不写 session 档；live 进程照常发送，一旦从档重建（resume 或进程内 `buildDisplaySessionContext`），它就消失或挪位，下一笔请求从那一格起整段 miss。`cache-prefix-audit` 只能在 miss 已付费后从 wire 上看到
   - 做法：挂 `context` 事件，每次请求前用 `buildSessionContext(getEntries(), getLeafId())`（与 resume 同一函数）从档重建，两边都过 `convertToLlm`（去掉不上 wire 的 interrupted-thinking 等），逐则比 `role`/`content`/`toolCallId`
-  - 结论：`ok` / `diverged@i`（重建会在第 i 则分叉）/ `live-extra@i`（尾端有内存独有的非输入消息）/ `file-extra`（档有、内存没有的尾端）
+  - 结论：`ok` / `pending-commit@i`（尾端是 `message_end` 才落盘的 custom aside，见下）/ `diverged@i`（重建会在第 i 则分叉）/ `live-extra@i`（尾端有内存独有的非输入消息）/ `file-extra`（档有、内存没有的尾端）
   - 尾端只豁免**输入**：role 为 user／toolResult 的尾端记为 `pendingTail` 不报，因为最新 prompt／tool result 进 `context` 时还没 append 进 session entries（新会话首笔请求 entries 为 0，实际误报过 `live 1, file 0`）。其它 role（`turn-recovery.ts` 重试提醒是 `appendMessage({ role: "developer" })` 后立即 `scheduleAgentContinue`）在第一次带着它的请求就报 `live-extra`。残余盲区：内存独有且 role 为 user／toolResult 的尾端消息，要等后面有消息落档才以 `diverged` 报出
+  - **2026-09-23 新增 `pending-commit`（降噪，不动真警報）**：`async-result`（後台任務完成通知，`async-job-delivery.ts` 組裝後由 yield queue 注入）與 `image-attachment` / `video-attachment`（`agent-session.ts#createAttachmentSourceNotices`）是「先進 live context、`message_end` 才 `appendCustomMessageEntry`」的 custom aside。它們在 `context` 事件當下確實還不在 entries 裡，舊邏輯一律判 `live-extra` 並每輪彈 warning —— 而正常路徑下一拍就同序落盤、判決回 `ok`（實測 log：17 次非 ok、12 次隨即轉 ok）。現在尾端逐條往回投影候選 custom 訊息，只有**單條投影出的 wire 序列與 live wire 尾端逐條吻合**才記 `pending-commit`（image-bearing custom 會被 `convertImageBearingCustomMessage` 拆成 developer text + user image 兩條，因此必須整組比對，不能只認 index）；不吻合就退回舊 `live-extra`。`pending-commit` 只進日志、不發 UI warning —— 取捨是：commit 前崩潰仍會丟該訊息，只是不再當場可見，日志那行是唯一痕跡
   - 唯一豁免是 Trellis 每轮注入，且精确匹配：读 Trellis 自己落盘的锚点 `.trellis/.runtime/omp-anchors/omp_<sessionId>.json`（键 `role:timestamp:sha256(content)[0,16]`），两边都按 Trellis 同一规则展开后再严格比对（展开幂等，与扩展加载顺序无关）；user 消息上任何其它尾差都算漂移
   - 只观察：不改 context、不抛错；首次检查、每个新的非 ok 签名、回到 ok 时各记一行到 `~/.omp/agent/context-persist-audit.log`（JSONL，1 MiB 轮替），非 ok 另发 UI warning。日志**不存消息内容**（hook 跑在 provider 混淆之前），每侧只记 role、序列化长度、sha256 前 16 位
   - 已知盲区：secret 混淆（重建未反混淆）、snapcompact 懒加载帧（无 blob resolver）可能误报。Trellis 锚点档损坏时照常审计但不做 Trellis 豁免，日志带 `anchorError`
   - 闸门 `patches/verify-context-persist-audit.ts`（手动跑，未进 `apply.sh`）：真实 in-memory `SessionManager` + 同一 `buildSessionContext`；覆盖新会话首请求、tool 续跑尾端、重试提醒（与 `turn-recovery.ts` 同形）当笔报 `live-extra@1`、回复落档后 `diverged@1`、user 未知尾块、Trellis 精确／错误锚点、坏锚点档。以修正前版本（尾端全豁免）重跑 → 第 3 段 `AssertionError` 被抓（可 falsify）
+  - 闸门（2026-09-23 增补 3 段）：`async-result` aside 在筆请求報 `pending-commit@2` 且 `appendCustomMessageEntry` 落檔後回 `ok`；image-bearing custom aside 投影成 developer+user 兩條仍整組判 `pending-commit`（`liveCount = file+2`），customType 改為非 aside 類型則退回 `live-extra`；`ttsr-injection` 尾端仍為 `live-extra`。反向對照：把 `PENDING_COMMIT_CUSTOM_TYPES` 清空後重跑 → 第 7 段 `AssertionError` 被抓（可 falsify）
+  - 閘門（2026-09-23 二次增补，修掉截圖原型）：尾端比對從「只接受 raw custom」改成**允許 `user` / `toolResult` 作為同一未匹配尾端的前置項**——真實形狀是 `… 已落盤, user, async-result`（audit `pendingTail: 2`），舊寫法倒走到 user 就 bail，截圖那筆照樣彈 `live-extra`。新增回歸：`user + async-result`、`toolResult + async-result`、`image notice + user + async-result`（`pendingTail 3`）都判 `pending-commit`；`user + ttsr-injection` 仍 `live-extra`。兩個反向對照都可 falsify：清空 `PENDING_COMMIT_CUSTOM_TYPES` → 第 7 段斷言失敗；移除 user/toolResult 前置分支 → 7b 段斷言失敗
+  - 冒煙（已部署副本 + 真實會話檔 `01a0ce09`，183 則、16 個 Trellis 錨點）：baseline `ok`；`file+user+async-result`（＝截圖原型）→ `pending-commit@183 tail=2`；`file+async-result` → `pending-commit tail=1`；`file+user+img notice+async-result` → `pending-commit tail=3`；`file+developer reminder` → `live-extra@183`；`file+user+ttsr-injection` → `live-extra@184`。單次 2–3 ms
   - 冒烟（真实 loader + 本会话档副本，125 则、30 个 Trellis 锚点）：未展开 live 与真实 Trellis handler 展开后的 live 都 `ok`（`trellisInjected 7`，2.3 ms）；user 消息加未知尾块 → `diverged 102`；中段插入内存独有提醒 → `diverged 3`；少一则 → `file-extra 124`；相同签名不重复记录；日志无内容片段；Trellis 锚点档未被改动
 
 - ~~`~/.omp/agent/extensions/vision-warmup.ts`~~ **已於 2026-09-11 卸載**（源碼保留於 `patches/vision-warmup-extension.ts` 與 `~/.omp/patches/`，兩副本卸載前 `cmp` 逐字節一致，需要時原樣重部署）：Hyper 模型（qwen3.8-flash / glm-5.3-flash）視覺路由暖機
