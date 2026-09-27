@@ -1,0 +1,32 @@
+{
+  "id": "media-models-unified",
+  "name": "media-models-unified",
+  "title": "omp 媒體模型統一接入（圖片/TTS/影片/音樂）",
+  "description": "讓圖片、TTS、影片、音樂模型（即夢、ComfyUI、Qwen TTS、Suno/YuE）以統一方式接入 omp 的 kind 角色、可視化清單與工具",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-09-27",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-27-custom-image-provider-jimeng",
+    "09-27-media-gateway-local",
+    "09-27-video-role-tool",
+    "09-27-music-kind",
+    "09-27-media-tools-background"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
