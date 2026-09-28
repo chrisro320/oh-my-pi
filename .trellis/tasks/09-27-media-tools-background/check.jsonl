@@ -1,1 +1,9 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend index and project requirements"}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "Tail candidate generation, pristine replay, 18.3.3 plan contracts"}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "Root-selected discriminating gate and representation sync rules"}
+{"file": ".trellis/spec/backend/extension-runtime-contracts.md", "reason": "CustomToolContext / ExtensionContext / ExtensionRunner injection contracts"}
+{"file": ".trellis/tasks/09-27-media-tools-background/prd.md", "reason": "Task scope, acceptance and the 2026-09-28 research corrections"}
+{"file": ".trellis/tasks/09-27-media-tools-background/research/background-media-jobs-feasibility.md", "reason": "Evidence to re-check against the diff: injection points, queued semantics, delivery/display boundaries"}
+{"file": ".trellis/tasks/09-27-media-tools-background/design.md", "reason": "Claims to review: D1-D12 decisions, d.ts sync list, no-base64 and display-only invariants"}
+{"file": ".trellis/tasks/09-27-media-tools-background/implement.md", "reason": "Review gates, validation commands, machine checks and rollback to verify"}
+{"file": ".trellis/tasks/09-27-media-models-unified/prd.md", "reason": "Parent PRD: cross-cutting decisions the change must not contradict"}

@@ -1,6 +1,6 @@
 # 本地媒體轉接服務（media-gateway）
 
-父任務：`09-27-media-models-unified`。依賴：子任務 1（0082）讓 omp 能把自訂 `image` / `tts` 模型接進角色。
+父任務：`09-27-media-models-unified`。依賴：子任務 1（0083）讓 omp 能把自訂 `image` / `tts` 模型接進角色。
 
 ## Goal
 
@@ -12,15 +12,17 @@
 2. ComfyUI Qwen-Image：先下載 UNET、VAE、TE（qwen_2.5_vl_7b）、Lightning LoRA；workflow 轉 API 格式。
 3. 即夢影片：把同步呼叫包成 omp 影片傳輸要的「提交 → 輪詢 → 下載」。
 4. ComfyUI MiniMax H3：補 turbo LoRA 或改 workflow 不用 LoRA；輸出帶音軌 mp4。
-5. TTS：本機 Qwen3-TTS 1.7B（預設，Apache-2.0，約 4-8GB 顯存，獨立 Python 環境）＋雲端 Qwen-Audio-3.1-TTS Flash（阿里雲百炼 DashScope，約 0.45 元／萬字，需先申請 API key，使用者目前沒有此憑證）；兩者包成 `/audio/speech`，speech 順序本機優先、雲端備用。（`qwentts-3.1` 即 Qwen-Audio-3.1-TTS，2026-09-22 發布，只有託管 API、權重未開放；價格來源為公開新聞報導，接入前以百炼控制台為準。）
+5. TTS：本機 Qwen3-TTS 1.7B（預設，Apache-2.0，約 4-8GB 顯存，獨立 Python 環境）＋雲端 Gemini 3.8 Flash TTS（2026-09-28 取代百炼 Qwen-Audio-3.1-TTS）。兩者包成 `/audio/speech`；speech 順序 = 本機 → `gemini-3.8-flash-tts` → `xai-oauth/grok-tts`（omp 內建，不經本服務）。`gemini-3.8-flash-lite-tts` 只註冊進清單、不進備援鏈。
+   - Gemini 條件：需要 AI Studio 的 Gemini API key（使用者目前沒有；`google-antigravity` OAuth 的模型清單沒有 TTS，不能代用）。模型於 2026-09-23 發布（[Google 公告](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-8-text-to-speech)、[開發者指南](https://aistudio.google.com/learn/gemini-3-8-flash-tts-developer-guide)）。
+   - 轉換（設計階段以官方文件核實）：`/audio/speech` 的 `input` → `generateContent` 文字內容，`responseModalities: ["AUDIO"]`；`voice` → 預建聲音名稱；`instructions` → 風格提示；回傳的 PCM 包成 `wav`，要 `mp3` 時才轉碼。聲音設計、聲音複製不在本次範圍（需擴充 omp `tts` 工具參數）。
 
-影片兩項（3、4）的 omp 端驗收要等子任務 3 的 `generate_video`；在那之前以 HTTP 層驗收。
+影片兩項（3、4）的 omp 端驗收要等子任務 4（影片，P3）的 `generate_video`；在那之前以 HTTP 層驗收。（2026-09-28 編號更正）
 
 ## 資源調度（使用者已選）
 
-- 本機 GPU 任務（ComfyUI Qwen-Image、ComfyUI MiniMax H3、本機 Qwen3-TTS）共用一個全域互斥鎖，排隊執行；切換類別前先讓前一個後端釋放顯存。雲端後端（即夢、百炼）不受鎖影響。
+- 本機 GPU 任務（ComfyUI Qwen-Image、ComfyUI MiniMax H3、本機 Qwen3-TTS）共用一個全域互斥鎖，排隊執行；切換類別前先讓前一個後端釋放顯存。雲端後端（即夢、Gemini）不受鎖影響。
 - ComfyUI 與本機 TTS 由轉接服務按需啟動（只聽 127.0.0.1），閒置 10 分鐘後關閉並釋放顯存；閒置時間可在設定檔調整。使用者手動開啟的 ComfyUI 不由轉接服務關閉。
-- TTS 例外：omp 語音傳輸寫死 60 秒逾時（`pi-ai/src/speech/transport.ts:8`）。本機 TTS 請求若預估等待（GPU 被占用或需冷啟動）超過約 50 秒，直接回 HTTP 503，讓 omp 換雲端 Qwen-Audio-3.1-TTS Flash；圖片、影片仍排隊。
+- TTS 例外：omp 語音傳輸寫死 60 秒逾時（`pi-ai/src/speech/transport.ts:8`）。本機 TTS 請求若預估等待（GPU 被占用或需冷啟動）超過約 50 秒，直接回 HTTP 503，讓 omp 換雲端 Gemini 3.8 Flash TTS；圖片、影片仍排隊。
 
 ## ComfyUI 對應方式（使用者已選）
 
@@ -29,7 +31,7 @@
 
 ## 服務與輸出（使用者已選）
 
-- 監聽 `127.0.0.1:5200`（已確認未被占用），只接本機請求；以轉接服務自己的 token 驗證，token 存在 `~/.config/media-gateway/` 下，`models.yml` 用 `!cat` 讀取。即夢 sessionid、百炼 API key 只存在轉接服務設定裡，omp 拿不到上游憑證。
+- 監聽 `127.0.0.1:5200`（已確認未被占用），只接本機請求；以轉接服務自己的 token 驗證，token 存在 `~/.config/media-gateway/` 下，`models.yml` 用 `!cat` 讀取。即夢 sessionid、Gemini API key 只存在轉接服務設定裡，omp 拿不到上游憑證。
 - 所有輸出另存一份到 `~/.local/share/media-gateway/outputs/<日期>/`，附記錄檔（模型、提示詞、參數、耗時、上游狀態）；超過 7 天自動刪除。
 
 ## Confirmed decisions
@@ -46,7 +48,8 @@
 - **omp 圖片傳輸**（`pi-ai/src/images/openai-images.ts:25-43`、`shared.ts:179-193`）：送 `{model, prompt, n, response_format:"b64_json", size}`，`size` 只會是 `1024x1024`、`1024x1536`、`1536x1024`（由 aspect_ratio 推得）。
 - **omp 語音傳輸**（`pi-ai/src/speech/openai-speech.ts`）：`POST /audio/speech`，`{model, input, response_format: mp3|wav, voice?, speed?, instructions?}`，回音訊位元組。
 - **ComfyUI**：`/media/chris/Agents/LLM/ComfyUI` v0.35.0，`run_comfyui.sh`，歷史上 `--listen 0.0.0.0` 跑 8188，目前未啟動、無 systemd；workflow 全是 UI 格式；Qwen-Image 權重缺、Flux-2 Klein 可用；MiniMax H3 主權重齊、turbo LoRA 缺。
-- **TTS / 音樂**：本機沒有任何後端。
+- **TTS**：本機沒有任何後端。
+- **音樂**：本機 ComfyUI 已原生支援 ACE-Step 1.5（`comfy_extras/nodes_ace.py`），無權重；2026-09-28 定為音樂唯一後端，由子任務 5 在本服務加上封包（同 H3 做法：API 格式 workflow＋參數映射），v1 不含。
 
 ## Open decisions（逐項對齊中）
 
@@ -59,4 +62,20 @@
 ## Out of Scope（暫定）
 
 - omp 補丁（屬子任務 1、3、4）。
-- 音樂後端（屬子任務 4）。
+- 音樂後端的封包實作（屬子任務 5，但程式碼落在本服務）。
+
+## 2026-09-28 研究更正
+
+（只補正事實，不改原決策；已落實於 `design.md` D6.3／D6.6；H3 一項另有 `revalidate.sh` 第 34–36 項把關，Gemini 一項依約不做任何連線檢查）
+
+1. **Gemini 3.8 Flash TTS**：unary（未設 `stream`）回應**預設已是含 RIFF 標頭的 `audio/wav`（24 kHz、mono、16-bit LE）**，不需自行包 WAV 標頭；只有要 `mp3`（omp `tts` 的常態路徑）才需 `/usr/bin/ffmpeg` 轉碼。原述「回傳的 PCM 包成 `wav`，要 `mp3` 時才轉碼」不成立。
+2. **ComfyUI MiniMax H3**：`minimax_h3_latent_upscaler_3d_fp32.pth` **不在 `video_minimax_h3_t2v.json` 內**（該檔 grep `latent_upscal` 零命中）；引用它的是 `H3-放大/MMH3-UltimateUpscale.json`（`minimax_h3_latent_upscaler_3d_fp16.safetensors`）與 `H3-AutoDirector實驗/MiniMax H3 Auto Director.json`，且依賴外部節點 `bbaudio-2025/Comfyui-MMH3-UltimateUpscale`。故 v1 的 t2v 不需要 latent upscaler，其缺檔不構成前置阻斷（本機已裝該 custom node）。
+3. 其餘後端事實與決策不變。
+
+## 2026-09-28 範圍更正（ACE-Step 轉接器）
+
+（依獨立審查 F14；`design.md`／`implement.md` 已同步為 `G` 階段命名）
+
+- 前文「音樂…由子任務 5 在本服務加上封包…v1 不含」與「Out of Scope：音樂後端的封包實作（屬子任務 5，但程式碼落在本服務）」**改為**：ACE-Step 1.5 的轉接器是**本任務的正式交付項（gateway 階段 G7）**，由本任務擁有、實作與驗收；子任務 5（音樂補丁 P4）只負責 omp 端的 `kind: music`／角色／`generate_music` 工具與其端到端驗收，且其驗收**以 G7 完成為前置**。
+- 交付內容（詳見 `design.md` D6.8）：四個權重（`acestep_v1.5_turbo` ＋ `qwen_0.6b_ace15` ＋ `qwen_1.7b_ace15` ＋ `ace_1.5_vae`）、blueprint 的人工編輯（補 `SaveAudioAdvanced{format: flac}` 輸出節點、補 `LoadAudio → VAEEncodeAudio → ReferenceTimbreAudio` 參考音訊分支並設 `generate_audio_codes=false`）、兩個 API 格式 workflow variant、`config/models.yml` 的 `ace-step-1.5-turbo` 映射（`enabled` 於 G7 打開）。
+- 音樂仍共用影片 wire（`POST /v1/videos` ＋ 輪詢 ＋ `/content` 回 `audio/flac`），不新增傳輸。

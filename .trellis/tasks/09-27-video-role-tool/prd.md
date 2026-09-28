@@ -1,6 +1,6 @@
 # omp 影片角色與 `generate_video` 工具
 
-父任務：`09-27-media-models-unified`。依賴：子任務 1（0082 自訂 `kind`）、子任務 2（轉接服務提供即夢影片與 ComfyUI MiniMax H3 的影片接口）。
+父任務：`09-27-media-models-unified`。依賴：子任務 1（0083 自訂 `kind`）、子任務 2（媒體工具背景化，P2）、子任務 3（轉接服務 G0 wire＋取消、G2 即夢影片、G5 ComfyUI MiniMax H3）。（2026-09-28 編號更正）
 
 ## Goal
 
@@ -12,7 +12,7 @@ omp 可視化清單出現「影片生成」角色，可指派預設影片模型�
 - **沒有**影片角色：角色清單寫死在 `pi-tui/src/overlays/model-browser.ts:53-82`（`MODEL_ROLE_IDS`、`KIND_ROLE_IDS`），角色中繼資料在 `pi-coding-agent/src/config/model-roles.ts:55-89`。
 - **沒有**影片工具：`pi-coding-agent/src/tools/` 只有 `image-gen.ts`、`tts.ts`；工具以設定開關掛載（`sdk.ts:3216-3223`，例：`generate_image.enabled`、`speechgen.enabled` 定義於 `tools/settings.ts:548-571`）。
 - 內建角色預設順序在 `pi-coding-agent/src/priority.json`（image `:68-77`、speech `:109`）。
-- 0082 的 schema 只開放 `kind: chat | image | tts`；本任務要再開放 `kind: video` 與 `api: openrouter-video`。
+- 0083 的 schema 只開放 `kind: chat | image | tts`；本任務要再開放 `kind: video` 與 `api: openrouter-video`。
 
 ## 已對齊
 
@@ -24,6 +24,4 @@ omp 可視化清單出現「影片生成」角色，可指派預設影片模型�
 - 輸出：一律存到工作目錄下 `generated/video/<時間>-<模型>.<副檔名>`；AI 另給 `output_path` 時額外複製一份過去（規則與其他媒體工具一致，見 `09-27-media-tools-background`）。
 - 工具在背景執行（見 `09-27-media-tools-background`），不阻塞主線程與子代理。
 
-## 待對齊
-
-- 工具開關預設（`generate_video.enabled`）。
+- 工具開關：omp 內建預設維持關閉（與 `generate_image`、`speechgen` 一致）；本任務完成時在使用者 `config.yml` 開 `generate_video.enabled`（2026-09-28 使用者確認「後端就緒就開」）。

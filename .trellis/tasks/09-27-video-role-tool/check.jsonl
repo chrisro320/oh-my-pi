@@ -1,1 +1,6 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend index and project requirements"}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "Tail candidate generation, pristine replay, 18.3.3 plan contracts"}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "Root-selected discriminating gate and representation sync rules"}
+{"file": ".trellis/tasks/09-27-video-role-tool/research/video-role-tool-feasibility.md", "reason": "Verified 18.3.3 facts: openrouter-video wire, role edit points, background-registration interface"}
+{"file": ".trellis/tasks/09-27-video-role-tool/design.md", "reason": "D1-D8 decisions, shared media-job.ts API contract, revalidation anchors, open questions"}
+{"file": ".trellis/tasks/09-27-video-role-tool/implement.md", "reason": "Step 0 revalidation gate, red/green plan, deployment, rollback"}

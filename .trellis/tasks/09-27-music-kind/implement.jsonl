@@ -1,1 +1,6 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend index and project requirements"}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "Tail candidate generation, pristine replay, 18.3.3 plan contracts"}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "Root-selected discriminating gate and representation sync rules"}
+{"file": ".trellis/tasks/09-27-music-kind/research/music-kind-feasibility.md", "reason": "Verified 18.3.3 facts: MODEL_KINDS consumers, dist/types sync requirement, ACE-Step 1.5 nodes and weights"}
+{"file": ".trellis/tasks/09-27-music-kind/design.md", "reason": "D1-D9 decisions, shared media-job.ts API contract, revalidation anchors, open questions"}
+{"file": ".trellis/tasks/09-27-music-kind/implement.md", "reason": "Step 0 revalidation gate, red/green plan, deployment, rollback"}
