@@ -461,9 +461,9 @@ if (coreVersion === "18.4.4") {
 
 // ---------------------------------------------------------------------------
 // GATE C3 (0086): the narrowed native lane names its exclusions on the request
-// trace too, not only on the returned entry. A split turn and a chain that does
-// not carry the previous summary are both refused, and both refusals must be
-// readable from the trace alone.
+// trace too, not only on the returned entry. A whole-chain live request (split
+// turn included, since 0088) is readable from the trace alone, and a chain that
+// does not carry the previous summary names its refusal there as well.
 // ---------------------------------------------------------------------------
 if (coreVersion === "18.4.4") {
 	const claude: Model = getBundledModel("anthropic", "claude-opus-5");
@@ -514,18 +514,14 @@ if (coreVersion === "18.4.4") {
 			.filter(row => row.k === "summarize.request" && row.lane === "anthropic-native")
 			.at(-1);
 	};
+	// A split turn now rides the live lane (0088): its trace row must say so, and
+	// name no exclusion.
 	const splitRow = await runNativeTrace({}, true);
-	assert.equal(
-		splitRow?.liveChainFallback,
-		"native-split-turn",
-		"a split native turn must name its exclusion on the request trace",
-	);
-	assert.equal(splitRow?.usesLiveChainReplay, false, "a split native turn must not be traced as the live chain");
+	assert.equal(splitRow?.usesLiveChainReplay, true, "a split native turn must be traced as the live chain");
+	assert.equal(splitRow?.liveChainFallback, undefined, "a live split native turn names no fallback");
 	const priorRow = await runNativeTrace(
 		{
 			previousSummary: "PRIOR_TRACE_SENTINEL",
-			// The renamed reason is only reachable on a whole turn: a split turn is
-			// refused first, exactly as the local lane orders the two conditions.
 			firstKeptEntryId: "recent-user",
 			turnPrefixMessages: [],
 			isSplitTurn: false,

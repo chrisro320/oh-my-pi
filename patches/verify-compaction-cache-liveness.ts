@@ -576,6 +576,8 @@ interface StubCompaction {
 	summarizeRequests: Array<Record<string, unknown>>;
 	/** The reason the returned compaction entry recorded, if it returned one. */
 	cacheColdReason: string | undefined;
+	/** The summary text the returned compaction entry carries. */
+	summary: string;
 }
 
 /**
@@ -585,7 +587,7 @@ interface StubCompaction {
  * simulated cache stay with `captureCompaction` above.
  */
 async function captureCompactionStub(
-	history: Context,
+	history: Context | undefined,
 	live: Context | undefined,
 	options: {
 		previousSummary?: string;
@@ -602,6 +604,12 @@ async function captureCompactionStub(
 		isSplitTurn?: boolean;
 		/** Split-turn legs: the prefix of the split turn that follows the history. */
 		turnPrefixMessages?: FixtureMessage[];
+		/**
+		 * Turn-start legs (`turnStartIndex === 0`): the session has no cut prefix at
+		 * all, so the preparation carries no `historyPrefixEntryId` and the host
+		 * cannot vouch for a history scope. The live chain is then the ONLY prefix.
+		 */
+		absentHistoryPrefix?: boolean;
 		/**
 		 * Provider-overflow leg: make the FIRST summarize request fail with this
 		 * error, the way a provider rejects an over-long prompt, and accept every
@@ -626,7 +634,7 @@ async function captureCompactionStub(
 			recentMessages: options.recentMessages ?? messages.slice(BOUNDARY),
 			isSplitTurn: options.isSplitTurn ?? false,
 			firstKeptEntryId: `m${BOUNDARY}`,
-			historyPrefixEntryId: `m${BOUNDARY - 1}`,
+			historyPrefixEntryId: options.absentHistoryPrefix ? undefined : `m${BOUNDARY - 1}`,
 			turnPrefixEntryId: undefined,
 			tokensBefore: 100_000,
 			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: false },
@@ -641,13 +649,19 @@ async function captureCompactionStub(
 			tools: TOOLS as never,
 			buildCachePreservingContext: async scope => {
 				options.scopes?.push(scope);
-				return scope === "turn-prefix" || (scope === "live" && live === undefined)
-					? undefined
-					: {
-							context: scope === "live" ? live! : history,
+				const vouches =
+					scope === "live"
+						? live !== undefined
+						: scope === "history"
+							? history !== undefined && options.absentHistoryPrefix !== true
+							: false;
+				return vouches
+					? {
+							context: (scope === "live" ? live! : history!),
 							previousSummaryInPrefix:
 								options.previousSummary !== undefined && options.carrySummaryInChain === true,
-						};
+						}
+					: undefined;
 			},
 			onCacheFallback: options.onCacheFallback,
 			completeImpl: async (requestModel, context) => {
@@ -675,6 +689,7 @@ async function captureCompactionStub(
 		messages: captured ?? [],
 		summarizeRequests: summarizeRequestsSince(traceBefore),
 		cacheColdReason: result.details?.cacheColdReason,
+		summary: result.summary,
 	};
 }
 
@@ -1040,12 +1055,11 @@ try {
 		"the pre-0086 fallback is the cut prefix plus one instruction",
 	);
 
-	// Leg 3d: a split turn never rides the live chain. The live shape is ONE
-	// whole-conversation request, while a split compaction issues a history
-	// request and a turn-prefix request whose summaries are joined -- the second
-	// one would summarize the same range again. Both halves of the fixture
-	// (history present, history empty) must ship the pre-0086 shapes and name the
-	// exclusion through the callback, the entry, the warning and the trace.
+	// Leg 3d: a split turn rides the live chain, exactly once. The live shape is
+	// ONE whole-conversation request and the chain is cut-point independent, so
+	// that single request already covers the turn prefix the pre-0088 code
+	// summarized again in a second leg -- the second leg is dropped, and its single
+	// text IS the summary (no `**Turn Context (split turn):**` merge).
 	const splitScopes: string[] = [];
 	const splitRequests: FixtureMessage[][] = [];
 	const splitFallbacks: string[] = [];
@@ -1057,75 +1071,406 @@ try {
 		scopes: splitScopes,
 		onCacheFallback: reason => splitFallbacks.push(reason),
 	});
+	assert.deepEqual(splitFallbacks, [], "an attested live chain on a split turn is not a fallback");
+	assert.equal(split.cacheColdReason, undefined, "a live split turn records no cache-cold reason");
+	assert.deepEqual(cacheColdLogReasons(), [], "a live split turn must not warn");
 	assert.ok(
-		splitFallbacks.includes("split-turn"),
-		`a split turn must be named, saw ${JSON.stringify(splitFallbacks)}`,
+		splitScopes.includes("live"),
+		`a split turn must ask the host to vouch for the live scope, saw ${JSON.stringify(splitScopes)}`,
 	);
-	assert.equal(split.cacheColdReason, "split-turn", "the split turn must be persisted on the compaction entry");
-	assert.deepEqual(cacheColdLogReasons(), ["split-turn"], "the operator warning must name the split turn");
-	assert.ok(
-		split.summarizeRequests.length > 0 &&
-			split.summarizeRequests.every(row => row.liveChainFallback === "split-turn"),
-		`every split-turn request must be traced with its reason, saw ${JSON.stringify(split.summarizeRequests)}`,
+	assert.equal(
+		split.summarizeRequests.length,
+		1,
+		`a live split turn issues exactly ONE summarization request, saw ${JSON.stringify(split.summarizeRequests)}`,
 	);
-	assert.ok(
-		split.summarizeRequests.every(row => row.usesLiveChainReplay !== true),
-		"no request of a split turn may claim the live chain",
-	);
-	assert.ok(
-		!splitScopes.includes("live"),
-		`a split turn must never ask the host to vouch for the live scope, saw ${JSON.stringify(splitScopes)}`,
-	);
-	// Two requests, and neither is the live chain: the history request carries the
-	// vouched-for cut prefix, the turn-prefix request is the flat self-describing
-	// form (the stub vouches for no turn-prefix scope).
-	const splitHistoryRequests = splitRequests.filter(m => m.length === BOUNDARY + 1);
-	assert.equal(splitHistoryRequests.length, 1, "a split turn issues exactly one history request");
+	assert.equal(split.summarizeRequests[0].usesLiveChainReplay, true, "the single request must claim the live chain");
+	assert.equal(split.summarizeRequests[0].liveChainFallback, undefined, "a live request traces no fallback");
 	assert.deepEqual(
-		splitHistoryRequests[0].slice(0, BOUNDARY),
-		messages.slice(0, BOUNDARY),
-		"the split-turn history request is the cut prefix, not the live chain",
+		splitRequests[0].slice(0, liveContext.messages.length),
+		liveContext.messages,
+		"the split-turn request ships the host's live chain untouched",
 	);
-	const splitTurnRequests = flatRequests(splitRequests);
-	assert.equal(splitTurnRequests.length, 1, "a split turn issues exactly one flat turn-prefix request");
-	assert.match(
-		instructionOf(splitTurnRequests[0]),
-		/<conversation>/,
-		"the turn-prefix request is the flat pre-0086 form",
+	assert.equal(splitRequests[0].length, liveContext.messages.length + 1, "the live chain plus one instruction");
+	assert.equal(
+		flatRequests(splitRequests).length,
+		0,
+		`a live split turn issues NO flat turn-prefix request, saw ${JSON.stringify(splitRequests.map(m => m.length))}`,
+	);
+	assert.doesNotMatch(
+		split.summary,
+		/Turn Context \(split turn\)/,
+		"the single live summary carries no turn-context merge",
 	);
 
-	// Leg 3e: the empty-history half of the same split turn. Only the turn-prefix
-	// request is issued, so that request must carry the reason -- an empty history
-	// range may not silence it.
-	const emptyScopes: string[] = [];
-	const emptyRequests: FixtureMessage[][] = [];
+	// Leg 3e: the turn-start half of a split turn -- `turnStartIndex === 0`, so the
+	// preparation carries no `historyPrefixEntryId` and the host cannot vouch for a
+	// history scope at all. There is no cut prefix to ship, so the live chain alone
+	// must still reach the live lane; the "missing history prerequisite" used to
+	// force the flat cold shape here. Both previous-summary states are covered: with
+	// a prior summary the chain must carry it, or the lane is refused by name.
+	for (const [label, previousSummary] of [
+		["no previous summary", undefined],
+		["with a previous summary", PRIOR],
+	] as Array<[string, string | undefined]>) {
+		const emptyScopes: string[] = [];
+		const emptyRequests: FixtureMessage[][] = [];
+		const emptyFallbacks: string[] = [];
+		logEvents.length = 0;
+		const emptyHistory = await captureCompactionStub(undefined, liveContext, {
+			absentHistoryPrefix: true,
+			isSplitTurn: true,
+			messagesToSummarize: [],
+			turnPrefixMessages: messages.slice(BOUNDARY),
+			recentMessages: messages.slice(BOUNDARY),
+			...(previousSummary === undefined ? {} : { previousSummary, carrySummaryInChain: true }),
+			requests: emptyRequests,
+			scopes: emptyScopes,
+			onCacheFallback: reason => emptyFallbacks.push(reason),
+		});
+		assert.deepEqual(emptyFallbacks, [], `${label}: a vouched live chain with no cut prefix is not a fallback`);
+		assert.equal(emptyHistory.cacheColdReason, undefined, `${label}: the live split turn records no cold reason`);
+		assert.ok(emptyScopes.includes("live"), `${label}: the turn-start range must still ask for the live scope`);
+		assert.deepEqual(
+			emptyScopes.sort(),
+			["history", "live"],
+			`${label}: both scopes are asked, but only the live chain has a voucher`,
+		);
+		assert.equal(
+			emptyHistory.summarizeRequests.length,
+			1,
+			`${label}: a turn-start split turn issues exactly ONE summarization request, saw ${JSON.stringify(emptyHistory.summarizeRequests)}`,
+		);
+		assert.equal(
+			emptyHistory.summarizeRequests[0].usesLiveChainReplay,
+			true,
+			`${label}: the single request must be the live chain`,
+		);
+		assert.equal(
+			emptyHistory.summarizeRequests[0].messages,
+			liveContext.messages.length + 1,
+			`${label}: the single request must be the whole live chain plus one instruction`,
+		);
+		assert.equal(
+			flatRequests(emptyRequests).length,
+			0,
+			`${label}: a live turn-start split issues no flat request`,
+		);
+		assert.doesNotMatch(emptyHistory.summary, /Turn Context \(split turn\)/, `${label}: no turn-context merge`);
+	}
+
+	// Leg 3h: the same absent-history preparation with the live chain REFUSED. The
+	// cold path must keep the pre-0088 update request (a previous summary present)
+	// rather than replacing it with the previous summary verbatim.
+	const coldStartScopes: string[] = [];
+	const coldStartRequests: FixtureMessage[][] = [];
+	const coldStartFallbacks: string[] = [];
 	logEvents.length = 0;
-	const emptyHistory = await captureCompactionStub(historyContext, liveContext, {
+	const coldStart = await captureCompactionStub(undefined, undefined, {
+		absentHistoryPrefix: true,
 		isSplitTurn: true,
 		messagesToSummarize: [],
 		turnPrefixMessages: messages.slice(BOUNDARY),
-		recentMessages: [],
-		requests: emptyRequests,
-		scopes: emptyScopes,
+		recentMessages: messages.slice(BOUNDARY),
+		previousSummary: PRIOR,
+		carrySummaryInChain: true,
+		requests: coldStartRequests,
+		scopes: coldStartScopes,
+		onCacheFallback: reason => coldStartFallbacks.push(reason),
+	});
+	assert.deepEqual(coldStartFallbacks, ["no-host-prefix"], "no live chain and no cut prefix must name no-host-prefix");
+	assert.equal(coldStart.cacheColdReason, "no-host-prefix", "the specific reason must be persisted");
+	assert.equal(
+		coldStart.summarizeRequests.length,
+		2,
+		`a refused turn-start split keeps the update leg plus the turn-prefix leg, saw ${JSON.stringify(coldStart.summarizeRequests)}`,
+	);
+	assert.ok(
+		coldStart.summarizeRequests.every(row => row.usesLiveChainReplay !== true),
+		"no request of a refused split may claim the live chain",
+	);
+	assert.equal(flatRequests(coldStartRequests).length, 2, "both cold legs are the flat pre-0088 form");
+	assert.match(coldStart.summary, /Turn Context \(split turn\)/, "the refused split keeps the pre-0088 merged text");
+
+	// Leg 3i (P1 regression): a live-chain request the caller aborts mid-stream
+	// resolves as an ABORTED terminal message, not a success. `compact()` must
+	// reject with an AbortError and must not publish the partial text as the
+	// whole-chain summary; no short-label and no turn-prefix request may follow.
+	// The stream is a real Anthropic SSE body whose partial text delta reaches the
+	// caller before the abort and the stream error.
+	const abortController = new AbortController();
+	const abortedBodies: Array<Record<string, unknown>> = [];
+	const abortedFallbacks: string[] = [];
+	const previousFetch = globalThis.fetch;
+	globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+		// The provider hands a string for small bodies and a stream/bytes for large
+		// ones; `new Response(...)` decodes all three the way the module sink does.
+		abortedBodies.push(JSON.parse(await new Response(init?.body).text()) as Record<string, unknown>);
+		const encoder = new TextEncoder();
+		const frames = [
+			{
+				type: "message_start",
+				message: {
+					id: "msg_offline_abort",
+					type: "message",
+					role: "assistant",
+					model: model.id,
+					content: [],
+					usage: {
+						input_tokens: 1,
+						output_tokens: 0,
+						cache_read_input_tokens: 0,
+						cache_creation_input_tokens: 0,
+					},
+				},
+			},
+			{ type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+			{ type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "PARTIAL_LIVE_SUMMARY" } },
+		]
+			.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
+			.join("");
+		let step = 0;
+		return new Response(
+			new ReadableStream<Uint8Array>({
+				pull(controller) {
+					if (step === 0) {
+						controller.enqueue(encoder.encode(frames));
+						step = 1;
+						return;
+					}
+					// The caller cancels once the partial text has been delivered: the
+					// stream errors under an aborted signal, which the provider reports
+					// as an `aborted` terminal message carrying the partial text.
+					abortController.abort();
+					controller.error(new Error("offline abort after the partial delta"));
+				},
+			}),
+			{ status: 200, headers: { "content-type": "text/event-stream" } },
+		);
+	}) as typeof fetch;
+	logEvents.length = 0;
+	const abortMark = traceMark();
+	const abortReason = await compact(
+		{
+			...preparation,
+			messagesToSummarize: messages.slice(0, BOUNDARY),
+			turnPrefixMessages: messages.slice(BOUNDARY),
+			recentMessages: messages.slice(BOUNDARY),
+			isSplitTurn: true,
+			firstKeptEntryId: `m${BOUNDARY}`,
+			historyPrefixEntryId: `m${BOUNDARY - 1}`,
+			tokensBefore: 100_000,
+			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: false },
+		},
+		model,
+		OAUTH_KEY,
+		undefined,
+		abortController.signal,
+		{
+			convertToLlm: current => current as FixtureMessage[],
+			remoteSystemPrompt: SYSTEM,
+			tools: TOOLS as never,
+			buildCachePreservingContext: async scope => ({
+				context: (scope === "live" ? liveContext : historyContext) as never,
+				previousSummaryInPrefix: false,
+			}),
+			onCacheFallback: reason => abortedFallbacks.push(reason),
+			fetch: globalThis.fetch,
+		},
+	).then(
+		() => undefined,
+		(error: unknown) => error as Error,
+	);
+	globalThis.fetch = previousFetch;
+	assert.ok(abortReason, "an aborted live completion must reject, not resolve with the partial text");
+	assert.equal(abortReason.name, "AbortError", `the rejection must be an AbortError, saw ${String(abortReason)}`);
+	assert.equal(
+		abortedBodies.length,
+		1,
+		`no short-label and no turn-prefix request may follow an aborted live request, saw ${abortedBodies.length}`,
+	);
+	assert.deepEqual(abortedFallbacks, [], "an abort is a cancellation, not a cache-cold fallback");
+	assert.deepEqual(cacheColdLogReasons(), [], "an aborted live request must not warn");
+	const abortRows = summarizeRequestsSince(abortMark);
+	assert.equal(abortRows.length, 1, `the aborted attempt is the only summarize request, saw ${JSON.stringify(abortRows)}`);
+	assert.equal(abortRows[0].usesLiveChainReplay, true, "the aborted request was the live chain");
+
+	// Leg 3j: the live request came back with no usable text at all. The single
+	// live text IS the summary of a split turn, so an empty one must reject rather
+	// than be published -- and must not select the live lane, which would drop the
+	// turn-prefix leg and spend a short-label request on nothing.
+	const emptyBodies: FixtureMessage[][] = [];
+	const emptyLiveFallbacks: string[] = [];
+	logEvents.length = 0;
+	const emptyLiveMark = traceMark();
+	const emptyLiveReason = await compact(
+		{
+			...preparation,
+			messagesToSummarize: messages.slice(0, BOUNDARY),
+			turnPrefixMessages: messages.slice(BOUNDARY),
+			recentMessages: messages.slice(BOUNDARY),
+			isSplitTurn: true,
+			firstKeptEntryId: `m${BOUNDARY}`,
+			historyPrefixEntryId: `m${BOUNDARY - 1}`,
+			tokensBefore: 100_000,
+			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: false },
+		},
+		model,
+		OAUTH_KEY,
+		undefined,
+		undefined,
+		{
+			convertToLlm: current => current as FixtureMessage[],
+			remoteSystemPrompt: SYSTEM,
+			tools: TOOLS as never,
+			buildCachePreservingContext: async scope => ({
+				context: (scope === "live" ? liveContext : historyContext) as never,
+				previousSummaryInPrefix: false,
+			}),
+			onCacheFallback: reason => emptyLiveFallbacks.push(reason),
+			completeImpl: async (requestModel, context) => {
+				emptyBodies.push(context.messages as FixtureMessage[]);
+				return {
+					role: "assistant",
+					content: [{ type: "text", text: "   " }],
+					api: requestModel.api,
+					provider: requestModel.provider,
+					model: requestModel.id,
+					stopReason: "stop",
+					timestamp: Date.now(),
+					usage,
+				} as never;
+			},
+		},
+	).then(
+		() => undefined,
+		(error: unknown) => error as Error,
+	);
+	assert.ok(emptyLiveReason, "an empty live summary must reject, not be published as the summary");
+	assert.match(
+		emptyLiveReason.message,
+		/Summarization failed/,
+		`the rejection must name the summarization failure, saw ${emptyLiveReason.message}`,
+	);
+	assert.equal(
+		emptyBodies.length,
+		1,
+		`no short-label and no turn-prefix request may follow an empty live summary, saw ${emptyBodies.length}`,
+	);
+	assert.deepEqual(emptyLiveFallbacks, [], "an empty live summary is not a cache-cold fallback");
+	assert.deepEqual(cacheColdLogReasons(), [], "an empty live summary must not warn");
+	assert.equal(summarizeRequestsSince(emptyLiveMark).length, 1, "only the live request was issued");
+
+	// Leg 3f: the same split turn with a NAMED refusal -- here the host cannot
+	// vouch for the live scope. The two legs must come back with the pre-0088
+	// shapes (the cut prefix for history, the flat self-describing form for the
+	// turn prefix, merged under the marker) and the compaction must name the
+	// SPECIFIC reason, never `split-turn`.
+	const refusedScopes: string[] = [];
+	const refusedRequests: FixtureMessage[][] = [];
+	const refusedFallbacks: string[] = [];
+	logEvents.length = 0;
+	const refused = await captureCompactionStub(historyContext, undefined, {
+		isSplitTurn: true,
+		turnPrefixMessages: messages.slice(BOUNDARY),
+		requests: refusedRequests,
+		scopes: refusedScopes,
+		onCacheFallback: reason => refusedFallbacks.push(reason),
+	});
+	assert.deepEqual(refusedFallbacks, ["no-live-chain"], "the refusal must be named once, with its specific reason");
+	assert.equal(refused.cacheColdReason, "no-live-chain", "the entry must persist the specific reason, not `split-turn`");
+	assert.deepEqual(cacheColdLogReasons(), ["no-live-chain"], "the warning must carry the specific reason");
+	assert.equal(
+		refused.summarizeRequests.length,
+		2,
+		`a refused split turn issues two summarization requests, saw ${JSON.stringify(refused.summarizeRequests)}`,
+	);
+	assert.deepEqual(
+		refusedScopes.sort(),
+		["history", "live", "turn-prefix"],
+		"a refused split turn still asks the host for the live scope",
+	);
+	assert.ok(
+		refused.summarizeRequests.every(row => row.usesLiveChainReplay !== true),
+		"no request of a refused split turn may claim the live chain",
+	);
+	const refusedHistoryRequests = refusedRequests.filter(m => m.length === BOUNDARY + 1);
+	assert.equal(refusedHistoryRequests.length, 1, "a refused split turn keeps exactly one history request");
+	assert.deepEqual(
+		refusedHistoryRequests[0].slice(0, BOUNDARY),
+		messages.slice(0, BOUNDARY),
+		"the refused split-turn history request is the cut prefix, not the live chain",
+	);
+	const refusedTurnRequests = flatRequests(refusedRequests);
+	assert.equal(refusedTurnRequests.length, 1, "a refused split turn keeps exactly one flat turn-prefix request");
+	assert.match(
+		instructionOf(refusedTurnRequests[0]),
+		/<conversation>/,
+		"the turn-prefix request is the flat pre-0088 form",
+	);
+	assert.match(
+		refused.summary,
+		/Turn Context \(split turn\)/,
+		"the refused split turn keeps the pre-0088 merged text",
+	);
+	assert.equal(
+		refused.summarizeRequests.at(-1)?.liveChainFallback,
+		"split-turn",
+		"the turn-prefix leg keeps its own trace row and its own label",
+	);
+
+	// Leg 3g: an overflow retry on a split turn recovers to the two-leg path. The
+	// provider rejects the live request, `generateSummary` replans it and names the
+	// retry reason, `onLiveChainSelected` must NOT fire (no live request came back),
+	// and the turn-prefix leg is issued exactly as in the pre-0088 shape.
+	const retrySplitRequests: FixtureMessage[][] = [];
+	const retrySplitFallbacks: string[] = [];
+	logEvents.length = 0;
+	const retrySplit = await captureCompactionStub(historyContext, liveContext, {
+		isSplitTurn: true,
+		turnPrefixMessages: messages.slice(BOUNDARY),
+		requests: retrySplitRequests,
+		failFirstRequest: new Error("prompt is too long: context length exceeded"),
+		onCacheFallback: reason => retrySplitFallbacks.push(reason),
 	});
 	assert.equal(
-		emptyHistory.cacheColdReason,
-		"split-turn",
-		"an empty history range must still name the split turn on the entry",
+		retrySplitRequests[0].length,
+		liveContext.messages.length + 1,
+		"the rejected first request was the live chain plus one instruction",
 	);
-	assert.deepEqual(cacheColdLogReasons(), ["split-turn"], "an empty history range must still warn");
-	assert.equal(
-		liveChainFallbackOf(emptyHistory.summarizeRequests),
-		"split-turn",
-		"the turn-prefix-only request must still be traced with the reason",
+	assert.deepEqual(
+		retrySplitFallbacks,
+		["live-chain-overflow-retry"],
+		"the abandoned live request must be named exactly once",
 	);
 	assert.equal(
-		emptyHistory.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		retrySplit.cacheColdReason,
+		"live-chain-overflow-retry",
+		"the retry reason must be persisted on the compaction entry",
+	);
+	assert.ok(
+		retrySplit.summarizeRequests.slice(1).every(row => row.usesLiveChainReplay !== true),
+		"only the rejected attempt was a live request; neither the replanned windows nor the turn-prefix leg may claim it",
+	);
+	assert.equal(
+		retrySplit.summarizeRequests.at(-1)?.usesLiveChainReplay,
 		false,
-		"the turn-prefix-only request is not a live chain",
+		"the last request of the recovered split turn is the turn-prefix leg",
 	);
-	assert.equal(flatRequests(emptyRequests).length, 1, "an empty history range issues only the turn-prefix request");
-	assert.ok(!emptyScopes.includes("live"), "an empty history range must not ask for the live scope either");
+	assert.equal(
+		retrySplit.summarizeRequests.at(-1)?.liveChainFallback,
+		"split-turn",
+		"the recovered turn-prefix leg keeps its own trace row",
+	);
+	assert.equal(
+		flatRequests(retrySplitRequests).length,
+		1,
+		"the recovered split turn still issues exactly one flat turn-prefix request",
+	);
+	assert.match(
+		retrySplit.summary,
+		/Turn Context \(split turn\)/,
+		"the recovered split turn merges the two legs",
+	);
 
 	// Leg 3c: the flag is load-bearing, not decorative. Claiming a prefix that
 	// does not carry the summary drops it entirely (why the host derives the flag
@@ -2159,7 +2504,8 @@ try {
 			`prefixFallbacks=${JSON.stringify(prefixFallbacks)} capacityFallbacks=${JSON.stringify(capacityFallbacks)} ` +
 			`mixedTtl(readBlocks=${mixedExpired.readBlocks}) stubFallback=${stubFallback.cacheColdReason} ` +
 			`bigMessageTokens=${bigTokens} toolResultTokens=${toolResultTokens} thinkingTokens=${thinkingTokens} ` +
-			`retry=${rejected.cacheColdReason} split=${split.cacheColdReason}/${emptyHistory.cacheColdReason} ` +
+			`retry=${rejected.cacheColdReason} splitLive=${split.summarizeRequests.length}req/${String(split.summarizeRequests[0]?.usesLiveChainReplay)} ` +
+			`splitRefused=${refused.cacheColdReason} ` +
 			`previousOutsideChain=${injected.cacheColdReason} nonAnthropicMessages=${nonAnthropic.messages.length} ` +
 			`nonAnthropicTokens=${legacyTokens}`,
 	);

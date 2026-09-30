@@ -23,6 +23,7 @@ interface AssistantMessage extends AgentMessage {
 	provider?: string;
 	model?: string;
 	stopReason?: string;
+	usage?: Record<string, unknown>;
 }
 interface SessionEntry {
 	type: string;
@@ -365,32 +366,55 @@ const splitTurnContext: Context = {
 const splitScopes: string[] = [];
 const splitRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
 const splitFallbacks: string[] = [];
-// The live chain the host vouches for is the main turn's own array: the
-// summarized history prefix, the split turn's prefix, and the retained tail.
+// 0086 measures the live chain against the provider usage of its last assistant
+// turn (0087 skips only an empty, zero-usage control carrier). The split chain
+// therefore ends in one attested assistant, or the live lane is refused as
+// `capacity-unattested` and the split turn could only ever prove the two-leg
+// fallback. The prefix is a handful of tokens, so an attested 1000 is coherent
+// with the 0.75 floor and fits the window.
+const splitAttestedAssistant: AgentMessage = assistant(model, "SPLIT_ATTESTED_RESPONSE");
+splitAttestedAssistant.timestamp = 60;
+splitAttestedAssistant.usage = { ...usage, input: 1_000, totalTokens: 1_001 };
+// This fixture carries a prior compaction in `entries`, so the vouched-for live
+// chain must render that summary (the session rebuilds it as the chain's first
+// message), or 0086 refuses the live lane as `previous-summary-not-in-prefix`.
+const splitSummaryCarrier: AgentMessage = {
+	role: "user",
+	content: [{ type: "text", text: "<summary>\nPRIOR\n</summary>" }],
+	timestamp: 5,
+};
+// The live chain the host vouches for is the main turn's own array: the prior
+// summary, the summarized history prefix, the split turn's prefix, and the
+// retained tail.
 const splitLiveContext: Context = {
 	...liveContext,
 	messages: [
+		splitSummaryCarrier as Context["messages"][number],
 		retainedBeforeMarker as Context["messages"][number],
 		discardedAfterMarker as Context["messages"][number],
 		recentUser as Context["messages"][number],
+		splitAttestedAssistant as Context["messages"][number],
 	],
 };
+// One preparation, two 18.4.4 legs: the live one below and the refusal leg that
+// keeps the structured two-leg shape.
+const splitPreparation = {
+	// Carry package-owned preparation fields across both supported versions.
+	...preparation,
+	...("previousRetainedMessages" in preparation ? { previousRetainedMessages: [] } : {}),
+	firstKeptEntryId: "recent-user",
+	messagesToSummarize: [retainedBeforeMarker],
+	historyPrefixEntryId: "retained",
+	turnPrefixMessages: [discardedAfterMarker],
+	turnPrefixEntryId: "discarded-user",
+	recentMessages: [recentUser],
+	isSplitTurn: true,
+	tokensBefore: 100,
+	fileOps: preparation.fileOps,
+	settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: false },
+};
 const splitResult = await compact(
-		{
-			// Carry package-owned preparation fields across both supported versions.
-		...preparation,
-		...("previousRetainedMessages" in preparation ? { previousRetainedMessages: [] } : {}),
-		firstKeptEntryId: "recent-user",
-		messagesToSummarize: [retainedBeforeMarker],
-		historyPrefixEntryId: "retained",
-		turnPrefixMessages: [discardedAfterMarker],
-		turnPrefixEntryId: "discarded-user",
-		recentMessages: [recentUser],
-		isSplitTurn: true,
-		tokensBefore: 100,
-		fileOps: preparation.fileOps,
-		settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: false },
-	},
+	splitPreparation,
 	model,
 	"test",
 	undefined,
@@ -406,7 +430,8 @@ const splitResult = await compact(
 						: scope === "live"
 							? splitLiveContext
 							: splitTurnContext,
-				previousSummaryInPrefix: false,
+				// Only the live chain renders the prior summary; the cut prefix does not.
+				previousSummaryInPrefix: scope === "live",
 			};
 		},
 		completeImpl: async (requestModel, context, options) => {
@@ -420,50 +445,157 @@ const tailTextOf = (request: { context: Context } | undefined): string => {
 	const tail = request?.context.messages.at(-1);
 	return tail && Array.isArray(tail.content) && tail.content[0]?.type === "text" ? tail.content[0].text : "";
 };
-// A split turn ships the pre-0086 two-request shape on EVERY plan: 18.4.4
-// narrows the live lane to whole, non-split turns, because the live shape is a
-// single whole-conversation request whose summary would then be joined to a
-// second summary of the same range. The split leg therefore never asks the host
-// for a live scope, and 18.4.4 names the exclusion on the entry and the callback.
-assert.deepEqual(splitScopes.sort(), ["history", "turn-prefix"], "split compaction did not request both prefix scopes");
-const splitHistoryRequest = splitRequests.find(request => request.context.messages.length === 2);
-assert.ok(splitHistoryRequest, "split compaction must issue a history request");
-const splitTurnRequest = splitRequests.find(request => request.context.messages.length === 3);
-assert.ok(splitTurnRequest, "split compaction must issue a turn-prefix request");
-assert.equal(
-	splitTurnRequest.context.messages.length,
-	3,
-	"old-plan split turn request must keep its three-message shape",
-);
-assert.deepEqual(
-	splitTurnRequest.context.messages[0],
-	splitTurnContext.messages[0],
-	"split turn request rewrote its stable prefix",
-);
-assert.deepEqual(
-	splitTurnRequest.context.messages.slice(0, 2),
-	splitTurnContext.messages,
-	"split turn request rewrote its stable prefix",
-);
-assert.deepEqual(
-	splitHistoryRequest.context.messages[0],
-	splitHistoryContext.messages[0],
-	"split history request rewrote its stable prefix",
-);
-assert.equal(splitHistoryRequest.options.toolChoice, "none", "split history request allowed tool calls");
-assert.equal(splitTurnRequest.options.toolChoice, "none", "split turn request allowed tool calls");
-assert.doesNotMatch(
-	tailTextOf(splitTurnRequest),
-	/<conversation>/,
-	"split turn prefix duplicated the target in its tail",
-);
+// A split turn now rides the live chain (0088): the chain is cut-point
+// independent, so the single whole-conversation request already covers the turn
+// prefix the pre-0088 code summarized again in a second leg. On the 18.4.4 plan
+// this fixture's host vouches for the live scope, so exactly ONE request is
+// issued -- the host's live chain plus one instruction, never a turn-prefix leg
+// and never a `**Turn Context (split turn):**` merge.
 if (liveChainPlan) {
-	assert.equal(
-		splitResult.details?.cacheColdReason,
-		"split-turn",
-		"a split turn on 18.4.4 must persist the exclusion on the entry",
+	assert.deepEqual(
+		splitScopes.sort(),
+		["history", "live"],
+		"a live split turn must not ask for a turn-prefix scope",
 	);
-	assert.deepEqual(splitFallbacks, ["split-turn"], "a split turn on 18.4.4 must name the exclusion exactly once");
+	// Exactly one SUMMARIZE request: the live chain plus one instruction. The only
+	// other request a compaction issues is the short summary (a single flat
+	// message), and the two-leg path's history/turn-prefix requests are absent.
+	const liveSplitRequests = splitRequests.filter(
+		request => request.context.messages.length === splitLiveContext.messages.length + 1,
+	);
+	assert.equal(
+		liveSplitRequests.length,
+		1,
+		`a live split turn issues exactly ONE live request, saw ${JSON.stringify(splitRequests.map(r => r.context.messages.length))}`,
+	);
+	assert.equal(
+		splitRequests.filter(request => request.context.messages.length === splitTurnContext.messages.length + 1)
+			.length,
+		0,
+		"a live split turn issues no turn-prefix request",
+	);
+	assert.equal(
+		splitRequests.filter(request => tailTextOf(request).startsWith("<conversation>")).length,
+		0,
+		"a live split turn issues no flat request",
+	);
+	const liveSplitRequest = liveSplitRequests[0];
+	assert.deepEqual(
+		liveSplitRequest.context.messages.slice(0, splitLiveContext.messages.length),
+		splitLiveContext.messages,
+		"the split turn must ship the vouched-for live chain untouched",
+	);
+	assert.equal(liveSplitRequest.options.toolChoice, "none", "the live split request allowed tool calls");
+	assert.equal(splitResult.details?.cacheColdReason, undefined, "a live split turn records no cache-cold reason");
+	assert.deepEqual(splitFallbacks, [], "a live split turn is not a fallback");
+	assert.doesNotMatch(
+		splitResult.summary,
+		/Turn Context \(split turn\)/,
+		"the live split summary carries no turn-context merge",
+	);
+
+	// The refusal leg: the same 18.4.4 split preparation with the live scope
+	// refused, while the host DOES vouch for both structured prefixes. The two-leg
+	// path must keep the pre-0088 structured shapes -- the vouched-for cut prefix
+	// for history, the vouched-for turn-prefix prefix for the second leg, both
+	// with `toolChoice: none`, merged under the marker -- and name the specific
+	// reason. Dropping either prefix (or the second leg) from the structured
+	// assembly turns this leg red.
+	const refusedScopes: string[] = [];
+	const refusedRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
+	const refusedFallbacks: string[] = [];
+	const refusedResult = await compact(splitPreparation, model, "test", undefined, undefined, {
+		convertToLlm: messages => messages as Context["messages"],
+		buildCachePreservingContext: async scope => {
+			refusedScopes.push(scope);
+			if (scope === "live") return undefined;
+			return {
+				context: scope === "history" ? splitHistoryContext : splitTurnContext,
+				previousSummaryInPrefix: false,
+			};
+		},
+		completeImpl: async (requestModel, context, options) => {
+			refusedRequests.push({ context, options });
+			return assistant(requestModel, "REFUSED_SUMMARY");
+		},
+		onCacheFallback: reason => refusedFallbacks.push(reason),
+	});
+	assert.deepEqual(
+		refusedScopes.sort(),
+		["history", "live", "turn-prefix"],
+		"a refused split turn must ask for the live scope and both prefix scopes",
+	);
+	assert.deepEqual(refusedFallbacks, ["no-live-chain"], "the refusal must name its specific reason exactly once");
+	assert.equal(refusedResult.details?.cacheColdReason, "no-live-chain", "the entry must persist the specific reason");
+	const refusedHistoryRequests = refusedRequests.filter(
+		request => request.context.messages.length === splitHistoryContext.messages.length + 1,
+	);
+	assert.equal(refusedHistoryRequests.length, 1, "the refused split turn keeps its structured history request");
+	assert.deepEqual(
+		refusedHistoryRequests[0].context.messages.slice(0, splitHistoryContext.messages.length),
+		splitHistoryContext.messages,
+		"the refused history request must keep its stable prefix",
+	);
+	assert.equal(refusedHistoryRequests[0].options.toolChoice, "none", "the refused history request allowed tool calls");
+	const refusedTurnRequests = refusedRequests.filter(
+		request => request.context.messages.length === splitTurnContext.messages.length + 1,
+	);
+	assert.equal(refusedTurnRequests.length, 1, "the refused split turn keeps its structured turn-prefix request");
+	assert.deepEqual(
+		refusedTurnRequests[0].context.messages.slice(0, splitTurnContext.messages.length),
+		splitTurnContext.messages,
+		"the refused turn-prefix request must keep its stable prefix",
+	);
+	assert.equal(refusedTurnRequests[0].options.toolChoice, "none", "the refused turn-prefix request allowed tool calls");
+	assert.doesNotMatch(
+		tailTextOf(refusedTurnRequests[0]),
+		/<conversation>/,
+		"the refused structured turn-prefix request must not duplicate the target transcript in its instruction",
+	);
+	assert.match(
+		refusedResult.summary,
+		/\*\*Turn Context \(split turn\):\*\*/,
+		"the refused split turn must keep the merged history + turn-prefix summary shape",
+	);
+} else {
+	// An older plan has no live lane at all: the two prefix requests and the
+	// merged text are the pre-0086 bytes, unchanged.
+	assert.deepEqual(
+		splitScopes.sort(),
+		["history", "turn-prefix"],
+		"split compaction did not request both prefix scopes",
+	);
+	const splitHistoryRequest = splitRequests.find(request => request.context.messages.length === 2);
+	assert.ok(splitHistoryRequest, "split compaction must issue a history request");
+	const splitTurnRequest = splitRequests.find(request => request.context.messages.length === 3);
+	assert.ok(splitTurnRequest, "split compaction must issue a turn-prefix request");
+	assert.equal(
+		splitTurnRequest.context.messages.length,
+		3,
+		"old-plan split turn request must keep its three-message shape",
+	);
+	assert.deepEqual(
+		splitTurnRequest.context.messages[0],
+		splitTurnContext.messages[0],
+		"split turn request rewrote its stable prefix",
+	);
+	assert.deepEqual(
+		splitTurnRequest.context.messages.slice(0, 2),
+		splitTurnContext.messages,
+		"split turn request rewrote its stable prefix",
+	);
+	assert.deepEqual(
+		splitHistoryRequest.context.messages[0],
+		splitHistoryContext.messages[0],
+		"split history request rewrote its stable prefix",
+	);
+	assert.equal(splitHistoryRequest.options.toolChoice, "none", "split history request allowed tool calls");
+	assert.equal(splitTurnRequest.options.toolChoice, "none", "split turn request allowed tool calls");
+	assert.doesNotMatch(
+		tailTextOf(splitTurnRequest),
+		/<conversation>/,
+		"split turn prefix duplicated the target in its tail",
+	);
 }
 
 // 0086 converts only the Anthropic message lane. A split turn on any other

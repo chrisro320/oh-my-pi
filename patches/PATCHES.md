@@ -9,9 +9,9 @@
 | 項目 | 值 |
 |---|---|
 | 當前部署 | `OMP_PATCH_VERSION=18.4.4`（未設則按 installed 版本自動路由） |
-| 當前 live 部署 | **50 補丁（0085／0086／0087 已進計畫、待部署後為 53）** + `bin/omp -> src/cli.ts`；2026-09-30 由 `deploy-1844.py` 備份並原子部署（DB 線上備份、失敗自動回滾，18.4.1 樹保留），fresh `omp --version`＝18.4.4，live `--check`＝50 APPLIED；以部署腳本輸出為準 |
+| 當前 live 部署 | **50 補丁（0085／0086／0087／0088 已進計畫、待部署後為 54）** + `bin/omp -> src/cli.ts`；2026-09-30 由 `deploy-1844.py` 備份並原子部署（DB 線上備份、失敗自動回滾，18.4.1 樹保留），fresh `omp --version`＝18.4.4，live `--check`＝50 APPLIED；以部署腳本輸出為準 |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（53 層；live 目前 50 層，0085／0086／0087 待部署；18.4.1 為回退源） |
+| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（54 層；live 目前 50 層，0085／0086／0087／0088 待部署；18.4.1 為回退源） |
 | 最近遷移 | 18.4.1 → 18.4.4：50 層全為同編號候選（38 層原樣、12 層適配，無上游接管）；0082 手工合併上游 detached-draft；新增 `verify-user-display-text-queue.ts`；已知未修：Review #2（prepared 輸入 dispatch 被拒絕時不還原文/圖片）、audit-repro r2/r3/r3x/r4 既有漂移（18.4.1 已存在） |
 | 回歸套件 | **41 道 TypeScript 行為閘門**（`apply.sh` apply 模式實際註冊者為準；各計畫只執行其中含該層者）及 spec shell 閘門；另有 `--verify-rollups` 六基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10／18.3.3／18.4.1） |
 
@@ -37,7 +37,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化）；2026-09-24 新增 0078（Python display MIME 擇一）、0079（Kitty 非同步轉圖完成屏障）、0080（顯示端 PNG 快取與圖片指紋） | **47** |
 | 18.3.3 計畫 | 保留上述 47 項能力；0073 由上游動態 read getter 接管，追加 0081 主會話 cache footer、0082 輸入英譯原文顯示；其餘同編號專版候選遷移 | **48** |
 | 18.4.1 計畫 | 保留 18.3.3 的 48 項能力，全部為同編號 `.18.4.1-candidates/`；17 層需適配（0066／0067／0068 在 0035 移植後以原位元組直接落層），審查後另修 0043／0074／0077／0079／0080；鏈尾新增 0083（`^` 標記模型的 resume 前綴修復）、0084（length-stop 重試提醒持久化） | **50** |
-| 18.4.4 計畫（53 層；live 為前 50 層） | 保留 18.4.1 的 50 項能力，全部為同編號 `.18.4.4-candidates/`；六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 38 層原樣、12 層失敗（直接 6：0037／0010／0050／0063／0065／0079；連帶 6：0060／0076／0068／0070／0080／0082），全部同編號適配、無上游接管；0082 因上游 18.4.3/18.4.4 自建 detached-draft 而手工合併（`queueCompactionMessage` 改為 options 物件，Ctrl+Enter 保留上游 detach 後再加準備邊界）；0082 另補 queued `rawText` 改記原文（避免 RPC `removeQueuedMessage` 誤刪）與 `types.d.ts` 宣告。 | **53**（計畫層數；live 前 50 層，0085／0086／0087 待部署） |
+| 18.4.4 計畫（54 層；live 為前 50 層） | 保留 18.4.1 的 50 項能力，全部為同編號 `.18.4.4-candidates/`；六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 38 層原樣、12 層失敗（直接 6：0037／0010／0050／0063／0065／0079；連帶 6：0060／0076／0068／0070／0080／0082），全部同編號適配、無上游接管；0082 因上游 18.4.3/18.4.4 自建 detached-draft 而手工合併（`queueCompactionMessage` 改為 options 物件，Ctrl+Enter 保留上游 detach 後再加準備邊界）；0082 另補 queued `rawText` 改記原文（避免 RPC `removeQueuedMessage` 誤刪）與 `types.d.ts` 宣告。 | **54**（計畫層數；live 前 50 層，0085／0086／0087／0088 待部署） |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -914,6 +914,69 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
     `messageIndex` 414 is not its array index, so it is non-live: measured breakpoints with and without the
     carrier are identical (local [309,393], native [309,392], main [309,392]). Open as a separate task
     (pi-ai `applyPromptCaching` walk must skip uncacheable effort-only controls).
+
+### 0088 — split-turn compaction rides the live-chain lane (18.4.4 only)
+
+- Patch: `.18.4.4-candidates/0088-omp-compaction-split-turn-live-chain-v18.4.4-candidate.patch`
+  (one `${NM}` root: `pi-agent-core/src/compaction/compaction.ts` plus the shipped
+  `pi-agent-core/dist/types/compaction/compaction.d.ts` declaration hunk, because `SummaryOptions`
+  replaces `splitTurnSummary` with `onLiveChainSelected`). The 18.4.4 plan is now 54 layers (was 53).
+- Why: 3 of the 4 compactions in the real 01a0f047 session were split turns (firstKept = an assistant
+  message), including the $1.15 miss at 07:22Z. 0086/0087 refused those by name (`split-turn` /
+  `native-split-turn`) because the pre-0088 split branch issued TWO requests (history + turn prefix)
+  and the live shape is ONE whole-conversation request. But the chain is cut-point independent: the
+  kept tail is replayed verbatim from `firstKeptEntryId` either way, so the single whole-chain request
+  already covers the turn prefix -- `details.cacheColdReason` was the only thing keeping the hot
+  main-chain tail out of reach.
+- Fix: drop the two `split-turn` refusals. `compact()`'s split branch now runs the history leg with the
+  live lane allowed and learns the outcome from a new `onLiveChainSelected` signal, which
+  `summarizeConversationWindow` fires only AFTER a live request actually came back (an attempt the
+  provider rejects is replanned and never reports it). If the chain was used, that single text IS the
+  summary -- no turn-prefix leg, no `**Turn Context (split turn):**` merge. If it was refused, the
+  pre-0088 two-leg path runs byte-for-byte (now serialized instead of parallel) under the same merge,
+  and `details.cacheColdReason` names the SPECIFIC reason (`no-live-chain`, `capacity-unattested`,
+  `live-chain-over-capacity`, `previous-summary-not-in-prefix`, `live-chain-overflow-retry`, ...). An
+  empty history range (`turnStartIndex === 0`, no `historyPrefixEntryId`, hence no cut prefix) now
+  lets the live chain stand alone as the host-vouched prefix; `generateSummary` sends no request when
+  the chain is not selected AND there is no previous summary, so the pre-0088 update request (and its
+  custom focus) still runs when a prior summary exists. Capacity attestation, the 0.75 coherence
+  floor, `previousSummaryInPrefix` and the overflow retry are untouched; the turn-prefix leg keeps its
+  own trace row and label.
+- Terminal-response handling (P1, independent review): a mid-flight cancellation resolves as a
+  terminal `stopReason: "aborted"` message rather than a throw, so `summarizeConversationWindow` now
+  restores that classification (`AIError.AbortError`) BEFORE reading the text, and refuses an empty
+  live summary instead of publishing it. Without this, an aborted live request would have been taken
+  as the successful whole-chain summary that replaces both split-turn legs.
+- Supersedes 0086 residual (a) "split-turn compaction is cache-cold BY DESIGN": a split turn is no
+  longer cache-cold. The residual still holds for every named refusal (any unattested or
+  over-capacity chain, and any non-Anthropic lane, keeps the pre-0086 bytes).
+- Gates (all four updated, none deleted): `verify-compaction-cache-liveness.ts` legs 3d-3i (live split
+  = ONE request, no flat turn-prefix request, no marker; turn-start split with no cut prefix = live,
+  with and without a previous summary; the same turn-start preparation with the live chain refused =
+  the pre-0088 update leg plus the turn-prefix leg and reason `no-host-prefix`; a named refusal = the
+  two-leg pre-0088 bytes with the specific reason; an overflow retry = the two-leg recovery; an
+  aborted live request = an `AbortError`, one request, no short label, no turn-prefix leg),
+  `verify-prefix-cache-compaction.ts` (the 18.4.4 split leg now asserts one live request, and a second
+  18.4.4 leg refuses the live scope while vouching both structured prefixes, keeping the stable-prefix,
+  instruction-shape, toolChoice, two-leg-count and merged-summary assertions; older plans keep their
+  own two-request assertions), `verify-anthropic-native-compaction-live-context.ts` GATE 6 (the
+  native split turn ships the whole chain and records nothing), `verify-compaction-lane-trace.ts`
+  GATE C3 (the native split row traces `usesLiveChainReplay: true`).
+- RED/GREEN (2026-09-30, real runs): RED = the 0087-only tree (`onLiveChainSelected` absent) -- all
+  four gates abort ("an attested live chain on a split turn is not a fallback" / "a live split turn
+  must not ask for a turn-prefix scope" / "a split turn must ship the whole live chain" / "a split
+  native turn must be traced as the live chain"). GREEN = the 0088 tree -- `PASS compaction cache
+  liveness: ... splitLive=1req/true splitRefused=no-live-chain ...`, `PASS prefix-cache compaction:
+  structured=1 flat=1 windows=12`, `PASS anthropic native compaction live context`, `PASS compaction
+  lane trace`.
+- Residuals (accepted):
+  - (a) the single live request carries only the history leg's `0.8 * reserveTokens` output allowance,
+    where the pre-0088 two-leg path gave the two legs 0.8 + 0.5 reserve between them. A split turn's
+    summary may therefore be shorter than before.
+  - (b) the cold path's two legs now run serially instead of in parallel: a refused split turn pays
+    the two round trips in sequence.
+  - (c) no provider request has been made and no live cache hit has been observed; the acceptance is
+    an offline replay of archived session data (same boundary as 0086 residual (e)).
 
 
 ## 3. 已撤下的補丁

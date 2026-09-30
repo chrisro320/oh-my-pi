@@ -160,12 +160,12 @@ const entries: SessionEntry[] = [
 ];
 const preparation = prepareCompaction(entries, { enabled: true, keepRecentTokens: 1, remoteEnabled: true }, model);
 assert.ok(preparation, "fixture must prepare compaction");
-// The narrowed live lane is whole-turn only: a split turn names `native-split-turn`
-// and ships the cut, so the 18.4.4 live legs below run on an explicit non-split
-// preparation of the same session (the recent turn kept whole). Older plans keep
-// the raw preparation and the assertions this gate has always pinned on it -- the
-// whole-chain fixture and its `recent-user` boundary are 0086-only, and replacing
-// the older fixture rather than selecting per plan is what broke the older branch.
+// The 18.4.4 live legs below run on an explicit preparation of the same session
+// (the recent turn kept whole); the raw preparation stays the split fixture the
+// cut legs need. Older plans keep the raw preparation and the assertions this
+// gate has always pinned on it -- the whole-chain fixture and its `recent-user`
+// boundary are 0086-only, and replacing the older fixture rather than selecting
+// per plan is what broke the older branch.
 const wholeChainPlan = coreVersion === "18.4.4";
 const livePreparation = {
 	...preparation,
@@ -780,10 +780,10 @@ if (coreVersion === "18.4.4") {
 		"a native chain whose only assistant is a carrier has no attestation",
 	);
 
-	// GATE 6: a split turn never rides the native live lane either -- the live
-	// shape is one whole-conversation request while a split compaction retains a
-	// turn prefix it replays verbatim, so the request is cut at `safeCut` and the
-	// exclusion is named on the entry and in the log.
+	// GATE 6: a split turn rides the native live lane too (0088). The chain is
+	// cut-point independent, so this single whole-chain request already covers the
+	// turn prefix the compaction replays verbatim from `safeCut`: the request is
+	// no longer cut at the boundary, and no exclusion is recorded or logged.
 	logEvents.length = 0;
 	const split = await runNative(
 		{
@@ -798,16 +798,19 @@ if (coreVersion === "18.4.4") {
 		liveContext,
 		false,
 	);
-	assert.equal(split.requests.length, 1, "a split turn must still issue one native request");
-	assert.notDeepEqual(split.requests[0].context.messages, liveContext.messages, "a split turn must not ship the live chain");
-	assert.equal(split.requests[0].context.messages.length, 3, "a split turn ships the cut prefix of the snapshot");
-	assert.doesNotMatch(
+	assert.equal(split.requests.length, 1, "a split turn must still issue exactly one native request");
+	assert.deepEqual(
+		split.requests[0].context.messages,
+		liveContext.messages,
+		"a split turn must ship the whole live chain",
+	);
+	assert.match(
 		String(split.requests[0].options.anthropicCompaction?.instructions),
 		/summarize the ENTIRE conversation above/,
-		"a split turn must not claim the whole conversation is on the wire",
+		"the split turn's whole-chain request must scope the whole conversation",
 	);
-	assert.equal(split.result.details?.cacheColdReason, "native-split-turn", "a split turn must name the exclusion on the entry");
-	assert.deepEqual(cacheColdLogReasons(), ["native-split-turn"], "a split turn must warn with the same reason");
+	assert.equal(split.result.details?.cacheColdReason, undefined, "a live split turn records no native exclusion");
+	assert.deepEqual(cacheColdLogReasons(), [], "a live split turn must not warn");
 
 	// GATE 7: an iterative native compaction whose vouched-for chain does NOT
 	// carry the previous summary must not send that chain: the summary would be

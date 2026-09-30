@@ -1,0 +1,314 @@
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -718,14 +718,15 @@
+ 	 */
+ 	retainedTailMessages?: AgentMessage[];
+ 	/**
+-	 * True when the history-scope summary is one leg of a split-turn compaction
+-	 * (`isSplitTurn` or a non-empty turn prefix). A split turn can never ride the
+-	 * live chain: the live shape is one whole-conversation request, while a split
+-	 * compaction issues a history request plus a turn-prefix request, and the
+-	 * second one would summarize the same range again. The abandonment is named
+-	 * `split-turn`.
++	 * Called after an Anthropic summary call actually PUT the host's whole live
++	 * chain on the wire -- the one whole-conversation request -- so a split-turn
++	 * compaction knows that request already covered its turn prefix and must not
++	 * issue the second (turn-prefix) leg. Fired only after the request came back:
++	 * a live attempt the provider rejects (context overflow) is replanned inside
++	 * `generateSummary` and never fires it. Never called by the non-Anthropic
++	 * lanes, which never select the live chain.
+ 	 */
+-	splitTurnSummary?: boolean;
++	onLiveChainSelected?: () => void;
+ 	/**
+ 	 * Called when an Anthropic summary call had to ship a request shape that may
+ 	 * anchor an expired cache entry (cut prefix, flat window, replanned window)
+@@ -987,10 +988,12 @@
+ 	//     Gemini lanes match a truncated prefix already, and their request bytes
+ 	//     must stay exactly what the pre-0086 code sent, so no other API ever
+ 	//     selects the live chain or reports a cold reason.
+-	//   - the host vouched for the live scope (candidate/session/leaf identity);
+-	//   - not a split turn; the live shape is ONE whole-conversation request, and
+-	//     a split turn's second request would summarize the same range again (see
+-	//     `splitTurnSummary`).
++	//   - the host vouched for the live scope (candidate/session/leaf identity).
++	//     A split turn is NOT excluded: the chain is cut-point independent, so the
++	//     live shape is the same single whole-conversation request for a split turn
++	//     as for a whole one. `compact()` drops the turn-prefix leg when this call
++	//     reports the chain was used (`onLiveChainSelected`) and runs the pre-0088
++	//     two-leg path, byte-for-byte, when it was refused by name.
+ 	//   - one summarization window, so a fold-in plan never ships the live chain
+ 	//     as if it were one of several windows;
+ 	//   - the previous summary is absent, or already inside that chain
+@@ -1009,36 +1012,36 @@
+ 	let liveChainTokens = 0;
+ 	let liveChainFallback: string | undefined;
+ 	if (model.api === "anthropic-messages") {
+-		if (options?.splitTurnSummary === true) {
+-			liveChainFallback = "split-turn";
+-		} else if (cachePreservingSummary === undefined) {
+-			liveChainFallback = "no-host-prefix";
++		// The live scope is asked for unconditionally: a split turn is no longer
++		// excluded (the chain is cut-point independent), and an empty history range
++		// leaves `historyPrefixEntryId` undefined so there is no cut prefix at all
++		// -- the live chain is then the only host-vouched prefix available.
++		const live = await options?.buildCachePreservingContext?.("live", model, signal);
++		// The predicate the request itself applies to the previous summary: an
++		// instruction that rendered it as text while the prefix already carries
++		// it would ship it twice, and capacity must measure the same bytes.
++		const liveSummaryInPrefix = live?.previousSummaryInPrefix === true && options?.promptOverride === undefined;
++		if (live === undefined) {
++			// Name the missing voucher precisely: nothing to cut at all when the
++			// history range is empty, otherwise a chain the host could not vouch for.
++			liveChainFallback = cachePreservingSummary === undefined ? "no-host-prefix" : "no-live-chain";
++		} else if (previousSummary !== undefined && !liveSummaryInPrefix) {
++			liveChainFallback = "previous-summary-not-in-prefix";
+ 		} else {
+-			const live = await options?.buildCachePreservingContext?.("live", model, signal);
+-			// The predicate the request itself applies to the previous summary: an
+-			// instruction that rendered it as text while the prefix already carries
+-			// it would ship it twice, and capacity must measure the same bytes.
+-			const liveSummaryInPrefix = live?.previousSummaryInPrefix === true && options?.promptOverride === undefined;
+-			if (live === undefined) {
+-				liveChainFallback = "no-live-chain";
+-			} else if (previousSummary !== undefined && !liveSummaryInPrefix) {
+-				liveChainFallback = "previous-summary-not-in-prefix";
++			const fit = liveChainFit(
++				live.context,
++				model,
++				tokenizer,
++				summaryInstructionText(previousSummary, liveSummaryInPrefix, customInstructions, options, liveChainNote),
++				maxTokens,
++			);
++			if (fit.verdict === "unattested") {
++				liveChainFallback = "capacity-unattested";
++			} else if (fit.verdict === "over-capacity") {
++				liveChainFallback = "live-chain-over-capacity";
+ 			} else {
+-				const fit = liveChainFit(
+-					live.context,
+-					model,
+-					tokenizer,
+-					summaryInstructionText(previousSummary, liveSummaryInPrefix, customInstructions, options, liveChainNote),
+-					maxTokens,
+-				);
+-				if (fit.verdict === "unattested") {
+-					liveChainFallback = "capacity-unattested";
+-				} else if (fit.verdict === "over-capacity") {
+-					liveChainFallback = "live-chain-over-capacity";
+-				} else {
+-					liveChainContext = live;
+-					liveChainTokens = fit.tokens;
+-				}
++				liveChainContext = live;
++				liveChainTokens = fit.tokens;
+ 			}
+ 		}
+ 		if (liveChainContext === undefined) options?.onCacheFallback?.(liveChainFallback ?? "unknown");
+@@ -1052,6 +1055,12 @@
+ 		pending.length = 0;
+ 		pending.push({ messages: targetMessages, budgetTokens, text: wholeConversation });
+ 	}
++	// An empty target with no live chain has nothing to summarize: this call
++	// exists so a split turn's empty history range can still offer the whole live
++	// chain as the target (see `compact`). Only with NO previous summary is there
++	// nothing to send at all -- a previous summary still takes the pre-0088 update
++	// path, whose request and merged result must stay byte-identical.
++	if (targetMessages.length === 0 && liveChainContext === undefined && previousSummary === undefined) return "";
+ 
+ 	let carriedSummary = previousSummary;
+ 	while (pending.length > 0) {
+@@ -1464,8 +1473,8 @@
+ 	// target window and make no cache claim.
+ 	const canUseStructuredContext =
+ 		!options?.remoteEndpoint &&
+-		cachePreservingSummary !== undefined &&
+-		(liveChainContext !== undefined || (Array.isArray(windowMessages) && windowMessages.length > 0));
++		(liveChainContext !== undefined ||
++			(cachePreservingSummary !== undefined && Array.isArray(windowMessages) && windowMessages.length > 0));
+ 	// One predicate for the wire shape: the live chain when it was selected.
+ 	const liveChainOnWire = liveChainContext !== undefined && canUseStructuredContext;
+ 
+@@ -1603,6 +1612,13 @@
+ 		usage: response.usage,
+ 	});
+ 
++	if (response.stopReason === "aborted") {
++		// A mid-flight cancellation resolves as a terminal message, not a throw:
++		// restore the classification before the text is read, so a partial summary
++		// is never published as a success -- and, on the live lane, never selected
++		// as the whole-chain summary that replaces both split-turn legs.
++		throw new AIError.AbortError("Summarization aborted", { cause: signal?.reason });
++	}
+ 	if (response.stopReason === "error") {
+ 		throw createSummarizationError("Summarization failed", response);
+ 	}
+@@ -1612,6 +1628,19 @@
+ 		.map(c => c.text)
+ 		.join("\n");
+ 
++	// The live chain's single request completed: a split-turn caller can now drop
++	// its turn-prefix leg, because this one request already covered the turn
++	// prefix. Fired here, after the response, so a request the provider rejected
++	// (replanned inside generateSummary) never reports the chain as used. An empty
++	// live summary is not usable as that replacement and must fail instead of being
++	// published; the cold-path shapes keep their pre-0088 handling unchanged.
++	if (liveChainOnWire) {
++		if (textContent.trim().length === 0) {
++			throw createSummarizationError("Summarization failed", response);
++		}
++		options?.onLiveChainSelected?.();
++	}
++
+ 	return textContent;
+ }
+ 
+@@ -2227,11 +2256,6 @@
+ 		// of the summary and are replayed verbatim; only the history-scope call
+ 		// reads it (see generateSummary).
+ 		retainedTailMessages: recentMessages,
+-		// A split compaction issues a history request AND a turn-prefix request,
+-		// while the live shape is one whole-conversation request whose summary
+-		// would then be joined to a second summary of the same range. Split legs
+-		// therefore never ride the live chain, and this flag names the reason.
+-		splitTurnSummary: isSplitTurn || turnPrefixMessages.length > 0,
+ 		buildCachePreservingContext: options?.buildCachePreservingContext,
+ 		telemetry: options?.telemetry,
+ 		// Honor /model thinking selection on every fan-out summarizer.
+@@ -2655,15 +2679,14 @@
+ 			nativeExtraContext,
+ 		);
+ 		// The same narrow conditions the local lane applies (see generateSummary):
+-		// the whole live chain ships only when the host vouched for it, this
+-		// compaction is not a split turn, the previous summary is already inside
+-		// that chain, and the request fits the model window. Every abandonment is
+-		// named on the entry, in the operator log and in the trace.
++		// the whole live chain ships only when the host vouched for it, the previous
++		// summary is already inside that chain, and the request fits the model
++		// window. A split turn is not excluded: the chain is cut-point independent,
++		// so this single whole-chain request covers the turn prefix too. Every
++		// abandonment is named on the entry, in the operator log and in the trace.
+ 		let nativeCacheFallback: string | undefined;
+ 		if (liveContext === undefined) {
+ 			nativeCacheFallback = "native-no-live-chain";
+-		} else if (isSplitTurn || turnPrefixMessages.length > 0) {
+-			nativeCacheFallback = "native-split-turn";
+ 		} else if (previousSummaryForCompaction !== undefined && !livePreviousSummaryInPrefix) {
+ 			// The transformed chain drops the previous compaction's carrier, so the
+ 			// cut fallback below supplies it as a message instead: sending the chain
+@@ -2787,17 +2810,29 @@
+ 		const inputTokens = getCompactionV2PreserveData(preserveData)?.usedTokens ?? 0;
+ 		summary = formatRemoteCompactionSummary(inputTokens);
+ 	} else if (isSplitTurn && turnPrefixMessages.length > 0) {
+-		// A split turn can never ride the live chain: this compaction issues two
+-		// requests, while the live shape is one whole-conversation request whose
+-		// summary would then be joined to a second summary of the same range (see
+-		// generateSummary's conditions). Named before the first request, so the
+-		// reason is recorded even when the history range is empty and only the
+-		// turn prefix is summarized.
+-		if (model.api === "anthropic-messages") summaryOptions.onCacheFallback?.("split-turn");
+-		// Generate both summaries in parallel
+-		const [historyResult, turnPrefixResult] = await Promise.all([
+-			historyTargetMessages.length > 0 || previousSummaryForCompaction
+-				? generateSummary(
++		// The whole live chain, when the host vouches for it, is ONE request that
++		// already covers the turn prefix: the kept tail is replayed verbatim from
++		// `firstKeptEntryId` either way, so a second (turn-prefix) leg would only
++		// summarize bytes the chain already carried. The history leg is attempted
++		// first with the live lane allowed; when it reports the chain was used
++		// (`onLiveChainSelected`) its single text IS the summary, and a named
++		// refusal otherwise runs the pre-0088 two-leg path -- the same requests and
++		// the same merged text, now serialized instead of parallel.
++		let liveChainSelected = false;
++		const historyOptions: SummaryOptions = {
++			...summaryOptions,
++			onLiveChainSelected: () => {
++				liveChainSelected = true;
++			},
++		};
++		const historyHasWork = historyTargetMessages.length > 0 || previousSummaryForCompaction !== undefined;
++		// An empty history range has nothing of its own to summarize. On the
++		// Anthropic lane the call is still made so the whole live chain can be
++		// offered as the target; `generateSummary` sends no request when the chain
++		// is not selected, and the pre-0088 placeholder text below is then kept.
++		const historyResult =
++			historyHasWork || model.api === "anthropic-messages"
++				? await generateSummary(
+ 						historyTargetMessages,
+ 						model,
+ 						reserveTokens,
+@@ -2805,13 +2840,25 @@
+ 						signal,
+ 						customInstructions,
+ 						previousSummaryForCompaction,
+-						summaryOptions,
++						historyOptions,
+ 					)
+-				: Promise.resolve("No prior history."),
+-			generateTurnPrefixSummary(turnPrefixMessages, model, reserveTokens, apiKey, signal, summaryOptions),
+-		]);
+-		// Merge into single summary
+-		summary = `${historyResult}\n\n---\n\n**Turn Context (split turn):**\n\n${turnPrefixResult}`;
++				: "No prior history.";
++		if (liveChainSelected) {
++			// One request summarized the whole chain, turn prefix included: no
++			// turn-prefix leg and no `**Turn Context (split turn):**` merge.
++			summary = historyResult;
++		} else {
++			const turnPrefixResult = await generateTurnPrefixSummary(
++				turnPrefixMessages,
++				model,
++				reserveTokens,
++				apiKey,
++				signal,
++				summaryOptions,
++			);
++			// Merge into single summary
++			summary = `${historyResult === "" ? "No prior history." : historyResult}\n\n---\n\n**Turn Context (split turn):**\n\n${turnPrefixResult}`;
++		}
+ 	} else if (historyTargetMessages.length > 0) {
+ 		// Generate history summary from messages to summarize
+ 		summary = await generateSummary(
+@@ -2926,11 +2973,12 @@
+ 			}
+ 		: { systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT], messages: [summarizationTail] };
+ 
+-	// The turn prefix is always one leg of a split compaction, and a split turn
+-	// never rides the live chain (see generateSummary). Named here for the
+-	// Anthropic lane so the reason reaches the trace even when the history range
+-	// is empty and this is the only request the compaction issues; every other
+-	// API keeps the pre-0086 trace exactly as it was.
++	// The turn prefix is always a leg of a split compaction, and it is issued only
++	// when the history leg did NOT ride the live chain (see `compact`), so this
++	// request never carries the chain. Named here for the Anthropic lane so its
++	// shape reaches the trace even when the history range is empty and this is the
++	// only request the compaction issues; every other API keeps the pre-0086 trace
++	// exactly as it was.
+ 	if (model.api === "anthropic-messages") {
+ 		traceCompaction({
+ 			k: "summarize.request",
+--- a/pi-agent-core/dist/types/compaction/compaction.d.ts
++++ b/pi-agent-core/dist/types/compaction/compaction.d.ts
+@@ -210,14 +210,15 @@
+      */
+     retainedTailMessages?: AgentMessage[];
+     /**
+-     * True when the history-scope summary is one leg of a split-turn compaction
+-     * (`isSplitTurn` or a non-empty turn prefix). A split turn can never ride the
+-     * live chain: the live shape is one whole-conversation request, while a split
+-     * compaction issues a history request plus a turn-prefix request, and the
+-     * second one would summarize the same range again. The abandonment is named
+-     * `split-turn`.
++     * Called after an Anthropic summary call actually PUT the host's whole live
++     * chain on the wire -- the one whole-conversation request -- so a split-turn
++     * compaction knows that request already covered its turn prefix and must not
++     * issue the second (turn-prefix) leg. Fired only after the request came back:
++     * a live attempt the provider rejects (context overflow) is replanned inside
++     * `generateSummary` and never fires it. Never called by the non-Anthropic
++     * lanes, which never select the live chain.
+      */
+-    splitTurnSummary?: boolean;
++    onLiveChainSelected?: () => void;
+     /**
+      * Called when an Anthropic summary call had to ship a request shape that may
+      * anchor an expired cache entry (cut prefix, flat window, replanned window)

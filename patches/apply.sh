@@ -597,6 +597,17 @@ case "$OMP_PATCH_VERSION" in
 	# refuses the chain by name. The Anthropic wire drops the empty carrier anyway
 	# (zero content blocks), so no measurable prefix is lost.
 	_omp_tail_candidate "18.4.4" "0087-omp-compaction-attestation-skip-control-carrier" "${NM}"
+	# 0088: the split-turn refusal is gone. A split compaction's history leg is the
+	# same whole-conversation live request a whole turn sends (the chain is
+	# cut-point independent and the kept tail is replayed verbatim either way), so
+	# that one request already covers the turn prefix and the second (turn-prefix)
+	# leg is dropped -- no `**Turn Context (split turn):**` merge. When the chain
+	# IS refused, `details.cacheColdReason` now names the SPECIFIC reason
+	# (capacity-unattested, live-chain-over-capacity, no-live-chain, ...) instead
+	# of `split-turn`, and the two-leg path keeps the pre-0088 bytes (serialized,
+	# not parallel). An empty history range (no cut prefix at all) now lets the
+	# live chain stand alone as the host-vouched prefix.
+	_omp_tail_candidate "18.4.4" "0088-omp-compaction-split-turn-live-chain" "${NM}"
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4)" >&2
