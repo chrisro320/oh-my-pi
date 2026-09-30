@@ -1,22 +1,33 @@
 # omp 18.4.4 follow-ups
 
 ## Goal
-Close the items left open by task 09-29-omp-1844-patch-migration (18.4.4 deployed live 2026-09-30, fresh omp/18.4.4, 50/50 APPLIED). Top user priorities for omp: (1) cache drift after resume, (2) cache misses from soft/remote compaction.
+Close the defects left open by 09-29-omp-1844-patch-migration (18.4.4 live since 2026-09-30, 50/50 APPLIED). User priorities: (1) cache drift after resume, (2) cache misses from soft/remote compaction. This task fixes three diagnosed items; audit-repro drift is split out.
 
-## Confirmed facts (evidence in prior task implement.md and audit logs)
-- Cache-audit label `MISS CAUSED BY SYSTEM_DRIFT` is noise: it compares interleaved claude vs gpt-5.6-luna requests (system[0] 0f62…->65a9…, ttl none->1h on 118 of 192 claude rows, 117 hits). Raw system array and headers are not captured on a miss (`~/.omp/agent/cache-prefix-audit.log`).
-- One real miss observed before deploy: 04:19:57Z, messages 418->457 (+39 in one request), cacheRead=14314, cacheWrite=342867. Cause is [INFERENCE]: no breakpoint near the previous request tail (applyPromptCaching, pi-ai/src/providers/anthropic.ts ~3920: head, two tail, one decimation checkpoint per 15 user turns). No measured proof yet; "20-block lookback" is unverified.
-- Post-deploy resume at 04:40Z: expected one cold miss (system prompt changed upstream), then 95-99.9% hits.
-- Review #2 (major, unfixed): a prepared input rejected on dispatch via `onInputCallback` loses text and images (`main.ts:445-468`, `interactive-mode.ts:3229-3246`). Same gap exists in live 0082 on 18.4.1; not a regression.
-- Review #4 (minor, unfixed): async image paste can be overwritten by restore after a cancelled Ctrl+Enter preparation.
-- audit-repro r2/r3/r3x/r3x-real/r4 fail identically on 18.4.1 (pre-existing drift; r1 passes via 0084).
-- Root cause of ClinePass 403 (user config, not code): stale `apiKey` in `~/.omp/agent/models.yml`; already removed by the user.
+## Confirmed facts
+- **A. Audit baseline is cross-model.** `patches/cache-prefix-audit-extension.ts:873` uses `prev = st.last` (last request of ANY model) as the verdict baseline; only the diff *slot* is per-model (`lastDiffByModel`, :877). Interleaved claude / gpt-5.6-luna requests therefore log `SYSTEM_DRIFT system[0] 940ccaef… -> d17688e7…` on claude rows that are 96-99% hits (audit log 2026-09-30 04:44-04:50Z). The label misattributes; it does not describe a real change. Earlier claim that raw system/headers "were never captured" was wrong: `payload-archive.ts` keeps every outbound payload (`~/.omp/agent/payloads/<session>/…`, plus `anthropic-wire/`), and it holds the 04:19:57Z miss request.
+- **B. The one real miss is explained by breakpoint spacing.** Archived payloads for session 01a0f047: previous request had tail breakpoints at content blocks 600 and 601 (messages 416/417); the missing request `…0780-main-claude-sonnet-5-5.json` had 643 blocks, tail breakpoints at 640 and 642, and one head breakpoint (system[3]). The nearest earlier written entry is 39-41 blocks behind the new tail. Anthropic's documented lookback from a breakpoint is 20 blocks. Result: cacheRead=14314, cacheWrite=342867. Measured structure matches the hypothesis; the request-side effect has not been reproduced against the live API.
+- `resume-cache-breakpoint-extension.ts` already adds one breakpoint at the previous request's tail, but only on the first request of a resumed session, and it counts the 4-breakpoint budget (a 5th is a hard 400).
+- **C. 0082 Review gaps (18.4.4, live).** #2 (major): a prepared input rejected on dispatch through `onInputCallback` loses text and images (`main.ts:445-468`, `interactive-mode.ts:3229-3246`). #4 (minor): an async image paste can be overwritten by the restore after a cancelled Ctrl+Enter preparation. Both exist in 18.4.1 live 0082; neither is a migration regression.
+- **D (out of scope).** audit-repro r2/r3/r3x/r3x-real/r4 fail identically on 18.4.1.
 
-## Candidate work items (scope pending user decision)
-A. Cache-audit baseline: compare only same model + same TTL; on a miss dump raw `system` array and headers.
-B. Cache anchor patch (originally called 0085): extra breakpoint at previous request tail; only if A's evidence confirms the cause.
-C. 0082 Review #2 and #4 with a behavior gate (rejected-dispatch restore; paste-race).
-D. audit-repro r2/r3/r3x/r3x-real/r4 pre-existing drift.
+## Requirements
+- R1 (A): the audit verdict baseline is the previous request of the SAME model. Cross-process pid comparison and state-file compatibility are preserved.
+- R2 (B): the resume-cache-breakpoint extension also fires within a live session when the block count grew by more than a threshold since the previous request, adding one breakpoint at the previous request's tail, inside the 4-breakpoint budget, at most once per such growth event.
+- R3 (C): a rejected dispatch of a prepared submission restores text and images to the editor; a paste that arrives during preparation survives cancellation.
+- R4: deployment of C reuses `deploy-1844.py` style tooling (backup, fresh-process verification, auto-rollback) and needs an all-omp-closed window. A and B are extension mirrors, deployed by copy with `cmp` parity across repo / `~/.omp/patches` / `~/.omp/agent/extensions`.
 
-## Open question (blocking)
-Which of A-D belong in this task.
+## Acceptance criteria
+- AC1 (A): a fixture of interleaved claude/luna requests where claude's request N follows claude's N-1 (append-only) yields verdict kind `APPEND_ONLY` for claude. It must fail on the current code (sensitivity control) and pass after the fix. Existing `verify-cache-prefix-audit.ts` stays green, including the interloper case (main model's miss is explained by its own diff).
+- AC2 (B): using the archived request pair (previous `…0779…`/prior request and `…0780…`) as fixture, the extension output has a `cache_control` on the previous tail block, total breakpoints ≤ 4, and the fixture without the fix has none there. Normal +2-message steps add no breakpoint (no extra cache writes). `verify-resume-cache-breakpoint.ts` stays green.
+- AC3 (C): a behavior gate drives a prepared submission whose dispatch is rejected and asserts text + images return to the editor; a second case pastes an image during a cancelled preparation and asserts it is kept. Both are red on the current 18.4.4 tree and green after. Gates registered in `apply.sh` under the 0082 family.
+- AC4: 18.4.4 `apply.sh` full apply on a fresh pristine sandbox: all layers APPLIED, second apply all SKIP, `--check` all APPLIED, revert equals pristine, rollup verifier PASS.
+- AC5: live deploy verified by fresh `omp --version`, live `--check`, repo/ledger zero drift, and (for A/B) one observed real audit row from a running session.
+- AC6: `.trellis/spec` updated (Phase 3.3) and grep-checkable.
+
+## Out of scope
+- audit-repro r2/r3/r3x/r3x-real/r4 (task D, separate).
+- Changing `applyPromptCaching` in pi-ai core; any resume-time history rewrite ("rewind" of long tails); payload-archive disk budget (observed 2.7 GB vs 400 MiB default; noted, not touched).
+
+## Risks
+- B adds a breakpoint that may bill one extra cache write; the growth threshold must keep it to rare events. Threshold value is unproven against the live API.
+- C changes input handling; the earlier Enter-during-compaction fix had only code-path evidence.
