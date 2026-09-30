@@ -8,11 +8,11 @@
 
 | 項目 | 值 |
 |---|---|
-| 當前部署 | `OMP_PATCH_VERSION=18.4.1`（未設則按 installed 版本自動路由） |
-| 當前 live 部署 | **49 補丁** + `bin/omp -> src/cli.ts`；2026-09-28 13:08 備份並原子部署，fresh `omp --version`＝18.4.1，live `--check`＝49 APPLIED，repo↔ledger `PATCHES.md` 一致 |
+| 當前部署 | `OMP_PATCH_VERSION=18.4.4`（未設則按 installed 版本自動路由） |
+| 當前 live 部署 | **50 補丁** + `bin/omp -> src/cli.ts`；2026-09-30 由 `deploy-1844.py` 備份並原子部署（DB 線上備份、失敗自動回滾，18.4.1 樹保留），fresh `omp --version`＝18.4.4，live `--check`＝50 APPLIED；以部署腳本輸出為準 |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（50 層；候選，尚未部署） |
-| 最近遷移 | 18.3.3 → 18.4.1 已備份並原子部署，正式 CLI 回報 `omp/18.4.1`；新增 0083（`^` 標記 resume 前綴穩定）；部署後壓測新增 0084（length-stop 重試提醒持久化，待部署） |
+| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（50 層；當前部署，18.4.1 為回退源） |
+| 最近遷移 | 18.4.1 → 18.4.4：50 層全為同編號候選（38 層原樣、12 層適配，無上游接管）；0082 手工合併上游 detached-draft；新增 `verify-user-display-text-queue.ts`；已知未修：Review #2（prepared 輸入 dispatch 被拒絕時不還原文/圖片）、audit-repro r2/r3/r3x/r4 既有漂移（18.4.1 已存在） |
 | 回歸套件 | **38 道 TypeScript 行為閘門**（18.4.1 新增 `verify-model-mention-surface-resume.ts`、`verify-length-stop-reminder-persist.ts`）及 spec shell 閘門；另有 `--verify-rollups` 六基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10／18.3.3／18.4.1） |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；

@@ -24,7 +24,7 @@
 每層一段：分類（沿用/適配/接管/衝突）+ 上游改了什麼（檔:行）+ 你怎麼改（檔:行）+ `emit` 輸出末行。最後附：`replay-1844.py` 的 SUMMARY 行、你負責層在 `--json` 中的狀態、`grep -nP '[^\x00-\x7F]'` 對你產出的 patch 的輸出（應為空）。任何 gate 紅燈另列。
 
 ## 機檢（交付前跑，覆核再跑）
-- `grep -nP '[^\x00-\x7F]' patches/.18.4.4-candidates/<你的層>*.patch` → 無輸出
+- 非 ASCII：只檢查**相對 18.4.1 候選新增**的 `+` 行：`cat patches/.18.4.1-candidates/*.patch | grep -P '^\+.*[^\x00-\x7F]' | sort -u > /tmp/a; cat patches/.18.4.4-candidates/*.patch | grep -P '^\+.*[^\x00-\x7F]' | sort -u > /tmp/b; comm -13 /tmp/a /tmp/b`，輸出只允許上游資料行（0065 的 rules.json）；整檔 grep 會命中上游上下文，不可作判據。
 - `git -C /home/chris/orca/projects/omp-move status --short patches/.18.4.1-candidates patches/.18.3.3-candidates` → 無輸出（舊候選不動）
 - `cd /home/chris/orca/projects/omp-move && OMP_PATCH_VERSION=18.4.1 bash patches/apply.sh --print-plan 2>&1 | md5sum` 必須等於 `fb03147cc09d5471b372cbbdabaa2d64`
 
