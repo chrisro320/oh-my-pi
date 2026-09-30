@@ -50,6 +50,7 @@ const UNCACHEABLE_BLOCKS: Record<string, true> = {
 
 interface ContentBlock {
 	type?: string;
+	text?: string;
 	cache_control?: { type: string; ttl?: string };
 }
 
@@ -172,7 +173,15 @@ interface TrackedRequest {
 
 /**
  * Drop the provider's `cache_control` marker from each content block of one
- * message. The marker only ever sits at the top level of a provider-decorated
+ * message, and render a bare string content into the single text block the
+ * provider itself builds from it. `applyCacheControlToMessage` in pi-ai's
+ * Anthropic provider rewrites `content: "x"` into
+ * `[{ type: "text", text: "x", cache_control }]`, while the request where the
+ * session history is re-converted carries the same unchanged message as a bare
+ * string again. Without this canonical form an unchanged penultimate message
+ * hashes differently between a decorated request (block array) and an
+ * undecorated one (string), the predecessor match fails and the growth anchor
+ * is lost. The marker only ever sits at the top level of a provider-decorated
  * block, so this must NOT recurse: a same-named field inside `tool_use.input` or
  * a nested `content` array is a real argument, and erasing it would let a
  * rewritten tool call hash equal to the old one.
@@ -180,7 +189,10 @@ interface TrackedRequest {
 function stripCacheControl(message: ProviderMessage | null | undefined): unknown {
 	if (message === null || message === undefined || typeof message !== "object") return message ?? null;
 	const content = message.content;
-	if (!Array.isArray(content)) return { ...message };
+	if (!Array.isArray(content)) {
+		if (typeof content === "string") return { ...message, content: [{ type: "text", text: content }] };
+		return { ...message };
+	}
 	return {
 		...message,
 		content: content.map(block => {

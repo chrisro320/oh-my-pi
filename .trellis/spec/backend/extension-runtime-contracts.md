@@ -1175,15 +1175,16 @@ const prev = sameModel[0];
 
 ### 2. Signatures
 
-`findPredecessor(messages): TrackedRequest | undefined`, `messageHash(message)`, `countContentBlocks(messages)`, `placeAnchor(payload, messages, anchorIndex, tag)`. Constants: `ANTHROPIC_MAX_BREAKPOINTS = 4`, `ANCHOR_LOOKBACK_BLOCKS = 20`, `GROWTH_TRIGGER_BLOCKS = ANCHOR_LOOKBACK_BLOCKS - 4`, `TRACKER_CAP = 8`, `UNCACHEABLE_BLOCKS`.
+`sessionIdentity(ctx): string`, `findPredecessor(messages, sessionId): TrackedRequest | undefined`, `tailHash(messages, count): string`, `stripCacheControl(message)`, `countContentBlocks(messages)`, `placeAnchor(payload, messages, anchorIndex, tag)`. Constants: `ANTHROPIC_MAX_BREAKPOINTS = 4`, `ANCHOR_LOOKBACK_BLOCKS = 20`, `GROWTH_TRIGGER_BLOCKS = ANCHOR_LOOKBACK_BLOCKS - 4`, `TRACKER_CAP = 8`, `UNCACHEABLE_BLOCKS`.
 
 ### 3. Contracts
 
 - Eligibility mirrors the provider policy: the anchor lands on the last block Anthropic would decorate, walking back past `thinking`, `redacted_thinking`, `fallback`, `tool_addition`, `tool_removal`. Marking a refused block is a hard 400; when no eligible block exists, decline.
 - TTL legality: wire order is tools -> system -> messages, so an inserted anchor's TTL must be <= every marker before it and >= every marker after it. When the bounds cross there is no legal TTL (a 5m block before a 1h one is a 400) and the anchor is declined; otherwise it inherits the most restrictive earlier marker, else the longest later one, else the provider default.
 - Budget: the wire must never exceed 4 `cache_control` blocks. Claiming a slot releases the interior provider marker between the anchor and the newest tail — the newest tail must survive because it is what the next turn hits — looping until the anchor fits; with nothing releasable, decline.
-- Predecessor identity is CONTINUITY, not a name: a tracked request may be reused only when its stored last-message hash (`cache_control` stripped) equals the hash of the message at the index right after its recorded count. There is no session id and no first-message conversation key; two conversations that open with the same first message match only when their bytes agree.
-- The tracker is bounded (`TRACKER_CAP`) and a burst of side requests cannot evict a longer conversation: eviction spends the oldest entry no larger than the incoming request, and a request smaller than every entry is not recorded at all, so title/keepalive traffic leaves the main predecessor in place.
+- Predecessor identity is continuity of BOTH session and tail, never a name: a tracked request may be reused only when it was recorded under the same session id AND its stored tail hash equals the hash of this request's messages up to the recorded count. The session id comes from `ctx.sessionManager.getSessionId()` with one constant fallback (`sessionIdentity`); the tail hash covers the message count and the last TWO messages, with `cache_control` stripped only at the top level of each content block, and a bare-string `content` canonicalized to the provider's own single text block before hashing (`stripCacheControl` renders `content: "x"` as `[{ type: "text", text: "x" }]`, the shape pi-ai's `applyCacheControlToMessage` rewrites a cache-marked string into; without this an unchanged penultimate message hashes differently between a decorated request and one where the session history is re-converted as a bare string, so the predecessor match — and with it the growth anchor — is lost). It never recurses, so a same-named field inside `tool_use.input` stays a real argument. No model or first-message conversation key participates.
+- A rewrite of a message earlier than the last two that leaves those two equal is an accepted residual: the tracker hashes a constant number of messages per request instead of the whole history, so such a rewrite can still be taken as the predecessor.
+- The tracker is bounded (`TRACKER_CAP`). Eviction spends the oldest entry no larger than the incoming request, and a request smaller than every entry is not recorded at all, so a short side request (a title burst, a keepalive) can never evict the main predecessor. The guarantee is limited and stated as such: eight or more side requests whose histories are at least as long as the main history can spend the cap and push the main predecessor out, so that growth event receives no anchor.
 
 ### 4. Validation & Error Matrix
 
@@ -1193,27 +1194,29 @@ const prev = sameModel[0];
 | earlier 1h head marker + later 5m tail marker | anchor must be 1h; wire retention stays non-increasing |
 | earlier 5m head marker + later 1h tail marker | no legal TTL; anchor declined, no slot spent |
 | census already 4 with an interior provider marker | exactly one interior marker released to fund the anchor |
-| 20 side requests larger than the cap | the main conversation's predecessor survives |
+| one unchanged penultimate message reaches one request as a bare string and another as the provider-decorated single text block | the two spellings hash equal; the predecessor matches and the growth anchor survives |
+| short side requests exceed the cap | the main conversation's predecessor survives |
+| eight side requests at least as long as the main history | residual: the main predecessor can be evicted and no anchor is added |
 | growth <= 16 blocks, a +2 step, a shrink, or a side request | no anchor is added |
 
 ### 5. Good / Base / Bad Cases
 
-Good: the captured 418->457 message / 602->643 block shape anchors at 417, releases 455, keeps 456, and stays within the cap. Base: no growth and no resume leaves the markers untouched. Bad: mark a thinking block, emit a 5th marker, or key the tracker by a conversation name.
+Good: the captured 418->457 message / 602->643 block shape anchors at 417, releases 455, keeps 456, and stays within the cap. Base: no growth and no resume leaves the markers untouched. Bad: mark a thinking block, emit a 5th marker, key the tracker by a conversation name, hash only the newest message (a rewrite one message earlier then slips through), hash a bare-string message differently from the provider's single-text-block rewrite, or strip a nested `cache_control` that is really tool-call data.
 
 ### 6. Tests Required
 
-`OMP_RESUME_CACHE_LOG=<tmp> bun patches/verify-resume-cache-breakpoint.ts` — synthetic resumed session; live growth 418->457 (anchor 417, released 455, survived 456); the negatives (+2 step, boundary 16/17, interleaved side request, shrink); thinking-ended growth; mixed-TTL anchor and mixed-TTL decline; continuity (equal-first-message conversations, string- and image-only first messages); and the tracker cap with 20 side requests. A pre-fix tree fails the growth and eligibility cases.
+`OMP_RESUME_CACHE_LOG=<tmp> bun patches/verify-resume-cache-breakpoint.ts` — synthetic resumed session; live growth 418->457 (anchor 417, released 455, survived 456); the negatives (+2 step, boundary 16/17, interleaved side request, shrink); thinking-ended growth; mixed-TTL anchor and mixed-TTL decline; continuity (equal-first-message conversations, string- and image-only first messages, an equal tail in a different session, a rewrite of the second-to-last message, an unchanged penultimate message spelled as the provider's decorated text block in one request and the bare string in the other (both directions), an early rewrite with an equal tail as the accepted residual, a rewritten tool argument named `cache_control`); and the tracker cap with 20 short side requests. A pre-fix tree fails the growth and eligibility cases.
 
 Machine check (fails when eligibility, TTL ordering, the cap, or continuity is dropped):
 
 ```sh
-grep -nE 'UNCACHEABLE_BLOCKS|maxLater > minEarlier|ANTHROPIC_MAX_BREAKPOINTS = 4|function findPredecessor|TRACKER_CAP = 8' patches/resume-cache-breakpoint-extension.ts
+grep -n 'findPredecessor\|tailHash\|stripCacheControl\|sessionIdentity\|UNCACHEABLE_BLOCKS\|maxLater > minEarlier\|TRACKER_CAP' patches/resume-cache-breakpoint-extension.ts
 OMP_RESUME_CACHE_LOG=/tmp/resume-cache-check.log bun patches/verify-resume-cache-breakpoint.ts
 ```
 
 ### 7. Wrong vs Correct
 
 ```text
-Wrong: match the previous request by a conversation key (model + first message), or always add the anchor at the tail.
-Correct: match by last-message-hash continuity, scan back to the eligible block, settle the TTL against the wire order, and fund the anchor by releasing the interior marker.
+Wrong: match the previous request by a conversation name (model + first message), hash only the newest message, hash a bare-string message differently from the provider's text-block rewrite, strip every nested `cache_control` (even inside `tool_use.input`), or always add the anchor at the tail.
+Correct: match by session id plus a two-message tail hash, canonicalize a bare-string message to the provider's single text block before hashing, scan back to the eligible block, settle the TTL against the wire order, and fund the anchor by releasing the interior marker.
 ```

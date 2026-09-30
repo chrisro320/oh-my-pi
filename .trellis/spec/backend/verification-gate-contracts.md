@@ -637,14 +637,15 @@ Three 18.4.4 follow-up gates were written or extended under review: `patches/ver
 
 ### 2. Signatures
 
-- `verify-rejected-prepared-draft-restore.ts` imports the real `submitInteractiveInput` (`src/main.ts`) for legs 1-5, the real `InputController.setupEditorSubmitHandler` cancel path for leg 6, and a shared-helper control leg 7.
+- `verify-rejected-prepared-draft-restore.ts` imports the real `submitInteractiveInput` (`src/main.ts`) for legs 1-6, the real `InputController.setupEditorSubmitHandler` cancel path for legs 7-9, and a shared-helper control leg 10.
 - `verify-cache-prefix-audit.ts` section 3d installs a zero-argument `Date` subclass (`class FrozenDate extends RealDate; globalThis.Date = FrozenDate`).
 - Every gate records its negative controls in the module header.
 
 ### 3. Contracts
 
-- Drive the REAL entry function with a small double, not a helper-only test. Legs 1-5 go through `submitInteractiveInput` and leg 6 through the real `InputController`; a helper-only test stays green while the call site drops the call.
-- Run a negative control for EVERY leg, and keep it in the gate header. The 0085 gate documents that removing 0085 fails leg 1, removing the follow-up fixes fails legs 4 and 5, and dropping the attachment condition fails leg 6; the audit gate's section 3c fails when `prev = st.last` or the window is global.
+- Drive the REAL entry function with a small double, not a helper-only test. Legs 1-6 go through `submitInteractiveInput` and legs 7-9 through the real `InputController` (leg 10 is the shared-helper control); a helper-only test stays green while the call site drops the call.
+- Run a negative control for EVERY leg, and keep it in the gate header. The 0085 gate documents that removing 0085 fails leg 1, the pre-round-2 tree fails legs 5, 6 and 7, dropping the ownership skip fails leg 4, removing the draft-image condition fails leg 8 (leg 7 stays green there), and reference-only image ownership fails leg 9 (legs 7 and 8 stay green there); the audit gate's section 3c fails when `prev = st.last` or the window is global.
+- An explicitly widened runtime contract and new public exports need declaration-hunk proof, not only a Bun run. The sandbox tree ships neither `tsgo` nor a `tsconfig.json`, so the 0085 gate's shipped `.d.ts` hunks were proved with a `tsc` 6.0.3 consumer probe against `package.json`'s `types` condition (red against the old declarations, green after; a variant without `@ts-expect-error` names the members the new contract requires) plus a grep of each declared field against its source. Bun executes without typechecking, so a green behavior gate is not type proof.
 - `Bun.sleep` between fixture requests is NOT a substitute for controlling timestamps. A sleep can only widen the gap; it cannot pin two requests into one millisecond. The equal-timestamp case freezes the clock so all three fingerprints share one ISO millisecond, and asserts that pin before testing the dedupe.
 
 ### 4. Validation & Error Matrix

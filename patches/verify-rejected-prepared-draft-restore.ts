@@ -28,8 +28,13 @@
 //      its text directly (leg 7), while an image pasted during preparation is a
 //      newer draft and makes the capture stay restorable instead (leg 8). Either
 //      way the pasted image survives.
-//   9. control: with nothing newer in the editor the shared helper does write the
-//      capture back, so legs 7-8 are not passing by never restoring.
+//   9. the same cancelled preparation after a registered `input` handler returned
+//      rebuilt-but-equal replacement image objects (the supported transform
+//      `event.images.map(image => ({ ...image }))`): nothing newer was typed or
+//      pasted, so the text still returns directly. Image ownership is a reference
+//      OR a `data`/`mimeType` match.
+//  10. control: with nothing newer in the editor the shared helper does write the
+//      capture back, so legs 7-9 are not passing by never restoring.
 //
 // Not covered (accepted): the Ctrl+Enter / follow-up entry (`#submitFollowUp`
 // and its own restore call site) and restoration through the dequeue path
@@ -45,6 +50,9 @@
 //   - For AgentStartPolicyChangedError the session's own callback declines to
 //     restore when the editor already holds text; that submission is then not
 //     offered anywhere, the same gap the pre-0085 baseline had.
+//   - Attachment ownership is value equality (leg 9): an image re-pasted with the
+//     same bytes and mime as one of the captured images reads as the draft's own,
+//     even though it is a distinct paste.
 //
 // Negative controls, run when this gate was written:
 //   - against the 18.4.4 tree without 0085, leg 1 fails: the rejected draft never
@@ -61,7 +69,11 @@
 //     fails: the callback's own copy lands in the restorable queue a second time;
 //   - with the attachment condition removed from `editorHoldsNewerDraft` (so only
 //     revision and text decide), leg 8 fails: the pasted image is replaced by the
-//     captured one. Leg 7 stays green there, so the two legs pin opposite ends.
+//     captured one. Leg 7 stays green there, so the two legs pin opposite ends;
+//   - with reference-only image ownership (the rule before this round), leg 9
+//     fails: the rebuilt-but-equal replacement objects are misread as a newer
+//     draft, so the cancelled preparation defers instead of returning the text.
+//     Legs 7 and 8 stay green there, so leg 9 pins the input-transformer case.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -125,13 +137,25 @@ function makeMode(editor: FakeEditor) {
 	return { mode, warnings, errors };
 }
 
-/** The subset of the real interactive-mode context the submit path touches. */
-function makeControllerCtx(editor: FakeEditor, emitPrepareUserInput: () => Promise<unknown>) {
+/**
+ * The subset of the real interactive-mode context the submit path touches.
+ * `emitInput` is supplied only by the leg that exercises the registered `input`
+ * handler path, so the other legs keep the plain editor-submit behavior.
+ */
+function makeControllerCtx(
+	editor: FakeEditor,
+	emitPrepareUserInput: () => Promise<unknown>,
+	emitInput?: (text: string, images?: Image[]) => Promise<unknown>,
+) {
 	const warnings: string[] = [];
 	const errors: string[] = [];
 	const ctx = {
 		editor,
-		sessionManager: { getSessionId: () => "session-1", getCwd: () => "/tmp" },
+		sessionManager: {
+			getSessionId: () => "session-1",
+			getCwd: () => "/tmp",
+			putBlob: async () => ({ displayPath: "/tmp/image-blob" }),
+		},
 		deferredDraftSnapshots: [] as { text: string; canonicalText?: string; images?: Image[] }[],
 		skillCommands: new Map<string, unknown>(),
 		fileSlashCommands: new Map<string, unknown>(),
@@ -149,9 +173,11 @@ function makeControllerCtx(editor: FakeEditor, emitPrepareUserInput: () => Promi
 		ui: { requestRender: () => {} },
 		session: {
 			extensionRunner: {
-				hasHandlers: (name: string) => name === "prepare_user_input",
+				hasHandlers: (name: string) =>
+					name === "prepare_user_input" || (name === "input" && emitInput !== undefined),
 				getCommand: () => undefined,
 				emitPrepareUserInput,
+				emitInput: emitInput ?? (async () => undefined),
 			},
 			isStreaming: false,
 			isCompacting: false,
@@ -350,7 +376,34 @@ assert.equal(typeof draft.restoreRejectedDraft, "function", "0085 must export re
 	assert.equal(ctx.warnings.length, 1);
 }
 
-// Leg 9: control for legs 7-8: the shared helper itself, with nothing newer in
+// Leg 9: a registered `input` handler may return replacement image objects that
+// are deeply equal to the editor's pending attachments (the supported transform
+// `event.images.map(image => ({ ...image }))`) while nothing newer was typed or
+// pasted. Image ownership is a reference OR value match, so the cancellation
+// still hands the text back directly instead of deferring a phantom newer draft.
+{
+	const editor = new FakeEditor();
+	editor.pendingImages = [image("captured")];
+	const ctx = makeControllerCtx(
+		editor,
+		async () => ({ action: "cancel" }),
+		async (text, images) => ({ handled: false, text, images: images?.map(image => ({ ...image })) }),
+	);
+	new InputController(ctx).setupEditorSubmitHandler();
+	assert.equal(typeof editor.onSubmit, "function", "the real controller arms the submit handler");
+	await editor.onSubmit?.("hello [Image #1]");
+	assert.equal(
+		editor.getText(),
+		"hello [Image #1]",
+		"an input transform that rebuilt equal image objects is not a newer draft: the text returns directly",
+	);
+	assert.deepEqual(editor.pendingImages, [image("captured")], "the equal replacement attachments are restored");
+	assert.equal(ctx.deferredDraftSnapshots.length, 0, "nothing is deferred when no newer draft exists");
+	assert.deepEqual(ctx.errors, [], "a cancelled preparation is not an error");
+	assert.deepEqual(ctx.warnings, [], "and no restorable warning is due");
+}
+
+// Leg 10: control for legs 7-9: the shared helper itself, with nothing newer in
 // the editor, still writes the capture back.
 {
 	const editor = new FakeEditor();

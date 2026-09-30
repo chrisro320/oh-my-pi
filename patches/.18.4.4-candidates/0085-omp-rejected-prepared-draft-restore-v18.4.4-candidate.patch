@@ -171,7 +171,7 @@
  import type { TuiSlashCommandRuntime } from "../types";
  
  /** Clear only text still owned by this submission, never a newer detached draft. */
-@@ -28,3 +29,74 @@
+@@ -28,3 +29,89 @@
  	}
  	editor.setCollapsedText([restoredText, currentText].filter(part => part.trim()).join("\n\n"));
  }
@@ -196,17 +196,32 @@
 +};
 +
 +/**
++ * True when the editor's pending image still belongs to the captured draft: the
++ * same object, or the same bytes and mime as one of its captured images. The
++ * supported `input` handler path may hand back rebuilt objects for attachments it
++ * did not change, so identity alone would misread those as a newer draft.
++ */
++function isDraftOwnedImage(draft: RejectedDraft, image: ImageContent): boolean {
++	const owned = draft.images;
++	if (owned === undefined) return false;
++	if (owned.includes(image)) return true;
++	return owned.some(captured => captured.data === image.data && captured.mimeType === image.mimeType);
++}
++
++/**
 + * True when the editor holds something written since the draft was captured: a
 + * text revision change, text, or an attachment that is not one of the draft's
-+ * own captured images. An ordinary Enter leaves the captured attachments in the
-+ * editor until the submission is admitted, so a non-empty attachment list alone
-+ * is not a newer draft; an image pasted while the submission was being prepared
-+ * is one, because it is not one of the captured images.
++ * own captured images (see {@link isDraftOwnedImage}). An ordinary Enter leaves
++ * the captured attachments in the editor until the submission is admitted, so a
++ * non-empty attachment list alone is not a newer draft; an image pasted while the
++ * submission was being prepared is one, because it is not one of the captured
++ * images. A re-paste of identical bytes reads as the draft's own; that residual
++ * is accepted.
 + */
 +function editorHoldsNewerDraft(editor: CustomEditor, draft: RejectedDraft, revision: number | undefined): boolean {
 +	if (revision !== undefined && editor.textRevision !== revision) return true;
 +	if (editor.getText().length > 0) return true;
-+	return editor.pendingImages.some(image => !draft.images?.includes(image));
++	return editor.pendingImages.some(image => !isDraftOwnedImage(draft, image));
 +}
 +
 +/** Keep a rejected capture restorable without touching the editor's newer draft. */

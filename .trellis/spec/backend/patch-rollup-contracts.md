@@ -582,16 +582,16 @@ A defect is found in a feature whose patch layer is already deployed. The finali
 
 ### 2. Signatures
 
-- 0085 edits `src/main.ts` (`submitInteractiveInput`), `src/modes/controllers/input-controller.ts`, `src/slash-commands/helpers/draft.ts`, and sits AFTER 0082 in the 18.4.4 plan.
-- `restoreRejectedDraft(runtime, draft, revision?)`, `retainRejectedDraft(runtime, draft)`, `editorHoldsNewerDraft(editor, revision)`, `editorAlreadyHoldsDraft(editor, draft)`.
+- 0085 edits `src/main.ts` (`submitInteractiveInput`), `src/modes/controllers/input-controller.ts`, `src/slash-commands/helpers/draft.ts`, plus the two shipped declaration hunks `dist/types/main.d.ts` and `dist/types/slash-commands/helpers/draft.d.ts`, and sits AFTER 0082 in the 18.4.4 plan.
+- `restoreRejectedDraft(runtime, draft, revision?)`, `retainRejectedDraft(runtime, draft)`, `editorHoldsNewerDraft(editor, draft, revision)`, and the module-private `isDraftOwnedImage(draft, image)`. Image ownership is by reference OR by value (`data` + `mimeType`); there is still no helper that compares the whole rejected submission's content.
 - The 18.4.4 plan is 51 layers; live is the first 50 until 0085 is deployed.
 
 ### 3. Contracts
 
 - Governance: a deployed layer is immutable (`0082` stays byte-frozen), so a follow-up fix lands as a new tail layer in the same plan; the plan row and the ledger must state the planned count (51) and the live count (50) consistently, and `grep -n '0085' patches/PATCHES.md` must show the same pair.
-- ONE owner per rejection path: the prompt-dropped callback (`interactive-mode.ts`'s `#restoreDroppedPrompt`) writes the draft back before rethrowing, so the dispatch-catch must not restore it a second time. `editorAlreadyHoldsDraft` detects a draft the editor already holds verbatim and leaves it alone, so exactly one path commits.
-- Restore only when the message was NOT admitted to the transcript: `main.ts` records `session.messages.length` before `session.prompt` and restores only when it is unchanged after the throw — content a turn already admitted must not come back.
-- Restores never overwrite something newer: `editorHoldsNewerDraft` treats a changed text revision, non-empty text, OR a non-empty attachment list as "newer" and keeps the capture restorable instead. The attachment check is separate because a paste during preparation leaves the text and its revision untouched.
+- ONE owner per rejection path, decided by an explicit signal: the prompt-dropped callback (`interactive-mode.ts`'s `#restoreDroppedPrompt`) writes the draft back before rethrowing, so the dispatch-catch skips only when the caught error IS that case. The session throws `AgentStartPolicyChangedError` there; that class is not exported, so `main.ts` recognizes it by the name the class assigns itself (`error instanceof Error && error.name === "AgentStartPolicyChangedError"`) — duck typing, not content equality and not transcript length. Every other throw restores.
+- Restore the draft in the dispatch-catch for any throw that is not the session's own hand-back. The rule is deliberately wide and the residual is accepted: because aggregate transcript state cannot tell a pre-dispatch rejection from a rare failure after the turn already took the message, a rare post-admission throw may offer already-sent text back as a restorable draft. Offering a possible duplicate beats losing the input.
+- Restores never overwrite something newer: `editorHoldsNewerDraft` treats a changed text revision, non-empty text, OR a pending image that is not one of the draft's own captured images as "newer" and keeps the capture restorable instead. Attachment newness is decided by `isDraftOwnedImage`: an editor image belongs to the draft when it is the SAME reference OR has the same `data` and `mimeType` as one of the captured images (`editor.pendingImages.some(image => !isDraftOwnedImage(draft, image))`), not by any non-empty list — an ordinary Enter leaves the captured attachments pending until admission, so a non-empty list alone is not newer, and a genuinely different pasted image is. Value equality is required because the supported `input` handler path may hand back rebuilt-but-equal replacement objects (`event.images.map(image => ({ ...image }))`); reference identity alone would misread those as a newer draft. Residual (accepted): an image re-pasted with the same bytes and mime as a captured one reads as the draft's own.
 
 ### 4. Validation & Error Matrix
 
@@ -599,31 +599,35 @@ A defect is found in a feature whose patch layer is already deployed. The finali
 |---|---|
 | prepared dispatch rejected, editor empty | original text + attachments return |
 | prepared dispatch rejected, newer draft present | newer draft kept; rejected input stays restorable |
-| prompt-dropped callback already restored | not restored twice; nothing queued as restorable |
-| throw after the turn admitted the message (transcript grew) | nothing restored |
+| prompt-dropped callback already restored (caught `AgentStartPolicyChangedError`) | not restored twice; nothing queued as restorable |
+| pre-dispatch transcript growth, then a throw | restored: aggregate length is not an admission signal |
+| throw after the turn admitted the message (rare) | residual: the draft is offered back anyway; a possible duplicate beats losing it |
 | preparation cancelled after an image paste | pasted image kept; capture stays restorable |
+| preparation cancelled after a registered `input` handler returned rebuilt-but-equal replacement images | nothing newer was typed or pasted; the text returns directly |
 
 ### 5. Good / Base / Bad Cases
 
-Good: 0085 lands after the frozen 0082 as a new layer; the 18.4.4 plan is 51 with 50 live. Base: a non-prepared submission behaves as before. Bad: edit the deployed 0082 in place, or let both rejection paths restore the same draft.
+Good: 0085 lands after the frozen 0082 as a new layer; the 18.4.4 plan is 51 with 50 live. Base: a non-prepared submission behaves as before. Bad: edit the deployed 0082 in place, let both rejection paths restore the same draft, or decide attachment newness by reference identity alone (a rebuilt-but-equal replacement image is then misread as a newer draft).
 
 ### 6. Tests Required
 
-`OMP_PATCH_VERIFY_AGENT_ROOT=<18.4.4 tree> bun patches/verify-rejected-prepared-draft-restore.ts` drives the real `submitInteractiveInput` (legs 1-5), the real `InputController.setupEditorSubmitHandler` cancel path with a small editor double (leg 6), and a shared-helper control (leg 7). Negative controls: without 0085 leg 1 is red (editor stays empty); without the follow-up fixes legs 4 and 5 are red; removing the attachment condition from `editorHoldsNewerDraft` makes leg 6 red.
+`OMP_PATCH_VERIFY_AGENT_ROOT=<18.4.4 tree> bun patches/verify-rejected-prepared-draft-restore.ts` has ten legs. It drives the real `submitInteractiveInput` (legs 1-6: rejected dispatch, newer draft retained, accepted dispatch restores nothing, session-owned `AgentStartPolicyChangedError`, an equal-text independent rejection, and pre-dispatch transcript growth) and the real `InputController.setupEditorSubmitHandler` cancel path with a small editor double (legs 7-9: an ordinary Enter whose own captured attachments are still pending returns its text; an image pasted during preparation survives; a registered `input` handler returning rebuilt-but-equal replacement image objects is not a newer draft, so the text returns directly), plus a shared-helper control (leg 10). Negative controls: without 0085 leg 1 is red (editor stays empty); the tree before the round-2 fixes fails legs 5, 6 and 7; dropping the ownership skip fails leg 4; removing the draft-image condition from `editorHoldsNewerDraft` fails leg 8 (the pasted image is replaced by the captured one, while leg 7 stays green); and reference-only image ownership fails leg 9 (the rebuilt-but-equal objects are misread as a newer draft, while legs 7 and 8 stay green).
 
 Machine check:
 
 ```sh
-grep -nE 'restoreRejectedDraft|editorAlreadyHoldsDraft|editorHoldsNewerDraft|transcriptBefore' patches/.18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch
+grep -n 'AgentStartPolicyChangedError\|restoreRejectedDraft\|editorHoldsNewerDraft\|isDraftOwnedImage' patches/.18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch
 OMP_PATCH_VERIFY_AGENT_ROOT=<18.4.4 tree> bun patches/verify-rejected-prepared-draft-restore.ts
 grep -n '0085' patches/PATCHES.md
 ```
 
-Not covered: `#restoreDroppedPrompt` (`interactive-mode.ts`) has the same attachment-overwrite shape and was deliberately left untouched (outside Review #4).
+Shipped declarations: the patch carries `dist/types` hunks for `main.d.ts` and `draft.d.ts` so package type consumers see the widened runtime contract and the new exports. There is no in-tree typecheck to run — the sandbox tree ships neither `tsgo` nor a `tsconfig.json`. The declaration hunks were instead proved with a consumer probe under `tsc` 6.0.3 (`/home/chris/.local/bin/tsc`) importing the shipped `.d.ts` through `package.json`'s `types` condition: red against the old declarations, green after, and a variant without the `@ts-expect-error` names the members the new contract requires.
+
+Not covered (accepted): the Ctrl+Enter / follow-up entry (`#submitFollowUp` and its own restore call site), restoration through the dequeue path (`handleDequeue`), and the composer's own `[Image #N]` chip rendering (the editor double's `setCollapsedText` stores plain text). Left untouched: `#restoreDroppedPrompt` (`interactive-mode.ts`) keeps the same attachment-overwrite shape and was outside Review #4.
 
 ### 7. Wrong vs Correct
 
 ```text
-Wrong: patch the deployed 0082 layer in place, or let the dispatch-catch restore what the prompt-dropped callback already handed back.
-Correct: add layer 0085 after 0082; guard the restore by transcript admission and by editor ownership so exactly one path commits.
+Wrong: patch the deployed 0082 layer in place, let the dispatch-catch restore what the prompt-dropped callback already handed back, gate ownership on content equality, gate admission on aggregate transcript length, or decide attachment newness by reference identity alone.
+Correct: add layer 0085 after 0082; skip the restore only when the caught error is `AgentStartPolicyChangedError` (duck-typed by name because the class is not exported), restore on every other throw, and treat an attachment as newer only when it is neither the same object as one of the draft's own images nor the same bytes and mime (`isDraftOwnedImage`).
 ```

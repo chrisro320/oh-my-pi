@@ -585,4 +585,66 @@ function begin(previous: Payload): void {
 	console.log("ok continuity: a tool_use input field named cache_control is hashed");
 }
 
+{
+	// #1(c) One unchanged message reaches the hook in two shapes. The provider
+	// rewrites a cache-marked string message into a single text block
+	// (`applyCacheControlToMessage` in pi-ai: `content: "x"` becomes
+	// `[{ type: "text", text: "x", cache_control }]`), while a request where the
+	// session history is re-converted carries the same message as a bare string
+	// again. Hashing the raw shape made those two spellings of one message
+	// unequal, so the predecessor - and with it the growth anchor - was lost. Only
+	// the shape (bare string vs single text block) can differ here: the marker is
+	// stripped before hashing either way.
+	const penultimateText = "same penultimate text";
+	const blockShape: Block[] = [{ type: "text", text: penultimateText }];
+	const decoratedShape: Block[] = [{ type: "text", text: penultimateText, cache_control: { ...ONE_HOUR } }];
+
+	/** The first 20 messages of the conversation, index 18 in `shape`. */
+	function head(shape: string | Block[]): Message[] {
+		const messages: Message[] = [];
+		for (let i = 0; i < 20; i++) {
+			const role = i % 2 === 0 ? "user" : "assistant";
+			messages.push({ role, content: i === 18 ? shape : [{ type: "text", text: `s${i}` }] });
+		}
+		return messages;
+	}
+	function mark(payload: Payload, indices: number[]): void {
+		for (const index of indices) {
+			const blocks = payload.messages?.[index]?.content;
+			if (Array.isArray(blocks)) blocks[blocks.length - 1].cache_control = { ...ONE_HOUR };
+		}
+	}
+	const shell = () => ({
+		system: [{ type: "text", text: "base" }, { type: "text", text: "identity", cache_control: { ...ONE_HOUR } }],
+		tools: [{ type: "read" }, { type: "bash", cache_control: { ...ONE_HOUR } }],
+	});
+
+	for (const [label, previousShape, laterShape] of [
+		// The reported shape: index 18 was the earlier request's tail (and so its
+		// decorated block array), and reaches the later request as the bare string.
+		["decorated array -> string", decoratedShape, penultimateText],
+		// The reverse order: the earlier request saw the raw string, the later one
+		// the single text block the provider left behind.
+		["string -> text block", penultimateText, blockShape],
+	] as const) {
+		const previous: Payload = { messages: head(previousShape), ...shell() };
+		mark(previous, [18, 19]);
+		const later: Payload = { messages: head(laterShape), ...shell() };
+		for (let i = 20; i < 40; i++) {
+			later.messages!.push({ role: i % 2 === 0 ? "assistant" : "user", content: [{ type: "text", text: `s${i}` }] });
+		}
+		mark(later, [38, 39]);
+		assert.equal(blockTotal(later) - blockTotal(previous), 20, `${label}: fixture must grow past the trigger`);
+
+		begin(previous);
+		beforeRequest({ payload: later });
+
+		assert.ok(
+			markedIndices(later).includes(19),
+			`${label}: an unchanged penultimate message in the other shape must still match its predecessor, got ${markedIndices(later)}`,
+		);
+		console.log(`ok continuity: penultimate message shape ${label} still anchors on the previous tail`);
+	}
+}
+
 console.log("PASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap");
