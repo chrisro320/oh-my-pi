@@ -83,6 +83,11 @@ assert.ok(
 	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(aiVersion),
 	`unsupported compaction lane trace gate version: ${aiVersion}`,
 );
+// 0086 is a pi-agent-core/pi-coding-agent patch, so whether the tree carries it
+// is the CORE version, not the pi-ai version: keying these legs on the ai
+// package made them run against a tree whose 0086 was reversed, which is not a
+// configuration the lane can reach.
+const coreVersion = JSON.parse(readFileSync(`${CORE_ROOT}/package.json`, "utf8")).version as string;
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 
@@ -133,13 +138,31 @@ function assistant(requestModel: Model, text = "SUMMARY"): AssistantMessage {
 	};
 }
 
+/**
+ * The usage the provider reported for the request that produced one fixture turn:
+ * the whole prefix was a cache read, as on the incident's own chain (377769
+ * cache-read + 484 cache-write + 2 input for 378255). The Anthropic live lane's
+ * capacity is measured from this, so a fixture turn that carries only a stub
+ * response usage cannot be selected at all.
+ */
+function attestedUsage(tokens: number): AssistantMessage["usage"] {
+	return {
+		input: 0,
+		output: 1,
+		cacheRead: tokens,
+		cacheWrite: 0,
+		totalTokens: tokens + 1,
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+	};
+}
+
 // Fixture session: two old turns to summarize, one recent turn to retain.
 function fixture(model: Model) {
 	const oldUser: AgentMessage = { role: "user", content: [{ type: "text", text: "OLD_USER" }], timestamp: 10 };
-	const oldAssistant = assistant(model, "OLD_RESPONSE");
+	const oldAssistant = { ...assistant(model, "OLD_RESPONSE"), usage: attestedUsage(300) };
 	oldAssistant.timestamp = 20;
 	const recentUser: AgentMessage = { role: "user", content: [{ type: "text", text: "RECENT_USER" }], timestamp: 30 };
-	const recentAssistant = assistant(model, "RECENT_RESPONSE");
+	const recentAssistant = { ...assistant(model, "RECENT_RESPONSE"), usage: attestedUsage(900) };
 	recentAssistant.timestamp = 40;
 	const entries: SessionEntry[] = [
 		{ type: "message", id: "old-user", parentId: null, timestamp: "10", message: oldUser },
@@ -377,7 +400,7 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 	assert.ok(req, "anthropic-native lane must trace summarize.request");
 	assert.equal(req.hasLiveContext, true);
 	assert.equal(req.tools, 1);
-	if (aiVersion === "18.4.4") {
+	if (coreVersion === "18.4.4") {
 		// 0086: the accepted request is the live chain, so the trace must say so
 		// and must carry no fallback reason.
 		assert.equal(req.usesLiveChainReplay, true, "an accepted native live chain must be traced as the live chain");
@@ -393,7 +416,7 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 // the reason on the request trace, not only on the returned entry. This is the
 // trace half of the fallback contract; the native gate asserts the entry half.
 // ---------------------------------------------------------------------------
-if (aiVersion === "18.4.4") {
+if (coreVersion === "18.4.4") {
 	const claude: Model = getBundledModel("anthropic", "claude-opus-5");
 	assert.ok(claude, "bundled claude-opus-5 must exist");
 	const { preparation } = fixture(claude);
@@ -442,7 +465,7 @@ if (aiVersion === "18.4.4") {
 // not carry the previous summary are both refused, and both refusals must be
 // readable from the trace alone.
 // ---------------------------------------------------------------------------
-if (aiVersion === "18.4.4") {
+if (coreVersion === "18.4.4") {
 	const claude: Model = getBundledModel("anthropic", "claude-opus-5");
 	assert.ok(claude, "bundled claude-opus-5 must exist");
 	const { preparation, oldAssistant, recentAssistant } = fixture(claude);

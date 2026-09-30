@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 
@@ -73,6 +74,16 @@ function countOccurrences(haystack: string, needle: string): number {
 const cacheColdLogReasons = (): string[] =>
 	logEvents.filter(event => event.level === "warn" && event.message === CACHE_COLD_WARNING).map(event => String(event.context?.reason));
 
+/**
+ * The native lane's rendered compaction instructions for a whole-chain request,
+ * pinned from the reviewed request itself (research/pin-request-fingerprints.ts)
+ * rather than rebuilt from the production constant it renders. A digest derived
+ * from that constant moves with it, so appending a boundary restriction to the
+ * shared note -- or to this lane's own rendering -- stayed green before; a
+ * digest taken outside the tree turns both mutations red.
+ */
+const NATIVE_LIVE_CHAIN_INSTRUCTION_SHA256 = "d7fda90ed86452abad54dbc9926293f5c9843b9e08e3f837dad43399976380e0";
+
 // GATE 0: the fixture model must actually take the Anthropic native lane.
 const model: Model = getBundledModel("anthropic", "claude-opus-5");
 assert.ok(model, "bundled claude-opus-5 must exist");
@@ -115,11 +126,31 @@ function nativeCompactionResponse(requestModel: Model): AssistantMessage {
 	} as AssistantMessage;
 }
 
+/**
+ * The usage the provider reported for the request that produced one fixture turn:
+ * the whole prefix was a cache read, as on the incident's own chain (377769
+ * cache-read + 484 cache-write + 2 input for 378255). The live lane's capacity is
+ * measured from this usage, so a fixture turn carrying only a stub response
+ * usage cannot be selected at all.
+ */
+function attestedUsage(tokens: number): AssistantMessage["usage"] {
+	return {
+		input: 0,
+		output: 1,
+		cacheRead: tokens,
+		cacheWrite: 0,
+		totalTokens: tokens + 1,
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+	};
+}
+
 const oldUser: AgentMessage = { role: "user", content: [{ type: "text", text: "OLD_USER" }], timestamp: 10 };
-const oldAssistant = assistant(model, "OLD_RESPONSE");
+const OLD_ATTESTED_TOKENS = 300;
+const RECENT_ATTESTED_TOKENS = 900;
+const oldAssistant = { ...assistant(model, "OLD_RESPONSE"), usage: attestedUsage(OLD_ATTESTED_TOKENS) };
 oldAssistant.timestamp = 20;
 const recentUser: AgentMessage = { role: "user", content: [{ type: "text", text: "RECENT_USER" }], timestamp: 30 };
-const recentAssistant = assistant(model, "RECENT_RESPONSE");
+const recentAssistant = { ...assistant(model, "RECENT_RESPONSE"), usage: attestedUsage(RECENT_ATTESTED_TOKENS) };
 recentAssistant.timestamp = 40;
 const entries: SessionEntry[] = [
 	{ type: "message", id: "old-user", parentId: null, timestamp: "10", message: oldUser },
@@ -130,8 +161,12 @@ const entries: SessionEntry[] = [
 const preparation = prepareCompaction(entries, { enabled: true, keepRecentTokens: 1, remoteEnabled: true }, model);
 assert.ok(preparation, "fixture must prepare compaction");
 // The narrowed live lane is whole-turn only: a split turn names `native-split-turn`
-// and ships the cut, so the live legs below run on an explicit non-split
-// preparation of the same session (the recent turn kept whole).
+// and ships the cut, so the 18.4.4 live legs below run on an explicit non-split
+// preparation of the same session (the recent turn kept whole). Older plans keep
+// the raw preparation and the assertions this gate has always pinned on it -- the
+// whole-chain fixture and its `recent-user` boundary are 0086-only, and replacing
+// the older fixture rather than selecting per plan is what broke the older branch.
+const wholeChainPlan = coreVersion === "18.4.4";
 const livePreparation = {
 	...preparation,
 	firstKeptEntryId: "recent-user",
@@ -141,6 +176,7 @@ const livePreparation = {
 	recentEntryIds: ["recent-user", "recent-assistant"],
 	isSplitTurn: false,
 };
+const mainPreparation = wholeChainPlan ? livePreparation : preparation;
 assert.equal(preparation.isSplitTurn, true, "the raw preparation must stay the split fixture the cut legs need");
 
 // The live request as the host pipeline renders it: an extension-injected
@@ -190,7 +226,7 @@ const nativeRequests: Array<{ context: Context; options: SimpleStreamOptions }> 
 logEvents.length = 0;
 const result = await compact(
 	{
-		...livePreparation,
+		...mainPreparation,
 		tokensBefore: 100_000, // above ANTHROPIC_COMPACTION_MIN_CONTEXT_TOKENS
 		settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
 	},
@@ -226,15 +262,25 @@ const [request] = nativeRequests;
 // GATE 2: the request is the live turn's bytes — system, tools, messages.
 assert.deepEqual(request.context.systemPrompt, liveContext.systemPrompt, "native request must carry the live system prompt");
 assert.deepEqual(request.context.tools, liveContext.tools, "native request must carry the normalized live tools (with `i`)");
-if (coreVersion === "18.4.4") {
+if (wholeChainPlan) {
 	// 0086: the request carries the live chain whole, retained tail included, so
 	// its own provider breakpoints land on the entries the main chain wrote (a
 	// request cut at safeCut anchors the boundary entry, which the main chain
 	// stopped refreshing and which therefore expires). The API has no cutoff
 	// parameter, so the boundary moves into the instructions.
 	assert.deepEqual(request.context.messages, liveContext.messages, "native request must carry the live chain byte-for-byte");
-	assert.ok(preparation.recentMessages.length > 0, "fixture must exercise a retained tail");
+	assert.ok(livePreparation.recentMessages.length > 0, "fixture must exercise a retained tail");
 	const instructions = String(request.options.anthropicCompaction?.instructions);
+	// The rendered instruction is pinned from the reviewed request itself
+	// (research/pin-request-fingerprints.ts), NOT rebuilt from the production
+	// constant it renders: a digest derived from that constant moves with it, so a
+	// boundary restriction appended to the shared note -- or to this lane's own
+	// rendering -- stayed green in the previous revision.
+	assert.equal(
+		createHash("sha256").update(instructions).digest("hex"),
+		NATIVE_LIVE_CHAIN_INSTRUCTION_SHA256,
+		"the native live instruction must be the reviewed whole-conversation bytes, with nothing appended",
+	);
 	assert.match(
 		instructions,
 		/summarize the ENTIRE conversation above/,
@@ -276,7 +322,13 @@ assert.deepEqual(cacheColdLogReasons(), [], "an accepted native live chain must 
 
 if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
 	const { getPreservedAnthropicCompactionData } = await import(`${CORE_ROOT}/src/compaction/anthropic.ts`);
-	assert.equal(result.firstKeptEntryId, "recent-user", "the retained turn must start at the cut boundary");
+	assert.equal(
+		result.firstKeptEntryId,
+		wholeChainPlan ? "recent-user" : "recent-assistant",
+		wholeChainPlan
+			? "the retained turn must start at the cut boundary"
+			: "unshifted boundary must preserve the retained entry",
+	);
 	assert.equal(getPreservedAnthropicCompactionData(result.preserveData)?.signature, "offline-signed-summary");
 	const call = { ...oldAssistant, stopReason: "toolUse", content: [{ type: "toolCall", id: "call-1", name: "read", arguments: { path: "/fixture" } }] };
 	const toolResult = { role: "toolResult", toolCallId: "call-1", toolName: "read", content: [{ type: "text", text: "done" }], timestamp: 25 };
@@ -395,41 +447,39 @@ if (coreVersion === "18.4.4") {
 }
 
 if (coreVersion === "18.4.4") {
-	// GATE 5: a live chain that does not physically fit the model window falls
-	// back and is named -- on the entry AND in the operator log. The window here
-	// sits BETWEEN the two rulers: above the summary-shaped transcript the round-1
-	// ruler measured (which truncates tool results and would accept this chain)
-	// and below the real provider request (system + tools + every message block).
-	// A tree that judges capacity by the transcript therefore ships an
-	// over-capacity live request while this leg stays green.
+	// GATE 5: a live chain whose appended messages push it past the model window
+	// falls back and is named -- on the entry AND in the operator log. Capacity is
+	// the provider's own measurement of the chain (the last turn's usage, 900 here)
+	// plus a local estimate of what the request appends after it, so the window
+	// below is derived from the measured chain: it fits the chain WITHOUT the long
+	// tool result and not with it. A ruler that judged the serialized transcript
+	// instead truncates tool results and accepts the over-capacity request, which
+	// leaves this leg green.
 	const capacityTokenizer = new Tokenizer(model);
 	const longToolResult: AgentMessage = {
 		role: "toolResult",
 		toolCallId: "call-capacity",
 		toolName: "read",
 		content: [{ type: "text", text: "long-tool-output ".repeat(40_000) }],
-		timestamp: 15,
+		timestamp: 50,
 	};
-	const capacityMessages: AgentMessage[] = [oldUser, longToolResult, recentUser, recentAssistant];
-	const capacityLive: Context = { ...liveContext, messages: capacityMessages };
-	const capacitySystemTokens = capacityTokenizer.countTokens(liveContext.systemPrompt.join("\n\n"));
-	const capacityToolTokens = capacityTokenizer.countTokens(JSON.stringify(liveContext.tools));
-	const realMessageTokens = capacityTokenizer.countMessages(capacityMessages as never);
-	const lossyTranscriptTokens = capacityTokenizer.countTokens(
-		serializeConversationForSummary(capacityMessages as never, "anthropic"),
-	);
+	const capacityLive: Context = {
+		...liveContext,
+		messages: [oldUser, oldAssistant, recentUser, recentAssistant, longToolResult],
+	};
+	const appendedTokens = (extra: AgentMessage[]): number =>
+		RECENT_ATTESTED_TOKENS +
+		capacityTokenizer.countMessages([recentAssistant, ...extra] as never, { excludeEncryptedReasoning: true });
+	const withoutTailTokens = appendedTokens([]);
+	const withTailTokens = appendedTokens([longToolResult]);
 	assert.ok(
-		realMessageTokens > lossyTranscriptTokens + 100_000,
-		`the capacity fixture must separate the rulers (real=${realMessageTokens}, summary=${lossyTranscriptTokens})`,
+		withTailTokens > withoutTailTokens + 100_000,
+		`the capacity fixture must separate the rulers (with=${withTailTokens}, without=${withoutTailTokens})`,
 	);
-	const capacityWindow = Math.floor((realMessageTokens + lossyTranscriptTokens) / 2);
+	const capacityWindow = withTailTokens - Math.floor((withTailTokens - withoutTailTokens) / 2);
 	assert.ok(
-		capacitySystemTokens + capacityToolTokens + realMessageTokens > capacityWindow,
-		"the derived window must sit below the real provider request",
-	);
-	assert.ok(
-		capacitySystemTokens + capacityToolTokens + lossyTranscriptTokens < capacityWindow,
-		"the derived window must sit above the summary-transcript ruler",
+		withoutTailTokens + 8_000 < capacityWindow && withTailTokens + 8_000 > capacityWindow,
+		"the derived window must straddle the appended tool result",
 	);
 	const runNative = async (
 		preparationOverride: Partial<typeof livePreparation>,
@@ -492,9 +542,10 @@ if (coreVersion === "18.4.4") {
 		"the capacity fallback must warn with the same reason",
 	);
 
-	// Sensitivity control: the same chain, accepted by a window above both rulers.
+	// Sensitivity control: the same chain, accepted by a window above its attested
+	// size and the appended tail.
 	logEvents.length = 0;
-	const fittingWindow = Math.ceil((capacitySystemTokens + capacityToolTokens + realMessageTokens) * 1.6);
+	const fittingWindow = Math.ceil(withTailTokens * 1.6);
 	const fitting = await runNative({}, { ...model, contextWindow: fittingWindow }, capacityLive, false);
 	assert.equal(fitting.result.details?.cacheColdReason, undefined, "a chain inside the window must not be recorded cold");
 	assert.deepEqual(cacheColdLogReasons(), [], "a chain inside the window must not warn");
@@ -507,6 +558,61 @@ if (coreVersion === "18.4.4") {
 		String(fitting.requests[0].options.anthropicCompaction?.instructions),
 		/summarize the ENTIRE conversation above/,
 		"a fitting live chain must scope the whole conversation",
+	);
+
+	// GATE 5c: the chain's own provider usage decides the verdict, not a local
+	// count of its messages. The same handful of words is refused when the provider
+	// sized it at 66k and shipped when it sized it at 50k on the same window; a
+	// ruler that counted the request locally accepts both halves, which is what a
+	// tree that ignored the attested usage would do.
+	const attestedChain = (tokens: number): Context => ({
+		...liveContext,
+		messages: [oldUser, { ...recentAssistant, content: [{ type: "text", text: "sized-response" }], usage: attestedUsage(tokens) }],
+	});
+	logEvents.length = 0;
+	const attestedOver = await runNative({}, { ...model, contextWindow: 64_000 }, attestedChain(66_000), false);
+	assert.equal(
+		attestedOver.result.details?.cacheColdReason,
+		"native-live-chain-over-capacity",
+		"an input the provider sized above the window must be named on the entry",
+	);
+	logEvents.length = 0;
+	const attestedFit = await runNative({}, { ...model, contextWindow: 64_000 }, attestedChain(50_000), false);
+	assert.equal(
+		attestedFit.result.details?.cacheColdReason,
+		undefined,
+		"the same chain sized under the window must ship the live chain",
+	);
+	assert.deepEqual(cacheColdLogReasons(), [], "an attested-fitting chain must not warn");
+	assert.deepEqual(
+		attestedFit.requests[0].context.messages,
+		attestedChain(50_000).messages,
+		"the attested-fitting chain must ship whole",
+	);
+
+	// GATE 5b: a chain whose last assistant turn carries no provider usage has an
+	// unknown size. It is refused by name rather than estimated locally, and the
+	// refusal is durable on the entry and loud in the log.
+	logEvents.length = 0;
+	const unattestedLive: Context = {
+		...liveContext,
+		messages: [oldUser, recentUser, { ...recentAssistant, usage: undefined }],
+	};
+	const unattested = await runNative({}, model, unattestedLive, false);
+	assert.equal(
+		unattested.result.details?.cacheColdReason,
+		"native-capacity-unattested",
+		"a chain without provider usage must be refused by name",
+	);
+	assert.deepEqual(
+		cacheColdLogReasons(),
+		["native-capacity-unattested"],
+		"the unattested refusal must warn with the same reason",
+	);
+	assert.notDeepEqual(
+		unattested.requests[0].context.messages,
+		unattestedLive.messages,
+		"an unattested chain must not ship as the live chain",
 	);
 
 	// GATE 6: a split turn never rides the native live lane either -- the live

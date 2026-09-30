@@ -574,8 +574,16 @@ case "$OMP_PATCH_VERSION" in
 	# provider cache anchors landed on the entry at that boundary -- written once
 	# and then never refreshed, because every later main turn anchored its own
 	# advancing tail. One hour later that entry is gone and the whole history is
-	# rewritten (the 256k-token / $1.15 incident). The request now carries the
-	# live chain whole and names the cutoff in its instruction.
+	# rewritten (the 256k-token / $1.15 incident). On 18.4.4 the Anthropic lane now
+	# carries the host's whole live chain and names the scope in its instruction,
+	# but only while the host vouches for the live scope, the turn is not split, the
+	# previous summary is absent or inside that chain, and the request fits the
+	# window -- measured against the provider's OWN usage for the chain (the last
+	# main request's billed input plus a local estimate of what is appended after
+	# it, opaque reasoning bytes excluded), because tokenizing signed thinking
+	# locally overstated the incident's 378k-token chain as 630k and refused it.
+	# Every other shape, and every unattested chain, keeps the pre-0086 bytes with a
+	# named reason (capacity-unattested included).
 	_omp_tail_candidate "18.4.4" "0086-omp-compaction-cache-liveness" "${NM}"
 	;;
 *)

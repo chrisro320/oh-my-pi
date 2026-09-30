@@ -150,6 +150,42 @@ suite. A gate that no suite invokes is not a gate.
   package tree; always print `import.meta.resolve(...)` in the probe and check
   the reported path and version before trusting a number.
 
+- Capacity claimed for a provider request MUST be measured with the provider's
+  own accounting: the usage the last provider-sized turn reported for the prefix
+  it carried, plus a local estimate of ONLY the messages appended after that
+  turn. The estimate MUST exclude opaque reasoning payloads (signed thinking,
+  redacted thinking, native server-tool blobs): their local byte size diverges
+  from what the provider charges, so counting them as replay tokens overstated
+  the incident's 378255-token chain as 630393 and refused the very request the
+  layer exists to send. Machine check:
+  `grep -n 'excludeEncryptedReasoning: true' <core>/src/compaction/compaction.ts`
+  hits the live-chain ruler, and dropping that option from it turns
+  `bun patches/verify-compaction-cache-liveness.ts` red (leg 7h).
+- A capacity claim with no provider-attested usage MUST be refused by name
+  (`capacity-unattested` / `native-capacity-unattested`), never spent as if it
+  were small. Machine check: returning `fits` for an unattested chain turns
+  `verify-compaction-cache-liveness.ts` (leg 7h, third shape) and
+  `verify-anthropic-native-compaction-live-context.ts` (GATE 5b) red.
+- Gate fixtures that exercise a provider-measured decision MUST carry realistic
+  provider usage; a fixture whose turns carry only the stub response usage can
+  never select the behaviour under test. Machine check: the liveness fixture's
+  `turnUsage(index)` and the native fixture's `attestedUsage(tokens)`; removing
+  them leaves every live-chain leg on `capacity-unattested`.
+- Equality claims about a rendered provider instruction MUST be anchored outside
+  the tree -- a reviewed literal or a digest pinned by
+  `research/pin-request-fingerprints.ts` (`LIVE_CHAIN_INSTRUCTION_SHA256`,
+  `NATIVE_LIVE_CHAIN_INSTRUCTION_SHA256`) -- never a string rebuilt from the
+  production constant the request itself renders, because such an oracle moves
+  with the mutation it is supposed to catch. Machine check: appending a boundary
+  restriction to the shared note turns BOTH gates red; appending it to only one
+  lane's rendering turns exactly that lane's gate red.
+- A provider's wire representation MUST be read as it is sent: an omitted `ttl`
+  on an Anthropic cache marker IS the five-minute default, and only an explicit
+  `1h` is one hour (the previous simulator read the omission as an hour and
+  certified a cache hit for entries that had expired). Machine check:
+  `verify-compaction-cache-liveness.ts` leg 1e -- the short-retention wire form
+  reads `readBlocks=0` at compaction time while the one-hour chain reads 433.
+
 ### 4. Validation & Error Matrix
 
 | Condition | Required result |
