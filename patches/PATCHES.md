@@ -9,9 +9,9 @@
 | 項目 | 值 |
 |---|---|
 | 當前部署 | `OMP_PATCH_VERSION=18.4.4`（未設則按 installed 版本自動路由） |
-| 當前 live 部署 | **50 補丁（0085／0086 已進計畫、待部署後為 52）** + `bin/omp -> src/cli.ts`；2026-09-30 由 `deploy-1844.py` 備份並原子部署（DB 線上備份、失敗自動回滾，18.4.1 樹保留），fresh `omp --version`＝18.4.4，live `--check`＝50 APPLIED；以部署腳本輸出為準 |
+| 當前 live 部署 | **50 補丁（0085／0086／0087 已進計畫、待部署後為 53）** + `bin/omp -> src/cli.ts`；2026-09-30 由 `deploy-1844.py` 備份並原子部署（DB 線上備份、失敗自動回滾，18.4.1 樹保留），fresh `omp --version`＝18.4.4，live `--check`＝50 APPLIED；以部署腳本輸出為準 |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（52 層；live 目前 50 層，0085／0086 待部署；18.4.1 為回退源） |
+| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（53 層；live 目前 50 層，0085／0086／0087 待部署；18.4.1 為回退源） |
 | 最近遷移 | 18.4.1 → 18.4.4：50 層全為同編號候選（38 層原樣、12 層適配，無上游接管）；0082 手工合併上游 detached-draft；新增 `verify-user-display-text-queue.ts`；已知未修：Review #2（prepared 輸入 dispatch 被拒絕時不還原文/圖片）、audit-repro r2/r3/r3x/r4 既有漂移（18.4.1 已存在） |
 | 回歸套件 | **41 道 TypeScript 行為閘門**（`apply.sh` apply 模式實際註冊者為準；各計畫只執行其中含該層者）及 spec shell 閘門；另有 `--verify-rollups` 六基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10／18.3.3／18.4.1） |
 
@@ -37,7 +37,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化）；2026-09-24 新增 0078（Python display MIME 擇一）、0079（Kitty 非同步轉圖完成屏障）、0080（顯示端 PNG 快取與圖片指紋） | **47** |
 | 18.3.3 計畫 | 保留上述 47 項能力；0073 由上游動態 read getter 接管，追加 0081 主會話 cache footer、0082 輸入英譯原文顯示；其餘同編號專版候選遷移 | **48** |
 | 18.4.1 計畫 | 保留 18.3.3 的 48 項能力，全部為同編號 `.18.4.1-candidates/`；17 層需適配（0066／0067／0068 在 0035 移植後以原位元組直接落層），審查後另修 0043／0074／0077／0079／0080；鏈尾新增 0083（`^` 標記模型的 resume 前綴修復）、0084（length-stop 重試提醒持久化） | **50** |
-| 18.4.4 計畫（52 層；live 為前 50 層） | 保留 18.4.1 的 50 項能力，全部為同編號 `.18.4.4-candidates/`；六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 38 層原樣、12 層失敗（直接 6：0037／0010／0050／0063／0065／0079；連帶 6：0060／0076／0068／0070／0080／0082），全部同編號適配、無上游接管；0082 因上游 18.4.3/18.4.4 自建 detached-draft 而手工合併（`queueCompactionMessage` 改為 options 物件，Ctrl+Enter 保留上游 detach 後再加準備邊界）；0082 另補 queued `rawText` 改記原文（避免 RPC `removeQueuedMessage` 誤刪）與 `types.d.ts` 宣告。 | **52**（計畫層數；live 前 50 層，0085／0086 待部署） |
+| 18.4.4 計畫（53 層；live 為前 50 層） | 保留 18.4.1 的 50 項能力，全部為同編號 `.18.4.4-candidates/`；六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 38 層原樣、12 層失敗（直接 6：0037／0010／0050／0063／0065／0079；連帶 6：0060／0076／0068／0070／0080／0082），全部同編號適配、無上游接管；0082 因上游 18.4.3/18.4.4 自建 detached-draft 而手工合併（`queueCompactionMessage` 改為 options 物件，Ctrl+Enter 保留上游 detach 後再加準備邊界）；0082 另補 queued `rawText` 改記原文（避免 RPC `removeQueuedMessage` 誤刪）與 `types.d.ts` 宣告。 | **53**（計畫層數；live 前 50 層，0085／0086／0087 待部署） |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -833,6 +833,78 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - (e) the incident acceptance was verified by replaying the archived real request with the real
     provider `usage` appended to the chain, because the response body was never archived. No provider
     request has been made: the live cache hit is NOT yet observed (AC7 stays open).
+
+### 0087 — compaction attestation skips a host control-only carrier (18.4.4 only)
+
+- Patch: `.18.4.4-candidates/0087-omp-compaction-attestation-skip-control-carrier-v18.4.4-candidate.patch`
+  (`${NM}`; only `pi-agent-core/src/compaction/compaction.ts`, no declaration hunk -- no public API
+  changes). 0086 is finalized and immutable, so this repair lands as a new 18.4.4 tail layer; the
+  18.4.4 plan is now 53 layers (was 52).
+- Root cause: 0086's live-chain capacity ruler reads the provider's own usage from the chain's LAST
+  assistant turn (`findProviderInputAttestation`). pi-ai seeds
+  `{ content: [], usage: createEmptyUsage(), stopReason: "stop" }` into the live chain at stream start,
+  before the fetch; the host keeps such a turn only through its recorded `requestControls`
+  (`pi-coding-agent/src/session/messages.ts`), and the manual `/compact` path disconnects the session
+  before aborting, so the aborted seed is never persisted. In the real 2026-09-30T13:12:42Z compaction
+  the live chain's last assistant WAS that carrier (empty content, all-zero usage,
+  `stopReason: "aborted"`, at index 415/416), `getAssistantUsage` rejected it, and the scan returned
+  `undefined` BEFORE reaching the real attested turn one index earlier (index 414, usage
+  2/331125/523 = 331,650). The lane then fell back with `capacity-unattested` and the cache protection
+  0086 exists for did not run. The api/model identity legs and the 0.75 coherence floor both PASSED on
+  the real data; only the trailing carrier blocked it.
+- Fix / fail-closed rule: while scanning back, skip an assistant ONLY when it is a host control-only
+  carrier -- `role === "assistant"`, EMPTY content (length 0) and all-zero usage (every numeric field
+  zero, i.e. the `createEmptyUsage()` shape) or no usage at all. The scan then attests from the
+  previous assistant (`coveredMessages` = that index); everything after it, the carrier included, goes
+  through the existing local estimate (about 0 for an empty carrier). Every other unusable assistant
+  still returns `undefined` (`capacity-unattested` / `native-capacity-unattested`): content, an
+  aborted/error turn with content, and ANY non-zero usage -- including a partial usage the
+  context-token guard itself rejects (output-only). The api/model identity legs, the 0.75 coherence
+  floor and every other 0086 condition are untouched.
+- Both lanes share `liveChainFit` -> `liveChainRequestTokens` -> `findProviderInputAttestation` (local
+  lane ~L1027, native lane ~L2627), so this single change also covers the native lane's
+  `native-capacity-unattested`; both gates were extended.
+- Carrier-on-wire finding: the empty carrier DOES NOT reach the Anthropic wire. `buildParams` skips an
+  assistant turn whose content serializes to zero blocks (`if (blocks.length === 0) continue;`,
+  `pi-ai/src/providers/anthropic.ts`). The carrier's `requestControls.tool_removal`/`tool_addition`
+  still reshape the request's TOP-LEVEL tool list and an `effort` control may add a mid-conversation
+  control marker; neither is message content, so capacity must count neither as a message. The local
+  estimate therefore costs ~0 for the carrier and no measurable prefix is lost by skipping it for
+  attestation. The carrier still rides the live chain the lane ships (the lane replays the host's own
+  array); only the wire drops it, which is exactly why the cache model reads the same blocks with or
+  without it.
+- Gates: `verify-compaction-cache-liveness.ts` (leg 7k) and
+  `verify-anthropic-native-compaction-live-context.ts` (GATE 5f). Both drive: (i) a trailing empty,
+  zero-usage aborted carrier -> live lane ACCEPTED on BOTH lanes with the whole chain shipped, plus
+  (local lane, real wire) the 433-message chain plus one carrier -> `usesLiveChainReplay` true with
+  `readBlocks=433` and `cacheWrite <= INSTRUCTION_TOKENS`; (ii) two carriers in a row -> still
+  accepted; (iii) a trailing content-bearing turn with no usage -> named fallback; (iv) a trailing
+  empty message with non-zero PARTIAL usage (output-only) -> named fallback; (v) a carrier that is the
+  chain's only assistant -> named fallback.
+- RED/GREEN (2026-09-30, real runs): RED = sandbox replayed to 0086 (`replay-1844.py --before 0087`,
+  52 layers): liveness aborts at "a trailing control-only carrier must not veto the attestation"
+  (actual `capacity-unattested`, expected `undefined`); native aborts at "a trailing control-only
+  carrier must not veto the native attestation" (actual `native-capacity-unattested`). GREEN = sandbox
+  replayed through 0087 (53 layers): `PASS compaction cache liveness: turns=40 chain=433 boundary=354
+  green(cacheRead=43350, cacheWrite=5, readBlocks=433) red(cacheRead=50, cacheWrite=35405,
+  readBlocks=0) ...` and `PASS anthropic native compaction live context: scopes=live messages=4 tools=1
+  fallback=native-no-live-chain`. The pre-existing round-4/5 drift, incident-acceptance and native
+  cut/iterative legs all pass unchanged.
+- Negative controls (mutations, real runs): widening the skip to ANY assistant without usable usage
+  turns (iii) red in both gates ("an aborted turn with content must refuse the chain" / native
+  equivalent); classifying emptiness with the context-token guard (`!hasContextTokenUsage`) instead of
+  an all-zero scan turns (iv) red in both gates ("empty content with non-zero partial usage must
+  refuse the chain" / native equivalent).
+- Residuals (accepted):
+  - (a) skipping a carrier moves the anchor back one turn, so any opaque reasoning between the carrier
+    and the attested turn is locally estimated with signatures excluded -- the same under-count the
+    estimator already accepts for appended messages. The attested prefix itself is unaffected.
+  - (b) the carrier predicate keys on "empty content + all-zero usage", not on `stopReason`: an empty
+    error turn with no usage is skipped like the aborted carrier (it likewise carries nothing). A
+    carrier whose api/model do not match is skipped too, because a host-only placeholder is not a
+    provider measurement of any model.
+  - (c) no provider request has been made and no live cache hit has been observed; the acceptance is
+    an offline replay of archived session data (same boundary as 0086 residual (e)).
 
 
 ## 3. 已撤下的補丁

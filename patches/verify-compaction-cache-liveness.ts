@@ -1800,7 +1800,152 @@ try {
 		);
 	}
 
-	// Leg 8: the whole-conversation note belongs to a request that really carries
+	// Leg 7k: a host control-only carrier at the live chain's tail must not veto
+	// the attestation from the turn before it. pi-ai seeds an empty, zero-usage
+	// assistant into the live chain at stream start, and the incident's manual
+	// compaction was aborted in that window, so its last assistant carried no
+	// content and no usage: the usage guard stopped there and refused the whole
+	// chain as `capacity-unattested`, and the live lane never shipped. The carrier
+	// measures nothing -- the Anthropic wire drops it, an assistant turn with zero
+	// content blocks being skipped -- so the scan skips it. ONLY an empty,
+	// zero-usage assistant is skipped: the three negatives below (content, a
+	// non-zero partial usage, and a carrier that is the chain's only assistant)
+	// must all still refuse by name. Removing `isControlOnlyCarrier` turns the two
+	// acceptances red; widening it to skip any unusable assistant turns the three
+	// negatives red.
+	const carrier = (overrides: Partial<FixtureMessage> = {}): FixtureMessage => ({
+		role: "assistant",
+		content: [],
+		api: model.api,
+		provider: model.provider,
+		model: model.id,
+		stopReason: "aborted",
+		usage: {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 0,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		},
+		timestamp: 1_000,
+		...overrides,
+	});
+	/** A provider-sized small chain (`sizedTurn(50k)`) with `trailing` appended. */
+	const carrierChain = (trailing: FixtureMessage[]): Context => ({
+		systemPrompt: SYSTEM,
+		messages: [messages[0], sizedTurn(50_000), ...trailing],
+		tools: TOOLS,
+	});
+	const carrierVerdict = async (live: Context): Promise<StubCompaction> =>
+		captureCompactionStub(smallHistory, live, {
+			model: capacityModel,
+			messagesToSummarize: smallTarget,
+			recentMessages: [],
+		});
+	// (i) one trailing aborted carrier: the chain stays attested.
+	logEvents.length = 0;
+	const oneCarrier = await carrierVerdict(carrierChain([carrier()]));
+	assert.equal(
+		oneCarrier.cacheColdReason,
+		undefined,
+		"a trailing control-only carrier must not veto the attestation",
+	);
+	assert.equal(
+		liveChainFallbackOf(oneCarrier.summarizeRequests),
+		undefined,
+		"a carrier-backed chain must not be traced as a fallback",
+	);
+	assert.equal(
+		oneCarrier.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		true,
+		"a carrier-backed chain must ship the live chain",
+	);
+	assert.deepEqual(cacheColdLogReasons(), [], "an accepted carrier-backed chain must not warn");
+	assert.equal(oneCarrier.messages.length, 4, "the accepted request is the chain (3) plus one instruction");
+	assert.deepEqual(oneCarrier.messages[2], carrier(), "the carrier stays on the request the lane rebuilt");
+	// (ii) two carriers in a row are both skipped.
+	logEvents.length = 0;
+	const twoCarriers = await carrierVerdict(carrierChain([carrier(), carrier({ stopReason: "error" })]));
+	assert.equal(twoCarriers.cacheColdReason, undefined, "two trailing carriers must both be skipped");
+	assert.equal(
+		twoCarriers.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		true,
+		"two carriers must still ship the live chain",
+	);
+	assert.equal(twoCarriers.messages.length, 5, "two carriers ride the request as well");
+	// (iii) content is not a carrier: an aborted turn that kept content still refuses.
+	const withContent = await carrierVerdict(
+		carrierChain([carrier({ content: [{ type: "text", text: "aborted-with-content" }] })]),
+	);
+	assert.equal(
+		withContent.cacheColdReason,
+		"capacity-unattested",
+		"an aborted turn with content must refuse the chain",
+	);
+	// (iv) a non-zero usage is not a carrier, even when the context-token guard
+	// would reject it (output-only usage carries no context tokens).
+	const partialUsage = await carrierVerdict(
+		carrierChain([
+			carrier({
+				stopReason: "stop",
+				usage: {
+					input: 0,
+					output: 7,
+					cacheRead: 0,
+					cacheWrite: 0,
+					totalTokens: 7,
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+				},
+			}),
+		]),
+	);
+	assert.equal(
+		partialUsage.cacheColdReason,
+		"capacity-unattested",
+		"empty content with non-zero partial usage must refuse the chain",
+	);
+	// (v) a carrier is not an attestation: with no other assistant turn the chain
+	// still has no provider measurement.
+	const carrierOnly = await carrierVerdict({
+		systemPrompt: SYSTEM,
+		messages: [messages[0], carrier()],
+		tools: TOOLS,
+	});
+	assert.equal(
+		carrierOnly.cacheColdReason,
+		"capacity-unattested",
+		"a chain whose only assistant is a carrier has no attestation",
+	);
+	// (vi) the incident shape on the real wire: the 433-message live chain plus one
+	// carrier at the tail. The carrier is dropped from the serialized request while
+	// the chain's own tail markers still anchor the entries the main turns just
+	// wrote, so the request reads the live chain and writes only the instruction.
+	const incidentLive: Context = { systemPrompt: SYSTEM, messages: [...messages, carrier()], tools: TOOLS };
+	const incident = await captureCompaction(historyContext, incidentLive);
+	assert.equal(
+		incident.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		true,
+		"the carrier must not veto the incident's chain",
+	);
+	assert.equal(
+		liveChainFallbackOf(incident.summarizeRequests),
+		undefined,
+		"the incident chain must not be traced as a fallback",
+	);
+	assert.equal(
+		incident.wire.messages.length,
+		CHAIN_LENGTH + 1,
+		`the empty carrier must be dropped from the wire, got ${incident.wire.messages.length}`,
+	);
+	const carrierCache = simulate(incident.wire, COMPACTION_AT);
+	assert.equal(carrierCache.readBlocks, CHAIN_LENGTH, "the incident request must read the whole live chain");
+	assert.ok(
+		carrierCache.cacheWrite <= INSTRUCTION_TOKENS,
+		`the incident request must only write the instruction, got cacheWrite=${carrierCache.cacheWrite}`,
+	);
+
+	// Leg 8: the whole-conversation note belongs to a request that carries the
 	// the retained tail. With no tail the summary replaces every message it
 	// sends, so the request must say that instead of claiming a verbatim tail.
 	const noTailLive: Context = { systemPrompt: SYSTEM, messages, tools: TOOLS };

@@ -1,0 +1,72 @@
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -1266,6 +1266,12 @@
+  * included -- to the local estimator, which cannot size them; such a chain is
+  * refused by name (`capacity-unattested`) rather than guessed at. The same api
+  * and model must have sized it, or the number is not a measure of this request.
++ *
++ * Host control-only carriers are the one exception to "the last assistant turn":
++ * a carrier holds no content and no usage at all (see
++ * {@link isControlOnlyCarrier}), so it measures nothing and must not veto the
++ * attestation from the turn before it. Every other unusable assistant -- content,
++ * an aborted/error turn with content, or any non-zero usage -- still refuses.
+  */
+ function findProviderInputAttestation(
+ 	messages: readonly Message[],
+@@ -1274,6 +1280,7 @@
+ 	for (let index = messages.length - 1; index >= 0; index--) {
+ 		const message = messages[index] as unknown as AgentMessage;
+ 		if (message.role !== "assistant") continue;
++		if (isControlOnlyCarrier(message)) continue;
+ 		const assistant = message as unknown as { api?: string; model?: string };
+ 		if (assistant.api !== model.api || assistant.model !== model.id) return undefined;
+ 		const usage = getAssistantUsage(message);
+@@ -1285,6 +1292,48 @@
+ }
+ 
+ /**
++ * Whether one assistant message is a host control-only carrier: a placeholder
++ * the host seeded before any provider request answered it and then abandoned
++ * (aborted or failed) with no content and no usage at all.
++ *
++ * pi-ai pushes `{ content: [], usage: createEmptyUsage(), stopReason: "stop" }`
++ * into the live chain at stream start, before the fetch; the host keeps such a
++ * turn only through its recorded `requestControls`. The Anthropic wire drops it
++ * anyway -- an assistant turn that serializes to zero content blocks is skipped
++ * -- so it carries no capacity and the chain stays measurable from the turn
++ * before it. Any assistant with content, or with ANY non-zero usage field (even
++ * one the context-token guard would reject, such as output-only usage), is NOT a
++ * carrier: its unusable usage keeps the chain refused by name.
++ */
++function isControlOnlyCarrier(message: AgentMessage): boolean {
++	const carrier = message as unknown as { content?: unknown; usage?: Usage };
++	if (!Array.isArray(carrier.content) || carrier.content.length !== 0) return false;
++	return carrier.usage === undefined || usageReportsNoTokens(carrier.usage);
++}
++
++/**
++ * Whether every numeric field of one usage record is zero: the seed
++ * `createEmptyUsage()` carries only zeroed counters (its cost block included),
++ * so a non-zero anywhere -- however the context-token guard would classify it --
++ * means the turn did report something and is not a carrier.
++ */
++function usageReportsNoTokens(usage: Usage): boolean {
++	const pending: unknown[] = [usage];
++	while (pending.length > 0) {
++		const value = pending.pop();
++		if (typeof value === "number") {
++			if (value !== 0) return false;
++			continue;
++		}
++		if (value === null || value === undefined) continue;
++		if (typeof value === "object") {
++			for (const nested of Object.values(value as Record<string, unknown>)) pending.push(nested);
++		}
++	}
++	return true;
++}
++
++/**
+  * How much of a covered prefix's transparent local estimate the provider's own
+  * number for that prefix must still cover, before the attestation is trusted.
+  *

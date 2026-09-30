@@ -166,6 +166,20 @@ suite. A gate that no suite invokes is not a gate.
   were small. Machine check: returning `fits` for an unattested chain turns
   `verify-compaction-cache-liveness.ts` (leg 7h, third shape) and
   `verify-anthropic-native-compaction-live-context.ts` (GATE 5b) red.
+- The provider-attested turn MUST be the last assistant that carries usable usage
+  for THIS api and model; a host control-only carrier -- empty content and
+  all-zero usage, the seed pi-ai pushes at stream start and then abandons before
+  any request answers it -- is NOT that turn and MUST NOT veto it. Any other
+  unusable assistant (content, an aborted/error turn with content, any non-zero
+  usage, even a partial one the context-token guard rejects) MUST still refuse by
+  name. Machine check: `grep -n 'isControlOnlyCarrier' <core>/src/compaction/compaction.ts`
+  hits the scan; removing the carrier `continue` turns the carrier legs red
+  (`verify-compaction-cache-liveness.ts` leg 7k and
+  `verify-anthropic-native-compaction-live-context.ts` GATE 5f), and classifying
+  emptiness with the context-token guard instead of an all-zero scan turns their
+  non-zero-partial-usage legs red (verified 2026-09-30). The carrier does NOT
+  reach the Anthropic wire (an assistant turn that serializes to zero content
+  blocks is skipped), so skipping it loses no measurable prefix.
 - Gate fixtures that exercise a provider-measured decision MUST carry realistic
   provider usage; a fixture whose turns carry only the stub response usage can
   never select the behaviour under test. Machine check: the liveness fixture's

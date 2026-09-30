@@ -682,6 +682,104 @@ if (coreVersion === "18.4.4") {
 		assert.notDeepEqual(foreign.requests[0].context.messages, [oldUser, turn], `${label} must not ship as the live chain`);
 	}
 
+	// GATE 5f: a host control-only carrier at the tail must not veto the native
+	// lane either -- it shares `liveChainFit`/`findProviderInputAttestation` with
+	// the local lane. Only an empty, zero-usage assistant is skipped; content, a
+	// non-zero partial usage, and a carrier that is the chain's only assistant all
+	// still refuse by name, so widening the skip past the carrier's exact shape
+	// turns these three red.
+	const nativeCarrier = (overrides: Record<string, unknown> = {}): AgentMessage => ({
+		role: "assistant",
+		content: [],
+		api: model.api,
+		provider: model.provider,
+		model: model.id,
+		stopReason: "aborted",
+		usage: {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 0,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		},
+		timestamp: 60,
+		...overrides,
+	});
+	const carrierMessages = (trailing: AgentMessage[]): Context["messages"] => [oldUser, measuredTurn, ...trailing];
+	logEvents.length = 0;
+	const carrier = await runNative({}, { ...model, contextWindow: 64_000 }, { ...liveContext, messages: carrierMessages([nativeCarrier()]) }, false);
+	assert.equal(
+		carrier.result.details?.cacheColdReason,
+		undefined,
+		"a trailing control-only carrier must not veto the native attestation",
+	);
+	assert.deepEqual(cacheColdLogReasons(), [], "an accepted carrier-backed native chain must not warn");
+	assert.deepEqual(
+		carrier.requests[0].context.messages,
+		carrierMessages([nativeCarrier()]),
+		"a carrier-backed chain must ship the whole live chain",
+	);
+	logEvents.length = 0;
+	const twoCarriers = await runNative(
+		{},
+		{ ...model, contextWindow: 64_000 },
+		{ ...liveContext, messages: carrierMessages([nativeCarrier(), nativeCarrier({ stopReason: "error" })]) },
+		false,
+	);
+	assert.equal(twoCarriers.result.details?.cacheColdReason, undefined, "two trailing carriers must both be skipped");
+	assert.deepEqual(
+		twoCarriers.requests[0].context.messages,
+		carrierMessages([nativeCarrier(), nativeCarrier({ stopReason: "error" })]),
+		"two carriers must still ship the whole live chain",
+	);
+	logEvents.length = 0;
+	const withContent = await runNative(
+		{},
+		{ ...model, contextWindow: 64_000 },
+		{ ...liveContext, messages: carrierMessages([nativeCarrier({ content: [{ type: "text", text: "aborted-with-content" }] })]) },
+		false,
+	);
+	assert.equal(
+		withContent.result.details?.cacheColdReason,
+		"native-capacity-unattested",
+		"an aborted native turn with content must refuse the chain",
+	);
+	logEvents.length = 0;
+	const partialUsage = await runNative(
+		{},
+		{ ...model, contextWindow: 64_000 },
+		{
+			...liveContext,
+			messages: carrierMessages([
+				nativeCarrier({
+					stopReason: "stop",
+					usage: {
+						input: 0,
+						output: 7,
+						cacheRead: 0,
+						cacheWrite: 0,
+						totalTokens: 7,
+						cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+					},
+				}),
+			]),
+		},
+		false,
+	);
+	assert.equal(
+		partialUsage.result.details?.cacheColdReason,
+		"native-capacity-unattested",
+		"empty content with non-zero partial usage must refuse the chain",
+	);
+	logEvents.length = 0;
+	const carrierOnly = await runNative({}, { ...model, contextWindow: 64_000 }, { ...liveContext, messages: [oldUser, nativeCarrier()] }, false);
+	assert.equal(
+		carrierOnly.result.details?.cacheColdReason,
+		"native-capacity-unattested",
+		"a native chain whose only assistant is a carrier has no attestation",
+	);
+
 	// GATE 6: a split turn never rides the native live lane either -- the live
 	// shape is one whole-conversation request while a split compaction retains a
 	// turn prefix it replays verbatim, so the request is cut at `safeCut` and the

@@ -585,6 +585,18 @@ case "$OMP_PATCH_VERSION" in
 	# Every other shape, and every unattested chain, keeps the pre-0086 bytes with a
 	# named reason (capacity-unattested included).
 	_omp_tail_candidate "18.4.4" "0086-omp-compaction-cache-liveness" "${NM}"
+	# 0087: the same live-chain capacity ruler must skip a host control-only
+	# carrier while scanning back for the provider-attested turn. pi-ai seeds an
+	# empty, zero-usage assistant into the live chain at stream start, and a manual
+	# compaction aborted in that window leaves it as the chain's last assistant:
+	# the usage guard then returned undefined at that carrier and never reached the
+	# real attested turn, so the incident's live lane fell back as
+	# `capacity-unattested` and the cache protection did not run. Only an assistant
+	# with EMPTY content and all-zero usage is skipped; any other unusable turn
+	# (content, an aborted/error turn with content, non-zero partial usage) still
+	# refuses the chain by name. The Anthropic wire drops the empty carrier anyway
+	# (zero content blocks), so no measurable prefix is lost.
+	_omp_tail_candidate "18.4.4" "0087-omp-compaction-attestation-skip-control-carrier" "${NM}"
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4)" >&2

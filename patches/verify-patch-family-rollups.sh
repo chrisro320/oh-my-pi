@@ -745,8 +745,11 @@ EXPECTED_PLAN_1844+=(".18.4.4-candidates/0085-omp-rejected-prepared-draft-restor
 # 0086 is 18.4.4-only: the summarize request must read the main chain's live
 # cache entries instead of anchoring the expired one at the summarize boundary.
 EXPECTED_PLAN_1844+=(".18.4.4-candidates/0086-omp-compaction-cache-liveness-v18.4.4-candidate.patch:NM")
-[[ "${#EXPECTED_PLAN_1844[@]}" -eq 52 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
-	|| die "resolved 18.4.4 plan drifted from its 52-entry capability contract"
+# 0087 is 18.4.4-only: the capacity ruler must skip a host control-only carrier
+# (empty content, zero usage) instead of letting it veto the attestation.
+EXPECTED_PLAN_1844+=(".18.4.4-candidates/0087-omp-compaction-attestation-skip-control-carrier-v18.4.4-candidate.patch:NM")
+[[ "${#EXPECTED_PLAN_1844[@]}" -eq 53 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
+	|| die "resolved 18.4.4 plan drifted from its 53-entry capability contract"
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
 # by apply.sh --print-plan in the static section. The assertions below pin
