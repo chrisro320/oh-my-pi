@@ -735,13 +735,15 @@ EXPECTED_PLAN_1841+=(".18.4.1-candidates/0084-omp-length-stop-reminder-persist-v
 [[ "${#EXPECTED_PLAN_1841[@]}" -eq 50 && "${PLAN1841[*]}" == "${EXPECTED_PLAN_1841[*]}" ]] \
 	|| die "resolved 18.4.1 plan drifted from its 50-entry capability contract"
 
-# 18.4.4 carries the same 50 capabilities as same-ID 18.4.4 candidates.
+# 18.4.4 carries the same 50 capabilities as same-ID 18.4.4 candidates, plus 0085.
 EXPECTED_PLAN_1844=()
 for entry in "${EXPECTED_PLAN_1841[@]}"; do
 	EXPECTED_PLAN_1844+=("${entry//18.4.1/18.4.4}")
 done
-[[ "${#EXPECTED_PLAN_1844[@]}" -eq 50 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
-	|| die "resolved 18.4.4 plan drifted from its 50-entry capability contract"
+# 0085 is 18.4.4-only: it repairs the 0082 prepared-submission restore paths.
+EXPECTED_PLAN_1844+=(".18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch:AGENT")
+[[ "${#EXPECTED_PLAN_1844[@]}" -eq 51 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
+	|| die "resolved 18.4.4 plan drifted from its 51-entry capability contract"
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
 # by apply.sh --print-plan in the static section. The assertions below pin

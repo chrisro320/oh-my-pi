@@ -1,0 +1,162 @@
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -106,6 +106,7 @@
+ import type { ForeignSessionInfo, ForeignSessionSource, ForeignSessionStore } from "./session/foreign-session-store";
+ import { resolveResumableSession, type SessionInfo } from "./session/session-listing";
+ import { ForkSourceNotFoundError, SessionManager } from "./session/session-manager";
++import { restoreRejectedDraft } from "./slash-commands/helpers/draft";
+ import { shouldShowStartupSplash } from "./startup-splash";
+ import {
+ 	discoverSystemPromptOverride,
+@@ -465,6 +466,16 @@
+ 				});
+ 			} catch (error: unknown) {
+ 				mode.showError(error instanceof Error ? error.message : "Unknown error occurred");
++				// A prepared submission's original text and attachments already left
++				// the editor; without this they are gone once dispatch is rejected.
++				if (input.prepared) {
++					restoreRejectedDraft(mode, {
++						text: input.displayText ?? input.text,
++						canonicalText: input.text,
++						images: input.images,
++						imageLinks: input.imageLinks,
++					});
++				}
+ 			}
+ 			// Dispatch consumed the body locally (void custom command) or rejected
+ 			// instead of starting a turn: when it is the armed loop body, park the
+--- a/src/modes/controllers/input-controller.ts
++++ b/src/modes/controllers/input-controller.ts
+@@ -46,7 +46,7 @@
+ import { PINNED_HUD_TOGGLE_ID } from "@oh-my-pi/pi-tui/prompt/composer";
+ import { pickRecentFocusableAgentId } from "./session-focus-controller";
+ import { executeBuiltinSlashCommand, lookupBuiltinSlashCommand } from "../../slash-commands/builtin-registry";
+-import { restoreDetachedDraft } from "../../slash-commands/helpers/draft";
++import { restoreDetachedDraft, restoreRejectedDraft } from "../../slash-commands/helpers/draft";
+ import { parseSlashCommand, parseSubcommand } from "../../slash-commands/helpers/parse";
+ import { isTinyLocalModelKey } from "../../tiny/models";
+ import { tinyTitleClient } from "../../tiny/title-client";
+@@ -1038,36 +1038,14 @@
+ 
+ 	/**
+ 	 * Hand a prepared-away draft back to the editor. Writes into the editor only
+-	 * while its revision still matches the detached capture, so neither a newer
+-	 * draft nor a replacing session can be clobbered; otherwise the capture is kept
+-	 * restorable through the dequeue path instead of being dropped.
++	 * while nothing newer lives there (text revision, text, or an attachment
++	 * pasted meanwhile), so neither a newer draft nor a replacing session can be
++	 * clobbered; otherwise the capture is kept restorable through the dequeue path
++	 * instead of being dropped.
+ 	 */
+ 	#restorePreparationDraft(snapshot: PreparedInputSnapshot): void {
+ 		if (snapshot.signal.aborted || this.ctx.sessionManager.getSessionId() !== snapshot.sessionId) return;
+-		if (this.ctx.editor.textRevision !== snapshot.revision || this.ctx.editor.getText().length > 0) {
+-			this.#retainRejectedSubmission(snapshot);
+-			return;
+-		}
+-		if (snapshot.images && snapshot.images.length > 0) {
+-			this.ctx.editor.pendingImages = [...snapshot.images];
+-			this.ctx.editor.pendingImageLinks = snapshot.imageLinks
+-				? [...snapshot.imageLinks]
+-				: snapshot.images.map(() => undefined);
+-			this.ctx.editor.imageLinks = this.ctx.editor.pendingImageLinks;
+-		}
+-		this.ctx.editor.setCollapsedText(snapshot.text);
+-		this.ctx.ui.requestRender();
+-	}
+-
+-	/** Keep a rejected capture restorable without touching the editor's newer draft. */
+-	#retainRejectedSubmission(snapshot: PreparedInputSnapshot): void {
+-		this.ctx.deferredDraftSnapshots.push({
+-			text: snapshot.text,
+-			canonicalText: snapshot.text,
+-			images: snapshot.images ? [...snapshot.images] : undefined,
+-		});
+-		this.ctx.updatePendingMessagesDisplay();
+-		this.ctx.showWarning("Input was not sent; it is listed below as restorable");
++		restoreRejectedDraft(this.ctx, snapshot, snapshot.revision);
+ 	}
+ 
+ 	setupEditorSubmitHandler(): void {
+--- a/src/slash-commands/helpers/draft.ts
++++ b/src/slash-commands/helpers/draft.ts
+@@ -1,6 +1,7 @@
+ import type { ImageContent } from "@oh-my-pi/pi-ai";
+ import { shiftImageMarkers } from "@oh-my-pi/pi-tui/prompt/composer-attachments";
+ import type { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
++import type { RestoredQueuedMessage } from "../../session/agent-session-types";
+ import type { TuiSlashCommandRuntime } from "../types";
+ 
+ /** Clear only text still owned by this submission, never a newer detached draft. */
+@@ -28,3 +29,71 @@
+ 	}
+ 	editor.setCollapsedText([restoredText, currentText].filter(part => part.trim()).join("\n\n"));
+ }
++
++/** What the rejected-draft helpers need from the interactive mode. */
++export type RejectedDraftRuntime = {
++	editor: CustomEditor;
++	deferredDraftSnapshots: RestoredQueuedMessage[];
++	updatePendingMessagesDisplay(): void;
++	showWarning(message: string): void;
++	ui: { requestRender(): void };
++};
++
++/** A submission that left the editor and was then rejected before any turn started. */
++export type RejectedDraft = {
++	/** Text to show the operator again (the original, not a prepared replacement). */
++	text: string;
++	/** Model-side text when it differs, so the dequeue path can match the queued message. */
++	canonicalText?: string;
++	images?: ImageContent[];
++	imageLinks?: (string | undefined)[];
++};
++
++/**
++ * True when the editor holds something written since the draft was captured:
++ * text, a text revision change, or an attachment. An image pasted while the
++ * submission was being prepared leaves the text and its revision untouched, so
++ * the attachment list has to be checked on its own.
++ */
++function editorHoldsNewerDraft(editor: CustomEditor, revision: number | undefined): boolean {
++	return (
++		(revision !== undefined && editor.textRevision !== revision) ||
++		editor.getText().length > 0 ||
++		editor.pendingImages.length > 0
++	);
++}
++
++/** Keep a rejected capture restorable without touching the editor's newer draft. */
++export function retainRejectedDraft(runtime: RejectedDraftRuntime, draft: RejectedDraft): void {
++	runtime.deferredDraftSnapshots.push({
++		text: draft.text,
++		canonicalText: draft.canonicalText ?? draft.text,
++		images: draft.images ? [...draft.images] : undefined,
++	});
++	runtime.updatePendingMessagesDisplay();
++	runtime.showWarning("Input was not sent; it is listed below as restorable");
++}
++
++/**
++ * Hand a rejected submission back to the editor. It is written into the editor
++ * only while nothing newer lives there (see {@link editorHoldsNewerDraft});
++ * otherwise it stays restorable through the dequeue path so a newer draft or a
++ * freshly pasted attachment is never overwritten.
++ */
++export function restoreRejectedDraft(
++	runtime: RejectedDraftRuntime,
++	draft: RejectedDraft,
++	revision?: number,
++): void {
++	if (editorHoldsNewerDraft(runtime.editor, revision)) {
++		retainRejectedDraft(runtime, draft);
++		return;
++	}
++	if (draft.images && draft.images.length > 0) {
++		runtime.editor.pendingImages = [...draft.images];
++		runtime.editor.pendingImageLinks = draft.imageLinks ? [...draft.imageLinks] : draft.images.map(() => undefined);
++		runtime.editor.imageLinks = runtime.editor.pendingImageLinks;
++	}
++	runtime.editor.setCollapsedText(draft.text);
++	runtime.ui.requestRender();
++}

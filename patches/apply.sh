@@ -565,6 +565,11 @@ case "$OMP_PATCH_VERSION" in
 	# reminder appended to agent memory only; any rebuild from the session file
 	# (resume, in-process rebuild) dropped it and forked the prefix at its index.
 	_omp_tail_candidate "18.4.4" "0084-omp-length-stop-reminder-persist" "${AGENT}"
+	# 0085: a prepared submission rejected at dispatch (session.prompt throws)
+	# lost its original text and attachments; an image pasted while a cancelled
+	# preparation awaited was overwritten by the restore. Both restores share one
+	# helper that never writes over a newer draft or attachment.
+	_omp_tail_candidate "18.4.4" "0085-omp-rejected-prepared-draft-restore" "${AGENT}"
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4)" >&2
@@ -1005,6 +1010,9 @@ if [[ "$MODE" == "apply" ]]; then
 	fi
 	if _omp_plan_has 0082; then
 		bun "${HERE}/verify-user-display-text-queue.ts"
+	fi
+	if _omp_plan_has 0085; then
+		bun "${HERE}/verify-rejected-prepared-draft-restore.ts"
 	fi
 fi
 if [[ "$MODE" != "check" ]]; then
