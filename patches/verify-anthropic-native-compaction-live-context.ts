@@ -164,7 +164,7 @@ assert.ok(preparation, "fixture must prepare compaction");
 // (the recent turn kept whole); the raw preparation stays the split fixture the
 // cut legs need. Older plans keep the raw preparation and the assertions this
 // gate has always pinned on it -- the whole-chain fixture and its `recent-user`
-// boundary are 0086-only, and replacing the older fixture rather than selecting
+// boundary are 0088-only, and replacing the older fixture rather than selecting
 // per plan is what broke the older branch.
 const wholeChainPlan = coreVersion === "18.4.4";
 const livePreparation = {
@@ -263,7 +263,7 @@ const [request] = nativeRequests;
 assert.deepEqual(request.context.systemPrompt, liveContext.systemPrompt, "native request must carry the live system prompt");
 assert.deepEqual(request.context.tools, liveContext.tools, "native request must carry the normalized live tools (with `i`)");
 if (wholeChainPlan) {
-	// 0086: the request carries the live chain whole, retained tail included, so
+	// 0088: the request carries the live chain whole, retained tail included, so
 	// its own provider breakpoints land on the entries the main chain wrote (a
 	// request cut at safeCut anchors the boundary entry, which the main chain
 	// stopped refreshing and which therefore expires). The API has no cutoff
@@ -431,7 +431,7 @@ assert.equal(fallbackRequests.length, 1, "fallback must still issue one native r
 assert.deepEqual(fallbackRequests[0].context.systemPrompt, ["STALE_SYSTEM"], "fallback keeps remoteSystemPrompt");
 assert.deepEqual(fallbackRequests[0].context.tools, rawTools, "fallback keeps the raw tools");
 if (coreVersion === "18.4.4") {
-	// 0086's named fallback: the reason is durable on the entry, not trace-only.
+	// 0088's named fallback: the reason is durable on the entry, not trace-only.
 	assert.equal(
 		fallback.details?.cacheColdReason,
 		"native-no-live-chain",

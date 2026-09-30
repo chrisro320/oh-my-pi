@@ -1,4 +1,4 @@
-// Compaction cache liveness gate (0086).
+// Compaction cache liveness gate (0088).
 //
 // Byte identity is necessary but not sufficient. The incident this layer fixes
 // had a byte-identical request prefix and still rewrote the whole history,
@@ -188,9 +188,9 @@ const WHOLE_CONVERSATION_SENTENCE = /summarize the ENTIRE conversation above/;
 const VERBATIM_TAIL_SENTENCE = /preserved verbatim elsewhere in the session and is replayed after your summary/;
 /**
  * The summarized instruction text a non-live request appends, frozen at its
- * pre-0086 bytes.
+ * pre-0088 bytes.
  */
-const PRE_0086_SUMMARY_INSTRUCTION_SHA256 = "f7fe5d84dfc9fa56f2aa9f8bc111a3bf7b5d2571db0e1a7e4185b6b840d2b5d4";
+const PRE_0088_SUMMARY_INSTRUCTION_SHA256 = "f7fe5d84dfc9fa56f2aa9f8bc111a3bf7b5d2571db0e1a7e4185b6b840d2b5d4";
 /**
  * The instruction text of a LIVE request on this fixture, pinned from the
  * reviewed request itself (research/pin-request-fingerprints.ts) rather than
@@ -204,11 +204,11 @@ const PRE_0086_SUMMARY_INSTRUCTION_SHA256 = "f7fe5d84dfc9fa56f2aa9f8bc111a3bf7b5
 const LIVE_CHAIN_INSTRUCTION_SHA256 = "487befe9e78b78f14f60913dd3327d8b730d95d96e2496ec666815dd27bddc34";
 /**
  * The wire bytes of one non-Anthropic (OpenAI lane) summary request at the
- * capacity/fold boundary, frozen from the pre-0086 code path. The narrowed tree
+ * capacity/fold boundary, frozen from the pre-0088 code path. The narrowed tree
  * must reproduce it exactly; the round-2 rewrite of this lane produced two
  * structured messages instead and is what this pin rejects.
  */
-const PRE_0086_NON_ANTHROPIC_REQUEST_SHA256 = "50fb3ea8eb063d962d5e856e42133e6a375359a56a7708e52b9d5f054cac862f";
+const PRE_0088_NON_ANTHROPIC_REQUEST_SHA256 = "50fb3ea8eb063d962d5e856e42133e6a375359a56a7708e52b9d5f054cac862f";
 
 // ---------------------------------------------------------------- cache model
 // Anthropic keeps a written prefix for the TTL its marker asked for (one hour
@@ -944,7 +944,7 @@ try {
 	const instructionOf = (messages_: FixtureMessage[]): string =>
 		instructionTextOf({ messages: messages_ } as WirePayload);
 	/**
-	 * The flat, self-describing pre-0086 requests: a single `<conversation>`
+	 * The flat, self-describing pre-0088 requests: a single `<conversation>`
 	 * message. The short-summary request is flat too but `<summary>`-prefixed, so
 	 * this names the turn-prefix request without assuming a request order.
 	 */
@@ -1002,7 +1002,7 @@ try {
 	// Leg 3b: previousSummaryInPrefix = false against a chain that does NOT carry
 	// it. The narrowed lane refuses this case outright -- a live request whose
 	// instruction re-states the summary would state it twice, and one that trusts
-	// the flag would drop it -- so the pre-0086 shape ships and the refusal is
+	// the flag would drop it -- so the pre-0088 shape ships and the refusal is
 	// named on the callback, the entry, the warning and the trace.
 	logEvents.length = 0;
 	const injectedFallbacks: string[] = [];
@@ -1047,12 +1047,12 @@ try {
 	assert.deepEqual(
 		injected.messages.slice(0, BOUNDARY),
 		messages.slice(0, BOUNDARY),
-		"the pre-0086 fallback ships the vouched-for cut prefix untouched",
+		"the pre-0088 fallback ships the vouched-for cut prefix untouched",
 	);
 	assert.equal(
 		injected.messages.length,
 		BOUNDARY + 1,
-		"the pre-0086 fallback is the cut prefix plus one instruction",
+		"the pre-0088 fallback is the cut prefix plus one instruction",
 	);
 
 	// Leg 3d: a split turn rides the live chain, exactly once. The live shape is
@@ -2327,8 +2327,8 @@ try {
 	const preLiveInstruction = instructionTextOf(truncated.wire);
 	assert.equal(
 		createHash("sha256").update(preLiveInstruction).digest("hex"),
-		PRE_0086_SUMMARY_INSTRUCTION_SHA256,
-		"the non-live summarize instruction must still be the pre-0086 bytes",
+		PRE_0088_SUMMARY_INSTRUCTION_SHA256,
+		"the non-live summarize instruction must still be the pre-0088 bytes",
 	);
 	assert.equal(
 		createHash("sha256").update(vouchedInstructionText).digest("hex"),
@@ -2347,11 +2347,11 @@ try {
 	);
 	assert.ok(
 		vouchedInstructionText.startsWith(preLiveInstruction),
-		"the live instruction must be the pre-0086 instruction with the whole-conversation note appended",
+		"the live instruction must be the pre-0088 instruction with the whole-conversation note appended",
 	);
 
 	// Leg 9: a provider that REJECTS the live request. The retry must fall back to
-	// the pre-0086 path and say so -- callback, entry, warning and trace -- and the
+	// the pre-0088 path and say so -- callback, entry, warning and trace -- and the
 	// range the abandoned shape carried may not be lost: the sentinel that only
 	// that range holds must appear in an accepted request.
 	const RETRY_SENTINEL = "discarded-range-sentinel";
@@ -2438,12 +2438,12 @@ try {
 		.map(m => m.length);
 	assert.ok(
 		retriedWithSentinel.includes(retryHistory.length + 1),
-		`an accepted request must carry the pre-0086 cut prefix with the discarded range's sentinel, saw ${JSON.stringify(retriedWithSentinel)}`,
+		`an accepted request must carry the pre-0088 cut prefix with the discarded range's sentinel, saw ${JSON.stringify(retriedWithSentinel)}`,
 	);
 
-	// Leg 10: the non-Anthropic lanes are the pre-0086 code path byte-for-byte. At
+	// Leg 10: the non-Anthropic lanes are the pre-0088 code path byte-for-byte. At
 	// the capacity/fold boundary -- a single message between the fold budget and
-	// the window -- the narrowed tree must ship exactly the pinned pre-0086
+	// the window -- the narrowed tree must ship exactly the pinned pre-0088
 	// request. Rewriting this lane (the round-2 change) turned it into two
 	// structured messages; that regression is what this pin freezes. Nothing off
 	// the Anthropic lane may ever record a cache-cold reason.
@@ -2477,12 +2477,12 @@ try {
 	assert.equal(
 		nonAnthropic.messages.length,
 		1,
-		"a non-Anthropic summary request stays the single flat pre-0086 message",
+		"a non-Anthropic summary request stays the single flat pre-0088 message",
 	);
 	assert.match(
 		(nonAnthropic.messages[0].content as FixtureBlock[])[0].text ?? "",
 		/<conversation>/,
-		"the flat pre-0086 request serializes the transcript into one message",
+		"the flat pre-0088 request serializes the transcript into one message",
 	);
 	assert.equal(nonAnthropic.cacheColdReason, undefined, "a non-Anthropic lane records no cache-cold reason");
 	assert.equal(
@@ -2492,8 +2492,8 @@ try {
 	);
 	assert.equal(
 		createHash("sha256").update(canonicalFixtureJson(nonAnthropic.messages)).digest("hex"),
-		PRE_0086_NON_ANTHROPIC_REQUEST_SHA256,
-		"the non-Anthropic request at the fold boundary must be the pre-0086 bytes",
+		PRE_0088_NON_ANTHROPIC_REQUEST_SHA256,
+		"the non-Anthropic request at the fold boundary must be the pre-0088 bytes",
 	);
 
 	console.log(

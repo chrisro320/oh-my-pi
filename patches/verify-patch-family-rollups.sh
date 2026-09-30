@@ -110,14 +110,18 @@ mapfile -t PLAN1844 <<<"$PLAN1844_OUT"
 # Retired-by-rollup numbers, plus abandoned numbers whose patch file is gone
 # (0011 pin-viewport, 0040 trellis_command, 0061, 0064 — never to be reused)
 # and numbers retired because upstream adopted them verbatim (0051, adopted in
-# 18.1.17; bytes kept under .retired/09-15-0051-upstream-adopted/).
+# 18.1.17; bytes kept under .retired/09-15-0051-upstream-adopted/), plus the
+# 2026-09-30 tail-layer rollup (0086/0087 rolled into 0088; bytes kept under
+# .retired/09-30-0086-0087-rolled-into-0088/, and the never-deployed 0088
+# draft's own name is abandoned even though number 0088 itself is reused).
 # Documentation cannot enforce non-reuse; this loop can. It checks the
 # resolved plans (canonical entries, candidates, and tail appends included),
 # not raw source text.
 for old in 0002- 0003- 0005- 0006- 0007- 0011- 0013- 0015- 0018- 0019- 0020- 0021- 0022- \
 	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029- 0040- 0042- 0051- \
-	0059- 0061- 0064-; do
-	if printf '%s\n' "${PLAN14[@]}" "${PLAN18[@]}" "${PLAN1823[@]}" "${PLAN18210[@]}" | grep -qE "(^|/)${old}"; then
+	0059- 0061- 0064- 0086- 0087- 0088-omp-compaction-split-turn-; do
+	if printf '%s\n' "${PLAN14[@]}" "${PLAN18[@]}" "${PLAN1823[@]}" "${PLAN18210[@]}" \
+		"${PLAN1833[@]}" "${PLAN1841[@]}" "${PLAN1844[@]}" | grep -qE "(^|/)${old}"; then
 		die "a resolved plan references retired or abandoned patch number ${old}*"
 	fi
 done
@@ -207,6 +211,22 @@ EOF
 52193335fb11a6bafad159051df4e538a20b233fde759fc3d1e0ea745658b414  0051-omp-ollama-cache-usage.patch
 EOF
 ) || die "retired 0051 patch hash drifted"
+
+# Tail-layer rollup (2026-09-30): the two deployed tail layers 0086/0087 and the
+# never-deployed 0088 draft collapse into ONE consolidated 0088. The three source
+# patches are byte-frozen here; 0086/0087 numbers are NEVER reused, and the
+# draft's own name is not reused either (number 0088 itself is reused only
+# because that draft was never deployed).
+RETIRED3="${HERE}/.retired/09-30-0086-0087-rolled-into-0088"
+[[ -d "$RETIRED3" ]] || die "missing ${RETIRED3}"
+(
+	cd "$RETIRED3" || exit 1
+	sha256sum -c --quiet <<'EOF'
+64c68da997d321e69a5433c09db08a92ede2837ce6fcc8c220224b7328674c5a  0086-omp-compaction-cache-liveness-v18.4.4-candidate.patch
+fb908d4eb236dfb264ea96bdb8d78eb400b8e4c8431c0cdfdb5479d6720720b0  0087-omp-compaction-attestation-skip-control-carrier-v18.4.4-candidate.patch
+bdc8b6bfcf3be31022f77781da68f75a4510eda7ae1017a576967d7c0f3d9cf1  0088-omp-compaction-split-turn-live-chain-v18.4.4-candidate.patch
+EOF
+) || die "retired tail-layer patch hashes drifted in ${RETIRED3}"
 echo "PASS static: apply.sh chain (25 entries, no supersede), rollup hygiene, retired hashes"
 
 # ---------------------------------------------------------------- sandbox
@@ -735,25 +755,25 @@ EXPECTED_PLAN_1841+=(".18.4.1-candidates/0084-omp-length-stop-reminder-persist-v
 [[ "${#EXPECTED_PLAN_1841[@]}" -eq 50 && "${PLAN1841[*]}" == "${EXPECTED_PLAN_1841[*]}" ]] \
 	|| die "resolved 18.4.1 plan drifted from its 50-entry capability contract"
 
-# 18.4.4 carries the same 50 capabilities as same-ID 18.4.4 candidates, plus 0085 and 0086.
+# 18.4.4 carries the same 50 capabilities as same-ID 18.4.4 candidates, plus 0085
+# and the consolidated 0088 rollup.
 EXPECTED_PLAN_1844=()
 for entry in "${EXPECTED_PLAN_1841[@]}"; do
 	EXPECTED_PLAN_1844+=("${entry//18.4.1/18.4.4}")
 done
 # 0085 is 18.4.4-only: it repairs the 0082 prepared-submission restore paths.
 EXPECTED_PLAN_1844+=(".18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch:AGENT")
-# 0086 is 18.4.4-only: the summarize request must read the main chain's live
-# cache entries instead of anchoring the expired one at the summarize boundary.
-EXPECTED_PLAN_1844+=(".18.4.4-candidates/0086-omp-compaction-cache-liveness-v18.4.4-candidate.patch:NM")
-# 0087 is 18.4.4-only: the capacity ruler must skip a host control-only carrier
-# (empty content, zero usage) instead of letting it veto the attestation.
-EXPECTED_PLAN_1844+=(".18.4.4-candidates/0087-omp-compaction-attestation-skip-control-carrier-v18.4.4-candidate.patch:NM")
-# 0088 is 18.4.4-only: a split-turn compaction rides the same whole-conversation
-# live request a whole turn sends (one request, no turn-prefix leg), and a refusal
-# names the specific reason instead of `split-turn`.
-EXPECTED_PLAN_1844+=(".18.4.4-candidates/0088-omp-compaction-split-turn-live-chain-v18.4.4-candidate.patch:NM")
-[[ "${#EXPECTED_PLAN_1844[@]}" -eq 54 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
-	|| die "resolved 18.4.4 plan drifted from its 54-entry capability contract"
+# 0088 is 18.4.4-only, and is the rollup of the retired 0086 (the summarize request
+# must read the main chain's live cache entries instead of anchoring the expired
+# one at the summarize boundary), the retired 0087 (the capacity ruler must skip a
+# host control-only carrier -- empty content, zero usage -- instead of letting it
+# veto the attestation) and the 0088 draft (a split-turn compaction rides the same
+# whole-conversation live request a whole turn sends: one request, no turn-prefix
+# leg, and a refusal names the specific reason instead of `split-turn`). The three
+# source patches are byte-frozen under .retired/09-30-0086-0087-rolled-into-0088/.
+EXPECTED_PLAN_1844+=(".18.4.4-candidates/0088-omp-compaction-cache-liveness-v18.4.4-candidate.patch:NM")
+[[ "${#EXPECTED_PLAN_1844[@]}" -eq 52 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
+	|| die "resolved 18.4.4 plan drifted from its 52-entry capability contract"
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
 # by apply.sh --print-plan in the static section. The assertions below pin
@@ -770,7 +790,7 @@ NEWCHAIN=("${PLAN14[@]}")
 $(printf '%s\n' "${PLAN1823[@]}")
 --- expected ---
 $(printf '%s\n' "${EXPECTED_PLAN_1823[@]}")"
-echo "PASS plan resolution: 18.1.14 (${#NEWCHAIN[@]}), 18.1.18 (${#PLAN18[@]}) and 18.2.3 (${#PLAN1823[@]}) match pinned expectations"
+echo "PASS plan resolution: 18.1.14 (${#NEWCHAIN[@]}), 18.1.18 (${#PLAN18[@]}), 18.2.3 (${#PLAN1823[@]}), 18.3.3 (${#PLAN1833[@]}), 18.4.1 (${#PLAN1841[@]}) and 18.4.4 (${#PLAN1844[@]}) match pinned expectations"
 
 apply_chain() { # $1 tree  $2 "file:root"...
 	local t="$1"; shift
@@ -1004,10 +1024,11 @@ echo "PASS gate #10: dry-run gate keeps the sandbox byte-identical on a partiall
 +created
 ADDEDEOF
 	NM="$added_gate/live"
+	real_patches="$HERE"
 	HERE="$added_gate/patches"
 	PATCHES=("change.patch:$NM")
 	for fn in patch_targets sandbox_root mirror_touched; do
-		definition="$(sed -n "/^${fn}() {/,/^}/p" "${BASH_SOURCE[0]%/*}/apply.sh")"
+		definition="$(sed -n "/^${fn}() {/,/^}/p" "$real_patches/apply.sh")"
 		[[ -n "$definition" ]] || die "added-file gate: missing $fn"
 		eval "$definition"
 	done

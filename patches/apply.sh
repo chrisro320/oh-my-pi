@@ -570,44 +570,31 @@ case "$OMP_PATCH_VERSION" in
 	# preparation awaited was overwritten by the restore. Both restores share one
 	# helper that never writes over a newer draft or attachment.
 	_omp_tail_candidate "18.4.4" "0085-omp-rejected-prepared-draft-restore" "${AGENT}"
-	# 0086: the summarize request stopped at the summarize boundary, so its
-	# provider cache anchors landed on the entry at that boundary -- written once
-	# and then never refreshed, because every later main turn anchored its own
-	# advancing tail. One hour later that entry is gone and the whole history is
-	# rewritten (the 256k-token / $1.15 incident). On 18.4.4 the Anthropic lane now
-	# carries the host's whole live chain and names the scope in its instruction,
-	# but only while the host vouches for the live scope, the turn is not split, the
-	# previous summary is absent or inside that chain, and the request fits the
-	# window -- measured against the provider's OWN usage for the chain (the last
+	# 0088 (rollup: the retired 0086 + 0087 + the 0088 draft, bytes frozen under
+	# .retired/09-30-0086-0087-rolled-into-0088/): the summarize request rides the
+	# main chain's live cache entries instead of anchoring the entry at the
+	# summarize boundary -- written once and then never refreshed, because every
+	# later main turn anchored its own advancing tail, so one hour later that entry
+	# is gone and the whole history is rewritten (the 256k-token / $1.15 incident).
+	# On 18.4.4 the Anthropic lane carries the host's whole live chain (whole turns
+	# and split turns alike: a split turn's history leg IS the whole-conversation
+	# request, so the second turn-prefix leg is dropped when the chain is selected
+	# -- no `**Turn Context (split turn):**` merge) and names the scope in its
+	# instruction, but only while the host vouches for the live scope, the previous
+	# summary is absent or inside that chain, and the request fits the window.
+	# Capacity is measured against the provider's OWN usage for the chain (the last
 	# main request's billed input plus a local estimate of what is appended after
-	# it, opaque reasoning bytes excluded), because tokenizing signed thinking
-	# locally overstated the incident's 378k-token chain as 630k and refused it.
-	# Every other shape, and every unattested chain, keeps the pre-0086 bytes with a
-	# named reason (capacity-unattested included).
-	_omp_tail_candidate "18.4.4" "0086-omp-compaction-cache-liveness" "${NM}"
-	# 0087: the same live-chain capacity ruler must skip a host control-only
-	# carrier while scanning back for the provider-attested turn. pi-ai seeds an
-	# empty, zero-usage assistant into the live chain at stream start, and a manual
-	# compaction aborted in that window leaves it as the chain's last assistant:
-	# the usage guard then returned undefined at that carrier and never reached the
-	# real attested turn, so the incident's live lane fell back as
-	# `capacity-unattested` and the cache protection did not run. Only an assistant
-	# with EMPTY content and all-zero usage is skipped; any other unusable turn
-	# (content, an aborted/error turn with content, non-zero partial usage) still
-	# refuses the chain by name. The Anthropic wire drops the empty carrier anyway
-	# (zero content blocks), so no measurable prefix is lost.
-	_omp_tail_candidate "18.4.4" "0087-omp-compaction-attestation-skip-control-carrier" "${NM}"
-	# 0088: the split-turn refusal is gone. A split compaction's history leg is the
-	# same whole-conversation live request a whole turn sends (the chain is
-	# cut-point independent and the kept tail is replayed verbatim either way), so
-	# that one request already covers the turn prefix and the second (turn-prefix)
-	# leg is dropped -- no `**Turn Context (split turn):**` merge. When the chain
-	# IS refused, `details.cacheColdReason` now names the SPECIFIC reason
-	# (capacity-unattested, live-chain-over-capacity, no-live-chain, ...) instead
-	# of `split-turn`, and the two-leg path keeps the pre-0088 bytes (serialized,
-	# not parallel). An empty history range (no cut prefix at all) now lets the
-	# live chain stand alone as the host-vouched prefix.
-	_omp_tail_candidate "18.4.4" "0088-omp-compaction-split-turn-live-chain" "${NM}"
+	# it, opaque reasoning bytes excluded), skipping a trailing host control-only
+	# carrier (empty content, all-zero usage) while scanning back; tokenizing signed
+	# thinking locally overstated the incident's 378k-token chain as 630k and
+	# refused it. When the chain IS refused the fallback names the SPECIFIC reason
+	# (capacity-unattested, live-chain-over-capacity, no-live-chain,
+	# previous-summary-not-in-prefix, live-chain-overflow-retry, ...) and the
+	# two-leg path keeps the pre-0088 bytes (serialized, not parallel); an empty
+	# history range (no cut prefix at all) lets the live chain stand alone as the
+	# host-vouched prefix, and every other shape keeps the pre-0088 bytes with a
+	# named reason.
+	_omp_tail_candidate "18.4.4" "0088-omp-compaction-cache-liveness" "${NM}"
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4)" >&2
@@ -1052,7 +1039,7 @@ if [[ "$MODE" == "apply" ]]; then
 	if _omp_plan_has 0085; then
 		bun "${HERE}/verify-rejected-prepared-draft-restore.ts"
 	fi
-	if _omp_plan_has 0086; then
+	if _omp_plan_has 0088; then
 		bun "${HERE}/verify-compaction-cache-liveness.ts"
 	fi
 fi

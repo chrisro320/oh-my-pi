@@ -59,7 +59,7 @@ const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-a
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
-// Read once, before any assertion: 0086 turns the split history leg into the
+// Read once, before any assertion: 0088 turns the split history leg into the
 // live-chain shape, and older plans must keep pinning the truncated request.
 const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 const liveChainPlan = agentVersion === "18.4.4";
@@ -112,7 +112,7 @@ const usage = {
 	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 };
 
-/** The sentence 0086's live-chain lanes append when the request carries the tail. */
+/** The sentence 0088's live-chain lanes append when the request carries the tail. */
 const WHOLE_CONVERSATION_SENTENCE = /summarize the ENTIRE conversation above/;
 /** The same sentence's second half: what happens to the most recent portion. */
 const VERBATIM_TAIL_SENTENCE = /preserved verbatim elsewhere in the session and is replayed after your summary/;
@@ -169,7 +169,7 @@ await generateSummary(rawMessages, model, 4096, "test", undefined, undefined, un
 	},
 });
 
-// 0086 selects the live chain before planning, so the ordinary summary asks for
+// 0088 selects the live chain before planning, so the ordinary summary asks for
 // both scopes on a live-lane plan; older plans stop at the history prefix.
 assert.deepEqual(
 	structuredScopes,
@@ -366,8 +366,8 @@ const splitTurnContext: Context = {
 const splitScopes: string[] = [];
 const splitRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
 const splitFallbacks: string[] = [];
-// 0086 measures the live chain against the provider usage of its last assistant
-// turn (0087 skips only an empty, zero-usage control carrier). The split chain
+// 0088 measures the live chain against the provider usage of its last assistant
+// turn (the consolidated lane skips only an empty, zero-usage control carrier). The split chain
 // therefore ends in one attested assistant, or the live lane is refused as
 // `capacity-unattested` and the split turn could only ever prove the two-leg
 // fallback. The prefix is a handful of tokens, so an attested 1000 is coherent
@@ -377,7 +377,7 @@ splitAttestedAssistant.timestamp = 60;
 splitAttestedAssistant.usage = { ...usage, input: 1_000, totalTokens: 1_001 };
 // This fixture carries a prior compaction in `entries`, so the vouched-for live
 // chain must render that summary (the session rebuilds it as the chain's first
-// message), or 0086 refuses the live lane as `previous-summary-not-in-prefix`.
+// message), or 0088 refuses the live lane as `previous-summary-not-in-prefix`.
 const splitSummaryCarrier: AgentMessage = {
 	role: "user",
 	content: [{ type: "text", text: "<summary>\nPRIOR\n</summary>" }],
@@ -559,7 +559,7 @@ if (liveChainPlan) {
 	);
 } else {
 	// An older plan has no live lane at all: the two prefix requests and the
-	// merged text are the pre-0086 bytes, unchanged.
+	// merged text are the pre-0088 bytes, unchanged.
 	assert.deepEqual(
 		splitScopes.sort(),
 		["history", "turn-prefix"],
@@ -598,7 +598,7 @@ if (liveChainPlan) {
 	);
 }
 
-// 0086 converts only the Anthropic message lane. A split turn on any other
+// 0088 converts only the Anthropic message lane. A split turn on any other
 // provider must still issue the two prefix requests, in the same shapes, and
 // must never ask the host for a live scope: the OpenAI/Gemini lanes keep their
 // behavior byte-for-byte. This leg runs on every supported plan, so the older

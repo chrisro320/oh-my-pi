@@ -9,9 +9,9 @@
 | 項目 | 值 |
 |---|---|
 | 當前部署 | `OMP_PATCH_VERSION=18.4.4`（未設則按 installed 版本自動路由） |
-| 當前 live 部署 | **50 補丁（0085／0086／0087／0088 已進計畫、待部署後為 54）** + `bin/omp -> src/cli.ts`；2026-09-30 由 `deploy-1844.py` 備份並原子部署（DB 線上備份、失敗自動回滾，18.4.1 樹保留），fresh `omp --version`＝18.4.4，live `--check`＝50 APPLIED；以部署腳本輸出為準 |
+| 當前 live 部署 | **53 補丁（18.4.4：…0085／0086／0087 已部署）** + `bin/omp -> src/cli.ts`；尾層 0086／0087 於 2026-09-30 退役併入合併層 0088（bytes 凍結於 `.retired/09-30-0086-0087-rolled-into-0088/`），delta 部署後為 52；此前由 `deploy-1844.py` 備份並原子部署（DB 線上備份、失敗自動回滾，18.4.1 樹保留），fresh `omp --version`＝18.4.4；以部署腳本輸出為準 |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（54 層；live 目前 50 層，0085／0086／0087／0088 待部署；18.4.1 為回退源） |
+| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（52 層；live 為 53 層，尾層 0086／0087 於 2026-09-30 退役併入合併層 0088；18.4.1 為回退源） |
 | 最近遷移 | 18.4.1 → 18.4.4：50 層全為同編號候選（38 層原樣、12 層適配，無上游接管）；0082 手工合併上游 detached-draft；新增 `verify-user-display-text-queue.ts`；已知未修：Review #2（prepared 輸入 dispatch 被拒絕時不還原文/圖片）、audit-repro r2/r3/r3x/r4 既有漂移（18.4.1 已存在） |
 | 回歸套件 | **41 道 TypeScript 行為閘門**（`apply.sh` apply 模式實際註冊者為準；各計畫只執行其中含該層者）及 spec shell 閘門；另有 `--verify-rollups` 六基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10／18.3.3／18.4.1） |
 
@@ -37,7 +37,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化）；2026-09-24 新增 0078（Python display MIME 擇一）、0079（Kitty 非同步轉圖完成屏障）、0080（顯示端 PNG 快取與圖片指紋） | **47** |
 | 18.3.3 計畫 | 保留上述 47 項能力；0073 由上游動態 read getter 接管，追加 0081 主會話 cache footer、0082 輸入英譯原文顯示；其餘同編號專版候選遷移 | **48** |
 | 18.4.1 計畫 | 保留 18.3.3 的 48 項能力，全部為同編號 `.18.4.1-candidates/`；17 層需適配（0066／0067／0068 在 0035 移植後以原位元組直接落層），審查後另修 0043／0074／0077／0079／0080；鏈尾新增 0083（`^` 標記模型的 resume 前綴修復）、0084（length-stop 重試提醒持久化） | **50** |
-| 18.4.4 計畫（54 層；live 為前 50 層） | 保留 18.4.1 的 50 項能力，全部為同編號 `.18.4.4-candidates/`；六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 38 層原樣、12 層失敗（直接 6：0037／0010／0050／0063／0065／0079；連帶 6：0060／0076／0068／0070／0080／0082），全部同編號適配、無上游接管；0082 因上游 18.4.3/18.4.4 自建 detached-draft 而手工合併（`queueCompactionMessage` 改為 options 物件，Ctrl+Enter 保留上游 detach 後再加準備邊界）；0082 另補 queued `rawText` 改記原文（避免 RPC `removeQueuedMessage` 誤刪）與 `types.d.ts` 宣告。 | **54**（計畫層數；live 前 50 層，0085／0086／0087／0088 待部署） |
+| 18.4.4 計畫（52 層） | 保留 18.4.1 的 50 項能力，全部為同編號 `.18.4.4-candidates/`；六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 38 層原樣、12 層失敗（直接 6：0037／0010／0050／0063／0065／0079；連帶 6：0060／0076／0068／0070／0080／0082），全部同編號適配、無上游接管；0082 因上游 18.4.3/18.4.4 自建 detached-draft 而手工合併（`queueCompactionMessage` 改為 options 物件，Ctrl+Enter 保留上游 detach 後再加準備邊界）；0082 另補 queued `rawText` 改記原文（避免 RPC `removeQueuedMessage` 誤刪）與 `types.d.ts` 宣告。 | **52**（計畫層數；live 現為 53 層，尾層 0086／0087 於 2026-09-30 退役併入合併層 0088，delta 部署後 live 為 52） |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -796,7 +796,47 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - 未涵蓋（accepted）：Ctrl+Enter／follow-up 入口（`#submitFollowUp` 及其自己的還原呼叫點）、經 dequeue 還原（`handleDequeue`）、composer 自己的 `[Image #N]` chip 繪製（替身的 `setCollapsedText` 只存純文字）。未動：`#restoreDroppedPrompt`（`interactive-mode.ts`）仍有同型的圖片覆蓋寫法，不在 Review #4 範圍。
 - 生效條件：需重啟 omp 進程。
 
-### 0086 — 摘要請求改讀主鏈 live 快取條目：四條件收窄的 live lane、真實容量尺、具名有聲回退（僅 18.4.4）
+### 0088 — 壓縮摘要請求改騎主鏈 live 快取鏈（合併層：0086＋0087＋0088 草稿）（僅 18.4.4）
+
+- 補丁：`.18.4.4-candidates/0088-omp-compaction-cache-liveness-v18.4.4-candidate.patch`（`${NM}`；`pi-agent-core/src/compaction/compaction.ts`、`pi-agent-core/src/compaction/anthropic.ts`、新增 `pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md`、兩個 shipped declaration hunk（`pi-agent-core/dist/types/compaction/compaction.d.ts`、`pi-agent-core/dist/types/compaction/anthropic.d.ts`）、`pi-coding-agent/src/session/session-maintenance.ts`、`pi-coding-agent/src/session/session-advisors.ts`）。0035／0066／0067 為定稿層不可變，故以 18.4.4 尾層落層。**治理 rollup（2026-09-30）**：已部署且不可變的 0086／0087 與從未部署的 0088 草稿合併為本層，三個來源檔位元組凍結於 `.retired/09-30-0086-0087-rolled-into-0088/`（sha256／大小見 §3；0086／0087 編號永不重用，草稿自己的檔名亦不重用），合併後 18.4.4 計畫為 **52 層**。合併層由來源樹**機械產生**（pristine 回放到 0085 的樹 vs. pristine＋0086＋0087＋0088 草稿的樹，逐檔 `diff -u`），並已證明「0085 樹 ＋ 合併層」與沙盒（0086＋0087＋0088 草稿）在全部七個受影響檔案上**逐位元組相同**（`pi-agent-core`／`pi-coding-agent`／`pi-ai`／`pi-tui`／`snapcompact`／`pi-catalog` 六套件 `diff -r` 全同，shipped `.d.ts` 在內）。
+- 合併內容（三段；完整歷史與突變表見 §3 的三個凍結條目）：
+  1. **cache liveness（原 0086）**：Anthropic 訊息 lane 的摘要請求在**條件全成立**時使用 host 渲染出的完整 live 鏈（system、tools、每個 message byte 未動，尾端只接一條指令），否則走該層之前的程式碼路徑**逐位元組**並具名回退。條件：a. `model.api === "anthropic-messages"` ＋ host 能為 `"live"` scope 作保 ＋ live lane 就是**一條**請求（選中即取代 fold 計畫，永不重新切窗、永不夾斷）；b. 非 split turn（合併後由 (3) 放寬）；c. 無前一張摘要，或該摘要已在鏈中（`live.previousSummaryInPrefix`，與指令的 `promptOverride` 共用同一謂詞）；d. 容量尺判定可容。**容量尺＝provider 具證**：讀鏈上最後一則可用 assistant 的 `usage`（`input＋cacheRead＋cacheWrite`）作為被涵蓋前綴的帳，其後訊息才由本地估算（`excludeEncryptedReasoning`，不透明 reasoning 位元組不計），再加真實指令估算與輸出保留，與 `model.contextWindow` 比較；另設**連貫性下界**（具證值不得低於當前被涵蓋前綴透明本地估算的 0.75 倍）與 api／model 身分腿，違反即具名 `capacity-unattested`（不猜、不靜默走冷路）。回退理由同時寫進 `details.cacheColdReason`、`logger.warn("Compaction summarized with a cache-cold request shape", {reason, model})` 與 trace 的 `liveChainFallback`／`usesLiveChainReplay`；overflow 重試具名 `live-chain-overflow-retry`。
+  2. **carrier skip（原 0087）**：掃描回找具證回合時**只跳過** host 控制用空載體（`role === "assistant"`、content 長度 0、usage 全零或無 usage）；任何其他不可用的 assistant（有 content、有 content 的 aborted／error 回合、非零 partial usage）仍具名拒絕。Anthropic wire 本來就會丟掉空載體（0 個 content block），跳過它不損失任何可量測前綴；兩條 lane 共用同一掃描，故 native 的 `native-capacity-unattested` 一併覆蓋。
+  3. **split-turn 騎 live lane（原 0088 草稿）**：刪除兩處 `split-turn` 拒絕。`compact()` 的 split 分支現在讓 history 腿走 live lane，並由新增的 `onLiveChainSelected` 訊號學習結果（只有在 live 請求**真的回來**後才發布；被 provider 拒斥的嘗試會重新規劃、永不發布）。若鏈被選中，該單一摘要**就是**摘要——不再有 turn-prefix 腿、不再有 `**Turn Context (split turn):**` 合併；若被拒絕，該層之前的兩腿路徑逐位元組照跑（改為**序列**而非並行），`details.cacheColdReason` 具名**具體**理由。空 history 區間（`turnStartIndex === 0`、無 cut 前綴）現在讓 live 鏈單獨作為 host 作保前綴。另修 P1：請求中途取消會以 terminal `stopReason: "aborted"` 而非 throw 返回，`summarizeConversationWindow` 因此在讀文字**之前**先還原該分類（`AIError.AbortError`）並拒絕空的 live 摘要。
+- 閘門：四道（合併後 `verify-compaction-cache-liveness.ts` 由 `_omp_plan_has 0088` 註冊；另三道見 §6.1）。合併樹上四道全綠：`verify-compaction-cache-liveness.ts`（事故形狀快取模擬器：修復後綠 `cacheRead 43350／cacheWrite 5`、截斷前綴負對照紅 `cacheRead 50／cacheWrite 35405`；含 overflow 完成型重試、carrier 腿 7k、split 腿 3d-3i、前一張摘要不在前綴、整段對話指令 digest 等式、具證三態與漂移腿 7i／7j）、`verify-prefix-cache-compaction.ts`、`verify-anthropic-native-compaction-live-context.ts`（GATE 5d／5e／5f、GATE 6）、`verify-compaction-lane-trace.ts`（GATE C3，native split 列 trace `usesLiveChainReplay: true`）。逐條突變判別力表（突變→閘門→紅）保存在 §3 的三個凍結條目；合併後已無法逐層重現 0087-only 紅燈，故不重跑該刪減版本。
+- 殘餘（accepted；三個來源層的殘餘全部保留，重新編號；`not measured live` 一項為三者共用）：
+  - (a) 【原 0086 (a)；**已被本合併層取代**】split-turn compaction is cache-cold BY DESIGN and always named (`split-turn`, with its own turn-prefix trace line) — no longer true: a split turn now rides the live lane. The residual still holds for every **named refusal** (any unattested or over-capacity chain, and any non-Anthropic lane), which keeps the pre-0086 bytes.
+  - (b) 【原 0086 (b)】the persisted summary may restate part of the retained tail: the summary and the replayed tail overlap, so that text is duplicated -- never lost and never wrong.
+  - (c) 【原 0086 (c)】the attestation coherence floor (0.75 x the transparent local estimate of the covered prefix) is a plausibility filter, not a proof of size: a small drift at an exact capacity boundary can still select the live lane while the real request sits just above the budget. Reviewer measured the worst case as 1 estimated token at an exact fit; the named `live-chain-overflow-retry` fallback recovers it. Realistic compactions run far below the window (the incident chain: 378k of 512k), so the floor only binds on prefixes that were re-measured after the attestation.
+  - (d) 【原 0086 (d)】inherited omp behavior: the clamp that truncates a single oversized message when no window can split it still exists. The live lane never clamps -- it neither widens nor removes that clamp.
+  - (e) 【原 0087 (a)】skipping a carrier moves the anchor back one turn, so any opaque reasoning between the carrier and the attested turn is locally estimated with signatures excluded -- the same under-count the estimator already accepts for appended messages. The attested prefix itself is unaffected.
+  - (f) 【原 0087 (b)】the carrier predicate keys on "empty content + all-zero usage", not on `stopReason`: an empty error turn with no usage is skipped like the aborted carrier (it likewise carries nothing). A carrier whose api/model do not match is skipped too, because a host-only placeholder is not a provider measurement of any model.
+  - (g) 【原 0087 (d)】pre-existing pi-ai weakness, newly reachable through the accepted lane: when a carrier records an effort change, the Anthropic builder replays effort-only control messages that `applyPromptCaching`'s two-candidate walk cannot mark, so the message breakpoints can be lost. The main chain has the same weakness. Open as a separate task.
+  - (h) 【原 0088 (a)】the single live request carries only the history leg's `0.8 * reserveTokens` output allowance, where the pre-0088 two-leg path gave the two legs 0.8 + 0.5 reserve between them. A split turn's summary may therefore be shorter than before.
+  - (i) 【原 0088 (b)】the cold path's two legs now run serially instead of in parallel: a refused split turn pays the two round trips in sequence.
+  - (j) 【原 0086 (e) ／ 0087 (c) ／ 0088 (c)；**not measured live**】no provider request has been made and no live cache hit has been observed; the incident acceptance is an offline replay of archived session data (the response body was never archived, so a real provider `usage` was appended to the chain). AC7 stays open.
+
+## 3. 已撤下的補丁
+
+### 2026-09-30 尾層合併：0086＋0087（＋0088 草稿）→ 合併層 0088（`.retired/09-30-0086-0087-rolled-into-0088/`）
+
+一個功能族佔三層尾層對使用者太重；0086／0087 已部署（live 為 53 層）且不可變，故以**治理 rollup**處理：新增合併層 `.18.4.4-candidates/0088-omp-compaction-cache-liveness-v18.4.4-candidate.patch` 取代三者，舊檔位元組凍結、永不編輯。編號 0088 只因為草稿從未部署才重用；**0086／0087 編號永不重用**，草稿自己的檔名也進入 abandoned-number 迴圈（`verify-patch-family-rollups.sh`，該迴圈同時涵蓋 18.3.3／18.4.1／18.4.4 三個計畫）。
+
+凍結的三個來源檔（ledger-only：無任何存活計畫引用；`verify-patch-family-rollups.sh` 的退役雜湊區塊守住 sha256）：
+
+| 檔案 | 大小 | sha256 |
+|---|---|---|
+| `0086-omp-compaction-cache-liveness-v18.4.4-candidate.patch` | 47,254 B | `64c68da997d321e69a5433c09db08a92ede2837ce6fcc8c220224b7328674c5a` |
+| `0087-omp-compaction-attestation-skip-control-carrier-v18.4.4-candidate.patch` | 3,426 B | `fb908d4eb236dfb264ea96bdb8d78eb400b8e4c8431c0cdfdb5479d6720720b0` |
+| `0088-omp-compaction-split-turn-live-chain-v18.4.4-candidate.patch`（草稿，從未部署） | 16,317 B | `bdc8b6bfcf3be31022f77781da68f75a4510eda7ae1017a576967d7c0f3d9cf1` |
+
+合併層本體：`patches/.18.4.4-candidates/0088-omp-compaction-cache-liveness-v18.4.4-candidate.patch`，54,024 B，sha256 `3c5e8317b84ebcd50775acab91b20013a7eabe1b38a3908267aa61ef7793d7c5`。
+
+**等價性證據**：`replay-1844.py` 回放 pristine 至 0085（51 層）得樹 A、回放全部 54 層得樹 B（B 與部署沙盒逐檔 sha256 相同）；「A ＋ 合併層」對六個受影響套件與 B 做 `diff -r` 全同，七個受影響檔案 sha256 相同，`--fuzz=0` 套用零 stray `.rej`／`.orig`。
+
+**復活判據**：本合併是治理選擇而非修法；若日後需要逐層重現 0086／0087（例如重跑 0087-only 紅燈），從本目錄取回對應位元組、依 0086→0087→0088 次序重新掛上該版計畫即可，補丁本體無需改。
+
+### 0086 — 摘要請求改讀主鏈 live 快取條目：四條件收窄的 live lane、真實容量尺、具名有聲回退（僅 18.4.4）【2026-09-30 已退役：併入合併層 0088，見本節】
 
 - 補丁：`.18.4.4-candidates/0086-omp-compaction-cache-liveness-v18.4.4-candidate.patch`（`${NM}`；`pi-agent-core/src/compaction/compaction.ts`、`pi-agent-core/src/compaction/anthropic.ts`、新增 `pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md`、兩個 shipped declaration hunk（`pi-agent-core/dist/types/compaction/compaction.d.ts`、`pi-agent-core/dist/types/compaction/anthropic.d.ts`）、`pi-coding-agent/src/session/session-maintenance.ts`、`pi-coding-agent/src/session/session-advisors.ts`）。0035／0066／0067 為定稿層不可變，故以 18.4.4 新尾層落層；18.4.4 計畫為 52 層。
 - 問題（事故取證，session `01a0f047`，2026-09-30T07:21:39Z，`claude-sonnet-5-5`）：soft compaction 送出 355 則 wire、斷點 `353:1h,354:1h`，usage `cacheRead 14257 / cacheWrite 265136`（約 $1.15）；同一會話 04:37 那次為 `cacheRead 383514 / cacheWrite 1573`（約 $0.15）。摘要請求是「主鏈前綴在摘要邊界截斷 + 指令」，`applyPromptCaching` 錨定請求自身最後兩則（353／354）；主鏈只在 05:24:25 於 353 寫過一次 1h 條目，之後每一輪都把錨點推到自己前進中的尾部（431／432），該條目遂於 06:24:25 到期。**條目是否仍在生命期內，全程無人檢查**——既有閘門只驗位元相同與斷點位置。
@@ -834,7 +874,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
     provider `usage` appended to the chain, because the response body was never archived. No provider
     request has been made: the live cache hit is NOT yet observed (AC7 stays open).
 
-### 0087 — compaction attestation skips a host control-only carrier (18.4.4 only)
+### 0087 — compaction attestation skips a host control-only carrier (18.4.4 only)【2026-09-30 已退役：併入合併層 0088，見本節】
 
 - Patch: `.18.4.4-candidates/0087-omp-compaction-attestation-skip-control-carrier-v18.4.4-candidate.patch`
   (`${NM}`; only `pi-agent-core/src/compaction/compaction.ts`, no declaration hunk -- no public API
@@ -915,7 +955,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
     carrier are identical (local [309,393], native [309,392], main [309,392]). Open as a separate task
     (pi-ai `applyPromptCaching` walk must skip uncacheable effort-only controls).
 
-### 0088 — split-turn compaction rides the live-chain lane (18.4.4 only)
+### 0088（草稿，從未部署）— split-turn compaction rides the live-chain lane (18.4.4 only)【2026-09-30 併入合併層 0088，見本節】
 
 - Patch: `.18.4.4-candidates/0088-omp-compaction-split-turn-live-chain-v18.4.4-candidate.patch`
   (one `${NM}` root: `pi-agent-core/src/compaction/compaction.ts` plus the shipped
@@ -978,8 +1018,6 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - (c) no provider request has been made and no live cache hit has been observed; the acceptance is
     an offline replay of archived session data (same boundary as 0086 residual (e)).
 
-
-## 3. 已撤下的補丁
 
 ### 2026-09-15 0051 退役（`.retired/09-15-0051-upstream-adopted/`）
 
@@ -1276,7 +1314,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-codex-compaction-chain.ts` | 0063 Codex V2 壓縮以 live baseline 派生 frame：真實 payload 驅動的鏈式斷言 + 非壓縮負對照 + 冷啟退路 + 兩處 `responsesLite:false` 接線 | `OMP_PATCH_VERIFY_AI_ROOT`、`OMP_PATCH_VERIFY_CORE_ROOT` |
 | `verify-commandcode-model-record-parity.ts`（條件） | 0065 KDL／產物 provenance、實際解析值、兄弟型號負對照與插件對齊；依計畫含 0065 執行 | `OMP_PATCH_VERIFY_CATALOG_ROOT` |
 | `verify-anthropic-native-compaction-live-context.ts`（條件） | 0066 `"live"` scope、宿主 system/tools/messages、摘要與回退；18.4.4 另驗（第三輪收窄；第四輪另補指令 digest 釘死 `d7fda90e…` 與舊計畫分支復原—`livePreparation` 僅 18.4.4，18.3.3／18.4.1 用原始 split preparation 與 `recent-assistant` 斷言）：非 split 主腿落盤無 cold reason、`details.cacheColdReason` 具名（`native-no-live-chain`／`native-live-chain-over-capacity`／`native-capacity-unattested`／`native-split-turn`／`native-previous-summary-not-in-prefix`）＋ **logger sink** 同理由（被接受的 native live 請求不得 warn，F3）、native 容量尺＝**provider 具證**（第四輪：鏈上最後一則 assistant 的 usage＋其後訊息的本地估算（排除不透明位元組）＋指令＋輸出保留，視窗以附加的長 tool result 推導，含 fitting 對照與 `native-capacity-unattested`、以及「具證值 66k／50k 在 64k 視窗上的一拒一收」邊界對，F4）、前一張摘要在鏈中與否決定送整條鏈或含 `previousSummaryMessage` 的 cut 清單（內容恰好一次）；依計畫含 0066 執行 | `OMP_PATCH_VERIFY_CORE_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
-| `verify-compaction-lane-trace.ts`（條件） | 0067 三條 remote lane 的 live tools／usage trace，失敗 attempt 使用 `k`；18.4.4 另驗 native trace 的 `usesLiveChainReplay`／`liveChainFallback`（含 `native-split-turn`／`native-previous-summary-not-in-prefix` 兩條具名理由腿；第四輪起這三條腿以 **core 版本**為鍵，因為 0086 是 pi-agent-core／pi-coding-agent 補丁）；依計畫含 0067 執行 | `OMP_PATCH_VERIFY_CORE_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
+| `verify-compaction-lane-trace.ts`（條件） | 0067 三條 remote lane 的 live tools／usage trace，失敗 attempt 使用 `k`；18.4.4 另驗 native trace 的 `usesLiveChainReplay`／`liveChainFallback`（含 `native-split-turn`／`native-previous-summary-not-in-prefix` 兩條具名理由腿；第四輪起這三條腿以 **core 版本**為鍵，因為合併層 0088 是 pi-agent-core／pi-coding-agent 補丁）；依計畫含 0067 執行 | `OMP_PATCH_VERIFY_CORE_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
 | `verify-codex-effort-resume.ts`（條件） | 0069 實際 Codex stream 持久化／JSONL resume、分支隔離、不可變快照與邊界；依計畫含 0069 執行 | `OMP_PATCH_VERIFY_AI_ROOT`、`OMP_PATCH_VERIFY_CATALOG_ROOT` |
 | `verify-codex-compaction-chain-fail-closed.ts`（條件） | 0070 本地 WebSocket/SSE 的拒絕、重試、metadata 隔離與發布型別 consumer；依計畫含 0070 執行 | `OMP_PATCH_VERIFY_NM`（含 `AI`／`CORE`／`CATALOG` 覆寫）；Bun、tsc |
 | `verify-snapcompact-frame-reprice.ts` | 0045 synthetic 固定歸檔邊界，實際 shape 重報價翻轉縮減判定 | `OMP_PATCH_VERIFY_NM` |
@@ -1296,7 +1334,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-length-stop-reminder-persist.ts`（條件） | 0084 length-stop 重試提醒雙寫、重建投影一致、重開後前綴相同；依計畫含 0084 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 | `verify-user-display-text-queue.ts`（條件） | 0082 準備後提交：model text 進 `content`、原文進 `displayText`，重開 session 重建同一 content；18.4.4 另驗 queued `removeQueuedMessage` 以原文識別（雙訊息交叉案例）；依計畫含 0082 執行 | `OMP_PATCH_VERIFY_NM`、`OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-rejected-prepared-draft-restore.ts`（條件） | 0085：真實 `submitInteractiveInput` + 真實 restore helper 加編輯器替身；dispatch 被拒絕時原文與附件回到空編輯器、有較新草稿時保留為可還原項；準備取消時期間貼入的圖片不被覆蓋；控制組（無較新內容時照常回寫）；僅 18.4.4；依計畫含 0085 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
-| `verify-compaction-cache-liveness.ts`（條件） | 0086：以**快取模擬器**（fixture 時鐘、**逐 marker TTL**、20 block 查找窗）驗事故形狀（433 則 live 鏈、摘要邊界 354、主鏈尾部標記每輪 +2）下，摘要請求讀滿 live 鏈、只寫指令（cacheRead 43350／cacheWrite 5），負對照回到截斷前綴必紅（cacheRead 50／cacheWrite 35405）；混合 1h／5m 案例 6 分鐘後 readBlocks=1；第三輪另含 **provider 拒絕 live 請求後的完成型重試**（callback／落盤理由／warning／trace 四者一致＋被丟棄區間 sentinel 出現在被接受的請求＋不拒絕的敏感度對照）、**split turn 兩半**（history 非空／空）與**前一張摘要不在前綴**的具名回退、**整段對話指令等式**（非 live 指令 sha256 凍結於 0086 前位元組、live ＝ 該文字 + 整段對話註記）、**非 Anthropic 折疊邊界指紋**（與 0086 前樹逐位元組相同）；stub 腿驗落盤 `details.cacheColdReason`／trace `liveChainFallback`／`logger.warn` 三者一致（各刪一次即紅），並含 fold 預算 vs 物理容量、system／tools／工具結果／thinking／圖片／自訂指令／保留尾段容量邊界與真實前一張摘要的迭代語意；僅 18.4.4；依計畫含 0086 執行 | `OMP_PATCH_VERIFY_NM`；**第四輪（容量改為 provider 具證）**另含：**短留存線形**負對照（真 provider 建構子下 `cacheRetention:"short"` 的條目全過期⇒readBlocks=0，而 1h 主鏈 433/433）、**簽名 thinking fixture**（簽名 400k 字元、本地估值 >4 倍具證值）三態（具證可容⇒整條送出／具證超窗⇒`live-chain-over-capacity`／無 usage⇒`capacity-unattested`）、容量邊界對（7a／7b／7c／7d／7e／7g 皆為「具證前綴＋附加尾段」的相鄰視窗）、以及以**樹外釘死 digest**（`487befe9…`）取代由生產常數反推的整段對話指令等式 （含 `CORE`／`AI`／`CATALOG` 覆寫） |
+| `verify-compaction-cache-liveness.ts`（條件） | 0088（合併層 0086＋0087＋0088 草稿）：以**快取模擬器**（fixture 時鐘、**逐 marker TTL**、20 block 查找窗）驗事故形狀（433 則 live 鏈、摘要邊界 354、主鏈尾部標記每輪 +2）下，摘要請求讀滿 live 鏈、只寫指令（cacheRead 43350／cacheWrite 5），負對照回到截斷前綴必紅（cacheRead 50／cacheWrite 35405）；混合 1h／5m 案例 6 分鐘後 readBlocks=1；第三輪另含 **provider 拒絕 live 請求後的完成型重試**（callback／落盤理由／warning／trace 四者一致＋被丟棄區間 sentinel 出現在被接受的請求＋不拒絕的敏感度對照）、**split turn 兩半**（history 非空／空）與**前一張摘要不在前綴**的具名回退、**整段對話指令等式**（非 live 指令 sha256 凍結於 0086 前位元組、live ＝ 該文字 + 整段對話註記）、**非 Anthropic 折疊邊界指紋**（與 0086 前樹逐位元組相同）；stub 腿驗落盤 `details.cacheColdReason`／trace `liveChainFallback`／`logger.warn` 三者一致（各刪一次即紅），並含 fold 預算 vs 物理容量、system／tools／工具結果／thinking／圖片／自訂指令／保留尾段容量邊界與真實前一張摘要的迭代語意；僅 18.4.4；依計畫含 0088 執行 | `OMP_PATCH_VERIFY_NM`；**第四輪（容量改為 provider 具證）**另含：**短留存線形**負對照（真 provider 建構子下 `cacheRetention:"short"` 的條目全過期⇒readBlocks=0，而 1h 主鏈 433/433）、**簽名 thinking fixture**（簽名 400k 字元、本地估值 >4 倍具證值）三態（具證可容⇒整條送出／具證超窗⇒`live-chain-over-capacity`／無 usage⇒`capacity-unattested`）、容量邊界對（7a／7b／7c／7d／7e／7g 皆為「具證前綴＋附加尾段」的相鄰視窗）、以及以**樹外釘死 digest**（`487befe9…`）取代由生產常數反推的整段對話指令等式 （含 `CORE`／`AI`／`CATALOG` 覆寫） |
 
 **0063 驗收狀態（2026-09-13）**：`apply.sh --verify-rollups` 與 `verify-patch-family-rollups.sh` 在更新 `EXPECTED_PLAN`／`EXPECTED_PLAN_18` 快照（27→28、31→32）後 **EXIT 0 全綠**，新閘 `verify-codex-compaction-chain.ts` 隨計畫執行；smoke（`cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK'`）實測通過。閘門判別力以兩個 fault variant 實測：刪除 chained-body 分支 → §1 行為斷言紅；把兩處 `responsesLite` 改回 `model.useResponsesLite` → §4 接線斷言紅。**E2E 已執行（2026-09-14）**：真實會話 `01a0a05f`（`openai-codex/gpt-5.6-luna`）同行程 live baseline 後 `/compact`，記錄 `provider:"openai-codex"/version:"v2"/inputTokens:24160/cachedInputTokens:23040`——PRD 命中率 `cached/input=95.4%≥80%`，`check-codex-compaction-cache.sh` exit 0。當時 `apply.sh` 被 wave2 的 0043 CONFLICT 阻擋於 `mode=apply` 入口（該紅燈非 0063 引起），故 15 道閘門改以直接調用驗證、smoke 另行手動執行；**該阻塞已於 2026-09-15 解除**，見下方「0043 陳舊變體換手」。
 

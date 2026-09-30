@@ -83,9 +83,9 @@ assert.ok(
 	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(aiVersion),
 	`unsupported compaction lane trace gate version: ${aiVersion}`,
 );
-// 0086 is a pi-agent-core/pi-coding-agent patch, so whether the tree carries it
+// 0088 is a pi-agent-core/pi-coding-agent patch, so whether the tree carries it
 // is the CORE version, not the pi-ai version: keying these legs on the ai
-// package made them run against a tree whose 0086 was reversed, which is not a
+// package made them run against a tree whose 0088 was reversed, which is not a
 // configuration the lane can reach.
 const coreVersion = JSON.parse(readFileSync(`${CORE_ROOT}/package.json`, "utf8")).version as string;
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
@@ -99,9 +99,9 @@ interface TraceRow {
 	stopReason?: string;
 	final?: boolean;
 	usage?: Record<string, unknown>;
-	/** 0086: the request carried the host's whole live chain. */
+	/** 0088: the request carried the host's whole live chain. */
 	usesLiveChainReplay?: boolean;
-	/** 0086: the named reason a native request could not use the live chain. */
+	/** 0088: the named reason a native request could not use the live chain. */
 	liveChainFallback?: string;
 }
 function readTrace(): TraceRow[] {
@@ -401,7 +401,7 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 	assert.equal(req.hasLiveContext, true);
 	assert.equal(req.tools, 1);
 	if (coreVersion === "18.4.4") {
-		// 0086: the accepted request is the live chain, so the trace must say so
+		// 0088: the accepted request is the live chain, so the trace must say so
 		// and must carry no fallback reason.
 		assert.equal(req.usesLiveChainReplay, true, "an accepted native live chain must be traced as the live chain");
 		assert.equal(req.liveChainFallback, undefined, "an accepted native live chain must carry no fallback reason");
@@ -412,7 +412,7 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 }
 
 // ---------------------------------------------------------------------------
-// GATE C2 (0086): a native compaction that cannot use the live chain must name
+// GATE C2 (0088): a native compaction that cannot use the live chain must name
 // the reason on the request trace, not only on the returned entry. This is the
 // trace half of the fallback contract; the native gate asserts the entry half.
 // ---------------------------------------------------------------------------
@@ -460,7 +460,7 @@ if (coreVersion === "18.4.4") {
 }
 
 // ---------------------------------------------------------------------------
-// GATE C3 (0086): the narrowed native lane names its exclusions on the request
+// GATE C3 (0088): the narrowed native lane names its exclusions on the request
 // trace too, not only on the returned entry. A whole-chain live request (split
 // turn included, since 0088) is readable from the trace alone, and a chain that
 // does not carry the previous summary names its refusal there as well.
