@@ -21,13 +21,16 @@ Invariants that MUST NOT change:
 Fold-in windows (`planSummaryWindows`) must not silently break byte identity: when the full list does not fit, fall back and log a trace field naming the reason.
 
 ## Acceptance criteria
-- [ ] AC1: a liveness gate with a cache SIMULATOR: main-chain requests write entries at their two tail markers with timestamps and a 1h TTL; lookup at each breakpoint with a 20-block lookback. Replaying the incident shape (main tail markers advancing by +2, an entry at the summarize boundary written 2h earlier and expired) the OLD builder yields cacheRead about head-only / cacheWrite about the whole prefix (red), the NEW builder yields cacheRead about the whole live list and cacheWrite about the instruction only (green).
-- [ ] AC2: a real-data leg: from the archived main request 0840 and `compaction-payload-latest.json` shape, the new request's messages[0..432] equal 0840's messages[0..432] (cache_control stripped) and the last two breakpoints are `[432, 433]` (or equivalent: 432 equals the main chain's last tail marker).
-- [ ] AC3: kept tail invariants gate still passes (firstKeptEntryId, recentEntryIds, tokensBefore unchanged), existing compaction gates updated where they pinned the truncated request (`verify-anthropic-native-compaction-live-context.ts:200-205`, `verify-prefix-cache-compaction.ts`).
-- [ ] AC4: new tail layer (0086 for 18.4.4; finalized layers are immutable, do not edit 0035/0066/0067) registered in `apply.sh` plan and `verify-patch-family-rollups.sh` `EXPECTED_PLAN_1844`, ledger `PATCHES.md` section + gate row, ASCII only in added patch lines.
-- [ ] AC5: fail-closed full pristine replay in the sandbox (`research/final-1844.sh` pattern) green: plan 52 layers, apply#2 all SKIP, `--check` 52 APPLIED, revert equals pristine.
-- [ ] AC6: independent `trellis-check` review, then Phase 3.3 spec update (`verification-gate-contracts.md`: gates for cache behavior must model entry liveness, byte identity is necessary not sufficient).
-- [ ] AC7 (post-deploy): the next real compaction shows cacheRead about live prefix and cacheWrite small in `compaction-trace.log` `summarize.usage`. [INFERENCE until observed]
+- [x] AC1: a liveness gate with a cache SIMULATOR: main-chain requests write entries at their two tail markers with timestamps and a 1h TTL; lookup at each breakpoint with a 20-block lookback. Replaying the incident shape (main tail markers advancing by +2, an entry at the summarize boundary written 2h earlier and expired) the OLD builder yields cacheRead about head-only / cacheWrite about the whole prefix (red), the NEW builder yields cacheRead about the whole live list and cacheWrite about the instruction only (green).
+- [x] AC2: a real-data leg: from the archived main request 0840 and `compaction-payload-latest.json` shape, the new request's messages[0..432] equal 0840's messages[0..432] (cache_control stripped) and the last two breakpoints are `[432, 433]` (or equivalent: 432 equals the main chain's last tail marker).
+- [x] AC3: kept tail invariants gate still passes (firstKeptEntryId, recentEntryIds, tokensBefore unchanged), existing compaction gates updated where they pinned the truncated request (`verify-anthropic-native-compaction-live-context.ts:200-205`, `verify-prefix-cache-compaction.ts`).
+- [x] AC4: new tail layer (0086 for 18.4.4; finalized layers are immutable, do not edit 0035/0066/0067) registered in `apply.sh` plan and `verify-patch-family-rollups.sh` `EXPECTED_PLAN_1844`, ledger `PATCHES.md` section + gate row, ASCII only in added patch lines.
+- [x] AC5: fail-closed full pristine replay in the sandbox (`research/final-1844.sh` pattern) green: plan 52 layers, apply#2 all SKIP, `--check` 52 APPLIED, revert equals pristine.
+- [x] AC6: independent `trellis-check` review, then Phase 3.3 spec update (`verification-gate-contracts.md`: gates for cache behavior must model entry liveness, byte identity is necessary not sufficient).
+- [x] AC7 (post-deploy, MEASURED 2026-09-30T18:15Z pid 3834259: usesLiveChainReplay true, no liveChainFallback, cacheRead 162688 / cacheWrite 2473, $0.134): the next real compaction shows cacheRead about live prefix and cacheWrite small in `compaction-trace.log` `summarize.usage`. [INFERENCE until observed]
 
 ## Out of scope
 Audit extension changes, B growth anchor, D audit-repro.
+
+## Outcome
+Final state: layer 0089 (capacity gate deleted) on top of the 0088 rollup; 53 layers live. AC4/AC5 numbers moved from 52 to 53 layers. First compaction after 0088 (16:43Z) still failed live (capacity-unattested); first compaction after 0089 hit the cache. See implement.md.

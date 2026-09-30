@@ -209,6 +209,20 @@ suite. A gate that no suite invokes is not a gate.
   16:43Z chain could be refused. Its machine checks no longer apply; keep the
   fixtures that exercised it only as history (`research/work-order-0088.md`).
 
+- A compaction gate MUST model what the HOST sends, not what the session file
+  rebuilds. The 0086/0087/0088 gates all passed offline and still refused live
+  because the host builds the request from in-memory `agent.state.messages`
+  (`session-maintenance.ts#buildCachePreservingContext`), which the offline
+  reconstruction never reproduced. Before designing a compaction fix, classify
+  the real compactions in the session (split-turn vs turn-boundary): three of
+  the four real ones were split-turn, and 0086/0087 refused split-turn, so they
+  never covered the incident. A cache fix is "measured" only when the next real
+  `summarize.request` shows `usesLiveChainReplay:true` with no `liveChainFallback`
+  and `summarize.usage` shows `cacheRead` about the whole chain with a small
+  `cacheWrite` (2026-09-30 pid 3834259: 162688 / 2473). Machine check:
+  `grep -n 'usesLiveChainReplay' ~/.omp/agent/compaction-trace.log` on the newest
+  rows of the running pid.
+
 ### 4. Validation & Error Matrix
 
 | Condition | Required result |
