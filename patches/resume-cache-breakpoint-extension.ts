@@ -117,81 +117,169 @@ function log(line: string): void {
 	}
 }
 
+/**
+ * Anthropic checks for a stored cache entry only this many content blocks before
+ * each breakpoint the request carries (documented lookback). Not measured here.
+ */
+const ANCHOR_LOOKBACK_BLOCKS = 20;
+
+/**
+ * Add an anchor when the request grew by more than this many blocks over the
+ * previous one. Below the lookback on purpose: the newest markers sit a block or
+ * two short of the end, so growth right at the limit already misses. Ordinary
+ * steps add 3-4 blocks; only a large batch of queued messages or a burst of
+ * parallel tool results crosses this.
+ */
+const GROWTH_TRIGGER_BLOCKS = ANCHOR_LOOKBACK_BLOCKS - 4;
+
+/**
+ * The previous Anthropic request of each conversation seen in this process,
+ * newest last. Keyed per conversation so a side request on the same model (title
+ * generation, keepalive) cannot displace the base a real turn is compared with.
+ */
+const tracker = new Map<string, { messages: number; blocks: number }>();
+const TRACKER_CAP = 8;
+
+function countContentBlocks(messages: ProviderMessage[]): number {
+	let blocks = 0;
+	for (const message of messages) {
+		const content = message?.content;
+		blocks += Array.isArray(content) ? content.length : 1;
+	}
+	return blocks;
+}
+
+/**
+ * Identify "the same conversation" across requests: model plus the first user
+ * message. A side request (title generation, keepalive) on the same model has a
+ * different first message, so it can neither trigger an anchor nor reset the
+ * comparison base into something unrelated.
+ */
+function conversationKey(payload: AnthropicPayload, messages: ProviderMessage[]): string {
+	const first = messages[0]?.content;
+	const text = Array.isArray(first)
+		? first.map(block => (block as { text?: string })?.text ?? block?.type ?? "").join("\u0000")
+		: String(first ?? "");
+	return `${(payload as { model?: string }).model ?? ""}\u0001${text.length}\u0001${text.slice(0, 256)}`;
+}
+
+/**
+ * Put one cache breakpoint on the last block of `messages[anchorIndex]`, staying
+ * inside Anthropic's 4-breakpoint cap. `tag` prefixes the log lines so resume
+ * and growth anchors stay distinguishable in `resume-cache.log`.
+ */
+function placeAnchor(
+	payload: AnthropicPayload,
+	messages: ProviderMessage[],
+	anchorIndex: number,
+	tag: string,
+): AnthropicPayload | undefined {
+	const anchor = messages[anchorIndex];
+	const content = anchor?.content;
+	if (!Array.isArray(content) || content.length === 0) {
+		state.lastAction = `skipped: anchor ${anchorIndex} has no block list`;
+		log(`${tag}skip anchor-shape index=${anchorIndex}`);
+		return undefined;
+	}
+
+	const block = content[content.length - 1];
+	if (!block?.type || !CACHEABLE_BLOCKS[block.type]) {
+		state.lastAction = `skipped: block type ${block?.type}`;
+		log(`${tag}skip block-type index=${anchorIndex} type=${block?.type}`);
+		return undefined;
+	}
+	if (block.cache_control) {
+		state.lastAction = `skipped: breakpoint already at ${anchorIndex}`;
+		log(`${tag}skip already-marked index=${anchorIndex}`);
+		return undefined;
+	}
+	// Claiming a slot past the cap is a hard 400, so make room first. Release
+	// until the anchor fits: a future provider policy may hand us more than one
+	// marker of slack to reclaim, and one release would still leave us over.
+	while (countBreakpoints(payload) + 1 > ANTHROPIC_MAX_BREAKPOINTS) {
+		const released = releaseInteriorMarker(messages, anchorIndex);
+		if (released === undefined) {
+			state.lastAction = "skipped: breakpoint budget full, nothing releasable";
+			log(`${tag}skip budget-full count=${countBreakpoints(payload)} messages=${messages.length}`);
+			return undefined;
+		}
+		log(`${tag}released index=${released} messages=${messages.length}`);
+	}
+	// Anthropic rejects a 5m cache_control block appearing before a 1h block (400 error).
+	// Inherit any TTL used by other cache_control blocks in this payload (e.g. "1h" from OAuth).
+	let ttl: string | undefined;
+	for (let i = messages.length - 1; i >= 0; i--) {
+		const mContent = messages[i]?.content;
+		if (Array.isArray(mContent)) {
+			for (const b of mContent) {
+				if (b?.cache_control?.ttl) {
+					ttl = b.cache_control.ttl;
+					break;
+				}
+			}
+		}
+		if (ttl) break;
+	}
+
+	block.cache_control = ttl ? { type: "ephemeral", ttl } : { type: "ephemeral" };
+	state.lastAction = `${tag ? "growth " : ""}breakpoint added at messages[${anchorIndex}] (${anchor.role}/${block.type}${ttl ? ` ttl=${ttl}` : ""})`;
+	log(
+		`${tag}added index=${anchorIndex} role=${anchor.role} type=${block.type} ttl=${ttl ?? "default"} messages=${messages.length}`,
+	);
+	return payload;
+}
+
 export default function (pi: ExtensionAPI): void {
 	pi.on("before_provider_request", event => {
-		if (!state.armed) return undefined;
 		const payload = event.payload as AnthropicPayload | null;
 		const messages = payload?.messages;
 		// Anthropic shape only: `system` is an array of blocks there.
 		if (!payload || !Array.isArray(messages) || !Array.isArray(payload.system)) return undefined;
 
-		let lastAssistant = -1;
-		for (let i = messages.length - 1; i >= 0; i--) {
-			if (messages[i]?.role === "assistant") {
-				lastAssistant = i;
-				break;
-			}
-		}
-		state.armed = false;
+		// Measure this request against the previous one of the same conversation
+		// BEFORE anything below can return, so the tracker never goes stale.
+		const key = conversationKey(payload, messages);
+		const blocks = countContentBlocks(messages);
+		const previous = tracker.get(key);
+		tracker.delete(key);
+		tracker.set(key, { messages: messages.length, blocks });
+		if (tracker.size > TRACKER_CAP) tracker.delete(tracker.keys().next().value as string);
 
-		// A fresh session's first request has no prior assistant turn to resume.
-		if (lastAssistant < 1) {
-			state.lastAction = "skipped: fresh session";
-			log(`skip fresh-session messages=${messages.length}`);
-			return undefined;
-		}
-
-		const anchor = messages[lastAssistant - 1];
-		const content = anchor?.content;
-		if (!Array.isArray(content) || content.length === 0) {
-			state.lastAction = `skipped: anchor ${lastAssistant - 1} has no block list`;
-			log(`skip anchor-shape index=${lastAssistant - 1}`);
-			return undefined;
-		}
-
-		const block = content[content.length - 1];
-		if (!block?.type || !CACHEABLE_BLOCKS[block.type]) {
-			state.lastAction = `skipped: block type ${block?.type}`;
-			log(`skip block-type index=${lastAssistant - 1} type=${block?.type}`);
-			return undefined;
-		}
-		if (block.cache_control) {
-			state.lastAction = `skipped: breakpoint already at ${lastAssistant - 1}`;
-			log(`skip already-marked index=${lastAssistant - 1}`);
-			return undefined;
-		}
-		// Claiming a slot past the cap is a hard 400, so make room first. Release
-		// until the anchor fits: a future provider policy may hand us more than one
-		// marker of slack to reclaim, and one release would still leave us over.
-		while (countBreakpoints(payload) + 1 > ANTHROPIC_MAX_BREAKPOINTS) {
-			const released = releaseInteriorMarker(messages, lastAssistant - 1);
-			if (released === undefined) {
-				state.lastAction = "skipped: breakpoint budget full, nothing releasable";
-				log(`skip budget-full count=${countBreakpoints(payload)} messages=${messages.length}`);
-				return undefined;
-			}
-			log(`released index=${released} messages=${messages.length}`);
-		}
-		// Anthropic rejects a 5m cache_control block appearing before a 1h block (400 error).
-		// Inherit any TTL used by other cache_control blocks in this payload (e.g. "1h" from OAuth).
-		let ttl: string | undefined;
-		for (let i = messages.length - 1; i >= 0; i--) {
-			const mContent = messages[i]?.content;
-			if (Array.isArray(mContent)) {
-				for (const b of mContent) {
-					if (b?.cache_control?.ttl) {
-						ttl = b.cache_control.ttl;
-						break;
-					}
+		if (state.armed) {
+			let lastAssistant = -1;
+			for (let i = messages.length - 1; i >= 0; i--) {
+				if (messages[i]?.role === "assistant") {
+					lastAssistant = i;
+					break;
 				}
 			}
-			if (ttl) break;
+			state.armed = false;
+
+			// A fresh session's first request has no prior assistant turn to resume.
+			if (lastAssistant < 1) {
+				state.lastAction = "skipped: fresh session";
+				log(`skip fresh-session messages=${messages.length}`);
+				return undefined;
+			}
+			return placeAnchor(payload, messages, lastAssistant - 1, "");
 		}
 
-		block.cache_control = ttl ? { type: "ephemeral", ttl } : { type: "ephemeral" };
-		state.lastAction = `breakpoint added at messages[${lastAssistant - 1}] (${anchor.role}/${block.type}${ttl ? ` ttl=${ttl}` : ""})`;
-		log(`added index=${lastAssistant - 1} role=${anchor.role} type=${block.type} ttl=${ttl ?? "default"} messages=${messages.length}`);
-		return payload;
+		// Live growth: Anthropic looks for a stored entry only within
+		// ANCHOR_LOOKBACK_BLOCKS blocks before each breakpoint the request
+		// carries. A request that appends more than that beyond the previous
+		// request's tail has no breakpoint near the entry the server stored, so
+		// the whole conversation is rewritten. Session 01a0f047 (2026-09-30):
+		// previous tail at block 601, next request 41 blocks later (39 queued
+		// reminders in one step) -> cacheRead 14314, cacheWrite 342867.
+		if (
+			previous &&
+			previous.messages >= 1 &&
+			previous.messages < messages.length &&
+			blocks - previous.blocks > GROWTH_TRIGGER_BLOCKS
+		) {
+			return placeAnchor(payload, messages, previous.messages - 1, "growth-");
+		}
+		return undefined;
 	});
 
 	// One breakpoint per session, not per process: switching, branching, navigating tree or
@@ -199,20 +287,24 @@ export default function (pi: ExtensionAPI): void {
 	// reconnect. `pi.on` is overloaded per event name, so these cannot be looped.
 	pi.on("session_switch", () => {
 		state.armed = true;
+		tracker.clear();
 		state.lastAction = "re-armed by session_switch";
 	});
 	pi.on("session_branch", () => {
 		state.armed = true;
+		tracker.clear();
 		state.lastAction = "re-armed by session_branch";
 	});
 	pi.on("session_tree", event => {
 		if (event.newLeafId !== event.oldLeafId) {
 			state.armed = true;
+			tracker.clear();
 			state.lastAction = "re-armed by session_tree";
 		}
 	});
 	pi.on("session_compact", () => {
 		state.armed = true;
+		tracker.clear();
 		state.lastAction = "re-armed by session_compact";
 	});
 

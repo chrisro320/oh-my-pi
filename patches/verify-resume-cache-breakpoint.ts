@@ -127,4 +127,139 @@ function run(label: string, payload: Payload): void {
 
 run("synthetic resumed session", syntheticPayload());
 
+// ---------------------------------------------------------------------------
+// Live growth: a request that appends more than the lookback beyond the previous
+// request's tail must carry a breakpoint on that tail.
+//
+// Provenance: session 01a0f047, 2026-09-30 04:19:57Z. The previous request had
+// 418 messages / 602 content blocks with tail markers on messages 416 and 417;
+// the next had 457 messages / 643 blocks (39 queued messages, all user role) with
+// markers on 455 and 456. Census in both: system 1, tools 1, messages 2 = the 4
+// cap. Result: cacheRead 14314, cacheWrite 342867. The shapes below reproduce
+// those counts; no message text from the capture is used.
+// ---------------------------------------------------------------------------
+
+const ONE_HOUR = { type: "ephemeral", ttl: "1h" } as const;
+
+/** Message i carries 2 blocks when odd and below 368 (184 of them), else 1. */
+function blocksFor(index: number): Block[] {
+	const text = `m${index}`;
+	return index % 2 === 1 && index < 368
+		? [{ type: "text", text }, { type: "text", text: `${text}b` }]
+		: [{ type: "text", text }];
+}
+
+function conversation(count: number, extraDoubleAt: number[] = []): Payload {
+	const messages: Message[] = [];
+	for (let i = 0; i < count; i++) {
+		const content = blocksFor(i);
+		if (extraDoubleAt.includes(i) && content.length === 1) content.push({ type: "text", text: `x${i}` });
+		messages.push({ role: i % 2 === 0 ? "user" : "assistant", content });
+	}
+	for (const index of [count - 2, count - 1]) {
+		const blocks = messages[index]?.content;
+		if (Array.isArray(blocks)) blocks[blocks.length - 1].cache_control = { ...ONE_HOUR };
+	}
+	return {
+		messages,
+		system: [{ type: "text", text: "base" }, { type: "text", text: "identity", cache_control: { ...ONE_HOUR } }],
+		tools: [{ type: "read" }, { type: "bash", cache_control: { ...ONE_HOUR } }],
+	};
+}
+
+function blockTotal(payload: Payload): number {
+	return (payload.messages ?? []).reduce((sum, m) => sum + (Array.isArray(m.content) ? m.content.length : 1), 0);
+}
+
+/** Start a conversation in a clean, disarmed state: first request seen, no anchor pending. */
+function begin(previous: Payload): void {
+	reArm({ payload: undefined });
+	// A payload with no assistant turn disarms the resume path without anchoring.
+	beforeRequest({ payload: { messages: [{ role: "user", content: [{ type: "text", text: "boot" }] }], system: [{ type: "text", text: "s" }] } });
+	beforeRequest({ payload: previous });
+}
+
+{
+	const previous = conversation(418);
+	assert.equal(blockTotal(previous), 602, "fixture must reproduce the captured block count");
+	const next = conversation(457, [430, 440]);
+	assert.equal(blockTotal(next), 643, "fixture must reproduce the captured block count");
+	assert.equal(census(previous), CAP);
+	assert.equal(census(next), CAP);
+
+	begin(previous);
+	beforeRequest({ payload: next });
+
+	assert.ok(census(next) <= CAP, `growth anchor pushed the wire to ${census(next)} breakpoints (cap ${CAP})`);
+	const marks = markedIndices(next);
+	assert.ok(marks.includes(417), `previous tail (message 417) must carry a breakpoint, got ${marks}`);
+	assert.ok(marks.includes(456), "the newest tail marker must survive");
+	assert.ok(!marks.includes(455), "the interior tail marker funds the anchor");
+	const anchorBlock = next.messages?.[417]?.content;
+	assert.ok(Array.isArray(anchorBlock));
+	assert.equal(anchorBlock[anchorBlock.length - 1].cache_control?.ttl, "1h", "anchor inherits the payload retention");
+	console.log(`ok live growth (418->457 messages, +41 blocks): anchor 417, marks ${marks}`);
+}
+
+{
+	// Ordinary steps must not spend a breakpoint or an interior marker.
+	const previous = conversation(418);
+	const next = conversation(420);
+	begin(previous);
+	const before = JSON.stringify(markedIndices(next));
+	beforeRequest({ payload: next });
+	assert.equal(JSON.stringify(markedIndices(next)), before, "a +2 message step must leave the markers alone");
+}
+
+{
+	// Boundary: growth is measured in blocks, and the trigger is "more than 16".
+	for (const [extra, expectAnchor] of [[16, false], [17, true]] as const) {
+		const previous = conversation(418);
+		const next = conversation(418);
+		for (let i = 0; i < extra; i++) next.messages?.push({ role: "user", content: [{ type: "text", text: `q${i}` }] });
+		// Re-mark the tail like the provider does after appending.
+		for (const message of next.messages ?? []) {
+			if (Array.isArray(message.content)) for (const b of message.content) delete b.cache_control;
+		}
+		for (const index of [next.messages!.length - 2, next.messages!.length - 1]) {
+			const blocks = next.messages![index].content as Block[];
+			blocks[blocks.length - 1].cache_control = { ...ONE_HOUR };
+		}
+		begin(previous);
+		beforeRequest({ payload: next });
+		assert.equal(
+			markedIndices(next).includes(417),
+			expectAnchor,
+			`growth of ${extra} blocks: anchor expected=${expectAnchor}`,
+		);
+	}
+}
+
+{
+	// A side request on the same model between two real turns must not hide the
+	// growth, and must not itself be anchored.
+	const previous = conversation(418);
+	const side: Payload = {
+		messages: [{ role: "user", content: [{ type: "text", text: "title this conversation" }] }],
+		system: [{ type: "text", text: "You name conversations." }],
+	};
+	const next = conversation(457, [430, 440]);
+	begin(previous);
+	beforeRequest({ payload: side });
+	assert.equal(markedIndices(side).length, 0, "a side request must not receive an anchor");
+	beforeRequest({ payload: next });
+	assert.ok(markedIndices(next).includes(417), "an interleaved side request must not hide the growth");
+}
+
+{
+	// Shrinking (compaction) or a fresh base is not growth.
+	const previous = conversation(418);
+	const shrunk = conversation(120);
+	begin(previous);
+	const before = JSON.stringify(markedIndices(shrunk));
+	beforeRequest({ payload: shrunk });
+	assert.equal(JSON.stringify(markedIndices(shrunk)), before, "a shorter request must not be anchored");
+	console.log("ok live growth negatives: +2 step, boundary 16/17, side request, shrink");
+}
+
 console.log("PASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap");
