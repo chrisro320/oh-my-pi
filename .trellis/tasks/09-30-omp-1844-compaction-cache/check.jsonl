@@ -1,1 +1,2 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "gate contracts incl. compaction live-chain, no capacity pre-flight, host-model rule"}
+{"file": ".trellis/tasks/09-30-omp-1844-compaction-cache/research/work-order-0089.md", "reason": "0089 work order"}

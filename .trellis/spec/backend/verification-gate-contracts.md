@@ -238,6 +238,7 @@ suite. A gate that no suite invokes is not a gate.
 | Shared Codex gate on patched 18.1.14 | Common 0063 checks pass; only 0068 assertions are excluded |
 | Shared Codex gate on 18.1.18 without 0068 | Fail the socket-settle ordering assertion, never skip |
 | Non-retryable V2 failure logged under `event` instead of `k` | Failure trace gate rejects the unqueryable attempt |
+| Compaction fix certified only by an offline session-rebuild fixture | Not "fixed"; status stays "deployed" until a live `summarize.request` shows `usesLiveChainReplay:true`, no `liveChainFallback`, and `summarize.usage` shows cacheRead about the chain with small cacheWrite |
 
 ### 5. Good / Base / Bad Cases
 
