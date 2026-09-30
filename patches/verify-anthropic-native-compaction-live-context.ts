@@ -207,16 +207,23 @@ if (coreVersion === "18.4.4") {
 	const instructions = String(request.options.anthropicCompaction?.instructions);
 	assert.match(
 		instructions,
-		/BEGIN RETAINED TAIL: assistant: RECENT_RESPON/,
-		"live-chain instructions must name the retained tail by content",
+		/summarize the ENTIRE conversation above/,
+		"live-chain instructions must scope the whole live conversation",
 	);
-	assert.doesNotMatch(instructions, /first \d+ messages/, "live-chain instructions must not state a count");
+	assert.match(
+		instructions,
+		/preserved verbatim elsewhere in the session and is replayed after your summary/,
+		"live-chain instructions must say the recent portion is replayed verbatim",
+	);
+	assert.doesNotMatch(instructions, /BEGIN RETAINED TAIL/, "no boundary excerpt may be quoted any more");
+	assert.doesNotMatch(instructions, /OLD_USER|RECENT_USER|RECENT_RESPONSE/, "no chain message may be named by content");
 	assert.doesNotMatch(
 		instructions,
 		/complete history to summarize/,
 		"live-chain instructions must not claim the whole request is replaced",
 	);
 	assert.equal(request.options.anthropicCompaction?.pauseAfterCompaction, undefined);
+	assert.equal(result.details?.cacheColdReason, undefined, "an accepted live chain must not record a cold reason");
 } else if (["18.3.3", "18.4.1"].includes(coreVersion)) {
 	assert.deepEqual(
 		request.context.messages,
@@ -274,18 +281,24 @@ if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
 			const boundaryInstructions = String(requests[0].options.anthropicCompaction?.instructions);
 			if (hasEntryIds) {
 				// safeCut advances past the tool call so it stays with its result:
-				// the retained tail starts at the assistant turn that follows it.
+				// the retained tail starts at the assistant turn that follows it,
+				// and the instructions still scope the whole live conversation.
 				assert.match(
 					boundaryInstructions,
-					/BEGIN RETAINED TAIL: assistant: OLD_RESPONSE/,
-					"instructions must name the cut safeCut landed on, by content",
+					/summarize the ENTIRE conversation above/,
+					"instructions must scope the whole live conversation whatever safeCut lands on",
 				);
 				assert.equal(shifted.firstKeptEntryId, "after-result");
 			} else {
 				// Without boundary IDs safeCut collapses to the whole snapshot:
 				// nothing is retained, so the request is its own complete history
-				// and the default instructions -- no cutoff -- are the correct ones.
-				assert.doesNotMatch(boundaryInstructions, /BEGIN RETAINED TAIL/, "an empty retained tail needs no cutoff sentence");
+				// and the default instructions -- no whole-conversation note -- are
+				// the correct ones.
+				assert.doesNotMatch(
+					boundaryInstructions,
+					/summarize the ENTIRE conversation above/,
+					"an empty retained tail must not claim a verbatim tail survives",
+				);
 				assert.match(boundaryInstructions, /complete history to summarize/);
 				assert.equal(shifted.firstKeptEntryId, "");
 			}
@@ -300,9 +313,10 @@ if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
 	}
 }
 // GATE 4: without a live context the lane keeps its hand-built fallback
-// (no behavior change when the host cannot vouch for the prefix).
-const fallbackRequests: Context[] = [];
-await compact(
+// (no behavior change when the host cannot vouch for the prefix), and the
+// fallback must be named on the returned entry, not only traced.
+const fallbackRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
+const fallback = await compact(
 	{
 		...preparation,
 		tokensBefore: 100_000,
@@ -319,7 +333,7 @@ await compact(
 		buildCachePreservingContext: async () => undefined,
 		completeImpl: async (requestModel, context, options) => {
 			if (options.anthropicCompaction) {
-				fallbackRequests.push(context);
+				fallbackRequests.push({ context, options });
 				return nativeCompactionResponse(requestModel);
 			}
 			return assistant(requestModel);
@@ -327,10 +341,66 @@ await compact(
 	},
 );
 assert.equal(fallbackRequests.length, 1, "fallback must still issue one native request");
-assert.deepEqual(fallbackRequests[0].systemPrompt, ["STALE_SYSTEM"], "fallback keeps remoteSystemPrompt");
-assert.deepEqual(fallbackRequests[0].tools, rawTools, "fallback keeps the raw tools");
+assert.deepEqual(fallbackRequests[0].context.systemPrompt, ["STALE_SYSTEM"], "fallback keeps remoteSystemPrompt");
+assert.deepEqual(fallbackRequests[0].context.tools, rawTools, "fallback keeps the raw tools");
+if (coreVersion === "18.4.4") {
+	// 0086's named fallback: the reason is durable on the entry, not trace-only.
+	assert.equal(
+		fallback.details?.cacheColdReason,
+		"native-no-live-chain",
+		"the fallback reason must reach the compaction entry's details",
+	);
+}
 
+if (coreVersion === "18.4.4") {
+	// GATE 5: a live chain that does not physically fit must fall back rather than
+	// ship an over-capacity request, and it must be named too. The narrower window
+	// makes this chain overflow while leaving the hand-built cut list inside it.
+	const capacityRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
+	const capacity = await compact(
+		{
+			...preparation,
+			tokensBefore: 100_000,
+			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
+		},
+		{ ...model, contextWindow: 512 },
+		"test",
+		undefined,
+		undefined,
+		{
+			convertToLlm: messages => messages as Context["messages"],
+			buildCachePreservingContext: async () => ({ context: liveContext, previousSummaryInPrefix: false }),
+			completeImpl: async (requestModel, context, options) => {
+				if (options.anthropicCompaction) {
+					capacityRequests.push({ context, options });
+					return nativeCompactionResponse(requestModel);
+				}
+				return assistant(requestModel);
+			},
+		},
+	);
+	assert.equal(capacityRequests.length, 1, "an over-capacity live chain must still issue one native request");
+	assert.notDeepEqual(
+		capacityRequests[0].context.messages,
+		liveContext.messages,
+		"an over-capacity live chain must fall back to the hand-built cut list",
+	);
+	assert.ok(
+		capacityRequests[0].context.messages.length < liveContext.messages.length,
+		"the cut fallback must not carry the whole live chain",
+	);
+	assert.doesNotMatch(
+		String(capacityRequests[0].options.anthropicCompaction?.instructions),
+		/summarize the ENTIRE conversation above/,
+		"the cut fallback must not claim the whole conversation is on the wire",
+	);
+	assert.equal(
+		capacity.details?.cacheColdReason,
+		"native-live-chain-over-capacity",
+		"the capacity fallback must reach the compaction entry's details",
+	);
+}
 
 console.log(
-	`PASS anthropic native compaction live context: scopes=${scopes.join(",")} messages=${request.context.messages.length} tools=${request.context.tools?.length}`,
+	`PASS anthropic native compaction live context: scopes=${scopes.join(",")} messages=${request.context.messages.length} tools=${request.context.tools?.length} fallback=${fallback.details?.cacheColdReason}`,
 );

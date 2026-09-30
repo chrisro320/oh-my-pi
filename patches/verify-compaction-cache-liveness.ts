@@ -23,7 +23,16 @@
 // Runs offline: the real Anthropic request builder serializes the wire and a
 // fetch sink captures it before the provider call is terminated.
 import assert from "node:assert/strict";
-import { homedir } from "node:os";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
+
+// Trace target must be set before the module under test is imported: the path is
+// read per call, but an isolated tree must never write the real compaction log.
+const traceDir = mkdtempSync(join(tmpdir(), "omp-compaction-liveness-"));
+const traceFile = join(traceDir, "trace.log");
+process.env.OMP_COMPACTION_TRACE = traceFile;
+delete process.env.OMP_COMPACTION_TRACE_OFF;
 
 // Local structural fixture types. A type-only import cannot be root-selected
 // (TS needs a literal specifier), and a live-install path would defeat root
@@ -104,6 +113,49 @@ function headBreakpointCount(payload: WirePayload): number {
 function uncached(value: unknown): unknown {
 	return JSON.parse(JSON.stringify(value, (key, entry) => (key === "cache_control" ? undefined : entry)));
 }
+
+/** The text of the instruction message a summarize request appends. */
+function instructionTextOf(payload: WirePayload): string {
+	const instruction = payload.messages.at(-1);
+	return instruction && Array.isArray(instruction.content)
+		? instruction.content.map(block => block.text ?? "").join("")
+		: "";
+}
+
+/** The trace rows written since `mark`. */
+function traceSince(mark: number): Array<Record<string, unknown>> {
+	let raw = "";
+	try {
+		raw = readFileSync(traceFile, "utf8");
+	} catch {
+		return [];
+	}
+	return raw
+		.split("\n")
+		.filter(line => line.length > 0)
+		.slice(mark)
+		.map(line => JSON.parse(line) as Record<string, unknown>);
+}
+
+/** The `summarize.request` rows written since `mark`. */
+function summarizeRequestsSince(mark: number): Array<Record<string, unknown>> {
+	return traceSince(mark).filter(row => row.k === "summarize.request");
+}
+
+function traceMark(): number {
+	let raw = "";
+	try {
+		raw = readFileSync(traceFile, "utf8");
+	} catch {
+		return 0;
+	}
+	return raw.split("\n").filter(line => line.length > 0).length;
+}
+
+/** The sentence both live-chain lanes append when the request carries the tail. */
+const WHOLE_CONVERSATION_SENTENCE = /summarize the ENTIRE conversation above/;
+/** The same sentence's second half: what happens to the most recent portion. */
+const VERBATIM_TAIL_SENTENCE = /preserved verbatim elsewhere in the session and is replayed after your summary/;
 
 // ---------------------------------------------------------------- cache model
 // Anthropic keeps a written prefix for the TTL its marker asked for (one hour
@@ -328,17 +380,38 @@ assert.ok(preparation, "fixture must prepare compaction");
 const historyContext: Context = { systemPrompt: SYSTEM, messages: messages.slice(0, BOUNDARY), tools: TOOLS };
 const liveContext: Context = { systemPrompt: SYSTEM, messages, tools: TOOLS };
 
-/** Run one compaction and return the wire the summarize request actually sent. */
+/** One compaction's wire, the trace rows it emitted, and its entry reason. */
+interface CapturedCompaction {
+	wire: WirePayload;
+	/** The `summarize.request` rows this compaction emitted. */
+	summarizeRequests: Array<Record<string, unknown>>;
+	/** The reason the returned compaction entry recorded, if it returned one. */
+	cacheColdReason: string | undefined;
+}
+
+/**
+ * Run one compaction and return the wire the summarize request actually sent
+ * and the reason the returned compaction entry recorded.
+ */
 async function captureCompaction(
 	history: Context,
 	live: Context | undefined,
-	previousSummary: string | undefined,
-	onCacheFallback?: (reason: string) => void,
-): Promise<WirePayload> {
+	options: {
+		previousSummary?: string;
+		/** Whether the vouched-for live chain already carries the prior summary. */
+		carrySummaryInChain?: boolean;
+		/** Model override, for capacity legs that need a narrower window. */
+		model?: typeof model;
+		onCacheFallback?: (reason: string) => void;
+	} = {},
+): Promise<CapturedCompaction> {
 	const before = wire.length;
-	await compact(
+	const traceBefore = traceMark();
+	const compactModel = options.model ?? model;
+	const result = (await compact(
 		{
 			...preparation,
+			...(options.previousSummary === undefined ? {} : { previousSummary: options.previousSummary }),
 			messagesToSummarize: messages.slice(0, BOUNDARY),
 			turnPrefixMessages: [],
 			recentMessages: messages.slice(BOUNDARY),
@@ -349,9 +422,9 @@ async function captureCompaction(
 			tokensBefore: 100_000,
 			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: false },
 		},
-		model,
+		compactModel,
 		OAUTH_KEY,
-		previousSummary,
+		undefined,
 		undefined,
 		{
 			convertToLlm: current => current as FixtureMessage[],
@@ -359,26 +432,34 @@ async function captureCompaction(
 			tools: TOOLS as never,
 			fetch: globalThis.fetch,
 			buildCachePreservingContext: async scope =>
-				scope === "turn-prefix"
+				scope === "turn-prefix" || (scope === "live" && live === undefined)
 					? undefined
 					: {
-							context: scope === "live" ? (live ?? history) : history,
-							previousSummaryInPrefix: previousSummary !== undefined,
+							context: scope === "live" ? live! : history,
+							previousSummaryInPrefix:
+								options.previousSummary !== undefined && options.carrySummaryInChain === true,
 						},
-			onCacheFallback,
+			onCacheFallback: options.onCacheFallback,
 		},
 	).catch(error => {
 		assert.ok(String(error).includes(STOPPED), `compaction must stop at the offline sink: ${String(error)}`);
-	});
+		return undefined;
+	})) as { details?: { cacheColdReason?: string } } | undefined;
 	assert.equal(wire.length, before + 1, "exactly one summarize request must reach the offline sink");
-	return wire[before];
+	return {
+		wire: wire[before],
+		summarizeRequests: summarizeRequestsSince(traceBefore),
+		cacheColdReason: result?.details?.cacheColdReason,
+	};
 }
 
 try {
 	// Leg 1: the fixed builder. The host vouches for the live chain, so the
 	// summarize request carries it whole and its own tail markers anchor the
 	// entries the main chain just refreshed.
-	const vouched = await captureCompaction(historyContext, liveContext, undefined);
+	const vouchedCapture = await captureCompaction(historyContext, liveContext);
+	const vouched = vouchedCapture.wire;
+	const vouchedColdReason = vouchedCapture.cacheColdReason;
 	// The verdict is the cache behavior, not the bytes: this is the assertion a
 	// fixed tree passes and a tree that still truncates the request fails.
 	const green = simulate(vouched, COMPACTION_AT);
@@ -406,20 +487,41 @@ try {
 		[CHAIN_LENGTH - 1, CHAIN_LENGTH],
 		"breakpoints must anchor the live tail (432/433), not the summarize boundary (353/354)",
 	);
-	// The cutoff is content-anchored, not a message count: provider conversion
-	// merges and expands messages, so a count does not name the same position on
-	// the wire. The fixture's tail head is message 354, and its text is unique.
-	const vouchedInstruction = vouched.messages.at(-1);
-	const vouchedCutoffText =
-		vouchedInstruction && Array.isArray(vouchedInstruction.content)
-			? vouchedInstruction.content.map(block => block.text ?? "").join("")
-			: "";
+	// The instruction is the only place the request's scope can be stated. There
+	// is no boundary to name any more: the request carries the host's whole live
+	// chain and tells the model that the recent portion also survives verbatim.
+	const vouchedInstructionText = instructionTextOf(vouched);
 	assert.match(
-		vouchedCutoffText,
-		/BEGIN RETAINED TAIL: user: fixture-message-354/,
-		"the cutoff must name the retained tail by content, not by count",
+		vouchedInstructionText,
+		WHOLE_CONVERSATION_SENTENCE,
+		"the live-chain instruction must scope the whole live conversation",
 	);
-	assert.doesNotMatch(vouchedCutoffText, /first \d+ messages/, "the cutoff must not state a message count");
+	assert.match(
+		vouchedInstructionText,
+		VERBATIM_TAIL_SENTENCE,
+		"the live-chain instruction must say the recent portion is replayed verbatim",
+	);
+	assert.doesNotMatch(
+		vouchedInstructionText,
+		/BEGIN RETAINED TAIL/,
+		"the instruction must not quote a boundary excerpt any more",
+	);
+	assert.doesNotMatch(
+		vouchedInstructionText,
+		/fixture-message-/,
+		"the instruction must not name any message of the chain by content",
+	);
+	assert.equal(vouchedColdReason, undefined, "a vouched-for, fitting live chain is not a cache-cold fallback");
+	assert.equal(
+		vouchedCapture.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		true,
+		"the summarize.request trace must report the live-chain shape",
+	);
+	assert.equal(
+		vouchedCapture.summarizeRequests.at(-1)?.liveChainFallback,
+		undefined,
+		"an accepted live chain must not be traced with a fallback reason",
+	);
 	// The fixture keeps the cut far from every live marker: the nearest entry the
 	// main chain refreshed before the compaction is well outside any plausible
 	// lookup window, so the red verdict below cannot be a window artefact.
@@ -431,17 +533,30 @@ try {
 		`fixture must keep the cut >=30 blocks from the nearest live marker (got ${nearestLiveMarker - BOUNDARY})`,
 	);
 
-	// Leg 2: negative control. Same fixture, same clock, same host -- but the
-	// host can only vouch for the truncated prefix, which is the shape the
-	// pre-fix builder shipped. The builder must fall back, and the fallback must
-	// be visibly cold: this is the red half of the gate.
-	const truncated = await captureCompaction(historyContext, historyContext, undefined);
+	// Leg 2: negative control. Same fixture and clock, but the host can only
+	// vouch for the truncated prefix -- there is no live scope, which is the
+	// shape the pre-fix builder shipped. The builder must fall back LOUDLY, and
+	// the fallback must be visibly cold: this is the red half of the gate.
+	const prefixFallbacks: string[] = [];
+	const truncated = await captureCompaction(historyContext, undefined, {
+		onCacheFallback: reason => prefixFallbacks.push(reason),
+	});
+	assert.ok(
+		prefixFallbacks.includes("no-live-chain"),
+		`a host that cannot vouch for the live scope must be named, saw ${JSON.stringify(prefixFallbacks)}`,
+	);
+	assert.equal(
+		truncated.summarizeRequests.at(-1)?.liveChainFallback,
+		"no-live-chain",
+		"the fallback reason must be readable from the summarize.request trace",
+	);
+	assert.equal(truncated.summarizeRequests.at(-1)?.usesLiveChainReplay, false, "the control leg is not a live chain");
 	assert.deepEqual(
-		messageBreakpoints(truncated),
+		messageBreakpoints(truncated.wire),
 		[BOUNDARY - 1, BOUNDARY],
 		"the pre-fix shape anchors the summarize boundary",
 	);
-	const red = simulate(truncated, COMPACTION_AT);
+	const red = simulate(truncated.wire, COMPACTION_AT);
 	assert.equal(red.readBlocks, 0, "the pre-fix shape must read no cached history");
 	assert.equal(red.writtenBlocks, BOUNDARY + 1, "the pre-fix shape must rewrite the whole summarized prefix");
 	assert.ok(red.cacheRead <= HEAD_TOKENS, `pre-fix shape must read head only, got cacheRead=${red.cacheRead}`);
@@ -454,26 +569,49 @@ try {
 		`the fix must cut the rewrite by two orders of magnitude (green=${green.cacheWrite}, red=${red.cacheWrite})`,
 	);
 
-	// Leg 3: the same builder with a previous summary in the chain. The cutoff
-	// still names the boundary, and the injected instruction must not duplicate
-	// the `<previous-summary>` block the chain already carries.
-	const iterative = await captureCompaction(historyContext, liveContext, "PRIOR_SUMMARY_BODY");
-	const iterativeInstruction = iterative.messages.at(-1);
-	const iterativeText =
-		iterativeInstruction && Array.isArray(iterativeInstruction.content)
-			? iterativeInstruction.content.map(block => block.text ?? "").join("")
-			: "";
-	assert.deepEqual(messageBreakpoints(iterative), [CHAIN_LENGTH - 1, CHAIN_LENGTH], "iterative chain must stay whole");
-	assert.doesNotMatch(iterativeText, /<previous-summary>/, "verified prefix must not duplicate the prior summary");
-	assert.match(
+	// Leg 3: iterative compaction with a real previous summary. `compact`'s
+	// fourth argument is customInstructions, so the summary travels through
+	// `preparation.previousSummary` -- passing it as an argument would test
+	// nothing. The live chain stays whole either way, and the injected
+	// instruction duplicates the prior summary only while the chain lacks it.
+	const iterativeFallbacks: string[] = [];
+	const iterative = await captureCompaction(historyContext, liveContext, {
+		previousSummary: "PRIOR_SUMMARY_BODY",
+		carrySummaryInChain: true,
+		onCacheFallback: reason => iterativeFallbacks.push(reason),
+	});
+	const iterativeChain = iterative.wire.messages.length;
+	assert.deepEqual(
+		messageBreakpoints(iterative.wire),
+		[iterativeChain - 2, iterativeChain - 1],
+		"the iterative request must anchor its own tail (last live message + instruction)",
+	);
+	assert.deepEqual(iterativeFallbacks, [], "a vouched-for, fitting live chain is not a fallback");
+	const iterativeText = instructionTextOf(iterative.wire);
+	assert.doesNotMatch(
 		iterativeText,
-		/BEGIN RETAINED TAIL: user: fixture-message-354/,
-		"iterative request must still name the cutoff",
+		/<previous-summary>/,
+		"a chain that already carries the prior summary must not duplicate it",
 	);
 	assert.match(
 		iterativeText,
-		/MUST NOT be summarized, restated, re-listed, or described/,
-		"iterative request must keep the retained tail out of the summary",
+		WHOLE_CONVERSATION_SENTENCE,
+		"the iterative request must still scope the whole conversation",
+	);
+	assert.match(
+		iterativeText,
+		VERBATIM_TAIL_SENTENCE,
+		"the iterative request must still name the verbatim tail",
+	);
+	// Sensitivity half: the same call against a chain that does NOT carry the
+	// prior summary must inject it, so the flag above is not a tautology.
+	const injected = await captureCompaction(historyContext, liveContext, {
+		previousSummary: "PRIOR_SUMMARY_BODY",
+	});
+	assert.match(
+		instructionTextOf(injected.wire),
+		/<previous-summary>\nPRIOR_SUMMARY_BODY\n<\/previous-summary>/,
+		"a chain without the prior summary must inject it",
 	);
 
 	// Leg 4: cache-namespace fault variant, the mutation this gate was shown to
@@ -481,13 +619,13 @@ try {
 	// request renders a different system prompt, so the content-addressed prefix
 	// it presents is not the one the main chain cached. The simulator must go RED
 	// here; a message-index-keyed model cannot see this at all.
-	const drifted = await captureCompaction(historyContext, { ...liveContext, systemPrompt: ["CHANGED SYSTEM"] }, undefined);
+	const drifted = await captureCompaction(historyContext, { ...liveContext, systemPrompt: ["CHANGED SYSTEM"] });
 	assert.deepEqual(
-		uncached(drifted.messages.slice(0, CHAIN_LENGTH)),
+		uncached(drifted.wire.messages.slice(0, CHAIN_LENGTH)),
 		uncached(lastMainWire.messages.slice(0, CHAIN_LENGTH)),
 		"namespace fault must keep the message bytes identical",
 	);
-	const namespaceFault = simulate(drifted, COMPACTION_AT);
+	const namespaceFault = simulate(drifted.wire, COMPACTION_AT);
 	assert.equal(namespaceFault.readBlocks, 0, "a changed system prompt must miss the cached prefix");
 	assert.equal(
 		namespaceFault.writtenBlocks,
@@ -495,40 +633,52 @@ try {
 		"a changed system prompt must rewrite the whole chain",
 	);
 
-	// Leg 5: an ambiguous anchor must fall back LOUDLY rather than guess. The
-	// retained tail's head is given a text that also appears earlier in the
-	// chain, so no excerpt of it selects exactly one message.
-	const duplicated = messages.map((message, index) =>
-		index === 300 ? { ...message, content: [{ type: "text", text: "fixture-message-354" }] } : message,
-	);
-	const duplicateChain: Context = { systemPrompt: SYSTEM, messages: duplicated, tools: TOOLS };
-	const duplicateHistory: Context = {
-		systemPrompt: SYSTEM,
-		messages: duplicated.slice(0, BOUNDARY),
+	// Leg 5: a live chain that does not physically fit must fall back LOUDLY
+	// rather than ship an over-capacity request. The narrower window makes the
+	// history prefix (which still fits) and the live chain (whose system prompt
+	// pushes it over) differ: capacity is measured on the whole request, and
+	// losing the live chain is named rather than silently shipped. The fold-in
+	// budget rejects this same prefix, so the leg also proves a physically
+	// fitting request is not re-windowed or clamped.
+	const capacityModel = { ...model, contextWindow: 64_000 };
+	const oversizedLive: Context = {
+		systemPrompt: ["OVERSIZED SYSTEM ".repeat(20_000), ...SYSTEM],
+		messages,
 		tools: TOOLS,
 	};
-	const duplicateFallbacks: string[] = [];
-	const ambiguous = await captureCompaction(duplicateHistory, duplicateChain, undefined, reason =>
-		duplicateFallbacks.push(reason),
-	);
+	const capacityFallbacks: string[] = [];
+	const overCapacity = await captureCompaction(historyContext, oversizedLive, {
+		model: capacityModel,
+		onCacheFallback: reason => capacityFallbacks.push(reason),
+	});
 	assert.ok(
-		duplicateFallbacks.includes("boundary-not-attestable"),
-		`an ambiguous anchor must be reported, saw ${JSON.stringify(duplicateFallbacks)}`,
+		capacityFallbacks.includes("live-chain-over-capacity"),
+		`an over-capacity live chain must be reported, saw ${JSON.stringify(capacityFallbacks)}`,
+	);
+	// The offline sink always terminates the provider call, so `compact` never
+	// returns an entry here; the durable `details.cacheColdReason` is asserted in
+	// the native gate, whose stub completes, and in the round-2 smoke.
+	assert.equal(
+		overCapacity.summarizeRequests.at(-1)?.liveChainFallback,
+		"live-chain-over-capacity",
+		"the capacity fallback must be readable from the summarize.request trace",
 	);
 	assert.deepEqual(
-		messageBreakpoints(ambiguous),
+		messageBreakpoints(overCapacity.wire),
 		[BOUNDARY - 1, BOUNDARY],
-		"an unattestable boundary must keep the truncating shape",
+		"an over-capacity live chain must keep the prefix shape",
 	);
-	const ambiguousVerdict = simulate(ambiguous, COMPACTION_AT);
-	assert.equal(ambiguousVerdict.readBlocks, 0, "the loud fallback is still cache-cold, hence the warning");
+	const capacityVerdict = simulate(overCapacity.wire, COMPACTION_AT);
+	assert.equal(capacityVerdict.readBlocks, 0, "the loud fallback is still cache-cold, hence the warning");
 
 	console.log(
 		`PASS compaction cache liveness: turns=${turnMarkers.length} chain=${CHAIN_LENGTH} boundary=${BOUNDARY} ` +
 			`green(cacheRead=${green.cacheRead}, cacheWrite=${green.cacheWrite}, readBlocks=${green.readBlocks}) ` +
 			`red(cacheRead=${red.cacheRead}, cacheWrite=${red.cacheWrite}, readBlocks=${red.readBlocks}) ` +
-			`namespaceFault(readBlocks=${namespaceFault.readBlocks}) fallbacks=${JSON.stringify(duplicateFallbacks)}`,
+			`namespaceFault(readBlocks=${namespaceFault.readBlocks}) ` +
+			`prefixFallbacks=${JSON.stringify(prefixFallbacks)} capacityFallbacks=${JSON.stringify(capacityFallbacks)}`,
 	);
 } finally {
 	globalThis.fetch = originalFetch;
+	rmSync(traceDir, { recursive: true, force: true });
 }

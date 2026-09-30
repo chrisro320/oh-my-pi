@@ -111,6 +111,11 @@ const usage = {
 	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 };
 
+/** The sentence 0086's live-chain lanes append when the request carries the tail. */
+const WHOLE_CONVERSATION_SENTENCE = /summarize the ENTIRE conversation above/;
+/** The same sentence's second half: what happens to the most recent portion. */
+const VERBATIM_TAIL_SENTENCE = /preserved verbatim elsewhere in the session and is replayed after your summary/;
+
 function assistant(requestModel: Model, text = "SUMMARY"): AssistantMessage {
 	return {
 		role: "assistant",
@@ -149,11 +154,10 @@ const liveContext: Context = {
 
 let structuredRequest: Context | undefined;
 let structuredOptions: SimpleStreamOptions | undefined;
-let callbackCalls = 0;
+const structuredScopes: string[] = [];
 await generateSummary(rawMessages, model, 4096, "test", undefined, undefined, undefined, {
 	buildCachePreservingContext: async (scope, candidate) => {
-		callbackCalls++;
-		assert.equal(scope, "history", "ordinary summary must request the history prefix scope");
+		structuredScopes.push(scope);
 		assert.equal(candidate, model, "callback must receive the actual compaction candidate");
 		return { context: liveContext, previousSummaryInPrefix: false };
 	},
@@ -164,7 +168,13 @@ await generateSummary(rawMessages, model, 4096, "test", undefined, undefined, un
 	},
 });
 
-assert.equal(callbackCalls, 1, "provider-ready context must be built once before window planning");
+// 0086 selects the live chain before planning, so the ordinary summary asks for
+// both scopes on a live-lane plan; older plans stop at the history prefix.
+assert.deepEqual(
+	structuredScopes,
+	liveChainPlan ? ["history", "live"] : ["history"],
+	"provider-ready context must be built once per requested scope, before window planning",
+);
 assert.deepEqual(structuredRequest?.systemPrompt, liveContext.systemPrompt, "structured summary lost live system");
 assert.deepEqual(structuredRequest?.tools, liveContext.tools, "structured summary lost normalized live tools");
 assert.deepEqual(structuredRequest?.messages[0], livePrefix, "structured summary rewrote the live prefix");
@@ -199,11 +209,10 @@ const longMessages: AgentMessage[] = Array.from({ length: 24 }, (_, index) => ({
 })) as AgentMessage[];
 const longContext: Context = { ...liveContext, messages: longMessages as Context["messages"] };
 const windowRequests: Context[] = [];
-let longCallbackCalls = 0;
+const windowScopes: string[] = [];
 await generateSummary(longMessages, smallWindowModel, 4096, "test", undefined, undefined, undefined, {
 	buildCachePreservingContext: async scope => {
-		longCallbackCalls++;
-		assert.equal(scope, "history");
+		windowScopes.push(scope);
 		return { context: longContext, previousSummaryInPrefix: false };
 	},
 	completeImpl: async (requestModel, context) => {
@@ -211,7 +220,11 @@ await generateSummary(longMessages, smallWindowModel, 4096, "test", undefined, u
 		return assistant(requestModel);
 	},
 });
-assert.equal(longCallbackCalls, 1, "multi-window summary rebuilt provider context per window");
+assert.deepEqual(
+	windowScopes,
+	liveChainPlan ? ["history", "live"] : ["history"],
+	"multi-window summary rebuilt provider context per requested scope",
+);
 assert.ok(windowRequests.length > 1, "fixture must exercise multiple structured windows");
 for (const request of windowRequests) {
 	assert.deepEqual(request.systemPrompt, liveContext.systemPrompt, "multi-window summary lost live system");
@@ -309,7 +322,7 @@ await generateSummary(iterativeTarget, model, 4096, "test", undefined, undefined
 		return messages as Context["messages"];
 	},
 	buildCachePreservingContext: async (scope, candidate) => {
-		assert.equal(scope, "history");
+		assert.ok(scope === "history" || scope === "live", `unexpected iterative scope ${scope}`);
 		assert.equal(candidate, model);
 		return { context: iterativePrefixContext, previousSummaryInPrefix: true };
 	},
@@ -352,9 +365,9 @@ const splitLiveContext: Context = {
 		recentUser as Context["messages"][number],
 	],
 };
-await compact(
-	{
-		// Carry package-owned preparation fields across both supported versions.
+const splitResult = await compact(
+		{
+			// Carry package-owned preparation fields across both supported versions.
 		...preparation,
 		...("previousRetainedMessages" in preparation ? { previousRetainedMessages: [] } : {}),
 		firstKeptEntryId: "recent-user",
@@ -396,55 +409,50 @@ const tailTextOf = (request: { context: Context } | undefined): string => {
 	const tail = request?.context.messages.at(-1);
 	return tail && Array.isArray(tail.content) && tail.content[0]?.type === "text" ? tail.content[0].text : "";
 };
-const splitTurnRequest = splitRequests.find(request => /END TURN PREFIX:/.test(tailTextOf(request)));
 if (liveChainPlan) {
-	// 0086: BOTH requests of a split compaction now ride the live chain -- the
-	// history leg summarizes everything before the retained tail, and the
-	// turn-prefix leg summarizes the inner range the split cut out. Each names
-	// its range by content, and the cached prefix bytes stay untouched.
+	// 0086: the split turn is ONE summarize request. The live chain is the whole
+	// live conversation, so the history leg's request already covers the turn
+	// prefix the host is about to discard; a second turn-prefix request would
+	// duplicate that state in the persisted entry.
 	assert.deepEqual(
 		splitScopes.sort(),
-		["history", "live", "live", "turn-prefix"],
-		"split compaction must request the live scope once per summary call",
+		["history", "live"],
+		"split compaction must request the live scope for its single summary call",
 	);
-	assert.ok(splitTurnRequest, "split compaction must issue a turn-prefix request");
-	const splitHistoryRequest = splitRequests.find(request => /BEGIN RETAINED TAIL:/.test(tailTextOf(request)));
-	assert.ok(splitHistoryRequest, "split compaction must issue a history request");
-	for (const [label, request] of [
-		["history", splitHistoryRequest],
-		["turn-prefix", splitTurnRequest],
-	] as const) {
-		assert.deepEqual(
-			request.context.messages.slice(0, splitLiveContext.messages.length),
-			splitLiveContext.messages,
-			`split ${label} request rewrote the live chain`,
-		);
-		assert.equal(
-			request.context.messages.length,
-			splitLiveContext.messages.length + 1,
-			`split ${label} request must append exactly one instruction`,
-		);
-		assert.equal(request.options.toolChoice, "none", `split ${label} request allowed tool calls`);
-	}
-	assert.match(
-		tailTextOf(splitHistoryRequest),
-		/BEGIN RETAINED TAIL: user: RECENT_USER/,
-		"history leg must name the retained tail by content",
+	// `completeImpl` also carries the short-summary call, whose request is just
+	// the retained tail plus its own instruction; the live-chain summarize
+	// request is the one that carries the whole chain plus one instruction.
+	const splitSummaries = splitRequests.filter(
+		request => request.context.messages.length === splitLiveContext.messages.length + 1,
 	);
-	assert.match(
-		tailTextOf(splitTurnRequest),
-		/BEGIN TURN PREFIX: user: NEW_DISCARDED/,
-		"turn-prefix leg must name the start of its range by content",
+	assert.equal(splitSummaries.length, 1, "split compaction must issue exactly one summarize request");
+	const splitRequest = splitSummaries[0];
+	assert.deepEqual(
+		splitRequest.context.messages.slice(0, splitLiveContext.messages.length),
+		splitLiveContext.messages,
+		"split request rewrote the live chain",
 	);
-	assert.doesNotMatch(
-		tailTextOf(splitTurnRequest),
-		/<conversation>/,
-		"split turn prefix duplicated the target in its tail",
+	assert.equal(
+		splitRequest.context.messages.length,
+		splitLiveContext.messages.length + 1,
+		"split request must append exactly one instruction",
+	);
+	assert.equal(splitRequest.options.toolChoice, "none", "split request allowed tool calls");
+	const splitInstruction = tailTextOf(splitRequest);
+	assert.match(splitInstruction, /summarize the ENTIRE conversation above/, "split request must scope the whole conversation");
+	assert.match(splitInstruction, VERBATIM_TAIL_SENTENCE, "split request must name the verbatim tail");
+	assert.doesNotMatch(splitInstruction, /BEGIN RETAINED TAIL|TURN PREFIX/, "no range boundary may be quoted any more");
+	assert.doesNotMatch(splitInstruction, /<conversation>/, "split request duplicated the target in its tail");
+	assert.equal(
+		splitResult.details?.cacheColdReason,
+		undefined,
+		"a split compaction that shipped the live chain must not record a cold reason",
 	);
 } else {
 	assert.deepEqual(splitScopes.sort(), ["history", "turn-prefix"], "split compaction did not request both prefix scopes");
 	const splitHistoryRequest = splitRequests.find(request => request.context.messages.length === 2);
 	assert.ok(splitHistoryRequest, "split compaction must issue a history request");
+	const splitTurnRequest = splitRequests.find(request => request.context.messages.length === 3);
 	assert.ok(splitTurnRequest, "split compaction must issue a turn-prefix request");
 	assert.equal(
 		splitTurnRequest.context.messages.length,
