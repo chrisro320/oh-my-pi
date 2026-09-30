@@ -23,6 +23,7 @@
 // Runs offline: the real Anthropic request builder serializes the wire and a
 // fetch sink captures it before the provider call is terminated.
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -90,6 +91,17 @@ const { serializeConversationForSummary } = await import(`${CORE_ROOT}/src/compa
 // resolved from this file's directory can land on a second copy of pi-utils
 // under a different node_modules root.
 const { registerLogSink } = await import(Bun.resolveSync("@oh-my-pi/pi-utils/logger", `${CORE_ROOT}/src/compaction`));
+// The exact sentence the whole-chain lanes append, taken from the tree rather
+// than retyped here: an equality against a copy of the tree's own text would
+// prove nothing.
+const { WHOLE_CONVERSATION_SUMMARY_NOTE } = await import(`${CORE_ROOT}/src/compaction/anthropic.ts`);
+
+/** Deterministic JSON of a fixture value: no timestamps, no cache markers. */
+function canonicalFixtureJson(value: unknown): string {
+	return JSON.stringify(value, (key, entry) =>
+		key === "timestamp" || key === "cache_control" ? undefined : entry,
+	);
+}
 
 const model = getBundledModel("anthropic", "claude-opus-5");
 assert.ok(model, "the selected catalog must contain claude-opus-5");
@@ -174,6 +186,21 @@ function traceMark(): number {
 const WHOLE_CONVERSATION_SENTENCE = /summarize the ENTIRE conversation above/;
 /** The same sentence's second half: what happens to the most recent portion. */
 const VERBATIM_TAIL_SENTENCE = /preserved verbatim elsewhere in the session and is replayed after your summary/;
+/**
+ * The summarized instruction text a non-live request appends, frozen at its
+ * pre-0086 bytes. The whole-conversation scope is asserted as an equality
+ * against this fingerprint plus the tree's own note, so ANY appended boundary or
+ * cutoff restriction -- numeric anchors included -- turns the leg red without
+ * the gate having to guess how such a restriction would be spelled.
+ */
+const PRE_0086_SUMMARY_INSTRUCTION_SHA256 = "f7fe5d84dfc9fa56f2aa9f8bc111a3bf7b5d2571db0e1a7e4185b6b840d2b5d4";
+/**
+ * The wire bytes of one non-Anthropic (OpenAI lane) summary request at the
+ * capacity/fold boundary, frozen from the pre-0086 code path. The narrowed tree
+ * must reproduce it exactly; the round-2 rewrite of this lane produced two
+ * structured messages instead and is what this pin rejects.
+ */
+const PRE_0086_NON_ANTHROPIC_REQUEST_SHA256 = "50fb3ea8eb063d962d5e856e42133e6a375359a56a7708e52b9d5f054cac862f";
 
 // ---------------------------------------------------------------- cache model
 // Anthropic keeps a written prefix for the TTL its marker asked for (one hour
@@ -531,6 +558,20 @@ async function captureCompactionStub(
 		messagesToSummarize?: FixtureMessage[];
 		recentMessages?: FixtureMessage[];
 		onCacheFallback?: (reason: string) => void;
+		/** Split-turn legs: this compaction cuts inside a turn. */
+		isSplitTurn?: boolean;
+		/** Split-turn legs: the prefix of the split turn that follows the history. */
+		turnPrefixMessages?: FixtureMessage[];
+		/**
+		 * Provider-overflow leg: make the FIRST summarize request fail with this
+		 * error, the way a provider rejects an over-long prompt, and accept every
+		 * later request.
+		 */
+		failFirstRequest?: Error;
+		/** Every summarize request this compaction issued, in order. */
+		requests?: FixtureMessage[][];
+		/** Every scope this compaction asked the host to vouch for, in order. */
+		scopes?: string[];
 	} = {},
 ): Promise<StubCompaction> {
 	const traceBefore = traceMark();
@@ -541,9 +582,9 @@ async function captureCompactionStub(
 			...preparation,
 			...(options.previousSummary === undefined ? {} : { previousSummary: options.previousSummary }),
 			messagesToSummarize: options.messagesToSummarize ?? messages.slice(0, BOUNDARY),
-			turnPrefixMessages: [],
+			turnPrefixMessages: options.turnPrefixMessages ?? [],
 			recentMessages: options.recentMessages ?? messages.slice(BOUNDARY),
-			isSplitTurn: false,
+			isSplitTurn: options.isSplitTurn ?? false,
 			firstKeptEntryId: `m${BOUNDARY}`,
 			historyPrefixEntryId: `m${BOUNDARY - 1}`,
 			turnPrefixEntryId: undefined,
@@ -558,16 +599,22 @@ async function captureCompactionStub(
 			convertToLlm: current => current as FixtureMessage[],
 			remoteSystemPrompt: SYSTEM,
 			tools: TOOLS as never,
-			buildCachePreservingContext: async scope =>
-				scope === "turn-prefix" || (scope === "live" && live === undefined)
+			buildCachePreservingContext: async scope => {
+				options.scopes?.push(scope);
+				return scope === "turn-prefix" || (scope === "live" && live === undefined)
 					? undefined
 					: {
 							context: scope === "live" ? live! : history,
 							previousSummaryInPrefix:
 								options.previousSummary !== undefined && options.carrySummaryInChain === true,
-						},
+						};
+			},
 			onCacheFallback: options.onCacheFallback,
 			completeImpl: async (requestModel, context) => {
+				options.requests?.push(context.messages as FixtureMessage[]);
+				if (options.failFirstRequest !== undefined && options.requests?.length === 1) {
+					throw options.failFirstRequest;
+				}
 				// The short summary runs after the main one; only the first request
 				// is the summarize request under test.
 				captured ??= context.messages as FixtureMessage[];
@@ -808,6 +855,13 @@ try {
 	const priorInChain: Context = { systemPrompt: SYSTEM, messages: [renderedPrior, ...messages], tools: TOOLS };
 	const instructionOf = (messages_: FixtureMessage[]): string =>
 		instructionTextOf({ messages: messages_ } as WirePayload);
+	/**
+	 * The flat, self-describing pre-0086 requests: a single `<conversation>`
+	 * message. The short-summary request is flat too but `<summary>`-prefixed, so
+	 * this names the turn-prefix request without assuming a request order.
+	 */
+	const flatRequests = (requests: FixtureMessage[][]): FixtureMessage[][] =>
+		requests.filter(messages_ => messages_.length === 1 && instructionOf(messages_).startsWith("<conversation>"));
 
 	// Leg 3a: previousSummaryInPrefix = true. The vouched-for chain already
 	// carries the prior summary, so the instruction must not restate it: the body
@@ -858,9 +912,40 @@ try {
 	);
 
 	// Leg 3b: previousSummaryInPrefix = false against a chain that does NOT carry
-	// it. The update prompt must inject the summary once; without this half the
-	// leg above would pass for a builder that never injects anything.
-	const injected = await captureCompactionStub(historyContext, liveContext, { previousSummary: PRIOR });
+	// it. The narrowed lane refuses this case outright -- a live request whose
+	// instruction re-states the summary would state it twice, and one that trusts
+	// the flag would drop it -- so the pre-0086 shape ships and the refusal is
+	// named on the callback, the entry, the warning and the trace.
+	logEvents.length = 0;
+	const injectedFallbacks: string[] = [];
+	const injected = await captureCompactionStub(historyContext, liveContext, {
+		previousSummary: PRIOR,
+		onCacheFallback: reason => injectedFallbacks.push(reason),
+	});
+	assert.ok(
+		injectedFallbacks.includes("previous-summary-not-in-prefix"),
+		`a previous summary outside the chain must be named, saw ${JSON.stringify(injectedFallbacks)}`,
+	);
+	assert.equal(
+		injected.cacheColdReason,
+		"previous-summary-not-in-prefix",
+		"the refusal must be persisted on the compaction entry",
+	);
+	assert.deepEqual(
+		cacheColdLogReasons(),
+		["previous-summary-not-in-prefix"],
+		"the operator warning must carry the same named reason",
+	);
+	assert.equal(
+		liveChainFallbackOf(injected.summarizeRequests),
+		"previous-summary-not-in-prefix",
+		"the summarize.request trace must name the refusal",
+	);
+	assert.equal(
+		injected.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		false,
+		"a refused live lane must not be traced as the live chain",
+	);
 	assert.equal(
 		countOccurrences(JSON.stringify(injected.messages), PRIOR),
 		1,
@@ -872,10 +957,102 @@ try {
 		"a chain without the prior summary must inject it",
 	);
 	assert.deepEqual(
-		injected.messages.slice(0, CHAIN_LENGTH),
-		messages,
-		"injecting the summary must not rewrite the live chain",
+		injected.messages.slice(0, BOUNDARY),
+		messages.slice(0, BOUNDARY),
+		"the pre-0086 fallback ships the vouched-for cut prefix untouched",
 	);
+	assert.equal(
+		injected.messages.length,
+		BOUNDARY + 1,
+		"the pre-0086 fallback is the cut prefix plus one instruction",
+	);
+
+	// Leg 3d: a split turn never rides the live chain. The live shape is ONE
+	// whole-conversation request, while a split compaction issues a history
+	// request and a turn-prefix request whose summaries are joined -- the second
+	// one would summarize the same range again. Both halves of the fixture
+	// (history present, history empty) must ship the pre-0086 shapes and name the
+	// exclusion through the callback, the entry, the warning and the trace.
+	const splitScopes: string[] = [];
+	const splitRequests: FixtureMessage[][] = [];
+	const splitFallbacks: string[] = [];
+	logEvents.length = 0;
+	const split = await captureCompactionStub(historyContext, liveContext, {
+		isSplitTurn: true,
+		turnPrefixMessages: messages.slice(BOUNDARY),
+		requests: splitRequests,
+		scopes: splitScopes,
+		onCacheFallback: reason => splitFallbacks.push(reason),
+	});
+	assert.ok(
+		splitFallbacks.includes("split-turn"),
+		`a split turn must be named, saw ${JSON.stringify(splitFallbacks)}`,
+	);
+	assert.equal(split.cacheColdReason, "split-turn", "the split turn must be persisted on the compaction entry");
+	assert.deepEqual(cacheColdLogReasons(), ["split-turn"], "the operator warning must name the split turn");
+	assert.ok(
+		split.summarizeRequests.length > 0 &&
+			split.summarizeRequests.every(row => row.liveChainFallback === "split-turn"),
+		`every split-turn request must be traced with its reason, saw ${JSON.stringify(split.summarizeRequests)}`,
+	);
+	assert.ok(
+		split.summarizeRequests.every(row => row.usesLiveChainReplay !== true),
+		"no request of a split turn may claim the live chain",
+	);
+	assert.ok(
+		!splitScopes.includes("live"),
+		`a split turn must never ask the host to vouch for the live scope, saw ${JSON.stringify(splitScopes)}`,
+	);
+	// Two requests, and neither is the live chain: the history request carries the
+	// vouched-for cut prefix, the turn-prefix request is the flat self-describing
+	// form (the stub vouches for no turn-prefix scope).
+	const splitHistoryRequests = splitRequests.filter(m => m.length === BOUNDARY + 1);
+	assert.equal(splitHistoryRequests.length, 1, "a split turn issues exactly one history request");
+	assert.deepEqual(
+		splitHistoryRequests[0].slice(0, BOUNDARY),
+		messages.slice(0, BOUNDARY),
+		"the split-turn history request is the cut prefix, not the live chain",
+	);
+	const splitTurnRequests = flatRequests(splitRequests);
+	assert.equal(splitTurnRequests.length, 1, "a split turn issues exactly one flat turn-prefix request");
+	assert.match(
+		instructionOf(splitTurnRequests[0]),
+		/<conversation>/,
+		"the turn-prefix request is the flat pre-0086 form",
+	);
+
+	// Leg 3e: the empty-history half of the same split turn. Only the turn-prefix
+	// request is issued, so that request must carry the reason -- an empty history
+	// range may not silence it.
+	const emptyScopes: string[] = [];
+	const emptyRequests: FixtureMessage[][] = [];
+	logEvents.length = 0;
+	const emptyHistory = await captureCompactionStub(historyContext, liveContext, {
+		isSplitTurn: true,
+		messagesToSummarize: [],
+		turnPrefixMessages: messages.slice(BOUNDARY),
+		recentMessages: [],
+		requests: emptyRequests,
+		scopes: emptyScopes,
+	});
+	assert.equal(
+		emptyHistory.cacheColdReason,
+		"split-turn",
+		"an empty history range must still name the split turn on the entry",
+	);
+	assert.deepEqual(cacheColdLogReasons(), ["split-turn"], "an empty history range must still warn");
+	assert.equal(
+		liveChainFallbackOf(emptyHistory.summarizeRequests),
+		"split-turn",
+		"the turn-prefix-only request must still be traced with the reason",
+	);
+	assert.equal(
+		emptyHistory.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		false,
+		"the turn-prefix-only request is not a live chain",
+	);
+	assert.equal(flatRequests(emptyRequests).length, 1, "an empty history range issues only the turn-prefix request");
+	assert.ok(!emptyScopes.includes("live"), "an empty history range must not ask for the live scope either");
 
 	// Leg 3c: the flag is load-bearing, not decorative. Claiming a prefix that
 	// does not carry the summary drops it entirely (why the host derives the flag
@@ -1291,6 +1468,170 @@ try {
 	);
 	assert.doesNotMatch(noTailText, /fixture-message-/, "no chain message may be named by content");
 
+	// Leg 8b: the whole-conversation scope is an EQUALITY on the instruction
+	// bytes, not a spell-check for particular boundary spellings. A non-live
+	// request's instruction is pinned to the pre-0086 bytes, and the live
+	// instruction must be exactly those bytes plus the note the tree itself
+	// declares. Any appended boundary or cutoff restriction -- a numeric anchor
+	// included -- breaks the equality, whatever it is spelled like.
+	const preLiveInstruction = instructionTextOf(truncated.wire);
+	assert.equal(
+		createHash("sha256").update(preLiveInstruction).digest("hex"),
+		PRE_0086_SUMMARY_INSTRUCTION_SHA256,
+		"the non-live summarize instruction must still be the pre-0086 bytes",
+	);
+	assert.equal(
+		vouchedInstructionText,
+		`${preLiveInstruction}\n\n${WHOLE_CONVERSATION_SUMMARY_NOTE}`,
+		"the live instruction is exactly the pre-0086 instruction plus the whole-conversation note",
+	);
+
+	// Leg 9: a provider that REJECTS the live request. The retry must fall back to
+	// the pre-0086 path and say so -- callback, entry, warning and trace -- and the
+	// range the abandoned shape carried may not be lost: the sentinel that only
+	// that range holds must appear in an accepted request.
+	const RETRY_SENTINEL = "discarded-range-sentinel";
+	const retryUnitTokens = capacityTokenizer.countMessages([
+		{ role: "user", content: [{ type: "text", text: capacityText(1_000) }] },
+	] as never);
+	const retryHistory: FixtureMessage[] = [
+		{
+			role: "user",
+			content: [{ type: "text", text: capacityText(Math.ceil((40_000 * 1_000) / retryUnitTokens)) }],
+			attribution: "agent",
+			timestamp: 1,
+		},
+		{ role: "user", content: [{ type: "text", text: RETRY_SENTINEL }], attribution: "agent", timestamp: 2 },
+	];
+	const retryTail = messages.slice(BOUNDARY);
+	const retryLive: Context = { systemPrompt: SYSTEM, messages: [...retryHistory, ...retryTail], tools: TOOLS };
+	const retryHistoryContext: Context = { systemPrompt: SYSTEM, messages: retryHistory, tools: TOOLS };
+	assert.ok(
+		capacityTokenizer.countMessages(retryHistory as never) > 30_000,
+		"the overflow fixture must be large enough that halving it clears the retry floor",
+	);
+	// Sensitivity control: without the rejection the very same fixture ships the
+	// live chain in one request and records nothing.
+	const retryAccepted = await captureCompactionStub(retryHistoryContext, retryLive, {
+		messagesToSummarize: retryHistory,
+		recentMessages: retryTail,
+	});
+	assert.equal(retryAccepted.cacheColdReason, undefined, "the accepted control must record no cold reason");
+	assert.equal(
+		retryAccepted.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		true,
+		"the accepted control must ship the live chain",
+	);
+	assert.deepEqual(
+		retryAccepted.messages.slice(0, retryLive.messages.length),
+		retryLive.messages,
+		"the accepted control must ship the host's live chain untouched",
+	);
+	logEvents.length = 0;
+	const retryRequests: FixtureMessage[][] = [];
+	const retryFallbacks: string[] = [];
+	const rejected = await captureCompactionStub(retryHistoryContext, retryLive, {
+		messagesToSummarize: retryHistory,
+		recentMessages: retryTail,
+		requests: retryRequests,
+		failFirstRequest: new Error("prompt is too long: context length exceeded"),
+		onCacheFallback: reason => retryFallbacks.push(reason),
+	});
+	assert.ok(retryRequests.length > 2, `the rejected request must be replanned, saw ${retryRequests.length} requests`);
+	assert.deepEqual(
+		retryFallbacks,
+		["live-chain-overflow-retry"],
+		"the abandoned live request must be named exactly once",
+	);
+	assert.equal(
+		rejected.cacheColdReason,
+		"live-chain-overflow-retry",
+		"the retry reason must be persisted on the compaction entry",
+	);
+	assert.deepEqual(
+		cacheColdLogReasons(),
+		["live-chain-overflow-retry"],
+		"the operator warning must carry the retry reason",
+	);
+	assert.equal(
+		rejected.summarizeRequests.at(-1)?.liveChainFallback,
+		"live-chain-overflow-retry",
+		"the retried request must be traced with its reason",
+	);
+	assert.equal(
+		rejected.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		false,
+		"no retried request may claim the live chain",
+	);
+	assert.equal(
+		retryRequests[0].length,
+		retryLive.messages.length + 1,
+		"the rejected request was the live chain plus one instruction",
+	);
+	const retriedWithSentinel = retryRequests
+		.slice(1)
+		.filter(m => JSON.stringify(m).includes(RETRY_SENTINEL))
+		.map(m => m.length);
+	assert.ok(
+		retriedWithSentinel.includes(retryHistory.length + 1),
+		`an accepted request must carry the pre-0086 cut prefix with the discarded range's sentinel, saw ${JSON.stringify(retriedWithSentinel)}`,
+	);
+
+	// Leg 10: the non-Anthropic lanes are the pre-0086 code path byte-for-byte. At
+	// the capacity/fold boundary -- a single message between the fold budget and
+	// the window -- the narrowed tree must ship exactly the pinned pre-0086
+	// request. Rewriting this lane (the round-2 change) turned it into two
+	// structured messages; that regression is what this pin freezes. Nothing off
+	// the Anthropic lane may ever record a cache-cold reason.
+	const openaiModel = getBundledModel("openai", "gpt-5.6");
+	assert.ok(openaiModel, "the selected catalog must contain gpt-5.6");
+	assert.notEqual(openaiModel.api, "anthropic-messages", "the boundary leg needs a non-Anthropic lane");
+	const legacyModel = { ...openaiModel, contextWindow: 64_000 };
+	const legacyTokenizer = new Tokenizer(legacyModel);
+	const legacyUnitTokens = legacyTokenizer.countMessages([
+		{ role: "user", content: [{ type: "text", text: capacityText(1_000) }] },
+	] as never);
+	const legacyTarget: FixtureMessage[] = [
+		{
+			role: "user",
+			content: [{ type: "text", text: capacityText(Math.ceil((46_000 * 1_000) / legacyUnitTokens)) }],
+			attribution: "agent",
+			timestamp: 1,
+		},
+	];
+	const legacyTokens = legacyTokenizer.countMessages(legacyTarget as never);
+	assert.ok(
+		legacyTokens > 20_000 && legacyTokens < 60_000,
+		`the boundary fixture must sit between the fold budget and the 64k window, got ${legacyTokens}`,
+	);
+	const legacyContext: Context = { systemPrompt: SYSTEM, messages: legacyTarget, tools: TOOLS };
+	const nonAnthropic = await captureCompactionStub(legacyContext, legacyContext, {
+		model: legacyModel as typeof model,
+		messagesToSummarize: legacyTarget,
+		recentMessages: [],
+	});
+	assert.equal(
+		nonAnthropic.messages.length,
+		1,
+		"a non-Anthropic summary request stays the single flat pre-0086 message",
+	);
+	assert.match(
+		(nonAnthropic.messages[0].content as FixtureBlock[])[0].text ?? "",
+		/<conversation>/,
+		"the flat pre-0086 request serializes the transcript into one message",
+	);
+	assert.equal(nonAnthropic.cacheColdReason, undefined, "a non-Anthropic lane records no cache-cold reason");
+	assert.equal(
+		liveChainFallbackOf(nonAnthropic.summarizeRequests),
+		undefined,
+		"a non-Anthropic lane is never traced with a fallback reason",
+	);
+	assert.equal(
+		createHash("sha256").update(canonicalFixtureJson(nonAnthropic.messages)).digest("hex"),
+		PRE_0086_NON_ANTHROPIC_REQUEST_SHA256,
+		"the non-Anthropic request at the fold boundary must be the pre-0086 bytes",
+	);
+
 	console.log(
 		`PASS compaction cache liveness: turns=${turnMarkers.length} chain=${CHAIN_LENGTH} boundary=${BOUNDARY} ` +
 			`green(cacheRead=${green.cacheRead}, cacheWrite=${green.cacheWrite}, readBlocks=${green.readBlocks}) ` +
@@ -1298,7 +1639,10 @@ try {
 			`namespaceFault(readBlocks=${namespaceFault.readBlocks}) ` +
 			`prefixFallbacks=${JSON.stringify(prefixFallbacks)} capacityFallbacks=${JSON.stringify(capacityFallbacks)} ` +
 			`mixedTtl(readBlocks=${mixedExpired.readBlocks}) stubFallback=${stubFallback.cacheColdReason} ` +
-			`bigMessageTokens=${bigTokens} toolResultTokens=${toolResultTokens} thinkingTokens=${thinkingTokens}`,
+			`bigMessageTokens=${bigTokens} toolResultTokens=${toolResultTokens} thinkingTokens=${thinkingTokens} ` +
+			`retry=${rejected.cacheColdReason} split=${split.cacheColdReason}/${emptyHistory.cacheColdReason} ` +
+			`previousOutsideChain=${injected.cacheColdReason} nonAnthropicMessages=${nonAnthropic.messages.length} ` +
+			`nonAnthropicTokens=${legacyTokens}`,
 	);
 } finally {
 	releaseLogSink();

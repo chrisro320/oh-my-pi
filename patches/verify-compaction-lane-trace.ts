@@ -324,7 +324,16 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 	const { preparation, oldAssistant, recentAssistant } = fixture(claude);
 	const nativeUsage = { ...usage, input: 2, cacheRead: 90_000, cacheWrite: 1_500, totalTokens: 91_503 };
 	await compact(
-		{ ...preparation, tokensBefore: 100_000, settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true } },
+		{
+			...preparation,
+			// The narrowed live lane is whole-turn only: the fixture's raw cut splits
+			// the recent turn, so this leg keeps that turn whole instead.
+			firstKeptEntryId: "recent-user",
+			turnPrefixMessages: [],
+			isSplitTurn: false,
+			tokensBefore: 100_000,
+			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
+		},
 		claude,
 		"test",
 		undefined,
@@ -425,6 +434,87 @@ if (aiVersion === "18.4.4") {
 		"native-no-live-chain",
 		"the fallback native lane must name its reason on the request trace",
 	);
+}
+
+// ---------------------------------------------------------------------------
+// GATE C3 (0086): the narrowed native lane names its exclusions on the request
+// trace too, not only on the returned entry. A split turn and a chain that does
+// not carry the previous summary are both refused, and both refusals must be
+// readable from the trace alone.
+// ---------------------------------------------------------------------------
+if (aiVersion === "18.4.4") {
+	const claude: Model = getBundledModel("anthropic", "claude-opus-5");
+	assert.ok(claude, "bundled claude-opus-5 must exist");
+	const { preparation, oldAssistant, recentAssistant } = fixture(claude);
+	const nativeLiveMessages: Context["messages"] = [
+		{ role: "user", content: [{ type: "text", text: "OLD_USER" }], timestamp: 10 },
+		oldAssistant,
+		{ role: "user", content: [{ type: "text", text: "RECENT_USER" }], timestamp: 30 },
+		recentAssistant,
+	];
+	const runNativeTrace = async (
+		override: Record<string, unknown>,
+		previousSummaryInPrefix: boolean,
+	): Promise<Record<string, unknown> | undefined> => {
+		await compact(
+			{
+				...preparation,
+				tokensBefore: 100_000,
+				settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
+				...override,
+			},
+			claude,
+			"test",
+			undefined,
+			undefined,
+			{
+				convertToLlm: messages => messages as Context["messages"],
+				buildCachePreservingContext: async scope =>
+					scope === "live" ? { context: liveContext(nativeLiveMessages), previousSummaryInPrefix } : undefined,
+				completeImpl: async (requestModel, _context, options) => {
+					if (!options.anthropicCompaction) return assistant(requestModel);
+					return {
+						...assistant(requestModel, ""),
+						stopDetails: { type: "compaction" },
+						providerPayload: {
+							type: "anthropicCompaction",
+							provider: requestModel.provider,
+							content: "NATIVE_SUMMARY",
+							signature: "offline-signed-summary",
+							encryptedContent: "opaque",
+						},
+					} as AssistantMessage;
+				},
+			},
+		);
+		return readTrace()
+			.filter(row => row.k === "summarize.request" && row.lane === "anthropic-native")
+			.at(-1);
+	};
+	const splitRow = await runNativeTrace({}, true);
+	assert.equal(
+		splitRow?.liveChainFallback,
+		"native-split-turn",
+		"a split native turn must name its exclusion on the request trace",
+	);
+	assert.equal(splitRow?.usesLiveChainReplay, false, "a split native turn must not be traced as the live chain");
+	const priorRow = await runNativeTrace(
+		{
+			previousSummary: "PRIOR_TRACE_SENTINEL",
+			// The renamed reason is only reachable on a whole turn: a split turn is
+			// refused first, exactly as the local lane orders the two conditions.
+			firstKeptEntryId: "recent-user",
+			turnPrefixMessages: [],
+			isSplitTurn: false,
+		},
+		false,
+	);
+	assert.equal(
+		priorRow?.liveChainFallback,
+		"native-previous-summary-not-in-prefix",
+		"a chain that does not carry the previous summary must name its exclusion on the request trace",
+	);
+	assert.equal(priorRow?.usesLiveChainReplay, false, "that refusal must not be traced as the live chain");
 }
 
 rmSync(traceDir, { recursive: true, force: true });

@@ -316,13 +316,14 @@ const iterativePrefixContext = withDateCwdReminder(
 );
 let iterativeRequest: Context | undefined;
 let convertedTarget: AgentMessage[] | undefined;
+const iterativeScopes: string[] = [];
 await generateSummary(iterativeTarget, model, 4096, "test", undefined, undefined, "PRIOR", {
 	convertToLlm: messages => {
 		convertedTarget = messages;
 		return messages as Context["messages"];
 	},
 	buildCachePreservingContext: async (scope, candidate) => {
-		assert.ok(scope === "history" || scope === "live", `unexpected iterative scope ${scope}`);
+		iterativeScopes.push(scope);
 		assert.equal(candidate, model);
 		return { context: iterativePrefixContext, previousSummaryInPrefix: true };
 	},
@@ -331,6 +332,14 @@ await generateSummary(iterativeTarget, model, 4096, "test", undefined, undefined
 		return assistant(requestModel);
 	},
 });
+// Plan-specific, not "history or anything": an older plan never asks for a live
+// chain at all, and 18.4.4 asks for it exactly once, after the history scope it
+// replaces. Recording the sequence keeps the older branch's contract strict.
+assert.deepEqual(
+	iterativeScopes.sort(),
+	liveChainPlan ? ["history", "live"] : ["history"],
+	`unexpected iterative scopes ${JSON.stringify(iterativeScopes)}`,
+);
 assert.equal(convertedTarget, iterativeTarget, "window planning must consume only the history target");
 assert.deepEqual(
 	iterativeRequest?.messages.slice(0, iterativePrefixContext.messages.length),
@@ -355,6 +364,7 @@ const splitTurnContext: Context = {
 };
 const splitScopes: string[] = [];
 const splitRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
+const splitFallbacks: string[] = [];
 // The live chain the host vouches for is the main turn's own array: the
 // summarized history prefix, the split turn's prefix, and the retained tail.
 const splitLiveContext: Context = {
@@ -403,84 +413,57 @@ const splitResult = await compact(
 			splitRequests.push({ context, options });
 			return assistant(requestModel);
 		},
+		onCacheFallback: reason => splitFallbacks.push(reason),
 	},
 );
 const tailTextOf = (request: { context: Context } | undefined): string => {
 	const tail = request?.context.messages.at(-1);
 	return tail && Array.isArray(tail.content) && tail.content[0]?.type === "text" ? tail.content[0].text : "";
 };
+// A split turn ships the pre-0086 two-request shape on EVERY plan: 18.4.4
+// narrows the live lane to whole, non-split turns, because the live shape is a
+// single whole-conversation request whose summary would then be joined to a
+// second summary of the same range. The split leg therefore never asks the host
+// for a live scope, and 18.4.4 names the exclusion on the entry and the callback.
+assert.deepEqual(splitScopes.sort(), ["history", "turn-prefix"], "split compaction did not request both prefix scopes");
+const splitHistoryRequest = splitRequests.find(request => request.context.messages.length === 2);
+assert.ok(splitHistoryRequest, "split compaction must issue a history request");
+const splitTurnRequest = splitRequests.find(request => request.context.messages.length === 3);
+assert.ok(splitTurnRequest, "split compaction must issue a turn-prefix request");
+assert.equal(
+	splitTurnRequest.context.messages.length,
+	3,
+	"old-plan split turn request must keep its three-message shape",
+);
+assert.deepEqual(
+	splitTurnRequest.context.messages[0],
+	splitTurnContext.messages[0],
+	"split turn request rewrote its stable prefix",
+);
+assert.deepEqual(
+	splitTurnRequest.context.messages.slice(0, 2),
+	splitTurnContext.messages,
+	"split turn request rewrote its stable prefix",
+);
+assert.deepEqual(
+	splitHistoryRequest.context.messages[0],
+	splitHistoryContext.messages[0],
+	"split history request rewrote its stable prefix",
+);
+assert.equal(splitHistoryRequest.options.toolChoice, "none", "split history request allowed tool calls");
+assert.equal(splitTurnRequest.options.toolChoice, "none", "split turn request allowed tool calls");
+assert.doesNotMatch(
+	tailTextOf(splitTurnRequest),
+	/<conversation>/,
+	"split turn prefix duplicated the target in its tail",
+);
 if (liveChainPlan) {
-	// 0086: the split turn is ONE summarize request. The live chain is the whole
-	// live conversation, so the history leg's request already covers the turn
-	// prefix the host is about to discard; a second turn-prefix request would
-	// duplicate that state in the persisted entry.
-	assert.deepEqual(
-		splitScopes.sort(),
-		["history", "live"],
-		"split compaction must request the live scope for its single summary call",
-	);
-	// `completeImpl` also carries the short-summary call, whose request is just
-	// the retained tail plus its own instruction; the live-chain summarize
-	// request is the one that carries the whole chain plus one instruction.
-	const splitSummaries = splitRequests.filter(
-		request => request.context.messages.length === splitLiveContext.messages.length + 1,
-	);
-	assert.equal(splitSummaries.length, 1, "split compaction must issue exactly one summarize request");
-	const splitRequest = splitSummaries[0];
-	assert.deepEqual(
-		splitRequest.context.messages.slice(0, splitLiveContext.messages.length),
-		splitLiveContext.messages,
-		"split request rewrote the live chain",
-	);
-	assert.equal(
-		splitRequest.context.messages.length,
-		splitLiveContext.messages.length + 1,
-		"split request must append exactly one instruction",
-	);
-	assert.equal(splitRequest.options.toolChoice, "none", "split request allowed tool calls");
-	const splitInstruction = tailTextOf(splitRequest);
-	assert.match(splitInstruction, /summarize the ENTIRE conversation above/, "split request must scope the whole conversation");
-	assert.match(splitInstruction, VERBATIM_TAIL_SENTENCE, "split request must name the verbatim tail");
-	assert.doesNotMatch(splitInstruction, /BEGIN RETAINED TAIL|TURN PREFIX/, "no range boundary may be quoted any more");
-	assert.doesNotMatch(splitInstruction, /<conversation>/, "split request duplicated the target in its tail");
 	assert.equal(
 		splitResult.details?.cacheColdReason,
-		undefined,
-		"a split compaction that shipped the live chain must not record a cold reason",
+		"split-turn",
+		"a split turn on 18.4.4 must persist the exclusion on the entry",
 	);
-} else {
-	assert.deepEqual(splitScopes.sort(), ["history", "turn-prefix"], "split compaction did not request both prefix scopes");
-	const splitHistoryRequest = splitRequests.find(request => request.context.messages.length === 2);
-	assert.ok(splitHistoryRequest, "split compaction must issue a history request");
-	const splitTurnRequest = splitRequests.find(request => request.context.messages.length === 3);
-	assert.ok(splitTurnRequest, "split compaction must issue a turn-prefix request");
-	assert.equal(
-		splitTurnRequest.context.messages.length,
-		3,
-		"old-plan split turn request must keep its three-message shape",
-	);
-	assert.deepEqual(
-		splitTurnRequest.context.messages[0],
-		splitTurnContext.messages[0],
-		"split turn request rewrote its stable prefix",
-	);
-	assert.deepEqual(
-		splitTurnRequest.context.messages.slice(0, 2),
-		splitTurnContext.messages,
-		"split turn request rewrote its stable prefix",
-	);
-	assert.deepEqual(
-		splitHistoryRequest.context.messages[0],
-		splitHistoryContext.messages[0],
-		"split history request rewrote its stable prefix",
-	);
-	assert.equal(splitHistoryRequest.options.toolChoice, "none", "split history request allowed tool calls");
-	assert.equal(splitTurnRequest.options.toolChoice, "none", "split turn request allowed tool calls");
-	assert.doesNotMatch(
-		tailTextOf(splitTurnRequest),
-		/<conversation>/,
-		"split turn prefix duplicated the target in its tail",
-	);
+	assert.deepEqual(splitFallbacks, ["split-turn"], "a split turn on 18.4.4 must name the exclusion exactly once");
 }
 
 // 0086 converts only the Anthropic message lane. A split turn on any other

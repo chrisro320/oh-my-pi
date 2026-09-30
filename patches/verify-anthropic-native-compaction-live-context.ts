@@ -56,6 +56,22 @@ const coreVersion = JSON.parse(readFileSync(`${CORE_ROOT}/package.json`, "utf8")
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 const { supportsAnthropicCompaction } = await import(`${AI_ROOT}/src/providers/anthropic.ts`);
+const { Tokenizer } = await import(`${CORE_ROOT}/src/tokenizer.ts`);
+const { serializeConversationForSummary } = await import(`${CORE_ROOT}/src/compaction/utils.ts`);
+// The cache-cold warning is operator-facing, and this gate must observe the
+// SAME logger record the core package writes: a bare specifier resolved from
+// this file's directory can land on a second copy of pi-utils under a different
+// node_modules root, so it is resolved exactly as the core package resolves it.
+const { registerLogSink } = await import(Bun.resolveSync("@oh-my-pi/pi-utils/logger", `${CORE_ROOT}/src/compaction`));
+const logEvents: Array<{ level: string; message: string; context: Record<string, unknown> | undefined }> = [];
+const releaseLogSink = registerLogSink(event => logEvents.push(event));
+const CACHE_COLD_WARNING = "Compaction summarized with a cache-cold request shape";
+/** How many times `needle` occurs in `haystack`; a summary must survive exactly once. */
+function countOccurrences(haystack: string, needle: string): number {
+	return haystack.split(needle).length - 1;
+}
+const cacheColdLogReasons = (): string[] =>
+	logEvents.filter(event => event.level === "warn" && event.message === CACHE_COLD_WARNING).map(event => String(event.context?.reason));
 
 // GATE 0: the fixture model must actually take the Anthropic native lane.
 const model: Model = getBundledModel("anthropic", "claude-opus-5");
@@ -113,6 +129,19 @@ const entries: SessionEntry[] = [
 ];
 const preparation = prepareCompaction(entries, { enabled: true, keepRecentTokens: 1, remoteEnabled: true }, model);
 assert.ok(preparation, "fixture must prepare compaction");
+// The narrowed live lane is whole-turn only: a split turn names `native-split-turn`
+// and ships the cut, so the live legs below run on an explicit non-split
+// preparation of the same session (the recent turn kept whole).
+const livePreparation = {
+	...preparation,
+	firstKeptEntryId: "recent-user",
+	messagesToSummarize: [oldUser, oldAssistant],
+	turnPrefixMessages: [],
+	recentMessages: [recentUser, recentAssistant],
+	recentEntryIds: ["recent-user", "recent-assistant"],
+	isSplitTurn: false,
+};
+assert.equal(preparation.isSplitTurn, true, "the raw preparation must stay the split fixture the cut legs need");
 
 // The live request as the host pipeline renders it: an extension-injected
 // user message (Trellis-style, merged into an existing message so the count
@@ -158,9 +187,10 @@ const rawTools = [
 
 const scopes: string[] = [];
 const nativeRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
+logEvents.length = 0;
 const result = await compact(
 	{
-		...preparation,
+		...livePreparation,
 		tokensBefore: 100_000, // above ANTHROPIC_COMPACTION_MIN_CONTEXT_TOKENS
 		settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
 	},
@@ -240,10 +270,13 @@ if (coreVersion === "18.4.4") {
 
 // GATE 3: the summary the API wrote is what got persisted.
 assert.equal(result.summary, "NATIVE_SUMMARY", "native summary must become the compaction entry summary");
+// GATE 3b: an accepted live request is not a cache-cold compaction, so the
+// operator must not see a warning for it.
+assert.deepEqual(cacheColdLogReasons(), [], "an accepted native live chain must not warn");
 
 if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
 	const { getPreservedAnthropicCompactionData } = await import(`${CORE_ROOT}/src/compaction/anthropic.ts`);
-	assert.equal(result.firstKeptEntryId, "recent-assistant", "unshifted boundary must preserve the retained entry");
+	assert.equal(result.firstKeptEntryId, "recent-user", "the retained turn must start at the cut boundary");
 	assert.equal(getPreservedAnthropicCompactionData(result.preserveData)?.signature, "offline-signed-summary");
 	const call = { ...oldAssistant, stopReason: "toolUse", content: [{ type: "toolCall", id: "call-1", name: "read", arguments: { path: "/fixture" } }] };
 	const toolResult = { role: "toolResult", toolCallId: "call-1", toolName: "read", content: [{ type: "text", text: "done" }], timestamp: 25 };
@@ -258,6 +291,7 @@ if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
 			recentMessages: boundaryMessages.slice(2),
 			recentEntryIds: hasEntryIds ? ["result", "after-result", "next-user", "next-assistant"] : undefined,
 			firstKeptEntryId: "result",
+			isSplitTurn: false,
 			tokensBefore: 100_000,
 			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
 		}, model, "test", undefined, undefined, {
@@ -316,6 +350,7 @@ if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
 // (no behavior change when the host cannot vouch for the prefix), and the
 // fallback must be named on the returned entry, not only traced.
 const fallbackRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
+logEvents.length = 0;
 const fallback = await compact(
 	{
 		...preparation,
@@ -350,57 +385,221 @@ if (coreVersion === "18.4.4") {
 		"native-no-live-chain",
 		"the fallback reason must reach the compaction entry's details",
 	);
+	// ... and loud: the same reason must reach the operator log, not only the
+	// returned entry. Logging only some reasons keeps this leg green.
+	assert.deepEqual(
+		cacheColdLogReasons(),
+		["native-no-live-chain"],
+		"the native fallback must warn with the same named reason",
+	);
 }
 
 if (coreVersion === "18.4.4") {
-	// GATE 5: a live chain that does not physically fit must fall back rather than
-	// ship an over-capacity request, and it must be named too. The narrower window
-	// makes this chain overflow while leaving the hand-built cut list inside it.
-	const capacityRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
-	const capacity = await compact(
-		{
-			...preparation,
-			tokensBefore: 100_000,
-			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
-		},
-		{ ...model, contextWindow: 512 },
-		"test",
-		undefined,
-		undefined,
-		{
-			convertToLlm: messages => messages as Context["messages"],
-			buildCachePreservingContext: async () => ({ context: liveContext, previousSummaryInPrefix: false }),
-			completeImpl: async (requestModel, context, options) => {
-				if (options.anthropicCompaction) {
-					capacityRequests.push({ context, options });
-					return nativeCompactionResponse(requestModel);
-				}
-				return assistant(requestModel);
-			},
-		},
+	// GATE 5: a live chain that does not physically fit the model window falls
+	// back and is named -- on the entry AND in the operator log. The window here
+	// sits BETWEEN the two rulers: above the summary-shaped transcript the round-1
+	// ruler measured (which truncates tool results and would accept this chain)
+	// and below the real provider request (system + tools + every message block).
+	// A tree that judges capacity by the transcript therefore ships an
+	// over-capacity live request while this leg stays green.
+	const capacityTokenizer = new Tokenizer(model);
+	const longToolResult: AgentMessage = {
+		role: "toolResult",
+		toolCallId: "call-capacity",
+		toolName: "read",
+		content: [{ type: "text", text: "long-tool-output ".repeat(40_000) }],
+		timestamp: 15,
+	};
+	const capacityMessages: AgentMessage[] = [oldUser, longToolResult, recentUser, recentAssistant];
+	const capacityLive: Context = { ...liveContext, messages: capacityMessages };
+	const capacitySystemTokens = capacityTokenizer.countTokens(liveContext.systemPrompt.join("\n\n"));
+	const capacityToolTokens = capacityTokenizer.countTokens(JSON.stringify(liveContext.tools));
+	const realMessageTokens = capacityTokenizer.countMessages(capacityMessages as never);
+	const lossyTranscriptTokens = capacityTokenizer.countTokens(
+		serializeConversationForSummary(capacityMessages as never, "anthropic"),
 	);
-	assert.equal(capacityRequests.length, 1, "an over-capacity live chain must still issue one native request");
+	assert.ok(
+		realMessageTokens > lossyTranscriptTokens + 100_000,
+		`the capacity fixture must separate the rulers (real=${realMessageTokens}, summary=${lossyTranscriptTokens})`,
+	);
+	const capacityWindow = Math.floor((realMessageTokens + lossyTranscriptTokens) / 2);
+	assert.ok(
+		capacitySystemTokens + capacityToolTokens + realMessageTokens > capacityWindow,
+		"the derived window must sit below the real provider request",
+	);
+	assert.ok(
+		capacitySystemTokens + capacityToolTokens + lossyTranscriptTokens < capacityWindow,
+		"the derived window must sit above the summary-transcript ruler",
+	);
+	const runNative = async (
+		preparationOverride: Partial<typeof livePreparation>,
+		candidate: Model,
+		live: Context,
+		previousSummaryInPrefix: boolean,
+	): Promise<{ requests: Array<{ context: Context; options: SimpleStreamOptions }>; result: { details?: { cacheColdReason?: string } } }> => {
+		const requests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
+		const result = await compact(
+			{
+				...livePreparation,
+				...preparationOverride,
+				tokensBefore: 100_000,
+				settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
+			},
+			candidate,
+			"test",
+			undefined,
+			undefined,
+			{
+				convertToLlm: messages => messages as Context["messages"],
+				buildCachePreservingContext: async scope => (scope === "live" ? { context: live, previousSummaryInPrefix } : undefined),
+				completeImpl: async (requestModel, context, options) => {
+					if (options.anthropicCompaction) {
+						requests.push({ context, options });
+						return nativeCompactionResponse(requestModel);
+					}
+					return assistant(requestModel);
+				},
+			},
+		);
+		return { requests, result: result as { details?: { cacheColdReason?: string } } };
+	};
+
+	logEvents.length = 0;
+	const capacity = await runNative({}, { ...model, contextWindow: capacityWindow }, capacityLive, false);
+	assert.equal(capacity.requests.length, 1, "an over-capacity live chain must still issue one native request");
 	assert.notDeepEqual(
-		capacityRequests[0].context.messages,
-		liveContext.messages,
+		capacity.requests[0].context.messages,
+		capacityLive.messages,
 		"an over-capacity live chain must fall back to the hand-built cut list",
 	);
 	assert.ok(
-		capacityRequests[0].context.messages.length < liveContext.messages.length,
+		capacity.requests[0].context.messages.length < capacityLive.messages.length,
 		"the cut fallback must not carry the whole live chain",
 	);
 	assert.doesNotMatch(
-		String(capacityRequests[0].options.anthropicCompaction?.instructions),
+		String(capacity.requests[0].options.anthropicCompaction?.instructions),
 		/summarize the ENTIRE conversation above/,
 		"the cut fallback must not claim the whole conversation is on the wire",
 	);
 	assert.equal(
-		capacity.details?.cacheColdReason,
+		capacity.result.details?.cacheColdReason,
 		"native-live-chain-over-capacity",
 		"the capacity fallback must reach the compaction entry's details",
 	);
+	assert.deepEqual(
+		cacheColdLogReasons(),
+		["native-live-chain-over-capacity"],
+		"the capacity fallback must warn with the same reason",
+	);
+
+	// Sensitivity control: the same chain, accepted by a window above both rulers.
+	logEvents.length = 0;
+	const fittingWindow = Math.ceil((capacitySystemTokens + capacityToolTokens + realMessageTokens) * 1.6);
+	const fitting = await runNative({}, { ...model, contextWindow: fittingWindow }, capacityLive, false);
+	assert.equal(fitting.result.details?.cacheColdReason, undefined, "a chain inside the window must not be recorded cold");
+	assert.deepEqual(cacheColdLogReasons(), [], "a chain inside the window must not warn");
+	assert.deepEqual(
+		fitting.requests[0].context.messages,
+		capacityLive.messages,
+		"a fitting live chain must ship whole",
+	);
+	assert.match(
+		String(fitting.requests[0].options.anthropicCompaction?.instructions),
+		/summarize the ENTIRE conversation above/,
+		"a fitting live chain must scope the whole conversation",
+	);
+
+	// GATE 6: a split turn never rides the native live lane either -- the live
+	// shape is one whole-conversation request while a split compaction retains a
+	// turn prefix it replays verbatim, so the request is cut at `safeCut` and the
+	// exclusion is named on the entry and in the log.
+	logEvents.length = 0;
+	const split = await runNative(
+		{
+			firstKeptEntryId: preparation.firstKeptEntryId,
+			messagesToSummarize: preparation.messagesToSummarize,
+			turnPrefixMessages: preparation.turnPrefixMessages,
+			recentMessages: preparation.recentMessages,
+			recentEntryIds: preparation.recentEntryIds,
+			isSplitTurn: true,
+		},
+		model,
+		liveContext,
+		false,
+	);
+	assert.equal(split.requests.length, 1, "a split turn must still issue one native request");
+	assert.notDeepEqual(split.requests[0].context.messages, liveContext.messages, "a split turn must not ship the live chain");
+	assert.equal(split.requests[0].context.messages.length, 3, "a split turn ships the cut prefix of the snapshot");
+	assert.doesNotMatch(
+		String(split.requests[0].options.anthropicCompaction?.instructions),
+		/summarize the ENTIRE conversation above/,
+		"a split turn must not claim the whole conversation is on the wire",
+	);
+	assert.equal(split.result.details?.cacheColdReason, "native-split-turn", "a split turn must name the exclusion on the entry");
+	assert.deepEqual(cacheColdLogReasons(), ["native-split-turn"], "a split turn must warn with the same reason");
+
+	// GATE 7: an iterative native compaction whose vouched-for chain does NOT
+	// carry the previous summary must not send that chain: the summary would be
+	// dropped (it is replaced by the block) or duplicated. The cut fallback
+	// carries it exactly once, and the exclusion is named. The in-prefix control
+	// is the same session with the summary inside the chain.
+	const PRIOR_SUMMARY = "PRIOR_STATE_SENTINEL";
+	logEvents.length = 0;
+	const notInPrefix = await runNative({ previousSummary: PRIOR_SUMMARY }, model, liveContext, false);
+	assert.equal(
+		notInPrefix.result.details?.cacheColdReason,
+		"native-previous-summary-not-in-prefix",
+		"a previous summary outside the chain must be named on the entry",
+	);
+	assert.deepEqual(
+		cacheColdLogReasons(),
+		["native-previous-summary-not-in-prefix"],
+		"a previous summary outside the chain must warn with the same reason",
+	);
+	assert.notDeepEqual(
+		notInPrefix.requests[0].context.messages,
+		liveContext.messages,
+		"a chain without the previous summary must not ship as the live chain",
+	);
+	assert.equal(
+		notInPrefix.requests[0].context.messages.filter(message => JSON.stringify(message).includes(PRIOR_SUMMARY)).length,
+		1,
+		"the previous summary must appear exactly once, in the carried summary message",
+	);
+	logEvents.length = 0;
+	const priorInChain: Context = {
+		...liveContext,
+		messages: [
+			{
+				role: "compactionSummary",
+				summary: PRIOR_SUMMARY,
+				timestamp: 5,
+			} as unknown as AgentMessage,
+			...liveContext.messages,
+		],
+	};
+	const inPrefix = await runNative({ previousSummary: PRIOR_SUMMARY }, model, priorInChain, true);
+	assert.equal(inPrefix.result.details?.cacheColdReason, undefined, "an accepted iterative live chain records no cold reason");
+	assert.deepEqual(cacheColdLogReasons(), [], "an accepted iterative live chain must not warn");
+	assert.deepEqual(
+		inPrefix.requests[0].context.messages,
+		priorInChain.messages,
+		"the in-prefix chain must ship byte-for-byte",
+	);
+	assert.equal(
+		countOccurrences(JSON.stringify(inPrefix.requests[0].context.messages), PRIOR_SUMMARY),
+		1,
+		"the chain-carried previous summary must appear exactly once",
+	);
+	assert.match(
+		String(inPrefix.requests[0].options.anthropicCompaction?.instructions),
+		/summarize the ENTIRE conversation above/,
+		"the accepted iterative chain must still scope the whole conversation",
+	);
 }
 
+
+releaseLogSink();
 console.log(
 	`PASS anthropic native compaction live context: scopes=${scopes.join(",")} messages=${request.context.messages.length} tools=${request.context.tools?.length} fallback=${fallback.details?.cacheColdReason}`,
 );
