@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
-"""Delta deploy: 18.4.4 @ N layers -> 18.4.4 @ N+1 layers (+ the single new layer).
+"""Delta deploy: 18.4.4 @ <old layers> -> 18.4.4 @ <new layers>, one declared
+set of layers replaced by another.
 
-Same version, one more layer, so every artifact is labelled by LAYER COUNT and
-never by the version alone (the 18.4.4 upgrade deploy-1844.py already used the
-plain version as its label). Defaults are the current live edge, 52 -> 53
-(delta = the 0087 tail candidate); any other pair is reachable with
---old-layers/--new-layers. The delta layer itself is auto-detected, never
-assumed:
+Same version, different layer count, so every artifact is labelled by LAYER
+COUNT and never by the version alone (the 18.4.4 upgrade deploy-1844.py already
+used the plain version as its label). Defaults are the current live edge,
+53 -> 52: the retired 0086 + 0087 are replaced by the consolidated 0088; any
+other pair is reachable with --old-layers/--new-layers. The delta itself is
+DECLARED and then re-derived from the two plans, never assumed:
+
+  --delta-remove 0086,0087 --delta-add 0088
 
   staged ledger plan (its own apply.sh --print-plan)
     minus live ledger plan (its own apply.sh --print-plan)
-  = exactly one entry, which must still be PENDING on the live tree.
+  = exactly that removed set and exactly that added set. Each declared spec
+  (full path, basename or id prefix) must name exactly one detected entry, and
+  every detected entry must be declared; the declaration is required, so an
+  omitted or partial one fails closed. The surviving entries keep the live
+  plan's order. No added entry may already be APPLIED on the live tree; an added
+  entry the live tree cannot take as-is (CONFLICT) is expected when it is a
+  rollup that subsumes the removed layers -- the staged TREE, not the live one,
+  is the deployed payload, and it is byte-pinned by the digests below.
 
   staged tree     ROOT/.bun/install/global-<NEW_TAG>-staged(+.manifest.json)
   backup dir      ROOT/.omp/backups/upgrade-<NEW_TAG>-<ts>/
@@ -18,8 +28,8 @@ assumed:
                   ROOT/.omp/patches-<OLD_TAG>-rollback-<ts>
   where <OLD_TAG>=18.4.4-<old>layers and <NEW_TAG>=18.4.4-<new>layers.
 
-Staged/rollback/backup names all derive from those labels, so a deploy that adds
-a different number of layers cannot collide with the previous deploy's
+Staged/rollback/backup names all derive from those labels, so a deploy with a
+different (old, new) layer-count pair cannot collide with another deploy's
 leftovers; prepare/preflight also print every same-version `*layers*`/`*staged*`
 artifact found under ROOT and refuse to reuse a staged name that already exists.
 
@@ -31,9 +41,24 @@ All heavy mechanics are reused from deploy-1844.py (same directory):
   - exchange: renameat2(RENAME_EXCHANGE) atomic swap
   - post_verify: fresh `omp --version`, offline read smoke, `apply.sh --check`
 This file adds only what the delta needs:
-  - the OLD side must be 18.4.4 with exactly <old layers> APPLIED .patch layers;
-    the staged ledger must resolve exactly one additional plan entry and report
-    it PENDING on the live tree -- that entry is the delta
+  - the OLD side must be 18.4.4 with exactly <old layers> APPLIED .patch layers,
+    and the staged plan must have exactly <new layers>: the live plan minus the
+    declared removals, in live order, plus the declared additions
+  - the retired layers' patch files are dropped from the staged ledger, so the
+    deployed ledger is the repository's patches/ tree plus only the live
+    ledger's own `backups/` directory (preflight verifies that file set)
+  - the staged ledger is run against the LIVE tree for one purpose: no added
+    entry may already be APPLIED there (that would mean the live side is already
+    <NEW_TAG>). Surviving entries cannot be attributed while the tree still
+    carries the retired layers -- apply.sh attributes a layer by peeling the
+    chain above it, and a retired layer is no longer in that chain, so the
+    regions it touched stay in the sandbox and the entries overlapping them read
+    CONFLICT. Those survivors are attested by the LIVE ledger's own
+    `<old layers>/<old layers>` verdict instead, which the tool requires with no
+    conflict and no missing entry. With nothing declared as retired the staged
+    chain subsumes the live one, and then every surviving entry must classify
+    APPLIED and every added entry PENDING (it has to apply to the live tree
+    as-is).
   - the two extension files that live OUTSIDE the install tree, under
     ROOT/.omp/agent/extensions (backed up, atomically replaced only when their
     bytes differ from the repo copy -- an already-identical target is reported
@@ -48,7 +73,7 @@ This file adds only what the delta needs:
   patches/cache-prefix-audit-extension.ts      -> extensions/cache-prefix-audit.ts
   patches/resume-cache-breakpoint-extension.ts -> extensions/resume-cache-breakpoint.ts
 
-Subcommands:
+Subcommands (all three require --delta-remove and/or --delta-add):
   prepare   --source <18.4.4 global with <new layers> APPLIED layers>  stage + manifest
   preflight                                                   read-only checks
   deploy    --execute                                         gate, swap, verify,
@@ -84,12 +109,18 @@ B = _load("deploy_1844", "deploy-1844.py")
 REPO = B.REPO
 
 OLD_VERSION = NEW_VERSION = "18.4.4"
-# Defaults are the current live edge: 52 layers -> 53 layers (+0087). The delta
-# entry is NOT hard-coded -- delta_preflight auto-detects it as the single plan
-# entry the staged ledger adds to the live plan. --delta-layer pins it instead.
-OLD_LAYERS = 52
-NEW_LAYERS = 53
-DELTA_LAYER: str | None = None
+# Defaults are the current live edge: 53 layers -> 52 layers (the retired
+# 0086 + 0087 replaced by the consolidated 0088). The delta is NOT hard-coded --
+# it is declared with --delta-remove/--delta-add and re-derived from the two
+# plans, then verified against the declaration.
+OLD_LAYERS = 53
+NEW_LAYERS = 52
+DELTA_REMOVE: list[str] = []
+DELTA_ADD: list[str] = []
+# Same defaults for the message-only labels, so the gate functions are usable
+# when this file is imported as a module (the probe does that); main() re-derives
+# them from --old-layers/--new-layers through configure_base().
+OLD_TAG, NEW_TAG = f"{OLD_VERSION}-{OLD_LAYERS}layers", f"{NEW_VERSION}-{NEW_LAYERS}layers"
 # repo patch file -> installed extension file (basename under .omp/agent/extensions)
 EXTENSIONS = (
     ("cache-prefix-audit-extension.ts", "cache-prefix-audit.ts"),
@@ -110,14 +141,26 @@ def configure_base() -> tuple[str, str]:
     return old_tag, new_tag
 
 
-def ledger_check(ledger: Path, root: Path) -> tuple[list[str], str, int]:
-    """Run <ledger>/apply.sh --check against the install under `root`."""
+CHECK_LINE = re.compile(r"^(APPLIED|PENDING|CONFLICT|MISSING)\s+(\S.*\.patch)$")
+
+
+def ledger_status(ledger: Path, root: Path) -> tuple[dict[str, str], str, int]:
+    """Run <ledger>/apply.sh --check against the install under `root`.
+
+    `{plan entry: APPLIED|PENDING|CONFLICT|MISSING}` for the `.patch` entries
+    (the `bin/omp` verdict is a symlink check, not a patch), plus the raw output
+    and the exit code -- `--check` exits 1 as soon as one entry is CONFLICT or
+    MISSING.
+    """
     env = {"PATH": os.environ["PATH"], "HOME": str(root), "LC_ALL": "C"}
     r = subprocess.run(["bash", str(ledger / "apply.sh"), "--check"], env=env,
                        capture_output=True, text=True, timeout=1800)
-    applied = [ln for ln in r.stdout.splitlines()
-               if ln.startswith("APPLIED") and ln.rstrip().endswith(".patch")]
-    return applied, r.stdout, r.returncode
+    status: dict[str, str] = {}
+    for ln in r.stdout.splitlines():
+        hit = CHECK_LINE.match(ln.strip())
+        if hit:
+            status[hit.group(2)] = hit.group(1)
+    return status, r.stdout, r.returncode
 
 
 def plan_names(lines: list[str]) -> list[str]:
@@ -138,18 +181,13 @@ def ledger_plan(ledger: Path, root: Path) -> tuple[list[str], str, int]:
     return plan_names(r.stdout.splitlines()), r.stdout + r.stderr, r.returncode
 
 
-def applied_names(applied: list[str]) -> list[str]:
-    """APPLIED `<relative patch path>` lines -> patch paths."""
-    return [ln.split(None, 1)[1].strip() for ln in applied]
-
-
 def label_report(p, require_absent: bool) -> None:
     """Report same-version leftovers and gate the staged names.
 
     Every staged/rollback/backup name is derived from the layer-count labels, so
     another (old, new) pair gets a different name; this additionally refuses to
     reuse a staged name that already exists and never touches a leftover from an
-    earlier deploy (e.g. the previous `*-52layers*` artifacts).
+    earlier deploy (e.g. an earlier round's `*-52layers*` artifacts).
     """
     leftovers = []
     current = {p.staged_global, p.staged_ledger, p.manifest}
@@ -178,41 +216,136 @@ def delta_matches(detected: str, pinned: str) -> bool:
     return pinned in (detected, base) or base.startswith(pinned + "-")
 
 
-def precheck_live_side(p, pinned: str | None) -> list[str]:
+def spec_list(raw: str | None) -> list[str]:
+    """`--delta-remove 0086,0087` -> ['0086', '0087']; absent/empty -> []."""
+    return [x.strip() for x in (raw or "").split(",") if x.strip()]
+
+
+def spec_hits(spec: str, entries: list[str]) -> list[str]:
+    """The plan entries one declared spec names."""
+    return [n for n in entries if delta_matches(n, spec)]
+
+
+def match_declared(declared: list[str], detected: list[str], kind: str) -> None:
+    """Require a bijection between the declared specs and the detected entries.
+
+    A declaration that names something absent, names several entries at once, or
+    leaves a detected entry unnamed is refused: the description must name the
+    whole change, so a partial one can never pass for a full one.
+    """
+    remaining = list(detected)
+    for spec in declared:
+        hits = spec_hits(spec, remaining)
+        if not hits:
+            B.die(f"declared {kind} {spec!r} is not among the detected {kind}s {detected}")
+        if len(hits) > 1:
+            B.die(f"declared {kind} {spec!r} matches several detected entries: {hits}")
+        remaining.remove(hits[0])
+    if remaining:
+        B.die(f"the detected {kind}s {remaining} were not declared (declared: {declared}); "
+              f"the delta description must name the whole change")
+
+
+def precheck_live_side(p, remove: list[str], add: list[str]) -> list[str]:
     """Live-ledger-only guard, cheap enough to run before anything is copied."""
     live_plan, out, rc = ledger_plan(p.ledger, p.root)
     if rc:
         B.die(f"live ledger --print-plan failed (exit {rc}): {out.strip()[-300:]}")
     if len(live_plan) != OLD_LAYERS:
         B.die(f"live ledger plan has {len(live_plan)} entries, expected {OLD_LAYERS}")
-    if pinned:
-        hit = [n for n in live_plan if delta_matches(n, pinned)]
+    net = len(remove) - len(add)
+    if net != OLD_LAYERS - NEW_LAYERS:
+        B.die(f"declared delta removes {len(remove)} and adds {len(add)} layer(s), a net {net:+d}, "
+              f"but {OLD_TAG} -> {NEW_TAG} needs a net {OLD_LAYERS - NEW_LAYERS:+d}")
+    for spec in remove:
+        if not spec_hits(spec, live_plan):
+            B.die(f"declared removal {spec!r} is not in the live plan; "
+                  f"the live side is not {OLD_TAG}")
+    for spec in add:
+        hit = spec_hits(spec, live_plan)
         if hit:
             B.die(f"{hit} is already part of the live plan; the live side is not {OLD_TAG}")
     return live_plan
 
 
-def detect_delta(p, pinned: str | None) -> str:
-    """The single plan entry the staged ledger adds to the live plan."""
-    live_plan = precheck_live_side(p, None)
+def detect_delta(p, remove: list[str], add: list[str]) -> tuple[list[str], list[str]]:
+    """The plan entries the staged ledger drops and adds; both must be declared."""
+    live_plan = precheck_live_side(p, remove, add)
     staged_plan, staged_out, staged_rc = ledger_plan(p.staged_ledger, p.root)
     if staged_rc:
         B.die(f"staged ledger --print-plan failed (exit {staged_rc}): {staged_out.strip()[-300:]}")
-    if len(live_plan) != OLD_LAYERS:
-        B.die(f"live ledger plan has {len(live_plan)} entries, expected {OLD_LAYERS}")
-    removed = [n for n in live_plan if n not in set(staged_plan)]
-    if removed:
-        B.die(f"the staged ledger drops entries the live ledger has: {removed}")
-    added = [n for n in staged_plan if n not in set(live_plan)]
-    if len(added) != 1:
-        B.die(f"the staged ledger must add exactly one plan entry "
-              f"(live {len(live_plan)}, staged {len(staged_plan)}), added {len(added)}: {added}")
-    delta = added[0]
-    if pinned and not delta_matches(delta, pinned):
-        B.die(f"delta layer is {delta}, not the pinned {pinned}")
-    if not delta.endswith(".patch") or not (p.staged_ledger / delta).is_file():
-        B.die(f"detected delta layer {delta} is not a patch file in the staged ledger")
-    return delta
+    if len(staged_plan) != NEW_LAYERS:
+        B.die(f"staged ledger plan has {len(staged_plan)} entries, expected {NEW_LAYERS}")
+    live_set, staged_set = set(live_plan), set(staged_plan)
+    removed = [n for n in live_plan if n not in staged_set]
+    added = [n for n in staged_plan if n not in live_set]
+    match_declared(remove, removed, "removal")
+    match_declared(add, added, "addition")
+    kept = [n for n in staged_plan if n in live_set]
+    live_order = [n for n in live_plan if n not in set(removed)]
+    if kept != live_order:
+        B.die(f"the staged plan reorders the entries it keeps: staged {kept}, "
+              f"live order {live_order}")
+    for rel in added:
+        if not rel.endswith(".patch") or not (p.staged_ledger / rel).is_file():
+            B.die(f"detected added layer {rel} is not a patch file in the staged ledger")
+    return removed, added
+
+
+def retire_removed_layers(p, removed: list[str]) -> None:
+    """Drop the retired layers' patch files from the staged ledger.
+
+    Their plan entries are already gone (the staged apply.sh no longer registers
+    them); the files themselves are copies the staged ledger inherited from the
+    live ledger. The deployed ledger must be the repository's patches/ tree, so
+    an orphaned file must not survive the swap.
+    """
+    for rel in removed:
+        f = p.staged_ledger / rel
+        if not f.is_file():
+            continue
+        f.unlink()
+        print(f"retired layer file dropped from the staged ledger: {rel}")
+        parent = f.parent
+        while parent != p.staged_ledger and not any(parent.iterdir()):
+            parent.rmdir()
+            parent = parent.parent
+
+
+def staged_ledger_matches_repo(p, m: dict) -> None:
+    """The staged ledger must be exactly the repository's patches/ tree.
+
+    Only the live ledger's own `backups/` directory is carried over; any other
+    live-only file would leave the deployed ledger drifting from the repository
+    (the delta retires exactly the declared layers, nothing else).
+    """
+    want = set(m["ledger"])
+    have = {str(f.relative_to(p.staged_ledger))
+            for f in p.staged_ledger.rglob("*") if f.is_file()}
+    missing = sorted(want - have)
+    extra = sorted(x for x in have - want
+                   if x != "backups" and not x.startswith("backups/"))
+    if missing:
+        B.die(f"staged ledger is missing repository file(s): {missing}")
+    if extra:
+        B.die(f"staged ledger carries file(s) the repository does not "
+              f"(beyond backups/): {extra}")
+    print(f"staged ledger: {len(want)} repository file(s) present, "
+          f"nothing extra outside backups/")
+
+
+def discard_staged(p) -> None:
+    """Undo this prepare's staged artifacts, so a failed prepare leaves nothing."""
+    dropped = []
+    for d in (p.staged_global, p.staged_ledger):
+        if d.is_dir():
+            shutil.rmtree(d, ignore_errors=True)
+            dropped.append(str(d))
+    if p.manifest.exists():
+        p.manifest.unlink()
+        dropped.append(str(p.manifest))
+    if dropped:
+        print(f"discarded the staged artifacts of this failed prepare: {dropped}")
 
 
 def extension_targets(p) -> list[tuple[Path, Path]]:
@@ -342,33 +475,58 @@ def verify_extensions(p, records: dict) -> list[str]:
 
 
 def delta_preflight(p, rehearsal: bool) -> dict:
-    global DELTA_LAYER
+    global DELTA_REMOVE, DELTA_ADD
     state = inspect_extension_targets(p)
-    precheck_live_side(p, DELTA_LAYER)
+    precheck_live_side(p, DELTA_REMOVE, DELTA_ADD)
     m = B.preflight(p, rehearsal)
     old_tag, new_tag = OLD_TAG, NEW_TAG
 
-    delta = detect_delta(p, DELTA_LAYER)
-    DELTA_LAYER = delta
+    removed, added = detect_delta(p, DELTA_REMOVE, DELTA_ADD)
+    DELTA_REMOVE, DELTA_ADD = removed, added
+    staged_ledger_matches_repo(p, m)
+    added_set = set(added)
+    delta_note = f"-{' -'.join(removed) if removed else '(none)'} +{' +'.join(added) if added else '(none)'}"
 
-    applied, out, rc = ledger_check(p.ledger, p.root)
-    if rc or len(applied) != OLD_LAYERS:
-        B.die(f"live ledger reports {len(applied)}/{OLD_LAYERS} APPLIED layers "
-              f"(exit {rc}); the live side is not {old_tag}")
-    if delta in applied_names(applied):
-        B.die(f"{delta} is already APPLIED on the live tree; that is {new_tag}, not {old_tag}")
-    print(f"live ledger: {len(applied)} APPLIED .patch layers, delta {delta} not applied")
+    live_status, out, rc = ledger_status(p.ledger, p.root)
+    applied = sorted(n for n, s in live_status.items() if s == "APPLIED")
+    stuck = sorted(n for n, s in live_status.items() if s != "APPLIED")
+    if rc or len(applied) != OLD_LAYERS or stuck:
+        B.die(f"live ledger reports {len(applied)}/{OLD_LAYERS} APPLIED layers (exit {rc}), "
+              f"not APPLIED: {stuck}: {out.strip()[-300:]}")
+    print(f"live ledger: {len(applied)} APPLIED .patch layers, delta {delta_note} not applied")
 
-    applied2, out2, rc2 = ledger_check(p.staged_ledger, p.root)
-    if rc2:
-        B.die(f"staged ledger `apply.sh --check` failed (exit {rc2}): {out2.strip()[-300:]}")
-    lines = [ln for ln in out2.splitlines() if delta in ln]
-    if len(lines) != 1 or not lines[0].startswith("PENDING"):
-        B.die(f"staged ledger must resolve the delta {delta} as PENDING on the live tree, got: {lines}")
-    if len(applied2) != OLD_LAYERS:
-        B.die(f"staged ledger reports {len(applied2)}/{OLD_LAYERS} APPLIED layers on the live tree")
-    print(f"staged ledger on the live tree: {len(applied2)} APPLIED .patch layers, "
-          f"{delta} PENDING -> the delta is exactly one layer")
+    staged_status, out2, rc2 = ledger_status(p.staged_ledger, p.root)
+    if len(staged_status) != NEW_LAYERS:
+        B.die(f"staged ledger reported {len(staged_status)} plan entries on the live tree, "
+              f"expected {NEW_LAYERS} (exit {rc2}): {out2.strip()[-300:]}")
+    missing = sorted(n for n in added if n not in staged_status)
+    if missing:
+        B.die(f"the staged ledger reported no verdict for the added layer(s) {missing}")
+    already = sorted(n for n in added if staged_status[n] == "APPLIED")
+    if already:
+        B.die(f"added layer(s) {already} are already APPLIED on the live tree; "
+              f"that is {new_tag}, not {old_tag}")
+    unknown = sorted(n for n, s in staged_status.items() if s != "APPLIED" and n not in added_set)
+    if not removed:
+        if unknown:
+            B.die(f"with nothing declared as retired the staged chain subsumes the live one, so "
+                  f"every entry must classify APPLIED on the live tree; these did not: "
+                  f"{ {n: staged_status[n] for n in unknown} }")
+        wrong = sorted(n for n in added if staged_status[n] != "PENDING")
+        if wrong:
+            B.die(f"with nothing declared as retired the added layer(s) {wrong} must still apply "
+                  f"to the live tree as-is (PENDING), got { {n: staged_status[n] for n in wrong} }")
+    n_applied = sum(1 for s in staged_status.values() if s == "APPLIED")
+    verdicts = " ".join(f"{n.rsplit('/', 1)[-1]}:{staged_status[n]}" for n in added)
+    print(f"staged ledger on the live tree: {n_applied}/{NEW_LAYERS} APPLIED, added {verdicts}")
+    if unknown:
+        seen = sorted({staged_status[n] for n in unknown})
+        print(f"  note: {len(unknown)} surviving entr"
+              f"{'y is' if len(unknown) == 1 else 'ies are'} {'/'.join(seen)} under the staged "
+              f"chain on this tree: the retired layer(s) are absent from that chain, and apply.sh "
+              f"attributes a layer by peeling the chain above it, so the regions the retired layers "
+              f"touched stay in its sandbox. Their presence on the live tree is attested by the live "
+              f"ledger's own {OLD_LAYERS}/{OLD_LAYERS} verdict above; unclassified: {unknown}")
 
     for name, rec in state.items():
         note = " [already byte-identical to the repo copy: no change]" if rec.get("matches_repo") else ""
@@ -534,7 +692,7 @@ def delta_deploy(p, rehearsal: bool) -> None:
 
     tx = {"kind": "delta", "state": "swapped", "from": OLD_VERSION, "to": NEW_VERSION,
           "from_tag": old_tag, "to_tag": new_tag, "old_layers": OLD_LAYERS,
-          "new_layers": NEW_LAYERS, "delta_layer": DELTA_LAYER,
+          "new_layers": NEW_LAYERS, "delta_remove": DELTA_REMOVE, "delta_add": DELTA_ADD,
           "live_global": str(p.live_global),
           "old_global": str(old_global), "ledger": str(p.ledger),
           "old_ledger": str(old_ledger), "launcher": B.SRC_ENTRY, "db_gate": db,
@@ -571,15 +729,15 @@ def delta_deploy(p, rehearsal: bool) -> None:
     tx["state"] = "verified"
     write_tx(backup, tx)
     print(f"DEPLOYED {new_tag}: fresh omp/{NEW_VERSION}, {NEW_LAYERS}/{NEW_LAYERS} APPLIED, "
-          f"delta {DELTA_LAYER}, offline read smoke OK, digests match, "
-          f"{len(records)} extension file(s) cmp-equal to repo + ledger copies")
+          f"delta -{' -'.join(DELTA_REMOVE)} +{' +'.join(DELTA_ADD)}, offline read smoke OK, "
+          f"digests match, {len(records)} extension file(s) cmp-equal to repo + ledger copies")
     print(f"Backup + rollback: {backup}/rollback.py --execute   "
           f"({old_tag} trees kept at {old_global}, {old_ledger}; old extension bytes in {backup}/extensions)")
     print("Start a NEW omp process; /resume inside an old process does not load the new code.")
 
 
 def main() -> None:
-    global OLD_LAYERS, NEW_LAYERS, OLD_TAG, NEW_TAG, DELTA_LAYER
+    global OLD_LAYERS, NEW_LAYERS, OLD_TAG, NEW_TAG, DELTA_REMOVE, DELTA_ADD
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["prepare", "preflight", "deploy"])
     ap.add_argument("--root", type=Path, default=Path("/home/chris"))
@@ -588,32 +746,42 @@ def main() -> None:
     ap.add_argument("--rehearsal", action="store_true", help="sandbox ROOT only: skip the live process gate")
     ap.add_argument("--old-layers", type=int, default=OLD_LAYERS)
     ap.add_argument("--new-layers", type=int, default=NEW_LAYERS)
-    ap.add_argument("--delta-layer", default=None,
-                    help="the expected new plan entry: full path, basename or id prefix "
-                         "(e.g. 0087). Required for preflight/deploy; prepare verifies it when given.")
+    ap.add_argument("--delta-remove", default=None,
+                    help="comma-separated plan entries this delta retires: full path, basename "
+                         "or id prefix (e.g. 0086,0087). Required by all three subcommands unless "
+                         "--delta-add alone describes a pure addition.")
+    ap.add_argument("--delta-add", default=None,
+                    help="comma-separated plan entries this delta adds (e.g. 0088). Required by "
+                         "all three subcommands unless --delta-remove alone describes a pure "
+                         "retirement.")
     a = ap.parse_args()
     OLD_LAYERS, NEW_LAYERS = a.old_layers, a.new_layers
-    if NEW_LAYERS != OLD_LAYERS + 1:
-        B.die(f"this tool deploys exactly one added layer; got {OLD_LAYERS} -> {NEW_LAYERS}")
-    DELTA_LAYER = a.delta_layer
+    DELTA_REMOVE, DELTA_ADD = spec_list(a.delta_remove), spec_list(a.delta_add)
+    if not (DELTA_REMOVE or DELTA_ADD):
+        B.die("the delta must be described: --delta-remove 0086,0087 --delta-add 0088 "
+              "(the tool never guesses which layers a deploy retires or adds)")
     OLD_TAG, NEW_TAG = configure_base()
     root = a.root.resolve()
     if a.rehearsal and root == Path("/home/chris"):
         B.die("--rehearsal is only allowed for a sandbox root")
-    if a.cmd != "prepare" and not DELTA_LAYER:
-        B.die("preflight/deploy require --delta-layer (e.g. 0087); the detected entry must match it")
     print(f"ROOT={root} rehearsal={a.rehearsal} HOME={os.environ.get('HOME')}")
     p = B.Paths(root)
     if a.cmd == "prepare":
         if not a.source:
             B.die("prepare needs --source")
         label_report(p, require_absent=True)
-        precheck_live_side(p, DELTA_LAYER)
+        precheck_live_side(p, DELTA_REMOVE, DELTA_ADD)
         inspect_extension_targets(p)
         B.prepare(p, a.source.resolve())
+        try:
+            removed, added = detect_delta(p, DELTA_REMOVE, DELTA_ADD)
+            retire_removed_layers(p, removed)
+        except BaseException:
+            discard_staged(p)
+            raise
+        DELTA_REMOVE, DELTA_ADD = removed, added
         print(f"delta labels: {OLD_TAG} -> {NEW_TAG}")
-        DELTA_LAYER = detect_delta(p, DELTA_LAYER)
-        print(f"delta layer detected at prepare: {DELTA_LAYER}")
+        print(f"delta declared and detected at prepare: -{DELTA_REMOVE} +{DELTA_ADD}")
     elif a.cmd == "preflight":
         label_report(p, require_absent=False)
         delta_preflight(p, a.rehearsal)
