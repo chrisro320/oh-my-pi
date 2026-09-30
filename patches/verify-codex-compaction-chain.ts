@@ -43,7 +43,7 @@ const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).ve
 // version so an unknown tree fails closed instead of silently skipping the 0068
 // block.
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3"].includes(aiVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1"].includes(aiVersion),
 	`unsupported Codex chain gate version: ${aiVersion}`,
 );
 
@@ -321,7 +321,7 @@ assert.deepEqual(cold.input, compactionBody.input, "cold start must replay the r
 // 0068 is in the 18.1.18, 18.2.3 and 18.2.10 plans. Select by the bound package
 // version, never by the presence of the code whose absence this gate must
 // detect; 18.1.14 predates the patch, so it is the only tree that may skip.
-if (["18.1.18", "18.2.3", "18.2.10", "18.3.3"].includes(aiVersion)) {
+if (["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1"].includes(aiVersion)) {
 	const aiSrc = readFileSync(
 		`${AI_ROOT}/src/providers/openai-codex-responses.ts`,
 		"utf8",

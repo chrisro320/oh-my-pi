@@ -1,0 +1,75 @@
+{
+  "summary": "已依 Main 指正補上 r3x-real：vibe exit 改走真實 #exitVibeMode teardown（runModeExitTeardown + VibeSessionRegistry.killAll + #persistModeExit）。結論：舊 r3x 的 resume-portion FAIL 確認為 harness artifact（已於 results JSON 標註），但 r3x-real 的 per-request invariant 仍 FAIL——vibe context 訊息送出時只在記憶體。其餘五案維持 CONFIRMED。",
+  "command": "python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-audit-repro-1841.py   # 於 StressC",
+  "observed_output_lines": [
+    "probe tree: /home/chris/.cache/omp-1841-upgrade/StressC/home/.bun/install/global/node_modules/@oh-my-pi",
+    "r1-length-stop-retry-reminder: FAIL invariant=live-extra@1 resume=fork:anthropic@1,codex-input@2 fetch=0",
+    "r2-checkpoint-rewind-warning: FAIL invariant=live-extra@3 resume=ok-at-last-live; carrier-wire-fork@3 fetch=0",
+    "r3-vibe-mode-reminder-active: FAIL invariant=live-extra@0 resume=fork:anthropic@0,codex-input@1 fetch=0",
+    "r3x-vibe-mode-reminder-after-exit: FAIL invariant=live-extra@0 resume=fork:system,tools,codex-head fetch=0",
+    "r3x-real-vibe-exit-real-teardown: FAIL invariant=live-extra@0 resume=ok-at-last-live; carrier-wire-fork@0 fetch=0",
+    "r4-provider-session-identity-fresh-clear: FAIL invariant=ok resume=fork:codex-head,session-identity fetch=0",
+    "results: .../research/audit-repro-results-1841.json",
+    "probe copy left in $NM: none",
+    "exit=1"
+  ],
+  "files": [
+    "research/probe-audit-repro-1841.ts (新增 r3x-real：真實 exit teardown；unchanged: r1/r2/r3/r3x/r4)",
+    "research/run-audit-repro-1841.py (CASES 加 r3x-real；CASES 內 mode_change 證據、mode_ok gating、r3x annotation)",
+    "research/audit-repro-results-1841.json (45 KB, 6 cases)"
+  ],
+  "r3x_real": {
+    "exit_sequence_mirrored": "session.runModeExitTeardown(async () => { if (session.isStreaming) await session.abort(); vibe.killed = await VibeSessionRegistry.global().killAll(vibeParentSession(), ownerScope); await session.deactivateVibeTools(['read','edit']); session.setVibeModeState(undefined); })",
+    "vibe_parent_session_mirror": "interactive-mode.ts:3815-3829 逐欄：getAgentId/getSessionId/getSessionFile/sessionManager/asyncJobManager/settings/getActiveModelString(formatModelString)",
+    "entry_mirror": "interactive-mode.ts:5297-5301：registry.ownerScope(vibeParentSession()) + registry.activateScope(ownerScope) 後才 activateVibeTools+setVibeModeState+appendModeChange('vibe',{previousTools})",
+    "observed_mode_change": {
+      "session_file_mode_change_lines": [
+        "vibe",
+        "none"
+      ],
+      "live_sequence": [
+        "vibe",
+        "none"
+      ],
+      "live_last_mode_change": "none",
+      "live_vibe_killed_workers": 0,
+      "resume_mode_from_entries": "none",
+      "resume_reentered_vibe": false,
+      "mode_ok": true
+    },
+    "resume_comparison": {
+      "system_equal": true,
+      "tools_equal": true,
+      "codex_head_equal": true,
+      "anthropic_prefix_diff": null,
+      "codex_input_prefix_diff": null,
+      "resume2_append_only": true
+    },
+    "invariant": {
+      "status": "FAIL",
+      "request": 0,
+      "status_detail": "live-extra@0 (live 2 / file 0)",
+      "live_side": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait\", \"file_side\": \"(empty: file 0 messages)",
+      "marker_in_session_file": false,
+      "carrier_wire_fork_index": 0
+    },
+    "verdict": "FAIL (invariant)，resume 段 PASS"
+  },
+  "r3x_artifact_adjudication": {
+    "old_r3x_verdict": "FAIL invariant=live-extra@0 resume=fork:system,tools,codex-head",
+    "was_the_resume_fail_an_artifact": "YES。我的 exitVibe() 只做 deactivateVibeTools+setVibeModeState，跳過 killAll；真實 #exitVibeMode 會經 #killAllLocked(runtime.ts:1106-1120) -> #persistModeExit(runtime.ts:439-484) 寫 appendModeChange('none')。舊 r3x 因此留下 mode_change='vibe'，resume 才被 #reconcileModeFromSession 重新帶進 vibe，造成 system/tools/codex-head 全異。",
+    "what_is_not_an_artifact": "r3x 的 invariant live-extra@0 是真的：<vibe-mode> 訊息在送出當下只存在於 agent state（agent-session.ts:3346 明確跳過持久化），任何 resume 都無法重建該次請求的 wire。",
+    "annotation_written": "results[r3x].annotation = 'mirror incomplete: killAll skipped'（條件：r3x-real 的 mode_ok && resume_ok 為真）"
+  },
+  "unchanged_verdicts": {
+    "r1": "CONFIRMED — session-maintenance.ts:3216-3232 只 agent.appendMessage lengthStopRetryTemplate 提醒（無 sessionManager.appendMessage），retry 請求 live-extra@1，resume 首請求 anthropic@1 / codex-input@2 分叉；pristine 3118-3134 同構（upstream）。",
+    "r2": "CONFIRMED — agent-session.ts:9834-9853 #enforceRewindBeforeYield 的 <system-warning> 只在 agent（marker 在 session file 0 次），第 2 次 live 請求 live-extra@5；live 在 #applyRewind 自癒所以 last-live 比較乾淨，carrier wire fork@3。checkpoint/rewind 由 toolNames 加 setting checkpoint.enabled（預設 false, tools/settings.ts:642-651）啟用。",
+    "r3": "CONFIRMED — #buildVibeModeMessage 6893-6905 每輪注入、3346 跳過持久化；live-extra@0 且 resume 首請求 anthropic@0/codex-input@1 分叉（resume 依 mode_change='vibe' 由 #reconcileModeFromSession 重新進入 vibe、改注入到尾端）。",
+    "r4": "CONFIRMED — freshSession()/resetSessionContext() 只設 in-memory #freshProviderSessionId（5672/5753）；live 三次請求 sessionId/prompt_cache_key = [7ed1(原), 7f57(fresh 後), 7f62(clear 後)]，resume 兩次請求都回到 7ed1 → identity_rotated=true、identity_reverted_to_persisted=true，codex head 因此不同；訊息層 prefix 無漂移。"
+  },
+  "notes": [
+    "fetchAttempts 全程 0（無網路）；probe copy 執行後刪除，probe_leftover=[]。",
+    "五案皆已對 pristine 18.4.1 tarball 逐字比對，確認皆為 upstream 行為而非補丁回歸；候選 0043/0075 僅命中 import/相鄰行。",
+    "sandbox：StressC，僅新增/修改指定三個 research 檔案；raw captures 寫到 <sandbox HOME>/audit-repro-out，未進 repo。"
+  ]
+}

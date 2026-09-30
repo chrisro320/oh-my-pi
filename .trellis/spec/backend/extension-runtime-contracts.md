@@ -103,6 +103,15 @@ cron({ action: "status" | "enable" | "disable", every?: string, runs?: number })
 - The extension is not a general scheduler: no HTTP, shell, URL, persisted job,
   manual-run operation, or unlimited repeat may be added under the `cron`
   surface.
+- From 18.3.5 the host runs its own session cache warmer
+  (`pi-coding-agent/src/session/cache-warmer.ts`, setting `providers.cacheWarming`
+  = `off` | `streaming` | `idle`, default `idle`). It only arms for models with a
+  declared `promptCache` lifetime (effectively Anthropic), replays the last main
+  request with `maxTokens: 1`, and exposes the `cache_warming_decision` extension
+  event. On Anthropic 5-minute entries `/cron` duplicates it (two billed warm
+  requests per window); `/cron` remains the only warm path for providers without a
+  declared lifetime (Devin, Kimi, OpenAI). A future keepalive change should consult
+  or defer through `cache_warming_decision` rather than race the host warmer.
 
 ### 4. Validation & Error Matrix
 
@@ -1065,4 +1074,41 @@ Correct: implement exits -> read-only check -> owner repairs -> fresh check -> P
 ```text
 Wrong: keep a removed lifecycle in a local template patch
 Correct: derive task.py and active_task.py byte-for-byte from the clean scaffold
+```
+
+## Scenario: Session input translation with original display
+
+### 1. Scope / Trigger
+- Ordinary interactive main-chat Enter/Ctrl+Enter may translate before submission; native commands and generated prompts keep their existing path. Translation policy stays in `patches/input-translator-extension.ts`; 18.3.3 core support is candidate 0082.
+
+### 2. Signatures
+- `UserMessage.displayText?: string`: presentation only; `content` remains canonical model input.
+- `prepare_user_input({ inputId, sessionId, target: "main", source: "interactive", submission: "submit" | "followUp", text, images?, signal })` returns `{ action: "submit", modelText? } | { action: "cancel" } | undefined`.
+- `appendEntryPersisted(customType, data, { sessionId, signal }): Promise<string>` acknowledges a durable native session entry. `userInputPreparationVersion` is `1`.
+- `/translator [status|on|off|model <provider/id>]`; `SummaryOptions.allowTruncation?: boolean` defaults to existing behavior, while the translator passes `false`.
+
+### 3. Contracts
+- Keep one real user message: model conversion strips `displayText`; UI/history/draft restoration prefer it. Do not interpret translated text as a new command.
+- Await preparation outside the generic extension timeout. Capture draft/session ownership before awaiting; don't overwrite a newer draft with an older result.
+- Fresh sessions enable `cline-pass/deepseek-v4.1-flash`, low effort, no tools. Use native credentials, independent hidden history and stable `omp-translator:<sessionId>` identity.
+- Native soft sees complete translator pairs plus the previous summary, not the main session. Commit a fitting checkpoint before reuse; do not create an extra full-history payload log.
+
+### 4. Validation & Error Matrix
+- Translation/soft failure → explicit modal; Escape retries, Enter durably chooses original-send for this input only.
+- Lifecycle cancellation → no stale delivery; persistence failure → no successful acknowledgement.
+- Cancellation after disk commit does not undo a write: return its entry ID, then suppress stale caller effects.
+
+### 5. Good / Base / Bad Cases
+- Good: Chinese remains visible while the corresponding English is sent automatically.
+- Base: disabled translation uses the native path; legacy messages without metadata remain unchanged.
+- Bad: duplicate original/English rows, silently sending raw input on error, or replacing canonical history with UI text.
+
+### 6. Tests Required
+- Keep verification proportional: actual CLI/provider smoke for original display versus English delivery, failure keys and resume; controlled synthetic history may reach real soft. No new permanent gate/test matrix or repeated reviews for this feature.
+- Report only observed coverage. Contract inventory: `grep -nE 'prepare_user_input|appendEntryPersisted|allowTruncation' patches/input-translator-extension.ts patches/.18.3.3-candidates/0082-omp-user-display-text-v18.3.3-candidate.patch`.
+
+### 7. Wrong vs Correct
+```text
+Wrong: add a custom/developer message containing the translation beside the original.
+Correct: one UserMessage { content: English, displayText: original }; presentation and model boundaries select their own field.
 ```

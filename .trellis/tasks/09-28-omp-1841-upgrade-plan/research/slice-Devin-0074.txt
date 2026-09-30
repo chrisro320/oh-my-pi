@@ -1,0 +1,105 @@
+{
+  "slice": "Devin",
+  "assignment": "0074 follow-up (independent review MAJOR), review text .trellis/tasks/09-28-omp-1841-upgrade-plan/research/review-B.txt",
+  "status": "complete",
+  "exec_channel": "bash service name + `source /home/chris/.cache/omp-1841-upgrade/Devin/env.sh && <cmd>`",
+  "layer_table": [
+    {
+      "layer": "0074-omp-anthropic-context-cache-boundaries",
+      "class": "B",
+      "files": "patches/.18.4.1-candidates/0074-...-v18.4.1-candidate.patch (sandbox pi-ai/src/providers/anthropic.ts, new pi-ai/src/providers/anthropic-request-audit.ts + dist/types/providers/anthropic-request-audit.d.ts)",
+      "candidate_size": "313 lines (was 305; +9 comment lines, -1 obsolete line)",
+      "emit": "EMIT OK (APPLIED 0074 AI at its stack depth)",
+      "basis": "18.3.5 removed StreamOptions.anthropicCacheRefreshRequest AND anthropicCacheRefresh; the field the old hunk read no longer exists in the selected pi-ai (grep -rn on $NM/pi-ai/src/types.ts and src/*.ts: no matches)."
+    }
+  ],
+  "fix": {
+    "what": "patches/.18.4.1-candidates/0074-...:186 now reads `refresh: options?.maxTokens === 1` (was `refresh: options?.anthropicCacheRefreshRequest === true`), with an ASCII-only comment naming 18.3.5's removal and the coupling to CacheWarmer#replay.",
+    "only_signal_check": {
+      "verdict": "maxTokens: 1 is the ONLY signal pi-ai receives",
+      "evidence": [
+        "pi-coding-agent/src/session/cache-warmer.ts:476-486 (#replay) calls deps.stream(run.model, run.context, { ...run.options, maxTokens: 1, signal: AbortSignal.any([run.controller.signal, cutoff.signal]) }) -- one override, no refresh marker.",
+        "pi-coding-agent/src/sdk.ts:4218-4224 wires stream: (model, context, options) => primaryStreamFn(model, context, options) -- the warmer's replay goes through the SAME wrapper as the live main request.",
+        "pi-coding-agent/src/sdk.ts:4196-4212 (settingsAwareStreamFn) and :4205-4212 (primaryStreamFn) add only thinkingBudgets/kimiApiFormat/preferWebsockets defaults with `??`, so they inject nothing on the replay that the live request did not already carry.",
+        "pi-coding-agent/src/session/cache-warmer.ts:121-129 isReplayable returns true for every non-anthropic-messages model and for anthropic without a reasoning request, so it is not a provider-visible marker either.",
+        "The signal is not usable: every live request also carries options.signal."
+      ],
+      "safe_direction": "A genuine maxTokens:1 turn is indistinguishable and is classified as a refresh. That only prevents the audit from advancing its baseline (the baseline stays at the last ordinary request) and never alters wire bytes, retries or method selection -- the conservative direction for a diagnostic."
+    },
+    "rest_of_0074_unchanged": "The emit diffs the same snapshot before/after files, so every other hunk is byte-identical by construction; the +8 line delta matches exactly (9 comment lines minus the 1 replaced line). Markers still present in the emitted candidate: isPerCallContextMessage removal (3), stableMessageEnd (5), clear_at === \"next_user_message\" (3), cloneAnthropicCacheControl (1), compact_20260112 (1), prefix-different (1). Root stayed AI; pi-coding-agent is NOT patched.",
+    "gate_update": {
+      "file": "patches/verify-anthropic-request-audit.ts",
+      "changes": [
+        "New scenario \"A real cache-warmer replay must not replace the main baseline\": imports CacheWarmer from $AGENT/src/session/cache-warmer.ts, arms it with an 11s promptCache entry (90% schedule -> 1s timer) and a decide dep forced to warm, captures the exact options object its stream dependency receives, then sends exactly that object through streamAnthropic.",
+        "The stub stream holds the replay open (never-settling iterator) so the warmer's AbortController is still live when the captured options are fed back -- exactly what a real refresh sees.",
+        "Asserts: captured options have maxTokens === 1 and the live sessionId; the resulting archive meta kind === 'cache-refresh'; the baseline pointer still names the first main request's body; a second ordinary main request DOES take the baseline.",
+        "Version-scoped fail-closed: the new case runs only when the selected pi-ai is >= 18.3.5 (parsed from $AI/package.json); on such a tree a missing cache-warmer.ts aborts instead of skipping. Older plans (18.1.14/18.1.18/18.2.3/18.2.10/18.3.3) print a note that the legacy stream-level classification is unchanged, so their suites keep exactly their previous assertions."
+      ]
+    },
+    "verification": {
+      "driver": {
+        "command": "source .../env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841.py --nm \"$NM\"",
+        "exit": 0,
+        "lines": [
+          "APPLIED  0074 AI    .18.4.1-candidates/0074-omp-anthropic-context-cache-boundaries-v18.4.1-candidate.patch",
+          "SUMMARY applied=48 failed=0"
+        ]
+      },
+      "gates": [
+        {
+          "name": "verify-anthropic-request-audit.ts",
+          "command": "source .../env.sh && bun patches/verify-anthropic-request-audit.ts",
+          "exit": 0,
+          "pass_line": "PASS Anthropic final-wire audit: exact OAuth bytes, native prefix diff, side/session isolation, raw usage/request ID, real cache-warmer baseline isolation, I/O failure isolation, opt-out; zero network"
+        },
+        {
+          "name": "verify-anthropic-cache-boundaries.ts",
+          "command": "source .../env.sh && bun patches/verify-anthropic-cache-boundaries.ts",
+          "exit": 0,
+          "pass_line": "PASS Anthropic cache boundaries: 7 offline HTTP captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary"
+        },
+        {
+          "name": "devin gates re-checked on the rebuilt 48/48 tree",
+          "command": "source .../env.sh && bun patches/verify-devin-*.ts",
+          "exit": 0,
+          "pass_line": "verify-devin-auth-cache: PASS / verify-devin-metadata: PASS (3000.11.3 tuple) / verify-devin-thinking-signature: PASS / verify-devin-idle-cascade-pin: ok (18.4.1)"
+        }
+      ],
+      "sensitivity": {
+        "state": "snapshot 0074 (tree below 0074) + the OLD candidate applied verbatim, so anthropic.ts still read anthropicCacheRefreshRequest",
+        "gate": "verify-anthropic-request-audit.ts (updated)",
+        "exit": 1,
+        "line": "[Uncaught Exception] AssertionError: the real warmer's one-token replay must be classified as a cache refresh\n+ 'main'\n- 'cache-refresh' at patches/verify-anthropic-request-audit.ts:207:10",
+        "after_fix": "exit 0 (PASS line above)"
+      },
+      "prefix_influence": {
+        "0074": "Yes -- deliberately: it removes the per-call message cache barrier and the identity-block system breakpoint, which changes the model-facing request prefix. The refresh classification it carries is diagnostic only: AuditOptions.refresh never reaches the wire, request content, retries or method selection (audit module writes only under getAgentDir()/payloads/<session>/anthropic-wire)."
+      },
+      "upstream_findings": [
+        {
+          "id": "A",
+          "class": "B",
+          "refs": "pi-ai/CHANGELOG.md:55 (#12699); pi-coding-agent/CHANGELOG.md:110 (#12699); pi-coding-agent/src/session/cache-warmer.ts:476-486; pi-coding-agent/src/sdk.ts:4218-4224",
+          "summary": "18.3.5 removed StreamOptions.anthropicCacheRefresh / anthropicCacheRefreshRequest and replaced the stream-level keepalive with the session-level CacheWarmer, whose replay overrides only maxTokens (plus a fresh signal).",
+          "effect": "0074's refresh classification had to move off the removed field onto that one-token cap. The audit contract (a refresh never replaces the last-main baseline) is now proven against the real warmer rather than a hand-passed flag."
+        }
+      ],
+      "open_risks": [
+        "A genuine user turn with maxTokens: 1 is classified as a cache refresh and will not advance the audit baseline. Documented in the code comment; the direction is safe (diagnostic only).",
+        "The new gate case reads the cache-warmer module from the pi-coding-agent root, so it only proves the coupling for the 18.3.5+ shape; older plans keep their previous assertions with an explicit note instead of a silent skip.",
+        "The emitted 0074 candidate is now generated against the real 18.4.1 a-side, so its hunk line numbers changed from the stale 18.3.3-derived offsets (patch now applies with zero offsets)."
+      ],
+      "repo_files_changed": [
+        "patches/.18.4.1-candidates/0074-omp-anthropic-context-cache-boundaries-v18.4.1-candidate.patch",
+        "patches/verify-anthropic-request-audit.ts"
+      ],
+      "sandbox_only_changes": [
+        "$NM/pi-ai/src/providers/anthropic.ts (refresh marker)",
+        "$NM/pi-ai/src/providers/anthropic-request-audit.ts (new, from 0074)",
+        "$NM/pi-ai/dist/types/providers/anthropic-request-audit.d.ts (new, from 0074)"
+      ],
+      "hygiene": "No .orig/.rej anywhere under $NM/pi-ai; no throwaway probes left in the package tree; /tmp scratch logs removed."
+    },
+    "type": "result"
+  }
+}

@@ -48,7 +48,7 @@ try {
 	const manager = SessionManager.inMemory(cwd);
 	const agentDir = join(root, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (agentVersion === "18.3.3") authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,
@@ -103,6 +103,142 @@ try {
 		wire(live),
 		"a rebuilt context must replay the live wire (reminder persisted at its index)",
 	);
+
+	// GATE 3 (18.4.1 only): the committed-text stall continuation persists its
+	// reminder too. A transport stall that kills a turn whose text already rendered
+	// keeps the partial turn and appends a developer reminder to continue where it
+	// stopped; in memory only, that reminder makes the live request carry bytes a
+	// resume cannot rebuild, and it is also what identifies the kept turn as a
+	// continuation (see verify-interrupt-prune-symmetry.ts). Version-scoped: 18.3.3
+	// has no `handleCommittedTextStreamStall`, so its tree keeps the assertions above.
+	if (agentVersion === "18.4.1") {
+		const STALL_PARTIAL = "half a sentence the user already saw";
+		const stallWork = join(root, "stall-work");
+		mkdirSync(stallWork, { recursive: true });
+		const stallModel: MockModel = createMockModel({
+			id: "mock-stall",
+			responses: [
+				{
+					content: [STALL_PARTIAL],
+					stopReason: "error",
+					errorMessage: "Anthropic stream stalled while waiting for the next event",
+				},
+				{ content: ["and the rest of the sentence"] },
+			],
+		});
+		const stallManager = SessionManager.inMemory(stallWork);
+		const stallAgentDir = join(root, "stall-agent");
+		const stallAuthStorage = await discoverAuthStorage(stallAgentDir);
+		stallAuthStorage.keys.setRuntime("mock", "test");
+		const { session: stallSession } = await createAgentSession({
+			cwd: stallWork,
+			agentDir: stallAgentDir,
+			authStorage: stallAuthStorage,
+			model: stallModel,
+			getApiKey: () => "test",
+			systemPrompt: "Test only.",
+			sessionManager: stallManager,
+			skills: [],
+			rules: [],
+			contextFiles: [],
+			promptTemplates: [],
+			slashCommands: [],
+			disableExtensionDiscovery: true,
+			enableMCP: false,
+			preloadedCustomToolPaths: [],
+			enableLsp: false,
+			skipPythonPreflight: true,
+			toolNames: [],
+			restrictToolNames: true,
+		});
+
+		await stallSession.prompt("hello");
+		await stallSession.waitForIdle();
+
+		assert.equal(stallModel.calls.length, 2, "the committed-text stall must be continued exactly once");
+		const continuation = stallModel.calls[1].context.messages as Message[];
+		assert.ok(
+			continuation.some(
+				message => message.role === "assistant" && JSON.stringify(message.content).includes(STALL_PARTIAL),
+			),
+			"the continuation request must carry the committed partial text it is told to continue",
+		);
+		assert.ok(
+			continuation.some(
+				message =>
+					message.role === "developer" &&
+					JSON.stringify(message.content).includes("The provider connection dropped mid-response"),
+			),
+			"the continuation request must carry the stall reminder",
+		);
+
+		const stallBranch = stallManager.getBranch().filter(entry => entry.type === "message");
+		const stallReminders = stallBranch.filter(entry => (entry.message as Message).role === "developer");
+		assert.equal(stallReminders.length, 1, "the stall reminder must be persisted exactly once");
+		const reminderIndex = stallBranch.indexOf(stallReminders[0]);
+		const beforeReminder = stallBranch[reminderIndex - 1].message as Message;
+		assert.equal(
+			beforeReminder.role,
+			"assistant",
+			"the stall reminder must be persisted right after the kept partial assistant",
+		);
+		assert.ok(
+			JSON.stringify(beforeReminder.content).includes(STALL_PARTIAL),
+			"the assistant persisted before the reminder must be the kept partial turn",
+		);
+
+		const stallLive = stallSession.agent.state.messages as Message[];
+		assert.deepEqual(
+			wire(buildSessionContext(stallManager.getEntries(), stallManager.getLeafId()).messages as Message[]),
+			wire(stallLive),
+			"a rebuilt stall continuation must replay the live wire byte-for-byte",
+		);
+		console.log("  committed-text stall: partial kept, reminder persisted once, live == rebuilt");
+
+		// GATE 4 (18.4.1 only): a provider that supports mid-conversation tool
+		// changes records `requestControls` on the kept turn. Over the real
+		// persisted branch, the committed text and the controls must BOTH survive,
+		// and the rebuilt wire must still equal the live one.
+		const stallControls = { tools: { declared: ["read"], deferred: [], active: ["read"] }, messageIndex: 1 };
+		const controlledEntries = stallManager.getEntries().map(entry =>
+			entry.type === "message" && (entry.message as Message).role === "assistant"
+				? { ...entry, message: { ...(entry.message as Message), requestControls: stallControls } }
+				: entry,
+		);
+		const controlledLeaf = stallManager.getLeafId();
+		const controlledRebuilt = buildSessionContext(controlledEntries, controlledLeaf).messages as Message[];
+		const controlledLive = buildSessionContext(controlledEntries, controlledLeaf, undefined, {
+			transcript: true,
+		}).messages as Message[];
+		const controlledRebuiltWire = wire(controlledRebuilt);
+		assert.deepEqual(
+			controlledRebuiltWire,
+			wire(controlledLive),
+			"a rebuilt stall carrier with controls must replay the live wire byte-for-byte",
+		);
+		// Assert on the PROVIDER-facing bytes: the rebuilt context still holds the raw
+		// assistant, so only the wire proves the text was not emptied by the
+		// control-carrier branch.
+		const carriedTextIndex = controlledRebuiltWire.findIndex(entry => entry.includes(STALL_PARTIAL));
+		assert.ok(
+			carriedTextIndex >= 0,
+			"the committed text must reach the wire alongside the request controls, not only the rebuilt context",
+		);
+		assert.ok(
+			controlledRebuiltWire[carriedTextIndex].includes('"requestControls"'),
+			"the recorded tool controls must ride the same wire message as the committed text",
+		);
+		const controlledReminderWireIndex = controlledRebuiltWire.findIndex(entry =>
+			entry.includes("The provider connection dropped mid-response"),
+		);
+		assert.equal(
+			controlledReminderWireIndex,
+			carriedTextIndex + 1,
+			"the persisted reminder must sit right after the kept assistant on the wire",
+		);
+		console.log("  committed-text stall with requestControls: text and controls retained, live == rebuilt");
+	}
+
 	console.log("turn-recovery reminder persist: ALL PASS");
 } finally {
 	rmSync(root, { recursive: true, force: true });

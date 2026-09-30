@@ -1,0 +1,77 @@
+{
+  "status": "FINDINGS",
+  "filesChanged": [],
+  "findings": [
+    {
+      "severity": "blocker",
+      "file": "patches/.18.4.1-candidates/0043-omp-interrupt-prune-symmetry-v18.4.1-candidate.patch:94-117",
+      "evidence": "The requestControls carrier branch empties content before the new stallContinued branch. In the rebuilt 48/48 ReviewA tree, a selected-root Bun probe supplied a persisted stalled assistant with text, Anthropic requestControls and its immediately following persisted stall reminder. Result: rebuiltEqual=true, reminderVisible=true, partialVisible=false; the assistant was sent with content:[] instead. This is reachable on bundled anthropic/claude-opus-5: pi-catalog reports supportsMidConversationToolChanges=true, and pi-ai/src/providers/anthropic.ts:2273-2275,4671-4678 attaches requestControls when toolPlan.record exists. Both green stall gates use a partial without requestControls.",
+      "impact": "For Anthropic controlled turns, live/resume bytes match but the model cannot see text already shown to the user even though its reminder orders it to continue that text. The highest-priority continuation correctness requirement remains unmet.",
+      "minimalFix": "Handle stallContinued before clearing a failed control carrier: retain committed text together with requestControls on both paths; continue to empty ordinary aborted/error carriers. Add a controlled Anthropic stall case to both the symmetry and real-recovery gates."
+    },
+    {
+      "severity": "minor",
+      "file": "patches/.18.4.1-candidates/0043-omp-interrupt-prune-symmetry-v18.4.1-candidate.patch:20,29",
+      "evidence": "The updated source exports STREAM_STALL_CONTINUE_REMINDER_TEXT and followedByStreamStallContinueReminder; pi-coding-agent/package.json:453-455 publishes ./session/* with matching dist/types/session/*.d.ts, but the selected dist/types/session/messages.d.ts has neither declaration (it ends at convertToLlm:169).",
+      "impact": "TypeScript consumers of the published messages subpath cannot import those new runtime exports; the required source/declaration contract is incomplete.",
+      "minimalFix": "Add the two declarations to this same-ID candidate's dist/types/session/messages.d.ts hunk and compile a consumer through the published subpath."
+    },
+    {
+      "severity": "minor",
+      "file": "patches/apply.sh:819-939",
+      "evidence": "Still no registered behavioral gate exercises 0026's provider-filtered usage fan-out or 0030's canonical/legacy report lookup. The Usage slice's relevant probe was throwaway and deleted; the registered 0070 type probe does not compile UsageReportsOptions.providers.",
+      "impact": "Those two migrated behaviors can regress while the registered suite stays green; no direct prompt-prefix effect.",
+      "minimalFix": "Register one focused selected-root behavioral/type gate with fault controls for 0026 and 0030."
+    }
+  ],
+  "verifiedCorrect": [
+    "Rebuilt ReviewA from pinned inputs: replay-1841.py reported SUMMARY applied=48 failed=0, including updated 0043, 0070 and 0077.",
+    "0043/0077 now retain an ordinary committed-text stall's partial assistant and persist its following reminder exactly once; the real AgentSession mock recovery gate compares live with rebuilt wire. An uncontinued failed turn remains pruned. The controlled Anthropic exception above is not covered.",
+    "0070 status/auth precedence fixed: the same offline SSE status=503, code=auth_unavailable probe that previously made three sends now makes one. Its effective Codex lane helper is shared by endpoint, transport and both speculation guards and has a published .d.ts declaration; 18 new fault variants were rejected.",
+    "Cross-process plain/soft/snapcompact probe: all three pass=true, Anthropic/Codex serialized provider-input prefix diffs null, no provider fetches.",
+    "The remote probe calls real selected-package Anthropic Messages SSE and Codex WebSocket transports against loopback fixtures, drives session.compact({mode:'remote'}), captures requests actually received and compares a fresh-process resume. ReviewA rerun: each lane captured one native compaction request, persisted matching native slots and replayed matching compaction items, blockedUrls=[]; Codex input raw prefix equal. It is an offline transport/serialization proof, not a real-provider cache-hit measurement.",
+    "Anthropic remote verdict is sound only as content equality: system/tools equal, message prefix equal after removing cache_control, but raw first old message differs because the rolling cache_control marker moved from 0:1/1:0 to 2:0/3:0. The driver explicitly reports pass_byte_exact=false; ordinary t1→t2→t3 captured breakpoints also roll. [INFERENCE] Whether the provider reuses its cached prefix cannot be established by this fixture; do not describe Anthropic as byte-identical or as a measured cache hit."
+  ],
+  "verification": [
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/ReviewA/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841.py --nm \"$NM\"",
+      "result": "SUMMARY applied=48 failed=0"
+    },
+    {
+      "command": "source <ReviewA>/env.sh && bun patches/verify-prefix-cache-compaction.ts",
+      "result": "PASS prefix-cache compaction: structured=1 flat=1 windows=12"
+    },
+    {
+      "command": "source <ReviewA>/env.sh && bun patches/verify-codex-compaction-chain-fail-closed.ts",
+      "result": "verify-codex-compaction-chain-fail-closed: transport, retry, metadata and public types PASS"
+    },
+    {
+      "command": "source <ReviewA>/env.sh && bash patches/verify-codex-compaction-chain-fail-closed-faults.sh",
+      "result": "PASS fault: status outranks auth; PASS fault: narrow speculation lane predicate; verify-codex-compaction-chain-fail-closed faults: 18 behavioral/type faults rejected"
+    },
+    {
+      "command": "source <ReviewA>/env.sh && bun patches/verify-interrupt-prune-symmetry.ts",
+      "result": "committed-text stall: partial text retained, live == rebuilt; uncontinued stall-shaped turn still pruned; interrupted-turn render symmetry OK"
+    },
+    {
+      "command": "source <ReviewA>/env.sh && bun patches/verify-turn-recovery-reminder-persist.ts",
+      "result": "committed-text stall: partial kept, reminder persisted once, live == rebuilt; turn-recovery reminder persist: ALL PASS"
+    },
+    {
+      "command": "source <ReviewA>/env.sh && bun patches/verify-eval-state-context-persist.ts",
+      "result": "PASS eval state context persist: resume wire-equal, read-only snapshots write nothing, state change appends once"
+    },
+    {
+      "command": "source <ReviewA>/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-prefix-1841.py --slice ReviewA",
+      "result": "plain/soft/snapcompact pass=true, anthropic_prefix_diff=null, codex_input_prefix_diff=null"
+    },
+    {
+      "command": "source <ReviewA>/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-remote-prefix-1841.py --slice ReviewA",
+      "result": "Anthropic pass=true/pass_byte_exact=false (only cache_control markers shifted); Codex pass=true/pass_byte_exact=true; each lane native compaction requests=1, blockedUrls=[]"
+    },
+    {
+      "command": "source <ReviewA>/env.sh && built-in grep -cE required work-order/spec anchors",
+      "result": "work-order=5; patch-rollup-contracts=2; verification-gate-contracts=1; total spec hits=3"
+    }
+  ]
+}

@@ -471,3 +471,71 @@ Published `.d.ts` files must include every added callable/interface/member, incl
 
 ### 7. Wrong vs Correct
 Wrong: re-pin source regexes after an upstream rename, or treat clean hunks as runtime proof. Correct: real SDK/transport fixtures, typed settings, official pinned package sources, generated same-ID candidates, and preserved historical plans.
+
+## Scenario: Version upgrade rollback covers the resolved dependency graph
+
+### 1. Scope / Trigger
+Before changing the global OMP package version or applying a new versioned candidate chain, prepare a reversible runtime snapshot. The six patch roots are not the whole installation: pi-coding-agent also resolves `pi-utils`, `pi-wire`, `omptype`, `pi-mnemopi`, `omp-stats`, `pi-natives`, platform-specific native packages and possibly nested copies.
+
+### 2. Signatures
+`OMP_PATCH_VERSION=<old-version> bash patches/apply.sh --print-plan` identifies the old patch sequence, **not** the package backup set. The backup manifest records `{path, realpath, packageName, version, sha256, loadedBy}` for every old-runtime resolved package and every package the installer will replace, plus the `bin/omp` symlink target, patch mirror and any `.installed` snapshots required by the current install. Resolve paths from the actual entry/dependency tree rather than a hand-maintained six-name list.
+
+### 3. Contracts
+Freeze the old and prospective dependency graphs before stopping OMP. Back up the union of packages loaded by the old runtime and paths the new installation may overwrite, including optional native/platform dependencies and nested resolutions. Preserve the old patch plan, exact runtime source bytes, entry target and mirror independently; never restore `~/.omp/agent` as part of a package rollback. DB backup/integrity and WAL/SHM activity are a separate offline gate governed by `database-guidelines.md`; a reported `integrity_check = ok` alone does not discharge it.
+
+### 4. Validation & Error Matrix
+| Condition | Required result |
+|---|---|
+| Resolved old path or version is missing from the backup manifest | Abort before install |
+| New graph replaces a path with no verified old bytes | Abort before install |
+| Restored package resolves to the new or cache copy | Rollback failed; do not restart the old runtime |
+| Old source plan, entry target or patch mirror differs after restore | Rollback failed |
+| OMP process exists during the DB gate or backup sidecar activity is unattributed | Stop deployment per database-guidelines |
+
+### 5. Good / Base / Bad Cases
+Good: capture the resolved closure including native/platform packages, install the pinned new version, then restore the entire old closure and verify real module paths and old CLI behavior in a private HOME. Base: a package is unchanged and its pre/post hash is identical, so the manifest records it without copying redundant bytes. Bad: back up only the six patch roots, then roll back an incompatible old CLI against new `pi-wire` or native binaries.
+
+### 6. Tests Required
+Before deployment, compare the captured graph to the installer overwrite set and assert every changed path has restorable old bytes. In a disposable install, rehearse restore and assert old package versions, resolved realpaths, entry target, `OMP_PATCH_VERSION=<old-version> ... --check` with no conflicts and a real source-CLI smoke; compare the patch mirror to the repository plan. Keep the live SQLite test exclusively in the offline database gate.
+
+### 7. Wrong vs Correct
+Wrong: archive six patch roots and treat the global installation as recoverable. Correct: enumerate the effective old/new dependency graphs, snapshot the overwrite union and prove that the restored old entry resolves the old versions and behavior.
+
+## Scenario: 18.4.1 source migration and resume-prefix acceptance
+
+### 1. Scope / Trigger
+An upstream upgrade whose releases add new session behavior (18.3.4-18.4.1: session cache warmer, committed-text stall continuation, speculation fallback, cross-cwd system prompt, `^` model-tag notices). Text-level porting is necessary but not sufficient: every new upstream path that injects or rebuilds model-facing content must be proven identical between the live request and a fresh-process resume.
+
+### 2. Signatures
+- `research/replay-1841.py --nm <sandbox NM> [--before NNNN | --until NNNN]`: rebuild six roots from pinned tarballs, strict `--fuzz=0` dry-run gated replay of `apply.sh --print-plan`; a failing layer is skipped whole and later layers sharing its files are flagged `after-skip`.
+- `research/mkcand-1841.py snapshot|emit --nm <NM> --layer NNNN [--extra REL]`: same-ID candidates only from real before/after files; `emit` re-replays to prove `APPLIED` at its stack depth.
+- `research/run-prefix-1841.py` / `run-remote-prefix-1841.py` / `run-tag-prefix-1841.py`: two fresh bun processes (live, then resume) comparing provider-facing bytes.
+- `research/deploy-1841.py prepare|preflight|deploy --execute [--root R --rehearsal]`.
+
+### 3. Contracts
+- Separate direct from derived failures by skipping failing layers whole; never discard failed hunks and continue on a mixed tree.
+- Grep every candidate, including byte-clean ones, for each API named in upstream Breaking Changes. 0074 applied at fuzz=0 on 18.4.1 while still reading `options.anthropicCacheRefreshRequest`, removed in 18.3.5.
+- Enumerate new upstream `agent.appendMessage(...)` sites that bypass session persistence. 18.4.1 `handleCommittedTextStreamStall` appended its continuation reminder in memory only; a resume dropped it and forked the prefix until 0077 routed it through the persisting helper. Pruning rules (0043) must key on that durable reminder, never on live-only flags, and must run before any carrier-emptying branch (Anthropic `requestControls`).
+- Prefix acceptance compares real serializer or transport output (`convertAnthropicMessages`, `buildTransformedCodexRequestBody`, loopback HTTP/WS bodies), not in-memory context objects (they legitimately differ in fields such as `errorId`). Codex must be raw-byte equal. Anthropic is content-equal with `cache_control` stripped: `applyPromptCaching` rolls the two message breakpoints to the newest messages on every turn, so raw bytes differ at the old breakpoint on ordinary turns too; report `raw_byte_prefix_equal` and `content_prefix_equal_without_cache_control` separately and never call the Anthropic lane byte-identical.
+- Remote lanes need real transports: Anthropic native compaction only accepts official hosts (`anthropic-compaction.ts isSupportedCompactionEndpoint`) and inference uses `coworkFetch` over `node:https`, so intercept at the fetch boundary; Codex V2 runs over WebSocket and needs a loopback server via a private `models.yml` baseUrl.
+- A new behavior that differs between in-process `switchSession` and fresh-process resume is a drift candidate: 18.4.1 `^` tags absorbed at a base-prompt rebuild were restored by switchSession but not by a fresh process (regression versus 18.3.3; fixed by 0083 persisting the committed surface).
+- Shared gates stay green on every supported plan: 18.4.1-only scenarios, and every asset they read, live inside a version branch.
+- Sandboxes live on disk (`/home/chris/.cache/omp-1841-upgrade/`), not on `/tmp` tmpfs; hardlinked copies must re-extract the six patch roots so no inode is shared.
+
+### 4. Validation & Error Matrix
+| Condition | Result |
+|---|---|
+| Candidate references an API listed as removed upstream | Class B port required even when replay is clean |
+| New upstream in-memory injection not persisted | Resume-prefix blocker until a persistence layer covers it |
+| Anthropic raw bytes differ only in rolling `cache_control` | Content-equal pass; must be reported as such |
+| Any other system/tools/message byte difference after resume | Blocker; do not deploy |
+| Shared gate throws on an older plan (missing 18.4.1 asset) | Gate regression; move the read into the version branch |
+
+### 5. Good / Base / Bad Cases
+Good: 0043 retains the committed partial text plus `requestControls` only when the persisted stall reminder follows, and the gate asserts on wire bytes. Base: 0066/0067/0068 needed no byte change once 0035 was ported. Bad: a probe that compares the resumed request only after a forced rebuild, skipping the first resumed request, reports "no drift" for the tagged-session regression.
+
+### 6. Tests Required
+Full-chain replay 49/0; real `apply.sh` on a dependency-complete private tree with the whole suite; second apply all SKIP with identical digest; `--check`; `--revert` byte-equal to pristine; `--verify-rollups`; cross-process prefix probes for plain, soft, snapcompact, remote Anthropic native, remote Codex V2 and `^` tag with and without rebuild; the old-plan suite on an old-version tree with the new ledger; deploy/rollback rehearsal including forced post-verify failure.
+
+### 7. Wrong vs Correct
+Wrong: treat 31 clean layers as done and certify prefix stability from in-memory context equality. Correct: audit clean layers for removed APIs and new unpersisted injections, then prove provider-facing bytes across fresh processes for every compaction method the user configures.

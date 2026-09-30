@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend source and runtime contract index"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "TUI layer contract index"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Modal key isolation and stale async lifecycle guards"}
+{"file": ".trellis/spec/backend/context-plugin-eval.md", "reason": "Private sandbox and actual cross-turn wire evidence"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Single owner for durable event decoding and message identity"}
+{"file": ".trellis/tasks/09-28-session-input-translator/research/cache-affinity.md", "reason": "Observed Cline affinity path and reusable independent soft APIs"}
+{"file": ".trellis/tasks/09-28-session-input-translator/research/input-lifecycle.md", "reason": "Verified input/display contracts, hook fail-open and independently corrected source findings"}
+{"file": ".trellis/tasks/09-28-session-input-translator/research/session-state.md", "reason": "Cross-process hidden state proof, lifecycle semantics and independent soft/model boundaries"}
+{"file": ".trellis/tasks/09-28-session-input-translator/research/core-boundary.md", "reason": "Approved dual-text core scope, actual baseline gaps and canonical source/patch ownership"}
+{"file": ".trellis/tasks/09-28-session-input-translator/research/spec-reading-map.md", "reason": "Exact mandatory source-spec ranges; avoids silent truncation of oversized backend contracts"}

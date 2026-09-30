@@ -18,10 +18,10 @@ const { HindsightSessionState } = await import(`${AGENT_ROOT}/src/hindsight/stat
 // measured through the other's shape. An unrecognized version fails closed.
 const agentVersion: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1"].includes(agentVersion),
 	`verify-hindsight-recall-snapshot: unsupported selected tree version ${agentVersion}`,
 );
-const isStagedPreparation = ["18.2.3", "18.2.10", "18.3.3"].includes(agentVersion);
+const isStagedPreparation = ["18.2.3", "18.2.10", "18.3.3", "18.4.1"].includes(agentVersion);
 
 console.log("=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===");
 
@@ -422,7 +422,7 @@ if (isStagedPreparation) {
 	const root = mkdtempSync(join(tmpdir(), "omp-hindsight-clear-"));
 	registerMockApi("hindsight-clear");
 	const authStorage = await discoverAuthStorage(join(root, "agent"));
-	if (agentVersion === "18.3.3") authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const busyStarted = Promise.withResolvers<void>();
 	const releaseBusy = Promise.withResolvers<void>();
@@ -442,7 +442,7 @@ if (isStagedPreparation) {
 	});
 	try {
 		const MM_TYPE = "hindsight_mental_models_snippet";
-		if (agentVersion === "18.3.3") {
+		if (["18.3.3", "18.4.1"].includes(agentVersion)) {
 			const { cfgMemoryBackend } = await import(`${AGENT_ROOT}/src/memory-backend/settings.ts`);
 			const { cfgHindsightApiUrl } = await import(`${AGENT_ROOT}/src/hindsight/settings.ts`);
 			cfgMemoryBackend.set(session.settings, "hindsight");

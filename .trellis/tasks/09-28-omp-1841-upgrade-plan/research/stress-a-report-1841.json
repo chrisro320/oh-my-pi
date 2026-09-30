@@ -1,0 +1,195 @@
+{
+  "slice": "StressA",
+  "status": "PASS",
+  "summary": "13/13 情境 PASS；`python3 research/run-stress-a-1841.py` exit 0；全程 fetchAttempts=0；樹內無殘留 probe 副本。每情境的觸發都以「捕獲到的真實 provider request / 持久化 branch」上的 marker、customType、tool 名或 model_change 條目自動驗證（trigger 檢查已納入 pass 條件）。",
+  "command": "source /home/chris/.cache/omp-1841-upgrade/StressA/env.sh && cd /home/chris/orca/projects/omp-move && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-stress-a-1841.py",
+  "command_output": [
+    "[PASS] a1-eval",
+    "[PASS] a1-eval-change",
+    "[PASS] a2-empty",
+    "[PASS] a2-malformed",
+    "[PASS] a2-unexpected",
+    "[PASS] a3-stall",
+    "[PASS] a4-abort-stream",
+    "[PASS] a4-abort-tool",
+    "[PASS] a5-async",
+    "[PASS] a6-todo",
+    "[PASS] a7-switch",
+    "[PASS] a8-steer",
+    "[PASS] a9-ext",
+    "{\"results\": \".../stress-a-results-1841.json\", \"failed\": [], \"total\": 13}",
+    "EXIT=0",
+    "leftover_probe_copies=0"
+  ],
+  "files_created": [
+    ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/probe-stress-a-1841.ts",
+    ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-stress-a-1841.py",
+    ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/stress-a-results-1841.json"
+  ],
+  "acceptance": {
+    "run_all_scenarios": "pass",
+    "exit_zero": true,
+    "fetch_attempts": 0,
+    "probe_copy_left": 0
+  },
+  "table": [
+    {
+      "scenario": "A1 a1-eval",
+      "x2": true,
+      "trigger_evidence": "eval 工具真跑（assistant toolCall name=eval、toolResult 內容 \"42\"）；reminder 文字 'Eval runtime state is host-retained' 在捕獲請求中出現 2 次並帶真實 runtime（alive; generation=1; kernel=js-159191f3e0c3b7da; runtime=Bun 1.3.14）；branch 有 custom_message:eval-state-context x1",
+      "invariant": "ok（0 divergence）",
+      "resume1": "system/tools/wire(anthropic, nocache, codex input/head) 前綴全等",
+      "resume2": "全等",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A1 a1-eval-change",
+      "x2": true,
+      "trigger_evidence": "兩次 eval（第二次 reset:true）→ 兩個 reminder：generation=1/kernel …5252b29c19 與 generation=2/kernel …66c329c1b；marker x4、branch custom_message:eval-state-context x2",
+      "invariant": "ok",
+      "resume1": "前綴全等",
+      "resume2": "前綴全等",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A2 a2-empty",
+      "x2": false,
+      "trigger_evidence": "reminder 'Stopped without actionable output; task incomplete.' 出現 3 次（第 2/3/4 個請求）",
+      "invariant": "ok",
+      "resume1": "前綴全等",
+      "resume2": "n/a",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A2 a2-malformed",
+      "x2": false,
+      "trigger_evidence": "reminder 'The provider rejected your last turn: the function call was malformed and never executed.' x3；branch 有 stopReason=error 的 assistant x1（malformed turn 依設計保留）",
+      "invariant": "ok",
+      "resume1": "前綴全等",
+      "resume2": "n/a",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A2 a2-unexpected",
+      "x2": false,
+      "trigger_evidence": "reminder 'You said you would continue with a tool call or action but stopped… Attempt #1/3' x3（features.unexpectedStopDetection=mechanical + 已簽章 thinking-only stop；純 text stop 在 mechanical 下不重試，見 turn-recovery.ts #handleUnexpectedAssistantStop）",
+      "invariant": "ok",
+      "resume1": "前綴全等",
+      "resume2": "n/a",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A3 a3-stall",
+      "x2": false,
+      "trigger_evidence": "handleCommittedTextStreamStall：reminder 'The provider connection dropped mid-response…' x3，且被砍斷的文字 'half a sentence the user already saw' 與 reminder 同序出現在請求中；branch assistant stopReason=error x1",
+      "invariant": "ok",
+      "resume1": "前綴全等",
+      "resume2": "n/a",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A4 a4-abort-stream",
+      "x2": false,
+      "trigger_evidence": "真 session.abort({reason:USER_INTERRUPT_LABEL}) 打在半流式文字中（provider stream 先送 text_start/delta/end 再 suspend，abort 後送 aborted 終結事件）；branch assistant stopReason=aborted x1",
+      "invariant": "ok",
+      "resume1": "前綴全等",
+      "resume2": "n/a",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A4 a4-abort-tool",
+      "x2": false,
+      "trigger_evidence": "真 bash tool（sleep 30）跑到 tool_execution_start 後 session.abort(USER_INTERRUPT_LABEL)；toolCallsSeen=[bash]、branch assistant stopReason=aborted x1",
+      "invariant": "ok",
+      "resume1": "前綴全等",
+      "resume2": "n/a",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A5 a5-async",
+      "x2": false,
+      "trigger_evidence": "bash async:true 背景工作完成後交回 follow-up：async-result 文字 x3、branch custom_message:async-result x1、toolCallsSeen=[bash]",
+      "invariant": "ok",
+      "resume1": "前綴全等",
+      "resume2": "n/a",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A6 a6-todo",
+      "x2": false,
+      "trigger_evidence": "todo 工具 op=init 建出未完成項目 → TodoTracker.checkCompletion 注入 '<system-reminder> You stopped with 2 incomplete todo item(s)' x9（3 個 reminder，受 todo.remindersMax=3 限制）；toolCallsSeen=[todo]",
+      "invariant": "ok",
+      "resume1": "前綴全等",
+      "resume2": "n/a",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A7 a7-switch",
+      "x2": true,
+      "trigger_evidence": "session.setModel(alt-model) + setThinkingLevel('low')：branch model_change x2（vision-model → alt-model）、thinking_level_change x2（high → low）",
+      "invariant": "ok",
+      "resume1": "前綴全等（含 model/thinking 還原後的 tools block）",
+      "resume2": "前綴全等",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A8 a8-steer",
+      "x2": false,
+      "trigger_evidence": "串流中 session.steer()：使用者訊息以 wrapSteeringForModel 包成 '<system-notice> User interjection during work…'，出現 x3；toolCallsSeen=[bash]",
+      "invariant": "ok（以真 wrapSteeringForModel 對重建側再套一次後全等）",
+      "resume1": "前綴全等",
+      "resume2": "n/a",
+      "verdict": "PASS"
+    },
+    {
+      "scenario": "A9 a9-ext",
+      "x2": false,
+      "trigger_evidence": "extension context handler 每請求注入 'Extension context-handler injection (deterministic).' x3；session.sendCustomMessage(customType=stress-ext-note) 落盤，branch custom_message:stress-ext-note x1",
+      "invariant": "ok（literal=fail／以 extensionRunner.emitContext 對重建側重放同一 handler 後 ok；代表差異正好是該 per-request transform）",
+      "resume1": "前綴全等",
+      "resume2": "n/a",
+      "verdict": "PASS"
+    }
+  ],
+  "measurement_contract": {
+    "capture": "每個 provider request 記錄 (system, tools, messages) + 真實序列化器 convertAnthropicMessages（含去 cache_control 版本）與 buildTransformedCodexRequestBody（input 與 head 分開）",
+    "persistence_invariant": "每次請求以 buildSessionContext(manager.getEntries(), manager.getLeafId()) 重建，雙側同過 convertToLlm 後逐元素比較（role/content/toolCallId 等），記錄首個分歧 index 或 ok；tail 豁免僅限尾端 user/toolResult 尚未落盤",
+    "normalizations": [
+      "strip：date/cwd reminder（date-cwd-reminder.ts，per-request anchor 非歷史）",
+      "重建側再套 wrapSteeringForModel（先於 convertToLlm 的真實順序）",
+      "忽略 in-memory-only metadata：errorId/duration/completedAt/contextSnapshot（合約明列的已知 artifact）",
+      "title/judge 等 internal side request 以 system prompt 與 session.systemPrompt 比對排除（status=n/a，不列入不變式）"
+    ],
+    "resume": "每個 resume 都是全新 bun process，跑 2 個 turn；x2 情境（a1-eval、a1-eval-change、a7-switch）再開第三個 process 續跑 2 個 turn",
+    "cache_control_report": "本 slice 的 message-level 捕獲未出現 cache_control 斷點（斷點由 provider request builder 依 system/tools 的 anchor 產生，anthropic.ts:4059-4124，不在 convertAnthropicMessages 內），因此「含/不含 cache_control」兩個視圖逐 byte 相同；兩者前綴比對皆納入檢查。"
+  },
+  "falsifiability": {
+    "command": "python3 run-stress-a-1841.py --scenario a2-empty --fault drift",
+    "result": "exit 1；persistence invariant 於 live:2 index 3 抓到注入的 in-memory-only developer 訊息，anthropic/codex input 前綴亦在 index 3/4 分叉（正是『eval case』形狀）",
+    "clean_run_exit": 0
+  },
+  "risks": [
+    {
+      "item": "A9 的 pi.sendMessage 字面入口無法離線觸發",
+      "reason": "headless SDK session 從不呼叫 ExtensionRunner.initialize（只有 mode controller 會：modes/runtime-init.ts:55、modes/controllers/extension-ui-controller.ts:322/553、modes/acp/acp-agent.ts:2568；sdk.ts 無呼叫），未接線的 ExtensionRuntime stub 直接在 extensibility/extensions/loader.ts:112-115 拋 ExtensionRuntimeNotInitializedError",
+      "mitigation": "改走 pi.sendMessage 實際委派的同一 action（runtime-init.ts:59 → session.sendCustomMessage），並在結果 JSON 以 notes 欄位記錄；context handler 這半仍是真 extension API",
+      "pass_claimed": "情境以 sendCustomMessage + context handler 判定 PASS，並標註字面入口未觸發"
+    },
+    {
+      "item": "A1 的 reminder 在 live 程序內需經 display-context rebuild 才會進入 provider 請求",
+      "reason": "eval 工具只呼叫 updateEvalState；reminder 由 agent-session.ts:6366 buildDisplaySessionContext 產生（session 開啟/branch/switch/rewind 等才呼叫，非每輪）。模型切換實測不會 rebuild（見 a7 evidence 無 eval reminder）",
+      "mitigation": "live 流程以 production API buildDisplaySessionContext()+agent.replaceMessages 模擬 rebuild 呼叫者（branch/switch/rewind 的同一條路徑）；resume 開檔則走完全相同的 production 路徑。compaction/branch 生命週期屬其他 slice，未動用"
+    },
+    {
+      "item": "resume 第二輪（第三個 process）只對 x2 情境執行",
+      "reason": "依工作單 [x2] 標記",
+      "mitigation": "a1-eval、a1-eval-change、a7-switch 皆有 resume2 checks"
+    },
+    {
+      "item": "a9-ext 的 per-request context handler literal 不變式為 fail",
+      "reason": "extension 注入的訊息不是歷史、本來就不落盤（設計如此，且是 position-stable 的決定性 transform）",
+      "mitigation": "除 literal 外另以 extensionRunner.emitContext 對重建側重放同一 handler，證明差異恰為該 transform，且 resume 前綴逐 byte 相等"
+    }
+  ],
+  "sandbox_isolation": "所有子程序只帶 StressA env（HOME/XDG_*/TMPDIR/BUN_INSTALL/OMP_PREFIX_LAB），lab root 均在 /home/chris/.cache/omp-1841-upgrade/StressA 之下；未編輯 patches/**、.trellis/spec/**、~/.bun、~/.omp；無 git commit；無真實網路或 provider 呼叫。"
+}

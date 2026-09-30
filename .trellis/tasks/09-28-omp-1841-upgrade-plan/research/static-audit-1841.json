@@ -1,0 +1,120 @@
+{
+  "status": "FINDINGS",
+  "filesChanged": [],
+  "scope": "Read-only static audit. Paths below are relative to the deployed Live @oh-my-pi root; compared against the 18.3.3 rollback root. LIKELY and CONDITIONAL are code-path conclusions, not dynamically reproduced failures.",
+  "findings": [
+    {
+      "risk": "HIGH — LIKELY DRIFT",
+      "site": "pi-coding-agent/src/session/session-maintenance.ts:3209-3239",
+      "triggerFrequency": "Conditional: a reasoning-only, nonzero-output `length` response below the compaction threshold, with recovery enabled; potentially repeated up to the retry cap.",
+      "evidenceAndImpact": "After dropping the failed assistant turn, the new retry path appends a developer `length-stop-retry` reminder only to `agent`. The scheduled continuation sends it, but `SessionManager.open` cannot rebuild it; subsequent persisted replies leave a historical message-slot difference.",
+      "patchCoverageAndProvenance": "Introduced after 18.3.3 (the rollback path has no reminder); 18.3.4 changelog describes it. 0077 covers `turn-recovery.ts` reminders, not this site; the existing persistence audit should flag the developer-only tail.",
+      "minimalFix": "Append the same reminder to `sessionManager` before scheduling continuation, as `turn-recovery.ts:2852-2863` does; add a failed-before/passing-after cross-process wire-prefix repro.",
+      "offlineRepro": "In an isolated HOME, use a mock model returning a reasoning-only `length` turn with positive output usage and then a successful stop. Capture the retry request containing the rendered reminder; open the persisted file in a second Bun process and compare converted messages at the reminder index. Not executed."
+    },
+    {
+      "risk": "HIGH — LIKELY DRIFT",
+      "site": "pi-coding-agent/src/session/agent-session.ts:6893-6905,7673-7679,3345-3355,6566-6586",
+      "triggerFrequency": "Each prompt while optional Vibe mode is active; especially consequential after a reply has been appended after a Vibe reminder.",
+      "evidenceAndImpact": "The Vibe custom message enters the live prompt, converts to provider content, but `#persistMessageEnd` explicitly skips it. Fresh-process UI reconciliation restores the active mode (`modes/interactive-mode.ts:4105-4188`) and creates a new reminder for the next prompt, not the old reminder at its original historical position. Exit scrubs live copies; it cannot recreate the previous request's bytes.",
+      "patchCoverageAndProvenance": "The skip and injection both exist in 18.3.3; no listed persistence patch covers Vibe. Unlike the prewalk nudge, there is no corresponding immediate scrub before a later assistant turn.",
+      "minimalFix": "Preserve each provider-delivered historical Vibe reminder in the journal and handle mode exit as an explicit subsequent transition, rather than losing an earlier provider-visible slot. Test active-mode continuation and cold resume.",
+      "offlineRepro": "Using a persisted mock session, activate Vibe, issue two normal turns, capture the first and second live provider messages, then reopen in a new process, reconcile mode and compare the historical index before sending the next turn. Not executed."
+    },
+    {
+      "risk": "HIGH — LIKELY DRIFT",
+      "site": "pi-coding-agent/src/session/agent-session.ts:9834-9853,4193-4197,6654-6681",
+      "triggerFrequency": "Only when a successful active checkpoint is followed by a text-only yield without `rewind`.",
+      "evidenceAndImpact": "`#enforceRewindBeforeYield` appends its developer `<system-warning>` only to the live Agent and schedules another provider turn. Resume reconstructs checkpoint state but has no journal entry for that warning. A later persisted assistant response makes the missing warning an interior prefix divergence.",
+      "patchCoverageAndProvenance": "The same append-only-to-Agent implementation exists in 18.3.3; neither 0076 nor 0077 covers it.",
+      "minimalFix": "Dual-write the warning to `sessionManager` before scheduling continuation; retain an isolated checkpoint/no-rewind/reopen regression.",
+      "offlineRepro": "Drive the real checkpoint tool in a persisted mock session, return a plain assistant stop instead of `rewind`, inspect the scheduled continuation for `<system-warning>`, then reopen the file in another process and compare converted messages. Not executed."
+    },
+    {
+      "risk": "MEDIUM — CONDITIONAL REQUEST-IDENTITY DRIFT",
+      "site": "pi-coding-agent/src/session/agent-session.ts:5667-5675,5750-5755,5180-5209; pi-coding-agent/src/sdk.ts:1795-1817; pi-ai/src/providers/openai-shared.ts:484-485",
+      "triggerFrequency": "After explicit `/fresh` or `/clear` (`resetSessionContext`); not ordinary turns. May be masked by an explicitly pinned prompt-cache key.",
+      "evidenceAndImpact": "The live process rotates `#freshProviderSessionId` with a random UUID without persisting it. A cold open defaults to the journal session ID. The provider session ID, and by default the OpenAI prompt-cache key, therefore differ after restart at the post-reset position. The reset itself intentionally breaks the earlier chain; the later reversion of identity is the risk.",
+      "patchCoverageAndProvenance": "Both rotations exist in 18.3.3; no patch records the rotated identity.",
+      "minimalFix": "If continuity after a reset is required, journal the current provider identity/reset epoch and restore it before the first resumed request.",
+      "offlineRepro": "With a persisted mock session, call `freshSession()` (separately `resetSessionContext()`), capture the next request's `sessionId` and computed OpenAI cache key, reopen in a second process, and compare the next request's fields. Not executed."
+    },
+    {
+      "risk": "MEDIUM — CONDITIONAL SUBAGENT SYSTEM DRIFT",
+      "site": "pi-coding-agent/src/task/executor.ts:344-381,3977-3997; pi-coding-agent/src/prompts/system/subagent-system-prompt.md:33-39",
+      "triggerFrequency": "IRC-enabled subagent creation/revival when the visible peer roster or its activity differs across processes.",
+      "evidenceAndImpact": "The subagent system-prompt callback renders live `AgentRegistry.global()` peer IDs/status/activity into the trailing system block. The previous roster is not reconstructed from the subagent session file; changing peers on cold revive changes provider-visible system content. Its placement preserves the earlier static head but not equality of the entire system prompt.",
+      "patchCoverageAndProvenance": "The same roster rendering exists in 18.3.3; 0083 addresses advertised `^` task agents, not IRC peers.",
+      "minimalFix": "Define this as an explicit volatile suffix excluded from whole-system equality, or persist/replay the advertised roster when exact historical system bytes are required; test the selected contract.",
+      "offlineRepro": "Start an IRC-enabled subagent with a visible sibling, capture its rendered system prompt, persist/park it, then revive in a fresh process with a different or empty registry and compare the trailing block. Not executed."
+    },
+    {
+      "risk": "MEDIUM — CONDITIONAL PROVIDER-CONTEXT DRIFT",
+      "site": "pi-coding-agent/src/session/date-cwd-reminder.ts:105-164,173-243; pi-coding-agent/src/sdk.ts:4110-4140",
+      "triggerFrequency": "Only when the per-session anchor JSON is unwritable/corrupt/missing between requests, or a session has no ID; not the normal successful sidecar path.",
+      "evidenceAndImpact": "The latest real user message receives a provider-only date/cwd stamp; the map lives outside the session JSONL. `#persist` silently ignores write failure while retaining the stamp in process memory. A new process lacking the map can stamp that same still-latest user message differently, changing its wire content at the existing index. The pre-provider context audit cannot see this transform.",
+      "patchCoverageAndProvenance": "0047's anchored approach, including ignored sidecar failures, exists in both patched 18.3.3 and 18.4.1; successful persistence is covered, faulted persistence is not.",
+      "minimalFix": "Make failed anchor persistence visible and fail closed for strict cache continuity, or journal the committed stamp atomically with the user turn.",
+      "offlineRepro": "Give `DateCwdReminderInjector` an anchor root that is a regular file (forcing ENOTDIR), send a user request on date/cwd A, reopen the persisted session in a new process with the same unusable root on date/cwd B, and compare that user message's provider content. Not executed."
+    },
+    {
+      "risk": "MEDIUM — CONDITIONAL STARTUP SYSTEM DRIFT",
+      "site": "pi-coding-agent/src/system-prompt.ts:725-849,963-983,1036-1040; pi-coding-agent/src/sdk.ts:4034-4041",
+      "triggerFrequency": "A startup where one prompt preparation operation crosses the five-second deadline or fails differently from the previous process.",
+      "evidenceAndImpact": "Prompt inputs, context files, skills, tree, repository context and personality can fall back independently. The selected values feed rendered system blocks, which are rebuilt rather than loaded from the historical session. Identical filesystem content but different completion timing can therefore yield different existing-session system bytes.",
+      "patchCoverageAndProvenance": "Five-second deadline and fallback already exist in 18.3.3. 18.4.1 reorders static/project blocks but does not remove this timing dependency.",
+      "minimalFix": "For resumable sessions, restore a durable resolved prompt snapshot or fail/retry rather than silently using a different fallback for the same session.",
+      "offlineRepro": "Inject a prompt/context producer that resolves quickly for the first process and after >5 seconds for the resumed process, leaving inputs otherwise unchanged; compare the two generated system arrays. Not executed."
+    },
+    {
+      "risk": "UNKNOWN — EXTENSION-DEPENDENT SURFACE, NOT A DEMONSTRATED INSTALLED-EXTENSION DEFECT",
+      "site": "pi-coding-agent/src/sdk.ts:4074-4078,4132-4145; pi-coding-agent/src/extensibility/extensions/runner.ts:1880-1934,1965-1991,2017-2068",
+      "triggerFrequency": "Only with an installed hook returning process-dependent context, request payload, or one-turn system override.",
+      "evidenceAndImpact": "`context` handlers can replace messages per request, `before_provider_request` can replace the final body, and `before_agent_start` can override the system prompt. The session journal alone cannot guarantee reproduction of these outputs; no specific extension was proved unstable here. The pre-provider persistence audit misses final-payload rewrites.",
+      "patchCoverageAndProvenance": "These hook surfaces exist in 18.3.3 too; no generic patch can certify arbitrary extension behavior.",
+      "minimalFix": "Inventory enabled hooks and compare captured final wire requests across processes; persist deterministic hook state or exempt explicitly volatile extensions from a strict invariant.",
+      "offlineRepro": "Enable a temporary extension that derives a context/system/body field from process identity, send a mock turn and cold-resume it, comparing final provider payloads. This is a fault-injection recipe, not evidence that the deployed extensions do so."
+    }
+  ],
+  "safeSites": [
+    {
+      "site": "pi-coding-agent/src/session/agent-session.ts:1522-1525,6366-6439; pi-coding-agent/src/session/session-manager.ts:3066-3097; pi-coding-agent/src/session/session-context.ts:390-410",
+      "assessment": "0076 eval-state reminder is structurally SAFE: constructor and committing rebuild persist the same custom message they append; changed state appends a newer reminder without moving the old index. Template explicitly says host-retained state. `patches/verify-eval-state-context-persist.ts:25-180` exercises in-memory reconstruction, but was read, not run here."
+    },
+    {
+      "site": "pi-coding-agent/src/session/turn-recovery.ts:2852-2863; pi-coding-agent/src/session/agent-session.ts:9990-10010; pi-coding-agent/src/session/todo-tracker.ts:289-291; pi-coding-agent/src/session/stream-guards.ts:179-200,230-252",
+      "assessment": "Retry, plan, todo and guard reminders examined here dual-write live and journal. The new committed-text stall reminder uses the dual-write retry helper; unlike the new length-stop reminder it is covered."
+    },
+    {
+      "site": "pi-coding-agent/src/session/session-tools.ts:608-663; pi-coding-agent/src/session/model-mentions.ts:22-36,90-111",
+      "assessment": "0083 restores the *published* `^`-agent tool description from a branch custom entry before the first rebuilt prompt and records changes on publication. Previously reported two-process `^` baseline was not rerun."
+    },
+    {
+      "site": "pi-coding-agent/src/session/prewalk.ts:342-353; pi-coding-agent/src/session/messages.ts:1110-1121",
+      "assessment": "Prewalk one-run nudge has a specific in-memory scrub; interrupted-thinking custom messages are deliberately suppressed by provider conversion, so neither was counted as a generic missing-message finding."
+    },
+    {
+      "site": "pi-ai/src/providers/openai-codex-responses.ts:554-571,652-750; pi-ai/src/providers/openai-shared.ts:484-485",
+      "assessment": "Codex `thread_id`, `window_id`, `turn_id` and turn-start time are process/turn-generated compatibility metadata (also present in 18.3.3); strict full-envelope bytes can differ even where transcript and stable cache key agree. No cache-key effect from these metadata fields was demonstrated, so they are not presented as a prompt-prefix defect."
+    }
+  ],
+  "coverageLimits": [
+    "No new candidate was dynamically exercised: this was explicitly a no-write static audit. Trigger frequencies are conditions inferred from source, not observed rates. No lint, typecheck, or test was run.",
+    "Previously reported plain/soft/snapcompact, remote-compaction and `^` baseline results were not rerun or represented as this audit's observations. Anthropic rolling message-level `cache_control` and Codex per-turn metadata must be distinguished from content-prefix mismatch.",
+    "Not exhaustive for installed third-party extensions, live MCP/tool roster changes, mutable external files, credentials/routing, URL/image services, and model-specific provider adapters. The context-persist audit operates before provider-only rewriting and final request hooks."
+  ],
+  "verification": [
+    {
+      "command": "git diff --stat && git diff -- .trellis/tasks/09-28-omp-1841-upgrade-plan",
+      "result": "Read-only: `git diff --stat` reported 28 files, +977/-75; task-directory diff had no output. No repository file changed by this review."
+    },
+    {
+      "command": "diff -u <18.3.3 rollback>/pi-coding-agent/src/session/session-maintenance.ts <Live>/pi-coding-agent/src/session/session-maintenance.ts",
+      "result": "Exit 1 (expected differing source): Live adds `lengthStopRetryTemplate` and the developer-only `this.#host.agent.appendMessage` block at 3217-3232; rollback has no corresponding block."
+    },
+    {
+      "command": "Focused read/grep comparisons of Live and rollback checkpoint, Vibe, date/cwd, timeout, IRC, extension hooks, Codex metadata, plus patch ledger and 0076 gate",
+      "result": "Found the cited paths in both versions except the new length-stop instruction. These are static inspections, not behavioral test passes."
+    }
+  ]
+}

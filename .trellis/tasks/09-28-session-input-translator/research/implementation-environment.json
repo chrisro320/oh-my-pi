@@ -1,0 +1,33 @@
+{
+  "version": "18.3.3",
+  "sandbox": "/tmp/omp-translator-1833-g_kexg33",
+  "home": "/tmp/omp-translator-1833-g_kexg33/home",
+  "global": "/tmp/omp-translator-1833-g_kexg33/home/.bun/install/global",
+  "nm": "/tmp/omp-translator-1833-g_kexg33/home/.bun/install/global/node_modules/@oh-my-pi",
+  "baseline_home": "/tmp/omp-translator-1833-g_kexg33/baseline-home",
+  "baseline_nm": "/tmp/omp-translator-1833-g_kexg33/baseline-home/.bun/install/global/node_modules/@oh-my-pi",
+  "environment": {
+    "PATH": "/home/chris/.bun/bin:/home/chris/.local/bin:/home/chris/bin:/home/chris/.minimax/bin:/home/chris/.minimax-code/bin:/home/chris/.grok/bin:/home/chris/.bun/bin:/home/chris/.local/bin:/home/chris/.local/bin:/home/chris/.config/orca/linux-orca-cli-shim:/home/chris/.qoder-cn/entry:/home/chris/.bun/bin:/home/chris/.local/bin:/home/chris/bin:/home/chris/.grok/bin:/home/chris/.nvm/versions/node/v24.15.0/bin:/home/chris/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/chris/.dotnet/tools:/home/chris/.volta/bin:/home/chris/.asdf/shims:/home/chris/.fnm/aliases/default/bin:/home/chris/.local/share/mise/shims:/home/chris/.local/share/pnpm:/home/chris/.yarn/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/home/linuxbrew/.linuxbrew/bin:/nix/var/nix/profiles/default/bin:/home/chris/.nix-profile/bin:/home/chris/.opencode/bin:/home/chris/.vite-plus/bin",
+    "HOME": "/tmp/omp-translator-1833-g_kexg33/home",
+    "XDG_CONFIG_HOME": "/tmp/omp-translator-1833-g_kexg33/home/.config",
+    "XDG_DATA_HOME": "/tmp/omp-translator-1833-g_kexg33/home/.local/share",
+    "XDG_CACHE_HOME": "/tmp/omp-translator-1833-g_kexg33/home/.cache",
+    "BUN_INSTALL_CACHE_DIR": "/tmp/omp-translator-1833-g_kexg33/bun-cache",
+    "TMPDIR": "/tmp/omp-translator-1833-g_kexg33/tmp",
+    "CLAUDE_CONFIG_DIR": "/tmp/omp-translator-1833-g_kexg33/home/.claude",
+    "OMP_PATCH_OFFLINE_VERIFY": "1",
+    "OMP_PATCH_VERSION": "18.3.3",
+    "TERM": "xterm-256color",
+    "LANG": "C.UTF-8"
+  },
+  "archive_sha256": {
+    "pi-coding-agent": "da7b8e1a5dca68198c4c5e9ef2cb1f30878e79986bbd940e907490ec178842f2",
+    "pi-agent-core": "471316c8e4312729744fc4affba970fdca50a1c5d87664897020242a2c60c6a3",
+    "pi-ai": "3f58e01ecaa8f9492ce5101b9e845f550bd1535246b77439e8a73b19a2c25a8d",
+    "pi-catalog": "66ffad0cf46463c6ffce2433d23e11548503f402124d046dc040bf5b383cb987",
+    "snapcompact": "6b6fb88232d316f8494c88bb5f554f50a33f8e15f36760bc32174c1b7ab9b003",
+    "pi-tui": "b802f7795378fbde4fe383d02ddec5732f86099a375026d49f1da36dc2c1dcb9"
+  },
+  "baseline_patch_count": 47,
+  "session_context_id": "omp-translator-21ad0039cfbd484d82fbfcbd00e9021b"
+}

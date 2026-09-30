@@ -542,3 +542,56 @@ Run `OMP_PATCH_VERIFY_NM=<isolated-patched-root> bun patches/verify-main-cache-h
 
 ### 7. Wrong vs Correct
 Wrong: omit auxiliary usage from `getUsageStatistics()`, scan every session message per redraw, or hide the gallery error with a missing-method fallback. Correct: keep an O(1) primary-only counter alongside the unchanged aggregate index and pass its rate through a required typed getter.
+
+## Scenario: Bounded model metadata in the resume picker (18.3.3 / 0050)
+
+### 1. Scope / Trigger
+`omp -r` lists long sessions whose last `model_change` may lie between the 4 KB header and 32 KB tail windows. The initial default is not evidence of the last-used model.
+
+### 2. Signatures
+`listSessions(sessionDir, storage): Promise<SessionInfo[]>` exposes `SessionInfo.lastModel?: string`; `scanSessionFile()` derives it from `storage.readTextSlices(file, 4096, 32768)`.
+
+### 3. Contracts
+Use the visible tail role transition when present; otherwise use the newest tail assistant's `provider/model` (provider and model are separate fields); only then use the prefix default. With neither signal, leave `lastModel` unset. The assistant path shows the last *served* model, not a guarantee about an unseen later switch or the model resume would restore. Do not load entire multi-megabyte sessions for the picker.
+
+### 4. Validation & Error Matrix
+Tail transition → role-resolved model, including fallback-to-default; no transition but tail assistant → assistant `provider/model`; neither tail signal but prefix default → default; no evidence → absent; absent provider in an old assistant record → preserve its model identifier.
+
+### 5. Good / Base / Bad Cases
+Good: a switch in the middle of a long file with an assistant at the tail displays the new model. Base: short sessions still show their role transition. Bad: checking the prefix default before the tail assistant silently labels switched sessions with their initial model.
+
+### 6. Tests Required
+`bun patches/verify-session-history-preview.ts` must fail before the 18.3.3 fix on a private JSONL fixture with its switch between both bounded windows, and pass after; assert the provider-qualified name. Also pin a fallback transition in the tail with its default only in the prefix: the fallback assistant must not override that default. Launch `omp -r` and inspect the list without resuming a session. Machine-check at delivery and review: `grep -nE 'roleModels.get\(resolvedRole\) \?\? \(!newestRole|mid-file-switch|fallback-after-gap|18.3.3 模型預覽修正' patches/.18.3.3-candidates/0050-omp-session-history-preview-v18.3.3-candidate.patch patches/verify-session-history-preview.ts patches/PATCHES.md`.
+
+### 7. Wrong vs Correct
+Wrong: prefer the prefix default whenever a model transition has fallen outside the tail window. Correct: prefer the tail assistant's provider-qualified last-served model and reserve the prefix as the final fallback.
+
+## Scenario: Gate inputs come from the real producer (18.4.1)
+
+### 1. Scope / Trigger
+A gate whose fixture hand-supplies the value a production module would compute (a refresh flag, a persisted shape, an options object) keeps passing after the producer changes. 18.4.1 removed the flag 0074's audit keyed on, and the gate stayed green because it set that flag itself.
+
+### 2. Signatures
+`patches/verify-anthropic-request-audit.ts` arms the real `CacheWarmer` from `<AGENT_ROOT>/src/session/cache-warmer.ts` with a stub stream dependency, captures the options it passes, and feeds exactly that object to `streamAnthropic`. `patches/verify-kitty-conversion-finalization.ts` makes `requestRender` throw and listens on `process.on("unhandledRejection")`. `patches/verify-turn-recovery-reminder-persist.ts` GATE 3/4 drives a real `AgentSession` with a scripted mock stall.
+
+### 3. Contracts
+- Produce gate inputs with the real producer module from the selected root whenever it exists; a version that lacks the producer takes a version branch, and a version that should have it fails closed if it is missing.
+- Assert on the provider-facing bytes the change is about. A 0077/0043 assertion written against the rebuilt raw context did not discriminate the `requestControls` fault because the text was still in the context; it had to assert on the converted wire.
+- Async UI chains need a throwing-callback negative control: a `.finally(repaint)` whose promise is discarded with `void` turns a repaint fault into an unhandled rejection.
+- Assets or modules that only exist on one version are loaded inside that version's branch; loading them at module top level breaks the older plan's suite (ENOENT on 18.3.3).
+
+### 4. Validation & Error Matrix
+| Fixture shape | Verdict |
+|---|---|
+| Gate supplies the producer's output by hand | Not a gate for the producer; rewrite with the real module |
+| Negative control passes against the unfixed candidate | Assertion does not discriminate; move it to the observable that changed |
+| Version-only asset read before the version check | Old-plan regression |
+
+### 5. Good / Base / Bad Cases
+Good: the audit gate fails with `the real warmer's one-token replay must be classified as a cache refresh` on the old 0074 and passes after. Base: a producer absent on older versions leaves their previous assertions untouched. Bad: a green gate that asserts a flag the fixture set itself.
+
+### 6. Tests Required
+For each new assertion show the failing output on the unfixed candidate (driver `--before NNNN` or a targeted fault variant), then the passing output; run the shared gate on every supported plan tree.
+
+### 7. Wrong vs Correct
+Wrong: `audit({ refresh: true })` in the fixture. Correct: `new CacheWarmer({ stream: stub, ... })`, capture the replay options, and pass them through the real provider entry point.

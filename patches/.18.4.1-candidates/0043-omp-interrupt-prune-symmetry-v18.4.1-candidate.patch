@@ -1,0 +1,266 @@
+--- a/src/session/messages.ts
++++ b/src/session/messages.ts
+@@ -6,7 +6,6 @@
+  */
+ import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+ import {
+-	isUserInterruptAbort,
+ 	isCustomMessageContent,
+ 	type BashExecutionMessage,
+ 	type PythonExecutionMessage,
+@@ -432,6 +431,34 @@
+ 	return next !== undefined && next.role === "custom" && next.customType === INTERRUPTED_THINKING_MESSAGE_TYPE;
+ }
+ 
++/**
++ * Distinctive sentence of `prompts/system/stream-stall-continue.md`, the
++ * developer reminder `TurnRecovery.handleCommittedTextStreamStall` appends when
++ * a transport stall killed a turn whose text had already rendered.
++ */
++export const STREAM_STALL_CONTINUE_REMINDER_TEXT = "The provider connection dropped mid-response:";
++
++/**
++ * True when the assistant turn at `messages[index]` was kept by the
++ * committed-text stall continuation — identified by its continuation reminder,
++ * which is the durable record of that decision (it is written to the session
++ * file), so the live provider call and a rebuild from disk agree. Both paths
++ * then retain the already-rendered partial text the model is told to continue.
++ */
++export function followedByStreamStallContinueReminder(messages: AgentMessage[], index: number): boolean {
++	const next = messages[index + 1];
++	if (next === undefined || next.role !== "developer") return false;
++	const content = next.content;
++	const text =
++		typeof content === "string"
++			? content
++			: content
++					.filter(block => block.type === "text")
++					.map(block => block.text)
++					.join("\n");
++	return text.includes(STREAM_STALL_CONTINUE_REMINDER_TEXT);
++}
++
+ /** Drop an incomplete trailing thinking run from an interrupted assistant in the LLM view. */
+ function stripDemotedThinkingForLlm(message: AssistantMessage): AssistantMessage {
+ 	const demoted = demoteInterruptedThinking(message);
+@@ -963,6 +990,7 @@
+  */
+ interface ConvertMemoEntry {
+ 	interruptedNext: boolean;
++	stallContinued: boolean;
+ 	fragment: Message[];
+ }
+ const convertCache = new WeakMap<AgentMessage, ConvertMemoEntry>();
+@@ -988,6 +1016,7 @@
+ 	output: Message[];
+ 	tail: AgentMessage | undefined;
+ 	prefixOutputLen: number;
++	prunedToolCallIds: Set<string> | undefined;
+ }
+ 
+ let convertGeneration = 0;
+@@ -1004,8 +1033,9 @@
+ });
+ 
+ /** Convert one message to its LLM fragment. `interruptedNext` is true only for an
+- *  assistant turn immediately followed by its interrupted-thinking marker. */
+-function convertOne(m: AgentMessage, interruptedNext: boolean): Message[] {
++ *  assistant turn immediately followed by its interrupted-thinking marker;
++ *  `stallContinued` only for one followed by a committed-text stall reminder. */
++function convertOne(m: AgentMessage, interruptedNext: boolean, stallContinued: boolean): Message[] {
+ 	switch (m.role) {
+ 		case "bashExecution":
+ 			if (m.excludeFromContext) {
+@@ -1072,6 +1102,12 @@
+ 		}
+ 		case "custom": {
+ 			if (!isCustomMessageContent(m.content)) return [];
++			// Process-local marker: minted in memory on abort and never written to
++			// the session JSONL. Sending it would make the wire prefix depend on
++			// which process rendered it -- the live turn carries the note, a resumed
++			// turn rebuilt from disk does not -- voiding the implicit cache from that
++			// index on.
++			if (m.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) return [];
+ 			if (isSteeringUserMessage(m)) {
+ 				const converted = convertMessageToLlm(wrapSteeringUserMessage(m));
+ 				return converted ? [converted] : [];
+@@ -1099,16 +1135,43 @@
+ 			return converted ? [converted] : [];
+ 		}
+ 		case "assistant": {
++			if (m.stopReason === "aborted" || m.stopReason === "error") {
++				// A committed-text stall continuation is the first exception: the transport
++				// died after its text had rendered, `handleCommittedTextStreamStall` kept the
++				// turn and asked the model to continue where it stopped, and its continuation
++				// reminder immediately follows. Keep the committed text AND any recorded
++				// request controls; dropping either hides the text the model is told to
++				// continue, or forks the live wire against the rebuilt one.
++				if (stallContinued) {
++					// `strippedToolCalls` is a TUI-only marker written by the transcript
++					// branch of `buildSessionContext`. It must never ride a provider message.
++					const continued: AssistantMessage & { strippedToolCalls?: number } = { ...m };
++					delete continued.strippedToolCalls;
++					const converted = convertMessageToLlm(canonicalizeXdToolCallNames(continued));
++					return converted ? [converted] : [];
++				}
++				// A recorded request-controls carrier is the next exception: later Anthropic
++				// requests replay its `tool_removal` / `tool_addition` off the top-level tool
++				// list, so the turn survives as a control-only message with the interrupted
++				// payload filtered out.
++				if (m.requestControls !== undefined) {
++					const carrier: AssistantMessage & { strippedToolCalls?: number } = { ...m, content: [] };
++					delete carrier.strippedToolCalls;
++					const converted = convertMessageToLlm(canonicalizeXdToolCallNames(carrier));
++					return converted ? [converted] : [];
++				}
++				// Otherwise an interrupted/failed turn is a transcript event, not replayable
++				// history. `buildSessionContext` prunes it on the rebuild path, but the live
++				// path feeds agent state straight into `convertToLlm`
++				// (`agent-loop.prepareProviderCall`: `messages = context.messages`), so it must
++				// be pruned here too -- otherwise the two paths disagree at every interrupt
++				// point and the implicit cache dies from that index on.
++				return [];
++			}
+ 			// Persisted/displayed messages retain interrupted thinking. Signed or
+ 			// encrypted blocks replay natively; incomplete unsigned runs are
+ 			// stripped whether or not they were long enough for a continuity note.
+-			const userInterrupted = m.stopReason === "aborted" && isUserInterruptAbort(m);
+-			const source = interruptedNext || userInterrupted ? stripDemotedThinkingForLlm(m) : m;
+-			// An empty interrupted response still carries the controls its request
+-			// sent (e.g. an Anthropic `tool_removal`); later requests replay them from it.
+-			if (userInterrupted && !interruptedNext && source.content.length === 0 && m.requestControls === undefined) {
+-				return [];
+-			}
++			const source = interruptedNext ? stripDemotedThinkingForLlm(m) : m;
+ 			const converted = convertMessageToLlm(canonicalizeXdToolCallNames(source));
+ 			return converted ? [converted] : [];
+ 		}
+@@ -1137,12 +1200,14 @@
+ 
+ /** Cached per-message conversion. Reuses the stored fragment while identity and
+  *  `interruptedNext` neighbor state hold; recomputes on a neighbor flip. */
+-function convertOneCached(m: AgentMessage, interruptedNext: boolean): Message[] {
++function convertOneCached(m: AgentMessage, interruptedNext: boolean, stallContinued: boolean): Message[] {
+ 	const cached = convertCache.get(m);
+-	if (cached !== undefined && cached.interruptedNext === interruptedNext) return cached.fragment;
+-	const fragment = convertOne(m, interruptedNext);
++	if (cached !== undefined && cached.interruptedNext === interruptedNext && cached.stallContinued === stallContinued) {
++		return cached.fragment;
++	}
++	const fragment = convertOne(m, interruptedNext, stallContinued);
+ 	for (const message of fragment) copyPerCallContextMessage(message, m);
+-	convertCache.set(m, { interruptedNext, fragment });
++	convertCache.set(m, { interruptedNext, stallContinued, fragment });
+ 	return fragment;
+ }
+ 
+@@ -1183,6 +1248,7 @@
+ 	// array while swapping earlier identities, forcing a full rebuild.
+ 	let out: Message[];
+ 	let start: number;
++	let prunedToolCallIds: Set<string> | undefined;
+ 	if (
+ 		sameGeneration &&
+ 		len > memo.length &&
+@@ -1192,6 +1258,7 @@
+ 	) {
+ 		out = memo.output.slice(0, memo.prefixOutputLen);
+ 		start = memo.length - 1;
++		prunedToolCallIds = memo.prunedToolCallIds;
+ 	} else {
+ 		out = [];
+ 		start = 0;
+@@ -1203,8 +1270,16 @@
+ 	for (let i = start; i < len; i++) {
+ 		if (i === len - 1) prefixOutputLen = out.length;
+ 		const m = messages[i];
++		if (m.role === "assistant" && (m.stopReason === "aborted" || m.stopReason === "error")) {
++			// Keep synthetic results paired with their discarded call across appends.
++			for (const block of m.content) {
++				if (block.type === "toolCall") (prunedToolCallIds ??= new Set()).add(block.id);
++			}
++		}
++		if (m.role === "toolResult" && prunedToolCallIds?.has(m.toolCallId)) continue;
+ 		const interruptedNext = m.role === "assistant" && followedByInterruptedThinking(messages, i);
+-		const fragment = convertOneCached(m, interruptedNext);
++		const stallContinued = m.role === "assistant" && followedByStreamStallContinueReminder(messages, i);
++		const fragment = convertOneCached(m, interruptedNext, stallContinued);
+ 		for (const msg of fragment) out.push(msg);
+ 	}
+ 	if (len === 0) prefixOutputLen = 0;
+@@ -1217,6 +1292,7 @@
+ 		output: out,
+ 		tail,
+ 		prefixOutputLen,
++		prunedToolCallIds,
+ 	});
+ 	return out;
+ }
+--- a/src/session/session-context.ts
++++ b/src/session/session-context.ts
+@@ -12,7 +12,7 @@
+ 	createBranchSummaryMessage,
+ 	createCompactionSummaryMessage,
+ 	createCustomMessage,
+-	INTERRUPTED_THINKING_MESSAGE_TYPE,
++	followedByStreamStallContinueReminder,
+ 	isEmptyErrorTurn,
+ 	PREWALK_PLAN_MESSAGE_TYPE,
+ 	VIBE_MODE_CONTEXT_MESSAGE_TYPE,
+@@ -706,16 +706,30 @@
+ 	// later user message follows through non-context entries (`session_exit`,
+ 	// labels, etc.); otherwise a resumed session replays a dead partial turn
+ 	// and can spend minutes reprocessing old context before the new prompt.
+-	// Keep the interrupted-thinking continuity pair: convertToLlm strips the
+-	// unsafe trailing thinking from that assistant and sends the hidden
+-	// continuity note instead.
++	// The interrupted-thinking continuity marker is never persisted to the
++	// session JSONL, so keeping an abort alive because that marker follows makes
++	// the wire history a function of process-local state: the live process keeps
++	// the turn, a resumed process rebuilding from disk drops it, and the implicit
++	// prompt cache dies at every interrupt point. Prune unconditionally so both
++	// paths render the same sequence; `convertOne` prunes the live path and the
++	// marker itself.
++	//
++	// The one turn that survives on both paths is a recorded request-controls
++	// carrier: later Anthropic requests replay its `tool_removal`/`tool_addition`
++	// off the declared tool list, so dropping it here would fork the wire against
++	// the live process. It is left in place -- `convertOne` empties its interrupted
++	// payload and drops the paired synthetic results -- so the pre-conversion
++	// sequences of the live and rebuild paths are identical as well.
+ 	if (!options?.transcript) {
+ 		for (let i = messages.length - 1; i >= 0; i--) {
+ 			const message = messages[i];
+ 			if (message?.role !== "assistant") continue;
+ 			if (message.stopReason !== "aborted" && message.stopReason !== "error") continue;
+-			const next = messages[i + 1];
+-			if (next?.role === "custom" && next.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) continue;
++			if (message.requestControls !== undefined) continue;
++			// A committed-text stall turn is kept: its continuation reminder follows,
++			// the text already rendered, and `convertOne` retains it for the provider.
++			// Pruning it here would drop the rendered text on resume only.
++			if (followedByStreamStallContinueReminder(messages, i)) continue;
+ 			// A failed turn that emitted tool calls persists paired synthetic
+ 			// tool_result placeholders after it. Dropping only the assistant would
+ 			// strand those results with no preceding tool_use — a shape providers
+--- a/dist/types/session/messages.d.ts
++++ b/dist/types/session/messages.d.ts
+@@ -65,6 +65,18 @@
+  * empty-thinking blocks, and trailing empty text placeholders.
+  */
+ export declare function demoteInterruptedThinking(message: Pick<AssistantMessage, "content">): DemotedInterruptedThinking | undefined;
++/**
++ * Distinctive sentence of `prompts/system/stream-stall-continue.md`, the reminder
++ * `TurnRecovery.handleCommittedTextStreamStall` appends when a transport stall
++ * killed a turn whose text had already rendered.
++ */
++export declare const STREAM_STALL_CONTINUE_REMINDER_TEXT = "The provider connection dropped mid-response:";
++/**
++ * True when the assistant turn at `messages[index]` was kept by the committed-text
++ * stall continuation — identified by its continuation reminder, which is the
++ * durable record of that decision — so both provider paths retain its text.
++ */
++export declare function followedByStreamStallContinueReminder(messages: AgentMessage[], index: number): boolean;
+ /** A provider-rejection turn carrying nothing but the error flag: stopReason
+  *  "error" with no text, thinking, or tool calls — e.g. a request the provider
+  *  rejected before any output (an oversized 413 payload). Persisting it writes an

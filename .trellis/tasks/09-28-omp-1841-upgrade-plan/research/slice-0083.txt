@@ -1,0 +1,77 @@
+{
+  "layer": "0083",
+  "class": "new layer, B-like (semantic fix forced by the 18.3.4+ frozen-surface behavior; no upstream takeover, no retirement candidate)",
+  "design": {
+    "problem": "18.3.4+ only absorbs `^` model tags into the task description at a base-prompt rebuild; a fresh process seeded that surface empty, so a session whose live surface had absorbed a tag shipped a different tools block (and Codex body head) after resume, on the first and every later request.",
+    "fix": [
+      "session-tools.ts:228-283 (new, module-local): `ADVERTISED_SESSION_AGENTS_ENTRY_TYPE = \"advertised_session_agents\"` plus `readAdvertisedSessionAgents()` (newest branch entry wins, malformed payloads skipped) and `advertisedSessionAgentSignature()` (skip redundant writes).",
+      "session-tools.ts:442: construction now calls `#restorePromptSurface()` instead of `#derivePromptSurface()`; it seeds `#promptSurface.sessionAgents` from the persisted list (rebuilt through `getBundledAgent(\"task\")` with the persisted name/description/tools/blocking/model) when one exists, else keeps the live list. This runs before the first base prompt/tools are built.",
+      "session-tools.ts:610-663 (new): `#restorePromptSurface()`, `#publishPromptSurface(surface)` and `#persistAdvertisedSessionAgents(agents)`; the persisted write is a non-model-facing custom journal entry (appendCustomEntry) written only when the advertised list changes.",
+      "session-tools.ts:1421 and :2109: the two former `#promptSurface = ...` publish sites now route through `#publishPromptSurface`, so every base-prompt rebuild (implicit tool-registry path 1302-equivalent and `#prepareBaseSystemPrompt` commit) persists the surface it advertises."
+    ],
+    "no_dts_change": "Only private (#) members and module-local helpers were added; no exported member changed. Verified `dist/types/session/session-tools.d.ts` still declares the same surface (`sessionAgents(): readonly AgentDefinition[]`, `get advertisedSessionAgents(): readonly AgentDefinition[]`) and contains none of the new names."
+  },
+  "artifacts": {
+    "patches/.18.4.1-candidates/0083-omp-model-mention-surface-resume-v18.4.1-candidate.patch": "8064 bytes / 183 lines / 1 file (src/session/session-tools.ts) / 9 hunks; ASCII-only added lines (the single non-ASCII byte sequence in the patch is an upstream context line: the em dash in the pre-existing 'rendered with - never' comment)",
+    "patches/verify-model-mention-surface-resume.ts": "13636 bytes; cross-process behaviour gate (2 fresh bun processes per scenario + control), version-pinned to 18.4.1 via AGENT_ROOT/package.json, in-tree child probe written and removed by the gate"
+  },
+  "commands": [
+    "python3 research/mkcand-1841.py snapshot --nm $NM --layer 0083 --extra src/session/session-tools.ts",
+    "（edit $NM/pi-coding-agent/src/session/session-tools.ts）",
+    "python3 research/mkcand-1841.py emit --nm $NM --layer 0083  → `wrote patches/.18.4.1-candidates/0083-...patch (183 lines)` / `APPLIED 0083` / `EMIT OK`",
+    "python3 research/replay-1841.py --nm $NM  → `APPLIED 0083` `SUMMARY applied=49 failed=0`；`find $NM -name '*.rej' -o -name '*.orig'` → 空",
+    "bun patches/verify-model-mention-surface-resume.ts  → rc=0",
+    "python3 research/run-tag-prefix-1841.py --sandbox TagProbe --scenario tag --scenario control --scenario tag-rebuild --scenario tag-soft --results tag-prefix-results-1841.json  → rc=0"
+  ],
+  "raw_gate_lines": {
+    "control (unmutated fixed tree)": "PASS model-mention surface resume: 2 resumed requests carry the advertised surface (7268 tool bytes, codex head 16341 bytes), control unchanged   [rc=0]",
+    "sensitivity V1 patch absent (replay --before 0083)": "gate_rc=1  AssertionError: a base-prompt rebuild must record the advertised model-agent surface on the branch",
+    "sensitivity V2 behaviour mutated in-tree (restore ignores the persisted list; write path intact)": "gate_rc=1  AssertionError: resumed-1: the advertised model agent must survive a fresh-process resume, not only a rebuild in the same process",
+    "sensitivity V3 fail closed (OMP_PATCH_VERIFY_AGENT_ROOT=/nonexistent/tree)": "v3_gate_rc=1  error: advertised-surface resume gate cannot read /nonexistent/tree/package.json (ENOENT: no such file or directory, open '/nonexistent/tree/package.json')"
+  },
+  "post_fix_per_request_table_1841": {
+    "tag": {
+      "live": "t1 1msg desc_m1=False | t2 4msg advertised=[] | t3 6msg advertised=[]",
+      "vs resumed-1": "prefix_equal=True system=True tools=True taskdesc=True(m1 False/False) codexhead=True",
+      "vs resumed-2": "prefix_equal=True 全欄位相等",
+      "vs resumed-rebuilt": "prefix_equal=False taskdesc=False(m1 False/True) — 上游 rebuild 吸收語意，0083 前後一致（非 resume 掉前綴）"
+    },
+    "control": {
+      "vs resumed-1 / resumed-2 / resumed-rebuilt": "prefix_equal=True（全相等）"
+    },
+    "tag-rebuild": {
+      "live": "t1 1msg | t2 4msg advertised=[] | t3 6msg advertised=[] | t4-rebuilt 8msg advertised=['m1'] desc_m1=True",
+      "vs resumed-1": "prefix_equal=True system=True tools=True taskdesc=True(m1 True/True) codexhead=True  ← 修復前為 False/False/False",
+      "vs resumed-2": "prefix_equal=True（同 resumed-1）",
+      "vs resumed-rebuilt": "prefix_equal=True（同 resumed-1）"
+    },
+    "tag-soft": {
+      "live": "t5-compacted 4msg advertised=[] desc_m1=False（soft compaction 不吸收）",
+      "vs resumed-1 / resumed-2": "prefix_equal=True 全相等",
+      "vs resumed-rebuilt": "prefix_equal=False（同 tag，上游 rebuild 吸收語意）"
+    }
+  },
+  "durability_round_trip": {
+    "process_A_live_no_rebuild": "session 檔 13 entries, surface entries=0, model_mention=1；t1/t2/t3 advertised=[] desc_m1=False（probe 重跑時以獨立 lab 隔離驗證）",
+    "process_B_resume_then_rebuild": "resumed-1/2 desc_m1=False → rebuild 後 resumed-rebuilt advertised=['m1']，寫入 1 筆 surface entry（且只寫一次）",
+    "process_C_fresh_resume": "resumed-1/2/3 全部 advertised=['m1'] desc_m1=True；C 第一個 request 的 tools 與 codexHead 與 B 最後一個 request 逐位元相同（B_last tools == C_first tools: True；codexHead: True）"
+  },
+  "switch_session_after_fix": "agent-session.ts:10689 switchSession → :10842 `#modelMentions.syncFromBranch()` → :10943 `refreshBaseSystemPrompt()` → session-tools.ts:2109 `#publishPromptSurface`（現在同時 persist）。所以程序內切換/`/sessions` 會立即吸收 tag 並記錄該 surface，之後的 fresh-process resume 還原同一個清單 → 兩條 resume 路徑一致；此一致性不需額外程式碼（一行 reuse）。[程序內 switch 本身為 code-evidenced；publish→persist 的行為已由 probe 的 rebuild 寫入 1 筆 entry 實測]",
+  "files_changed": [
+    "patches/.18.4.1-candidates/0083-omp-model-mention-surface-resume-v18.4.1-candidate.patch（owned，由 mkcand 產生，未手改 hunk）",
+    "patches/verify-model-mention-surface-resume.ts（owned，新增）",
+    ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/probe-tag-prefix-1841.ts（更新）",
+    ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-tag-prefix-1841.py（更新）",
+    ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/tag-prefix-results-1841.json（修後結果，含 residual_inequality_note）",
+    ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/tag-prefix-results-1833.json（18.3.3 對照，前一輪）",
+    "（僅沙箱內）/home/chris/.cache/omp-1841-upgrade/TagProbe/.../src/session/session-tools.ts，最終狀態由 replay 重建；未觸碰 apply.sh / PATCHES.md / 其他 candidate / 其他 verifier"
+  ],
+  "upstream_overlap": "無 upstream takeover：18.4.1 只提供『rebuild 才吸收』的凍結機制（session-tools.ts:442/1302/1990 + task/index.ts:617-618），沒有持久化/還原 advertisedSessionAgents 的實作；18.3.3 走的是 live getSessionAgents（task/index.ts:618），因此本層是把 18.3.3 的 resume 行為以持久化 surface 的形式帶回 18.4.1。",
+  "open_risks": [
+    "還原時以 `getBundledAgent(\"task\")` 為底、覆蓋 name/description/tools/blocking/model；persisted 的 tools/blocking 原樣帶回，所以描述位元與 live 一致，但若未來 bundle 改變 task agent 的其他欄位（systemPrompt/source，描述未使用）不會反映 —— 這是刻意的快照語意。",
+    "surface 是『已 commit 快照』：若 rewind 只丟掉 model_mention entry 而保留 surface entry，resume 後仍會廣告該 agent（程序內在下次 rebuild 前有同樣性質）；非新行為，但可持久化一個已不在 tag 清單中的 agent。",
+    "handoff 型 compaction 若經 newSession/resetSessionContext 建立新 session（agent-session.ts:9241/5701 → refresh），會 publish+persist（一致）；未實測，標為 [INFERENCE]。",
+    "gate 綁定 18.4.1 並在版本不符時 fail（不 SKIP）；它在 AGENT_ROOT 內寫入並刪除 probe 檔（需可寫的 install 目錄）並使用私有 tmp HOME。",
+    "殘餘 `vs resumed-rebuilt` 不等式（tag / tag-soft）為上游 rebuild-absorbs 語意，0083 未改變；若要連這種情況也保持一致，需另立需求（不在本層範圍）。"
+  ]
+}

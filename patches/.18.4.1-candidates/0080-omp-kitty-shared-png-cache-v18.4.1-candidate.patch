@@ -1,0 +1,503 @@
+--- a/src/chat/assistant-message.ts
++++ b/src/chat/assistant-message.ts
+@@ -5,14 +5,14 @@
+ import { Markdown, type MarkdownTheme } from "../components/markdown";
+ import { Spacer } from "../components/spacer";
+ import { Text } from "../components/text";
+-import { formatNumber } from "@oh-my-pi/pi-utils";
++import { formatNumber, logger } from "@oh-my-pi/pi-utils";
+ import chalk from "@oh-my-pi/pi-utils/chalk";
+ import { LRUCache } from "@oh-my-pi/pi-utils/lru";
+ import type { AssistantThinkingRenderer } from "./extension-types";
+ import { ensureThemeSync, getMarkdownTheme, theme } from "../theme";
+ import { EMPTY_LINK_TARGETS, resolveImageOptions } from "../render/render-utils";
+ import { WidthAwareText } from "../render";
+-import { cachedPngConversion, convertImageToPngShared, imagePayloadKey } from "./image-loading";
++import { completedPng, ensurePng, imageFingerprint, pngFailureReason } from "./image-loading";
+ import { canonicalizeMessage, formatThinkingForDisplay, hasDisplayableThinking } from "./thinking-display";
+ import { resolveAssistantErrorPresentation } from "./transcript-render-helpers";
+ import { type CacheInvalidation, CacheInvalidationMarkerComponent } from "./cache-invalidation-marker";
+@@ -187,10 +187,10 @@
+ 	#emergencyText?: Markdown;
+ 	#toolImagesByCallId = new Map<string, ImageContent[]>();
+ 	/**
+-	 * Payload keys ({@link imagePayloadKey}) whose Kitty PNG conversion this
+-	 * component already awaits, so a re-delivered image neither re-encodes nor
+-	 * schedules a second {@link updateContent} cascade. The conversions
+-	 * themselves are shared process-wide by {@link convertImageToPngShared}.
++	 * Payload fingerprints ({@link imageFingerprint}) whose Kitty PNG conversion
++	 * this component already awaits, so a re-delivered image neither re-encodes
++	 * nor schedules a second {@link updateContent} cascade. The conversions
++	 * themselves are shared process-wide by {@link ensurePng}.
+ 	 */
+ 	#kittyConversionsAwaited = new Set<string>();
+ 	/**
+@@ -198,6 +198,11 @@
+ 	 * invalidation) still finds them after the bounded shared cache evicts them.
+ 	 */
+ 	#kittyConverted = new Map<string, ImageContent>();
++	/**
++	 * Settled failures this component displays, kept with their sanitized reason so
++	 * a re-render after the shared slot is evicted still labels the image.
++	 */
++	#kittyConversionFailures = new Map<string, string>();
+ 	#showImages = true;
+ 	#showToolResultImages = true;
+ 	#transcriptBlockFinalized: boolean;
+@@ -857,39 +862,52 @@
+ 		if (TERMINAL.imageProtocol !== ImageProtocol.Kitty) return;
+ 		for (const { image } of entries) {
+ 			if (image.mimeType === "image/png") continue;
+-			const key = imagePayloadKey(image);
+-			if (this.#kittyConverted.has(key)) continue;
+-			const cached = cachedPngConversion(image);
++			const key = imageFingerprint(image);
++			if (this.#kittyConverted.has(key) || this.#kittyConversionFailures.has(key)) continue;
++			const cached = completedPng(key);
+ 			if (cached) {
+-				this.#kittyConverted.set(key, cached);
++				this.#publishKittyConversion(key, cached);
+ 				continue;
+ 			}
+ 			if (this.#kittyConversionsAwaited.has(key)) continue;
+ 			this.#kittyConversionsAwaited.add(key);
+-			convertImageToPngShared(image)
+-				.then(converted => {
+-					this.#kittyConverted.set(key, converted);
++			const conversion = ensurePng(image, key);
++			void conversion
++				.then(png => {
++					// A settled failure publishes its sanitized reason, so the label names the
++					// real decoder error even after the shared slot has been evicted.
++					this.#publishKittyConversion(key, png ? { png } : { png: null, reason: pngFailureReason(key, conversion) });
+ 					if (this.#lastMessage) {
+ 						this.updateContent(this.#lastMessage, { transient: this.#lastUpdateTransient });
+ 					}
+ 					this.#onImageUpdate?.();
+ 				})
+-				.catch(() => {
++				.finally(() => {
+ 					this.#kittyConversionsAwaited.delete(key);
++				})
++				.catch(error => {
++					// The chain is discarded, so a fault in the publish or repaint path must be
++					// logged instead of surfacing as an unhandled rejection that can kill the TUI.
++					logger.error("Assistant image slot completion failed", { err: error });
+ 				});
+ 		}
+ 	}
+ 
++	/** Record a settled conversion; a null PNG publishes its sanitized failure reason. */
++	#publishKittyConversion(key: string, result: { png: ImageContent | null; reason?: string }): void {
++		if (result.png) this.#kittyConverted.set(key, result.png);
++		else this.#kittyConversionFailures.set(key, result.reason ?? "unknown error");
++	}
++
+ 	#renderImageEntries(entries: Array<{ image: ImageContent; key: string }>, withLeadingSpacer: boolean): void {
+ 		if (!this.#showImages || entries.length === 0) return;
+ 		this.#convertImagesForKitty(entries);
+ 
+ 		if (withLeadingSpacer) this.#contentContainer.addChild(new Spacer(1));
+ 		for (const { image, key } of entries) {
+-			const displayImage =
+-				TERMINAL.imageProtocol === ImageProtocol.Kitty && image.mimeType !== "image/png"
+-					? this.#kittyConverted.get(imagePayloadKey(image))
+-					: image;
++			const kittyFingerprint =
++				TERMINAL.imageProtocol === ImageProtocol.Kitty && image.mimeType !== "image/png" ? imageFingerprint(image) : undefined;
++			const displayImage = kittyFingerprint === undefined ? image : this.#kittyConverted.get(kittyFingerprint);
+ 			if (TERMINAL.imageProtocol && displayImage) {
+ 				this.#contentContainer.addChild(
+ 					new Image(
+@@ -901,7 +919,12 @@
+ 				);
+ 				continue;
+ 			}
+-			this.#contentContainer.addChild(new Text(theme.fg("toolOutput", `[Image: ${image.mimeType}]`), 1, 0));
++			// A settled conversion failure names its decoder reason; without one the
++			// image simply has no graphics form yet and keeps its bare placeholder.
++			const reason = kittyFingerprint === undefined ? undefined : this.#kittyConversionFailures.get(kittyFingerprint);
++			const label =
++				reason === undefined ? `[Image: ${image.mimeType}]` : `[Image: ${image.mimeType} — PNG conversion failed: ${reason}]`;
++			this.#contentContainer.addChild(new Text(theme.fg("toolOutput", label), 1, 0));
+ 		}
+ 	}
+ 
+--- a/src/chat/image-loading.ts
++++ b/src/chat/image-loading.ts
+@@ -1,4 +1,5 @@
+ import type { ImageContent, Model } from "@oh-my-pi/pi-ai";
++import { LRUCache } from "@oh-my-pi/pi-utils/lru";
+ import { formatBytes, parseImageMetadata, SUPPORTED_IMAGE_MIME_TYPES } from "@oh-my-pi/pi-utils";
+ 
+ export const MAX_IMAGE_INPUT_BYTES = 20 * 1024 * 1024;
+@@ -110,85 +111,96 @@
+ 	return { ...image, data, mimeType: "image/png" };
+ }
+ 
+-/**
+- * Byte ceiling for {@link convertImageToPngShared}'s resident conversions.
+- * Converted PNGs are larger than the webp/jpeg they came from, so the cache is
+- * bounded and evicts least-recently-used entries rather than growing with the
+- * session's image history.
+- */
+-const PNG_CACHE_MAX_BYTES = 32 * 1024 * 1024;
+-
+-/** Least-recently-used first; {@link touchPngCache} re-inserts on hit. */
+-const pngCache = new Map<string, ImageContent>();
+-let pngCacheBytes = 0;
+-const pngConversionsInFlight = new Map<string, Promise<ImageContent>>();
+-
+-/** Cache lookup that also marks `key` as most recently used. */
+-function touchPngCache(key: string): ImageContent | undefined {
+-	const hit = pngCache.get(key);
+-	if (!hit) return undefined;
+-	pngCache.delete(key);
+-	pngCache.set(key, hit);
+-	return hit;
+-}
+-
+-/**
+- * Content-addressed identity of an image payload, stable across components and
+- * transcript rebuilds. Callers key their own per-image state by this instead of
+- * positional ids like `${toolCallId}:${index}`, which go stale when the images
+- * behind a position are replaced.
+- */
+-export function imagePayloadKey(image: ImageContent): string {
+-	return `${image.mimeType}:${image.data.length}:${Bun.hash(image.data)}`;
++/** A full-content key; including MIME keeps a mislabeled payload out of a valid image entry. */
++export function imageFingerprint(image: Pick<ImageContent, "data" | "mimeType">): string {
++	return new Bun.CryptoHasher("sha256").update(image.mimeType).update("\0").update(image.data).digest("hex");
++}
++
++/** A shared conversion slot: pending while `result` is still absent. */
++type PngConversion = {
++	promise: Promise<ImageContent | null>;
++	bytes: number;
++	result?: { png: ImageContent | null; reason?: string };
++};
++
++const KITTY_PNG_CACHE_BYTES = 32 * 1024 * 1024;
++/** Bounds distinct conversions so a run of tiny failure entries cannot grow the cache by count. */
++const KITTY_PNG_CACHE_ENTRIES = 256;
++/**
++ * Pending and settled conversions live in the same bounded entry, so a caller
++ * keeps the promise it first received while that entry is retained. A pending
++ * entry reserves its input bytes; once settled it weighs its output, and an
++ * output larger than the whole budget is skipped by the LRU.
++ */
++const convertedPng = new LRUCache<string, PngConversion>({
++	max: KITTY_PNG_CACHE_ENTRIES,
++	maxSize: KITTY_PNG_CACHE_BYTES,
++	sizeCalculation: entry => entry.bytes,
++});
++/**
++ * Sanitized reason of a failed conversion, keyed by its own promise: a
++ * subscriber that still holds the promise can always read the reason, even when
++ * the LRU slot was evicted before it settled. Weak keys keep this from retaining
++ * anything the callers have already dropped.
++ */
++const failureReasons = new WeakMap<Promise<ImageContent | null>, string>();
++
++/**
++ * Display-only PNG conversion shared process-wide and keyed by
++ * {@link imageFingerprint}: concurrent callers share one flight, later callers
++ * reuse the resident slot, and the provider's original ImageContent is never
++ * changed. An undecodable payload resolves `null` with its sanitized reason
++ * retained rather than rejecting, so a caller's repaint path and diagnostic
++ * label both stay meaningful.
++ */
++export function ensurePng(image: ImageContent, fingerprint = imageFingerprint(image)): Promise<ImageContent | null> {
++	if (image.mimeType === "image/png") return Promise.resolve(image);
++	const cached = convertedPng.get(fingerprint);
++	if (cached) return cached.promise;
++	const conversion = (async (): Promise<ImageContent | null> => {
++		// Settling may only rewrite the slot this flight still owns: an entry that was
++		// evicted, or replaced by a newer conversion, must not resurrect itself over it.
++		const settle = (png: ImageContent | null, reason?: string): void => {
++			if (convertedPng.peek(fingerprint)?.promise !== conversion) return;
++			const size = png ? png.data.length : (reason ?? "").length;
++			convertedPng.set(fingerprint, { promise: conversion, bytes: Math.max(1, size), result: { png, reason } });
++		};
++		let reason = "unknown error";
++		for (let attempt = 0; attempt < 2; attempt++) {
++			try {
++				const png = await convertImageToPng(image);
++				settle(png);
++				return png;
++			} catch (error) {
++				reason = error instanceof Error ? error.message : String(error);
++			}
++		}
++		reason = reason.replace(/[\x00-\x1f\x7f]/g, " ").slice(0, 160) || "unknown error";
++		// The reason is the entire payload of a failure, so keep it reachable through the
++		// promise even when the LRU slot was evicted while this conversion was running.
++		failureReasons.set(conversion, reason);
++		settle(null, reason);
++		return null;
++	})();
++	// Registering the running conversion is what dedupes concurrent callers and reserves its
++	// input bytes; the settled slot keeps handing back this very promise.
++	convertedPng.set(fingerprint, { promise: conversion, bytes: Math.max(1, image.data.length) });
++	return conversion;
+ }
+ 
+-/**
+- * The PNG conversion of `image` when one is still resident, else `undefined`.
+- * Synchronous so renderers can use an already-converted image on the spot
+- * instead of scheduling another async re-render.
+- */
+-export function cachedPngConversion(image: ImageContent): ImageContent | undefined {
+-	return touchPngCache(imagePayloadKey(image));
++/** Synchronous display snapshot for a settled entry; absent while it is still converting. */
++export function completedPng(fingerprint: string): PngConversion["result"] {
++	return convertedPng.get(fingerprint)?.result;
+ }
+ 
+ /**
+- * Converts `image` to PNG at most once per distinct payload: concurrent callers
+- * share one in-flight conversion and later callers hit {@link pngCache}.
+- * Kitty-graphics renderers use this because `convertImageToPng` is a full
+- * decode plus re-encode, and the same image is delivered repeatedly (read-result
+- * replay) and rebuilt from scratch on resume, rewind, and `/tree` navigation.
+- *
+- * Rejections are not cached — a payload that failed to decode is retried by the
+- * next caller, matching {@link convertImageToPng}'s contract.
++ * Read after {@link ensurePng} settles with null; pass the conversion promise to
++ * read that flight's own reason first, so an evicted slot cannot degrade the
++ * label to `unknown error`.
+  */
+-export function convertImageToPngShared(image: ImageContent): Promise<ImageContent> {
+-	const key = imagePayloadKey(image);
+-	const cached = touchPngCache(key);
+-	if (cached) return Promise.resolve(cached);
+-	const running = pngConversionsInFlight.get(key);
+-	if (running) return running;
+-	const conversion = convertImageToPng(image)
+-		.then(({ data }) => {
+-			pngConversionsInFlight.delete(key);
+-			// Only the payload is shared; caller-specific fields (`url`,
+-			// `providerFile`, `detail`) describe the source image, not this PNG.
+-			const converted: ImageContent = { type: "image", data, mimeType: "image/png" };
+-			pngCache.set(key, converted);
+-			pngCacheBytes += data.length;
+-			for (const [oldest, entry] of pngCache) {
+-				if (pngCacheBytes <= PNG_CACHE_MAX_BYTES) break;
+-				if (oldest === key) continue;
+-				pngCache.delete(oldest);
+-				pngCacheBytes -= entry.data.length;
+-			}
+-			return converted;
+-		})
+-		.catch(error => {
+-			pngConversionsInFlight.delete(key);
+-			throw error;
+-		});
+-	pngConversionsInFlight.set(key, conversion);
+-	return conversion;
++export function pngFailureReason(fingerprint: string, conversion?: Promise<ImageContent | null>): string {
++	const flightReason = conversion === undefined ? undefined : failureReasons.get(conversion);
++	return flightReason ?? convertedPng.get(fingerprint)?.result?.reason ?? "unknown error";
+ }
+ 
+ export async function ensureSupportedImageInput(image: ImageContent): Promise<ImageContent | null> {
+--- a/src/chat/tool-execution.ts
++++ b/src/chat/tool-execution.ts
+@@ -27,7 +27,7 @@
+ import { formatStatusIcon, replaceTabs, resolveImageOptions } from "../render/render-utils";
+ import type { XdevMountedState } from "../tools/xdev";
+ import { isFramedBlockComponent, markFramedBlockComponent, renderStatusLine, WidthAwareText } from "../render/index";
+-import { cachedPngConversion, convertImageToPngShared, imagePayloadKey } from "./image-loading";
++import { completedPng, ensurePng, imageFingerprint, pngFailureReason } from "./image-loading";
+ import { sanitizeWithOptionalSixelPassthrough } from "../render/sixel";
+ import { renderDiff } from "../chrome/diff";
+ import { type AnimationFrame, trimBlankEdges } from "../chrome/transcript-container";
+@@ -248,7 +248,7 @@
+ 	// #contentBox, everything else the generic #contentText fallback.
+ 	#usesContentBox = false;
+ 	#multiFileBoxes: (Box | Spacer)[] = []; // Extra boxes for multi-file edit results
+-	#imageComponents: Image[] = [];
++	#imageComponents: (Image | Text)[] = [];
+ 	#imageSpacers: Spacer[] = [];
+ 	readonly #instanceId = ++toolExecutionInstanceSeq;
+ 	#toolName: string;
+@@ -298,13 +298,17 @@
+ 	#editMode?: EditMode;
+ 	#editDiffPreview?: PerFileDiffPreview[];
+ 	#previewReady?: PromiseWithResolvers<void>;
+-	// Payload keys whose Kitty PNG conversion is already awaited; the converted
+-	// images themselves live in the process-wide cache behind
+-	// `convertImageToPngShared`, so rebuilt components reuse them.
++	// Payload fingerprints whose Kitty PNG conversion is already awaited; the
++	// converted images themselves live in the process-wide cache behind
++	// `ensurePng`, so rebuilt components reuse them.
+ 	#kittyConversionsAwaited = new Set<string>();
+ 	// Conversions this component displays, held so a later re-render still finds
+ 	// them after the bounded shared cache evicts them.
+ 	#kittyConverted = new Map<string, ImageContent>();
++	// Settled failures this component displays, kept with their sanitized reason
++	// so a repaint after the shared slot is evicted still labels the image instead
++	// of silently dropping it.
++	#kittyConversionFailures = new Map<string, string>();
+ 	// Spinner animation for partial task results
+ 	#spinnerFrame?: number;
+ 	#spinnerActive = false;
+@@ -557,11 +561,11 @@
+ 			// Skip if already PNG or already converted anywhere in this process
+ 			if (img.mimeType === "image/png") continue;
+ 			const image: ImageContent = { type: "image", data: img.data, mimeType: img.mimeType };
+-			const key = imagePayloadKey(image);
+-			if (this.#kittyConverted.has(key)) continue;
+-			const cached = cachedPngConversion(image);
++			const key = imageFingerprint(image);
++			if (this.#kittyConverted.has(key) || this.#kittyConversionFailures.has(key)) continue;
++			const cached = completedPng(key);
+ 			if (cached) {
+-				this.#kittyConverted.set(key, cached);
++				this.#publishKittyConversion(key, cached);
+ 				continue;
+ 			}
+ 			if (this.#kittyConversionsAwaited.has(key)) continue;
+@@ -569,17 +573,17 @@
+ 			this.#pendingImageConversions++;
+ 
+ 			// Convert async - catch errors from processing
+-			convertImageToPngShared(image)
+-				.then(converted => {
+-					this.#kittyConverted.set(key, converted);
+-				})
+-				.catch(() => {
+-					// Ignore conversion failures - display will use original image format
+-					this.#kittyConversionsAwaited.delete(key);
++			const conversion = ensurePng(image, key);
++			void conversion
++				.then(png => {
++					// A settled failure publishes its sanitized reason, so the label names the
++					// real decoder error even after the shared slot has been evicted.
++					this.#publishKittyConversion(key, png ? { png } : { png: null, reason: pngFailureReason(key, conversion) });
+ 				})
+ 				.finally(() => {
+-					// The repaint runs after the decrement so a terminal container that
+-					// observes the paint also observes the released retirement barrier.
++					// The identity cleanup and the barrier release run before the repaint, so a
++					// terminal container that observes the paint also observes both.
++					this.#kittyConversionsAwaited.delete(key);
+ 					this.#pendingImageConversions--;
+ 					this.#blockVersion++;
+ 					this.#displayInputVersion++;
+@@ -587,13 +591,19 @@
+ 					this.#ui.requestRender();
+ 				})
+ 				.catch(error => {
+-					// This chain is discarded, so a repaint fault must be logged instead of
+-					// surfacing as an unhandled rejection; the barrier above already released.
+-					logger.error("Tool result image repaint failed", { err: error });
++					// The chain is discarded, so a fault in the publish or repaint path must be
++					// logged instead of surfacing as an unhandled rejection that can kill the TUI.
++					logger.error("Tool result image slot completion failed", { err: error });
+ 				});
+ 		}
+ 	}
+ 
++	/** Record a settled conversion; a null PNG publishes its sanitized failure reason. */
++	#publishKittyConversion(key: string, result: { png: ImageContent | null; reason?: string }): void {
++		if (result.png) this.#kittyConverted.set(key, result.png);
++		else this.#kittyConversionFailures.set(key, result.reason ?? "unknown error");
++	}
++
+ 	/**
+ 	 * Start or stop spinner animation for live states that visibly tick.
+ 	 */
+@@ -1229,23 +1239,34 @@
+ 		}
+ 		this.#imageSpacers = [];
+ 
++		let renderedImageCount = 0;
+ 		if (this.#result) {
+ 			const imageBlocks = this.#getAllImageBlocks();
+ 
+ 			for (let i = 0; i < imageBlocks.length; i++) {
+ 				const img = imageBlocks[i];
+ 				if (TERMINAL.imageProtocol && this.#showImages && img.data && img.mimeType) {
+-					// Use converted PNG for Kitty protocol if available
++					// Use converted PNG for Kitty protocol if available. A slot may be
++					// re-delivered with different bytes, so only its own fingerprint renders.
+ 					const source: ImageContent = { type: "image", data: img.data, mimeType: img.mimeType };
++					const key = imageFingerprint(source);
+ 					const converted =
+ 						TERMINAL.imageProtocol === ImageProtocol.Kitty && img.mimeType !== "image/png"
+-							? (this.#kittyConverted.get(imagePayloadKey(source)) ?? cachedPngConversion(source))
++							? this.#kittyConverted.get(key)
+ 							: undefined;
+-					const imageData = converted?.data ?? img.data;
+-					const imageMimeType = converted?.mimeType ?? img.mimeType;
+ 
+-					// For Kitty, skip non-PNG images that haven't been converted yet
+-					if (TERMINAL.imageProtocol === ImageProtocol.Kitty && imageMimeType !== "image/png") {
++					// For Kitty, a non-PNG image without a conversion has no graphics form.
++					if (TERMINAL.imageProtocol === ImageProtocol.Kitty && img.mimeType !== "image/png" && !converted) {
++						const reason = this.#kittyConversionFailures.get(key);
++						if (reason !== undefined) {
++							const failure = new Text(
++								theme.fg("toolOutput", `[Image: ${img.mimeType} — PNG conversion failed: ${reason}]`),
++								1,
++								0,
++							);
++							this.#imageComponents.push(failure);
++							this.addChild(failure);
++						}
+ 						continue;
+ 					}
+ 
+@@ -1253,17 +1274,18 @@
+ 					this.addChild(spacer);
+ 					this.#imageSpacers.push(spacer);
+ 					const imageComponent = new Image(
+-						imageData,
+-						imageMimeType,
++						converted?.data ?? img.data,
++						converted?.mimeType ?? img.mimeType,
+ 						{ fallbackColor: (s: string) => theme.fg("toolOutput", s) },
+-						{ ...resolveImageOptions(), budget: this.#ui.imageBudget, imageKey: `te${this.#instanceId}:${i}` },
++						{ ...resolveImageOptions(), budget: this.#ui.imageBudget, imageKey: `te${this.#instanceId}:${i}:${key}` },
+ 					);
+ 					this.#imageComponents.push(imageComponent);
+ 					this.addChild(imageComponent);
++					renderedImageCount++;
+ 				}
+ 			}
+ 		}
+-		this.#renderedImageCount = this.#imageComponents.length;
++		this.#renderedImageCount = renderedImageCount;
+ 	}
+ 
+ 	#getCallArgsForRender(): unknown {
+--- a/dist/types/chat/image-loading.d.ts
++++ b/dist/types/chat/image-loading.d.ts
+@@ -49,22 +49,8 @@
+  * positional ids like `${toolCallId}:${index}`, which go stale when the images
+  * behind a position are replaced.
+  */
+-export declare function imagePayloadKey(image: ImageContent): string;
+-/**
+- * The PNG conversion of `image` when one is still resident, else `undefined`.
+- * Synchronous so renderers can use an already-converted image on the spot
+- * instead of scheduling another async re-render.
+- */
+-export declare function cachedPngConversion(image: ImageContent): ImageContent | undefined;
+-/**
+- * Converts `image` to PNG at most once per distinct payload: concurrent callers
+- * share one in-flight conversion and later callers hit {@link pngCache}.
+- * Kitty-graphics renderers use this because `convertImageToPng` is a full
+- * decode plus re-encode, and the same image is delivered repeatedly (read-result
+- * replay) and rebuilt from scratch on resume, rewind, and `/tree` navigation.
+- *
+- * Rejections are not cached — a payload that failed to decode is retried by the
+- * next caller, matching {@link convertImageToPng}'s contract.
+- */
+-export declare function convertImageToPngShared(image: ImageContent): Promise<ImageContent>;
++export declare function imageFingerprint(image: Pick<ImageContent, "data" | "mimeType">): string;
++export declare function ensurePng(image: ImageContent, fingerprint?: string): Promise<ImageContent | null>;
++export declare function completedPng(fingerprint: string): { png: ImageContent | null; reason?: string } | undefined;
++export declare function pngFailureReason(fingerprint: string, conversion?: Promise<ImageContent | null>): string;
+ export declare function ensureSupportedImageInput(image: ImageContent): Promise<ImageContent | null>;

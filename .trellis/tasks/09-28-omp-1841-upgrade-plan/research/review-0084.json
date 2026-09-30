@@ -1,0 +1,76 @@
+{
+  "status": "FINDINGS",
+  "verdict": "CHANGES REQUIRED",
+  "filesChanged": [],
+  "findings": [
+    {
+      "severity": "IMPORTANT",
+      "file": "patches/PATCHES.md",
+      "line": "14-16, 39, 772-780, 1081",
+      "evidence": "The ledger still calls the deployed 18.4.1 plan 49 layers, names only 0083 as its new tail layer, and omits the 0084 candidate and gate. The controller and rollup oracle now resolve and pin 50 layers.",
+      "impact": "Deployment documentation and the gate inventory disagree with the deployable plan; a reviewer or mirror consumer can certify the wrong chain.",
+      "minimalFix": "Update the 18.4.1 counts and current-plan description, add an 0084 entry and its registered gate, while preserving historical 49-layer deployment results as historical results."
+    },
+    {
+      "severity": "IMPORTANT",
+      "file": "patches/verify-length-stop-reminder-persist.ts",
+      "line": "133-145, 158-190",
+      "evidence": "The only scripted length stop is followed immediately by a successful answer. The gate never exercises consecutive stops through INCOMPLETE_RECOVERY_MAX_RETRIES=3, terminal cap handling, a delivered-turn/new-prompt counter reset, or the window-exhausted compaction path. The sole demonstrated negative control (depth 0083) stops at GATE 1; GATE 2/3 have no independent behavioral fault variant.",
+      "impact": "The registered gate can remain green if later retry reminders are lost or duplicated, dropped turns reappear on later attempts, or a reminder is emitted incorrectly on the compaction path. This leaves named acceptance boundaries and the verification-gate contract's distinct fault checks unproven.",
+      "minimalFix": "Extend the file-backed scripted fixture with consecutive stops, cap and reset, plus an exhausted-window case; assert branch/retry order and wire at each transition. Include an isolated behavioral fault for the later-retry and reopen assertions."
+    },
+    {
+      "severity": "MINOR",
+      "file": "patches/verify-length-stop-reminder-persist.ts",
+      "line": "120-127, 193-219",
+      "evidence": "wire() JSON-serializes convertToLlm output minus timestamp; it does not call Anthropic/Codex serializers. GATE 3 does flush and genuinely reopen via SessionManager.open(file), but both AgentSessions run in one process.",
+      "impact": "Its claimed 'provider-facing bytes' and 'restarted process' proof is narrower than an actual serialized, fresh-process prefix check; process-local state and serializer differences are not tested by this gate.",
+      "minimalFix": "Either narrow the gate's claims to rebuilt model-message projection and cite a separate cross-process serializer probe, or compare actual serialized requests across a child process."
+    }
+  ],
+  "semanticReview": {
+    "patch": "The single-file candidate replaces the original inline developer reminder with a helper retaining the rendered text, role, content block, attribution and Date.now() timestamp. It awaits dropPersistedAssistantTurn before appending the same reminder object to agent state and SessionManager; subsequent replies follow it in both orders. No unrelated hunk or non-ASCII character was found.",
+    "retryAndCompaction": "Code inspection: consecutive reasoning-only length stops take the below-threshold branch, increment the counter, drop each failed turn, and append one reminder when output usage is positive; the next stop at the cap durably drops its failed turn and blocks continuation. A delivered turn or new prompt resets the counter. Window-exhausted recovery runs compaction without invoking the new helper. These edge behaviors were inspected, not exercised by this review's gate.",
+    "otherAppends": "session-maintenance.ts has only the new dual-write append. turn-recovery.ts:2862-2863 dual-writes reminders; 2878 plus appendCustomMessageEntry persists thinking-loop redirects. Its conditional assistant restoration at 1179-1187 writes nonempty turns to both; empty error turns can remain memory-only but convertToLlm drops ordinary error turns. agent-session.ts:1513-1514, 1524-1525, 8561-8562, 8611-8612 and 10006-10007 persist their appends; 3543's interrupted-thinking append is persisted at 3704-3711 when the same prompt generation survives. The known checkpoint-rewind reminder at 9843 and vibe-mode exceptions are out of scope. No other unpaired recovery reminder was found.",
+    "timestamp": "For this developer reminder, stripping timestamp does not hide a field sent on the wire: Anthropic constructs message params from role/content (anthropic.ts:4914-5050), and Codex constructs input items from role/content (openai-codex-responses.ts:5403-5460). Timestamps can affect other preprocessing, but no inspected serializer transmits this reminder's timestamp as a message field. An unstripped check is possible for the reminder itself because the helper passes the same timestamped object to both append calls and SessionManager.open reads it back; compare its timestamp separately if retaining the normalized projection comparison."
+  },
+  "verification": [
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/Fix0084/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841.py --nm \"$NM\"",
+      "result": "APPLIED  0084 AGENT ...0084-omp-length-stop-reminder-persist-v18.4.1-candidate.patch; SUMMARY applied=50 failed=0 (fuzz=0 replay)."
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/Fix0084/env.sh && HOME=\"$SLICE_HOME\" XDG_CONFIG_HOME=\"$SLICE_HOME/.config\" XDG_CACHE_HOME=\"$SLICE_HOME/.cache\" XDG_DATA_HOME=\"$SLICE_HOME/.local/share\" XDG_STATE_HOME=\"$SLICE_HOME/.local/state\" TMPDIR=\"$SLICE_HOME/tmp\" OMP_PATCH_VERSION=18.4.1 OMP_PATCH_OFFLINE_VERIFY=1 OMP_PATCH_VERIFY_NM=\"$NM\" OMP_PATCH_VERIFY_AGENT_ROOT=\"$NM/pi-coding-agent\" OMP_PATCH_VERIFY_CORE_ROOT=\"$NM/pi-agent-core\" OMP_PATCH_VERIFY_AI_ROOT=\"$NM/pi-ai\" OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT=\"$NM/snapcompact\" OMP_PATCH_VERIFY_CATALOG_ROOT=\"$NM/pi-catalog\" OMP_PATCH_VERIFY_TUI_ROOT=\"$NM/pi-tui\" bun patches/verify-length-stop-reminder-persist.ts",
+      "result": "length-stop reminder persist: ALL PASS (exit 0)."
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/Fix0084/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841.py --nm \"$NM\" --until 0083",
+      "result": "SUMMARY applied=49 failed=0."
+    },
+    {
+      "command": "Same full-env gate command above, against depth 0083",
+      "result": "Exit 1: AssertionError: the length-stop reminder must be persisted exactly once; 0 !== 1; verify-length-stop-reminder-persist.ts:184."
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/Fix0084/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841.py --nm \"$NM\"",
+      "result": "Restored: APPLIED 0084; SUMMARY applied=50 failed=0."
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/Fix0084/env.sh && OMP_PATCH_VERIFY_NM=\"$NM\" OMP_PATCH_VERIFY_AGENT_ROOT=/missing-omp-0084-agent OMP_PATCH_VERIFY_AI_ROOT=\"$NM/pi-ai\" bun patches/verify-length-stop-reminder-persist.ts",
+      "result": "Exit 1: cannot read /missing-omp-0084-agent/package.json (ENOENT)."
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/Fix0084/env.sh && OMP_PATCH_VERIFY_NM=\"$NM\" OMP_PATCH_VERIFY_AGENT_ROOT=\"$NM/../cliui\" OMP_PATCH_VERIFY_AI_ROOT=\"$NM/pi-ai\" bun patches/verify-length-stop-reminder-persist.ts",
+      "result": "Exit 1: pinned to 18.4.1, found 9.0.1."
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/Fix0084/env.sh && OMP_PATCH_VERSION=18.4.1 bash patches/apply.sh --print-plan | wc -l",
+      "result": "50."
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/Fix0084/env.sh && git diff --check -- patches/apply.sh patches/verify-patch-family-rollups.sh; grep-tool pattern [^\\x00-\\x7f] on the 0084 candidate",
+      "result": "No whitespace errors; no non-ASCII candidate matches."
+    }
+  ],
+  "sandboxFinal": "Fix0084 restored to the complete chain; last replay reported SUMMARY applied=50 failed=0. Subsequent checks were read-only."
+}

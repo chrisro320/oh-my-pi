@@ -1,0 +1,154 @@
+{
+  "blocker_fixed": {
+    "cause": "the control-carrier branch ran before the continuation branch, so a kept stall turn that also carried Anthropic requestControls was sent with content: [] (partial text invisible), reachable on bundled anthropic/claude-opus-5 via pi-ai/src/providers/anthropic.ts:2273-2275,4671-4678",
+    "fix": "messages.ts:1137-1170 (patched tree): the aborted/error branch now evaluates `stallContinued` FIRST and returns the assistant with its committed text AND its requestControls (only the display-only strippedToolCalls is deleted); a non-continued turn with requestControls still yields the emptied control-only carrier; everything else is still pruned. The rebuild side is unchanged in ordering because session-context.ts:728-732 keeps both classes before conversion, and the emptying lived only in convertOne.",
+    "gate_proof": "0043 gate: `the committed text must survive alongside the request controls`; 0077 gate GATE 4 asserts on the WIRE bytes (`the committed text must reach the wire alongside the request controls, not only the rebuilt context`) because the rebuilt raw context still holds the text - the first version of that assertion was written against the raw context and did NOT discriminate the fault, so it was rewritten."
+  },
+  "changed_repo_files": [
+    "patches/.18.4.1-candidates/0043-omp-interrupt-prune-symmetry-v18.4.1-candidate.patch (12978 B, 15 hunks: src/session/messages.ts, src/session/session-context.ts, dist/types/session/messages.d.ts)",
+    "patches/.18.4.1-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.4.1-candidate.patch (672785 B, 2 hunks - unchanged)",
+    "patches/.18.4.1-candidates/0077-omp-turn-recovery-reminder-persist-v18.4.1-candidate.patch (3903 B, 6 hunks)",
+    "patches/verify-interrupt-prune-symmetry.ts (13639 B)",
+    "patches/verify-turn-recovery-reminder-persist.ts (10527 B)"
+  ],
+  "compat_fix": {
+    "how": "the 18.4.1-only scenarios are wrapped in `if (agentVersion === \"18.4.1\")` in verify-interrupt-prune-symmetry.ts (after the pre-existing loop and the 18.3.3/18.4.1 requestControls leg) and in verify-turn-recovery-reminder-persist.ts (GATE 3 + GATE 4; its unrelated 18.3.3 fallback auth branch was dropped inside that guard because the block can only run on 18.4.1). Both files read `<AGENT_ROOT>/package.json` version like the other root-selecting gates.",
+    "why": "18.3.3 has no handleCommittedTextStreamStall and its 0043 candidate has no stall retention, so an 18.3.3 tree keeps exactly its previous assertions and stays green."
+  },
+  "durable_state_used": {
+    "chosen": "the persisted committed-text stall continuation reminder (developer message) that immediately follows the kept assistant, matched by the template's distinctive sentence read from <AGENT_ROOT>/src/prompts/system/stream-stall-continue.md into `STREAM_STALL_CONTINUE_REMINDER_TEXT` + `followedByStreamStallContinueReminder()`",
+    "why_durable": "turn-recovery.ts #appendRetryReminder writes the reminder to the live agent AND the session manager (patched tree turn-recovery.ts:2846-2862), so the same message sits at the same index after a rebuild from disk; the assistant's own fields cannot carry the decision because handleCommittedTextStreamStall tests the live-only host flag textOutputCommitted() (agent-session.ts:631 -> 1638) and reuses turn-recovery's private STREAM_STALL_ERROR_RE / HTTP2_STREAM_RESET_ERROR_RE / PREMATURE_STREAM_CLOSE_ERROR_RE classification (turn-recovery.ts:101-115, #isMidStreamTransportFailure at :1541), while retryRecovery is only written by the auto-retry path (#markPendingRetryErrors)."
+  },
+  "exec_channel": {
+    "cleanup": "throwaway helpers apply43.py / fault43.py / faultgate.py / prefix-misc.out / gate .out files deleted from the slice sandbox; only env.sh, home, prefix-results and snap (driver artifacts) remain",
+    "tooling": "slice_run is not mounted in this runtime, so every command ran as `source /home/chris/.cache/omp-1841-upgrade/Misc/env.sh && <cmd>` through the bash tool with a unique service name, output read from proc://<name>.",
+    "untouched": "no gate assertion was weakened; ordinary interrupted/failed turns are still pruned, plain control carriers still empty, the continuation reminder is still persisted exactly once, and every pre-existing assertion in both gates is unchanged."
+  },
+  "gates_final": [
+    {
+      "command": "source <Misc>/env.sh && bun patches/verify-interrupt-prune-symmetry.ts",
+      "exit": 0,
+      "output_lines": [
+        "=== Testing interrupted-turn render symmetry (0043) ===",
+        "  aborted: live == rebuilt, 2 wire messages, no remnant",
+        "  error: live == rebuilt, 2 wire messages, no remnant",
+        "  committed-text stall: partial text retained, live == rebuilt",
+        "  committed-text stall with requestControls: text and controls both retained",
+        "  uncontinued stall-shaped turn still pruned",
+        "  markerless remnant pruned on the live path",
+        "  bare marker converts to nothing",
+        "  completed turn untouched",
+        "  transcript still renders the interrupted turn",
+        "=== interrupted-turn render symmetry OK ==="
+      ]
+    },
+    {
+      "command": "source <Misc>/env.sh && bun patches/verify-turn-recovery-reminder-persist.ts",
+      "exit": 0,
+      "output_lines": [
+        "  committed-text stall: partial kept, reminder persisted once, live == rebuilt",
+        "  committed-text stall with requestControls: text and controls retained, live == rebuilt",
+        "turn-recovery reminder persist: ALL PASS"
+      ]
+    },
+    {
+      "command": "source <Misc>/env.sh && bun patches/verify-eval-state-context-persist.ts",
+      "exit": 0,
+      "output_lines": [
+        "PASS eval state context persist: resume wire-equal, read-only snapshots write nothing, state change appends once"
+      ]
+    },
+    {
+      "command": "source <Misc>/env.sh && bun patches/verify-prefix-cache-compaction.ts",
+      "exit": 0,
+      "output_lines": [
+        "PASS prefix-cache compaction: structured=1 flat=1 windows=12"
+      ]
+    }
+  ],
+  "layers": [
+    {
+      "candidate_bytes": 12978,
+      "candidate_hunks": 15,
+      "class": "B",
+      "class_reason": "canonicalizeXdToolCallNames forced hunk 4; plus two 18.4.1-behavior adaptations required by review: retain the committed-text stall turn (keyed on its persisted reminder) and evaluate that retention BEFORE the requestControls carrier branch.",
+      "emit": "EMIT OK",
+      "files_changed": [
+        "pi-coding-agent/src/session/messages.ts",
+        "pi-coding-agent/src/session/session-context.ts",
+        "pi-coding-agent/dist/types/session/messages.d.ts"
+      ],
+      "id": "0043-omp-interrupt-prune-symmetry",
+      "layer": "0043",
+      "prefix_impact": "DIRECT - it defines the aborted/error slice of the provider history on both the live convertToLlm path and the rebuilt buildSessionContext path: ordinary failed turns and their paired results are pruned on both, requestControls carriers survive empty, the process-local interrupted-thinking marker converts to nothing, and the committed-text stall continuation keeps text + controls on both. Live==rebuilt byte equality is asserted three ways (ordinary, carrier, stall).",
+      "replay": "APPLIED (full driver 48/48)",
+      "sensitivity": [
+        "driver --before 0043 -> verify-interrupt-prune-symmetry exit 1: AssertionError: live and rebuilt renders of a aborted turn must be byte-identical; a path-local prune breaks the prompt-cache prefix at every interrupt",
+        "targeted fault 'carrierFirst' (control-carrier branch restored ahead of the continuation branch) -> 0043 gate exit 1: AssertionError: the committed text must survive alongside the request controls",
+        "targeted fault 'carrierFirst' -> 0077 gate exit 1: AssertionError: the committed text must reach the wire alongside the request controls, not only the rebuilt context",
+        "targeted fault 'rebuild retention removed from session-context.ts' -> 0043 gate exit 1: AssertionError: a kept stall continuation must replay identically on both paths",
+        "targeted fault 'live retention removed (stallContinued=false)' -> 0043 gate exit 1: AssertionError: Expected values to be strictly deep-equal (stall live vs rebuilt)"
+      ]
+    },
+    {
+      "candidate_bytes": 672785,
+      "candidate_hunks": 2,
+      "class": "A",
+      "class_reason": "identical KDL insertion on an unchanged 18.4.1 block; the compiled rules.json is re-emitted by the same compiler emulation as the 18.3.3 round. No upstream change touches commandcode records in 18.3.4-18.4.1.",
+      "emit": "EMIT OK",
+      "files_changed": [
+        "pi-catalog/src/compat/rules/providers/commandcode.kdl",
+        "pi-catalog/src/compat/rules.json"
+      ],
+      "id": "0065-omp-commandcode-deepseek-model-record-parity",
+      "layer": "0065",
+      "prefix_impact": "DIRECT (request head): wire.supportsMultipleSystemMessages=false coalesces the ordered system prompts; wire.supportsStrictMode=true makes tool schemas strict for commandcode. A record that flips either axis reshapes the head and kills the cached prefix.",
+      "replay": "APPLIED (full driver 48/48)",
+      "sensitivity": [
+        "driver --before 0065 -> verify-commandcode-model-record-parity exit 1: AssertionError: KDL carries supports-strict-mode #true"
+      ]
+    },
+    {
+      "candidate_bytes": 3903,
+      "candidate_hunks": 6,
+      "class": "B",
+      "class_reason": "18.3.3's 0077 converted three in-memory reminder sites; 18.4.1 added a fourth producer of the same class (handleCommittedTextStreamStall), so the same persistence contract is applied to the new site.",
+      "emit": "EMIT OK",
+      "files_changed": [
+        "pi-coding-agent/src/session/turn-recovery.ts"
+      ],
+      "id": "0077-omp-turn-recovery-reminder-persist",
+      "layer": "0077",
+      "prefix_impact": "DIRECT: a reminder appended in memory only exists live; a rebuild drops it and forks the cached prefix at its index. #appendRetryReminder writes it to the agent AND the session manager, and it is the durable discriminator 0043 keys on.",
+      "replay": "APPLIED (full driver 48/48)",
+      "sensitivity": [
+        "driver --before 0077 -> verify-turn-recovery-reminder-persist exit 1: AssertionError: the retry reminder must be persisted exactly once",
+        "targeted fault 'stall site reverted to in-memory-only upstream append (text unchanged, other three sites persisted)' -> 0077 gate exit 1: AssertionError: the stall reminder must be persisted exactly once (phase-1 assertions still pass)"
+      ]
+    }
+  ],
+  "minor_fixed": {
+    "detail": "pi-coding-agent/package.json maps ./session/* to ./dist/types/session/*.d.ts, so both new symbols are now declared in dist/types/session/messages.d.ts (patched tree lines 68-79) and that file is part of the 0043 candidate (`snapshot --extra dist/types/session/messages.d.ts`, hunk @@ -65,6 +65,18 @@).",
+    "why_not_unexported": "followedByStreamStallContinueReminder is consumed by session-context.ts, so it cannot stay internal; STREAM_STALL_CONTINUE_REMINDER_TEXT is the single source of the matcher constant it composes with."
+  },
+  "open_risks": [
+    "0043 and 0077 remain a pair: the stall retention is keyed on the reminder, so the two candidates must land together (plan order 0043 before 0077; both gates encode the contract).",
+    "The marker is the template's distinctive first sentence, read from the shipped asset at gate time; an upstream rewording of prompts/system/stream-stall-continue.md would disable the retention - the 0043 gate reads the real asset so that change turns the gate red instead of silently passing.",
+    "The two new rules.json wire keys are appended in KDL directive order (supportsReasoningEffort, stripImageInput, supportsStrictMode, supportsMultipleSystemMessages); scripts/compat-compiler is not shipped in the published pi-catalog tarball (rules.d.json.ts is only a typed declaration), so the artifact cannot be byte-compared against the real compiler - same emulation as the 18.3.3 round; the gate asserts values through the real resolveModelPolicy.",
+    "The 0077 gate's GATE 3/4 compare buildSessionContext({transcript:true}) against buildSessionContext() as the live/rebuilt pair (the controlled variant cannot come from the mock, which has no Anthropic requestControls). The real end-to-end stall continuation IS driven in GATE 3; only the control-carrier variant is synthetic over the real persisted branch.",
+    "No type-check/lint/build was run (work order). New type constructs mirror existing ones (session-context.ts:177 StrippedToolCallsMarker / :696 cast); the .d.ts declarations are hand-matched to the source signatures.",
+    "Reviewer's two 0070 'major' findings are outside this slice's ownership and were not addressed."
+  ],
+  "prefix_probe": {
+    "command": "source <Misc>/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-prefix-1841.py --slice Misc",
+    "exit": 0,
+    "lines": [
+      "scenario plain  : system_equal true, tools_equal true, anthropic_prefix_diff null, codex_input_prefix_diff null, codex_head_equal true, fetchAttempts 0, pass true",
+      "scenario soft   : system_equal true, tools_equal true, anthropic_prefix_diff null, codex_input_prefix_diff null, codex_head_equal true, fetchAttempts 0, pass true",
+      "scenario snapcompact: system_equal true, tools_equal true, anthropic_prefix_diff null, codex_input_prefix_diff null, codex_head_equal true, fetchAttempts 0, pass true"
+    ],
+    "note": "messages_prefix_diff (pre-wire raw array) shows only the resume-normalized `errorId` field at index 1, not a measured wire-prefix difference; anthropic_prefix_diff and codex_input_prefix_diff are null.",
+    "summary": "3/3 scenarios pass on plain, soft and snapcompact"
+  },
+  "replay_evidence": "python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841.py --nm <Misc NM> -> APPLIED 0043 AGENT / APPLIED 0065 NM / APPLIED 0077 AGENT, SUMMARY applied=48 failed=0, no STRAY"
+}

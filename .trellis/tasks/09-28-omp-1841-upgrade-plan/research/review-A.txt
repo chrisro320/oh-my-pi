@@ -1,0 +1,81 @@
+{
+  "status": "FINDINGS",
+  "filesChanged": [],
+  "findings": [
+    {
+      "severity": "blocker",
+      "file": "patches/.18.4.1-candidates/0043-omp-interrupt-prune-symmetry-v18.4.1-candidate.patch:55,146",
+      "evidence": "Upstream pi-coding-agent/src/session/turn-recovery.ts:626-679 keeps a committed, text-only error turn and appends a reminder to continue where its text stopped. Candidate 0043 discards that assistant in live convertToLlm and rebuilt buildSessionContext. A read-only Bun probe of the selected package produced identical live/rebuilt messages [user, developer reminder], but partialVisible=false for the committed text. Existing interrupt gate tests generic failed turns; reminder gate tests empty-stop recovery, not this new stall path.",
+      "impact": "Live/resume prefixes agree, but the next model request cannot see the text it is instructed to continue. It can repeat or contradict already-displayed output; the new upstream recovery behavior is lost.",
+      "minimalFix": "Distinguish committed-text stall continuations from ordinary failed turns using durable state, retain that partial text on both provider paths, and exercise the actual stall→reminder→resume path."
+    },
+    {
+      "severity": "major",
+      "file": "patches/.18.4.1-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.4.1-candidate.patch:473",
+      "evidence": "The new status early-return precedes the existing AuthFailed classification. Offline SSE probe with {type:'error',status:503,code:'auth_unavailable',message:'No available accounts'} made three sends and ended in CompactionV2StreamFailure; pristine 18.4.1 classifies authentication before transient HTTP status (compaction-v2-streaming.ts:645-660). The green registered gate tests auth_unavailable only without status.",
+      "impact": "A known authentication/account-availability failure consumes the V2 retry budget instead of immediately reaching provider fallback; remote compaction recovery is delayed or exhausted.",
+      "minimalFix": "Classify authentication before the status-based retry decision; add a status-bearing auth failure to the focused gate."
+    },
+    {
+      "severity": "major",
+      "file": "patches/.18.4.1-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.4.1-candidate.patch:1456,1470",
+      "evidence": "Both speculation guards check model.api alone. An offline selected-root probe with api='openai-responses', remoteCompaction.api='openai-codex-responses', v2StreamingEnabled=true found supportsV2=true, guard=false, then CodexCompactionChainLostError before any send. A second probe with provider='openai-codex', api='openai-responses' found supportsV2=true, guard=false, endpoint='/v1/codex/responses'. The configuration schema accepts remoteCompaction.api (models-config-schema-bundle.ts:164-169); the V2 transport treats its effective API OR provider=openai-codex as Codex (compaction-v2-streaming.ts:294-296).",
+      "impact": "Reachable custom models can repeatedly schedule an impossible isolated remote speculation, and the threshold grace path can defer useful compaction while that attempt fails. No full-history HTTP send was observed.",
+      "minimalFix": "Use the effective Codex V2 lane predicate for both speculation guards, covering remoteCompaction.api and provider identity; retain the existing non-Codex behavior."
+    },
+    {
+      "severity": "minor",
+      "file": "patches/apply.sh:819-939",
+      "evidence": "The registered suite has no behavior gate for candidate 0026's providers-filtered usage fan-out or 0030's canonical/legacy report lookup. The Usage slice documents only a deleted throwaway probe for these behaviors; the executed 0070 public-type probe does not compile their new UsageReportsOptions.providers member.",
+      "impact": "A later candidate drift can restore all-provider usage polling or lose persisted usage snapshots while the registered suite stays green; this does not directly alter provider prompt bytes.",
+      "minimalFix": "Register a focused 0026/0030 behavior gate with selected-root positive and negative controls and a declaration-entry consumer for the public option."
+    }
+  ],
+  "verifiedCorrect": [
+    "0035: candidate-to-18.3.3 diff changes hunk offsets and the upstream telemetry comment pi.*→omp.*; source and declaration hunks remain paired. Prefix compaction gate passed.",
+    "0043: canonicalizeXdToolCallNames wraps the new control-only carrier, while ordinary interrupted assistants and paired results are pruned symmetrically. The generic interruption gate passed; the committed-text-stall exception above remains unresolved.",
+    "0070: the typed V2 error preserves provider code, chain verdict and upstream status, and the existing chain/recovery/public-type scenarios pass, subject to the status precedence and alternate-lane findings.",
+    "0082: inspected 18.4.1 startPendingSubmission's {clearEditor:false} merge, streaming textRevision guards, upstream cancellation's later-draft/image merge, and matching published declaration fields; no separate revision-race test was executed.",
+    "0026: upstream #collectUsageRequests already takes a providerFilter; the new local reports() branch passes options.providers into it, and both source/public declarations add the option. The broker-store path remains unfiltered as it was on 18.3.3.",
+    "0030: inspected canonical Anthropic report-key normalization and legacy read migration against the 18.3.3 candidate and 18.4.1 usage-cache callsites; source and usage-cache declaration additions correspond.",
+    "apply.sh print plans independently returned 48 rows for both 18.3.3 and 18.4.1; 18.4.1 checks all six package versions and routes NM/TUI roots. Rollup verifier pins six official 18.4.1 archives, derives EXPECTED_PLAN_1841 from the 48-row predecessor and replays the selected plan. Full rollup oracle was inspected, not rerun by this reviewer."
+  ],
+  "verification": [
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/ReviewA/env.sh && bun patches/verify-prefix-cache-compaction.ts",
+      "result": "exit 0: PASS prefix-cache compaction: structured=1 flat=1 windows=12"
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/ReviewA/env.sh && bun patches/verify-codex-compaction-chain-fail-closed.ts",
+      "result": "exit 0: verify-codex-compaction-chain-fail-closed: transport, retry, metadata and public types PASS"
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/ReviewA/env.sh && bash patches/verify-codex-compaction-chain-fail-closed-faults.sh",
+      "result": "exit 0: 0070 fault control PASS; verify-codex-compaction-chain-fail-closed faults: 16 behavioral/type faults rejected"
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/ReviewA/env.sh && bun patches/verify-interrupt-prune-symmetry.ts",
+      "result": "exit 0: aborted/error live == rebuilt, 2 wire messages, no remnant; interrupted-turn render symmetry OK"
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/ReviewA/env.sh && bun patches/verify-turn-recovery-reminder-persist.ts",
+      "result": "exit 0: turn-recovery reminder persist: ALL PASS"
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/ReviewA/env.sh && bun patches/verify-eval-state-context-persist.ts",
+      "result": "exit 0: PASS eval state context persist: resume wire-equal, read-only snapshots write nothing, state change appends once"
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/ReviewA/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-prefix-1841.py --slice ReviewA",
+      "result": "exit 0: plain, soft, snapcompact each pass=true; system_equal/tools_equal/codex_head_equal=true; anthropic_prefix_diff=codex_input_prefix_diff=null; fetchAttempts=0. Raw pre-wire messages_prefix_diff at index 1 reflects resume-normalized errorId, not a measured wire-prefix difference."
+    },
+    {
+      "command": "source /home/chris/.cache/omp-1841-upgrade/ReviewA/env.sh && bash -n patches/apply.sh patches/verify-patch-family-rollups.sh",
+      "result": "exit 0: shell syntax PASS"
+    },
+    {
+      "command": "built-in grep -cE required work-order/spec patterns, under ReviewA env.sh",
+      "result": "work-order=5; patch-rollup-contracts=2; verification-gate-contracts=1 (combined specs=3)"
+    }
+  ]
+}

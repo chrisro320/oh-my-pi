@@ -5,8 +5,8 @@
  	 */
  	status?: SessionStatus;
 +	/**
-+	 * Model the session last used (selector form, "provider/model"), from the
-+	 * newest model_change entry or assistant message in the scanned windows.
++	 * Model evidenced by the newest tail transition or assistant reply (in
++	 * "provider/model" form); use the initial default only if neither is present.
 +	 * Optional for the same reason as {@link status}: empty sessions have none.
 +	 */
 +	lastModel?: string;
@@ -18,19 +18,19 @@
  }
  
 +/**
-+ * Model shown for a session in the picker: the first model resume would
-+ * restore, so the display and the resumed state cannot disagree. That rule
-+ * lives in `getRestorableSessionModels` / `getLastModelChangeRole` -- the
++ * Model shown in picker: the newest tail model_change selects what resume
++ * restores when that transition is visible. This rule lives in
++ * `getRestorableSessionModels` / `getLastModelChangeRole` -- the
 + * branch's newest `model_change` decides, and each role keeps its own newest
 + * value. A `default` (or pre-role) transition, and a `fallback` one (retry
 + * swaps recorded by turn-recovery: transient degradations that must never
 + * masquerade as the user's pick), resolve to the default model; any other role
 + * -- `smol`, `slow`, `vision`, `plan`, `commit`, `tiny`, `task`, `advisor`, or
-+ * a settings-defined one -- resolves to that role's own model. When the scanned
-+ * windows carry no such transition -- pre-`model_change` sessions, or later
-+ * events rolled past the tail window -- the newest assistant message's model is
-+ * the last model that actually served the session: a weaker claim, and the
-+ * only one those bytes support.
++ * a settings-defined one -- resolves to that role's own model. When the tail
++ * has no model_change, the newest assistant message identifies the model
++ * that last served the session. Prefer it to the initial default in the
++ * prefix: intervening switches can lie outside both scanned windows.
++ * Only with neither tail signal does the initial default win.
 + */
 +function deriveLastModel(suffix: string, prefix: string): string | undefined {
 +	const readEntry = (line: string): TailModelEntry | undefined => {
@@ -42,9 +42,9 @@
 +		}
 +	};
 +	const lines = suffix.split("\n");
-+	// Newest role first (walking backwards), then that role's newest model --
-+	// `roleModels` keeps what each role last resolved to. `fallback` resolves
-+	// like `default`, so only the role resume would actually use ends the walk.
++	// Newest role first (walking backwards), then that role's newest model.
++	// Without a tail transition, prefer the last-served model over the prefix
++	// default, which can predate switches in the unscanned middle.
 +	const roleModels = new Map<string, string>();
 +	let newestRole: string | undefined;
 +	let lastServed: string | undefined;
@@ -65,11 +65,11 @@
 +			entry.message?.role === "assistant" &&
 +			typeof entry.message.model === "string"
 +		) {
-+			lastServed = entry.message.model;
++			lastServed = entry.message.provider ? `${entry.message.provider}/${entry.message.model}` : entry.message.model;
 +		}
 +	}
 +	const resolvedRole = !newestRole || newestRole === "default" || newestRole === "fallback" ? "default" : newestRole;
-+	const fromTail = roleModels.get(resolvedRole);
++	const fromTail = roleModels.get(resolvedRole) ?? (!newestRole ? lastServed : undefined);
 +	if (fromTail) return fromTail;
 +	for (const line of prefix.split("\n")) {
 +		const entry = readEntry(line);
@@ -77,7 +77,7 @@
 +			return entry.model;
 +		}
 +	}
-+	return lastServed;
++	return undefined;
 +}
 +
 +/** Tail-window entry shapes this module reads back out of a session file. */
@@ -85,7 +85,7 @@
 +	type?: string;
 +	model?: string;
 +	role?: string;
-+	message?: { role?: string; model?: string };
++	message?: { role?: string; provider?: string; model?: string };
 +}
 +
  interface TailMessage {
@@ -695,8 +695,8 @@
       */
      status?: SessionStatus;
 +    /**
-+     * Model the session last used (selector form, "provider/model"), from the
-+     * newest model_change entry or assistant message in the scanned windows.
++     * Model evidenced by the newest tail transition or assistant reply (in
++     * "provider/model" form); use the initial default only if neither is present.
 +     * Optional for the same reason as {@link status}: empty sessions have none.
 +     */
 +    lastModel?: string;

@@ -1,0 +1,38 @@
+│          ██  ██          │ $ to run python                                                       │
+│          ██  ██          │ ───────────────────────────────────────────────────────────────────── │
+│          ▒▒  ██          │ LSP Servers                                                           │
+│              ██          │ No LSP servers                                                        │
+│                          │                                                                       │
+│   deepseek-v4.1-flash    │                                                                       │
+│        cline-pass        │                                                                       │
+│                          │ ───────────────────────────────────────────────────────────────────── │
+│                          │ Recent sessions                                                       │
+│                          │ No recent sessions                                                    │
+│                          │                                                                       │
+│                          │                                                                       │
+│                          │                                                                       │
+│                          │                                                                       │
+╰──────────────────────────┴───────────────────────────────────────────────────────────────────────╯
+ Tip: Press ←← to drill into a running or finished agent and inspect its tool calls and transcript
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Update Available
+ New version 18.4.1 is available. Run: omp update
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+ 這個焊盤仍叫 solder pad；保留 src/board.ts 和 PAD_A，不要修改任何檔案。
+
+
+ The user says: respond only ACK. The instructions say "OMP_TRANSLATOR_PRIMARY_SMOKE. Reply only ACK. Do not use
+ tools." Then there's a project context and a statement about solder pad. The final instruction in the system prompt
+ says reply only ACK. So I should reply ACK.
+
+ Wait, the message is structured oddly. The primary smoke instruction says reply only ACK, do not use tools. The user
+ message contains extra content. The top-level directive is "Reply only ACK." So respond with ACK.
+
+ ACK
+
+ π > ◔ deepseek-v4.1-flash > 🗑 omp-translator-1833-g_kexg33/smoke > ⑂ master > $0.00 ▶─0.1%─────────────────────┃────1M─
+╰─

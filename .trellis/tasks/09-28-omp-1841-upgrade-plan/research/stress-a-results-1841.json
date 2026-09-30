@@ -1,0 +1,1370 @@
+[
+  {
+    "scenario": "a1-eval",
+    "x2": true,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      },
+      "resume2": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1667948,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "markers",
+          "name": "evalState",
+          "min": 1,
+          "observed": 2,
+          "ok": true
+        },
+        {
+          "kind": "toolCalls",
+          "name": "eval",
+          "min": 1,
+          "observed": 1,
+          "ok": true
+        },
+        {
+          "kind": "branchCustomTypes",
+          "name": "eval-state-context",
+          "min": 1,
+          "observed": 1,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 0,
+        "unexpectedStop": 0,
+        "streamStall": 0,
+        "todoReminder": 0,
+        "evalState": 2,
+        "asyncResult": 0,
+        "steering": 0,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {
+        "eval-state-context": 1
+      },
+      "assistantStopReasons": {
+        "toolUse": 1,
+        "stop": 3
+      },
+      "toolCallsSeen": [
+        "eval"
+      ],
+      "toolResultsSeen": [
+        "eval"
+      ],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "a18d47f8",
+          "parentId": "25eec120",
+          "timestamp": "2026-09-28T18:04:43.788Z",
+          "thinkingLevel": null,
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "notes": "The eval-state reminder reaches a provider request through a display-context rebuild (agent-session.ts:6366 buildDisplaySessionContext, persistEvalStateContext). The live process applies that rebuild the way branch/switch/rewind callers do; the resume open is the same production path.",
+    "live_calls": 4,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "custom:tool_execution_start",
+      "message",
+      "message",
+      "custom_message:eval-state-context",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a1-eval-change",
+    "x2": true,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      },
+      "resume2": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1668308,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "markers",
+          "name": "evalState",
+          "min": 2,
+          "observed": 4,
+          "ok": true
+        },
+        {
+          "kind": "toolCalls",
+          "name": "eval",
+          "min": 1,
+          "observed": 2,
+          "ok": true
+        },
+        {
+          "kind": "branchCustomTypes",
+          "name": "eval-state-context",
+          "min": 2,
+          "observed": 2,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 0,
+        "unexpectedStop": 0,
+        "streamStall": 0,
+        "todoReminder": 0,
+        "evalState": 4,
+        "asyncResult": 0,
+        "steering": 0,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {
+        "eval-state-context": 2
+      },
+      "assistantStopReasons": {
+        "toolUse": 2,
+        "stop": 3
+      },
+      "toolCallsSeen": [
+        "eval",
+        "eval"
+      ],
+      "toolResultsSeen": [
+        "eval",
+        "eval"
+      ],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "b0716e4b",
+          "parentId": "8c9a4f05",
+          "timestamp": "2026-09-28T18:04:46.346Z",
+          "thinkingLevel": null,
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "live_calls": 5,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "custom:tool_execution_start",
+      "message",
+      "message",
+      "custom_message:eval-state-context",
+      "message",
+      "message",
+      "custom:tool_execution_start",
+      "message",
+      "message",
+      "custom_message:eval-state-context",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a2-empty",
+    "x2": false,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1668638,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "markers",
+          "name": "emptyStop",
+          "min": 1,
+          "observed": 3,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 3,
+        "malformed": 0,
+        "unexpectedStop": 0,
+        "streamStall": 0,
+        "todoReminder": 0,
+        "evalState": 0,
+        "asyncResult": 0,
+        "steering": 0,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {},
+      "assistantStopReasons": {
+        "stop": 3
+      },
+      "toolCallsSeen": [],
+      "toolResultsSeen": [],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "e48d9e2d",
+          "parentId": "f73103e3",
+          "timestamp": "2026-09-28T18:04:48.987Z",
+          "thinkingLevel": null,
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "live_calls": 4,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "branch_summary",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a2-malformed",
+    "x2": false,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1668842,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "markers",
+          "name": "malformed",
+          "min": 1,
+          "observed": 3,
+          "ok": true
+        },
+        {
+          "kind": "assistantStopReasons",
+          "name": "error",
+          "min": 1,
+          "observed": 1,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 3,
+        "unexpectedStop": 0,
+        "streamStall": 0,
+        "todoReminder": 0,
+        "evalState": 0,
+        "asyncResult": 0,
+        "steering": 0,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {},
+      "assistantStopReasons": {
+        "error": 1,
+        "stop": 3
+      },
+      "toolCallsSeen": [],
+      "toolResultsSeen": [],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "b346497c",
+          "parentId": "405cf257",
+          "timestamp": "2026-09-28T18:04:50.628Z",
+          "thinkingLevel": null,
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "live_calls": 4,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a2-unexpected",
+    "x2": false,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1669003,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "markers",
+          "name": "unexpectedStop",
+          "min": 1,
+          "observed": 3,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 0,
+        "unexpectedStop": 3,
+        "streamStall": 0,
+        "todoReminder": 0,
+        "evalState": 0,
+        "asyncResult": 0,
+        "steering": 0,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {},
+      "assistantStopReasons": {
+        "stop": 4
+      },
+      "toolCallsSeen": [],
+      "toolResultsSeen": [],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "f3ca8fe7",
+          "parentId": "44bf6c0c",
+          "timestamp": "2026-09-28T18:04:52.196Z",
+          "thinkingLevel": "high",
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "live_calls": 4,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a3-stall",
+    "x2": false,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1669179,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "markers",
+          "name": "streamStall",
+          "min": 1,
+          "observed": 3,
+          "ok": true
+        },
+        {
+          "kind": "assistantStopReasons",
+          "name": "error",
+          "min": 1,
+          "observed": 1,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 0,
+        "unexpectedStop": 0,
+        "streamStall": 3,
+        "todoReminder": 0,
+        "evalState": 0,
+        "asyncResult": 0,
+        "steering": 0,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {},
+      "assistantStopReasons": {
+        "error": 1,
+        "stop": 3
+      },
+      "toolCallsSeen": [],
+      "toolResultsSeen": [],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "eddd2b93",
+          "parentId": "80e07d2d",
+          "timestamp": "2026-09-28T18:04:53.805Z",
+          "thinkingLevel": null,
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "live_calls": 4,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a4-abort-stream",
+    "x2": false,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1669355,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "assistantStopReasons",
+          "name": "aborted",
+          "min": 1,
+          "observed": 1,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 0,
+        "unexpectedStop": 0,
+        "streamStall": 0,
+        "todoReminder": 0,
+        "evalState": 0,
+        "asyncResult": 0,
+        "steering": 0,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {},
+      "assistantStopReasons": {
+        "aborted": 1,
+        "stop": 2
+      },
+      "toolCallsSeen": [],
+      "toolResultsSeen": [],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "b97759be",
+          "parentId": "682a00c1",
+          "timestamp": "2026-09-28T18:04:55.444Z",
+          "thinkingLevel": null,
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "live_calls": 3,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a4-abort-tool",
+    "x2": false,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1669546,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "toolCalls",
+          "name": "bash",
+          "min": 1,
+          "observed": 1,
+          "ok": true
+        },
+        {
+          "kind": "assistantStopReasons",
+          "name": "aborted",
+          "min": 1,
+          "observed": 1,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 0,
+        "unexpectedStop": 0,
+        "streamStall": 0,
+        "todoReminder": 0,
+        "evalState": 0,
+        "asyncResult": 0,
+        "steering": 0,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {},
+      "assistantStopReasons": {
+        "toolUse": 1,
+        "aborted": 1,
+        "stop": 2
+      },
+      "toolCallsSeen": [
+        "bash"
+      ],
+      "toolResultsSeen": [
+        "bash"
+      ],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "06e11575",
+          "parentId": "155b0e0a",
+          "timestamp": "2026-09-28T18:04:57.164Z",
+          "thinkingLevel": null,
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "live_calls": 4,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "custom:tool_execution_start",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a5-async",
+    "x2": false,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1669751,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "markers",
+          "name": "asyncResult",
+          "min": 1,
+          "observed": 3,
+          "ok": true
+        },
+        {
+          "kind": "branchCustomTypes",
+          "name": "async-result",
+          "min": 1,
+          "observed": 1,
+          "ok": true
+        },
+        {
+          "kind": "toolCalls",
+          "name": "bash",
+          "min": 1,
+          "observed": 1,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 0,
+        "unexpectedStop": 0,
+        "streamStall": 0,
+        "todoReminder": 0,
+        "evalState": 0,
+        "asyncResult": 3,
+        "steering": 0,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {
+        "async-result": 1
+      },
+      "assistantStopReasons": {
+        "toolUse": 1,
+        "stop": 4
+      },
+      "toolCallsSeen": [
+        "bash"
+      ],
+      "toolResultsSeen": [
+        "bash"
+      ],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "e01b4b65",
+          "parentId": "4d1a42b7",
+          "timestamp": "2026-09-28T18:04:58.846Z",
+          "thinkingLevel": null,
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "live_calls": 5,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "custom:tool_execution_start",
+      "message",
+      "message",
+      "custom_message:async-result",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a6-todo",
+    "x2": false,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1669940,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "markers",
+          "name": "todoReminder",
+          "min": 1,
+          "observed": 9,
+          "ok": true
+        },
+        {
+          "kind": "toolCalls",
+          "name": "todo",
+          "min": 1,
+          "observed": 1,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 0,
+        "unexpectedStop": 0,
+        "streamStall": 0,
+        "todoReminder": 9,
+        "evalState": 0,
+        "asyncResult": 0,
+        "steering": 0,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {},
+      "assistantStopReasons": {
+        "toolUse": 1,
+        "stop": 6
+      },
+      "toolCallsSeen": [
+        "todo"
+      ],
+      "toolResultsSeen": [
+        "todo"
+      ],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "c5bcfeb0",
+          "parentId": "81811330",
+          "timestamp": "2026-09-28T18:05:00.740Z",
+          "thinkingLevel": null,
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "live_calls": 8,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "custom:tool_execution_start",
+      "message",
+      "title_change",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": [
+        "live:1"
+      ]
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a7-switch",
+    "x2": true,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      },
+      "resume2": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1670115,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "modelChanges",
+          "name": "modelChanges",
+          "min": 2,
+          "observed": 2,
+          "ok": true
+        },
+        {
+          "kind": "thinkingLevelChanges",
+          "name": "thinkingLevelChanges",
+          "min": 2,
+          "observed": 2,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 0,
+        "unexpectedStop": 0,
+        "streamStall": 0,
+        "todoReminder": 0,
+        "evalState": 0,
+        "asyncResult": 0,
+        "steering": 0,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {},
+      "assistantStopReasons": {
+        "stop": 3
+      },
+      "toolCallsSeen": [],
+      "toolResultsSeen": [],
+      "modelChanges": [
+        "stress-fixture/vision-model",
+        "stress-fixture/alt-model"
+      ],
+      "thinkingLevelChanges": 2,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "7efe3ea6",
+          "parentId": "75941d97",
+          "timestamp": "2026-09-28T18:05:02.402Z",
+          "thinkingLevel": "high",
+          "configured": null
+        },
+        {
+          "type": "thinking_level_change",
+          "id": "cd5a7a90",
+          "parentId": "6d00eea9",
+          "timestamp": "2026-09-28T18:05:02.494Z",
+          "thinkingLevel": "low",
+          "configured": "low"
+        }
+      ],
+      "notes": {
+        "modelBefore": "stress-fixture/vision-model",
+        "thinkingBefore": "high",
+        "modelAfter": "stress-fixture/alt-model",
+        "thinkingAfter": "low",
+        "thinkingEffectiveAfter": "low"
+      }
+    },
+    "live_calls": 3,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a8-steer",
+    "x2": false,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1670473,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "markers",
+          "name": "steering",
+          "min": 1,
+          "observed": 3,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 0,
+        "unexpectedStop": 0,
+        "streamStall": 0,
+        "todoReminder": 0,
+        "evalState": 0,
+        "asyncResult": 0,
+        "steering": 3,
+        "extensionInjection": 0
+      },
+      "branchCustomTypes": {},
+      "assistantStopReasons": {
+        "toolUse": 1,
+        "stop": 3
+      },
+      "toolCallsSeen": [
+        "bash"
+      ],
+      "toolResultsSeen": [
+        "bash"
+      ],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "d5b2401e",
+          "parentId": "479f4cd2",
+          "timestamp": "2026-09-28T18:05:04.829Z",
+          "thinkingLevel": null,
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "live_calls": 4,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "custom:tool_execution_start",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  },
+  {
+    "scenario": "a9-ext",
+    "x2": false,
+    "checks": {
+      "resume1": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_head_equal": true,
+        "messages_prefix_diff": null,
+        "self_append_anthropic": null,
+        "self_append_anthropic_nocache": null,
+        "self_append_codex": null,
+        "invariant_ok": true,
+        "invariant_failures": [],
+        "internal_calls": []
+      }
+    },
+    "errors": [],
+    "live_pid": 1670713,
+    "trigger": {
+      "ok": true,
+      "checks": [
+        {
+          "kind": "markers",
+          "name": "extensionInjection",
+          "min": 1,
+          "observed": 3,
+          "ok": true
+        },
+        {
+          "kind": "branchCustomTypes",
+          "name": "stress-ext-note",
+          "min": 1,
+          "observed": 1,
+          "ok": true
+        }
+      ]
+    },
+    "evidence": {
+      "markers": {
+        "emptyStop": 0,
+        "malformed": 0,
+        "unexpectedStop": 0,
+        "streamStall": 0,
+        "todoReminder": 0,
+        "evalState": 0,
+        "asyncResult": 0,
+        "steering": 0,
+        "extensionInjection": 3
+      },
+      "branchCustomTypes": {
+        "stress-ext-note": 1
+      },
+      "assistantStopReasons": {
+        "stop": 3
+      },
+      "toolCallsSeen": [],
+      "toolResultsSeen": [],
+      "modelChanges": [
+        "stress-fixture/vision-model"
+      ],
+      "thinkingLevelChanges": 1,
+      "thinkingEntries": [
+        {
+          "type": "thinking_level_change",
+          "id": "54182a70",
+          "parentId": "d01efdf7",
+          "timestamp": "2026-09-28T18:05:06.556Z",
+          "thinkingLevel": null,
+          "configured": null
+        }
+      ],
+      "notes": {}
+    },
+    "notes": "pi.sendMessage itself is unreachable in a headless SDK session: ExtensionRunner.initialize (which installs the action surface) is only called by mode controllers (modes/runtime-init.ts:55, modes/controllers/extension-ui-controller.ts:322/553, modes/acp/acp-agent.ts:2568), never by sdk.ts; the unwired ExtensionRuntime stub throws (extensibility/extensions/loader.ts:112-115). The probe therefore drives the exact action pi.sendMessage delegates to (runtime-init.ts:59 sendMessage -> session.sendCustomMessage).",
+    "live_calls": 3,
+    "branch": [
+      "model_change",
+      "thinking_level_change",
+      "message",
+      "message",
+      "custom_message:stress-ext-note",
+      "message",
+      "message",
+      "message",
+      "message"
+    ],
+    "fetchAttempts": 0,
+    "invariant": {
+      "all_ok": true,
+      "failures": [],
+      "internal_calls": []
+    },
+    "pass": true
+  }
+]

@@ -1,0 +1,50 @@
+{
+  "slice": "Compaction",
+  "status": "complete",
+  "layers_owned": [
+    "0035",
+    "0031",
+    "0066",
+    "0067",
+    "0068",
+    "0070"
+  ],
+  "emitted_candidates": [
+    "0035",
+    "0031",
+    "0070"
+  ],
+  "unchanged_candidates": [
+    "0066",
+    "0067",
+    "0068"
+  ],
+  "final_replay": "applied=48 failed=0",
+  "gates_all_pass": true,
+  "sensitivity": {
+    "0035": "fail without layer, pass with",
+    "0066": "fail without layer, pass with",
+    "0070": "fail without layer, pass with"
+  },
+  "repo_files_changed": [
+    "patches/.18.4.1-candidates/0035-omp-compaction-prefix-rollup-v18.4.1-candidate.patch",
+    "patches/.18.4.1-candidates/0031-omp-agent-session-providers-forward-v18.4.1-candidate.patch",
+    "patches/.18.4.1-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.4.1-candidate.patch"
+  ],
+  "classifications": {
+    "0035": "A",
+    "0031": "A",
+    "0066": "A",
+    "0067": "A",
+    "0068": "A",
+    "0070": "B (含 C 子元素)"
+  },
+  "open_risks": [
+    "0070 的 Codex guard predicate 只認 model.api === \"openai-codex-responses\"，而 18.4.1 判定 V2 lane 另含 model.provider === \"openai-codex\"（compaction-v2-streaming.ts:295）；已按 18.3.3 位元組保留，建議後續以行為證據確認是否需放寬",
+    "0066 live scope 的 agent.state.messages.slice() 與持久化內容的等價性目前只由 verify-eval-state-context-persist.ts 的 resume wire-equal 覆蓋，未在真實 provider 量測",
+    "沙箱只有 18.4.1 官方 tarball，沒有 18.3.3 官方源碼，故部分『upstream 新增』判定為推論（已標 [INFERENCE]）"
+  ],
+  "report": "# Slice Compaction — 18.4.1 補丁遷移結果\n\n## 0. 執行通道\n`slice_run` 未掛載（`read xd://slice_run` 回 `No such tool: xd://slice_run. Mounted devices: cron, api_image.`），依 Main 後續的 EXEC CHANNEL DECISION 改用 `bash(name=…)` + 每條命令開頭 `source /home/chris/.cache/omp-1841-upgrade/Compaction/env.sh`。11:0x 之前未使用 env.sh 的命令清單（全部唯讀探測與沙箱內操作）已用 agent://Main 回報；Main 回覆 live global install 近 3 小時無檔案變更。\n\n## 1. 逐層結果\n\n| layer | class | candidate | size（18.3.3→18.4.1） | EMIT / replay |\n|---|---|---|---|---|\n| 0035 compaction-prefix-rollup | **A** | `patches/.18.4.1-candidates/0035-…-candidate.patch`（11 檔、24+3 hunks 全保留） | 44,427 → 44,292 B | `EMIT OK`；全鏈 `APPLIED` |\n| 0031 agent-session-providers-forward | **A** | `…0031-…-candidate.patch`（2 檔） | 2,744 → 2,762 B | `EMIT…
+}
+
+[Some lines truncated to 768 chars]

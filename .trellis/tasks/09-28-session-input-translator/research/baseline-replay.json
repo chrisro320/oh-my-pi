@@ -1,0 +1,378 @@
+[
+  {
+    "file": ".18.3.3-candidates/0033-omp-cache-turn-status-rollup-v18.3.3-candidate.patch",
+    "root": "TUI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/status-line/schema.ts\nchecking file src/status-line/segments.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/status-line/schema.ts\npatching file src/status-line/segments.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0004-omp-token-total-cacheread-v18.3.3-candidate.patch",
+    "root": "TUI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/status-line/segments.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/status-line/segments.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0034-omp-hindsight-snapshot-rollup-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/hindsight/state.ts\nchecking file src/session/agent-session.ts\nchecking file src/hindsight/backend.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/hindsight/state.ts\npatching file src/session/agent-session.ts\npatching file src/hindsight/backend.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0037-omp-usage-statusline-gate-rollup-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-tui/src/status-line/component.ts\nchecking file pi-tui/src/status-line/host.ts\nchecking file pi-coding-agent/src/modes/status-line-host.ts\nchecking file pi-tui/dist/types/status-line/host.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-tui/src/status-line/component.ts\npatching file pi-tui/src/status-line/host.ts\npatching file pi-coding-agent/src/modes/status-line-host.ts\npatching file pi-tui/dist/types/status-line/host.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0010-omp-extension-idle-ephemeral-turn-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file dist/types/extensibility/extensions/types.d.ts\nchecking file src/extensibility/extensions/runner.ts\nchecking file src/extensibility/extensions/types.ts\nchecking file src/modes/acp/acp-agent.ts\nchecking file src/modes/controllers/extension-ui-controller.ts\nchecking file src/modes/runtime-init.ts\nchecking file src/session/agent-session.ts\nchecking file src/task/executor.ts\nchecking file dist/types/session/agent-session.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file dist/types/extensibility/extensions/types.d.ts\npatching file src/extensibility/extensions/runner.ts\npatching file src/extensibility/extensions/types.ts\npatching file src/modes/acp/acp-agent.ts\npatching file src/modes/controllers/extension-ui-controller.ts\npatching file src/modes/runtime-init.ts\npatching file src/session/agent-session.ts\npatching file src/task/executor.ts\npatching file dist/types/session/agent-session.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0035-omp-compaction-prefix-rollup-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md\nchecking file pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md\nchecking file pi-coding-agent/src/session/agent-session.ts\nchecking file pi-coding-agent/src/session/session-advisors.ts\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nchecking file pi-coding-agent/src/session/session-provider-boundary.ts\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\nchecking file pi-coding-agent/dist/types/session/session-provider-boundary.d.ts\nchecking file pi-coding-agent/dist/types/session/session-maintenance.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-agent-core/src/compaction/compaction.ts\npatching file pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md\npatching file pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md\npatching file pi-coding-agent/src/session/agent-session.ts\npatching file pi-coding-agent/src/session/session-advisors.ts\npatching file pi-coding-agent/src/session/session-maintenance.ts\npatching file pi-coding-agent/src/session/session-provider-boundary.ts\npatching file pi-agent-core/dist/types/compaction/compaction.d.ts\npatching file pi-coding-agent/dist/types/session/agent-session.d.ts\npatching file pi-coding-agent/dist/types/session/session-provider-boundary.d.ts\npatching file pi-coding-agent/dist/types/session/session-maintenance.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0014-omp-antigravity-deterministic-session-identity-v18.3.3-candidate.patch",
+    "root": "AI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/providers/google-gemini-cli.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/providers/google-gemini-cli.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0036-omp-image-frame-budget-rollup-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-coding-agent/src/session/provider-image-budget.ts\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nchecking file pi-coding-agent/src/session/snapcompact-inline.ts\nchecking file snapcompact/src/snapcompact.ts\nchecking file snapcompact/dist/types/snapcompact.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-coding-agent/src/session/provider-image-budget.ts\npatching file pi-coding-agent/src/session/session-maintenance.ts\npatching file pi-coding-agent/src/session/snapcompact-inline.ts\npatching file snapcompact/src/snapcompact.ts\npatching file snapcompact/dist/types/snapcompact.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0017-omp-openai-responses-native-replay-warm-v18.3.3-candidate.patch",
+    "root": "AI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/providers/openai-responses.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/providers/openai-responses.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0025-omp-ollama-cloud-usage-api-v18.3.3-candidate.patch",
+    "root": "AI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/usage/ollama.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/usage/ollama.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0026-omp-usage-fetch-anthropic-gate-core-v18.3.3-candidate.patch",
+    "root": "AI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/auth/usage.ts\nchecking file src/auth/types.ts\nchecking file dist/types/auth/usage.d.ts\nchecking file dist/types/auth/types.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/auth/usage.ts\npatching file src/auth/types.ts\npatching file dist/types/auth/usage.d.ts\npatching file dist/types/auth/types.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0030-omp-usage-cache-canonical-baseurl-v18.3.3-candidate.patch",
+    "root": "AI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/auth/usage-cache.ts\nchecking file src/auth/usage.ts\nchecking file dist/types/auth/usage-cache.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/auth/usage-cache.ts\npatching file src/auth/usage.ts\npatching file dist/types/auth/usage-cache.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0031-omp-agent-session-providers-forward-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/session/agent-session.ts\nchecking file dist/types/session/agent-session.d.ts\nHunk #2 succeeded at 1176 (offset 3 lines).\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/session/agent-session.ts\npatching file dist/types/session/agent-session.d.ts\nHunk #2 succeeded at 1176 (offset 3 lines).\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0032-omp-goal-tool-resident-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/sdk.ts\nchecking file src/tools/index.ts\nchecking file src/modes/interactive-mode.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/sdk.ts\npatching file src/tools/index.ts\npatching file src/modes/interactive-mode.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-ai/src/providers/openai-responses.ts\nchecking file pi-ai/src/types.ts\nchecking file pi-coding-agent/src/sdk.ts\nchecking file pi-coding-agent/src/session/date-cwd-reminder.ts\nchecking file pi-ai/dist/types/types.d.ts\nchecking file pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-ai/src/providers/openai-responses.ts\npatching file pi-ai/src/types.ts\npatching file pi-coding-agent/src/sdk.ts\npatching file pi-coding-agent/src/session/date-cwd-reminder.ts\npatching file pi-ai/dist/types/types.d.ts\npatching file pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0043-omp-interrupt-prune-symmetry-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/session/messages.ts\nchecking file src/session/session-context.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/session/messages.ts\npatching file src/session/session-context.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0044-omp-image-budget-wire-api-family-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file snapcompact/src/snapcompact.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file snapcompact/src/snapcompact.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0052-omp-snapcompact-model-billing-commandcode-budget-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file snapcompact/src/snapcompact.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file snapcompact/src/snapcompact.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0057-omp-devin-image-budget-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file snapcompact/src/snapcompact.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file snapcompact/src/snapcompact.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0045-omp-snapcompact-frame-reprice-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/session/session-maintenance.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/session/session-maintenance.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0046-omp-supersede-warm-prefix-guard-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/session/session-maintenance.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/session/session-maintenance.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0048-omp-advisor-quota-rotation-bound-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/session/session-advisors.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/session/session-advisors.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0050-omp-session-history-preview-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-coding-agent/src/session/session-listing.ts\nchecking file pi-coding-agent/src/modes/controllers/selector-controller.ts\nchecking file pi-tui/src/overlays/session-selector.ts\nchecking file pi-tui/src/apps/session-picker.ts\nchecking file pi-coding-agent/src/main.ts\nchecking file pi-tui/dist/types/overlays/session-selector.d.ts\nchecking file pi-tui/dist/types/apps/session-picker.d.ts\nchecking file pi-coding-agent/dist/types/session/session-listing.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-coding-agent/src/session/session-listing.ts\npatching file pi-coding-agent/src/modes/controllers/selector-controller.ts\npatching file pi-tui/src/overlays/session-selector.ts\npatching file pi-tui/src/apps/session-picker.ts\npatching file pi-coding-agent/src/main.ts\npatching file pi-tui/dist/types/overlays/session-selector.d.ts\npatching file pi-tui/dist/types/apps/session-picker.d.ts\npatching file pi-coding-agent/dist/types/session/session-listing.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0054-omp-antigravity-drop-requesttype-agent-v18.3.3-candidate.patch",
+    "root": "AI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/providers/google-gemini-cli.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/providers/google-gemini-cli.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0047-omp-date-cwd-anchor-stability-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/sdk.ts\nchecking file src/session/date-cwd-reminder.ts\nchecking file dist/types/session/date-cwd-reminder.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/sdk.ts\npatching file src/session/date-cwd-reminder.ts\npatching file dist/types/session/date-cwd-reminder.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0055-omp-devin-auth-cache-turn-timing-v18.3.3-candidate.patch",
+    "root": "AI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/providers/devin.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/providers/devin.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0071-omp-devin-request-dump-v18.3.3-candidate.patch",
+    "root": "AI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/providers/devin.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/providers/devin.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0056-omp-devin-metadata-alignment-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-catalog/src/wire/devin.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-catalog/src/wire/devin.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0058-omp-devin-thinking-signature-replay-v18.3.3-candidate.patch",
+    "root": "AI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/providers/devin.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/providers/devin.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0060-omp-devin-idle-cascade-pin-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-ai/src/types.ts\nchecking file pi-ai/src/stream.ts\nchecking file pi-coding-agent/src/session/agent-session.ts\nchecking file pi-coding-agent/src/session/agent-session-types.ts\nchecking file pi-ai/dist/types/types.d.ts\nchecking file pi-ai/dist/types/stream.d.ts\nchecking file pi-coding-agent/dist/types/session/agent-session-types.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-ai/src/types.ts\npatching file pi-ai/src/stream.ts\npatching file pi-coding-agent/src/session/agent-session.ts\npatching file pi-coding-agent/src/session/agent-session-types.ts\npatching file pi-ai/dist/types/types.d.ts\npatching file pi-ai/dist/types/stream.d.ts\npatching file pi-coding-agent/dist/types/session/agent-session-types.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0062-omp-snapcompact-reduction-baseline-previous-archive-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/session/session-maintenance.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/session/session-maintenance.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0063-omp-codex-v2-compaction-live-chain-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-ai/src/providers/openai-codex-responses.ts\nchecking file pi-ai/dist/types/providers/openai-codex-responses.d.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-ai/src/providers/openai-codex-responses.ts\npatching file pi-ai/dist/types/providers/openai-codex-responses.d.ts\npatching file pi-agent-core/src/compaction/compaction.ts\npatching file pi-agent-core/src/compaction/compaction-v2-streaming.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-catalog/src/compat/rules/providers/commandcode.kdl\nchecking file pi-catalog/src/compat/rules.json\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-catalog/src/compat/rules/providers/commandcode.kdl\npatching file pi-catalog/src/compat/rules.json\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0066-omp-anthropic-native-compaction-live-context-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nchecking file pi-coding-agent/src/session/session-advisors.ts\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-agent-core/src/compaction/compaction.ts\npatching file pi-coding-agent/src/session/session-maintenance.ts\npatching file pi-coding-agent/src/session/session-advisors.ts\npatching file pi-agent-core/dist/types/compaction/compaction.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0067-omp-remote-compaction-lane-trace-live-tools-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-agent-core/src/compaction/compaction.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-agent-core/src/compaction/compaction.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0068-omp-codex-stale-baseline-chain-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-ai/src/providers/openai-codex-responses.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\nchecking file pi-agent-core/src/compaction/compaction-trace.ts\nchecking file pi-agent-core/dist/types/compaction/compaction-trace.d.ts\nchecking file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-ai/src/providers/openai-codex-responses.ts\npatching file pi-agent-core/src/compaction/compaction.ts\npatching file pi-agent-core/src/compaction/compaction-v2-streaming.ts\npatching file pi-agent-core/src/compaction/compaction-trace.ts\npatching file pi-agent-core/dist/types/compaction/compaction-trace.d.ts\npatching file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0069-omp-codex-effort-history-resume-v18.3.3-candidate.patch",
+    "root": "AI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/types.ts\nchecking file src/providers/openai-codex-responses.ts\nchecking file dist/types/types.d.ts\nHunk #2 succeeded at 764 (offset 10 lines).\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/types.ts\npatching file src/providers/openai-codex-responses.ts\npatching file dist/types/types.d.ts\nHunk #2 succeeded at 764 (offset 10 lines).\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\nHunk #1 succeeded at 175 (offset 6 lines).\nchecking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-ai/dist/types/providers/openai-codex-responses.d.ts\nHunk #3 succeeded at 233 (offset 18 lines).\nchecking file pi-ai/src/providers/openai-codex-responses.ts\nchecking file pi-coding-agent/src/session/session-advisors.ts\nHunk #1 succeeded at 2217 (offset 27 lines).\nchecking file pi-coding-agent/src/session/session-maintenance.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\npatching file pi-agent-core/dist/types/compaction/compaction.d.ts\nHunk #1 succeeded at 175 (offset 6 lines).\npatching file pi-agent-core/src/compaction/compaction-v2-streaming.ts\npatching file pi-agent-core/src/compaction/compaction.ts\npatching file pi-ai/dist/types/providers/openai-codex-responses.d.ts\nHunk #3 succeeded at 233 (offset 18 lines).\npatching file pi-ai/src/providers/openai-codex-responses.ts\npatching file pi-coding-agent/src/session/session-advisors.ts\nHunk #1 succeeded at 2217 (offset 27 lines).\npatching file pi-coding-agent/src/session/session-maintenance.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0072-omp-session-pin-static-auth-ui-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/modes/controllers/selector-controller.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/modes/controllers/selector-controller.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0074-omp-anthropic-context-cache-boundaries-v18.3.3-candidate.patch",
+    "root": "AI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/providers/anthropic-request-audit.ts\nchecking file src/providers/anthropic.ts\nchecking file dist/types/providers/anthropic-request-audit.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/providers/anthropic-request-audit.ts\npatching file src/providers/anthropic.ts\npatching file dist/types/providers/anthropic-request-audit.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0075-omp-hindsight-recall-promotion-slot-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/hindsight/backend.ts\nchecking file src/session/agent-session.ts\nchecking file src/session/session-memory.ts\nchecking file src/session/session-tools.ts\nchecking file dist/types/session/session-memory.d.ts\nchecking file dist/types/session/session-tools.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/hindsight/backend.ts\npatching file src/session/agent-session.ts\npatching file src/session/session-memory.ts\npatching file src/session/session-tools.ts\npatching file dist/types/session/session-memory.d.ts\npatching file dist/types/session/session-tools.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0076-omp-eval-state-context-persist-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-coding-agent/src/collab/guest.ts\nchecking file pi-coding-agent/src/session/agent-session.ts\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-coding-agent/src/collab/guest.ts\npatching file pi-coding-agent/src/session/agent-session.ts\npatching file pi-coding-agent/dist/types/session/agent-session.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0077-omp-turn-recovery-reminder-persist-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/session/turn-recovery.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/session/turn-recovery.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0078-omp-python-display-mime-preference-v18.3.3-candidate.patch",
+    "root": "AGENT",
+    "dry_exit": 0,
+    "dry_output": "checking file src/eval/py/display.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/eval/py/display.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0079-omp-kitty-conversion-finalization-v18.3.3-candidate.patch",
+    "root": "TUI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/chat/tool-execution.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/chat/tool-execution.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0080-omp-kitty-shared-png-cache-v18.3.3-candidate.patch",
+    "root": "TUI",
+    "dry_exit": 0,
+    "dry_output": "checking file src/chat/assistant-message.ts\nchecking file src/chat/image-loading.ts\nchecking file src/chat/tool-execution.ts\nchecking file dist/types/chat/image-loading.d.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file src/chat/assistant-message.ts\npatching file src/chat/image-loading.ts\npatching file src/chat/tool-execution.ts\npatching file dist/types/chat/image-loading.d.ts\n"
+  },
+  {
+    "file": ".18.3.3-candidates/0081-omp-main-cache-footer-v18.3.3-candidate.patch",
+    "root": "NM",
+    "dry_exit": 0,
+    "dry_output": "checking file pi-coding-agent/src/session/session-manager.ts\nchecking file pi-coding-agent/dist/types/session/session-manager.d.ts\nchecking file pi-tui/src/status-line/host.ts\nchecking file pi-tui/dist/types/status-line/host.d.ts\nchecking file pi-tui/src/status-line/segments.ts\nchecking file pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts\nchecking file pi-coding-agent/src/cli/gallery-fixtures/status-line.ts\n",
+    "apply_exit": 0,
+    "apply_output": "patching file pi-coding-agent/src/session/session-manager.ts\npatching file pi-coding-agent/dist/types/session/session-manager.d.ts\npatching file pi-tui/src/status-line/host.ts\npatching file pi-tui/dist/types/status-line/host.d.ts\npatching file pi-tui/src/status-line/segments.ts\npatching file pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts\npatching file pi-coding-agent/src/cli/gallery-fixtures/status-line.ts\n"
+  }
+]

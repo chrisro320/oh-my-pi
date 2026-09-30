@@ -1,0 +1,1144 @@
+{
+  "nm": "/home/chris/.cache/omp-1841-upgrade/StressC/home/.bun/install/global/node_modules/@oh-my-pi",
+  "sandbox_home": "/home/chris/.cache/omp-1841-upgrade/StressC/home",
+  "probe_leftover": [],
+  "results": [
+    {
+      "case": "r1",
+      "title": "r1-length-stop-retry-reminder",
+      "live_pid": 1656930,
+      "resume_pid": 1657015,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/sessions/2026-09-28T17-56-54-851Z_01a0e929-a1c3-7000-8642-682af4b2d209.jsonl",
+      "live_requests": 4,
+      "resume_requests": 2,
+      "live_request_roles": [
+        [
+          "user"
+        ],
+        [
+          "user",
+          "developer"
+        ],
+        [
+          "user",
+          "developer",
+          "assistant",
+          "user"
+        ],
+        [
+          "user",
+          "developer",
+          "assistant",
+          "user",
+          "assistant",
+          "user"
+        ]
+      ],
+      "invariant": [
+        {
+          "request": 0,
+          "turn": "t1",
+          "status": "ok",
+          "index": null,
+          "live_count": 1,
+          "file_count": 0,
+          "live": null,
+          "file": null,
+          "live_roles": [
+            "user"
+          ],
+          "file_roles": []
+        },
+        {
+          "request": 1,
+          "turn": "t1",
+          "status": "live-extra",
+          "index": 1,
+          "live_count": 2,
+          "file_count": 1,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<system-injection>\\nPrevious response hit the 900-token output limit while still reasoning; it was discarded unseen, with every tool call it planned. Re-planning the whole task in reasoning fails the same way.\\n- Reason only about the next step, then call the tool.\\n- Large deliverable (file, document, long answer): write a minimal working vers",
+          "file": null,
+          "live_roles": [
+            "user",
+            "developer"
+          ],
+          "file_roles": [
+            "user"
+          ]
+        },
+        {
+          "request": 2,
+          "turn": "t2",
+          "status": "diverged",
+          "index": 1,
+          "live_count": 4,
+          "file_count": 2,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<system-injection>\\nPrevious response hit the 900-token output limit while still reasoning; it was discarded unseen, with every tool call it planned. Re-planning the whole task in reasoning fails the same way.\\n- Reason only about the next step, then call the tool.\\n- Large deliverable (file, document, long answer): write a minimal working vers",
+          "file": "{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Recovered after the length stop.\"}]}",
+          "live_roles": [
+            "user",
+            "developer",
+            "assistant",
+            "user"
+          ],
+          "file_roles": [
+            "user",
+            "assistant"
+          ]
+        },
+        {
+          "request": 3,
+          "turn": "t3",
+          "status": "diverged",
+          "index": 1,
+          "live_count": 6,
+          "file_count": 4,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<system-injection>\\nPrevious response hit the 900-token output limit while still reasoning; it was discarded unseen, with every tool call it planned. Re-planning the whole task in reasoning fails the same way.\\n- Reason only about the next step, then call the tool.\\n- Large deliverable (file, document, long answer): write a minimal working vers",
+          "file": "{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Recovered after the length stop.\"}]}",
+          "live_roles": [
+            "user",
+            "developer",
+            "assistant",
+            "user",
+            "assistant",
+            "user"
+          ],
+          "file_roles": [
+            "user",
+            "assistant",
+            "user",
+            "assistant"
+          ]
+        }
+      ],
+      "invariant_ok": false,
+      "first_unpersisted_request": 1,
+      "invariant_detail": {
+        "status": "live-extra",
+        "index": 1,
+        "liveCount": 2,
+        "fileCount": 1,
+        "liveRoles": [
+          "user",
+          "developer"
+        ],
+        "fileRoles": [
+          "user"
+        ],
+        "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<system-injection>\\nPrevious response hit the 900-token output limit while still reasoning; it was discarded unseen, with every tool call it planned. Re-planning the whole task in reasoning fails the same way.\\n- Reason only about the next step, then call the tool.\\n- Large deliverable (file, document, long answer): write a minimal working vers"
+      },
+      "marker": {
+        "marker": "Previous response hit the 900-token output limit",
+        "in_session_file": false,
+        "occurrences": 0
+      },
+      "live_roles_per_request": [
+        [
+          "user"
+        ],
+        [
+          "user",
+          "developer"
+        ],
+        [
+          "user",
+          "developer",
+          "assistant",
+          "user"
+        ],
+        [
+          "user",
+          "developer",
+          "assistant",
+          "user",
+          "assistant",
+          "user"
+        ]
+      ],
+      "resume_vs_last": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": {
+          "index": 1,
+          "offset": 9,
+          "live": "{\"role\":\"system\",\"content\":[{\"type\":\"text\",\"text\":\"<system-injection>\\nPrevious response hit the 900-token output limit while still reasoning; it was discarded unseen, with every tool call it planned. Re-planning the whole task in reasoning fails th",
+          "resumed": "{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Recovered after the length stop.\"}]}"
+        },
+        "anthropic_nocache_prefix_diff": {
+          "index": 1,
+          "offset": 9,
+          "live": "{\"role\":\"system\",\"content\":[{\"type\":\"text\",\"text\":\"<system-injection>\\nPrevious response hit the 900-token output limit while still reasoning; it was discarded unseen, with every tool call it planned. Re-planning the whole task in reasoning fails th",
+          "resumed": "{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Recovered after the length stop.\"}]}"
+        },
+        "codex_input_prefix_diff": {
+          "index": 2,
+          "offset": 2,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"input_text\",\"text\":\"<system-injection>\\nPrevious response hit the 900-token output limit while still reasoning; it was discarded unseen, with every tool call it planned. Re-planning the whole task in re",
+          "resumed": "{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"Recovered after the length stop.\",\"annotations\":[]}],\"status\":\"completed\"}"
+        },
+        "codex_head_equal": true
+      },
+      "resume_append_only": {
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null
+      },
+      "session_identity": {
+        "live_request_session_ids": [
+          "01a0e929-a1c3-7000-8642-682af4b2d209",
+          "01a0e929-a1c3-7000-8642-682af4b2d209",
+          "01a0e929-a1c3-7000-8642-682af4b2d209",
+          "01a0e929-a1c3-7000-8642-682af4b2d209"
+        ],
+        "live_request_prompt_cache_keys": [
+          "01a0e929-a1c3-7000-8642-682af4b2d209",
+          "01a0e929-a1c3-7000-8642-682af4b2d209",
+          "01a0e929-a1c3-7000-8642-682af4b2d209",
+          "01a0e929-a1c3-7000-8642-682af4b2d209"
+        ],
+        "resume_request_session_ids": [
+          "01a0e929-a1c3-7000-8642-682af4b2d209",
+          "01a0e929-a1c3-7000-8642-682af4b2d209"
+        ],
+        "resume_request_prompt_cache_keys": [
+          "01a0e929-a1c3-7000-8642-682af4b2d209",
+          "01a0e929-a1c3-7000-8642-682af4b2d209"
+        ],
+        "manager_session_id_live": "01a0e929-a1c3-7000-8642-682af4b2d209",
+        "manager_session_id_resume": "01a0e929-a1c3-7000-8642-682af4b2d209"
+      },
+      "fetch_attempts": 0,
+      "resume_vs_carrier": {
+        "carrier_request": 1,
+        "message_prefix_diff": {
+          "index": 1,
+          "offset": 23,
+          "live": "{\"content\": [{\"text\": \"<system-injection>\\nPrevious response hit the 900-token output limit while still reasoning; it was discarded unseen, with every tool call it planned. Re-planning the whole task in reasoning fails the same way.\\n- Reason only about the next ",
+          "resumed": "{\"content\": [{\"text\": \"Recovered after the length stop.\", \"type\": \"text\"}], \"role\": \"assistant\", \"toolCallId\": null}"
+        },
+        "anthropic_prefix_diff": {
+          "index": 1,
+          "offset": 9,
+          "live": "{\"role\":\"system\",\"content\":[{\"type\":\"text\",\"text\":\"<system-injection>\\nPrevious response hit the 900-token output limit while still reasoning; it was discarded unseen, with every tool call it planned. Re-planning the whole task in reasoning fails th",
+          "resumed": "{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Recovered after the length stop.\"}]}"
+        },
+        "codex_input_prefix_diff": {
+          "index": 2,
+          "offset": 2,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"input_text\",\"text\":\"<system-injection>\\nPrevious response hit the 900-token output limit while still reasoning; it was discarded unseen, with every tool call it planned. Re-planning the whole task in re",
+          "resumed": "{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"Recovered after the length stop.\",\"annotations\":[]}],\"status\":\"completed\"}"
+        }
+      },
+      "mode_change": {
+        "live_mode_change_sequence": [],
+        "live_last_mode_change": null,
+        "live_vibe_killed_workers": null,
+        "resume_mode_from_entries": "none",
+        "resume_reentered_vibe": null
+      },
+      "resume_ok": false,
+      "pass": false
+    },
+    {
+      "case": "r2",
+      "title": "r2-checkpoint-rewind-warning",
+      "live_pid": 1657098,
+      "resume_pid": 1657228,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/sessions/2026-09-28T17-56-56-648Z_01a0e929-a8c8-7000-83dc-77bf43a8d515.jsonl",
+      "live_requests": 5,
+      "resume_requests": 2,
+      "live_request_roles": [
+        [
+          "user"
+        ],
+        [
+          "user",
+          "assistant",
+          "toolResult",
+          "developer"
+        ],
+        [
+          "user",
+          "assistant",
+          "toolResult",
+          "developer",
+          "assistant",
+          "developer"
+        ],
+        [
+          "user",
+          "assistant",
+          "toolResult",
+          "user",
+          "developer"
+        ],
+        [
+          "user",
+          "assistant",
+          "toolResult",
+          "user",
+          "developer",
+          "assistant",
+          "user"
+        ]
+      ],
+      "invariant": [
+        {
+          "request": 0,
+          "turn": "t1",
+          "status": "ok",
+          "index": null,
+          "live_count": 1,
+          "file_count": 0,
+          "live": null,
+          "file": null,
+          "live_roles": [
+            "user"
+          ],
+          "file_roles": []
+        },
+        {
+          "request": 1,
+          "turn": "t1",
+          "status": "live-extra",
+          "index": 3,
+          "live_count": 4,
+          "file_count": 3,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<system-notice>\\nExploration checkpoint active.\\n- MUST `rewind` with findings once exploration is done.\\n- MUST `rewind` before yielding.\\n</system-notice>\"}]}",
+          "file": null,
+          "live_roles": [
+            "user",
+            "assistant",
+            "toolResult",
+            "developer"
+          ],
+          "file_roles": [
+            "user",
+            "assistant",
+            "toolResult"
+          ]
+        },
+        {
+          "request": 2,
+          "turn": "t1",
+          "status": "live-extra",
+          "index": 5,
+          "live_count": 6,
+          "file_count": 5,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<system-warning>\\nYou are in an active checkpoint. You MUST call rewind with your investigation findings before yielding. Do NOT yield without completing the checkpoint.\\n</system-warning>\"}]}",
+          "file": null,
+          "live_roles": [
+            "user",
+            "assistant",
+            "toolResult",
+            "developer",
+            "assistant",
+            "developer"
+          ],
+          "file_roles": [
+            "user",
+            "assistant",
+            "toolResult",
+            "developer",
+            "assistant"
+          ]
+        },
+        {
+          "request": 3,
+          "turn": "t1",
+          "status": "ok",
+          "index": null,
+          "live_count": 5,
+          "file_count": 5,
+          "live": null,
+          "file": null,
+          "live_roles": [
+            "user",
+            "assistant",
+            "toolResult",
+            "user",
+            "developer"
+          ],
+          "file_roles": [
+            "user",
+            "assistant",
+            "toolResult",
+            "user",
+            "developer"
+          ]
+        },
+        {
+          "request": 4,
+          "turn": "t2",
+          "status": "ok",
+          "index": null,
+          "live_count": 7,
+          "file_count": 6,
+          "live": null,
+          "file": null,
+          "live_roles": [
+            "user",
+            "assistant",
+            "toolResult",
+            "user",
+            "developer",
+            "assistant",
+            "user"
+          ],
+          "file_roles": [
+            "user",
+            "assistant",
+            "toolResult",
+            "user",
+            "developer",
+            "assistant"
+          ]
+        }
+      ],
+      "invariant_ok": false,
+      "first_unpersisted_request": 1,
+      "invariant_detail": {
+        "status": "live-extra",
+        "index": 3,
+        "liveCount": 4,
+        "fileCount": 3,
+        "liveRoles": [
+          "user",
+          "assistant",
+          "toolResult",
+          "developer"
+        ],
+        "fileRoles": [
+          "user",
+          "assistant",
+          "toolResult"
+        ],
+        "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<system-notice>\\nExploration checkpoint active.\\n- MUST `rewind` with findings once exploration is done.\\n- MUST `rewind` before yielding.\\n</system-notice>\"}]}"
+      },
+      "marker": {
+        "marker": "You are in an active checkpoint. You MUST call rewind",
+        "in_session_file": false,
+        "occurrences": 0
+      },
+      "live_roles_per_request": [
+        [
+          "user"
+        ],
+        [
+          "user",
+          "assistant",
+          "toolResult",
+          "developer"
+        ],
+        [
+          "user",
+          "assistant",
+          "toolResult",
+          "developer",
+          "assistant",
+          "developer"
+        ],
+        [
+          "user",
+          "assistant",
+          "toolResult",
+          "user",
+          "developer"
+        ],
+        [
+          "user",
+          "assistant",
+          "toolResult",
+          "user",
+          "developer",
+          "assistant",
+          "user"
+        ]
+      ],
+      "resume_vs_last": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "codex_head_equal": true
+      },
+      "resume_append_only": {
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null
+      },
+      "session_identity": {
+        "live_request_session_ids": [
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515",
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515",
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515",
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515",
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515"
+        ],
+        "live_request_prompt_cache_keys": [
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515",
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515",
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515",
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515",
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515"
+        ],
+        "resume_request_session_ids": [
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515",
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515"
+        ],
+        "resume_request_prompt_cache_keys": [
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515",
+          "01a0e929-a8c8-7000-83dc-77bf43a8d515"
+        ],
+        "manager_session_id_live": "01a0e929-a8c8-7000-83dc-77bf43a8d515",
+        "manager_session_id_resume": "01a0e929-a8c8-7000-83dc-77bf43a8d515"
+      },
+      "fetch_attempts": 0,
+      "resume_vs_carrier": {
+        "carrier_request": 1,
+        "message_prefix_diff": {
+          "index": 3,
+          "offset": 23,
+          "live": "{\"content\": [{\"text\": \"<system-notice>\\nExploration checkpoint active.\\n- MUST `rewind` with findings once exploration is done.\\n- MUST `rewind` before yielding.\\n</system-notice>\", \"type\": \"text\"}], \"role\": \"developer\", \"toolCallId\": null}",
+          "resumed": "{\"content\": [{\"text\": \"Branch-return summary:\\n\\n<summary>\\nFindings: the flaky test is fine.\\n</summary>\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r2'. Do not repeat"
+        },
+        "anthropic_prefix_diff": {
+          "index": 3,
+          "offset": 9,
+          "live": "{\"role\":\"system\",\"content\":[{\"type\":\"text\",\"text\":\"<system-notice>\\nExploration checkpoint active.\\n- MUST `rewind` with findings once exploration is done.\\n- MUST `rewind` before yielding.\\n</system-notice>\"}]}",
+          "resumed": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Branch-return summary:\\n\\n<summary>\\nFindings: the flaky test is fine.\\n</summary>\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home"
+        },
+        "codex_input_prefix_diff": {
+          "index": 4,
+          "offset": 9,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"input_text\",\"text\":\"<system-notice>\\nExploration checkpoint active.\\n- MUST `rewind` with findings once exploration is done.\\n- MUST `rewind` before yielding.\\n</system-notice>\"}]}",
+          "resumed": "{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Branch-return summary:\\n\\n<summary>\\nFindings: the flaky test is fine.\\n</summary>\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/Stress"
+        }
+      },
+      "mode_change": {
+        "live_mode_change_sequence": [],
+        "live_last_mode_change": null,
+        "live_vibe_killed_workers": null,
+        "resume_mode_from_entries": "none",
+        "resume_reentered_vibe": null
+      },
+      "resume_ok": true,
+      "pass": false
+    },
+    {
+      "case": "r3",
+      "title": "r3-vibe-mode-reminder-active",
+      "live_pid": 1657342,
+      "resume_pid": 1657430,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/sessions/2026-09-28T17-56-58-251Z_01a0e929-af0b-7000-bc8d-0079b281b61a.jsonl",
+      "live_requests": 2,
+      "resume_requests": 2,
+      "live_request_roles": [
+        [
+          "developer",
+          "user"
+        ],
+        [
+          "developer",
+          "user",
+          "assistant",
+          "developer",
+          "user"
+        ]
+      ],
+      "invariant": [
+        {
+          "request": 0,
+          "turn": "t1",
+          "status": "live-extra",
+          "index": 0,
+          "live_count": 2,
+          "file_count": 0,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait`, `vibe_kill`, `vibe_list`.\\n\\n# Workers\\n\\n- `fast`: low-latency model; mechanical, well-specified work ",
+          "file": null,
+          "live_roles": [
+            "developer",
+            "user"
+          ],
+          "file_roles": []
+        },
+        {
+          "request": 1,
+          "turn": "t2",
+          "status": "diverged",
+          "index": 0,
+          "live_count": 5,
+          "file_count": 2,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait`, `vibe_kill`, `vibe_list`.\\n\\n# Workers\\n\\n- `fast`: low-latency model; mechanical, well-specified work ",
+          "file": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"vibe one\"}]}",
+          "live_roles": [
+            "developer",
+            "user",
+            "assistant",
+            "developer",
+            "user"
+          ],
+          "file_roles": [
+            "user",
+            "assistant"
+          ]
+        }
+      ],
+      "invariant_ok": false,
+      "first_unpersisted_request": 0,
+      "invariant_detail": {
+        "status": "live-extra",
+        "index": 0,
+        "liveCount": 2,
+        "fileCount": 0,
+        "liveRoles": [
+          "developer",
+          "user"
+        ],
+        "fileRoles": [],
+        "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait`, `vibe_kill`, `vibe_list`.\\n\\n# Workers\\n\\n- `fast`: low-latency model; mechanical, well-specified work "
+      },
+      "marker": {
+        "marker": "Vibe mode ON. You are DIRECTOR",
+        "in_session_file": false,
+        "occurrences": 0
+      },
+      "live_roles_per_request": [
+        [
+          "developer",
+          "user"
+        ],
+        [
+          "developer",
+          "user",
+          "assistant",
+          "developer",
+          "user"
+        ]
+      ],
+      "resume_vs_last": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": {
+          "index": 0,
+          "offset": 49,
+          "live": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait",
+          "resumed": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"vibe one\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3'. Do not repeat this information in your reply.\\n</system-reminder>\"}]}"
+        },
+        "anthropic_nocache_prefix_diff": {
+          "index": 0,
+          "offset": 49,
+          "live": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait",
+          "resumed": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"vibe one\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3'. Do not repeat this information in your reply.\\n</system-reminder>\"}]}"
+        },
+        "codex_input_prefix_diff": {
+          "index": 1,
+          "offset": 9,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"input_text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToo",
+          "resumed": "{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"vibe one\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3'. Do not repeat this information in your re"
+        },
+        "codex_head_equal": true
+      },
+      "resume_append_only": {
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null
+      },
+      "session_identity": {
+        "live_request_session_ids": [
+          "01a0e929-af0b-7000-bc8d-0079b281b61a",
+          "01a0e929-af0b-7000-bc8d-0079b281b61a"
+        ],
+        "live_request_prompt_cache_keys": [
+          "01a0e929-af0b-7000-bc8d-0079b281b61a",
+          "01a0e929-af0b-7000-bc8d-0079b281b61a"
+        ],
+        "resume_request_session_ids": [
+          "01a0e929-af0b-7000-bc8d-0079b281b61a",
+          "01a0e929-af0b-7000-bc8d-0079b281b61a"
+        ],
+        "resume_request_prompt_cache_keys": [
+          "01a0e929-af0b-7000-bc8d-0079b281b61a",
+          "01a0e929-af0b-7000-bc8d-0079b281b61a"
+        ],
+        "manager_session_id_live": "01a0e929-af0b-7000-bc8d-0079b281b61a",
+        "manager_session_id_resume": "01a0e929-af0b-7000-bc8d-0079b281b61a"
+      },
+      "fetch_attempts": 0,
+      "resume_vs_carrier": {
+        "carrier_request": 0,
+        "message_prefix_diff": {
+          "index": 0,
+          "offset": 23,
+          "live": "{\"content\": [{\"text\": \"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait",
+          "resumed": "{\"content\": [{\"text\": \"vibe one\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3'. Do not repeat this information in your reply.\\n</system-reminder>\", \"type\": \"text\"}], \""
+        },
+        "anthropic_prefix_diff": {
+          "index": 0,
+          "offset": 49,
+          "live": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait",
+          "resumed": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"vibe one\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3'. Do not repeat this information in your reply.\\n</system-reminder>\"}]}"
+        },
+        "codex_input_prefix_diff": {
+          "index": 1,
+          "offset": 9,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"input_text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToo",
+          "resumed": "{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"vibe one\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3'. Do not repeat this information in your re"
+        }
+      },
+      "mode_change": {
+        "live_mode_change_sequence": [
+          "vibe"
+        ],
+        "live_last_mode_change": "vibe",
+        "live_vibe_killed_workers": null,
+        "resume_mode_from_entries": "vibe",
+        "resume_reentered_vibe": true
+      },
+      "resume_ok": false,
+      "pass": false
+    },
+    {
+      "case": "r3x",
+      "title": "r3x-vibe-mode-reminder-after-exit",
+      "live_pid": 1657508,
+      "resume_pid": 1657616,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/sessions/2026-09-28T17-56-59-884Z_01a0e929-b56c-7000-8066-672e5bb4023d.jsonl",
+      "live_requests": 2,
+      "resume_requests": 2,
+      "live_request_roles": [
+        [
+          "developer",
+          "user"
+        ],
+        [
+          "user",
+          "assistant",
+          "user"
+        ]
+      ],
+      "invariant": [
+        {
+          "request": 0,
+          "turn": "t1",
+          "status": "live-extra",
+          "index": 0,
+          "live_count": 2,
+          "file_count": 0,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait`, `vibe_kill`, `vibe_list`.\\n\\n# Workers\\n\\n- `fast`: low-latency model; mechanical, well-specified work ",
+          "file": null,
+          "live_roles": [
+            "developer",
+            "user"
+          ],
+          "file_roles": []
+        },
+        {
+          "request": 1,
+          "turn": "t2",
+          "status": "ok",
+          "index": null,
+          "live_count": 3,
+          "file_count": 2,
+          "live": null,
+          "file": null,
+          "live_roles": [
+            "user",
+            "assistant",
+            "user"
+          ],
+          "file_roles": [
+            "user",
+            "assistant"
+          ]
+        }
+      ],
+      "invariant_ok": false,
+      "first_unpersisted_request": 0,
+      "invariant_detail": {
+        "status": "live-extra",
+        "index": 0,
+        "liveCount": 2,
+        "fileCount": 0,
+        "liveRoles": [
+          "developer",
+          "user"
+        ],
+        "fileRoles": [],
+        "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait`, `vibe_kill`, `vibe_list`.\\n\\n# Workers\\n\\n- `fast`: low-latency model; mechanical, well-specified work "
+      },
+      "marker": {
+        "marker": "Vibe mode ON. You are DIRECTOR",
+        "in_session_file": false,
+        "occurrences": 0
+      },
+      "live_roles_per_request": [
+        [
+          "developer",
+          "user"
+        ],
+        [
+          "user",
+          "assistant",
+          "user"
+        ]
+      ],
+      "resume_vs_last": {
+        "system_equal": false,
+        "tools_equal": false,
+        "anthropic_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "codex_head_equal": false
+      },
+      "resume_append_only": {
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null
+      },
+      "session_identity": {
+        "live_request_session_ids": [
+          "01a0e929-b56c-7000-8066-672e5bb4023d",
+          "01a0e929-b56c-7000-8066-672e5bb4023d"
+        ],
+        "live_request_prompt_cache_keys": [
+          "01a0e929-b56c-7000-8066-672e5bb4023d",
+          "01a0e929-b56c-7000-8066-672e5bb4023d"
+        ],
+        "resume_request_session_ids": [
+          "01a0e929-b56c-7000-8066-672e5bb4023d",
+          "01a0e929-b56c-7000-8066-672e5bb4023d"
+        ],
+        "resume_request_prompt_cache_keys": [
+          "01a0e929-b56c-7000-8066-672e5bb4023d",
+          "01a0e929-b56c-7000-8066-672e5bb4023d"
+        ],
+        "manager_session_id_live": "01a0e929-b56c-7000-8066-672e5bb4023d",
+        "manager_session_id_resume": "01a0e929-b56c-7000-8066-672e5bb4023d"
+      },
+      "fetch_attempts": 0,
+      "resume_vs_carrier": {
+        "carrier_request": 0,
+        "message_prefix_diff": {
+          "index": 0,
+          "offset": 23,
+          "live": "{\"content\": [{\"text\": \"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait",
+          "resumed": "{\"content\": [{\"text\": \"before exit\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3x'. Do not repeat this information in your reply.\\n</system-reminder>\", \"type\": \"text\"}"
+        },
+        "anthropic_prefix_diff": {
+          "index": 0,
+          "offset": 49,
+          "live": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait",
+          "resumed": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"before exit\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3x'. Do not repeat this information in your reply.\\n</system-reminder>\"}]}"
+        },
+        "codex_input_prefix_diff": {
+          "index": 1,
+          "offset": 9,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"input_text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToo",
+          "resumed": "{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"before exit\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3x'. Do not repeat this information in you"
+        }
+      },
+      "mode_change": {
+        "live_mode_change_sequence": [
+          "vibe"
+        ],
+        "live_last_mode_change": "vibe",
+        "live_vibe_killed_workers": null,
+        "resume_mode_from_entries": "vibe",
+        "resume_reentered_vibe": true
+      },
+      "resume_ok": false,
+      "pass": false,
+      "annotation": "mirror incomplete: killAll skipped"
+    },
+    {
+      "case": "r3x-real",
+      "title": "r3x-real-vibe-exit-real-teardown",
+      "live_pid": 1657695,
+      "resume_pid": 1657774,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/sessions/2026-09-28T17-57-01-495Z_01a0e929-bbb7-7000-8f22-220e6cafa634.jsonl",
+      "live_requests": 2,
+      "resume_requests": 2,
+      "live_request_roles": [
+        [
+          "developer",
+          "user"
+        ],
+        [
+          "user",
+          "assistant",
+          "user"
+        ]
+      ],
+      "invariant": [
+        {
+          "request": 0,
+          "turn": "t1",
+          "status": "live-extra",
+          "index": 0,
+          "live_count": 2,
+          "file_count": 0,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait`, `vibe_kill`, `vibe_list`.\\n\\n# Workers\\n\\n- `fast`: low-latency model; mechanical, well-specified work ",
+          "file": null,
+          "live_roles": [
+            "developer",
+            "user"
+          ],
+          "file_roles": []
+        },
+        {
+          "request": 1,
+          "turn": "t2",
+          "status": "ok",
+          "index": null,
+          "live_count": 3,
+          "file_count": 2,
+          "live": null,
+          "file": null,
+          "live_roles": [
+            "user",
+            "assistant",
+            "user"
+          ],
+          "file_roles": [
+            "user",
+            "assistant"
+          ]
+        }
+      ],
+      "invariant_ok": false,
+      "first_unpersisted_request": 0,
+      "invariant_detail": {
+        "status": "live-extra",
+        "index": 0,
+        "liveCount": 2,
+        "fileCount": 0,
+        "liveRoles": [
+          "developer",
+          "user"
+        ],
+        "fileRoles": [],
+        "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait`, `vibe_kill`, `vibe_list`.\\n\\n# Workers\\n\\n- `fast`: low-latency model; mechanical, well-specified work "
+      },
+      "marker": {
+        "marker": "Vibe mode ON. You are DIRECTOR",
+        "in_session_file": false,
+        "occurrences": 0
+      },
+      "live_roles_per_request": [
+        [
+          "developer",
+          "user"
+        ],
+        [
+          "user",
+          "assistant",
+          "user"
+        ]
+      ],
+      "resume_vs_last": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "codex_head_equal": true
+      },
+      "resume_append_only": {
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null
+      },
+      "session_identity": {
+        "live_request_session_ids": [
+          "01a0e929-bbb7-7000-8f22-220e6cafa634",
+          "01a0e929-bbb7-7000-8f22-220e6cafa634"
+        ],
+        "live_request_prompt_cache_keys": [
+          "01a0e929-bbb7-7000-8f22-220e6cafa634",
+          "01a0e929-bbb7-7000-8f22-220e6cafa634"
+        ],
+        "resume_request_session_ids": [
+          "01a0e929-bbb7-7000-8f22-220e6cafa634",
+          "01a0e929-bbb7-7000-8f22-220e6cafa634"
+        ],
+        "resume_request_prompt_cache_keys": [
+          "01a0e929-bbb7-7000-8f22-220e6cafa634",
+          "01a0e929-bbb7-7000-8f22-220e6cafa634"
+        ],
+        "manager_session_id_live": "01a0e929-bbb7-7000-8f22-220e6cafa634",
+        "manager_session_id_resume": "01a0e929-bbb7-7000-8f22-220e6cafa634"
+      },
+      "fetch_attempts": 0,
+      "resume_vs_carrier": {
+        "carrier_request": 0,
+        "message_prefix_diff": {
+          "index": 0,
+          "offset": 23,
+          "live": "{\"content\": [{\"text\": \"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait",
+          "resumed": "{\"content\": [{\"text\": \"before real exit\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3x-real'. Do not repeat this information in your reply.\\n</system-reminder>\", \"type"
+        },
+        "anthropic_prefix_diff": {
+          "index": 0,
+          "offset": 49,
+          "live": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToolset: `read`, `vibe_spawn`, `vibe_send`, `vibe_wait",
+          "resumed": "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"before real exit\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3x-real'. Do not repeat this information in your reply.\\n</system-reminder>\"}]}"
+        },
+        "codex_input_prefix_diff": {
+          "index": 1,
+          "offset": 9,
+          "live": "{\"role\":\"developer\",\"content\":[{\"type\":\"input_text\",\"text\":\"<vibe-mode>\\nVibe mode ON. You are DIRECTOR: drive two worker CLIs, full coding agents with every normal tool; NEVER edit, run, grep, or build yourself. Verify work by reading files.\\n\\nToo",
+          "resumed": "{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"before real exit\\n\\n<system-reminder>\\nToday: 2026-09-28; current working directory: '/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/work/r3x-real'. Do not repeat this informat"
+        }
+      },
+      "mode_change": {
+        "live_mode_change_sequence": [
+          "vibe",
+          "none"
+        ],
+        "live_last_mode_change": "none",
+        "live_vibe_killed_workers": 0,
+        "resume_mode_from_entries": "none",
+        "resume_reentered_vibe": false
+      },
+      "mode_ok": true,
+      "resume_ok": true,
+      "pass": false
+    },
+    {
+      "case": "r4",
+      "title": "r4-provider-session-identity-fresh-clear",
+      "live_pid": 1657958,
+      "resume_pid": 1658082,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/StressC/home/audit-repro-lab/sessions/2026-09-28T17-57-03-294Z_01a0e929-c2be-7000-90d5-8baad52e40da.jsonl",
+      "live_requests": 3,
+      "resume_requests": 2,
+      "live_request_roles": [
+        [
+          "user"
+        ],
+        [
+          "user",
+          "assistant",
+          "user"
+        ],
+        [
+          "user"
+        ]
+      ],
+      "invariant": [
+        {
+          "request": 0,
+          "turn": "t1",
+          "status": "ok",
+          "index": null,
+          "live_count": 1,
+          "file_count": 0,
+          "live": null,
+          "file": null,
+          "live_roles": [
+            "user"
+          ],
+          "file_roles": []
+        },
+        {
+          "request": 1,
+          "turn": "t2",
+          "status": "ok",
+          "index": null,
+          "live_count": 3,
+          "file_count": 2,
+          "live": null,
+          "file": null,
+          "live_roles": [
+            "user",
+            "assistant",
+            "user"
+          ],
+          "file_roles": [
+            "user",
+            "assistant"
+          ]
+        },
+        {
+          "request": 2,
+          "turn": "t3",
+          "status": "ok",
+          "index": null,
+          "live_count": 1,
+          "file_count": 0,
+          "live": null,
+          "file": null,
+          "live_roles": [
+            "user"
+          ],
+          "file_roles": []
+        }
+      ],
+      "invariant_ok": true,
+      "first_unpersisted_request": null,
+      "invariant_detail": null,
+      "marker": {
+        "marker": null,
+        "in_session_file": null
+      },
+      "live_roles_per_request": [
+        [
+          "user"
+        ],
+        [
+          "user",
+          "assistant",
+          "user"
+        ],
+        [
+          "user"
+        ]
+      ],
+      "resume_vs_last": {
+        "system_equal": true,
+        "tools_equal": true,
+        "anthropic_prefix_diff": null,
+        "anthropic_nocache_prefix_diff": null,
+        "codex_input_prefix_diff": null,
+        "codex_head_equal": false
+      },
+      "resume_append_only": {
+        "anthropic_prefix_diff": null,
+        "codex_input_prefix_diff": null
+      },
+      "session_identity": {
+        "live_request_session_ids": [
+          "01a0e929-c2be-7000-90d5-8baad52e40da",
+          "01a0e929-c33c-7000-a5b9-e68bea89fee9",
+          "01a0e929-c345-7000-b53d-abff44267af2"
+        ],
+        "live_request_prompt_cache_keys": [
+          "01a0e929-c2be-7000-90d5-8baad52e40da",
+          "01a0e929-c33c-7000-a5b9-e68bea89fee9",
+          "01a0e929-c345-7000-b53d-abff44267af2"
+        ],
+        "resume_request_session_ids": [
+          "01a0e929-c2be-7000-90d5-8baad52e40da",
+          "01a0e929-c2be-7000-90d5-8baad52e40da"
+        ],
+        "resume_request_prompt_cache_keys": [
+          "01a0e929-c2be-7000-90d5-8baad52e40da",
+          "01a0e929-c2be-7000-90d5-8baad52e40da"
+        ],
+        "manager_session_id_live": "01a0e929-c2be-7000-90d5-8baad52e40da",
+        "manager_session_id_resume": "01a0e929-c2be-7000-90d5-8baad52e40da"
+      },
+      "fetch_attempts": 0,
+      "identity_ok": false,
+      "identity_rotated": true,
+      "identity_matches_last_live": false,
+      "identity_reverted_to_persisted": true,
+      "mode_change": {
+        "live_mode_change_sequence": [],
+        "live_last_mode_change": null,
+        "live_vibe_killed_workers": null,
+        "resume_mode_from_entries": "none",
+        "resume_reentered_vibe": null
+      },
+      "resume_ok": false,
+      "pass": false
+    }
+  ]
+}

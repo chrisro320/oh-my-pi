@@ -61,6 +61,51 @@ try {
 			component.stopAnimation();
 		}
 	}
+	// A repaint fault raised from the async conversion callback must be logged, not
+	// left as an unhandled rejection that can interrupt the TUI.
+	const faultWebp = await new Bun.Image(Buffer.from(png, "base64")).resize(4, 4).webp().toBase64();
+	let armed = false;
+	let repaintFaults = 0;
+	const unhandled: unknown[] = [];
+	const onUnhandled = (reason: unknown) => {
+		unhandled.push(reason);
+	};
+	process.on("unhandledRejection", onUnhandled);
+	try {
+		const component = new ToolExecutionComponent("fixture", {}, { useBuiltInRenderer: false }, undefined, {
+			requestRender: () => {
+				if (!armed) return;
+				repaintFaults++;
+				throw new Error("repaint fault");
+			},
+			requestComponentRender: () => {},
+			resetDisplay: () => {},
+		});
+		try {
+			component.updateResult({
+				content: [
+					{ type: "text", text: "display complete" },
+					{ type: "image", data: faultWebp, mimeType: "image/webp" },
+				],
+			});
+			component.seal();
+			armed = true;
+			for (let tick = 0; tick < 250 && !component.isTranscriptBlockFinalized(); tick++) await Bun.sleep(20);
+			// Give the discarded terminal promise a macrotask to report a rejection.
+			await Bun.sleep(50);
+			assert.ok(repaintFaults > 0, "the async conversion repaint must be the exercised fault source");
+			assert.equal(
+				component.isTranscriptBlockFinalized(),
+				true,
+				"a throwing repaint must still release the retirement barrier",
+			);
+			assert.deepEqual(unhandled, [], "a throwing repaint must be logged, not left as an unhandled rejection");
+		} finally {
+			component.stopAnimation();
+		}
+	} finally {
+		process.off("unhandledRejection", onUnhandled);
+	}
 	console.log("kitty conversion finalization: ALL PASS");
 } finally {
 	TERMINAL.imageProtocol = previousProtocol;

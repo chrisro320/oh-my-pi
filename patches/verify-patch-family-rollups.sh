@@ -99,6 +99,10 @@ PLAN1833_OUT="$(OMP_PATCH_VERSION=18.3.3 bash "${HERE}/apply.sh" --print-plan)" 
 	|| die "apply.sh --print-plan cannot resolve the 18.3.3 plan"
 [[ -n "${PLAN1833_OUT//[[:space:]]/}" ]] || die "18.3.3 plan is empty"
 mapfile -t PLAN1833 <<<"$PLAN1833_OUT"
+PLAN1841_OUT="$(OMP_PATCH_VERSION=18.4.1 bash "${HERE}/apply.sh" --print-plan)" \
+	|| die "apply.sh --print-plan cannot resolve the 18.4.1 plan"
+[[ -n "${PLAN1841_OUT//[[:space:]]/}" ]] || die "18.4.1 plan is empty"
+mapfile -t PLAN1841 <<<"$PLAN1841_OUT"
 # Retired-by-rollup numbers, plus abandoned numbers whose patch file is gone
 # (0011 pin-viewport, 0040 trellis_command, 0061, 0064 — never to be reused)
 # and numbers retired because upstream adopted them verbatim (0051, adopted in
@@ -298,6 +302,19 @@ declare -A TGZSHA5=(
 TGZD5="${G}/tgz-18.3.3"
 fetch_tgzs "$TGZD5" 18.3.3 TGZSHA5
 echo "PASS baseline: six official 18.3.3 tarballs match pinned SHA-256"
+
+# Exact 18.4.1 release; archives were verified against registry sha512 integrity.
+declare -A TGZSHA6=(
+	[pi-coding-agent]=ab5d828d65b86afe3b93915e2652146e2fd9ae87bc5bdec52be70e2264779e54
+	[pi-agent-core]=bc54bbbdeaffa9ba7b180f6ac533ff26671e9801f2eb2c3f61ff10de78364bc7
+	[pi-ai]=8d3855a14fdc5b78cfa39dceada1a8b1f5c89f8c00e53f8332a027c370abac79
+	[pi-catalog]=fee35d56741e28baa30d2698f3417fee32fb06286bd67bfa54eeb5d873083db6
+	[snapcompact]=d54bc2bfe4280425a159f42fb3c551116d627d513c6ee0738fc714977cb8748a
+	[pi-tui]=08237e43ca71a74cc9d32c784ae4e69504a4e52eac6626136035bde4e2eca2d4
+)
+TGZD6="${G}/tgz-18.4.1"
+fetch_tgzs "$TGZD6" 18.4.1 TGZSHA6
+echo "PASS baseline: six official 18.4.1 tarballs match pinned SHA-256"
 
 # Extract src trees (mode=src) or full trees incl. dist/ (mode=full) for the
 # listed packages (default: every package in $2's pinned table) into
@@ -676,7 +693,7 @@ EXPECTED_PLAN_18210=(
 [[ "${PLAN18210[*]}" == "${EXPECTED_PLAN_18210[*]}" ]] \
 	|| die "resolved 18.2.10 plan drifted from EXPECTED_PLAN_18210"
 
-# 18.3.3 keeps the pinned predecessor capabilities (0073 is upstream) and adds 0081.
+# 18.3.3 keeps the pinned predecessor capabilities (0073 is upstream), plus 0081/0082.
 EXPECTED_PLAN_1833=()
 for entry in "${EXPECTED_PLAN_18210[@]}"; do
 	name="${entry%%:*}"; name="${name##*/}"
@@ -685,8 +702,21 @@ for entry in "${EXPECTED_PLAN_18210[@]}"; do
 	EXPECTED_PLAN_1833+=(".18.3.3-candidates/${stem}-v18.3.3-candidate.patch:${entry##*:}")
 done
 EXPECTED_PLAN_1833+=(".18.3.3-candidates/0081-omp-main-cache-footer-v18.3.3-candidate.patch:NM")
-[[ "${#EXPECTED_PLAN_1833[@]}" -eq 47 && "${PLAN1833[*]}" == "${EXPECTED_PLAN_1833[*]}" ]] \
-	|| die "resolved 18.3.3 plan drifted from its 47-entry capability contract"
+EXPECTED_PLAN_1833+=(".18.3.3-candidates/0082-omp-user-display-text-v18.3.3-candidate.patch:NM")
+[[ "${#EXPECTED_PLAN_1833[@]}" -eq 48 && "${PLAN1833[*]}" == "${EXPECTED_PLAN_1833[*]}" ]] \
+	|| die "resolved 18.3.3 plan drifted from its 48-entry capability contract"
+
+# 18.4.1 carries the same 48 capabilities as same-ID 18.4.1 candidates, plus 0083 and 0084.
+EXPECTED_PLAN_1841=()
+for entry in "${EXPECTED_PLAN_1833[@]}"; do
+	name="${entry%%:*}"; name="${name##*/}"
+	stem="${name%.patch}"; stem="${stem%-v*-candidate}"
+	EXPECTED_PLAN_1841+=(".18.4.1-candidates/${stem}-v18.4.1-candidate.patch:${entry##*:}")
+done
+EXPECTED_PLAN_1841+=(".18.4.1-candidates/0083-omp-model-mention-surface-resume-v18.4.1-candidate.patch:AGENT")
+EXPECTED_PLAN_1841+=(".18.4.1-candidates/0084-omp-length-stop-reminder-persist-v18.4.1-candidate.patch:AGENT")
+[[ "${#EXPECTED_PLAN_1841[@]}" -eq 50 && "${PLAN1841[*]}" == "${EXPECTED_PLAN_1841[*]}" ]] \
+	|| die "resolved 18.4.1 plan drifted from its 50-entry capability contract"
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
 # by apply.sh --print-plan in the static section. The assertions below pin
@@ -1098,10 +1128,12 @@ echo "PASS gate #13: pristine 18.2.3 tree classifies all ${#PLAN1823[@]} entries
 
 # Current target: include the moved TUI package in every replay and comparison.
 TARGET_BASE_G="$G"
-for current_version in 18.2.10 18.3.3; do
+for current_version in 18.2.10 18.3.3 18.4.1; do
 G="$TARGET_BASE_G/target-$current_version"
 mkdir -p "$G"
-if [[ "$current_version" == "18.3.3" ]]; then
+if [[ "$current_version" == "18.4.1" ]]; then
+	CURRENT_PLAN=("${PLAN1841[@]}"); CURRENT_TGZD="$TGZD6"
+elif [[ "$current_version" == "18.3.3" ]]; then
 	CURRENT_PLAN=("${PLAN1833[@]}"); CURRENT_TGZD="$TGZD5"
 else
 	CURRENT_PLAN=("${PLAN18210[@]}"); CURRENT_TGZD="$TGZD4"

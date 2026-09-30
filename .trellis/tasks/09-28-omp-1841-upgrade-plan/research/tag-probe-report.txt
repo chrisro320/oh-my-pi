@@ -1,0 +1,94 @@
+{
+  "corrected_verdict": "CONFIRMED (re-review 成立) — 我先前 'no drift' 的結論只在『live 未曾 rebuild』時成立。在 fully patched 18.4.1 上：若 tagged session 在退出前經歷過任何 base-prompt rebuild（surface 已吸收 m1），fresh-process resume 後第一個（以及第二個）provider request 的 tools block 與 live 最後一個 request 不同 → 前綴在 resume 時就變且不會自己回復（只有再觸發一次 rebuild 才回復）。同一個 probe 在 patched 18.3.3（Rehearsal）四個 scenario 全部相等，`drift_detected=False` → 18.4.1 是此轉換的 regression。",
+  "previous_error_retracted": "先前把 tag-rebuild 的比較寫成 live t4-rebuilt vs resumed-REBUILT（rebuild 之後），跳過了最關鍵的『resume 後第一個 request』。已修正為逐 request 比對：live 最後一回合 vs resume 的 resumed-1 / resumed-2 / resumed-rebuilt（每次 resumed 歷史都是後續 request 的嚴格前綴，因此 prefix 比較合法）。",
+  "commands": [
+    "source /home/chris/.cache/omp-1841-upgrade/TagProbe/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-tag-prefix-1841.py --sandbox TagProbe --scenario tag --scenario control --scenario tag-rebuild --scenario tag-soft --results tag-prefix-results-1841.json   → 1841_exit=0",
+    "source /home/chris/.cache/omp-1841-upgrade/TagProbe/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-tag-prefix-1841.py --sandbox Rehearsal --home /home/chris/.cache/omp-1841-upgrade/Rehearsal/tmp-tag --nm-root /home/chris/.cache/omp-1841-upgrade/Rehearsal/.bun/install/global --results tag-prefix-results-1833.json --scenario tag --scenario control --scenario tag-rebuild --scenario tag-soft   → 1833_exit=0",
+    "每個 scenario = 2 個 fresh bun process（live + resume-chain），共 8 個 process；fetchAttempts=0（無網路）；probe 副本放進各自 NM 的 pi-coding-agent 後刪除（find 驗證 0 殘留）"
+  ],
+  "raw_pass_fail_lines_1841": [
+    "tag         live: t1,t2(tag),t3(desc m1=false) | vs resumed-1 prefix_equal=True  system=True tools=True taskdesc=True(m1 False/False) codexhead=True anthropic=None codexinput=None",
+    "tag         | vs resumed-2 prefix_equal=True  system=True tools=True taskdesc=True(m1 False/False) codexhead=True",
+    "tag         | vs resumed-rebuilt prefix_equal=False system=True tools=False taskdesc=False(m1 False/True) codexhead=False",
+    "control     live: t1,t2,t3 | vs resumed-1/2/rebuilt prefix_equal=True 全欄位相等",
+    "tag-rebuild live: t1,t2(tag),t3,t4-rebuilt(desc m1=TRUE) | vs resumed-1 prefix_equal=FALSE system=True tools=FALSE taskdesc=FALSE(m1 True/False) codexhead=FALSE anthropic=None codexinput=None",
+    "tag-rebuild | vs resumed-2 prefix_equal=FALSE system=True tools=FALSE taskdesc=FALSE(m1 True/False) codexhead=FALSE",
+    "tag-rebuild | vs resumed-rebuilt prefix_equal=True  system=True tools=True taskdesc=True(m1 True/True) codexhead=True",
+    "tag-soft    live: t1,t2(tag),t3,t5-compacted(4 msgs, desc m1=false, advertisedSessionAgents=[]) | vs resumed-1/2 prefix_equal=True 全欄位相等",
+    "tag-soft    | vs resumed-rebuilt prefix_equal=False (runtime rebuild 才吸收, m1 False/True)"
+  ],
+  "raw_pass_fail_lines_1833": [
+    "18.3.3 tag/control/tag-rebuild/tag-soft — 全部 comparison prefix_equal=True（system/tools/taskdesc/codexhead 皆 True），drift_detected=False",
+    "18.3.3 tag live: t2 起 task description 立即含 m1（task_description_has_m1=True，capabilities.advertisedSessionAgents=false → description 讀 live getSessionAgents）",
+    "18.3.3 tag-rebuild live t4-rebuilt desc m1=True 且 resume-1/2/rebuilt desc m1=True → 兩邊一致，不漂移"
+  ],
+  "exact_diffs_1841_tag_rebuild": {
+    "compared": "live t4-rebuilt（8 msgs，rebuild 後已吸收 m1）vs resume-chain resumed-1（10 msgs）與 resumed-2（12 msgs）",
+    "system": "相等（system_equal=True，無 diff）",
+    "tools_task_description": {
+      "live_has_line": "`m<N>` = user-tagged model (`<model agent=\"m<N>\" name=\"…\"/>`), not specialist; spawn only when user names it.",
+      "resume_has_line": "（缺此行）",
+      "first_diff_offset": 1576,
+      "live_excerpt": "\n\n# Available Agents\n`m<N>` = user-tagged model (`<model agent=\"m<N>\" name=\"…\"/>`), not specialist; spawn only when user names it.\n- `scout` (READ-ONLY; …",
+      "resume_excerpt": "\n\n# Available Agents\n- `scout` (READ-ONLY; …"
+    },
+    "codex_head": {
+      "equal": false,
+      "first_diff_offset": 6129,
+      "note": "Codex request body 的 head（instructions + tools payload）在此 offset 起不同 → body 位元改變"
+    },
+    "anthropic_messages_prefix": "相等（prefix diff = null）",
+    "codex_input_prefix": "相等（prefix diff = null）"
+  },
+  "raw_message_prefix_note": "所有 scenario 的 raw messages_prefix_diff 只在 assistant message 的 `errorId:0` metadata 欄位不同（live in-memory 有、rehydrated 沒有）；`messages_prefix_diff_ignoring_errorId` 恆為 null，且 anthropic/codex input prefix 恆相等 → 與 tag/rebuild 無關，屬既有 harness artifact（既有未 tag probe 的 prefix-results-full-chain.json 三個 scenario 同樣有）。",
+  "second_resumed_request": "resumed-2（第二個 resumed request，未觸發任何 rebuild）與 resumed-1 完全相同：tag-rebuild 下仍 prefix_equal=False、tools_diff 同一 offset（1576）、codexhead=False → 漂移不會自己回復，會一直維持到下一次 base-prompt rebuild；resumed-rebuilt（rebuild 後）立刻回到與 live 相等（tools/taskdesc/codexhead 全部 True）。tag scenario 的反向情形同理：resume 後一旦 rebuild，description 多出 m1 行並一直維持。",
+  "rebuild_triggers_18_4_1": {
+    "measured_absorb": [
+      "[measured] agent-session.ts:6266 refreshBaseSystemPrompt → session-tools.ts:1934-1940 → #prepareBaseSystemPrompt 1942-1991（commit at 1990 發佈 candidate surface）。probe 以 session.refreshBaseSystemPrompt() 直接觸發，live 與 resume 兩邊都吸收。"
+    ],
+    "measured_no_absorb": [
+      "[measured] soft compaction：session.compact(undefined,{mode:'soft'}) 後 t5-compacted 的 advertisedSessionAgents 仍為 []，messages 由 6→4（確實壓縮了），resume 比對全相等 → compaction 不吸收 tag。"
+    ],
+    "compaction_all_lanes_code_evidence": "compaction 執行者 src/session/session-maintenance.ts 內『零』個 refreshBaseSystemPrompt / prepareBaseSystemPrompt / promptSurface / applyActiveToolsByName / setActiveToolPresentation / runToolRegistryMutation 呼叫；全包 refreshBaseSystemPrompt caller 清單只有下列 20 處，皆非 compaction → soft/remote/handoff/snapcompact 四條 lane 都不會經由壓縮本身吸收 tag（soft 已實測，其餘為 code-level 推論）。",
+    "ordinary_session_triggers_code_evidence": {
+      "model switch": "session-tools.ts:826-834 syncAfterModelChange → refreshBaseSystemPrompt（edit-mode 或 prompt model key 變更時）；`/model`、role 切換皆走此 → 一般操作會觸發",
+      "skills/commands reload": "session-tools.ts:1735（← agent-session.ts:6151 refreshSkills、6160 refreshSkillsAndCommands）",
+      "workspace dirs / autoQa / power": "agent-session.ts:2397 #watchWorkspaceAndPowerSettings → 2412；`/add-dir` builtin-lifecycle.ts:806-816、`/remove-dir` :830-846",
+      "in-process session switch or /resume": "agent-session.ts:10689 switchSession → 10842 syncFromBranch + 10943 refreshBaseSystemPrompt（`/sessions`、ACP acp-agent.ts:1288/1315、RPC rpc-mode.ts:462/503、collab guest.ts:455 都走這條）→ 程序內切換會立即吸收 persisted tags（與 fresh-process resume 行為分歧）",
+      "transcript reset / new session": "agent-session.ts:5701 resetSessionContext → 5780；9241 newSession → 9344",
+      "memory subsystems": "session-memory.ts:260/367、memories/index.ts:352、mnemopi/state.ts:661、hindsight/backend.ts:369、hindsight/state.ts:577/621/768（memory promotion / mental-model load）",
+      "settings watches": "sdk.ts:4592-4602（settings 變更 listener）、sharpshooter/backend.ts:137（sharpshooter.injectionTokenLimit）",
+      "eval prelude / skillful": "agent-session.ts:2301-2308（browser/computer.enabled）、9681-9690（skillful）——條件是 messages.length===0，populated session 不觸發",
+      "workpool yields": "agent-session.ts:8870 setWorkPoolYieldItems → 8887",
+      "tool-set / MCP / skill mutations (implicit signature path)": "session-tools.ts:1014-1024 → 1224-1235 判斷，publish at 1302；implicit 變更在 model.thinking.prefixBinding===true 且有 assistant message 時被 freeze（改走 hidden notice），其餘（含 forcePromptRefresh、tool roster/schema 變更、MCP 連線）會發佈並吸收"
+    },
+    "ordinary_session_answer": "會。`/model`、`/add-dir`、`/sessions`(程序內)切換、memory backend 啟用時的 promotion、settings 變更、技能/工具重載都會發佈 surface；compaction（含 remote）與 fresh-process resume 不會。因此『漂移』的觸發條件是：session 內發生過任一上述事件（surface 已吸收 tag）→ 之後以 fresh process resume。",
+    "fresh_process_resume_path": "main.ts:1177 / 1216 `SessionManager.open(...)` → 直接建 session（不經 switchSession）；因此不會 rebuild。probe 用 SessionManager.open + createAgentSession 精確重現此路徑（實測 resumed-1 的 advertisedSessionAgents=[]）。",
+    "mechanism_file_line": {
+      "description_reads_committed_surface_1841": "task/index.ts:617-618 `session.advertisedSessionAgents?.() ?? session.getSessionAgents?.() ?? []` → session-tools.ts:534-535 回傳已 commit 的 #promptSurface；只在 rebuild commit 時更新（session-tools.ts:1302、1990）",
+      "surface_seeded_before_mentions_synced": "session-tools.ts:442 `#promptSurface = #derivePromptSurface()`（← 543-546 host.sessionAgents()）發生在 agent-session.ts:1892 `new SessionTools(...)`；persisted tags 要到 agent-session.ts:2005 `#modelMentions.syncFromBranch()` 才載入 → fresh process 的已發佈 surface 為空",
+      "no_rebuild_before_first_resumed_request": "memory.backend=off 時 buildSystemPromptForAgentStart(session-tools.ts:2014-2022) 直接回傳 base，不呼叫 #prepareBaseSystemPrompt；實測 advertisedSessionAgents=[] at resumed-1/2",
+      "notice_path": "session-tools.ts:1570-1596 takeSessionAgentNotice + agent-session.ts:7780 splice；notice 為 developer-role、message index 2，且被寫入 session file（resume 後 index 2 逐位元相同）→ 模型知識仍在，但 tools block 位元改變",
+      "tag_syntax_and_persist": "pi-tui/src/prompt/model-mention-syntax.ts:9 MODEL_MENTION_RE=/(^|\\s)\\^([^\\s^]+)(?=\\s|$)/g；model-mentions.ts:92-108 expandMentions（18.4.1，含 inheritedAgents）寫 appendCustomEntry('model_mention')（:102，entry type :18）；replay readModelMentions :21-41 / syncFromBranch :66-77（agent-session.ts:2005）"
+    },
+    "regression_vs_1833": {
+      "18_3_3_mechanism": "task/index.ts:618 讀 live `this.session.getSessionAgents?.()`（無 advertisedSessionAgents API：capabilities.advertisedSessionAgents=false），model-mentions.ts(18.3.3):85-115 沒有 inheritedAgents、沒有 notice → tag 立即進 description",
+      "evidence": "Rehearsal 四個 scenario、三個 resume 時點全部 prefix_equal=True；tag-rebuild live t4-rebuilt 與 resume-1 的 description 都含 m1",
+      "conclusion": "18.3.3 不漂移；18.4.1 在『live 已 rebuild 過』時漂移 → 18.3.4+ 的 freeze+hidden-notice 機制把『description 立即反映 live tags』換成『只有 rebuild 才反映』，造成 resume 兩邊不同步的 regression"
+    },
+    "files_changed": [
+      ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/probe-tag-prefix-1841.ts（更新：改為逐 request resume-chain、加 tag-live-soft 觸發、capability gating 以支援 18.3.3、wire builder 可選）",
+      ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-tag-prefix-1841.py（更新：每 scenario 三個 comparison、codex head diff、--home/--nm-root/--results override、version provenance）",
+      ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/tag-prefix-results-1841.json（48KB，逐欄位判定）",
+      ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/tag-prefix-results-1833.json（34KB，18.3.3 對照）"
+    ],
+    "cleanup": "Rehearsal: rm -rf Rehearsal/tmp-tag Rehearsal/tag-prefix-lab；find TagProbe+Rehearsal -name '.tag-prefix-probe-1841.ts' → 0；TagProbe 沙箱 HOME/tag-prefix-lab 保留原始 capture（throwaway，非 repo）。未修改任何 patch/candidate/gate/apply.sh/PATCHES.md；未實作任何 fix。",
+    "inferences_and_limits": [
+      "[INFERENCE] remote / handoff / snapcompact lane：僅 soft 實測；其餘依 session-maintenance.ts 無任何 surface/prompt/registry 呼叫推論不吸收。handoff 若經由 newSession/resetSessionContext（agent-session.ts:9241/5701 → refresh）建立新 session，則屬『會吸收』的觸發，未實測。",
+      "[INFERENCE] memory backend 啟用時的 promotion 觸發（session-memory.ts:260/367 等）：probe 固定 memory.backend=off，未實測；若觸發則 live 吸收、fresh resume 不吸收 → 同樣落入 tag-rebuild 漂移型態。",
+      "[INFERENCE] in-process switchSession(10689/10943) 會吸收：由程式碼路徑直推（10842 syncFromBranch 後 10943 無條件 refresh），未實測。",
+      "Anthropic tools block 未單獨序列化（pi-ai 未 export tools converter）；Anthropic messages prefix 相等，但 provider-facing tools list（name+description+parameters）位元不同、Codex body head 也在 offset 6129 不同 → cache 相關位元改變已由 Codex 證實。",
+      "probe 為離線 runtime provider（兩個 model：vision-model 預設 + tag-model），toolNames=[read,edit,task]，無 subagent spawn、無真實 provider/credentials。"
+    ]
+  }
+}

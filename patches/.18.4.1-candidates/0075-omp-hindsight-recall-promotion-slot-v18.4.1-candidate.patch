@@ -1,0 +1,221 @@
+--- a/src/hindsight/backend.ts
++++ b/src/hindsight/backend.ts
+@@ -82,15 +82,15 @@
+ 
+ 		const state = session?.getHindsightSessionState();
+ 		const primary = state?.aliasOf ?? state;
+-		const recallSnippet = primary?.lastRecallSnippet;
+ 		const mentalModelsSnippet = primary?.mentalModelsSnippet;
+ 
+-		// Order: static instructions → mental models (stable, curated) → recall
+-		// (volatile per turn). Stable context first so the LLM's prior is
+-		// anchored on curated knowledge.
++		// Order: static instructions -> mental models (stable, curated). The
++		// per-turn recall block is deliberately not joined here: the host promotes
++		// it onto the system prompt as its own trailing message and re-applies it
++		// after every base rebuild, so the block keeps one slot instead of moving
++		// in and out of this developer message as the snippet comes and goes.
+ 		const parts = [prompt.render(hindsightInstructions, { toolRefs: memoryToolRefs(session?.getXdevToolEntries()) })];
+ 		if (mentalModelsSnippet) parts.push(mentalModelsSnippet);
+-		if (recallSnippet) parts.push(recallSnippet);
+ 		return parts.join("\n\n");
+ 	},
+ 
+--- a/src/session/agent-session.ts
++++ b/src/session/agent-session.ts
+@@ -1828,7 +1828,8 @@
+ 			memoryBackendSession: () => this,
+ 			clearInheritedProviderPromptCacheKey: () => this.#clearInheritedProviderPromptCacheKey(),
+ 			clearMemoryPromotionSnapshot: () => this.#memory.clearPromotionSnapshot(),
+-			captureMemoryPromotionSnapshot: prompt => this.#memory.capturePromotionSnapshot(prompt),
++			captureMemoryPromotionSnapshot: (prompt, tail) => this.#memory.capturePromotionSnapshot(prompt, tail),
++			memoryPromotionTail: () => this.#memory.promotionTail,
+ 			emitNotice: (level, message, source) => this.emitNotice(level, message, source),
+ 			notifyCommandMetadataChanged: () => this.#notifyCommandMetadataChanged(),
+ 			localProtocolOptions: () => this.#localProtocolOptions(),
+@@ -10315,6 +10316,7 @@
+ 		const previousBaseSystemPrompt = this.#tools.baseSystemPrompt;
+ 		const previousSystemPrompt = this.agent.state.systemPrompt;
+ 		const previousBaseSystemPromptBeforeMemoryPromotion = this.#memory.promotionSnapshot;
++		const previousMemoryPromotionTail = this.#memory.promotionTail;
+ 		const previousFreshProviderSessionId = this.#freshProviderSessionId;
+ 		const previousInheritedProviderPromptCacheKey = this.#inheritedProviderPromptCacheKey;
+ 
+@@ -10536,7 +10538,7 @@
+ 			this.#memory.rekeyForCurrentSessionId();
+ 			this.agent.setTools(previousTools);
+ 			this.#tools.setBaseSystemPrompt(previousBaseSystemPrompt);
+-			this.#memory.restorePromotionSnapshot(previousBaseSystemPromptBeforeMemoryPromotion);
++			this.#memory.restorePromotionSnapshot(previousBaseSystemPromptBeforeMemoryPromotion, previousMemoryPromotionTail);
+ 			this.agent.setSystemPrompt(previousSystemPrompt);
+ 			this.agent.replaceMessages(previousAgentMessages);
+ 			this.agent.replaceQueues(previousSteeringMessages, previousFollowUpMessages);
+--- a/src/session/session-memory.ts
++++ b/src/session/session-memory.ts
+@@ -64,6 +64,7 @@
+ 	#memoryBackendTransition: Promise<void> = Promise.resolve();
+ 	#localMemoryStartupAbort: AbortController | undefined;
+ 	#baseSystemPromptBeforeMemoryPromotion: string[] | undefined;
++	#baseSystemPromptPromotionTail: string | undefined;
+ 	/** Cwd the running backend state was built for; a transcript is never retained after it moved. */
+ 	#runtimeCwd: string | undefined;
+ 	/** Apply waiting behind the current transition; later requests join it. */
+@@ -171,19 +172,34 @@
+ 		return this.#baseSystemPromptBeforeMemoryPromotion;
+ 	}
+ 
++	/**
++	 * Block the memory backend last promoted onto the system prompt. A base
++	 * rebuild replaces the prompt array wholesale, so the block is re-attached
++	 * from here and keeps one slot. It used to have two carriers -- joined into
++	 * the developer message once the backend had published a snippet, and
++	 * injected as a trailing system message before that -- so a restart, resume
++	 * or rebuild moved identical bytes between message boundaries and the
++	 * provider re-billed every cached prefix past the move point.
++	 */
++	get promotionTail(): string | undefined {
++		return this.#baseSystemPromptPromotionTail;
++	}
++
+ 	/** Clears the per-turn memory promotion after a canonical prompt rebuild. */
+ 	clearPromotionSnapshot(): void {
+ 		this.#baseSystemPromptBeforeMemoryPromotion = undefined;
+ 	}
+ 
+ 	/** Captures the canonical prompt before the first per-turn memory promotion. */
+-	capturePromotionSnapshot(prompt: string[]): void {
++	capturePromotionSnapshot(prompt: string[], tail?: string): void {
+ 		this.#baseSystemPromptBeforeMemoryPromotion ??= prompt;
++		if (tail !== undefined) this.#baseSystemPromptPromotionTail = tail;
+ 	}
+ 
+ 	/** Restores a promotion snapshot while rolling back a failed session switch. */
+-	restorePromotionSnapshot(prompt: string[] | undefined): void {
++	restorePromotionSnapshot(prompt: string[] | undefined, tail?: string): void {
+ 		this.#baseSystemPromptBeforeMemoryPromotion = prompt;
++		this.#baseSystemPromptPromotionTail = tail;
+ 	}
+ 	/** Rekeys every active memory backend to the current provider session. */
+ 	rekeyForCurrentSessionId(): void {
+@@ -229,13 +245,18 @@
+ 	/** Resets transcript-scoped memory counters and removes a promoted prompt. */
+ 	async resetContextForNewTranscript(): Promise<void> {
+ 		const hadPromotedMemoryPrompt = this.#baseSystemPromptBeforeMemoryPromotion !== undefined;
++		const hadPromotionTail = this.#baseSystemPromptPromotionTail !== undefined;
+ 		const resetHindsight = this.#resetHindsightConversationTrackingIfHindsight();
+ 		const resetMnemopi = this.#resetMnemopiConversationTrackingIfMnemopi();
+ 		if (hadPromotedMemoryPrompt) {
+ 			this.#host.setBaseSystemPrompt(this.#baseSystemPromptBeforeMemoryPromotion!);
+ 			this.#baseSystemPromptBeforeMemoryPromotion = undefined;
+ 		}
+-		if (resetHindsight || resetMnemopi || hadPromotedMemoryPrompt) {
++		// The tail is transcript-scoped like the counters above: a fresh transcript
++		// re-recalls on its first turn, so a block kept here would otherwise ride
++		// into the new conversation if that recall comes back empty.
++		this.#baseSystemPromptPromotionTail = undefined;
++		if (resetHindsight || resetMnemopi || hadPromotedMemoryPrompt || hadPromotionTail) {
+ 			await this.#host.refreshBaseSystemPrompt();
+ 		}
+ 	}
+--- a/src/session/session-tools.ts
++++ b/src/session/session-tools.ts
+@@ -77,7 +77,8 @@
+ 	memoryBackendSession(): MemoryBackendStartOptions["session"];
+ 	clearInheritedProviderPromptCacheKey(): void;
+ 	clearMemoryPromotionSnapshot(): void;
+-	captureMemoryPromotionSnapshot(prompt: string[]): void;
++	captureMemoryPromotionSnapshot(prompt: string[], tail?: string): void;
++	memoryPromotionTail(): string | undefined;
+ 	emitNotice(level: "info" | "warning" | "error", message: string, source?: string): void;
+ 	notifyCommandMetadataChanged(): void;
+ 	localProtocolOptions(): LocalProtocolOptions;
+@@ -1255,7 +1256,12 @@
+ 				: undefined;
+ 			if (rebuiltSystemPrompt && rebuiltSignature) {
+ 				if (this.#lastAppliedToolSignature !== undefined) this.#host.clearInheritedProviderPromptCacheKey();
+-				this.#baseSystemPrompt = rebuiltSystemPrompt;
++				// The promoted recall block keeps its slot across a wholesale rebuild;
++				// see the promotion comment in `buildSystemPromptForAgentStart`.
++				const promotionTail = this.#host.memoryPromotionTail();
++				this.#baseSystemPrompt = promotionTail
++					? [...rebuiltSystemPrompt, promotionTail]
++					: rebuiltSystemPrompt;
+ 				this.#host.clearMemoryPromotionSnapshot();
+ 				this.#applyAgentSystemPrompt(this.#baseSystemPrompt);
+ 				invalidateToolSchemaMetadata(this.#host.agent.state.tools);
+@@ -1914,7 +1920,12 @@
+ 				// awaiting its final commit: its own lifecycle published its own
+ 				// snapshot, so only carry the prompt forward.
+ 				if (this.#baseSystemPrompt !== previousBaseSystemPrompt) return true;
+-				this.#baseSystemPrompt = built.systemPrompt;
++				// The promoted recall block keeps its slot across a wholesale rebuild;
++				// see the promotion comment in `buildSystemPromptForAgentStart`.
++				const promotionTail = this.#host.memoryPromotionTail();
++				this.#baseSystemPrompt = promotionTail
++					? [...built.systemPrompt, promotionTail]
++					: built.systemPrompt;
+ 				this.#promptSurface = candidate;
+ 				this.#setBasePromptXdevNames(built.xdevCatalogNames);
+ 				this.#host.clearMemoryPromotionSnapshot();
+@@ -1969,7 +1980,12 @@
+ 			}
+ 			if (!isCurrent()) return { systemPrompt: this.#baseSystemPrompt };
+ 
+-			const preparedBase = refreshed?.systemPrompt ?? this.#baseSystemPrompt;
++			// `preparedBase` may be the live array when no refresh happened, and that
++			// array can already end with a block promoted on an earlier turn: strip it
++			// before re-staging, or this turn would carry the block twice.
++			const promoted = this.#host.memoryPromotionTail();
++			const base = refreshed?.systemPrompt ?? this.#baseSystemPrompt;
++			const preparedBase = promoted !== undefined && base[base.length - 1] === promoted ? base.slice(0, -1) : base;
+ 			const stablePrompt = [...preparedBase, injected];
+ 			return {
+ 				systemPrompt: stablePrompt,
+@@ -1979,8 +1995,14 @@
+ 					// A handler may have refreshed tools or policy. Promote the recall onto
+ 					// that winning base, never replace it with the preparation's snapshot.
+ 					const currentBase = this.#baseSystemPrompt;
+-					this.#host.captureMemoryPromotionSnapshot(currentBase);
+-					this.#baseSystemPrompt = currentBase === preparedBase ? stablePrompt : [...currentBase, injected];
++					// A rebuild during the await re-attached the previous block; drop it
++					// before staging this one so the tail stays a single message.
++					const withoutTail =
++						promoted !== undefined && currentBase[currentBase.length - 1] === promoted
++							? currentBase.slice(0, -1)
++							: currentBase;
++					this.#host.captureMemoryPromotionSnapshot(currentBase, injected);
++					this.#baseSystemPrompt = currentBase === preparedBase ? stablePrompt : [...withoutTail, injected];
+ 					this.#applyAgentSystemPrompt(this.#baseSystemPrompt);
+ 					return true;
+ 				},
+--- a/dist/types/session/session-memory.d.ts
++++ b/dist/types/session/session-memory.d.ts
+@@ -46,12 +46,14 @@
+     get transition(): Promise<void>;
+     /** Base prompt captured before a per-turn memory promotion. */
+     get promotionSnapshot(): string[] | undefined;
++    /** Block the memory backend last promoted onto the system prompt. */
++    get promotionTail(): string | undefined;
+     /** Clears the per-turn memory promotion after a canonical prompt rebuild. */
+     clearPromotionSnapshot(): void;
+     /** Captures the canonical prompt before the first per-turn memory promotion. */
+-    capturePromotionSnapshot(prompt: string[]): void;
++    capturePromotionSnapshot(prompt: string[], tail?: string): void;
+     /** Restores a promotion snapshot while rolling back a failed session switch. */
+-    restorePromotionSnapshot(prompt: string[] | undefined): void;
++    restorePromotionSnapshot(prompt: string[] | undefined, tail?: string): void;
+     /** Rekeys every active memory backend to the current provider session. */
+     rekeyForCurrentSessionId(): void;
+     /** Resets transcript-scoped memory counters and removes a promoted prompt. */
+--- a/dist/types/session/session-tools.d.ts
++++ b/dist/types/session/session-tools.d.ts
+@@ -34,7 +34,8 @@
+     memoryBackendSession(): MemoryBackendStartOptions["session"];
+     clearInheritedProviderPromptCacheKey(): void;
+     clearMemoryPromotionSnapshot(): void;
+-    captureMemoryPromotionSnapshot(prompt: string[]): void;
++    captureMemoryPromotionSnapshot(prompt: string[], tail?: string): void;
++    memoryPromotionTail(): string | undefined;
+     emitNotice(level: "info" | "warning" | "error", message: string, source?: string): void;
+     notifyCommandMetadataChanged(): void;
+     localProtocolOptions(): LocalProtocolOptions;

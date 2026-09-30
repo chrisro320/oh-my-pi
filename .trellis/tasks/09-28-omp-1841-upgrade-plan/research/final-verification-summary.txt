@@ -1,0 +1,17 @@
+pristine b52c961e4d6cc7f6753713bf00843fd854e006cd063e4d9f1cbd6f2518e60e23
+apply1 exit 0
+applied 2a6f5bce0251d9c6119bccf95644e28bab348e14695c21533cfe6dea58e61d88
+apply2 exit 0 skip=50
+idempotent digest OK
+check exit 0 applied=49
+revert exit 0
+revert==pristine OK
+apply3 exit 0
+reapply digest OK
+stray 0
+DONE
+prefix exit 0
+remote exit 0
+tag exit 0
+cli exit 0
+ALLDONE

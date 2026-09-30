@@ -29,7 +29,7 @@ assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree 
 // never carried it must fail closed rather than measure a pristine tree.
 const agentVersion: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
-	["18.2.3", "18.2.10", "18.3.3"].includes(agentVersion),
+	["18.2.3", "18.2.10", "18.3.3", "18.4.1"].includes(agentVersion),
 	`verify-hindsight-recall-promotion-slot: 0075 is not part of the ${agentVersion} plan`,
 );
 
@@ -184,6 +184,15 @@ const sessionToolsHost = new Proxy(
 				agentPrompt = parts;
 			},
 		},
+		// SessionTools reads the branch at construction and publishes the advertised
+		// model-agent list on rebuild (18.4.1 0083); an empty branch and an empty
+		// tagged-agent list keep this fixture's surface empty, other journal calls
+		// stay no-ops like the host stub.
+		sessionAgents: () => [],
+		sessionManager: new Proxy(
+			{ getBranch: () => [] },
+			{ get: (target, key) => (key in target ? Reflect.get(target, key) : () => undefined) },
+		),
 		settings: Settings.isolated({ "memory.backend": "hindsight" }),
 		memoryBackendSession: () => memorySessionStub,
 		isDisposed: () => false,

@@ -1,0 +1,76 @@
+[
+  {
+    "scenario": "plain",
+    "live_pid": 1539918,
+    "resume_pid": 1540032,
+    "compaction": null,
+    "summarizeCalls": 0,
+    "system_equal": true,
+    "tools_equal": true,
+    "live_messages": 5,
+    "rebuilt_messages": 7,
+    "messages_prefix_diff": {
+      "index": 1,
+      "offset": 559,
+      "live": "estamp\":1790613846452,\"duration\":0.9661009999999806,\"completedAt\":1790613846455,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":2797,\"compactionEpoch\":0},\"errorId\":0}",
+      "rebuilt": "estamp\":1790613846452,\"duration\":0.9661009999999806,\"completedAt\":1790613846455,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":2797,\"compactionEpoch\":0}}"
+    },
+    "anthropic_prefix_diff": null,
+    "codex_input_prefix_diff": null,
+    "codex_head_equal": true,
+    "fetchAttempts": 0,
+    "pass": true
+  },
+  {
+    "scenario": "soft",
+    "live_pid": 1540110,
+    "resume_pid": 1540190,
+    "compaction": {
+      "mode": "soft",
+      "firstKeptEntryId": "c414cc76",
+      "tokensBefore": 0
+    },
+    "summarizeCalls": 3,
+    "system_equal": true,
+    "tools_equal": true,
+    "live_messages": 3,
+    "rebuilt_messages": 5,
+    "messages_prefix_diff": {
+      "index": 1,
+      "offset": 560,
+      "live": "stamp\":1790613848057,\"duration\":0.28195900000002894,\"completedAt\":1790613848058,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":2797,\"compactionEpoch\":0},\"errorId\":0}",
+      "rebuilt": "stamp\":1790613848057,\"duration\":0.28195900000002894,\"completedAt\":1790613848058,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":2797,\"compactionEpoch\":0}}"
+    },
+    "anthropic_prefix_diff": null,
+    "codex_input_prefix_diff": null,
+    "codex_head_equal": true,
+    "fetchAttempts": 0,
+    "pass": true
+  },
+  {
+    "scenario": "snapcompact",
+    "live_pid": 1540268,
+    "resume_pid": 1540348,
+    "compaction": {
+      "mode": "snapcompact",
+      "firstKeptEntryId": "9d13d4d2",
+      "tokensBefore": 0
+    },
+    "summarizeCalls": 0,
+    "system_equal": true,
+    "tools_equal": true,
+    "live_messages": 3,
+    "rebuilt_messages": 5,
+    "messages_prefix_diff": {
+      "index": 1,
+      "offset": 559,
+      "live": "estamp\":1790613849772,\"duration\":1.6394980000000032,\"completedAt\":1790613849775,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":2797,\"compactionEpoch\":0},\"errorId\":0}",
+      "rebuilt": "estamp\":1790613849772,\"duration\":1.6394980000000032,\"completedAt\":1790613849775,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":2797,\"compactionEpoch\":0}}"
+    },
+    "anthropic_prefix_diff": null,
+    "codex_input_prefix_diff": null,
+    "codex_head_equal": true,
+    "fetchAttempts": 0,
+    "pass": true
+  }
+]

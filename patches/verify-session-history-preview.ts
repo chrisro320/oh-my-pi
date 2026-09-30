@@ -30,8 +30,8 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${os.homedir()}/.bun/install/glob
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const agentVersion = JSON.parse(fs.readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
-const movedUi = ["18.2.10", "18.3.3"].includes(agentVersion);
+assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
+const movedUi = ["18.2.10", "18.3.3", "18.4.1"].includes(agentVersion);
 
 assert.ok(fs.existsSync(AGENT_ROOT), `OMP_PATCH_VERIFY_AGENT_ROOT does not exist: ${AGENT_ROOT}`);
 if (movedUi) assert.ok(fs.existsSync(TUI_ROOT), `OMP_PATCH_VERIFY_TUI_ROOT does not exist: ${TUI_ROOT}`);
@@ -440,6 +440,25 @@ const temporaryThenFallbackPath = writeModelSession("temporary-then-fallback", [
 	assistantTurn("prov/fallback-model"),
 ]);
 const emptyPath = writeModelSession("empty", []);
+const midFileSwitchPath =
+	["18.3.3", "18.4.1"].includes(agentVersion)
+		? writeModelSession("mid-file-switch", [
+				modelChange("prov/configured-model"),
+				{ type: "message", message: { role: "user", content: "x".repeat(6_000) } },
+				modelChange("later/new-model", "temporary"),
+				{ type: "message", message: { role: "user", content: "x".repeat(33_000) } },
+				{ type: "message", message: { role: "assistant", provider: "later", model: "new-model", content: [] } },
+			])
+		: undefined;
+const fallbackAfterGapPath =
+	["18.3.3", "18.4.1"].includes(agentVersion)
+		? writeModelSession("fallback-after-gap", [
+				modelChange("prov/configured-model"),
+				{ type: "message", message: { role: "user", content: "x".repeat(33_000) } },
+				modelChange("prov/fallback-model", "fallback"),
+				{ type: "message", message: { role: "assistant", provider: "prov", model: "fallback-model", content: [] } },
+			])
+		: undefined;
 
 const modelScan = await listSessions(modelDirPath, storage);
 const lastModelOf = (file: string): string | undefined => {
@@ -462,6 +481,26 @@ assert.strictEqual(
 	"prov/tail-model",
 	"With no model_change, the newest assistant model is the last-served fallback",
 );
+if (midFileSwitchPath) {
+	const bytes = fs.readFileSync(midFileSwitchPath);
+	const switchOffset = bytes.indexOf('"model":"later/new-model"');
+	assert.ok(
+		switchOffset > 4096 && switchOffset < bytes.length - 32_768,
+		"The last model_change must be outside both bounded scanner windows",
+	);
+	assert.strictEqual(
+		lastModelOf(midFileSwitchPath),
+		"later/new-model",
+		"A model change outside the tail must not be hidden by the initial default when the last assistant identifies its provider/model",
+	);
+}
+if (fallbackAfterGapPath) {
+	assert.strictEqual(
+		lastModelOf(fallbackAfterGapPath),
+		"prov/configured-model",
+		"A visible fallback transition must restore the prefix default, not the last fallback assistant",
+	);
+}
 assert.strictEqual(
 	lastModelOf(temporaryPath),
 	"prov/temporary-model",

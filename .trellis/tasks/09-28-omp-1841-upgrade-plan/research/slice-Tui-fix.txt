@@ -1,0 +1,77 @@
+ 0.
+790:
+791:## assistant
+792:
+793:修復完成。
+794:
+795:## 1. 缺陷與修法
+796:
+797:`.finally(...)` 的回傳 promise 以 `void` 丟棄；`#updateDisplay()` / `#ui.requestRender()` 在其中拋錯時，該 promise 以 rejected 收尾且無人處理 → unhandled rejection。修法：把 **catch 移到鏈尾**（`then → [catch 已在尾] → finally → catch`），使「publish／repaint／identity cleanup」任一拋錯都被記錄，終端 promise 永不 reject。
+798:
+799:- **0079**（`tool-execution.ts`）：`then(publish) .catch(conversion-failure) .finally(barrier 釋放 + repaint) .catch(log repaint fault)`。計數遞減與 `#kittyConversionsAwaited.delete` 仍在 repaint **之前**，`requestRender()` 仍是最後一步 → 0079 的「先釋放屏障、後可觀察繪製」時序不變。
+800:- **0080**（`tool-execution.ts`）：鏈改為單一終端 catch — `then(publish) .finally(identity cleanup + pending-- + blockVersion++ + repaint) .catch(log)`。identity cleanup 與屏障先於 repaint。
+801:- **0080**（`assistant-message.ts`）：原移植把 repaint 放在 `.then`（已被 catch 覆蓋，本身無漏洞），現把 catch 移到鏈尾，使 `then(publish+repaint) → finally(cleanup) → catch` 全鏈受保護。
+802:
+803:## 2. 逐層（更新後）
+804:
+805:| layer | class | files | 大小/hunks | EMIT / replay |
+806:|---|---|---|---|---|
+807:| 0079 | A | `pi-tui/src/chat/tool-execution.ts` | 2002 B / 3 hunks / 1 file | **EMIT OK**；`APPLIED` |
+808:| 0080 | C | `pi-tui/src/chat/{assistant-message,image-loading,tool-execution}.ts`、`pi-tui/dist/types/chat/image-loading.d.ts` | 23978 B / 16 hunks / 4 files | **EMIT OK**；`APPLIED` |
+809:| 0081 | A（未變動） | 8 files（同前回報） | 5564 B / 12 hunks | `APPLIED` |
+810:
+811:```
+812:replay rc=0 · SUMMARY applied=48 failed=0
+813:APPLIED  0079 TUI / 0080 TUI / 0081 NM
+814:```
+815:
+816:## 3. 閘門（修復後，全樹）
+817:
+818:```
+819:bun patches/verify-kitty-conversion-finalization.ts   rc=0 :: kitty conversion finalization: ALL PASS
+820:bun patches/verify-kitty-shared-png-cache.ts          rc=0 :: kitty shared PNG cache: eight graphics, tool/assistant/native slot
+821:                                                             replacement, late callbacks, failure, dedupe and 200-image eviction PASS
+822:bun patches/verify-main-cache-hit.ts                  rc=0 :: verify-main-cache-hit: primary footer ignores auxiliary usage across reload
+823:bun patches/verify-python-display-mime-preference.ts  rc=0 :: python display MIME preference: ALL PASS
+824:```
+825:
+826:新增的負向控制位於 `patches/verify-kitty-conversion-finalization.ts:64-108`：`armed` 後 `requestRender` 一律拋 `Error("repaint fault")`，並註冊 `process.on("unhandledRejection")`，斷言 `repaintFaults > 0`、屏障仍釋放、`unhandled` 為空。
+827:
+828:## 4. 敏感度 / 鑑別力
+829:
+830:**(a) 層缺席**（driver 狀態）
+831:
+832:```
+833:--before 0079 → verify-kitty-conversion-finalization  rc=1  AssertionError: sealed results must wait for image conversion
+834:--before 0081 → verify-main-cache-hit                 rc=1  AssertionError: one find call must not dilute the primary cache hit rate
+835:```
+836:
+837:**(b) 新斷言的 fault variant**（在沙盒移除終端 `.catch`，重現修復前形狀；純暫時變異，已用 replay 還原）
+838:
+839:```
+840:FAULT-VARIANT verify-kitty-conversion-finalization rc=1
+841:[Unhandled Rejection] Error: repaint fault
+842:    at requestRender (patches/verify-kitty-conversion-finalization.ts:79:15)
+843:    at <anonymous> (…/@oh-my-pi/pi-tui/src/chat/tool-execution.ts:591:15)
+844:```
+845:
+846:還原後重跑：四閘門全 `rc=0`，`applied=48 failed=0`（最後又跑一次 full replay 把樹留在交付狀態）。
+847:
+848:## 5. 本輪變更的 repository 檔案
+849:
+850:- `patches/.18.4.1-candidates/0079-omp-kitty-conversion-finalization-v18.4.1-candidate.patch`
+851:- `patches/.18.4.1-candidates/0080-omp-kitty-shared-png-cache-v18.4.1-candidate.patch`
+852:- `patches/verify-kitty-conversion-finalization.ts`（新增負向控制；未刪改任何既有斷言）
+853:
+854:未動 `0081` candidate、`apply.sh`、`PATCHES.md`、`verify-patch-family-rollups.sh`、其他 slice。樹內無 `imagePayloadKey|cachedPngConversion|convertImageToPngShared` 殘留，repo 與 `$NM` 皆無 `.orig`/`.rej`，暫存 log 已刪。
+855:
+856:## 6. 風險
+857:
+858:1. Bun 對未處理 rejection 會直接以 rc=1 中止，因此 fault variant 的失敗以 Bun 回報呈現（`[Unhandled Rejection]`，指向 fixture 的 `requestRender` 與 tool-execution.ts:591）；修復後無 rejection 發生，故 `repaintFaults > 0`、屏障釋放、`unhandled` 三項斷言都會實際執行。
+859:2. `assistant-message.ts` 的 repaint 本來就在 `.then` 內受 catch 保護，沒有 unhandled 漏洞；因此該檔沒有可「修復前失敗」的負向控制，我改以終端 catch 強化並在碼上明示。若 Main 要求再加上對稱的 assistant 控制，需先造出一個真正的 assistant 漏洞情境。
+860:
+861:```yield
+862:{"data": {"status": "fixed", "round": 2, "root_cause": "terminal promise of the PNG conversion chain discarded with void; .finally repaint throw => unhandled rejection", "fix": "moved the catch to the end of the chain (0079 tool-execution, 0080 tool-execution, 0080 assistant-message); pending-count decrement and identity cleanup stay before the repaint; logger.error records the fault", "candidates": [{"layer": "0079", "bytes": 2002, "hunks": 3, "files": 1, "emit": "EMIT OK", "class": "A"}, {"layer": "0080", "bytes": 23978, "hunks": 16, "files": 4, "emit": "EMIT OK", "class": "C"}, {"layer": "0081", "bytes": 5564, "hunks": 12, "files": 8, "emit": "unchanged"}], "full_replay": "rc=0 SUMMARY applied=48 failed=0", "gates": {"verify-kitty-conversion-finalization": "rc=0 PASS", "verify-kitty-shared-png-cache": "rc=0 PASS", "verify-main-cache-hit": "rc=0 PASS", "verify-python-display-mime-preference": "rc=0 PASS"}, "new_negative_control": {"file": "patches/verify-kitty-conversion-finalization.ts:64-108", "asserts": ["repaintFaults > 0", "retirement barrier released", "no unhandledRejection"], "fault_variant": "rc=1 [Unhandled Rejection] Error: repaint fault (tool-execution.ts:591)", "passes_after_fix": true}, "sensitivity": {"--before 0079": "rc=1 sealed results must wait for image conversion", "--before 0081": "rc=1 one find call must not dilute the primary cache hit rate"}, "repo_files_changed": ["patches/.18.4.1-candidates/0079-omp-kitty-conversion-finalization-v18.4.1-candidate.patch", "patches/.18.4.1-candidates/0080-omp-kitty-shared-png-cache-v18.4.1-candidate.patch", "patches/verify-kitty-conversion-finalization.ts"], "prefix_influence": "none"}}
+863:```
+
+[Showing lines 1-377 and 610-864 of 864; 232 middle lines (12.8KB) elided. Read artifact://114 for full output]

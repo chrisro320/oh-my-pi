@@ -1,0 +1,1048 @@
+{
+  "sandbox": "Live",
+  "home": "/home/chris/.cache/omp-1841-upgrade/Live/home",
+  "nm_root": "/home/chris/.cache/omp-1841-upgrade/Live/home/.bun/install/global",
+  "pi_coding_agent_version": "18.4.1",
+  "probe": "probe-tag-prefix-1841.ts",
+  "runner": "run-tag-prefix-1841.py",
+  "probe_settings": {
+    "memory.backend": "off",
+    "compaction.enabled": false,
+    "edit.mode": "hashline",
+    "toolNames": [
+      "read",
+      "edit",
+      "task"
+    ],
+    "provider": "drift-fixture (runtime, offline; models vision-model|tag-model)",
+    "model_role_default": "drift-fixture/vision-model",
+    "tag_token_in_probe": "^drift-fixture/tag-model"
+  },
+  "known_artifact": "messages_prefix_diff (raw) is non-null for the assistant `errorId` metadata field only: the live in-memory message carries `errorId: 0`, the rehydrated one drops it. It never reaches a provider serializer, so `messages_prefix_diff_ignoring_errorId`, `anthropic_prefix_diff` and `codex_input_prefix_diff` stay null. The same artifact shows up in the pre-existing untagged probe (prefix-results-full-chain.json, all three scenarios).",
+  "residual_inequality_note": "After 0083 the only unequal comparisons are `vs resumed-rebuilt` in scenarios whose live side never rebuilt (`tag`, `tag-soft`): the live session exited before any rebuild absorbed the tag, and the rebuild the resume chain performs afterwards absorbs it, so the tools block changes at that rebuild. That is the upstream 'a base-prompt rebuild absorbs pending tags' behavior, byte-identical before and after 0083, and not a resume-time loss: `vs resumed-1` and `vs resumed-2` (the requests a fresh resume actually serves first) are equal in every scenario.",
+  "drift_detected": true,
+  "results": [
+    {
+      "scenario": "tag",
+      "probe_ok": true,
+      "live_scenario": "tag-live",
+      "resume_scenario": "resume-chain",
+      "live_pid": 1674640,
+      "resume_pid": 1674820,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/Live/home/tag-prefix-lab/sessions/2026-09-28T18-05-48-731Z_01a0e931-c73b-7000-b4c0-1eb167a16d28.jsonl",
+      "capabilities": {
+        "findMentionableModel": true,
+        "modelMentions": true,
+        "getSessionAgents": true,
+        "advertisedSessionAgents": true,
+        "refreshBaseSystemPrompt": true,
+        "anthropicWire": true,
+        "codexWire": true
+      },
+      "wire_error": null,
+      "live_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "resume_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "live_turns": [
+        {
+          "label": "t1",
+          "messages": 1,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t2",
+          "messages": 4,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 1,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t3",
+          "messages": 6,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "resume_turns": [
+        {
+          "label": "resumed-1",
+          "messages": 8,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-2",
+          "messages": 10,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-rebuilt",
+          "messages": 12,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [
+              "m1"
+            ],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "compaction": null,
+      "fetchAttempts": 0,
+      "comparisons": [
+        {
+          "resume_turn": "resumed-1",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": false,
+          "task_description_diff": null,
+          "live_messages": 6,
+          "resumed_messages": 8,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618748860,\"duration\":0.9369230000000925,\"completedAt\":1790618748863,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618748860,\"duration\":0.9369230000000925,\"completedAt\":1790618748863,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-2",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": false,
+          "task_description_diff": null,
+          "live_messages": 6,
+          "resumed_messages": 10,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618748860,\"duration\":0.9369230000000925,\"completedAt\":1790618748863,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618748860,\"duration\":0.9369230000000925,\"completedAt\":1790618748863,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-rebuilt",
+          "system_equal": true,
+          "tools_equal": false,
+          "tools_diff": {
+            "tool": "task",
+            "index": 2,
+            "offset": 1619,
+            "live": "hared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\\n\\n# Available Agents\\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning compressed context for handoff.\\n- `reviewer`: Code review specialist for quality/security analysis\\n- `security-review",
+            "rebuilt": "hared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\\n\\n# Available Agents\\n`m<N>` = user-tagged model (`<model agent=\\\"m<N>\\\" name=\\\"\\u2026\\\"/>`), not specialist; spawn only when user names it.\\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning"
+          },
+          "task_description_equal": false,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": {
+            "index": 0,
+            "offset": 1576,
+            "live": "`: shared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\n\n# Available Agents\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning compressed context for handoff.\n- `reviewer`: Code review specialist for quality/security analysis\n- `security-reviewer",
+            "rebuilt": "`: shared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\n\n# Available Agents\n`m<N>` = user-tagged model (`<model agent=\"m<N>\" name=\"…\"/>`), not specialist; spawn only when user names it.\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning compresse"
+          },
+          "live_messages": 6,
+          "resumed_messages": 12,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618748860,\"duration\":0.9369230000000925,\"completedAt\":1790618748863,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618748860,\"duration\":0.9369230000000925,\"completedAt\":1790618748863,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": false,
+          "codex_head_diff": {
+            "index": 0,
+            "offset": 6129,
+            "live": "hared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\\n\\n# Available Agents\\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning compressed context for handoff.\\n- `reviewer`: Code review specialist for quality/security analysis\\n- `security-review",
+            "rebuilt": "hared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\\n\\n# Available Agents\\n`m<N>` = user-tagged model (`<model agent=\\\"m<N>\\\" name=\\\"…\\\"/>`), not specialist; spawn only when user names it.\\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning comp"
+          },
+          "prefix_equal": false
+        }
+      ]
+    },
+    {
+      "scenario": "control",
+      "probe_ok": true,
+      "live_scenario": "tag-control-live",
+      "resume_scenario": "resume-chain",
+      "live_pid": 1675877,
+      "resume_pid": 1676382,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/Live/home/tag-prefix-lab/sessions/2026-09-28T18-05-50-407Z_01a0e931-cdc7-7000-8a2b-c76bfbe75453.jsonl",
+      "capabilities": {
+        "findMentionableModel": true,
+        "modelMentions": true,
+        "getSessionAgents": true,
+        "advertisedSessionAgents": true,
+        "refreshBaseSystemPrompt": true,
+        "anthropicWire": true,
+        "codexWire": true
+      },
+      "wire_error": null,
+      "live_mentions": [],
+      "resume_mentions": [],
+      "live_turns": [
+        {
+          "label": "t1",
+          "messages": 1,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t2",
+          "messages": 3,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t3",
+          "messages": 5,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "resume_turns": [
+        {
+          "label": "resumed-1",
+          "messages": 7,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-2",
+          "messages": 9,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-rebuilt",
+          "messages": 11,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "compaction": null,
+      "fetchAttempts": 0,
+      "comparisons": [
+        {
+          "resume_turn": "resumed-1",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": false,
+          "task_description_diff": null,
+          "live_messages": 5,
+          "resumed_messages": 7,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618750529,\"duration\":0.9654669999999896,\"completedAt\":1790618750532,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618750529,\"duration\":0.9654669999999896,\"completedAt\":1790618750532,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-2",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": false,
+          "task_description_diff": null,
+          "live_messages": 5,
+          "resumed_messages": 9,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618750529,\"duration\":0.9654669999999896,\"completedAt\":1790618750532,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618750529,\"duration\":0.9654669999999896,\"completedAt\":1790618750532,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-rebuilt",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": false,
+          "task_description_diff": null,
+          "live_messages": 5,
+          "resumed_messages": 11,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618750529,\"duration\":0.9654669999999896,\"completedAt\":1790618750532,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618750529,\"duration\":0.9654669999999896,\"completedAt\":1790618750532,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        }
+      ]
+    },
+    {
+      "scenario": "tag-rebuild",
+      "probe_ok": true,
+      "live_scenario": "tag-live-rebuild",
+      "resume_scenario": "resume-chain",
+      "live_pid": 1676853,
+      "resume_pid": 1677215,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/Live/home/tag-prefix-lab/sessions/2026-09-28T18-05-52-060Z_01a0e931-d43c-7000-9ad0-913c26bf19a0.jsonl",
+      "capabilities": {
+        "findMentionableModel": true,
+        "modelMentions": true,
+        "getSessionAgents": true,
+        "advertisedSessionAgents": true,
+        "refreshBaseSystemPrompt": true,
+        "anthropicWire": true,
+        "codexWire": true
+      },
+      "wire_error": null,
+      "live_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "resume_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "live_turns": [
+        {
+          "label": "t1",
+          "messages": 1,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t2",
+          "messages": 4,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 1,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t3",
+          "messages": 6,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t4-rebuilt",
+          "messages": 8,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [
+              "m1"
+            ],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "resume_turns": [
+        {
+          "label": "resumed-1",
+          "messages": 10,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [
+              "m1"
+            ],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-2",
+          "messages": 12,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [
+              "m1"
+            ],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-rebuilt",
+          "messages": 14,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [
+              "m1"
+            ],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "compaction": null,
+      "fetchAttempts": 0,
+      "comparisons": [
+        {
+          "resume_turn": "resumed-1",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 8,
+          "resumed_messages": 10,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 558,
+            "live": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618752182,\"duration\":0.950986999999941,\"completedAt\":1790618752185,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618752182,\"duration\":0.950986999999941,\"completedAt\":1790618752185,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-2",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 8,
+          "resumed_messages": 12,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 558,
+            "live": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618752182,\"duration\":0.950986999999941,\"completedAt\":1790618752185,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618752182,\"duration\":0.950986999999941,\"completedAt\":1790618752185,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-rebuilt",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 8,
+          "resumed_messages": 14,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 558,
+            "live": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618752182,\"duration\":0.950986999999941,\"completedAt\":1790618752185,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618752182,\"duration\":0.950986999999941,\"completedAt\":1790618752185,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        }
+      ]
+    },
+    {
+      "scenario": "tag-soft",
+      "probe_ok": true,
+      "live_scenario": "tag-live-soft",
+      "resume_scenario": "resume-chain",
+      "live_pid": 1677890,
+      "resume_pid": 1678549,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/Live/home/tag-prefix-lab/sessions/2026-09-28T18-05-53-834Z_01a0e931-db2a-7000-9b4a-78c28b24f09e.jsonl",
+      "capabilities": {
+        "findMentionableModel": true,
+        "modelMentions": true,
+        "getSessionAgents": true,
+        "advertisedSessionAgents": true,
+        "refreshBaseSystemPrompt": true,
+        "anthropicWire": true,
+        "codexWire": true
+      },
+      "wire_error": null,
+      "live_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "resume_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "live_turns": [
+        {
+          "label": "t1",
+          "messages": 1,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t2",
+          "messages": 4,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 1,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t3",
+          "messages": 6,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t5-compacted",
+          "messages": 4,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "resume_turns": [
+        {
+          "label": "resumed-1",
+          "messages": 6,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-2",
+          "messages": 8,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-rebuilt",
+          "messages": 10,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": [
+              "m1"
+            ],
+            "noticeIndexes": [
+              2
+            ],
+            "noticesInMessages": 1,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "compaction": {
+        "mode": "soft",
+        "firstKeptEntryId": "3715a4fe",
+        "tokensBefore": 0
+      },
+      "fetchAttempts": 0,
+      "comparisons": [
+        {
+          "resume_turn": "resumed-1",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": false,
+          "task_description_diff": null,
+          "live_messages": 4,
+          "resumed_messages": 6,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 560,
+            "live": ":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618753985,\"duration\":0.35284999999998945,\"completedAt\":1790618753985,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": ":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618753985,\"duration\":0.35284999999998945,\"completedAt\":1790618753985,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-2",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": false,
+          "task_description_diff": null,
+          "live_messages": 4,
+          "resumed_messages": 8,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 560,
+            "live": ":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618753985,\"duration\":0.35284999999998945,\"completedAt\":1790618753985,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": ":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618753985,\"duration\":0.35284999999998945,\"completedAt\":1790618753985,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-rebuilt",
+          "system_equal": true,
+          "tools_equal": false,
+          "tools_diff": {
+            "tool": "task",
+            "index": 2,
+            "offset": 1619,
+            "live": "hared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\\n\\n# Available Agents\\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning compressed context for handoff.\\n- `reviewer`: Code review specialist for quality/security analysis\\n- `security-review",
+            "rebuilt": "hared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\\n\\n# Available Agents\\n`m<N>` = user-tagged model (`<model agent=\\\"m<N>\\\" name=\\\"\\u2026\\\"/>`), not specialist; spawn only when user names it.\\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning"
+          },
+          "task_description_equal": false,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": {
+            "index": 0,
+            "offset": 1576,
+            "live": "`: shared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\n\n# Available Agents\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning compressed context for handoff.\n- `reviewer`: Code review specialist for quality/security analysis\n- `security-reviewer",
+            "rebuilt": "`: shared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\n\n# Available Agents\n`m<N>` = user-tagged model (`<model agent=\"m<N>\" name=\"…\"/>`), not specialist; spawn only when user names it.\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning compresse"
+          },
+          "live_messages": 4,
+          "resumed_messages": 10,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 560,
+            "live": ":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618753985,\"duration\":0.35284999999998945,\"completedAt\":1790618753985,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": ":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790618753985,\"duration\":0.35284999999998945,\"completedAt\":1790618753985,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3701,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": false,
+          "codex_head_diff": {
+            "index": 0,
+            "offset": 6129,
+            "live": "hared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\\n\\n# Available Agents\\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning compressed context for handoff.\\n- `reviewer`: Code review specialist for quality/security analysis\\n- `security-review",
+            "rebuilt": "hared (`# Goal`, `# Contract` interfaces); NEVER repeat per task.\\n`task`: self-contained (`# Target` files/non-goals, `# Change` steps/APIs, `# Acceptance` observable result).\\n\\n# Available Agents\\n`m<N>` = user-tagged model (`<model agent=\\\"m<N>\\\" name=\\\"…\\\"/>`), not specialist; spawn only when user names it.\\n- `scout` (READ-ONLY; investigation only, no edits): MUST be used for exploratory codebase research, rapid code analysis, and broad pattern searches. Fast read-only scout returning comp"
+          },
+          "prefix_equal": false
+        }
+      ]
+    }
+  ]
+}

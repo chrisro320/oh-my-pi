@@ -1,0 +1,91 @@
+{
+  "summary": "已在 RemoteProbe 沙盒建立並執行 18.4.1 全補丁樹上的 REMOTE 壓縮跨程序前綴探針（anthropic native + codex V2 兩條 lane），全部離線（loopback fixture），兩條 lane 皆端到端跑通。",
+  "commands": [
+    "python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-remote-prefix-1841.py --slice RemoteProbe --out $H/remote-prefix-results  →  EXIT=0"
+  ],
+  "raw_stdout": [
+    "{\"lane\":\"anthropic\",\"phase\":\"live\",\"turns\":4,\"captured\":5,\"compactionRequests\":1,\"hasNativeSlot\":true}",
+    "{\"lane\":\"anthropic\",\"phase\":\"resume\",\"turns\":1,\"captured\":1,\"compactionRequests\":0,\"hasNativeSlot\":true}",
+    "{\"lane\":\"codex\",\"phase\":\"live\",\"turns\":4,\"captured\":5,\"compactionRequests\":1,\"hasNativeSlot\":true}",
+    "{\"lane\":\"codex\",\"phase\":\"resume\",\"turns\":1,\"captured\":1,\"compactionRequests\":0,\"hasNativeSlot\":true}"
+  ],
+  "fixture_request_counts": {
+    "anthropic": {
+      "process_A": 5,
+      "process_B": 1,
+      "native_compaction_requests": 1
+    },
+    "codex": {
+      "process_A": 5,
+      "process_B": 1,
+      "native_compaction_requests": 1
+    },
+    "blocked_urls": []
+  },
+  "verdicts": [
+    {
+      "lane": "anthropic",
+      "compaction_request": "HTTP POST /v1/messages with a `compaction` param; response a signed compaction block (content+signature)",
+      "compaction_entry": "preserveData.anthropicCompaction (content + signature)",
+      "system_equal": true,
+      "tools_equal": true,
+      "messages_prefix_diff_raw": {
+        "index": 0,
+        "offset": 209,
+        "live": "…\"type\": \"compaction\"}, {\"cache_control\": {\"type\": \"ephemeral\"}, \"text\": \"ack\", \"type\": \"text\"}], \"role\": \"assistant\"}",
+        "resume": "…\"type\": \"compaction\"}, {\"text\": \"ack\", \"type\": \"text\"}], \"role\": \"assistant\"}"
+      },
+      "messages_prefix_diff_no_cache_control": null,
+      "cache_breakpoints_live": [
+        "0:1:text",
+        "1:0:text"
+      ],
+      "cache_breakpoints_resume": [
+        "2:0:text",
+        "3:0:text"
+      ],
+      "preserve_slot_equal": true,
+      "replayed_compaction_payload_equal": true,
+      "pass": true,
+      "pass_byte_exact": false,
+      "root_cause": "pi-ai/src/providers/anthropic.ts:3913-3978 applyPromptCaching()：head 佔 2 顆斷點（system+tools），messageBudget=4-2=2，再從訊息尾巴取最近 2 則作為 trailing candidates（:3965 起 for(...trailingCandidates.length<2…)）。A 的 messages=2 → [0,1]；B 的 messages=4（多 replay 出 assistant ack 與新 user）→ [2,3]。同一滾動在一般回合亦發生（t1 [0:0] → t2 [1:0,2:0] → t3 [3:0,4:0]），非 resume 特有。"
+    },
+    {
+      "lane": "codex",
+      "compaction_request": "WebSocket frame, input=[{type:\"compaction_trigger\"}], previous_response_id=resp_3（V2 鏈式）",
+      "compaction_entry": "preserveData.openaiRemoteCompaction.version=v2",
+      "instructions_equal": true,
+      "tools_equal": true,
+      "input_prefix_diff_raw": null,
+      "input_live_len": 3,
+      "input_resume_len": 5,
+      "wire": "t1 prev=None(2 items) → t2 prev=resp_1 → t3 prev=resp_2 → compaction prev=resp_3(trigger only) → post-compaction prev=None(3 items=[project-context, compaction item, user]); resume 程序 prev=None, 5 items，前 3 個逐字節相同",
+      "preserve_slot_equal": true,
+      "replayed_compaction_payload_equal": true,
+      "pass": true,
+      "pass_byte_exact": true,
+      "root_cause": "無不等式"
+    },
+    {
+      "lane": "resume_replay",
+      "detail": "兩條 lane 的 provider-native preserve/summary payload 在 resume 後逐字節相同（anthropic content+signature；codex encrypted_content + usedTokens）。"
+    }
+  ],
+  "probe_findings": [
+    "anthropic lane 不能只把 baseUrl 指向 loopback：pi-ai/src/providers/anthropic-compaction.ts:15-24 isSupportedCompactionEndpoint() 只認官方/雲端 host，即使 remoteCompaction.enabled=true 也無法讓 127.0.0.1 通過 supportsAnthropicCompaction（:35-58）。probe 保留官方 baseUrl，改在 fetch 邊界攔截。",
+    "anthropic 推論不經 globalThis.fetch：pi-ai/src/utils/transport-fetch.ts:32-34 對 provider=anthropic 且 api=anthropic-messages 固定挑 coworkFetch，而 providers/cowork-fetch.ts 走 node:https，僅在「有 provider proxy / 非 https」時退回 fallbackFetch(=globalThis.fetch)。probe 以 PI_PROXY_ANTHROPIC 觸發退回路徑完成攔截（proxy 從未被撥打；inits 會剝除 proxy）。",
+    "codex lane 的 WS 無法被 fetch 攔截，故僅該 lane 以 models.yml 覆寫 openai-codex baseUrl 指向 fixture；gpt-6-astra 的 preferWebsockets=true，全流量走 WS（requestedUrls 為空）。"
+  ],
+  "files_created": [
+    ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/probe-remote-prefix-1841.ts (19303 B)",
+    ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/run-remote-prefix-1841.py (9823 B)",
+    ".trellis/tasks/09-28-omp-1841-upgrade-plan/research/remote-prefix-results-1841.json (9657 B)"
+  ],
+  "files_untouched": "未改動任何 patch / candidate / gate / apply.sh / PATCHES.md；僅在允許的 research/ 目錄新增檔案。",
+  "cleanup": "已刪除 $NM 內臨時探針（zz-inspect.ts、zz-diag.ts、zz-diag2.ts、.probe-remote.ts）與 $H/probe-mod；已確認 $NM/pi-coding-agent 內無殘留。",
+  "risks": [
+    "未對真實供應商發任何請求（blockedUrls 為空即證據）；fixture 使用自簽 base64 protobuf signature 與 codex fixture encrypted_content。",
+    "cache_control 是否計入 Anthropic 快取鍵無法離線證實 [INFERENCE]；但同滾動在一般回合每回合都發生，若 marker 會破壞快取，正常長對話早已失效。",
+    "涵蓋 /compact remote 手動遠端壓縮 → 跨程序 resume；自動門檻觸發的 remote speculation 路徑未覆蓋（未宣稱）。"
+  ]
+}

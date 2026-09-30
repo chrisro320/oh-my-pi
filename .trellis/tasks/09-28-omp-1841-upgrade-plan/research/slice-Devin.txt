@@ -1,0 +1,188 @@
+{
+  "slice": "Devin",
+  "status": "complete",
+  "exec_channel": "run via bash service `name` with `source /home/chris/.cache/omp-1841-upgrade/Devin/env.sh && <cmd>` (slice_run is not mounted for this sub-agent: no PATH binary, no xd:// device, not in the tool inventory). Earlier hand-rolled-env commands (all read-only except one snapshot) were reported to Main.",
+  "layers": [
+    {
+      "layer": "0055-omp-devin-auth-cache-turn-timing",
+      "class": "B",
+      "files": "patches/.18.4.1-candidates/0055-...-v18.4.1-candidate.patch (sandbox pi-ai/src/providers/devin.ts)",
+      "candidate_size": "344 lines",
+      "emit": "EMIT OK",
+      "replay": "APPLIED 0055 AI"
+    },
+    {
+      "layer": "0071-omp-devin-request-dump",
+      "class": "A",
+      "files": "patches/.18.4.1-candidates/0071-...-v18.4.1-candidate.patch (sandbox pi-ai/src/providers/devin.ts)",
+      "candidate_size": "29 lines",
+      "emit": "EMIT OK",
+      "replay": "APPLIED 0071 AI"
+    },
+    {
+      "layer": "0056-omp-devin-metadata-alignment",
+      "class": "B (version sub-hunk = C, not ported)",
+      "files": "patches/.18.4.1-candidates/0056-...-v18.4.1-candidate.patch (sandbox pi-catalog/src/wire/devin.ts)",
+      "candidate_size": "28 lines",
+      "emit": "EMIT OK",
+      "replay": "APPLIED 0056 NM"
+    },
+    {
+      "layer": "0058-omp-devin-thinking-signature-replay",
+      "class": "A (not owned; downstream clean layer verified unchanged)",
+      "files": "none (18.3.3 bytes kept)",
+      "candidate_size": "42 lines",
+      "emit": "n/a",
+      "replay": "APPLIED 0058 AI"
+    },
+    {
+      "layer": "0060-omp-devin-idle-cascade-pin",
+      "class": "A (not owned; downstream clean layer verified unchanged)",
+      "files": "none (18.3.3 bytes kept)",
+      "candidate_size": "124 lines",
+      "emit": "n/a",
+      "replay": "APPLIED 0060 NM"
+    }
+  ],
+  "driver": {
+    "command": "source .../env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841.py --nm \"$NM\"",
+    "exit": 0,
+    "lines": [
+      "APPLIED  0055 AI    .18.4.1-candidates/0055-omp-devin-auth-cache-turn-timing-v18.4.1-candidate.patch",
+      "APPLIED  0071 AI    .18.4.1-candidates/0071-omp-devin-request-dump-v18.4.1-candidate.patch",
+      "APPLIED  0056 NM    .18.4.1-candidates/0056-omp-devin-metadata-alignment-v18.4.1-candidate.patch",
+      "APPLIED  0058 AI    .18.4.1-candidates/0058-omp-devin-thinking-signature-replay-v18.4.1-candidate.patch",
+      "APPLIED  0060 NM    .18.4.1-candidates/0060-omp-devin-idle-cascade-pin-v18.4.1-candidate.patch",
+      "SUMMARY applied=48 failed=0"
+    ]
+  },
+  "gates": [
+    {
+      "name": "verify-devin-auth-cache.ts",
+      "command": "source .../env.sh && bun patches/verify-devin-auth-cache.ts",
+      "exit": 0,
+      "pass_line": "PASS verify-devin-auth-cache: all 0055 assertions ok!"
+    },
+    {
+      "name": "verify-devin-metadata.ts",
+      "command": "source .../env.sh && bun patches/verify-devin-metadata.ts",
+      "exit": 0,
+      "pass_line": "PASS: per-process sessionId, requestId +1 per call, 3000.11.3 tuple, pass-through, wire fields 10/9, discovery untouched"
+    },
+    {
+      "name": "verify-devin-thinking-signature.ts",
+      "command": "source .../env.sh && bun patches/verify-devin-thinking-signature.ts",
+      "exit": 0,
+      "pass_line": "PASS verify-devin-thinking-signature: all 0058 assertions ok!"
+    },
+    {
+      "name": "verify-devin-idle-cascade-pin.ts",
+      "command": "source .../env.sh && bun patches/verify-devin-idle-cascade-pin.ts",
+      "exit": 0,
+      "pass_line": "devin idle cascade pin verification: ok (18.4.1)"
+    },
+    {
+      "name": "0071 coverage",
+      "command": "grep -rn 'OMP_DEVIN_DUMP|0071' patches/*.ts patches/*.sh",
+      "result": "no registered gate; 0071 appears only in apply.sh plan rows and verify-patch-family-rollups.sh:654 (candidate list). Proved by a throwaway in-tree probe (created then deleted): PASS probe 0071: 1790608072501-*.bin, *.json — the .bin round-trips to the exact wire request (prompt 'probe-system'), the .json carries prompt+history"
+    }
+  ],
+  "sensitivity": [
+    {
+      "state": "replay-1841.py --before 0055",
+      "gate": "verify-devin-auth-cache.ts",
+      "exit": 1,
+      "line": "[Uncaught Exception] AssertionError: second turn must reuse cached JWT\n2 !== 1 at patches/verify-devin-auth-cache.ts:109:9"
+    },
+    {
+      "state": "replay-1841.py --before 0056",
+      "gate": "verify-devin-metadata.ts",
+      "exit": 1,
+      "line": "[Uncaught Exception] AssertionError: sessionId must be a string\n+ 'undefined'\n- 'string' at patches/verify-devin-metadata.ts:101:8"
+    },
+    {
+      "state": "replay-1841.py --before 0058 (bonus)",
+      "gate": "verify-devin-thinking-signature.ts",
+      "exit": 1,
+      "line": "+ undefined\n- 'sealed.v1.abc123' at patches/verify-devin-thinking-signature.ts:121:9"
+    }
+  ],
+  "gate_fixture_change": {
+    "file": "patches/verify-devin-metadata.ts",
+    "why": "18.4.1 really changed the released-CLI tuple (see finding 2). The assertion intent ('track the released devin CLI') is preserved and still exact, but the literal is now selected from the selected catalog package version: CLI_TUPLE = catalogVersion === '18.4.1' ? '3000.11.3' : '3000.10.23'. Assertions at :104, :105, :135 and the final log line use it. No assertion removed or weakened; the pre-0056 tree still fails at :101."
+  },
+  "prefix_influence": {
+    "0055": "No model-facing prefix change. Touches Metadata.apiKey/userJwt (credential/routing) and adds 'devin: turn timing' debug logs; the 401 recovery re-sends a request whose prompt/system/tools/chatMessagePrompts/systemPromptCacheOptions/configuration bytes are identical (only per-request executionId and Metadata.requestId differ, which differ between any two requests anyway).",
+    "0071": "No prefix change. Diagnostics only: reads with toJson and fire-and-forget Bun.write, gated on OMP_DEVIN_DUMP; never mutates the request.",
+    "0056": "No model-facing prefix change. Adds Metadata.sessionId (process constant) and Metadata.requestId (monotonic) — routing/dedup fields, never part of system prompt, tools or message history.",
+    "0058": "Yes — this layer deliberately changes replayed history bytes: the thinking signature is retained and signatureType becomes 'sealed' (pi-ai/src/providers/devin.ts:784), restoring the server-side cache key for replayed thinking blocks. Identical for live and rebuilt requests.",
+    "0060": "No model-facing prefix change. Sets conversationId -> cascadeId (thread identity) for devin side turns so a warmup shares the live chain, and exports mapOptionsForApi to forward it.",
+    "class_D_verdict": "No upstream 18.3.4-18.4.1 change in pi-ai/src/providers/devin.ts or pi-catalog/src/wire/devin.ts makes a rebuilt (resumed or post-compaction) request differ from the live one. The one upstream replay mechanism added in the window (the session-level prompt-cache warmer) provably never runs for devin (finding 5). All 18.4.1 devin changes are Metadata/credential-level; system prompt, tools, chatMessagePrompts, systemPromptCacheOptions and configuration stay byte-identical."
+  },
+  "upstream_findings": [
+    {
+      "id": 1,
+      "class": "B",
+      "refs": "pi-ai/CHANGELOG.md:18 (#12960); pi-ai/src/providers/devin.ts:225, 530, 543, 563-568, 592",
+      "summary": "18.4.1 split the auth call: requestDevinAuth()/DevinAuthAttempt at :543, fetchDevinAuthMetadata now returns {userJwt, apiKey, baseUrl} at :563-568 and :592, DevinTurn.apiKey is a required string at :530, and the turn literal reads apiKey: auth.apiKey at :225 (18.3.3 used options?.apiKey and a {userJwt, baseUrl} result).",
+      "effect": "0055 rebased: 18.4.1's own fetch function was renamed requestDevinAuthMetadata (its internal 401 key-swap preserved) and the 0055 cache wrapper now occupies the fetchDevinAuthMetadata name, caching and returning apiKey as well. No behavior lost."
+    },
+    {
+      "id": 2,
+      "class": "C (upstream takeover, NOT ported)",
+      "refs": "pi-catalog/CHANGELOG.md:17 (#13527); pi-catalog/src/wire/devin.ts:25, 27",
+      "summary": "Upstream raised the released Devin CLI identity to 3000.11.3 (was 3000.6.2), 'the CLI release that routes Fusion pairings' — newer than 0056's 3000.10.23.",
+      "effect": "0056's version sub-hunk is superseded by a newer official tuple. I did NOT downgrade to 3000.10.23; the gate now pins 3000.11.3 for 18.4.1 (and 3000.10.23 on older plans)."
+    },
+    {
+      "id": 3,
+      "class": "B",
+      "refs": "pi-catalog/src/wire/devin.ts:54-56, 66-67; pi-ai/CHANGELOG.md:18",
+      "summary": "18.4.1's #12960 fix made devinWireMetadata(apiKey, userJwt='') pass apiKey through raw (apiKey ?? '') while devinCliMetadata normalizes (normalizeDevinSessionToken) at :66-67.",
+      "effect": "0056's sessionId/requestId fields were added to devinWireMetadata (so both devinWireMetadata callers and devinCliMetadata carry them); the 18.3.3 target function no longer holds the normalization, so a verbatim hunk could not apply."
+    },
+    {
+      "id": 4,
+      "class": "A (no drift in the window)",
+      "refs": "pi-ai/src/providers/devin.ts:396, 784",
+      "summary": "18.4.1 already sets block.thinkingSignature when the signature co-arrives with deltaThinking (:396); no CHANGELOG entry in 18.3.4-18.4.1 covers this, so it predates the window.",
+      "effect": "0058 replayed unchanged and is still required for the standalone trailing signature frame — the pre-0058 tree fails its gate (sensitivity above)."
+    },
+    {
+      "id": 5,
+      "class": "C (upstream takeover; no devin effect)",
+      "refs": "pi-coding-agent/CHANGELOG.md:110; pi-ai/CHANGELOG.md:55; pi-coding-agent/src/session/cache-warmer.ts:247, 254, 302-304, 364-365; pi-coding-agent/src/sdk.ts:4304; pi-catalog/src/compat/rules/providers/devin.kdl (0 prompt-cache matches) vs anthropic.kdl:12",
+      "summary": "18.3.5 added session-level prompt-cache warming that 'replays its last request' shortly before expiry (CacheWarmRequest = 'exactly as it was sent', armed from sdk.ts:4304 with the same merged SimpleStreamOptions as the live stream), and removed the stream-level Anthropic keepalive.",
+      "effect": "No interaction with this slice: CacheWarmer.start() stops with 'cache lifetime unavailable' when #delayFor() is undefined, and #delayFor reads model.promptCache?.[tier] — devin.kdl declares no prompt-cache rule, so promptCache is undefined and the warmer never arms for devin. 0060's idle keepalive therefore remains the only devin warm path and still works (gate passes)."
+    },
+    {
+      "id": 6,
+      "class": "out of file scope (layer 0077, AGENT root)",
+      "refs": "pi-coding-agent/src/session/agent-session.ts:4119-4120; pi-coding-agent/src/session/turn-recovery.ts:613; 0077 touches only pi-coding-agent/src/session/turn-recovery.ts",
+      "summary": "18.4.1's stall recovery keeps the partial turn and appends a continuation reminder instead of retrying.",
+      "effect": "No change to pi-ai/src/providers/devin.ts or pi-catalog/src/wire/devin.ts; the reminder-persistence concern is 0077, which replays (applied=48 failed=0)."
+    }
+  ],
+  "repo_files_changed": [
+    "patches/.18.4.1-candidates/0055-omp-devin-auth-cache-turn-timing-v18.4.1-candidate.patch",
+    "patches/.18.4.1-candidates/0071-omp-devin-request-dump-v18.4.1-candidate.patch",
+    "patches/.18.4.1-candidates/0056-omp-devin-metadata-alignment-v18.4.1-candidate.patch",
+    "patches/verify-devin-metadata.ts"
+  ],
+  "sandbox_only_changes": [
+    "$NM/pi-ai/src/providers/devin.ts (0055/0071 source port)",
+    "$NM/pi-catalog/src/wire/devin.ts (0056 source port)",
+    "$NM/pi-ai/probe-0071-dump.ts (throwaway probe, created and deleted)"
+  ],
+  "machine_checks": {
+    "work_order.md (Trellis spec mechanism|Backend Development Guidelines|Patch Rollup Contracts|Verification Gate Contracts)": 5,
+    "patch-rollup-contracts.md (Pristine input MUST|Full-chain verification MUST|Gate loading MUST fail closed)": 2,
+    "verification-gate-contracts.md (same pattern)": 1
+  },
+  "open_risks": [
+    "0056 tuple choice: I kept upstream's newer 3000.11.3 and version-scoped the gate. Downgrading to the 18.3.3 patch's 3000.10.23 would replace the identity that upstream says routes Fusion pairings; if Main wants the literal 3000.10.23 on 18.4.1, that is a deliberate regression and must be requested.",
+    "0056's requestId increments once per Metadata construction (GetUserJwt + AssignModel + GetChatMessage), so a router turn consumes 3 ids — same call shape as 18.3.3 — but 0055's auth cache reduces GetUserJwt constructions to about one per turn, which changes id spacing (not semantics).",
+    "No permanent gate covers 0071; my evidence is a deleted throwaway probe. A permanent gate is a follow-up if Main wants one.",
+    "The 48/48 full-plan replay was green at the moment I measured it; sibling slices may still edit their candidates afterwards."
+  ]
+}

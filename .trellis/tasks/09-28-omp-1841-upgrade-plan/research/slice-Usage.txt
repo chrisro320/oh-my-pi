@@ -1,0 +1,138 @@
+{
+  "slice": "Usage",
+  "layers": [
+    {
+      "layer": "0026",
+      "root": "AI",
+      "class": "B",
+      "files": [
+        "pi-ai/src/auth/usage.ts",
+        "pi-ai/src/auth/types.ts",
+        "pi-ai/dist/types/auth/usage.d.ts",
+        "pi-ai/dist/types/auth/types.d.ts"
+      ],
+      "candidate_bytes": 3123,
+      "emit": "EMIT OK",
+      "replay": "APPLIED 0026 AI",
+      "why_class": "18.4.1 refactored reports() into #fetchLocalReports(options, providerFilter?: ReadonlySet<Provider>) -> #collectUsageRequests(options, providerFilter) (usage.ts:759,793-800); providers is now threaded as the filter instead of post-filtering a requests array. Public options.providers still absent upstream (providerFilter is only reachable from the broker store branch) -> not a class C takeover."
+    },
+    {
+      "layer": "0030",
+      "root": "AI",
+      "class": "A",
+      "files": [
+        "pi-ai/src/auth/usage-cache.ts",
+        "pi-ai/src/auth/usage.ts",
+        "pi-ai/dist/types/auth/usage-cache.d.ts"
+      ],
+      "candidate_bytes": 7023,
+      "emit": "EMIT OK",
+      "replay": "APPLIED 0030 AI",
+      "why_class": "Method bodies byte-identical to the 18.3.3 candidate; only the two usage.ts callsite surroundings changed (forceRefresh moved upstream)."
+    },
+    {
+      "layer": "0037",
+      "root": "NM",
+      "class": "A (unchanged, read-only review)",
+      "files": [],
+      "candidate_bytes": 10649,
+      "emit": "n/a",
+      "replay": "APPLIED 0037 NM",
+      "why_class": "Byte-identical to the 18.3.3 candidate; applies fuzz=0; 18.4.1 pristine still carries the old single 5*60_000 TTL and a single refreshUsageInBackground call site, so the gate covers every automatic trigger."
+    }
+  ],
+  "full_replay": {
+    "command": "python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841.py --nm $NM",
+    "result": "SUMMARY applied=48 failed=0",
+    "includes": "APPLIED 0026 AI + APPLIED 0030 AI + all downstream layers (0031,0032,0038,0043,0044,0052,0057,0045,0046,0048,0050,0054,0047,0055,0071,0056,0058,0060,0062,0063,0065,0066,0067,0068,0069,0070,0072,0074,0075,0076,0077,0078,0079,0080,0081,0082)"
+  },
+  "gates": [
+    {
+      "command": "source <Usage>/env.sh && bun patches/verify-ollama-cloud-usage.ts",
+      "output": "0025 verify: all assertions passed ; exit=0",
+      "note": "Only usage-related gate registered in apply.sh; belongs to layer 0025 but exercises the same AI root I edited."
+    },
+    {
+      "command": "throwaway probe $NM/pi-ai/probe-usage-gate.ts (deleted after)",
+      "output": "PROBE OK ; exit=0",
+      "note": "0026 PASS reports({providers:[A]}) fetched only -> [\"usageprobe-a\"]; 0030 PASS canonical anthropic key -> report:anthropic:https://api.anthropic.com:api_key|account:acct; 0030 PASS legacy-keyed report migrated under the canonical key"
+    },
+    {
+      "command": "replay-1841.py --nm $NM --before 0026 (sensitivity) + probe",
+      "output": "AssertionError: 0026: providers filter must restrict fan-out (fetched [usageprobe-a, usageprobe-b, alibaba-token-plan, openai-codex, kimi-code, minimax-code, muse-code, google-antigravity, google-gemini-cli, ollama, ollama-cloud, anthropic, cline-pass, zai, umans, opencode-go, github-copilot, cursor, synthetic, devin, charm-hyper]) ; exit=1",
+      "note": "Pre-port tree ignores providers and fans out over the whole DEFAULT_USAGE_PROVIDERS table including anthropic."
+    }
+  ],
+  "gate_gap": {
+    "finding": "No dedicated gate is registered for 0026/0030/0037",
+    "evidence": "grep -nE '_omp_plan_has (0026|0030|0037|0041|0025)' patches/apply.sh -> only a comment line (141); apply.sh regression suite has no branch for these layers; verify-patch-family-rollups.sh only covers older 18.2.3/18.2.10 plans and the 0037 rollup hashes, not 18.4.1.",
+    "recommendation": "Add a permanent gate (patch-0000 placeholder: patches/verify-usage-anthropic-gate.ts) registered via _omp_plan_has; my throwaway probe is a ready template. Did NOT add it (out of my ownership scope)."
+  },
+  "upstream_overlap": [
+    {
+      "id": "D-1",
+      "summary": "NEW automatic anthropic usage poll outside the 0037 providers gate, after an automatic saved-reset redemption (18.4.0)",
+      "call_sites": [
+        "pi-coding-agent/src/session/agent-session.ts:12266 `if (redeemed > 0) void this.fetchUsageReports();` (no providers)",
+        "trigger: pi-coding-agent/src/session/turn-recovery.ts:2428 `await this.#host.maybeAutoRedeemReset(unblockAtMs)`",
+        "path: agent-session.ts:12270 #maybeAutoRedeemReset -> :12199 #executeResetActions -> :12266",
+        "sweep: agent-session.ts:11845 #maybeScheduleResetSweep -> :12338 -> #executeResetActions (anthropic branch :12376-12388)"
+      ],
+      "mitigation": "agent-session.ts:12286-12292 deliberately skips the pre-poll for anthropic (comment: a second broker usage poll adds no evidence and can 429); refetch only after redeemed>0.",
+      "classification": "class D coverage gap (rate-limit/429 risk, not a prefix risk); patch NOT extended."
+    },
+    {
+      "id": "D-2",
+      "summary": "User/client-invoked usage polls with no providers filter",
+      "call_sites": [
+        "pi-coding-agent/src/cli/usage-cli.ts:1080 (omp usage; 18.4.1 #13579 now loads extension providers :1067-1073)",
+        "pi-coding-agent/src/modes/controllers/command-controller.ts:494 and :645 (/usage dashboard, 18.4.1 #13476)",
+        "pi-coding-agent/src/modes/controllers/selector-controller.ts:434 (/model selector)",
+        "pi-coding-agent/src/modes/acp/acp-agent.ts:1186 (ACP _omp/usage)",
+        "pi-ai/src/auth-broker/server.ts:698 and pi-ai/src/auth-gateway/server.ts:696 (server-side /v1/usage)"
+      ],
+      "classification": "not class D for these layers: manual/client/server-triggered, not idle-repaint; pre-existing shape."
+    },
+    {
+      "id": "D-3",
+      "summary": "SDK ApiKeyResolver waits for a healthy sibling near quota-block expiry (18.4.0)",
+      "call_sites": [
+        "pi-ai/src/auth/rotation.ts:392-396,535-536 (afterSiblingWait)",
+        "pi-ai/src/auth/cascade.ts:396 markAfterSiblingWait"
+      ],
+      "classification": "auth routing only; issues no usage request; no interaction with 0026/0030/0037."
+    },
+    {
+      "id": "supporting",
+      "summary": "18.4.0 'concurrent usage refreshes repeatedly probing providers after failures' = per-provider serialization of forced refresh in usage.ts:786,802 -> reduces anthropic fan-out; same direction as the gate."
+    }
+  ],
+  "prefix_influence": {
+    "0026": "none (only selects which providers' usage endpoints are polled)",
+    "0030": "none (usage-cache key normalization + legacy read migration only)",
+    "0037": "none (statusline refresh cadence, providers argument, and removal of the usage-path forced repaint; #invalidateStatusLineRenderCache is a UI render memo)"
+  },
+  "open_risks": [
+    "No permanent gate for 0026/0030/0037 (see gate_gap).",
+    "D-1 automatic anthropic usage poll outside the gate after auto-redeem.",
+    "usage.ts:332 failure-cooldown branch still reads getStale(cacheKey) directly (deliberately faithful to 18.3.3); a legacy-keyed last-good value is not served during an active cooldown.",
+    "reportsKey still uses the raw (non-canonical) baseUrl for the aggregate in-flight key (unchanged from 18.3.3; consistent within one process).",
+    "The broker-store path of reports() is not restricted by options.providers (faithful to 18.3.3).",
+    "Sandbox $NM contains pre-existing *.installed older copies (created by setup at 10:49, not touched) that could confuse NM-root globbing probes."
+  ],
+  "repo_files_changed": [
+    "patches/.18.4.1-candidates/0026-omp-usage-fetch-anthropic-gate-core-v18.4.1-candidate.patch",
+    "patches/.18.4.1-candidates/0030-omp-usage-cache-canonical-baseurl-v18.4.1-candidate.patch"
+  ],
+  "not_touched": [
+    "patches/apply.sh",
+    "patches/verify-patch-family-rollups.sh",
+    "patches/PATCHES.md",
+    "patches/.18.3.3-candidates/**",
+    "other slices' candidates",
+    "patches/.18.4.1-candidates/0037-*",
+    "live paths, ~/.omp, Bun cache"
+  ],
+  "sandbox_cleanup": "throwaway probe $NM/pi-ai/probe-usage-gate.ts deleted; find scan for probe-usage*/*.rej/*.orig returned nothing; tree restored to full 48-layer state.",
+  "exec_channel_disclosure": "Pre-authorization named-bash commands (read-only except sandbox-only snap26): u1..u10, snap26. Post-authorization: every command prefixed with `source /home/chris/.cache/omp-1841-upgrade/Usage/env.sh &&`."
+}

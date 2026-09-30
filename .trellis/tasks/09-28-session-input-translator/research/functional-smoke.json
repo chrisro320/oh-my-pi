@@ -1,0 +1,104 @@
+{
+  "version": "18.3.3",
+  "date": "2026-09-28",
+  "scope": "Focused actual CLI/provider smoke; no new permanent tests or exhaustive coverage claim.",
+  "deployed": {
+    "original": "這個焊盤仍叫 solder pad；保留 src/board.ts 和 PAD_A，不要修改任何檔案。",
+    "primary_user_text": "This pad is still called solder pad; keep src/board.ts and PAD_A, do not modify any files.",
+    "original_visible": true,
+    "translator_requests": 1,
+    "primary_requests": 1,
+    "model": "cline-pass/deepseek-v4.1-flash",
+    "reasoning_effort": "low",
+    "tools_present": false,
+    "http_statuses": [
+      200,
+      200
+    ],
+    "cli_version_output": "omp/18.3.3",
+    "ui_evidence": "tui-deployed-screen.txt"
+  },
+  "failure_decision": {
+    "transport": "two injected HTTP 400 responses in an actual CLI",
+    "escape": "retried same input without main delivery",
+    "enter": "persisted and sent original once",
+    "ui_evidence": "tui-failure-screen.txt"
+  },
+  "resume": {
+    "actual_new_process": true,
+    "original_rows_preserved": true,
+    "english_only_input": "Keep PAD_A unchanged.",
+    "translator_ids": [
+      "omp-translator:01a0e6db-a783-7000-b1f0-c9d01e854fbc"
+    ],
+    "restored_user_messages": [
+      "請把焊盤稱為 solder pad，保留 src/board.ts 和 PAD_A，不要執行任何操作。",
+      "Keep PAD_A unchanged."
+    ],
+    "persisted_record_kinds": [
+      "translated_turn",
+      "original_send",
+      "translated_turn"
+    ],
+    "ui_evidence": "tui-resume-screen.txt"
+  },
+  "soft": {
+    "history_fixture": "synthetic successful translation pairs",
+    "usable_model_window": 40000,
+    "real_committed_checkpoints": 2,
+    "exact_previous_summary_reused": true,
+    "primary_compaction_entries": 0,
+    "extra_payload_dump_exists": false,
+    "last_primary_input": [
+      {
+        "type": "text",
+        "text": "It still uses the term solder pad; preserve PAD_A."
+      }
+    ],
+    "ui_evidence": "tui-soft-screen.txt"
+  },
+  "cache_observation": {
+    "first_translator_raw_usage": {
+      "cache_creation_input_tokens": 0,
+      "completion_tokens": 123,
+      "completion_tokens_details": {
+        "image_tokens": 0,
+        "reasoning_tokens": 96
+      },
+      "cost": 0.0001068,
+      "cost_details": null,
+      "gateway_cost": 0.0002136,
+      "is_byok": false,
+      "market_cost": 0.0002136,
+      "prompt_tokens": 220,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0,
+        "video_tokens": 0
+      },
+      "total_tokens": 343
+    },
+    "first_content_ms": 1614.93,
+    "claim": "An observed sample, not a hit-rate or latency guarantee."
+  },
+  "patch": {
+    "prior_pristine_layers": 47,
+    "new_candidate": "0082-omp-user-display-text-v18.3.3-candidate.patch",
+    "zero_fuzz_apply_exit": 0,
+    "source_and_declaration_files": 43,
+    "replayed_bytes_match": true
+  },
+  "deployment": {
+    "backup": "/home/chris/.omp/patches/backups/20260928-input-translator-0082",
+    "atomic_file_replacement": true,
+    "canonical_runtime_byte_parity": true,
+    "user_process_restarted": false,
+    "full_restart_required": true
+  },
+  "not_run": [
+    "new permanent feature gates (removed at user request)",
+    "full existing regression suite",
+    "additional review rounds",
+    "exhaustive lifecycle/error injection matrix"
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "status": "FINDINGS",
+  "filesChanged": [],
+  "findings": [
+    {
+      "severity": "blocker",
+      "file": " .trellis/tasks/09-28-omp-1841-upgrade-plan/research/probe-prefix-1841.ts:190-211; research/run-prefix-1841.py:89-94",
+      "evidence": "The cross-process probe selects only plain, soft and snapcompact. Its provider is an offline mock; it serializes Anthropic message conversion and a Codex request body, but does not execute Codex V2 or Anthropic native remote compaction. The inspected prefix-results-full-chain.json has those three scenarios only.",
+      "impact": "The PRD's cross-process remote-compaction/resume prefix-equality criterion remains unproven. Green soft/snapcompact results cannot authorize deployment against the user's highest-priority remote-cache risk.",
+      "minimalFix": "Exercise both remote compaction paths with offline provider fixtures, then compare the actual post-compaction and resumed request prefixes across processes before deployment."
+    },
+    {
+      "severity": "major",
+      "file": "patches/.18.4.1-candidates/0074-omp-anthropic-context-cache-boundaries-v18.4.1-candidate.patch:179",
+      "evidence": "The port still reads options?.anthropicCacheRefreshRequest. Upstream pi-ai/CHANGELOG.md:55 explicitly removed that StreamOptions field; grep of the selected pi-ai/src finds only this patched reference. The replacement cache-warmer.ts:487-495 spreads ordinary stream options and sets maxTokens:1 without a refresh marker. The audit gate exercises its helper with a manually supplied refresh flag, not a real warmer request.",
+      "impact": "The refreshed Anthropic request is classified as an ordinary main request and can replace the audit's last-main baseline, contrary to the 0074 audit contract. [INFERENCE] A TypeScript source check will also reject access to the removed AnthropicOptions field. This is diagnostic baseline corruption, not evidence of altered provider prefix bytes.",
+      "minimalFix": "Remove the obsolete option reference and carry a typed, non-wire refresh classification through the new cache-warmer path; add a real warmer→audit baseline-isolation fixture."
+    },
+    {
+      "severity": "major",
+      "file": "patches/.18.4.1-candidates/0080-omp-kitty-shared-png-cache-v18.4.1-candidate.patch:377-390; selected pi-tui/src/chat/tool-execution.ts:575-597",
+      "evidence": "The conversion promise's catch logs earlier failures, but the following .finally calls #updateDisplay() and #ui.requestRender() and its returned promise is discarded with void. A throw in either repaint callback rejects that final promise after the catch. The green PNG gate supplies nonthrowing requestRender callbacks only.",
+      "impact": "[INFERENCE] An asynchronous repaint fault becomes an unhandled rejection rather than the logged, identity-cleaned callback failure required by the PNG-cache contract; it can interrupt the TUI. 0079 first moved the repaint into .finally, and 0080 retains that shape.",
+      "minimalFix": "Keep decrement/identity cleanup before repaint, but catch/log errors from the terminal repaint promise; add a throwing-repaint negative control."
+    },
+    {
+      "severity": "major",
+      "file": "selected pi-coding-agent/src/session/agent-session.ts:1891-1894,2004-2005,7531-7534; selected pi-coding-agent/src/session/session-tools.ts:442,534-544,1203-1236,1959-1962",
+      "evidence": "[INFERENCE] On construction, SessionTools captures its advertised model agents before modelMentions.syncFromBranch restores persisted m<N> tags. A first resumed turn derives a new candidate surface from the restored tags and can commit a rebuilt task description, whereas the live mid-session tagging path intentionally retains its old advertised surface and emits a hidden notice. task/index.ts:617-618 reads advertisedSessionAgents. The existing cross-process probe never tags a model.",
+      "impact": "[INFERENCE] For a session tagged mid-stream, the resumed task-tool description may differ from its live wire prefix, invalidating prompt-cache reuse. The current plain/soft/snapcompact equality evidence does not cover this upstream 18.3.4 path.",
+      "minimalFix": "Add an offline mid-session model-tag → fresh-process resume comparison of serialized task-tool descriptions and messages; if unequal, preserve/reconstruct the committed advertised surface rather than silently changing the resumed tool prefix."
+    },
+    {
+      "severity": "minor",
+      "file": "patches/verify-anthropic-cache-boundaries.ts:55-72,89-93,105-113",
+      "evidence": "The seven successful offline captures use two stable system strings, without a <project-context> or <memories> trailing segment. Assertions cover one system breakpoint, total <=4 and advancing message boundaries; they cannot reject moving the system breakpoint onto a volatile suffix. The selected 18.4.1 applyHeadCaching implementation at pi-ai/src/providers/anthropic.ts:4100-4128 does re-anchor before a volatile segment.",
+      "impact": "The gate supports the observed no-fifth-breakpoint and stable rolling-message claims for its fixtures, but does not behaviorally guard the new cross-cwd system-cache boundary.",
+      "minimalFix": "Add a volatile-suffix OAuth and API-key wire fixture asserting its breakpoint is on the last stable system block, while message breakpoints still advance and total remains <=4."
+    }
+  ],
+  "verifiedCorrect": [
+    "Full pristine-to-patched ReviewB replay: all 48 layers APPLIED, failed=0; including 0031,0055,0071,0056,0065,0079,0080,0081 and unchanged 0074.",
+    "0031 retains providers forwarding and matching public declaration; no model-facing prompt change. 0055 preserves auth retry/timing and now caches the resolved apiKey alongside JWT after the upstream auth split; 0056 retains per-process sessionId/monotonic requestId while upstream's newer 3000.11.3 CLI tuple remains intact. 0071's dump reads the built request without editing its prompt.",
+    "0065 changes the model-facing prefix deliberately: commandcode deepseek strict tool schemas and coalesced system framing are pinned in KDL and compiled rules.json; the parity gate passes, including source-provenance and sibling checks. The other seven scoped candidates do not directly rewrite system/tools/message bytes; 0055/0056 affect Devin credential/routing metadata, and 0079/0080/0081 affect rendering/accounting only.",
+    "0079 holds transcript retirement while Kitty conversion is pending; 0080 replaces upstream's cache with a bounded shared Promise/LRU, failure-reason and display-only conversion; 0081 adds the missing startup status-line double and excludes auxiliary usage without altering aggregate billing. Their focused gates pass.",
+    "The inspected gate diff extends version checks and selects 18.3.3-compatible API shapes for 18.4.1; no existing assertion was deleted or made to skip on 18.4.1. verify-devin-metadata.ts pins 3000.11.3 for this plan while retaining exact 3000.10.23 for older plans. The session-history-preview diff also contains pre-existing user work, not attributed to this migration.",
+    "0074's existing Anthropic boundary gate passes: seven offline HTTP captures, <=4 breakpoints, one OAuth system breakpoint, advancing message boundary, retention/TTL and server-cleared boundary checks. Selected upstream applyHeadCaching removes/reanchors identity cache_control; unchanged 0074's message-level per-call-barrier removal remains necessary. No fifth breakpoint appeared in the exercised fixtures.",
+    "The inspected cross-process prefix-result artifact reports Anthropic/Codex converted prefixes equal for plain/soft/snapcompact, but raw context messages differ at the response-side errorId field; I did not rerun that separate cross-process probe, and it does not establish a provider cache hit."
+  ],
+  "verificationCommandsAndResults": [
+    "source .../ReviewB/env.sh && git --no-pager diff -- patches/verify-*.ts patches/verify-*.sh: exited 0; reviewed all 18.4.1 gate additions.",
+    "source .../ReviewB/env.sh && python3 .../research/replay-1841.py --nm \"$NM\": SUMMARY applied=48 failed=0 (exit 0); restored again after sensitivity runs.",
+    "On the full replayed tree, bun patches/verify-devin-auth-cache.ts: \"PASS verify-devin-auth-cache: all 0055 assertions ok!\"; verify-devin-metadata.ts: \"PASS: per-process sessionId, requestId +1 per call, 3000.11.3 tuple, pass-through, wire fields 10/9, discovery untouched\"; verify-devin-thinking-signature.ts: \"PASS verify-devin-thinking-signature: all 0058 assertions ok!\"; verify-devin-idle-cascade-pin.ts: \"devin idle cascade pin verification: ok (18.4.1)\".",
+    "On the full replayed tree, bun patches/verify-commandcode-model-record-parity.ts: \"verify-commandcode-model-record-parity: ok\"; verify-kitty-conversion-finalization.ts: \"kitty conversion finalization: ALL PASS\"; verify-kitty-shared-png-cache.ts: \"kitty shared PNG cache: eight graphics, tool/assistant/native slot replacement, late callbacks, failure, dedupe and 200-image eviction PASS\"; verify-main-cache-hit.ts: \"verify-main-cache-hit: primary footer ignores auxiliary usage across reload\".",
+    "On the full replayed tree, bun patches/verify-session-history-preview.ts: \"ALL VERIFICATIONS PASSED SUCCESSFULLY!\"; verify-anthropic-cache-boundaries.ts: \"PASS Anthropic cache boundaries: 7 offline HTTP captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary\"; verify-anthropic-request-audit.ts: \"PASS Anthropic final-wire audit: exact OAuth bytes, native prefix diff, side/session isolation, raw usage/request ID, I/O failure isolation, opt-out; zero network\"; verify-date-cwd-anchor-stability.ts: \"PASS date-cwd anchor stability: slot-stable, stamp-frozen, rollover-local, resume-replayable\".",
+    "Sensitivity: replay --before 0056 (27 APPLIED) then verify-devin-metadata.ts exit 1, \"sessionId must be a string\"; --before 0080 (45 APPLIED) then verify-kitty-shared-png-cache.ts exit 1, \"ensurePng is not a function\" (structural absence); --before 0081 (46 APPLIED) then verify-main-cache-hit.ts exit 1, \"one find call must not dilute the primary cache hit rate\". All three pre-layer replays themselves exited 0.",
+    "Machine check, built-in grep -cE: 'Trellis spec mechanism|Backend Development Guidelines|Patch Rollup Contracts|Verification Gate Contracts' found work-order.md=5, patch-rollup-contracts.md=1, verification-gate-contracts.md=1; 'Pristine input MUST|Full-chain verification MUST|Gate loading MUST fail closed' found patch-rollup-contracts.md=2 and verification-gate-contracts.md=1."
+  ]
+}

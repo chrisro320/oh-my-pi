@@ -14,6 +14,7 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const scratch = mkdtempSync(join(tmpdir(), "omp-0070-gate-"));
 const savedEnv = {
 	HOME: process.env.HOME,
@@ -34,10 +35,10 @@ try {
 	// running the transport assertions against a tree without the patch.
 	const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
 	assert.ok(
-		["18.1.18", "18.2.3", "18.2.10", "18.3.3"].includes(aiVersion),
+		["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1"].includes(aiVersion),
 		`unsupported 0070 transport gate version: ${aiVersion}`,
 	);
-	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3"].includes(aiVersion);
+	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3", "18.4.1"].includes(aiVersion);
 	const ai = await import(`${AI_ROOT}/src/providers/openai-codex-responses.ts`);
 	const core = await import(`${CORE_ROOT}/src/compaction/compaction-v2-streaming.ts`);
 	const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
@@ -134,6 +135,98 @@ try {
 		});
 		assert.equal(sends, 2, "known transient provider code must retry");
 		assert.equal(response.compactionItem.encrypted_content, "fixture-summary");
+	}
+
+	// 18.4.1 classifies authentication before its transient HTTP status: a
+	// standalone `error` frame that names an unavailable account must reach
+	// provider fallback on its first attempt instead of consuming the V2 retry
+	// budget. The provider code must still survive on the thrown failure.
+	{
+		const model = {
+			...bundled,
+			api: "openai-responses" as const,
+			provider: "openai",
+			baseUrl: "http://127.0.0.1:1/v1",
+			remoteCompaction: { enabled: true },
+		};
+		let authSends = 0;
+		await assert.rejects(
+			core.requestCompactionV2Streaming(model, "fixture-key", request, undefined, {
+				fetch: async () => {
+					authSends++;
+					return sse([
+						{ type: "error", status: 503, code: "auth_unavailable", message: "No available accounts" },
+					]);
+				},
+				retryWait: async () => {},
+			}),
+			(error: Error & { code?: string }) => {
+				assert.equal(
+					error instanceof ai.CodexCompactionChainLostError,
+					false,
+					"an authentication refusal is not a lost Codex chain",
+				);
+				assert.equal(error.code, "auth_unavailable", "the provider code must survive an auth refusal");
+				return true;
+			},
+		);
+		assert.equal(authSends, 1, "auth failure must not consume the V2 retry budget");
+	}
+
+	// The Codex V2 lane is decided by the *effective* API -- `remoteCompaction.api`
+	// can select Codex for a model whose own `api` is openai-responses -- or by the
+	// provider identity. The host's speculation guards must read the same predicate
+	// the transport does: testing `model.api` alone schedules an isolated remote
+	// speculation that can only be refused, and the threshold grace path then defers
+	// real compaction while that attempt fails.
+	if (aiVersion === "18.4.1") {
+		const altLaneModels = [
+			{
+				label: "remoteCompaction.api",
+				model: {
+					...bundled,
+					api: "openai-responses" as const,
+					provider: "openai",
+					baseUrl: "http://127.0.0.1:1/v1",
+					remoteCompaction: { enabled: true, api: "openai-codex-responses", v2StreamingEnabled: true },
+				},
+			},
+			{
+				label: "provider identity",
+				model: {
+					...bundled,
+					api: "openai-responses" as const,
+					provider: "openai-codex",
+					baseUrl: "http://127.0.0.1:1/v1",
+					remoteCompaction: { enabled: true },
+				},
+			},
+		];
+		for (const { label, model } of altLaneModels) {
+			assert.equal(core.isCodexCompactionV2Lane(model), true, `${label}: effective Codex lane must be recognized`);
+			let altSends = 0;
+			await assert.rejects(
+				core.requestCompactionV2Streaming(model, "fixture-key", request, undefined, {
+					fetch: async () => {
+						altSends++;
+						return sse(successEvents);
+					},
+					retryWait: async () => {},
+				}),
+				ai.CodexCompactionChainLostError,
+				`${label}: chain-only lane must refuse a chain-less V2 send`,
+			);
+			assert.equal(altSends, 0, `${label}: no HTTP request may escape the chain-only refusal`);
+		}
+		const maintenance = readFileSync(`${AGENT_ROOT}/src/session/session-maintenance.ts`, "utf8");
+		assert.ok(
+			maintenance.includes('if (method === "remote" && isCodexCompactionV2Lane(model)) return;'),
+			"speculation start guard must consult the effective Codex lane predicate",
+		);
+		assert.ok(
+			maintenance.includes('if (method === "remote" && isCodexCompactionV2Lane(model)) return false;'),
+			"threshold deferral guard must consult the effective Codex lane predicate",
+		);
 	}
 
 	type Frame = {
@@ -340,7 +433,7 @@ try {
 				for (const state of states.values()) state.close();
 			}
 		}
-		if (aiVersion === "18.3.3") {
+		if (["18.3.3", "18.4.1"].includes(aiVersion)) {
 			for (const scenario of ["recovery-invalid", "invalid-summary", "success"]) {
 				mode = scenario;
 				frames = [];
@@ -389,11 +482,11 @@ try {
 		`import { openCodexCompactionEventStream, applyOpenAICodexCompactionResponseMetadata } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  declare const model: Parameters<typeof openCodexCompactionEventStream>[0];
  declare const body: Parameters<typeof openCodexCompactionEventStream>[1];
- void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${aiVersion === "18.3.3" ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${aiVersion === "18.3.3" ? "rollback();" : ""} } });
+ void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${["18.3.3", "18.4.1"].includes(aiVersion) ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${["18.3.3", "18.4.1"].includes(aiVersion) ? "rollback();" : ""} } });
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: {} });
  // @ts-expect-error A primitive cannot store accepted metadata.
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: 1 });
- ${aiVersion === "18.3.3" ? `
+ ${["18.3.3", "18.4.1"].includes(aiVersion) ? `
  import type { SummaryOptions, CachePreservingSummaryScope, CachePreservingSummaryContext } from ${JSON.stringify(`${CORE_ROOT}/dist/types/compaction/compaction.js`)};
  import { buildCodexChainedRequestBody } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  import { createAnthropicRequestAudit } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/anthropic-request-audit.js`)};

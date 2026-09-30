@@ -1,0 +1,62 @@
+{
+  "slice": "Misc",
+  "status": "complete",
+  "exec_channel": {
+    "slice_run": "MISSING in this runtime (xd://slice_run -> no such tool; mounted devices only cron/api_image). Used `source /home/chris/.cache/omp-1841-upgrade/Misc/env.sh && <cmd>` via the bash tool with a unique service name, per Main's EXEC CHANNEL DECISION. Output read from proc://<name>.",
+    "pre_rule_commands_for_live_side_effect_audit": [
+      "echo hi (probe)",
+      "ls patches/.18.3.3-candidates/ | grep -E '0043|0065'; ls patches/.18.4.1-candidates/ | grep ...",
+      "repo greps: which .18.4.1 candidates touch src/session/messages.ts|session-context.ts and rules.json|commandcode.kdl",
+      "python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/mkcand-1841.py snapshot --nm /home/chris/.cache/omp-1841-upgrade/Misc/home/.bun/install/global/node_modules/@oh-my-pi --layer 0043 (driver asserts nm is under /home/chris/.cache/omp-1841-upgrade; writes only that sandbox)",
+      "patch --batch --fuzz=0 --no-backup-if-mismatch -p1 --forward --dry-run -i <0043 candidate> with cwd inside the sandbox NM",
+      "grep/sed/read of files ONLY under $NM (sandbox) and its CHANGELOG.md"
+    ],
+    "live_writes": "none; nothing under ~/.omp or the live global install was read or written"
+  },
+  "layers": [
+    {
+      "layer": "0043",
+      "id": "0043-omp-interrupt-prune-symmetry",
+      "class": "B",
+      "class_reason": "Hunks 1,2,3,5,6,7,8 are context/offset-only on 18.4.1. Hunk 4 (the assistant branch) was forced by an 18.4.1 change: the base line is now `const converted = convertMessageToLlm(canonicalizeXdToolCallNames(source));` (pi-coding-agent/src/session/messages.ts:446 defines canonicalizeXdToolCallNames; CHANGELOG.md:40 `Fixed tool calls made through an xd:// alias being recorded under the alias ... (#13352)`), where 18.3.3 had `convertMessageToLlm(source)`. Port keeps every 18.3.3 +/- line: verbatim diff of added/removed lines between patches/.18.3.3-candidates/0043-... and the new 18.4.1 candidate differs in exactly one line (the new carrier line, which is wrapped in canonicalizeXdToolCallNames; canonicalizeXdToolCallNames returns the messag…
+      "root": "AGENT",
+      "files_changed": [
+        "pi-coding-agent/src/session/messages.ts",
+        "pi-coding-agent/src/session/session-context.ts"
+      ],
+      "candidate_bytes": 7093,
+      "candidate_lines": 149,
+      "candidate_hunks": 10,
+      "emit": "EMIT OK (mkcand-1841.py emit --layer 0043)",
+      "replay": "APPLIED at its stack depth (--until 0043 / snapshot) AND APPLIED in the full driver run: `APPLIED  0043 AGENT .18.4.1-candidates/0043-omp-interrupt-prune-symmetry-v18.4.1-candidate.patch`",
+      "prefix_impact": "DIRECT / model-facing request prefix. This is the live==rebuilt prefix-equality patch: convertToLlm now prunes aborted/error assistant turns and their paired results on the live path (agent-loop.prepareProviderCall -> convertToLlm) exactly as buildSessionContext prunes them on the rebuild path; requestControls carriers survive on both paths as empty-content messages (controls kept for Anthropic tool_removal replay) with the TUI-only strippedToolCalls marker deleted; the process-local INTERRUPTED_THINKING_MESSAGE_TYPE marker converts to nothing; appends keep the pruned call-id set in the memo (messages.ts:990/1206/1216/1231/1234/1249).",
+      "hot_lines": {
+        "messages.ts marker_drop": "messages.ts:1080 `if (m.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) return [];`",
+        "messages.ts carrier": "messages.ts:1116 `const carrier: AssistantMessage & { strippedToolCalls?: number } = { ...m, content: [] };` (delete at :1119)",
+        "messages.ts live_prune": "messages.ts:1127 `if (m.stopReason === \"aborted\" || m.stopReason === \"error\") return [];`",
+        "session-context.ts rebuild_prune": "session-context.ts:727 `if (message.requestControls !== undefined) continue;`"
+      }
+    },
+    {
+      "layer": "0065",
+      "id": "0065-omp-commandcode-deepseek-model-record-parity",
+      "class": "A",
+      "class_reason": "KDL insertion is byte-identical to the 18.3.3 candidate and applies to an unchanged 18.4.1 block (models \"deepseek/deepseek-v4.1-flash\" at line 64, last directive input-modalities at line 71, same comment/effort/cost context). The compiled rules.json is fully re-emitted by the same compiler emulation documented in .trellis/tasks/09-27-omp-1833-deploy/research/gen65.py (regenerate from the KDL, shift every providers/commandcode.kdl:<n> source after the insertion by +9, add the two wire axes to the rule sourced at kdl:64). No 18.3.4-18.4.1 upstream change touches commandcode / strict-mode / system-message framing (grep -ciE 'commandcode' CHANGELOG.md = 0), so no semantic adjustment was needed.",
+      "root": "NM",
+      "files_changed": [
+        "pi-catalog/src/compat/rules/providers/commandcode.kdl",
+        "pi-catalog/src/compat/rules.json"
+      ],
+      "candidate_bytes": 672785,
+      "candidate_lines": 25,
+      "candidate_hunks": 2,
+      "emit": "EMIT OK (mkcand-1841.py emit --layer 0065)",
+      "replay": "APPLIED at its stack depth (--until 0065 / snapshot) AND APPLIED in the full driver run: `APPLIED  0065 NM    .18.4.1-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.4.1-candidate.patch`",
+      "compiler_emulation_evidence": "generator printed `inserted 9 lines at 72; shifted 66 source refs; wire axes added to the model rule`; independent recount on the emitted tree: 72 providers/commandcode.kdl sources total, 6 at lines <=71, 66 at lines >71 (all shifted), 0 duplicate source lines; the generator's construction check (every source must land on a non-comment directive) passed, and the gate re-checks provenance. rules.d.json.ts is only a typed declaration (`declare const rules: CompiledCompatRules`), so no third file is needed - same two-file shape as the 18.3.3 candidate.",
+      "prefix_impact": "DIRECT / request head. The two pinned axes change how the request is framed: wire.supportsMultipleSystemMessages=false makes the ordered system prompts coalesce into one block, wire.supportsStrictMode=true makes tool schemas strict for commandcode. A model record that flips either axis reshapes the head and kills the cached prefix (gate header: observed cacheRead 4608 of a 138,617-token prompt).",
+      "resolved_record_after_port": "{source: providers/commandcode.kdl:64, models:[deepseek/deepseek-v4.1-flash], wire:{supportsReasoningEffort:true, stripImageInput:false, supportsStrictMode:true, supportsMultipleSystemMessages:false}, thinking:{efforts:[low,high,max]}, catalog:{inputModalities:[text,image]}}"
+    }
+  ]
+}
+
+[Some lines truncated to 768 chars]

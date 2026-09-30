@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "route to relevant backend contracts"}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "full source for official tarball, version plan and replay invariants; read on disk beyond injection truncation"}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "full source for versioned behavior gates; read on disk beyond injection truncation"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "offline backup and sidecar safety gate"}

@@ -108,3 +108,5 @@ sqlite3 -readonly "$SANDBOX_AGENT_DB" 'PRAGMA integrity_check;'
 ### Common Mistakes
 
 - Sidecar mtime／SHA-256 改變只能證明觀測窗內狀態變動，不能單憑 stat 歸因於其他程序或 backup；若未確認來源靜止及唯讀方法副作用，必須 fail-closed。
+- OMP process 檢查不能只找互動式 `omp`：`bun …/pi-coding-agent/src/cli.ts __omp_worker_*`（`__omp_worker_daemon_broker` 常駐 broker 及其拉起的 `__omp_worker_text_predict` 等 worker）也屬 runtime（2026-09-28 升級前檢測到 2 個 broker，其中一個父程序已不是 omp）。判定以 `/proc/*/cmdline` 含 `.bun/bin/omp`、`pi-coding-agent/src/cli.ts` 或 `pi-coding-agent/dist/cli.js` 為準；只關互動會話就做 backup 會讓 broker 仍持有 DB。
+- WAL 模式 DB 的唯讀 online backup 本身會改動 `-shm`（2026-09-28 沙箱演練兩個 DB 皆如此）；以 `strace -f -e trace=%file -o <trace> sqlite3 -readonly …` 包住 backup，trace 涵蓋每個變動 sidecar 路徑時才是 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`。實作參考：`.trellis/tasks/09-28-omp-1841-upgrade-plan/research/deploy-1841.py`（`db_gate()`：backup 前後 stat+SHA-256、sandbox `integrity_check`、主 DB 不變、未歸因 sidecar 即 abort）。

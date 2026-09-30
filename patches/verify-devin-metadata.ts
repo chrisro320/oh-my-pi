@@ -20,6 +20,16 @@ const { devinCliMetadata, devinDiscoveryMetadata } = await import(join(root, "sr
 const { MetadataSchema } = await import(join(root, "src/discovery/devin-proto.ts"));
 const { create, fromBinary, toBinary } = await import(join(root, "src/discovery/protobuf.ts"));
 
+// The released-CLI tuple tracks the official chisel client of the selected
+// upstream release. 18.4.1 shipped a newer official tuple (3000.11.3); earlier
+// plans pin 3000.10.23. Keep one exact literal per plan — never a range.
+const catalogPkg: unknown = JSON.parse(await Bun.file(join(root, "package.json")).text());
+const catalogVersion =
+	catalogPkg && typeof catalogPkg === "object" && "version" in catalogPkg && typeof catalogPkg.version === "string"
+		? catalogPkg.version
+		: "";
+const CLI_TUPLE = catalogVersion === "18.4.1" ? "3000.11.3" : "3000.10.23";
+
 console.log("=== Testing Devin CLI metadata alignment (0056) ===");
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -91,8 +101,8 @@ const second = devinCliMetadata("api-key-abc", "jwt-value");
 assert.equal(typeof first.sessionId, "string", "sessionId must be a string");
 assert.match(first.sessionId, UUID_V4, `sessionId is not a UUID v4: ${first.sessionId}`);
 assert.equal(second.sessionId, first.sessionId, "sessionId must be minted once per process, not per call");
-assert.equal(first.ideVersion, "3000.10.23", "ideVersion must track the released devin CLI");
-assert.equal(first.extensionVersion, "3000.10.23", "extensionVersion must track the released devin CLI");
+assert.equal(first.ideVersion, CLI_TUPLE, "ideVersion must track the released devin CLI");
+assert.equal(first.extensionVersion, CLI_TUPLE, "extensionVersion must track the released devin CLI");
 assert.equal(first.extensionName, "chisel", "extensionName is the chisel identity");
 assert.equal(first.ideType, "chisel", "ideType is what unlocks router assignment");
 
@@ -122,7 +132,7 @@ assert.equal(onWire.requestId, first.requestId, "Metadata field 9 must carry the
 const decoded = fromBinary(MetadataSchema, encoded);
 assert.equal(decoded.sessionId, first.sessionId, "sessionId must survive the proto round-trip");
 assert.equal(decoded.requestId, first.requestId, "requestId must survive the proto round-trip");
-assert.equal(decoded.ideVersion, "3000.10.23", "ideVersion must survive the proto round-trip");
+assert.equal(decoded.ideVersion, CLI_TUPLE, "ideVersion must survive the proto round-trip");
 assert.equal(decoded.apiKey, "devin-session-token$api-key-abc", "apiKey must survive the proto round-trip");
 assert.equal(decoded.userJwt, "jwt-value", "userJwt must survive the proto round-trip");
 
@@ -133,4 +143,6 @@ assert.equal("requestId" in discovery, false, "devinDiscoveryMetadata must not c
 assert.equal(discovery.ideVersion, "0.0.0-dev", "the dev-channel discovery identity keeps its own version");
 assert.equal(discovery.extensionVersion, "0.0.0-dev", "the dev-channel discovery identity keeps its own version");
 
-console.log("PASS: per-process sessionId, requestId +1 per call, 3000.10.23 tuple, pass-through, wire fields 10/9, discovery untouched");
+console.log(
+	`PASS: per-process sessionId, requestId +1 per call, ${CLI_TUPLE} tuple, pass-through, wire fields 10/9, discovery untouched`,
+);

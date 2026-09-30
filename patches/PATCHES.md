@@ -4,16 +4,16 @@
 > 標題刻意**不綁版本**：本文件同時記錄 base 18.0.9 鏈、歷史 18.1.5／18.1.10／18.1.14／18.1.18 遷移，以及當前部署。
 > 讀任何數字前先確認它屬於哪個口徑——見 §1。
 
-## 倉庫計畫與部署紀錄（2026-09-27）
+## 倉庫計畫與部署紀錄（2026-09-28）
 
 | 項目 | 值 |
 |---|---|
-| 當前部署 | `OMP_PATCH_VERSION=18.3.3`（未設則按 installed 版本自動路由） |
-| 當前 live APPLIED | **48 行**（47 補丁 + `bin/omp -> src/cli.ts`），0 unresolved；正式 source CLI 版本、主 cache footer 行為閘及 `--check` 通過 |
+| 當前部署 | `OMP_PATCH_VERSION=18.4.1`（未設則按 installed 版本自動路由） |
+| 當前 live 部署 | **49 補丁** + `bin/omp -> src/cli.ts`；2026-09-28 13:08 備份並原子部署，fresh `omp --version`＝18.4.1，live `--check`＝49 APPLIED，repo↔ledger `PATCHES.md` 一致 |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（47 層） |
-| 最近遷移 | 18.2.10 → 18.3.3 已備份並原子部署，正式 CLI 回報 `omp/18.3.3`；47 項舊能力保留，0073 由上游接管 |
-| 回歸套件 | **36 道 TypeScript 行為閘門**及 spec shell 閘門；另有 `--verify-rollups` 五基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10／18.3.3） |
+| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署） |
+| 最近遷移 | 18.3.3 → 18.4.1 已備份並原子部署，正式 CLI 回報 `omp/18.4.1`；新增 0083（`^` 標記 resume 前綴穩定）；部署後壓測新增 0084（length-stop 重試提醒持久化，待部署） |
+| 回歸套件 | **38 道 TypeScript 行為閘門**（18.4.1 新增 `verify-model-mention-surface-resume.ts`、`verify-length-stop-reminder-persist.ts`）及 spec shell 閘門；另有 `--verify-rollups` 六基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10／18.3.3／18.4.1） |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -35,7 +35,8 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.1.14 計畫（回退） | canonical 25 條 +候選置換 7 件 +鏈尾 0047、0063 | **27** |
 | 18.2.3 計畫（保留） | 0041 合入 0037；含後續 0072、0073、0074；不改本次遷移前的計畫列 | **39** |
 | 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化）；2026-09-24 新增 0078（Python display MIME 擇一）、0079（Kitty 非同步轉圖完成屏障）、0080（顯示端 PNG 快取與圖片指紋） | **47** |
-| 18.3.3 計畫 | 保留上述 47 項能力；0073 由上游動態 read getter 接管，追加 0081 主會話 cache footer；其餘同編號專版候選遷移 | **47** |
+| 18.3.3 計畫 | 保留上述 47 項能力；0073 由上游動態 read getter 接管，追加 0081 主會話 cache footer、0082 輸入英譯原文顯示；其餘同編號專版候選遷移 | **48** |
+| 18.4.1 計畫 | 保留 18.3.3 的 48 項能力，全部為同編號 `.18.4.1-candidates/`；17 層需適配（0066／0067／0068 在 0035 移植後以原位元組直接落層），審查後另修 0043／0074／0077／0079／0080；鏈尾新增 0083（`^` 標記模型的 resume 前綴修復）、0084（length-stop 重試提醒持久化） | **50** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -44,6 +45,8 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 18.3.3 遷移使用六個官方 pinned 套件，全部候選在 pristine 上以 `--fuzz=0` 重放。主要介面變更：typed settings／auth facade、Codex WebSocket `{send}` exchange、Anthropic signed summary 與 safeCut retained-tail、interrupt `requestControls` control-only 恢復。0073 不再套補丁，但 SDK 模型切換與跨程序恢復驗證保留。實際 plugin registration 使用新版 legacy loader，custom API 的 wire policy 在原生 adapter 邊界解析，不能直接把尚未解析的 `model.compat` 當成漂移。
 
 本輪證據：`.trellis/tasks/09-27-omp-1833-deploy/research/`。模型生命週期以 10 個程序、15 次離線請求、8 組 raw 前綴比較驗證；倉庫僅保存摘要。CLI smoke 執行真實 read 工具並回傳 `OMP_1833_SMOKE_OK`；不宣稱外部模型 HTTP 命中率。舊版補丁與回退計畫保持原樣。
+
+18.4.1 遷移（2026-09-28）同樣使用六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 失敗層整層跳過、不部分寫入：31 層原樣落層，17 層失敗（直接 8 層：0035／0026／0043／0055／0056／0065／0079／0081；其餘為同檔前置失敗）。上游語義變更：0070 接上 18.4.1 的 `resolveSpeculationMethod`，auth 先於 status 分類，四處 V2 判斷共用 `isCodexCompactionV2Lane`；0026 改走 `#collectUsageRequests` provider filter；0043 包進 `canonicalizeXdToolCallNames`，並只在已持久化的 stream-stall 續寫提醒緊隨其後時保留已提交文字（含 `requestControls`）；0077 讓 18.4.1 新增的 `handleCommittedTextStreamStall` 提醒也寫入 session；0074 改以 `maxTokens: 1` 辨識 18.3.5 起的 session 級 cache warmer 重放（上游已刪 `anthropicCacheRefreshRequest`）；0055 對應 Devin auth 拆分；0056 的 CLI 版本號由上游更新的 `3000.11.3` 接管（不降級）；0079／0080 的 repaint 鏈尾捕獲錯誤、以本補丁的共享 PNG 快取取代上游較弱版本；0081 另補 `startup.ts`；0082 對齊 18.4.1 的草稿合併與 `startPendingSubmission` 選項物件。本輪證據：`.trellis/tasks/09-28-omp-1841-upgrade-plan/research/`。
 
 未設 `OMP_PATCH_VERSION` 時 apply.sh 讀 installed `pi-coding-agent` 版本**精確路由**到對應計畫（非就近 fallback）；安裝版不屬於存活計畫、或顯式值與安裝版不符，一律 exit 2。
 
@@ -473,6 +476,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - 驗證預覽狀態下滑鼠滾輪上下滾動與右側滾動條點擊/拖曳無縫平滑；
   - 驗證真實多行程式碼圍欄（如 ````ts\nconst greeting = ...\n````）100% 完整保留，絕不誤殺。
 - **Reviewer2 獨立審查結論**：`overall_correctness: "correct"`。generation + disposed 雙重防護完整覆蓋非同步分支，#sessionList 實例復用無損保留游標與過濾狀態，ScrollView 恆定輸出固定高度，超長行/非文本/toolResult/空會話皆優雅降級，未發現 P0–P1 阻斷缺陷。
+- **18.3.3 模型預覽修正**：會話列表只讀 4 KB 檔頭與 32 KB 檔尾；當最近的 `model_change` 落在未掃描的中段時，舊邏輯先取檔頭初始模型，令已切換模型的大會話仍顯示 StepFun。0050 同號候選改為「檔尾角色切換 → 檔尾最後助理的 `provider/model` → 檔頭初始模型」；不掃描全檔、不改恢復模型決策。尾端助理只能證明最後實際服務的模型，若切換後尚無助理回覆且切換記錄也不在尾窗，列表仍無法得知該切換。私有 JSONL 回歸檢查 33 KB 中段跨度與 provider 組裝。
 
 ### 0052 — Command Code 閘道兩種誤價：DeepSeek 視覺每幀高估 3.31×（@1568）／4.97×（@2576）、別名帳號圖片預算塌到 floor 5
 
@@ -756,6 +760,31 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **真實會話重算**：`01a0e18c-8de0-7000-bf1f-bbdad21ec183` 的 12 筆 `find` 輔助模型合計 `input=87,996`、`cacheRead=0`，舊 footer 為 `70.02%`，主助理為 `92.00%`；此為口徑修正，不能推論輔助服務端一定完全未命中。
 - **行為閘門**：`OMP_PATCH_VERIFY_NM=<isolated-root> bun patches/verify-main-cache-hit.ts` 在修復前因輔助模型稀釋而失敗，修復後主助理顯示 `90.00%`、總輸入仍含輔助模型，重載一致；18.3.3 完整 pristine 鏈重放、反剝與畫廊 cache 預覽另行驗證。需重啟 OMP 才會載入新源碼。
 
+### 0082 — 普通輸入自動英譯，介面保留原文（僅 18.3.3）
+
+- 核心補丁：`.18.3.3-candidates/0082-omp-user-display-text-v18.3.3-candidate.patch`（`${NM}`）。同一條使用者訊息的 `content` 供模型使用，`displayText` 供介面、歷史與草稿還原；舊訊息不遷移。普通 Enter／Ctrl+Enter 等待 `prepare_user_input`，原生命令及自動生成的提示不經翻譯。
+- 配套插件：`input-translator-extension.ts`，部署至 `~/.omp/agent/extensions/`。預設開啟，使用原生憑證與 `cline-pass/deepseek-v4.1-flash`、low、無工具；保留會話自己的翻譯歷史，長上下文使用原生 soft，不壓縮主會話。
+- 指令：`/translator` 查看狀態；`/translator off`／`on` 控制本會話；`/translator model <provider/id>` 切換獨立翻譯模型。失敗時 Escape 重試，Enter 僅本次送原文，不靜默降級。
+- 實際驗證：真實 CLI／供應商完成中文輸入、原文顯示、英文送達、失敗按鍵及新程序 resume；受控合成歷史觸發兩次真實 soft，保留前次摘要，沒有主會話 compaction 或額外 payload dump。47 層既有 pristine 基線追加 0082，以零 fuzz 套用並逐檔比對。
+- 按使用者要求不新增測試檔、門禁或 review 輪次。完整退出並重新啟動 OMP 才會載入；`/resume` 不能熱載入新源碼。
+- **部署紀錄**：2026-09-28，核心／插件／補丁資產逐檔位元組一致；部署後 source CLI 回報 `omp/18.3.3`，真實中文輸入的翻譯與主模型均回應 HTTP 200，介面保留中文。備份：`~/.omp/patches/backups/20260928-input-translator-0082/manifest.json`。未重啟使用者程序，未複製憑證／會話資料庫。
+
+### 0083 — `^` 標記模型的 task 描述跨程序 resume 保持（僅 18.4.1）
+
+- 補丁：`.18.4.1-candidates/0083-omp-model-mention-surface-resume-v18.4.1-candidate.patch`（`${AGENT}`，僅 `src/session/session-tools.ts`）。
+- 問題：18.3.4 起 `^` 標記只在 base-prompt 重建時併入 task 描述；新程序 resume 以空清單建構，已吸收標記的會話在 resume 後第 1、2 次請求 tools 區塊與 Codex head 皆與 live 不同，直到下一次重建（hindsight MM 載入、模型切換、設定變更等都會觸發重建）。18.3.3 同情境不漂移，屬升級退化。
+- 修法：每次重建發布的 advertised model-agent 清單寫入非模型面 custom entry `advertised_session_agents`（僅內容變更時寫）；建構時以使用中分支最新一筆種下 prompt surface，早於第一個 base prompt／tools。進程內 `switchSession` 走同一規則。
+- 閘門：`verify-model-mention-surface-resume.ts`（僅 18.4.1；兩個新程序比對 tag-rebuild 的 resume 第 1、2 次請求 tools／Codex head，另含 control）。缺 0083 或停用還原即失敗。
+- 已知限制：0083 之前寫下的會話沒有該 entry，resume 時沿用上游空清單；18.3.3 舊會話升級後首次請求本就因 system prompt 重排重建快取。
+
+### 0084 — length-stop 重試提醒持久化（僅 18.4.1）
+
+- 補丁：`.18.4.1-candidates/0084-omp-length-stop-reminder-persist-v18.4.1-candidate.patch`（`${AGENT}`，僅 `src/session/session-maintenance.ts`）。
+- 問題：18.3.4 起，推理耗盡輸出上限（`stopReason: "length"`、無可交付內容、`usage.output > 0`、上下文未滿）時，丟棄該回合並以 developer 提醒（`lengthStopRetryTemplate`）重試；提醒只 `agent.appendMessage`、不寫 session 檔。重試回覆照常落盤在它之後，resume 或進程內重建時提醒消失，wire 自提醒原索引起全段分岔。與 0076／0077 同類；18.3.3 無此路徑，屬升級退化。部署後壓測 `research/run-audit-repro-1841.py --case r1` 以兩個新程序實測：Anthropic 第 1 則、Codex input 第 2 則起分岔。
+- 修法：新增私有 `#appendLengthStopReminder(text)`，建一個 `Message`（role／內容／`attribution`／`timestamp` 與上游相同），對同一物件 `agent.appendMessage` + `sessionManager.appendMessage`；在 `dropPersistedAssistantTurn` 之後呼叫，檔案順序與記憶體一致。視窗已滿的壓縮分支不經此路徑。
+- 閘門：`verify-length-stop-reminder-persist.ts`（依計畫含 0084 執行）：真實 `AgentSession` + 檔案型 session + mock model 走真實 `session-maintenance.ts` 重試路徑；斷言重試請求帶提醒、提醒恰好落盤一次、失敗回合不在分支、重建後的模型訊息投影與 live 相同、重開同一 session 檔後續請求前綴相同。缺 0084（鏈停在 0083）即於 GATE 1 失敗。跨程序、真實序列化器層級的證明由 `run-audit-repro-1841.py --case r1` 提供（50 層樹：`PASS invariant=ok resume=ok`）。
+- 生效條件：需重啟 omp 進程；套用前已在舊進程記憶體中、未落盤的提醒無法補回。
+
 ## 3. 已撤下的補丁
 
 ### 2026-09-15 0051 退役（`.retired/09-15-0051-upstream-adopted/`）
@@ -1013,6 +1042,17 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - **審查保留事項（非此次遷移新增）**：0035 在初始單窗口被供應商以 context-overflow 拒絕後，縮窗仍可能重送完整 cache-preserving prefix；0035／0063 部分公開新增符號缺少對應 `.d.ts`。兩項均已存在於 18.2.3，依使用者加速升級／不擴充旁支的要求維持原行為並記錄，不能把本次驗證解讀為這兩項已修復。詳見任務 remote review 證據。
 - **正式切換結果**：Linux `renameat2(RENAME_EXCHANGE)` 分別原子交換完整 global 與 ledger 目錄；fresh `omp --version`＝18.2.10，`--check`＝43 APPLIED／0 unresolved，私有本機模型回覆 `PATCH_OK`，live 六根與已驗證 sandbox 逐位元組一致。未改 `~/.omp/agent`、終止現有進程或提交 Git。
 
+### 18.3.3 → 18.4.1（2026-09-28，已部署）
+
+- **固定版本**：8 個直接依賴（含 pi-natives／linux-x64）一起 pin 18.4.1；13 個 `@oh-my-pi` 套件全部解析為 18.4.1、無巢狀副本。六個補丁根來自 sha512＋SHA-256 驗證的官方 tarball。18.4.2 已發布，按計畫不追。
+- **控制器**：新增獨立 `18.4.1)` 分支（結構同 18.3.3，舊分支位元組不動）；17 支 gate 的版本白名單與 API 形態分支納入 18.4.1，另 `verify-devin-metadata.ts` 按套件版本鎖 CLI 元組（18.4.1＝`3000.11.3`），斷言未放寬。
+- **驗證**：真實 `apply.sh` 在私有 HOME 的完整依賴樹上 49 層 APPLIED、整套回歸閘門 exit 0；第二次 apply 50 項 SKIP、樹摘要與 launcher 不變；`--check` 49 APPLIED 且不改位元組；`--revert` 後六根與官方 pristine 逐位元組相同；`--verify-rollups` ALL PASS（含 18.2.10／18.3.3 舊計畫）；新 ledger 對 18.3.3 樹跑舊計畫整套閘門 exit 0。新程序 CLI 回報 `omp/18.4.1`，離線 provider 驗證真實 read 工具後回傳 `OMP_1841_SMOKE_OK`。兩輪獨立審查（ReviewA／ReviewB）的阻斷與重要項均已修復並以修前失敗、修後通過驗證。
+- **前綴穩定（使用者最高優先）**：兩個新程序比對 live 最後請求與 resume 首批請求。plain／soft／snapcompact：真實 `convertAnthropicMessages` 與 `buildTransformedCodexRequestBody` 序列化前綴逐位元組相同。remote 壓縮經真實傳輸打 loopback：Codex V2（WebSocket）原始位元組相同；Anthropic 原生壓縮內容相同，僅訊息層兩個 `cache_control` 斷點依 `applyPromptCaching` 每輪向最新訊息滾動（一般回合亦同），摘要與簽名 resume 後逐位元組相同。`^` 標記：0083 後 resume 第 1、2 次請求在所有情境相同。0082 的 modelText 在壓縮與 resume 後仍是線上唯一文字。這不是外部模型 cache 命中率量測。
+- **已知上游行為（未改）**：18.3.5 起 `providers.cacheWarming` 預設 `idle`，Anthropic 5 分鐘快取會被自動預熱，與手動 `/cron` 保活同時使用時會重複計費（使用者決定保留 `idle`，Anthropic 會話不再用 `/cron`）；18.4.1 system prompt 段落重排，升級後每個舊會話首次請求會重建一次快取；存下的用量重置被自動兌換成功後，會做一次不帶 provider 過濾的用量刷新（事件觸發、非輪詢）；0074 以 `maxTokens: 1` 辨識預熱，真正一 token 的主請求會被審計視為預熱（僅診斷）。
+- **部署後壓測（2026-09-28）**：對 live 樹快照在私有 HOME 以離線 provider 跑新程序 resume（每請求另驗「記憶體 vs 由 session 檔重建」一致）。`run-stress-a-1841.py` 13 情境（eval 兩種、三種重試提醒、串流中斷續寫、串流中／工具中打斷、背景結果、todo 提醒、模型與思考等級切換、steer、extension 注入）與 `run-stress-b-1841.py` 11 情境（42 回合長會話三程序、soft／snapcompact／remote Anthropic／remote Codex 各在 resume 後再壓縮並三程序、壓縮階梯、分支含／不含摘要、進程內重載、supersede、跨日）全部通過，prefix／remote／tag 基線同前；故障注入（`--fault drift`）可被抓到。靜態審計＋動態重現另找到 5 個同類點：length-stop 重試提醒（18.4.1 新引入，由 0084 修復）；以下 18.3.3 已存在、依使用者決定未修，重現見 `run-audit-repro-1841.py`：checkpoint 未 rewind 即結束時的 `<system-warning>` 只進記憶體（`checkpoint.enabled` 預設關）；vibe 模式每輪注入的 `<vibe-mode>` 提醒刻意不落盤，resume 後改貼尾端；`/fresh`、`/clear` 輪換的 provider session id 只在記憶體，resume 後 Codex／OpenAI `prompt_cache_key` 回到持久化值、首次請求 miss。原先懷疑「退出 vibe 未寫 mode_change」經真實退出流程（`killAll` → `#persistModeExit` 寫 `none`）重測，確認為探針遺漏，非缺陷。
+- **事故與還原（2026-09-28 14:06）**：0084 整合驗證腳本在編輯時誤刪了產生沙箱 `env.sh` 的那一行，腳本以真實 HOME 繼續執行：`~/.omp/patches` 被刪除並換成倉庫 `patches/`（遺失 `backups/`），live `apply.sh` 就地套用 0084 並跑了部分閘門（只寫入日誌：`~/.omp/logs` 一份 devin 閘門日誌、`compaction-trace.log` 32 行），約 60 秒後手動終止。已還原：以反向 0084 原子替換 `session-maintenance.ts`，六根摘要回到部署 manifest 的 `2a6f5bce…`；ledger 以 18.3.3 ledger（含 `backups/`）加 prepare 時的倉庫檔（逐檔對 manifest sha256）重建後 `renameat2` 交換，live `--check`＝49 APPLIED。事故現場存於 `~/.omp/backups/incident-0084-inplace-*`。腳本已加 HOME／NM 沙箱硬性檢查。未動 DB 與會話檔（閘門使用各自的臨時 agent 目錄）。
+- **部署結果**：2026-09-28 13:08 在全部 omp 程序退出後由值守腳本執行。`agent.db`／`models.db` 線上備份、sandbox `integrity_check`＝ok、主 DB 未變（僅 `-shm` sidecar 有預期活動）；`renameat2(RENAME_EXCHANGE)` 原子交換完整 global 與 ledger；新程序 `omp/18.4.1`、49/49 APPLIED、離線 read smoke 通過、六根摘要與 manifest 一致，事務狀態 `verified`。回退：`~/.omp/backups/upgrade-18.4.1-20260928-130816/rollback.py --execute`（不動 DB；18.3.3 樹保留在 `global-18.3.3-rollback-20260928-130816`／`patches-18.3.3-rollback-20260928-130816`）。未改 `~/.omp/agent` 會話資料、未提交 Git。
+
 ## 6. 驗證矩陣
 
 ### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 29 道）
@@ -1048,6 +1088,8 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-anthropic-cache-boundaries.ts` | 0074 四斷點、TTL、context／clear_at 邊界 | `OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-anthropic-request-audit.ts` | 0074 真正 final-wire、usage／request-id、隔離與 opt-out | `OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-hindsight-recall-promotion-slot.ts` | 0075 promotion／rebuild／rollback 邊界 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
+| `verify-model-mention-surface-resume.ts`（條件） | 0083 `^` 標記模型的已發布 task 描述跨新程序 resume 保持；依計畫含 0083 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
+| `verify-length-stop-reminder-persist.ts`（條件） | 0084 length-stop 重試提醒雙寫、重建投影一致、重開後前綴相同；依計畫含 0084 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 
 **0063 驗收狀態（2026-09-13）**：`apply.sh --verify-rollups` 與 `verify-patch-family-rollups.sh` 在更新 `EXPECTED_PLAN`／`EXPECTED_PLAN_18` 快照（27→28、31→32）後 **EXIT 0 全綠**，新閘 `verify-codex-compaction-chain.ts` 隨計畫執行；smoke（`cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK'`）實測通過。閘門判別力以兩個 fault variant 實測：刪除 chained-body 分支 → §1 行為斷言紅；把兩處 `responsesLite` 改回 `model.useResponsesLite` → §4 接線斷言紅。**E2E 已執行（2026-09-14）**：真實會話 `01a0a05f`（`openai-codex/gpt-5.6-luna`）同行程 live baseline 後 `/compact`，記錄 `provider:"openai-codex"/version:"v2"/inputTokens:24160/cachedInputTokens:23040`——PRD 命中率 `cached/input=95.4%≥80%`，`check-codex-compaction-cache.sh` exit 0。當時 `apply.sh` 被 wave2 的 0043 CONFLICT 阻擋於 `mode=apply` 入口（該紅燈非 0063 引起），故 15 道閘門改以直接調用驗證、smoke 另行手動執行；**該阻塞已於 2026-09-15 解除**，見下方「0043 陳舊變體換手」。
 

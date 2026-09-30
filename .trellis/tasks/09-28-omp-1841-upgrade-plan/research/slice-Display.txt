@@ -1,0 +1,79 @@
+{
+  "slice": "Display",
+  "owned_layer": "0082-omp-user-display-text (plan line 48/48, NM root, last layer)",
+  "status": "DONE — EMIT OK, probe PASS, probe deleted",
+  "exec_channel": {
+    "rule_followed_now": "source /home/chris/.cache/omp-1841-upgrade/Display/env.sh && <command> via bash service name",
+    "slice_run_missing": "xd://slice_run => \"No such tool: xd://slice_run. Mounted devices: cron, api_image\"; no shell function/binary/xd device exists in this runtime",
+    "commands_run_before_the_rule_was_issued": [
+      "pwd",
+      "ls -la repo-root; ls /usr/local/bin",
+      "ls -la $HOME1; ls $NM; grep version each pkg/package.json",
+      "wc -l spec/candidate; grep 0082 hunk headers",
+      "export HOME=$H XDG_*/TMPDIR; python3 replay-1841.py --nm $NM  (sandbox-only)",
+      "python3 mkcand-1841.py snapshot --layer 0082  (sandbox-only)",
+      "cd $NM; patch --dry-run -p1 -i 0082  (read-only)",
+      "cd $NM; patch --fuzz=0 -p1 -i 0082  (sandbox-only, HOME explicitly exported)",
+      "find . -name '*.rej' | xargs cat  (read-only)",
+      "grep anchors in $NM  (read-only)"
+    ],
+    "note": "All commands either read-only or explicitly scoped to /home/chris/.cache/omp-1841-upgrade/Display; Main's live check confirmed no live side effects (2026-09-28)."
+  },
+  "layer_table": [
+    {
+      "layer": "0082",
+      "class": "B",
+      "files_changed": 43,
+      "candidate_size": "2606 lines / 161 hunks",
+      "sha256_prefix": "c39ba62c74112821fb9d2917",
+      "emit": "EMIT OK (mkcand-1841.py emit --nm $NM --layer 0082 -> APPLIED 0082, fuzz=0, no stray .rej/.orig)",
+      "replay": "full replay: APPLIED 0082; SUMMARY applied=46 failed=2 0030 0081 (both other slices')"
+    }
+  ],
+  "class_rationale": {
+    "B_forced_semantic_adjustments": [
+      {
+        "site": "pi-coding-agent/src/modes/controllers/input-controller.ts:1289-1301 (hunk #9 FAILED at 18.3.3 line 1287)",
+        "why": "18.4.1 #13440 (CHANGELOG pi-coding-agent:67) removed the post-submit editor.setText(\"\") and relocated the image clears with the comment 'A later clear here can erase the tail of an unbracketed paste arriving after Enter'. 0082's revision guard had to be re-expressed on that new shape: addToHistory(preparedDisplayText ?? text) + two `textRevision === captureRevision` guards, keeping 18.4.1's no-setText behavior."
+      },
+      {
+        "site": "pi-coding-agent/src/modes/interactive-mode.ts:2823-2852 (hunk #7 FAILED at 18.3.3 line 2793, in cancelPendingSubmission)",
+        "why": "18.4.1 rewrote the block to merge a later-typed draft instead of clobbering it (laterText + shiftImageMarkers + concat images). 0082's deferredDraftSnapshots branch now only covers `preserveDraft` (which 18.4.1 still skips entirely); the non-preserveDraft path keeps 18.4.1's merge but bases recoveredText on `submission.displayText ?? submission.text`."
+      },
+      {
+        "site": "pi-coding-agent/src/modes/controllers/input-controller.ts:1362-1372 (hunk #13 FAILED at 18.3.3 line 1355)",
+        "why": "18.4.1 added a second argument `{ clearEditor: false }` to startPendingSubmission; 0082's `{ preserveDraft: ... }` had to be merged into the same options object rather than replacing it."
+      }
+    ],
+    "A_context_rename_only": [
+      "dist/types/extensibility/extensions/runner.d.ts:12 (18.4.1 inserted CacheWarmingAction/CacheWarmingDecisionEvent before McpNotificationEvent)",
+      "src/extensibility/extensions/runner.ts:71-72 (same insertion in the src import list)",
+      "src/session/agent-session-types.ts:360-366 + dist/*.d.ts:337-342 (PromptOptions gained runCommands?/throwOnDrop? between expandPromptTemplates and images)",
+      "src/modes/types.ts:350-351 (interface signature shifted by the new `display?: boolean`)",
+      "src/session/agent-session.ts:7287-7291 (promptDropped context identical; hunk #12 had failed because #11 already rewrote the sibling site)",
+      "pi-tui/src/chat/transcript-entry.ts:87-108 + dist/*.d.ts:43-64 (insertion point moved below the new upstream recentTranscriptEntries)",
+      "pi-tui/src/overlays/copy-selector.ts:25 import + removal of rawUserText (dead after #3/#4 applied)",
+      "pi-coding-agent/src/modes/interactive-mode.ts:119 (added the RestoredQueuedMessage import that 18.3.3 already had)"
+    ],
+    "C_upstream_takeover": "none — upstream has no model-text/display-text split; every 0082 capability still requires the patch",
+    "D_semantic_conflict": "none in owned files"
+  },
+  "probe": {
+    "path": "$NM/pi-coding-agent/probe-display-text-0082.ts",
+    "deleted": true,
+    "deleted_check": "ls $NM/pi-coding-agent | grep -i probe => absent",
+    "design": "SDK session via createAgentSession + SessionManager.create(cwd, sessionDir) (file-backed for a real disk resume), mock provider (createMockModel/registerMockApi, authStorage.keys.setRuntime(\"mock\",\"test\")), inline ExtensionFactory registering `prepare_user_input`.",
+    "legs": [
+      "submit: emitPrepareUserInput({text:\"中文\"}) => {action:\"submit\",modelText:\"EN\"}; prompt(\"EN\",{displayText:\"中文\",expandPromptTemplates:false})",
+      "displayed/persisted: liveUser.content==\"EN\" && liveUser.displayText==\"中文\"; persisted JSONL user entry content==\"EN\" && displayText==\"中文\"",
+      "wire: convertToLlm(messages) JSON contains \"EN\", does NOT contain \"中文\", does NOT contain \"displayText\"",
+      "resume: SessionManager.open(sessionFile) + fresh createAgentSession => provider-facing messages byte-identical to live (only the upstream resume-normalized assistant `errorId` differs; user turn compared verbatim, zero normalization)",
+      "cancel: emitPrepareUserInput({text:\"cancel-me\"}) => {action:\"cancel\"}; no message added, \"cancel-me\" never entered the session",
+      "no-opinion: handler returns undefined => {action:\"submit\"} with no modelText",
+      "compaction: convertMessageToLlm(liveUser) content==\"EN\", no displayText property",
+      "capability marker: pi.userInputPreparationVersion === 1"
+    ],
+    "result_pass": "PROBE PASS 0082: modelText on wire + resume, original kept as displayText, cancel sends nothing",
+    "live_wire_verbatim": "[\"{\\\"role\\\":\\\"user\\\",\\\"content\\\":[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"EN\\\"}],\\\"attribution\\\":\\\"user\\\"}\",\"{\\\"role\\\":\\\"assistant\\\",...}\"]"
+  }
+}

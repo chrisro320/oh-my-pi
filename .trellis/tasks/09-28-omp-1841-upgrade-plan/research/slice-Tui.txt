@@ -1,0 +1,644 @@
+[~/.omp/agent/sessions/-orca-projects-omp-move/2026-09-28T09-32-18-737Z_01a0e75b-a7b1-7000-9742-ee44f20d6c4a/Tui.jsonl#2C4C]
+1:# Tui (idle)
+2:
+3:## user
+4:
+5:Complete assignment thoroughly:
+6:
+7:# Target
+8:Slice `Tui`. Owned candidates: 0079 kitty-conversion-finalization (direct: 1/3 hunks pi-tui/src/chat/tool-execution.ts), 0080 kitty-shared-png-cache (tool-execution.ts + assistant-message.ts; possibly derived from 0079), 0081 main-cache-footer (direct: 1/1 hunk pi-tui/src/status-line/segments.ts; NM root; also touches pi-coding-agent session manager).
+9:
+10:# Change
+11:1. Port 0079, 0080, 0081 in plan order. 0081 must coexist with clean layers 0033/0004 (segments.ts) and 0037 (status-line host) that apply before it.
+12:2. Audit upstream pi-tui 18.3.4-18.4.1 changes with file:line: committed transcript blocks no longer keep rendered-row caches (#13242), fullscreen overlays repaint only changed rows (#13568), first-frame status bar rendered live from cached settings, subagent HUD repaint reduction, large-repaint hangup fix (#13576). Confirm 0079's finalization invariant (`isTranscriptBlockFinalized()` false while conversions pending) and 0080's bounded shared PNG cache/Promise identity still hold with the new transcript caching; classify A/B/C/D.
+13:3. Gates on the full replayed tree: verify-kitty-conversion-finalization.ts, verify-kitty-shared-png-cache.ts, verify-main-cache-hit.ts, verify-python-display-mime-preference.ts (0078, clean, same area). Sensitivity with `--before 0079` and `--before 0081`.
+14:
+15:# Acceptance
+16:Three candidates `EMIT OK`; full driver shows 0079/0080/0081 APPLIED; gates PASS with quoted lines; sensitivity; A/B/C/D table; changed files list.
+17:
+18:## assistant
+19:
+20:→ read(/home/chris/orca/projects/omp-move/.trellis/tasks/09-28-omp-1841-upgrade-plan/work-order.md) ⇒ ok · 132 lines
+21:
+22:## assistant
+23:
+24:→ read(/home/chris/orca/projects/omp-move/.trellis/spec/backend/patch-rollup-contracts.md) ⇒ ok · 304 lines
+25:→ read(/home/chris/orca/projects/omp-move/.trellis/spec/backend/verification-gate-contracts.md) ⇒ ok · 308 lines
+26:
+27:## assistant
+28:
+29:→ read(/home/chris/orca/projects/omp-move/.trellis/spec/backend/patch-rollup-contracts.md:301-502) ⇒ ok · 213 lines
+30:→ read(/home/chris/orca/projects/omp-move/.trellis/spec/backend/verification-gate-contracts.md:301-567) ⇒ ok · 273 lines
+31:
+32:## assistant
+33:
+34:→ bash(ls -la /home/chris/orca/projects/omp-move/.trellis/tasks/09-28-omp-1841-upgrade-plan/ && echo "---RESEARCH---" && ls -l…) ⇒ error · 1 line — ready and env require a service name.
+35:
+36:## assistant
+37:
+38:→ bash(pwd) ⇒ error · 1 line — ready and env require a service name.
+39:
+40:## assistant
+41:
+42:→ read(xd://slice_run) ⇒ error · 1 line — No such tool: xd://slice_run. Mounted devices: cron, api_image. Active top-level tools are also dispatchable via xd://<…
+43:
+44:## assistant
+45:
+46:→ read(history://) ⇒ ok · 15 lines
+47:
+48:## assistant
+49:
+50:→ read(history://BashProbe) ⇒ ok · 26 lines
+51:
+52:## assistant
+53:
+54:→ read(find omp://) ⇒ error · 1 line — Path 'find omp://' not found
+55:→ grep(slice_run @ omp://) ⇒ ok · 1 line
+56:
+57:## user
+58:
+59:[Wait interrupted by message]
+60:<irc from="parent" agent="Main">
+61:PRIORITY from the user (overrides convenience): the failures the user hates most are (1) prompt-cache loss after soft/remote compaction, (2) any request-prefix drift, (3) prefix corruption after resume. For every owned layer, state explicitly whether it influences the model-facing request prefix (system prompt, tools, message history bytes, compaction summary/retained tail, injected reminders/notices, persisted vs live content). Any 18.4.1 upstream change you find that can make a rebuilt (resumed or post-compaction) request differ from the live one is class D unless you prove equality: quote file:line. Do not classify such layers as A on hunk-context grounds alone.
+62:</irc>
+63:
+64:## assistant
+65:
+66:→ write(xd://bash) ⇒ error · 1 line — ready and env require a service name.
+67:→ read(mcp://) ⇒ error · 1 line — mcp:// URL requires a resource URI: mcp://<resource-uri>
+68:→ grep(slice_run @ /home/chris/orca/projects/omp-move) ⇒ ok · 1 line
+69:
+70:## assistant
+71:
+72:→ bash(pwd) ⇒ ok · 1 line
+73:→ read(history://Display) ⇒ ok · 81 lines
+74:
+75:## assistant
+76:
+77:→ read(proc://tui-probe) ⇒ ok · 3 lines
+78:→ read(proc://Display) ⇒ ok · 31 lines
+79:→ read(xd://) ⇒ ok · 5 lines
+80:
+81:[launch-completion] Supervised process tui-probe exited with exit code 0.
+82:
+83:## assistant
+84:
+85:→ bash(echo "HOME=$HOME"; echo "NM=$NM"; ls "$HOME" 2>&1; echo "---NM---"; ls "$NM" 2>&1; echo "---versions---"; python3 --ver…) ⇒ ok · 1 line
+86:
+87:## assistant
+88:
+89:→ read(proc://tui-env1) ⇒ ok · 13 lines
+90:
+91:[launch-completion] Supervised process tui-env1 exited with exit code 0.
+92:
+93:## assistant
+94:
+95:→ bash(ls -la /home/chris/orca/projects/omp-move/.trellis/tasks/09-28-omp-1841-upgrade-plan/research/; echo "===NM detail===";…) ⇒ ok · 1 line
+96:
+97:## assistant
+98:
+99:→ read(proc://tui-env2) ⇒ ok · 35 lines
+100:
+101:[launch-completion] Supervised process tui-env2 exited with exit code 0.
+102:
+103:## assistant
+104:
+105:→ read(/home/chris/orca/projects/omp-move/.trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841.py) ⇒ ok · 60 lines
+106:→ read(/home/chris/orca/projects/omp-move/.trellis/tasks/09-28-omp-1841-upgrade-plan/research/mkcand-1841.py) ⇒ ok · 64 lines
+107:
+108:## assistant
+109:
+110:→ read(/home/chris/orca/projects/omp-move/.trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841.py:raw) ⇒ ok · 112 lines
+111:→ read(/home/chris/orca/projects/omp-move/.trellis/tasks/09-28-omp-1841-upgrade-plan/research/mkcand-1841.py:raw) ⇒ ok · 139 lines
+112:
+113:## assistant
+114:
+115:→ bash(cd /home/chris/orca/projects/omp-move && echo "===PLAN===" && OMP_PATCH_VERSION=18.4.1 bash patches/apply.sh --print-pl…) ⇒ ok · 1 line
+116:
+117:## assistant
+118:
+119:→ read(proc://tui-plan) ⇒ ok · 71 lines
+120:
+121:[launch-completion] Supervised process tui-plan exited with exit code 0.
+122:
+123:## assistant
+124:
+125:→ read(/home/chris/orca/projects/omp-move/patches/apply.sh:895-960) ⇒ ok · 70 lines
+126:→ read(/home/chris/orca/projects/omp-move/patches/.18.4.1-candidates/0079-omp-kitty-conversion-finalization-v18.4.1-candidate.…) ⇒ ok · 44 lines
+127:→ read(/home/chris/orca/projects/omp-move/patches/.18.4.1-candidates/0081-omp-main-cache-footer-v18.4.1-candidate.patch:raw) ⇒ ok · 134 lines
+128:
+129:## assistant
+130:
+131:→ bash(cd /home/chris/orca/projects/omp-move/patches && echo "===1833 0079===" && cat .18.3.3-candidates/0079-omp-kitty-conver…) ⇒ ok · 1 line
+132:
+133:## assistant
+134:
+135:→ read(proc://tui-candcmp) ⇒ ok · 52 lines
+136:
+137:[launch-completion] Supervised process tui-candcmp exited with exit code 0.
+138:
+139:## assistant
+140:
+141:→ bash(cd /home/chris/orca/projects/omp-move && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/mkcand-1841.py sna…) ⇒ error · 1 line — Service mode does not accept async or timeout; use ready.timeout for readiness.
+142:
+143:## assistant
+144:
+145:→ bash(cd /home/chris/orca/projects/omp-move && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/mkcand-1841.py sna…) ⇒ ok · 1 line
+146:
+147:## assistant
+148:
+149:→ read(/home/chris/orca/projects/omp-move/patches/.18.4.1-candidates/0080-omp-kitty-shared-png-cache-v18.4.1-candidate.patch:r…) ⇒ ok · 302 lines
+150:
+151:[launch-completion] Supervised process tui-snap0079 exited with exit code 0.
+152:
+153:## assistant
+154:
+155:→ read(proc://tui-snap0079) ⇒ ok · 167 lines
+156:→ read(/home/chris/orca/projects/omp-move/patches/.18.4.1-candidates/0080-omp-kitty-shared-png-cache-v18.4.1-candidate.patch:3…) ⇒ ok · 189 lines
+157:
+158:## assistant
+159:
+160:→ bash(cd "$NM/pi-tui" && echo "===renderedImageCount===" && grep -n "renderedImageCount\|pendingImageConversions\|convertedIm…) ⇒ ok · 1 line
+161:
+162:## assistant
+163:
+164:→ read(proc://tui-g0079) ⇒ ok · 13 lines
+165:
+166:[launch-completion] Supervised process tui-g0079 exited with exit code 0.
+167:
+168:## assistant
+169:
+170:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 72 lines
+171:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 116 lines
+172:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 47 lines
+173:
+174:## assistant
+175:
+176:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/image-loading.t…) ⇒ ok · 204 lines
+177:
+178:[irc] Main → me: RULE (mandatory, effective now): run commands ONLY through `slice_run(slice=..., command=...)`. Do NOT use the bash too…
+179:
+180:## assistant
+181:
+182:→ write(agent://Main) ⇒ ok · 1 line
+183:→ grep(isTranscriptBlockFinalized @ /home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi…) ⇒ ok · 85 lines
+184:
+185:## user
+186:
+187:[Wait interrupted by message]
+188:<irc from="parent" agent="Main">
+189:Your previous run stopped on a transient model-transport TLS error before doing any work. Resume your assigned task from the start now (read work-order.md, then port 0079, 0080, 0081 as specified). Use slice_run only.
+190:</irc>
+191:
+192:## assistant
+193:
+194:→ read(xd://) ⇒ ok · 5 lines
+195:→ write(xd://slice_run) ⇒ error · 1 line — No such tool: xd://slice_run. Mounted devices: cron, api_image. Active top-level tools are also dispatchable via xd://<…
+196:
+197:## assistant
+198:
+199:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chrome/transcript-co…) ⇒ ok · 175 lines
+200:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/assistant-messa…) ⇒ ok · 57 lines
+201:→ grep(kittyConverted|kittyConversions|imagePayloadKey|cachedPngConversion|convertImageToPngShared|convertImageToPng|converted…) ⇒ ok · 79 lines
+202:
+203:## assistant
+204:
+205:→ read(/home/chris/orca/projects/omp-move/patches/verify-kitty-conversion-finalization.ts:raw) ⇒ ok · 69 lines
+206:→ read(/home/chris/orca/projects/omp-move/patches/verify-kitty-shared-png-cache.ts:raw) ⇒ ok · 302 lines
+207:
+208:## assistant
+209:
+210:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/assistant-messa…) ⇒ ok · 101 lines
+211:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 67 lines
+212:→ grep(convertImageToPngShared|cachedPngConversion|imagePayloadKey @ /home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install…) ⇒ ok · 114 lines
+213:
+214:## user
+215:
+216:[Wait interrupted by message]
+217:<irc from="parent" agent="Main">
+218:EXEC CHANNEL DECISION (replaces the slice_run instruction; it was never mounted for you): use the bash tool with a unique service `name`, and EVERY command MUST start with
+219:  source /home/chris/.cache/omp-1841-upgrade/<YourSlice>/env.sh && <command>
+220:<YourSlice> = Compaction | Usage | Devin | Tui | Misc | Display. env.sh exports HOME/XDG/TMPDIR/BUN_INSTALL(+cache)/OMP_PATCH_VERSION=18.4.1/OMP_PATCH_OFFLINE_VERIFY=1/NM/SLICE_HOME and all OMP_PATCH_VERIFY_*_ROOT for your sandbox, cds to the repo root, and exits 99 if HOME is not inside the sandbox. Do not hand-roll env any more. Read output from proc://<name>. Never reference /home/chris/.bun/install/global or ~/.omp paths, never git-write. Live tree check by Main: no file under the live global install changed in the last 3 hours, so your earlier commands had no live side effect. Continue your task now.
+221:</irc>
+222:
+223:## assistant
+224:
+225:→ read(/home/chris/orca/projects/omp-move/patches/verify-kitty-shared-png-cache.ts:301-328) ⇒ ok · 30 lines
+226:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-utils/src/lru.ts) ⇒ ok · 39 lines
+227:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/env.sh) ⇒ ok · 12 lines
+228:
+229:## assistant
+230:
+231:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-utils/src/lru.ts:37-185) ⇒ ok · 150 lines
+232:
+233:## assistant
+234:
+235:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 50 lines
+236:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/dist/types/chat/image-lo…) ⇒ ok · 71 lines
+237:→ grep(logger @ /home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-utils/package.json) ⇒ ok · 1 line
+238:
+239:## assistant
+240:
+241:→ grep(cachedPngConversion|convertImageToPngShared|imagePayloadKey|ensurePng|completedPng|imageFingerprint|pngFailureReason @ …) ⇒ ok · 231 lines
+242:→ read(/home/chris/orca/projects/omp-move/patches/verify-main-cache-hit.ts:raw) ⇒ ok · 83 lines
+243:
+244:## assistant
+245:
+246:→ grep(cache_hit|getMainCacheHitRate|mainCacheHitRate|usageSnapshot|SessionEntryIndex @ /home/chris/.cache/omp-1841-upgrade/Tu…) ⇒ ok · 271 lines
+247:
+248:## assistant
+249:
+250:→ grep(cache_hit|cacheHitSegment|getMainCacheHitRate|usageStats|sessionManager @ /home/chris/.cache/omp-1841-upgrade/Tui/home/…) ⇒ ok · 145 lines
+251:
+252:## assistant
+253:
+254:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/status-line/host.ts:…) ⇒ ok · 105 lines
+255:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/status-line/startup.…) ⇒ ok · 79 lines
+256:
+257:## assistant
+258:
+259:→ grep(status-line/startup @ /home/chris/orca/projects/omp-move/patches) ⇒ ok · 1 line
+260:→ grep(getUsageStatistics|getMainCacheHitRate|sessionManager @ /home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/globa…) ⇒ ok · 15 lines
+261:
+262:## assistant
+263:
+264:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli/gallery…) ⇒ ok · 54 lines
+265:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli/gallery…) ⇒ ok · 58 lines
+266:→ grep(getUsageStatistics: \(\) => @ /home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/p…) ⇒ ok · 21 lines
+267:
+268:## assistant
+269:
+270:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/status-line/segments…) ⇒ ok · 55 lines
+271:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/ses…) ⇒ ok · 134 lines
+272:
+273:## assistant
+274:
+275:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui.installed/src/status-lin…) ⇒ ok · 60 lines
+276:→ grep(statusValue|statusLineSpend|cacheWriteSegment|singleStatSegment @ /home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/ins…) ⇒ ok · 39 lines
+277:
+278:## assistant
+279:
+280:→ grep(statusValue @ /home/chris/orca/projects/omp-move/patches) ⇒ ok · 32 lines
+281:→ read(/home/chris/orca/projects/omp-move/patches/.18.4.1-candidates/0081-omp-main-cache-footer-v18.4.1-candidate.patch:raw) ⇒ ok · 134 lines
+282:
+283:## assistant
+284:
+285:→ grep(getUsageStatistics: \(\) =>|sessionManager: \{ @ /home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_…) ⇒ ok · 22 lines
+286:→ grep(getUsageStatistics|getMainCacheHitRate|setAdditionalDirectories @ /home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/ins…) ⇒ ok · 12 lines
+287:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/dist/types/status-line/h…) ⇒ ok · 48 lines
+288:
+289:## assistant
+290:
+291:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 6 lines
+292:
+293:## assistant
+294:
+295:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 22 lines
+296:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 9 lines
+297:
+298:## assistant
+299:
+300:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/mk…) ⇒ ok · 1 line
+301:
+302:## assistant
+303:
+304:→ read(proc://tui-emit0079) ⇒ ok · 5 lines
+305:
+306:[launch-completion] Supervised process tui-emit0079 exited with exit code 0.
+307:
+308:## assistant
+309:
+310:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh && echo "=== GATE 0079 ===" && OMP_PATCH_VERIFY_TUI_ROOT="$NM/pi-…) ⇒ ok · 1 line
+311:
+312:## assistant
+313:
+314:→ read(proc://tui-gate0079) ⇒ ok · 4 lines
+315:
+316:[launch-completion] Supervised process tui-gate0079 exited with exit code 0.
+317:
+318:## assistant
+319:
+320:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/mk…) ⇒ ok · 1 line
+321:
+322:## assistant
+323:
+324:→ read(proc://tui-snap0080) ⇒ ok · 23 lines
+325:
+326:[launch-completion] Supervised process tui-snap0080 exited with exit code 0.
+327:
+328:## assistant
+329:
+330:→ grep(chat/image-loading|from "\./image-loading"|image-loading @ /home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/gl…) ⇒ ok · 162 lines
+331:
+332:## assistant
+333:
+334:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 72 lines
+335:
+336:## assistant
+337:
+338:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/assistant-messa…) ⇒ ok · 35 lines
+339:
+340:## assistant
+341:
+342:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/image-loading.t…) ⇒ ok · 96 lines
+343:
+344:## assistant
+345:
+346:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/image-loading.ts) ⇒ ok · 5 lines
+347:
+348:## assistant
+349:
+350:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/image-loading.ts) ⇒ ok · 114 lines
+351:
+352:## assistant
+353:
+354:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/image-loading.t…) ⇒ ok · 35 lines
+355:
+356:## assistant
+357:
+358:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/dist/types/chat/image-lo…) ⇒ ok · 10 lines
+359:
+360:## assistant
+361:
+362:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 6 lines
+363:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 39 lines
+364:
+365:## assistant
+366:
+367:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 44 lines
+368:
+369:## assistant
+370:
+371:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 6 lines
+372:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.…) ⇒ ok · 44 lines
+373:
+374:## assistant
+375:
+376:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/assistant-messa…) ⇒ ok · 6 lines
+377:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/assistant-messa…) ⇒ ok · 6 lines
+378:
+379:## assistant
+380:
+381:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/assistant-messa…) ⇒ ok · 20 lines
+382:
+383:## assistant
+384:
+385:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/assistant-messa…) ⇒ ok · 43 lines
+386:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/chat/assistant-messa…) ⇒ ok · 21 lines
+387:
+388:## assistant
+389:
+390:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/mk…) ⇒ ok · 1 line
+391:
+392:## assistant
+393:
+394:→ read(proc://tui-emit0080) ⇒ ok · 5 lines
+395:
+396:[launch-completion] Supervised process tui-emit0080 exited with exit code 0.
+397:
+398:## assistant
+399:
+400:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh && echo "=== GATE 0080 ===" && bun patches/verify-kitty-shared-pn…) ⇒ ok · 1 line
+401:
+402:## assistant
+403:
+404:→ wait({}) ⇒ ok · 1 line
+405:
+406:[launch-completion] Supervised process tui-gate0080 exited with exit code 0.
+407:
+408:## assistant
+409:
+410:→ read(proc://tui-gate0080) ⇒ ok · 5 lines
+411:
+412:## assistant
+413:
+414:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/mk…) ⇒ ok · 1 line
+415:
+416:## assistant
+417:
+418:→ read(proc://tui-snap0081) ⇒ ok · 11 lines
+419:→ grep(^## |13242|13568|13576 @ /home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui…) ⇒ ok · 1186 lines
+420:
+421:[launch-completion] Supervised process tui-snap0081 exited with exit code 0.
+422:
+423:## assistant
+424:
+425:→ read(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/dist/types/sess…) ⇒ ok · 23 lines
+426:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/ses…) ⇒ ok · 8 lines
+427:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/ses…) ⇒ ok · 8 lines
+428:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/ses…) ⇒ ok · 12 lines
+429:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/ses…) ⇒ ok · 14 lines
+430:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/session/ses…) ⇒ ok · 14 lines
+431:
+432:## assistant
+433:
+434:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/dist/types/sess…) ⇒ ok · 9 lines
+435:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/status-line/host.ts) ⇒ ok · 12 lines
+436:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/dist/types/status-line/h…) ⇒ ok · 12 lines
+437:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/status-line/segments…) ⇒ ok · 10 lines
+438:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/status-line/startup.…) ⇒ ok · 8 lines
+439:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli/gallery…) ⇒ ok · 8 lines
+440:→ edit(/home/chris/.cache/omp-1841-upgrade/Tui/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli/gallery…) ⇒ ok · 9 lines
+441:
+442:## assistant
+443:
+444:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/mk…) ⇒ ok · 1 line
+445:
+446:## assistant
+447:
+448:→ read(proc://tui-emit0081) ⇒ ok · 5 lines
+449:
+450:[launch-completion] Supervised process tui-emit0081 exited with exit code 0.
+451:
+452:## assistant
+453:
+454:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh && python3 .trellis/tasks/09-28-omp-1841-upgrade-plan/research/re…) ⇒ ok · 1 line
+455:
+456:## assistant
+457:
+458:→ read(proc://tui-replay-full) ⇒ ok · 14 lines
+459:
+460:[launch-completion] Supervised process tui-replay-full exited with exit code 0.
+461:
+462:## assistant
+463:
+464:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh && for g in verify-kitty-conversion-finalization verify-kitty-sha…) ⇒ ok · 1 line
+465:
+466:## assistant
+467:
+468:→ read(proc://tui-gates-all) ⇒ ok · 6 lines
+469:
+470:## assistant
+471:
+472:→ wait({}) ⇒ ok · 1 line
+473:
+474:[launch-completion] Supervised process tui-gates-all exited with exit code 0.
+475:
+476:## assistant
+477:
+478:→ read(proc://tui-gates-all) ⇒ ok · 15 lines
+479:
+480:## assistant
+481:
+482:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh R=.trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841…) ⇒ ok · 1 line
+483:
+484:## assistant
+485:
+486:→ read(proc://tui-sens) ⇒ ok · 25 lines
+487:
+488:[launch-completion] Supervised process tui-sens exited with exit code 0.
+489:
+490:## assistant
+491:
+492:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh R=.trellis/tasks/09-28-omp-1841-upgrade-plan/research/replay-1841…) ⇒ ok · 1 line
+493:
+494:## assistant
+495:
+496:→ read(proc://tui-final) ⇒ ok · 8 lines
+497:
+498:## assistant
+499:
+500:→ wait({}) ⇒ ok · 1 line
+501:
+502:[launch-completion] Supervised process tui-final exited with exit code 0.
+503:
+504:## assistant
+505:
+506:→ read(proc://tui-final) ⇒ ok · 21 lines
+507:
+508:## assistant
+509:
+510:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh cd /home/chris/orca/projects/omp-move echo "=== sizes/hunks ===" …) ⇒ ok · 1 line
+511:
+512:## assistant
+513:
+514:→ read(proc://tui-evidence) ⇒ ok · 99 lines
+515:
+516:[launch-completion] Supervised process tui-evidence exited with exit code 0.
+517:
+518:## assistant
+519:
+520:→ read(/home/chris/orca/projects/omp-move/patches/.18.4.1-candidates/0079-omp-kitty-conversion-finalization-v18.4.1-candidate.…) ⇒ ok · 49 lines
+521:→ read(/home/chris/orca/projects/omp-move/patches/.18.4.1-candidates/0081-omp-main-cache-footer-v18.4.1-candidate.patch:100-145) ⇒ ok · 45 lines
+522:
+523:## assistant
+524:
+525:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh echo "=== leftover removed symbols in final replayed pi-tui ===" …) ⇒ ok · 1 line
+526:
+527:## assistant
+528:
+529:→ read(proc://tui-cutover) ⇒ ok · 14 lines
+530:
+531:[launch-completion] Supervised process tui-cutover exited with exit code 0.
+532:
+533:## assistant
+534:
+535:→ bash(source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh cd /home/chris/orca/projects/omp-move echo "=== 0082 touched file…) ⇒ ok · 1 line
+536:
+537:## assistant
+538:
+539:→ read(proc://tui-0082) ⇒ ok · 50 lines
+540:
+541:[launch-completion] Supervised process tui-0082 exited with exit code 0.
+542:
+543:## assistant
+544:
+545:三個 owned 層全部完成。以下為交付報告。
+546:
+547:## 0. 執行通道（先講清楚，Main 要求列出）
+548:
+549:`slice_run` 在我的 runtime 從未掛載（`read`/`write xd://slice_run` 皆回 "No such tool"；`xd://` 只掛 cron、api_image）。在收到 Main 的 `env.sh` 授權前，我用 `bash(name=...)` + **顯式**沙盒 env 跑了 7 條命令，全部只寫入 `$NM`（沙盒）與 `patches/.18.4.1-candidates/`：
+550:
+551:1. `echo HOME/NM; ls $HOME; ls $NM; python3/bun/patch --version` 2. `ls research/; ls -la $NM/pi-tui.installed; replay-1841.py --help` 3. `apply.sh --print-plan; grep 0079…0081 apply.sh; ls .18.4.1-candidates` 4. `diff .18.3.3-candidates/* vs .18.4.1-candidates/*`（唯讀） 5. `mkcand-1841.py snapshot --layer 0079` 6. `grep` 錨點 7. 無其他。
+552:
+553:授權後全部命令都改為 `source /home/chris/.cache/omp-1841-upgrade/Tui/env.sh && …`。無任何 live `~/.bun/install/global`、`~/.omp` 讀寫；driver 自身 assert `nm.is_relative_to(WORK)`。
+554:
+555:## 1. 逐層成果
+556:
+557:| layer | class | 變更檔案（相對於層 root） | 大小/行 | EMIT / replay |
+558:|---|---|---|---|---|
+559:| **0079** kitty-conversion-finalization | **A** | `src/chat/tool-execution.ts`（TUI） | 1738 B / 3 hunks / 1 file | **EMIT OK**；`APPLIED 0079 TUI` |
+560:| **0080** kitty-shared-png-cache | **C**（上游已提供核心行為，仍完整移植） | `src/chat/assistant-message.ts`、`src/chat/image-loading.ts`、`src/chat/tool-execution.ts`、`dist/types/chat/image-loading.d.ts` | 23550 B / 16 hunks / 4 files | **EMIT OK**；`APPLIED 0080 TUI` |
+561:| **0081** main-cache-footer | **A** | `pi-coding-agent/src/session/session-manager.ts`、`pi-coding-agent/dist/types/session/session-manager.d.ts`、`pi-tui/src/status-line/host.ts`、`pi-tui/dist/types/status-line/host.d.ts`、`pi-tui/src/status-line/segments.ts`、`pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts`、`…/status-line.ts`、**新增 `--extra`：`pi-tui/src/status-line/startup.ts`** | 5564 B / 12 hunks / 8 files | **EMIT OK**；`APPLIED 0081 NM` |
+562:
+563:順序相依：`0079 → 0080` 為同一函式鏈（0080 的 a-side 已含 0079 的 `#pendingImageConversions`）；`0081` 的最終 a-side 是 `0033/0004`（TUI `segments.ts`）與 `0037`（NM status-line host）套用後的樹。
+564:
+565:完整 replay（最後一次，所有 slice 已落地）：
+566:
+567:```
+568:SUMMARY applied=48 failed=0
+569:APPLIED  0033 TUI   .18.4.1-candidates/0033-omp-cache-turn-status-rollup-v18.4.1-candidate.patch
+570:APPLIED  0004 TUI   .18.4.1-candidates/0004-omp-token-total-cacheread-v18.4.1-candidate.patch
+571:APPLIED  0037 NM    .18.4.1-candidates/0037-omp-usage-statusline-gate-rollup-v18.4.1-candidate.patch
+572:APPLIED  0079 TUI   .18.4.1-candidates/0079-omp-kitty-conversion-finalization-v18.4.1-candidate.patch
+573:APPLIED  0080 TUI   .18.4.1-candidates/0080-omp-kitty-shared-png-cache-v18.4.1-candidate.patch
+574:APPLIED  0081 NM    .18.4.1-candidates/0081-omp-main-cache-footer-v18.4.1-candidate.patch
+575:APPLIED  0082 NM    .18.4.1-candidates/0082-omp-user-display-text-v18.4.1-candidate.patch
+576:```
+577:
+578:`0082` 是最後一層，其變更集**不含**我 8 個檔案的任何 hunk（只在 `transcript-entry.ts` 內 import `tool-execution`），故我的移植不影響任何後續層；replay 證實它 APPLIED。
+579:
+580:## 2. 閘門（全樹，rc 由 `$?` 直取，未經 pipe）
+581:
+582:```
+583:bun patches/verify-kitty-conversion-finalization.ts   rc=0 :: kitty conversion finalization: ALL PASS
+584:bun patches/verify-kitty-shared-png-cache.ts           rc=0 :: kitty shared PNG cache: eight graphics, tool/assistant/native slot
+585:                                                              replacement, late callbacks, failure, dedupe and 200-image eviction PASS
+586:bun patches/verify-main-cache-hit.ts                   rc=0 :: verify-main-cache-hit: primary footer ignores auxiliary usage across reload
+587:bun patches/verify-python-display-mime-preference.ts   rc=0 :: python display MIME preference: ALL PASS
+588:```
+589:
+590:### 敏感度（driver 狀態，非手動改檔）
+591:
+592:```
+593:--before 0079  → bun verify-kitty-conversion-finalization.ts   rc=1
+594:  AssertionError: sealed results must wait for image conversion      (verify-kitty-conversion-finalization.ts:34)
+595:--before 0081  → bun verify-main-cache-hit.ts                  rc=1
+596:  AssertionError: one find call must not dilute the primary cache hit rate   (verify-main-cache-hit.ts:69)
+597:--before 0080  → bun verify-kitty-shared-png-cache.ts          rc=1
+598:  TypeError: ensurePng is not a function. (In 'ensurePng(toolE)', 'ensurePng' is undefined)
+599:```
+600:
+601:（第一次跑 `--before 0081` 時 0079/0080 已 `APPLIED`，證明失敗來自 0081 本身；`--before 0080` 另證明 0080 閘門 fail-closed。）
+602:
+603:## 3. 上游 pi-tui 18.3.4–18.4.1 漂移審計（file:line）
+604:
+605:- **`pi-tui/CHANGELOG.md:21`**：#13242「committed transcript blocks no longer keep their rendered-row caches」。→ `chrome/transcript-container.ts:53-113` 的 `isFinalized()`/`blockMode()`：退休只影響**渲染**。這讓 0079 的屏障**更**必要（已提交的列不再重繪），但語意不變。
+606:- **`pi-tui/CHANGELOG.md:18`**：#13576 大型重繪不再誤判終端斷線。屬 `transcript-container` 的 `RETIREMENT_BUDGET_MS`/replay 批次路徑，與我的層無互動。
+607:- **`pi-tui/CHANGELOG.md:19`**：#13568 全螢幕 overlay 只重繪變動列。純 overlay 繪製。
+608:- **0080 的 takeover 實證（C 類）**：pristine 18.4.1 已有製程級共享 PNG 快取——
+609:  `src/chat/image-loading.ts:113-119`（`PNG_CACHE_MAX_BYTES = 32*1024*1024`、`pngCache`、`pngConversionsInFlight`）、`:141-143 imagePayloadKey`、`:150-151 cachedPngConversion`、`:164+ convertImageToPngShared`；
+610:  使用端 `src/chat/tool-execution.ts:559/561/570`、`:1226-1228`，`src/chat/assistant-message.ts:860/862/869/891`。
+611:  18.4.1 **缺**：失敗快取＋真因字串、settled 後保留原 Promise 身分、256 筆數上界。我的移植保留 18.3.3 的 `imageFingerprint/ensurePng/completedPng/pngFailureReason` API 並把三個呼叫端一次換乾淨（`grep` 已確認樹內無 `imagePayloadKey|cachedPngConversion|convertImageToPngShared` 殘留）。
+612:- **0079 未被上游取代**：pristine `src/chat/tool-execution.ts:696-708` 的 `isTranscriptBlockFinalized()` 沒有 pending 轉換檢查。移植時把重繪搬進 `.finally`（`0079` candidate 第 565 段）：上游原本在 `.then` 就 `requestRender()`，會讓「觀察到繪製」早於屏障釋放，閘門的 `onPaint` 時序會失敗；這是為了保住 18.3.3 語意所做的結構調整。
+613:- **0081 未被上游取代**：pristine `src/status-line/segments.ts:707-729` 的 `cache_hit` 仍用 `ctx.usageStats` 聚合公式；全樹 `grep getMainCacheHitRate` 為 0。18.4.1 新增的 `src/status-line/startup.ts:64-73`（首帧 status bar 的 `StatusLineSession` 實字）迫使新增 `getMainCacheHitRate: () => undefined`，故以 `--extra` 納入。
+614:- 另：18.3.3 的 `statusValue(ctx, …)` 助手在 18.4.1 已不存在，`segments.ts` 以 `rate.toFixed(2)` + `theme.fg("statusLineSpend", …)` 形式落地（純 context 差異，A 類）。
+615:
+616:## 4. 前綴影響（Main 的優先指令，逐層明確回答）
+617:
+618:| layer | 是否影響模型面請求前綴 |
+619:|---|---|
+620:| 0079 | **否**。只改 `ToolExecutionComponent` 的退休時序（`#pendingImageConversions`、`#blockVersion`、`.finally` 重繪）。不碰 system prompt、工具定義、訊息歷史位元組、壓縮摘要、注入提醒或持久化內容。 |
+621:| 0080 | **否**。轉圖結果是**顯示副本**：`ensurePng` 只讀 `ImageContent`、`convertImageToPng` 回傳新物件；閘門亦斷言 `a.data === webp`、`a.mimeType === "image/webp"`。影像失敗只改標籤文字。 |
+622:| 0081 | **否**。`SessionEntryIndex.insert()` 仍走原 `addUsage(entryUsage(entry))`，新增的 `#mainInput/#mainCacheRead/#mainCacheWrite` 是**衍生計數**，不寫入任何 entry/journal 位元；`getUsageStatistics()`／`/usage`／成本／預算合約不變。`cache_hit` 是純狀態列。 |
+623:
+624:未發現任何 18.4.1 上游變更會讓「重建（resume／壓縮後）的請求」與 live 請求不同；上述四項（共享 PNG 快取、列快取移除、overlay 重繪、hangup 修正）全在 render 路徑，故無 D 類。
+625:
+626:## 5. 我變更的 repository 檔案
+627:
+628:- `patches/.18.4.1-candidates/0079-omp-kitty-conversion-finalization-v18.4.1-candidate.patch`
+629:- `patches/.18.4.1-candidates/0080-omp-kitty-shared-png-cache-v18.4.1-candidate.patch`
+630:- `patches/.18.4.1-candidates/0081-omp-main-cache-footer-v18.4.1-candidate.patch`
+631:
+632:沙盒內共編輯 12 個檔（3 層合計），全部經 `mkcand-1841.py emit` 由真實 before/after 產生，未手改 hunk。未動 `apply.sh`、`verify-patch-family-rollups.sh`、`PATCHES.md`、任何 `.18.3.3-candidates/` 或別的 slice。無 `.orig`/`.rej`（repo 與 `$NM` 皆 0）。暫存輸出（/tmp log）已刪；未留任何 throwaway probe。
+633:
+634:## 6. 開放風險
+635:
+636:1. **0079 的屏障依賴「轉換在 `updateResult`/`seal` 前就已排程」**：若未來 `#maybeConvertImagesForKitty` 改在 render 期間才首次排程（目前 render 只讀快取），屏障可能在首次 render 前為 0。已在 `.finally` 內同時 `#blockVersion++` 減低風險，但這是與上游結構耦合的點。
+637:2. **0080 的 `LRUCache` 以 `maxEntrySize` 預設等於 `maxSize`**（`pi-utils/src/lru.ts:52`）：>32 MiB 的單一 PNG 直接不保留——符合 0080 契約「不入快取」，但與上游「仍放 Map」不同。已由閘門 200 圖淘汰斷言覆蓋。
+638:3. **0081 的 `--extra startup.ts`** 不在原 18.3.3 candidate 檔案集內，屬 18.4.1 首帧 status bar 強制的新增；Main 於整合時請確認 diff 範圍可接受。
+639:4. 其他 slice 的層（早期一次 full replay 曾見 `0030` FAILED）在最後一次 full replay 已 `failed=0`，但那些層的成敗非我職權。
+640:
+641:```yield
+642:{"data": {"slice": "Tui", "candidates": [{"layer": "0079", "file": "patches/.18.4.1-candidates/0079-omp-kitty-conversion-finalization-v18.4.1-candidate.patch", "bytes": 1738, "hunks": 3, "files": ["pi-tui/src/chat/tool-execution.ts"], "class": "A", "emit": "EMIT OK", "replay": "APPLIED"}, {"layer": "0080", "file": "patches/.18.4.1-candidates/0080-omp-kitty-shared-png-cache-v18.4.1-candidate.patch", "bytes": 23550, "hunks": 16, "files": ["pi-tui/src/chat/assistant-message.ts", "pi-tui/src/chat/image-loading.ts", "pi-tui/src/chat/tool-execution.ts", "pi-tui/dist/types/chat/image-loading.d.ts"], "class": "C", "emit": "EMIT OK", "replay": "APPLIED"}, {"layer": "0081", "file": "patches/.18.4.1-candidates/0081-omp-main-cache-footer-v18.4.1-candidate.patch", "bytes": 5564, "hunks": 12, "files": ["pi-coding-agent/src/session/session-manager.ts", "pi-coding-agent/dist/types/session/session-manager.d.ts", "pi-tui/src/status-line/host.ts", "pi-tui/dist/types/status-line/host.d.ts", "pi-tui/src/status-line/segments.ts", "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts", "pi-coding-agent/src/cli/gallery-fixtures/status-line.ts", "pi-tui/src/status-line/startup.ts"], "class": "A", "emit": "EMIT OK", "replay": "APPLIED"}], "full_replay": "SUMMARY applied=48 failed=0", "gates": {"verify-kitty-conversion-finalization": "rc=0 PASS", "verify-kitty-shared-png-cache": "rc=0 PASS", "verify-main-cache-hit": "rc=0 PASS", "verify-python-display-mime-preference": "rc=0 PASS"}, "sensitivity": {"--before 0079": "verify-kitty-conversion-finalization rc=1 (sealed results must wait for image conversion)", "--before 0081": "verify-main-cache-hit rc=1 (one find call must not dilute the primary cache hit rate)", "--before 0080": "verify-kitty-shared-png-cache rc=1 (TypeError: ensurePng is not a function)"}, "repo_files_changed": ["patches/.18.4.1-candidates/0079-omp-kitty-conversion-finalization-v18.4.1-candidate.patch", "patches/.18.4.1-candidates/0080-omp-kitty-shared-png-cache-v18.4.1-candidate.patch", "patches/.18.4.1-candidates/0081-omp-main-cache-footer-v18.4.1-candidate.patch"], "prefix_influence": "none for 0079/0080/0081 (display/status-line/derived-counter only)"}}
+643:```

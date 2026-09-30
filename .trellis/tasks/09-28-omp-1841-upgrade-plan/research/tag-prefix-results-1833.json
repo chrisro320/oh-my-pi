@@ -1,0 +1,969 @@
+{
+  "sandbox": "Rehearsal",
+  "home": "/home/chris/.cache/omp-1841-upgrade/Rehearsal/tmp-tag",
+  "nm_root": "/home/chris/.cache/omp-1841-upgrade/Rehearsal/.bun/install/global",
+  "pi_coding_agent_version": "18.3.3",
+  "probe": "probe-tag-prefix-1841.ts",
+  "runner": "run-tag-prefix-1841.py",
+  "probe_settings": {
+    "memory.backend": "off",
+    "compaction.enabled": false,
+    "edit.mode": "hashline",
+    "toolNames": [
+      "read",
+      "edit",
+      "task"
+    ],
+    "provider": "drift-fixture (runtime, offline; models vision-model|tag-model)",
+    "model_role_default": "drift-fixture/vision-model",
+    "tag_token_in_probe": "^drift-fixture/tag-model"
+  },
+  "known_artifact": "messages_prefix_diff (raw) is non-null for the assistant `errorId` metadata field only: the live in-memory message carries `errorId: 0`, the rehydrated one drops it. It never reaches a provider serializer, so `messages_prefix_diff_ignoring_errorId`, `anthropic_prefix_diff` and `codex_input_prefix_diff` stay null. The same artifact shows up in the pre-existing untagged probe (prefix-results-full-chain.json, all three scenarios).",
+  "drift_detected": false,
+  "results": [
+    {
+      "scenario": "tag",
+      "probe_ok": true,
+      "live_scenario": "tag-live",
+      "resume_scenario": "resume-chain",
+      "live_pid": 1461015,
+      "resume_pid": 1461182,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/Rehearsal/tag-prefix-lab/sessions/2026-09-28T16-17-44-014Z_01a0e8ce-d44e-7000-8831-e2831251ed1e.jsonl",
+      "capabilities": {
+        "findMentionableModel": true,
+        "modelMentions": true,
+        "getSessionAgents": true,
+        "advertisedSessionAgents": false,
+        "refreshBaseSystemPrompt": true,
+        "anthropicWire": true,
+        "codexWire": true
+      },
+      "wire_error": null,
+      "live_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "resume_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "live_turns": [
+        {
+          "label": "t1",
+          "messages": 1,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t2",
+          "messages": 3,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 1,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t3",
+          "messages": 5,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "resume_turns": [
+        {
+          "label": "resumed-1",
+          "messages": 7,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-2",
+          "messages": 9,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-rebuilt",
+          "messages": 11,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "compaction": null,
+      "fetchAttempts": 0,
+      "comparisons": [
+        {
+          "resume_turn": "resumed-1",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 5,
+          "resumed_messages": 7,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612264138,\"duration\":1.0259909999999763,\"completedAt\":1790612264142,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612264138,\"duration\":1.0259909999999763,\"completedAt\":1790612264142,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-2",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 5,
+          "resumed_messages": 9,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612264138,\"duration\":1.0259909999999763,\"completedAt\":1790612264142,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612264138,\"duration\":1.0259909999999763,\"completedAt\":1790612264142,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-rebuilt",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 5,
+          "resumed_messages": 11,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612264138,\"duration\":1.0259909999999763,\"completedAt\":1790612264142,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612264138,\"duration\":1.0259909999999763,\"completedAt\":1790612264142,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        }
+      ]
+    },
+    {
+      "scenario": "control",
+      "probe_ok": true,
+      "live_scenario": "tag-control-live",
+      "resume_scenario": "resume-chain",
+      "live_pid": 1461533,
+      "resume_pid": 1461640,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/Rehearsal/tag-prefix-lab/sessions/2026-09-28T16-17-45-673Z_01a0e8ce-dac9-7000-9862-433e6e6c5dd7.jsonl",
+      "capabilities": {
+        "findMentionableModel": true,
+        "modelMentions": true,
+        "getSessionAgents": true,
+        "advertisedSessionAgents": false,
+        "refreshBaseSystemPrompt": true,
+        "anthropicWire": true,
+        "codexWire": true
+      },
+      "wire_error": null,
+      "live_mentions": [],
+      "resume_mentions": [],
+      "live_turns": [
+        {
+          "label": "t1",
+          "messages": 1,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t2",
+          "messages": 3,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t3",
+          "messages": 5,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "resume_turns": [
+        {
+          "label": "resumed-1",
+          "messages": 7,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-2",
+          "messages": 9,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-rebuilt",
+          "messages": 11,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "compaction": null,
+      "fetchAttempts": 0,
+      "comparisons": [
+        {
+          "resume_turn": "resumed-1",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": false,
+          "task_description_diff": null,
+          "live_messages": 5,
+          "resumed_messages": 7,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612265808,\"duration\":1.0963610000000017,\"completedAt\":1790612265811,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612265808,\"duration\":1.0963610000000017,\"completedAt\":1790612265811,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-2",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": false,
+          "task_description_diff": null,
+          "live_messages": 5,
+          "resumed_messages": 9,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612265808,\"duration\":1.0963610000000017,\"completedAt\":1790612265811,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612265808,\"duration\":1.0963610000000017,\"completedAt\":1790612265811,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-rebuilt",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": false,
+          "task_description_resume_advertises_m1": false,
+          "task_description_diff": null,
+          "live_messages": 5,
+          "resumed_messages": 11,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612265808,\"duration\":1.0963610000000017,\"completedAt\":1790612265811,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612265808,\"duration\":1.0963610000000017,\"completedAt\":1790612265811,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        }
+      ]
+    },
+    {
+      "scenario": "tag-rebuild",
+      "probe_ok": true,
+      "live_scenario": "tag-live-rebuild",
+      "resume_scenario": "resume-chain",
+      "live_pid": 1461804,
+      "resume_pid": 1462006,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/Rehearsal/tag-prefix-lab/sessions/2026-09-28T16-17-47-325Z_01a0e8ce-e13d-7000-a847-2dd3fa6fa436.jsonl",
+      "capabilities": {
+        "findMentionableModel": true,
+        "modelMentions": true,
+        "getSessionAgents": true,
+        "advertisedSessionAgents": false,
+        "refreshBaseSystemPrompt": true,
+        "anthropicWire": true,
+        "codexWire": true
+      },
+      "wire_error": null,
+      "live_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "resume_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "live_turns": [
+        {
+          "label": "t1",
+          "messages": 1,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t2",
+          "messages": 3,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 1,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t3",
+          "messages": 5,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t4-rebuilt",
+          "messages": 7,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "resume_turns": [
+        {
+          "label": "resumed-1",
+          "messages": 9,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-2",
+          "messages": 11,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-rebuilt",
+          "messages": 13,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "compaction": null,
+      "fetchAttempts": 0,
+      "comparisons": [
+        {
+          "resume_turn": "resumed-1",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 7,
+          "resumed_messages": 9,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612267452,\"duration\":1.0431859999999915,\"completedAt\":1790612267455,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612267452,\"duration\":1.0431859999999915,\"completedAt\":1790612267455,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-2",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 7,
+          "resumed_messages": 11,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612267452,\"duration\":1.0431859999999915,\"completedAt\":1790612267455,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612267452,\"duration\":1.0431859999999915,\"completedAt\":1790612267455,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-rebuilt",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 7,
+          "resumed_messages": 13,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 559,
+            "live": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612267452,\"duration\":1.0431859999999915,\"completedAt\":1790612267455,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612267452,\"duration\":1.0431859999999915,\"completedAt\":1790612267455,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        }
+      ]
+    },
+    {
+      "scenario": "tag-soft",
+      "probe_ok": true,
+      "live_scenario": "tag-live-soft",
+      "resume_scenario": "resume-chain",
+      "live_pid": 1462150,
+      "resume_pid": 1462333,
+      "session_file": "/home/chris/.cache/omp-1841-upgrade/Rehearsal/tag-prefix-lab/sessions/2026-09-28T16-17-49-029Z_01a0e8ce-e7e5-7000-aa21-5478005ce872.jsonl",
+      "capabilities": {
+        "findMentionableModel": true,
+        "modelMentions": true,
+        "getSessionAgents": true,
+        "advertisedSessionAgents": false,
+        "refreshBaseSystemPrompt": true,
+        "anthropicWire": true,
+        "codexWire": true
+      },
+      "wire_error": null,
+      "live_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "resume_mentions": [
+        {
+          "agent": "m1",
+          "selector": "drift-fixture/tag-model",
+          "name": "T"
+        }
+      ],
+      "live_turns": [
+        {
+          "label": "t1",
+          "messages": 1,
+          "task_description_has_m1": false,
+          "state": {
+            "mentions": [],
+            "sessionAgents": [],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t2",
+          "messages": 3,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 1,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t3",
+          "messages": 5,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "t5-compacted",
+          "messages": 3,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "resume_turns": [
+        {
+          "label": "resumed-1",
+          "messages": 5,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-2",
+          "messages": 7,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        },
+        {
+          "label": "resumed-rebuilt",
+          "messages": 9,
+          "task_description_has_m1": true,
+          "state": {
+            "mentions": [
+              {
+                "agent": "m1",
+                "selector": "drift-fixture/tag-model",
+                "name": "T"
+              }
+            ],
+            "sessionAgents": [
+              "m1"
+            ],
+            "advertisedSessionAgents": null,
+            "noticeIndexes": [],
+            "noticesInMessages": 0,
+            "taggedTokens": 0,
+            "rawTagTokens": 0
+          }
+        }
+      ],
+      "compaction": {
+        "mode": "soft",
+        "firstKeptEntryId": "9c3993b5",
+        "tokensBefore": 0
+      },
+      "fetchAttempts": 0,
+      "comparisons": [
+        {
+          "resume_turn": "resumed-1",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 3,
+          "resumed_messages": 5,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 558,
+            "live": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612269185,\"duration\":0.389135999999894,\"completedAt\":1790612269186,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612269185,\"duration\":0.389135999999894,\"completedAt\":1790612269186,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-2",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 3,
+          "resumed_messages": 7,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 558,
+            "live": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612269185,\"duration\":0.389135999999894,\"completedAt\":1790612269186,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612269185,\"duration\":0.389135999999894,\"completedAt\":1790612269186,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        },
+        {
+          "resume_turn": "resumed-rebuilt",
+          "system_equal": true,
+          "tools_equal": true,
+          "tools_diff": null,
+          "task_description_equal": true,
+          "task_description_live_advertises_m1": true,
+          "task_description_resume_advertises_m1": true,
+          "task_description_diff": null,
+          "live_messages": 3,
+          "resumed_messages": 9,
+          "messages_prefix_diff": {
+            "index": 1,
+            "offset": 558,
+            "live": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612269185,\"duration\":0.389135999999894,\"completedAt\":1790612269186,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0},\"errorId\":0}",
+            "rebuilt": "e\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1790612269185,\"duration\":0.389135999999894,\"completedAt\":1790612269186,\"contextSnapshot\":{\"promptTokens\":0,\"nonMessageTokens\":3624,\"compactionEpoch\":0}}"
+          },
+          "messages_prefix_diff_ignoring_errorId": null,
+          "anthropic_prefix_diff": null,
+          "codex_input_prefix_diff": null,
+          "codex_head_equal": true,
+          "codex_head_diff": null,
+          "prefix_equal": true
+        }
+      ]
+    }
+  ]
+}

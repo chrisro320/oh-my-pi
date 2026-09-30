@@ -1,0 +1,245 @@
+{
+  "slice": "Misc (read-only audit; no exec channel used)",
+  "read_only_statement": "This was a read-only audit. I ran ZERO shell commands of any kind (no bash tool, no slice_run, no service) — evidence was gathered exclusively with the read/grep/find tools. Nothing under the live global install (~/.bun/install/global) or ~/.omp was opened, written, or executed by me. All sources below are either the pristine 18.4.1 tree at /home/chris/.cache/omp-1841-upgrade/Integration/home/.bun/install/global/node_modules/@oh-my-pi/<pkg>/ (abbreviated $PRIS) or the repo /home/chris/orca/projects/omp-move (abbreviated $REPO).",
+  "topic1_prompt_cache_warming": {
+    "upstream_mechanism": {
+      "module": "$PRIS/pi-coding-agent/src/session/cache-warmer.ts (599 lines)",
+      "header_intent": "cache-warmer.ts:1-16 — 'Keeps one prompt cache entry alive by replaying its request shortly before the entry expires. Ported from upstream pi's cache warmer (earendil-works/pi): a refresh is scheduled at 90% of the model's declared prompt-cache lifetime (at least ten seconds before expiry) and only fires when the expected avoided cache-miss cost minus the refresh cost clears a savings floor. Warming runs in two phases — \"streaming\" while the agent run that sent the request is still active, \"idle\" after it settles — and stops on context change, mode change, a refresh that misses the cache, or fixed safety windows (60 min streaming / 30 min idle).'",
+      "trigger_timing": [
+        "cache-warmer.ts:37-58 constants: MAX_WARMING_AGE_MS=60min, MAX_IDLE_WARMING_AGE_MS=30min, CACHE_WARMING_MINIMUM_EXPECTED_SAVINGS=$0.05, IDLE_CONTINUATION_PROBABILITY=0.15, CACHE_WARMING_DECIDE_TIMEOUT_MS=2000.",
+        "cache-warmer.ts:58-62 getCacheWarmingDelayMs(ttlMs): refresh at floor(min(ttl*0.9, ttl-10_000)), undefined when ttl<=10s.",
+        "cache-warmer.ts:340-350 onAgentSettled(): mode 'streaming' -> stop('agent run settled'); mode 'idle' -> phase='idle' and continue.",
+        "cache-warmer.ts #idleStopReason (after line 360): 30-min idle deadline; an entry whose delayMs >= 30min (Anthropic 1h tier) stops with 'cache entry outlives the 30-minute idle window'.",
+        "cache-warmer.ts ~441-476 #refresh(): evaluate -> optional extension decide -> replay; stops on message.stopReason==='error', on cacheRead<=0, or on cacheWrite>0 ('refresh missed the cache').",
+        "cache-warmer.ts ~478-520 #replay(): stream deps.stream(...) with maxTokens:1 and AbortSignal.any([run.controller.signal, cutoff.signal]); iterates the stream and aborts at the first generation event (isGenerationEvent, cache-warmer.ts ~129-141: text_start/thinking_start/toolcall_start/image_end, or a non-empty *_delta).",
+        "cache-warmer.ts ~576-598 #evaluate(): warmCost=price({cacheRead:promptTokens,output:1}); missCost=max(0, cacheMiss-cost - cacheHit-cost); continuationProbability=1 while streaming, 0.15 while idle; action='warm' iff expectedSavings>=$0.05."
+      ],
+      "default_state_and_config": {
+        "key": "$PRIS/pi-coding-agent/src/config/settings.ts:1120-1124 — cfgProvidersCacheWarming = register({ id: 'providers.cacheWarming', type: 'enum', values: ['off','streaming','idle'], default: 'idle' })",
+        "default": "DEFAULT ON, mode 'idle' (upstream warmer). For 5-minute Anthropic entries the idle phase keeps warming; for 1-hour entries only the 'streaming' phase warms.",
+        "changelog": "$PRIS/pi-coding-agent/CHANGELOG.md:105-107 (18.3.5 Added) states: 'Added prompt-cache warming … Controlled by `providers.cacheWarming` (`off`/`streaming`/`idle`, default `idle`); idle warming covers 5-minute entries only, and models without a declared `promptCache` lifetime are never warmed. Extensions can override each decision through the `cache_warming_decision` event.'",
+        "removed_predecessor": "$PRIS/pi-ai/CHANGELOG.md:55 (18.3.5 Breaking Changes) — 'Removed the stream-level Anthropic prompt-cache keep-alive: StreamOptions.anthropicCacheRefresh, StreamOptions.anthropicCacheRefreshRequest, and the zero-output refresh request path. Prompt-cache warming now lives in the coding agent's session-level cache warmer.'"
+      },
+      "scope_wiring": {
+        "host": "$PRIS/pi-coding-agent/src/sdk.ts:4205-4215 — the warmer is constructed for the MAIN agent loop only (`new CacheWarmer({ stream: primaryStreamFn, getPromptTokens: () => session.lastPromptTokens(), getMode: () => cfgProvidersCacheWarming.get(settings), decide: e => extensionRunner.emitCacheWarmingDecision(e) })`); sdk.ts:4296 — `session.startCacheWarming(streamModel, context, merged)` inside the session streamFn, i.e. armed on every main request after options are finalized.",
+        "disabled_hosts": "sdk.ts:4208-4210 `options.cacheWarming === false` opt-out; sdk.ts:65 (commit/agentic), sdk.ts:47 (compress/session), task/executor.ts:3949-3950 (subagents) all pass cacheWarming:false.",
+        "arm_and_invalidation": "$PRIS/pi-coding-agent/src/session/agent-session.ts:4868-4887 startCacheWarming(): isCurrent() requires the armed request to stay a prefix of live `this.messages` by object identity AND `#cacheWarmingShape(this.model)` to be unchanged; agent-session.ts:4893-4905 #cacheWarmingShape hashes provider/id, agent.state.systemPrompt, tool names, thinkingLevel, cfgProvidersCacheRetention.",
+        "lifecycle": "agent-session.ts:1565-1570 (onWarmed -> #recordCacheWarmUsage; subscribeRunState idle -> onAgentSettled; cfgProvidersCacheWarming.listen -> onModeChanged); agent-session.ts:3429 (message_end -> warmer.onResponse); agent-session.ts:5304-5307 (dispose -> cancel).",
+        "off_transcript_usage": "agent-session.ts:4918-4933 #recordCacheWarmUsage appends a `model_usage` entry (session-entries.ts:80-85 'Usage from a model call that does not belong in the conversation transcript'; session-entries.ts:301-305 it is NOT part of the transcript union).",
+        "extension_surface": "$PRIS/pi-coding-agent/dist/types/extensibility/shared-events.d.ts:317-332 CacheWarmingDecisionEvent (warmCost/missCost/continuationProbability/action) + CacheWarmingDecisionEventResult; runner.ts:977-981 emitCacheWarmingDecision (handler returning an action wins)."
+      },
+      "providers_covered": {
+        "gate": "cache-warmer.ts getPromptCacheTtlMs ~89-97: a model is warmed only when model.promptCache[tier] is declared (tier from resolvePromptCacheTier ~70-84, which honours an explicit cacheRetention/PI_CACHE_RETENTION, else OAuth-Anthropic long-tier default).",
+        "catalog": "$PRIS/pi-catalog/src/compat/rules/providers/anthropic.kdl:9-15 'prompt-cache { short 300 long 3600 }' with comment 'feeds the coding agent's cache warmer'. $PRIS/pi-catalog/src/build.ts:101-108 maps the catalog `prompt-cache` object to model.promptCache. A breadth grep for `prompt-cache {` / `promptCache` across pi-catalog rules found NO other provider declaring a lifetime (bedrock uses promptCacheMode explicit, openai/xai use breakpoint-ttl/session-header).",
+        "conclusion": "Effectively Anthropic (anthropic-messages) only: API-key 5m tier and OAuth 1h tier. Budget-thinking Anthropic turns are excluded by isReplayable (cache-warmer.ts ~115-123: only anthropic-adaptive thinking is replayable; capped/budget thinking gets a different budget_tokens so the replay would not land on the key). [INFERENCE] A user models.yml `promptCache` override could extend this to another model, but the shipped catalog does not.",
+        "transport": "The warp is sent through the same primaryStreamFn (full provider stack) that served the last request, so it reuses the exact wrapper/headers/cache key."
+      },
+      "runs_while_idle": "Yes. With the default 'idle' mode the warmer continues after the run settles (onAgentSettled keeps the timer), bounded to 30 minutes per armed request; 'streaming' stops at settle."
+    },
+    "our_side": {
+      "0010": "$REPO/patches/.18.3.3-candidates/0010-omp-extension-idle-ephemeral-turn-v18.3.3-candidate.patch — adds ExtensionContext.runIdleEphemeralTurn + `#runIdleEphemeralTurnFn` in runner.ts and all six host constructions; contract $REPO/.trellis/spec/backend/extension-runtime-contracts.md §Scenario 'Session-bound idle side-channel work' (:1-120): 'AgentSession.runIdleEphemeralTurn() must set one private reservation synchronously before its first await'; 'Every authoritative main provider entry must capture prompt generation, then increment the main-turn in-flight count before checking the reservation. When one exists, it aborts the idle request and waits for settlement.'",
+      "0017": "$REPO/patches/.18.3.3-candidates/0017-omp-openai-responses-native-replay-warm-v18.3.3-candidate.patch — single line in pi-ai src/providers/openai-responses.ts: `nativeHistoryReplayWarmed: false` -> `true` (pristine target still exists at $PRIS/pi-ai/src/providers/openai-responses.ts:237, read at :1194 `shouldReplayNativeHistory`).",
+      "0060": "$REPO/patches/.18.3.3-candidates/0060-omp-devin-idle-cascade-pin-v18.3.3-candidate.patch — adds `conversationId` to SimpleStreamOptions/EphemeralTurnOptions, exports mapOptionsForApi forwarding it, and in agent-session.ts passes `conversationId: this.model?.provider === 'devin' ? this.sessionId : undefined` into the idle ephemeral turn so the Devin cascade_id (and every seeded message_id) equals the main conversation.",
+      "keepalive_extension": "$REPO/patches/cron-extension.ts — MIN_INTERVAL_MS = 3*60_000 (cron-extension.ts:68, error text :91), enabled only by operator `/cron`/tool, one attempt per settle, nonce `[keepalive ${startedAt} ${state.attempts}]` appended (:73, :281), invokes `ctx.runIdleEphemeralTurn({ promptText, signal })` (:282), diagnostic hit iff `usage.cacheRead > 0` (:316). Contract §Scenario 'Session-bound idle side-channel work' documents the finite budget, 180s minimum, session-switch/branch/shutdown disable, and 'Only a positive remaining budget may schedule another full countdown'."
+    },
+    "verdicts": [
+      {
+        "patch": "0010 (idle ephemeral turn)",
+        "verdict": "complementary (mechanism) with a real gap risk",
+        "evidence_our": "0010 patch hunks add runIdleEphemeralTurn to ExtensionContextActions/runner and all hosts; extension-runtime-contracts.md §3 'A reservation is rejected when the session is disposed, streaming, compacting, navigating the session tree, already running a main turn, has queued messages, or already has a reservation' and 'Main turn begins during idle transport -> Abort idle transport, await settlement, recheck generation/disposal'.",
+        "evidence_upstream": "cache-warmer.ts #replay (~478-520) calls `this.#deps.stream(...)` = sdk.ts:4212 primaryStreamFn directly; it is NEVER routed through AgentSession.runIdleEphemeralTurn and holds no reservation. Its only guards are #validateRun/isCurrent (cache-warmer.ts ~530-545, agent-session.ts:4873-4886) checked before and after the await, not synchronously against a main-turn entry.",
+        "prefix_influence": "Does not alter the main request's wire bytes; it adds a separate billed side request.",
+        "recommendation": "Keep 0010 as-is (its contract is unchanged and still correct for extension-driven idle work). Separately: the upstream warmer is a second, unguarded idle side-channel that can overlap a long main turn (a >~270s streaming turn whose warm timer fires mid-flight), which violates the spirit of the 0010 'no provider overlap' invariant. Needs user decision: either accept upstream's non-atomic warmer, or gate it (providers.cacheWarming: streaming/off) whenever idle warming matters, or extend the reservation seam to cover it. [INFERENCE] the overlap window is narrow (timer fires ~90% of TTL, and each new main request re-arms via start() which clears the previous timer)."
+      },
+      {
+        "patch": "0017 (openai responses native replay warm)",
+        "verdict": "complementary",
+        "evidence_our": "0017 flips nativeHistoryReplayWarmed to true at state construction (openai-responses.ts); PATCHES.md :939 records it as a one-line re-anchor.",
+        "evidence_upstream": "The upstream warmer is Anthropic-only (promptCache lifetime declared only in pi-catalog .../anthropic.kdl:9-15), while 0017 affects the OpenAI Responses native-history-replay warmup (openai-responses.ts:237, :899, :1194). Disjoint provider/transport.",
+        "prefix_influence": "Yes, on the OpenAI Responses transport: it decides whether the first request after a state reset replays native history vs a full send. Not a warm-vs-warm conflict.",
+        "recommendation": "Keep as-is."
+      },
+      {
+        "patch": "0060 (Devin idle cascade pin)",
+        "verdict": "complementary",
+        "evidence_our": "0060 passes conversationId only for provider 'devin' (patch hunk in agent-session.ts #runIdleEphemeralTurn); PATCHES.md :557-565 records scope strictly limited to cascade_id alignment.",
+        "evidence_upstream": "Devin declares no promptCache lifetime (no catalog rule), so getPromptCacheTtlMs returns undefined and the warmer never arms (cache-warmer.ts ~89-97, start() 'cache lifetime unavailable').",
+        "prefix_influence": "Devin wire only (cascade_id seeds messageIds); does not change client message bytes; unrelated to the Anthropic warmer.",
+        "recommendation": "Keep as-is."
+      },
+      {
+        "patch": "keepalive cron extension (0010's consumer)",
+        "verdict": "duplicate for Anthropic 5-minute entries; complementary for every other provider",
+        "evidence_our": "cron-extension.ts:68/91 min 180s; :281-282 one guarded request per fire, billed like any turn; :316 hit only when cacheRead>0.",
+        "evidence_upstream": "cache-warmer.ts getCacheWarmingDelayMs (~58-62) fires at 90% of the 300s short tier (~270s) with default mode idle; CHANGELOG.md:105-107 default 'idle' covers 5-minute entries.",
+        "prefix_influence": "The cron request uses the session's live model/system/tools/history plus a virtual user tail that is never persisted (contract §3 'Its virtual user tail and assistant reply are never appended to SessionManager or main agent messages').",
+        "recommendation": "Duplicate warming = extra billed requests on 5m Anthropic entries (two warm requests per 5-minute window when the operator has also run /cron). Because the cron tool is an explicit operator control with a finite budget and the upstream warmer is automatic, this is a needs-user-decision: (a) leave upstream idle warming on and stop using /cron on Anthropic, (b) set providers.cacheWarming:'off' for sessions where cron is the desired knob, or (c) accept both. Note the cron extension also still covers providers the warmer never touches (Kimi/OpenAI/Devin)."
+      },
+      {
+        "patch": "extension-runtime-contracts.md (keepalive contract scenario)",
+        "verdict": "complementary but incomplete",
+        "evidence_upstream": "shared-events.d.ts:317-332 + runner.ts:977-981 add a NEW observable extension surface, the `cache_warming_decision` event, letting a handler force 'warm'/'stop' per refresh.",
+        "recommendation": "Spec update, not a conflict: the extension contract should mention the new cache_warming_decision hook so a future keepalive extension can defer to / override the host warmer instead of racing it. No code change forced."
+      }
+    ]
+  },
+  "topic2_cross_cwd_system_prompt": {
+    "upstream_mechanism": {
+      "static_prefix": "$PRIS/pi-coding-agent/src/system-prompt.ts:1032-1044 — the rendered project prompt (template verbatim source) is pushed as ONE trailing `systemPrompt` array element after every static block; comment: 'Working-directory content (context files with their paths, workspace tree/roots, active repo) and session append text form one trailing `<project-context>` block after every static block, so sessions in different directories share the static prefix and the Anthropic head cache breakpoint lands right before this block.'",
+      "directory_specific_content": "$PRIS/pi-coding-agent/src/prompts/system/project-prompt.md:1-52 — the `<project-context>` block contains <workstation> (environment + cwd-derived), <repo-rules> (context files with their paths), <dir-context> (AGENTS.md search index), <workspace-tree>, <workspace-roots> (additional directories), and activeRepoContext. These are exactly 'the directory-specific sections' the changelog names.",
+      "tree_stability": "$PRIS/pi-coding-agent/src/workspace-tree.ts:145-148 and :224-228 — the system-prompt workspace tree uses ageMode 'absolute' (deterministic UTC YYYY-MM-DD HH:MM from mtime) so the rendered block 'stays byte-identical across sessions'; the relative mode would differ between two sessions seconds apart.",
+      "anthropic_breakpoint": [
+        "$PRIS/pi-ai/src/providers/anthropic.ts:4020-4040 — `const VOLATILE_SYSTEM_SEGMENT_MARKERS = [\"<memories>\", \"<project-context>\"]` with the long doc comment: the system cache breakpoint 'anchors on the block right before the first such segment, so the static head is shared byte-for-byte across sessions in different directories (e.g. one git worktree per task)'.",
+        "anthropic.ts:4042-4047 volatileSystemSuffixStart() (findIndex of the first block whose text startsWith a marker; else length).",
+        "anthropic.ts:4083-4132 applyHeadCaching(): anchors the tools breakpoint on the last non-deferred tool, then `const suffixStart = volatileSystemSuffixStart(systemBlocks); const anchorIndex = suffixStart === 0 ? systemBlocks.length - 1 : suffixStart - 1;` and, if the anchor has no cache_control yet, DELETES every system block's cache_control and sets the anchor's — 'An earlier system breakpoint (the OAuth identity block) moves to the anchor rather than staying as a second one'.",
+        "anthropic.ts:3506-3550 buildAnthropicSystemBlocks(): OAuth path pre-decorates the identity block with cache_control (lines 3519-3521) which applyHeadCaching then relocates.",
+        "call sites: anthropic.ts:4503-4505 buildAnthropicSystemBlocks(...) then anthropic.ts:4660-4661 applyHeadCaching(systemBlocks, tools, cacheControl)."
+      ],
+      "changelog": [
+        "$PRIS/pi-coding-agent/CHANGELOG.md:44 (18.4.1 Fixed) — 'Fixed sessions and subagents of the same agent in different working directories … never sharing the cached Anthropic system prompt: context files, workspace tree, workspace roots, and other directory-specific sections now come after the static system prompt, which stays a cache hit across directories (#13104).'",
+        "$PRIS/pi-ai/CHANGELOG.md:17-19 (18.4.1 Fixed) — 'Fixed Anthropic OAuth requests leaving the agent system prompt without its own cache breakpoint: the breakpoint on the short Claude Code identity block now moves to the last system block' and 'Fixed the Anthropic system cache breakpoint covering working-directory-specific system text: it now sits before the first `<project-context>` or `<memories>` block, and on OAuth it replaces the identity-block breakpoint instead of taking a message breakpoint (#13104).'"
+      ],
+      "default_state": "Not configurable; it is the default system-prompt layout and default Anthropic breakpoint placement on 18.4.1."
+    },
+    "our_side": {
+      "0038": "$REPO/patches/.18.3.3-candidates/0038-... — rewrites session/date-cwd-reminder.ts to append one synthetic provider-only user tail (appendDateCwdReminder/withDateCwdReminder, `providerOnly:true`) and adds openai-responses.ts trailingScaffoldingItems exclusion + pi-ai `providerOnly` on UserMessage. A-side only in the surviving chain (superseded by 0047).",
+      "0047": "$REPO/patches/.18.3.3-candidates/0047-... — replaces the provider-only tail with a persisted anchor map (`~/.omp/agent/date-cwd-anchors/<sessionId>.json`, atomic write 0600) and stamps the reminder INSIDE the newest real user message; anchor key = `role:timestamp:sha256(pre-injection content)[0..16]`; message COUNT never changes.",
+      "0074": "$REPO/patches/.18.3.3-candidates/0074-... — in pi-ai src/providers/anthropic.ts: (a) removes the per-call provenance barrier `isPerCallContextMessage(message)` from applyPromptCaching's stableMessageEnd and trailing-candidate scan; (b) removes the OAuth identity block's cache_control (deletes the line `cache_control: cacheControl ? cloneAnthropicCacheControl(cacheControl) : { type: 'ephemeral' }`); (c) adds providers/anthropic-request-audit.ts. Rationale (PATCHES.md:1128-1136): a Trellis injection mark per call made upstream set stableMessageEnd=-1 and zero every message breakpoint."
+    },
+    "verdicts": [
+      {
+        "patch": "0038 (date/cwd provider-only tail)",
+        "verdict": "complementary",
+        "evidence_our": "0038 patch: appendDateCwdReminder writes a synthetic `user` message with `providerOnly:true` at the message tail; it never touches systemPrompt.",
+        "evidence_upstream": "The 18.4.1 relocation is purely a systemPrompt array layout change (system-prompt.ts:1032-1044) plus the Anthropic system-breakpoint anchor (anthropic.ts:4042-4047, 4083-4132). Different layer (messages vs system), so no direct interaction.",
+        "prefix_influence": "YES — injects/replaces the final message bytes on every request (this is precisely why 0047 supersedes it).",
+        "recommendation": "Keep as the a-side of the 0047 chain. No conflict with the relocation."
+      },
+      {
+        "patch": "0047 (date/cwd persistent anchor)",
+        "verdict": "complementary",
+        "evidence_our": "0047 patch: applyDateCwdAnchors stamps the newest real user message and replays frozen stamps; the message-count invariance is what restores the pure `n-1` tail-append shape (PATCHES.md:422-434 measured 97.9-98.1% -> recovered).",
+        "evidence_upstream": "18.4.1 keeps the static system head cacheable and puts the directory-specific `<project-context>` at the tail of the system array; the Anthropic head breakpoint sits before that volatile suffix (anthropic.ts:4042-4047), while the rolling message breakpoints still cover the tail (anthropic.ts applyPromptCaching ~3930-4010).",
+        "prefix_influence": "YES — mutates persisted-history bytes (the stamp is deterministic per message and persisted, so resume/next-process replay it identically; anchor key hashes PRE-injection content precisely so resume reproduces it).",
+        "recommendation": "Keep as-is. The two changes compose: relocation protects the system head, 0047 protects the message tail. Worth adding to the task's verification that the stamped message survives the new head-anchoring logic unchanged (they are independent code paths)."
+      },
+      {
+        "patch": "0074 (anthropic context cache boundaries)",
+        "verdict": "conflicting / partially taken over by upstream (class C on the system-block half; still-needed on the message half)",
+        "evidence_our": "0074 hunk `@@ -3598,7 +3610,6 @@` deletes the identity block's cache_control from buildAnthropicSystemBlocks; the larger hunk removes `isPerCallContextMessage` from applyPromptCaching and drops the 'newest message at/before the first per-call mark' prioritization.",
+        "evidence_upstream": "18.4.1 STILL has the identity cache_control (anthropic.ts:3519-3521) AND STILL has the per-call barrier (`if (message && (message.clear_at === 'next_user_message' || isPerCallContextMessage(message)))` at anthropic.ts:3934 and in the trailing-candidate scan). BUT 18.4.1's new applyHeadCaching (anthropic.ts:4100-4130) already achieves 0074's system-block goal: it deletes every system block's cache_control and re-anchors on the last stable block before the `<project-context>`/`<memories>` suffix, explicitly moving the OAuth identity breakpoint there.",
+        "prefix_influence": "YES — cache_control placement is part of the request body bytes; also the per-call barrier governs the number/position of message breakpoints.",
+        "recommendation": "Split the port: (1) KEEP the message-level per-call-barrier removal — upstream has NOT adopted it, and without it our 0016 per-call injection re-zeroes stableMessageEnd and reproduces the 24,592-token-write incident (PATCHES.md:1128-1129). (2) DROP/ADAPT the identity-block cache_control removal hunk: upstream's applyHeadCaching now deletes-and-re-anchors system cache_control, so the deletion is redundant and the hunk context has changed (applyHeadCaching sits between buildAnthropicSystemBlocks and the call site). Simply removing the line is not harmful, but it no longer expresses the invariant; re-express the intent as 'verify applyHeadCaching anchors on the last stable block and that the whole static system prompt is inside one ca…
+      }
+    ]
+  },
+  "topic3_resume_vs_live_prefix_changes": {
+    "note": "Every item below was checked for: (a) where the injected/changed content is stored (live-only vs persisted session entry), (b) whether a resume/post-compaction rebuild reproduces the live request byte-for-byte. Per the parent rule, any 18.4.1 change that can make a rebuilt request differ from the live one is treated as DRIFT RISK unless equality is proven; those are marked. All persistence claims derived by reading the append/persist paths (not by executing) are marked [INFERENCE].",
+    "items": [
+      {
+        "change": "m<N> model-tag pseudonyms now arrive as a hidden session notice (18.3.4)",
+        "where_stored": "TWO artifacts. (1) The registry: CustomEntry type 'model_mention' (model-mentions.ts:101-103 `appendCustomEntry(MODEL_MENTION_ENTRY_TYPE, mention)`; session-entries.ts:178-182 CustomEntry 'Does NOT participate in LLM context'). (2) The notice: CustomMessage role:'custom', customType:'session-agent-notice', display:false, delivered with the next user prompt (session-tools.ts:1564-1588; spliced at agent-session.ts:7524-7530) and persisted as a CustomMessageEntry via #persistMessageEnd (agent-session.ts:3266-3284), which DOES participate in LLM context (session-entries.ts:278-294; session-context.ts:212-215 TranscriptEntry = SessionMessageEntry | CustomMessageEntry).",
+        "resume_byte_identical": "The persisted notice content replays identically, and takeSessionAgentNotice produces no new notice because its `known` seed (committed surface + notices in context) already equals `live` (session-tools.ts:1564-1577). BUT the task tool description advertises `advertisedSessionAgents`, a COMMITTED snapshot that mid-session stays stale (session-tools.ts:88-89 'candidates for the next base rebuild', :529-544 advertisedSessionAgents getter, task/index.ts:617-618 reads advertisedSessionAgents, :180 hasModelMentions). On resume the base prompt is rebuilt from the branch (model-mentions.ts:65-67 syncFromBranch, :112-116 sessionAgents), so the resume task description INCLUDES the pseudonym the live request did not.",
+        "verdict": "DRIFT RISK (class D by the parent rule) [INFERENCE]",
+        "file_line_evidence": "model-mentions.ts:65-67,101-103,112-116; session-tools.ts:441,529-544,1564-1588; agent-session.ts:7524-7530,3266-3284; task/index.ts:135-136,180,617-618; session-context.ts:212-215; $PRIS/pi-coding-agent/CHANGELOG.md:130 (18.3.4 Fixed).",
+        "recommendation": "This is upstream, not ours, but it can make a resumed request's tools/system prefix differ from the live one for any session where a model was tagged mid-session. If any owned layer's verification claims resume-prefix equality, add a probe that tags a model mid-session, resumes, and compares the task-description bytes; do not classify such layers as A on hunk-context grounds alone."
+      },
+      {
+        "change": "Prompt-cache warming replays (18.3.5)",
+        "where_stored": "Live-only request; no message is appended. Only a `model_usage` entry is persisted off-transcript (agent-session.ts:4918-4933; session-entries.ts:80-85,301-305).",
+        "resume_byte_identical": "N/A — the warm request never enters the transcript, and the replay uses the exact captured Context/options (cache-warmer.ts #replay ~478-520), which on a resume is rebuilt from the same persisted entries. No drift.",
+        "verdict": "SAFE",
+        "file_line_evidence": "cache-warmer.ts:478-520, agent-session.ts:4918-4933, session-entries.ts:80-85.",
+        "recommendation": "No action for prefix equality. (Its economic overlap with the cron extension is Topic 1.)"
+      },
+      {
+        "change": "Stall / HTTP-2 reset / premature-close replay after rendered text (18.4.1)",
+        "where_stored": "Persisted. The partial assistant turn is KEPT in context and the continuation nudge is appended as a `developer` message via agent.appendMessage (turn-recovery.ts handleCommittedTextStreamStall ~614-704, template $PRIS/pi-coding-agent/src/prompts/system/stream-stall-continue.md:1-5 '<system-injection> … Continue exactly where it stopped. Do not repeat, restate, or summarize what you already wrote. Attempt #{{retryCount}}/{{maxRetries}}'); agent-session.ts:4053-4056 routes to it ('keep the partial turn and continue from where it stopped'). appendMessage messages are persisted through #persistMessageEnd [INFERENCE].",
+        "resume_byte_identical": "Yes [INFERENCE] — both the partial assistant and the developer nudge are persisted entries, so a rebuild replays the same bytes; the model is asked to continue rather than to re-emit, so text is not duplicated (the rendered bytes are never re-sent as a new assistant message).",
+        "verdict": "SAFE [INFERENCE on persistence]",
+        "file_line_evidence": "turn-recovery.ts:614-704, stream-stall-continue.md:1-5, agent-session.ts:4020-4056, CHANGELOG.md (18.4.1 line ~54-55).",
+        "recommendation": "No action; keep 0077 (turn-recovery reminder persist) consistent with this shape — 0077 is in the 18.4.1 plan and touches exactly this family."
+      },
+      {
+        "change": "Assistant messages without recorded usage load as zero usage (18.4.1)",
+        "where_stored": "Persisted entries are mutated in place at load: repairMissingUsage (session-manager.ts:375-385) sets entry.message.usage = {all zeros} when an assistant message has no usage; called at rehydrate (session-manager.ts:3200-3201) and at append (:1622). Companion: sanitizeRehydratedOpenAIResponsesAssistantMessage (session-manager.ts:3203; messages.ts:886-922) strips thinkingSignature + providerPayload ONLY for provider 'github-copilot' (messages.ts:897-899 comment: 'Stripping them for all providers is what left resumed sessions compacting tool-call-only history with no reasoning'); all other providers are preserved deliberately 'for prompt-cache continuity'.",
+        "resume_byte_identical": "usage is a response-side field and is NOT part of the request body → the zero-usage repair does not change wire bytes. The copilot-only sanitize DOES change the rehydrated assistant message (thinking signature removed, native replay payload dropped), so for github-copilot Responses sessions a resumed request can differ from the live one; the comment states this is intentional (Copilot 401s on replay) and that other providers are preserved.",
+        "verdict": "SAFE for prefix (usage) / DRIFT RISK for github-copilot Responses only (intentional)",
+        "file_line_evidence": "session-manager.ts:375-385,1622,3200-3206; messages.ts:886-922 (esp. 897-899, 916-921); CHANGELOG.md (18.4.1 'Sessions containing assistant messages with no recorded usage now open with that usage counted as zero').",
+        "recommendation": "No action on our layers (we do not run github-copilot in the target flow). Record it as a known intentional asymmetry."
+      },
+      {
+        "change": "Native compaction speculation method fallback / remote fail-fast (18.4.1)",
+        "where_stored": "No content injected. resolveSpeculationMethod(..., {skipRemote}) (session/maintenance compaction-methods.ts:113-126, comment 'skipRemote passes over native compaction, e.g. after it failed for good') plus #failedNativeSpeculation (session-maintenance.ts:536-542). It only changes WHICH method the background speculation runs / whether it keeps deferring to it.",
+        "resume_byte_identical": "N/A for bytes given the same selected method; the schedule change does not alter a summary's content. (If the fallback selects a different method, the resulting retained tail differs by design — that is a compaction-policy change, not a rebuild inconsistency.)",
+        "verdict": "SAFE (scheduling only)",
+        "file_line_evidence": "compaction-methods.ts:113-126; session-maintenance.ts:536-542; CHANGELOG.md (18.4.1 'Fixed a native compaction speculation that failed for good turning off background compaction for the rest of the cycle … speculation now moves to the next configured method').",
+        "recommendation": "No action for prefix equality. Our compaction-family layers (0035, 0062, 0066, 0067, 0070) should re-run their gates against 18.4.1 because this touched the speculation gate they overlap."
+      },
+      {
+        "change": "Idle display:true custom messages appear in the transcript immediately (18.4.1)",
+        "where_stored": "Persisted as a CustomMessageEntry (appendCustomMessageEntry via #persistMessageEnd; agent-session.ts:3266-3284). The fix was display-only: event-controller.ts:963-976 #handleMessageStart renders an idle custom message when initialChatRendered; extension-ui-controller.ts:1256 #applyCustomMessageDisplay. agent-session.ts:8166-8176 documents the idle/no-turn append ('appends to state/session, no turn; with the default delivery a display:true message also paints to the interactive transcript immediately').",
+        "resume_byte_identical": "Yes [INFERENCE] — the message was already persisted (that is why it appeared on reload before the fix); the fix only makes the live paint match the reloaded transcript. Live and resumed context therefore see the same entry.",
+        "verdict": "SAFE",
+        "file_line_evidence": "event-controller.ts:963-976; extension-ui-controller.ts:1256-1259; agent-session.ts:8166-8176,3266-3284; types.ts:177-181.",
+        "recommendation": "No action."
+      },
+      {
+        "change": "Cross-cwd Anthropic system prompt relocation (18.4.1)",
+        "where_stored": "Rendered at system-prompt build time into a trailing systemPrompt array element (system-prompt.ts:1032-1044, template project-prompt.md:1-52); NOT persisted as session content — it is rebuilt from the cwd/contextFiles/workspace scan on every rebuild. The workspace tree is forced to absolute-UTC ages so the same cwd yields byte-identical bytes (workspace-tree.ts:145-148,224-228).",
+        "resume_byte_identical": "For the SAME cwd, yes — static blocks + the `<project-context>` suffix rebuild identically [INFERENCE, modulo the workspace-tree scan being re-run]. For a DIFFERENT cwd it differs by design. The Anthropic breakpoint placement (anthropic.ts:4042-4047,4083-4132) then keeps the static head a cross-directory cache hit.",
+        "verdict": "SAFE (same-cwd resume) / intended difference (different cwd)",
+        "file_line_evidence": "system-prompt.ts:1032-1044; project-prompt.md:1-52; workspace-tree.ts:145-148,224-228; anthropic.ts:4020-4047,4083-4132,4503-4505,4660-4661.",
+        "recommendation": "No action for our layers; this is the same layer 0074 acts on, so verify 0074's gate after the port (see Topic 2)."
+      },
+      {
+        "change": "(18.3.4 companion) length-stop recovery now injects a reasoning reminder",
+        "where_stored": "Persisted. session-maintenance.ts:3116-3127 appends a `developer` message rendered from length-stop-retry.md ('Previous response hit the {{outputTokens}}-token output limit while still reasoning; it was discarded unseen … Reason only about the next step').",
+        "resume_byte_identical": "Yes [INFERENCE] — a persisted developer message replays identically.",
+        "verdict": "SAFE [INFERENCE]",
+        "file_line_evidence": "session-maintenance.ts:118,3116-3127; length-stop-retry.md; CHANGELOG.md:127 (18.3.4 Fixed).",
+        "recommendation": "No action; overlaps the 0077 reminder-persistence family — keep them consistent."
+      }
+    ]
+  },
+  "owned_layer_prefix_influence_summary": {
+    "0010": "Does NOT influence the main request's model-facing prefix; adds a side request (overlap risk with the new host warmer).",
+    "0017": "Influences the OpenAI Responses wire (native-history replay baseline on the first request after a state reset); not a live-vs-resume rebuild asymmetry.",
+    "0060": "Influences the Devin wire identity (cascade_id -> messageIds), not the client message bytes.",
+    "0038": "Influences message bytes (synthetic provider-only user tail, replaced each request).",
+    "0047": "Influences message bytes (deterministic stamp inside the newest real user message; persisted per-session anchor map).",
+    "0074": "Influences wire bytes (cache_control/breakpoint placement) and the number/position of message breakpoints.",
+    "keepalive_cron_extension": "Does not influence the main prefix; its virtual user tail and reply are never persisted."
+  },
+  "open_risks": [
+    "Highest: the 18.3.4 m<N> pseudonym change can make a resumed task-tool description differ from the live one (Task 3 item 1) — flagged DRIFT RISK/class D per the parent rule. Needs a resume-equality probe before any owned layer is called 'safe' on prefix grounds.",
+    "Upstream cache warmer is a second, non-atomic idle side-channel that bypasses 0010's reservation invariant (potential provider overlap during a very long streaming turn).",
+    "0074's system-block half is now upstream's responsibility (applyHeadCaching); porting it verbatim would express a stale invariant and its hunk context has moved. Re-derive verify-anthropic-cache-boundaries.ts against the new volatile-suffix markers before declaring it green.",
+    "Duplicate Anthropic 5-minute warming when both the default idle warmer and the /cron keepalive extension are active (extra billed requests).",
+    "The extension-runtime-contracts.md spec does not yet name the new `cache_warming_decision` extension surface."
+  ],
+  "verification_and_method": {
+    "commands_run": "none (read-only audit; zero shell invocations of any kind, so no risk of live-HOME fallback)",
+    "tools_used": "read, grep, find only",
+    "files_read": [
+      "$PRIS/pi-coding-agent/src/session/cache-warmer.ts (whole)",
+      "$PRIS/pi-coding-agent/src/sdk.ts:4190-4300",
+      "$PRIS/pi-coding-agent/src/session/agent-session.ts:1560-1575,3420-3432,4020-4078,4819-4933,8160-8200,8560-8572",
+      "$PRIS/pi-coding-agent/src/config/settings.ts:1118-1126 (grep)",
+      "$PRIS/pi-coding-agent/src/system-prompt.ts:990-1090, prompts/system/project-prompt.md, prompts/system/date-cwd-reminder.md, prompts/system/stream-stall-continue.md, prompts/system/length-stop-retry.md, prompts/system/session-agent-notice.md",
+      "$PRIS/pi-coding-agent/src/session/{model-mentions.ts, session-tools.ts:1520-1660, session-manager.ts:330-420/3195-3210, messages.ts:879-928, session-context.ts (grep), turn-recovery.ts:599-763, date-cwd-reminder.ts, session-entries.ts (grep)}",
+      "$PRIS/pi-coding-agent/src/modes/controllers/{event-controller.ts (grep), extension-ui-controller.ts (grep)}",
+      "$PRIS/pi-coding-agent/src/extensibility/extensions/{runner.ts (grep), shared-events.d.ts:309-343}",
+      "$PRIS/pi-ai/src/providers/anthropic.ts:3489-3620,3930-4015,4009-4143 (grep pins 3519-3521,4503,4661), $PRIS/pi-ai/src/providers/openai-responses.ts (grep)",
+      "$PRIS/pi-catalog/src/compat/rules/providers/anthropic.kdl, $PRIS/pi-catalog/src/build.ts:95-110 (grep)",
+      "$PRIS/*/CHANGELOG.md sections 18.3.4/18.3.5/18.4.0/18.4.1",
+      "$REPO/patches/.18.3.3-candidates/{0010,0017,0038,0047,0060,0074}-*.patch",
+      "$REPO/patches/{PATCHES.md (grep), apply.sh (grep), cron-extension.ts (grep)}",
+      "$REPO/.trellis/spec/backend/{extension-runtime-contracts.md, context-plugin-eval.md}",
+      "$REPO/.trellis/tasks/09-28-omp-1841-upgrade-plan/work-order.md"
+    ],
+    "files_changed": "none (read-only)"
+  }
+}
+
+[Some lines truncated to 768 chars]
