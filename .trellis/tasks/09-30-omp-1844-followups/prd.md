@@ -20,9 +20,9 @@ Close the defects left open by 09-29-omp-1844-patch-migration (18.4.4 live since
 - [x] AC1 (A): a fixture of interleaved claude/luna requests where claude's request N follows claude's N-1 (append-only) yields verdict kind `APPEND_ONLY` for claude. It must fail on the current code (sensitivity control) and pass after the fix. Existing `verify-cache-prefix-audit.ts` stays green, including the interloper case (main model's miss is explained by its own diff).
 - [x] AC2 (B): using the archived request pair (previous `…0779…`/prior request and `…0780…`) as fixture, the extension output has a `cache_control` on the previous tail block, total breakpoints ≤ 4, and the fixture without the fix has none there. Normal +2-message steps add no breakpoint (no extra cache writes). `verify-resume-cache-breakpoint.ts` stays green.
 - [x] AC3 (C): a behavior gate drives a prepared submission whose dispatch is rejected and asserts text + images return to the editor; a second case pastes an image during a cancelled preparation and asserts it is kept. Both are red on the current 18.4.4 tree and green after. Gates registered in `apply.sh` under the 0082 family.
-- AC4: 18.4.4 `apply.sh` full apply on a fresh pristine sandbox: all layers APPLIED, second apply all SKIP, `--check` all APPLIED, revert equals pristine, rollup verifier PASS.
-- AC5: live deploy verified by fresh `omp --version`, live `--check`, repo/ledger zero drift, and (for A/B) one observed real audit row from a running session.
-- AC6: `.trellis/spec` updated (Phase 3.3) and grep-checkable.
+- [x] AC4: 18.4.4 `apply.sh` full apply on a fresh pristine sandbox: all layers APPLIED, second apply all SKIP, `--check` all APPLIED, revert equals pristine, rollup verifier PASS.
+- [ ] AC5: live deploy verified by fresh `omp --version`, live `--check`, repo/ledger zero drift, and (for A/B) one observed real audit row from a running session.
+- [x] AC6: `.trellis/spec` updated (Phase 3.3) and grep-checkable.
 
 ## Out of scope
 - audit-repro r2/r3/r3x/r3x-real/r4 (task D, separate).
