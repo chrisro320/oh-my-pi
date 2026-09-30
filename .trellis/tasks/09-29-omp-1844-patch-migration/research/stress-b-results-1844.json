@@ -28,10 +28,10 @@
         {
           "phase": "live",
           "error": null,
-          "pid": 2632118,
+          "pid": 2687323,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"plain\",\"phase\":\"live\",\"pid\":2632118,\"requests\":54,\"chain\":54,\"turns\":42,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"plain\",\"phase\":\"live\",\"pid\":2687323,\"requests\":54,\"chain\":54,\"turns\":42,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 54,
             "conversation_with_audit": 54,
@@ -50,10 +50,10 @@
         {
           "phase": "resume2",
           "error": null,
-          "pid": 2632246,
+          "pid": 2687501,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"plain\",\"phase\":\"resume2\",\"pid\":2632246,\"requests\":3,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"plain\",\"phase\":\"resume2\",\"pid\":2687501,\"requests\":3,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 3,
             "conversation_with_audit": 3,
@@ -72,10 +72,10 @@
         {
           "phase": "resume3",
           "error": null,
-          "pid": 2632346,
+          "pid": 2687567,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"plain\",\"phase\":\"resume3\",\"pid\":2632346,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"plain\",\"phase\":\"resume3\",\"pid\":2687567,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 2,
             "conversation_with_audit": 2,
@@ -96,8 +96,8 @@
         {
           "prev_phase": "live",
           "next_phase": "resume2",
-          "prev_pid": 2632118,
-          "next_pid": 2632246,
+          "prev_pid": 2687323,
+          "next_pid": 2687501,
           "prev_request": {
             "index": 53,
             "kind": "main",
@@ -156,8 +156,8 @@
         {
           "prev_phase": "resume2",
           "next_phase": "resume3",
-          "prev_pid": 2632246,
-          "next_pid": 2632346,
+          "prev_pid": 2687501,
+          "next_pid": 2687567,
           "prev_request": {
             "index": 2,
             "kind": "main",
@@ -190,8 +190,8 @@
             "ok": false,
             "index": 120,
             "appended": 2,
-            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740344960, \"duration\": 2.079499000000169, \"completedA",
-            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740344960, \"duration\": 2.079499000000169, \"completedA",
+            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741691476, \"duration\": 2.0205630000000383, \"completed",
+            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741691476, \"duration\": 2.0205630000000383, \"completed",
             "field_diff": [
               "errorId"
             ]
@@ -229,10 +229,10 @@
         {
           "phase": "live",
           "error": null,
-          "pid": 2632420,
+          "pid": 2687633,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"soft\",\"phase\":\"live\",\"pid\":2632420,\"requests\":7,\"chain\":4,\"turns\":4,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"soft\",\"phase\":\"live\",\"pid\":2687633,\"requests\":7,\"chain\":4,\"turns\":4,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 4,
             "conversation_with_audit": 4,
@@ -263,10 +263,10 @@
         {
           "phase": "resume2",
           "error": null,
-          "pid": 2632492,
+          "pid": 2687707,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"soft\",\"phase\":\"resume2\",\"pid\":2632492,\"requests\":6,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"soft\",\"phase\":\"resume2\",\"pid\":2687707,\"requests\":6,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 3,
             "conversation_with_audit": 3,
@@ -297,10 +297,10 @@
         {
           "phase": "resume3",
           "error": null,
-          "pid": 2632564,
+          "pid": 2687773,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"soft\",\"phase\":\"resume3\",\"pid\":2632564,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"soft\",\"phase\":\"resume3\",\"pid\":2687773,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 2,
             "conversation_with_audit": 2,
@@ -321,8 +321,8 @@
         {
           "prev_phase": "live",
           "next_phase": "resume2",
-          "prev_pid": 2632420,
-          "next_pid": 2632492,
+          "prev_pid": 2687633,
+          "next_pid": 2687707,
           "prev_request": {
             "index": 6,
             "kind": "main",
@@ -355,8 +355,8 @@
             "ok": false,
             "index": 1,
             "appended": 2,
-            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t3\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740347365, \"duration\": 0.19011399999999412, \"complete",
-            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t3\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740347365, \"duration\": 0.19011399999999412, \"complete",
+            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t3\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741693839, \"duration\": 0.1800540000001547, \"completed",
+            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t3\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741693839, \"duration\": 0.1800540000001547, \"completed",
             "field_diff": [
               "errorId"
             ]
@@ -380,8 +380,8 @@
         {
           "prev_phase": "resume2",
           "next_phase": "resume3",
-          "prev_pid": 2632492,
-          "next_pid": 2632564,
+          "prev_pid": 2687707,
+          "next_pid": 2687773,
           "prev_request": {
             "index": 5,
             "kind": "main",
@@ -414,8 +414,8 @@
             "ok": false,
             "index": 1,
             "appended": 2,
-            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r2\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740348544, \"duration\": 0.20903599999996914, \"complete",
-            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r2\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740348544, \"duration\": 0.20903599999996914, \"complete",
+            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r2\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741695018, \"duration\": 0.21121299999981602, \"complete",
+            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r2\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741695018, \"duration\": 0.21121299999981602, \"complete",
             "field_diff": [
               "errorId"
             ]
@@ -448,9 +448,9 @@
               "nativeCompactionRequests": 0,
               "preserveKeys": [],
               "summaryHead": "## Goal\nOffline soft summary for live-compaction.\n## Progress\nTurns recorded.\n\n---\n\n**Turn Context (split turn):**\n\n## G",
-              "firstKeptEntryId": "877b7a2b",
+              "firstKeptEntryId": "d75b0afe",
               "result": {
-                "firstKeptEntryId": "877b7a2b",
+                "firstKeptEntryId": "d75b0afe",
                 "tokensBefore": 0,
                 "summaryHead": "## Goal\nOffline soft summary for live-compaction.\n## Progress\nTurns recorded.\n\n---\n\n**Turn Context (split turn):**\n\n## G"
               },
@@ -477,9 +477,9 @@
               "nativeCompactionRequests": 0,
               "preserveKeys": [],
               "summaryHead": "## Goal\nOffline soft summary for resume2-compaction.\n## Progress\nTurns recorded.\n\n---\n\n**Turn Context (split turn):**\n\n#",
-              "firstKeptEntryId": "227ea78f",
+              "firstKeptEntryId": "7383eb04",
               "result": {
-                "firstKeptEntryId": "227ea78f",
+                "firstKeptEntryId": "7383eb04",
                 "tokensBefore": 0,
                 "summaryHead": "## Goal\nOffline soft summary for resume2-compaction.\n## Progress\nTurns recorded.\n\n---\n\n**Turn Context (split turn):**\n\n#"
               },
@@ -511,10 +511,10 @@
         {
           "phase": "live",
           "error": null,
-          "pid": 2632655,
+          "pid": 2687838,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"snapcompact\",\"phase\":\"live\",\"pid\":2632655,\"requests\":4,\"chain\":4,\"turns\":4,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"snapcompact\",\"phase\":\"live\",\"pid\":2687838,\"requests\":4,\"chain\":4,\"turns\":4,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 4,
             "conversation_with_audit": 4,
@@ -534,10 +534,10 @@
         {
           "phase": "resume2",
           "error": null,
-          "pid": 2632724,
+          "pid": 2687918,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"snapcompact\",\"phase\":\"resume2\",\"pid\":2632724,\"requests\":3,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"snapcompact\",\"phase\":\"resume2\",\"pid\":2687918,\"requests\":3,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 3,
             "conversation_with_audit": 3,
@@ -557,10 +557,10 @@
         {
           "phase": "resume3",
           "error": null,
-          "pid": 2632797,
+          "pid": 2687987,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"snapcompact\",\"phase\":\"resume3\",\"pid\":2632797,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"snapcompact\",\"phase\":\"resume3\",\"pid\":2687987,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 2,
             "conversation_with_audit": 2,
@@ -581,8 +581,8 @@
         {
           "prev_phase": "live",
           "next_phase": "resume2",
-          "prev_pid": 2632655,
-          "next_pid": 2632724,
+          "prev_pid": 2687838,
+          "next_pid": 2687918,
           "prev_request": {
             "index": 3,
             "kind": "main",
@@ -615,8 +615,8 @@
             "ok": false,
             "index": 1,
             "appended": 2,
-            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t3\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740351296, \"duration\": 0.40216099999997823, \"complete",
-            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t3\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740351296, \"duration\": 0.40216099999997823, \"complete",
+            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t3\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741697375, \"duration\": 0.35939600000006067, \"complete",
+            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t3\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741697375, \"duration\": 0.35939600000006067, \"complete",
             "field_diff": [
               "errorId"
             ]
@@ -640,8 +640,8 @@
         {
           "prev_phase": "resume2",
           "next_phase": "resume3",
-          "prev_pid": 2632724,
-          "next_pid": 2632797,
+          "prev_pid": 2687918,
+          "next_pid": 2687987,
           "prev_request": {
             "index": 2,
             "kind": "main",
@@ -674,8 +674,8 @@
             "ok": false,
             "index": 1,
             "appended": 2,
-            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r2\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740352768, \"duration\": 0.32597000000009757, \"complete",
-            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r2\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740352768, \"duration\": 0.32597000000009757, \"complete",
+            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r2\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741698916, \"duration\": 0.6683259999999791, \"completed",
+            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack r2\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741698916, \"duration\": 0.6683259999999791, \"completed",
             "field_diff": [
               "errorId"
             ]
@@ -710,9 +710,9 @@
                 "snapcompact"
               ],
               "summaryHead": "Resume prior conversation. Earlier turns archived under HISTORY below, oldest→newest. Read HISTORY fully; continue the l",
-              "firstKeptEntryId": "604d08d9",
+              "firstKeptEntryId": "b85b9834",
               "result": {
-                "firstKeptEntryId": "604d08d9",
+                "firstKeptEntryId": "b85b9834",
                 "tokensBefore": 0,
                 "summaryHead": "Resume prior conversation. Earlier turns archived under HISTORY below, oldest→newest. Read HISTORY fully; continue the l"
               },
@@ -728,9 +728,9 @@
                 "snapcompact"
               ],
               "summaryHead": "Resume prior conversation. Earlier turns archived under HISTORY below, oldest→newest. Read HISTORY fully; continue the l",
-              "firstKeptEntryId": "4246c48b",
+              "firstKeptEntryId": "8d9d76b0",
               "result": {
-                "firstKeptEntryId": "4246c48b",
+                "firstKeptEntryId": "8d9d76b0",
                 "tokensBefore": 0,
                 "summaryHead": "Resume prior conversation. Earlier turns archived under HISTORY below, oldest→newest. Read HISTORY fully; continue the l"
               },
@@ -749,10 +749,10 @@
         {
           "phase": "live",
           "error": null,
-          "pid": 2632862,
+          "pid": 2688053,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"remote-anthropic\",\"phase\":\"live\",\"pid\":2632862,\"requests\":5,\"chain\":4,\"turns\":4,\"fetchAttempts\":0,\"fixtureHits\":5,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"remote-anthropic\",\"phase\":\"live\",\"pid\":2688053,\"requests\":5,\"chain\":4,\"turns\":4,\"fetchAttempts\":0,\"fixtureHits\":5,\"diverged\":0}",
           "audits": {
             "conversation_requests": 5,
             "conversation_with_audit": 5,
@@ -772,10 +772,10 @@
         {
           "phase": "resume2",
           "error": null,
-          "pid": 2632964,
+          "pid": 2688189,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"remote-anthropic\",\"phase\":\"resume2\",\"pid\":2632964,\"requests\":4,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":4,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"remote-anthropic\",\"phase\":\"resume2\",\"pid\":2688189,\"requests\":4,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":4,\"diverged\":0}",
           "audits": {
             "conversation_requests": 4,
             "conversation_with_audit": 4,
@@ -795,10 +795,10 @@
         {
           "phase": "resume3",
           "error": null,
-          "pid": 2633031,
+          "pid": 2688257,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"remote-anthropic\",\"phase\":\"resume3\",\"pid\":2633031,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":2,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"remote-anthropic\",\"phase\":\"resume3\",\"pid\":2688257,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":2,\"diverged\":0}",
           "audits": {
             "conversation_requests": 2,
             "conversation_with_audit": 2,
@@ -819,8 +819,8 @@
         {
           "prev_phase": "live",
           "next_phase": "resume2",
-          "prev_pid": 2632862,
-          "next_pid": 2632964,
+          "prev_pid": 2688053,
+          "next_pid": 2688189,
           "prev_request": {
             "index": 4,
             "kind": "turn",
@@ -867,8 +867,8 @@
         {
           "prev_phase": "resume2",
           "next_phase": "resume3",
-          "prev_pid": 2632964,
-          "next_pid": 2633031,
+          "prev_pid": 2688189,
+          "next_pid": 2688257,
           "prev_request": {
             "index": 3,
             "kind": "turn",
@@ -925,7 +925,7 @@
                 "anthropicCompaction"
               ],
               "result": {
-                "firstKeptEntryId": "1b129565",
+                "firstKeptEntryId": "0617d11a",
                 "tokensBefore": 1246,
                 "summaryHead": "## Goal\nOffline remote compaction summary (stress-b).\n## Progress\nTurns recorded."
               },
@@ -952,7 +952,7 @@
                 "anthropicCompaction"
               ],
               "result": {
-                "firstKeptEntryId": "697037e0",
+                "firstKeptEntryId": "a02233dd",
                 "tokensBefore": 1246,
                 "summaryHead": "## Goal\nOffline remote compaction summary (stress-b).\n## Progress\nTurns recorded."
               },
@@ -983,10 +983,10 @@
         {
           "phase": "live",
           "error": null,
-          "pid": 2633097,
+          "pid": 2688322,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"remote-codex\",\"phase\":\"live\",\"pid\":2633097,\"requests\":5,\"chain\":4,\"turns\":4,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"remote-codex\",\"phase\":\"live\",\"pid\":2688322,\"requests\":5,\"chain\":4,\"turns\":4,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 5,
             "conversation_with_audit": 5,
@@ -1006,10 +1006,10 @@
         {
           "phase": "resume2",
           "error": null,
-          "pid": 2633193,
+          "pid": 2688422,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"remote-codex\",\"phase\":\"resume2\",\"pid\":2633193,\"requests\":4,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"remote-codex\",\"phase\":\"resume2\",\"pid\":2688422,\"requests\":4,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 4,
             "conversation_with_audit": 4,
@@ -1029,10 +1029,10 @@
         {
           "phase": "resume3",
           "error": null,
-          "pid": 2633272,
+          "pid": 2688486,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"remote-codex\",\"phase\":\"resume3\",\"pid\":2633272,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"remote-codex\",\"phase\":\"resume3\",\"pid\":2688486,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 2,
             "conversation_with_audit": 2,
@@ -1053,8 +1053,8 @@
         {
           "prev_phase": "live",
           "next_phase": "resume2",
-          "prev_pid": 2633097,
-          "next_pid": 2633193,
+          "prev_pid": 2688322,
+          "next_pid": 2688422,
           "prev_request": {
             "index": 4,
             "kind": "turn",
@@ -1096,8 +1096,8 @@
         {
           "prev_phase": "resume2",
           "next_phase": "resume3",
-          "prev_pid": 2633193,
-          "next_pid": 2633272,
+          "prev_pid": 2688422,
+          "next_pid": 2688486,
           "prev_request": {
             "index": 3,
             "kind": "turn",
@@ -1149,7 +1149,7 @@
                 "openaiRemoteCompaction"
               ],
               "result": {
-                "firstKeptEntryId": "9a27e0c1",
+                "firstKeptEntryId": "7618bb4a",
                 "tokensBefore": 1237,
                 "summaryHead": "Remote compaction preserved provider-native history for this session."
               },
@@ -1178,7 +1178,7 @@
                 "openaiRemoteCompaction"
               ],
               "result": {
-                "firstKeptEntryId": "28ec0fe9",
+                "firstKeptEntryId": "7d2b6f1c",
                 "tokensBefore": 1237,
                 "summaryHead": "Remote compaction preserved provider-native history for this session."
               },
@@ -1211,10 +1211,10 @@
         {
           "phase": "live",
           "error": null,
-          "pid": 2633340,
+          "pid": 2688566,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"ladder\",\"phase\":\"live\",\"pid\":2633340,\"requests\":10,\"chain\":7,\"turns\":7,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"ladder\",\"phase\":\"live\",\"pid\":2688566,\"requests\":10,\"chain\":7,\"turns\":7,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 7,
             "conversation_with_audit": 7,
@@ -1245,10 +1245,10 @@
         {
           "phase": "resume",
           "error": null,
-          "pid": 2633411,
+          "pid": 2688638,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"ladder\",\"phase\":\"resume\",\"pid\":2633411,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"ladder\",\"phase\":\"resume\",\"pid\":2688638,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 2,
             "conversation_with_audit": 2,
@@ -1269,8 +1269,8 @@
         {
           "prev_phase": "live",
           "next_phase": "resume",
-          "prev_pid": 2633340,
-          "next_pid": 2633411,
+          "prev_pid": 2688566,
+          "next_pid": 2688638,
           "prev_request": {
             "index": 9,
             "kind": "main",
@@ -1303,8 +1303,8 @@
             "ok": false,
             "index": 1,
             "appended": 2,
-            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 6\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740362634, \"duration\": 0.21994999999992615, \"completed",
-            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 6\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740362634, \"duration\": 0.21994999999992615, \"completed",
+            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 6\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741708704, \"duration\": 0.35216399999990244, \"completed",
+            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 6\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741708704, \"duration\": 0.35216399999990244, \"completed",
             "field_diff": [
               "errorId"
             ]
@@ -1346,7 +1346,7 @@
               "nativeCompactionRequests": 0,
               "preserveKeys": [],
               "summaryHead": "## Goal\nOffline soft summary for ladder-first.\n## Progress\nTurns recorded.\n\n---\n\n**Turn Context (split turn):**\n\n## Goal",
-              "firstKeptEntryId": "b9296b27",
+              "firstKeptEntryId": "ebb9f3c3",
               "trace": [
                 {
                   "k": "summarize.request",
@@ -1371,7 +1371,7 @@
                 "snapcompact"
               ],
               "summaryHead": "Resume prior conversation. Earlier turns archived under HISTORY below, oldest→newest. Read HISTORY fully; continue the l",
-              "firstKeptEntryId": "2f09afeb",
+              "firstKeptEntryId": "9a25a368",
               "trace": []
             }
           ],
@@ -1388,10 +1388,10 @@
         {
           "phase": "live",
           "error": null,
-          "pid": 2633505,
+          "pid": 2688714,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"branch\",\"phase\":\"live\",\"pid\":2633505,\"requests\":6,\"chain\":6,\"turns\":5,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"branch\",\"phase\":\"live\",\"pid\":2688714,\"requests\":6,\"chain\":6,\"turns\":5,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 6,
             "conversation_with_audit": 6,
@@ -1411,10 +1411,10 @@
         {
           "phase": "resume",
           "error": null,
-          "pid": 2633576,
+          "pid": 2688784,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"branch\",\"phase\":\"resume\",\"pid\":2633576,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"branch\",\"phase\":\"resume\",\"pid\":2688784,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 2,
             "conversation_with_audit": 2,
@@ -1435,8 +1435,8 @@
         {
           "prev_phase": "live",
           "next_phase": "resume",
-          "prev_pid": 2633505,
-          "next_pid": 2633576,
+          "prev_pid": 2688714,
+          "next_pid": 2688784,
           "prev_request": {
             "index": 5,
             "kind": "main",
@@ -1469,8 +1469,8 @@
             "ok": false,
             "index": 1,
             "appended": 2,
-            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740365282, \"duration\": 1.0084999999999127, \"completed",
-            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740365282, \"duration\": 1.0084999999999127, \"completed",
+            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741711246, \"duration\": 0.967258000000129, \"completedA",
+            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741711246, \"duration\": 0.967258000000129, \"completedA",
             "field_diff": [
               "errorId"
             ]
@@ -1495,9 +1495,9 @@
       "checks": {
         "proof": {
           "branch": {
-            "targetId": "5b3555d9",
-            "oldLeafId": "9ee17310",
-            "newLeafId": "53c50376",
+            "targetId": "6d186f61",
+            "oldLeafId": "022699ec",
+            "newLeafId": "18aa74f1",
             "cancelled": false,
             "entryTypes": [
               "model_change",
@@ -1528,10 +1528,10 @@
         {
           "phase": "live",
           "error": null,
-          "pid": 2633681,
+          "pid": 2688880,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"branch-summary\",\"phase\":\"live\",\"pid\":2633681,\"requests\":7,\"chain\":6,\"turns\":5,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"branch-summary\",\"phase\":\"live\",\"pid\":2688880,\"requests\":7,\"chain\":6,\"turns\":5,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 6,
             "conversation_with_audit": 6,
@@ -1551,10 +1551,10 @@
         {
           "phase": "resume",
           "error": null,
-          "pid": 2633756,
+          "pid": 2688966,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"branch-summary\",\"phase\":\"resume\",\"pid\":2633756,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"branch-summary\",\"phase\":\"resume\",\"pid\":2688966,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 2,
             "conversation_with_audit": 2,
@@ -1575,8 +1575,8 @@
         {
           "prev_phase": "live",
           "next_phase": "resume",
-          "prev_pid": 2633681,
-          "next_pid": 2633756,
+          "prev_pid": 2688880,
+          "next_pid": 2688966,
           "prev_request": {
             "index": 6,
             "kind": "main",
@@ -1609,8 +1609,8 @@
             "ok": false,
             "index": 1,
             "appended": 2,
-            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740367630, \"duration\": 1.0134749999999713, \"completed",
-            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740367630, \"duration\": 1.0134749999999713, \"completed",
+            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741713595, \"duration\": 1.0286000000000968, \"completed",
+            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack t1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741713595, \"duration\": 1.0286000000000968, \"completed",
             "field_diff": [
               "errorId"
             ]
@@ -1635,11 +1635,11 @@
       "checks": {
         "proof": {
           "branch": {
-            "targetId": "325e5758",
-            "oldLeafId": "053248d8",
-            "newLeafId": "0f2a0af3",
+            "targetId": "515c8a14",
+            "oldLeafId": "a2f6f8bd",
+            "newLeafId": "ece69a7b",
             "cancelled": false,
-            "summaryEntryId": "0f2a0af3",
+            "summaryEntryId": "ece69a7b",
             "entryTypes": [
               "model_change",
               "thinking_level_change",
@@ -1670,10 +1670,10 @@
         {
           "phase": "live",
           "error": null,
-          "pid": 2633823,
+          "pid": 2689032,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"sessionswitch\",\"phase\":\"live\",\"pid\":2633823,\"requests\":4,\"chain\":4,\"turns\":4,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"sessionswitch\",\"phase\":\"live\",\"pid\":2689032,\"requests\":4,\"chain\":4,\"turns\":4,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 4,
             "conversation_with_audit": 4,
@@ -1692,10 +1692,10 @@
         {
           "phase": "resume",
           "error": null,
-          "pid": 2633892,
+          "pid": 2689099,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"sessionswitch\",\"phase\":\"resume\",\"pid\":2633892,\"requests\":1,\"chain\":1,\"turns\":1,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"sessionswitch\",\"phase\":\"resume\",\"pid\":2689099,\"requests\":1,\"chain\":1,\"turns\":1,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 1,
             "conversation_with_audit": 1,
@@ -1714,8 +1714,8 @@
         {
           "prev_phase": "live",
           "next_phase": "resume",
-          "prev_pid": 2633823,
-          "next_pid": 2633892,
+          "prev_pid": 2689032,
+          "next_pid": 2689099,
           "prev_request": {
             "index": 3,
             "kind": "main",
@@ -1748,8 +1748,8 @@
             "ok": false,
             "index": 1,
             "appended": 2,
-            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740369959, \"duration\": 0.9928290000000288, \"completedA",
-            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740369959, \"duration\": 0.9928290000000288, \"completedA",
+            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741715931, \"duration\": 1.020755999999892, \"completedAt",
+            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741715931, \"duration\": 1.020755999999892, \"completedAt",
             "field_diff": [
               "errorId"
             ]
@@ -1774,8 +1774,8 @@
       "checks": {
         "proof": {
           "reload": {
-            "beforeLeafId": "c4e1dfe3",
-            "afterLeafId": "c4e1dfe3",
+            "beforeLeafId": "edd81363",
+            "afterLeafId": "edd81363",
             "entries": 8
           }
         },
@@ -1790,10 +1790,10 @@
         {
           "phase": "live",
           "error": null,
-          "pid": 2633955,
+          "pid": 2689169,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"supersede\",\"phase\":\"live\",\"pid\":2633955,\"requests\":5,\"chain\":5,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"supersede\",\"phase\":\"live\",\"pid\":2689169,\"requests\":5,\"chain\":5,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 5,
             "conversation_with_audit": 5,
@@ -1813,10 +1813,10 @@
         {
           "phase": "resume",
           "error": null,
-          "pid": 2634024,
+          "pid": 2689240,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"supersede\",\"phase\":\"resume\",\"pid\":2634024,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"supersede\",\"phase\":\"resume\",\"pid\":2689240,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 2,
             "conversation_with_audit": 2,
@@ -1837,8 +1837,8 @@
         {
           "prev_phase": "live",
           "next_phase": "resume",
-          "prev_pid": 2633955,
-          "next_pid": 2634024,
+          "prev_pid": 2689169,
+          "next_pid": 2689240,
           "prev_request": {
             "index": 4,
             "kind": "main",
@@ -1900,13 +1900,13 @@
           "supersede": {
             "targetFile": "/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work/supersede-target.txt",
             "fileAfter": "alpha\ngamma\ndelta\n",
-            "now": 1790747572369,
-            "lastMessageTimestamp": 1790747572364,
-            "idleDeltaMs": 5,
+            "now": 1790748918382,
+            "lastMessageTimestamp": 1790748918381,
+            "idleDeltaMs": 1,
             "pruneIdleFlushMs": 5400000,
             "prunedEntries": [
               {
-                "id": "158bd0ee",
+                "id": "a65d3ef7",
                 "index": 5,
                 "content": "[{\"type\":\"text\",\"text\":\"[Superseded by a newer read of this file]\"}]"
               }
@@ -1928,14 +1928,14 @@
                 "type": "message",
                 "role": "user",
                 "prunedAt": null,
-                "timestamp": 1790740372188,
+                "timestamp": 1790741718218,
                 "head": "[{\"type\":\"text\",\"text\":\"First read of the target file.\"}]"
               },
               {
                 "type": "message",
                 "role": "assistant",
                 "prunedAt": null,
-                "timestamp": 1790740372245,
+                "timestamp": 1790741718275,
                 "head": "[{\"type\":\"toolCall\",\"id\":\"probe-tc-1\",\"name\":\"read\",\"argumen"
               },
               {
@@ -1948,29 +1948,29 @@
                 "type": "message",
                 "role": "toolResult",
                 "toolName": "read",
-                "prunedAt": 1790747572342,
-                "timestamp": 1790740372263,
+                "prunedAt": 1790748918370,
+                "timestamp": 1790741718295,
                 "head": "[{\"type\":\"text\",\"text\":\"[Superseded by a newer read of this "
               },
               {
                 "type": "message",
                 "role": "assistant",
                 "prunedAt": null,
-                "timestamp": 1790740372268,
+                "timestamp": 1790741718299,
                 "head": "[{\"type\":\"text\",\"text\":\"ack t1\"}]"
               },
               {
                 "type": "message",
                 "role": "user",
                 "prunedAt": null,
-                "timestamp": 1790740372275,
+                "timestamp": 1790741718306,
                 "head": "[{\"type\":\"text\",\"text\":\"Second read of the target file.\"}]"
               },
               {
                 "type": "message",
                 "role": "assistant",
                 "prunedAt": null,
-                "timestamp": 1790740372282,
+                "timestamp": 1790741718312,
                 "head": "[{\"type\":\"toolCall\",\"id\":\"probe-tc-2\",\"name\":\"edit\",\"argumen"
               },
               {
@@ -1984,7 +1984,7 @@
                 "role": "toolResult",
                 "toolName": "edit",
                 "prunedAt": null,
-                "timestamp": 1790740372313,
+                "timestamp": 1790741718340,
                 "head": "[{\"type\":\"text\",\"text\":\"[/home/chris/.cache/omp-1844-upgrade"
               },
               {
@@ -1998,28 +1998,28 @@
                 "role": "toolResult",
                 "toolName": "read",
                 "prunedAt": null,
-                "timestamp": 1790740372314,
+                "timestamp": 1790741718342,
                 "head": "[{\"type\":\"text\",\"text\":\"alpha\\ngamma\\ndelta\"}]"
               },
               {
                 "type": "message",
                 "role": "assistant",
                 "prunedAt": null,
-                "timestamp": 1790740372315,
+                "timestamp": 1790741718344,
                 "head": "[{\"type\":\"text\",\"text\":\"ack t2\"}]"
               },
               {
                 "type": "message",
                 "role": "user",
                 "prunedAt": null,
-                "timestamp": 1790747572348,
+                "timestamp": 1790748918373,
                 "head": "[{\"type\":\"text\",\"text\":\"Marker observation turn.\"}]"
               },
               {
                 "type": "message",
                 "role": "assistant",
                 "prunedAt": null,
-                "timestamp": 1790747572364,
+                "timestamp": 1790748918381,
                 "head": "[{\"type\":\"text\",\"text\":\"ack t3\"}]"
               }
             ],
@@ -2032,7 +2032,7 @@
                     "path": "/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work/supersede-target.txt"
                   }
                 },
-                "prunedAt": 1790747572342
+                "prunedAt": 1790748918370
               },
               {
                 "toolCallId": "probe-tc-2",
@@ -2095,10 +2095,10 @@
         {
           "phase": "live",
           "error": null,
-          "pid": 2634087,
+          "pid": 2689305,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"dateroll\",\"phase\":\"live\",\"pid\":2634087,\"requests\":3,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"dateroll\",\"phase\":\"live\",\"pid\":2689305,\"requests\":3,\"chain\":3,\"turns\":3,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 3,
             "conversation_with_audit": 3,
@@ -2117,10 +2117,10 @@
         {
           "phase": "resume",
           "error": null,
-          "pid": 2634157,
+          "pid": 2689404,
           "fetchAttempts": 0,
           "tail": null,
-          "stdout": "{\"scenario\":\"dateroll\",\"phase\":\"resume\",\"pid\":2634157,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
+          "stdout": "{\"scenario\":\"dateroll\",\"phase\":\"resume\",\"pid\":2689404,\"requests\":2,\"chain\":2,\"turns\":2,\"fetchAttempts\":0,\"fixtureHits\":0,\"diverged\":0}",
           "audits": {
             "conversation_requests": 2,
             "conversation_with_audit": 2,
@@ -2141,8 +2141,8 @@
         {
           "prev_phase": "live",
           "next_phase": "resume",
-          "prev_pid": 2634087,
-          "next_pid": 2634157,
+          "prev_pid": 2689305,
+          "next_pid": 2689404,
           "prev_request": {
             "index": 2,
             "kind": "main",
@@ -2175,8 +2175,8 @@
             "ok": false,
             "index": 1,
             "appended": 2,
-            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740374614, \"duration\": 0.9718089999998938, \"completedA",
-            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790740374614, \"duration\": 0.9718089999998938, \"completedA",
+            "previous": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741720669, \"duration\": 0.9730789999998706, \"completedA",
+            "resumed": "{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"ack 1\"}], \"api\": \"mock\", \"provider\": \"stress-fixture\", \"model\": \"stress-model\", \"usage\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"totalTokens\": 0, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1790741720669, \"duration\": 0.9730789999998706, \"completedA",
             "field_diff": [
               "errorId"
             ]
@@ -2205,17 +2205,17 @@
               "phase": "live",
               "clock": {
                 "offsetMs": 0,
-                "iso": "2026-09-30T03:52:54.641Z"
+                "iso": "2026-09-30T04:15:20.695Z"
               },
-              "extraDate": "2026-09-29"
+              "extraDate": "2026-09-30"
             },
             {
               "phase": "resume",
               "clock": {
                 "offsetMs": 86400000,
-                "iso": "2026-10-01T03:52:55.744Z"
+                "iso": "2026-10-01T04:15:21.823Z"
               },
-              "extraDate": "2026-09-30"
+              "extraDate": "2026-10-01"
             }
           ],
           "stamps": {
@@ -2225,7 +2225,7 @@
                 "stamps": [
                   {
                     "index": 0,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   }
                 ]
               },
@@ -2234,11 +2234,11 @@
                 "stamps": [
                   {
                     "index": 0,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   },
                   {
                     "index": 2,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   }
                 ]
               },
@@ -2247,15 +2247,15 @@
                 "stamps": [
                   {
                     "index": 0,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   },
                   {
                     "index": 2,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   },
                   {
                     "index": 4,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   }
                 ]
               }
@@ -2266,19 +2266,19 @@
                 "stamps": [
                   {
                     "index": 0,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   },
                   {
                     "index": 2,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   },
                   {
                     "index": 4,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   },
                   {
                     "index": 6,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-10-01; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   }
                 ]
               },
@@ -2287,41 +2287,41 @@
                 "stamps": [
                   {
                     "index": 0,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   },
                   {
                     "index": 2,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   },
                   {
                     "index": 4,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   },
                   {
                     "index": 6,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-10-01; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   },
                   {
                     "index": 8,
-                    "reminder": "<system-reminder>\\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
+                    "reminder": "<system-reminder>\\nToday: 2026-10-01; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\\n</system-reminder>"
                   }
                 ]
               }
             ]
           },
           "dateAnchors": {
-            "user:1790740374553:4611254438bd912a": "<system-reminder>\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\n</system-reminder>",
-            "user:1790740374625:c112c3f08173e8b1": "<system-reminder>\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\n</system-reminder>",
-            "user:1790740374635:0b8e3f4121f27736": "<system-reminder>\nToday: 2026-09-29; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\n</system-reminder>",
-            "user:1790826775666:69695ade4e3a642c": "<system-reminder>\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\n</system-reminder>",
-            "user:1790826775734:7883676d0e6304fe": "<system-reminder>\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\n</system-reminder>"
+            "user:1790741720610:4611254438bd912a": "<system-reminder>\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\n</system-reminder>",
+            "user:1790741720680:c112c3f08173e8b1": "<system-reminder>\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\n</system-reminder>",
+            "user:1790741720690:0b8e3f4121f27736": "<system-reminder>\nToday: 2026-09-30; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\n</system-reminder>",
+            "user:1790828121744:69695ade4e3a642c": "<system-reminder>\nToday: 2026-10-01; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\n</system-reminder>",
+            "user:1790828121813:7883676d0e6304fe": "<system-reminder>\nToday: 2026-10-01; current working directory: '/home/chris/.cache/omp-1844-upgrade/Full/home/stress-lab/work'. Do not repeat this information in your reply.\n</system-reminder>"
           },
           "liveDates": [
-            "2026-09-29"
+            "2026-09-30"
           ],
           "resumeDates": [
-            "2026-09-29",
-            "2026-09-30"
+            "2026-09-30",
+            "2026-10-01"
           ]
         },
         "failures": []
