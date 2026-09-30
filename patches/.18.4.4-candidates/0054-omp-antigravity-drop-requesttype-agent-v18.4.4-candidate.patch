@@ -1,0 +1,10 @@
+--- a/src/providers/google-gemini-cli.ts
++++ b/src/providers/google-gemini-cli.ts
+@@ -1407,7 +1407,6 @@
+ 			request,
+ 			model: wireModelId,
+ 			userAgent: "antigravity",
+-			requestType: "agent",
+ 		};
+ 	}
+ 

@@ -1,0 +1,59 @@
+--- a/src/session/session-advisors.ts
++++ b/src/session/session-advisors.ts
+@@ -124,6 +124,13 @@
+ import { cfgRetry, cfgTierAdvisor } from "./settings";
+ 
+ const ADVISOR_CODEX_SSE_MAX_ATTEMPTS = 1;
++/**
++ * How many consecutive same-provider quota rotations one advisor may treat as a
++ * recovery before the cross-provider fallback chain takes over. Two rows is the
++ * point where "the other account still has quota" stops being a plausible
++ * single-row exhaustion and starts being an upstream-wide rejection.
++ */
++const ADVISOR_USAGE_LIMIT_ROTATION_GRACE = 1;
+ 
+ /**
+  * Buffer added to a sibling credential's unblock deadline before the advisor
+@@ -286,6 +293,8 @@
+ 	providerSessionId: string | undefined;
+ 	retryFallback?: AdvisorRetryFallbackState;
+ 	retryFallbackPendingSuccess: boolean;
++	/** Same-provider quota rotations already granted to this advisor, bounded by {@link ADVISOR_USAGE_LIMIT_ROTATION_GRACE}. */
++	usageLimitRotations?: { provider: string; count: number };
+ 	/** Count of consecutive usage-limit block waits, bounded by retry.maxRetries; reset on turn success. */
+ 	usageLimitRetries: number;
+ 	signature: string;
+@@ -1347,6 +1356,9 @@
+ 					// Commit the delivered batch so retries of a failed turn stay deduped
+ 					// while this successful turn's context is persisted once (issue #9553).
+ 					advisorRef.recorder.commitTurn();
++					// A turn landed, so any quota-rotation grace spent on the way here
++					// was justified and must not carry into the next failure.
++					advisorRef.usageLimitRotations = undefined;
+ 					// A completed turn ended the usage-limit episode — start the next
+ 					// block's bounded wait budget fresh.
+ 					advisorRef.usageLimitRetries = 0;
+@@ -1761,7 +1773,22 @@
+ 					signal,
+ 				},
+ 			);
+-			if (outcome.switched) return true;
++			// Bound sibling credential rotation before trying cross-provider fallback.
++			if (outcome.switched) {
++				const rotating = advisor.usageLimitRotations;
++				if (rotating?.provider !== currentModel.provider) {
++					advisor.usageLimitRotations = { provider: currentModel.provider, count: 1 };
++					return true;
++				}
++				if (rotating.count < ADVISOR_USAGE_LIMIT_ROTATION_GRACE) {
++					rotating.count++;
++					return true;
++				}
++				// Grace exhausted: keep walking to the cross-provider chain.
++			} else {
++				// Nothing left to rotate within this provider.
++				advisor.usageLimitRotations = undefined;
++			}
+ 			usageRetryAtMs = outcome.retryAtMs;
+ 			usageBlockedUntilMs = outcome.blockedUntilMs;
+ 			usageRequestedBlockedUntilMs = outcome.requestedBlockedUntilMs;

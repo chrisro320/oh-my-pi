@@ -118,7 +118,7 @@ for (const stopReason of ["aborted", "error"] as const) {
 }
 
 const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-if (["18.3.3", "18.4.1"].includes(agentVersion)) {
+if (["18.3.3", "18.4.1", "18.4.4"].includes(agentVersion)) {
 	for (const stopReason of ["aborted", "error"] as const) {
 		for (const pairedResult of [false, true]) {
 			const interrupted = abortedEntry("a1", "u1", stopReason);
@@ -149,7 +149,7 @@ if (["18.3.3", "18.4.1"].includes(agentVersion)) {
 // the partial text and render the same bytes. The reminder's own text is read
 // from the real prompt asset inside this branch. Version-scoped: 18.3.3 has no
 // `handleCommittedTextStreamStall`, so an 18.3.3 tree keeps the assertions above.
-if (agentVersion === "18.4.1") {
+if (["18.4.1", "18.4.4"].includes(agentVersion)) {
 	// The committed-text stall continuation appends this exact template, rendered by
 	// `TurnRecovery.handleCommittedTextStreamStall` and persisted with it (patch
 	// 0077). Read the real asset so the fixture is the durable shape, not a copy.

@@ -504,7 +504,7 @@ assert.equal(
 //     public `context` extension chain, which may drop the summary).
 const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(agentVersion),
 	`unsupported prefix gate version: ${agentVersion}`,
 );
 // This helper belongs to the 18.1.18+ candidates, not the 18.1.14 carry-over

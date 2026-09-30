@@ -1,0 +1,142 @@
+--- a/snapcompact/src/snapcompact.ts
++++ b/snapcompact/src/snapcompact.ts
+@@ -255,6 +255,68 @@
+ 	return { ...base, ...familyBilling(family, base.frameSize) };
+ }
+ 
++/**
++ * Measured per-frame billing for model lines their wire `api` cannot express.
++ *
++ * `commandcode-custom` is ONE api shared by every model the Command Code
++ * gateway serves, so {@link billingFamily} prices all of them with the
++ * Anthropic pixel-area formula. That is right for the Claude routes it carries
++ * (Opus reads 1932px at 5,000) and a 3.3x-5.0x overcharge on the DeepSeek
++ * vision routes, which bill ~1,000/image above 1280px instead. The formula's
++ * 4784-patch cap makes the error grow with frame size: a 1568px frame is priced
++ * 3,293 against a measured 995 (+2,298), and a 2576px frame 5,024 against 1,011
++ * (+4,013). The overcharge lands on the reduction guard: the archived frames are
++ * priced thousands of tokens too high each, so a compaction that genuinely
++ * shrinks the request reads as "would not reduce context" and may be rejected
++ * back to an LLM summary.
++ *
++ * Keyed by EXACT model id, not by a provider prefix, because this vendor's
++ * per-image price is not uniform across a model line. The same 2026-09-10
++ * probe that measured 995 on the three ids below measured **6** on
++ * `deepseek/deepseek-v4-pro` and **0** on `deepseek/deepseek-v4-flash-fast`
++ * (both text-only in the catalog, so neither is reachable through
++ * snapcompact today -- but a `^deepseek/` prefix would silently price them at
++ * 995 if that ever changed). Ids absent here are unmeasured and keep the API
++ * family's formula: an invented number is worse than the formula it replaces.
++ *
++ * Entries are `[frameEdge, tokensPerFrame]` in ascending edge order; the last
++ * edge at or below the resolved frame size wins. A frame below the first
++ * measured edge counts as unmeasured. Every step is a measurement, and each
++ * value covers the sizes above it up to the next edge, and the final step also
++ * covers everything above it. The table is exact at the two sizes shipped
++ * variants reach (1568 and 2576, both measured) and conservative at the
++ * measured checkpoints inside the steps (2048 would bill 995 against a measured
++ * 993; 3584 would bill 1011 against 989). It is NOT an upper bound for
++ * unmeasured sizes above 2576 -- only measured points carry a guarantee.
++ */
++const DEEPSEEK_VISION_FRAME_TOKENS: ReadonlyArray<readonly [number, number]> = [
++	[256, 198],
++	[512, 198],
++	[768, 363],
++	[1024, 653],
++	[1280, 995],
++	[2576, 1011],
++];
++
++const MODEL_FRAME_TOKEN_STEPS: Readonly<Record<string, ReadonlyArray<readonly [number, number]>>> = {
++	"deepseek/deepseek-v4-flash-vision-exp": DEEPSEEK_VISION_FRAME_TOKENS,
++	"deepseek/deepseek-v4.1-flash": DEEPSEEK_VISION_FRAME_TOKENS,
++	"deepseek/deepseek-v4-flash": DEEPSEEK_VISION_FRAME_TOKENS,
++};
++
++/** Measured per-frame price for `modelId` at `frameSize`, or `undefined` when
++ *  the model line is unmeasured (keep the API family's formula). */
++function modelFrameTokenEstimate(modelId: string | undefined, frameSize: number): number | undefined {
++	if (!modelId) return undefined;
++	const steps = MODEL_FRAME_TOKEN_STEPS[modelId];
++	if (!steps) return undefined;
++	let tokens: number | undefined;
++	for (const [edge, price] of steps) {
++		if (frameSize >= edge) tokens = price;
++	}
++	return tokens;
++}
++
+ /** Eval-validated shapes, keyed by the provider family they won on. */
+ export const SHAPES = {
+ 	/** `11on16-bw`: 8x13 glyphs on an 11px advance (extra tracking), black ink.
+@@ -398,10 +460,17 @@
+  * eval-winning shape — and frame size — for its model line, falling back to
+  * the API family's winner when the model is unmeasured. Billing (token
+  * estimate, detail hint) always follows the API family actually carrying
+- * the request, computed for the resolved frame size. Accepts a full pi-ai
+- * `Model` or any `{ api, id }` subset.
++ * the request, computed for the resolved frame size -- except where
++ * {@link MODEL_FRAME_TOKEN_STEPS} carries a measurement the family formula
++ * cannot express. Accepts a full pi-ai `Model` or any `{ api, id }` subset.
+  */
+ export function resolveShape(model?: ShapeTarget, variant?: ShapeVariantName | "auto"): Shape {
++	const shape = resolveShapeBase(model, variant);
++	const measured = modelFrameTokenEstimate(model?.id, shape.frameSize);
++	return measured === undefined ? shape : { ...shape, frameTokenEstimate: measured };
++}
++
++function resolveShapeBase(model?: ShapeTarget, variant?: ShapeVariantName | "auto"): Shape {
+ 	const family = billingFamily(model?.api);
+ 	if (variant && variant !== "auto") return priceShape(SHAPE_VARIANTS[variant], family);
+ 	const ideal = model?.id ? idealShapeVariant(model.id) : undefined;
+@@ -605,6 +674,18 @@
+ 	"google-generative-ai": 200,
+ };
+ 
++/** Command Code provider id / wire-api namespace. The plugin mints one provider
++ *  id and one wire api per configured account (`commandcode` +
++ *  `commandcode-custom` for the primary, `commandcode-b` +
++ *  `commandcode-custom-b` for every alias added via `COMMANDCODE_ACCOUNTS`), so
++ *  the alias names are created at runtime and can never be enumerated in
++ *  {@link PROVIDER_IMAGE_BUDGETS}. They all reach the same gateway, so they
++ *  inherit its cap by namespace rather than falling to the floor of 5 -- where
++ *  {@link providerFrameBudget} would clamp the snapcompact archive to 5 frames.
++ *  The trailing separator keeps an unrelated `commandcodex...` id out. */
++const COMMAND_CODE_NAMESPACE = /^commandcode(?:[-_]|$)/;
++const COMMAND_CODE_IMAGE_BUDGET = 200;
++
+ /** Safe floor for unknown providers (strictest mainstream measured: Groq ~5). */
+ export const DEFAULT_PROVIDER_IMAGE_BUDGET = 5;
+ 
+@@ -613,12 +694,26 @@
+  *  (e.g. `google-antigravity` rides the `google-gemini-cli` api), and silently
+  *  dropping to the floor of 5 makes a single attached image evict the oldest
+  *  snapcompact archive frame -- rewriting `contents[0]` and voiding the whole
+- *  prompt-cache prefix. */
++ *  prompt-cache prefix.
++ *
++ *  The lookup order is provider id, then wire api, then the Command Code
++ *  namespace. The namespace sits LAST on purpose: an explicit `api` entry is a
++ *  measurement of the upstream that actually serves the request, so it must
++ *  keep outranking the gateway heuristic -- `commandcode-b` on
++ *  `anthropic-messages` stays at Anthropic's 90. Only names that would
++ *  otherwise fall to the floor are rescued. */
+ export function providerImageBudget(provider: string | undefined, api?: string | undefined): number {
+-	const byProvider = provider !== undefined ? PROVIDER_IMAGE_BUDGETS[provider] : undefined;
+-	if (byProvider !== undefined) return byProvider;
+-	const byApi = api !== undefined ? PROVIDER_IMAGE_BUDGETS[api] : undefined;
+-	return byApi ?? DEFAULT_PROVIDER_IMAGE_BUDGET;
++	if (provider !== undefined) {
++		const byProvider = PROVIDER_IMAGE_BUDGETS[provider];
++		if (byProvider !== undefined) return byProvider;
++	}
++	if (api !== undefined) {
++		const byApi = PROVIDER_IMAGE_BUDGETS[api];
++		if (byApi !== undefined) return byApi;
++	}
++	if (provider !== undefined && COMMAND_CODE_NAMESPACE.test(provider)) return COMMAND_CODE_IMAGE_BUDGET;
++	if (api !== undefined && COMMAND_CODE_NAMESPACE.test(api)) return COMMAND_CODE_IMAGE_BUDGET;
++	return DEFAULT_PROVIDER_IMAGE_BUDGET;
+ }
+ 
+ /** Archive frame cap for `provider`: image budget, never above {@link MAX_FRAMES_DEFAULT}. */

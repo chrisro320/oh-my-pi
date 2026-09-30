@@ -1,0 +1,955 @@
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -34,6 +34,9 @@
+ import { convertTools } from "@oh-my-pi/pi-ai/providers/openai-responses";
+ import { buildResponsesInput, resolveOpenAICompatPolicy } from "@oh-my-pi/pi-ai/providers/openai-shared";
+ import { stripOpenAIResponsesOutputOnlyStatusesForReplay } from "@oh-my-pi/pi-ai/utils";
++import { appendFileSync, writeFileSync } from "node:fs";
++import { homedir } from "node:os";
++import { join } from "node:path";
+ import { preferredDialect } from "@oh-my-pi/pi-catalog/identity";
+ import { clampThinkingLevelForModel } from "@oh-my-pi/pi-catalog/model-thinking";
+ import { isRecord, logger, prompt } from "@oh-my-pi/pi-utils";
+@@ -83,7 +86,9 @@
+ import compactionShortSummaryPrompt from "./prompts/compaction-short-summary.md" with { type: "text" };
+ import compactionSummaryPrompt from "./prompts/compaction-summary.md" with { type: "text" };
+ import compactionTurnPrefixPrompt from "./prompts/compaction-turn-prefix.md" with { type: "text" };
++import compactionTurnPrefixFromPrefixPrompt from "./prompts/compaction-turn-prefix-from-prefix.md" with { type: "text" };
+ import compactionUpdateSummaryPrompt from "./prompts/compaction-update-summary.md" with { type: "text" };
++import compactionUpdateSummaryFromPrefixPrompt from "./prompts/compaction-update-summary-from-prefix.md" with { type: "text" };
+ import handoffDocumentPrompt from "./prompts/handoff-document.md" with { type: "text" };
+ import snapcompactArchiveContextPrompt from "./prompts/snapcompact-archive-context.md" with { type: "text" };
+ 
+@@ -579,6 +584,7 @@
+ const SUMMARIZATION_PROMPT = prompt.render(compactionSummaryPrompt);
+ 
+ const UPDATE_SUMMARIZATION_PROMPT = prompt.render(compactionUpdateSummaryPrompt);
++const UPDATE_SUMMARIZATION_FROM_PREFIX_PROMPT = prompt.render(compactionUpdateSummaryFromPrefixPrompt);
+ 
+ const SHORT_SUMMARY_PROMPT = prompt.render(compactionShortSummaryPrompt);
+ 
+@@ -662,6 +668,12 @@
+ 	const message = response.errorMessage ?? "";
+ 	return /\btool_choice\b/i.test(message) && /\bauto\b/i.test(message) && /\bsupported\b/i.test(message);
+ }
++export type CachePreservingSummaryScope = "history" | "turn-prefix";
++export interface CachePreservingSummaryContext {
++	context: Context;
++	/** The verified live prefix already contains the prior compaction summary. */
++	previousSummaryInPrefix: boolean;
++}
+ 
+ /**
+  * Generate a summary of the conversation using the LLM.
+@@ -677,6 +689,16 @@
+ 	metadata?: Record<string, unknown>;
+ 	convertToLlm?: ConvertToLlm;
+ 	/**
++	 * Builds the active session's provider-ready prefix for this exact candidate
++	 * and logical summary scope. Return `undefined` when candidate, session, or
++	 * entry-boundary identity cannot be proven.
++	 */
++	buildCachePreservingContext?: (
++		scope: CachePreservingSummaryScope,
++		candidate: Model,
++		signal?: AbortSignal,
++	) => Promise<CachePreservingSummaryContext | undefined>;
++	/**
+ 	 * Optional telemetry handle. When provided, every LLM call emitted during
+ 	 * compaction is wrapped in an OTEL chat span tagged with
+ 	 * `omp.gen_ai.oneshot.kind` (`compaction_summary`, `compaction_short_summary`,
+@@ -868,23 +890,31 @@
+ ): Promise<string> {
+ 	const maxTokens = Math.min(Math.floor(0.8 * reserveTokens), MAX_SUMMARY_TOKENS);
+ 
+-	// Serialize conversation to text so model doesn't try to continue it
+-	// Convert to LLM messages first (handles custom app messages when caller provides a transformer).
+-	const llmMessages = (options?.convertToLlm ?? defaultConvertToLlm)(currentMessages);
++	// Target messages own summary semantics and window planning. The optional
++	// provider-ready Context is a distinct live wire prefix reconstructed by the
++	// owning session at a stable entry boundary.
++	const targetMessages = (options?.convertToLlm ?? defaultConvertToLlm)(currentMessages);
++	const cachePreservingSummary = !options?.remoteEndpoint
++		? await options?.buildCachePreservingContext?.("history", model, signal)
++		: undefined;
+ 	const dialect = preferredDialect(model.id);
+ 	const tokenizer = new Tokenizer(model);
+-	const wholeConversation = serializeConversationForSummary(llmMessages, dialect);
++	const wholeConversation = serializeConversationForSummary(targetMessages, dialect);
+ 	const budgetTokens = summaryInputBudgetTokens(model, maxTokens);
+-	// A span that outgrew the summarizer's window is summarized as a fold: each
+-	// window updates the summary carried out of the previous one, which is the
+-	// same contract the update prompt already implements for iterative
+-	// compaction. The alternative is a hard provider rejection on a prompt no
+-	// retry can shrink — the state a cross-provider compaction boundary
+-	// (see `prepareCompaction`) puts a long session into. One window is the
+-	// common case and costs exactly the one call it always did.
+ 	const pending: SummaryWindow[] = tokenizer.checkTokenBudget(wholeConversation, budgetTokens).fits
+-		? [{ messages: llmMessages, budgetTokens, text: wholeConversation }]
+-		: planSummaryWindows(llmMessages, tokenizer, dialect, budgetTokens).map(messages => ({ messages, budgetTokens }));
++		? [{ messages: targetMessages, budgetTokens, text: wholeConversation }]
++		: planSummaryWindows(targetMessages, tokenizer, dialect, budgetTokens).map(messages => ({
++				messages,
++				budgetTokens,
++			}));
++	const livePrefixFits =
++		cachePreservingSummary !== undefined &&
++		pending.length === 1 &&
++		tokenizer.checkTokenBudget(
++			serializeConversationForSummary(cachePreservingSummary.context.messages, dialect),
++			budgetTokens,
++		).fits;
++	let useCachePreservingPrefix = livePrefixFits;
+ 
+ 	let carriedSummary = previousSummary;
+ 	while (pending.length > 0) {
+@@ -904,6 +934,9 @@
+ 				signal,
+ 				customInstructions,
+ 				options,
++				budget.fits ? window.messages : undefined,
++				cachePreservingSummary,
++				useCachePreservingPrefix,
+ 			);
+ 		} catch (error) {
+ 			// The catalog window can overstate what the provider actually accepts:
+@@ -939,6 +972,88 @@
+ 	return carriedSummary ?? "";
+ }
+ 
++/**
++ * Records what the summarizer actually sent and what it cost, gated on
++ * `OMP_COMPACTION_TRACE` naming a file.
++ *
++ * This has to live inside compaction, not in an extension. Summarization runs
++ * through `completeSimple`, so the `before_provider_request` hook never fires
++ * for it, and wrapping `globalThis.fetch` does not help either: for
++ * `anthropic` + `anthropic-messages`, `defaultFetchForModel` returns the
++ * imported `coworkFetch`, which sends over `node:https` and bypasses the
++ * global entirely (see pi-ai `stream.ts` and `providers/cowork-fetch.ts`).
++ * Every out-of-band vantage point therefore reports nothing for exactly the
++ * model whose compaction cost matters most.
++ *
++ * Message count is the load-bearing field: the flattened `<conversation>`
++ * fallback always sends exactly ONE message, so it distinguishes the cheap
++ * path from the expensive one without relying on any provider's accounting.
++ */
++function traceCompaction(record: Record<string, unknown>): void {
++	if (process.env.OMP_COMPACTION_TRACE_OFF) return;
++	// On by default: a compaction happens a handful of times per session and
++	// writes two lines, while the question it answers -- did the summarizer take
++	// the cache-preserving path -- is otherwise unobservable after the fact. An
++	// opt-in flag only guarantees the trace is missing on the run that mattered.
++	const target = process.env.OMP_COMPACTION_TRACE ?? join(homedir(), ".omp", "agent", "compaction-trace.log");
++	try {
++		appendFileSync(target, `${JSON.stringify({ at: new Date().toISOString(), pid: process.pid, ...record })}\n`);
++	} catch {
++		// Diagnostics must never take down a compaction.
++	}
++}
++
++/**
++ * Dump the summary request's real wire payload.
++ *
++ * `completeSimple` bypasses `before_provider_request`, so extensions that
++ * archive outbound payloads never see this request -- the one request whose
++ * prefix mismatch (measured `cacheRead: 0`) is still unexplained. `onPayload`
++ * is the only hook that observes it after provider conversion, which is the
++ * layer a comparison against an archived live payload is valid at.
++ *
++ * Latest-only, overwritten each time: one file is enough to diff against the
++ * live turn, and these payloads are megabytes.
++ */
++function traceSummaryWirePayload(payload: unknown, modelId: string): void {
++	if (process.env.OMP_COMPACTION_TRACE_OFF) return;
++	try {
++		const target =
++			process.env.OMP_COMPACTION_PAYLOAD ?? join(homedir(), ".omp", "agent", "compaction-payload-latest.json");
++		writeFileSync(target, JSON.stringify(payload));
++		// Fingerprint the prefix in the trace too, so the shape survives even
++		// after the next compaction overwrites the payload file.
++		const bag = payload as { system?: unknown; messages?: unknown; tools?: unknown };
++		const system = Array.isArray(bag.system) ? bag.system : undefined;
++		const messages = Array.isArray(bag.messages) ? bag.messages : undefined;
++		const tools = Array.isArray(bag.tools) ? bag.tools : undefined;
++		traceCompaction({
++			k: "summarize.wire",
++			model: modelId,
++			file: target,
++			systemParts: system?.length,
++			// Lengths, not text: enough to tell "same prefix" from "different
++			// prefix" without copying the transcript into a log.
++			systemLengths: system?.map(part => {
++				const text = (part as { text?: unknown })?.text;
++				return typeof text === "string" ? text.length : null;
++			}),
++			messages: messages?.length,
++			toolNames: tools?.map(tool => (tool as { name?: unknown })?.name),
++			breakpoints: messages?.flatMap((message, index) => {
++				const content = (message as { content?: unknown }).content;
++				if (!Array.isArray(content)) return [];
++				return content.flatMap(block => {
++					const cc = (block as { cache_control?: { ttl?: string } }).cache_control;
++					return cc ? [`${index}:${cc.ttl ?? "5m"}`] : [];
++				});
++			}),
++		});
++	} catch {
++		// Diagnostics must never take down a compaction.
++	}
++}
++
+ /** One summarization call over a single conversation window. */
+ async function summarizeConversationWindow(
+ 	conversationText: string,
+@@ -949,9 +1064,19 @@
+ 	signal: AbortSignal | undefined,
+ 	customInstructions: string | undefined,
+ 	options: SummaryOptions | undefined,
++	windowMessages?: Message[],
++	cachePreservingSummary?: CachePreservingSummaryContext,
++	useCachePreservingPrefix = false,
+ ): Promise<string> {
+-	// Use update prompt if we have a previous summary, otherwise initial prompt
+-	let basePrompt = previousSummary ? UPDATE_SUMMARIZATION_PROMPT : SUMMARIZATION_PROMPT;
++	const priorSummaryComesFromPrefix =
++		useCachePreservingPrefix &&
++		cachePreservingSummary?.previousSummaryInPrefix === true &&
++		options?.promptOverride === undefined;
++	let basePrompt = previousSummary
++		? priorSummaryComesFromPrefix
++			? UPDATE_SUMMARIZATION_FROM_PREFIX_PROMPT
++			: UPDATE_SUMMARIZATION_PROMPT
++		: SUMMARIZATION_PROMPT;
+ 	if (options?.promptOverride) {
+ 		basePrompt = options.promptOverride;
+ 	}
+@@ -959,21 +1084,52 @@
+ 		basePrompt = `${basePrompt}\n\nAdditional focus: ${customInstructions}`;
+ 	}
+ 
+-	// Build the prompt with conversation wrapped in tags
+-	let promptText = `<conversation>\n${conversationText}\n</conversation>\n\n`;
+-	if (previousSummary) {
++	let promptText = "";
++	if (previousSummary && !priorSummaryComesFromPrefix) {
+ 		promptText += `<previous-summary>\n${escapeSummaryBoundaryTags(previousSummary)}\n</previous-summary>\n\n`;
+ 	}
+ 	promptText += formatAdditionalContext(options?.extraContext);
+ 	promptText += basePrompt;
+ 
+-	const summarizationMessages = [
+-		{
+-			role: "user" as const,
+-			content: [{ type: "text" as const, text: promptText }],
+-			timestamp: Date.now(),
+-		},
+-	];
++	// Target messages determine what is summarized. A verified live prefix is a
++	// separate wire concern: use it only when the full prefix fits this request.
++	// Multi-window folds keep provider-ready system/tools but use their target
++	// window and make no live-prefix cache claim.
++	const canUseStructuredContext =
++		!options?.remoteEndpoint &&
++		cachePreservingSummary !== undefined &&
++		Array.isArray(windowMessages) &&
++		windowMessages.length > 0;
++
++	let requestContext: Context;
++	let toolChoice: "none" | "auto" | undefined;
++
++	if (canUseStructuredContext) {
++		requestContext = {
++			...cachePreservingSummary.context,
++			messages: [
++				...(useCachePreservingPrefix ? cachePreservingSummary.context.messages : windowMessages),
++				{
++					role: "user" as const,
++					content: [{ type: "text" as const, text: promptText }],
++					timestamp: Date.now(),
++				},
++			],
++		};
++		toolChoice = "none";
++	} else {
++		const flatPrompt = `<conversation>\n${conversationText}\n</conversation>\n\n` + promptText;
++		requestContext = {
++			systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT],
++			messages: [
++				{
++					role: "user" as const,
++					content: [{ type: "text" as const, text: flatPrompt }],
++					timestamp: Date.now(),
++				},
++			],
++		};
++	}
+ 
+ 	if (options?.remoteEndpoint) {
+ 		const endpoint = options.remoteEndpoint;
+@@ -982,7 +1138,7 @@
+ 			key =>
+ 				requestRemoteCompaction(
+ 					endpoint,
+-					{ systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, prompt: promptText, maxTokens },
++					{ systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, prompt: `<conversation>\n${conversationText}\n</conversation>\n\n` + promptText, maxTokens },
+ 					signal,
+ 					{ fetch: options.fetch, model, apiKey: key },
+ 				),
+@@ -991,14 +1147,28 @@
+ 		return remote.summary;
+ 	}
+ 
+-	const response = await instrumentedCompleteSimple(
++	traceCompaction({
++		k: "summarize.request",
++		model: model.id,
++		structured: canUseStructuredContext,
++		messages: requestContext.messages.length,
++		systemParts: Array.isArray(requestContext.systemPrompt) ? requestContext.systemPrompt.length : 0,
++		tools: requestContext.tools?.length ?? 0,
++		toolChoice,
++		windowMessages: windowMessages?.length ?? 0,
++		hasCachePreservingContext: cachePreservingSummary !== undefined,
++		usesCachePreservingPrefix: useCachePreservingPrefix,
++	});
++
++	let response = await instrumentedCompleteSimple(
+ 		model,
+-		{ systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT], messages: summarizationMessages },
++		requestContext,
+ 		{
+ 			maxTokens,
+ 			signal,
+ 			apiKey,
+ 			reasoning: resolveCompactionEffort(model, options?.thinkingLevel),
++			toolChoice,
+ 			initiatorOverride: options?.initiatorOverride,
+ 			metadata: options?.metadata,
+ 			fetch: options?.fetch,
+@@ -1006,6 +1176,10 @@
+ 			promptCacheKey: options?.promptCacheKey,
+ 			providerSessionState: options?.providerSessionState,
+ 			codexCompaction: localCodexCompaction(options),
++			onPayload: payload => {
++				traceSummaryWirePayload(payload, model.id);
++				return undefined;
++			},
+ 		},
+ 		{
+ 			telemetry: options?.telemetry,
+@@ -1015,6 +1189,41 @@
+ 		},
+ 	);
+ 
++	if (response.stopReason === "error" && toolChoice === "none" && shouldRetryHandoffWithAutoToolChoice(response)) {
++		response = await instrumentedCompleteSimple(
++			model,
++			requestContext,
++			{
++				maxTokens,
++				signal,
++				apiKey,
++				reasoning: resolveCompactionEffort(model, options?.thinkingLevel),
++				toolChoice: "auto",
++				initiatorOverride: options?.initiatorOverride,
++				metadata: options?.metadata,
++				fetch: options?.fetch,
++				sessionId: options?.sessionId,
++				promptCacheKey: options?.promptCacheKey,
++				providerSessionState: options?.providerSessionState,
++				codexCompaction: localCodexCompaction(options),
++			},
++			{
++				telemetry: options?.telemetry,
++				oneshotKind: "compaction_summary",
++				completeImpl: options?.completeImpl,
++				retry: summaryOneshotRetry(options),
++			},
++		);
++	}
++
++	traceCompaction({
++		k: "summarize.usage",
++		model: model.id,
++		structured: canUseStructuredContext,
++		stopReason: response.stopReason,
++		usage: response.usage,
++	});
++
+ 	if (response.stopReason === "error") {
+ 		throw createSummarizationError("Summarization failed", response);
+ 	}
+@@ -1176,16 +1385,14 @@
+ 	options?: SummaryOptions,
+ ): Promise<string> {
+ 	const maxTokens = Math.min(512, Math.floor(0.2 * reserveTokens));
+-	const llmMessages = (options?.convertToLlm ?? defaultConvertToLlm)(recentMessages);
+-	const conversationText = serializeConversationForSummary(llmMessages, preferredDialect(model.id));
+-
+-	let promptText = `<conversation>\n${conversationText}\n</conversation>\n\n`;
++	let promptText: string;
+ 	if (historySummary) {
+-		promptText += `<previous-summary>\n${escapeSummaryBoundaryTags(historySummary)}\n</previous-summary>\n\n`;
++		promptText = `<summary>\n${escapeSummaryBoundaryTags(historySummary)}\n</summary>\n\n${SHORT_SUMMARY_PROMPT}`;
++	} else {
++		const llmMessages = (options?.convertToLlm ?? defaultConvertToLlm)(recentMessages);
++		const conversationText = serializeConversationForSummary(llmMessages, preferredDialect(model.id));
++		promptText = `<conversation>\n${conversationText}\n</conversation>\n\n` + formatAdditionalContext(options?.extraContext) + SHORT_SUMMARY_PROMPT;
+ 	}
+-	promptText += formatAdditionalContext(options?.extraContext);
+-	promptText += SHORT_SUMMARY_PROMPT;
+-
+ 	if (options?.remoteEndpoint) {
+ 		const endpoint = options.remoteEndpoint;
+ 		const remote = await withAuth(
+@@ -1248,8 +1455,12 @@
+ 	firstKeptEntryId: string;
+ 	/** Messages that will be summarized and discarded */
+ 	messagesToSummarize: AgentMessage[];
++	/** Stable session-entry leaf for the history summary's live provider prefix. */
++	historyPrefixEntryId?: string;
+ 	/** Messages that will be turned into turn prefix summary (if splitting) */
+ 	turnPrefixMessages: AgentMessage[];
++	/** Stable session-entry leaf for the discarded prefix of a split turn. */
++	turnPrefixEntryId?: string;
+ 	/** Messages kept in full after compaction (recent history) */
+ 	recentMessages: AgentMessage[];
+ 	/** Entry IDs parallel to recentMessages, for an Anthropic-safe keep-tail boundary. */
+@@ -1434,6 +1645,15 @@
+ 	const firstKeptEntryId = firstKeptEntry.id;
+ 
+ 	const historyEnd = cutPoint.isSplitTurn ? cutPoint.turnStartIndex : cutPoint.firstKeptEntryIndex;
++	// `historyEnd` and `firstKeptEntryIndex` index `compactionEntries` (which
++	// starts at `boundaryStart`), not `pathEntries`. 18.1.18 rewinds
++	// `boundaryStart` into the previous compaction's retained tail, so indexing
++	// `pathEntries` here picks the wrong leaf.
++	const historyPrefixEntryId = historyEnd > 0 ? compactionEntries[historyEnd - 1]?.id : undefined;
++	const turnPrefixEntryId =
++		cutPoint.isSplitTurn && cutPoint.firstKeptEntryIndex > 0
++			? compactionEntries[cutPoint.firstKeptEntryIndex - 1]?.id
++			: undefined;
+ 
+ 	const messagesToSummarize = compactionMessages.slice(0, historyEnd);
+ 	const turnPrefixMessages = cutPoint.isSplitTurn
+@@ -1463,7 +1683,9 @@
+ 	return {
+ 		firstKeptEntryId,
+ 		messagesToSummarize,
++		historyPrefixEntryId,
+ 		turnPrefixMessages,
++		turnPrefixEntryId,
+ 		recentMessages,
+ 		recentEntryIds,
+ 		isSplitTurn: cutPoint.isSplitTurn,
+@@ -1481,6 +1703,7 @@
+ // ============================================================================
+ 
+ const TURN_PREFIX_SUMMARIZATION_PROMPT = prompt.render(compactionTurnPrefixPrompt);
++const TURN_PREFIX_SUMMARIZATION_FROM_PREFIX_PROMPT = prompt.render(compactionTurnPrefixFromPrefixPrompt);
+ function isCodexResponsesModel(model: Model): model is Model<"openai-codex-responses"> {
+ 	return model.api === "openai-codex-responses";
+ }
+@@ -1603,7 +1826,10 @@
+ 	} = preparation;
+ 
+ 	const reserveTokens = settings.reserveTokens ?? DEFAULT_RESERVE_TOKENS;
+-
++	// Upstream 18.1.18 rewinds `boundaryStart` to the previous compaction's
++	// `firstKeptEntryId`, so its retained tail is already inside
++	// `messagesToSummarize`; no separate carry-over list is needed.
++	const historyTargetMessages = messagesToSummarize;
+ 	const summaryOptions: SummaryOptions = {
+ 		promptOverride: options?.promptOverride,
+ 		extraContext: options?.extraContext,
+@@ -1612,6 +1838,7 @@
+ 		initiatorOverride: options?.initiatorOverride,
+ 		metadata: options?.metadata,
+ 		convertToLlm: options?.convertToLlm,
++		buildCachePreservingContext: options?.buildCachePreservingContext,
+ 		telemetry: options?.telemetry,
+ 		// Honor /model thinking selection on every fan-out summarizer.
+ 		// Without this propagation, generateSummary / generateTurnPrefixSummary
+@@ -1967,9 +2194,9 @@
+ 	} else if (isSplitTurn && turnPrefixMessages.length > 0) {
+ 		// Generate both summaries in parallel
+ 		const [historyResult, turnPrefixResult] = await Promise.all([
+-			messagesToSummarize.length > 0 || previousSummaryForCompaction
++			historyTargetMessages.length > 0 || previousSummaryForCompaction
+ 				? generateSummary(
+-						messagesToSummarize,
++						historyTargetMessages,
+ 						model,
+ 						reserveTokens,
+ 						apiKey,
+@@ -1983,10 +2210,10 @@
+ 		]);
+ 		// Merge into single summary
+ 		summary = `${historyResult}\n\n---\n\n**Turn Context (split turn):**\n\n${turnPrefixResult}`;
+-	} else if (messagesToSummarize.length > 0) {
++	} else if (historyTargetMessages.length > 0) {
+ 		// Generate history summary from messages to summarize
+ 		summary = await generateSummary(
+-			messagesToSummarize,
++			historyTargetMessages,
+ 			model,
+ 			reserveTokens,
+ 			apiKey,
+@@ -2067,24 +2294,41 @@
+ 	const maxTokens = Math.min(Math.floor(0.5 * reserveTokens), MAX_SUMMARY_TOKENS); // Smaller budget for turn prefix
+ 
+ 	const llmMessages = (options?.convertToLlm ?? defaultConvertToLlm)(messages);
+-	const conversationText = serializeConversationForSummary(llmMessages, preferredDialect(model.id));
+-	const promptText = `<conversation>\n${conversationText}\n</conversation>\n\n${TURN_PREFIX_SUMMARIZATION_PROMPT}`;
+-	const summarizationMessages = [
+-		{
+-			role: "user" as const,
+-			content: [{ type: "text" as const, text: promptText }],
+-			timestamp: Date.now(),
+-		},
+-	];
++	const dialect = preferredDialect(model.id);
++	const conversationText = serializeConversationForSummary(llmMessages, dialect);
++	const cachePreservingSummary = !options?.remoteEndpoint
++		? await options?.buildCachePreservingContext?.("turn-prefix", model, signal)
++		: undefined;
++	const useCachePreservingPrefix =
++		cachePreservingSummary !== undefined &&
++		new Tokenizer(model).checkTokenBudget(
++			serializeConversationForSummary(cachePreservingSummary.context.messages, dialect),
++			summaryInputBudgetTokens(model, maxTokens),
++		).fits;
++	const promptText = useCachePreservingPrefix
++		? TURN_PREFIX_SUMMARIZATION_FROM_PREFIX_PROMPT
++		: `<conversation>\n${conversationText}\n</conversation>\n\n${TURN_PREFIX_SUMMARIZATION_PROMPT}`;
++	const summarizationTail = {
++		role: "user" as const,
++		content: [{ type: "text" as const, text: promptText }],
++		timestamp: Date.now(),
++	};
++	const requestContext: Context = useCachePreservingPrefix
++		? {
++				...cachePreservingSummary.context,
++				messages: [...cachePreservingSummary.context.messages, summarizationTail],
++			}
++		: { systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT], messages: [summarizationTail] };
+ 
+ 	const response = await instrumentedCompleteSimple(
+ 		model,
+-		{ systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT], messages: summarizationMessages },
++		requestContext,
+ 		{
+ 			maxTokens,
+ 			signal,
+ 			apiKey,
+ 			reasoning: resolveCompactionEffort(model, options?.thinkingLevel),
++			toolChoice: "none",
+ 			initiatorOverride: options?.initiatorOverride,
+ 			metadata: options?.metadata,
+ 			fetch: options?.fetch,
+--- /dev/null
++++ b/pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md
+@@ -0,0 +1,17 @@
++The final incomplete turn above is too large; its recent-work suffix will be retained separately.
++
++MUST summarize only that final turn prefix for the retained suffix:
++
++## Original Request
++
++[What did the user ask for in the final turn?]
++
++## Early Progress
++- [Key decisions and work completed in that final turn prefix]
++
++## Context for Suffix
++- [Information needed to understand the retained recent work]
++
++MUST output only the structured summary; NEVER extra text.
++
++MUST concise. MUST preserve exact file paths, function names, error messages, relevant tool outputs, and command results if present. MUST focus on information needed to understand the retained suffix.
+--- /dev/null
++++ b/pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md
+@@ -0,0 +1,44 @@
++Update the existing handoff summary in the first <summary> context block above using every subsequent message in this request for another LLM to resume.
++
++MUST:
++- preserve all existing summary information; add new progress, decisions, context.
++- Progress: move completed "In Progress" items to "Done".
++- update "Next Steps" for completed work.
++- preserve exact file paths, function names, error messages.
++- MAY remove irrelevant content.
++- If new messages end with an unanswered user question/request: add it to Critical Context; replace any previous pending question if answered.
++- output only the structured summary; NEVER extra text.
++- keep sections concise.
++- preserve relevant tool outputs/command results.
++- include mentioned repository state changes (branch, uncommitted changes).
++
++Format (omit inapplicable sections):
++
++## Goal
++[Preserve existing goals; add new ones if task expanded]
++
++## Constraints & Preferences
++- [Preserve existing; add new ones discovered]
++
++## Progress
++
++### Done
++- [x] [Include previously done and newly completed items]
++
++### In Progress
++- [ ] [Current work—update based on progress]
++
++### Blocked
++- [Current blockers—remove if resolved]
++
++## Key Decisions
++- **[Decision]**: [Brief rationale] (preserve all previous, add new)
++
++## Next Steps
++1. [Update based on current state]
++
++## Critical Context
++- [Preserve important context; add new]
++
++## Additional Notes
++[Other important info not fitting above]
+--- a/pi-coding-agent/src/session/agent-session.ts
++++ b/pi-coding-agent/src/session/agent-session.ts
+@@ -2155,6 +2155,9 @@
+ 			drainStrandedQueuedMessages: () => this.#drainStrandedQueuedMessages(),
+ 			buildDisplaySessionContext: () => this.buildDisplaySessionContext(),
+ 			convertToLlmForSideRequest: messages => this.#convertToLlmForSideRequest(messages),
++			convertMessagesToLlm: (messages, signal) => this.convertMessagesToLlm(messages, signal),
++			convertMessagesToLlmWithSource: (messages, signal) =>
++				this.convertMessagesToLlmWithSource(messages, signal),
+ 			obfuscateTextForProvider: text => this.#obfuscateTextForProvider(text),
+ 			obfuscatePreparationForProvider: preparation => this.#obfuscatePreparationForProvider(preparation),
+ 			closeCodexProviderSessionsForHistoryRewrite: () => this.#closeCodexProviderSessionsForHistoryRewrite(),
+@@ -2209,6 +2212,8 @@
+ 			obfuscateTextForProvider: text => this.#obfuscateTextForProvider(text),
+ 			deobfuscateFromProvider: text => this.#deobfuscateFromProvider(text),
+ 			convertMessagesToLlm: (messages, signal) => this.convertMessagesToLlm(messages, signal),
++			convertMessagesToLlmWithSource: (messages, signal) =>
++				this.convertMessagesToLlmWithSource(messages, signal),
+ 			prepareSimpleStreamOptions: (options, provider) => this.prepareSimpleStreamOptions(options, provider),
+ 			effectiveServiceTier: model => this.#models.effectiveServiceTier(model),
+ 		};
+@@ -6323,6 +6328,14 @@
+ 		return await this.#providerBoundary.convertMessagesToLlm(messages, signal);
+ 	}
+ 
++	/** {@link convertMessagesToLlm} plus the post-transform array it converted. */
++	async convertMessagesToLlmWithSource(
++		messages: AgentMessage[],
++		signal?: AbortSignal,
++	): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }> {
++		return await this.#providerBoundary.convertMessagesToLlmWithSource(messages, signal);
++	}
++
+ 	/** Apply session-level stream hooks to a direct side request. */
+ 	prepareSimpleStreamOptions(options: SimpleStreamOptions, provider = "anthropic"): SimpleStreamOptions {
+ 		return this.#providerBoundary.prepareSimpleStreamOptions(options, provider);
+--- a/pi-coding-agent/src/session/session-advisors.ts
++++ b/pi-coding-agent/src/session/session-advisors.ts
+@@ -22,6 +22,7 @@
+ 	isOpenAiRemoteCompactionApi,
+ 	NativeCompactionError,
+ 	prepareCompaction,
++	type SummaryOptions,
+ 	type SessionMessageEntry,
+ 	shouldCompact,
+ 	shouldUseProviderNativeCompaction,
+@@ -105,9 +106,11 @@
+ } from "./retry-fallback-chains";
+ import { getOpenAiRemoteCompactionPayload } from "./session-context";
+ import { formatSessionDumpText } from "./session-dump-format";
++import { buildSessionContext } from "./session-context";
+ import type { CompactionEntry, SessionEntry } from "./session-entries";
+ import { formatSessionHistoryMarkdown } from "./session-history-format";
+ import type { SessionManager } from "./session-manager";
++import { prefixCarriesCompactionSummary, sharesActivePromptCacheIdentity } from "./session-provider-boundary";
+ import { buildSessionMetadata } from "./session-metadata";
+ import type { YieldQueue } from "./yield-queue";
+ 
+@@ -1933,6 +1936,40 @@
+ 		}
+ 	}
+ 
++	#buildAdvisorCachePreservingContext(
++		agent: Agent,
++		candidate: Model,
++		preparation: CompactionPreparation,
++		pathEntries: SessionEntry[],
++	): SummaryOptions["buildCachePreservingContext"] {
++		if (!sharesActivePromptCacheIdentity(candidate, agent.state.model)) return undefined;
++		const messagesSnapshot = agent.state.messages;
++		const entriesById = new Map(pathEntries.map(entry => [entry.id, entry]));
++		return async (scope, requestModel) => {
++			if (!sharesActivePromptCacheIdentity(requestModel, agent.state.model)) return undefined;
++			if (agent.state.messages !== messagesSnapshot) return undefined;
++			const prefixEntryId =
++				scope === "history" ? preparation.historyPrefixEntryId : preparation.turnPrefixEntryId;
++			if (!prefixEntryId || !entriesById.has(prefixEntryId)) return undefined;
++			const prefixMessages = buildSessionContext(pathEntries, prefixEntryId, entriesById).messages;
++			const llmMessages = this.#host.convertToLlmForSideRequest(prefixMessages);
++			if (!sharesActivePromptCacheIdentity(requestModel, agent.state.model)) return undefined;
++			if (agent.state.messages !== messagesSnapshot) return undefined;
++			const context = await agent.buildSideRequestContext(llmMessages);
++			if (!sharesActivePromptCacheIdentity(requestModel, agent.state.model)) return undefined;
++			if (agent.state.messages !== messagesSnapshot) return undefined;
++			return {
++				context,
++				// `convertToLlmForSideRequest` runs no extension chain, so the rebuilt
++				// array is what ships. Same contract as the primary path.
++				previousSummaryInPrefix:
++					scope === "history" &&
++					preparation.previousSummary !== undefined &&
++					prefixCarriesCompactionSummary(prefixMessages),
++			};
++		};
++	}
++
+ 	async #maintainAdvisorContext(
+ 		advisor: ActiveAdvisor,
+ 		incoming: AgentMessage,
+@@ -2143,6 +2180,7 @@
+ 					{
+ 						thinkingLevel: advisorCompactionThinkingLevel,
+ 						convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
++						buildCachePreservingContext: this.#buildAdvisorCachePreservingContext(agent, candidate, preparation, pathEntries),
+ 						telemetry,
+ 						tools: agent.state.tools,
+ 						// The advisor's own live prompt, so a provider-native compaction
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -101,6 +101,7 @@
+ import { buildSessionContext, getLatestCompactionEntry, getOpenAiRemoteCompactionPayload } from "./session-context";
+ import type { CompactionEntry, SessionEntry } from "./session-entries";
+ import type { SessionManager } from "./session-manager";
++import { prefixCarriesCompactionSummary, sharesActivePromptCacheIdentity } from "./session-provider-boundary";
+ import type { ShakeMode, ShakeResult } from "./shake-types";
+ import { resolveSpeculationLeadTokens, SPECULATION_LEAD_MIN_TOKENS } from "./speculation-lead";
+ import experimentalContextNotesReminderPrompt from "../prompts/system/experimental-context-notes-reminder.md" with { type: "text" };
+@@ -458,6 +459,11 @@
+ 	drainStrandedQueuedMessages(): void;
+ 	buildDisplaySessionContext(): SessionContext;
+ 	convertToLlmForSideRequest(messages: AgentMessage[]): Message[];
++	convertMessagesToLlm(messages: AgentMessage[], signal?: AbortSignal): Promise<Message[]>;
++	convertMessagesToLlmWithSource(
++		messages: AgentMessage[],
++		signal?: AbortSignal,
++	): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }>;
+ 	obfuscateTextForProvider(text: string | undefined): string | undefined;
+ 	obfuscatePreparationForProvider(preparation: CompactionPreparation): CompactionPreparation;
+ 	closeCodexProviderSessionsForHistoryRewrite(): void;
+@@ -3383,6 +3389,44 @@
+ 		);
+ 	}
+ 
++	#buildCachePreservingContext(
++		candidate: Model,
++		preparation: CompactionPreparation,
++	): SummaryOptions["buildCachePreservingContext"] {
++		if (!sharesActivePromptCacheIdentity(candidate, this.#host.agent.state.model)) return undefined;
++		const branchLeafId = this.#host.sessionManager.getLeafId();
++		const branchEntries = this.#host.sessionManager.getBranch();
++		const entriesById = new Map(branchEntries.map(entry => [entry.id, entry]));
++		return async (scope, requestModel, signal) => {
++			if (!sharesActivePromptCacheIdentity(requestModel, this.#host.agent.state.model)) return undefined;
++			if (this.#host.sessionManager.getLeafId() !== branchLeafId) return undefined;
++			const prefixEntryId =
++				scope === "history" ? preparation.historyPrefixEntryId : preparation.turnPrefixEntryId;
++			if (!prefixEntryId || !entriesById.has(prefixEntryId)) return undefined;
++			const prefixMessages = buildSessionContext(branchEntries, prefixEntryId, entriesById).messages;
++			const { transformed, llmMessages } = await this.#host.convertMessagesToLlmWithSource(
++				prefixMessages,
++				signal,
++			);
++			if (!sharesActivePromptCacheIdentity(requestModel, this.#host.agent.state.model)) return undefined;
++			if (this.#host.sessionManager.getLeafId() !== branchLeafId) return undefined;
++			const context = await this.#host.agent.buildSideRequestContext(llmMessages);
++			if (!sharesActivePromptCacheIdentity(requestModel, this.#host.agent.state.model)) return undefined;
++			if (this.#host.sessionManager.getLeafId() !== branchLeafId) return undefined;
++			return {
++				context,
++				// Derived from `transformed`, not from `prefixMessages`: the `context`
++				// extension chain inside `convertMessagesToLlmWithSource` may drop the
++				// summary, and this flag decides whether the summarizer skips the
++				// `<previous-summary>` injection.
++				previousSummaryInPrefix:
++					scope === "history" &&
++					preparation.previousSummary !== undefined &&
++					prefixCarriesCompactionSummary(transformed),
++			};
++		};
++	}
++
+ 	async #compactWithFallbackModel(
+ 		preparation: CompactionPreparation,
+ 		customInstructions: string | undefined,
+@@ -3417,6 +3461,7 @@
+ 						...options,
+ 						metadata: this.#host.agent.metadataForProvider(candidate.provider),
+ 						convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
++						buildCachePreservingContext: this.#buildCachePreservingContext(candidate, preparation),
+ 						telemetry,
+ 						// Honor the user's /model thinking selection (incl. `off`) on
+ 						// the manual `/compact` path. Clamped per-model inside compact()
+@@ -4842,6 +4887,7 @@
+ 									metadata: this.#host.agent.metadataForProvider(candidate.provider),
+ 									initiatorOverride: "agent",
+ 									convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
++									buildCachePreservingContext: this.#buildCachePreservingContext(candidate, preparation),
+ 									telemetry,
+ 									// Honor the user's /model thinking selection on the
+ 									// auto-compaction path — the most-fired compaction
+--- a/pi-coding-agent/src/session/session-provider-boundary.ts
++++ b/pi-coding-agent/src/session/session-provider-boundary.ts
+@@ -33,8 +33,38 @@
+ 	validateProviderMaxInFlightRequests,
+ } from "./settings";
+ 
++/**
++ * Whether a rebuilt cache-preserving prefix actually carries the previous
++ * compaction summary. `buildSessionContext` materializes every prior-compaction
++ * shape -- plain summary, Anthropic native replay, OpenAI remote/V2 replacement
++ * history, snapcompact archive -- as a single `compactionSummary` message
++ * (native payloads ride along on that message), so this role is the one
++ * carrier. A false answer only costs one redundant `<previous-summary>`
++ * injection; a false `true` makes the summarizer skip the injection while the
++ * prefix has no summary either, silently dropping the whole prior history.
++ */
++export function prefixCarriesCompactionSummary(messages: AgentMessage[]): boolean {
++	return messages.some(message => message.role === "compactionSummary");
++}
++
+ type NormalizableContentBlock = AssistantMessage["content"][number] | TextContent | ImageContent;
+ 
++/**
++ * True only when a side request is guaranteed to use the active Agent's exact
++ * runtime model object and wire model id. The reference check is load-bearing:
++ * provider overlays and compat flags can differ while catalog ids stay equal.
++ */
++export function sharesActivePromptCacheIdentity(candidate: Model | undefined, activeModel: Model | undefined): boolean {
++	return (
++		candidate !== undefined &&
++		candidate === activeModel &&
++		candidate.provider === activeModel.provider &&
++		candidate.api === activeModel.api &&
++		candidate.id === activeModel.id &&
++		(candidate.requestModelId ?? candidate.id) === (activeModel.requestModelId ?? activeModel.id)
++	);
++}
++
+ /** Capabilities borrowed from the owning AgentSession. */
+ export interface SessionProviderBoundaryHost {
+ 	agent: Agent;
+@@ -167,8 +197,23 @@
+ 
+ 	/** Converts session messages using the configured pre-LLM pipeline. */
+ 	async convertMessagesToLlm(messages: AgentMessage[], signal?: AbortSignal): Promise<Message[]> {
+-		const transformedMessages = await this.#host.transformContext(messages, signal);
+-		return await this.#host.convertToLlm(transformedMessages);
++		return (await this.convertMessagesToLlmWithSource(messages, signal)).llmMessages;
++	}
++
++	/**
++	 * Same pipeline as {@link convertMessagesToLlm}, but also returns the
++	 * post-`transformContext` `AgentMessage[]` that was actually converted.
++	 * `transformContext` runs the public `context` extension chain, whose
++	 * handlers may replace the array wholesale, so a caller that needs to assert
++	 * what ships (e.g. whether a compaction summary survived) must inspect this
++	 * array rather than its own input.
++	 */
++	async convertMessagesToLlmWithSource(
++		messages: AgentMessage[],
++		signal?: AbortSignal,
++	): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }> {
++		const transformed = await this.#host.transformContext(messages, signal);
++		return { transformed, llmMessages: await this.#host.convertToLlm(transformed) };
+ 	}
+ 
+ 	/** Applies session-level stream hooks and provider defaults to a side request. */
+--- a/pi-agent-core/dist/types/compaction/compaction.d.ts
++++ b/pi-agent-core/dist/types/compaction/compaction.d.ts
+@@ -164,6 +164,12 @@
+  */
+ export declare function findCutPoint(entries: SessionEntry[], tokenizer: Tokenizer, startIndex: number, endIndex: number, keepRecentTokens: number): CutPointResult;
+ export declare const AUTO_HANDOFF_THRESHOLD_FOCUS: string;
++export type CachePreservingSummaryScope = "history" | "turn-prefix";
++export interface CachePreservingSummaryContext {
++    context: Context;
++    /** The verified live prefix already contains the prior compaction summary. */
++    previousSummaryInPrefix: boolean;
++}
+ /**
+  * Generate a summary of the conversation using the LLM.
+  * If previousSummary is provided, uses the update prompt to merge.
+@@ -178,6 +184,12 @@
+     metadata?: Record<string, unknown>;
+     convertToLlm?: ConvertToLlm;
+     /**
++     * Builds the active session's provider-ready prefix for this exact candidate
++     * and logical summary scope. Return `undefined` when candidate, session, or
++     * entry-boundary identity cannot be proven.
++     */
++    buildCachePreservingContext?: (scope: CachePreservingSummaryScope, candidate: Model, signal?: AbortSignal) => Promise<CachePreservingSummaryContext | undefined>;
++    /**
+      * Optional telemetry handle. When provided, every LLM call emitted during
+      * compaction is wrapped in an OTEL chat span tagged with
+      * `omp.gen_ai.oneshot.kind` (`compaction_summary`, `compaction_short_summary`,
+@@ -293,8 +305,12 @@
+     firstKeptEntryId: string;
+     /** Messages that will be summarized and discarded */
+     messagesToSummarize: AgentMessage[];
++    /** Stable session-entry leaf for the history summary's live provider prefix. */
++    historyPrefixEntryId?: string;
+     /** Messages that will be turned into turn prefix summary (if splitting) */
+     turnPrefixMessages: AgentMessage[];
++    /** Stable session-entry leaf for the discarded prefix of a split turn. */
++    turnPrefixEntryId?: string;
+     /** Messages kept in full after compaction (recent history) */
+     recentMessages: AgentMessage[];
+     /** Entry IDs parallel to recentMessages, for an Anthropic-safe keep-tail boundary. */
+--- a/pi-coding-agent/dist/types/session/agent-session.d.ts
++++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
+@@ -541,6 +541,8 @@
+     buildTranscriptSessionContext(options?: Pick<BuildSessionContextOptions, "collapseCompactedHistory" | "keepDanglingToolCalls">): SessionContext;
+     /** Convert session messages using the same pre-LLM pipeline as the active session. */
+     convertMessagesToLlm(messages: AgentMessage[], signal?: AbortSignal): Promise<Message[]>;
++    /** {@link convertMessagesToLlm} plus the post-transform array it converted. */
++    convertMessagesToLlmWithSource(messages: AgentMessage[], signal?: AbortSignal): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }>;
+     /** Apply session-level stream hooks to a direct side request. */
+     prepareSimpleStreamOptions(options: SimpleStreamOptions, provider?: string): SimpleStreamOptions;
+     /** Current steering mode */
+--- a/pi-coding-agent/dist/types/session/session-provider-boundary.d.ts
++++ b/pi-coding-agent/dist/types/session/session-provider-boundary.d.ts
+@@ -53,6 +53,8 @@
+     convertToLlmForSideRequest(messages: AgentMessage[]): Message[];
+     /** Converts session messages using the configured pre-LLM pipeline. */
+     convertMessagesToLlm(messages: AgentMessage[], signal?: AbortSignal): Promise<Message[]>;
++    /** {@link convertMessagesToLlm} plus the post-transform array it converted. */
++    convertMessagesToLlmWithSource(messages: AgentMessage[], signal?: AbortSignal): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }>;
+     /** Applies session-level stream hooks and provider defaults to a side request. */
+     prepareSimpleStreamOptions(options: SimpleStreamOptions, provider?: string): SimpleStreamOptions;
+     /** Normalizes image payloads for the active model. */
+@@ -62,3 +64,5 @@
+     /** Normalizes every image embedded in an agent message. */
+     normalizeAgentMessageImages<T extends AgentMessage>(message: T): Promise<T>;
+ }
++export declare function prefixCarriesCompactionSummary(messages: AgentMessage[]): boolean;
++export declare function sharesActivePromptCacheIdentity(candidate: Model | undefined, activeModel: Model | undefined): boolean;
+--- a/pi-coding-agent/dist/types/session/session-maintenance.d.ts
++++ b/pi-coding-agent/dist/types/session/session-maintenance.d.ts
+@@ -96,6 +96,10 @@
+     drainStrandedQueuedMessages(): void;
+     buildDisplaySessionContext(): SessionContext;
+     convertToLlmForSideRequest(messages: AgentMessage[]): Message[];
++    /** Converts session messages using the same pre-LLM pipeline as the active session. */
++    convertMessagesToLlm(messages: AgentMessage[], signal?: AbortSignal): Promise<Message[]>;
++    /** {@link convertMessagesToLlm} plus the post-transform array it converted. */
++    convertMessagesToLlmWithSource(messages: AgentMessage[], signal?: AbortSignal): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }>;
+     obfuscateTextForProvider(text: string | undefined): string | undefined;
+     obfuscatePreparationForProvider(preparation: CompactionPreparation): CompactionPreparation;
+     closeCodexProviderSessionsForHistoryRewrite(): void;

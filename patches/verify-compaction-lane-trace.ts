@@ -80,7 +80,7 @@ const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-cata
 // on the tree it actually points at.
 const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version as string;
 assert.ok(
-	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1"].includes(aiVersion),
+	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(aiVersion),
 	`unsupported compaction lane trace gate version: ${aiVersion}`,
 );
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);

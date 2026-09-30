@@ -22,10 +22,10 @@ gate = here / "verify-codex-compaction-chain-fail-closed.ts"
 # Supported recovery-era versions carry the non-generating chain-recovery hook;
 # 18.1.18 predates it, so fault expectations differ by supported version.
 version = json.loads((roots["pi-ai"] / "package.json").read_text())["version"]
-supports_recovery = version in ("18.2.3", "18.2.10", "18.3.3", "18.4.1")
+supports_recovery = version in ("18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4")
 acceptance_declaration = (
     "    onAccept?: (\n        commit: (recorded: OpenAICodexCompactionResponseMetadata) => void,\n        rollback: () => void,\n    ) => void;\n"
-    if version in ("18.3.3", "18.4.1") else
+    if version in ("18.3.3", "18.4.1", "18.4.4") else
     "    onAccept?: (commit: (recorded: OpenAICodexCompactionResponseMetadata) => void) => void;\n"
 )
 
@@ -51,15 +51,15 @@ faults = [
     ("SSE fallback permitted", ai, "const refuseSseFallback = isCompactionWireBody(transformedBody);", "const refuseSseFallback = false;", "sse-disabled: failure must stay terminal"),
     ("cold full replay permitted", ai, "const mustChain = isCompactionWireBody(requestContext.transformedBody);", "const mustChain = false;", "cold: every sent compaction must chain" if supports_recovery else "cold: failure must stay terminal"),
     ("acceptance does not reset", core, "\t\tapplyAcceptedMetadata?.(acceptedMetadata);", "\t\tvoid acceptedMetadata;", "accepted summary must invalidate its old baseline"),
-    ("accepted metadata dropped", ai, ("\t\t\t" if version in ("18.3.3", "18.4.1") else "\t\t") + "applyOpenAICodexCompactionResponseMetadata(recorded, requestContext);", "\t\tvoid recorded;", "accepted summary must commit metadata"),
+    ("accepted metadata dropped", ai, ("\t\t\t" if version in ("18.3.3", "18.4.1", "18.4.4") else "\t\t") + "applyOpenAICodexCompactionResponseMetadata(recorded, requestContext);", "\t\tvoid recorded;", "accepted summary must commit metadata"),
     ("raw error swallowed", core, 'type === "response.incomplete" || type === "error"', 'type === "response.incomplete"', "only a real provider code may be preserved"),
 ]
-if version in ("18.3.3", "18.4.1"):
+if version in ("18.3.3", "18.4.1", "18.4.4"):
     faults.extend([
         ("collector metadata rollback missing", core, "\t\t\trollbackAttemptMetadata?.();", "", "invalid-summary: handshake metadata must commit only after accepted compaction"),
         ("open metadata rollback missing", ai, "\t\trequestContextForDiag.turnState.value = turnStateBeforeOpen;", "", "recovery-invalid: handshake metadata must commit only after accepted compaction"),
     ])
-if version == "18.4.1":
+if version in ("18.4.1", "18.4.4"):
     # 18.4.1 candidates carry the typed V2 failure's `status` and the shared
     # effective-lane predicate, so these two mutations reproduce the leading
     # defects: a status-based retry decision that outranks auth, and a lane

@@ -196,7 +196,7 @@ const [request] = nativeRequests;
 // GATE 2: the request is the live turn's bytes — system, tools, messages.
 assert.deepEqual(request.context.systemPrompt, liveContext.systemPrompt, "native request must carry the live system prompt");
 assert.deepEqual(request.context.tools, liveContext.tools, "native request must carry the normalized live tools (with `i`)");
-if (["18.3.3", "18.4.1"].includes(coreVersion)) {
+if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
 	assert.deepEqual(
 		request.context.messages,
 		liveContext.messages.slice(0, liveContext.messages.length - preparation.recentMessages.length),
@@ -213,7 +213,7 @@ if (["18.3.3", "18.4.1"].includes(coreVersion)) {
 // GATE 3: the summary the API wrote is what got persisted.
 assert.equal(result.summary, "NATIVE_SUMMARY", "native summary must become the compaction entry summary");
 
-if (["18.3.3", "18.4.1"].includes(coreVersion)) {
+if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
 	const { getPreservedAnthropicCompactionData } = await import(`${CORE_ROOT}/src/compaction/anthropic.ts`);
 	assert.equal(result.firstKeptEntryId, "recent-assistant", "unshifted boundary must preserve the retained entry");
 	assert.equal(getPreservedAnthropicCompactionData(result.preserveData)?.signature, "offline-signed-summary");

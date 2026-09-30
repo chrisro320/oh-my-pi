@@ -1,0 +1,124 @@
+--- a/pi-ai/src/types.ts
++++ b/pi-ai/src/types.ts
+@@ -508,6 +508,16 @@
+ 	 */
+ 	promptCacheKey?: string;
+ 	/**
++	 * Optional provider conversation/thread identity for APIs that thread
++	 * server-side conversations (Devin `cascade_id`, Cursor `conversationId`).
++	 * Distinct from `sessionId`: a side-channel turn randomizes `sessionId`
++	 * per request for routing-state isolation but may pin `conversationId` to
++	 * the main conversation so a cache warmup shares its chain. It must be
++	 * forwarded by `mapOptionsForApi` -- the provider sees this field only when
++	 * it survives that mapping (alongside `sessionId`/`promptCacheKey`).
++	 */
++	conversationId?: string;
++	/**
+ 	 * OpenAI GPT-5.6+ prompt-cache policy. Ignored by providers that do not
+ 	 * support explicit OpenAI cache breakpoints; explicit mode fails locally on
+ 	 * incompatible OpenAI-compatible endpoints.
+--- a/pi-ai/src/stream.ts
++++ b/pi-ai/src/stream.ts
+@@ -2053,7 +2053,7 @@
+ 	);
+ }
+ 
+-function mapOptionsForApi<TApi extends Api>(
++export function mapOptionsForApi<TApi extends Api>(
+ 	model: Model<TApi>,
+ 	rawOptions?: SimpleStreamOptions,
+ 	apiKey?: string,
+@@ -2079,6 +2079,7 @@
+ 		taskBudget: options?.taskBudget,
+ 		sessionId: options?.sessionId,
+ 		promptCacheKey: options?.promptCacheKey,
++		conversationId: options?.conversationId,
+ 		streamFirstEventTimeoutMs: options?.streamFirstEventTimeoutMs,
+ 		streamIdleTimeoutMs: options?.streamIdleTimeoutMs,
+ 		codexSseMaxAttempts: options?.codexSseMaxAttempts,
+--- a/pi-coding-agent/src/session/agent-session.ts
++++ b/pi-coding-agent/src/session/agent-session.ts
+@@ -9969,7 +9969,16 @@
+ 		const reservation = { abort, settled };
+ 		this.#idleEphemeralReservation = reservation;
+ 		try {
+-			return await this.runEphemeralTurn({ promptText: args.promptText, signal });
++			return await this.runEphemeralTurn({
++				promptText: args.promptText,
++				signal,
++				// Devin threads conversations by cascade_id (conversationId ??
++				// sessionId): pin the idle keepalive to the main conversation so
++				// it warms the same cache chain. Concurrent-capable side turns
++				// (/btw, /omfg) keep their unique :side: identity, and providers
++				// keying append-only state off conversationId (cursor) never see it.
++				conversationId: this.model?.provider === "devin" ? this.sessionId : undefined,
++			});
+ 		} catch (error) {
+ 			// A main turn owns the reservation after aborting it and waits below;
+ 			// surface that handoff as a skipped idle request, not a provider error.
+@@ -10088,6 +10097,7 @@
+ 					? `${cacheSessionId}:side:conversation:${args.conversationKey}`
+ 					: `${cacheSessionId}:side:${Snowflake.next()}`,
+ 				promptCacheKey: this.agent.promptCacheKey ?? this.agent.sessionId,
++				conversationId: args.conversationId,
+ 				preferWebsockets: this.preferWebsockets,
+ 				providerSessionState: this.#providerSessionState,
+ 				reasoning: toReasoningEffort(this.thinkingLevel),
+--- a/pi-coding-agent/src/session/agent-session-types.ts
++++ b/pi-coding-agent/src/session/agent-session-types.ts
+@@ -505,6 +505,13 @@
+ 	history?: readonly Message[];
+ 	/** Opaque provider-lineage key for a series of related side turns. Rotate it after cancellation or failure before retrying. */
+ 	conversationKey?: string;
++	/**
++	 * Optional provider conversation/thread identity to pin this side turn to
++	 * (Devin `cascade_id`). Distinct from `sessionId`: a side-channel turn
++	 * randomizes `sessionId` per request for routing-state isolation but may pin
++	 * `conversationId` to the main conversation so a cache warmup shares its chain.
++	 */
++	conversationId?: string;
+ 	/** Omit tool definitions and request no tool calls. Rejects before inference on transports with mandatory native tools (Cursor). Tool calls are never executed, even when this option is omitted. */
+ 	tools?: false;
+ 	/** Optional positive safe-integer output-token cap. Transports that omit or overwrite caller output limits reject this option before inference. On budget-thinking models a cap disables optional thinking (models that require it reject the cap). */
+--- a/pi-ai/dist/types/types.d.ts
++++ b/pi-ai/dist/types/types.d.ts
+@@ -317,6 +317,16 @@
+      */
+     promptCacheKey?: string;
+     /**
++     * Optional provider conversation/thread identity for APIs that thread
++     * server-side conversations (Devin `cascade_id`, Cursor `conversationId`).
++     * Distinct from `sessionId`: a side-channel turn randomizes `sessionId`
++     * per request for routing-state isolation but may pin `conversationId` to
++     * the main conversation so a cache warmup shares its chain. It must be
++     * forwarded by `mapOptionsForApi` -- the provider sees this field only when
++     * it survives that mapping (alongside `sessionId`/`promptCacheKey`).
++     */
++    conversationId?: string;
++    /**
+      * OpenAI GPT-5.6+ prompt-cache policy. Ignored by providers that do not
+      * support explicit OpenAI cache breakpoints; explicit mode fails locally on
+      * incompatible OpenAI-compatible endpoints.
+--- a/pi-ai/dist/types/stream.d.ts
++++ b/pi-ai/dist/types/stream.d.ts
+@@ -56,3 +56,4 @@
+ export declare const ANTHROPIC_THINKING: Record<Effort, number>;
+ export declare function mapAnthropicToolChoice(choice?: ToolChoice): AnthropicOptions["toolChoice"];
+ export declare function mapGoogleToolChoice(choice?: ToolChoice): GoogleOptions["toolChoice"] | GoogleGeminiCliOptions["toolChoice"] | GoogleVertexOptions["toolChoice"];
++export declare function mapOptionsForApi<TApi extends Api>(model: Model<TApi>, rawOptions?: SimpleStreamOptions, apiKey?: string): OptionsForApi<TApi>;
+--- a/pi-coding-agent/dist/types/session/agent-session-types.d.ts
++++ b/pi-coding-agent/dist/types/session/agent-session-types.d.ts
+@@ -468,6 +468,13 @@
+     history?: readonly Message[];
+     /** Opaque provider-lineage key for a series of related side turns. Rotate it after cancellation or failure before retrying. */
+     conversationKey?: string;
++    /**
++     * Optional provider conversation/thread identity to pin this side turn to
++     * (Devin `cascade_id`). Distinct from `sessionId`: a side-channel turn
++     * randomizes `sessionId` per request for routing-state isolation but may pin
++     * `conversationId` to the main conversation so a cache warmup shares its chain.
++     */
++    conversationId?: string;
+     /** Omit tool definitions and request no tool calls. Rejects before inference on transports with mandatory native tools (Cursor). Tool calls are never executed, even when this option is omitted. */
+     tools?: false;
+     /** Optional positive safe-integer output-token cap. Transports that omit or overwrite caller output limits reject this option before inference. On budget-thinking models a cap disables optional thinking (models that require it reject the cap). */

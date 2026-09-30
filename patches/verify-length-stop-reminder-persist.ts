@@ -46,7 +46,7 @@ try {
 // Version-scoped: the length-stop incomplete-retry branch that appends this
 // reminder exists only in the 18.4.1 plan. A tree without the behavior must
 // fail, never skip.
-assert.equal(agentVersion, "18.4.1", `length-stop reminder persist gate is pinned to 18.4.1, found ${agentVersion}`);
+assert.ok(["18.4.1", "18.4.4"].includes(agentVersion), `length-stop reminder persist gate is pinned to 18.4.1 or 18.4.4, found ${agentVersion}`);
 
 // No provider call is possible: the mock provider never fetches, and any direct
 // fetch throws. The assertion below proves the run stayed offline.

@@ -1,0 +1,183 @@
+--- a/src/session/session-tools.ts
++++ b/src/session/session-tools.ts
+@@ -21,6 +21,7 @@
+ import { MEMORY_BACKEND_TOOL_NAMES } from "../memory-backend/tool-names";
+ import { invalidateToolSchemaMetadata } from "@oh-my-pi/pi-tui/status-line/context-usage";
+ import type { MemoryBackendStartOptions } from "../memory-backend/types";
++import { getBundledAgent } from "../task/agents";
+ import type { AgentDefinition } from "../task/types";
+ import evalPreludeNoticePrompt from "../prompts/system/eval-prelude-notice.md" with { type: "text" };
+ import sessionAgentNoticePrompt from "../prompts/system/session-agent-notice.md" with { type: "text" };
+@@ -47,6 +48,7 @@
+ import { toolReadsSkillUris } from "../system-prompt";
+ 
+ import type { CustomMessage } from "./messages";
++import type { SessionEntry } from "./session-entries";
+ import type { SessionManager } from "./session-manager";
+ 
+ import { cfgDisabledExtensions, cfgSkills, type SkillsSettings } from "../extensibility/settings";
+@@ -223,6 +225,65 @@
+ const SESSION_AGENT_NOTICE_MESSAGE_TYPE = "session-agent-notice";
+ 
+ /**
++ * Journal entry holding the model-agent list a base rebuild last published (see
++ * {@link PromptSurface.sessionAgents}). It is never converted into a provider message: it
++ * exists so a fresh process seeds the same task description the live session ended with,
++ * instead of rebuilding that description from an empty surface and forking the cached
++ * tools prefix away from what the provider already holds.
++ */
++const ADVERTISED_SESSION_AGENTS_ENTRY_TYPE = "advertised_session_agents";
++
++/** Rendered fields of one advertised model agent, persisted for a later resume. */
++interface PersistedSessionAgent {
++	name: string;
++	description: string;
++	tools?: string[];
++	blocking?: boolean;
++	model?: string[];
++}
++
++/** Stable identity of a persisted surface, used to skip redundant journal writes. */
++function advertisedSessionAgentSignature(agents: readonly PersistedSessionAgent[]): string {
++	return JSON.stringify(
++		agents.map(agent => [
++			agent.name,
++			agent.description,
++			agent.tools ?? null,
++			agent.blocking ?? null,
++			agent.model ?? null,
++		]),
++	);
++}
++
++/**
++ * Model agents the branch last published; the newest entry wins. Malformed payloads are
++ * skipped rather than trusted, so a damaged entry degrades to the live surface.
++ */
++function readAdvertisedSessionAgents(entries: readonly SessionEntry[]): PersistedSessionAgent[] {
++	let latest: PersistedSessionAgent[] = [];
++	for (const entry of entries) {
++		if (entry.type !== "custom" || entry.customType !== ADVERTISED_SESSION_AGENTS_ENTRY_TYPE || !isRecord(entry.data)) {
++			continue;
++		}
++		const agents = entry.data.agents;
++		if (!Array.isArray(agents)) continue;
++		const parsed: PersistedSessionAgent[] = [];
++		for (const agent of agents) {
++			if (!isRecord(agent) || typeof agent.name !== "string" || typeof agent.description !== "string") continue;
++			parsed.push({
++				name: agent.name,
++				description: agent.description,
++				tools: Array.isArray(agent.tools) ? agent.tools.filter((tool): tool is string => typeof tool === "string") : undefined,
++				blocking: agent.blocking === true ? true : undefined,
++				model: Array.isArray(agent.model) ? agent.model.filter((name): name is string => typeof name === "string") : undefined,
++			});
++		}
++		latest = parsed;
++	}
++	return latest;
++}
++
++/**
+  * Structured payload persisted on each {@link XDEV_MOUNT_NOTICE_MESSAGE_TYPE}
+  * custom message. Lets a resumed session reconstruct which dynamic devices the
+  * model has already been told about, so reconnecting hosts do not re-announce
+@@ -398,6 +459,8 @@
+ 	 * prefix without the intended prompt refresh. The refresh lifecycle updates it.
+ 	 */
+ 	#promptSurface: PromptSurface;
++	/** Identity of the last model-agent list written to {@link ADVERTISED_SESSION_AGENTS_ENTRY_TYPE}. */
++	#advertisedSessionAgentSignature = "[]";
+ 	#acpPermissionDecisions = new Map<string, "allow_always" | "reject_always">();
+ 
+ 	constructor(host: SessionToolsHost, options: SessionToolsOptions) {
+@@ -439,7 +502,7 @@
+ 		this.#skillWarnings = options.skillWarnings ?? [];
+ 		this.#skillsSettings = options.skillsSettings;
+ 		this.#skillsReloadable = options.skillsReloadable ?? true;
+-		this.#promptSurface = this.#derivePromptSurface();
++		this.#promptSurface = this.#restorePromptSurface();
+ 		// Seed from the construction slate (top-level tools plus xd:// mounts).
+ 		// Left empty, getEnabledToolNames() falls back to live agent.state.tools,
+ 		// so an early reconcile (think/Code Mode after the startup model
+@@ -543,6 +606,62 @@
+ 			sessionAgents: this.#host.sessionAgents(),
+ 		};
+ 	}
++
++	/**
++	 * Construction-time surface. Tagging a model only reaches the task description at a base
++	 * rebuild, so the list a rebuild advertised is what the live session was rendering when it
++	 * exited; a fresh-process resume rebuilds that same description from the durable entry.
++	 * Without it the resumed process starts from an empty list and hands the provider a
++	 * different tools block than the one it cached. Live agents stay the fallback when nothing
++	 * was ever published.
++	 */
++	#restorePromptSurface(): PromptSurface {
++		const derived = this.#derivePromptSurface();
++		const persisted = readAdvertisedSessionAgents(this.#host.sessionManager.getBranch());
++		if (persisted.length === 0) return derived;
++		this.#advertisedSessionAgentSignature = advertisedSessionAgentSignature(persisted);
++		const task = getBundledAgent("task");
++		if (!task) return derived;
++		return {
++			...derived,
++			// Rebuilt through the bundled task agent, mirroring the pseudonym definitions the
++			// session registry derives from it, so the rendered description matches byte for byte.
++			sessionAgents: persisted.map(agent => ({
++				...task,
++				name: agent.name,
++				description: agent.description,
++				tools: agent.tools,
++				blocking: agent.blocking,
++				model: agent.model,
++				filePath: undefined,
++			})),
++		};
++	}
++
++	/** Publishes a rebuilt surface and records the model-agent list it advertises. */
++	#publishPromptSurface(surface: PromptSurface): void {
++		this.#promptSurface = surface;
++		this.#persistAdvertisedSessionAgents(surface.sessionAgents);
++	}
++
++	/**
++	 * Records the published model-agent list on the branch whenever it changes. The write is a
++	 * non-model-facing custom entry, so provider-visible bytes stay untouched.
++	 */
++	#persistAdvertisedSessionAgents(agents: readonly AgentDefinition[]): void {
++		const payload: PersistedSessionAgent[] = agents.map(agent => ({
++			name: agent.name,
++			description: agent.description,
++			tools: agent.tools,
++			blocking: agent.blocking === true ? true : undefined,
++			model: agent.model,
++		}));
++		const signature = advertisedSessionAgentSignature(payload);
++		if (signature === this.#advertisedSessionAgentSignature) return;
++		this.#advertisedSessionAgentSignature = signature;
++		this.#host.sessionManager.appendCustomEntry(ADVERTISED_SESSION_AGENTS_ENTRY_TYPE, { agents: payload });
++	}
++
+ 	/** Drops cached per-session ACP `allow_always`/`reject_always` decisions. */
+ 	clearAcpPermissionDecisions(): void {
+ 		this.#acpPermissionDecisions.clear();
+@@ -1299,7 +1418,7 @@
+ 				this.#pendingToolRosterDeltaAfterBase = undefined;
+ 				// Publish the exact surface the prompt rendered with — never
+ 				// re-derive from live settings, which could diverge mid-flight.
+-				this.#promptSurface = candidateSurface ?? this.#promptSurface;
++				if (candidateSurface) this.#publishPromptSurface(candidateSurface);
+ 			} else if (frozenSignature) {
+ 				this.#notifyToolRosterDelta(previousActiveToolNames, appliedNames);
+ 				this.#lastAppliedToolSignature = frozenSignature;
+@@ -1987,7 +2106,7 @@
+ 				this.#baseSystemPrompt = promotionTail
+ 					? [...built.systemPrompt, promotionTail]
+ 					: built.systemPrompt;
+-				this.#promptSurface = candidate;
++				this.#publishPromptSurface(candidate);
+ 				this.#setBasePromptXdevNames(built.xdevCatalogNames);
+ 				this.#host.clearMemoryPromotionSnapshot();
+ 				if (

@@ -169,7 +169,7 @@ function _omp_tail_candidate {
 # set shared by every supported plan; it is NOT itself a deployable chain —
 # its members' a-sides span multiple upstream releases (e.g. 0045/0046 only
 # exist as 18.1.x shapes). Supported plans: 18.1.14 (rollback), 18.1.18,
-# 18.2.3, 18.2.10, 18.3.3, and 18.4.1.
+# 18.2.3, 18.2.10, 18.3.3, 18.4.1, and 18.4.4.
 # Unset OMP_PATCH_VERSION auto-routes by the installed pi-coding-agent
 # version (exact match only) so the documented one-key re-apply flow keeps
 # working; an explicit value must match the installed version or fail
@@ -179,12 +179,12 @@ if [[ -z "${OMP_PATCH_VERSION+x}" ]]; then
 	pkgjson="${NM}/pi-coding-agent/package.json"
 	installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
 	case "$installed" in
-	18.1.14|18.1.18|18.2.3|18.2.10|18.3.3|18.4.1)
+	18.1.14|18.1.18|18.2.3|18.2.10|18.3.3|18.4.1|18.4.4)
 		OMP_PATCH_VERSION="$installed"
 		echo "NOTE: OMP_PATCH_VERSION unset — routed to installed ${installed}" >&2
 		;;
 	*)
-		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1); set OMP_PATCH_VERSION explicitly" >&2
+		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4); set OMP_PATCH_VERSION explicitly" >&2
 		exit 2
 		;;
 	esac
@@ -511,8 +511,63 @@ case "$OMP_PATCH_VERSION" in
 	# (resume, in-process rebuild) dropped it and forked the prefix at its index.
 	_omp_tail_candidate "18.4.1" "0084-omp-length-stop-reminder-persist" "${AGENT}"
 	;;
+18.4.4)
+	# 18.4.1 -> 18.4.4 keeps all 49 capabilities as same-ID 18.4.4 candidates.
+	_omp_version_candidates "18.4.4" \
+		0033 0004 0034 0037 0010 0035 0014 0036 0017 0025 0026 0030 \
+		0031 0032 0038 0043 0044 0052 0057 0045 0046 0048 0050 0054 omit:0041
+	if [[ "$MODE" != "print-plan" ]]; then
+		for package in pi-coding-agent pi-agent-core pi-ai pi-catalog snapcompact pi-tui; do
+			package_version="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "${NM}/${package}/package.json" 2>/dev/null || true)"
+			[[ "$package_version" == "$OMP_PATCH_VERSION" ]] || {
+				echo "${package} must be ${OMP_PATCH_VERSION}, found: ${package_version:-<missing>}" >&2
+				exit 2
+			}
+		done
+	fi
+	for i in "${!PATCHES[@]}"; do
+		name="${PATCHES[i]%%:*}"
+		case "${name##*/}" in
+			0004-*|0033-*) PATCHES[i]="${name}:${TUI}" ;;
+			0037-*|0050-*) PATCHES[i]="${name}:${NM}" ;;
+		esac
+	done
+	_omp_tail_candidate "18.4.4" "0047-omp-date-cwd-anchor-stability" "${AGENT}"
+	_omp_tail_candidate "18.4.4" "0055-omp-devin-auth-cache-turn-timing" "${AI}"
+	_omp_tail_candidate "18.4.4" "0071-omp-devin-request-dump" "${AI}"
+	_omp_tail_candidate "18.4.4" "0056-omp-devin-metadata-alignment" "${NM}"
+	_omp_tail_candidate "18.4.4" "0058-omp-devin-thinking-signature-replay" "${AI}"
+	_omp_tail_candidate "18.4.4" "0060-omp-devin-idle-cascade-pin" "${NM}"
+	_omp_tail_candidate "18.4.4" "0062-omp-snapcompact-reduction-baseline-previous-archive" "${AGENT}"
+	_omp_tail_candidate "18.4.4" "0063-omp-codex-v2-compaction-live-chain" "${NM}"
+	_omp_tail_candidate "18.4.4" "0065-omp-commandcode-deepseek-model-record-parity" "${NM}"
+	_omp_tail_candidate "18.4.4" "0066-omp-anthropic-native-compaction-live-context" "${NM}"
+	_omp_tail_candidate "18.4.4" "0067-omp-remote-compaction-lane-trace-live-tools" "${NM}"
+	_omp_tail_candidate "18.4.4" "0068-omp-codex-stale-baseline-chain" "${NM}"
+	_omp_tail_candidate "18.4.4" "0069-omp-codex-effort-history-resume" "${AI}"
+	_omp_tail_candidate "18.4.4" "0070-omp-codex-compaction-chain-fail-closed" "${NM}"
+	_omp_tail_candidate "18.4.4" "0072-omp-session-pin-static-auth-ui" "${AGENT}"
+	# Upstream implements 0073's model-live getter; its behavior gate still runs.
+	_omp_tail_candidate "18.4.4" "0074-omp-anthropic-context-cache-boundaries" "${AI}"
+	_omp_tail_candidate "18.4.4" "0075-omp-hindsight-recall-promotion-slot" "${AGENT}"
+	_omp_tail_candidate "18.4.4" "0076-omp-eval-state-context-persist" "${NM}"
+	_omp_tail_candidate "18.4.4" "0077-omp-turn-recovery-reminder-persist" "${AGENT}"
+	_omp_tail_candidate "18.4.4" "0078-omp-python-display-mime-preference" "${AGENT}"
+	_omp_tail_candidate "18.4.4" "0079-omp-kitty-conversion-finalization" "${TUI}"
+	_omp_tail_candidate "18.4.4" "0080-omp-kitty-shared-png-cache" "${TUI}"
+	_omp_tail_candidate "18.4.4" "0081-omp-main-cache-footer" "${NM}"
+	_omp_tail_candidate "18.4.4" "0082-omp-user-display-text" "${NM}"
+	# 0083: 18.3.4+ absorbs `^` model tags into the task-tool surface only at a
+	# base-prompt rebuild; a fresh-process resume rebuilt that surface from empty
+	# and forked the tools prefix. The committed surface is persisted and restored.
+	_omp_tail_candidate "18.4.4" "0083-omp-model-mention-surface-resume" "${AGENT}"
+	# 0084: 18.3.4+ retries a reasoning-only `length` stop with a developer
+	# reminder appended to agent memory only; any rebuild from the session file
+	# (resume, in-process rebuild) dropped it and forked the prefix at its index.
+	_omp_tail_candidate "18.4.4" "0084-omp-length-stop-reminder-persist" "${AGENT}"
+	;;
 *)
-	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1)" >&2
+	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4)" >&2
 	exit 2
 	;;
 esac
@@ -910,7 +965,7 @@ if [[ "$MODE" == "apply" ]]; then
 	else
 		echo "verify-session-pin-static-auth-ui: skipped (0072 not in this plan)"
 	fi
-	if _omp_plan_has 0073 || [[ "$OMP_PATCH_VERSION" == "18.3.3" || "$OMP_PATCH_VERSION" == "18.4.1" ]]; then
+	if _omp_plan_has 0073 || [[ "$OMP_PATCH_VERSION" == "18.3.3" || "$OMP_PATCH_VERSION" == "18.4.1" || "$OMP_PATCH_VERSION" == "18.4.4" ]]; then
 		OMP_PATCH_VERIFY_AGENT_ROOT="${AGENT}" bun "${HERE}/verify-read-description-live.ts"
 	else
 		echo "verify-read-description-live: skipped (0073 not in this plan)"
