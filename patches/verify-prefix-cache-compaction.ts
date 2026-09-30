@@ -343,10 +343,14 @@ const splitTurnContext: Context = {
 const splitScopes: string[] = [];
 const splitRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
 // The live chain the host vouches for is the main turn's own array: the
-// summarized history prefix followed by the retained tail the session replays.
+// summarized history prefix, the split turn's prefix, and the retained tail.
 const splitLiveContext: Context = {
 	...liveContext,
-	messages: [retainedBeforeMarker as Context["messages"][number], recentUser as Context["messages"][number]],
+	messages: [
+		retainedBeforeMarker as Context["messages"][number],
+		discardedAfterMarker as Context["messages"][number],
+		recentUser as Context["messages"][number],
+	],
 };
 await compact(
 	{
@@ -392,47 +396,46 @@ const tailTextOf = (request: { context: Context } | undefined): string => {
 	const tail = request?.context.messages.at(-1);
 	return tail && Array.isArray(tail.content) && tail.content[0]?.type === "text" ? tail.content[0].text : "";
 };
-const splitTurnRequest = splitRequests.find(request => /retained separately/.test(tailTextOf(request)));
-assert.ok(splitTurnRequest, "split compaction must issue a turn-prefix request");
+const splitTurnRequest = splitRequests.find(request => /END TURN PREFIX:/.test(tailTextOf(request)));
 if (liveChainPlan) {
-	// 0086: the history leg sends the vouched-for live chain whole (prefix plus
-	// retained tail) so its provider breakpoints land on the main chain's own
-	// tail entries; the cutoff travels in the appended instruction instead of a
-	// truncated prefix.
+	// 0086: BOTH requests of a split compaction now ride the live chain -- the
+	// history leg summarizes everything before the retained tail, and the
+	// turn-prefix leg summarizes the inner range the split cut out. Each names
+	// its range by content, and the cached prefix bytes stay untouched.
 	assert.deepEqual(
 		splitScopes.sort(),
-		["history", "live", "turn-prefix"],
-		"split compaction must request the history, live and turn-prefix scopes",
+		["history", "live", "live", "turn-prefix"],
+		"split compaction must request the live scope once per summary call",
 	);
-	const splitHistoryRequest = splitRequests.find(request => request !== splitTurnRequest);
+	assert.ok(splitTurnRequest, "split compaction must issue a turn-prefix request");
+	const splitHistoryRequest = splitRequests.find(request => /BEGIN RETAINED TAIL:/.test(tailTextOf(request)));
 	assert.ok(splitHistoryRequest, "split compaction must issue a history request");
-	assert.deepEqual(
-		splitHistoryRequest.context.messages.slice(0, splitLiveContext.messages.length),
-		splitLiveContext.messages,
-		"split history request rewrote the live chain",
-	);
-	assert.equal(
-		splitHistoryRequest.context.messages.length,
-		splitLiveContext.messages.length + 1,
-		"split history request must append exactly one instruction",
-	);
+	for (const [label, request] of [
+		["history", splitHistoryRequest],
+		["turn-prefix", splitTurnRequest],
+	] as const) {
+		assert.deepEqual(
+			request.context.messages.slice(0, splitLiveContext.messages.length),
+			splitLiveContext.messages,
+			`split ${label} request rewrote the live chain`,
+		);
+		assert.equal(
+			request.context.messages.length,
+			splitLiveContext.messages.length + 1,
+			`split ${label} request must append exactly one instruction`,
+		);
+		assert.equal(request.options.toolChoice, "none", `split ${label} request allowed tool calls`);
+	}
 	assert.match(
 		tailTextOf(splitHistoryRequest),
-		/Summarize ONLY those first 1 messages\./,
-		"split history request must name the cutoff (1 summarized, 1 retained)",
+		/BEGIN RETAINED TAIL: user: RECENT_USER/,
+		"history leg must name the retained tail by content",
 	);
 	assert.match(
-		tailTextOf(splitHistoryRequest),
-		/The final 1 messages MUST NOT be summarized/,
-		"split history request must keep the retained tail out of the summary",
+		tailTextOf(splitTurnRequest),
+		/BEGIN TURN PREFIX: user: NEW_DISCARDED/,
+		"turn-prefix leg must name the start of its range by content",
 	);
-	assert.deepEqual(
-		splitTurnRequest.context.messages.slice(0, splitTurnContext.messages.length),
-		splitTurnContext.messages,
-		"split turn request rewrote its stable prefix",
-	);
-	assert.equal(splitHistoryRequest.options.toolChoice, "none", "split history request allowed tool calls");
-	assert.equal(splitTurnRequest.options.toolChoice, "none", "split turn request allowed tool calls");
 	assert.doesNotMatch(
 		tailTextOf(splitTurnRequest),
 		/<conversation>/,
@@ -442,15 +445,26 @@ if (liveChainPlan) {
 	assert.deepEqual(splitScopes.sort(), ["history", "turn-prefix"], "split compaction did not request both prefix scopes");
 	const splitHistoryRequest = splitRequests.find(request => request.context.messages.length === 2);
 	assert.ok(splitHistoryRequest, "split compaction must issue a history request");
+	assert.ok(splitTurnRequest, "split compaction must issue a turn-prefix request");
+	assert.equal(
+		splitTurnRequest.context.messages.length,
+		3,
+		"old-plan split turn request must keep its three-message shape",
+	);
 	assert.deepEqual(
-		splitHistoryRequest.context.messages[0],
-		splitHistoryContext.messages[0],
-		"split history request rewrote its stable prefix",
+		splitTurnRequest.context.messages[0],
+		splitTurnContext.messages[0],
+		"split turn request rewrote its stable prefix",
 	);
 	assert.deepEqual(
 		splitTurnRequest.context.messages.slice(0, 2),
 		splitTurnContext.messages,
 		"split turn request rewrote its stable prefix",
+	);
+	assert.deepEqual(
+		splitHistoryRequest.context.messages[0],
+		splitHistoryContext.messages[0],
+		"split history request rewrote its stable prefix",
 	);
 	assert.equal(splitHistoryRequest.options.toolChoice, "none", "split history request allowed tool calls");
 	assert.equal(splitTurnRequest.options.toolChoice, "none", "split turn request allowed tool calls");

@@ -1,0 +1,27 @@
+mode=live model=claude-sonnet-5-5 auth=oauth:true effort=high chain_messages=59 chain_tokens_est=13160
+boundary=25 retained=34 turns=[51,53,55,57,59] filler_lines=15
+--- requests (provider-reported usage) ---
+REQ B-new-shape status=200 msgs=60 sys=4 tools=2 bp=[sys:1h,58:1h,59:1h] in=4 cr=0 cw=16060 cttl1h=16060 cttl5m=0 out=1337 stop=end_turn
+REQ B-new-shape status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1331 cttl1h=1331 cttl5m=0 out=696 stop=end_turn
+REQ A-old-shape status=200 msgs=26 sys=4 tools=2 bp=[sys:1h,24:1h,25:1h] in=4 cr=0 cw=7180 cttl1h=7180 cttl5m=0 out=1089 stop=end_turn
+REQ A-old-shape status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1352 cttl1h=1352 cttl5m=0 out=719 stop=end_turn
+REQ A2-old-shape-repeat status=200 msgs=26 sys=4 tools=2 bp=[sys:1h,24:1h,25:1h] in=4 cr=7180 cw=0 cttl1h=0 cttl5m=0 out=1154 stop=end_turn
+REQ A2-old-shape-repeat status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1417 cttl1h=1417 cttl5m=0 out=576 stop=end_turn
+--- compaction trace (real builder) ---
+TRACE B-new-shape failure=none structured=true usesLiveChainReplay=true liveChainSummarizedMessages=25 liveChainFallback=none wireMessages=60 wireBreakpoints=[58:1h,59:1h]
+TRACE B-new-shape summarize.usage in=4 cr=0 cw=16060 out=1337 stop=stop
+  summarize REQ B-new-shape status=200 msgs=60 sys=4 tools=2 bp=[sys:1h,58:1h,59:1h] in=4 cr=0 cw=16060 cttl1h=16060 cttl5m=0 out=1337 stop=end_turn
+  summarize REQ B-new-shape status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1331 cttl1h=1331 cttl5m=0 out=696 stop=end_turn
+TRACE A-old-shape failure=none structured=true usesLiveChainReplay=false liveChainSummarizedMessages=undefined liveChainFallback=cut-before-host-boundary wireMessages=26 wireBreakpoints=[24:1h,25:1h]
+TRACE A-old-shape summarize.usage in=4 cr=0 cw=7180 out=1089 stop=stop
+  summarize REQ A-old-shape status=200 msgs=26 sys=4 tools=2 bp=[sys:1h,24:1h,25:1h] in=4 cr=0 cw=7180 cttl1h=7180 cttl5m=0 out=1089 stop=end_turn
+  summarize REQ A-old-shape status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1352 cttl1h=1352 cttl5m=0 out=719 stop=end_turn
+TRACE A2-old-shape-repeat failure=none structured=true usesLiveChainReplay=false liveChainSummarizedMessages=undefined liveChainFallback=cut-before-host-boundary wireMessages=26 wireBreakpoints=[24:1h,25:1h]
+TRACE A2-old-shape-repeat summarize.usage in=4 cr=7180 cw=0 out=1154 stop=stop
+  summarize REQ A2-old-shape-repeat status=200 msgs=26 sys=4 tools=2 bp=[sys:1h,24:1h,25:1h] in=4 cr=7180 cw=0 cttl1h=0 cttl5m=0 out=1154 stop=end_turn
+  summarize REQ A2-old-shape-repeat status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1417 cttl1h=1417 cttl5m=0 out=576 stop=end_turn
+--- totals ---
+token_events=40115 cap=400000
+non_message_urls=none
+fatal=main turn 51 failed: Connection error.
+scratch_dir_removed=true

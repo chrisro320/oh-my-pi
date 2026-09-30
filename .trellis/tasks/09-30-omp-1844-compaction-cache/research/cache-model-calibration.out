@@ -1,0 +1,163 @@
+audit rows parsed                 : 8604
+(session, model) chains           : 116
+turns replayed                    : 5152
+turns on breakpoint lanes         : 719
+  paired with a usage row         : 606
+  requests with no usage row      : 113
+  zero-usage (aborted) responses  : 4
+  skipped (first turn of window)  : 2
+  generation breaks (unscorable)  : 5
+lookback used                     : 20 message-blocks
+pairing latency (usage.at - request.at): n=3452 median=3.8s p90=13.0s max=337.8s  >120s: 5
+
+  generation break (unscorable): 2026-09-28T17:08:55.733Z 01a0e75b/claude-opus-5-5   msgs=11 bp=['9:1h', '10:1h'] kind=SYSTEM_DRIFT real(read=0,write=33454) | MISS CAUSED BY SYSTEM_DRIFT (strict 0.0%)
+  generation break (unscorable): 2026-09-30T04:40:09.986Z 01a0f047/claude-sonnet-5-5 msgs=20 bp=['18:1h', '19:1h'] kind=SYSTEM_DRIFT real(read=0,write=38272) | MISS CAUSED BY SYSTEM_DRIFT (strict 0.0%)
+  generation break (unscorable): 2026-09-30T04:44:19.953Z 01a0f047/claude-sonnet-5-5 msgs=30 bp=['28:1h', '29:1h'] kind=HISTORY_REWRITE real(read=41604,write=440) | hit (strict 98.9%)
+  generation break (unscorable): 2026-09-30T06:16:21.825Z 01a0f047/claude-sonnet-5-5 msgs=383 bp=['381:1h', '382:1h'] kind=IDENTICAL real(read=327603,write=3289) | hit (strict 99.0%)
+  generation break (unscorable): 2026-09-30T07:42:21.143Z 01a0f047/claude-sonnet-5-5 msgs=17 bp=['15:1h', '16:1h'] kind=HISTORY_REWRITE real(read=14257,write=30072) | MISS CAUSED BY HISTORY_REWRITE (strict 32.2%)
+
+==================================================================================
+AGREEMENT  predicted 'read reaches previous request's tail'  vs  real usage
+==================================================================================
+  breakpoint lanes                : 100.0% (595/595)
+  all requests (model undefined   :  23.6% (772/3268)
+   on lanes without breakpoints)
+
+WHY THE ALL-REQUESTS NUMBER IS LOW: per-lane reality (all requests)
+  deepseek-v4.1-flash        n=2290  real-hit=2114   no breakpoints:   7.7% (176/2290)
+  claude-sonnet-5-5          n=444   real-hit=443   breakpoints: 100.0% (444/444)
+  gpt-6-sol                  n=264   real-hit=264    no breakpoints:   0.0% (0/264)
+  claude-opus-5-5            n=151   real-hit=151   breakpoints: 100.0% (151/151)
+  gpt-6-astra                n=38    real-hit=38     no breakpoints:   0.0% (0/38)
+  step-5-preview             n=38    real-hit=37     no breakpoints:   2.6% (1/38)
+  gpt-6.1-sol                n=23    real-hit=23     no breakpoints:   0.0% (0/23)
+  gpt-6-luna                 n=20    real-hit=20     no breakpoints:   0.0% (0/20)
+
+BY GAP SINCE PREVIOUS REQUEST (all requests, model undefined on the non-breakpoint lanes)
+      <5m:  23.2% (754/3245)
+    5-60m:  78.3% (18/23)
+
+BY GAP SINCE PREVIOUS REQUEST (breakpoint lanes)
+      <5m: 100.0% (578/578)
+    5-60m: 100.0% (17/17)
+
+BY diff.kind (breakpoint lanes)
+         APPEND_ONLY: 100.0% (434/434)
+        SYSTEM_DRIFT: 100.0% (161/161)
+
+MODEL MECHANISM vs REALITY (breakpoint lanes)
+  reason      n    model-hit  real-hit  agreement
+           hit 594  594        594       100.0% (594/594)
+        window 1    0          0         100.0% (1/1)
+
+MODEL vs THE AUDIT'S OWN BYTE-IDENTITY VERDICT (confusion, breakpoint lanes)
+  model=hit  audit-verdict=hit : n=594  real-hit=594  (100.0% (594/594))
+  model=miss audit-verdict=miss: n=1    real-hit=0    (100.0% (1/1))
+
+DISAGREEMENTS: 0
+
+TURNS WHERE THE MODEL PREDICTS A MISS (or reality is a miss) -- the discriminating cases
+  2026-09-28T17:08:55.733Z 01a0e75b/claude-opus-5-5   msgs=11   bp=['9:1h', '10:1h'] kind=SYSTEM_DRIFT    gap=196s pred(no-history,hit=-1,prev=606) real(read=0,write=33454) gt=None | MISS CAUSED BY SYSTEM_DRIFT (strict 0.0%)
+  2026-09-28T19:22:41.265Z 01a0e976/claude-sonnet-5-5 msgs=1    bp=['0:1h'] kind=IDENTICAL       gap=Nones pred(no-history,hit=-1,prev=None) real(read=0,write=23568) gt=False | MISS (prefix intact, strict 0.0% — look at breakpoints/TTL/request envelope)
+  2026-09-30T03:07:36.970Z 01a0f047/claude-sonnet-5-5 msgs=1    bp=['0:1h'] kind=IDENTICAL       gap=Nones pred(no-history,hit=-1,prev=None) real(read=0,write=23630) gt=False | MISS (prefix intact, strict 0.0% — look at breakpoints/TTL/request envelope)
+  2026-09-30T04:19:57.652Z 01a0f047/claude-sonnet-5-5 msgs=457  bp=['455:1h', '456:1h'] kind=SYSTEM_DRIFT    gap=252s pred(window,hit=-1,prev=417) real(read=14314,write=342867) gt=False | MISS CAUSED BY SYSTEM_DRIFT (strict 4.0%) | ttl none -> 1h
+  2026-09-30T04:40:09.986Z 01a0f047/claude-sonnet-5-5 msgs=20   bp=['18:1h', '19:1h'] kind=SYSTEM_DRIFT    gap=225s pred(expired,hit=-1,prev=514) real(read=0,write=38272) gt=None | MISS CAUSED BY SYSTEM_DRIFT (strict 0.0%)
+  2026-09-30T07:42:21.143Z 01a0f047/claude-sonnet-5-5 msgs=17   bp=['15:1h', '16:1h'] kind=HISTORY_REWRITE gap=1636s pred(expired,hit=-1,prev=432) real(read=14257,write=30072) gt=None | MISS CAUSED BY HISTORY_REWRITE (strict 32.2%)
+
+==================================================================================
+PARAMETER SENSITIVITY (breakpoint lanes)
+==================================================================================
+  lookback=0   TTL=1h stamp=request     :   0.2% (1/595)
+  lookback=2   TTL=1h stamp=request     :  89.9% (535/595)
+  lookback=4   TTL=1h stamp=request     : 100.0% (595/595)
+  lookback=6   TTL=1h stamp=request     : 100.0% (595/595)
+  lookback=10  TTL=1h stamp=request     : 100.0% (595/595)
+  lookback=14  TTL=1h stamp=request     : 100.0% (595/595)
+  lookback=20  TTL=1h stamp=request     : 100.0% (595/595)
+  lookback=30  TTL=1h stamp=request     : 100.0% (595/595)
+  lookback=40  TTL=1h stamp=request     :  99.8% (594/595)
+  lookback=80  TTL=1h stamp=request     :  99.8% (594/595)
+  lookback=20  TTL=1h stamp=response     : 100.0% (595/595)
+  lookback=20  TTL=1h unpaired-writes off:  92.9% (553/595)
+
+  turns whose verdict flips with a wider window (what bounds the window):
+    lookback=4  : 0 flips vs lookback=20
+    lookback=10 : 0 flips vs lookback=20
+    lookback=20 : 0 flips vs lookback=20
+    lookback=40 : 1 flips vs lookback=20  [('2026-09-30T04:19:57.652Z', ('01a0f047-74c9-7000-a824-4c2201617a31', 'claude-sonnet-5-5'), 'hit', 417, 417, False)]
+    lookback=80 : 1 flips vs lookback=20  [('2026-09-30T04:19:57.652Z', ('01a0f047-74c9-7000-a824-4c2201617a31', 'claude-sonnet-5-5'), 'hit', 417, 417, False)]
+
+==================================================================================
+TTL BOUNDS FROM REAL DATA
+==================================================================================
+  gap since previous request: n=600 median=9s p90=69s max=1636s  >1h: 0
+  largest gap that still produced a real hit : 1394s at 2026-09-30T06:44:26.105Z (claude-sonnet-5-5)
+  median gap among real hits                 : 8s
+  real hits with a gap > 1h                  : 0
+  (the compaction replay below supplies the upper bound: an entry aged 1:57 did not hit)
+
+==================================================================================
+TOKEN COHERENCE (breakpoint lanes, hits only)
+==================================================================================
+  01a0f047/claude-sonnet-5-5 n=439  real cacheRead / predicted read blocks: median=  877.7 p10=  791.7 p90= 1359.8
+  01a0e75b/claude-opus-5-5   n=151  real cacheRead / predicted read blocks: median= 1189.7 p10= 1145.1 p90= 1688.5
+  01a0e976/claude-sonnet-5-5 n=6    real cacheRead / predicted read blocks: median= 3856.7 p10= 2175.0 p90=23568.0
+
+==================================================================================
+HOW FAR THE LOOKUP HAD TO REACH (what the corpus actually exercises)
+  reach = this request's anchor - the matched entry index
+  jump  = this request's anchor - the previous request's last marker
+==================================================================================
+  reach histogram:
+       0 blocks back: 3
+       1 blocks back: 3
+       2 blocks back: 620
+       3 blocks back: 83
+       4 blocks back: 3
+  jump histogram:
+    +-596 blocks per turn: 1
+    +-495 blocks per turn: 1
+    +-416 blocks per turn: 1
+    +0   blocks per turn: 3
+    +1   blocks per turn: 3
+    +2   blocks per turn: 620
+    +3   blocks per turn: 83
+    +4   blocks per turn: 3
+    +39  blocks per turn: 1
+  => the widest reach the corpus ever needs is 4 blocks
+  => a matched entry was ALWAYS the immediately preceding request's own marker;
+     no turn ever had to be served from an older, un-restamped entry, so the
+     corpus itself cannot show whether older markers stay alive.
+
+==================================================================================
+BLOCK PROXY (message index vs content block, archived wire bodies)
+==================================================================================
+  sampled bodies: 283 of 2017
+  content blocks per message, whole body: median=1.448 p10=1.331 p90=1.871
+  content blocks per message, last 24    : median=1.458 p10=1.250 p90=1.875
+  => LOOKBACK of 20 content blocks is 13.8 messages, not 20
+  => applying LOOKBACK=20 to message indices is therefore ~45% too permissive
+
+==================================================================================
+REAL COMPACTION REQUESTS THROUGH THE MODEL
+==================================================================================
+
+  wire 2026-09-30T04:36:35.314Z pid=2526627 model=claude-sonnet-5-5
+       messages=481 breakpoints=['479:1h', '480:1h'] chain=('01a0f047-74c9-7000-a824-4c2201617a31', 'claude-sonnet-5-5')
+       real usage: read=383514 write=1573 cttl={'ephemeral1h': 1573}
+       last main request before it: messages=515 anchor=514
+       entry at 479: written=2026-09-30 04:27:42.702000+00:00 age=0:08:52.612000
+       entry at 480: written=2026-09-30 04:27:42.702000+00:00 age=0:08:52.612000
+       OLD shape (msgs=481, bp=[479, 480]) -> hit=480 reason=hit read_blocks=481 written_blocks=0
+       NEW shape (msgs=516, bp=[514, 515]) -> hit=514 reason=hit read_blocks=515 written_blocks=1
+       alive entries at wire time: 228 (max=514)
+
+  wire 2026-09-30T07:21:39.289Z pid=2749314 model=claude-sonnet-5-5
+       messages=355 breakpoints=['353:1h', '354:1h'] chain=('01a0f047-74c9-7000-a824-4c2201617a31', 'claude-sonnet-5-5')
+       real usage: read=14257 write=265136 cttl={'ephemeral1h': 265136}
+       last main request before it: messages=433 anchor=432
+       entry at 353: written=2026-09-30 05:24:25.037000+00:00 age=1:57:14.252000
+       entry at 354: written=2026-09-30 05:24:25.037000+00:00 age=1:57:14.252000
+       OLD shape (msgs=355, bp=[353, 354]) -> hit=-1 reason=expired read_blocks=0 written_blocks=355
+       NEW shape (msgs=434, bp=[432, 433]) -> hit=432 reason=hit read_blocks=433 written_blocks=1
+       alive entries at wire time: 44 (max=432)

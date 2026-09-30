@@ -106,23 +106,85 @@ function uncached(value: unknown): unknown {
 }
 
 // ---------------------------------------------------------------- cache model
-// Anthropic keeps a written prefix for the requested TTL (one hour on this
-// fixture's OAuth credential) and resolves a breakpoint against cached prefixes
-// inside a 20-block window behind it. `writtenAt` is in hours on the fixture
-// clock, which advances only because this gate advances it: the incident's
-// shape is reproduced by when each turn ran, not by wall time.
-const TTL_HOURS = 1;
+// Anthropic keeps a written prefix for the TTL its marker asked for (one hour
+// on this fixture's OAuth credential) and resolves a breakpoint against cached
+// prefixes inside a bounded window behind it. An entry is identified by the
+// cache-relevant PREFIX BYTES -- system, tools and every message up to and
+// including its breakpoint, cache_control stripped -- not by an index: the real
+// cache is content-addressed, so a request that changes its system prompt or
+// tool list must miss even when the message bytes are identical. `writtenAt` is
+// in hours on the fixture clock.
+//
+// Calibration caveats (research/cache-model-calibration.md): the 20-block
+// LOOKBACK is only bounded by the corpus (>=4 needed, <39 observed) and in
+// content-block units it is ~45% too generous; the fixture's verdicts stay valid
+// because its cut sits more than 30 blocks behind every live marker. The TTL is
+// carried per entry from the marker that wrote it, so a 5m marker expires in
+// five minutes here and a 1h one in an hour.
 const LOOKBACK_BLOCKS = 20;
 const HEAD_TOKENS = 50;
 const BLOCK_TOKENS = 100;
 const INSTRUCTION_TOKENS = 5;
 
-const entriesByIndex = new Map<number, number>();
+const entriesByIdentity = new Map<string, { writtenAt: number; ttlHours: number }>();
 let headWrittenAt: number | undefined;
+let headTtlHours = 1;
+
+function cacheControlStripped(value: unknown): unknown {
+	return JSON.parse(JSON.stringify(value, (key, entry) => (key === "cache_control" ? undefined : entry)));
+}
+
+/**
+ * Key-order-independent JSON. Two requests that present the same cache bytes
+ * are the same cache candidate; serializers that build the same content with
+ * different key order must not read as different prefixes here.
+ */
+function canonicalJson(value: unknown): string {
+	if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+	if (value !== null && typeof value === "object") {
+		return `{${Object.entries(value as Record<string, unknown>)
+			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+			.map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`)
+			.join(",")}}`;
+	}
+	return JSON.stringify(value) ?? "null";
+}
+
+/**
+ * The cache-relevant bytes of one request up to and including `index`.
+ *
+ * The provider's own `x-anthropic-billing-header` block carries a per-request
+ * `cch` hash, yet the real sessions hit (the calibration's two compactions read
+ * 383514 / 14257 with that header present on every request), so it is not part
+ * of the cached prefix. Every other system byte is: the namespace fault leg
+ * below changes one and must miss.
+ */
+function prefixIdentity(payload: WirePayload, index: number): string {
+	const system = (payload.system ?? []).filter(
+		block => !String(block.text ?? "").startsWith("x-anthropic-billing-header"),
+	);
+	return canonicalJson({
+		system: cacheControlStripped(system),
+		tools: cacheControlStripped(payload.tools ?? []),
+		messages: cacheControlStripped(payload.messages.slice(0, index + 1)),
+	});
+}
+
+function markerTtlHours(payload: WirePayload): number {
+	const blocks = payload.messages.flatMap(message => (Array.isArray(message.content) ? message.content : []));
+	const marker = blocks.find(block => block.cache_control);
+	return marker?.cache_control?.ttl === "5m" ? 5 / 60 : 1;
+}
 
 function recordWrite(payload: WirePayload, writtenAt: number): void {
-	for (const index of messageBreakpoints(payload)) entriesByIndex.set(index, writtenAt);
-	if (headBreakpointCount(payload) > 0) headWrittenAt = writtenAt;
+	const ttlHours = markerTtlHours(payload);
+	for (const index of messageBreakpoints(payload)) {
+		entriesByIdentity.set(prefixIdentity(payload, index), { writtenAt, ttlHours });
+	}
+	if (headBreakpointCount(payload) > 0) {
+		headWrittenAt = writtenAt;
+		headTtlHours = ttlHours;
+	}
 }
 
 function tokensBetween(from: number, to: number, messageCount: number): number {
@@ -141,13 +203,17 @@ function simulate(
 	const marked = messageBreakpoints(payload);
 	const anchor = marked.length > 0 ? Math.max(...marked) : -1;
 	let hit = -1;
-	for (const [index, writtenAt] of entriesByIndex) {
-		if (at - writtenAt >= TTL_HOURS) continue; // the entry's hour is over
-		if (index > anchor) continue; // past this request's last breakpoint
-		if (anchor - index > LOOKBACK_BLOCKS) continue; // outside the lookup window
-		if (index > hit) hit = index;
+	for (let index = anchor; index >= 0 && anchor - index <= LOOKBACK_BLOCKS; index--) {
+		const entry = entriesByIdentity.get(prefixIdentity(payload, index));
+		// A shallower entry is NOT refreshed by a deeper hit: only a request that
+		// carries a marker at that position restamps it (verified against the two
+		// real compactions in the calibration).
+		if (entry === undefined) continue;
+		if (at - entry.writtenAt >= entry.ttlHours) continue;
+		hit = index;
+		break;
 	}
-	const headAlive = headWrittenAt !== undefined && at - headWrittenAt < TTL_HOURS;
+	const headAlive = headWrittenAt !== undefined && at - headWrittenAt < headTtlHours;
 	const readBlocks = hit + 1;
 	const writtenBlocks = anchor - hit;
 	return {
@@ -267,6 +333,7 @@ async function captureCompaction(
 	history: Context,
 	live: Context | undefined,
 	previousSummary: string | undefined,
+	onCacheFallback?: (reason: string) => void,
 ): Promise<WirePayload> {
 	const before = wire.length;
 	await compact(
@@ -298,6 +365,7 @@ async function captureCompaction(
 							context: scope === "live" ? (live ?? history) : history,
 							previousSummaryInPrefix: previousSummary !== undefined,
 						},
+			onCacheFallback,
 		},
 	).catch(error => {
 		assert.ok(String(error).includes(STOPPED), `compaction must stop at the offline sink: ${String(error)}`);
@@ -338,6 +406,30 @@ try {
 		[CHAIN_LENGTH - 1, CHAIN_LENGTH],
 		"breakpoints must anchor the live tail (432/433), not the summarize boundary (353/354)",
 	);
+	// The cutoff is content-anchored, not a message count: provider conversion
+	// merges and expands messages, so a count does not name the same position on
+	// the wire. The fixture's tail head is message 354, and its text is unique.
+	const vouchedInstruction = vouched.messages.at(-1);
+	const vouchedCutoffText =
+		vouchedInstruction && Array.isArray(vouchedInstruction.content)
+			? vouchedInstruction.content.map(block => block.text ?? "").join("")
+			: "";
+	assert.match(
+		vouchedCutoffText,
+		/BEGIN RETAINED TAIL: user: fixture-message-354/,
+		"the cutoff must name the retained tail by content, not by count",
+	);
+	assert.doesNotMatch(vouchedCutoffText, /first \d+ messages/, "the cutoff must not state a message count");
+	// The fixture keeps the cut far from every live marker: the nearest entry the
+	// main chain refreshed before the compaction is well outside any plausible
+	// lookup window, so the red verdict below cannot be a window artefact.
+	const aliveAtIndexes = Array.from(entriesByIdentity.keys()).length;
+	assert.ok(aliveAtIndexes > 0, "the main turns must have written cache entries");
+	const nearestLiveMarker = BOUNDARY + 1 + 2 * Math.ceil((COMPACTION_AT - 1) / TURN_HOURS);
+	assert.ok(
+		nearestLiveMarker - BOUNDARY >= 30,
+		`fixture must keep the cut >=30 blocks from the nearest live marker (got ${nearestLiveMarker - BOUNDARY})`,
+	);
 
 	// Leg 2: negative control. Same fixture, same clock, same host -- but the
 	// host can only vouch for the truncated prefix, which is the shape the
@@ -375,19 +467,67 @@ try {
 	assert.doesNotMatch(iterativeText, /<previous-summary>/, "verified prefix must not duplicate the prior summary");
 	assert.match(
 		iterativeText,
-		new RegExp(`Summarize ONLY those first ${BOUNDARY} messages\\.`),
+		/BEGIN RETAINED TAIL: user: fixture-message-354/,
 		"iterative request must still name the cutoff",
 	);
 	assert.match(
 		iterativeText,
-		new RegExp(`The final ${CHAIN_LENGTH - BOUNDARY} messages MUST NOT be summarized`),
+		/MUST NOT be summarized, restated, re-listed, or described/,
 		"iterative request must keep the retained tail out of the summary",
 	);
+
+	// Leg 4: cache-namespace fault variant, the mutation this gate was shown to
+	// miss. Identical message bytes and identical breakpoints, but the summarize
+	// request renders a different system prompt, so the content-addressed prefix
+	// it presents is not the one the main chain cached. The simulator must go RED
+	// here; a message-index-keyed model cannot see this at all.
+	const drifted = await captureCompaction(historyContext, { ...liveContext, systemPrompt: ["CHANGED SYSTEM"] }, undefined);
+	assert.deepEqual(
+		uncached(drifted.messages.slice(0, CHAIN_LENGTH)),
+		uncached(lastMainWire.messages.slice(0, CHAIN_LENGTH)),
+		"namespace fault must keep the message bytes identical",
+	);
+	const namespaceFault = simulate(drifted, COMPACTION_AT);
+	assert.equal(namespaceFault.readBlocks, 0, "a changed system prompt must miss the cached prefix");
+	assert.equal(
+		namespaceFault.writtenBlocks,
+		CHAIN_LENGTH + 1,
+		"a changed system prompt must rewrite the whole chain",
+	);
+
+	// Leg 5: an ambiguous anchor must fall back LOUDLY rather than guess. The
+	// retained tail's head is given a text that also appears earlier in the
+	// chain, so no excerpt of it selects exactly one message.
+	const duplicated = messages.map((message, index) =>
+		index === 300 ? { ...message, content: [{ type: "text", text: "fixture-message-354" }] } : message,
+	);
+	const duplicateChain: Context = { systemPrompt: SYSTEM, messages: duplicated, tools: TOOLS };
+	const duplicateHistory: Context = {
+		systemPrompt: SYSTEM,
+		messages: duplicated.slice(0, BOUNDARY),
+		tools: TOOLS,
+	};
+	const duplicateFallbacks: string[] = [];
+	const ambiguous = await captureCompaction(duplicateHistory, duplicateChain, undefined, reason =>
+		duplicateFallbacks.push(reason),
+	);
+	assert.ok(
+		duplicateFallbacks.includes("boundary-not-attestable"),
+		`an ambiguous anchor must be reported, saw ${JSON.stringify(duplicateFallbacks)}`,
+	);
+	assert.deepEqual(
+		messageBreakpoints(ambiguous),
+		[BOUNDARY - 1, BOUNDARY],
+		"an unattestable boundary must keep the truncating shape",
+	);
+	const ambiguousVerdict = simulate(ambiguous, COMPACTION_AT);
+	assert.equal(ambiguousVerdict.readBlocks, 0, "the loud fallback is still cache-cold, hence the warning");
 
 	console.log(
 		`PASS compaction cache liveness: turns=${turnMarkers.length} chain=${CHAIN_LENGTH} boundary=${BOUNDARY} ` +
 			`green(cacheRead=${green.cacheRead}, cacheWrite=${green.cacheWrite}, readBlocks=${green.readBlocks}) ` +
-			`red(cacheRead=${red.cacheRead}, cacheWrite=${red.cacheWrite}, readBlocks=${red.readBlocks})`,
+			`red(cacheRead=${red.cacheRead}, cacheWrite=${red.cacheWrite}, readBlocks=${red.readBlocks}) ` +
+			`namespaceFault(readBlocks=${namespaceFault.readBlocks}) fallbacks=${JSON.stringify(duplicateFallbacks)}`,
 	);
 } finally {
 	globalThis.fetch = originalFetch;

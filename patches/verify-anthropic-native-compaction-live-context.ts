@@ -205,18 +205,12 @@ if (coreVersion === "18.4.4") {
 	assert.deepEqual(request.context.messages, liveContext.messages, "native request must carry the live chain byte-for-byte");
 	assert.ok(preparation.recentMessages.length > 0, "fixture must exercise a retained tail");
 	const instructions = String(request.options.anthropicCompaction?.instructions);
-	const cutoff = /Summarize ONLY those first (\d+) messages\./.exec(instructions);
-	assert.ok(cutoff, "live-chain instructions must name the cutoff");
-	assert.equal(
-		Number(cutoff[1]),
-		liveContext.messages.length - preparation.recentMessages.length,
-		"cutoff must leave exactly the retained tail out of the summary",
-	);
 	assert.match(
 		instructions,
-		new RegExp(`The final ${preparation.recentMessages.length} messages MUST NOT be summarized`),
-		"live-chain instructions must keep the retained tail out of the summary",
+		/BEGIN RETAINED TAIL: assistant: RECENT_RESPON/,
+		"live-chain instructions must name the retained tail by content",
 	);
+	assert.doesNotMatch(instructions, /first \d+ messages/, "live-chain instructions must not state a count");
 	assert.doesNotMatch(
 		instructions,
 		/complete history to summarize/,
@@ -278,18 +272,20 @@ if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
 			assert.deepEqual(requests[0].context.messages, boundaryLive,
 				"native request must carry the whole live chain regardless of where safeCut lands");
 			const boundaryInstructions = String(requests[0].options.anthropicCompaction?.instructions);
-			const boundaryCutoff = /Summarize ONLY those first (\d+) messages\./.exec(boundaryInstructions);
 			if (hasEntryIds) {
 				// safeCut advances past the tool call so it stays with its result:
-				// three of the six messages are the retained tail.
-				assert.equal(boundaryCutoff?.[1], "3", "instructions must name the cut safeCut landed on");
-				assert.match(boundaryInstructions, /The final 3 messages MUST NOT be summarized/);
+				// the retained tail starts at the assistant turn that follows it.
+				assert.match(
+					boundaryInstructions,
+					/BEGIN RETAINED TAIL: assistant: OLD_RESPONSE/,
+					"instructions must name the cut safeCut landed on, by content",
+				);
 				assert.equal(shifted.firstKeptEntryId, "after-result");
 			} else {
 				// Without boundary IDs safeCut collapses to the whole snapshot:
 				// nothing is retained, so the request is its own complete history
 				// and the default instructions -- no cutoff -- are the correct ones.
-				assert.equal(boundaryCutoff, null, "an empty retained tail needs no cutoff sentence");
+				assert.doesNotMatch(boundaryInstructions, /BEGIN RETAINED TAIL/, "an empty retained tail needs no cutoff sentence");
 				assert.match(boundaryInstructions, /complete history to summarize/);
 				assert.equal(shifted.firstKeptEntryId, "");
 			}

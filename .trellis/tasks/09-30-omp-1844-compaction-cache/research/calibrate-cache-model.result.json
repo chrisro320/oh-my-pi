@@ -1,0 +1,59 @@
+{
+  "audit_rows": 8604,
+  "chains": 116,
+  "lookback": 20,
+  "bp_turns": 719,
+  "paired": 606,
+  "unmatched_requests": 113,
+  "zero_usage": 4,
+  "agreement": {
+    "n": 595,
+    "agree": 595,
+    "rate": 1.0
+  },
+  "by_gap": {
+    "<5m": {
+      "n": 578,
+      "agree": 578,
+      "rate": 1.0
+    },
+    "5-60m": {
+      "n": 17,
+      "agree": 17,
+      "rate": 1.0
+    }
+  },
+  "by_kind": {
+    "APPEND_ONLY": {
+      "n": 434,
+      "agree": 434,
+      "rate": 1.0
+    },
+    "SYSTEM_DRIFT": {
+      "n": 161,
+      "agree": 161,
+      "rate": 1.0
+    }
+  },
+  "by_reason": {
+    "hit": {
+      "agreement": {
+        "n": 594,
+        "agree": 594,
+        "rate": 1.0
+      },
+      "real_hits": 594,
+      "n": 594
+    },
+    "window": {
+      "agreement": {
+        "n": 1,
+        "agree": 1,
+        "rate": 1.0
+      },
+      "real_hits": 0,
+      "n": 1
+    }
+  },
+  "disagreements": []
+}

@@ -1,0 +1,32 @@
+mode=live model=claude-sonnet-5-5 auth=oauth:true chain_messages=123 chain_tokens_est=30771
+boundary=89 retained=34 tail_visible=123 filler_lines=17
+--- requests (provider-reported usage) ---
+REQ main1(visible=115) status=200 msgs=115 sys=4 tools=2 bp=[sys:1h,113:1h,114:1h] in=2 cr=0 cw=32801 cttl1h=32801 cttl5m=0 out=32 stop=max_tokens
+REQ main2(visible=117) status=200 msgs=117 sys=4 tools=2 bp=[sys:1h,115:1h,116:1h] in=2 cr=32801 cw=568 cttl1h=568 cttl5m=0 out=32 stop=max_tokens
+REQ main3(visible=119) status=200 msgs=119 sys=4 tools=2 bp=[sys:1h,117:1h,118:1h] in=2 cr=33369 cw=563 cttl1h=563 cttl5m=0 out=32 stop=max_tokens
+REQ main4(visible=121) status=200 msgs=121 sys=4 tools=2 bp=[sys:1h,119:1h,120:1h] in=2 cr=33932 cw=568 cttl1h=568 cttl5m=0 out=32 stop=max_tokens
+REQ main5(visible=123) status=200 msgs=123 sys=4 tools=2 bp=[sys:1h,121:1h,122:1h] in=2 cr=34500 cw=565 cttl1h=565 cttl5m=0 out=32 stop=max_tokens
+REQ B-new-shape status=200 msgs=124 sys=4 tools=2 bp=[sys:1h,122:1h,123:1h] in=4 cr=0 cw=35622 cttl1h=35622 cttl5m=0 out=892 stop=end_turn
+REQ B-new-shape status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1154 cttl1h=1154 cttl5m=0 out=108 stop=end_turn
+REQ A-old-shape status=200 msgs=90 sys=4 tools=2 bp=[sys:1h,88:1h,89:1h] in=4 cr=0 cw=25866 cttl1h=25866 cttl5m=0 out=1121 stop=end_turn
+REQ A-old-shape status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1383 cttl1h=1383 cttl5m=0 out=73 stop=end_turn
+REQ A2-old-shape-repeat status=200 msgs=90 sys=4 tools=2 bp=[sys:1h,88:1h,89:1h] in=4 cr=25866 cw=0 cttl1h=0 cttl5m=0 out=988 stop=end_turn
+REQ A2-old-shape-repeat status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1250 cttl1h=1250 cttl5m=0 out=156 stop=end_turn
+--- compaction trace (real builder) ---
+TRACE B-new-shape failure=none structured=true usesLiveChainReplay=true liveChainSummarizedMessages=89 liveChainFallback=none wireMessages=124 wireBreakpoints=[122:1h,123:1h]
+TRACE B-new-shape summarize.usage in=4 cr=0 cw=35622 out=892 stop=stop
+  summarize REQ B-new-shape status=200 msgs=124 sys=4 tools=2 bp=[sys:1h,122:1h,123:1h] in=4 cr=0 cw=35622 cttl1h=35622 cttl5m=0 out=892 stop=end_turn
+  summarize REQ B-new-shape status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1154 cttl1h=1154 cttl5m=0 out=108 stop=end_turn
+TRACE A-old-shape failure=none structured=true usesLiveChainReplay=false liveChainSummarizedMessages=undefined liveChainFallback=cut-before-host-boundary wireMessages=90 wireBreakpoints=[88:1h,89:1h]
+TRACE A-old-shape summarize.usage in=4 cr=0 cw=25866 out=1121 stop=stop
+  summarize REQ A-old-shape status=200 msgs=90 sys=4 tools=2 bp=[sys:1h,88:1h,89:1h] in=4 cr=0 cw=25866 cttl1h=25866 cttl5m=0 out=1121 stop=end_turn
+  summarize REQ A-old-shape status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1383 cttl1h=1383 cttl5m=0 out=73 stop=end_turn
+TRACE A2-old-shape-repeat failure=none structured=true usesLiveChainReplay=false liveChainSummarizedMessages=undefined liveChainFallback=cut-before-host-boundary wireMessages=90 wireBreakpoints=[88:1h,89:1h]
+TRACE A2-old-shape-repeat summarize.usage in=4 cr=25866 cw=0 out=988 stop=stop
+  summarize REQ A2-old-shape-repeat status=200 msgs=90 sys=4 tools=2 bp=[sys:1h,88:1h,89:1h] in=4 cr=25866 cw=0 cttl1h=0 cttl5m=0 out=988 stop=end_turn
+  summarize REQ A2-old-shape-repeat status=200 msgs=1 sys=3 tools=0 bp=[sys:1h,0:1h] in=4 cr=0 cw=1250 cttl1h=1250 cttl5m=0 out=156 stop=end_turn
+--- totals ---
+token_events=264340 cap=400000
+non_message_urls=none
+fatal=none
+scratch_dir_removed=true
