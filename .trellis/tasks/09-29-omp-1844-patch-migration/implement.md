@@ -13,9 +13,9 @@
 - [x] 全套 gate 在 18.4.4 沙箱綠；二次 apply、`--check`、`--revert`。
 - [x] **（最高優先，部署前閘門）** 靜態審計：上游 18.4.2–18.4.4 對 `agent-session.ts`、`queued-messages.ts`、`compaction*.ts`、`session-provider-boundary.ts`、message 持久化路徑的改動，逐項判斷是否引入新的「僅記憶體訊息」或改變 wire 形狀。
 - [x] **（最高優先，部署前閘門）** 把 18.4.1 的 probes（`probe-prefix-1841.ts`、`probe-remote-prefix-1841.ts`、`probe-tag-prefix-1841.ts`、`probe-stress-a/b-1841.ts`、`probe-audit-repro-1841.ts` 與對應 `run-*.py`）移植為 `*-1844`，在 18.4.4 全鏈沙箱跨新行程執行：plain / soft / snapcompact / remote（Codex V2、Anthropic native，真實傳輸 + loopback）/ resume / 壓縮後 resume；每場景附無修復對照。
-- [ ] 獨立審查（trellis-check）+ 修正。
-- [ ] `trellis-update-spec`；commit。
-- [ ] 部署準備（`prepare`/`preflight`）；**等使用者關閉全部 omp 行程後**才 `deploy --execute`。
+- [x] 獨立審查（trellis-check）+ 修正（Major #1/#3 已修；#2 選 B、#4 列後續）。
+- [x] `trellis-update-spec`；commit（b31a97658：verification-gate-contracts.md 與 patch-rollup-contracts.md 新增 18.4.4 章節）。
+- [x] 部署準備（`prepare`/`preflight`）；**等使用者關閉全部 omp 行程後**才 `deploy --execute`。
 
 ## 驗證命令
 - 重放：`python3 research/replay-1844.py --nm <sandbox>/nm --json out.json`
@@ -36,3 +36,4 @@
 - PRD 修正：補丁檔非 ASCII 檢查應比對「相對 18.4.1 新增的 `+` 行」（`comm -13`），結果僅 0065 的 rules.json 上游資料行；不是全檔 grep 無輸出。
 - 2026-09-30 部署準備：`final-1844.sh` 加入 apply#2 `SKIP == plan+1（launcher）` 與 `APPLIED == 0` 斷言後重跑 ALLDONE（applied digest 與先前逐位相同）。沙箱 ROOT 演練（`Rehearsal`，複製 live 18.4.1 install 與 ledger，假 agent.db/models.db 走 WAL）：`prepare`→`preflight`→`deploy --execute --rehearsal` 得 `fresh omp/18.4.4, 50/50 APPLIED, offline read smoke OK`，`rollback.py --execute` 回到 18.4.1，通過。live 已 `prepare`（`~/.bun/install/global-18.4.4-staged` 與 `~/.omp/patches-staged-18.4.4`），並啟動 systemd 值守單元 `omp-1844-deploy`（等所有互動 omp 退出後自動 `deploy --execute`，失敗自動回滾）。**決策**：Review #2 選 B（部署後另修；live 的 0082 已有同一缺口，非迴歸）。部署後不得再改 `patches/`（preflight 會比對 repo 與 staged ledger）。
 - 2026-09-30 00:38 live 部署完成：DEPLOYED 18.4.4（fresh omp/18.4.4、50/50 APPLIED、digest 相符）；部署後 `omp --version`=18.4.4、live `apply.sh --check`=50 APPLIED、repo 與 ledger 無差異（僅 ledger 多 backups/）。回滾：`~/.omp/backups/upgrade-18.4.4-20260930-003818/rollback.py --execute`。未做：部署後實際請求命中率觀察、Review #2/#4、0085。
+- 2026-09-30 收尾核對：AC 全數以本批證據勾選（非 ASCII 檢查以 python 集合差再驗，僅 0065 rules.json 上游資料；18.4.1 print-plan md5=fb03147…相同；18.4.5 exit 2）。AC 34 註記：audit-repro r2/r3/r3x/r3x-real/r4 在 18.4.1 同樣失敗（既有漂移），不屬本遷移。**仍未完成（另開後續任務，不因本任務收尾而視為完成）**：部署後真實請求命中率觀察、Review #2、Review #4、audit-repro 五案例、快取錨點（原稱 0085）。
