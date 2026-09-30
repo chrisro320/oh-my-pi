@@ -539,3 +539,37 @@ Full-chain replay 49/0; real `apply.sh` on a dependency-complete private tree wi
 
 ### 7. Wrong vs Correct
 Wrong: treat 31 clean layers as done and certify prefix stability from in-memory context equality. Correct: audit clean layers for removed APIs and new unpersisted injections, then prove provider-facing bytes across fresh processes for every compaction method the user configures.
+
+## Scenario: 18.4.4 same-ID migration with overlapping upstream mechanisms
+
+### 1. Scope / Trigger
+Upstream 18.4.3/18.4.4 added its own detached-draft handling (`restoreDetachedDraft`, `startPendingSubmission({ preserveDraft, clearEditor })`, `queueCompactionMessage(..., { preserveDraft })`) and RPC queue removal (`rawText`, `removeQueuedMessage`). These overlap local layer 0082 (prepared input, `displayText`).
+
+### 2. Signatures
+- `.18.4.4-candidates/` starts as the 18.4.1 bytes; only failing layers change; controller branch `18.4.4)` is a copy of `18.4.1)`.
+- `research/{replay,mkcand,deploy}-1844.py`, `final-1844.sh` (fail-closed), `resolved-deps-18.4.4.bun.lock` (resolved dependency graph of the dependency-complete sandbox).
+- 0082 merged form: `queueCompactionMessage(text, mode, images, { preserveDraft, displayText, prepared })`; queued `rawText` is `displayText ?? text`.
+
+### 3. Contracts
+- When upstream ships an overlapping mechanism, keep the upstream structure and re-insert the local boundary inside it; do not restore the old local variant beside it.
+- Queue identity for RPC removal is the operator's original text (`displayText`), never the model text; verified by `verify-user-display-text-queue.ts` with a cross case (prepared model text equals another message's original text).
+- A submission path that moves attachments into a queue clears them under the same revision guard as its sibling branches; do not rely on a queue helper that no longer clears.
+- Non-ASCII check compares added lines against the previous candidate set (`comm -13`), not a whole-file grep: upstream context and data legitimately contain non-ASCII.
+- Integration proof is one fail-closed script over a dependency-complete sandbox (six roots from pinned tarballs plus the rest of the resolved graph): apply, second apply all SKIP with unchanged digest, `--check` equals plan length, `--verify-rollups` including the new version and older plans, `--revert` equals pristine, reapply equals applied, no `.rej/.orig`.
+- Known upstream gap, not a local regression: a prepared submission handed to `onInputCallback` whose dispatch is rejected shows an error and does not return text or images to the editor (`main.ts` catch path). Same for unprepared input.
+
+### 4. Validation & Error Matrix
+| Situation | Verdict |
+|---|---|
+| Six-root-only sandbox | Gates that import transitive packages fail (`pi-utils/lru`); use the dependency-complete sandbox |
+| Gate reads the operator's real services | See gate isolation scenario |
+| rawText recorded as model text | RPC removal deletes the wrong queued message |
+
+### 5. Good / Base / Bad Cases
+Good: 38 of 50 layers replay clean, 12 adapted, all 50 apply in the Full sandbox with every gate exit 0. Bad: fold two failing layers into one candidate to make replay green.
+
+### 6. Tests Required
+Resume, soft, snapcompact, remote (Codex raw bytes equal; Anthropic content equal with cache breakpoints reported separately), tag/rebuild, stress A and B, and the audit-repro set compared field by field with the previous version; fault injection (`run-stress-a --fault drift`) must fail.
+
+### 7. Wrong vs Correct
+Wrong: call audit-repro r2/r3/r3x/r4 regressions. Correct: they fail identically on 18.4.1 and 18.4.4 (open drift, tracked separately); r1 passes only because 0084 is in the chain.

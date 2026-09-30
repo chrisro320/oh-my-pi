@@ -27,7 +27,7 @@ REPO = HERE.parents[3]
 SIX = ["pi-coding-agent", "pi-agent-core", "pi-ai", "pi-catalog", "snapcompact", "pi-tui"]
 SRC_ENTRY = "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts"
 OLD, NEW = "18.4.1", "18.4.4"
-LAYERS = 51
+LAYERS = 50
 # Labels for staged/rollback/backup names and messages. A same-version layer
 # redeploy (e.g. a later layer-count change) overrides them from the command line.
 OLD_TAG, NEW_TAG = OLD, NEW

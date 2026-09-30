@@ -595,3 +595,36 @@ For each new assertion show the failing output on the unfixed candidate (driver 
 
 ### 7. Wrong vs Correct
 Wrong: `audit({ refresh: true })` in the fixture. Correct: `new CacheWarmer({ stream: stub, ... })`, capture the replay options, and pass them through the real provider entry point.
+
+## Scenario: Gate and sandbox isolation from operator environment (18.4.4)
+
+### 1. Scope / Trigger
+A gate or probe that runs in a sandbox HOME still inherits the caller's process environment. Settings-level fixtures lose to environment overrides, so a fixture can silently talk to the operator's real service.
+
+### 2. Signatures
+- `patches/verify-hindsight-recall-snapshot.ts` runs `delete process.env.HINDSIGHT_API_URL` before any dynamic import. `HINDSIGHT_API_URL` outranks the `hindsight.apiUrl` setting.
+- Sandbox `env.sh` files unset `CODEX_HOME COMMANDCODE_KEY_POOL HINDSIGHT_API_URL PI_FORCE_IMAGE_PROTOCOL` before the HOME guard.
+- Probe runners (`run-*-1844.py`) build an explicit env dict instead of inheriting.
+
+### 3. Contracts
+- Every env var that redirects a service, credential pool or terminal protocol is scrubbed by the gate itself, not only by the caller: `apply.sh` and CI may run gates from a shell that has it set.
+- A gate that passes in one run and fails in the next in the same sandbox is treated as environment or external-state dependence until an A/B (dead vs real endpoint, var set vs unset) proves otherwise. Never relax or skip the assertion first.
+- Fail-closed shell drivers with `set -euo pipefail` never pipe into `head -1` (SIGPIPE turns into exit 141); capture the output into a variable first.
+- Gates that assert an exact version list (`=== "18.4.1"`) are widened per supported version in the same change that adds the plan; a tree outside the list fails, never skips.
+- A gate assertion that reads one compiled rule (for example a cost patch) must accept the compiler regrouping that rule into a multi-id block on a newer catalog.
+
+### 4. Validation & Error Matrix
+| Symptom | Verdict |
+|---|---|
+| Gate output contains the operator's real data (mental models, memories) | Environment leak; scrub the variable in the gate |
+| Passes first apply, fails second in same sandbox | External state; run the dead/real A/B |
+| Driver exits 141 with no gate output | `head` under pipefail |
+
+### 5. Good / Base / Bad Cases
+Good: same tree, dead endpoint passes twice, real endpoint fails twice, gate with the scrub passes with the real endpoint set. Bad: loosening `rejected clear must restore source snapshot`.
+
+### 6. Tests Required
+Run each gate once with the redirecting variable set to a live-looking URL and once unset; results must match.
+
+### 7. Wrong vs Correct
+Wrong: trust `HOME=<sandbox>` alone. Correct: `delete process.env.<VAR>` in the gate and `unset` in `env.sh`.

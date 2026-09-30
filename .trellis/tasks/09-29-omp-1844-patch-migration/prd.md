@@ -44,6 +44,13 @@
 - 上游 18.4.2–18.4.4 的系統提示與工具描述有變（RFC 2119 措辭、bash/eval 描述、新增 edit 禁用 sed 的 critical 段、image-attachment 措辭），部署後每個既有 session 的第一輪請求整段 miss **屬預期（上游提示變更）**，需在報告中與「漂移」分開列。
 - 判定口徑同 18.4.1 PRD（Codex 與 plain/soft/snapcompact 序列化位元組相同；Anthropic native 內容相同，`cache_control` 斷點另報）。
 
+## 未解決事項（部署前須使用者決定）
+
+- **Review #2（major，未修）**：prepared 輸入經 `onInputCallback` 交給 `main.ts` 後，若 `session.prompt` 被拒絕（模型/憑證），只 `showError` 並 `finishPendingSubmission`，原文與圖片不會還給編輯器，optimistic row 可能暫留。上游對「非 prepared 輸入」同樣如此；修法需動 `main.ts`/`interactive-mode.ts` 的提交生命週期。選項：A 併入本遷移修（新增拒絕 dispatch 行為 gate）；B 部署後另開任務。預設不部署直到使用者選擇。
+- **Review #4（minor，未修）**：非同步圖片貼上期間 Ctrl+Enter preparation 取消，`#restorePreparationDraft` 可能覆寫剛貼入的新附件。
+- **Review #1（major，已修，無自動行為 gate）**：Enter 在壓縮中的附件移入佇列後清除，程式碼與相鄰分支同構；InputController 行為 harness 嘗試（Proxy ctx）逾時放棄，僅有審查與程式碼路徑證據，需真實 CLI smoke。
+- audit-repro r2/r3/r3x/r3x-real/r4 的既有漂移（18.4.1 已存在）。
+
 ## Out of Scope
 
 - 不裝 18.4.2/18.4.3 中間版；不改 18.4.1 及更早的補丁；不處理無關的媒體模型任務。

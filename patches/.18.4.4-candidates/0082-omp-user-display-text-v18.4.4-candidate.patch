@@ -1005,7 +1005,7 @@
  				}
  			}
  
-@@ -1169,10 +1313,36 @@
+@@ -1169,10 +1313,44 @@
  				}
  			}
  
@@ -1035,6 +1035,14 @@
  			if (this.ctx.session.isCompacting) {
  				const images = inputImages && inputImages.length > 0 ? [...inputImages] : undefined;
 -				this.ctx.queueCompactionMessage(text, "steer", images);
++				// Enter only cleared the editor text; the attachments are moved into the
++				// queue here (same revision guard as the streaming/idle branches below),
++				// so the next draft cannot resend them.
++				if (this.ctx.editor.textRevision === captureRevision) {
++					this.ctx.editor.imageLinks = undefined;
++					this.ctx.editor.pendingImages = [];
++					this.ctx.editor.pendingImageLinks = [];
++				}
 +				this.ctx.queueCompactionMessage(text, "steer", images, {
 +					preserveDraft: true,
 +					displayText: preparedDisplayText,
@@ -1043,7 +1051,7 @@
  				// An inline `/loop` body queued here arms the loop only when it is
  				// an actual model prompt. Skill/bash/python bodies never reach this
  				// branch, but an extension-command body would otherwise be retained
-@@ -1185,7 +1355,7 @@
+@@ -1185,7 +1363,7 @@
  			// Extension commands are local actions. Execute them before the normal
  			// submission path creates an optimistic user message; otherwise a
  			// consumed command remains rendered like a prompt sent to the model.
@@ -1052,7 +1060,7 @@
  				this.ctx.editor.clearDraft(text);
  				try {
  					await this.ctx.session.prompt(text, { images: inputImages });
-@@ -1208,13 +1378,18 @@
+@@ -1208,13 +1386,18 @@
  			// If streaming, use prompt() with steer behavior
  			// This handles extension commands (execute immediately), prompt template expansion, and queueing
  			if (this.ctx.session.isStreaming) {
@@ -1076,7 +1084,7 @@
  				// Record the signature so the queued message's eventual delivery
  				// (a user-role `message_start` event) leaves any draft the user has
  				// typed since queuing intact. Same protection as #783, applied to
-@@ -1222,7 +1397,13 @@
+@@ -1222,7 +1405,13 @@
  				try {
  					const forwarded = await this.ctx.withLocalSubmission(
  						text,
@@ -1091,7 +1099,7 @@
  						{ imageCount: images?.length ?? 0 },
  					);
  					// An inline `/loop` body arms the loop only after dispatch
-@@ -1232,16 +1413,9 @@
+@@ -1232,16 +1421,9 @@
  					// state untouched, so the previous body (if any) survives.
  					if (submittedMode === "loop" && forwarded) this.ctx.setLoopPrompt(text);
  				} catch (error) {
@@ -1111,7 +1119,7 @@
  					this.ctx.showError(error instanceof Error ? error.message : String(error));
  				}
  				this.ctx.updatePendingMessagesDisplay();
-@@ -1263,10 +1437,12 @@
+@@ -1263,10 +1445,12 @@
  
  			if (this.ctx.onInputCallback) {
  				// Include any pending images from clipboard paste
@@ -1127,7 +1135,7 @@
  
  				// Render user message immediately, then let session events catch up.
  				// Tag the submission as "steer": this is a normal Enter the controller
-@@ -1277,11 +1453,13 @@
+@@ -1277,11 +1461,13 @@
  				const submission = this.ctx.startPendingSubmission(
  					{
  						text,
@@ -1142,7 +1150,7 @@
  				);
  				// Start titling only after the optimistic row painted, so the local
  				// tiny-title worker's subprocess spawn never blocks the first frame.
-@@ -1296,15 +1474,23 @@
+@@ -1296,15 +1482,23 @@
  				// real prompt directly; if a background turn starts in the gap,
  				// `streamingBehavior: "steer"` preserves the typed-message queueing
  				// semantics instead of throwing AgentBusyError.
@@ -1170,7 +1178,7 @@
  						{
  							imageCount: images?.length ?? 0,
  						},
-@@ -1314,17 +1500,9 @@
+@@ -1314,17 +1508,9 @@
  					// loop instead of resubmitting a local action on next idle.
  					if (!forwarded && this.ctx.loopPrompt === text) this.ctx.pauseLoop();
  				} catch (error) {
@@ -1191,7 +1199,7 @@
  					this.ctx.showError(error instanceof Error ? error.message : String(error));
  					// Dispatch rejected after the body was armed: park it so the
  					// failed prompt is not resubmitted on next idle.
-@@ -1333,7 +1511,7 @@
+@@ -1333,7 +1519,7 @@
  				this.ctx.updatePendingMessagesDisplay();
  				this.ctx.ui.requestRender();
  			}
@@ -1200,7 +1208,7 @@
  		};
  	}
  
-@@ -1612,7 +1790,9 @@
+@@ -1612,7 +1798,9 @@
  		// Drop only the popped message's local-submission signature; the messages
  		// left in the queue keep theirs so their delivery echo is still recognized
  		// as local and does not blank the editor the dequeue just restored to.
@@ -1211,7 +1219,7 @@
  		this.#restoreEntriesToEditor([popped]);
  		this.ctx.showStatus("Restored last queued message to editor");
  	}
-@@ -1624,13 +1804,21 @@
+@@ -1624,13 +1812,21 @@
  	 * queue for messages typed while compacting, which live outside those queues.
  	 */
  	#popLastQueuedMessage(): RestoredQueuedMessage | undefined {
@@ -1234,7 +1242,7 @@
  	}
  
  	/**
-@@ -1858,6 +2046,9 @@
+@@ -1858,6 +2054,9 @@
  		// Detach before the first await: another Ctrl+Enter cannot submit the
  		// same draft, and later typing belongs to the next submission.
  		this.ctx.editor.clearDraft();
@@ -1244,7 +1252,7 @@
  
  		if (this.ctx.session.extensionRunner?.hasHandlers("input")) {
  			try {
-@@ -1871,17 +2062,44 @@
+@@ -1871,17 +2070,44 @@
  			}
  		}
  
@@ -1291,7 +1299,7 @@
  			try {
  				const input =
  					(images?.length ?? 0) > 0 || (imageLinks?.length ?? 0) > 0 ? { images, imageLinks } : undefined;
-@@ -1906,7 +2124,7 @@
+@@ -1906,7 +2132,7 @@
  		// Skill commands invoke through the custom-message path regardless of
  		// which keybinding submitted them. Enter routes them as `steer`;
  		// Ctrl+Enter (this handler) routes them as `followUp`.
@@ -1300,7 +1308,7 @@
  			return;
  		}
  
-@@ -1914,16 +2132,23 @@
+@@ -1914,16 +2140,23 @@
  		// queue rejection): restore both text AND pending images so an image-only
  		// or text+image draft can be retried, mirroring the main submit error path.
  		const restoreOnError = (error: unknown) => {
@@ -1327,7 +1335,7 @@
  					{ imageCount: images?.length ?? 0 },
  				);
  			} catch (error) {
-@@ -1935,11 +2160,20 @@
+@@ -1935,11 +2168,20 @@
  		}
  
  		// Not streaming — just submit normally
@@ -1352,7 +1360,7 @@
  		} catch (error) {
  			restoreOnError(error);
  		}
-@@ -1959,9 +2193,13 @@
+@@ -1959,9 +2201,13 @@
  		this.ctx.compactionQueuedMessages = [];
  		const allQueued = [
  			...steering,
@@ -1886,22 +1894,28 @@
  
  		// A user-initiated prompt (typed message or the `.`/`c` continue shortcut)
  		// re-enables advisor auto-resume that a prior user interrupt suppressed.
-@@ -7070,6 +7174,7 @@
+@@ -7070,8 +7174,9 @@
  			await this.#queueUserMessage(expandedText, options?.images, streamingBehavior, {
  				timestamp: submittedAt,
  				attribution: promptAttribution,
 +				displayText: options?.displayText,
  				prependMessages: keywordNotices,
- 				rawText: typedText,
+-				rawText: typedText,
++				rawText: options?.displayText ?? typedText,
  			});
-@@ -7122,6 +7227,7 @@
+ 			outcome.sessionClaimed = true;
+ 			return true;
+@@ -7122,8 +7227,9 @@
  			await this.#queueUserMessage(expandedText, options?.images, streamingBehavior, {
  				timestamp: submittedAt,
  				attribution: promptAttribution,
 +				displayText: options?.displayText,
  				prependMessages: keywordNotices,
- 				rawText: typedText,
+-				rawText: typedText,
++				rawText: options?.displayText ?? typedText,
  				preprocessed: {
+ 					images: normalizedImages,
+ 					descriptionNotice: imageDescriptionNotice,
 @@ -7148,7 +7254,13 @@
  					synthetic: true,
  					userInitiated: options?.userInitiated === true ? true : undefined,
@@ -1943,7 +1957,7 @@
  		}
  		if (!dispatched && options?.throwOnDrop) throw new PromptDroppedError();
  		return true;
-@@ -7878,17 +7998,19 @@
+@@ -7878,18 +7998,20 @@
  	 * Queue a steering message to interrupt the agent mid-run.
  	 */
  	async steer(text: string, images?: ImageContent[], options?: SteerOptions): Promise<void> {
@@ -1961,10 +1975,12 @@
  		await this.#queueUserMessage(expandedText, images, "steer", {
  			timestamp: submittedAt,
  			attribution: options?.attribution,
+-			rawText: text,
 +			displayText: options?.displayText,
- 			rawText: text,
++			rawText: options?.displayText ?? text,
  		});
  	}
+ 
 @@ -7901,7 +8023,7 @@
  	 * flipping advisor auto-resume.
  	 */
@@ -1974,14 +1990,16 @@
  			this.#throwIfExtensionCommand(text);
  		}
  
-@@ -7914,6 +8036,7 @@
+@@ -7914,7 +8036,8 @@
  			await this.#queueUserMessage(expandedText, images, "followUp", {
  				timestamp: submittedAt,
  				attribution: options?.attribution,
+-				rawText: text,
 +				displayText: options?.displayText,
- 				rawText: text,
++				rawText: options?.displayText ?? text,
  			});
  			return;
+ 		}
 @@ -7979,6 +8102,7 @@
  		options?: {
  			timestamp?: number;

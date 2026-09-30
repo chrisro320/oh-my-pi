@@ -1003,6 +1003,9 @@ if [[ "$MODE" == "apply" ]]; then
 	if _omp_plan_has 0084; then
 		bun "${HERE}/verify-length-stop-reminder-persist.ts"
 	fi
+	if _omp_plan_has 0082; then
+		bun "${HERE}/verify-user-display-text-queue.ts"
+	fi
 fi
 if [[ "$MODE" != "check" ]]; then
 	if [[ "$OFFLINE_VERIFY" == "1" ]]; then
