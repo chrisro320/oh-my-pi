@@ -79,11 +79,18 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--timeout", type=int, default=60, help="minutes to wait for interactive sessions to exit")
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--deploy", type=Path, default=DEPLOY,
+                    help="deploy script to run once idle (default: deploy-1844.py, unchanged)")
     ap.add_argument("--label", default="18.4.4", help="target label for log and notifications")
     ap.add_argument("--fallback", default="18.4.1", help="label of what stays live if the deploy fails")
     ap.add_argument("deploy_args", nargs="*", help="extra deploy-1844.py arguments (after --)")
     a = ap.parse_args()
     LOG.parent.mkdir(parents=True, exist_ok=True)
+    if not a.deploy.is_file():
+        log(f"ABORT: deploy script not found: {a.deploy}")
+        return 2
+    if a.deploy != DEPLOY:
+        log(f"deploy script override: {a.deploy}")
     interactive, brokers = split(omp_processes())
     if a.dry:
         log(f"DRY interactive={[(p, c[:90]) for p, c in interactive]} brokers={[p for p, _ in brokers]}")
@@ -111,7 +118,7 @@ def main() -> int:
             last_report = time.time()
         time.sleep(5)
     log("all omp processes gone; running deploy")
-    r = subprocess.run([sys.executable, str(DEPLOY), "deploy", "--execute", *a.deploy_args], capture_output=True, text=True)
+    r = subprocess.run([sys.executable, str(a.deploy), "deploy", "--execute", *a.deploy_args], capture_output=True, text=True)
     for line in (r.stdout + r.stderr).splitlines():
         log("  " + line)
     if r.returncode == 0:
