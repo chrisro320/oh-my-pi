@@ -483,6 +483,82 @@ if (liveChainPlan) {
 	);
 }
 
+// 0086 converts only the Anthropic message lane. A split turn on any other
+// provider must still issue the two prefix requests, in the same shapes, and
+// must never ask the host for a live scope: the OpenAI/Gemini lanes keep their
+// behavior byte-for-byte. This leg runs on every supported plan, so the older
+// baselines keep proving the same two-request contract.
+const splitLaneModels: Array<[string, Model]> = [
+	["openai-codex", getBundledModel("openai-codex", "gpt-5.6-sol") as Model],
+	// The catalog's bundled Gemini rows are not stable across plan baselines, and
+	// the branch under test keys only on `model.api`; a clone of the fixture
+	// model on the Gemini api exercises it without a catalog dependency.
+	["google-generative-ai", { ...model, api: "google-generative-ai" } as Model],
+];
+for (const [label, splitModel] of splitLaneModels) {
+	assert.ok(splitModel, `${label} split lane fixture model must exist`);
+	assert.notEqual(splitModel.api, "anthropic-messages", `${label} must take a non-Anthropic lane`);
+	const laneScopes: string[] = [];
+	const laneRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
+	const laneResult = await compact(
+		{
+			...preparation,
+			...("previousRetainedMessages" in preparation ? { previousRetainedMessages: [] } : {}),
+			firstKeptEntryId: "recent-user",
+			messagesToSummarize: [retainedBeforeMarker],
+			historyPrefixEntryId: "retained",
+			turnPrefixMessages: [discardedAfterMarker],
+			turnPrefixEntryId: "discarded-user",
+			recentMessages: [recentUser],
+			isSplitTurn: true,
+			tokensBefore: 100,
+			fileOps: preparation.fileOps,
+			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: false },
+		},
+		splitModel,
+		"test",
+		undefined,
+		undefined,
+		{
+			convertToLlm: messages => messages as Context["messages"],
+			buildCachePreservingContext: async scope => {
+				laneScopes.push(scope);
+				return {
+					context: scope === "history" ? splitHistoryContext : splitTurnContext,
+					previousSummaryInPrefix: false,
+				};
+			},
+			completeImpl: async (requestModel, context, options) => {
+				laneRequests.push({ context, options });
+				return assistant(requestModel, "SPLIT_SUMMARY");
+			},
+		},
+	);
+	assert.deepEqual(laneScopes, ["history", "turn-prefix"], `${label} split must keep the two prefix scopes`);
+	assert.ok(!laneScopes.includes("live"), `${label} split must not request the live scope`);
+	const laneHistory = laneRequests.filter(request => request.context.messages.length === 2);
+	const laneTurn = laneRequests.filter(request => request.context.messages.length === 3);
+	assert.equal(laneHistory.length, 1, `${label} split must issue exactly one two-message history request`);
+	assert.equal(laneTurn.length, 1, `${label} split must issue exactly one three-message turn-prefix request`);
+	assert.equal(
+		laneRequests.filter(request => request.context.messages.length === splitLiveContext.messages.length + 1).length,
+		0,
+		`${label} split must not ship the whole live chain`,
+	);
+	assert.deepEqual(
+		laneTurn[0].context.messages.slice(0, 2),
+		splitTurnContext.messages,
+		`${label} turn-prefix request must keep its stable prefix`,
+	);
+	assert.equal(laneHistory[0].options.toolChoice, "none", `${label} split history request allowed tool calls`);
+	assert.equal(laneTurn[0].options.toolChoice, "none", `${label} split turn request allowed tool calls`);
+	assert.match(
+		laneResult.summary,
+		/\*\*Turn Context \(split turn\):\*\*/,
+		`${label} split must keep the merged history + turn-prefix summary shape`,
+	);
+}
+
 assert.doesNotMatch(iterativeTailText, /<previous-summary>/, "verified prefix duplicated the previous summary body");
 
 const openAIModel = getBundledModel("openai-codex", "gpt-5.6-sol");

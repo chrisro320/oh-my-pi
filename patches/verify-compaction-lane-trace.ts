@@ -94,6 +94,10 @@ interface TraceRow {
 	stopReason?: string;
 	final?: boolean;
 	usage?: Record<string, unknown>;
+	/** 0086: the request carried the host's whole live chain. */
+	usesLiveChainReplay?: boolean;
+	/** 0086: the named reason a native request could not use the live chain. */
+	liveChainFallback?: string;
 }
 function readTrace(): TraceRow[] {
 	let raw = "";
@@ -364,9 +368,63 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 	assert.ok(req, "anthropic-native lane must trace summarize.request");
 	assert.equal(req.hasLiveContext, true);
 	assert.equal(req.tools, 1);
+	if (aiVersion === "18.4.4") {
+		// 0086: the accepted request is the live chain, so the trace must say so
+		// and must carry no fallback reason.
+		assert.equal(req.usesLiveChainReplay, true, "an accepted native live chain must be traced as the live chain");
+		assert.equal(req.liveChainFallback, undefined, "an accepted native live chain must carry no fallback reason");
+	}
 	assert.ok(use, "anthropic-native lane must trace summarize.usage");
 	assert.equal(use.stopReason, "compaction");
 	assert.equal(use.usage?.cacheRead, 90_000, "anthropic-native usage trace must carry the provider usage verbatim");
+}
+
+// ---------------------------------------------------------------------------
+// GATE C2 (0086): a native compaction that cannot use the live chain must name
+// the reason on the request trace, not only on the returned entry. This is the
+// trace half of the fallback contract; the native gate asserts the entry half.
+// ---------------------------------------------------------------------------
+if (aiVersion === "18.4.4") {
+	const claude: Model = getBundledModel("anthropic", "claude-opus-5");
+	assert.ok(claude, "bundled claude-opus-5 must exist");
+	const { preparation } = fixture(claude);
+	await compact(
+		{ ...preparation, tokensBefore: 100_000, settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true } },
+		claude,
+		"test",
+		undefined,
+		undefined,
+		{
+			convertToLlm: messages => messages as Context["messages"],
+			remoteSystemPrompt: ["STALE_SYSTEM"],
+			tools: RAW_TOOLS as never,
+			buildCachePreservingContext: async () => undefined,
+			completeImpl: async (requestModel, _context, options) => {
+				if (!options.anthropicCompaction) return assistant(requestModel);
+				return {
+					...assistant(requestModel, ""),
+					stopDetails: { type: "compaction" },
+					providerPayload: {
+						type: "anthropicCompaction",
+						provider: requestModel.provider,
+						content: "NATIVE_SUMMARY",
+						signature: "offline-signed-summary",
+						encryptedContent: "opaque",
+					},
+				} as AssistantMessage;
+			},
+		},
+	);
+	const rows = readTrace();
+	const fallbackReq = rows.filter(row => row.k === "summarize.request" && row.lane === "anthropic-native").at(-1);
+	assert.ok(fallbackReq, "the fallback native lane must trace summarize.request");
+	assert.equal(fallbackReq.hasLiveContext, false, "the fallback native lane has no live context");
+	assert.equal(fallbackReq.usesLiveChainReplay, false, "the fallback native lane must not claim a live chain");
+	assert.equal(
+		fallbackReq.liveChainFallback,
+		"native-no-live-chain",
+		"the fallback native lane must name its reason on the request trace",
+	);
 }
 
 rmSync(traceDir, { recursive: true, force: true });
