@@ -3,8 +3,8 @@
 
 Same version, one more layer, so every artifact is labelled by LAYER COUNT and
 never by the version alone (the 18.4.4 upgrade deploy-1844.py already used the
-plain version as its label). Defaults are the current live edge, 51 -> 52
-(delta = the 0086 tail candidate); any other pair is reachable with
+plain version as its label). Defaults are the current live edge, 52 -> 53
+(delta = the 0087 tail candidate); any other pair is reachable with
 --old-layers/--new-layers. The delta layer itself is auto-detected, never
 assumed:
 
@@ -41,7 +41,7 @@ This file adds only what the delta needs:
     repo copy AND the ledger copy, restored on rollback)
   - rollback eligibility decided by the digests recorded in transaction.json
     (six-root of the install + the ledger tree, before and after): the version
-    string cannot tell a 51-layer 18.4.4 from a 52-layer one, so a manual
+    string cannot tell a 52-layer 18.4.4 from a 53-layer one, so a manual
     rollback after a failed deploy (which already restored the old tree) must be
     refused rather than swap the unverified tree back in
 
@@ -84,11 +84,11 @@ B = _load("deploy_1844", "deploy-1844.py")
 REPO = B.REPO
 
 OLD_VERSION = NEW_VERSION = "18.4.4"
-# Defaults are the current live edge: 51 layers -> 52 layers (+0086). The delta
+# Defaults are the current live edge: 52 layers -> 53 layers (+0087). The delta
 # entry is NOT hard-coded -- delta_preflight auto-detects it as the single plan
 # entry the staged ledger adds to the live plan. --delta-layer pins it instead.
-OLD_LAYERS = 51
-NEW_LAYERS = 52
+OLD_LAYERS = 52
+NEW_LAYERS = 53
 DELTA_LAYER: str | None = None
 # repo patch file -> installed extension file (basename under .omp/agent/extensions)
 EXTENSIONS = (
@@ -149,7 +149,7 @@ def label_report(p, require_absent: bool) -> None:
     Every staged/rollback/backup name is derived from the layer-count labels, so
     another (old, new) pair gets a different name; this additionally refuses to
     reuse a staged name that already exists and never touches a leftover from an
-    earlier deploy (e.g. the previous `*-51layers*` artifacts).
+    earlier deploy (e.g. the previous `*-52layers*` artifacts).
     """
     leftovers = []
     current = {p.staged_global, p.staged_ledger, p.manifest}
@@ -590,7 +590,7 @@ def main() -> None:
     ap.add_argument("--new-layers", type=int, default=NEW_LAYERS)
     ap.add_argument("--delta-layer", default=None,
                     help="the expected new plan entry: full path, basename or id prefix "
-                         "(e.g. 0086). Required for preflight/deploy; prepare verifies it when given.")
+                         "(e.g. 0087). Required for preflight/deploy; prepare verifies it when given.")
     a = ap.parse_args()
     OLD_LAYERS, NEW_LAYERS = a.old_layers, a.new_layers
     if NEW_LAYERS != OLD_LAYERS + 1:
@@ -601,7 +601,7 @@ def main() -> None:
     if a.rehearsal and root == Path("/home/chris"):
         B.die("--rehearsal is only allowed for a sandbox root")
     if a.cmd != "prepare" and not DELTA_LAYER:
-        B.die("preflight/deploy require --delta-layer (e.g. 0086); the detected entry must match it")
+        B.die("preflight/deploy require --delta-layer (e.g. 0087); the detected entry must match it")
     print(f"ROOT={root} rehearsal={a.rehearsal} HOME={os.environ.get('HOME')}")
     p = B.Paths(root)
     if a.cmd == "prepare":

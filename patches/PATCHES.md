@@ -905,6 +905,15 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
     provider measurement of any model.
   - (c) no provider request has been made and no live cache hit has been observed; the acceptance is
     an offline replay of archived session data (same boundary as 0086 residual (e)).
+  - (d) pre-existing pi-ai weakness, NOT introduced by 0087 but newly reachable through the accepted lane:
+    when a carrier records an effort change (`requestControls.effort` differing from the previous live
+    record), the Anthropic builder replays effort-only control messages that `applyPromptCaching`'s
+    two-candidate walk cannot mark, so the message breakpoints can be lost (independent review synthetic
+    case: local [1,2] -> [4], native [0,1] -> []). The main chain has the same weakness. The real
+    2026-09-30T13:12:42Z incident carrier records high/high identical to the previous turn and its
+    `messageIndex` 414 is not its array index, so it is non-live: measured breakpoints with and without the
+    carrier are identical (local [309,393], native [309,392], main [309,392]). Open as a separate task
+    (pi-ai `applyPromptCaching` walk must skip uncacheable effort-only controls).
 
 
 ## 3. 已撤下的補丁
