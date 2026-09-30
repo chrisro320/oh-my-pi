@@ -58,6 +58,10 @@ const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-a
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+// Read once, before any assertion: 0086 turns the split history leg into the
+// live-chain shape, and older plans must keep pinning the truncated request.
+const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
+const liveChainPlan = agentVersion === "18.4.4";
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, generateSummary, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 const { prefixCarriesCompactionSummary, sharesActivePromptCacheIdentity } = await import(
@@ -338,6 +342,12 @@ const splitTurnContext: Context = {
 };
 const splitScopes: string[] = [];
 const splitRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
+// The live chain the host vouches for is the main turn's own array: the
+// summarized history prefix followed by the retained tail the session replays.
+const splitLiveContext: Context = {
+	...liveContext,
+	messages: [retainedBeforeMarker as Context["messages"][number], recentUser as Context["messages"][number]],
+};
 await compact(
 	{
 		// Carry package-owned preparation fields across both supported versions.
@@ -363,7 +373,12 @@ await compact(
 		buildCachePreservingContext: async scope => {
 			splitScopes.push(scope);
 			return {
-				context: scope === "history" ? splitHistoryContext : splitTurnContext,
+				context:
+					scope === "history"
+						? splitHistoryContext
+						: scope === "live"
+							? splitLiveContext
+							: splitTurnContext,
 				previousSummaryInPrefix: false,
 			};
 		},
@@ -373,27 +388,78 @@ await compact(
 		},
 	},
 );
-assert.deepEqual(splitScopes.sort(), ["history", "turn-prefix"], "split compaction did not request both prefix scopes");
-const splitHistoryRequest = splitRequests.find(request => request.context.messages.length === 2);
-const splitTurnRequest = splitRequests.find(request => request.context.messages.length === 3);
-assert.deepEqual(
-	splitHistoryRequest?.context.messages[0],
-	splitHistoryContext.messages[0],
-	"split history request rewrote its stable prefix",
-);
-assert.deepEqual(
-	splitTurnRequest?.context.messages.slice(0, 2),
-	splitTurnContext.messages,
-	"split turn request rewrote its stable prefix",
-);
-assert.equal(splitHistoryRequest?.options.toolChoice, "none", "split history request allowed tool calls");
-assert.equal(splitTurnRequest?.options.toolChoice, "none", "split turn request allowed tool calls");
-const splitTurnTail = splitTurnRequest?.context.messages.at(-1);
-const splitTurnTailText =
-	splitTurnTail && Array.isArray(splitTurnTail.content) && splitTurnTail.content[0]?.type === "text"
-		? splitTurnTail.content[0].text
-		: "";
-assert.doesNotMatch(splitTurnTailText, /<conversation>/, "split turn prefix duplicated the target in its tail");
+const tailTextOf = (request: { context: Context } | undefined): string => {
+	const tail = request?.context.messages.at(-1);
+	return tail && Array.isArray(tail.content) && tail.content[0]?.type === "text" ? tail.content[0].text : "";
+};
+const splitTurnRequest = splitRequests.find(request => /retained separately/.test(tailTextOf(request)));
+assert.ok(splitTurnRequest, "split compaction must issue a turn-prefix request");
+if (liveChainPlan) {
+	// 0086: the history leg sends the vouched-for live chain whole (prefix plus
+	// retained tail) so its provider breakpoints land on the main chain's own
+	// tail entries; the cutoff travels in the appended instruction instead of a
+	// truncated prefix.
+	assert.deepEqual(
+		splitScopes.sort(),
+		["history", "live", "turn-prefix"],
+		"split compaction must request the history, live and turn-prefix scopes",
+	);
+	const splitHistoryRequest = splitRequests.find(request => request !== splitTurnRequest);
+	assert.ok(splitHistoryRequest, "split compaction must issue a history request");
+	assert.deepEqual(
+		splitHistoryRequest.context.messages.slice(0, splitLiveContext.messages.length),
+		splitLiveContext.messages,
+		"split history request rewrote the live chain",
+	);
+	assert.equal(
+		splitHistoryRequest.context.messages.length,
+		splitLiveContext.messages.length + 1,
+		"split history request must append exactly one instruction",
+	);
+	assert.match(
+		tailTextOf(splitHistoryRequest),
+		/Summarize ONLY those first 1 messages\./,
+		"split history request must name the cutoff (1 summarized, 1 retained)",
+	);
+	assert.match(
+		tailTextOf(splitHistoryRequest),
+		/The final 1 messages MUST NOT be summarized/,
+		"split history request must keep the retained tail out of the summary",
+	);
+	assert.deepEqual(
+		splitTurnRequest.context.messages.slice(0, splitTurnContext.messages.length),
+		splitTurnContext.messages,
+		"split turn request rewrote its stable prefix",
+	);
+	assert.equal(splitHistoryRequest.options.toolChoice, "none", "split history request allowed tool calls");
+	assert.equal(splitTurnRequest.options.toolChoice, "none", "split turn request allowed tool calls");
+	assert.doesNotMatch(
+		tailTextOf(splitTurnRequest),
+		/<conversation>/,
+		"split turn prefix duplicated the target in its tail",
+	);
+} else {
+	assert.deepEqual(splitScopes.sort(), ["history", "turn-prefix"], "split compaction did not request both prefix scopes");
+	const splitHistoryRequest = splitRequests.find(request => request.context.messages.length === 2);
+	assert.ok(splitHistoryRequest, "split compaction must issue a history request");
+	assert.deepEqual(
+		splitHistoryRequest.context.messages[0],
+		splitHistoryContext.messages[0],
+		"split history request rewrote its stable prefix",
+	);
+	assert.deepEqual(
+		splitTurnRequest.context.messages.slice(0, 2),
+		splitTurnContext.messages,
+		"split turn request rewrote its stable prefix",
+	);
+	assert.equal(splitHistoryRequest.options.toolChoice, "none", "split history request allowed tool calls");
+	assert.equal(splitTurnRequest.options.toolChoice, "none", "split turn request allowed tool calls");
+	assert.doesNotMatch(
+		tailTextOf(splitTurnRequest),
+		/<conversation>/,
+		"split turn prefix duplicated the target in its tail",
+	);
+}
 
 assert.doesNotMatch(iterativeTailText, /<previous-summary>/, "verified prefix duplicated the previous summary body");
 
@@ -502,7 +568,6 @@ assert.equal(
 //  2. wiring — each site must route through that helper, and the primary path
 //     must feed it the *post-transform* array (`transformContext` runs the
 //     public `context` extension chain, which may drop the summary).
-const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
 	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(agentVersion),
 	`unsupported prefix gate version: ${agentVersion}`,

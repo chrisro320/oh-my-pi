@@ -9,9 +9,9 @@
 | 項目 | 值 |
 |---|---|
 | 當前部署 | `OMP_PATCH_VERSION=18.4.4`（未設則按 installed 版本自動路由） |
-| 當前 live 部署 | **50 補丁（0085 已進計畫、待部署後為 51）** + `bin/omp -> src/cli.ts`；2026-09-30 由 `deploy-1844.py` 備份並原子部署（DB 線上備份、失敗自動回滾，18.4.1 樹保留），fresh `omp --version`＝18.4.4，live `--check`＝50 APPLIED；以部署腳本輸出為準 |
+| 當前 live 部署 | **50 補丁（0085／0086 已進計畫、待部署後為 52）** + `bin/omp -> src/cli.ts`；2026-09-30 由 `deploy-1844.py` 備份並原子部署（DB 線上備份、失敗自動回滾，18.4.1 樹保留），fresh `omp --version`＝18.4.4，live `--check`＝50 APPLIED；以部署腳本輸出為準 |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（51 層；live 目前 50 層，0085 待部署；18.4.1 為回退源） |
+| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（52 層；live 目前 50 層，0085／0086 待部署；18.4.1 為回退源） |
 | 最近遷移 | 18.4.1 → 18.4.4：50 層全為同編號候選（38 層原樣、12 層適配，無上游接管）；0082 手工合併上游 detached-draft；新增 `verify-user-display-text-queue.ts`；已知未修：Review #2（prepared 輸入 dispatch 被拒絕時不還原文/圖片）、audit-repro r2/r3/r3x/r4 既有漂移（18.4.1 已存在） |
 | 回歸套件 | **38 道 TypeScript 行為閘門**（18.4.1 新增 `verify-model-mention-surface-resume.ts`、`verify-length-stop-reminder-persist.ts`）及 spec shell 閘門；另有 `--verify-rollups` 六基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10／18.3.3／18.4.1） |
 
@@ -37,7 +37,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化）；2026-09-24 新增 0078（Python display MIME 擇一）、0079（Kitty 非同步轉圖完成屏障）、0080（顯示端 PNG 快取與圖片指紋） | **47** |
 | 18.3.3 計畫 | 保留上述 47 項能力；0073 由上游動態 read getter 接管，追加 0081 主會話 cache footer、0082 輸入英譯原文顯示；其餘同編號專版候選遷移 | **48** |
 | 18.4.1 計畫 | 保留 18.3.3 的 48 項能力，全部為同編號 `.18.4.1-candidates/`；17 層需適配（0066／0067／0068 在 0035 移植後以原位元組直接落層），審查後另修 0043／0074／0077／0079／0080；鏈尾新增 0083（`^` 標記模型的 resume 前綴修復）、0084（length-stop 重試提醒持久化） | **50** |
-| 18.4.4 計畫（51 層；live 為前 50 層） | 保留 18.4.1 的 50 項能力，全部為同編號 `.18.4.4-candidates/`；六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 38 層原樣、12 層失敗（直接 6：0037／0010／0050／0063／0065／0079；連帶 6：0060／0076／0068／0070／0080／0082），全部同編號適配、無上游接管；0082 因上游 18.4.3/18.4.4 自建 detached-draft 而手工合併（`queueCompactionMessage` 改為 options 物件，Ctrl+Enter 保留上游 detach 後再加準備邊界）；0082 另補 queued `rawText` 改記原文（避免 RPC `removeQueuedMessage` 誤刪）與 `types.d.ts` 宣告。 | **51**（計畫層數；live 前 50 層，0085 待部署） |
+| 18.4.4 計畫（52 層；live 為前 50 層） | 保留 18.4.1 的 50 項能力，全部為同編號 `.18.4.4-candidates/`；六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 38 層原樣、12 層失敗（直接 6：0037／0010／0050／0063／0065／0079；連帶 6：0060／0076／0068／0070／0080／0082），全部同編號適配、無上游接管；0082 因上游 18.4.3/18.4.4 自建 detached-draft 而手工合併（`queueCompactionMessage` 改為 options 物件，Ctrl+Enter 保留上游 detach 後再加準備邊界）；0082 另補 queued `rawText` 改記原文（避免 RPC `removeQueuedMessage` 誤刪）與 `types.d.ts` 宣告。 | **52**（計畫層數；live 前 50 層，0085／0086 待部署） |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -796,6 +796,16 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - 未涵蓋（accepted）：Ctrl+Enter／follow-up 入口（`#submitFollowUp` 及其自己的還原呼叫點）、經 dequeue 還原（`handleDequeue`）、composer 自己的 `[Image #N]` chip 繪製（替身的 `setCollapsedText` 只存純文字）。未動：`#restoreDroppedPrompt`（`interactive-mode.ts`）仍有同型的圖片覆蓋寫法，不在 Review #4 範圍。
 - 生效條件：需重啟 omp 進程。
 
+### 0086 — 摘要請求改讀主鏈 live 快取條目，不再錨定已過期的摘要邊界（僅 18.4.4）
+
+- 補丁：`.18.4.4-candidates/0086-omp-compaction-cache-liveness-v18.4.4-candidate.patch`（`${NM}`；`pi-agent-core/src/compaction/compaction.ts`、`pi-agent-core/src/compaction/anthropic.ts`、新增 `pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md`、`pi-coding-agent/src/session/session-maintenance.ts`、`pi-coding-agent/src/session/session-advisors.ts`）。0035／0066／0067 為定稿層不可變，故以 18.4.4 新尾層落層；18.4.4 計畫為 52 層。
+- 問題（事故取證，session `01a0f047`，2026-09-30T07:21:39Z，`claude-sonnet-5-5`）：soft compaction 送出 355 則 wire、斷點 `353:1h,354:1h`，usage `cacheRead 14257 / cacheWrite 265136`（約 $1.15）；同一會話 04:37 那次為 `cacheRead 383514 / cacheWrite 1573`（約 $0.15）。摘要請求是「主鏈前綴在摘要邊界截斷 + 指令」，`applyPromptCaching` 錨定請求自身最後兩則（353／354）；主鏈只在 05:24:25 於 353 寫過一次 1h 條目，之後每一輪都把錨點推到自己前進中的尾部（431／432），該條目遂於 06:24:25 到期。**條目是否仍在生命期內，全程無人檢查**——既有閘門只驗位元相同與斷點位置。
+- 修法：`generateSummary` 在「單一視窗 + Anthropic 訊息 lane + host 能為 `"live"` scope 作保 + 有非空保留尾段」時額外要求 live scope，並改送**完整 live 鏈**（歷史前綴 + 保留尾段）再加一條指名截斷邊界的指令。邊界以「live 鏈長度 − 保留尾段轉換後長度」推導（與 native lane 既有 `retainedTailLength` 同法），並要求不小於 host 自陳的摘要範圍——較短的切法會讓夾在中間的訊息既不進摘要也不被重放。native lane 同步不再按 `retainedTailLength` 切片，改用 `buildAnthropicCompactionInstructions` 的新樣板陳述邊界。保留尾段由 `compact()` 透過 `SummaryOptions.retainedTailMessages`（= `recentMessages`）傳入。
+- 不變量：`firstKeptEntryId`／`recentEntryIds`／`tokensBefore`／保留尾段重放皆不變；非 Anthropic（OpenAI V1／V2／Codex、Gemini）維持原行為（自動前綴快取本來就吃截斷前綴）；`usesCachePreservingPrefix` 未被重新定義，live 鏈是獨立狀態；turn-prefix scope 未轉換（它從分割點起算，永遠不含前一張摘要）。回退時 trace 記 `liveChainFallback`：`non-anthropic-lane`／`multi-window`／`no-host-prefix`／`no-retained-tail`／`no-live-chain`／`cut-before-host-boundary`／`live-chain-over-budget`／`window-subrange`。
+- 閘門：`verify-compaction-cache-liveness.ts`（依計畫含 0086 執行）。**快取模擬器**：fixture 時鐘、1h TTL、20 block 查找窗，條目寫在每個請求自己的斷點上。fixture 取事故形狀（433 則 live 鏈、摘要邊界 354、主鏈尾部標記每輪 +2）。修復後 green：`cacheRead 43350／cacheWrite 5`（讀滿 433 塊、只寫指令）；負對照（host 只能為截斷前綴作保＝修復前形態）red：`cacheRead 50／cacheWrite 35405`。另有 `verify-prefix-cache-compaction.ts` 的 split 腿與 `verify-anthropic-native-compaction-live-context.ts` 的 GATE 2／邊界腿按 18.4.4 更新，舊計畫維持原斷言。
+- 未涵蓋（accepted）：摘要模型看到保留尾段仍可能把它寫進摘要（指令已明講不得，屬殘餘）；截斷邊界以 omp 的 context 訊息數陳述，比 provider wire 的訊息數大（方向安全：只會多摘要、不會少摘要）；native lane 的 `nativeUsedTokens` 現在含尾段。
+
+
 ## 3. 已撤下的補丁
 
 ### 2026-09-15 0051 退役（`.retired/09-15-0051-upstream-adopted/`）
@@ -1105,6 +1115,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-length-stop-reminder-persist.ts`（條件） | 0084 length-stop 重試提醒雙寫、重建投影一致、重開後前綴相同；依計畫含 0084 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 | `verify-user-display-text-queue.ts`（條件） | 0082 準備後提交：model text 進 `content`、原文進 `displayText`，重開 session 重建同一 content；18.4.4 另驗 queued `removeQueuedMessage` 以原文識別（雙訊息交叉案例）；依計畫含 0082 執行 | `OMP_PATCH_VERIFY_NM`、`OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-rejected-prepared-draft-restore.ts`（條件） | 0085：真實 `submitInteractiveInput` + 真實 restore helper 加編輯器替身；dispatch 被拒絕時原文與附件回到空編輯器、有較新草稿時保留為可還原項；準備取消時期間貼入的圖片不被覆蓋；控制組（無較新內容時照常回寫）；僅 18.4.4；依計畫含 0085 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
+| `verify-compaction-cache-liveness.ts`（條件） | 0086：以**快取模擬器**（fixture 時鐘、1h TTL、20 block 查找窗）驗事故形狀（433 則 live 鏈、摘要邊界 354、主鏈尾部標記每輪 +2）下，摘要請求讀滿 live 鏈、只寫指令（cacheRead 43350／cacheWrite 5），負對照回到截斷前綴必紅（cacheRead 50／cacheWrite 35405）；僅 18.4.4；依計畫含 0086 執行 | `OMP_PATCH_VERIFY_NM`（含 `CORE`／`AI`／`CATALOG` 覆寫） |
 
 **0063 驗收狀態（2026-09-13）**：`apply.sh --verify-rollups` 與 `verify-patch-family-rollups.sh` 在更新 `EXPECTED_PLAN`／`EXPECTED_PLAN_18` 快照（27→28、31→32）後 **EXIT 0 全綠**，新閘 `verify-codex-compaction-chain.ts` 隨計畫執行；smoke（`cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK'`）實測通過。閘門判別力以兩個 fault variant 實測：刪除 chained-body 分支 → §1 行為斷言紅；把兩處 `responsesLite` 改回 `model.useResponsesLite` → §4 接線斷言紅。**E2E 已執行（2026-09-14）**：真實會話 `01a0a05f`（`openai-codex/gpt-5.6-luna`）同行程 live baseline 後 `/compact`，記錄 `provider:"openai-codex"/version:"v2"/inputTokens:24160/cachedInputTokens:23040`——PRD 命中率 `cached/input=95.4%≥80%`，`check-codex-compaction-cache.sh` exit 0。當時 `apply.sh` 被 wave2 的 0043 CONFLICT 阻擋於 `mode=apply` 入口（該紅燈非 0063 引起），故 15 道閘門改以直接調用驗證、smoke 另行手動執行；**該阻塞已於 2026-09-15 解除**，見下方「0043 陳舊變體換手」。
 

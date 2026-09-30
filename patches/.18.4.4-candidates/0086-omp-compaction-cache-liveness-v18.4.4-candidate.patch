@@ -1,0 +1,421 @@
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -698,6 +698,14 @@
+ 	metadata?: Record<string, unknown>;
+ 	convertToLlm?: ConvertToLlm;
+ 	/**
++	 * The messages the session keeps out of the summary and replays verbatim
++	 * (`firstKeptEntryId` onward). The live-chain summarize request sends them
++	 * inside its prefix so the provider cache anchors land on entries the main
++	 * chain already wrote; the instruction then names where they start. Only the
++	 * history-scope summary call reads it.
++	 */
++	retainedTailMessages?: AgentMessage[];
++	/**
+ 	 * Builds the active session's provider-ready prefix for this exact candidate
+ 	 * and logical summary scope. Return `undefined` when candidate, session, or
+ 	 * entry-boundary identity cannot be proven.
+@@ -933,6 +941,63 @@
+ 		).fits;
+ 	let useCachePreservingPrefix = livePrefixFits;
+ 
++	// The live chain -- the request the main turn actually sent, history prefix
++	// plus the retained tail -- is the only prefix a compaction can cache-hit
++	// against on Anthropic. A request cut at the summarize boundary anchors its
++	// breakpoints on the entry at that boundary, which the main chain wrote once
++	// and then stopped refreshing: every later turn anchors its own advancing
++	// tail, so the boundary entry expires and the whole history is rewritten
++	// (the 256k-token / $1.15 incident this layer fixes). The entry the main
++	// chain keeps warm belongs to a position only a full-chain request reaches.
++	// Every condition is fail-closed, and the fallback is today's behavior:
++	//   - Anthropic messages only: the automatic prefix caches of the OpenAI and
++	//     Gemini lanes match a truncated prefix already.
++	//   - the host vouched for the live scope (candidate/session/leaf identity).
++	//   - one window: a fold sends a sub-range, so the tail is not this
++	//     request's own suffix and the cutoff would not be a suffix boundary.
++	//   - a non-empty retained tail: with nothing retained the prefix request is
++	//     already byte-identical and the cutoff sentence is meaningless.
++	//   - the cutoff stays at or after the session's own summarized range: a
++	//     shorter cut would leave messages neither summarized nor replayed.
++	//   - the whole chain fits the input budget the prefix alone used to fit.
++	// The cutoff is derived from the live chain's own suffix rather than from
++	// the history prefix, because the live list is the array the model receives:
++	// a host-only message the session-entry rebuild cannot see would shift a
++	// history-derived index off the real boundary.
++	let liveChainReplay: LiveChainReplay | undefined;
++	let liveChainFallback: string | undefined;
++	// Converted before the live scope is built: a summary call that carries no
++	// retained tail cannot use the live chain, and must not pay for rebuilding
++	// the whole live context to find that out.
++	const retainedTailLength =
++		options?.retainedTailMessages === undefined
++			? 0
++			: (options.convertToLlm ?? defaultConvertToLlm)(options.retainedTailMessages).length;
++	if (model.api !== "anthropic-messages") {
++		liveChainFallback = "non-anthropic-lane";
++	} else if (pending.length !== 1) {
++		liveChainFallback = "multi-window";
++	} else if (cachePreservingSummary === undefined) {
++		liveChainFallback = "no-host-prefix";
++	} else if (retainedTailLength <= 0) {
++		liveChainFallback = "no-retained-tail";
++	} else {
++		const liveChain = await options?.buildCachePreservingContext?.("live", model, signal);
++		const chainMessages = liveChain?.context.messages;
++		const summarizedMessages = (chainMessages?.length ?? 0) - retainedTailLength;
++		if (chainMessages === undefined) {
++			liveChainFallback = "no-live-chain";
++		} else if (summarizedMessages < cachePreservingSummary.context.messages.length) {
++			liveChainFallback = "cut-before-host-boundary";
++		} else if (
++			!tokenizer.checkTokenBudget(serializeConversationForSummary(chainMessages, dialect), budgetTokens).fits
++		) {
++			liveChainFallback = "live-chain-over-budget";
++		} else {
++			liveChainReplay = { context: liveChain, summarizedMessages };
++		}
++	}
++
+ 	let carriedSummary = previousSummary;
+ 	while (pending.length > 0) {
+ 		const window = pending[0];
+@@ -960,6 +1025,10 @@
+ 				budget.fits ? window.messages : undefined,
+ 				cachePreservingSummary,
+ 				useCachePreservingPrefix,
++				// A replanned window is a sub-range of the target, so the live
++				// chain's suffix is no longer the retained tail.
++				window.messages === targetMessages ? liveChainReplay : undefined,
++				window.messages === targetMessages ? liveChainFallback : "window-subrange",
+ 			);
+ 		} catch (error) {
+ 			// The catalog window can overstate what the provider actually accepts:
+@@ -1049,6 +1118,47 @@
+ 	}
+ }
+ 
++/**
++ * Whether a live-chain request fits the same input budget the local summarizer
++ * plans against. The native lane has no cheaper guard: an over-budget request
++ * is a provider rejection, and a failed native compaction is fatal rather than
++ * a fallback to local summarization.
++ */
++function tokenizerFitsSummaryBudget(messages: Message[], model: Model, maxTokens: number): boolean {
++	return new Tokenizer(model).checkTokenBudget(
++		serializeConversationForSummary(messages, preferredDialect(model.id)),
++		summaryInputBudgetTokens(model, maxTokens),
++	).fits;
++}
++
++/**
++ * The verified live session chain plus how much of it this summary covers.
++ * `summarizedMessages` counts the leading messages the summary replaces;
++ * everything after it is the retained tail the session replays verbatim.
++ */
++interface LiveChainReplay {
++	context: CachePreservingSummaryContext;
++	summarizedMessages: number;
++}
++
++/**
++ * The cutoff sentence appended to a live-chain summarize instruction.
++ *
++ * Anthropic's summarize request has no parameter for a message range, so the
++ * boundary has to be stated: the request carries the session's retained tail
++ * after the summarized prefix to keep its provider prefix byte-identical to the
++ * main chain's last request, and the model must not fold that tail into the
++ * summary that replaces the prefix. The instruction is the only position where
++ * these bytes are free -- anything inserted before the tail shifts it off the
++ * cache entries the main chain wrote.
++ */
++function formatLiveChainCutoff(summarizedMessages: number, retainedMessages: number): string {
++	return [
++		`The conversation above is the live session, not a transcript cut at the summary boundary: its first ${summarizedMessages} messages are the ones this summary replaces, and its final ${retainedMessages} messages are kept in the conversation verbatim after the summary.`,
++		`Summarize ONLY those first ${summarizedMessages} messages. The final ${retainedMessages} messages MUST NOT be summarized, restated, re-listed, or described: they are still in the conversation in full, and anything written about them in the summary is duplicated state.`,
++	].join("\n");
++}
++
+ /** One summarization call over a single conversation window. */
+ async function summarizeConversationWindow(
+ 	conversationText: string,
+@@ -1062,10 +1172,12 @@
+ 	windowMessages?: Message[],
+ 	cachePreservingSummary?: CachePreservingSummaryContext,
+ 	useCachePreservingPrefix = false,
++	liveChainReplay?: LiveChainReplay,
++	liveChainFallback?: string,
+ ): Promise<string> {
+ 	const priorSummaryComesFromPrefix =
+-		useCachePreservingPrefix &&
+-		cachePreservingSummary?.previousSummaryInPrefix === true &&
++		(useCachePreservingPrefix || liveChainReplay !== undefined) &&
++		(liveChainReplay?.context ?? cachePreservingSummary)?.previousSummaryInPrefix === true &&
+ 		options?.promptOverride === undefined;
+ 	let basePrompt = previousSummary
+ 		? priorSummaryComesFromPrefix
+@@ -1088,8 +1200,11 @@
+ 
+ 	// Target messages determine what is summarized. A verified live prefix is a
+ 	// separate wire concern: use it only when the full prefix fits this request.
+-	// Multi-window folds keep provider-ready system/tools but use their target
+-	// window and make no live-prefix cache claim.
++	// The live chain is a third shape: the same prefix with the session's
++	// retained tail still attached, so the request's own tail breakpoints land
++	// on entries the main chain wrote. Multi-window folds keep provider-ready
++	// system/tools but use their target window and make no live-prefix cache
++	// claim.
+ 	const canUseStructuredContext =
+ 		!options?.remoteEndpoint &&
+ 		cachePreservingSummary !== undefined &&
+@@ -1100,13 +1215,25 @@
+ 	let toolChoice: "none" | "auto" | undefined;
+ 
+ 	if (canUseStructuredContext) {
++		const prefixMessages = liveChainReplay
++			? liveChainReplay.context.context.messages
++			: useCachePreservingPrefix
++				? cachePreservingSummary.context.messages
++				: windowMessages;
++		const instruction =
++			liveChainReplay === undefined
++				? promptText
++				: `${promptText}\n\n${formatLiveChainCutoff(
++						liveChainReplay.summarizedMessages,
++						prefixMessages.length - liveChainReplay.summarizedMessages,
++					)}`;
+ 		requestContext = {
+-			...cachePreservingSummary.context,
++			...(liveChainReplay ? liveChainReplay.context.context : cachePreservingSummary.context),
+ 			messages: [
+-				...(useCachePreservingPrefix ? cachePreservingSummary.context.messages : windowMessages),
++				...prefixMessages,
+ 				{
+ 					role: "user" as const,
+-					content: [{ type: "text" as const, text: promptText }],
++					content: [{ type: "text" as const, text: instruction }],
+ 					timestamp: Date.now(),
+ 				},
+ 			],
+@@ -1153,6 +1280,11 @@
+ 		windowMessages: windowMessages?.length ?? 0,
+ 		hasCachePreservingContext: cachePreservingSummary !== undefined,
+ 		usesCachePreservingPrefix: useCachePreservingPrefix,
++		usesLiveChainReplay: liveChainReplay !== undefined,
++		liveChainSummarizedMessages: liveChainReplay?.summarizedMessages,
++		// Named so a cache miss on a compaction is attributable from the trace
++		// alone: the pre-fix builder is indistinguishable from a fallback.
++		liveChainFallback: liveChainReplay === undefined ? liveChainFallback : undefined,
+ 	});
+ 
+ 	let response = await instrumentedCompleteSimple(
+@@ -1834,6 +1966,10 @@
+ 		initiatorOverride: options?.initiatorOverride,
+ 		metadata: options?.metadata,
+ 		convertToLlm: options?.convertToLlm,
++		// The live-chain summarize request needs to know which messages stay out
++		// of the summary and are replayed verbatim; only the history-scope call
++		// reads it (see generateSummary).
++		retainedTailMessages: recentMessages,
+ 		buildCachePreservingContext: options?.buildCachePreservingContext,
+ 		telemetry: options?.telemetry,
+ 		// Honor /model thinking selection on every fan-out summarizer.
+@@ -2157,8 +2293,10 @@
+ 		}
+ 	}
+ 
+-	// On-demand compaction summarizes only the prefix; the tail is never sent
+-	// to this request and is replayed after the returned signed block.
++	// On-demand compaction replaces the summarized range with the signed block;
++	// the retained tail is replayed after it. The request carries the tail too
++	// when the live chain is vouched for and fits, so its provider breakpoints
++	// land on entries the main chain already wrote.
+ 	let nativeSummary: string | undefined;
+ 	let nativeSignature: string | undefined;
+ 	let nativeFirstKeptEntryId = firstKeptEntryId;
+@@ -2206,23 +2344,44 @@
+ 					? firstKeptEntryId
+ 					: (recentEntryIds?.[safeCut - originalCut] ?? "");
+ 		for (let i = originalCut; i < safeCut; i++) extractFileOpsFromMessage(allMessages[i], fileOps);
+-		// The live request shape through the host's own pipeline (`context`
+-		// extension chain + normalizeTools), so system/tools and the summarized
+-		// prefix match the cached prefix byte-for-byte. The cut stays where it is:
+-		// upstream sends only this prefix and replays `allMessages.slice(safeCut)`
+-		// afterwards, so the host's rendering is truncated by exactly that retained
+-		// tail rather than substituted for the whole conversation. The hand-built
+-		// list below only serves as the fallback when the host cannot vouch for the
+-		// live prefix (leaf moved, model differs, or the tail outgrows it).
++		// The live chain through the host's own pipeline (`context` extension
++		// chain + normalizeTools), so system/tools and messages match the cached
++		// prefix byte-for-byte. Sending the chain whole -- retained tail included
++		// -- is what keeps this request's provider breakpoints on entries the main
++		// chain already wrote: a request ending at `safeCut` anchors the entry at
++		// that boundary, which the main chain wrote once and then stopped
++		// refreshing, so it expires and the whole prefix is rewritten. The
++		// compaction API has no cutoff parameter, so `instructions` states the
++		// boundary and the host still replays `allMessages.slice(safeCut)` after
++		// the returned block.
++		//
++		// The hand-built list below stays the fallback when the host cannot vouch
++		// for the live prefix (leaf moved, model differs), when there is no tail
++		// to retain, or when the chain would exceed the input budget a local
++		// summary plans against: an over-budget native request fails the whole
++		// compaction instead of falling back to local summarization.
+ 		const live = await summaryOptions.buildCachePreservingContext?.("live", model, signal);
+ 		const retainedTailLength = (summaryOptions.convertToLlm ?? defaultConvertToLlm)(
+ 			allMessages.slice(safeCut),
+ 		).length;
++		const nativeMaxTokens = Math.min(Math.floor(0.8 * reserveTokens), MAX_SUMMARY_TOKENS);
++		const liveChainSummarized = (live?.context.messages.length ?? 0) - retainedTailLength;
+ 		const liveContext =
+-			live !== undefined && live.context.messages.length >= retainedTailLength ? live.context : undefined;
++			live !== undefined &&
++			liveChainSummarized > 0 &&
++			tokenizerFitsSummaryBudget(live.context.messages, model, nativeMaxTokens)
++				? live.context
++				: undefined;
++		// With nothing retained the live chain and the prefix are the same bytes,
++		// the whole request really is summarized, and the default instructions are
++		// already correct; only a non-empty tail needs the stated cutoff.
++		const liveChainCutoff =
++			liveContext !== undefined && retainedTailLength > 0
++				? { summarizedMessages: liveChainSummarized, retainedMessages: retainedTailLength }
++				: undefined;
+ 		const messages =
+ 			liveContext !== undefined
+-				? liveContext.messages.slice(0, liveContext.messages.length - retainedTailLength)
++				? liveContext.messages
+ 				: (summaryOptions.convertToLlm ?? defaultConvertToLlm)([
+ 						...(previousSummaryMessage ? [previousSummaryMessage] : []),
+ 						...allMessages.slice(0, safeCut),
+@@ -2238,6 +2397,10 @@
+ 			systemParts: nativeSystemPrompt.length,
+ 			tools: nativeTools?.length ?? 0,
+ 			hasLiveContext: liveContext !== undefined,
++			// Whether the request carries the retained tail past the cutoff, and
++			// where the cutoff is, so a cache miss here is attributable.
++			usesLiveChainReplay: liveContext !== undefined,
++			liveChainSummarizedMessages: liveContext !== undefined ? liveChainSummarized : undefined,
+ 		});
+ 		try {
+ 			const remote = await requestAnthropicNativeCompaction(
+@@ -2253,8 +2416,9 @@
+ 						summaryOptions.promptOverride ?? SUMMARIZATION_PROMPT,
+ 						customInstructions,
+ 						formatAdditionalContext(summaryOptions.extraContext).trim() || undefined,
++						liveChainCutoff,
+ 					),
+-					maxTokens: Math.min(Math.floor(0.8 * reserveTokens), MAX_SUMMARY_TOKENS),
++					maxTokens: nativeMaxTokens,
+ 					reasoning: resolveCompactionEffort(model, summaryOptions.thinkingLevel),
+ 				},
+ 				signal,
+--- a/pi-agent-core/src/compaction/anthropic.ts
++++ b/pi-agent-core/src/compaction/anthropic.ts
+@@ -1,9 +1,13 @@
+ /**
+  * Anthropic on-demand compaction (`compact-2026-09-04` beta).
+  *
+- * The request sends only the prefix to summarize, with the live conversation's
+- * system prompt, tools and thinking settings. The returned signed block
+- * replaces that prefix; the retained tail is replayed from session entries.
++ * The request carries the live conversation's system prompt, tools and thinking
++ * settings. Without a vouched-for live chain it sends only the prefix to
++ * summarize; with one it sends the whole chain, retained tail included, so the
++ * provider prefix matches the main chain's last request and its breakpoints
++ * hit live cache entries (the cutoff then travels in the instructions). The
++ * returned signed block replaces the summarized range either way; the retained
++ * tail is replayed from session entries.
+  */
+ 
+ import type {
+@@ -22,6 +26,7 @@
+ import { type InstrumentedChatSpanOptions, instrumentedCompleteSimple } from "../telemetry";
+ import type { AgentMessage } from "../types";
+ import anthropicCompactionInstructionsPrompt from "./prompts/anthropic-compaction-instructions.md" with { type: "text" };
++import anthropicCompactionInstructionsLiveChainPrompt from "./prompts/anthropic-compaction-instructions-live-chain.md" with { type: "text" };
+ 
+ export const ANTHROPIC_COMPACTION_PRESERVE_KEY = "anthropicCompaction";
+ 
+@@ -153,12 +158,31 @@
+ 	return messages.length;
+ }
+ 
+-/** Instructions replace the API default; the request contains only summarized messages. */
++/**
++ * Instructions replace the API default; the request carries the summarized
++ * prefix, and with `liveChainCutoff` also the retained tail that follows it.
++ *
++ * The API has no parameter for a message range, so the cutoff has to be stated
++ * in the instructions. `liveChainCutoff` is only passed when the host vouched
++ * for the live chain and it fits the input budget; the tail is then inside the
++ * request to keep its provider prefix byte-identical to the main chain's last
++ * request, and the model must not fold it into the summary.
++ */
+ export function buildAnthropicCompactionInstructions(
+ 	basePrompt: string,
+ 	customInstructions: string | undefined,
+ 	extraContext: string | undefined,
++	liveChainCutoff?: { summarizedMessages: number; retainedMessages: number },
+ ): string {
++	if (liveChainCutoff !== undefined) {
++		return prompt.render(anthropicCompactionInstructionsLiveChainPrompt, {
++			basePrompt,
++			customInstructions,
++			extraContext,
++			summarizedMessages: liveChainCutoff.summarizedMessages,
++			retainedMessages: liveChainCutoff.retainedMessages,
++		});
++	}
+ 	return prompt.render(anthropicCompactionInstructionsPrompt, {
+ 		basePrompt,
+ 		customInstructions,
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -3533,9 +3533,12 @@
+ 				// Derived from `transformed`, not from `prefixMessages`: the `context`
+ 				// extension chain inside `convertMessagesToLlmWithSource` may drop the
+ 				// summary, and this flag decides whether the summarizer skips the
+-				// `<previous-summary>` injection.
++				// `<previous-summary>` injection. The live chain carries the summary
++				// the same way the history prefix does, and the live-chain summarize
++				// request sends that chain whole; only the turn prefix, which starts
++				// at the split point, can never contain it.
+ 				previousSummaryInPrefix:
+-					scope === "history" &&
++					scope !== "turn-prefix" &&
+ 					preparation.previousSummary !== undefined &&
+ 					prefixCarriesCompactionSummary(transformed),
+ 			};
+--- a/pi-coding-agent/src/session/session-advisors.ts
++++ b/pi-coding-agent/src/session/session-advisors.ts
+@@ -1992,9 +1992,11 @@
+ 			return {
+ 				context,
+ 				// `convertToLlmForSideRequest` runs no extension chain, so the rebuilt
+-				// array is what ships. Same contract as the primary path.
++				// array is what ships. Same contract as the primary path, including
++				// the live scope: the live-chain summarize request ships that chain
++				// whole, and only the turn prefix starts past the summary.
+ 				previousSummaryInPrefix:
+-					scope === "history" &&
++					scope !== "turn-prefix" &&
+ 					preparation.previousSummary !== undefined &&
+ 					prefixCarriesCompactionSummary(prefixMessages),
+ 			};
+--- /dev/null
++++ b/pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md
+@@ -0,0 +1,13 @@
++The conversation above is the live session, not a transcript cut at the summary boundary: its first {{summarizedMessages}} messages are the ones this summary replaces, and its final {{retainedMessages}} messages are kept in the conversation verbatim after the summary. Summarize ONLY those first {{summarizedMessages}} messages. The final {{retainedMessages}} messages MUST NOT be summarized, restated, re-listed, or described: they stay in the conversation in full, and anything written about them in the summary is duplicated state.
++
++{{#if extraContext}}
++{{extraContext}}
++
++{{/if}}
++{{basePrompt}}
++{{#if customInstructions}}
++
++Additional focus: {{customInstructions}}
++{{/if}}
++
++You MUST NOT call any tools while writing the summary; respond with the summary text only.
+\ No newline at end of file

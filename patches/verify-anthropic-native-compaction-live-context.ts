@@ -196,7 +196,34 @@ const [request] = nativeRequests;
 // GATE 2: the request is the live turn's bytes — system, tools, messages.
 assert.deepEqual(request.context.systemPrompt, liveContext.systemPrompt, "native request must carry the live system prompt");
 assert.deepEqual(request.context.tools, liveContext.tools, "native request must carry the normalized live tools (with `i`)");
-if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
+if (coreVersion === "18.4.4") {
+	// 0086: the request carries the live chain whole, retained tail included, so
+	// its own provider breakpoints land on the entries the main chain wrote (a
+	// request cut at safeCut anchors the boundary entry, which the main chain
+	// stopped refreshing and which therefore expires). The API has no cutoff
+	// parameter, so the boundary moves into the instructions.
+	assert.deepEqual(request.context.messages, liveContext.messages, "native request must carry the live chain byte-for-byte");
+	assert.ok(preparation.recentMessages.length > 0, "fixture must exercise a retained tail");
+	const instructions = String(request.options.anthropicCompaction?.instructions);
+	const cutoff = /Summarize ONLY those first (\d+) messages\./.exec(instructions);
+	assert.ok(cutoff, "live-chain instructions must name the cutoff");
+	assert.equal(
+		Number(cutoff[1]),
+		liveContext.messages.length - preparation.recentMessages.length,
+		"cutoff must leave exactly the retained tail out of the summary",
+	);
+	assert.match(
+		instructions,
+		new RegExp(`The final ${preparation.recentMessages.length} messages MUST NOT be summarized`),
+		"live-chain instructions must keep the retained tail out of the summary",
+	);
+	assert.doesNotMatch(
+		instructions,
+		/complete history to summarize/,
+		"live-chain instructions must not claim the whole request is replaced",
+	);
+	assert.equal(request.options.anthropicCompaction?.pauseAfterCompaction, undefined);
+} else if (["18.3.3", "18.4.1"].includes(coreVersion)) {
 	assert.deepEqual(
 		request.context.messages,
 		liveContext.messages.slice(0, liveContext.messages.length - preparation.recentMessages.length),
@@ -222,7 +249,7 @@ if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
 	const boundaryMessages = [oldUser, call, toolResult, oldAssistant, recentUser, recentAssistant];
 	const boundaryLive = [liveMessages[0], ...boundaryMessages.slice(1)];
 	for (const hasEntryIds of [true, false]) {
-		const requests: Context[] = [];
+		const requests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
 		const shifted = await compact({
 			...preparation,
 			messagesToSummarize: boundaryMessages.slice(0, 2),
@@ -240,14 +267,37 @@ if (["18.3.3", "18.4.1", "18.4.4"].includes(coreVersion)) {
 			}),
 			completeImpl: async (requestModel, context, options) => {
 				if (!options.anthropicCompaction) return assistant(requestModel);
-				requests.push(context);
+				requests.push({ context, options });
 				return nativeCompactionResponse(requestModel);
 			},
 		});
 		assert.equal(requests.length, 1);
-		assert.deepEqual(requests[0].messages, hasEntryIds ? boundaryLive.slice(0, 3) : boundaryLive,
-			"safeCut must keep a tool call with its result; missing boundary IDs must summarize the snapshot");
-		assert.equal(shifted.firstKeptEntryId, hasEntryIds ? "after-result" : "");
+		if (coreVersion === "18.4.4") {
+			// The request is the live chain either way; where `safeCut` landed is
+			// visible only in the cutoff the instructions state.
+			assert.deepEqual(requests[0].context.messages, boundaryLive,
+				"native request must carry the whole live chain regardless of where safeCut lands");
+			const boundaryInstructions = String(requests[0].options.anthropicCompaction?.instructions);
+			const boundaryCutoff = /Summarize ONLY those first (\d+) messages\./.exec(boundaryInstructions);
+			if (hasEntryIds) {
+				// safeCut advances past the tool call so it stays with its result:
+				// three of the six messages are the retained tail.
+				assert.equal(boundaryCutoff?.[1], "3", "instructions must name the cut safeCut landed on");
+				assert.match(boundaryInstructions, /The final 3 messages MUST NOT be summarized/);
+				assert.equal(shifted.firstKeptEntryId, "after-result");
+			} else {
+				// Without boundary IDs safeCut collapses to the whole snapshot:
+				// nothing is retained, so the request is its own complete history
+				// and the default instructions -- no cutoff -- are the correct ones.
+				assert.equal(boundaryCutoff, null, "an empty retained tail needs no cutoff sentence");
+				assert.match(boundaryInstructions, /complete history to summarize/);
+				assert.equal(shifted.firstKeptEntryId, "");
+			}
+		} else {
+			assert.deepEqual(requests[0].context.messages, hasEntryIds ? boundaryLive.slice(0, 3) : boundaryLive,
+				"safeCut must keep a tool call with its result; missing boundary IDs must summarize the snapshot");
+			assert.equal(shifted.firstKeptEntryId, hasEntryIds ? "after-result" : "");
+		}
 		const preserved = getPreservedAnthropicCompactionData(shifted.preserveData);
 		assert.equal(preserved?.content, "NATIVE_SUMMARY");
 		assert.equal(preserved?.signature, "offline-signed-summary", "persisted replay must retain the signature");

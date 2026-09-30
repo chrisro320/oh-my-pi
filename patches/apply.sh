@@ -570,6 +570,13 @@ case "$OMP_PATCH_VERSION" in
 	# preparation awaited was overwritten by the restore. Both restores share one
 	# helper that never writes over a newer draft or attachment.
 	_omp_tail_candidate "18.4.4" "0085-omp-rejected-prepared-draft-restore" "${AGENT}"
+	# 0086: the summarize request stopped at the summarize boundary, so its
+	# provider cache anchors landed on the entry at that boundary -- written once
+	# and then never refreshed, because every later main turn anchored its own
+	# advancing tail. One hour later that entry is gone and the whole history is
+	# rewritten (the 256k-token / $1.15 incident). The request now carries the
+	# live chain whole and names the cutoff in its instruction.
+	_omp_tail_candidate "18.4.4" "0086-omp-compaction-cache-liveness" "${NM}"
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4)" >&2
@@ -1013,6 +1020,9 @@ if [[ "$MODE" == "apply" ]]; then
 	fi
 	if _omp_plan_has 0085; then
 		bun "${HERE}/verify-rejected-prepared-draft-restore.ts"
+	fi
+	if _omp_plan_has 0086; then
+		bun "${HERE}/verify-compaction-cache-liveness.ts"
 	fi
 fi
 if [[ "$MODE" != "check" ]]; then
