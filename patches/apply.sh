@@ -595,6 +595,21 @@ case "$OMP_PATCH_VERSION" in
 	# host-vouched prefix, and every other shape keeps the pre-0088 bytes with a
 	# named reason.
 	_omp_tail_candidate "18.4.4" "0088-omp-compaction-cache-liveness" "${NM}"
+	# 0089: the live-chain capacity gate is DELETED (local and native lanes). The
+	# pre-flight verdict could only refuse a chain the provider would take: the
+	# 16:43Z compaction's ~129k-token chain in a 512k window was refused
+	# `capacity-unattested` because no turn of it carried usable provider usage,
+	# and a signed-thinking chain the local tokenizer overcounts several-fold was
+	# refused as over capacity -- both abandoning the cache for nothing. The live
+	# chain now ships whenever the host vouches for it and the previous-summary
+	# condition holds, and the provider's own rejection is the safety: the
+	# existing `live-chain-overflow-retry` fallback still replans the cold path
+	# (halving the abandoned call's own transcript) and names the reason. The
+	# `no-live-chain` / `no-host-prefix` / `previous-summary-not-in-prefix` and
+	# `live-chain-overflow-retry` reasons remain; `capacity-unattested`,
+	# `live-chain-over-capacity`, `native-capacity-unattested` and
+	# `native-live-chain-over-capacity` are gone.
+	_omp_tail_candidate "18.4.4" "0089-omp-compaction-drop-capacity-gate" "${NM}"
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4)" >&2

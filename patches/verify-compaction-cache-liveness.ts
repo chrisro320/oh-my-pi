@@ -82,9 +82,6 @@ const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 const { streamAnthropic } = await import(`${AI_ROOT}/src/providers/anthropic.ts`);
 const { Tokenizer } = await import(`${CORE_ROOT}/src/tokenizer.ts`);
-// The round-1 capacity ruler: the summary-shaped transcript. These legs assert
-// the current ruler does NOT use it, by measuring both on the same fixture.
-const { serializeConversationForSummary } = await import(`${CORE_ROOT}/src/compaction/utils.ts`);
 // The compaction wrapper logs a cache-cold shape through the package's own
 // logger (pi-utils). The sink must observe the SAME module record, so the path
 // is resolved exactly as the core package resolves it: a bare specifier
@@ -610,12 +607,12 @@ async function captureCompactionStub(
 		 * cannot vouch for a history scope. The live chain is then the ONLY prefix.
 		 */
 		absentHistoryPrefix?: boolean;
-		/**
-		 * Provider-overflow leg: make the FIRST summarize request fail with this
+		/** Provider-overflow leg: make the FIRST summarize request fail with this
 		 * error, the way a provider rejects an over-long prompt, and accept every
-		 * later request.
-		 */
+		 * later request. */
 		failFirstRequest?: Error;
+		/** `compact`'s no-loss contract: a window that does not fit must throw. */
+		allowTruncation?: boolean;
 		/** Every summarize request this compaction issued, in order. */
 		requests?: FixtureMessage[][];
 		/** Every scope this compaction asked the host to vouch for, in order. */
@@ -664,6 +661,7 @@ async function captureCompactionStub(
 					: undefined;
 			},
 			onCacheFallback: options.onCacheFallback,
+			...(options.allowTruncation === undefined ? {} : { allowTruncation: options.allowTruncation }),
 			completeImpl: async (requestModel, context) => {
 				options.requests?.push(context.messages as FixtureMessage[]);
 				if (options.failFirstRequest !== undefined && options.requests?.length === 1) {
@@ -1418,15 +1416,36 @@ try {
 		"the turn-prefix leg keeps its own trace row and its own label",
 	);
 
-	// Leg 3g: an overflow retry on a split turn recovers to the two-leg path. The
-	// provider rejects the live request, `generateSummary` replans it and names the
-	// retry reason, `onLiveChainSelected` must NOT fire (no live request came back),
-	// and the turn-prefix leg is issued exactly as in the pre-0088 shape.
+	// Leg 3g: a rejected LIVE request must always transition to the cold path,
+	// even when the discarded target is small. The abandoned request was the whole
+	// live chain, whose size says nothing about the target: a transition that
+	// reused the live request's size (or the target's, halved) would drop below
+	// `minSummaryInputTokens` and throw away a target the cold path summarizes
+	// fine (the cold-only control in leg 6 shows exactly that). The retry must
+	// plan the target with the budget the ordinary cold attempt would have used.
+	// The sentinel lives in the last target message AND in the vouched-for cut
+	// prefix, so "the cold request still carries the discarded range" is checkable
+	// from the accepted bytes.
+	const RETRY_SPLIT_SENTINEL = "small-discarded-range-sentinel";
 	const retrySplitRequests: FixtureMessage[][] = [];
 	const retrySplitFallbacks: string[] = [];
 	logEvents.length = 0;
-	const retrySplit = await captureCompactionStub(historyContext, liveContext, {
+	const retrySplitHistoryMessages: FixtureMessage[] = [
+		...messages.slice(0, BOUNDARY - 1),
+		{ role: "user", content: [{ type: "text", text: RETRY_SPLIT_SENTINEL }], attribution: "agent", timestamp: 1 },
+	];
+	const retrySplitHistoryContext: Context = {
+		systemPrompt: SYSTEM,
+		messages: retrySplitHistoryMessages,
+		tools: TOOLS,
+	};
+	assert.ok(
+		capacityTokenizer.countMessages(retrySplitHistoryMessages as never) < 16_384,
+		"the live->cold transition must be exercised with a target below the retry floor",
+	);
+	const retrySplit = await captureCompactionStub(retrySplitHistoryContext, liveContext, {
 		isSplitTurn: true,
+		messagesToSummarize: retrySplitHistoryMessages,
 		turnPrefixMessages: messages.slice(BOUNDARY),
 		requests: retrySplitRequests,
 		failFirstRequest: new Error("prompt is too long: context length exceeded"),
@@ -1451,6 +1470,24 @@ try {
 		retrySplit.summarizeRequests.slice(1).every(row => row.usesLiveChainReplay !== true),
 		"only the rejected attempt was a live request; neither the replanned windows nor the turn-prefix leg may claim it",
 	);
+	const retriedSplitSentinels = retrySplitRequests
+		.slice(1)
+		.filter(request => JSON.stringify(request).includes(RETRY_SPLIT_SENTINEL));
+	assert.equal(
+		retriedSplitSentinels.length,
+		1,
+		`exactly one accepted request must carry the small discarded range, saw ${JSON.stringify(retrySplitRequests.map(m => m.length))}`,
+	);
+	assert.equal(
+		retriedSplitSentinels[0].length,
+		retrySplitHistoryMessages.length + 1,
+		"the cold request must be the vouched-for cut prefix plus one instruction",
+	);
+	assert.match(
+		retrySplit.summary,
+		/STUB_SUMMARY/,
+		"the cold transition must still produce a summary",
+	);
 	assert.equal(
 		retrySplit.summarizeRequests.at(-1)?.usesLiveChainReplay,
 		false,
@@ -1462,15 +1499,129 @@ try {
 		"the recovered turn-prefix leg keeps its own trace row",
 	);
 	assert.equal(
-		flatRequests(retrySplitRequests).length,
+		retrySplit.summarizeRequests.filter(row => row.lane === "turn-prefix").length,
 		1,
-		"the recovered split turn still issues exactly one flat turn-prefix request",
+		"the recovered split turn still issues exactly one turn-prefix leg",
 	);
 	assert.match(
 		retrySplit.summary,
 		/Turn Context \(split turn\)/,
 		"the recovered split turn merges the two legs",
 	);
+
+	// The same transition without a split turn: a whole-turn compaction whose
+	// abandoned live chain is the full conversation and whose target is a handful
+	// of tokens (a 39k-token live request rejected while the discarded range is
+	// tiny -- the shape a transcript-based retry size throws away). The cold path
+	// summarizes the tiny target in ONE request.
+	const tinyTarget: FixtureMessage[] = [
+		...messages.slice(0, 2),
+		{ role: "user", content: [{ type: "text", text: RETRY_SPLIT_SENTINEL }], attribution: "agent", timestamp: 3 },
+	];
+	assert.ok(
+		capacityTokenizer.countMessages(tinyTarget as never) < 100,
+		"the whole-turn live->cold fixture must carry a tiny target",
+	);
+	const tinyRequests: FixtureMessage[][] = [];
+	const tinyFallbacks: string[] = [];
+	logEvents.length = 0;
+	const tiny = await captureCompactionStub(
+		{ systemPrompt: SYSTEM, messages: tinyTarget, tools: TOOLS },
+		liveContext,
+		{
+			messagesToSummarize: tinyTarget,
+			recentMessages: [],
+			requests: tinyRequests,
+			failFirstRequest: new Error("prompt is too long: context length exceeded"),
+			onCacheFallback: reason => tinyFallbacks.push(reason),
+		},
+	);
+	assert.ok(
+		tinyRequests.length >= 2,
+		`the live->cold transition issues the live request and a cold request, saw ${tinyRequests.length}`,
+	);
+	assert.equal(tinyRequests[0].length, liveContext.messages.length + 1, "the rejected request was the whole live chain plus one instruction");
+	assert.equal(
+		tinyRequests[1].length,
+		tinyTarget.length + 1,
+		"the cold request is the tiny discarded range plus one instruction",
+	);
+	assert.deepEqual(tinyFallbacks, ["live-chain-overflow-retry"], "the tiny-target transition must name the retry once");
+	assert.equal(tiny.cacheColdReason, "live-chain-overflow-retry", "the tiny-target retry reason must be persisted");
+	assert.ok(JSON.stringify(tinyRequests[1]).includes(RETRY_SPLIT_SENTINEL), "the cold request must carry the tiny discarded range");
+	assert.equal(tiny.summary, "STUB_SUMMARY", "the tiny target must still be summarized");
+
+	// The transition with a target that needs MORE THAN ONE cold window: several
+	// individually-fitting messages whose aggregate exceeds the cold budget, the
+	// last one holding the multi-window sentinel. The cold plan must PARTITION it
+	// exactly as an initial cold attempt would -- a collapsed single whole-target
+	// window would clamp the transcript (dropping the sentinel) or throw
+	// "Compaction summary window exceeds the input budget and truncation is
+	// disabled". Both the truncation-allowed and the lossless caller are asserted,
+	// because the lossless one turns a clamp into a hard failure.
+	const MULTI_WINDOW_SENTINEL = "MULTI_WINDOW_END_SENTINEL";
+	// The same 32k-window fixture the prefix gate uses to prove multiple windows
+	// (24 messages of 8,000 characters): each message fits the cold budget on its
+	// own, the aggregate does not.
+	const multiWindowModel = { ...model, contextWindow: 32_000 };
+	const multiMessages: FixtureMessage[] = Array.from({ length: 24 }, (_, index) => ({
+		role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+		content: [
+			{
+				type: "text" as const,
+				text: `${index === 23 ? MULTI_WINDOW_SENTINEL : `multi-window-${index}`}:`.padEnd(8_000, String(index % 10)),
+			},
+		],
+		attribution: "agent",
+		timestamp: index + 1,
+	}));
+	const multiUnitTokens = capacityTokenizer.countMessages([multiMessages[0]] as never);
+	const multiTotalTokens = capacityTokenizer.countMessages(multiMessages as never);
+	assert.ok(
+		multiUnitTokens * 2 < multiTotalTokens,
+		`the multi-window fixture must carry many messages (unit=${multiUnitTokens}, total=${multiTotalTokens})`,
+	);
+	const multiWindowHistory: Context = { systemPrompt: SYSTEM, messages: multiMessages, tools: TOOLS };
+	for (const allowTruncation of [undefined, false] as Array<boolean | undefined>) {
+		const multiRequests: FixtureMessage[][] = [];
+		const multiFallbacks: string[] = [];
+		logEvents.length = 0;
+		const multi = await captureCompactionStub(multiWindowHistory, liveContext, {
+			model: multiWindowModel,
+			messagesToSummarize: multiMessages,
+			recentMessages: [],
+			requests: multiRequests,
+			failFirstRequest: new Error("prompt is too long: context length exceeded"),
+			...(allowTruncation === undefined ? {} : { allowTruncation }),
+			onCacheFallback: reason => multiFallbacks.push(reason),
+		});
+		const label = `allowTruncation=${String(allowTruncation)}`;
+		assert.ok(
+			multiRequests.length >= 4,
+			`${label}: the transition must partition the target, saw ${JSON.stringify(multiRequests.map(m => m.length))}`,
+		);
+		assert.equal(multiRequests[0].length, liveContext.messages.length + 1, `${label}: the rejected request was the live chain`);
+		assert.deepEqual(multiFallbacks, ["live-chain-overflow-retry"], `${label}: the transition must name the retry once`);
+		assert.equal(multi.cacheColdReason, "live-chain-overflow-retry", `${label}: the retry reason must be persisted`);
+		assert.equal(multi.summary, "STUB_SUMMARY", `${label}: the partitioned target must still be summarized`);
+		const acceptedText = JSON.stringify(multiRequests.slice(1));
+		assert.ok(acceptedText.includes(MULTI_WINDOW_SENTINEL), `${label}: the final sentinel must reach an accepted cold request`);
+		for (let index = 0; index < multiMessages.length - 1; index++) {
+			assert.ok(
+				acceptedText.includes(`multi-window-${index}`),
+				`${label}: source message ${index} must survive into an accepted cold request`,
+			);
+		}
+	}
+	// Control: without the live request being rejected, the same fixture still
+	// ships as the live chain in ONE request, so the legs above measure the
+	// transition and not the fixture.
+	const multiControl = await captureCompactionStub(multiWindowHistory, liveContext, {
+		model: multiWindowModel,
+		messagesToSummarize: multiMessages,
+		recentMessages: [],
+	});
+	assert.equal(multiControl.cacheColdReason, undefined, "the multi-window control must record no cold reason");
 
 	// Leg 3c: the flag is load-bearing, not decorative. Claiming a prefix that
 	// does not carry the summary drops it entirely (why the host derives the flag
@@ -1511,56 +1662,167 @@ try {
 		"a changed system prompt must rewrite the whole chain",
 	);
 
-	// Leg 5: a live chain that does not physically fit must fall back LOUDLY
-	// rather than ship an over-capacity request. Capacity is the provider's own
-	// measurement of the chain, so the narrower window is crossed by the chain's
-	// own attested turn and not by a locally counted system prompt: the fallback
-	// is named rather than silently shipped, and it still ships the cut prefix.
-	const capacityModel = { ...model, contextWindow: 64_000 };
-	// A turn the provider really sized above the narrower window (the incident's
-	// own shape, at 120k instead of 378k) appended to the same chain.
-	const oversizedUsage = { ...turnUsage(CHAIN_LENGTH), cacheRead: 120_000, totalTokens: 120_001 };
-	const oversizedLive: Context = {
+	// Leg 5: the failing case this layer exists for. The 16:43Z compaction had a
+	// ~129k-token live chain in a 512k window and was refused as
+	// `capacity-unattested`, because no turn of the chain carried usable provider
+	// usage to size it. 0089 deletes the capacity gate, so the chain rides the
+	// live lane in ONE request whatever its usage says; the provider, not a local
+	// verdict, decides whether the request was too large.
+	const wideModel = { ...model, contextWindow: 512_000 };
+	const capacityText = (repeats: number): string =>
+		Array.from({ length: repeats }, (_, index) => `capacity-block-${index}`).join(" ");
+	const failingLive: Context = {
 		systemPrompt: SYSTEM,
 		messages: [
-			...messages,
+			messages[0],
+			{ role: "user", content: [{ type: "text", text: capacityText(14_400) }], timestamp: 2 },
 			{
 				role: "assistant",
-				content: [{ type: "text", text: "oversized-response" }],
+				content: [{ type: "text", text: "unattested-response" }],
 				api: model.api,
 				provider: model.provider,
 				model: model.id,
 				stopReason: "stop",
-				usage: oversizedUsage,
-				timestamp: CHAIN_LENGTH + 1,
+				timestamp: 3,
 			},
 		],
 		tools: TOOLS,
 	};
-	const capacityFallbacks: string[] = [];
-	const overCapacity = await captureCompaction(historyContext, oversizedLive, {
-		model: capacityModel,
-		onCacheFallback: reason => capacityFallbacks.push(reason),
-	});
+	const failingTokens = capacityTokenizer.countMessages(failingLive.messages as never);
 	assert.ok(
-		capacityFallbacks.includes("live-chain-over-capacity"),
-		`an over-capacity live chain must be reported, saw ${JSON.stringify(capacityFallbacks)}`,
+		failingTokens > 100_000 && failingTokens < 200_000,
+		`the failing fixture must approximate the 16:43Z chain (~129k in a 512k window), got ${failingTokens}`,
 	);
-	// The offline sink always terminates the provider call, so `compact` never
-	// returns an entry here; the durable `details.cacheColdReason` is asserted in
-	// the native gate, whose stub completes, and in the round-2 smoke.
+	const failingHistory: Context = { systemPrompt: SYSTEM, messages: [messages[0]], tools: TOOLS };
+	logEvents.length = 0;
+	const failing = await captureCompactionStub(failingHistory, failingLive, {
+		model: wideModel,
+		messagesToSummarize: [failingLive.messages[0], failingLive.messages[1]],
+		recentMessages: [failingLive.messages[2]],
+	});
+	assert.equal(failing.cacheColdReason, undefined, "a usage-less live chain must not be recorded cold any more");
+	assert.deepEqual(cacheColdLogReasons(), [], "a usage-less live chain must not warn any more");
 	assert.equal(
-		overCapacity.summarizeRequests.at(-1)?.liveChainFallback,
-		"live-chain-over-capacity",
-		"the capacity fallback must be readable from the summarize.request trace",
+		liveChainFallbackOf(failing.summarizeRequests),
+		undefined,
+		"a usage-less live chain must not be traced as a fallback any more",
+	);
+	assert.equal(
+		failing.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		true,
+		"a usage-less live chain inside its window must ride the live lane",
 	);
 	assert.deepEqual(
-		messageBreakpoints(overCapacity.wire),
-		[BOUNDARY - 1, BOUNDARY],
-		"an over-capacity live chain must keep the prefix shape",
+		failing.messages.slice(0, failingLive.messages.length),
+		failingLive.messages,
+		"the usage-less request must ship the host's live chain untouched",
 	);
-	const capacityVerdict = simulate(overCapacity.wire, COMPACTION_AT);
-	assert.equal(capacityVerdict.readBlocks, 0, "the loud fallback is still cache-cold, hence the warning");
+	assert.equal(
+		failing.messages.length,
+		failingLive.messages.length + 1,
+		"ONE request: the live chain plus one instruction",
+	);
+
+	// Leg 5b: the same lane with a chain that GENUINELY exceeds the 512k window.
+	// Nothing refuses it locally any more; the provider's own rejection is the
+	// safety, and the retry must then recover on the cold path -- named
+	// `live-chain-overflow-retry` -- without losing the abandoned range.
+	const overflowLive: Context = {
+		systemPrompt: SYSTEM,
+		messages: [
+			messages[0],
+			{ role: "user", content: [{ type: "text", text: capacityText(60_000) }], timestamp: 2 },
+			{ role: "user", content: [{ type: "text", text: "retained-tail" }], timestamp: 3 },
+		],
+		tools: TOOLS,
+	};
+	const overflowTokens = capacityTokenizer.countMessages(overflowLive.messages as never);
+	assert.ok(
+		overflowTokens > 512_000,
+		`the overflow fixture must genuinely exceed the 512k window, got ${overflowTokens}`,
+	);
+	const overflowWalkTokens = capacityTokenizer.countTokens(capacityText(60_000));
+	assert.ok(
+		overflowWalkTokens > 512_000,
+		"the overflow fixture's own message must exceed the window by the local ruler too",
+	);
+	const overflowFallbacks: string[] = [];
+	const overflowRequests: FixtureMessage[][] = [];
+	logEvents.length = 0;
+	const overflowed = await captureCompactionStub(failingHistory, overflowLive, {
+		model: wideModel,
+		messagesToSummarize: [overflowLive.messages[1]],
+		recentMessages: [overflowLive.messages[2]],
+		requests: overflowRequests,
+		failFirstRequest: new Error("prompt is too long: context length exceeded"),
+		onCacheFallback: reason => overflowFallbacks.push(reason),
+	});
+	assert.equal(
+		overflowRequests[0].length,
+		overflowLive.messages.length + 1,
+		"the rejected first request must be the whole live chain plus one instruction",
+	);
+	assert.deepEqual(
+		overflowFallbacks,
+		["live-chain-overflow-retry"],
+		"the provider's rejection -- not a local verdict -- must name the retry",
+	);
+	assert.equal(
+		overflowed.cacheColdReason,
+		"live-chain-overflow-retry",
+		"the retry reason must be persisted on the compaction entry",
+	);
+	assert.deepEqual(
+		cacheColdLogReasons(),
+		["live-chain-overflow-retry"],
+		"the operator warning must carry the retry reason",
+	);
+	assert.ok(
+		overflowed.summarizeRequests.slice(1).every(row => row.usesLiveChainReplay !== true),
+		"no retried request may claim the live chain",
+	);
+	assert.ok(
+		JSON.stringify(overflowRequests.slice(1)).includes(capacityText(60_000).slice(0, 40)),
+		"the retried cold request must still carry the abandoned range's bytes",
+	);
+
+	// Leg 5c: opaque reasoning bytes are not a local capacity verdict either. The
+	// fixture is a signed thinking turn whose signature is 400k characters: the
+	// local tokenizer overstates it several-fold, which is exactly how the
+	// incident's real 378k-token chain measured 630k locally and was refused as
+	// over capacity. 0089 deletes the ruler, so the chain ships; only the provider
+	// may refuse it.
+	const signedThinking: FixtureMessage = {
+		role: "assistant",
+		content: [{ type: "thinking", thinking: "signed deliberation", thinkingSignature: "A".repeat(400_000) }],
+		api: model.api,
+		provider: model.provider,
+		model: model.id,
+		stopReason: "stop",
+		timestamp: 4,
+	};
+	const signedLive: Context = {
+		systemPrompt: SYSTEM,
+		messages: [
+			messages[0],
+			{ role: "user", content: [{ type: "text", text: capacityText(1_000) }], timestamp: 2 },
+			signedThinking,
+		],
+		tools: TOOLS,
+	};
+	logEvents.length = 0;
+	const signed = await captureCompactionStub(failingHistory, signedLive, {
+		model: wideModel,
+		messagesToSummarize: [signedLive.messages[1]],
+		recentMessages: [signedThinking],
+	});
+	assert.equal(signed.cacheColdReason, undefined, "a signed-thinking chain must not be refused locally");
+	assert.deepEqual(cacheColdLogReasons(), [], "a signed-thinking chain must not warn");
+	assert.equal(
+		signed.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		true,
+		"a signed-thinking chain must ship the live chain",
+	);
 
 	// Leg 6: a cold fallback is never silent -- the local history lane included.
 	// The offline sink always aborts the provider call, so the returned entry is
@@ -1607,20 +1869,7 @@ try {
 	);
 	assert.equal(stubAccepted.messages.length, CHAIN_LENGTH + 1, "the accepted request appends exactly one instruction");
 
-	// Leg 7: the capacity ruler is the provider request, not the fold-in budget.
-	// Each sub-leg is a boundary -- the same fixture is accepted in one shape and
-	// refused in the other -- so forcing the ruler true, forcing it false, or
-	// restoring the round-1 summary-transcript ruler all turn this leg red.
-	const smallHistory: Context = { systemPrompt: SYSTEM, messages: messages.slice(0, 4), tools: TOOLS };
-	const smallTarget = messages.slice(0, 4);
-
-	/**
-	 * The usage a provider reports for a request it sized at `tokens` -- the
-	 * incident's own shape, where the last main request is billed 378255 (377769
-	 * cache-read + 484 cache-write + 2 input) for its whole prefix. Capacity is
-	 * measured from that usage, so every synthetic chain below carries one: a chain
-	 * whose last assistant turn was never provider-sized can only ever be refused.
-	 */
+	/** The usage the provider reported for a request it sized at `tokens` (the incident's own shape). */
 	function sizedUsage(tokens: number): FixtureMessage["usage"] {
 		return {
 			input: 0,
@@ -1646,35 +1895,11 @@ try {
 		};
 	}
 
-	/**
-	 * The size the tree must compute for one chain, modelled here so a boundary
-	 * leg can derive adjacent windows: the last provider-attested input the chain
-	 * carries, plus a local estimate of the messages appended after it with opaque
-	 * reasoning excluded. The request's own system prompt and tools are inside the
-	 * attested number -- the request that produced it carried the same ones.
-	 */
-	function faithfulChainTokens(chain: FixtureMessage[]): number {
-		for (let index = chain.length - 1; index >= 0; index--) {
-			const message = chain[index] as { role?: string; usage?: { input?: number; cacheRead?: number; cacheWrite?: number } };
-			if (message.role !== "assistant" || message.usage === undefined) continue;
-			const tokens = (message.usage.input ?? 0) + (message.usage.cacheRead ?? 0) + (message.usage.cacheWrite ?? 0);
-			if (tokens <= 0) continue;
-			return (
-				tokens +
-				capacityTokenizer.countMessages(chain.slice(index) as never, { excludeEncryptedReasoning: true })
-			);
-		}
-		throw new Error("fixture chain carries no provider usage");
-	}
-
-	// Leg 7a: a single ~400k-token message on a 512k window, appended after a turn
+	// Leg 7: a single ~400k-token message on a 512k window, appended after a turn
 	// the provider sized at 150. The fold-in budget discounts the window (0.8x) and
 	// reserves the whole output, so it rejects this request; the provider would
 	// accept it. Judging by the budget would re-window and clamp a message that
 	// fits, which is exactly the round-1 defect: the request must ship whole.
-	const wideModel = { ...model, contextWindow: 512_000 };
-	const capacityText = (repeats: number): string =>
-		Array.from({ length: repeats }, (_, index) => `capacity-block-${index}`).join(" ");
 	const unitRepeats = 20_000;
 	const unitTokens = capacityTokenizer.countMessages([
 		{ role: "user", content: [{ type: "text", text: capacityText(unitRepeats) }] },
@@ -1713,581 +1938,6 @@ try {
 		instructionOf(big.messages),
 		/truncated/,
 		"a fitting live request must not be clamped to the fold-in budget",
-	);
-
-	// Leg 7b: the chain's own provider usage decides, not a local count of its
-	// messages and tools. Both halves are a handful of words whose last turn the
-	// provider sized at 66k: on the 64k window the same chain must fall back, name
-	// the reason and ship the history prefix instead of the live chain, while the
-	// same chain sized at 50k must ship the live chain. A ruler that counted the
-	// request locally -- or that read the tools instead of the provider's number --
-	// accepts both halves or neither, which is what turns this leg red.
-	const attestedChain = (tokens: number): Context => ({
-		systemPrompt: SYSTEM,
-		messages: [messages[0], sizedTurn(tokens)],
-		tools: TOOLS,
-	});
-	const toolHeavyResult = await captureCompactionStub(smallHistory, attestedChain(66_000), {
-		model: capacityModel,
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-	});
-	assert.equal(
-		toolHeavyResult.cacheColdReason,
-		"live-chain-over-capacity",
-		"an input the provider sized above the window must be named on the entry",
-	);
-	assert.equal(
-		liveChainFallbackOf(toolHeavyResult.summarizeRequests),
-		"live-chain-over-capacity",
-		"an over-capacity live chain must be traced with its reason",
-	);
-	assert.notEqual(
-		toolHeavyResult.summarizeRequests.at(-1)?.usesLiveChainReplay,
-		true,
-		"an over-capacity live chain must not be traced as shipped",
-	);
-	assert.deepEqual(
-		toolHeavyResult.messages.slice(0, smallTarget.length),
-		smallHistory.messages,
-		"the over-capacity fallback must ship the history prefix, not the live chain",
-	);
-	const attestedFit = await captureCompactionStub(smallHistory, attestedChain(50_000), {
-		model: capacityModel,
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-	});
-	assert.equal(
-		attestedFit.cacheColdReason,
-		undefined,
-		"the same chain sized under the window must ship the live chain",
-	);
-	assert.equal(
-		liveChainFallbackOf(attestedFit.summarizeRequests),
-		undefined,
-		"the under-window chain must not be traced as a fallback",
-	);
-	assert.ok(
-		faithfulChainTokens(attestedChain(50_000).messages as FixtureMessage[]) < 64_000 &&
-			faithfulChainTokens(attestedChain(66_000).messages as FixtureMessage[]) > 64_000,
-		"the pair must straddle the narrowed window so the verdict is a boundary",
-	);
-
-	// Leg 7c: a long tool result appended AFTER the provider-sized turn is charged
-	// by the local estimate of the appended messages; the round-1 ruler truncated
-	// tool results to 2,000 characters before counting and would have shipped it.
-	const toolResult: FixtureMessage = {
-		role: "toolResult",
-		toolCallId: "call-1",
-		toolName: "read",
-		content: [{ type: "text", text: "long-tool-output ".repeat(40_000) }],
-		timestamp: 2,
-	};
-	const toolResultLive: Context = {
-		systemPrompt: SYSTEM,
-		messages: [messages[0], sizedTurn(150), toolResult],
-		tools: TOOLS,
-	};
-	const toolResultTokens = faithfulChainTokens(toolResultLive.messages as FixtureMessage[]);
-	const legacyToolTokens = capacityTokenizer.countTokens(
-		serializeConversationForSummary([toolResult] as never, "anthropic"),
-	);
-	assert.ok(
-		toolResultTokens > 60_000 && legacyToolTokens < 5_000,
-		`the tool-result leg must separate the rulers (provider=${toolResultTokens}, legacy=${legacyToolTokens})`,
-	);
-	const longResult = await captureCompactionStub(smallHistory, toolResultLive, {
-		model: capacityModel,
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-	});
-	assert.equal(
-		longResult.cacheColdReason,
-		"live-chain-over-capacity",
-		"a long tool result must be charged to capacity",
-	);
-
-	// Leg 7d: thinking text the provider bills on replay is charged by the same
-	// estimate when it rides after the attributed turn: the turn itself is the
-	// chain's last assistant turn, so its own content (the thinking) is part of
-	// what the request appends. A ruler that priced the chain as a summary-shaped
-	// transcript would not pay for it at all.
-	const thinkingMessage: FixtureMessage = {
-		role: "assistant",
-		content: [{ type: "thinking", thinking: "deliberation ".repeat(40_000) }],
-		api: model.api,
-		provider: model.provider,
-		model: model.id,
-		stopReason: "stop",
-		usage: sizedUsage(150),
-		timestamp: 3,
-	};
-	const thinkingLive: Context = {
-		systemPrompt: SYSTEM,
-		messages: [messages[0], thinkingMessage],
-		tools: TOOLS,
-	};
-	const thinkingTokens = faithfulChainTokens(thinkingLive.messages as FixtureMessage[]);
-	const legacyThinkingTokens = capacityTokenizer.countTokens(
-		serializeConversationForSummary([thinkingMessage] as never, "anthropic"),
-	);
-	assert.ok(
-		thinkingTokens > 60_000 && legacyThinkingTokens < 5_000,
-		`the thinking leg must separate the rulers (provider=${thinkingTokens}, legacy=${legacyThinkingTokens})`,
-	);
-	const thinking = await captureCompactionStub(smallHistory, thinkingLive, {
-		model: capacityModel,
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-	});
-	assert.equal(
-		thinking.cacheColdReason,
-		"live-chain-over-capacity",
-		"a thinking block must be charged to capacity",
-	);
-
-	// Leg 7e: image blocks carry a fixed provider estimate each and ride in the
-	// appended tail, so the window is derived from the measured difference and the
-	// pair is a boundary: without the images the chain fits, with them it does not.
-	const imageBlocks = Array.from({ length: 3 }, () => ({ type: "image", data: "b64", mimeType: "image/png" }));
-	const imageFreeLive: Context = { systemPrompt: SYSTEM, messages: [messages[0], sizedTurn(150)], tools: TOOLS };
-	const imageLive: Context = {
-		systemPrompt: SYSTEM,
-		messages: [messages[0], sizedTurn(150), { role: "user", content: imageBlocks, timestamp: 4 }],
-		tools: TOOLS,
-	};
-	const imageFreeTokens = faithfulChainTokens(imageFreeLive.messages as FixtureMessage[]);
-	const imageTokens = faithfulChainTokens(imageLive.messages as FixtureMessage[]);
-	assert.ok(imageTokens - imageFreeTokens >= 3_600, "the image leg must carry the provider's per-image estimate");
-	const imageWindow = imageFreeTokens + 3_276 + 1_500 + Math.floor((imageTokens - imageFreeTokens) / 2);
-	const imageFree = await captureCompactionStub(smallHistory, imageFreeLive, {
-		model: { ...model, contextWindow: imageWindow },
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-	});
-	assert.equal(imageFree.cacheColdReason, undefined, "the image-free chain must fit the derived window");
-	const imageHeavy = await captureCompactionStub(smallHistory, imageLive, {
-		model: { ...model, contextWindow: imageWindow },
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-	});
-	assert.equal(
-		imageHeavy.cacheColdReason,
-		"live-chain-over-capacity",
-		"image blocks must be charged to capacity",
-	);
-
-	// Leg 7f: the rendered instruction is part of the request, so a caller's
-	// custom instructions count against the same window.
-	const richInstructions = "instruction-padding ".repeat(40_000);
-	assert.ok(
-		capacityTokenizer.countTokens(richInstructions) > 50_000,
-		"the custom-instruction leg needs an instruction large enough to matter",
-	);
-	const instructionWindowModel = { ...model, contextWindow: 40_000 };
-	const lightInstructions = await captureCompactionStub(smallHistory, smallHistory, {
-		model: instructionWindowModel,
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-		customInstructions: "keep it short",
-	});
-	assert.equal(
-		lightInstructions.cacheColdReason,
-		undefined,
-		"the small chain must fit a 40k window while the instruction is small",
-	);
-	const heavyInstructions = await captureCompactionStub(smallHistory, smallHistory, {
-		model: instructionWindowModel,
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-		customInstructions: richInstructions,
-	});
-	assert.equal(
-		heavyInstructions.cacheColdReason,
-		"live-chain-over-capacity",
-		"a large custom instruction must be charged to capacity",
-	);
-	assert.match(
-		instructionOf(heavyInstructions.messages),
-		/Additional focus:/,
-		"the custom instruction must reach the request it made oversized",
-	);
-
-	// Leg 7g: the retained tail rides inside the live chain, so the messages the
-	// request appends are charged to the same window. The tail below is a user turn
-	// plus the assistant turn the provider sized after it (20400 for that prefix,
-	// as a real turn reports), and the window is derived to be just wide enough for
-	// the chain WITHOUT that tail: the tail is exactly what pushes it over.
-	const tailPrefixMessages = messages.slice(0, 4);
-	const tailRetainedMessages: FixtureMessage[] = [
-		{ role: "user", content: [{ type: "text", text: capacityText(2_000) }], timestamp: 1_000 },
-		sizedTurn(20_400),
-	];
-	const tailChain: Context = {
-		systemPrompt: SYSTEM,
-		messages: [...tailPrefixMessages, ...tailRetainedMessages],
-		tools: TOOLS,
-	};
-	const tailFreeTokens = faithfulChainTokens(tailPrefixMessages as FixtureMessage[]);
-	const tailTokens = faithfulChainTokens(tailChain.messages as FixtureMessage[]);
-	assert.ok(tailTokens > tailFreeTokens + 8_000, "the retained-tail leg needs a tail large enough to matter");
-	const tailWindow = tailFreeTokens + 3_276 + 2_000;
-	assert.ok(tailTokens + 3_276 + 2_000 > tailWindow, "the retained tail must be what pushes the request over");
-	const tailOver = await captureCompactionStub(smallHistory, tailChain, {
-		model: { ...model, contextWindow: tailWindow },
-		messagesToSummarize: tailPrefixMessages,
-		recentMessages: tailRetainedMessages,
-	});
-	assert.equal(
-		tailOver.cacheColdReason,
-		"live-chain-over-capacity",
-		"the retained tail must be charged to capacity",
-	);
-	const tailFits = await captureCompactionStub(smallHistory, tailChain, {
-		model: { ...model, contextWindow: tailWindow + tailTokens + 5_000 },
-		messagesToSummarize: tailPrefixMessages,
-		recentMessages: tailRetainedMessages,
-	});
-	assert.equal(
-		tailFits.cacheColdReason,
-		undefined,
-		"widening the window by the tail's own size must accept the same chain",
-	);
-	assert.equal(liveChainFallbackOf(tailFits.summarizeRequests), undefined, "the widened request must ship the live chain");
-
-	// Leg 7h: opaque reasoning bytes are not replay tokens. The fixture is a signed
-	// thinking turn whose signature is 400k characters -- about 100k local tokens --
-	// for a request the provider billed 150, plus the attested prefix. A naive
-	// estimate of this chain is hundreds of times the attested number, which is
-	// exactly how the real 378255-token incident chain measured 630393 locally and
-	// was refused the live lane. The window is derived from the ATTESTED size, so
-	// the request must ship; tokenizing the signature bytes, or ignoring the
-	// attested usage in favour of the local count, refuses it and turns this leg red.
-	const signedThinking: FixtureMessage = {
-		role: "assistant",
-		content: [{ type: "thinking", thinking: "signed deliberation", thinkingSignature: "A".repeat(400_000) }],
-		api: model.api,
-		provider: model.provider,
-		model: model.id,
-		stopReason: "stop",
-		usage: sizedUsage(150),
-		timestamp: 4,
-	};
-	const signedChain: Context = { systemPrompt: SYSTEM, messages: [messages[0], signedThinking], tools: TOOLS };
-	const signedNaive = capacityTokenizer.countMessages(signedChain.messages as never);
-	const signedTokens = faithfulChainTokens(signedChain.messages as FixtureMessage[]);
-	assert.ok(
-		signedNaive > 4 * signedTokens,
-		`the signed-thinking fixture must separate the rulers (naive=${signedNaive}, provider=${signedTokens})`,
-	);
-	const signedWindow = signedTokens + 3_276 + 1_500;
-	const signed = await captureCompactionStub(smallHistory, signedChain, {
-		model: { ...model, contextWindow: signedWindow },
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-	});
-	assert.equal(
-		signed.cacheColdReason,
-		undefined,
-		"a chain whose provider usage attests a fit must ship, whatever its opaque bytes cost locally",
-	);
-	assert.equal(
-		liveChainFallbackOf(signed.summarizeRequests),
-		undefined,
-		"the signed-thinking chain must not be traced as a fallback",
-	);
-	assert.equal(
-		signed.summarizeRequests.at(-1)?.usesLiveChainReplay,
-		true,
-		"the signed-thinking chain must ship the live chain replay",
-	);
-	const signedOver = await captureCompactionStub(smallHistory, signedChain, {
-		model: { ...model, contextWindow: 1_000 },
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-	});
-	assert.equal(
-		signedOver.cacheColdReason,
-		"live-chain-over-capacity",
-		"a chain the provider sized past the window must fall back",
-	);
-	// The third shape: no usage at all on the chain's last assistant turn is an
-	// unknown size, which is named rather than spent as if it were small.
-	const unattestedLive: Context = {
-		systemPrompt: SYSTEM,
-		messages: [
-			messages[0],
-			{
-				role: "assistant",
-				content: [{ type: "text", text: "unattested-response" }],
-				api: model.api,
-				provider: model.provider,
-				model: model.id,
-				stopReason: "stop",
-				timestamp: 5,
-			},
-		],
-		tools: TOOLS,
-	};
-	const unattested = await captureCompactionStub(smallHistory, unattestedLive, {
-		model: capacityModel,
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-	});
-	assert.equal(
-		unattested.cacheColdReason,
-		"capacity-unattested",
-		"a chain no turn of was provider-sized must be refused by name",
-	);
-	assert.equal(
-		liveChainFallbackOf(unattested.summarizeRequests),
-		"capacity-unattested",
-		"an unattested chain must be traced with its reason",
-	);
-	assert.notEqual(
-		unattested.summarizeRequests.at(-1)?.usesLiveChainReplay,
-		true,
-		"an unattested chain must not be traced as shipped",
-	);
-
-	// Leg 7i: the attestation is bound to the prefix and the controls it measured.
-	// The measured turn below reports 900 provider tokens, coherent with the tiny
-	// chain it covers. The three shapes that follow keep that usage while the
-	// prefix it claims to cover is rebuilt, or the request's own system prompt or
-	// tool definition is replaced: the record never measured that content, so the
-	// chain is no longer attested and may not be spent as if it were. Each shape
-	// must fall back by name, and the matching-identity control in the same window
-	// must ship -- that pair is what a missing coherence bound breaks.
-	const driftText = capacityText(20_000);
-	const measured = sizedTurn(900);
-	const identityControl: Context = { systemPrompt: SYSTEM, messages: [messages[0], measured], tools: TOOLS };
-	logEvents.length = 0;
-	const identityOk = await captureCompactionStub(smallHistory, identityControl, {
-		model: capacityModel,
-		messagesToSummarize: smallTarget,
-		recentMessages: [],
-	});
-	assert.equal(identityOk.cacheColdReason, undefined, "the matching-identity control must ship the live chain");
-	assert.equal(
-		liveChainFallbackOf(identityOk.summarizeRequests),
-		undefined,
-		"the matching-identity control must not be traced as a fallback",
-	);
-	const driftShapes: Array<[string, Context]> = [
-		[
-			"a prefix rebuilt after the measurement",
-			{
-				systemPrompt: SYSTEM,
-				messages: [{ role: "user", content: [{ type: "text", text: driftText }], timestamp: 2 }, messages[0], measured],
-				tools: TOOLS,
-			},
-		],
-		["a system prompt replaced after the measurement", { systemPrompt: [driftText], messages: [messages[0], measured], tools: TOOLS }],
-		[
-			"a tool definition replaced after the measurement",
-			{
-				systemPrompt: SYSTEM,
-				messages: [messages[0], measured],
-				tools: [{ name: "inspect", description: driftText, parameters: { type: "object", properties: {} } }],
-			},
-		],
-	];
-	for (const [label, drifted] of driftShapes) {
-		logEvents.length = 0;
-		const drift = await captureCompactionStub(smallHistory, drifted, {
-			model: capacityModel,
-			messagesToSummarize: smallTarget,
-			recentMessages: [],
-		});
-		assert.equal(drift.cacheColdReason, "capacity-unattested", `${label} must fall back by name`);
-		assert.equal(
-			liveChainFallbackOf(drift.summarizeRequests),
-			"capacity-unattested",
-			`${label} must be traced with its reason`,
-		);
-		assert.notEqual(
-			drift.summarizeRequests.at(-1)?.usesLiveChainReplay,
-			true,
-			`${label} must not be traced as shipped`,
-		);
-		assert.deepEqual(
-			cacheColdLogReasons(),
-			["capacity-unattested"],
-			`${label} must warn with the same reason`,
-		);
-	}
-
-	// Leg 7j: the usage must have been reported by THIS api and THIS model. An
-	// otherwise-valid usage-bearing turn from another model or another api is not
-	// a measure of this request, so the chain is unattested; the control above is
-	// the same shape with matching identity.
-	const foreignTurns: Array<[string, FixtureMessage]> = [
-		["a different model", { ...measured, model: "different-model-id" }],
-		["a different api", { ...measured, api: "openai-responses" }],
-	];
-	for (const [label, turn] of foreignTurns) {
-		logEvents.length = 0;
-		const foreign = await captureCompactionStub(
-			smallHistory,
-			{ systemPrompt: SYSTEM, messages: [messages[0], turn], tools: TOOLS },
-			{ model: capacityModel, messagesToSummarize: smallTarget, recentMessages: [] },
-		);
-		assert.equal(foreign.cacheColdReason, "capacity-unattested", `${label} must not attest this request`);
-		assert.equal(
-			liveChainFallbackOf(foreign.summarizeRequests),
-			"capacity-unattested",
-			`${label} must be traced with its reason`,
-		);
-		assert.notEqual(
-			foreign.summarizeRequests.at(-1)?.usesLiveChainReplay,
-			true,
-			`${label} must not be traced as shipped`,
-		);
-	}
-
-	// Leg 7k: a host control-only carrier at the live chain's tail must not veto
-	// the attestation from the turn before it. pi-ai seeds an empty, zero-usage
-	// assistant into the live chain at stream start, and the incident's manual
-	// compaction was aborted in that window, so its last assistant carried no
-	// content and no usage: the usage guard stopped there and refused the whole
-	// chain as `capacity-unattested`, and the live lane never shipped. The carrier
-	// measures nothing -- the Anthropic wire drops it, an assistant turn with zero
-	// content blocks being skipped -- so the scan skips it. ONLY an empty,
-	// zero-usage assistant is skipped: the three negatives below (content, a
-	// non-zero partial usage, and a carrier that is the chain's only assistant)
-	// must all still refuse by name. Removing `isControlOnlyCarrier` turns the two
-	// acceptances red; widening it to skip any unusable assistant turns the three
-	// negatives red.
-	const carrier = (overrides: Partial<FixtureMessage> = {}): FixtureMessage => ({
-		role: "assistant",
-		content: [],
-		api: model.api,
-		provider: model.provider,
-		model: model.id,
-		stopReason: "aborted",
-		usage: {
-			input: 0,
-			output: 0,
-			cacheRead: 0,
-			cacheWrite: 0,
-			totalTokens: 0,
-			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-		},
-		timestamp: 1_000,
-		...overrides,
-	});
-	/** A provider-sized small chain (`sizedTurn(50k)`) with `trailing` appended. */
-	const carrierChain = (trailing: FixtureMessage[]): Context => ({
-		systemPrompt: SYSTEM,
-		messages: [messages[0], sizedTurn(50_000), ...trailing],
-		tools: TOOLS,
-	});
-	const carrierVerdict = async (live: Context): Promise<StubCompaction> =>
-		captureCompactionStub(smallHistory, live, {
-			model: capacityModel,
-			messagesToSummarize: smallTarget,
-			recentMessages: [],
-		});
-	// (i) one trailing aborted carrier: the chain stays attested.
-	logEvents.length = 0;
-	const oneCarrier = await carrierVerdict(carrierChain([carrier()]));
-	assert.equal(
-		oneCarrier.cacheColdReason,
-		undefined,
-		"a trailing control-only carrier must not veto the attestation",
-	);
-	assert.equal(
-		liveChainFallbackOf(oneCarrier.summarizeRequests),
-		undefined,
-		"a carrier-backed chain must not be traced as a fallback",
-	);
-	assert.equal(
-		oneCarrier.summarizeRequests.at(-1)?.usesLiveChainReplay,
-		true,
-		"a carrier-backed chain must ship the live chain",
-	);
-	assert.deepEqual(cacheColdLogReasons(), [], "an accepted carrier-backed chain must not warn");
-	assert.equal(oneCarrier.messages.length, 4, "the accepted request is the chain (3) plus one instruction");
-	assert.deepEqual(oneCarrier.messages[2], carrier(), "the carrier stays on the request the lane rebuilt");
-	// (ii) two carriers in a row are both skipped.
-	logEvents.length = 0;
-	const twoCarriers = await carrierVerdict(carrierChain([carrier(), carrier({ stopReason: "error" })]));
-	assert.equal(twoCarriers.cacheColdReason, undefined, "two trailing carriers must both be skipped");
-	assert.equal(
-		twoCarriers.summarizeRequests.at(-1)?.usesLiveChainReplay,
-		true,
-		"two carriers must still ship the live chain",
-	);
-	assert.equal(twoCarriers.messages.length, 5, "two carriers ride the request as well");
-	// (iii) content is not a carrier: an aborted turn that kept content still refuses.
-	const withContent = await carrierVerdict(
-		carrierChain([carrier({ content: [{ type: "text", text: "aborted-with-content" }] })]),
-	);
-	assert.equal(
-		withContent.cacheColdReason,
-		"capacity-unattested",
-		"an aborted turn with content must refuse the chain",
-	);
-	// (iv) a non-zero usage is not a carrier, even when the context-token guard
-	// would reject it (output-only usage carries no context tokens).
-	const partialUsage = await carrierVerdict(
-		carrierChain([
-			carrier({
-				stopReason: "stop",
-				usage: {
-					input: 0,
-					output: 7,
-					cacheRead: 0,
-					cacheWrite: 0,
-					totalTokens: 7,
-					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-				},
-			}),
-		]),
-	);
-	assert.equal(
-		partialUsage.cacheColdReason,
-		"capacity-unattested",
-		"empty content with non-zero partial usage must refuse the chain",
-	);
-	// (v) a carrier is not an attestation: with no other assistant turn the chain
-	// still has no provider measurement.
-	const carrierOnly = await carrierVerdict({
-		systemPrompt: SYSTEM,
-		messages: [messages[0], carrier()],
-		tools: TOOLS,
-	});
-	assert.equal(
-		carrierOnly.cacheColdReason,
-		"capacity-unattested",
-		"a chain whose only assistant is a carrier has no attestation",
-	);
-	// (vi) the incident shape on the real wire: the 433-message live chain plus one
-	// carrier at the tail. The carrier is dropped from the serialized request while
-	// the chain's own tail markers still anchor the entries the main turns just
-	// wrote, so the request reads the live chain and writes only the instruction.
-	const incidentLive: Context = { systemPrompt: SYSTEM, messages: [...messages, carrier()], tools: TOOLS };
-	const incident = await captureCompaction(historyContext, incidentLive);
-	assert.equal(
-		incident.summarizeRequests.at(-1)?.usesLiveChainReplay,
-		true,
-		"the carrier must not veto the incident's chain",
-	);
-	assert.equal(
-		liveChainFallbackOf(incident.summarizeRequests),
-		undefined,
-		"the incident chain must not be traced as a fallback",
-	);
-	assert.equal(
-		incident.wire.messages.length,
-		CHAIN_LENGTH + 1,
-		`the empty carrier must be dropped from the wire, got ${incident.wire.messages.length}`,
-	);
-	const carrierCache = simulate(incident.wire, COMPACTION_AT);
-	assert.equal(carrierCache.readBlocks, CHAIN_LENGTH, "the incident request must read the whole live chain");
-	assert.ok(
-		carrierCache.cacheWrite <= INSTRUCTION_TOKENS,
-		`the incident request must only write the instruction, got cacheWrite=${carrierCache.cacheWrite}`,
 	);
 
 	// Leg 8: the whole-conversation note belongs to a request that carries the
@@ -2348,6 +1998,55 @@ try {
 	assert.ok(
 		vouchedInstructionText.startsWith(preLiveInstruction),
 		"the live instruction must be the pre-0088 instruction with the whole-conversation note appended",
+	);
+
+	// Leg 8c: the incident's real wire shape with a host control-only carrier at
+	// the tail -- an empty, zero-usage assistant the host seeded before the
+	// provider answered it and then abandoned. It measures nothing and the
+	// Anthropic wire drops it (an assistant turn that serializes to zero content
+	// blocks is skipped), so the live chain still ships and its own tail markers
+	// anchor the entries the main turns just refreshed.
+	const carrier: FixtureMessage = {
+		role: "assistant",
+		content: [],
+		api: model.api,
+		provider: model.provider,
+		model: model.id,
+		stopReason: "aborted",
+		usage: {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 0,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		},
+		timestamp: 1_000,
+	};
+	const incidentLive: Context = { systemPrompt: SYSTEM, messages: [...messages, carrier], tools: TOOLS };
+	logEvents.length = 0;
+	const incident = await captureCompaction(historyContext, incidentLive);
+	assert.equal(
+		incident.summarizeRequests.at(-1)?.usesLiveChainReplay,
+		true,
+		"a trailing carrier must not refuse the incident's chain",
+	);
+	assert.equal(
+		liveChainFallbackOf(incident.summarizeRequests),
+		undefined,
+		"the incident chain must not be traced as a fallback",
+	);
+	assert.deepEqual(cacheColdLogReasons(), [], "the incident chain must not warn");
+	assert.equal(
+		incident.wire.messages.length,
+		CHAIN_LENGTH + 1,
+		`the empty carrier must be dropped from the wire, got ${incident.wire.messages.length}`,
+	);
+	const carrierCache = simulate(incident.wire, COMPACTION_AT);
+	assert.equal(carrierCache.readBlocks, CHAIN_LENGTH, "the incident request must read the whole live chain");
+	assert.ok(
+		carrierCache.cacheWrite <= INSTRUCTION_TOKENS,
+		`the incident request must only write the instruction, got cacheWrite=${carrierCache.cacheWrite}`,
 	);
 
 	// Leg 9: a provider that REJECTS the live request. The retry must fall back to
@@ -2501,10 +2200,11 @@ try {
 			`green(cacheRead=${green.cacheRead}, cacheWrite=${green.cacheWrite}, readBlocks=${green.readBlocks}) ` +
 			`red(cacheRead=${red.cacheRead}, cacheWrite=${red.cacheWrite}, readBlocks=${red.readBlocks}) ` +
 			`namespaceFault(readBlocks=${namespaceFault.readBlocks}) ` +
-			`prefixFallbacks=${JSON.stringify(prefixFallbacks)} capacityFallbacks=${JSON.stringify(capacityFallbacks)} ` +
-			`mixedTtl(readBlocks=${mixedExpired.readBlocks}) stubFallback=${stubFallback.cacheColdReason} ` +
-			`bigMessageTokens=${bigTokens} toolResultTokens=${toolResultTokens} thinkingTokens=${thinkingTokens} ` +
-			`retry=${rejected.cacheColdReason} splitLive=${split.summarizeRequests.length}req/${String(split.summarizeRequests[0]?.usesLiveChainReplay)} ` +
+			`prefixFallbacks=${JSON.stringify(prefixFallbacks)} mixedTtl(readBlocks=${mixedExpired.readBlocks}) ` +
+			`stubFallback=${stubFallback.cacheColdReason} bigMessageTokens=${bigTokens} ` +
+			`failingChainTokens=${failingTokens} overflowChainTokens=${overflowTokens} ` +
+			`noUsageRidesLive=true retry=${rejected.cacheColdReason} overflowRetry=${overflowed.cacheColdReason} ` +
+			`splitLive=${split.summarizeRequests.length}req/${String(split.summarizeRequests[0]?.usesLiveChainReplay)} ` +
 			`splitRefused=${refused.cacheColdReason} ` +
 			`previousOutsideChain=${injected.cacheColdReason} nonAnthropicMessages=${nonAnthropic.messages.length} ` +
 			`nonAnthropicTokens=${legacyTokens}`,

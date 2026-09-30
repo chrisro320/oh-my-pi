@@ -5,22 +5,26 @@ set of layers replaced by another.
 Same version, different layer count, so every artifact is labelled by LAYER
 COUNT and never by the version alone (the 18.4.4 upgrade deploy-1844.py already
 used the plain version as its label). Defaults are the current live edge,
-53 -> 52: the retired 0086 + 0087 are replaced by the consolidated 0088; any
-other pair is reachable with --old-layers/--new-layers. The delta itself is
+52 -> 53: the single appended layer 0089 -- a PURE ADDITION, nothing is retired;
+any other pair is reachable with --old-layers/--new-layers, and a retire/rollup
+round is described the same way with --delta-remove. The delta itself is
 DECLARED and then re-derived from the two plans, never assumed:
 
-  --delta-remove 0086,0087 --delta-add 0088
+  --delta-add 0089                           (pure addition, 52 -> 53)
+  --delta-remove 0086,0087 --delta-add 0088  (replacement, 53 -> 52)
 
   staged ledger plan (its own apply.sh --print-plan)
     minus live ledger plan (its own apply.sh --print-plan)
-  = exactly that removed set and exactly that added set. Each declared spec
-  (full path, basename or id prefix) must name exactly one detected entry, and
-  every detected entry must be declared; the declaration is required, so an
-  omitted or partial one fails closed. The surviving entries keep the live
-  plan's order. No added entry may already be APPLIED on the live tree; an added
-  entry the live tree cannot take as-is (CONFLICT) is expected when it is a
-  rollup that subsumes the removed layers -- the staged TREE, not the live one,
-  is the deployed payload, and it is byte-pinned by the digests below.
+  = exactly that removed set and exactly that added set, either of which may be
+  empty (a pure addition declares only --delta-add, a pure retirement only
+  --delta-remove). Each declared spec (full path, basename or id prefix) must
+  name exactly one detected entry, and every detected entry must be declared; the
+  declaration is required, so an omitted or partial one fails closed. The
+  surviving entries keep the live plan's order. No added entry may already be
+  APPLIED on the live tree; an added entry the live tree cannot take as-is
+  (CONFLICT) is expected when it is a rollup that subsumes the removed layers --
+  the staged TREE, not the live one, is the deployed payload, and it is
+  byte-pinned by the digests below.
 
   staged tree     ROOT/.bun/install/global-<NEW_TAG>-staged(+.manifest.json)
   backup dir      ROOT/.omp/backups/upgrade-<NEW_TAG>-<ts>/
@@ -109,12 +113,12 @@ B = _load("deploy_1844", "deploy-1844.py")
 REPO = B.REPO
 
 OLD_VERSION = NEW_VERSION = "18.4.4"
-# Defaults are the current live edge: 53 layers -> 52 layers (the retired
-# 0086 + 0087 replaced by the consolidated 0088). The delta is NOT hard-coded --
-# it is declared with --delta-remove/--delta-add and re-derived from the two
-# plans, then verified against the declaration.
-OLD_LAYERS = 53
-NEW_LAYERS = 52
+# Defaults are the current live edge: 52 layers -> 53 layers (the appended layer
+# 0089; nothing is retired). The delta is NOT hard-coded -- it is declared with
+# --delta-remove/--delta-add and re-derived from the two plans, then verified
+# against the declaration.
+OLD_LAYERS = 52
+NEW_LAYERS = 53
 DELTA_REMOVE: list[str] = []
 DELTA_ADD: list[str] = []
 # Same defaults for the message-only labels, so the gate functions are usable
@@ -751,15 +755,16 @@ def main() -> None:
                          "or id prefix (e.g. 0086,0087). Required by all three subcommands unless "
                          "--delta-add alone describes a pure addition.")
     ap.add_argument("--delta-add", default=None,
-                    help="comma-separated plan entries this delta adds (e.g. 0088). Required by "
+                    help="comma-separated plan entries this delta adds (e.g. 0089). Required by "
                          "all three subcommands unless --delta-remove alone describes a pure "
                          "retirement.")
     a = ap.parse_args()
     OLD_LAYERS, NEW_LAYERS = a.old_layers, a.new_layers
     DELTA_REMOVE, DELTA_ADD = spec_list(a.delta_remove), spec_list(a.delta_add)
     if not (DELTA_REMOVE or DELTA_ADD):
-        B.die("the delta must be described: --delta-remove 0086,0087 --delta-add 0088 "
-              "(the tool never guesses which layers a deploy retires or adds)")
+        B.die("the delta must be described (e.g. --delta-add 0089, or "
+              "--delta-remove 0086,0087 --delta-add 0088); the tool never guesses which "
+              "layers a deploy retires or adds")
     OLD_TAG, NEW_TAG = configure_base()
     root = a.root.resolve()
     if a.rehearsal and root == Path("/home/chris"):

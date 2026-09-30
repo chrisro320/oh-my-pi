@@ -478,6 +478,7 @@ if (coreVersion === "18.4.4") {
 	const runNativeTrace = async (
 		override: Record<string, unknown>,
 		previousSummaryInPrefix: boolean,
+		liveMessages: Context["messages"] = nativeLiveMessages,
 	): Promise<Record<string, unknown> | undefined> => {
 		await compact(
 			{
@@ -493,7 +494,7 @@ if (coreVersion === "18.4.4") {
 			{
 				convertToLlm: messages => messages as Context["messages"],
 				buildCachePreservingContext: async scope =>
-					scope === "live" ? { context: liveContext(nativeLiveMessages), previousSummaryInPrefix } : undefined,
+					scope === "live" ? { context: liveContext(liveMessages), previousSummaryInPrefix } : undefined,
 				completeImpl: async (requestModel, _context, options) => {
 					if (!options.anthropicCompaction) return assistant(requestModel);
 					return {
@@ -534,6 +535,21 @@ if (coreVersion === "18.4.4") {
 		"a chain that does not carry the previous summary must name its exclusion on the request trace",
 	);
 	assert.equal(priorRow?.usesLiveChainReplay, false, "that refusal must not be traced as the live chain");
+	// The 16:43Z shape (0089): the chain's last assistant turn carries NO usable
+	// provider usage. The capacity gate refused it as `native-capacity-unattested`
+	// and the trace said so; the trace must now read as the live chain with no
+	// fallback named.
+	const noUsageMessages: Context["messages"] = [
+		...nativeLiveMessages.slice(0, -1),
+		{ ...(nativeLiveMessages.at(-1) as Record<string, unknown>), usage: undefined } as Context["messages"][number],
+	];
+	const noUsageRow = await runNativeTrace({}, true, noUsageMessages);
+	assert.equal(
+		noUsageRow?.usesLiveChainReplay,
+		true,
+		"a usage-less native chain must be traced as the live chain",
+	);
+	assert.equal(noUsageRow?.liveChainFallback, undefined, "a usage-less native chain names no fallback");
 }
 
 rmSync(traceDir, { recursive: true, force: true });

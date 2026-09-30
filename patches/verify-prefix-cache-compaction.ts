@@ -211,10 +211,15 @@ const longMessages: AgentMessage[] = Array.from({ length: 24 }, (_, index) => ({
 const longContext: Context = { ...liveContext, messages: longMessages as Context["messages"] };
 const windowRequests: Context[] = [];
 const windowScopes: string[] = [];
+// The live lane collapses the fold plan into ONE request by design (the live
+// chain IS the request), so multi-window planning is exercised with no live
+// chain vouched for: the host can only offer the history scope here. The live
+// scope is still asked for (0089 kept that call), and a vouched live chain that
+// genuinely exceeds the window is covered by the overflow-retry legs instead.
 await generateSummary(longMessages, smallWindowModel, 4096, "test", undefined, undefined, undefined, {
 	buildCachePreservingContext: async scope => {
 		windowScopes.push(scope);
-		return { context: longContext, previousSummaryInPrefix: false };
+		return scope === "history" ? { context: longContext, previousSummaryInPrefix: false } : undefined;
 	},
 	completeImpl: async (requestModel, context) => {
 		windowRequests.push(context);
@@ -366,12 +371,11 @@ const splitTurnContext: Context = {
 const splitScopes: string[] = [];
 const splitRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
 const splitFallbacks: string[] = [];
-// 0088 measures the live chain against the provider usage of its last assistant
-// turn (the consolidated lane skips only an empty, zero-usage control carrier). The split chain
-// therefore ends in one attested assistant, or the live lane is refused as
-// `capacity-unattested` and the split turn could only ever prove the two-leg
-// fallback. The prefix is a handful of tokens, so an attested 1000 is coherent
-// with the 0.75 floor and fits the window.
+// The live lane no longer measures the chain's provider usage (0089 deleted the
+// capacity gate), but a real session's turns do carry it, so the split chain
+// keeps an attested assistant as its last turn; the usage-less variant is
+// asserted separately below. The prefix is a handful of tokens, so the record
+// stays coherent with it.
 const splitAttestedAssistant: AgentMessage = assistant(model, "SPLIT_ATTESTED_RESPONSE");
 splitAttestedAssistant.timestamp = 60;
 splitAttestedAssistant.usage = { ...usage, input: 1_000, totalTokens: 1_001 };
@@ -492,6 +496,71 @@ if (liveChainPlan) {
 		splitResult.summary,
 		/Turn Context \(split turn\)/,
 		"the live split summary carries no turn-context merge",
+	);
+
+	// The failing case (0089): the same live chain whose last assistant turn
+	// carries NO usable provider usage -- exactly the 16:43Z compaction, whose
+	// chain sat well inside its window and was refused as `capacity-unattested`.
+	// The capacity gate is deleted, so the chain still rides the live lane in ONE
+	// request; only the provider's own rejection may take it off that lane.
+	const noUsageAssistant: AgentMessage = { ...splitAttestedAssistant, usage: undefined };
+	const noUsageLiveContext: Context = {
+		...splitLiveContext,
+		messages: [
+			splitSummaryCarrier as Context["messages"][number],
+			retainedBeforeMarker as Context["messages"][number],
+			discardedAfterMarker as Context["messages"][number],
+			recentUser as Context["messages"][number],
+			noUsageAssistant as Context["messages"][number],
+		],
+	};
+	const noUsageScopes: string[] = [];
+	const noUsageRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
+	const noUsageFallbacks: string[] = [];
+	const noUsageResult = await compact(splitPreparation, model, "test", undefined, undefined, {
+		convertToLlm: messages => messages as Context["messages"],
+		buildCachePreservingContext: async scope => {
+			noUsageScopes.push(scope);
+			return {
+				context:
+					scope === "history"
+						? splitHistoryContext
+						: scope === "live"
+							? noUsageLiveContext
+							: splitTurnContext,
+				previousSummaryInPrefix: scope === "live",
+			};
+		},
+		completeImpl: async (requestModel, context, options) => {
+			noUsageRequests.push({ context, options });
+			return assistant(requestModel);
+		},
+		onCacheFallback: reason => noUsageFallbacks.push(reason),
+	});
+	assert.deepEqual(
+		noUsageScopes.sort(),
+		["history", "live"],
+		"a usage-less live split turn must not ask for a turn-prefix scope",
+	);
+	assert.deepEqual(noUsageFallbacks, [], "a usage-less live chain is not a fallback any more");
+	assert.equal(noUsageResult.details?.cacheColdReason, undefined, "a usage-less live chain records no cold reason");
+	const noUsageLiveRequests = noUsageRequests.filter(
+		request => request.context.messages.length === noUsageLiveContext.messages.length + 1,
+	);
+	assert.equal(
+		noUsageLiveRequests.length,
+		1,
+		`a usage-less live split turn issues exactly ONE live request, saw ${JSON.stringify(noUsageRequests.map(r => r.context.messages.length))}`,
+	);
+	assert.deepEqual(
+		noUsageLiveRequests[0].context.messages.slice(0, noUsageLiveContext.messages.length),
+		noUsageLiveContext.messages,
+		"the usage-less split turn must ship the vouched-for live chain untouched",
+	);
+	assert.doesNotMatch(
+		noUsageResult.summary,
+		/Turn Context \(split turn\)/,
+		"the usage-less live summary carries no turn-context merge",
 	);
 
 	// The refusal leg: the same 18.4.4 split preparation with the live scope

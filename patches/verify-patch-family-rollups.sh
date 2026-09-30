@@ -772,8 +772,15 @@ EXPECTED_PLAN_1844+=(".18.4.4-candidates/0085-omp-rejected-prepared-draft-restor
 # leg, and a refusal names the specific reason instead of `split-turn`). The three
 # source patches are byte-frozen under .retired/09-30-0086-0087-rolled-into-0088/.
 EXPECTED_PLAN_1844+=(".18.4.4-candidates/0088-omp-compaction-cache-liveness-v18.4.4-candidate.patch:NM")
-[[ "${#EXPECTED_PLAN_1844[@]}" -eq 52 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
-	|| die "resolved 18.4.4 plan drifted from its 52-entry capability contract"
+# 0089 is 18.4.4-only: it deletes 0088's live-chain capacity gate in both lanes.
+# The pre-flight verdict could only refuse a chain the provider would take (the
+# 16:43Z compaction's ~129k-token chain in a 512k window, refused
+# `capacity-unattested`), so the live chain now always ships when the host
+# vouches for it and the provider's own rejection drives the existing
+# `live-chain-overflow-retry` cold fallback.
+EXPECTED_PLAN_1844+=(".18.4.4-candidates/0089-omp-compaction-drop-capacity-gate-v18.4.4-candidate.patch:NM")
+[[ "${#EXPECTED_PLAN_1844[@]}" -eq 53 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
+	|| die "resolved 18.4.4 plan drifted from its 53-entry capability contract"
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
 # by apply.sh --print-plan in the static section. The assertions below pin

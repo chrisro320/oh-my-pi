@@ -129,9 +129,10 @@ function nativeCompactionResponse(requestModel: Model): AssistantMessage {
 /**
  * The usage the provider reported for the request that produced one fixture turn:
  * the whole prefix was a cache read, as on the incident's own chain (377769
- * cache-read + 484 cache-write + 2 input for 378255). The live lane's capacity is
- * measured from this usage, so a fixture turn carrying only a stub response
- * usage cannot be selected at all.
+ * cache-read + 484 cache-write + 2 input for 378255). The fixture keeps these on
+ * its turns because they are what a real session records; the live lane no longer
+ * measures anything against them (0089), so a chain whose turns carry none ships
+ * just the same.
  */
 function attestedUsage(tokens: number): AssistantMessage["usage"] {
 	return {
@@ -447,15 +448,14 @@ if (coreVersion === "18.4.4") {
 }
 
 if (coreVersion === "18.4.4") {
-	// GATE 5: a live chain whose appended messages push it past the model window
-	// falls back and is named -- on the entry AND in the operator log. Capacity is
-	// the provider's own measurement of the chain (the last turn's usage, 900 here)
-	// plus a local estimate of what the request appends after it, so the window
-	// below is derived from the measured chain: it fits the chain WITHOUT the long
-	// tool result and not with it. A ruler that judged the serialized transcript
-	// instead truncates tool results and accepts the over-capacity request, which
-	// leaves this leg green.
+	// GATE 5: the native lane carries the same deletion as the local one. The
+	// 16:43Z compaction's chain sat at ~129k tokens in a 512k window and was
+	// refused as `native-capacity-unattested`, because no turn of it carried
+	// usable provider usage. There is no local verdict any more: the chain ships
+	// whole in ONE native request whatever its usage says, and the provider's own
+	// rejection (surfaced through the ordinary failed-native path) is the safety.
 	const capacityTokenizer = new Tokenizer(model);
+	const wideModel = { ...model, contextWindow: 512_000 };
 	const longToolResult: AgentMessage = {
 		role: "toolResult",
 		toolCallId: "call-capacity",
@@ -465,22 +465,12 @@ if (coreVersion === "18.4.4") {
 	};
 	const capacityLive: Context = {
 		...liveContext,
-		messages: [oldUser, oldAssistant, recentUser, recentAssistant, longToolResult],
+		messages: [
+			oldUser,
+			{ ...recentAssistant, usage: undefined },
+			longToolResult,
+		],
 	};
-	const appendedTokens = (extra: AgentMessage[]): number =>
-		RECENT_ATTESTED_TOKENS +
-		capacityTokenizer.countMessages([recentAssistant, ...extra] as never, { excludeEncryptedReasoning: true });
-	const withoutTailTokens = appendedTokens([]);
-	const withTailTokens = appendedTokens([longToolResult]);
-	assert.ok(
-		withTailTokens > withoutTailTokens + 100_000,
-		`the capacity fixture must separate the rulers (with=${withTailTokens}, without=${withoutTailTokens})`,
-	);
-	const capacityWindow = withTailTokens - Math.floor((withTailTokens - withoutTailTokens) / 2);
-	assert.ok(
-		withoutTailTokens + 8_000 < capacityWindow && withTailTokens + 8_000 > capacityWindow,
-		"the derived window must straddle the appended tool result",
-	);
 	const runNative = async (
 		preparationOverride: Partial<typeof livePreparation>,
 		candidate: Model,
@@ -515,269 +505,30 @@ if (coreVersion === "18.4.4") {
 	};
 
 	logEvents.length = 0;
-	const capacity = await runNative({}, { ...model, contextWindow: capacityWindow }, capacityLive, false);
-	assert.equal(capacity.requests.length, 1, "an over-capacity live chain must still issue one native request");
-	assert.notDeepEqual(
+	const capacity = await runNative({}, wideModel, capacityLive, false);
+	assert.equal(capacity.requests.length, 1, "a usage-less live chain must still issue one native request");
+	assert.deepEqual(
 		capacity.requests[0].context.messages,
 		capacityLive.messages,
-		"an over-capacity live chain must fall back to the hand-built cut list",
+		"a usage-less live chain must ship whole, not as the hand-built cut list",
 	);
-	assert.ok(
-		capacity.requests[0].context.messages.length < capacityLive.messages.length,
-		"the cut fallback must not carry the whole live chain",
-	);
-	assert.doesNotMatch(
+	assert.match(
 		String(capacity.requests[0].options.anthropicCompaction?.instructions),
 		/summarize the ENTIRE conversation above/,
-		"the cut fallback must not claim the whole conversation is on the wire",
+		"a usage-less live chain must scope the whole conversation",
 	);
 	assert.equal(
 		capacity.result.details?.cacheColdReason,
-		"native-live-chain-over-capacity",
-		"the capacity fallback must reach the compaction entry's details",
-	);
-	assert.deepEqual(
-		cacheColdLogReasons(),
-		["native-live-chain-over-capacity"],
-		"the capacity fallback must warn with the same reason",
-	);
-
-	// Sensitivity control: the same chain, accepted by a window above its attested
-	// size and the appended tail.
-	logEvents.length = 0;
-	const fittingWindow = Math.ceil(withTailTokens * 1.6);
-	const fitting = await runNative({}, { ...model, contextWindow: fittingWindow }, capacityLive, false);
-	assert.equal(fitting.result.details?.cacheColdReason, undefined, "a chain inside the window must not be recorded cold");
-	assert.deepEqual(cacheColdLogReasons(), [], "a chain inside the window must not warn");
-	assert.deepEqual(
-		fitting.requests[0].context.messages,
-		capacityLive.messages,
-		"a fitting live chain must ship whole",
-	);
-	assert.match(
-		String(fitting.requests[0].options.anthropicCompaction?.instructions),
-		/summarize the ENTIRE conversation above/,
-		"a fitting live chain must scope the whole conversation",
-	);
-
-	// GATE 5c: the chain's own provider usage decides the verdict, not a local
-	// count of its messages. The same handful of words is refused when the provider
-	// sized it at 66k and shipped when it sized it at 50k on the same window; a
-	// ruler that counted the request locally accepts both halves, which is what a
-	// tree that ignored the attested usage would do.
-	const attestedChain = (tokens: number): Context => ({
-		...liveContext,
-		messages: [oldUser, { ...recentAssistant, content: [{ type: "text", text: "sized-response" }], usage: attestedUsage(tokens) }],
-	});
-	logEvents.length = 0;
-	const attestedOver = await runNative({}, { ...model, contextWindow: 64_000 }, attestedChain(66_000), false);
-	assert.equal(
-		attestedOver.result.details?.cacheColdReason,
-		"native-live-chain-over-capacity",
-		"an input the provider sized above the window must be named on the entry",
-	);
-	logEvents.length = 0;
-	const attestedFit = await runNative({}, { ...model, contextWindow: 64_000 }, attestedChain(50_000), false);
-	assert.equal(
-		attestedFit.result.details?.cacheColdReason,
 		undefined,
-		"the same chain sized under the window must ship the live chain",
+		"a usage-less native live chain must not be recorded cold any more",
 	);
-	assert.deepEqual(cacheColdLogReasons(), [], "an attested-fitting chain must not warn");
-	assert.deepEqual(
-		attestedFit.requests[0].context.messages,
-		attestedChain(50_000).messages,
-		"the attested-fitting chain must ship whole",
-	);
+	assert.deepEqual(cacheColdLogReasons(), [], "a usage-less native live chain must not warn any more");
 
-	// GATE 5b: a chain whose last assistant turn carries no provider usage has an
-	// unknown size. It is refused by name rather than estimated locally, and the
-	// refusal is durable on the entry and loud in the log.
-	logEvents.length = 0;
-	const unattestedLive: Context = {
-		...liveContext,
-		messages: [oldUser, recentUser, { ...recentAssistant, usage: undefined }],
-	};
-	const unattested = await runNative({}, model, unattestedLive, false);
-	assert.equal(
-		unattested.result.details?.cacheColdReason,
-		"native-capacity-unattested",
-		"a chain without provider usage must be refused by name",
-	);
-	assert.deepEqual(
-		cacheColdLogReasons(),
-		["native-capacity-unattested"],
-		"the unattested refusal must warn with the same reason",
-	);
-	assert.notDeepEqual(
-		unattested.requests[0].context.messages,
-		unattestedLive.messages,
-		"an unattested chain must not ship as the live chain",
-	);
-
-	// GATE 5d: the attestation is bound to the prefix and the controls it measured.
-	// The measured turn below reports 900 provider tokens, coherent with the tiny
-	// chain it covers, while the three shapes that follow keep that usage and
-	// rebuild the prefix it claims to cover, or replace the request's own system
-	// prompt or tool definition. The record never measured that content, so the
-	// chain is unattested and must fall back by name -- the matching-identity
-	// control in the same window is what a missing coherence bound breaks.
-	const driftText = "drifted-content ".repeat(20_000);
-	const measuredTurn: AgentMessage = {
-		...recentAssistant,
-		content: [{ type: "text", text: "sized-response" }],
-		usage: attestedUsage(900),
-	};
-	const identityControl: Context = { ...liveContext, messages: [oldUser, measuredTurn] };
-	logEvents.length = 0;
-	const identityOk = await runNative({}, { ...model, contextWindow: 64_000 }, identityControl, false);
-	assert.equal(identityOk.result.details?.cacheColdReason, undefined, "the matching-identity control must ship");
-	assert.deepEqual(cacheColdLogReasons(), [], "the matching-identity control must not warn");
-	const driftShapes: Array<[string, Context]> = [
-		[
-			"a prefix rebuilt after the measurement",
-			{
-				...liveContext,
-				messages: [
-					{ role: "user", content: [{ type: "text", text: driftText }], timestamp: 2 },
-					oldUser,
-					measuredTurn,
-				],
-			},
-		],
-		["a system prompt replaced after the measurement", { ...liveContext, systemPrompt: [driftText], messages: [oldUser, measuredTurn] }],
-		[
-			"a tool definition replaced after the measurement",
-			{
-				...liveContext,
-				messages: [oldUser, measuredTurn],
-				tools: [{ name: "read", description: driftText, parameters: { type: "object" } }],
-			},
-		],
-	];
-	for (const [label, drifted] of driftShapes) {
-		logEvents.length = 0;
-		const drift = await runNative({}, { ...model, contextWindow: 64_000 }, drifted, false);
-		assert.equal(drift.result.details?.cacheColdReason, "native-capacity-unattested", `${label} must fall back by name`);
-		assert.deepEqual(cacheColdLogReasons(), ["native-capacity-unattested"], `${label} must warn with the same reason`);
-		assert.notDeepEqual(
-			drift.requests[0].context.messages,
-			drifted.messages,
-			`${label} must not ship as the live chain`,
-		);
-	}
-
-	// GATE 5e: the usage must have been reported by THIS api and THIS model; an
-	// otherwise-valid usage-bearing turn from another model or another api is not a
-	// measure of this request.
-	const foreignTurns: Array<[string, AgentMessage]> = [
-		["a different model", { ...measuredTurn, model: "different-model-id" }],
-		["a different api", { ...measuredTurn, api: "openai-responses" }],
-	];
-	for (const [label, turn] of foreignTurns) {
-		logEvents.length = 0;
-		const foreign = await runNative({}, { ...model, contextWindow: 64_000 }, { ...liveContext, messages: [oldUser, turn] }, false);
-		assert.equal(foreign.result.details?.cacheColdReason, "native-capacity-unattested", `${label} must not attest this request`);
-		assert.deepEqual(cacheColdLogReasons(), ["native-capacity-unattested"], `${label} must warn with the same reason`);
-		assert.notDeepEqual(foreign.requests[0].context.messages, [oldUser, turn], `${label} must not ship as the live chain`);
-	}
-
-	// GATE 5f: a host control-only carrier at the tail must not veto the native
-	// lane either -- it shares `liveChainFit`/`findProviderInputAttestation` with
-	// the local lane. Only an empty, zero-usage assistant is skipped; content, a
-	// non-zero partial usage, and a carrier that is the chain's only assistant all
-	// still refuse by name, so widening the skip past the carrier's exact shape
-	// turns these three red.
-	const nativeCarrier = (overrides: Record<string, unknown> = {}): AgentMessage => ({
-		role: "assistant",
-		content: [],
-		api: model.api,
-		provider: model.provider,
-		model: model.id,
-		stopReason: "aborted",
-		usage: {
-			input: 0,
-			output: 0,
-			cacheRead: 0,
-			cacheWrite: 0,
-			totalTokens: 0,
-			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-		},
-		timestamp: 60,
-		...overrides,
-	});
-	const carrierMessages = (trailing: AgentMessage[]): Context["messages"] => [oldUser, measuredTurn, ...trailing];
-	logEvents.length = 0;
-	const carrier = await runNative({}, { ...model, contextWindow: 64_000 }, { ...liveContext, messages: carrierMessages([nativeCarrier()]) }, false);
-	assert.equal(
-		carrier.result.details?.cacheColdReason,
-		undefined,
-		"a trailing control-only carrier must not veto the native attestation",
-	);
-	assert.deepEqual(cacheColdLogReasons(), [], "an accepted carrier-backed native chain must not warn");
-	assert.deepEqual(
-		carrier.requests[0].context.messages,
-		carrierMessages([nativeCarrier()]),
-		"a carrier-backed chain must ship the whole live chain",
-	);
-	logEvents.length = 0;
-	const twoCarriers = await runNative(
-		{},
-		{ ...model, contextWindow: 64_000 },
-		{ ...liveContext, messages: carrierMessages([nativeCarrier(), nativeCarrier({ stopReason: "error" })]) },
-		false,
-	);
-	assert.equal(twoCarriers.result.details?.cacheColdReason, undefined, "two trailing carriers must both be skipped");
-	assert.deepEqual(
-		twoCarriers.requests[0].context.messages,
-		carrierMessages([nativeCarrier(), nativeCarrier({ stopReason: "error" })]),
-		"two carriers must still ship the whole live chain",
-	);
-	logEvents.length = 0;
-	const withContent = await runNative(
-		{},
-		{ ...model, contextWindow: 64_000 },
-		{ ...liveContext, messages: carrierMessages([nativeCarrier({ content: [{ type: "text", text: "aborted-with-content" }] })]) },
-		false,
-	);
-	assert.equal(
-		withContent.result.details?.cacheColdReason,
-		"native-capacity-unattested",
-		"an aborted native turn with content must refuse the chain",
-	);
-	logEvents.length = 0;
-	const partialUsage = await runNative(
-		{},
-		{ ...model, contextWindow: 64_000 },
-		{
-			...liveContext,
-			messages: carrierMessages([
-				nativeCarrier({
-					stopReason: "stop",
-					usage: {
-						input: 0,
-						output: 7,
-						cacheRead: 0,
-						cacheWrite: 0,
-						totalTokens: 7,
-						cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-					},
-				}),
-			]),
-		},
-		false,
-	);
-	assert.equal(
-		partialUsage.result.details?.cacheColdReason,
-		"native-capacity-unattested",
-		"empty content with non-zero partial usage must refuse the chain",
-	);
-	logEvents.length = 0;
-	const carrierOnly = await runNative({}, { ...model, contextWindow: 64_000 }, { ...liveContext, messages: [oldUser, nativeCarrier()] }, false);
-	assert.equal(
-		carrierOnly.result.details?.cacheColdReason,
-		"native-capacity-unattested",
-		"a native chain whose only assistant is a carrier has no attestation",
+	// The overflow fixture must stay honest: the local ruler sees a chain past the
+	// window too, so nothing about this leg depends on a refused verdict.
+	assert.ok(
+		capacityTokenizer.countMessages(capacityLive.messages as never) > 100_000,
+		"the native failing fixture must approximate the 16:43Z chain",
 	);
 
 	// GATE 6: a split turn rides the native live lane too (0088). The chain is

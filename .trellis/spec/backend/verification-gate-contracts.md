@@ -150,41 +150,42 @@ suite. A gate that no suite invokes is not a gate.
   package tree; always print `import.meta.resolve(...)` in the probe and check
   the reported path and version before trusting a number.
 
-- Capacity claimed for a provider request MUST be measured with the provider's
-  own accounting: the usage the last provider-sized turn reported for the prefix
-  it carried, plus a local estimate of ONLY the messages appended after that
-  turn. The estimate MUST exclude opaque reasoning payloads (signed thinking,
-  redacted thinking, native server-tool blobs): their local byte size diverges
-  from what the provider charges, so counting them as replay tokens overstated
-  the incident's 378255-token chain as 630393 and refused the very request the
-  layer exists to send. Machine check:
-  `grep -n 'excludeEncryptedReasoning: true' <core>/src/compaction/compaction.ts`
-  hits the live-chain ruler, and dropping that option from it turns
-  `bun patches/verify-compaction-cache-liveness.ts` red (leg 7h).
-- A capacity claim with no provider-attested usage MUST be refused by name
-  (`capacity-unattested` / `native-capacity-unattested`), never spent as if it
-  were small. Machine check: returning `fits` for an unattested chain turns
-  `verify-compaction-cache-liveness.ts` (leg 7h, third shape) and
-  `verify-anthropic-native-compaction-live-context.ts` (GATE 5b) red.
-- The provider-attested turn MUST be the last assistant that carries usable usage
-  for THIS api and model; a host control-only carrier -- empty content and
-  all-zero usage, the seed pi-ai pushes at stream start and then abandons before
-  any request answers it -- is NOT that turn and MUST NOT veto it. Any other
-  unusable assistant (content, an aborted/error turn with content, any non-zero
-  usage, even a partial one the context-token guard rejects) MUST still refuse by
-  name. Machine check: `grep -n 'isControlOnlyCarrier' <core>/src/compaction/compaction.ts`
-  hits the scan; removing the carrier `continue` turns the carrier legs red
-  (`verify-compaction-cache-liveness.ts` leg 7k and
-  `verify-anthropic-native-compaction-live-context.ts` GATE 5f), and classifying
-  emptiness with the context-token guard instead of an all-zero scan turns their
-  non-zero-partial-usage legs red (verified 2026-09-30). The carrier does NOT
-  reach the Anthropic wire (an assistant turn that serializes to zero content
-  blocks is skipped), so skipping it loses no measurable prefix.
-- Gate fixtures that exercise a provider-measured decision MUST carry realistic
-  provider usage; a fixture whose turns carry only the stub response usage can
-  never select the behaviour under test. Machine check: the liveness fixture's
-  `turnUsage(index)` and the native fixture's `attestedUsage(tokens)`; removing
-  them leaves every live-chain leg on `capacity-unattested`.
+- The live chain MUST NOT be pre-flighted for capacity. A local verdict can only
+  refuse a chain the provider would accept, because no local estimator is
+  byte-faithful to billing: the 16:43Z compaction's ~129k-token chain in a 512k
+  window was refused `capacity-unattested` for carrying no usable provider usage,
+  and a provider-signed thinking block the local tokenizer overstates
+  several-fold was refused as over capacity. 0089 therefore deletes the whole
+  ruler (`liveChainFit` / `liveChainRequestTokens` /
+  `findProviderInputAttestation` / `isControlOnlyCarrier` /
+  `usageReportsNoTokens` / `ATTESTATION_COHERENCE_FLOOR`) and its named reasons
+  (`capacity-unattested`, `live-chain-over-capacity`, `native-*`) from both
+  lanes; the live chain ships whenever the host vouches for it and the previous
+  summary is absent or inside it. Machine check:
+  `grep -nE 'liveChainFit|ATTESTATION_COHERENCE_FLOOR|capacity-unattested' <core>/src/compaction/compaction.ts`
+  prints nothing, and re-adding any refusal turns all four compaction gates red
+  (verified 2026-09-30). Do not restore a capacity gate without a measured
+  provider-authoritative ruler: the reversal above is a reviewed decision.
+- The provider's own rejection MUST be the only capacity safety, and it MUST
+  recover: a live request the provider answers as too large MUST transition to
+  the cold path unconditionally -- clearing the live context, naming
+  `live-chain-overflow-retry` in `details.cacheColdReason`, the operator warning
+  and the `summarize.request` trace -- and it MUST re-plan the discarded target
+  with the ORDINARY cold plan (one window when the target fits the cold budget,
+  the same partition `planSummaryWindows` would have produced otherwise; share
+  one helper with the initial plan so the two cannot drift). A transition that
+  reuses the rejected request's size, halves the target, or collapses a
+  multi-window target into one clamped window drops source bytes (or throws
+  under `allowTruncation: false`) and is a defect. Machine check:
+  `verify-compaction-cache-liveness.ts` leg 3g (a target below
+  `minSummaryInputTokens`, with a sentinel), its whole-turn tiny-target variant,
+  and its multi-window variant (24 messages on a 32k window, sentinel last,
+  asserted in BOTH truncation modes: every source text and the sentinel must
+  reach an accepted cold request); the first two go red on a transcript-halving
+  transition and the third on a collapsed one, and removing the fallback turns
+  them all red. The native lane keeps its ordinary failed-native path instead --
+  it has no overflow retry.
+
 - Equality claims about a rendered provider instruction MUST be anchored outside
   the tree -- a reviewed literal or a digest pinned by
   `research/pin-request-fingerprints.ts` (`LIVE_CHAIN_INSTRUCTION_SHA256`,
@@ -200,24 +201,13 @@ suite. A gate that no suite invokes is not a gate.
   `verify-compaction-cache-liveness.ts` leg 1e -- the short-retention wire form
   reads `readBlocks=0` at compaction time while the one-hour chain reads 433.
 
-- An attestation MUST be bound to the prefix and the controls it measured. A
-  usage record measures the messages, system prompt and tool list ONE request
-  carried; if the chain is rebuilt afterwards (a compaction summary spliced in
-  ahead of the measured turn) or one of those controls is replaced, the record
-  never measured that content and must not authorise it. The bound is a
-  coherence floor: the provider's number for the covered prefix MUST NOT be below
-  a transparent local estimate of the CURRENT covered prefix (system + tools +
-  the messages before the measured turn, opaque reasoning excluded), scaled by
-  0.75 -- justified by the incident's estimator-to-provider ratio
-  343453/378255 = 0.908, which leaves a quarter of the transparent estimate as
-  slack for the unmeasured direction (estimator over-counting). Violating it is
-  `capacity-unattested` / `native-capacity-unattested`, never optimism, and never
-  `over-capacity`, because nothing knows the rebuilt chain's real size. Machine
-  check: the drift legs of both gates (`a prefix rebuilt after the measurement`,
-  `a system prompt replaced after the measurement`, `a tool definition replaced
-  after the measurement`) with their matching-identity control, plus the
-  `a different model` / `a different api` legs; removing the floor or either
-  identity guard turns them red (verified 2026-09-30).
+- The attestation-coherence bound that used to live here (a `0.75` floor on the
+  provider's number for the covered prefix) is DELETED with the rest of the
+  capacity ruler (0089, 2026-09-30). It was a plausibility filter on a verdict
+  that should not exist: it existed only because the gate trusted a locally
+  reconstructed chain more than the provider, and it is one of the two ways the
+  16:43Z chain could be refused. Its machine checks no longer apply; keep the
+  fixtures that exercised it only as history (`research/work-order-0088.md`).
 
 ### 4. Validation & Error Matrix
 

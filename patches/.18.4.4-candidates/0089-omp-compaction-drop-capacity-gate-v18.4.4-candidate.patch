@@ -1,0 +1,491 @@
+--- a/pi-agent-core/dist/types/compaction/compaction.d.ts
++++ b/pi-agent-core/dist/types/compaction/compaction.d.ts
+@@ -18,13 +18,12 @@
+     modifiedFiles: string[];
+     /**
+      * Set when an Anthropic summarization request had to ship a shape that may
+-     * anchor an expired cache entry (cut prefix, flat window, replanned window),
+-     * or when no turn of the live chain carried provider usage to measure it
+-     * against the model window (`capacity-unattested` /
+-     * `native-capacity-unattested`). Under the zero-cache-miss contract a cold
+-     * compaction is never silent: this names the abandoned live shape on the
+-     * compaction entry itself, and the same reason is logged when the entry is
+-     * written. Requests for every other API emit no reason at all.
++     * anchor an expired cache entry (cut prefix, flat window, or a live request the
++     * provider rejected as too large and the cold retry that replaced it). Under
++     * the zero-cache-miss contract a cold compaction is never silent: this names
++     * the abandoned live shape on the compaction entry itself, and the same reason
++     * is logged when the entry is written. Requests for every other API emit no
++     * reason at all.
+      */
+     cacheColdReason?: string;
+ }
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -117,13 +117,12 @@
+ 	modifiedFiles: string[];
+ 	/**
+ 	 * Set when an Anthropic summarization request had to ship a shape that may
+-	 * anchor an expired cache entry (cut prefix, flat window, replanned window),
+-	 * or when no turn of the live chain carried provider usage to measure it
+-	 * against the model window (`capacity-unattested` /
+-	 * `native-capacity-unattested`). Under the zero-cache-miss contract a cold
+-	 * compaction is never silent: this names the abandoned live shape on the
+-	 * compaction entry itself, and the same reason is logged when the entry is
+-	 * written. Requests for every other API emit no reason at all.
++	 * anchor an expired cache entry (cut prefix, flat window, or a live request the
++	 * provider rejected as too large and the cold retry that replaced it). Under
++	 * the zero-cache-miss contract a cold compaction is never silent: this names
++	 * the abandoned live shape on the compaction entry itself, and the same reason
++	 * is logged when the entry is written. Requests for every other API emit no
++	 * reason at all.
+ 	 */
+ 	cacheColdReason?: string;
+ }
+@@ -957,12 +956,21 @@
+ 	const tokenizer = new Tokenizer(model);
+ 	const wholeConversation = serializeConversationForSummary(targetMessages, dialect);
+ 	const budgetTokens = summaryInputBudgetTokens(model, maxTokens);
+-	const pending: SummaryWindow[] = tokenizer.checkTokenBudget(wholeConversation, budgetTokens).fits
+-		? [{ messages: targetMessages, budgetTokens, text: wholeConversation }]
+-		: planSummaryWindows(targetMessages, tokenizer, dialect, budgetTokens).map(messages => ({
+-				messages,
+-				budgetTokens,
+-			}));
++	/**
++	 * The ordinary cold plan for one target: ONE window when the serialized target
++	 * fits the cold budget, otherwise the same partition the cold path has always
++	 * used. Shared by the initial plan and the live-chain-overflow transition, so a
++	 * target the cold path can summarize is never reduced to a single clamped
++	 * window (which would drop its tail, or throw when truncation is disabled).
++	 */
++	const planColdWindows = (messages: Message[], text: string, budget: number): SummaryWindow[] =>
++		tokenizer.checkTokenBudget(text, budget).fits
++			? [{ messages, budgetTokens: budget, text }]
++			: planSummaryWindows(messages, tokenizer, dialect, budget).map(windowMessages => ({
++					messages: windowMessages,
++					budgetTokens: budget,
++				}));
++	const pending: SummaryWindow[] = planColdWindows(targetMessages, wholeConversation, budgetTokens);
+ 	const livePrefixFits =
+ 		cachePreservingSummary !== undefined &&
+ 		pending.length === 1 &&
+@@ -982,8 +990,9 @@
+ 	// chain, byte-untouched, plus one appended instruction that states what the
+ 	// summary covers.
+ 	//
+-	// It is used only while EVERY condition below holds, and every abandonment is
+-	// named on the compaction entry, in the operator log and in the request trace:
++	// It is used whenever the host supplies it and the few conditions below hold;
++	// every abandonment is named on the compaction entry, in the operator log and
++	// in the request trace:
+ 	//   - Anthropic messages only. The automatic prefix caches of the OpenAI and
+ 	//     Gemini lanes match a truncated prefix already, and their request bytes
+ 	//     must stay exactly what the pre-0086 code sent, so no other API ever
+@@ -998,18 +1007,20 @@
+ 	//     as if it were one of several windows;
+ 	//   - the previous summary is absent, or already inside that chain
+ 	//     (`live.previousSummaryInPrefix`), so the request carries it exactly once
+-	//     instead of twice or not at all;
+-	//   - the request physically fits the model window, measured on what the
+-	//     provider itself billed for the chain (`liveChainFit`). The fold-in
+-	//     summary budget is NOT the test, because it rejects chains the provider
+-	//     would accept, and a chain that no turn of was provider-sized is refused
+-	//     as `capacity-unattested` rather than guessed at.
++	//     instead of twice or not at all.
++	//
++	// The chain's SIZE is deliberately not pre-flighted. The provider is the only
++	// authority on what it accepts, so a pre-flight verdict can only refuse a
++	// chain the provider would take: the real 16:43Z compaction had a
++	// ~25%-of-window chain (129k in a 512k window) and was refused by the deleted
++	// capacity verdict because no turn of it carried usable provider usage, and a
++	// provider-signed thinking block the local tokenizer overcounts several-fold
++	// was refused as over capacity. The overflow retry below is the safety
++	// instead: a chain the provider really rejects falls back to the cold path and
++	// is named `live-chain-overflow-retry`.
+ 	const liveChainNote =
+ 		(options?.retainedTailMessages?.length ?? 0) > 0 ? WHOLE_CONVERSATION_SUMMARY_NOTE : undefined;
+ 	let liveChainContext: CachePreservingSummaryContext | undefined;
+-	// The provider-faithful size of the accepted live request, set with it and
+-	// reused by the overflow retry, which must halve what was actually sent.
+-	let liveChainTokens = 0;
+ 	let liveChainFallback: string | undefined;
+ 	if (model.api === "anthropic-messages") {
+ 		// The live scope is asked for unconditionally: a split turn is no longer
+@@ -1019,7 +1030,7 @@
+ 		const live = await options?.buildCachePreservingContext?.("live", model, signal);
+ 		// The predicate the request itself applies to the previous summary: an
+ 		// instruction that rendered it as text while the prefix already carries
+-		// it would ship it twice, and capacity must measure the same bytes.
++		// it would ship it twice.
+ 		const liveSummaryInPrefix = live?.previousSummaryInPrefix === true && options?.promptOverride === undefined;
+ 		if (live === undefined) {
+ 			// Name the missing voucher precisely: nothing to cut at all when the
+@@ -1028,30 +1039,17 @@
+ 		} else if (previousSummary !== undefined && !liveSummaryInPrefix) {
+ 			liveChainFallback = "previous-summary-not-in-prefix";
+ 		} else {
+-			const fit = liveChainFit(
+-				live.context,
+-				model,
+-				tokenizer,
+-				summaryInstructionText(previousSummary, liveSummaryInPrefix, customInstructions, options, liveChainNote),
+-				maxTokens,
+-			);
+-			if (fit.verdict === "unattested") {
+-				liveChainFallback = "capacity-unattested";
+-			} else if (fit.verdict === "over-capacity") {
+-				liveChainFallback = "live-chain-over-capacity";
+-			} else {
+-				liveChainContext = live;
+-				liveChainTokens = fit.tokens;
+-			}
++			liveChainContext = live;
+ 		}
+ 		if (liveChainContext === undefined) options?.onCacheFallback?.(liveChainFallback ?? "unknown");
+ 	}
+ 	if (liveChainContext !== undefined) {
+ 		// The live shape is exactly ONE request -- the host's whole chain -- so it
+ 		// replaces the fold plan for the serialized transcript. Sending that chain
+-		// once per planned window would summarize the whole conversation N times,
+-		// and the capacity check above already proved the single request fits the
+-		// model window, so no window can be dropped by collapsing the plan.
++		// once per planned window would summarize the whole conversation N times.
++		// Its size is not pre-flighted (see above): the provider accepts or rejects
++		// the single request, and the retry below falls back to the cold path when
++		// it rejects it.
+ 		pending.length = 0;
+ 		pending.push({ messages: targetMessages, budgetTokens, text: wholeConversation });
+ 	}
+@@ -1070,11 +1068,11 @@
+ 		// neither an exact count nor the clamp, and the bust path hands back the
+ 		// exact count the proportional clamp needs as its denominator.
+ 		const budget = tokenizer.checkTokenBudget(text, window.budgetTokens);
+-		// The live chain ships provider-ready bytes the host vouched for and that
+-		// were measured against the real model window, so the fold-in budget -- a
+-		// planning heuristic for the serialized transcript, not a capacity measure
+-		// -- must not re-window or clamp it: a 400k-token single message on a
+-		// 512k window still ships whole.
++		// The live chain ships provider-ready bytes the host vouched for, and no
++		// local budget judges them -- the provider does. The fold-in budget is a
++		// planning heuristic for the serialized transcript, not a capacity measure,
++		// so it must not re-window or clamp the chain: a 400k-token single message
++		// on a 512k window still ships whole.
+ 		const liveChainOnWire = liveChainContext !== undefined;
+ 		// Opt-in no-loss contract: a window that does not fit must fail before the
+ 		// clamp (and before the provider call) rather than silently dropping its
+@@ -1105,37 +1103,37 @@
+ 			// credentials (see `anthropic.ts` — the 1M beta is never advertised).
+ 			// Halve and re-plan rather than failing the whole compaction on a
+ 			// window size only the provider can tell us is wrong.
++			if (!AIError.is(AIError.classify(error), AIError.Flag.ContextOverflow)) throw error;
++			// A rejected LIVE request always transitions to the cold path, and it is
++			// the provider's rejection -- not the abandoned request's size -- that
++			// drives the transition. The retry then plans the cold target with the
++			// budget the ordinary cold attempt would have used, so a legitimately
++			// small target is summarized rather than refused: halving it could land
++			// below `minSummaryInputTokens` and throw away a target the cold path
++			// can summarize (the live chain is the full conversation, which says
++			// nothing about the target's own size). The operator-visible reason says
++			// which shape was abandoned; the retry is a replanned sub-range, so the
++			// live replay cannot be re-selected for it.
++			if (liveChainOnWire) {
++				liveChainContext = undefined;
++				liveChainFallback = "live-chain-overflow-retry";
++				options?.onCacheFallback?.("live-chain-overflow-retry");
++				// The ordinary cold plan for the target, with the unchanged cold
++				// budget: a target that fits stays ONE window, and one that needs
++				// several is partitioned exactly as the initial cold plan would
++				// have partitioned it -- never clamped into a single window that
++				// drops its tail (or throws when truncation is disabled).
++				pending.splice(0, 1, ...planColdWindows(window.messages, text, window.budgetTokens));
++				continue;
++			}
+ 			// Halve what was actually SENT, not the budget it was planned against:
+ 			// the rejection proves the plan was fiction, so converging on the real
+ 			// cap must not spend a call per level of an imaginary ladder. The cheap
+ 			// fit path never counted this window, so pay for the exact size here —
+ 			// one tokenization is nothing against the provider round trip already lost.
+-			// A live-chain attempt sent the whole live conversation, which can be a
+-			// large multiple of the serialized target: halving the target would
+-			// collapse below the floor and abandon the retry entirely. The size is
+-			// the one the capacity check accepted, measured from the chain's own
+-			// provider usage, not a local count of the target transcript.
+-			const sentTokens = liveChainOnWire
+-				? liveChainTokens
+-				: budget.exact
+-					? budget.tokens
+-					: tokenizer.countTokens(text, "strict");
++			const sentTokens = budget.exact ? budget.tokens : tokenizer.countTokens(text, "strict");
+ 			const halved = Math.floor(Math.min(window.budgetTokens, sentTokens) / 2);
+-			if (
+-				!AIError.is(AIError.classify(error), AIError.Flag.ContextOverflow) ||
+-				halved < minSummaryInputTokens(model)
+-			) {
+-				throw error;
+-			}
+-			// The provider rejected the live shape, so this call falls back to the
+-			// pre-0086 windows. The operator-visible reason says which shape was
+-			// abandoned and why; the retry is a replanned sub-range, so the live
+-			// replay cannot be re-selected for it.
+-			if (liveChainOnWire) {
+-				liveChainContext = undefined;
+-				liveChainFallback = "live-chain-overflow-retry";
+-				options?.onCacheFallback?.("live-chain-overflow-retry");
+-			}
++			if (halved < minSummaryInputTokens(model)) throw error;
+ 			pending.splice(
+ 				0,
+ 				1,
+@@ -1239,204 +1237,6 @@
+ 	return wholeLiveChainNote === undefined ? promptText : `${promptText}\n\n${wholeLiveChainNote}`;
+ }
+ 
+-/**
+- * The provider's own size for the prefix of one live chain, taken from the last
+- * turn the provider actually sized.
+- *
+- * A provider bills one request against the model window and reports the count
+- * back on the response that request produced, so that response's `usage` is the
+- * only byte-faithful ruler for the messages it carried. The local tokenizer
+- * cannot stand in: it must COUNT opaque reasoning payloads (Anthropic signed
+- * thinking blocks) to approach billing at all, but their local byte size
+- * diverges wildly from the provider's charge, so tokenizing them overstates a
+- * thinking-heavy chain several-fold (the incident's real 378k-token request
+- * measured 630k locally) while dropping them understates it (322k). The
+- * attested count carries the provider's own charge for those payloads.
+- *
+- * `coveredMessages` is the index of the message that usage arrived with: the
+- * request which produced it carried every message before it (with this chain's
+- * own system prompt and tools), so only the messages from that index on are
+- * estimated locally.
+- */
+-interface ProviderInputAttestation {
+-	tokens: number;
+-	coveredMessages: number;
+-}
+-
+-/**
+- * The provider-attested input size inside one live chain, or `undefined` when
+- * the chain's own last assistant turn carries no usable provider usage.
+- *
+- * The last assistant turn is the only acceptable source: its request carried
+- * every message before it with this chain's own system prompt and tools, so the
+- * attested number covers exactly the prefix the summarize request re-sends and
+- * only the messages from that index on have to be estimated. A usage from an
+- * earlier turn would leave the turns after it -- opaque reasoning payloads
+- * included -- to the local estimator, which cannot size them; such a chain is
+- * refused by name (`capacity-unattested`) rather than guessed at. The same api
+- * and model must have sized it, or the number is not a measure of this request.
+- *
+- * Host control-only carriers are the one exception to "the last assistant turn":
+- * a carrier holds no content and no usage at all (see
+- * {@link isControlOnlyCarrier}), so it measures nothing and must not veto the
+- * attestation from the turn before it. Every other unusable assistant -- content,
+- * an aborted/error turn with content, or any non-zero usage -- still refuses.
+- */
+-function findProviderInputAttestation(
+-	messages: readonly Message[],
+-	model: Model,
+-): ProviderInputAttestation | undefined {
+-	for (let index = messages.length - 1; index >= 0; index--) {
+-		const message = messages[index] as unknown as AgentMessage;
+-		if (message.role !== "assistant") continue;
+-		if (isControlOnlyCarrier(message)) continue;
+-		const assistant = message as unknown as { api?: string; model?: string };
+-		if (assistant.api !== model.api || assistant.model !== model.id) return undefined;
+-		const usage = getAssistantUsage(message);
+-		if (usage === undefined || !hasContextTokenUsage(usage)) return undefined;
+-		const tokens = calculatePromptTokens(usage);
+-		return tokens > 0 ? { tokens, coveredMessages: index } : undefined;
+-	}
+-	return undefined;
+-}
+-
+-/**
+- * Whether one assistant message is a host control-only carrier: a placeholder
+- * the host seeded before any provider request answered it and then abandoned
+- * (aborted or failed) with no content and no usage at all.
+- *
+- * pi-ai pushes `{ content: [], usage: createEmptyUsage(), stopReason: "stop" }`
+- * into the live chain at stream start, before the fetch; the host keeps such a
+- * turn only through its recorded `requestControls`. The Anthropic wire drops it
+- * anyway -- an assistant turn that serializes to zero content blocks is skipped
+- * -- so it carries no capacity and the chain stays measurable from the turn
+- * before it. Any assistant with content, or with ANY non-zero usage field (even
+- * one the context-token guard would reject, such as output-only usage), is NOT a
+- * carrier: its unusable usage keeps the chain refused by name.
+- */
+-function isControlOnlyCarrier(message: AgentMessage): boolean {
+-	const carrier = message as unknown as { content?: unknown; usage?: Usage };
+-	if (!Array.isArray(carrier.content) || carrier.content.length !== 0) return false;
+-	return carrier.usage === undefined || usageReportsNoTokens(carrier.usage);
+-}
+-
+-/**
+- * Whether every numeric field of one usage record is zero: the seed
+- * `createEmptyUsage()` carries only zeroed counters (its cost block included),
+- * so a non-zero anywhere -- however the context-token guard would classify it --
+- * means the turn did report something and is not a carrier.
+- */
+-function usageReportsNoTokens(usage: Usage): boolean {
+-	const pending: unknown[] = [usage];
+-	while (pending.length > 0) {
+-		const value = pending.pop();
+-		if (typeof value === "number") {
+-			if (value !== 0) return false;
+-			continue;
+-		}
+-		if (value === null || value === undefined) continue;
+-		if (typeof value === "object") {
+-			for (const nested of Object.values(value as Record<string, unknown>)) pending.push(nested);
+-		}
+-	}
+-	return true;
+-}
+-
+-/**
+- * How much of a covered prefix's transparent local estimate the provider's own
+- * number for that prefix must still cover, before the attestation is trusted.
+- *
+- * A usage record measures ONE prefix: the messages, system prompt and tool list
+- * the request it answered actually carried. The chain can be rebuilt afterwards
+- * (a compaction summary spliced in ahead of the measured turn, a system prompt or
+- * a tool definition replaced), and then the record covers content it never
+- * measured -- the attestation would authorise a request far past the window while
+- * reporting itself as attested. The transparent estimate of the CURRENT covered
+- * prefix (system + tools + the messages before the measured turn, opaque
+- * reasoning bytes excluded) is the cheapest coherence test available: whatever
+- * the provider charges, it cannot be a fraction of the visible content it
+- * actually billed.
+- *
+- * Measured on the archived incident, the transparent estimate reads 343_453 for
+- * a prefix the provider billed 378_255 (90.8%): the estimator is the LOWER of
+- * the two there, and the estimator's own over-counting is unmeasured, so the
+- * floor leaves a quarter of the transparent estimate as slack. A prefix whose
+- * transparent estimate exceeds the attestation by more than a third is treated
+- * as changed -- not as over capacity, because nothing knows its real size.
+- */
+-const ATTESTATION_COHERENCE_FLOOR = 0.75;
+-
+-/**
+- * What one request over the host's whole live chain costs against the model
+- * window: the provider-attested input of the last request that chain already
+- * sent, plus a local estimate of ONLY the messages appended after it. Opaque
+- * reasoning payloads are excluded from that estimate -- they are exactly the
+- * bytes the provider counts on its own side, and the attested number already
+- * carries its charge for every one of them.
+- *
+- * Returns `undefined` when no turn of the chain was provider-sized, or when the
+- * attestation is incoherent with the prefix it claims to cover (see
+- * {@link ATTESTATION_COHERENCE_FLOOR}): capacity is then unknown, and an unknown
+- * size may not be spent as if it were small.
+- */
+-function liveChainRequestTokens(context: Context, model: Model, tokenizer: Tokenizer): number | undefined {
+-	const messages = context.messages as unknown as Message[];
+-	const attestation = findProviderInputAttestation(messages, model);
+-	if (attestation === undefined) return undefined;
+-	const system = Array.isArray(context.systemPrompt) ? context.systemPrompt.join("\n\n") : "";
+-	const tools = context.tools === undefined ? "" : JSON.stringify(context.tools);
+-	const covered = tokenizer.countMessages(
+-		messages.slice(0, attestation.coveredMessages) as unknown as AgentMessage[],
+-		{ excludeEncryptedReasoning: true },
+-	);
+-	const transparentCovered = tokenizer.countTokens(system) + tokenizer.countTokens(tools) + covered;
+-	if (attestation.tokens < transparentCovered * ATTESTATION_COHERENCE_FLOOR) return undefined;
+-	const appended = messages.slice(attestation.coveredMessages);
+-	const estimated =
+-		appended.length === 0
+-			? 0
+-			: tokenizer.countMessages(appended as unknown as AgentMessage[], { excludeEncryptedReasoning: true });
+-	return attestation.tokens + estimated;
+-}
+-
+-/** The three verdicts one live chain's window check can reach. */
+-type LiveChainVerdict = "fits" | "over-capacity" | "unattested";
+-
+-interface LiveChainFit {
+-	verdict: LiveChainVerdict;
+-	/** Provider-faithful size of the request; only meaningful once attested. */
+-	tokens: number;
+-}
+-
+-/**
+- * Whether one provider-ready request over the host's whole live chain fits the
+- * model's window.
+- *
+- * `summaryInputBudgetTokens` is a fold-in plan, not a capacity measure: it
+- * discounts the window by 20% and reserves the whole output, so a chain that
+- * physically fits the window can fail it and a chain that does not can pass it.
+- * Capacity is measured on what the provider will bill -- the attested chain, the
+- * messages appended since, the rendered instruction, the output allowance -- and
+- * a chain nothing attests is refused instead of guessed.
+- */
+-function liveChainFit(
+-	context: Context,
+-	model: Model,
+-	tokenizer: Tokenizer,
+-	instructionText: string,
+-	outputAllowance: number,
+-): LiveChainFit {
+-	const tokens = liveChainRequestTokens(context, model, tokenizer);
+-	if (tokens === undefined) return { verdict: "unattested", tokens: 0 };
+-	const window = model.contextWindow && model.contextWindow > 0 ? model.contextWindow : undefined;
+-	if (window === undefined) return { verdict: "fits", tokens };
+-	const instructionTokens = instructionText.length === 0 ? 0 : tokenizer.countTokens(instructionText);
+-	return {
+-		verdict: tokens + instructionTokens + outputAllowance <= window ? "fits" : "over-capacity",
+-		tokens,
+-	};
+-}
+-
+ /** One summarization call over a single conversation window. */
+ async function summarizeConversationWindow(
+ 	conversationText: string,
+@@ -2656,7 +2456,6 @@
+ 		// claim), not on the rendered `Context` inside it.
+ 		const livePreviousSummaryInPrefix = live?.previousSummaryInPrefix === true;
+ 		const nativeMaxTokens = Math.min(Math.floor(0.8 * reserveTokens), MAX_SUMMARY_TOKENS);
+-		const nativeTokenizer = new Tokenizer(model);
+ 		// What the host replays after the signed block. `safeCut` moves the
+ 		// boundary forward to keep a tool call with its result, so the tail is
+ 		// taken from the final cut, not from the caller's `recentMessages`.
+@@ -2678,11 +2477,13 @@
+ 			customInstructions,
+ 			nativeExtraContext,
+ 		);
+-		// The same narrow conditions the local lane applies (see generateSummary):
+-		// the whole live chain ships only when the host vouched for it, the previous
+-		// summary is already inside that chain, and the request fits the model
+-		// window. A split turn is not excluded: the chain is cut-point independent,
+-		// so this single whole-chain request covers the turn prefix too. Every
++		// The same conditions the local lane applies (see generateSummary): the
++		// whole live chain ships whenever the host vouched for it and the previous
++		// summary is already inside that chain. A split turn is not excluded: the
++		// chain is cut-point independent, so this single whole-chain request covers
++		// the turn prefix too. The chain's size is not pre-flighted -- the provider
++		// is the only authority on what it accepts (see the local lane) -- and a
++		// request it rejects leaves the ordinary failed-native path below. Every
+ 		// abandonment is named on the entry, in the operator log and in the trace.
+ 		let nativeCacheFallback: string | undefined;
+ 		if (liveContext === undefined) {
+@@ -2692,19 +2493,6 @@
+ 			// cut fallback below supplies it as a message instead: sending the chain
+ 			// whole here would replace that state without ever presenting it.
+ 			nativeCacheFallback = "native-previous-summary-not-in-prefix";
+-		} else {
+-			// Capacity, not the fold-in summary budget: a full chain that physically
+-			// fits the window must keep its cache anchors, and one nothing attests
+-			// is refused by name rather than guessed at.
+-			const fit = liveChainFit(
+-				liveContext,
+-				model,
+-				nativeTokenizer,
+-				nativeFullChainInstructions,
+-				nativeMaxTokens,
+-			);
+-			if (fit.verdict === "unattested") nativeCacheFallback = "native-capacity-unattested";
+-			else if (fit.verdict === "over-capacity") nativeCacheFallback = "native-live-chain-over-capacity";
+ 		}
+ 		const nativeFullChain = nativeCacheFallback === undefined;
+ 		const messages = nativeFullChain
