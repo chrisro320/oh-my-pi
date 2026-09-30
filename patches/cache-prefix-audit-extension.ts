@@ -866,12 +866,17 @@ export default function (pi: ExtensionAPI): void {
 			const next = fingerprint(payload, sessionKey);
 			if (!next) return undefined;
 			// The VERDICT is always measured against the immediately preceding
-			// request. Substituting a better-matching older candidate would silence
-			// real regressions: when some older candidate happens to be a complete
-			// prefix of this request, a genuine rollback or rewrite relative to the
-			// actual predecessor gets relabelled append-only and disappears.
+			// request OF THE SAME MODEL. Substituting a better-matching older
+			// candidate would silence real regressions: when some older candidate
+			// happens to be a complete prefix of this request, a genuine rollback or
+			// rewrite relative to the actual predecessor gets relabelled
+			// append-only and disappears. Substituting another model's request is
+			// worse: a session that interleaves models (advisor, title generator,
+			// keepalive) would name the other model's system prompt as the drift on
+			// rows that were clean cache hits.
 			const candidates = st.recent ?? (st.last ? [st.last] : []);
-			const prev = st.last;
+			const sameModel = candidates.filter(c => c.model === next.model);
+			const prev = sameModel[0];
 			const d: Diff = prev ? diff(prev, next) : { kind: "IDENTICAL", detail: "no baseline" };
 			const crossProcess = prev !== undefined && prev.pid !== next.pid;
 			st.lastDiffByModel = { ...st.lastDiffByModel, [next.model]: d };
@@ -883,7 +888,7 @@ export default function (pi: ExtensionAPI): void {
 			// that alternative explains the verdict without overriding it; the
 			// paired `usage.cacheRead` decides whether anything was actually lost.
 			const alt = bestBaseline(
-				candidates.filter(c => c.at !== next.at && c.at !== prev?.at),
+				sameModel.filter(c => c.at !== next.at && c.at !== prev?.at),
 				next,
 			);
 			const altDiff = alt ? diff(alt, next) : undefined;
@@ -919,7 +924,14 @@ export default function (pi: ExtensionAPI): void {
 				true,
 			);
 			st.last = next;
-			st.recent = [next, ...candidates.filter(c => c.at !== next.at)].slice(0, BASELINE_HISTORY);
+			// The window is per model: a burst from one model (an advisor can send a
+			// dozen requests in a row) must not evict another model's baseline.
+			const perModel = new Map<string, number>();
+			st.recent = [next, ...candidates.filter(c => c.at !== next.at)].filter(c => {
+				const kept = perModel.get(c.model) ?? 0;
+				perModel.set(c.model, kept + 1);
+				return kept < BASELINE_HISTORY;
+			});
 			// Persist the whole candidate set so a resumed process can still tell a
 			// real predecessor from a virtual-tail one; the last request before
 			// exit is often a keepalive.

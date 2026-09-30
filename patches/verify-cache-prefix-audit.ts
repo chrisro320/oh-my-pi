@@ -534,9 +534,9 @@ function createHarness(): {
 		],
 		{ model: MAIN, sessionId: SESSION },
 	);
-	// The interloper carries its own system prompt, so against the shared
-	// baseline it reads as SYSTEM_DRIFT — a different kind, which is what makes
-	// the misattribution visible.
+	// The interloper carries its own system prompt. It has no baseline of its
+	// own, so it must read as a first request — not as SYSTEM_DRIFT against the
+	// main model's history (section 3c pins the baseline side of this).
 	const interloperTurn = anthropicPayload([{ role: "user", content: [{ type: "text", text: "title this" }] }], {
 		model: INTERLOPER,
 		sessionId: SESSION,
@@ -552,8 +552,8 @@ function createHarness(): {
 		.map(line => line.diff.kind);
 	assert.deepEqual(
 		requestKinds,
-		["IDENTICAL", "HISTORY_REWRITE", "SYSTEM_DRIFT"],
-		"the two models must produce distinguishable diffs for this fixture to prove anything",
+		["IDENTICAL", "HISTORY_REWRITE", "IDENTICAL"],
+		"the main model's rewrite must survive an interloper request landing after it",
 	);
 
 	harness.emit(
@@ -578,7 +578,8 @@ function createHarness(): {
 	);
 	const interloperVerdict = logLines().at(-1);
 	assert.equal(interloperVerdict.model, INTERLOPER);
-	assert.equal(interloperVerdict.diff.kind, "SYSTEM_DRIFT", "each model keeps its own slot");
+	assert.equal(interloperVerdict.diff.kind, "IDENTICAL", "the interloper's first request has no baseline");
+	assert.equal(interloperVerdict.diff.detail, "no baseline");
 
 	// A response with no model field (shapes that omit it) must still be
 	// explained when only one model has been seen — single-model sessions keep
@@ -610,6 +611,100 @@ function createHarness(): {
 		/^MISS CAUSED BY HISTORY_REWRITE/,
 		"a modelless response in a single-model session must fall back to the lone slot",
 	);
+}
+
+// ---------------------------------------------------------------------------
+// 3c. The BASELINE itself is per model, not only the diff slot.
+//
+//     Section 3b keeps one diff slot per model, but the diff is still computed
+//     against the previous request of ANY model. Observed on session 01a0f047
+//     (2026-09-30): an advisor `gpt-5.6-luna` request sat between two claude
+//     requests, so claude's clean append-only turn was logged as
+//     `SYSTEM_DRIFT system[0] 940ccaef… -> d17688e7…` on rows that were
+//     96-99% cache hits. The label named the OTHER model's system prompt.
+//
+//     Here claude turn 2 is a pure append of claude turn 1; a luna request with
+//     a different system prompt lands in between. Claude's request must read
+//     APPEND_ONLY, and luna's first request has no baseline of its own.
+// ---------------------------------------------------------------------------
+{
+	const SESSION = "session-model-baseline";
+	const CLAUDE = "claude-sonnet-5-5";
+	const LUNA = "gpt-5.6-luna";
+	const harness = createHarness();
+	const turn1 = [
+		{ role: "user", content: [{ type: "text", text: "read the loader" }] },
+		{ role: "assistant", content: [{ type: "text", text: "reading" }] },
+	];
+	const turn2 = [...turn1, { role: "user", content: [{ type: "text", text: "continue" }] }];
+	const claude1 = anthropicPayload(turn1, { model: CLAUDE, sessionId: SESSION });
+	const luna1 = anthropicPayload([{ role: "user", content: [{ type: "text", text: "advise" }] }], {
+		model: LUNA,
+		sessionId: SESSION,
+		system: [{ type: "text", text: "You advise." }],
+	});
+	const claude2 = anthropicPayload(turn2, { model: CLAUDE, sessionId: SESSION });
+	// Second luna request appends to luna1 and changes ITS system prompt: a real
+	// SYSTEM_DRIFT for luna that must still be reported against luna's own baseline.
+	const luna2 = anthropicPayload(
+		[
+			{ role: "user", content: [{ type: "text", text: "advise" }] },
+			{ role: "assistant", content: [{ type: "text", text: "ok" }] },
+		],
+		{ model: LUNA, sessionId: SESSION, system: [{ type: "text", text: "You advise, revised." }] },
+	);
+
+	for (const payload of [claude1, luna1, claude2, luna2]) {
+		harness.emit("before_provider_request", { payload }, "ctx-model-baseline");
+		await Bun.sleep(3); // fingerprints are keyed by an ISO-millisecond timestamp
+	}
+	const rows = logLines().filter(line => line.sessionId === SESSION && line.usage === undefined);
+	assert.deepEqual(
+		rows.map(line => [line.model, line.diff.kind]),
+		[
+			[CLAUDE, "IDENTICAL"],
+			[LUNA, "IDENTICAL"],
+			[CLAUDE, "APPEND_ONLY"],
+			[LUNA, "SYSTEM_DRIFT"],
+		],
+		"each model must be diffed against its own previous request",
+	);
+	assert.equal(rows[1].diff.detail, "no baseline", "a model's first request has no baseline of its own");
+
+	// A burst of another model's requests must not push this model's baseline
+	// out of the candidate window (BASELINE_HISTORY is per model).
+	for (let i = 0; i < 12; i++) {
+		harness.emit(
+			"before_provider_request",
+			{
+				payload: anthropicPayload(
+					[{ role: "user", content: [{ type: "text", text: `burst ${i}` }] }],
+					{ model: LUNA, sessionId: SESSION, system: [{ type: "text", text: "You advise, revised." }] },
+				),
+			},
+			"ctx-model-baseline",
+		);
+		await Bun.sleep(3);
+	}
+	harness.emit(
+		"before_provider_request",
+		{ payload: anthropicPayload([...turn2, { role: "assistant", content: [{ type: "text", text: "done" }] }], { model: CLAUDE, sessionId: SESSION }) },
+		"ctx-model-baseline",
+	);
+	await Bun.sleep(3);
+	const last = logLines().filter(line => line.sessionId === SESSION && line.usage === undefined).at(-1);
+	assert.equal(last.model, CLAUDE);
+	assert.equal(last.diff.kind, "APPEND_ONLY", "12 luna requests in between must not evict claude's baseline");
+
+	// The verdict for a claude hit names no drift.
+	harness.emit(
+		"message_end",
+		{ message: { role: "assistant", model: CLAUDE, usage: { input: 2, cacheRead: 9000, cacheWrite: 100 } } },
+		"ctx-model-baseline",
+	);
+	const verdict = logLines().at(-1);
+	assert.equal(verdict.diff.kind, "APPEND_ONLY");
+	assert.match(verdict.verdict, /^hit/);
 }
 
 // ---------------------------------------------------------------------------
