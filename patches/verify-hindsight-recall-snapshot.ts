@@ -3,6 +3,10 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
+// Isolation: settings-level apiUrl is overridden by this env var, which would point
+// the fixture at the operator's real Hindsight bank. Drop it before any import.
+delete process.env.HINDSIGHT_API_URL;
+
 // Package imports are runtime-selected so an isolated tree cannot fall back to live.
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;

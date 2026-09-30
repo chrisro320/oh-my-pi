@@ -1,1 +1,8 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/09-29-omp-1844-patch-migration/work-order.md", "reason": "embedded AGENTS.md + spec index originals, tools, slices, machine checks"}
+{"file": ".trellis/spec/backend/index.md", "reason": "route to relevant backend contracts"}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "official tarball, version plan, same-ID candidates and replay invariants"}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "versioned behavior gates; inputs must come from real producers"}
+{"file": ".trellis/spec/backend/extension-runtime-contracts.md", "reason": "session-bound side requests and prompt-cache keepalive contracts"}
+{"file": ".trellis/tasks/09-29-omp-1844-patch-migration/prd.md", "reason": "requirements and acceptance criteria"}
+{"file": ".trellis/tasks/09-29-omp-1844-patch-migration/design.md", "reason": "decisions and slice plan"}
+{"file": ".trellis/tasks/09-28-omp-1841-upgrade-plan/implement.md", "reason": "18.4.1 precedent: tooling, incidents, prefix-stability verification"}

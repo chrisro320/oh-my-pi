@@ -1,0 +1,7 @@
+first layer: 0033 expect layers: 50
+SUMMARY applied=0 failed=0 
+pristine six digest: 25f5d04483d522df4404fc5fd46e60e45dc2c1712b80237042c8084f69cbc208
+applied six digest: 838166a7fe6eb86397bc36f68029adf103b0d097e14fade527433ec4d74e1327
+apply#2 SKIP=51
+check APPLIED patches=50
+ALLDONE

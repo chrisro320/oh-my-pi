@@ -15,10 +15,10 @@
  export declare function shouldUseCompactionV2Streaming(model: Model): model is Model<"openai-responses" | "azure-openai-responses" | "openai-codex-responses">;
 +/** Whether `model`'s effective V2 lane is the chain-only OpenAI Codex one. */
 +export declare function isCodexCompactionV2Lane(model: Model): boolean;
+ /** APIs that speak the OpenAI Responses compaction protocol (V1 `/responses/compact` and V2 streaming). */
+ export declare function isOpenAiRemoteCompactionApi(api: Api | undefined): boolean;
  /** Clamp the retained-message budget to Codex's known-safe 64K ceiling. */
- export declare function resolveCompactionV2RetainedMessageBudget(value: number | undefined): number;
- /** Build a V2 streaming compaction request from Responses-native history. */
-@@ -76,6 +80,14 @@
+@@ -78,6 +82,14 @@
      providerSessionState?: Map<string, ProviderSessionState>;
      codexCompaction?: CodexCompactionContext;
      preferWebsockets?: boolean;
@@ -68,10 +68,10 @@
  } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
  import {
  	getOpenAIPromptCacheKey,
-@@ -25,14 +27,7 @@
- 	resolveOpenAIRequestSetup,
+@@ -26,14 +28,7 @@
  } from "@oh-my-pi/pi-ai/providers/openai-shared";
  import { captureOpenAIHttpError } from "@oh-my-pi/pi-ai/utils/openai-http";
+ import { isBedrockOpenAIUrl } from "@oh-my-pi/pi-catalog/hosts";
 -import {
 -	applyCodexResidencyHeader,
 -	CODEX_BASE_URL,
@@ -81,10 +81,10 @@
 -	OPENAI_HEADERS,
 -} from "@oh-my-pi/pi-catalog/wire/codex";
 +import { CODEX_BASE_URL } from "@oh-my-pi/pi-catalog/wire/codex";
- import { $env, isUnexpectedSocketCloseMessage, logger, stringifyJson } from "@oh-my-pi/pi-utils";
- import { traceCompaction } from "./compaction-trace";
- 
-@@ -80,6 +75,8 @@
+ import { $env, isUnexpectedSocketCloseMessage, logger, ptree, stringifyJson } from "@oh-my-pi/pi-utils";
+ import { appendAzureApiVersion, resolveAzureOpenAiBaseUrl } from "./azure-openai-endpoint";
+ import { prepareBedrockCompactionRequest } from "./bedrock";
+@@ -82,6 +77,8 @@
  	retainedMessageBudget: number;
  	sessionId?: string;
  	promptCacheKey?: string;
@@ -93,7 +93,7 @@
  }
  
  /** Response collected from the V2 stream and converted into replacement history. */
-@@ -114,7 +111,7 @@
+@@ -116,7 +113,7 @@
  	if (api === "azure-openai-responses") {
  		return appendAzureApiVersion(`${resolveAzureOpenAiBaseUrl(model)}/responses`);
  	}
@@ -102,7 +102,7 @@
  		return resolveOpenAiCodexResponsesEndpoint(model.baseUrl);
  	}
  	return resolveOpenAiResponsesEndpoint(model.baseUrl);
-@@ -132,6 +129,19 @@
+@@ -142,6 +139,19 @@
  	return model.remoteCompaction?.api ?? model.api;
  }
  
@@ -119,10 +119,10 @@
 +	return compactionV2Api(model) === "openai-codex-responses" || model.provider === "openai-codex";
 +}
 +
- function isOpenAiV2CompatibleModel(model: Model): boolean {
- 	const api = compactionV2Api(model);
+ /** APIs that speak the OpenAI Responses compaction protocol (V1 `/responses/compact` and V2 streaming). */
+ export function isOpenAiRemoteCompactionApi(api: Api | undefined): boolean {
  	return api === "openai-responses" || api === "azure-openai-responses" || api === "openai-codex-responses";
-@@ -277,6 +287,14 @@
+@@ -261,6 +271,14 @@
  		providerSessionState?: Map<string, ProviderSessionState>;
  		codexCompaction?: CodexCompactionContext;
  		preferWebsockets?: boolean;
@@ -136,10 +136,10 @@
 +		sessionId?: string;
  	},
  ): Promise<CompactionV2Response> {
- 	const endpoint = getCompactionV2Endpoint(model);
-@@ -286,30 +304,27 @@
+ 	let fetchImpl: FetchImpl = options?.fetch ?? globalThis.fetch;
+@@ -277,30 +295,27 @@
+ 	}
  
- 	const fetchImpl = options?.fetch ?? globalThis.fetch;
  	const retryWait = options?.retryWait ?? ((delayMs: number) => Bun.sleep(delayMs));
 -	const isCodexResponses = compactionV2Api(model) === "openai-codex-responses" || model.provider === "openai-codex";
 -	const codexMetadata =
@@ -172,14 +172,14 @@
 +	let sawChainedAttempt = false;
  
  	for (let attempt = 0; attempt <= V2_COMPACTION_MAX_RETRIES; attempt++) {
- 		const timeoutSignal = withRequestTimeout(signal, options?.timeoutMs ?? V2_COMPACTION_TIMEOUT_MS);
+ 		const timeoutSignal = ptree.combineSignals(signal, options?.timeoutMs ?? V2_COMPACTION_TIMEOUT_MS);
  		try {
  			return await attemptCompactionV2Streaming(endpoint, apiKey, model, request, fetchImpl, timeoutSignal, {
 -				codexMetadata,
  				providerSessionState: options?.providerSessionState,
  				codexCompaction: options?.codexCompaction,
  				preferWebsockets: options?.preferWebsockets,
-@@ -322,10 +337,16 @@
+@@ -313,10 +328,16 @@
  			// Trace every failed attempt -- including the final one and
  			// non-retryable errors -- so the wire shape that failed is never
  			// invisible after the fact.
@@ -197,7 +197,7 @@
  				model: model.id,
  				attempt: attempt + 1,
  				final: !retrying,
-@@ -347,11 +368,27 @@
+@@ -338,11 +359,27 @@
  				continue;
  			}
  
@@ -227,7 +227,7 @@
  }
  
  async function attemptCompactionV2Streaming(
-@@ -362,7 +399,6 @@
+@@ -353,7 +390,6 @@
  	fetchImpl: FetchImpl,
  	signal: AbortSignal | undefined,
  	options: {
@@ -235,7 +235,7 @@
  		providerSessionState?: Map<string, ProviderSessionState>;
  		codexCompaction?: CodexCompactionContext;
  		preferWebsockets?: boolean;
-@@ -378,12 +414,15 @@
+@@ -369,12 +405,15 @@
  		store: false,
  		stream: true,
  	};
@@ -254,7 +254,7 @@
  		// Clear before opening: a failure before the wire-shape recording would
  		// otherwise leave the previous attempt's diagnostics mislabeled as ours.
  		requestDiagnostics.current = undefined;
-@@ -394,6 +433,7 @@
+@@ -385,6 +424,7 @@
  			sessionId: request.sessionId,
  			providerSessionState: options.providerSessionState,
  			preferWebsockets: options.preferWebsockets,
@@ -262,7 +262,7 @@
  			// Lite is connection-scoped and appends `:lite` to the WebSocket session
  			// key, so this must match the live turn (which never opts in) or the
  			// compaction lands on a second, empty socket with no append baseline.
-@@ -403,8 +443,30 @@
+@@ -394,8 +434,30 @@
  				implementation: "responses_compaction_v2",
  			}),
  			requestDiagnostics,
@@ -294,7 +294,7 @@
  		const diag = requestDiagnostics.current;
  		if (diag) {
  			collected.requestDiagnostics = {
-@@ -419,7 +481,7 @@
+@@ -410,7 +472,7 @@
  
  	const response = await fetchImpl(endpoint, {
  		method: "POST",
@@ -303,7 +303,7 @@
  		body: stringifyJson(body),
  		signal,
  	});
-@@ -449,7 +511,6 @@
+@@ -440,7 +502,6 @@
  	model: Model,
  	apiKey: string,
  	request: CompactionV2Request,
@@ -311,7 +311,7 @@
  ): Record<string, string> {
  	const api = compactionV2Api(model);
  	const cacheOptions = { sessionId: request.sessionId, promptCacheKey: request.promptCacheKey };
-@@ -469,27 +530,6 @@
+@@ -460,27 +521,6 @@
  						{ apiKey, messages: [], sessionId: request.sessionId ?? routingSessionId, promptCacheSessionId },
  					).headers,
  				};
@@ -339,7 +339,7 @@
  	return headers;
  }
  
-@@ -512,9 +552,14 @@
+@@ -503,9 +543,14 @@
  async function collectCompactionV2Events(
  	events: AsyncIterable<Record<string, unknown>>,
  	request: CompactionV2Request,
@@ -354,7 +354,7 @@
  		handleCompactionV2Event(event, undefined, state);
  	}
  	return finishCompactionV2Collection(state, request);
-@@ -643,16 +688,24 @@
+@@ -634,16 +679,24 @@
  		return;
  	}
  
@@ -389,7 +389,7 @@
  	}
  }
  
-@@ -679,24 +732,133 @@
+@@ -670,24 +723,133 @@
  	};
  }
  
@@ -758,7 +758,7 @@
  	stats: OpenAICodexWebSocketDebugStats;
  };
  
-@@ -1459,7 +1494,6 @@
+@@ -1457,7 +1492,6 @@
  			? getCodexWebSocketSessionState(sessionKey, isolatedTransportState)
  			: sharedWebsocketState;
  	if (isolatedTransportState && websocketState && sharedWebsocketState) {
@@ -766,7 +766,7 @@
  		websocketState.modelsEtag = sharedWebsocketState.modelsEtag;
  	}
  	const metadataSessionId = transportSessionId ?? crypto.randomUUID();
-@@ -1640,6 +1674,18 @@
+@@ -1638,6 +1672,18 @@
  	transport: CodexTransport;
  }> {
  	const { transformedBody, websocketState } = requestContext;
@@ -785,7 +785,7 @@
  	if (websocketState && shouldUseCodexWebSocket(model, websocketState, options?.preferWebsockets)) {
  		const websocketRetryBudget = CODEX_WEBSOCKET_RETRY_BUDGET;
  		let websocketRetries = 0;
-@@ -1677,12 +1723,24 @@
+@@ -1675,12 +1721,24 @@
  					});
  					continue;
  				}
@@ -810,7 +810,7 @@
  	try {
  		return await openCodexSseTransport(model, requestContext, requestSetup, options, websocketState, transformedBody);
  	} catch (error) {
-@@ -1717,15 +1775,39 @@
+@@ -1715,15 +1773,39 @@
  	};
  	let requestContextForDiag: CodexRequestContext | undefined;
  	let diagBeforeOpen: OpenAICodexTurnRequestDiagnostics | undefined;
@@ -850,7 +850,7 @@
  		throw error;
  	} finally {
  		// Publish only diagnostics this open actually recorded: lastTurn is
-@@ -1737,13 +1819,31 @@
+@@ -1735,13 +1817,31 @@
  		}
  	}
  
@@ -886,7 +886,7 @@
  }
  
  async function* streamCodexCompactionEvents(
-@@ -1756,20 +1856,54 @@
+@@ -1754,20 +1854,54 @@
  		requestBodyForState: RequestBody;
  		transport: CodexTransport;
  	},
@@ -945,7 +945,7 @@
  					throw error;
  				}
  				const state = requestContext.websocketState;
-@@ -1792,7 +1926,7 @@
+@@ -1790,7 +1924,7 @@
  					}
  				}
  				if (state) state.lastTransport = fallback.transport;
@@ -954,7 +954,7 @@
  				completed = true;
  				return;
  			}
-@@ -1808,53 +1942,41 @@
+@@ -1806,53 +1940,41 @@
  			) {
  				const replay = await openCodexSseTransport(model, requestContext, requestSetup, options, websocketState);
  				if (websocketState) websocketState.lastTransport = replay.transport;
@@ -1023,7 +1023,7 @@
  }
  async function openCodexWebSocketTransport(
  	model: Model<"openai-codex-responses">,
-@@ -1885,6 +2007,34 @@
+@@ -1883,6 +2005,34 @@
  		await getCodexAttestationHeader(requestContext.accountId),
  		requestContext.transformedBody,
  	);
@@ -1058,7 +1058,7 @@
  	let websocketConnection = await getOrCreateCodexWebSocketConnection(
  		websocketState,
  		requestContext.turnState,
-@@ -1893,6 +2043,60 @@
+@@ -1891,6 +2041,60 @@
  		model.provider,
  		requestSetup.requestSignal,
  	);
@@ -1119,7 +1119,7 @@
  	const timeouts: CodexWebSocketRequestTimeouts = {
  		idleTimeoutMs: requestSetup.websocketIdleTimeoutMs,
  		firstEventTimeoutMs: requestSetup.websocketFirstEventTimeoutMs,
-@@ -1906,6 +2110,12 @@
+@@ -1904,6 +2108,12 @@
  	// against the socket they actually got.
  	const canAppendBeforeRequest = websocketState.canAppend === true;
  	let chainedBody = buildCodexChainedRequestBody(requestContext.transformedBody, websocketState);
@@ -1132,7 +1132,7 @@
  	// Steering accepted for the previous response lives only on the socket that
  	// accepted it; a replaced socket lost it, so the input is plain history.
  	const steers = steered?.connection === websocketConnection ? steered.steers : [];
-@@ -1968,6 +2178,46 @@
+@@ -1966,6 +2176,46 @@
  	if (replacementWebsocketRequest !== undefined) {
  		websocketRequest = replacementWebsocketRequest as typeof websocketRequest;
  	}
@@ -1179,7 +1179,7 @@
  	recordCodexTurnRequestDiagnostics(websocketState, websocketRequest, "websocket", canAppendBeforeRequest);
  	const requestBodyForState = structuredCloneJSON(requestContext.transformedBody);
  	// `onPayload` may rewrite the outgoing frame (e.g. drop `stream_options`);
-@@ -2147,7 +2397,64 @@
+@@ -2145,7 +2395,64 @@
  	slow_down: true,
  };
  
@@ -1245,7 +1245,7 @@
  	if (!(error instanceof Error)) return false;
  	if (
  		"code" in error &&
-@@ -2764,6 +3071,12 @@
+@@ -2762,6 +3069,12 @@
  					state.lastResponseId = responseId;
  					state.lastResponseItems = replayableResponseItems;
  					state.canAppend = rawEvent.type === "response.done" || rawEvent.type === "response.completed" || steered;
@@ -1258,7 +1258,7 @@
  				} else {
  					// No response id, or replay sanitization dropped an item the server
  					// still holds. Sanitization is 1:1-or-fewer, so either case makes the
-@@ -3174,6 +3487,8 @@
+@@ -3172,6 +3485,8 @@
  
  	async #reopenWebSocketStream(state: CodexWebSocketSessionState): Promise<void> {
  		try {
@@ -1267,7 +1267,7 @@
  			const next = await openCodexWebSocketTransport(
  				this.model,
  				this.options,
-@@ -3426,7 +3741,6 @@
+@@ -3424,7 +3739,6 @@
  	const existing = providerSessionState.webSocketSessions.get(sessionKey);
  	if (existing) return existing;
  	const created: CodexWebSocketSessionState = {
@@ -1275,7 +1275,7 @@
  		canAppend: false,
  		fallbackCount: 0,
  		prewarmed: false,
-@@ -3449,17 +3763,13 @@
+@@ -3447,17 +3761,13 @@
  
  function recordCodexWebSocketFailure(state: CodexWebSocketSessionState, activateFallback: boolean): void {
  	resetCodexWebSocketAppendState(state);
@@ -1295,7 +1295,7 @@
  		state.fallbackCount += 1;
  	}
  }
-@@ -3482,10 +3792,9 @@
+@@ -3480,10 +3790,9 @@
  	state: CodexWebSocketSessionState | undefined,
  	preferWebsockets?: boolean,
  ): boolean {
@@ -1308,7 +1308,7 @@
  	// Env val > Preference
  	const envVal = getOpenAICodexWebSocketEnvValue();
  	if (envVal !== undefined) return envVal;
-@@ -3569,7 +3878,7 @@
+@@ -3567,7 +3876,7 @@
  	return {
  		websocketPreferred,
  		lastTransport: state?.lastTransport,
@@ -1317,7 +1317,7 @@
  		websocketConnected: state?.connection?.isOpen() ?? false,
  		fallbackCount: state?.fallbackCount ?? 0,
  		canAppend: state?.canAppend ?? false,
-@@ -3829,6 +4138,31 @@
+@@ -3832,6 +4141,31 @@
   * send only the trigger. The trailing trigger item is itself the discriminator:
   * nothing but the compaction path appends one.
   */
@@ -1349,7 +1349,7 @@
  export function buildCodexChainedRequestBody(
  	requestBody: RequestBody,
  	state: CodexWebSocketSessionState | undefined,
-@@ -3980,14 +4314,29 @@
+@@ -3985,14 +4319,29 @@
  
  interface CodexWebSocketConnectionOptions {
  	onHandshakeHeaders?: (headers: Headers) => void;
@@ -1379,7 +1379,7 @@
  	#socket: Bun.WebSocket | null = null;
  	#queue: Array<Record<string, unknown> | Error | null> = [];
  	#waiters: Array<() => void> = [];
-@@ -4027,6 +4376,7 @@
+@@ -4032,6 +4381,7 @@
  		this.#headers = headers;
  		this.#proxy = options.proxy;
  		this.#onHandshakeHeaders = options.onHandshakeHeaders;
@@ -1387,7 +1387,7 @@
  	}
  
  	isOpen(): boolean {
-@@ -4074,6 +4424,9 @@
+@@ -4079,6 +4429,9 @@
  		const socket = this.#socket;
  		this.#socket = null;
  		this.#stopHeartbeat();
@@ -1397,7 +1397,7 @@
  		this.#rejectSteerWaiters(`websocket closed (${reason})`);
  		if (!socket || (socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING)) return;
  		try {
-@@ -4165,6 +4518,10 @@
+@@ -4170,6 +4523,10 @@
  		socket.onclose = event => {
  			this.#socket = null;
  			this.#stopHeartbeat();
@@ -1408,7 +1408,7 @@
  			this.#rejectSteerWaiters(`websocket closed (${event.code})`);
  			if (!settled) {
  				settled = true;
-@@ -4740,6 +5097,25 @@
+@@ -4745,6 +5102,25 @@
  		onHandshakeHeaders: handshakeHeaders => {
  			updateCodexSessionMetadataFromHeaders(turnState, state, handshakeHeaders);
  		},
@@ -1434,7 +1434,7 @@
  		proxy,
  	});
  	await state.connection.connect(signal);
-@@ -5253,6 +5629,21 @@
+@@ -5264,6 +5640,21 @@
  	return payloads;
  }
  

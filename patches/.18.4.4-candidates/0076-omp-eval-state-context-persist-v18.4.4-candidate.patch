@@ -13,8 +13,8 @@
  			}
 --- a/pi-coding-agent/src/session/agent-session.ts
 +++ b/pi-coding-agent/src/session/agent-session.ts
-@@ -1482,8 +1482,11 @@
- 			parentSessionId: config.parentEvalSessionId,
+@@ -1521,8 +1521,11 @@
+ 			kernelOwnerId: config.evalKernelOwnerId ?? `agent-session:${Snowflake.next()}`,
  		});
  		this.#evalToolSession = config.evalToolSession;
 -		const initialEvalStateContext = this.#buildEvalStateContextMessage();
@@ -27,7 +27,7 @@
  		const ircHost: IrcBridgeHost = {
  			agent: this.agent,
  			sessionManager: this.sessionManager,
-@@ -6089,16 +6092,54 @@
+@@ -6281,16 +6284,54 @@
  		return this.#providerBoundary.getImageAttachments();
  	}
  
@@ -86,7 +86,7 @@
  	#buildEvalStateContextMessage(): CustomMessage | undefined {
  		const session = this.#evalToolSession;
  		if (!session) return undefined;
-@@ -10295,7 +10336,9 @@
+@@ -10643,7 +10684,9 @@
  		// blowing the heap before the new session even loads (issue #3846). The
  		// error-recovery path rebuilds the context on demand from the restored
  		// state instead.
@@ -97,7 +97,7 @@
  		// switchSession replaces these arrays wholesale during load/rollback, so retaining
  		// the existing message objects is sufficient and avoids structured-clone failures for
  		// extension/custom metadata that is valid to persist but not cloneable.
-@@ -10702,8 +10745,12 @@
+@@ -11050,8 +11093,12 @@
  			this.#memory.rekeyForCurrentSessionId();
  			await this.#memory.resetContextForNewTranscript();
  
@@ -114,7 +114,7 @@
  			if (this.#extensionRunner) {
 --- a/pi-coding-agent/dist/types/session/agent-session.d.ts
 +++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
-@@ -502,7 +502,9 @@
+@@ -531,7 +531,9 @@
      get messages(): AgentMessage[];
      /** Latest image attachments addressable by tools as `Image #N` or `attachment://N`. */
      getImageAttachments(): ImageAttachmentEntry[];

@@ -1,14 +1,14 @@
 --- a/src/chat/tool-execution.ts
 +++ b/src/chat/tool-execution.ts
-@@ -285,6 +285,7 @@
+@@ -331,6 +331,7 @@
  	// so a terminal resize re-shapes image-bearing results to rescale them without
  	// forcing the common image-free result to re-shape on every resize tick.
  	#renderedImageCount = 0;
 +	#pendingImageConversions = 0;
- 	#tool?: AgentTool;
- 	#renderer?: ToolRenderer;
- 	#ui: ToolExecutionUi;
-@@ -565,18 +566,30 @@
+ 	// `stateBgKey|themeEpoch` of the tint last handed to #contentText. Re-tinting
+ 	// drops its wrap cache, so a rebuild whose tint is unchanged skips it and the
+ 	// inner Text re-wraps only when the reformatted card text actually differs.
+@@ -628,18 +629,30 @@
  			}
  			if (this.#kittyConversionsAwaited.has(key)) continue;
  			this.#kittyConversionsAwaited.add(key);
@@ -42,7 +42,7 @@
  				});
  		}
  	}
-@@ -695,6 +708,8 @@
+@@ -761,6 +774,8 @@
  	 */
  	isTranscriptBlockFinalized(): boolean {
  		if (!this.#toolActivityVisible) return true;

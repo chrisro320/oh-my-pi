@@ -96,7 +96,18 @@ for (const [axis, value] of [
 	assert.equal(rule.wire[axis], value, `compiled wire axis ${axis} must be ${String(value)}`);
 }
 assert.deepEqual(rule.catalog.inputModalities, ["text", "image"], "compiled catalog axis matches the KDL");
-assert.ok(rule.catalog.costPatch, "pre-existing cost patch preserved");
+// 18.4.4 groups the cost patch onto a multi-id models block that also lists
+// this id, so the single-id rule above no longer carries it. Any commandcode
+// rule that exact-matches the id (alone or in a group) may own the cost patch.
+const costOwners = rules.cascade.rules.filter(
+	(candidate: Record<string, unknown>) =>
+		JSON.stringify(candidate.providers) === JSON.stringify(["commandcode"]) &&
+		((candidate.models ?? []) as { kind: string; value: string }[]).some(m => m.kind === "exact" && m.value === MODEL_ID),
+);
+assert.ok(
+	costOwners.some((owner: { catalog?: { costPatch?: unknown } }) => owner.catalog?.costPatch),
+	"pre-existing cost patch preserved",
+);
 
 // ── 3. provenance survived the insertion ────────────────────────────────
 for (const candidate of rules.cascade.rules as Record<string, string>[]) {

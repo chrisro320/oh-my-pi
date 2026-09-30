@@ -103,6 +103,10 @@ PLAN1841_OUT="$(OMP_PATCH_VERSION=18.4.1 bash "${HERE}/apply.sh" --print-plan)" 
 	|| die "apply.sh --print-plan cannot resolve the 18.4.1 plan"
 [[ -n "${PLAN1841_OUT//[[:space:]]/}" ]] || die "18.4.1 plan is empty"
 mapfile -t PLAN1841 <<<"$PLAN1841_OUT"
+PLAN1844_OUT="$(OMP_PATCH_VERSION=18.4.4 bash "${HERE}/apply.sh" --print-plan)" \
+	|| die "apply.sh --print-plan cannot resolve the 18.4.4 plan"
+[[ -n "${PLAN1844_OUT//[[:space:]]/}" ]] || die "18.4.4 plan is empty"
+mapfile -t PLAN1844 <<<"$PLAN1844_OUT"
 # Retired-by-rollup numbers, plus abandoned numbers whose patch file is gone
 # (0011 pin-viewport, 0040 trellis_command, 0061, 0064 — never to be reused)
 # and numbers retired because upstream adopted them verbatim (0051, adopted in
@@ -315,6 +319,19 @@ declare -A TGZSHA6=(
 TGZD6="${G}/tgz-18.4.1"
 fetch_tgzs "$TGZD6" 18.4.1 TGZSHA6
 echo "PASS baseline: six official 18.4.1 tarballs match pinned SHA-256"
+
+# Exact 18.4.4 release; archives were verified against registry sha512 integrity.
+declare -A TGZSHA7=(
+	[pi-coding-agent]=5f0540cd20743d252ef33b234479a83667e6ade3e05f51d1d3e027b3c1720503
+	[pi-agent-core]=dc9eb37e147aaa38fc871eb540656ff350d4e0ef14540742062bb18239e19b81
+	[pi-ai]=14170ca4073dfc71b1498130ef8766e4e21aa0b8b6aac82e0047486ca49baea5
+	[pi-catalog]=3991904f0ddbf15d3e4f05bd45d0ea889a0b0c489b59b0e5be2a4abcf493592a
+	[snapcompact]=82d8ab2cb765e3990950d660439ec3a89dc3653ecf5dc95b3f5ea2cdb24799d5
+	[pi-tui]=e77025e9e2831e65a02f41b49002aacd5b6cb3fe5583a2f6d9158206201cf16d
+)
+TGZD7="${G}/tgz-18.4.4"
+fetch_tgzs "$TGZD7" 18.4.4 TGZSHA7
+echo "PASS baseline: six official 18.4.4 tarballs match pinned SHA-256"
 
 # Extract src trees (mode=src) or full trees incl. dist/ (mode=full) for the
 # listed packages (default: every package in $2's pinned table) into
@@ -717,6 +734,14 @@ EXPECTED_PLAN_1841+=(".18.4.1-candidates/0083-omp-model-mention-surface-resume-v
 EXPECTED_PLAN_1841+=(".18.4.1-candidates/0084-omp-length-stop-reminder-persist-v18.4.1-candidate.patch:AGENT")
 [[ "${#EXPECTED_PLAN_1841[@]}" -eq 50 && "${PLAN1841[*]}" == "${EXPECTED_PLAN_1841[*]}" ]] \
 	|| die "resolved 18.4.1 plan drifted from its 50-entry capability contract"
+
+# 18.4.4 carries the same 50 capabilities as same-ID 18.4.4 candidates.
+EXPECTED_PLAN_1844=()
+for entry in "${EXPECTED_PLAN_1841[@]}"; do
+	EXPECTED_PLAN_1844+=("${entry//18.4.1/18.4.4}")
+done
+[[ "${#EXPECTED_PLAN_1844[@]}" -eq 50 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
+	|| die "resolved 18.4.4 plan drifted from its 50-entry capability contract"
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
 # by apply.sh --print-plan in the static section. The assertions below pin
@@ -1128,10 +1153,12 @@ echo "PASS gate #13: pristine 18.2.3 tree classifies all ${#PLAN1823[@]} entries
 
 # Current target: include the moved TUI package in every replay and comparison.
 TARGET_BASE_G="$G"
-for current_version in 18.2.10 18.3.3 18.4.1; do
+for current_version in 18.2.10 18.3.3 18.4.1 18.4.4; do
 G="$TARGET_BASE_G/target-$current_version"
 mkdir -p "$G"
-if [[ "$current_version" == "18.4.1" ]]; then
+if [[ "$current_version" == "18.4.4" ]]; then
+	CURRENT_PLAN=("${PLAN1844[@]}"); CURRENT_TGZD="$TGZD7"
+elif [[ "$current_version" == "18.4.1" ]]; then
 	CURRENT_PLAN=("${PLAN1841[@]}"); CURRENT_TGZD="$TGZD6"
 elif [[ "$current_version" == "18.3.3" ]]; then
 	CURRENT_PLAN=("${PLAN1833[@]}"); CURRENT_TGZD="$TGZD5"

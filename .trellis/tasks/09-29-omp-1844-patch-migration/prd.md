@@ -31,10 +31,18 @@
 - [ ] 沙箱內真實 `OMP_PATCH_VERSION=18.4.4 bash patches/apply.sh` 全部層 APPLIED，全套 gate exit 0；二次 apply 全 SKIP；`--check` 全 APPLIED；`--revert` 後與 pristine 位元組一致。
 - [ ] `apply.sh` 已支援 `18.4.4)`；18.4.1 的 `--print-plan` 輸出不變；18.4.5 仍 exit 2。檢查命令：`OMP_PATCH_VERSION=18.4.1 bash patches/apply.sh --print-plan | md5sum` 與遷移前相同。
 - [ ] 12 個失敗層每層都有分類結論（含證據），寫進 implement.md 執行記錄。
-- [ ] 前綴穩定驗證報告（Codex 與 plain/soft/snapcompact 序列化位元組相同；Anthropic native 內容相同、`cache_control` 斷點另報）。
-- [ ] 漂移檢查：`patches/` 與 `~/.omp/patches/` 部署後零漂移（排除 `.bak`）；補丁檔 `grep -nP '[^\x00-\x7F]' patches/.18.4.4-candidates/*.patch` 無輸出。
+- [ ] **（最高優先）** resume 漂移、soft 壓縮、snapcompact、remote 壓縮（Codex V2 / Anthropic native）+ 壓縮後 resume 全部在 18.4.4 全鏈沙箱跨新行程通過，且每個場景都有「無修復會紅」的敏感性對照；前綴穩定驗證報告（Codex 與 plain/soft/snapcompact 序列化位元組相同；Anthropic native 內容相同、`cache_control` 斷點另報）。
+- [ ] 漂移檢查：`patches/` 與 `~/.omp/patches/` 部署後零漂移（排除 `.bak`）；補丁檔 相對 18.4.1 候選新增的含非 ASCII `+` 行（`comm -13`）僅限上游資料（0065 rules.json）。
 - [ ] Phase 3.3 `trellis-update-spec` 已回寫本批規範。
 - [ ] 部署：新行程 `omp --version` = 18.4.4，live `apply.sh --check` 全 APPLIED；18.4.1 回滾樹保留。
+
+## 使用者最高優先（2026-09-29 重申）：omp 兩大主問題
+
+1. **resume 後快取漂移**：resume（新行程）重建的請求與 live 請求的模型側前綴必須一致；僅記憶體內、未持久化的訊息（eval 提醒、0077/0084 提醒、`^` 標記、modelText）重建後不得丟失或挪位。
+2. **soft 壓縮與 remote 壓縮的 miss**：soft、snapcompact、remote（Codex V2、Anthropic native）壓縮前後及其後 resume，前綴只允許尾部新增，不允許中段變動。
+- 這兩項是**遷移的驗收閘門，不是收尾項**：任何補丁層適配完，都要能追到它對這兩項的影響；未通過前不得進入部署。
+- 上游 18.4.2–18.4.4 的系統提示與工具描述有變（RFC 2119 措辭、bash/eval 描述、新增 edit 禁用 sed 的 critical 段、image-attachment 措辭），部署後每個既有 session 的第一輪請求整段 miss **屬預期（上游提示變更）**，需在報告中與「漂移」分開列。
+- 判定口徑同 18.4.1 PRD（Codex 與 plain/soft/snapcompact 序列化位元組相同；Anthropic native 內容相同，`cache_control` 斷點另報）。
 
 ## Out of Scope
 

@@ -109,7 +109,7 @@
  import { SessionManager } from "../../session/session-manager";
  import { loadPinnedSessionIds } from "../../session/session-pins";
  import { FileSessionStorage } from "../../session/session-storage";
-@@ -1599,6 +1600,7 @@
+@@ -1617,6 +1618,7 @@
  					}
  				},
  				historyMatcher,
@@ -124,10 +124,10 @@
  	visibleWidth,
  } from "../index";
 +import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
- import { formatBytes } from "@oh-my-pi/pi-utils";
- import { theme } from "../theme/theme";
- import { contentRowWidth } from "../chrome/selector-helpers";
-@@ -31,6 +32,11 @@
+ import * as path from "node:path";
+ import { formatBytes, getProjectDir } from "@oh-my-pi/pi-utils";
+ import type { TspPickerGroup, TspPickerItem, TspSpan, TspText, TspTone } from "@oh-my-pi/pi-wire";
+@@ -47,6 +48,11 @@
  	firstMessage: string;
  	allMessagesText: string;
  	status?: SessionSelectorStatus;
@@ -139,9 +139,9 @@
  	/** Path to the parent session when this one was forked. */
  	parentSessionPath?: string;
  }
-@@ -64,9 +70,29 @@
- 	}
- }
+@@ -255,9 +261,29 @@
+ 	{ id: "all", label: "All projects" },
+ ];
  
 +/**
 + * Compact selector form of a model for the metadata line: keep the id part,
@@ -169,7 +169,7 @@
  function sessionSearchText(session: SessionSelectorEntry): string {
  	const parts = [
  		session.id,
-@@ -319,6 +345,7 @@
+@@ -510,6 +536,7 @@
  	readonly #getTerminalRows: () => number;
  
  	onDeleteRequest?: (session: T) => void;
@@ -177,7 +177,7 @@
  
  	#allSessions: T[];
  	#showCwd: boolean;
-@@ -715,6 +742,9 @@
+@@ -1196,6 +1223,9 @@
  			if (status) {
  				metadata += ` ${dot} ${status}`;
  			}
@@ -187,7 +187,7 @@
  			if (session.parentSessionPath) {
  				metadata += ` ${dot} ${dim(`${theme.icon.branch} fork`)}`;
  			}
-@@ -759,6 +789,14 @@
+@@ -1240,6 +1270,14 @@
  		// combo instead. Regular Backspace on an empty query means "delete
  		// session"; with a typed query it stays bound to the search Input so users
  		// can still edit their filter text.
@@ -202,7 +202,7 @@
  		if (
  			matchesKey(keyData, "delete") ||
  			(matchesKey(keyData, "backspace") && this.#searchInput.getValue().length === 0)
-@@ -827,6 +865,11 @@
+@@ -1302,6 +1340,11 @@
  export interface SessionSelectorOptions<T extends SessionSelectorEntry = SessionSelectorEntry> {
  	onDelete?: (session: T) => Promise<boolean>;
  	historyMatcher?: SessionHistoryMatcher;
@@ -214,7 +214,7 @@
  	/** Loads sessions across all projects for the all-projects scope toggle (Tab). */
  	loadAllSessions?: () => Promise<T[]>;
  	/** Preloaded all-projects list; cached so the first Tab toggle is instant. */
-@@ -861,6 +904,10 @@
+@@ -1342,6 +1385,10 @@
  export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSelectorEntry> extends OverlayPanel {
  	#sessionList: SessionList<T>;
  	#confirmationDialog: HookSelectorComponent | null = null;
@@ -225,7 +225,7 @@
  	// Hosts whichever of `#sessionList` / `#confirmationDialog` is live this
  	// frame. The delete dialog REPLACES the list in this slot rather than being
  	// appended below the picker chrome, so the picker is always
-@@ -902,6 +949,9 @@
+@@ -1417,6 +1464,9 @@
  
  		this.#messageContainer = new Container();
  		this.#onDelete = options.onDelete;
@@ -235,7 +235,7 @@
  		this.#loadAllSessions = options.loadAllSessions;
  		this.#folderSessions = sessions;
  		this.#globalSessions = options.allSessions ?? null;
-@@ -943,6 +993,9 @@
+@@ -1460,6 +1510,9 @@
  		this.#sessionList.onDeleteRequest = (session: T) => {
  			this.#showDeleteConfirmation(session);
  		};
@@ -245,12 +245,13 @@
  		if (this.#loadAllSessions || this.#globalSessions) {
  			this.#sessionList.onToggleScope = () => {
  				void this.#toggleScope();
-@@ -1014,10 +1067,46 @@
+@@ -1533,11 +1586,47 @@
  	 * child-walking dispose would miss its pending history-merge timer.
  	 */
  	override dispose(): void {
 +		this.#previewView?.dispose();
  		this.#sessionList.dispose();
+ 		clearTimeout(this.#previewTimer);
  		super.dispose();
  	}
  
@@ -291,8 +292,8 @@
 +
  	#clearError(): void {
  		this.#messageContainer.clear();
- 	}
-@@ -1098,12 +1187,16 @@
+ 		this.#message = undefined;
+@@ -1632,12 +1721,16 @@
  
  	/** Blank · keybinding hint · bottom border. Rendered by {@link render}. */
  	#footerLines(width: number): string[] {
@@ -310,7 +311,7 @@
  		);
  		return [row("", width), row(hint, width), row("", width), bottomBorder(width)];
  	}
-@@ -1116,6 +1209,8 @@
+@@ -1877,6 +1970,8 @@
  		}
  		if (this.#confirmationDialog) {
  			this.#confirmationDialog.handleInput(keyData);
@@ -319,7 +320,7 @@
  		} else {
  			this.#sessionList.handleInput(keyData);
  		}
-@@ -1129,6 +1224,10 @@
+@@ -1890,6 +1985,10 @@
  	 */
  	#handleMouse(data: string): void {
  		if (this.#confirmationDialog) return;
@@ -330,7 +331,7 @@
  		routeSgrMouseInput(data, event => {
  			if (event.wheel !== null) {
  				this.#sessionList.handleWheel(event.wheel);
-@@ -1145,3 +1244,232 @@
+@@ -1906,3 +2005,232 @@
  		return this.#sessionList;
  	}
  }
@@ -592,7 +593,7 @@
  					getTerminalRows: () => ui.terminal.rows,
 --- a/pi-coding-agent/src/main.ts
 +++ b/pi-coding-agent/src/main.ts
-@@ -175,11 +175,18 @@
+@@ -186,11 +186,18 @@
  
  /** Resume/import-only graph boundary; ordinary launches never construct a picker. */
  async function loadSessionPicker(): Promise<SessionPicker> {
@@ -612,7 +613,7 @@
  	]);
  	return (sessions, options) => {
  		const storage = new FileSessionStorage();
-@@ -193,6 +200,7 @@
+@@ -204,6 +211,7 @@
  				await storage.deleteSessionWithArtifacts(session.path);
  				return true;
  			},
@@ -624,10 +625,10 @@
 +++ b/pi-tui/dist/types/overlays/session-selector.d.ts
 @@ -1,3 +1,4 @@
 +import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
- import { type Component } from "../index.js";
- /** Session lifecycle status presented by the picker. */
- export type SessionSelectorStatus = "complete" | "interrupted" | "aborted" | "error" | "pending" | "unknown";
-@@ -12,6 +13,11 @@
+ import { type Component, Input } from "../index.js";
+ import type { TspPickerGroup, TspPickerItem } from "@oh-my-pi/pi-wire";
+ import type { DescribeContext, NativeNode, NativeUiEvent } from "../native/node.js";
+@@ -15,6 +16,11 @@
      firstMessage: string;
      allMessagesText: string;
      status?: SessionSelectorStatus;
@@ -639,7 +640,7 @@
      /** Path to the parent session when this one was forked. */
      parentSessionPath?: string;
  }
-@@ -19,6 +25,12 @@
+@@ -36,6 +42,12 @@
  /** Returns the IDs of sessions whose recorded prompts match a query, best first. */
  export type SessionHistoryMatcher = (query: string) => string[];
  /**
@@ -652,7 +653,7 @@
   * Filter and rank session picker search results.
   *
   * Exact and partial title matches lead. Other literal matches rank by recency
-@@ -54,6 +66,7 @@
+@@ -71,6 +83,7 @@
      onExit: () => void;
      onToggleScope?: () => void;
      onDeleteRequest?: (session: T) => void;
@@ -660,7 +661,7 @@
      /** Re-render hook for async list updates (fuzzy scan chunks, history merge). */
      onRequestRender?: () => void;
      constructor(sessions: T[], showCwd?: boolean, historyMatcher?: SessionHistoryMatcher, getTerminalRows?: () => number, pinnedIds?: ReadonlySet<string>, currentSessionPath?: string | (() => string | undefined));
-@@ -75,6 +88,11 @@
+@@ -121,6 +134,11 @@
  export interface SessionSelectorOptions<T extends SessionSelectorEntry = SessionSelectorEntry> {
      onDelete?: (session: T) => Promise<boolean>;
      historyMatcher?: SessionHistoryMatcher;

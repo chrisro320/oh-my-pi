@@ -13,10 +13,10 @@
  	 */
  	responsesLite?: boolean;
  	/**
-@@ -3749,12 +3751,107 @@
-  * request schema has no `previous_response_id` (codex-rs carries it only on
-  * websocket `response.create` frames) and strict gateway validators 400 it
-  * with `{"detail":"Unsupported parameter: previous_response_id"}`.
+@@ -3752,14 +3754,109 @@
+  * Entering or leaving `ultrafast` still breaks the chain: that tier is a
+  * separate serving path, and codex-rs sends a full `response.create` across
+  * such a switch rather than a `previous_response_id` delta.
 + *
 + * Codex V2 remote compaction is the one caller whose prefix cannot be compared
 + * byte-wise: it appends a `compaction_trigger` to the live conversation
@@ -33,7 +33,9 @@
  	requestBody: RequestBody,
  	state: CodexWebSocketSessionState | undefined,
  ): RequestBody {
- 	const chainable = state?.canAppend === true;
+ 	const chainable =
+ 		state?.canAppend === true &&
+ 		(state.lastRequest?.service_tier === "ultrafast") === (requestBody.service_tier === "ultrafast");
 +	const lastInput =
 +		requestBody.input && requestBody.input.length > 0
 +			? requestBody.input[requestBody.input.length - 1]
@@ -151,7 +153,7 @@
  export { convertMessages as convertCodexResponsesMessages };
 --- a/pi-agent-core/src/compaction/compaction.ts
 +++ b/pi-agent-core/src/compaction/compaction.ts
-@@ -1919,7 +1919,12 @@
+@@ -1920,7 +1920,12 @@
  				{
  					reasoning: resolveCompactionEffort(model, summaryOptions.thinkingLevel),
  					forceReasoningOff: summaryOptions.thinkingLevel === ThinkingLevel.Off,
@@ -167,7 +169,7 @@
  					providerSessionState: summaryOptions.providerSessionState,
 --- a/pi-agent-core/src/compaction/compaction-v2-streaming.ts
 +++ b/pi-agent-core/src/compaction/compaction-v2-streaming.ts
-@@ -359,7 +359,10 @@
+@@ -350,7 +350,10 @@
  			sessionId: request.sessionId,
  			providerSessionState: options.providerSessionState,
  			preferWebsockets: options.preferWebsockets,

@@ -9,7 +9,7 @@
  }
  
  /** Inputs for synthesizing Codex request identity outside the normal stream path. */
-@@ -1686,14 +1688,26 @@
+@@ -1684,14 +1686,26 @@
  		requestBodyForState: RequestBody;
  		transport: CodexTransport;
  	};
@@ -36,7 +36,7 @@
  	}
  
  	if (requestContext.websocketState) {
-@@ -1733,7 +1747,23 @@
+@@ -1731,7 +1745,23 @@
  				}
  				const state = requestContext.websocketState;
  				if (state) recordCodexWebSocketFailure(state, true);
@@ -61,7 +61,7 @@
  				if (state) state.lastTransport = fallback.transport;
  				yield* drainCodexCompactionEvents(fallback.eventStream, requestContext);
  				completed = true;
-@@ -1814,8 +1844,6 @@
+@@ -1812,8 +1842,6 @@
  }> {
  	const steered = websocketState.acceptedSteering;
  	websocketState.acceptedSteering = undefined;
@@ -70,7 +70,7 @@
  	const websocketHeaders = createCodexHeaders(
  		requestContext.requestHeaders,
  		requestContext.accountId,
-@@ -1842,6 +1870,15 @@
+@@ -1840,6 +1868,15 @@
  		idleTimeoutMs: requestSetup.websocketIdleTimeoutMs,
  		firstEventTimeoutMs: requestSetup.websocketFirstEventTimeoutMs,
  	};
@@ -105,7 +105,7 @@
  import type { CompactionEntry, SessionEntry } from "./entries";
  import { NativeCompactionError } from "./errors";
  import {
-@@ -971,36 +972,8 @@
+@@ -972,36 +973,8 @@
  	return carriedSummary ?? "";
  }
  
@@ -144,7 +144,7 @@
  
  /**
   * Dump the summary request's real wire payload.
-@@ -2025,6 +1998,10 @@
+@@ -2027,6 +2000,10 @@
  					model: model.id,
  					stopReason: "compaction",
  					usage: remote.usage,
@@ -165,15 +165,15 @@
  	type OpenAICodexCompatibilityMetadata,
  } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
  import {
-@@ -33,6 +34,7 @@
- 	OPENAI_HEADERS,
- } from "@oh-my-pi/pi-catalog/wire/codex";
- import { $env, isUnexpectedSocketCloseMessage, logger, stringifyJson } from "@oh-my-pi/pi-utils";
+@@ -36,6 +37,7 @@
+ import { $env, isUnexpectedSocketCloseMessage, logger, ptree, stringifyJson } from "@oh-my-pi/pi-utils";
+ import { appendAzureApiVersion, resolveAzureOpenAiBaseUrl } from "./azure-openai-endpoint";
+ import { prepareBedrockCompactionRequest } from "./bedrock";
 +import { traceCompaction } from "./compaction-trace";
  
  // ============================================================================
  // Types & Configuration
-@@ -87,6 +89,13 @@
+@@ -89,6 +91,13 @@
  	usedTokens: number;
  	usage?: CompactionV2Usage;
  	retainedImageCount: number;
@@ -187,7 +187,7 @@
  }
  
  // ============================================================================
-@@ -291,6 +300,10 @@
+@@ -282,6 +291,10 @@
  				})
  			: undefined;
  	let lastError: Error | undefined;
@@ -197,8 +197,8 @@
 +	const requestDiagnostics: { current?: OpenAICodexTurnRequestDiagnostics } = {};
  
  	for (let attempt = 0; attempt <= V2_COMPACTION_MAX_RETRIES; attempt++) {
- 		const timeoutSignal = withRequestTimeout(signal, options?.timeoutMs ?? V2_COMPACTION_TIMEOUT_MS);
-@@ -300,12 +313,29 @@
+ 		const timeoutSignal = ptree.combineSignals(signal, options?.timeoutMs ?? V2_COMPACTION_TIMEOUT_MS);
+@@ -291,12 +304,29 @@
  				providerSessionState: options?.providerSessionState,
  				codexCompaction: options?.codexCompaction,
  				preferWebsockets: options?.preferWebsockets,
@@ -229,7 +229,7 @@
  				lastError = error;
  				const backoffMs = 2 ** attempt * 1000;
  				logger.warn(`V2 compaction attempt ${attempt + 1} failed, retrying in ${backoffMs}ms`, {
-@@ -336,6 +366,7 @@
+@@ -327,6 +357,7 @@
  		providerSessionState?: Map<string, ProviderSessionState>;
  		codexCompaction?: CodexCompactionContext;
  		preferWebsockets?: boolean;
@@ -237,7 +237,7 @@
  	},
  ): Promise<CompactionV2Response> {
  	// Faithful to Codex: append the compaction trigger as the final input item
-@@ -352,6 +383,10 @@
+@@ -343,6 +374,10 @@
  	}
  
  	if (shouldUseCodexProviderTransport(model)) {
@@ -248,7 +248,7 @@
  		const eventStream = await openCodexCompactionEventStream(model, body, {
  			apiKey,
  			signal,
-@@ -367,8 +402,19 @@
+@@ -358,8 +393,19 @@
  				context: options.codexCompaction,
  				implementation: "responses_compaction_v2",
  			}),
@@ -269,7 +269,7 @@
  	}
  
  	const response = await fetchImpl(endpoint, {
---- a/pi-agent-core/src/compaction/compaction-trace.ts
+--- /dev/null
 +++ b/pi-agent-core/src/compaction/compaction-trace.ts
 @@ -0,0 +1,25 @@
 +import { appendFileSync } from "node:fs";
@@ -297,7 +297,7 @@
 +		// Diagnostics must never take down a compaction.
 +	}
 +}
---- a/pi-agent-core/dist/types/compaction/compaction-trace.d.ts
+--- /dev/null
 +++ b/pi-agent-core/dist/types/compaction/compaction-trace.d.ts
 @@ -0,0 +1,7 @@
 +/**
@@ -312,7 +312,7 @@
 @@ -7,7 +7,7 @@
   * compaction item as replacement history.
   */
- import type { CodexCompactionContext, FetchImpl, Model, ProviderSessionState } from "@oh-my-pi/pi-ai";
+ import type { Api, CodexCompactionContext, FetchImpl, Model, ProviderSessionState } from "@oh-my-pi/pi-ai";
 -import { type OpenAICodexCompactionBody } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
 +import { type OpenAICodexCompactionBody, type OpenAICodexTurnRequestDiagnostics } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
  /** Retained-message budget Codex uses after streamed V2 compaction. */
