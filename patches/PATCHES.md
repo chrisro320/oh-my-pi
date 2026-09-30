@@ -817,6 +817,23 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - 第五輪閘門變更：liveness 新增腿 7i（三種漂移形狀＋同身分對照必須送出）與腿 7j（**不同 model**／**不同 api** 的 usage 不得作保）；native 新增 GATE 5d（同三種漂移＋同身分對照）與 GATE 5e（不同 model／不同 api）；四種漂移與兩種外來身分都必須具名 `capacity-unattested`／`native-capacity-unattested`（落盤＋warning＋trace，`usesLiveChainReplay` 不得為 true）。
 - 第五輪突變表（突變→閘門→紅，2026-09-30 實測，核心突變在私有樹）：移除連貫性下界 → liveness／native 皆紅「a prefix rebuilt after the measurement must fall back by name」，且 adversarial 腳本重跑後**正是那六格**（3 情境 × 2 lane）回到 unsafe；只留 api 守衛（移除 model 守衛）→ 兩閘皆紅「a different model must not attest this request」；只留 model 守衛（移除 api 守衛）→ 兩閘皆紅「a different api must not attest this request」。未突變樹：兩閘 GREEN、adversarial 20 格全 safe（六格漂移全部具名回退、`different-model`／`different-api` 具名回退、`cache-cold-usage`／`persisted-usage` 仍正確走 live lane）。
 
+- 殘餘（accepted；2026-09-30 部署前逐條確認，第五輪閘門與突變表之後仍成立；此處英文以確保 ASCII）:
+  - (a) split-turn compaction is cache-cold BY DESIGN and always named (`split-turn` on the compact branch, its own trace line for the turn-prefix request); it is not a regression.
+  - (b) the persisted summary may restate part of the retained tail: the summary and the replayed tail
+    overlap, so that text is duplicated -- never lost and never wrong.
+  - (c) the attestation coherence floor (0.75 x the transparent local estimate of the covered prefix) is
+    a plausibility filter, not a proof of size: a small drift at an exact capacity boundary can still
+    select the live lane while the real request sits just above the budget. Reviewer measured the worst
+    case as 1 estimated token at an exact fit; the named `live-chain-overflow-retry` fallback recovers
+    it. Realistic compactions run far below the window (the incident chain: 378k of 512k), so the floor
+    only binds on prefixes that were re-measured after the attestation.
+  - (d) inherited omp behavior, unchanged by 0086: the clamp that truncates a single oversized message
+    when no window can split it still exists. 0086 only covers the live lane, which never clamps --
+    it neither widens nor removes that clamp.
+  - (e) the incident acceptance was verified by replaying the archived real request with the real
+    provider `usage` appended to the chain, because the response body was never archived. No provider
+    request has been made: the live cache hit is NOT yet observed (AC7 stays open).
+
 
 ## 3. 已撤下的補丁
 
