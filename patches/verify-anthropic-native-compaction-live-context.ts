@@ -615,6 +615,73 @@ if (coreVersion === "18.4.4") {
 		"an unattested chain must not ship as the live chain",
 	);
 
+	// GATE 5d: the attestation is bound to the prefix and the controls it measured.
+	// The measured turn below reports 900 provider tokens, coherent with the tiny
+	// chain it covers, while the three shapes that follow keep that usage and
+	// rebuild the prefix it claims to cover, or replace the request's own system
+	// prompt or tool definition. The record never measured that content, so the
+	// chain is unattested and must fall back by name -- the matching-identity
+	// control in the same window is what a missing coherence bound breaks.
+	const driftText = "drifted-content ".repeat(20_000);
+	const measuredTurn: AgentMessage = {
+		...recentAssistant,
+		content: [{ type: "text", text: "sized-response" }],
+		usage: attestedUsage(900),
+	};
+	const identityControl: Context = { ...liveContext, messages: [oldUser, measuredTurn] };
+	logEvents.length = 0;
+	const identityOk = await runNative({}, { ...model, contextWindow: 64_000 }, identityControl, false);
+	assert.equal(identityOk.result.details?.cacheColdReason, undefined, "the matching-identity control must ship");
+	assert.deepEqual(cacheColdLogReasons(), [], "the matching-identity control must not warn");
+	const driftShapes: Array<[string, Context]> = [
+		[
+			"a prefix rebuilt after the measurement",
+			{
+				...liveContext,
+				messages: [
+					{ role: "user", content: [{ type: "text", text: driftText }], timestamp: 2 },
+					oldUser,
+					measuredTurn,
+				],
+			},
+		],
+		["a system prompt replaced after the measurement", { ...liveContext, systemPrompt: [driftText], messages: [oldUser, measuredTurn] }],
+		[
+			"a tool definition replaced after the measurement",
+			{
+				...liveContext,
+				messages: [oldUser, measuredTurn],
+				tools: [{ name: "read", description: driftText, parameters: { type: "object" } }],
+			},
+		],
+	];
+	for (const [label, drifted] of driftShapes) {
+		logEvents.length = 0;
+		const drift = await runNative({}, { ...model, contextWindow: 64_000 }, drifted, false);
+		assert.equal(drift.result.details?.cacheColdReason, "native-capacity-unattested", `${label} must fall back by name`);
+		assert.deepEqual(cacheColdLogReasons(), ["native-capacity-unattested"], `${label} must warn with the same reason`);
+		assert.notDeepEqual(
+			drift.requests[0].context.messages,
+			drifted.messages,
+			`${label} must not ship as the live chain`,
+		);
+	}
+
+	// GATE 5e: the usage must have been reported by THIS api and THIS model; an
+	// otherwise-valid usage-bearing turn from another model or another api is not a
+	// measure of this request.
+	const foreignTurns: Array<[string, AgentMessage]> = [
+		["a different model", { ...measuredTurn, model: "different-model-id" }],
+		["a different api", { ...measuredTurn, api: "openai-responses" }],
+	];
+	for (const [label, turn] of foreignTurns) {
+		logEvents.length = 0;
+		const foreign = await runNative({}, { ...model, contextWindow: 64_000 }, { ...liveContext, messages: [oldUser, turn] }, false);
+		assert.equal(foreign.result.details?.cacheColdReason, "native-capacity-unattested", `${label} must not attest this request`);
+		assert.deepEqual(cacheColdLogReasons(), ["native-capacity-unattested"], `${label} must warn with the same reason`);
+		assert.notDeepEqual(foreign.requests[0].context.messages, [oldUser, turn], `${label} must not ship as the live chain`);
+	}
+
 	// GATE 6: a split turn never rides the native live lane either -- the live
 	// shape is one whole-conversation request while a split compaction retains a
 	// turn prefix it replays verbatim, so the request is cut at `safeCut` and the

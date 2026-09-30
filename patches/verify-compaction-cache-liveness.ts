@@ -1705,6 +1705,101 @@ try {
 		"an unattested chain must not be traced as shipped",
 	);
 
+	// Leg 7i: the attestation is bound to the prefix and the controls it measured.
+	// The measured turn below reports 900 provider tokens, coherent with the tiny
+	// chain it covers. The three shapes that follow keep that usage while the
+	// prefix it claims to cover is rebuilt, or the request's own system prompt or
+	// tool definition is replaced: the record never measured that content, so the
+	// chain is no longer attested and may not be spent as if it were. Each shape
+	// must fall back by name, and the matching-identity control in the same window
+	// must ship -- that pair is what a missing coherence bound breaks.
+	const driftText = capacityText(20_000);
+	const measured = sizedTurn(900);
+	const identityControl: Context = { systemPrompt: SYSTEM, messages: [messages[0], measured], tools: TOOLS };
+	logEvents.length = 0;
+	const identityOk = await captureCompactionStub(smallHistory, identityControl, {
+		model: capacityModel,
+		messagesToSummarize: smallTarget,
+		recentMessages: [],
+	});
+	assert.equal(identityOk.cacheColdReason, undefined, "the matching-identity control must ship the live chain");
+	assert.equal(
+		liveChainFallbackOf(identityOk.summarizeRequests),
+		undefined,
+		"the matching-identity control must not be traced as a fallback",
+	);
+	const driftShapes: Array<[string, Context]> = [
+		[
+			"a prefix rebuilt after the measurement",
+			{
+				systemPrompt: SYSTEM,
+				messages: [{ role: "user", content: [{ type: "text", text: driftText }], timestamp: 2 }, messages[0], measured],
+				tools: TOOLS,
+			},
+		],
+		["a system prompt replaced after the measurement", { systemPrompt: [driftText], messages: [messages[0], measured], tools: TOOLS }],
+		[
+			"a tool definition replaced after the measurement",
+			{
+				systemPrompt: SYSTEM,
+				messages: [messages[0], measured],
+				tools: [{ name: "inspect", description: driftText, parameters: { type: "object", properties: {} } }],
+			},
+		],
+	];
+	for (const [label, drifted] of driftShapes) {
+		logEvents.length = 0;
+		const drift = await captureCompactionStub(smallHistory, drifted, {
+			model: capacityModel,
+			messagesToSummarize: smallTarget,
+			recentMessages: [],
+		});
+		assert.equal(drift.cacheColdReason, "capacity-unattested", `${label} must fall back by name`);
+		assert.equal(
+			liveChainFallbackOf(drift.summarizeRequests),
+			"capacity-unattested",
+			`${label} must be traced with its reason`,
+		);
+		assert.notEqual(
+			drift.summarizeRequests.at(-1)?.usesLiveChainReplay,
+			true,
+			`${label} must not be traced as shipped`,
+		);
+		assert.deepEqual(
+			cacheColdLogReasons(),
+			["capacity-unattested"],
+			`${label} must warn with the same reason`,
+		);
+	}
+
+	// Leg 7j: the usage must have been reported by THIS api and THIS model. An
+	// otherwise-valid usage-bearing turn from another model or another api is not
+	// a measure of this request, so the chain is unattested; the control above is
+	// the same shape with matching identity.
+	const foreignTurns: Array<[string, FixtureMessage]> = [
+		["a different model", { ...measured, model: "different-model-id" }],
+		["a different api", { ...measured, api: "openai-responses" }],
+	];
+	for (const [label, turn] of foreignTurns) {
+		logEvents.length = 0;
+		const foreign = await captureCompactionStub(
+			smallHistory,
+			{ systemPrompt: SYSTEM, messages: [messages[0], turn], tools: TOOLS },
+			{ model: capacityModel, messagesToSummarize: smallTarget, recentMessages: [] },
+		);
+		assert.equal(foreign.cacheColdReason, "capacity-unattested", `${label} must not attest this request`);
+		assert.equal(
+			liveChainFallbackOf(foreign.summarizeRequests),
+			"capacity-unattested",
+			`${label} must be traced with its reason`,
+		);
+		assert.notEqual(
+			foreign.summarizeRequests.at(-1)?.usesLiveChainReplay,
+			true,
+			`${label} must not be traced as shipped`,
+		);
+	}
+
 	// Leg 8: the whole-conversation note belongs to a request that really carries
 	// the retained tail. With no tail the summary replaces every message it
 	// sends, so the request must say that instead of claiming a verbatim tail.

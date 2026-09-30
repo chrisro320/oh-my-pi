@@ -186,6 +186,25 @@ suite. A gate that no suite invokes is not a gate.
   `verify-compaction-cache-liveness.ts` leg 1e -- the short-retention wire form
   reads `readBlocks=0` at compaction time while the one-hour chain reads 433.
 
+- An attestation MUST be bound to the prefix and the controls it measured. A
+  usage record measures the messages, system prompt and tool list ONE request
+  carried; if the chain is rebuilt afterwards (a compaction summary spliced in
+  ahead of the measured turn) or one of those controls is replaced, the record
+  never measured that content and must not authorise it. The bound is a
+  coherence floor: the provider's number for the covered prefix MUST NOT be below
+  a transparent local estimate of the CURRENT covered prefix (system + tools +
+  the messages before the measured turn, opaque reasoning excluded), scaled by
+  0.75 -- justified by the incident's estimator-to-provider ratio
+  343453/378255 = 0.908, which leaves a quarter of the transparent estimate as
+  slack for the unmeasured direction (estimator over-counting). Violating it is
+  `capacity-unattested` / `native-capacity-unattested`, never optimism, and never
+  `over-capacity`, because nothing knows the rebuilt chain's real size. Machine
+  check: the drift legs of both gates (`a prefix rebuilt after the measurement`,
+  `a system prompt replaced after the measurement`, `a tool definition replaced
+  after the measurement`) with their matching-identity control, plus the
+  `a different model` / `a different api` legs; removing the floor or either
+  identity guard turns them red (verified 2026-09-30).
+
 ### 4. Validation & Error Matrix
 
 | Condition | Required result |

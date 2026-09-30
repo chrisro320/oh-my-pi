@@ -424,7 +424,7 @@
  			? UPDATE_SUMMARIZATION_FROM_PREFIX_PROMPT
  			: UPDATE_SUMMARIZATION_PROMPT
  		: SUMMARIZATION_PROMPT;
-@@ -1080,40 +1222,194 @@
+@@ -1080,40 +1222,228 @@
  	}
  
  	let promptText = "";
@@ -492,6 +492,30 @@
 +}
 +
 +/**
++ * How much of a covered prefix's transparent local estimate the provider's own
++ * number for that prefix must still cover, before the attestation is trusted.
++ *
++ * A usage record measures ONE prefix: the messages, system prompt and tool list
++ * the request it answered actually carried. The chain can be rebuilt afterwards
++ * (a compaction summary spliced in ahead of the measured turn, a system prompt or
++ * a tool definition replaced), and then the record covers content it never
++ * measured -- the attestation would authorise a request far past the window while
++ * reporting itself as attested. The transparent estimate of the CURRENT covered
++ * prefix (system + tools + the messages before the measured turn, opaque
++ * reasoning bytes excluded) is the cheapest coherence test available: whatever
++ * the provider charges, it cannot be a fraction of the visible content it
++ * actually billed.
++ *
++ * Measured on the archived incident, the transparent estimate reads 343_453 for
++ * a prefix the provider billed 378_255 (90.8%): the estimator is the LOWER of
++ * the two there, and the estimator's own over-counting is unmeasured, so the
++ * floor leaves a quarter of the transparent estimate as slack. A prefix whose
++ * transparent estimate exceeds the attestation by more than a third is treated
++ * as changed -- not as over capacity, because nothing knows its real size.
++ */
++const ATTESTATION_COHERENCE_FLOOR = 0.75;
++
++/**
 + * What one request over the host's whole live chain costs against the model
 + * window: the provider-attested input of the last request that chain already
 + * sent, plus a local estimate of ONLY the messages appended after it. Opaque
@@ -499,13 +523,23 @@
 + * bytes the provider counts on its own side, and the attested number already
 + * carries its charge for every one of them.
 + *
-+ * Returns `undefined` when no turn of the chain was provider-sized: capacity is
-+ * then unknown, and an unknown size may not be spent as if it were small.
++ * Returns `undefined` when no turn of the chain was provider-sized, or when the
++ * attestation is incoherent with the prefix it claims to cover (see
++ * {@link ATTESTATION_COHERENCE_FLOOR}): capacity is then unknown, and an unknown
++ * size may not be spent as if it were small.
 + */
 +function liveChainRequestTokens(context: Context, model: Model, tokenizer: Tokenizer): number | undefined {
 +	const messages = context.messages as unknown as Message[];
 +	const attestation = findProviderInputAttestation(messages, model);
 +	if (attestation === undefined) return undefined;
++	const system = Array.isArray(context.systemPrompt) ? context.systemPrompt.join("\n\n") : "";
++	const tools = context.tools === undefined ? "" : JSON.stringify(context.tools);
++	const covered = tokenizer.countMessages(
++		messages.slice(0, attestation.coveredMessages) as unknown as AgentMessage[],
++		{ excludeEncryptedReasoning: true },
++	);
++	const transparentCovered = tokenizer.countTokens(system) + tokenizer.countTokens(tools) + covered;
++	if (attestation.tokens < transparentCovered * ATTESTATION_COHERENCE_FLOOR) return undefined;
 +	const appended = messages.slice(attestation.coveredMessages);
 +	const estimated =
 +		appended.length === 0
@@ -551,7 +585,11 @@
 +		tokens,
 +	};
 +}
-+
+ 
+-	// Target messages determine what is summarized. A verified live prefix is a
+-	// separate wire concern: use it only when the full prefix fits this request.
+-	// Multi-window folds keep provider-ready system/tools but use their target
+-	// window and make no live-prefix cache claim.
 +/** One summarization call over a single conversation window. */
 +async function summarizeConversationWindow(
 +	conversationText: string,
@@ -580,11 +618,7 @@
 +		options,
 +		liveChainContext === undefined ? undefined : liveChainNote,
 +	);
- 
--	// Target messages determine what is summarized. A verified live prefix is a
--	// separate wire concern: use it only when the full prefix fits this request.
--	// Multi-window folds keep provider-ready system/tools but use their target
--	// window and make no live-prefix cache claim.
++
 +	// Target messages determine what is summarized. A vouched-for prefix is a
 +	// separate wire concern: the host's whole live chain when it was selected,
 +	// otherwise the prefix cut at the summarize boundary when that fits this
@@ -630,7 +664,7 @@
  		requestContext = {
  			systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT],
  			messages: [
-@@ -1133,7 +1429,7 @@
+@@ -1133,7 +1463,7 @@
  			key =>
  				requestRemoteCompaction(
  					endpoint,
@@ -639,7 +673,7 @@
  					signal,
  					{ fetch: options.fetch, model, apiKey: key },
  				),
-@@ -1153,6 +1449,11 @@
+@@ -1153,6 +1483,11 @@
  		windowMessages: windowMessages?.length ?? 0,
  		hasCachePreservingContext: cachePreservingSummary !== undefined,
  		usesCachePreservingPrefix: useCachePreservingPrefix,
@@ -651,7 +685,7 @@
  	});
  
  	let response = await instrumentedCompleteSimple(
-@@ -1825,6 +2126,11 @@
+@@ -1825,6 +2160,11 @@
  	// `firstKeptEntryId`, so its retained tail is already inside
  	// `messagesToSummarize`; no separate carry-over list is needed.
  	const historyTargetMessages = messagesToSummarize;
@@ -663,7 +697,7 @@
  	const summaryOptions: SummaryOptions = {
  		promptOverride: options?.promptOverride,
  		extraContext: options?.extraContext,
-@@ -1834,6 +2140,15 @@
+@@ -1834,6 +2174,15 @@
  		initiatorOverride: options?.initiatorOverride,
  		metadata: options?.metadata,
  		convertToLlm: options?.convertToLlm,
@@ -679,7 +713,7 @@
  		buildCachePreservingContext: options?.buildCachePreservingContext,
  		telemetry: options?.telemetry,
  		// Honor /model thinking selection on every fan-out summarizer.
-@@ -1854,6 +2169,16 @@
+@@ -1854,6 +2203,16 @@
  		// The caller's opt-out must reach every summarization oneshot, otherwise
  		// an outer retry loop multiplies with the inner one (see SummaryOptions).
  		oneshotRetry: options?.oneshotRetry,
@@ -696,7 +730,7 @@
  	};
  
  	const previousSnapcompactArchive = snapcompact.getPreservedArchive(previousPreserveData);
-@@ -2208,28 +2533,84 @@
+@@ -2208,28 +2567,84 @@
  		for (let i = originalCut; i < safeCut; i++) extractFileOpsFromMessage(allMessages[i], fileOps);
  		// The live request shape through the host's own pipeline (`context`
  		// extension chain + normalizeTools), so system/tools and the summarized
@@ -794,7 +828,7 @@
  		traceCompaction({
  			k: "summarize.request",
  			lane: "anthropic-native",
-@@ -2238,6 +2619,10 @@
+@@ -2238,6 +2653,10 @@
  			systemParts: nativeSystemPrompt.length,
  			tools: nativeTools?.length ?? 0,
  			hasLiveContext: liveContext !== undefined,
@@ -805,7 +839,7 @@
  		});
  		try {
  			const remote = await requestAnthropicNativeCompaction(
-@@ -2249,12 +2634,8 @@
+@@ -2249,12 +2668,8 @@
  					systemPrompt: nativeSystemPrompt,
  					messages,
  					tools: nativeTools,
@@ -820,7 +854,7 @@
  					reasoning: resolveCompactionEffort(model, summaryOptions.thinkingLevel),
  				},
  				signal,
-@@ -2323,6 +2704,13 @@
+@@ -2323,6 +2738,13 @@
  		const inputTokens = getCompactionV2PreserveData(preserveData)?.usedTokens ?? 0;
  		summary = formatRemoteCompactionSummary(inputTokens);
  	} else if (isSplitTurn && turnPrefixMessages.length > 0) {
@@ -834,7 +868,7 @@
  		// Generate both summaries in parallel
  		const [historyResult, turnPrefixResult] = await Promise.all([
  			historyTargetMessages.length > 0 || previousSummaryForCompaction
-@@ -2406,7 +2794,11 @@
+@@ -2406,7 +2828,11 @@
  		shortSummary,
  		firstKeptEntryId: nativeSummary !== undefined ? nativeFirstKeptEntryId : firstKeptEntryId,
  		tokensBefore,
@@ -847,7 +881,7 @@
  		preserveData: finalPreserveData,
  	};
  }
-@@ -2451,6 +2843,28 @@
+@@ -2451,6 +2877,28 @@
  			}
  		: { systemPrompt: [SUMMARIZATION_SYSTEM_PROMPT], messages: [summarizationTail] };
  
