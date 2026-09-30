@@ -27,20 +27,25 @@
 //
 // Log: ~/.omp/agent/resume-cache.log   Command: /cachefix
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 const LOG_PATH = process.env.OMP_RESUME_CACHE_LOG ?? join(homedir(), ".omp", "agent", "resume-cache.log");
 
-/** Block types Anthropic accepts a cache_control marker on. */
-const CACHEABLE_BLOCKS: Record<string, true> = {
-	text: true,
-	tool_result: true,
-	tool_use: true,
-	image: true,
-	document: true,
+/**
+ * Block types Anthropic refuses a `cache_control` marker on, mirroring
+ * `applyCacheControlToLastBlock` in pi-ai's Anthropic provider: generated
+ * reasoning, fallback boundaries and mid-conversation tool-control blocks are
+ * skipped when the provider decorates a cache entry. Marking one is a 400.
+ */
+const UNCACHEABLE_BLOCKS: Record<string, true> = {
 	thinking: true,
+	redacted_thinking: true,
+	fallback: true,
+	tool_addition: true,
+	tool_removal: true,
 };
 
 interface ContentBlock {
@@ -133,12 +138,49 @@ const ANCHOR_LOOKBACK_BLOCKS = 20;
 const GROWTH_TRIGGER_BLOCKS = ANCHOR_LOOKBACK_BLOCKS - 4;
 
 /**
- * The previous Anthropic request of each conversation seen in this process,
- * newest last. Keyed per conversation so a side request on the same model (title
- * generation, keepalive) cannot displace the base a real turn is compared with.
+ * The previous Anthropic request of each conversation seen in this process.
+ *
+ * Identity is CONTINUITY, not a name. A request may reuse a tracked entry only
+ * when that entry's stored last-message hash equals the hash of the message at
+ * the index right after its recorded count — which proves the tracked request's
+ * tail is really a prefix of this one. It needs no session id (the hook exposes
+ * none) and keeps a side request (title generation, keepalive) from displacing
+ * the base a real turn is compared with. Two conversations that open with the
+ * same message match only when their bytes agree; and a burst of unrelated side
+ * requests cannot evict the main entry: the cap is spent on the oldest entry no
+ * larger than the incoming request, and a request smaller than every entry is not
+ * recorded at all. A one-message side request can never be a prefix of the main
+ * conversation, while the larger entry still can.
  */
-const tracker = new Map<string, { messages: number; blocks: number }>();
+const tracker = new Map<string, TrackedRequest>();
 const TRACKER_CAP = 8;
+
+interface TrackedRequest {
+	messages: number;
+	blocks: number;
+	/** sha1 of the last message with `cache_control` stripped. */
+	lastHash: string;
+}
+
+/** Content hash of one provider message, ignoring the provider's cache_control
+ *  markers: they move between requests without changing a cached byte, so
+ *  hashing them would break continuity at every turn. */
+function messageHash(message: ProviderMessage | undefined): string {
+	return createHash("sha1").update(JSON.stringify(stripCacheControl(message ?? null))).digest("hex");
+}
+
+function stripCacheControl(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map(stripCacheControl);
+	if (value !== null && typeof value === "object") {
+		const out: Record<string, unknown> = {};
+		for (const [key, entry] of Object.entries(value)) {
+			if (key === "cache_control") continue;
+			out[key] = stripCacheControl(entry);
+		}
+		return out;
+	}
+	return value;
+}
 
 function countContentBlocks(messages: ProviderMessage[]): number {
 	let blocks = 0;
@@ -150,23 +192,24 @@ function countContentBlocks(messages: ProviderMessage[]): number {
 }
 
 /**
- * Identify "the same conversation" across requests: model plus the first user
- * message. A side request (title generation, keepalive) on the same model has a
- * different first message, so it can neither trigger an anchor nor reset the
- * comparison base into something unrelated.
+ * Find the tracked request whose tail is a real prefix of `messages`: its
+ * stored last-message hash equals the hash of the message at the index right
+ * after its recorded count. The largest such count is the nearest predecessor.
  */
-function conversationKey(payload: AnthropicPayload, messages: ProviderMessage[]): string {
-	const first = messages[0]?.content;
-	const text = Array.isArray(first)
-		? first.map(block => (block as { text?: string })?.text ?? block?.type ?? "").join("\u0000")
-		: String(first ?? "");
-	return `${(payload as { model?: string }).model ?? ""}\u0001${text.length}\u0001${text.slice(0, 256)}`;
+function findPredecessor(messages: ProviderMessage[]): TrackedRequest | undefined {
+	let best: TrackedRequest | undefined;
+	for (const entry of tracker.values()) {
+		if (entry.messages < 1 || entry.messages >= messages.length) continue;
+		if (entry.lastHash !== messageHash(messages[entry.messages - 1])) continue;
+		if (!best || entry.messages > best.messages) best = entry;
+	}
+	return best;
 }
 
 /**
- * Put one cache breakpoint on the last block of `messages[anchorIndex]`, staying
- * inside Anthropic's 4-breakpoint cap. `tag` prefixes the log lines so resume
- * and growth anchors stay distinguishable in `resume-cache.log`.
+ * Put one cache breakpoint on the last eligible block of `messages[anchorIndex]`,
+ * staying inside Anthropic's 4-breakpoint cap. `tag` prefixes the log lines so
+ * resume and growth anchors stay distinguishable in `resume-cache.log`.
  */
 function placeAnchor(
 	payload: AnthropicPayload,
@@ -182,20 +225,66 @@ function placeAnchor(
 		return undefined;
 	}
 
-	const block = content[content.length - 1];
-	if (!block?.type || !CACHEABLE_BLOCKS[block.type]) {
-		state.lastAction = `skipped: block type ${block?.type}`;
-		log(`${tag}skip block-type index=${anchorIndex} type=${block?.type}`);
+	// Walk back to the last eligible block: Anthropic refuses a marker on
+	// thinking/fallback/tool-control blocks, and a generated-thinking tail is
+	// common (the provider's own decorator scans the same way).
+	let blockIndex = -1;
+	for (let index = content.length - 1; index >= 0; index--) {
+		const candidate = content[index];
+		if (!candidate?.type || UNCACHEABLE_BLOCKS[candidate.type]) continue;
+		blockIndex = index;
+		break;
+	}
+	if (blockIndex < 0) {
+		state.lastAction = `skipped: no eligible block at ${anchorIndex}`;
+		log(`${tag}skip no-eligible-block index=${anchorIndex}`);
 		return undefined;
 	}
+	const block = content[blockIndex];
 	if (block.cache_control) {
 		state.lastAction = `skipped: breakpoint already at ${anchorIndex}`;
 		log(`${tag}skip already-marked index=${anchorIndex}`);
 		return undefined;
 	}
+
+	// Anthropic rejects a 5m block placed before a 1h one (hard 400), and the
+	// wire order is tools, system, then messages in order. The anchor's TTL must
+	// therefore be <= every marker before it and >= every marker after it; when
+	// the two bounds cross there is no legal TTL and the anchor is declined.
+	let minEarlier = Number.POSITIVE_INFINITY;
+	let maxLater = Number.NEGATIVE_INFINITY;
+	const consider = (marker: { ttl?: string } | undefined, before: boolean): void => {
+		if (!marker) return;
+		const value = marker.ttl === "1h" ? 2 : 1;
+		if (before) minEarlier = Math.min(minEarlier, value);
+		else maxLater = Math.max(maxLater, value);
+	};
+	for (const tool of payload.tools ?? []) consider(tool?.cache_control, true);
+	for (const systemBlock of payload.system ?? []) consider(systemBlock?.cache_control, true);
+	for (let messageIndex = 0; messageIndex < messages.length; messageIndex++) {
+		const blocks = messages[messageIndex]?.content;
+		if (!Array.isArray(blocks)) continue;
+		for (let index = 0; index < blocks.length; index++) {
+			if (messageIndex === anchorIndex && index === blockIndex) continue;
+			const before = messageIndex < anchorIndex || (messageIndex === anchorIndex && index < blockIndex);
+			consider(blocks[index]?.cache_control, before);
+		}
+	}
+	if (maxLater > minEarlier) {
+		state.lastAction = `skipped: no legal TTL at ${anchorIndex} (earlier<=${minEarlier} later>=${maxLater})`;
+		log(`${tag}skip ttl-conflict index=${anchorIndex} earlier=${minEarlier} later=${maxLater}`);
+		return undefined;
+	}
+	// Prefer the most restrictive earlier marker (the longest legal TTL), else the
+	// longest later one, else the provider default (5m).
+	let ttl: string | undefined;
+	if (minEarlier !== Number.POSITIVE_INFINITY) ttl = minEarlier === 2 ? "1h" : undefined;
+	else if (maxLater === 2) ttl = "1h";
+
 	// Claiming a slot past the cap is a hard 400, so make room first. Release
 	// until the anchor fits: a future provider policy may hand us more than one
 	// marker of slack to reclaim, and one release would still leave us over.
+	// Releasing a later marker only lowers `maxLater`, so the TTL stays legal.
 	while (countBreakpoints(payload) + 1 > ANTHROPIC_MAX_BREAKPOINTS) {
 		const released = releaseInteriorMarker(messages, anchorIndex);
 		if (released === undefined) {
@@ -204,21 +293,6 @@ function placeAnchor(
 			return undefined;
 		}
 		log(`${tag}released index=${released} messages=${messages.length}`);
-	}
-	// Anthropic rejects a 5m cache_control block appearing before a 1h block (400 error).
-	// Inherit any TTL used by other cache_control blocks in this payload (e.g. "1h" from OAuth).
-	let ttl: string | undefined;
-	for (let i = messages.length - 1; i >= 0; i--) {
-		const mContent = messages[i]?.content;
-		if (Array.isArray(mContent)) {
-			for (const b of mContent) {
-				if (b?.cache_control?.ttl) {
-					ttl = b.cache_control.ttl;
-					break;
-				}
-			}
-		}
-		if (ttl) break;
 	}
 
 	block.cache_control = ttl ? { type: "ephemeral", ttl } : { type: "ephemeral" };
@@ -238,12 +312,27 @@ export default function (pi: ExtensionAPI): void {
 
 		// Measure this request against the previous one of the same conversation
 		// BEFORE anything below can return, so the tracker never goes stale.
-		const key = conversationKey(payload, messages);
 		const blocks = countContentBlocks(messages);
-		const previous = tracker.get(key);
+		const lastHash = messageHash(messages[messages.length - 1]);
+		const previous = findPredecessor(messages);
+		const key = `${messages.length}:${lastHash}`;
 		tracker.delete(key);
-		tracker.set(key, { messages: messages.length, blocks });
-		if (tracker.size > TRACKER_CAP) tracker.delete(tracker.keys().next().value as string);
+		tracker.set(key, { messages: messages.length, blocks, lastHash });
+		if (tracker.size > TRACKER_CAP) {
+			// Evict the oldest entry that is no larger than this request; if every
+			// entry is larger, do not record this request at all (see the tracker
+			// comment above). A side request therefore cannot displace a longer
+			// conversation, while a second large conversation still fits.
+			let victimKey: string | undefined;
+			for (const [candidateKey, candidate] of tracker) {
+				if (candidateKey === key) continue;
+				if (candidate.messages <= messages.length) {
+					victimKey = candidateKey;
+					break;
+				}
+			}
+			tracker.delete(victimKey ?? key);
+		}
 
 		if (state.armed) {
 			let lastAssistant = -1;

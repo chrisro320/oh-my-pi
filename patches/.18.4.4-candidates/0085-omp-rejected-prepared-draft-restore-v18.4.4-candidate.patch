@@ -8,13 +8,49 @@
  import { shouldShowStartupSplash } from "./startup-splash";
  import {
  	discoverSystemPromptOverride,
-@@ -465,6 +466,16 @@
+@@ -381,6 +382,13 @@
+ 		| "markPendingSubmissionStarted"
+ 		| "finishPendingSubmission"
+ 		| "showError"
++		| "showWarning"
++		// A rejected prepared draft is handed to the editor and the deferred
++		// queue, so the contract needs the restore runtime as well.
++		| "editor"
++		| "deferredDraftSnapshots"
++		| "updatePendingMessagesDisplay"
++		| "ui"
+ 		| "checkShutdownRequested"
+ 		| "skillCommands"
+ 		| "renderOptimisticSkillMessage"
+@@ -388,7 +396,7 @@
+ 		| "optimisticSkillMessagePending"
+ 	> &
+ 		Partial<Pick<InteractiveMode, "loopPrompt" | "pauseLoop">>,
+-	session: Pick<AgentSession, "prompt" | "promptCustomMessage" | "isStreaming">,
++	session: Pick<AgentSession, "prompt" | "promptCustomMessage" | "isStreaming" | "messages">,
+ 	input: SubmittedUserInput,
+ ): Promise<void> {
+ 	if (input.cancelled) {
+@@ -456,6 +464,10 @@
+ 			});
+ 		} else {
+ 			let forwarded = false;
++			// Only a rejection that never admitted the message may hand its draft
++			// back: once a turn took it the transcript grew, and restoring would
++			// offer a duplicate of content already submitted.
++			const transcriptBefore = session.messages.length;
+ 			try {
+ 				forwarded = await session.prompt(input.text, {
+ 					images: input.images,
+@@ -465,6 +477,18 @@
  				});
  			} catch (error: unknown) {
  				mode.showError(error instanceof Error ? error.message : "Unknown error occurred");
 +				// A prepared submission's original text and attachments already left
 +				// the editor; without this they are gone once dispatch is rejected.
-+				if (input.prepared) {
++				// The prompt-dropped callback may have handed them back already,
++				// which the helper detects from the editor's own contents.
++				if (input.prepared && session.messages.length === transcriptBefore) {
 +					restoreRejectedDraft(mode, {
 +						text: input.displayText ?? input.text,
 +						canonicalText: input.text,
@@ -88,7 +124,7 @@
  import type { TuiSlashCommandRuntime } from "../types";
  
  /** Clear only text still owned by this submission, never a newer detached draft. */
-@@ -28,3 +29,71 @@
+@@ -28,3 +29,89 @@
  	}
  	editor.setCollapsedText([restoredText, currentText].filter(part => part.trim()).join("\n\n"));
  }
@@ -126,6 +162,21 @@
 +	);
 +}
 +
++/**
++ * True when the editor already holds exactly this draft (same text and
++ * attachments). The session's prompt-dropped callback writes a rejected input
++ * back before rethrowing, so restoring it again would list the same submission
++ * a second time in the restorable queue.
++ */
++function editorAlreadyHoldsDraft(editor: CustomEditor, draft: RejectedDraft): boolean {
++	const draftImages = draft.images ?? [];
++	if (editor.getText() !== draft.text || editor.pendingImages.length !== draftImages.length) return false;
++	return draftImages.every(
++		(image, index) =>
++			editor.pendingImages[index]?.data === image.data && editor.pendingImages[index]?.mimeType === image.mimeType,
++	);
++}
++
 +/** Keep a rejected capture restorable without touching the editor's newer draft. */
 +export function retainRejectedDraft(runtime: RejectedDraftRuntime, draft: RejectedDraft): void {
 +	runtime.deferredDraftSnapshots.push({
@@ -138,16 +189,19 @@
 +}
 +
 +/**
-+ * Hand a rejected submission back to the editor. It is written into the editor
-+ * only while nothing newer lives there (see {@link editorHoldsNewerDraft});
-+ * otherwise it stays restorable through the dequeue path so a newer draft or a
-+ * freshly pasted attachment is never overwritten.
++ * Hand a rejected submission back to the editor. A draft the editor already
++ * holds verbatim (see {@link editorAlreadyHoldsDraft}) is left alone: another
++ * owner restored it. Otherwise it is written into the editor only while nothing
++ * newer lives there (see {@link editorHoldsNewerDraft}), and stays restorable
++ * through the dequeue path so a newer draft or a freshly pasted attachment is
++ * never overwritten.
 + */
 +export function restoreRejectedDraft(
 +	runtime: RejectedDraftRuntime,
 +	draft: RejectedDraft,
 +	revision?: number,
 +): void {
++	if (editorAlreadyHoldsDraft(runtime.editor, draft)) return;
 +	if (editorHoldsNewerDraft(runtime.editor, revision)) {
 +		retainRejectedDraft(runtime, draft);
 +		return;

@@ -171,6 +171,50 @@ function blockTotal(payload: Payload): number {
 	return (payload.messages ?? []).reduce((sum, m) => sum + (Array.isArray(m.content) ? m.content.length : 1), 0);
 }
 
+/**
+ * A conversation of `count` single-block messages whose first message is
+ * `first` (a plain string or a block array) and whose last two messages carry
+ * 1h markers. Used to drive continuity matching across conversation shapes.
+ */
+function flatConversation(first: Block[] | string, count: number, label: string): Payload {
+	const messages: Message[] = [{ role: "user", content: first }];
+	for (let i = 1; i < count; i++) {
+		messages.push({ role: i % 2 === 0 ? "assistant" : "user", content: [{ type: "text", text: `${label}${i}` }] });
+	}
+	for (const index of [count - 2, count - 1]) {
+		const blocks = messages[index]?.content;
+		if (Array.isArray(blocks)) blocks[blocks.length - 1].cache_control = { ...ONE_HOUR };
+	}
+	return {
+		messages,
+		system: [{ type: "text", text: "base" }, { type: "text", text: "identity", cache_control: { ...ONE_HOUR } }],
+		tools: [{ type: "read" }, { type: "bash", cache_control: { ...ONE_HOUR } }],
+	};
+}
+
+/** Every marker on the wire in Anthropic wire order (tools, system, messages),
+ *  as its TTL string. */
+function wireTtlOrder(payload: Payload): string[] {
+	const out: string[] = [];
+	const push = (block: Block): void => {
+		if (block.cache_control) out.push(block.cache_control.ttl ?? "5m");
+	};
+	for (const tool of payload.tools ?? []) push(tool);
+	for (const block of payload.system ?? []) push(block);
+	for (const message of payload.messages ?? []) {
+		if (!Array.isArray(message.content)) continue;
+		for (const block of message.content) push(block);
+	}
+	return out;
+}
+
+/** The block list of message `index`, failing the gate if the fixture is wrong. */
+function blocksAt(payload: Payload, index: number): Block[] {
+	const content = payload.messages?.[index]?.content;
+	assert.ok(Array.isArray(content), `fixture: message ${index} must have a block list`);
+	return content;
+}
+
 /** Start a conversation in a clean, disarmed state: first request seen, no anchor pending. */
 function begin(previous: Payload): void {
 	reArm({ payload: undefined });
@@ -260,6 +304,171 @@ function begin(previous: Payload): void {
 	beforeRequest({ payload: shrunk });
 	assert.equal(JSON.stringify(markedIndices(shrunk)), before, "a shorter request must not be anchored");
 	console.log("ok live growth negatives: +2 step, boundary 16/17, side request, shrink");
+}
+
+// ---------------------------------------------------------------------------
+// Provider eligibility: a marker may never land on a block the Anthropic
+// provider itself refuses to decorate.
+// ---------------------------------------------------------------------------
+{
+	// #4 A growth event whose previous tail ends in generated thinking must walk
+	// back to the last ordinary block: marking the thinking block is a 400, and
+	// skipping the anchor would leave the 39-block gap unanchored.
+	const previous = conversation(418);
+	const next = conversation(457, [430, 440]);
+	for (const payload of [previous, next]) {
+		blocksAt(payload, 417).push({ type: "thinking", text: "why" });
+	}
+	assert.equal(blockTotal(previous), 603, "fixture: text + thinking tail");
+	assert.equal(blockTotal(next), 644);
+	assert.equal(census(next), CAP);
+
+	begin(previous);
+	beforeRequest({ payload: next });
+
+	const marks = markedIndices(next);
+	assert.ok(marks.includes(417), `a thinking-ended tail must still anchor at 417, got ${marks}`);
+	const anchor = blocksAt(next, 417);
+	assert.ok(anchor[0]?.cache_control, "the anchor must land on the eligible text block");
+	assert.equal(
+		anchor[anchor.length - 1]?.cache_control,
+		undefined,
+		"a thinking block must never carry cache_control (Anthropic 400)",
+	);
+	assert.ok(census(next) <= CAP, `thinking-ended growth left ${census(next)} breakpoints`);
+	console.log("ok thinking-ended growth: anchor scans back to the eligible text block");
+}
+
+// ---------------------------------------------------------------------------
+// TTL legality: the anchor sits before the surviving tail markers, so its TTL
+// is bounded by both the earlier head markers and the later tail markers.
+// ---------------------------------------------------------------------------
+{
+	// #5 A free marker slot does not excuse an illegal order. An earlier 1h head
+	// marker and a newest tail marker at 5m leave 1h as the only legal anchor
+	// TTL: 5m here would be the invalid 5m-before-1h sequence.
+	const previous = conversation(418);
+	const next = conversation(457, [430, 440]);
+	for (const payload of [previous, next]) {
+		const tool = payload.tools?.[1];
+		if (tool) delete tool.cache_control; // census 3: one free slot
+	}
+	blocksAt(next, 455)[0].cache_control = { type: "ephemeral", ttl: "1h" };
+	blocksAt(next, 456)[0].cache_control = { type: "ephemeral", ttl: "5m" };
+	assert.equal(census(next), 3, "the mixed-TTL case must start with a free slot");
+	assert.equal(wireTtlOrder(next).at(-1), "5m");
+
+	begin(previous);
+	beforeRequest({ payload: next });
+
+	const anchor = blocksAt(next, 417);
+	assert.equal(
+		anchor[anchor.length - 1]?.cache_control?.ttl,
+		"1h",
+		"a 5m anchor placed before the surviving 1h marker is the illegal order; the anchor must be 1h",
+	);
+	assert.deepEqual(wireTtlOrder(next), ["1h", "1h", "1h", "5m"], "wire retention must stay non-increasing");
+	assert.equal(census(next), CAP);
+	console.log("ok mixed-TTL anchor: 1h chosen over the newest 5m marker");
+}
+
+{
+	// #5 (cont.) When the bounds cross there is no legal TTL: an earlier 5m head
+	// marker and a later 1h tail marker pin the anchor between them. Decline.
+	const previous = conversation(418);
+	const next = conversation(457, [430, 440]);
+	for (const payload of [previous, next]) {
+		const tool = payload.tools?.[1];
+		if (tool) delete tool.cache_control;
+	}
+	const head = next.system?.[1];
+	assert.ok(head);
+	head.cache_control = { type: "ephemeral", ttl: "5m" };
+	blocksAt(next, 456)[0].cache_control = { type: "ephemeral", ttl: "1h" };
+	assert.equal(census(next), 3);
+
+	begin(previous);
+	const before = JSON.stringify(markedIndices(next));
+	beforeRequest({ payload: next });
+	assert.equal(
+		JSON.stringify(markedIndices(next)),
+		before,
+		"no legal TTL exists between a 5m head marker and a 1h tail marker, so the anchor must be declined",
+	);
+	assert.equal(census(next), 3, "a declined anchor must not spend a marker slot");
+	console.log("ok mixed-TTL decline: no legal TTL, no anchor");
+}
+
+// ---------------------------------------------------------------------------
+// Continuity identity: no session id, no first-message key — the previous
+// request's tail must be a real prefix of this one.
+// ---------------------------------------------------------------------------
+{
+	// #6 Two conversations open with the same first message. The tracker must
+	// match A2 against A1's own tail (19), never against B1's shorter history.
+	const first: Block[] = [{ type: "text", text: "shared start" }];
+	const a1 = flatConversation(first, 20, "a");
+	const b1 = flatConversation(first, 3, "b");
+	const a2 = flatConversation(first, 40, "a");
+	assert.equal(census(a2), CAP);
+
+	reArm({ payload: undefined });
+	beforeRequest({ payload: a1 });
+	beforeRequest({ payload: b1 });
+	beforeRequest({ payload: a2 });
+
+	const marks = markedIndices(a2);
+	assert.ok(marks.includes(19), `the anchor must be A's own previous tail (19), got ${marks}`);
+	assert.ok(!marks.includes(2), `it must not ride on the same-first-message conversation's tail, got ${marks}`);
+	console.log("ok continuity: equal-first-message conversations do not share a base");
+}
+
+{
+	// #6 (cont.) A plain-string first message and an image-only one are both
+	// tracked; neither shape needs to be rendered into a key.
+	const s1 = flatConversation("string start", 20, "s");
+	const s2 = flatConversation("string start", 40, "s");
+	const i1 = flatConversation([{ type: "image", source: { type: "base64", data: "aGk=" } }], 20, "i");
+	const i2 = flatConversation([{ type: "image", source: { type: "base64", data: "aGk=" } }], 40, "i");
+
+	reArm({ payload: undefined });
+	beforeRequest({ payload: s1 });
+	beforeRequest({ payload: i1 });
+	beforeRequest({ payload: s2 });
+	beforeRequest({ payload: i2 });
+	assert.ok(markedIndices(s2).includes(19), "a string-first conversation must anchor on its own tail");
+	assert.ok(markedIndices(i2).includes(19), "an image-only-first conversation must anchor on its own tail");
+	console.log("ok continuity: string and image-only first messages both tracked");
+}
+
+{
+	// #7 A burst of unrelated side requests larger than the tracker cap must not
+	// evict the main conversation's predecessor.
+	const main1 = flatConversation("main start", 40, "m");
+	const main2 = flatConversation("main start", 60, "m");
+	reArm({ payload: undefined });
+	beforeRequest({ payload: main1 });
+	for (let i = 0; i < 20; i++) {
+		beforeRequest({
+			payload: {
+				messages: [{ role: "user", content: [{ type: "text", text: `side ${i}` }] }],
+				system: [{ type: "text", text: "You name conversations." }],
+			},
+		});
+	}
+	beforeRequest({ payload: main2 });
+	assert.ok(
+		markedIndices(main2).includes(39),
+		`20 side requests must not evict the main predecessor, got ${markedIndices(main2)}`,
+	);
+	// The refined cap must not wedge on the first conversation: a second large
+	// conversation still fits once the burst entries are spent.
+	const other1 = flatConversation("other start", 50, "o");
+	const other2 = flatConversation("other start", 70, "o");
+	beforeRequest({ payload: other1 });
+	beforeRequest({ payload: other2 });
+	assert.ok(markedIndices(other2).includes(49), "a second conversation must still be tracked after the burst");
+	console.log("ok tracker cap: 20 side requests leave the main predecessor in place");
 }
 
 console.log("PASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap");

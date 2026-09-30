@@ -708,6 +708,68 @@ function createHarness(): {
 }
 
 // ---------------------------------------------------------------------------
+// 3d. Two models' requests in the SAME ISO millisecond must not delete each
+//     other's baseline. `at` has millisecond precision, and the candidate
+//     window used to dedupe by timestamp, so a second request in that same
+//     millisecond filtered the first out of `recent` — and the next request of
+//     the first model then read "no baseline" on a clean append.
+// ---------------------------------------------------------------------------
+{
+	const SESSION = "session-equal-ms";
+	const CLAUDE = "claude-sonnet-5-5";
+	const LUNA = "gpt-5.6-luna";
+	const harness = createHarness();
+	const claude1 = anthropicPayload([{ role: "user", content: [{ type: "text", text: "one" }] }], {
+		model: CLAUDE,
+		sessionId: SESSION,
+	});
+	const luna1 = anthropicPayload([{ role: "user", content: [{ type: "text", text: "two" }] }], {
+		model: LUNA,
+		sessionId: SESSION,
+		system: [{ type: "text", text: "You advise." }],
+	});
+	const claude2 = anthropicPayload(
+		[
+			{ role: "user", content: [{ type: "text", text: "one" }] },
+			{ role: "assistant", content: [{ type: "text", text: "answer" }] },
+		],
+		{ model: CLAUDE, sessionId: SESSION },
+	);
+
+	// Freeze the clock: `new Date()` with no arguments is the extension's only
+	// clock read, so a zero-argument Date subclass pins every fingerprint in
+	// this block to one millisecond without a sleep.
+	const RealDate = Date;
+	const FROZEN = "2026-09-30T04:19:57.123Z";
+	class FrozenDate extends RealDate {
+		constructor() {
+			super(FROZEN);
+		}
+	}
+	globalThis.Date = FrozenDate as unknown as DateConstructor;
+	try {
+		harness.emit("before_provider_request", { payload: claude1 }, "ctx-equal-ms");
+		harness.emit("before_provider_request", { payload: luna1 }, "ctx-equal-ms");
+		harness.emit("before_provider_request", { payload: claude2 }, "ctx-equal-ms");
+	} finally {
+		globalThis.Date = RealDate;
+	}
+
+	const rows = logLines().filter(line => line.sessionId === SESSION && line.usage === undefined);
+	assert.deepEqual(rows.map(line => line.at), [FROZEN, FROZEN, FROZEN], "fixture: both models must share one millisecond");
+	assert.deepEqual(
+		rows.map(line => [line.model, line.diff.kind]),
+		[
+			[CLAUDE, "IDENTICAL"],
+			[LUNA, "IDENTICAL"],
+			[CLAUDE, "APPEND_ONLY"],
+		],
+		"an equal-timestamp interloper must not delete the other model's baseline",
+	);
+	assert.equal(rows[1].diff.detail, "no baseline", "luna's first request has no baseline of its own");
+}
+
+// ---------------------------------------------------------------------------
 // 4. Headers: per-session/per-host scoping; TTL + envelope drift detection
 // ---------------------------------------------------------------------------
 {

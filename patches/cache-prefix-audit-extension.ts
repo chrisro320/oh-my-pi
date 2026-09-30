@@ -879,6 +879,10 @@ export default function (pi: ExtensionAPI): void {
 			const prev = sameModel[0];
 			const d: Diff = prev ? diff(prev, next) : { kind: "IDENTICAL", detail: "no baseline" };
 			const crossProcess = prev !== undefined && prev.pid !== next.pid;
+			// LIMITATION (pre-existing, not fixed here): one diff slot per model
+			// means two outstanding requests of the SAME model overwrite the
+			// earlier diff before its usage arrives, so a response can still be
+			// attributed to a different request of its own model.
 			st.lastDiffByModel = { ...st.lastDiffByModel, [next.model]: d };
 			st.note = `${d.kind}${d.index !== undefined ? `@${d.index}` : ""}${crossProcess ? " (cross-process)" : ""} session=${sessionKey}`;
 
@@ -888,7 +892,9 @@ export default function (pi: ExtensionAPI): void {
 			// that alternative explains the verdict without overriding it; the
 			// paired `usage.cacheRead` decides whether anything was actually lost.
 			const alt = bestBaseline(
-				sameModel.filter(c => c.at !== next.at && c.at !== prev?.at),
+				// Identity, never the ISO-millisecond `at`: two distinct requests
+				// in the same millisecond would otherwise delete each other.
+				sameModel.filter(c => c !== next && c !== prev),
 				next,
 			);
 			const altDiff = alt ? diff(alt, next) : undefined;
@@ -926,8 +932,11 @@ export default function (pi: ExtensionAPI): void {
 			st.last = next;
 			// The window is per model: a burst from one model (an advisor can send a
 			// dozen requests in a row) must not evict another model's baseline.
+			// `next` is excluded by object identity, not by its ISO-millisecond
+			// `at`: two requests of different models in the same millisecond must
+			// both survive.
 			const perModel = new Map<string, number>();
-			st.recent = [next, ...candidates.filter(c => c.at !== next.at)].filter(c => {
+			st.recent = [next, ...candidates.filter(c => c !== next)].filter(c => {
 				const kept = perModel.get(c.model) ?? 0;
 				perModel.set(c.model, kept + 1);
 				return kept < BASELINE_HISTORY;
@@ -1000,6 +1009,11 @@ export default function (pi: ExtensionAPI): void {
 					// the rolling state otherwise, so a miss whose diff says "prefix
 					// intact" cannot be told apart from a credential switch after the
 					// fact — and a credential switch IS one of the causes.
+					//
+					// LIMITATION (pre-existing, not fixed here): this reads `st.last`,
+					// the session's newest request of ANY model, so an interloper
+					// between this request and its response can name the wrong call's
+					// credential/header fingerprint.
 					headers: st.last?.headers,
 					responseHeaders: st.last?.responseHeaders,
 					diff: d,
