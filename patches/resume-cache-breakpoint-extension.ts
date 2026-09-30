@@ -140,46 +140,68 @@ const GROWTH_TRIGGER_BLOCKS = ANCHOR_LOOKBACK_BLOCKS - 4;
 /**
  * The previous Anthropic request of each conversation seen in this process.
  *
- * Identity is CONTINUITY, not a name. A request may reuse a tracked entry only
- * when that entry's stored last-message hash equals the hash of the message at
- * the index right after its recorded count — which proves the tracked request's
- * tail is really a prefix of this one. It needs no session id (the hook exposes
- * none) and keeps a side request (title generation, keepalive) from displacing
- * the base a real turn is compared with. Two conversations that open with the
- * same message match only when their bytes agree; and a burst of unrelated side
- * requests cannot evict the main entry: the cap is spent on the oldest entry no
- * larger than the incoming request, and a request smaller than every entry is not
- * recorded at all. A one-message side request can never be a prefix of the main
- * conversation, while the larger entry still can.
+ * Identity is two tests, never a name alone. A request may reuse a tracked entry
+ * only when the entry was recorded under the same session id AND its stored tail
+ * hash (the last two messages plus the message count) equals the same hash of
+ * this request's messages up to the recorded count. The session id comes from
+ * `ctx.sessionManager.getSessionId()`; without that test an unrelated
+ * conversation whose tail happens to match would be taken as the predecessor.
+ *
+ * Side-request isolation is bounded, and promised only as far as delivered. The
+ * cap is spent on the oldest entry no larger than the incoming request, and a
+ * request smaller than every entry is not recorded at all. So a short side
+ * request (a title burst, a keepalive) can never evict the main conversation:
+ * its own entries are the ones reclaimed first. Eight or more side requests
+ * whose histories are as long as the main history can still spend the cap and
+ * push the main predecessor out. That residual is accepted: such bursts are
+ * rare, and the growth anchor is needed only for the single request right after
+ * them.
  */
 const tracker = new Map<string, TrackedRequest>();
 const TRACKER_CAP = 8;
 
 interface TrackedRequest {
+	/** Session id the request was recorded under, or the fallback constant. */
+	sessionId: string;
 	messages: number;
 	blocks: number;
-	/** sha1 of the last message with `cache_control` stripped. */
-	lastHash: string;
+	/** sha1 of the message count and the last two messages, provider markers
+	 *  stripped (see `tailHash`). */
+	tailHash: string;
 }
 
-/** Content hash of one provider message, ignoring the provider's cache_control
- *  markers: they move between requests without changing a cached byte, so
- *  hashing them would break continuity at every turn. */
-function messageHash(message: ProviderMessage | undefined): string {
-	return createHash("sha1").update(JSON.stringify(stripCacheControl(message ?? null))).digest("hex");
+/**
+ * Drop the provider's `cache_control` marker from each content block of one
+ * message. The marker only ever sits at the top level of a provider-decorated
+ * block, so this must NOT recurse: a same-named field inside `tool_use.input` or
+ * a nested `content` array is a real argument, and erasing it would let a
+ * rewritten tool call hash equal to the old one.
+ */
+function stripCacheControl(message: ProviderMessage | null | undefined): unknown {
+	if (message === null || message === undefined || typeof message !== "object") return message ?? null;
+	const content = message.content;
+	if (!Array.isArray(content)) return { ...message };
+	return {
+		...message,
+		content: content.map(block => {
+			if (block === null || typeof block !== "object") return block;
+			const rest: Record<string, unknown> = { ...(block as Record<string, unknown>) };
+			delete rest.cache_control;
+			return rest;
+		}),
+	};
 }
 
-function stripCacheControl(value: unknown): unknown {
-	if (Array.isArray(value)) return value.map(stripCacheControl);
-	if (value !== null && typeof value === "object") {
-		const out: Record<string, unknown> = {};
-		for (const [key, entry] of Object.entries(value)) {
-			if (key === "cache_control") continue;
-			out[key] = stripCacheControl(entry);
-		}
-		return out;
-	}
-	return value;
+/**
+ * Hash of the two messages ending at `count`, plus `count` itself. Two messages
+ * (not one) catch a rewrite of the second-to-last message; the count stops a
+ * same-tail history of a different length from colliding. A rewrite of an
+ * earlier message that leaves the last two equal is an accepted residual.
+ */
+function tailHash(messages: ProviderMessage[], count: number): string {
+	return createHash("sha1")
+		.update(JSON.stringify([count, stripCacheControl(messages[count - 2]), stripCacheControl(messages[count - 1])]))
+		.digest("hex");
 }
 
 function countContentBlocks(messages: ProviderMessage[]): number {
@@ -192,18 +214,38 @@ function countContentBlocks(messages: ProviderMessage[]): number {
 }
 
 /**
- * Find the tracked request whose tail is a real prefix of `messages`: its
- * stored last-message hash equals the hash of the message at the index right
- * after its recorded count. The largest such count is the nearest predecessor.
+ * Find the tracked request whose tail is a real prefix of `messages` in the same
+ * session: it was recorded under `sessionId` and its `tailHash` equals the hash
+ * of this request's messages up to its recorded count. The largest such count is
+ * the nearest predecessor.
  */
-function findPredecessor(messages: ProviderMessage[]): TrackedRequest | undefined {
+function findPredecessor(messages: ProviderMessage[], sessionId: string): TrackedRequest | undefined {
 	let best: TrackedRequest | undefined;
 	for (const entry of tracker.values()) {
+		if (entry.sessionId !== sessionId) continue;
 		if (entry.messages < 1 || entry.messages >= messages.length) continue;
-		if (entry.lastHash !== messageHash(messages[entry.messages - 1])) continue;
+		if (entry.tailHash !== tailHash(messages, entry.messages)) continue;
 		if (!best || entry.messages > best.messages) best = entry;
 	}
 	return best;
+}
+
+/**
+ * Session id used to isolate tracker entries. `before_provider_request` is
+ * called with the extension context, whose `sessionManager.getSessionId()` names
+ * the session that issued this request; unrelated sessions must never share a
+ * predecessor. The lookup is best-effort: if the manager, the method or the id is
+ * unavailable (or throws), fall back to one constant so the extension still
+ * tracks and anchors within a process.
+ */
+function sessionIdentity(ctx: { sessionManager?: { getSessionId?: () => string } } | undefined): string {
+	try {
+		const id = ctx?.sessionManager?.getSessionId?.();
+		if (typeof id === "string" && id.length > 0) return id;
+	} catch {
+		// a missing identity must never break the turn
+	}
+	return "unknown-session";
 }
 
 /**
@@ -304,7 +346,7 @@ function placeAnchor(
 }
 
 export default function (pi: ExtensionAPI): void {
-	pi.on("before_provider_request", event => {
+	pi.on("before_provider_request", (event, ctx) => {
 		const payload = event.payload as AnthropicPayload | null;
 		const messages = payload?.messages;
 		// Anthropic shape only: `system` is an array of blocks there.
@@ -312,17 +354,18 @@ export default function (pi: ExtensionAPI): void {
 
 		// Measure this request against the previous one of the same conversation
 		// BEFORE anything below can return, so the tracker never goes stale.
+		const sessionId = sessionIdentity(ctx);
 		const blocks = countContentBlocks(messages);
-		const lastHash = messageHash(messages[messages.length - 1]);
-		const previous = findPredecessor(messages);
-		const key = `${messages.length}:${lastHash}`;
+		const currentTail = tailHash(messages, messages.length);
+		const previous = findPredecessor(messages, sessionId);
+		const key = `${sessionId}:${messages.length}:${currentTail}`;
 		tracker.delete(key);
-		tracker.set(key, { messages: messages.length, blocks, lastHash });
+		tracker.set(key, { sessionId, messages: messages.length, blocks, tailHash: currentTail });
 		if (tracker.size > TRACKER_CAP) {
 			// Evict the oldest entry that is no larger than this request; if every
 			// entry is larger, do not record this request at all (see the tracker
-			// comment above). A side request therefore cannot displace a longer
-			// conversation, while a second large conversation still fits.
+			// comment above). A short side request therefore cannot displace a
+			// longer conversation, while a second large conversation still fits.
 			let victimKey: string | undefined;
 			for (const [candidateKey, candidate] of tracker) {
 				if (candidateKey === key) continue;

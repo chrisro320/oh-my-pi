@@ -1112,3 +1112,108 @@ Correct: derive task.py and active_task.py byte-for-byte from the clean scaffold
 Wrong: add a custom/developer message containing the translation beside the original.
 Correct: one UserMessage { content: English, displayText: original }; presentation and model boundaries select their own field.
 ```
+
+## Scenario: Per-model audit baseline and identity dedupe (18.4.4)
+
+### 1. Scope / Trigger
+
+`patches/cache-prefix-audit-extension.ts` (mirror `~/.omp/agent/extensions/cache-prefix-audit.ts`). The verdict must be measured against the immediately preceding request of the SAME model, and the candidate window must dedupe by request identity, not by the ISO-millisecond `at`.
+
+Incident (session `01a0f047`, 2026-09-30): the advisor `gpt-5.6-luna` sat between two claude requests, so claude's clean append was logged `SYSTEM_DRIFT system[0] 940ccaef… -> d17688e7…` — luna's own system prompt — on a row whose usage was 96-99% hit.
+
+### 2. Signatures
+
+`SessionState.recent?: Fingerprint[]` is newest-first and now capped PER MODEL at `BASELINE_HISTORY`; `SessionState.lastDiffByModel` stays per model. The baseline choice is `const sameModel = candidates.filter(c => c.model === next.model); const prev = sameModel[0];`.
+
+### 3. Contracts
+
+- The verdict baseline (`prev`) is the newest `st.recent` entry whose `model` equals `next.model`; the candidate window keeps `BASELINE_HISTORY` entries PER MODEL, so a burst of one model's requests cannot evict another model's baseline. A model's first request reads `IDENTICAL / no baseline`, never another model's diff.
+- Candidate identity is the fingerprint object (`c !== next && c !== prev`), NEVER the `at` ISO-millisecond timestamp: two distinct requests in the same millisecond must not filter each other out of `recent`.
+- `st.last` (the newest request of ANY model) is kept only for cross-process pid continuity and state-file compatibility; it is not a baseline.
+
+### 4. Validation & Error Matrix
+
+| Observation | Required verdict |
+|---|---|
+| claude N follows claude N-1 append-only, a luna request in between | `APPEND_ONLY` for claude |
+| a model's first request in the session | `IDENTICAL / no baseline` |
+| 12 luna requests between two claude requests | claude's baseline survives |
+| two models' requests share one ISO millisecond | neither baseline is deleted |
+
+### 5. Good / Base / Bad Cases
+
+Good: interleaved claude/luna keeps `APPEND_ONLY` for claude and `SYSTEM_DRIFT` only for luna's own change. Base: a single-model session behaves exactly as before. Bad: `prev = st.last` labels a 96-99% hit with the other model's system prompt.
+
+### 6. Tests Required
+
+`bun patches/verify-cache-prefix-audit.ts` — section 3c (interleaved models: per-model baseline; a 12-request burst) and section 3d (equal ISO millisecond: a frozen clock pins all three fingerprints to one millisecond and claude still reads `APPEND_ONLY`). Reverting to `prev = st.last` or a global window fails 3c; deduping by `at` fails 3d.
+
+Machine check (fails when the baseline is not per model, or when dedupe uses `at`):
+
+```sh
+grep -n 'const sameModel = candidates.filter\|sameModel.filter(c => c !== next' patches/cache-prefix-audit-extension.ts
+bun patches/verify-cache-prefix-audit.ts
+```
+
+Residual limits (pre-existing, NOT fixed here): one diff slot per model means two outstanding requests of the SAME model overwrite the earlier diff before its usage arrives; and the usage row's `headers`/`responseHeaders` still read `st.last`, so an interloper can name the wrong call's credential/header fingerprint.
+
+### 7. Wrong vs Correct
+
+```ts
+// Wrong: the baseline is whoever sent the last request, of any model.
+const prev = st.last;
+// Correct: the newest request of THIS model; no baseline when it has none.
+const sameModel = candidates.filter(c => c.model === next.model);
+const prev = sameModel[0];
+```
+
+## Scenario: Anthropic cache-anchor eligibility, TTL order and continuity (18.4.4)
+
+### 1. Scope / Trigger
+
+`patches/resume-cache-breakpoint-extension.ts` (mirror `~/.omp/agent/extensions/resume-cache-breakpoint.ts`). It adds one `cache_control` anchor on the first request of a resumed session and, since 18.4.4, when a live request grows past the provider lookback. Incident (session `01a0f047`, 2026-09-30 04:19:57Z): the previous tail sat at content block 601, the next request was 41 blocks later with no marker in between, and the miss cost `cacheRead=14314 / cacheWrite=342867`.
+
+### 2. Signatures
+
+`findPredecessor(messages): TrackedRequest | undefined`, `messageHash(message)`, `countContentBlocks(messages)`, `placeAnchor(payload, messages, anchorIndex, tag)`. Constants: `ANTHROPIC_MAX_BREAKPOINTS = 4`, `ANCHOR_LOOKBACK_BLOCKS = 20`, `GROWTH_TRIGGER_BLOCKS = ANCHOR_LOOKBACK_BLOCKS - 4`, `TRACKER_CAP = 8`, `UNCACHEABLE_BLOCKS`.
+
+### 3. Contracts
+
+- Eligibility mirrors the provider policy: the anchor lands on the last block Anthropic would decorate, walking back past `thinking`, `redacted_thinking`, `fallback`, `tool_addition`, `tool_removal`. Marking a refused block is a hard 400; when no eligible block exists, decline.
+- TTL legality: wire order is tools -> system -> messages, so an inserted anchor's TTL must be <= every marker before it and >= every marker after it. When the bounds cross there is no legal TTL (a 5m block before a 1h one is a 400) and the anchor is declined; otherwise it inherits the most restrictive earlier marker, else the longest later one, else the provider default.
+- Budget: the wire must never exceed 4 `cache_control` blocks. Claiming a slot releases the interior provider marker between the anchor and the newest tail — the newest tail must survive because it is what the next turn hits — looping until the anchor fits; with nothing releasable, decline.
+- Predecessor identity is CONTINUITY, not a name: a tracked request may be reused only when its stored last-message hash (`cache_control` stripped) equals the hash of the message at the index right after its recorded count. There is no session id and no first-message conversation key; two conversations that open with the same first message match only when their bytes agree.
+- The tracker is bounded (`TRACKER_CAP`) and a burst of side requests cannot evict a longer conversation: eviction spends the oldest entry no larger than the incoming request, and a request smaller than every entry is not recorded at all, so title/keepalive traffic leaves the main predecessor in place.
+
+### 4. Validation & Error Matrix
+
+| Situation | Required result |
+|---|---|
+| previous tail ends in generated thinking | anchor scans back to the eligible text block |
+| earlier 1h head marker + later 5m tail marker | anchor must be 1h; wire retention stays non-increasing |
+| earlier 5m head marker + later 1h tail marker | no legal TTL; anchor declined, no slot spent |
+| census already 4 with an interior provider marker | exactly one interior marker released to fund the anchor |
+| 20 side requests larger than the cap | the main conversation's predecessor survives |
+| growth <= 16 blocks, a +2 step, a shrink, or a side request | no anchor is added |
+
+### 5. Good / Base / Bad Cases
+
+Good: the captured 418->457 message / 602->643 block shape anchors at 417, releases 455, keeps 456, and stays within the cap. Base: no growth and no resume leaves the markers untouched. Bad: mark a thinking block, emit a 5th marker, or key the tracker by a conversation name.
+
+### 6. Tests Required
+
+`OMP_RESUME_CACHE_LOG=<tmp> bun patches/verify-resume-cache-breakpoint.ts` — synthetic resumed session; live growth 418->457 (anchor 417, released 455, survived 456); the negatives (+2 step, boundary 16/17, interleaved side request, shrink); thinking-ended growth; mixed-TTL anchor and mixed-TTL decline; continuity (equal-first-message conversations, string- and image-only first messages); and the tracker cap with 20 side requests. A pre-fix tree fails the growth and eligibility cases.
+
+Machine check (fails when eligibility, TTL ordering, the cap, or continuity is dropped):
+
+```sh
+grep -nE 'UNCACHEABLE_BLOCKS|maxLater > minEarlier|ANTHROPIC_MAX_BREAKPOINTS = 4|function findPredecessor|TRACKER_CAP = 8' patches/resume-cache-breakpoint-extension.ts
+OMP_RESUME_CACHE_LOG=/tmp/resume-cache-check.log bun patches/verify-resume-cache-breakpoint.ts
+```
+
+### 7. Wrong vs Correct
+
+```text
+Wrong: match the previous request by a conversation key (model + first message), or always add the anchor at the tail.
+Correct: match by last-message-hash continuity, scan back to the eligible block, settle the TTL against the wire order, and fund the anchor by releasing the interior marker.
+```

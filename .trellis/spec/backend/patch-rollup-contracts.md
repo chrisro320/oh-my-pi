@@ -573,3 +573,57 @@ Resume, soft, snapcompact, remote (Codex raw bytes equal; Anthropic content equa
 
 ### 7. Wrong vs Correct
 Wrong: call audit-repro r2/r3/r3x/r4 regressions. Correct: they fail identically on 18.4.1 and 18.4.4 (open drift, tracked separately); r1 passes only because 0084 is in the chain.
+
+## Scenario: Repairing a deployed immutable layer with a new tail layer (18.4.4 / 0085)
+
+### 1. Scope / Trigger
+
+A defect is found in a feature whose patch layer is already deployed. The finalized layer is immutable, so the repair is a NEW layer after it in the same version plan, never an edit of the deployed layer. 0085 (`.18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch`, `${AGENT}`) follows the deployed 0082 for that reason: 0082's review left two gaps — a rejected prepared submission lost its text and images, and a cancelled Ctrl+Enter preparation overwrote an image pasted meanwhile.
+
+### 2. Signatures
+
+- 0085 edits `src/main.ts` (`submitInteractiveInput`), `src/modes/controllers/input-controller.ts`, `src/slash-commands/helpers/draft.ts`, and sits AFTER 0082 in the 18.4.4 plan.
+- `restoreRejectedDraft(runtime, draft, revision?)`, `retainRejectedDraft(runtime, draft)`, `editorHoldsNewerDraft(editor, revision)`, `editorAlreadyHoldsDraft(editor, draft)`.
+- The 18.4.4 plan is 51 layers; live is the first 50 until 0085 is deployed.
+
+### 3. Contracts
+
+- Governance: a deployed layer is immutable (`0082` stays byte-frozen), so a follow-up fix lands as a new tail layer in the same plan; the plan row and the ledger must state the planned count (51) and the live count (50) consistently, and `grep -n '0085' patches/PATCHES.md` must show the same pair.
+- ONE owner per rejection path: the prompt-dropped callback (`interactive-mode.ts`'s `#restoreDroppedPrompt`) writes the draft back before rethrowing, so the dispatch-catch must not restore it a second time. `editorAlreadyHoldsDraft` detects a draft the editor already holds verbatim and leaves it alone, so exactly one path commits.
+- Restore only when the message was NOT admitted to the transcript: `main.ts` records `session.messages.length` before `session.prompt` and restores only when it is unchanged after the throw — content a turn already admitted must not come back.
+- Restores never overwrite something newer: `editorHoldsNewerDraft` treats a changed text revision, non-empty text, OR a non-empty attachment list as "newer" and keeps the capture restorable instead. The attachment check is separate because a paste during preparation leaves the text and its revision untouched.
+
+### 4. Validation & Error Matrix
+
+| Situation | Required result |
+|---|---|
+| prepared dispatch rejected, editor empty | original text + attachments return |
+| prepared dispatch rejected, newer draft present | newer draft kept; rejected input stays restorable |
+| prompt-dropped callback already restored | not restored twice; nothing queued as restorable |
+| throw after the turn admitted the message (transcript grew) | nothing restored |
+| preparation cancelled after an image paste | pasted image kept; capture stays restorable |
+
+### 5. Good / Base / Bad Cases
+
+Good: 0085 lands after the frozen 0082 as a new layer; the 18.4.4 plan is 51 with 50 live. Base: a non-prepared submission behaves as before. Bad: edit the deployed 0082 in place, or let both rejection paths restore the same draft.
+
+### 6. Tests Required
+
+`OMP_PATCH_VERIFY_AGENT_ROOT=<18.4.4 tree> bun patches/verify-rejected-prepared-draft-restore.ts` drives the real `submitInteractiveInput` (legs 1-5), the real `InputController.setupEditorSubmitHandler` cancel path with a small editor double (leg 6), and a shared-helper control (leg 7). Negative controls: without 0085 leg 1 is red (editor stays empty); without the follow-up fixes legs 4 and 5 are red; removing the attachment condition from `editorHoldsNewerDraft` makes leg 6 red.
+
+Machine check:
+
+```sh
+grep -nE 'restoreRejectedDraft|editorAlreadyHoldsDraft|editorHoldsNewerDraft|transcriptBefore' patches/.18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch
+OMP_PATCH_VERIFY_AGENT_ROOT=<18.4.4 tree> bun patches/verify-rejected-prepared-draft-restore.ts
+grep -n '0085' patches/PATCHES.md
+```
+
+Not covered: `#restoreDroppedPrompt` (`interactive-mode.ts`) has the same attachment-overwrite shape and was deliberately left untouched (outside Review #4).
+
+### 7. Wrong vs Correct
+
+```text
+Wrong: patch the deployed 0082 layer in place, or let the dispatch-catch restore what the prompt-dropped callback already handed back.
+Correct: add layer 0085 after 0082; guard the restore by transcript admission and by editor ownership so exactly one path commits.
+```

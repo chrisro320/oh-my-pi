@@ -19,11 +19,16 @@ import extension from "./resume-cache-breakpoint-extension.ts";
 
 const CAP = 4;
 
-type Block = { type?: string; text?: string; cache_control?: { type: string; ttl?: string } };
+type Block = {
+	type?: string;
+	text?: string;
+	input?: Record<string, unknown>;
+	cache_control?: { type: string; ttl?: string };
+};
 type Message = { role?: string; content?: Block[] | string };
 type Payload = { messages?: Message[]; system?: Block[]; tools?: Block[] };
 
-type Handler = (event: { payload: unknown }) => unknown;
+type Handler = (event: { payload: unknown }, ctx?: unknown) => unknown;
 const handlers = new Map<string, Handler>();
 const pi = {
 	on(name: string, handler: Handler) {
@@ -34,10 +39,18 @@ const pi = {
 // The extension only reads `on` / `registerCommand`; the harness deliberately
 // supplies just those instead of a full ExtensionAPI double.
 extension(pi as unknown as Parameters<typeof extension>[0]);
-const beforeRequest = handlers.get("before_provider_request");
-assert.ok(beforeRequest, "extension must register before_provider_request");
-const reArm = handlers.get("session_switch");
-assert.ok(reArm, "extension must re-arm per session");
+function handlerFor(name: string): Handler {
+	const handler = handlers.get(name);
+	assert.ok(handler, `extension must register ${name}`);
+	return handler;
+}
+// The extension keys its tracker by the hook context's session id, so every
+// request is driven through one ctx. A case changes session by reassigning
+// `currentSessionId`, which is exactly how the extension must isolate them.
+let currentSessionId = "session-default";
+const ctx = { sessionManager: { getSessionId: () => currentSessionId } };
+const beforeRequest: Handler = event => handlerFor("before_provider_request")(event, ctx);
+const reArm = handlerFor("session_switch");
 
 function census(payload: Payload): number {
 	let count = 0;
@@ -400,8 +413,8 @@ function begin(previous: Payload): void {
 }
 
 // ---------------------------------------------------------------------------
-// Continuity identity: no session id, no first-message key — the previous
-// request's tail must be a real prefix of this one.
+// Continuity identity: the predecessor must share the session id, and its
+// stored two-message tail must be a real prefix of this request.
 // ---------------------------------------------------------------------------
 {
 	// #6 Two conversations open with the same first message. The tracker must
@@ -469,6 +482,107 @@ function begin(previous: Payload): void {
 	beforeRequest({ payload: other2 });
 	assert.ok(markedIndices(other2).includes(49), "a second conversation must still be tracked after the burst");
 	console.log("ok tracker cap: 20 side requests leave the main predecessor in place");
+}
+
+{
+	// #1(a) An unrelated history in a DIFFERENT session that happens to share the
+	// same two tail messages must not be taken as the predecessor. Before the
+	// session id joined the identity, only the tail bytes decided this.
+	const a1 = flatConversation("session A start", 20, "A");
+	const b = flatConversation("session B start", 40, "B");
+	blocksAt(b, 18)[0].text = blocksAt(a1, 18)[0].text;
+	blocksAt(b, 19)[0].text = blocksAt(a1, 19)[0].text;
+
+	currentSessionId = "session-A";
+	begin(a1);
+	currentSessionId = "session-B";
+	beforeRequest({ payload: b });
+	currentSessionId = "session-default";
+
+	assert.ok(
+		!markedIndices(b).includes(19),
+		`an equal tail in a different session must not anchor, got ${markedIndices(b)}`,
+	);
+	console.log("ok continuity: an equal tail in a different session does not anchor");
+}
+
+{
+	// #1(b) A rewrite of the second-to-last message before the anchor must break
+	// continuity. Hashing only the newest message let an edit one message earlier
+	// slip through.
+	const base = flatConversation("edit start", 20, "e");
+	const after = flatConversation("edit start", 20, "e");
+	blocksAt(after, 18)[0].text = "rewritten second-to-last";
+	for (let i = 20; i < 40; i++) {
+		after.messages!.push({ role: i % 2 === 0 ? "assistant" : "user", content: [{ type: "text", text: `e${i}` }] });
+	}
+	for (const index of [18, 19]) for (const block of blocksAt(after, index)) delete block.cache_control;
+	for (const index of [38, 39]) {
+		const blocks = blocksAt(after, index);
+		blocks[blocks.length - 1].cache_control = { ...ONE_HOUR };
+	}
+
+	begin(base);
+	beforeRequest({ payload: after });
+	assert.ok(
+		!markedIndices(after).includes(19),
+		`a rewrite one message before the anchor must break continuity, got ${markedIndices(after)}`,
+	);
+	console.log("ok continuity: a rewrite of the second-to-last message is caught");
+}
+
+{
+	// #1 (accepted residual) A whole-prefix rewrite that keeps the last two
+	// messages equal is still taken as the predecessor. Hashing only two messages
+	// is a deliberate cost bound - never re-hash the whole history per request -
+	// so catching arbitrarily old rewrites is out of reach by construction. Here
+	// message 0 changed while messages 18 and 19 stayed identical.
+	const base = flatConversation("prefix start", 20, "p");
+	const after = flatConversation("prefix start", 20, "p");
+	after.messages![0].content = "rewritten prefix start";
+	for (let i = 20; i < 40; i++) {
+		after.messages!.push({ role: i % 2 === 0 ? "assistant" : "user", content: [{ type: "text", text: `p${i}` }] });
+	}
+	for (const index of [18, 19]) for (const block of blocksAt(after, index)) delete block.cache_control;
+	for (const index of [38, 39]) {
+		const blocks = blocksAt(after, index);
+		blocks[blocks.length - 1].cache_control = { ...ONE_HOUR };
+	}
+
+	begin(base);
+	beforeRequest({ payload: after });
+	assert.ok(
+		markedIndices(after).includes(19),
+		"an early rewrite with an equal tail is an accepted residual and still anchors",
+	);
+	console.log("ok continuity: an early rewrite with an equal tail is an accepted residual");
+}
+
+{
+	// #2 A `cache_control` key inside a tool_use argument is application data,
+	// not the provider marker. Stripping it recursively (the old bug) made a
+	// rewritten tool call hash equal to the old one, so continuity survived a
+	// real argument change in the anchor-adjacent message.
+	const base = flatConversation("tool start", 20, "k");
+	blocksAt(base, 19).push({ type: "tool_use", id: "t1", input: { cache_control: "old user argument" } });
+	const after = flatConversation("tool start", 20, "k");
+	blocksAt(after, 19).push({ type: "tool_use", id: "t1", input: { cache_control: "NEW user argument" } });
+	for (let i = 20; i < 40; i++) {
+		after.messages!.push({ role: i % 2 === 0 ? "assistant" : "user", content: [{ type: "text", text: `k${i}` }] });
+	}
+	for (const index of [18, 19]) for (const block of blocksAt(after, index)) delete block.cache_control;
+	for (const index of [38, 39]) {
+		const blocks = blocksAt(after, index);
+		blocks[blocks.length - 1].cache_control = { ...ONE_HOUR };
+	}
+
+	begin(base);
+	beforeRequest({ payload: after });
+	assert.ok(
+		!markedIndices(after).includes(19),
+		`a rewritten tool argument must break continuity, got ${markedIndices(after)}`,
+	);
+	console.log("ok continuity: a tool_use input field named cache_control is hashed");
 }
 
 console.log("PASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap");

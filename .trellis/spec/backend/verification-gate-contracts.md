@@ -628,3 +628,57 @@ Run each gate once with the redirecting variable set to a live-looking URL and o
 
 ### 7. Wrong vs Correct
 Wrong: trust `HOME=<sandbox>` alone. Correct: `delete process.env.<VAR>` in the gate and `unset` in `env.sh`.
+
+## Scenario: Gate-writing lessons from the 18.4.4 follow-ups
+
+### 1. Scope / Trigger
+
+Three 18.4.4 follow-up gates were written or extended under review: `patches/verify-cache-prefix-audit.ts`, `patches/verify-resume-cache-breakpoint.ts`, `patches/verify-rejected-prepared-draft-restore.ts`. Three rules made them able to fail.
+
+### 2. Signatures
+
+- `verify-rejected-prepared-draft-restore.ts` imports the real `submitInteractiveInput` (`src/main.ts`) for legs 1-5, the real `InputController.setupEditorSubmitHandler` cancel path for leg 6, and a shared-helper control leg 7.
+- `verify-cache-prefix-audit.ts` section 3d installs a zero-argument `Date` subclass (`class FrozenDate extends RealDate; globalThis.Date = FrozenDate`).
+- Every gate records its negative controls in the module header.
+
+### 3. Contracts
+
+- Drive the REAL entry function with a small double, not a helper-only test. Legs 1-5 go through `submitInteractiveInput` and leg 6 through the real `InputController`; a helper-only test stays green while the call site drops the call.
+- Run a negative control for EVERY leg, and keep it in the gate header. The 0085 gate documents that removing 0085 fails leg 1, removing the follow-up fixes fails legs 4 and 5, and dropping the attachment condition fails leg 6; the audit gate's section 3c fails when `prev = st.last` or the window is global.
+- `Bun.sleep` between fixture requests is NOT a substitute for controlling timestamps. A sleep can only widen the gap; it cannot pin two requests into one millisecond. The equal-timestamp case freezes the clock so all three fingerprints share one ISO millisecond, and asserts that pin before testing the dedupe.
+
+### 4. Validation & Error Matrix
+
+| Gate shape | Verdict |
+|---|---|
+| imports the real entry function with a small double | a real gate for the call site |
+| imports only the helper and calls it directly | helper test; does not prove the call site |
+| a leg with no negative control | that leg is unproven |
+| relying on `Bun.sleep` to separate requests | cannot create the equal-timestamp case |
+
+### 5. Good / Base / Bad Cases
+
+Good: leg 1 imports `submitInteractiveInput` and is red on the tree without 0085; section 3d freezes the clock and is red when dedupe uses `at`. Base: the helper control leg still exercises the shared helper alone. Bad: a gate that could not fail on the unfixed tree, or a fixture whose "same millisecond" is assumed rather than pinned.
+
+### 6. Tests Required
+
+Run each gate on the unfixed candidate (red) and the fixed tree (green), and keep the failing output for each leg's negative control. For the timestamp lesson the pin itself is asserted (`assert.deepEqual(rows.map(line => line.at), [FROZEN, FROZEN, FROZEN])`) so the fixture cannot silently degrade.
+
+Machine check:
+
+```sh
+grep -nE 'Drives the real|drives the real controller|Negative controls|class FrozenDate' patches/verify-rejected-prepared-draft-restore.ts patches/verify-cache-prefix-audit.ts
+grep -n 'fixture: both models must share one millisecond' patches/verify-cache-prefix-audit.ts
+OMP_PATCH_VERIFY_AGENT_ROOT=<18.4.4 tree> bun patches/verify-rejected-prepared-draft-restore.ts
+```
+
+### 7. Wrong vs Correct
+
+```ts
+// Wrong: proves the helper, not the call site, and assumes a gap instead of pinning it.
+restoreRejectedDraft(runtime, draft);
+await Bun.sleep(2); // "so the two requests differ"
+// Correct: drive the real entry with a double, and freeze the clock to force the tie.
+await main.submitInteractiveInput(mode, rejecting, prepared());
+globalThis.Date = FrozenDate;
+```
