@@ -757,3 +757,84 @@ await Bun.sleep(2); // "so the two requests differ"
 await main.submitInteractiveInput(mode, rejecting, prepared());
 globalThis.Date = FrozenDate;
 ```
+
+## Scenario: Durable OAuth token rotation across cancellation and timer starvation
+
+### 1. Scope / Trigger
+
+A provider rotates refresh tokens on use. Receiving the new token is a state
+transition, not a disposable request result. This contract covers 0090 on 18.4.4.
+
+### 2. Signatures
+
+- `AuthStorage.oauth.refresh(id, signal?)` and ordinary key selection share the
+  durable `OAuthRefresher` operation, but each caller owns only its wait.
+- `anthropicIdentityHook(credentials, { phase, stored, ... })` resolves bootstrap
+  identity at login; refresh carries response identity or stored account fields.
+- `renewCredentialRefreshLease(id, owner, expiresAtMs)` precedes the success CAS.
+  `tryUpdateAuthCredentialIfMatches` retains both row-value and owner fences.
+
+### 3. Contracts
+
+- A caller cancelled before refresh ownership sends no token request. After
+  ownership, caller cancellation cannot abort a received rotation or poison a
+  surviving single-flight waiter. The owner still has a bounded operation signal.
+- Reject already-aborted public calls before starting shared work. Otherwise an
+  abort-race helper may reject without observing the inner rejected promise.
+  Unhandled cancellation rejections are failures, not expected test noise.
+- Optional account/profile lookup must not sit between token receipt and durable
+  persistence. A refresh response without identity must still save its token.
+- Timer renewal alone is insufficient: a synchronous stall can exceed the lease.
+  Renew the same owner immediately before the fenced save. Never renew a peer's
+  owner or overwrite a changed/deleted credential.
+- The durable owner is the sole persistence boundary for lease-backed rows.
+  Force refresh, key selection, usage and health must not remerge pre-await
+  metadata and write a second time after the CAS owner saved or reloaded a winner.
+  Test an old organization replaced by an organization-less login, not tokens alone.
+- Do not remove invalid-grant disabling or blindly replay a possibly consumed
+  token. A transport failure before receipt is different from losing a received
+  token after it was mapped.
+- Tests use synthetic grants and private SQLite only. Reading, copying or
+  refreshing operator credentials is not a verification mechanism.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required outcome |
+|---|---|
+| Caller already aborted / aborts waiting for ownership | No token request |
+| First caller aborts after rotation; another waiter remains | First rejects promptly; owner saves; survivor succeeds |
+| Refresh response omits account metadata | No bootstrap dependency; new token saves |
+| Event-loop stall outlives lease, same owner remains | Same-owner renewal then fenced save |
+| Peer takes ownership, changes credential or logs out | Old owner cannot overwrite or resurrect the row |
+| Genuine invalid grant | Disable the attempted row, not a peer replacement |
+| Transient refresh failure | Keep the credential active |
+
+### 5. Good / Base / Bad Cases
+
+Good: the next refresh, including in a fresh process, uses the saved rotated
+grant. Base: ordinary refresh and interactive login still work. Bad: the promise
+stored in a single-flight map embeds the first caller's abort race, so every
+waiter inherits that caller's cancellation even if a lower layer keeps running.
+
+### 6. Tests Required
+
+`patches/verify-oauth-durable-refresh.ts` must exercise real auth storage and
+provider mapping with a synthetic rotating-token transport. Attach the surviving
+waiter before cancelling the first. Assert persistent token identity, accepted
+next refresh, peer-write protection and disable events; source regexes are not
+behavior proof. Prove failing-before and passing-after.
+
+Smoke additionally uses a loopback token endpoint, a real 16-second synchronous
+stall, and a fresh process reopening the private SQLite store.
+
+```sh
+OMP_PATCH_VERIFY_AI_ROOT=<isolated-pi-ai> bun patches/verify-oauth-durable-refresh.ts
+grep -n '0090-omp-oauth-durable-refresh' patches/apply.sh patches/verify-patch-family-rollups.sh patches/PATCHES.md
+```
+
+### 7. Wrong vs Correct
+
+Wrong: return `raceSignal(sharedWork, firstCallerSignal)` as the shared promise,
+or wait up to 30 seconds for profile enrichment inside a 10-second token refresh.
+Correct: share the durable operation and race each public waiter separately;
+keep optional profile lookup outside refresh-token persistence.

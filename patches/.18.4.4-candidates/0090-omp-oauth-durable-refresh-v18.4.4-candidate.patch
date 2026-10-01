@@ -1,0 +1,241 @@
+--- a/src/auth/refresh.ts
++++ b/src/auth/refresh.ts
+@@ -300,6 +300,20 @@
+ 			const merged: T = options.mergeRefreshedCredential
+ 				? options.mergeRefreshedCredential(current, refreshed)
+ 				: mergeRefreshedCredential(current, refreshed);
++			// Timer starvation can expire our lease after the provider has rotated
++			// the token. Renew only our owner before the fenced CAS; a peer owner
++			// or a changed row must still win over this refresh.
++			if (
++				leasedCredentialId !== undefined &&
++				leaseStore &&
++				!leaseStore.renewCredentialRefreshLease(
++					leasedCredentialId,
++					owner,
++					Date.now() + OAUTH_REFRESH_LEASE_TTL_MS,
++				)
++			) {
++				throw new AIError.ConfigurationError("OAuth refresh ownership was lost before persistence");
++			}
+ 			if (this.#deps.store.tryUpdateAuthCredentialIfMatches) {
+ 				if (
+ 					!this.#deps.store.tryUpdateAuthCredentialIfMatches(
+@@ -408,15 +422,20 @@
+ 		signal?: AbortSignal,
+ 		reason?: OAuthRefreshReason,
+ 	): Promise<OAuthCredentials> {
++		if (signal?.aborted) throw new AIError.AbortError("credential refresh aborted");
+ 		const authRecovery = reason === "auth-recovery";
+ 		if (authRecovery && credentialId !== undefined && !this.#oauthCredentialRefreshInFlight.has(credentialId)) {
+ 			const recent = this.#recentMint(credentialId);
+ 			if (recent) return recent.credential;
+ 		}
+-		return this.#refreshSingleFlight(provider, credential, credentialId, signal, reason);
++		return raceSignal(
++			this.#refreshSingleFlight(provider, credential, credentialId, signal, reason),
++			signal,
++			"credential refresh aborted",
++		);
+ 	}
+ 
+-	/** Refresh without recent-mint reuse; still shares the per-credential in-flight request. */
++	/** Share the durable operation, never an individual waiter's cancellation. */
+ 	async #refreshSingleFlight(
+ 		provider: Provider,
+ 		credential: OAuthCredential,
+@@ -427,7 +446,7 @@
+ 		credential = normalizeOAuthCredentialExpiry(provider, credential);
+ 		if (credentialId !== undefined) {
+ 			const existing = this.#oauthCredentialRefreshInFlight.get(credentialId);
+-			if (existing) return raceSignal(existing, signal, "credential refresh aborted");
++			if (existing) return existing;
+ 		}
+ 		if (Date.now() + OAUTH_REFRESH_SKEW_MS < credential.expires) return credential;
+ 		if (credentialId === undefined) {
+@@ -450,7 +469,7 @@
+ 				this.#oauthCredentialRefreshInFlight.delete(credentialId);
+ 			});
+ 		this.#oauthCredentialRefreshInFlight.set(credentialId, promise);
+-		return raceSignal(promise, signal, "credential refresh aborted");
++		return promise;
+ 	}
+ 
+ 	async #refreshOAuthCredentialUnshared(
+@@ -468,12 +487,15 @@
+ 				credentialFromRow: row => row,
+ 				forceRefresh,
+ 				signal,
++				// The caller owns its wait, not a token rotation already in flight.
++				// Keep cancellation at lease acquisition; the bounded owner signal
++				// protects the provider-to-store operation after ownership is ours.
+ 				refresh: (current, refreshSignal) =>
+ 					this.#requestOAuthCredentialRefresh(
+ 						provider,
+ 						current,
+ 						credentialId,
+-						signal && refreshSignal ? AbortSignal.any([signal, refreshSignal]) : (signal ?? refreshSignal),
++						refreshSignal,
+ 						reason,
+ 					),
+ 				isDefinitiveFailure: error => AIError.isDefinitiveOAuthFailure(String(error)),
+@@ -580,6 +602,7 @@
+ 		signal?: AbortSignal,
+ 		options?: OAuthRefreshByIdOptions,
+ 	): Promise<AuthCredentialSnapshotEntry> {
++		if (signal?.aborted) throw new AIError.AbortError("credential refresh aborted");
+ 		const existing = this.#oauthRefreshInFlight.get(id);
+ 		if (existing) return raceSignal(existing, signal, "credential refresh aborted");
+ 		const recent = options?.reuseRecentMint ? this.#recentMint(id) : undefined;
+@@ -637,6 +660,15 @@
+ 				}
+ 				throw error;
+ 			}
++			if (hasRefreshLeases(this.#deps.store)) {
++				// The durable owner already saved or reloaded the winning full row.
++				// Never merge pre-await metadata into that row or persist it twice.
++				const current = this.#deps.store.listAuthCredentials(provider).find(row => row.id === id);
++				if (current?.credential.type !== "oauth") {
++					throw new AIError.ValidationError(`No credential with id=${id}`);
++				}
++				return snapshotEntry(id, provider, current.credential);
++			}
+ 			// Preserve credential-subtype metadata, such as MCP token endpoints,
+ 			// that the provider's bare OAuth response cannot reproduce.
+ 			const updated = mergeRefreshedCredential(attempted, refreshed);
+--- a/src/auth/select.ts
++++ b/src/auth/select.ts
+@@ -27,7 +27,7 @@
+ 	type UsageRankingResult,
+ } from "./rank";
+ import { mergeRefreshedCredential, OAUTH_REFRESH_SKEW_MS, type OAuthRefresher } from "./refresh";
+-import type { AuthCredentialStore } from "./store";
++import { hasRefreshLeases, type AuthCredentialStore } from "./store";
+ import type { ApiKeyCredential, AuthApiKeyOptions, AuthCredential, OAuthCredential } from "./types";
+ import type { UsageService } from "./usage";
+ import {
+@@ -699,6 +699,13 @@
+ 						options?.signal,
+ 						force ? options?.refreshReason : undefined,
+ 					);
++					if (credentialId !== undefined && hasRefreshLeases(this.#deps.store)) {
++						// Lease-backed refresh already persisted or reloaded the winner.
++						if (!this.#syncOAuthSelectionFromStore(provider, candidate.selection, credentialId)) {
++							preflightFailures.add(candidate);
++						}
++						return;
++					}
+ 					const beforeRefresh = candidate.selection.credential;
+ 					const updated = mergeRefreshedCredential(beforeRefresh, refreshedCredentials);
+ 					if (credentialId !== undefined && authCredentialEquals(beforeRefresh, updated)) {
+@@ -959,6 +966,7 @@
+ 		}
+ 
+ 		try {
++			const checkedAccountId = selection.credential.accountId;
+ 			let result: { newCredentials: OAuthCredentials; apiKey: string } | null;
+ 			const customProvider = getOAuthProvider(provider);
+ 			if (customProvider) {
+@@ -990,16 +998,23 @@
+ 				result = await getOAuthApiKey(provider as OAuthProvider, oauthCreds);
+ 			}
+ 			if (!result) return undefined;
+-			const updated = mergeRefreshedCredential(selection.credential, result.newCredentials);
+-			if (credentialId !== undefined) {
++			let updated: OAuthCredential;
++			if (credentialId !== undefined && hasRefreshLeases(this.#deps.store)) {
++				if (!this.#syncOAuthSelectionFromStore(provider, selection, credentialId)) return undefined;
++				updated = selection.credential;
++				if (updated.access !== result.newCredentials.access) return undefined;
++			} else {
++				updated = mergeRefreshedCredential(selection.credential, result.newCredentials);
++			}
++			if (credentialId !== undefined && !hasRefreshLeases(this.#deps.store)) {
+ 				const idx = this.#deps.pool.replaceById(provider, credentialId, updated);
+ 				if (idx !== -1) selection.index = idx;
+-			} else {
++			} else if (credentialId === undefined) {
+ 				const rowId = this.#deps.pool.entries(provider)[selection.index]?.id;
+ 				if (rowId !== undefined) this.#deps.pool.replaceById(provider, rowId, updated);
+ 			}
+ 			if ((checkUsage && !allowBlocked) || hasPlanRequirement) {
+-				const sameAccount = selection.credential.accountId === updated.accountId;
++				const sameAccount = checkedAccountId === updated.accountId;
+ 				if (!usageChecked || !sameAccount) {
+ 					usage = await this.#deps.usage.report(provider, updated, {
+ 						...options,
+--- a/src/auth/usage.ts
++++ b/src/auth/usage.ts
+@@ -37,7 +37,7 @@
+ import { OAUTH_REFRESH_SKEW_MS } from "./refresh";
+ import type { OAuthRefresher } from "./refresh";
+ import { USAGE_REPORT_TTL_MS } from "./sqlite-credential-store";
+-import type { AuthCredentialStore } from "./store";
++import { hasRefreshLeases, type AuthCredentialStore } from "./store";
+ import type { AuthCredential, OAuthCredential, ObservedUsageInput, UsageApi } from "./types";
+ import {
+ 	dedupeUsageReports,
+@@ -183,6 +183,8 @@
+ 		next: UsageCredential,
+ 		credentialId = this.#deps.pool.findIdForUsageCredential(provider, previous),
+ 	): void {
++		// Probes and health share the durable refresher; it owns leased writes.
++		if (hasRefreshLeases(this.#deps.store)) return;
+ 		if (credentialId === undefined) return;
+ 		const entry = this.#deps.pool.entries(provider).find(candidate => candidate.id === credentialId);
+ 		if (entry?.credential.type !== "oauth") return;
+--- a/src/registry/oauth/anthropic.ts
++++ b/src/registry/oauth/anthropic.ts
+@@ -86,25 +86,25 @@
+ }
+ 
+ /**
+- * `anthropic-identity` hook: fills account (and, at login only, organization)
+- * identity from the bootstrap endpoint when the token response left it
+- * unset. The org an access token is scoped to is captured once at login and
+- * deliberately never refreshed — rewriting identity during background
+- * refreshes could silently re-key stored credentials.
++ * Resolve account/organization identity at login only. Optional bootstrap work
++ * must never delay persistence after a refresh token has already been rotated.
++ * Refresh preserves stored account identity; organization scope stays fixed.
+  */
+ export const anthropicIdentityHook: AfterExchangeHook = async (credentials, context): Promise<OAuthCredentials> => {
+-	const includeOrg = context.phase === "login";
+-	const orgSatisfied = !includeOrg || credentials.orgId !== undefined;
+-	if (credentials.accountId && credentials.email && orgSatisfied) return credentials;
++	if (context.phase === "refresh") {
++		credentials.accountId ??= context.stored?.accountId;
++		credentials.email ??= context.stored?.email;
++		return credentials;
++	}
++	if (credentials.accountId && credentials.email && credentials.orgId !== undefined) return credentials;
+ 	try {
+ 		const bootstrap = await fetchAnthropicBootstrapIdentity(credentials.access, context.fetch);
+ 		return {
+ 			...credentials,
+ 			accountId: credentials.accountId ?? bootstrap.accountId,
+ 			email: credentials.email ?? bootstrap.email,
+-			...(includeOrg
+-				? { orgId: credentials.orgId ?? bootstrap.orgId, orgName: credentials.orgName ?? bootstrap.orgName }
+-				: {}),
++			orgId: credentials.orgId ?? bootstrap.orgId,
++			orgName: credentials.orgName ?? bootstrap.orgName,
+ 		};
+ 	} catch {
+ 		return credentials;
+--- a/dist/types/registry/oauth/anthropic.d.ts
++++ b/dist/types/registry/oauth/anthropic.d.ts
+@@ -23,10 +23,8 @@
+ /** Fetches the signed-in account/org identity Claude Code's CLI bootstrap reports. */
+ export declare function fetchAnthropicBootstrapIdentity(accessToken: string, fetchImpl: FetchImpl): Promise<AnthropicIdentity>;
+ /**
+- * `anthropic-identity` hook: fills account (and, at login only, organization)
+- * identity from the bootstrap endpoint when the token response left it
+- * unset. The org an access token is scoped to is captured once at login and
+- * deliberately never refreshed — rewriting identity during background
+- * refreshes could silently re-key stored credentials.
++ * Resolve account/organization identity at login only. Optional bootstrap work
++ * must never delay persistence after a refresh token has already been rotated.
++ * Refresh preserves stored account identity; organization scope stays fixed.
+  */
+ export declare const anthropicIdentityHook: AfterExchangeHook;

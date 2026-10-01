@@ -610,6 +610,9 @@ case "$OMP_PATCH_VERSION" in
 	# `live-chain-over-capacity`, `native-capacity-unattested` and
 	# `native-live-chain-over-capacity` are gone.
 	_omp_tail_candidate "18.4.4" "0089-omp-compaction-drop-capacity-gate" "${NM}"
+	# Preserve rotated OAuth tokens across waiter cancellation and timer starvation.
+	# Anthropic refresh never blocks persistence on optional identity bootstrap.
+	_omp_tail_candidate "18.4.4" "0090-omp-oauth-durable-refresh" "${AI}"
 	;;
 *)
 	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4)" >&2
@@ -1056,6 +1059,16 @@ if [[ "$MODE" == "apply" ]]; then
 	fi
 	if _omp_plan_has 0088; then
 		bun "${HERE}/verify-compaction-cache-liveness.ts"
+	fi
+	if _omp_plan_has 0090; then
+		# Never import the live installation into the credential verifier.
+		(
+			oauth_verify_root="$(mktemp -d)"
+			trap 'rm -rf -- "$oauth_verify_root"' EXIT
+			cp -a --reflink=auto "${NM}/.." "${oauth_verify_root}/node_modules"
+			OMP_PATCH_VERIFY_AI_ROOT="${oauth_verify_root}/node_modules/@oh-my-pi/pi-ai" \
+				bun "${HERE}/verify-oauth-durable-refresh.ts"
+		)
 	fi
 fi
 if [[ "$MODE" != "check" ]]; then

@@ -779,8 +779,16 @@ EXPECTED_PLAN_1844+=(".18.4.4-candidates/0088-omp-compaction-cache-liveness-v18.
 # vouches for it and the provider's own rejection drives the existing
 # `live-chain-overflow-retry` cold fallback.
 EXPECTED_PLAN_1844+=(".18.4.4-candidates/0089-omp-compaction-drop-capacity-gate-v18.4.4-candidate.patch:NM")
-[[ "${#EXPECTED_PLAN_1844[@]}" -eq 53 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
-	|| die "resolved 18.4.4 plan drifted from its 53-entry capability contract"
+# 0090 is 18.4.4-only: the Anthropic refresh path no longer waits for the optional
+# account bootstrap and preserves the stored identity when a token response omits
+# it; a caller cancelled while waiting stops waiting without cancelling the durable
+# owner's rotation or a surviving waiter; and a lease still owned by the operation
+# is renewed synchronously before the success CAS, so a 15-second event-loop stall
+# cannot discard a minted token. A stolen lease or changed credential is never
+# overwritten or disabled by the previous owner. `AI` root (pi-ai).
+EXPECTED_PLAN_1844+=(".18.4.4-candidates/0090-omp-oauth-durable-refresh-v18.4.4-candidate.patch:AI")
+[[ "${#EXPECTED_PLAN_1844[@]}" -eq 54 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
+	|| die "resolved 18.4.4 plan drifted from its 54-entry capability contract"
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
 # by apply.sh --print-plan in the static section. The assertions below pin

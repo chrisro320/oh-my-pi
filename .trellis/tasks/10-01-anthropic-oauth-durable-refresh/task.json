@@ -1,0 +1,28 @@
+{
+  "id": "anthropic-oauth-durable-refresh",
+  "name": "anthropic-oauth-durable-refresh",
+  "title": "Fix Anthropic OAuth refresh token loss",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-10-01",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "profile": "hard"
+  }
+}

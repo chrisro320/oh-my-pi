@@ -9,11 +9,11 @@
 | 項目 | 值 |
 |---|---|
 | 當前部署 | `OMP_PATCH_VERSION=18.4.4`（未設則按 installed 版本自動路由） |
-| 當前 live 部署 | **53 補丁（18.4.4：…0085／0086／0087 已部署）** + `bin/omp -> src/cli.ts`；尾層 0086／0087 於 2026-09-30 退役併入合併層 0088（bytes 凍結於 `.retired/09-30-0086-0087-rolled-into-0088/`），delta 部署後為 52；此前由 `deploy-1844.py` 備份並原子部署（DB 線上備份、失敗自動回滾，18.4.1 樹保留），fresh `omp --version`＝18.4.4；以部署腳本輸出為準 |
+| 當前 live 部署 | **53 層（18.4.4：0085／0088／0089 已落層；0086／0087 於 2026-09-30 退役併入合併層 0088，bytes 凍結於 `.retired/09-30-0086-0087-rolled-into-0088/`）** + `bin/omp -> src/cli.ts`；18.4.4 計畫已註冊第 54 層 **0090**（Anthropic OAuth durable refresh，程式碼已備、**待部署**）；部署由宣告式 `deploy-delta-1844.py`（本輪 `--old-layers 53 --new-layers 54 --delta-add 0090`）備份並原子部署（DB 線上備份、失敗自動回滾，18.4.1 與 18.4.4-53layers 樹保留），fresh `omp --version`＝18.4.4；以部署腳本輸出為準 |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（**53 層**；live 為 53 層，尾層 0086／0087 於 2026-09-30 退役併入合併層 0088、同日再追加 0089 刪除 live 鏈容量閘門；18.4.1 為回退源） |
+| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層，回退源）、18.4.1（50 層；live 目前 49 層，0084 待部署）、18.4.4（**54 層**；live 為 53 層，尾層 0086／0087 於 2026-09-30 退役併入合併層 0088、同日再追加 0089 刪除 live 鏈容量閘門，2026-10-01 追加 0090 Anthropic OAuth durable refresh（待部署）；18.4.1 為回退源） |
 | 最近遷移 | 18.4.1 → 18.4.4：50 層全為同編號候選（38 層原樣、12 層適配，無上游接管）；0082 手工合併上游 detached-draft；新增 `verify-user-display-text-queue.ts`；已知未修：Review #2（prepared 輸入 dispatch 被拒絕時不還原文/圖片）、audit-repro r2/r3/r3x/r4 既有漂移（18.4.1 已存在） |
-| 回歸套件 | **41 道 TypeScript 行為閘門**（`apply.sh` apply 模式實際註冊者為準；各計畫只執行其中含該層者）及 spec shell 閘門；另有 `--verify-rollups` 六基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10／18.3.3／18.4.1） |
+| 回歸套件 | **42 道 TypeScript 行為閘門**（`apply.sh` apply 模式實際註冊者為準；各計畫只執行其中含該層者）及 spec shell 閘門；另有 `--verify-rollups` 六基線 oracle（18.0.9／18.1.14／18.2.3／18.2.10／18.3.3／18.4.1） |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -37,7 +37,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.2.10 計畫 | 39 層能力遷移，另正式收編已部署的 0055、0071、0075；原 0076（scout thinking 客製）按使用者要求排除；2026-09-23 新增 0076（eval 提醒持久化）、0077（重試提醒持久化）；2026-09-24 新增 0078（Python display MIME 擇一）、0079（Kitty 非同步轉圖完成屏障）、0080（顯示端 PNG 快取與圖片指紋） | **47** |
 | 18.3.3 計畫 | 保留上述 47 項能力；0073 由上游動態 read getter 接管，追加 0081 主會話 cache footer、0082 輸入英譯原文顯示；其餘同編號專版候選遷移 | **48** |
 | 18.4.1 計畫 | 保留 18.3.3 的 48 項能力，全部為同編號 `.18.4.1-candidates/`；17 層需適配（0066／0067／0068 在 0035 移植後以原位元組直接落層），審查後另修 0043／0074／0077／0079／0080；鏈尾新增 0083（`^` 標記模型的 resume 前綴修復）、0084（length-stop 重試提醒持久化） | **50** |
-| 18.4.4 計畫（53 層） | 保留 18.4.1 的 50 項能力，全部為同編號 `.18.4.4-candidates/`；六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 38 層原樣、12 層失敗（直接 6：0037／0010／0050／0063／0065／0079；連帶 6：0060／0076／0068／0070／0080／0082），全部同編號適配、無上游接管；0082 因上游 18.4.3/18.4.4 自建 detached-draft 而手工合併（`queueCompactionMessage` 改為 options 物件，Ctrl+Enter 保留上游 detach 後再加準備邊界）；0082 另補 queued `rawText` 改記原文（避免 RPC `removeQueuedMessage` 誤刪）與 `types.d.ts` 宣告。2026-09-30 追加尾層 0088（0086＋0087 合併層）與 0089（刪除 live 鏈容量閘門）。 | **53**（計畫層數；live 現為 53 層，尾層 0086／0087 於 2026-09-30 退役併入合併層 0088，delta 部署後 live 為 52，再加 0089 後為 53） |
+| 18.4.4 計畫（54 層） | 保留 18.4.1 的 50 項能力，全部為同編號 `.18.4.4-candidates/`；六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 38 層原樣、12 層失敗（直接 6：0037／0010／0050／0063／0065／0079；連帶 6：0060／0076／0068／0070／0080／0082），全部同編號適配、無上游接管；0082 因上游 18.4.3/18.4.4 自建 detached-draft 而手工合併（`queueCompactionMessage` 改為 options 物件，Ctrl+Enter 保留上游 detach 後再加準備邊界）；0082 另補 queued `rawText` 改記原文（避免 RPC `removeQueuedMessage` 誤刪）與 `types.d.ts` 宣告。2026-09-30 追加尾層 0088（0086＋0087 合併層）與 0089（刪除 live 鏈容量閘門）；2026-10-01 追加 0090（Anthropic OAuth durable refresh：refresh 不再等 bootstrap、取消不取消持久化、成功前同步續期自己的 lease）。 | **54**（計畫層數；live 現為 53 層，0089 已部署、0090 待部署；尾層 0086／0087 於 2026-09-30 退役併入合併層 0088） |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -828,6 +828,26 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   - (b) **非 live** 的冷路徑重試仍以 `minSummaryInputTokens`（此視窗 16_384）為底：沒有 live 鏈的嘗試在減半後低於該門檻時不重試而直接拋錯（pre-0088 行為）。live→cold 過渡不受此限（見上）。
   - (c) 【not measured live】無真實 provider 請求；事故驗收為離線重放（見 0088 殘餘 (j)）。
 
+### 0090 — Anthropic OAuth durable refresh：已輪替的權杖不再因本機原因遺失（僅 18.4.4）
+
+- 補丁：`.18.4.4-candidates/0090-omp-oauth-durable-refresh-v18.4.4-candidate.patch`（`${AI}`，pi-ai root）。0089 已部署、不可變，故以 18.4.4 新尾層落層；18.4.4 計畫為 **54 層**。
+- 問題（合成故障注入重現，2026-10-01）：對已安裝 18.4.4 auth 程式碼注入三種故障，都在**權杖已輪替之後**丟棄新權杖，造成本機自造的 Anthropic 登出——(1) 10 秒 identity-hook timeout；(2) 呼叫者在輪替後取消；(3) 超過 15 秒刷新租約的事件迴圈停滯。快速成功的 refresh 與快速 bootstrap 503 都能正確落盤；重現的缺陷位於輪替後的保存邊界，並非對本次線上事故的完整歸因。
+- 變更（依使用者指示「Solve this problem」；無新憑證儲存、無重試迴圈、無逾時延長、無相容層）：
+  1. **identity bootstrap 改為登入專用**：refresh 路徑不再等待選用的 account bootstrap；權杖回應缺身分時保留既有 stored identity，直接保存輪替後的權杖位元組；互動式登入的身分解析維持原樣（R1）。
+  2. **取消語意收斂**：在取得 refresh 所有權**之前**取消 → 不發 token POST；一旦 durable owner 開始輪替，呼叫者可停止等待而**不取消**持久化操作、也不殃及存活的 waiter（owner 以自身 bounded signal 完成；`raceSignal` 仍立即釋放被取消的 waiter）（R2）。
+  3. **lease 續期邊界**：成功 CAS 之前，**仍屬於同一操作**的過期 lease 會同步續期，故計時器飢餓不單因 lease deadline 過了就丟棄鑄出的權杖；**永不續期他人的 lease**，被奪走的 lease 或已變更的憑證永不被舊 owner 覆寫或停用（全列 CAS 與 lease 圍籬保留，peer write 與 logout 勝出）（R3）。
+- 不變：definitive invalid-grant 仍停用該列、transient 失敗仍保留（R4）；未抑制警告、未加盲目重試、未延長逾時。
+- 已取消的請求在兩個 public refresh 入口直接拒絕，不啟動無人等待的共享 promise；未處理的取消異常視為回歸失敗，不予忽略。
+- **持久化單一所有者**：lease-backed refresh 已保存或重讀 CAS 贏家後，force refresh、key selection、usage/health 不再把舊 metadata 合併後寫回第二次。並行重新登入取得新 row 時，舊 org 不得被補回；非 lease store 的保存路徑維持原樣。
+- 版本來源：官方 18.4.1 與 18.4.4 兩個相關 source 檔逐位元相同。caller-signal 回歸始於上游 18.4.1；lease 缺陷始於16.4.2；optional bootstrap 問題至少16.1.17已有。詳細來源與證據界限見本次任務 `research/version-origin.md`。
+- 閘門：`verify-oauth-durable-refresh.ts`（`apply.sh` 以 `_omp_plan_has 0090` 註冊），對**實際 auth entry 路徑**以合成 HTTP 與獨立 SQLite 驅動：refresh 不觸發 bootstrap、回應缺身分仍保存、已中止／等待中的呼叫者不發 POST、輪替後取消只拒絕該 waiter 而 owner 與存活 waiter 成功、>15 秒同步停滯不丟權杖、被奪取／peer 寫入不覆寫贏家、真 `invalid_grant` 恰好停用被嘗試的列、transient 錯誤保持 active 且後續 refresh 用已保存權杖。閘門在**修復前樹上紅、修復後樹上綠**（AC5）；只讀 `OMP_PATCH_VERIFY_AI_ROOT` 指向的選定樹，**不碰 live 憑證 DB、不發真實 provider 流量**。
+- 殘餘／風險：
+  - (a) 遠端已撤銷的 grant，以及「provider 回應在客戶端收到前就遺失」，無法靠重放輪替權杖救回；本修只保護**客戶端已收到**的權杖，不是任意行程被殺的保險（設計邊界）。
+  - (b) 【not measured live】驗收用合成憑證與合成 HTTP；部署後第一個真實 refresh 週期仍是唯一的線上確認。
+- 生效條件：需**新開 omp 進程**（舊進程內的 `/resume` 不會載入新程式碼）。
+- 受影響檔案：`pi-ai/src/auth/{refresh,select,usage}.ts`、`pi-ai/src/registry/oauth/anthropic.ts`、`pi-ai/dist/types/registry/oauth/anthropic.d.ts`。補丁基於已驗證的53層樹；`usage.ts` 保留既有補丁內容，其餘受影響原檔與 pinned 官方18.4.4一致。
+- sha256：`d61e7f5f7fc2cb79d2b3f3c5f0829fed38175285ae3a19fd528f4daa1c1f3c35`；11,114 B。使用既有 `deploy-delta-1844.py --old-layers 53 --new-layers 54 --delta-add 0090`，保留原子替換、回滾及進程閘門。
+
 ## 3. 已撤下的補丁
 
 ### 2026-09-30 尾層合併：0086＋0087（＋0088 草稿）→ 合併層 0088（`.retired/09-30-0086-0087-rolled-into-0088/`）
@@ -1301,7 +1321,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 ## 6. 驗證矩陣
 
-### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 42 道：41 道 TypeScript 行為閘門 + spec shell 閘門）
+### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 43 道：42 道 TypeScript 行為閘門 + spec shell 閘門）
 
 | 閘門 | 職責 | 所需 env |
 |---|---|---|
@@ -1346,6 +1366,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | `verify-length-stop-reminder-persist.ts`（條件） | 0084 length-stop 重試提醒雙寫、重建投影一致、重開後前綴相同；依計畫含 0084 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 | `verify-user-display-text-queue.ts`（條件） | 0082 準備後提交：model text 進 `content`、原文進 `displayText`，重開 session 重建同一 content；18.4.4 另驗 queued `removeQueuedMessage` 以原文識別（雙訊息交叉案例）；依計畫含 0082 執行 | `OMP_PATCH_VERIFY_NM`、`OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-rejected-prepared-draft-restore.ts`（條件） | 0085：真實 `submitInteractiveInput` + 真實 restore helper 加編輯器替身；dispatch 被拒絕時原文與附件回到空編輯器、有較新草稿時保留為可還原項；準備取消時期間貼入的圖片不被覆蓋；控制組（無較新內容時照常回寫）；僅 18.4.4；依計畫含 0085 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
+| `verify-oauth-durable-refresh.ts`（條件） | 0090：以合成 HTTP 與獨立 SQLite 驅動**真實 auth entry 路徑**——refresh 不觸發 account bootstrap、權杖回應缺身分仍保存輪替位元組、已中止／等待中的呼叫者不發 token POST、輪替後取消只拒絕該 waiter（owner 與存活 waiter 仍成功落盤）、>15 秒同步停滯不丟權杖、被奪取 lease／peer 寫入不覆寫贏家、真 `invalid_grant` 恰停用被嘗試列、transient 錯誤保持 active 且後續 refresh 用已保存權杖；修復前紅、修復後綠（AC5）；不碰 live 憑證 DB、不發真實 provider 流量；僅 18.4.4；依計畫含 0090 執行 | `OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-compaction-cache-liveness.ts`（條件） | 【**0089**：容量閘門已刪——leg 5 改驗 512k 視窗下約 129k 的 usage-less 鏈仍走 live lane（單一請求、無 cold reason）、leg 5b 驗真正超過 512k 的鏈被 provider 拒斥後仍 `live-chain-overflow-retry`（且被放棄區間的位元組仍出現在被接受的請求中）、leg 5c 驗 signed-thinking 鏈；leg 3g 與其 whole-turn 變體驗**小於重試下限**的被丟棄目標在 live 請求被拒後仍轉入冷路徑（保住 sentinel、仍產出摘要），把 live→cold 過渡改回「目標 transcript 減半」即在此紅】0088（合併層 0086＋0087＋0088 草稿）：以**快取模擬器**（fixture 時鐘、**逐 marker TTL**、20 block 查找窗）驗事故形狀（433 則 live 鏈、摘要邊界 354、主鏈尾部標記每輪 +2）下，摘要請求讀滿 live 鏈、只寫指令（cacheRead 43350／cacheWrite 5），負對照回到截斷前綴必紅（cacheRead 50／cacheWrite 35405）；混合 1h／5m 案例 6 分鐘後 readBlocks=1；第三輪另含 **provider 拒絕 live 請求後的完成型重試**（callback／落盤理由／warning／trace 四者一致＋被丟棄區間 sentinel 出現在被接受的請求＋不拒絕的敏感度對照）、**split turn 兩半**（history 非空／空）與**前一張摘要不在前綴**的具名回退、**整段對話指令等式**（非 live 指令 sha256 凍結於 0086 前位元組、live ＝ 該文字 + 整段對話註記）、**非 Anthropic 折疊邊界指紋**（與 0086 前樹逐位元組相同）；stub 腿驗落盤 `details.cacheColdReason`／trace `liveChainFallback`／`logger.warn` 三者一致（各刪一次即紅），並含 fold 預算 vs 物理容量、system／tools／工具結果／thinking／圖片／自訂指令／保留尾段容量邊界與真實前一張摘要的迭代語意；僅 18.4.4；依計畫含 0088 執行 | `OMP_PATCH_VERIFY_NM`；**第四輪（容量改為 provider 具證）**另含：**短留存線形**負對照（真 provider 建構子下 `cacheRetention:"short"` 的條目全過期⇒readBlocks=0，而 1h 主鏈 433/433）、**簽名 thinking fixture**（簽名 400k 字元、本地估值 >4 倍具證值）三態（具證可容⇒整條送出／具證超窗⇒`live-chain-over-capacity`／無 usage⇒`capacity-unattested`）、容量邊界對（7a／7b／7c／7d／7e／7g 皆為「具證前綴＋附加尾段」的相鄰視窗）、以及以**樹外釘死 digest**（`487befe9…`）取代由生產常數反推的整段對話指令等式 （含 `CORE`／`AI`／`CATALOG` 覆寫） |
 
 **0063 驗收狀態（2026-09-13）**：`apply.sh --verify-rollups` 與 `verify-patch-family-rollups.sh` 在更新 `EXPECTED_PLAN`／`EXPECTED_PLAN_18` 快照（27→28、31→32）後 **EXIT 0 全綠**，新閘 `verify-codex-compaction-chain.ts` 隨計畫執行；smoke（`cd /tmp && timeout 90 omp --no-session --no-extensions --no-skills --no-lsp -p 'say PATCH_OK'`）實測通過。閘門判別力以兩個 fault variant 實測：刪除 chained-body 分支 → §1 行為斷言紅；把兩處 `responsesLite` 改回 `model.useResponsesLite` → §4 接線斷言紅。**E2E 已執行（2026-09-14）**：真實會話 `01a0a05f`（`openai-codex/gpt-5.6-luna`）同行程 live baseline 後 `/compact`，記錄 `provider:"openai-codex"/version:"v2"/inputTokens:24160/cachedInputTokens:23040`——PRD 命中率 `cached/input=95.4%≥80%`，`check-codex-compaction-cache.sh` exit 0。當時 `apply.sh` 被 wave2 的 0043 CONFLICT 阻擋於 `mode=apply` 入口（該紅燈非 0063 引起），故 15 道閘門改以直接調用驗證、smoke 另行手動執行；**該阻塞已於 2026-09-15 解除**，見下方「0043 陳舊變體換手」。
