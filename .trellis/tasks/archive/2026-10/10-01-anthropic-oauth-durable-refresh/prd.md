@@ -23,7 +23,7 @@ Synthetic fault injection against the installed 18.4.4 auth code reproduced loss
 - [x] AC3: A >15-second synchronous stall does not lose the new token when the lease still belongs to the operation; takeover/peer-write does not clobber the winner.
 - [x] AC4: Genuine invalid_grant disables exactly the attempted row; transient error leaves it active; a subsequent refresh uses the saved token.
 - [x] AC5: The behavioral gate fails against the pre-fix tree and passes against the patched tree; the actual auth entry path is exercised with synthetic HTTP and SQLite.
-- [ ] AC6: Full pristine chain replay, reverse/forward checks, scoped import/smoke and deployed-byte parity pass. Old patches remain unchanged.
+- [x] AC6: Full pristine chain replay, reverse/forward checks, scoped import/smoke and deployed-byte parity pass. Old patches remain unchanged. Live54 deployed on 2026-10-01; transaction `upgrade-18.4.4-54layers-20261001-132344/transaction.json` is `verified`.
 
 ## Out of Scope
 

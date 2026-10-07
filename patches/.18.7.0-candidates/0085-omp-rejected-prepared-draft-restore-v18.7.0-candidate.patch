@@ -1,0 +1,263 @@
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -113,6 +113,7 @@
+ import type { ForeignSessionInfo, ForeignSessionSource, ForeignSessionStore } from "./session/foreign-session-store";
+ import { resolveResumableSession, type SessionInfo } from "./session/session-listing";
+ import { ForkSourceNotFoundError, SessionManager, SessionMoveRefusedError } from "./session/session-manager";
++import { restoreRejectedDraft } from "./slash-commands/helpers/draft";
+ import { shouldShowStartupSplash } from "./startup-splash";
+ import {
+ 	discoverSystemPromptOverride,
+@@ -389,6 +390,13 @@
+ 		| "markPendingSubmissionStarted"
+ 		| "finishPendingSubmission"
+ 		| "showError"
++		| "showWarning"
++		// A rejected prepared draft is handed to the editor and the deferred
++		// queue, so the contract needs the restore runtime as well.
++		| "editor"
++		| "deferredDraftSnapshots"
++		| "updatePendingMessagesDisplay"
++		| "ui"
+ 		| "checkShutdownRequested"
+ 		| "skillCommands"
+ 		| "renderOptimisticSkillMessage"
+@@ -473,6 +481,30 @@
+ 				});
+ 			} catch (error: unknown) {
+ 				mode.showError(error instanceof Error ? error.message : "Unknown error occurred");
++				// A prepared submission's original text and attachments already left
++				// the editor; without this they are gone once dispatch is rejected.
++				// Any throw may be a pre-dispatch rejection: the transcript cannot
++				// tell the two apart (pending bash/eval messages flush before
++				// dispatch, compaction replaces the array), so a rare failure after
++				// the turn took the message can offer already-sent text back as a
++				// restorable draft. Offering a possible duplicate beats losing it.
++				//
++				// The session already handed the prompt back, and owns the restore,
++				// when it throws AgentStartPolicyChangedError (its prompt-dropped
++				// callback fires, then it rethrows; the `throwOnDrop` site is never
++				// armed here). That class is not exported, so it is recognized by
++				// the name it assigns itself. When the callback's own guard finds
++				// text already in the editor it declines, and nothing is offered
++				// here either: the same gap the pre-0085 baseline had.
++				const restoredBySession = error instanceof Error && error.name === "AgentStartPolicyChangedError";
++				if (input.prepared && !restoredBySession) {
++					restoreRejectedDraft(mode, {
++						text: input.displayText ?? input.text,
++						canonicalText: input.text,
++						images: input.images,
++						imageLinks: input.imageLinks,
++					});
++				}
+ 			}
+ 			// Dispatch consumed the body locally (void custom command) or rejected
+ 			// instead of starting a turn: when it is the armed loop body, park the
+--- a/src/modes/controllers/input-controller.ts
++++ b/src/modes/controllers/input-controller.ts
+@@ -46,7 +46,7 @@
+ import { PINNED_HUD_TOGGLE_ID } from "@oh-my-pi/pi-tui/prompt/composer";
+ import { pickRecentFocusableAgentId } from "./session-focus-controller";
+ import { executeBuiltinSlashCommand, lookupBuiltinSlashCommand } from "../../slash-commands/builtin-registry";
+-import { restoreDetachedDraft } from "../../slash-commands/helpers/draft";
++import { restoreDetachedDraft, restoreRejectedDraft } from "../../slash-commands/helpers/draft";
+ import { parseSlashCommand, parseSubcommand } from "../../slash-commands/helpers/parse";
+ import { isTinyLocalModelKey } from "../../tiny/models";
+ import { tinyTitleClient } from "../../tiny/title-client";
+@@ -1045,36 +1045,14 @@
+ 
+ 	/**
+ 	 * Hand a prepared-away draft back to the editor. Writes into the editor only
+-	 * while its revision still matches the detached capture, so neither a newer
+-	 * draft nor a replacing session can be clobbered; otherwise the capture is kept
+-	 * restorable through the dequeue path instead of being dropped.
++	 * while nothing newer lives there (a text revision change, text, or an image
++	 * pasted meanwhile that is not one of the capture's own attachments), so
++	 * neither a newer draft nor a replacing session can be clobbered; otherwise the
++	 * capture is kept restorable through the dequeue path instead of being dropped.
+ 	 */
+ 	#restorePreparationDraft(snapshot: PreparedInputSnapshot): void {
+ 		if (snapshot.signal.aborted || this.ctx.sessionManager.getSessionId() !== snapshot.sessionId) return;
+-		if (this.ctx.editor.textRevision !== snapshot.revision || this.ctx.editor.getText().length > 0) {
+-			this.#retainRejectedSubmission(snapshot);
+-			return;
+-		}
+-		if (snapshot.images && snapshot.images.length > 0) {
+-			this.ctx.editor.pendingImages = [...snapshot.images];
+-			this.ctx.editor.pendingImageLinks = snapshot.imageLinks
+-				? [...snapshot.imageLinks]
+-				: snapshot.images.map(() => undefined);
+-			this.ctx.editor.imageLinks = this.ctx.editor.pendingImageLinks;
+-		}
+-		this.ctx.editor.setCollapsedText(snapshot.text);
+-		this.ctx.ui.requestRender();
+-	}
+-
+-	/** Keep a rejected capture restorable without touching the editor's newer draft. */
+-	#retainRejectedSubmission(snapshot: PreparedInputSnapshot): void {
+-		this.ctx.deferredDraftSnapshots.push({
+-			text: snapshot.text,
+-			canonicalText: snapshot.text,
+-			images: snapshot.images ? [...snapshot.images] : undefined,
+-		});
+-		this.ctx.updatePendingMessagesDisplay();
+-		this.ctx.showWarning("Input was not sent; it is listed below as restorable");
++		restoreRejectedDraft(this.ctx, snapshot, snapshot.revision);
+ 	}
+ 
+ 	setupEditorSubmitHandler(): void {
+--- a/dist/types/main.d.ts
++++ b/dist/types/main.d.ts
+@@ -24,7 +24,7 @@
+     message: string;
+ }
+ export declare function buildModelScopeNotification(scopedModelsForDisplay: readonly Pick<ScopedModel, "model" | "thinkingLevel" | "explicitThinkingLevel">[], startupQuiet: boolean): InteractiveModeNotify | null;
+-export declare function submitInteractiveInput(mode: Pick<InteractiveMode, "markPendingSubmissionStarted" | "finishPendingSubmission" | "showError" | "checkShutdownRequested" | "skillCommands" | "renderOptimisticSkillMessage" | "clearOptimisticSkillMessage" | "optimisticSkillMessagePending"> & Partial<Pick<InteractiveMode, "loopPrompt" | "pauseLoop">>, session: Pick<AgentSession, "prompt" | "promptCustomMessage" | "isStreaming">, input: SubmittedUserInput): Promise<void>;
++export declare function submitInteractiveInput(mode: Pick<InteractiveMode, "markPendingSubmissionStarted" | "finishPendingSubmission" | "showError" | "showWarning" | "editor" | "deferredDraftSnapshots" | "updatePendingMessagesDisplay" | "ui" | "checkShutdownRequested" | "skillCommands" | "renderOptimisticSkillMessage" | "clearOptimisticSkillMessage" | "optimisticSkillMessagePending"> & Partial<Pick<InteractiveMode, "loopPrompt" | "pauseLoop">>, session: Pick<AgentSession, "prompt" | "promptCustomMessage" | "isStreaming">, input: SubmittedUserInput): Promise<void>;
+ interface AcpSessionHandle {
+     session: AgentSession;
+     setToolUIContext: (uiContext: ExtensionUIContext, hasUI: boolean) => void;
+--- a/dist/types/slash-commands/helpers/draft.d.ts
++++ b/dist/types/slash-commands/helpers/draft.d.ts
+@@ -1,5 +1,6 @@
+ import type { ImageContent } from "@oh-my-pi/pi-ai";
+ import type { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
++import type { RestoredQueuedMessage } from "../../session/agent-session-types.js";
+ import type { TuiSlashCommandRuntime } from "../types.js";
+ /** Clear only text still owned by this submission, never a newer detached draft. */
+ export declare function clearSubmittedText(runtime: TuiSlashCommandRuntime): void;
+@@ -9,3 +10,34 @@
+  * draft's, its `[Image #N]` markers shift to match, and its text goes first.
+  */
+ export declare function restoreDetachedDraft(editor: CustomEditor, text: string, images?: ImageContent[], imageLinks?: (string | undefined)[]): void;
++/** What the rejected-draft helpers need from the interactive mode. */
++export type RejectedDraftRuntime = {
++    editor: CustomEditor;
++    deferredDraftSnapshots: RestoredQueuedMessage[];
++    updatePendingMessagesDisplay(): void;
++    showWarning(message: string): void;
++    ui: {
++        requestRender(): void;
++    };
++};
++/** A submission that left the editor and was then rejected before any turn started. */
++export type RejectedDraft = {
++    /** Text to show the operator again (the original, not a prepared replacement). */
++    text: string;
++    /** Model-side text when it differs, so the dequeue path can match the queued message. */
++    canonicalText?: string;
++    images?: ImageContent[];
++    imageLinks?: (string | undefined)[];
++};
++/** Keep a rejected capture restorable without touching the editor's newer draft. */
++export declare function retainRejectedDraft(runtime: RejectedDraftRuntime, draft: RejectedDraft): void;
++/**
++ * Hand a rejected submission back to the editor. It is written into the editor
++ * only while nothing newer lives there (the newer-draft guard below), and
++ * otherwise stays restorable through the dequeue path, so a newer draft or a
++ * freshly pasted attachment is never overwritten. A submission the session's own
++ * prompt-dropped callback already handed back must not reach this function: its
++ * caller skips that case by error class, not by comparing editor contents, which
++ * would swallow a distinct rejected submission that merely looks equal.
++ */
++export declare function restoreRejectedDraft(runtime: RejectedDraftRuntime, draft: RejectedDraft, revision?: number): void;
+--- a/src/slash-commands/helpers/draft.ts
++++ b/src/slash-commands/helpers/draft.ts
+@@ -1,6 +1,7 @@
+ import type { ImageContent } from "@oh-my-pi/pi-ai";
+ import { shiftImageMarkers } from "@oh-my-pi/pi-tui/prompt/composer-attachments";
+ import type { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
++import type { RestoredQueuedMessage } from "../../session/agent-session-types";
+ import type { TuiSlashCommandRuntime } from "../types";
+ 
+ /** Clear only text still owned by this submission, never a newer detached draft. */
+@@ -28,3 +29,89 @@
+ 	}
+ 	editor.setCollapsedText([restoredText, currentText].filter(part => part.trim()).join("\n\n"));
+ }
++
++/** What the rejected-draft helpers need from the interactive mode. */
++export type RejectedDraftRuntime = {
++	editor: CustomEditor;
++	deferredDraftSnapshots: RestoredQueuedMessage[];
++	updatePendingMessagesDisplay(): void;
++	showWarning(message: string): void;
++	ui: { requestRender(): void };
++};
++
++/** A submission that left the editor and was then rejected before any turn started. */
++export type RejectedDraft = {
++	/** Text to show the operator again (the original, not a prepared replacement). */
++	text: string;
++	/** Model-side text when it differs, so the dequeue path can match the queued message. */
++	canonicalText?: string;
++	images?: ImageContent[];
++	imageLinks?: (string | undefined)[];
++};
++
++/**
++ * True when the editor's pending image still belongs to the captured draft: the
++ * same object, or the same bytes and mime as one of its captured images. The
++ * supported `input` handler path may hand back rebuilt objects for attachments it
++ * did not change, so identity alone would misread those as a newer draft.
++ */
++function isDraftOwnedImage(draft: RejectedDraft, image: ImageContent): boolean {
++	const owned = draft.images;
++	if (owned === undefined) return false;
++	if (owned.includes(image)) return true;
++	return owned.some(captured => captured.data === image.data && captured.mimeType === image.mimeType);
++}
++
++/**
++ * True when the editor holds something written since the draft was captured: a
++ * text revision change, text, or an attachment that is not one of the draft's
++ * own captured images (see {@link isDraftOwnedImage}). An ordinary Enter leaves
++ * the captured attachments in the editor until the submission is admitted, so a
++ * non-empty attachment list alone is not a newer draft; an image pasted while the
++ * submission was being prepared is one, because it is not one of the captured
++ * images. A re-paste of identical bytes reads as the draft's own; that residual
++ * is accepted.
++ */
++function editorHoldsNewerDraft(editor: CustomEditor, draft: RejectedDraft, revision: number | undefined): boolean {
++	if (revision !== undefined && editor.textRevision !== revision) return true;
++	if (editor.getText().length > 0) return true;
++	return editor.pendingImages.some(image => !isDraftOwnedImage(draft, image));
++}
++
++/** Keep a rejected capture restorable without touching the editor's newer draft. */
++export function retainRejectedDraft(runtime: RejectedDraftRuntime, draft: RejectedDraft): void {
++	runtime.deferredDraftSnapshots.push({
++		text: draft.text,
++		canonicalText: draft.canonicalText ?? draft.text,
++		images: draft.images ? [...draft.images] : undefined,
++	});
++	runtime.updatePendingMessagesDisplay();
++	runtime.showWarning("Input was not sent; it is listed below as restorable");
++}
++
++/**
++ * Hand a rejected submission back to the editor. It is written into the editor
++ * only while nothing newer lives there (the newer-draft guard below), and
++ * otherwise stays restorable through the dequeue path, so a newer draft or a
++ * freshly pasted attachment is never overwritten. A submission the session's own
++ * prompt-dropped callback already handed back must not reach this function: its
++ * caller skips that case by error class, not by comparing editor contents, which
++ * would swallow a distinct rejected submission that merely looks equal.
++ */
++export function restoreRejectedDraft(
++	runtime: RejectedDraftRuntime,
++	draft: RejectedDraft,
++	revision?: number,
++): void {
++	if (editorHoldsNewerDraft(runtime.editor, draft, revision)) {
++		retainRejectedDraft(runtime, draft);
++		return;
++	}
++	if (draft.images && draft.images.length > 0) {
++		runtime.editor.pendingImages = [...draft.images];
++		runtime.editor.pendingImageLinks = draft.imageLinks ? [...draft.imageLinks] : draft.images.map(() => undefined);
++		runtime.editor.imageLinks = runtime.editor.pendingImageLinks;
++	}
++	runtime.editor.setCollapsedText(draft.text);
++	runtime.ui.requestRender();
++}

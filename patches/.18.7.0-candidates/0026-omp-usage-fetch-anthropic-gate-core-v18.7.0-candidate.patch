@@ -1,0 +1,73 @@
+--- a/dist/types/auth/types.d.ts
++++ b/dist/types/auth/types.d.ts
+@@ -1039,6 +1039,13 @@
+     reports(options?: {
+         baseUrlResolver?: (provider: Provider) => string | undefined;
+         signal?: AbortSignal;
++        /**
++         * Restrict the fan-out to these providers. Callers driving an
++         * aggressive per-provider gate (e.g. the statusline's anthropic
++         * rate-limit gate) pass the providers they may poll; provider usage
++         * reports outside the set are neither fetched nor parsed.
++         */
++        providers?: readonly Provider[];
+     }): Promise<UsageReport[] | null>;
+     /** Ingest provider usage limits from response headers. */
+     ingestHeaders(provider: Provider, headers: Record<string, string>, options?: {
+--- a/dist/types/auth/usage.d.ts
++++ b/dist/types/auth/usage.d.ts
+@@ -32,6 +32,13 @@
+ type UsageReportsOptions = {
+     baseUrlResolver?: (provider: Provider) => string | undefined;
+     signal?: AbortSignal;
++    /**
++     * Restrict the fan-out to these providers. Callers driving an
++     * aggressive per-provider gate (e.g. the statusline's anthropic
++     * rate-limit gate) pass the providers they may poll; provider usage
++     * reports outside the set are neither fetched nor parsed.
++     */
++    providers?: readonly Provider[];
+ };
+ /** Usage reports: per-credential cached fetches, aggregate reports, header ingestion, history. */
+ export declare class UsageService implements UsageApi {
+--- a/src/auth/types.ts
++++ b/src/auth/types.ts
+@@ -1128,6 +1128,13 @@
+ 	reports(options?: {
+ 		baseUrlResolver?: (provider: Provider) => string | undefined;
+ 		signal?: AbortSignal;
++		/**
++		 * Restrict the fan-out to these providers. Callers driving an
++		 * aggressive per-provider gate (e.g. the statusline's anthropic
++		 * rate-limit gate) pass the providers they may poll; provider usage
++		 * reports outside the set are neither fetched nor parsed.
++		 */
++		providers?: readonly Provider[];
+ 	}): Promise<UsageReport[] | null>;
+ 	/** Ingest provider usage limits from response headers. */
+ 	ingestHeaders(
+--- a/src/auth/usage.ts
++++ b/src/auth/usage.ts
+@@ -108,6 +108,13 @@
+ type UsageReportsOptions = {
+ 	baseUrlResolver?: (provider: Provider) => string | undefined;
+ 	signal?: AbortSignal;
++	/**
++	 * Restrict the fan-out to these providers. Callers driving an
++	 * aggressive per-provider gate (e.g. the statusline's anthropic
++	 * rate-limit gate) pass the providers they may poll; provider usage
++	 * reports outside the set are neither fetched nor parsed.
++	 */
++	providers?: readonly Provider[];
+ };
+ 
+ /** Usage reports: per-credential cached fetches, aggregate reports, header ingestion, history. */
+@@ -793,7 +800,7 @@
+ 			const localReports = await this.#fetchLocalReports(options, localProviders);
+ 			return localReports?.length ? [...reports, ...localReports] : reports;
+ 		}
+-		return this.#fetchLocalReports(options);
++		return this.#fetchLocalReports(options, options?.providers ? new Set(options.providers) : undefined);
+ 	}
+ 
+ 	/** Probe only the selected providers locally, preserving per-credential caching and cooldowns. */

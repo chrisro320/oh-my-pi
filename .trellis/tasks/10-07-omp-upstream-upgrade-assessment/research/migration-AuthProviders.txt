@@ -1,0 +1,178 @@
+{
+  "owner": "AuthProviders",
+  "status": "complete",
+  "scope": "23 pi-ai paths, all layers resolved in work/ only; no commits, no live files, no other owner's file touched",
+  "ownedPathsResolved": {
+    "count": 23,
+    "layersPerPath": {
+      "pi-ai/src/providers/google-gemini-cli.ts": [
+        "0014",
+        "0054"
+      ],
+      "pi-ai/src/providers/openai-responses.ts": [
+        "0017",
+        "0038"
+      ],
+      "pi-ai/src/usage/ollama.ts": [
+        "0025"
+      ],
+      "pi-ai/src/auth/types.ts + dist/types/auth/types.d.ts": [
+        "0026"
+      ],
+      "pi-ai/src/auth/usage.ts": [
+        "0026",
+        "0030",
+        "0090"
+      ],
+      "pi-ai/dist/types/auth/usage.d.ts": [
+        "0026"
+      ],
+      "pi-ai/src/auth/usage-cache.ts + dist/types/auth/usage-cache.d.ts": [
+        "0030"
+      ],
+      "pi-ai/src/types.ts + dist/types/types.d.ts": [
+        "0038",
+        "0060",
+        "0069",
+        "0082"
+      ],
+      "pi-ai/src/providers/devin.ts": [
+        "0055",
+        "0071",
+        "0058"
+      ],
+      "pi-ai/src/stream.ts + dist/types/stream.d.ts": [
+        "0060"
+      ],
+      "pi-ai/src/providers/openai-codex-responses.ts + dist/types/providers/openai-codex-responses.d.ts": [
+        "0063",
+        "0068",
+        "0069",
+        "0070"
+      ],
+      "pi-ai/src/providers/anthropic-request-audit.ts + dist/types/providers/anthropic-request-audit.d.ts": [
+        "0074"
+      ],
+      "pi-ai/src/providers/anthropic.ts": [
+        "0074"
+      ],
+      "pi-ai/dist/types/registry/oauth/anthropic.d.ts": [
+        "0090"
+      ],
+      "pi-ai/src/auth/refresh.ts": [
+        "0090"
+      ],
+      "pi-ai/src/auth/select.ts": [
+        "0090"
+      ],
+      "pi-ai/src/registry/oauth/anthropic.ts": [
+        "0090"
+      ]
+    },
+    "state": "all 23 state files: next == layer count, conflict == none; `port.py advance AuthProviders` reports completeFiles=23, conflicts=[]; zero conflict markers under work/; every final work/ byte equals the last layer's fragment `after` (no unrecorded edits)"
+  },
+  "conflictResolved": {
+    "path": "pi-ai/src/providers/devin.ts",
+    "layer": "0055",
+    "resolution": "Took the local retry-loop tail (history/0055 semantics): the `if (!response || !request || !reqBytes || !gz) throw ProviderResponseError(\"...was never sent\")` guard plus `headersMs = performance.now() - postStartMs;`. Upstream's block at that position was the pre-0055 single-shot request build (buildDevinChatRequest + toBinary + gzip + logging + frame + fetch), already present inside local 0055's attempt loop as builtRequest/builtReqBytes/builtGz; keeping it would have double-built and double-sent.",
+    "semanticCorrection": "Upstream 18.7.0's new onPayload hook (pristine devin.ts:240-242) was relocated into the per-attempt build rather than dropped: `let builtRequest = buildDevinChatRequest(...); const replacementRequest = await options?.onPayload?.(builtRequest, model); if (replacementRequest !== undefined) builtRequest = replacementRequest as typeof builtRequest; const builtReqBytes = toBinary(GetChatMessageRequestSchema, builtRequest);`. Per-attempt invocation is required because the auth retry rebuilds the request and the wire metadata carries turn.apiKey/turn.userJwt (devinWireMetadata), so attempt 1's payload differs from attempt 0's. Recorded in fragments/0055/.../devin.ts.",
+    "otherLayerNotes": "0071 (OMP_DEVIN_DUMP request dump, toJson import) and 0058 (lastThinkingBlock + trailing deltaSignature replay, signatureType = \"sealed\") applied cleanly on top; verified all three markers plus the 0071 dump block and 0058 thinking-signature block exist in work/."
+  },
+  "upstreamAdoptionEvidence": {
+    "method": "Per path, computed set(A) = diff(18.4.4-pristine, old-chain) and set(B) = diff(18.7.0-pristine, work), normalizing hunk headers. A == B for all 23 paths except devin.ts (only my two intended edits, verified line by line). This proves the merge applied the upstream 18.4.4->18.7.0 delta and the local delta with no third state.",
+    "hunkCheck": "Independent check of every upstream hunk in my 23 paths: all added lines are present in work/ (flagged only devin.ts's relocated onPayload hunk). Stronger consequence: no upstream hunk whose added lines were locally overridden could pass this check, so no 18.7.0 fix was silently dropped where local code overlapped.",
+    "adoptedUpstream": [
+      "devin.ts onPayload hook (relocated) + parseToolCallArguments replacing parseStreamingJson",
+      "auth/refresh.ts mergeRefreshedOrganizationScope + mergeRefreshedCredential/mergeRefreshedUsageCredential rebase + buildRefreshableOauthCredential region/inferenceRegion/activeOrganizationId passthrough",
+      "auth/select.ts allowanceSpent ranking, spent-allowance eviction of a warm automatic pin, sessionPreferredUsage pre-pin usage read, rename reserveWouldEvict->automaticPinWouldBeEvicted",
+      "auth/types.ts(+d.ts) OAuthRequestIdentity",
+      "types.ts(+d.ts) getPremiumServiceTierRequests (renamed from getPriorityPremiumRequests) + parseServiceTier + AnthropicCompactionRequest.filesDueBefore + AnthropicCompactionFiles + OnPayload-style hook plumbing",
+      "providers/anthropic.ts resolveAnthropicCompactionEffort + shouldStripThinkingHistory exports; claudeCodeSystemInstruction block upstream text retained where local did not override",
+      "providers/openai-responses.ts pollOpenAIResponsesResultForCompletion + configureProviderStoreResponses exports",
+      "providers/google-gemini-cli.ts ensureAntigravityVersion import + isAntigravity-gated call",
+      "auth/usage.ts mergeRefreshedOrganizationScope import/use",
+      "registry/oauth/anthropic.ts file otherwise byte-identical to 18.7.0 (only the identity-hook block is the local override)"
+    ],
+    "preservedLocalCapabilities": {
+      "0014": "deriveDeterministicUuid/deriveSignedDecimalFromHash sha256 Antigravity identity; createHash import present; :side: sessions excluded from lastExecutionId and from stepIndex bump",
+      "0054": "Antigravity envelope keeps requestType: \"agent\" removed (upstream had it in both pristines) and passes options.sessionId as sessionKeyOverride",
+      "0017": "createOpenAIResponsesProviderSessionState still initializes nativeHistoryReplayWarmed: true (upstream false), with upstream's warm-on-replayable-response and close() reset intact",
+      "0038": "providerOnly fields on message types + openai-responses trailing providerOnly scaffolding count computed before buildResponsesInput (single `let trailingScaffoldingItems` declaration at 1547, incremented by the juice-instruction branch)",
+      "0025": "full ollama.com/api/usage implementation (OLLAMA_COM_API_USAGE, session/weekly windows, UsageLimit entries)",
+      "0026/0030": "UsageReportsOptions.providers filter (src + both d.ts) and UsageCache.readReport/R#legacyReportKeys/#normalizeUsageBaseUrl(provider) canonicalization with legacy-key migration (src + d.ts)",
+      "0060": "export mapOptionsForApi + conversationId passthrough (src + stream.d.ts)",
+      "0069": "Codex single-slot request-context effortControl replacing upstream's per-model effortControls map",
+      "0074": "anthropic-request-audit.ts/.d.ts (local-only files, byte-identical to old-chain) + audit wiring in anthropic.ts, including refresh classification by options.maxTokens === 1; cache-boundary anchor builder retains local truncate-at-clear_at policy and the local deletion of the default ephemeral cache_control on the claudeCodeSystemInstruction block",
+      "0082": "displayText on message types (src + d.ts)",
+      "0090": "all seven contract anchors retained: C2 `if (existing) return existing;` (refresh.ts:474) + raw-promise single-flight + refreshSignal-only inner refresh; C3 pre-abort throws in refresh() and #refreshCredentialById (refresh.ts:450, 630); C4 login-only identity bootstrap with context.stored fallback (registry/oauth/anthropic.ts:94-96, ExchangeContext.stored exists in registry/hooks/types.ts:28); C5 same-owner renew immediately before the fenced CAS (refresh.ts:328-341) + refreshById short-circuit (refresh.ts:688-695); C6 hasRefreshLeases gates in select.ts (730, 1030/1037) and usage.ts persistRefreshedCredential (189); C7/C8 disable path untouched"
+    },
+    "semanticInteractionsReviewed": [
+      {
+        "area": "0090 x upstream organization merge",
+        "finding": "Compatible, no change needed. The local refresh-phase hook returns credentials without bootstrap lookup, so refreshed.orgId is undefined on ordinary refreshes -> upstream's sameOrg stays true and stored orgId/region/inferenceRegion/orgName carry over exactly as under 18.4.4's plain `??` merge, while activeOrganizationId keeps its stored fallback. Upstream's new 'drop stale residency when the org explicitly changes' fires only on a real org switch, i.e. the spec's 'old organization replaced' case, and is an improvement over the old merge. The new mergeRefreshedOrganizationScope import in auth/usage.ts:37 was NOT deleted (also used at usage.ts:88)."
+      },
+      {
+        "area": "0090 x upstream select.ts pre-pin usage read",
+        "finding": "Coherent. Upstream's new sessionPreferredUsage preflight routes usage.report through UsageService, whose refresh path now hits the local hasRefreshLeases gate (usage.ts:189) and the local select.ts preflight/tryOAuth short-circuits, so the durable owner remains the sole persistence boundary; verified exactly one declaration/usage graph, no dangling reference."
+      },
+      {
+        "area": "0074 x upstream turn-scoped clear_at",
+        "finding": "Coherent. Upstream's `clear_at: \"next_user_message\"` emission (anthropic.ts:5473-5501) is retained and the local stableMessageEnd loop consumes that marker; the local per-call policy (walk trailing candidates from stableMessageEnd, no separate sub-prefix candidate) is a deliberate local override of a region upstream did not change between 18.4.4 and 18.7.0 (confirmed: the line is byte-identical in both pristines)."
+      },
+      {
+        "area": "0069 Codex effort control",
+        "finding": "Deliberate local design retained: providerSession.effortControls map (present in both pristines) is removed and replaced by the single-slot request-context effortControl; verified no remaining reference to providerState.effortControls/getOpenAIEffortControlState in the codex provider, no cross-package reader of that map, and the local effortControl field is declared in types.ts + types.d.ts. openai-responses.ts keeps upstream's map (different provider)."
+      },
+      {
+        "area": "0071 audit refresh classifier",
+        "finding": "Still valid: the warmer replay this classifier keys on still uses maxTokens: 1 (work/pi-coding-agent/src/session/cache-warmer.ts:711), so 0074's audit refresh flag remains correct in the merged tree."
+      },
+      {
+        "area": "billing fingerprint / alias resolution / broker / no-op",
+        "finding": "createClaudeBillingHeader body (salt, [4,7,20] chars, cc_version suffix) is line-identical to 18.7.0 pristine; alias resolution (getOAuthCredentialProvider, registry/oauth/index.ts:170-172) and the broker/no-op store paths live in files with no local layer, so they are pristine 18.7.0 in work/."
+      }
+    ],
+    "publicInterfaceDecisions": {
+      "changedVsOldChain": [
+        "rename: getPriorityPremiumRequests -> getPremiumServiceTierRequests (upstream). Checked every reference: zero occurrences of the old name remain in work/ (including bundled pi-coding-agent/dist/cli.js, which is unowned and byte-identical to 18.7.0 pristine); callers openai-shared.ts and openai-codex-responses.ts use the new name.",
+        "additions (all upstream, declarations present in both src and the shipped .d.ts): resolveAnthropicCompactionEffort, shouldStripThinkingHistory, pollOpenAIResponsesResultForCompletion, configureProviderStoreResponses, parseServiceTier, AnthropicCompactionFiles, mergeRefreshedOrganizationScope, OAuthRequestIdentity",
+        "additions (local, declared in both src and .d.ts): UsageReportsOptions.providers (3 declaration sites), UsageCache.readReport"
+      ],
+      "crossPackageConsumersVerified": [
+        "configureProviderStoreResponses <- pi-coding-agent/src/session/settings.ts:26 (export exists)",
+        "CodexCompactionChainLostError / resetOpenAICodexHistoryAfterCompaction / prewarmOpenAICodexResponses / resolveCodexResponsesUrl <- pi-coding-agent session-maintenance.ts, agent-session.ts, sdk.ts, web/search/providers/codex.ts (exports + constructor arity (detail, retryable?) match call sites)",
+        "buildAnthropicSystemBlocks / wrapFetchForCch / streamAnthropic <- pi-coding-agent web/search/providers/anthropic.ts and extensibility/legacy-pi-ai-shim.ts (signatures byte-identical old-chain vs work)",
+        "resolveAnthropicCompactionEffort / AnthropicCompactionFiles / AnthropicCompactionRequest.filesDueBefore <- pi-agent-core/src/compaction/anthropic.ts:279,287 (match merged signatures)",
+        "OAuthRequestIdentity <- pi-coding-agent/src/cli/auth-gateway-cli.ts; parseServiceTier <- pi-coding-agent/src/session/agent-storage.ts (present in src + d.ts)",
+        "No removed export remains referenced anywhere in work/; every exported declaration in the Codex provider is identical to the old chain, so no Codex consumer needed a change."
+      ],
+      "messages": [
+        "Sent one coordination note to agent://CoreImaging stating that no Codex/native public interface delta exists vs the old chain, listing the upstream-adopted additions their call sites already match, and asking them to notify me before changing Codex/native consumers."
+      ]
+    },
+    "notRun": [
+      "No tests, builds, lints, formatters, provider calls, or live/deploy actions were run (per work order and coop validation: parent runs project-wide gates after integration).",
+      "No scoped smoke run either: my change is patch-tree porting; the only behavioral delta is the devin onPayload relocation, whose correctness is a source-level control-flow argument (per-attempt request rebuild with auth-token-bearing metadata). Stated as a limit, not as verified behavior."
+    ],
+    "proposedMinimalExistingGates": {
+      "0090": "patches/verify-oauth-durable-refresh.ts with OMP_PATCH_VERIFY_AI_ROOT=<work/pi-ai> (covers C2 surviving-waiter, C3 pre-abort, C4 identity, C5 stall renewal, C6 sole-owner, C7 peer write/logout, C8 invalid grant). Note: spec 761-840 explicitly requires the C6 case 'old organization replaced by an organization-less login' and the real 16-second stall + fresh-process SQLite reopen; my merge keeps both the local hook and upstream's scoped merge, which is what those scenarios exercise.",
+      "0055/0071/0058": "patches/verify-devin-auth-cache.ts, verify-devin-thinking-signature.ts (verify-devin-fusion.ts / verify-devin-fusion-faults.py optional)",
+      "0014/0054": "patches/verify-antigravity-envelope.ts",
+      "0074": "patches/verify-anthropic-request-audit.ts and verify-anthropic-cache-boundaries.ts",
+      "0025": "patches/verify-ollama-cloud-usage.ts",
+      "0063/0068/0069/0070": "patches/verify-codex-effort-resume.ts and verify-codex-compaction-chain.ts (+ verify-codex-compaction-chain-fail-closed.ts if the fail-closed lane is in scope)",
+      "0038/0017": "patches/verify-date-cwd-anchor-stability.ts is the existing gate that reads providerOnly/trailing-scaffolding behaviour through my openai-responses.ts delta; run it even though 0047 is another owner's layer",
+      "suggested additional single test": "none proposed; the remaining local deltas (usage-cache canonicalization, provider filter, providerOnly type fields, conversationId passthrough) are already covered by the per-patch verifiers above and by the parent's selected existing suite."
+    },
+    "machineCheckableRules": {
+      "grep1": "grep -nE '0090-omp-oauth-durable-refresh|0092-omp-cache-warming-idle-budget|0089-omp-compaction-drop-capacity-gate' patches/apply.sh patches/PATCHES.md -> hits at apply.sh:612,615,623 (18.4.4) and :674,675,676 (18.7.0); PATCHES.md:821,833,853. Registry unchanged by me (read-only check).",
+      "grep2": "grep -nE 'caller cancellation|lease|CAS|capacity|live chain' .trellis/spec/backend/verification-gate-contracts.md -> 153-169, 206, 774-807; the 0090 contract block (774-807) maps 1:1 onto the retained anchors listed above.",
+      "untouched": "Selected sandbox, repository patches, verifiers, controller/candidates and all non-owned paths: not read-modified, not edited. Only work/pi-ai/src/providers/devin.ts was edited by hand plus helper-driven work on my 23 owned paths."
+    },
+    "limitations": [
+      "Source-level verification only: no compiler, bundler or runtime executed, so I did not observe type-checking or behavior. Cross-file symbol/import resolution was checked mechanically (all 23 paths: module specifiers resolve, imported names are exported, no dangling reference from removed imports such as isPerCallContextMessage/getOpenAIEffortControlState).",
+      "The unowned .d.ts files that shadow my patched sources (dist/types/providers/openai-responses.d.ts, dist/types/providers/google-gemini-cli.d.ts, dist/types/providers/anthropic.d.ts) are the 18.7.0 pristine copies and were never locally patched in the old chain, so their declarations are consistent with the upstream portions those sources now carry; a clean merge is not compile proof.",
+      "pi-ai/dist/types/providers/openai-codex-responses.d.ts is a hand-maintained declaration file (it publishes CodexChainedAppendState instead of the internal session-state type); this predates 18.7.0 and I left it as-is."
+    ]
+  }
+}

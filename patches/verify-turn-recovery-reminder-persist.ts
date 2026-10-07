@@ -48,7 +48,7 @@ try {
 	const manager = SessionManager.inMemory(cwd);
 	const agentDir = join(root, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (["18.3.3", "18.4.1", "18.4.4"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,
@@ -111,7 +111,7 @@ try {
 	// resume cannot rebuild, and it is also what identifies the kept turn as a
 	// continuation (see verify-interrupt-prune-symmetry.ts). Version-scoped: 18.3.3
 	// has no `handleCommittedTextStreamStall`, so its tree keeps the assertions above.
-	if (["18.4.1", "18.4.4"].includes(agentVersion)) {
+	if (["18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)) {
 		const STALL_PARTIAL = "half a sentence the user already saw";
 		const stallWork = join(root, "stall-work");
 		mkdirSync(stallWork, { recursive: true });

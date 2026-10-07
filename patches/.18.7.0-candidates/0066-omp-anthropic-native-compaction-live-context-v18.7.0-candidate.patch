@@ -1,0 +1,63 @@
+--- a/pi-agent-core/dist/types/compaction/compaction.d.ts
++++ b/pi-agent-core/dist/types/compaction/compaction.d.ts
+@@ -164,7 +164,7 @@
+  */
+ export declare function findCutPoint(entries: SessionEntry[], tokenizer: Tokenizer, startIndex: number, endIndex: number, keepRecentTokens: number): CutPointResult;
+ export declare const AUTO_HANDOFF_THRESHOLD_FOCUS: string;
+-export type CachePreservingSummaryScope = "history" | "turn-prefix";
++export type CachePreservingSummaryScope = "history" | "turn-prefix" | "live";
+ export interface CachePreservingSummaryContext {
+     context: Context;
+     /** The verified live prefix already contains the prior compaction summary. */
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -669,7 +669,7 @@
+ 	const message = response.errorMessage ?? "";
+ 	return /\btool_choice\b/i.test(message) && /\bauto\b/i.test(message) && /\bsupported\b/i.test(message);
+ }
+-export type CachePreservingSummaryScope = "history" | "turn-prefix";
++export type CachePreservingSummaryScope = "history" | "turn-prefix" | "live";
+ export interface CachePreservingSummaryContext {
+ 	context: Context;
+ 	/** The verified live prefix already contains the prior compaction summary. */
+--- a/pi-coding-agent/src/session/session-advisors.ts
++++ b/pi-coding-agent/src/session/session-advisors.ts
+@@ -2311,7 +2311,11 @@
+ 			if (!sharesActivePromptCacheIdentity(requestModel, agent.state.model)) return undefined;
+ 			if (agent.state.messages !== messagesSnapshot) return undefined;
+ 			const prefixEntryId =
+-				scope === "history" ? preparation.historyPrefixEntryId : preparation.turnPrefixEntryId;
++				scope === "live"
++					? pathEntries[pathEntries.length - 1]?.id
++					: scope === "history"
++						? preparation.historyPrefixEntryId
++						: preparation.turnPrefixEntryId;
+ 			if (!prefixEntryId || !entriesById.has(prefixEntryId)) return undefined;
+ 			const prefixMessages = buildSessionContext(pathEntries, prefixEntryId, entriesById).messages;
+ 			const llmMessages = this.#host.convertToLlmForSideRequest(prefixMessages);
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -3479,9 +3479,21 @@
+ 			if (!sharesActivePromptCacheIdentity(requestModel, this.#host.agent.state.model)) return undefined;
+ 			if (this.#host.sessionManager.getLeafId() !== branchLeafId) return undefined;
+ 			const prefixEntryId =
+-				scope === "history" ? preparation.historyPrefixEntryId : preparation.turnPrefixEntryId;
++				scope === "live"
++					? branchLeafId
++					: scope === "history"
++						? preparation.historyPrefixEntryId
++						: preparation.turnPrefixEntryId;
+ 			if (!prefixEntryId || !entriesById.has(prefixEntryId)) return undefined;
+-			const prefixMessages = buildSessionContext(branchEntries, prefixEntryId, entriesById).messages;
++			// The live scope replays what the main turn actually sent: the agent's
++			// in-memory messages. Host-only entries (the eval state reminder) are
++			// never persisted, so a rebuild from session entries drops them and
++			// forks the cached prefix at that position. The array is copied because
++			// `appendMessage` pushes in place while the caller is still async.
++			const prefixMessages =
++				scope === "live"
++					? this.#host.agent.state.messages.slice()
++					: buildSessionContext(branchEntries, prefixEntryId, entriesById).messages;
+ 			const { transformed, llmMessages } = await this.#host.convertMessagesToLlmWithSource(
+ 				prefixMessages,
+ 				signal,

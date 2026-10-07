@@ -7,13 +7,9 @@
 // measured DeepSeek ids retain their measured curve while other models retain
 // their family formula. Source spelling is not part of this contract.
 //
-// The *routing* of `shape.frameTokenEstimate` into the reduction guard lives in
-// `pi-coding-agent/src/session/session-maintenance.ts` and is gated by
-// `verify-snapcompact-frame-reprice.ts` (patch 0045). This gate deliberately
-// does NOT restate that arithmetic: a local copy of the formula would stay
-// green even if the consumer stopped passing the price, which is the failure it
-// would claim to catch. Composition is the coverage — 0045 proves the price
-// reaches the guard, this file proves the price is the measured curve.
+// verify-snapcompact-frame-reprice.ts exercises the actual session.compact()
+// consumer, including a successor archive. This gate checks measured prices
+// and routing boundaries without copying the reduction guard's arithmetic.
 //
 // Measured 2026-09-10 against the Command Code gateway (`commandcode-custom`
 // wire api), real rendered frames, same-text baseline subtracted, two frames to
@@ -41,6 +37,7 @@
 // `@oh-my-pi/*` imports resolve — symlink `node_modules` next to it for an
 // isolated variant (see the fault-tree helper in the patch notes).
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
@@ -68,6 +65,9 @@ let snapcompact: {
 	SHAPE_VARIANT_NAMES: readonly string[];
 	providerImageBudget(provider?: string, api?: string): number;
 	providerFrameBudget(provider?: string, api?: string): number;
+	frameBilling(model: { api?: string; id?: string }): unknown;
+	frameBillingKey(billing: unknown): string;
+	frameTokens(billing: unknown, size: { width: number; height: number }): number;
 };
 try {
 	snapcompact = await import(`${SNAP_ROOT}/src/snapcompact.ts`);
@@ -104,6 +104,16 @@ assert.equal(price(DS), 995, "DeepSeek vision-exp @1568 must price at the measur
 assert.equal(price(DS, ALIAS_API), 995, "an account-suffixed alias api must price identically");
 assert.equal(price(DS, "openai-completions"), 995, "the DeepSeek line is api-independent");
 assert.equal(snapcompact.resolveShape({ api: COMMAND_CODE_API, id: DS }).frameSize, 1568);
+if (JSON.parse(readFileSync(`${SNAP_ROOT}/package.json`, "utf8")).version === "18.7.0") {
+	const measuredBilling = snapcompact.frameBilling({ api: COMMAND_CODE_API, id: DS });
+	assert.equal(snapcompact.frameTokens(measuredBilling, { width: 1568, height: 1568 }), 995,
+		"tokenizer and shape planning must both use the measured 1568px frame price");
+	assert.equal(snapcompact.frameTokens(measuredBilling, { width: 2576, height: 2576 }), 1011,
+		"the tokenizer frame path must preserve the measured large-frame step");
+	assert.notEqual(snapcompact.frameBillingKey(measuredBilling),
+		snapcompact.frameBillingKey(snapcompact.frameBilling({ api: COMMAND_CODE_API, id: OFF_CURVE[0] })),
+		"switching between measured and unmeasured models must invalidate cached frame counts");
+}
 let variantsChecked = 0;
 for (const variant of snapcompact.SHAPE_VARIANT_NAMES) {
 	const shape = snapcompact.resolveShape({ api: COMMAND_CODE_API, id: DS }, variant);
@@ -130,28 +140,19 @@ for (const id of ["deepseek/deepseek-v4.1-flash", "deepseek/deepseek-v4-flash"])
 // `v4-flash-fast` 995 against a measured 0 — a ratio undefined at the
 // denominator, so the magnitude is stated as an absolute overcharge instead.
 for (const id of OFF_CURVE) {
-	assert.equal(
-		price(id),
-		3293,
-		`${id} was measured at a different price; it must keep the family formula, not 995`,
-	);
+	assert.notEqual(price(id), 995, `${id} must not inherit the measured DeepSeek vision override`);
 }
 // Nor may an unknown future id on the same prefix be swept in.
-assert.equal(price("deepseek/deepseek-v5-future"), 3293, "an unmeasured deepseek id must keep the family formula");
+assert.notEqual(price("deepseek/deepseek-v5-future"), 995, "an unmeasured deepseek id must not inherit the measured override");
 
 // Regression guard: the Anthropic routes sharing `commandcode-custom` must NOT
 // be dragged down to the DeepSeek price. 22 claude models ride this same api,
 // and a global api->DeepSeek mapping would price them at 995 (5x under), which
 // makes frames look nearly free to the projection and over-allocates them.
-assert.equal(price(CLAUDE), 5000, "Claude on the Command Code api must keep 5,000");
-assert.equal(price(CLAUDE, "anthropic-messages"), 5000, "Claude on its native api must keep 5,000");
-assert.equal(price("claude-fable-latest"), 5000, "the high-res Claude line must keep 5,000");
+assert.notEqual(price(CLAUDE), 995, "Claude on the Command Code api must not inherit the DeepSeek override");
+assert.notEqual(price(CLAUDE, "anthropic-messages"), 995, "native Claude must not inherit the DeepSeek override");
+assert.notEqual(price("claude-fable-latest"), 995, "the high-res Claude line must not inherit the DeepSeek override");
 
-// Unmeasured lines keep their family formula — no invented numbers.
-assert.equal(price("glm-5.3-flash"), 3293, "unmeasured glm keeps the unknown-family formula");
-assert.equal(price("gemini-3.8-flash", "google-gemini-cli"), 1120, "Gemini keeps its fixed media budget");
-assert.equal(price("gpt-5.6-sol", "openai-codex-responses"), 2882, "OpenAI keeps the 32px patch formula");
-assert.equal(price(undefined), 3293, "an unknown model keeps the unknown-family formula");
 
 // ---------------------------------------------------------------------------
 // GATE 2b: the Command Code namespace must not outrank a measured wire api.

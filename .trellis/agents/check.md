@@ -50,6 +50,8 @@ The supervising main session owns commits. Report the post-fix state; do not com
 
 ## Report Format
 
+Write the report in English, regardless of dispatch language.
+
 ```
 ## Self-Check Complete
 

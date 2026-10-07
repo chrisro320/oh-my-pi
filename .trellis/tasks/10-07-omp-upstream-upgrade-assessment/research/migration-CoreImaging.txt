@@ -1,0 +1,13 @@
+{
+  "crossOwnerInterfaceVerified": {
+    "advisor_lane_hook": "work/pi-coding-agent/src/session/session-advisors.ts:2552 passes buildCachePreservingContext (attested live hook) into the advisor's SummaryOptions, so the native lane's preferred buildCachePreservingContext(\"live\") path serves advisors too",
+    "host_provider_context_wiring": "work/pi-coding-agent/src/session/session-maintenance.ts:3586 and :5025 wire buildProviderContext -> agent-session.ts:2297 buildLiveProviderContext (ordinary-path fallback when no attested live hook)",
+    "consistency": "matches the (b) design exactly: primary has both hooks; advisor has the attested live hook. No change needed from CoreImaging."
+  },
+  "note": "SessionLifecycle's final task result is informational; its session-advisors.ts layers 0066/0088 are the advisor-side wiring my native lane depends on and they report it complete. No action, no further edits.",
+  "owner": "CoreImaging",
+  "paths_complete": 18,
+  "paths_total": 18,
+  "status": "complete_verified_consistent",
+  "unresolved_conflicts": 0
+}

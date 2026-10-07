@@ -1,0 +1,765 @@
+[
+  {
+    "id": "0033",
+    "patch": ".18.4.4-candidates/0033-omp-cache-turn-status-rollup-v18.4.4-candidate.patch",
+    "root": "TUI",
+    "status": "clean",
+    "touched": [
+      "pi-tui/src/status-line/schema.ts",
+      "pi-tui/src/status-line/segments.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/status-line/schema.ts\nchecking file src/status-line/segments.ts\nHunk #1 succeeded at 1010 (offset 273 lines).\nHunk #2 succeeded at 1315 (offset 350 lines).\n"
+  },
+  {
+    "id": "0004",
+    "patch": ".18.4.4-candidates/0004-omp-token-total-cacheread-v18.4.4-candidate.patch",
+    "root": "TUI",
+    "status": "clean",
+    "touched": [
+      "pi-tui/src/status-line/segments.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/status-line/segments.ts\nHunk #1 succeeded at 733 (offset 201 lines).\n"
+  },
+  {
+    "id": "0034",
+    "patch": ".18.4.4-candidates/0034-omp-hindsight-snapshot-rollup-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/hindsight/backend.ts",
+      "pi-coding-agent/src/hindsight/state.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/hindsight/state.ts\nchecking file src/session/agent-session.ts\nHunk #1 succeeded at 481 (offset 4 lines).\nHunk #2 succeeded at 4968 (offset 171 lines).\nHunk #3 succeeded at 5612 (offset 183 lines).\nHunk #4 succeeded at 5619 (offset 183 lines).\nchecking file src/hindsight/backend.ts\n"
+  },
+  {
+    "id": "0037",
+    "patch": ".18.4.4-candidates/0037-omp-usage-statusline-gate-rollup-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/modes/status-line-host.ts",
+      "pi-tui/dist/types/status-line/host.d.ts",
+      "pi-tui/src/status-line/component.ts",
+      "pi-tui/src/status-line/host.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-tui/src/status-line/component.ts\nchecking file pi-tui/src/status-line/host.ts\nchecking file pi-coding-agent/src/modes/status-line-host.ts\nchecking file pi-tui/dist/types/status-line/host.d.ts\n"
+  },
+  {
+    "id": "0010",
+    "patch": ".18.4.4-candidates/0010-omp-extension-idle-ephemeral-turn-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/modes/acp/acp-agent.ts",
+      "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+      "pi-coding-agent/src/modes/runtime-init.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/task/executor.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file dist/types/extensibility/extensions/types.d.ts\nchecking file src/extensibility/extensions/runner.ts\nchecking file src/extensibility/extensions/types.ts\nchecking file src/modes/acp/acp-agent.ts\nchecking file src/modes/controllers/extension-ui-controller.ts\nchecking file src/modes/runtime-init.ts\nchecking file src/session/agent-session.ts\nchecking file src/task/executor.ts\nchecking file dist/types/session/agent-session.d.ts\n"
+  },
+  {
+    "id": "0035",
+    "patch": ".18.4.4-candidates/0035-omp-compaction-prefix-rollup-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+      "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+      "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts",
+      "pi-coding-agent/src/session/session-provider-boundary.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md\nchecking file pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md\nchecking file pi-coding-agent/src/session/agent-session.ts\nHunk #1 succeeded at 2171 (offset 16 lines).\nHunk #2 succeeded at 2228 (offset 16 lines).\nHunk #3 succeeded at 6352 (offset 24 lines).\nchecking file pi-coding-agent/src/session/session-advisors.ts\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nchecking file pi-coding-agent/src/session/session-provider-boundary.ts\nHunk #1 succeeded at 30 (offset -3 lines).\nHunk #2 succeeded at 200 (offset 3 lines).\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\nchecking file pi-coding-agent/dist/types/session/session-provider-boundary.d.ts\nHunk #1 succeeded at 56 (offset 3 lines).\nHunk #2 succeeded at 67 (offset 3 lines).\nchecking file pi-coding-agent/dist/types/session/session-maintenance.d.ts\n"
+  },
+  {
+    "id": "0014",
+    "patch": ".18.4.4-candidates/0014-omp-antigravity-deterministic-session-identity-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/providers/google-gemini-cli.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/google-gemini-cli.ts\nHunk #2 succeeded at 1068 (offset -10 lines).\nHunk #3 succeeded at 1121 (offset -10 lines).\nHunk #4 succeeded at 1224 (offset -10 lines).\nHunk #5 succeeded at 1385 (offset -10 lines).\n"
+  },
+  {
+    "id": "0036",
+    "patch": ".18.4.4-candidates/0036-omp-image-frame-budget-rollup-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/provider-image-budget.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts",
+      "pi-coding-agent/src/session/snapcompact-inline.ts",
+      "snapcompact/dist/types/snapcompact.d.ts",
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-coding-agent/src/session/provider-image-budget.ts\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #1 succeeded at 3612 (offset 36 lines).\nHunk #2 succeeded at 3658 (offset 36 lines).\nHunk #3 succeeded at 4005 (offset 36 lines).\nHunk #4 succeeded at 4029 (offset 36 lines).\nchecking file pi-coding-agent/src/session/snapcompact-inline.ts\nchecking file snapcompact/src/snapcompact.ts\nchecking file snapcompact/dist/types/snapcompact.d.ts\n"
+  },
+  {
+    "id": "0017",
+    "patch": ".18.4.4-candidates/0017-omp-openai-responses-native-replay-warm-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/providers/openai-responses.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/openai-responses.ts\nHunk #1 succeeded at 233 (offset -1 lines).\n"
+  },
+  {
+    "id": "0025",
+    "patch": ".18.4.4-candidates/0025-omp-ollama-cloud-usage-api-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/usage/ollama.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/usage/ollama.ts\n"
+  },
+  {
+    "id": "0026",
+    "patch": ".18.4.4-candidates/0026-omp-usage-fetch-anthropic-gate-core-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/dist/types/auth/types.d.ts",
+      "pi-ai/dist/types/auth/usage.d.ts",
+      "pi-ai/src/auth/types.ts",
+      "pi-ai/src/auth/usage.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/auth/usage.ts\nchecking file src/auth/types.ts\nchecking file dist/types/auth/usage.d.ts\nchecking file dist/types/auth/types.d.ts\n"
+  },
+  {
+    "id": "0030",
+    "patch": ".18.4.4-candidates/0030-omp-usage-cache-canonical-baseurl-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/dist/types/auth/usage-cache.d.ts",
+      "pi-ai/src/auth/usage-cache.ts",
+      "pi-ai/src/auth/usage.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/auth/usage-cache.ts\nchecking file src/auth/usage.ts\nchecking file dist/types/auth/usage-cache.d.ts\n"
+  },
+  {
+    "id": "0031",
+    "patch": ".18.4.4-candidates/0031-omp-agent-session-providers-forward-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/agent-session.ts\nHunk #2 succeeded at 11714 (offset 99 lines).\nchecking file dist/types/session/agent-session.d.ts\nHunk #2 succeeded at 1229 (offset 18 lines).\n"
+  },
+  {
+    "id": "0032",
+    "patch": ".18.4.4-candidates/0032-omp-goal-tool-resident-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/modes/interactive-mode.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/tools/index.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/sdk.ts\nHunk #1 succeeded at 3911 (offset 151 lines).\nchecking file src/tools/index.ts\nHunk #1 succeeded at 738 (offset 9 lines).\nchecking file src/modes/interactive-mode.ts\nHunk #1 succeeded at 4573 (offset 452 lines).\nHunk #2 succeeded at 4868 (offset 452 lines).\nHunk #3 succeeded at 5885 (offset 452 lines).\n"
+  },
+  {
+    "id": "0038",
+    "patch": ".18.4.4-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/openai-responses.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/date-cwd-reminder.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-ai/src/providers/openai-responses.ts\nHunk #1 succeeded at 1196 (offset -1 lines).\nHunk #2 succeeded at 1375 (offset -1 lines).\nHunk #3 succeeded at 1382 (offset -1 lines).\nchecking file pi-ai/src/types.ts\nHunk #1 succeeded at 1050 (offset 20 lines).\nHunk #2 succeeded at 1070 (offset 20 lines).\nchecking file pi-coding-agent/src/sdk.ts\nHunk #1 succeeded at 4116 (offset 151 lines).\nchecking file pi-coding-agent/src/session/date-cwd-reminder.ts\nchecking file pi-ai/dist/types/types.d.ts\nchecking file pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts\n"
+  },
+  {
+    "id": "0043",
+    "patch": ".18.4.4-candidates/0043-omp-interrupt-prune-symmetry-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/messages.d.ts",
+      "pi-coding-agent/src/session/messages.ts",
+      "pi-coding-agent/src/session/session-context.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/messages.ts\nchecking file src/session/session-context.ts\nchecking file dist/types/session/messages.d.ts\n"
+  },
+  {
+    "id": "0044",
+    "patch": ".18.4.4-candidates/0044-omp-image-budget-wire-api-family-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file snapcompact/src/snapcompact.ts\n"
+  },
+  {
+    "id": "0052",
+    "patch": ".18.4.4-candidates/0052-omp-snapcompact-model-billing-commandcode-budget-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file snapcompact/src/snapcompact.ts\n"
+  },
+  {
+    "id": "0057",
+    "patch": ".18.4.4-candidates/0057-omp-devin-image-budget-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file snapcompact/src/snapcompact.ts\n"
+  },
+  {
+    "id": "0045",
+    "patch": ".18.4.4-candidates/0045-omp-snapcompact-frame-reprice-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/session-maintenance.ts\nHunk #1 succeeded at 1356 (offset 6 lines).\nHunk #2 succeeded at 3687 (offset 36 lines).\nHunk #3 succeeded at 3721 (offset 36 lines).\nHunk #4 succeeded at 4786 (offset 36 lines).\n"
+  },
+  {
+    "id": "0046",
+    "patch": ".18.4.4-candidates/0046-omp-supersede-warm-prefix-guard-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/session-maintenance.ts\nHunk #1 succeeded at 721 (offset 6 lines).\n"
+  },
+  {
+    "id": "0048",
+    "patch": ".18.4.4-candidates/0048-omp-advisor-quota-rotation-bound-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/session-advisors.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/session-advisors.ts\n"
+  },
+  {
+    "id": "0050",
+    "patch": ".18.4.4-candidates/0050-omp-session-history-preview-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/session-listing.d.ts",
+      "pi-coding-agent/src/main.ts",
+      "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+      "pi-coding-agent/src/session/session-listing.ts",
+      "pi-tui/dist/types/apps/session-picker.d.ts",
+      "pi-tui/dist/types/overlays/session-selector.d.ts",
+      "pi-tui/src/apps/session-picker.ts",
+      "pi-tui/src/overlays/session-selector.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-coding-agent/src/session/session-listing.ts\nchecking file pi-coding-agent/src/modes/controllers/selector-controller.ts\nchecking file pi-tui/src/overlays/session-selector.ts\nchecking file pi-tui/src/apps/session-picker.ts\nchecking file pi-coding-agent/src/main.ts\nchecking file pi-tui/dist/types/overlays/session-selector.d.ts\nchecking file pi-tui/dist/types/apps/session-picker.d.ts\nchecking file pi-coding-agent/dist/types/session/session-listing.d.ts\n"
+  },
+  {
+    "id": "0054",
+    "patch": ".18.4.4-candidates/0054-omp-antigravity-drop-requesttype-agent-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/providers/google-gemini-cli.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/google-gemini-cli.ts\nHunk #1 succeeded at 1397 (offset -10 lines).\n"
+  },
+  {
+    "id": "0047",
+    "patch": ".18.4.4-candidates/0047-omp-date-cwd-anchor-stability-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/date-cwd-reminder.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/sdk.ts\nHunk #1 succeeded at 4083 (offset 151 lines).\nHunk #2 succeeded at 5032 (offset 183 lines).\nchecking file src/session/date-cwd-reminder.ts\nchecking file dist/types/session/date-cwd-reminder.d.ts\n"
+  },
+  {
+    "id": "0055",
+    "patch": ".18.4.4-candidates/0055-omp-devin-auth-cache-turn-timing-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/providers/devin.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/devin.ts\n"
+  },
+  {
+    "id": "0071",
+    "patch": ".18.4.4-candidates/0071-omp-devin-request-dump-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/providers/devin.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/devin.ts\n"
+  },
+  {
+    "id": "0056",
+    "patch": ".18.4.4-candidates/0056-omp-devin-metadata-alignment-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-catalog/src/wire/devin.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-catalog/src/wire/devin.ts\n"
+  },
+  {
+    "id": "0058",
+    "patch": ".18.4.4-candidates/0058-omp-devin-thinking-signature-replay-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/providers/devin.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/devin.ts\nHunk #1 succeeded at 177 (offset 1 line).\nHunk #2 succeeded at 218 (offset 1 line).\nHunk #3 succeeded at 477 (offset 2 lines).\nHunk #4 succeeded at 994 (offset 42 lines).\n"
+  },
+  {
+    "id": "0060",
+    "patch": ".18.4.4-candidates/0060-omp-devin-idle-cascade-pin-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-ai/dist/types/stream.d.ts",
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/stream.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+      "pi-coding-agent/src/session/agent-session-types.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-ai/src/types.ts\nHunk #1 succeeded at 528 (offset 20 lines).\nchecking file pi-ai/src/stream.ts\nHunk #1 succeeded at 1823 (offset -230 lines).\nHunk #2 succeeded at 1849 (offset -230 lines).\nchecking file pi-coding-agent/src/session/agent-session.ts\nHunk #1 succeeded at 10317 (offset 348 lines).\nHunk #2 succeeded at 10445 (offset 348 lines).\nchecking file pi-coding-agent/src/session/agent-session-types.ts\nHunk #1 succeeded at 526 (offset 21 lines).\nchecking file pi-ai/dist/types/types.d.ts\nchecking file pi-ai/dist/types/stream.d.ts\nHunk #1 succeeded at 63 (offset 7 lines).\nchecking file pi-coding-agent/dist/types/session/agent-session-types.d.ts\nHunk #1 succeeded at 489 (offset 21 lines).\n"
+  },
+  {
+    "id": "0062",
+    "patch": ".18.4.4-candidates/0062-omp-snapcompact-reduction-baseline-previous-archive-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/session-maintenance.ts\nHunk #1 succeeded at 1385 (offset 6 lines).\nHunk #2 succeeded at 2523 (offset 13 lines).\nHunk #3 succeeded at 2540 (offset 13 lines).\nHunk #4 succeeded at 4858 (offset 36 lines).\n"
+  },
+  {
+    "id": "0063",
+    "patch": ".18.4.4-candidates/0063-omp-codex-v2-compaction-live-chain-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-ai/src/providers/openai-codex-responses.ts\nchecking file pi-ai/dist/types/providers/openai-codex-responses.d.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\n"
+  },
+  {
+    "id": "0065",
+    "patch": ".18.4.4-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-catalog/src/compat/rules.json",
+      "pi-catalog/src/compat/rules/providers/commandcode.kdl"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-catalog/src/compat/rules/providers/commandcode.kdl\nchecking file pi-catalog/src/compat/rules.json\n"
+  },
+  {
+    "id": "0066",
+    "patch": ".18.4.4-candidates/0066-omp-anthropic-native-compaction-live-context-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 succeeded at 668 (offset 1 line).\nHunk #2 succeeded at 2123 (offset 2 lines).\nHunk #3 succeeded at 2151 (offset 2 lines).\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #1 succeeded at 3475 (offset 36 lines).\nchecking file pi-coding-agent/src/session/session-advisors.ts\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\n"
+  },
+  {
+    "id": "0067",
+    "patch": ".18.4.4-candidates/0067-omp-remote-compaction-lane-trace-live-tools-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-agent-core/src/compaction/compaction.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 succeeded at 1903 (offset 1 line).\nHunk #2 succeeded at 1923 (offset 1 line).\nHunk #3 succeeded at 1968 (offset 1 line).\nHunk #4 succeeded at 2001 (offset 2 lines).\nHunk #5 succeeded at 2021 (offset 2 lines).\nHunk #6 succeeded at 2035 (offset 2 lines).\nHunk #7 succeeded at 2068 (offset 2 lines).\nHunk #8 succeeded at 2095 (offset 2 lines).\nHunk #9 succeeded at 2103 (offset 2 lines).\nHunk #10 succeeded at 2190 (offset 2 lines).\nHunk #11 succeeded at 2209 (offset 2 lines).\nHunk #12 succeeded at 2233 (offset 2 lines).\nHunk #13 succeeded at 2249 (offset 2 lines).\n"
+  },
+  {
+    "id": "0068",
+    "patch": ".18.4.4-candidates/0068-omp-codex-stale-baseline-chain-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+      "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+      "pi-agent-core/src/compaction/compaction-trace.ts",
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-ai/src/providers/openai-codex-responses.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\nchecking file pi-agent-core/src/compaction/compaction-trace.ts\nchecking file pi-agent-core/dist/types/compaction/compaction-trace.d.ts\nchecking file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\n"
+  },
+  {
+    "id": "0069",
+    "patch": ".18.4.4-candidates/0069-omp-codex-effort-history-resume-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-ai/src/types.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/types.ts\nHunk #2 succeeded at 975 (offset 20 lines).\nchecking file src/providers/openai-codex-responses.ts\nHunk #7 succeeded at 1508 (offset -2 lines).\nHunk #8 succeeded at 1526 (offset -2 lines).\nHunk #9 succeeded at 1582 (offset -2 lines).\nHunk #10 succeeded at 3223 (offset -2 lines).\nchecking file dist/types/types.d.ts\nHunk #2 succeeded at 764 (offset 10 lines).\n"
+  },
+  {
+    "id": "0070",
+    "patch": ".18.4.4-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\nchecking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-ai/dist/types/providers/openai-codex-responses.d.ts\nchecking file pi-ai/src/providers/openai-codex-responses.ts\nchecking file pi-coding-agent/src/session/session-advisors.ts\nchecking file pi-coding-agent/src/session/session-maintenance.ts\n"
+  },
+  {
+    "id": "0072",
+    "patch": ".18.4.4-candidates/0072-omp-session-pin-static-auth-ui-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/modes/controllers/selector-controller.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/modes/controllers/selector-controller.ts\nHunk #2 succeeded at 99 (offset 6 lines).\nHunk #3 succeeded at 137 (offset 5 lines).\nHunk #4 succeeded at 167 (offset 5 lines).\nHunk #5 succeeded at 647 (offset 22 lines).\nHunk #6 succeeded at 734 (offset 20 lines).\nHunk #7 succeeded at 1761 (offset 18 lines).\nHunk #8 succeeded at 1901 (offset 18 lines).\nHunk #9 succeeded at 1940 (offset 18 lines).\nHunk #10 succeeded at 2008 (offset 18 lines).\n"
+  },
+  {
+    "id": "0074",
+    "patch": ".18.4.4-candidates/0074-omp-anthropic-context-cache-boundaries-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/dist/types/providers/anthropic-request-audit.d.ts",
+      "pi-ai/src/providers/anthropic-request-audit.ts",
+      "pi-ai/src/providers/anthropic.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/anthropic-request-audit.ts\nchecking file src/providers/anthropic.ts\nHunk #3 succeeded at 2002 (offset 1 line).\nHunk #4 succeeded at 2240 (offset 1 line).\nHunk #5 succeeded at 3541 (offset 3 lines).\nHunk #6 succeeded at 3935 (offset -2 lines).\nHunk #7 succeeded at 3966 (offset -2 lines).\nHunk #8 succeeded at 3991 (offset -2 lines).\nHunk #9 succeeded at 4005 (offset -2 lines).\nchecking file dist/types/providers/anthropic-request-audit.d.ts\n"
+  },
+  {
+    "id": "0075",
+    "patch": ".18.4.4-candidates/0075-omp-hindsight-recall-promotion-slot-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/session-memory.d.ts",
+      "pi-coding-agent/dist/types/session/session-tools.d.ts",
+      "pi-coding-agent/src/hindsight/backend.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/session-memory.ts",
+      "pi-coding-agent/src/session/session-tools.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/hindsight/backend.ts\nchecking file src/session/agent-session.ts\nHunk #1 succeeded at 1881 (offset 53 lines).\nHunk #2 succeeded at 10664 (offset 348 lines).\nHunk #3 succeeded at 10886 (offset 348 lines).\nchecking file src/session/session-memory.ts\nchecking file src/session/session-tools.ts\nHunk #1 succeeded at 79 (offset 2 lines).\nHunk #2 succeeded at 1280 (offset 24 lines).\nHunk #3 succeeded at 1981 (offset 61 lines).\nHunk #4 succeeded at 2041 (offset 61 lines).\nHunk #5 succeeded at 2056 (offset 61 lines).\nchecking file dist/types/session/session-memory.d.ts\nchecking file dist/types/session/session-tools.d.ts\nHunk #1 succeeded at 35 (offset 1 line).\n"
+  },
+  {
+    "id": "0076",
+    "patch": ".18.4.4-candidates/0076-omp-eval-state-context-persist-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/src/collab/guest.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-coding-agent/src/collab/guest.ts\nchecking file pi-coding-agent/src/session/agent-session.ts\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\n"
+  },
+  {
+    "id": "0077",
+    "patch": ".18.4.4-candidates/0077-omp-turn-recovery-reminder-persist-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/turn-recovery.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/turn-recovery.ts\n"
+  },
+  {
+    "id": "0078",
+    "patch": ".18.4.4-candidates/0078-omp-python-display-mime-preference-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/eval/py/display.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/eval/py/display.ts\n"
+  },
+  {
+    "id": "0079",
+    "patch": ".18.4.4-candidates/0079-omp-kitty-conversion-finalization-v18.4.4-candidate.patch",
+    "root": "TUI",
+    "status": "clean",
+    "touched": [
+      "pi-tui/src/chat/tool-execution.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/chat/tool-execution.ts\n"
+  },
+  {
+    "id": "0080",
+    "patch": ".18.4.4-candidates/0080-omp-kitty-shared-png-cache-v18.4.4-candidate.patch",
+    "root": "TUI",
+    "status": "clean",
+    "touched": [
+      "pi-tui/dist/types/chat/image-loading.d.ts",
+      "pi-tui/src/chat/assistant-message.ts",
+      "pi-tui/src/chat/image-loading.ts",
+      "pi-tui/src/chat/tool-execution.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/chat/assistant-message.ts\nchecking file src/chat/image-loading.ts\nchecking file src/chat/tool-execution.ts\nchecking file dist/types/chat/image-loading.d.ts\n"
+  },
+  {
+    "id": "0081",
+    "patch": ".18.4.4-candidates/0081-omp-main-cache-footer-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/session-manager.d.ts",
+      "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts",
+      "pi-coding-agent/src/cli/gallery-fixtures/status-line.ts",
+      "pi-coding-agent/src/session/session-manager.ts",
+      "pi-tui/dist/types/status-line/host.d.ts",
+      "pi-tui/src/status-line/host.ts",
+      "pi-tui/src/status-line/segments.ts",
+      "pi-tui/src/status-line/startup.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-coding-agent/src/session/session-manager.ts\nchecking file pi-coding-agent/dist/types/session/session-manager.d.ts\nchecking file pi-tui/src/status-line/host.ts\nchecking file pi-tui/dist/types/status-line/host.d.ts\nchecking file pi-tui/src/status-line/segments.ts\nHunk #1 succeeded at 985 (offset 278 lines).\nchecking file pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts\nchecking file pi-coding-agent/src/cli/gallery-fixtures/status-line.ts\nchecking file pi-tui/src/status-line/startup.ts\n"
+  },
+  {
+    "id": "0082",
+    "patch": ".18.4.4-candidates/0082-omp-user-display-text-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/agent.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-agent-core/src/compaction/messages.ts",
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts",
+      "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+      "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+      "pi-coding-agent/dist/types/modes/interactive-mode.d.ts",
+      "pi-coding-agent/dist/types/modes/types.d.ts",
+      "pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/dist/types/session/session-history-format.d.ts",
+      "pi-coding-agent/src/export/html/template.js",
+      "pi-coding-agent/src/export/share.ts",
+      "pi-coding-agent/src/extensibility/extensions/loader.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/main.ts",
+      "pi-coding-agent/src/modes/acp/acp-agent.ts",
+      "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+      "pi-coding-agent/src/modes/controllers/input-controller.ts",
+      "pi-coding-agent/src/modes/interactive-mode.ts",
+      "pi-coding-agent/src/modes/runtime-init.ts",
+      "pi-coding-agent/src/modes/types.ts",
+      "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+      "pi-coding-agent/src/session/agent-session-types.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/queued-messages.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-dump-format.ts",
+      "pi-coding-agent/src/session/session-history-format.ts",
+      "pi-coding-agent/src/session/session-listing.ts",
+      "pi-coding-agent/src/task/executor.ts",
+      "pi-tui/dist/types/chat/transcript-entry.d.ts",
+      "pi-tui/src/chat/chat-transcript-builder.ts",
+      "pi-tui/src/chat/transcript-entry.ts",
+      "pi-tui/src/chat/transcript-outline.ts",
+      "pi-tui/src/overlays/copy-selector.ts",
+      "pi-tui/src/overlays/session-selector.ts",
+      "pi-tui/src/overlays/tree-selector.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-agent-core/dist/types/compaction/compaction.d.ts\nchecking file pi-agent-core/src/agent.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-agent-core/src/compaction/messages.ts\nchecking file pi-ai/dist/types/types.d.ts\nchecking file pi-ai/src/types.ts\nchecking file pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts\nchecking file pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts\nchecking file pi-coding-agent/dist/types/extensibility/extensions/types.d.ts\nchecking file pi-coding-agent/dist/types/modes/interactive-mode.d.ts\nchecking file pi-coding-agent/dist/types/modes/types.d.ts\nchecking file pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\nchecking file pi-coding-agent/dist/types/session/agent-session-types.d.ts\nchecking file pi-coding-agent/dist/types/session/session-history-format.d.ts\nchecking file pi-coding-agent/src/export/html/template.js\nchecking file pi-coding-agent/src/export/share.ts\nchecking file pi-coding-agent/src/extensibility/extensions/loader.ts\nchecking file pi-coding-agent/src/extensibility/extensions/runner.ts\nchecking file pi-coding-agent/src/extensibility/extensions/types.ts\nchecking file pi-coding-agent/src/main.ts\nchecking file pi-coding-agent/src/modes/acp/acp-agent.ts\nchecking file pi-coding-agent/src/modes/controllers/extension-ui-controller.ts\nchecking file pi-coding-agent/src/modes/controllers/input-controller.ts\nchecking file pi-coding-agent/src/modes/interactive-mode.ts\nchecking file pi-coding-agent/src/modes/runtime-init.ts\nchecking file pi-coding-agent/src/modes/types.ts\nchecking file pi-coding-agent/src/modes/utils/ui-helpers.ts\nchecking file pi-coding-agent/src/session/agent-session.ts\nchecking file pi-coding-agent/src/session/agent-session-types.ts\nchecking file pi-coding-agent/src/session/queued-messages.ts\nchecking file pi-coding-agent/src/session/session-advisors.ts\nchecking file pi-coding-agent/src/session/session-dump-format.ts\nchecking file pi-coding-agent/src/session/session-history-format.ts\nchecking file pi-coding-agent/src/session/session-listing.ts\nchecking file pi-coding-agent/src/task/executor.ts\nchecking file pi-tui/dist/types/chat/transcript-entry.d.ts\nchecking file pi-tui/src/chat/chat-transcript-builder.ts\nchecking file pi-tui/src/chat/transcript-entry.ts\nchecking file pi-tui/src/chat/transcript-outline.ts\nchecking file pi-tui/src/overlays/copy-selector.ts\nchecking file pi-tui/src/overlays/session-selector.ts\nchecking file pi-tui/src/overlays/tree-selector.ts\n"
+  },
+  {
+    "id": "0083",
+    "patch": ".18.4.4-candidates/0083-omp-model-mention-surface-resume-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/session-tools.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/session-tools.ts\n"
+  },
+  {
+    "id": "0084",
+    "patch": ".18.4.4-candidates/0084-omp-length-stop-reminder-persist-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/session-maintenance.ts\n"
+  },
+  {
+    "id": "0085",
+    "patch": ".18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/main.d.ts",
+      "pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts",
+      "pi-coding-agent/src/main.ts",
+      "pi-coding-agent/src/modes/controllers/input-controller.ts",
+      "pi-coding-agent/src/slash-commands/helpers/draft.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file dist/types/main.d.ts\nchecking file dist/types/slash-commands/helpers/draft.d.ts\nchecking file src/main.ts\nchecking file src/modes/controllers/input-controller.ts\nchecking file src/slash-commands/helpers/draft.ts\n"
+  },
+  {
+    "id": "0088",
+    "patch": ".18.4.4-candidates/0088-omp-compaction-cache-liveness-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/anthropic.d.ts",
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/anthropic.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-agent-core/dist/types/compaction/anthropic.d.ts\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\nchecking file pi-agent-core/src/compaction/anthropic.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md\nchecking file pi-coding-agent/src/session/session-advisors.ts\nchecking file pi-coding-agent/src/session/session-maintenance.ts\n"
+  },
+  {
+    "id": "0089",
+    "patch": ".18.4.4-candidates/0089-omp-compaction-drop-capacity-gate-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/compaction.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-agent-core/dist/types/compaction/compaction.d.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\n"
+  },
+  {
+    "id": "0090",
+    "patch": ".18.4.4-candidates/0090-omp-oauth-durable-refresh-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/dist/types/registry/oauth/anthropic.d.ts",
+      "pi-ai/src/auth/refresh.ts",
+      "pi-ai/src/auth/select.ts",
+      "pi-ai/src/auth/usage.ts",
+      "pi-ai/src/registry/oauth/anthropic.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/auth/refresh.ts\nchecking file src/auth/select.ts\nchecking file src/auth/usage.ts\nchecking file src/registry/oauth/anthropic.ts\nchecking file dist/types/registry/oauth/anthropic.d.ts\n"
+  },
+  {
+    "id": "0092",
+    "patch": ".18.4.4-candidates/0092-omp-cache-warming-idle-budget-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/extensibility/shared-events.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/cache-warmer.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/cache-warmer.ts\nchecking file src/sdk.ts\nchecking file src/extensibility/shared-events.ts\nchecking file src/extensibility/extensions/types.ts\n"
+  }
+]

@@ -35,17 +35,17 @@ try {
 	// running the transport assertions against a tree without the patch.
 	const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
 	assert.ok(
-		["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(aiVersion),
+		["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion),
 		`unsupported 0070 transport gate version: ${aiVersion}`,
 	);
-	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(aiVersion);
+	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion);
 	const ai = await import(`${AI_ROOT}/src/providers/openai-codex-responses.ts`);
 	const core = await import(`${CORE_ROOT}/src/compaction/compaction-v2-streaming.ts`);
 	const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 	const bundled = getBundledModel("openai-codex", "gpt-6-astra");
 	assert.ok(bundled, "fixture model must exist in the selected catalog");
 	const input = [{ type: "message", role: "user", content: [{ type: "input_text", text: "full history" }] }];
-	const request = { body: { model: bundled.id }, input, retainedMessageBudget: 1000, sessionId: "gate-0070" };
+	const request = { body: { model: bundled.id }, input, retainedUserItems: input, retainedMessageBudget: 1000, sessionId: "gate-0070" };
 	const successEvents = [
 		{ type: "response.output_item.done", item: { type: "compaction", encrypted_content: "fixture-summary" } },
 		{ type: "response.completed", response: { id: "fixture-response", status: "completed" } },
@@ -179,7 +179,7 @@ try {
 	// the transport does: testing `model.api` alone schedules an isolated remote
 	// speculation that can only be refused, and the threshold grace path then defers
 	// real compaction while that attempt fails.
-	if (["18.4.1", "18.4.4"].includes(aiVersion)) {
+	if (["18.4.1", "18.4.4", "18.7.0"].includes(aiVersion)) {
 		const altLaneModels = [
 			{
 				label: "remoteCompaction.api",
@@ -433,7 +433,7 @@ try {
 				for (const state of states.values()) state.close();
 			}
 		}
-		if (["18.3.3", "18.4.1", "18.4.4"].includes(aiVersion)) {
+		if (["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion)) {
 			for (const scenario of ["recovery-invalid", "invalid-summary", "success"]) {
 				mode = scenario;
 				frames = [];
@@ -482,11 +482,11 @@ try {
 		`import { openCodexCompactionEventStream, applyOpenAICodexCompactionResponseMetadata } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  declare const model: Parameters<typeof openCodexCompactionEventStream>[0];
  declare const body: Parameters<typeof openCodexCompactionEventStream>[1];
- void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${["18.3.3", "18.4.1", "18.4.4"].includes(aiVersion) ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${["18.3.3", "18.4.1", "18.4.4"].includes(aiVersion) ? "rollback();" : ""} } });
+ void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion) ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion) ? "rollback();" : ""} } });
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: {} });
  // @ts-expect-error A primitive cannot store accepted metadata.
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: 1 });
- ${["18.3.3", "18.4.1", "18.4.4"].includes(aiVersion) ? `
+ ${["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion) ? `
  import type { SummaryOptions, CachePreservingSummaryScope, CachePreservingSummaryContext } from ${JSON.stringify(`${CORE_ROOT}/dist/types/compaction/compaction.js`)};
  import { buildCodexChainedRequestBody } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  import { createAnthropicRequestAudit } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/anthropic-request-audit.js`)};
@@ -496,8 +496,14 @@ try {
  void buildCodexChainedRequestBody({ model: "fixture", input: [] }, undefined);
  void createAnthropicRequestAudit({ provider: "anthropic", sideRequest: false, refresh: false });
  void imageFingerprint(image); void ensurePng(image); void completedPng("hash"); void pngFailureReason("hash");
+ ${aiVersion === "18.7.0" ? `
+ import { maxFramesForDataBudget, providerImageBudget, providerFrameBudget } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
+ import type { ShapeGeometry } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
+ declare const shape: ShapeGeometry; void maxFramesForDataBudget(shape);
+ ` : `
  import { FRAME_DATA_BYTES_PER_SHAPE, maxFramesForDataBudget, shedFramesOverBudget, providerImageBudget, providerFrameBudget } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
  void FRAME_DATA_BYTES_PER_SHAPE; void maxFramesForDataBudget(1024, undefined); void shedFramesOverBudget([]);
+ `}
  void providerImageBudget("anthropic", "anthropic-messages"); void providerFrameBudget("anthropic", "anthropic-messages");
  import type { AgentSession } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/agent-session.js`)};
  import type { SessionProviderBoundary } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-provider-boundary.js`)};

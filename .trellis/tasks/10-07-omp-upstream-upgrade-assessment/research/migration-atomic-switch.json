@@ -1,0 +1,85 @@
+{
+  "rehearsal": "atomic symlink switch + ledger + failure rollback",
+  "root": "/home/chris/.cache/omp-1870-migration-d79dt__o/rpc-smoke/scratch/atomic",
+  "note": "synthetic rehearsal only; never reads/writes any real agent.db",
+  "steps": [
+    {
+      "label": "setup",
+      "current": "versions/v1",
+      "token": "token-v1-initial",
+      "ledger": 1
+    },
+    {
+      "label": "switch_to_v2",
+      "current": "versions/v2",
+      "code": "code-v2",
+      "ledger": 2
+    },
+    {
+      "label": "v2_refreshed_token",
+      "token": "token-v2-refreshed",
+      "sha256": "aad6ebf44291781f99a3de11fbea3905a528f4aca118c6e84d436db417c3f683"
+    },
+    {
+      "label": "rollback_to_v1",
+      "current": "versions/v1",
+      "code": "code-v1",
+      "token": "token-v2-refreshed",
+      "tokenSha256": "aad6ebf44291781f99a3de11fbea3905a528f4aca118c6e84d436db417c3f683",
+      "ledger": 3
+    },
+    {
+      "label": "failed_switch_untouched",
+      "failure": "version dir missing: versions/v9-missing",
+      "current": "versions/v1",
+      "ledgerUnchanged": true,
+      "tokenUnchanged": true
+    },
+    {
+      "label": "atomicity",
+      "currentIsSymlink": true,
+      "tmpLeftovers": []
+    }
+  ],
+  "finalState": {
+    "current": "versions/v1",
+    "code": "code-v1",
+    "token": {
+      "marker": "token-v2-refreshed",
+      "seq": 2,
+      "updatedAt": "2026-10-07T00:00:02.000Z"
+    },
+    "ledger": [
+      {
+        "seq": 1,
+        "action": "deploy",
+        "version": "v1",
+        "ts": "2026-10-07T00:00:00.000Z"
+      },
+      {
+        "seq": 2,
+        "action": "switch",
+        "from": "v1",
+        "to": "v2",
+        "ts": "2026-10-07T00:00:01.000Z"
+      },
+      {
+        "seq": 3,
+        "action": "rollback",
+        "from": "v2",
+        "to": "v1",
+        "reason": "health-check-failed",
+        "ts": "2026-10-07T00:00:03.000Z"
+      }
+    ]
+  },
+  "verdict": {
+    "tokenMarkerPreserved": true,
+    "rollbackTargetOk": true
+  },
+  "limits": [
+    "Rehearsal only: synthetic version dirs and a synthetic token marker; never reads or writes any real agent.db.",
+    "The symlink swap and the ledger entry are each individually atomic (rename), but they are two separate commits: a crash between them leaves `current` switched with no ledger entry, and no transaction spans both.",
+    "No real code/version dirs, no real credential store, no rollback of any real install were touched."
+  ]
+}

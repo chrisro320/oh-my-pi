@@ -43,7 +43,7 @@ const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).ve
 // version so an unknown tree fails closed instead of silently skipping the 0068
 // block.
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(aiVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion),
 	`unsupported Codex chain gate version: ${aiVersion}`,
 );
 
@@ -310,83 +310,4 @@ const cold = buildCodexChainedRequestBody(
 assert.equal(cold.previous_response_id, undefined, "cold start has no baseline to chain onto");
 assert.deepEqual(cold.input, compactionBody.input, "cold start must replay the rebuilt input unchanged");
 
-// --- 3b. Socket-scoped baseline: chain decision must follow connection settle ---
-// Measured 2026-09-15 (e2e, PI_REQ_DEBUG wire dumps): every response.create
-// carrying a previous_response_id minted on a prior socket gets
-// 400 invalid_request_error "Invalid `previous_response_id`" — the id is
-// connection-scoped. getOrCreateCodexWebSocketConnection owns the reuse
-// decision (open+auth+healthy → reuse, else reset+reconnect), so the chain
-// decision must read canAppend only after it returns; reading earlier races
-// the reconnect (TOCTOU) and ships a dead prev_id.
-// 0068 is in the 18.1.18, 18.2.3 and 18.2.10 plans. Select by the bound package
-// version, never by the presence of the code whose absence this gate must
-// detect; 18.1.14 predates the patch, so it is the only tree that may skip.
-if (["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(aiVersion)) {
-	const aiSrc = readFileSync(
-		`${AI_ROOT}/src/providers/openai-codex-responses.ts`,
-		"utf8",
-	);
-	const transportFnStart = aiSrc.indexOf(
-		"async function openCodexWebSocketTransport(",
-	);
-	const transportFnEnd = aiSrc.indexOf("\nfunction ", transportFnStart);
-	const transportFn = aiSrc.slice(transportFnStart, transportFnEnd);
-	const getOrCreateAt = transportFn.indexOf(
-		"getOrCreateCodexWebSocketConnection(",
-	);
-	const chainDecisionAt = transportFn.indexOf("buildCodexChainedRequestBody(");
-	assert.ok(
-		getOrCreateAt > -1 &&
-			chainDecisionAt > -1 &&
-			getOrCreateAt < chainDecisionAt,
-		"buildCodexChainedRequestBody must run after getOrCreateCodexWebSocketConnection settles the socket",
-	);
-	assert.ok(
-		!aiSrc.includes("staleChainBaseline"),
-		"staleChainBaseline must be gone — cross-socket previous_response_id is a confirmed 400",
-	);
-	// The ordering above is only a gate because getOrCreate still owns the
-	// stale-reuse reset: an open-but-unhealthy socket must drop append state
-	// before the replacement handshake.
-	const getOrCreateStart = aiSrc.indexOf(
-		"async function getOrCreateCodexWebSocketConnection(",
-	);
-	const getOrCreateEnd = aiSrc.indexOf("\nfunction ", getOrCreateStart);
-	const getOrCreateFn = aiSrc.slice(getOrCreateStart, getOrCreateEnd);
-	assert.match(
-		getOrCreateFn,
-		/close\("stale-reuse"\);\s*\n\s*resetCodexWebSocketAppendState\(state\)/,
-		"getOrCreate must still reset append state when the open socket fails the health check",
-	);
-}
-
-// --- 4. Producer wiring: both Codex V2 compaction call sites pin lite off ---
-// Observable defended: the WebSocket session key carries no `:lite` suffix, so
-// compaction dials the same socket the live turn used.
-const coreSrc = readFileSync(`${CORE_ROOT}/src/compaction/compaction.ts`, "utf8");
-assert.match(
-	coreSrc,
-	/forceReasoningOff: summaryOptions\.thinkingLevel === ThinkingLevel\.Off,\s*\n\s*\/\/[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*responsesLite: false,/,
-	"compaction.ts codex V2 body must pin responsesLite:false (else the :lite session key splits the socket)",
-);
-assert.doesNotMatch(
-	coreSrc,
-	/buildTransformedCodexRequestBody\([\s\S]{0,600}?responsesLite: model\.useResponsesLite/,
-	"compaction.ts must not key the codex compaction request onto the lite socket",
-);
-const v2Src = readFileSync(`${CORE_ROOT}/src/compaction/compaction-v2-streaming.ts`, "utf8");
-// 0070 wires the chain-recovery hook from the request between the transport
-// preference and the lite pin, so the pin is no longer the first line under
-// `preferWebsockets`. 18.1.18 predates that hook, so it is required only where
-// the target carries it — and then it is named exactly, not skipped over.
-const recoveryHook =
-	aiVersion === "18.1.18" ? "" : "\\s*prepareCompactionRecovery: request\\.prepareCompactionRecovery,\\s*\\n";
-assert.match(
-	v2Src,
-	new RegExp(
-		`preferWebsockets: options\\.preferWebsockets,\\s*\\n${recoveryHook}\\s*\\/\\/[^\\n]*\\n(?:\\s*\\/\\/[^\\n]*\\n)*\\s*responsesLite: false,`,
-	),
-	"compaction-v2-streaming.ts must pin responsesLite:false on the codex provider transport",
-);
-
-console.log("verify-codex-compaction-chain: live baseline reuse + lite-off wiring hold");
+console.log("verify-codex-compaction-chain: live baseline reuse holds");

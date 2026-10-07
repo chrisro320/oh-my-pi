@@ -1,0 +1,874 @@
+[
+  {
+    "id": "0033",
+    "patch": ".18.4.4-candidates/0033-omp-cache-turn-status-rollup-v18.4.4-candidate.patch",
+    "root": "TUI",
+    "status": "clean",
+    "touched": [
+      "pi-tui/src/status-line/schema.ts",
+      "pi-tui/src/status-line/segments.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/status-line/schema.ts\nchecking file src/status-line/segments.ts\nHunk #1 succeeded at 1020 (offset 283 lines).\nHunk #2 succeeded at 1325 (offset 360 lines).\n"
+  },
+  {
+    "id": "0004",
+    "patch": ".18.4.4-candidates/0004-omp-token-total-cacheread-v18.4.4-candidate.patch",
+    "root": "TUI",
+    "status": "clean",
+    "touched": [
+      "pi-tui/src/status-line/segments.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/status-line/segments.ts\nHunk #1 succeeded at 735 (offset 203 lines).\n"
+  },
+  {
+    "id": "0034",
+    "patch": ".18.4.4-candidates/0034-omp-hindsight-snapshot-rollup-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/hindsight/backend.ts",
+      "pi-coding-agent/src/hindsight/state.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/hindsight/state.ts\nchecking file src/session/agent-session.ts\nHunk #1 succeeded at 495 (offset 18 lines).\nHunk #2 succeeded at 5167 (offset 370 lines).\nHunk #3 succeeded at 5814 (offset 385 lines).\nHunk #4 succeeded at 5821 (offset 385 lines).\nchecking file src/hindsight/backend.ts\n"
+  },
+  {
+    "id": "0037",
+    "patch": ".18.4.4-candidates/0037-omp-usage-statusline-gate-rollup-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/modes/status-line-host.ts",
+      "pi-tui/dist/types/status-line/host.d.ts",
+      "pi-tui/src/status-line/component.ts",
+      "pi-tui/src/status-line/host.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-tui/src/status-line/component.ts\nHunk #2 succeeded at 491 (offset 2 lines).\nHunk #3 succeeded at 719 (offset 3 lines).\nHunk #4 succeeded at 738 (offset 3 lines).\nHunk #5 succeeded at 1867 (offset 11 lines).\nHunk #6 succeeded at 1884 (offset 11 lines).\nHunk #7 succeeded at 1945 (offset 11 lines).\nHunk #8 succeeded at 1980 (offset 11 lines).\nHunk #9 succeeded at 2372 (offset 11 lines).\nchecking file pi-tui/src/status-line/host.ts\nHunk #2 succeeded at 88 (offset 2 lines).\nchecking file pi-coding-agent/src/modes/status-line-host.ts\nchecking file pi-tui/dist/types/status-line/host.d.ts\nHunk #2 succeeded at 118 (offset 2 lines).\n"
+  },
+  {
+    "id": "0010",
+    "patch": ".18.4.4-candidates/0010-omp-extension-idle-ephemeral-turn-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "blocked",
+    "touched": [
+      "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/modes/acp/acp-agent.ts",
+      "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+      "pi-coding-agent/src/modes/runtime-init.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/task/executor.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file dist/types/extensibility/extensions/types.d.ts\nHunk #1 succeeded at 268 (offset 2 lines).\nHunk #2 succeeded at 349 (offset 4 lines).\nHunk #3 succeeded at 1356 (offset 15 lines).\nchecking file src/extensibility/extensions/runner.ts\nHunk #1 succeeded at 506 (offset 8 lines).\nHunk #2 succeeded at 808 (offset 8 lines).\nHunk #3 succeeded at 1387 (offset 12 lines).\nchecking file src/extensibility/extensions/types.ts\nHunk #1 succeeded at 457 (offset 25 lines).\nHunk #2 succeeded at 539 (offset 27 lines).\nHunk #3 succeeded at 1918 (offset 39 lines).\nchecking file src/modes/acp/acp-agent.ts\nHunk #1 succeeded at 2609 (offset -4 lines).\nchecking file src/modes/controllers/extension-ui-controller.ts\nHunk #1 succeeded at 222 (offset -10 lines).\nHunk #2 succeeded at 451 (offset -14 lines).\nchecking file src/modes/runtime-init.ts\nHunk #1 succeeded at 147 (offset 21 lines).\nchecking file src/session/agent-session.ts\nHunk #1 FAILED at 159.\nHunk #2 succeeded at 801 (offset 18 lines).\nHunk #3 succeeded at 975 (offset 24 lines).\nHunk #4 succeeded at 1079 (offset 26 lines).\nHunk #5 FAILED at 1253.\nHunk #6 FAILED at 1318.\nHunk #7 succeeded at 1450 (offset 87 lines).\nHunk #8 succeeded at 1870 (offset 102 lines).\nHunk #9 FAILED at 4373.\nHunk #10 succeeded at 4674 (offset 280 lines).\nHunk #11 succeeded at 5188 (offset 199 lines).\nHunk #12 succeeded at 5397 (offset 199 lines).\nHunk #13 FAILED at 7398.\nHunk #14 succeeded at 7936 (offset 321 lines).\nHunk #15 succeeded at 8041 (offset 323 lines).\nHunk #16 succeeded at 8490 (offset 337 lines).\nHunk #17 succeeded at 8507 (offset 337 lines).\nHunk #18 succeeded at 10759 (offset 534 lines).\nHunk #19 succeeded at 11832 (offset 617 lines).\nHunk #20 succeeded at 11927 (offset 617 lines).\nHunk #21 succeeded at 11935 (offset 617 lines).\nHunk #22 succeeded at 11960 (offset 617 lines).\nHunk #23 succeeded at 11973 (offset 617 lines).\nHunk #24 succeeded at 12089 (offset 617 lines).\n5 out of 24 hunks FAILED\nchecking file src/task/executor.ts\nHunk #1 FAILED at 4251.\n1 out of 1 hunk FAILED\nchecking file dist/types/session/agent-session.d.ts\nHunk #2 succeeded at 1162 (offset 88 lines).\n"
+  },
+  {
+    "id": "0035",
+    "patch": ".18.4.4-candidates/0035-omp-compaction-prefix-rollup-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+      "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+      "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts",
+      "pi-coding-agent/src/session/session-provider-boundary.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0010"
+    ],
+    "output": "checking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 succeeded at 35 (offset 1 line).\nHunk #2 succeeded at 87 (offset 1 line).\nHunk #3 succeeded at 585 (offset 1 line).\nHunk #4 succeeded at 669 (offset 1 line).\nHunk #5 FAILED at 689.\nHunk #6 succeeded at 899 (offset 19 lines).\nHunk #7 succeeded at 943 (offset 19 lines).\nHunk #8 succeeded at 981 (offset 19 lines).\nHunk #9 succeeded at 1073 (offset 19 lines).\nHunk #10 succeeded at 1093 (offset 19 lines).\nHunk #11 succeeded at 1147 (offset 19 lines).\nHunk #12 succeeded at 1156 (offset 19 lines).\nHunk #13 succeeded at 1185 (offset 19 lines).\nHunk #14 succeeded at 1198 (offset 19 lines).\nHunk #15 succeeded at 1394 (offset 19 lines).\nHunk #16 succeeded at 1464 (offset 19 lines).\nHunk #17 succeeded at 1654 (offset 19 lines).\nHunk #18 succeeded at 1692 (offset 19 lines).\nHunk #19 succeeded at 1712 (offset 19 lines).\nHunk #20 succeeded at 1835 (offset 19 lines).\nHunk #21 FAILED at 1828.\nHunk #22 succeeded at 2277 (offset 94 lines).\nHunk #23 succeeded at 2293 (offset 94 lines).\nHunk #24 succeeded at 2379 (offset 96 lines).\n2 out of 24 hunks FAILED\nchecking file pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md\nchecking file pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md\nchecking file pi-coding-agent/src/session/agent-session.ts\nHunk #1 FAILED at 2155.\nHunk #2 succeeded at 2319 (offset 110 lines).\nHunk #3 succeeded at 6520 (offset 195 lines).\n1 out of 3 hunks FAILED\nchecking file pi-coding-agent/src/session/session-advisors.ts\nHunk #2 succeeded at 112 (offset 6 lines).\nHunk #3 succeeded at 2271 (offset 335 lines).\nHunk #4 FAILED at 2180.\n1 out of 4 hunks FAILED\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #1 succeeded at 105 (offset 4 lines).\nHunk #2 FAILED at 459.\nHunk #3 succeeded at 3403 (offset 19 lines).\nHunk #4 FAILED at 3456.\nHunk #5 FAILED at 4881.\n3 out of 5 hunks FAILED\nchecking file pi-coding-agent/src/session/session-provider-boundary.ts\nHunk #1 succeeded at 30 (offset -3 lines).\nHunk #2 succeeded at 224 (offset 27 lines).\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\nHunk #2 FAILED at 184.\nHunk #3 succeeded at 313 (offset 14 lines).\n1 out of 3 hunks FAILED\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\nHunk #1 succeeded at 575 (offset 34 lines).\nchecking file pi-coding-agent/dist/types/session/session-provider-boundary.d.ts\nHunk #1 succeeded at 56 (offset 3 lines).\nHunk #2 succeeded at 67 (offset 3 lines).\nchecking file pi-coding-agent/dist/types/session/session-maintenance.d.ts\nHunk #1 FAILED at 96.\n1 out of 1 hunk FAILED\n"
+  },
+  {
+    "id": "0014",
+    "patch": ".18.4.4-candidates/0014-omp-antigravity-deterministic-session-identity-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/providers/google-gemini-cli.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/google-gemini-cli.ts\nHunk #2 succeeded at 1072 (offset -6 lines).\nHunk #3 succeeded at 1125 (offset -6 lines).\nHunk #4 succeeded at 1228 (offset -6 lines).\nHunk #5 succeeded at 1389 (offset -6 lines).\n"
+  },
+  {
+    "id": "0036",
+    "patch": ".18.4.4-candidates/0036-omp-image-frame-budget-rollup-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-coding-agent/src/session/provider-image-budget.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts",
+      "pi-coding-agent/src/session/snapcompact-inline.ts",
+      "snapcompact/dist/types/snapcompact.d.ts",
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035"
+    ],
+    "output": "checking file pi-coding-agent/src/session/provider-image-budget.ts\nHunk #1 FAILED at 72.\n1 out of 1 hunk FAILED\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #1 FAILED at 3576.\nHunk #2 FAILED at 3622.\nHunk #3 FAILED at 3969.\nHunk #4 FAILED at 3993.\n4 out of 4 hunks FAILED\nchecking file pi-coding-agent/src/session/snapcompact-inline.ts\nchecking file snapcompact/src/snapcompact.ts\nHunk #1 succeeded at 496 (offset 16 lines).\nHunk #2 FAILED at 517.\nHunk #3 succeeded at 577 (offset 36 lines).\nHunk #4 succeeded at 590 (offset 36 lines).\nHunk #5 succeeded at 2277 (offset 40 lines).\n1 out of 5 hunks FAILED\nchecking file snapcompact/dist/types/snapcompact.d.ts\nHunk #1 FAILED at 328.\nHunk #2 succeeded at 375 (offset 32 lines).\n1 out of 2 hunks FAILED\n"
+  },
+  {
+    "id": "0017",
+    "patch": ".18.4.4-candidates/0017-omp-openai-responses-native-replay-warm-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/providers/openai-responses.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/openai-responses.ts\nHunk #1 succeeded at 425 (offset 191 lines).\n"
+  },
+  {
+    "id": "0025",
+    "patch": ".18.4.4-candidates/0025-omp-ollama-cloud-usage-api-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/usage/ollama.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/usage/ollama.ts\n"
+  },
+  {
+    "id": "0026",
+    "patch": ".18.4.4-candidates/0026-omp-usage-fetch-anthropic-gate-core-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/dist/types/auth/types.d.ts",
+      "pi-ai/dist/types/auth/usage.d.ts",
+      "pi-ai/src/auth/types.ts",
+      "pi-ai/src/auth/usage.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/auth/usage.ts\nHunk #1 succeeded at 108 (offset 2 lines).\nHunk #2 succeeded at 800 (offset 5 lines).\nchecking file src/auth/types.ts\nHunk #1 succeeded at 1128 (offset 22 lines).\nchecking file dist/types/auth/usage.d.ts\nchecking file dist/types/auth/types.d.ts\nHunk #1 succeeded at 1039 (offset 23 lines).\n"
+  },
+  {
+    "id": "0030",
+    "patch": ".18.4.4-candidates/0030-omp-usage-cache-canonical-baseurl-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/dist/types/auth/usage-cache.d.ts",
+      "pi-ai/src/auth/usage-cache.ts",
+      "pi-ai/src/auth/usage.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/auth/usage-cache.ts\nHunk #2 succeeded at 212 (offset 6 lines).\nHunk #3 succeeded at 341 (offset 6 lines).\nchecking file src/auth/usage.ts\nHunk #1 succeeded at 333 (offset 5 lines).\nHunk #2 succeeded at 386 (offset 5 lines).\nchecking file dist/types/auth/usage-cache.d.ts\n"
+  },
+  {
+    "id": "0031",
+    "patch": ".18.4.4-candidates/0031-omp-agent-session-providers-forward-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0010",
+      "0035"
+    ],
+    "output": "checking file src/session/agent-session.ts\nHunk #2 succeeded at 12180 (offset 565 lines).\nchecking file dist/types/session/agent-session.d.ts\nHunk #2 succeeded at 1334 (offset 123 lines).\n"
+  },
+  {
+    "id": "0032",
+    "patch": ".18.4.4-candidates/0032-omp-goal-tool-resident-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/modes/interactive-mode.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/tools/index.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/sdk.ts\nHunk #1 succeeded at 3963 (offset 203 lines).\nchecking file src/tools/index.ts\nHunk #1 succeeded at 738 (offset 9 lines).\nchecking file src/modes/interactive-mode.ts\nHunk #1 succeeded at 4817 (offset 696 lines).\nHunk #2 succeeded at 5112 (offset 696 lines).\nHunk #3 succeeded at 6129 (offset 696 lines).\n"
+  },
+  {
+    "id": "0038",
+    "patch": ".18.4.4-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/openai-responses.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/date-cwd-reminder.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-ai/src/providers/openai-responses.ts\nHunk #1 succeeded at 1539 (offset 342 lines).\nHunk #2 succeeded at 1718 (offset 342 lines).\nHunk #3 succeeded at 1725 (offset 342 lines).\nchecking file pi-ai/src/types.ts\nHunk #1 succeeded at 1125 (offset 95 lines).\nHunk #2 succeeded at 1145 (offset 95 lines).\nchecking file pi-coding-agent/src/sdk.ts\nHunk #1 succeeded at 4168 (offset 203 lines).\nchecking file pi-coding-agent/src/session/date-cwd-reminder.ts\nHunk #2 FAILED at 19.\n1 out of 2 hunks FAILED\nchecking file pi-ai/dist/types/types.d.ts\nHunk #1 succeeded at 889 (offset 55 lines).\nHunk #2 succeeded at 908 (offset 55 lines).\nchecking file pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts\nHunk #1 FAILED at 10.\n1 out of 1 hunk FAILED\n"
+  },
+  {
+    "id": "0043",
+    "patch": ".18.4.4-candidates/0043-omp-interrupt-prune-symmetry-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/messages.d.ts",
+      "pi-coding-agent/src/session/messages.ts",
+      "pi-coding-agent/src/session/session-context.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/messages.ts\nHunk #2 succeeded at 458 (offset 27 lines).\nHunk #3 succeeded at 1026 (offset 36 lines).\nHunk #4 succeeded at 1052 (offset 36 lines).\nHunk #5 succeeded at 1070 (offset 37 lines).\nHunk #6 succeeded at 1139 (offset 37 lines).\nHunk #7 succeeded at 1172 (offset 37 lines).\nHunk #8 succeeded at 1237 (offset 37 lines).\nHunk #9 succeeded at 1290 (offset 42 lines).\nHunk #10 succeeded at 1300 (offset 42 lines).\nHunk #11 succeeded at 1312 (offset 42 lines).\nHunk #12 succeeded at 1334 (offset 42 lines).\nchecking file src/session/session-context.ts\nHunk #2 succeeded at 736 (offset 30 lines).\nchecking file dist/types/session/messages.d.ts\nHunk #1 succeeded at 72 (offset 7 lines).\n"
+  },
+  {
+    "id": "0044",
+    "patch": ".18.4.4-candidates/0044-omp-image-budget-wire-api-family-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0036"
+    ],
+    "output": "checking file snapcompact/src/snapcompact.ts\nHunk #1 succeeded at 534 (offset -30 lines).\nHunk #2 FAILED at 595.\n1 out of 2 hunks FAILED\n"
+  },
+  {
+    "id": "0052",
+    "patch": ".18.4.4-candidates/0052-omp-snapcompact-model-billing-commandcode-budget-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0036",
+      "0044"
+    ],
+    "output": "checking file snapcompact/src/snapcompact.ts\nHunk #1 FAILED at 255.\nHunk #2 FAILED at 398.\nHunk #3 FAILED at 605.\nHunk #4 FAILED at 613.\n4 out of 4 hunks FAILED\n"
+  },
+  {
+    "id": "0057",
+    "patch": ".18.4.4-candidates/0057-omp-devin-image-budget-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0036",
+      "0044",
+      "0052"
+    ],
+    "output": "checking file snapcompact/src/snapcompact.ts\nHunk #1 FAILED at 672.\n1 out of 1 hunk FAILED\n"
+  },
+  {
+    "id": "0045",
+    "patch": ".18.4.4-candidates/0045-omp-snapcompact-frame-reprice-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035",
+      "0036"
+    ],
+    "output": "checking file src/session/session-maintenance.ts\nHunk #1 succeeded at 1372 (offset 22 lines).\nHunk #2 succeeded at 3696 (offset 45 lines).\nHunk #3 succeeded at 3730 (offset 45 lines).\nHunk #4 succeeded at 4773 (offset 23 lines).\n"
+  },
+  {
+    "id": "0046",
+    "patch": ".18.4.4-candidates/0046-omp-supersede-warm-prefix-guard-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035",
+      "0036"
+    ],
+    "output": "checking file src/session/session-maintenance.ts\nHunk #1 succeeded at 733 (offset 18 lines).\n"
+  },
+  {
+    "id": "0048",
+    "patch": ".18.4.4-candidates/0048-omp-advisor-quota-rotation-bound-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "blocked",
+    "touched": [
+      "pi-coding-agent/src/session/session-advisors.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035"
+    ],
+    "output": "checking file src/session/session-advisors.ts\nHunk #1 succeeded at 129 (offset 5 lines).\nHunk #2 FAILED at 293.\nHunk #3 succeeded at 1573 (offset 219 lines).\nHunk #4 succeeded at 2103 (offset 332 lines).\n1 out of 4 hunks FAILED\n"
+  },
+  {
+    "id": "0050",
+    "patch": ".18.4.4-candidates/0050-omp-session-history-preview-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/session-listing.d.ts",
+      "pi-coding-agent/src/main.ts",
+      "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+      "pi-coding-agent/src/session/session-listing.ts",
+      "pi-tui/dist/types/apps/session-picker.d.ts",
+      "pi-tui/dist/types/overlays/session-selector.d.ts",
+      "pi-tui/src/apps/session-picker.ts",
+      "pi-tui/src/overlays/session-selector.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-coding-agent/src/session/session-listing.ts\nchecking file pi-coding-agent/src/modes/controllers/selector-controller.ts\nHunk #1 succeeded at 66 (offset 11 lines).\nHunk #2 succeeded at 1696 (offset 78 lines).\nchecking file pi-tui/src/overlays/session-selector.ts\nHunk #9 succeeded at 1465 (offset 1 line).\nHunk #10 succeeded at 1511 (offset 1 line).\nHunk #11 succeeded at 1587 (offset 1 line).\nHunk #12 succeeded at 1722 (offset 1 line).\nHunk #13 succeeded at 1969 (offset -1 lines).\nHunk #14 succeeded at 1984 (offset -1 lines).\nHunk #15 succeeded at 2004 (offset -1 lines).\nchecking file pi-tui/src/apps/session-picker.ts\nchecking file pi-coding-agent/src/main.ts\nHunk #1 succeeded at 194 (offset 8 lines).\nHunk #2 succeeded at 219 (offset 8 lines).\nchecking file pi-tui/dist/types/overlays/session-selector.d.ts\nchecking file pi-tui/dist/types/apps/session-picker.d.ts\nchecking file pi-coding-agent/dist/types/session/session-listing.d.ts\n"
+  },
+  {
+    "id": "0054",
+    "patch": ".18.4.4-candidates/0054-omp-antigravity-drop-requesttype-agent-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/providers/google-gemini-cli.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/google-gemini-cli.ts\nHunk #1 succeeded at 1401 (offset -6 lines).\n"
+  },
+  {
+    "id": "0047",
+    "patch": ".18.4.4-candidates/0047-omp-date-cwd-anchor-stability-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "blocked",
+    "touched": [
+      "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/date-cwd-reminder.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0038"
+    ],
+    "output": "checking file src/sdk.ts\nHunk #1 succeeded at 4135 (offset 203 lines).\nHunk #2 succeeded at 5102 (offset 253 lines).\nchecking file src/session/date-cwd-reminder.ts\nHunk #1 FAILED at 3.\nHunk #2 FAILED at 19.\n2 out of 2 hunks FAILED\nchecking file dist/types/session/date-cwd-reminder.d.ts\nHunk #1 FAILED at 13.\n1 out of 1 hunk FAILED\n"
+  },
+  {
+    "id": "0055",
+    "patch": ".18.4.4-candidates/0055-omp-devin-auth-cache-turn-timing-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "blocked",
+    "touched": [
+      "pi-ai/src/providers/devin.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/devin.ts\nHunk #2 succeeded at 189 (offset 1 line).\nHunk #3 FAILED at 228.\nHunk #4 succeeded at 391 (offset 3 lines).\nHunk #5 succeeded at 521 (offset 3 lines).\nHunk #6 succeeded at 542 (offset 3 lines).\nHunk #7 succeeded at 594 (offset 3 lines).\nHunk #8 succeeded at 730 (offset 3 lines).\n1 out of 8 hunks FAILED\n"
+  },
+  {
+    "id": "0071",
+    "patch": ".18.4.4-candidates/0071-omp-devin-request-dump-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "blocked",
+    "touched": [
+      "pi-ai/src/providers/devin.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0055"
+    ],
+    "output": "checking file src/providers/devin.ts\nHunk #1 succeeded at 27 (offset -1 lines).\nHunk #2 FAILED at 269.\n1 out of 2 hunks FAILED\n"
+  },
+  {
+    "id": "0056",
+    "patch": ".18.4.4-candidates/0056-omp-devin-metadata-alignment-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-catalog/src/wire/devin.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-catalog/src/wire/devin.ts\n"
+  },
+  {
+    "id": "0058",
+    "patch": ".18.4.4-candidates/0058-omp-devin-thinking-signature-replay-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/src/providers/devin.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0055",
+      "0071"
+    ],
+    "output": "checking file src/providers/devin.ts\nHunk #1 succeeded at 177 (offset 1 line).\nHunk #2 succeeded at 210 (offset -7 lines).\nHunk #3 succeeded at 407 (offset -68 lines).\nHunk #4 succeeded at 794 (offset -158 lines).\n"
+  },
+  {
+    "id": "0060",
+    "patch": ".18.4.4-candidates/0060-omp-devin-idle-cascade-pin-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-ai/dist/types/stream.d.ts",
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/stream.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+      "pi-coding-agent/src/session/agent-session-types.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0010",
+      "0035",
+      "0038"
+    ],
+    "output": "checking file pi-ai/src/types.ts\nHunk #1 succeeded at 570 (offset 62 lines).\nchecking file pi-ai/src/stream.ts\nHunk #1 succeeded at 1880 (offset -173 lines).\nHunk #2 succeeded at 1907 (offset -172 lines).\nchecking file pi-coding-agent/src/session/agent-session.ts\nHunk #1 FAILED at 9969.\nHunk #2 succeeded at 10825 (offset 737 lines).\n1 out of 2 hunks FAILED\nchecking file pi-coding-agent/src/session/agent-session-types.ts\nHunk #1 succeeded at 564 (offset 59 lines).\nchecking file pi-ai/dist/types/types.d.ts\nHunk #1 succeeded at 340 (offset 23 lines).\nchecking file pi-ai/dist/types/stream.d.ts\nHunk #1 succeeded at 63 (offset 7 lines).\nchecking file pi-coding-agent/dist/types/session/agent-session-types.d.ts\nHunk #1 succeeded at 526 (offset 58 lines).\n"
+  },
+  {
+    "id": "0062",
+    "patch": ".18.4.4-candidates/0062-omp-snapcompact-reduction-baseline-previous-archive-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035",
+      "0036"
+    ],
+    "output": "checking file src/session/session-maintenance.ts\nHunk #1 succeeded at 1401 (offset 22 lines).\nHunk #2 succeeded at 2544 (offset 34 lines).\nHunk #3 succeeded at 2561 (offset 34 lines).\nHunk #4 succeeded at 4845 (offset 23 lines).\n"
+  },
+  {
+    "id": "0063",
+    "patch": ".18.4.4-candidates/0063-omp-codex-v2-compaction-live-chain-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035"
+    ],
+    "output": "checking file pi-ai/src/providers/openai-codex-responses.ts\nHunk #1 succeeded at 162 (offset 3 lines).\nHunk #2 succeeded at 3786 (offset 32 lines).\nchecking file pi-ai/dist/types/providers/openai-codex-responses.d.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 succeeded at 1724 (offset -196 lines).\nchecking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\nHunk #1 succeeded at 355 (offset 5 lines).\n"
+  },
+  {
+    "id": "0065",
+    "patch": ".18.4.4-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-catalog/src/compat/rules.json",
+      "pi-catalog/src/compat/rules/providers/commandcode.kdl"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-catalog/src/compat/rules/providers/commandcode.kdl\nHunk #1 succeeded at 146 (offset 18 lines).\nchecking file pi-catalog/src/compat/rules.json\nHunk #1 FAILED at 1.\n1 out of 1 hunk FAILED\n"
+  },
+  {
+    "id": "0066",
+    "patch": ".18.4.4-candidates/0066-omp-anthropic-native-compaction-live-context-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035",
+      "0036",
+      "0048"
+    ],
+    "output": "checking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 FAILED at 667.\nHunk #2 FAILED at 2121.\nHunk #3 FAILED at 2132.\n3 out of 3 hunks FAILED\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #1 FAILED at 3439.\n1 out of 1 hunk FAILED\nchecking file pi-coding-agent/src/session/session-advisors.ts\nHunk #1 FAILED at 1976.\n1 out of 1 hunk FAILED\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\nHunk #1 FAILED at 164.\n1 out of 1 hunk FAILED\n"
+  },
+  {
+    "id": "0067",
+    "patch": ".18.4.4-candidates/0067-omp-remote-compaction-lane-trace-live-tools-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-agent-core/src/compaction/compaction.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035",
+      "0066"
+    ],
+    "output": "checking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 FAILED at 1902.\nHunk #2 succeeded at 1720 (offset -195 lines).\nHunk #3 succeeded at 1776 (offset -184 lines).\nHunk #4 succeeded at 1810 (offset -182 lines).\nHunk #5 succeeded at 1830 (offset -182 lines).\nHunk #6 FAILED at 2026.\nHunk #7 succeeded at 1876 (offset -176 lines).\nHunk #8 succeeded at 1903 (offset -176 lines).\nHunk #9 succeeded at 1911 (offset -176 lines).\nHunk #10 FAILED at 2174.\nHunk #11 FAILED at 2181.\nHunk #12 succeeded at 2057 (offset -148 lines).\nHunk #13 succeeded at 2073 (offset -148 lines).\n4 out of 13 hunks FAILED\n"
+  },
+  {
+    "id": "0068",
+    "patch": ".18.4.4-candidates/0068-omp-codex-stale-baseline-chain-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+      "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+      "pi-agent-core/src/compaction/compaction-trace.ts",
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035",
+      "0066",
+      "0067"
+    ],
+    "output": "checking file pi-ai/src/providers/openai-codex-responses.ts\nHunk #1 succeeded at 200 (offset 3 lines).\nHunk #2 succeeded at 1703 (offset 17 lines).\nHunk #3 succeeded at 1762 (offset 17 lines).\nHunk #4 succeeded at 1859 (offset 17 lines).\nHunk #5 succeeded at 1885 (offset 17 lines).\nchecking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 FAILED at 34.\nHunk #2 succeeded at 60 (offset -2 lines).\nHunk #3 FAILED at 973.\nHunk #4 FAILED at 2028.\n3 out of 4 hunks FAILED\nchecking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\nHunk #3 succeeded at 93 (offset 2 lines).\nHunk #4 succeeded at 296 (offset 5 lines).\nHunk #5 succeeded at 309 (offset 5 lines).\nHunk #6 succeeded at 362 (offset 5 lines).\nHunk #7 succeeded at 379 (offset 5 lines).\nHunk #8 succeeded at 398 (offset 5 lines).\nchecking file pi-agent-core/src/compaction/compaction-trace.ts\nchecking file pi-agent-core/dist/types/compaction/compaction-trace.d.ts\nchecking file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\nHunk #2 succeeded at 39 (offset 2 lines).\n"
+  },
+  {
+    "id": "0069",
+    "patch": ".18.4.4-candidates/0069-omp-codex-effort-history-resume-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-ai/src/types.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0038",
+      "0060",
+      "0068"
+    ],
+    "output": "checking file src/types.ts\nHunk #1 succeeded at 51 (offset 2 lines).\nHunk #2 succeeded at 1019 (offset 64 lines).\nchecking file src/providers/openai-codex-responses.ts\nHunk #1 succeeded at 99 (offset 3 lines).\nHunk #2 succeeded at 465 (offset 10 lines).\nHunk #3 succeeded at 772 (offset 10 lines).\nHunk #4 succeeded at 1056 (offset 10 lines).\nHunk #5 succeeded at 1063 (offset 10 lines).\nHunk #6 succeeded at 1076 (offset 10 lines).\nHunk #7 succeeded at 1523 (offset 13 lines).\nHunk #8 succeeded at 1541 (offset 13 lines).\nHunk #9 succeeded at 1597 (offset 13 lines).\nHunk #10 succeeded at 3232 (offset 7 lines).\nchecking file dist/types/types.d.ts\nHunk #1 succeeded at 20 (offset 2 lines).\nHunk #2 succeeded at 789 (offset 35 lines).\n"
+  },
+  {
+    "id": "0070",
+    "patch": ".18.4.4-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035",
+      "0036",
+      "0048",
+      "0066",
+      "0067",
+      "0068"
+    ],
+    "output": "checking file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\nHunk #1 succeeded at 31 (offset 2 lines).\nHunk #2 succeeded at 46 (offset -5 lines).\nHunk #3 FAILED at 82.\n1 out of 3 hunks FAILED\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\nHunk #1 succeeded at 169 (offset -6 lines).\nchecking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\nHunk #1 FAILED at 12.\nHunk #2 succeeded at 25 (offset -1 lines).\nHunk #4 succeeded at 104 (offset -7 lines).\nHunk #5 succeeded at 130 (offset -7 lines).\nHunk #6 succeeded at 265 (offset -4 lines).\nHunk #7 FAILED at 293.\nHunk #8 FAILED at 329.\nHunk #9 succeeded at 329 (offset -25 lines).\nHunk #10 succeeded at 360 (offset -25 lines).\nHunk #11 FAILED at 400.\nHunk #12 succeeded at 386 (offset -30 lines).\nHunk #13 FAILED at 426.\nHunk #14 succeeded at 401 (offset -41 lines).\nHunk #15 succeeded at 431 (offset -41 lines).\nHunk #16 succeeded at 450 (offset -41 lines).\nHunk #17 succeeded at 472 (offset -41 lines).\nHunk #18 succeeded at 608 (offset -41 lines).\nHunk #19 succeeded at 652 (offset -41 lines).\n5 out of 19 hunks FAILED\nchecking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 succeeded at 29 (offset 1 line).\nHunk #2 succeeded at 670 (offset -12 lines).\nHunk #3 succeeded at 1636 (offset -180 lines).\nHunk #4 FAILED at 1983.\nHunk #5 FAILED at 2000.\nHunk #6 FAILED at 2024.\n3 out of 6 hunks FAILED\nchecking file pi-ai/dist/types/providers/openai-codex-responses.d.ts\nchecking file pi-ai/src/providers/openai-codex-responses.ts\nHunk #1 succeeded at 159 (offset 3 lines).\nHunk #2 FAILED at 201.\nHunk #3 succeeded at 436 (offset 8 lines).\nHunk #4 succeeded at 455 (offset 10 lines).\nHunk #5 succeeded at 1489 (offset 15 lines).\nHunk #6 succeeded at 1669 (offset 15 lines).\nHunk #7 succeeded at 1718 (offset 15 lines).\nHunk #8 FAILED at 1755.\nHunk #9 FAILED at 1775.\nHunk #10 succeeded at 1797 (offset 3 lines).\nHunk #11 FAILED at 1864.\nHunk #12 succeeded at 1867 (offset -13 lines).\nHunk #13 succeeded at 1934 (offset -11 lines).\nHunk #14 succeeded at 1970 (offset -11 lines).\nHunk #15 FAILED at 2048.\nHunk #16 succeeded at 2090 (offset -20 lines).\nHunk #17 succeeded at 2309 (offset -20 lines).\nHunk #18 succeeded at 2986 (offset -17 lines).\nHunk #19 succeeded at 3428 (offset 9 lines).\nHunk #20 succeeded at 3682 (offset 9 lines).\nHunk #21 succeeded at 3704 (offset 9 lines).\nHunk #22 succeeded at 3733 (offset 9 lines).\nHunk #23 succeeded at 3819 (offset 9 lines).\nHunk #24 succeeded at 4070 (offset -5 lines).\nHunk #25 succeeded at 4248 (offset -5 lines).\nHunk #26 succeeded at 4310 (offset -5 lines).\nHunk #27 succeeded at 4358 (offset -5 lines).\nHunk #28 succeeded at 4452 (offset -5 lines).\nHunk #29 succeeded at 5042 (offset 6 lines).\nHunk #30 succeeded at 5587 (offset 13 lines).\n5 out of 30 hunks FAILED\nchecking file pi-coding-agent/src/session/session-advisors.ts\nHunk #1 succeeded at 2484 (offset 267 lines).\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #1 succeeded at 29 (offset 1 line).\nHunk #2 FAILED at 59.\nHunk #3 succeeded at 1542 (offset 16 lines).\nHunk #4 succeeded at 2121 (offset 21 lines).\nHunk #5 succeeded at 2204 (offset 21 lines).\nHunk #6 succeeded at 5006 (offset -23 lines).\nHunk #7 succeeded at 5021 (offset -23 lines).\nHunk #8 succeeded at 5054 (offset -23 lines).\nHunk #9 succeeded at 5148 (offset -23 lines).\nHunk #10 FAILED at 5203.\n2 out of 10 hunks FAILED\n"
+  },
+  {
+    "id": "0072",
+    "patch": ".18.4.4-candidates/0072-omp-session-pin-static-auth-ui-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "blocked",
+    "touched": [
+      "pi-coding-agent/src/modes/controllers/selector-controller.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/modes/controllers/selector-controller.ts\nHunk #1 FAILED at 1.\nHunk #2 succeeded at 110 (offset 17 lines).\nHunk #3 FAILED at 132.\nHunk #4 succeeded at 227 (offset 32 lines).\nHunk #5 succeeded at 727 (offset 69 lines).\nHunk #6 succeeded at 814 (offset 67 lines).\nHunk #7 FAILED at 1776.\nHunk #8 FAILED at 1917.\nHunk #9 succeeded at 2055 (offset 98 lines).\nHunk #10 succeeded at 2123 (offset 98 lines).\n4 out of 10 hunks FAILED\n"
+  },
+  {
+    "id": "0074",
+    "patch": ".18.4.4-candidates/0074-omp-anthropic-context-cache-boundaries-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "clean",
+    "touched": [
+      "pi-ai/dist/types/providers/anthropic-request-audit.d.ts",
+      "pi-ai/src/providers/anthropic-request-audit.ts",
+      "pi-ai/src/providers/anthropic.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/providers/anthropic-request-audit.ts\nchecking file src/providers/anthropic.ts\nHunk #1 succeeded at 70 (offset 4 lines).\nHunk #2 succeeded at 93 (offset 4 lines).\nHunk #3 succeeded at 2015 (offset 14 lines).\nHunk #4 succeeded at 2256 (offset 17 lines).\nHunk #5 succeeded at 3542 (offset 4 lines).\nHunk #6 succeeded at 3936 (offset -1 lines).\nHunk #7 succeeded at 3967 (offset -1 lines).\nHunk #8 succeeded at 3992 (offset -1 lines).\nHunk #9 succeeded at 4006 (offset -1 lines).\nchecking file dist/types/providers/anthropic-request-audit.d.ts\n"
+  },
+  {
+    "id": "0075",
+    "patch": ".18.4.4-candidates/0075-omp-hindsight-recall-promotion-slot-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/session-memory.d.ts",
+      "pi-coding-agent/dist/types/session/session-tools.d.ts",
+      "pi-coding-agent/src/hindsight/backend.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/session-memory.ts",
+      "pi-coding-agent/src/session/session-tools.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0010",
+      "0035",
+      "0060"
+    ],
+    "output": "checking file src/hindsight/backend.ts\nchecking file src/session/agent-session.ts\nHunk #1 succeeded at 1945 (offset 117 lines).\nHunk #2 succeeded at 11068 (offset 752 lines).\nHunk #3 succeeded at 11310 (offset 772 lines).\nchecking file src/session/session-memory.ts\nchecking file src/session/session-tools.ts\nHunk #1 succeeded at 81 (offset 4 lines).\nHunk #2 succeeded at 1299 (offset 43 lines).\nHunk #3 succeeded at 2000 (offset 80 lines).\nHunk #4 succeeded at 2060 (offset 80 lines).\nHunk #5 succeeded at 2075 (offset 80 lines).\nchecking file dist/types/session/session-memory.d.ts\nchecking file dist/types/session/session-tools.d.ts\nHunk #1 succeeded at 35 (offset 1 line).\n"
+  },
+  {
+    "id": "0076",
+    "patch": ".18.4.4-candidates/0076-omp-eval-state-context-persist-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/src/collab/guest.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0010",
+      "0035",
+      "0060"
+    ],
+    "output": "checking file pi-coding-agent/src/collab/guest.ts\nHunk #1 succeeded at 605 (offset 45 lines).\nchecking file pi-coding-agent/src/session/agent-session.ts\nHunk #1 succeeded at 1578 (offset 57 lines).\nHunk #2 succeeded at 6450 (offset 166 lines).\nHunk #3 succeeded at 11088 (offset 404 lines).\nHunk #4 succeeded at 11570 (offset 477 lines).\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\nHunk #1 succeeded at 565 (offset 34 lines).\n"
+  },
+  {
+    "id": "0077",
+    "patch": ".18.4.4-candidates/0077-omp-turn-recovery-reminder-persist-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/turn-recovery.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/turn-recovery.ts\nHunk #2 succeeded at 600 (offset 10 lines).\nHunk #3 succeeded at 663 (offset 10 lines).\nHunk #4 succeeded at 1004 (offset 9 lines).\nHunk #5 succeeded at 1085 (offset 9 lines).\nHunk #6 succeeded at 2894 (offset 50 lines).\n"
+  },
+  {
+    "id": "0078",
+    "patch": ".18.4.4-candidates/0078-omp-python-display-mime-preference-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "blocked",
+    "touched": [
+      "pi-coding-agent/src/eval/py/display.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/eval/py/display.ts\nHunk #1 FAILED at 46.\n1 out of 1 hunk FAILED\n"
+  },
+  {
+    "id": "0079",
+    "patch": ".18.4.4-candidates/0079-omp-kitty-conversion-finalization-v18.4.4-candidate.patch",
+    "root": "TUI",
+    "status": "clean",
+    "touched": [
+      "pi-tui/src/chat/tool-execution.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/chat/tool-execution.ts\nHunk #1 succeeded at 336 (offset 5 lines).\nHunk #2 succeeded at 634 (offset 5 lines).\nHunk #3 succeeded at 779 (offset 5 lines).\n"
+  },
+  {
+    "id": "0080",
+    "patch": ".18.4.4-candidates/0080-omp-kitty-shared-png-cache-v18.4.4-candidate.patch",
+    "root": "TUI",
+    "status": "blocked",
+    "touched": [
+      "pi-tui/dist/types/chat/image-loading.d.ts",
+      "pi-tui/src/chat/assistant-message.ts",
+      "pi-tui/src/chat/image-loading.ts",
+      "pi-tui/src/chat/tool-execution.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/chat/assistant-message.ts\nHunk #3 FAILED at 233.\nHunk #4 FAILED at 244.\nHunk #5 succeeded at 1466 (offset 130 lines).\nHunk #6 succeeded at 1528 (offset 135 lines).\n2 out of 6 hunks FAILED\nchecking file src/chat/image-loading.ts\nchecking file src/chat/tool-execution.ts\nHunk #2 succeeded at 299 (offset 5 lines).\nHunk #3 succeeded at 357 (offset 5 lines).\nHunk #4 succeeded at 629 (offset 5 lines).\nHunk #5 succeeded at 641 (offset 5 lines).\nHunk #6 succeeded at 659 (offset 5 lines).\nHunk #7 succeeded at 1637 (offset 16 lines).\nHunk #8 FAILED at 1656.\n1 out of 8 hunks FAILED\nchecking file dist/types/chat/image-loading.d.ts\n"
+  },
+  {
+    "id": "0081",
+    "patch": ".18.4.4-candidates/0081-omp-main-cache-footer-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-coding-agent/dist/types/session/session-manager.d.ts",
+      "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts",
+      "pi-coding-agent/src/cli/gallery-fixtures/status-line.ts",
+      "pi-coding-agent/src/session/session-manager.ts",
+      "pi-tui/dist/types/status-line/host.d.ts",
+      "pi-tui/src/status-line/host.ts",
+      "pi-tui/src/status-line/segments.ts",
+      "pi-tui/src/status-line/startup.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file pi-coding-agent/src/session/session-manager.ts\nHunk #1 succeeded at 487 (offset 35 lines).\nHunk #2 succeeded at 504 (offset 35 lines).\nHunk #3 FAILED at 497.\nHunk #4 succeeded at 587 (offset 41 lines).\nHunk #5 succeeded at 2973 (offset 378 lines).\n1 out of 5 hunks FAILED\nchecking file pi-coding-agent/dist/types/session/session-manager.d.ts\nHunk #1 succeeded at 251 (offset 35 lines).\nchecking file pi-tui/src/status-line/host.ts\nHunk #1 FAILED at 46.\n1 out of 1 hunk FAILED\nchecking file pi-tui/dist/types/status-line/host.d.ts\nHunk #1 FAILED at 52.\n1 out of 1 hunk FAILED\nchecking file pi-tui/src/status-line/segments.ts\nHunk #1 succeeded at 995 (offset 288 lines).\nchecking file pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts\nchecking file pi-coding-agent/src/cli/gallery-fixtures/status-line.ts\nchecking file pi-tui/src/status-line/startup.ts\n"
+  },
+  {
+    "id": "0082",
+    "patch": ".18.4.4-candidates/0082-omp-user-display-text-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/agent.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-agent-core/src/compaction/messages.ts",
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts",
+      "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+      "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+      "pi-coding-agent/dist/types/modes/interactive-mode.d.ts",
+      "pi-coding-agent/dist/types/modes/types.d.ts",
+      "pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/dist/types/session/session-history-format.d.ts",
+      "pi-coding-agent/src/export/html/template.js",
+      "pi-coding-agent/src/export/share.ts",
+      "pi-coding-agent/src/extensibility/extensions/loader.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/main.ts",
+      "pi-coding-agent/src/modes/acp/acp-agent.ts",
+      "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+      "pi-coding-agent/src/modes/controllers/input-controller.ts",
+      "pi-coding-agent/src/modes/interactive-mode.ts",
+      "pi-coding-agent/src/modes/runtime-init.ts",
+      "pi-coding-agent/src/modes/types.ts",
+      "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+      "pi-coding-agent/src/session/agent-session-types.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/queued-messages.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-dump-format.ts",
+      "pi-coding-agent/src/session/session-history-format.ts",
+      "pi-coding-agent/src/session/session-listing.ts",
+      "pi-coding-agent/src/task/executor.ts",
+      "pi-tui/dist/types/chat/transcript-entry.d.ts",
+      "pi-tui/src/chat/chat-transcript-builder.ts",
+      "pi-tui/src/chat/transcript-entry.ts",
+      "pi-tui/src/chat/transcript-outline.ts",
+      "pi-tui/src/overlays/copy-selector.ts",
+      "pi-tui/src/overlays/session-selector.ts",
+      "pi-tui/src/overlays/tree-selector.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0010",
+      "0035",
+      "0038",
+      "0048",
+      "0060",
+      "0066",
+      "0067",
+      "0068",
+      "0070"
+    ],
+    "output": "checking file pi-agent-core/dist/types/compaction/compaction.d.ts\nHunk #1 succeeded at 244 (offset -5 lines).\nchecking file pi-agent-core/src/agent.ts\nHunk #1 succeeded at 70 (offset 1 line).\nchecking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 succeeded at 752 (offset -12 lines).\nHunk #2 succeeded at 921 (offset -20 lines).\nHunk #3 succeeded at 1662 (offset -188 lines).\nchecking file pi-agent-core/src/compaction/messages.ts\nchecking file pi-ai/dist/types/types.d.ts\nHunk #1 FAILED at 846.\n1 out of 1 hunk FAILED\nchecking file pi-ai/src/types.ts\nHunk #1 FAILED at 1062.\n1 out of 1 hunk FAILED\nchecking file pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts\nchecking file pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts\nHunk #2 succeeded at 360 (offset 5 lines).\nchecking file pi-coding-agent/dist/types/extensibility/extensions/types.d.ts\nHunk #1 succeeded at 722 (offset -15 lines).\nHunk #2 succeeded at 955 (offset -15 lines).\nHunk #3 succeeded at 1002 (offset -15 lines).\nHunk #4 succeeded at 1125 (offset -15 lines).\nHunk #5 succeeded at 1335 (offset -4 lines).\nHunk #6 succeeded at 1371 (offset -4 lines).\nchecking file pi-coding-agent/dist/types/modes/interactive-mode.d.ts\nHunk #1 FAILED at 202.\nHunk #2 succeeded at 379 (offset -4 lines).\nHunk #3 succeeded at 517 (offset 9 lines).\n1 out of 3 hunks FAILED\nchecking file pi-coding-agent/dist/types/modes/types.d.ts\nHunk #1 succeeded at 16 (offset 1 line).\nHunk #3 succeeded at 314 (offset 8 lines).\nHunk #4 succeeded at 338 (offset 8 lines).\nchecking file pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts\nHunk #1 succeeded at 55 (offset -2 lines).\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\nHunk #1 succeeded at 313 (offset 33 lines).\nchecking file pi-coding-agent/dist/types/session/agent-session-types.d.ts\nHunk #1 succeeded at 359 (offset 26 lines).\nHunk #2 succeeded at 411 (offset 37 lines).\nHunk #3 succeeded at 422 (offset 37 lines).\nHunk #4 succeeded at 440 (offset 37 lines).\nHunk #5 succeeded at 534 (offset 37 lines).\nchecking file pi-coding-agent/dist/types/session/session-history-format.d.ts\nchecking file pi-coding-agent/src/export/html/template.js\nchecking file pi-coding-agent/src/export/share.ts\nHunk #1 succeeded at 145 (offset 2 lines).\nHunk #2 succeeded at 400 (offset 11 lines).\nchecking file pi-coding-agent/src/extensibility/extensions/loader.ts\nchecking file pi-coding-agent/src/extensibility/extensions/runner.ts\nHunk #1 succeeded at 80 (offset 1 line).\nHunk #2 succeeded at 778 (offset 7 lines).\nHunk #3 succeeded at 1941 (offset 30 lines).\nchecking file pi-coding-agent/src/extensibility/extensions/types.ts\nHunk #1 succeeded at 1041 (offset 9 lines).\nHunk #2 succeeded at 1406 (offset 9 lines).\nHunk #3 succeeded at 1480 (offset 9 lines).\nHunk #4 succeeded at 1646 (offset 9 lines).\nHunk #5 succeeded at 1897 (offset 20 lines).\nHunk #6 succeeded at 1941 (offset 20 lines).\nchecking file pi-coding-agent/src/main.ts\nHunk #1 succeeded at 453 (offset 8 lines).\nHunk #2 succeeded at 465 (offset 8 lines).\nchecking file pi-coding-agent/src/modes/acp/acp-agent.ts\nHunk #1 succeeded at 2574 (offset -4 lines).\nchecking file pi-coding-agent/src/modes/controllers/extension-ui-controller.ts\nHunk #1 succeeded at 192 (offset -10 lines).\nHunk #2 succeeded at 422 (offset -15 lines).\nchecking file pi-coding-agent/src/modes/controllers/input-controller.ts\nHunk #2 succeeded at 238 (offset 2 lines).\nHunk #3 succeeded at 311 (offset 2 lines).\nHunk #4 succeeded at 955 (offset 7 lines).\nHunk #5 succeeded at 1085 (offset 7 lines).\nHunk #6 succeeded at 1193 (offset 9 lines).\nHunk #7 succeeded at 1224 (offset 9 lines).\nHunk #8 succeeded at 1322 (offset 9 lines).\nHunk #9 succeeded at 1372 (offset 9 lines).\nHunk #10 succeeded at 1395 (offset 9 lines).\nHunk #11 succeeded at 1414 (offset 9 lines).\nHunk #12 succeeded at 1430 (offset 9 lines).\nHunk #13 succeeded at 1454 (offset 9 lines).\nHunk #14 succeeded at 1470 (offset 9 lines).\nHunk #15 succeeded at 1491 (offset 9 lines).\nHunk #16 succeeded at 1517 (offset 9 lines).\nHunk #17 succeeded at 1528 (offset 9 lines).\nHunk #18 succeeded at 1813 (offset 15 lines).\nHunk #19 FAILED at 1812.\nHunk #20 succeeded at 2069 (offset 23 lines).\nHunk #21 succeeded at 2085 (offset 23 lines).\nHunk #22 succeeded at 2147 (offset 23 lines).\nHunk #23 succeeded at 2155 (offset 23 lines).\nHunk #24 succeeded at 2183 (offset 23 lines).\nHunk #25 succeeded at 2216 (offset 23 lines).\n1 out of 25 hunks FAILED\nchecking file pi-coding-agent/src/modes/interactive-mode.ts\nHunk #1 succeeded at 129 (offset 5 lines).\nHunk #2 FAILED at 1149.\nHunk #3 succeeded at 1649 (offset 129 lines).\nHunk #4 succeeded at 3213 (offset 139 lines).\nHunk #5 succeeded at 3225 (offset 139 lines).\nHunk #6 succeeded at 3244 (offset 139 lines).\nHunk #7 succeeded at 3254 (offset 139 lines).\nHunk #8 succeeded at 3292 (offset 139 lines).\nHunk #9 succeeded at 3346 (offset 139 lines).\nHunk #10 succeeded at 3937 (offset 235 lines).\nHunk #11 succeeded at 7454 (offset 272 lines).\n1 out of 11 hunks FAILED\nchecking file pi-coding-agent/src/modes/runtime-init.ts\nHunk #1 succeeded at 119 (offset 20 lines).\nchecking file pi-coding-agent/src/modes/types.ts\nHunk #1 succeeded at 24 (offset 1 line).\nHunk #4 succeeded at 341 (offset 11 lines).\nHunk #5 succeeded at 365 (offset 11 lines).\nchecking file pi-coding-agent/src/modes/utils/ui-helpers.ts\nHunk #2 succeeded at 286 (offset 9 lines).\nHunk #3 FAILED at 1091.\nHunk #4 succeeded at 1127 (offset 11 lines).\nHunk #5 FAILED at 1146.\nHunk #6 succeeded at 1250 (offset 30 lines).\nHunk #7 succeeded at 1280 (offset 29 lines).\nHunk #8 succeeded at 1299 (offset 29 lines).\n2 out of 8 hunks FAILED\nchecking file pi-coding-agent/src/session/agent-session.ts\nHunk #1 FAILED at 959.\nHunk #2 FAILED at 5033.\nHunk #3 FAILED at 5045.\nHunk #4 FAILED at 5245.\nHunk #5 succeeded at 5568 (offset 125 lines).\nHunk #6 succeeded at 5757 (offset 126 lines).\nHunk #7 succeeded at 7224 (offset 185 lines).\nHunk #8 FAILED at 7081.\nHunk #9 succeeded at 7344 (offset 211 lines).\nHunk #10 succeeded at 7372 (offset 212 lines).\nHunk #11 FAILED at 7201.\nHunk #12 succeeded at 7441 (offset 225 lines).\nHunk #13 succeeded at 8136 (offset 236 lines).\nHunk #14 succeeded at 8161 (offset 236 lines).\nHunk #15 succeeded at 8174 (offset 236 lines).\nHunk #16 succeeded at 8240 (offset 236 lines).\nHunk #17 FAILED at 8062.\nHunk #18 succeeded at 8332 (offset 248 lines).\nHunk #19 succeeded at 8346 (offset 248 lines).\nHunk #20 succeeded at 8857 (offset 252 lines).\nHunk #21 succeeded at 8891 (offset 252 lines).\nHunk #22 succeeded at 9554 (offset 329 lines).\nHunk #23 FAILED at 9362.\nHunk #24 FAILED at 10689.\nHunk #25 FAILED at 11061.\nHunk #26 FAILED at 11068.\nHunk #27 succeeded at 11651 (offset 478 lines).\nHunk #28 FAILED at 11366.\n12 out of 28 hunks FAILED\nchecking file pi-coding-agent/src/session/agent-session-types.ts\nHunk #1 succeeded at 383 (offset 27 lines).\nHunk #2 succeeded at 437 (offset 38 lines).\nHunk #3 succeeded at 449 (offset 38 lines).\nHunk #4 succeeded at 469 (offset 38 lines).\nHunk #5 succeeded at 574 (offset 38 lines).\nchecking file pi-coding-agent/src/session/queued-messages.ts\nchecking file pi-coding-agent/src/session/session-advisors.ts\nHunk #1 succeeded at 3016 (offset 278 lines).\nchecking file pi-coding-agent/src/session/session-dump-format.ts\nHunk #1 succeeded at 13 (offset 1 line).\nHunk #2 succeeded at 151 (offset 13 lines).\nchecking file pi-coding-agent/src/session/session-history-format.ts\nHunk #3 succeeded at 501 (offset 21 lines).\nchecking file pi-coding-agent/src/session/session-listing.ts\nchecking file pi-coding-agent/src/task/executor.ts\nHunk #1 FAILED at 4224.\n1 out of 1 hunk FAILED\nchecking file pi-tui/dist/types/chat/transcript-entry.d.ts\nchecking file pi-tui/src/chat/chat-transcript-builder.ts\nHunk #2 succeeded at 318 (offset 3 lines).\nchecking file pi-tui/src/chat/transcript-entry.ts\nchecking file pi-tui/src/chat/transcript-outline.ts\nchecking file pi-tui/src/overlays/copy-selector.ts\nHunk #2 succeeded at 1001 (offset 2 lines).\nHunk #3 succeeded at 1053 (offset 2 lines).\nHunk #4 succeeded at 1099 (offset 2 lines).\nchecking file pi-tui/src/overlays/session-selector.ts\nHunk #2 succeeded at 2016 (offset -1 lines).\nchecking file pi-tui/src/overlays/tree-selector.ts\n"
+  },
+  {
+    "id": "0083",
+    "patch": ".18.4.4-candidates/0083-omp-model-mention-surface-resume-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/session-tools.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/session/session-tools.ts\nHunk #1 succeeded at 22 (offset 1 line).\nHunk #2 succeeded at 49 (offset 1 line).\nHunk #3 succeeded at 227 (offset 2 lines).\nHunk #4 succeeded at 463 (offset 4 lines).\nHunk #5 succeeded at 506 (offset 4 lines).\nHunk #6 succeeded at 619 (offset 13 lines).\nHunk #7 succeeded at 1437 (offset 19 lines).\nHunk #8 succeeded at 2125 (offset 19 lines).\n"
+  },
+  {
+    "id": "0084",
+    "patch": ".18.4.4-candidates/0084-omp-length-stop-reminder-persist-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "clean",
+    "touched": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035",
+      "0036",
+      "0066",
+      "0070"
+    ],
+    "output": "checking file src/session/session-maintenance.ts\nHunk #1 succeeded at 3209 (offset -5 lines).\nHunk #2 succeeded at 3346 (offset -5 lines).\n"
+  },
+  {
+    "id": "0085",
+    "patch": ".18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "blocked",
+    "touched": [
+      "pi-coding-agent/dist/types/main.d.ts",
+      "pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts",
+      "pi-coding-agent/src/main.ts",
+      "pi-coding-agent/src/modes/controllers/input-controller.ts",
+      "pi-coding-agent/src/slash-commands/helpers/draft.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0082"
+    ],
+    "output": "checking file dist/types/main.d.ts\nchecking file dist/types/slash-commands/helpers/draft.d.ts\nchecking file src/main.ts\nHunk #1 FAILED at 106.\nHunk #2 succeeded at 389 (offset 8 lines).\nHunk #3 FAILED at 472.\n2 out of 3 hunks FAILED\nchecking file src/modes/controllers/input-controller.ts\nHunk #1 succeeded at 45 (offset -1 lines).\nHunk #2 FAILED at 1038.\n1 out of 2 hunks FAILED\nchecking file src/slash-commands/helpers/draft.ts\n"
+  },
+  {
+    "id": "0088",
+    "patch": ".18.4.4-candidates/0088-omp-compaction-cache-liveness-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/anthropic.d.ts",
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/anthropic.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035",
+      "0036",
+      "0048",
+      "0066",
+      "0067",
+      "0068",
+      "0070",
+      "0082"
+    ],
+    "output": "checking file pi-agent-core/dist/types/compaction/anthropic.d.ts\nHunk #1 FAILED at 1.\nHunk #2 FAILED at 48.\n2 out of 2 hunks FAILED\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\nHunk #2 FAILED at 202.\n1 out of 2 hunks FAILED\nchecking file pi-agent-core/src/compaction/anthropic.ts\nHunk #1 FAILED at 1.\nHunk #2 succeeded at 24 (offset 2 lines).\nHunk #3 succeeded at 171 (offset 17 lines).\n1 out of 3 hunks FAILED\nchecking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 succeeded at 49 (offset -3 lines).\nHunk #2 succeeded at 109 (offset -6 lines).\nHunk #3 FAILED at 710.\nHunk #4 FAILED at 945.\nHunk #5 FAILED at 953.\nHunk #6 FAILED at 969.\nHunk #7 succeeded at 947 (offset -37 lines).\nHunk #8 succeeded at 964 (offset -37 lines).\nHunk #9 FAILED at 1079.\nHunk #10 FAILED at 1110.\nHunk #11 FAILED at 1163.\nHunk #12 FAILED at 1183.\nHunk #13 FAILED at 1249.\nHunk #14 succeeded at 1073 (offset -185 lines).\nHunk #15 FAILED at 1868.\nHunk #16 FAILED at 1877.\nHunk #17 succeeded at 1694 (offset -203 lines).\nHunk #18 FAILED at 2261.\nHunk #19 FAILED at 2291.\nHunk #20 FAILED at 2302.\nHunk #21 FAILED at 2376.\nHunk #22 FAILED at 2387.\nHunk #23 succeeded at 2202 (offset -257 lines).\nHunk #24 FAILED at 2508.\n17 out of 24 hunks FAILED\nchecking file pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md\nchecking file pi-coding-agent/src/session/session-advisors.ts\nHunk #1 FAILED at 1992.\n1 out of 1 hunk FAILED\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #1 FAILED at 3533.\n1 out of 1 hunk FAILED\n"
+  },
+  {
+    "id": "0089",
+    "patch": ".18.4.4-candidates/0089-omp-compaction-drop-capacity-gate-v18.4.4-candidate.patch",
+    "root": "NM",
+    "status": "blocked",
+    "touched": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/compaction.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0035",
+      "0066",
+      "0067",
+      "0068",
+      "0070",
+      "0082",
+      "0088"
+    ],
+    "output": "checking file pi-agent-core/dist/types/compaction/compaction.d.ts\nHunk #1 FAILED at 18.\n1 out of 1 hunk FAILED\nchecking file pi-agent-core/src/compaction/compaction.ts\nHunk #1 FAILED at 117.\nHunk #2 FAILED at 957.\nHunk #3 FAILED at 982.\nHunk #4 FAILED at 998.\nHunk #5 FAILED at 1019.\nHunk #6 FAILED at 1028.\nHunk #7 FAILED at 1070.\nHunk #8 FAILED at 1105.\nHunk #9 FAILED at 1239.\nHunk #10 FAILED at 2656.\nHunk #11 FAILED at 2678.\nHunk #12 FAILED at 2692.\n12 out of 12 hunks FAILED\n"
+  },
+  {
+    "id": "0090",
+    "patch": ".18.4.4-candidates/0090-omp-oauth-durable-refresh-v18.4.4-candidate.patch",
+    "root": "AI",
+    "status": "blocked",
+    "touched": [
+      "pi-ai/dist/types/registry/oauth/anthropic.d.ts",
+      "pi-ai/src/auth/refresh.ts",
+      "pi-ai/src/auth/select.ts",
+      "pi-ai/src/auth/usage.ts",
+      "pi-ai/src/registry/oauth/anthropic.ts"
+    ],
+    "earlier_failed_overlap": [],
+    "output": "checking file src/auth/refresh.ts\nHunk #1 succeeded at 325 (offset 25 lines).\nHunk #2 succeeded at 447 (offset 25 lines).\nHunk #3 succeeded at 471 (offset 25 lines).\nHunk #4 succeeded at 494 (offset 25 lines).\nHunk #5 succeeded at 512 (offset 25 lines).\nHunk #6 succeeded at 627 (offset 25 lines).\nHunk #7 succeeded at 685 (offset 25 lines).\nchecking file src/auth/select.ts\nHunk #2 succeeded at 727 (offset 28 lines).\nHunk #3 succeeded at 994 (offset 28 lines).\nHunk #4 succeeded at 1026 (offset 28 lines).\nchecking file src/auth/usage.ts\nHunk #1 FAILED at 37.\nHunk #2 succeeded at 185 (offset 2 lines).\n1 out of 2 hunks FAILED\nchecking file src/registry/oauth/anthropic.ts\nchecking file dist/types/registry/oauth/anthropic.d.ts\n"
+  },
+  {
+    "id": "0092",
+    "patch": ".18.4.4-candidates/0092-omp-cache-warming-idle-budget-v18.4.4-candidate.patch",
+    "root": "AGENT",
+    "status": "blocked",
+    "touched": [
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/extensibility/shared-events.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/cache-warmer.ts"
+    ],
+    "earlier_failed_overlap": [
+      "0010",
+      "0038",
+      "0047",
+      "0082"
+    ],
+    "output": "checking file src/session/cache-warmer.ts\nHunk #2 succeeded at 62 (offset 16 lines).\nHunk #3 succeeded at 264 (offset 38 lines).\nHunk #4 succeeded at 303 (offset 39 lines).\nHunk #5 FAILED at 275.\nHunk #6 succeeded at 404 (offset 43 lines).\nHunk #7 FAILED at 376.\nHunk #8 succeeded at 440 (offset 43 lines).\nHunk #9 FAILED at 441.\nHunk #10 FAILED at 512.\nHunk #11 FAILED at 519.\n5 out of 11 hunks FAILED\nchecking file src/sdk.ts\nHunk #1 succeeded at 4265 (offset 52 lines).\nchecking file src/extensibility/shared-events.ts\nHunk #1 succeeded at 442 (offset 11 lines).\nchecking file src/extensibility/extensions/types.ts\nHunk #2 succeeded at 823 (offset 9 lines).\nHunk #3 succeeded at 1211 (offset -23 lines).\nHunk #4 succeeded at 1405 (offset -31 lines).\n"
+  }
+]

@@ -1,0 +1,78 @@
+{
+  "root": "/home/chris/.cache/omp-1870-migration-d79dt__o",
+  "home": "/home/chris/.cache/omp-1870-migration-d79dt__o/home",
+  "nm": "/home/chris/.cache/omp-1870-migration-d79dt__o/home/.bun/install/global/node_modules/@oh-my-pi",
+  "selectedImports": [
+    {
+      "package": "pi-coding-agent",
+      "version": "18.7.0",
+      "resolved": "/home/chris/.cache/omp-1870-migration-d79dt__o/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/index.ts"
+    },
+    {
+      "package": "pi-agent-core",
+      "version": "18.7.0",
+      "resolved": "/home/chris/.cache/omp-1870-migration-d79dt__o/home/.bun/install/global/node_modules/@oh-my-pi/pi-agent-core/src/index.ts"
+    },
+    {
+      "package": "pi-ai",
+      "version": "18.7.0",
+      "resolved": "/home/chris/.cache/omp-1870-migration-d79dt__o/home/.bun/install/global/node_modules/@oh-my-pi/pi-ai/src/index.ts"
+    },
+    {
+      "package": "pi-catalog",
+      "version": "18.7.0",
+      "resolved": "/home/chris/.cache/omp-1870-migration-d79dt__o/home/.bun/install/global/node_modules/@oh-my-pi/pi-catalog/src/index.ts"
+    },
+    {
+      "package": "snapcompact",
+      "version": "18.7.0",
+      "resolved": "/home/chris/.cache/omp-1870-migration-d79dt__o/home/.bun/install/global/node_modules/@oh-my-pi/snapcompact/src/index.ts"
+    },
+    {
+      "package": "pi-tui",
+      "version": "18.7.0",
+      "resolved": "/home/chris/.cache/omp-1870-migration-d79dt__o/home/.bun/install/global/node_modules/@oh-my-pi/pi-tui/src/index.ts"
+    }
+  ],
+  "pinnedTarballs": [
+    {
+      "package": "pi-coding-agent",
+      "version": "18.7.0",
+      "sha256": "11cc7843f8e282cb8ccbfaed8aa86fe8e81454c3fd657cc593dee51c9c1e8fa7",
+      "integrity": "sha512-oTjR5BEZdCmB+PUbhVZcOwbNIQ8YFXDKhCmG/f5EuIouu1DL0pLMeWO3FY+1WxhS9IbIL1wm7O4I1xsjUCFz3Q=="
+    },
+    {
+      "package": "pi-agent-core",
+      "version": "18.7.0",
+      "sha256": "201b06d8485fc57dd9c19ebfdb9641b5b0759cbe8ecb7b72ac86dfd46f83e4d6",
+      "integrity": "sha512-lvZp2AH1Ww+pk6lWzFtOeEicmyGsRgTzD7bcffvK7eMv5AizDK97Iep0WVnAtr/j0++ZcLJeq8Q2lVKx0uUtNg=="
+    },
+    {
+      "package": "pi-ai",
+      "version": "18.7.0",
+      "sha256": "d93368c60b999b70d1b6a7c8a79cf4d18350cc6bc52504ae4f650f2036422403",
+      "integrity": "sha512-U8Guy7mheiBVUgzBizADCgwGmgV1rrP+HeGphIFcQ+qt7an3ZiqYtNh5oZEwFRptjhGlxTPElScP/uz8sXCshg=="
+    },
+    {
+      "package": "pi-catalog",
+      "version": "18.7.0",
+      "sha256": "def38c60f2c3280fff164cc966dcac3897991e1d9c8c0c73bdfe5792fa575666",
+      "integrity": "sha512-PmzTjxyTRZ27g9releuH5O8YSaUmnCfVYpYbVJhJ9VXuP91DcA/DpAGXjF/dRCRHtD4ag7ktX6212lMUCXNZDg=="
+    },
+    {
+      "package": "snapcompact",
+      "version": "18.7.0",
+      "sha256": "03725b734e83914cfe9e7ee4dfca5aa20bca5411b193de6e166cf99acfe9a033",
+      "integrity": "sha512-EOo3P9iTPn7sj9Muzgj0Tb1ChFJugqZsUyKLtSy5XozEgUqiV9jNg66Epc8f1uxsA49l7MzNuRFu+Bm9eJcQvQ=="
+    },
+    {
+      "package": "pi-tui",
+      "version": "18.7.0",
+      "sha256": "670538ca52d705e4b39d90d3d34bb9241e8ea08b598e8fd0c4f23a3e351d42b4",
+      "integrity": "sha512-oVfNv83s2KFciL5911mzWjhhEVSvaeOmT2M5CoXYAn2pq2YaOg7gTcZy92Po0NSrjlQN0BVwg6kDzPj153GUbw=="
+    }
+  ],
+  "sourceDetachedFromInstallCache": true,
+  "providerEnvironmentInherited": false,
+  "postinstallScriptsRun": false
+}

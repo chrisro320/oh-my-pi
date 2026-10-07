@@ -1,0 +1,53 @@
+--- a/src/chat/tool-execution.ts
++++ b/src/chat/tool-execution.ts
+@@ -336,6 +336,7 @@
+ 	// so a terminal resize re-shapes image-bearing results to rescale them without
+ 	// forcing the common image-free result to re-shape on every resize tick.
+ 	#renderedImageCount = 0;
++	#pendingImageConversions = 0;
+ 	// `stateBgKey|themeEpoch` of the tint last handed to #contentText. Re-tinting
+ 	// drops its wrap cache, so a rebuild whose tint is unchanged skips it and the
+ 	// inner Text re-wraps only when the reformatted card text actually differs.
+@@ -633,18 +634,30 @@
+ 			}
+ 			if (this.#kittyConversionsAwaited.has(key)) continue;
+ 			this.#kittyConversionsAwaited.add(key);
++			this.#pendingImageConversions++;
+ 
+ 			// Convert async - catch errors from processing
+ 			convertImageToPngShared(image)
+ 				.then(converted => {
+ 					this.#kittyConverted.set(key, converted);
++				})
++				.catch(() => {
++					// Ignore conversion failures - display will use original image format
++					this.#kittyConversionsAwaited.delete(key);
++				})
++				.finally(() => {
++					// The repaint runs after the decrement so a terminal container that
++					// observes the paint also observes the released retirement barrier.
++					this.#pendingImageConversions--;
++					this.#blockVersion++;
+ 					this.#displayInputVersion++;
+ 					this.#updateDisplay();
+ 					this.#ui.requestRender();
+ 				})
+-				.catch(() => {
+-					// Ignore conversion failures - display will use original image format
+-					this.#kittyConversionsAwaited.delete(key);
++				.catch(error => {
++					// This chain is discarded, so a repaint fault must be logged instead of
++					// surfacing as an unhandled rejection; the barrier above already released.
++					logger.error("Tool result image repaint failed", { err: error });
+ 				});
+ 		}
+ 	}
+@@ -766,6 +779,8 @@
+ 	 */
+ 	isTranscriptBlockFinalized(): boolean {
+ 		if (!this.#toolActivityVisible) return true;
++		// Retiring before async PNG conversion commits a permanently incomplete image block.
++		if (this.#pendingImageConversions > 0) return false;
+ 		if (this.#sealed) return true;
+ 		if (this.#result === undefined) return false;
+ 		// A parked background task's call already returned; job frames that land

@@ -45,5 +45,6 @@ Report:
 - `findings`: exact file/line, evidence, impact, and minimal recommended fix; omit when `PASS`
 - `filesChanged`: always `[]`
 - verification commands and results
+- Write the entire report in English, regardless of dispatch language.
 
 Never claim to have fixed an issue; the main session or implementation owner applies fixes and dispatches this reviewer again.

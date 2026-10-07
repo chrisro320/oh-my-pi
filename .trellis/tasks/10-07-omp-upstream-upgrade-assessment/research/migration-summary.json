@@ -1,0 +1,75 @@
+{
+  "assignment": "bounded offline smoke: isolated source-CLI RPC session lifecycle + atomic symlink/ledger switch rehearsal",
+  "root": "/home/chris/.cache/omp-1870-migration-d79dt__o/rpc-smoke",
+  "scratch_root": "/home/chris/.cache/omp-1870-migration-d79dt__o",
+  "runtime": { "bun": "1.3.14", "bun_path": "/home/chris/.bun/bin/bun", "node": "v24.15.0" },
+  "source_snapshot": {
+    "note": "smoke ran the live migrated source via symlinks, not a copy; six patched packages resolved to work/ source, all other deps to the installed complete 18.7.0 tree",
+    "work_packages": [
+      "/home/chris/.cache/omp-1870-migration-d79dt__o/work/pi-coding-agent",
+      "/home/chris/.cache/omp-1870-migration-d79dt__o/work/pi-ai",
+      "/home/chris/.cache/omp-1870-migration-d79dt__o/work/pi-agent-core",
+      "/home/chris/.cache/omp-1870-migration-d79dt__o/work/pi-catalog",
+      "/home/chris/.cache/omp-1870-migration-d79dt__o/work/pi-tui",
+      "/home/chris/.cache/omp-1870-migration-d79dt__o/work/snapcompact"
+    ],
+    "installed_dependency_tree": "/home/chris/.cache/omp-1870-migration-d79dt__o/home/.bun/install/global/node_modules",
+    "sandbox_node_modules": "/home/chris/.cache/omp-1870-migration-d79dt__o/rpc-smoke/node_modules",
+    "ancestor_resolution_symlink": "/home/chris/.cache/omp-1870-migration-d79dt__o/node_modules -> rpc-smoke/node_modules",
+    "why_ancestor_symlink": "bun realpaths the entry file into work/, so bare imports in transitively-imported files (e.g. pi-coding-agent/src/commands/launch-help.ts -> @oh-my-pi/pi-tui/key-hint-format) resolve upward from work/. NODE_PATH did not cover ESM; a node_modules dir one level above work/ does."
+  },
+  "rpc_smoke": {
+    "evidence": "/home/chris/.cache/omp-1870-migration-d79dt__o/rpc-smoke/evidence/rpc-session.json",
+    "driver": "/home/chris/.cache/omp-1870-migration-d79dt__o/rpc-smoke/scratch/rpc-drive.mjs",
+    "mock_extension": "/home/chris/.cache/omp-1870-migration-d79dt__o/rpc-smoke/scratch/cli-smoke.mjs (copy of smoke/cli-smoke.mjs)",
+    "cli_entry": "work/pi-coding-agent/src/cli.ts",
+    "invocation": "bun <cli.ts> --mode rpc --extension <cli-smoke.mjs> --model upgrade-smoke/verification --cwd <workdir>",
+    "env": "env -i HOME/XDG_*/PATH/TERM only; no provider keys, no inherited provider env",
+    "ready_frame": { "type": "ready", "protocolVersion": 1, "supportedProtocolVersions": [1, 2], "maxFrameBytes": 1048576, "maxReassembledFrameBytes": 67108864 },
+    "observed": {
+      "get_state.initial": { "success": true, "model": "upgrade-smoke/verification" },
+      "new_session": { "success": true, "cancelled": false, "sessionIdChanged": true },
+      "open_session.fresh_dir": { "success": true, "resumed": false },
+      "open_session.ghost_saved_model": { "success": false, "error": "Could not restore model ghost-provider/ghost-model" },
+      "switch_session.ghost_saved_model": { "success": false, "error": "Could not restore model ghost-provider/ghost-model" },
+      "get_state.after_failed_restore": { "success": true, "sessionKeptAlive": true },
+      "switch_session.explicit_model_override": { "success": true }
+    },
+    "exit": { "code": 0, "signal": null },
+    "stderr": "",
+    "provider_inference": "none; no prompt issued and the mock provider never streamed",
+    "limits": [
+      "Startup performed best-effort loopback-only model-discovery probes (lm-studio 127.0.0.1:1234 refused; llama.cpp 127.0.0.1:8080 HTTP 401). No external/provider endpoint was contacted and no credentials were sent; no documented switch disables this startup discovery.",
+      "Skill-description compression logged 'No smol or tiny model available' (offline; no inference).",
+      "get_state/new_session/open_session/switch_session are local; prompt inference was intentionally not exercised."
+    ]
+  },
+  "atomic_switch_rehearsal": {
+    "evidence": "/home/chris/.cache/omp-1870-migration-d79dt__o/rpc-smoke/evidence/atomic-switch.json",
+    "script": "/home/chris/.cache/omp-1870-migration-d79dt__o/rpc-smoke/scratch/atomic-switch.mjs",
+    "mechanism": "symlink 'current' -> versions/<v>; atomic replace via temp symlink + rename; ledger entry committed by temp-file write + fsync + rename; rollback = same atomic swap back",
+    "observed": {
+      "switch_to_v2": { "current": "versions/v2", "ledger": 2 },
+      "v2_refreshed_token": "token-v2-refreshed (newer synthetic marker written after deploy)",
+      "rollback_to_v1": { "current": "versions/v1", "tokenPreserved": true, "ledger": 3 },
+      "failed_switch_untouched": { "failure": "version dir missing: versions/v9-missing", "currentUnchanged": true, "ledgerUnchanged": true, "tokenUnchanged": true }
+    },
+    "verdict": { "tokenMarkerPreserved": true, "rollbackTargetOk": true },
+    "limits": [
+      "Rehearsal only: synthetic version dirs and synthetic token marker; never reads or writes any real agent.db.",
+      "Symlink swap and ledger entry are each individually atomic (rename) but are two separate commits: a crash between them leaves 'current' switched with no ledger entry; no transaction spans both.",
+      "Not production deploy tooling."
+    ]
+  },
+  "isolation_notes": {
+    "fresh_home": "/home/chris/.cache/omp-1870-migration-d79dt__o/rpc-smoke/home",
+    "real_agent_db": "/home/chris/.omp/agent/agent.db was NOT written by this smoke; every smoke process had HOME set to the isolated dir. Its mtime moves because the live main omp session owns it.",
+    "no_source_edits": true,
+    "no_repo_edits": true
+  },
+  "reproduce": [
+    "ln -sfn <scratch>/rpc-smoke/node_modules <scratch>/node_modules",
+    "env -i RPC_SMOKE_ROOT=<scratch>/rpc-smoke PATH=/home/chris/.bun/bin:/usr/bin:/bin HOME=<scratch>/rpc-smoke/home bun <scratch>/rpc-smoke/scratch/rpc-drive.mjs",
+    "env -i RPC_SMOKE_ROOT=<scratch>/rpc-smoke PATH=/home/chris/.bun/bin:/usr/bin:/bin HOME=<scratch>/rpc-smoke/home bun <scratch>/rpc-smoke/scratch/atomic-switch.mjs"
+  ]
+}

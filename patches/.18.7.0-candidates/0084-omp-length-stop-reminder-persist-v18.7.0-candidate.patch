@@ -1,0 +1,57 @@
+--- a/src/session/session-maintenance.ts
++++ b/src/session/session-maintenance.ts
+@@ -3218,21 +3218,13 @@
+ 					// same context re-runs the same plan into the same cap, so tell the
+ 					// model what happened and to act in smaller steps.
+ 					if (assistantMessage.usage.output > 0) {
+-						this.#host.agent.appendMessage({
+-							role: "developer",
+-							content: [
+-								{
+-									type: "text",
+-									text: prompt.render(lengthStopRetryTemplate, {
+-										outputTokens: assistantMessage.usage.output,
+-										retryCount: this.#incompleteRecoveryAttempts,
+-										maxRetries: INCOMPLETE_RECOVERY_MAX_RETRIES,
+-									}),
+-								},
+-							],
+-							attribution: "agent",
+-							timestamp: Date.now(),
+-						});
++						this.#appendLengthStopReminder(
++							prompt.render(lengthStopRetryTemplate, {
++								outputTokens: assistantMessage.usage.output,
++								retryCount: this.#incompleteRecoveryAttempts,
++								maxRetries: INCOMPLETE_RECOVERY_MAX_RETRIES,
++							}),
++						);
+ 					}
+ 					logger.debug("Retrying response.incomplete without compaction (below threshold)", {
+ 						model: `${assistantMessage.provider}/${assistantMessage.model}`,
+@@ -3360,6 +3352,25 @@
+ 			this.maybeStartSpeculativeCompaction(contextTokens, contextWindow);
+ 		}
+ 		return COMPACTION_CHECK_NONE;
++	}
++
++	/**
++	 * Append the length-stop retry reminder to the live context AND the session
++	 * file, as the other recovery reminders do (see turn-recovery.ts). Kept in
++	 * memory only, a rebuild from disk (resume, in-process context rebuild) drops
++	 * it, so the next request forks the provider's cached prefix at the reminder's
++	 * index and re-writes the whole tail. The caller appends it after dropping the
++	 * persisted length turn, so the file order stays identical to the live order.
++	 */
++	#appendLengthStopReminder(text: string): void {
++		const reminder: Message = {
++			role: "developer",
++			content: [{ type: "text", text }],
++			attribution: "agent",
++			timestamp: Date.now(),
++		};
++		this.#host.agent.appendMessage(reminder);
++		this.#host.sessionManager.appendMessage(reminder);
+ 	}
+ 
+ 	/**

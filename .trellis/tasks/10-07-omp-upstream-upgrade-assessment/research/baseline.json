@@ -1,0 +1,30 @@
+{
+  "selectedInstalledVersions": {
+    "pi-coding-agent": "18.4.4",
+    "pi-agent-core": "18.4.4",
+    "pi-ai": "18.4.4",
+    "pi-catalog": "18.4.4",
+    "snapcompact": "18.4.4",
+    "pi-tui": "18.4.4"
+  },
+  "entry": "pi-coding-agent/src/cli.ts",
+  "planLayers": 55,
+  "liveSourceComparedPaths": 125,
+  "liveSourceMismatches": [],
+  "ledgerComparedFiles": 57,
+  "ledgerMismatches": [],
+  "oldReplay": {
+    "clean": 55
+  },
+  "targetReplay": {
+    "clean": 28,
+    "blocked": 27
+  },
+  "touchedUpstreamChanged": 81,
+  "bundleSmoke": {
+    "exit": 0,
+    "stdout": "omp/18.7.0\n",
+    "stderr": ""
+  },
+  "limits": "No source CLI, credential refresh, provider cache hit, migrated chain runtime, deployment or rollback has been verified."
+}

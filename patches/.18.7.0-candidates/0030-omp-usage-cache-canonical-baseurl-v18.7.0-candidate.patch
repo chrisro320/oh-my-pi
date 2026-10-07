@@ -1,0 +1,145 @@
+--- a/src/auth/usage.ts
++++ b/src/auth/usage.ts
+@@ -333,7 +333,7 @@
+ 		const cacheKey = this.#deps.cache.reportKey(request);
+ 		const failureKey = this.#deps.cache.failureKey(cacheKey);
+ 		const now = Date.now();
+-		const cached = this.#deps.cache.get<UsageReport | null>(cacheKey);
++		const cached = this.#deps.cache.readReport(request, cacheKey, false);
+ 		// Fresh cache hit: return whatever's there (success or null fallback).
+ 		if (cached && cached.expiresAt > now) {
+ 			return cached.value;
+@@ -386,7 +386,7 @@
+ 			const providerImpl = this.providerFor(request.provider);
+ 			const retainLastGood = !invalidated && providerImpl?.retainLastGoodOnFailure !== false;
+ 			const lastGood = retainLastGood
+-				? (this.#deps.cache.getStale<UsageReport | null>(cacheKey)?.value ?? null)
++				? (this.#deps.cache.readReport(request, cacheKey, true)?.value ?? null)
+ 				: null;
+ 			const failureBackoffMs = providerImpl?.failureBackoffMs ?? USAGE_FAILURE_BACKOFF_MS;
+ 			const backoffJitter = failureBackoffMs * (Math.random() * 0.5 - 0.25);
+--- a/dist/types/auth/usage-cache.d.ts
++++ b/dist/types/auth/usage-cache.d.ts
+@@ -2,7 +2,7 @@
+ import type { AuthCredential, OAuthCredential } from "./types.js";
+ import type { CredentialPool } from "./pool.js";
+ import type { Provider } from "../types.js";
+-import type { UsageCredential, UsageProvider } from "../usage.js";
++import type { UsageCredential, UsageProvider, UsageReport } from "../usage.js";
+ /** Minimum interval between non-exhausted header snapshots; used by UsageService. */
+ export declare const USAGE_HEADER_INGEST_INTERVAL_MS = 60000;
+ /**
+@@ -58,6 +58,12 @@
+     getStale<T>(key: string): UsageCacheEntry<T> | undefined;
+     set<T>(key: string, entry: UsageCacheEntry<T>): void;
+     deletePrefix(prefix: string): boolean;
++    /**
++     * Cached report for `request`, falling back to pre-canonicalization keys.
++     * `stale` selects the same lookup the failure path uses, so a 429 still
++     * returns the last good value written under an older key. Never deletes.
++     */
++    readReport(request: UsageRequestDescriptor, cacheKey: string, stale: boolean): UsageCacheEntry<UsageReport | null> | undefined;
+     markForceRefresh(provider?: Provider): void;
+     forcedRefresh(requests: readonly UsageRequestDescriptor[]): ForcedUsageRefresh;
+     clearForceRefresh(refresh: ForcedUsageRefresh): void;
+--- a/src/auth/usage-cache.ts
++++ b/src/auth/usage-cache.ts
+@@ -2,6 +2,7 @@
+ import type { AuthCredential, OAuthCredential } from "./types";
+ import type { CredentialPool } from "./pool";
+ import type { Provider } from "../types";
++import { claudeOAuthBaseUrl, DEFAULT_CLAUDE_API_BASE_URL, normalizeClaudeApiBaseUrl } from "../usage/claude-api";
+ import type { UsageCredential, UsageProvider, UsageReport } from "../usage";
+ 
+ const USAGE_CACHE_PREFIX = "usage_cache:";
+@@ -211,8 +212,79 @@
+ 		return true;
+ 	}
+ 
+-	#normalizeUsageBaseUrl(baseUrl?: string): string {
+-		return baseUrl?.trim().replace(/\/+$/, "") ?? "";
++	// Cache keys must use the provider's canonical endpoint, not the raw
++	// configured string. `normalizeClaudeApiBaseUrl` is what the Claude usage
++	// and reset requests already resolve their endpoint through: an absent
++	// baseURL, a bare origin, a `/v1` suffix and a `/api/oauth` suffix all
++	// collapse onto one API root. Keying on the raw value stored one account's
++	// report under several names, and a statusline reading one of them never
++	// saw the refresh that wrote another.
++	#normalizeUsageBaseUrl(baseUrl?: string, provider?: Provider): string {
++		const trimmed = baseUrl?.trim().replace(/\/+$/, "") ?? "";
++		if (provider === "anthropic") return normalizeClaudeApiBaseUrl(trimmed || undefined);
++		return trimmed;
++	}
++
++	/**
++	 * Cache keys this account was written under before the canonicalization
++	 * above. Read-only migration: entries already on disk keep their names, so
++	 * a report a previous omp wrote is still found instead of appearing as
++	 * "no usage data". `claudeOAuthBaseUrl` is the endpoint form the Claude
++	 * usage request has always resolved to, which is exactly what an earlier
++	 * canonicalizing build keyed on.
++	 */
++	#legacyReportKeys(request: UsageRequestDescriptor): string[] {
++		if (request.provider !== "anthropic") return [];
++		const identity = usageCacheIdentity(request.credential);
++		const providerKey = this.#usageCacheProviderKey(request.provider);
++		const raw = request.baseUrl?.trim().replace(/\/+$/, "") ?? "";
++		const origin = (() => {
++			try {
++				return new URL(raw || DEFAULT_CLAUDE_API_BASE_URL).origin;
++			} catch {
++				return DEFAULT_CLAUDE_API_BASE_URL;
++			}
++		})();
++		const variants = ["default", origin, `${origin}/v1`, claudeOAuthBaseUrl(raw || undefined)];
++		if (raw) variants.push(raw);
++		const canonical = this.#normalizeUsageBaseUrl(request.baseUrl, request.provider) || "default";
++		return [...new Set(variants)]
++			.filter(variant => variant !== canonical)
++			.map(variant => `report:${providerKey}:${variant}:${identity}`);
++	}
++
++	/**
++	 * Cached report for `request`, falling back to pre-canonicalization keys.
++	 * `stale` selects the same lookup the failure path uses, so a 429 still
++	 * returns the last good value written under an older key. Never deletes.
++	 */
++	readReport(
++		request: UsageRequestDescriptor,
++		cacheKey: string,
++		stale: boolean,
++	): UsageCacheEntry<UsageReport | null> | undefined {
++		const own = stale ? this.getStale<UsageReport | null>(cacheKey) : this.get<UsageReport | null>(cacheKey);
++		if (own) return own;
++		// Pick the freshest legacy entry, not the first one found: this account
++		// accumulated several names over time and the oldest would otherwise win.
++		// `fetchedAt` is the report's own timestamp; `expiresAt` breaks ties for
++		// null-valued failure markers that carry no report.
++		let best: UsageCacheEntry<UsageReport | null> | undefined;
++		let bestStamp = -1;
++		for (const legacy of this.#legacyReportKeys(request)) {
++			const hit = stale ? this.getStale<UsageReport | null>(legacy) : this.get<UsageReport | null>(legacy);
++			if (!hit) continue;
++			const stamp = hit.value?.fetchedAt ?? hit.expiresAt ?? 0;
++			if (stamp > bestStamp) {
++				best = hit;
++				bestStamp = stamp;
++			}
++		}
++		if (!best) return undefined;
++		// Adopt under the canonical name, preserving the original expiry so a
++		// migrated entry is neither resurrected nor prematurely discarded.
++		this.set(cacheKey, { value: best.value, expiresAt: best.expiresAt });
++		return best;
+ 	}
+ 
+ 	#usageCacheProviderKey(provider: Provider): string {
+@@ -269,7 +341,7 @@
+ 	}
+ 
+ 	reportKey(request: UsageRequestDescriptor): string {
+-		const baseUrl = this.#normalizeUsageBaseUrl(request.baseUrl) || "default";
++		const baseUrl = this.#normalizeUsageBaseUrl(request.baseUrl, request.provider) || "default";
+ 		const identity = usageCacheIdentity(request.credential);
+ 		const providerKey = this.#usageCacheProviderKey(request.provider);
+ 		const cacheKey = `report:${providerKey}:${baseUrl}:${identity}`;

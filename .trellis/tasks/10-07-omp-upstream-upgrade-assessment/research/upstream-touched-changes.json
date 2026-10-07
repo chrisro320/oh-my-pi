@@ -1,0 +1,326 @@
+[
+  {
+    "path": "pi-agent-core/dist/types/compaction/anthropic.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-agent-core/dist/types/compaction/compaction.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-agent-core/src/agent.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-agent-core/src/compaction/anthropic.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-agent-core/src/compaction/compaction.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/dist/types/auth/types.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/dist/types/types.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/auth/refresh.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/auth/select.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/auth/types.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/auth/usage-cache.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/auth/usage.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/providers/anthropic.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/providers/devin.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/providers/google-gemini-cli.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/providers/openai-codex-responses.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/providers/openai-responses.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/stream.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-ai/src/types.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-catalog/src/compat/rules.json",
+    "change": "modified"
+  },
+  {
+    "path": "pi-catalog/src/compat/rules/providers/commandcode.kdl",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/modes/interactive-mode.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/modes/types.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/session/agent-session.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/session/messages.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/session/session-listing.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/session/session-manager.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/session/session-tools.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/collab/guest.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/eval/py/display.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/export/share.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/extensibility/extensions/runner.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/extensibility/extensions/types.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/extensibility/shared-events.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/main.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/modes/acp/acp-agent.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/modes/controllers/input-controller.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/modes/interactive-mode.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/modes/runtime-init.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/modes/types.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/sdk.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/agent-session-types.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/agent-session.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/cache-warmer.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/date-cwd-reminder.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/messages.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/provider-image-budget.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/queued-messages.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/session-advisors.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/session-context.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/session-dump-format.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/session-history-format.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/session-listing.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/session-maintenance.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/session-manager.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/session-provider-boundary.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/session-tools.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/session/turn-recovery.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-coding-agent/src/task/executor.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-tui/dist/types/status-line/host.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-tui/src/chat/assistant-message.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-tui/src/chat/chat-transcript-builder.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-tui/src/chat/tool-execution.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-tui/src/overlays/copy-selector.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-tui/src/overlays/session-selector.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-tui/src/status-line/component.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-tui/src/status-line/host.ts",
+    "change": "modified"
+  },
+  {
+    "path": "pi-tui/src/status-line/segments.ts",
+    "change": "modified"
+  },
+  {
+    "path": "snapcompact/dist/types/snapcompact.d.ts",
+    "change": "modified"
+  },
+  {
+    "path": "snapcompact/src/snapcompact.ts",
+    "change": "modified"
+  }
+]

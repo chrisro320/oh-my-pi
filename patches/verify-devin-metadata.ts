@@ -28,7 +28,7 @@ const catalogVersion =
 	catalogPkg && typeof catalogPkg === "object" && "version" in catalogPkg && typeof catalogPkg.version === "string"
 		? catalogPkg.version
 		: "";
-const CLI_TUPLE = ["18.4.1", "18.4.4"].includes(catalogVersion) ? "3000.11.3" : "3000.10.23";
+const CLI_TUPLE = ["18.4.1", "18.4.4", "18.7.0"].includes(catalogVersion) ? "3000.11.3" : "3000.10.23";
 
 console.log("=== Testing Devin CLI metadata alignment (0056) ===");
 

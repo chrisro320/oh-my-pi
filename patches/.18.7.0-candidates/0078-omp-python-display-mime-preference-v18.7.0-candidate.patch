@@ -1,0 +1,12 @@
+--- a/src/eval/py/display.ts
++++ b/src/eval/py/display.ts
+@@ -56,8 +56,7 @@
+ 	}
+ 	if (typeof data["image/png"] === "string") {
+ 		outputs.push({ type: "image", data: data["image/png"], mimeType: "image/png" });
+-	}
+-	if (typeof data["image/jpeg"] === "string") {
++	} else if (typeof data["image/jpeg"] === "string") {
+ 		outputs.push({ type: "image", data: data["image/jpeg"], mimeType: "image/jpeg" });
+ 	}
+ 	if (data["application/json"] !== undefined) {

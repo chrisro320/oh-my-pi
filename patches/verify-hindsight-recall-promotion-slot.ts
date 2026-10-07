@@ -29,7 +29,7 @@ assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree 
 // never carried it must fail closed rather than measure a pristine tree.
 const agentVersion: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
-	["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(agentVersion),
+	["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion),
 	`verify-hindsight-recall-promotion-slot: 0075 is not part of the ${agentVersion} plan`,
 );
 

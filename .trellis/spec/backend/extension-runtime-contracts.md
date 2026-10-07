@@ -106,12 +106,32 @@ cron({ action: "status" | "enable" | "disable", every?: string, runs?: number })
 - From 18.3.5 the host runs its own session cache warmer
   (`pi-coding-agent/src/session/cache-warmer.ts`, setting `providers.cacheWarming`
   = `off` | `streaming` | `idle`, default `idle`). It only arms for models with a
-  declared `promptCache` lifetime (effectively Anthropic), replays the last main
-  request with `maxTokens: 1`, and exposes the `cache_warming_decision` extension
-  event. On Anthropic 5-minute entries `/cron` duplicates it (two billed warm
-  requests per window); `/cron` remains the only warm path for providers without a
-  declared lifetime (Devin, Kimi, OpenAI). A future keepalive change should consult
-  or defer through `cache_warming_decision` rather than race the host warmer.
+  declared `promptCache` lifetime (effectively Anthropic) and replays the last main
+  request with `maxTokens: 1`. Its idle horizon defaults to 30 minutes, which a 1h
+  cache entry (54-minute refresh point) outlives, so stock idle warming never fires
+  on a 1h tier.
+- 0092 (18.4.4, rolls up the retired 0091) makes the idle horizon a process-local
+  budget the extension owns: `/cron keep <1h..24h>` (slash command only; the `cron`
+  tool definition stays byte-identical so the provider tools block, hence the
+  prompt cache, does not change on resume) sets `PI_CACHE_WARMING_IDLE_MAX_MS`,
+  answers `cache_warming_decision` with `warm`, and records each
+  `cache_warming_result` (`hit` requires `cacheRead > 0` and no cache write;
+  `miss`/`error` carry `stopReason` and the host stops until the next real
+  request). In this mode the extension sends no request of its own.
+- `keep` may be entered after the agent run settled: a run that hits the idle
+  horizon is parked (request retained, `PARKED_POLL_MS` = 30 s re-read of the
+  horizon) and resumes when the horizon allows, anchored to the cache entry's own
+  clock (last write or read), never to the command time. A parked run ends with
+  `cache entry expired` once the entry's TTL elapsed, or on mode `off`/`streaming`
+  or a changed context. Unset budget keeps the stock stop reasons but retains the
+  request for up to one TTL and polls the local env var every 30 s.
+- Disabling, a session switch/branch/shutdown, or a failed validation never leaves
+  a value this extension set behind, and an externally provided value is never
+  deleted. `keep` is rejected for a model with no declared `promptCache` lifetime
+  and for durations outside 1h..24h; enabling either schedule replaces the other.
+- The finite `/cron <duration>` / `loop<n>` side-request path remains only for
+  providers the host does not warm (Devin, Kimi, OpenAI). The `anthropic` preset
+  is removed because it duplicated the host warmer.
 
 ### 4. Validation & Error Matrix
 

@@ -1,0 +1,89 @@
+{
+  "verdict": "PASS — no concrete bug found in the five final integration corrections; all target claims confirmed by source + published d.ts + apply-plan evidence. Read-only: no files modified, no tests/builds run.",
+  "scope": "Scratch /home/chris/.cache/omp-1870-migration-d79dt__o (work/ + home/.bun/install/.../@oh-my-pi), 18.7.0 pristine fragments/history, and repo patches/apply.sh --print-plan + spec machine-check greps.",
+  "items": [
+    {
+      "id": "1-frame-billing",
+      "claim": "snapcompact shared frameBilling/frameTokens measured model overrides and cache key",
+      "status": "PASS",
+      "evidence": [
+        "work/snapcompact/src/snapcompact.ts:254-259 frameBilling resolves rule=resolveImageTokenization(target), imageDetail='original' when apiFamily==='openai', measuredSteps=MODEL_FRAME_TOKEN_STEPS[target.id] (exact id).",
+        "snapcompact.ts:267-277 frameTokens: measuredSteps wins for frameSize>=first measured edge (last ascending edge <= frameSize), else rule imageTokens, else FRAME_TOKEN_ESTIMATE (5024).",
+        "snapcompact.ts:262-263 frameBillingKey = `${imageDetail??'auto'}:${measuredSteps?'measured:'+JSON.stringify(steps):rule?JSON.stringify(rule):'ceiling'}`.",
+        "snapcompact.ts:298-338 MODEL_FRAME_TOKEN_STEPS keyed by 3 exact deepseek ids, all sharing DEEPSEEK_VISION_FRAME_TOKENS (ascending 256..2576, 995@1568/1011@2576).",
+        "Shared consumers: work/pi-agent-core/src/tokenizer.ts:159-160 (#frameBilling/frameBillingKey), 181-182 (build in ctor), 358-360 (#frameTokens); work/pi-agent-core/src/agent.ts:869-874 #syncTokenizer swaps Tokenizer when encoding OR frameBillingKey differ.",
+        "d.ts closure: work/snapcompact/dist/types/snapcompact.d.ts:262-272 (FrameBilling, frameBilling, frameBillingKey, frameTokens), 349 FRAME_TOKEN_ESTIMATE, 306 ShapeTarget; pi-agent-core/dist/types/tokenizer.d.ts:3,53-54 imports snapcompact and exposes frameBillingKey; snapcompact index re-exports (*/index.d.ts).",
+        "Cache-key correctness: models.json shows the 3 ids also exist on other providers with different api; imageDetail partitions them into {openai-family -> openai-patch rule} vs {openrouter/anthropic-messages -> anthropic-patch rule}, so equal keys imply equal rules for every shipped measured id. The only rule-drop path (measuredSteps present but frameSize<first edge 256) is unreachable for snapcompact frames (min frameSize 1568).",
+        "Old-chain contrast: 18.4.4 had private modelFrameTokenEstimate used only inside snapcompact shape pricing (old-chain/snapcompact/src/snapcompact.ts:311) and no frameBillingKey; 18.7.0 layer 0057 introduced the shared exported billing. Migration correctly moves pricing to the shared boundary."
+      ]
+    },
+    {
+      "id": "2-native-context",
+      "claim": "native compaction Context versus nested .context",
+      "status": "PASS",
+      "evidence": [
+        "work/pi-agent-core/src/compaction/anthropic.ts:214-220 AnthropicNativeCompactionRequest.context: Context (NOT a nested wrapper).",
+        "work/pi-agent-core/src/compaction/compaction.ts:2544-2545 unwraps the wrapper: liveContext = live.context (CachePreservingSummaryContext -> Context); :2590-2598 nativeFullChain ? liveContext : buildProviderContext(...) : hand-built Context; :2614-2622 requestAnthropicNativeCompaction(model, apiKey, { context, ... }) with a plain Context.",
+        "Other lanes unwrap correctly too: :2172-2173 liveV2.context.systemPrompt/tools, :2280 buildTransformedCodexRequestBody(model, liveV2.context), :2850-2851 spread ...cachePreservingSummary.context.",
+        "No `context.context` / `context: live` / double-nesting anywhere in work/ (grep clean).",
+        "d.ts closure: pi-agent-core/dist/types/compaction/compaction.d.ts:7 imports Context; :178-179 CachePreservingSummaryContext { context: Context }; :209 buildProviderContext -> Promise<Context>; :249 buildCachePreservingContext -> Promise<CachePreservingSummaryContext|undefined>.",
+        "Complete live prefix preserved: work/pi-agent-core/src/agent.ts:913-937 buildSideRequestContext returns { systemPrompt, messages, tools } after transformProviderContext + inactiveTools; builders session-maintenance.ts:3499-3552 and session-advisors.ts:2306-2341 return { context, previousSummaryInPrefix } with context = agent.buildSideRequestContext(...)."
+      ]
+    },
+    {
+      "id": "3-sdk-effort",
+      "claim": "sdk.ts getActiveModelString startup toReasoningEffort normalization",
+      "status": "PASS",
+      "evidence": [
+        "work/pi-coding-agent/src/sdk.ts:2186-2192: const effort = agent?.state.model ? agent.state.thinkingLevel : toReasoningEffort(effectiveThinkingLevel); then formatModelSelectorValue(formatModelStringWithRouting(activeModel), effort).",
+        "agent.state.thinkingLevel is Effort|undefined (work/pi-agent-core/src/types.ts:983) and is initialized as toReasoningEffort(effectiveThinkingLevel) (sdk.ts:4293), so both branches yield Effort|undefined; Off/Inherit -> undefined -> no ':off' suffix (pi-tui overlays/model-selector.ts:81 only appends non-Inherit), preventing startup vs post-init label drift.",
+        "Spec contract 'Logical off must not become a new :off system label only after resume' is satisfied: startup path and agent path both drop Off/Inherit.",
+        "Minor non-contract note (not a bug): sdk.ts:3072 passes raw effectiveThinkingLevel to formatModelSelectorValue for the fallback *display* string modelFallbackMessage (returned to caller), not the system-prompt label; pre-existing, no wire/spec impact."
+      ]
+    },
+    {
+      "id": "4-cachewarming-dts",
+      "claim": "cache-warmer/shared-events/extensions published d.ts closure for CacheWarmingResultEvent",
+      "status": "PASS",
+      "evidence": [
+        "Defined: work/pi-coding-agent/src/extensibility/shared-events.ts:450-458 and dist/types/extensibility/shared-events.d.ts:358-365.",
+        "Imported: cache-warmer.ts:32-34 / cache-warmer.d.ts:20; extensions/types.ts:107 / types.d.ts:49.",
+        "Re-exported: cache-warmer.ts:37 / cache-warmer.d.ts:21; extensions/types.ts:848-852 / types.d.ts:581 (plus CacheWarmingAction from ../../session/cache-warmer).",
+        "Accepted by ExtensionAPI.on: extensions/types.ts:1467 / types.d.ts:992 `on(event: 'cache_warming_result', handler: ExtensionHandler<CacheWarmingResultEvent>)`; also in ExtensionEvent union (types.ts:1265 / types.d.ts:895).",
+        "Closure script: ExtensionEvent union = 39 names, 0 missing in BOTH source and published d.ts (all imported or declared). All d.ts files referencing CacheWarming* are closed.",
+        "Emission path typechecks: runner.ts:383-395 RunnerEmitEvent excludes CacheWarmingDecisionEvent but NOT CacheWarmingResultEvent, so generic emit (runner.ts:1583) accepts the report event; sdk.ts:4267-4268 report: event => void extensionRunner.emit(event).catch(...).",
+        "Installed tree dist/types identical to work dist/types (diff -rq clean for all six packages)."
+      ]
+    },
+    {
+      "id": "5-apply-plan",
+      "claim": "18.7.0 apply plan omits 0045 and has 54 layers",
+      "status": "CONFIRMED",
+      "evidence": [
+        "patches/apply.sh:626-629: `_omp_version_candidates \"18.7.0\" ... 0044 0052 0057 0046 0048 0050 0054 omit:0041 omit:0045`.",
+        "OMP_PATCH_VERSION=18.7.0 bash patches/apply.sh --print-plan -> 54 patch lines; stderr note 'plan targets: ... omit:0041 omit:0045'.",
+        "18.4.4 plan -> 55 lines, omit:0041 only (contains 0045); the single delta 18.4.4->18.7.0 is 0045. 0041 is a pre-existing rollup (merged into 0037), not a new omission.",
+        "generated-plan.json = 54 layers, plan.json = 55; set diff = exactly {0045}. Union of generated paths = 127 (matches parent).",
+        "Work tree has no 0045 change: session-maintenance.ts #projectSnapcompactContextTokens(preparation, result, options?) has no frameTokenEstimate param and no caller passes a 4th arg (calls at :1395, :1402, :4890, :4895); 0062 previous-archive credit is present (#projectPreviousArchiveTokens at :2578, :2600).",
+        "Subsumption rationale consistent: 18.7.0 tokenizer prices frames via shared frameBilling/frameTokens, so 0045's manual `frameCount*(5024-frameTokenEstimate)` subtraction is no longer needed and would double-subtract."
+      ]
+    }
+  ],
+  "machine_checks_run": [
+    "OMP_PATCH_VERSION=18.7.0 bash patches/apply.sh --print-plan -> 54 layers, omit:0041 omit:0045 (exit 0).",
+    "grep -nE 'frameTokens|frameBillingKey' patches/verify-snapcompact-model-billing.ts -> 69,70,109(995@1568),111(1011@2576),113-114(distinct keys).",
+    "grep -nE 'session.compact|assert.rejects' patches/verify-snapcompact-frame-reprice.ts -> 75,90,100(assert.rejects /would not reduce context/),104.",
+    "grep -nE '0090-omp-oauth-durable-refresh|0092-omp-cache-warming-idle-budget' patches/apply.sh -> 615,623 (18.4.4), 675,676 (18.7.0)."
+  ],
+  "behavior_not_exercised": [
+    "Did NOT run any test/build/lint/formatter, per instructions. All consumer gates, cross-process serializer prefix probes, and the two negative controls (restore-0045 / delete-0062) are parent-reported (42 gates pass; negatives fail as expected) — not re-verified by me.",
+    "No tsc/typecheck executed; TS-level consistency inferred from source inspection plus complete published d.ts closure (no missing references found).",
+    "frameBillingKey collision analysis is static reasoning over models.json; not executed at runtime.",
+    "Multi-provider application of measured steps to the same exact id on non-commandcode providers (openrouter/anthropic-messages etc.) is a design property of exact-id keying; unexercised."
+  ],
+  "inferences": [
+    "[INFERENCE] frameBillingKey drops the rule from the key when measuredSteps is present, so two billings with identical measuredSteps + identical imageDetail but different rule would collide; for all shipped measured ids this cannot happen (same api family/rule within each imageDetail partition) and the below-first-edge (<256px) rule path is unreachable for snapcompact frames (min frameSize 1568). Not a concrete bug.",
+    "[INFERENCE] sdk.ts:3072 raw effectiveThinkingLevel in modelFallbackMessage is a cosmetic display inconsistency only (no system/wire label impact).",
+    "No unrecorded work/ edits independently re-derived; relied on generate.py's continuity assertions (parent reran) plus diff showing installed == work == final-replay for all six packages."
+  ]
+}

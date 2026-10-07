@@ -1,0 +1,134 @@
+[
+  {
+    "version": "18.4.4",
+    "package": "pi-coding-agent",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fpi-coding-agent/18.4.4",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-coding-agent/-/pi-coding-agent-18.4.4.tgz",
+    "integrity": "sha512-Y5uEoGtd7YEPD7BQDrBSz3L1j9EY5rTpmhin5JLmnqbbpefm7Vpl/UjDdwkkEcV4e5Fnremdk9ZhUlIXNfjiqw==",
+    "sha256": "5f0540cd20743d252ef33b234479a83667e6ade3e05f51d1d3e027b3c1720503",
+    "bytes": 12897875,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.4.4/pristine/pi-coding-agent"
+  },
+  {
+    "version": "18.4.4",
+    "package": "pi-agent-core",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fpi-agent-core/18.4.4",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-agent-core/-/pi-agent-core-18.4.4.tgz",
+    "integrity": "sha512-GRUnNyk1ZbKmiAlR62ZR3kJH8rjTnnVE89mLqbBsaHb2a02HbcGvCeOcbZdbS0N1c4z4qi1IlE+QqSIw0rXu9w==",
+    "sha256": "dc9eb37e147aaa38fc871eb540656ff350d4e0ef14540742062bb18239e19b81",
+    "bytes": 407312,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.4.4/pristine/pi-agent-core"
+  },
+  {
+    "version": "18.4.4",
+    "package": "pi-ai",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fpi-ai/18.4.4",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-ai/-/pi-ai-18.4.4.tgz",
+    "integrity": "sha512-FpDACHRxiUZYWyJRdmZh/7eiaMjV3Nk920qWPlwKgDHLkdtRHlX9qaZS0+bJRDwC6wWf2vKnUXCUwtLwnAvQHg==",
+    "sha256": "14170ca4073dfc71b1498130ef8766e4e21aa0b8b6aac82e0047486ca49baea5",
+    "bytes": 1852150,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.4.4/pristine/pi-ai"
+  },
+  {
+    "version": "18.4.4",
+    "package": "pi-catalog",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fpi-catalog/18.4.4",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-catalog/-/pi-catalog-18.4.4.tgz",
+    "integrity": "sha512-6TKy/VF0mtPd+wmfWjdTlb4KWdLFbLhkLKjU7BckHxJCjRR6NHYIbB2qWCgSqMrm10yU92ycPHR37i2H4yA64Q==",
+    "sha256": "3991904f0ddbf15d3e4f05bd45d0ea889a0b0c489b59b0e5be2a4abcf493592a",
+    "bytes": 1001330,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.4.4/pristine/pi-catalog"
+  },
+  {
+    "version": "18.4.4",
+    "package": "snapcompact",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fsnapcompact/18.4.4",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/snapcompact/-/snapcompact-18.4.4.tgz",
+    "integrity": "sha512-+nZbQvfcEmmPzyL8qdvANTWmvwiI3dwyc9oGndv57PNUSUDKcALc7q71KdDpvxdTvd3ZvqUJsZUFUOs/tF84WA==",
+    "sha256": "82d8ab2cb765e3990950d660439ec3a89dc3653ecf5dc95b3f5ea2cdb24799d5",
+    "bytes": 140626,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.4.4/pristine/snapcompact"
+  },
+  {
+    "version": "18.4.4",
+    "package": "pi-tui",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fpi-tui/18.4.4",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-tui/-/pi-tui-18.4.4.tgz",
+    "integrity": "sha512-gOkJ9wXt4q1AY4PcdHsF0upOJyXSWfm/pC77J1Wesaj/i8RLkj/5LCp9SBWuXd+DTJLLgp5yhd90Cd/liTXAgg==",
+    "sha256": "e77025e9e2831e65a02f41b49002aacd5b6cb3fe5583a2f6d9158206201cf16d",
+    "bytes": 2255379,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.4.4/pristine/pi-tui"
+  },
+  {
+    "version": "18.7.0",
+    "package": "pi-coding-agent",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fpi-coding-agent/18.7.0",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-coding-agent/-/pi-coding-agent-18.7.0.tgz",
+    "integrity": "sha512-oTjR5BEZdCmB+PUbhVZcOwbNIQ8YFXDKhCmG/f5EuIouu1DL0pLMeWO3FY+1WxhS9IbIL1wm7O4I1xsjUCFz3Q==",
+    "sha256": "11cc7843f8e282cb8ccbfaed8aa86fe8e81454c3fd657cc593dee51c9c1e8fa7",
+    "bytes": 13696081,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.7.0/pristine/pi-coding-agent"
+  },
+  {
+    "version": "18.7.0",
+    "package": "pi-agent-core",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fpi-agent-core/18.7.0",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-agent-core/-/pi-agent-core-18.7.0.tgz",
+    "integrity": "sha512-lvZp2AH1Ww+pk6lWzFtOeEicmyGsRgTzD7bcffvK7eMv5AizDK97Iep0WVnAtr/j0++ZcLJeq8Q2lVKx0uUtNg==",
+    "sha256": "201b06d8485fc57dd9c19ebfdb9641b5b0759cbe8ecb7b72ac86dfd46f83e4d6",
+    "bytes": 421197,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.7.0/pristine/pi-agent-core"
+  },
+  {
+    "version": "18.7.0",
+    "package": "pi-ai",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fpi-ai/18.7.0",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-ai/-/pi-ai-18.7.0.tgz",
+    "integrity": "sha512-U8Guy7mheiBVUgzBizADCgwGmgV1rrP+HeGphIFcQ+qt7an3ZiqYtNh5oZEwFRptjhGlxTPElScP/uz8sXCshg==",
+    "sha256": "d93368c60b999b70d1b6a7c8a79cf4d18350cc6bc52504ae4f650f2036422403",
+    "bytes": 1918170,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.7.0/pristine/pi-ai"
+  },
+  {
+    "version": "18.7.0",
+    "package": "pi-catalog",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fpi-catalog/18.7.0",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-catalog/-/pi-catalog-18.7.0.tgz",
+    "integrity": "sha512-PmzTjxyTRZ27g9releuH5O8YSaUmnCfVYpYbVJhJ9VXuP91DcA/DpAGXjF/dRCRHtD4ag7ktX6212lMUCXNZDg==",
+    "sha256": "def38c60f2c3280fff164cc966dcac3897991e1d9c8c0c73bdfe5792fa575666",
+    "bytes": 1079680,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.7.0/pristine/pi-catalog"
+  },
+  {
+    "version": "18.7.0",
+    "package": "snapcompact",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fsnapcompact/18.7.0",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/snapcompact/-/snapcompact-18.7.0.tgz",
+    "integrity": "sha512-EOo3P9iTPn7sj9Muzgj0Tb1ChFJugqZsUyKLtSy5XozEgUqiV9jNg66Epc8f1uxsA49l7MzNuRFu+Bm9eJcQvQ==",
+    "sha256": "03725b734e83914cfe9e7ee4dfca5aa20bca5411b193de6e166cf99acfe9a033",
+    "bytes": 142130,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.7.0/pristine/snapcompact"
+  },
+  {
+    "version": "18.7.0",
+    "package": "pi-tui",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi%2Fpi-tui/18.7.0",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-tui/-/pi-tui-18.7.0.tgz",
+    "integrity": "sha512-oVfNv83s2KFciL5911mzWjhhEVSvaeOmT2M5CoXYAn2pq2YaOg7gTcZy92Po0NSrjlQN0BVwg6kDzPj153GUbw==",
+    "sha256": "670538ca52d705e4b39d90d3d34bb9241e8ea08b598e8fd0c4f23a3e351d42b4",
+    "bytes": 2388587,
+    "gitHead": null,
+    "path": "/home/chris/.cache/omp-1870-assessment-v7ga1hje/18.7.0/pristine/pi-tui"
+  }
+]

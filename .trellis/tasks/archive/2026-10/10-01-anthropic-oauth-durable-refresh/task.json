@@ -3,7 +3,7 @@
   "name": "anthropic-oauth-durable-refresh",
   "title": "Fix Anthropic OAuth refresh token loss",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "chris",
   "assignee": "chris",
   "createdAt": "2026-10-01",
-  "completedAt": null,
+  "completedAt": "2026-10-01",
   "branch": null,
   "base_branch": "trellis/ds-snapcompact-tuning",
   "worktree_path": null,
@@ -23,6 +23,7 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {
-    "profile": "hard"
+    "profile": "hard",
+    "spec_update": ".trellis/spec/backend/verification-gate-contracts.md:761-840; durable OAuth ownership, cancellation, same-owner lease renewal, single persistence boundary, synthetic SQLite/loopback gates; committed in fc589331d. Deployment-only recovery adds no new implementation contract."
   }
 }

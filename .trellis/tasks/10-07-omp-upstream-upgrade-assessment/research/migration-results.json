@@ -1,0 +1,392 @@
+{
+  "date": "2026-10-07",
+  "scope": "Approved isolated migration only; no live deployment",
+  "version": "18.7.0",
+  "liveVersionUnchanged": "18.4.4",
+  "localLayers": 54,
+  "capabilities": 55,
+  "upstreamAdopted": [
+    "0045"
+  ],
+  "candidateManifest": "migration-candidates.json",
+  "disposition": "migration-disposition.md",
+  "chain": {
+    "version": "18.7.0",
+    "layers": 54,
+    "changedPaths": 127,
+    "forwardFuzz0": true,
+    "reversePristineWholeTreeHashes": true,
+    "secondForwardFuzz0": true,
+    "installedWorkFinalBytesEqual": true
+  },
+  "idempotence": {
+    "exit": 0,
+    "patchSkipCount": 54,
+    "sourceEntrySkipped": true,
+    "gatesNotRerun": 42,
+    "scope": "Actual controller apply status/link idempotence; existing TS gates explicitly not rerun"
+  },
+  "gates": {
+    "verify-antigravity-envelope.ts": {
+      "exit": 0,
+      "log": "verify-antigravity-envelope.ts.log",
+      "output": "=== Testing Antigravity Request Envelope (0014) ===\nPASS verify-antigravity-envelope: all 0014 assertions ok!\n",
+      "currentVerifierSha256": "64ae503ead2b6b5352408257cfebefd061ebc4e131a6b8dad0aac920ed846cdc"
+    },
+    "verify-prefix-cache-compaction.ts": {
+      "exit": 0,
+      "log": "verify-prefix-cache-compaction.ts.log",
+      "output": "PASS prefix-cache compaction: structured=1 flat=1 windows=12\n",
+      "currentVerifierSha256": "534308f05bea1ef430f41afd91072f69ea7a44920869576238cc9a3b42cdab1f"
+    },
+    "verify-provider-image-budget.ts": {
+      "exit": 0,
+      "log": "verify-provider-image-budget.ts.log",
+      "output": "provider-image-budget verification: ok\n",
+      "currentVerifierSha256": "31136ef1c2de27569a768e8af420e83324d259753864c5cff4e4e6bf92f400cd"
+    },
+    "verify-snapcompact-model-billing.ts": {
+      "exit": 0,
+      "log": "verify-snapcompact-model-billing.ts.retry2.log",
+      "output": "source=/home/chris/.cache/omp-1870-migration-d79dt__o/home/.bun/install/global/node_modules/@oh-my-pi/snapcompact\nmeasured ids: deepseek/deepseek-v4-flash-vision-exp=995 claude=4761 off-curve: deepseek/deepseek-v4-pro=5024 deepseek/deepseek-v4-flash-fast=5024\nPASS: 17 shipped shapes retain measured pricing and provider/API precedence\n",
+      "currentVerifierSha256": "c63e03f6c472bdc008d36fa0af57048b4e260b151252789307127b032c318ce9"
+    },
+    "verify-ollama-cloud-usage.ts": {
+      "exit": 0,
+      "log": "verify-ollama-cloud-usage.ts.log",
+      "output": "0025 verify: all assertions passed\n",
+      "currentVerifierSha256": "93c9ebbb6699f7611f4882b5254a5cdaa67e27c96bc60a509ba95d89e4f7e5c4"
+    },
+    "verify-devin-auth-cache.ts": {
+      "exit": 0,
+      "log": "verify-devin-auth-cache.ts.log",
+      "output": "=== Testing Devin auth cache + turn timing (0055) ===\nPASS verify-devin-auth-cache: all 0055 assertions ok!\n",
+      "currentVerifierSha256": "14cb72ed3e1a3a07be8d67b16d3368959cc42c71f5dd7e60767f06dfc5b4eeff"
+    },
+    "verify-hindsight-recall-snapshot.ts": {
+      "exit": 0,
+      "log": "verify-hindsight-recall-snapshot.ts.log",
+      "output": "=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===\n  ok empty recall persists a marker\n  ok null recall normalised to empty string\n  ok empty marker replayed on resume, recall not re-run\n  ok non-empty recall unchanged\n  ok failed recall not frozen\n  ok slow MM load frozen, resume replays it and never re-lists\n  ok reset_boundary isolates snapshots, stale empty marker cannot suppress recall\n  ok live and replayed recall preparations reject stale ownership\n  ok transcript reload replays target bytes and rejects deadline/superseded publication\n  ok actual switch revokes source loads before adoption and restores rollback ownership\n  ok same-marker fork preserves cache identity; failed/timed-out tree reload clears source prompt\n  ok actual /clear publishes its boundary before target snapshot lookup\nPASS hindsight recall snapshot: empty recalls frozen, resume prefix stable\n",
+      "currentVerifierSha256": "d0e3eebdc1c66d00de5b62b2ded10c52f5dc68efcde8283544057ca0536a0f41"
+    },
+    "verify-interrupt-prune-symmetry.ts": {
+      "exit": 0,
+      "log": "verify-interrupt-prune-symmetry.ts.log",
+      "output": "=== Testing interrupted-turn render symmetry (0043) ===\n  aborted: live == rebuilt, 2 wire messages, no remnant\n  error: live == rebuilt, 2 wire messages, no remnant\n  committed-text stall: partial text retained, live == rebuilt\n  committed-text stall with requestControls: text and controls both retained\n  uncontinued stall-shaped turn still pruned\n  markerless remnant pruned on the live path\n  bare marker converts to nothing\n  completed turn untouched\n  transcript still renders the interrupted turn\n=== interrupted-turn render symmetry OK ===\n",
+      "currentVerifierSha256": "b0e3b825e60cebc9bf42b557c63060a78c3a33f871bd855049ccd7363521c2a8"
+    },
+    "verify-goal-tool-resident.ts": {
+      "exit": 0,
+      "log": "verify-goal-tool-resident.ts.log",
+      "output": "PASS goal tool residency: active, paused, dropped, absent, restricted session\n",
+      "currentVerifierSha256": "c751b73692ceaf62592bc4bf1902143e3b1731d4553f67394382c8d6ee7edd52"
+    },
+    "verify-date-cwd-anchor-stability.ts": {
+      "exit": 0,
+      "log": "verify-date-cwd-anchor-stability.ts.log",
+      "output": "GATE 1 source: PASS\nGATE 2 behaviour: PASS\nPASS date-cwd anchor stability: slot-stable, stamp-frozen, rollover-local, resume-replayable\n",
+      "currentVerifierSha256": "9ad5e94a954b0e2e3e780f4760ab4664ac72a31efe70d9344517b4886989b068"
+    },
+    "verify-devin-metadata.ts": {
+      "exit": 0,
+      "log": "verify-devin-metadata.ts.log",
+      "output": "=== Testing Devin CLI metadata alignment (0056) ===\nPASS: per-process sessionId, requestId +1 per call, 3000.11.3 tuple, pass-through, wire fields 10/9, discovery untouched\n",
+      "currentVerifierSha256": "95b6df78480c20462d97da289c2509dd20d334bf81435e64c4955d94db1004fc"
+    },
+    "verify-supersede-warm-prefix-guard.ts": {
+      "exit": 0,
+      "log": "verify-supersede-warm-prefix-guard.ts.log",
+      "output": "=== Testing supersede warm-prefix guard (0046) ===\n  fixture suffix after the candidate: 1279 tokens (stock gate 8000)\n  stock (limit 8000): pruned 1, saved 490 context tokens\n  guarded (limit 0): pruned 0 — warm prefix untouched\n  candidate's own successor keeps its suffix > 0: every supersede rewrite defers\n  idle flush: pruned 1 — deferral, not a leak\n  source gate holds: suffixTokenLimit: 0, unconditional\n=== supersede warm-prefix guard OK ===\n",
+      "currentVerifierSha256": "10a58daa418dde9e2656d52a66bf5f16a213034dd290f78d7ada7c9f046c1c53"
+    },
+    "verify-snapcompact-frame-reprice.ts": {
+      "exit": 0,
+      "log": "verify-snapcompact-frame-reprice.ts.retry4.log",
+      "output": "PASS: session.compact admits reductions and rejects inflation without provider requests\n",
+      "currentVerifierSha256": "be7034ffd9553c5265dea8eb513031f28bdf89dcd7939a9440d93d79a5deb628"
+    },
+    "verify-session-history-preview.ts": {
+      "exit": 0,
+      "log": "verify-session-history-preview.ts.log",
+      "output": "Starting Session History Preview verification...\n✓ fixture guard rejects live state and stray paths before access\n✓ list mode renders the fixture title and compact model, no transcript body\n✓ Space opens the preview and renders the fixture transcript verbatim, without tool noise\n✓ Esc closes the preview, while Esc in the list still cancels the picker\n✓ Space with a non-empty query edits the search text instead of opening the preview\n✓ Enter inside the preview resumes the selected session\n✓ Ctrl+C inside the preview exits the picker\n✓ mouse wheel scrolls the preview viewport across the whole transcript\n✓ scrollbar drag seeks the preview and Esc still leaves it cleanly\n✓ a tool-call turn keeps its real multi-line code fence\n✓ scanner resolves the newest role like resume (default/fallback→default, role-scoped→its model), falls back to last-served, and stays unset when empty\n\nALL VERIFICATIONS PASSED SUCCESSFULLY!\n",
+      "currentVerifierSha256": "200bed5673112bbbaf9a29752c5c5d5bfcb11141462794a83cd520946cfc08e8"
+    },
+    "verify-devin-thinking-signature.ts": {
+      "exit": 0,
+      "log": "verify-devin-thinking-signature.ts.log",
+      "output": "=== Testing Devin thinking signature capture + replay (0058) ===\nPASS verify-devin-thinking-signature: all 0058 assertions ok!\n",
+      "currentVerifierSha256": "abcd212532b5448ec8a415ac4591b878909a79a8bb20b67da8199f3e327f1c67"
+    },
+    "verify-devin-idle-cascade-pin.ts": {
+      "exit": 0,
+      "log": "verify-devin-idle-cascade-pin.ts.log",
+      "output": "devin idle cascade pin verification: ok (18.7.0)\n",
+      "currentVerifierSha256": "a1a8140aa4d2f6262e8c75698305e7a5bef916ce2de93b1e4d36551ff8c4136f"
+    },
+    "verify-idle-ephemeral-reservation.ts": {
+      "exit": 0,
+      "log": "verify-idle-ephemeral-reservation.ts.log",
+      "output": "idle ephemeral reservation verification: ok (18.7.0)\n",
+      "currentVerifierSha256": "c5736b267fa4e53b91fa9f8809abfe59e661660417728ffda03f46f32b6bed5e"
+    },
+    "verify-resume-cache-breakpoint.ts": {
+      "exit": 0,
+      "log": "verify-resume-cache-breakpoint.ts.log",
+      "output": "ok synthetic resumed session: 4 -> 4 breakpoints, released 21, anchor 20\nok live growth (418->457 messages, +41 blocks): anchor 417, marks 417,456\nok live growth negatives: +2 step, boundary 16/17, side request, shrink\nok thinking-ended growth: anchor scans back to the eligible text block\nok mixed-TTL anchor: 1h chosen over the newest 5m marker\nok mixed-TTL decline: no legal TTL, no anchor\nok continuity: equal-first-message conversations do not share a base\nok continuity: string and image-only first messages both tracked\nok tracker cap: 20 side requests leave the main predecessor in place\nok continuity: an equal tail in a different session does not anchor\nok continuity: a rewrite of the second-to-last message is caught\nok continuity: an early rewrite with an equal tail is an accepted residual\nok continuity: a tool_use input field named cache_control is hashed\nok continuity: penultimate message shape decorated array -> string still anchors on the previous tail\nok continuity: penultimate message shape string -> text block still anchors on the previous tail\nPASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap\n",
+      "currentVerifierSha256": "d1b932632278a6ebf297e3d000f679dae5f070be39f2ee8f58c3bc893f77e0e7"
+    },
+    "verify-codex-compaction-chain.ts": {
+      "exit": 0,
+      "log": "verify-codex-compaction-chain.ts.retry1.log",
+      "output": "verify-codex-compaction-chain: live baseline reuse holds\n",
+      "currentVerifierSha256": "c9fcecf0aa82ff73dcac33b7bbe05b420a7956a5ddcbc1b61830dd335eafa463"
+    },
+    "verify-commandcode-model-record-parity.ts": {
+      "exit": 0,
+      "log": "verify-commandcode-model-record-parity.ts.log",
+      "output": "verify-commandcode-model-record-parity: ok\n",
+      "currentVerifierSha256": "218eb524292fb54dc30fe0f2fa4a9bbc7f6691140dde73f846b273570711f998"
+    },
+    "verify-anthropic-native-compaction-live-context.ts": {
+      "exit": 0,
+      "log": "verify-anthropic-native-compaction-live-context.ts.retry1.log",
+      "output": "PASS anthropic native compaction live context: scopes=live messages=4 tools=1 fallback=native-no-live-chain\n",
+      "currentVerifierSha256": "d4761cf7b72a42e9b04d1677c2e438a3046e7578d7dc9e337672c8a48037086d"
+    },
+    "verify-compaction-lane-trace.ts": {
+      "exit": 0,
+      "log": "verify-compaction-lane-trace.ts.retry1.log",
+      "output": "PASS compaction lane trace: codex-v2 live tools + trace, openai-v1 trace, anthropic-native trace\n",
+      "currentVerifierSha256": "423544b3ce8d8d2957a0d30aaa6ee713df28b36c9cf595a30dc4e007c18a1da3"
+    },
+    "verify-codex-effort-resume.ts": {
+      "exit": 0,
+      "log": "verify-codex-effort-resume.ts.log",
+      "output": "PASS Codex effort: transport persistence, JSONL resume, branch isolation, immutable history, rewrite/compaction reset, legacy/provider/model boundaries\n",
+      "currentVerifierSha256": "1c9559c7a199890a417be12d9c631c3a1ece588927071c0993a1edf4295d297e"
+    },
+    "verify-codex-compaction-chain-fail-closed.ts": {
+      "exit": 0,
+      "log": "verify-codex-compaction-chain-fail-closed.ts.retry2.log",
+      "output": "0070 gate: local WebSocket ready\nverify-codex-compaction-chain-fail-closed: transport, retry, metadata and public types PASS\n",
+      "currentVerifierSha256": "3aea310b55eac097b2acedcb68eaea4abde82ad0810abd52196f640d180e492a"
+    },
+    "verify-session-pin-static-auth-ui.ts": {
+      "exit": 0,
+      "log": "verify-session-pin-static-auth-ui.ts.retry1.log",
+      "output": "PASS model hub: render and Escape\nPASS temporary model picker: render and Escape\nPASS session pin: render and Escape (/home/chris/.cache/omp-1870-migration-d79dt__o/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent)\nALL VERIFICATIONS PASSED SUCCESSFULLY!\n",
+      "currentVerifierSha256": "98c5c8bf5ed67fcb38925dfbbd72a58508ad8cb7891dbc7197fb37f79446f68a"
+    },
+    "verify-read-description-live.ts": {
+      "exit": 0,
+      "log": "verify-read-description-live.ts.log",
+      "output": "PASS read description is model-live: google-antigravity/gemini-3.8-flash <-> commandcode/deepseek/deepseek-v4.1-flash both match a fresh build\n",
+      "currentVerifierSha256": "9a2beefb2f1139baf633d86f661ba1b22d744cf6b39c023b52f4bc7d261ed5e4"
+    },
+    "verify-anthropic-cache-boundaries.ts": {
+      "exit": 0,
+      "log": "verify-anthropic-cache-boundaries.ts.log",
+      "output": "PASS Anthropic cache boundaries: 7 offline HTTP captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary\n",
+      "currentVerifierSha256": "e0619d467f71912141bdfa30b5dd073b394557bb92448aa5401be2002bf4278a"
+    },
+    "verify-anthropic-request-audit.ts": {
+      "exit": 0,
+      "log": "verify-anthropic-request-audit.ts.log",
+      "output": "PASS Anthropic final-wire audit: exact OAuth bytes, native prefix diff, side/session isolation, raw usage/request ID, real cache-warmer baseline isolation, I/O failure isolation, opt-out; zero network\n",
+      "currentVerifierSha256": "b4f2d6691722be211c8264682928967607a544d281f035a8188308b773e2eadd"
+    },
+    "verify-hindsight-recall-promotion-slot.ts": {
+      "exit": 0,
+      "log": "verify-hindsight-recall-promotion-slot.ts.log",
+      "output": "verify-hindsight-recall-promotion-slot: ok\n",
+      "currentVerifierSha256": "137a894e8427329feb11baa8f333affd8c0130092ef39b98a4b11a246e1ec8d7"
+    },
+    "verify-eval-state-context-persist.ts": {
+      "exit": 0,
+      "log": "verify-eval-state-context-persist.ts.log",
+      "output": "PASS eval state context persist: resume wire-equal, read-only snapshots write nothing, state change appends once\n",
+      "currentVerifierSha256": "d43a2482b4964a9fa41fcd126c139a62c9853698db15d53c3c55f486d6b19590"
+    },
+    "verify-turn-recovery-reminder-persist.ts": {
+      "exit": 0,
+      "log": "verify-turn-recovery-reminder-persist.ts.log",
+      "output": "  committed-text stall: partial kept, reminder persisted once, live == rebuilt\n  committed-text stall with requestControls: text and controls retained, live == rebuilt\nturn-recovery reminder persist: ALL PASS\n",
+      "currentVerifierSha256": "75210fb5a901799137169591d84bb842aeec62f8f71bc52354291cf80fb51b3c"
+    },
+    "verify-python-display-mime-preference.ts": {
+      "exit": 0,
+      "log": "verify-python-display-mime-preference.ts.log",
+      "output": "python display MIME preference: ALL PASS\n",
+      "currentVerifierSha256": "6749e97bc236960268423a9bb686885b6f4c6cb970341df92cc36d37fdf36847"
+    },
+    "verify-kitty-conversion-finalization.ts": {
+      "exit": 0,
+      "log": "verify-kitty-conversion-finalization.ts.log",
+      "output": "kitty conversion finalization: ALL PASS\n",
+      "currentVerifierSha256": "60a140b24f8e84f2641c44906405037c74d7102a2e24c854413f923e449a7996"
+    },
+    "verify-kitty-shared-png-cache.ts": {
+      "exit": 0,
+      "log": "verify-kitty-shared-png-cache.ts.log",
+      "output": "kitty shared PNG cache: eight graphics, tool/assistant/native slot replacement, late callbacks, failure, dedupe and 200-image eviction PASS\n",
+      "currentVerifierSha256": "97ccc0a415d49592c67ec11867d83850bc63c4da7f1839fdc0eb3b1c7d011a53"
+    },
+    "verify-main-cache-hit.ts": {
+      "exit": 0,
+      "log": "verify-main-cache-hit.ts.log",
+      "output": "verify-main-cache-hit: primary footer ignores auxiliary usage across reload\n",
+      "currentVerifierSha256": "2f3770510ff5afacca9fe4a5f49d1c959f9a4246cd73aed79f1afccfc151eb7f"
+    },
+    "verify-model-mention-surface-resume.ts": {
+      "exit": 0,
+      "log": "verify-model-mention-surface-resume.ts.retry2.log",
+      "output": "PASS model-mention surface resume: 2 resumed requests carry the advertised surface (8347 tool bytes, codex head 17476 bytes), control unchanged\n",
+      "currentVerifierSha256": "2d9400e599e37b1efa905fbff0c6666f78c8dc6f8ed3f8ddad4a453fb9219249"
+    },
+    "verify-length-stop-reminder-persist.ts": {
+      "exit": 0,
+      "log": "verify-length-stop-reminder-persist.ts.log",
+      "output": "length-stop reminder persist: ALL PASS\n",
+      "currentVerifierSha256": "9f23375b73b4f224f3d54c8b16d6835af39f771f62099db074a6c877859d67d7"
+    },
+    "verify-user-display-text-queue.ts": {
+      "exit": 0,
+      "log": "verify-user-display-text-queue.ts.log",
+      "output": "verify-user-display-text-queue: PASS (18.7.0, queue identity)\n",
+      "currentVerifierSha256": "c01cd3aa6b4126a7984fb0c8f84563c97df8fbfd301589580fec67aab0a7ff5d"
+    },
+    "verify-rejected-prepared-draft-restore.ts": {
+      "exit": 0,
+      "log": "verify-rejected-prepared-draft-restore.ts.retry1.log",
+      "output": "verify-rejected-prepared-draft-restore: PASS (18.4.4)\n",
+      "currentVerifierSha256": "9a5589582ac17ff9e729efe429e25f5ab31590e78ae1d4a123baa3c1905327cb"
+    },
+    "verify-compaction-cache-liveness.ts": {
+      "exit": 0,
+      "log": "verify-compaction-cache-liveness.ts.log",
+      "output": "PASS compaction cache liveness: turns=40 chain=433 boundary=354 green(cacheRead=43350, cacheWrite=5, readBlocks=433) red(cacheRead=50, cacheWrite=35405, readBlocks=0) namespaceFault(readBlocks=0) prefixFallbacks=[\"no-live-chain\"] mixedTtl(readBlocks=1) stubFallback=no-live-chain bigMessageTokens=421351 failingChainTokens=128611 overflowChainTokens=539011 noUsageRidesLive=true retry=live-chain-overflow-retry overflowRetry=live-chain-overflow-retry splitLive=1req/true splitRefused=no-live-chain previousOutsideChain=previous-summary-not-in-prefix nonAnthropicMessages=1 nonAnthropicTokens=48423\n",
+      "currentVerifierSha256": "13672921d915f0a33a71f5734eb1d950e59f9bb96756681764150acb2ac3f16c"
+    },
+    "verify-oauth-durable-refresh.ts": {
+      "exit": 0,
+      "log": "verify-oauth-durable-refresh.ts.log",
+      "output": "=== verify-oauth-durable-refresh (0090) :: /tmp/tmp.m0cVNXHLFK/node_modules/@oh-my-pi/pi-ai ===\n  PASS  refresh preserves stored identity without bootstrap\n  PASS  refresh with no stored identity stores no metadata and still rotates\n  PASS  login identity hook still bootstraps; refresh phase does not\n  PASS  cancellation while waiting for a peer lease issues no token request\n  PASS  cancel after server consumption: owner persists, attached waiter succeeds\n  PASS  >15s lease expiry (injected clock) does not lose the minted token\n  PASS  >15s real synchronous stall does not lose the minted token\n  PASS  peer takeover is not clobbered by the previous owner\n  PASS  refresh: concurrent replacement wins while the original lease remains owned\n  PASS  refresh: concurrent logout wins while the original lease remains owned\n  PASS  keys: concurrent replacement wins while the original lease remains owned\n  PASS  keys: concurrent logout wins while the original lease remains owned\n  PASS  usage: concurrent replacement wins while the original lease remains owned\n  PASS  usage: concurrent logout wins while the original lease remains owned\n  PASS  takeover-only\n  PASS  replacement-before-invalid-grant\n  PASS  account changed by refresh must satisfy its own plan gate\n  PASS  genuine invalid_grant disables only the attempted row\n  PASS  transient failure keeps the row; the next refresh uses the saved token\n  PASS  next refresh sends the previously saved refresh token\n  PASS  pre-aborted caller issues no token request\n\nPASS verify-oauth-durable-refresh: 21 scenario(s) ok\n",
+      "currentVerifierSha256": "05cfe76c7833fafc3b799bc466acca0f0a4bbe1a132bf36fe841aee210cd0454"
+    },
+    "verify-cache-warming-idle-budget.ts": {
+      "exit": 0,
+      "log": "verify-cache-warming-idle-budget.ts.log",
+      "output": "verify-cache-warming-idle-budget: ok\n",
+      "currentVerifierSha256": "5b5709b155016126037afb2571f8d2612aeb2cd346a9f19f15061be8cd530b33"
+    }
+  },
+  "standaloneGates": [
+    {
+      "gate": "verify-cache-prefix-audit.ts",
+      "exit": 0,
+      "output": "cache-prefix-audit verification: ok\n"
+    },
+    {
+      "gate": "verify-session-cache-keepalive.ts",
+      "exit": 0,
+      "log": "verify-session-cache-keepalive.ts.retry1.log",
+      "output": "session cache keepalive verification: ok\n"
+    }
+  ],
+  "specShell": "spec-contracts verification: ok",
+  "shellSyntaxExit": 0,
+  "negativeControls": [
+    {
+      "fault": "restore old0045 reduction subtraction",
+      "expectedExitNonzero": true,
+      "observed": "\n[Uncaught Exception] AssertionError: Missing expected rejection.\n    at processTicksAndRejections (native:7:39)\n"
+    },
+    {
+      "fault": "remove0062 previous archive credit",
+      "expectedExitNonzero": true,
+      "observed": "\n[Uncaught Exception] Error: snapcompact would not reduce context locally.\n    at compact (/home/chris/.cache/omp-1870-migration-d79dt__o/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent-frame-fault/src/session/session-maintenance.ts:1413:17)\n    at processTicksAndRejections (native:7:39)\n"
+    }
+  ],
+  "payloadSmoke": [
+    {
+      "name": "latin",
+      "frames": 17,
+      "wireImageBase64Bytes": 2984392,
+      "budget": 3000000,
+      "truncatedChars": 0,
+      "oldestSentinelRetained": true,
+      "newestSentinelRetained": true
+    },
+    {
+      "name": "cjk",
+      "frames": 13,
+      "wireImageBase64Bytes": 2939144,
+      "budget": 3000000,
+      "truncatedChars": 0,
+      "oldestSentinelRetained": true,
+      "newestSentinelRetained": true
+    }
+  ],
+  "prefixSmoke": [
+    {
+      "scenario": "live-plain",
+      "checks": {
+        "system": true,
+        "tools": true,
+        "anthropicPrefix": true,
+        "codexInputPrefix": true,
+        "codexHead": true
+      },
+      "fetchAttempts": 0,
+      "summarizeCalls": 0,
+      "separateProcesses": true
+    },
+    {
+      "scenario": "live-soft",
+      "checks": {
+        "system": true,
+        "tools": true,
+        "anthropicPrefix": true,
+        "codexInputPrefix": true,
+        "codexHead": true
+      },
+      "fetchAttempts": 0,
+      "summarizeCalls": 3,
+      "separateProcesses": true
+    }
+  ],
+  "cliVersion": "omp/18.7.0",
+  "cliReadSmoke": "O\nM\nP\n_\n1\n8\n7\n0\n_\nS\nM\nO\nK\nE\n_\nO\nK\nWorking...",
+  "rpcEvidence": "migration-rpc-session.json",
+  "syntheticRollbackEvidence": "migration-atomic-switch.json",
+  "review": "migration-final-review.json",
+  "specWriteback": ".trellis/spec/backend/verification-gate-contracts.md#scenario-1870-shared-frame-pricing-and-stable-resume-construction",
+  "limits": [
+    "No real Anthropic credentials or operator agent.db touched.",
+    "No external provider inference; SDK/CLI startup may make unauthenticated loopback-only discovery calls.",
+    "No live cache-hit or OAuth refresh/warmer acceptance; serialized equality is not server cache-hit evidence.",
+    "Atomic switch rehearsal uses synthetic directories/token marker, not a production deployment transaction; code symlink and ledger commits are individually atomic only.",
+    "No full historical-version rerun; finalized old patch bytes/plans unchanged.",
+    "No live TUI/operator environment acceptance; existing rendering/controller consumer gates passed.",
+    "No commits or live ledger/extension synchronization.",
+    "Independent reviewers are read-only trellis-implement instances: preferred check roles failed before running due unavailable configured model."
+  ],
+  "verificationNotes": [
+    "Verifier hashes identify final repository files; verify-codex-compaction-chain.ts only lost an obsolete comment after its passing run.",
+    "No code changed after final full-chain replay; subsequent changes are evidence/docs and the standalone cron verifier cleanup."
+  ],
+  "rpcSmoke": {
+    "passed": true,
+    "exit": {
+      "code": 0,
+      "signal": null
+    },
+    "evidence": "migration-rpc-session.json",
+    "limitations": "No inference; startup loopback discovery probes only; not live UI acceptance"
+  },
+  "cleanup": {
+    "temporarySmokeAndFaultScriptsRemoved": true,
+    "retained": "Pinned private dependency/source trees and logs; repository candidates, verifier changes, and task evidence",
+    "reviewConventionNote": "Non-ASCII punctuation in unchanged carried-forward comments was not restyled; no new Chinese code comments introduced."
+  }
+}

@@ -169,7 +169,7 @@ function _omp_tail_candidate {
 # set shared by every supported plan; it is NOT itself a deployable chain —
 # its members' a-sides span multiple upstream releases (e.g. 0045/0046 only
 # exist as 18.1.x shapes). Supported plans: 18.1.14 (rollback), 18.1.18,
-# 18.2.3, 18.2.10, 18.3.3, 18.4.1, and 18.4.4.
+# 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4, and 18.7.0.
 # Unset OMP_PATCH_VERSION auto-routes by the installed pi-coding-agent
 # version (exact match only) so the documented one-key re-apply flow keeps
 # working; an explicit value must match the installed version or fail
@@ -179,12 +179,12 @@ if [[ -z "${OMP_PATCH_VERSION+x}" ]]; then
 	pkgjson="${NM}/pi-coding-agent/package.json"
 	installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
 	case "$installed" in
-	18.1.14|18.1.18|18.2.3|18.2.10|18.3.3|18.4.1|18.4.4)
+	18.1.14|18.1.18|18.2.3|18.2.10|18.3.3|18.4.1|18.4.4|18.7.0)
 		OMP_PATCH_VERSION="$installed"
 		echo "NOTE: OMP_PATCH_VERSION unset — routed to installed ${installed}" >&2
 		;;
 	*)
-		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4); set OMP_PATCH_VERSION explicitly" >&2
+		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4, 18.7.0); set OMP_PATCH_VERSION explicitly" >&2
 		exit 2
 		;;
 	esac
@@ -613,9 +613,70 @@ case "$OMP_PATCH_VERSION" in
 	# Preserve rotated OAuth tokens across waiter cancellation and timer starvation.
 	# Anthropic refresh never blocks persistence on optional identity bootstrap.
 	_omp_tail_candidate "18.4.4" "0090-omp-oauth-durable-refresh" "${AI}"
+	# 0092 (rolls up 0091, deployed and retired 2026-10-03): the idle cache-warming horizon
+	# becomes a process-local budget an extension owns (PI_CACHE_WARMING_IDLE_MAX_MS;
+	# unset keeps the stock 30 minutes). A run that reaches the horizon is parked
+	# with its request instead of discarded, so a larger budget set after the agent
+	# run settled resumes from the cache entry's own clock. Each refresh that
+	# reached the provider is reported through the new `cache_warming_result`
+	# extension event (hit | miss | error).
+	_omp_tail_candidate "18.4.4" "0092-omp-cache-warming-idle-budget" "${AGENT}"
+	;;
+18.7.0)
+	# Preserve the local capabilities without double-applying upstream frame pricing.
+	_omp_version_candidates "18.7.0" \
+		0033 0004 0034 0037 0010 0035 0014 0036 0017 0025 0026 0030 \
+		0031 0032 0038 0043 0044 0052 0057 0046 0048 0050 0054 omit:0041 omit:0045
+	if [[ "$MODE" != "print-plan" ]]; then
+		for package in pi-coding-agent pi-agent-core pi-ai pi-catalog snapcompact pi-tui; do
+			package_version="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "${NM}/${package}/package.json" 2>/dev/null || true)"
+			[[ "$package_version" == "$OMP_PATCH_VERSION" ]] || {
+				echo "${package} must be ${OMP_PATCH_VERSION}, found: ${package_version:-<missing>}" >&2
+				exit 2
+			}
+		done
+	fi
+	for i in "${!PATCHES[@]}"; do
+		name="${PATCHES[i]%%:*}"
+		case "${name##*/}" in
+			0004-*|0033-*) PATCHES[i]="${name}:${TUI}" ;;
+			0037-*|0050-*) PATCHES[i]="${name}:${NM}" ;;
+		esac
+	done
+	_omp_tail_candidate "18.7.0" "0047-omp-date-cwd-anchor-stability" "${AGENT}"
+	_omp_tail_candidate "18.7.0" "0055-omp-devin-auth-cache-turn-timing" "${AI}"
+	_omp_tail_candidate "18.7.0" "0071-omp-devin-request-dump" "${AI}"
+	_omp_tail_candidate "18.7.0" "0056-omp-devin-metadata-alignment" "${NM}"
+	_omp_tail_candidate "18.7.0" "0058-omp-devin-thinking-signature-replay" "${AI}"
+	_omp_tail_candidate "18.7.0" "0060-omp-devin-idle-cascade-pin" "${NM}"
+	_omp_tail_candidate "18.7.0" "0062-omp-snapcompact-reduction-baseline-previous-archive" "${AGENT}"
+	_omp_tail_candidate "18.7.0" "0063-omp-codex-v2-compaction-live-chain" "${NM}"
+	_omp_tail_candidate "18.7.0" "0065-omp-commandcode-deepseek-model-record-parity" "${NM}"
+	_omp_tail_candidate "18.7.0" "0066-omp-anthropic-native-compaction-live-context" "${NM}"
+	_omp_tail_candidate "18.7.0" "0067-omp-remote-compaction-lane-trace-live-tools" "${NM}"
+	_omp_tail_candidate "18.7.0" "0068-omp-codex-stale-baseline-chain" "${NM}"
+	_omp_tail_candidate "18.7.0" "0069-omp-codex-effort-history-resume" "${AI}"
+	_omp_tail_candidate "18.7.0" "0070-omp-codex-compaction-chain-fail-closed" "${NM}"
+	_omp_tail_candidate "18.7.0" "0072-omp-session-pin-static-auth-ui" "${AGENT}"
+	_omp_tail_candidate "18.7.0" "0074-omp-anthropic-context-cache-boundaries" "${AI}"
+	_omp_tail_candidate "18.7.0" "0075-omp-hindsight-recall-promotion-slot" "${AGENT}"
+	_omp_tail_candidate "18.7.0" "0076-omp-eval-state-context-persist" "${NM}"
+	_omp_tail_candidate "18.7.0" "0077-omp-turn-recovery-reminder-persist" "${AGENT}"
+	_omp_tail_candidate "18.7.0" "0078-omp-python-display-mime-preference" "${AGENT}"
+	_omp_tail_candidate "18.7.0" "0079-omp-kitty-conversion-finalization" "${TUI}"
+	_omp_tail_candidate "18.7.0" "0080-omp-kitty-shared-png-cache" "${TUI}"
+	_omp_tail_candidate "18.7.0" "0081-omp-main-cache-footer" "${NM}"
+	_omp_tail_candidate "18.7.0" "0082-omp-user-display-text" "${NM}"
+	_omp_tail_candidate "18.7.0" "0083-omp-model-mention-surface-resume" "${AGENT}"
+	_omp_tail_candidate "18.7.0" "0084-omp-length-stop-reminder-persist" "${AGENT}"
+	_omp_tail_candidate "18.7.0" "0085-omp-rejected-prepared-draft-restore" "${AGENT}"
+	_omp_tail_candidate "18.7.0" "0088-omp-compaction-cache-liveness" "${NM}"
+	_omp_tail_candidate "18.7.0" "0089-omp-compaction-drop-capacity-gate" "${NM}"
+	_omp_tail_candidate "18.7.0" "0090-omp-oauth-durable-refresh" "${AI}"
+	_omp_tail_candidate "18.7.0" "0092-omp-cache-warming-idle-budget" "${AGENT}"
 	;;
 *)
-	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4)" >&2
+	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4, 18.7.0)" >&2
 	exit 2
 	;;
 esac
@@ -952,7 +1013,7 @@ if [[ "$MODE" == "apply" ]]; then
 		echo "verify-devin-metadata: skipped (0056 not in this plan)"
 	fi
 	bun "${HERE}/verify-supersede-warm-prefix-guard.ts"
-	if _omp_plan_has 0045; then
+	if _omp_plan_has 0045 || _omp_plan_has 0062 || [[ "$OMP_PATCH_VERSION" == "18.7.0" ]]; then
 		bun "${HERE}/verify-snapcompact-frame-reprice.ts"
 	fi
 	if _omp_plan_has 0050; then
@@ -975,11 +1036,6 @@ if [[ "$MODE" == "apply" ]]; then
 		bun "${HERE}/verify-idle-ephemeral-reservation.ts"
 	else
 		echo "verify-idle-ephemeral-reservation: skipped (0010 not in this plan)"
-	fi
-	if _omp_plan_has 0062; then
-		bun "${HERE}/verify-snapcompact-reduction-baseline.ts"
-	else
-		echo "verify-snapcompact-reduction-baseline: skipped (0062 not in this plan)"
 	fi
 	bun "${HERE}/verify-resume-cache-breakpoint.ts"
 	bun "${HERE}/verify-codex-compaction-chain.ts"
@@ -1013,7 +1069,7 @@ if [[ "$MODE" == "apply" ]]; then
 	else
 		echo "verify-session-pin-static-auth-ui: skipped (0072 not in this plan)"
 	fi
-	if _omp_plan_has 0073 || [[ "$OMP_PATCH_VERSION" == "18.3.3" || "$OMP_PATCH_VERSION" == "18.4.1" || "$OMP_PATCH_VERSION" == "18.4.4" ]]; then
+	if _omp_plan_has 0073 || [[ "$OMP_PATCH_VERSION" == "18.3.3" || "$OMP_PATCH_VERSION" == "18.4.1" || "$OMP_PATCH_VERSION" == "18.4.4" || "$OMP_PATCH_VERSION" == "18.7.0" ]]; then
 		OMP_PATCH_VERIFY_AGENT_ROOT="${AGENT}" bun "${HERE}/verify-read-description-live.ts"
 	else
 		echo "verify-read-description-live: skipped (0073 not in this plan)"
@@ -1068,6 +1124,24 @@ if [[ "$MODE" == "apply" ]]; then
 			cp -a --reflink=auto "${NM}/.." "${oauth_verify_root}/node_modules"
 			OMP_PATCH_VERIFY_AI_ROOT="${oauth_verify_root}/node_modules/@oh-my-pi/pi-ai" \
 				bun "${HERE}/verify-oauth-durable-refresh.ts"
+		)
+	fi
+	if _omp_plan_has 0092; then
+		# Isolated tree: sibling packages are symlinked, only pi-coding-agent is
+		# copied, so the verifier never imports the live package under test.
+		(
+			warm_verify_root="$(mktemp -d)"
+			trap 'rm -rf -- "$warm_verify_root"' EXIT
+			mkdir -p "${warm_verify_root}/node_modules/@oh-my-pi"
+			for entry in $(ls -A "${NM}/.."); do
+				[[ "$entry" == "@oh-my-pi" ]] || ln -s "${NM}/../${entry}" "${warm_verify_root}/node_modules/${entry}"
+			done
+			for pkg in $(ls -A "${NM}"); do
+				[[ "$pkg" == "pi-coding-agent" ]] || ln -s "${NM}/${pkg}" "${warm_verify_root}/node_modules/@oh-my-pi/${pkg}"
+			done
+			cp -a --reflink=auto "${AGENT}" "${warm_verify_root}/node_modules/@oh-my-pi/pi-coding-agent"
+			OMP_PATCH_VERIFY_AGENT_ROOT="${warm_verify_root}/node_modules/@oh-my-pi/pi-coding-agent" \
+				bun "${HERE}/verify-cache-warming-idle-budget.ts"
 		)
 	fi
 fi

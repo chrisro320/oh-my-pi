@@ -1,0 +1,119 @@
+--- a/src/session/turn-recovery.ts
++++ b/src/session/turn-recovery.ts
+@@ -11,6 +11,7 @@
+ 	AssistantRetryRecoveryKind,
+ 	CodexCompactionContext,
+ 	Effort,
++	Message,
+ 	Model,
+ 	ModelUsageHealth,
+ 	TextContent,
+@@ -599,20 +600,12 @@
+ 			model: message.model,
+ 			provider: message.provider,
+ 		});
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [
+-				{
+-					type: "text",
+-					text: prompt.render(malformedFunctionCallRetryTemplate, {
+-						retryCount: this.#malformedFunctionCallRetryCount,
+-						maxRetries: MALFORMED_FUNCTION_CALL_MAX_RETRIES,
+-					}),
+-				},
+-			],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(
++			prompt.render(malformedFunctionCallRetryTemplate, {
++				retryCount: this.#malformedFunctionCallRetryCount,
++				maxRetries: MALFORMED_FUNCTION_CALL_MAX_RETRIES,
++			}),
++		);
+ 		this.#host.scheduleAgentContinue({
+ 			source: "malformed-function-call-retry",
+ 			generation: this.#host.promptGeneration(),
+@@ -670,20 +663,12 @@
+ 			provider: message.provider,
+ 			errorMessage: message.errorMessage,
+ 		});
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [
+-				{
+-					type: "text",
+-					text: prompt.render(streamStallContinueTemplate, {
+-						retryCount: this.#streamStallContinueCount,
+-						maxRetries: STREAM_STALL_CONTINUE_MAX_RETRIES,
+-					}),
+-				},
+-			],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(
++			prompt.render(streamStallContinueTemplate, {
++				retryCount: this.#streamStallContinueCount,
++				maxRetries: STREAM_STALL_CONTINUE_MAX_RETRIES,
++			}),
++		);
+ 		this.#host.scheduleAgentContinue({
+ 			source: "stream-stall-continue",
+ 			generation: this.#host.promptGeneration(),
+@@ -1019,12 +1004,7 @@
+ 		// in-memory-only reparent lets the empty stop resurface on reload or after
+ 		// a mid-retry process kill.
+ 		await this.#dropAssistantTurnDurably(assistantMessage);
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [{ type: "text", text: this.#emptyStopRetryReminder() }],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(this.#emptyStopRetryReminder());
+ 		this.#host.scheduleAgentContinue({
+ 			source: "empty-stop-retry",
+ 			generation: this.#host.promptGeneration(),
+@@ -1105,12 +1085,7 @@
+ 			return false;
+ 		}
+ 
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [{ type: "text", text: this.#unexpectedStopRetryReminder() }],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(this.#unexpectedStopRetryReminder());
+ 		this.#host.scheduleAgentContinue({
+ 			source: "unexpected-stop-retry",
+ 			generation: this.#host.promptGeneration(),
+@@ -2919,6 +2894,26 @@
+ 	}
+ 
+ 	/**
++	 * Append a retry reminder to the live context AND the session file, as the
++	 * plan-mode reminder does. Kept in memory only, a rebuild from disk (resume,
++	 * in-process context rebuild) drops it, so the next request forks the
++	 * provider's cached prefix at the reminder's index and re-writes the rest.
++	 * The 18.4.1 committed-text stall continuation ({@link
++	 * handleCommittedTextStreamStall}) appends its reminder the same way so the
++	 * resumed request keeps the partial turn and the reminder that identifies it.
++	 */
++	#appendRetryReminder(text: string): void {
++		const reminder: Message = {
++			role: "developer",
++			content: [{ type: "text", text }],
++			attribution: "agent",
++			timestamp: Date.now(),
++		};
++		this.#host.agent.appendMessage(reminder);
++		this.#host.sessionManager.appendMessage(reminder);
++	}
++
++	/**
+ 	 * Inject a hidden redirect notice when a thinking/response loop is being retried, so
+ 	 * the retried turn carries an instruction to break the repeated pattern instead of
+ 	 * re-sampling the same stalled context. Injected on every {@link AIError.Flag.ThinkingLoop}

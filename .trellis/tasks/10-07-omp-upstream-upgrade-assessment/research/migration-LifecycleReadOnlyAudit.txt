@@ -1,0 +1,159 @@
+{
+  "verdict": "FINDINGS",
+  "scope": "Read-only audit of 18.7.0 isolated migration for SessionLifecycle slice: pi-coding-agent/src/session/{cache-warmer,date-cwd-reminder}.ts, agent-session.ts idle/admission/native prefix-cut regions, SDK warmer wiring, declarations. No edits, tests, builds, linters, or live credentials touched. filesChanged=[].",
+  "sourceRoot": "/home/chris/.cache/omp-1870-migration-d79dt__o/work",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "medium (type-only, declaration closure)",
+      "title": "cache-warmer.d.ts references CacheWarmingResultEvent, which the shipped shared-events.d.ts never declares",
+      "evidence": [
+        "work/pi-coding-agent/dist/types/session/cache-warmer.d.ts:20 -> `import type { CacheWarmingDecisionEvent, CacheWarmingDecisionEventResult, CacheWarmingResultEvent } from \"../extensibility/shared-events.js\";`",
+        "work/pi-coding-agent/dist/types/session/cache-warmer.d.ts:21 -> re-exports CacheWarmingResultEvent",
+        "work/pi-coding-agent/dist/types/session/cache-warmer.d.ts:125 -> `report?: (event: CacheWarmingResultEvent) => void;`",
+        "work/pi-coding-agent/dist/types/extensibility/shared-events.d.ts (417 lines) declares only CacheWarmingDecisionEvent (341) and CacheWarmingDecisionEventResult (353); NO CacheWarmingResultEvent. Byte-identical to pristine 18.7.0.",
+        "work/pi-coding-agent/dist/types/extensibility/extensions/types.d.ts:991 has only `on(event: \"cache_warming_decision\", ...)`; no cache_warming_result member in ExtensionEvent union (line ~895) or on() overloads.",
+        "Source side IS correct: src/extensibility/shared-events.ts:450 declares CacheWarmingResultEvent; src/extensibility/extensions/types.ts:107/848/1265/1467 declare/export/union/overload it.",
+        "Transitive: dist/types/session/agent-session-types.d.ts:19 imports CacheWarmer from ./cache-warmer.js; package.json types=./dist/types/index.d.ts and exports map ./session/* + ./extensibility/* resolve to these d.ts."
+      ],
+      "impact": "Any TypeScript consumer resolving @oh-my-pi/pi-coding-agent/session/cache-warmer (e.g. to type CacheWarmerDeps/CacheWarmingResultEvent) gets a dangling member error: module '../extensibility/shared-events' has no exported member 'CacheWarmingResultEvent'. Runtime is unaffected (src is correct).",
+      "provenance": "Pre-existing in old-chain (old-chain dist/types/extensibility/shared-events.d.ts and extensions/types.d.ts also lack it; owners/HostInterface.json lists types.d.ts layers as [0010,0082] with NO 0092, and dist/types/extensibility/shared-events.d.ts is in NO owner manifest). The parent's new cache-warmer.d.ts reference is what makes it dangling; old-chain's cache-warmer.d.ts referenced nothing and was merely incomplete.",
+      "minimalFix": "Add to work/pi-coding-agent/dist/types/extensibility/shared-events.d.ts (after line 356): `export interface CacheWarmingResultEvent { type: \"cache_warming_result\"; outcome: \"hit\" | \"miss\" | \"error\"; usage?: { input: number; output: number; cacheRead: number; cacheWrite: number }; stopReason?: string; }` — mirroring src/extensibility/shared-events.ts:450-457. For full closure also add CacheWarmingResultEvent to the import/export list, the ExtensionEvent union, and an `on(event: \"cache_warming_result\", handler: ExtensionHandler<CacheWarmingResultEvent>): void;` overload in dist/types/extensibility/extensions/types.d.ts (mirror src types.ts:107,848,1265,1467). NOTE: types.d.ts is HostInterface-owned and shared-events.d.ts is unowned — route accordingly; alternatively regenerate dist/types via tsc, which fixes all of them.",
+      "owner": "HostInterface (extensions/types.d.ts) / unowned (shared-events.d.ts)"
+    },
+    {
+      "id": "N1",
+      "severity": "low (cosmetic, formatter pass will normalize)",
+      "title": "Double blank line introduced in date-cwd-reminder.ts",
+      "evidence": [
+        "work/pi-coding-agent/src/session/date-cwd-reminder.ts lines 160-162: `}` then two blank lines then `/** Applies the reminder through the upstream injector contract. */`",
+        "history/0047/after and the candidate fragment baseline have a single blank line here."
+      ],
+      "minimalFix": "Delete one blank line (or let the parent's formatter pass normalize it)."
+    },
+    {
+      "id": "N2",
+      "severity": "low (pre-existing stale doc, not introduced here)",
+      "title": "sdk.ts transform comment still claims the date/cwd reminder 'rides on a provider-only tail'",
+      "evidence": [
+        "work/pi-coding-agent/src/sdk.ts:4170-4172: 'the date/cwd reminder rides on a provider-only tail so open-weight providers keep their tool-schema prefix cache (#7404)'",
+        "Same text present in old-chain/pi-coding-agent/src/sdk.ts:4119 and history/{0038,0047}/{before,after}/.../sdk.ts:4119 -> carried verbatim, never updated when 0047 replaced the tail with in-place stamping."
+      ],
+      "minimalFix": "Optional comment update to 'stamps the last real user message in place'; not a behavior bug."
+    }
+  ],
+  "verifiedPass": [
+    {
+      "claim": "Single replay owner",
+      "evidence": "Exactly one `new CacheWarmer` in the tree: work/pi-coding-agent/src/sdk.ts:4263 (guarded by `options.cacheWarming === false`); passed to AgentSession config (sdk.ts:4502) and held as agent-session.ts:1067 `#cacheWarmer`; `#replay` (cache-warmer.ts:670+) is the only replay path. agent-session-types.ts:217 + d.ts:188 declare the single `cacheWarmer?: CacheWarmer`.",
+      "verdict": "PASS"
+    },
+    {
+      "claim": "Single accounting owner (no duplicate billing)",
+      "evidence": "warmer.onWarmed wired once (agent-session.ts:1736) -> `#recordCacheWarmUsage` (agent-session.ts:5214-5233) -> `sessionManager.appendModelUsage` with purpose 'cache-warm'/'cache-warm:extension-override' (5218). That is the only 'cache-warm' accounting path (grep: other appendModelUsage callers are model-controls.ts:650 and judgment, unrelated). The warm stream uses primaryStreamFn directly (sdk.ts:4264), bypassing the agent transcript, so the warm response is never double-counted.",
+      "verdict": "PASS"
+    },
+    {
+      "claim": "Upstream start/end preserved",
+      "evidence": "CacheWarmer.onRefreshStart/onRefreshEnd declared (cache-warmer.ts:324-326); called exactly once per refresh (onRefreshStart at 618, onRefreshEnd in finally at 653). Wired to session events cache_warming_start/end (agent-session.ts:1737-1738), typed (agent-session-events.ts:62-63), RPC wire present (modes/rpc/wire/events.ts:105-119, schema, generated).",
+      "verdict": "PASS"
+    },
+    {
+      "claim": "Accepted-cancelled usage accounting",
+      "evidence": "cache-warmer.ts:625-631: onWarmed + `usage = message.usage` recorded BEFORE the `if (this.#run !== run) { outcome = \"aborted\"; return; }` abort check, matching upstream's comment 'Record before the abort check ... still billed'. Matches 18.7.0 upstream semantics (pristine cache-warmer.ts #refresh try/finally).",
+      "verdict": "PASS"
+    },
+    {
+      "claim": "Extension result exactly once when applicable",
+      "evidence": "`#report` (cache-warmer.ts:455) is invoked from exactly one branch per refresh: error (634), miss (643), hit (648). No report on stop-decision/extension-veto (returns before 618) or on the aborted path (returns at 630). `CacheWarmingResultEvent.outcome` is 'hit'|'miss'|'error' (shared-events.ts:452) — aborted is intentionally not an extension outcome (unchanged from 0092). Wiring: sdk.ts:4268 `report: event => void extensionRunner.emit(event).catch(...)`; host catches sync throws (cache-warmer.ts:469-473).",
+      "verdict": "PASS"
+    },
+    {
+      "claim": "0092 cache-clock park/rearm",
+      "evidence": "`#parked?: ActiveRun` (314), `touchedAt?: number` (279), `#park` (509), `#pollParked` (521, PARKED_POLL_MS=30s, unref), `#resumeParked` (526, base = touchedAt ?? startedAt at 529), `#dropParked` (489, called from #clearRun 481), `#schedule` anchors base to touchedAt (551-552). onAgentSettled parks on idle-horizon stop (424). Matches 0092 semantics exactly (diff of history/0092/after vs work shows only upstream 18.7.0 additions).",
+      "verdict": "PASS"
+    },
+    {
+      "claim": "expiry/off stop",
+      "evidence": "Entry expiry: #resumeParked (526-535) stops with 'cache entry expired' when Date.now() >= base + ttlMs. Mode off: #getModeStopReason returns 'cache warming disabled' (728), used by #resumeParked (531) and #validateRun; start() stops when off (356); status reports inactive (334). cancel() -> #stop('inactive') clears run+parked (487).",
+      "verdict": "PASS"
+    },
+    {
+      "claim": "Reservation epoch + onPromptAdmitted ordering",
+      "evidence": "agent-session.ts:7932-7934: `if (inFlight.idleEphemeralSettled) await inFlight.idleEphemeralSettled; if (this.#isDisposed || this.#promptGeneration !== generation) return false; options?.onPromptAdmitted?.();` — i.e. local idle-settle + generation/disposal guard runs BEFORE onPromptAdmitted, whereas upstream 18.7.0 calls onPromptAdmitted immediately after #beginInFlight (pristine agent-session.ts:7685). #endInFlight keeps the local epoch form at all 5 call sites (work 1375/1916/4730/8146/8729 vs upstream 1325/1857/4652/7897/8464); the IRC-wake conflict adopts upstream's split (#endInFlight then await #finishTurnObservation, work 1375-1376).",
+      "verdict": "PASS"
+    },
+    {
+      "claim": "runIdleEphemeralTurn admission/reservation at every host construction",
+      "evidence": "agent-session.ts:11010 implements it with the full guard set (disposed/promptInFlightCount/hasAdmittedSubmission/isSessionTransitioning/isStreaming/isCompacting/branchSummaryAbortController/queuedMessageCount/existing reservation) and a settled promise released in finally (11049-11051); all identifiers defined (982/984/2935/810). Wired at all 5 host sites: runtime-init.ts:152, acp-agent.ts:2614, extension-ui-controller.ts:227 & 458, agent-session.ts:8251. The old-chain site in task/executor.ts:4255-4256 is NOT a loss: upstream 18.7.0 consolidated that subagent extension host into initializeExtensions (work task/executor.ts is byte-identical to pristine 18.7.0 and calls initializeExtensions at 4505), and the local runIdleEphemeralTurn was added there (runtime-init.ts:152, absent upstream:149).",
+      "verdict": "PASS"
+    },
+    {
+      "claim": "Persisted date anchors",
+      "evidence": "work date-cwd-reminder.ts is byte-identical to the 0047 candidate fragment (fragments/0047/pi-coding-agent/src/session/date-cwd-reminder.ts/after == work) and to history/0047/after modulo one blank line. dateCwdAnchorKey (58), applyDateCwdAnchors (102) with newest-user-only minting + frozen replay + legacy provider-only tail drop, DateCwdReminderInjector(sessionId, anchorRoot) with #load/#persist (atomic tmp+rename, mode 0o600, session-scoped sanitized file). sdk.ts:4138 and 5106 wire sessionId (0047 change preserved); d.ts == 0047/after exactly.",
+      "verdict": "PASS"
+    },
+    {
+      "claim": "Parent removed constant-false isDateCwdReminderControl and slices by prefixLength",
+      "evidence": "Symbol removed everywhere: src/session/agent-session.ts (no import/use; pristine had import at 325 + use at 2262), src/session/date-cwd-reminder.ts (no export), dist/types/session/date-cwd-reminder.d.ts (no export). Only stale reference is the unrebuilt dist/cli.js bundle. New cut: agent-session.ts:2313 `const prefixLength = (await this.convertMessagesToLlm(history, signal)).length;` and 2318 `return { ...live, messages: live.messages.slice(0, prefixLength) };`. Equivalence: upstream's loop (pristine 2260-2264) skips only date/cwd control messages; the local injector inserts NO messages (withStamp mutates content in place; applyDateCwdAnchors maps 1:1 and only drops trailing provider-only tails), so `isDateCwdReminderControl` was constant-false and upstream's loop reduces exactly to slice(0, prefixLength). No other consumer of the removed export exists (grep whole tree).",
+      "verdict": "PASS"
+    },
+    {
+      "claim": "Parent added cache-warmer.d.ts report/IDLE_WARMING_AGE_ENV/result type",
+      "evidence": "Present: IDLE_WARMING_AGE_ENV (d.ts:39), CacheWarmingResultEvent import+re-export (20-21), CacheWarmerDeps.report (125); matches source cache-warmer.ts:72/32-36/303-304. All other source exports (RefreshStart/End, modes, delay/ttl/tier/isReplayable, status/format) present in d.ts.",
+      "verdict": "PASS-WITH-F1 (see finding F1: the referenced CacheWarmingResultEvent declaration is missing from shared-events.d.ts)"
+    },
+    {
+      "claim": "Recorded fragments reconstruct work",
+      "evidence": "fragments/0092/pi-coding-agent/src/session/cache-warmer.ts/after == work/.../cache-warmer.ts (byte-identical). fragments/0047/{src,dist/types}/session/date-cwd-reminder.{ts,d.ts}/after == work (byte-identical). 0 real merge-conflict markers in the assigned files.",
+      "verdict": "PASS"
+    }
+  ],
+  "sessionLifecycleClaimAudit": {
+    "checked": [
+      "single replay/accounting owner",
+      "0092 cache-clock park/rearm",
+      "expiry/off stop",
+      "upstream start/end + accepted-cancelled usage",
+      "extension result exactly once",
+      "reservation epoch + onPromptAdmitted ordering",
+      "persisted date anchors",
+      "isDateCwdReminderControl removal / prefixLength slice",
+      "cache-warmer.d.ts additions"
+    ],
+    "outcome": "All behavioral claims independently reproduced against source + pristine 18.7.0 + old-chain + history/fragments.",
+    "inaccuracies": [
+      {
+        "claim": "remainingConcerns: 'isDateCwdReminderControl ... Kept verbatim from upstream because agent-session's native buildLiveProviderContext cut imports it'",
+        "status": "STALE — the parent subsequently removed the export, the agent-session import/use, and simplified the cut to slice(0, prefixLength). Verified equivalent; the report's remainingConcerns predate the parent's change."
+      },
+      {
+        "claim": "machine-check inventory: '0089/0090/0092 for 18.4.4 (and 0089 for 18.7.0) — 9 matches'",
+        "status": "COUNT CORRECT (9), wording imprecise: patches/apply.sh registers 0089/0090/0092 for BOTH 18.4.4 (612/615/623) and 18.7.0 (674/675/676) = 6, plus 3 in patches/PATCHES.md = 9."
+      },
+      {
+        "claim": "result: 'agent-session.ts (1 line: the local #endInFlight(inFlight.epoch, cb) form, deliberately replaced by upstream's refactor)'",
+        "status": "CONSISTENT with semanticCorrections[5]: work keeps the epoch-taking #endInFlight at all 5 call sites and adopts upstream's #finishTurnObservation split; verified."
+      }
+    ],
+    "additionalChecksReproduced": [
+      "0 real merge markers in assigned files",
+      "declaration closure: cache-warmer + date-cwd pass; extensibility d.ts fail (F1)",
+      "fragment replay reconstructs work for cache-warmer (0092) and date-cwd (0047)"
+    ]
+  },
+  "machineCheckInventory": {
+    "command": "grep -nE '0090-omp-oauth-durable-refresh|0092-omp-cache-warming-idle-budget|0089-omp-compaction-drop-capacity-gate' patches/apply.sh patches/PATCHES.md",
+    "result": "9 matches reproduced: apply.sh 612/615/623 (18.4.4), 674/675/676 (18.7.0); PATCHES.md 821/833/853.",
+    "specCommand": "grep -nE 'caller cancellation|lease|CAS|capacity|live chain' .trellis/spec/backend/verification-gate-contracts.md",
+    "specResult": "matches reproduced (lines 153/156/158/162/163/165/167/169/206/774/780/787/790/792/807)."
+  },
+  "limits": [
+    "Static source review only. No language server configured (per work order); no tests/build/lint/typecheck/formatters run, per contract. F1 is a source-anchored declaration inconsistency, not a runtime-verified failure.",
+    "dist/cli.js is byte-identical to pristine 18.7.0 in work (and to pristine 18.4.4 in old-chain): the patch chain never rebuilds the shipped bundle, so runtime behavior of these patches depends on the deploy step rebuilding (or running src). Pre-existing structural fact, not a regression.",
+    "prefixLength-slice equivalence rests on (a) the local injector inserting no messages (verified) and (b) all provider-context transforms being count-preserving 1:1 (same assumption upstream's cut loop makes; pi-agent-core transform internals not re-verified — CoreImaging scope).",
+    "Cross-owner files (extensibility d.ts, sdk.ts, task/executor.ts) checked only for the 0092/0010 wiring presence and the specific F1 dangling reference, not their full merge.",
+    "No core compaction review (excluded by assignment); buildLiveProviderContext consumer session-maintenance.ts:3587/5026 and its signature (src:457-461 / d.ts:94) checked for type consistency only."
+  ],
+  "filesChanged": []
+}

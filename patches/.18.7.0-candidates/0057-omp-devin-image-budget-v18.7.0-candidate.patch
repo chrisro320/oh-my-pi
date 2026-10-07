@@ -1,0 +1,143 @@
+--- a/snapcompact/src/snapcompact.ts
++++ b/snapcompact/src/snapcompact.ts
+@@ -247,22 +247,32 @@
+ export interface FrameBilling {
+ 	rule?: ImageTokenization;
+ 	imageDetail?: ImageContent["detail"];
++	measuredSteps?: ReadonlyArray<readonly [number, number]>;
+ }
+ 
+ /** Resolve the frame billing of `target`. */
+ export function frameBilling(target: ShapeTarget | undefined): FrameBilling {
+ 	const rule = target ? resolveImageTokenization(target) : undefined;
+ 	const imageDetail = apiFamily(target?.api) === "openai" ? "original" : undefined;
+-	return { ...(rule && { rule }), ...(imageDetail && { imageDetail }) };
++	const measuredSteps = target?.id ? MODEL_FRAME_TOKEN_STEPS[target.id] : undefined;
++	return { ...(rule && { rule }), ...(imageDetail && { imageDetail }), ...(measuredSteps && { measuredSteps }) };
+ }
+ 
+ /** Identity of a frame price list: equal keys price every frame alike. */
+ export function frameBillingKey(billing: FrameBilling): string {
+-	return `${billing.imageDetail ?? "auto"}:${billing.rule ? JSON.stringify(billing.rule) : "ceiling"}`;
++	return `${billing.imageDetail ?? "auto"}:${billing.measuredSteps ? `measured:${JSON.stringify(billing.measuredSteps)}` : billing.rule ? JSON.stringify(billing.rule) : "ceiling"}`;
+ }
+ 
+ /** Billed-token estimate for one rendered frame of `size` under `billing`. */
+ export function frameTokens(billing: FrameBilling, size: ImageSize): number {
++	if (billing.measuredSteps) {
++		const frameSize = Math.max(size.width, size.height);
++		let measured: number | undefined;
++		for (const [edge, price] of billing.measuredSteps) {
++			if (frameSize >= edge) measured = price;
++		}
++		if (measured !== undefined) return measured;
++	}
+ 	return billing.rule ? imageTokens(billing.rule, size, billing.imageDetail) : FRAME_TOKEN_ESTIMATE;
+ }
+ 
+@@ -280,12 +290,13 @@
+  * Measured per-frame billing for model lines their wire `api` cannot express.
+  *
+  * `commandcode-custom` is ONE api shared by every model the Command Code
+- * gateway serves, so {@link billingFamily} prices all of them with the
+- * Anthropic pixel-area formula. That is right for the Claude routes it carries
+- * (Opus reads 1932px at 5,000) and a 3.3x-5.0x overcharge on the DeepSeek
+- * vision routes, which bill ~1,000/image above 1280px instead. The formula's
+- * 4784-patch cap makes the error grow with frame size: a 1568px frame is priced
+- * 3,293 against a measured 995 (+2,298), and a 2576px frame 5,024 against 1,011
++ * gateway serves, so the catalog's wire-api pricing fallback prices all of
++ * them with the Anthropic pixel-area formula. That is right for the Claude
++ * routes it carries (Opus reads 1932px at 5,000) and a 3.3x-5.0x overcharge
++ * on the DeepSeek vision routes, which bill ~1,000/image above 1280px
++ * instead. The formula's 4784-patch cap makes the error grow with frame
++ * size: a 1568px frame is priced 3,293 against a measured 995 (+2,298), and a
++ * 2576px frame 5,024 against 1,011
+  * (+4,013). The overcharge lands on the reduction guard: the archived frames are
+  * priced thousands of tokens too high each, so a compaction that genuinely
+  * shrinks the request reads as "would not reduce context" and may be rejected
+@@ -325,18 +336,6 @@
+ 	"deepseek/deepseek-v4-flash": DEEPSEEK_VISION_FRAME_TOKENS,
+ };
+ 
+-/** Measured per-frame price for `modelId` at `frameSize`, or `undefined` when
+- *  the model line is unmeasured (keep the API family's formula). */
+-function modelFrameTokenEstimate(modelId: string | undefined, frameSize: number): number | undefined {
+-	if (!modelId) return undefined;
+-	const steps = MODEL_FRAME_TOKEN_STEPS[modelId];
+-	if (!steps) return undefined;
+-	let tokens: number | undefined;
+-	for (const [edge, price] of steps) {
+-		if (frameSize >= edge) tokens = price;
+-	}
+-	return tokens;
+-}
+ 
+ /** Eval-validated shapes, keyed by the provider family they won on. */
+ export const SHAPES = {
+@@ -483,12 +482,6 @@
+  * `Model` or any `{ api, id }` subset.
+  */
+ export function resolveShape(model?: ShapeTarget, variant?: ShapeVariantName | "auto"): Shape {
+-	const shape = resolveShapeBase(model, variant);
+-	const measured = modelFrameTokenEstimate(model?.id, shape.frameSize);
+-	return measured === undefined ? shape : { ...shape, frameTokenEstimate: measured };
+-}
+-
+-function resolveShapeBase(model?: ShapeTarget, variant?: ShapeVariantName | "auto"): Shape {
+ 	if (variant && variant !== "auto") return priceShape(SHAPE_VARIANTS[variant], model);
+ 	const ideal = model?.id ? idealShapeVariant(model.id) : undefined;
+ 	const base = SHAPE_VARIANTS[ideal?.variant ?? FAMILY_VARIANT[apiFamily(model?.api)]];
+@@ -564,35 +557,6 @@
+  *  170 KB leaves margin for denser glyph pages without permitting multi-MB
+  *  standing request bodies at large context windows. */
+ export const FRAME_DATA_BYTES_ESTIMATE = 170_000;
+-
+-/** Measured full-page base64 payload bounds per shape variant. Byte weight
+- *  tracks glyph ink per page, not cell area -- a CJK `silver16-bw` page weighs
+- *  ~570 KB while an `8x13-bw` page of the same canvas sits near 14 KB -- so
+- *  these are per-variant measurements over mixed transcripts with headroom
+- *  rather than a formula. {@link FRAME_DATA_BYTES_ESTIMATE} matches the
+- *  small-glyph `bw` shapes the legacy single estimate was calibrated on.
+- *  Estimates only size the plan; `shedFramesOverBudget` re-checks the real
+- *  rendered bytes because dense content (JSON dumps) renders several times
+- *  heavier than prose at the same shape. */
+-export const FRAME_DATA_BYTES_PER_SHAPE: Record<ShapeVariantName, number> = {
+-	"8x8r-bw": 30_000,
+-	"8x8r-sent": 350_000,
+-	"8x8u-bw": 25_000,
+-	"8x8u-sent": 340_000,
+-	"6x6u-bw": 1_250_000,
+-	"6x6u-sent": 7_300_000,
+-	"5x8-bw": 50_000,
+-	"5x8-sent": 730_000,
+-	"6x12-dim": 30_000,
+-	"8x13-bw": 25_000,
+-	"8on16-bw": 20_000,
+-	"8on22-bw": 20_000,
+-	"11on16-bw": 80_000,
+-	"silver16-bw": 870_000,
+-	"doc-8on16-bw": 12_000,
+-	"doc-8on16-sent": 190_000,
+-	"doc-8on16-sent-dim": 190_000,
+-};
+ 
+ /** Maximum snapcompact image base64 carried in every rebuilt provider request.
+  *  Above this, provider backends can accept the HTTP body but fail mid-stream
+@@ -671,6 +635,8 @@
+ 	"openai-codex-responses": 200,
+ 	"azure-openai-responses": 200,
+ 	"google-generative-ai": 200,
++	devin: 200,
++	"devin-agent": 200,
+ };
+ 
+ /** Command Code provider id / wire-api namespace. The plugin mints one provider
+@@ -2389,7 +2355,7 @@
+ 	const textTail = layout.textTail.length > 0 ? (dimOpen ? DIM_ON : "") + layout.textTail : "";
+ 	const textChars = textHead.length + textTail.length;
+ 
+-	const frames = shedFramesOverBudget(await Promise.all(newFrames));
++	const frames = await Promise.all(newFrames);
+ 	const totalChars = frames.reduce((sum, frame) => sum + frame.chars, 0) + textChars;
+ 	const frameCols: number[] = [];
+ 	for (const frame of frames) {

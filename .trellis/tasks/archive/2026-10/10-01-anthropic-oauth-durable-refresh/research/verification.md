@@ -64,3 +64,23 @@ The actual registered apply.sh0090 block was executed with a selected dependency
 Final pristine replay (`OAuth54-release`):54 applied,0failed. All six package directories equal the dependency-complete candidate. Reversing0090 restores the entire53-layer pi-ai tree byte-for-byte; reapplying restores the verified pi-ai tree. The full multi-version oracle passed on the preceding ownership revision; the final two-line account comparison addition was verified by this final54-layer replay and full-tree reverse/forward equivalence.
 
 The first draft stage was removed before restaging. Live preflight previously stopped only at the active-process gate; no live swap has been executed by this session.
+
+## Live deployment and failed watcher recovery
+
+2026-10-01: the idle watcher reported failure at13:21:57. `deploy-watch.log:212-216` shows preflight rejected remaining worker PID284451 (`__omp_worker_daemon_broker`). No54-layer transaction existed; the failed attempt never reached the swap. The watcher's process scan excludes its parent, unlike the deployment subprocess's view; the old parent PID was not captured, so parent exclusion versus process restart is not conclusively distinguished.
+
+After that worker exited, a direct preflight returned exit0: no omp processes, live53 APPLIED, staged chain53/54 APPLIED with0090 PENDING, manifest digests and391-file repository-ledger parity valid. No process was killed or safety gate bypassed in recovery.
+
+Direct `deploy-delta-1844.py deploy --execute --old-layers 53 --new-layers 54 --delta-add 0090` returned exit0 in6.41s. Observed:
+
+```text
+DEPLOYED 18.4.4-54layers: fresh omp/18.4.4, 54/54 APPLIED, delta - +.18.4.4-candidates/0090-omp-oauth-durable-refresh-v18.4.4-candidate.patch, offline read smoke OK, digests match, 2 extension file(s) cmp-equal to repo + ledger copies
+```
+
+Read-back transaction `/home/chris/.omp/backups/upgrade-18.4.4-54layers-20261001-132344/transaction.json:1-18` confirms `state=verified`,53→54, only0090 added, and source launcher `../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts`.
+
+Both SQLite online backups passed integrity checks with unchanged main DB bytes and expected sidecar activity. Both extensions already matched and were not rewritten. The53-layer install and ledger are retained at their `-rollback-20261001-132344` paths; rollback script is adjacent to the transaction.
+
+The deployment ledger's `PATCHES.md` remains the byte-identical pre-deployment release snapshot (its pending/live53 wording is historical). Current deployment status is this verified transaction. Do not rewrite the installed ledger or its transaction digest merely to restate success; preserving those digests keeps rollback eligibility intact.
+
+AC6 is satisfied. Real provider refresh remains unmeasured; synthetic rotation behavior was already verified above. No additional source or watcher change was made in this recovery.

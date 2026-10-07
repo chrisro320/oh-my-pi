@@ -30,10 +30,10 @@ import type { MockModel } from "@oh-my-pi/pi-ai/providers/mock";
 
 const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion),
 	`verify-idle-ephemeral-reservation: unsupported selected tree version ${agentVersion}`,
 );
-const hasSubmissionWindow = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(agentVersion);
+const hasSubmissionWindow = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion);
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
@@ -52,7 +52,7 @@ async function createTestSession(
 	mkdirSync(cwd, { recursive: true });
 	const agentDir = join(cwd, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (["18.3.3", "18.4.1", "18.4.4"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,

@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Spec routing; read relevant contract sections before any code change."}
+{"file": ".trellis/tasks/10-07-omp-upstream-upgrade-assessment/research/work-order.md", "reason": "Verbatim package AGENTS and backend index; isolation, no-live-auth and machine-checkable dispatch contract."}
+{"file": ".trellis/tasks/10-07-omp-upstream-upgrade-assessment/research/patch-matrix.md", "reason": "Complete 55-layer inventory; distinguish textual feasibility from behavioral acceptance."}
+{"file": ".trellis/tasks/10-07-omp-upstream-upgrade-assessment/research/auth-comparison.md", "reason": "0090 contract-by-contract source comparison; parent qualifications override overclaims."}
+{"file": ".trellis/tasks/10-07-omp-upstream-upgrade-assessment/research/compaction-comparison.md", "reason": "Native hook overlap, local live-chain gaps, and 0045 double-correction retirement candidate; retain parent qualifications."}
+{"file": ".trellis/tasks/10-07-omp-upstream-upgrade-assessment/research/cache-comparison.md", "reason": "Persisted prefix contracts, warmer channel distinction, and version-specific overlap; retain parent qualifications."}

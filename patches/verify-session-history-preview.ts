@@ -30,8 +30,8 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${os.homedir()}/.bun/install/glob
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const agentVersion = JSON.parse(fs.readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
-const movedUi = ["18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(agentVersion);
+assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
+const movedUi = ["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion);
 
 assert.ok(fs.existsSync(AGENT_ROOT), `OMP_PATCH_VERIFY_AGENT_ROOT does not exist: ${AGENT_ROOT}`);
 if (movedUi) assert.ok(fs.existsSync(TUI_ROOT), `OMP_PATCH_VERIFY_TUI_ROOT does not exist: ${TUI_ROOT}`);
@@ -441,7 +441,7 @@ const temporaryThenFallbackPath = writeModelSession("temporary-then-fallback", [
 ]);
 const emptyPath = writeModelSession("empty", []);
 const midFileSwitchPath =
-	["18.3.3", "18.4.1", "18.4.4"].includes(agentVersion)
+	["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)
 		? writeModelSession("mid-file-switch", [
 				modelChange("prov/configured-model"),
 				{ type: "message", message: { role: "user", content: "x".repeat(6_000) } },
@@ -451,7 +451,7 @@ const midFileSwitchPath =
 			])
 		: undefined;
 const fallbackAfterGapPath =
-	["18.3.3", "18.4.1", "18.4.4"].includes(agentVersion)
+	["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)
 		? writeModelSession("fallback-after-gap", [
 				modelChange("prov/configured-model"),
 				{ type: "message", message: { role: "user", content: "x".repeat(33_000) } },

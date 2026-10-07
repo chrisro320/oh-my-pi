@@ -30,3 +30,7 @@ no write access and must not attempt to create or modify files.
 
 Read-only agent: never write, edit, or run commands.
 Do not modify code, specs, platform config, or task files under any circumstance.
+
+## Language
+
+Write all findings and reports in English, regardless of the dispatch language.

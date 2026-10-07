@@ -62,7 +62,7 @@ const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-cata
 // Read once, before any assertion: 0088 turns the split history leg into the
 // live-chain shape, and older plans must keep pinning the truncated request.
 const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-const liveChainPlan = agentVersion === "18.4.4";
+const liveChainPlan = ["18.4.4", "18.7.0"].includes(agentVersion);
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, generateSummary, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 const { prefixCarriesCompactionSummary, sharesActivePromptCacheIdentity } = await import(
@@ -851,7 +851,7 @@ assert.equal(
 //     must feed it the *post-transform* array (`transformContext` runs the
 //     public `context` extension chain, which may drop the summary).
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion),
 	`unsupported prefix gate version: ${agentVersion}`,
 );
 // This helper belongs to the 18.1.18+ candidates, not the 18.1.14 carry-over

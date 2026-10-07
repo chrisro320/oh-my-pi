@@ -80,7 +80,7 @@ const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-cata
 // on the tree it actually points at.
 const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version as string;
 assert.ok(
-	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(aiVersion),
+	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion),
 	`unsupported compaction lane trace gate version: ${aiVersion}`,
 );
 // 0088 is a pi-agent-core/pi-coding-agent patch, so whether the tree carries it
@@ -400,7 +400,7 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 	assert.ok(req, "anthropic-native lane must trace summarize.request");
 	assert.equal(req.hasLiveContext, true);
 	assert.equal(req.tools, 1);
-	if (coreVersion === "18.4.4") {
+	if (["18.4.4", "18.7.0"].includes(coreVersion)) {
 		// 0088: the accepted request is the live chain, so the trace must say so
 		// and must carry no fallback reason.
 		assert.equal(req.usesLiveChainReplay, true, "an accepted native live chain must be traced as the live chain");
@@ -416,7 +416,7 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 // the reason on the request trace, not only on the returned entry. This is the
 // trace half of the fallback contract; the native gate asserts the entry half.
 // ---------------------------------------------------------------------------
-if (coreVersion === "18.4.4") {
+if (["18.4.4", "18.7.0"].includes(coreVersion)) {
 	const claude: Model = getBundledModel("anthropic", "claude-opus-5");
 	assert.ok(claude, "bundled claude-opus-5 must exist");
 	const { preparation } = fixture(claude);
@@ -465,7 +465,7 @@ if (coreVersion === "18.4.4") {
 // turn included, since 0088) is readable from the trace alone, and a chain that
 // does not carry the previous summary names its refusal there as well.
 // ---------------------------------------------------------------------------
-if (coreVersion === "18.4.4") {
+if (["18.4.4", "18.7.0"].includes(coreVersion)) {
 	const claude: Model = getBundledModel("anthropic", "claude-opus-5");
 	assert.ok(claude, "bundled claude-opus-5 must exist");
 	const { preparation, oldAssistant, recentAssistant } = fixture(claude);

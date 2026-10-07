@@ -1,13 +1,18 @@
 // Current-session prompt-cache keepalive for omp.
 //
-// Command: /cron [status | off | <preset> | <duration> | loop<n> <duration>]
+// Command: /cron [status | off | <preset> | <duration> | loop<n> <duration> | keep <duration>]
 // Log:     ~/.omp/agent/cache-keepalive.log
 //
-// Every schedule is finite: `/cron <duration>` performs one keepalive attempt
-// and disables; `/cron loop<n> <duration>` performs at most n (2..100). The
-// tool's optional `runs` (1..100, default 1) is the equivalent bounded repeat.
-// The interval and timer live only in this extension instance. Session changes
-// and process exit discard them; no persistent scheduler configuration exists.
+// Two independent mechanisms, one live schedule at a time:
+// - `/cron keep <1h..24h>` owns the POLICY for models the host can warm (a
+//   declared `promptCache` lifetime, effectively Anthropic): it sets the host
+//   warmer's process-local idle horizon (PI_CACHE_WARMING_IDLE_MAX_MS), forces
+//   each refresh the horizon allows, and records every refresh the host
+//   reports. The host replays the cached request itself and stops on the first
+//   miss or error; this extension sends no request of its own in this mode.
+// - `/cron <duration>` / `loop<n> <duration>` stay for providers the host does
+//   not warm: finite side requests (one, or at most n in 2..100).
+// Nothing is persisted. Session changes and process exit discard both.
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { appendFileSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { homedir } from "node:os";
@@ -59,6 +64,9 @@ interface KeepaliveState {
 	skipped: number;
 	errors: number;
 	last?: KeepaliveResult;
+	keepMs?: number;
+	keepLabel?: string;
+	keepStopped?: string;
 }
 
 const PLAIN_THEME: StatusTheme = { fg: (_color, text) => text };
@@ -72,11 +80,11 @@ const MAX_INTERVAL_MS = 2_147_483_647;
 // charged at the input rate); a fresh suffix keeps usage in the cached bucket.
 const KEEPALIVE_PROMPT_BASE = "Prompt-cache keepalive. Reply with exactly `.` and do not call tools.";
 
-// Named /cron presets: provider-tuned bounded loops. Values reuse the
-// `loop<n> <duration>` grammar so the handler can resolve them verbatim.
+// Named /cron presets: provider-tuned bounded loops for providers the host does
+// not warm. Values reuse the `loop<n> <duration>` grammar so the handler can
+// resolve them verbatim. Anthropic is covered by `/cron keep <duration>`.
 const COMMAND_PRESETS: Record<string, string> = {
 	devin: "loop30 4m",
-	anthropic: "loop2 55m",
 	openai: "loop4 30m",
 };
 
@@ -94,6 +102,22 @@ function parseDuration(raw: string): { intervalMs: number; label: string } | { e
 		return { error: "interval exceeds the safe one-shot timer range" };
 	}
 	return { intervalMs: Math.round(durationMs), label: raw.trim().toLowerCase() };
+}
+
+const KEEP_MIN_MS = 60 * 60_000;
+const KEEP_MAX_MS = 24 * 60 * 60_000;
+// Process-local host warmer idle horizon in ms; unset restores the host default.
+const IDLE_WARMING_ENV = "PI_CACHE_WARMING_IDLE_MAX_MS";
+
+function parseKeep(raw: string): { keepMs: number; label: string } | { error: string } {
+	const match = /^\s*(\d+(?:\.\d+)?)\s*([mh])\s*$/i.exec(raw);
+	if (!match) return { error: "invalid keep duration; use an explicit duration such as 90m or 5h" };
+	const unit = match[2].toLowerCase();
+	const keepMs = Math.round(Number(match[1]) * (unit === "m" ? 60_000 : 3_600_000));
+	if (!Number.isFinite(keepMs) || keepMs < KEEP_MIN_MS || keepMs > KEEP_MAX_MS) {
+		return { error: "keep duration must be between 1h and 24h" };
+	}
+	return { keepMs, label: raw.trim().toLowerCase() };
 }
 
 function parseRunCommand(raw: string): { runs: number; duration: string } | { error: string } {
@@ -172,8 +196,17 @@ export default function (pi: ExtensionAPI): void {
 		if (abortInFlight) state.abort?.abort();
 	};
 
+	const clearKeep = (): void => {
+		// Only delete a value this extension set, never an externally provided one.
+		if (state.keepMs !== undefined) delete process.env[IDLE_WARMING_ENV];
+		state.keepMs = undefined;
+		state.keepLabel = undefined;
+		state.keepStopped = undefined;
+	};
+
 	const disable = (ctx: ExtensionContext): void => {
 		state.enabled = false;
+		clearKeep();
 		cancelWork(ctx, true);
 		state.intervalMs = undefined;
 		state.intervalLabel = undefined;
@@ -349,7 +382,16 @@ export default function (pi: ExtensionAPI): void {
 	};
 
 	const formatStatus = (theme: StatusTheme): string => {
-		const phase = !state.enabled ? "disabled" : state.abort ? "in-flight" : state.timer ? "scheduled" : "waiting";
+		const phase =
+			state.keepMs !== undefined
+				? "keep (host warmer)"
+				: !state.enabled
+					? "disabled"
+					: state.abort
+						? "in-flight"
+						: state.timer
+							? "scheduled"
+							: "waiting";
 		const lines = [theme.fg("accent", "session cache keepalive"), `  ${theme.fg("text", phase)}`];
 		if (state.enabled) {
 			lines.push(
@@ -366,6 +408,14 @@ export default function (pi: ExtensionAPI): void {
 				lines.push(theme.fg("dim", `  next ${new Date(state.nextRunAt).toISOString()} (${remainingSeconds}s)`));
 			}
 			if (state.scheduledReason) lines.push(theme.fg("dim", `  reason ${state.scheduledReason}`));
+		}
+		if (state.keepMs !== undefined) {
+			lines.push(
+				theme.fg("muted", `  keep ${state.keepLabel} from the last real request · the host replays the cached prefix`),
+			);
+			if (state.keepStopped) {
+				lines.push(theme.fg("warning", `  host warmer stopped: ${state.keepStopped} (resumes after the next real request)`));
+			}
 		}
 		lines.push(
 			theme.fg(
@@ -400,12 +450,27 @@ export default function (pi: ExtensionAPI): void {
 			return "error: `runs` must be an integer from 1 through 100";
 		}
 		if (!ctx.model) return "error: no active model on this session";
+		clearKeep();
 		state.enabled = true;
 		state.intervalMs = parsed.intervalMs;
 		state.intervalLabel = parsed.label;
 		state.totalRuns = budget;
 		state.remainingRuns = budget;
 		schedule(ctx, "enabled");
+		return formatStatus(PLAIN_THEME);
+	};
+
+	const enableKeep = (ctx: ExtensionContext, raw: string): string => {
+		const parsed = parseKeep(raw);
+		if ("error" in parsed) return `error: ${parsed.error}`;
+		if (!ctx.model) return "error: no active model on this session";
+		if (!ctx.model.promptCache) {
+			return "error: the host warms only models that declare a promptCache lifetime; use `/cron <interval>` for this one";
+		}
+		disable(ctx);
+		state.keepMs = parsed.keepMs;
+		state.keepLabel = parsed.label;
+		process.env[IDLE_WARMING_ENV] = String(parsed.keepMs);
 		return formatStatus(PLAIN_THEME);
 	};
 
@@ -446,11 +511,17 @@ export default function (pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("cron", {
-		description: "Current-session prompt-cache keepalive: status | off | devin | anthropic | openai | <duration> | loop<n> <duration>",
+		description:
+			"Current-session prompt-cache keepalive: status | off | keep <1h..24h> (legacy side-request modes: <duration> | loop<n> <duration> | devin | openai)",
 		getArgumentCompletions: prefix =>
-			Object.entries(COMMAND_PRESETS)
-				.filter(([value]) => value.startsWith(prefix))
-				.map(([value, expansion]) => ({ value, label: `${value} · ${expansion}` })),
+			[
+				{ value: "status", label: "status · show state and hit statistics" },
+				{ value: "off", label: "off · stop the keepalive" },
+				...["1h", "2h", "3h", "4h", "5h", "6h", "12h", "24h"].map(duration => ({
+					value: `keep ${duration}`,
+					label: `keep ${duration} · host warmer keeps the cache alive for ${duration}`,
+				})),
+			].filter(item => item.value.startsWith(prefix.trimStart().toLowerCase())),
 		handler: async (args, ctx) => {
 			const input = args.trim().toLowerCase();
 			if (!input || input === "status") {
@@ -460,6 +531,14 @@ export default function (pi: ExtensionAPI): void {
 			if (input === "off") {
 				disable(ctx);
 				ctx.ui.notify(formatStatus(ctx.ui.theme), "info");
+				return;
+			}
+			const keepMatch = /^keep(?:\s+(.+))?$/.exec(input);
+			if (keepMatch) {
+				const result = keepMatch[1]
+					? enableKeep(ctx, keepMatch[1])
+					: "error: `/cron keep` needs a duration from 1h to 24h, for example `/cron keep 5h`";
+				ctx.ui.notify(result, result.startsWith("error:") ? "error" : "info");
 				return;
 			}
 			const parsed = parseRunCommand(Object.hasOwn(COMMAND_PRESETS, input) ? COMMAND_PRESETS[input] : input);
@@ -474,6 +553,7 @@ export default function (pi: ExtensionAPI): void {
 
 	pi.on("agent_start", (_event, ctx) => {
 		if (state.enabled) cancelWork(ctx, true);
+		state.keepStopped = undefined;
 	});
 	pi.on("agent_end", (event, ctx) => {
 		if (event.willContinue) return;
@@ -493,5 +573,27 @@ export default function (pi: ExtensionAPI): void {
 	});
 	pi.on("session_tree", (_event, ctx) => {
 		scheduleIfBudgeted(ctx, "tree navigation completed");
+	});
+	// Host-warmer policy: force each refresh the horizon allows while `keep` is on.
+	pi.on("cache_warming_decision", () => (state.keepMs === undefined ? undefined : { action: "warm" as const }));
+	pi.on("cache_warming_result", (event, ctx) => {
+		if (state.keepMs === undefined) return;
+		const usage = event.usage;
+		state.attempts += 1;
+		if (event.stopReason) state.keepStopped = event.stopReason;
+		record({
+			at: Date.now(),
+			outcome: event.outcome === "hit" ? "cache-hit" : event.outcome === "miss" ? "cache-miss" : "provider-error",
+			reason: event.stopReason ? `host warmer: ${event.stopReason}` : "host warmer refresh",
+			sessionId: ctx.sessionManager.getSessionId(),
+			provider: ctx.model?.provider,
+			model: ctx.model?.id,
+			...(usage && {
+				input: usage.input,
+				output: usage.output,
+				cacheRead: usage.cacheRead,
+				cacheWrite: usage.cacheWrite,
+			}),
+		});
 	});
 }

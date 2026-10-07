@@ -1,0 +1,127 @@
+--- a/pi-coding-agent/src/session/agent-session.ts
++++ b/pi-coding-agent/src/session/agent-session.ts
+@@ -1614,8 +1614,11 @@
+ 			kernelOwnerId: config.evalKernelOwnerId ?? `agent-session:${Snowflake.next()}`,
+ 		});
+ 		this.#evalToolSession = config.evalToolSession;
+-		const initialEvalStateContext = this.#buildEvalStateContextMessage();
+-		if (initialEvalStateContext) this.agent.appendMessage(initialEvalStateContext);
++		const initialEvalStateContext = this.#nextEvalStateContext(this.agent.state.messages);
++		if (initialEvalStateContext) {
++			this.#persistEvalStateContext(initialEvalStateContext);
++			this.agent.appendMessage(initialEvalStateContext);
++		}
+ 		const ircHost: IrcBridgeHost = {
+ 			agent: this.agent,
+ 			sessionManager: this.sessionManager,
+@@ -6523,14 +6526,52 @@
+ 		return this.#providerBoundary.getImageAttachments();
+ 	}
+ 
+-	buildDisplaySessionContext(): SessionContext {
+-		return this.#withEvalStateContext(this.#providerBoundary.buildDisplaySessionContext());
+-	}
+-
+-	#withEvalStateContext(context: SessionContext): SessionContext {
+-		const evalStateContext = this.#buildEvalStateContextMessage();
++	/**
++	 * Rebuilds the agent-facing context from session entries. Callers that
++	 * commit the result persist a new eval reminder so every later rebuild,
++	 * including a resumed process, replays it at the same index; read-only
++	 * snapshots pass `persistEvalStateContext: false` and write nothing.
++	 */
++	buildDisplaySessionContext(options?: { persistEvalStateContext?: boolean }): SessionContext {
++		return this.#withEvalStateContext(
++			this.#providerBoundary.buildDisplaySessionContext(),
++			options?.persistEvalStateContext ?? true,
++		);
++	}
++
++	#withEvalStateContext(context: SessionContext, persist = true): SessionContext {
++		const evalStateContext = this.#nextEvalStateContext(context.messages);
+ 		if (!evalStateContext) return context;
++		if (persist) this.#persistEvalStateContext(evalStateContext);
+ 		return { ...context, messages: [...context.messages, evalStateContext] };
++	}
++
++	/**
++	 * The reminder to append, or undefined when the context's newest eval
++	 * reminder already carries the current text. History is append-only: an
++	 * older snapshot stays at its index (rewriting it would fork the cached
++	 * prefix) and the newest one, last in the context, is authoritative.
++	 */
++	#nextEvalStateContext(messages: readonly AgentMessage[]): CustomMessage | undefined {
++		const message = this.#buildEvalStateContextMessage();
++		if (!message) return undefined;
++		for (let index = messages.length - 1; index >= 0; index--) {
++			const existing = messages[index];
++			if (existing.role !== "custom" || existing.customType !== message.customType) continue;
++			return existing.content === message.content ? undefined : message;
++		}
++		return message;
++	}
++
++	#persistEvalStateContext(message: CustomMessage): void {
++		this.sessionManager.appendCustomMessageEntry(
++			message.customType,
++			message.content,
++			message.display,
++			undefined,
++			message.attribution,
++			message.timestamp,
++		);
+ 	}
+ 
+ 	#buildEvalStateContextMessage(): CustomMessage | undefined {
+@@ -11202,7 +11243,9 @@
+ 		// blowing the heap before the new session even loads (issue #3846). The
+ 		// error-recovery path rebuilds the context on demand from the restored
+ 		// state instead.
+-		const previousSessionContext = switchingToDifferentSession ? undefined : this.buildDisplaySessionContext();
++		const previousSessionContext = switchingToDifferentSession
++			? undefined
++			: this.buildDisplaySessionContext({ persistEvalStateContext: false });
+ 		// switchSession replaces these arrays wholesale during load/rollback, so retaining
+ 		// the existing message objects is sufficient and avoids structured-clone failures for
+ 		// extension/custom metadata that is valid to persist but not cloneable.
+@@ -11682,8 +11725,12 @@
+ 			this.#memory.rekeyForCurrentSessionId();
+ 			await this.#memory.resetContextForNewTranscript();
+ 
+-			// Reload messages from entries (works for both file and in-memory mode)
+-			const sessionContext = this.buildDisplaySessionContext();
++			// Reload messages from entries (works for both file and in-memory mode).
++			// A hook that skips the restore keeps the old messages, so nothing is
++			// committed and the eval reminder must not be persisted either.
++			const sessionContext = this.buildDisplaySessionContext({
++				persistEvalStateContext: !skipConversationRestore,
++			});
+ 
+ 			// Emit session_branch event to hooks (after branch completes)
+ 			if (this.#extensionRunner) {
+--- a/pi-coding-agent/dist/types/session/agent-session.d.ts
++++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
+@@ -565,7 +565,9 @@
+     get messages(): AgentMessage[];
+     /** Latest image attachments addressable by tools as `Image #N` or `attachment://N`. */
+     getImageAttachments(): ImageAttachmentEntry[];
+-    buildDisplaySessionContext(): SessionContext;
++    buildDisplaySessionContext(options?: {
++        persistEvalStateContext?: boolean;
++    }): SessionContext;
+     /**
+      * Transcript for TUI display. Full history is kept for export/resume-style
+      * callers; live chat can collapse compacted history to keep the hot render
+--- a/pi-coding-agent/src/collab/guest.ts
++++ b/pi-coding-agent/src/collab/guest.ts
+@@ -605,7 +605,9 @@
+ 					// history, so rebuild the message array from the ingested entries
+ 					// exactly as the host does after appendCompaction/branchWithSummary
+ 					// (session-maintenance.ts, agent-session.ts).
+-					this.#ctx.session.agent.replaceMessages(this.#ctx.session.buildDisplaySessionContext().messages);
++					this.#ctx.session.agent.replaceMessages(
++						this.#ctx.session.buildDisplaySessionContext({ persistEvalStateContext: false }).messages,
++					);
+ 				}
+ 				break;
+ 			}

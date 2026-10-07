@@ -16,7 +16,7 @@ try {
   for (const restrictToolNames of [false, true]) {
     const agentDir = join(root, String(restrictToolNames));
     const authStorage = await discoverAuthStorage(agentDir);
-    if (["18.3.3", "18.4.1", "18.4.4"].includes(version)) authStorage.keys.setRuntime("mock", "offline");
+    if (["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(version)) authStorage.keys.setRuntime("mock", "offline");
     else authStorage.setRuntimeApiKey("mock", "offline");
     const { session } = await createAgentSession({
       cwd: root, agentDir, authStorage,

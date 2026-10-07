@@ -1,0 +1,66 @@
+{
+  "state": "verified",
+  "from": "18.4.4",
+  "to": "18.7.0",
+  "from_tag": "18.4.4",
+  "to_tag": "18.7.0",
+  "layers": 54,
+  "live_global": "/home/chris/.bun/install/global",
+  "old_global": "/home/chris/.bun/install/global-18.4.4-rollback-20261007-044033",
+  "ledger": "/home/chris/.omp/patches",
+  "old_ledger": "/home/chris/.omp/patches-18.4.4-rollback-20261007-044033",
+  "staged_global": "/home/chris/.bun/install/global-18.7.0-staged",
+  "staged_ledger": "/home/chris/.omp/patches-staged-18.7.0",
+  "launcher": "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+  "db_policy": "Code-only directory exchange; no live database connection, copy, restore, or credential operation. Existing processes left running.",
+  "verified_six_digest": "64523594fe581a7d321b15839bb73a7bb6e137ad4901df77e6911e1e24d5bd40",
+  "verified_global_digest": "e8709feb803997b982b6de7e86a773b3b1a9373dd22511b53dec561ccc05bd5f",
+  "old_six_digest": "10ac9ae1f5a52320fab00b8cdf99c91615080173d7fbb8329f97600329493d2f",
+  "standalone_extensions": {
+    "cache-prefix-audit-extension.ts": {
+      "activeName": "cache-prefix-audit.ts",
+      "hashes": [
+        "6ce54daee8ffe84f847ae00e3e13e9cbdcac570d28cb6efb3940b11cb8151d2f",
+        "6ce54daee8ffe84f847ae00e3e13e9cbdcac570d28cb6efb3940b11cb8151d2f",
+        "6ce54daee8ffe84f847ae00e3e13e9cbdcac570d28cb6efb3940b11cb8151d2f"
+      ],
+      "repoEqualsActive": true
+    },
+    "resume-cache-breakpoint-extension.ts": {
+      "activeName": "resume-cache-breakpoint.ts",
+      "hashes": [
+        "5c324d97bf2236b455c5c227051e2ab4a59ee6e6e846e256dc56d95b7608cd8f",
+        "5c324d97bf2236b455c5c227051e2ab4a59ee6e6e846e256dc56d95b7608cd8f",
+        "5c324d97bf2236b455c5c227051e2ab4a59ee6e6e846e256dc56d95b7608cd8f"
+      ],
+      "repoEqualsActive": true
+    },
+    "cron-extension.ts": {
+      "activeName": "cron.ts",
+      "hashes": [
+        "0ba30e7fabeed5a0904c99a694a415278101956dc5dded29a604e919a579f843",
+        "54d36d643bae3d0a4cfd3dca17085fe3fdca5c670e8044261a66e248ba7bb233",
+        "0ba30e7fabeed5a0904c99a694a415278101956dc5dded29a604e919a579f843"
+      ],
+      "repoEqualsActive": true
+    }
+  },
+  "created": "2026-10-07T04:40:33-0400",
+  "post_verify": {
+    "fresh_source_version": "omp/18.7.0",
+    "real_read_tool_smoke": "PASS (existing offline fixture)",
+    "controller_applied_layers": 54,
+    "six_root_digest_match": true,
+    "private_HOME": true
+  },
+  "final_ledger_files": 448,
+  "ledger_parity": "all repository patch files match deployed bytes, excluding .bak",
+  "global_full_digest_match": true,
+  "standalone_extension_parity": "repo/deployed/active audit,resume,cron match; active files unchanged",
+  "rollback_command": "python3 /home/chris/.omp/backups/upgrade-18.7.0-20261007-044033/rollback.py --execute",
+  "verification_policy": "Reused completed42 gates; deployment only checked live source version/read-tool smoke,54-layer controller state,and byte parity.",
+  "authorized_request": "User explicitly requested using18.7.0 directly after reviewing isolated migration results.",
+  "credentials_accessed": false,
+  "provider_inference": false,
+  "running_sessions_terminated": false
+}

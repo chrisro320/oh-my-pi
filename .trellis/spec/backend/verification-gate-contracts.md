@@ -763,7 +763,7 @@ globalThis.Date = FrozenDate;
 ### 1. Scope / Trigger
 
 A provider rotates refresh tokens on use. Receiving the new token is a state
-transition, not a disposable request result. This contract covers 0090 on 18.4.4.
+transition, not a disposable request result. This contract covers 0090 on 18.4.4 and 18.7.0.
 
 ### 2. Signatures
 
@@ -838,3 +838,79 @@ Wrong: return `raceSignal(sharedWork, firstCallerSignal)` as the shared promise,
 or wait up to 30 seconds for profile enrichment inside a 10-second token refresh.
 Correct: share the durable operation and race each public waiter separately;
 keep optional profile lookup outside refresh-token persistence.
+
+## Scenario: 18.7.0 shared frame pricing and stable resume construction
+
+### 1. Scope / Trigger
+
+Upstream moved frame pricing into `Tokenizer` and changed native compaction to
+consume a `Context`. Port capabilities at their shared consumer boundary, not
+only at the helper that happened to implement them in the previous release.
+
+### 2. Signatures
+
+- `frameBilling(model)` → `FrameBilling`; `frameTokens(billing, actualSize)` and
+  `frameBillingKey(billing)` must include exact-model measured steps.
+- `maxFramesForDataBudget(shape)` replaces the local shape byte table/shed path.
+- Native compaction receives `context: Context`, not `{ context: Context }`.
+- SDK startup model labels normalize `effectiveThinkingLevel` through
+  `toReasoningEffort`, matching the initialized agent's `thinkingLevel`.
+- `CacheWarmingResultEvent` is defined, imported, re-exported and accepted by
+  `ExtensionAPI.on` in both source and published `dist/types`.
+
+### 3. Contracts
+
+- 18.7.0 omits 0045 only: upstream prices real frame dimensions once. Keep 0062
+  previous-archive credit; do not subtract the old ceiling from either side.
+- Exact-model measured pricing reaches shape planning, tokenizer totals and
+  tokenizer cache identity. Unknown models keep upstream pricing.
+- Host-attested native live context is already a `Context`; preserve complete
+  system/tools/messages and exact retained tail. Do not revive a capacity gate.
+- Fresh-process resume preserves the same-version provider-facing system/tools
+  and historical serialized prefix. Logical `off` must not become a new `:off`
+  system label only after resume. Persistence-only metadata is not wire drift.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required outcome |
+|---|---|
+| Measured DeepSeek frame at 1568 / 2576 | Shared pricing returns 995 / 1011 |
+| Same family/dimensions, different measured curve | Distinct billing cache key |
+| First archive / reducing successor | Actual `session.compact` commits image archive |
+| Inflating successor | Reject; previous committed archive remains unchanged |
+| Old 0045 subtraction restored | Inflation consumer regression fails |
+| Previous archive credit removed | Reducing successor consumer regression fails |
+| Fresh process after plain / soft-compacted session | System/tools and Anthropic/Codex serialized prefix unchanged |
+
+### 5. Good / Base / Bad Cases
+
+Good: shared pricing reaches all consumers. Base: unmeasured models use upstream
+billing. Bad: `resolveShape()` reports 995 while `Tokenizer` still charges 5024,
+or a nested `.context` silently loses the host's attested live chain.
+
+### 6. Tests Required
+
+Reuse `verify-snapcompact-model-billing.ts`, `verify-snapcompact-frame-reprice.ts`,
+native/live-compaction gates and `verify-model-mention-surface-resume.ts`.
+The frame consumer gate drives real SDK compaction with synthetic transcripts:
+no private-source assertions or copied reduction formula. Prove both negative
+controls in a disposable package copy. Cross-process smoke captures actual
+Anthropic/Codex serializers with network disabled; it does not prove server hits.
+Run the selected-version suite once and rerun only failed/affected gates.
+
+Machine-check the registration before delivery and during review:
+
+```sh
+OMP_PATCH_VERSION=18.7.0 bash patches/apply.sh --print-plan
+grep -nE 'frameTokens|frameBillingKey' patches/verify-snapcompact-model-billing.ts
+grep -nE 'session.compact|assert.rejects' patches/verify-snapcompact-frame-reprice.ts
+grep -nE '0090-omp-oauth-durable-refresh|0092-omp-cache-warming-idle-budget' patches/apply.sh
+```
+
+### 7. Wrong vs Correct
+
+Wrong: keep an old `resolveShape` wrapper and a second reduction subtraction;
+assert private parameter names or instruction digests until the port is green.
+Correct: retain upstream's shared pricing, extend its measured inputs/cache key,
+then prove admission/rejection through actual consumers. Delete obsolete tests
+rather than pinning new implementation details.

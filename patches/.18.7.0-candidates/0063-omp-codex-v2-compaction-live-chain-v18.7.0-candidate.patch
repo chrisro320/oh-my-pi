@@ -1,0 +1,183 @@
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -1951,7 +1951,12 @@
+ 				{
+ 					reasoning: resolveCompactionEffort(model, summaryOptions.thinkingLevel),
+ 					forceReasoningOff: summaryOptions.thinkingLevel === ThinkingLevel.Off,
+-					responsesLite: model.useResponsesLite,
++					// Must stay off for Codex: the compaction request has to land on the
++					// live turn's WebSocket session key so it can reuse that socket's
++					// `previous_response_id` baseline. Lite is connection-scoped, so
++					// `model.useResponsesLite` would key a second, empty socket
++					// (`...:session:lite`) with no append state and force a full replay.
++					responsesLite: false,
+ 					sessionId: summaryOptions.sessionId,
+ 					promptCacheKey: summaryOptions.promptCacheKey,
+ 					providerSessionState: summaryOptions.providerSessionState,
+--- a/pi-agent-core/src/compaction/compaction-v2-streaming.ts
++++ b/pi-agent-core/src/compaction/compaction-v2-streaming.ts
+@@ -355,7 +355,10 @@
+ 			sessionId: request.sessionId,
+ 			providerSessionState: options.providerSessionState,
+ 			preferWebsockets: options.preferWebsockets,
+-			responsesLite: model.useResponsesLite,
++			// Lite is connection-scoped and appends `:lite` to the WebSocket session
++			// key, so this must match the live turn (which never opts in) or the
++			// compaction lands on a second, empty socket with no append baseline.
++			responsesLite: false,
+ 			codexCompaction: createOpenAICodexCompactionRequestContext({
+ 				context: options.codexCompaction,
+ 				implementation: "responses_compaction_v2",
+--- a/pi-ai/dist/types/providers/openai-codex-responses.d.ts
++++ b/pi-ai/dist/types/providers/openai-codex-responses.d.ts
+@@ -174,6 +174,24 @@
+ }): OpenAICodexTransportDetails;
+ /** Resolve a Codex Responses endpoint exactly as the chat and compaction transports do. */
+ export declare function resolveCodexResponsesUrl(baseUrl: string | undefined): string;
++
++/**
++ * Structural view of the WebSocket append baseline that buildCodexChainedRequestBody
++ * reads and resetCodexWebSocketAppendState clears. The provider keeps the full
++ * session-state type and its connection class internal, so only these fields are
++ * part of the published contract.
++ */
++export interface CodexChainedAppendState {
++    canAppend: boolean;
++    lastRequest?: RequestBody;
++    lastResponseId?: string;
++    lastResponseItems?: InputItem[];
++    modelsEtag?: string;
++}
++export declare function buildCodexChainedRequestBody(
++    requestBody: RequestBody,
++    state: CodexChainedAppendState | undefined,
++): RequestBody;
+ declare function convertMessages(model: Model<"openai-codex-responses">, context: Context): ResponseInput;
+ /** @internal Exported for tests. */
+ export { convertMessages as convertCodexResponsesMessages };
+--- a/pi-ai/src/providers/openai-codex-responses.ts
++++ b/pi-ai/src/providers/openai-codex-responses.ts
+@@ -162,8 +162,10 @@
+ 	serviceTier?: ServiceTier;
+ 	/**
+ 	 * Responses Lite transport opt-in. Normal inference defaults to full
+-	 * Responses; provider-native compaction explicitly follows the model's
+-	 * `useResponsesLite` flag.
++	 * Responses, and provider-native compaction also stays on the full transport
++	 * so it reaches the live turn's WebSocket session key -- Lite is
++	 * connection-scoped, so opting in would key a second socket with no append
++	 * baseline and force a full replay on every compaction.
+ 	 */
+ 	responsesLite?: boolean;
+ 	/**
+@@ -3784,14 +3786,109 @@
+  * Entering or leaving `ultrafast` still breaks the chain: that tier is a
+  * separate serving path, and codex-rs sends a full `response.create` across
+  * such a switch rather than a `previous_response_id` delta.
++ *
++ * Codex V2 remote compaction is the one caller whose prefix cannot be compared
++ * byte-wise: it appends a `compaction_trigger` to the live conversation
++ * (codex-rs `compact_remote_v2.rs`) from a body rebuilt off the persisted
++ * transcript, which excludes per-turn injected context (session anchors,
++ * date/cwd stamps) and pins its own top-level options. Reuse the live baseline
++ * verbatim instead -- the server already holds that prefix -- answer whatever
++ * tool calls it left open (see the branch below), and otherwise
++ * send only the trigger. The trailing trigger item is itself the discriminator:
++ * nothing but the compaction path appends one.
+  */
+-function buildCodexChainedRequestBody(
++export function buildCodexChainedRequestBody(
+ 	requestBody: RequestBody,
+ 	state: CodexWebSocketSessionState | undefined,
+ ): RequestBody {
+ 	const chainable =
+ 		state?.canAppend === true &&
+ 		(state.lastRequest?.service_tier === "ultrafast") === (requestBody.service_tier === "ultrafast");
++	const lastInput =
++		requestBody.input && requestBody.input.length > 0
++			? requestBody.input[requestBody.input.length - 1]
++			: undefined;
++	if (
++		chainable &&
++		state &&
++		state.lastRequest &&
++		state.lastResponseId &&
++		lastInput?.type === "compaction_trigger"
++	) {
++		// The server keeps this response's own output, tool calls included, so a
++		// bare trigger lands after calls that still have no output and the
++		// endpoint rejects the whole frame -- `No tool output found for function
++		// call ...`, or `... for custom tool call ...` -- instead of compacting
++		// (measured 2026-09-17 session 01a0addd, again 2026-09-19 session
++		// 01a0b80a: a mid-turn boundary always sits between a tool call and its
++		// result).
++		//
++		// A strict-prefix delta cannot answer them: the compaction body is
++		// rebuilt from the persisted transcript, which excludes per-turn injected
++		// context, so it is never byte-equal to the live input array and the
++		// comparison collapses to trigger-only in exactly the case where the tail
++		// is load-bearing. Pair by call_id instead -- every call the baseline left
++		// open, answered with the transcript's own result when it already has one
++		// and with the interrupted-call placeholder when the tool never returned
++		// -- and keep the trigger last.
++		const baselineItems = [...(state.lastRequest.input ?? []), ...(state.lastResponseItems ?? [])];
++		const answeredCallIds = new Set<string>();
++		for (const item of baselineItems) {
++			if (typeof item.call_id !== "string") continue;
++			if (typeof item.type === "string" && item.type.endsWith("_call_output")) answeredCallIds.add(item.call_id);
++		}
++		const pendingOutputs: InputItem[] = [];
++		let unanswerableCall = false;
++		for (const item of baselineItems) {
++			const callId = typeof item.call_id === "string" ? item.call_id : undefined;
++			if (callId === undefined || answeredCallIds.has(callId)) continue;
++			const outputType =
++				item.type === "function_call"
++					? "function_call_output"
++					: item.type === "custom_tool_call"
++						? "custom_tool_call_output"
++						: item.type === "computer_call"
++							? "computer_call_output"
++							: undefined;
++			if (outputType === undefined) continue;
++			const recordedOutput = requestBody.input?.find(
++				(candidate) => candidate.type === outputType && candidate.call_id === callId,
++			);
++			if (recordedOutput === undefined && item.type === "computer_call") {
++				// Only a real screenshot payload answers a `computer_call`. The
++				// transcript has none, and nothing here can synthesize one, so break
++				// the chain rather than ship a frame the endpoint is certain to reject.
++				unanswerableCall = true;
++				continue;
++			}
++			answeredCallIds.add(callId);
++			pendingOutputs.push(
++				recordedOutput ?? {
++					type: outputType,
++					call_id: callId,
++					output: "[No tool output recorded: the tool call was interrupted before it produced a result.]",
++				},
++			);
++		}
++		if (unanswerableCall) {
++			// Falling through would hand this same frame to the generic strict-prefix
++			// path, which re-chains it whenever the rebuilt prefix happens to match
++			// byte-for-byte -- shipping a `previous_response_id` whose chain still
++			// ends on an unanswered `computer_call`. Break the chain here instead.
++			resetCodexWebSocketAppendState(state);
++			state.modelsEtag = undefined;
++			return requestBody;
++		}
++		// The frame takes every top-level field from the live baseline: the
++		// compaction body's own overrides (tool_choice, stream, store) describe a
++		// prefix the server does not hold.
++		return {
++			...state.lastRequest,
++			client_metadata: requestBody.client_metadata,
++			previous_response_id: state.lastResponseId,
++			input: [...pendingOutputs, lastInput],
++		};
++	}
+ 	const appendInput = chainable
+ 		? buildResponsesDeltaInput(
+ 				state.lastRequest,

@@ -1,0 +1,334 @@
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -35,7 +35,7 @@
+ import { convertTools } from "@oh-my-pi/pi-ai/providers/openai-responses";
+ import { buildResponsesInput, resolveOpenAICompatPolicy } from "@oh-my-pi/pi-ai/providers/openai-shared";
+ import { stripOpenAIResponsesOutputOnlyStatusesForReplay } from "@oh-my-pi/pi-ai/utils";
+-import { appendFileSync, writeFileSync } from "node:fs";
++import { writeFileSync } from "node:fs";
+ import { homedir } from "node:os";
+ import { join } from "node:path";
+ import { preferredDialect } from "@oh-my-pi/pi-catalog/identity";
+@@ -63,6 +63,7 @@
+ 	storeCompactionV2PreserveData,
+ 	V2_RETAINED_MESSAGE_TOKEN_BUDGET,
+ } from "./compaction-v2-streaming";
++import { traceCompaction } from "./compaction-trace";
+ import type { CompactionEntry, SessionEntry } from "./entries";
+ import { NativeCompactionError } from "./errors";
+ import {
+@@ -991,36 +992,8 @@
+ 	return carriedSummary ?? "";
+ }
+ 
+-/**
+- * Records what the summarizer actually sent and what it cost, gated on
+- * `OMP_COMPACTION_TRACE` naming a file.
+- *
+- * This has to live inside compaction, not in an extension. Summarization runs
+- * through `completeSimple`, so the `before_provider_request` hook never fires
+- * for it, and wrapping `globalThis.fetch` does not help either: for
+- * `anthropic` + `anthropic-messages`, `defaultFetchForModel` returns the
+- * imported `coworkFetch`, which sends over `node:https` and bypasses the
+- * global entirely (see pi-ai `stream.ts` and `providers/cowork-fetch.ts`).
+- * Every out-of-band vantage point therefore reports nothing for exactly the
+- * model whose compaction cost matters most.
+- *
+- * Message count is the load-bearing field: the flattened `<conversation>`
+- * fallback always sends exactly ONE message, so it distinguishes the cheap
+- * path from the expensive one without relying on any provider's accounting.
+- */
+-function traceCompaction(record: Record<string, unknown>): void {
+-	if (process.env.OMP_COMPACTION_TRACE_OFF) return;
+-	// On by default: a compaction happens a handful of times per session and
+-	// writes two lines, while the question it answers -- did the summarizer take
+-	// the cache-preserving path -- is otherwise unobservable after the fact. An
+-	// opt-in flag only guarantees the trace is missing on the run that mattered.
+-	const target = process.env.OMP_COMPACTION_TRACE ?? join(homedir(), ".omp", "agent", "compaction-trace.log");
+-	try {
+-		appendFileSync(target, `${JSON.stringify({ at: new Date().toISOString(), pid: process.pid, ...record })}\n`);
+-	} catch {
+-		// Diagnostics must never take down a compaction.
+-	}
+-}
++// The trace writer lives in ./compaction-trace.js so compaction-v2-streaming
++// can emit per-attempt records without a module-init cycle back into this file.
+ 
+ /**
+  * Dump the summary request's real wire payload.
+@@ -2070,6 +2043,10 @@
+ 					model: model.id,
+ 					stopReason: "compaction",
+ 					usage: remote.usage,
++					transport: remote.requestDiagnostics?.transport,
++					chained: remote.requestDiagnostics?.previousResponseIdPresent,
++					canAppend: remote.requestDiagnostics?.canAppendBeforeRequest,
++					inputItems: remote.requestDiagnostics?.inputItemCount,
+ 				});
+ 				preserveData = { ...preserveData, ...storeCompactionV2PreserveData(remote, model) };
+ 				usedRemoteCompaction = true;
+--- a/pi-agent-core/src/compaction/compaction-v2-streaming.ts
++++ b/pi-agent-core/src/compaction/compaction-v2-streaming.ts
+@@ -15,6 +15,7 @@
+ 	createOpenAICodexCompatibilityMetadata,
+ 	openCodexCompactionEventStream,
+ 	type OpenAICodexCompactionBody,
++	type OpenAICodexTurnRequestDiagnostics,
+ 	type OpenAICodexCompatibilityMetadata,
+ } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+ import {
+@@ -36,6 +37,7 @@
+ import { $env, isUnexpectedSocketCloseMessage, logger, ptree, stringifyJson } from "@oh-my-pi/pi-utils";
+ import { appendAzureApiVersion, resolveAzureOpenAiBaseUrl } from "./azure-openai-endpoint";
+ import { prepareBedrockCompactionRequest } from "./bedrock";
++import { traceCompaction } from "./compaction-trace";
+ 
+ // ============================================================================
+ // Types & Configuration
+@@ -91,6 +93,13 @@
+ 	usedTokens: number;
+ 	usage?: CompactionV2Usage;
+ 	retainedImageCount: number;
++	/** Wire shape of the request that produced this response (Codex transport only). */
++	requestDiagnostics?: {
++		transport?: string;
++		previousResponseIdPresent?: boolean;
++		canAppendBeforeRequest?: boolean;
++		inputItemCount?: number;
++	};
+ }
+ 
+ // ============================================================================
+@@ -287,6 +296,10 @@
+ 				})
+ 			: undefined;
+ 	let lastError: Error | undefined;
++	// One diagnostics box shared across retries: each attempt overwrites it, so
++	// a failed attempt still leaves its wire shape (chained? canAppend? item
++	// count) observable in the summarize.attempt trace below.
++	const requestDiagnostics: { current?: OpenAICodexTurnRequestDiagnostics } = {};
+ 
+ 	for (let attempt = 0; attempt <= V2_COMPACTION_MAX_RETRIES; attempt++) {
+ 		const timeoutSignal = ptree.combineSignals(signal, options?.timeoutMs ?? V2_COMPACTION_TIMEOUT_MS);
+@@ -296,12 +309,29 @@
+ 				providerSessionState: options?.providerSessionState,
+ 				codexCompaction: options?.codexCompaction,
+ 				preferWebsockets: options?.preferWebsockets,
++				requestDiagnostics,
+ 			});
+ 		} catch (err) {
+ 			const error = err instanceof Error ? err : new Error(String(err));
+ 			if (signal?.aborted) throw error;
+ 
+-			if (isRetryableCompactionError(error) && attempt < V2_COMPACTION_MAX_RETRIES) {
++			// Trace every failed attempt -- including the final one and
++			// non-retryable errors -- so the wire shape that failed is never
++			// invisible after the fact.
++			const retrying = isRetryableCompactionError(error) && attempt < V2_COMPACTION_MAX_RETRIES;
++			const diag = requestDiagnostics.current;
++			traceCompaction({
++				k: "summarize.attempt",
++				model: model.id,
++				attempt: attempt + 1,
++				final: !retrying,
++				error: error.message,
++				transport: diag?.transport,
++				chained: diag?.previousResponseIdPresent,
++				canAppend: diag?.canAppendBeforeRequest,
++				inputItems: diag?.inputItemCount,
++			});
++			if (retrying) {
+ 				lastError = error;
+ 				const backoffMs = 2 ** attempt * 1000;
+ 				logger.warn(`V2 compaction attempt ${attempt + 1} failed, retrying in ${backoffMs}ms`, {
+@@ -332,6 +362,7 @@
+ 		providerSessionState?: Map<string, ProviderSessionState>;
+ 		codexCompaction?: CodexCompactionContext;
+ 		preferWebsockets?: boolean;
++		requestDiagnostics?: { current?: OpenAICodexTurnRequestDiagnostics };
+ 	},
+ ): Promise<CompactionV2Response> {
+ 	// Faithful to Codex: append the compaction trigger as the final input item
+@@ -348,6 +379,10 @@
+ 	}
+ 
+ 	if (shouldUseCodexProviderTransport(model)) {
++		const requestDiagnostics = options.requestDiagnostics ?? {};
++		// Clear before opening: a failure before the wire-shape recording would
++		// otherwise leave the previous attempt's diagnostics mislabeled as ours.
++		requestDiagnostics.current = undefined;
+ 		const eventStream = await openCodexCompactionEventStream(model, body, {
+ 			apiKey,
+ 			signal,
+@@ -363,8 +398,19 @@
+ 				context: options.codexCompaction,
+ 				implementation: "responses_compaction_v2",
+ 			}),
++			requestDiagnostics,
+ 		});
+-		return collectCompactionV2Events(eventStream, request);
++		const collected = await collectCompactionV2Events(eventStream, request);
++		const diag = requestDiagnostics.current;
++		if (diag) {
++			collected.requestDiagnostics = {
++				transport: diag.transport,
++				previousResponseIdPresent: diag.previousResponseIdPresent,
++				canAppendBeforeRequest: diag.canAppendBeforeRequest,
++				inputItemCount: diag.inputItemCount,
++			};
++		}
++		return collected;
+ 	}
+ 
+ 	const response = await fetchImpl(endpoint, {
+--- a/pi-ai/src/providers/openai-codex-responses.ts
++++ b/pi-ai/src/providers/openai-codex-responses.ts
+@@ -200,6 +200,8 @@
+ /** Transport controls for a provider-native Codex V2 compaction stream. */
+ export interface OpenAICodexCompactionStreamOptions extends OpenAICodexResponsesOptions {
+ 	apiKey: string;
++	/** Receives the wire shape of the compaction request actually sent. */
++	requestDiagnostics?: { current?: OpenAICodexTurnRequestDiagnostics };
+ }
+ 
+ /** Inputs for synthesizing Codex request identity outside the normal stream path. */
+@@ -1701,14 +1703,26 @@
+ 		requestBodyForState: RequestBody;
+ 		transport: CodexTransport;
+ 	};
++	let requestContextForDiag: CodexRequestContext | undefined;
++	let diagBeforeOpen: OpenAICodexTurnRequestDiagnostics | undefined;
+ 	try {
+ 		requestContext = createCodexRequestContext(model, toCodexRequestBody(body), options, {
+ 			isolateCompactionTransport: false,
+ 		});
++		requestContextForDiag = requestContext;
++		diagBeforeOpen = requestContext.websocketState?.stats.lastTurn?.request;
+ 		initial = await openInitialCodexEventStream(model, options, requestSetup, requestContext);
+ 	} catch (error) {
+ 		requestSetup.requestAbortController.abort();
+ 		throw error;
++	} finally {
++		// Publish only diagnostics this open actually recorded: lastTurn is
++		// reassigned per record, so an unchanged reference means the attempt
++		// died before sending and must not inherit the previous turn's shape.
++		const recorded = requestContextForDiag?.websocketState?.stats.lastTurn?.request;
++		if (options.requestDiagnostics && recorded !== diagBeforeOpen) {
++			options.requestDiagnostics.current = recorded;
++		}
+ 	}
+ 
+ 	if (requestContext.websocketState) {
+@@ -1748,7 +1762,23 @@
+ 				}
+ 				const state = requestContext.websocketState;
+ 				if (state) recordCodexWebSocketFailure(state, true);
+-				const fallback = await openCodexSseTransport(model, requestContext, requestSetup, options, state);
++				const diagBeforeFallback = state?.stats.lastTurn?.request;
++				let fallback: {
++					eventStream: AsyncGenerator<Record<string, unknown>>;
++					requestBodyForState: RequestBody;
++					transport: CodexTransport;
++				};
++				try {
++					fallback = await openCodexSseTransport(model, requestContext, requestSetup, options, state);
++				} finally {
++					// Publish only a wire shape the SSE replay actually recorded:
++					// onPayload can throw before recordCodexTurnRequestDiagnostics,
++					// and an unchanged lastTurn reference is still the WS frame.
++					const recorded = state?.stats.lastTurn?.request;
++					if (options.requestDiagnostics && recorded !== diagBeforeFallback) {
++						options.requestDiagnostics.current = recorded;
++					}
++				}
+ 				if (state) state.lastTransport = fallback.transport;
+ 				yield* drainCodexCompactionEvents(fallback.eventStream, requestContext);
+ 				completed = true;
+@@ -1829,8 +1859,6 @@
+ }> {
+ 	const steered = websocketState.acceptedSteering;
+ 	websocketState.acceptedSteering = undefined;
+-	const canAppendBeforeRequest = websocketState.canAppend === true;
+-	let chainedBody = buildCodexChainedRequestBody(requestContext.transformedBody, websocketState);
+ 	const websocketHeaders = createCodexHeaders(
+ 		requestContext.requestHeaders,
+ 		requestContext.accountId,
+@@ -1857,6 +1885,15 @@
+ 		idleTimeoutMs: requestSetup.websocketIdleTimeoutMs,
+ 		firstEventTimeoutMs: requestSetup.websocketFirstEventTimeoutMs,
+ 	};
++	// previous_response_id resolves only on the socket that minted it -- the
++	// server answers 400 invalid_request_error on any replacement connection.
++	// Decide chaining only after getOrCreate settled the connection: its auth
++	// refresh, health-check and reconnect paths may just have dropped the append
++	// state, so a baseline read earlier would race the reconnect (TOCTOU) and
++	// ship a dead prev_id. The steering branches below then re-plan this body
++	// against the socket they actually got.
++	const canAppendBeforeRequest = websocketState.canAppend === true;
++	let chainedBody = buildCodexChainedRequestBody(requestContext.transformedBody, websocketState);
+ 	// Steering accepted for the previous response lives only on the socket that
+ 	// accepted it; a replaced socket lost it, so the input is plain history.
+ 	const steers = steered?.connection === websocketConnection ? steered.steers : [];
+--- /dev/null
++++ b/pi-agent-core/dist/types/compaction/compaction-trace.d.ts
+@@ -0,0 +1,7 @@
++/**
++ * Append one JSON line to the compaction trace log (`OMP_COMPACTION_TRACE` names
++ * the file; enabled by default, disabled by `OMP_COMPACTION_TRACE_OFF`). Lives in
++ * its own module so compaction.ts and compaction-v2-streaming.ts can both emit
++ * records without importing each other.
++ */
++export declare function traceCompaction(record: Record<string, unknown>): void;
+--- a/pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts
++++ b/pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts
+@@ -7,7 +7,7 @@
+  * compaction item as replacement history.
+  */
+ import type { Api, CodexCompactionContext, FetchImpl, Model, ProviderSessionState } from "@oh-my-pi/pi-ai";
+-import { type OpenAICodexCompactionBody } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
++import { type OpenAICodexCompactionBody, type OpenAICodexTurnRequestDiagnostics } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+ /** Retained-message budget Codex uses after streamed V2 compaction. */
+ export declare const V2_RETAINED_MESSAGE_TOKEN_BUDGET = 64000;
+ /** Max retries for V2 streaming compaction on transient stream errors. */
+@@ -39,6 +39,13 @@
+     usedTokens: number;
+     usage?: CompactionV2Usage;
+     retainedImageCount: number;
++    /** Wire shape of the request that produced this response (Codex transport only). */
++    requestDiagnostics?: {
++        transport?: string;
++        previousResponseIdPresent?: boolean;
++        canAppendBeforeRequest?: boolean;
++        inputItemCount?: number;
++    };
+ }
+ /** Resolve the streaming Responses endpoint for a V2-capable model. */
+ export declare function getCompactionV2Endpoint(model: Model): string | undefined;
+--- /dev/null
++++ b/pi-agent-core/src/compaction/compaction-trace.ts
+@@ -0,0 +1,25 @@
++import { appendFileSync } from "node:fs";
++import { homedir } from "node:os";
++import { join } from "node:path";
++
++/**
++ * Append one JSON line to the compaction trace log.
++ *
++ * On by default: a compaction happens a handful of times per session and
++ * writes two lines, while the question it answers -- did the summarizer take
++ * the cache-preserving path -- is otherwise unobservable after the fact. An
++ * opt-in flag only guarantees the trace is missing on the run that mattered.
++ *
++ * Lives in its own module because both compaction.ts and
++ * compaction-v2-streaming.ts write records, and importing each other would
++ * create a module-init cycle.
++ */
++export function traceCompaction(record: Record<string, unknown>): void {
++	if (process.env.OMP_COMPACTION_TRACE_OFF) return;
++	const target = process.env.OMP_COMPACTION_TRACE ?? join(homedir(), ".omp", "agent", "compaction-trace.log");
++	try {
++		appendFileSync(target, `${JSON.stringify({ at: new Date().toISOString(), pid: process.pid, ...record })}\n`);
++	} catch {
++		// Diagnostics must never take down a compaction.
++	}
++}

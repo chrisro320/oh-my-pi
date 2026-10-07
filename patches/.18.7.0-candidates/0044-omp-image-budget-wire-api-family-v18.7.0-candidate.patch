@@ -1,0 +1,43 @@
+--- a/snapcompact/src/snapcompact.ts
++++ b/snapcompact/src/snapcompact.ts
+@@ -563,11 +563,20 @@
+ }
+ 
+ /**
+- * Per-request image-count budgets by provider id. These cap how many images an
+- * entire request may carry (archive/system-prompt/tool-result imaging combined).
+- * The values are conservative policy caps under the vendor hard limits
+- * (Anthropic 100, OpenAI 500, Gemini ~2500); unknown providers fall to a safe
+- * floor rather than sending unbounded attachments.
++ * Per-request image-count budgets keyed by provider id *and* by wire `api`
++ * family. These cap how many images an entire request may carry
++ * (archive/system-prompt/tool-result imaging combined). The values are
++ * conservative policy caps under the vendor hard limits (Anthropic 100,
++ * OpenAI 500, Gemini ~2500); unknown keys fall to a safe floor rather than
++ * sending unbounded attachments.
++ *
++ * The `api` entries are what user-configured gateway providers resolve
++ * through: a hand-written `models.yml` provider (`pixel`, `pqh`, ...) is never
++ * in this table by id, so {@link providerImageBudget} retries on its wire
++ * api. A gateway forwards to the same upstream the api family names, so it
++ * inherits that family's cap instead of the floor of 5 -- where a single new
++ * image evicts the oldest one from the outbound request, rewriting a
++ * mid-history tool result and voiding the whole prompt-cache prefix.
+  */
+ export const PROVIDER_IMAGE_BUDGETS: Record<string, number> = {
+ 	anthropic: 90,
+@@ -585,6 +594,14 @@
+ 	"ollama-chat": 200,
+ 	openrouter: 90,
+ 	umans: 10,
++	// Wire-api families (see doc comment): keyed identically so a custom
++	// gateway provider inherits its upstream's cap.
++	"anthropic-messages": 90,
++	"bedrock-converse-stream": 90,
++	"openai-responses": 200,
++	"openai-codex-responses": 200,
++	"azure-openai-responses": 200,
++	"google-generative-ai": 200,
+ };
+ 
+ /** Safe floor for unknown providers (strictest mainstream measured: Groq ~5). */

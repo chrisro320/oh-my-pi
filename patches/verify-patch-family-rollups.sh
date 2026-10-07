@@ -107,6 +107,10 @@ PLAN1844_OUT="$(OMP_PATCH_VERSION=18.4.4 bash "${HERE}/apply.sh" --print-plan)" 
 	|| die "apply.sh --print-plan cannot resolve the 18.4.4 plan"
 [[ -n "${PLAN1844_OUT//[[:space:]]/}" ]] || die "18.4.4 plan is empty"
 mapfile -t PLAN1844 <<<"$PLAN1844_OUT"
+PLAN1870_OUT="$(OMP_PATCH_VERSION=18.7.0 bash "${HERE}/apply.sh" --print-plan)" \
+	|| die "apply.sh --print-plan cannot resolve the 18.7.0 plan"
+[[ -n "${PLAN1870_OUT//[[:space:]]/}" ]] || die "18.7.0 plan is empty"
+mapfile -t PLAN1870 <<<"$PLAN1870_OUT"
 # Retired-by-rollup numbers, plus abandoned numbers whose patch file is gone
 # (0011 pin-viewport, 0040 trellis_command, 0061, 0064 — never to be reused)
 # and numbers retired because upstream adopted them verbatim (0051, adopted in
@@ -121,7 +125,7 @@ for old in 0002- 0003- 0005- 0006- 0007- 0011- 0013- 0015- 0018- 0019- 0020- 002
 	0023- 0024- 0026-omp-usage-fetch-anthropic-gate-agent 0027- 0028- 0029- 0040- 0042- 0051- \
 	0059- 0061- 0064- 0086- 0087- 0088-omp-compaction-split-turn-; do
 	if printf '%s\n' "${PLAN14[@]}" "${PLAN18[@]}" "${PLAN1823[@]}" "${PLAN18210[@]}" \
-		"${PLAN1833[@]}" "${PLAN1841[@]}" "${PLAN1844[@]}" | grep -qE "(^|/)${old}"; then
+		"${PLAN1833[@]}" "${PLAN1841[@]}" "${PLAN1844[@]}" "${PLAN1870[@]}" | grep -qE "(^|/)${old}"; then
 		die "a resolved plan references retired or abandoned patch number ${old}*"
 	fi
 done
@@ -352,6 +356,19 @@ declare -A TGZSHA7=(
 TGZD7="${G}/tgz-18.4.4"
 fetch_tgzs "$TGZD7" 18.4.4 TGZSHA7
 echo "PASS baseline: six official 18.4.4 tarballs match pinned SHA-256"
+
+# Exact 18.7.0 release; archives were verified against registry sha512 integrity.
+declare -A TGZSHA8=(
+	[pi-coding-agent]=11cc7843f8e282cb8ccbfaed8aa86fe8e81454c3fd657cc593dee51c9c1e8fa7
+	[pi-agent-core]=201b06d8485fc57dd9c19ebfdb9641b5b0759cbe8ecb7b72ac86dfd46f83e4d6
+	[pi-ai]=d93368c60b999b70d1b6a7c8a79cf4d18350cc6bc52504ae4f650f2036422403
+	[pi-catalog]=def38c60f2c3280fff164cc966dcac3897991e1d9c8c0c73bdfe5792fa575666
+	[snapcompact]=03725b734e83914cfe9e7ee4dfca5aa20bca5411b193de6e166cf99acfe9a033
+	[pi-tui]=670538ca52d705e4b39d90d3d34bb9241e8ea08b598e8fd0c4f23a3e351d42b4
+)
+TGZD8="${G}/tgz-18.7.0"
+fetch_tgzs "$TGZD8" 18.7.0 TGZSHA8
+echo "PASS baseline: six official 18.7.0 tarballs match pinned SHA-256"
 
 # Extract src trees (mode=src) or full trees incl. dist/ (mode=full) for the
 # listed packages (default: every package in $2's pinned table) into
@@ -787,8 +804,24 @@ EXPECTED_PLAN_1844+=(".18.4.4-candidates/0089-omp-compaction-drop-capacity-gate-
 # cannot discard a minted token. A stolen lease or changed credential is never
 # overwritten or disabled by the previous owner. `AI` root (pi-ai).
 EXPECTED_PLAN_1844+=(".18.4.4-candidates/0090-omp-oauth-durable-refresh-v18.4.4-candidate.patch:AI")
-[[ "${#EXPECTED_PLAN_1844[@]}" -eq 54 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
-	|| die "resolved 18.4.4 plan drifted from its 54-entry capability contract"
+# 0092 is 18.4.4-only and rolls up 0091 (deployed and retired 2026-10-03): the idle
+# cache-warming horizon is read from the process-local PI_CACHE_WARMING_IDLE_MAX_MS
+# (unset keeps the stock 30 minutes); a run that reaches it is parked with its
+# request so a larger budget set after the agent run settled resumes from the cache
+# entry's own clock; each refresh that reached the provider is reported through the
+# `cache_warming_result` extension event. `AGENT` root (pi-coding-agent).
+EXPECTED_PLAN_1844+=(".18.4.4-candidates/0092-omp-cache-warming-idle-budget-v18.4.4-candidate.patch:AGENT")
+[[ "${#EXPECTED_PLAN_1844[@]}" -eq 55 && "${PLAN1844[*]}" == "${EXPECTED_PLAN_1844[*]}" ]] \
+	|| die "resolved 18.4.4 plan drifted from its 55-entry capability contract"
+
+# Native model/dimension-aware pricing replaces 0045's second subtraction.
+EXPECTED_PLAN_1870=()
+for entry in "${EXPECTED_PLAN_1844[@]}"; do
+	[[ "$entry" == */0045-* ]] && continue
+	EXPECTED_PLAN_1870+=("${entry//18.4.4/18.7.0}")
+done
+[[ "${#EXPECTED_PLAN_1870[@]}" -eq 54 && "${PLAN1870[*]}" == "${EXPECTED_PLAN_1870[*]}" ]] \
+	|| die "resolved 18.7.0 plan drifted from its 54-entry capability contract"
 
 # NEWCHAIN is whatever the controller resolves — PLAN14/PLAN18 were produced
 # by apply.sh --print-plan in the static section. The assertions below pin
@@ -805,7 +838,7 @@ NEWCHAIN=("${PLAN14[@]}")
 $(printf '%s\n' "${PLAN1823[@]}")
 --- expected ---
 $(printf '%s\n' "${EXPECTED_PLAN_1823[@]}")"
-echo "PASS plan resolution: 18.1.14 (${#NEWCHAIN[@]}), 18.1.18 (${#PLAN18[@]}), 18.2.3 (${#PLAN1823[@]}), 18.3.3 (${#PLAN1833[@]}), 18.4.1 (${#PLAN1841[@]}) and 18.4.4 (${#PLAN1844[@]}) match pinned expectations"
+echo "PASS plan resolution: 18.1.14 (${#NEWCHAIN[@]}), 18.1.18 (${#PLAN18[@]}), 18.2.3 (${#PLAN1823[@]}), 18.3.3 (${#PLAN1833[@]}), 18.4.1 (${#PLAN1841[@]}), 18.4.4 (${#PLAN1844[@]}) and 18.7.0 (${#PLAN1870[@]}) match pinned expectations"
 
 apply_chain() { # $1 tree  $2 "file:root"...
 	local t="$1"; shift
@@ -1201,10 +1234,12 @@ echo "PASS gate #13: pristine 18.2.3 tree classifies all ${#PLAN1823[@]} entries
 
 # Current target: include the moved TUI package in every replay and comparison.
 TARGET_BASE_G="$G"
-for current_version in 18.2.10 18.3.3 18.4.1 18.4.4; do
+for current_version in 18.2.10 18.3.3 18.4.1 18.4.4 18.7.0; do
 G="$TARGET_BASE_G/target-$current_version"
 mkdir -p "$G"
-if [[ "$current_version" == "18.4.4" ]]; then
+if [[ "$current_version" == "18.7.0" ]]; then
+	CURRENT_PLAN=("${PLAN1870[@]}"); CURRENT_TGZD="$TGZD8"
+elif [[ "$current_version" == "18.4.4" ]]; then
 	CURRENT_PLAN=("${PLAN1844[@]}"); CURRENT_TGZD="$TGZD7"
 elif [[ "$current_version" == "18.4.1" ]]; then
 	CURRENT_PLAN=("${PLAN1841[@]}"); CURRENT_TGZD="$TGZD6"

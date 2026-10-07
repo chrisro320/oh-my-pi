@@ -1,0 +1,40 @@
+{
+  "id": "omp-upstream-upgrade-assessment",
+  "name": "omp-upstream-upgrade-assessment",
+  "title": "OMP 升級評估：0090 憑證保護、compaction 與 cache drift",
+  "description": "Assess and plan the pinned 18.4.4 to 18.7.0 upgrade, prioritizing 0090 Anthropic credential durability, compaction correctness, cache-prefix stability, and upstream patch replacement opportunities. Planning approval and live deployment authorization remain separate gates.",
+  "status": "in_progress",
+  "dev_type": "backend",
+  "scope": "patch-migration",
+  "package": null,
+  "priority": "P1",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-10-07",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "patches/apply.sh",
+    "patches/PATCHES.md",
+    "patches/verify-oauth-durable-refresh.ts",
+    "patches/verify-compaction-cache-liveness.ts",
+    "patches/verify-cache-warming-idle-budget.ts"
+  ],
+  "notes": "User explicitly requested live18.7.0 after isolated acceptance. Deployed verified complete install and ledger via existing directory-exchange helpers; fresh live source version/read-tool smoke,54/54 APPLIED,full install digest,448 repo ledger files and3 standalone extensions verified. Old18.4.4 install/ledger retained for rollback. Code-only deployment: no live DB connection/copy/restore, no provider inference, no process termination, no commits. Evidence:research/deployment-1870.json.",
+  "meta": {
+    "prd_artifact": "https://share.onorca.dev/a/asdBJKLZDzro",
+    "migration_status": "live-18.7.0-verified",
+    "verification_evidence": "research/migration-results.json",
+    "knowledge_evidence": ".trellis/spec/backend/verification-gate-contracts.md",
+    "approved_scope": "live-upgrade-complete",
+    "verification_policy": "current-version-suite-once-failed-gates-only-rerun",
+    "deployment_evidence": "research/deployment-1870.json"
+  }
+}

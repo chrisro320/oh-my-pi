@@ -17,7 +17,7 @@ if (version === "18.2.3") {
 	console.log("PASS retained 18.2.3 auth UI load gate");
 	process.exit(0);
 }
-assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4"].includes(version), "Adapt selector behavior fixtures when changing the version plan");
+assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(version), "Adapt selector behavior fixtures when changing the version plan");
 const { SelectorController } = await import(`${root}/src/modes/controllers/selector-controller.ts`);
 const { Settings } = await import(`${root}/src/config/settings.ts`);
 const { installLegacyPiSpecifierShim } = await import(`${root}/src/extensibility/plugins/legacy-pi-compat.ts`);
@@ -58,6 +58,7 @@ const context = {
 	session: {
 		model, scopedModels: [{ model, thinkingLevel: "off" }],
 		modelRegistry: {}, getContextUsage: () => undefined, getRoleModelCycle: () => undefined,
+		effectiveServiceTier: () => undefined,
 		listCurrentProviderOAuthAccounts: async () => ({
 			provider: "anthropic",
 			accounts: [{ credentialId: 1, position: 0, email: "fixture@example.invalid", active: true }],

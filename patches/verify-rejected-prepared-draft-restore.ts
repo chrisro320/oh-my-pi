@@ -81,7 +81,7 @@ import { join } from "node:path";
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
 assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree under test");
 const agentVersion = String((JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")) as { version?: string }).version);
-assert.equal(agentVersion, "18.4.4", `rejected prepared draft gate: unsupported selected tree version ${agentVersion}`);
+assert.ok(["18.4.4", "18.7.0"].includes(agentVersion), `rejected prepared draft gate: unsupported selected tree version ${agentVersion}`);
 
 const main = (await import(`${AGENT_ROOT}/src/main.ts`)) as {
 	submitInteractiveInput: (mode: unknown, session: unknown, input: unknown) => Promise<void>;

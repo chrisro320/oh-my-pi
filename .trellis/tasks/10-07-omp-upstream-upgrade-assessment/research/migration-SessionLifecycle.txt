@@ -1,0 +1,248 @@
+{
+  "additionalChecks": [
+    "Layer-added identifiers all present in work (the 5 identifiers flagged by a weaker scan — countOpenAiNativeHistoryTokens, invokePersistenceErrorObserver, usageReserveApprovedSelector, isTitleContextReply, deferredHandoff — were touched by no local layer; all are upstream-18.4.4 constructs upstream 18.7.0 removed/renamed, and work carries the replacements, e.g. countResponsesHistoryTokens)",
+    "exported-symbol set of each owned .ts is a subset of its shipped .d.ts (declaration closure)",
+    "0 merge markers across all 30 owned paths",
+    "budget/projection call arities verified: maxFramesForDataBudget(shape) x4, #projectPreSnapcompactContextTokens(preparation) x3, #projectSnapcompactContextTokens <=3 args",
+    "machine-checkable inventory grep: patches/PATCHES.md and patches/apply.sh each register 0089/0090/0092 for 18.4.4 (and 0089 for 18.7.0) — 9 matches, run for the parent's final review",
+    "background job bg_18 (a weaker identifier-survival scan) was cancelled as redundant: it was superseded by the stronger local-only-line diff recorded above, so no verification was dropped"
+  ],
+  "method": "per-file diff vs old-chain filtered to lines absent from BOTH old-chain and 18.4.4 pristine (genuine local-only lines lost)",
+  "ownedPaths": {
+    "complete": 30,
+    "conflictMarkersRemaining": 0,
+    "conflictsResolved": 23,
+    "files": {
+      "agent-session.d.ts": [
+        "0010",
+        "0035",
+        "0031",
+        "0076",
+        "0082"
+      ],
+      "agent-session-types.d.ts": [
+        "0060",
+        "0082"
+      ],
+      "agent-session-types.ts": [
+        "0060",
+        "0082"
+      ],
+      "agent-session.ts": [
+        "0034",
+        "0010",
+        "0035",
+        "0031",
+        "0060",
+        "0075",
+        "0076",
+        "0082"
+      ],
+      "cache-warmer.ts": [
+        "0092"
+      ],
+      "date-cwd-reminder.d.ts": [
+        "0038",
+        "0047"
+      ],
+      "date-cwd-reminder.ts": [
+        "0038",
+        "0047"
+      ],
+      "messages.d.ts": [
+        "0043"
+      ],
+      "messages.ts": [
+        "0043"
+      ],
+      "provider-image-budget.ts": [
+        "0036"
+      ],
+      "queued-messages.ts": [
+        "0082"
+      ],
+      "session-advisors.ts": [
+        "0035",
+        "0048",
+        "0066",
+        "0070",
+        "0082",
+        "0088"
+      ],
+      "session-context.ts": [
+        "0043"
+      ],
+      "session-dump-format.ts": [
+        "0082"
+      ],
+      "session-history-format.d.ts": [
+        "0082"
+      ],
+      "session-history-format.ts": [
+        "0082"
+      ],
+      "session-listing.d.ts": [
+        "0050"
+      ],
+      "session-listing.ts": [
+        "0050",
+        "0082"
+      ],
+      "session-maintenance.d.ts": [
+        "0035"
+      ],
+      "session-maintenance.ts": [
+        "0035",
+        "0036",
+        "0045(omitted)",
+        "0046",
+        "0062",
+        "0066",
+        "0070",
+        "0084",
+        "0088"
+      ],
+      "session-manager.d.ts": [
+        "0081"
+      ],
+      "session-manager.ts": [
+        "0081"
+      ],
+      "session-memory.d.ts": [
+        "0075"
+      ],
+      "session-memory.ts": [
+        "0075"
+      ],
+      "session-provider-boundary.d.ts": [
+        "0035"
+      ],
+      "session-provider-boundary.ts": [
+        "0035"
+      ],
+      "session-tools.d.ts": [
+        "0075"
+      ],
+      "session-tools.ts": [
+        "0075",
+        "0083"
+      ],
+      "snapcompact-inline.ts": [
+        "0036"
+      ],
+      "turn-recovery.ts": [
+        "0077"
+      ]
+    },
+    "amendmentsRecorded": [
+      "date-cwd-reminder.ts/0047",
+      "date-cwd-reminder.d.ts/0047",
+      "cache-warmer.ts/0092"
+    ],
+    "total": 30
+  },
+  "owner": "SessionLifecycle",
+  "proposedMinimalExistingGates": [
+    "Parent's controller/fragment replay (patches/apply.sh --print-plan or equivalent) to confirm the recorded fragments reconstruct work/ per layer — no re-pinning of source-text/algebra gates for the removed obsolete formula.",
+    "Existing 0047/0038 date-cwd gate (cache-comparison.md §0047/0038): final wire across midnight-mid-session, process-resume-after-rollover and post-compaction-kept-turns; require unchanged message count, only the newest real user message stamp differs, session-scoped anchor file replayed on resume.",
+    "Existing 0092 warmer gate (cache-comparison.md §0092): exactly one injected HTTP request and exactly one cache_warming_result per refresh, plus one cache_warming_start/end pair when both channels are on; hit ⇒ cacheRead>0 && cacheWrite===0; parked run resumes anchored to touchedAt.",
+    "Existing snapcompact reduction gate (0062) and the 0010 idle-ephemeral admission/busy gate; the compaction live-chain gates 0035/0066/0088/0089 on the pi-agent-core side."
+  ],
+  "publicInterfaceDecisions": [
+    {
+      "decision": "getMainCacheHitRate(): number|undefined (0081), getUsageStatistics().subagentCost (upstream), UserMessage.displayText incl. queued-messages.ts:109 — all preserved; session-listing.ts tail scan/SessionInfo.lastModel untouched. No renames.",
+      "peers": [
+        "TuiRendering"
+      ]
+    },
+    {
+      "decision": "no AgentSession signature renamed: runIdleEphemeralTurn/runEphemeralTurn/inputPreparationSignal/isSessionTransitioning/appendExtensionEntryPersisted/prompt|followUp|steer{displayText,expandPromptTemplates}/viewSession.popLastQueuedMessage/fetchUsageReports all intact; only in-body 0010 guards and 0082 displayText added.",
+      "peers": [
+        "HostInterface"
+      ]
+    },
+    {
+      "decision": "CoreImaging-confirmed final: my 4 call sites match maxFramesForDataBudget(shape: ShapeGeometry) + providerFrameBudget(provider, api?); shedFramesOverBudget / FRAME_DATA_BYTES_PER_SHAPE are gone from src and dist/types and are referenced nowhere in session-maintenance.ts or snapcompact-inline.ts. Answered their byte-cap question: my only byte check is request-side (#snapcompactFramePayloadBytes reads getPreservedArchive(...).frames and the caller rejects an over-budget attached payload at 1374-1379 / 4873-4878; #renderSnapcompactArchive re-renders once at frames×budget/payload, 3796-3825) — no persisted-archive cap asserted. They re-acknowledged that this is exactly the shape their resolution assumes, so the build-time shed removal is safe and neither side needs a change.",
+      "peers": [
+        "CoreImaging"
+      ]
+    }
+  ],
+  "remainingConcerns": [
+    "pi-coding-agent/dist/types/session/cache-warmer.d.ts is in no owner manifest; work/ keeps upstream 18.7.0's version (CacheWarmingRefreshStart/End, onRefreshStart/onRefreshEnd) but does not declare the local 0092 additions (IDLE_WARMING_AGE_ENV, CacheWarmerDeps.report, re-exported CacheWarmingResultEvent). The same gap exists in old-chain (0092 never touched that d.ts), so this is pre-existing, not a regression — parent to rule on declaration closure.",
+    "isDateCwdReminderControl's reminderControls WeakSet is never populated because the persisted-anchor mechanism appends no developer control turns, so it is a constant-false export. Kept verbatim from upstream because agent-session's native buildLiveProviderContext cut imports it; the cut is a correct no-op with anchors (message count is unchanged by stamping).",
+    "#projectPreviousArchiveTokens now prices the superseded archive only through the tokenizer's model/dimension rates; if CoreImaging's measured overrides require a distinct previous-archive frame price, the 0062 credit must be revisited.",
+    "0085 rejected-draft paths (input-controller.ts/main.ts/draft.ts) and 0089 (pi-agent-core compaction.ts) are not in this manifest, so their acceptance is other owners' evidence; my files only consume the resulting host/compaction contracts."
+  ],
+  "result": "Only 2 files flag: agent-session.ts (1 line: the local `#endInFlight(inFlight.epoch, cb)` form, deliberately replaced by upstream's refactor) and session-maintenance.ts (30 lines: all the removed 0045/0062 repricing formula, its doc comments and 2-arg call forms — intentional per parent directive). No other local capability line was lost.",
+  "scratchRoot": "/home/chris/.cache/omp-1870-migration-d79dt__o",
+  "semanticCorrections": [
+    {
+      "change": "Upstream `isDateCwdReminderControl` + reminderControls WeakSet re-added after the 0038→0047 lineage replaced the injector (agent-session.ts:331/2323 imports and calls it). Recorded via port.py amend (layer 0047).",
+      "location": "date-cwd-reminder.ts/.d.ts"
+    },
+    {
+      "change": "Removed the obsolete 0045/0062 double repricing per parent directive: `#projectSnapcompactContextTokens` takes no frameTokenEstimate (0045 skipped), `#projectPreviousArchiveTokens(preparation)` no longer subtracts (FRAME_TOKEN_ESTIMATE - frameTokenEstimate)*frames, `#projectPreSnapcompactContextTokens(preparation)` param dropped, and the 2 speculative-path callers at 4905/4910 updated. Previous-archive credit itself is retained.",
+      "location": "session-maintenance.ts 0036/0062"
+    },
+    {
+      "change": "Local idle-settle + generation guard placed BEFORE `options?.onPromptAdmitted?.()`; a superseded prompt returns false before being ack'd as admitted (rpc-prompt-results resolves 'admitted' to ack a command).",
+      "location": "agent-session.ts:7781-7787"
+    },
+    {
+      "change": "Adopted upstream's removal of the now-unused `const previousSessionFile = this.sessionFile;` (upstream moved it into #branchIntoNewSession) and kept only the local `await this.#drainAdmittedExtensionAppends();`; local displayText preference kept.",
+      "location": "agent-session.ts branch()"
+    },
+    {
+      "change": "Local autoCompactionSignal.aborted guard kept, call rewritten to upstream's `runAutoCompaction(reason, willRetry, {...options, methodIndex: methodIndex + 1})` (deferred/allowDefer no longer exist in the signature).",
+      "location": "session-maintenance.ts:5214-5221"
+    },
+    {
+      "change": "Conflict resolved to `this.#endInFlight(inFlight.epoch); await this.#finishTurnObservation(observation, turnError);` — upstream's callback→await refactor plus the local epoch guard (upstream's single `#endInFlight()` would have dropped the epoch guard).",
+      "location": "agent-session.ts:1377"
+    },
+    {
+      "change": "Hit path (`outcome='hit'; #report('hit', message); validateRun; run.touchedAt=undefined; #schedule(run)`) kept INSIDE the try so #schedule's park/stop runs before the finally's onRefreshEnd and warmingStopReason is still reported — resolving to the local side verbatim would have pushed #schedule outside the try and dropped that upstream accounting. Recorded via port.py amend (layer 0092).",
+      "location": "cache-warmer.ts:619-660"
+    }
+  ],
+  "status": "complete",
+  "testsNotRun": "Per assignment: no tests, builds, typechecks, linters, formatters or provider requests were run; work/ was not deployed and no credentials/agent.db/live tree touched. Clean merges were not treated as semantic validation; validation is by targeted source diff, identifier survival and call-arity inspection only.",
+  "upstreamAdoption": [
+    {
+      "adopted": "upstream runAutoCompaction(reason, willRetry, options) — removed positional `deferred`/`allowDefer`/`deferredHandoff` (upstream removed them everywhere; verified no local layer touched those identifiers)",
+      "layer": "0070"
+    },
+    {
+      "adopted": "cache-warmer.ts #refresh try/finally with onRefreshStart/onRefreshEnd (outcome hit|miss|error|aborted, usage on accepted-cancelled replay, warmingStopReason); kept local idle budget (IDLE_WARMING_AGE_ENV/DEFAULT_IDLE_WARMING_AGE_MS), #park/#pollParked/#resumeParked/#dropParked, touchedAt anchoring and #report extension event; single #replay owner",
+      "layer": "0092"
+    },
+    {
+      "adopted": "session-manager insert(): upstream `#usage.subagentCost += usage.cost.total` for task toolResults merged with local #mainInput/#mainCacheRead/#mainCacheWrite; getMainCacheHitRate() kept (session-manager.ts:2989, d.ts:255)",
+      "layer": "0081"
+    },
+    {
+      "adopted": "agent-session.ts: upstream split `#endInFlight()` (no callback) + `await #finishTurnObservation(observation, turnError)` (settleAsyncWork→close), `onPromptAdmitted`, `#startTurnObservation`/TurnObservation; kept local #inFlightEpoch reservation guards, inFlight.idleEphemeralSettled joins and #queueDeferredWake parking",
+      "layer": "0010"
+    },
+    {
+      "adopted": "date-cwd-reminder.ts re-authored on 18.7.0: local persisted-anchor design (dateCwdAnchorKey/applyDateCwdAnchors + #load/#persist/#anchors in DateCwdReminderInjector(sessionId, anchorRoot)) retained; obsolete local 0038 provider-only tail dropped; upstream export `isDateCwdReminderControl` retained for agent-session's native cut",
+      "layer": "0038+0047"
+    },
+    {
+      "adopted": "snapcompact.maxFramesForDataBudget(shape) single-arg (upstream ShapeGeometry area pricing) at all 4 session-maintenance call sites (3741/3791/4173/4197); kept local api-family arg snapcompact.providerFrameBudget(provider, api)",
+      "layer": "0036"
+    },
+    {
+      "adopted": "previous-archive baseline credit retained (#projectPreviousArchiveTokens prices the superseded summary+blocks via the tokenizer)",
+      "layer": "0062"
+    },
+    {
+      "adopted": "agent-session.ts host `buildLiveProviderContext` (live-prefix cut that skips isDateCwdReminderControl) and session-maintenance compact calls `buildProviderContext`+`isUserAuthored`; kept local host `convertMessagesToLlm`/`convertMessagesToLlmWithSource` and `buildCachePreservingContext` (whole live chain) side-by-side — both declared in pi-agent-core compaction.d.ts; also session-advisors.ts advisor compact keeps both isUserAuthored and #buildAdvisorCachePreservingContext",
+      "layer": "0035"
+    }
+  ],
+  "verification": {
+    "result": "Only 2 files flag (agent-session.ts: 1 intentionally replaced line; session-maintenance.ts: 30 lines of the intentionally removed 0045/0062 repricing). No other local capability line lost. bg_18 cancelled as a redundant weaker duplicate."
+  }
+}

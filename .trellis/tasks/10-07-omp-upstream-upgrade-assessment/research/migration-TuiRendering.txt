@@ -1,0 +1,278 @@
+{
+  "owner": "TuiRendering",
+  "status": "complete",
+  "completedPaths": {
+    "count": 21,
+    "layerApplications": 24,
+    "conflictsResolved": 2,
+    "portState": "advance TuiRendering -> completeFiles 21, conflicts [] (all state files: next == layer count, no conflict key)",
+    "markers": "none in any of the 21 owned work/ paths",
+    "unrecordedWorkEdits": "none; both resolutions were accepted inside their pending layer (no amend needed)",
+    "paths": [
+      {
+        "path": "pi-tui/src/status-line/schema.ts",
+        "layers": [
+          "0033"
+        ]
+      },
+      {
+        "path": "pi-tui/src/status-line/segments.ts",
+        "layers": [
+          "0033",
+          "0004",
+          "0081"
+        ]
+      },
+      {
+        "path": "pi-tui/dist/types/status-line/host.d.ts",
+        "layers": [
+          "0037",
+          "0081"
+        ]
+      },
+      {
+        "path": "pi-tui/src/status-line/component.ts",
+        "layers": [
+          "0037"
+        ]
+      },
+      {
+        "path": "pi-tui/src/status-line/host.ts",
+        "layers": [
+          "0037",
+          "0081"
+        ]
+      },
+      {
+        "path": "pi-tui/dist/types/apps/session-picker.d.ts",
+        "layers": [
+          "0050"
+        ]
+      },
+      {
+        "path": "pi-tui/dist/types/overlays/session-selector.d.ts",
+        "layers": [
+          "0050"
+        ]
+      },
+      {
+        "path": "pi-tui/src/apps/session-picker.ts",
+        "layers": [
+          "0050"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/session-selector.ts",
+        "layers": [
+          "0050",
+          "0082"
+        ]
+      },
+      {
+        "path": "pi-coding-agent/src/eval/py/display.ts",
+        "layers": [
+          "0078"
+        ],
+        "note": "conflict resolved here"
+      },
+      {
+        "path": "pi-tui/src/chat/tool-execution.ts",
+        "layers": [
+          "0079",
+          "0080"
+        ],
+        "note": "conflict resolved at 0080"
+      },
+      {
+        "path": "pi-tui/dist/types/chat/image-loading.d.ts",
+        "layers": [
+          "0080"
+        ]
+      },
+      {
+        "path": "pi-tui/src/chat/assistant-message.ts",
+        "layers": [
+          "0080"
+        ]
+      },
+      {
+        "path": "pi-tui/src/chat/image-loading.ts",
+        "layers": [
+          "0080"
+        ]
+      },
+      {
+        "path": "pi-tui/src/status-line/startup.ts",
+        "layers": [
+          "0081"
+        ]
+      },
+      {
+        "path": "pi-tui/dist/types/chat/transcript-entry.d.ts",
+        "layers": [
+          "0082"
+        ]
+      },
+      {
+        "path": "pi-tui/src/chat/chat-transcript-builder.ts",
+        "layers": [
+          "0082"
+        ]
+      },
+      {
+        "path": "pi-tui/src/chat/transcript-entry.ts",
+        "layers": [
+          "0082"
+        ]
+      },
+      {
+        "path": "pi-tui/src/chat/transcript-outline.ts",
+        "layers": [
+          "0082"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/copy-selector.ts",
+        "layers": [
+          "0082"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/tree-selector.ts",
+        "layers": [
+          "0082"
+        ]
+      }
+    ]
+  },
+  "conflictResolutions": [
+    {
+      "path": "pi-coding-agent/src/eval/py/display.ts",
+      "layer": "0078",
+      "upstreamSide": "dropped the now-unneeded `as string` casts on data[\"image/png\"]/data[\"image/jpeg\"] (narrowing fix); still pushed PNG and JPEG independently",
+      "localSide": "PNG-preferred `else if` (one bundle's PNG/JPEG are alternatives, not two display events)",
+      "resolution": "kept upstream typing (no casts) + local `else if`; upstream `application/x-omp-image` block with evalImageMetadata(image) above it untouched",
+      "evidence": "work file lines 45-66; history/0078 before/after confirms the only local intent is `if`->`else if`"
+    },
+    {
+      "path": "pi-tui/src/chat/tool-execution.ts",
+      "layer": "0080",
+      "upstreamSide": "new `requestRender: () => this.#ui.requestRender()` in the Image options (repaint on image placement)",
+      "localSide": "fingerprint-qualified slot id `imageKey: te${instanceId}:${i}:${key}` so a re-delivered slot renders only its own fingerprint",
+      "resolution": "both intents combined into one options object (they are different fields, not competing edits of the same lines)",
+      "evidence": "work file lines 1678-1683; verify-kitty-shared-png-cache asserts slot collision negative control needs `:${key}`"
+    }
+  ],
+  "upstreamAdoption": {
+    "adoptedAlways": [
+      "0078: `Picture`-independent `application/x-omp-image` metadata via evalImageMetadata(image), `isRecord` bundle unwrapping, KernelDisplayOutput `ImageContent` member, and the new dist/types/eval/py/display.d.ts declaration (old-chain d.ts was stale `{data:string}`)",
+      "0080: `requestRender` repaint hook on both Image renderers (tool-execution.ts and assistant-message.ts)",
+      "0079/0080: upstream's own image-slot comment/`renderedImageCount` accounting retained verbatim",
+      "0081: upstream `subagentCost` on `getUsageStatistics()` (host.ts, host.d.ts, status-line/types.ts, metrics.ts `(+x)` suffix, segments.ts costSummary ownCost/subagentCost split)",
+      "0079-adjacent: upstream assistant-message `isTranscriptBlockPending()` (figure raster hold) composes with local `isTranscriptBlockFinalized()` barrier; transcript-container combines both",
+      "0082-adjacent: upstream figure-markdown/svg-figure/svg-source/table-chart modules and the whole thinking/expand/table-chart rework in assistant-message.ts preserved (work != old-chain for all of them)",
+      "0050-adjacent: upstream component.ts TspMeterMark context-meter rework, `pi` composer-homed segment, setSubagentTreeCost plumbing, usage-node cost/actions rework preserved"
+    ],
+    "notAdoptedAsEquivalent": [
+      "Upstream image-loading.ts cache is success-only and non-bounded-by-entry; local bounded LRU + settled failure reasons kept (upstream left this file byte-identical 18.4.4->18.7.0, so only the local contract exists)",
+      "Upstream `fetchUsageReports(session, signal)` 2-arg form not treated as replacing local provider narrowing",
+      "Upstream cache_hit formula (usageStats-derived) not treated as replacing local `getMainCacheHitRate()` primary-assistant-only rate"
+    ]
+  },
+  "retainedLocalBehavior": {
+    "0033": "cache_turn segment id (schema.ts STATUS_LINE_SEGMENT_IDS), cacheTurnSegment per-turn settled-assistant usage/hit-rate with stopReason guard, SEGMENTS/ALL_SEGMENT_IDS entry",
+    "0004": "token_total includes cacheRead + orchestrationCacheRead (+ input/output/cacheWrite/orchestrationInput/orchestrationOutput)",
+    "0037": "STATUS_USAGE_REFRESH_TTL_MS 50s, ANTHROPIC_USAGE_TURN_GATE_MS 60s, #usageLastTurnKey turn-end bypass, active-provider whitelist passed as new `providers` arg, re-entry guard, flicker fix (invalidate memo only, no forced repaint), usage-node/TSP context-meter layout",
+    "0078": "PNG-over-JPEG MIME preference",
+    "0079": "#pendingImageConversions barrier in isTranscriptBlockFinalized + blockVersion/displayInputVersion bump on release + discarded-chain error logging",
+    "0080": "imageFingerprint slot keys, shared success/failure cache (completedPng/ensurePng/pngFailureReason, 32 MiB / 256-entry LRU + WeakMap reasons), #kittyConversionFailures labels, #publishKittyConversion, fingerprint-qualified imageKey",
+    "0081": "sessionManager.getMainCacheHitRate() declared+consumed, startup.ts stub, cache_hit=primary-only; SessionLifecycle's session-manager.ts implementation present in work/",
+    "0050": "SessionInfo.lastModel + shortenModelName metadata, space-key onPreviewRequest/SessionPreviewView (scroll/wheel/scrollbar-drag, 15-turn 2+10 window), loadPreviewMessages/SessionPreviewLoader wiring in session-picker.ts",
+    "0082": "userDisplayText()/UserDisplayMessageLike + displayText preference applied in transcript-entry, transcript-outline, copy-selector (rawUserText removed), chat-transcript-builder, tree-selector (search index + row), session-selector preview extractor; queued-messages.ts:109 consumer intact"
+  },
+  "publicInterfaceDecisions": {
+    "changedVsOldChain": "none — every exported signature is the old-chain local contract retained, plus upstream's additive members",
+    "declarationClosure": {
+      "verifiedPairs": [
+        "pi-tui/src/status-line/host.ts <-> pi-tui/dist/types/status-line/host.d.ts (identical deltas)",
+        "pi-tui/src/chat/transcript-entry.ts <-> dist/types/chat/transcript-entry.d.ts (UserDisplayMessageLike + userDisplayText)",
+        "pi-tui/src/apps/session-picker.ts <-> dist/types/apps/session-picker.d.ts",
+        "pi-tui/src/overlays/session-selector.ts <-> dist/types/overlays/session-selector.d.ts (SessionPreviewLoader, lastModel, onPreviewRequest, loadPreviewMessages)",
+        "pi-tui/src/chat/image-loading.ts <-> dist/types/chat/image-loading.d.ts (imageFingerprint/ensurePng/completedPng/pngFailureReason; no stale `imagePayloadKey|cachedPngConversion|convertImageToPngShared` references remain anywhere in work/)"
+      ],
+      "unownedCounterpartsOk": [
+        "dist/types/chat/assistant-message.d.ts, chat-transcript-builder.d.ts, overlays/copy-selector.d.ts, status-line/component.d.ts, eval/py/display.d.ts now equal 18.7.0 pristine and match the merged src public surface (only private additions locally)"
+      ],
+      "preExistingGapToFlag": "pi-tui/dist/types/status-line/schema.d.ts (NOT in port-manifest; not owned by anyone) still lacks the literal \"cache_turn\" although src/status-line/schema.ts (0033) has it. history/0033 contains only segments.ts + schema.ts, so layer 0033 never updated this d.ts; work == old-chain == 18.7.0 pristine here. Runtime is unaffected (package.json exports `import` -> src/*.ts; bun runs TS), but AC1 source/d.ts closure is not satisfied for the external `types` condition. Parent decision needed; I did not edit it (no ownership, no shared-file writes)."
+    },
+    "ownerMessagesSent": [
+      "agent://HostInterface (status-line-host.ts fetchUsageReports 3-arg + getMainCacheHitRate + subagentCost/setSubagentTreeCost + SessionPreviewLoader/loadPreviewMessages)",
+      "agent://SessionLifecycle (session-manager.getMainCacheHitRate + #usage.subagentCost + user-message displayText consumed by pi-tui userDisplayText and session-listing lastModel)"
+    ],
+    "crossOwnerVerificationDone": [
+      "work/pi-coding-agent/src/modes/status-line-host.ts:57-59 implements the local 3-arg fetchUsageReports",
+      "work/pi-coding-agent/src/session/session-manager.ts:2989 getMainCacheHitRate + :540 subagentCost aggregate",
+      "work/pi-coding-agent/src/modes/interactive-mode.ts:3730-3734 calls statusLine.setSubagentTreeCost",
+      "work/pi-coding-agent/src/modes/controllers/selector-controller.ts:1657 and src/main.ts:223 supply loadPreviewMessages",
+      "no consumer of the removed image-loading API names remains in work/"
+    ]
+  },
+  "semanticCorrectionsBeyondMechanicalMerge": [
+    {
+      "path": "pi-coding-agent/src/eval/py/display.ts",
+      "layer": "0078",
+      "correction": "combined upstream cast-removal with the local else-if instead of picking a side; a naive `ours` pick would have regressed the PNG-over-JPEG contract, a naive `theirs` pick would have reintroduced the redundant casts"
+    },
+    {
+      "path": "pi-tui/src/chat/tool-execution.ts",
+      "layer": "0080",
+      "correction": "kept the local fingerprint slot id together with upstream's requestRender; picking `ours` would drop the A->B->A slot isolation the 0080 gate asserts, picking `theirs` would drop upstream's repaint"
+    }
+  ],
+  "testsNotRun": [
+    "no bun/tsc/oxlint/oxfmt, no build, no verify-* gate, no apply.sh, no provider call, no live install or agent.db access; work verified by three-way merge state, marker scan, and read-only diff against old-chain / 18.4.4 pristine / 18.7.0 pristine"
+  ],
+  "proposedMinimalExistingGates": {
+    "perCapability": [
+      {
+        "layer": "0078",
+        "gate": "bun patches/verify-python-display-mime-preference.ts"
+      },
+      {
+        "layer": "0079",
+        "gate": "bun patches/verify-kitty-conversion-finalization.ts"
+      },
+      {
+        "layer": "0080",
+        "gate": "bun patches/verify-kitty-shared-png-cache.ts"
+      },
+      {
+        "layer": "0081",
+        "gate": "bun patches/verify-main-cache-hit.ts (also exercises segments cache_hit via SEGMENTS)"
+      },
+      {
+        "layer": "0050",
+        "gate": "bun patches/verify-session-history-preview.ts"
+      },
+      {
+        "layer": "0082",
+        "gate": "bun patches/verify-user-display-text-queue.ts"
+      },
+      {
+        "layers": [
+          "0033",
+          "0004",
+          "0037"
+        ],
+        "gate": "bash patches/verify-patch-family-rollups.sh (families 33/34/35/36/37: old=new byte equality, reverse->pristine, idempotent) — the only existing gate for these three; there is no dedicated behavior gate for cache_turn/token_total/usage-turn-gate"
+      }
+    ],
+    "environment": "all gates must run with OMP_PATCH_VERIFY_TUI_ROOT / OMP_PATCH_VERIFY_AGENT_ROOT / OMP_PATCH_VERIFY_NM pointed at the migrated tree, plus the full pristine chain oracle (apply.sh --print-plan / --check / reverse->pristine) per spec verification-gate-contracts.md sections for 0078/0079 and 0081",
+    "notRunByMe": true
+  },
+  "concerns": [
+    "Pre-existing (also present in old-chain): pi-tui/dist/types/status-line/schema.d.ts lacks \"cache_turn\" — flagged above for parent closure decision.",
+    "0082/0085-adjacent host-side behaviour (admission/cancel/rejected-draft restore) and cross-package 0082 consumers (agent-session, interactive-mode, ui-helpers, session-listing, export/share) are other owners' paths; my files only consume displayText and are verified to compile structurally against it.",
+    "0045 remains provisionally omitted in work/ by the helper (not my files); untouched by me."
+  ]
+}

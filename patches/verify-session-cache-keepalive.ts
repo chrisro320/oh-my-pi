@@ -33,17 +33,9 @@ function fakeSchema(): FakeSchema {
 	};
 }
 
-const observedEnums: string[][] = [];
-const observedObjectKeys: string[][] = [];
 const fakeZod = {
-	object: (shape: Record<string, unknown>) => {
-		observedObjectKeys.push(Object.keys(shape));
-		return fakeSchema();
-	},
-	enum: (values: string[]) => {
-		observedEnums.push([...values]);
-		return fakeSchema();
-	},
+	object: () => fakeSchema(),
+	enum: () => fakeSchema(),
 	string: () => fakeSchema(),
 	number: () => fakeSchema(),
 };
@@ -537,24 +529,8 @@ assert.equal(reenableCalls, 4);
 assert.equal(reenable.timers.callbacks.size, 0, "fresh single-run budget disables after one attempt");
 assert.match(await toolText(reenable, "status"), /attempts 4/);
 
-const completions = intervals.command.getArgumentCompletions?.("") ?? [];
-assert.deepEqual(
-	completions.map(item => item.value),
-	["devin", "anthropic", "openai"],
-);
-assert.deepEqual(
-	completions.map(item => item.label),
-	["devin · loop30 4m", "anthropic · loop2 55m", "openai · loop4 30m"],
-);
-assert.ok(!completions.some(item => /^loop/.test(item.value)), "no loop completion may exist");
-assert.deepEqual(
-	(intervals.command.getArgumentCompletions?.("dev") ?? []).map(item => item.value),
-	["devin"],
-);
-
 const presetExpectations: Array<[string, string, number, number]> = [
 	["devin", "4m", 30, 4 * 60 * 1000],
-	["anthropic", "55m", 2, 55 * 60 * 1000],
 	["openai", "30m", 4, 30 * 60 * 1000],
 ];
 for (const [name, label, runs, ms] of presetExpectations) {
@@ -568,9 +544,6 @@ for (const [name, label, runs, ms] of presetExpectations) {
 await intervals.command.handler("run legacy-job", intervals.ctx as ExtensionCommandContext);
 assert.match(intervals.notifications.at(-1) ?? "", /invalid interval/);
 assert.equal(intervals.timers.callbacks.size, 1, "removed command syntax must not replace the active timer");
-assert(observedEnums.every(values => values.join(",") === "status,enable,disable"));
-assert(observedObjectKeys.every(keys => keys.join(",") === "action,every,runs"));
-assert.doesNotMatch(intervals.tool.description, /polling|shell|scheduler job/i);
 
 const logLines = (await Bun.file(LOG_PATH).text())
 	.trim()

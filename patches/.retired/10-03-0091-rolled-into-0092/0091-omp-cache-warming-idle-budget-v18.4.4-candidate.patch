@@ -1,0 +1,191 @@
+--- a/src/session/cache-warmer.ts
++++ b/src/session/cache-warmer.ts
+@@ -28,9 +28,13 @@
+ } from "@oh-my-pi/pi-ai";
+ import { calculateCost } from "@oh-my-pi/pi-catalog/models";
+ import { isAnthropicOAuthToken } from "@oh-my-pi/pi-catalog/utils";
+-import type { CacheWarmingDecisionEvent, CacheWarmingDecisionEventResult } from "../extensibility/shared-events";
++import type {
++	CacheWarmingDecisionEvent,
++	CacheWarmingDecisionEventResult,
++	CacheWarmingResultEvent,
++} from "../extensibility/shared-events";
+ 
+-export type { CacheWarmingDecisionEvent, CacheWarmingDecisionEventResult };
++export type { CacheWarmingDecisionEvent, CacheWarmingDecisionEventResult, CacheWarmingResultEvent };
+ 
+ /** Warming mode: "off" disables it, "streaming" protects active runs, "idle" also covers gaps between runs. */
+ export type CacheWarmingMode = "off" | "streaming" | "idle";
+@@ -42,7 +46,22 @@
+ /** Streaming warming never continues past this long after the real request that started it. */
+ const MAX_WARMING_AGE_MS = 60 * 60_000;
+ /** Idle warming uses a shorter horizon because continuation estimates become less reliable with age. */
+-const MAX_IDLE_WARMING_AGE_MS = 30 * 60_000;
++const DEFAULT_IDLE_WARMING_AGE_MS = 30 * 60_000;
++/**
++ * Process-local idle horizon override, in milliseconds. An extension that
++ * owns the keep-alive policy sets it for the session lifetime it wants and
++ * deletes it to restore the default; anything but a positive safe integer
++ * is ignored, so the stock horizon stays the fallback.
++ */
++export const IDLE_WARMING_AGE_ENV = "PI_CACHE_WARMING_IDLE_MAX_MS";
++
++function idleWarmingAgeMs(): number {
++	const raw = process.env[IDLE_WARMING_AGE_ENV];
++	if (raw === undefined) return DEFAULT_IDLE_WARMING_AGE_MS;
++	const ms = Number(raw);
++	return Number.isSafeInteger(ms) && ms > 0 ? ms : DEFAULT_IDLE_WARMING_AGE_MS;
++}
++
+ /** A refresh is sent only when it is expected to save at least this many dollars. */
+ const CACHE_WARMING_MINIMUM_EXPECTED_SAVINGS = 0.05;
+ /**
+@@ -237,6 +256,8 @@
+ 	getMode: () => CacheWarmingMode;
+ 	/** Extension override hook; failures fall back to the warmer's own decision. */
+ 	decide?: (event: CacheWarmingDecisionEvent) => Promise<CacheWarmingAction>;
++	/** Fire-and-forget report of each refresh that reached the provider. */
++	report?: (event: CacheWarmingResultEvent) => void;
+ }
+ 
+ /**
+@@ -367,14 +388,41 @@
+ 	}
+ 
+ 	#idleStopReason(run: ActiveRun): string | undefined {
+-		const deadline = run.startedAt + MAX_IDLE_WARMING_AGE_MS;
+-		if (Date.now() >= deadline) return "30-minute idle safety limit reached";
++		const maxMs = idleWarmingAgeMs();
++		const label = `${Math.round(maxMs / 60_000)}-minute`;
++		const deadline = run.startedAt + maxMs;
++		if (Date.now() >= deadline) return `${label} idle safety limit reached`;
+ 		if (run.nextWarmAt <= deadline) return undefined;
+-		return run.delayMs >= MAX_IDLE_WARMING_AGE_MS
+-			? "cache entry outlives the 30-minute idle window"
+-			: "30-minute idle safety limit reached";
++		return run.delayMs >= maxMs
++			? `cache entry outlives the ${label} idle window`
++			: `${label} idle safety limit reached`;
+ 	}
+ 
++	#report(
++		outcome: CacheWarmingResultEvent["outcome"],
++		message: AssistantMessage | undefined,
++		stopReason?: string,
++	): void {
++		const usage = message?.usage;
++		try {
++			this.#deps.report?.({
++				type: "cache_warming_result",
++				outcome,
++				...(usage && {
++					usage: {
++						input: usage.input,
++						output: usage.output,
++						cacheRead: usage.cacheRead,
++						cacheWrite: usage.cacheWrite,
++					},
++				}),
++				...(stopReason !== undefined && { stopReason }),
++			});
++		} catch {
++			// Reporting is diagnostic; it must never break the refresh loop.
++		}
++	}
++
+ 	#clearRun(): void {
+ 		const run = this.#run;
+ 		if (!run) return;
+@@ -454,6 +502,7 @@
+ 		if (this.#run !== run) return;
+ 		if (message && message.usage.totalTokens > 0) this.onWarmed?.(message, extensionOverride);
+ 		if (!message || message.stopReason === "error") {
++			this.#report("error", message, "refresh failed");
+ 			this.#stop("refresh failed");
+ 			return;
+ 		}
+@@ -461,9 +510,11 @@
+ 		// already gone or the replay no longer lands on its key; further
+ 		// refreshes would each pay a full write.
+ 		if (message.usage.cacheRead <= 0 || message.usage.cacheWrite > 0) {
++			this.#report("miss", message, "refresh missed the cache");
+ 			this.#stop("refresh missed the cache");
+ 			return;
+ 		}
++		this.#report("hit", message);
+ 		if (!this.#validateRun(run)) return;
+ 		this.#schedule(run);
+ 	}
+--- a/src/sdk.ts
++++ b/src/sdk.ts
+@@ -4213,6 +4213,7 @@
+ 						getPromptTokens: () => session.lastPromptTokens(),
+ 						getMode: () => cfgProvidersCacheWarming.get(settings),
+ 						decide: event => extensionRunner.emitCacheWarmingDecision(event),
++						report: event => void extensionRunner.emit(event).catch(() => undefined),
+ 					});
+ 		const codeModeState: { namespacesInfo?: unknown } = {};
+ 		const transformToolCallArguments = (args: Record<string, unknown>): Record<string, unknown> => {
+--- a/src/extensibility/shared-events.ts
++++ b/src/extensibility/shared-events.ts
+@@ -431,6 +431,20 @@
+ 	action?: CacheWarmingAction;
+ }
+ 
++/**
++ * Fired after each prompt-cache warming refresh that reached the provider.
++ * `hit` means the replay read the cached prefix and wrote nothing; `miss` and
++ * `error` stop warming until the next real request.
++ */
++export interface CacheWarmingResultEvent {
++	type: "cache_warming_result";
++	outcome: "hit" | "miss" | "error";
++	/** Token usage of the replay; absent when the provider returned no response. */
++	usage?: { input: number; output: number; cacheRead: number; cacheWrite: number };
++	/** Why warming stopped after this refresh; absent while warming continues. */
++	stopReason?: string;
++}
++
+ /** Return type for `session_before_branch` handlers */
+ export interface SessionBeforeBranchResult {
+ 	/**
+--- a/src/extensibility/extensions/types.ts
++++ b/src/extensibility/extensions/types.ts
+@@ -104,6 +104,7 @@
+ 	AutoRetryStartEvent,
+ 	CacheWarmingDecisionEvent,
+ 	CacheWarmingDecisionEventResult,
++	CacheWarmingResultEvent,
+ 	ContextEvent,
+ 	GoalUpdatedEvent,
+ 	RetryFallbackAppliedEvent,
+@@ -813,8 +814,12 @@
+ // Cache Warming Events
+ // ============================================================================
+ 
+-export type { CacheWarmingDecisionEvent, CacheWarmingDecisionEventResult } from "../shared-events";
+ export type {
++	CacheWarmingDecisionEvent,
++	CacheWarmingDecisionEventResult,
++	CacheWarmingResultEvent,
++} from "../shared-events";
++export type {
+ 	CacheWarmingAction,
+ 	CacheWarmingDecision,
+ 	CacheWarmingMode,
+@@ -1229,6 +1234,7 @@
+ 	| SessionEvent
+ 	| ContextEvent
+ 	| CacheWarmingDecisionEvent
++	| CacheWarmingResultEvent
+ 	| BeforeProviderRequestEvent
+ 	| AfterProviderResponseEvent
+ 	| BeforeAgentStartEvent
+@@ -1430,6 +1436,7 @@
+ 		event: "cache_warming_decision",
+ 		handler: ExtensionHandler<CacheWarmingDecisionEvent, CacheWarmingDecisionEventResult>,
+ 	): void;
++	on(event: "cache_warming_result", handler: ExtensionHandler<CacheWarmingResultEvent>): void;
+ 	on(event: "session_compact", handler: ExtensionHandler<SessionCompactEvent>): void;
+ 	on(event: "session_shutdown", handler: ExtensionHandler<SessionShutdownEvent>): void;
+ 	on(event: "session_before_tree", handler: ExtensionHandler<SessionBeforeTreeEvent, SessionBeforeTreeResult>): void;

@@ -1,0 +1,97 @@
+{
+  "owner": "HostInterface",
+  "status": "complete",
+  "paths_complete": "33/33 owned coding-agent paths; python3 port.py advance HostInterface => completeFiles 33, conflicts [] ; zero merge markers in owned files",
+  "conflicts_resolved": [
+    {
+      "path": "pi-coding-agent/src/task/executor.ts",
+      "layer": "0010",
+      "resolution": "@ours (upstream initializeExtensions)",
+      "reason": "local 0010's only delta was runIdleEphemeralTurn in the extension host context; upstream 18.7.0 folded it into modes/runtime-init.ts:152 initializeExtensions, so the inline addition is redundant. Verified present."
+    },
+    {
+      "path": "pi-coding-agent/src/task/executor.ts",
+      "layer": "0082",
+      "resolution": "@ours (upstream initializeExtensions)",
+      "reason": "local 0082 delta = appendEntryPersisted callback; upstream runtime-init.ts:121 already emits it. No capability loss."
+    },
+    {
+      "path": "pi-coding-agent/src/modes/interactive-mode.ts",
+      "layer": "0082",
+      "resolution": "combine",
+      "reason": "upstream `expandThinkingBlocks = false` field + local `deferredDraftSnapshots: RestoredQueuedMessage[]` field; additive, both retained."
+    },
+    {
+      "path": "pi-coding-agent/src/main.ts",
+      "layer": "0085",
+      "resolution": "combine",
+      "reason": "upstream import adds SessionMoveRefusedError; local adds restoreRejectedDraft import; additive."
+    },
+    {
+      "path": "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+      "layer": "0072",
+      "resolution": "custom combine",
+      "reason": "replaced upstream require()-lazy loader/type-import with 0072 static value imports while surfacing the new upstream helper: `import { type Model, PASTE_CODE_LOGIN_PROVIDERS, type UsageReport } from \"@oh-my-pi/pi-ai\"; import { getOAuthCredentialProvider, getOAuthProviders } from \"@oh-my-pi/pi-ai/registry/oauth\";`"
+    },
+    {
+      "path": "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+      "layer": "0072",
+      "resolution": "theirs for loaders, kept upstream SettingsMenu",
+      "reason": "removed ModelOverlayModules/ProviderAuthUiModules + loadModelOverlayComponents/loadProviderAuthUi (0072 recursion-guard intent); retained upstream's new SettingsMenu interface needed by #settingsMenu."
+    },
+    {
+      "path": "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+      "layer": "0072",
+      "resolution": "@theirs (empty)",
+      "reason": "removed `const { getOAuthCredentialProvider, LoginDialogComponent, PASTE_CODE_LOGIN_PROVIDERS } = loadProviderAuthUi();` at the OAuth login site; all three now come from static imports."
+    },
+    {
+      "path": "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+      "layer": "0082",
+      "resolution": "combine",
+      "reason": "kept upstream's single `if (!this.ctx.focusedAgentId)` loop (replacing base's two loops) and applied local display text: both steer and followUp push `entry.displayText ?? entry.text`."
+    },
+    {
+      "path": "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+      "layer": "0082",
+      "resolution": "combine",
+      "reason": "#deliverQueuedMessage: kept upstream's new executeBuiltinSlashCommand admission block, then wrapped skill/command reinterpretation in local `if (!message.prepared)`."
+    },
+    {
+      "path": "pi-coding-agent/src/modes/controllers/input-controller.ts",
+      "layer": "0082",
+      "resolution": "combine",
+      "reason": "#popLastQueuedMessage: upstream viewSession.popLastQueuedMessage() plus local deferred-snapshot restore-first branch (rejected prepared capture)."
+    },
+    {
+      "path": "pi-coding-agent/dist/types/modes/interactive-mode.d.ts",
+      "layer": "0082",
+      "resolution": "combine",
+      "reason": "declared both `expandThinkingBlocks: boolean` and `deferredDraftSnapshots: InteractiveModeContext[\"deferredDraftSnapshots\"]`."
+    }
+  ],
+  "upstream_adopted": "initializeExtensions host wiring (runtime-init) incl. runIdleEphemeralTurn + appendEntryPersisted; expandThinkingBlocks thinking-visibility; SessionMoveRefusedError; focusedAgentId guard in pending-message band; executeBuiltinSlashCommand queue-delivery admission; viewSession.popLastQueuedMessage; alias-aware getOAuthCredentialProvider used by refreshProvider(...,'online'); MCP follower (task/executor.ts followMCPTools/bind); saved-model fail-closed (sdk.ts allowSessionModelFallback forwarding at line 4548); subagent tree cost (setSubagentTreeCost/sumAgentTreeCost); fetchUsageReports providers arg; loadPreviewMessages; CacheWarmingResultEvent (shared-events 0092).",
+  "local_behavior_retained": "0072 static-import recursion guard in selector-controller (no loadProviderAuthUi/loadModelOverlayComponents remain anywhere in pi-coding-agent); 0082 prepared-input admission boundary in input-controller (#shouldPrepareInput #prepareSnapshot #prepareOrdin aryInput, submit + Ctrl+Enter paths) with original displayText vs English wire and image-attachment handling; prepared-gated skill/command + template expansion in main.ts/ui-helpers/input-controller/interactive-mode; rejected/cancelled-draft recovery via draft.ts (RejectedDraftRuntime/restoreRejectedDraft/retainRejectedDraft) and deferredDraftSnapshots dequeue; 0085 draft.ts delegation; 0032 goal-resident toolset (interactive-mode x3, tools/index, sdk); 0034/0075 Hindsight recall+mental-model persistence; 0037 fetchUsageReports providers; 0047 date/cwd reminder session anchor; 0050 loadPreviewMessages; 0076 display-context persistEvalStateContext:false; 0081 fixture cache-hit stubs; 0092 cache-warming events; export share/html/template displayText redaction+search.",
+  "interface_decisions": [
+    "selector-controller OAuth helpers imported from @oh-my-pi/pi-ai/registry/oauth (0072's runtime-matched path; pi-ai exports map ./oauth and ./registry/oauth to the same module).",
+    "No AgentSession signature changed by me; consumer surface relies on runIdleEphemeralTurn, inputPreparationSignal, isSessionTransitioning, appendExtensionEntryPersisted, prompt/followUp/steer {displayText, expandPromptTemplates}, viewSession.popLastQueuedMessage, fetchUsageReports(signal, providers).",
+    "Messaged TuiRendering (acking the 4 status-line/session contracts) and SessionLifecycle (session surface consumed, no changes made)."
+  ],
+  "semantic_corrections": [
+    "Executor extension-init: delegated to upstream initializeExtensions instead of re-adding local inline callbacks (verified the callbacks live in runtime-init).",
+    "ui-helpers #deliverQueuedMessage: builtin admission left outside the prepared guard — provably equivalent since #shouldPrepareInput excludes builtin slash commands, so prepared text can never be a builtin.",
+    "selector-controller: kept the alias-aware upstream helper by statically importing it through the 0072-chosen module path rather than restoring the removed lazy loader."
+  ],
+  "verification_run": [
+    "python3 port.py advance HostInterface -> 33 complete, 0 conflicts.",
+    "grep merge-marker scan over all 33 owned files: clean (remaining markers in the tree belong to SessionLifecycle/CoreImaging files).",
+    "per-layer local-added-line presence check across 33 paths: only expected absorptions flagged (executor 0010/0082 -> runtime-init; selector 0072 -> combined static import; input-controller 0082 -> superseded by 0085 draft.ts; ui-helpers 0082 -> merged guarded loop).",
+    "per-path upstream-added-line presence check: only the two intentional transformations flagged (selector loader lines, ui-helpers push lines).",
+    "cross-file symbol wiring greps: getOAuthCredentialProvider/getOAuthProviders, runIdleEphemeralTurn, appendEntryPersisted, userInputPreparationVersion, emitPrepareUserInput, restoreRejectedDraft, viewSession/popLastQueuedMessage, fetchUsageReports(providers), expandThinkingBlocks all resolve."
+  ],
+  "tests_not_run": "None. Per instruction no tests/builds/lints/formatters were executed; scratch pi-coding-agent tree has no test/ directory.",
+  "proposed_gates": [
+    "repo `bun run check:types` (tsgo -p tsconfig.json --noEmit) in pi-coding-agent — proves source/d.ts closure for the 33 paths.",
+    "repo focused suites covering input-controller/draft recovery/ui-helpers/selector and the session input translator, if present in the real tree."
+  ]
+}

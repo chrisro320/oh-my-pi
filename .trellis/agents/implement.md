@@ -52,6 +52,8 @@ The supervising main session owns commits. Report what changed; do not commit on
 
 ## Report Format
 
+Write the report in English, regardless of dispatch language.
+
 ```
 ## Implementation Complete
 

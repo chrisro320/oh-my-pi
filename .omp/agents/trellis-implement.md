@@ -43,3 +43,4 @@ Do not run:
 - Do not revert unrelated user or concurrent changes.
 - Fix root causes rather than masking symptoms.
 - Prefer existing local helpers and platform patterns over new abstractions.
+- Write all reports and intermediate output in English, regardless of dispatch language.

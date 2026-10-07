@@ -1,0 +1,87 @@
+{
+  "verdict": "PASS",
+  "scope": "pi-ai/src/auth/refresh.ts, pi-ai/src/auth/select.ts, pi-ai/src/auth/usage.ts, pi-ai/src/registry/oauth/anthropic.ts, +dist d.ts for anthropic/usage; upstream store/alias/broker callers read-only as needed (sqlite-credential-store.ts, store.ts, pool.ts, abort.ts, health.ts, auth-storage.ts, auth-broker/remote-store.ts, registry/oauth/index.ts, registry/engine/refresh.ts, registry/hooks/types.ts, error/flags.ts)",
+  "filesChanged": [],
+  "concreteBugsFound": [],
+  "independentPortIntegrityEvidence": {
+    "method": "Mechanical, no compile/runtime. (1) work/ bytes vs fragments/<last-layer>/after; (2) state next vs layer count; (3) conflict-marker scan; (4) local-delta preservation A==B where A=diff(18.4.4-pristine,old-chain) and B=diff(18.7.0-pristine,work) compared line-content only; (5) upstream-added-line presence / upstream-removed-line absence; (6) work-additions-vs-oldchain must all exist in 18.7.0 pristine; (7) regenerated fragment patch content vs history/0090 patch content; (8) export-surface diff.",
+    "results": {
+      "work_equals_last_layer_fragment_after": "MATCH for all 5 slices (refresh.ts, select.ts, usage.ts, registry/oauth/anthropic.ts, dist/types/registry/oauth/anthropic.d.ts) - no unrecorded edits",
+      "state_next_vs_layer_count": "src/auth/refresh.ts next=1 (1 layer), select.ts 1/1, usage.ts 3/3, registry/oauth/anthropic.ts 1/1, dist/types/auth/usage.d.ts 1/1, dist/types/registry/oauth/anthropic.d.ts 1/1 -> every owned layer resolved, none pending",
+      "conflict_markers_under_work_pi-ai": "none",
+      "A_equals_B": "A==B (byte-content) for refresh.ts, select.ts, registry/oauth/anthropic.ts, auth/usage-cache.ts, auth/types.ts. usage.ts differs ONLY by the intended upstream import rebase: A line `import { OAUTH_REFRESH_SKEW_MS } from \"./refresh\";` vs B line `import { mergeRefreshedOrganizationScope, OAUTH_REFRESH_SKEW_MS } from \"./refresh\";`; all other hunks identical (verified by diffing the extracted +/- line sequences).",
+      "upstream_added_lines_present_in_work": "all added lines of diff(18.4.4p,18.7.0p) are present in work/ for all 4 audited files",
+      "upstream_removed_lines_absent_from_work": "yes, except the trivial repeated token `);` - no 18.4.4-only line was reintroduced",
+      "work_additions_vs_oldchain_all_in_1870p": "yes for all 4 files - no third state",
+      "fragment_vs_history_0090_patch_content": "SAME (added/removed line content) for refresh.ts, select.ts, usage.ts, registry/oauth/anthropic.ts, dist/types/registry/oauth/anthropic.d.ts; history/0090/after == old-chain for each",
+      "fragment_0030_usage_cache": "work == fragments/0030/after and same patch content as history/0030 (both src and d.ts)",
+      "exports": "identical old-chain vs work for select.ts, usage.ts, anthropic.ts, usage-cache.ts; refresh.ts differs only by upstream-new export mergeRefreshedOrganizationScope (desired)"
+    },
+    "contractChecks": [
+      {
+        "id": "C3 pre-abort / no POST",
+        "status": "PASS",
+        "evidence": "refresh.ts:450 `if (signal?.aborted) throw new AIError.AbortError(\"credential refresh aborted\");` in refresh(); refresh.ts:630 same in refreshById(); both precede the single-flight lookup and any pending/lease work. AbortError text matches neither OAUTH_DEFINITIVE_FAILURE_PATTERN nor 401 (error/flags.ts:315-319)."
+      },
+      {
+        "id": "C2 caller cancellation vs durable operation",
+        "status": "PASS",
+        "evidence": "Public refresh() wraps the shared op: refresh.ts:456-460 `return raceSignal(this.#refreshSingleFlight(...), signal, ...)`. Single-flight stores and returns the raw durable promise: refresh.ts:474 `if (existing) return existing;`, :497 `return promise;`. Inner request uses only the bounded owner signal: refresh.ts:523 `refreshSignal,` (was AbortSignal.any([signal,refreshSignal]) upstream). Caller signal in lease mode is used only for ownership acquisition: refresh.ts:155 (pre-lease abort check) and :200 (raceSignal on the lease wait); the POST gets refreshAbort.signal (created :262, used :275). refreshById stores the raw promise (refresh.ts:647) and races each waiter (:632/:648)."
+      },
+      {
+        "id": "C5 same-owner renewal before fenced CAS",
+        "status": "PASS",
+        "evidence": "refresh.ts:326-341: `if (leasedCredentialId !== undefined && leaseStore && !leaseStore.renewCredentialRefreshLease(leasedCredentialId, owner, Date.now()+OAUTH_REFRESH_LEASE_TTL_MS)) throw new AIError.ConfigurationError(...)`, executed after the refresh try/finally and immediately before `tryUpdateAuthCredentialIfMatches(row.id, serialized.data, merged, {owner, nowMs})` (:344). `owner`/`leasedCredentialId` are the acquisition values (refresh.ts:151 owner=randomUUID, :191-192 acquire). SQL fences owner: sqlite-credential-store.ts:511-513 renewStmt `WHERE credential_id=? AND owner=?`; CAS :438-446 requires `data=expectedData AND disabled_cause IS NULL AND EXISTS(lease credentials_id=?/owner=?/expires_at_ms>?)`. Timer-loop renewal retained (:240-260). Lost ownership throws ConfigurationError, text not classified definitive -> no spurious disable."
+      },
+      {
+        "id": "C4 bootstrap login-only / identity not between receipt and persistence",
+        "status": "PASS",
+        "evidence": "registry/oauth/anthropic.ts:93-112: refresh phase early-returns (`credentials.accountId ??= context.stored?.accountId; credentials.email ??= context.stored?.email; return credentials;`) with no fetchAnthropicBootstrapIdentity call; login phase runs bootstrap and merges org unconditionally (login-equivalent to upstream's includeOrg gate). context.stored supplied on refresh by registry/engine/refresh.ts:90-97 (only refresh-phase context construction in repo); declared at registry/hooks/types.ts:27-28. Comment-only delta in dist/types/registry/oauth/anthropic.d.ts; declaration unchanged."
+      },
+      {
+        "id": "C6 sole persistence owner for lease-backed rows",
+        "status": "PASS",
+        "evidence": "select.ts:730-737 (preflight), :1030-1046 (tryOAuth; :1037 gates the pool write on !hasRefreshLeases, :1045 uses checkedAccountId), usage.ts:189 (`if (hasRefreshLeases(this.#deps.store)) return;` in persistRefreshedCredential, also the path health.ts:350 calls), refresh.ts:688-696 (refreshById short-circuit reading the store row instead of re-merging/persisting). Full writer audit: store writers are refresh.ts:344/360 (fenced CAS / non-lease update) and pool.ts:484/495 (replaceById, non-lease path only). No unguarded lease-mode persistence."
+      },
+      {
+        "id": "C7 peer login/logout takeover",
+        "status": "PASS",
+        "evidence": "Store CAS dual-fenced (data + lease owner/expiry) at sqlite-credential-store.ts:438-446 (update) and :1519-1545/#deleteIfMatchesWithLeaseStmt :452-461 (disable); lease acquisition only steals an expired lease (:510-518 `WHERE expires_at_ms <= ?`); renew fences owner (:511). Upstream broker client guard present and pristine: auth-broker/remote-store.ts:1187-1204 (#refreshThroughBroker reloads and lets the broker row win when this client's copy changed, :1196)."
+      },
+      {
+        "id": "upstream organization merge",
+        "status": "PASS",
+        "evidence": "mergeRefreshedOrganizationScope intact (refresh.ts:53-70), consumed by mergeRefreshedCredential (refresh.ts:85) and by usage.ts:37/:88. The local refresh hook never sets orgId, so refreshed.orgId stays undefined -> sameOrg true -> stored org/region/inferenceRegion/orgName carry over and activeOrganizationId falls back to stored, matching the research claim. No local override deleted upstream's import."
+      },
+      {
+        "id": "alias routing",
+        "status": "PASS",
+        "evidence": "registry/oauth/index.ts pristine 18.7.0; getOAuthCredentialProvider at :170-172 (storeCredentialsAs alias). Callers unchanged: pi-coding-agent/src/modes/controllers/selector-controller.ts:1902, pi-coding-agent/src/slash-commands/helpers/logout.ts:111,130. The anthropic local override touches only the hook body; hook is registered by name (registry/hooks/oauth-code.ts:8)."
+      },
+      {
+        "id": "identical-write no-op",
+        "status": "PASS",
+        "evidence": "sqlite-credential-store.ts pristine 18.7.0: updateAuthCredential early-returns on unchanged bytes (:1444-1455); tryUpdateAuthCredentialIfMatches no-op branch (:1468-1481) requires the row already hold exactly the new bytes AND `!lease || #holdsCredentialRefreshLeaseStmt.get(id, owner, nowMs)` -> returns false (not masked) if the lease was lost. C5's pre-CAS renew guarantees the fence is held when this branch is reached."
+      },
+      {
+        "id": "dist/declaration consistency",
+        "status": "PASS",
+        "evidence": "UsageApi.reports inline options carry `providers` (auth/types.ts:1128-1137), UsageReportsOptions in usage.ts:108-115 and dist/types/auth/usage.d.ts:32-41; UsageService implements UsageApi (structurally compatible). Caller chain matches: agent-session.ts:12534 fetchUsageReports(signal, providers) -> usage.reports({providers,...}) -> usage.ts:802 forwards `new Set(options.providers)`. readReport(request,cacheKey,stale) declared usage-cache.ts:261 and used usage.ts:338/391; getStale retained for other callers."
+      },
+      {
+        "id": "machine-checkable inventory (repeated)",
+        "status": "MATCH",
+        "evidence": "grep -nE '0090-omp-oauth-durable-refresh|0092-omp-cache-warming-idle-budget|0089-omp-compaction-drop-capacity-gate' patches/apply.sh -> 612,615,623 (18.4.4) and 674,675,676 (18.7.0); patches/PATCHES.md -> 821,833,853. grep -nE 'caller cancellation|lease|CAS|capacity|live chain' .trellis/spec/backend/verification-gate-contracts.md -> 153-169, 206, 774-807 (0090 scenario header at 761)."
+      }
+    ],
+    "limitations": [
+      "Static/source-only audit: no compile, no type-check, no runtime, no tests, no provider traffic, no live credentials or agent.db read (per contract). No language server; import/symbol resolution checked by targeted grep and by spot-reading declarations.",
+      "C2 (no-abort-after-ownership) is verified for lease-backed stores only. For non-lease stores the operation keeps the caller signal (refresh.ts:559 -> #requestOAuthCredentialRefresh, which adds the abort listener and forwards `signal` to the provider request), so a caller abort can still cancel the shared attempt. This is byte-identical to old-chain (A==B) and 0090's contracts are explicitly lease-scoped, so it is not a migration regression - but the parent's gate must not over-claim C2 for broker/RemoteAuthCredentialStore mode.",
+      "[INFERENCE] The 0090 spec's runtime scenarios I cannot execute (real 16s synchronous stall before the CAS; fresh-process SQLite reopen; 'old organization replaced by an organization-less login') are supported by code shape (pre-CAS same-owner renew at refresh.ts:326-341; upstream org-change branch inside mergeRefreshedOrganizationScope; spec row at verification-gate-contracts.md:807) but remain unverified here.",
+      "Non-blocking upstream-pristine observation (not a migration delta, not a bug found): the 18.7.0 no-op branches in updateAuthCredential (:1444-1455) and tryUpdateAuthCredentialIfMatches (:1468-1481) skip, when nothing changed, the `#purgeSupersededDisabledRows` call that a real write performs. No credential-safety impact; flagged only because the assignment asked me to inspect the no-op.",
+      "Narrative imprecision in agent://AuthProviders (no code action): the claim 'refreshById returns raw promise' - in work, refreshById's public waits return raceSignal(existing|promise, signal) (refresh.ts:632/648) while the stored map entry is the raw durable promise (:647). The C2 property holds; no discrepancy to fix.",
+      "Out of scope per assignment: no unrelated provider audit (e.g. devin.ts / 0055 relocation claim not re-verified), and no patch-generation or controller/manifest changes were inspected beyond checksum/state consistency."
+    ]
+  },
+  "i": "Submitting read-only audit result"
+}
