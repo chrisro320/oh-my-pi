@@ -1,0 +1,18 @@
+{
+  "treeManifests": {
+    "old-dep": {
+      "entries": 5845,
+      "sha256": "75a1c70238e2fa52bd61943e7324a80434618050ba02187433bb2cf12c91f23c"
+    },
+    "old-rep": {
+      "entries": 5875,
+      "sha256": "8373488662085a853ad175481f82cb6152470cadc7b198475216324e1a162632"
+    }
+  },
+  "files": {
+    "patches/apply.sh": "2592f57547df2330f125e0242732c3e0210c6c7ebd1a9e3c26658a86554be0fe",
+    "patches/verify-patch-family-rollups.sh": "e09ee148472fa77091d510309d55d6bddf8bb8b15629d459bf77bca9463d7c19",
+    "patches/verify-family-plan.py": "a5ceef0ffaf10f6d3cf21d2231b97eda6c64ae0be821eb3ca5c5aa4a86ee4512",
+    "patches/.18.7.0-families/plan.tsv": "73af58f97187026701f57d55ab3671a4626f559afb4fb69f96a3c2528e85c5c3"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "environment": "private HOME/XDG/TMPDIR; clean environment; no provider credentials",
+  "results": [
+    {
+      "command": [
+        "bun",
+        "/home/chris/.cache/omp-family-smoke-lcwjc1nf/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "omp/18.7.0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bun",
+        "/home/chris/.cache/omp-family-smoke-lcwjc1nf/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+        "read",
+        "/home/chris/.cache/omp-family-smoke-lcwjc1nf/scratch/family-sentinel.txt:raw"
+      ],
+      "exitCode": 0,
+      "stdout": "OMP_FAMILY_READ_OK\n24 layers preserve the deployed behavior.\n",
+      "stderr": ""
+    }
+  ]
+}

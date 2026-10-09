@@ -1,0 +1,1859 @@
+diff --git a/crates/pi-natives/Cargo.toml b/crates/pi-natives/Cargo.toml
+--- a/crates/pi-natives/Cargo.toml
++++ b/crates/pi-natives/Cargo.toml
+@@ -87,7 +87,7 @@
+ atspi = { version = "=0.30.0", features = ["tokio", "zbus"] }
+ pipewire = { version = "=0.9.2", optional = true }
+ reis = { version = "=0.5.0", features = ["tokio"] }
+-x11rb = { version = "=0.13.2", features = ["randr", "xinput", "xtest"] }
++x11rb = { version = "=0.13.2", features = ["composite", "randr", "xinput", "xtest"] }
+ xkeysym = "=0.2.1"
+ zbus = { version = "5.19", default-features = false, features = ["async-io", "blocking-api"] }
+ 
+diff --git a/crates/pi-natives/src/desktop/linux/ax.rs b/crates/pi-natives/src/desktop/linux/ax.rs
+--- a/crates/pi-natives/src/desktop/linux/ax.rs
++++ b/crates/pi-natives/src/desktop/linux/ax.rs
+@@ -1,5 +1,11 @@
++use std::{ffi::CStr, sync::LazyLock};
++
+ use atspi::{CoordType, ObjectRefOwned, Role, State, proxy::accessible::ObjectRefExt};
+ use tokio::runtime::{Builder, Runtime};
++use x11rb::{
++	protocol::xproto::{AtomEnum, ConnectionExt as _},
++	rust_connection::RustConnection,
++};
+ 
+ use crate::desktop::{
+ 	ax::{AxBounds, AxHandle, AxProps, normalize_role_atspi},
+@@ -282,9 +288,145 @@
+ 	format!("atspi:{name}:{}", frame.path())
+ }
+ 
+-fn native_window_for_frame(windows: &[DesktopWindow], pid: u32, title: &str) -> CoreResult<String> {
++/// Lazily-connected X server handle used to read native window titles. `None`
++/// when no display is reachable (headless tests, Wayland-only sessions), which
++/// leaves the identity check on the listed title alone.
++static X11_CONNECTION: LazyLock<Option<RustConnection>> =
++	LazyLock::new(|| x11rb::connect(None).ok().map(|(connection, _)| connection));
++
++#[repr(C)]
++struct XTextProperty {
++	value: *mut libc::c_uchar,
++	encoding: libc::c_ulong,
++	format: libc::c_int,
++	nitems: libc::c_ulong,
++}
++
++#[link(name = "X11")]
++unsafe extern "C" {
++	fn XOpenDisplay(name: *const libc::c_char) -> *mut libc::c_void;
++	fn Xutf8TextPropertyToTextList(
++		display: *mut libc::c_void,
++		property: *const XTextProperty,
++		list: *mut *mut *mut libc::c_char,
++		count: *mut libc::c_int,
++	) -> libc::c_int;
++	fn XFreeStringList(list: *mut *mut libc::c_char);
++}
++
++// Xlib conversion needs a Display; all access to this process-lifetime
++// connection is serialized. X11 atom ids are shared by server connections.
++static X11_TEXT_DISPLAY: LazyLock<parking_lot::Mutex<usize>> = LazyLock::new(|| {
++	// SAFETY: a null name selects DISPLAY. Only the guarded decoder uses it.
++	parking_lot::Mutex::new(unsafe { XOpenDisplay(std::ptr::null()) } as usize)
++});
++
++fn decode_x11_title(encoding: u32, format: u8, value: &[u8]) -> Option<String> {
++	if format != 8 || value.is_empty() {
++		return None;
++	}
++	let display = X11_TEXT_DISPLAY.lock();
++	if *display == 0 {
++		return None;
++	}
++	let property = XTextProperty {
++		value: value.as_ptr().cast_mut(),
++		encoding: encoding.into(),
++		format: format.into(),
++		nitems: value.len().try_into().ok()?,
++	};
++	let mut list = std::ptr::null_mut();
++	let mut count = 0;
++	// SAFETY: the property bytes stay alive, the Display is locked, and Xlib
++	// initializes the returned list/count. Its storage is freed below.
++	let status = unsafe {
++		Xutf8TextPropertyToTextList(*display as *mut libc::c_void, &property, &mut list, &mut count)
++	};
++	let title = if status == 0 && count == 1 && !list.is_null() {
++		// SAFETY: a successful single-string conversion returns a NUL-terminated
++		// string owned by the list.
++		unsafe { CStr::from_ptr(*list) }.to_str().ok().map(str::to_owned)
++	} else {
++		None
++	};
++	if !list.is_null() {
++		// SAFETY: only Xlib-allocated conversion storage is released.
++		unsafe { XFreeStringList(list) };
++	}
++	title
++}
++
++/// Titles the X11 window `id` publishes: `_NET_WM_NAME` and the ICCCM
++/// `WM_NAME` alias, which KDE/Konsole set to a shortened form (e.g.
++/// `_NET_WM_NAME = "10012026 : tmux — Konsole"`, `WM_NAME = "10012026 :
++/// tmux"`). Both are read from the exact window id; nothing is stripped or
++/// guessed from a longer string.
++fn x11_window_titles(id: u32) -> Vec<String> {
++	let Some(conn) = X11_CONNECTION.as_ref() else {
++		return Vec::new();
++	};
++	let intern = |name: &[u8]| {
++		conn
++			.intern_atom(false, name)
++			.ok()
++			.and_then(|cookie| cookie.reply().ok())
++			.map(|reply| reply.atom)
++	};
++	let read = |property: u32, type_: u32| -> Option<String> {
++		let reply = conn
++			.get_property(false, id, property, type_, 0, 256)
++			.ok()?
++			.reply()
++			.ok()?;
++		if reply.bytes_after != 0 {
++			return None;
++		}
++		decode_x11_title(reply.type_, reply.format, &reply.value)
++	};
++	let utf8 = intern(b"UTF8_STRING");
++	let mut titles = Vec::new();
++	if let (Some(net_wm_name), Some(utf8)) = (intern(b"_NET_WM_NAME"), utf8)
++		&& let Some(title) = read(net_wm_name, utf8)
++	{
++		titles.push(title);
++	}
++	// Xlib handles STRING, UTF8_STRING and COMPOUND_TEXT without guessing or
++	// stripping a suffix from the displayed title.
++	if let Some(title) = read(u32::from(AtomEnum::WM_NAME), u32::from(AtomEnum::ANY))
++		&& !titles.contains(&title)
++	{
++		titles.push(title);
++	}
++	titles
++}
++
++/// Every title that identifies the native window: its listed title plus the
++/// X11 `WM_NAME` alias when the window is a live X11 window.
++fn window_titles(window: &DesktopWindow) -> Vec<String> {
++	let mut titles = vec![window.title.clone()];
++	if let Ok(id) = window.id.parse::<u32>() {
++		for alias in x11_window_titles(id) {
++			if !titles.contains(&alias) {
++				titles.push(alias);
++			}
++		}
++	}
++	titles
++}
++
++/// Resolve the single native window a frame title names, matching against the
++/// titles `titles_of` reports for each window. The process must match exactly
++/// and the title must be unambiguous; zero and multiple matches are refused.
++fn native_window_for_frame_with(
++	windows: &[DesktopWindow],
++	pid: u32,
++	title: &str,
++	titles_of: impl Fn(&DesktopWindow) -> Vec<String>,
++) -> CoreResult<String> {
+ 	let mut matches = windows.iter().filter(|window| {
+-		!window.id.starts_with("atspi:") && window.pid == Some(pid) && window.title == title
++		!window.id.starts_with("atspi:")
++			&& window.pid == Some(pid)
++			&& titles_of(window).iter().any(|candidate| candidate == title)
+ 	});
+ 	let first = matches.next().ok_or_else(|| {
+ 		DesktopError::window_not_found("AT-SPI frame has no matching native window")
+@@ -295,6 +437,10 @@
+ 		));
+ 	}
+ 	Ok(first.id.clone())
++}
++
++fn native_window_for_frame(windows: &[DesktopWindow], pid: u32, title: &str) -> CoreResult<String> {
++	native_window_for_frame_with(windows, pid, title, window_titles)
+ }
+ 
+ /// Generic press means activation, not action zero (GTK4 text views put
+@@ -332,6 +478,9 @@
+ 
+ impl AxBackend for AtSpiAx {
+ 	fn window_root(&mut self, win: &DesktopWindow) -> CoreResult<AxHandle> {
++		// The AT-SPI frame name is the toolkit's title, which KDE publishes as
++		// `WM_NAME` and shortens relative to `_NET_WM_NAME`; accept either.
++		let accepted = window_titles(win);
+ 		let result = self.rt.block_on(async {
+ 			let app = Self::app_for_window(&self.connection, win).await?;
+ 			let frames = Self::frames(&self.connection, &app).await?;
+@@ -348,7 +497,8 @@
+ 					.as_accessible_proxy(self.connection.connection())
+ 					.await
+ 					.map_err(|err| err.to_string())?;
+-				if proxy.name().await.map_err(|err| err.to_string())? == win.title {
++				let name = proxy.name().await.map_err(|err| err.to_string())?;
++				if accepted.iter().any(|title| *title == name) {
+ 					matches.push(frame);
+ 				}
+ 			}
+@@ -807,6 +957,38 @@
+ 		assert!(native_window_for_frame(&windows, 30, "Document").is_err());
+ 		windows.push(window("3", 20));
+ 		assert!(native_window_for_frame(&windows, 20, "Document").is_err());
++	}
++
++	#[test]
++	fn frame_ownership_accepts_a_wm_name_alias_and_still_refuses_ambiguity() {
++		let window = |id: &str, pid: u32, title: &str| DesktopWindow {
++			id:      id.to_owned(),
++			pid:     Some(pid),
++			title:   title.to_owned(),
++			app:     "Konsole".into(),
++			x:       0,
++			y:       0,
++			width:   100,
++			height:  100,
++			focused: false,
++		};
++		// `_NET_WM_NAME` is the long decorated title; the AT-SPI frame reports
++		// the shortened `WM_NAME` alias, which only the exact window id yields.
++		let windows = vec![window("1", 10, "10012026 : tmux — Konsole"), window("2", 20, "Orca")];
++		let aliases = |window: &DesktopWindow| match window.id.as_str() {
++			"1" => vec!["10012026 : tmux — Konsole".into(), "10012026 : tmux".into()],
++			_ => vec![window.title.clone()],
++		};
++		assert_eq!(
++			native_window_for_frame_with(&windows, 10, "10012026 : tmux", aliases).unwrap(),
++			"1"
++		);
++		// The alias belongs to one process; another pid must not claim it.
++		assert!(native_window_for_frame_with(&windows, 30, "10012026 : tmux", aliases).is_err());
++		// Two windows of the same process publishing the same alias stay refused.
++		let twins = vec![window("1", 10, "long one"), window("2", 10, "long two")];
++		let shared = |_: &DesktopWindow| vec!["10012026 : tmux".into()];
++		assert!(native_window_for_frame_with(&twins, 10, "10012026 : tmux", shared).is_err());
+ 	}
+ 
+ 	#[test]
+diff --git a/crates/pi-natives/src/desktop/linux/x11/capture.rs b/crates/pi-natives/src/desktop/linux/x11/capture.rs
+--- a/crates/pi-natives/src/desktop/linux/x11/capture.rs
++++ b/crates/pi-natives/src/desktop/linux/x11/capture.rs
+@@ -2,13 +2,16 @@
+ 
+ use image::{Rgba, RgbaImage};
+ use x11rb::{
++	NONE,
+ 	connection::Connection,
+ 	errors::ReplyError,
+ 	protocol::{
+ 		ErrorKind,
++		composite::ConnectionExt as _,
+ 		randr::ConnectionExt as _,
+ 		xproto::{
+-			Atom, AtomEnum, ConnectionExt as _, ImageFormat, ImageOrder, MapState, VisualClass, Window,
++			Atom, AtomEnum, ConnectionExt as _, ImageFormat, ImageOrder, MapState, VisualClass,
++			Visualid, Window,
+ 		},
+ 	},
+ 	rust_connection::RustConnection,
+@@ -22,6 +25,8 @@
+ 
+ const MAX_WINDOWS: usize = 48;
+ const MIN_WINDOW_EDGE: u32 = 16;
++/// Bound on ancestor walks when locating a window's redirected top level.
++const TREE_WALK_LIMIT: usize = 32;
+ 
+ #[derive(Clone, Copy)]
+ struct ColorMasks {
+@@ -61,6 +66,7 @@
+ pub struct X11Capture {
+ 	conn:        Arc<RustConnection>,
+ 	root:        Window,
++	screen:      usize,
+ 	root_width:  u32,
+ 	root_height: u32,
+ 	masks:       ColorMasks,
+@@ -99,7 +105,8 @@
+ 		let root = screen.root;
+ 		let root_width = u32::from(screen.width_in_pixels);
+ 		let root_height = u32::from(screen.height_in_pixels);
+-		let capture = Self { conn, root, root_width, root_height, masks, selector };
++		let capture =
++			Self { conn, root, screen: screen_num, root_width, root_height, masks, selector };
+ 		capture.capture_root(0, 0, 1, 1)?;
+ 		Ok(capture)
+ 	}
+@@ -331,21 +338,7 @@
+ 					.ok_or_else(|| {
+ 						DesktopError::window_not_found(format!("window {id} was not found"))
+ 					})?;
+-				let (x, y, width, height) = clip_to_root(
+-					window.x,
+-					window.y,
+-					window.width,
+-					window.height,
+-					self.root_width,
+-					self.root_height,
+-				)
+-				.ok_or_else(|| {
+-					DesktopError::capture_failed(format!("window {id} has no visible root area"))
+-				})?;
+-				let image = self.capture_root(x, y, width, height)?;
+-				let frame_window = DesktopWindow { x, y, width, height, ..window };
+-				let frame = FrameGeometry::for_window(&frame_window, image.width(), image.height());
+-				Ok((image, frame))
++				self.capture_window(id, window)
+ 			},
+ 		}
+ 	}
+@@ -358,6 +351,293 @@
+ 			.reply()
+ 			.map(|reply| reply.atom)
+ 			.map_err(request_failed)
++	}
++
++	/// Capture a window from the compositor's off-screen storage. The backing
++	/// pixmap belongs to the window's redirected top level (the WM frame for a
++	/// reparenting manager); it holds the frame, its decorations and every
++	/// descendant, so cropping the client rectangle yields the window's own
++	/// pixels even when another window covers it on screen. There is no
++	/// fallback to cropping the root: a wrong view is worse than an error.
++	fn capture_window(
++		&self,
++		id: &str,
++		window: DesktopWindow,
++	) -> CoreResult<(RgbaImage, FrameGeometry)> {
++		let target = id
++			.parse::<Window>()
++			.map_err(|_| DesktopError::window_not_found(format!("invalid X11 window id {id}")))?;
++		self.require_compositor()?;
++		let attributes = self
++			.conn
++			.get_window_attributes(target)
++			.map_err(|_| window_gone(target))?
++			.reply()
++			.map_err(|_| window_gone(target))?;
++		if attributes.map_state != MapState::VIEWABLE || self.is_minimized(target) {
++			return Err(DesktopError::capture_failed(format!(
++				"window {id} is not viewable (unmapped or minimized); there is no backing pixmap to \
++				 capture"
++			)));
++		}
++		let geometry = self
++			.conn
++			.get_geometry(target)
++			.map_err(|_| window_gone(target))?
++			.reply()
++			.map_err(|_| window_gone(target))?;
++		let origin = self
++			.conn
++			.translate_coordinates(target, self.root, 0, 0)
++			.map_err(|_| window_gone(target))?
++			.reply()
++			.map_err(|_| window_gone(target))?;
++		let (x, y) = (i32::from(origin.dst_x), i32::from(origin.dst_y));
++		let width = u32::from(geometry.width);
++		let height = u32::from(geometry.height);
++		let top = self.redirected_top_level(target).ok_or_else(|| {
++			DesktopError::capture_failed(format!(
++				"window {id} is not a descendant of the root window; refusing to capture the wrong \
++				 view"
++			))
++		})?;
++		let top_attributes = self
++			.conn
++			.get_window_attributes(top)
++			.map_err(request_failed)?
++			.reply()
++			.map_err(request_failed)?;
++		let top_border = self
++			.conn
++			.get_geometry(top)
++			.map_err(request_failed)?
++			.reply()
++			.map_err(request_failed)?
++			.border_width;
++		// NameWindowPixmap allocates server storage; free it on every path,
++		// including a failed read, so a capture attempt cannot leak a pixmap.
++		let pixmap = self.conn.generate_id().map_err(request_failed)?;
++		let image = self.read_window_pixmap(
++			pixmap,
++			target,
++			top,
++			top_border,
++			top_attributes.visual,
++			width,
++			height,
++		);
++		let _ = self.conn.free_pixmap(pixmap);
++		let image = image?;
++		let frame_window = DesktopWindow { x, y, width, height, ..window };
++		let frame = FrameGeometry::for_window(&frame_window, image.width(), image.height());
++		Ok((image, frame))
++	}
++
++	/// Whether a compositing manager is available to provide backing pixmaps:
++	/// the extension must be present at a version that has `NameWindowPixmap`
++	/// and the EWMH compositor selection must have an owner.
++	fn require_compositor(&self) -> CoreResult<()> {
++		let extension = self
++			.conn
++			.query_extension(b"Composite")
++			.map_err(request_failed)?
++			.reply()
++			.map_err(request_failed)?;
++		if !extension.present {
++			return Err(DesktopError::capture_failed(
++				"the X11 Composite extension is unavailable; capturing a window without a compositor \
++				 would show whatever covers it, so no view is returned",
++			));
++		}
++		let version = self
++			.conn
++			.composite_query_version(0, 4)
++			.map_err(request_failed)?
++			.reply()
++			.map_err(request_failed)?;
++		if version.major_version == 0 && version.minor_version < 2 {
++			return Err(DesktopError::capture_failed(format!(
++				"the X11 Composite extension is version {}.{}; NameWindowPixmap requires 0.2 or newer",
++				version.major_version, version.minor_version
++			)));
++		}
++		let selection = self.intern(&format!("_NET_WM_CM_S{}", self.screen))?;
++		let owner = self
++			.conn
++			.get_selection_owner(selection)
++			.map_err(request_failed)?
++			.reply()
++			.map_err(request_failed)?
++			.owner;
++		if owner == NONE {
++			return Err(DesktopError::capture_failed(format!(
++				"no compositing manager owns _NET_WM_CM_S{}; occluded windows have no backing pixmap, \
++				 and no cropped screen view will be substituted",
++				self.screen
++			)));
++		}
++		Ok(())
++	}
++
++	/// Whether `_NET_WM_STATE_HIDDEN` marks the window as iconified.
++	fn is_minimized(&self, window: Window) -> bool {
++		let Ok(state_atom) = self.intern("_NET_WM_STATE") else {
++			return false;
++		};
++		let Some(state) = self.property(window, state_atom, AtomEnum::ATOM, 64) else {
++			return false;
++		};
++		let Ok(hidden) = self.intern("_NET_WM_STATE_HIDDEN") else {
++			return false;
++		};
++		state
++			.value32()
++			.is_some_and(|mut states| states.any(|atom| atom == hidden))
++	}
++
++	/// The redirected top level containing `window`: its root child, or the
++	/// window itself when the WM leaves it unmanaged.
++	fn redirected_top_level(&self, window: Window) -> Option<Window> {
++		let mut current = window;
++		for _ in 0..TREE_WALK_LIMIT {
++			let parent = self.conn.query_tree(current).ok()?.reply().ok()?.parent;
++			if parent == NONE || parent == self.root {
++				return Some(current);
++			}
++			current = parent;
++		}
++		None
++	}
++
++	/// Name `top`'s backing pixmap and read the client rectangle out of it;
++	/// the caller owns the pixmap lifetime and frees it.
++	fn read_window_pixmap(
++		&self,
++		pixmap: Window,
++		target: Window,
++		top: Window,
++		top_border: u16,
++		top_visual: Visualid,
++		width: u32,
++		height: u32,
++	) -> CoreResult<RgbaImage> {
++		self
++			.conn
++			.composite_name_window_pixmap(top, pixmap)
++			.map_err(request_failed)?
++			.check()
++			.map_err(|error| {
++				DesktopError::capture_failed(format!(
++					"window {top} has no compositor backing pixmap ({error}); it may be unredirected, \
++					 unmapped or minimized"
++				))
++			})?;
++		let pixmap_geometry = self
++			.conn
++			.get_geometry(pixmap)
++			.map_err(request_failed)?
++			.reply()
++			.map_err(request_failed)?;
++		let offset = self
++			.conn
++			.translate_coordinates(target, top, 0, 0)
++			.map_err(request_failed)?
++			.reply()
++			.map_err(request_failed)?;
++		let (offset_x, offset_y) = client_offset_in_pixmap(offset.dst_x, offset.dst_y, top_border);
++		let (region_x, region_y, region_width, region_height) = window_region_in_pixmap(
++			offset_x,
++			offset_y,
++			width,
++			height,
++			u32::from(pixmap_geometry.width),
++			u32::from(pixmap_geometry.height),
++		)
++		.ok_or_else(|| {
++			DesktopError::capture_failed(format!(
++				"window {target} lies outside its compositor backing pixmap; refusing a partial \
++				 capture"
++			))
++		})?;
++		let reply = self
++			.conn
++			.get_image(
++				ImageFormat::Z_PIXMAP,
++				pixmap,
++				i16::try_from(region_x).map_err(|_| {
++					DesktopError::capture_failed("capture origin exceeds the X11 coordinate space")
++				})?,
++				i16::try_from(region_y).map_err(|_| {
++					DesktopError::capture_failed("capture origin exceeds the X11 coordinate space")
++				})?,
++				u16::try_from(region_width).map_err(|_| {
++					DesktopError::capture_failed("capture width exceeds the X11 coordinate space")
++				})?,
++				u16::try_from(region_height).map_err(|_| {
++					DesktopError::capture_failed("capture height exceeds the X11 coordinate space")
++				})?,
++				!0,
++			)
++			.map_err(request_failed)?
++			.reply()
++			.map_err(|error| {
++				DesktopError::capture_failed(format!("X11 window GetImage failed: {error}"))
++			})?;
++		self.image_to_rgba(
++			&reply.data,
++			region_width,
++			region_height,
++			reply.depth,
++			self.visual_masks(top_visual),
++		)
++	}
++
++	/// Colour masks of `visual`, so a depth-32 (ARGB) window decodes with its
++	/// own layout instead of the root visual's.
++	fn visual_masks(&self, visual: Visualid) -> ColorMasks {
++		self
++			.conn
++			.setup()
++			.roots
++			.iter()
++			.flat_map(|root| &root.allowed_depths)
++			.flat_map(|depth| &depth.visuals)
++			.find(|candidate| candidate.visual_id == visual)
++			.map_or(self.masks, |candidate| ColorMasks {
++				red:   candidate.red_mask,
++				green: candidate.green_mask,
++				blue:  candidate.blue_mask,
++			})
++	}
++
++	fn image_to_rgba(
++		&self,
++		data: &[u8],
++		width: u32,
++		height: u32,
++		depth: u8,
++		masks: ColorMasks,
++	) -> CoreResult<RgbaImage> {
++		let setup = self.conn.setup();
++		let format = setup
++			.pixmap_formats
++			.iter()
++			.find(|format| format.depth == depth)
++			.ok_or_else(|| {
++				DesktopError::capture_failed(format!(
++					"X server advertises no pixmap format for depth {depth}"
++				))
++			})?;
++		zpixmap_to_rgba(
++			data,
++			width,
++			height,
++			depth,
++			format.bits_per_pixel,
++			format.scanline_pad,
++			setup.image_byte_order == ImageOrder::LSB_FIRST,
++			masks,
++		)
+ 	}
+ 
+ 	fn property(
+@@ -395,27 +675,7 @@
+ 			.map_err(request_failed)?
+ 			.reply()
+ 			.map_err(root_capture_failed)?;
+-		let setup = self.conn.setup();
+-		let format = setup
+-			.pixmap_formats
+-			.iter()
+-			.find(|format| format.depth == reply.depth)
+-			.ok_or_else(|| {
+-				DesktopError::capture_failed(format!(
+-					"X server advertises no pixmap format for depth {}",
+-					reply.depth
+-				))
+-			})?;
+-		zpixmap_to_rgba(
+-			&reply.data,
+-			width,
+-			height,
+-			reply.depth,
+-			format.bits_per_pixel,
+-			format.scanline_pad,
+-			setup.image_byte_order == ImageOrder::LSB_FIRST,
+-			self.masks,
+-		)
++		self.image_to_rgba(&reply.data, width, height, reply.depth, self.masks)
+ 	}
+ }
+ 
+@@ -436,24 +696,44 @@
+ 	}
+ }
+ 
+-fn clip_to_root(
+-	x: i32,
+-	y: i32,
++fn window_gone(window: Window) -> DesktopError {
++	DesktopError::window_not_found(format!("X11 window {window} is gone"))
++}
++
++/// Offset of the client window inside its compositor backing pixmap. The
++/// pixmap covers the window plus its border, and its origin sits one border
++/// width above-left of the window's coordinate origin, so the client
++/// rectangle shifts by that border.
++fn client_offset_in_pixmap(dst_x: i16, dst_y: i16, border: u16) -> (i32, i32) {
++	(i32::from(dst_x) + i32::from(border), i32::from(dst_y) + i32::from(border))
++}
++
++/// The client rectangle inside its backing pixmap; `None` when it does not
++/// fit, so a capture never silently returns a partial window.
++fn window_region_in_pixmap(
++	offset_x: i32,
++	offset_y: i32,
+ 	width: u32,
+ 	height: u32,
+-	root_width: u32,
+-	root_height: u32,
++	pixmap_width: u32,
++	pixmap_height: u32,
+ ) -> Option<(i32, i32, u32, u32)> {
+-	let left = i64::from(x).max(0);
+-	let top = i64::from(y).max(0);
+-	let right = (i64::from(x) + i64::from(width)).min(i64::from(root_width));
+-	let bottom = (i64::from(y) + i64::from(height)).min(i64::from(root_height));
+-	(right > left && bottom > top).then_some((
+-		left as i32,
+-		top as i32,
+-		(right - left) as u32,
+-		(bottom - top) as u32,
+-	))
++	let right = offset_x.checked_add(i32::try_from(width).ok()?)?;
++	let bottom = offset_y.checked_add(i32::try_from(height).ok()?)?;
++	(offset_x >= 0
++		&& offset_y >= 0
++		&& right > 0
++		&& bottom > 0
++		&& right <= i32::try_from(pixmap_width).ok()?
++		&& bottom <= i32::try_from(pixmap_height).ok()?)
++	.then_some((offset_x, offset_y, width, height))
++}
++
++/// Straighten a premultiplied colour sample. X11 `ARGB32` backing pixmaps and
++/// the macOS capture paths both store premultiplied samples; `RgbaImage`
++/// consumers expect straight alpha.
++fn unpremultiply(component: u8, alpha: u8) -> u8 {
++	((u32::from(component) * 255 + u32::from(alpha) / 2) / u32::from(alpha)).min(255) as u8
+ }
+ 
+ fn parse_wm_class(value: &[u8]) -> String {
+@@ -497,6 +777,11 @@
+ 	if masks.red & masks.green != 0 || masks.red & masks.blue != 0 || masks.green & masks.blue != 0 {
+ 		return Err(DesktopError::capture_failed("X11 TrueColor masks overlap"));
+ 	}
++	// A depth-32 TrueColor window (ARGB) keeps its alpha in the byte the RGB
++	// masks leave unused; depth 24 has no alpha channel and stays opaque.
++	let alpha = (depth == 32)
++		.then(|| ComponentMask::new("alpha", !(masks.red | masks.green | masks.blue)).ok())
++		.flatten();
+ 	let pad_bits = usize::from(scanline_pad).max(8);
+ 	let stride = ((width as usize) * usize::from(bits_per_pixel)).div_ceil(pad_bits) * pad_bits / 8;
+ 	let needed = stride.saturating_mul(height as usize);
+@@ -523,9 +808,70 @@
+ 					.iter()
+ 					.fold(0u32, |acc, &byte| acc << 8 | u32::from(byte))
+ 			};
+-			rgba.extend_from_slice(&[red.decode(value), green.decode(value), blue.decode(value), 255]);
++			let (mut r, mut g, mut b) = (red.decode(value), green.decode(value), blue.decode(value));
++			let a = match alpha {
++				Some(alpha) => {
++					let a = alpha.decode(value);
++					if a == 0 {
++						r = 0;
++						g = 0;
++						b = 0;
++					} else if a < 255 {
++						r = unpremultiply(r, a);
++						g = unpremultiply(g, a);
++						b = unpremultiply(b, a);
++					}
++					a
++				},
++				None => 255,
++			};
++			rgba.extend_from_slice(&[r, g, b, a]);
+ 		}
+ 	}
+ 	RgbaImage::from_raw(width, height, rgba)
+ 		.ok_or_else(|| DesktopError::capture_failed("X11 image dimensions are inconsistent"))
+ }
++
++#[cfg(test)]
++mod tests {
++	use super::*;
++
++	const TRUE_COLOR: ColorMasks =
++		ColorMasks { red: 0x00ff_0000, green: 0x0000_ff00, blue: 0x0000_00ff };
++
++	#[test]
++	fn client_offset_shifts_by_the_frame_border() {
++		assert_eq!(client_offset_in_pixmap(0, 36, 0), (0, 36));
++		assert_eq!(client_offset_in_pixmap(4, 40, 2), (6, 42));
++		assert_eq!(client_offset_in_pixmap(-2, -2, 2), (0, 0));
++	}
++
++	#[test]
++	fn window_region_must_fit_inside_the_backing_pixmap() {
++		assert_eq!(window_region_in_pixmap(0, 36, 1706, 894, 1706, 930), Some((0, 36, 1706, 894)));
++		assert_eq!(window_region_in_pixmap(-1, 0, 10, 10, 100, 100), None);
++		assert_eq!(window_region_in_pixmap(0, 95, 10, 10, 100, 100), None);
++		assert_eq!(window_region_in_pixmap(0, 0, 101, 10, 100, 100), None);
++	}
++
++	#[test]
++	fn depth_24_stays_opaque_even_with_a_zero_high_byte() {
++		let data = [0x20, 0x10, 0x08, 0x00];
++		let image = zpixmap_to_rgba(&data, 1, 1, 24, 32, 32, true, TRUE_COLOR).unwrap();
++		assert_eq!(image.get_pixel(0, 0).0, [8, 16, 32, 255]);
++	}
++
++	#[test]
++	fn depth_32_decodes_premultiplied_alpha_to_straight_rgba() {
++		// 0x80081020: alpha 128, premultiplied rgb 8/16/32.
++		let data = [0x20, 0x10, 0x08, 0x80];
++		let image = zpixmap_to_rgba(&data, 1, 1, 32, 32, 32, true, TRUE_COLOR).unwrap();
++		assert_eq!(image.get_pixel(0, 0).0, [16, 32, 64, 128]);
++		let opaque = [0x20, 0x10, 0x08, 0xff];
++		let image = zpixmap_to_rgba(&opaque, 1, 1, 32, 32, 32, true, TRUE_COLOR).unwrap();
++		assert_eq!(image.get_pixel(0, 0).0, [8, 16, 32, 255]);
++		let clear = [0x00, 0x00, 0x00, 0x00];
++		let image = zpixmap_to_rgba(&clear, 1, 1, 32, 32, 32, true, TRUE_COLOR).unwrap();
++		assert_eq!(image.get_pixel(0, 0).0, [0, 0, 0, 0]);
++	}
++}
+diff --git a/crates/pi-natives/src/desktop/control.rs b/crates/pi-natives/src/desktop/control.rs
+--- a/crates/pi-natives/src/desktop/control.rs
++++ b/crates/pi-natives/src/desktop/control.rs
+@@ -17,7 +17,7 @@
+ 
+ use parking_lot::{Condvar, Mutex};
+ 
+-use super::error::{CoreResult, DesktopError};
++use super::error::{CancelReason, CoreResult, DesktopError};
+ 
+ #[cfg(target_os = "linux")]
+ mod linux;
+@@ -28,13 +28,59 @@
+ #[cfg(target_os = "macos")]
+ pub(crate) use macos::SYNTHETIC_EVENT_TAG;
+ 
++/// Low 56 bits of `signal`: the monotone generation. The high 8 bits carry the
++/// first cancellation cause of the newest window (`0` = none).
++const GENERATION_MASK: u64 = (1u64 << 56) - 1;
++const REASON_SHIFT: u32 = 56;
++
+ #[derive(Default)]
+ struct CancellationState {
+-	generation: AtomicU64,
+-	state:      Mutex<Option<Arc<ControlLease>>>,
+-	wake:       Condvar,
++	/// `(cause_code << 56) | generation`, published in a single store so a
++	/// cancellation check never observes a bumped generation paired with an old
++	/// or missing cause.
++	signal:        AtomicU64,
++	/// Newest operation-token generation, the boundary between cancellation
++	/// windows.
++	window:        AtomicU64,
++	/// `window` snapshot taken when the current cause was recorded; the cause is
++	/// attributable only to tokens at least this new.
++	reason_window: AtomicU64,
++	state:         Mutex<Option<Arc<ControlLease>>>,
++	wake:          Condvar,
+ 	#[cfg(target_os = "linux")]
+-	async_wake: tokio::sync::Notify,
++	async_wake:    tokio::sync::Notify,
++}
++
++impl CancellationState {
++	fn generation(&self) -> u64 {
++		self.signal.load(Ordering::Acquire) & GENERATION_MASK
++	}
++
++	/// Advances the generation and remembers why, publishing the generation and
++	/// its cause in one atomic store. The caller holds `state`, so bumps are
++	/// serialized and this stays the only writer of `signal`. The first cause of
++	/// a window wins, so a later generic cleanup cannot hide the interruption
++	/// that actually stopped work.
++	fn record(&self, reason: CancelReason) {
++		let signal = self.signal.load(Ordering::Acquire);
++		let recorded = (signal >> REASON_SHIFT) as u8;
++		let window = self.window.load(Ordering::Acquire);
++		let reason_window = self.reason_window.load(Ordering::Acquire);
++		let generation = (signal & GENERATION_MASK).wrapping_add(1) & GENERATION_MASK;
++		let (cause, cause_window) = if recorded == 0 || reason_window < window {
++			(reason.code(), window)
++		} else {
++			(recorded, reason_window)
++		};
++		// Publish the cause's window before the cause so a reader never sees the
++		// new cause paired with a stale window.
++		self.reason_window.store(cause_window, Ordering::Release);
++		self.signal
++			.store((u64::from(cause) << REASON_SHIFT) | generation, Ordering::Release);
++		self.wake.notify_all();
++		#[cfg(target_os = "linux")]
++		self.async_wake.notify_waiters();
++	}
+ }
+ 
+ #[derive(Clone, Default)]
+@@ -42,30 +88,29 @@
+ 
+ impl CancellationSource {
+ 	pub(crate) fn token(&self) -> OperationToken {
+-		OperationToken {
+-			source:     self.clone(),
+-			generation: self.0.generation.load(Ordering::Acquire),
+-		}
++		// Serialize the generation snapshot and the window publication with
++		// `record`. Otherwise a concurrent bump could read a stale window and
++		// preserve a cause that predates this token, which `check` would then
++		// attribute to it. `check` and the other fast paths stay lock-free.
++		let state = self.0.state.lock();
++		let generation = self.0.generation();
++		self.0.window.fetch_max(generation, Ordering::AcqRel);
++		drop(state);
++		OperationToken { source: self.clone(), generation }
+ 	}
+ 
+ 	/// Ends a successful run without surrendering an explicitly granted task
+ 	/// lease.
+ 	pub(crate) fn retire(&self) {
+ 		let _state = self.0.state.lock();
+-		self.0.generation.fetch_add(1, Ordering::AcqRel);
+-		self.0.wake.notify_all();
+-		#[cfg(target_os = "linux")]
+-		self.0.async_wake.notify_waiters();
++		self.0.record(CancelReason::Retired);
+ 	}
+ 
+ 	/// Aborts current/queued work and revokes any explicit task ownership.
+-	pub(crate) fn cancel(&self) {
++	pub(crate) fn cancel(&self, reason: CancelReason) {
+ 		let lease = {
+ 			let mut state = self.0.state.lock();
+-			self.0.generation.fetch_add(1, Ordering::AcqRel);
+-			self.0.wake.notify_all();
+-			#[cfg(target_os = "linux")]
+-			self.0.async_wake.notify_waiters();
++			self.0.record(reason);
+ 			state.take()
+ 		};
+ 		drop(lease);
+@@ -86,7 +131,7 @@
+ 	pub(crate) fn release_control(&self) {
+ 		// A release is also a generation boundary: queued work authorized by the
+ 		// relinquished grant must never execute under a later acquisition.
+-		self.cancel();
++		self.cancel(CancelReason::Released);
+ 	}
+ 
+ 	pub(crate) fn control_active(&self) -> bool {
+@@ -99,9 +144,9 @@
+ pub(super) struct EmergencyStop(Weak<CancellationState>);
+ 
+ impl EmergencyStop {
+-	fn cancel(&self) {
++	fn cancel(&self, reason: CancelReason) {
+ 		if let Some(source) = self.0.upgrade() {
+-			CancellationSource(source).cancel();
++			CancellationSource(source).cancel(reason);
+ 		}
+ 	}
+ }
+@@ -123,13 +168,26 @@
+ 	}
+ 
+ 	pub(crate) fn check(&self) -> CoreResult<()> {
+-		if self.source.0.generation.load(Ordering::Acquire) == self.generation {
+-			Ok(())
++		// One load yields a consistent (generation, cause) snapshot: the cause is
++		// never a bumped generation paired with the previous or a missing reason.
++		let signal = self.source.0.signal.load(Ordering::Acquire);
++		if signal & GENERATION_MASK == self.generation {
++			return Ok(());
++		}
++		// Attribute a cause only while this token's window is the newest. If a
++		// newer token already opened a window, this token's concrete cause is no
++		// longer recoverable, so report a generic cancellation instead of a
++		// confidently wrong one.
++		let attributable = self.source.0.reason_window.load(Ordering::Acquire) <= self.generation;
++		let reason = if attributable {
++			CancelReason::from_code((signal >> REASON_SHIFT) as u8)
+ 		} else {
+-			Err(DesktopError::cancelled(
+-				"desktop operation cancelled; input may be partial; inspect before retrying",
+-			))
+-		}
++			None
++		};
++		Err(match reason {
++			Some(reason) => DesktopError::cancelled_reason(reason),
++			None => DesktopError::cancelled_unattributed(),
++		})
+ 	}
+ 
+ 	#[cfg(target_os = "linux")]
+@@ -531,6 +589,7 @@
+ #[cfg(test)]
+ mod tests {
+ 	use super::*;
++	use super::super::error::ErrorCode;
+ 
+ 	static OWNERSHIP_TEST: Mutex<()> = Mutex::new(());
+ 
+@@ -564,7 +623,7 @@
+ 		assert!(old.check().is_err());
+ 		let fresh = source.token();
+ 		let running = InputLease::acquire(&fresh).expect("fresh run reuses ownership");
+-		source.cancel();
++		source.cancel(CancelReason::Revoked);
+ 		assert!(!source.control_active());
+ 		assert!(fresh.check().is_err());
+ 		assert!(KernelOwner::acquire().is_err(), "cleanup still owns the kernel");
+@@ -585,6 +644,90 @@
+ 	}
+ 
+ 	#[test]
++	fn cancellation_reports_the_first_cause_of_the_window() {
++		let source = CancellationSource::default();
++		let token = source.token();
++		source.cancel(CancelReason::Escape);
++		// A later generic cleanup cancel must not hide the interruption that
++		// actually stopped the operation.
++		source.cancel(CancelReason::HelperFailed);
++		let error = token.check().unwrap_err();
++		assert_eq!(error.code, ErrorCode::Cancelled);
++		assert_eq!(error.reason, Some(CancelReason::Escape));
++	}
++
++	#[test]
++	fn a_fresh_token_opens_a_new_cancellation_window() {
++		let source = CancellationSource::default();
++		source.cancel(CancelReason::Released);
++		let token = source.token();
++		assert!(token.check().is_ok(), "a later token is not invalidated by an earlier cause");
++		source.cancel(CancelReason::Revoked);
++		assert_eq!(token.check().unwrap_err().reason, Some(CancelReason::Revoked));
++	}
++
++	#[test]
++	fn token_creation_is_serialized_with_recording() {
++		let source = CancellationSource::default();
++		// Holding the state lock blocks both the generation snapshot and the
++		// window publication, so a concurrent bump cannot record against a stale
++		// window and mis-attribute its cause to this token.
++		let guard = source.0.state.lock();
++		let (ready, token) = flume::bounded(1);
++		let worker_source = source.clone();
++		let worker = thread::spawn(move || {
++			let _ = ready.send(worker_source.token());
++		});
++		assert!(
++			token.recv_timeout(Duration::from_millis(50)).is_err(),
++			"token creation must not complete while the state lock is held"
++		);
++		drop(guard);
++		let token = token.recv_timeout(Duration::from_secs(1)).expect("token after lock release");
++		assert!(token.check().is_ok());
++		let _ = worker.join();
++	}
++
++	#[test]
++	fn a_superseded_window_reports_no_concrete_cause() {
++		let source = CancellationSource::default();
++		let old = source.token();
++		source.cancel(CancelReason::Escape);
++		// A newer token opens a window before the old token is observed, and the
++		// next cancel then belongs to that newer window.
++		let fresh = source.token();
++		source.cancel(CancelReason::Released);
++		assert_eq!(fresh.check().unwrap_err().reason, Some(CancelReason::Released));
++		// The old token's concrete cause is no longer recoverable, so it must
++		// report the generic cancellation instead of a confidently wrong cause.
++		let stale = old.check().unwrap_err();
++		assert_eq!(stale.code, ErrorCode::Cancelled);
++		assert_eq!(stale.reason, None);
++	}
++
++	#[test]
++	fn retirement_and_release_record_their_own_cause() {
++		let source = CancellationSource::default();
++		let retired = source.token();
++		source.retire();
++		assert_eq!(retired.check().unwrap_err().reason, Some(CancelReason::Retired));
++
++		let released = source.token();
++		source.release_control();
++		assert_eq!(released.check().unwrap_err().reason, Some(CancelReason::Released));
++	}
++
++	#[test]
++	fn concurrent_tokens_in_one_window_share_the_first_cause() {
++		let source = CancellationSource::default();
++		let first = source.token();
++		let second = source.token();
++		source.cancel(CancelReason::NativeTimeout);
++		assert_eq!(first.check().unwrap_err().reason, Some(CancelReason::NativeTimeout));
++		assert_eq!(second.check().unwrap_err().reason, Some(CancelReason::NativeTimeout));
++	}
++
++	#[test]
+ 	fn emergency_stop_revokes_idle_task_control_after_retirement() {
+ 		let _serial = OWNERSHIP_TEST.lock();
+ 		let source = CancellationSource::default();
+@@ -592,7 +735,7 @@
+ 		let emergency = EmergencyStop(Arc::downgrade(&source.0));
+ 		source.retire();
+ 		let fresh = source.token();
+-		emergency.cancel();
++		emergency.cancel(CancelReason::Escape);
+ 		assert!(!source.control_active());
+ 		assert!(fresh.check().is_err());
+ 		drop(KernelOwner::acquire().expect("idle Escape releases kernel ownership"));
+@@ -615,7 +758,7 @@
+ 			bounded_hold(Duration::from_secs(100), |down| {
+ 				events.push(down);
+ 				if down {
+-					source.cancel();
++					source.cancel(CancelReason::Revoked);
+ 				}
+ 				Ok(())
+ 			})
+@@ -648,7 +791,7 @@
+ 			token.wait(Duration::from_secs(100))
+ 		});
+ 		waiting.recv().unwrap();
+-		source.cancel();
++		source.cancel(CancelReason::Revoked);
+ 		assert!(worker.join().unwrap().is_err());
+ 	}
+ 
+@@ -657,12 +800,12 @@
+ 		let source = CancellationSource::default();
+ 		let running = source.token();
+ 		let queued = source.token();
+-		source.cancel();
++		source.cancel(CancelReason::Revoked);
+ 		let later = source.token();
+ 		assert!(running.check().is_err());
+ 		assert!(queued.check().is_err());
+ 		assert!(later.check().is_ok());
+-		source.cancel();
++		source.cancel(CancelReason::Revoked);
+ 		assert!(later.check().is_err());
+ 		assert!(source.token().check().is_ok());
+ 		assert!(running.check().is_err());
+@@ -673,7 +816,7 @@
+ 		let source = CancellationSource::default();
+ 		let old = source.token();
+ 		let _scope = old.enter();
+-		source.cancel();
++		source.cancel(CancelReason::Revoked);
+ 		{
+ 			let _later = source.token().enter();
+ 			assert!(check().is_ok());
+@@ -685,7 +828,7 @@
+ 	fn cleanup_does_not_clear_cancellation() {
+ 		let source = CancellationSource::default();
+ 		CURRENT.with_borrow_mut(|current| *current = Some(source.token()));
+-		source.cancel();
++		source.cancel(CancelReason::Revoked);
+ 		cleanup(|| {
+ 			assert!(check().is_ok());
+ 			cleanup(|| assert!(check().is_ok()));
+diff --git a/crates/pi-natives/src/desktop/error.rs b/crates/pi-natives/src/desktop/error.rs
+--- a/crates/pi-natives/src/desktop/error.rs
++++ b/crates/pi-natives/src/desktop/error.rs
+@@ -49,15 +49,135 @@
+ 	}
+ }
+ 
++/// Why a desktop operation was cancelled. Kept as a compact copyable value so
++/// the running cause can be recorded with a single atomic store and reported
++/// without formatting or allocating on the hot path.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++#[repr(u8)]
++pub(crate) enum CancelReason {
++	/// A real physical Escape key press from the human.
++	Escape = 1,
++	/// The X11 keyboard mapping changed while control was held (`MappingNotify`).
++	KeymapChanged = 2,
++	/// The emergency Escape monitor lost its input connection or could not
++	/// verify the observed key event.
++	MonitorFailed = 3,
++	/// A native desktop operation exceeded its bounded native timeout.
++	NativeTimeout = 4,
++	/// The host/tool-level run timeout fired.
++	ToolTimeout = 5,
++	/// The host revoked or interrupted the run.
++	Revoked = 6,
++	/// The host explicitly released the task-scoped control grant.
++	Released = 7,
++	/// The desktop session was closed or dropped while work was outstanding.
++	SessionClosed = 8,
++	/// The helper run failed.
++	HelperFailed = 9,
++	/// A helper run completed successfully and retired queued work.
++	Retired = 10,
++}
++
++/// Generic cancellation text used when no cause could be attributed.
++pub(crate) const GENERIC_CANCELLATION: &str =
++	"desktop operation cancelled; input may be partial; inspect before retrying";
++
++impl CancelReason {
++	pub(crate) const fn code(self) -> u8 {
++		self as u8
++	}
++
++	pub(crate) const fn from_code(code: u8) -> Option<Self> {
++		Some(match code {
++			1 => Self::Escape,
++			2 => Self::KeymapChanged,
++			3 => Self::MonitorFailed,
++			4 => Self::NativeTimeout,
++			5 => Self::ToolTimeout,
++			6 => Self::Revoked,
++			7 => Self::Released,
++			8 => Self::SessionClosed,
++			9 => Self::HelperFailed,
++			10 => Self::Retired,
++			_ => return None,
++		})
++	}
++
++	/// Parse a host-provided label. An unlabeled or unknown `cancel` is treated
++	/// as host revocation because the host explicitly requested the stop.
++	pub(crate) fn from_label(label: &str) -> Self {
++		match label {
++			"escape" => Self::Escape,
++			"keymap-changed" => Self::KeymapChanged,
++			"monitor-failed" => Self::MonitorFailed,
++			"native-timeout" => Self::NativeTimeout,
++			"tool-timeout" => Self::ToolTimeout,
++			"explicit-release" => Self::Released,
++			"session-close" => Self::SessionClosed,
++			"helper-failure" => Self::HelperFailed,
++			"helper-retire" => Self::Retired,
++			_ => Self::Revoked,
++		}
++	}
++
++	/// Human-facing explanation. Static text only: never caller-supplied input.
++	pub(crate) const fn message(self) -> &'static str {
++		match self {
++			Self::Escape => {
++				"desktop operation cancelled by a physical Escape key press; input may be partial; \
++				 inspect before retrying"
++			},
++			Self::KeymapChanged => {
++				"desktop operation cancelled because the keyboard mapping changed; input may be \
++				 partial; inspect before retrying"
++			},
++			Self::MonitorFailed => {
++				"desktop operation cancelled after the emergency Escape monitor failed; input may be \
++				 partial; inspect before retrying"
++			},
++			Self::NativeTimeout => {
++				"desktop operation cancelled after the native desktop timeout; input may be partial; \
++				 inspect before retrying"
++			},
++			Self::ToolTimeout => {
++				"desktop operation cancelled by the tool-level timeout; input may be partial; inspect \
++				 before retrying"
++			},
++			Self::Revoked => {
++				"desktop operation cancelled by host revocation or interrupt; input may be partial; \
++				 inspect before retrying"
++			},
++			Self::Released => {
++				"desktop operation cancelled by an explicit control release; input may be partial; \
++				 inspect before retrying"
++			},
++			Self::SessionClosed => {
++				"desktop operation cancelled because the session closed; input may be partial; \
++				 inspect before retrying"
++			},
++			Self::HelperFailed => {
++				"desktop operation cancelled because the helper run failed; input may be partial; \
++				 inspect before retrying"
++			},
++			Self::Retired => {
++				"desktop operation cancelled after a successful helper retire; input may be partial; \
++				 inspect before retrying"
++			},
++		}
++	}
++}
++
+ #[derive(Debug, Clone)]
+ pub struct DesktopError {
+-	pub code:    ErrorCode,
+-	pub message: String,
++	pub code:          ErrorCode,
++	pub message:       String,
++	/// Specific cancellation cause, set only for `ErrorCode::Cancelled`.
++	pub(crate) reason: Option<CancelReason>,
+ }
+ 
+ impl DesktopError {
+ 	pub(crate) fn new(code: ErrorCode, message: impl Into<String>) -> Self {
+-		Self { code, message: message.into() }
++		Self { code, message: message.into(), reason: None }
+ 	}
+ 
+ 	pub(crate) fn permission_denied(message: impl Into<String>) -> Self {
+@@ -76,8 +196,18 @@
+ 		Self::new(ErrorCode::InputBusy, message)
+ 	}
+ 
+-	pub(crate) fn cancelled(message: impl Into<String>) -> Self {
+-		Self::new(ErrorCode::Cancelled, message)
++	/// Cancellation carrying an explicit, machine-readable cause.
++	pub(crate) fn cancelled_reason(reason: CancelReason) -> Self {
++		Self {
++			code:    ErrorCode::Cancelled,
++			message: reason.message().to_string(),
++			reason:  Some(reason),
++		}
++	}
++
++	/// Cancellation whose cause the running generation could not attribute.
++	pub(crate) fn cancelled_unattributed() -> Self {
++		Self::new(ErrorCode::Cancelled, GENERIC_CANCELLATION)
+ 	}
+ 
+ 	pub(crate) fn background_unavailable(message: impl Into<String>) -> Self {
+diff --git a/crates/pi-natives/src/desktop/mod.rs b/crates/pi-natives/src/desktop/mod.rs
+--- a/crates/pi-natives/src/desktop/mod.rs
++++ b/crates/pi-natives/src/desktop/mod.rs
+@@ -31,7 +31,7 @@
+ use ax::{AxRegistry, register_node};
+ use backend::{Backend, DeliveryMode, MouseButton, PointerEvent};
+ use control::{CancellationSource, InputLease, OperationToken};
+-use error::{CoreResult, DesktopError};
++use error::{CancelReason, CoreResult, DesktopError};
+ use frame::{FrameGeometry, apply_capture_caps, encode_png};
+ use keys::{parse_keys, parse_modifiers};
+ pub use menus::DesktopMenuItem;
+@@ -1046,7 +1046,7 @@
+ 			.map_err(|_| DesktopError::internal("native desktop worker stopped unexpectedly"))
+ 			.and_then(|()| {
+ 				rxr.recv_timeout(OPERATION_TIMEOUT).map_err(|e| {
+-					self.cancellation.cancel();
++					self.cancellation.cancel(CancelReason::NativeTimeout);
+ 					DesktopError::timeout(format!("native desktop operation did not complete: {e}"))
+ 				})
+ 			});
+@@ -1055,7 +1055,7 @@
+ 	}
+ 
+ 	fn close(&self) -> CoreResult<()> {
+-		self.cancellation.cancel();
++		self.cancellation.cancel(CancelReason::SessionClosed);
+ 		let mut lifecycle = self.lifecycle.lock();
+ 		lifecycle.closed = true;
+ 		let Some(tx) = lifecycle.tx.take() else {
+@@ -1085,7 +1085,7 @@
+ }
+ impl Drop for SessionCore {
+ 	fn drop(&mut self) {
+-		self.cancellation.cancel();
++		self.cancellation.cancel(CancelReason::SessionClosed);
+ 		let lifecycle = self.lifecycle.get_mut();
+ 		if let Some(tx) = lifecycle.tx.take() {
+ 			let (reply, _) = flume::bounded(1);
+@@ -1116,7 +1116,7 @@
+ 	fn drop(&mut self) {
+ 		// A running async task can retain SessionCore after its JS wrapper dies.
+ 		// Cancel that work now rather than waiting for the last Arc to disappear.
+-		self.core.cancellation.cancel();
++		self.core.cancellation.cancel(CancelReason::SessionClosed);
+ 	}
+ }
+ #[napi]
+@@ -1658,14 +1658,20 @@
+ 
+ 	/// Immediately cancel operations submitted before this call. Later
+ 	/// operations may proceed.
+-	#[napi]
+-	pub fn cancel(&self) {
+-		self.core.cancellation.cancel();
++	///
++	/// `reason` is a stable host label (`escape`, `keymap-changed`,
++	/// `monitor-failed`, `native-timeout`, `tool-timeout`, `host-revocation`,
++	/// `explicit-release`, `session-close`, `helper-failure`, `helper-retire`).
++	/// An omitted or unknown label is treated as host revocation.
++	#[napi]
++	pub fn cancel(&self, reason: Option<String>) {
++		let reason = reason.as_deref().map_or(CancelReason::Revoked, CancelReason::from_label);
++		self.core.cancellation.cancel(reason);
+ 	}
+ 
+ 	#[napi]
+ 	pub fn close(&self) -> task::Promise<()> {
+-		self.cancel();
++		self.core.cancellation.cancel(CancelReason::SessionClosed);
+ 		let c = Arc::clone(&self.core);
+ 		task::blocking("desktop.close", (), move |_| c.close().map_err(Into::into))
+ 	}
+@@ -1793,7 +1799,7 @@
+ 		fn window_root(&mut self, _: &DesktopWindow) -> CoreResult<AxHandle> {
+ 			let source = self.cancel_on_snapshot.lock().take();
+ 			if let Some(source) = source {
+-				source.cancel();
++				source.cancel(CancelReason::Revoked);
+ 			}
+ 			if *self.snapshot_error.lock() {
+ 				return Err(DesktopError::ax_failed("snapshot root unavailable"));
+@@ -1861,7 +1867,7 @@
+ 		fn capabilities(&mut self) -> DesktopCapabilities {
+ 			let source = self.cancel_on_capabilities.lock().take();
+ 			if let Some(source) = source {
+-				source.cancel();
++				source.cancel(CancelReason::Revoked);
+ 			}
+ 			DesktopCapabilities {
+ 				backend: "wayland".to_string(),
+@@ -2082,15 +2088,13 @@
+ 	fn cancelled_calls_never_start_the_worker_or_count_as_in_flight() {
+ 		let core = SessionCore::new(DisplaySelector::Active);
+ 		let token = core.cancellation.token();
+-		core.cancellation.cancel();
+-		assert_eq!(
+-			core
+-				.call(token, |reply| Request::ListWindows { reply })
+-				.err()
+-				.unwrap()
+-				.code,
+-			ErrorCode::Cancelled
+-		);
++		core.cancellation.cancel(CancelReason::ToolTimeout);
++		let error = core
++			.call(token, |reply| Request::ListWindows { reply })
++			.err()
++			.unwrap();
++		assert_eq!(error.code, ErrorCode::Cancelled);
++		assert_eq!(error.reason, Some(CancelReason::ToolTimeout));
+ 		assert_eq!(core.in_flight.load(Ordering::Acquire), 0);
+ 		assert!(core.lifecycle.lock().tx.is_none());
+ 	}
+@@ -2459,7 +2463,7 @@
+ 		queue_tx
+ 			.send(QueuedRequest { request: Request::ListWindows { reply }, token: source.token() })
+ 			.unwrap_or_else(|_| panic!("queue unexpectedly disconnected"));
+-		source.cancel();
++		source.cancel(CancelReason::Revoked);
+ 		let queued = queue_rx.recv().unwrap();
+ 		let response = worker.execute(&queued.request, &queued.token);
+ 		queued.request.reply(response);
+diff --git a/crates/pi-natives/src/desktop/control/linux.rs b/crates/pi-natives/src/desktop/control/linux.rs
+--- a/crates/pi-natives/src/desktop/control/linux.rs
++++ b/crates/pi-natives/src/desktop/control/linux.rs
+@@ -15,7 +15,7 @@
+ 	rust_connection::RustConnection,
+ };
+ 
+-use super::{CoreResult, DesktopError, EmergencyStop};
++use super::{CancelReason, CoreResult, DesktopError, EmergencyStop};
+ 
+ pub(super) struct EscapeMonitor {
+ 	stop:   Option<UnixStream>,
+@@ -148,7 +148,7 @@
+ 							.ok()
+ 							.and_then(|cookie| cookie.reply().ok());
+ 						let Some(devices) = devices else {
+-							emergency.cancel();
++							emergency.cancel(CancelReason::MonitorFailed);
+ 							return;
+ 						};
+ 						if devices.infos.iter().any(|device| {
+@@ -157,30 +157,33 @@
+ 								&& !name.contains("XTEST")
+ 								&& !name.starts_with("OMP MPX ")
+ 						}) {
+-							emergency.cancel();
++							emergency.cancel(CancelReason::Escape);
+ 						}
+ 					},
+ 					Ok(Some(Event::MappingNotify(_))) => {
+-						emergency.cancel();
++						// The observed keymap no longer describes the live
++						// keyboard, so the monitored Escape keycode is no longer
++						// trustworthy; keep cancelling rather than suppress it.
++						emergency.cancel(CancelReason::KeymapChanged);
+ 						return;
+ 					},
+ 					Ok(Some(_)) => {},
+ 					Ok(None) => break,
+ 					Err(_) => {
+-						emergency.cancel();
++						emergency.cancel(CancelReason::MonitorFailed);
+ 						return;
+ 					},
+ 				}
+ 			}
+ 			if poll(&mut descriptors).is_err() {
+-				emergency.cancel();
++				emergency.cancel(CancelReason::MonitorFailed);
+ 				return;
+ 			}
+ 			if descriptors[0].revents != 0 {
+ 				return;
+ 			}
+ 			if descriptors[1].revents & (libc::POLLERR | libc::POLLHUP | libc::POLLNVAL) != 0 {
+-				emergency.cancel();
++				emergency.cancel(CancelReason::MonitorFailed);
+ 				return;
+ 			}
+ 		}
+diff --git a/crates/pi-natives/src/desktop/control/macos.rs b/crates/pi-natives/src/desktop/control/macos.rs
+--- a/crates/pi-natives/src/desktop/control/macos.rs
++++ b/crates/pi-natives/src/desktop/control/macos.rs
+@@ -6,7 +6,7 @@
+ 	thread::{self, JoinHandle},
+ };
+ 
+-use super::{CoreResult, DesktopError, EmergencyStop};
++use super::{CancelReason, CoreResult, DesktopError, EmergencyStop};
+ 
+ pub(crate) const SYNTHETIC_EVENT_TAG: i64 = 0x7069_6465_736b;
+ const SOURCE_USER_DATA: u32 = 42;
+@@ -75,7 +75,9 @@
+ 	// invalidation.
+ 	let context = unsafe { &*(user.cast::<TapContext>()) };
+ 	if kind == u32::MAX || kind == u32::MAX - 1 {
+-		context.stop.cancel();
++		// The tap was disabled (timeout or user input); it can no longer observe
++		// the physical Escape key.
++		context.stop.cancel(CancelReason::MonitorFailed);
+ 		// SAFETY: the event tap remains alive until this callback returns.
+ 		unsafe {
+ 			CGEventTapEnable(context.tap, true);
+@@ -95,7 +97,7 @@
+ 			super::USER_ACTIVITY.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+ 		}
+ 		if physical_escape(kind, key, pid, tag) {
+-			context.stop.cancel();
++			context.stop.cancel(CancelReason::Escape);
+ 		}
+ 	}
+ 	event
+diff --git a/crates/pi-natives/src/desktop/control/windows.rs b/crates/pi-natives/src/desktop/control/windows.rs
+--- a/crates/pi-natives/src/desktop/control/windows.rs
++++ b/crates/pi-natives/src/desktop/control/windows.rs
+@@ -17,7 +17,7 @@
+ 	},
+ };
+ 
+-use super::{CoreResult, DesktopError, EmergencyStop};
++use super::{CancelReason, CoreResult, DesktopError, EmergencyStop};
+ 
+ thread_local! { static STOP: RefCell<Option<EmergencyStop>> = const { RefCell::new(None) }; }
+ 
+@@ -28,7 +28,7 @@
+ 		if key.vkCode == u32::from(VK_ESCAPE) && key.flags & LLKHF_INJECTED == 0 {
+ 			STOP.with_borrow(|stop| {
+ 				if let Some(stop) = stop {
+-					stop.cancel();
++					stop.cancel(CancelReason::Escape);
+ 				}
+ 			});
+ 		}
+@@ -74,7 +74,7 @@
+ 						if status < 0 {
+ 							STOP.with_borrow(|stop| {
+ 								if let Some(stop) = stop {
+-									stop.cancel();
++									stop.cancel(CancelReason::MonitorFailed);
+ 								}
+ 							});
+ 						}
+diff --git a/crates/pi-natives/src/desktop/linux/wayland/capture.rs b/crates/pi-natives/src/desktop/linux/wayland/capture.rs
+--- a/crates/pi-natives/src/desktop/linux/wayland/capture.rs
++++ b/crates/pi-natives/src/desktop/linux/wayland/capture.rs
+@@ -349,12 +349,13 @@
+ #[cfg(test)]
+ mod tests {
+ 	use super::*;
++	use crate::desktop::error::CancelReason;
+ 
+ 	#[test]
+ 	fn cancelled_geometry_refresh_never_opens_a_portal_session() {
+ 		let source = control::CancellationSource::default();
+ 		let token = source.token();
+-		source.cancel();
++		source.cancel(CancelReason::Revoked);
+ 		let result = control::with_token_for_test(&token, geometry);
+ 		assert_eq!(result.unwrap_err().code, token.check().unwrap_err().code);
+ 	}
+diff --git a/crates/pi-natives/src/desktop/linux/wayland/mod.rs b/crates/pi-natives/src/desktop/linux/wayland/mod.rs
+--- a/crates/pi-natives/src/desktop/linux/wayland/mod.rs
++++ b/crates/pi-natives/src/desktop/linux/wayland/mod.rs
+@@ -413,6 +413,8 @@
+ 
+ 	use super::*;
+ 
++	use crate::desktop::error::CancelReason;
++
+ 	static LIBEI_ENV_LOCK: Mutex<()> = Mutex::new(());
+ 
+ 	fn backend_without_services() -> WaylandBackend {
+@@ -548,7 +550,7 @@
+ 		let mut backend = backend_without_services();
+ 		let source = control::CancellationSource::default();
+ 		let token = source.token();
+-		source.cancel();
++		source.cancel(CancelReason::Revoked);
+ 		assert!(
+ 			backend
+ 				.type_text(&Target::Desktop, "hello", DeliveryMode::Foreground, &token)
+diff --git a/crates/pi-natives/src/desktop/linux/wayland/libei.rs b/crates/pi-natives/src/desktop/linux/wayland/libei.rs
+--- a/crates/pi-natives/src/desktop/linux/wayland/libei.rs
++++ b/crates/pi-natives/src/desktop/linux/wayland/libei.rs
+@@ -980,6 +980,7 @@
+ #[cfg(test)]
+ mod tests {
+ 	use super::*;
++	use crate::desktop::error::CancelReason;
+ 
+ 	#[test]
+ 	fn drag_motions_and_release_are_spaced_for_event_consumers() {
+@@ -1012,7 +1013,7 @@
+ 		let result = control::with_token_for_test(&token, || {
+ 			runtime.block_on(cancellable(async {
+ 				starts += 1;
+-				source.cancel();
++				source.cancel(CancelReason::Revoked);
+ 				std::future::pending::<()>().await;
+ 			}))
+ 		});
+@@ -1028,7 +1029,7 @@
+ 		let result = control::with_token_for_test(&token, || {
+ 			pace_drag(&[(0.0, 0.0), (1.0, 1.0), (2.0, 2.0)], |x, y| {
+ 				received.push((x, y));
+-				source.cancel();
++				source.cancel(CancelReason::Revoked);
+ 				Ok(())
+ 			})
+ 		});
+diff --git a/crates/pi-natives/src/desktop/linux/x11/keymap.rs b/crates/pi-natives/src/desktop/linux/x11/keymap.rs
+--- a/crates/pi-natives/src/desktop/linux/x11/keymap.rs
++++ b/crates/pi-natives/src/desktop/linux/x11/keymap.rs
+@@ -364,6 +364,7 @@
+ #[cfg(test)]
+ mod tests {
+ 	use super::*;
++	use crate::desktop::error::CancelReason;
+ 
+ 	const A: u8 = 38;
+ 	const ONE: u8 = 10;
+@@ -406,7 +407,7 @@
+ 				|step| {
+ 					events.push(step);
+ 					if step == press(A) {
+-						source.cancel();
++						source.cancel(CancelReason::Revoked);
+ 					}
+ 					Ok(())
+ 				},
+@@ -429,7 +430,7 @@
+ 					Ok(())
+ 				},
+ 				|| {
+-					source.cancel();
++					source.cancel(CancelReason::Revoked);
+ 					control::wait(std::time::Duration::from_secs(100))
+ 				},
+ 			)
+@@ -545,7 +546,7 @@
+ 				control::check()?;
+ 				emitted.push(step);
+ 				if step == press(A) {
+-					source.cancel();
++					source.cancel(CancelReason::Revoked);
+ 				}
+ 				Ok(())
+ 			})
+@@ -568,7 +569,7 @@
+ 	fn already_cancelled_delivery_does_not_release_unpressed_keys() {
+ 		let source = control::CancellationSource::default();
+ 		let token = source.token();
+-		source.cancel();
++		source.cancel(CancelReason::Revoked);
+ 		let mut emitted = Vec::new();
+ 		let result = control::with_token_for_test(&token, || {
+ 			run_steps(&[press(CTRL)], |step| {
+diff --git a/crates/pi-natives/src/desktop/win32/input.rs b/crates/pi-natives/src/desktop/win32/input.rs
+--- a/crates/pi-natives/src/desktop/win32/input.rs
++++ b/crates/pi-natives/src/desktop/win32/input.rs
+@@ -1512,12 +1512,13 @@
+ 	#[cfg(test)]
+ 	mod tests {
+ 		use super::*;
++		use crate::desktop::error::CancelReason;
+ 
+ 		#[test]
+ 		fn cancellation_stops_packets_but_allows_cleanup_and_a_later_operation() {
+ 			let source = control::CancellationSource::default();
+ 			let token = source.token();
+-			source.cancel();
++			source.cancel(CancelReason::Revoked);
+ 			control::with_token_for_test(&token, || {
+ 				let cancelled = token.check().unwrap_err().message;
+ 				assert_eq!(send(&[]).unwrap_err().message, cancelled);
+diff --git a/crates/pi-natives/src/desktop/macos/input.rs b/crates/pi-natives/src/desktop/macos/input.rs
+--- a/crates/pi-natives/src/desktop/macos/input.rs
++++ b/crates/pi-natives/src/desktop/macos/input.rs
+@@ -1641,6 +1641,7 @@
+ #[cfg(test)]
+ mod tests {
+ 	use super::*;
++	use crate::desktop::error::CancelReason;
+ 
+ 	fn shift_transition(event: &CGEvent) -> (i64, u32, bool) {
+ 		(
+@@ -1672,7 +1673,7 @@
+ 					Ok(())
+ 				},
+ 				|| {
+-					cancellation.cancel();
++					cancellation.cancel(CancelReason::Revoked);
+ 					control::wait(Duration::from_secs(100))
+ 				},
+ 			)
+@@ -1714,7 +1715,7 @@
+ 			type_text(&source, "e\u{301}later", |event| {
+ 				events.push(event.get_type());
+ 				if matches!(event.get_type(), CGEventType::KeyDown) {
+-					cancellation.cancel();
++					cancellation.cancel(CancelReason::Revoked);
+ 				}
+ 				Ok(())
+ 			})
+@@ -1738,7 +1739,7 @@
+ 					event.get_flags().contains(CGEventFlags::CGEventFlagControl),
+ 				));
+ 				if events.len() == 1 {
+-					cancellation.cancel();
++					cancellation.cancel(CancelReason::Revoked);
+ 				}
+ 				Ok(())
+ 			})
+diff --git a/packages/coding-agent/src/tools/computer/worker.ts b/packages/coding-agent/src/tools/computer/worker.ts
+--- a/packages/coding-agent/src/tools/computer/worker.ts
++++ b/packages/coding-agent/src/tools/computer/worker.ts
+@@ -40,6 +40,7 @@
+ 	ComputerSessionSnapshot,
+ 	ComputerWorkerInbound,
+ 	ComputerWorkerTransport,
++	DesktopCancelReason,
+ 	RunErrorPayload,
+ 	ToolReply,
+ } from "./protocol";
+@@ -55,7 +56,7 @@
+ 		region: CaptureRegion,
+ 		caps?: { maxWidth?: number; maxHeight?: number } | null,
+ 	): Promise<DesktopCapture>;
+-	cancel(): void;
++	cancel(reason: DesktopCancelReason): void;
+ 	retire(): void;
+ 	listApplications(options?: ApplicationQuery): Promise<Application[]>;
+ 	openApplication(id: string, options?: ApplicationOpenOptions): Promise<Application>;
+@@ -610,7 +611,7 @@
+ 				return;
+ 			case "revoke-control":
+ 				this.#active?.ac.abort(new ToolAbortError("Computer control revoked"));
+-				this.#session?.cancel();
++				this.#session?.cancel("host-revocation");
+ 				this.#transport.send({ type: "control-revoked", id: message.id });
+ 				return;
+ 			case "tool-reply":
+@@ -683,7 +684,10 @@
+ 		let nativeCancelled = false;
+ 		const onNativeCancel = (): void => {
+ 			if (this.#active === active && this.#session) {
+-				this.#session.cancel();
++				// The run's timeout signal is the only reason distinct from a host
++				// interrupt on this path; name it so the native Cancelled error is
++				// attributable.
++				this.#session.cancel(timeoutSignal.aborted ? "tool-timeout" : "host-revocation");
+ 				nativeCancelled = true;
+ 			}
+ 		};
+@@ -764,7 +768,10 @@
+ 			// preserves an explicitly acquired task grant. Errors revoke it.
+ 			signal.removeEventListener("abort", onNativeCancel);
+ 			if (failure === undefined && !signal.aborted) this.#session?.retire();
+-			else if (!nativeCancelled) this.#session?.cancel();
++			else if (!nativeCancelled)
++				this.#session?.cancel(
++					timeoutSignal.aborted ? "tool-timeout" : signal.aborted ? "host-revocation" : "helper-failure",
++				);
+ 			runAc.abort(postmortem.markExpectedCleanupError(new ToolAbortError("Computer run ended")));
+ 			if (this.#active?.id === message.id) this.#active = null;
+ 		}
+@@ -1045,6 +1052,9 @@
+ 	async #close(): Promise<void> {
+ 		if (this.#closed) return;
+ 		this.#closed = true;
++		// Session teardown is its own revocation boundary; label it before the
++		// run's abort handler can attribute the stop to a generic host interrupt.
++		this.#session?.cancel("session-close");
+ 		this.#active?.ac.abort(new ToolAbortError());
+ 		try {
+ 			await this.#session?.close();
+diff --git a/packages/coding-agent/src/tools/computer/protocol.ts b/packages/coding-agent/src/tools/computer/protocol.ts
+--- a/packages/coding-agent/src/tools/computer/protocol.ts
++++ b/packages/coding-agent/src/tools/computer/protocol.ts
+@@ -47,6 +47,23 @@
+ 	target: string;
+ }
+ 
++/**
++ * Concrete reason a native desktop operation was cancelled. Every host stop is
++ * labelled so a `Cancelled` error names its cause instead of a generic message.
++ * The labels are the stable wire contract shared with the native addon.
++ */
++export type DesktopCancelReason =
++	| "escape"
++	| "keymap-changed"
++	| "monitor-failed"
++	| "native-timeout"
++	| "tool-timeout"
++	| "host-revocation"
++	| "explicit-release"
++	| "session-close"
++	| "helper-failure"
++	| "helper-retire";
++
+ /** Clone-safe error metadata returned across the worker boundary. */
+ export interface RunErrorPayload {
+ 	name: string;
+diff --git a/packages/coding-agent/test/tools/computer.test.ts b/packages/coding-agent/test/tools/computer.test.ts
+--- a/packages/coding-agent/test/tools/computer.test.ts
++++ b/packages/coding-agent/test/tools/computer.test.ts
+@@ -12,6 +12,7 @@
+ 	ComputerWorkerInbound,
+ 	ComputerWorkerOutbound,
+ 	ComputerWorkerTransport,
++	DesktopCancelReason,
+ } from "@oh-my-pi/pi-coding-agent/tools/computer/protocol";
+ import {
+ 	type ComputerController,
+@@ -138,7 +139,7 @@
+ 	async captureRegion(_target: string, _region: CaptureRegion): Promise<DesktopCapture> {
+ 		throw new Error("Unexpected region capture");
+ 	}
+-	cancel(): void {
++	cancel(_reason: DesktopCancelReason): void {
+ 		this.cancelCount += 1;
+ 		this.controlActive = false;
+ 	}
+@@ -1126,8 +1127,8 @@
+ 				return pendingCapture.promise;
+ 			}
+ 
+-			override cancel(): void {
+-				super.cancel();
++			override cancel(reason: DesktopCancelReason): void {
++				super.cancel(reason);
+ 				pendingCapture.reject(new Error("Cancelled: native capture stopped"));
+ 			}
+ 		}
+@@ -1213,8 +1214,8 @@
+ 				}
+ 			}
+ 
+-			override cancel(): void {
+-				super.cancel();
++			override cancel(reason: DesktopCancelReason): void {
++				super.cancel(reason);
+ 				this.#generation += 1;
+ 			}
+ 			override retire(): void {
+diff --git a/docs/tools/computer.md b/docs/tools/computer.md
+--- a/docs/tools/computer.md
++++ b/docs/tools/computer.md
+@@ -182,7 +182,7 @@
+ 
+ Prelude/worker errors include `Computer session is closed`, `Computer worker is busy`, `Timed out starting computer worker`, `Computer code execution timed out after <ms>ms`, read-only mutation errors, and the worker-restart message above.
+ 
+-`InputBusy` means another native operation owns input/focus and no input was sent. On macOS a listen-only, operation-scoped Escape monitor cancels physical Escape but ignores synthetic events. An unavailable monitor refuses input with `PermissionDenied`. `Cancelled` may follow partial input or an atomic OS/AX operation: cancellation cannot undo effects already delivered.
++`InputBusy` means another native operation owns input/focus and no input was sent. On macOS a listen-only, operation-scoped Escape monitor cancels physical Escape but ignores synthetic events. An unavailable monitor refuses input with `PermissionDenied`. `Cancelled` may follow partial input or an atomic OS/AX operation: cancellation cannot undo effects already delivered. A `Cancelled` error names its concrete cause: a physical Escape press, a keyboard-mapping change, a failed emergency monitor, a native operation timeout, the tool-level timeout, host revocation/interrupt, an explicit control release, session close, helper failure, or a successful helper retire.
+ 
+ Recover by refreshing the exact target screenshot after coordinate-frame errors, taking a new AX snapshot after `StaleRef`, and inspecting `desktop.capabilities()` for platform/permission failures. After `BackgroundUnavailable`, prefer AX; use `takeover: true` only for the refused call when supported. After partial-delivery or restoration errors, inspect the target before retrying because input may already have landed.
+ 
+diff --git a/docs/computer-use.md b/docs/computer-use.md
+--- a/docs/computer-use.md
++++ b/docs/computer-use.md
+@@ -182,7 +182,7 @@
+ 
+ Native mutations acquire an OS-backed input/focus lock shared across processes. Contention returns `InputBusy` before sending input; screenshots and inspection remain available. The lock is released after the operation and its cleanup, not held for the whole conversation.
+ 
+-On macOS, physical `Esc` interrupts the current native input operation without swallowing the key. Synthetic Escape chords do not trigger the emergency stop. Event-tap permission is required; an unavailable monitor fails closed with `PermissionDenied`. Cancellation releases held buttons and modifiers before ownership is released. Synchronous OS/AX calls already in progress cannot be undone: inspect the UI after `Cancelled` or a partial-delivery error before retrying.
++On macOS, physical `Esc` interrupts the current native input operation without swallowing the key. Synthetic Escape chords do not trigger the emergency stop. Event-tap permission is required; an unavailable monitor fails closed with `PermissionDenied`. On Linux/X11 the monitor distinguishes a real Escape, an X11 keyboard-mapping change, and a monitor failure. Cancellation releases held buttons and modifiers before ownership is released. A `Cancelled` error names its concrete cause (Escape, keymap change, monitor failure, native timeout, tool timeout, host revocation, explicit release, session close, helper failure, or helper retire). Synchronous OS/AX calls already in progress cannot be undone: inspect the UI after `Cancelled` or a partial-delivery error before retrying.
+ 
+ - Prefer direct inspection helpers, and use `read_only: true` for `computer.run` whenever no mutation is required.
+ - Prefer AX actions because they target a semantic element and do not depend on a stale screenshot.

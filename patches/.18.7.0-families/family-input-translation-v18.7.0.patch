@@ -1,0 +1,2832 @@
+--- a/pi-agent-core/dist/types/compaction/compaction.d.ts
++++ b/pi-agent-core/dist/types/compaction/compaction.d.ts
+@@ -244,6 +244,14 @@ export interface SummaryOptions {
+      * stacks on top of the inner backoff.
+      */
+     oneshotRetry?: OneshotRetryOptions | false;
++    /**
++     * When `false`, a summary window whose serialized conversation exceeds its
++     * input budget throws instead of being truncated by the historical clamp
++     * (including windows replanned after a provider context-overflow rejection).
++     * Callers that must never lose history — e.g. an independent translation-memory
++     * compactor — opt out; the default keeps native clamping for everyone else.
++     */
++    allowTruncation?: boolean;
+ }
+ export declare function generateSummary(currentMessages: AgentMessage[], model: Model, reserveTokens: number, apiKey: ApiKey, signal?: AbortSignal, customInstructions?: string, previousSummary?: string, options?: SummaryOptions): Promise<string>;
+ export interface HandoffOptions {
+--- a/pi-agent-core/src/agent.ts
++++ b/pi-agent-core/src/agent.ts
+@@ -70,12 +70,21 @@ import { EventLoopKeepalive } from "./utils/yield";
+ 
+ /**
+  * Default convertToLlm: Keep only LLM-compatible replay messages.
++ *
++ * User messages are copied without `displayText`: that field is operator
++ * presentation metadata and must never ride a provider request.
+  */
+ function defaultConvertToLlm(messages: AgentMessage[]): Message[] {
+-	return messages.filter((m): m is Message => {
++	const replayable = messages.filter((m): m is Message => {
+ 		if (m.role === "assistant") return !isProviderRefusalMessage(m);
+ 		return m.role === "user" || m.role === "developer" || m.role === "toolResult";
+ 	});
++	return replayable.map(m => {
++		if (m.role !== "user" || m.displayText === undefined) return m;
++		const { displayText: _displayText, ...rest } = m;
++		void _displayText;
++		return rest;
++	});
+ }
+ 
+ function refreshToolChoiceForActiveTools(
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -752,6 +752,14 @@ export interface SummaryOptions {
+ 	 * stacks on top of the inner backoff.
+ 	 */
+ 	oneshotRetry?: OneshotRetryOptions | false;
++	/**
++	 * When `false`, a summary window whose serialized conversation exceeds its
++	 * input budget throws instead of being truncated by the historical clamp
++	 * (including windows replanned after a provider context-overflow rejection).
++	 * Callers that must never lose history — e.g. an independent translation-memory
++	 * compactor — opt out; the default keeps native clamping for everyone else.
++	 */
++	allowTruncation?: boolean;
+ }
+ 
+ /**
+@@ -913,6 +921,12 @@ export async function generateSummary(
+ 		// neither an exact count nor the clamp, and the bust path hands back the
+ 		// exact count the proportional clamp needs as its denominator.
+ 		const budget = tokenizer.checkTokenBudget(text, window.budgetTokens);
++		// Opt-in no-loss contract: a window that does not fit must fail before the
++		// clamp (and before the provider call) rather than silently dropping its
++		// tail. Replanned windows re-enter this loop, so they are covered too.
++		if (!budget.fits && options?.allowTruncation === false) {
++			throw new Error("Compaction summary window exceeds the input budget and truncation is disabled.");
++		}
+ 		try {
+ 			carriedSummary = await summarizeConversationWindow(
+ 				budget.fits ? text : clampConversationToBudget(text, window.budgetTokens, budget.tokens),
+@@ -1648,6 +1662,7 @@ export async function compact(
+ 		tools: options?.tools,
+ 		fetch: options?.fetch,
+ 		completeImpl: options?.completeImpl,
++		allowTruncation: options?.allowTruncation,
+ 		// The caller's opt-out must reach every summarization oneshot, otherwise
+ 		// an outer retry loop multiplies with the inner one (see SummaryOptions).
+ 		oneshotRetry: options?.oneshotRetry,
+--- a/pi-agent-core/src/compaction/messages.ts
++++ b/pi-agent-core/src/compaction/messages.ts
+@@ -264,8 +264,14 @@ export function convertMessageToLlm(message: AgentMessage): Message | undefined
+ 	}
+ 
+ 	switch (message.role) {
+-		case "user":
+-			return { ...message, attribution: message.attribution ?? "user" };
++		case "user": {
++			// `displayText` is operator-presentation metadata: strip it on the way to
++			// the LLM form so it can never ride a provider request. The stored
++			// message keeps it for transcript/editing readers.
++			const llmUser = { ...message, attribution: message.attribution ?? "user" };
++			delete llmUser.displayText;
++			return llmUser;
++		}
+ 		case "developer":
+ 			return { ...message, attribution: message.attribution ?? "agent" };
+ 		case "assistant":
+--- a/pi-ai/dist/types/types.d.ts
++++ b/pi-ai/dist/types/types.d.ts
+@@ -901,6 +901,14 @@ export interface ProviderInputTransformation {
+ export interface UserMessage {
+     role: "user";
+     content: string | (TextContent | ImageContent)[];
++    /**
++     * Original operator-presentation text when `content` is a canonical
++     * replacement (e.g. text already translated for the model). Purely
++     * presentational: UI/editing readers prefer it, while `content` remains the
++     * only model text. Stripped at the AgentMessage-to-LLM boundary and omitted
++     * when no alternate presentation is required.
++     */
++    displayText?: string;
+     /** True if the message was injected by the system (e.g., auto-continue). */
+     synthetic?: boolean;
+     /** True when present only in a provider request; never persisted or replayed. */
+--- a/pi-ai/src/types.ts
++++ b/pi-ai/src/types.ts
+@@ -1137,6 +1137,14 @@ export interface ProviderInputTransformation {
+ export interface UserMessage {
+ 	role: "user";
+ 	content: string | (TextContent | ImageContent)[];
++	/**
++	 * Original operator-presentation text when `content` is a canonical
++	 * replacement (e.g. text already translated for the model). Purely
++	 * presentational: UI/editing readers prefer it, while `content` remains the
++	 * only model text. Stripped at the AgentMessage-to-LLM boundary and omitted
++	 * when no alternate presentation is required.
++	 */
++	displayText?: string;
+ 	/** True if the message was injected by the system (e.g., auto-continue). */
+ 	synthetic?: boolean;
+ 	/** True when present only in a provider request; never persisted or replayed. */
+--- a/pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts
++++ b/pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts
+@@ -29,6 +29,7 @@ export declare class ExtensionRuntime implements IExtensionRuntime {
+     sendMessage(): void;
+     sendUserMessage(): void;
+     appendEntry(): void;
++    appendEntryPersisted(): Promise<string>;
+     setLabel(): void;
+     getActiveTools(): string[];
+     getAllTools(): ToolInfo[];
+--- a/pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts
++++ b/pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts
+@@ -9,7 +9,7 @@ import type { AsyncJobSnapshot } from "../../session/agent-session.js";
+ import type { SessionManager } from "../../session/session-manager.js";
+ import type { BranchHandler, NavigateTreeHandler, NewSessionHandler } from "../session-handler-types.js";
+ import type { ComposerShapeDefinition } from "@oh-my-pi/pi-tui/overlays/composer-shape-registry";
+-import type { AfterProviderResponseEvent, AssistantThinkingRenderer, BeforeAgentStartEvent, BeforeAgentStartEventResult, BeforeProviderRequestEvent, BeforeProviderRequestEventResult, BeforeSubagentSpawnEvent, BeforeSubagentSpawnEventResult, ContextEvent, Extension, ExtensionActions, ExtensionAgentIdentity, ExtensionCommandContext, ExtensionCommandContextActions, ExtensionContext, ExtensionContextActions, ExtensionError, ExtensionEvent, ExtensionFlag, ExtensionMode, ExtensionRuntime, ExtensionShortcut, ExtensionUIContext, InputEvent, InputEventResult, CacheWarmingAction, CacheWarmingDecisionEvent, McpNotificationEvent, MessageRenderer, RegisteredCommand, RegisteredTool, ResourcesDiscoverEvent, SessionBeforeBranchResult, SessionBeforeCompactResult, SessionBeforeSwitchResult, SessionBeforeTreeResult, SessionCompactingResult, SessionStopEvent, SessionStopEventResult, ToolCallEvent, ToolCallEventResult, ToolResultEvent, ToolResultEventResult, UserBashEvent, UserBashEventResult, UserPythonEvent, UserPythonEventResult } from "./types.js";
++import type { AfterProviderResponseEvent, AssistantThinkingRenderer, BeforeAgentStartEvent, BeforeAgentStartEventResult, BeforeProviderRequestEvent, BeforeProviderRequestEventResult, BeforeSubagentSpawnEvent, BeforeSubagentSpawnEventResult, ContextEvent, Extension, ExtensionActions, ExtensionAgentIdentity, ExtensionCommandContext, ExtensionCommandContextActions, ExtensionContext, ExtensionContextActions, ExtensionError, ExtensionEvent, ExtensionFlag, ExtensionMode, ExtensionRuntime, ExtensionShortcut, ExtensionUIContext, InputEvent, InputEventResult, CacheWarmingAction, CacheWarmingDecisionEvent, McpNotificationEvent, MessageRenderer, PrepareUserInputEvent, PrepareUserInputResult, RegisteredCommand, RegisteredTool, ResourcesDiscoverEvent, SessionBeforeBranchResult, SessionBeforeCompactResult, SessionBeforeSwitchResult, SessionBeforeTreeResult, SessionCompactingResult, SessionStopEvent, SessionStopEventResult, ToolCallEvent, ToolCallEventResult, ToolResultEvent, ToolResultEventResult, UserBashEvent, UserBashEventResult, UserPythonEvent, UserPythonEventResult } from "./types.js";
+ /** Combined result from all before_agent_start handlers */
+ interface BeforeAgentStartCombinedResult {
+     messages?: NonNullable<BeforeAgentStartEventResult["message"]>[];
+@@ -360,6 +360,15 @@ export declare class ExtensionRunner {
+             extensionPath: string;
+         }>;
+     }>;
++    /**
++     * Emit the awaited ordinary-input preparation boundary (Enter and Ctrl+Enter).
++     *
++     * Handlers run sequentially under the event's submission-owned signal and
++     * OUTSIDE the generic handler timeout: a deliberate human decision may take
++     * arbitrarily long. A thrown/rejected handler propagates; `cancel`
++     * short-circuits. At most one handler may supply `modelText`.
++     */
++    emitPrepareUserInput(event: PrepareUserInputEvent): Promise<PrepareUserInputResult>;
+     /** Emit input event. Transforms chain, "handled" short-circuits. */
+     emitInput(text: string, images: ImageContent[] | undefined, source: "interactive" | "rpc" | "extension"): Promise<InputEventResult>;
+     emitContext(messages: AgentMessage[], signal?: AbortSignal): Promise<AgentMessage[]>;
+--- a/pi-coding-agent/dist/types/extensibility/extensions/types.d.ts
++++ b/pi-coding-agent/dist/types/extensibility/extensions/types.d.ts
+@@ -741,6 +741,39 @@ export interface InputEvent {
+     images?: ImageContent[];
+     source: "interactive" | "rpc" | "extension";
+ }
++/**
++ * Fired for ordinary primary-composer input (Enter and Ctrl+Enter) after the
++ * legacy `input` transformations and native command/template eligibility
++ * classification, and before any submission or queue delivery.
++ *
++ * Handlers are awaited directly under the submission-owned
++ * {@link PrepareUserInputEvent.signal} — outside the generic handler timeout —
++ * so a deliberate human decision (e.g. a failure dialog) may take arbitrarily
++ * long. A thrown/rejected handler or a `cancel` result stops submission.
++ */
++export interface PrepareUserInputEvent {
++    type: "prepare_user_input";
++    /** Logical identity of this submission. A repeated event for the same id is not new work. */
++    inputId: string;
++    sessionId: string;
++    target: "main";
++    source: "interactive";
++    submission: "submit" | "followUp";
++    text: string;
++    images?: readonly ImageContent[];
++    signal: AbortSignal;
++}
++/**
++ * Result of {@link PrepareUserInputEvent}. `submit` continues native submission,
++ * optionally replacing the model text while the original stays the display text.
++ * `cancel` stops submission with no send.
++ */
++export type PrepareUserInputResult = {
++    action: "submit";
++    modelText?: string;
++} | {
++    action: "cancel";
++};
+ export interface ToolApprovalRequestedEvent {
+     type: "tool_approval_requested";
+     sessionId: string;
+@@ -941,6 +974,12 @@ export interface ExtensionAPI {
+     zod: typeof zod;
+     /** Injected pi-coding-agent exports for accessing SDK utilities */
+     pi: typeof PiCodingAgent;
++    /**
++     * Capability marker for the awaited ordinary-input preparation boundary.
++     * The literal `1` means this host emits `prepare_user_input` and implements
++     * the acknowledged `appendEntryPersisted` action.
++     */
++    readonly userInputPreparationVersion: 1;
+     on(event: "resources_discover", handler: ExtensionHandler<ResourcesDiscoverEvent, ResourcesDiscoverResult>): void;
+     on(event: "session_start", handler: ExtensionHandler<SessionStartEvent>): void;
+     on(event: "session_before_switch", handler: ExtensionHandler<SessionBeforeSwitchEvent, SessionBeforeSwitchResult>): void;
+@@ -982,6 +1021,7 @@ export interface ExtensionAPI {
+     on(event: "goal_updated", handler: ExtensionHandler<GoalUpdatedEvent>): void;
+     on(event: "credential_disabled", handler: ExtensionHandler<CredentialDisabledEvent>): void;
+     on(event: "input", handler: ExtensionHandler<InputEvent, InputEventResult>): void;
++    on(event: "prepare_user_input", handler: ExtensionHandler<PrepareUserInputEvent, PrepareUserInputResult>): void;
+     on(event: "tool_approval_requested", handler: ExtensionHandler<ToolApprovalRequestedEvent>): void;
+     on(event: "tool_approval_resolved", handler: ExtensionHandler<ToolApprovalResolvedEvent>): void;
+     on(event: "tool_call", handler: ExtensionHandler<ToolCallEvent, ToolCallEventResult>): void;
+@@ -1104,6 +1144,15 @@ export interface ExtensionAPI {
+     sendUserMessage(content: string | (TextContent | ImageContent)[], options?: SendUserMessageOptions): void;
+     /** Append a custom entry to the session for state persistence (not sent to LLM). */
+     appendEntry<T = unknown>(customType: string, data?: T): void;
++    /**
++     * Append a hidden custom entry and resolve with its entry id only after the
++     * journal is durably committed. Rejects a non-persistent session, a stale
++     * `sessionId`, an aborted `signal`, or an in-progress session transition.
++     */
++    appendEntryPersisted<T = unknown>(customType: string, data: T, options: {
++        sessionId: string;
++        signal: AbortSignal;
++    }): Promise<string>;
+     /** Execute a shell command. */
+     exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
+     /** Get the list of currently active tool names. */
+@@ -1305,6 +1354,14 @@ options?: {
+  *  batch while streaming; idle still starts a turn. */
+ export type SendUserMessageHandler = (content: string | (TextContent | ImageContent)[], options?: SendUserMessageOptions) => void;
+ export type AppendEntryHandler = <T = unknown>(customType: string, data?: T) => void;
++/**
++ * Acknowledged hidden-entry append: resolves with the committed entry id only
++ * after the journal is durable, or rejects without side effects.
++ */
++export type AppendEntryPersistedHandler = <T = unknown>(customType: string, data: T, options: {
++    sessionId: string;
++    signal: AbortSignal;
++}) => Promise<string>;
+ export type GetActiveToolsHandler = () => string[];
+ export type GetAllToolsHandler = () => ToolInfo[];
+ export type GetCommandsHandler = () => SlashCommandInfo[];
+@@ -1333,6 +1390,7 @@ export interface ExtensionActions {
+     sendMessage: SendMessageHandler;
+     sendUserMessage: SendUserMessageHandler;
+     appendEntry: AppendEntryHandler;
++    appendEntryPersisted: AppendEntryPersistedHandler;
+     setLabel: (targetId: string, label: string | undefined) => void;
+     getActiveTools: GetActiveToolsHandler;
+     getAllTools: GetAllToolsHandler;
+--- a/pi-coding-agent/dist/types/main.d.ts
++++ b/pi-coding-agent/dist/types/main.d.ts
+@@ -24,7 +24,7 @@ export interface InteractiveModeNotify {
+     message: string;
+ }
+ export declare function buildModelScopeNotification(scopedModelsForDisplay: readonly Pick<ScopedModel, "model" | "thinkingLevel" | "explicitThinkingLevel">[], startupQuiet: boolean): InteractiveModeNotify | null;
+-export declare function submitInteractiveInput(mode: Pick<InteractiveMode, "markPendingSubmissionStarted" | "finishPendingSubmission" | "showError" | "checkShutdownRequested" | "skillCommands" | "renderOptimisticSkillMessage" | "clearOptimisticSkillMessage" | "optimisticSkillMessagePending"> & Partial<Pick<InteractiveMode, "loopPrompt" | "pauseLoop">>, session: Pick<AgentSession, "prompt" | "promptCustomMessage" | "isStreaming">, input: SubmittedUserInput): Promise<void>;
++export declare function submitInteractiveInput(mode: Pick<InteractiveMode, "markPendingSubmissionStarted" | "finishPendingSubmission" | "showError" | "showWarning" | "editor" | "deferredDraftSnapshots" | "updatePendingMessagesDisplay" | "ui" | "checkShutdownRequested" | "skillCommands" | "renderOptimisticSkillMessage" | "clearOptimisticSkillMessage" | "optimisticSkillMessagePending"> & Partial<Pick<InteractiveMode, "loopPrompt" | "pauseLoop">>, session: Pick<AgentSession, "prompt" | "promptCustomMessage" | "isStreaming">, input: SubmittedUserInput): Promise<void>;
+ interface AcpSessionHandle {
+     session: AgentSession;
+     setToolUIContext: (uiContext: ExtensionUIContext, hasUI: boolean) => void;
+--- a/pi-coding-agent/dist/types/modes/interactive-mode.d.ts
++++ b/pi-coding-agent/dist/types/modes/interactive-mode.d.ts
+@@ -204,6 +204,7 @@ export declare class InteractiveMode implements InteractiveModeContext {
+     get effectiveHideThinkingBlock(): boolean;
+     proseOnlyThinking: boolean;
+     expandThinkingBlocks: boolean;
++    deferredDraftSnapshots: InteractiveModeContext["deferredDraftSnapshots"];
+     compactionQueuedMessages: CompactionQueuedMessage[];
+     pendingTools: Map<string, ToolExecutionHandle>;
+     transcriptMessageComponents: WeakMap<AgentMessage, Component>;
+@@ -379,6 +380,8 @@ export declare class InteractiveMode implements InteractiveModeContext {
+     clearOptimisticSkillMessage(): void;
+     startPendingSubmission(input: {
+         text: string;
++        displayText?: string;
++        prepared?: boolean;
+         images?: ImageContent[];
+         imageLinks?: (string | undefined)[];
+         customType?: string;
+@@ -515,6 +518,8 @@ export declare class InteractiveMode implements InteractiveModeContext {
+     updatePendingMessagesDisplay(): void;
+     queueCompactionMessage(text: string, mode: "steer" | "followUp", images?: ImageContent[], options?: {
+         preserveDraft?: boolean;
++        displayText?: string;
++        prepared?: boolean;
+     }): void;
+     flushCompactionQueue(options?: {
+         willRetry?: boolean;
+--- a/pi-coding-agent/dist/types/modes/types.d.ts
++++ b/pi-coding-agent/dist/types/modes/types.d.ts
+@@ -16,6 +16,7 @@ import type { Skill } from "../extensibility/skills.js";
+ import type { MCPManager } from "../mcp/index.js";
+ import type { PlanApprovalDetails } from "../plan-mode/approved-plan.js";
+ import type { AgentSession } from "../session/agent-session.js";
++import type { RestoredQueuedMessage } from "../session/agent-session-types.js";
+ import type { CompactMode } from "../session/compact-modes.js";
+ import type { ForeignSessionSource } from "../session/foreign-session-store.js";
+ import type { HistoryStorage } from "../session/history-storage.js";
+@@ -49,12 +50,20 @@ export type CompactionQueuedMessage = {
+     text: string;
+     mode: "steer" | "followUp";
+     images?: ImageContent[];
++    /** Original operator text when `text` is a prepared canonical replacement. */
++    displayText?: string;
++    /** True when `text` was already prepared: skip command/template interpretation on drain. */
++    prepared?: boolean;
+ };
+ export type SubmittedUserInput = {
+     text: string;
+     images?: ImageContent[];
+     imageLinks?: (string | undefined)[];
+     customType?: string;
++    /** Original operator text when `text` is a prepared canonical replacement (translator). */
++    displayText?: string;
++    /** True when `text` was already prepared: skip command/template interpretation on dispatch. */
++    prepared?: boolean;
+     /** Route through `session.prompt(text, { synthetic: true })` so the text lands
+      *  as a hidden agent-authored `developer` message rather than a visible user
+      *  turn. Used by the `c`/`.` continue shortcut. */
+@@ -305,8 +314,13 @@ export interface InteractiveModeContext {
+     showNewVersionNotification(newVersion: string): void;
+     clearEditor(): void;
+     updatePendingMessagesDisplay(): void;
++    /** Captured submissions whose prepared result was rejected while a newer draft
++     *  existed. Restorable via the dequeue key by prepending, never overwriting. */
++    deferredDraftSnapshots: RestoredQueuedMessage[];
+     queueCompactionMessage(text: string, mode: "steer" | "followUp", images?: ImageContent[], options?: {
+         preserveDraft?: boolean;
++        displayText?: string;
++        prepared?: boolean;
+     }): void;
+     flushCompactionQueue(options?: {
+         willRetry?: boolean;
+@@ -324,6 +338,8 @@ export interface InteractiveModeContext {
+     syncRetryHintRow(): void;
+     startPendingSubmission(input: {
+         text: string;
++        displayText?: string;
++        prepared?: boolean;
+         images?: ImageContent[];
+         imageLinks?: (string | undefined)[];
+         customType?: string;
+--- a/pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts
++++ b/pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts
+@@ -55,6 +55,8 @@ export declare class UiHelpers {
+     updatePendingMessagesDisplay(): void;
+     queueCompactionMessage(text: string, mode: "steer" | "followUp", images?: ImageContent[], options?: {
+         preserveDraft?: boolean;
++        displayText?: string;
++        prepared?: boolean;
+     }): void;
+     isKnownSlashCommand(text: string): boolean;
+     flushCompactionQueue(options?: {
+--- a/pi-coding-agent/dist/types/session/agent-session-types.d.ts
++++ b/pi-coding-agent/dist/types/session/agent-session-types.d.ts
+@@ -358,6 +358,12 @@ export interface AgentSessionConfig {
+ export interface PromptOptions {
+     /** Whether to expand file-based prompt templates (default: true). */
+     expandPromptTemplates?: boolean;
++    /**
++     * Original operator-presentation text when `text` is a prepared canonical
++     * replacement (e.g. a translation). Attached to the same real user message as
++     * `UserMessage.displayText`. Omit when no alternate presentation is required.
++     */
++    displayText?: string;
+     /**
+      * Whether a leading `/` may run an extension or custom TypeScript command
+      * locally instead of prompting the agent (default: true). Headless task
+@@ -405,6 +411,8 @@ export interface PromptOptions {
+ export interface DroppedPrompt {
+     /** The prompt exactly as typed, before template/command expansion. */
+     text: string;
++    /** Original operator-presentation text when `text` was a prepared canonical replacement. */
++    displayText?: string;
+     /** Image attachments submitted with the prompt. */
+     images?: ImageContent[];
+ }
+@@ -414,11 +422,17 @@ export interface FollowUpOptions {
+     synthetic?: boolean;
+     /** Whether to expand file-based prompt templates (default: true). */
+     expandPromptTemplates?: boolean;
++    /** Original operator-presentation text when `text` is a prepared canonical replacement. */
++    displayText?: string;
+     /** Explicit billing/initiator attribution. */
+     attribution?: MessageAttribution;
+ }
+ /** Options for AgentSession.steer(). */
+ export interface SteerOptions {
++    /** Whether to treat `text` as command/template-free (default: true). */
++    expandPromptTemplates?: boolean;
++    /** Original operator-presentation text when `text` is a prepared canonical replacement. */
++    displayText?: string;
+     /** Explicit billing/initiator attribution. */
+     attribution?: MessageAttribution;
+ }
+@@ -426,6 +440,10 @@ export interface SteerOptions {
+ export interface SendUserMessageOptions {
+     /** Queue behavior; omitted starts a turn when idle and steers while streaming. */
+     deliverAs?: "steer" | "followUp" | "aside";
++    /** Whether to expand file-based prompt templates (default: true). */
++    expandPromptTemplates?: boolean;
++    /** Original operator-presentation text when `content` is a prepared canonical replacement. */
++    displayText?: string;
+     /** Explicit billing/initiator attribution. */
+     attribution?: MessageAttribution;
+ }
+@@ -516,7 +534,10 @@ export interface ResetSessionContextResult {
+ }
+ /** Queued user content restored to the editor. */
+ export type RestoredQueuedMessage = {
++    /** Operator-facing text for the editor (original presentation when available). */
+     text: string;
++    /** Canonical model text when `text` is original presentation; used for local-submission signatures. */
++    canonicalText?: string;
+     images?: ImageContent[];
+ };
+ /** Options for the same ephemeral side turn used by /btw. */
+--- a/pi-coding-agent/dist/types/session/agent-session.d.ts
++++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
+@@ -313,6 +313,22 @@ export declare class AgentSession implements SettingsScope {
+     get isSessionTransitioning(): boolean;
+     /** Wait until all active session/transcript transitions have settled, including rollback. */
+     waitForSessionTransition(): Promise<void>;
++    /**
++     * Submission-owned lifecycle signal for ordinary-input preparation. Aborted
++     * synchronously when an outermost session/transcript transition begins, then
++     * replaced. Never times out.
++     */
++    get inputPreparationSignal(): AbortSignal;
++    /**
++     * Append a hidden custom entry to `sessionId` and resolve with its entry id
++     * only after the journal is durably committed. Rejects a disposed or
++     * non-persistent session, a stale session id, an aborted signal, or a
++     * concurrently applying transition.
++     */
++    appendExtensionEntryPersisted<T>(customType: string, data: T, options: {
++        sessionId: string;
++        signal: AbortSignal;
++    }): Promise<string>;
+     /** Register cleanup that runs when this AgentSession adopts a different session ID. */
+     registerSessionChangeCallback(callback: () => void): () => void;
+     subscribeCommandMetadataChanged(listener: CommandMetadataChangedListener): () => void;
+--- a/pi-coding-agent/dist/types/session/session-history-format.d.ts
++++ b/pi-coding-agent/dist/types/session/session-history-format.d.ts
+@@ -55,6 +55,14 @@ export interface HistoryFormatOptions {
+     watchedRoleState?: {
+         lastLabel: string | undefined;
+     };
++    /**
++     * Render user messages from the operator's original `displayText` when a
++     * producer recorded one, falling back to canonical `content`. Default false:
++     * this formatter is also the model-facing history projection (advisor deltas,
++     * `history://`), which MUST stay canonical. Only verified operator-facing
++     * readers opt in; never switch the shared formatter globally.
++     */
++    useDisplayText?: boolean;
+ }
+ export declare function formatExecutionSourcePreview(source: string): string;
+ /** Pick the most informative scalar argument of a tool call. */
+--- a/pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts
++++ b/pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts
+@@ -1,5 +1,6 @@
+ import type { ImageContent } from "@oh-my-pi/pi-ai";
+ import type { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
++import type { RestoredQueuedMessage } from "../../session/agent-session-types.js";
+ import type { TuiSlashCommandRuntime } from "../types.js";
+ /** Clear only text still owned by this submission, never a newer detached draft. */
+ export declare function clearSubmittedText(runtime: TuiSlashCommandRuntime): void;
+@@ -9,3 +10,34 @@ export declare function clearSubmittedText(runtime: TuiSlashCommandRuntime): voi
+  * draft's, its `[Image #N]` markers shift to match, and its text goes first.
+  */
+ export declare function restoreDetachedDraft(editor: CustomEditor, text: string, images?: ImageContent[], imageLinks?: (string | undefined)[]): void;
++/** What the rejected-draft helpers need from the interactive mode. */
++export type RejectedDraftRuntime = {
++    editor: CustomEditor;
++    deferredDraftSnapshots: RestoredQueuedMessage[];
++    updatePendingMessagesDisplay(): void;
++    showWarning(message: string): void;
++    ui: {
++        requestRender(): void;
++    };
++};
++/** A submission that left the editor and was then rejected before any turn started. */
++export type RejectedDraft = {
++    /** Text to show the operator again (the original, not a prepared replacement). */
++    text: string;
++    /** Model-side text when it differs, so the dequeue path can match the queued message. */
++    canonicalText?: string;
++    images?: ImageContent[];
++    imageLinks?: (string | undefined)[];
++};
++/** Keep a rejected capture restorable without touching the editor's newer draft. */
++export declare function retainRejectedDraft(runtime: RejectedDraftRuntime, draft: RejectedDraft): void;
++/**
++ * Hand a rejected submission back to the editor. It is written into the editor
++ * only while nothing newer lives there (the newer-draft guard below), and
++ * otherwise stays restorable through the dequeue path, so a newer draft or a
++ * freshly pasted attachment is never overwritten. A submission the session's own
++ * prompt-dropped callback already handed back must not reach this function: its
++ * caller skips that case by error class, not by comparing editor contents, which
++ * would swallow a distinct rejected submission that merely looks equal.
++ */
++export declare function restoreRejectedDraft(runtime: RejectedDraftRuntime, draft: RejectedDraft, revision?: number): void;
+--- a/pi-coding-agent/src/export/html/template.js
++++ b/pi-coding-agent/src/export/html/template.js
+@@ -331,7 +331,13 @@
+           case 'message': {
+             const msg = entry.message;
+             parts.push(msg.role);
+-            if (msg.content) parts.push(extractContent(msg.content));
++            // Operator search matches the rendered row: the original presentation
++            // when present; the hidden canonical text is not indexed for user turns.
++            if (typeof msg.displayText === 'string') {
++              parts.push(msg.displayText);
++            } else if (msg.content) {
++              parts.push(extractContent(msg.content));
++            }
+             if (msg.role === 'bashExecution' && msg.command) parts.push(msg.command);
+             if (msg.role === 'jsExecution' && msg.code) parts.push(msg.code);
+             break;
+@@ -511,7 +517,8 @@
+           case 'message': {
+             const msg = entry.message;
+             if (msg.role === 'user') {
+-              const content = truncate(normalizeTreeText(extractContent(msg.content)));
++              const content = truncate(normalizeTreeText(
++                typeof msg.displayText === 'string' ? msg.displayText : extractContent(msg.content)));
+               return labelHtml + `<span class="tree-role-user">user:</span> ${escapeHtml(content)}`;
+             }
+             if (msg.role === 'developer') {
+@@ -1240,8 +1247,11 @@
+               }
+             }
+ 
+-            const text = typeof content === 'string' ? content : 
+-              content.filter(c => c.type === 'text').map(c => c.text).join('\n');
++            const text = typeof msg.displayText === 'string'
++              ? msg.displayText
++              : typeof content === 'string'
++                ? content
++                : content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+             if (text.trim()) {
+               html += `<div class="markdown-content">${safeMarkedParse(text)}</div>`;
+             }
+--- a/pi-coding-agent/src/export/share.ts
++++ b/pi-coding-agent/src/export/share.ts
+@@ -145,6 +145,11 @@ function collectShareRegexSecretValues(o: SecretObfuscator, data: SessionData):
+ 	const addMessage = (message: AgentMessage): void => {
+ 		switch (message.role) {
+ 			case "user":
++				addContent(message.content as string | (TextContent | ImageContent)[]);
++				// The original presentation text can also carry secrets; collect it so
++				// the share redactor obfuscates it wherever it appears.
++				if (typeof message.displayText === "string") add(message.displayText);
++				return;
+ 			case "developer":
+ 			case "custom":
+ 			case "hookMessage":
+@@ -395,6 +400,15 @@ function redactShareMessage(
+ ): AgentMessage {
+ 	switch (message.role) {
+ 		case "user":
++			return {
++				...message,
++				providerPayload: undefined,
++				content: redactShareContent(o, message.content, sharedRegexSecretValues),
++				displayText:
++					typeof message.displayText === "string"
++						? o.obfuscate(message.displayText, sharedRegexSecretValues)
++						: undefined,
++			} as AgentMessage;
+ 		case "developer":
+ 			return {
+ 				...message,
+--- a/pi-coding-agent/src/extensibility/extensions/loader.ts
++++ b/pi-coding-agent/src/extensibility/extensions/loader.ts
+@@ -122,6 +122,10 @@ export class ExtensionRuntime implements IExtensionRuntime {
+ 		throw new ExtensionRuntimeNotInitializedError();
+ 	}
+ 
++	appendEntryPersisted(): Promise<string> {
++		throw new ExtensionRuntimeNotInitializedError();
++	}
++
+ 	setLabel(): void {
+ 		throw new ExtensionRuntimeNotInitializedError();
+ 	}
+@@ -308,6 +312,16 @@ class ConcreteExtensionAPI implements ExtensionAPI, IExtensionRuntime {
+ 		this.runtime.appendEntry(customType, data);
+ 	}
+ 
++	readonly userInputPreparationVersion: 1 = 1;
++
++	appendEntryPersisted<T = unknown>(
++		customType: string,
++		data: T,
++		options: { sessionId: string; signal: AbortSignal },
++	): Promise<string> {
++		return this.runtime.appendEntryPersisted(customType, data, options);
++	}
++
+ 	exec(command: string, args: string[], options?: ExecOptions) {
+ 		return execCommand(command, args, options?.cwd ?? this.cwd, options);
+ 	}
+--- a/pi-coding-agent/src/extensibility/extensions/runner.ts
++++ b/pi-coding-agent/src/extensibility/extensions/runner.ts
+@@ -80,6 +80,8 @@ import type {
+ 	CacheWarmingDecisionEventResult,
+ 	McpNotificationEvent,
+ 	MessageRenderer,
++	PrepareUserInputEvent,
++	PrepareUserInputResult,
+ 	RegisteredCommand,
+ 	RegisteredTool,
+ 	ResourcesDiscoverEvent,
+@@ -777,6 +779,7 @@ export class ExtensionRunner {
+ 		this.runtime.sendMessage = actions.sendMessage;
+ 		this.runtime.sendUserMessage = actions.sendUserMessage;
+ 		this.runtime.appendEntry = actions.appendEntry;
++		this.runtime.appendEntryPersisted = actions.appendEntryPersisted;
+ 		this.runtime.getActiveTools = actions.getActiveTools;
+ 		this.runtime.getAllTools = actions.getAllTools;
+ 		this.runtime.setActiveTools = async toolNames => {
+@@ -1941,6 +1944,53 @@ export class ExtensionRunner {
+ 		return { skillPaths, promptPaths, themePaths };
+ 	}
+ 
++	/**
++	 * Emit the awaited ordinary-input preparation boundary (Enter and Ctrl+Enter).
++	 *
++	 * Handlers run sequentially under the event's submission-owned signal and
++	 * OUTSIDE the generic handler timeout: a deliberate human decision may take
++	 * arbitrarily long, and the legacy 30s budget must not silently downgrade it
++	 * to "no decision". A thrown/rejected handler propagates so the controller can
++	 * restore the draft; `cancel` short-circuits. At most one handler may supply
++	 * `modelText`; conflicting writers fail visibly.
++	 */
++	async emitPrepareUserInput(event: PrepareUserInputEvent): Promise<PrepareUserInputResult> {
++		if (!this.hasHandlers("prepare_user_input")) return { action: "submit" };
++		const ctx = this.createContext();
++		// Sequential handlers observe one immutable snapshot of this submission.
++		const snapshot: PrepareUserInputEvent = Object.freeze({ ...event });
++		let modelText: string | undefined;
++		let hasModelText = false;
++		for (const ext of this.extensions) {
++			for (const handler of ext.handlers.get("prepare_user_input") ?? []) {
++				if (event.signal.aborted) return { action: "cancel" };
++				let result: PrepareUserInputResult | undefined;
++				try {
++					result = (await handler(snapshot, ctx)) as PrepareUserInputResult | undefined;
++				} catch (error) {
++					this.emitError({
++						extensionPath: ext.path,
++						event: event.type,
++						error: error instanceof Error ? error.message : String(error),
++						stack: error instanceof Error ? error.stack : undefined,
++					});
++					throw error;
++				}
++				if (event.signal.aborted) return { action: "cancel" };
++				if (!result) continue;
++				if (result.action === "cancel") return { action: "cancel" };
++				if (result.modelText !== undefined) {
++					if (hasModelText && result.modelText !== modelText) {
++						throw new Error("Conflicting prepare_user_input modelText from multiple handlers");
++					}
++					modelText = result.modelText;
++					hasModelText = true;
++				}
++			}
++		}
++		return hasModelText ? { action: "submit", modelText } : { action: "submit" };
++	}
++
+ 	/** Emit input event. Transforms chain, "handled" short-circuits. */
+ 	async emitInput(
+ 		text: string,
+--- a/pi-coding-agent/src/extensibility/extensions/types.ts
++++ b/pi-coding-agent/src/extensibility/extensions/types.ts
+@@ -1060,6 +1060,38 @@ export interface InputEvent {
+ 	source: "interactive" | "rpc" | "extension";
+ }
+ 
++/**
++ * Fired for ordinary primary-composer input (Enter and Ctrl+Enter) after the
++ * legacy `input` transformations and native command/template eligibility
++ * classification, and before any submission or queue delivery.
++ *
++ * Unlike `input`, handlers are awaited directly under the submission-owned
++ * {@link PrepareUserInputEvent.signal} — outside the generic handler timeout —
++ * so a deliberate human decision (e.g. a failure dialog) may take arbitrarily
++ * long. A thrown/rejected handler or a `cancel` result stops submission; it
++ * never falls back to the raw text. Registered commands/templates, guests,
++ * focused agents and programmatic submissions do not emit this event.
++ */
++export interface PrepareUserInputEvent {
++	type: "prepare_user_input";
++	/** Logical identity of this submission. A repeated event for the same id is not new work. */
++	inputId: string;
++	sessionId: string;
++	target: "main";
++	source: "interactive";
++	submission: "submit" | "followUp";
++	text: string;
++	images?: readonly ImageContent[];
++	signal: AbortSignal;
++}
++
++/**
++ * Result of {@link PrepareUserInputEvent}. `submit` continues native submission,
++ * optionally replacing the model text while the original stays the display text.
++ * `cancel` stops submission with no send.
++ */
++export type PrepareUserInputResult = { action: "submit"; modelText?: string } | { action: "cancel" };
++
+ // ============================================================================
+ // Tool Events
+ // ============================================================================
+@@ -1393,6 +1425,14 @@ export interface ExtensionAPI {
+ 	/** Injected pi-coding-agent exports for accessing SDK utilities */
+ 	pi: typeof PiCodingAgent;
+ 
++	/**
++	 * Capability marker for the awaited ordinary-input preparation boundary.
++	 * The literal `1` means this host emits `prepare_user_input` and implements
++	 * the acknowledged `appendEntryPersisted` action. Extensions that depend on
++	 * that boundary must refuse to activate when this is not `1`.
++	 */
++	readonly userInputPreparationVersion: 1;
++
+ 	// =========================================================================
+ 	// Event Subscription
+ 	// =========================================================================
+@@ -1459,6 +1499,10 @@ export interface ExtensionAPI {
+ 	on(event: "goal_updated", handler: ExtensionHandler<GoalUpdatedEvent>): void;
+ 	on(event: "credential_disabled", handler: ExtensionHandler<CredentialDisabledEvent>): void;
+ 	on(event: "input", handler: ExtensionHandler<InputEvent, InputEventResult>): void;
++	on(
++		event: "prepare_user_input",
++		handler: ExtensionHandler<PrepareUserInputEvent, PrepareUserInputResult>,
++	): void;
+ 	on(event: "tool_approval_requested", handler: ExtensionHandler<ToolApprovalRequestedEvent>): void;
+ 	on(event: "tool_approval_resolved", handler: ExtensionHandler<ToolApprovalResolvedEvent>): void;
+ 	on(event: "tool_call", handler: ExtensionHandler<ToolCallEvent, ToolCallEventResult>): void;
+@@ -1621,6 +1665,18 @@ export interface ExtensionAPI {
+ 	/** Append a custom entry to the session for state persistence (not sent to LLM). */
+ 	appendEntry<T = unknown>(customType: string, data?: T): void;
+ 
++	/**
++	 * Append a hidden custom entry and resolve with its entry id only after the
++	 * journal is durably committed. Rejects a non-persistent session, a stale
++	 * `sessionId`, an aborted `signal`, or an in-progress session transition.
++	 * Storage failure rejects and changes nothing.
++	 */
++	appendEntryPersisted<T = unknown>(
++		customType: string,
++		data: T,
++		options: { sessionId: string; signal: AbortSignal },
++	): Promise<string>;
++
+ 	/** Execute a shell command. */
+ 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
+ 
+@@ -1860,6 +1916,16 @@ export type SendUserMessageHandler = (
+ 
+ export type AppendEntryHandler = <T = unknown>(customType: string, data?: T) => void;
+ 
++/**
++ * Acknowledged hidden-entry append: resolves with the committed entry id only
++ * after the journal is durable, or rejects without side effects.
++ */
++export type AppendEntryPersistedHandler = <T = unknown>(
++	customType: string,
++	data: T,
++	options: { sessionId: string; signal: AbortSignal },
++) => Promise<string>;
++
+ export type GetActiveToolsHandler = () => string[];
+ 
+ export type GetAllToolsHandler = () => ToolInfo[];
+@@ -1894,6 +1960,7 @@ export interface ExtensionActions {
+ 	sendMessage: SendMessageHandler;
+ 	sendUserMessage: SendUserMessageHandler;
+ 	appendEntry: AppendEntryHandler;
++	appendEntryPersisted: AppendEntryPersistedHandler;
+ 	setLabel: (targetId: string, label: string | undefined) => void;
+ 	getActiveTools: GetActiveToolsHandler;
+ 	getAllTools: GetAllToolsHandler;
+--- a/pi-coding-agent/src/main.ts
++++ b/pi-coding-agent/src/main.ts
+@@ -113,6 +113,7 @@ import {
+ import type { ForeignSessionInfo, ForeignSessionSource, ForeignSessionStore } from "./session/foreign-session-store";
+ import { resolveResumableSession, type SessionInfo } from "./session/session-listing";
+ import { ForkSourceNotFoundError, SessionManager, SessionMoveRefusedError } from "./session/session-manager";
++import { restoreRejectedDraft } from "./slash-commands/helpers/draft";
+ import { shouldShowStartupSplash } from "./startup-splash";
+ import {
+ 	discoverSystemPromptOverride,
+@@ -389,6 +390,13 @@ export async function submitInteractiveInput(
+ 		| "markPendingSubmissionStarted"
+ 		| "finishPendingSubmission"
+ 		| "showError"
++		| "showWarning"
++		// A rejected prepared draft is handed to the editor and the deferred
++		// queue, so the contract needs the restore runtime as well.
++		| "editor"
++		| "deferredDraftSnapshots"
++		| "updatePendingMessagesDisplay"
++		| "ui"
+ 		| "checkShutdownRequested"
+ 		| "skillCommands"
+ 		| "renderOptimisticSkillMessage"
+@@ -453,7 +461,7 @@ export async function submitInteractiveInput(
+ 				expandPromptTemplates: false,
+ 				userInitiated: input.userInitiated,
+ 			});
+-		} else if (isKnownSkillCommand(skillHost, input.text)) {
++		} else if (!input.prepared && isKnownSkillCommand(skillHost, input.text)) {
+ 			// Resubmitted skill text must dispatch through the skill path, or the
+ 			// model receives a literal `/skill:` token.
+ 			await invokeSkillCommandFromText(skillHost, input.text, streamingBehavior, {
+@@ -465,9 +473,38 @@ export async function submitInteractiveInput(
+ 		} else {
+ 			let forwarded = false;
+ 			try {
+-				forwarded = await session.prompt(input.text, { images: input.images, streamingBehavior });
++				forwarded = await session.prompt(input.text, {
++					images: input.images,
++					streamingBehavior,
++					displayText: input.displayText,
++					expandPromptTemplates: input.prepared ? false : undefined,
++				});
+ 			} catch (error: unknown) {
+ 				mode.showError(error instanceof Error ? error.message : "Unknown error occurred");
++				// A prepared submission's original text and attachments already left
++				// the editor; without this they are gone once dispatch is rejected.
++				// Any throw may be a pre-dispatch rejection: the transcript cannot
++				// tell the two apart (pending bash/eval messages flush before
++				// dispatch, compaction replaces the array), so a rare failure after
++				// the turn took the message can offer already-sent text back as a
++				// restorable draft. Offering a possible duplicate beats losing it.
++				//
++				// The session already handed the prompt back, and owns the restore,
++				// when it throws AgentStartPolicyChangedError (its prompt-dropped
++				// callback fires, then it rethrows; the `throwOnDrop` site is never
++				// armed here). That class is not exported, so it is recognized by
++				// the name it assigns itself. When the callback's own guard finds
++				// text already in the editor it declines, and nothing is offered
++				// here either: the same gap the pre-0085 baseline had.
++				const restoredBySession = error instanceof Error && error.name === "AgentStartPolicyChangedError";
++				if (input.prepared && !restoredBySession) {
++					restoreRejectedDraft(mode, {
++						text: input.displayText ?? input.text,
++						canonicalText: input.text,
++						images: input.images,
++						imageLinks: input.imageLinks,
++					});
++				}
+ 			}
+ 			// Dispatch consumed the body locally (void custom command) or rejected
+ 			// instead of starting a turn: when it is the armed loop body, park the
+--- a/pi-coding-agent/src/modes/acp/acp-agent.ts
++++ b/pi-coding-agent/src/modes/acp/acp-agent.ts
+@@ -2574,6 +2574,8 @@ export class AcpAgent implements Agent {
+ 				appendEntry: (customType, data) => {
+ 					record.session.sessionManager.appendCustomEntry(customType, data);
+ 				},
++				appendEntryPersisted: (customType, data, persistOptions) =>
++					record.session.appendExtensionEntryPersisted(customType, data, persistOptions),
+ 				setLabel: (targetId, label) => {
+ 					record.session.sessionManager.appendLabelChange(targetId, label);
+ 				},
+--- a/pi-coding-agent/src/modes/controllers/extension-ui-controller.ts
++++ b/pi-coding-agent/src/modes/controllers/extension-ui-controller.ts
+@@ -192,6 +192,8 @@ export class ExtensionUiController {
+ 			appendEntry: (customType, data) => {
+ 				this.ctx.sessionManager.appendCustomEntry(customType, data);
+ 			},
++			appendEntryPersisted: (customType, data, persistOptions) =>
++				this.ctx.session.appendExtensionEntryPersisted(customType, data, persistOptions),
+ 			setLabel: (targetId, label) => {
+ 				this.ctx.sessionManager.appendLabelChange(targetId, label);
+ 			},
+@@ -421,6 +423,8 @@ export class ExtensionUiController {
+ 			appendEntry: (customType, data) => {
+ 				this.ctx.sessionManager.appendCustomEntry(customType, data);
+ 			},
++			appendEntryPersisted: (customType, data, persistOptions) =>
++				this.ctx.session.appendExtensionEntryPersisted(customType, data, persistOptions),
+ 			setLabel: (targetId, label) => {
+ 				this.ctx.sessionManager.appendLabelChange(targetId, label);
+ 			},
+--- a/pi-coding-agent/src/modes/controllers/input-controller.ts
++++ b/pi-coding-agent/src/modes/controllers/input-controller.ts
+@@ -40,12 +40,13 @@ import { invokeSkillCommandFromText, isKnownSkillCommand } from "../../modes/ski
+ import type { InteractiveModeContext, SubmittedUserInput } from "../../modes/types";
+ import manualContinuePrompt from "../../prompts/system/manual-continue.md" with { type: "text" };
+ import { AgentRegistry } from "../../registry/agent-registry";
++import type { PrepareUserInputResult } from "../../extensibility/extensions/types";
+ import type { RestoredQueuedMessage } from "../../session/agent-session-types";
+ import { USER_INTERRUPT_LABEL } from "../../session/messages";
+ import { PINNED_HUD_TOGGLE_ID } from "@oh-my-pi/pi-tui/prompt/composer";
+ import { pickRecentFocusableAgentId } from "./session-focus-controller";
+ import { executeBuiltinSlashCommand, lookupBuiltinSlashCommand } from "../../slash-commands/builtin-registry";
+-import { restoreDetachedDraft } from "../../slash-commands/helpers/draft";
++import { restoreDetachedDraft, restoreRejectedDraft } from "../../slash-commands/helpers/draft";
+ import { parseSlashCommand, parseSubcommand } from "../../slash-commands/helpers/parse";
+ import { isTinyLocalModelKey } from "../../tiny/models";
+ import { tinyTitleClient } from "../../tiny/title-client";
+@@ -237,6 +238,20 @@ function safeAbort(label: string, fn: () => void): void {
+ const LEFT_DOUBLE_TAP_MIN_GAP_MS = 40;
+ const LEFT_DOUBLE_TAP_MAX_GAP_MS = 500;
+ 
++/** One captured ordinary composer submission, detached from the live editor. */
++type PreparedInputSnapshot = {
++	text: string;
++	images?: ImageContent[];
++	imageLinks?: (string | undefined)[];
++	/** Editor text revision while this draft was detached, for clobber-safe restore. */
++	revision: number;
++	sessionId: string;
++	signal: AbortSignal;
++};
++
++/** Outcome of the preparation boundary for one submission. */
++type PreparedOrdinaryInput = { text: string; displayText?: string; prepared: boolean };
++
+ export class InputController {
+ 	constructor(
+ 		private ctx: InteractiveModeContext,
+@@ -296,6 +311,8 @@ export class InputController {
+ 	// Visible-chip signature from the last editor change; a difference escapes the
+ 	// scoped-input render fast path so the attachment chips band repaints.
+ 	#lastChipsSignature = "";
++	/** Single chain so distinct snapshots are prepared (and then admitted) in submit order. */
++	#preparationTail: Promise<unknown> = Promise.resolve();
+ 	// Bare command word held for a confirming second Enter (`input.bareSlashCommands`
+ 	// outside an empty session), bound to the session it was armed in. Any other
+ 	// submission disarms it; a session switch invalidates it, so a word armed in
+@@ -938,6 +955,106 @@ export class InputController {
+ 		return { text, images, imageLinks };
+ 	}
+ 
++	/**
++	 * Whether ordinary primary-composer preparation may run for this submission.
++	 * Registered commands/templates and bash/python/queue-control text keep native
++	 * semantics: their own dispatchers already own them.
++	 */
++	#shouldPrepareInput(text: string): boolean {
++		if (!text) return false;
++		// Bash/python/queue-control text is not a model prompt on this path.
++		if (text.startsWith("!")) return false;
++		if (parsePythonCommandInput(text)) return false;
++		if (!text.startsWith("/")) return true;
++		const token = text.slice(1).split(/\s+/, 1)[0] ?? "";
++		if (!token) return false;
++		const session = this.ctx.session;
++		if (
++			this.ctx.skillCommands.has(token) ||
++			this.ctx.fileSlashCommands.has(token) ||
++			session.extensionRunner?.getCommand(token) !== undefined ||
++			session.customCommands.some(loaded => loaded.command.name === token) ||
++			session.promptTemplates.some(template => template.name === token)
++		) {
++			return false;
++		}
++		const parsedName = parseSlashCommand(text)?.name;
++		return !(parsedName && lookupBuiltinSlashCommand(parsedName));
++	}
++
++	/**
++	 * Run the awaited ordinary-input preparation boundary for one submission.
++	 *
++	 * Returns the canonical text (plus the original when it differs, and whether a
++	 * preparation handler actually ran) when the submission may proceed natively,
++	 * or `undefined` after handing the captured draft back when preparation
++	 * cancelled or failed. Failure never falls through to a raw send, and the
++	 * returned model text never re-enters command/template interpretation.
++	 */
++	async #prepareOrdinaryInput(
++		snapshot: PreparedInputSnapshot,
++		submission: "submit" | "followUp",
++	): Promise<PreparedOrdinaryInput | undefined> {
++		const runner = this.ctx.session.extensionRunner;
++		if (!runner?.hasHandlers("prepare_user_input")) return { text: snapshot.text, prepared: false };
++		const { sessionId, signal } = snapshot;
++		if (signal.aborted || this.ctx.session.isSessionTransitioning) return undefined;
++		let result: PrepareUserInputResult;
++		try {
++			result = await runner.emitPrepareUserInput({
++				type: "prepare_user_input",
++				inputId: crypto.randomUUID(),
++				sessionId,
++				target: "main",
++				source: "interactive",
++				submission,
++				text: snapshot.text,
++				images: snapshot.images,
++				signal,
++			});
++		} catch (error) {
++			if (signal.aborted) return undefined;
++			this.#restorePreparationDraft(snapshot);
++			this.ctx.showError(`Input was not sent: ${error instanceof Error ? error.message : String(error)}`);
++			return undefined;
++		}
++		if (signal.aborted || this.ctx.sessionManager.getSessionId() !== sessionId) return undefined;
++		if (result.action === "cancel") {
++			this.#restorePreparationDraft(snapshot);
++			return undefined;
++		}
++		const modelText = result.modelText;
++		if (modelText === undefined || modelText === snapshot.text) return { text: snapshot.text, prepared: true };
++		return { text: modelText, displayText: snapshot.text, prepared: true };
++	}
++
++	/**
++	 * Prepare one submission, chained so distinct snapshots are prepared (and then
++	 * admitted in the same continuation) in submit order. A repeated keypress is
++	 * already a no-op because the submitting path detached the draft synchronously.
++	 */
++	#prepareSnapshot(
++		snapshot: PreparedInputSnapshot,
++		submission: "submit" | "followUp",
++	): Promise<PreparedOrdinaryInput | undefined> {
++		const preparation = this.#prepareOrdinaryInput(snapshot, submission);
++		const job = this.#preparationTail.then(() => preparation);
++		this.#preparationTail = job.catch(() => undefined);
++		return job;
++	}
++
++	/**
++	 * Hand a prepared-away draft back to the editor. Writes into the editor only
++	 * while nothing newer lives there (a text revision change, text, or an image
++	 * pasted meanwhile that is not one of the capture's own attachments), so
++	 * neither a newer draft nor a replacing session can be clobbered; otherwise the
++	 * capture is kept restorable through the dequeue path instead of being dropped.
++	 */
++	#restorePreparationDraft(snapshot: PreparedInputSnapshot): void {
++		if (snapshot.signal.aborted || this.ctx.sessionManager.getSessionId() !== snapshot.sessionId) return;
++		restoreRejectedDraft(this.ctx, snapshot, snapshot.revision);
++	}
++
+ 	setupEditorSubmitHandler(): void {
+ 		this.ctx.editor.onSubmit = async (text: string) => {
+ 			const submittedText = text;
+@@ -946,6 +1063,9 @@ export class InputController {
+ 			const armedBareCommand =
+ 				armed && armed.sessionId === this.ctx.sessionManager.getSessionId() ? armed.text : undefined;
+ 			text = this.#compactDraftImages(text.trim());
++			const captureRevision = this.ctx.editor.textRevision;
++			const sessionId = this.ctx.sessionManager.getSessionId();
++			const signal = this.ctx.session.inputPreparationSignal;
+ 			const hasPendingImages = this.ctx.editor.pendingImages.length > 0;
+ 			if ((!isSettingsInitialized() || cfgEmojiAutocomplete.get(settings)) && text) text = expandEmoticons(text);
+ 
+@@ -1051,6 +1171,7 @@ export class InputController {
+ 			}
+ 			if (bareSlashCommand) text = bareSlashCommand.command;
+ 
++			let commandDerived = false;
+ 			// Handle built-in slash commands
+ 			if (text) {
+ 				this.#recordSlashCommandUsage(text);
+@@ -1081,6 +1202,7 @@ export class InputController {
+ 					// "/loop 10 fix bug" rather than just "fix bug".
+ 					if (!shouldSkipHistory(text)) this.ctx.editor.addToHistory(text);
+ 					text = slashResult;
++					commandDerived = true;
+ 				}
+ 			}
+ 
+@@ -1178,10 +1300,44 @@ export class InputController {
+ 				}
+ 			}
+ 
++			// Ordinary primary-composer input: await the preparation boundary after all
++			// native command eligibility and before any compaction/streaming/idle
++			// admission. Cancel or failure restores the draft and stops here — never a
++			// raw send — while the canonical model text never re-enters command parsing.
++			let preparedInput = false;
++			let preparedDisplayText: string | undefined;
++			const snapshot: PreparedInputSnapshot = {
++				text,
++				images: inputImages,
++				imageLinks: inputImageLinks,
++				revision: captureRevision,
++				sessionId,
++				signal,
++			};
++			if (!commandDerived && this.#shouldPrepareInput(text)) {
++				const prepared = await this.#prepareSnapshot(snapshot, "submit");
++				if (!prepared) return;
++				text = prepared.text;
++				preparedInput = prepared.prepared;
++				preparedDisplayText = prepared.displayText;
++			}
++
+ 			// Queue input during compaction
+ 			if (this.ctx.session.isCompacting) {
+ 				const images = inputImages && inputImages.length > 0 ? [...inputImages] : undefined;
+-				this.ctx.queueCompactionMessage(text, "steer", images);
++				// Enter only cleared the editor text; the attachments are moved into the
++				// queue here (same revision guard as the streaming/idle branches below),
++				// so the next draft cannot resend them.
++				if (this.ctx.editor.textRevision === captureRevision) {
++					this.ctx.editor.imageLinks = undefined;
++					this.ctx.editor.pendingImages = [];
++					this.ctx.editor.pendingImageLinks = [];
++				}
++				this.ctx.queueCompactionMessage(text, "steer", images, {
++					preserveDraft: true,
++					displayText: preparedDisplayText,
++					prepared: preparedInput,
++				});
+ 				// An inline `/loop` body queued here arms the loop only when it is
+ 				// an actual model prompt. Skill/bash/python bodies never reach this
+ 				// branch, but an extension-command body would otherwise be retained
+@@ -1194,7 +1350,7 @@ export class InputController {
+ 			// Extension commands are local actions. Execute them before the normal
+ 			// submission path creates an optimistic user message; otherwise a
+ 			// consumed command remains rendered like a prompt sent to the model.
+-			if (this.#isLocalExtensionCommand(text)) {
++			if (!preparedInput && this.#isLocalExtensionCommand(text)) {
+ 				this.ctx.editor.clearDraft(text);
+ 				try {
+ 					await this.ctx.session.prompt(text, { images: inputImages });
+@@ -1217,13 +1373,18 @@ export class InputController {
+ 			// If streaming, use prompt() with steer behavior
+ 			// This handles extension commands (execute immediately), prompt template expansion, and queueing
+ 			if (this.ctx.session.isStreaming) {
+-				this.ctx.editor.addToHistory(text);
++				this.ctx.editor.addToHistory(preparedDisplayText ?? text);
+ 				// Enter already cleared the editor synchronously. A later clear here
+-				// can erase the tail of an unbracketed paste arriving after Enter.
+-				this.ctx.editor.imageLinks = undefined;
++				// can erase the tail of an unbracketed paste arriving after Enter, and
++				// a draft typed during preparation must also survive.
++				if (this.ctx.editor.textRevision === captureRevision) {
++					this.ctx.editor.imageLinks = undefined;
++				}
+ 				const images = inputImages && inputImages.length > 0 ? [...inputImages] : undefined;
+-				this.ctx.editor.pendingImages = [];
+-				this.ctx.editor.pendingImageLinks = [];
++				if (this.ctx.editor.textRevision === captureRevision) {
++					this.ctx.editor.pendingImages = [];
++					this.ctx.editor.pendingImageLinks = [];
++				}
+ 				// Record the signature so the queued message's eventual delivery
+ 				// (a user-role `message_start` event) leaves any draft the user has
+ 				// typed since queuing intact. Same protection as #783, applied to
+@@ -1231,7 +1392,13 @@ export class InputController {
+ 				try {
+ 					const forwarded = await this.ctx.withLocalSubmission(
+ 						text,
+-						() => this.ctx.session.prompt(text, { streamingBehavior: "steer", images }),
++						() =>
++							this.ctx.session.prompt(text, {
++								streamingBehavior: "steer",
++								images,
++								displayText: preparedDisplayText,
++								expandPromptTemplates: preparedInput ? false : undefined,
++							}),
+ 						{ imageCount: images?.length ?? 0 },
+ 					);
+ 					// An inline `/loop` body arms the loop only after dispatch
+@@ -1241,16 +1408,9 @@ export class InputController {
+ 					// state untouched, so the previous body (if any) survives.
+ 					if (submittedMode === "loop" && forwarded) this.ctx.setLoopPrompt(text);
+ 				} catch (error) {
+-					// Don't lose the queued steer draft: restore images then the collapsed
+-					// text so chip tokens (and band cards) survive the retry.
+-					if (images && images.length > 0) {
+-						this.ctx.editor.pendingImages = [...images];
+-						this.ctx.editor.pendingImageLinks = inputImageLinks
+-							? [...inputImageLinks]
+-							: images.map(() => undefined);
+-						this.ctx.editor.imageLinks = this.ctx.editor.pendingImageLinks;
+-					}
+-					this.ctx.editor.setCollapsedText(text);
++					// Don't lose the queued steer draft: hand it back without clobbering a
++					// newer draft (images then collapsed text, so chip tokens survive).
++					this.#restorePreparationDraft(snapshot);
+ 					this.ctx.showError(error instanceof Error ? error.message : String(error));
+ 				}
+ 				this.ctx.updatePendingMessagesDisplay();
+@@ -1272,10 +1432,12 @@ export class InputController {
+ 
+ 			if (this.ctx.onInputCallback) {
+ 				// Include any pending images from clipboard paste
+-				this.ctx.editor.imageLinks = undefined;
+ 				const images = inputImages && inputImages.length > 0 ? [...inputImages] : undefined;
+-				this.ctx.editor.pendingImages = [];
+-				this.ctx.editor.pendingImageLinks = [];
++				if (this.ctx.editor.textRevision === captureRevision) {
++					this.ctx.editor.imageLinks = undefined;
++					this.ctx.editor.pendingImages = [];
++					this.ctx.editor.pendingImageLinks = [];
++				}
+ 
+ 				// Render user message immediately, then let session events catch up.
+ 				// Tag the submission as "steer": this is a normal Enter the controller
+@@ -1286,11 +1448,13 @@ export class InputController {
+ 				const submission = this.ctx.startPendingSubmission(
+ 					{
+ 						text,
++						displayText: preparedDisplayText,
++						prepared: preparedInput,
+ 						images,
+ 						imageLinks: inputImageLinks,
+ 						streamingBehavior: "steer",
+ 					},
+-					{ clearEditor: false },
++					{ clearEditor: false, preserveDraft: this.ctx.editor.textRevision !== captureRevision },
+ 				);
+ 				// Start titling only after the optimistic row painted, so the local
+ 				// tiny-title worker's subprocess spawn never blocks the first frame.
+@@ -1305,15 +1469,23 @@ export class InputController {
+ 				// real prompt directly; if a background turn starts in the gap,
+ 				// `streamingBehavior: "steer"` preserves the typed-message queueing
+ 				// semantics instead of throwing AgentBusyError.
+-				this.ctx.editor.imageLinks = undefined;
+ 				const images = inputImages && inputImages.length > 0 ? [...inputImages] : undefined;
+-				this.ctx.editor.pendingImages = [];
+-				this.ctx.editor.pendingImageLinks = [];
++				if (this.ctx.editor.textRevision === captureRevision) {
++					this.ctx.editor.imageLinks = undefined;
++					this.ctx.editor.pendingImages = [];
++					this.ctx.editor.pendingImageLinks = [];
++				}
+ 				this.#maybeStartTitleGeneration(text);
+ 				try {
+ 					const forwarded = await this.ctx.withLocalSubmission(
+ 						text,
+-						() => this.ctx.session.prompt(text, { streamingBehavior: "steer", images }),
++						() =>
++							this.ctx.session.prompt(text, {
++								streamingBehavior: "steer",
++								images,
++								displayText: preparedDisplayText,
++								expandPromptTemplates: preparedInput ? false : undefined,
++							}),
+ 						{
+ 							imageCount: images?.length ?? 0,
+ 						},
+@@ -1323,17 +1495,9 @@ export class InputController {
+ 					// loop instead of resubmitting a local action on next idle.
+ 					if (!forwarded && this.ctx.loopPrompt === text) this.ctx.pauseLoop();
+ 				} catch (error) {
+-					// Don't lose the message: hand images then collapsed text back to the
+-					// editor so the user can retry (e.g. prompt dispatch rejecting an
+-					// extension command).
+-					if (images && images.length > 0) {
+-						this.ctx.editor.pendingImages = [...images];
+-						this.ctx.editor.pendingImageLinks = inputImageLinks
+-							? [...inputImageLinks]
+-							: images.map(() => undefined);
+-						this.ctx.editor.imageLinks = this.ctx.editor.pendingImageLinks;
+-					}
+-					this.ctx.editor.setCollapsedText(text);
++					// Don't lose the message: hand it back without clobbering a newer draft
++					// (images then collapsed text) so the user can retry.
++					this.#restorePreparationDraft(snapshot);
+ 					this.ctx.showError(error instanceof Error ? error.message : String(error));
+ 					// Dispatch rejected after the body was armed: park it so the
+ 					// failed prompt is not resubmitted on next idle.
+@@ -1342,7 +1506,7 @@ export class InputController {
+ 				this.ctx.updatePendingMessagesDisplay();
+ 				this.ctx.ui.requestRender();
+ 			}
+-			this.ctx.editor.addToHistory(text);
++			this.ctx.editor.addToHistory(preparedDisplayText ?? text);
+ 		};
+ 	}
+ 
+@@ -1627,7 +1791,9 @@ export class InputController {
+ 		// Drop only the popped message's local-submission signature; the messages
+ 		// left in the queue keep theirs so their delivery echo is still recognized
+ 		// as local and does not blank the editor the dequeue just restored to.
+-		this.ctx.locallySubmittedUserSignatures.delete(`${popped.text}\u0000${popped.images?.length ?? 0}`);
++		this.ctx.locallySubmittedUserSignatures.delete(
++			`${popped.canonicalText ?? popped.text}\u0000${popped.images?.length ?? 0}`,
++		);
+ 		this.#restoreEntriesToEditor([popped]);
+ 		this.ctx.showStatus("Restored last queued message to editor");
+ 	}
+@@ -1638,6 +1804,14 @@ export class InputController {
+ 	 * must not restore its messages into a subagent's composer.
+ 	 */
+ 	#popLastQueuedMessage(): RestoredQueuedMessage | undefined {
++		// A rejected prepared capture is restorable too, and never overwrites the
++		// editor (the dequeue path prepends to whatever draft is present).
++		const deferred = this.ctx.deferredDraftSnapshots;
++		const lastDeferred = deferred[deferred.length - 1];
++		if (lastDeferred) {
++			this.ctx.deferredDraftSnapshots = deferred.slice(0, -1);
++			return lastDeferred;
++		}
+ 		const fromQueue = this.ctx.viewSession.popLastQueuedMessage();
+ 		if (fromQueue) return fromQueue;
+ 		if (this.ctx.focusedAgentId) return undefined;
+@@ -1645,7 +1819,7 @@ export class InputController {
+ 		if (compaction.length === 0) return undefined;
+ 		const last = compaction[compaction.length - 1];
+ 		this.ctx.compactionQueuedMessages = compaction.slice(0, -1);
+-		return { text: last.text, images: last.images };
++		return { text: last.displayText ?? last.text, canonicalText: last.text, images: last.images };
+ 	}
+ 
+ 	/**
+@@ -1881,6 +2055,9 @@ export class InputController {
+ 		// Detach before the first await: another Ctrl+Enter cannot submit the
+ 		// same draft, and later typing belongs to the next submission.
+ 		this.ctx.editor.clearDraft();
++		const captureRevision = this.ctx.editor.textRevision;
++		const sessionId = this.ctx.sessionManager.getSessionId();
++		const signal = this.ctx.session.inputPreparationSignal;
+ 
+ 		if (this.ctx.session.extensionRunner?.hasHandlers("input")) {
+ 			try {
+@@ -1894,17 +2071,44 @@ export class InputController {
+ 			}
+ 		}
+ 
++		// Ctrl+Enter shares the same awaited preparation boundary as Enter: after
++		// native eligibility and before the compaction/streaming/idle admissions.
++		// A command/template bypass keeps its native execution below.
++		const snapshot: PreparedInputSnapshot = {
++			text,
++			images,
++			imageLinks,
++			revision: captureRevision,
++			sessionId,
++			signal,
++		};
++		let preparedInput = false;
++		let preparedDisplayText: string | undefined;
++		if (this.#shouldPrepareInput(text)) {
++			const prepared = await this.#prepareSnapshot(snapshot, "followUp");
++			// The helper already restored or retained the capture on cancel/failure.
++			if (!prepared) return;
++			text = prepared.text;
++			preparedInput = prepared.prepared;
++			preparedDisplayText = prepared.displayText;
++		}
++
+ 		// Compaction first: while compacting, free text gets queued via
+ 		// `queueCompactionMessage`, and `/skill:*` rides the same queue so a
+ 		// skill typed during compaction is not lost or short-circuited through
+ 		// `promptCustomMessage`. The compaction-resume path re-parses the
+ 		// queued text into a user-attributed skill invocation before delivery.
+ 		if (this.ctx.session.isCompacting) {
+-			this.ctx.queueCompactionMessage(text, "followUp", images, { preserveDraft: true });
++			this.ctx.queueCompactionMessage(text, "followUp", images, {
++				preserveDraft: true,
++				displayText: preparedDisplayText,
++				prepared: preparedInput,
++			});
+ 			return;
+ 		}
+ 
+-		if (text) {
++		// Prepared model text must never be re-interpreted as a command.
++		if (text && !preparedInput) {
+ 			try {
+ 				const input =
+ 					(images?.length ?? 0) > 0 || (imageLinks?.length ?? 0) > 0 ? { images, imageLinks } : undefined;
+@@ -1929,7 +2133,7 @@ export class InputController {
+ 		// Skill commands invoke through the custom-message path regardless of
+ 		// which keybinding submitted them. Enter routes them as `steer`;
+ 		// Ctrl+Enter (this handler) routes them as `followUp`.
+-		if (text && (await this.#invokeSkillCommand(text, "followUp", images, imageLinks, true))) {
++		if (text && !preparedInput && (await this.#invokeSkillCommand(text, "followUp", images, imageLinks, true))) {
+ 			return;
+ 		}
+ 
+@@ -1937,16 +2141,23 @@ export class InputController {
+ 		// queue rejection): restore both text AND pending images so an image-only
+ 		// or text+image draft can be retried, mirroring the main submit error path.
+ 		const restoreOnError = (error: unknown) => {
+-			restoreDetachedDraft(this.ctx.editor, text, images, imageLinks);
++			// Hand the draft back without clobbering a newer draft or a newer session.
++			this.#restorePreparationDraft(snapshot);
+ 			this.ctx.showError(error instanceof Error ? error.message : String(error));
+ 		};
+ 
+ 		if (this.ctx.session.isStreaming) {
+-			this.ctx.editor.addToHistory(text);
++			this.ctx.editor.addToHistory(preparedDisplayText ?? text);
+ 			try {
+ 				await this.ctx.withLocalSubmission(
+ 					text,
+-					() => this.ctx.session.prompt(text, { streamingBehavior: "followUp", images }),
++					() =>
++						this.ctx.session.prompt(text, {
++							streamingBehavior: "followUp",
++							images,
++							displayText: preparedDisplayText,
++							expandPromptTemplates: preparedInput ? false : undefined,
++						}),
+ 					{ imageCount: images?.length ?? 0 },
+ 				);
+ 			} catch (error) {
+@@ -1958,11 +2169,20 @@ export class InputController {
+ 		}
+ 
+ 		// Not streaming — just submit normally
+-		this.ctx.editor.addToHistory(text);
++		this.ctx.editor.addToHistory(preparedDisplayText ?? text);
+ 		try {
+-			await this.ctx.withLocalSubmission(text, () => this.ctx.session.prompt(text, { images }), {
+-				imageCount: images?.length ?? 0,
+-			});
++			await this.ctx.withLocalSubmission(
++				text,
++				() =>
++					this.ctx.session.prompt(text, {
++						images,
++						displayText: preparedDisplayText,
++						expandPromptTemplates: preparedInput ? false : undefined,
++					}),
++				{
++					imageCount: images?.length ?? 0,
++				},
++			);
+ 		} catch (error) {
+ 			restoreOnError(error);
+ 		}
+@@ -1982,9 +2202,13 @@ export class InputController {
+ 		this.ctx.compactionQueuedMessages = [];
+ 		const allQueued = [
+ 			...steering,
+-			...compactionQueued.filter(e => e.mode === "steer").map(e => ({ text: e.text, images: e.images })),
++			...compactionQueued
++				.filter(e => e.mode === "steer")
++				.map(e => ({ text: e.displayText ?? e.text, canonicalText: e.text, images: e.images })),
+ 			...followUp,
+-			...compactionQueued.filter(e => e.mode === "followUp").map(e => ({ text: e.text, images: e.images })),
++			...compactionQueued
++				.filter(e => e.mode === "followUp")
++				.map(e => ({ text: e.displayText ?? e.text, canonicalText: e.text, images: e.images })),
+ 		];
+ 		const restored = this.#restoreEntriesToEditor(allQueued, options?.currentText);
+ 		if (options?.abort) {
+--- a/pi-coding-agent/src/modes/interactive-mode.ts
++++ b/pi-coding-agent/src/modes/interactive-mode.ts
+@@ -129,6 +129,7 @@ import {
+ 	type ResolvedRoleModel,
+ 	SHUTDOWN_CONSOLIDATE_BUDGET_MS,
+ } from "../session/agent-session";
++import type { RestoredQueuedMessage } from "../session/agent-session-types";
+ import type { CompactMode } from "../session/compact-modes";
+ import type { ForeignSessionSource } from "../session/foreign-session-store";
+ import { HistoryStorage } from "../session/history-storage";
+@@ -1257,6 +1258,9 @@ export class InteractiveMode implements InteractiveModeContext {
+ 	}
+ 	proseOnlyThinking = true;
+ 	expandThinkingBlocks = false;
++	/** Captured submissions whose prepared result was rejected while a newer draft
++	 *  existed. Restorable via the dequeue key by prepending, never overwriting. */
++	deferredDraftSnapshots: RestoredQueuedMessage[] = [];
+ 	compactionQueuedMessages: CompactionQueuedMessage[] = [];
+ 	pendingTools = new Map<string, ToolExecutionHandle>();
+ 	transcriptMessageComponents = new WeakMap<AgentMessage, Component>();
+@@ -1648,6 +1652,7 @@ export class InteractiveMode implements InteractiveModeContext {
+ 		this.#pendingCommandOutputSessionId = undefined;
+ 		this.#pendingCommandOutputCommands = 0;
+ 		this.compactionQueuedMessages = [];
++		this.deferredDraftSnapshots = [];
+ 		this.streamingComponent = undefined;
+ 		this.streamingMessage = undefined;
+ 		this.lastAssistantUsage = undefined;
+@@ -3211,6 +3216,8 @@ export class InteractiveMode implements InteractiveModeContext {
+ 	startPendingSubmission(
+ 		input: {
+ 			text: string;
++			displayText?: string;
++			prepared?: boolean;
+ 			images?: ImageContent[];
+ 			imageLinks?: (string | undefined)[];
+ 			customType?: string;
+@@ -3221,6 +3228,8 @@ export class InteractiveMode implements InteractiveModeContext {
+ 	): SubmittedUserInput {
+ 		const submission: SubmittedUserInput = {
+ 			text: input.text,
++			displayText: input.displayText,
++			prepared: input.prepared,
+ 			images: input.images,
+ 			imageLinks: input.imageLinks,
+ 			customType: input.customType,
+@@ -3238,7 +3247,7 @@ export class InteractiveMode implements InteractiveModeContext {
+ 		// message, and EventController appends that canonical row on its own. An
+ 		// ordinary optimistic user row would survive as a duplicate, so mirror the
+ 		// dispatch condition here.
+-		if (!submission.customType && !isKnownSkillCommand(this, submission.text)) {
++		if (!submission.customType && (submission.prepared || !isKnownSkillCommand(this, submission.text))) {
+ 			this.#resetGoalContinuationSuppression();
+ 			const imageCount = submission.images?.length ?? 0;
+ 			this.optimisticUserMessageSignature = `${submission.text}\u0000${imageCount}`;
+@@ -3248,6 +3257,7 @@ export class InteractiveMode implements InteractiveModeContext {
+ 					{
+ 						role: "user",
+ 						content: [{ type: "text", text: submission.text }, ...(submission.images ?? [])],
++						displayText: submission.displayText,
+ 						attribution: "user",
+ 						timestamp: Date.now(),
+ 					},
+@@ -3285,23 +3295,35 @@ export class InteractiveMode implements InteractiveModeContext {
+ 		if (this.loadingAnimation) {
+ 			this.#stopLoadingAnimation(true);
+ 		}
+-		if (!submission.customType && !preserveDraft) {
+-			// Enter clears the submitted draft before this cancellation can run.
+-			// Keep anything typed or attached since then, after the recovered input.
+-			const laterText = this.editor.getExpandedText();
+-			const submittedImages = submission.images ?? [];
+-			const laterImages = this.editor.pendingImages;
+-			const recoveredText = laterText
+-				? `${submission.text}\n${shiftImageMarkers(laterText, submittedImages.length)}`
+-				: submission.text;
+-			this.editor.pendingImages = [...submittedImages, ...laterImages];
+-			this.editor.pendingImageLinks = [
+-				...(submission.imageLinks ?? submittedImages.map(() => undefined)),
+-				...this.editor.pendingImageLinks,
+-			];
+-			this.editor.imageLinks = this.editor.pendingImageLinks;
+-			this.rebuildChatFromMessages();
+-			this.editor.setCollapsedText(recoveredText);
++		if (!submission.customType) {
++			if (preserveDraft) {
++				// The live draft already won: keep the cancelled prompt restorable via the
++				// dequeue key instead of dropping it, and never overwrite the newer draft.
++				this.deferredDraftSnapshots.push({
++					text: submission.displayText ?? submission.text,
++					canonicalText: submission.text,
++					images: submission.images,
++				});
++				this.updatePendingMessagesDisplay();
++				this.rebuildChatFromMessages();
++			} else {
++				// Enter clears the submitted draft before this cancellation can run.
++				// Keep anything typed or attached since then, after the recovered input.
++				const laterText = this.editor.getExpandedText();
++				const submittedImages = submission.images ?? [];
++				const laterImages = this.editor.pendingImages;
++				const recoveredText = laterText
++					? `${submission.displayText ?? submission.text}\n${shiftImageMarkers(laterText, submittedImages.length)}`
++					: (submission.displayText ?? submission.text);
++				this.editor.pendingImages = [...submittedImages, ...laterImages];
++				this.editor.pendingImageLinks = [
++					...(submission.imageLinks ?? submittedImages.map(() => undefined)),
++					...this.editor.pendingImageLinks,
++				];
++				this.editor.imageLinks = this.editor.pendingImageLinks;
++				this.rebuildChatFromMessages();
++				this.editor.setCollapsedText(recoveredText);
++			}
+ 		}
+ 		this.updateEditorBorderColor();
+ 		this.ui.requestRender();
+@@ -3327,7 +3349,7 @@ export class InteractiveMode implements InteractiveModeContext {
+ 			this.editor.pendingImages = prompt.images ? [...prompt.images] : [];
+ 			this.editor.pendingImageLinks = prompt.images ? prompt.images.map(() => undefined) : [];
+ 			this.editor.imageLinks = this.editor.pendingImageLinks;
+-			this.editor.setText(prompt.text);
++			this.editor.setText(prompt.displayText ?? prompt.text);
+ 		}
+ 		this.ui.requestRender();
+ 	}
+@@ -3918,6 +3940,7 @@ export class InteractiveMode implements InteractiveModeContext {
+ 				{
+ 					role: "user",
+ 					content: [{ type: "text", text: submission.text }, ...(submission.images ?? [])],
++					displayText: submission.displayText,
+ 					attribution: "user",
+ 					timestamp: Date.now(),
+ 				},
+@@ -7434,7 +7457,7 @@ export class InteractiveMode implements InteractiveModeContext {
+ 		text: string,
+ 		mode: "steer" | "followUp",
+ 		images?: ImageContent[],
+-		options?: { preserveDraft?: boolean },
++		options?: { preserveDraft?: boolean; displayText?: string; prepared?: boolean },
+ 	): void {
+ 		this.#uiHelpers.queueCompactionMessage(text, mode, images, options);
+ 	}
+--- a/pi-coding-agent/src/modes/runtime-init.ts
++++ b/pi-coding-agent/src/modes/runtime-init.ts
+@@ -119,6 +119,8 @@ export async function initializeExtensions(session: AgentSession, options: Initi
+ 			appendEntry: (customType, data) => {
+ 				session.sessionManager.appendCustomEntry(customType, data);
+ 			},
++			appendEntryPersisted: (customType, data, persistOptions) =>
++				session.appendExtensionEntryPersisted(customType, data, persistOptions),
+ 			setLabel: (targetId, label) => {
+ 				session.sessionManager.appendLabelChange(targetId, label);
+ 			},
+--- a/pi-coding-agent/src/modes/types.ts
++++ b/pi-coding-agent/src/modes/types.ts
+@@ -24,6 +24,7 @@ import type { Skill } from "../extensibility/skills";
+ import type { MCPManager } from "../mcp";
+ import type { PlanApprovalDetails } from "../plan-mode/approved-plan";
+ import type { AgentSession } from "../session/agent-session";
++import type { RestoredQueuedMessage } from "../session/agent-session-types";
+ import type { CompactMode } from "../session/compact-modes";
+ import type { ForeignSessionSource } from "../session/foreign-session-store";
+ import type { HistoryStorage } from "../session/history-storage";
+@@ -58,6 +59,10 @@ export type CompactionQueuedMessage = {
+ 	text: string;
+ 	mode: "steer" | "followUp";
+ 	images?: ImageContent[];
++	/** Original operator text when `text` is a prepared canonical replacement. */
++	displayText?: string;
++	/** True when `text` was already prepared: skip command/template interpretation on drain. */
++	prepared?: boolean;
+ };
+ 
+ export type SubmittedUserInput = {
+@@ -65,6 +70,10 @@ export type SubmittedUserInput = {
+ 	images?: ImageContent[];
+ 	imageLinks?: (string | undefined)[];
+ 	customType?: string;
++	/** Original operator text when `text` is a prepared canonical replacement (translator). */
++	displayText?: string;
++	/** True when `text` was already prepared: skip command/template interpretation on dispatch. */
++	prepared?: boolean;
+ 	/** Route through `session.prompt(text, { synthetic: true })` so the text lands
+ 	 *  as a hidden agent-authored `developer` message rather than a visible user
+ 	 *  turn. Used by the `c`/`.` continue shortcut. */
+@@ -332,11 +341,14 @@ export interface InteractiveModeContext {
+ 	showNewVersionNotification(newVersion: string): void;
+ 	clearEditor(): void;
+ 	updatePendingMessagesDisplay(): void;
++	/** Captured submissions whose prepared result was rejected while a newer draft
++	 *  existed. Restorable via the dequeue key by prepending, never overwriting. */
++	deferredDraftSnapshots: RestoredQueuedMessage[];
+ 	queueCompactionMessage(
+ 		text: string,
+ 		mode: "steer" | "followUp",
+ 		images?: ImageContent[],
+-		options?: { preserveDraft?: boolean },
++		options?: { preserveDraft?: boolean; displayText?: string; prepared?: boolean },
+ 	): void;
+ 	flushCompactionQueue(options?: { willRetry?: boolean }): Promise<void>;
+ 	flushPendingBashComponents(): void;
+@@ -353,6 +365,8 @@ export interface InteractiveModeContext {
+ 	startPendingSubmission(
+ 		input: {
+ 			text: string;
++			displayText?: string;
++			prepared?: boolean;
+ 			images?: ImageContent[];
+ 			imageLinks?: (string | undefined)[];
+ 			customType?: string;
+--- a/pi-coding-agent/src/modes/utils/ui-helpers.ts
++++ b/pi-coding-agent/src/modes/utils/ui-helpers.ts
+@@ -35,7 +35,7 @@ import {
+ } from "@oh-my-pi/pi-tui/chat/read-tool-group";
+ import { SkillMessageComponent } from "@oh-my-pi/pi-tui/chat/skill-message";
+ import { StrippedToolCallsPlaceholder } from "@oh-my-pi/pi-tui/chat/stripped-tool-calls-placeholder";
+-import { imageContent, textContent } from "@oh-my-pi/pi-tui/chat/transcript-entry";
++import { imageContent, userDisplayText } from "@oh-my-pi/pi-tui/chat/transcript-entry";
+ import { ToolActivityContainer } from "@oh-my-pi/pi-tui/chrome/tool-activity";
+ import { ToolExecutionComponent, type ToolExecutionHandle, toolRenderName } from "@oh-my-pi/pi-tui/chat/tool-execution";
+ import { TranscriptBlock, TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
+@@ -286,7 +286,7 @@ export class UiHelpers {
+ 			}
+ 			case "user":
+ 			case "developer": {
+-				const userText = message.role === "user" ? textContent(message.content) : "";
++				const userText = message.role === "user" ? userDisplayText(message) : "";
+ 				if (userText) {
+ 					const isSynthetic = message.role === "developer" ? true : (message.synthetic ?? false);
+ 					const cached = options?.reuseSettledComponent
+@@ -1105,14 +1105,17 @@ export class UiHelpers {
+ 		const followUpMessages = [...queuedMessages.followUp];
+ 		if (!this.ctx.focusedAgentId) {
+ 			for (const entry of this.ctx.compactionQueuedMessages as CompactionQueuedMessage[]) {
+-				if (entry.mode === "steer") steeringMessages.push(entry.text);
+-				else followUpMessages.push(entry.text);
++				if (entry.mode === "steer") steeringMessages.push(entry.displayText ?? entry.text);
++				else followUpMessages.push(entry.displayText ?? entry.text);
+ 			}
+ 		}
+ 
++		const deferredMessages = this.ctx.deferredDraftSnapshots.map(entry => entry.text);
++
+ 		const groups = [
+ 			{ label: "Steering", messages: steeringMessages },
+ 			{ label: "After yield", messages: followUpMessages },
++			{ label: "Not sent", messages: deferredMessages },
+ 		].filter(group => group.messages.length > 0);
+ 		if (groups.length > 0) {
+ 			const dequeueKey = this.ctx.keybindings.getKeys("app.message.dequeue")[0] ?? "alt+up";
+@@ -1127,11 +1130,19 @@ export class UiHelpers {
+ 		text: string,
+ 		mode: "steer" | "followUp",
+ 		images?: ImageContent[],
+-		options?: { preserveDraft?: boolean },
++		options?: { preserveDraft?: boolean; displayText?: string; prepared?: boolean },
+ 	): void {
+ 		const queuedImages = images && images.length > 0 ? images : undefined;
+-		this.ctx.compactionQueuedMessages.push({ text, mode, images: queuedImages } as CompactionQueuedMessage);
+-		if (options?.preserveDraft) this.ctx.editor.addToHistory(text);
++		this.ctx.compactionQueuedMessages.push({
++			text,
++			mode,
++			images: queuedImages,
++			displayText: options?.displayText,
++			prepared: options?.prepared,
++		} as CompactionQueuedMessage);
++		// A submitting path that already detached the draft passes preserveDraft: only
++		// history is recorded so a draft typed during preparation is never wiped.
++		if (options?.preserveDraft) this.ctx.editor.addToHistory(options.displayText ?? text);
+ 		else this.ctx.editor.clearDraft(text);
+ 		this.ctx.updatePendingMessagesDisplay();
+ 		this.ctx.showStatus(
+@@ -1165,26 +1176,35 @@ export class UiHelpers {
+ 			this.#parkLoopOnLocalConsume(message.text, forwarded);
+ 			return;
+ 		}
+-		if (
+-			await invokeSkillCommandFromText(this.ctx, message.text, message.mode, {
+-				propagateErrors: true,
+-				queueOnly: true,
+-				images: message.images,
+-			})
+-		) {
+-			return;
+-		}
+-		if (this.ctx.isKnownSlashCommand(message.text)) {
+-			const forwarded = await this.ctx.session.prompt(message.text);
+-			this.#parkLoopOnLocalConsume(message.text, forwarded);
+-			return;
++		// Prepared model text must never be re-interpreted as a skill/command.
++		if (!message.prepared) {
++			if (
++				await invokeSkillCommandFromText(this.ctx, message.text, message.mode, {
++					propagateErrors: true,
++					queueOnly: true,
++					images: message.images,
++				})
++			) {
++				return;
++			}
++			if (this.ctx.isKnownSlashCommand(message.text)) {
++				const forwarded = await this.ctx.session.prompt(message.text);
++				this.#parkLoopOnLocalConsume(message.text, forwarded);
++				return;
++			}
+ 		}
+ 		await this.ctx.withLocalSubmission(
+ 			message.text,
+ 			() =>
+ 				message.mode === "followUp"
+-					? this.ctx.session.followUp(message.text, message.images)
+-					: this.ctx.session.steer(message.text, message.images),
++					? this.ctx.session.followUp(message.text, message.images, {
++							displayText: message.displayText,
++							expandPromptTemplates: message.prepared ? false : undefined,
++						})
++					: this.ctx.session.steer(message.text, message.images, {
++							displayText: message.displayText,
++							expandPromptTemplates: message.prepared ? false : undefined,
++						}),
+ 			{ imageCount: message.images?.length ?? 0 },
+ 		);
+ 	}
+@@ -1242,7 +1262,8 @@ export class UiHelpers {
+ 
+ 			let firstPromptIndex = -1;
+ 			for (let i = 0; i < queuedMessages.length; i++) {
+-				if (!this.ctx.isKnownSlashCommand(queuedMessages[i].text)) {
++				// Prepared model text is never a command: it is always a prompt.
++				if (queuedMessages[i].prepared || !this.ctx.isKnownSlashCommand(queuedMessages[i].text)) {
+ 					firstPromptIndex = i;
+ 					break;
+ 				}
+@@ -1271,7 +1292,7 @@ export class UiHelpers {
+ 			// are rebuilt as user-attributed custom messages so queued `/skill:` text
+ 			// is not sent as a literal prompt after compaction.
+ 			let promptPromise: Promise<unknown>;
+-			if (isKnownSkillCommand(this.ctx, firstPrompt.text)) {
++			if (!firstPrompt.prepared && isKnownSkillCommand(this.ctx, firstPrompt.text)) {
+ 				const built = await buildSkillCommandPrompt(
+ 					this.ctx,
+ 					firstPrompt.text,
+@@ -1290,6 +1311,8 @@ export class UiHelpers {
+ 					.prompt(firstPrompt.text, {
+ 						streamingBehavior: firstPrompt.mode === "followUp" ? "followUp" : "steer",
+ 						images: firstPrompt.images,
++						displayText: firstPrompt.displayText,
++						expandPromptTemplates: firstPrompt.prepared ? false : undefined,
+ 					})
+ 					.catch((error: unknown) => {
+ 						disposeFirstPrompt();
+--- a/pi-coding-agent/src/session/agent-session-types.ts
++++ b/pi-coding-agent/src/session/agent-session-types.ts
+@@ -382,6 +382,13 @@ export interface AgentSessionConfig {
+ export interface PromptOptions {
+ 	/** Whether to expand file-based prompt templates (default: true). */
+ 	expandPromptTemplates?: boolean;
++	/**
++	 * Original operator-presentation text when `text` is a prepared canonical
++	 * replacement (e.g. a translation). Attached to the same real user message as
++	 * `UserMessage.displayText`; display/editing readers prefer it while the model
++	 * sees `text`. Omit when no alternate presentation is required.
++	 */
++	displayText?: string;
+ 	/**
+ 	 * Whether a leading `/` may run an extension or custom TypeScript command
+ 	 * locally instead of prompting the agent (default: true). Headless task
+@@ -430,6 +437,8 @@ export interface PromptOptions {
+ export interface DroppedPrompt {
+ 	/** The prompt exactly as typed, before template/command expansion. */
+ 	text: string;
++	/** Original operator-presentation text when `text` was a prepared canonical replacement. */
++	displayText?: string;
+ 	/** Image attachments submitted with the prompt. */
+ 	images?: ImageContent[];
+ }
+@@ -440,12 +449,18 @@ export interface FollowUpOptions {
+ 	synthetic?: boolean;
+ 	/** Whether to expand file-based prompt templates (default: true). */
+ 	expandPromptTemplates?: boolean;
++	/** Original operator-presentation text when `text` is a prepared canonical replacement. */
++	displayText?: string;
+ 	/** Explicit billing/initiator attribution. */
+ 	attribution?: MessageAttribution;
+ }
+ 
+ /** Options for AgentSession.steer(). */
+ export interface SteerOptions {
++	/** Whether to treat `text` as command/template-free (default: true). */
++	expandPromptTemplates?: boolean;
++	/** Original operator-presentation text when `text` is a prepared canonical replacement. */
++	displayText?: string;
+ 	/** Explicit billing/initiator attribution. */
+ 	attribution?: MessageAttribution;
+ }
+@@ -454,6 +469,10 @@ export interface SteerOptions {
+ export interface SendUserMessageOptions {
+ 	/** Queue behavior; omitted starts a turn when idle and steers while streaming. */
+ 	deliverAs?: "steer" | "followUp" | "aside";
++	/** Whether to expand file-based prompt templates (default: true). */
++	expandPromptTemplates?: boolean;
++	/** Original operator-presentation text when `content` is a prepared canonical replacement. */
++	displayText?: string;
+ 	/** Explicit billing/initiator attribution. */
+ 	attribution?: MessageAttribution;
+ }
+@@ -555,7 +574,13 @@ export interface ResetSessionContextResult {
+ }
+ 
+ /** Queued user content restored to the editor. */
+-export type RestoredQueuedMessage = { text: string; images?: ImageContent[] };
++export type RestoredQueuedMessage = {
++	/** Operator-facing text for the editor (original presentation when available). */
++	text: string;
++	/** Canonical model text when `text` is original presentation; used for local-submission signatures. */
++	canonicalText?: string;
++	images?: ImageContent[];
++};
+ 
+ /** Options for the same ephemeral side turn used by /btw. */
+ export interface EphemeralTurnOptions {
+--- a/pi-coding-agent/src/session/agent-session.ts
++++ b/pi-coding-agent/src/session/agent-session.ts
+@@ -328,7 +328,6 @@ import {
+ 	shouldPromptCodexAutoRedeem,
+ } from "./codex-auto-reset";
+ import { recordCredentialPin, seedCredentialPins } from "./credential-pin";
+-import { isDateCwdReminderControl } from "./date-cwd-reminder";
+ import { EvalRunner, type EvalRunnerHost } from "./eval-runner";
+ import {
+ 	collectPendingToolCalls,
+@@ -983,6 +982,20 @@ export class AgentSession implements SettingsScope {
+ 	#promptInFlightCount = 0;
+ 	#inFlightEpoch = 0;
+ 	#idleEphemeralReservation?: { abort: AbortController; settled: Promise<void> };
++	/**
++	 * Aborted synchronously at the start of every outermost session/transcript
++	 * transition (new/fork/switch/branch/btw/tree/reset), then replaced with a
++	 * fresh controller. Pending ordinary-input preparation awaits this signal so a
++	 * translator decision cannot be admitted into the session that replaced it.
++	 */
++	#inputPreparationAbortController = new AbortController();
++	/**
++	 * Entry appends admitted through {@link appendExtensionEntryPersisted} that have
++	 * not settled yet. A session/transcript transition drains these before mutating
++	 * or copying the manager, so an acknowledged hidden write cannot land in — or
++	 * leak into — the wrong session.
++	 */
++	#admittedExtensionAppends = new Set<Promise<unknown>>();
+ 	#abortInProgress = false;
+ 	/** Submissions accepted by prompt()/promptCustomMessage()/sendCustomMessage() that have not
+ 	 *  yet dispatched a turn, queued, or bailed. Preprocessing (manual-compaction wait, slash
+@@ -2301,14 +2314,8 @@ export class AgentSession implements SettingsScope {
+ 				const live = await this.agent.buildSideRequestContext(
+ 					await this.convertMessagesToLlm([...history, ...retained], signal),
+ 				);
+-				// Date/cwd reminder controls are the only messages the transforms
+-				// insert: count past them, and leave out any at the cut, so the kept
+-				// turns follow the summarized range directly.
+-				let cut = 0;
+-				for (let counted = 0; cut < live.messages.length && counted < prefixLength; cut++) {
+-					if (!isDateCwdReminderControl(live.messages[cut]!)) counted++;
+-				}
+-				return { ...live, messages: live.messages.slice(0, cut) };
++				// Persisted date/cwd anchors stamp existing messages; they add no controls.
++				return { ...live, messages: live.messages.slice(0, prefixLength) };
+ 			},
+ 			obfuscateTextForProvider: text => this.#obfuscateTextForProvider(text),
+ 			obfuscatePreparationForProvider: preparation => this.#obfuscatePreparationForProvider(preparation),
+@@ -5227,6 +5234,78 @@ export class AgentSession implements SettingsScope {
+ 		while (this.#sessionTransitionSettled) await this.#sessionTransitionSettled;
+ 	}
+ 
++	/**
++	 * Submission-owned lifecycle signal for ordinary-input preparation. Aborted
++	 * synchronously when an outermost session/transcript transition begins, then
++	 * replaced, so a pending translator decision never survives into the session
++	 * that replaced it. Never times out.
++	 */
++	get inputPreparationSignal(): AbortSignal {
++		return this.#inputPreparationAbortController.signal;
++	}
++
++	/**
++	 * Append a hidden custom entry to `sessionId` and resolve with its entry id
++	 * only after the journal is durably committed.
++	 *
++	 * Reuses the native atomic append engine (`SessionManager.appendEntriesAtomically`):
++	 * no second storage layer. Admission is rejected synchronously for a disposed
++	 * session, a non-persistent session, a stale session id, an aborted signal or a
++	 * concurrently applying transition. An accepted transaction is never aborted by
++	 * a transition — every transition mutator drains admitted appends before touching
++	 * the manager — but the signal and session id are re-checked inside the
++	 * synchronous staging callback and after commit.
++	 */
++	async appendExtensionEntryPersisted<T>(
++		customType: string,
++		data: T,
++		options: { sessionId: string; signal: AbortSignal },
++	): Promise<string> {
++		const { sessionId, signal } = options;
++		if (this.#isDisposed) throw new Error("Cannot append an extension entry to a disposed session.");
++		if (!this.sessionManager.getSessionFile()) {
++			throw new Error("Cannot durably append an extension entry: session is not persisted.");
++		}
++		if (signal.aborted) throw new Error("Extension entry append was aborted before admission.");
++		if (this.isSessionTransitioning) {
++			throw new Error("Unable to append an extension entry during a session transition.");
++		}
++		if (this.sessionManager.getSessionId() !== sessionId) {
++			throw new Error("Extension entry append targeted a stale session.");
++		}
++		const admission = (async () =>
++			this.sessionManager.appendEntriesAtomically(() => {
++				if (signal.aborted) throw new Error("Extension entry append was aborted before commit.");
++				if (this.sessionManager.getSessionId() !== sessionId) {
++					throw new Error("Extension entry append targeted a stale session.");
++				}
++				return this.sessionManager.appendCustomEntry(customType, data);
++			}))();
++		this.#admittedExtensionAppends.add(admission);
++		try {
++			// Once the native atomic commit succeeds the entry IS durable: report its id
++			// even if the caller's signal aborted or the session moved during the flush.
++			// Pretending a committed write vanished would leave the caller's state
++			// ambiguous; callers re-check their own signal/generation before using it.
++			return await admission;
++		} finally {
++			this.#admittedExtensionAppends.delete(admission);
++		}
++	}
++
++	/**
++	 * Wait for every append admitted through {@link appendExtensionEntryPersisted} to
++	 * settle before a transition mutates or copies the session manager. Admitted
++	 * transactions never wait on the transition itself, so this cannot deadlock.
++	 */
++	async #drainAdmittedExtensionAppends(): Promise<void> {
++		while (this.#admittedExtensionAppends.size > 0) {
++			// Settlement is what the transition needs; an append's own rejection is
++			// surfaced to its caller, never to the transition that drained it.
++			await Promise.allSettled([...this.#admittedExtensionAppends]);
++		}
++	}
++
+ 	#beginSessionTransition(): Disposable {
+ 		if (this.#sessionTransitionDepth++ === 0) {
+ 			// The outermost transition is about to await (extension hooks, session
+@@ -5239,6 +5318,11 @@ export class AgentSession implements SettingsScope {
+ 			// resetSessionContext) funnels through this method, so none can be
+ 			// missed by construction.
+ 			this.#idleEphemeralReservation?.abort.abort();
++			// Pending ordinary-input preparation belongs to the outgoing session:
++			// abort it synchronously, before the transition's first await, so a late
++			// translator result cannot be admitted into the new identity.
++			this.#inputPreparationAbortController.abort();
++			this.#inputPreparationAbortController = new AbortController();
+ 			const settled = Promise.withResolvers<void>();
+ 			this.#sessionTransitionSettled = settled.promise;
+ 			this.#resolveSessionTransition = settled.resolve;
+@@ -5439,6 +5523,8 @@ export class AgentSession implements SettingsScope {
+ 		for (const dispose of this.#disposers.splice(0)) dispose();
+ 		this.#modelDiscoveryAbortController.abort();
+ 		this.#idleEphemeralReservation?.abort.abort();
++		// Pending ordinary-input preparation must not outlive a disposing session.
++		this.#inputPreparationAbortController.abort();
+ 		this.#queuedMessageDrainBlocked = false;
+ 		this.#usagePreflightReadyForNextModelCall = false;
+ 		this.#detachUsageBeforeQueueDequeue?.();
+@@ -5639,6 +5725,9 @@ export class AgentSession implements SettingsScope {
+ 			logger.warn("Post-prompt tasks still draining at dispose deadline", { error: String(error) });
+ 		}
+ 		await this.#drainAutolearnCapture();
++		// Local acknowledged hidden writes must settle before the manager is torn
++		// down; provider calls and human waits are never awaited here.
++		await this.#drainAdmittedExtensionAppends();
+ 		await this.#memory.transition;
+ 
+ 		const hindsightState = this.getHindsightSessionState();
+@@ -5825,6 +5914,7 @@ export class AgentSession implements SettingsScope {
+ 	 */
+ 	async resetSessionContext(): Promise<ResetSessionContextResult | undefined> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#drainAdmittedExtensionAppends();
+ 		// Refuse while a response streams OR a foreground user bash/python
+ 		// execution is in flight: those complete via recordBashResult()/
+ 		// recordPythonResult(), which append directly to agent.state when not
+@@ -7291,12 +7381,19 @@ export class AgentSession implements SettingsScope {
+ 
+ 		// Expand file-based prompt templates if requested
+ 		const templated = expandPromptTemplates ? expandPromptTemplate(text, [...this.#promptTemplates]) : text;
+-		const expandedText = options?.synthetic ? templated : this.#modelMentions.expandMentions(templated);
++		// Only operator-authored text may activate model mentions or magic keywords.
++		const operatorSource = options?.displayText;
++		const expandedText = options?.synthetic || operatorSource !== undefined
++			? templated
++			: this.#modelMentions.expandMentions(templated);
++		if (!options?.synthetic && operatorSource !== undefined) this.#modelMentions.expandMentions(operatorSource);
+ 
+ 		// Magic keywords (see modes/magic-keywords.ts): append hidden system notices after the
+ 		// user's message that steer this turn. User-authored prompts only — synthetic /
+ 		// agent-initiated turns never trigger them.
+-		const keywordNotices = options?.synthetic ? [] : this.#createMagicKeywordNotices(expandedText);
++		const keywordNotices = options?.synthetic
++			? []
++			: this.#createMagicKeywordNotices(options?.displayText ?? expandedText);
+ 
+ 		// A user-initiated prompt (typed message or the `.`/`c` continue shortcut)
+ 		// re-enables advisor auto-resume that a prior user interrupt suppressed.
+@@ -7329,8 +7426,9 @@ export class AgentSession implements SettingsScope {
+ 			const queued = await this.#queueUserMessage(expandedText, options?.images, streamingBehavior, {
+ 				timestamp: submittedAt,
+ 				attribution: promptAttribution,
++				displayText: options?.displayText,
+ 				prependMessages: keywordNotices,
+-				rawText: typedText,
++				rawText: options?.displayText ?? typedText,
+ 				onPromptAdmitted: options?.onPromptAdmitted,
+ 				promptGeneration: queueGeneration,
+ 			});
+@@ -7404,8 +7502,9 @@ export class AgentSession implements SettingsScope {
+ 			await this.#queueUserMessage(expandedText, options?.images, streamingBehavior, {
+ 				timestamp: submittedAt,
+ 				attribution: promptAttribution,
++				displayText: options?.displayText,
+ 				prependMessages: keywordNotices,
+-				rawText: typedText,
++				rawText: options?.displayText ?? typedText,
+ 				preprocessed: {
+ 					images: normalizedImages,
+ 					descriptionNotice: imageDescriptionNotice,
+@@ -7431,7 +7530,13 @@ export class AgentSession implements SettingsScope {
+ 					synthetic: true,
+ 					userInitiated: options?.userInitiated === true ? true : undefined,
+ 				}
+-			: { role: "user" as const, content: userContent, attribution: promptAttribution, timestamp: submittedAt };
++			: {
++					role: "user" as const,
++					content: userContent,
++					attribution: promptAttribution,
++					timestamp: submittedAt,
++					displayText: options?.displayText,
++				};
+ 
+ 		const preludeMessages: AgentMessage[] = [];
+ 		if (eagerTodoPrelude) {
+@@ -7477,7 +7582,11 @@ export class AgentSession implements SettingsScope {
+ 		} catch (error) {
+ 			turnError = error;
+ 			if (error instanceof AgentStartPolicyChangedError && message.role === "user") {
+-				this.#promptDropped?.({ text: typedText, images: options?.images });
++				this.#promptDropped?.({
++					text: options?.displayText ?? typedText,
++					displayText: options?.displayText,
++					images: options?.images,
++				});
+ 			}
+ 			throw error;
+ 		} finally {
+@@ -7494,7 +7603,11 @@ export class AgentSession implements SettingsScope {
+ 			// reached the agent or the session file. Hand it back to the host so the
+ 			// user can edit/resubmit instead of losing it (tree/branch can't offer
+ 			// a message that was never persisted).
+-			this.#promptDropped?.({ text: typedText, images: options?.images });
++			this.#promptDropped?.({
++				text: options?.displayText ?? typedText,
++				displayText: options?.displayText,
++				images: options?.images,
++			});
+ 		}
+ 		if (!dispatched && options?.throwOnDrop) throw new PromptDroppedError();
+ 		return true;
+@@ -8188,18 +8301,20 @@ export class AgentSession implements SettingsScope {
+ 	 * Queue a steering message to interrupt the agent mid-run.
+ 	 */
+ 	async steer(text: string, images?: ImageContent[], options?: SteerOptions): Promise<void> {
+-		if (text.startsWith("/")) {
++		if (options?.expandPromptTemplates !== false && text.startsWith("/")) {
+ 			this.#throwIfExtensionCommand(text);
+ 		}
+ 
+-		const expandedText = expandPromptTemplate(text, [...this.#promptTemplates]);
++		const expandedText =
++			options?.expandPromptTemplates === false ? text : expandPromptTemplate(text, [...this.#promptTemplates]);
+ 		// Stamp before image preprocessing so a queued image steer measures from
+ 		// the operator's submission, not after the vision-model description.
+ 		const submittedAt = Date.now();
+ 		await this.#queueUserMessage(expandedText, images, "steer", {
+ 			timestamp: submittedAt,
+ 			attribution: options?.attribution,
+-			rawText: text,
++			displayText: options?.displayText,
++			rawText: options?.displayText ?? text,
+ 		});
+ 	}
+ 
+@@ -8211,7 +8326,7 @@ export class AgentSession implements SettingsScope {
+ 	 * flipping advisor auto-resume.
+ 	 */
+ 	async followUp(text: string, images?: ImageContent[], options?: FollowUpOptions): Promise<void> {
+-		if (text.startsWith("/")) {
++		if (options?.expandPromptTemplates !== false && text.startsWith("/")) {
+ 			this.#throwIfExtensionCommand(text);
+ 		}
+ 
+@@ -8224,7 +8339,8 @@ export class AgentSession implements SettingsScope {
+ 			await this.#queueUserMessage(expandedText, images, "followUp", {
+ 				timestamp: submittedAt,
+ 				attribution: options?.attribution,
+-				rawText: text,
++				displayText: options?.displayText,
++				rawText: options?.displayText ?? text,
+ 			});
+ 			return;
+ 		}
+@@ -8289,6 +8405,7 @@ export class AgentSession implements SettingsScope {
+ 		options?: {
+ 			timestamp?: number;
+ 			attribution?: MessageAttribution;
++			displayText?: string;
+ 			prependMessages?: readonly CustomMessage[];
+ 			/** Text the caller originally submitted, before slash/custom-command
+ 			 *  rewriting, prompt-template expansion, or `^model` mention substitution.
+@@ -8357,7 +8474,13 @@ export class AgentSession implements SettingsScope {
+ 			if (await this.#sessionGenerationChanged(sessionGeneration)) return false;
+ 			const records: AgentMessage[] = [...prependMessages, ...attachmentSourceNotices];
+ 			if (imageDescriptionNotice) records.push(imageDescriptionNotice);
+-			const userMessage: AgentMessage = { role: "user", content, attribution, timestamp: timestamp ?? Date.now() };
++			const userMessage: AgentMessage = {
++				role: "user",
++				content,
++				attribution,
++				timestamp: timestamp ?? Date.now(),
++				displayText: options?.displayText,
++			};
+ 			this.#queuedMessageRawText.set(userMessage, rawText);
+ 			records.push(userMessage);
+ 			this.#irc.queueAside(records);
+@@ -8380,6 +8503,7 @@ export class AgentSession implements SettingsScope {
+ 				content,
+ 				attribution,
+ 				timestamp: timestamp ?? Date.now(),
++				displayText: options?.displayText,
+ 			};
+ 			this.#queuedMessageRawText.set(userMessage, rawText);
+ 			this.agent.followUp(userMessage);
+@@ -8393,6 +8517,7 @@ export class AgentSession implements SettingsScope {
+ 				steering: true,
+ 				attribution,
+ 				timestamp: timestamp ?? Date.now(),
++				displayText: options?.displayText,
+ 			};
+ 			this.#queuedMessageRawText.set(userMessage, rawText);
+ 			this.agent.steer(userMessage);
+@@ -8906,17 +9031,26 @@ export class AgentSession implements SettingsScope {
+ 		let deliveredAsAside = false;
+ 		if (options?.deliverAs === "aside") {
+ 			if (this.isStreaming) {
+-				await this.#queueUserMessage(text, images, "aside", { attribution: options.attribution });
++				await this.#queueUserMessage(text, images, "aside", {
++					attribution: options.attribution,
++					displayText: options.displayText,
++				});
+ 				return;
+ 			}
+ 			// Idle: fall through to the prompt flow below (starts a turn, like an omitted
+ 			// deliverAs) — there is no live run to inject an aside into.
+ 			deliveredAsAside = true;
+ 		} else if (options?.deliverAs === "followUp") {
+-			await this.#queueUserMessage(text, images, "followUp", { attribution: options.attribution });
++			await this.#queueUserMessage(text, images, "followUp", {
++				attribution: options.attribution,
++				displayText: options.displayText,
++			});
+ 			return;
+ 		} else if (options?.deliverAs === "steer") {
+-			await this.#queueUserMessage(text, images, "steer", { attribution: options.attribution });
++			await this.#queueUserMessage(text, images, "steer", {
++				attribution: options.attribution,
++				displayText: options.displayText,
++			});
+ 			return;
+ 		}
+ 
+@@ -8931,6 +9065,7 @@ export class AgentSession implements SettingsScope {
+ 			attribution: options?.attribution,
+ 			expandPromptTemplates: false,
+ 			images,
++			displayText: options?.displayText,
+ 			streamingBehavior: deliveredAsAside ? "aside" : "steer",
+ 		});
+ 	}
+@@ -9593,6 +9728,7 @@ export class AgentSession implements SettingsScope {
+ 	 */
+ 	async newSession(options?: NewSessionOptions): Promise<boolean> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#drainAdmittedExtensionAppends();
+ 		this.#assertVibeSessionTransitionAllowed("start a new session");
+ 		const previousSessionFile = this.sessionFile;
+ 
+@@ -9739,6 +9875,7 @@ export class AgentSession implements SettingsScope {
+ 	 */
+ 	async fork(entryId?: string, options?: { requireIdle?: boolean }): Promise<boolean> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#drainAdmittedExtensionAppends();
+ 		this.#assertVibeSessionTransitionAllowed("fork the session");
+ 		const requireIdleFor = entryId !== undefined || options?.requireIdle ? "fork the session" : undefined;
+ 		if (entryId !== undefined) {
+@@ -11196,6 +11333,7 @@ export class AgentSession implements SettingsScope {
+ 			throw new Error(`No API key for ${explicitModel.provider}/${explicitModel.id}`);
+ 		}
+ 		using _transition = this.#beginSessionTransition();
++		await this.#drainAdmittedExtensionAppends();
+ 		const previousSessionFile = this.sessionManager.getSessionFile();
+ 		const switchingToDifferentSession = previousSessionFile
+ 			? path.resolve(previousSessionFile) !== path.resolve(sessionPath)
+@@ -11613,13 +11751,14 @@ export class AgentSession implements SettingsScope {
+ 		cancelled: boolean;
+ 	}> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#drainAdmittedExtensionAppends();
+ 		const selectedEntry = this.sessionManager.getEntry(entryId);
+ 
+ 		if (selectedEntry?.type !== "message" || selectedEntry.message.role !== "user") {
+ 			throw new Error("Invalid entry ID for branching");
+ 		}
+ 
+-		const selectedText = this.#extractUserMessageText(selectedEntry.message.content);
++		const selectedText = selectedEntry.message.displayText ?? this.#extractUserMessageText(selectedEntry.message.content);
+ 		const selectedImages = this.#extractUserMessageImages(selectedEntry.message.content);
+ 		const completed = await this.#branchIntoNewSession("branch", entryId, selectedEntry.parentId);
+ 		return { selectedText, selectedImages, cancelled: !completed };
+@@ -11754,6 +11893,7 @@ export class AgentSession implements SettingsScope {
+ 		sessionId: string,
+ 	): Promise<{ cancelled: boolean; sessionFile: string | undefined }> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#drainAdmittedExtensionAppends();
+ 		const previousSessionFile = this.sessionFile;
+ 		if (!this.sessionManager.getSessionFile()) {
+ 			throw new Error("Cannot branch /btw: session is not persisted");
+@@ -11930,6 +12070,7 @@ export class AgentSession implements SettingsScope {
+ 		askReanswerCommitted?: boolean;
+ 	}> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#drainAdmittedExtensionAppends();
+ 		// Keep idle side-channel work blocked for the entire tree navigation,
+ 		// including extension hooks and optional branch summarization.
+ 		const branchSummaryAbortController = new AbortController();
+--- a/pi-coding-agent/src/session/queued-messages.ts
++++ b/pi-coding-agent/src/session/queued-messages.ts
+@@ -1,5 +1,6 @@
+ import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+ import type { AssistantMessage, ImageContent } from "@oh-my-pi/pi-ai";
++import { textContent, userDisplayText } from "@oh-my-pi/pi-tui/chat/transcript-entry";
+ import { MAGIC_KEYWORDS } from "../modes/magic-keywords";
+ import type { RestoredQueuedMessage } from "./agent-session-types";
+ import { type CustomMessage, readQueueChipText } from "./messages";
+@@ -101,6 +102,11 @@ export function queueChipText(message: AgentMessage): string {
+ 	if (message.role === "custom") {
+ 		return readQueueChipText(message.details) ?? queuedTextContent(message) ?? "";
+ 	}
++	// Operator-facing preview and editor restore: a present original is
++	// authoritative (an explicit empty string stays empty), so only a
++	// metadata-free message falls through to the legacy canonical extraction.
++	// Image attachments stay in their own structure (see queuedImageContent).
++	if (message.role === "user" && message.displayText !== undefined) return userDisplayText(message);
+ 	const text = queuedTextContent(message) ?? "";
+ 	if (text) return text;
+ 	return queuedImageContent(message) ? "[Image]" : "";
+@@ -108,5 +114,11 @@ export function queueChipText(message: AgentMessage): string {
+ 
+ /** Converts a queued user message to editor-restorable content. */
+ export function toRestoredQueuedMessage(message: AgentMessage): RestoredQueuedMessage {
+-	return { text: queueChipText(message), images: queuedImageContent(message) };
++	return {
++		text: queueChipText(message),
++		// The canonical model text backs local-submission signature keys, which stay
++		// canonical even when the editor is restored with the original presentation.
++		...(message.role === "user" ? { canonicalText: textContent(message.content) } : {}),
++		images: queuedImageContent(message),
++	};
+ }
+--- a/pi-coding-agent/src/session/session-advisors.ts
++++ b/pi-coding-agent/src/session/session-advisors.ts
+@@ -3043,7 +3043,7 @@ export class SessionAdvisors {
+ 		if (this.#advisors.length === 0) return null;
+ 		const dump = (a: ActiveAdvisor): string =>
+ 			options?.compact
+-				? formatSessionHistoryMarkdown(a.agent.state.messages)
++				? formatSessionHistoryMarkdown(a.agent.state.messages, { useDisplayText: true })
+ 				: formatSessionDumpText({
+ 						messages: a.agent.state.messages,
+ 						systemPrompt: a.agent.state.systemPrompt,
+--- a/pi-coding-agent/src/session/session-dump-format.ts
++++ b/pi-coding-agent/src/session/session-dump-format.ts
+@@ -13,6 +13,7 @@ import { renderDelimitedThinking, renderToolInventory } from "@oh-my-pi/pi-ai/di
+ import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
+ import { YAML } from "bun";
+ import { canonicalizeMessage } from "@oh-my-pi/pi-tui/chat/thinking-display";
++import { userDisplayText } from "@oh-my-pi/pi-tui/chat/transcript-entry";
+ import {
+ 	type BashExecutionMessage,
+ 	type BranchSummaryMessage,
+@@ -150,7 +151,17 @@ function appendMarkdownTranscript(lines: string[], messages: readonly AgentMessa
+ 	for (const msg of messages) {
+ 		if (msg.role === "user" || msg.role === "developer") {
+ 			lines.push(msg.role === "developer" ? "## Developer\n" : "## User\n");
+-			if (typeof msg.content === "string") {
++			// `/dump` is operator-facing: a present original (including an explicit
++			// empty string) replaces the body; metadata-free messages keep the exact
++			// per-block rendering, images included.
++			if (msg.role === "user" && msg.displayText !== undefined) {
++				lines.push(userDisplayText(msg));
++				if (Array.isArray(msg.content)) {
++					for (const c of msg.content) {
++						if (c.type === "image") lines.push("[Image]");
++					}
++				}
++			} else if (typeof msg.content === "string") {
+ 				lines.push(msg.content);
+ 			} else {
+ 				for (const c of msg.content) {
+--- a/pi-coding-agent/src/session/session-history-format.ts
++++ b/pi-coding-agent/src/session/session-history-format.ts
+@@ -20,6 +20,7 @@ import type {
+ 	PythonExecutionMessage,
+ } from "./messages";
+ import { truncateMiddle } from "@oh-my-pi/pi-tui/tools/streaming-output";
++import { userDisplayText } from "@oh-my-pi/pi-tui/chat/transcript-entry";
+ 
+ export interface HistoryFormatOptions {
+ 	/** Optional H1 prepended to the transcript. */
+@@ -75,6 +76,14 @@ export interface HistoryFormatOptions {
+ 	 * to the single-block render: pass one object across all chunk calls.
+ 	 */
+ 	watchedRoleState?: { lastLabel: string | undefined };
++	/**
++	 * Render user messages from the operator's original `displayText` when a
++	 * producer recorded one, falling back to canonical `content`. Default false:
++	 * this formatter is also the model-facing history projection (advisor deltas,
++	 * `history://`), which MUST stay canonical. Only verified operator-facing
++	 * readers opt in; never switch the shared formatter globally.
++	 */
++	useDisplayText?: boolean;
+ }
+ 
+ /** Max length of the primary-arg summary inside `→ tool(...)` lines. */
+@@ -492,7 +501,14 @@ export function formatSessionHistoryMarkdown(messages: unknown[], opts?: History
+ 		switch (msg.role) {
+ 			case "user":
+ 			case "developer": {
+-				const text = contentToText(msg.content);
++				// Canonical by default. An operator-facing caller opts in with
++				// `useDisplayText`; a present original (including an explicit empty
++				// string) replaces the body, while metadata-free messages keep the
++				// exact canonical block rendering.
++				let text = contentToText(msg.content);
++				if (opts?.useDisplayText === true && msg.role === "user" && msg.displayText !== undefined) {
++					text = userDisplayText(msg, "\n");
++				}
+ 				if (!text.trim()) break;
+ 				if (opts?.watchedRoles) {
+ 					const label = `**${msg.role}**:`;
+--- a/pi-coding-agent/src/session/session-listing.ts
++++ b/pi-coding-agent/src/session/session-listing.ts
+@@ -2,7 +2,7 @@ import * as fs from "node:fs";
+ import * as os from "node:os";
+ import * as path from "node:path";
+ import type { Message } from "@oh-my-pi/pi-ai";
+-import { textContent } from "@oh-my-pi/pi-tui/chat/transcript-entry";
++import { textContent, userDisplayText } from "@oh-my-pi/pi-tui/chat/transcript-entry";
+ import { getSessionsDir } from "@oh-my-pi/pi-utils/dirs";
+ import * as logger from "@oh-my-pi/pi-utils/logger";
+ import { LRUCache } from "@oh-my-pi/pi-utils/lru";
+@@ -376,13 +376,25 @@ function extractFirstDisplayMessageFromPrefix(content: string): string | undefin
+ 	let index = content.indexOf('"role"');
+ 
+ 	while (index !== -1) {
++		const nextIndex = content.indexOf('"role"', index + 6);
++		const recordEnd = nextIndex === -1 ? content.length : nextIndex;
+ 		const role = extractStringProperty(content, "role", index);
+-		const text = extractStringProperty(content, "content", index) ?? extractStringProperty(content, "text", index);
++		// `displayText` is the operator's original; it lives inside this record, so
++		// bound the lookup before the next record's `"role"`. A present field is
++		// authoritative, including an explicitly empty string.
++		const displayIndex = content.indexOf('"displayText"', index);
++		const displayText =
++			displayIndex !== -1 && displayIndex < recordEnd
++				? (extractStringProperty(content, "displayText", index) ?? "")
++				: undefined;
++		if (role === "user" && displayText !== undefined) return displayText;
++		const text =
++			displayText ?? extractStringProperty(content, "content", index) ?? extractStringProperty(content, "text", index);
+ 		if (text) {
+ 			if (role === "user") return text;
+ 			if (!fallback && (role === "developer" || role === "assistant")) fallback = text;
+ 		}
+-		index = content.indexOf('"role"', index + 6);
++		index = nextIndex;
+ 	}
+ 
+ 	return fallback;
+@@ -517,6 +529,10 @@ async function scanSessionFile(
+ 		let firstMessage = "";
+ 		const allMessages: string[] = [];
+ 		let shortSummary: string | undefined;
++		// A present original is authoritative (including an explicit empty string),
++		// so the first user turn owns the session label and later turns cannot
++		// supply one in its place.
++		let firstPromptResolved = false;
+ 
+ 		for (let i = 1; i < entries.length; i++) {
+ 			const entry = entries[i] as { type?: string; message?: Message; shortSummary?: string };
+@@ -530,20 +546,28 @@ async function scanSessionFile(
+ 				if (entry.message.role === "assistant") assistantTurns++;
+ 
+ 				if (entry.message.role === "user" || entry.message.role === "assistant") {
+-					const messageText = textContent(entry.message.content, " ");
+-
+-					if (messageText) {
+-						allMessages.push(messageText);
+-
+-						if (!firstMessage && entry.message.role === "user") {
+-							firstMessage = messageText;
+-						}
++					// Selector display + fuzzy search show the operator's original
++					// prompt when one was recorded; assistant turns stay canonical.
++					const messageText =
++						entry.message.role === "user"
++							? userDisplayText(entry.message, " ")
++							: textContent(entry.message.content, " ");
++
++					if (messageText) allMessages.push(messageText);
++
++					if (
++						entry.message.role === "user" &&
++						!firstPromptResolved &&
++						(messageText.length > 0 || entry.message.displayText !== undefined)
++					) {
++						firstPromptResolved = true;
++						firstMessage = messageText;
+ 					}
+ 				}
+ 			}
+ 		}
+ 
+-		firstMessage ||= extractFirstDisplayMessageFromPrefix(content) ?? "";
++		if (!firstPromptResolved) firstMessage ||= extractFirstDisplayMessageFromPrefix(content) ?? "";
+ 		const messageCount = Math.max(parsedMessageCount, countMessageMarkers(content));
+ 		// Either bounded window may hold the only copy of an assistant record,
+ 		// and neither may: a >prefix record before a >suffix tail leaves the
+--- a/pi-coding-agent/src/slash-commands/helpers/draft.ts
++++ b/pi-coding-agent/src/slash-commands/helpers/draft.ts
+@@ -1,6 +1,7 @@
+ import type { ImageContent } from "@oh-my-pi/pi-ai";
+ import { shiftImageMarkers } from "@oh-my-pi/pi-tui/prompt/composer-attachments";
+ import type { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
++import type { RestoredQueuedMessage } from "../../session/agent-session-types";
+ import type { TuiSlashCommandRuntime } from "../types";
+ 
+ /** Clear only text still owned by this submission, never a newer detached draft. */
+@@ -28,3 +29,89 @@ export function restoreDetachedDraft(
+ 	}
+ 	editor.setCollapsedText([restoredText, currentText].filter(part => part.trim()).join("\n\n"));
+ }
++
++/** What the rejected-draft helpers need from the interactive mode. */
++export type RejectedDraftRuntime = {
++	editor: CustomEditor;
++	deferredDraftSnapshots: RestoredQueuedMessage[];
++	updatePendingMessagesDisplay(): void;
++	showWarning(message: string): void;
++	ui: { requestRender(): void };
++};
++
++/** A submission that left the editor and was then rejected before any turn started. */
++export type RejectedDraft = {
++	/** Text to show the operator again (the original, not a prepared replacement). */
++	text: string;
++	/** Model-side text when it differs, so the dequeue path can match the queued message. */
++	canonicalText?: string;
++	images?: ImageContent[];
++	imageLinks?: (string | undefined)[];
++};
++
++/**
++ * True when the editor's pending image still belongs to the captured draft: the
++ * same object, or the same bytes and mime as one of its captured images. The
++ * supported `input` handler path may hand back rebuilt objects for attachments it
++ * did not change, so identity alone would misread those as a newer draft.
++ */
++function isDraftOwnedImage(draft: RejectedDraft, image: ImageContent): boolean {
++	const owned = draft.images;
++	if (owned === undefined) return false;
++	if (owned.includes(image)) return true;
++	return owned.some(captured => captured.data === image.data && captured.mimeType === image.mimeType);
++}
++
++/**
++ * True when the editor holds something written since the draft was captured: a
++ * text revision change, text, or an attachment that is not one of the draft's
++ * own captured images (see {@link isDraftOwnedImage}). An ordinary Enter leaves
++ * the captured attachments in the editor until the submission is admitted, so a
++ * non-empty attachment list alone is not a newer draft; an image pasted while the
++ * submission was being prepared is one, because it is not one of the captured
++ * images. A re-paste of identical bytes reads as the draft's own; that residual
++ * is accepted.
++ */
++function editorHoldsNewerDraft(editor: CustomEditor, draft: RejectedDraft, revision: number | undefined): boolean {
++	if (revision !== undefined && editor.textRevision !== revision) return true;
++	if (editor.getText().length > 0) return true;
++	return editor.pendingImages.some(image => !isDraftOwnedImage(draft, image));
++}
++
++/** Keep a rejected capture restorable without touching the editor's newer draft. */
++export function retainRejectedDraft(runtime: RejectedDraftRuntime, draft: RejectedDraft): void {
++	runtime.deferredDraftSnapshots.push({
++		text: draft.text,
++		canonicalText: draft.canonicalText ?? draft.text,
++		images: draft.images ? [...draft.images] : undefined,
++	});
++	runtime.updatePendingMessagesDisplay();
++	runtime.showWarning("Input was not sent; it is listed below as restorable");
++}
++
++/**
++ * Hand a rejected submission back to the editor. It is written into the editor
++ * only while nothing newer lives there (the newer-draft guard below), and
++ * otherwise stays restorable through the dequeue path, so a newer draft or a
++ * freshly pasted attachment is never overwritten. A submission the session's own
++ * prompt-dropped callback already handed back must not reach this function: its
++ * caller skips that case by error class, not by comparing editor contents, which
++ * would swallow a distinct rejected submission that merely looks equal.
++ */
++export function restoreRejectedDraft(
++	runtime: RejectedDraftRuntime,
++	draft: RejectedDraft,
++	revision?: number,
++): void {
++	if (editorHoldsNewerDraft(runtime.editor, draft, revision)) {
++		retainRejectedDraft(runtime, draft);
++		return;
++	}
++	if (draft.images && draft.images.length > 0) {
++		runtime.editor.pendingImages = [...draft.images];
++		runtime.editor.pendingImageLinks = draft.imageLinks ? [...draft.imageLinks] : draft.images.map(() => undefined);
++		runtime.editor.imageLinks = runtime.editor.pendingImageLinks;
++	}
++	runtime.editor.setCollapsedText(draft.text);
++	runtime.ui.requestRender();
++}
+--- a/pi-tui/dist/types/chat/transcript-entry.d.ts
++++ b/pi-tui/dist/types/chat/transcript-entry.d.ts
+@@ -40,6 +40,28 @@ export declare function isUserRequestEntry(entry: TranscriptEntryLike | {
+  * A whole user turn may exceed `limit`; paginate rendering if one turn grows too large.
+  */
+ export declare function recentTranscriptEntries(entries: TranscriptEntryLike[], limit?: number): TranscriptEntryLike[];
++/**
++ * Message-like shape for operator-facing user text. `content` stays the
++ * canonical model text (input to provider/history consumers); an optional
++ * `displayText` field is the original operator presentation, authoritative
++ * whenever it is present (including an explicit empty string).
++ */
++export interface UserDisplayMessageLike {
++    role: string;
++    content: string | ReadonlyArray<{
++        type: string;
++        text?: string;
++    }>;
++    displayText?: string;
++}
++/**
++ * Operator-facing text for a user message: the original `displayText` when the
++ * field is present (an explicitly empty original stays empty), otherwise the
++ * canonical `content` extraction. {@link textContent} itself remains a raw
++ * content extractor so model/history consumers keep reading canonical text;
++ * this accessor is only for surfaces the operator sees or edits.
++ */
++export declare function userDisplayText(message: UserDisplayMessageLike, separator?: string): string;
+ /** Editable user request text, preserving skill invocation syntax. */
+ export declare function userTurnDraft(entry: TranscriptEntryLike): string | undefined;
+ /** Extract text blocks verbatim, optionally separating block boundaries. */
+--- a/pi-tui/src/chat/chat-transcript-builder.ts
++++ b/pi-tui/src/chat/chat-transcript-builder.ts
+@@ -29,9 +29,9 @@ import {
+ } from "./messages";
+ import {
+ 	imageContent,
+-	textContent,
+ 	type TranscriptEntryLike as TranscriptEntry,
+ 	transcriptEntryMessage,
++	userDisplayText,
+ } from "./transcript-entry";
+ import { theme } from "../theme";
+ import {
+@@ -318,7 +318,7 @@ export class ChatTranscriptBuilder {
+ 				// A user prompt closes the poll-displacement window, same as the live path.
+ 				if (message.role === "user") this.#resolveWaitingPoll();
+ 				if (message.role === "user") this.#resolveTodoSnapshot();
+-				const userText = message.role === "user" ? textContent(message.content) : "";
++				const userText = message.role === "user" ? userDisplayText(message) : "";
+ 				if (userText) {
+ 					const isSynthetic = message.role === "developer" ? true : (message.synthetic ?? false);
+ 					// Synthetic (agent-attributed) inputs — chiefly the advisor's `Session
+--- a/pi-tui/src/chat/transcript-entry.ts
++++ b/pi-tui/src/chat/transcript-entry.ts
+@@ -84,11 +84,34 @@ export function recentTranscriptEntries(entries: TranscriptEntryLike[], limit =
+ 	return entries;
+ }
+ 
++/**
++ * Message-like shape for operator-facing user text. `content` stays the
++ * canonical model text (input to provider/history consumers); an optional
++ * `displayText` field is the original operator presentation, authoritative
++ * whenever it is present (including an explicit empty string).
++ */
++export interface UserDisplayMessageLike {
++	role: string;
++	content: string | ReadonlyArray<{ type: string; text?: string }>;
++	displayText?: string;
++}
++
++/**
++ * Operator-facing text for a user message: the original `displayText` when the
++ * field is present (an explicitly empty original stays empty), otherwise the
++ * canonical `content` extraction. {@link textContent} itself remains a raw
++ * content extractor so model/history consumers keep reading canonical text;
++ * this accessor is only for surfaces the operator sees or edits.
++ */
++export function userDisplayText(message: UserDisplayMessageLike, separator = ""): string {
++	return message.displayText ?? textContent(message.content, separator);
++}
++
+ /** Editable user request text, preserving skill invocation syntax. */
+ export function userTurnDraft(entry: TranscriptEntryLike): string | undefined {
+ 	const message = transcriptEntryMessage(entry);
+ 	if (!message) return undefined;
+-	if (message.role === "user") return textContent(message.content);
++	if (message.role === "user") return userDisplayText(message);
+ 	if (message.role !== "custom" || !isUserTurnInitiator(message)) return undefined;
+ 	return titleTextFromSkillPrompt(message) ?? textContent(message.content);
+ }
+--- a/pi-tui/src/chat/transcript-outline.ts
++++ b/pi-tui/src/chat/transcript-outline.ts
+@@ -9,6 +9,7 @@ import { visibleWidth } from "../utils";
+ import {
+ 	isUserRequestEntry,
+ 	type TranscriptEntryLike as TranscriptEntry,
++	userDisplayText,
+ 	userMessageLabel,
+ 	userTurnDraft,
+ } from "./transcript-entry";
+@@ -247,7 +248,8 @@ export function isUserTurnEntry(entry: TranscriptEntry): boolean {
+ 
+ /** Single-line label for a user turn: its prompt text, or the custom message's draft. */
+ export function userTurnLabel(entry: TranscriptEntry): string | undefined {
+-	if (entry.type === "message" && entry.message.role === "user") return userMessageLabel(entry.message.content);
++	if (entry.type === "message" && entry.message.role === "user")
++		return userMessageLabel(userDisplayText(entry.message, " "));
+ 	const draft = userTurnDraft(entry);
+ 	return draft === undefined ? undefined : userMessageLabel(draft);
+ }
+--- a/pi-tui/src/overlays/copy-selector.ts
++++ b/pi-tui/src/overlays/copy-selector.ts
+@@ -24,6 +24,7 @@ import {
+ 	type TranscriptEntryLike as TranscriptEntry,
+ 	textContent,
+ 	transcriptEntryMessage,
++	userDisplayText,
+ 	userMessageLabel,
+ 	userTurnDraft,
+ } from "../chat/transcript-entry";
+@@ -1000,15 +1001,6 @@ export class CopySelectorComponent implements Component {
+ 	}
+ }
+ 
+-/** Raw multi-line text of a user message (string or text blocks). */
+-function rawUserText(message: Extract<SessionMessageEntry["message"], { role: "user" }>): string {
+-	if (typeof message.content === "string") return message.content;
+-	return message.content
+-		.filter((block): block is { type: "text"; text: string } => block.type === "text")
+-		.map(block => block.text)
+-		.join("\n");
+-}
+-
+ /** Concatenated visible text blocks of an assistant message. */
+ function assistantVisibleText(message: Extract<SessionMessageEntry["message"], { role: "assistant" }>): string {
+ 	let text = "";
+@@ -1061,7 +1053,8 @@ export function collectBlocks(entries: readonly TranscriptEntry[]): CopyBlock[]
+ 		if (!message) continue;
+ 		switch (message.role) {
+ 			case "user":
+-				pushMarkdownBlocks(blocks, rawUserText(message), entry);
++				// /copy shows the operator's original text when one was recorded.
++				pushMarkdownBlocks(blocks, userDisplayText(message, "\n"), entry);
+ 				break;
+ 			case "assistant": {
+ 				pushMarkdownBlocks(blocks, assistantVisibleText(message), entry);
+@@ -1106,7 +1099,7 @@ export function targetCopy(target: OutlineTarget, blocks: readonly CopyBlock[]):
+ 	const message = transcriptEntryMessage(entry);
+ 	switch (message?.role) {
+ 		case "user":
+-			return { content: rawUserText(message), label: "user message" };
++			return { content: userDisplayText(message, "\n"), label: "user message" };
+ 		case "assistant": {
+ 			const text = assistantVisibleText(message);
+ 			if (text) return { content: text, label: "assistant message" };
+--- a/pi-tui/src/overlays/session-selector.ts
++++ b/pi-tui/src/overlays/session-selector.ts
+@@ -30,6 +30,7 @@ import {
+ import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
+ import { hintsRow, type NativeHint, overlayCard } from "../native/overlay";
+ import { plainText } from "../native/spans";
++import { userDisplayText } from "../chat/transcript-entry";
+ import { theme } from "../theme/theme";
+ import { contentRowWidth } from "../chrome/selector-helpers";
+ import { matchesAppInterrupt, matchesSelectDown, matchesSelectUp } from "../keybinding-matchers";
+@@ -2015,6 +2016,9 @@ function cleanContentText(s: string): string[] {
+ 
+ function extractConversationText(m: AgentMessage): string[] {
+ 	if (m.role !== "user" && m.role !== "assistant") return [];
++	// Session preview shows the operator's original prompt when the optional
++	// field is present (an explicit empty original stays empty).
++	if (m.role === "user" && m.displayText !== undefined) return cleanContentText(userDisplayText(m));
+ 	const raw = "content" in m ? m.content : undefined;
+ 	if (typeof raw === "string") {
+ 		return cleanContentText(raw);
+--- a/pi-tui/src/overlays/tree-selector.ts
++++ b/pi-tui/src/overlays/tree-selector.ts
+@@ -22,7 +22,7 @@ import {
+ 	matchesSelectPageUp,
+ 	matchesSelectUp,
+ } from "../keybinding-matchers";
+-import { isUserRequestEntry, type TranscriptEntryLike } from "../chat/transcript-entry";
++import { isUserRequestEntry, type TranscriptEntryLike, userDisplayText } from "../chat/transcript-entry";
+ 
+ /** Fields consumed when displaying persisted entries in the session tree. */
+ export type SessionTreeEntry = { id: string; parentId: string | null } & (
+@@ -456,7 +456,12 @@ class TreeList implements Component {
+ 			case "message": {
+ 				const msg = entry.message;
+ 				parts.push(msg.role);
+-				if ("content" in msg && msg.content) {
++				if (msg.role === "user") {
++					// Tree search matches the rendered row: the operator's original when
++					// present (including an explicit empty string); the hidden canonical
++					// text is never indexed for user turns.
++					parts.push(this.#extractContent(userDisplayText(msg)));
++				} else if ("content" in msg && msg.content) {
+ 					parts.push(this.#extractContent(msg.content));
+ 				}
+ 				if (msg.role === "bashExecution") {
+@@ -939,8 +944,9 @@ class TreeList implements Component {
+ 				const msg = entry.message;
+ 				const role = msg.role;
+ 				if (role === "user") {
+-					const msgWithContent = msg as { content?: unknown };
+-					const content = normalize(this.#extractContent(msgWithContent.content));
++					// Operator-facing tree row mirrors the search index: the original
++					// presentation when present, never a substituted canonical text.
++					const content = normalize(this.#extractContent(userDisplayText(msg)));
+ 					return [{ t: "user: ", s: "accent" }, { t: content }];
+ 				}
+ 				if (role === "developer") {

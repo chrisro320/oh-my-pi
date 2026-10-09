@@ -1,0 +1,28 @@
+{
+  "id": "omp-1870-family-consolidation",
+  "name": "omp-1870-family-consolidation",
+  "title": "OMP 18.7.0 lossless patch-family consolidation",
+  "description": "Plan lossless 18.7.0 family consolidation: deployed 58 to candidate 24; repository 59 to 25 retaining undeployed 0097.",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-10-09",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "Planning artifacts and isolated dependency probe complete. Await explicit approval of final summary before start. No active patch changes or live deployment authorized.",
+  "meta": {
+    "profile": "hard"
+  }
+}

@@ -1,0 +1,15 @@
+Observed output excerpts from completed bash job bg_10 (not a full log).
+Command: env -i PATH=/home/chris/.bun/bin:/usr/local/bin:/usr/bin:/bin HOME=/home/chris/.cache/omp-family-index-mpzz1uik/private-home TMPDIR=/home/chris/.cache/omp-family-index-mpzz1uik/private-tmp TERM=xterm-256color bash patches/verify-patch-family-rollups.sh --version 18.7.0 --tgz-cache /home/chris/.cache/omp-1870-migration-d79dt__o/tarballs
+Cwd: /home/chris/.cache/omp-family-index-mpzz1uik (git checkout-index export, plus SHA-256-verified generated native artifact; no live state)
+
+PASS 1870 owned deltas: all 24 owners equal independently rebased OLD members and reverse exactly
+PASS 1870 deployed: OLD58 == NEW24 (bytes, types, modes, symlinks); NEW applied at --fuzz=0
+PASS 1870 repository: OLD59 == NEW25 (bytes, types, modes, symlinks); NEW applied at --fuzz=0
+PASS 1870 repository round-trip: all 25 layers reverse to pristine and reapply exactly at --fuzz=0
+PASS 1870 fail-closed: 10 invalid/missing inputs exit 2 without mutation
+PASS gate parity 18.7.0: 46 selected gates identical
+PASS gate parity repository: the 0097 overlay leaves the gate suite unchanged
+ALL PASS: 18.7.0 family consolidation verified (OLD58/NEW24, OLD59/NEW25)
+Wall time: 33.82 seconds
+
+The complete auto-delivered output also passed deployed reverse/reapply, both read-only --check variants, omission/mutation negatives, and gate parity for all eight versions. The completed-job URI was unexpectedly unavailable when persisting the full log; reported through xd://report_issue. The earlier full working-tree run is retained in selected-oracle-output.txt.

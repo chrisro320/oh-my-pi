@@ -1,0 +1,53 @@
+{
+  "status": "PASS",
+  "filesChanged": [],
+  "reviewScope": "Read-only re-review of the four prior findings and the new owned-delta oracle in patches/verify-patch-family-rollups.sh and patches/verify-family-plan.py.",
+  "closures": [
+    {
+      "previousFinding": "Invalid Bash controller variables",
+      "evidence": "verify-patch-family-rollups.sh:686 declares ctl_dep/ctl_rep, and their references use the corrected names. The specialized search for `$ctl-dep`, `$ctl-rep`, and `local ctl-` returned no matches."
+    },
+    {
+      "previousFinding": "Missing per-owner semantic proof",
+      "evidence": "verify-patch-family-rollups.sh:466-516 independently creates commits from retained OLD members, cherry-picks only the current owner's members onto the prerequisite prefix, compares that poststate with actual NEW patch application, and checks reverse restoration. verify-family-plan.py:31-47,122-139 enforces approved family membership/order/root boundaries and singleton independent ownership/root boundaries."
+    },
+    {
+      "previousFinding": "Missing repository structural round-trip",
+      "evidence": "verify-patch-family-rollups.sh:677-683 reverses NEW25 to pristine-full, then reapplies at zero fuzz and compares with independent OLD59, before the patched native addon fixture is installed."
+    },
+    {
+      "previousFinding": "Partial auxiliary-package extraction",
+      "evidence": "verify-patch-family-rollups.sh:151-173 now completely extracts selected auxiliary archives, including in full structural-equivalence trees."
+    }
+  ],
+  "ownedDeltaAssessment": "No concrete residual bug found in the inspected owned-delta proof. Its reference commits originate from frozen OLD bytes, not generated family diffs. Only declared members are rebased for each owner; rebase conflicts abort. NEW content is applied after resetting to the captured prerequisite commit. Content hashes and complete type/mode/path/symlink manifests are compared at the same absolute package-tree location, avoiding path-dependent hash mismatches. Reverse restoration is checked before advancing to the independently produced reference poststate. The enclosing subshell and sandbox-local Git repository confine this proof's mutations; hooks and signing are disabled, global/system Git configuration is excluded, and rerere is disa…
+  "verification": [
+    {
+      "command": "git diff -- patches/verify-patch-family-rollups.sh",
+      "result": "Read-only diff inspection completed; changed implementations were then read directly."
+    },
+    {
+      "command": "Specialized grep: `$ctl-dep|$ctl-rep|local ctl-` in patches/verify-patch-family-rollups.sh",
+      "result": "No matches."
+    },
+    {
+      "command": "Specialized grep: `_omp_plan_has|_omp_has_capability|_omp_run_gates|OMP_PATCH_PLAN` in patches/apply.sh",
+      "result": "Completed; physical/native checks and capability-driven shared gate dispatch remain distinct."
+    },
+    {
+      "command": "Specialized grep: `repair.*NEW layer|fix lands as a new tail|Correct: add layer` in patch-rollup-contracts.md",
+      "result": "No matches."
+    },
+    {
+      "command": "Specialized grep: `immutable|active revision|historical|OLD58|NEW24` in patch-rollup-contracts.md",
+      "result": "Completed; retained-history and active-family revision contracts remain present."
+    },
+    {
+      "command": "Builds, lint, tests, formatters, and verification suites",
+      "result": "Not run, as instructed. The parent-owned running selected oracle is not claimed to have passed."
+    }
+  ],
+  "acceptanceBoundary": "PASS is the read-only code-review result and closes the four previous findings. Executed selected-oracle acceptance remains with the parent; confirm all 24 owned-delta/reverse comparisons, both whole-tree variants and round-trips, negative controls, and all eight historical gate-parity captures finish successfully."
+}
+
+[Some lines truncated to 768 chars]

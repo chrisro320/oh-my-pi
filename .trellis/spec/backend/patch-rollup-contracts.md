@@ -4,7 +4,7 @@
 
 ### 1. Scope / Trigger
 
-Use this contract when multiple finalized patches implement, repair, or supersede one feature and `apply.sh` needs special status logic to keep the chain replayable.
+Use this contract when multiple patches implement or repair one functional family, or when revising an existing family. Maintenance must not grow the active chain merely because a previous revision was deployed.
 
 A rollup changes patch representation only. The old effective chain and the new active chain MUST produce byte-identical package trees from the same official pristine release.
 
@@ -17,6 +17,9 @@ patches/apply.sh
 patches/apply.sh --check
 patches/apply.sh --revert
 patches/apply.sh --verify-rollups
+OMP_PATCH_VERSION=18.7.0 patches/apply.sh --print-plan
+OMP_PATCH_VERSION=18.7.0 patches/apply.sh --print-capabilities
+OMP_PATCH_VERSION=18.7.0 patches/apply.sh --print-gates
 OMP_PATCH_OFFLINE_VERIFY=1 patches/apply.sh
 ```
 
@@ -38,12 +41,12 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
   sandbox dependency graph when correcting this; editing package.json alone
   does not remove nested copies. Extract verified targets independently after
   install so mutable source inodes cannot be shared with Bun's cache.
-- Generate each family in an isolated `mktemp` tree by applying only that family's old patches in historical order.
+- Generate each family in an isolated tree against documented prerequisites, retaining historical member order where applicable. Interleaved edits require ownership-preserving context rebases, not concatenation or copying whole final shared files.
 - The rollup touched-file set MUST equal the union of its old family touched-file sets.
 - Any failed hunk, `.orig`, `.rej`, or unexpected `Only in` output MUST abort generation. Dry-run and exit-code gates apply to owned layers too. For declaration-only closure, retain validated source hunks byte-for-byte and append declaration diffs; broad regeneration once silently dropped 0052's namespace budget despite a green complete replay. Its real image-budget gate caught `5 !== 200`.
-- Finalized old patches MUST remain byte-identical in a retired directory with pinned hashes.
+- Historical patch revisions MUST remain byte-identical in a retired directory with pinned hashes. The active revision may be replaced after verification; historical immutability does not require another active tail layer.
 - Full-chain verification MUST consume the exact file/root/order sequence parsed from `apply.sh`; a second hand-maintained active list is not an oracle.
-- Runtime source bytes MUST remain unchanged when switching from the old effective chain to the rollup chain. This equivalence is discharged per family on the family-generation baseline (old member chain vs rollup, byte-compared) — no single baseline can host both the retired member shapes and the current chain, so a whole-chain old-vs-new oracle is not required and MUST NOT be faked by pointing both sides at the same resolved plan.
+- When OLD and NEW representations target the same upstream release, independently apply retained OLD bytes and resolved NEW bytes to identical official pristine trees and require complete byte/structure equality. Also verify each family's owned delta on its prerequisite baseline. Cross-version upstream differences are not same-release equivalence; never fake an OLD oracle by resolving the NEW plan twice.
 - Identical OLDCHAIN/resolved plans MUST be materialized only once. A NOTE is not
   equivalence evidence. When representations differ, OLDCHAIN must name retained
   original bytes explicitly; resolving an overwritten same-name file is not a before oracle.
@@ -72,6 +75,7 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
 - A retired or abandoned patch number MUST NOT be reused, whether its file was
   kept or deleted. The verifier MUST assert every abandoned number is absent
   from the `apply.sh` chain; documentation alone is not an acceptance gate.
+- Same-family repairs MUST revise that family's single active representation. Archive the previous revision first, preserve capability ownership and gates, and revalidate the complete chain. A new independent capability requires an explicit ownership decision, not automatic numeric tail allocation.
 - Textual CLEAN, reversible patches, and a green representation oracle do not
   prove executable source. In 18.2.3, old 0048 fuzzy-applied into invalid scopes.
   Import the real SDK and launch the source CLI after whole-chain replay; then
@@ -224,8 +228,8 @@ is the direct primary cause; resume-related prefix drift is not proven or exclud
 
 ### 1. Scope / Trigger
 - Trigger: the installed `pi-coding-agent` version determines which patch plan applies; an upstream release may also change patch context so a plan needs versioned candidates.
-- The `PATCHES` array is the canonical patch set shared by every supported plan; it is NOT itself a deployable chain (members' a-sides span multiple upstream releases).
-- Supported plans: 18.1.14 (27 entries), 18.1.18 (38), 18.2.3 (39), and 18.2.10 (42). Counts are physical patch rows, excluding the launcher. 0041 is absorbed into 0037 only in the two 18.2.x plans.
+- The `PATCHES` array supplies the retained historical plans; it is NOT itself a deployable chain (members' a-sides span multiple upstream releases). The 18.7.0 plan instead resolves `.18.7.0-families/plan.tsv`, with the unchanged 0097 overlay only for explicit `OMP_PATCH_PLAN=repository`.
+- Supported versions and physical counts MUST be obtained from the controller's resolved `--print-plan`, not copied from a historical checkpoint. A family row can own multiple behavior capabilities without adding physical layers.
 
 ### 2. Signatures
 ```sh
@@ -240,7 +244,7 @@ OMP_PATCH_VERSION=18.1.14 patches/apply.sh --check   # explicit plan
 - An empty, unset-with-unknown-installed, or unsupported value MUST exit 2 before mutation.
 - Only the version-specific conflicting entries may be substituted; all other active entries retain order and roots. `omit:` drops an entry for that plan only.
 - `--verify-rollups` MUST execute before version gating because it owns its own fixed pristine baselines.
-- Regression applicability follows resolved plan membership (`_omp_plan_has`).
+- Behavior regression applicability follows resolved capabilities (`_omp_has_capability`). Reserve `_omp_plan_has` for physical artifact/native lifecycle checks; a retired numeric filename is not a valid family behavior selector.
   Do not gate the entire suite on `version === 18.1.18` or skip because a required
   symbol is absent. Shared gates select their version-specific API shape.
 - Keep finalized old patch bytes and old plan rows unchanged during migration.
@@ -574,21 +578,21 @@ Resume, soft, snapcompact, remote (Codex raw bytes equal; Anthropic content equa
 ### 7. Wrong vs Correct
 Wrong: call audit-repro r2/r3/r3x/r4 regressions. Correct: they fail identically on 18.4.1 and 18.4.4 (open drift, tracked separately); r1 passes only because 0084 is in the chain.
 
-## Scenario: Repairing a deployed immutable layer with a new tail layer (18.4.4 / 0085)
+## Historical scenario: 18.4.4 / 0085 input-restoration repair
 
 ### 1. Scope / Trigger
 
-A defect is found in a feature whose patch layer is already deployed. The finalized layer is immutable, so the repair is a NEW layer after it in the same version plan, never an edit of the deployed layer. 0085 (`.18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch`, `${AGENT}`) follows the deployed 0082 for that reason: 0082's review left two gaps — a rejected prepared submission lost its text and images, and a cancelled Ctrl+Enter preparation overwrote an image pasted meanwhile.
+0085 repaired two gaps left by 0082: a rejected prepared submission lost its text and images, and a cancelled Ctrl+Enter preparation overwrote an image pasted meanwhile. The historical 18.4.4 plan used a separate tail layer. That representation is retained for replay, not a current requirement to add a layer for every deployed-feature repair. Current maintenance uses the family-revision contract above.
 
 ### 2. Signatures
 
 - 0085 edits `src/main.ts` (`submitInteractiveInput`), `src/modes/controllers/input-controller.ts`, `src/slash-commands/helpers/draft.ts`, plus the two shipped declaration hunks `dist/types/main.d.ts` and `dist/types/slash-commands/helpers/draft.d.ts`, and sits AFTER 0082 in the 18.4.4 plan.
 - `restoreRejectedDraft(runtime, draft, revision?)`, `retainRejectedDraft(runtime, draft)`, `editorHoldsNewerDraft(editor, draft, revision)`, and the module-private `isDraftOwnedImage(draft, image)`. Image ownership is by reference OR by value (`data` + `mimeType`); there is still no helper that compares the whole rejected submission's content.
-- The 18.4.4 plan is 51 layers; live is the first 50 until 0085 is deployed.
+- At the original 0085 planning checkpoint, the 18.4.4 candidate plan had 51 layers and live had 50; these are historical counts, not current deployment acceptance values.
 
 ### 3. Contracts
 
-- Governance: a deployed layer is immutable (`0082` stays byte-frozen), so a follow-up fix lands as a new tail layer in the same plan; the plan row and the ledger must state the planned count (51) and the live count (50) consistently, and `grep -n '0085' patches/PATCHES.md` must show the same pair.
+- Governance: preserve the historical 0082/0085 bytes and plan for replay. In a consolidated plan, both behaviors belong to the input-translation family; subsequent repairs revise that active family after archiving its prior revision. Report current deployed and repository counts from their selected resolved plans, never from the historical 51/50 example.
 - ONE owner per rejection path, decided by an explicit signal: the prompt-dropped callback (`interactive-mode.ts`'s `#restoreDroppedPrompt`) writes the draft back before rethrowing, so the dispatch-catch skips only when the caught error IS that case. The session throws `AgentStartPolicyChangedError` there; that class is not exported, so `main.ts` recognizes it by the name the class assigns itself (`error instanceof Error && error.name === "AgentStartPolicyChangedError"`) — duck typing, not content equality and not transcript length. Every other throw restores.
 - Restore the draft in the dispatch-catch for any throw that is not the session's own hand-back. The rule is deliberately wide and the residual is accepted: because aggregate transcript state cannot tell a pre-dispatch rejection from a rare failure after the turn already took the message, a rare post-admission throw may offer already-sent text back as a restorable draft. Offering a possible duplicate beats losing the input.
 - Restores never overwrite something newer: `editorHoldsNewerDraft` treats a changed text revision, non-empty text, OR a pending image that is not one of the draft's own captured images as "newer" and keeps the capture restorable instead. Attachment newness is decided by `isDraftOwnedImage`: an editor image belongs to the draft when it is the SAME reference OR has the same `data` and `mimeType` as one of the captured images (`editor.pendingImages.some(image => !isDraftOwnedImage(draft, image))`), not by any non-empty list — an ordinary Enter leaves the captured attachments pending until admission, so a non-empty list alone is not newer, and a genuinely different pasted image is. Value equality is required because the supported `input` handler path may hand back rebuilt-but-equal replacement objects (`event.images.map(image => ({ ...image }))`); reference identity alone would misread those as a newer draft. Residual (accepted): an image re-pasted with the same bytes and mime as a captured one reads as the draft's own.
@@ -628,6 +632,57 @@ Not covered (accepted): the Ctrl+Enter / follow-up entry (`#submitFollowUp` and 
 ### 7. Wrong vs Correct
 
 ```text
-Wrong: patch the deployed 0082 layer in place, let the dispatch-catch restore what the prompt-dropped callback already handed back, gate ownership on content equality, gate admission on aggregate transcript length, or decide attachment newness by reference identity alone.
-Correct: add layer 0085 after 0082; skip the restore only when the caught error is `AgentStartPolicyChangedError` (duck-typed by name because the class is not exported), restore on every other throw, and treat an attachment as newer only when it is neither the same object as one of the draft's own images nor the same bytes and mime (`isDraftOwnedImage`).
+Wrong: overwrite an archived revision, let the dispatch-catch restore what the prompt-dropped callback already handed back, gate ownership on content equality, gate admission on aggregate transcript length, or decide attachment newness by reference identity alone.
+Correct: preserve historical 0082/0085 bytes while revising the active owning family; skip the restore only when the caught error is `AgentStartPolicyChangedError` (duck-typed by name because the class is not exported), restore on every other throw, and treat an attachment as newer only when it is neither the same object as one of the draft's own images nor the same bytes and mime (`isDraftOwnedImage`).
 ```
+
+## Scenario: Selecting and maintaining the 18.7.0 family plan
+
+### 1. Scope / Trigger
+
+Use for the 18.7.0 representation cutover and subsequent same-family repairs. Current policy replaces the historical mandatory-new-tail practice without rewriting historical patch bytes or weakening behavioral contracts.
+
+### 2. Signatures
+
+```sh
+OMP_PATCH_VERSION=18.7.0 OMP_PATCH_PLAN=deployed bash patches/apply.sh --print-plan
+OMP_PATCH_VERSION=18.7.0 OMP_PATCH_PLAN=repository bash patches/apply.sh --print-plan
+OMP_PATCH_VERSION=18.7.0 bash patches/apply.sh --print-capabilities
+OMP_PATCH_VERSION=18.7.0 bash patches/apply.sh --print-gates
+bash patches/verify-patch-family-rollups.sh --version 18.7.0
+```
+
+### 3. Contracts
+
+- `.18.7.0-families/plan.tsv` is the authoritative base registry: one row per physical entry, with TAB-separated patch path relative to `patches/`, package-root symbol, and comma-separated historical capability IDs. The resolver owns ordering and plan selection.
+- `OMP_PATCH_PLAN` is supported only for 18.7.0: unset or `deployed` selects the consolidated deployed baseline; `repository` additionally selects the unchanged, undeployed0097 overlay. Missing files never implicitly choose a smaller plan.
+- Numeric member IDs are capability provenance, not active patch aliases. `_omp_plan_has` remains physical; `_omp_has_capability` selects behavior gates. `--print-gates` uses the same dispatch path as actual execution.
+- The initial cutover maps OLD58 to NEW24 and OLD59 to NEW25. These are acceptance snapshots for this migration, not timeless hardcoded counts. Subsequent same-family revisions preserve physical count and ownership.
+- The next upstream update MUST start from this verified family representation and its capability ownership, not reconstruct an active chain from the retired 58 numeric layers. Port each family against the target release and revalidate behavior; version-specific patch bytes are not blindly reusable. Retained OLD58/OLD59 remain historical replay/rollback evidence, and0097 remains opt-in.
+- Revision order: archive exact prior bytes and hash; regenerate the owning family's net diff; rebase affected context without absorbing another family; verify independent OLD/NEW semantics, gate coverage and round-trip; update ledger; deploy only with separate authorization.
+- A repair changes intended behavior, unlike this representation-only cutover. For later repairs, compare unchanged surfaces byte-for-byte and prove the approved behavior delta with the relevant regression gate; do not falsely require a behavioral repair to equal its broken OLD tree.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+| --- | --- |
+| Missing/empty registry, missing entry, malformed root, duplicate capability | Fail before mutation |
+| Unknown `OMP_PATCH_PLAN`, or explicit selection for another release | Exit 2 |
+| Same-release representation-only OLD/NEW mismatch | Reject cutover |
+| Same-family repair adds an active tail | Reject representation; update family instead |
+| Historical-ID rename removes a behavior gate | Reject until gate coverage is restored |
+| Archived bytes/hash changed | Reject; restore immutable evidence |
+| Repository0097 absent from deployed selection | Expected; do not activate it implicitly |
+
+### 5. Good / Base / Bad Cases
+
+Good: a repaired family replaces its active revision after preserving the old hash; its capability gates remain selected. Base: an independent patch retains one physical entry. Bad: append a new tail to obey an obsolete immutability rule, or retain fake old-ID files solely to keep gate conditions true.
+
+### 6. Tests Required
+
+Selected-version verification must prove independent OLD58/NEW24 and OLD59/NEW25 complete trees, including complete auxiliary archives for the repository variant. Both variants require exact path/type/mode/symlink restoration and zero-fuzz reverse/reapply. For each approved owner, independently rebase only its frozen OLD members onto the ordered prerequisite state, compare the actual NEW delta, and reverse to that prerequisite state; whole-chain equality alone cannot detect cross-family behavior transfers. Validate approved ownership boundaries and identical resolved behavior-gate coverage. Missing/mutated family and cross-family ownership-swap negative controls must fail. Run actual isolated source CLI and tool behavior; tree equality is not executable-source proof. During review, inspect the original normative clauses and their executable consumers for contradictions, not merely the presence of this section.
+
+### 7. Wrong vs Correct
+
+Wrong: immutable deployed revision implies a permanent new active patch for every repair.
+Correct: immutable archived revisions provide provenance; one replaceable, verified active revision per functional family prevents layer growth.

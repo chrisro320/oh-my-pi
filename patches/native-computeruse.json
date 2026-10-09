@@ -1,0 +1,14 @@
+{
+  "version": "18.7.0",
+  "upstreamCommit": "e0fc1cf4ea354b445a359b37fa5eb58deaa85598",
+  "platform": "linux",
+  "arch": "x64",
+  "filename": "pi_natives.linux-x64-modern.node",
+  "artifact": ".native-artifacts/18.7.0/pi_natives.linux-x64-modern.node",
+  "sha256": "95a8143429c1205fe24c1ac7947eff1ca919ea0bd4886b451615284bbd6b35c5",
+  "stockSha256": "c856da931df73da78a26e57747092e74ffebc114e816695cacfb71a61bd1a5e9",
+  "sourcePatch": ".native-sources/18.7.0/0097-computeruse.patch",
+  "sourcePatchSha256": "8613c3685c7bb5ddf9561d213f1a88b22a439ccd6970c960715192fb26790c5d",
+  "cargoLockSha256": "d8dffdee931be305c47d23ebfceaead34bcdb31776454da06bfff50d8c43ebcd",
+  "compiler": "rustc 1.101.0-nightly (ea137335b 2026-10-05)"
+}

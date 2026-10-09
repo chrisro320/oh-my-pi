@@ -1,0 +1,21 @@
+{
+  "selectedOracle": {
+    "command": "env -i PATH=/home/chris/.bun/bin:/usr/local/bin:/usr/bin:/bin HOME=/home/chris/.cache/omp-family-smoke-lcwjc1nf/home TMPDIR=/home/chris/.cache/omp-family-smoke-lcwjc1nf/tmp TERM=xterm-256color bash patches/verify-patch-family-rollups.sh --version 18.7.0 --tgz-cache /home/chris/.cache/omp-1870-migration-d79dt__o/tarballs --keep",
+    "result": "ALL PASS",
+    "durationSeconds": 33.44
+  },
+  "removedOwnedSandboxes": [
+    "/tmp/pfrollup-1870.VxjO4S",
+    "/tmp/pfrollup-1870.10XJOW",
+    "/tmp/pfrollup-1870.4GgNi3",
+    "/home/chris/.cache/omp-1870-family-lab",
+    "/home/chris/.cache/omp-family-smoke-lcwjc1nf"
+  ],
+  "retainedOfficialArchiveCache": "/home/chris/.cache/omp-1870-migration-d79dt__o/tarballs",
+  "liveDeployment": false,
+  "limitations": [
+    "No live provider probe",
+    "Optional real16s OAuth stall skipped; injected-clock coverage passed",
+    "Older versions checked for gate-dispatch parity, not full historical replay"
+  ]
+}

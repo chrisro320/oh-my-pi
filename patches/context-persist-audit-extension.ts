@@ -290,6 +290,8 @@ export default function contextPersistAudit(pi: ExtensionAPI): void {
 	const lastSignature = new Map<string, string>();
 
 	pi.on("context", (event, ctx) => {
+		// Auxiliary requests intentionally contain only part of the session branch.
+		if (event.purpose === "side-request") return;
 		try {
 			const sessionManager = ctx.sessionManager;
 			if (!sessionManager.getSessionFile()) return;

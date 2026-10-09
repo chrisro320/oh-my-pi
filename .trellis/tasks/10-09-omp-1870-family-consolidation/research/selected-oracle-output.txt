@@ -1,0 +1,70 @@
+bg_9 [bash] — completed — env -i PATH=/home/chris/.bun/bin:/usr/local/bin:/usr/bin:/bin HOME=/home/chris/.cache/omp-family-smoke-lcwjc1nf/home ...
+NOTE: OMP_PATCH_VERSION=18.2.10 — plan targets: 0004 0010 0014 0017 0030 0033 0034 0035 0037 0038 0043 0045 0048 0050 omit:0041
+NOTE: OMP_PATCH_VERSION=18.3.3 — plan targets: 0033 0004 0034 0037 0010 0035 0014 0036 0017 0025 0026 0030 0031 0032 0038 0043 0044 0052 0057 0045 0046 0048 0050 0054 omit:0041
+NOTE: OMP_PATCH_VERSION=18.4.1 — plan targets: 0033 0004 0034 0037 0010 0035 0014 0036 0017 0025 0026 0030 0031 0032 0038 0043 0044 0052 0057 0045 0046 0048 0050 0054 omit:0041
+NOTE: OMP_PATCH_VERSION=18.4.4 — plan targets: 0033 0004 0034 0037 0010 0035 0014 0036 0017 0025 0026 0030 0031 0032 0038 0043 0044 0052 0057 0045 0046 0048 0050 0054 omit:0041
+PASS static: apply.sh chain (25 entries, no supersede), rollup hygiene, retired hashes
+keep: sandbox at /tmp/pfrollup-1870.4GgNi3
+PASS 1870 OLD: frozen controller and 59 patch bytes match baseline.json (deployed 58, repository 59)
+PASS 1870 plan: registry owns 24 rows / 58 ids; deployed=24, repository=25 (+0097)
+PASS 1870 ownership: every family's touched-path set equals the union of its members
+PASS 1870 archives: six official 18.7.0 tarballs match the frozen SHA-256 pins
+PASS 1870 native: auxiliary archives verified (addon sha256 == manifest stockSha256)
+  ok    owned delta + reverse: .18.7.0-families/family-status-accounting-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/family-hindsight-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/family-usage-pipeline-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0010-omp-extension-idle-ephemeral-turn-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/family-antigravity-wire-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/family-image-budget-snapcompact-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0017-omp-openai-responses-native-replay-warm-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0032-omp-goal-tool-resident-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0046-omp-supersede-warm-prefix-guard-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0048-omp-advisor-quota-rotation-bound-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0050-omp-session-history-preview-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/family-devin-wire-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0065-omp-commandcode-deepseek-model-record-parity-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0069-omp-codex-effort-history-resume-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0072-omp-session-pin-static-auth-ui-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0074-omp-anthropic-context-cache-boundaries-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/family-image-display-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/family-input-translation-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/family-compaction-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0090-omp-oauth-durable-refresh-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0092-omp-cache-warming-idle-budget-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0094-omp-anthropic-thinking-drop-resume-v18.7.0.patch
+  ok    owned delta + reverse: .18.7.0-families/0095-omp-context-audit-request-purpose-v18.7.0.patch
+PASS 1870 owned deltas: all 24 owners equal independently rebased OLD members and reverse exactly
+PASS 1870 deployed: OLD58 == NEW24 (bytes, types, modes, symlinks); NEW applied at --fuzz=0
+PASS 1870 repository: OLD59 == NEW25 (bytes, types, modes, symlinks); NEW applied at --fuzz=0
+PASS 1870 reverse: reversing all 24 layers at --fuzz=0 restores the pristine tree exactly
+PASS 1870 reapply: --fuzz=0 reapply reproduces the applied tree byte-for-byte
+PASS 1870 repository round-trip: all 25 layers reverse to pristine and reapply exactly at --fuzz=0
+PASS 1870 --check (deployed): pristine 24 pending, applied 24 applied, both read-only
+PASS 1870 --check (repository): native0097 preflight runs isolated; pristine fails closed, applied reports 25 + native, both read-only
+  ok    empty version -> exit 2, tree unchanged
+  ok    unknown version -> exit 2, tree unchanged
+  ok    wrong installed version -> exit 2, tree unchanged
+  ok    invalid OMP_PATCH_PLAN -> exit 2, tree unchanged
+  ok    invalid offline mode -> exit 2, tree unchanged
+  ok    OMP_PATCH_PLAN on a non-18.7.0 plan -> exit 2, tree unchanged
+  ok    missing family registry -> exit 2, tree unchanged
+  ok    malformed family registry row -> exit 2, tree unchanged
+  ok    missing family patch -> exit 2, tree unchanged
+  ok    missing 0097 overlay candidate -> exit 2, tree unchanged
+PASS 1870 fail-closed: 10 invalid/missing inputs exit 2 without mutation
+PASS 1870 negative (omitted): dropping .18.7.0-families/family-status-accounting-v18.7.0.patch makes OLD58 != NEW tree
+PASS 1870 negative (mutated): a one-line mutation in .18.7.0-families/family-status-accounting-v18.7.0.patch makes OLD58 != NEW tree
+PASS gate parity 18.1.14: 16 selected gates identical
+PASS gate parity 18.1.18: 25 selected gates identical
+PASS gate parity 18.2.3: 28 selected gates identical
+PASS gate parity 18.2.10: 35 selected gates identical
+PASS gate parity 18.3.3: 37 selected gates identical
+PASS gate parity 18.4.1: 39 selected gates identical
+PASS gate parity 18.4.4: 43 selected gates identical
+PASS gate parity 18.7.0: 46 selected gates identical
+PASS gate parity repository: the 0097 overlay leaves the gate suite unchanged
+ALL PASS: 18.7.0 family consolidation verified (OLD58/NEW24, OLD59/NEW25)
+
+
+Wall time: 33.44 seconds

@@ -21,12 +21,21 @@ const savedEnv = {
 	XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
 	XDG_CACHE_HOME: process.env.XDG_CACHE_HOME,
 	OMP_COMPACTION_TRACE_OFF: process.env.OMP_COMPACTION_TRACE_OFF,
+	PI_CODEX_WEBSOCKET_RETRY_DELAY_MS: process.env.PI_CODEX_WEBSOCKET_RETRY_DELAY_MS,
+	PI_CODEX_WEBSOCKET_RETRY_BUDGET: process.env.PI_CODEX_WEBSOCKET_RETRY_BUDGET,
 };
 Object.assign(process.env, {
 	HOME: scratch,
 	XDG_CONFIG_HOME: scratch,
 	XDG_CACHE_HOME: scratch,
 	OMP_COMPACTION_TRACE_OFF: "1",
+	// Both knobs are read when the provider module loads, so they must be set
+	// before the import below. A small, explicit websocket retry budget keeps the
+	// 0096 open-retry regression fast and lets it assert the exact, finite bound
+	// the lane consumes before it may fail -- not the production value, which the
+	// contract requires to stay unchanged.
+	PI_CODEX_WEBSOCKET_RETRY_DELAY_MS: "10",
+	PI_CODEX_WEBSOCKET_RETRY_BUDGET: "2",
 });
 
 try {
@@ -239,6 +248,13 @@ try {
 	let compactionSends = 0;
 	let frames: Frame[] = [];
 	let onUpgrade = () => {};
+	// Open-stage fixtures for the 0096 regression below: a refused upgrade (no 101
+	// response) is exactly how a failed handshake -- TLS reset, refused auth, dead
+	// route -- reaches the client as `websocket error: ...`, so counting and
+	// scripting the refusals is how the open-retry bound gets asserted.
+	let upgradeAttempts = 0;
+	let pendingRefusals = 0;
+	let capacityText: string | undefined;
 	const send = (ws: ServerWebSocket<{ id: number }>, event: unknown) => ws.send(JSON.stringify(event));
 	function complete(ws: ServerWebSocket<{ id: number }>, compact: boolean) {
 		const id = ++sequence;
@@ -267,6 +283,11 @@ try {
 		hostname: "127.0.0.1",
 		port: 0,
 		fetch(req, server) {
+			upgradeAttempts++;
+			if (pendingRefusals > 0) {
+				pendingRefusals--;
+				return new Response("refused", { status: 503 });
+			}
 			onUpgrade();
 			if (server.upgrade(req, { data: { id: ++socketSequence } })) return;
 			return new Response("WebSocket only", { status: 400 });
@@ -277,7 +298,11 @@ try {
 				frames.push({ socket: ws.data.id, body });
 				if (body.generate === false) {
 					assert.equal(body.previous_response_id, undefined, "recovery must establish a fresh baseline");
-					assert.deepEqual(body.input, input, "recovery must preserve the supplied history without its trigger");
+					if (capacityText !== undefined) {
+						assert.ok(JSON.stringify(body.input).includes(capacityText), "recovery must preserve the entire oversized transcript");
+					} else {
+						assert.deepEqual(body.input, input, "recovery must preserve the supplied history without its trigger");
+					}
 					if (mode === "recovery-invalid") return complete(ws, false);
 					send(ws, { type: "response.completed", response: { id: `resp_${++sequence}`, status: "completed", output: [] } });
 					return;
@@ -298,6 +323,10 @@ try {
 				}
 				if (mode === "permanent") {
 					send(ws, { type: "error", code: "invalid_request_error", message: "bad schema" });
+					return;
+				}
+				if (mode === "capacity-overflow") {
+					send(ws, { type: "error", code: "context_length_exceeded", message: "fixture provider input limit exceeded" });
 					return;
 				}
 				if (mode === "exhausted" || (mode === "transient" && compactionSends === 1)) {
@@ -467,6 +496,219 @@ try {
 						assert.equal(details.canAppend, true, "collector rejection must retain its baseline");
 				} finally {
 					onUpgrade = () => {};
+					for (const state of states.values()) state.close();
+				}
+			}
+		}
+		// 0096: a transient websocket OPEN failure in the chain-only compaction lane
+		// must spend the bounded websocket retry budget before the request may fail.
+		// Before the fix the lane read the open failure's "fatal" classification --
+		// which for ordinary turns only means "stop retrying the socket, replay over
+		// SSE" -- as terminal: one refused handshake (TLS reset, dead route, refused
+		// upgrade) ended the compaction on its first attempt with `retryable: false`,
+		// so the host's configured retry budget never ran and the ladder dropped
+		// straight to the expensive soft summarizer. The lane has no SSE to replay,
+		// so these scenarios also pin that no HTTP request ever escapes it.
+		// Version-gated: 0096 exists only in the 18.7.0 plan, so any other tree must
+		// fail here rather than assert against a build that never carried the fix.
+		if (aiVersion === "18.7.0") {
+			const websocketRetryBudget = Number(process.env.PI_CODEX_WEBSOCKET_RETRY_BUDGET);
+			assert.ok(
+				Number.isInteger(websocketRetryBudget) && websocketRetryBudget > 0,
+				"this gate configures its own websocket retry budget",
+			);
+			const openCases: Array<{
+				label: string;
+				refusals: number | "all";
+				preferWebsockets?: boolean;
+				preAborted?: boolean;
+				permanent?: boolean;
+				expect:
+					| { kind: "success"; upgradeAttempts: number }
+					| { kind: "terminal"; retryable: boolean; upgradeAttempts?: number; compactionSends: number };
+			}> = [
+				// Two refused upgrades, then a healthy socket: the lane must stay remote
+				// and must not pay for an SSE replay.
+				{ label: "open-transient", refusals: 2, expect: { kind: "success", upgradeAttempts: 3 } },
+				// Every upgrade refused: the bounded budget must be spent (the retry
+				// budget per attempt, times the caller's own attempts) and the failure
+				// must be reported retryable, so the configured budget still runs
+				// before any fallback.
+				{
+					label: "open-exhausted",
+					refusals: "all",
+					expect: {
+						kind: "terminal",
+						retryable: true,
+						upgradeAttempts: (1 + websocketRetryBudget) * (1 + core.V2_COMPACTION_MAX_RETRIES),
+						compactionSends: 0,
+					},
+				},
+				// Explicitly disabled transport: the socket is never even attempted.
+				{
+					label: "open-disabled",
+					refusals: 0,
+					preferWebsockets: false,
+					expect: { kind: "terminal", retryable: false, upgradeAttempts: 0, compactionSends: 0 },
+				},
+				// An aborted request is a cancellation, not a transient failure.
+				{ label: "open-aborted", refusals: "all", preAborted: true, expect: { kind: "terminal", retryable: false, compactionSends: 0 } },
+				// A permanent provider refusal over a healthy socket still stops on the
+				// first attempt: healing a broken link must not turn a bad request into
+				// a retry storm.
+				{ label: "open-permanent", refusals: 0, permanent: true, expect: { kind: "terminal", retryable: false, compactionSends: 1 } },
+			];
+			for (const testCase of openCases) {
+				mode = testCase.permanent ? "permanent" : "success";
+				frames = [];
+				compactionSends = 0;
+				upgradeAttempts = 0;
+				pendingRefusals = testCase.refusals === "all" ? Number.POSITIVE_INFINITY : testCase.refusals;
+				const states = new Map<string, ProviderSessionState>();
+				let httpSends = 0;
+				const options = {
+					apiKey: "fixture-key",
+					sessionId: `gate-${testCase.label}`,
+					providerSessionState: states,
+					preferWebsockets: testCase.preferWebsockets ?? true,
+					signal: testCase.preAborted ? AbortSignal.abort() : undefined,
+					fetch: async () => {
+						httpSends++;
+						return sse(successEvents);
+					},
+				};
+				try {
+					const operation = core.requestCompactionV2Streaming(
+						model,
+						options.apiKey,
+						{ ...request, sessionId: options.sessionId },
+						options.signal,
+						{ ...options, timeoutMs: 2000, retryWait: async () => {} },
+					);
+					if (testCase.expect.kind === "success") {
+						const result = await operation;
+						assert.equal(
+							result.compactionItem.encrypted_content,
+							"fixture-summary",
+							`${testCase.label}: a transient open failure must keep the remote lane`,
+						);
+						assert.equal(
+							upgradeAttempts,
+							testCase.expect.upgradeAttempts,
+							`${testCase.label}: the refused opens must be retried inside the bounded budget`,
+						);
+						assert.equal(compactionSends, 1, `${testCase.label}: only the accepted attempt may reach the wire`);
+						assert.equal(
+							ai.getOpenAICodexTransportDetails(model, options).lastTransport,
+							"websocket",
+							`${testCase.label}: the lane must stay on the socket`,
+						);
+						assert.ok(
+							frames.some(frame => frame.body.generate === false),
+							`${testCase.label}: the recovered baseline must be minted over the socket`,
+						);
+					} else {
+						await assert.rejects(operation, (error: Error) => {
+							assert.ok(
+								error instanceof ai.CodexCompactionChainLostError,
+								`${testCase.label}: expected a chain-loss error, got ${error.name}: ${error.message}`,
+							);
+							assert.equal(
+								(error as InstanceType<typeof ai.CodexCompactionChainLostError>).retryable,
+								testCase.expect.retryable,
+								`${testCase.label}: retryability is what decides whether the configured budget runs`,
+							);
+							return true;
+						});
+						if (testCase.expect.upgradeAttempts !== undefined) {
+							assert.equal(
+								upgradeAttempts,
+								testCase.expect.upgradeAttempts,
+								`${testCase.label}: the open retries must be finite and exact`,
+							);
+						}
+						assert.equal(compactionSends, testCase.expect.compactionSends, `${testCase.label}: wire traffic`);
+					}
+					assert.equal(httpSends, 0, `${testCase.label}: no SSE request may escape the chain-only lane`);
+				} finally {
+					pendingRefusals = 0;
+					for (const state of states.values()) state.close();
+				}
+			}
+			// Exercise compact(), not just its transport: the upstream preflight
+			// used the standard 272k window as a hard server limit before any I/O.
+			const { compact } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
+			const { Tokenizer } = await import(`${CORE_ROOT}/src/tokenizer.ts`);
+			const sol = getBundledModel("openai-codex", "gpt-6.1-sol");
+			assert.ok(sol, "Sol fixture must exist");
+			const capacityModel = { ...sol, baseUrl: model.baseUrl, contextWindow: 272_000, preferWebsockets: true };
+			const text = `CAPACITY_START ${"word ".repeat(300_000)}CAPACITY_END`;
+			const tokens = new Tokenizer(capacityModel).countTokens(text);
+			assert.ok(tokens > 272_000 && tokens < 900_000, `fixture must span the false limit, got ${tokens}`);
+			for (const scenario of ["cold-user", "cold-tool", "live-user", "provider-overflow"]) {
+				mode = scenario === "provider-overflow" ? "capacity-overflow" : "success";
+				capacityText = text;
+				frames = [];
+				compactionSends = 0;
+				const states = new Map<string, ProviderSessionState>();
+				let httpSends = 0;
+				let softSends = 0;
+				const user = { role: "user" as const, content: [{ type: "text" as const, text }], timestamp: 1 };
+				const messages = scenario === "cold-tool"
+					? [
+							{ ...user, content: [{ type: "text" as const, text: "Read the full source." }] },
+							{
+								role: "assistant" as const,
+								content: [{ type: "toolCall" as const, id: "call_capacity", name: "read", arguments: {} }],
+								api: capacityModel.api, provider: capacityModel.provider, model: capacityModel.id,
+								usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2,
+									cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+								stopReason: "toolUse" as const, timestamp: 2,
+							},
+							{ role: "toolResult" as const, toolCallId: "call_capacity", toolName: "read",
+								content: [{ type: "text" as const, text }], isError: false, timestamp: 3 },
+						]
+					: [user];
+				const context = { systemPrompt: ["capacity fixture"], messages };
+				const options = {
+					apiKey: "fixture-key", sessionId: `capacity-${scenario}`, providerSessionState: states,
+					preferWebsockets: true,
+					fetch: async () => { httpSends++; throw new Error("Unexpected HTTP fallback"); },
+				};
+				try {
+					if (scenario === "live-user") {
+						const seed = await ai.streamOpenAICodexResponses(capacityModel, context, options).result();
+						assert.equal(seed.stopReason, "stop", seed.errorMessage);
+					}
+					const operation = compact({
+						firstKeptEntryId: "capacity-boundary", messagesToSummarize: messages, turnPrefixMessages: [],
+						recentMessages: [], isSplitTurn: false, tokensBefore: tokens,
+						fileOps: { read: new Set(), written: new Set(), edited: new Set() },
+						settings: { enabled: true, remoteEnabled: true, remoteStreamingV2Enabled: true },
+					}, capacityModel, options.apiKey, undefined, undefined, {
+						...options, remoteSystemPrompt: context.systemPrompt,
+						buildCachePreservingContext: async () => scenario === "live-user"
+							? { context, previousSummaryInPrefix: false } : undefined,
+						completeImpl: async () => { softSends++; throw new Error("Unexpected soft fallback"); },
+					});
+					if (scenario === "provider-overflow") {
+						await assert.rejects(operation, /fixture provider input limit exceeded/,
+							"the provider's actual capacity rejection must survive");
+					} else {
+						const result = await operation;
+						assert.ok(JSON.stringify(result.preserveData).includes("fixture-summary"),
+							"compact must return the accepted native summary");
+					}
+					assert.equal(compactionSends, 1, `${scenario}: exactly one remote compaction, no overflow retry storm`);
+					assert.equal(httpSends, 0, `${scenario}: no HTTP replay`);
+					assert.equal(softSends, 0, `${scenario}: no local summarizer`);
+					if (scenario === "live-user") {
+						assert.ok(frames.at(-1)?.body.previous_response_id, "live compaction must reuse its baseline");
+						assert.equal(frames.filter(frame => frame.body.generate === false).length, 0, "live chain needs no recovery");
+					}
+					console.log(`0096 capacity: ${scenario} PASS (${tokens} tokens; standard window 272000)`);
+				} finally {
+					capacityText = undefined;
 					for (const state of states.values()) state.close();
 				}
 			}

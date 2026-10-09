@@ -1,0 +1,20 @@
+{
+  "version": "18.7.0",
+  "baseline": "deployed-ledger",
+  "targetLayers": 24,
+  "families": [
+    {"name": "compaction", "members": ["0035", "0063", "0066", "0067", "0068", "0070", "0088", "0089", "0096"]},
+    {"name": "image-budget-snapcompact", "members": ["0036", "0044", "0052", "0057", "0062"]},
+    {"name": "persistent-prefix-resume", "members": ["0038", "0043", "0047", "0076", "0077", "0083", "0084", "0093"]},
+    {"name": "hindsight", "members": ["0034", "0075"]},
+    {"name": "status-accounting", "members": ["0033", "0004", "0081"]},
+    {"name": "usage-pipeline", "members": ["0037", "0025", "0026", "0030", "0031"]},
+    {"name": "devin-wire", "members": ["0055", "0056", "0058", "0060", "0071"]},
+    {"name": "antigravity-wire", "members": ["0014", "0054"]},
+    {"name": "image-display", "members": ["0078", "0079", "0080"]},
+    {"name": "input-translation", "members": ["0082", "0085"]}
+  ],
+  "independent": ["0010", "0017", "0032", "0046", "0048", "0050", "0065", "0069", "0072", "0074", "0090", "0092", "0094", "0095"],
+  "excluded": ["0097"],
+  "status": "candidate grouping; not a generated or verified consolidated chain"
+}

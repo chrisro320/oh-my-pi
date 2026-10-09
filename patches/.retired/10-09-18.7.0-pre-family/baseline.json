@@ -1,0 +1,672 @@
+{
+  "version": "18.7.0",
+  "roots": {
+    "NM": "",
+    "AGENT": "pi-coding-agent",
+    "CORE": "pi-agent-core",
+    "AI": "pi-ai",
+    "TUI": "pi-tui",
+    "SNAP": "snapcompact"
+  },
+  "variants": {
+    "deployed": [
+      {
+        "path": ".18.7.0-candidates/0033-omp-cache-turn-status-rollup-v18.7.0-candidate.patch",
+        "root": "TUI",
+        "id": "0033"
+      },
+      {
+        "path": ".18.7.0-candidates/0004-omp-token-total-cacheread-v18.7.0-candidate.patch",
+        "root": "TUI",
+        "id": "0004"
+      },
+      {
+        "path": ".18.7.0-candidates/0034-omp-hindsight-snapshot-rollup-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0034"
+      },
+      {
+        "path": ".18.7.0-candidates/0037-omp-usage-statusline-gate-rollup-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0037"
+      },
+      {
+        "path": ".18.7.0-candidates/0010-omp-extension-idle-ephemeral-turn-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0010"
+      },
+      {
+        "path": ".18.7.0-candidates/0035-omp-compaction-prefix-rollup-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0035"
+      },
+      {
+        "path": ".18.7.0-candidates/0014-omp-antigravity-deterministic-session-identity-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0014"
+      },
+      {
+        "path": ".18.7.0-candidates/0036-omp-image-frame-budget-rollup-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0036"
+      },
+      {
+        "path": ".18.7.0-candidates/0017-omp-openai-responses-native-replay-warm-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0017"
+      },
+      {
+        "path": ".18.7.0-candidates/0025-omp-ollama-cloud-usage-api-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0025"
+      },
+      {
+        "path": ".18.7.0-candidates/0026-omp-usage-fetch-anthropic-gate-core-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0026"
+      },
+      {
+        "path": ".18.7.0-candidates/0030-omp-usage-cache-canonical-baseurl-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0030"
+      },
+      {
+        "path": ".18.7.0-candidates/0031-omp-agent-session-providers-forward-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0031"
+      },
+      {
+        "path": ".18.7.0-candidates/0032-omp-goal-tool-resident-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0032"
+      },
+      {
+        "path": ".18.7.0-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0038"
+      },
+      {
+        "path": ".18.7.0-candidates/0043-omp-interrupt-prune-symmetry-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0043"
+      },
+      {
+        "path": ".18.7.0-candidates/0044-omp-image-budget-wire-api-family-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0044"
+      },
+      {
+        "path": ".18.7.0-candidates/0052-omp-snapcompact-model-billing-commandcode-budget-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0052"
+      },
+      {
+        "path": ".18.7.0-candidates/0057-omp-devin-image-budget-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0057"
+      },
+      {
+        "path": ".18.7.0-candidates/0046-omp-supersede-warm-prefix-guard-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0046"
+      },
+      {
+        "path": ".18.7.0-candidates/0048-omp-advisor-quota-rotation-bound-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0048"
+      },
+      {
+        "path": ".18.7.0-candidates/0050-omp-session-history-preview-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0050"
+      },
+      {
+        "path": ".18.7.0-candidates/0054-omp-antigravity-drop-requesttype-agent-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0054"
+      },
+      {
+        "path": ".18.7.0-candidates/0047-omp-date-cwd-anchor-stability-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0047"
+      },
+      {
+        "path": ".18.7.0-candidates/0055-omp-devin-auth-cache-turn-timing-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0055"
+      },
+      {
+        "path": ".18.7.0-candidates/0071-omp-devin-request-dump-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0071"
+      },
+      {
+        "path": ".18.7.0-candidates/0056-omp-devin-metadata-alignment-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0056"
+      },
+      {
+        "path": ".18.7.0-candidates/0058-omp-devin-thinking-signature-replay-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0058"
+      },
+      {
+        "path": ".18.7.0-candidates/0060-omp-devin-idle-cascade-pin-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0060"
+      },
+      {
+        "path": ".18.7.0-candidates/0062-omp-snapcompact-reduction-baseline-previous-archive-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0062"
+      },
+      {
+        "path": ".18.7.0-candidates/0063-omp-codex-v2-compaction-live-chain-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0063"
+      },
+      {
+        "path": ".18.7.0-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0065"
+      },
+      {
+        "path": ".18.7.0-candidates/0066-omp-anthropic-native-compaction-live-context-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0066"
+      },
+      {
+        "path": ".18.7.0-candidates/0067-omp-remote-compaction-lane-trace-live-tools-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0067"
+      },
+      {
+        "path": ".18.7.0-candidates/0068-omp-codex-stale-baseline-chain-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0068"
+      },
+      {
+        "path": ".18.7.0-candidates/0069-omp-codex-effort-history-resume-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0069"
+      },
+      {
+        "path": ".18.7.0-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0070"
+      },
+      {
+        "path": ".18.7.0-candidates/0072-omp-session-pin-static-auth-ui-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0072"
+      },
+      {
+        "path": ".18.7.0-candidates/0074-omp-anthropic-context-cache-boundaries-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0074"
+      },
+      {
+        "path": ".18.7.0-candidates/0075-omp-hindsight-recall-promotion-slot-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0075"
+      },
+      {
+        "path": ".18.7.0-candidates/0076-omp-eval-state-context-persist-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0076"
+      },
+      {
+        "path": ".18.7.0-candidates/0077-omp-turn-recovery-reminder-persist-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0077"
+      },
+      {
+        "path": ".18.7.0-candidates/0078-omp-python-display-mime-preference-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0078"
+      },
+      {
+        "path": ".18.7.0-candidates/0079-omp-kitty-conversion-finalization-v18.7.0-candidate.patch",
+        "root": "TUI",
+        "id": "0079"
+      },
+      {
+        "path": ".18.7.0-candidates/0080-omp-kitty-shared-png-cache-v18.7.0-candidate.patch",
+        "root": "TUI",
+        "id": "0080"
+      },
+      {
+        "path": ".18.7.0-candidates/0081-omp-main-cache-footer-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0081"
+      },
+      {
+        "path": ".18.7.0-candidates/0082-omp-user-display-text-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0082"
+      },
+      {
+        "path": ".18.7.0-candidates/0083-omp-model-mention-surface-resume-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0083"
+      },
+      {
+        "path": ".18.7.0-candidates/0084-omp-length-stop-reminder-persist-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0084"
+      },
+      {
+        "path": ".18.7.0-candidates/0085-omp-rejected-prepared-draft-restore-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0085"
+      },
+      {
+        "path": ".18.7.0-candidates/0088-omp-compaction-cache-liveness-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0088"
+      },
+      {
+        "path": ".18.7.0-candidates/0089-omp-compaction-drop-capacity-gate-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0089"
+      },
+      {
+        "path": ".18.7.0-candidates/0090-omp-oauth-durable-refresh-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0090"
+      },
+      {
+        "path": ".18.7.0-candidates/0092-omp-cache-warming-idle-budget-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0092"
+      },
+      {
+        "path": ".18.7.0-candidates/0093-omp-prompt-model-identity-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0093"
+      },
+      {
+        "path": ".18.7.0-candidates/0094-omp-anthropic-thinking-drop-resume-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0094"
+      },
+      {
+        "path": ".18.7.0-candidates/0095-omp-context-audit-request-purpose-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0095"
+      },
+      {
+        "path": ".18.7.0-candidates/0096-omp-codex-compaction-open-retry-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0096"
+      }
+    ],
+    "repository": [
+      {
+        "path": ".18.7.0-candidates/0033-omp-cache-turn-status-rollup-v18.7.0-candidate.patch",
+        "root": "TUI",
+        "id": "0033"
+      },
+      {
+        "path": ".18.7.0-candidates/0004-omp-token-total-cacheread-v18.7.0-candidate.patch",
+        "root": "TUI",
+        "id": "0004"
+      },
+      {
+        "path": ".18.7.0-candidates/0034-omp-hindsight-snapshot-rollup-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0034"
+      },
+      {
+        "path": ".18.7.0-candidates/0037-omp-usage-statusline-gate-rollup-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0037"
+      },
+      {
+        "path": ".18.7.0-candidates/0010-omp-extension-idle-ephemeral-turn-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0010"
+      },
+      {
+        "path": ".18.7.0-candidates/0035-omp-compaction-prefix-rollup-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0035"
+      },
+      {
+        "path": ".18.7.0-candidates/0014-omp-antigravity-deterministic-session-identity-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0014"
+      },
+      {
+        "path": ".18.7.0-candidates/0036-omp-image-frame-budget-rollup-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0036"
+      },
+      {
+        "path": ".18.7.0-candidates/0017-omp-openai-responses-native-replay-warm-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0017"
+      },
+      {
+        "path": ".18.7.0-candidates/0025-omp-ollama-cloud-usage-api-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0025"
+      },
+      {
+        "path": ".18.7.0-candidates/0026-omp-usage-fetch-anthropic-gate-core-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0026"
+      },
+      {
+        "path": ".18.7.0-candidates/0030-omp-usage-cache-canonical-baseurl-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0030"
+      },
+      {
+        "path": ".18.7.0-candidates/0031-omp-agent-session-providers-forward-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0031"
+      },
+      {
+        "path": ".18.7.0-candidates/0032-omp-goal-tool-resident-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0032"
+      },
+      {
+        "path": ".18.7.0-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0038"
+      },
+      {
+        "path": ".18.7.0-candidates/0043-omp-interrupt-prune-symmetry-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0043"
+      },
+      {
+        "path": ".18.7.0-candidates/0044-omp-image-budget-wire-api-family-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0044"
+      },
+      {
+        "path": ".18.7.0-candidates/0052-omp-snapcompact-model-billing-commandcode-budget-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0052"
+      },
+      {
+        "path": ".18.7.0-candidates/0057-omp-devin-image-budget-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0057"
+      },
+      {
+        "path": ".18.7.0-candidates/0046-omp-supersede-warm-prefix-guard-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0046"
+      },
+      {
+        "path": ".18.7.0-candidates/0048-omp-advisor-quota-rotation-bound-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0048"
+      },
+      {
+        "path": ".18.7.0-candidates/0050-omp-session-history-preview-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0050"
+      },
+      {
+        "path": ".18.7.0-candidates/0054-omp-antigravity-drop-requesttype-agent-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0054"
+      },
+      {
+        "path": ".18.7.0-candidates/0047-omp-date-cwd-anchor-stability-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0047"
+      },
+      {
+        "path": ".18.7.0-candidates/0055-omp-devin-auth-cache-turn-timing-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0055"
+      },
+      {
+        "path": ".18.7.0-candidates/0071-omp-devin-request-dump-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0071"
+      },
+      {
+        "path": ".18.7.0-candidates/0056-omp-devin-metadata-alignment-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0056"
+      },
+      {
+        "path": ".18.7.0-candidates/0058-omp-devin-thinking-signature-replay-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0058"
+      },
+      {
+        "path": ".18.7.0-candidates/0060-omp-devin-idle-cascade-pin-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0060"
+      },
+      {
+        "path": ".18.7.0-candidates/0062-omp-snapcompact-reduction-baseline-previous-archive-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0062"
+      },
+      {
+        "path": ".18.7.0-candidates/0063-omp-codex-v2-compaction-live-chain-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0063"
+      },
+      {
+        "path": ".18.7.0-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0065"
+      },
+      {
+        "path": ".18.7.0-candidates/0066-omp-anthropic-native-compaction-live-context-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0066"
+      },
+      {
+        "path": ".18.7.0-candidates/0067-omp-remote-compaction-lane-trace-live-tools-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0067"
+      },
+      {
+        "path": ".18.7.0-candidates/0068-omp-codex-stale-baseline-chain-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0068"
+      },
+      {
+        "path": ".18.7.0-candidates/0069-omp-codex-effort-history-resume-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0069"
+      },
+      {
+        "path": ".18.7.0-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0070"
+      },
+      {
+        "path": ".18.7.0-candidates/0072-omp-session-pin-static-auth-ui-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0072"
+      },
+      {
+        "path": ".18.7.0-candidates/0074-omp-anthropic-context-cache-boundaries-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0074"
+      },
+      {
+        "path": ".18.7.0-candidates/0075-omp-hindsight-recall-promotion-slot-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0075"
+      },
+      {
+        "path": ".18.7.0-candidates/0076-omp-eval-state-context-persist-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0076"
+      },
+      {
+        "path": ".18.7.0-candidates/0077-omp-turn-recovery-reminder-persist-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0077"
+      },
+      {
+        "path": ".18.7.0-candidates/0078-omp-python-display-mime-preference-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0078"
+      },
+      {
+        "path": ".18.7.0-candidates/0079-omp-kitty-conversion-finalization-v18.7.0-candidate.patch",
+        "root": "TUI",
+        "id": "0079"
+      },
+      {
+        "path": ".18.7.0-candidates/0080-omp-kitty-shared-png-cache-v18.7.0-candidate.patch",
+        "root": "TUI",
+        "id": "0080"
+      },
+      {
+        "path": ".18.7.0-candidates/0081-omp-main-cache-footer-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0081"
+      },
+      {
+        "path": ".18.7.0-candidates/0082-omp-user-display-text-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0082"
+      },
+      {
+        "path": ".18.7.0-candidates/0083-omp-model-mention-surface-resume-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0083"
+      },
+      {
+        "path": ".18.7.0-candidates/0084-omp-length-stop-reminder-persist-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0084"
+      },
+      {
+        "path": ".18.7.0-candidates/0085-omp-rejected-prepared-draft-restore-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0085"
+      },
+      {
+        "path": ".18.7.0-candidates/0088-omp-compaction-cache-liveness-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0088"
+      },
+      {
+        "path": ".18.7.0-candidates/0089-omp-compaction-drop-capacity-gate-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0089"
+      },
+      {
+        "path": ".18.7.0-candidates/0090-omp-oauth-durable-refresh-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0090"
+      },
+      {
+        "path": ".18.7.0-candidates/0092-omp-cache-warming-idle-budget-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0092"
+      },
+      {
+        "path": ".18.7.0-candidates/0093-omp-prompt-model-identity-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0093"
+      },
+      {
+        "path": ".18.7.0-candidates/0094-omp-anthropic-thinking-drop-resume-v18.7.0-candidate.patch",
+        "root": "AI",
+        "id": "0094"
+      },
+      {
+        "path": ".18.7.0-candidates/0095-omp-context-audit-request-purpose-v18.7.0-candidate.patch",
+        "root": "AGENT",
+        "id": "0095"
+      },
+      {
+        "path": ".18.7.0-candidates/0096-omp-codex-compaction-open-retry-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0096"
+      },
+      {
+        "path": ".18.7.0-candidates/0097-omp-computeruse-v18.7.0-candidate.patch",
+        "root": "NM",
+        "id": "0097"
+      }
+    ]
+  },
+  "patches": {
+    ".18.7.0-candidates/0033-omp-cache-turn-status-rollup-v18.7.0-candidate.patch": "8e911658e84259e5aa8e542160514084a5e0fee5d81f7ec1242d88afa1390d45",
+    ".18.7.0-candidates/0004-omp-token-total-cacheread-v18.7.0-candidate.patch": "2e2d11274925ab64b1f9693c80f2a4b40a4f15094578aa52ae3093876d4cc0c5",
+    ".18.7.0-candidates/0034-omp-hindsight-snapshot-rollup-v18.7.0-candidate.patch": "13c5c885c75ec892c035d865fe7d9eb2b5398409191caad0965f9acc16342891",
+    ".18.7.0-candidates/0037-omp-usage-statusline-gate-rollup-v18.7.0-candidate.patch": "59359972ad2661e721a47d793b6668b73ee158c10b1954101a6c77a47bbb746f",
+    ".18.7.0-candidates/0010-omp-extension-idle-ephemeral-turn-v18.7.0-candidate.patch": "80003e0d782f98e6dc4f4ab3d4d61889a993d3ae012f28296ee900e0933d71fa",
+    ".18.7.0-candidates/0035-omp-compaction-prefix-rollup-v18.7.0-candidate.patch": "30e60af9bd4cefce12cee415d341674fc432ad4c46983b7ae0dd0ebcc202bc54",
+    ".18.7.0-candidates/0014-omp-antigravity-deterministic-session-identity-v18.7.0-candidate.patch": "011a610261c6a16887e79ca3ab6083a12c10df4ee5b1d00db2bb784208df49be",
+    ".18.7.0-candidates/0036-omp-image-frame-budget-rollup-v18.7.0-candidate.patch": "9ffb86af50b6a5ef79a2cd2bf1fb7dc06380a153ff859ba125a4870837566a54",
+    ".18.7.0-candidates/0017-omp-openai-responses-native-replay-warm-v18.7.0-candidate.patch": "5c8ab6e8bf3f648a87930f5ee1c3cdca3fd8098fa63a50bf0c61a1d17c15bb64",
+    ".18.7.0-candidates/0025-omp-ollama-cloud-usage-api-v18.7.0-candidate.patch": "19218571cc9ba7c8f4c6dee3ea3ff095f3d69d272fd7fee971c353741aa41088",
+    ".18.7.0-candidates/0026-omp-usage-fetch-anthropic-gate-core-v18.7.0-candidate.patch": "18abfab127521566a2134608b36b7a49a352000e1cbd2d71a72ca3496804716d",
+    ".18.7.0-candidates/0030-omp-usage-cache-canonical-baseurl-v18.7.0-candidate.patch": "c62bdceab41bbb170ba4eda01a745b858265cf40ecc6b0175481473d763bb228",
+    ".18.7.0-candidates/0031-omp-agent-session-providers-forward-v18.7.0-candidate.patch": "f53e747ab96113d0646adf92cbe24eef5549cd5df5a820867aecdca46884ac8c",
+    ".18.7.0-candidates/0032-omp-goal-tool-resident-v18.7.0-candidate.patch": "7a5340b4928ab1cbdf14554dbd4344a0e242adb25bc0b59d7001eebd97b58f19",
+    ".18.7.0-candidates/0038-omp-date-cwd-reminder-provider-tail-v18.7.0-candidate.patch": "16edc7758ebbf0de07c05aafb006901ac9eeaaf452dcfca10076eee784b7f418",
+    ".18.7.0-candidates/0043-omp-interrupt-prune-symmetry-v18.7.0-candidate.patch": "938e13274e024b2ec015524101535c55b4dee449dc5c0d2d251511073f2acee6",
+    ".18.7.0-candidates/0044-omp-image-budget-wire-api-family-v18.7.0-candidate.patch": "eeab2a164febb3081e049efb151a6e911a1b57b2c9f61d96028b91f4ee49ba1a",
+    ".18.7.0-candidates/0052-omp-snapcompact-model-billing-commandcode-budget-v18.7.0-candidate.patch": "80a64ceb420385f3f1dfc4874890ef62aac888cda9622667d0c7afee3e711962",
+    ".18.7.0-candidates/0057-omp-devin-image-budget-v18.7.0-candidate.patch": "20698693a12a54ee3afeb17fb84113387d4889b1081d033ccb1c63bd196d6eef",
+    ".18.7.0-candidates/0046-omp-supersede-warm-prefix-guard-v18.7.0-candidate.patch": "f4c22da1de65e867a6907416f9ef58f4a9264283536cbcdda63b5b3cb70e2ca6",
+    ".18.7.0-candidates/0048-omp-advisor-quota-rotation-bound-v18.7.0-candidate.patch": "df9da27604669e4ac8c9cd42ccca3a3406a7c8a5ac4d749cfd2ad27f60b11fd3",
+    ".18.7.0-candidates/0050-omp-session-history-preview-v18.7.0-candidate.patch": "1297dc1bc16f2d6c48306b67244a3f3dee4ade00561ce62326a33971a87798e2",
+    ".18.7.0-candidates/0054-omp-antigravity-drop-requesttype-agent-v18.7.0-candidate.patch": "8290a2201ecc3fbfff072ee4cadbefb6fee02231688ef0bf0597e48275cafeef",
+    ".18.7.0-candidates/0047-omp-date-cwd-anchor-stability-v18.7.0-candidate.patch": "a7cf35026cabd61269cd19dc7d915a5ef31132a668cf897bf98a0cd87f9e430e",
+    ".18.7.0-candidates/0055-omp-devin-auth-cache-turn-timing-v18.7.0-candidate.patch": "f178017ed39aa03eb9f2f69ae018c9d86d5257a3b9ca87809512480bb0676208",
+    ".18.7.0-candidates/0071-omp-devin-request-dump-v18.7.0-candidate.patch": "f180056f13b271ca4f3b1e9982ad4e961d5461561ad70435ce25f4d90ee3228b",
+    ".18.7.0-candidates/0056-omp-devin-metadata-alignment-v18.7.0-candidate.patch": "8cb9388fc938a8286fda19f5ec6a6ac5412dba03c098611dfa7ae30d42f4709e",
+    ".18.7.0-candidates/0058-omp-devin-thinking-signature-replay-v18.7.0-candidate.patch": "625da473c443e3425d68549802c1c66dbecb7d177b4dbb0305491d9acf7867ab",
+    ".18.7.0-candidates/0060-omp-devin-idle-cascade-pin-v18.7.0-candidate.patch": "d4923eb1799e1614b1a715fe3f97dd137193ea429394143d753bfd9d3455c3f1",
+    ".18.7.0-candidates/0062-omp-snapcompact-reduction-baseline-previous-archive-v18.7.0-candidate.patch": "dcc455b1e697007651ed7b86fae048795be6ed6c177a24bdac7bf9ad5d5cb0f5",
+    ".18.7.0-candidates/0063-omp-codex-v2-compaction-live-chain-v18.7.0-candidate.patch": "2ed6f7a74c1dfa034fb15dc5f468e0b0da987ed8fb7a7c4f4fca62a9cd3f27f1",
+    ".18.7.0-candidates/0065-omp-commandcode-deepseek-model-record-parity-v18.7.0-candidate.patch": "7d9206fc867793917eed5f07e08765b8a66b46ed358015250525829b6d63cad4",
+    ".18.7.0-candidates/0066-omp-anthropic-native-compaction-live-context-v18.7.0-candidate.patch": "5e4a68bc271a49a7b76ccd950e45813fcc27812a4d0e32c1c1d0b6e70d388aec",
+    ".18.7.0-candidates/0067-omp-remote-compaction-lane-trace-live-tools-v18.7.0-candidate.patch": "fea1da1e2ae971c15f32dcc3d6c39cffd595fe299c824c3026710d4a13a72cdd",
+    ".18.7.0-candidates/0068-omp-codex-stale-baseline-chain-v18.7.0-candidate.patch": "28cf9000d4d44849061688278879ba115fa650cf1c453e6c6a59886477c6e4bc",
+    ".18.7.0-candidates/0069-omp-codex-effort-history-resume-v18.7.0-candidate.patch": "1282685d39b0dc1d591dbc09e98de21c12ddf9bfe788f430cdcf768573012a45",
+    ".18.7.0-candidates/0070-omp-codex-compaction-chain-fail-closed-v18.7.0-candidate.patch": "b002320d8924345279983dd9d734d22b2071319a024eed5e3617f219c8e6ebdb",
+    ".18.7.0-candidates/0072-omp-session-pin-static-auth-ui-v18.7.0-candidate.patch": "a07d08cb8e16f6c5aeccba3abc62b5993fb8f97c796cc14d70e829ff3b00e899",
+    ".18.7.0-candidates/0074-omp-anthropic-context-cache-boundaries-v18.7.0-candidate.patch": "3aca427e064a139480766a5dbf7e0d6421937387bb1af399e782f3575f683752",
+    ".18.7.0-candidates/0075-omp-hindsight-recall-promotion-slot-v18.7.0-candidate.patch": "a736a2313a264f273de378bcb83ad583ee9b850b6164cb09ff393b3181621f2f",
+    ".18.7.0-candidates/0076-omp-eval-state-context-persist-v18.7.0-candidate.patch": "a65e5417a8b1e9c2bee921994fec98d23e4a94fedd1df037d762421a4081aa09",
+    ".18.7.0-candidates/0077-omp-turn-recovery-reminder-persist-v18.7.0-candidate.patch": "33fd845d7863839498ada23ae089db03ab3fdf4b6721ec4cbc2fe466fe7c4c33",
+    ".18.7.0-candidates/0078-omp-python-display-mime-preference-v18.7.0-candidate.patch": "21f34624ce7fe2e422f8462493b606751657deb335bac5ba1fcb5e3b72fd777c",
+    ".18.7.0-candidates/0079-omp-kitty-conversion-finalization-v18.7.0-candidate.patch": "0de38f42b177801111f4d0c12aeb2771eb79ff46d398f9df28a6f9ef54601dfd",
+    ".18.7.0-candidates/0080-omp-kitty-shared-png-cache-v18.7.0-candidate.patch": "1cce00e9eb967e9735bfccfca2f01a78ba7bcb5d83676a92eb36bfe74e78dce0",
+    ".18.7.0-candidates/0081-omp-main-cache-footer-v18.7.0-candidate.patch": "c07a041c9be19bc524d491f5e3edd454bc4e3c77f7045fe768fa4ac959890575",
+    ".18.7.0-candidates/0082-omp-user-display-text-v18.7.0-candidate.patch": "716348c6468f95f0557929ba61d51d62b65bd966e805c5b836a6c89154c61afb",
+    ".18.7.0-candidates/0083-omp-model-mention-surface-resume-v18.7.0-candidate.patch": "9657873d814e9587ba24b45a3bac66b2e1bd350ea2dc3927cf0c3a204a295ed4",
+    ".18.7.0-candidates/0084-omp-length-stop-reminder-persist-v18.7.0-candidate.patch": "343f65df027f8d177c7c3f2dbfd4eddbe9b91f0a7b021eb9c7b9d867ba475f3d",
+    ".18.7.0-candidates/0085-omp-rejected-prepared-draft-restore-v18.7.0-candidate.patch": "66f71a8704dd92afc945eea88ed7e3683bfe1cfc1870f55c6a6e12ea71b1ccc0",
+    ".18.7.0-candidates/0088-omp-compaction-cache-liveness-v18.7.0-candidate.patch": "4ed14eca7d7eb56a276aff2db88bb818a415d71c26189cf4b9b168cc6e4ab4a2",
+    ".18.7.0-candidates/0089-omp-compaction-drop-capacity-gate-v18.7.0-candidate.patch": "71ef0df4c45fd4efda165e66753c0aa9872a89e1abc3ac4bbecfeb2769442f68",
+    ".18.7.0-candidates/0090-omp-oauth-durable-refresh-v18.7.0-candidate.patch": "a00921b59d7880e287ee174d3da2ce57dacc9d8336ae0c85e58c2470f825669c",
+    ".18.7.0-candidates/0092-omp-cache-warming-idle-budget-v18.7.0-candidate.patch": "1cb790ce893a4a43ec592efc16ed49a92f43da58e0cdce40d5c078ab0527e118",
+    ".18.7.0-candidates/0093-omp-prompt-model-identity-v18.7.0-candidate.patch": "b1898a3de3c8c330750d073e8acbb8962786e4d78b0397de403c219b36405cdb",
+    ".18.7.0-candidates/0094-omp-anthropic-thinking-drop-resume-v18.7.0-candidate.patch": "c7a41d5d93fdef2f502e0d391a50135be24eae3f276c962bc5edbd8d913c22c2",
+    ".18.7.0-candidates/0095-omp-context-audit-request-purpose-v18.7.0-candidate.patch": "e1c77a9b364a5cdda83087f38f55bbdde1b936d4d259500bfd58a8f2de9610ea",
+    ".18.7.0-candidates/0096-omp-codex-compaction-open-retry-v18.7.0-candidate.patch": "4205c34c53530caa805fa95b7ed599ca9f5bd520a77dbc0c1a868d72b1ceb501",
+    ".18.7.0-candidates/0097-omp-computeruse-v18.7.0-candidate.patch": "71e74a16ce310b18e37e62493167a758d5c518cad25e1c572b24ab30119610d8"
+  },
+  "controllerSha256": "141dba313a1f010f4c6f754f21b2cc3a29d0d080769007ec0902d688ff5edd84",
+  "archives": {
+    "pi-coding-agent": "11cc7843f8e282cb8ccbfaed8aa86fe8e81454c3fd657cc593dee51c9c1e8fa7",
+    "pi-agent-core": "201b06d8485fc57dd9c19ebfdb9641b5b0759cbe8ecb7b72ac86dfd46f83e4d6",
+    "pi-ai": "d93368c60b999b70d1b6a7c8a79cf4d18350cc6bc52504ae4f650f2036422403",
+    "pi-catalog": "def38c60f2c3280fff164cc966dcac3897991e1d9c8c0c73bdfe5792fa575666",
+    "snapcompact": "03725b734e83914cfe9e7ee4dfca5aa20bca5411b193de6e166cf99acfe9a033",
+    "pi-tui": "670538ca52d705e4b39d90d3d34bb9241e8ea08b598e8fd0c4f23a3e351d42b4"
+  }
+}

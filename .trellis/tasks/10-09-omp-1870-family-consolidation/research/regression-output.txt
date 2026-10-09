@@ -1,0 +1,183 @@
+plan: 24 step(s) rehearsed on a live mirror, all clean
+APPLIED  .18.7.0-families/family-status-accounting-v18.7.0.patch
+APPLIED  .18.7.0-families/family-hindsight-v18.7.0.patch
+APPLIED  .18.7.0-families/family-usage-pipeline-v18.7.0.patch
+APPLIED  .18.7.0-families/0010-omp-extension-idle-ephemeral-turn-v18.7.0.patch
+APPLIED  .18.7.0-families/family-antigravity-wire-v18.7.0.patch
+APPLIED  .18.7.0-families/family-image-budget-snapcompact-v18.7.0.patch
+APPLIED  .18.7.0-families/0017-omp-openai-responses-native-replay-warm-v18.7.0.patch
+APPLIED  .18.7.0-families/0032-omp-goal-tool-resident-v18.7.0.patch
+APPLIED  .18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch
+APPLIED  .18.7.0-families/0046-omp-supersede-warm-prefix-guard-v18.7.0.patch
+APPLIED  .18.7.0-families/0048-omp-advisor-quota-rotation-bound-v18.7.0.patch
+APPLIED  .18.7.0-families/0050-omp-session-history-preview-v18.7.0.patch
+APPLIED  .18.7.0-families/family-devin-wire-v18.7.0.patch
+APPLIED  .18.7.0-families/0065-omp-commandcode-deepseek-model-record-parity-v18.7.0.patch
+APPLIED  .18.7.0-families/0069-omp-codex-effort-history-resume-v18.7.0.patch
+APPLIED  .18.7.0-families/0072-omp-session-pin-static-auth-ui-v18.7.0.patch
+APPLIED  .18.7.0-families/0074-omp-anthropic-context-cache-boundaries-v18.7.0.patch
+APPLIED  .18.7.0-families/family-image-display-v18.7.0.patch
+APPLIED  .18.7.0-families/family-input-translation-v18.7.0.patch
+APPLIED  .18.7.0-families/family-compaction-v18.7.0.patch
+APPLIED  .18.7.0-families/0090-omp-oauth-durable-refresh-v18.7.0.patch
+APPLIED  .18.7.0-families/0092-omp-cache-warming-idle-budget-v18.7.0.patch
+APPLIED  .18.7.0-families/0094-omp-anthropic-thinking-drop-resume-v18.7.0.patch
+APPLIED  .18.7.0-families/0095-omp-context-audit-request-purpose-v18.7.0.patch
+LINKED   bin/omp -> cli.ts
+=== Running Patches Regression Test Suite ===
+=== Testing Antigravity Request Envelope (0014) ===
+PASS verify-antigravity-envelope: all 0014 assertions ok!
+PASS prefix-cache compaction: structured=1 flat=1 windows=12
+provider-image-budget verification: ok
+source=/home/chris/.cache/omp-family-smoke-lcwjc1nf/home/.bun/install/global/node_modules/@oh-my-pi/snapcompact
+measured ids: deepseek/deepseek-v4-flash-vision-exp=995 claude=4761 off-curve: deepseek/deepseek-v4-pro=5024 deepseek/deepseek-v4-flash-fast=5024
+PASS: 17 shipped shapes retain measured pricing and provider/API precedence
+0025 verify: all assertions passed
+=== verification-gate-contracts conformance ===
+  ok    spec file present
+  ok    spec indexed in backend/index.md
+  ok    verify-snapcompact-model-billing.ts defers reduction behavior to the session consumer gate
+  ok    no gate hardcodes a live package path
+  skip  ledger /home/chris/.cache/omp-family-smoke-lcwjc1nf/home/.omp/patches not present on this host
+
+spec-contracts verification: ok
+=== Testing Devin auth cache + turn timing (0055) ===
+PASS verify-devin-auth-cache: all 0055 assertions ok!
+=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===
+  ok empty recall persists a marker
+  ok null recall normalised to empty string
+  ok empty marker replayed on resume, recall not re-run
+  ok non-empty recall unchanged
+  ok failed recall not frozen
+  ok slow MM load frozen, resume replays it and never re-lists
+  ok reset_boundary isolates snapshots, stale empty marker cannot suppress recall
+  ok live and replayed recall preparations reject stale ownership
+  ok transcript reload replays target bytes and rejects deadline/superseded publication
+  ok actual switch revokes source loads before adoption and restores rollback ownership
+  ok same-marker fork preserves cache identity; failed/timed-out tree reload clears source prompt
+  ok actual /clear publishes its boundary before target snapshot lookup
+PASS hindsight recall snapshot: empty recalls frozen, resume prefix stable
+=== Testing interrupted-turn render symmetry (0043) ===
+  aborted: live == rebuilt, 2 wire messages, no remnant
+  error: live == rebuilt, 2 wire messages, no remnant
+  committed-text stall: partial text retained, live == rebuilt
+  committed-text stall with requestControls: text and controls both retained
+  uncontinued stall-shaped turn still pruned
+  markerless remnant pruned on the live path
+  bare marker converts to nothing
+  completed turn untouched
+  transcript still renders the interrupted turn
+=== interrupted-turn render symmetry OK ===
+PASS goal tool residency: active, paused, dropped, absent, restricted session
+GATE 1 source: PASS
+GATE 2 behaviour: PASS
+PASS date-cwd anchor stability: slot-stable, stamp-frozen, rollover-local, resume-replayable
+=== Testing Devin CLI metadata alignment (0056) ===
+PASS: per-process sessionId, requestId +1 per call, 3000.11.3 tuple, pass-through, wire fields 10/9, discovery untouched
+=== Testing supersede warm-prefix guard (0046) ===
+  fixture suffix after the candidate: 1279 tokens (stock gate 8000)
+  stock (limit 8000): pruned 1, saved 490 context tokens
+  guarded (limit 0): pruned 0 — warm prefix untouched
+  candidate's own successor keeps its suffix > 0: every supersede rewrite defers
+  idle flush: pruned 1 — deferral, not a leak
+  source gate holds: suffixTokenLimit: 0, unconditional
+=== supersede warm-prefix guard OK ===
+PASS: session.compact admits reductions and rejects inflation without provider requests
+Starting Session History Preview verification...
+✓ fixture guard rejects live state and stray paths before access
+✓ list mode renders the fixture title and compact model, no transcript body
+✓ Space opens the preview and renders the fixture transcript verbatim, without tool noise
+✓ Esc closes the preview, while Esc in the list still cancels the picker
+✓ Space with a non-empty query edits the search text instead of opening the preview
+✓ Enter inside the preview resumes the selected session
+✓ Ctrl+C inside the preview exits the picker
+✓ mouse wheel scrolls the preview viewport across the whole transcript
+✓ scrollbar drag seeks the preview and Esc still leaves it cleanly
+✓ a tool-call turn keeps its real multi-line code fence
+✓ scanner resolves the newest role like resume (default/fallback→default, role-scoped→its model), falls back to last-served, and stays unset when empty
+
+ALL VERIFICATIONS PASSED SUCCESSFULLY!
+=== Testing Devin thinking signature capture + replay (0058) ===
+PASS verify-devin-thinking-signature: all 0058 assertions ok!
+devin idle cascade pin verification: ok (18.7.0)
+idle ephemeral reservation verification: ok (18.7.0)
+ok synthetic resumed session: 4 -> 4 breakpoints, released 21, anchor 20
+ok live growth (418->457 messages, +41 blocks): anchor 417, marks 417,456
+ok live growth negatives: +2 step, boundary 16/17, side request, shrink
+ok thinking-ended growth: anchor scans back to the eligible text block
+ok mixed-TTL anchor: 1h chosen over the newest 5m marker
+ok mixed-TTL decline: no legal TTL, no anchor
+ok continuity: equal-first-message conversations do not share a base
+ok continuity: string and image-only first messages both tracked
+ok tracker cap: 20 side requests leave the main predecessor in place
+ok continuity: an equal tail in a different session does not anchor
+ok continuity: a rewrite of the second-to-last message is caught
+ok continuity: an early rewrite with an equal tail is an accepted residual
+ok continuity: a tool_use input field named cache_control is hashed
+ok continuity: penultimate message shape decorated array -> string still anchors on the previous tail
+ok continuity: penultimate message shape string -> text block still anchors on the previous tail
+PASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap
+verify-codex-compaction-chain: live baseline reuse holds
+verify-commandcode-model-record-parity: ok
+PASS anthropic native compaction live context: scopes=live messages=4 tools=1 fallback=native-no-live-chain
+PASS compaction lane trace: codex-v2 live tools + trace, openai-v1 trace, anthropic-native trace
+PASS Codex effort: transport persistence, JSONL resume, branch isolation, immutable history, rewrite/compaction reset, legacy/provider/model boundaries
+0070 gate: local WebSocket ready
+0096 capacity: cold-user PASS (375007 tokens; standard window 272000)
+0096 capacity: cold-tool PASS (375007 tokens; standard window 272000)
+0096 capacity: live-user PASS (375007 tokens; standard window 272000)
+0096 capacity: provider-overflow PASS (375007 tokens; standard window 272000)
+verify-codex-compaction-chain-fail-closed: transport, retry, metadata and public types PASS
+PASS model hub: render and Escape
+PASS temporary model picker: render and Escape
+PASS session pin: render and Escape (/home/chris/.cache/omp-family-smoke-lcwjc1nf/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent)
+ALL VERIFICATIONS PASSED SUCCESSFULLY!
+PASS read description is model-live: google-antigravity/gemini-3.8-flash <-> commandcode/deepseek/deepseek-v4.1-flash both match a fresh build
+PASS Anthropic cache boundaries: 7 offline HTTP captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary
+PASS Anthropic final-wire audit: exact OAuth bytes, native prefix diff, side/session isolation, raw usage/request ID, real cache-warmer baseline isolation, I/O failure isolation, opt-out; zero network
+verify-hindsight-recall-promotion-slot: ok
+PASS eval state context persist: resume wire-equal, read-only snapshots write nothing, state change appends once
+  committed-text stall: partial kept, reminder persisted once, live == rebuilt
+  committed-text stall with requestControls: text and controls retained, live == rebuilt
+turn-recovery reminder persist: ALL PASS
+python display MIME preference: ALL PASS
+kitty conversion finalization: ALL PASS
+kitty shared PNG cache: eight graphics, tool/assistant/native slot replacement, late callbacks, failure, dedupe and 200-image eviction PASS
+verify-main-cache-hit: primary footer ignores auxiliary usage across reload
+PASS model-mention surface resume: 2 resumed requests carry the advertised surface (8347 tool bytes, codex head 17476 bytes), control unchanged
+PASS prompt-effort resume: 2 scenarios (max->high, high->max) keep 2+2+2 requests prefix-identical with effort on the wire
+PASS anthropic thinking-drop resume: 20 offline requests; restored drop, repeated resume, endpoint/model isolation, new blocks kept, 400 retry, invalid/malformed reports ignored
+context-persist-audit: ALL PASS
+length-stop reminder persist: ALL PASS
+verify-user-display-text-queue: PASS (18.7.0, queue identity)
+verify-rejected-prepared-draft-restore: PASS (18.4.4)
+PASS compaction cache liveness: turns=40 chain=433 boundary=354 green(cacheRead=43350, cacheWrite=5, readBlocks=433) red(cacheRead=50, cacheWrite=35405, readBlocks=0) namespaceFault(readBlocks=0) prefixFallbacks=["no-live-chain"] mixedTtl(readBlocks=1) stubFallback=no-live-chain bigMessageTokens=421351 failingChainTokens=128611 overflowChainTokens=539011 noUsageRidesLive=true retry=live-chain-overflow-retry overflowRetry=live-chain-overflow-retry splitLive=1req/true splitRefused=no-live-chain previousOutsideChain=previous-summary-not-in-prefix nonAnthropicMessages=1 nonAnthropicTokens=48423
+=== verify-oauth-durable-refresh (0090) :: /home/chris/.cache/omp-family-smoke-lcwjc1nf/tmp/tmp.26GEb3AFQs/node_modules/@oh-my-pi/pi-ai ===
+  PASS  refresh preserves stored identity without bootstrap
+  PASS  refresh with no stored identity stores no metadata and still rotates
+  PASS  login identity hook still bootstraps; refresh phase does not
+  PASS  cancellation while waiting for a peer lease issues no token request
+  PASS  cancel after server consumption: owner persists, attached waiter succeeds
+  PASS  >15s lease expiry (injected clock) does not lose the minted token
+  SKIP  >15s real synchronous stall (set OMP_PATCH_VERIFY_OAUTH_REAL_STALL=1)
+  PASS  peer takeover is not clobbered by the previous owner
+  PASS  refresh: concurrent replacement wins while the original lease remains owned
+  PASS  refresh: concurrent logout wins while the original lease remains owned
+  PASS  keys: concurrent replacement wins while the original lease remains owned
+  PASS  keys: concurrent logout wins while the original lease remains owned
+  PASS  usage: concurrent replacement wins while the original lease remains owned
+  PASS  usage: concurrent logout wins while the original lease remains owned
+  PASS  takeover-only
+  PASS  replacement-before-invalid-grant
+  PASS  account changed by refresh must satisfy its own plan gate
+  PASS  genuine invalid_grant disables only the attempted row
+  PASS  transient failure keeps the row; the next refresh uses the saved token
+  PASS  next refresh sends the previously saved refresh token
+  PASS  pre-aborted caller issues no token request
+
+PASS verify-oauth-durable-refresh: 20 scenario(s) ok
+verify-cache-warming-idle-budget: ok
+smoke: skipped by explicit offline replay mode
+
+
+Wall time: 81.95 seconds

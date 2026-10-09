@@ -1,0 +1,13 @@
+{
+  "selectedGateCount": 46,
+  "selectedGatesMissingFromHEAD": [
+    "patches/verify-prompt-effort-resume.ts",
+    "patches/verify-anthropic-thinking-drop-resume.ts"
+  ],
+  "repositoryVariantPrerequisitesMissingFromHEAD": [
+    "patches/.18.7.0-candidates/0097-omp-computeruse-v18.7.0-candidate.patch",
+    "patches/native-computeruse.json",
+    "patches/native-computeruse.ts"
+  ],
+  "scope": "These paths are excluded by the approved task-only commit plan. The verified working tree contains them, but a clean checkout of only the proposed commit would not."
+}

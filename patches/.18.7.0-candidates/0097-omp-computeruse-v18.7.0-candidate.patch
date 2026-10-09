@@ -1,0 +1,108 @@
+diff --git a/pi-coding-agent/src/tools/computer/worker.ts b/pi-coding-agent/src/tools/computer/worker.ts
+--- a/pi-coding-agent/src/tools/computer/worker.ts
++++ b/pi-coding-agent/src/tools/computer/worker.ts
+@@ -40,6 +40,7 @@
+ 	ComputerSessionSnapshot,
+ 	ComputerWorkerInbound,
+ 	ComputerWorkerTransport,
++	DesktopCancelReason,
+ 	RunErrorPayload,
+ 	ToolReply,
+ } from "./protocol";
+@@ -55,7 +56,7 @@
+ 		region: CaptureRegion,
+ 		caps?: { maxWidth?: number; maxHeight?: number } | null,
+ 	): Promise<DesktopCapture>;
+-	cancel(): void;
++	cancel(reason: DesktopCancelReason): void;
+ 	retire(): void;
+ 	listApplications(options?: ApplicationQuery): Promise<Application[]>;
+ 	openApplication(id: string, options?: ApplicationOpenOptions): Promise<Application>;
+@@ -610,7 +611,7 @@
+ 				return;
+ 			case "revoke-control":
+ 				this.#active?.ac.abort(new ToolAbortError("Computer control revoked"));
+-				this.#session?.cancel();
++				this.#session?.cancel("host-revocation");
+ 				this.#transport.send({ type: "control-revoked", id: message.id });
+ 				return;
+ 			case "tool-reply":
+@@ -683,7 +684,10 @@
+ 		let nativeCancelled = false;
+ 		const onNativeCancel = (): void => {
+ 			if (this.#active === active && this.#session) {
+-				this.#session.cancel();
++				// The run's timeout signal is the only reason distinct from a host
++				// interrupt on this path; name it so the native Cancelled error is
++				// attributable.
++				this.#session.cancel(timeoutSignal.aborted ? "tool-timeout" : "host-revocation");
+ 				nativeCancelled = true;
+ 			}
+ 		};
+@@ -764,7 +768,10 @@
+ 			// preserves an explicitly acquired task grant. Errors revoke it.
+ 			signal.removeEventListener("abort", onNativeCancel);
+ 			if (failure === undefined && !signal.aborted) this.#session?.retire();
+-			else if (!nativeCancelled) this.#session?.cancel();
++			else if (!nativeCancelled)
++				this.#session?.cancel(
++					timeoutSignal.aborted ? "tool-timeout" : signal.aborted ? "host-revocation" : "helper-failure",
++				);
+ 			runAc.abort(postmortem.markExpectedCleanupError(new ToolAbortError("Computer run ended")));
+ 			if (this.#active?.id === message.id) this.#active = null;
+ 		}
+@@ -1045,6 +1052,9 @@
+ 	async #close(): Promise<void> {
+ 		if (this.#closed) return;
+ 		this.#closed = true;
++		// Session teardown is its own revocation boundary; label it before the
++		// run's abort handler can attribute the stop to a generic host interrupt.
++		this.#session?.cancel("session-close");
+ 		this.#active?.ac.abort(new ToolAbortError());
+ 		try {
+ 			await this.#session?.close();
+diff --git a/pi-coding-agent/src/tools/computer/protocol.ts b/pi-coding-agent/src/tools/computer/protocol.ts
+--- a/pi-coding-agent/src/tools/computer/protocol.ts
++++ b/pi-coding-agent/src/tools/computer/protocol.ts
+@@ -47,6 +47,23 @@
+ 	target: string;
+ }
+ 
++/**
++ * Concrete reason a native desktop operation was cancelled. Every host stop is
++ * labelled so a `Cancelled` error names its cause instead of a generic message.
++ * The labels are the stable wire contract shared with the native addon.
++ */
++export type DesktopCancelReason =
++	| "escape"
++	| "keymap-changed"
++	| "monitor-failed"
++	| "native-timeout"
++	| "tool-timeout"
++	| "host-revocation"
++	| "explicit-release"
++	| "session-close"
++	| "helper-failure"
++	| "helper-retire";
++
+ /** Clone-safe error metadata returned across the worker boundary. */
+ export interface RunErrorPayload {
+ 	name: string;
+diff --git a/pi-natives/native/index.d.ts b/pi-natives/native/index.d.ts
+--- a/pi-natives/native/index.d.ts
++++ b/pi-natives/native/index.d.ts
+@@ -93,8 +93,13 @@
+   /**
+    * Immediately cancel operations submitted before this call. Later
+    * operations may proceed.
++   *
++   * `reason` is a stable host label (`escape`, `keymap-changed`,
++   * `monitor-failed`, `native-timeout`, `tool-timeout`, `host-revocation`,
++   * `explicit-release`, `session-close`, `helper-failure`, `helper-retire`).
++   * An omitted or unknown label is treated as host revocation.
+    */
+-  cancel(): void
++  cancel(reason?: string | undefined | null): void
+   close(): Promise<undefined>
+ }
+ 

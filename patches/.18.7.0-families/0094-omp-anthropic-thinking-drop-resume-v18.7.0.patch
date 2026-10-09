@@ -1,0 +1,306 @@
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -1134,6 +1134,28 @@
+ 	[key: string]: unknown;
+ }
+ 
++/**
++ * Durable record of the replayed thinking blocks a provider confirmed it
++ * dropped when the conversation prefix no longer matched their signatures. The
++ * wire `path` on {@link ProviderInputTransformation} is index-scoped to the
++ * request that reported it and goes stale the moment history is rebuilt, so a
++ * fresh process cannot use it. Replay restoration keys on the stable block
++ * identity instead — `thinking:<signature>` / `redacted:<data>` — scoped to the
++ * endpoint and model that confirmed the invalidation, so blocks from another
++ * endpoint or model (or created after the invalidation) are never dropped.
++ * Written only for server-confirmed prefix invalidation; a response persisted
++ * before this field existed carries none and is left unguessed (the next
++ * request relearns it).
++ */
++export interface ProviderDroppedThinkingReplay {
++	/** Endpoint the invalidation was confirmed against. */
++	endpoint: string;
++	/** Model id the invalidation was confirmed against. */
++	model: string;
++	/** Stable replay keys of the dropped blocks, in conversation order. */
++	keys: string[];
++}
++
+ export interface UserMessage {
+ 	role: "user";
+ 	content: string | (TextContent | ImageContent)[];
+@@ -1288,6 +1310,13 @@
+ 	disabledFeatures?: string[];
+ 	/** Provider-reported input rewrites such as dropped bound-thinking blocks. */
+ 	inputTransformations?: ProviderInputTransformation[];
++	/**
++	 * Durable, index-independent replay invalidation: the thinking blocks the
++	 * provider confirmed dropping after a prefix mismatch, keyed by stable block
++	 * identity and the endpoint/model that confirmed it, so a fresh process
++	 * restores the drop instead of replaying blocks the server already rejected.
++	 */
++	droppedThinkingReplay?: ProviderDroppedThinkingReplay;
+ 	/**
+ 	 * Controls an Anthropic request declared, recorded on its response so later
+ 	 * requests over the same transcript replay a byte-identical prefix.
+--- a/src/providers/anthropic.ts
++++ b/src/providers/anthropic.ts
+@@ -40,6 +40,7 @@
+ 	ImageContent,
+ 	Message,
+ 	Model,
++	ProviderDroppedThinkingReplay,
+ 	ProviderInputTransformation,
+ 	ProviderPayload,
+ 	ProviderSessionState,
+@@ -524,6 +525,49 @@
+ 	return created;
+ }
+ 
++/**
++ * Validate a persisted replay-invalidation record before it can drop anything.
++ * A session file can carry anything in this field (older writers, hand edits,
++ * partial JSON), so a malformed record is ignored whole rather than trusted
++ * partially — it must never cause a blanket drop or throw on the request path.
++ */
++function readDroppedThinkingReplay(value: unknown): ProviderDroppedThinkingReplay | undefined {
++	if (!isRecord(value)) return undefined;
++	const { endpoint, model, keys } = value;
++	if (typeof endpoint !== "string" || typeof model !== "string" || !Array.isArray(keys)) return undefined;
++	if (!keys.every(key => typeof key === "string")) return undefined;
++	return { endpoint, model, keys };
++}
++
++/**
++ * Rebuild the process-local dropped-thinking set from durable records persisted
++ * by earlier processes. Wire paths are index-scoped and unusable once history is
++ * rebuilt, so restoration matches on the stable block keys and the
++ * endpoint/model that confirmed them; a record confirmed against another
++ * endpoint or model is left alone, and a record persisted before durable keys
++ * existed carries none and is left unguessed (the next request relearns it).
++ *
++ * The assistant message's own `api`/`provider`/`model` are checked too: an alias
++ * provider can share an endpoint with another, and a foreign record must never
++ * poison the alias. Restoration only reads history — no message is rewritten.
++ */
++function restorePrefixDroppedThinking(
++	messages: readonly Message[],
++	model: Model<"anthropic-messages">,
++	endpoint: string | undefined,
++	state: AnthropicProviderSessionState | undefined,
++): void {
++	if (!state || !endpoint) return;
++	for (const message of messages) {
++		if (!message || message.role !== "assistant") continue;
++		if (message.api !== model.api || message.provider !== model.provider) continue;
++		const replay = readDroppedThinkingReplay(message.droppedThinkingReplay);
++		if (!replay || replay.endpoint !== endpoint || replay.model !== model.id) continue;
++		if (message.model !== replay.model) continue;
++		for (const key of replay.keys) state.prefixDroppedThinkingBlocks.add(key);
++	}
++}
++
+ function hasStrictAnthropicTools(params: MessageCreateParamsStreaming): boolean {
+ 	return params.tools?.some(tool => tool.strict === true) ?? false;
+ }
+@@ -1882,12 +1926,34 @@
+ 	return undefined;
+ }
+ 
++/** Union two durable replay-invalidation records; a scope change replaces rather than merges. */
++function mergeDroppedThinkingReplay(
++	existing: ProviderDroppedThinkingReplay | undefined,
++	next: ProviderDroppedThinkingReplay,
++): ProviderDroppedThinkingReplay {
++	if (!existing || existing.endpoint !== next.endpoint || existing.model !== next.model) return next;
++	const keys = new Set(existing.keys);
++	for (const key of next.keys) keys.add(key);
++	return { endpoint: next.endpoint, model: next.model, keys: [...keys] };
++}
++
++/**
++ * Record the thinking blocks a server-confirmed prefix invalidation covers: the
++ * process-local drop set (so later requests in this process drop them) and a
++ * durable record on the response (so a fresh process restores the drop instead
++ * of replaying the rejected blocks). The suffix walk is the established
++ * semantics — a mismatch at `messages.N.content.M` invalidates every replayed
++ * thinking block from that position to the end of the request — and only the
++ * earliest reported position governs, so the durable keys are resolved once for
++ * that scope.
++ */
+ function rememberPrefixDroppedThinking(
+ 	params: MessageCreateParamsStreaming,
+ 	transformations: readonly ProviderInputTransformation[],
+ 	state: AnthropicProviderSessionState | undefined,
++	output: AssistantMessage,
++	scope: { endpoint: string | undefined; model: string },
+ ): void {
+-	if (!state) return;
+ 	let firstMessageIndex: number | undefined;
+ 	let firstBlockIndex: number | undefined;
+ 	for (const transformation of transformations) {
+@@ -1906,21 +1972,32 @@
+ 		}
+ 	}
+ 	if (firstMessageIndex === undefined || firstBlockIndex === undefined) return;
++	const keys: string[] = [];
+ 	for (let messageIndex = firstMessageIndex; messageIndex < params.messages.length; messageIndex++) {
+ 		const message = params.messages[messageIndex];
+ 		if (!message || !Array.isArray(message.content)) continue;
+ 		const blockStart = messageIndex === firstMessageIndex ? firstBlockIndex : 0;
+ 		for (let blockIndex = blockStart; blockIndex < message.content.length; blockIndex++) {
+ 			const key = thinkingReplayKey(message.content[blockIndex]!);
+-			if (key) state.prefixDroppedThinkingBlocks.add(key);
+-		}
+-	}
++			if (!key) continue;
++			state?.prefixDroppedThinkingBlocks.add(key);
++			keys.push(key);
++		}
++	}
++	if (keys.length === 0 || !scope.endpoint) return;
++	output.droppedThinkingReplay = mergeDroppedThinkingReplay(output.droppedThinkingReplay, {
++		endpoint: scope.endpoint,
++		model: scope.model,
++		keys,
++	});
+ }
+ 
+ function rememberPrefixBindingFailure(
+ 	params: MessageCreateParamsStreaming,
+ 	message: string,
+ 	state: AnthropicProviderSessionState | undefined,
++	output: AssistantMessage,
++	scope: { endpoint: string | undefined; model: string },
+ ): boolean {
+ 	if (!state) return false;
+ 	const match = PREFIX_BINDING_ERROR_PATH_PATTERN.exec(message);
+@@ -1938,6 +2015,8 @@
+ 		params,
+ 		[{ type: "thinking_dropped", reason: "prefix_binding_mismatch", path }],
+ 		state,
++		output,
++		scope,
+ 	);
+ 	return true;
+ }
+@@ -1946,6 +2025,7 @@
+ 	output: AssistantMessage,
+ 	params: MessageCreateParamsStreaming,
+ 	state: AnthropicProviderSessionState | undefined,
++	scope: { endpoint: string | undefined; model: string },
+ 	value: unknown,
+ 	seen: Set<string>,
+ 	replace = false,
+@@ -1964,7 +2044,7 @@
+ 	}
+ 	if (fresh.length === 0) return;
+ 	output.inputTransformations = [...(output.inputTransformations ?? []), ...fresh];
+-	rememberPrefixDroppedThinking(params, fresh, state);
++	rememberPrefixDroppedThinking(params, fresh, state, output, scope);
+ 	for (const transformation of fresh) {
+ 		if (transformation.reason !== "prefix_binding_mismatch") continue;
+ 		logger.warn("anthropic: dropped thinking block after conversation prefix changed", {
+@@ -2073,11 +2153,16 @@
+ 			const compactionSupported = options?.client
+ 				? supportsAnthropicCompactionOnClient(model, options.client)
+ 				: supportsAnthropicCompaction(model, baseUrl);
++			const replayEndpoint = options?.client !== undefined ? injectedClientBaseUrl(options.client) : baseUrl;
+ 			const providerSessionState = getAnthropicProviderSessionState(
+ 				options?.providerSessionState,
+-				baseUrl,
++				replayEndpoint ?? baseUrl,
+ 				model.id,
+ 			);
++			// A fresh process starts with an empty drop set; rebuild it from the
++			// durable records earlier processes left on their responses so the
++			// resumed wire matches the live one instead of replaying rejected blocks.
++			restorePrefixDroppedThinking(context.messages, model, replayEndpoint, providerSessionState);
+ 			let disableStrictTools =
+ 				(providerSessionState?.strictToolsDisabled ?? false) || (model.compat?.disableStrictTools ?? false);
+ 			let dropFastMode = providerSessionState?.fastModeDisabled ?? false;
+@@ -2682,6 +2767,7 @@
+ 								output,
+ 								params,
+ 								providerSessionState,
++								{ endpoint: replayEndpoint, model: model.id },
+ 								startMessage?.input_transformations,
+ 								seenInputTransformations,
+ 							);
+@@ -2999,6 +3085,7 @@
+ 								output,
+ 								params,
+ 								providerSessionState,
++								{ endpoint: replayEndpoint, model: model.id },
+ 								event.input_transformations,
+ 								seenInputTransformations,
+ 								true,
+@@ -3253,7 +3340,13 @@
+ 						});
+ 						prefixBindingRetryAttempted = true;
+ 						prefixMismatchBehavior = undefined;
+-						dropAllThinking = !rememberPrefixBindingFailure(params, streamFailureMessage, providerSessionState);
++						dropAllThinking = !rememberPrefixBindingFailure(
++							params,
++							streamFailureMessage,
++							providerSessionState,
++							output,
++							{ endpoint: replayEndpoint, model: model.id },
++						);
+ 						params = await rebuildParams(streamFailure);
+ 						providerRetryAttempt = 0;
+ 						output.content.length = 0;
+@@ -3262,6 +3355,9 @@
+ 						output.upstreamModel = undefined;
+ 						output.errorMessage = undefined;
+ 						output.inputTransformations = undefined;
++						// `droppedThinkingReplay` is deliberately NOT reset: the 400 the
++						// failed attempt confirmed still holds for the retry's conversation,
++						// and a retry that reports nothing must not lose the durable record.
+ 						output.providerPayload = undefined;
+ 						output.usage = createEmptyUsage(copilotDynamicHeaders?.premiumRequests);
+ 						output.stopReason = "stop";
+--- a/dist/types/types.d.ts
++++ b/dist/types/types.d.ts
+@@ -898,6 +898,27 @@
+     reason?: string;
+     [key: string]: unknown;
+ }
++/**
++ * Durable record of the replayed thinking blocks a provider confirmed it
++ * dropped when the conversation prefix no longer matched their signatures. The
++ * wire `path` on {@link ProviderInputTransformation} is index-scoped to the
++ * request that reported it and goes stale the moment history is rebuilt, so a
++ * fresh process cannot use it. Replay restoration keys on the stable block
++ * identity instead — `thinking:<signature>` / `redacted:<data>` — scoped to the
++ * endpoint and model that confirmed the invalidation, so blocks from another
++ * endpoint or model (or created after the invalidation) are never dropped.
++ * Written only for server-confirmed prefix invalidation; a response persisted
++ * before this field existed carries none and is left unguessed (the next
++ * request relearns it).
++ */
++export interface ProviderDroppedThinkingReplay {
++    /** Endpoint the invalidation was confirmed against. */
++    endpoint: string;
++    /** Model id the invalidation was confirmed against. */
++    model: string;
++    /** Stable replay keys of the dropped blocks, in conversation order. */
++    keys: string[];
++}
+ export interface UserMessage {
+     role: "user";
+     content: string | (TextContent | ImageContent)[];
+@@ -1038,6 +1059,13 @@
+     /** Provider-reported input rewrites such as dropped bound-thinking blocks. */
+     inputTransformations?: ProviderInputTransformation[];
+     /**
++     * Durable, index-independent replay invalidation: the thinking blocks the
++     * provider confirmed dropping after a prefix mismatch, keyed by stable block
++     * identity and the endpoint/model that confirmed it, so a fresh process
++     * restores the drop instead of replaying blocks the server already rejected.
++     */
++    droppedThinkingReplay?: ProviderDroppedThinkingReplay;
++    /**
+      * Controls an Anthropic request declared, recorded on its response so later
+      * requests over the same transcript replay a byte-identical prefix.
+      */

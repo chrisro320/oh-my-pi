@@ -1,0 +1,19 @@
+--- a/src/sdk.ts
++++ b/src/sdk.ts
+@@ -3867,6 +3867,7 @@
+ 					? { mode: "compact", toolNames: [...toolNames, ...mountedPromptToolNames] }
+ 					: { mode: "full" },
+ 			);
++			const promptModel = agent?.state.model ?? model;
+ 			const defaultPrompt = await buildSystemPromptInternal({
+ 				cwd: promptCwd,
+ 				additionalWorkspaceRoots: sessionManager.getAdditionalDirectories(),
+@@ -3904,7 +3905,7 @@
+ 				securityEnabled: cfgSecurityEnabled.get(settings),
+ 				settingsApproval: toolSession.settingsApproval === true,
+ 				evalPreludes: toolSession.getAdvertisedEvalPreludes?.(),
+-				model: getActiveModelString(),
++				model: promptModel ? formatModelString(promptModel) : undefined,
+ 				includeModelInPrompt: cfgIncludeModelInPrompt.get(settings),
+ 				personality: agentKind === "sub" ? "none" : cfgPersonality.get(settings),
+ 				subagent: agentKind === "sub",

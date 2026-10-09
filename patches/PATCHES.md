@@ -3,17 +3,18 @@
 > 本文件是倉庫補丁台帳；部署時同步至 `~/.omp/patches/`。**版本計畫以 `apply.sh --print-plan` 為準**，canonical `PATCHES` 陣列不是可部署鏈。
 > 標題刻意**不綁版本**：本文件同時記錄 base 18.0.9 鏈、歷史 18.1.5／18.1.10／18.1.14／18.1.18 遷移，以及當前部署。
 > 讀任何數字前先確認它屬於哪個口徑——見 §1。
+> Current maintenance policy: one active revision per functional family; immutable history does **not** require a new active tail for a repair. The authoritative executable contract is [Patch Rollup Contracts](../.trellis/spec/backend/patch-rollup-contracts.md). Dated entries below preserve historical implementations and counts; their old tail/supersede practices are not current instructions.
 
-## 倉庫計畫與部署紀錄（2026-10-07）
+## 倉庫計畫與部署紀錄（2026-10-09）
 
 | 項目 | 值 |
 |---|---|
 | 當前部署 | `OMP_PATCH_VERSION=18.7.0`（未設則按 installed 版本自動路由） |
-| 當前 live 部署 | **18.7.0、54 層**，包含 0090／0092，`bin/omp -> src/cli.ts`。2026-10-07 成套交換已驗證global install與ledger；fresh source CLI、實際read tool、54/54 APPLIED通過。18.4.4 code／ledger回復樹保留。 |
-| canonical 陣列 | `PATCHES` 陣列 **25 項**——所有存活計畫共用的補丁母集，本身不是可部署計畫（0051 已退役） |
-| 存活計畫 | 18.1.14（27 層）、18.1.18（38 層）、18.2.3（39 層）、18.2.10（47 層）、18.3.3（48 層）、18.4.1（50 層）、18.4.4（55 層，rollback）、18.7.0（54 層，**live**） |
-| 最近遷移 | 18.4.4 → 18.7.0：55 項能力逐項處置，54 個同編號 candidates；0045 由 upstream 統一 frame pricing 接管，舊版檔與計畫保留。沒有為減層合併其他補丁。 |
-| 回歸套件 | 本輪 18.7.0：**42 道 TypeScript gates＋spec shell gate**，另驗 audit／cron 兩個 standalone consumers。整合套件只跑一次，失敗項目定向重跑；未重跑所有歷史版本。 |
+| 當前 live 部署 | **18.7.0、58 層**，包含已修正的0096；本次合併未部署，也未改 live ledger、credentials 或 session。 |
+| canonical 陣列 | `PATCHES` 陣列 **25 項**，僅供保留的歷史版本計畫組裝；18.7.0 改讀 family registry。本陣列不是可部署計畫。 |
+| 存活計畫 | 保留18.1.14／18.1.18／18.2.3／18.2.10／18.3.3／18.4.1／18.4.4歷史計畫；18.7.0 repo 的 `deployed` selection 為24層，`repository` selection 為25層；live 仍為原58層。 |
+| 本次表示變更 | 44個舊 entries 合為10個功能家族，14個獨立 entries 保留；0097僅在明確選擇 `repository` 時追加。舊58／59計畫與原始 bytes、hashes 凍結於 `.retired/10-09-18.7.0-pre-family/`。 |
+| 回歸套件 | `--print-gates` 選出46道 gates（45個TypeScript＋spec shell）；隔離新24層已實際通過全部選中 gates，以及 source CLI `--version`／`read` smoke。完整表示等價證據見本次 task research；不宣稱 live provider acceptance。 |
 
 **閱讀路徑**：查某個補丁 → §2（數值序）；鏈怎麼組起來 → §1；哪些已廢 → §3；
 extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
@@ -38,7 +39,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.3.3 計畫 | 保留上述 47 項能力；0073 由上游動態 read getter 接管，追加 0081 主會話 cache footer、0082 輸入英譯原文顯示；其餘同編號專版候選遷移 | **48** |
 | 18.4.1 計畫 | 保留 18.3.3 的 48 項能力，全部為同編號 `.18.4.1-candidates/`；17 層需適配（0066／0067／0068 在 0035 移植後以原位元組直接落層），審查後另修 0043／0074／0077／0079／0080；鏈尾新增 0083（`^` 標記模型的 resume 前綴修復）、0084（length-stop 重試提醒持久化） | **50** |
 | 18.4.4 計畫（rollback） | 原 50 項能力加 0085、0088、0089、0090、0092；0086／0087 已退役併入 0088。全部 finalized candidates 維持原 bytes。 | **55** |
-| 18.7.0 計畫（live） | 六個官方 pinned packages、完整依賴；54 個 `.18.7.0-candidates/`。省略 0045，保留 0062 previous-archive credit；其餘 54 項本地能力適配。 | **54** |
+| 18.7.0 family 計畫 | `.18.7.0-families/plan.tsv` 提供10家族＋14獨立 entries；`OMP_PATCH_PLAN=repository` 額外包含未部署0097。省略上游已接管的0045，保留0062 previous-archive credit。 | **24 base / 25 repository / 58 live** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -51,6 +52,37 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 18.4.1 遷移（2026-09-28）同樣使用六個官方 pinned 套件（registry sha512 integrity 與 SHA-256 雙重核對）。pristine 上 `--fuzz=0` 失敗層整層跳過、不部分寫入：31 層原樣落層，17 層失敗（直接 8 層：0035／0026／0043／0055／0056／0065／0079／0081；其餘為同檔前置失敗）。上游語義變更：0070 接上 18.4.1 的 `resolveSpeculationMethod`，auth 先於 status 分類，四處 V2 判斷共用 `isCodexCompactionV2Lane`；0026 改走 `#collectUsageRequests` provider filter；0043 包進 `canonicalizeXdToolCallNames`，並只在已持久化的 stream-stall 續寫提醒緊隨其後時保留已提交文字（含 `requestControls`）；0077 讓 18.4.1 新增的 `handleCommittedTextStreamStall` 提醒也寫入 session；0074 改以 `maxTokens: 1` 辨識 18.3.5 起的 session 級 cache warmer 重放（上游已刪 `anthropicCacheRefreshRequest`）；0055 對應 Devin auth 拆分；0056 的 CLI 版本號由上游更新的 `3000.11.3` 接管（不降級）；0079／0080 的 repaint 鏈尾捕獲錯誤、以本補丁的共享 PNG 快取取代上游較弱版本；0081 另補 `startup.ts`；0082 對齊 18.4.1 的草稿合併與 `startPendingSubmission` 選項物件。本輪證據：`.trellis/tasks/09-28-omp-1841-upgrade-plan/research/`。
 
 未設 `OMP_PATCH_VERSION` 時 apply.sh 讀 installed `pi-coding-agent` 版本**精確路由**到對應計畫（非就近 fallback）；安裝版不屬於存活計畫、或顯式值與安裝版不符，一律 exit 2。
+
+### 18.7.0 family maintenance
+
+```sh
+# Read-only; the first selection excludes the undeployed0097 candidate.
+OMP_PATCH_VERSION=18.7.0 OMP_PATCH_PLAN=deployed bash patches/apply.sh --print-plan
+OMP_PATCH_VERSION=18.7.0 OMP_PATCH_PLAN=repository bash patches/apply.sh --print-plan
+OMP_PATCH_VERSION=18.7.0 bash patches/apply.sh --print-capabilities
+OMP_PATCH_VERSION=18.7.0 bash patches/apply.sh --print-gates
+bash patches/verify-patch-family-rollups.sh --version 18.7.0
+```
+
+| Family | Historical capability IDs |
+| --- | --- |
+| status-accounting | 0033,0004,0081 |
+| hindsight | 0034,0075 |
+| usage-pipeline | 0037,0025,0026,0030,0031 |
+| antigravity-wire | 0014,0054 |
+| image-budget-snapcompact | 0036,0044,0052,0057,0062 |
+| persistent-prefix-resume | 0038,0043,0047,0076,0077,0083,0084,0093 |
+| devin-wire | 0055,0071,0056,0058,0060 |
+| image-display | 0078,0079,0080 |
+| input-translation | 0082,0085 |
+| compaction | 0035,0063,0066,0067,0068,0070,0088,0089,0096 |
+
+The registry owns exact order and roots; this table documents ownership, not a second executable plan. Input-translation precedes compaction because0088 changes the `allowTruncation === false` line introduced by0082. The fourteen independent patch bytes remain identical to their archived originals.
+
+Repair an existing family by archiving its current revision and replacing its net diff, not by appending a numeric tail. Preserve capability gates and historical hashes. Original18.7.0 candidates now live under `.retired/10-09-18.7.0-pre-family/.18.7.0-candidates/`; only0097 remains in the root candidate directory. Earlier-version plans and files are unchanged.
+
+Evidence and limits: `.trellis/tasks/10-09-omp-1870-family-consolidation/research/`. Selected oracle passed OLD58/NEW24 and OLD59/NEW25 complete-tree equality, both zero-fuzz round-trips, all24 owned-delta/reverse checks, ten fail-closed cases, omission/mutation negatives, and eight-version gate parity. Independent control/proof reviews passed after corrections. Repository verification is not authorization to deploy; live58 remains untouched until a separately approved transaction.
+
 
 ### 18.7.0 遷移與部署（2026-10-07）
 
@@ -272,7 +304,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   } else if (!turnEnded && this.#usageFetchedAt > 0 && now - this.#usageFetchedAt < STATUS_USAGE_REFRESH_TTL_MS)
   ```
   两个 hunk 的 diff 上下文都对得上,`patch` 干净套用、`apply.sh --check` 报 APPLIED——**补丁栈没有类型检查,抓不到跨 hunk 的未定义引用**。这是本栈第一次出现「补丁能套用但语义已坏」的形态。
-- **修法**(单点,4 行):在 `component.ts` 顶层把定义补回。值取 `50_000`,依据是 0026 自己的注释原文「Non-anthropic sessions keep the regular **50s** repaint cadence」,与 0005 引入时的原值一致。未改 0026(定稿补丁不可变),按规矩追加独立补丁。
+- **Historical repair** (2026-08-29, four lines): restore `STATUS_USAGE_REFRESH_TTL_MS = 50_000` at module scope, preserving the original 50s non-Anthropic repaint cadence. At that time0026 was retained and0027 was appended. Current same-family maintenance revises the active family instead; historical bytes remain archived.
 - **supersede 注册**:0027 在 0026 删除的位置重新插入、且重新引入 0005 原本添加的常量,因此 **0005 与 0026-agent 都无法单独反向套用**。已加 `superseded_by_0027()` 覆盖这两个补丁名,并把调用点插在 `superseded_by_0026` **之前**(0027 是最新那层)。未注册前 `--check` 会报 2 个 bogus CONFLICT——已用对照实验坐实:移除 0027 的 4 行后跑旧 `apply.sh`,两者恢复 `APPLIED (superseded by 0026)`。
 - **验收(2026-08-29 全部通过)**:
   | 项 | 结果 |
@@ -291,7 +323,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
   2. **链条更早就断了**:`c056735` 是 0026 的首次引入(git `A`),但它期望的前置状态含 `ANTHROPIC_USAGE_REFRESH_TTL_MS = 600_000`(10min gate)与 `excludeAnthropic` —— 这些**从未被补丁化,是直接改进 src 的裸改**。因此从 18.0.9 原版 + 补丁栈**根本重建不出当前 src**,`0026-agent` 3/3 hunks 反向必失败。
 - **我引入的污染(已清除)**:补该常量时在上游源码里写了两行中文注记,又生成进 0027;下游流程基于被污染的 src 重新生成 0026(`5a3ba8c`),把中文烘进 0026 并把「删常量」翻转成「加常量」;我随后清理 src 中文后,0026 与 src 彻底脱钩。**上游源码通篇英文,不得写入中文注记**——背景一律只进 PATCHES.md。
 - **修法**:新增 0029,单一补丁涵盖 0026-agent + 0027 + 0028 的全部语义,基线取 **bun 缓存的原版 18.0.9 + 0005 + 0007**。内容:`ANTHROPIC_USAGE_TURN_GATE_MS = 180_000` gate(idle 静默 / turn-end 限流 3min / 冷启动一次)、in-flight 重入 guard、provider whitelist、保留 0005 的 `STATUS_USAGE_REFRESH_TTL_MS` 引用(**不删其定义**)。2 hunks。
-- **旧补丁全部保留不动**(定稿不可变):0026-agent / 0027 / 0028 留档,由 `superseded_by_0029()` 跳过。0026-core(`pi-ai` 包)独立保留,不受影响。
+- **Historical retention**: 0026-agent / 0027 / 0028 were retained and skipped by the then-current `superseded_by_0029()` mechanism; 0026-core remained independent. This records the old representation, not a requirement to retain supersede control flow or add active layers today.
 - **注册顺序(关键)**:0029 的 active entry 必须排在三个旧 entry **之前**、0005/0007 之后。fresh install 时 supersede 探针在 0029 自身应用前不可能成立,若 0029 排在后面,0026-agent 会先被尝试套用并失败。revert 倒序走则先跳过三个、最后退 0029。
 - **`superseded_by_0029` 覆盖 4 个**:0026-agent / 0027 / 0028 / **0005**。0005 也在内,因为它的 turn-end/TTL 那行被 0029 重写成 anthropic/非 anthropic 分支对,0029 在位时 0005 无法单独反向套用。
 - **清理**:移除先前临时加的 `superseded_by_0027()` 及其调用;同时删掉 `superseded_by_0028()` 的孤儿调用点(该函数只覆盖 0026-agent,已被 0029 涵盖)。
@@ -808,6 +840,8 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 - 補丁：`.18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch`（`${AGENT}`，`src/main.ts`、`src/modes/controllers/input-controller.ts`、`src/slash-commands/helpers/draft.ts`，加上兩個 shipped declaration hunk：`dist/types/main.d.ts`、`dist/types/slash-commands/helpers/draft.d.ts`）。0082 已部署、定稿層不可變，故此修復以 0082 之後的新尾層落層，18.4.4 計畫為 52 層（0085 落層時為 51 層，live 目前 50）。
 - 問題：0082 的審查留下兩個缺口。#2：已準備（`prepared`）的提交經 `onInputCallback` 走到 `submitInteractiveInput`，`session.prompt` 被拒絕時只顯示錯誤，操作者的原文與附件早已離開編輯器，因此遺失。#4：取消 Ctrl+Enter 的準備時，還原邏輯只檢查文字與 revision；準備期間貼入圖片不改變兩者，圖片清單會被還原的舊附件整個覆蓋。兩者在 18.4.1 的 0082 上就存在，不是遷移迴歸。
 - 修法（最終形態）：`draft.ts` 新增 `restoreRejectedDraft` / `retainRejectedDraft` 與守衛 `editorHoldsNewerDraft`。**每條拒絕路徑只有一個 owner，且由明確信號決定**：session 的 prompt-dropped callback（`interactive-mode.ts` 的 `#restoreDroppedPrompt`）會先把草稿寫回編輯器再 rethrow，該情境拋的是 `AgentStartPolicyChangedError`；此類別未匯出，故 `main.ts` 以類別自帶的 `error.name === "AgentStartPolicyChangedError"` 辨識（duck typing），命中時才跳過自身還原——不是靠內容相等、也不是靠 transcript 長度。**其餘任何 throw 都還原**：這是刻意的寬規則，殘餘已接受——聚合的 transcript 狀態分不出「派送前拒絕」與「回合已收下訊息後的罕見失敗」，故罕見的入回合後失敗仍會把已送出文字當可還原草稿提回（寧可重複，不可遺失）。**還原永不覆蓋較新內容**：`editorHoldsNewerDraft` 把「文字 revision 變了、有文字、**或有非本草稿自帶的待送圖片**」任一視為較新，此時只把被拒絕的輸入放進 `deferredDraftSnapshots`（原文供顯示、模型文字為 canonical）並提示；附件新舊由模組私有的 `isDraftOwnedImage(draft, image)` 判定：編輯器待送圖片是**同一個物件**，或與某張捕獲圖片**同 bytes 與 mimeType**，都算草稿自己的（`editor.pendingImages.some(image => !isDraftOwnedImage(draft, image))`），不是任何非空清單都算較新——一般 Enter 在被 admission 前附件仍留在編輯器，準備期間貼入的圖才是較新草稿。採值相等是因為受支援的 `input` handler 會回傳**重建但等值**的替換物件（`event.images.map(image => ({ ...image }))`），單靠參照會把它誤判成較新草稿。殘餘（已接受）：與捕獲圖片同 bytes、同 mime 的**重新貼上**圖片會被當成草稿自己的。`input-controller.ts` 的私有還原改為委派給它（取代原本的 `#retainRejectedSubmission`）。未準備的提交行為不變。
+Historical representation note: the following 18.4.4 tail placement and layer counts describe the original repair checkpoint. In the 18.7.0 family plan, this capability belongs to input-translation; future repairs revise that family.
+
 - 閘門：`verify-rejected-prepared-draft-restore.ts`（依計畫含 0085 執行），共 **10 條腿**。以小型替身驅動**真實** `submitInteractiveInput`（legs 1-6：被拒還原、較新草稿保留、成功不還原、session 自持的 `AgentStartPolicyChangedError`、同文字的獨立拒絕、派送前 transcript 增長）與**真實** `InputController.setupEditorSubmitHandler` 的取消路徑（legs 7-8：一般 Enter 自帶附件仍在待送時文字直接回編輯器；準備期間貼圖則存活；leg 9：已註冊的 `input` handler 回傳**重建但等值**的替換圖片物件——受支援的 `event.images.map(image => ({ ...image }))` 轉換——在沒有較新文字或貼圖時仍直接回文字），另有共用 helper 控制組（leg 10）。敏感性（負向對照）：沒有 0085 的 18.4.4 樹上 leg 1 就紅（編輯器仍為空）；第二輪修正前的樹 legs 5、6、7 紅（同文字草稿被吞、transcript 增長反而抑制還原、取消的 Enter 拿不回文字）；拿掉所有權跳過則 leg 4 紅；拿掉 `editorHoldsNewerDraft` 的草稿圖片條件則 leg 8 紅（貼入的圖被擄回的舊附件覆蓋，leg 7 仍綠）；改回僅參照的所有權則 leg 9 紅（重建但等值的物件被誤判為較新草稿，legs 7、8 仍綠）。
 - Shipped declaration 與型別檢查：0085 補上 `dist/types/main.d.ts`、`dist/types/slash-commands/helpers/draft.d.ts` 兩個 hunk，使套件型別消費者看得到放寬的 runtime 契約與新匯出。本批沙盒樹沒有 in-tree typecheck（樹內無 `tsgo`，亦無 `tsconfig.json`），故宣告改以消費者探針證明：以 `tsc` 6.0.3（`/home/chris/.local/bin/tsc`）經 `package.json` 的 `types` 條件匯入 shipped `.d.ts`，對舊宣告為紅、修正後為綠，且移除 `@ts-expect-error` 的變體會逐一點名新契約要求的成員；另以 grep 逐欄對照原始碼。Bun 不做型別檢查，綠色行為閘門不等於型別證明。
 - 未涵蓋（accepted）：Ctrl+Enter／follow-up 入口（`#submitFollowUp` 及其自己的還原呼叫點）、經 dequeue 還原（`handleDequeue`）、composer 自己的 `[Image #N]` chip 繪製（替身的 `setCollapsedText` 只存純文字）。未動：`#restoreDroppedPrompt`（`interactive-mode.ts`）仍有同型的圖片覆蓋寫法，不在 Review #4 範圍。
@@ -890,6 +924,38 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 ### 0091 — 已退役（併入 0092）
 
 - 原檔：`.retired/10-03-0091-rolled-into-0092/0091-omp-cache-warming-idle-budget-v18.4.4-candidate.patch`；sha256 `2875658a53fb631aa372dcfca8b8b3ef178dcc8246c0e48e2d1fa09e632cda8a`；7,358 B。2026-10-03 01:10 部署（55 層），缺陷為回合結束後設預算不會恢復保活。
+### 0093 — 固定 system prompt 的模型識別，不混入動態 effort（18.7.0；family 表示尚未部署）
+
+- Active owner: `.18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch` (`NM`). Original0093 bytes: `.retired/10-09-18.7.0-pre-family/.18.7.0-candidates/0093-omp-prompt-model-identity-v18.7.0-candidate.patch`.
+- 根因：18.7.0 的 `getActiveModelString()` 新增 effort；system prompt 在 max 時凍結、實際請求已改 high，resume 才重建成 high，造成前綴不同。0083 的 startup off/inherit 正規化未涵蓋此路徑。
+- 修正：只有 `buildSystemPromptInternal` 的模型標籤改用 `formatModelString(activeModel)`；共用 routing helper 與實際 reasoning effort 不變。
+- 驗證：`verify-prompt-effort-resume.ts` 驅動真實 SDK、隔離 HOME 與離線 provider。max→high／high→max，包含明確 rebuild、兩次連續 fresh-process resume、每程序兩次請求；system、tools、既有序列化歷史一致，實際 effort 保持目標值。原 54 層樹在 resume 前綴斷言失敗，修後通過。不是實測 server cache-hit。
+
+### 0094 — 持久化服務端已確認的 thinking 失效狀態（18.7.0；family 表示尚未部署）
+
+- Active independent patch: `.18.7.0-families/0094-omp-anthropic-thinking-drop-resume-v18.7.0.patch` (`AI`); original candidate bytes retained under `.retired/10-09-18.7.0-pre-family/`.
+- 根因：`prefixDroppedThinkingBlocks` 只在程序記憶體；舊 `inputTransformations.path` 指向當次 wire 索引，不能可靠地套回重建歷史。重啟會重新送出已被服務端拒絕的區塊。
+- 修正：服務端確認失效時，在該 assistant response 保存 `droppedThinkingReplay`；以實際 client endpoint、model 與原訊息 api/provider/model 隔離，恢復穩定的 signature/redacted-data keys。注入 client 的 endpoint 不明時不寫入／恢復 durable scope。保留原 transcript；metadata 不上 wire。不猜測回填舊紀錄，也不更改拒絕或重試政策。
+- 驗證：`verify-anthropic-thinking-drop-resume.ts` 使用真實 Anthropic serializer／native client 與離線 SSE，20 次請求涵蓋 JSON reload＋fresh state、重複恢復、scope 隔離、新區塊保留、400 retry、非法回報，以及 injected client 跨 endpoint／default client／未知 endpoint。原樹缺少 durable record 而失敗；審查發現的 client scope 缺口也有負對照，修後通過。
+- 同批稽核隱私修正（extension，非補丁層）：`cache-prefix-audit-extension.ts` 不再保存訊息明文摘錄，只留長度與既有內容 hash；舊 baseline 摘錄在載入時清除、diff 不回顯舊明文。`verify-cache-prefix-audit.ts` 修前洩漏斷言失敗、修後通過。既有 log 未刪除；不得再將含舊 thinking 的 log 原文帶回模型。
+- 部署：0093–0096 與兩個稽核擴展成套備料；code／ledger 與擴展由 guarded deploy 管理，等待所有互動 OMP 退出後交換。
+
+### 0095 — 歷史稽核區分主對話與輔助請求（18.7.0）
+
+- Active independent patch: `.18.7.0-families/0095-omp-context-audit-request-purpose-v18.7.0.patch` (`AGENT`); original candidate bytes retained under `.retired/10-09-18.7.0-pre-family/`.
+- 事故：`context` 事件同時用於正常對話與壓縮前綴轉換；稽核將部分歷史與完整 branch 比較，誤報 `file-extra`。本次 302／324 並非歷史遺失；完整 324 則直到 soft commit 都保留。
+- 修正：`ContextEvent.purpose` 區分 `turn`／`side-request`；AgentSession 輔助轉換從共用入口標記，SDK／runner 傳遞，`context-persist-audit-extension.ts` 只稽核主對話。公開宣告同步，其他 context handlers 維持原流程。
+- 驗證：擴充既有 `verify-context-persist-audit.ts`，private HOME fresh process 驅動真實 SDK：部分歷史的 side conversion 不報警、不改 live state；故意截短真正主對話仍報 `file-extra`。修前在誤報斷言失敗，修後通過；controller 依 capability0095 選擇此 gate，不依賴舊候選檔名。
+
+### 0096 — Codex 遠端壓縮：握手重試與 provider 容量裁定（18.7.0）
+
+- Active owner: `.18.7.0-families/family-compaction-v18.7.0.patch` (`NM`), including the corrected provider-capacity behavior. Original0096 bytes: `.retired/10-09-18.7.0-pre-family/.18.7.0-candidates/0096-omp-codex-compaction-open-retry-v18.7.0-candidate.patch`.
+- 根因：一般對話用來快速切 SSE 的 `websocket error:` fatal 分類，被 compaction 解讀成永久失敗；兩個遠端候選各一次握手失敗就進 soft，繞過既有重試。18.4.4 已有此行為，非本次移植缺失。
+- 修正：只在 compaction lane，握手失敗先耗盡既有 WebSocket retry budget；耗盡後回傳 retryable chain error，讓既有 V2／host configured retry budget 繼續走完，最後才允許原 fallback。取消與明確停用 WebSocket仍停止；一般對話快速 SSE 路徑不變。沒有改節點、代理、TLS 驗證、重試上限或降級順序。
+- 驗證：既有 `verify-codex-compaction-chain-fail-closed.ts` 增補 18.7.0 案例，真實 provider＋本地 WebSocket：兩次拒絕後第三次成功、持續拒絕精確耗盡 bounded attempts、取消／停用、零 SSE 發送。原樹第一次握手失敗即退出；修後全數通過。
+- **2026-10-09 同編號修正（使用者要求不新增補丁）**：`gpt-6.1-sol` 的 catalog standard window 為 272k、maximum 為 922k；`compact()` 卻把 standard window 當成 native request 的硬容量，在網路送出前拒絕 session `01a11a91` 的 281,553-token 估算，並可能截短 trailing tool output。Codex V2 現在保留完整輸入，由 provider 判定容量（含 cold recovery）；不改全域 window／壓縮觸發門檻，不改其他 OpenAI V2 lanes 的原有檢查。
+- **跨層驗收**：既有 gate 直接呼叫 `compact()`，用真實 provider transport＋loopback WebSocket 驗證超過 272k 的 cold user、cold tool output、live chain；全文保留、native summary 回傳、零 HTTP／soft fallback。Provider `context_length_exceeded` 仍原樣失敗，恰好一個 compaction frame。修前以 `estimated 300288 tokens > 272000` 失敗，修後四案及原握手／metadata／published-types gate 通過。此為本地 wire proof，不宣稱真實服務端接受或 cache hit。
+
 
 ## 3. 已撤下的補丁
 
@@ -953,8 +1019,8 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 - Patch: `.18.4.4-candidates/0087-omp-compaction-attestation-skip-control-carrier-v18.4.4-candidate.patch`
   (`${NM}`; only `pi-agent-core/src/compaction/compaction.ts`, no declaration hunk -- no public API
-  changes). 0086 is finalized and immutable, so this repair lands as a new 18.4.4 tail layer; the
-  18.4.4 plan is now 53 layers (was 52).
+  changes). At the historical 18.4.4 checkpoint, this repair was appended after0086,
+  changing that plan from52 to53 layers. This is not current family-revision policy.
 - Root cause: 0086's live-chain capacity ruler reads the provider's own usage from the chain's LAST
   assistant turn (`findProviderInputAttestation`). pi-ai seeds
   `{ content: [], usage: createEmptyUsage(), stopReason: "stop" }` into the live chain at stream start,

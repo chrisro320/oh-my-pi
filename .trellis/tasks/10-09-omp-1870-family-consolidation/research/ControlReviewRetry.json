@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "filesChanged": [],
+  "scope": ".trellis/spec/backend/patch-rollup-contracts.md:231-247; closure review of the previously reported P2 only.",
+  "closure": "The reported P2 is resolved. The existing scenario now distinguishes retained historical-array plans from the18.7.0 registry and explicit repository-only0097 overlay, derives physical counts from the resolved plan, and prescribes `_omp_has_capability` for behavior gates while reserving `_omp_plan_has` for physical/native lifecycle checks. No residual findings in the assigned correction.",
+  "verification": [
+    {
+      "command": "Read .trellis/spec/backend/patch-rollup-contracts.md:227-257",
+      "result": "Confirmed the correction at the original normative locations."
+    },
+    {
+      "command": "Specialized grep over lines227-257 for old canonical-array, physical-membership, and42-entry prescriptions plus replacement anchors",
+      "result": "Only replacement anchors matched at lines231,232,247; obsolete prescriptions did not match."
+    },
+    {
+      "command": "Builds/tests/lint/formatters",
+      "result": "Not run, as instructed."
+    }
+  ]
+}

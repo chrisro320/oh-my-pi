@@ -51,33 +51,10 @@ fi
 
 
 
-# --- Contract: gates are registered in the apply.sh suite -------------------
-for g in verify-provider-image-budget verify-snapcompact-model-billing; do
-	grep -q "bun \"\${HERE}/${g}.ts\"" "${HERE}/apply.sh" \
-		&& ok "${g} registered in apply.sh suite" \
-		|| bad "${g} NOT registered in apply.sh suite"
-done
-# The layers this migration carries each own a gate; a gate no suite invokes is
-# documentation, not verification. 0050's preview, 0072's auth UI and 0073's
-# read-description all guard behavior the current plans still ship.
-for g in verify-session-history-preview verify-session-pin-static-auth-ui verify-read-description-live; do
-	grep -q "bun \"\${HERE}/${g}.ts\"" "${HERE}/apply.sh" \
-		&& ok "${g} registered in apply.sh suite" \
-		|| bad "${g} NOT registered in apply.sh suite"
-done
-
-# --- Contract: the moved TUI package is a first-class plan root ------------
-# 18.2.10 moved the status line and the session picker into pi-tui. The
-# controller must resolve, print and export that root exactly like the others:
-# a layer whose root stays AGENT would patch a path upstream no longer has, and
-# every gate reading it would measure the wrong tree.
-if grep -q '^TUI="${NM}/pi-tui"' "${HERE}/apply.sh" \
-	&& grep -q '"$TUI") rn=TUI' "${HERE}/apply.sh" \
-	&& grep -q 'OMP_PATCH_VERIFY_TUI_ROOT="$TUI"' "${HERE}/apply.sh"; then
-	ok "controller declares, prints and exports the TUI root"
-else
-	bad "controller does not treat TUI as a first-class root (declare / print / export)"
-fi
+# Resolved gate coverage and package-root behavior are exercised by
+# verify-patch-family-rollups.sh against the archived OLD controller.
+# Do not pin direct `bun "${HERE}/name.ts"` spelling here: family-aware
+# dispatch is shared with --print-gates and no longer has that source shape.
 
 # --- Contract: gates select their tree, never a workstation path -----------
 # A hardcoded live-package path keeps measuring the live install whatever root

@@ -22,8 +22,11 @@ OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT=<pkg-root> bun patches/verify-<name>.ts
 OMP_PATCH_VERIFY_AGENT_ROOT=<pi-coding-agent-root> bun patches/verify-<name>.ts
 ```
 
-Gate registration lives in `apply.sh` under the `MODE == "apply"` regression
-suite. A gate that no suite invokes is not a gate.
+Gate registration lives in `apply.sh` under `_omp_run_gates`, invoked by the
+`MODE == "apply"` regression suite. `--print-gates` traverses that same dispatch
+without executing verifiers. Physical patch IDs and capability ownership are
+distinct: family revisions must preserve the selected capability gates. A gate
+that no suite invokes is not a gate.
 
 ### 3. Contracts
 
@@ -914,3 +917,65 @@ assert private parameter names or instruction digests until the port is green.
 Correct: retain upstream's shared pricing, extend its measured inputs/cache key,
 then prove admission/rejection through actual consumers. Delete obsolete tests
 rather than pinning new implementation details.
+
+## Scenario: Codex V2 capacity is not the standard compaction trigger
+
+### 1. Scope / Trigger
+
+18.7.0 `compact()` rejected a 281,553-token estimate before transport because
+Sol's standard `contextWindow` is 272,000, while its curated maximum is 922,000.
+Root causes: cross-layer capacity/trigger conflation and transport-only coverage.
+0096's handshake tests could not exercise the earlier core preflight.
+
+### 2. Signatures
+
+`compact(preparation, model, apiKey, instructions?, signal?, options?)` →
+`requestCompactionV2Streaming(...)` → Codex WebSocket.
+Gate: `OMP_PATCH_VERIFY_NM=<isolated-root> bun patches/verify-codex-compaction-chain-fail-closed.ts`.
+
+### 3. Contracts
+
+- Codex V2 preserves the complete native input on both live and cold-recovery
+  paths. Do not use the configured standard window to trim trailing tool output
+  or reject a remote compaction before the provider sees it.
+- Do not globally raise context settings, hardcode a server maximum, or alter
+  other OpenAI V2 lanes to fix this boundary. The provider remains authoritative.
+- Provider overflow still fails through the existing terminal path; never turn
+  a capacity rejection into a retry storm or a swallowed success.
+- The pre-consolidation correction amended existing0096 without adding a number. After family cutover, preserve that correction in the compaction family and revise that family for further repairs; do not resurrect0096 as an active tail.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| Cold user transcript above 272k, below 900k | Full recovery input; accepted native summary |
+| Cold trailing tool output above 272k | Complete output, not a truncation marker |
+| Live baseline above 272k | Chained compaction; no recovery replay |
+| Provider `context_length_exceeded` | Error preserved; one compaction frame |
+| Any of these cases | No HTTP/SSE replay or core soft summarizer |
+
+### 5. Good / Base / Bad Cases
+
+Good: test core entry through an actual loopback WebSocket. Base: small transcripts
+retain existing transport behavior. Bad: testing only the transport collector
+and calling all remote-compaction failures fixed.
+
+### 6. Tests Required
+
+Use the existing gate's four capacity cases; assert native preserve data,
+full source text on recovery, live `previous_response_id`, exact request count
+and provider rejection propagation. The pre-fix tree must fail at core preflight.
+Keep bounded handshake retry, cancellation and metadata cases. Local wire proof
+does not establish production server acceptance or cache-hit rates.
+
+Machine-check before delivery and at review:
+`grep -nE 'compact\\(|context_length_exceeded|capacityModel' patches/verify-codex-compaction-chain-fail-closed.ts`
+and compare the controller plan before/after (no added entries).
+
+### 7. Wrong vs Correct
+
+Wrong: `trimRemoteCompactionInputToContextWindow(..., model.contextWindow, ...)`
+unconditionally precedes all V2 requests.
+Correct: keep that preflight only on non-Codex lanes; Codex sends unchanged history
+to its existing provider-authoritative path. Keep automatic compaction thresholds
+separate from input admission.

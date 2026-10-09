@@ -1,0 +1,32 @@
+--- a/src/session/session-maintenance.ts
++++ b/src/session/session-maintenance.ts
+@@ -739,8 +739,27 @@
+ 				// region once the cache is genuinely cold (idle exceeds the 1h TTL).
+ 				keepBoundaryId,
+ 				idleFlushMs: PRUNE_IDLE_FLUSH_MS,
+-				// Prefix-bound thinking cannot survive rewrites inside a warm provider prefix.
+-				suffixTokenLimit: this.#host.model()?.thinking?.prefixBinding === true ? 0 : undefined,
++				// No model survives a rewrite inside a warm provider prefix, so the
++				// depth gate is 0 for every model, not just prefix-bound ones.
++				//
++				// The stock limit (8 000) weighs the rewrite against the SUFFIX AFTER
++				// the candidate, but a provider bills the distance from the mutated
++				// index back to its last cache checkpoint, and that stride is not
++				// observable here. Measured on session 01a07221 (deepseek-v4-pro via
++				// hyper, openai-completions): a 1 122-token suffix passed the gate, and
++				// blanking a 638-token stale read dropped cacheRead 40 832 -> 32 640.
++				// Re-billed input costs ~10x cacheRead there, so that trade needs ~116
++				// further turns to break even -- and every re-read of an already-read
++				// file opens the same hole again.
++				//
++				// A superseded result is BY CONSTRUCTION followed by the newer result
++				// that superseded it, so its suffix is never 0: for the supersede pass
++				// this defers every rewrite to the idle flush, where the cache is
++				// already cold and rewriting costs nothing. The `dropUseless` pass
++				// shares this gate but has no such successor, so a useless result that
++				// IS the last message still blanks immediately at zero prefix cost.
++				// Deferral, not a capability loss -- nothing accumulates permanently.
++				suffixTokenLimit: 0,
+ 			}),
+ 		);
+ 		if (result.prunedCount === 0) {

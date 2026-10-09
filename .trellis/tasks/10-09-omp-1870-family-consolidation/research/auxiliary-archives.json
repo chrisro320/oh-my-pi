@@ -1,0 +1,16 @@
+{
+  "pi-natives": {
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-natives/-/pi-natives-18.7.0.tgz",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi/pi-natives/18.7.0",
+    "integrity": "sha512-haOwxd82yfeZkCZgO2/E16GuBjgCbBm9s9p/8xh8qHDhOm1/g+F3HolydFQwd8ean3DycLySMD1rIOV+3jt2ag==",
+    "sha256": "26bd65b5fdcdfa51d8a4e71f7d3d082d74ac3a9d18dbbe3a5954b1994d5fc21d",
+    "bytes": 154870
+  },
+  "pi-natives-linux-x64": {
+    "url": "https://registry.npmjs.org/@oh-my-pi/pi-natives-linux-x64/-/pi-natives-linux-x64-18.7.0.tgz",
+    "metadata": "https://registry.npmjs.org/@oh-my-pi/pi-natives-linux-x64/18.7.0",
+    "integrity": "sha512-bXyagqxl9oIFFBQFehK3qcnl4Xdfurf1ElC/sKcynq1/FkFX1lLyWBaMQrYNnWoMVH5Xj82tSmRJgy17+Dsn/w==",
+    "sha256": "b2bcec683c206429dbbd9629c99f2a317880a5a8649e86046c6a8d70a6c26b58",
+    "bytes": 97819585
+  }
+}

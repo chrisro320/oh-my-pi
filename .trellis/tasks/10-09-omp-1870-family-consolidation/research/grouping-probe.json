@@ -1,0 +1,63 @@
+{
+  "method": "Verified official tarballs; earliest-member family order; historical order within each family; zero-fuzz dry-run before each application. Read-only to repository and runtime.",
+  "archivePins": {
+    "pi-coding-agent": "11cc7843f8e282cb8ccbfaed8aa86fe8e81454c3fd657cc593dee51c9c1e8fa7",
+    "pi-agent-core": "201b06d8485fc57dd9c19ebfdb9641b5b0759cbe8ecb7b72ac86dfd46f83e4d6",
+    "pi-ai": "d93368c60b999b70d1b6a7c8a79cf4d18350cc6bc52504ae4f650f2036422403",
+    "pi-catalog": "def38c60f2c3280fff164cc966dcac3897991e1d9c8c0c73bdfe5792fa575666",
+    "snapcompact": "03725b734e83914cfe9e7ee4dfca5aa20bca5411b193de6e166cf99acfe9a033",
+    "pi-tui": "670538ca52d705e4b39d90d3d34bb9241e8ea08b598e8fd0c4f23a3e351d42b4"
+  },
+  "proposedFamilyOrder": [
+    "status-accounting",
+    "hindsight",
+    "usage-pipeline",
+    "independent-0010",
+    "compaction",
+    "antigravity-wire",
+    "image-budget-snapcompact",
+    "independent-0017",
+    "independent-0032",
+    "persistent-prefix-resume",
+    "independent-0046",
+    "independent-0048",
+    "independent-0050",
+    "devin-wire",
+    "independent-0065",
+    "independent-0069",
+    "independent-0072",
+    "independent-0074",
+    "image-display",
+    "input-translation",
+    "independent-0090",
+    "independent-0092",
+    "independent-0094",
+    "independent-0095"
+  ],
+  "appliedBeforeFailure": [
+    "0033",
+    "0004",
+    "0081",
+    "0034",
+    "0075",
+    "0037",
+    "0025",
+    "0026",
+    "0030",
+    "0031",
+    "0010",
+    "0035",
+    "0063",
+    "0066",
+    "0067",
+    "0068",
+    "0070"
+  ],
+  "firstFailure": {
+    "id": "0088",
+    "family": "compaction",
+    "originalIndex": 51,
+    "output": "checking file pi-agent-core/dist/types/compaction/compaction.d.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nHunk #4 succeeded at 983 (offset -8 lines).\nHunk #5 FAILED at 1089.\nHunk #6 succeeded at 1091 (offset -14 lines).\nHunk #7 succeeded at 1109 (offset -14 lines).\nHunk #8 succeeded at 1204 (offset -14 lines).\nHunk #9 succeeded at 1449 (offset -14 lines).\nHunk #10 succeeded at 1520 (offset -14 lines).\nHunk #11 succeeded at 1540 (offset -14 lines).\nHunk #12 succeeded at 1611 (offset -14 lines).\nHunk #13 succeeded at 1626 (offset -14 lines).\nHunk #14 succeeded at 2237 (offset -14 lines).\nHunk #15 succeeded at 2253 (offset -14 lines).\nHunk #16 succeeded at 2276 (offset -15 lines).\nHunk #17 succeeded at 2799 (offset -15 lines).\nHunk #18 succeeded at 2829 (offset -15 lines).\nHunk #19 succeeded at 2915 (offset -15 lines).\nHunk #20 succeeded at 2964 (offset -15 lines).\n1 out of 20 hunks FAILED\nchecking file pi-coding-agent/src/session/session-advisors.ts\nHunk #1 succeeded at 2300 (offset -27 lines).\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nHunk #1 succeeded at 3467 (offset -70 lines).\nchecking file pi-agent-core/dist/types/compaction/anthropic.d.ts\nchecking file pi-agent-core/src/compaction/anthropic.ts\nchecking file pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md\n"
+  },
+  "interpretation": "Naive grouping requires prerequisite-aware rebasing; failure is not evidence that 24 layers are impossible."
+}

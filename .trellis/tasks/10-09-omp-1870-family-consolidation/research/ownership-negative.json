@@ -1,0 +1,10 @@
+{
+  "valid": {
+    "exitCode": 0,
+    "stdout": "OK rows=24 members=58\n"
+  },
+  "crossFamilyOwnershipSwap": {
+    "exitCode": 1,
+    "stderr": "FAIL: registry line 1: unapproved family ownership for status-accounting\n"
+  }
+}

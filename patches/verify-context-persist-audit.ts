@@ -7,6 +7,7 @@
 // exact message shape turn-recovery appends before `scheduleAgentContinue`
 // (18.2.10 `turn-recovery.ts` empty-stop / unexpected-stop paths): role
 // `developer`, `attribution: "agent"`, never persisted. No provider traffic.
+import type { AgentSession, ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -15,6 +16,27 @@ import { dirname, join } from "node:path";
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const EXTENSION = process.env.OMP_CONTEXT_AUDIT_EXTENSION ?? join(import.meta.dir, "context-persist-audit-extension.ts");
+
+// HOME must be private before process startup; Bun caches os.homedir().
+if (process.env.OMP_CONTEXT_AUDIT_CHILD !== "1") {
+	const home = mkdtempSync(join(tmpdir(), "cpa-home-"));
+	try {
+		const result = Bun.spawnSync([process.execPath, import.meta.path], {
+			env: {
+				...process.env, HOME: home, TMPDIR: home,
+				XDG_CONFIG_HOME: join(home, "config"), XDG_CACHE_HOME: join(home, "cache"),
+				XDG_DATA_HOME: join(home, "data"), XDG_STATE_HOME: join(home, "state"),
+				OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT, OMP_CONTEXT_AUDIT_CHILD: "1",
+			},
+		});
+		process.stdout.write(result.stdout);
+		process.stderr.write(result.stderr);
+		assert.equal(result.exitCode, 0, "isolated context audit gate failed");
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+	process.exit(0);
+}
 
 const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 const { buildSessionContext } = await import(`${AGENT_ROOT}/src/session/session-context.ts`);
@@ -28,7 +50,7 @@ writeFileSync(
 		(_match, sub: string) => JSON.stringify(`${AGENT_ROOT}/src/${sub}.ts`),
 	),
 );
-const { auditContext, loadTrellisAnchors } = await import(bound);
+const { default: contextPersistAudit, auditContext, loadTrellisAnchors } = await import(bound);
 
 type Msg = Record<string, unknown> & { role: string };
 let clock = 1_000;
@@ -263,6 +285,79 @@ const reminder = retryReminder();
 	const result = auditContext([...file, otherCustom], file);
 	assert.equal(result.status, "live-extra");
 	assert.equal(result.index, file.length);
+}
+
+// A real SDK side request may summarize a strict prefix; only a truncated main
+// turn is a persistence violation. Exercise both through their actual pipelines.
+{
+	const originalFetch = globalThis.fetch;
+	globalThis.fetch = (() => { throw new Error("Network forbidden in the context audit gate"); }) as typeof fetch;
+	let session: AgentSession | undefined;
+	try {
+		// Runtime-selected imports keep all SDK dependencies in the selected tree.
+		const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
+		const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
+		const { ModelRegistry } = await import(`${AGENT_ROOT}/src/config/model-registry.ts`);
+		const { createMockModel } = await import(`${dirname(AGENT_ROOT)}/pi-ai/src/providers/mock.ts`);
+		const cwd = join(dirname(bound), "work");
+		const agentDir = join(dirname(bound), "agent");
+		mkdirSync(cwd, { recursive: true });
+		mkdirSync(agentDir, { recursive: true });
+		const settings = await Settings.loadIsolated({
+			cwd, agentDir,
+			overrides: {
+				"memory.backend": "off", "computer.enabled": false,
+				"secrets.enabled": false, "compaction.enabled": false,
+			},
+		});
+		settings.setModelRole("default", "audit-fixture/audit-model");
+		const authStorage = await discoverAuthStorage(agentDir);
+		authStorage.keys.setRuntime("audit-fixture", "offline-fixture");
+		const modelRegistry = new ModelRegistry(authStorage, join(agentDir, "models.yml"), { settings });
+		const extension = (pi: ExtensionAPI) => {
+			pi.registerProvider("audit-fixture", {
+				api: "audit-fixture", baseUrl: "http://127.0.0.1:1/never", apiKey: "offline-fixture",
+				models: [{
+					id: "audit-model", name: "Audit fixture", reasoning: false, input: ["text"],
+					contextWindow: 200000, maxTokens: 1024,
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+				}],
+				streamSimple(model, context, options) {
+					return createMockModel({
+						id: model.id, provider: model.provider,
+						handler: { content: [{ type: "text", text: "ack" }] },
+					}).stream(model, context, options);
+				},
+			});
+			contextPersistAudit(pi);
+		};
+		const manager = SessionManager.create(cwd, join(dirname(bound), "sessions"));
+		({ session } = await createAgentSession({
+			cwd, agentDir, settings, authStorage, modelRegistry, sessionManager: manager,
+			skills: [], rules: [], contextFiles: [], promptTemplates: [], slashCommands: [],
+			disableExtensionDiscovery: true, enableMCP: false, enableLsp: false,
+			skipPythonPreflight: true, preloadedCustomToolPaths: [], toolNames: [],
+			extensions: [extension],
+		}));
+		assert.ok(session);
+		await session.prompt("Persist this complete turn.");
+		await manager.flush();
+		const logPath = join(homedir(), ".omp", "agent", "context-persist-audit.log");
+		const readAudit = () => readFileSync(logPath, "utf8");
+		const beforeLog = readAudit();
+		const originalMessages = session.agent.state.messages.slice();
+		await session.convertMessagesToLlm(originalMessages.slice(0, 1));
+		assert.equal(readAudit(), beforeLog, "compaction-prefix conversion must not emit a false persistence warning");
+		assert.deepEqual(session.agent.state.messages, originalMessages, "side conversion must not truncate live history");
+		session.agent.replaceMessages(originalMessages.slice(0, 1));
+		await session.agent.continue();
+		const records = readAudit().trim().split("\n").map(line => JSON.parse(line) as { status: string });
+		assert.equal(records.at(-1)?.status, "file-extra", "a genuinely truncated main turn must still be detected");
+		await settings.flush();
+	} finally {
+		await session?.dispose();
+		globalThis.fetch = originalFetch;
+	}
 }
 
 rmSync(dirname(bound), { recursive: true, force: true });

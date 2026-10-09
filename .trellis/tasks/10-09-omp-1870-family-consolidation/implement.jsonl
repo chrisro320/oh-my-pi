@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Package-scoped backend conventions and linked contracts."}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "Lossless family generation, immutable provenance, and negative controls."}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "Preserve capability coverage and isolated provider/credential regression gates."}
+{"file": ".trellis/tasks/10-09-omp-1870-family-consolidation/research/findings.md", "reason": "Executed baseline, regrouping failure, and physical-ID dispatch risks."}
+{"file": ".trellis/tasks/10-09-omp-1870-family-consolidation/research/families.json", "reason": "Exact ownership boundaries for all 58 deployed entries."}

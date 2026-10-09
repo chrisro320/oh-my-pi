@@ -1,0 +1,105 @@
+--- a/pi-ai/src/providers/openai-codex-responses.ts
++++ b/pi-ai/src/providers/openai-codex-responses.ts
+@@ -1721,7 +1721,21 @@
+ 				const isFatal = CODEX_WEBSOCKET_FATAL_PATTERNS.some(pattern =>
+ 					fatalWebSocketMessage.includes(pattern.toLowerCase()),
+ 				);
+-				const activateFallback = isFatal || websocketRetries >= websocketRetryBudget;
++				// `isFatal` answers "is an SSE replay available now?", not "may this
++				// request still succeed on a socket?". The compaction lane has no SSE
++				// to replay, so reading it as terminal ended the request on the first
++				// transient open failure -- a TLS reset, a refused upgrade, a connect
++				// timeout, exactly what reconnecting over a flaky link produces --
++				// without spending a single retry. In this lane the same failure
++				// consumes the bounded websocket retry budget below instead: a failed
++				// open never reached the wire, so the retry costs one handshake and
++				// nothing else. Once that budget is spent the failure stays
++				// retryable, so the finite budget the caller configured runs before
++				// any fallback; only an aborted request stops here, non-retryable.
++				const aborted = requestSetup.requestSignal.aborted;
++				const activateFallback = refuseSseFallback
++					? aborted || websocketRetries >= websocketRetryBudget
++					: isFatal || websocketRetries >= websocketRetryBudget;
+ 				recordCodexWebSocketFailure(websocketState, activateFallback);
+ 				CODEX_DEBUG &&
+ 					logger.debug("[codex] codex websocket fallback", {
+@@ -1741,7 +1755,7 @@
+ 				if (refuseSseFallback) {
+ 					throw new CodexCompactionChainLostError(
+ 						`websocket open failed and SSE cannot chain: ${error.message}`,
+-						!isFatal,
++						!aborted,
+ 					);
+ 				}
+ 				break;
+--- a/pi-agent-core/src/compaction/compaction.ts
++++ b/pi-agent-core/src/compaction/compaction.ts
+@@ -2242,24 +2242,31 @@
+ 					: remoteTools
+ 						? convertTools(remoteTools, model.compat.supportsStrictMode, model)
+ 						: undefined;
+-				const trimmed = trimRemoteCompactionInputToContextWindow(
+-					remoteHistory,
+-					new Tokenizer(model),
+-					model.contextWindow,
+-					instructions,
+-					tools,
+-				);
+-				if (trimmed.rewrittenOutputs > 0) {
+-					logger.info("Rewrote trailing tool outputs before OpenAI V2 remote compaction", {
+-						model: model.id,
+-						provider: model.provider,
+-						rewrittenOutputs: trimmed.rewrittenOutputs,
+-						estimatedTokensBefore: trimmed.estimatedTokensBefore,
+-						estimatedTokensAfter: trimmed.estimatedTokensAfter,
+-						contextWindow: model.contextWindow,
+-					});
++				// Codex's configured window is a compaction trigger, not the server's
++				// hard input limit (e.g. Sol: 272k standard, 922k maximum). Preserve
++				// the transcript and let the provider decide capacity, including on
++				// cold recovery; local trimming would silently discard tool results.
++				if (!isCodexResponsesModel(model)) {
++					const trimmed = trimRemoteCompactionInputToContextWindow(
++						remoteHistory,
++						new Tokenizer(model),
++						model.contextWindow,
++						instructions,
++						tools,
++					);
++					if (trimmed.rewrittenOutputs > 0) {
++						logger.info("Rewrote trailing tool outputs before OpenAI V2 remote compaction", {
++							model: model.id,
++							provider: model.provider,
++							rewrittenOutputs: trimmed.rewrittenOutputs,
++							estimatedTokensBefore: trimmed.estimatedTokensBefore,
++							estimatedTokensAfter: trimmed.estimatedTokensAfter,
++							contextWindow: model.contextWindow,
++						});
++					}
++					assertRemoteCompactionInputFits(trimmed, model);
++					remoteHistory = trimmed.input;
+ 				}
+-				assertRemoteCompactionInputFits(trimmed, model);
+ 				const requestOptions = {
+ 					sessionId: summaryOptions.sessionId,
+ 					promptCacheKey: summaryOptions.promptCacheKey,
+@@ -2267,8 +2274,8 @@
+ 					retainedUserItems,
+ 				};
+ 				const request = codexBody
+-					? buildCompactionV2RequestFromBody(model, { ...codexBody, input: trimmed.input }, requestOptions)
+-					: buildCompactionV2Request(model, trimmed.input, instructions, {
++					? buildCompactionV2RequestFromBody(model, { ...codexBody, input: remoteHistory }, requestOptions)
++					: buildCompactionV2Request(model, remoteHistory, instructions, {
+ 							...requestOptions,
+ 							tools,
+ 							reasoning: buildCompactionV2Reasoning(model, summaryOptions.thinkingLevel),
+@@ -2294,7 +2301,7 @@
+ 					initiator: summaryOptions.initiator ?? "primary",
+ 					sessionId: summaryOptions.sessionId,
+ 					model: model.id,
+-					messages: trimmed.input.length,
++					messages: remoteHistory.length,
+ 					systemParts: remoteSystemPrompt.length,
+ 					tools: tools?.length ?? 0,
+ 					hasLiveContext: liveV2 !== undefined,

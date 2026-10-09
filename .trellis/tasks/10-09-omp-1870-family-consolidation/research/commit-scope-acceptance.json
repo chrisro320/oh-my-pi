@@ -1,0 +1,18 @@
+{
+  "selectedGates": 46,
+  "allStagedGateBytesMatchExecutedSuite": true,
+  "contextAuditConsumerMatchesExecutedSuite": true,
+  "stagedStructuralOracle": "ALL PASS (bg_10,33.82seconds)",
+  "nativeArtifact": "verified local generated binary used only in sandbox; excluded from commit",
+  "excludedWorkingTreeChanges": [
+    "translator/DNS ledger hunk",
+    "deployment-watcher runbook hunk",
+    ".gitignore",
+    "extension-runtime-contracts unrelated changes",
+    "cache-prefix-audit extension/gate",
+    "input-translator extension",
+    "10-07-omp-prompt-model-identity task"
+  ],
+  "exportSandboxRemoved": true,
+  "deployment": false
+}

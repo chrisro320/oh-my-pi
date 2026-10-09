@@ -19,19 +19,27 @@
 
 ```sh
 ~/.bun/bin/omp --version
-sha256sum patches/*.patch
+OMP_PATCH_VERSION=18.7.0 OMP_PATCH_PLAN=deployed bash patches/apply.sh --print-plan
 ```
 
 版本選擇規則：
 
 ```text
 未設定 OMP_PATCH_VERSION       依 installed pi-coding-agent 版本自動路由（精確匹配，非就近 fallback）
-OMP_PATCH_VERSION=18.1.14/18.1.18/18.2.3/18.2.10/18.3.3  選擇同版本精確計畫
-18.3.3                       六個官方套件版本必須全為18.3.3；47層，0073上游接管但保留gate
+OMP_PATCH_VERSION=<supported-version> 選擇同版本精確計畫；存活版本見 apply.sh
+18.7.0                       六個官方套件版本必須全為18.7.0；層數由 selected resolved plan 決定
 其他值／顯式值與安裝版不符      exit 2，禁止猜測套用
 ```
 
-`PATCHES` 陣列是所有存活計畫共用的 canonical 補丁母集，本身不是可部署計畫（成員 a 側橫跨多個上游版本）；不存在「canonical 18.0.9 路徑」。
+The canonical `PATCHES` array serves retained historical plans; it is not a deployable chain. The18.7.0 family plan comes from `.18.7.0-families/plan.tsv`. Always consume `apply.sh --print-plan`, not the array or a glob of patch files.
+
+For18.7.0, `OMP_PATCH_PLAN=deployed` (also the default) selects the consolidated deployed baseline. `OMP_PATCH_PLAN=repository` explicitly adds the still-undeployed0097 candidate. Capture the exact selection in staging and transaction evidence; never infer the selection from a missing candidate or activate0097 incidentally. Other selector values fail closed; older versions do not accept this selector.
+
+Same-family maintenance archives the previous immutable revision and replaces the active family revision rather than appending a repair layer. Follow the existing [family contract](../.trellis/spec/backend/patch-rollup-contracts.md); keep historical rollback bytes unchanged.
+
+Next-update baseline: use the verified18.7.0 family registry (24 base entries), its owned capabilities and gates. Do not revive the retired58-layer chain as the migration starting point. Port families against the new official release, retire only behavior proven fully upstream, and preserve independent verification/rollback boundaries. This decision does not deploy the current family representation or opt into0097.
+
+Representation-only repository work is not deployment authorization. Before an authorized cutover, run the selected-version old/new verifier and isolated CLI/tool smoke, then stage the verified controller, family registry, patches and gates as one ledger. Retain the old ledger/controller as the rollback oracle. A repository/live mismatch during approved staging is not permission to overwrite the live ledger early.
 
 18.3.3 使用隔離安裝驗證後整樹切換，不在正式安裝上逐檔修補：
 
@@ -40,7 +48,7 @@ OMP_PATCH_VERSION=18.1.14/18.1.18/18.2.3/18.2.10/18.3.3  選擇同版本精確�
 3. 備份 global 安裝、launcher target、patch ledger；不複製或連線正式 agent DB。
 4. 在正式 global 同檔案系統準備 staged global，在 ledger 同檔案系統準備 staged patches；比較已驗證樹的 bytes 與 symlink targets。
 5. Linux `renameat2(..., RENAME_EXCHANGE)` 原子交換各目錄；第二次交換失敗時立即反交換 global。舊樹與獨立備份均保留。
-6. 新程序使用正式 source CLI、私有 HOME 驗版本與工具呼叫；controller `--check` 唯讀驗47補丁。正式 auth/session 由使用者重啟後沿用。
+6. 新程序使用正式 source CLI、私有 HOME 驗版本與工具呼叫；controller `--check` 必須與 staged `--print-plan` 的實際 entry 數量一致，且無 CONFLICT/MISSING。正式 auth/session 由使用者重啟後沿用。
 
 Ledger 不再依賴 `../vendor/pi-commandcode-provider`：該外掛已於 2026-09-27 退役（使用者改用官方原版端點），其跨註冊校驗腿已隨之移除。
 
