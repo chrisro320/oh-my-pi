@@ -1,0 +1,28 @@
+{
+  "id": "omp-18101-native-escape-monitor",
+  "name": "omp-18101-native-escape-monitor",
+  "title": "OMP 18.10.1 native: Escape monitor survives XTEST slave switch",
+  "description": "Rebuild pi-natives 18.10.1 with the Linux Escape monitor refreshing its keycode on MappingNotify instead of cancelling, deliver it through a recorded native overlay, and publish.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-10-12",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "requested_profile": "hard"
+  }
+}

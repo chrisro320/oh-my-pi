@@ -1,0 +1,100 @@
+diff --git a/crates/pi-natives/src/desktop/control/linux.rs b/crates/pi-natives/src/desktop/control/linux.rs
+index f24d1f8226..f9dd5d857d 100644
+--- a/crates/pi-natives/src/desktop/control/linux.rs
++++ b/crates/pi-natives/src/desktop/control/linux.rs
+@@ -85,6 +85,33 @@ struct X11 {
+ 	conn:   RustConnection,
+ 	escape: u8,
+ }
++
++/// Keycode that currently produces the Escape keysym in the core keyboard map.
++fn escape_keycode(conn: &RustConnection) -> CoreResult<u8> {
++	let setup = conn.setup();
++	let mapping = conn
++		.get_keyboard_mapping(
++			setup.min_keycode,
++			setup
++				.max_keycode
++				.saturating_sub(setup.min_keycode)
++				.saturating_add(1),
++		)
++		.map_err(failed)?
++		.reply()
++		.map_err(failed)?;
++	let width = usize::from(mapping.keysyms_per_keycode);
++	if width == 0 {
++		return Err(failed("the X11 keyboard map is empty"));
++	}
++	mapping
++		.keysyms
++		.chunks(width)
++		.position(|row| row.contains(&0xff1b))
++		.and_then(|row| setup.min_keycode.checked_add(u8::try_from(row).ok()?))
++		.ok_or_else(|| failed("the X11 keymap has no Escape key"))
++}
++
+ impl X11 {
+ 	fn new() -> CoreResult<Self> {
+ 		let (conn, screen) = x11rb::connect(None).map_err(failed)?;
+@@ -93,30 +120,9 @@ impl X11 {
+ 			.map_err(failed)?
+ 			.reply()
+ 			.map_err(failed)?;
+-		let setup = conn.setup();
+-		let mapping = conn
+-			.get_keyboard_mapping(
+-				setup.min_keycode,
+-				setup
+-					.max_keycode
+-					.saturating_sub(setup.min_keycode)
+-					.saturating_add(1),
+-			)
+-			.map_err(failed)?
+-			.reply()
+-			.map_err(failed)?;
+-		let width = usize::from(mapping.keysyms_per_keycode);
+-		if width == 0 {
+-			return Err(failed("the X11 keyboard map is empty"));
+-		}
+-		let escape = mapping
+-			.keysyms
+-			.chunks(width)
+-			.position(|row| row.contains(&0xff1b))
+-			.and_then(|row| setup.min_keycode.checked_add(u8::try_from(row).ok()?))
+-			.ok_or_else(|| failed("the X11 keymap has no Escape key"))?;
++		let escape = escape_keycode(&conn)?;
+ 		conn
+-			.xinput_xi_select_events(setup.roots[screen].root, &[x11rb::protocol::xinput::EventMask {
++			.xinput_xi_select_events(conn.setup().roots[screen].root, &[x11rb::protocol::xinput::EventMask {
+ 				deviceid: Device::ALL_MASTER.into(),
+ 				mask:     vec![XIEventMask::RAW_KEY_PRESS],
+ 			}])
+@@ -127,7 +133,7 @@ impl X11 {
+ 		Ok(Self { conn, escape })
+ 	}
+ 
+-	fn run(self, stopped: &UnixStream, emergency: &EmergencyStop) {
++	fn run(mut self, stopped: &UnixStream, emergency: &EmergencyStop) {
+ 		let mut descriptors = [
+ 			libc::pollfd { fd: stopped.as_raw_fd(), events: libc::POLLIN, revents: 0 },
+ 			libc::pollfd {
+@@ -160,9 +166,16 @@ impl X11 {
+ 							emergency.cancel();
+ 						}
+ 					},
+-					Ok(Some(Event::MappingNotify(_))) => {
+-						emergency.cancel();
+-						return;
++					// The server broadcasts MappingNotify whenever the master keyboard
++					// switches slaves, including to the XTEST device carrying our own
++					// input. Re-read the map so the watched Escape keycode stays
++					// current; only an unreadable map or a map without Escape stops.
++					Ok(Some(Event::MappingNotify(_))) => match escape_keycode(&self.conn) {
++						Ok(escape) => self.escape = escape,
++						Err(_) => {
++							emergency.cancel();
++							return;
++						},
+ 					},
+ 					Ok(Some(_)) => {},
+ 					Ok(None) => break,
