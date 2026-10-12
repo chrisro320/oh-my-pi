@@ -1,0 +1,141 @@
+--- patches/.retired/10-12-18.10.1-status-footer/family-status-accounting-v18.10.1.patch	2026-10-12 07:25:44.016727609 -0400
++++ patches/.18.10.1-families/family-status-accounting-v18.10.1.patch	2026-10-12 07:29:32.760357291 -0400
+@@ -129,8 +129,45 @@
+  	"collab",
+ --- a/pi-tui/src/status-line/segments.ts
+ +++ b/pi-tui/src/status-line/segments.ts
+-@@ -728,15 +728,17 @@
++@@ -11,7 +11,7 @@
++ 	relativePathWithinNormalizedRoot,
++ } from "@oh-my-pi/pi-utils";
++ import { type SymbolKey, type Theme, type ThemeColor, theme } from "../theme";
++-import { shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "../render/render-utils";
+++import { shortenPath, TRUNCATE_LENGTHS, truncateMiddleToWidth, truncateToWidth } from "../render/render-utils";
++ import { fileHyperlink } from "../render/hyperlink";
++ import { getSessionAccentAnsi, getSessionAccentHex } from "../theme/session-color";
++ import { summarizeLoopCondition } from "./loop";
++@@ -626,6 +626,9 @@
++ 	return [span(value.slice(0, slash + 1), "statusLinePath dim"), leaf];
++ }
+  
+++/** Widest branch label (terminal cells) the footer shows; longer names keep both ends around an ellipsis. */
+++const BRANCH_LABEL_MAX = 24;
+++
++ const gitSegment: StatusLineSegment = {
++ 	id: "git",
++ 	render(ctx) {
++@@ -639,7 +642,7 @@
++ 		const showBranch = opts.showBranch !== false;
++ 		let content = "";
++ 		if (showBranch && branch) {
++-			content = withIcon(theme.icon.branch, branch);
+++			content = withIcon(theme.icon.branch, truncateMiddleToWidth(branch, BRANCH_LABEL_MAX));
++ 		}
++ 
++ 		// Add status indicators
++@@ -677,7 +680,7 @@
++ 		const colorName = isDirty ? "statusLineGitDirty" : "statusLineGitClean";
++ 		const showBranch = opts.showBranch !== false;
++ 		const spans: TspSpan[] = [];
++-		if (showBranch && branch) spans.push(span(branch, colorName));
+++		if (showBranch && branch) spans.push(span(truncateMiddleToWidth(branch, BRANCH_LABEL_MAX), colorName));
++ 		if (status) {
++ 			// Spans join as one text: each count after the branch or a previous count leads with a space.
++ 			const push = (text: string, token: string): void => {
++@@ -728,15 +731,17 @@
++ 
+  const tokenOutSegment: StatusLineSegment = singleStatSegment("token_out", "output", "output", "statusLineOutput");
+  
+ +/** Cached reads still consume the provider's rate-limit window. */
+@@ -153,7 +190,7 @@
+  		if (!total) return { content: "", visible: false };
+  
+  		const content = formatMetric({
+-@@ -746,8 +748,7 @@
++@@ -746,8 +751,7 @@
+  		return { content: theme.fg("statusLineSpend", content ?? ""), visible: true };
+  	},
+  	describe(ctx) {
+@@ -163,7 +200,7 @@
+  		if (!total) return null;
+  		return segView([span(formatNumber(total), "statusLineSpend")], "tokens");
+  	},
+-@@ -994,17 +995,9 @@
++@@ -994,17 +998,9 @@
+  const cacheHitSegment: StatusLineSegment = {
+  	id: "cache_hit",
+  	render(ctx) {
+@@ -184,7 +221,7 @@
+  		const rateStr = rate.toFixed(2);
+  
+  		const parts: string[] = [theme.icon.cache];
+-@@ -1012,13 +1005,49 @@
++@@ -1012,13 +1008,59 @@
+  		return { content: parts.join(" "), visible: true };
+  	},
+  	describe(ctx) {
+@@ -197,8 +234,8 @@
+  	},
+  };
+  
+-+/** The latest settled assistant's cache usage, shared by both status surfaces. */
+-+function cacheTurnText(ctx: SegmentContext): string | undefined {
+++/** Hit rate of the latest settled assistant turn; undefined when it reported no cache read. */
+++function lastTurnCacheRate(ctx: SegmentContext): number | undefined {
+ +	// Streaming usage is partial: input can arrive before cacheRead is backfilled.
+ +	const messages = ctx.session.messages ?? ctx.session.state.messages;
+ +	for (let index = messages.length - 1; index >= 0; index--) {
+@@ -212,32 +249,42 @@
+ +		) {
+ +			continue;
+ +		}
+-+		const usage = message.usage;
+-+		if (!usage.cacheRead) return undefined;
+-+		const total = usage.cacheRead + usage.cacheWrite + usage.input;
+-+		const rate = total > 0 ? (usage.cacheRead / total) * 100 : 0;
+-+		return `trn ${formatNumber(usage.cacheRead)} ${rate.toFixed(1)}%`;
+++		const { cacheRead, cacheWrite, input } = message.usage;
+++		return cacheRead ? (cacheRead / (cacheRead + cacheWrite + input)) * 100 : undefined;
+ +	}
+ +	return undefined;
+ +}
+ +
+++/** `<turn>% /<session>%`: latest turn's hit rate, then the main-session hit rate. */
+++function cacheTurnParts(ctx: SegmentContext): Array<{ text: string; color: ThemeColor }> {
+++	const parts: Array<{ text: string; color: ThemeColor }> = [];
+++	const turn = lastTurnCacheRate(ctx);
+++	if (turn !== undefined) parts.push({ text: `${turn.toFixed(1)}%`, color: "statusLineOutput" });
+++	const session = ctx.session.sessionManager.getMainCacheHitRate();
+++	if (session !== undefined) {
+++		parts.push({ text: `${parts.length ? " /" : ""}${session.toFixed(2)}%`, color: "statusLineSpend" });
+++	}
+++	return parts;
+++}
+++
+ +const cacheTurnSegment: StatusLineSegment = {
+ +	id: "cache_turn",
+ +	render(ctx) {
+-+		const content = cacheTurnText(ctx);
+-+		if (content === undefined) return { content: "", visible: false };
+-+		return { content: theme.fg("statusLineOutput", content), visible: true };
+++		const parts = cacheTurnParts(ctx);
+++		if (parts.length === 0) return { content: "", visible: false };
+++		const text = parts.map(part => theme.fg(part.color, part.text)).join("");
+++		return { content: withIcon(theme.icon.cache, text), visible: true };
+ +	},
+ +	describe(ctx) {
+-+		const content = cacheTurnText(ctx);
+-+		return content === undefined ? null : segView([span(content, "statusLineOutput")]);
+++		const parts = cacheTurnParts(ctx);
+++		return parts.length === 0 ? null : segView(parts.map(part => span(part.text, part.color)), "cache");
+ +	},
+ +};
+ +
+  const sessionNameSegment: StatusLineSegment = {
+  	id: "session_name",
+  	render(ctx) {
+-@@ -1310,6 +1339,7 @@
++@@ -1310,6 +1352,7 @@
+  	cache_read: cacheReadSegment,
+  	cache_write: cacheWriteSegment,
+  	cache_hit: cacheHitSegment,

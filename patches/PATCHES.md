@@ -18,6 +18,7 @@
 - User-requested cleanup removes pre18.4.4 active plan support, the copied cache-baseline simulation, non-asserting frame-budget diagnostic and source-only spec gate; ten duplicate image-budget assertions and Ollama source-spelling assertions are removed. Historical result captures are retained, not rerun.
 - Post-release queue hotfix: `family-input-translation` now restores live-steered drafts through Alt+Up and separates queue policy from the continuation's own busy reservation. Actual `AgentSession.prompt` + live acceptance + empty-submit consumer smoke passes without network; no new permanent tests. Candidate tree: `028a49dab1de4d7df48044c36c94c0acb911f6d463a3e15b2f543e6b2810c655`.
 - Inline image repair belongs to Orca's Kitty addon, not an OMP retransmit workaround: `orca-update-patch` trigger1.9.6 preserves source data for lowercase placement deletion and honors `p`. The installed renderer requires a full Orca restart; credentials and polling protection are unchanged.
+- Footer compaction (`family-status-accounting`, family patch only, **not yet published**): `cache_turn` now renders `<turn>% /<main-session>%` under the cache icon (old `trn <cacheRead> <rate>%` and the separate count are gone; `cache_hit` is unchanged), and the `git` segment middle-truncates branches wider than 24 cells via the existing `truncateMiddleToWidth` (`trellis/ds-…mpact-tuning`). Previous family bytes and the delta are in `.retired/10-12-18.10.1-status-footer/`. Zero-fuzz replay, reverse-to-pristine and second replay pass; `verify-main-cache-hit.ts` passes on the staging runtime. Candidate tree: `87c8c1c88769dcc34672e26190941e2386b08eb4243e10776407fb3d0f6b1035`.
 
 ## Historical repository plan and deployment record (2026-10-09)
 
@@ -1501,7 +1502,7 @@ Historical representation note: the following 18.4.4 tail placement and layer co
 | 项 | 验证 |
 |---|---|
 | usage 刷新 | LLM 输出完成后按键 → quota 立即更新（不等 50s） |
-| cache_turn | statusline 显示 `trn <cacheRead> <hit>%` |
+| cache_turn | statusline 显示 `<本輪命中>% /<主會話命中>%`（18.10.1 footer 精簡後） |
 | token_total | 累计值含 cacheRead |
 | 无闪屏 | Ctrl+T 展开时无二次整屏重绘（0007） |
 | Ctrl+T 跳底部 | 官方行为（0008 已撤，接受） |

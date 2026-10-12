@@ -86,7 +86,7 @@ function assertStatusSurfaces(manager: Manager, expectedTokens: number) {
 		}, { cols: 160, dark: true, reduceMotion: true, supports: () => true, feature: () => false });
 		for (const op of ops) if (op[0] === "add") collect(op[4]);
 		assert.equal(labels["omp.status.cache_hit"], "90.00%", "native hit rate must exclude auxiliary calls");
-		assert.equal(labels["omp.status.cache_turn"], "trn 900 90.0%", "native cache_turn must describe the settled assistant");
+		assert.equal(labels["omp.status.cache_turn"], "90.0% /90.00%", "native cache_turn must pair the settled turn with the main-session rate");
 		assert.equal(labels["omp.status.token_total"], formatNumber(expectedTokens), "native total includes cache and orchestration reads");
 		const ansi = status.getTopBorder(160).content.replace(/\x1b\[[0-9;]*m/g, "");
 		for (const label of Object.values(labels)) assert.ok(ansi.includes(label), `ANSI border must agree with native value ${label}`);

@@ -1,0 +1,10 @@
+{
+  "version": "18.10.1",
+  "family": ".18.10.1-families/family-status-accounting-v18.10.1.patch",
+  "root": "NM",
+  "previousFamily": "family-status-accounting-v18.10.1.patch",
+  "previousFamilySha256": "728a8a0db263d2682d0f1fb768b8760e197f99abcbc533bbf53a5c33833b3bf9",
+  "repair": "footer-compact.delta.patch",
+  "repairSha256": "dd0c0ffbc1eff80d46176d76ed35027a1bf2c04c3ead67f639069a071f875fcf",
+  "currentFamilySha256": "3a758dc391f495f212dff4b6b0b7e76ceedfd353ec50ae97e8fe9c16e545bfd2"
+}

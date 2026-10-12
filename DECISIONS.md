@@ -79,6 +79,19 @@ Cleanup (2026-10-12, user request "clear out the extra test files"):
 - Kept every other `verify-*`: 48 are selected by a retained-version controller plan; the rest are release/replay infrastructure, spec-cited gates, or test installed extensions.
 - Kept the 10-11 gate-run directories: `consumer-acceptance-index.json`, `risk-register.json`, `verification.md` or `latest-release-acceptance.json` cite each of them as AC evidence. They are results, not tests.
 
+## Follow-up: Tern footer compaction (2026-10-12)
+
+The user annotated a Tern footer screenshot: branch first, then `<turn>% /<total>%` under one cache icon, then usage, then the token total; overly long branches truncated with an ellipsis. The user rejected a config-only answer and asked for source changes.
+
+| Problem | Chosen change | Rejected alternative and reason |
+|---|---|---|
+| `trn 1.2M 99.8%` plus a separate cache-icon `99.11%` is wide and repetitive | `cache_turn` (owned by `family-status-accounting`) renders `<cache icon> <turn>% /<main-session>%`; a turn without cache reads shows only the session rate. Uses the existing `getMainCacheHitRate()`, so the two rates share one denominator rule. The icon is the existing `cache` key: Tern draws its own glyph natively, the ANSI path uses the `ascii` preset text `cache`; the floppy emoji appears only under the default unicode preset | Folding the turn rate into upstream-shaped `cache_hit` and deleting the `cache_turn` id: touches schema, `.d.ts` and leaves owned paths with empty diffs for the same visual result |
+| Long branch names push other facts out (`git` is pinned and never drops) | `git` middle-truncates branches wider than 24 cells with the existing `truncateMiddleToWidth` (`trellis/ds-…mpact-tuning`; CJK cut by cell width). Both ends survive | A hand-rolled UTF-16 slicer (first draft; replaced after review because it mis-measures wide characters); end truncation loses the distinguishing tail; a new `segmentOptions.git` width option needs settings-schema work nobody asked for |
+| Footer settings | `token_total` last, `cost` removed, `showBranch` restored. After the release ships, drop `cache_hit` from `rightSegments` because `cache_turn` already carries the total | Removing `cache_hit` now: the running release still renders the old `trn` form, so the total rate would disappear until restart |
+| Publication | Family patch only; ships with the next immutable release together with S1 | A release now forces another old-owner restart barrier |
+
+Evidence (staging runtime, no network): throwaway render/describe smokes for both segments under the `ascii` preset (turn+session, streaming tail skipped, turn miss, error tail skipped, empty; branch at 4/25/29 characters and a CJK name, with dirty counts). `verify-main-cache-hit.ts` updated from the old `trn 900 90.0%` label to `90.0% /90.00%` and passes. `verify-release-family-plan.py --version 18.10.1`: zero-fuzz, reverse to pristine, identical second replay; candidate tree `87c8c1c8…1035`. Previous family bytes in `patches/.retired/10-12-18.10.1-status-footer/` with SHA-256.
+
 ## 五題確認
 
 1. 為什麼空 Enter 會卡住？ A. 網路配額不足；B. 續跑工作用 idle 條件否決自己剛取得的 busy 狀態。
