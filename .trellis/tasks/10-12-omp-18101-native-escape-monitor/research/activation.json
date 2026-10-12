@@ -1,0 +1,9 @@
+{
+  "release": "18.10.1-14ba3537d44c-990bce05-4de13d17",
+  "omp_version": "omp/18.10.1 (installed; ready for a new process)",
+  "loaded_addon": {"path": "pi-natives-linux-x64/pi_natives.linux-x64-modern.node", "sha256_prefix": "4db8e35b", "matches_overlay_rebuilt": true},
+  "live_acceptance": [
+    {"run": 1, "path": "OMP eval computer.control.acquire + win.type into scratch xterm", "precondition": "last physical input was user typing in Tern (not witnessed)", "type": "ok", "grant_after_type": "active", "evidence": "xterm shows 'echo native-release-ok' executed"},
+    {"run": 2, "path": "same", "precondition": "witnessed SlaveSwitch -> keyd (22) at 283740618 from user typing", "witness": "SlaveSwitch -> XTEST (5) at 283780542 during type", "type": "ok", "grant_after_type": "active", "evidence": "/tmp/cu-accept-2 created by typed command"}
+  ]
+}

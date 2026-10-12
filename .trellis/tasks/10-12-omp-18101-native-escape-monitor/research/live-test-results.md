@@ -11,3 +11,13 @@ Target: scratch xterm `omp-cu-scratch` only; user consented ("測", "好"). Witn
 
 Earlier unwitnessed run (13:22:02Z, right after user typing): `typeText` ok, grant active.
 Old addon under the same conditions (OMP eval, 12:45Z and after user typing): `Cancelled` after one character, grant revoked.
+
+## Open questions (not explained by the current model)
+
+- In the pre-release run the witness showed an extra keyd -> XTEST -> keyd switch after the type op completed, with no user keystroke recorded in that window.
+- No SlaveSwitch was recorded at the start of the 20 s Shift hold, although the hold sends XTEST keys.
+Neither affects the fix (any MappingNotify now re-reads Escape), but the timeline is not fully understood.
+
+## Post-activation acceptance (released runtime)
+
+See `activation.json`: two OMP-path runs, the second with a witnessed keyd (22) -> XTEST (5) switch; both `type` ok, grant active.
