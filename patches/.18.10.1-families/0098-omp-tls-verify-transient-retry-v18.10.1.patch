@@ -1,0 +1,27 @@
+--- a/src/error/flags.ts
++++ b/src/error/flags.ts
+@@ -541,6 +541,14 @@
+ 	return text.includes(STREAM_ENVELOPE_ERROR_PREFIX);
+ }
+ 
++/**
++ * Bun's TLS handshake failure without a specific verification reason. Observed
++ * only as a transient network/proxy fault that succeeds on the next request.
++ * Deterministic failures (expired, self-signed, hostname mismatch) use distinct
++ * wording and stay terminal.
++ */
++const TRANSIENT_TLS_VERIFY_PATTERN = /\bunknown certificate verification error\b/i;
++
+ function isTransientErrorText(text: string): boolean {
+ 	return (
+ 		isUnexpectedSocketCloseMessage(text) ||
+@@ -548,7 +556,8 @@
+ 		PYTHON_HTTP2_STREAM_RESET_PATTERN.test(text) ||
+ 		PYTHON_HTTP_INCOMPLETE_CHUNK_PATTERN.test(text) ||
+ 		(TRANSIENT_ENVELOPE_PATTERN.test(text) && TRANSIENT_ENVELOPE_TRUNCATION_PATTERN.test(text)) ||
+-		TRANSIENT_TRANSPORT_PATTERN.test(text)
++		TRANSIENT_TRANSPORT_PATTERN.test(text) ||
++		TRANSIENT_TLS_VERIFY_PATTERN.test(text)
+ 	);
+ }
+ 

@@ -58,7 +58,7 @@ def main():
     empty = []
     for family in metadata["family_order"]:
         owned = sorted(path for path, state in paths.items() if family in state["families"])
-        original = definitions[family]
+        original = definitions.get(family) or approved[family]
         root_key = original["root"]
         prefix = helper.ROOTS[root_key]
         if prefix and any(not path.startswith(prefix + "/") for path in owned):

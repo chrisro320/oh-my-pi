@@ -560,6 +560,18 @@
         "pi-coding-agent/src/session/agent-session-types.ts",
         "pi-coding-agent/src/session/agent-session.ts"
       ]
+    },
+    {
+      "id": "0098-omp-tls-verify-transient-retry",
+      "patch": ".18.10.1-families/0098-omp-tls-verify-transient-retry-v18.10.1.patch",
+      "root": "AI",
+      "capabilities": [
+        "0098"
+      ],
+      "sha256": "6d7425bed77a6ba216678cf8eeaec0177cb55c35ecc9ac601e15fa4fb8ee251b",
+      "paths": [
+        "pi-ai/src/error/flags.ts"
+      ]
     }
   ],
   "upstream_adoptions": [
@@ -571,5 +583,5 @@
     }
   ],
   "pristine_tree_sha256": "e565fa89582d4c3a1d5773b210b311966e442b96f2086031953ee71f09c7d910",
-  "candidate_tree_sha256": "14ba3537d44c7da78e09fea2bfd4c0afd8aaaa17473d4fddbca1219645933c3f"
+  "candidate_tree_sha256": "6ab7f5fd669494465aa2f973b1f91ad8c4f0e55d37d17caaffb5546d260ea2da"
 }

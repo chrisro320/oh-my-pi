@@ -8,7 +8,7 @@
 
 The sections below this procedure retain historical direct-global deployment and offline database guidance. Do not apply their `bun add -g`, global directory exchange, watcher or mutable-ledger commands to the current immutable release.
 
-1. Pin official archives/commit, rebase the family registry and run the complete representation oracle.18.10.1 retains58 capabilities in23 physical families;0097 is not selected. Use existing changed-consumer gates, not repeated broad suites.
+1. Pin official archives/commit, rebase the family registry and run the complete representation oracle.18.10.1 retains58 capabilities in23 physical families and adds post-cutover family 0098 (24 /59, declared in `verify-release-family-plan.py` `ADDED_FAMILIES`);0097 is not selected. Use existing changed-consumer gates, not repeated broad suites.
 2. Assemble the full dependency/native closure under private HOME/cache. All13 OMP packages must match18.10.1. Independent copies must have no external aliases or shared regular-file inodes. Never source pristine packages from the live Bun cache.
    Native overlay: rebuild with `bash patches/native/build-natives.sh <work> <out>`, install both `.node` files into the runtime's `pi-natives-linux-x64/`, then `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi` must PASS. A rebuilt hash differing from `overlay.json` means the recipe or toolchain drifted: record the new hashes only after re-running the live Escape checks.
 3. Prepare permanent code with:

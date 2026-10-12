@@ -17,6 +17,12 @@ import urllib.request
 ROOTS = {"NM": "", "AGENT": "pi-coding-agent", "CORE": "pi-agent-core",
          "AI": "pi-ai", "TUI": "pi-tui", "SNAP": "snapcompact"}
 
+# Capabilities approved after the 18.7.0 family cutover. They are new behavior,
+# not retained baseline members, and follow every retained family in order.
+ADDED_FAMILIES = {
+    "18.10.1": [{"id": "0098-omp-tls-verify-transient-retry", "root": "AI", "capabilities": ["0098"]}],
+}
+
 
 def tree_manifest(root):
     result = {}
@@ -54,7 +60,11 @@ def retained_families(here, version):
         cross_package = capabilities == ["0090"] or (version == "18.10.1" and capabilities == ["0048"])
         retained.append({"id": family, "root": "NM" if cross_package else root,
                          "capabilities": capabilities})
-    return retained, sorted(oracle.variant_ids(baseline, "deployed"))
+    added = ADDED_FAMILIES.get(version, [])
+    retained.extend(added)
+    union = oracle.variant_ids(baseline, "deployed")
+    union = sorted(set(union) | {item for entry in added for item in entry["capabilities"]})
+    return retained, union
 
 
 def validate_capability_contract(here, manifest):

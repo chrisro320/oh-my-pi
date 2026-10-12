@@ -96,6 +96,19 @@ Second iteration (after release `87c8c1c88769` was active): in Tern the composer
 
 Third iteration (release `14ba3537d44c` active): with `token_total` still configured, Tern showed branch, `61M` and quota but dropped `cache_turn`. An offline probe of the installed code on a copy of this session file produced `99.3% /99.07%`, so OMP emitted the segment and Tern dropped it. Inference (Tern ships only a binary): its composer fact budget is narrower than the visible gap; the two snapshots fit about the same total width. The user dropped `token_total`; the confirmed footer is branch `trellis…t-tuning *1`, `99.9% /99.08%`, `5h 49% (2h 20m) · 7d 28% (5h) · ✦1`. Final `rightSegments`: `session_name, cache_turn, context_pct, usage` (`session_name` and `context_pct` are shown outside the composer by Tern).
 
+## Follow-up: retry transient TLS verification failures (2026-10-12)
+
+A subagent (`google-antigravity/gemini-3.8-flash`) ended with `unknown certificate verification error`; nudging the idle agent with "？" let it finish normally. The user asked for automatic retry instead of a failed task.
+
+| Problem | Chosen change | Rejected alternative and reason |
+|---|---|---|
+| The error is not in any transient pattern, so `TurnRecovery.isRetryableError` returns false and the turn ends | New family `0098-omp-tls-verify-transient-retry` adds `\bunknown certificate verification error\b` to `isTransientErrorText` in `pi-ai/src/error/flags.ts`; the existing retry policy (`maxRetries: 4`, backoff, model fallback) applies to main sessions and subagents alike | Extending the exported `TRANSIENT_TRANSPORT_PATTERN`: it is also consumed outside turn recovery, widening the change. Retrying all TLS errors: expired/self-signed/hostname failures are deterministic, so retries only delay the message (user chose this error only) |
+| Usage/quota fetches log the same error | Out of scope (user chose model turns only); they affect only the footer | Retrying them too: larger surface for a display-only effect |
+| Root cause is network-wide (440 errors in 5 days across Codex, Claude, Cline, StepFun, google-antigravity, jev) | Mitigate in OMP | Changing proxy/mihomo: forbidden without explicit instruction |
+| No family owns `flags.ts`; the capability contract was frozen to the 18.7.0 baseline | Post-cutover families are declared explicitly in `verify-release-family-plan.py` `ADDED_FAMILIES` and appended after retained families; `export-candidate.py` falls back to that contract | Folding into an unrelated family (e.g. antigravity-wire): misattributes ownership and the error hits every provider |
+
+Evidence (no network): real `TurnRecovery.isRetryableError` returns true for the bare and `Error:`-prefixed message and false for expired/self-signed/unverifiable-first-cert/hostname wording; the same gate fails on the running release. Pristine replay PASS (24 families, 59 capabilities, zero fuzz, reverse to pristine, identical second replay). All 49 selected gates pass on the staging runtime.
+
 ## 五題確認
 
 1. 為什麼空 Enter 會卡住？ A. 網路配額不足；B. 續跑工作用 idle 條件否決自己剛取得的 busy 狀態。
