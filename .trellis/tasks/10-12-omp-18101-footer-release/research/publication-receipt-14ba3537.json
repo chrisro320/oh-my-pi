@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "home": "/home/chris",
+  "release": "/home/chris/.bun/install/omp-releases/18.10.1-14ba3537d44c-b859193f-a0185992",
+  "version": "18.10.1",
+  "candidate_tree_sha256": "14ba3537d44c7da78e09fea2bfd4c0afd8aaaa17473d4fddbca1219645933c3f",
+  "runtime_tree_sha256": "b859193fff60bf2c5419da1c2cb4c3e1ceb27e9ae194a6672f69aafe2a729549",
+  "ledger_tree_sha256": "6dc0327c457e44cda79e9e23606b4ebd7de82b71a29ee33112b10d3bf37c6d9c",
+  "package_versions": {
+    "pi-catalog": "18.10.1",
+    "pi-natives-linux-x64": "18.10.1",
+    "pi-utils": "18.10.1",
+    "pi-ai": "18.10.1",
+    "pi-natives": "18.10.1",
+    "pi-coding-agent": "18.10.1",
+    "snapcompact": "18.10.1",
+    "omp-stats": "18.10.1",
+    "omptype": "18.10.1",
+    "pi-agent-core": "18.10.1",
+    "pi-wire": "18.10.1",
+    "pi-tui": "18.10.1",
+    "pi-mnemopi": "18.10.1"
+  },
+  "launcher_sha256": "649ed302ebec69bf655e071379bb93a457f75169f6a4895eb9c059f5bcf1cadd",
+  "code_installation": "complete",
+  "current_session_upgrade": false,
+  "production_activation": false,
+  "production_admission_started": false,
+  "old_owners": [
+    {
+      "pid": 2256880,
+      "start_time": "27823966",
+      "boot_id": "8d1e7f48-a661-4107-9161-7d9d9ea05498",
+      "comm": "omp",
+      "state": "S"
+    },
+    {
+      "pid": 2257129,
+      "start_time": "27824668",
+      "boot_id": "8d1e7f48-a661-4107-9161-7d9d9ea05498",
+      "comm": "omp daemon brok",
+      "state": "S"
+    },
+    {
+      "pid": 2257179,
+      "start_time": "27824679",
+      "boot_id": "8d1e7f48-a661-4107-9161-7d9d9ea05498",
+      "comm": "omp",
+      "state": "S"
+    }
+  ],
+  "rollback": {
+    "launcher_target": "/home/chris/.bun/install/omp-releases/18.10.1-87c8c1c88769-52b95c63-178125dc/bin/omp",
+    "ledger_backup": "/home/chris/.omp/patches.rollback-18.10.1-14ba3537d44c-b859193f-a0185992"
+  },
+  "credential_operations": "none; agent directory excluded",
+  "independent_code_inodes": true,
+  "private_smoke": {
+    "path": "/home/chris/orca/projects/omp-move/.trellis/tasks/10-12-omp-18101-footer-release/research/installed-private-smoke-14ba3537.json",
+    "sha256": "7a32f0fc6d5d1ebd967b85d49fb1f288ca62561aeb1c4167e0d2787a090c5f5c"
+  }
+}
