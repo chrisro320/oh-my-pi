@@ -143,7 +143,7 @@
  }
  
 +/** Widest branch label (terminal cells) the footer shows; longer names keep both ends around an ellipsis. */
-+const BRANCH_LABEL_MAX = 24;
++const BRANCH_LABEL_MAX = 16;
 +
  const gitSegment: StatusLineSegment = {
  	id: "git",
@@ -284,7 +284,56 @@
  const sessionNameSegment: StatusLineSegment = {
  	id: "session_name",
  	render(ctx) {
-@@ -1310,6 +1352,7 @@
+@@ -1223,24 +1265,8 @@
+ 			// shows 1.88 → "1% used"; OpenCode's endpoint emits floored integers).
+ 			parts.push(formatQuotaWindow(ctx, "mo", u.monthly.percent, u.monthly.resetHours, "h", "floor"));
+ 		}
+-		if (u.resetCredits) {
+-			const resets = u.resetCredits;
+-			let resetText = `✦ ${resets.bankedCount}`;
+-			if (resets.redeemableCount !== resets.bankedCount) {
+-				resetText += ` (${resets.redeemableCount} usable)`;
+-			}
+-			if (resets.expiryHours !== undefined) {
+-				const expiring = resets.expiring ? `▲ ${resets.expiring.count} ` : "";
+-				resetText += ` ${expiring}exp ${formatUsageReset(resets.expiryHours, "h")}`;
+-			} else if (resets.expired) {
+-				resetText += " expired";
+-			}
+-			if (resets.redeemableCount === 0 && resets.unavailableReason) {
+-				const reason = truncateToWidth(sanitizeStatusText(resets.unavailableReason), TRUNCATE_LENGTHS.SHORT);
+-				if (reason) resetText += ` ${reason}`;
+-			}
+-			parts.push(theme.fg(resetCreditsColor(resets), resetText));
+-		}
++		// Bare count only; state travels in the color and details live in the usage dashboard.
++		if (u.resetCredits) parts.push(theme.fg(resetCreditsColor(u.resetCredits), `✦${u.resetCredits.bankedCount}`));
+ 		const content = withIcon(theme.icon.time, parts.join(theme.sep.dot));
+ 		return { content, visible: true };
+ 	},
+@@ -1260,20 +1286,7 @@
+ 			parts.push(describeQuotaWindow("7d", u.sevenDay.percent, u.sevenDay.resetHours, "h", "round"));
+ 		}
+ 		if (u.monthly) parts.push(describeQuotaWindow("mo", u.monthly.percent, u.monthly.resetHours, "h", "floor"));
+-		if (u.resetCredits) {
+-			const resets = u.resetCredits;
+-			let resetText = `✦ ${resets.bankedCount}`;
+-			if (resets.redeemableCount !== resets.bankedCount) resetText += ` (${resets.redeemableCount} usable)`;
+-			if (resets.expiryHours !== undefined) {
+-				const expiring = resets.expiring ? `▲ ${resets.expiring.count} ` : "";
+-				resetText += ` ${expiring}exp ${formatUsageReset(resets.expiryHours, "h")}`;
+-			} else if (resets.expired) resetText += " expired";
+-			if (resets.redeemableCount === 0 && resets.unavailableReason) {
+-				const reason = sanitizeStatusText(resets.unavailableReason);
+-				if (reason) resetText += ` ${reason}`;
+-			}
+-			parts.push([span(resetText, resetCreditsColor(resets))]);
+-		}
++		if (u.resetCredits) parts.push([span(`✦${u.resetCredits.bankedCount}`, resetCreditsColor(u.resetCredits))]);
+ 		const spans: TspSpan[] = [];
+ 		for (const part of parts) {
+ 			if (spans.length > 0) spans.push(span(theme.sep.dot, "dim"));
+@@ -1310,6 +1323,7 @@
  	cache_read: cacheReadSegment,
  	cache_write: cacheWriteSegment,
  	cache_hit: cacheHitSegment,

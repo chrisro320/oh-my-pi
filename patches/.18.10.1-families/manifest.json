@@ -56,7 +56,7 @@
         "0004",
         "0081"
       ],
-      "sha256": "3a758dc391f495f212dff4b6b0b7e76ceedfd353ec50ae97e8fe9c16e545bfd2",
+      "sha256": "2485ecdb7c0f69b94ead07cd44d8e0179f1c081864ec599ba0a6795b76a85283",
       "paths": [
         "pi-coding-agent/dist/types/session/session-manager.d.ts",
         "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts",
@@ -571,5 +571,5 @@
     }
   ],
   "pristine_tree_sha256": "e565fa89582d4c3a1d5773b210b311966e442b96f2086031953ee71f09c7d910",
-  "candidate_tree_sha256": "87c8c1c88769dcc34672e26190941e2386b08eb4243e10776407fb3d0f6b1035"
+  "candidate_tree_sha256": "14ba3537d44c7da78e09fea2bfd4c0afd8aaaa17473d4fddbca1219645933c3f"
 }

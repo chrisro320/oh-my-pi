@@ -92,6 +92,8 @@ The user annotated a Tern footer screenshot: branch first, then `<turn>% /<total
 
 Evidence (staging runtime, no network): throwaway render/describe smokes for both segments under the `ascii` preset (turn+session, streaming tail skipped, turn miss, error tail skipped, empty; branch at 4/25/29 characters and a CJK name, with dirty counts). `verify-main-cache-hit.ts` updated from the old `trn 900 90.0%` label to `90.0% /90.00%` and passes. `verify-release-family-plan.py --version 18.10.1`: zero-fuzz, reverse to pristine, identical second replay; candidate tree `87c8c1c8…1035`. Previous family bytes in `patches/.retired/10-12-18.10.1-status-footer/` with SHA-256.
 
+Second iteration (after release `87c8c1c88769` was active): in Tern the composer showed only branch and `54M`; `cache_turn` and `usage` were gone while the bar had free space. The session file gives a main rate of 99.01% and a settled last turn with cache reads, so `cache_turn` was not null-hidden; the drop order (cache before usage) matches width-priority dropping at a moment when the usage text was widest. The user chose both compactions: banked reset credits render as a bare colored `✦<count>` (details remain in the usage dashboard and `omp usage`), and the branch limit drops from 24 to 16 cells (`trellis…t-tuning`). `usage` moved back to the rightmost (highest-priority) slot. Rejected: hiding the branch (user wants it). Candidate tree `14ba3537…3c3f`.
+
 ## 五題確認
 
 1. 為什麼空 Enter 會卡住？ A. 網路配額不足；B. 續跑工作用 idle 條件否決自己剛取得的 busy 狀態。
