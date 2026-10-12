@@ -733,6 +733,7 @@ Good: independent installed closure passes private smoke, public launcher/ledger
 ### 6. Tests Required
 
 Use the synthetic publication gate for partial-pointer failure, exact code rollback, live old-owner blocking, missing-binding refusal and durable-before-exec ordering. Then run actual installed source version/read/native IPC/gallery plus bound controller checks in private HOME. Never execute production provider probes to make an acceptance checkbox green.
+The installed private smoke harness is committed: `.trellis/tasks/10-12-omp-18101-footer-release/research/smoke/run-installed-smoke.py --release <physical-release> --out <json>` (with `offline-preload.ts`, `cli-smoke.ts`, `ipc-smoke.ts`). Never keep the harness only in temp/cache dirs; a cleanup once deleted it and forced a rebuild. Each check asserts its expected output, not just exit 0, and the preload must actually reject `fetch`/`WebSocket` (negative-check it when the harness changes).
 Machine-check at delivery and review:
 `grep -nE 'production_admission_started|runtime-root|current_session_upgrade|production_activation' patches/release-launcher.py patches/publish-release.py patches/apply.sh patches/DEPLOYMENT-RUNBOOK.md`
 

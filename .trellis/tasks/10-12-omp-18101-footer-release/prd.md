@@ -22,8 +22,8 @@ The interim config hides the branch and keeps `usage` rightmost so the quota sta
 
 ## Acceptance Criteria
 
-- [ ] `python3 patches/verify-release-family-plan.py --version 18.10.1 --tgz-cache <archives>` reports `zero_fuzz`, `reverse_to_pristine`, `second_replay_identical` all true for the published tree.
-- [ ] Installed private smoke JSON has the six checks (`version`, `cli-read`, `native-ipc`, `gallery`, `bound-controller`, `native-dialog`) with `exit:0` and `status:"PASS"`.
-- [ ] `OMP_PATCH_VERSION=18.10.1 OMP_PATCH_VERIFY_NM=<installed runtime>/node_modules/@oh-my-pi bun patches/verify-main-cache-hit.ts` and `verify-idle-ephemeral-reservation.ts` exit 0 against the installed runtime.
-- [ ] `grep -c 'trn ' <installed runtime>/node_modules/@oh-my-pi/pi-tui/src/status-line/segments.ts` is 0 and `grep -c truncateMiddleToWidth` is at least 3.
-- [ ] After user-approved activation: every running omp process executes from the new release directory; user confirms the Tern footer shows branch, `<turn>% /<session>%`, quota and token total.
+- [x] `python3 patches/verify-release-family-plan.py --version 18.10.1 --tgz-cache <archives>` reports `zero_fuzz`, `reverse_to_pristine`, `second_replay_identical` all true for the published tree.
+- [x] Installed private smoke JSON has the six checks (`version`, `cli-read`, `native-ipc`, `gallery`, `bound-controller`, `native-dialog`) with `exit:0` and `status:"PASS"`.
+- [x] `OMP_PATCH_VERSION=18.10.1 OMP_PATCH_VERIFY_NM=<installed runtime>/node_modules/@oh-my-pi bun patches/verify-main-cache-hit.ts` and `verify-idle-ephemeral-reservation.ts` exit 0 against the installed runtime.
+- [x] `grep -c 'trn ' <installed runtime>/node_modules/@oh-my-pi/pi-tui/src/status-line/segments.ts` is 0 and `grep -c truncateMiddleToWidth` is at least 3.
+- [x] After user-approved activation: every running omp process executes from the new release directory; user confirms the Tern footer shows branch, `<turn>% /<session>%`, quota and token total.

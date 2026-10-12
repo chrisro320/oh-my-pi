@@ -94,6 +94,8 @@ Evidence (staging runtime, no network): throwaway render/describe smokes for bot
 
 Second iteration (after release `87c8c1c88769` was active): in Tern the composer showed only branch and `54M`; `cache_turn` and `usage` were gone while the bar had free space. The session file gives a main rate of 99.01% and a settled last turn with cache reads, so `cache_turn` was not null-hidden; the drop order (cache before usage) matches width-priority dropping at a moment when the usage text was widest. The user chose both compactions: banked reset credits render as a bare colored `✦<count>` (details remain in the usage dashboard and `omp usage`), and the branch limit drops from 24 to 16 cells (`trellis…t-tuning`). `usage` moved back to the rightmost (highest-priority) slot. Rejected: hiding the branch (user wants it). Candidate tree `14ba3537…3c3f`.
 
+Third iteration (release `14ba3537d44c` active): with `token_total` still configured, Tern showed branch, `61M` and quota but dropped `cache_turn`. An offline probe of the installed code on a copy of this session file produced `99.3% /99.07%`, so OMP emitted the segment and Tern dropped it. Inference (Tern ships only a binary): its composer fact budget is narrower than the visible gap; the two snapshots fit about the same total width. The user dropped `token_total`; the confirmed footer is branch `trellis…t-tuning *1`, `99.9% /99.08%`, `5h 49% (2h 20m) · 7d 28% (5h) · ✦1`. Final `rightSegments`: `session_name, cache_turn, context_pct, usage` (`session_name` and `context_pct` are shown outside the composer by Tern).
+
 ## 五題確認
 
 1. 為什麼空 Enter 會卡住？ A. 網路配額不足；B. 續跑工作用 idle 條件否決自己剛取得的 busy 狀態。

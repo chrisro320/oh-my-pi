@@ -1,17 +1,17 @@
 {
- "time": "2026-10-12T11:58:45.954649+00:00",
- "release": "/home/chris/.bun/install/omp-releases/18.10.1-87c8c1c88769-52b95c63-178125dc",
+ "time": "2026-10-12T12:07:45.315130+00:00",
+ "release": "/home/chris/.bun/install/omp-releases/18.10.1-14ba3537d44c-b859193f-a0185992",
  "receipt": {
   "code_installation": "complete",
-  "production_activation": false,
-  "production_admission_started": true
+  "production_admission_started": true,
+  "production_activation": false
  },
  "processes": [
-  "2256880 Mon Oct 12 07:58:08 2026 /home/chris/.bun/bin/bun /home/chris/.bun/install/omp-releases/18.10.1-87c8c1c88769-52b95c63-178125dc/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts --resume 01a12f77-5565-7000",
-  "2257129 Mon Oct 12 07:58:15 2026 /home/chris/.bun/bin/bun /home/chris/.bun/install/omp-releases/18.10.1-87c8c1c88769-52b95c63-178125dc/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts __omp_worker_daemon_broker",
-  "2257179 Mon Oct 12 07:58:15 2026 /home/chris/.bun/bin/bun /home/chris/.bun/install/omp-releases/18.10.1-87c8c1c88769-52b95c63-178125dc/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts __omp_worker_text_predict"
+  "2268991 Mon Oct 12 08:06:49 2026 /home/chris/.bun/bin/bun /home/chris/.bun/install/omp-releases/18.10.1-14ba3537d44c-b859193f-a0185992/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts --resume 01a12f77-5565-7000",
+  "2269270 Mon Oct 12 08:06:59 2026 /home/chris/.bun/bin/bun /home/chris/.bun/install/omp-releases/18.10.1-14ba3537d44c-b859193f-a0185992/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts __omp_worker_daemon_broker",
+  "2269332 Mon Oct 12 08:07:00 2026 /home/chris/.bun/bin/bun /home/chris/.bun/install/omp-releases/18.10.1-14ba3537d44c-b859193f-a0185992/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts __omp_worker_text_predict"
  ],
  "all_processes_on_release": true,
- "footer_config": "cache_hit removed, showBranch restored, rightSegments tail usage,token_total",
- "user_footer_confirmation": "pending"
+ "footer_config": "rightSegments session_name,cache_turn,context_pct,usage; branch shown (token_total removed by user)",
+ "user_footer_confirmation": "confirmed by screenshot: trellis\u2026t-tuning *1 | 99.9% /99.08% | 5h 49% (2h 20m) \u00b7 7d 28% (5h) \u00b7 \u27261"
 }
