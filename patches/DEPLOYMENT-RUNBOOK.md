@@ -4,6 +4,32 @@
 
 安全更新 omp、重套補丁、驗證回退，且不共用或破壞 `agent.db`、`models.db`、OAuth 憑證。
 
+## Current18.10.1 immutable installation
+
+The sections below this procedure retain historical direct-global deployment and offline database guidance. Do not apply their `bun add -g`, global directory exchange, watcher or mutable-ledger commands to the current immutable release.
+
+1. Pin official archives/commit, rebase the family registry and run the complete representation oracle.18.10.1 retains58 capabilities in23 physical families;0097 is not selected. Use existing changed-consumer gates, not repeated broad suites.
+2. Assemble the full dependency/native closure under private HOME/cache. All13 OMP packages must match18.10.1. Independent copies must have no external aliases or shared regular-file inodes. Never source pristine packages from the live Bun cache.
+3. Prepare permanent code with:
+   `python3 -I patches/publish-release.py prepare --home "$HOME" --runtime <verified-private-runtime> --ledger <repository-patches> --version 18.10.1`.
+   The receipt names the physical `~/.bun/install/omp-releases/<version-digests>` directory. Old global paths remain unchanged.
+4. Against that installed physical runtime, run source `--version`, actual read-tool CLI, native IPC and gallery smoke under a freshly allowlisted private HOME/XDG/agent. Block fetch in the source CLI fixture. Run the bound ledger `--check` and native lifecycle gate. Collect the six results as `checks.version`, `cli-read`, `native-ipc`, `gallery`, `bound-controller`, `native-dialog` with `exit:0`, plus the exact `release` and `status:"PASS"`.
+5. Run `python3 -I patches/publish-release.py publish --release <physical-release> --smoke <installed-private-smoke.json>` only after final review. This serializes with first production admission, records old boot/PID/start-time identities, preserves the exact old launcher and ledger, and publishes launcher/ledger under a durable fail-closed receipt. A failed partial publication restores code pointers only.
+6. Observe public `omp --version` and a blocked normal launch while old owners remain. The safe version wrapper reports installed code/admission, not actual source execution; step4 is the source proof. No production CLI/provider/usage request is needed.
+
+Terminal installation receipt: `code_installation:"complete"`, `current_session_upgrade:false`, `production_activation:false`. Old18.7.0 processes stay on their old code. Close old sessions and detached brokers normally; the next `omp` starts18.10.1 only after the ownership gate clears. No watcher, auto-kill, force bypass or hot upgrade is installed. Replacing the public launcher can also make an old session's later worker respawn fail closed; it must not silently create a mixed-version worker.
+
+The installed `ledger/.runtime-root` is an installer-owned physical binding. Bound `apply.sh` / `--revert` reject mutation; `--check` checks the release-local `bin/source-omp` and family state, not the public Python wrapper. Missing binding never falls back to the old global tree. Read-only plan/capability queries remain available.
+
+Before any production source exec, the launcher durably sets `production_admission_started:true`. A code-only rollback is allowed **only before that flag**:
+`python3 -I patches/publish-release.py rollback --release <physical-release>`.
+After possible admission, older OAuth code cannot safely consume the new exchange journal; do not reset the receipt or restore old token state to bypass the barrier. Code backups retain the old global closure and ledger, never `~/.omp/agent`.
+
+Synthetic rollback/admission proof:
+`python3 -I patches/verify-release-publication.py`.
+Its fixture cannot prove provider idempotency, credential validity, real cache hits or production activation.
+
+
 ## 0. 更新前禁止事項
 
 - 不在 live runtime 運行時對 live DB 開新連線。
@@ -37,7 +63,7 @@ For18.7.0, `OMP_PATCH_PLAN=deployed` (also the default) selects the consolidated
 
 Same-family maintenance archives the previous immutable revision and replaces the active family revision rather than appending a repair layer. Follow the existing [family contract](../.trellis/spec/backend/patch-rollup-contracts.md); keep historical rollback bytes unchanged.
 
-Next-update baseline: use the verified18.7.0 family registry (24 base entries), its owned capabilities and gates. Do not revive the retired58-layer chain as the migration starting point. Port families against the new official release, retire only behavior proven fully upstream, and preserve independent verification/rollback boundaries. This decision does not deploy the current family representation or opt into0097.
+Historical next-update baseline was the verified18.7.0 family registry. The current next-update baseline is the verified18.10.1 registry, ownership manifest and gates; do not revive the retired58-layer chain or lose the retained18.7.0 history. Port each capability against official upstream bytes;0097 remains excluded.
 
 Representation-only repository work is not deployment authorization. Before an authorized cutover, run the selected-version old/new verifier and isolated CLI/tool smoke, then stage the verified controller, family registry, patches and gates as one ledger. Retain the old ledger/controller as the rollback oracle. A repository/live mismatch during approved staging is not permission to overwrite the live ledger early.
 
@@ -49,6 +75,8 @@ Representation-only repository work is not deployment authorization. Before an a
 4. 在正式 global 同檔案系統準備 staged global，在 ledger 同檔案系統準備 staged patches；比較已驗證樹的 bytes 與 symlink targets。
 5. Linux `renameat2(..., RENAME_EXCHANGE)` 原子交換各目錄；第二次交換失敗時立即反交換 global。舊樹與獨立備份均保留。
 6. 新程序使用正式 source CLI、私有 HOME 驗版本與工具呼叫；controller `--check` 必須與 staged `--print-plan` 的實際 entry 數量一致，且無 CONFLICT/MISSING。正式 auth/session 由使用者重啟後沿用。
+
+Historical direct-global watcher constraint: a watcher must be independent of all OMP ancestors, and `active/running` is not deployment evidence. The18.10.1 immutable procedure above does not create a watcher or exchange the live global tree.
 
 Ledger 不再依賴 `../vendor/pi-commandcode-provider`：該外掛已於 2026-09-27 退役（使用者改用官方原版端點），其跨註冊校驗腿已隨之移除。
 

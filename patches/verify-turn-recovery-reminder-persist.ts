@@ -12,7 +12,7 @@
 // empty-stop recovery path appends the reminder and continues. No provider
 // traffic, no files. Root selection mirrors the other gates.
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import type { MockModel } from "@oh-my-pi/pi-ai/providers/mock";
@@ -21,6 +21,29 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const agentVersion = (await Bun.file(`${AGENT_ROOT}/package.json`).json()).version;
+assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion),
+	`unsupported turn recovery gate version: ${agentVersion}`);
+const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
+const privateHome = mkdtempSync(join(tmpdir(), "omp-recovery-home-"));
+for (const key of Object.keys(process.env)) {
+	if (key !== "PATH" && key !== "TMPDIR") delete process.env[key];
+}
+Object.assign(process.env, {
+	HOME: privateHome, XDG_CONFIG_HOME: join(privateHome, "config"), XDG_CACHE_HOME: join(privateHome, "cache"),
+	XDG_DATA_HOME: join(privateHome, "data"), XDG_STATE_HOME: join(privateHome, "state"),
+});
+process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
+// Private HOME must also precede runtime startup (os.homedir may be cached).
+if (!privateProcess) {
+	const child = Bun.spawnSync([process.execPath, import.meta.path, ...process.argv.slice(2)], {
+		env: { ...process.env, OMP_DURABILITY_BOOT: "1",
+			OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT, OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT },
+	});
+	process.stdout.write(child.stdout);
+	process.stderr.write(child.stderr);
+	process.exit(child.exitCode);
+}
+globalThis.fetch = (() => { throw new Error("Network forbidden in turn recovery gate"); }) as typeof fetch;
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
@@ -48,7 +71,7 @@ try {
 	const manager = SessionManager.inMemory(cwd);
 	const agentDir = join(root, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,
@@ -111,7 +134,7 @@ try {
 	// resume cannot rebuild, and it is also what identifies the kept turn as a
 	// continuation (see verify-interrupt-prune-symmetry.ts). Version-scoped: 18.3.3
 	// has no `handleCommittedTextStreamStall`, so its tree keeps the assertions above.
-	if (["18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)) {
+	if (["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)) {
 		const STALL_PARTIAL = "half a sentence the user already saw";
 		const stallWork = join(root, "stall-work");
 		mkdirSync(stallWork, { recursive: true });
@@ -237,8 +260,12 @@ try {
 			"the persisted reminder must sit right after the kept assistant on the wire",
 		);
 		console.log("  committed-text stall with requestControls: text and controls retained, live == rebuilt");
+		await stallSession.dispose();
+		stallAuthStorage.close();
 	}
 
+	await session.dispose();
+	authStorage.close();
 	console.log("turn-recovery reminder persist: ALL PASS");
 } finally {
 	rmSync(root, { recursive: true, force: true });

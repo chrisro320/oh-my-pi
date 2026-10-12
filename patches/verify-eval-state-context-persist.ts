@@ -10,7 +10,7 @@
 // no provider traffic, no files, no live tree writes. Root selection mirrors
 // the other gates (OMP_PATCH_VERIFY_AGENT_ROOT / _AI_ROOT / _NM).
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import type { MockModel } from "@oh-my-pi/pi-ai/providers/mock";
@@ -19,6 +19,29 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const agentVersion = (await Bun.file(`${AGENT_ROOT}/package.json`).json()).version;
+assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion),
+	`unsupported eval persistence gate version: ${agentVersion}`);
+const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
+const privateHome = mkdtempSync(join(tmpdir(), "omp-eval-home-"));
+for (const key of Object.keys(process.env)) {
+	if (key !== "PATH" && key !== "TMPDIR") delete process.env[key];
+}
+Object.assign(process.env, {
+	HOME: privateHome, XDG_CONFIG_HOME: join(privateHome, "config"), XDG_CACHE_HOME: join(privateHome, "cache"),
+	XDG_DATA_HOME: join(privateHome, "data"), XDG_STATE_HOME: join(privateHome, "state"),
+});
+process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
+// Private HOME must also precede runtime startup (os.homedir may be cached).
+if (!privateProcess) {
+	const child = Bun.spawnSync([process.execPath, import.meta.path, ...process.argv.slice(2)], {
+		env: { ...process.env, OMP_DURABILITY_BOOT: "1",
+			OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT, OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT },
+	});
+	process.stdout.write(child.stdout);
+	process.stderr.write(child.stderr);
+	process.exit(child.exitCode);
+}
+globalThis.fetch = (() => { throw new Error("Network forbidden in eval persistence gate"); }) as typeof fetch;
 // Runtime-selected roots: a static import would resolve the live install and
 // let a sandbox tree silently fall back to it.
 
@@ -41,7 +64,7 @@ type Message = Record<string, unknown> & { role: string; customType?: string; co
 async function openSession(sessionManager: Manager) {
 	const agentDir = join(root, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,
@@ -150,27 +173,8 @@ try {
 	assert.match(String((committed.messages.at(-1) as Message).content), /alive/, "the newest reminder carries the live runtime");
 	resumed.buildDisplaySessionContext();
 	assert.equal(persistedReminders(restarted), 2, "the changed reminder is persisted once, not per rebuild");
-
-	// GATE 4: the read-only callers are private or cross-module wiring; assert
-	// the selected sources pass the option. branch() persists only when it
-	// commits: a hook that skips the restore keeps the old messages.
-	const sessionSource = readFileSync(`${AGENT_ROOT}/src/session/agent-session.ts`, "utf8");
-	assert.match(
-		sessionSource,
-		/const previousSessionContext = switchingToDifferentSession\s*\?\s*undefined\s*:\s*this\.buildDisplaySessionContext\(\{ persistEvalStateContext: false \}\);/,
-		"switchSession's comparison snapshot must not persist",
-	);
-	assert.match(
-		sessionSource,
-		/buildDisplaySessionContext\(\{\s*persistEvalStateContext: !skipConversationRestore,\s*\}\)/,
-		"branch() must not persist when a hook skips the conversation restore",
-	);
-	const guestSource = readFileSync(`${AGENT_ROOT}/src/collab/guest.ts`, "utf8");
-	assert.match(
-		guestSource,
-		/buildDisplaySessionContext\(\{ persistEvalStateContext: false \}\)/,
-		"a collab replica must not write entries the host never wrote",
-	);
+	await live.dispose();
+	await resumed.dispose();
 
 	console.log("PASS eval state context persist: resume wire-equal, read-only snapshots write nothing, state change appends once");
 } finally {

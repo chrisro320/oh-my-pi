@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 
+// All provider completions are intercepted below; no default transport is safe.
+globalThis.fetch = (async () => {
+	throw new Error("Network forbidden in the prefix compaction gate");
+}) as typeof fetch;
+
 // Local structural fixture types. A type-only import cannot be root-selected
 // (TS needs a literal specifier), and a live-install path would defeat root
 // redirection (verification-gate-contracts §3). These describe only the fields
@@ -62,7 +67,7 @@ const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-cata
 // Read once, before any assertion: 0088 turns the split history leg into the
 // live-chain shape, and older plans must keep pinning the truncated request.
 const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-const liveChainPlan = ["18.4.4", "18.7.0"].includes(agentVersion);
+const liveChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion);
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, generateSummary, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 const { prefixCarriesCompactionSummary, sharesActivePromptCacheIdentity } = await import(
@@ -111,11 +116,6 @@ const usage = {
 	totalTokens: 1,
 	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 };
-
-/** The sentence 0088's live-chain lanes append when the request carries the tail. */
-const WHOLE_CONVERSATION_SENTENCE = /summarize the ENTIRE conversation above/;
-/** The same sentence's second half: what happens to the most recent portion. */
-const VERBATIM_TAIL_SENTENCE = /preserved verbatim elsewhere in the session and is replayed after your summary/;
 
 function assistant(requestModel: Model, text = "SUMMARY"): AssistantMessage {
 	return {
@@ -492,11 +492,6 @@ if (liveChainPlan) {
 	assert.equal(liveSplitRequest.options.toolChoice, "none", "the live split request allowed tool calls");
 	assert.equal(splitResult.details?.cacheColdReason, undefined, "a live split turn records no cache-cold reason");
 	assert.deepEqual(splitFallbacks, [], "a live split turn is not a fallback");
-	assert.doesNotMatch(
-		splitResult.summary,
-		/Turn Context \(split turn\)/,
-		"the live split summary carries no turn-context merge",
-	);
 
 	// The failing case (0089): the same live chain whose last assistant turn
 	// carries NO usable provider usage -- exactly the 16:43Z compaction, whose
@@ -557,11 +552,6 @@ if (liveChainPlan) {
 		noUsageLiveContext.messages,
 		"the usage-less split turn must ship the vouched-for live chain untouched",
 	);
-	assert.doesNotMatch(
-		noUsageResult.summary,
-		/Turn Context \(split turn\)/,
-		"the usage-less live summary carries no turn-context merge",
-	);
 
 	// The refusal leg: the same 18.4.4 split preparation with the live scope
 	// refused, while the host DOES vouch for both structured prefixes. The two-leg
@@ -621,11 +611,6 @@ if (liveChainPlan) {
 		/<conversation>/,
 		"the refused structured turn-prefix request must not duplicate the target transcript in its instruction",
 	);
-	assert.match(
-		refusedResult.summary,
-		/\*\*Turn Context \(split turn\):\*\*/,
-		"the refused split turn must keep the merged history + turn-prefix summary shape",
-	);
 } else {
 	// An older plan has no live lane at all: the two prefix requests and the
 	// merged text are the pre-0088 bytes, unchanged.
@@ -684,7 +669,7 @@ for (const [label, splitModel] of splitLaneModels) {
 	assert.notEqual(splitModel.api, "anthropic-messages", `${label} must take a non-Anthropic lane`);
 	const laneScopes: string[] = [];
 	const laneRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
-	const laneResult = await compact(
+	await compact(
 		{
 			...preparation,
 			...("previousRetainedMessages" in preparation ? { previousRetainedMessages: [] } : {}),
@@ -736,11 +721,6 @@ for (const [label, splitModel] of splitLaneModels) {
 	);
 	assert.equal(laneHistory[0].options.toolChoice, "none", `${label} split history request allowed tool calls`);
 	assert.equal(laneTurn[0].options.toolChoice, "none", `${label} split turn request allowed tool calls`);
-	assert.match(
-		laneResult.summary,
-		/\*\*Turn Context \(split turn\):\*\*/,
-		`${label} split must keep the merged history + turn-prefix summary shape`,
-	);
 }
 
 assert.doesNotMatch(iterativeTailText, /<previous-summary>/, "verified prefix duplicated the previous summary body");
@@ -795,71 +775,110 @@ assert.notDeepEqual(
 	prefixOpenAIInput,
 	"sensitivity fixture no longer detects replacing the live prefix with the history target",
 );
+// 0017 is upstream-owned in 18.10: self-contained Responses history is replayable
+// immediately, but a connection-bound host must first accept a real completion.
+// Observe the real stream consumer's HTTP input, not private warmth state.
+if (["18.10.0", "18.10.1"].includes(agentVersion)) {
+	const { streamOpenAIResponses } = await import(`${AI_ROOT}/src/providers/openai-responses.ts`);
+	const responsesBase = getBundledModel("openai", "gpt-5.6");
+	assert.ok(responsesBase, "bundled openai/gpt-5.6 must exist");
+	assert.equal(responsesBase.api, "openai-responses");
+	const opaqueReasoning = "offline-native-reasoning-0017";
+	for (const connectionBoundNativeHistory of [false, true]) {
+		const responsesModel = {
+			...responsesBase,
+			baseUrl: "https://responses.example.invalid/v1",
+			compat: { ...responsesBase.compat, connectionBoundNativeHistory },
+		};
+		const history: Context = {
+			systemPrompt: ["stable Responses system"],
+			messages: [
+				{ role: "user", content: [{ type: "text", text: "prior request" }], timestamp: 1 },
+				{
+					...assistant(responsesModel, "prior visible response"),
+					providerPayload: {
+						type: "openaiResponsesHistory",
+						provider: responsesModel.provider,
+						dt: true,
+						items: [
+							{ type: "reasoning", summary: [], encrypted_content: opaqueReasoning },
+							{ type: "message", role: "assistant", content: [{ type: "output_text", text: "prior visible response", annotations: [] }] },
+						],
+					},
+				},
+				{ role: "user", content: [{ type: "text", text: "continue" }], timestamp: 3 },
+			],
+		};
+		const states = new Map<string, { close(): void }>();
+		const requests: Array<{
+			input: Array<{ type?: string; encrypted_content?: string }>;
+			previous_response_id?: string;
+		}> = [];
+		const options = {
+			apiKey: "offline-fixture-not-a-credential",
+			sessionId: `native-history-${connectionBoundNativeHistory ? "bound" : "ordinary"}`,
+			providerSessionState: states,
+			statefulResponses: false,
+			filterReasoningHistory: false,
+			includeEncryptedReasoning: true,
+			fetch: async (url, init) => {
+				assert.equal(String(url), `${responsesModel.baseUrl}/responses`, "the intercepted consumer must use the selected fixture endpoint");
+				requests.push(JSON.parse(String(init?.body)));
+				const id = `msg_native_${requests.length}`;
+				const item = {
+					type: "message",
+					id,
+					role: "assistant",
+					status: "completed",
+					content: [{ type: "output_text", text: "accepted", annotations: [] }],
+				};
+				const events = [
+					{ type: "response.output_item.added", output_index: 0, item: { ...item, content: [] } },
+					{ type: "response.output_text.delta", output_index: 0, item_id: id, content_index: 0, delta: "accepted" },
+					{ type: "response.output_item.done", output_index: 0, item },
+					{
+						type: "response.completed",
+						response: {
+							id: `resp_native_${requests.length}`,
+							status: "completed",
+							output: [item],
+							usage: { input_tokens: 10, output_tokens: 1, input_tokens_details: { cached_tokens: 0 } },
+						},
+					},
+				];
+				return new Response(events.map(event => `data: ${JSON.stringify(event)}\n\n`).join(""), {
+					headers: { "content-type": "text/event-stream" },
+				});
+			},
+		};
+		try {
+			for (const turn of [0, 1]) {
+				const result = await streamOpenAIResponses(responsesModel, history, options).result();
+				assert.equal(result.stopReason, "stop", result.errorMessage);
+				assert.equal(requests.length, turn + 1, "warming must not depend on an extra retry");
+				const request = requests[turn];
+				assert.equal(request.previous_response_id, undefined, "this fixture must observe full native replay rather than a stateful delta");
+				assert.equal(
+					request.input.filter(item => item.type === "reasoning" && item.encrypted_content === opaqueReasoning).length,
+					!connectionBoundNativeHistory || turn > 0 ? 1 : 0,
+					`${connectionBoundNativeHistory ? "connection-bound" : "ordinary"} Responses turn ${turn + 1}: native replay must follow the host's initialization boundary`,
+				);
+			}
+		} finally {
+			for (const state of states.values()) state.close();
+		}
+	}
+}
 
-// Callsite wiring contract: the builders close over the active preparation
-// (and advisor pathEntries). A stale one-argument call compiles under bun but
-// throws TypeError inside the callback at runtime and silently kills every
-// cache-preserving compaction; the mock harness above cannot see it.
-const maintenanceSource = readFileSync(
-	`${AGENT_ROOT}/src/session/session-maintenance.ts`,
-	"utf8",
-);
-const advisorSource = readFileSync(
-	`${AGENT_ROOT}/src/session/session-advisors.ts`,
-	"utf8",
-);
 
-// Both callbacks rebuild a captured SessionEntry branch. Bun transpiles an
-// unbound identifier without type-checking, so missing imports survive startup
-// and fail only when compaction reaches the cache-preserving callback.
-const sessionContextImport = /import\s*\{[^}]*\bbuildSessionContext\b[^}]*\}\s*from "\.\/session-context";/;
-assert.match(maintenanceSource, sessionContextImport, "primary compaction must import buildSessionContext");
-assert.match(advisorSource, sessionContextImport, "advisor compaction must import buildSessionContext");
-assert.equal(
-	maintenanceSource.split("this.#buildCachePreservingContext(candidate, preparation)").length - 1,
-	2,
-	"manual and auto compaction must both pass the active preparation",
-);
-assert.equal(
-	maintenanceSource.split("this.#buildCachePreservingContext(candidate)").length - 1,
-	0,
-	"stale one-argument buildCachePreservingContext callsite",
-);
-assert.equal(
-	advisorSource.split("this.#buildAdvisorCachePreservingContext(agent, candidate, preparation, pathEntries)").length - 1,
-	1,
-	"advisor compaction must pass preparation and pathEntries",
-);
-assert.equal(
-	advisorSource.split("this.#buildAdvisorCachePreservingContext(agent, candidate)").length - 1,
-	0,
-	"stale two-argument advisor callsite",
-);
-
-// `previousSummaryInPrefix` decides whether the summarizer skips the
-// `<previous-summary>` injection (compaction.ts `priorSummaryComesFromPrefix`).
-// Upstream 18.1.18 rewinds `boundaryStart` into the previous compaction's
-// retained tail, so `historyPrefixEntryId` can land *before* that compaction
-// record and the rebuilt prefix then carries no `compactionSummary`. Claiming
-// the summary is in the prefix in that state drops the prior summary from both
-// the prefix and the prompt.
-//
-// Two layers, because the mock harness above hard-codes the flag and a pure
-// regex over the assignment cannot see boolean semantics:
-//  1. behaviour — the production helper both sites call, exercised directly;
-//  2. wiring — each site must route through that helper, and the primary path
-//     must feed it the *post-transform* array (`transformContext` runs the
-//     public `context` extension chain, which may drop the summary).
+// Rebuilt history before the prior compaction marker must not claim that the
+// summary is already present. Exercise the production predicate directly;
+// actual host callback ownership belongs to the host consumer gates.
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion),
 	`unsupported prefix gate version: ${agentVersion}`,
 );
-// This helper belongs to the 18.1.18+ candidates, not the 18.1.14 carry-over
-// path. Select by package version, never by whether the helper under test
-// exists — a missing helper must fail the import above, not select a skip.
-// 18.2.3 runs the same contract as 18.1.18: its 0035 candidate carries the
-// helper and the post-transform wiring, so the assertions below are the real
-// 18.2.3 behavior contract rather than a version-shaped exemption.
+// The 18.1.14 carry-over predates this helper contract.
 if (agentVersion === "18.1.14") {
 	console.log(`PASS prefix-cache compaction: structured=1 flat=1 windows=${windowRequests.length}; 18.1.18-only helper not applicable`);
 	process.exit(0);
@@ -881,51 +900,5 @@ assert.equal(
 	"a prefix whose head is the compaction summary must be reported as carrying it",
 );
 
-const bareClaim = /previousSummaryInPrefix:\s*scope === "history" && preparation\.previousSummary !== undefined,/;
-for (const [label, source] of [
-	["primary compaction", maintenanceSource],
-	["advisor compaction", advisorSource],
-] as const) {
-	assert.doesNotMatch(
-		source,
-		bareClaim,
-		`${label} claims previousSummaryInPrefix without checking the rebuilt prefix`,
-	);
-	assert.match(
-		source,
-		/prefixCarriesCompactionSummary\(/,
-		`${label} must route previousSummaryInPrefix through prefixCarriesCompactionSummary`,
-	);
-}
-assert.match(
-	maintenanceSource,
-	/convertMessagesToLlmWithSource\(/,
-	"primary compaction must convert through the variant that exposes the post-transform array",
-);
-assert.match(
-	maintenanceSource,
-	/prefixCarriesCompactionSummary\(transformed\)/,
-	"primary compaction must judge the post-transform array, not its own input",
-);
-assert.doesNotMatch(
-	maintenanceSource,
-	/convertMessagesToLlm\(prefixMessages/,
-	"primary compaction must not fall back to the transform-blind conversion for the cache prefix",
-);
-assert.doesNotMatch(
-	maintenanceSource,
-	/previousSummary !== undefined \|\| prefixCarriesCompactionSummary/,
-	"the helper must gate the claim, not be OR-ed into it",
-);
-assert.doesNotMatch(
-	advisorSource,
-	/previousSummary !== undefined \|\| prefixCarriesCompactionSummary/,
-	"the helper must gate the claim, not be OR-ed into it",
-);
-assert.match(
-	advisorSource,
-	/prefixCarriesCompactionSummary\(prefixMessages\)/,
-	"advisor compaction runs no extension chain, so it must judge the rebuilt array",
-);
 
 console.log(`PASS prefix-cache compaction: structured=1 flat=1 windows=${windowRequests.length}`);

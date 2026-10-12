@@ -14,7 +14,6 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
-const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const scratch = mkdtempSync(join(tmpdir(), "omp-0070-gate-"));
 const savedEnv = {
 	HOME: process.env.HOME,
@@ -37,6 +36,12 @@ Object.assign(process.env, {
 	PI_CODEX_WEBSOCKET_RETRY_DELAY_MS: "10",
 	PI_CODEX_WEBSOCKET_RETRY_BUDGET: "2",
 });
+const originalFetch = globalThis.fetch;
+let uninjectedFetches = 0;
+globalThis.fetch = (async () => {
+	uninjectedFetches++;
+	throw new Error("Uninjected HTTP transport is forbidden in the Codex gate");
+}) as typeof fetch;
 
 try {
 	// 0070 is bound by both plans that carry the Codex V2 compaction lane.
@@ -44,12 +49,13 @@ try {
 	// running the transport assertions against a tree without the patch.
 	const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
 	assert.ok(
-		["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion),
+		["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion),
 		`unsupported 0070 transport gate version: ${aiVersion}`,
 	);
-	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion);
+	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion);
 	const ai = await import(`${AI_ROOT}/src/providers/openai-codex-responses.ts`);
 	const core = await import(`${CORE_ROOT}/src/compaction/compaction-v2-streaming.ts`);
+	const { compact } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 	const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 	const bundled = getBundledModel("openai-codex", "gpt-6-astra");
 	assert.ok(bundled, "fixture model must exist in the selected catalog");
@@ -182,13 +188,9 @@ try {
 		assert.equal(authSends, 1, "auth failure must not consume the V2 retry budget");
 	}
 
-	// The Codex V2 lane is decided by the *effective* API -- `remoteCompaction.api`
-	// can select Codex for a model whose own `api` is openai-responses -- or by the
-	// provider identity. The host's speculation guards must read the same predicate
-	// the transport does: testing `model.api` alone schedules an isolated remote
-	// speculation that can only be refused, and the threshold grace path then defers
-	// real compaction while that attempt fails.
-	if (["18.4.1", "18.4.4", "18.7.0"].includes(aiVersion)) {
+	// Effective Codex selection must govern the outer consumer as well as the
+	// transport. A refusal delivered after request preparation cannot enter V1.
+	if (["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion)) {
 		const altLaneModels = [
 			{
 				label: "remoteCompaction.api",
@@ -226,26 +228,37 @@ try {
 				`${label}: chain-only lane must refuse a chain-less V2 send`,
 			);
 			assert.equal(altSends, 0, `${label}: no HTTP request may escape the chain-only refusal`);
+			if (["18.10.0", "18.10.1"].includes(aiVersion) && label === "remoteCompaction.api") {
+				let softSends = 0;
+				await assert.rejects(compact({
+					firstKeptEntryId: "effective-lane-boundary",
+					messagesToSummarize: [{ role: "user", content: [{ type: "text", text: "History must not escape the effective chain-only lane" }], timestamp: 1 }],
+					turnPrefixMessages: [], recentMessages: [], isSplitTurn: false, tokensBefore: 1000,
+					fileOps: { read: new Set(), written: new Set(), edited: new Set() },
+					settings: { enabled: true, remoteEnabled: true, remoteStreamingV2Enabled: true },
+				}, model, "fixture-key", undefined, undefined, {
+					sessionId: "effective-lane-outer",
+					fetch: async () => {
+						altSends++;
+						throw new DOMException("Forbidden V1/SSE replay", "AbortError");
+					},
+					completeImpl: async () => { softSends++; throw new Error("Forbidden soft fallback"); },
+				}), ai.CodexCompactionChainLostError, "the outer compact catch must propagate the effective-lane sentinel");
+				assert.equal(altSends, 0, "a late chain-loss refusal must never become V1/SSE history replay");
+				assert.equal(softSends, 0, "a late chain-loss refusal must not invoke the local summarizer");
+			}
 		}
-		const maintenance = readFileSync(`${AGENT_ROOT}/src/session/session-maintenance.ts`, "utf8");
-		assert.ok(
-			maintenance.includes('if (method === "remote" && isCodexCompactionV2Lane(model)) return;'),
-			"speculation start guard must consult the effective Codex lane predicate",
-		);
-		assert.ok(
-			maintenance.includes('if (method === "remote" && isCodexCompactionV2Lane(model)) return false;'),
-			"threshold deferral guard must consult the effective Codex lane predicate",
-		);
 	}
 
 	type Frame = {
 		socket: number;
-		body: { generate?: boolean; previous_response_id?: string; input: Array<{ type: string }>; client_metadata?: Record<string, string> };
+		body: { generate?: boolean; previous_response_id?: string; input: Array<{ type: string }>; client_metadata?: Record<string, string>; access_programs?: { cyber?: string } };
 	};
 	let mode = "success";
 	let sequence = 0;
 	let socketSequence = 0;
 	let compactionSends = 0;
+	let recoveredBaseline: string | undefined;
 	let frames: Frame[] = [];
 	let onUpgrade = () => {};
 	// Open-stage fixtures for the 0096 regression below: a refused upgrade (no 101
@@ -304,11 +317,22 @@ try {
 						assert.deepEqual(body.input, input, "recovery must preserve the supplied history without its trigger");
 					}
 					if (mode === "recovery-invalid") return complete(ws, false);
-					send(ws, { type: "response.completed", response: { id: `resp_${++sequence}`, status: "completed", output: [] } });
+					recoveredBaseline = `resp_${++sequence}`;
+					send(ws, { type: "response.completed", response: { id: recoveredBaseline, status: "completed", output: [] } });
+					return;
+				}
+				if (mode === "entitlement-ordinary" && body.access_programs) {
+					send(ws, { type: "error", code: "invalid_access_program", message: "access program rejected" });
 					return;
 				}
 				if (body.input.at(-1)?.type !== "compaction_trigger") return complete(ws, false);
 				compactionSends++;
+				if (mode === "entitlement") {
+					assert.equal(body.access_programs?.cyber, "daybreak_blue", "the refusal must exercise an eligible request");
+					send(ws, { type: "response.metadata", headers: { "x-codex-turn-state": "rejected-entitlement" } });
+					send(ws, { type: "error", code: "invalid_access_program", message: "access program rejected" });
+					return;
+				}
 				if (mode === "malformed" && compactionSends === 1) {
 					ws.send("{invalid json");
 					return;
@@ -317,8 +341,8 @@ try {
 					ws.close(1011, "fixture close");
 					return;
 				}
-				if (mode === "stale" || (mode === "stale-once" && compactionSends === 1)) {
-					send(ws, { type: "error", code: "previous_response_not_found", message: "gone" });
+				if (mode === "stale" || (["stale-once", "stale-alias-once"].includes(mode) && compactionSends === 1)) {
+					send(ws, { type: "error", code: mode === "stale-alias-once" ? "codex_previous_response_stale" : "previous_response_not_found", message: "gone" });
 					return;
 				}
 				if (mode === "permanent") {
@@ -366,10 +390,12 @@ try {
 			"exhausted",
 			"invalid-summary",
 			...(supportsChainRecovery ? ["stale-once"] : []),
+			...(["18.10.0", "18.10.1"].includes(aiVersion) ? ["stale-alias-once"] : []),
 		]) {
 			mode = scenario;
 			frames = [];
 			compactionSends = 0;
+			recoveredBaseline = undefined;
 			const states = new Map<string, ProviderSessionState>();
 			let httpSends = 0;
 			const options = {
@@ -405,7 +431,7 @@ try {
 						retryWait: async () => {},
 					},
 				);
-				if (["success", "transient", "malformed", "stale-once"].includes(scenario) || (supportsChainRecovery && scenario === "cold")) {
+				if (["success", "transient", "malformed", "stale-once", "stale-alias-once"].includes(scenario) || (supportsChainRecovery && scenario === "cold")) {
 					const result = await operation;
 					assert.equal(
 						result.compactionItem.encrypted_content,
@@ -447,13 +473,23 @@ try {
 						assert.equal(details.hasTurnState, false, "rejected summary must not commit metadata");
 					}
 				}
-				assert.equal(httpSends, 0, `${scenario}: no SSE replay may escape`);
+				assert.equal(httpSends, 0, `${scenario}: no SSE or V1 HTTP replay may escape`);
 				const compactFrames = frames.filter((frame) => frame.body.input.at(-1)?.type === "compaction_trigger");
+				if (["stale-once", "stale-alias-once"].includes(scenario)) {
+					const recoveryFrames = frames.filter(frame => frame.body.generate === false);
+					assert.equal(recoveryFrames.length, 1, `${scenario}: a stale baseline must recover exactly once`);
+					assert.equal(compactFrames.length, 2, `${scenario}: only the rejected and accepted compactions may be sent`);
+					assert.ok(frames.indexOf(compactFrames[0]) < frames.indexOf(recoveryFrames[0]));
+					assert.ok(frames.indexOf(recoveryFrames[0]) < frames.indexOf(compactFrames[1]));
+					assert.ok(recoveredBaseline, `${scenario}: recovery must accept a fresh response baseline`);
+					assert.equal(compactFrames[1].body.previous_response_id, recoveredBaseline, `${scenario}: the accepted compaction must chain to the recovered baseline`);
+					assert.notEqual(compactFrames[0].body.previous_response_id, recoveredBaseline, `${scenario}: a stale response id must not be reused`);
+				}
 				for (const frame of compactFrames) {
 					assert.ok(frame.body.previous_response_id, `${scenario}: every sent compaction must chain`);
 					assert.deepEqual(frame.body.input, [{ type: "compaction_trigger" }]);
 					assert.equal(frame.body.generate, undefined, "compaction must generate its summary");
-					if (!(supportsChainRecovery && ["closed", "stale", "stale-once"].includes(scenario))) {
+					if (!(supportsChainRecovery && ["closed", "stale", "stale-once", "stale-alias-once"].includes(scenario))) {
 						assert.equal(frame.socket, compactFrames[0].socket, "healthy retries must stay on the original socket");
 						assert.equal(frame.body.previous_response_id, compactFrames[0].body.previous_response_id, "healthy retries must retain their response baseline");
 					}
@@ -462,7 +498,72 @@ try {
 				for (const state of states.values()) state.close();
 			}
 		}
-		if (["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion)) {
+		if (["18.10.0", "18.10.1"].includes(aiVersion)) {
+			// Buffered entitlement errors used to bypass the transport-exception
+			// no-SSE guard. Separate accounts keep the ordinary control independent
+			// of the provider's process-wide rejected-program cache.
+			for (const chainOnly of [true, false]) {
+				const accountId = chainOnly ? "offline-compaction-account" : "offline-ordinary-account";
+				const eligible = { ...model, accountAccess: { [accountId]: { cyberPrograms: ["daybreak_blue"] } } };
+				const token = `offline.${Buffer.from(JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: accountId } })).toString("base64url")}.fixture`;
+				const states = new Map<string, ProviderSessionState>();
+				let httpSends = 0;
+				let softSends = 0;
+				const options = {
+					apiKey: token, sessionId: accountId, providerSessionState: states, preferWebsockets: true,
+					fetch: async () => {
+						httpSends++;
+						throw new Error("Entitlement fixture forbids SSE or V1 HTTP replay");
+					},
+				};
+				const context = { systemPrompt: ["entitlement fixture"], messages: [{ role: "user", content: [{ type: "text", text: "seed" }], timestamp: 1 }] };
+				try {
+					mode = "success";
+					frames = [];
+					compactionSends = 0;
+					const seed = await ai.streamOpenAICodexResponses(eligible, context, options).result();
+					assert.equal(seed.stopReason, "stop", seed.errorMessage);
+					assert.equal(httpSends, 0, "the eligible fixture must establish a real WebSocket baseline");
+					assert.equal(frames[0]?.body.access_programs?.cyber, "daybreak_blue");
+					mode = chainOnly ? "entitlement" : "entitlement-ordinary";
+					if (chainOnly) {
+						await assert.rejects(compact({
+							firstKeptEntryId: "entitlement-boundary", messagesToSummarize: context.messages,
+							turnPrefixMessages: [], recentMessages: [], isSplitTurn: false, tokensBefore: 1000,
+							fileOps: { read: new Set(), written: new Set(), edited: new Set() },
+							settings: { enabled: true, remoteEnabled: true, remoteStreamingV2Enabled: true },
+						}, eligible, token, undefined, undefined, {
+							...options,
+							buildCachePreservingContext: async () => ({ context, previousSummaryInPrefix: false }),
+							completeImpl: async () => { softSends++; throw new Error("Forbidden soft fallback"); },
+						}), ai.CodexCompactionChainLostError);
+						assert.equal(compactionSends, 1, "entitlement refusal must be terminal after the chained frame");
+						assert.ok(frames.at(-1)?.body.previous_response_id, "the refusal must occur after live-chain admission");
+						assert.equal(ai.getOpenAICodexTransportDetails(eligible, options).hasTurnState, false, "refused entitlement metadata must roll back");
+					} else {
+						// Ordinary streams reopen their healthy WS after stripping entitlement;
+						// the buffered compaction path is the distinct no-SSE regression.
+						const beforeOrdinary = frames.length;
+						const result = await ai.streamOpenAICodexResponses(eligible, {
+							...context, messages: [...context.messages, seed, { role: "user", content: "next", timestamp: 2 }],
+						}, options).result();
+						assert.equal(result.stopReason, "stop", result.errorMessage);
+						const ordinaryFrames = frames.slice(beforeOrdinary);
+						assert.equal(ordinaryFrames.length, 2, "ordinary entitlement rejection must retry exactly once");
+						assert.equal(ordinaryFrames[0].body.access_programs?.cyber, "daybreak_blue", "the ordinary refusal must exercise an eligible request");
+						assert.ok(ordinaryFrames[0].body.previous_response_id, "the ordinary refusal must follow the seeded baseline");
+						assert.equal(ordinaryFrames[1].body.access_programs, undefined, "ordinary recovery must strip the rejected entitlement");
+						assert.equal(ordinaryFrames[1].body.previous_response_id, undefined, "ordinary recovery must rebuild the invalidated append baseline");
+						assert.equal(ordinaryFrames[1].socket, ordinaryFrames[0].socket, "ordinary recovery should reuse the healthy WebSocket");
+					}
+					assert.equal(httpSends, 0, "compaction must fail closed; the ordinary control must recover on its healthy WebSocket");
+					assert.equal(softSends, 0, "entitlement rejection must not enter the local summarizer");
+				} finally {
+					for (const state of states.values()) state.close();
+				}
+			}
+		}
+		if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion)) {
 			for (const scenario of ["recovery-invalid", "invalid-summary", "success"]) {
 				mode = scenario;
 				frames = [];
@@ -509,9 +610,8 @@ try {
 		// so the host's configured retry budget never ran and the ladder dropped
 		// straight to the expensive soft summarizer. The lane has no SSE to replay,
 		// so these scenarios also pin that no HTTP request ever escapes it.
-		// Version-gated: 0096 exists only in the 18.7.0 plan, so any other tree must
-		// fail here rather than assert against a build that never carried the fix.
-		if (aiVersion === "18.7.0") {
+		// These plans retain bounded open retries and provider-authoritative capacity.
+		if (["18.7.0", "18.10.0", "18.10.1"].includes(aiVersion)) {
 			const websocketRetryBudget = Number(process.env.PI_CODEX_WEBSOCKET_RETRY_BUDGET);
 			assert.ok(
 				Number.isInteger(websocketRetryBudget) && websocketRetryBudget > 0,
@@ -637,7 +737,6 @@ try {
 			}
 			// Exercise compact(), not just its transport: the upstream preflight
 			// used the standard 272k window as a hard server limit before any I/O.
-			const { compact } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 			const { Tokenizer } = await import(`${CORE_ROOT}/src/tokenizer.ts`);
 			const sol = getBundledModel("openai-codex", "gpt-6.1-sol");
 			assert.ok(sol, "Sol fixture must exist");
@@ -724,11 +823,11 @@ try {
 		`import { openCodexCompactionEventStream, applyOpenAICodexCompactionResponseMetadata } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  declare const model: Parameters<typeof openCodexCompactionEventStream>[0];
  declare const body: Parameters<typeof openCodexCompactionEventStream>[1];
- void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion) ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion) ? "rollback();" : ""} } });
+ void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion) ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion) ? "rollback();" : ""} } });
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: {} });
  // @ts-expect-error A primitive cannot store accepted metadata.
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: 1 });
- ${["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion) ? `
+ ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion) ? `
  import type { SummaryOptions, CachePreservingSummaryScope, CachePreservingSummaryContext } from ${JSON.stringify(`${CORE_ROOT}/dist/types/compaction/compaction.js`)};
  import { buildCodexChainedRequestBody } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  import { createAnthropicRequestAudit } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/anthropic-request-audit.js`)};
@@ -738,7 +837,7 @@ try {
  void buildCodexChainedRequestBody({ model: "fixture", input: [] }, undefined);
  void createAnthropicRequestAudit({ provider: "anthropic", sideRequest: false, refresh: false });
  void imageFingerprint(image); void ensurePng(image); void completedPng("hash"); void pngFailureReason("hash");
- ${aiVersion === "18.7.0" ? `
+ ${["18.7.0", "18.10.0", "18.10.1"].includes(aiVersion) ? `
  import { maxFramesForDataBudget, providerImageBudget, providerFrameBudget } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
  import type { ShapeGeometry } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
  declare const shape: ShapeGeometry; void maxFramesForDataBudget(shape);
@@ -797,8 +896,10 @@ try {
 		typeProbe,
 	]);
 	assert.equal(checked.exitCode, 0, `published acceptance API must type-check:\n${checked.stdout}\n${checked.stderr}`);
+	assert.equal(uninjectedFetches, 0, "all HTTP admissions must use the explicit offline sink");
 	console.log("verify-codex-compaction-chain-fail-closed: transport, retry, metadata and public types PASS");
 } finally {
+	globalThis.fetch = originalFetch;
 	for (const [key, value] of Object.entries(savedEnv)) {
 		if (value === undefined) delete process.env[key];
 		else process.env[key] = value;

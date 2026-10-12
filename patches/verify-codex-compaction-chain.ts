@@ -22,11 +22,10 @@
  *      be byte-equal to what the live socket already sent, so
  *      `buildResponsesDeltaInput` returned null and the chain was reset.
  *
- * The consumer assertion is behavioural: `buildCodexChainedRequestBody` is
- * driven with a compaction-shaped body and must return the live baseline plus
- * a one-item trigger. The producer assertion (both compaction call sites pin
- * `responsesLite: false`) is text-level because the WebSocket session key is
- * not reachable without a live handshake; it names the observable it defends.
+ * The serializer assertion is behavioural: `buildCodexChainedRequestBody`
+ * receives a compaction-shaped body and returns the live baseline plus a
+ * one-item trigger. The companion fail-closed gate exercises actual loopback
+ * WebSocket admissions and the outer compact() consumer.
  *
  * Zero provider calls.
  */
@@ -36,20 +35,18 @@ import { homedir } from "node:os";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
-const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
 // 0068's contract is present in every plan that binds it: 18.1.14 predates the
 // patch, 18.1.18, 18.2.3 and 18.2.10 all carry it. Membership is explicit per
 // version so an unknown tree fails closed instead of silently skipping the 0068
 // block.
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion),
 	`unsupported Codex chain gate version: ${aiVersion}`,
 );
 
-// Runtime-selected specifier is required: the verify-gate contract forbids
-// absolute-path imports, because a gate that reads `<ROOT>` text but imports
-// from live silently validates the wrong tree under sandbox isolation.
+// Runtime-selected absolute imports must follow the same selected package root.
+// A hard-coded live import would silently validate the wrong tree in isolation.
 // Fail closed: a module that cannot be imported must abort the gate.
 const { buildCodexChainedRequestBody } = await import(`${AI_ROOT}/src/providers/openai-codex-responses.ts`);
 

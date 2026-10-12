@@ -15,16 +15,32 @@
 # this script afterwards.
 set -euo pipefail
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+BOUND_RELEASE=0
 NM="${HOME}/.bun/install/global/node_modules/@oh-my-pi"
+BIN="${HOME}/.bun/bin/omp"
+SRC_ENTRY="../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts"
+BUNDLE_ENTRY="../install/global/node_modules/@oh-my-pi/pi-coding-agent/dist/cli.js"
+if [[ -f "${HERE}/.runtime-root" ]]; then
+	IFS= read -r RUNTIME_ROOT < "${HERE}/.runtime-root"
+	if [[ "$RUNTIME_ROOT" != "${HERE%/ledger}/runtime" || ! -d "$RUNTIME_ROOT/node_modules/@oh-my-pi" ]]; then
+		echo "Invalid immutable release binding; refusing global fallback" >&2
+		exit 2
+	fi
+	BOUND_RELEASE=1
+	NM="${RUNTIME_ROOT}/node_modules/@oh-my-pi"
+	BIN="${HERE%/ledger}/bin/source-omp"
+	SRC_ENTRY="${NM}/pi-coding-agent/src/cli.ts"
+	BUNDLE_ENTRY="${NM}/pi-coding-agent/dist/cli.js"
+elif [[ -f "${HERE%/ledger}/release.json" && "${HERE##*/}" == ledger ]]; then
+	echo "Missing immutable release binding; refusing global fallback" >&2
+	exit 2
+fi
 TUI="${NM}/pi-tui"
 AGENT="${NM}/pi-coding-agent"
 CORE="${NM}/pi-agent-core"
 AI="${NM}/pi-ai"
 SNAP="${NM}/snapcompact"
-BIN="${HOME}/.bun/bin/omp"
-SRC_ENTRY="../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts"
-BUNDLE_ENTRY="../install/global/node_modules/@oh-my-pi/pi-coding-agent/dist/cli.js"
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 MODE="apply"
 case "${1:-}" in
@@ -40,6 +56,10 @@ case "${1:-}" in
 		exit 2
 		;;
 esac
+if [[ "$BOUND_RELEASE" == 1 && ( "$MODE" == apply || "$MODE" == revert ) ]]; then
+	echo "Immutable release: use the code-only publisher/rollback, not apply or revert" >&2
+	exit 2
+fi
 READ_ONLY_QUERY=0
 [[ "$MODE" == print-* ]] && READ_ONLY_QUERY=1
 
@@ -82,10 +102,8 @@ PATCHES=(
 )
 
 if [[ "$MODE" == "verify-rollups" ]]; then
-	# Exec before version selection: the rollup gate builds its own pristine
-	# sandboxes (18.0.9 for family checks, 18.1.14 for the full-chain oracle)
-	# and must not see or fail on OMP_PATCH_VERSION.
-	exec bash "${HERE}/verify-patch-family-rollups.sh"
+	# Explicit retained release only; deleted historical baselines are not restored.
+	exec bash "${HERE}/verify-patch-family-rollups.sh" --version "${OMP_PATCH_VERSION:-18.10.1}"
 fi
 
 # Shared versioned-candidate machinery. Usage:
@@ -155,7 +173,7 @@ function _omp_plan_has {
 
 declare -A PLAN_CAPABILITIES=()
 function _omp_has_capability {
-	if [[ "$OMP_PATCH_VERSION" == "18.7.0" ]]; then
+	if [[ "$OMP_PATCH_VERSION" == "18.7.0" || "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
 		[[ -n "${PLAN_CAPABILITIES[$1]:-}" ]]
 	else
 		_omp_plan_has "$1"
@@ -163,12 +181,13 @@ function _omp_has_capability {
 }
 
 function _omp_family_plan {
-	local registry="${HERE}/.18.7.0-families/plan.tsv"
+	local registry="${HERE}/.${OMP_PATCH_VERSION}-families/plan.tsv"
 	local file root_key members extra member
 	local -a ids
 	[[ -f "$registry" ]] || { echo "family registry missing: $registry" >&2; exit 2; }
 	PATCHES=()
-	while IFS=$'\t' read -r file root_key members extra; do
+	PLAN_CAPABILITIES=()
+	while IFS=$'\t' read -r file root_key members extra || [[ -n "$file$root_key$members$extra" ]]; do
 		[[ -n "$file" && -n "$members" && -z "$extra" && "$file" != /* && "$file" != *..* ]] || {
 			echo "invalid family registry row" >&2; exit 2;
 		}
@@ -202,9 +221,9 @@ function _omp_tail_candidate {
 	PATCHES+=("${candidate}:${root}")
 }
 # Versioned plan selection. PATCHES is the retained historical-plan base, not
-# a deployable chain: its a-sides span upstream releases. 18.7.0 replaces that
-# array with its family registry. Supported versions: 18.1.14 (rollback),
-# 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4, and 18.7.0.
+# a deployable chain: its a-sides span upstream releases. Family releases replace
+# that array with their versioned registry. Supported versions:18.4.4,
+# 18.7.0,18.10.0 and18.10.1. Older baselines were removed by the user.
 # Unset OMP_PATCH_VERSION auto-routes by the installed pi-coding-agent
 # version (exact match only) so the documented one-key re-apply flow keeps
 # working; an explicit value must match the installed version or fail
@@ -214,338 +233,18 @@ if [[ -z "${OMP_PATCH_VERSION+x}" ]]; then
 	pkgjson="${NM}/pi-coding-agent/package.json"
 	installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
 	case "$installed" in
-	18.1.14|18.1.18|18.2.3|18.2.10|18.3.3|18.4.1|18.4.4|18.7.0)
+	18.1.14|18.1.18|18.2.3|18.2.10|18.3.3|18.4.1|18.4.4|18.7.0|18.10.0|18.10.1)
 		OMP_PATCH_VERSION="$installed"
 		echo "NOTE: OMP_PATCH_VERSION unset — routed to installed ${installed}" >&2
 		;;
 	*)
-		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4, 18.7.0); set OMP_PATCH_VERSION explicitly" >&2
+		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4, 18.7.0, 18.10.0, 18.10.1); set OMP_PATCH_VERSION explicitly" >&2
 		exit 2
 		;;
 	esac
 fi
 
 case "$OMP_PATCH_VERSION" in
-18.1.14)
-	# 0004/0014/0017/0030 因上下文行侵蝕需新候選（0014 的 isClaude 尾部上下文、
-	# 0030 的 import 區、0004 的 segments 註解塊、0017 的 warm flag 鄰行）；
-	# 0010/0035/0038 沿用 18.1.10 候選字節（已核 cmp 相同），為版本計畫完整性另存一份。
-	_omp_version_candidates "18.1.14" 0004 0010 0014 0017 0030 0035 0038
-	# 0047 的 a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
-	PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
-	# 0063 與 18.1.18 共用同一份位元組（理由見該分支）：codex V2 壓縮的 lite
-	# key 分流與前綴重建失配，兩版行為相同。
-	PATCHES+=("0063-omp-codex-v2-compaction-live-chain.patch:${NM}")
-	;;
-18.1.18)
-	# 18.1.14 → 18.1.18（上游 4 版：15/16/17/18）。
-	# 0051 已於 2026-09-15 完全退役（位元組移入 .retired/09-15-0051-upstream-adopted/）：
-	# 上游 18.1.17 逐字採納（prompt_eval_cached_count → cacheRead 映射，連註解一併
-	# 進入 pi-ai/src/providers/ollama.ts）。它離開 canonical 陣列後 `omit:0051`
-	# 一併移除；`omit:` 分支目前沒有任何存活計畫覆蓋（見 verify-patch-family-rollups.sh）。
-	# 0010 需重寫：上游把 #wakeForIrc 的 dispatch 改成 whenWorkPoolYieldSettled()
-	# 鏈，idleEphemeral 等待點必須併入該 join 之前，否則破壞「同步 ownership 檢查
-	# 與 dispatch 之間無 await」的上游不變式。
-	# 0035 需重寫：上游在 prepareCompaction 內把 boundaryStart 回退到上一次
-	# compaction 的 firstKeptEntryId，本補丁的 previousRetainedMessages 攜帶列表
-	# 語義已被吸收，故退掉該列表、historyTargetMessages 直接等於 messagesToSummarize。
-	# 0033/0043 另存候選：canonical 在此版需 fuzz=1，候選把上下文重錨到 fuzz=0。
-	# 0004/0014/0017/0030/0038 沿用 18.1.14 候選字節（已核 cmp 相同），
-	# 為版本計畫完整性另存一份。
-	_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043
-	# 0047 同 18.1.14：a 側是 candidate-0038 的產出形態，只能掛在該分支鏈尾。
-	PATCHES+=("0047-omp-date-cwd-anchor-stability.patch:${AGENT}")
-	# 0055 僅 18.1.18：devin.ts 的 auth identity 在舊版仍是 windsurf
-	# （DEVIN_SESSION_TOKEN_PREFIX），18.1.10+ 才是 devinCliMetadata；
-	# 本補丁的 a 側以 18.1.18 樹為準。
-	PATCHES+=("0055-omp-devin-auth-cache-turn-timing.patch:${AI}")
-	# 0056 同 0055 的理由：a 側以 18.1.18 的 devinCliMetadata 為準。
-	# 改的是 ${NM}/pi-catalog/src/wire/devin.ts（官方 CLI 身分 tuple 與
-	# per-process sessionId／遞增 requestId），與 0055 的 pi-ai 路徑互不相交。
-	PATCHES+=("0056-omp-devin-metadata-alignment.patch:${NM}")
-	# 0058 同 0055/0056：a 側是 0055 套用後的 devin.ts 形態（18.1.18 鏈尾），
-	# 修 thinking 簽名丟失——服務端把 deltaSignature 放在 deltaThinking 為空的
-	# 獨立末尾幀，原碼只在 deltaThinking 分支內讀取 → 回放歷史無簽名 →
-	# 服務端不認 → 每輪全量 prefill。捕獲獨立簽名幀 + 回放 signatureType=sealed。
-	PATCHES+=("0058-omp-devin-thinking-signature-replay.patch:${AI}")
-	# 0060 僅 18.1.18：idle keepalive 對 devin 傳 conversationId=主 sessionId，
-	# 讓 side request 與主回合共用 cascade_id（cascadeId 還會 seed 每條
-	# messageId），否則 keepalive 每次落在獨立 cascade、暖不到主會話 cache。
-	# /btw//omfg 走 runEphemeralTurn 不帶 conversationId，保留 :side: 隔離；
-	# cursor 以 conversationId 鍵 append-only 狀態，故只對 devin 啟用。
-	PATCHES+=("0060-omp-devin-idle-cascade-pin.patch:${NM}")
-	# 0062 僅 18.1.18：snapcompact 縮減基線漏算「即將被取代的舊歸檔」——
-	# prepareCompaction 對 v2 preserve data 會把前一條 compaction 記錄排除在
-	# 三個區域之外，基線因此看不到它，而投影帶著整份新歸檔（重渲染把舊文字
-	# 折進新幀）。第二次以後壓縮等於拿整份新歸檔去比一個已不含舊歸檔的區域，
-	# 真的會縮的壓縮被判「would not reduce context」而硬失敗。修法：基線以
-	# 與投影相同的 frameTokenEstimate 記入被取代歸檔（淨額：幀數變多仍會拒絕）。
-	PATCHES+=("0062-omp-snapcompact-reduction-baseline-previous-archive.patch:${AGENT}")
-	# 0063 兩計畫共用：canonical 的 codex V2 遠端壓縮走 lite 傳輸，算出的
-	# WebSocket session key 帶 `:lite` 後綴，連到一條沒有 append baseline 的
-	# 空 socket；且重建前綴在磁碟上不含每輪注入的 context，嚴格前綴比對必
-	# 然失敗 → 全量重播、cachedInputTokens 0（實測 01a09b46/01a09b50）。
-	# 修法：壓縮路徑關閉 lite，並讓 chained-body 以 live baseline 為底、
-	# 只送尾端 compaction_trigger。a 側形態在 18.1.14 與 18.1.18 相同
-	# （0035 未觸及這三處），故不需版本候選。
-	PATCHES+=("0063-omp-codex-v2-compaction-live-chain.patch:${NM}")
-	# 0065 僅 18.1.18：pi-catalog 的 compat/rules/providers/commandcode.kdl
-	# 是 18.1.18 才新增的檔（18.1.14 的 rules 樹只有 192 個 kdl，無此檔），
-	# 掛進 canonical 母集會讓 18.1.14 計畫在 full-chain oracle 上「No file to
-	# patch」。編譯產物 src/compat/rules.json 兩版也不同，故不做版本候選。
-	PATCHES+=("0065-omp-commandcode-deepseek-model-record-parity.patch:${NM}")
-	# 0066 僅 18.1.18：Anthropic 原生 server compaction（compact_20260112）
-	# 的請求體繞過宿主管線——messages 走 convertToLlmForSideRequest（不跑
-	# `context` 擴充鏈，Trellis 注入的 <session-context> 位元組缺失）、tools
-	# 直送原始 agent.state.tools（無 normalizeTools 注入的 `i` 欄位）。官方
-	# invalidation 規則：tool definitions 變 → tools/system/messages 全作廢。
-	# 修法：新增 "live" scope，讓 native 分支複用 0035 已驗證的
-	# buildCachePreservingContext（transformContext + buildSideRequestContext）
-	# 取整條 live 上下文；宿主兩處 scope 分派補 leaf 對應。callback 回
-	# undefined 時保留原手拼路徑。a 側是 0035 候選 + 0063 之後的
-	# compaction.ts 形態，故掛鏈尾且不做 18.1.14 候選。
-	PATCHES+=("0066-omp-anthropic-native-compaction-live-context.patch:${NM}")
-	# 0067 僅 18.1.18：把 0066 的不變量推廣到兩條 OpenAI 遠端 lane 並補齊
-	# 儀表。① Codex V2 lane 的 tools/system 同樣改取 buildCachePreservingContext
-	# 的 live context（原為 summaryOptions.tools 原始 agent 工具，缺 intent
-	# 注入的 `i`，tools 層失效即整條作廢）；② 三條 remote lane 補
-	# summarize.request／summarize.usage 的 trace（帶 lane 欄位），Codex V2
-	# 記 cachedInputTokens，Anthropic native 記 provider usage 原值——這是
-	# 0066 唯一缺的真實命中率樣本來源。a 側是 0066 之後的 compaction.ts 形態。
-	PATCHES+=("0067-omp-remote-compaction-lane-trace-live-tools.patch:${NM}")
-	# 0068 僅 18.1.18：實測（PI_REQ_DEBUG wire dump）previous_response_id 是
-	# connection-scoped——跨 socket 一律 400 invalid_request_error，但鏈式
-	# 決策在重連檢查之前，舊代碼會把已死 baseline 的鏈式幀發上新 socket 白
-	# 跑一趟。修法：openCodexWebSocketTransport 在 buildCodexChainedRequestBody
-	# 前先判 connection.isHealthyForReuse()，不可复用即丟棄 baseline 走非鏈
-	# 式；socket 存活時同 socket 鏈式壓縮實測 cached/input=98.0%。另把
-	# compaction 實際 wire 形態（transport/chained/canAppend/inputItems）與
-	# 每-attempt 診斷寫進 summarize.usage／summarize.attempt trace。
-	# a 側是 0063+0067 之後的形態。
-	PATCHES+=("0068-omp-codex-stale-baseline-chain.patch:${NM}")
-	# 0069 restores Codex effort baselines from branch-local response history.
-	# Source shape is pinned to 18.1.18 after 0068; no older-version candidate.
-	PATCHES+=("0069-omp-codex-effort-history-resume.patch:${AI}")
-	# 0070 僅 18.1.18：Codex V2 壓縮「只准續鏈，不准降級」。實測（session
-	# 01a0a5f7，pid 1047924）一次遠端壓縮回報成功卻只命中 8.75%
-	# （cached 22912 / input 261873），三層都在偷偷全量重放：
-	#   ① openCodexCompactionEventStream 在**開啟**時就清 append baseline，
-	#      該次成敗未知，於是重試必然無鏈可續；
-	#   ② streamCodexCompactionEvents 遇 WS 傳輸錯自動切 SSE，而 SSE 端點
-	#      沒有 previous_response_id（嚴格閘道 400），等於靜默全量；
-	#   ③ compact() 的 V2 catch 吞掉錯誤後續走 V1 與 soft，產出一筆命中
-	#      率極低但看起來成功的壓縮記錄。
-	# The collector commits metadata and invalidates its append baseline only
-	# after accepting the summary. Healthy-chain transient failures may retry.
-	# Codex endpoint overrides and unchainable WS/SSE sends fail closed before
-	# replay; core and both primary-session method ladders preserve the sentinel.
-	# a 側是 0069 之後的形態。
-	PATCHES+=("0070-omp-codex-compaction-chain-fail-closed.patch:${NM}")
-	;;
-18.2.3)
-	# Preserve the 18.1.18 logical chain on the new upstream tree. The initial
-	# textual replay found 13 conflicts; runtime loading additionally exposed
-	# 0048's fuzzy insertions inside unrelated import/function/object bodies.
-	# Its versioned candidate restores the original quota-rotation semantics.
-	# 0004/0014/0017/0035/0043 retain their 18.1.18 candidate bytes.
-	# 0037 absorbs 0041: 38 logical entries become 37 physical entries while
-	# retaining the 60s Anthropic gate, 50s other-provider TTL and no repaint.
-	_omp_version_candidates "18.2.3" \
-		0004 0010 0014 0017 0030 0033 0034 0035 0037 0038 0043 0048 omit:0041
-	# Tail 條目不在 canonical 母集（它們的 a 側只存在於 18.1.x/18.2.x 鏈尾），
-	# 故逐條附加並維持既有順序：0047 掛在 candidate-0038 產出形態之後；
-	# 0055/0056/0058 是 devin 家族；0060 依賴 0010；0062 在 snapcompact 之後；
-	# 0063→0066→0067→0068→0069→0070 是 codex／remote compaction 鏈（0068 依賴
-	# 0063+0067，0069 依賴 0068，0070 依賴 0069）。標註 cand 者在矩陣中為
-	# CONFLICT，需 18.2.3 候選；未標註者在 18.2.3 上逐字節仍適用。
-	_omp_tail_candidate "18.2.3" "0047-omp-date-cwd-anchor-stability" "${AGENT}"
-	# Keep this historical plan unchanged. Official-archive comparison during
-	# the 18.2.10 migration disproved the earlier upstream-adoption claim:
-	# 0055/0071 were deployed outside this plan, and are registered in 18.2.10.
-	PATCHES+=("0056-omp-devin-metadata-alignment.patch:${NM}")
-	PATCHES+=("0058-omp-devin-thinking-signature-replay.patch:${AI}")
-	_omp_tail_candidate "18.2.3" "0060-omp-devin-idle-cascade-pin" "${NM}"
-	PATCHES+=("0062-omp-snapcompact-reduction-baseline-previous-archive.patch:${AGENT}")
-	PATCHES+=("0063-omp-codex-v2-compaction-live-chain.patch:${NM}")
-	_omp_tail_candidate "18.2.3" "0065-omp-commandcode-deepseek-model-record-parity" "${NM}"
-	PATCHES+=("0066-omp-anthropic-native-compaction-live-context.patch:${NM}")
-	PATCHES+=("0067-omp-remote-compaction-lane-trace-live-tools.patch:${NM}")
-	_omp_tail_candidate "18.2.3" "0068-omp-codex-stale-baseline-chain" "${NM}"
-	_omp_tail_candidate "18.2.3" "0069-omp-codex-effort-history-resume" "${AI}"
-	_omp_tail_candidate "18.2.3" "0070-omp-codex-compaction-chain-fail-closed" "${NM}"
-	# 0072 僅 18.2.3：/session pin、/login、/logout 共用的 loadProviderAuthUi()
-	# 內 lazy require("@oh-my-pi/pi-ai/index.js") 在已安裝 legacy-pi shim plugin
-	# 的進程中把 Bun resolver 推進 file: 前綴疊加循環，851 層後 NameTooLong
-	# 崩潰（kitty/Orca 皆可重現，與終端無關）。修法：兩個 pi-ai 符號提升為
-	# 頂層靜態 import，對話框組件 require 保留（實測同環境安全）。
-	# a 側是 18.2.3 pristine；selector-controller 不在既有鏈任何補丁的
-	# 觸碰清單，無候選需求。
-	PATCHES+=("0072-omp-session-pin-static-auth-ui.patch:${AGENT}")
-	# 0073 僅 18.2.3：read 工具的 description 原本在 constructor 只渲染一次，而
-	# 模板帶 `IS_HL_MODE`（模型相關：deepseek 家族被 resolveEditMode 降為
-	# replace）。切換模型後仍發舊模型的 schema；resume 時新進程按 stored model
-	# 重建工具 → tools 位元組改變 → prompt cache 前綴在 tools 段斷裂（2026-09-19
-	# 實測 strict 命中 99.1% → 35.7%，cacheRead 24960 → 9088）。改為 getter 每次
-	# 現算，與上游 grep/glob 同形，因此不再依賴任何切換入口——舊修法 0019/0042
-	# 是逐入口補呼叫，retry.fallbackChains 這條新入口即漏網。a 側是 18.2.3
-	# pristine；read.ts 不在既有鏈任何補丁的觸碰清單，無候選需求。
-	PATCHES+=("0073-omp-read-description-live.patch:${AGENT}")
-	# Extension-modified messages can still be byte-stable across requests.
-	# Keep their rolling Anthropic cache boundary and cache the complete OAuth system.
-	PATCHES+=("0074-omp-anthropic-context-cache-boundaries.patch:${AI}")
-	;;
-18.2.10)
-	_omp_version_candidates "18.2.10" \
-		0004 0010 0014 0017 0030 0033 0034 0035 0037 0038 0043 0045 0048 0050 omit:0041
-	if [[ "$READ_ONLY_QUERY" != 1 ]]; then
-		for package in pi-coding-agent pi-agent-core pi-ai pi-catalog snapcompact pi-tui; do
-			package_version="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "${NM}/${package}/package.json" 2>/dev/null || true)"
-			[[ "$package_version" == "$OMP_PATCH_VERSION" ]] || {
-				echo "${package} must be ${OMP_PATCH_VERSION}, found: ${package_version:-<missing>}" >&2
-				exit 2
-			}
-		done
-	fi
-	# Upstream moved status-line and selector UI ownership into pi-tui.
-	for i in "${!PATCHES[@]}"; do
-		name="${PATCHES[i]%%:*}"
-		case "${name##*/}" in
-			0004-*|0033-*) PATCHES[i]="${name}:${TUI}" ;;
-			0037-*|0050-*) PATCHES[i]="${name}:${NM}" ;;
-		esac
-	done
-	_omp_tail_candidate "18.2.10" "0047-omp-date-cwd-anchor-stability" "${AGENT}"
-	_omp_tail_candidate "18.2.10" "0055-omp-devin-auth-cache-turn-timing" "${AI}"
-	_omp_tail_candidate "18.2.10" "0071-omp-devin-request-dump" "${AI}"
-	PATCHES+=("0056-omp-devin-metadata-alignment.patch:${NM}")
-	PATCHES+=("0058-omp-devin-thinking-signature-replay.patch:${AI}")
-	_omp_tail_candidate "18.2.10" "0060-omp-devin-idle-cascade-pin" "${NM}"
-	_omp_tail_candidate "18.2.10" "0062-omp-snapcompact-reduction-baseline-previous-archive" "${AGENT}"
-	_omp_tail_candidate "18.2.10" "0063-omp-codex-v2-compaction-live-chain" "${NM}"
-	_omp_tail_candidate "18.2.10" "0065-omp-commandcode-deepseek-model-record-parity" "${NM}"
-	_omp_tail_candidate "18.2.10" "0066-omp-anthropic-native-compaction-live-context" "${NM}"
-	_omp_tail_candidate "18.2.10" "0067-omp-remote-compaction-lane-trace-live-tools" "${NM}"
-	_omp_tail_candidate "18.2.10" "0068-omp-codex-stale-baseline-chain" "${NM}"
-	_omp_tail_candidate "18.2.10" "0069-omp-codex-effort-history-resume" "${AI}"
-	_omp_tail_candidate "18.2.10" "0070-omp-codex-compaction-chain-fail-closed" "${NM}"
-	_omp_tail_candidate "18.2.10" "0072-omp-session-pin-static-auth-ui" "${AGENT}"
-	_omp_tail_candidate "18.2.10" "0073-omp-read-description-live" "${AGENT}"
-	_omp_tail_candidate "18.2.10" "0074-omp-anthropic-context-cache-boundaries" "${AI}"
-	# These behaviors were deployed outside the older controller's plan.
-	_omp_tail_candidate "18.2.10" "0075-omp-hindsight-recall-promotion-slot" "${AGENT}"
-	# 0076: the eval state reminder (new in 18.2.10) lived only in memory, so a
-	# resumed process rebuilt from disk dropped it mid-history and re-appended it
-	# at the tail, forking the cached prefix. Committing rebuilds persist it.
-	_omp_tail_candidate "18.2.10" "0076-omp-eval-state-context-persist" "${NM}"
-	# 0077: turn-recovery retry reminders (empty stop, unexpected stop, malformed
-	# call) lived only in memory the same way; they are now persisted with the
-	# live context, as the plan-mode reminder already is.
-	_omp_tail_candidate "18.2.10" "0077-omp-turn-recovery-reminder-persist" "${AGENT}"
-	_omp_tail_candidate "18.2.10" "0078-omp-python-display-mime-preference" "${AGENT}"
-	_omp_tail_candidate "18.2.10" "0079-omp-kitty-conversion-finalization" "${TUI}"
-	_omp_tail_candidate "18.2.10" "0080-omp-kitty-shared-png-cache" "${TUI}"
-	;;
-18.3.3)
-	_omp_version_candidates "18.3.3" \
-		0033 0004 0034 0037 0010 0035 0014 0036 0017 0025 0026 0030 \
-		0031 0032 0038 0043 0044 0052 0057 0045 0046 0048 0050 0054 omit:0041
-	if [[ "$READ_ONLY_QUERY" != 1 ]]; then
-		for package in pi-coding-agent pi-agent-core pi-ai pi-catalog snapcompact pi-tui; do
-			package_version="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "${NM}/${package}/package.json" 2>/dev/null || true)"
-			[[ "$package_version" == "$OMP_PATCH_VERSION" ]] || {
-				echo "${package} must be ${OMP_PATCH_VERSION}, found: ${package_version:-<missing>}" >&2
-				exit 2
-			}
-		done
-	fi
-	for i in "${!PATCHES[@]}"; do
-		name="${PATCHES[i]%%:*}"
-		case "${name##*/}" in
-			0004-*|0033-*) PATCHES[i]="${name}:${TUI}" ;;
-			0037-*|0050-*) PATCHES[i]="${name}:${NM}" ;;
-		esac
-	done
-	_omp_tail_candidate "18.3.3" "0047-omp-date-cwd-anchor-stability" "${AGENT}"
-	_omp_tail_candidate "18.3.3" "0055-omp-devin-auth-cache-turn-timing" "${AI}"
-	_omp_tail_candidate "18.3.3" "0071-omp-devin-request-dump" "${AI}"
-	_omp_tail_candidate "18.3.3" "0056-omp-devin-metadata-alignment" "${NM}"
-	_omp_tail_candidate "18.3.3" "0058-omp-devin-thinking-signature-replay" "${AI}"
-	_omp_tail_candidate "18.3.3" "0060-omp-devin-idle-cascade-pin" "${NM}"
-	_omp_tail_candidate "18.3.3" "0062-omp-snapcompact-reduction-baseline-previous-archive" "${AGENT}"
-	_omp_tail_candidate "18.3.3" "0063-omp-codex-v2-compaction-live-chain" "${NM}"
-	_omp_tail_candidate "18.3.3" "0065-omp-commandcode-deepseek-model-record-parity" "${NM}"
-	_omp_tail_candidate "18.3.3" "0066-omp-anthropic-native-compaction-live-context" "${NM}"
-	_omp_tail_candidate "18.3.3" "0067-omp-remote-compaction-lane-trace-live-tools" "${NM}"
-	_omp_tail_candidate "18.3.3" "0068-omp-codex-stale-baseline-chain" "${NM}"
-	_omp_tail_candidate "18.3.3" "0069-omp-codex-effort-history-resume" "${AI}"
-	_omp_tail_candidate "18.3.3" "0070-omp-codex-compaction-chain-fail-closed" "${NM}"
-	_omp_tail_candidate "18.3.3" "0072-omp-session-pin-static-auth-ui" "${AGENT}"
-	# Upstream implements 0073's model-live getter; its behavior gate still runs.
-	_omp_tail_candidate "18.3.3" "0074-omp-anthropic-context-cache-boundaries" "${AI}"
-	_omp_tail_candidate "18.3.3" "0075-omp-hindsight-recall-promotion-slot" "${AGENT}"
-	_omp_tail_candidate "18.3.3" "0076-omp-eval-state-context-persist" "${NM}"
-	_omp_tail_candidate "18.3.3" "0077-omp-turn-recovery-reminder-persist" "${AGENT}"
-	_omp_tail_candidate "18.3.3" "0078-omp-python-display-mime-preference" "${AGENT}"
-	_omp_tail_candidate "18.3.3" "0079-omp-kitty-conversion-finalization" "${TUI}"
-	_omp_tail_candidate "18.3.3" "0080-omp-kitty-shared-png-cache" "${TUI}"
-	_omp_tail_candidate "18.3.3" "0081-omp-main-cache-footer" "${NM}"
-	_omp_tail_candidate "18.3.3" "0082-omp-user-display-text" "${NM}"
-	;;
-18.4.1)
-	# 18.3.3 -> 18.4.1 keeps all 48 capabilities as same-ID 18.4.1 candidates.
-	_omp_version_candidates "18.4.1" \
-		0033 0004 0034 0037 0010 0035 0014 0036 0017 0025 0026 0030 \
-		0031 0032 0038 0043 0044 0052 0057 0045 0046 0048 0050 0054 omit:0041
-	if [[ "$READ_ONLY_QUERY" != 1 ]]; then
-		for package in pi-coding-agent pi-agent-core pi-ai pi-catalog snapcompact pi-tui; do
-			package_version="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "${NM}/${package}/package.json" 2>/dev/null || true)"
-			[[ "$package_version" == "$OMP_PATCH_VERSION" ]] || {
-				echo "${package} must be ${OMP_PATCH_VERSION}, found: ${package_version:-<missing>}" >&2
-				exit 2
-			}
-		done
-	fi
-	for i in "${!PATCHES[@]}"; do
-		name="${PATCHES[i]%%:*}"
-		case "${name##*/}" in
-			0004-*|0033-*) PATCHES[i]="${name}:${TUI}" ;;
-			0037-*|0050-*) PATCHES[i]="${name}:${NM}" ;;
-		esac
-	done
-	_omp_tail_candidate "18.4.1" "0047-omp-date-cwd-anchor-stability" "${AGENT}"
-	_omp_tail_candidate "18.4.1" "0055-omp-devin-auth-cache-turn-timing" "${AI}"
-	_omp_tail_candidate "18.4.1" "0071-omp-devin-request-dump" "${AI}"
-	_omp_tail_candidate "18.4.1" "0056-omp-devin-metadata-alignment" "${NM}"
-	_omp_tail_candidate "18.4.1" "0058-omp-devin-thinking-signature-replay" "${AI}"
-	_omp_tail_candidate "18.4.1" "0060-omp-devin-idle-cascade-pin" "${NM}"
-	_omp_tail_candidate "18.4.1" "0062-omp-snapcompact-reduction-baseline-previous-archive" "${AGENT}"
-	_omp_tail_candidate "18.4.1" "0063-omp-codex-v2-compaction-live-chain" "${NM}"
-	_omp_tail_candidate "18.4.1" "0065-omp-commandcode-deepseek-model-record-parity" "${NM}"
-	_omp_tail_candidate "18.4.1" "0066-omp-anthropic-native-compaction-live-context" "${NM}"
-	_omp_tail_candidate "18.4.1" "0067-omp-remote-compaction-lane-trace-live-tools" "${NM}"
-	_omp_tail_candidate "18.4.1" "0068-omp-codex-stale-baseline-chain" "${NM}"
-	_omp_tail_candidate "18.4.1" "0069-omp-codex-effort-history-resume" "${AI}"
-	_omp_tail_candidate "18.4.1" "0070-omp-codex-compaction-chain-fail-closed" "${NM}"
-	_omp_tail_candidate "18.4.1" "0072-omp-session-pin-static-auth-ui" "${AGENT}"
-	# Upstream implements 0073's model-live getter; its behavior gate still runs.
-	_omp_tail_candidate "18.4.1" "0074-omp-anthropic-context-cache-boundaries" "${AI}"
-	_omp_tail_candidate "18.4.1" "0075-omp-hindsight-recall-promotion-slot" "${AGENT}"
-	_omp_tail_candidate "18.4.1" "0076-omp-eval-state-context-persist" "${NM}"
-	_omp_tail_candidate "18.4.1" "0077-omp-turn-recovery-reminder-persist" "${AGENT}"
-	_omp_tail_candidate "18.4.1" "0078-omp-python-display-mime-preference" "${AGENT}"
-	_omp_tail_candidate "18.4.1" "0079-omp-kitty-conversion-finalization" "${TUI}"
-	_omp_tail_candidate "18.4.1" "0080-omp-kitty-shared-png-cache" "${TUI}"
-	_omp_tail_candidate "18.4.1" "0081-omp-main-cache-footer" "${NM}"
-	_omp_tail_candidate "18.4.1" "0082-omp-user-display-text" "${NM}"
-	# 0083: 18.3.4+ absorbs `^` model tags into the task-tool surface only at a
-	# base-prompt rebuild; a fresh-process resume rebuilt that surface from empty
-	# and forked the tools prefix. The committed surface is persisted and restored.
-	_omp_tail_candidate "18.4.1" "0083-omp-model-mention-surface-resume" "${AGENT}"
-	# 0084: 18.3.4+ retries a reasoning-only `length` stop with a developer
-	# reminder appended to agent memory only; any rebuild from the session file
-	# (resume, in-process rebuild) dropped it and forked the prefix at its index.
-	_omp_tail_candidate "18.4.1" "0084-omp-length-stop-reminder-persist" "${AGENT}"
-	;;
 18.4.4)
 	# 18.4.1 -> 18.4.4 keeps all 49 capabilities as same-ID 18.4.4 candidates.
 	_omp_version_candidates "18.4.4" \
@@ -657,7 +356,7 @@ case "$OMP_PATCH_VERSION" in
 	# extension event (hit | miss | error).
 	_omp_tail_candidate "18.4.4" "0092-omp-cache-warming-idle-budget" "${AGENT}"
 	;;
-18.7.0)
+18.7.0|18.10.0|18.10.1)
 	# One active revision per functional family. Historical bytes are archived.
 	case "${OMP_PATCH_PLAN:-deployed}" in
 		deployed|repository) ;;
@@ -673,26 +372,35 @@ case "$OMP_PATCH_VERSION" in
 		done
 	fi
 	_omp_family_plan
+	if [[ "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+		# Upstream b83200eb retains self-contained native replay warming while
+		# deliberately excluding connection-bound histories; no local 0017 remains.
+		PLAN_CAPABILITIES[0017]=upstream
+	fi
 	# The undeployed computeruse candidate is an explicit repository overlay.
 	# A missing file never implicitly selects a smaller deployment plan.
 	if [[ "${OMP_PATCH_PLAN:-deployed}" == repository ]]; then
+		[[ "$OMP_PATCH_VERSION" == "18.7.0" ]] || {
+			echo "0097 repository overlay is not migrated for ${OMP_PATCH_VERSION}; use deployed" >&2
+			exit 2
+		}
 		_omp_tail_candidate "18.7.0" "0097-omp-computeruse" "${NM}"
 		PLAN_CAPABILITIES[0097]=1
 	fi
 	;;
 *)
-	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4, 18.7.0)" >&2
+	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known:18.4.4,18.7.0,18.10.0,18.10.1)" >&2
 	exit 2
 	;;
 esac
 
-if [[ "$OMP_PATCH_VERSION" != "18.7.0" && -n "${OMP_PATCH_PLAN+x}" ]]; then
-	echo "OMP_PATCH_PLAN is supported only for 18.7.0" >&2
+if [[ "$OMP_PATCH_VERSION" != "18.7.0" && "$OMP_PATCH_VERSION" != "18.10.0" && "$OMP_PATCH_VERSION" != "18.10.1" && -n "${OMP_PATCH_PLAN+x}" ]]; then
+	echo "OMP_PATCH_PLAN is supported only for 18.7.0, 18.10.0 and 18.10.1" >&2
 	exit 2
 fi
 
 if [[ "$MODE" == "print-capabilities" ]]; then
-	if [[ "$OMP_PATCH_VERSION" == "18.7.0" ]]; then
+	if [[ "$OMP_PATCH_VERSION" == "18.7.0" || "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
 		printf '%s\n' "${!PLAN_CAPABILITIES[@]}" | sort
 	else
 		for entry in "${PATCHES[@]}"; do
@@ -757,18 +465,23 @@ _omp_run_gates() {
 	_omp_gate "" verify-provider-image-budget.ts
 	_omp_gate "" verify-snapcompact-model-billing.ts
 	_omp_gate "" verify-ollama-cloud-usage.ts
-	_omp_gate "" verify-spec-contracts.sh
 	_omp_gate 0055 verify-devin-auth-cache.ts
 	_omp_gate "" verify-hindsight-recall-snapshot.ts
 	_omp_gate "" verify-interrupt-prune-symmetry.ts
 	_omp_gate 0032 verify-goal-tool-resident.ts
 	_omp_gate 0047 verify-date-cwd-anchor-stability.ts
+	if [[ "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+		_omp_gate 0047 verify-session-transfer-authority.ts
+	fi
 	_omp_gate 0056 verify-devin-metadata.ts
 	_omp_gate "" verify-supersede-warm-prefix-guard.ts
 	if _omp_has_capability 0045 || _omp_has_capability 0062 || [[ "$OMP_PATCH_VERSION" == "18.7.0" ]]; then
 		_omp_gate "" verify-snapcompact-frame-reprice.ts
 	fi
 	_omp_gate 0050 verify-session-history-preview.ts
+	if [[ "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+		_omp_gate "" verify-native-dialog-lifecycle.ts
+	fi
 	_omp_gate 0058 verify-devin-thinking-signature.ts
 	_omp_gate 0060 verify-devin-idle-cascade-pin.ts
 	_omp_gate 0010 verify-idle-ephemeral-reservation.ts
@@ -780,9 +493,7 @@ _omp_run_gates() {
 	_omp_gate 0069 verify-codex-effort-resume.ts
 	_omp_gate 0070 verify-codex-compaction-chain-fail-closed.ts
 	_omp_gate 0072 verify-session-pin-static-auth-ui.ts
-	if _omp_has_capability 0073 || [[ "$OMP_PATCH_VERSION" == "18.3.3" || "$OMP_PATCH_VERSION" == "18.4.1" || "$OMP_PATCH_VERSION" == "18.4.4" || "$OMP_PATCH_VERSION" == "18.7.0" ]]; then
-		_omp_gate "" verify-read-description-live.ts
-	fi
+	_omp_gate "" verify-read-description-live.ts
 	_omp_gate 0074 verify-anthropic-cache-boundaries.ts
 	_omp_gate 0074 verify-anthropic-request-audit.ts
 	_omp_gate 0075 verify-hindsight-recall-promotion-slot.ts
@@ -794,6 +505,7 @@ _omp_run_gates() {
 	_omp_gate 0081 verify-main-cache-hit.ts
 	_omp_gate 0083 verify-model-mention-surface-resume.ts
 	_omp_gate 0093 verify-prompt-effort-resume.ts
+	_omp_gate 0093 verify-model-selection-resume.ts
 	_omp_gate 0094 verify-anthropic-thinking-drop-resume.ts
 	_omp_gate 0095 verify-context-persist-audit.ts
 	_omp_gate 0084 verify-length-stop-reminder-persist.ts

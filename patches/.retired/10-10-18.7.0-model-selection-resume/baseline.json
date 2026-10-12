@@ -1,0 +1,9 @@
+{
+  "version": "18.7.0",
+  "family": ".18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch",
+  "root": "NM",
+  "previousFamily": "family-persistent-prefix-resume-v18.7.0.patch",
+  "previousFamilySha256": "e11d425b668e51c0f0cc6765af62c100da90b9e92da5e9257cfd663a01564781",
+  "repair": "model-selection-resume.delta.patch",
+  "repairSha256": "7a19be69e69b8b1662c74320d72ee2f23bef998bdd66020c715a0ffc716100e2"
+}

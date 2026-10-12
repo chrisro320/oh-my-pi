@@ -41,6 +41,36 @@ const logLines = (): Array<Record<string, unknown>> =>
 		.filter(Boolean)
 		.map(line => JSON.parse(line) as Record<string, unknown>);
 
+// Diagnostics must detect reasoning changes without exposing reasoning or signatures.
+for (const makeBlock of [
+	(value: string) => ({ type: "thinking", thinking: value, signature: `${value}-signature` }),
+	(value: string) => ({ thought: true, text: value, thoughtSignature: `${value}-signature` }),
+	(value: string) => ({ type: "redacted_thinking", data: value }),
+	(value: string) => ({ type: "reasoning_text", text: value }),
+]) {
+	const payload = (value: string) => ({
+		model: "audit-privacy",
+		system: "stable",
+		tools: [],
+		messages: [{
+			role: "assistant",
+			content: [makeBlock(value), { type: "text", text: "visible answer" }],
+		}],
+	});
+	const before = ext.fingerprint(payload("PRIVATE_REASONING_BEFORE"));
+	const after = ext.fingerprint(payload("PRIVATE_REASONING_AFTER"));
+	assert.ok(before && after);
+	const delta = ext.diff(before, after);
+	assert.equal(delta.kind, "HISTORY_REWRITE", "private reasoning changes must remain detectable");
+	assert.ok(
+		!JSON.stringify({ before, after, delta }).includes("PRIVATE_REASONING"),
+		"persisted fingerprints and diagnostic excerpts must never expose reasoning",
+	);
+	const legacy = { ...before, samples: ["len=24 PRIVATE_REASONING_LEGACY"] };
+	assert.ok(!JSON.stringify(ext.diff(legacy, after)).includes("PRIVATE_REASONING"),
+		"legacy baseline excerpts must not leak into new diagnostic output");
+}
+
 // ---------------------------------------------------------------------------
 // Payload builders: Google Antigravity nests the body under `request`; the
 // Anthropic/OpenAI shape keeps everything top-level.
@@ -124,7 +154,7 @@ const gemTurn2 = [
 	assert.ok(fRaw, "top-level contents shape must fingerprint");
 	assert.equal(fRaw.messages.length, 2);
 
-	// Test hook lifecycle + message_end pairing for Antigravity
+	// Request fingerprints remain separate from uncorrelated measured usage.
 	const gemHarness = createHarness();
 	gemHarness.emit("before_provider_request", { payload: antigravityPayload(gemTurn1, { sessionId: "session-gem-direct" }) }, "ctx-gem-direct");
 	gemHarness.emit("before_provider_request", { payload: antigravityPayload(gemTurn2, { sessionId: "session-gem-direct" }) }, "ctx-gem-direct");
@@ -132,7 +162,7 @@ const gemTurn2 = [
 	const gemLogs = logLines().filter(l => l.sessionId === "session-gem-direct");
 	const gemReqs = gemLogs.filter(l => l.diff !== undefined && l.usage === undefined);
 	assert.equal(gemReqs.at(-1)?.diff?.kind, "APPEND_ONLY", "Google Antigravity request must log APPEND_ONLY diff in audit log");
-	assert.match(gemLogs.at(-1)?.verdict ?? "", /^hit \(strict /, "Google Antigravity must pair APPEND_ONLY turn with a strict-hit verdict");
+	assert.equal(logLines().at(-1)?.cacheStatus, "hit");
 	const fSys = ext.fingerprint(
 		antigravityPayload(gemTurn2, {
 			systemInstruction: { role: "user", parts: [{ text: "You are a DIFFERENT agent." }] },
@@ -265,8 +295,6 @@ const gemTurn2 = [
 	assert.equal(ext.diff(af1, af2).kind, "APPEND_ONLY");
 	assert.deepEqual(af2.breakpoints, ["3:1h"]);
 
-	// Thinking blocks contribute their text, not an opaque <type>.
-	assert.match(af1.samples[1], /hmm hello/);
 
 	// In-place edit -> HISTORY_REWRITE with the exact index.
 	const aEdit = anthropicPayload([
@@ -428,18 +456,14 @@ function createHarness(): {
 	);
 	assert.ok(reqs.every(line => line.crossProcess === false));
 
-	// Usage verdicts: hit requires strict_ratio = cacheRead / (cacheRead +
-	// cacheWrite + input) >= 0.5; below that, honest MISS (prefix intact).
+	// Cache accounting is measured independently of request attribution.
 	harness.emit("message_end", { message: { role: "assistant", usage: { input: 4, cacheRead: 192, cacheWrite: 4 } } }, "ctx-opus");
 	harness.emit("message_end", { message: { role: "assistant", usage: { input: 100, cacheRead: 96, cacheWrite: 4 } } }, "ctx-opus");
 	harness.emit("message_end", { message: { role: "assistant", usage: { input: 50, cacheRead: 0, cacheWrite: 50 } } }, "ctx-opus");
-	const usageLines = logLines().filter(line => line.sessionId === "session-opus" && line.usage !== undefined);
-	assert.match(usageLines[0].verdict, /^hit \(strict /);
-	assert.match(usageLines[0].verdict, /strict 96\.0%/);
-	assert.equal(usageLines[0].sessionId, "session-opus");
-	assert.match(usageLines[1].verdict, /^MISS \(prefix intact/);
-	assert.match(usageLines[1].verdict, /strict 48\.0%/);
-	assert.match(usageLines[2].verdict, /^MISS \(prefix intact/);
+	const usageLines = logLines().filter(line => line.observedSessionId === "ctx-opus" && line.usage !== undefined);
+	assert.deepEqual(usageLines.map(line => [line.cacheStatus, line.strictHitRate]),
+		[["hit", 0.96], ["miss", 0.48], ["miss", 0]]);
+	assert.ok(usageLines.every(line => line.correlation === "unavailable" && line.diff === undefined));
 	harness.emit(
 		"before_provider_request",
 		{
@@ -455,7 +479,8 @@ function createHarness(): {
 	);
 	harness.emit("message_end", { message: { role: "assistant", usage: { input: 5, cacheRead: 0, cacheWrite: 5 } } }, "ctx-opus");
 	const missLine = logLines().at(-1);
-	assert.match(missLine.verdict, /^MISS CAUSED BY HISTORY_REWRITE/);
+	assert.equal(missLine.cause, "unknown");
+	assert.equal(missLine.diff, undefined);
 
 	// The command surfaces the active session's note (the last request was the
 	// opus rewrite, so the note names HISTORY_REWRITE).
@@ -500,22 +525,14 @@ function createHarness(): {
 }
 
 // ---------------------------------------------------------------------------
-// 3b. Interleaved MODELS in one session: the verdict must be explained by the
-//     diff of the model whose usage arrived, not by whichever model happened
-//     to send the last request.
-//
-//     The diff is computed when a REQUEST leaves and the verdict is written
-//     when the RESPONSE arrives, so a single diff slot is claimed by the last
-//     requester. Observed on session 01a07221: a parallel `gpt-5.6-luna` agent
-//     slotted 57 requests between `deepseek-v4-pro-0813`'s 37, and one of them
-//     landed between deepseek's request and its response — the deepseek miss
-//     was then blamed on luna's diff, with an index past deepseek's own
-//     message count.
+// 3b. A same-model side request can overwrite the latest request while a main
+//     response is pending. Without a request ID, neither diff nor headers may
+//     be attached to the response as a cause, even in a single-model session.
 // ---------------------------------------------------------------------------
 {
 	const SESSION = "session-crosstalk";
 	const MAIN = "deepseek-v4-pro-0813";
-	const INTERLOPER = "gpt-5.6-luna";
+	const INTERLOPER = MAIN;
 	const harness = createHarness();
 
 	const mainTurn1 = anthropicPayload(
@@ -534,90 +551,53 @@ function createHarness(): {
 		],
 		{ model: MAIN, sessionId: SESSION },
 	);
-	// The interloper carries its own system prompt. It has no baseline of its
-	// own, so it must read as a first request — not as SYSTEM_DRIFT against the
-	// main model's history (section 3c pins the baseline side of this).
+	// The same model is used for a title with a different system prompt.
 	const interloperTurn = anthropicPayload([{ role: "user", content: [{ type: "text", text: "title this" }] }], {
 		model: INTERLOPER,
 		sessionId: SESSION,
 		system: [{ type: "text", text: "You name conversations." }],
 	});
 
-	harness.emit("before_provider_request", { payload: mainTurn1 }, "ctx-crosstalk");
-	harness.emit("before_provider_request", { payload: mainTurn2 }, "ctx-crosstalk");
-	harness.emit("before_provider_request", { payload: interloperTurn }, "ctx-crosstalk");
+	harness.emit("before_provider_request", { payload: mainTurn1 }, SESSION);
+	harness.emit("before_provider_request", { payload: mainTurn2 }, SESSION);
+	ext.observeHeader(SESSION, "api.anthropic.com", "auth=apikey:main version=v betas=", "request");
+	ext.observeHeader(SESSION, "api.anthropic.com", "response=main", "response");
+	harness.emit("before_provider_request", { payload: interloperTurn }, SESSION);
+	ext.observeHeader(SESSION, "api.anthropic.com", "auth=apikey:side version=v betas=", "request");
+	ext.observeHeader(SESSION, "api.anthropic.com", "response=side", "response");
+	const latestRequest = JSON.parse(readFileSync(ext.statePathFor(SESSION), "utf8")).recent[0];
+	assert.equal(latestRequest.headers, "auth=apikey:side version=v betas=");
+	assert.equal(latestRequest.responseHeaders, "response=side");
 
-	const requestKinds = logLines()
-		.filter(line => line.sessionId === SESSION && line.usage === undefined)
-		.map(line => line.diff.kind);
+	const requestRows = logLines().filter(line => line.sessionId === SESSION && line.diff !== undefined);
+	assert.ok(requestRows.every(line => line.correlation === "request-only"));
+	const requestKinds = requestRows.map(line => line.diff.kind);
 	assert.deepEqual(
 		requestKinds,
-		["IDENTICAL", "HISTORY_REWRITE", "IDENTICAL"],
-		"the main model's rewrite must survive an interloper request landing after it",
+		["IDENTICAL", "HISTORY_REWRITE", "SYSTEM_DRIFT"],
+		"request drift remains observable without claiming response correlation",
 	);
 
 	harness.emit(
 		"message_end",
 		{ message: { role: "assistant", model: MAIN, usage: { input: 109_005, cacheRead: 0, cacheWrite: 0 } } },
-		"ctx-crosstalk",
+		SESSION,
 	);
 	const mainVerdict = logLines().at(-1);
-	assert.equal(
-		mainVerdict.diff.kind,
-		"HISTORY_REWRITE",
-		"the main model's miss must be explained by its OWN diff, not the interloper's SYSTEM_DRIFT",
-	);
-	assert.equal(mainVerdict.model, MAIN, "the verdict row must name the model it judged");
-	assert.match(mainVerdict.verdict, /^MISS CAUSED BY HISTORY_REWRITE/);
+	assert.equal(mainVerdict.model, MAIN);
+	assert.equal(mainVerdict.correlation, "unavailable");
+	assert.equal(mainVerdict.cause, "unknown");
+	for (const key of ["diff", "headers", "responseHeaders", "sessionId"]) {
+		assert.equal(mainVerdict[key], undefined, `${key} must not be borrowed from a different request`);
+	}
 
-	// Symmetric: the interloper's own usage still gets its own diff.
-	harness.emit(
-		"message_end",
-		{ message: { role: "assistant", model: INTERLOPER, usage: { input: 800, cacheRead: 0, cacheWrite: 800 } } },
-		"ctx-crosstalk",
-	);
-	const interloperVerdict = logLines().at(-1);
-	assert.equal(interloperVerdict.model, INTERLOPER);
-	assert.equal(interloperVerdict.diff.kind, "IDENTICAL", "the interloper's first request has no baseline");
-	assert.equal(interloperVerdict.diff.detail, "no baseline");
-
-	// A response with no model field (shapes that omit it) must still be
-	// explained when only one model has been seen — single-model sessions keep
-	// the pre-change behaviour, which section 3 above depends on.
-	const soloHarness = createHarness();
-	const solo = anthropicPayload([{ role: "user", content: [{ type: "text", text: "solo" }] }], {
-		model: MAIN,
-		sessionId: "session-solo",
-	});
-	soloHarness.emit("before_provider_request", { payload: solo }, "ctx-solo");
-	soloHarness.emit(
-		"before_provider_request",
-		{
-			payload: anthropicPayload([{ role: "user", content: [{ type: "text", text: "solo EDITED" }] }], {
-				model: MAIN,
-				sessionId: "session-solo",
-			}),
-		},
-		"ctx-solo",
-	);
-	soloHarness.emit(
-		"message_end",
-		{ message: { role: "assistant", usage: { input: 10, cacheRead: 0, cacheWrite: 10 } } },
-		"ctx-solo",
-	);
-	const soloVerdict = logLines().at(-1);
-	assert.match(
-		soloVerdict.verdict,
-		/^MISS CAUSED BY HISTORY_REWRITE/,
-		"a modelless response in a single-model session must fall back to the lone slot",
-	);
 }
 
 // ---------------------------------------------------------------------------
-// 3c. The BASELINE itself is per model, not only the diff slot.
+// 3c. Request baselines remain per model, independently of completion usage.
 //
-//     Section 3b keeps one diff slot per model, but the diff is still computed
-//     against the previous request of ANY model. Observed on session 01a0f047
+//     Comparing against the previous request of ANY model produced false
+//     request drift. Observed on session 01a0f047
 //     (2026-09-30): an advisor `gpt-5.6-luna` request sat between two claude
 //     requests, so claude's clean append-only turn was logged as
 //     `SYSTEM_DRIFT system[0] 940ccaef… -> d17688e7…` on rows that were
@@ -703,8 +683,8 @@ function createHarness(): {
 		"ctx-model-baseline",
 	);
 	const verdict = logLines().at(-1);
-	assert.equal(verdict.diff.kind, "APPEND_ONLY");
-	assert.match(verdict.verdict, /^hit/);
+	assert.equal(verdict.diff, undefined);
+	assert.equal(verdict.cacheStatus, "hit");
 }
 
 // ---------------------------------------------------------------------------
@@ -801,7 +781,7 @@ function createHarness(): {
 	ext.observeHeader("hdr-s1", "api.anthropic.com", "auth=apikey:abc version=v betas=");
 	ext.observeHeader("hdr-s2", "api.anthropic.com", "auth=apikey:abc version=v betas=");
 	ext.observeHeader("hdr-s1", "api.anthropic.com", "auth=oauth:def version=v betas=");
-	const drifts = logLines().filter(line => line.event === "HEADER_DRIFT");
+	const drifts = logLines().filter(line => line.event === "HEADER_DRIFT" && line.sessionId.startsWith("hdr-s"));
 	assert.equal(drifts.length, 1, "exactly one drift: hdr-s1 on api.anthropic.com");
 	assert.equal(drifts[0].sessionId, "hdr-s1");
 	assert.equal(drifts[0].host, "api.anthropic.com");
@@ -888,7 +868,7 @@ function createHarness(): {
 
 	// Subprocess test: true OS-level multi-process execution with isolated sessions
 	const childCode = `
-		import * as ext from './patches/cache-prefix-audit-extension.ts';
+		import * as ext from ${JSON.stringify(new URL("./cache-prefix-audit-extension.ts", import.meta.url).href)};
 		import assert from 'node:assert/strict';
 		import { existsSync } from 'node:fs';
 		const fp = ext.fingerprint({ model: 'm1', messages: [{ role: 'user', content: 'test-sub' }], sessionId: 'session-subprocess' }, 'session-subprocess');
@@ -907,7 +887,10 @@ function createHarness(): {
 	`;
 	const res = Bun.spawnSync([process.execPath, "-e", childCode], {
 		env: {
-			...process.env,
+			...Object.fromEntries(
+				["HOME", "PATH", "TMPDIR", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME"]
+					.flatMap(key => process.env[key] === undefined ? [] : [[key, process.env[key]]]),
+			),
 			OMP_CACHE_AUDIT_STATE_DIR: HOME,
 			OMP_CACHE_AUDIT_LOG: LOG_PATH,
 		},

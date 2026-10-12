@@ -11,110 +11,67 @@
 // boundaries did. `cache-prefix-audit.log` recorded the resulting miss as
 // `MISS CAUSED BY SYSTEM_DRIFT`, input=102105 cacheRead=23424 (strict 18.7%).
 //
-// Zero provider calls. The source gates pin the single-carrier contract and the
-// two rebuild sites; the behavioural gate drives the real `SessionMemory`
-// promotion lifecycle (capture / restore / new transcript) with a stub host.
+// Zero provider calls. Drive the real developer-instruction builder, SessionMemory
+// lifecycle and SessionTools rebuild/promotion consumers; source spelling is not
+// an oracle for the single-carrier contract.
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 
 // Dynamic roots are load-bearing: `OMP_PATCH_VERIFY_AGENT_ROOT` selects the tree
 // under test, so the import specifier only exists at runtime. Every other
 // patches/verify-*.ts gate reads the tree the same way.
-const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree under test");
+const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
+const privateHome = mkdtempSync(join(tmpdir(), "omp-promotion-home-"));
+for (const key of Object.keys(process.env)) {
+	if (key !== "PATH" && key !== "TMPDIR") delete process.env[key];
+}
+Object.assign(process.env, {
+	HOME: privateHome, XDG_CONFIG_HOME: join(privateHome, "config"),
+	XDG_CACHE_HOME: join(privateHome, "cache"), XDG_DATA_HOME: join(privateHome, "data"),
+	XDG_STATE_HOME: join(privateHome, "state"),
+});
+process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
+// Private HOME must also precede runtime startup (os.homedir may be cached).
+if (!privateProcess) {
+	const child = Bun.spawnSync([process.execPath, import.meta.path, ...process.argv.slice(2)], {
+		env: { ...process.env, OMP_DURABILITY_BOOT: "1", OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
+	});
+	process.stdout.write(child.stdout);
+	process.stderr.write(child.stderr);
+	process.exit(child.exitCode);
+}
+globalThis.fetch = (() => { throw new Error("Network forbidden in recall promotion gate"); }) as typeof fetch;
 
 // Plan membership, not symbol existence: 0075 was deployed on the live 18.2.3
 // tree before it was registered, and it is part of the 18.2.10 plan. Plans that
 // never carried it must fail closed rather than measure a pristine tree.
 const agentVersion: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
-	["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion),
+	["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion),
 	`verify-hindsight-recall-promotion-slot: 0075 is not part of the ${agentVersion} plan`,
 );
 
-const source = (rel: string): string => readFileSync(`${AGENT_ROOT}/${rel}`, "utf8");
-
-const backend = source("src/hindsight/backend.ts");
-const tools = source("src/session/session-tools.ts");
-const memory = source("src/session/session-memory.ts");
-const session = source("src/session/agent-session.ts");
-
-// 1. The developer message must never carry the recall block, or the rebuild
-//    that clears the promoted tail re-creates it one level up.
-assert.ok(
-	!/parts\.push\(recallSnippet\)/.test(backend),
-	"hindsight/backend.ts still joins the recall block into the developer message",
-);
-assert.ok(
-	!/lastRecallSnippet/.test(backend),
-	"hindsight/backend.ts still reads lastRecallSnippet while composing developer instructions",
-);
-
-// 2. Both wholesale rebuilds re-attach the promoted tail, and the promoting turn
-//    stages it as a single message (an un-stripped previous tail would double it).
-const reattached = tools.match(/const promotionTail = this\.#host\.memoryPromotionTail\(\);/g) ?? [];
-assert.equal(reattached.length, 2, "expected the two base-prompt rebuilds to re-attach the promoted tail");
-assert.ok(
-	/captureMemoryPromotionSnapshot\(currentBase, injected\)/.test(tools),
-	"the promoting turn must publish the promoted block as the tail",
-);
-assert.ok(
-	/promoted !== undefined && base\[base\.length - 1\] === promoted/.test(tools),
-	"the promoting turn must strip a previously attached block from the base it stages",
-);
-assert.ok(
-	/promoted !== undefined && currentBase\[currentBase\.length - 1\] === promoted/.test(tools),
-	"the committing turn must strip a previously attached block before publishing the new one",
-);
-assert.ok(
-	/memoryPromotionTail\(\): string \| undefined;/.test(tools),
-	"SessionToolsHost must expose the promoted tail",
-);
-
-// 3. The tail shares the promotion snapshot's lifecycle, so it cannot outlive the
-//    transcript that produced it.
-assert.ok(/get promotionTail\(\)/.test(memory), "SessionMemory must expose the promoted tail");
-assert.ok(
-	/capturePromotionSnapshot\(prompt: string\[\], tail\?: string\)/.test(memory),
-	"capturePromotionSnapshot must take the promoted block",
-);
-assert.ok(
-	/restorePromotionSnapshot\(prompt: string\[\] \| undefined, tail\?: string\)/.test(memory),
-	"restorePromotionSnapshot must restore the promoted block",
-);
-assert.ok(
-	/this\.#baseSystemPromptPromotionTail = undefined;/.test(memory),
-	"a new transcript must clear the promoted block",
-);
-assert.ok(
-	/this\.#baseSystemPromptPromotionTail = tail;/.test(memory),
-	"rollback must restore the promoted block",
-);
-
-// 4. Host wiring: the getter is published, and a failed session switch snapshots
-//    and restores the tail alongside the promotion snapshot.
-assert.ok(
-	/memoryPromotionTail: \(\) => this\.#memory\.promotionTail,/.test(session),
-	"agent-session must wire memoryPromotionTail to SessionMemory",
-);
-assert.ok(
-	/const previousMemoryPromotionTail = this\.#memory\.promotionTail;/.test(session),
-	"the session-switch rollback must snapshot the promoted tail",
-);
-assert.ok(
-	/restorePromotionSnapshot\(previousBaseSystemPromptBeforeMemoryPromotion, previousMemoryPromotionTail\);/.test(
-		session,
-	),
-	"the session-switch rollback must restore the promoted tail",
-);
-
-// 5. Behaviour: drive the real promotion lifecycle with a stub host.
 const { SessionMemory } = await import(`${AGENT_ROOT}/src/session/session-memory.ts`);
 
 let base: string[] = ["base"];
 let refreshes = 0;
 const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
+const { hindsightBackend } = await import(`${AGENT_ROOT}/src/hindsight/backend.ts`);
+const recall = "<memories>\nrecall must stay in the promoted tail\n</memories>";
+const instructionState = { mentalModelsSnippet: "<mental_models>stable</mental_models>", lastRecallSnippet: recall };
+const instructions = await hindsightBackend.buildDeveloperInstructions(
+	privateHome,
+	Settings.isolated({ "memory.backend": "hindsight", "hindsight.apiUrl": "http://127.0.0.1:1" }),
+	{ getHindsightSessionState: () => instructionState, getXdevToolEntries: () => [] },
+);
+assert.ok(instructions?.includes(instructionState.mentalModelsSnippet), "fixture must reach memory developer instructions");
+assert.ok(!instructions.includes(recall), "developer instructions must not duplicate the promoted recall carrier");
 const host = {
 	agent: {},
 	settings: Settings.isolated({ "memory.backend": "off" }),
@@ -179,7 +136,7 @@ const memorySessionStub = { getHindsightSessionState: () => hindsightState };
 const sessionToolsHost = new Proxy(
 	{
 		agent: {
-			state: { tools: [] },
+			state: { tools: [], messages: [] },
 			setSystemPrompt: (parts: string[]) => {
 				agentPrompt = parts;
 			},
@@ -190,7 +147,7 @@ const sessionToolsHost = new Proxy(
 		// stay no-ops like the host stub.
 		sessionAgents: () => [],
 		sessionManager: new Proxy(
-			{ getBranch: () => [] },
+			{ getBranch: () => [], getBranchView: () => [] },
 			{ get: (target, key) => (key in target ? Reflect.get(target, key) : () => undefined) },
 		),
 		settings: Settings.isolated({ "memory.backend": "hindsight" }),

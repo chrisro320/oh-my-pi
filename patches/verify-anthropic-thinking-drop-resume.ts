@@ -1,24 +1,10 @@
-// Regression gate for 0094: the dropped-thinking replay set must survive a
-// process resume.
+// Durable thinking replay policy across 18.7.0 and 18.10.0.
+// Legacy committed omissions must survive resume. The target deliberately keeps
+// new server-managed drop_block reports on the wire; only an explicit client
+// prefix-binding 400 repair creates new durable omission metadata.
 //
-// Root cause (18.7.0): when the Anthropic server reports a
-// `prefix_binding_mismatch` input transformation it drops the replayed bound
-// thinking blocks, and the provider remembers their stable keys
-// (`thinking:<signature>` / `redacted:<data>`) in a process-local
-// `providerSessionState.prefixDroppedThinkingBlocks` Set. The response also
-// persists the reported transformations, but their wire `path`
-// (`messages.N.content.M`) is index-scoped and cannot be replayed against a
-// rebuilt history. A fresh process therefore starts with an empty set, resends
-// every rejected block, and the server must invalidate them again. This gate
-// covers that separate state-loss path. Fix (0094): the response carries a
-// durable `droppedThinkingReplay` record keyed on the stable block identity and
-// scoped to the confirming endpoint+model; a fresh process restores the set
-// from it before building the next request.
-//
-// The gate drives the real `streamAnthropic` against an offline SSE transport
-// (no socket is opened) and reads the exact serialized request bodies. A resume
-// is a fresh providerSessionState Map plus a JSON roundtrip of the persisted
-// context, which is precisely the state the bug loses.
+// Real streamAnthropic runs against an offline SSE sink. A fresh provider-state
+// map plus JSON-roundtripped history models the state absent after restart.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -30,9 +16,8 @@ const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const version = String(
 	(JSON.parse(readFileSync(`${AI}/package.json`, "utf8")) as { version?: string }).version ?? "",
 );
-// Version-scoped: 0094 exists only in the 18.7.0 plan. Any other tree fails
-// closed rather than asserting a behavior the build never carried.
-assert.equal(version, "18.7.0", `unsupported thinking-drop resume gate version: ${version}`);
+assert.ok(["18.7.0", "18.10.0", "18.10.1"].includes(version), `unsupported thinking-drop resume gate version: ${version}`);
+const serverManagedDrops = ["18.10.0", "18.10.1"].includes(version);
 
 // Static imports cannot work here: the tree under test is selected at runtime by
 // env (pristine / patched / fault), so the module specifiers are data, not
@@ -64,13 +49,14 @@ type FixtureMessage = {
 	droppedThinkingReplay?: unknown;
 };
 type FixtureContext = { systemPrompt: string; messages: FixtureMessage[] };
-type RecordedResponse = { droppedThinkingReplay?: unknown; inputTransformations?: unknown[] };
+type RecordedResponse = { model?: string; droppedThinkingReplay?: unknown; inputTransformations?: unknown[] };
 
 const wire: WireBody[] = [];
 const urls: string[] = [];
 let plan: (body: WireBody) => Array<Record<string, unknown>> = () => [];
 /** When set, the next transport call answers with a 400 carrying this message. */
 let failNext: string | null = null;
+let servedFallback: string | undefined;
 
 // No socket may ever be opened: the transport below is the only responder.
 globalThis.fetch = (() => {
@@ -89,6 +75,7 @@ const transport = (async (url: string, init?: RequestInit) => {
 			headers: { "content-type": "application/json" },
 		});
 	}
+	const textIndex = servedFallback ? 1 : 0;
 	const events = [
 		{
 			type: "message_start",
@@ -102,9 +89,15 @@ const transport = (async (url: string, init?: RequestInit) => {
 				input_transformations: plan(body),
 			},
 		},
-		{ type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
-		{ type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "ack" } },
-		{ type: "content_block_stop", index: 0 },
+		...(servedFallback
+			? [
+					{ type: "content_block_start", index: 0, content_block: { type: "fallback", from: { model: MODEL_ID }, to: { model: servedFallback } } },
+					{ type: "content_block_stop", index: 0 },
+				]
+			: []),
+		{ type: "content_block_start", index: textIndex, content_block: { type: "text", text: "" } },
+		{ type: "content_block_delta", index: textIndex, delta: { type: "text_delta", text: "ack" } },
+		{ type: "content_block_stop", index: textIndex },
 		{ type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 1 } },
 		{ type: "message_stop" },
 	];
@@ -143,14 +136,14 @@ function reportFixtureBlocks(body: WireBody): Array<Record<string, unknown>> {
 	return out;
 }
 /** Read the durable record as untrusted data: a session file can carry any shape. */
-function replayRecord(response: RecordedResponse): { endpoint: string; model: string; keys: string[] } | undefined {
+function replayRecord(response: RecordedResponse): { endpoint: string; model: string; keys: string[]; source?: unknown } | undefined {
 	const value = response.droppedThinkingReplay;
 	if (value === null || typeof value !== "object") return undefined;
 	const record = value as Record<string, unknown>;
 	const { endpoint, model, keys } = record;
 	if (typeof endpoint !== "string" || typeof model !== "string" || !Array.isArray(keys)) return undefined;
 	if (!keys.every(key => typeof key === "string")) return undefined;
-	return { endpoint, model, keys };
+	return { endpoint, model, keys, source: record.source };
 }
 
 const usage = {
@@ -177,11 +170,12 @@ function assistant(content: FixtureBlock[], timestamp: number, model = fixtureMo
 	};
 }
 
-async function request(state, context, model = fixtureModel, client?: unknown): Promise<RecordedResponse> {
+async function request(state, context, model = fixtureModel, client?: unknown, fallbackModel?: string): Promise<RecordedResponse> {
 	const result = await streamAnthropic(model, context, {
 		apiKey: "offline-fixture",
 		fetch: transport,
 		client,
+		...(fallbackModel ? { fallbacks: [{ model: fallbackModel }] } : {}),
 		providerSessionState: state,
 		thinkingEnabled: true,
 		reasoning: "high",
@@ -198,7 +192,7 @@ const boundContent: FixtureBlock[] = [
 	{ type: "text", text: "prior answer" },
 ];
 
-// ── 1. live: the report is recorded and the same process drops the blocks ────
+// 1. Live reports: legacy deletion versus target server-managed replay.
 const liveState = new Map();
 const liveContext: FixtureContext = {
 	systemPrompt: "stable prompt",
@@ -206,9 +200,17 @@ const liveContext: FixtureContext = {
 };
 plan = reportFixtureBlocks;
 const r1 = await request(liveState, liveContext);
-const record1 = replayRecord(r1);
+const reportedRecord = replayRecord(r1);
+if (serverManagedDrops) {
+	assert.equal(reportedRecord, undefined, "a new server drop must not become a durable client omission");
+}
+// A saved 18.7.0 record has no source field. Feed that historical representation
+// to the target consumer rather than synthesizing it from a new server report.
+const record1 = serverManagedDrops
+	? { endpoint: new URL(urls[0]!).origin, model: MODEL_ID, keys: [`thinking:${SIG_A}`, `redacted:${DATA_R}`] }
+	: reportedRecord;
 assert.equal(r1.inputTransformations?.length, 2, "the fixture must report both bound blocks");
-assert.ok(record1, "the response must carry the durable drop record");
+assert.ok(record1, "legacy history must carry its durable omission record");
 assert.equal(record1.model, MODEL_ID, "the record is scoped to the confirming model");
 assert.deepEqual(
 	record1.keys,
@@ -220,16 +222,20 @@ assert.ok(hasThinking(wire[0]!, SIG_A) && hasRedacted(wire[0]!, DATA_R), "reques
 
 liveContext.messages.push(r1 as FixtureMessage, user("continue", 4));
 const r2 = await request(liveState, liveContext);
-assert.ok(!hasThinking(wire[1]!, SIG_A) && !hasRedacted(wire[1]!, DATA_R), "the live process drops the blocks");
+assert.equal(hasThinking(wire[1]!, SIG_A), serverManagedDrops, "only legacy reports may delete the signed block locally");
+assert.equal(hasRedacted(wire[1]!, DATA_R), serverManagedDrops, "only legacy reports may delete the redacted block locally");
 assert.equal(replayRecord(r2), undefined, "a request without a report records nothing");
 
 // ── 2. resume: a fresh process restores the drop from the durable record ─────
 const resumedContext: FixtureContext = JSON.parse(JSON.stringify(liveContext));
+if (serverManagedDrops) {
+	resumedContext.messages[3].droppedThinkingReplay = record1;
+}
 plan = () => [];
 const r3 = await request(new Map(), resumedContext);
 assert.ok(
 	!hasThinking(wire[2]!, SIG_A) && !hasRedacted(wire[2]!, DATA_R),
-	"a resumed process must NOT replay the blocks the server already rejected",
+	"first resume must reproduce a legacy session's already-committed omissions",
 );
 assert.equal(replayRecord(r3), undefined, "restoration must not invent a new record");
 
@@ -275,6 +281,12 @@ assert.ok(
 	"a record confirmed for another model id must not drop blocks here",
 );
 assert.equal(replayRecord(r7), undefined);
+if (serverManagedDrops) {
+	plan = () => [];
+	const serverResume = await request(new Map(), JSON.parse(JSON.stringify(liveContext)));
+	assert.equal(replayRecord(serverResume), undefined, "server-managed history must not invent omission provenance on resume");
+	assert.ok(hasThinking(wire.at(-1)!, SIG_A) && hasRedacted(wire.at(-1)!, DATA_R), "fresh-state resume must retain server-managed signed and redacted blocks");
+}
 
 // ── 7. invalid/unrecognized reports must not drop or record anything ────────
 const badContext: FixtureContext = {
@@ -292,7 +304,7 @@ assert.equal(replayRecord(r8), undefined, "an out-of-range/unknown report must r
 badContext.messages.push(r8 as FixtureMessage, user("continue", 4));
 await request(badState, badContext);
 assert.ok(
-	hasThinking(wire[8]!, SIG_A) && hasRedacted(wire[8]!, DATA_R),
+	hasThinking(wire.at(-1)!, SIG_A) && hasRedacted(wire.at(-1)!, DATA_R),
 	"an unrecognized report must not drop any block",
 );
 
@@ -301,6 +313,7 @@ assert.ok(
 // the restore path must reject it whole rather than blanket-drop or throw.
 const malformed: unknown[] = [
 	"not-an-object",
+	...(serverManagedDrops ? [{ ...record1, source: "server-drop" }] : []),
 	{ endpoint: record1.endpoint, model: MODEL_ID, keys: "all" },
 	{ endpoint: record1.endpoint, model: MODEL_ID, keys: [SIG_A, 42] },
 	{ endpoint: record1.endpoint, model: MODEL_ID },
@@ -323,16 +336,20 @@ for (const [index, record] of malformed.entries()) {
 // ── 9. the 400 prefix-binding retry also records durably ────────────────────
 // The endpoint that rejects with a bound-prefix 400 instead of reporting the
 // drop must still leave a durable record, or a resume replays the rejected
-// blocks and 400s again.
+// blocks and 400s again. On 18.10, the accepted retry serves fallback model B,
+// while the repaired prefix and durable omission scope still belong to request A.
 const retryContext: FixtureContext = {
 	systemPrompt: "stable prompt",
 	messages: [user("first", 1), assistant(boundContent, 2), user("next", 3)],
 };
 plan = () => [];
-failNext =
+const prefixBindingError =
 	"Invalid `signature` in `thinking` block: thinking block bound to a different conversation; set block_binding.prefix_mismatch_behavior to drop_block";
+failNext = prefixBindingError;
 const beforeRetry = wire.length;
-const r9 = await request(new Map(), retryContext);
+servedFallback = serverManagedDrops ? altModel.id : undefined;
+const r9 = await request(new Map(), retryContext, fixtureModel, undefined, servedFallback);
+servedFallback = undefined;
 const retryAttempts = wire.slice(beforeRetry);
 assert.ok(retryAttempts.length >= 2, "the 400 must be retried, not surfaced");
 assert.ok(
@@ -347,14 +364,42 @@ assert.ok(
 const record9 = replayRecord(r9);
 assert.ok(record9, "a 400-confirmed invalidation must leave a durable record");
 assert.deepEqual(record9.keys, [`thinking:${SIG_A}`, `redacted:${DATA_R}`]);
+if (serverManagedDrops) {
+	assert.equal(record9.source, "client-prefix-binding", "explicit 400 repairs must identify client omission provenance");
+	assert.equal(r9.model, altModel.id, "the accepted retry must actually serve fallback model B");
+	assert.equal(record9.model, MODEL_ID, "client repair provenance must remain scoped to request model A");
+}
+const repairedHistory = JSON.parse(JSON.stringify({
+	...retryContext, messages: [...retryContext.messages, r9, user("resume after repair", 4)],
+}));
+const beforeRepairResume = wire.length;
+await request(new Map(), repairedHistory);
+assert.equal(wire.length, beforeRepairResume + 1, "fresh-state resume must omit repaired keys on its first request, without another 400");
+assert.ok(!hasThinking(wire[beforeRepairResume]!, SIG_A) && !hasRedacted(wire[beforeRepairResume]!, DATA_R), "explicit client repair must survive JSON history and fresh state");
+if (serverManagedDrops) {
+	await request(new Map(), repairedHistory, altModel);
+	assert.ok(hasThinking(wire.at(-1)!, SIG_A) && hasRedacted(wire.at(-1)!, DATA_R), "request B must not inherit a repair scoped to request A");
+	const { source: _source, ...legacyRecord } = record9;
+	await request(new Map(), JSON.parse(JSON.stringify({
+		...retryContext,
+		messages: [...retryContext.messages, { ...r9, droppedThinkingReplay: legacyRecord }, user("legacy carrier mismatch", 4)],
+	})));
+	assert.ok(hasThinking(wire.at(-1)!, SIG_A) && hasRedacted(wire.at(-1)!, DATA_R), "source-less legacy records still require their carrier model to match the omission scope");
+}
 
 // Caller-owned clients route independently from the model's declared endpoint.
 const { AnthropicMessagesClient } = await import(`${AI}/src/providers/anthropic-client.ts`);
 const endpointA = "https://client-a.example.invalid";
 const endpointB = "https://client-b.example.invalid";
-const clientA = Object.assign(new AnthropicMessagesClient({ apiKey: "offline-fixture", baseURL: endpointA, fetch: transport }), { baseURL: endpointA });
-const clientB = Object.assign(new AnthropicMessagesClient({ apiKey: "offline-fixture", baseURL: endpointB, fetch: transport }), { baseURL: endpointB });
-plan = reportFixtureBlocks;
+const clientA = new AnthropicMessagesClient({ apiKey: "offline-fixture", baseURL: endpointA, fetch: transport });
+const clientB = new AnthropicMessagesClient({ apiKey: "offline-fixture", baseURL: endpointB, fetch: transport });
+if (!serverManagedDrops) {
+	// 18.7's minimal client lacks the endpoint getter that 18.10 exposes.
+	Object.assign(clientA, { baseURL: endpointA });
+	Object.assign(clientB, { baseURL: endpointB });
+}
+plan = serverManagedDrops ? () => [] : reportFixtureBlocks;
+if (serverManagedDrops) failNext = prefixBindingError;
 const clientHistory = { ...liveContext, messages: liveContext.messages.slice(0, 3) };
 const clientResponse = await request(new Map(), clientHistory, fixtureModel, clientA);
 assert.equal(replayRecord(clientResponse)?.endpoint, clientA.baseURL, "persist the endpoint that actually answered");
@@ -368,7 +413,11 @@ assert.ok(hasThinking(wire.at(-1)!, SIG_A), "another injected endpoint preserves
 await request(new Map(), clientContext);
 assert.ok(hasThinking(wire.at(-1)!, SIG_A), "default endpoint does not inherit injected-client invalidation");
 plan = reportFixtureBlocks;
-const opaqueClient = new AnthropicMessagesClient({ apiKey: "offline-fixture", baseURL: endpointA, fetch: transport });
+// Keep the transport real while exposing only the supported Messages resource:
+// constructing the 18.10 client itself no longer creates an opaque endpoint.
+const opaqueClient = {
+	messages: new AnthropicMessagesClient({ apiKey: "offline-fixture", baseURL: endpointA, fetch: transport }).messages,
+};
 const opaqueResponse = await request(new Map(), clientContext, fixtureModel, opaqueClient);
 assert.ok(hasThinking(wire.at(-1)!, SIG_A), "unknown endpoint cannot restore a scoped invalidation");
 assert.equal(replayRecord(opaqueResponse), undefined, "unknown endpoint cannot persist an invented scope");
@@ -383,5 +432,5 @@ for (const [index, body] of wire.entries()) {
 }
 
 console.log(
-	`PASS anthropic thinking-drop resume: ${wire.length} offline requests; restored drop, repeated resume, endpoint/model isolation, new blocks kept, 400 retry, invalid/malformed reports ignored`,
+	`PASS anthropic thinking-drop resume (${version}): ${wire.length} offline requests; legacy omissions, repeated resume, endpoint/model isolation, new blocks kept, durable 400 repair, invalid/malformed reports ignored${serverManagedDrops ? ", server reports remain on wire" : ""}`,
 );

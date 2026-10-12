@@ -31,7 +31,7 @@ try {
 }
 // Version-scoped: the freeze/notice split this gate defends exists from 18.3.4 on, and the
 // fixture tag syntax is 18.4.1's. A tree without the behavior must fail, never skip.
-assert.ok(["18.4.1", "18.4.4", "18.7.0"].includes(version), `unsupported advertised-surface resume gate version: ${version}`);
+assert.ok(["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(version), `unsupported advertised-surface resume gate version: ${version}`);
 
 const LAB_ROOT = process.env.OMP_PATCH_VERIFY_MODEL_MENTION_LAB ?? mkdtempSync(join(tmpdir(), "model-mention-surface-"));
 const PROBE = join(AGENT_ROOT, ".verify-model-mention-surface-resume.probe.ts");
@@ -221,7 +221,7 @@ function stripErrorId(messages: readonly string[]): string[] {
 function runProbe(mode: string, sessionFile?: string): Capture {
 	const result = Bun.spawnSync([process.execPath, PROBE, mode, sessionFile ?? ""], {
 		env: {
-			...process.env,
+			PATH: process.env.PATH,
 			HOME: LAB_ROOT,
 			XDG_CONFIG_HOME: join(LAB_ROOT, "config"),
 			XDG_CACHE_HOME: join(LAB_ROOT, "cache"),

@@ -2,11 +2,13 @@
 // credentials or provider traffic. Context-extension provenance must not veto
 // caching: modified history may still be byte-identical on consecutive calls.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+const aiVersion = JSON.parse(readFileSync(`${AI}/package.json`, "utf8")).version;
 // These imports select the pristine, patched, or fault tree at runtime.
 const { streamAnthropic } = await import(`${AI}/src/providers/anthropic.ts`);
 const { markPerCallContextMessage } = await import(`${AI}/src/utils/block-symbols.ts`);
@@ -73,7 +75,7 @@ function messageBreakpoints(payload: Payload): number[] {
 	);
 }
 function breakpoints(payload: Payload): Block[] {
-	return [...payload.system, ...payload.tools,
+	return [...(payload.system ?? []), ...(payload.tools ?? []),
 		...payload.messages.flatMap(message => Array.isArray(message.content) ? message.content : [])]
 		.filter(block => block.cache_control);
 }
@@ -114,7 +116,74 @@ try {
 	const apiKey = await capture([injected, assistant, user("Next")], "short", false);
 	assert.ok(messageBreakpoints(apiKey).includes(apiKey.messages.length - 1), "API-key requests must cache extension-injected history too");
 	assert.ok(breakpoints(apiKey).every(block => !block.cache_control?.ttl || block.cache_control.ttl === "5m"), "short retention must not gain a one-hour breakpoint");
-	console.log(`PASS Anthropic cache boundaries: ${wire.length} offline HTTP captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary`);
+	if (["18.10.0", "18.10.1"].includes(aiVersion)) {
+		// Both cache-control rungs rebuild the request. After a credited refusal
+		// with an already-run server tool, neither may send an uncredited replay.
+		// Text-only controls prove each rung is reached, not disabled wholesale.
+		const creditModel = getBundledModel("anthropic", "claude-opus-5-5");
+		assert.ok(creditModel, "the credit fixture needs the selected target model");
+		for (const retention of ["long", "short"] as const) {
+			for (const serverTool of [true, false]) {
+				const attempts: Array<Payload & { fallback_credit_token?: string }> = [];
+				const rejection = "cache_control is not supported";
+				const transport = async (_input: unknown, init?: RequestInit) => {
+					assert.ok(init?.body, "the credit probe must observe serialized bytes");
+					attempts.push(JSON.parse(await new Response(init.body).text()));
+					if (attempts.length === 1) {
+						return new Response(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: rejection } }), {
+							status: 400, headers: { "content-type": "application/json" },
+						});
+					}
+					// Empty terminal stops trigger a separate public-stream retry policy.
+					// Emit visible output so this case counts only cache-control retries.
+					const events = [
+						{ type: "message_start", message: { id: "credit-fixture", type: "message", role: "assistant", model: creditModel.id, content: [], usage: { input_tokens: 1, output_tokens: 0 } } },
+						{ type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+						{ type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "accepted" } },
+						{ type: "content_block_stop", index: 0 },
+						{ type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 1 } },
+						{ type: "message_stop" },
+					];
+					return new Response(events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(""), {
+						headers: { "content-type": "text/event-stream" },
+					});
+				};
+				const result = await streamAnthropic(creditModel, {
+					systemPrompt: "Stable credit rules", messages: [user("Credit fixture")],
+				}, {
+					apiKey: "offline-credit-api-key", fetch: transport, cacheRetention: retention,
+					maxTokens: 16, maxRetries: 0,
+					fallbackCreditRedemption: {
+						token: "offline-fallback-credit", prefillClaim: false, expiresAt: Date.now() + 60_000,
+						params: {
+							model: creditModel.id, max_tokens: 16, stream: true, tools: [],
+							system: [{ type: "text", text: "Stable credit rules", cache_control: { type: "ephemeral", ...(retention === "long" ? { ttl: "1h" } : {}) } }],
+							messages: [{ role: "user", content: [{ type: "text", text: "Credit fixture" }] }],
+						},
+						refusedContent: serverTool
+							? [{ type: "anthropicServerTool", block: { type: "server_tool_use", id: "offline-search", name: "web_search", input: { query: "fixture" } } }]
+							: [{ type: "text", text: "Refused without running a server tool" }],
+					},
+				}).result();
+				assert.equal(attempts[0]?.fallback_credit_token, "offline-fallback-credit", `${retention}: initial request must redeem its credit`);
+				assert.equal(attempts.length, serverTool ? 1 : 2, `${retention}: server-tool credit must stop before rebuilding; safe text may retry once`);
+				assert.equal(result.stopReason, serverTool ? "error" : "stop", result.errorMessage);
+				if (serverTool) {
+					assert.ok(result.errorMessage?.includes("cache_control"), "the original refusal must survive");
+				} else {
+					assert.equal(attempts[1].fallback_credit_token, undefined, "a changed safe body cannot keep its frozen credit");
+					const markers = breakpoints(attempts[1]);
+					if (retention === "long") {
+						assert.ok(markers.length > 0, "the narrow rung keeps breakpoints");
+						assert.ok(markers.every(block => block.cache_control?.ttl === undefined), "the narrow rung removes TTL");
+					} else {
+						assert.equal(markers.length, 0, "the broad rung removes all breakpoints");
+					}
+				}
+			}
+		}
+	}
+	console.log(`PASS Anthropic cache boundaries (${aiVersion}): ${wire.length} ordinary captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary${["18.10.0", "18.10.1"].includes(aiVersion) ? ", credit-safe retry on both rungs" : ""}; zero provider traffic`);
 } finally {
 	globalThis.fetch = originalFetch;
 }

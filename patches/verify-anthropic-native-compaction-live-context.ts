@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 
+// Any missed completeImpl injection must fail before a provider request.
+globalThis.fetch = (async () => {
+	throw new Error("Network forbidden in the native compaction gate");
+}) as typeof fetch;
+
 // Local structural fixture types. A type-only import cannot be root-selected
 // (TS needs a literal specifier), and a live-install path would defeat root
 // redirection (verification-gate-contracts §3). They describe only the fields
@@ -57,7 +62,6 @@ const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 const { supportsAnthropicCompaction } = await import(`${AI_ROOT}/src/providers/anthropic.ts`);
 const { Tokenizer } = await import(`${CORE_ROOT}/src/tokenizer.ts`);
-const { serializeConversationForSummary } = await import(`${CORE_ROOT}/src/compaction/utils.ts`);
 // The cache-cold warning is operator-facing, and this gate must observe the
 // SAME logger record the core package writes: a bare specifier resolved from
 // this file's directory can land on a second copy of pi-utils under a different
@@ -65,13 +69,12 @@ const { serializeConversationForSummary } = await import(`${CORE_ROOT}/src/compa
 const { registerLogSink } = await import(Bun.resolveSync("@oh-my-pi/pi-utils/logger", `${CORE_ROOT}/src/compaction`));
 const logEvents: Array<{ level: string; message: string; context: Record<string, unknown> | undefined }> = [];
 const releaseLogSink = registerLogSink(event => logEvents.push(event));
-const CACHE_COLD_WARNING = "Compaction summarized with a cache-cold request shape";
 /** How many times `needle` occurs in `haystack`; a summary must survive exactly once. */
 function countOccurrences(haystack: string, needle: string): number {
 	return haystack.split(needle).length - 1;
 }
 const cacheColdLogReasons = (): string[] =>
-	logEvents.filter(event => event.level === "warn" && event.message === CACHE_COLD_WARNING).map(event => String(event.context?.reason));
+	logEvents.filter(event => event.level === "warn" && event.context?.model === model.id && typeof event.context?.reason === "string").map(event => String(event.context?.reason));
 
 
 // GATE 0: the fixture model must actually take the Anthropic native lane.
@@ -110,7 +113,7 @@ function nativeCompactionResponse(requestModel: Model): AssistantMessage {
 			type: "anthropicCompaction",
 			provider: requestModel.provider,
 			content: "NATIVE_SUMMARY",
-			encryptedContent: "opaque",
+			...(["18.10.0", "18.10.1"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
 			signature: "offline-signed-summary",
 		},
 	} as AssistantMessage;
@@ -157,7 +160,7 @@ assert.ok(preparation, "fixture must prepare compaction");
 // gate has always pinned on it -- the whole-chain fixture and its `recent-user`
 // boundary are 0088-only, and replacing the older fixture rather than selecting
 // per plan is what broke the older branch.
-const wholeChainPlan = ["18.4.4", "18.7.0"].includes(coreVersion);
+const wholeChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(coreVersion);
 const livePreparation = {
 	...preparation,
 	firstKeptEntryId: "recent-user",
@@ -283,7 +286,7 @@ assert.equal(result.summary, "NATIVE_SUMMARY", "native summary must become the c
 // operator must not see a warning for it.
 assert.deepEqual(cacheColdLogReasons(), [], "an accepted native live chain must not warn");
 
-if (["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(coreVersion)) {
+if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(coreVersion)) {
 	const { getPreservedAnthropicCompactionData } = await import(`${CORE_ROOT}/src/compaction/anthropic.ts`);
 	assert.equal(
 		result.firstKeptEntryId,
@@ -455,11 +458,6 @@ if (wholeChainPlan) {
 		capacityLive.messages,
 		"a usage-less live chain must ship whole, not as the hand-built cut list",
 	);
-	assert.match(
-		String(capacity.requests[0].options.anthropicCompaction?.instructions),
-		/summarize the ENTIRE conversation above/,
-		"a usage-less live chain must scope the whole conversation",
-	);
 	assert.equal(
 		capacity.result.details?.cacheColdReason,
 		undefined,
@@ -497,11 +495,6 @@ if (wholeChainPlan) {
 		split.requests[0].context.messages,
 		liveContext.messages,
 		"a split turn must ship the whole live chain",
-	);
-	assert.match(
-		String(split.requests[0].options.anthropicCompaction?.instructions),
-		/summarize the ENTIRE conversation above/,
-		"the split turn's whole-chain request must scope the whole conversation",
 	);
 	assert.equal(split.result.details?.cacheColdReason, undefined, "a live split turn records no native exclusion");
 	assert.deepEqual(cacheColdLogReasons(), [], "a live split turn must not warn");

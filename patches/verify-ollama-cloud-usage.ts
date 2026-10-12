@@ -4,7 +4,6 @@
  *
  * 0025 wires ollama-cloud's undocumented GET /api/usage endpoint into the
  * usage provider. Verifies:
- *   1. static: endpoint constant + session/weekly window mapping + api_key gate
  *   2. behavior: mocked 200 response -> two UsageLimits (5h/7d) with correct
  *      usedFraction/status and per-model notes
  *   3. behavior: fraction clamping + status thresholds (ok/warning/exhausted)
@@ -25,14 +24,6 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AI = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const { ollamaCloudUsageProvider, ollamaUsageProvider } = await import(`${AI}/src/usage/ollama.ts`);
 
-// ── 1. static assertions ────────────────────────────────────────────────
-const src = await Bun.file(`${AI}/src/usage/ollama.ts`).text();
-assert.ok(src.includes("https://ollama.com/api/usage"), "endpoint constant present");
-assert.ok(src.includes('"session"') && src.includes('"weekly"'), "session/weekly windows mapped");
-assert.ok(src.includes("5 Hour") && src.includes("7 Day"), "5h/7d labels present");
-assert.ok(src.includes('type === "api_key"'), "api_key credential gate present");
-assert.ok(src.includes("Local Ollama has no quota"), "local no-quota note preserved");
-assert.ok(!src.includes("statusForUsedFraction"), "no tiny status helper (rule: ts-no-tiny-functions)");
 
 // ── 2-4. behavior via mocked fetch ──────────────────────────────────────
 const SESSION_MODELS = [

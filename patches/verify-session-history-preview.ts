@@ -30,11 +30,19 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${os.homedir()}/.bun/install/glob
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const agentVersion = JSON.parse(fs.readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
-const movedUi = ["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion);
+assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
+const movedUi = ["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion);
 
 assert.ok(fs.existsSync(AGENT_ROOT), `OMP_PATCH_VERIFY_AGENT_ROOT does not exist: ${AGENT_ROOT}`);
 if (movedUi) assert.ok(fs.existsSync(TUI_ROOT), `OMP_PATCH_VERIFY_TUI_ROOT does not exist: ${TUI_ROOT}`);
+
+const FIXTURE_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "omp-session-preview-"));
+// Host resume controls below share the same private fixture tree. Redirect
+// global agent paths before selected modules capture worktree/breadcrumb roots.
+process.env.PI_CODING_AGENT_DIR = path.join(FIXTURE_ROOT, "runtime");
+process.env.OMP_WORKTREE_DIR = path.join(FIXTURE_ROOT, "worktrees");
+delete process.env.PI_PROFILE;
+process.on("exit", () => fs.rmSync(FIXTURE_ROOT, { recursive: true, force: true }));
 
 // Each specifier is genuinely runtime-selected — the root variables above decide
 // which tree is exercised, so the path only exists at run time. A static import
@@ -49,6 +57,36 @@ const { initThemeSync } = await import(
 const { listSessions } = await import(`${AGENT_ROOT}/src/session/session-listing.ts`);
 const { FileSessionStorage } = await import(`${AGENT_ROOT}/src/session/session-storage.ts`);
 const { loadSessionMessagesReadOnly } = await import(`${AGENT_ROOT}/src/session/session-loader.ts`);
+// Native wire materialization is version-selected, never selected by symbol presence.
+const Reconciler = ["18.10.0", "18.10.1"].includes(agentVersion)
+	? (await import(`${TUI_ROOT}/src/native/reconcile.ts`)).Reconciler
+	: undefined;
+
+type NativeWireNode = {
+	k: string;
+	p?: { actions?: { click?: string } | { id: string }[] };
+	c?: NativeWireNode[];
+};
+function nativeNodes(component: InstanceType<typeof SessionSelectorComponent>): NativeWireNode[] {
+	assert.ok(Reconciler, "the selected native plan must provide its reconciler");
+	const ops = new Reconciler("preview-gate").reconcile({ main: [], dock: [], layer: [component] }, {
+		cols: FRAME_WIDTH, dark: true, reduceMotion: true, supports: () => true, feature: () => false,
+	});
+	const nodes: NativeWireNode[] = [];
+	const collect = (node: NativeWireNode) => {
+		nodes.push(node);
+		for (const child of node.c ?? []) collect(child);
+	};
+	for (const op of ops) if (op[0] === "add") collect(op[4]);
+	return nodes;
+}
+
+function assertNativePreviewAction(component: InstanceType<typeof SessionSelectorComponent>, expected: boolean) {
+	const picker = nativeNodes(component).find(node => node.k === "picker");
+	assert.ok(picker, "the native list must reach the compiled picker surface");
+	assert.ok(Array.isArray(picker.p?.actions), "native picker must expose its actions");
+	assert.equal(picker.p.actions.some(action => action.id === "preview"), expected, "native Preview is available only for an empty query");
+}
 
 const FRAME_WIDTH = 100;
 const TERMINAL_ROWS = 30;
@@ -70,7 +108,6 @@ function frameOf(component: { render(width: number): readonly string[] }): { lin
 	return { lines, plain: lines.map(stripAnsi).join("\n") };
 }
 
-const FIXTURE_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "omp-session-preview-"));
 const LIVE_STATE_PREFIXES = [
 	path.join(os.homedir(), ".omp"),
 	path.join(os.homedir(), ".bun", "install", "cache"),
@@ -210,6 +247,7 @@ assert.ok(
 	"list mode must not render transcript body text before the preview opens",
 );
 console.log("✓ list mode renders the fixture title and compact model, no transcript body");
+if (["18.10.0", "18.10.1"].includes(agentVersion)) assertNativePreviewAction(selector, true);
 
 // --- 2. Space on an empty query opens the preview ----------------------------
 selector.handleInput(" ");
@@ -246,6 +284,14 @@ assert.ok(
 	"a tool-call turn must not leave a phantom empty [Assistant] fence block",
 );
 console.log("✓ Space opens the preview and renders the fixture transcript verbatim, without tool noise");
+if (["18.10.0", "18.10.1"].includes(agentVersion)) {
+	const nodes = nativeNodes(selector);
+	assert.ok(JSON.stringify(nodes).includes(FIXTURE_CONCLUSION), "compiled native history must contain the real transcript");
+	for (const action of ["resume", "close"]) {
+		assert.ok(nodes.some(node => !Array.isArray(node.p?.actions) && node.p?.actions?.click === action),
+			`native history must expose the ${action} action`);
+	}
+}
 
 // --- 3. Esc in the preview closes it; Esc in the list cancels the picker -----
 selector.handleInput("\x1b");
@@ -269,19 +315,25 @@ cancelled = false;
 console.log("✓ Esc closes the preview, while Esc in the list still cancels the picker");
 
 // --- 4. Space with a non-empty query stays in the list ----------------------
-for (const key of ["t", "e", "s", "t", " "]) selector.handleInput(key);
+for (const key of ["S", "e", "s", "s"]) selector.handleInput(key);
+assert.ok(frameOf(selector).plain.includes(FIXTURE_TITLE), "the non-empty query must still select the fixture");
+selector.handleInput(" ");
+await settle();
 assert.ok(
 	!frameOf(selector).plain.includes(FIXTURE_CONCLUSION),
 	"Space inside a non-empty search query must not open the preview",
 );
+if (["18.10.0", "18.10.1"].includes(agentVersion)) assertNativePreviewAction(selector, false);
 for (let i = 0; i < 5; i++) selector.handleInput("\x7f");
 console.log("✓ Space with a non-empty query edits the search text instead of opening the preview");
 
 // --- 5. Enter inside the preview resumes the selected session ---------------
-selector.handleInput(" ");
+if (["18.10.0", "18.10.1"].includes(agentVersion)) selector.handleNativeEvent({ type: "action", key: "", act: "preview", mods: [] });
+else selector.handleInput(" ");
 await settle();
 assert.ok(frameOf(selector).plain.includes(FIXTURE_CONCLUSION), "preview must be open again");
-selector.handleInput("\n");
+if (["18.10.0", "18.10.1"].includes(agentVersion)) selector.handleNativeEvent({ type: "action", key: "", act: "resume", mods: [] });
+else selector.handleInput("\n");
 assert.strictEqual(selectedSession, session, "Enter in the preview must resume the selected session");
 console.log("✓ Enter inside the preview resumes the selected session");
 
@@ -441,7 +493,7 @@ const temporaryThenFallbackPath = writeModelSession("temporary-then-fallback", [
 ]);
 const emptyPath = writeModelSession("empty", []);
 const midFileSwitchPath =
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)
+	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)
 		? writeModelSession("mid-file-switch", [
 				modelChange("prov/configured-model"),
 				{ type: "message", message: { role: "user", content: "x".repeat(6_000) } },
@@ -451,7 +503,7 @@ const midFileSwitchPath =
 			])
 		: undefined;
 const fallbackAfterGapPath =
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)
+	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)
 		? writeModelSession("fallback-after-gap", [
 				modelChange("prov/configured-model"),
 				{ type: "message", message: { role: "user", content: "x".repeat(33_000) } },
@@ -525,6 +577,116 @@ assert.strictEqual(lastModelOf(emptyPath), undefined, "A session with no turns l
 console.log(
 	"✓ scanner resolves the newest role like resume (default/fallback→default, role-scoped→its model), falls back to last-served, and stays unset when empty",
 );
+
+// R2: cancellation belongs to the real selector->session transaction. A
+// departed session from a removed worktree must not fork/relocate beforehand.
+if (["18.10.0", "18.10.1"].includes(agentVersion)) {
+	const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
+	const { sessionDirForCwd } = await import(`${AGENT_ROOT}/src/session/session-paths.ts`);
+	const { markSessionMoved } = await import(`${AGENT_ROOT}/src/session/session-transfer.ts`);
+	const { DateCwdReminderInjector } = await import(`${AGENT_ROOT}/src/session/date-cwd-reminder.ts`);
+	const { SelectorController } = await import(`${AGENT_ROOT}/src/modes/controllers/selector-controller.ts`);
+	const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
+	const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
+	const { getWorktreesDir, hashPath } = await import(Bun.resolveSync("@oh-my-pi/pi-utils/dirs", AGENT_ROOT));
+	const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
+	const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
+	const cwd = path.join(FIXTURE_ROOT, "selector-repository");
+	fs.mkdirSync(cwd);
+	const init = Bun.spawnSync(["git", "init", "--quiet", cwd], {
+		env: { PATH: process.env.PATH, HOME: FIXTURE_ROOT, XDG_CONFIG_HOME: path.join(FIXTURE_ROOT, "config"), GIT_CONFIG_NOSYSTEM: "1" },
+	});
+	assert.equal(init.exitCode, 0, `private git fixture initialization failed: ${init.stderr.toString()}`);
+	const sessionsRoot = path.join(FIXTURE_ROOT, "selector-sessions");
+	const removedCwd = path.join(getWorktreesDir(), `fixture-${hashPath(cwd)}`);
+	assert.ok(path.resolve(removedCwd).startsWith(FIXTURE_ROOT + path.sep), "worktree fixture must stay private");
+	fs.mkdirSync(removedCwd, { recursive: true });
+	const source = SessionManager.create(removedCwd, sessionDirForCwd(removedCwd, sessionsRoot));
+	source.appendMessage({ role: "user", content: "departed worktree history", timestamp: 1 });
+	await source.ensureOnDisk();
+	await source.flush();
+	const sourceFile = source.getSessionFile();
+	const sourceArtifacts = source.getArtifactsDir();
+	assert.ok(sourceFile && sourceArtifacts);
+	fs.mkdirSync(sourceArtifacts, { recursive: true });
+	fs.writeFileSync(path.join(sourceArtifacts, "sentinel.bin"), Buffer.from([0, 255, 13, 10, 7]));
+	new DateCwdReminderInjector(() => source.getSessionId(), undefined, () => source.getSessionFile())
+		.transform({ systemPrompt: ["fixture"], messages: source.buildSessionContext().messages }, "2026-09-06", removedCwd);
+	await source.close();
+	await markSessionMoved(sourceFile, "synthetic destination");
+	fs.rmSync(removedCwd, { recursive: true });
+	const currentDir = sessionDirForCwd(cwd, sessionsRoot);
+	assert.equal(await SessionManager.isFromRemovedWorktree({ path: sourceFile, cwd: removedCwd }, cwd, currentDir), true,
+		"the fixture must exercise real removed-worktree discovery, not the ordinary resume path");
+
+	function snapshotSessionTree(directory: string): Array<[string, string | null]> {
+		const entries: Array<[string, string | null]> = [];
+		for (const child of fs.readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+			const file = path.join(directory, child.name);
+			if (child.isDirectory()) {
+				entries.push([child.name, null]);
+				for (const [relative, bytes] of snapshotSessionTree(file)) entries.push([`${child.name}/${relative}`, bytes]);
+			} else {
+				entries.push([child.name, fs.readFileSync(file).toString("base64")]);
+			}
+		}
+		return entries;
+	}
+	const originalFetch = globalThis.fetch;
+	globalThis.fetch = (() => { throw new Error("Network forbidden in cancelled selector resume"); }) as typeof fetch;
+	const agentDir = path.join(FIXTURE_ROOT, "selector-agent");
+	const settings = await Settings.loadIsolated({ cwd, agentDir, overrides: {
+		"memory.backend": "off", "computer.enabled": false, "secrets.enabled": false, "compaction.enabled": false,
+	} });
+	const authStorage = await discoverAuthStorage(agentDir);
+	authStorage.keys.setRuntime("mock", "offline");
+	registerMockApi("selector-cancel");
+	const model = createMockModel({ responses: [] });
+	const switchTargets: string[] = [];
+	const { session } = await createAgentSession({
+		cwd, agentDir, settings, authStorage, model, getApiKey: () => "offline",
+		sessionManager: SessionManager.create(cwd, currentDir), systemPrompt: "Selector cancellation fixture.",
+		skills: [], rules: [], contextFiles: [], promptTemplates: [], slashCommands: [],
+		disableExtensionDiscovery: true, enableMCP: false, preloadedCustomToolPaths: [],
+		enableLsp: false, skipPythonPreflight: true, toolNames: [],
+		extensions: [pi => pi.on("session_before_switch", event => {
+			switchTargets.push(event.targetSessionFile ?? "");
+			return { cancel: true };
+		})],
+	});
+	try {
+		const manager = session.sessionManager;
+		await manager.ensureOnDisk();
+		await manager.flush();
+		const before = snapshotSessionTree(sessionsRoot);
+		const activeFile = manager.getSessionFile();
+		const activeId = manager.getSessionId();
+		const activeEntries = JSON.stringify(manager.getEntries());
+		const errors: string[] = [];
+		const selector = new SelectorController({
+			session, sessionManager: manager, settings,
+			prepareSessionSwitch: async () => {},
+			resetObserverRegistry: () => {},
+			showError: (message: string) => { errors.push(message); },
+			applyCwdChange: async () => { throw new Error("cancelled resume must not apply a new cwd"); },
+		});
+		assert.equal(await selector.handleResumeSession(sourceFile, { settingsFlushed: true }), false);
+		assert.deepEqual(switchTargets, [sourceFile], "the actual cancellable session hook must receive the requested history");
+		assert.deepEqual(errors, [], "cancellation is not a relocation failure");
+		assert.equal(manager.getSessionId(), activeId);
+		assert.equal(manager.getSessionFile(), activeFile);
+		assert.equal(manager.getCwd(), cwd);
+		assert.equal(JSON.stringify(manager.getEntries()), activeEntries);
+		assert.deepEqual(snapshotSessionTree(sessionsRoot), before,
+			"cancelled selector resume preserves every source/target path, journal byte and artifact, without an orphan fork");
+		assert.equal(fs.existsSync(removedCwd), false, "cancelled resume must not recreate the removed worktree");
+		assert.equal(model.calls.length, 0);
+	} finally {
+		await session.dispose();
+		authStorage.close();
+		globalThis.fetch = originalFetch;
+	}
+}
 
 fs.rmSync(FIXTURE_ROOT, { recursive: true, force: true });
 console.log("\nALL VERIFICATIONS PASSED SUCCESSFULLY!");

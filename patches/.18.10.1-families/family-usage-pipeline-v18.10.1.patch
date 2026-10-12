@@ -1,0 +1,1016 @@
+--- a/pi-ai/dist/types/auth-broker/client.d.ts
++++ b/pi-ai/dist/types/auth-broker/client.d.ts
+@@ -6,6 +6,7 @@
+  * `/v1/healthz` require a bearer token.
+  */
+ import type { AuthCredential, DisabledCredentialSummary, OAuthRefreshReason } from "../auth-storage.js";
++import type { Provider } from "../types.js";
+ import type { ClientUsageReportRequest, ClientUsageReportResponse, ClientUsageSummaryResponse, CredentialBlockDeleteRequest, CredentialBlockRequest, CredentialBlockResponse, CredentialBlocksDeleteResponse, CredentialDisableResponse, CredentialRefreshResponse, CredentialUploadResponse, HealthzResponse, SnapshotResponse, SnapshotStreamEvent, UsageHistoryResponse, UsageResponse, UsageStaleResponse } from "./types.js";
+ export interface AuthBrokerClientOptions {
+     /** Base URL (e.g. `https://broker.tailnet:8765`). Trailing slashes are trimmed. */
+@@ -72,6 +73,7 @@
+      */
+     fetchUsage(options?: {
+         signal?: AbortSignal;
++        providers?: readonly Provider[];
+         maxAccountsPerProvider?: number;
+     }): Promise<UsageResponse>;
+     /** Recorded usage-limit snapshots from the broker host, oldest first. */
+--- a/pi-ai/dist/types/auth-broker/remote-store.d.ts
++++ b/pi-ai/dist/types/auth-broker/remote-store.d.ts
+@@ -135,7 +135,7 @@
+      * to the broker's `/v1/usage` endpoint. Shared per-credential caches and
+      * cooldowns keep separate clients from multiplying provider probes.
+      */
+-    fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null>;
++    fetchUsageReports(options?: { signal?: AbortSignal; providers?: readonly Provider[] }): Promise<UsageReport[] | null>;
+     /**
+      * Per-credential usage hook consumed by `UsageService.report`. Pulls
+      * the aggregate broker `/v1/usage` once and serves all callers from the
+--- a/pi-ai/dist/types/auth/store.d.ts
++++ b/pi-ai/dist/types/auth/store.d.ts
+@@ -153,11 +153,10 @@
+      * `RemoteAuthCredentialStore` proxies to the broker (whose datacenter IP
+      * isn't rate-limited like a heavy residential client).
+      *
+-     * Precedence: `AuthStorageOptions.fetchUsageReports` > this hook > local fan-out.
+-     *
++     * `providers` restricts work before any provider request, not just returned rows.
+      * `signal` propagates the agent's cancel down to the broker fetch.
+      */
+-    fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null>;
++    fetchUsageReports(options?: { signal?: AbortSignal; providers?: readonly Provider[] }): Promise<UsageReport[] | null>;
+     /**
+      * Optional store-supplied per-credential usage report lookup. When present,
+      * `AuthStorage` consults this before its own per-credential upstream fetch
+--- a/pi-ai/dist/types/auth/types.d.ts
++++ b/pi-ai/dist/types/auth/types.d.ts
+@@ -1112,6 +1112,13 @@
+     reports(options?: {
+         baseUrlResolver?: (provider: Provider) => string | undefined;
+         signal?: AbortSignal;
++        /**
++         * Restrict the fan-out to these providers. Callers driving an
++         * aggressive per-provider gate (e.g. the statusline's anthropic
++         * rate-limit gate) pass the providers they may poll; provider usage
++         * reports outside the set are neither fetched nor parsed.
++         */
++        providers?: readonly Provider[];
+     }): Promise<UsageReport[] | null>;
+     /** Ingest provider usage limits from response headers. */
+     ingestHeaders(provider: Provider, headers: Record<string, string>, options?: {
+--- a/pi-ai/dist/types/auth/usage-cache.d.ts
++++ b/pi-ai/dist/types/auth/usage-cache.d.ts
+@@ -2,7 +2,7 @@
+ import type { AuthCredential, OAuthCredential } from "./types.js";
+ import type { CredentialPool } from "./pool.js";
+ import type { Provider } from "../types.js";
+-import type { UsageCredential, UsageProvider } from "../usage.js";
++import type { UsageCredential, UsageProvider, UsageReport } from "../usage.js";
+ /** Minimum interval between non-exhausted header snapshots; used by UsageService. */
+ export declare const USAGE_HEADER_INGEST_INTERVAL_MS = 60000;
+ /**
+@@ -30,6 +30,8 @@
+     value: T;
+     expiresAt: number;
+ };
++/** Canonical provider set for local/broker fan-out and aggregate cache identity. Empty means none. */
++export declare function normalizeUsageProviders(providers?: readonly Provider[]): Provider[] | undefined;
+ /** Convert a stored credential for usage providers; used by usage and health services. */
+ export declare function buildUsageCredential(credential: AuthCredential): UsageCredential;
+ /** Build a stable usage account key; used by cache and usage probes. */
+@@ -58,6 +60,14 @@
+     getStale<T>(key: string): UsageCacheEntry<T> | undefined;
+     set<T>(key: string, entry: UsageCacheEntry<T>): void;
+     deletePrefix(prefix: string): boolean;
++    /** Definitive rejection clears every supported report alias, not just the canonical key. */
++    invalidateReport(request: UsageRequestDescriptor): void;
++    /**
++     * Cached report for `request`, falling back to pre-canonicalization keys.
++     * `stale` selects the same lookup the failure path uses, so a 429 still
++     * returns the last good value written under an older key. Never deletes.
++     */
++    readReport(request: UsageRequestDescriptor, cacheKey: string, stale: boolean): UsageCacheEntry<UsageReport | null> | undefined;
+     markForceRefresh(provider?: Provider): void;
+     forcedRefresh(requests: readonly UsageRequestDescriptor[]): ForcedUsageRefresh;
+     clearForceRefresh(refresh: ForcedUsageRefresh): void;
+--- a/pi-ai/dist/types/auth/usage.d.ts
++++ b/pi-ai/dist/types/auth/usage.d.ts
+@@ -32,6 +32,13 @@
+ type UsageReportsOptions = {
+     baseUrlResolver?: (provider: Provider) => string | undefined;
+     signal?: AbortSignal;
++    /**
++     * Restrict the fan-out to these providers. Callers driving an
++     * aggressive per-provider gate (e.g. the statusline's anthropic
++     * rate-limit gate) pass the providers they may poll; provider usage
++     * reports outside the set are neither fetched nor parsed.
++     */
++    providers?: readonly Provider[];
+ };
+ /** Usage reports: per-credential cached fetches, aggregate reports, header ingestion, history. */
+ export declare class UsageService implements UsageApi {
+--- a/pi-ai/src/auth-broker/client.ts
++++ b/pi-ai/src/auth-broker/client.ts
+@@ -9,6 +9,8 @@
+ import { type } from "@oh-my-pi/omptype";
+ import { readSseEvents } from "@oh-my-pi/pi-utils";
+ import type { AuthCredential, DisabledCredentialSummary, OAuthRefreshReason } from "../auth-storage";
++import { normalizeUsageProviders } from "../auth/usage-cache";
++import type { Provider } from "../types";
+ import type {
+ 	ClientUsageReportRequest,
+ 	ClientUsageReportResponse,
+@@ -262,7 +264,7 @@
+ 	 * Fetch aggregate broker usage with a timeout sized for serialized
+ 	 * same-provider account probes.
+ 	 */
+-	fetchUsage(options: { signal?: AbortSignal; maxAccountsPerProvider?: number } = {}): Promise<UsageResponse> {
++	fetchUsage(options: { signal?: AbortSignal; providers?: readonly Provider[]; maxAccountsPerProvider?: number } = {}): Promise<UsageResponse> {
+ 		const requestedAccountCount = options.maxAccountsPerProvider;
+ 		const accountCount =
+ 			typeof requestedAccountCount === "number" && Number.isFinite(requestedAccountCount)
+@@ -270,7 +272,12 @@
+ 				: 1;
+ 		const perAccountTimeoutMs = Math.max(DEFAULT_TIMEOUT_MS, this.#timeoutMs);
+ 		const timeoutMs = perAccountTimeoutMs * (accountCount + 1);
+-		return this.#request<UsageResponse>("GET", "/v1/usage", {
++		const providers = normalizeUsageProviders(options.providers);
++		const params = new URLSearchParams();
++		if (providers?.length === 0) params.append("provider", "");
++		for (const provider of providers ?? []) params.append("provider", provider);
++		const path = `/v1/usage${params.size > 0 ? `?${params.toString()}` : ""}`;
++		return this.#request<UsageResponse>("GET", path, {
+ 			schema: "usageResponseSchema",
+ 			signal: options.signal,
+ 			timeoutMs,
+--- a/pi-ai/src/auth-broker/remote-store.ts
++++ b/pi-ai/src/auth-broker/remote-store.ts
+@@ -10,6 +10,7 @@
+ import * as os from "node:os";
+ import { getAppName, getInstallId, logger, postmortem } from "@oh-my-pi/pi-utils";
+ import type { AuthCredentialStore } from "../auth/store";
++import { normalizeUsageProviders } from "../auth/usage-cache";
+ import {
+ 	type AuthCredential,
+ 	type AuthCredentialSnapshotEntry,
+@@ -289,8 +290,8 @@
+ 	/** Present while the background loop is parked; resolved by `#noteActivity` or `close()`. */
+ 	#activityWakeup: PromiseWithResolvers<void> | null = null;
+ 	#cache: Map<string, CacheEntry> = new Map();
+-	#usageCache?: UsageCacheEntry;
+-	#usageInflight?: Promise<UsageReport[] | null>;
++	#usageCache = new Map<string, UsageCacheEntry>();
++	#usageInflight = new Map<string, Promise<UsageReport[] | null>>();
+ 	#credentialBlockReconcileAfter: Map<string, number> = new Map();
+ 	/** Exact deleted rows suppressed until their old deadline, including snapshots racing the DELETE acknowledgement. */
+ 	#deletedCredentialBlocks: Map<string, CredentialBlockSnapshot> = new Map();
+@@ -1220,7 +1221,9 @@
+ 		// Snapshot/block updates invalidate quota evidence, not a failed broker
+ 		// connection's cooldown. Keep the flight too: its completion will queue
+ 		// one current-generation successor instead of overlapping broker calls.
+-		if (this.#usageCache?.reports !== null) this.#usageCache = undefined;
++		for (const [key, cached] of this.#usageCache) {
++			if (cached.reports !== null) this.#usageCache.delete(key);
++		}
+ 		this.#usageCacheEpoch += 1;
+ 	}
+ 
+@@ -1292,11 +1295,15 @@
+ 	 * to the broker's `/v1/usage` endpoint. Shared per-credential caches and
+ 	 * cooldowns keep separate clients from multiplying provider probes.
+ 	 */
+-	async fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null> {
++	async fetchUsageReports(options?: { signal?: AbortSignal; providers?: readonly Provider[] }): Promise<UsageReport[] | null> {
++		if (options?.signal?.aborted) throw new AIError.AbortError("auth-broker request aborted");
++		const providers = normalizeUsageProviders(options?.providers);
++		if (providers?.length === 0) return [];
+ 		this.#noteActivity();
+-		const reports = await raceSignal(this.#loadUsageReports(), signal, "auth-broker request aborted");
++		const reports = await raceSignal(this.#loadUsageReports(providers), options?.signal, "auth-broker request aborted");
+ 		if (!reports) return null;
+-		return this.#filterUsageReports(this.#applyUsageOverlays(reports));
++		const visible = this.#filterUsageReports(this.#applyUsageOverlays(reports));
++		return providers ? visible.filter(report => providers.includes(report.provider)) : visible;
+ 	}
+ 
+ 	/**
+@@ -1313,8 +1320,9 @@
+ 		credential: OAuthCredential,
+ 		signal?: AbortSignal,
+ 	): Promise<UsageReport | null> {
++		if (signal?.aborted) throw new AIError.AbortError("auth-broker request aborted");
+ 		this.#noteActivity();
+-		const reports = await raceSignal(this.#loadUsageReports(), signal, "auth-broker request aborted");
++		const reports = await raceSignal(this.#loadUsageReports([provider]), signal, "auth-broker request aborted");
+ 		const visibleReports = reports ? this.#filterUsageReports(reports) : null;
+ 		const matched = visibleReports ? matchUsageReport(visibleReports, provider, credential) : null;
+ 		const overlay = this.#getActiveUsageOverlay(provider, credential);
+@@ -1422,27 +1430,31 @@
+ 		else this.#brokerUsageAccountCounts.set(provider, count - 1);
+ 	}
+ 
+-	#maxBrokerUsageAccounts(): number {
++	#maxBrokerUsageAccounts(providers?: readonly Provider[]): number {
+ 		let maximum = 1;
+-		for (const count of this.#brokerUsageAccountCounts.values()) maximum = Math.max(maximum, count);
++		for (const [provider, count] of this.#brokerUsageAccountCounts) {
++			if (!providers || providers.includes(provider)) maximum = Math.max(maximum, count);
++		}
+ 		return maximum;
+ 	}
+ 
+-	#loadUsageReports(): Promise<UsageReport[] | null> {
+-		const cached = this.#usageCache;
++	#loadUsageReports(providers?: readonly Provider[]): Promise<UsageReport[] | null> {
++		const key = JSON.stringify(providers ?? null);
++		const cached = this.#usageCache.get(key);
+ 		if (cached && Date.now() - cached.fetchedAt < USAGE_CACHE_TTL_MS) {
+ 			return Promise.resolve(cached.reports);
+ 		}
+-		if (this.#usageInflight) return this.#usageInflight;
++		const existing = this.#usageInflight.get(key);
++		if (existing) return existing;
+ 		const epoch = this.#usageCacheEpoch;
+ 		const inflight = this.#client
+-			.fetchUsage({ maxAccountsPerProvider: this.#maxBrokerUsageAccounts() })
++			.fetchUsage({ providers, maxAccountsPerProvider: this.#maxBrokerUsageAccounts(providers) })
+ 			.then(body => {
+ 				if (epoch !== this.#usageCacheEpoch) {
+-					if (this.#usageInflight === inflight) this.#usageInflight = undefined;
+-					return this.#loadUsageReports();
++					if (this.#usageInflight.get(key) === inflight) this.#usageInflight.delete(key);
++					return this.#loadUsageReports(providers);
+ 				}
+-				this.#usageCache = { reports: body.reports, fetchedAt: Date.now() };
++				this.#usageCache.set(key, { reports: body.reports, fetchedAt: Date.now() });
+ 				return body.reports;
+ 			})
+ 			.catch(error => {
+@@ -1450,13 +1462,13 @@
+ 				// Documented 15s TTL fallback: cache the null so sequential callers
+ 				// don't re-hit the broker while it's still down. See
+ 				// docs/auth-broker-gateway.md § "Client-side single-flight".
+-				this.#usageCache = { reports: null, fetchedAt: Date.now() };
++				this.#usageCache.set(key, { reports: null, fetchedAt: Date.now() });
+ 				return null;
+ 			})
+ 			.finally(() => {
+-				if (this.#usageInflight === inflight) this.#usageInflight = undefined;
++				if (this.#usageInflight.get(key) === inflight) this.#usageInflight.delete(key);
+ 			});
+-		this.#usageInflight = inflight;
++		this.#usageInflight.set(key, inflight);
+ 		return inflight;
+ 	}
+ 
+@@ -1572,6 +1584,7 @@
+ 		// process exiting right after close() still sends it; failures are dropped.
+ 		void this.#flushObservedUsage().finally(() => this.#cancelObservedUsageExitFlush?.());
+ 		this.#cache.clear();
++		this.#usageCache.clear();
+ 		this.#usageOverlays.clear();
+ 	}
+ }
+--- a/pi-ai/src/auth-broker/server.ts
++++ b/pi-ai/src/auth-broker/server.ts
+@@ -13,6 +13,7 @@
+ import { type Type, type } from "@oh-my-pi/omptype";
+ import { logger } from "@oh-my-pi/pi-utils";
+ import type { AuthCredentialSnapshotEntry, AuthStorage, StoredCredentialBlock } from "../auth-storage";
++import { normalizeUsageProviders } from "../auth/usage-cache";
+ import { parseBind } from "../utils/parse-bind";
+ import { resolvePeer } from "../utils/resolve-peer";
+ import { AuthBrokerRefresher, type AuthBrokerRefresherSchedule } from "./refresher";
+@@ -860,7 +861,10 @@
+ 						// last fetch instead of hitting provider endpoints repeatedly.
+ 						// `req.signal` propagates HTTP-client disconnects all the way to the
+ 						// per-caller cancel without touching the shared upstream fetch.
+-						const reports = (await opts.storage.usage.reports?.({ signal: req.signal })) ?? [];
++						const providers = url.searchParams.has("provider")
++							? normalizeUsageProviders(url.searchParams.getAll("provider"))
++							: undefined;
++						const reports = (await opts.storage.usage.reports?.({ signal: req.signal, providers })) ?? [];
+ 						// Drop the `raw` field — it's the provider-specific upstream body,
+ 						// large and unstable. Everything UI-relevant lives in `limits` and
+ 						// `metadata`.
+--- a/pi-ai/src/auth/store.ts
++++ b/pi-ai/src/auth/store.ts
+@@ -187,11 +187,10 @@
+ 	 * `RemoteAuthCredentialStore` proxies to the broker (whose datacenter IP
+ 	 * isn't rate-limited like a heavy residential client).
+ 	 *
+-	 * Precedence: `AuthStorageOptions.fetchUsageReports` > this hook > local fan-out.
+-	 *
++	 * `providers` restricts work before any provider request, not just returned rows.
+ 	 * `signal` propagates the agent's cancel down to the broker fetch.
+ 	 */
+-	fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null>;
++	fetchUsageReports(options?: { signal?: AbortSignal; providers?: readonly Provider[] }): Promise<UsageReport[] | null>;
+ 	/**
+ 	 * Optional store-supplied per-credential usage report lookup. When present,
+ 	 * `AuthStorage` consults this before its own per-credential upstream fetch
+--- a/pi-ai/src/auth/types.ts
++++ b/pi-ai/src/auth/types.ts
+@@ -1209,6 +1209,13 @@
+ 	reports(options?: {
+ 		baseUrlResolver?: (provider: Provider) => string | undefined;
+ 		signal?: AbortSignal;
++		/**
++		 * Restrict the fan-out to these providers. Callers driving an
++		 * aggressive per-provider gate (e.g. the statusline's anthropic
++		 * rate-limit gate) pass the providers they may poll; provider usage
++		 * reports outside the set are neither fetched nor parsed.
++		 */
++		providers?: readonly Provider[];
+ 	}): Promise<UsageReport[] | null>;
+ 	/** Ingest provider usage limits from response headers. */
+ 	ingestHeaders(
+--- a/pi-ai/src/auth/usage-cache.ts
++++ b/pi-ai/src/auth/usage-cache.ts
+@@ -2,6 +2,7 @@
+ import type { AuthCredential, OAuthCredential } from "./types";
+ import type { CredentialPool } from "./pool";
+ import type { Provider } from "../types";
++import { claudeOAuthBaseUrl, DEFAULT_CLAUDE_API_BASE_URL, normalizeClaudeApiBaseUrl } from "../usage/claude-api";
+ import type { UsageCredential, UsageProvider, UsageReport } from "../usage";
+ 
+ const USAGE_CACHE_PREFIX = "usage_cache:";
+@@ -35,6 +36,11 @@
+ /** Cached value and its logical expiry; used by UsageService. */
+ export type UsageCacheEntry<T> = { value: T; expiresAt: number };
+ 
++/** Canonical provider set for local/broker fan-out and aggregate cache identity. Empty means none. */
++export function normalizeUsageProviders(providers?: readonly Provider[]): Provider[] | undefined {
++	return providers === undefined ? undefined : [...new Set(providers.map(provider => provider.trim()).filter(Boolean))].sort();
++}
++
+ function parseUsageCacheEntry<T>(raw: string): UsageCacheEntry<T> | undefined {
+ 	try {
+ 		const parsed = JSON.parse(raw) as { value?: T; expiresAt?: unknown };
+@@ -220,8 +226,87 @@
+ 		return true;
+ 	}
+ 
+-	#normalizeUsageBaseUrl(baseUrl?: string): string {
+-		return baseUrl?.trim().replace(/\/+$/, "") ?? "";
++	// Cache keys must use the provider's canonical endpoint, not the raw
++	// configured string. `normalizeClaudeApiBaseUrl` is what the Claude usage
++	// and reset requests already resolve their endpoint through: an absent
++	// baseURL, a bare origin, a `/v1` suffix and a `/api/oauth` suffix all
++	// collapse onto one API root. Keying on the raw value stored one account's
++	// report under several names, and a statusline reading one of them never
++	// saw the refresh that wrote another.
++	#normalizeUsageBaseUrl(baseUrl?: string, provider?: Provider): string {
++		const trimmed = baseUrl?.trim().replace(/\/+$/, "") ?? "";
++		if (provider === "anthropic") return normalizeClaudeApiBaseUrl(trimmed || undefined);
++		return trimmed;
++	}
++
++	/**
++	 * Cache keys this account was written under before the canonicalization
++	 * above. Read-only migration: entries already on disk keep their names, so
++	 * a report a previous omp wrote is still found instead of appearing as
++	 * "no usage data". `claudeOAuthBaseUrl` is the endpoint form the Claude
++	 * usage request has always resolved to, which is exactly what an earlier
++	 * canonicalizing build keyed on.
++	 */
++	#legacyReportKeys(request: UsageRequestDescriptor): string[] {
++		if (request.provider !== "anthropic") return [];
++		const identity = usageCacheIdentity(request.credential);
++		const providerKey = this.#usageCacheProviderKey(request.provider);
++		const raw = request.baseUrl?.trim().replace(/\/+$/, "") ?? "";
++		const origin = (() => {
++			try {
++				return new URL(raw || DEFAULT_CLAUDE_API_BASE_URL).origin;
++			} catch {
++				return DEFAULT_CLAUDE_API_BASE_URL;
++			}
++		})();
++		const variants = ["default", origin, `${origin}/v1`, claudeOAuthBaseUrl(raw || undefined)];
++		if (raw) variants.push(raw);
++		const canonical = this.#normalizeUsageBaseUrl(request.baseUrl, request.provider) || "default";
++		return [...new Set(variants)]
++			.filter(variant => variant !== canonical)
++			.map(variant => `report:${providerKey}:${variant}:${identity}`);
++	}
++
++	/** Definitive rejection clears every supported report alias, not just the canonical key. */
++	invalidateReport(request: UsageRequestDescriptor): void {
++		this.set(this.reportKey(request), { value: null, expiresAt: 0 });
++		for (const key of this.#legacyReportKeys(request)) {
++			this.set(key, { value: null, expiresAt: 0 });
++		}
++	}
++
++	/**
++	 * Cached report for `request`, falling back to pre-canonicalization keys.
++	 * `stale` selects the same lookup the failure path uses, so a 429 still
++	 * returns the last good value written under an older key. Never deletes.
++	 */
++	readReport(
++		request: UsageRequestDescriptor,
++		cacheKey: string,
++		stale: boolean,
++	): UsageCacheEntry<UsageReport | null> | undefined {
++		const own = stale ? this.getStale<UsageReport | null>(cacheKey) : this.get<UsageReport | null>(cacheKey);
++		if (own) return own;
++		// Pick the freshest legacy entry, not the first one found: this account
++		// accumulated several names over time and the oldest would otherwise win.
++		// `fetchedAt` is the report's own timestamp; `expiresAt` breaks ties for
++		// null-valued failure markers that carry no report.
++		let best: UsageCacheEntry<UsageReport | null> | undefined;
++		let bestStamp = -1;
++		for (const legacy of this.#legacyReportKeys(request)) {
++			const hit = stale ? this.getStale<UsageReport | null>(legacy) : this.get<UsageReport | null>(legacy);
++			if (!hit) continue;
++			const stamp = hit.value?.fetchedAt ?? hit.expiresAt ?? 0;
++			if (stamp > bestStamp) {
++				best = hit;
++				bestStamp = stamp;
++			}
++		}
++		if (!best) return undefined;
++		// Adopt under the canonical name, preserving the original expiry so a
++		// migrated entry is neither resurrected nor prematurely discarded.
++		this.set(cacheKey, { value: best.value, expiresAt: best.expiresAt });
++		return best;
+ 	}
+ 
+ 	#usageCacheProviderKey(provider: Provider): string {
+@@ -278,7 +363,7 @@
+ 	}
+ 
+ 	reportKey(request: UsageRequestDescriptor): string {
+-		const baseUrl = this.#normalizeUsageBaseUrl(request.baseUrl) || "default";
++		const baseUrl = this.#normalizeUsageBaseUrl(request.baseUrl, request.provider) || "default";
+ 		const identity = usageCacheIdentity(request.credential);
+ 		const providerKey = this.#usageCacheProviderKey(request.provider);
+ 		const cacheKey = `${USAGE_REPORT_KEY_PREFIX}${providerKey}:${baseUrl}:${identity}`;
+@@ -379,10 +464,7 @@
+ 			const requests = await collectRequests();
+ 			for (const request of requests) {
+ 				if (provider && request.provider !== provider) continue;
+-				this.set(this.reportKey(request), {
+-					value: null,
+-					expiresAt: 0,
+-				});
++				this.invalidateReport(request);
+ 			}
+ 		}
+ 		if (!this.#store.fetchUsageReports) this.markForceRefresh(provider);
+--- a/pi-ai/src/auth/usage.ts
++++ b/pi-ai/src/auth/usage.ts
+@@ -25,6 +25,7 @@
+ import type { KeyOverrides } from "./cascade";
+ import {
+ 	buildUsageCredential,
++	normalizeUsageProviders,
+ 	oauthUsageRequest,
+ 	USAGE_FAILURE_BACKOFF_MS,
+ 	USAGE_HEADER_INGEST_INTERVAL_MS,
+@@ -108,6 +109,13 @@
+ type UsageReportsOptions = {
+ 	baseUrlResolver?: (provider: Provider) => string | undefined;
+ 	signal?: AbortSignal;
++	/**
++	 * Restrict the fan-out to these providers. Callers driving an
++	 * aggressive per-provider gate (e.g. the statusline's anthropic
++	 * rate-limit gate) pass the providers they may poll; provider usage
++	 * reports outside the set are neither fetched nor parsed.
++	 */
++	providers?: readonly Provider[];
+ };
+ 
+ /** Usage reports: per-credential cached fetches, aggregate reports, header ingestion, history. */
+@@ -239,10 +247,17 @@
+ 						refreshedCredential,
+ 						refreshableCredentialId,
+ 					);
++					const refreshedAccountKey = usageCacheIdentity(refreshedCredential);
++					if (refreshedAccountKey !== params.accountKey) {
++						// The enclosing flight/cache/history belong to the original
++						// identity. Fetch the winner only through its own request key.
++						this.#deps.cache.invalidateReport(request);
++						return null;
++					}
+ 					params = {
+ 						...request,
+ 						credential: refreshedCredential,
+-						accountKey: usageCacheIdentity(refreshedCredential),
++						accountKey: refreshedAccountKey,
+ 						signal: timeoutSignal,
+ 					};
+ 				} catch (error) {
+@@ -252,10 +267,7 @@
+ 						// old usage report after its rotating refresh token is revoked.
+ 						// This changes cache state only; usage polling remains
+ 						// non-authoritative about the credential lifecycle.
+-						this.#deps.cache.set(this.#deps.cache.reportKey(request), {
+-							value: null,
+-							expiresAt: 0,
+-						});
++						this.#deps.cache.invalidateReport(request);
+ 					}
+ 					// Usage polling is advisory. A refresh can fail while the current
+ 					// access token remains valid inside the refresh skew, so probe with
+@@ -304,10 +316,7 @@
+ 				// the last-good report so #fetchUsageCached's failure branch can't
+ 				// keep rendering and ranking from stale quota the way it does for
+ 				// transient failures. Mirrors the definitive-OAuth-refresh path.
+-				this.#deps.cache.set(this.#deps.cache.reportKey(request), {
+-					value: null,
+-					expiresAt: 0,
+-				});
++				this.#deps.cache.invalidateReport(request);
+ 			}
+ 			logger.debug("AuthStorage usage fetch failed", {
+ 				provider: request.provider,
+@@ -326,7 +335,7 @@
+ 		const cacheKey = this.#deps.cache.reportKey(request);
+ 		const failureKey = this.#deps.cache.failureKey(cacheKey);
+ 		const now = Date.now();
+-		const cached = this.#deps.cache.get<UsageReport | null>(cacheKey);
++		const cached = this.#deps.cache.readReport(request, cacheKey, false);
+ 		// Fresh cache hit: return whatever's there (success or null fallback).
+ 		if (cached && cached.expiresAt > now) {
+ 			return cached.value;
+@@ -379,7 +388,7 @@
+ 			const providerImpl = this.providerFor(request.provider);
+ 			const retainLastGood = !invalidated && providerImpl?.retainLastGoodOnFailure !== false;
+ 			const lastGood = retainLastGood
+-				? (this.#deps.cache.getStale<UsageReport | null>(cacheKey)?.value ?? null)
++				? (this.#deps.cache.readReport(request, cacheKey, true)?.value ?? null)
+ 				: null;
+ 			const failureBackoffMs = providerImpl?.failureBackoffMs ?? USAGE_FAILURE_BACKOFF_MS;
+ 			const backoffJitter = failureBackoffMs * (Math.random() * 0.5 - 0.25);
+@@ -596,14 +605,8 @@
+ 			const providerImpl = this.providerFor(provider);
+ 			if (!providerImpl) continue;
+ 			const baseUrl = options?.baseUrlResolver?.(provider);
+-			let entries = this.#deps.pool.entries(providerId);
+-			if (entries.length > 0) {
+-				const dedupedEntries = await this.#deps.pool.pruneDuplicates(providerId, entries);
+-				if (dedupedEntries.length !== entries.length) {
+-					this.#deps.pool.replace(providerId, dedupedEntries);
+-				}
+-				entries = dedupedEntries;
+-			}
++			// Usage collection is read-only; only explicit credential writes dedupe.
++			const entries = this.#deps.pool.entries(providerId);
+ 
+ 			// A declared OAuth bearer env list means usage probes must ignore stored
+ 			// API keys and borrowed API-key env aliases. Even when an API-key row
+@@ -760,6 +763,10 @@
+ 
+ 	/** Fetch all providers’ current usage reports, sharing concurrent polls. */
+ 	async reports(options?: UsageReportsOptions): Promise<UsageReport[] | null> {
++		if (options?.signal?.aborted) throw new AIError.AbortError("usage fetch aborted");
++		const providers = normalizeUsageProviders(options?.providers);
++		if (providers?.length === 0) return [];
++		const providerFilter = providers ? new Set(providers) : undefined;
+ 		// The broker owns its providers' reports; runtime providers registered
+ 		// only in this process still need local per-credential probes.
+ 		const storeOverride = this.#deps.store.fetchUsageReports?.bind(this.#deps.store);
+@@ -768,12 +775,12 @@
+ 			// dispatch + credential selection) coalesce into one upstream call.
+ 			// Each caller's `signal` only cancels THAT caller's await; the
+ 			// shared upstream fetch runs to completion so peers aren't punished.
+-			const overrideKey = `__override__\0${this.#deps.cache.epoch}`;
++			const overrideKey = `__override__\0${JSON.stringify(providers ?? null)}\0${this.#deps.cache.epoch}`;
+ 			let shared = this.#usageReportsInFlight.get(overrideKey);
+ 			if (!shared) {
+ 				// Don't forward the caller signal into the shared fetch — first caller's
+ 				// abort would otherwise cancel the upstream for every peer.
+-				shared = storeOverride().finally(() => {
++				shared = storeOverride({ providers }).finally(() => {
+ 					this.#usageReportsInFlight.delete(overrideKey);
+ 				});
+ 				this.#usageReportsInFlight.set(overrideKey, shared);
+@@ -787,13 +794,15 @@
+ 			const brokerProviders = new Set(reports.map(report => report.provider));
+ 			const localProviders = new Set<Provider>();
+ 			for (const provider of this.#runtimeUsageProviderOverrides.keys()) {
+-				if (!brokerProviders.has(provider)) localProviders.add(provider);
++				if (!brokerProviders.has(provider) && (!providerFilter || providerFilter.has(provider))) {
++					localProviders.add(provider);
++				}
+ 			}
+ 			if (localProviders.size === 0) return reports;
+ 			const localReports = await this.#fetchLocalReports(options, localProviders);
+ 			return localReports?.length ? [...reports, ...localReports] : reports;
+ 		}
+-		return this.#fetchLocalReports(options);
++		return this.#fetchLocalReports(options, providerFilter);
+ 	}
+ 
+ 	/** Probe only the selected providers locally, preserving per-credential caching and cooldowns. */
+--- a/pi-ai/src/usage/ollama.ts
++++ b/pi-ai/src/usage/ollama.ts
+@@ -1,9 +1,34 @@
+-import type { UsageFetchContext, UsageFetchParams, UsageProvider, UsageReport } from "../usage";
++import type { UsageFetchContext, UsageFetchParams, UsageLimit, UsageProvider, UsageReport } from "../usage";
+ 
+ const OLLAMA_PROVIDER = "ollama";
+ const OLLAMA_CLOUD_PROVIDER = "ollama-cloud";
+ 
+-async function fetchOllamaUsage(params: UsageFetchParams, _ctx: UsageFetchContext): Promise<UsageReport | null> {
++/**
++ * Undocumented but live since at least 2026-08: ollama.com exposes account
++ * usage for Cloud keys. Response shape (observed 2026-08-27):
++ * {
++ *   "activity": { "cost": "...", "period": { "type": "last_4_weeks", ... } },
++ *   "limits": {
++ *     "session": { "usage": 0.03, "models": [{ "name": "...", "request_count": 54 }] },
++ *     "weekly":  { "usage": 0.005, "models": [...] }
++ *   }
++ * }
++ * `usage` is a normalized 0..1 fraction of the session (5h) / weekly (7d)
++ * allowance, not a token count.
++ */
++const OLLAMA_COM_API_USAGE = "https://ollama.com/api/usage";
++
++const OLLAMA_WINDOWS: ReadonlyArray<{
++	key: "session" | "weekly";
++	windowId: string;
++	label: string;
++	durationMs: number;
++}> = [
++	{ key: "session", windowId: "5h", label: "5 Hour", durationMs: 5 * 60 * 60 * 1000 },
++	{ key: "weekly", windowId: "7d", label: "7 Day", durationMs: 7 * 24 * 60 * 60 * 1000 },
++];
++
++async function fetchOllamaUsage(params: UsageFetchParams, ctx: UsageFetchContext): Promise<UsageReport | null> {
+ 	if (params.provider !== OLLAMA_PROVIDER && params.provider !== OLLAMA_CLOUD_PROVIDER) {
+ 		return null;
+ 	}
+@@ -13,18 +38,92 @@
+ 	if (params.credential.accountId) metadata.accountId = params.credential.accountId;
+ 	if (params.credential.projectId) metadata.projectId = params.credential.projectId;
+ 
+-	return {
+-		provider: params.provider,
+-		fetchedAt: Date.now(),
+-		limits: [],
+-		notes: [
+-			"Ollama does not expose a standalone quota usage API; per-response token usage is reported during requests.",
+-		],
+-		metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+-	};
++	// Local Ollama has no quota at all; Cloud needs an API-key credential to
++	// query the usage endpoint.
++	const apiKey = params.credential.type === "api_key" ? params.credential.apiKey : undefined;
++	if (params.provider !== OLLAMA_CLOUD_PROVIDER || !apiKey) {
++		return {
++			provider: params.provider,
++			fetchedAt: Date.now(),
++			limits: [],
++			notes: [
++				params.provider === OLLAMA_CLOUD_PROVIDER
++					? "Ollama Cloud usage requires an API-key credential."
++					: "Local Ollama has no quota; per-response token usage is reported during requests.",
++			],
++			metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
++		};
++	}
++
++	try {
++		const response = await ctx.fetch(
++			OLLAMA_COM_API_USAGE,
++			{
++				headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` },
++				signal: params.signal,
++			},
++		);
++		if (!response.ok) {
++			ctx.logger?.warn("Ollama usage fetch failed", { provider: params.provider, status: response.status });
++			return null;
++		}
++		const payload = (await response.json()) as {
++			limits?: Partial<Record<"session" | "weekly", {
++				usage?: number;
++				models?: ReadonlyArray<{ name?: string; request_count?: number }>;
++			}>>;
++		} | null;
++		const limits = payload?.limits;
++		if (!limits) return null;
++
++		const out: UsageLimit[] = [];
++		for (const win of OLLAMA_WINDOWS) {
++			const seg = limits[win.key];
++			if (!seg || typeof seg.usage !== "number" || !Number.isFinite(seg.usage)) continue;
++			const used = Math.min(1, Math.max(0, seg.usage));
++			const topConsumers = (seg.models ?? [])
++				.filter(m => typeof m?.name === "string")
++				.slice(0, 4)
++				.map(m => `${m.name} x${m.request_count ?? 0}`)
++				.join(", ");
++			out.push({
++				id: `ollama-account:${win.windowId}`,
++				label: `Ollama ${win.label}`,
++				scope: {
++					provider: params.provider,
++					...(typeof metadata.accountId === "string" ? { accountId: metadata.accountId } : {}),
++					shared: true,
++					windowId: win.windowId,
++				},
++				window: { id: win.windowId, label: win.label, durationMs: win.durationMs },
++				amount: {
++					used: used * 100,
++					usedFraction: used,
++					remaining: 100 - used * 100,
++					remainingFraction: 1 - used,
++					unit: "percent",
++				},
++				status: used >= 1 ? "exhausted" : used >= 0.9 ? "warning" : "ok",
++				...(topConsumers ? { notes: [`Top consumers: ${topConsumers}`] } : {}),
++			});
++		}
++		return {
++			provider: params.provider,
++			fetchedAt: Date.now(),
++			limits: out,
++			metadata: { ...metadata, source: "ollama-api-usage" },
++			raw: payload,
++		};
++	} catch (err) {
++		ctx.logger?.warn("Ollama usage request failed", {
++			provider: params.provider,
++			error: err instanceof Error ? err.name : "unknown",
++		});
++		return null;
++	}
+ }
+ 
+-/** Registers Ollama accounts with usage views even though no quota endpoint is exposed. */
++/** Registers Ollama accounts with usage views (local ollama reports no quota). */
+ export const ollamaUsageProvider: UsageProvider = {
+ 	id: OLLAMA_PROVIDER,
+ 	fetchUsage: fetchOllamaUsage,
+@@ -32,7 +131,7 @@
+ 	validatesCredentials: false,
+ };
+ 
+-/** Registers Ollama Cloud accounts with usage views until a quota endpoint is available. */
++/** Registers Ollama Cloud accounts and queries the account usage endpoint. */
+ export const ollamaCloudUsageProvider: UsageProvider = {
+ 	id: OLLAMA_CLOUD_PROVIDER,
+ 	fetchUsage: fetchOllamaUsage,
+--- a/pi-coding-agent/dist/types/session/agent-session.d.ts
++++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
+@@ -14,7 +14,7 @@
+  */
+ import { type Agent, type AgentMessage, type AgentState, type AgentTool, type AgentToolContext, type AgentToolResult, type ThinkingLevel, type ToolChoiceDirective } from "@oh-my-pi/pi-agent-core";
+ import { type CompactionResult, type ShakeConfig } from "@oh-my-pi/pi-agent-core/compaction";
+-import type { AnthropicFallbackCreditHandle, AssistantMessage, Context, ImageContent, Judge, Message, Model, ProviderSessionState, ResetCreditAccountStatus, ResetCreditRedeemOutcome, ResetCreditTarget, ServiceTier, ServiceTierByFamily, ServiceTierFamily, SimpleStreamOptions, TextContent, UsageReport } from "@oh-my-pi/pi-ai";
++import type { AnthropicFallbackCreditHandle, AssistantMessage, Context, ImageContent, Judge, Message, Model, Provider, ProviderSessionState, ResetCreditAccountStatus, ResetCreditRedeemOutcome, ResetCreditTarget, ServiceTier, ServiceTierByFamily, ServiceTierFamily, SimpleStreamOptions, TextContent, UsageReport } from "@oh-my-pi/pi-ai";
+ import { type Effort } from "@oh-my-pi/pi-ai";
+ import { type EditStore, type PowerAssertionOptions } from "@oh-my-pi/pi-natives";
+ import type { AdvisorConfig } from "@oh-my-pi/pi-tui/overlays/advisor-config";
+@@ -1363,7 +1363,7 @@
+      * a value computed mid-turn cannot persist after the turn ends/aborts.
+      */
+     get contextUsageRevision(): number;
+-    fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null>;
++    fetchUsageReports(signal?: AbortSignal, providers?: readonly Provider[]): Promise<UsageReport[] | null>;
+     /** Models whose live `/usage` reports map to a quantitative provider scope. */
+     getUsageReportingModelSelectors(reports: readonly UsageReport[]): string[];
+     /** List stored OAuth accounts for the current model provider and mark this session's active account. */
+--- a/pi-coding-agent/src/modes/status-line-host.ts
++++ b/pi-coding-agent/src/modes/status-line-host.ts
+@@ -56,7 +56,8 @@
+ 	activeAccount: (session, provider) =>
+ 		session.modelRegistry?.authStorage?.oauth.identity(provider, session.sessionId),
+ 	canFetchUsageReports: session => typeof session.fetchUsageReports === "function",
+-	fetchUsageReports: (session, signal) => session.fetchUsageReports?.(signal) ?? Promise.resolve(null),
++	fetchUsageReports: (session, signal, providers) =>
++		session.fetchUsageReports?.(signal, providers) ?? Promise.resolve(null),
+ 	resolveActiveRepo: resolveActiveRepoContextSync,
+ 	lookupPullRequest: cwd =>
+ 		github.run(cwd, ["pr", "view", "--json", "number,url"], AbortSignal.timeout(GH_COMMAND_TIMEOUT_MS)),
+--- a/pi-coding-agent/src/session/agent-session.ts
++++ b/pi-coding-agent/src/session/agent-session.ts
+@@ -63,6 +63,7 @@
+ 	MessageAttribution,
+ 	Model,
+ 	OAuthAccountIdentity,
++	Provider,
+ 	ProviderResponseMetadata,
+ 	ProviderSessionState,
+ 	ResetCreditAccountStatus,
+@@ -12599,10 +12600,11 @@
+ 		return this.#stats.revision;
+ 	}
+ 
+-	async fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null> {
++	async fetchUsageReports(signal?: AbortSignal, providers?: readonly Provider[]): Promise<UsageReport[] | null> {
+ 		const authStorage = this.#modelRegistry.authStorage;
+ 		if (!authStorage.usage.reports) return null;
+ 		const reports = await authStorage.usage.reports({
++			...(providers && providers.length > 0 ? { providers } : {}),
+ 			baseUrlResolver: provider => {
+ 				if (provider === "google-antigravity") {
+ 					const mode = cfgProvidersAntigravityEndpoint.get(this.settings);
+--- a/pi-tui/dist/types/status-line/host.d.ts
++++ b/pi-tui/dist/types/status-line/host.d.ts
+@@ -1,6 +1,6 @@
+ import type { AgentMessage, ThinkingLevel } from "@oh-my-pi/pi-agent-core";
+ import type { Tool, UsageLimit, UsageReport } from "@oh-my-pi/pi-ai";
+-import type { Model } from "@oh-my-pi/pi-catalog/types";
++import type { Model, Provider } from "@oh-my-pi/pi-catalog/types";
+ import type { CompactionBoundaries } from "./context-usage.js";
+ import type { StatusLineSettings, StatusResetExpiry } from "./types.js";
+ export interface StatusAccountIdentity {
+@@ -119,7 +119,7 @@
+     goalStatusInFooter(session: TSession): boolean;
+     activeAccount(session: TSession, provider: string): StatusAccountIdentity | undefined;
+     canFetchUsageReports(session: TSession): boolean;
+-    fetchUsageReports(session: TSession, signal: AbortSignal): Promise<unknown>;
++    fetchUsageReports(session: TSession, signal: AbortSignal, providers?: readonly Provider[]): Promise<unknown>;
+     resolveActiveRepo(cwd: string): ActiveRepoContext | null;
+     lookupPullRequest(cwd: string): Promise<{
+         stdout: string;
+--- a/pi-tui/src/status-line/component.ts
++++ b/pi-tui/src/status-line/component.ts
+@@ -6,7 +6,7 @@
+ 	scopeAntigravityLimitsForModel,
+ } from "@oh-my-pi/pi-ai/usage/google-antigravity";
+ import { getNextTimeBasedPricingTransition } from "@oh-my-pi/pi-catalog/models";
+-import type { Model, ModelCost } from "@oh-my-pi/pi-catalog/types";
++import type { Model, ModelCost, Provider } from "@oh-my-pi/pi-catalog/types";
+ import type { VcsGitRepo, VcsRepo } from "@oh-my-pi/pi-natives";
+ import * as vcs from "@oh-my-pi/pi-natives/vcs";
+ import {
+@@ -543,11 +543,18 @@
+ const EMPTY_MESSAGES: readonly AgentMessage[] = [];
+ const STATUS_USAGE_START_DELAY_MS = 0;
+ const STATUS_USAGE_REFRESH_TIMEOUT_MS = 2_000;
++// Throttle for repaint-triggered usage fetches (keystrokes, git events).
++// Completed LLM requests bypass it -- see refreshUsageInBackground.
++const STATUS_USAGE_REFRESH_TTL_MS = 50_000;
+ 
+ function isContextSegment(segment: StatusLineSegmentId): boolean {
+ 	return segment === "context_pct" || segment === "context_total";
+ }
+ 
++// Anthropic /oauth/usage rate-limits per IP aggressively (data changes on the
++// scale of hours): idle repaints stay silent, a turn boundary refreshes at
++// most once per minute.
++const ANTHROPIC_USAGE_TURN_GATE_MS = 60_000;
+ function hasContextSegment(segments: readonly StatusLineSegmentId[]): boolean {
+ 	return segments.includes("context_pct") || segments.includes("context_total");
+ }
+@@ -775,7 +782,7 @@
+ 	#lastTokensPerSecond: number | null = null;
+ 	#lastTokensPerSecondTimestamp: number | null = null;
+ 
+-	// Provider usage caching (5-min TTL, OAuth/sub only)
++	// Provider usage caching (turn-aware, OAuth/sub only)
+ 	#cachedUsage: {
+ 		tier?: string;
+ 		fiveHour?: { percent: number; resetMinutes?: number };
+@@ -795,6 +802,9 @@
+ 	#usageFetchedAt = 0;
+ 	#usageInFlight = false;
+ 	#usageStartTimer: Timer | null = null;
++	// Key of the last completed assistant message we refreshed usage for
++	// (`timestamp:stopReason`). A new key means a request just burned quota.
++	#usageLastTurnKey = "";
+ 	// A timed-out request may still resolve. Its result remains eligible only
+ 	// until a newer request has applied.
+ 	#usageRefreshSequence = 0;
+@@ -1966,6 +1976,13 @@
+ 	/**
+ 	 * Startup redraws only arm a short-delayed task; timeout releases the render
+ 	 * cadence while a late successful fetch can still refresh the cached segment.
++	 *
++	 * Local semantics retained across the 18.2.10 migration:
++	 * Other providers throttle repaint-triggered fetches by
++	 * {@link STATUS_USAGE_REFRESH_TTL_MS}; completed turns bypass that TTL.
++	 * Anthropic fetches only at cold start or turn boundaries, respecting
++	 * {@link ANTHROPIC_USAGE_TURN_GATE_MS}. The fan-out is restricted to the
++	 * active provider, so idle repaints never poll the Anthropic endpoint.
+ 	 */
+ 	refreshUsageInBackground(): void {
+ 		const now = Date.now();
+@@ -1976,17 +1993,59 @@
+ 			this.#usageFetchedAt = 0;
+ 			this.#cachedUsageContextKey = usageContextKey;
+ 		}
++		// Quota only moves when a request runs: force a refresh once per
++		// completed assistant message (LLM output finished), bypassing the TTL.
++		let turnEnded = false;
++		const messages = session.state.messages;
++		for (let i = messages.length - 1; i >= 0; i--) {
++			const message = messages[i];
++			if (message?.role === "assistant") {
++				const stopReason = (message as AssistantMessage).stopReason;
++				if (stopReason) {
++					const turnKey = `${message.timestamp}:${stopReason}`;
++					if (turnKey !== this.#usageLastTurnKey) {
++						this.#usageLastTurnKey = turnKey;
++						turnEnded = true;
++					}
++				}
++				break;
++			}
++		}
++		// Anthropic's usage endpoint rate-limits per IP at well under 1 RPM and
++		// its data changes on the scale of hours. Rules:
++		// - anthropic session, NO turn boundary -> fully silent (zero requests;
++		//   repaints only rerender the cached numbers)
++		// - turn-end -> refresh, but throttled to once per minute
++		// - provider switch / cold start -> one immediate fetch
++		// Non-anthropic sessions keep the regular 50s repaint cadence with a
++		// provider whitelist so anthropic is only ever hit by its own turns.
++		// Re-entry guard (restore of the 0005-era check 0026 dropped): without
++		// it a cold start or slow fetch lets every repaint dispatch another
++		// fetchUsageReports while the previous one is still in flight.
++		const activeProvider = session.state.model?.provider ?? session.model?.provider;
+ 		if (this.#usageInFlight || this.#usageStartTimer) return;
+-		if (this.#usageFetchedAt > 0 && now - this.#usageFetchedAt < 5 * 60_000) return;
++		if (activeProvider === "anthropic") {
++			if (!turnEnded && this.#usageFetchedAt > 0) return;
++			if (this.#usageFetchedAt > 0 && now - this.#usageFetchedAt < ANTHROPIC_USAGE_TURN_GATE_MS) return;
++		} else if (
++			!turnEnded &&
++			this.#usageFetchedAt > 0 &&
++			now - this.#usageFetchedAt < STATUS_USAGE_REFRESH_TTL_MS
++		) {
++			return;
++		}
+ 		if (!this.host.canFetchUsageReports(session)) return;
++		// Whitelist the active provider: the statusline segment renders a single
++		// session's quota, so poll exactly that provider's endpoint(s).
++		const providers = activeProvider ? [activeProvider] : undefined;
+ 		this.#usageInFlight = true;
+ 		this.#usageStartTimer = setTimeout(() => {
+ 			this.#usageStartTimer = null;
+-			void this.#runUsageRefresh(session);
++			void this.#runUsageRefresh(session, providers);
+ 		}, STATUS_USAGE_START_DELAY_MS);
+ 	}
+ 
+-	async #runUsageRefresh(session: TSession): Promise<void> {
++	async #runUsageRefresh(session: TSession, providers?: readonly Provider[]): Promise<void> {
+ 		if (this.#disposed || this.session !== session) {
+ 			this.#usageInFlight = false;
+ 			return;
+@@ -1995,7 +2054,7 @@
+ 		const signal = AbortSignal.timeout(STATUS_USAGE_REFRESH_TIMEOUT_MS);
+ 		let reportsPromise: Promise<unknown> | undefined;
+ 		try {
+-			reportsPromise = this.host.fetchUsageReports(session, signal);
++			reportsPromise = this.host.fetchUsageReports(session, signal, providers);
+ 			this.#applyUsageRefreshReports(
+ 				session,
+ 				await this.#raceUsageRefreshWithSignal(reportsPromise, signal),
+@@ -2030,12 +2089,9 @@
+ 		const usageChanged = this.#cachedUsage !== normalized;
+ 		this.#cachedUsage = normalized;
+ 		this.#usageFetchedAt = Date.now();
+-		// Usage fetch is async; without a repaint the top border stays blank until
+-		// some unrelated event (git resolve, keystroke, …) rebuilds it.
+-		if (usageChanged) {
+-			this.#invalidateStatusLineRenderCache();
+-			this.#onBranchChange?.();
+-		}
++		// Invalidate the memo without forcing a repaint: the next natural redraw
++		// shows the fresh quota without interrupting transcript expansion.
++		if (usageChanged) this.#invalidateStatusLineRenderCache();
+ 		this.#noticeResetExpiry(session, reports);
+ 		if (!resetSnapshot) return;
+ 		const contextKey = this.#formatUsageContextKey(activeProvider, activeIdentity);
+@@ -2460,7 +2516,7 @@
+ 	): SegmentContext {
+ 		const state = this.session.state;
+ 
+-		// Trigger background fetch (5-min TTL); render uses cached value
++		// Trigger turn-aware background fetch; render uses cached value
+ 		this.refreshUsageInBackground();
+ 
+ 		// Get usage statistics
+--- a/pi-tui/src/status-line/host.ts
++++ b/pi-tui/src/status-line/host.ts
+@@ -1,6 +1,6 @@
+ import type { AgentMessage, ThinkingLevel } from "@oh-my-pi/pi-agent-core";
+ import type { Tool, UsageLimit, UsageReport } from "@oh-my-pi/pi-ai";
+-import type { Model } from "@oh-my-pi/pi-catalog/types";
++import type { Model, Provider } from "@oh-my-pi/pi-catalog/types";
+ import type { CompactionBoundaries } from "./context-usage";
+ import type { StatusLineSettings, StatusResetExpiry } from "./types";
+ 
+@@ -89,7 +89,12 @@
+ 	goalStatusInFooter(session: TSession): boolean;
+ 	activeAccount(session: TSession, provider: string): StatusAccountIdentity | undefined;
+ 	canFetchUsageReports(session: TSession): boolean;
+-	fetchUsageReports(session: TSession, signal: AbortSignal): Promise<unknown>;
++	/**
++	 * `providers` narrows the fan-out to one provider's endpoint(s): the status
++	 * line renders a single session's quota, so a repaint must not poll every
++	 * provider the account holds.
++	 */
++	fetchUsageReports(session: TSession, signal: AbortSignal, providers?: readonly Provider[]): Promise<unknown>;
+ 	resolveActiveRepo(cwd: string): ActiveRepoContext | null;
+ 	lookupPullRequest(cwd: string): Promise<{ stdout: string; exitCode: number }>;
+ 	calculateTokensPerSecond(messages: readonly AgentMessage[], isStreaming: boolean): number | null;

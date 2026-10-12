@@ -7,12 +7,10 @@
  * Usage:
  *   OMP_PATCH_VERIFY_AGENT_ROOT=<agent-root> bun patches/verify-date-cwd-anchor-stability.ts
  *
- * GATE 1 (source): the live sources actually执行的那棵树 must carry the new
- * shape — `appendDateCwdReminder` extinct, `applyDateCwdAnchors` present, and
- * BOTH `DateCwdReminderInjector` callsites wired with a session id. On the
- * pristine tree this gate must fail; that is the negative control.
+ * Drives the actual reminder injector, then (18.10.0) the session manager's
+ * new-ID fork and portable archive consumers. No copied key/adoption formula.
  *
- * GATE 2 (behaviour): replays the exact failure this patch removes. Session
+ * Replays the exact failure this patch removes. Session
  * 01a0778e (claude-opus-5, ~620k ctx) reported `HISTORY_REWRITE` every turn
  * with `sharedPrefix` advancing in steps of TWO because the synthetic tail
  * occupied a message slot that the next turn's real assistant reply took over
@@ -20,51 +18,37 @@
  * the byte stability of already-stamped history.
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-const agentRoot = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const agentRoot = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 if (!agentRoot) throw new Error("OMP_PATCH_VERIFY_AGENT_ROOT must point at the pi-coding-agent package root");
 
-// ---------------------------------------------------------------- GATE 1
-const reminderSrc = readFileSync(join(agentRoot, "src/session/date-cwd-reminder.ts"), "utf8");
-const sdkSrc = readFileSync(join(agentRoot, "src/sdk.ts"), "utf8");
+const agentVersion = JSON.parse(readFileSync(join(agentRoot, "package.json"), "utf8")).version;
+const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
+const privateHome = mkdtempSync(join(tmpdir(), "omp-anchor-home-"));
+for (const key of Object.keys(process.env)) {
+	if (key !== "PATH" && key !== "TMPDIR") delete process.env[key];
+}
+Object.assign(process.env, {
+	HOME: privateHome, XDG_CONFIG_HOME: join(privateHome, "config"),
+	XDG_CACHE_HOME: join(privateHome, "cache"), XDG_DATA_HOME: join(privateHome, "data"),
+	XDG_STATE_HOME: join(privateHome, "state"),
+});
+process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
+// Private HOME must also precede runtime startup (os.homedir may be cached).
+if (!privateProcess) {
+	const child = Bun.spawnSync([process.execPath, import.meta.path, ...process.argv.slice(2)], {
+		env: { ...process.env, OMP_DURABILITY_BOOT: "1", OMP_PATCH_VERIFY_AGENT_ROOT: agentRoot },
+	});
+	process.stdout.write(child.stdout);
+	process.stderr.write(child.stderr);
+	process.exit(child.exitCode);
+}
+globalThis.fetch = (() => { throw new Error("Network forbidden in anchor gate"); }) as typeof fetch;
 
-assert.ok(
-	!reminderSrc.includes("appendDateCwdReminder"),
-	"patch 0047 missing: appendDateCwdReminder still exists (provider-only tail shape)",
-);
-assert.ok(
-	reminderSrc.includes("export function applyDateCwdAnchors("),
-	"patch 0047 missing: applyDateCwdAnchors not exported",
-);
-assert.ok(
-	reminderSrc.includes("export function dateCwdAnchorKey("),
-	"patch 0047 missing: dateCwdAnchorKey not exported (anchor contract seam)",
-);
-// The key MUST hash pre-injection content: that is the byte sequence rebuilt
-// from session JSONL on resume. Hashing post-injection content would mint a
-// fresh key every turn and silently re-stamp live history.
-assert.ok(
-	/dateCwdAnchorKey\(message, (content|text)\)/.test(reminderSrc),
-	"patch 0047 missing: anchor key must be derived from the pre-injection content",
-);
-assert.ok(
-	!reminderSrc.includes("providerOnly: true,"),
-	"patch 0047 missing: reminder must not mint providerOnly messages any more",
-);
-assert.ok(
-	sdkSrc.includes("new DateCwdReminderInjector(() => sessionManager.getSessionId())"),
-	"patch 0047 missing: primary callsite does not pass a session id",
-);
-assert.ok(
-	sdkSrc.includes("new DateCwdReminderInjector(() => captureSessionId)"),
-	"patch 0047 missing: capture callsite does not pass a session id",
-);
-console.log("GATE 1 source: PASS");
-
-// ---------------------------------------------------------------- GATE 2
 // Dynamic import is required here: the module path is the tree under
 // OMP_PATCH_VERIFY_AGENT_ROOT, chosen at runtime so the same script can gate
 // the live tree and a pristine sandbox copy. A static import would pin one
@@ -77,10 +61,29 @@ const mod = (await import(join(agentRoot, "src/session/date-cwd-reminder.ts"))) 
 		anchors: Record<string, string>,
 	) => { messages: { role: string; content: unknown }[]; dirty: boolean };
 	dateCwdAnchorKey: (message: unknown, content: string) => string;
-	DateCwdReminderInjector: new (sessionId?: () => string | undefined) => {
+	DateCwdReminderInjector: new (
+		sessionId?: () => string | undefined,
+		anchorRoot?: () => string,
+		sessionFile?: () => string | undefined,
+	) => {
 		transform: (context: unknown, date: string, cwd: string) => { messages: { content: unknown }[] };
 	};
 };
+
+if (process.argv[2] === "--archive-replay") {
+	assert.ok(["18.10.0", "18.10.1"].includes(agentVersion));
+	const { SessionManager } = await import(join(agentRoot, "src/session/session-manager.ts"));
+	const manager = await SessionManager.open(process.argv[3]);
+	try {
+		const output = new mod.DateCwdReminderInjector(
+			() => manager.getSessionId(), undefined, () => manager.getSessionFile(),
+		).transform({ systemPrompt: ["sys"], messages: manager.buildSessionContext().messages }, "2026-09-08", process.argv[5]);
+		await Bun.write(process.argv[4], JSON.stringify(output.messages));
+	} finally {
+		await manager.close();
+	}
+	process.exit(0);
+}
 
 const DAY1 = "<system-reminder> Today: 2026-09-06; cwd: '/repo'";
 const DAY2 = "<system-reminder> Today: 2026-09-07; cwd: '/repo'";
@@ -215,6 +218,87 @@ try {
 	assert.equal(second.messages[0]!.content, stamped, "resume must replay the frozen stamp, not restamp with today");
 } finally {
 	rmSync(anchorRoot, { recursive: true, force: true });
+}
+
+if (["18.10.0", "18.10.1"].includes(agentVersion)) {
+	const { SessionManager } = await import(join(agentRoot, "src/session/session-manager.ts"));
+	const { packSession, unpackSession } = await import(join(agentRoot, "src/session/session-transfer.ts"));
+	const root = mkdtempSync(join(tmpdir(), "omp-anchor-transfer-"));
+	const cwd = join(root, "source");
+	const targetCwd = join(root, "target");
+	mkdirSync(cwd);
+	mkdirSync(targetCwd);
+	try {
+		const manager = SessionManager.create(cwd, join(root, "sessions"));
+		manager.appendMessage(user("first anchored question", 10));
+		await manager.ensureOnDisk();
+		const injector = new mod.DateCwdReminderInjector(
+			() => manager.getSessionId(), undefined, () => manager.getSessionFile(),
+		);
+		const context = () => ({ systemPrompt: ["sys"], messages: manager.buildSessionContext().messages });
+		const first = injector.transform(context(), "2026-09-06", cwd);
+		manager.appendMessage({
+			role: "assistant", content: [{ type: "text", text: "first answer" }], timestamp: 11,
+			api: "anthropic-messages", provider: "anthropic", model: "anchor-fixture", stopReason: "stop",
+			usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+		});
+		manager.appendMessage(user("second anchored question", 12));
+		const committed = injector.transform(context(), "2026-09-06", cwd);
+		assert.deepEqual(committed.messages[0], first.messages[0], "fixture's earlier anchor must already be frozen");
+		await manager.flush();
+		const oldId = manager.getSessionId();
+		const fork = await manager.fork();
+		assert.ok(fork, "actual manager must fork the journal");
+		assert.notEqual(manager.getSessionId(), oldId, "fork must exercise a different session ID");
+		const adopted = new mod.DateCwdReminderInjector(
+			() => manager.getSessionId(), undefined, () => manager.getSessionFile(),
+		).transform(context(), "2026-09-07", targetCwd);
+		assert.deepEqual(adopted.messages, committed.messages, "new-ID adoption preserves every historical stamp byte");
+		await manager.close();
+
+		const archive = join(root, "portable.omp-session");
+		await packSession(fork.newSessionFile, archive);
+		// Only private fixture state is removed. The archive must stand alone,
+		// without either source artifacts or workstation-global anchor maps.
+		rmSync(join(root, "sessions"), { recursive: true, force: true });
+		rmSync(join(privateHome, ".omp", "agent", "date-cwd-anchors"), { recursive: true, force: true });
+		const imported = await unpackSession(archive, { cwd: targetCwd, sessionDir: join(root, "imported") });
+		const replayPath = join(root, "portable-replay.json");
+		const child = Bun.spawnSync([
+			process.execPath, import.meta.path, "--archive-replay", imported.sessionFile, replayPath, targetCwd,
+		], {
+			env: { ...process.env, OMP_PATCH_VERIFY_AGENT_ROOT: agentRoot },
+			stdout: "pipe", stderr: "pipe",
+		});
+		assert.equal(child.exitCode, 0, `portable first-process replay failed: ${child.stderr.toString()}`);
+		const replayed = JSON.parse(readFileSync(replayPath, "utf8"));
+		assert.equal(JSON.stringify(replayed.slice(0, committed.messages.length)), JSON.stringify(committed.messages),
+			"the first process after import must send the same historical stamped bytes");
+		const reopened = await SessionManager.open(imported.sessionFile);
+		try {
+			const portableInjector = new mod.DateCwdReminderInjector(
+				() => reopened.getSessionId(), undefined, () => reopened.getSessionFile(),
+			);
+			const portable = portableInjector.transform(
+				{ systemPrompt: ["sys"], messages: reopened.buildSessionContext().messages }, "2026-09-08", targetCwd,
+			);
+			assert.deepEqual(portable.messages.slice(0, committed.messages.length), committed.messages,
+				"portable archive replays exact history without the source anchor store");
+			reopened.appendMessage(user("new destination question", 13));
+			const next = portableInjector.transform(
+				{ systemPrompt: ["sys"], messages: reopened.buildSessionContext().messages }, "2026-09-08", targetCwd,
+			);
+			assert.deepEqual(next.messages.slice(0, committed.messages.length), committed.messages);
+			assert.match(JSON.stringify(next.messages.at(-1)?.content), /2026-09-08/);
+			assert.ok(JSON.stringify(next.messages.at(-1)?.content).includes(targetCwd),
+				"only new destination history gets the destination cwd");
+		} finally {
+			await reopened.close();
+		}
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
 }
 
 console.log("GATE 2 behaviour: PASS");

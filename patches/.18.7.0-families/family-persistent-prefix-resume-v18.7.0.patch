@@ -1,3 +1,5 @@
+diff --git a/pi-ai/dist/types/types.d.ts b/pi-ai/dist/types/types.d.ts
+index cd65045..d52767b 100644
 --- a/pi-ai/dist/types/types.d.ts
 +++ b/pi-ai/dist/types/types.d.ts
 @@ -889,6 +889,8 @@ export interface UserMessage {
@@ -18,6 +20,8 @@
      /** True if the message was injected by the system (e.g., auto-continue) and initiates a fresh run rather than continuing the current one. */
      synthetic?: boolean;
      /** True when the synthetic prompt was a deliberate operator action (`.`, `c` continue shortcut) rather than an automatic continuation — its timestamp is the turn's prompt time. */
+diff --git a/pi-ai/src/providers/openai-responses.ts b/pi-ai/src/providers/openai-responses.ts
+index 6b852b6..0e5df2d 100644
 --- a/pi-ai/src/providers/openai-responses.ts
 +++ b/pi-ai/src/providers/openai-responses.ts
 @@ -1539,6 +1539,18 @@ export function buildParams(
@@ -56,6 +60,8 @@
  	}
  
  	return { params, trailingScaffoldingItems, strictToolsApplied };
+diff --git a/pi-ai/src/types.ts b/pi-ai/src/types.ts
+index 303bc85..41247b7 100644
 --- a/pi-ai/src/types.ts
 +++ b/pi-ai/src/types.ts
 @@ -1125,6 +1125,8 @@ export interface UserMessage {
@@ -76,6 +82,8 @@
  	/** True if the message was injected by the system (e.g., auto-continue) and initiates a fresh run rather than continuing the current one. */
  	synthetic?: boolean;
  	/** True when the synthetic prompt was a deliberate operator action (`.`, `c` continue shortcut) rather than an automatic continuation — its timestamp is the turn's prompt time. */
+diff --git a/pi-coding-agent/dist/types/session/agent-session.d.ts b/pi-coding-agent/dist/types/session/agent-session.d.ts
+index 13089f9..82ff3f1 100644
 --- a/pi-coding-agent/dist/types/session/agent-session.d.ts
 +++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
 @@ -565,7 +565,9 @@ export declare class AgentSession implements SettingsScope {
@@ -89,6 +97,8 @@
      /**
       * Transcript for TUI display. Full history is kept for export/resume-style
       * callers; live chat can collapse compacted history to keep the hot render
+diff --git a/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts b/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
+index 1e60b9e..06ad95c 100644
 --- a/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
 +++ b/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
 @@ -13,17 +13,19 @@
@@ -119,6 +129,8 @@
 +    constructor(sessionId?: () => string | undefined, anchorRoot?: () => string);
      transform(context: Context, date: string, cwd: string): Context;
  }
+diff --git a/pi-coding-agent/dist/types/session/messages.d.ts b/pi-coding-agent/dist/types/session/messages.d.ts
+index bb1508b..105458a 100644
 --- a/pi-coding-agent/dist/types/session/messages.d.ts
 +++ b/pi-coding-agent/dist/types/session/messages.d.ts
 @@ -72,6 +72,18 @@ export interface DemotedInterruptedThinking {
@@ -140,6 +152,8 @@
  /** A provider-rejection turn carrying nothing but the error flag: stopReason
   *  "error" with no text, thinking, or tool calls — e.g. a request the provider
   *  rejected before any output (an oversized 413 payload). Persisting it writes an
+diff --git a/pi-coding-agent/src/collab/guest.ts b/pi-coding-agent/src/collab/guest.ts
+index 6c4fed3..f563aab 100644
 --- a/pi-coding-agent/src/collab/guest.ts
 +++ b/pi-coding-agent/src/collab/guest.ts
 @@ -605,7 +605,9 @@ export class CollabGuestLink {
@@ -153,6 +167,8 @@
  				}
  				break;
  			}
+diff --git a/pi-coding-agent/src/sdk.ts b/pi-coding-agent/src/sdk.ts
+index 5665263..1d19e0b 100644
 --- a/pi-coding-agent/src/sdk.ts
 +++ b/pi-coding-agent/src/sdk.ts
 @@ -2188,7 +2188,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
@@ -208,9 +224,19 @@
  				return new Agent({
  					...captureOptions,
  					cwd: sessionManager.getCwd(),
+diff --git a/pi-coding-agent/src/session/agent-session.ts b/pi-coding-agent/src/session/agent-session.ts
+index c64fa06..dfba117 100644
 --- a/pi-coding-agent/src/session/agent-session.ts
 +++ b/pi-coding-agent/src/session/agent-session.ts
-@@ -1614,8 +1614,11 @@ export class AgentSession implements SettingsScope {
+@@ -120,6 +120,7 @@ import type { ModelRegistry } from "../config/model-registry";
+ import {
+ 	DEFAULT_PREWALK_TARGET,
+ 	disabledProviderIds,
++	formatModelStringWithRouting,
+ 	getModelMatchPreferences,
+ 	type ResolvedModelRoleValue,
+ 	resolveCliModel,
+@@ -1614,8 +1615,11 @@ export class AgentSession implements SettingsScope {
  			kernelOwnerId: config.evalKernelOwnerId ?? `agent-session:${Snowflake.next()}`,
  		});
  		this.#evalToolSession = config.evalToolSession;
@@ -224,7 +250,7 @@
  		const ircHost: IrcBridgeHost = {
  			agent: this.agent,
  			sessionManager: this.sessionManager,
-@@ -6518,16 +6521,54 @@ export class AgentSession implements SettingsScope {
+@@ -6518,16 +6522,54 @@ export class AgentSession implements SettingsScope {
  		return this.#providerBoundary.getImageAttachments();
  	}
  
@@ -283,7 +309,7 @@
  	#buildEvalStateContextMessage(): CustomMessage | undefined {
  		const session = this.#evalToolSession;
  		if (!session) return undefined;
-@@ -11179,7 +11220,9 @@ export class AgentSession implements SettingsScope {
+@@ -11179,7 +11221,9 @@ export class AgentSession implements SettingsScope {
  		// blowing the heap before the new session even loads (issue #3846). The
  		// error-recovery path rebuilds the context on demand from the restored
  		// state instead.
@@ -294,7 +320,7 @@
  		// switchSession replaces these arrays wholesale during load/rollback, so retaining
  		// the existing message objects is sufficient and avoids structured-clone failures for
  		// extension/custom metadata that is valid to persist but not cloneable.
-@@ -11659,8 +11702,12 @@ export class AgentSession implements SettingsScope {
+@@ -11659,8 +11703,12 @@ export class AgentSession implements SettingsScope {
  			this.#memory.rekeyForCurrentSessionId();
  			await this.#memory.resetContextForNewTranscript();
  
@@ -309,6 +335,59 @@
  
  			// Emit session_branch event to hooks (after branch completes)
  			if (this.#extensionRunner) {
+@@ -12094,6 +12142,17 @@ export class AgentSession implements SettingsScope {
+ 			newLeafId = targetId;
+ 		}
+ 
++		// Navigation changes history, not the live model selection. Keep its
++		// durable role (including ephemeral restore policy) on the new branch.
++		const activeModel = this.model;
++		const activeBranch = this.sessionManager.getBranch();
++		const activeModelEntry = activeBranch.findLast(entry => entry.type === "model_change");
++		const activeModelRole = activeModelEntry?.role ?? "default";
++		const activeDefaultModel =
++			activeModelRole === "default"
++				? undefined
++				: activeBranch.findLast(entry => entry.type === "model_change" && (entry.role ?? "default") === "default");
++
+ 		// Switch leaf (with or without summary)
+ 		// Summary is attached at the navigation target position (newLeafId), not the old branch
+ 		const bashTransition = this.#bash.beginSessionTransition();
+@@ -12121,7 +12180,31 @@ export class AgentSession implements SettingsScope {
+ 		}
+ 
+ 		// Update agent state — build display context to populate agent messages.
+-		const stateContext = this.sessionManager.buildSessionContext();
++		let stateContext = this.sessionManager.buildSessionContext();
++		let modelStateChanged = false;
++		if (activeDefaultModel?.type === "model_change" && stateContext.models.default !== activeDefaultModel.model) {
++			this.sessionManager.appendModelChange(activeDefaultModel.model, "default", activeDefaultModel.resolvedModelIsFallback);
++			modelStateChanged = true;
++		}
++		if (activeModel) {
++			const activeModelString = formatModelStringWithRouting(activeModel);
++			if (
++				modelStateChanged ||
++				stateContext.models[activeModelRole] !== activeModelString ||
++				this.sessionManager.getLastModelChangeRole() !== activeModelRole
++			) {
++				this.sessionManager.appendModelChange(activeModelString, activeModelRole, activeModelEntry?.resolvedModelIsFallback);
++				modelStateChanged = true;
++			}
++		}
++		if (
++			stateContext.thinkingLevel !== this.thinkingLevel ||
++			stateContext.configuredThinkingLevel !== this.configuredThinkingLevel()
++		) {
++			this.sessionManager.appendThinkingLevelChange(this.thinkingLevel, this.configuredThinkingLevel());
++			modelStateChanged = true;
++		}
++		if (modelStateChanged) stateContext = this.sessionManager.buildSessionContext();
+ 		const displayContext = this.#withEvalStateContext(deobfuscateSessionContext(stateContext, this.#obfuscator));
+ 		this.agent.replaceMessages(displayContext.messages);
+ 		this.#rehydrateCheckpointRewindState();
+diff --git a/pi-coding-agent/src/session/date-cwd-reminder.ts b/pi-coding-agent/src/session/date-cwd-reminder.ts
+index ecf76a3..58ed9c8 100644
 --- a/pi-coding-agent/src/session/date-cwd-reminder.ts
 +++ b/pi-coding-agent/src/session/date-cwd-reminder.ts
 @@ -3,15 +3,50 @@
@@ -637,6 +716,8 @@
 +		return messages === context.messages ? context : { ...context, messages };
  	}
  }
+diff --git a/pi-coding-agent/src/session/messages.ts b/pi-coding-agent/src/session/messages.ts
+index ab325d1..3968231 100644
 --- a/pi-coding-agent/src/session/messages.ts
 +++ b/pi-coding-agent/src/session/messages.ts
 @@ -6,7 +6,6 @@
@@ -835,6 +916,8 @@
  	});
  	return out;
  }
+diff --git a/pi-coding-agent/src/session/session-context.ts b/pi-coding-agent/src/session/session-context.ts
+index 01ff85b..1457c14 100644
 --- a/pi-coding-agent/src/session/session-context.ts
 +++ b/pi-coding-agent/src/session/session-context.ts
 @@ -12,7 +12,7 @@ import {
@@ -882,6 +965,8 @@
  			// A failed turn that emitted tool calls persists paired synthetic
  			// tool_result placeholders after it. Dropping only the assistant would
  			// strand those results with no preceding tool_use — a shape providers
+diff --git a/pi-coding-agent/src/session/session-maintenance.ts b/pi-coding-agent/src/session/session-maintenance.ts
+index bad01c9..a28c2db 100644
 --- a/pi-coding-agent/src/session/session-maintenance.ts
 +++ b/pi-coding-agent/src/session/session-maintenance.ts
 @@ -3175,21 +3175,13 @@ export class SessionMaintenance {
@@ -939,6 +1024,8 @@
  	/**
  	 * Attempt context promotion to a larger model.
  	 * Returns true if promotion succeeded (caller should retry without compacting).
+diff --git a/pi-coding-agent/src/session/session-tools.ts b/pi-coding-agent/src/session/session-tools.ts
+index c2633b4..6e9c1e2 100644
 --- a/pi-coding-agent/src/session/session-tools.ts
 +++ b/pi-coding-agent/src/session/session-tools.ts
 @@ -22,6 +22,7 @@ import { resolveMemoryBackend } from "../memory-backend/resolve";
@@ -1122,6 +1209,8 @@
  				this.#setBasePromptXdevNames(built.xdevCatalogNames);
  				this.#host.clearMemoryPromotionSnapshot();
  				if (
+diff --git a/pi-coding-agent/src/session/turn-recovery.ts b/pi-coding-agent/src/session/turn-recovery.ts
+index 6a31237..4dc056f 100644
 --- a/pi-coding-agent/src/session/turn-recovery.ts
 +++ b/pi-coding-agent/src/session/turn-recovery.ts
 @@ -11,6 +11,7 @@ import type {

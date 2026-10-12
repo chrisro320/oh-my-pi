@@ -1,0 +1,278 @@
+--- /home/chris/.bun/install/omp-releases/18.10.1-028a49dab1de-236f6cfd-3ac7a078/ledger/.18.10.1-families/0010-omp-extension-idle-ephemeral-turn-v18.10.1.patch	2026-10-12 04:54:50.183835959 -0400
++++ .18.10.1-families/0010-omp-extension-idle-ephemeral-turn-v18.10.1.patch	2026-10-12 06:03:21.475611967 -0400
+@@ -464,7 +464,7 @@
+  						this.#skipAgentContinue("stale-generation", request);
+  						return;
+  					}
+-@@ -4761,11 +4833,34 @@
++@@ -4761,11 +4833,29 @@
+  					}
+  				}
+  
+@@ -476,20 +476,15 @@
+ +				// scheduled continue arriving while we wait on idleEphemeralSettled
+ +				// reads #activeAgentContinue and must coalesce onto this attempt
+ +				// rather than dispatching its own runAgentContinue. Wrapping
+-+				// settle+guard+run in the attempt's promise keeps that invariant and
+-+				// routes every outcome (including the settle-window abort skip)
+++				// settle+run in the attempt's promise keeps that invariant and
+++				// routes every outcome (including the settle-window skip that
+++				// #runAgentContinue reports on entry)
+ +				// through #handleAgentContinueOutcome, so the finally below always
+ +				// balances the in-flight epoch (#promptInFlightCount, power
+ +				// assertion, settle-drain).
+ +				const promise = (async (): Promise<AgentContinueOutcome> => {
+ +					try {
+ +						if (inFlight.idleEphemeralSettled) await inFlight.idleEphemeralSettled;
+-+						if (signal.aborted || this.#isDisposed) {
+-+							return { status: "skipped", reason: "session-unavailable" };
+-+						}
+-+						if (this.#promptGeneration !== request.generation) {
+-+							return { status: "skipped", reason: "stale-generation" };
+-+						}
+ +						return await this.#runAgentContinue(signal, request, coalescedSources);
+ +					} catch (error) {
+ +						return { status: "failed", error: error instanceof Error ? error : new Error(String(error)) };
+@@ -501,7 +496,7 @@
+  					turnEnded: false,
+  					source: options.source,
+  					coalescedSources,
+-@@ -4782,13 +4877,15 @@
++@@ -4782,13 +4872,15 @@
+  					if (this.#activeAgentContinue === attempt) {
+  						this.#activeAgentContinue = undefined;
+  					}
+@@ -520,7 +515,7 @@
+  				onSkip: reason => this.#skipAgentContinue(reason, request),
+  			},
+  		);
+-@@ -5299,6 +5396,16 @@
++@@ -5299,6 +5391,16 @@
+  
+  	#beginSessionTransition(): Disposable {
+  		if (this.#sessionTransitionDepth++ === 0) {
+@@ -537,7 +532,7 @@
+  			const settled = Promise.withResolvers<void>();
+  			this.#sessionTransitionSettled = settled.promise;
+  			this.#resolveSessionTransition = settled.resolve;
+-@@ -5503,6 +5610,7 @@
++@@ -5503,6 +5605,7 @@
+  		this.#isDisposed = true;
+  		for (const dispose of this.#disposers.splice(0)) dispose();
+  		this.#modelDiscoveryAbortController.abort();
+@@ -545,7 +540,7 @@
+  		this.#queuedMessageDrainBlocked = false;
+  		this.#usagePreflightReadyForNextModelCall = false;
+  		this.#detachUsageBeforeQueueDequeue?.();
+-@@ -5898,6 +6006,7 @@
++@@ -5898,6 +6001,7 @@
+  	 */
+  	async resetSessionContext(): Promise<ResetSessionContextResult | undefined> {
+  		using _transition = this.#beginSessionTransition();
+@@ -553,7 +548,7 @@
+  		// Refuse while a response streams OR a foreground user bash/python
+  		// execution is in flight: those complete via recordBashResult()/
+  		// recordPythonResult(), which append directly to agent.state when not
+-@@ -6063,21 +6172,32 @@
++@@ -6063,21 +6167,32 @@
+  		}
+  	}
+  
+@@ -588,7 +583,7 @@
+  		this.#usagePreflightReadyForNextModelCall = allowed;
+  		this.#usagePreflightReadyModel = allowed ? this.model : undefined;
+  		return allowed;
+-@@ -6099,8 +6219,8 @@
++@@ -6099,8 +6214,8 @@
+  						controller.signal,
+  						this.#usageFallbackConfirmer,
+  					);
+@@ -598,7 +593,7 @@
+  					if (this.model === model || modelsAreEqual(this.model, model)) return true;
+  				} catch (error) {
+  					if (controller.signal.aborted || this.#promptGeneration !== generation) return false;
+-@@ -7863,17 +7983,28 @@
++@@ -7863,17 +7978,28 @@
+  		// every pre-dispatch bail (generation bump from abort, disposal, usage
+  		// preflight denial) exits silently, and prompt() uses the outcome to hand
+  		// the typed text back to the host instead of losing it.
+@@ -630,7 +625,7 @@
+  			this.#eval.flushPending();
+  			this.#irc.flushPending();
+  
+-@@ -7892,6 +8023,7 @@
++@@ -7892,6 +8018,7 @@
+  
+  			// Validate API key
+  			const apiKey = await this.#modelRegistry.getApiKey(this.model, this.sessionId);
+@@ -638,7 +633,7 @@
+  			if (!apiKey) {
+  				throw new Error(
+  					`No API key found for ${this.model.provider}.\n\n` +
+-@@ -7910,17 +8042,21 @@
++@@ -7910,17 +8037,21 @@
+  				(lastAssistant.stopReason === "error" || lastAssistant.stopReason === "length")
+  			) {
+  				await this.#maintenance.checkCompaction(lastAssistant, false, false);
+@@ -660,7 +655,7 @@
+  			if (planModeMessage) {
+  				messages.push(planModeMessage);
+  			}
+-@@ -8080,8 +8216,8 @@
++@@ -8080,8 +8211,8 @@
+  		} finally {
+  			// The per-turn before_agent_start override lives only for this turn.
+  			this.#tools.clearTurnSystemPromptOverride();
+@@ -671,7 +666,7 @@
+  			if (this.#promptSetupAbortController === setupAbort) this.#promptSetupAbortController = undefined;
+  		}
+  	}
+-@@ -8189,6 +8325,7 @@
++@@ -8189,6 +8320,7 @@
+  			// The SDK always builds a runner (which receives the annotations factory); this runner-less
+  			// context only exists for directly constructed sessions, which have no `/annotate` wiring.
+  			annotations: UNAVAILABLE_ANNOTATIONS,
+@@ -679,7 +674,7 @@
+  			setInterval: (callback, ms, ...args) => this.#fallbackTimers().setInterval(callback, ms, ...args),
+  			setTimeout: (callback, ms, ...args) => this.#fallbackTimers().setTimeout(callback, ms, ...args),
+  			clearTimer: timer => this.#fallbackTimers().clear(timer),
+-@@ -8637,8 +8774,11 @@
++@@ -8637,8 +8769,11 @@
+  		message: CustomMessage,
+  		options?: { acceptTerminalEmptyStop?: boolean },
+  	): Promise<boolean> {
+@@ -692,7 +687,7 @@
+  			if (!(await this.#runUsageAwarePreflightForNextModelCall())) return false;
+  			const acceptTerminalEmptyStop = options?.acceptTerminalEmptyStop === true;
+  			if (acceptTerminalEmptyStop) {
+-@@ -8651,7 +8791,7 @@
++@@ -8651,7 +8786,7 @@
+  		} finally {
+  			this.#usagePreflightReadyForNextModelCall = false;
+  			this.#recovery.setAcceptTerminalEmptyStop(false);
+@@ -701,7 +696,7 @@
+  		}
+  	}
+  
+-@@ -9814,6 +9954,7 @@
++@@ -9814,6 +9949,7 @@
+  	 */
+  	async newSession(options?: NewSessionOptions): Promise<boolean> {
+  		using _transition = this.#beginSessionTransition();
+@@ -709,7 +704,7 @@
+  		this.#assertVibeSessionTransitionAllowed("start a new session");
+  		const previousSessionFile = this.sessionFile;
+  
+-@@ -9968,6 +10109,7 @@
++@@ -9968,6 +10104,7 @@
+  	 */
+  	async fork(entryId?: string, options?: { requireIdle?: boolean }): Promise<boolean> {
+  		using _transition = this.#beginSessionTransition();
+@@ -717,7 +712,7 @@
+  		this.#assertVibeSessionTransitionAllowed("fork the session");
+  		const requireIdleFor = entryId !== undefined || options?.requireIdle ? "fork the session" : undefined;
+  		if (entryId !== undefined) {
+-@@ -11100,6 +11242,65 @@
++@@ -11100,6 +11237,65 @@
+  	}
+  
+  	/**
+@@ -783,7 +778,7 @@
+  	 * Run a single ephemeral side-channel turn against this session's current
+  	 * model + system prompt + history. The main turn's tool catalog is sent
+  	 * to preserve the prompt cache unless `tools: false` is requested. The
+-@@ -11400,6 +11601,7 @@
++@@ -11400,6 +11596,7 @@
+  			throw new Error(`No API key for ${explicitModel.provider}/${explicitModel.id}`);
+  		}
+  		using _transition = this.#beginSessionTransition();
+@@ -791,7 +786,7 @@
+  		const previousSessionFile = this.sessionManager.getSessionFile();
+  		const switchingToDifferentSession = previousSessionFile
+  			? path.resolve(previousSessionFile) !== path.resolve(sessionPath)
+-@@ -11836,6 +12038,7 @@
++@@ -11836,6 +12033,7 @@
+  		cancelled: boolean;
+  	}> {
+  		using _transition = this.#beginSessionTransition();
+@@ -799,7 +794,7 @@
+  		const selectedEntry = this.sessionManager.getEntry(entryId);
+  
+  		if (selectedEntry?.type !== "message" || selectedEntry.message.role !== "user") {
+-@@ -11974,6 +12177,7 @@
++@@ -11974,6 +12172,7 @@
+  		sessionId: string,
+  	): Promise<{ cancelled: boolean; sessionFile: string | undefined }> {
+  		using _transition = this.#beginSessionTransition();
+@@ -807,7 +802,7 @@
+  		const previousSessionFile = this.sessionFile;
+  		if (!this.sessionManager.getSessionFile()) {
+  			throw new Error("Cannot branch /btw: session is not persisted");
+-@@ -12151,6 +12355,18 @@
++@@ -12151,6 +12350,18 @@
+  		askReanswerCommitted?: boolean;
+  	}> {
+  		using _transition = this.#beginSessionTransition();
+@@ -826,7 +821,7 @@
+  		await this.#bash.flushPending();
+  		const oldLeafId = this.sessionManager.getLeafId();
+  
+-@@ -12235,8 +12451,6 @@
++@@ -12235,8 +12446,6 @@
+  			userWantsSummary: options.summarize ?? false,
+  		};
+  
+@@ -835,7 +830,7 @@
+  		let hookSummary: { summary: string; details?: unknown } | undefined;
+  		let fromExtension = false;
+  
+-@@ -12245,7 +12459,7 @@
++@@ -12245,7 +12454,7 @@
+  			const result = (await this.#extensionRunner.emit({
+  				type: "session_before_tree",
+  				preparation,
+@@ -844,7 +839,7 @@
+  			})) as SessionBeforeTreeResult | undefined;
+  
+  			if (result?.cancel) {
+-@@ -12270,7 +12484,7 @@
++@@ -12270,7 +12479,7 @@
+  			const result = await generateBranchSummary(entriesToSummarize, {
+  				model,
+  				apiKey: this.#modelRegistry.resolver(model, this.sessionId),
+@@ -853,7 +848,7 @@
+  				customInstructions: this.#obfuscateTextForProvider(options.customInstructions),
+  				reserveTokens: cfgBranchSummaryReserveTokens.get(this.settings),
+  				metadata: this.agent.metadataForProvider(model.provider),
+-@@ -12283,7 +12497,6 @@
++@@ -12283,7 +12492,6 @@
+  					return stream.result();
+  				},
+  			});
+@@ -861,7 +856,7 @@
+  			if (result.aborted) {
+  				return { cancelled: true, aborted: true };
+  			}
+-@@ -12303,6 +12516,7 @@
++@@ -12303,6 +12511,7 @@
+  		// All cancellation/no-op exits are behind us. Invalidate prompt setup
+  		// admitted on the abandoned branch before committing any tree changes.
+  		this.#promptGeneration++;
+@@ -869,7 +864,7 @@
+  
+  		// Determine the new leaf position based on target type
+  		let newLeafId: string | null;
+-@@ -12403,8 +12617,6 @@
++@@ -12403,8 +12612,6 @@
+  		// tail so first preparation replays this branch's frozen answer.
+  		await this.#memory.resetContextForNewTranscript({ readOnly: this.#memoryTranscriptReadOnly });
+  
+@@ -878,7 +873,7 @@
+  		// Report a committed `ask` re-answer so the interactive caller can resume
+  		// the agent via `resumeAfterAskReanswer()` *after* rebuilding its
+  		// transcript. Scheduling the continue here instead would start a fresh
+-@@ -12451,7 +12663,8 @@
++@@ -12451,7 +12658,8 @@
+  	 * follow-up turn, but is deferred to the caller so the resumed turn renders
+  	 * against the rebuilt UI rather than the stale pre-navigation transcript
+  	 * (issue #6483). The scheduled continue honors the same disposed/compacting

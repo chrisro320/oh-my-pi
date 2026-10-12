@@ -34,10 +34,10 @@ const agentVersion = String(
 // removeQueuedMessage (the queue identity leg) exists from 18.4.4; the resume leg
 // is version independent. A tree outside the supported set must fail, never skip.
 assert.ok(
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion),
+	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion),
 	`user display text gate: unsupported selected tree version ${agentVersion}`,
 );
-const hasQueueRemoval = ["18.4.4", "18.7.0"].includes(agentVersion);
+const hasQueueRemoval = ["18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion);
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
@@ -116,6 +116,7 @@ try {
 
 			const sessionFile = manager.getSessionFile();
 			assert.ok(sessionFile, "session must be file-backed");
+			await manager.flush();
 			const reopened = await SessionManager.open(sessionFile);
 			const rebuilt = userMessages(buildSessionContext(reopened.getEntries(), reopened.getLeafId()).messages as UserLike[]);
 			assert.equal(rebuilt.length, 1);

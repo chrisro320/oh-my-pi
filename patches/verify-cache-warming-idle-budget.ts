@@ -53,6 +53,7 @@ interface WarmerLike {
 	status: WarmerStatus;
 	start(request: { model: object; context: object; options: object }, isCurrent: () => boolean): void;
 	onAgentSettled(): void;
+	onModeChanged(): void;
 }
 
 interface WarmerModule {
@@ -62,7 +63,7 @@ interface WarmerModule {
 const rootEnv = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
 if (!rootEnv) throw new Error("OMP_PATCH_VERIFY_AGENT_ROOT is required");
 const root = realpathSync(resolve(rootEnv));
-const live = realpathSync(join(homedir(), ".bun/install/global/node_modules/@oh-my-pi/pi-coding-agent"));
+const live = resolve(homedir(), ".bun/install/global/node_modules/@oh-my-pi/pi-coding-agent");
 if (root === live || root.startsWith(live + sep)) throw new Error("refusing to verify against the live install");
 
 // The tree under test is chosen at run time, so a static import cannot name it.
@@ -290,15 +291,18 @@ try {
 			assert.equal(s.reports[0]?.outcome, "hit");
 		}
 
-		// A parked run does not resume when warming was disabled meanwhile.
+		// Off -> idle before the next poll must not resurrect the parked request.
 		{
 			const s = scenario(undefined, () => message(200_000, 0));
 			mode = "off";
+			s.w.onModeChanged();
+			mode = "idle";
+			s.w.onModeChanged();
 			process.env[ENV] = String(5 * 60 * MIN);
-			assert.equal(await firePoll(20 * MIN), true);
+			assert.equal(await firePoll(20 * MIN), false, "disabling must cancel the parked poll immediately");
+			assert.equal(await fireRefresh(), false, "reenabling needs a new real request");
 			assert.equal(s.w.status.state, "inactive");
 			assert.equal(s.sent.n, 0);
-			mode = "idle";
 		}
 
 		// Without a larger horizon a parked run keeps waiting, then lapses with the entry.

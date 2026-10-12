@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 
 // Attribute: an interrupted (aborted/error) assistant turn must produce the same
 // wire history on both request paths.
@@ -19,6 +20,29 @@ import { homedir } from "node:os";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
+const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
+assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion),
+	`unsupported interrupted-turn gate version: ${agentVersion}`);
+const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
+const privateHome = mkdtempSync(join(tmpdir(), "omp-prune-home-"));
+for (const key of Object.keys(process.env)) {
+	if (key !== "PATH" && key !== "TMPDIR") delete process.env[key];
+}
+Object.assign(process.env, {
+	HOME: privateHome, XDG_CONFIG_HOME: join(privateHome, "config"), XDG_CACHE_HOME: join(privateHome, "cache"),
+	XDG_DATA_HOME: join(privateHome, "data"), XDG_STATE_HOME: join(privateHome, "state"),
+});
+process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
+// Private HOME must also precede runtime startup (os.homedir may be cached).
+if (!privateProcess) {
+	const child = Bun.spawnSync([process.execPath, import.meta.path, ...process.argv.slice(2)], {
+		env: { ...process.env, OMP_DURABILITY_BOOT: "1", OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
+	});
+	process.stdout.write(child.stdout);
+	process.stderr.write(child.stderr);
+	process.exit(child.exitCode);
+}
+globalThis.fetch = (() => { throw new Error("Network forbidden in interrupted-turn gate"); }) as typeof fetch;
 
 // Runtime-selected specifier: the module tree under test is an isolated sandbox
 // named by OMP_PATCH_VERIFY_AGENT_ROOT, so a static import cannot name it.
@@ -117,8 +141,7 @@ for (const stopReason of ["aborted", "error"] as const) {
 	console.log(`  ${stopReason}: live == rebuilt, ${rebuilt.length} wire messages, no remnant`);
 }
 
-const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-if (["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)) {
+if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)) {
 	for (const stopReason of ["aborted", "error"] as const) {
 		for (const pairedResult of [false, true]) {
 			const interrupted = abortedEntry("a1", "u1", stopReason);
@@ -149,7 +172,7 @@ if (["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)) {
 // the partial text and render the same bytes. The reminder's own text is read
 // from the real prompt asset inside this branch. Version-scoped: 18.3.3 has no
 // `handleCommittedTextStreamStall`, so an 18.3.3 tree keeps the assertions above.
-if (["18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)) {
+if (["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)) {
 	// The committed-text stall continuation appends this exact template, rendered by
 	// `TurnRecovery.handleCommittedTextStreamStall` and persisted with it (patch
 	// 0077). Read the real asset so the fixture is the durable shape, not a copy.

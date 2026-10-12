@@ -14,6 +14,14 @@ Usage:
   verify-family-plan.py <baseline.json> ids <deployed|repository>
   verify-family-plan.py <baseline.json> registry-plan <plan.tsv>
   verify-family-plan.py <baseline.json> registry-check <plan.tsv>
+  verify-family-plan.py <baseline.json> repair-manifest
+
+`repair-manifest` reads the frozen same-family behavioral-repair manifest
+(baseline.json under .retired/10-10-18.7.0-model-selection-resume/) rather than
+the pre-family snapshot. It prints one "<field>\\t<value>" line per field in
+fixed order (family, root, previous, previous-sha256, repair, repair-sha256);
+the SHA-256 values are the only source of truth for the archived original
+family bytes and the additive repair delta, so callers never hardcode them.
 
 Exit status is 0 on success and 1 on any contract violation (diagnostic on
 stderr). `registry-check` prints a one-line OK summary on stdout.
@@ -27,6 +35,11 @@ ROOTS = {"AGENT", "CORE", "AI", "SNAP", "TUI", "NM"}
 ID_RE = re.compile(r"^\d{4}$")
 FAMILY_RE = re.compile(r"^family-[a-z0-9][a-z0-9-]*-v18\.7\.0\.patch$")
 INDEPENDENT_RE = re.compile(r"^(\d{4})-[A-Za-z0-9._-]+\.patch$")
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+# The active family path of a same-family repair, and the plain patch name its
+# additive repair delta keeps inside the retired directory.
+REPAIR_FAMILY_PREFIX = ".18.7.0-families/"
+REPAIR_DELTA_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.patch$")
 
 # Approved maintenance boundaries; coverage alone cannot detect ownership swaps.
 FAMILY_MEMBERS = {
@@ -207,6 +220,51 @@ def cmd_registry_check(baseline, args):
     print("OK rows={} members={}".format(len(order), members))
 
 
+def validate_repair(baseline):
+    """Validate a same-family behavioral-repair manifest.
+
+    The manifest names the single active family, its package root, the archived
+    copy of its ORIGINAL bytes and the additive repair delta, each pinned by
+    SHA-256. Callers read the hashes from here so no value is hardcoded, and a
+    malformed or unsafe manifest fails closed instead of being half-honoured.
+    """
+    fields = {}
+    for key in ("family", "previousFamily", "previousFamilySha256", "repair", "repairSha256"):
+        value = baseline.get(key)
+        if not isinstance(value, str) or not value:
+            fail("repair manifest has no usable '{}'".format(key))
+        fields[key] = value
+    root = baseline.get("root")
+    if root not in ROOTS:
+        fail("repair manifest root '{}' is not a package root".format(root))
+    family = fields["family"]
+    if not family.startswith(REPAIR_FAMILY_PREFIX):
+        fail("repair manifest family '{}' is not under {}".format(family, REPAIR_FAMILY_PREFIX))
+    base = family[len(REPAIR_FAMILY_PREFIX):]
+    if "/" in base or not FAMILY_RE.match(base):
+        fail("repair manifest family '{}' is not family-<name>-v18.7.0.patch".format(family))
+    if fields["previousFamily"] != base:
+        fail("repair manifest previousFamily '{}' is not the archived copy of '{}'".format(
+            fields["previousFamily"], base))
+    for key in ("previousFamilySha256", "repairSha256"):
+        if not SHA256_RE.match(fields[key]):
+            fail("repair manifest {} is not a lowercase sha256: {}".format(key, fields[key]))
+    repair = fields["repair"]
+    if "/" in repair or ".." in repair or not REPAIR_DELTA_RE.match(repair):
+        fail("repair manifest repair '{}' is not a plain patch file name".format(repair))
+    return root, fields
+
+
+def cmd_repair_manifest(baseline, _args):
+    root, fields = validate_repair(baseline)
+    print("family\t{}".format(fields["family"]))
+    print("root\t{}".format(root))
+    print("previous\t{}".format(fields["previousFamily"]))
+    print("previous-sha256\t{}".format(fields["previousFamilySha256"]))
+    print("repair\t{}".format(fields["repair"]))
+    print("repair-sha256\t{}".format(fields["repairSha256"]))
+
+
 COMMANDS = {
     "controller-sha": cmd_controller_sha,
     "patch-hashes": cmd_patch_hashes,
@@ -215,6 +273,7 @@ COMMANDS = {
     "ids": cmd_ids,
     "registry-plan": cmd_registry_plan,
     "registry-check": cmd_registry_check,
+    "repair-manifest": cmd_repair_manifest,
 }
 
 

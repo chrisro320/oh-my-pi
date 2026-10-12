@@ -1,0 +1,9 @@
+{
+  "version": "18.10.1",
+  "family": ".18.10.1-families/0010-omp-extension-idle-ephemeral-turn-v18.10.1.patch",
+  "root": "NM",
+  "previousFamily": "0010-omp-extension-idle-ephemeral-turn-v18.10.1.patch",
+  "previousFamilySha256": "a3772883363666c8aec524f7d2404c9bfebf6fe6b0c79013199d9678fd4464fd",
+  "repair": "attempt-guard-removal.delta.patch",
+  "repairSha256": "2eae95a2d6609d16ff9f78c2ea3083b7f22f03ba2d619a39d12e534487e4bbd3"
+}

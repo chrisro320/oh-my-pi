@@ -171,6 +171,71 @@ try {
 		"rendered assistant tool-result failure must show the stored reason",
 	);
 
+	// Both slot owners must retire superseded A, not older scrollback H. The
+	// same boundary also proves B gets new graphics bytes and stable repaint ids.
+	for (const kind of ["tool", "assistant"] as const) {
+		const budget = new ImageBudget(2);
+		const makeConsumer = () => {
+			if (kind === "tool") {
+				const component = makeTool(() => {}, budget);
+				return { component, setImage: (image: typeof a) => {
+					component.updateResult({ content: [image] });
+					component.seal();
+				} };
+			}
+			const component = new AssistantMessageComponent(message as never, false, undefined, [], budget);
+			return { component, setImage: (image: typeof a) => component.setToolResultImages("budgeted-call", [image]) };
+		};
+		const history = makeConsumer();
+		const replacing = makeConsumer();
+		const graphicId = (transmit: string): number => {
+			const match = /\x1b_G[^;]*\bi=(\d+)/.exec(transmit);
+			assert.ok(match, "a real Kitty transmit must name its graphics id");
+			return Number(match[1]);
+		};
+		const paint = (component: { render(width: number): readonly string[] }) => {
+			budget.beginPass();
+			const lines = component.render(80).join("\n");
+			assert.equal(budget.endPass(), false, "one live image fits the two-image budget");
+			budget.limitResidentImages();
+			return { lines, transmits: budget.takeTransmits(), purges: budget.takePurgeIds() };
+		};
+		try {
+			history.setImage({ type: "image", data: fixturePng(16, 51).toString("base64"), mimeType: "image/png" });
+			const historyFrame = paint(history.component);
+			assert.equal(historyFrame.transmits.length, 1, `${kind}: H transmits before retirement`);
+			const historyId = graphicId(historyFrame.transmits[0]);
+			history.component.dispose();
+
+			await ensurePng(a);
+			replacing.setImage(a);
+			const frameA = paint(replacing.component);
+			assert.equal(frameA.transmits.length, 1, `${kind}: cached A transmits on first display`);
+			assert.deepEqual(frameA.purges, [], `${kind}: retiring H preserves its scrollback graphic`);
+			const idA = graphicId(frameA.transmits[0]);
+
+			await ensurePng(b);
+			replacing.setImage(b);
+			const frameB = paint(replacing.component);
+			assert.equal(frameB.transmits.length, 1, `${kind}: replacement B transmits exactly once`);
+			const idB = graphicId(frameB.transmits[0]);
+			assert.notEqual(idB, idA);
+			assert.notEqual(frameB.transmits[0], frameA.transmits[0], `${kind}: replacement must not resend A`);
+			assert.notEqual(frameB.lines, frameA.lines, `${kind}: replacement places B under its own identity`);
+			assert.deepEqual(frameB.purges, [idA], `${kind}: the sweep retires A, never historical H`);
+			assert.equal(budget.shouldTransmit(historyId), false, `${kind}: H remains resident in scrollback`);
+
+			replacing.setImage(b);
+			const repaintB = paint(replacing.component);
+			assert.deepEqual(repaintB.transmits, [], `${kind}: unchanged B reuses its resident graphics id`);
+			assert.deepEqual(repaintB.purges, [], `${kind}: routine rebuilding must not release B`);
+			assert.equal(repaintB.lines, frameB.lines, `${kind}: unchanged B keeps the same placements`);
+			assert.equal(budget.shouldTransmit(idB), false);
+		} finally {
+			history.component.dispose();
+			replacing.component.dispose();
+		}
+	}
 	// Native assistant images use the same slot cache as tool results; the guards
 	// must hold for the message's own content index too.
 	const nativeMessage = (image: { type: "image"; data: string; mimeType: string }) => ({
@@ -236,6 +301,15 @@ try {
 	assert.equal(freshSnapshot?.png?.mimeType, "image/png", "settled snapshot exposes the converted PNG");
 	assert.equal(freshSnapshot?.reason, undefined, "a successful conversion carries no failure reason");
 	assert.equal(ensurePng(fresh), running, "settled conversion retains the original shared promise");
+	const cachedTool = makeTool(() => {});
+	try {
+		cachedTool.updateResult({ content: [fresh] });
+		cachedTool.seal();
+		assert.equal(cachedTool.isTranscriptBlockFinalized(), true, "cached conversion must settle before the first display rebuild");
+		assert.equal(countGraphics(cachedTool.render(80)), 1, "an already-cached PNG must render immediately, without a later callback");
+	} finally {
+		cachedTool.stopAnimation();
+	}
 	const broken = { type: "image" as const, data: "bm90LWFuLWltYWdlIQ==", mimeType: "image/webp" };
 	const failed = ensurePng(broken);
 	assert.equal(await failed, null);

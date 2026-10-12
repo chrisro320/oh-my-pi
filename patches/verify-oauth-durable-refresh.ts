@@ -33,6 +33,7 @@
 // Optional real-time variant (slow, ~16s of blocked event loop):
 //   add OMP_PATCH_VERIFY_OAUTH_REAL_STALL=1
 
+import { Database } from "bun:sqlite";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -55,6 +56,8 @@ if (!existsSync(resolve(RAW_AI_ROOT))) {
 	process.exit(2);
 }
 const AI_ROOT = realpathSync(resolve(RAW_AI_ROOT));
+const selectedAgentRoot = resolve(process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? join(AI_ROOT, "..", "pi-coding-agent"));
+const AGENT_ROOT = existsSync(selectedAgentRoot) ? realpathSync(selectedAgentRoot) : selectedAgentRoot;
 // Bun's userInfo().homedir also follows HOME. Resolve the Linux account home
 // independently so a private HOME cannot disguise the operator's live install.
 const accountHome = readFileSync("/etc/passwd", "utf8")
@@ -66,8 +69,8 @@ const LIVE_ROOTS = [accountHome]
 	.map(home => join(home, ".bun", "install", "global", "node_modules", "@oh-my-pi"))
 	.filter(existsSync)
 	.map(path => realpathSync(path));
-if (LIVE_ROOTS.some(root => AI_ROOT === root || AI_ROOT.startsWith(root + sep))) {
-	console.error(`verify-oauth-durable-refresh: refusing the live install root: ${AI_ROOT}`);
+if (LIVE_ROOTS.some(root => [AI_ROOT, AGENT_ROOT].some(selected => selected === root || selected.startsWith(root + sep)))) {
+	console.error(`verify-oauth-durable-refresh: refusing a live install root: ${AI_ROOT} / ${AGENT_ROOT}`);
 	process.exit(2);
 }
 if (!existsSync(join(AI_ROOT, "src", "auth-storage.ts")) || !existsSync(join(AI_ROOT, "src", "auth", "refresh.ts"))) {
@@ -76,6 +79,9 @@ if (!existsSync(join(AI_ROOT, "src", "auth-storage.ts")) || !existsSync(join(AI_
 	);
 	process.exit(2);
 }
+const aiVersion = JSON.parse(readFileSync(join(AI_ROOT, "package.json"), "utf8")).version;
+assert.ok(["18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion), `unsupported OAuth gate version: ${aiVersion}`);
+const hasExchangeReservation = ["18.10.0", "18.10.1"].includes(aiVersion);
 
 // ---------------------------------------------------------------------------
 // Local structural contracts for the selected tree. The module specifier is a
@@ -90,6 +96,15 @@ type Cred = {
 	email?: string;
 	orgId?: string;
 	orgName?: string;
+	region?: string;
+	inferenceRegion?: string;
+	activeOrganizationId?: string;
+	apiEndpoint?: string;
+	tokenUrl?: string;
+	clientId?: string;
+	clientSecret?: string;
+	resource?: string;
+	authorizationUrl?: string;
 };
 
 /** Redacted snapshot credential returned by `oauth.refresh` (refresh token is a sentinel). */
@@ -100,6 +115,10 @@ type SnapshotCredential = {
 	accountId?: string;
 	email?: string;
 	orgId?: string;
+	region?: string;
+	inferenceRegion?: string;
+	activeOrganizationId?: string;
+	apiEndpoint?: string;
 };
 
 type DisabledRow = { id: number };
@@ -110,21 +129,41 @@ interface Store {
 	tryAcquireCredentialRefreshLease(id: number, owner: string, expiresAtMs: number): boolean;
 	updateAuthCredential(id: number, credential: Cred): void;
 	deleteAuthCredential(id: number, disabledCause: string): Promise<boolean>;
+	stageCredentialRefreshResult(id: number, expectedData: string, owner: string, credential: Cred): boolean;
+	setCache(key: string, value: string, expiresAt: number): void;
 }
 
 interface Auth {
-	credentials: { upsert(provider: string, credential: Cred): Promise<{ id: number }[]> };
+	credentials: {
+		upsert(provider: string, credential: Cred): Promise<{ id: number }[]>;
+		list(provider: string): { id: number; credential: Cred }[];
+		reload(): void | Promise<void>;
+	};
 	oauth: {
 		refresh(id: number, signal?: AbortSignal): Promise<{ credential: SnapshotCredential }>;
 		accessById(provider: string, id: number): Promise<{ ok: boolean } | undefined>;
+		refreshStored(provider: string, options: {
+			credentialId: number; credentialFromRow: (credential: Cred) => Cred;
+			refreshTimeoutMs?: number; refresh: (credential: Cred, signal?: AbortSignal) => Promise<Cred>;
+		}): Promise<{ credential?: Cred; refreshed: boolean }>;
 	};
 	close(): void;
 	getApiKey(provider: string): Promise<string | undefined>;
+	health: {
+		check(options: {
+			completionProbe: (input: { credential: { accessToken?: string; region?: string } }) => Promise<{ ok: true }>;
+		}): Promise<unknown>;
+	};
 	usage: {
 		setProvider(provider: string, impl: {
-			fetchUsage(params: { credential: { accountId?: string } }): Promise<unknown>;
+			fetchUsage(
+				params: { accountKey?: string; credential: { accountId?: string; accessToken?: string; region?: string } },
+				context: { previousReport?: unknown },
+			): Promise<unknown>;
 		}): void;
 		report(provider: string, credential: Cred): Promise<unknown>;
+		reports(options?: { providers?: readonly string[] }): Promise<Array<{ provider: string }> | null>;
+		history(query?: { provider?: string; sinceMs?: number }): Array<{ accountKey: string; accountId?: string; usedFraction?: number }>;
 	};
 }
 
@@ -160,6 +199,7 @@ const PROVIDER = "anthropic";
 
 // Import-time loggers and provider discovery must see only the private home.
 const runRealStall = process.env.OMP_PATCH_VERIFY_OAUTH_REAL_STALL === "1";
+const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
 const privateHome = mkdtempSync(join(tmpdir(), "omp-oauth-home-"));
 for (const key of Object.keys(process.env)) {
 	if (key !== "PATH" && key !== "TMPDIR") delete process.env[key];
@@ -170,6 +210,18 @@ process.env.XDG_CACHE_HOME = join(privateHome, "cache");
 process.env.XDG_DATA_HOME = join(privateHome, "data");
 process.env.XDG_STATE_HOME = join(privateHome, "state");
 process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
+// Establish HOME before process startup as well as before package imports:
+// runtimes may cache os.homedir() before a verifier changes process.env.
+if (!privateProcess) {
+	const child = Bun.spawnSync([process.execPath, import.meta.path, ...process.argv.slice(2)], {
+		env: { ...process.env, OMP_DURABILITY_BOOT: "1", OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT,
+			OMP_PATCH_VERIFY_OAUTH_REAL_STALL: runRealStall ? "1" : "0" },
+	});
+	process.stdout.write(child.stdout);
+	process.stderr.write(child.stderr);
+	process.exit(child.exitCode);
+}
+globalThis.fetch = (() => { throw new Error("Network forbidden outside the synthetic OAuth transport"); }) as typeof fetch;
 
 // Dynamic imports only: the specifier is genuinely runtime-selected (the tree
 // under test); a static import would bind the live install. Fail closed.
@@ -209,7 +261,7 @@ const RESPONSE_IDENTITY = { uuid: "acct-resp", email_address: "resp@example.com"
 type WireReply =
 	| { kind: "json"; body: Record<string, unknown>; status?: number; advanceMs?: number; waitFor?: Promise<void> }
 	| { kind: "status"; status: number; text: string; waitFor?: Promise<void> }
-	| { kind: "network"; message: string };
+	| { kind: "network"; message: string; waitFor?: Promise<void> };
 
 interface TransportPlan {
 	/** Reply for the Nth token POST (1-based), given the parsed request body. */
@@ -217,6 +269,8 @@ interface TransportPlan {
 	/** Reply for the claude_cli/bootstrap GET. Defaults to a distinct boot identity. */
 	bootstrap?: () => WireReply | Promise<WireReply>;
 	onTokenPost?: (index: number, body: Record<string, unknown>, signal: AbortSignal | null) => void;
+	tokenMarker?: string;
+	other?: (url: string, signal: AbortSignal | null) => WireReply | Promise<WireReply>;
 }
 
 interface Transport {
@@ -300,7 +354,7 @@ function installTransport(plan: TransportPlan): Transport {
 				signal,
 			);
 		}
-		if (url.includes(TOKEN_MARKER)) {
+		if (url.includes(plan.tokenMarker ?? TOKEN_MARKER)) {
 			state.tokenPosts += 1;
 			const index = state.tokenPosts;
 			const rawBody = typeof init?.body === "string" ? init.body : "";
@@ -308,12 +362,13 @@ function installTransport(plan: TransportPlan): Transport {
 			try {
 				parsed = JSON.parse(rawBody) as Record<string, unknown>;
 			} catch {
-				parsed = {};
+				parsed = Object.fromEntries(new URLSearchParams(rawBody));
 			}
 			state.tokenBodies.push(parsed);
 			plan.onTokenPost?.(index, parsed, signal);
 			return materialize(await plan.token(index, parsed, signal), signal);
 		}
+		if (plan.other) return materialize(await plan.other(url, signal), signal);
 		throw new Error(`verify-oauth-durable-refresh: unexpected fetch ${url}`);
 	};
 	globalThis.fetch = handler;
@@ -351,12 +406,13 @@ async function withCase(fn: (c: CaseEnv) => Promise<void>, options?: Record<stri
 	const store = await StoreClass.open(join(dir, "auth.db"));
 	const auth = new AuthStorageClass(store, options);
 	const cleanup: CaseEnv["cleanup"] = [];
+	const c = { auth, store, dir, cleanup };
 	try {
-		await fn({ auth, store, dir, cleanup });
+		await fn(c);
 	} finally {
 		for (const finish of cleanup) await finish();
 		try {
-			auth.close();
+			c.auth.close();
 		} catch {
 			// Store already closed.
 		}
@@ -382,6 +438,41 @@ function rowOf(c: CaseEnv, id: number): Cred | undefined {
 		.listAuthCredentials(PROVIDER)
 		.find(row => row.id === id)
 		?.credential;
+}
+
+/** Reconstruct the public auth consumer from the private durable store. */
+async function reopen(c: CaseEnv, options?: Record<string, unknown>): Promise<void> {
+	c.auth.close();
+	c.store = await StoreClass.open(join(c.dir, "auth.db"));
+	c.auth = new AuthStorageClass(c.store, options);
+	// Construction wires the consumer; the documented startup reload hydrates its pool.
+	await c.auth.credentials.reload();
+}
+
+function exchangeRows(c: CaseEnv): unknown[] {
+	const db = new Database(join(c.dir, "auth.db"), { readonly: true });
+	try {
+		return db.query("SELECT * FROM auth_credential_refresh_exchanges ORDER BY credential_id").all();
+	} finally {
+		db.close();
+	}
+}
+
+/** A real fresh process has no in-memory exchange/result cache to rescue it. */
+async function refreshAfterProcessRestart(c: CaseEnv, id: number): Promise<{ error?: string; access?: string; tokenPosts: number }> {
+	c.auth.close();
+	const output = join(c.dir, "restart-result.json");
+	const child = Bun.spawnSync([process.execPath, import.meta.path, "--restart-refresh", c.dir, String(id), output], {
+		env: { PATH: process.env.PATH, TMPDIR: process.env.TMPDIR,
+			OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
+		stdout: "pipe", stderr: "pipe",
+	});
+	assert.equal(child.exitCode, 0, `fresh auth process failed: ${child.stderr.toString()}`);
+	const result = JSON.parse(readFileSync(output, "utf8"));
+	c.store = await StoreClass.open(join(c.dir, "auth.db"));
+	c.auth = new AuthStorageClass(c.store);
+	await c.auth.credentials.reload();
+	return result;
 }
 
 /** Reads the rotate-on-use refresh token out of a captured token request body. */
@@ -439,7 +530,245 @@ function waitForPost(started: Promise<void>, refresh: Promise<unknown>): Promise
 	]);
 }
 
+if (process.argv[2] === "--restart-refresh") {
+	assert.equal(hasExchangeReservation, true, "restart fixture requires the target exchange protocol");
+	const dir = realpathSync(process.argv[3]);
+	assert.ok(dir.startsWith(join(tmpdir(), "omp-oauth-verify-")), "restart may read only the synthetic gate store");
+	const store = await StoreClass.open(join(dir, "auth.db"));
+	const auth = new AuthStorageClass(store);
+	const t = installTransport({ token: () => tokenReply("unexpected-resend", "unexpected-resend") });
+	t.advanceClock(60_000);
+	try {
+		await auth.credentials.reload();
+		assert.ok(auth.credentials.list(PROVIDER).some(row => row.id === Number(process.argv[4])),
+			"fresh-process refresh must exercise a hydrated credential, not reject an empty pool");
+		let access: string | undefined;
+		let error: string | undefined;
+		try {
+			access = (await auth.oauth.refresh(Number(process.argv[4]))).credential.access;
+		} catch (caught) {
+			error = caught instanceof Error ? caught.message : String(caught);
+		}
+		await Bun.write(process.argv[5], JSON.stringify({ error, access, tokenPosts: t.tokenPosts }));
+	} finally {
+		auth.close();
+		t.restore();
+	}
+	process.exit(0);
+}
+
 console.log(`=== verify-oauth-durable-refresh (0090) :: ${AI_ROOT} ===`);
+
+if (hasExchangeReservation) {
+	await scenario("startup and credentials.reload preserve duplicate healthy legacy rows byte-for-byte", async () => {
+		const t = installTransport({ token: () => tokenReply("forbidden", "forbidden") });
+		try {
+			await withCase(async c => {
+				const id = await seed(c, {
+					type: "oauth", access: "healthy-access", refresh: "healthy-refresh",
+					expires: Date.now() + 3_600_000, accountId: "healthy-account", email: "healthy@example.invalid",
+				});
+				c.auth.close();
+				const db = new Database(join(c.dir, "auth.db"));
+				try {
+					// Bypass the explicit-write deduper to represent two healthy rows
+					// left by an older release; normal startup is not a mutation.
+					db.query("UPDATE auth_credentials SET identity_key = NULL WHERE id = ?").run(id);
+					const original = db.query("SELECT data FROM auth_credentials WHERE id = ?").get(id) as { data: string };
+					const duplicate = { ...JSON.parse(original.data), access: "healthy-access-2", refresh: "healthy-refresh-2" };
+					db.query(`INSERT INTO auth_credentials (provider, credential_type, data, identity_key, created_at, updated_at)
+						SELECT provider, credential_type, ?, NULL, created_at, updated_at FROM auth_credentials WHERE id = ?`)
+						.run(JSON.stringify(duplicate), id);
+					const before = db.query("SELECT * FROM auth_credentials ORDER BY id").all();
+					assert.equal(before.length, 2, "fixture requires two active rows with the same account identity");
+					const revision = db.query("SELECT * FROM auth_change_revision").all();
+					c.store = await StoreClass.open(join(c.dir, "auth.db"));
+					c.auth = new AuthStorageClass(c.store);
+					await c.auth.credentials.reload();
+					assert.deepEqual(db.query("SELECT * FROM auth_credentials ORDER BY id").all(), before,
+						"constructor and normal reload cannot prune or rewrite healthy legacy rows");
+					assert.deepEqual(db.query("SELECT * FROM auth_change_revision").all(), revision,
+						"startup must not advance the auth revision");
+					assert.deepEqual(exchangeRows(c), [], "startup must not reserve healthy generations");
+					assert.equal(t.tokenPosts, 0);
+					assert.equal(t.bootstrapGets, 0);
+				} finally {
+					db.close();
+				}
+			});
+		} finally {
+			t.restore();
+		}
+	});
+
+	await scenario("xAI optional userinfo cannot discard a known replacement", async () => {
+		let userinfoGets = 0;
+		const t = installTransport({
+			tokenMarker: "/oauth2/token",
+			token: () => tokenReply("xai-access-1", "xai-refresh-1"),
+			other: url => {
+				if (url === "https://auth.x.ai/.well-known/openid-configuration") {
+					return { kind: "json", body: { token_endpoint: "https://auth.x.ai/oauth2/token" } };
+				}
+				if (url === "https://auth.x.ai/oauth2/userinfo") {
+					userinfoGets++;
+					// Deterministic optional-enrichment cancellation, after token success.
+					throw new DOMException("synthetic optional userinfo deadline", "AbortError");
+				}
+				throw new Error(`Unexpected xAI fixture request: ${url}`);
+			},
+		});
+		try {
+			await withCase(async c => {
+				await c.auth.credentials.upsert("xai-oauth", expiredCred({
+					access: "xai-access-0", refresh: "xai-refresh-0", accountId: "xai-account", email: "xai@example.invalid",
+				}));
+				const [row] = c.store.listAuthCredentials("xai-oauth");
+				assert.ok(row);
+				await c.auth.oauth.refresh(row.id);
+				await reopen(c);
+				const [saved] = c.store.listAuthCredentials("xai-oauth");
+				assert.equal(saved.credential.access, "xai-access-1");
+				assert.equal(saved.credential.refresh, "xai-refresh-1", "successful rotation must survive reopen");
+				assert.equal(saved.credential.accountId, "xai-account");
+				assert.equal(userinfoGets, 0, "refresh must not depend on optional login identity enrichment");
+				assert.equal(t.tokenPosts, 1);
+			});
+		} finally {
+			t.restore();
+		}
+	});
+
+	await scenario("health probes project the winning row without obsolete routing identity", async () => {
+		const started = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		const t = installTransport({
+			onTokenPost: () => started.resolve(),
+			token: () => tokenReply("health-stale-access", "health-stale-refresh", { waitFor: release.promise }),
+		});
+		try {
+			await withCase(async c => {
+				const id = await seed(c, expiredCred({
+					access: "health-old-access", refresh: "health-old-refresh", accountId: "health-account", region: "eu",
+				}));
+				const usageCredentials: Array<{ accessToken?: string; region?: string }> = [];
+				const completionCredentials: Array<{ accessToken?: string; region?: string }> = [];
+				c.auth.usage.setProvider(PROVIDER, { fetchUsage: async ({ credential }) => {
+					usageCredentials.push(credential);
+					return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
+				} });
+				const checking = c.auth.health.check({ completionProbe: async ({ credential }) => {
+					completionCredentials.push(credential);
+					return { ok: true };
+				} });
+				c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([checking]); });
+				await waitForPost(started.promise, checking);
+				c.store.updateAuthCredential(id, {
+					type: "oauth", access: "health-winner-access", refresh: "health-winner-refresh",
+					expires: Date.now() + 3_600_000, accountId: "health-account",
+				});
+				release.resolve();
+				await checking;
+				for (const [name, probes] of [["usage", usageCredentials], ["completion", completionCredentials]] as const) {
+					assert.equal(probes.length, 1, `${name} probe must actually execute`);
+					assert.equal(probes[0].accessToken, "health-winner-access");
+					assert.equal(probes[0].region, undefined, `${name} cannot resurrect the old row's removed region`);
+				}
+				assert.equal(rowOf(c, id)?.region, undefined);
+			});
+		} finally {
+			t.restore();
+		}
+	});
+
+	await scenario("usage fallback keeps an existing valid bearer but cannot probe after concurrent logout", async () => {
+		const started = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		const t = installTransport({
+			onTokenPost: index => { if (index === 2) started.resolve(); },
+			token: index => index === 1
+				? { kind: "status", status: 503, text: "synthetic advisory refresh failure" }
+				: tokenReply("removed-usage-access", "removed-usage-refresh", { waitFor: release.promise }),
+		});
+		try {
+			await withCase(async c => {
+				const stillPresent: Cred = {
+					type: "oauth", access: "usage-existing-access", refresh: "usage-existing-refresh",
+					expires: Date.now() + 30_000, accountId: "usage-existing",
+				};
+				await seed(c, stillPresent);
+				const probes: string[] = [];
+				c.auth.usage.setProvider(PROVIDER, { fetchUsage: async ({ credential }) => {
+					probes.push(credential.accessToken ?? "");
+					return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
+				} });
+				assert.ok(await c.auth.usage.report(PROVIDER, stillPresent),
+					"an ambiguous refresh failure does not revoke a still-present, still-valid advisory bearer");
+				assert.deepEqual(probes, ["usage-existing-access"]);
+				const removed: Cred = { ...stillPresent, access: "usage-removed-access", refresh: "usage-removed-refresh",
+					accountId: "usage-removed" };
+				const id = await seed(c, removed);
+				const reporting = c.auth.usage.report(PROVIDER, removed);
+				c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([reporting]); });
+				await waitForPost(started.promise, reporting);
+				assert.ok(await c.store.deleteAuthCredential(id, "synthetic usage logout"));
+				release.resolve();
+				assert.equal(await reporting, null, "advisory refresh failure must revalidate the current row");
+				assert.deepEqual(probes, ["usage-existing-access"], "no usage provider sees a logged-out captured token");
+			});
+		} finally {
+			t.restore();
+		}
+	});
+
+	await scenario("terminal usage rejection retires a reachable legacy quota alias across reopen", async () => {
+		const { ProviderHttpError } = await import(`${AI_ROOT}/src/error/classes.ts`);
+		const { buildUsageCredential, usageCacheIdentity } = await import(`${AI_ROOT}/src/auth/usage-cache.ts`);
+		const t = installTransport({ token: () => tokenReply("forbidden-cache-refresh", "forbidden-cache-refresh") });
+		try {
+			await withCase(async c => {
+				const credential: Cred = {
+					type: "oauth", access: "cache-access", refresh: "cache-refresh",
+					expires: Date.now() + 3_600_000, accountId: "cache-account",
+				};
+				await seed(c, credential);
+				const legacy = { provider: PROVIDER, fetchedAt: Date.now() - 120_000, limits: [],
+					metadata: { sentinel: "legacy-quota-must-not-resurrect" } };
+				let status = 503;
+				let probes = 0;
+				const impl = { fetchUsage: async () => { probes++; throw new ProviderHttpError("synthetic usage failure", status); } };
+				c.auth.usage.setProvider(PROVIDER, impl);
+				const legacyKey = `usage_cache:report:${PROVIDER}:default:${usageCacheIdentity(buildUsageCredential(credential))}`;
+				c.store.setCache(legacyKey,
+					JSON.stringify({ value: legacy, expiresAt: Date.now() - 60_000 }), Math.floor(Date.now() / 1000) + 3600);
+				assert.deepEqual(await c.auth.usage.report(PROVIDER, credential), legacy,
+					"positive control: transient failure must still find the retained legacy alias");
+				t.advanceClock(120_000);
+				status = 401;
+				assert.equal(await c.auth.usage.report(PROVIDER, credential), null,
+					"definitive rejection must not fall back to the legacy quota on the same request");
+				const cacheDb = new Database(join(c.dir, "auth.db"), { readonly: true });
+				try {
+					const stored = cacheDb.query("SELECT value FROM cache WHERE key = ?").get(legacyKey) as { value: string } | null;
+					assert.equal(stored ? JSON.parse(stored.value).value : null, null,
+						"terminal rejection must retire the alias itself, not merely hide it behind a canonical null");
+				} finally {
+					cacheDb.close();
+				}
+				// Constructor injection does not retire cache aliases; setProvider
+				// would erase the evidence this restart assertion must inspect.
+				await reopen(c, { usageProviderResolver: (provider: string) => provider === PROVIDER ? impl : undefined });
+				t.advanceClock(120_000);
+				assert.equal(await c.auth.usage.report(PROVIDER, credential), null,
+					"restart cannot resurrect an alias invalidated by the terminal response");
+				assert.equal(probes, 3);
+				assert.equal(t.tokenPosts, 0);
+			});
+		} finally {
+			t.restore();
+		}
+	});
+}
 
 // 1. A stored identity survives a refresh that omits it, and the login-only
 //    bootstrap hook does not run during the refresh.
@@ -569,6 +898,7 @@ await scenario("cancellation while waiting for a peer lease issues no token requ
 			await Bun.sleep(80);
 			assert.equal(t.tokenPosts, 0);
 			assert.equal(rowOf(c, id)?.refresh, "refresh-wait");
+			if (hasExchangeReservation) assert.deepEqual(exchangeRows(c), [], "a cancelled lease waiter reserves nothing");
 		});
 	} finally {
 		t.restore();
@@ -779,20 +1109,48 @@ for (const [change, entry] of [
 		});
 		try {
 			await withCase(async c => {
+				const checkUsageIdentity = hasExchangeReservation && entry === "usage" && change === "replacement";
+				const identity = checkUsageIdentity ? await import(`${AI_ROOT}/src/auth/usage-cache.ts`) : undefined;
 				const id = await seed(c, expiredCred({
 					access: "access-original", refresh: "refresh-original",
 					orgId: "org-original", orgName: "Original Org",
+					...(checkUsageIdentity ? { accountId: "usage-account-A" } : {}),
 				}));
-				c.auth.usage.setProvider(PROVIDER, { fetchUsage: async () => null });
+				const attempted = rowOf(c, id)!;
+				const originalIdentity = identity?.usageCacheIdentity(identity.buildUsageCredential(attempted));
+				const usageProbes: Array<{ accountId?: string; accountKey?: string }> = [];
+				const winnerReport = {
+					provider: PROVIDER, fetchedAt: Date.now(),
+					limits: [{
+						id: "identity-window", label: "Identity window", scope: { provider: PROVIDER, accountId: "usage-account-B" },
+						amount: { unit: "requests", used: 2, limit: 10, usedFraction: 0.2 }, status: "ok",
+					}],
+					metadata: { sentinel: "usage-account-B-only" },
+				};
+				c.auth.usage.setProvider(PROVIDER, { fetchUsage: async ({ credential, accountKey }, context) => {
+					if (!checkUsageIdentity) return null;
+					usageProbes.push({ accountId: credential.accountId, accountKey });
+					assert.equal(context.previousReport, undefined, "B's own request must not receive A's previous report");
+					return winnerReport;
+				} });
+				if (checkUsageIdentity) {
+					// Retained pre-canonicalization A quota must be invalidated, not
+					// returned after the identity fence declines this request.
+					c.store.setCache(`usage_cache:report:${PROVIDER}:default:${originalIdentity}`,
+						JSON.stringify({ value: { provider: PROVIDER, fetchedAt: Date.now() - 120_000, limits: [],
+							metadata: { sentinel: "old-usage-account-A-only" } }, expiresAt: Date.now() - 60_000 }),
+						Math.floor(Date.now() / 1000) + 3600);
+				}
 				const owner = entry === "refresh" ? c.auth.oauth.refresh(id)
 					: entry === "keys" ? c.auth.getApiKey(PROVIDER)
-					: c.auth.usage.report(PROVIDER, rowOf(c, id)!);
+					: c.auth.usage.report(PROVIDER, attempted);
 				try {
 					await waitForPost(started.promise, owner);
 					if (change === "replacement") {
 						c.store.updateAuthCredential(id, {
 							type: "oauth", access: "access-login", refresh: "refresh-login",
-							expires: Date.now() + 3_600_000,
+							expires: Date.now() + (checkUsageIdentity ? 30_000 : 3_600_000),
+							...(checkUsageIdentity ? { accountId: "usage-account-B" } : {}),
 						});
 					} else {
 						assert.ok(await c.store.deleteAuthCredential(id, "synthetic logout"));
@@ -808,6 +1166,44 @@ for (const [change, entry] of [
 				} else {
 					assert.equal(rowOf(c, id), undefined, "a completed refresh must never resurrect logout");
 				}
+				if (checkUsageIdentity) {
+					assert.equal(await owner, null, "request A cannot return B's quota or revive A's retained alias");
+					assert.deepEqual(usageProbes, [], "request A must stop before probing the adopted B bearer");
+					assert.deepEqual(c.auth.usage.history({ provider: PROVIDER }), [],
+						"an identity-changing refresh cannot record usage under A's captured history key");
+					const winner = rowOf(c, id)!;
+					const winnerIdentity = identity!.usageCacheIdentity(identity!.buildUsageCredential(winner));
+					assert.notEqual(winnerIdentity, originalIdentity, "fixture must replace the actual usage identity");
+					assert.deepEqual(await c.auth.usage.report(PROVIDER, winner), winnerReport,
+						"a separate B request resolves B's own report");
+					assert.deepEqual(usageProbes, [{ accountId: "usage-account-B", accountKey: winnerIdentity }]);
+					assert.equal(t.tokenPosts, 2, "B's near-expiry request must exercise ordinary same-identity rotation");
+					assert.equal(refreshTokenOf(t.tokenBodies[1]), "refresh-login",
+						"the separate B request refreshes B's winning grant, never A's original generation");
+					assert.deepEqual(await c.auth.usage.report(PROVIDER, rowOf(c, id)!), winnerReport);
+					assert.equal(usageProbes.length, 1, "B's second read uses only its own cache");
+					const history = c.auth.usage.history({ provider: PROVIDER });
+					assert.equal(history.length, 1, "the nonempty B quota must actually reach durable history");
+					assert.equal(history[0].accountKey, winnerIdentity);
+					assert.equal(history[0].accountId, "usage-account-B");
+					assert.equal(history[0].usedFraction, 0.2);
+					const db = new Database(join(c.dir, "auth.db"), { readonly: true });
+					try {
+						const reports = db.query("SELECT key, value FROM cache WHERE key LIKE 'usage_cache:report:%'")
+							.all() as Array<{ key: string; value: string }>;
+						const oldReports = reports.filter(report => report.key.endsWith(`:${originalIdentity}`));
+						assert.ok(oldReports.length > 0, "the retained original identity's cache keys remain observable");
+						for (const report of oldReports) {
+							assert.equal(JSON.parse(report.value).value, null,
+								"neither canonical nor legacy A keys may retain A quota or be polluted by B quota");
+						}
+						const newReports = reports.filter(report => report.key.endsWith(`:${winnerIdentity}`));
+						assert.equal(newReports.length, 1, "B publishes its own canonical cache entry");
+						assert.deepEqual(JSON.parse(newReports[0].value).value, winnerReport);
+					} finally {
+						db.close();
+					}
+				}
 			});
 		} finally {
 			t.restore();
@@ -822,7 +1218,9 @@ for (const race of ["takeover-only", "replacement-before-invalid-grant"] as cons
 		const t = installTransport({
 			onTokenPost: () => started.resolve(),
 			token: () => race === "takeover-only"
-				? tokenReply("access-loser", "refresh-loser", { waitFor: gate.promise })
+				? hasExchangeReservation
+					? { kind: "json", body: { access_token: "access-loser", expires_in: 3600 }, waitFor: gate.promise }
+					: tokenReply("access-loser", "refresh-loser", { waitFor: gate.promise })
 				: { kind: "status", status: 400, text: '{"error":"invalid_grant"}', waitFor: gate.promise },
 		});
 		try {
@@ -847,6 +1245,21 @@ for (const race of ["takeover-only", "replacement-before-invalid-grant"] as cons
 				gate.resolve();
 				await owner.catch(() => undefined);
 				assert.deepEqual(rowOf(c, id), winner, "a stale owner cannot write or disable the active winner");
+				if (race === "takeover-only" && hasExchangeReservation) {
+					assert.equal(JSON.stringify(exchangeRows(c)).includes("refresh-before"), false,
+						"nonrotating known-result staging must reference, not duplicate, the current R0 plaintext");
+					t.advanceClock(20_000);
+					await reopen(c);
+					const recovered = await c.auth.oauth.refresh(id);
+					assert.equal(recovered.credential.access, "access-loser",
+						"the late known result must publish under the next lease owner");
+					assert.equal(rowOf(c, id)?.refresh, "refresh-before", "nonrotating recovery retains the original secret");
+					assert.equal(t.tokenPosts, 1, "publication after takeover must not re-exchange the old generation");
+					assert.deepEqual(exchangeRows(c), [], "publication atomically retires the exchange");
+					await c.auth.oauth.refresh(id);
+					assert.equal(refreshTokenOf(t.tokenBodies[1]), "refresh-before",
+						"the next legitimate generation still sends the reconstructed nonrotating refresh token");
+				}
 			});
 		} finally {
 			t.restore();
@@ -923,9 +1336,9 @@ await scenario("genuine invalid_grant disables only the attempted row", async ()
 	}
 });
 
-// 9. A transient failure keeps the row active, and the next refresh still uses
-//    the saved refresh token.
-await scenario("transient failure keeps the row; the next refresh uses the saved token", async () => {
+// 18.10.0 deliberately replaces 503-then-resend with fail-closed same-generation
+// handling. Older selected plans retain their historical retry assertion.
+await scenario("503 keeps the row; selected generation policy governs the next attempt", async () => {
 	let reply: WireReply = { kind: "status", status: 503, text: "service unavailable" };
 	const t = installTransport({ token: () => reply });
 	try {
@@ -941,18 +1354,346 @@ await scenario("transient failure keeps the row; the next refresh uses the saved
 			assert.equal(failed.refresh, "refresh-t1", "a transient failure must not discard the stored refresh token");
 
 			reply = tokenReply("access-t2", "refresh-t2", { identity: RESPONSE_IDENTITY });
-			await c.auth.oauth.refresh(id);
-			assert.equal(rowOf(c, id)?.access, "access-t2", "the recovery refresh must persist the new access token");
-			assert.equal(
-				refreshTokenOf(t.tokenBodies[1]),
-				"refresh-t1",
-				"the recovery refresh must send the saved refresh token",
-			);
+			if (hasExchangeReservation) {
+				await assert.rejects(() => c.auth.oauth.refresh(id), /outcome is unresolved/,
+					"503 after invocation cannot establish that the generation was not consumed");
+				assert.deepEqual(rowOf(c, id), failed, "an ambiguous attempt must not disable or rewrite the row");
+				assert.equal(t.tokenPosts, 1, "same-generation retry must not send again");
+			} else {
+				await c.auth.oauth.refresh(id);
+				assert.equal(rowOf(c, id)?.access, "access-t2", "the historical recovery refresh must persist");
+				assert.equal(refreshTokenOf(t.tokenBodies[1]), "refresh-t1", "historical retry sends the saved token");
+			}
 		});
 	} finally {
 		t.restore();
 	}
 });
+
+if (hasExchangeReservation) {
+	await scenario("lost response survives restart and lease expiry without a second send", async () => {
+		const t = installTransport({ token: () => ({ kind: "network", message: "response lost after synthetic consumption" }) });
+		try {
+			await withCase(async c => {
+				const id = await seed(c, expiredCred({ access: "loss-access", refresh: "loss-refresh" }));
+				const original = rowOf(c, id);
+				await assert.rejects(() => c.auth.oauth.refresh(id));
+				assert.equal(t.tokenPosts, 1, "the fixture must consume the generation exactly once");
+				assert.equal(exchangeRows(c).length, 1, "ambiguity must be durable before reopening");
+				t.advanceClock(60_000);
+				const restarted = await refreshAfterProcessRestart(c, id);
+				assert.match(restarted.error ?? "", /outcome is unresolved/);
+				assert.equal(restarted.tokenPosts, 0, "a fresh process cannot redeem the ambiguous generation");
+				await c.auth.getApiKey(PROVIDER).catch(() => undefined);
+				assert.equal(t.tokenPosts, 1, "expiry, restart and ordinary selection cannot resend an ambiguous generation");
+				assert.deepEqual(rowOf(c, id), original, "response loss leaves the active row intact, not quarantined");
+				assert.equal((await c.store.listDisabledCredentials(PROVIDER)).length, 0);
+			});
+		} finally {
+			t.restore();
+		}
+	});
+
+	await scenario("known result arriving after owner timeout is published without another exchange", async () => {
+		await withCase(async c => {
+			const id = await seed(c, expiredCred({ access: "late-access-0", refresh: "late-refresh-0" }));
+			const response = Promise.withResolvers<Cred>();
+			const staged = Promise.withResolvers<void>();
+			const stage = c.store.stageCredentialRefreshResult.bind(c.store);
+			c.store.stageCredentialRefreshResult = (...args) => {
+				const saved = stage(...args);
+				if (saved) staged.resolve();
+				return saved;
+			};
+			let exchanges = 0;
+			const refresh = () => c.auth.oauth.refreshStored(PROVIDER, {
+				credentialId: id, credentialFromRow: credential => credential, refreshTimeoutMs: 1,
+				refresh: async () => { exchanges++; return response.promise; },
+			});
+			await assert.rejects(refresh, /timed out/);
+			await assert.rejects(refresh, /outcome is unresolved/);
+			assert.equal(exchanges, 1, "a timeout cannot admit the same exchange twice");
+			response.resolve({ type: "oauth", access: "late-access-1", refresh: "late-refresh-1", expires: Date.now() + 3_600_000 });
+			await staged.promise;
+			assert.equal(rowOf(c, id)?.refresh, "late-refresh-0", "late completion stages but cannot publish without ownership");
+			const recovered = await refreshAfterProcessRestart(c, id);
+			assert.equal(recovered.error, undefined, "a restarted owner must recover a staged known result");
+			assert.equal(recovered.access, "late-access-1", "a restarted owner publishes the known replacement");
+			assert.equal(recovered.tokenPosts, 0, "fresh-process publication must not re-exchange");
+			assert.equal(rowOf(c, id)?.refresh, "late-refresh-1");
+			assert.equal(rowOf(c, id)?.access, "late-access-1");
+			assert.equal(exchanges, 1, "known-result recovery must not invoke a second exchange");
+			assert.deepEqual(exchangeRows(c), [], "successful publication retires the reservation");
+		});
+	});
+}
+
+if (hasExchangeReservation) {
+	await scenario("broker filters, canceled waiters and authoritative replacement identity", async () => {
+		assert.equal(JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version, aiVersion,
+			"target broker/MCP consumer coverage requires matching selected package versions");
+		// The actual server router runs, but its socket transport is replaced by
+		// an in-process Request/Response bridge consumed by the real client.
+		const { startAuthBroker } = await import(`${AI_ROOT}/src/auth-broker/server.ts`);
+		const { AuthBrokerClient } = await import(`${AI_ROOT}/src/auth-broker/client.ts`);
+		const { RemoteAuthCredentialStore } = await import(`${AI_ROOT}/src/auth-broker/remote-store.ts`);
+		const { refreshOAuthToken } = await import(`${AI_ROOT}/src/registry/oauth/index.ts`);
+		const { refreshStoredManagedMcpOAuthCredential, refreshManagedMcpOAuthCredential } =
+			await import(`${AGENT_ROOT}/src/mcp/oauth-credentials.ts`);
+		const { mcpOAuthCredentialId } = await import(`${AGENT_ROOT}/src/mcp/oauth-flow.ts`);
+		const originalServe = Bun.serve;
+		let route!: (request: Request, server: unknown) => Response | Promise<Response>;
+		let disableRequests = 0;
+		const server = {
+			hostname: "127.0.0.1", port: 8765,
+			requestIP: () => ({ address: "127.0.0.1" }), stop: () => undefined,
+		};
+		Bun.serve = ((options: { fetch: typeof route }) => {
+			route = options.fetch;
+			return server;
+		}) as typeof Bun.serve;
+		let started = Promise.withResolvers<void>();
+		let release = Promise.withResolvers<void>();
+		const t = installTransport({
+			onTokenPost: () => started.resolve(),
+			token: index => tokenReply(`broker-access-${index}`, `broker-refresh-${index}`, { waitFor: release.promise }),
+		});
+		try {
+			await withCase(async c => {
+				const id = await seed(c, expiredCred({
+					access: "broker-anthropic", refresh: "broker-anthropic-refresh",
+					accountId: "broker-account", region: "eu", apiEndpoint: "https://obsolete.example.invalid",
+				}));
+				let anthropicUsage = 0;
+				let selectedUsage = 0;
+				c.auth.usage.setProvider(PROVIDER, { fetchUsage: async () => {
+					anthropicUsage++;
+					return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
+				} });
+				for (const provider of ["gate-selected-a", "gate-selected-b"]) {
+					await c.auth.credentials.upsert(provider, {
+						type: "oauth", access: provider, refresh: `${provider}-refresh`, expires: Date.now() + 3_600_000,
+					});
+					c.auth.usage.setProvider(provider, { fetchUsage: async () => {
+						selectedUsage++;
+						return { provider, fetchedAt: Date.now(), limits: [] };
+					} });
+				}
+				const broker = startAuthBroker({
+					storage: c.auth, bind: "127.0.0.1:8765", bearerTokens: ["synthetic-broker-token"], disableRefresher: true,
+				});
+				let remoteAuth: Auth | undefined;
+				try {
+					const client = new AuthBrokerClient({
+						url: broker.url, token: "synthetic-broker-token", maxRetries: 0,
+						fetchImpl: async (input: RequestInfo | URL, init?: RequestInit) => {
+							const request = new Request(input, init);
+							assert.equal(new URL(request.url).origin, broker.url, "broker transport must stay inside the fixture");
+							if (request.method === "POST" && new URL(request.url).pathname.endsWith("/disable")) disableRequests++;
+							return abortable(Promise.resolve(route(request, server)), request.signal);
+						},
+					});
+					const snapshot = await client.fetchSnapshot();
+					assert.equal(snapshot.status, 200);
+					const remote = new RemoteAuthCredentialStore({
+						client, initialSnapshot: snapshot.snapshot, streamSnapshots: false,
+					});
+					remoteAuth = new AuthStorageClass(remote);
+					await remoteAuth.credentials.reload();
+					// Runtime-local fallback is also excluded by the requested filter.
+					remoteAuth.usage.setProvider(PROVIDER, { fetchUsage: async () => {
+						anthropicUsage++;
+						return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
+					} });
+					const [a, b] = await Promise.all([
+						remoteAuth.usage.reports({ providers: ["gate-selected-a", "gate-selected-a"] }),
+						remoteAuth.usage.reports({ providers: ["gate-selected-b"] }),
+					]);
+					assert.deepEqual(a?.map(report => report.provider), ["gate-selected-a"]);
+					assert.deepEqual(b?.map(report => report.provider), ["gate-selected-b"],
+						"a different provider filter cannot reuse another in-flight result");
+					const cached = await remoteAuth.usage.reports({ providers: ["gate-selected-a"] });
+					assert.deepEqual(cached?.map(report => report.provider), ["gate-selected-a"]);
+					assert.deepEqual(await remoteAuth.usage.reports({ providers: [] }), [], "explicit empty filter probes nothing");
+					assert.equal(selectedUsage, 2, "each selected provider is fetched once through the real broker");
+					assert.equal(anthropicUsage, 0, "non-Anthropic filters exclude remote and runtime-local Anthropic usage");
+					assert.equal(t.tokenPosts, 0, "filtered usage must never refresh the unrelated Anthropic row");
+
+					const abort = new AbortController();
+					const canceled = remoteAuth.oauth.refresh(id, abort.signal);
+					const canceledOutcome = canceled.then(() => undefined, error => error);
+					await waitForPost(started.promise, canceled);
+					const survivor = remoteAuth.oauth.refresh(id);
+					c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([canceled, survivor]); });
+					abort.abort();
+					assert.ok(await canceledOutcome, "the canceled broker waiter must reject independently");
+					release.resolve();
+					assert.equal((await survivor).credential.access, "broker-access-1",
+						"one canceled caller cannot poison another waiter for the admitted exchange");
+					assert.equal(rowOf(c, id)?.refresh, "broker-refresh-1",
+						"the broker must persist the known replacement despite its initiating caller's cancellation");
+					assert.equal(t.tokenPosts, 1);
+
+					started = Promise.withResolvers<void>();
+					release = Promise.withResolvers<void>();
+					const replacing = remoteAuth.oauth.refresh(id);
+					c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([replacing]); });
+					await waitForPost(started.promise, replacing);
+					const winner: Cred = {
+						type: "oauth", access: "broker-authoritative-access", refresh: "broker-authoritative-refresh",
+						expires: Date.now() + 3_600_000, accountId: "broker-account",
+					};
+					c.store.updateAuthCredential(id, winner);
+					release.resolve();
+					const resolved = (await replacing).credential;
+					assert.equal(resolved.access, winner.access);
+					assert.equal(resolved.region, undefined, "broker refresh output must preserve removed identity fields");
+					assert.equal(resolved.apiEndpoint, undefined);
+					const winningSnapshot = await client.fetchSnapshot();
+					assert.equal(winningSnapshot.status, 200);
+					assert.deepEqual(remote.listAuthCredentials(PROVIDER).find((row: { id: number }) => row.id === id)?.credential,
+						winningSnapshot.snapshot.credentials.find((row: { id: number }) => row.id === id)?.credential,
+						"delegated refresh preserves the authoritative redacted snapshot, including intentional absence");
+					assert.deepEqual(rowOf(c, id), winner, "client projection cannot rewrite the broker's winning row");
+					assert.equal(t.tokenPosts, 2);
+
+					const mcpProvider = mcpOAuthCredentialId("https://mcp.example.invalid");
+					await c.auth.credentials.upsert(mcpProvider, {
+						type: "oauth", access: "mcp-old-access", refresh: "mcp-old-refresh", expires: Date.now() + 120_000,
+						tokenUrl: "https://mcp.example.invalid/v1/oauth/token", clientId: "old-client",
+						clientSecret: "old-client-secret", resource: "https://old-resource.example.invalid",
+						authorizationUrl: "https://mcp.example.invalid/authorize",
+					});
+					const [mcpRow] = c.store.listAuthCredentials(mcpProvider);
+					await remote.refreshSnapshot();
+					await remoteAuth.credentials.reload();
+					started = Promise.withResolvers<void>();
+					release = Promise.withResolvers<void>();
+					const mcpRefreshing = refreshStoredManagedMcpOAuthCredential(remoteAuth, mcpProvider);
+					c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([mcpRefreshing]); });
+					await waitForPost(started.promise, mcpRefreshing);
+					const mcpWinner: Cred = {
+						type: "oauth", access: "mcp-winning-access", refresh: "mcp-winning-refresh", expires: Date.now() + 120_000,
+						tokenUrl: "https://new-mcp.example.invalid/v1/oauth/token", clientId: "new-client",
+					};
+					c.store.updateAuthCredential(mcpRow.id, mcpWinner);
+					release.resolve();
+					const mcpResult = await mcpRefreshing;
+					assert.equal(mcpResult.credential?.access, mcpWinner.access);
+					assert.equal(mcpResult.credential?.tokenUrl, mcpWinner.tokenUrl,
+						"the actual managed MCP outer refresh cannot restore its pre-await token endpoint");
+					assert.equal(mcpResult.credential?.clientId, "new-client");
+					for (const key of ["clientSecret", "resource", "authorizationUrl"] as const) {
+						assert.equal(mcpResult.credential?.[key], undefined, `MCP refresh preserves removed ${key}`);
+						assert.equal(remoteAuth.credentials.list(mcpProvider)[0]?.credential[key], undefined);
+					}
+					assert.deepEqual(c.store.listAuthCredentials(mcpProvider)[0].credential, mcpWinner);
+
+					// The same actual MCP consumer defaults to advisory fallback.
+					// A still-valid captured token must not survive a concurrent logout.
+					started = Promise.withResolvers<void>();
+					release = Promise.withResolvers<void>();
+					const removedMcp = refreshStoredManagedMcpOAuthCredential(remoteAuth, mcpProvider);
+					c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([removedMcp]); });
+					await waitForPost(started.promise, removedMcp);
+					assert.ok(await c.store.deleteAuthCredential(mcpRow.id, "synthetic MCP logout"));
+					release.resolve();
+					assert.equal((await removedMcp).credential, undefined,
+						"managed MCP keep-on-failure cannot send a captured bearer after logout");
+					assert.equal(remoteAuth.credentials.list(mcpProvider).length, 0);
+
+					// A public value-returning override bypasses the store hook; it
+					// is not allowed to become a successful-looking old-token no-op.
+					const overrideSnapshot = await client.fetchSnapshot();
+					assert.equal(overrideSnapshot.status, 200);
+					const overrideStore = new RemoteAuthCredentialStore({
+						client, initialSnapshot: overrideSnapshot.snapshot, streamSnapshots: false,
+					});
+					let overrideCalls = 0;
+					let overrideEntered = Promise.withResolvers<void>();
+					let overrideRelease: Promise<void> | undefined;
+					let overrideFailure = false;
+					const overrideAuth = new AuthStorageClass(overrideStore, {
+						refreshOAuthCredential: async (_provider: string, _id: number, credential: Cred) => {
+							overrideCalls++;
+							overrideEntered.resolve();
+							await overrideRelease;
+							if (overrideFailure) throw new Error("invalid_grant: synthetic stale delegated failure");
+							return { ...credential, access: "override-access-1", expires: Date.now() + 3_600_000 };
+						},
+					});
+					const postsBeforeOverride = t.tokenPosts;
+					try {
+						await overrideAuth.credentials.reload();
+						assert.equal((await overrideAuth.oauth.refresh(id)).credential.access, "override-access-1");
+						assert.equal(overrideCalls, 1, "the documented callback must be the selected refresh operation");
+						assert.equal(t.tokenPosts, postsBeforeOverride, "caller override bypasses the built-in broker hook");
+						assert.equal(rowOf(c, id)?.access, winner.access, "value-only override never changes broker-owned secrets");
+						overrideEntered = Promise.withResolvers<void>();
+						const finishFailure = Promise.withResolvers<void>();
+						overrideRelease = finishFailure.promise;
+						overrideFailure = true;
+						const staleFailure = overrideAuth.oauth.refresh(id);
+						const staleOutcome = staleFailure.then(() => undefined, error => error);
+						try {
+							await overrideEntered.promise;
+							const replacement = { ...winner, access: "broker-login-replacement", refresh: "broker-login-refresh" };
+							c.store.updateAuthCredential(id, replacement);
+							// Keep the client's attempted snapshot stale while its captured
+							// failure arrives; only the broker owns conditional invalidation.
+							finishFailure.resolve();
+							await staleOutcome;
+							assert.equal(disableRequests, 0,
+								"automatic stale failure cannot become an unconditional broker disable request");
+							assert.deepEqual(rowOf(c, id), replacement,
+								"the actual broker's concurrent login must survive the stale failure");
+							const explicit = c.store.listAuthCredentials("gate-selected-a")[0];
+							await client.disableCredential(explicit.id, "explicit synthetic user disable");
+							assert.equal(disableRequests, 1, "explicit user disable still reaches the real broker endpoint");
+							assert.equal(c.store.listAuthCredentials("gate-selected-a").length, 0);
+							await overrideStore.refreshSnapshot();
+							await overrideAuth.credentials.reload();
+						} finally {
+							finishFailure.resolve();
+							await staleOutcome;
+							overrideFailure = false;
+						}
+						overrideEntered = Promise.withResolvers<void>();
+						const finishOverride = Promise.withResolvers<void>();
+						overrideRelease = finishOverride.promise;
+						const afterLogout = overrideAuth.oauth.refresh(id);
+						const afterLogoutOutcome = afterLogout.then(() => undefined, error => error);
+						try {
+							await overrideEntered.promise;
+							assert.ok(await c.store.deleteAuthCredential(id, "synthetic override logout"));
+							await overrideStore.refreshSnapshot();
+							finishOverride.resolve();
+							assert.ok(await afterLogoutOutcome, "a successful override cannot resurrect a concurrently removed row");
+							assert.equal(overrideStore.listAuthCredentials(PROVIDER).length, 0);
+						} finally {
+							finishOverride.resolve();
+							await afterLogoutOutcome;
+						}
+					} finally {
+						overrideAuth.close();
+					}
+				} finally {
+					remoteAuth?.close();
+					await broker.close();
+				}
+			}, {
+				refreshOAuthCredentialMints: true,
+				refreshOAuthCredential: (provider: string, _id: number, credential: Cred, signal?: AbortSignal) =>
+					provider.startsWith("mcp_oauth:")
+						? refreshManagedMcpOAuthCredential(credential, { signal })
+						: refreshOAuthToken(provider, credential, signal),
+			});
+		} finally {
+			t.restore();
+			Bun.serve = originalServe;
+		}
+	});
+}
 
 // 10. Rotation chaining: the refresh token minted by one refresh is the one
 //     sent by the next.
@@ -998,6 +1739,7 @@ await scenario("pre-aborted caller issues no token request", async () => {
 			const row = rowOf(c, id);
 			assert.equal(row?.access, "access-old", "an aborted caller must leave the stored credential untouched");
 			assert.equal(row?.refresh, "refresh-old", "an aborted caller must not rotate the stored refresh token");
+			if (hasExchangeReservation) assert.deepEqual(exchangeRows(c), [], "a pre-aborted caller reserves nothing");
 		});
 	} finally {
 		t.restore();

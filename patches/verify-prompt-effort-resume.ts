@@ -37,10 +37,9 @@ try {
 } catch (error) {
 	throw new Error(`prompt-effort resume gate cannot read ${AGENT_ROOT}/package.json (${(error as Error).message})`);
 }
-// Version-scoped: 0093 exists only in the 18.7.0 plan. Any other tree fails
-// closed rather than running the behavioral assertions against a build that
-// never carried the fix.
-assert.equal(version, "18.7.0", `unsupported prompt-effort resume gate version: ${version}`);
+// Both retained plans carry the effort-independent prompt identity; unsupported
+// trees fail closed rather than skipping the behavioral assertions.
+assert.ok(["18.7.0", "18.10.0", "18.10.1"].includes(version), `unsupported prompt-effort resume gate version: ${version}`);
 
 const LAB_ROOT = process.env.OMP_PATCH_VERIFY_PROMPT_EFFORT_LAB ?? mkdtempSync(join(tmpdir(), "prompt-effort-"));
 const PROBE = join(AGENT_ROOT, ".verify-prompt-effort-resume.probe.ts");
@@ -87,7 +86,7 @@ type ProbeEnv = Record<string, string | undefined>;
 
 function runProbe(mode: string, lab: string, scenario: Scenario, sessionFile?: string): Capture {
 	const env: ProbeEnv = {
-		...process.env,
+		PATH: process.env.PATH,
 		HOME: lab,
 		XDG_CONFIG_HOME: join(lab, "config"),
 		XDG_CACHE_HOME: join(lab, "cache"),
@@ -343,16 +342,14 @@ try {
 			`${scenario.name}: the fixture thinking signature must reach the provider context`,
 		);
 
-		// Resume the result of the preceding process, not two copies of the live file.
-		let sessionBytes = readFileSync(live.sessionFile);
+		// Resume the preceding process's journal together with its session-owned artifacts.
+		let sessionFile = live.sessionFile;
 		let previous = liveLast;
 		const resumes: { tag: string; capture: Capture; previous: Turn }[] = [];
 		for (const index of [1, 2]) {
-			const copy = join(lab, `resume-${index}.jsonl`);
-			writeFileSync(copy, sessionBytes);
-			const capture = runProbe("resume", lab, scenario, copy);
+			const capture = runProbe("resume", lab, scenario, sessionFile);
 			resumes.push({ tag: `resume${index}`, capture, previous });
-			sessionBytes = readFileSync(capture.sessionFile);
+			sessionFile = capture.sessionFile;
 			previous = capture.turns[1];
 		}
 

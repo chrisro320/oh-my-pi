@@ -3,9 +3,9 @@
 //
 // Drives the real `submitInteractiveInput` (src/main.ts), the real
 // `InputController.setupEditorSubmitHandler` submit path and the real restore
-// helper (src/slash-commands/helpers/draft.ts) with small doubles. No provider
-// traffic. Every dynamic import is runtime-selected from
-// OMP_PATCH_VERIFY_AGENT_ROOT so a static import cannot resolve the live install.
+// helper (src/slash-commands/helpers/draft.ts). Draft-only legs use small doubles;
+// cancellation and loop replay also drive actual SDK sessions. No provider traffic.
+// Every dynamic import is selected by OMP_PATCH_VERIFY_AGENT_ROOT.
 //
 // Legs:
 //   1. dispatch rejected (session.prompt throws) for a prepared submission with
@@ -35,6 +35,9 @@
 //      OR a `data`/`mimeType` match.
 //  10. control: with nothing newer in the editor the shared helper does write the
 //      capture back, so legs 7-9 are not passing by never restoring.
+//  11. a late preparation after session reset cannot dispatch or persist.
+//  12. real loop capture/replay preserves prepared text and original display text;
+//      canonical command-looking text stays literal, but a typed command still runs.
 //
 // Not covered (accepted): the Ctrl+Enter / follow-up entry (`#submitFollowUp`
 // and its own restore call site) and restoration through the dequeue path
@@ -75,13 +78,21 @@
 //     draft, so the cancelled preparation defers instead of returning the text.
 //     Legs 7 and 8 stay green there, so leg 9 pins the input-transformer case.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
 assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree under test");
 const agentVersion = String((JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")) as { version?: string }).version);
-assert.ok(["18.4.4", "18.7.0"].includes(agentVersion), `rejected prepared draft gate: unsupported selected tree version ${agentVersion}`);
+assert.ok(["18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion), `rejected prepared draft gate: unsupported selected tree version ${agentVersion}`);
+
+// InteractiveMode opens prompt history and can persist presentation state. Its
+// process-wide paths must be private before any selected module is imported.
+const runtimeDir = mkdtempSync(join(tmpdir(), "omp-prepared-runtime-"));
+process.env.PI_CODING_AGENT_DIR = runtimeDir;
+delete process.env.PI_PROFILE;
+process.on("exit", () => rmSync(runtimeDir, { recursive: true, force: true }));
 
 const main = (await import(`${AGENT_ROOT}/src/main.ts`)) as {
 	submitInteractiveInput: (mode: unknown, session: unknown, input: unknown) => Promise<void>;
@@ -113,6 +124,7 @@ class FakeEditor {
 	setCollapsedText(text: string): void {
 		this.setText(text);
 	}
+	addToHistory(_text: string): void {}
 }
 
 function makeMode(editor: FakeEditor) {
@@ -414,5 +426,207 @@ assert.equal(typeof draft.restoreRejectedDraft, "function", "0085 must export re
 	assert.equal(mode.deferredDraftSnapshots.length, 0);
 }
 
-console.log("verify-rejected-prepared-draft-restore: PASS (18.4.4)");
+// M10: a late successful preparation belongs to its old transcript epoch.
+// Unlike the draft-only legs above, this drives real SDK admission and disk
+// reload, so cancellation cannot pass while canonical text was still appended.
+{
+	const lab = mkdtempSync(join(tmpdir(), "omp-prepared-cancel-"));
+	const agentDir = join(lab, "agent");
+	mkdirSync(agentDir);
+	const originalFetch = globalThis.fetch;
+	globalThis.fetch = (() => { throw new Error("Network forbidden in prepared-input gate"); }) as typeof fetch;
+	const release = Promise.withResolvers<void>();
+	let session: { dispose(): Promise<void> } | undefined;
+	try {
+		const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
+		const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
+		const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
+		const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${dirname(AGENT_ROOT)}/pi-ai`;
+		const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
+		registerMockApi("prepared-cancel");
+		const model = createMockModel({ responses: [{ content: ["accepted"] }, { content: ["must not dispatch"] }] });
+		const settings = await Settings.loadIsolated({ cwd: lab, agentDir, overrides: {
+			"memory.backend": "off", "computer.enabled": false, "secrets.enabled": false, "compaction.enabled": false,
+		} });
+		const authStorage = await discoverAuthStorage(agentDir);
+		authStorage.keys.setRuntime("mock", "offline");
+		const manager = SessionManager.create(lab, join(lab, "sessions"));
+		const started = Promise.withResolvers<AbortSignal>();
+		let preparations = 0;
+		const created = await createAgentSession({
+			cwd: lab, agentDir, authStorage, settings, model, getApiKey: () => "offline",
+			sessionManager: manager, systemPrompt: "Prepared input fixture.",
+			skills: [], rules: [], contextFiles: [], promptTemplates: [], slashCommands: [],
+			disableExtensionDiscovery: true, enableMCP: false, preloadedCustomToolPaths: [],
+			enableLsp: false, skipPythonPreflight: true, toolNames: [],
+			extensions: [pi => pi.on("prepare_user_input", async event => {
+				if (++preparations === 1) return { action: "submit", modelText: "accepted canonical input" };
+				started.resolve(event.signal);
+				await release.promise;
+				return { action: "submit", modelText: "stale prepared canonical input" };
+			})],
+		});
+		const active = created.session;
+		session = active;
+		const editor = new FakeEditor();
+		const ctx = {
+			...makeControllerCtx(editor, async () => undefined),
+			session: active,
+			sessionManager: manager,
+			flushPendingBashComponents: () => {},
+			withLocalSubmission: async (_text: string, submit: () => Promise<boolean>) => submit(),
+		};
+		new InputController(ctx).setupEditorSubmitHandler();
+		await editor.onSubmit?.("accepted original input");
+		assert.equal(model.calls.length, 1, "the same controller fixture must admit an uncancelled prepared input");
+		const pending = editor.onSubmit!("stale original input");
+		const signal = await started.promise;
+		await active.resetSessionContext();
+		assert.equal(signal.aborted, true, "the real transition invalidates the preparation epoch");
+		editor.setText("new epoch draft");
+		release.resolve();
+		await pending;
+		await manager.flush();
+		const reopened = await SessionManager.open(manager.getSessionFile()!);
+		assert.equal(model.calls.length, 1, "a late preparation must not dispatch into the reset transcript");
+		assert.doesNotMatch(JSON.stringify(reopened.getEntries()), /stale prepared canonical input|stale original input/,
+			"cancelled input must not be persisted, including its presentation text");
+		assert.equal(editor.getText(), "new epoch draft", "late preparation must not restore over a new-epoch draft");
+		assert.deepEqual(ctx.errors, [], "the cancellation is not a dispatch error");
+	} finally {
+		release.resolve();
+		await session?.dispose();
+		globalThis.fetch = originalFetch;
+		rmSync(lab, { recursive: true, force: true });
+	}
+}
+
+// F1: do not construct a prepared replay by hand. The controller must capture
+// provenance in the real mode, whose scheduled loop produces the next input.
+{
+	const lab = join(runtimeDir, "loop");
+	const agentDir = join(lab, "agent");
+	mkdirSync(agentDir, { recursive: true });
+	const originalFetch = globalThis.fetch;
+	globalThis.fetch = (() => { throw new Error("Network forbidden in loop replay gate"); }) as typeof fetch;
+	const { Settings, resetSettingsForTest } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
+	const { HistoryStorage } = await import(`${AGENT_ROOT}/src/session/history-storage.ts`);
+	const { InteractiveMode } = await import(`${AGENT_ROOT}/src/modes/interactive-mode.ts`);
+	let session: { dispose(): Promise<void> } | undefined;
+	let mode: InstanceType<typeof InteractiveMode> | undefined;
+	try {
+		const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
+		const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
+		const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${dirname(AGENT_ROOT)}/pi-ai`;
+		const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
+		registerMockApi("prepared-loop");
+		const model = createMockModel({ responses: [{ content: ["initial"] }, { content: ["replay"] }] });
+		const settings = await Settings.init({ cwd: lab, agentDir, inMemory: true, overrides: {
+			"memory.backend": "off", "computer.enabled": false, "secrets.enabled": false, "compaction.enabled": false,
+			"loop.mode": "prompt", "startup.quiet": true,
+		} });
+		HistoryStorage.open(join(lab, "history.db"));
+		const authStorage = await discoverAuthStorage(agentDir);
+		authStorage.keys.setRuntime("mock", "offline");
+		const originalText = "repeat this ordinary operator request";
+		let preparations = 0;
+		let commandRuns = 0;
+		const created = await createAgentSession({
+			cwd: lab, agentDir, authStorage, settings, model, getApiKey: () => "offline",
+			sessionManager: SessionManager.inMemory(lab), systemPrompt: "Prepared loop fixture.",
+			skills: [], rules: [], contextFiles: [], promptTemplates: [], slashCommands: [],
+			disableExtensionDiscovery: true, enableMCP: false, preloadedCustomToolPaths: [],
+			enableLsp: false, skipPythonPreflight: true, toolNames: [],
+			extensions: [pi => {
+				pi.registerCommand("fixture-command", {
+					description: "Count deliberate local command execution",
+					handler: async () => { commandRuns++; },
+				});
+				pi.on("prepare_user_input", event => {
+					preparations++;
+					assert.equal(event.text, originalText, "generated loop text must never be prepared again");
+					return { action: "submit", modelText: "/fixture-command" };
+				});
+			}],
+		});
+		const active = created.session;
+		session = active;
+		const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${dirname(AGENT_ROOT)}/pi-tui`;
+		const { Composer } = await import(`${TUI_ROOT}/src/prompt/composer.ts`);
+		const composer = new Composer({
+			// The mode/controller/loop are real; only terminal I/O is a sink.
+			// Construction can schedule paints even before Composer.start().
+			terminal: {
+				columns: 80, rows: 24, kittyProtocolActive: false, kittyEnableSequence: null, appearance: undefined,
+				start: () => { throw new Error("loop fixture must never acquire a terminal"); },
+				stop: () => {}, drainInput: async () => {}, write: () => {}, moveBy: () => {},
+				hideCursor: () => {}, showCursor: () => {}, clearLine: () => {}, clearFromCursor: () => {},
+				clearScreen: () => {}, setTitle: () => {}, setProgress: () => {}, onAppearanceChange: () => {},
+			},
+			preferences: { quiet: true },
+		});
+		const interactive = new InteractiveMode(active, agentVersion, undefined, undefined, undefined, undefined, undefined, composer);
+		mode = interactive;
+		const errors: string[] = [];
+		interactive.showError = (message: string) => { errors.push(message); };
+		new InputController(interactive).setupEditorSubmitHandler();
+		interactive.loopModeEnabled = true;
+		const firstInput = interactive.getUserInput();
+		await interactive.editor.onSubmit!(originalText);
+		await main.submitInteractiveInput(interactive, active, await firstInput);
+
+		let timer: Timer | undefined;
+		try {
+			const replay = await Promise.race([
+				interactive.getUserInput(),
+				new Promise<never>((_resolve, reject) => {
+					timer = setTimeout(() => reject(new Error("real loop did not produce its replay")), 5000);
+				}),
+			]);
+			await main.submitInteractiveInput(interactive, active, replay);
+		} finally {
+			clearTimeout(timer);
+		}
+		assert.equal(commandRuns, 0, "prepared canonical command text stays literal on initial submit and loop replay");
+		assert.equal(preparations, 1, "the loop replays provenance rather than preparing generated text");
+		assert.equal(model.calls.length, 2, "both the initial prompt and one real loop iteration reach the provider boundary");
+		const textContent = (content: string | readonly { type: string; text?: string }[]) =>
+			typeof content === "string" ? content : content.filter(block => block.type === "text").map(block => block.text ?? "").join("");
+		for (const call of model.calls) {
+			const user = call.context.messages.filter(message => message.role === "user").at(-1)!;
+			// The real SDK appends its date/cwd reminder on the wire only.
+			assert.equal(textContent(user.content).split("\n\n", 1)[0], "/fixture-command");
+			assert.equal(textContent(user.content).includes(originalText), false, "presentation text must not leak to the provider");
+		}
+		const users = active.messages.filter(message => message.role === "user");
+		assert.equal(users.length, 2);
+		assert.deepEqual(users.map(message => textContent(message.content)), ["/fixture-command", "/fixture-command"]);
+		assert.deepEqual(users.map(message => message.displayText), [originalText, originalText],
+			"loop replay retains the operator's original display text");
+
+		interactive.disableLoopMode();
+		const typedInput = interactive.getUserInput();
+		await interactive.editor.onSubmit!("/fixture-command");
+		assert.equal(commandRuns, 1, "a deliberately typed command still executes locally");
+		assert.equal(model.calls.length, 2, "the typed local command does not create a provider turn");
+		assert.equal(preparations, 1, "native commands bypass ordinary-input preparation");
+		assert.deepEqual(errors, []);
+		// Local commands run inline and leave the main model-input waiter pending.
+		interactive.onInputCallback?.({ text: "", cancelled: true, started: false });
+		await typedInput;
+	} finally {
+		if (mode) {
+			mode.disableLoopMode();
+			mode.onInputCallback?.({ text: "", cancelled: true, started: false });
+			mode.stop();
+			mode.ui.stop();
+		}
+		await session?.dispose();
+		HistoryStorage.close();
+		resetSettingsForTest();
+		globalThis.fetch = originalFetch;
+	}
+}
+
+console.log(`verify-rejected-prepared-draft-restore: PASS (${agentVersion})`);
 process.exit(0);

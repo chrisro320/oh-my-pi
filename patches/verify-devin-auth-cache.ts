@@ -7,9 +7,10 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const { streamDevin } = await import(`${AI_ROOT}/src/providers/devin.ts`);
-const { GetChatMessageRequestSchema, GetChatMessageResponseSchema, GetUserJwtResponseSchema } = await import(
-	`${CATALOG_ROOT}/src/discovery/devin-proto.ts`
-);
+const {
+	AssignModelRequestSchema, AssignModelResponseSchema,
+	GetChatMessageRequestSchema, GetChatMessageResponseSchema, GetUserJwtResponseSchema,
+} = await import(`${CATALOG_ROOT}/src/discovery/devin-proto.ts`);
 const { create, fromBinary, toBinary } = await import(`${CATALOG_ROOT}/src/discovery/protobuf.ts`);
 const { logger } = await import(`${NM}/pi-utils/src/index.ts`);
 import type { AssistantMessageEventStream, Context, Model } from "@oh-my-pi/pi-ai";
@@ -63,6 +64,14 @@ function streamBody(frames: object[]): Uint8Array {
 
 const AUTH_PATH = "/exa.auth_pb.AuthService/GetUserJwt";
 const CHAT_PATH = "/exa.api_server_pb.ApiServerService/GetChatMessage";
+const ASSIGN_PATH = "/exa.api_server_pb.ApiServerService/AssignModel";
+
+function chatRequest(init?: RequestInit) {
+	const body = init?.body as Uint8Array;
+	const length = new DataView(body.buffer, body.byteOffset, body.byteLength).getUint32(1);
+	const payload = body.subarray(5, 5 + length);
+	return fromBinary(GetChatMessageRequestSchema, body[0] & 0x01 ? gunzipSync(payload) : payload);
+}
 
 function makeFetch(opts: { jwt: string; failFirstChat?: boolean }) {
 	const calls = { auth: 0, chat: 0 };
@@ -208,13 +217,7 @@ async function drain(stream: AssistantMessageEventStream) {
 		}
 		if (u.endsWith(CHAT_PATH)) {
 			chatN++;
-			// Decode the Connect frame to read which JWT the request carried.
-			const body = init?.body as Uint8Array;
-			const flag = body[0];
-			const len = (body[1] << 24) | (body[2] << 16) | (body[3] << 8) | body[4];
-			const payload = body.subarray(5, 5 + len);
-			const raw = flag & 0x01 ? gunzipSync(payload) : payload;
-			const req = fromBinary(GetChatMessageRequestSchema, raw);
+			const req = chatRequest(init);
 			chatJwts.push(req.metadata?.userJwt ?? "");
 			if (chatN === 1) return new Response("unauthorized", { status: 401 });
 			return new Response(
@@ -263,12 +266,7 @@ async function drain(stream: AssistantMessageEventStream) {
 			return new Promise<Response>((resolve) => authResolvers.push(resolve));
 		}
 		if (u.endsWith(CHAT_PATH)) {
-			const body = init?.body as Uint8Array;
-			const flag = body[0];
-			const len = (body[1] << 24) | (body[2] << 16) | (body[3] << 8) | body[4];
-			const payload = body.subarray(5, 5 + len);
-			const raw = flag & 0x01 ? gunzipSync(payload) : payload;
-			chatJwts.push(fromBinary(GetChatMessageRequestSchema, raw).metadata?.userJwt ?? "");
+			chatJwts.push(chatRequest(init).metadata?.userJwt ?? "");
 			return new Response(
 				streamBody([{ deltaText: "OK", deltaTokens: 1, latency: 0.1 }]) as never,
 			);
@@ -295,4 +293,66 @@ async function drain(stream: AssistantMessageEventStream) {
 	assert.equal(chatJwts.at(-1), jwtNew, "latest-issued auth must win the cache slot");
 }
 
-console.log("PASS verify-devin-auth-cache: all 0055 assertions ok!");
+// R12: assignment and chat consume one shared two-attempt recovery budget.
+// AssignModel intentionally has no userJwt; only GetChatMessage carries it.
+for (const scenario of [
+	{ name: "assignment-401", assignmentStatus: 401, chatStatus: 200, outcome: "done" },
+	{ name: "assignment-403-then-chat-401", assignmentStatus: 403, chatStatus: 401, outcome: "error" },
+	{ name: "assignment-500", assignmentStatus: 500, chatStatus: 200, outcome: "error" },
+] as const) {
+	const calls = { auth: 0, assignment: 0, chat: 0 };
+	const jwts: string[] = [];
+	const chatJwts: string[] = [];
+	const cascades: string[] = [];
+	const router = { ...fakeModel, id: "adaptive", requestModelId: "adaptive",
+		compat: { ...fakeModel.compat, modelRouter: true } } as Model<"devin-agent">;
+	const transport = async (url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+		const address = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+		if (address.endsWith(AUTH_PATH)) {
+			calls.auth++;
+			const userJwt = makeJwt(Math.floor(Date.now() / 1000) + 3600) + `-${calls.auth}`;
+			jwts.push(userJwt);
+			return new Response(toBinary(GetUserJwtResponseSchema, create(GetUserJwtResponseSchema, { userJwt })) as never);
+		}
+		if (address.endsWith(ASSIGN_PATH)) {
+			calls.assignment++;
+			const request = fromBinary(AssignModelRequestSchema, init?.body as Uint8Array);
+			assert.equal(request.metadata?.userJwt ?? "", "", "assignment must retain its API-key-only metadata contract");
+			cascades.push(request.cascadeId);
+			if (calls.assignment === 1) return new Response("assignment rejected", { status: scenario.assignmentStatus });
+			return new Response(toBinary(AssignModelResponseSchema, create(AssignModelResponseSchema, {
+				assignment: { modelUid: "swe-2-high", assignmentJwt: "synthetic-assignment" },
+			})) as never);
+		}
+		if (address.endsWith(CHAT_PATH)) {
+			calls.chat++;
+			const request = chatRequest(init);
+			chatJwts.push(request.metadata?.userJwt ?? "");
+			cascades.push(request.cascadeId);
+			assert.equal(request.chatModelUid, "swe-2-high", "chat must use the assigned concrete model");
+			assert.equal(request.modelAssignmentJwt, "synthetic-assignment", "chat must carry the assignment JWT");
+			if (calls.chat === 1 && scenario.chatStatus !== 200) return new Response("chat rejected", { status: scenario.chatStatus });
+			return new Response(streamBody([{ deltaText: "OK", deltaTokens: 1 }]) as never);
+		}
+		throw new Error(`Unexpected Devin fixture endpoint: ${address}`);
+	};
+	const options = { fetch: transport as typeof fetch, apiKey: `r12-${scenario.name}` };
+	const result = await drain(streamDevin(router, fakeContext, options));
+	assert.equal(result?.type, scenario.outcome, scenario.name);
+	if (scenario.assignmentStatus === 500) {
+		assert.deepEqual(calls, { auth: 1, assignment: 1, chat: 0 }, "non-auth assignment failures must not refresh or retry");
+	} else {
+		assert.deepEqual(calls, { auth: 2, assignment: 2, chat: 1 }, "assignment and chat must share exactly two attempts");
+		assert.equal(chatJwts[0], jwts[1], "chat must use the freshly recovered JWT");
+		assert.notEqual(chatJwts[0], jwts[0], "the rejected generation cannot reach chat");
+		assert.equal(new Set(cascades).size, 1, "assignment and chat retries keep one cascade identity");
+		if (scenario.chatStatus === 401) {
+			const next = await drain(streamDevin(router, fakeContext, options));
+			assert.equal(next?.type, "done");
+			assert.equal(calls.auth, 3, "a terminal auth rejection must invalidate the cache for the next turn");
+			assert.equal(chatJwts.at(-1), jwts[2], "the next turn must carry its newly fetched JWT");
+		}
+	}
+}
+
+console.log("PASS verify-devin-auth-cache: cache epochs and shared assignment/chat recovery");

@@ -104,7 +104,7 @@ assert.equal(price(DS), 995, "DeepSeek vision-exp @1568 must price at the measur
 assert.equal(price(DS, ALIAS_API), 995, "an account-suffixed alias api must price identically");
 assert.equal(price(DS, "openai-completions"), 995, "the DeepSeek line is api-independent");
 assert.equal(snapcompact.resolveShape({ api: COMMAND_CODE_API, id: DS }).frameSize, 1568);
-if (JSON.parse(readFileSync(`${SNAP_ROOT}/package.json`, "utf8")).version === "18.7.0") {
+if (["18.7.0", "18.10.0", "18.10.1"].includes(JSON.parse(readFileSync(`${SNAP_ROOT}/package.json`, "utf8")).version)) {
 	const measuredBilling = snapcompact.frameBilling({ api: COMMAND_CODE_API, id: DS });
 	assert.equal(snapcompact.frameTokens(measuredBilling, { width: 1568, height: 1568 }), 995,
 		"tokenizer and shape planning must both use the measured 1568px frame price");
@@ -157,36 +157,14 @@ assert.notEqual(price("claude-fable-latest"), 995, "the high-res Claude line mus
 // ---------------------------------------------------------------------------
 // GATE 2b: the Command Code namespace must not outrank a measured wire api.
 // ---------------------------------------------------------------------------
-// `commandcode-b` really shipped a turn on `anthropic-messages` (2026-09-03),
-// so the pair is live: the explicit api entry (Anthropic's 90) must win over
-// the gateway heuristic, otherwise the account name alone would widen an
-// Anthropic request's image cap from 90 to 200.
-assert.equal(
-	snapcompact.providerImageBudget("commandcode-b", "anthropic-messages"),
-	90,
-	"an exact wire-api entry must outrank the Command Code namespace fallback",
-);
+// Shared provider/API cases live in verify-provider-image-budget.ts.
 // The primary id has its own explicit table entry (200), which outranks the api
 // by the pre-existing provider-first rule — unchanged by 0052.
 assert.equal(snapcompact.providerImageBudget("commandcode", "anthropic-messages"), 200);
-assert.equal(snapcompact.providerImageBudget("commandcode-b", "bedrock-converse-stream"), 90);
 // The alias provider id alone still names the gateway, so it is rescued even on
 // an api string with no entry (the api is not the identifier that matters here).
 assert.equal(snapcompact.providerImageBudget("commandcode-b", "cursor-agent"), 200);
-// A non-gateway provider on the same api is NOT rescued — the namespace test
-// keys off the name, not the api:
-assert.equal(snapcompact.providerImageBudget("totally-unknown", "cursor-agent"), 5);
-// `umans` is a provider id, not an api: its explicit 10 still wins as provider.
-assert.equal(snapcompact.providerImageBudget("umans", "commandcode-custom"), 10);
-// The namespace still rescues only names that would otherwise floor:
-assert.equal(snapcompact.providerImageBudget("commandcode-b", "commandcode-custom-b"), 200);
-assert.equal(snapcompact.providerImageBudget("commandcode_proxy", "commandcode-custom"), 200);
-assert.equal(snapcompact.providerImageBudget(undefined, "commandcode-custom-b"), 200);
-assert.equal(snapcompact.providerFrameBudget("commandcode-b", "commandcode-custom-b"), 80);
-// ...and must not swallow an unrelated provider that merely starts the same way:
-assert.equal(snapcompact.providerImageBudget("commandcodex", "cursor-agent"), 5, "an unbounded prefix would mis-rescue this id");
 assert.equal(snapcompact.providerImageBudget(undefined, "commandcodex"), 5);
-assert.equal(snapcompact.providerImageBudget("xcommandcode"), 5);
 
 console.log(
 	`source=${SNAP_ROOT}\n` +

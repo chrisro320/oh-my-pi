@@ -10,6 +10,7 @@ delete process.env.OMP_PAYLOAD_ARCHIVE_OFF;
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const AGENT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
+const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 // 18.3.5 moved prompt-cache warming out of the provider stream options into
 // pi-coding-agent's session-level CacheWarmer, so only trees at or above that
 // version can produce a warm replay. The branch keys on the selected pi-ai
@@ -25,7 +26,7 @@ const hasSessionCacheWarmer =
 	aiMajor > 18 || (aiMajor === 18 && (aiMinor > 3 || (aiMinor === 3 && aiPatch >= 5)));
 const { streamAnthropic } = await import(`${AI}/src/providers/anthropic.ts`);
 const { createAnthropicRequestAudit } = await import(`${AI}/src/providers/anthropic-request-audit.ts`);
-const { getBundledModel } = await import(`${NM}/pi-catalog/src/models.ts`);
+const { getBundledModel } = await import(`${CATALOG}/src/models.ts`);
 const model = getBundledModel("anthropic", "claude-opus-5");
 assert.ok(model);
 const wire: string[] = [];
@@ -45,21 +46,32 @@ const originalFetch = globalThis.fetch;
 globalThis.fetch = sink as typeof fetch;
 const dir = join(root, "payloads", "audit-session", "anthropic-wire");
 const metas = () => readdirSync(dir).filter(name => name.endsWith(".meta.json")).map(name => ({ name, data: JSON.parse(readFileSync(join(dir, name), "utf8")) }));
+const baselinePointer = () => {
+	const names = readdirSync(dir).filter(name => name.endsWith(".baseline.json"));
+	assert.equal(names.length, 1, "one ordinary lineage must own one baseline");
+	return readFileSync(join(dir, names[0]), "utf8");
+};
 async function send(compact = false, changed = false, side = false) {
 	const before = wire.length;
 	const result = await streamAnthropic(model, { systemPrompt: "Stable rules", messages: [{ role: "user", content: [{ type: "text", text: "Stable input" }], timestamp: 1 }] }, {
 		apiKey: "sk-ant-oat01-offline-audit-fixture", sessionId: "audit-session", fetch: sink,
 		maxTokens: 16, maxRetries: 0, cacheRetention: "long", initiatorOverride: side ? "agent" : undefined,
+		...(compact && ["18.10.0", "18.10.1"].includes(aiVersion) ? { anthropicCompaction: { instructions: "Summarize this fixture." } } : {}),
 		onPayload(payload: any) {
 			if (changed) payload.messages[0].content[0].text = "Changed input";
 			if (compact) {
-				payload.context_management = { edits: [{ type: "compact_20260112", pause_after_compaction: true, trigger: { type: "input_tokens", value: 100000 } }] };
+				if (!["18.10.0", "18.10.1"].includes(aiVersion)) {
+					payload.context_management = { edits: [{ type: "compact_20260112", pause_after_compaction: true, trigger: { type: "input_tokens", value: 100000 } }] };
+				}
 				payload.messages.push({ role: "assistant", content: [{ type: "text", text: "Tail append" }] });
 			}
 		},
 	}).result();
 	assert.equal(result.stopReason, "stop", result.errorMessage);
 	assert.equal(wire.length, before + 1);
+	if (compact && ["18.10.0", "18.10.1"].includes(aiVersion)) {
+		assert.equal(JSON.parse(wire[before]).compaction?.type, "summarize", "the actual provider builder must emit the native envelope");
+	}
 	const entry = metas().find(entry => readFileSync(join(dir, entry.name.replace(".meta.json", ".body.json")), "utf8") === wire[before]);
 	assert.ok(entry, "archive must match actual final fetch bytes, including OAuth cch and onPayload changes");
 	const events = readFileSync(join(dir, entry.name.replace(".meta.json", ".usage.jsonl")), "utf8").trim().split("\n").map(line => JSON.parse(line));
@@ -71,14 +83,19 @@ async function send(compact = false, changed = false, side = false) {
 }
 try {
 	await send();
+	const ordinaryBaseline = baselinePointer();
 	await send(false, true, true); // Side traffic must not replace the primary baseline.
+	assert.equal(baselinePointer(), ordinaryBaseline, "side traffic must not advance the ordinary baseline");
 	const equal = await send(true);
 	assert.equal(equal.kind, "native-compaction");
 	assert.equal(equal.comparison.status, "prefix-equal");
+	assert.equal(baselinePointer(), ordinaryBaseline, "native compaction must not advance the ordinary baseline");
 	const different = await send(true, true);
+	assert.equal(different.kind, "native-compaction");
 	assert.equal(different.comparison.status, "prefix-different");
 	assert.equal(different.comparison.firstDifference, "messages[0].content[0].text");
 	assert.notEqual(equal.id, different.id);
+	assert.equal(baselinePointer(), ordinaryBaseline, "a changed native prefix must not replace the ordinary baseline");
 	// Exercise failure isolation and session isolation without provider traffic.
 	const other = createAnthropicRequestAudit({ sessionId: "other", provider: "anthropic", sideRequest: true, refresh: false });
 	await other.wrapFetch(sink)("https://example.invalid/v1/messages", { body: wire[2], method: "POST" });
@@ -164,7 +181,7 @@ try {
 			},
 			getPromptTokens: () => 100_000,
 			getMode: () => "idle",
-			decide: async () => true,
+			decide: async () => ["18.7.0", "18.10.0", "18.10.1"].includes(aiVersion) ? "warm" : true,
 		} as never);
 		warmer.start(
 			{

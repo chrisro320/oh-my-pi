@@ -1,0 +1,1243 @@
+--- a/pi-ai/dist/types/types.d.ts
++++ b/pi-ai/dist/types/types.d.ts
+@@ -889,6 +889,8 @@ export interface UserMessage {
+     content: string | (TextContent | ImageContent)[];
+     /** True if the message was injected by the system (e.g., auto-continue). */
+     synthetic?: boolean;
++    /** True when present only in a provider request; never persisted or replayed. */
++    providerOnly?: boolean;
+     /** True when injected mid-turn as a steer; consumed by the agent's pre-LLM transform to wrap it for emphasis. Never rendered. */
+     steering?: boolean;
+     /** True when the provider delivered this steer into the response it was streaming (`response.steer`). Display-only; never sent. */
+@@ -906,6 +908,8 @@ export interface DeveloperMessage {
+     content: string | (TextContent | ImageContent)[];
+     /** Who initiated this message for billing/attribution semantics. */
+     attribution?: MessageAttribution;
++    /** True when present only in a provider request; never persisted or replayed. */
++    providerOnly?: boolean;
+     /** True if the message was injected by the system (e.g., auto-continue) and initiates a fresh run rather than continuing the current one. */
+     synthetic?: boolean;
+     /** True when the synthetic prompt was a deliberate operator action (`.`, `c` continue shortcut) rather than an automatic continuation — its timestamp is the turn's prompt time. */
+--- a/pi-ai/src/providers/openai-responses.ts
++++ b/pi-ai/src/providers/openai-responses.ts
+@@ -1539,6 +1539,18 @@ export function buildParams(
+ 	// retain required text/placeholder replay, including DeepSeek's #10690 fallback.
+ 	const canReconstructReasoningReplay =
+ 		!policy.reasoning.filterReasoningHistory || policy.reasoning.allowsSyntheticReasoningContentForToolCalls;
++	// Count the provider-only scaffolding this request appends at the tail (the
++	// date/cwd reminder). Those messages are part of the wire, never history, so
++	// the chained-compaction baseline must exclude them exactly like the juice
++	// instruction below -- otherwise the previous turn's synthetic tail lands in
++	// the delta baseline and the transport rebuilds the whole prefix.
++	let trailingScaffoldingItems = 0;
++	for (let i = context.messages.length - 1; i >= 0; i--) {
++		const message = context.messages[i]!;
++		if (message.role !== "user" || message.providerOnly !== true) break;
++		trailingScaffoldingItems++;
++	}
++
+ 	const messages = buildResponsesInput({
+ 		model,
+ 		context,
+@@ -1706,7 +1718,6 @@ export function buildParams(
+ 	applyOpenAIExtraBody(params, options?.extraBody);
+ 	applyOpenAIResponsesPromptCachePolicy(params, model, options, statefulCacheBaseline);
+ 
+-	let trailingScaffoldingItems = 0;
+ 	if (options?.forceReasoningOff && model.compat.requiresReasoningOffJuiceInstruction) {
+ 		const effort = options.reasoning ?? "medium";
+ 		const juice = getJuiceValue(effort);
+@@ -1714,7 +1725,7 @@ export function buildParams(
+ 			role: "developer",
+ 			content: [{ type: "input_text", text: `# Juice: ${juice} !important` }],
+ 		});
+-		trailingScaffoldingItems = 1;
++		trailingScaffoldingItems++;
+ 	}
+ 
+ 	return { params, trailingScaffoldingItems, strictToolsApplied };
+--- a/pi-ai/src/types.ts
++++ b/pi-ai/src/types.ts
+@@ -1125,6 +1125,8 @@ export interface UserMessage {
+ 	content: string | (TextContent | ImageContent)[];
+ 	/** True if the message was injected by the system (e.g., auto-continue). */
+ 	synthetic?: boolean;
++	/** True when present only in a provider request; never persisted or replayed. */
++	providerOnly?: boolean;
+ 	/** True when injected mid-turn as a steer; consumed by the agent's pre-LLM transform to wrap it for emphasis. Never rendered. */
+ 	steering?: boolean;
+ 	/** True when the provider delivered this steer into the response it was streaming (`response.steer`). Display-only; never sent. */
+@@ -1143,6 +1145,8 @@ export interface DeveloperMessage {
+ 	content: string | (TextContent | ImageContent)[];
+ 	/** Who initiated this message for billing/attribution semantics. */
+ 	attribution?: MessageAttribution;
++	/** True when present only in a provider request; never persisted or replayed. */
++	providerOnly?: boolean;
+ 	/** True if the message was injected by the system (e.g., auto-continue) and initiates a fresh run rather than continuing the current one. */
+ 	synthetic?: boolean;
+ 	/** True when the synthetic prompt was a deliberate operator action (`.`, `c` continue shortcut) rather than an automatic continuation — its timestamp is the turn's prompt time. */
+--- a/pi-coding-agent/dist/types/session/agent-session.d.ts
++++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
+@@ -565,7 +565,9 @@ export declare class AgentSession implements SettingsScope {
+     get messages(): AgentMessage[];
+     /** Latest image attachments addressable by tools as `Image #N` or `attachment://N`. */
+     getImageAttachments(): ImageAttachmentEntry[];
+-    buildDisplaySessionContext(): SessionContext;
++    buildDisplaySessionContext(options?: {
++        persistEvalStateContext?: boolean;
++    }): SessionContext;
+     /**
+      * Transcript for TUI display. Full history is kept for export/resume-style
+      * callers; live chat can collapse compacted history to keep the hot render
+--- a/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
++++ b/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
+@@ -13,17 +13,19 @@
+ import type { Context, Message } from "@oh-my-pi/pi-ai";
+ /** Renders the reminder text for the given local calendar date and cwd. */
+ export declare function renderDateCwdReminder(date: string, cwd: string): string;
+-/** Whether `message` is a developer turn a {@link DateCwdReminderInjector} inserted. */
+-export declare function isDateCwdReminderControl(message: Message): boolean;
++/** Anchor key for a message: stable across processes, collision-resistant. */
++export declare function dateCwdAnchorKey(message: Message, content: string): string;
+ /**
+- * Keeps volatile date/cwd reminders append-only across provider requests.
+- *
+- * The first value is attached to the first user turn. A changed value attaches
+- * to a newly appended user turn or a persistent developer turn, leaving every
+- * previously sent message byte-identical.
++ * Stamps the reminder into the last real user message, replaying frozen stamps
++ * for every message that already carries one.
+  */
++export declare function applyDateCwdAnchors(messages: Message[], reminder: string, anchors: Record<string, string>): {
++    messages: Message[];
++    dirty: boolean;
++};
++/** Applies the reminder through the upstream injector contract. */
+ export declare class DateCwdReminderInjector {
+     #private;
+-    /** Apply the current reminder while preserving all earlier injected bytes. */
++    constructor(sessionId?: () => string | undefined, anchorRoot?: () => string);
+     transform(context: Context, date: string, cwd: string): Context;
+ }
+--- a/pi-coding-agent/dist/types/session/messages.d.ts
++++ b/pi-coding-agent/dist/types/session/messages.d.ts
+@@ -72,6 +72,18 @@ export interface DemotedInterruptedThinking {
+  * empty-thinking blocks, and trailing empty text placeholders.
+  */
+ export declare function demoteInterruptedThinking(message: Pick<AssistantMessage, "content">): DemotedInterruptedThinking | undefined;
++/**
++ * Distinctive sentence of `prompts/system/stream-stall-continue.md`, the reminder
++ * `TurnRecovery.handleCommittedTextStreamStall` appends when a transport stall
++ * killed a turn whose text had already rendered.
++ */
++export declare const STREAM_STALL_CONTINUE_REMINDER_TEXT = "The provider connection dropped mid-response:";
++/**
++ * True when the assistant turn at `messages[index]` was kept by the committed-text
++ * stall continuation — identified by its continuation reminder, which is the
++ * durable record of that decision — so both provider paths retain its text.
++ */
++export declare function followedByStreamStallContinueReminder(messages: AgentMessage[], index: number): boolean;
+ /** A provider-rejection turn carrying nothing but the error flag: stopReason
+  *  "error" with no text, thinking, or tool calls — e.g. a request the provider
+  *  rejected before any output (an oversized 413 payload). Persisting it writes an
+--- a/pi-coding-agent/src/collab/guest.ts
++++ b/pi-coding-agent/src/collab/guest.ts
+@@ -605,7 +605,9 @@ export class CollabGuestLink {
+ 					// history, so rebuild the message array from the ingested entries
+ 					// exactly as the host does after appendCompaction/branchWithSummary
+ 					// (session-maintenance.ts, agent-session.ts).
+-					this.#ctx.session.agent.replaceMessages(this.#ctx.session.buildDisplaySessionContext().messages);
++					this.#ctx.session.agent.replaceMessages(
++						this.#ctx.session.buildDisplaySessionContext({ persistEvalStateContext: false }).messages,
++					);
+ 				}
+ 				break;
+ 			}
+--- a/pi-coding-agent/src/sdk.ts
++++ b/pi-coding-agent/src/sdk.ts
+@@ -2188,7 +2188,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
+ 			if (!activeModel) return undefined;
+ 			// Inherit the live route and effective effort, not just the model identity.
+ 			// A later effort change must not reuse the startup selector or restart auto triage.
+-			const effort = agent?.state.model ? agent.state.thinkingLevel : effectiveThinkingLevel;
++			const effort = agent?.state.model ? agent.state.thinkingLevel : toReasoningEffort(effectiveThinkingLevel);
+ 			return formatModelSelectorValue(formatModelStringWithRouting(activeModel), effort);
+ 		};
+ 		// Per-path mutation counter shared across edit/write tools. Late-diagnostics
+@@ -3867,6 +3867,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
+ 					? { mode: "compact", toolNames: [...toolNames, ...mountedPromptToolNames] }
+ 					: { mode: "full" },
+ 			);
++			const promptModel = agent?.state.model ?? model;
+ 			const defaultPrompt = await buildSystemPromptInternal({
+ 				cwd: promptCwd,
+ 				additionalWorkspaceRoots: sessionManager.getAdditionalDirectories(),
+@@ -3904,7 +3905,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
+ 				securityEnabled: cfgSecurityEnabled.get(settings),
+ 				settingsApproval: toolSession.settingsApproval === true,
+ 				evalPreludes: toolSession.getAdvertisedEvalPreludes?.(),
+-				model: getActiveModelString(),
++				model: promptModel ? formatModelString(promptModel) : undefined,
+ 				includeModelInPrompt: cfgIncludeModelInPrompt.get(settings),
+ 				personality: agentKind === "sub" ? "none" : cfgPersonality.get(settings),
+ 				subagent: agentKind === "sub",
+@@ -4135,7 +4136,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
+ 			model => modelRegistry.getApiKey(model, providerSessionId),
+ 		);
+ 		disposeCallbacks.add(() => blobBroker.dispose());
+-		const dateCwdReminder = new DateCwdReminderInjector();
++		const dateCwdReminder = new DateCwdReminderInjector(() => sessionManager.getSessionId());
+ 		// Always installed; the getter-backed options are snapshotted per request,
+ 		// so `snapcompact.*` changes apply on the next call (a no-op while both are off).
+ 		const snapcompactInline = new SnapcompactInlineTransformer(
+@@ -4168,7 +4169,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
+ 			transformed = await dropUnreadableContextImages(transformed, transformModel);
+ 			transformed = await blobBroker.decorateContext(transformed, transformModel);
+ 			// Keep per-request volatility out of the system prompt: the date/cwd
+-			// reminder rides on the first user turn so open-weight providers keep
++			// reminder rides on a provider-only tail so open-weight providers keep
+ 			// their tool-schema prefix cache (#7404).
+ 			return dateCwdReminder.transform(
+ 				transformed,
+@@ -5102,7 +5103,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
+ 				const captureModel = captureOptions.initialState?.model;
+ 				const captureSessionId = captureOptions.sessionId;
+ 				if (!captureModel || !captureSessionId) throw new Error("Auto-learn capture identity is incomplete");
+-				const captureDateCwdReminder = new DateCwdReminderInjector();
++				const captureDateCwdReminder = new DateCwdReminderInjector(() => captureSessionId);
+ 				return new Agent({
+ 					...captureOptions,
+ 					cwd: sessionManager.getCwd(),
+--- a/pi-coding-agent/src/session/agent-session.ts
++++ b/pi-coding-agent/src/session/agent-session.ts
+@@ -1614,8 +1614,11 @@ export class AgentSession implements SettingsScope {
+ 			kernelOwnerId: config.evalKernelOwnerId ?? `agent-session:${Snowflake.next()}`,
+ 		});
+ 		this.#evalToolSession = config.evalToolSession;
+-		const initialEvalStateContext = this.#buildEvalStateContextMessage();
+-		if (initialEvalStateContext) this.agent.appendMessage(initialEvalStateContext);
++		const initialEvalStateContext = this.#nextEvalStateContext(this.agent.state.messages);
++		if (initialEvalStateContext) {
++			this.#persistEvalStateContext(initialEvalStateContext);
++			this.agent.appendMessage(initialEvalStateContext);
++		}
+ 		const ircHost: IrcBridgeHost = {
+ 			agent: this.agent,
+ 			sessionManager: this.sessionManager,
+@@ -6518,16 +6521,54 @@ export class AgentSession implements SettingsScope {
+ 		return this.#providerBoundary.getImageAttachments();
+ 	}
+ 
+-	buildDisplaySessionContext(): SessionContext {
+-		return this.#withEvalStateContext(this.#providerBoundary.buildDisplaySessionContext());
++	/**
++	 * Rebuilds the agent-facing context from session entries. Callers that
++	 * commit the result persist a new eval reminder so every later rebuild,
++	 * including a resumed process, replays it at the same index; read-only
++	 * snapshots pass `persistEvalStateContext: false` and write nothing.
++	 */
++	buildDisplaySessionContext(options?: { persistEvalStateContext?: boolean }): SessionContext {
++		return this.#withEvalStateContext(
++			this.#providerBoundary.buildDisplaySessionContext(),
++			options?.persistEvalStateContext ?? true,
++		);
+ 	}
+ 
+-	#withEvalStateContext(context: SessionContext): SessionContext {
+-		const evalStateContext = this.#buildEvalStateContextMessage();
++	#withEvalStateContext(context: SessionContext, persist = true): SessionContext {
++		const evalStateContext = this.#nextEvalStateContext(context.messages);
+ 		if (!evalStateContext) return context;
++		if (persist) this.#persistEvalStateContext(evalStateContext);
+ 		return { ...context, messages: [...context.messages, evalStateContext] };
+ 	}
+ 
++	/**
++	 * The reminder to append, or undefined when the context's newest eval
++	 * reminder already carries the current text. History is append-only: an
++	 * older snapshot stays at its index (rewriting it would fork the cached
++	 * prefix) and the newest one, last in the context, is authoritative.
++	 */
++	#nextEvalStateContext(messages: readonly AgentMessage[]): CustomMessage | undefined {
++		const message = this.#buildEvalStateContextMessage();
++		if (!message) return undefined;
++		for (let index = messages.length - 1; index >= 0; index--) {
++			const existing = messages[index];
++			if (existing.role !== "custom" || existing.customType !== message.customType) continue;
++			return existing.content === message.content ? undefined : message;
++		}
++		return message;
++	}
++
++	#persistEvalStateContext(message: CustomMessage): void {
++		this.sessionManager.appendCustomMessageEntry(
++			message.customType,
++			message.content,
++			message.display,
++			undefined,
++			message.attribution,
++			message.timestamp,
++		);
++	}
++
+ 	#buildEvalStateContextMessage(): CustomMessage | undefined {
+ 		const session = this.#evalToolSession;
+ 		if (!session) return undefined;
+@@ -11179,7 +11220,9 @@ export class AgentSession implements SettingsScope {
+ 		// blowing the heap before the new session even loads (issue #3846). The
+ 		// error-recovery path rebuilds the context on demand from the restored
+ 		// state instead.
+-		const previousSessionContext = switchingToDifferentSession ? undefined : this.buildDisplaySessionContext();
++		const previousSessionContext = switchingToDifferentSession
++			? undefined
++			: this.buildDisplaySessionContext({ persistEvalStateContext: false });
+ 		// switchSession replaces these arrays wholesale during load/rollback, so retaining
+ 		// the existing message objects is sufficient and avoids structured-clone failures for
+ 		// extension/custom metadata that is valid to persist but not cloneable.
+@@ -11659,8 +11702,12 @@ export class AgentSession implements SettingsScope {
+ 			this.#memory.rekeyForCurrentSessionId();
+ 			await this.#memory.resetContextForNewTranscript();
+ 
+-			// Reload messages from entries (works for both file and in-memory mode)
+-			const sessionContext = this.buildDisplaySessionContext();
++			// Reload messages from entries (works for both file and in-memory mode).
++			// A hook that skips the restore keeps the old messages, so nothing is
++			// committed and the eval reminder must not be persisted either.
++			const sessionContext = this.buildDisplaySessionContext({
++				persistEvalStateContext: !skipConversationRestore,
++			});
+ 
+ 			// Emit session_branch event to hooks (after branch completes)
+ 			if (this.#extensionRunner) {
+--- a/pi-coding-agent/src/session/date-cwd-reminder.ts
++++ b/pi-coding-agent/src/session/date-cwd-reminder.ts
+@@ -3,15 +3,50 @@
+  *
+  * The system prompt must stay byte-stable so open-weight chat templates that
+  * render tool schemas *after* the system content keep their prefix cache
+- * (#7404). The per-request date/cwd line used to live at the tail of the
+- * system prompt (`project-prompt.md`), which invalidated the whole tool array
+- * on every directory change or day rollover. It now rides on the first user
+- * turn of each provider request instead: built at request time (never stored
+- * in the session), deterministic per `(date, cwd)`, so the bytes are stable
+- * for the lifetime of a session/day and refresh automatically at midnight.
++ * (#7404). The per-request date/cwd line therefore cannot live at the tail of
++ * the system prompt (`project-prompt.md`), which invalidated the whole tool
++ * array on every directory change or day rollover.
++ *
++ * It used to ride on a *provider-only tail message*: built at request time,
++ * never stored in the session. That kept the system prompt stable but cost one
++ * cache breakpoint every single turn. The synthetic tail occupies a message
++ * slot, so on the next turn the real assistant reply lands on that same index
++ * and Anthropic sees a ROLE FLIP mid-history:
++ *
++ *   turn N     messages[326] = user  "<system-reminder> Today: ..."   (synthetic)
++ *   turn N+1   messages[326] = assistant "...real reply..."             (real)
++ *
++ * Measured on session 01a0778e (claude-opus-5, ~620k context): every turn
++ * reported `HISTORY_REWRITE` with `sharedPrefix` advancing in steps of TWO
++ * (314 -> 316 -> ... -> 328) instead of the `n-1` pure tail-append shape, i.e. the
++ * reminder AND the preceding real reply were both re-billed each turn. On long
++ * replies that was 11 815-12 335 `cacheWrite` tokens per turn against ~600k of
++ * `cacheRead` (strict 97.9-98.1%); short replies fell back to ~1 600. At that
++ * context size the 2% gap is ~12k tokens of full-price recompute per turn, and
++ * re-billed `input` costs about 10x `cacheRead`.
++ *
++ * The reminder now rides *inside the last real user message* and the text is
++ * frozen per message via a persisted anchor map. Consequences:
++ *
++ *   - the message COUNT never changes, so no slot is ever re-typed and the
++ *     prefix stays a pure `n-1` tail append;
++ *   - a message that was once stamped keeps its ORIGINAL stamp forever, so its
++ *     bytes are stable across turns, across `resume`, and across processes;
++ *   - a day rollover only affects the NEXT user message. The cost is exactly
++ *     one stale `Today:` line left in history per rollover, which is far
++ *     cheaper than re-billing two messages every turn.
++ *
++ * The anchor key is `role:timestamp:sha256(pre-injection content)[0..16]`.
++ * Hashing the PRE-injection content is what makes the key reproducible: that
++ * is the byte sequence rebuilt from the session JSONL on resume. Keying on
++ * `role:timestamp` alone would let two messages minted in the same millisecond
++ * reuse each other's text (the failure 0016 hit in the Trellis anchor map).
+  */
+-import type { Context, Message, UserMessage } from "@oh-my-pi/pi-ai";
+-import { prompt } from "@oh-my-pi/pi-utils";
++import { createHash } from "node:crypto";
++import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
++import { dirname, join } from "node:path";
++import type { Context, ImageContent, Message, TextContent } from "@oh-my-pi/pi-ai";
++import { getAgentDir, prompt } from "@oh-my-pi/pi-utils";
+ import dateCwdReminderTemplate from "../prompts/system/date-cwd-reminder.md" with { type: "text" };
+ 
+ /** Renders the reminder text for the given local calendar date and cwd. */
+@@ -19,112 +54,177 @@ export function renderDateCwdReminder(date: string, cwd: string): string {
+ 	return prompt.render(dateCwdReminderTemplate, { date, cwd }).trim();
+ }
+ 
+-function messageStartsWithReminder(message: UserMessage, reminder: string): boolean {
+-	if (typeof message.content === "string") return message.content.startsWith(reminder);
+-	return message.content[0]?.type === "text" && message.content[0].text === reminder;
++/** Anchor key for a message: stable across processes, collision-resistant. */
++export function dateCwdAnchorKey(message: Message, content: string): string {
++	const digest = createHash("sha256").update(content).digest("hex").slice(0, 16);
++	return `${message.role}:${String(message.timestamp ?? 0)}:${digest}`;
+ }
+-
+-function injectReminder(message: UserMessage, reminder: string): UserMessage {
+-	const content: UserMessage["content"] =
+-		typeof message.content === "string"
+-			? `${reminder}\n\n${message.content}`
+-			: [{ type: "text", text: reminder }, ...message.content];
+-	return { ...message, content };
++/** The text a reminder rides on: a string content, or the last text block of
++ *  a block array (real user messages arrive as `(TextContent|ImageContent)[]`
++ *  from the session loader; a plain typed message is a string). */
++function textOf(message: Message): string | undefined {
++	if (typeof message.content === "string") return message.content;
++	if (Array.isArray(message.content)) {
++		for (let i = message.content.length - 1; i >= 0; i--) {
++			const block = message.content[i]!;
++			if (block.type === "text") return block.text;
++		}
++	}
++	return undefined;
+ }
+-
+-/** Developer turns the injector inserted; every other output message maps to an input one. */
+-const reminderControls = new WeakSet<Message>();
+-
+-/** Whether `message` is a developer turn a {@link DateCwdReminderInjector} inserted. */
+-export function isDateCwdReminderControl(message: Message): boolean {
+-	return reminderControls.has(message);
++/** The message with `reminder` appended to its ride-on text, same content kind. */
++function withStamp(message: Message, text: string, reminder: string): Message {
++	if (typeof message.content === "string") return { ...message, content: `${text}\n\n${reminder}` };
++	const blocks = message.content as (TextContent | ImageContent)[];
++	for (let i = blocks.length - 1; i >= 0; i--) {
++		const block = blocks[i]!;
++		if (block.type !== "text") continue;
++		const next = blocks.slice();
++		next[i] = { ...block, text: `${block.text}\n\n${reminder}` };
++		return { ...message, content: next };
++	}
++	return { ...message, content: [...blocks, { type: "text", text: reminder } as TextContent] };
++}
++function anchorFile(sessionId: string, root: string): string {
++	// Session-scoped so switching sessions cannot cross-contaminate stamps.
++	const safe = sessionId.replace(/[^A-Za-z0-9._-]/g, "_");
++	return join(root, `${safe}.json`);
+ }
+ 
+ /**
+- * Keeps volatile date/cwd reminders append-only across provider requests.
++ * Stamps the reminder into the last real user message, replaying frozen stamps
++ * for every message that already carries one.
+  *
+- * The first value is attached to the first user turn. A changed value attaches
+- * to a newly appended user turn or a persistent developer turn, leaving every
+- * previously sent message byte-identical.
++ * `anchors` is mutated in place for newly stamped messages; the caller decides
++ * when to persist. Returns the original array when nothing changed so callers
++ * can keep their identity checks cheap.
+  */
++export function applyDateCwdAnchors(
++	messages: Message[],
++	reminder: string,
++	anchors: Record<string, string>,
++): { messages: Message[]; dirty: boolean } {
++	// Drop any legacy provider-only tail: an in-process Context can be reused
++	// across requests, and leaving the old synthetic tail in place would
++	// reintroduce the very slot churn this replaces.
++	let end = messages.length;
++	while (end > 0) {
++		const message = messages[end - 1]!;
++		if (message.role !== "user" || message.providerOnly !== true) break;
++		end--;
++	}
++	const base = end === messages.length ? messages : messages.slice(0, end);
++	if (base.length === 0) return { messages, dirty: false };
++
++	// The newest real user message is the only one eligible for a NEW stamp.
++	let newestUser = -1;
++	for (let i = base.length - 1; i >= 0; i--) {
++		const message = base[i]!;
++		if (message.role === "user" && message.providerOnly !== true && textOf(message) !== undefined) {
++			newestUser = i;
++			break;
++		}
++	}
++
++	let dirty = false;
++	let changed = base !== messages;
++	const out: Message[] = new Array(base.length);
++	for (let i = 0; i < base.length; i++) {
++		const message = base[i]!;
++		const text =
++			message.role === "user" && message.providerOnly !== true ? textOf(message) : undefined;
++		if (text === undefined) {
++			out[i] = message;
++			continue;
++		}
++		const key = dateCwdAnchorKey(message, text);
++		const stamp = anchors[key];
++		if (stamp !== undefined) {
++			out[i] = withStamp(message, text, stamp);
++			changed = true;
++			continue;
++		}
++		// Only the newest user message may mint a stamp. Older unstamped
++		// messages predate this mechanism (or came from a session recorded
++		// before it landed) and MUST stay byte-identical to their JSONL form.
++		if (i !== newestUser) {
++			out[i] = message;
++			continue;
++		}
++		anchors[key] = reminder;
++		dirty = true;
++		out[i] = withStamp(message, text, reminder);
++		changed = true;
++	}
++	return changed ? { messages: out, dirty } : { messages, dirty };
++}
++
++/** Applies the reminder through the upstream injector contract. */
+ export class DateCwdReminderInjector {
+-	#root: UserMessage | undefined;
+-	#currentReminder: string | undefined;
+-	#injections = new Map<Message, Message>();
+-	#controls: Array<{ anchor: Message; message: Message }> = [];
+-	#seen = new WeakSet<object>();
++	readonly #sessionId: () => string | undefined;
++	readonly #anchorRoot: () => string;
++	#loadedFor: string | undefined;
++	#anchors: Record<string, string> = {};
+ 
+-	/** Apply the current reminder while preserving all earlier injected bytes. */
+-	transform(context: Context, date: string, cwd: string): Context {
+-		if (!context.systemPrompt || context.systemPrompt.length === 0 || context.messages.length === 0) return context;
+-		const reminder = renderDateCwdReminder(date, cwd);
+-		const messages = this.#inject(context.messages, reminder);
+-		return messages === context.messages ? context : { ...context, messages };
++	constructor(
++		sessionId: () => string | undefined = () => undefined,
++		// Injectable so the regression gate can point at a temp dir: getAgentDir()
++		// is frozen at module load, so swapping HOME cannot redirect it.
++		anchorRoot: () => string = () => join(getAgentDir(), "date-cwd-anchors"),
++	) {
++		this.#sessionId = sessionId;
++		this.#anchorRoot = anchorRoot;
+ 	}
+ 
+-	#inject(messages: Message[], reminder: string): Message[] {
+-		const firstUser = messages.find((message): message is UserMessage => message.role === "user");
+-		if (!firstUser) return messages;
+-		if (this.#root !== firstUser) {
+-			// A new first user turn: a compaction summary or a different conversation.
+-			// Turns kept from the earlier history must keep the reminders they were
+-			// sent with, or their bytes change under signed thinking; reminders on
+-			// turns that are gone are dropped. The new root gets the current reminder.
+-			const present = new Set<Message>(messages);
+-			for (const message of this.#injections.keys()) {
+-				if (!present.has(message)) this.#injections.delete(message);
+-			}
+-			this.#controls = this.#controls.filter(control => present.has(control.anchor));
+-			this.#root = firstUser;
+-			this.#currentReminder = reminder;
+-			if (!this.#injections.has(firstUser) && !messageStartsWithReminder(firstUser, reminder)) {
+-				this.#injections.set(firstUser, injectReminder(firstUser, reminder));
+-			}
+-		} else if (this.#currentReminder !== reminder) {
+-			let newUser: UserMessage | undefined;
+-			for (let index = messages.length - 1; index >= 0; index--) {
+-				const candidate = messages[index]!;
+-				if (candidate.role === "user" && !this.#seen.has(candidate)) {
+-					newUser = candidate;
+-					break;
++	#load(sessionId: string): void {
++		if (this.#loadedFor === sessionId) return;
++		this.#loadedFor = sessionId;
++		this.#anchors = {};
++		const file = anchorFile(sessionId, this.#anchorRoot());
++		if (!existsSync(file)) return;
++		try {
++			const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
++			if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
++				for (const [key, value] of Object.entries(parsed)) {
++					if (typeof value === "string") this.#anchors[key] = value;
+ 				}
+ 			}
+-			if (newUser) {
+-				this.#injections.set(newUser, injectReminder(newUser, reminder));
+-			} else {
+-				const anchor = messages.at(-1)!;
+-				const control: Message = {
+-					role: "developer",
+-					content: reminder,
+-					synthetic: true,
+-					timestamp: Date.now(),
+-				};
+-				reminderControls.add(control);
+-				this.#controls.push({ anchor, message: control });
+-			}
+-			this.#currentReminder = reminder;
++		} catch {
++			// A corrupt map must not break the turn: worst case we re-stamp the
++			// newest message, which costs one breakpoint, not the session.
+ 		}
++	}
+ 
+-		const controlsByAnchor = new Map<Message, Message[]>();
+-		for (const control of this.#controls) {
+-			const controls = controlsByAnchor.get(control.anchor);
+-			if (controls) controls.push(control.message);
+-			else controlsByAnchor.set(control.anchor, [control.message]);
++	#persist(sessionId: string): void {
++		const file = anchorFile(sessionId, this.#anchorRoot());
++		try {
++			mkdirSync(dirname(file), { recursive: true });
++			// Atomic replace: a torn map would silently un-stamp live history.
++			const tmp = `${file}.${String(process.pid)}.tmp`;
++			writeFileSync(tmp, JSON.stringify(this.#anchors), { mode: 0o600 });
++			renameSync(tmp, file);
++		} catch {
++			// Persistence is an optimization for resume; an in-memory map still
++			// keeps this process byte-stable.
+ 		}
++	}
+ 
+-		let changed = false;
+-		const out: Message[] = [];
+-		for (const message of messages) {
+-			const injected = this.#injections.get(message);
+-			out.push(injected ?? message);
+-			if (injected) changed = true;
+-			const controls = controlsByAnchor.get(message);
+-			if (controls) {
+-				out.push(...controls);
+-				changed = true;
+-			}
+-			this.#seen.add(message);
++	transform(context: Context, date: string, cwd: string): Context {
++		if (!context.systemPrompt || context.systemPrompt.length === 0 || context.messages.length === 0) return context;
++		const sessionId = this.#sessionId();
++		if (sessionId === undefined) {
++			// No session identity (one-shot / capture agents with no id): fall back
++			// to in-memory anchors only. Still slot-stable within the process.
++			const { messages } = applyDateCwdAnchors(context.messages, renderDateCwdReminder(date, cwd), this.#anchors);
++			return messages === context.messages ? context : { ...context, messages };
+ 		}
+-		return changed ? out : messages;
++		this.#load(sessionId);
++		const { messages, dirty } = applyDateCwdAnchors(
++			context.messages,
++			renderDateCwdReminder(date, cwd),
++			this.#anchors,
++		);
++		if (dirty) this.#persist(sessionId);
++		return messages === context.messages ? context : { ...context, messages };
+ 	}
+ }
+--- a/pi-coding-agent/src/session/messages.ts
++++ b/pi-coding-agent/src/session/messages.ts
+@@ -6,7 +6,6 @@
+  */
+ import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+ import {
+-	isUserInterruptAbort,
+ 	isCustomMessageContent,
+ 	type BashExecutionMessage,
+ 	type PythonExecutionMessage,
+@@ -459,6 +458,34 @@ function followedByInterruptedThinking(messages: AgentMessage[], index: number):
+ 	return next !== undefined && next.role === "custom" && next.customType === INTERRUPTED_THINKING_MESSAGE_TYPE;
+ }
+ 
++/**
++ * Distinctive sentence of `prompts/system/stream-stall-continue.md`, the
++ * developer reminder `TurnRecovery.handleCommittedTextStreamStall` appends when
++ * a transport stall killed a turn whose text had already rendered.
++ */
++export const STREAM_STALL_CONTINUE_REMINDER_TEXT = "The provider connection dropped mid-response:";
++
++/**
++ * True when the assistant turn at `messages[index]` was kept by the
++ * committed-text stall continuation — identified by its continuation reminder,
++ * which is the durable record of that decision (it is written to the session
++ * file), so the live provider call and a rebuild from disk agree. Both paths
++ * then retain the already-rendered partial text the model is told to continue.
++ */
++export function followedByStreamStallContinueReminder(messages: AgentMessage[], index: number): boolean {
++	const next = messages[index + 1];
++	if (next === undefined || next.role !== "developer") return false;
++	const content = next.content;
++	const text =
++		typeof content === "string"
++			? content
++			: content
++					.filter(block => block.type === "text")
++					.map(block => block.text)
++					.join("\n");
++	return text.includes(STREAM_STALL_CONTINUE_REMINDER_TEXT);
++}
++
+ /** Drop an incomplete trailing thinking run from an interrupted assistant in the LLM view. */
+ function stripDemotedThinkingForLlm(message: AssistantMessage): AssistantMessage {
+ 	const demoted = demoteInterruptedThinking(message);
+@@ -999,6 +1026,7 @@ function convertImageBearingCustomMessage(message: CustomMessage | HookMessage):
+  */
+ interface ConvertMemoEntry {
+ 	interruptedNext: boolean;
++	stallContinued: boolean;
+ 	fragment: Message[];
+ }
+ const convertCache = new WeakMap<AgentMessage, ConvertMemoEntry>();
+@@ -1024,6 +1052,7 @@ interface ConvertArrayMemo {
+ 	output: Message[];
+ 	tail: AgentMessage | undefined;
+ 	prefixOutputLen: number;
++	prunedToolCallIds: Set<string> | undefined;
+ }
+ 
+ let convertGeneration = 0;
+@@ -1041,8 +1070,9 @@ registerMessageCacheInvalidator(message => {
+ });
+ 
+ /** Convert one message to its LLM fragment. `interruptedNext` is true only for an
+- *  assistant turn immediately followed by its interrupted-thinking marker. */
+-function convertOne(m: AgentMessage, interruptedNext: boolean): Message[] {
++ *  assistant turn immediately followed by its interrupted-thinking marker;
++ *  `stallContinued` only for one followed by a committed-text stall reminder. */
++function convertOne(m: AgentMessage, interruptedNext: boolean, stallContinued: boolean): Message[] {
+ 	switch (m.role) {
+ 		case "bashExecution":
+ 			if (m.excludeFromContext) {
+@@ -1109,6 +1139,12 @@ function convertOne(m: AgentMessage, interruptedNext: boolean): Message[] {
+ 		}
+ 		case "custom": {
+ 			if (!isCustomMessageContent(m.content)) return [];
++			// Process-local marker: minted in memory on abort and never written to
++			// the session JSONL. Sending it would make the wire prefix depend on
++			// which process rendered it -- the live turn carries the note, a resumed
++			// turn rebuilt from disk does not -- voiding the implicit cache from that
++			// index on.
++			if (m.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) return [];
+ 			if (isSteeringUserMessage(m)) {
+ 				const converted = convertMessageToLlm(wrapSteeringUserMessage(m));
+ 				return converted ? [converted] : [];
+@@ -1136,16 +1172,43 @@ function convertOne(m: AgentMessage, interruptedNext: boolean): Message[] {
+ 			return converted ? [converted] : [];
+ 		}
+ 		case "assistant": {
++			if (m.stopReason === "aborted" || m.stopReason === "error") {
++				// A committed-text stall continuation is the first exception: the transport
++				// died after its text had rendered, `handleCommittedTextStreamStall` kept the
++				// turn and asked the model to continue where it stopped, and its continuation
++				// reminder immediately follows. Keep the committed text AND any recorded
++				// request controls; dropping either hides the text the model is told to
++				// continue, or forks the live wire against the rebuilt one.
++				if (stallContinued) {
++					// `strippedToolCalls` is a TUI-only marker written by the transcript
++					// branch of `buildSessionContext`. It must never ride a provider message.
++					const continued: AssistantMessage & { strippedToolCalls?: number } = { ...m };
++					delete continued.strippedToolCalls;
++					const converted = convertMessageToLlm(canonicalizeXdToolCallNames(continued));
++					return converted ? [converted] : [];
++				}
++				// A recorded request-controls carrier is the next exception: later Anthropic
++				// requests replay its `tool_removal` / `tool_addition` off the top-level tool
++				// list, so the turn survives as a control-only message with the interrupted
++				// payload filtered out.
++				if (m.requestControls !== undefined) {
++					const carrier: AssistantMessage & { strippedToolCalls?: number } = { ...m, content: [] };
++					delete carrier.strippedToolCalls;
++					const converted = convertMessageToLlm(canonicalizeXdToolCallNames(carrier));
++					return converted ? [converted] : [];
++				}
++				// Otherwise an interrupted/failed turn is a transcript event, not replayable
++				// history. `buildSessionContext` prunes it on the rebuild path, but the live
++				// path feeds agent state straight into `convertToLlm`
++				// (`agent-loop.prepareProviderCall`: `messages = context.messages`), so it must
++				// be pruned here too -- otherwise the two paths disagree at every interrupt
++				// point and the implicit cache dies from that index on.
++				return [];
++			}
+ 			// Persisted/displayed messages retain interrupted thinking. Signed or
+ 			// encrypted blocks replay natively; incomplete unsigned runs are
+ 			// stripped whether or not they were long enough for a continuity note.
+-			const userInterrupted = m.stopReason === "aborted" && isUserInterruptAbort(m);
+-			const source = interruptedNext || userInterrupted ? stripDemotedThinkingForLlm(m) : m;
+-			// An empty interrupted response still carries the controls its request
+-			// sent (e.g. an Anthropic `tool_removal`); later requests replay them from it.
+-			if (userInterrupted && !interruptedNext && source.content.length === 0 && m.requestControls === undefined) {
+-				return [];
+-			}
++			const source = interruptedNext ? stripDemotedThinkingForLlm(m) : m;
+ 			const converted = convertMessageToLlm(canonicalizeXdToolCallNames(source));
+ 			return converted ? [converted] : [];
+ 		}
+@@ -1174,12 +1237,14 @@ function convertOne(m: AgentMessage, interruptedNext: boolean): Message[] {
+ 
+ /** Cached per-message conversion. Reuses the stored fragment while identity and
+  *  `interruptedNext` neighbor state hold; recomputes on a neighbor flip. */
+-function convertOneCached(m: AgentMessage, interruptedNext: boolean): Message[] {
++function convertOneCached(m: AgentMessage, interruptedNext: boolean, stallContinued: boolean): Message[] {
+ 	const cached = convertCache.get(m);
+-	if (cached !== undefined && cached.interruptedNext === interruptedNext) return cached.fragment;
+-	const fragment = convertOne(m, interruptedNext);
++	if (cached !== undefined && cached.interruptedNext === interruptedNext && cached.stallContinued === stallContinued) {
++		return cached.fragment;
++	}
++	const fragment = convertOne(m, interruptedNext, stallContinued);
+ 	for (const message of fragment) copyPerCallContextMessage(message, m);
+-	convertCache.set(m, { interruptedNext, fragment });
++	convertCache.set(m, { interruptedNext, stallContinued, fragment });
+ 	return fragment;
+ }
+ 
+@@ -1225,6 +1290,7 @@ export function convertToLlm(messages: AgentMessage[]): Message[] {
+ 	// array while swapping earlier identities, forcing a full rebuild.
+ 	let out: Message[];
+ 	let start: number;
++	let prunedToolCallIds: Set<string> | undefined;
+ 	if (
+ 		sameGeneration &&
+ 		len > memo.length &&
+@@ -1234,6 +1300,7 @@ export function convertToLlm(messages: AgentMessage[]): Message[] {
+ 	) {
+ 		out = memo.output.slice(0, memo.prefixOutputLen);
+ 		start = memo.length - 1;
++		prunedToolCallIds = memo.prunedToolCallIds;
+ 	} else {
+ 		out = [];
+ 		start = 0;
+@@ -1245,8 +1312,16 @@ export function convertToLlm(messages: AgentMessage[]): Message[] {
+ 	for (let i = start; i < len; i++) {
+ 		if (i === len - 1) prefixOutputLen = out.length;
+ 		const m = messages[i];
++		if (m.role === "assistant" && (m.stopReason === "aborted" || m.stopReason === "error")) {
++			// Keep synthetic results paired with their discarded call across appends.
++			for (const block of m.content) {
++				if (block.type === "toolCall") (prunedToolCallIds ??= new Set()).add(block.id);
++			}
++		}
++		if (m.role === "toolResult" && prunedToolCallIds?.has(m.toolCallId)) continue;
+ 		const interruptedNext = m.role === "assistant" && followedByInterruptedThinking(messages, i);
+-		const fragment = convertOneCached(m, interruptedNext);
++		const stallContinued = m.role === "assistant" && followedByStreamStallContinueReminder(messages, i);
++		const fragment = convertOneCached(m, interruptedNext, stallContinued);
+ 		for (const msg of fragment) out.push(msg);
+ 	}
+ 	if (len === 0) prefixOutputLen = 0;
+@@ -1259,6 +1334,7 @@ export function convertToLlm(messages: AgentMessage[]): Message[] {
+ 		output: out,
+ 		tail,
+ 		prefixOutputLen,
++		prunedToolCallIds,
+ 	});
+ 	return out;
+ }
+--- a/pi-coding-agent/src/session/session-context.ts
++++ b/pi-coding-agent/src/session/session-context.ts
+@@ -12,7 +12,7 @@ import {
+ 	createBranchSummaryMessage,
+ 	createCompactionSummaryMessage,
+ 	createCustomMessage,
+-	INTERRUPTED_THINKING_MESSAGE_TYPE,
++	followedByStreamStallContinueReminder,
+ 	isEmptyErrorTurn,
+ 	PREWALK_PLAN_MESSAGE_TYPE,
+ 	VIBE_MODE_CONTEXT_MESSAGE_TYPE,
+@@ -736,16 +736,30 @@ export function buildSessionContext(
+ 	// later user message follows through non-context entries (`session_exit`,
+ 	// labels, etc.); otherwise a resumed session replays a dead partial turn
+ 	// and can spend minutes reprocessing old context before the new prompt.
+-	// Keep the interrupted-thinking continuity pair: convertToLlm strips the
+-	// unsafe trailing thinking from that assistant and sends the hidden
+-	// continuity note instead.
++	// The interrupted-thinking continuity marker is never persisted to the
++	// session JSONL, so keeping an abort alive because that marker follows makes
++	// the wire history a function of process-local state: the live process keeps
++	// the turn, a resumed process rebuilding from disk drops it, and the implicit
++	// prompt cache dies at every interrupt point. Prune unconditionally so both
++	// paths render the same sequence; `convertOne` prunes the live path and the
++	// marker itself.
++	//
++	// The one turn that survives on both paths is a recorded request-controls
++	// carrier: later Anthropic requests replay its `tool_removal`/`tool_addition`
++	// off the declared tool list, so dropping it here would fork the wire against
++	// the live process. It is left in place -- `convertOne` empties its interrupted
++	// payload and drops the paired synthetic results -- so the pre-conversion
++	// sequences of the live and rebuild paths are identical as well.
+ 	if (!options?.transcript) {
+ 		for (let i = messages.length - 1; i >= 0; i--) {
+ 			const message = messages[i];
+ 			if (message?.role !== "assistant") continue;
+ 			if (message.stopReason !== "aborted" && message.stopReason !== "error") continue;
+-			const next = messages[i + 1];
+-			if (next?.role === "custom" && next.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) continue;
++			if (message.requestControls !== undefined) continue;
++			// A committed-text stall turn is kept: its continuation reminder follows,
++			// the text already rendered, and `convertOne` retains it for the provider.
++			// Pruning it here would drop the rendered text on resume only.
++			if (followedByStreamStallContinueReminder(messages, i)) continue;
+ 			// A failed turn that emitted tool calls persists paired synthetic
+ 			// tool_result placeholders after it. Dropping only the assistant would
+ 			// strand those results with no preceding tool_use — a shape providers
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -3175,21 +3175,13 @@ export class SessionMaintenance {
+ 					// same context re-runs the same plan into the same cap, so tell the
+ 					// model what happened and to act in smaller steps.
+ 					if (assistantMessage.usage.output > 0) {
+-						this.#host.agent.appendMessage({
+-							role: "developer",
+-							content: [
+-								{
+-									type: "text",
+-									text: prompt.render(lengthStopRetryTemplate, {
+-										outputTokens: assistantMessage.usage.output,
+-										retryCount: this.#incompleteRecoveryAttempts,
+-										maxRetries: INCOMPLETE_RECOVERY_MAX_RETRIES,
+-									}),
+-								},
+-							],
+-							attribution: "agent",
+-							timestamp: Date.now(),
+-						});
++						this.#appendLengthStopReminder(
++							prompt.render(lengthStopRetryTemplate, {
++								outputTokens: assistantMessage.usage.output,
++								retryCount: this.#incompleteRecoveryAttempts,
++								maxRetries: INCOMPLETE_RECOVERY_MAX_RETRIES,
++							}),
++						);
+ 					}
+ 					logger.debug("Retrying response.incomplete without compaction (below threshold)", {
+ 						model: `${assistantMessage.provider}/${assistantMessage.model}`,
+@@ -3319,6 +3311,25 @@ export class SessionMaintenance {
+ 		return COMPACTION_CHECK_NONE;
+ 	}
+ 
++	/**
++	 * Append the length-stop retry reminder to the live context AND the session
++	 * file, as the other recovery reminders do (see turn-recovery.ts). Kept in
++	 * memory only, a rebuild from disk (resume, in-process context rebuild) drops
++	 * it, so the next request forks the provider's cached prefix at the reminder's
++	 * index and re-writes the whole tail. The caller appends it after dropping the
++	 * persisted length turn, so the file order stays identical to the live order.
++	 */
++	#appendLengthStopReminder(text: string): void {
++		const reminder: Message = {
++			role: "developer",
++			content: [{ type: "text", text }],
++			attribution: "agent",
++			timestamp: Date.now(),
++		};
++		this.#host.agent.appendMessage(reminder);
++		this.#host.sessionManager.appendMessage(reminder);
++	}
++
+ 	/**
+ 	 * Attempt context promotion to a larger model.
+ 	 * Returns true if promotion succeeded (caller should retry without compacting).
+--- a/pi-coding-agent/src/session/session-tools.ts
++++ b/pi-coding-agent/src/session/session-tools.ts
+@@ -22,6 +22,7 @@ import { resolveMemoryBackend } from "../memory-backend/resolve";
+ import { MEMORY_BACKEND_TOOL_NAMES } from "../memory-backend/tool-names";
+ import { invalidateToolSchemaMetadata } from "@oh-my-pi/pi-tui/status-line/context-usage";
+ import type { MemoryBackendStartOptions } from "../memory-backend/types";
++import { getBundledAgent } from "../task/agents";
+ import type { AgentDefinition } from "../task/types";
+ import evalPreludeNoticePrompt from "../prompts/system/eval-prelude-notice.md" with { type: "text" };
+ import sessionAgentNoticePrompt from "../prompts/system/session-agent-notice.md" with { type: "text" };
+@@ -48,6 +49,7 @@ import { buildToolNamespacesInfo, resolveCodeMode, type ToolNamespacesInfo } fro
+ import { toolReadsSkillUris } from "../system-prompt";
+ 
+ import type { CustomMessage } from "./messages";
++import type { SessionEntry } from "./session-entries";
+ import type { SessionManager } from "./session-manager";
+ 
+ import { cfgDisabledExtensions, cfgSkills, type SkillsSettings } from "../extensibility/settings";
+@@ -224,6 +226,65 @@ const XDEV_MOUNT_NOTICE_MESSAGE_TYPE = "xdev-mount-notice";
+ const EVAL_PRELUDE_NOTICE_MESSAGE_TYPE = "eval-prelude-notice";
+ const SESSION_AGENT_NOTICE_MESSAGE_TYPE = "session-agent-notice";
+ 
++/**
++ * Journal entry holding the model-agent list a base rebuild last published (see
++ * {@link PromptSurface.sessionAgents}). It is never converted into a provider message: it
++ * exists so a fresh process seeds the same task description the live session ended with,
++ * instead of rebuilding that description from an empty surface and forking the cached
++ * tools prefix away from what the provider already holds.
++ */
++const ADVERTISED_SESSION_AGENTS_ENTRY_TYPE = "advertised_session_agents";
++
++/** Rendered fields of one advertised model agent, persisted for a later resume. */
++interface PersistedSessionAgent {
++	name: string;
++	description: string;
++	tools?: string[];
++	blocking?: boolean;
++	model?: string[];
++}
++
++/** Stable identity of a persisted surface, used to skip redundant journal writes. */
++function advertisedSessionAgentSignature(agents: readonly PersistedSessionAgent[]): string {
++	return JSON.stringify(
++		agents.map(agent => [
++			agent.name,
++			agent.description,
++			agent.tools ?? null,
++			agent.blocking ?? null,
++			agent.model ?? null,
++		]),
++	);
++}
++
++/**
++ * Model agents the branch last published; the newest entry wins. Malformed payloads are
++ * skipped rather than trusted, so a damaged entry degrades to the live surface.
++ */
++function readAdvertisedSessionAgents(entries: readonly SessionEntry[]): PersistedSessionAgent[] {
++	let latest: PersistedSessionAgent[] = [];
++	for (const entry of entries) {
++		if (entry.type !== "custom" || entry.customType !== ADVERTISED_SESSION_AGENTS_ENTRY_TYPE || !isRecord(entry.data)) {
++			continue;
++		}
++		const agents = entry.data.agents;
++		if (!Array.isArray(agents)) continue;
++		const parsed: PersistedSessionAgent[] = [];
++		for (const agent of agents) {
++			if (!isRecord(agent) || typeof agent.name !== "string" || typeof agent.description !== "string") continue;
++			parsed.push({
++				name: agent.name,
++				description: agent.description,
++				tools: Array.isArray(agent.tools) ? agent.tools.filter((tool): tool is string => typeof tool === "string") : undefined,
++				blocking: agent.blocking === true ? true : undefined,
++				model: Array.isArray(agent.model) ? agent.model.filter((name): name is string => typeof name === "string") : undefined,
++			});
++		}
++		latest = parsed;
++	}
++	return latest;
++}
++
+ /**
+  * Structured payload persisted on each {@link XDEV_MOUNT_NOTICE_MESSAGE_TYPE}
+  * custom message. Lets a resumed session reconstruct which dynamic devices the
+@@ -402,6 +463,8 @@ export class SessionTools {
+ 	 * prefix without the intended prompt refresh. The refresh lifecycle updates it.
+ 	 */
+ 	#promptSurface: PromptSurface;
++	/** Identity of the last model-agent list written to {@link ADVERTISED_SESSION_AGENTS_ENTRY_TYPE}. */
++	#advertisedSessionAgentSignature = "[]";
+ 	#acpPermissionDecisions = new Map<string, "allow_always" | "reject_always">();
+ 
+ 	constructor(host: SessionToolsHost, options: SessionToolsOptions) {
+@@ -443,7 +506,7 @@ export class SessionTools {
+ 		this.#skillWarnings = options.skillWarnings ?? [];
+ 		this.#skillsSettings = options.skillsSettings;
+ 		this.#skillsReloadable = options.skillsReloadable ?? true;
+-		this.#promptSurface = this.#derivePromptSurface();
++		this.#promptSurface = this.#restorePromptSurface();
+ 		// Seed from the construction slate (top-level tools plus xd:// mounts).
+ 		// Left empty, getEnabledToolNames() falls back to live agent.state.tools,
+ 		// so an early reconcile (think/Code Mode after the startup model
+@@ -556,6 +619,62 @@ export class SessionTools {
+ 			sessionAgents: this.#host.sessionAgents(),
+ 		};
+ 	}
++
++	/**
++	 * Construction-time surface. Tagging a model only reaches the task description at a base
++	 * rebuild, so the list a rebuild advertised is what the live session was rendering when it
++	 * exited; a fresh-process resume rebuilds that same description from the durable entry.
++	 * Without it the resumed process starts from an empty list and hands the provider a
++	 * different tools block than the one it cached. Live agents stay the fallback when nothing
++	 * was ever published.
++	 */
++	#restorePromptSurface(): PromptSurface {
++		const derived = this.#derivePromptSurface();
++		const persisted = readAdvertisedSessionAgents(this.#host.sessionManager.getBranch());
++		if (persisted.length === 0) return derived;
++		this.#advertisedSessionAgentSignature = advertisedSessionAgentSignature(persisted);
++		const task = getBundledAgent("task");
++		if (!task) return derived;
++		return {
++			...derived,
++			// Rebuilt through the bundled task agent, mirroring the pseudonym definitions the
++			// session registry derives from it, so the rendered description matches byte for byte.
++			sessionAgents: persisted.map(agent => ({
++				...task,
++				name: agent.name,
++				description: agent.description,
++				tools: agent.tools,
++				blocking: agent.blocking,
++				model: agent.model,
++				filePath: undefined,
++			})),
++		};
++	}
++
++	/** Publishes a rebuilt surface and records the model-agent list it advertises. */
++	#publishPromptSurface(surface: PromptSurface): void {
++		this.#promptSurface = surface;
++		this.#persistAdvertisedSessionAgents(surface.sessionAgents);
++	}
++
++	/**
++	 * Records the published model-agent list on the branch whenever it changes. The write is a
++	 * non-model-facing custom entry, so provider-visible bytes stay untouched.
++	 */
++	#persistAdvertisedSessionAgents(agents: readonly AgentDefinition[]): void {
++		const payload: PersistedSessionAgent[] = agents.map(agent => ({
++			name: agent.name,
++			description: agent.description,
++			tools: agent.tools,
++			blocking: agent.blocking === true ? true : undefined,
++			model: agent.model,
++		}));
++		const signature = advertisedSessionAgentSignature(payload);
++		if (signature === this.#advertisedSessionAgentSignature) return;
++		this.#advertisedSessionAgentSignature = signature;
++		this.#host.sessionManager.appendCustomEntry(ADVERTISED_SESSION_AGENTS_ENTRY_TYPE, { agents: payload });
++	}
++
+ 	/** Drops cached per-session ACP `allow_always`/`reject_always` decisions. */
+ 	clearAcpPermissionDecisions(): void {
+ 		this.#acpPermissionDecisions.clear();
+@@ -1318,7 +1437,7 @@ export class SessionTools {
+ 				this.#pendingToolRosterDeltaAfterBase = undefined;
+ 				// Publish the exact surface the prompt rendered with — never
+ 				// re-derive from live settings, which could diverge mid-flight.
+-				this.#promptSurface = candidateSurface ?? this.#promptSurface;
++				if (candidateSurface) this.#publishPromptSurface(candidateSurface);
+ 			} else if (frozenSignature) {
+ 				this.#notifyToolRosterDelta(previousActiveToolNames, appliedNames);
+ 				this.#lastAppliedToolSignature = frozenSignature;
+@@ -2006,7 +2125,7 @@ export class SessionTools {
+ 				this.#baseSystemPrompt = promotionTail
+ 					? [...built.systemPrompt, promotionTail]
+ 					: built.systemPrompt;
+-				this.#promptSurface = candidate;
++				this.#publishPromptSurface(candidate);
+ 				this.#setBasePromptXdevNames(built.xdevCatalogNames);
+ 				this.#host.clearMemoryPromotionSnapshot();
+ 				if (
+--- a/pi-coding-agent/src/session/turn-recovery.ts
++++ b/pi-coding-agent/src/session/turn-recovery.ts
+@@ -11,6 +11,7 @@ import type {
+ 	AssistantRetryRecoveryKind,
+ 	CodexCompactionContext,
+ 	Effort,
++	Message,
+ 	Model,
+ 	ModelUsageHealth,
+ 	TextContent,
+@@ -599,20 +600,12 @@ export class TurnRecovery {
+ 			model: message.model,
+ 			provider: message.provider,
+ 		});
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [
+-				{
+-					type: "text",
+-					text: prompt.render(malformedFunctionCallRetryTemplate, {
+-						retryCount: this.#malformedFunctionCallRetryCount,
+-						maxRetries: MALFORMED_FUNCTION_CALL_MAX_RETRIES,
+-					}),
+-				},
+-			],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(
++			prompt.render(malformedFunctionCallRetryTemplate, {
++				retryCount: this.#malformedFunctionCallRetryCount,
++				maxRetries: MALFORMED_FUNCTION_CALL_MAX_RETRIES,
++			}),
++		);
+ 		this.#host.scheduleAgentContinue({
+ 			source: "malformed-function-call-retry",
+ 			generation: this.#host.promptGeneration(),
+@@ -670,20 +663,12 @@ export class TurnRecovery {
+ 			provider: message.provider,
+ 			errorMessage: message.errorMessage,
+ 		});
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [
+-				{
+-					type: "text",
+-					text: prompt.render(streamStallContinueTemplate, {
+-						retryCount: this.#streamStallContinueCount,
+-						maxRetries: STREAM_STALL_CONTINUE_MAX_RETRIES,
+-					}),
+-				},
+-			],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(
++			prompt.render(streamStallContinueTemplate, {
++				retryCount: this.#streamStallContinueCount,
++				maxRetries: STREAM_STALL_CONTINUE_MAX_RETRIES,
++			}),
++		);
+ 		this.#host.scheduleAgentContinue({
+ 			source: "stream-stall-continue",
+ 			generation: this.#host.promptGeneration(),
+@@ -1019,12 +1004,7 @@ export class TurnRecovery {
+ 		// in-memory-only reparent lets the empty stop resurface on reload or after
+ 		// a mid-retry process kill.
+ 		await this.#dropAssistantTurnDurably(assistantMessage);
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [{ type: "text", text: this.#emptyStopRetryReminder() }],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(this.#emptyStopRetryReminder());
+ 		this.#host.scheduleAgentContinue({
+ 			source: "empty-stop-retry",
+ 			generation: this.#host.promptGeneration(),
+@@ -1105,12 +1085,7 @@ export class TurnRecovery {
+ 			return false;
+ 		}
+ 
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [{ type: "text", text: this.#unexpectedStopRetryReminder() }],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(this.#unexpectedStopRetryReminder());
+ 		this.#host.scheduleAgentContinue({
+ 			source: "unexpected-stop-retry",
+ 			generation: this.#host.promptGeneration(),
+@@ -2918,6 +2893,26 @@ export class TurnRecovery {
+ 		this.resolveRetry();
+ 	}
+ 
++	/**
++	 * Append a retry reminder to the live context AND the session file, as the
++	 * plan-mode reminder does. Kept in memory only, a rebuild from disk (resume,
++	 * in-process context rebuild) drops it, so the next request forks the
++	 * provider's cached prefix at the reminder's index and re-writes the rest.
++	 * The 18.4.1 committed-text stall continuation ({@link
++	 * handleCommittedTextStreamStall}) appends its reminder the same way so the
++	 * resumed request keeps the partial turn and the reminder that identifies it.
++	 */
++	#appendRetryReminder(text: string): void {
++		const reminder: Message = {
++			role: "developer",
++			content: [{ type: "text", text }],
++			attribution: "agent",
++			timestamp: Date.now(),
++		};
++		this.#host.agent.appendMessage(reminder);
++		this.#host.sessionManager.appendMessage(reminder);
++	}
++
+ 	/**
+ 	 * Inject a hidden redirect notice when a thinking/response loop is being retried, so
+ 	 * the retried turn carries an instruction to break the repeated pattern instead of

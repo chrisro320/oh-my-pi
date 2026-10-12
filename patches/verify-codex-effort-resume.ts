@@ -22,12 +22,10 @@ import type {
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
-// 0069 exists only in the 18.1.18, 18.2.3 and 18.2.10 plans. Fail closed on any
-// other tree rather than running the behavioral assertions against a pi-ai that
-// never carried the patch.
+// Admit only plans that retain durable effort history; unknown trees fail closed.
 const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version as string;
 assert.ok(
-	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(aiVersion),
+	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion),
 	`unsupported Codex effort resume gate version: ${aiVersion}`,
 );
 const { streamOpenAICodexResponses, buildTransformedCodexRequestBody } = await import(
@@ -37,6 +35,13 @@ const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const bundled = getBundledModel("openai-codex", "gpt-6-astra");
 assert.ok(bundled?.compat.supportsConfigurationUpdate, "fixture needs a configuration_update model");
 const model = { ...bundled, baseUrl: "http://127.0.0.1:1/codex-effort-gate" };
+const initialEffort = ["18.10.0", "18.10.1"].includes(aiVersion) ? "low" : "high";
+const originalFetch = globalThis.fetch;
+let uninjectedFetches = 0;
+globalThis.fetch = (async () => {
+	uninjectedFetches++;
+	throw new Error("Uninjected HTTP transport is forbidden in the effort gate");
+}) as typeof fetch;
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const user = (text: string) => ({
 	role: "user" as const,
@@ -132,11 +137,15 @@ function prefix(body: RequestBody) {
 
 try {
 	const first = [user("first")];
-	const a = await turn(first, "high");
-	assert.equal(wire.reasoning.effort, "high");
+	const a = await turn(first, initialEffort);
+	assert.equal(wire.reasoning.effort, initialEffort);
+	if (["18.10.0", "18.10.1"].includes(aiVersion)) {
+		assert.ok(a.providerPayload?.type === "openaiResponsesHistory");
+		assert.equal(a.providerPayload.effortControl?.sessionId, "effort-resume-fixture", "the target planner must persist its required session identity");
+	}
 	const branchA = [...first, a, user("second")];
 	const b = await turn(branchA, "xhigh");
-	assert.equal(wire.reasoning.effort, "high", "effort switch must keep the original top-level baseline");
+	assert.equal(wire.reasoning.effort, initialEffort, "effort switch must keep the original top-level baseline");
 	assert.deepEqual(updates(wire), [{ type: "configuration_update", reasoning: { effort: "xhigh" } }]);
 	const switchIndex = wire.input.findIndex((item) => item.type === "configuration_update");
 	const persistedB = JSON.stringify(b);
@@ -151,7 +160,7 @@ try {
 	);
 	assert.equal(
 		resumed.reasoning.effort,
-		"high",
+		initialEffort,
 		"resume must restore the first request's effort, not the current UI effort",
 	);
 	assert.equal(
@@ -164,7 +173,7 @@ try {
 	const failed: AssistantMessage = { ...copy(b), content: [], stopReason: "error" };
 	delete failed.providerPayload;
 	const retried = await buildTransformedCodexRequestBody(model, context([...next, failed]), options("xhigh"));
-	assert.equal(retried.reasoning.effort, "high", "failed responses must not hide the last successful effort snapshot");
+	assert.equal(retried.reasoning.effort, initialEffort, "failed responses must not hide the last successful effort snapshot");
 	assert.deepEqual(updates(retried), updates(resumed));
 
 	const c = await turn(next, "low");
@@ -239,9 +248,11 @@ try {
 	const plain = await buildTransformedCodexRequestBody(unsupported, context(next), options("xhigh"));
 	assert.equal(plain.reasoning.effort, "xhigh");
 	assert.deepEqual(updates(plain), [], "unsupported models must not emit configuration_update");
+	assert.equal(uninjectedFetches, 0, "every effort request must use the explicit offline sink");
 	console.log(
 		"PASS Codex effort: transport persistence, JSONL resume, branch isolation, immutable history, rewrite/compaction reset, legacy/provider/model boundaries",
 	);
 } finally {
+	globalThis.fetch = originalFetch;
 	closeStates();
 }

@@ -62,7 +62,7 @@ export type TranslatorInFlightDecision = "cancel" | "send-original";
 const RECORD_VERSION = 1;
 
 /** Default translator model: the exact catalog id, resolved natively. */
-const DEFAULT_MODEL_SPEC = "cline-pass/deepseek-v4.1-flash";
+const DEFAULT_MODEL_SPEC = "deepseek/deepseek-flash";
 
 /** A fresh session starts translating; `/translator off` is session-local. */
 const DEFAULT_ENABLED = true;

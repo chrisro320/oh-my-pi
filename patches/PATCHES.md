@@ -5,7 +5,21 @@
 > 讀任何數字前先確認它屬於哪個口徑——見 §1。
 > Current maintenance policy: one active revision per functional family; immutable history does **not** require a new active tail for a repair. The authoritative executable contract is [Patch Rollup Contracts](../.trellis/spec/backend/patch-rollup-contracts.md). Dated entries below preserve historical implementations and counts; their old tail/supersede practices are not current instructions.
 
-## 倉庫計畫與部署紀錄（2026-10-09）
+## 18.10.1 verified release and installation boundary
+
+- Official target: `18.10.1`, commit `5d0aaffaf1f987503ce129a642fb6e30339615af`; official `latest` rechecked during final preparation.
+- `.18.10.1-families/plan.tsv`:23 physical families,58 retained capabilities,160 owned source/declaration paths.0017 is proven upstream-owned;0097 is excluded. Full zero-fuzz replay, reverse-to-pristine and identical second replay passed.
+- Repairs cover durable OAuth exchange ambiguity/result recovery, broker authority, model/effort/fork/transfer persistence, Anthropic credit-aware retries/thinking provenance/breakpoints, Codex remote replay refusal, request-only cache diagnostics and latest native dialog cancellation/actions.
+- Verification is bounded: all48 selected18.10.0 gates passed;18.10.1 reruns cover affected consumers plus the new13-case native lifecycle gate. Unchanged source evidence and exact command results are in `.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/`.
+- Installation uses `publish-release.py` and a permanent independent dependency closure. `release.json` is authoritative for `code_installation`, `production_activation` and `current_session_upgrade`; a candidate or migration cache alone is not installed.
+- The public launcher is an admission wrapper, not the old direct global symlink. It blocks normal new-process startup while old owners survive; exact `--version`/`--help` do not import OMP. Installed source smoke uses private HOME/XDG only.
+- The installed ledger binds to its physical runtime via `.runtime-root`; its controller is read-only. Do not run `bun add -g`, `apply.sh` or `--revert` to update this immutable release. Follow the current [deployment procedure](DEPLOYMENT-RUNBOOK.md#current-18101-immutable-installation).
+- No production credentials/session DB are inspected, copied, refreshed or restored by this deployment. No claim of live provider cache hits is made.
+- User-requested cleanup removes pre18.4.4 active plan support, the copied cache-baseline simulation, non-asserting frame-budget diagnostic and source-only spec gate; ten duplicate image-budget assertions and Ollama source-spelling assertions are removed. Historical result captures are retained, not rerun.
+- Post-release queue hotfix: `family-input-translation` now restores live-steered drafts through Alt+Up and separates queue policy from the continuation's own busy reservation. Actual `AgentSession.prompt` + live acceptance + empty-submit consumer smoke passes without network; no new permanent tests. Candidate tree: `028a49dab1de4d7df48044c36c94c0acb911f6d463a3e15b2f543e6b2810c655`.
+- Inline image repair belongs to Orca's Kitty addon, not an OMP retransmit workaround: `orca-update-patch` trigger1.9.6 preserves source data for lowercase placement deletion and honors `p`. The installed renderer requires a full Orca restart; credentials and polling protection are unchanged.
+
+## Historical repository plan and deployment record (2026-10-09)
 
 | 項目 | 值 |
 |---|---|
@@ -21,9 +35,8 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 
 ## 0. 运行模式
 
-**当前 omp 跑的是源码版**：`~/.bun/bin/omp -> node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts`（bun 直跑 src）。
-`bun update` / 重装后：bin 链接与 src 修改全部失效，`~/.omp/patches/apply.sh` 一键重套。
-`dist/cli.js` 保持 npm stock（从未修改，`--revert` 只切 symlink）。
+**Historical direct-global mode (before immutable18.10.1 installation):** `~/.bun/bin/omp` pointed directly to `node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts`.
+The `bun update` / reapply / `--revert` instructions below describe retained historical plans, not the current immutable installation. Stock `dist/cli.js` remains untouched; source entrypoints are still executed directly by Bun after admission.
 
 ## 1. 補丁鏈與口徑
 
@@ -40,6 +53,7 @@ extension／工具 → §4；升級注意事項 → §5；跑驗證 → §6。
 | 18.4.1 計畫 | 保留 18.3.3 的 48 項能力，全部為同編號 `.18.4.1-candidates/`；17 層需適配（0066／0067／0068 在 0035 移植後以原位元組直接落層），審查後另修 0043／0074／0077／0079／0080；鏈尾新增 0083（`^` 標記模型的 resume 前綴修復）、0084（length-stop 重試提醒持久化） | **50** |
 | 18.4.4 計畫（rollback） | 原 50 項能力加 0085、0088、0089、0090、0092；0086／0087 已退役併入 0088。全部 finalized candidates 維持原 bytes。 | **55** |
 | 18.7.0 family 計畫 | `.18.7.0-families/plan.tsv` 提供10家族＋14獨立 entries；`OMP_PATCH_PLAN=repository` 額外包含未部署0097。省略上游已接管的0045，保留0062 previous-archive credit。 | **24 base / 25 repository / 58 live** |
+| 18.10.0 /18.10.1 family plans |23 physical entries retain58 capabilities;0017 upstream adoption;0090 spans `NM`, and18.10.1 also promotes0048 to `NM` for native advisor closure.0097 remains excluded. | **23 /58 capabilities** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -80,6 +94,8 @@ bash patches/verify-patch-family-rollups.sh --version 18.7.0
 The registry owns exact order and roots; this table documents ownership, not a second executable plan. Input-translation precedes compaction because0088 changes the `allowTruncation === false` line introduced by0082. The fourteen independent patch bytes remain identical to their archived originals.
 
 Repair an existing family by archiving its current revision and replacing its net diff, not by appending a numeric tail. Preserve capability gates and historical hashes. Original18.7.0 candidates now live under `.retired/10-09-18.7.0-pre-family/.18.7.0-candidates/`; only0097 remains in the root candidate directory. Earlier-version plans and files are unchanged.
+
+2026-10-10 model-resume repair (repository only): `navigateTree` keeps the live model/thinking but previously dropped their ancestry when moving behind a model switch. The persistent-prefix-resume family now records the retained selection on the destination, preserving routing, role and fallback attribution. Prior family bytes and the explicit repair delta are pinned in `.retired/10-10-18.7.0-model-selection-resume/baseline.json`. One real-SDK regression, `verify-model-selection-resume.ts`, fails before the repair (`astra` instead of `sol`) and passes after it (`sol`, effort `high`) across fresh processes. No live deployment or broad test suite was performed.
 
 Evidence and limits: `.trellis/tasks/10-09-omp-1870-family-consolidation/research/`. Selected oracle passed OLD58/NEW24 and OLD59/NEW25 complete-tree equality, both zero-fuzz round-trips, all24 owned-delta/reverse checks, ten fail-closed cases, omission/mutation negatives, and eight-version gate parity. Independent control/proof reviews passed after corrections. Repository verification is not authorization to deploy; live58 remains untouched until a separately approved transaction.
 
@@ -130,6 +146,7 @@ Evidence and limits: `.trellis/tasks/10-09-omp-1870-family-consolidation/researc
 - tree navigation 在第一個 `await` 前就設 gate，涵蓋 pending bash、before hook、可選 branch summary 到提交/取消；dispose 同步取消 guarded request；compaction 由既有 `isCompacting` gate 阻擋
 - 原本的 `runEphemeralTurn()` 不改，`/btw`、`/omfg` 仍可並行；外部 extension authoring 型別同步更新
 - **18.0.9 适配（2026-08-28，cc8a580 修订）**：上游 #9992 重写 `#scheduleAgentContinue`（`#runAgentContinue` + `#activeAgentContinue` 合并调度，`#endInFlight()` 不再带 epoch 参数、调用点不接返回值）。补丁两个 hunk 重锚到新结构：`#beginInFlight()` 返回值接住后，**先 publish `ActiveAgentContinue`（promise 包装 settle + abort/disposed guard + `#runAgentContinue` + catch→failed），再 await**——publish-before-await 保证等待窗口内到达的后续 continue 走 coalesce 分支而非并发 dispatch，且 settle 窗口的 skip 也经 `#handleAgentContinueOutcome` 走 finally 平衡 epoch（review 发现的 in-flight 泄漏与双发竞态均由此关闭）。finally 里 `#endInFlight(inFlight.epoch)` 锚定 `usagePreflightReady + #endInFlight()` 两行（该组合在文件内缩进唯一，6168 行同款是 3-tab 不冲突）。验证：idle-ephemeral / keepalive / cache-prefix-audit 三套 PASS，0010 双向 dry-run 13/13。
+- **18.10.1 简化（2026-10-12）**：删除 attempt promise 内 settle 之后的 `signal.aborted`/`#isDisposed`/stale-generation 检查。`#runAgentContinue` 入口在第一个 `await` 之前用 `isCurrent()`（另含 `#abortInProgress`）回传同样的 skip reason，所以 settle 窗口的 skip 仍经 `#handleAgentContinueOutcome` 平衡 epoch。验证：`verify-idle-ephemeral-reservation.ts` 删除前后都 PASS；settle 窗口 abort/newSession 的 provider 调用数删除前后相同；18.10.1 zero-fuzz replay/reverse/second replay PASS。尚未发布新 release。
 
 ### 0011 — statusline daily 配額（已撤下，2026-08-28 由上游 v18.0.9 原生接管）
 - 上游 PR #10000 在 `status-line/{types,component,segments}.ts` 原生实现 daily 配额（`1d <pct>%` 标签、`resetMinutes` 倒数、Antigravity daily usage provider + 按模型后端 counter scope）。补丁已移入 `patches/.retired/`。
@@ -241,7 +258,7 @@ Evidence and limits: `.trellis/tasks/10-09-omp-1870-family-consolidation/researc
     1. `FRAME_DATA_BYTES_PER_SHAPE`：17 个 shape variant 的实测满页字节上界表（混合 transcript 实测 ×~1.15 余量；silver 另覆盖 758KB 故障会话实测）；`maxFramesForDataBudget(bytes, shape?)` 按几何字段（font/cell/variant/frameSize/stopwordDim/lineRepeat/columns）匹配查表，不传 shape 保持 170KB 旧行为。silver 17→3 帧，一次渲染即达标。
     2. `shedFramesOverBudget()`：`compact()` 渲染后按**实际字节**从最老帧丢弃直到 ≤3MB（与 `MAX_FRAMES_DEFAULT` 超限丢最老同一策略）；无法 shed（单帧超预算）返回原数组交调用方 fail。估算只负责规划，密集内容（JSON 页比散文重数倍）由实际字节兜底。
     3. `#computeSnapcompactMaxFrames` 把已解析的 shape 传入查表。
-  - **验证**（`bun patches/verify-snapcompact-frame-budget.ts <故障会话>`；脚本内 import 必须用绝对路径——bun 独立脚本会把包名解析到 install cache 旧副本）：查表 silver=3 帧、8x13=120 帧；重放故障会话 17 帧渲染后被 shed 到 5 帧，`TOTAL: 2.45 MB ≤ 3.0 MB`，压缩成功。
+  - **Historical observation:** the former frame-budget diagnostic reported2.45MB for the incident transcript. It had no bound assertion and was removed; current frame pricing/reduction consumers supply acceptance.
   - **效果**：中文长会话手动/自动压缩不再失败；silver 会话归档帧从「17 帧必失败」变为 3 帧成功（历史保真度受 3MB 预算物理限制，textHead/textTail 文本边不受影响）；英文小字形会话行为不变。
   - **边界（未修，有意）**：`session-maintenance.ts` 2690 行附近还有第二处 rescue 路径的 `maxFramesForDataBudget()` 调用（"shrink a huge archive" 块），未改传 shape——`compact()` 内的 `shedFramesOverBudget` 已按实际字节兜底，该路径不会再造成 3MB 失败，只是白渲染旧上限的帧数（约 1s），属性能/一致性补全，留给上游。
 
@@ -813,7 +830,10 @@ Evidence and limits: `.trellis/tasks/10-09-omp-1870-family-consolidation/researc
 ### 0082 — 普通輸入自動英譯，介面保留原文（僅 18.3.3）
 
 - 核心補丁：`.18.3.3-candidates/0082-omp-user-display-text-v18.3.3-candidate.patch`（`${NM}`）。同一條使用者訊息的 `content` 供模型使用，`displayText` 供介面、歷史與草稿還原；舊訊息不遷移。普通 Enter／Ctrl+Enter 等待 `prepare_user_input`，原生命令及自動生成的提示不經翻譯。
-- 配套插件：`input-translator-extension.ts`，部署至 `~/.omp/agent/extensions/`。預設開啟，使用原生憑證與 `cline-pass/deepseek-v4.1-flash`、low、無工具；保留會話自己的翻譯歷史，長上下文使用原生 soft，不壓縮主會話。
+- 配套插件：`input-translator-extension.ts`，部署至 `~/.omp/agent/extensions/`。預設開啟，使用原生憑證與 `deepseek/deepseek-flash`（`api: openai-completions`、官方 `https://api.deepseek.com/v1`）、low、無工具；保留會話自己的翻譯歷史，長上下文使用原生 soft，不壓縮主會話。2026-10-07 依使用者要求由 Cline 切換；key 僅存本機私有設定，不進 repo。原生請求為 `POST /v1/chat/completions`；初次連線失敗定位為 Mihomo DNS timeout。經使用者授權，於本機 `clashctl` 的 `mixin.yaml`／`runtime.yaml` 為 `api.deepseek.com` 精確新增 AliDNS／DNSPod DoH policy，保留全域 DNS 與 `DIRECT`。設定熱重載回傳 HTTP 204，PID 與 46 個 selector 選擇不變；原生 CLI 使用同一模型及 low 完成實際英譯請求（33.74 秒），本次未重驗 TUI 翻譯介面。
+- **2026-10-07 DNS 遷移回滾**：首次經授權移除中國 DNS 的嘗試，將 bootstrap／節點解析器也換為 Cloudflare／Quad9 DoH，因直連 bootstrap 不通造成代理聯網中斷；經代理的 DoH 探測不能證明 bootstrap 可用。當時已回滾至前一條記錄的可用設定，兩份設定與遷移前備份逐位元組相同，熱重載 HTTP 204、PID 與 46 個 selector 不變；Google 回傳 204、未帶憑證的 DeepSeek 根端點回傳 401。該次全加密 bootstrap 方案未部署，最終方案見下一條。
+- **2026-10-07 非中國 DNS 試行（已回退）**：使用者接受僅 bootstrap 保留非中國明文 DNS。當時 `default-nameserver`／`proxy-server-nameserver` 改為 Google UDP `8.8.8.8`／`8.8.4.4`；一般 `nameserver` 與精確 `api.deepseek.com` policy 使用 Cloudflare `https://1.0.0.1/dns-query`／Quad9 `https://9.9.9.9/dns-query`。隔離與即時連線檢查曾通過：Google 204、DeepSeek 根端點 401，原生 `completeSimple` 請求 HTTP 200、1,438 ms；但不能據此保證持續穩定。使用者後續回報網路特別不穩定，因此已撤回此方案，現行設定見下一條。試行前備份：`/home/chris/clashctl/resources/backups/non-cn-dns-udp-2026-10-07T10-47-31-111Z/`。
+- **2026-10-07 16:39 UTC 穩定性回退（現行）**：僅恢復上述四個 DNS 欄位，保留試行後使用者新增的其他設定。一般 DNS 恢復 `114.114.114.114`／`8.8.8.8`，bootstrap 恢復 `223.5.5.5`／`119.29.29.29`，代理節點解析另保留原有 `1.1.1.1`／`8.8.8.8`；`api.deepseek.com` 恢復精確 AliDNS／DNSPod DoH policy，API 路由維持 `DIRECT`。熱重載 HTTP 204，PID 與 46 個 selector 不變；回退後 Google 204、未帶憑證的 DeepSeek 根端點 401。未探測 Anthropic，未改憑證；此為即時連線證據，不宣稱長期穩定性已驗證。回退前狀態另備份至 `/home/chris/clashctl/resources/backups/stability-rollback-2026-10-07T16-39-01-096Z/`。
 - 指令：`/translator` 查看狀態；`/translator off`／`on` 控制本會話；`/translator model <provider/id>` 切換獨立翻譯模型。失敗時 Escape 重試，Enter 僅本次送原文，不靜默降級。
 - 實際驗證：真實 CLI／供應商完成中文輸入、原文顯示、英文送達、失敗按鍵及新程序 resume；受控合成歷史觸發兩次真實 soft，保留前次摘要，沒有主會話 compaction 或額外 payload dump。47 層既有 pristine 基線追加 0082，以零 fuzz 套用並逐檔比對。
 - 按使用者要求不新增測試檔、門禁或 review 輪次。完整退出並重新啟動 OMP 才會載入；`/resume` 不能熱載入新源碼。
@@ -837,11 +857,11 @@ Evidence and limits: `.trellis/tasks/10-09-omp-1870-family-consolidation/researc
 
 ### 0085 — 被拒絕的已準備提交與準備取消時的還原（僅 18.4.4）
 
+Historical representation note: the following 18.4.4 tail placement and layer counts describe the original repair checkpoint. In the 18.7.0 family plan, this capability belongs to input-translation; future repairs revise that family.
+
 - 補丁：`.18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch`（`${AGENT}`，`src/main.ts`、`src/modes/controllers/input-controller.ts`、`src/slash-commands/helpers/draft.ts`，加上兩個 shipped declaration hunk：`dist/types/main.d.ts`、`dist/types/slash-commands/helpers/draft.d.ts`）。0082 已部署、定稿層不可變，故此修復以 0082 之後的新尾層落層，18.4.4 計畫為 52 層（0085 落層時為 51 層，live 目前 50）。
 - 問題：0082 的審查留下兩個缺口。#2：已準備（`prepared`）的提交經 `onInputCallback` 走到 `submitInteractiveInput`，`session.prompt` 被拒絕時只顯示錯誤，操作者的原文與附件早已離開編輯器，因此遺失。#4：取消 Ctrl+Enter 的準備時，還原邏輯只檢查文字與 revision；準備期間貼入圖片不改變兩者，圖片清單會被還原的舊附件整個覆蓋。兩者在 18.4.1 的 0082 上就存在，不是遷移迴歸。
 - 修法（最終形態）：`draft.ts` 新增 `restoreRejectedDraft` / `retainRejectedDraft` 與守衛 `editorHoldsNewerDraft`。**每條拒絕路徑只有一個 owner，且由明確信號決定**：session 的 prompt-dropped callback（`interactive-mode.ts` 的 `#restoreDroppedPrompt`）會先把草稿寫回編輯器再 rethrow，該情境拋的是 `AgentStartPolicyChangedError`；此類別未匯出，故 `main.ts` 以類別自帶的 `error.name === "AgentStartPolicyChangedError"` 辨識（duck typing），命中時才跳過自身還原——不是靠內容相等、也不是靠 transcript 長度。**其餘任何 throw 都還原**：這是刻意的寬規則，殘餘已接受——聚合的 transcript 狀態分不出「派送前拒絕」與「回合已收下訊息後的罕見失敗」，故罕見的入回合後失敗仍會把已送出文字當可還原草稿提回（寧可重複，不可遺失）。**還原永不覆蓋較新內容**：`editorHoldsNewerDraft` 把「文字 revision 變了、有文字、**或有非本草稿自帶的待送圖片**」任一視為較新，此時只把被拒絕的輸入放進 `deferredDraftSnapshots`（原文供顯示、模型文字為 canonical）並提示；附件新舊由模組私有的 `isDraftOwnedImage(draft, image)` 判定：編輯器待送圖片是**同一個物件**，或與某張捕獲圖片**同 bytes 與 mimeType**，都算草稿自己的（`editor.pendingImages.some(image => !isDraftOwnedImage(draft, image))`），不是任何非空清單都算較新——一般 Enter 在被 admission 前附件仍留在編輯器，準備期間貼入的圖才是較新草稿。採值相等是因為受支援的 `input` handler 會回傳**重建但等值**的替換物件（`event.images.map(image => ({ ...image }))`），單靠參照會把它誤判成較新草稿。殘餘（已接受）：與捕獲圖片同 bytes、同 mime 的**重新貼上**圖片會被當成草稿自己的。`input-controller.ts` 的私有還原改為委派給它（取代原本的 `#retainRejectedSubmission`）。未準備的提交行為不變。
-Historical representation note: the following 18.4.4 tail placement and layer counts describe the original repair checkpoint. In the 18.7.0 family plan, this capability belongs to input-translation; future repairs revise that family.
-
 - 閘門：`verify-rejected-prepared-draft-restore.ts`（依計畫含 0085 執行），共 **10 條腿**。以小型替身驅動**真實** `submitInteractiveInput`（legs 1-6：被拒還原、較新草稿保留、成功不還原、session 自持的 `AgentStartPolicyChangedError`、同文字的獨立拒絕、派送前 transcript 增長）與**真實** `InputController.setupEditorSubmitHandler` 的取消路徑（legs 7-8：一般 Enter 自帶附件仍在待送時文字直接回編輯器；準備期間貼圖則存活；leg 9：已註冊的 `input` handler 回傳**重建但等值**的替換圖片物件——受支援的 `event.images.map(image => ({ ...image }))` 轉換——在沒有較新文字或貼圖時仍直接回文字），另有共用 helper 控制組（leg 10）。敏感性（負向對照）：沒有 0085 的 18.4.4 樹上 leg 1 就紅（編輯器仍為空）；第二輪修正前的樹 legs 5、6、7 紅（同文字草稿被吞、transcript 增長反而抑制還原、取消的 Enter 拿不回文字）；拿掉所有權跳過則 leg 4 紅；拿掉 `editorHoldsNewerDraft` 的草稿圖片條件則 leg 8 紅（貼入的圖被擄回的舊附件覆蓋，leg 7 仍綠）；改回僅參照的所有權則 leg 9 紅（重建但等值的物件被誤判為較新草稿，legs 7、8 仍綠）。
 - Shipped declaration 與型別檢查：0085 補上 `dist/types/main.d.ts`、`dist/types/slash-commands/helpers/draft.d.ts` 兩個 hunk，使套件型別消費者看得到放寬的 runtime 契約與新匯出。本批沙盒樹沒有 in-tree typecheck（樹內無 `tsgo`，亦無 `tsconfig.json`），故宣告改以消費者探針證明：以 `tsc` 6.0.3（`/home/chris/.local/bin/tsc`）經 `package.json` 的 `types` 條件匯入 shipped `.d.ts`，對舊宣告為紅、修正後為綠，且移除 `@ts-expect-error` 的變體會逐一點名新契約要求的成員；另以 grep 逐欄對照原始碼。Bun 不做型別檢查，綠色行為閘門不等於型別證明。
 - 未涵蓋（accepted）：Ctrl+Enter／follow-up 入口（`#submitFollowUp` 及其自己的還原呼叫點）、經 dequeue 還原（`handleDequeue`）、composer 自己的 `[Image #N]` chip 繪製（替身的 `setCollapsedText` 只存純文字）。未動：`#restoreDroppedPrompt`（`interactive-mode.ts`）仍有同型的圖片覆蓋寫法，不在 Review #4 範圍。
@@ -921,9 +941,6 @@ Historical representation note: the following 18.4.4 tail placement and layer co
   - (e) 升級到 18.5.0 時衝突點預期在 `#idleStopReason`、`#schedule`、`#refresh`（上游已加 `onRefreshStart/End`）。
 - 生效條件：需**完整退出並重開 omp**；同時部署 `cron-extension.ts` → `~/.omp/agent/extensions/cron.ts`（先備份，`cmp` 對齊）。
 
-### 0091 — 已退役（併入 0092）
-
-- 原檔：`.retired/10-03-0091-rolled-into-0092/0091-omp-cache-warming-idle-budget-v18.4.4-candidate.patch`；sha256 `2875658a53fb631aa372dcfca8b8b3ef178dcc8246c0e48e2d1fa09e632cda8a`；7,358 B。2026-10-03 01:10 部署（55 層），缺陷為回合結束後設預算不會恢復保活。
 ### 0093 — 固定 system prompt 的模型識別，不混入動態 effort（18.7.0；family 表示尚未部署）
 
 - Active owner: `.18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch` (`NM`). Original0093 bytes: `.retired/10-09-18.7.0-pre-family/.18.7.0-candidates/0093-omp-prompt-model-identity-v18.7.0-candidate.patch`.
@@ -956,6 +973,9 @@ Historical representation note: the following 18.4.4 tail placement and layer co
 - **2026-10-09 同編號修正（使用者要求不新增補丁）**：`gpt-6.1-sol` 的 catalog standard window 為 272k、maximum 為 922k；`compact()` 卻把 standard window 當成 native request 的硬容量，在網路送出前拒絕 session `01a11a91` 的 281,553-token 估算，並可能截短 trailing tool output。Codex V2 現在保留完整輸入，由 provider 判定容量（含 cold recovery）；不改全域 window／壓縮觸發門檻，不改其他 OpenAI V2 lanes 的原有檢查。
 - **跨層驗收**：既有 gate 直接呼叫 `compact()`，用真實 provider transport＋loopback WebSocket 驗證超過 272k 的 cold user、cold tool output、live chain；全文保留、native summary 回傳、零 HTTP／soft fallback。Provider `context_length_exceeded` 仍原樣失敗，恰好一個 compaction frame。修前以 `estimated 300288 tokens > 272000` 失敗，修後四案及原握手／metadata／published-types gate 通過。此為本地 wire proof，不宣稱真實服務端接受或 cache hit。
 
+### 0091 — 已退役（併入 0092）
+
+- 原檔：`.retired/10-03-0091-rolled-into-0092/0091-omp-cache-warming-idle-budget-v18.4.4-candidate.patch`；sha256 `2875658a53fb631aa372dcfca8b8b3ef178dcc8246c0e48e2d1fa09e632cda8a`；7,358 B。2026-10-03 01:10 部署（55 層），缺陷為回合結束後設預算不會恢復保活。
 
 ## 3. 已撤下的補丁
 
@@ -1220,20 +1240,14 @@ Historical representation note: the following 18.4.4 tail placement and layer co
 
 - `patches/payload-dump-extension.ts`：prompt 缓存探测（`OMP_DUMP` / `OMP_DUMP_EXIT`）
 
-- `~/.omp/agent/extensions/cache-prefix-audit.ts`（鏡像 `patches/cache-prefix-audit-extension.ts`）：**prompt 快取 miss 歸因器**，常駐、純觀測、不改 payload
-  - 存在理由：0082 之後 resume miss 仍復發，因為每次都是事後推斷——miss 出現在 usage 時，它前面那個 live payload 早就沒了。「resume payload vs resume payload」永遠找不到斷點，真正的斷點在**退出前最後一次請求**與**resume 後第一次請求**之間，而這兩者位於不同進程。
-  - 做法：每次出站請求對 `system` 逐塊、`tools`、每條 message 算 sha 指紋並落盤；新進程啟動時讀回上一進程的指紋，於是 resume 後第一次請求直接與退出前最後一次逐段比對。判定分類：`APPEND_ONLY`（健康）／`SYSTEM_DRIFT`／`TOOLS_DRIFT`／`HISTORY_REWRITE`（真正的 bug 類，附 **ROLE FLIP** 標記）／`TRUNCATED`／`ENVELOPE_DRIFT`（快取前綴完好但信封欄位漂移，如 `metadata.user_id` 變更會被伺服器端分區——字節全同卻 `cacheRead=0` 的簽名）。另外任何判定都附帶僅診斷用的 `ttlShift` 註記：對斷點 TTL 做**位置無關**的去重集合比較（marker 索引隨尾部平移是合法的，實測 `[11:1h,12:1h]→[13:1h,14:1h]` 純 append 不報）；5m/1h 在 Anthropic 分屬兩個快取池，換池查詢即使內容全同也讀不到。`message_end` 取 usage，把 `cacheRead=0` 與當次 diff 配對成一句結論（`MISS CAUSED BY <KIND>` 或 `MISS (prefix intact | ttl …)`）。
-  - **多 Wire 格式與會話隔離支援（2026-08-26）**：
-    - **Google Antigravity / Gemini Wire 格式支援**：支援 `target.request.contents` / `systemInstruction` / `tools` 解析與 parts 物件正規化，徹底修復 Google 模型出站請求指紋為 `undefined` 導致每輪誤報 `MISS (prefix intact)` 的假警報。
-    - **Session 級狀態隔離**：狀態檔按會話隔離（`cache-prefix-state-<safeSessionId>.json`），解決同機並行多個 OMP 實例（如 Gemini + Opus + GLM）時相互覆寫全域狀態檔導致的假漂移問題；Header Probe 同步按 `host:session` 隔離。
-    - **忽略合法傳輸標識**：`requestId`（含 step 與 timestamp）、`labels.last_step_index`、`labels.last_execution_id` 等合法隨輪次遞增的傳輸追蹤欄位排除在 `envelope` 雜湊之外，防止偽 `ENVELOPE_DRIFT`。
-  - **關鍵設計**：指紋計算**剝離 `cache_control`**。斷點標記是「每次請求的查詢」，不是被快取的字節，且隨尾部增長每輪都合法移動；把它算進 hash 會讓每一輪都像 rewrite，真信號被埋掉——這正是這類 bug 能在 0082 之後倖存的原因。**內容漂移與斷點漂移是兩個獨立診斷**，本工具只管內容，斷點歸 0082。
-  - 驗證：`bun patches/verify-cache-prefix-audit.ts` 覆蓋 Google Antigravity wire 解析、Anthropic 格式、多進程並行狀態隔離、Cross-process resume 判定，全部 PASS。
-  - 日誌 `~/.omp/agent/cache-prefix-audit.log`（JSONL，2 MiB 輪替）、狀態 `~/.omp/agent/cache-prefix-state-<sessionId>.json`；`/cacheaudit` 看最近 10 筆。
-  - **嚴格命中率 verdict(2026-08-30)**:`message_end` 判定從 `cacheRead>0` 改為 `strict_ratio = cacheRead/(cacheRead+cacheWrite+input) ≥ 0.5` 才標 hit(用戶口徑:<50% 一律 MISS);verdict 文本帶 `strict xx.x%`;usage 行一律攜帶當次 diff(舊邏輯僅 `cacheRead=0` 時攜帶,上述 4.0% 假 hit 正是因此藏掉了 SYSTEM_DRIFT)。案例 `01a051c8` 09:28 在新口徑下記 `MISS CAUSED BY SYSTEM_DRIFT (strict 4.0%)`。回歸:`verify-cache-prefix-audit.ts` 同步更新(96% hit 案例、48% MISS 案例、gemini hit 前綴斷言),全部 PASS;`cache-prefix-audit-baseline-test.ts` PASS。
-  - **多模型交錯串線修正（2026-09-05）**：`SessionState.lastDiff` 單槽改為 `lastDiffByModel: Record<string, Diff>`，`message_end` 按 `message.model` 取對應槽，usage 行加記 `model` 欄位。根因：diff 在**請求**離站時算出、verdict 在**回應**抵達時寫入，單槽被「最後一個發請求的模型」佔據；同進程並行第二個模型（本例 `gpt-5.6-luna` 的 57 筆請求交錯在 `deepseek-v4-pro-0813` 的 37 筆之間）時，luna 的請求恰好插在 deepseek 的請求與回應之間，於是 deepseek 的 miss 被貼上 luna 的 diff。破綻是 index 越界（會話 `01a07221` 的 turn32 報 `HISTORY_REWRITE index 160`，而該請求只有 74 條 message）與自相矛盾（下一輪貼幾乎相同的 diff 卻判 `hit 98.9%`）——一次要命一次沒事，就不是病因。取槽失敗時回退到「全場僅一個槽」的情形，故單模型會話行為完全不變。以真實 payload 重放該交錯時序做 A/B：修前 turn32 verdict 為 `MISS CAUSED BY SYSTEM_DRIFT@0`（luna 的），修後為 `MISS CAUSED BY HISTORY_REWRITE@71`（deepseek 自己的，落在其 74 條 message 之內）並記下 model。
-  - **已知殘留（未修）**：0038 把 date-cwd reminder 暫存在 provider 尾部，故上一輪的尾條 reminder 在下一輪同位置變成真實 assistant 消息，diff 逐輪判為 `HISTORY_REWRITE@n-1`。命中輪次無害（verdict 仍 hit），但 miss 輪次會把這個正常的尾部接續當成歸因寫進 verdict。`before_provider_request` 行已有 `altBaseline.likelyVirtualTail` 註記可辨識，verdict 行未攜帶。
-  - **同模型基準（2026-09-30，最終形態）**：上一條只把 diff 的**槽位**分模型，verdict 的**基準請求**仍是 `st.last`（任何模型的上一個請求）。會話 `01a0f047` 的 advisor `gpt-5.6-luna` 夾在兩個 claude 請求之間，於是 claude 的純 append 請求被記成 `SYSTEM_DRIFT system[0] 940ccaef… -> d17688e7…`（那是 luna 的 system），而該行 usage 是 96–99% hit——標籤指向別人的 system。最終修法：`prev = candidates.filter(c => c.model === next.model)[0]`（`candidates` 即 `st.recent`）；視窗改為**每模型**保留 `BASELINE_HISTORY`（6）筆，避免某模型連發十幾個請求把另一模型的基準擠出視窗；某模型第一次出現記 `IDENTICAL / no baseline`。`altBaseline` 候選同樣限同模型，且按**指紋物件身分**（`c !== next && c !== prev`）去重、**不再用毫秒 `at`**，故同一毫秒的兩個請求不會互刪。`st.last`（任何模型的最新請求）只保留給跨程序 pid 連續性與狀態檔相容，不再當基準。回歸 `verify-cache-prefix-audit.ts` §3c（交錯 claude/luna 期望 `APPEND_ONLY`；12 連發後 claude 基準仍在）與 §3d（凍結時鐘令三筆同毫秒，claude 仍 `APPEND_ONLY`）；還原成 `prev = st.last`／全域視窗／按 `at` 去重三個負向對照都紅。§3b 的「插隊者第一次記 SYSTEM_DRIFT」前提隨之改為 `no baseline`。`payload-archive` 一直落盤完整 payload，「miss 時另存 raw system/headers」不需要。**未修（既有，非本批引入）**：① 每模型只有一個 diff 槽，同模型兩筆並行請求會讓較晚的 diff 覆蓋較早者；② usage 列的 `headers`/`responseHeaders` 仍讀 `st.last`，插隊者會指名錯的那次呼叫的憑證/標頭指紋。
+- `patches/cache-prefix-audit-extension.ts` (deployment mirror: `~/.omp/agent/extensions/cache-prefix-audit.ts`): read-only request-prefix observations and measured cache usage; never mutates provider payloads.
+  - Request fingerprints cover system blocks, tools and messages across Anthropic/OpenAI, Responses and nested Google wire formats. State is isolated by session; request baselines and the six-entry history window are isolated by wire model. Distinct requests are deduplicated by object identity, not millisecond timestamps.
+  - Request rows retain `APPEND_ONLY`, `SYSTEM_DRIFT`, `TOOLS_DRIFT`, `HISTORY_REWRITE`, `TRUNCATED`, `ENVELOPE_DRIFT` and diagnostic-only `ttlShift`, with `correlation: "request-only"`. These observations do not establish the cause of a provider cache miss.
+  - Completion rows contain measured `input`, `cacheRead`, `cacheWrite`, `cacheStatus` and `strictHitRate`. The strict hit threshold remains `cacheRead / (cacheRead + cacheWrite + input) >= 0.5`; zero total input usage is `unknown`.
+  - `message_end` has no shared request ID. Its rows therefore use `correlation: "unavailable", cause: "unknown"` and never borrow a request diff, header fingerprint, response-header fingerprint or originating session ID. `observedSessionId` records the hook's current context only.
+  - Historical behavior from August–September 2026 paired completion usage with the latest per-model diff and emitted `MISS CAUSED BY ...`. That causal contract is superseded: same-model main/title/keepalive requests can overlap, so a per-model slot is insufficient. Request-only per-model comparisons and `altBaseline.likelyVirtualTail` remain useful observations.
+  - Verification: `bun patches/verify-cache-prefix-audit.ts` covers wire normalization, session/model isolation, cross-process baselines and populated same-model header overlap. The repaired handler passes; a disposable header-only borrowing mutation fails the forbidden-header assertion.
+  - Log: `~/.omp/agent/cache-prefix-audit.log` (JSONL, 2 MiB rotation). State: `~/.omp/agent/cache-prefix-state-<sessionId>.json`. `/cacheaudit` displays the latest ten rows. Repository verification does not imply that the live extension mirror has been replaced.
 
 - **0039 audit candidate（未進 apply.sh）**：`patches/cache-prefix-audit-extension.ts` 與 `patches/verify-cache-prefix-audit.ts` 支援 OpenAI Responses `input` / `instructions`，並以完整 wire item 指紋追蹤無 role 的 `function_call` / `function_call_output`；同時使用 `pid-${process.pid}` process-local fallback，fixture 斷言同步更新。`patches/0039-omp-cache-audit-responses-input.patch` 僅作手動 extension 同步候選，部署前須通過三副本 parity gate。
 
@@ -1273,7 +1287,7 @@ Historical representation note: the following 18.4.4 tail placement and layer co
   - 尾端只豁免**输入**：role 为 user／toolResult 的尾端记为 `pendingTail` 不报，因为最新 prompt／tool result 进 `context` 时还没 append 进 session entries（新会话首笔请求 entries 为 0，实际误报过 `live 1, file 0`）。其它 role（`turn-recovery.ts` 重试提醒是 `appendMessage({ role: "developer" })` 后立即 `scheduleAgentContinue`）在第一次带着它的请求就报 `live-extra`。残余盲区：内存独有且 role 为 user／toolResult 的尾端消息，要等后面有消息落档才以 `diverged` 报出
   - **2026-09-23 新增 `pending-commit`（降噪，不动真警報）**：`async-result`（後台任務完成通知，`async-job-delivery.ts` 組裝後由 yield queue 注入）與 `image-attachment` / `video-attachment`（`agent-session.ts#createAttachmentSourceNotices`）是「先進 live context、`message_end` 才 `appendCustomMessageEntry`」的 custom aside。它們在 `context` 事件當下確實還不在 entries 裡，舊邏輯一律判 `live-extra` 並每輪彈 warning —— 而正常路徑下一拍就同序落盤、判決回 `ok`（實測 log：17 次非 ok、12 次隨即轉 ok）。現在尾端逐條往回投影候選 custom 訊息，只有**單條投影出的 wire 序列與 live wire 尾端逐條吻合**才記 `pending-commit`（image-bearing custom 會被 `convertImageBearingCustomMessage` 拆成 developer text + user image 兩條，因此必須整組比對，不能只認 index）；不吻合就退回舊 `live-extra`。`pending-commit` 只進日志、不發 UI warning —— 取捨是：commit 前崩潰仍會丟該訊息，只是不再當場可見，日志那行是唯一痕跡
   - 唯一豁免是 Trellis 每轮注入，且精确匹配：读 Trellis 自己落盘的锚点 `.trellis/.runtime/omp-anchors/omp_<sessionId>.json`（键 `role:timestamp:sha256(content)[0,16]`），两边都按 Trellis 同一规则展开后再严格比对（展开幂等，与扩展加载顺序无关）；user 消息上任何其它尾差都算漂移
-  - 只观察：不改 context、不抛错；首次检查、每个新的非 ok 签名、回到 ok 时各记一行到 `~/.omp/agent/context-persist-audit.log`（JSONL，1 MiB 轮替），非 ok 另发 UI warning。日志**不存消息内容**（hook 跑在 provider 混淆之前），每侧只记 role、序列化长度、sha256 前 16 位
+  - 只观察：不改 context、不抛错；首次检查、每个新的非 ok 签名、回到 ok 时各记一行到 `~/.omp/agent/context-persist-audit.log`（JSONL，1 MiB 轮替）。依使用者要求（2026-10-12），所有結果僅記錄日志，不再發 UI warning；不代表 drift 已修復。日志**不存消息内容**（hook 跑在 provider 混淆之前），每侧只记 role、序列化长度、sha256 前 16 位
   - 已知盲区：secret 混淆（重建未反混淆）、snapcompact 懒加载帧（无 blob resolver）可能误报。Trellis 锚点档损坏时照常审计但不做 Trellis 豁免，日志带 `anchorError`
   - 闸门 `patches/verify-context-persist-audit.ts`（手动跑，未进 `apply.sh`）：真实 in-memory `SessionManager` + 同一 `buildSessionContext`；覆盖新会话首请求、tool 续跑尾端、重试提醒（与 `turn-recovery.ts` 同形）当笔报 `live-extra@1`、回复落档后 `diverged@1`、user 未知尾块、Trellis 精确／错误锚点、坏锚点档。以修正前版本（尾端全豁免）重跑 → 第 3 段 `AssertionError` 被抓（可 falsify）
   - 闸门（2026-09-23 增补 3 段）：`async-result` aside 在筆请求報 `pending-commit@2` 且 `appendCustomMessageEntry` 落檔後回 `ok`；image-bearing custom aside 投影成 developer+user 兩條仍整組判 `pending-commit`（`liveCount = file+2`），customType 改為非 aside 類型則退回 `live-extra`；`ttsr-injection` 尾端仍為 `live-extra`。反向對照：把 `PENDING_COMMIT_CUSTOM_TYPES` 清空後重跑 → 第 7 段 `AssertionError` 被抓（可 falsify）
@@ -1367,7 +1381,7 @@ Historical representation note: the following 18.4.4 tail placement and layer co
   - `verify-prefix-cache-compaction.ts:233` 斷言 `preparation.previousRetainedMessages`，該字段已隨上游吸收退役。改為斷言 `messagesToSummarize[0]` 就是那條 `PREVIOUSLY_RETAINED` 消息——被測契約（保留尾不得從 history target 消失）完全不變，只是換成上游現在承載它的位置。
   - `verify-session-history-preview.ts` 兩處脆弱 fixture pin：① 斷言預覽首屏含固定句 `骂得太对了`——該句在真實 session 檔裡仍存在（`grep -c` = 9），但首屏位置隨檔案續寫／上游 selector 改動而移動。改為**溯源斷言**：取渲染出的第一條 assistant 正文行，反查它必須出現在該 `.jsonl` 原文中（契約＝「渲染的是真實結論文本而非佔位」，比 pin 一句話更強且不脆弱）。② 滾輪三格後斷言畫面出現 `User`／固定句，同樣依賴那一輪剛好落在第四屏。改為斷言「視口內容確實變了且仍在預覽模式」。
 
-- **孤兒 verify 腳本口徑（非回歸）**：`verify-snapcompact-frame-budget.ts` / `verify-snapcompact-frame-reprice.ts` 需要 `<session.jsonl>` 實參（前者傳任意真實會話即 PASS，實測 2.15 MB ≤ 3.0 MB；後者還需 `OMP_PATCH_VERIFY_REPRICE_BOUNDARY` 指向含該 compaction id 的原始 fixture，換會話必報 `boundary not found`）；`verify-date-cwd-reminder.ts` 與 `verify-model-switch-tool-description.ts` 已隨死計畫清場退役至 `.retired/09-13-dead-plans/`。本輪實跑通過的孤兒腳本：date-cwd-anchor-stability、goal-tool-resident、ollama-cloud-usage、session-history-preview、idle-ephemeral-reservation、session-cache-keepalive、auto-continue、snapcompact-frame-budget。
+- Historical orphan diagnostics are not current gates. The non-asserting frame-budget utility and copied cache-baseline simulation were removed in the18.10.1 cleanup; meaningful real-consumer gates remain.
 - **`.18.1.18-candidates/`（9 件）**：新生成 4 件（`0010`、`0035`、`0033`、`0043`）；沿用 5 件（`0004`、`0014`、`0017`、`0030`、`0038`，與 `.18.1.14-candidates/` 對應檔 `cmp` 逐字節相同，為版本計畫完整性另存）。
 - **`apply.sh`**：新增 `18.1.18` 分支 `_omp_version_candidates "18.1.18" 0004 0010 0014 0017 0030 0033 0035 0038 0043 omit:0019 omit:0042 omit:0051` + 鏈尾 `PATCHES+=(0047 0055 0056)`；`*)` 的 known 清單同步加 18.1.18。`0055`（`${AI}`）與 `0056`（`${NM}`）都只在 18.1.18 計畫，理由見 §1。
 - **落地驗收**：`bun add -g @oh-my-pi/pi-coding-agent@18.1.18` → repo `patches/` rsync 到 `~/.omp/patches/` 零漂移（`diff -r` 無輸出）→ `OMP_PATCH_VERSION=18.1.18 apply.sh`：25 層全 APPLIED、`bin/omp` 重指 `src/cli.ts`、`--check` **26 行 APPLIED／0 CONFLICT／0 PENDING**。回歸套件 9 道全 PASS（antigravity envelope／prefix-cache compaction／provider-image-budget／snapcompact model billing／spec-contracts／hindsight recall+MM／interrupt prune symmetry／supersede warm-prefix guard）＋ `smoke: ok`。**（2026-09-12 追加 0055／0056 後重跑：`--check` 為 28 行 APPLIED＝27 補丁＋bin 連結，回歸套件 11 道，見下節。）**
@@ -1438,8 +1452,7 @@ Historical representation note: the following 18.4.4 tail placement and layer co
 | `verify-prefix-cache-compaction.ts` | 0035／0047 壓縮前綴保留、identity gate、12 結構化窗口；split 在舊計畫維持**兩條請求**的形狀（**18.4.4 自 0088 起 live 鏈被作保時只發一條**），18.4.4 另在 callback／trace 上具名 cache-cold 排除；history 為空時只發 turn-prefix 一條請求；**0089** 另驗 18.4.4 的 split 鏈在最後一則 assistant 無可用 usage 時仍只發一條 live 請求，而多視窗腿改由「host 不為 live scope 作保」驅動（live 被選中即把 fold 計畫折成一條請求） | — |
 | `verify-provider-image-budget.ts` | 0022／0044／0057 圖片預算條目、wire-api 家族回退與 Devin 預算 | — |
 | `verify-snapcompact-model-billing.ts` | 0052 DeepSeek 計費階梯表、wrapper、命名空間回退（三閘門） | `OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT` |
-| `verify-ollama-cloud-usage.ts` | 0025 ollama-cloud `/api/usage` 額度接線：端點常數／5h-7d 窗口／`api_key` 閘門的源碼形態，加 mock 200→兩條 UsageLimit、夾取與 ok/warning/exhausted 門檻、非 200／網路錯誤→null、本地 ollama 與無 key 不發請求 | `OMP_PATCH_VERIFY_AI_ROOT` |
-| `verify-spec-contracts.sh` | spec 自身可證偽性、補丁表示同步、repo↔ledger 零漂移 | `OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT` |
+| `verify-ollama-cloud-usage.ts` | Real usage-provider fetch behavior:5h/7d windows, clamping/status, failure→null and zero requests for local/keyless providers. Source-spelling assertions removed. | `OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-devin-auth-cache.ts`（條件） | 0055 JWT 行程內快取、401 重取、每輪分段計時；只在計畫含 0055 時執行 | — |
 | `verify-hindsight-recall-snapshot.ts` | 0034／0021／0023 快照落盤與 MM deadline 凍結（7 個 behaviour） | — |
 | `verify-goal-tool-resident.ts`（條件） | 0032 goal 工具常駐：active／paused／dropped／absent／restricted 五種 session 下工具清單一致；依計畫含 0032 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_AI_ROOT` |

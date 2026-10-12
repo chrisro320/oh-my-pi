@@ -25,15 +25,16 @@ const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 // Type-only imports may use the bare specifier: they are erased at runtime, so
 // they never resolve against the install cache and cannot read the wrong tree.
 // (Runtime imports below are absolute precisely because they must NOT do that.)
-import type { ExtensionFactory } from "@oh-my-pi/pi-coding-agent";
+import type { AgentSession, ExtensionFactory } from "@oh-my-pi/pi-coding-agent";
 import type { MockModel } from "@oh-my-pi/pi-ai/providers/mock";
+import type { Model } from "@oh-my-pi/pi-ai";
 
 const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion),
 	`verify-idle-ephemeral-reservation: unsupported selected tree version ${agentVersion}`,
 );
-const hasSubmissionWindow = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion);
+const hasSubmissionWindow = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion);
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
@@ -52,7 +53,7 @@ async function createTestSession(
 	mkdirSync(cwd, { recursive: true });
 	const agentDir = join(cwd, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,
@@ -368,6 +369,7 @@ try {
 			const events: string[] = [];
 			const { promise: sideStarted, resolve: resolveSideStarted } = Promise.withResolvers<void>();
 			const { promise: sideAborted, resolve: resolveSideAborted } = Promise.withResolvers<void>();
+			const releaseSide = Promise.withResolvers<void>();
 			const model = createMockModel({
 				responses: [
 					async (_context, options) => {
@@ -384,8 +386,9 @@ try {
 						);
 						resolveSideStarted();
 						await sideAborted;
+						await releaseSide.promise;
 						events.push("side-settled");
-						return { throw: "aborted" };
+						return { content: ["late canceled idle result"] };
 					},
 					() => {
 						events.push("post-transition-main-dispatch");
@@ -395,6 +398,8 @@ try {
 			});
 			const session = await createTestSession("transition-entry", model);
 			try {
+				const beforeEntries = JSON.stringify(session.sessionManager.getEntries());
+				const beforeId = session.sessionManager.getSessionId();
 				const idle = session.runIdleEphemeralTurn({ promptText: "guarded-keepalive" });
 				await sideStarted;
 				const dispatchCallsBeforeTransition = model.calls.length;
@@ -404,18 +409,26 @@ try {
 					["side-dispatch", "side-abort"],
 					"transition entry must synchronously abort the idle reservation",
 				);
-				// The reservation must not outlive transition entry. Nothing else can
-				// abort this request, so observing its abort here proves entry did it,
-				// and the dispatch count proves entry aborted rather than awaited.
+				// Abort is synchronous; history/identity adoption must wait even if
+				// the provider eventually produces a successful late completion.
 				await sideAborted;
+				await Bun.sleep(0);
+				if (["18.10.0", "18.10.1"].includes(agentVersion)) {
+					assert.equal(session.isSessionTransitioning, true, "transition must still be draining the idle turn");
+					assert.equal(session.sessionManager.getSessionId(), beforeId, "identity cannot change before idle settlement");
+					assert.equal(JSON.stringify(session.sessionManager.getEntries()), beforeEntries, "history cannot change before idle settlement");
+				}
 				assert.equal(
 					model.calls.length,
 					dispatchCallsBeforeTransition,
 					"transition entry must not dispatch anything new",
 				);
+				releaseSide.resolve();
 				const [idleResult] = await Promise.all([idle, transition]);
 				assert.equal(idleResult, undefined);
 				assert.deepEqual(events, ["side-dispatch", "side-abort", "side-settled"]);
+				assert.doesNotMatch(JSON.stringify(session.messages), /late canceled idle result|guarded-keepalive/);
+				assert.doesNotMatch(JSON.stringify(session.sessionManager.getEntries()), /late canceled idle result|guarded-keepalive/);
 				assert.equal(await session.prompt("after transition"), true);
 				assert.deepEqual(events, [
 					"side-dispatch",
@@ -424,6 +437,7 @@ try {
 					"post-transition-main-dispatch",
 				]);
 			} finally {
+				releaseSide.resolve();
 				await session.dispose();
 			}
 		}
@@ -511,6 +525,131 @@ try {
 		} finally {
 			releaseSide.resolve();
 			await session.dispose();
+		}
+	}
+
+	// F9/R6: both ask-reanswer (without an explicit scheduler generation) and
+	// ordinary prompt admission can pause in real primary restoration. The
+	// same held local lookup must lose ownership when navigation commits.
+	for (const admission of ["18.10.0", "18.10.1"].includes(agentVersion) ? ["ask-reanswer", "prompt"] : []) {
+		const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
+		const { ModelRegistry } = await import(`${AGENT_ROOT}/src/config/model-registry.ts`);
+		const cwd = join(root, `${admission}-history-replacement`);
+		const agentDir = join(cwd, "agent");
+		mkdirSync(agentDir, { recursive: true });
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = (() => { throw new Error("Network forbidden in continuation ownership gate"); }) as typeof fetch;
+		const settings = await Settings.loadIsolated({ cwd, agentDir, overrides: {
+			"memory.backend": "off", "computer.enabled": false, "secrets.enabled": false, "compaction.enabled": false,
+			"retry.enabled": true, "retry.maxRetries": 0, "retry.baseDelayMs": 0,
+			"retry.fallbackRevertPolicy": "cooldown-expiry",
+			"retry.fallbackChains": { "continuation-fixture/primary": ["continuation-fixture/fallback:high"] },
+		} });
+		settings.setModelRole("default", "continuation-fixture/primary");
+		const authStorage = await discoverAuthStorage(agentDir);
+		authStorage.keys.setRuntime("continuation-fixture", "offline");
+		const registry = new ModelRegistry(authStorage, join(agentDir, "models.yml"), { settings });
+		const manager = SessionManager.inMemory(cwd);
+		const modelCalls: { model: string; effort: string | undefined }[] = [];
+		let primaryCalls = 0;
+		const extension: ExtensionFactory = pi => pi.registerProvider("continuation-fixture", {
+			api: "continuation-fixture", baseUrl: "http://127.0.0.1:1/never", apiKey: "offline",
+			models: ["primary", "fallback"].map(id => ({
+				id, name: id, reasoning: true, input: ["text"], contextWindow: 200000, maxTokens: 4096,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+				thinking: { mode: "effort", efforts: ["low", "medium", "high"] },
+			})),
+			streamSimple(model, context, options) {
+				modelCalls.push({ model: model.id, effort: options?.reasoning });
+				const failPrimary = model.id === "primary" && ++primaryCalls === 2;
+				return createMockModel({
+					id: model.id, provider: model.provider,
+					handler: failPrimary
+						? { stopReason: "error", errorMessage: "503 Service Unavailable" }
+						: { content: ["accepted"] },
+				}).stream(model, context, options);
+			},
+		});
+		const heldLookup = Promise.withResolvers<void>();
+		const releaseLookup = Promise.withResolvers<void>();
+		let session: AgentSession | undefined;
+		let pendingPrompt: Promise<boolean> | undefined;
+		const realGetApiKey = registry.getApiKey.bind(registry);
+		try {
+			const created = await createAgentSession({
+				cwd, agentDir, authStorage, modelRegistry: registry, settings, sessionManager: manager,
+				systemPrompt: "Continuation ownership fixture.", thinkingLevel: "low",
+				skills: [], rules: [], contextFiles: [], promptTemplates: [], slashCommands: [],
+				disableExtensionDiscovery: true, enableMCP: false, preloadedCustomToolPaths: [],
+				enableLsp: false, skipPythonPreflight: true, toolNames: [], extensions: [extension],
+			});
+			const active = created.session;
+			session = active;
+			await active.prompt("seed historical branch");
+			const target = manager.getLeafId();
+			assert.ok(target);
+			await active.prompt("enter fallback through a real provider failure");
+			await active.waitForIdle();
+			assert.deepEqual(modelCalls, [
+				{ model: "primary", effort: "low" },
+				{ model: "primary", effort: "low" },
+				{ model: "fallback", effort: "high" },
+			], "the fixture must enter real unpinned fallback before testing restoration");
+			assert.equal(active.model?.id, "fallback");
+			assert.equal(active.thinkingLevel, "high");
+
+			// Existing public cooldown control makes primary restoration eligible;
+			// no recovery fields or generation flags are fabricated by the test.
+			registry.clearSuppressedSelectors();
+			registry.getApiKey = async (model: Model, sessionId?: string, options?: { signal?: AbortSignal }) => {
+				const key = await realGetApiKey(model, sessionId, options);
+				if (model.id === "primary") {
+					assert.ok(key, "the suspended lookup resolves a real local fixture key");
+					heldLookup.resolve();
+					await releaseLookup.promise;
+				}
+				return key;
+			};
+			let continuationCalls = 0;
+			const realContinue = active.agent.continue.bind(active.agent);
+			active.agent.continue = async signal => {
+				continuationCalls++;
+				await realContinue(signal);
+			};
+			if (admission === "ask-reanswer") {
+				const pendingInput = { role: "user" as const, content: "Revised answer", timestamp: 2 };
+				active.agent.appendMessage(pendingInput);
+				manager.appendMessage(pendingInput);
+				active.resumeAfterAskReanswer();
+			} else {
+				pendingPrompt = active.prompt("ordinary prompt from the abandoned branch");
+			}
+			await heldLookup.promise;
+			assert.equal(continuationCalls, 0, `${admission}: admission is held in real pre-dispatch restoration`);
+			const navigation = await active.navigateTree(target);
+			assert.equal(navigation.cancelled, false, "history replacement must commit while setup is suspended");
+			const adoptedEntries = JSON.stringify(manager.getEntries());
+			const adoptedLeaf = manager.getLeafId();
+			assert.equal(active.model?.id, "fallback", "navigation preserves the live routed selection");
+			assert.equal(active.thinkingLevel, "high");
+
+			releaseLookup.resolve();
+			await pendingPrompt;
+			await active.waitForIdle();
+			assert.equal(continuationCalls, 0, `${admission}: stale setup must never enter agent.continue`);
+			assert.equal(modelCalls.length, 3, `${admission}: stale setup must not dispatch against replacement history`);
+			assert.equal(active.model?.id, "fallback", "late primary restoration must not replace the adopted model");
+			assert.equal(active.thinkingLevel, "high", "late primary restoration must not replace adopted effort");
+			assert.equal(manager.getLeafId(), adoptedLeaf);
+			assert.equal(JSON.stringify(manager.getEntries()), adoptedEntries, "late restoration cannot append stale model/effort metadata");
+			assert.equal(await active.prompt("new history ordinary turn"), true, "cancelled setup leaves admission usable");
+			assert.equal(modelCalls.length, 4);
+		} finally {
+			releaseLookup.resolve();
+			registry.getApiKey = realGetApiKey;
+			await pendingPrompt?.catch(() => {});
+			await session?.dispose();
+			globalThis.fetch = originalFetch;
 		}
 	}
 

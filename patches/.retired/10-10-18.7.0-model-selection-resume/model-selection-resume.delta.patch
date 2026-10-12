@@ -1,0 +1,61 @@
+--- a/pi-coding-agent/src/session/agent-session.ts
++++ b/pi-coding-agent/src/session/agent-session.ts
+@@ -120,6 +120,7 @@
+ import {
+ 	DEFAULT_PREWALK_TARGET,
+ 	disabledProviderIds,
++	formatModelStringWithRouting,
+ 	getModelMatchPreferences,
+ 	type ResolvedModelRoleValue,
+ 	resolveCliModel,
+@@ -12305,6 +12306,17 @@
+ 			newLeafId = targetId;
+ 		}
+ 
++		// Navigation changes history, not the live model selection. Keep its
++		// durable role (including ephemeral restore policy) on the new branch.
++		const activeModel = this.model;
++		const activeBranch = this.sessionManager.getBranch();
++		const activeModelEntry = activeBranch.findLast(entry => entry.type === "model_change");
++		const activeModelRole = activeModelEntry?.role ?? "default";
++		const activeDefaultModel =
++			activeModelRole === "default"
++				? undefined
++				: activeBranch.findLast(entry => entry.type === "model_change" && (entry.role ?? "default") === "default");
++
+ 		// Switch leaf (with or without summary)
+ 		// Summary is attached at the navigation target position (newLeafId), not the old branch
+ 		const bashTransition = this.#bash.beginSessionTransition();
+@@ -12332,7 +12344,31 @@
+ 		}
+ 
+ 		// Update agent state — build display context to populate agent messages.
+-		const stateContext = this.sessionManager.buildSessionContext();
++		let stateContext = this.sessionManager.buildSessionContext();
++		let modelStateChanged = false;
++		if (activeDefaultModel?.type === "model_change" && stateContext.models.default !== activeDefaultModel.model) {
++			this.sessionManager.appendModelChange(activeDefaultModel.model, "default", activeDefaultModel.resolvedModelIsFallback);
++			modelStateChanged = true;
++		}
++		if (activeModel) {
++			const activeModelString = formatModelStringWithRouting(activeModel);
++			if (
++				modelStateChanged ||
++				stateContext.models[activeModelRole] !== activeModelString ||
++				this.sessionManager.getLastModelChangeRole() !== activeModelRole
++			) {
++				this.sessionManager.appendModelChange(activeModelString, activeModelRole, activeModelEntry?.resolvedModelIsFallback);
++				modelStateChanged = true;
++			}
++		}
++		if (
++			stateContext.thinkingLevel !== this.thinkingLevel ||
++			stateContext.configuredThinkingLevel !== this.configuredThinkingLevel()
++		) {
++			this.sessionManager.appendThinkingLevelChange(this.thinkingLevel, this.configuredThinkingLevel());
++			modelStateChanged = true;
++		}
++		if (modelStateChanged) stateContext = this.sessionManager.buildSessionContext();
+ 		const displayContext = this.#withEvalStateContext(deobfuscateSessionContext(stateContext, this.#obfuscator));
+ 		this.agent.replaceMessages(displayContext.messages);
+ 		this.#rehydrateCheckpointRewindState();

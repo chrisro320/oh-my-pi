@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
+const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const EXTENSION = process.env.OMP_CONTEXT_AUDIT_EXTENSION ?? join(import.meta.dir, "context-persist-audit-extension.ts");
 
 // HOME must be private before process startup; Bun caches os.homedir().
@@ -23,10 +24,11 @@ if (process.env.OMP_CONTEXT_AUDIT_CHILD !== "1") {
 	try {
 		const result = Bun.spawnSync([process.execPath, import.meta.path], {
 			env: {
-				...process.env, HOME: home, TMPDIR: home,
+				PATH: process.env.PATH, HOME: home, TMPDIR: home,
 				XDG_CONFIG_HOME: join(home, "config"), XDG_CACHE_HOME: join(home, "cache"),
 				XDG_DATA_HOME: join(home, "data"), XDG_STATE_HOME: join(home, "state"),
-				OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT, OMP_CONTEXT_AUDIT_CHILD: "1",
+				OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT, OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT,
+				OMP_CONTEXT_AUDIT_EXTENSION: EXTENSION, OMP_CONTEXT_AUDIT_CHILD: "1",
 			},
 		});
 		process.stdout.write(result.stdout);
@@ -37,6 +39,7 @@ if (process.env.OMP_CONTEXT_AUDIT_CHILD !== "1") {
 	}
 	process.exit(0);
 }
+globalThis.fetch = (() => { throw new Error("Network forbidden in context audit gate"); }) as typeof fetch;
 
 const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 const { buildSessionContext } = await import(`${AGENT_ROOT}/src/session/session-context.ts`);
@@ -298,7 +301,7 @@ const reminder = retryReminder();
 		const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
 		const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
 		const { ModelRegistry } = await import(`${AGENT_ROOT}/src/config/model-registry.ts`);
-		const { createMockModel } = await import(`${dirname(AGENT_ROOT)}/pi-ai/src/providers/mock.ts`);
+		const { createMockModel } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 		const cwd = join(dirname(bound), "work");
 		const agentDir = join(dirname(bound), "agent");
 		mkdirSync(cwd, { recursive: true });
@@ -354,6 +357,79 @@ const reminder = retryReminder();
 		const records = readAudit().trim().split("\n").map(line => JSON.parse(line) as { status: string });
 		assert.equal(records.at(-1)?.status, "file-extra", "a genuinely truncated main turn must still be detected");
 		await settings.flush();
+
+		if (["18.10.0", "18.10.1"].includes(JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version)) {
+			const { FileSessionStorage } = await import(`${AGENT_ROOT}/src/session/session-storage.ts`);
+			const { appendTransferNotice } = await import(`${AGENT_ROOT}/src/session/session-transfer-marker.ts`);
+			const { HindsightSessionState } = await import(`${AGENT_ROOT}/src/hindsight/state.ts`);
+			const { cfgMemoryBackend } = await import(`${AGENT_ROOT}/src/memory-backend/settings.ts`);
+			const { cfgHindsightApiUrl, cfgHindsightMentalModelsEnabled } = await import(`${AGENT_ROOT}/src/hindsight/settings.ts`);
+			// The initial runtime-off override outranks persisted writes. Activate
+			// and drain the real lifecycle before replacing only its client state.
+			cfgHindsightApiUrl.override(settings, "http://127.0.0.1:1");
+			cfgHindsightMentalModelsEnabled.override(settings, false);
+			cfgMemoryBackend.override(settings, "hindsight");
+			await session.applyMemoryBackend();
+			await session.settleMemoryBackend();
+			assert.equal(cfgMemoryBackend.get(settings), "hindsight");
+			assert.ok(session.getHindsightSessionState(), "replica fixture requires an active Hindsight backend");
+			let mentalModelLoads = 0;
+			const memory = new HindsightSessionState({
+				sessionId: session.sessionId, session, bankId: "replica-fixture",
+				config: { mentalModelsEnabled: true, mentalModelMaxRenderChars: 16_000 },
+				client: { listMentalModels: async () => {
+					mentalModelLoads++;
+					throw new Error("read-only replica must not fetch local mental models");
+				} },
+				banksSet: new Set(["replica-fixture"]),
+			});
+			session.setHindsightSessionState(memory)?.dispose();
+			const hostCwd = join(dirname(bound), "remote-host");
+			mkdirSync(hostCwd);
+			const host = SessionManager.inMemory(hostCwd);
+			// A guest must inspect even a departed snapshot, not turn it into a
+			// writable fork. The completed eval and interrupted tool turn expose
+			// the two transcript producers formerly reached during hydration.
+			await appendTransferNotice(host, { kind: "departed", to: "another host" });
+			host.appendMessage(user("host eval"));
+			host.appendMessage({ ...assistant("eval"), stopReason: "toolUse",
+				content: [{ type: "toolCall", id: "host-eval", name: "eval", arguments: { code: "x = 1" } }] });
+			host.appendMessage({ role: "toolResult", toolCallId: "host-eval", toolName: "eval",
+				content: [{ type: "text", text: "ok" }], isError: false, timestamp: clock++ });
+			host.appendMessage(user("host pending tool"));
+			host.appendMessage({ ...assistant("pending"), stopReason: "toolUse",
+				content: [{ type: "toolCall", id: "host-pending", name: "bash", arguments: { command: "held" } }] });
+			const replicaFile = join(dirname(bound), "replica.jsonl");
+			const replicaId = host.getSessionId();
+			const releaseReplica = new FileSessionStorage().claimSession(replicaId, replicaFile, { exclusive: true });
+			assert.ok(releaseReplica, "guest fixture must own its replica while the SDK only inspects it");
+			session.setSessionBeforeSwitchReconciler(null);
+			session.setSessionSwitchReconciler(null);
+			try {
+				for (const phase of ["welcome", "resync"]) {
+					const frozenModels = phase === "welcome" ? "<mental_models>\nexact host snapshot\n</mental_models>" : "";
+					host.appendCustomEntry("hindsight_mental_models_snippet", { snippet: frozenModels });
+					const snapshot = [host.getHeader(), ...host.getEntries()].map(entry => JSON.stringify(entry)).join("\n") + "\n";
+					writeFileSync(replicaFile, snapshot);
+					assert.equal(await session.switchSession(replicaFile, { preserveLocalCwd: true, keepModel: true }), true);
+					assert.equal(session.getHindsightSessionState(), memory, `${phase}: replica hydration keeps the settled memory binding`);
+					await memory.mentalModelsLoadPromise;
+					assert.equal(memory.mentalModelsSnippet ?? "", frozenModels, `${phase}: replica reads the exact host's frozen answer`);
+					assert.equal(mentalModelLoads, 0, `${phase}: read-only hydration cannot load local mental models`);
+					await session.sessionManager.flush();
+					assert.equal(session.sessionManager.getSessionId(), replicaId, `${phase}: replica inspection cannot adopt/fork`);
+					assert.equal(session.sessionManager.getSessionFile(), replicaFile);
+					assert.equal(session.sessionManager.getCwd(), cwd, `${phase}: the guest keeps its own cwd`);
+					assert.deepEqual(session.sessionManager.getEntries(), host.getEntries(),
+						`${phase}: guest cannot synthesize eval/repair/model receipts or migrate scoped memory metadata`);
+					assert.equal(readFileSync(replicaFile, "utf8"), snapshot, `${phase}: host snapshot bytes remain authoritative`);
+				}
+			} finally {
+				releaseReplica();
+				await host.close();
+			}
+		}
+		authStorage.close();
 	} finally {
 		await session?.dispose();
 		globalThis.fetch = originalFetch;

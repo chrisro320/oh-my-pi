@@ -17,3 +17,6 @@ omp-session-*.html
 
 # Local workflow-config backup (never tracked)
 workdlowbak/
+
+# Local reproducible native build outputs
+patches/.native-artifacts/

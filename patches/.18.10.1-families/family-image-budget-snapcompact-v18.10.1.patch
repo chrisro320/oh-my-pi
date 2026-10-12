@@ -1,0 +1,372 @@
+--- a/pi-coding-agent/src/session/provider-image-budget.ts
++++ b/pi-coding-agent/src/session/provider-image-budget.ts
+@@ -133,7 +133,7 @@
+ export function clampProviderContextImages(context: Context, model: Model): Context {
+ 	if (!model.input.includes("image")) return context;
+ 	const totalImages = countImages(context);
+-	const remainingDrops = totalImages - providerImageBudget(model.provider);
++	const remainingDrops = totalImages - providerImageBudget(model.provider, model.api);
+ 	if (remainingDrops <= 0) return context;
+ 	return clampImages(context, { remainingDrops, inlineBytes: 0, byteBudget: Number.POSITIVE_INFINITY, model });
+ }
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -2542,6 +2542,12 @@
+ 	 * imaged projection drops — inflated this baseline enough to accept an
+ 	 * inflating result (#10716). The caller's reduction-side projection excludes
+ 	 * them symmetrically so the comparison stays in one local token domain.
++	 *
++	 * The archive the new pass supersedes is credited here (see
++	 * {@link #projectPreviousArchiveTokens}): the summary that replaces it takes
++	 * its frames off the wire, and `prepareCompaction` hides that record from
++	 * every region, so the baseline has to add it back or the whole new archive
++	 * gets charged against a region that no longer carries the old one.
+ 	 */
+ 	#projectPreSnapcompactContextTokens(preparation: CompactionPreparation): number {
+ 		const opts = { excludeEncryptedReasoning: true } as const;
+@@ -2553,9 +2559,43 @@
+ 		tokens += this.#tokenizer.countMessages(preparation.messagesToSummarize, opts);
+ 		tokens += this.#tokenizer.countMessages(preparation.turnPrefixMessages, opts);
+ 		tokens += this.#tokenizer.countMessages(preparation.recentMessages, opts);
++		tokens += this.#projectPreviousArchiveTokens(preparation);
+ 		return tokens;
+ 	}
+ 
++	/**
++	 * Token cost of the archive a new snapcompact pass supersedes: the previous
++	 * compaction record's summary text plus the frames it re-attaches.
++	 *
++	 * `prepareCompaction` excludes that record from `messagesToSummarize`,
++	 * `turnPrefixMessages`, and `recentMessages` -- under v2 preserve data the
++	 * summary must not be summarized again as ordinary history -- so
++	 * {@link #projectPreSnapcompactContextTokens} sees none of it, while the
++	 * reduction projection carries the whole new archive (the pass re-renders
++	 * the superseded text into its pages). Comparing those two as-is only holds
++	 * for a first pass: from the second pass on, it charges the full new archive
++	 * against a region that no longer contains the archive being replaced and
++	 * reports a genuinely reducing compaction as "would not reduce context".
++	 * Frames are priced by the tokenizer's own model/dimension rates, the same
++	 * domain the reduction projection counts in, so the comparison weighs the
++	 * net frame delta and a plan that grows the archive beyond the region it
++	 * replaces still fails the guard.
++	 */
++	#projectPreviousArchiveTokens(preparation: CompactionPreparation): number {
++		const archive = snapcompact.getPreservedArchive(preparation.previousPreserveData);
++		if (!archive) return 0;
++		const blocks = snapcompact.historyBlocks(archive, { maxFrameDataBytes: snapcompact.FRAME_DATA_BYTES_BUDGET });
++		// Only `summary` and `blocks` are priced; the remaining fields are inert
++		// here (the message is built to be counted, never displayed).
++		const previousSummary = createCompactionSummaryMessage(
++			preparation.previousSummary ?? "",
++			preparation.tokensBefore,
++			new Date().toISOString(),
++			{ blocks },
++		);
++		return this.#tokenizer.countMessage(previousSummary, { excludeEncryptedReasoning: true });
++	}
++
+ 	async runPrePromptCompactionIfNeeded(messages: AgentMessage[]): Promise<void> {
+ 		const model = this.#model;
+ 		if (!model) return;
+@@ -3663,7 +3703,7 @@
+ 			return Math.min(
+ 				snapcompact.MAX_FRAMES_DEFAULT,
+ 				snapcompact.maxFramesForDataBudget(shape),
+-				snapcompact.providerFrameBudget(this.#model?.provider),
++				snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 			);
+ 		}
+ 		const reserve = effectiveReserveTokens(ctxWindow, settings);
+@@ -3732,7 +3772,7 @@
+ 			Math.floor(frameBudget / frameCost),
+ 			snapcompact.MAX_FRAMES_DEFAULT,
+ 			snapcompact.maxFramesForDataBudget(shape),
+-			snapcompact.providerFrameBudget(this.#model?.provider),
++			snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 		);
+ 	}
+ 
+@@ -4175,7 +4215,7 @@
+ 			return Math.min(
+ 				snapcompact.MAX_FRAMES_DEFAULT,
+ 				snapcompact.maxFramesForDataBudget(shape),
+-				snapcompact.providerFrameBudget(this.#model?.provider),
++				snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 			);
+ 		}
+ 		const thresholdTokens = resolveThresholdTokens(ctxWindow, settings);
+@@ -4199,7 +4239,7 @@
+ 			Math.floor(frameBudget / frameCost),
+ 			snapcompact.MAX_FRAMES_DEFAULT,
+ 			snapcompact.maxFramesForDataBudget(shape),
+-			snapcompact.providerFrameBudget(this.#model?.provider),
++			snapcompact.providerFrameBudget(this.#model?.provider, this.#model?.api),
+ 		);
+ 	}
+ 
+--- a/pi-coding-agent/src/session/snapcompact-inline.ts
++++ b/pi-coding-agent/src/session/snapcompact-inline.ts
+@@ -318,7 +318,7 @@
+ 	const shape = snapcompact.resolveShape(model, options.shape);
+ 	const tokenizer = new Tokenizer(model);
+ 	const existingImages = countMessageImages(input.messages);
+-	const budget = snapcompact.providerImageBudget(model.provider) - existingImages;
++	const budget = snapcompact.providerImageBudget(model.provider, model.api) - existingImages;
+ 
+ 	const candidates: InlineToolResultCandidate[] = [];
+ 	if (options.renderToolResults) {
+@@ -459,7 +459,7 @@
+ 		const shape = snapcompact.resolveShape(model, options.shape);
+ 		const shapeKey = JSON.stringify(shape);
+ 		const tokenizer = new Tokenizer(model);
+-		const budget = snapcompact.providerImageBudget(model.provider) - countMessageImages(context.messages);
++		const budget = snapcompact.providerImageBudget(model.provider, model.api) - countMessageImages(context.messages);
+ 		if (budget <= 0) return context;
+ 
+ 		const messages = [...context.messages];
+--- a/snapcompact/dist/types/snapcompact.d.ts
++++ b/snapcompact/dist/types/snapcompact.d.ts
+@@ -262,6 +262,7 @@
+ export interface FrameBilling {
+     rule?: ImageTokenization;
+     imageDetail?: ImageContent["detail"];
++    measuredSteps?: ReadonlyArray<readonly [number, number]>;
+ }
+ /** Resolve the frame billing of `target`. */
+ export declare function frameBilling(target: ShapeTarget | undefined): FrameBilling;
+@@ -365,19 +366,17 @@
+ /** Base64 byte length for persisted snapcompact frames. */
+ export declare function frameDataBytes(frames: readonly Pick<Frame, "data">[]): number;
+ /**
+- * Per-request image-count budgets by provider id. These cap how many images an
+- * entire request may carry (archive/system-prompt/tool-result imaging combined).
+- * The values are conservative policy caps under the vendor hard limits
+- * (Anthropic 100, OpenAI 500, Gemini ~2500); unknown providers fall to a safe
+- * floor rather than sending unbounded attachments.
++ * Per-request image-count budgets keyed by provider id and wire API family.
++ * These cap the combined archive, system-prompt and tool-result images.
++ * Unknown provider/API pairs use the safe floor.
+  */
+ export declare const PROVIDER_IMAGE_BUDGETS: Record<string, number>;
+ /** Safe floor for unknown providers (strictest mainstream measured: Groq ~5). */
+ export declare const DEFAULT_PROVIDER_IMAGE_BUDGET = 5;
+-/** Per-request image budget for `provider`; unknown providers get the floor. */
+-export declare function providerImageBudget(provider: string | undefined): number;
++/** Per-request image budget: explicit provider, then wire API, then Command Code alias namespace, then the floor. */
++export declare function providerImageBudget(provider: string | undefined, api?: string | undefined): number;
+ /** Archive frame cap for `provider`: image budget, never above {@link MAX_FRAMES_DEFAULT}. */
+-export declare function providerFrameBudget(provider: string | undefined): number;
++export declare function providerFrameBudget(provider: string | undefined, api?: string | undefined): number;
+ /** Key under `CompactionEntry.preserveData` holding the frame archive. */
+ export declare const PRESERVE_KEY = "snapcompact";
+ /** One developed snapcompact frame: a base64 PNG plus its reading geometry. */
+--- a/snapcompact/src/snapcompact.ts
++++ b/snapcompact/src/snapcompact.ts
+@@ -247,22 +247,32 @@
+ export interface FrameBilling {
+ 	rule?: ImageTokenization;
+ 	imageDetail?: ImageContent["detail"];
++	measuredSteps?: ReadonlyArray<readonly [number, number]>;
+ }
+ 
+ /** Resolve the frame billing of `target`. */
+ export function frameBilling(target: ShapeTarget | undefined): FrameBilling {
+ 	const rule = target ? resolveImageTokenization(target) : undefined;
+ 	const imageDetail = apiFamily(target?.api) === "openai" ? "original" : undefined;
+-	return { ...(rule && { rule }), ...(imageDetail && { imageDetail }) };
++	const measuredSteps = target?.id ? MODEL_FRAME_TOKEN_STEPS[target.id] : undefined;
++	return { ...(rule && { rule }), ...(imageDetail && { imageDetail }), ...(measuredSteps && { measuredSteps }) };
+ }
+ 
+ /** Identity of a frame price list: equal keys price every frame alike. */
+ export function frameBillingKey(billing: FrameBilling): string {
+-	return `${billing.imageDetail ?? "auto"}:${billing.rule ? JSON.stringify(billing.rule) : "ceiling"}`;
++	return `${billing.imageDetail ?? "auto"}:${billing.measuredSteps ? `measured:${JSON.stringify(billing.measuredSteps)}` : billing.rule ? JSON.stringify(billing.rule) : "ceiling"}`;
+ }
+ 
+ /** Billed-token estimate for one rendered frame of `size` under `billing`. */
+ export function frameTokens(billing: FrameBilling, size: ImageSize): number {
++	if (billing.measuredSteps) {
++		const frameSize = Math.max(size.width, size.height);
++		let measured: number | undefined;
++		for (const [edge, price] of billing.measuredSteps) {
++			if (frameSize >= edge) measured = price;
++		}
++		if (measured !== undefined) return measured;
++	}
+ 	return billing.rule ? imageTokens(billing.rule, size, billing.imageDetail) : FRAME_TOKEN_ESTIMATE;
+ }
+ 
+@@ -276,6 +286,57 @@
+ 	return { ...base, frameTokenEstimate, ...(billing.imageDetail && { imageDetail: billing.imageDetail }) };
+ }
+ 
++/**
++ * Measured per-frame billing for model lines their wire `api` cannot express.
++ *
++ * `commandcode-custom` is ONE api shared by every model the Command Code
++ * gateway serves, so the catalog's wire-api pricing fallback prices all of
++ * them with the Anthropic pixel-area formula. That is right for the Claude
++ * routes it carries (Opus reads 1932px at 5,000) and a 3.3x-5.0x overcharge
++ * on the DeepSeek vision routes, which bill ~1,000/image above 1280px
++ * instead. The formula's 4784-patch cap makes the error grow with frame
++ * size: a 1568px frame is priced 3,293 against a measured 995 (+2,298), and a
++ * 2576px frame 5,024 against 1,011
++ * (+4,013). The overcharge lands on the reduction guard: the archived frames are
++ * priced thousands of tokens too high each, so a compaction that genuinely
++ * shrinks the request reads as "would not reduce context" and may be rejected
++ * back to an LLM summary.
++ *
++ * Keyed by EXACT model id, not by a provider prefix, because this vendor's
++ * per-image price is not uniform across a model line. The same 2026-09-10
++ * probe that measured 995 on the three ids below measured **6** on
++ * `deepseek/deepseek-v4-pro` and **0** on `deepseek/deepseek-v4-flash-fast`
++ * (both text-only in the catalog, so neither is reachable through
++ * snapcompact today -- but a `^deepseek/` prefix would silently price them at
++ * 995 if that ever changed). Ids absent here are unmeasured and keep the API
++ * family's formula: an invented number is worse than the formula it replaces.
++ *
++ * Entries are `[frameEdge, tokensPerFrame]` in ascending edge order; the last
++ * edge at or below the resolved frame size wins. A frame below the first
++ * measured edge counts as unmeasured. Every step is a measurement, and each
++ * value covers the sizes above it up to the next edge, and the final step also
++ * covers everything above it. The table is exact at the two sizes shipped
++ * variants reach (1568 and 2576, both measured) and conservative at the
++ * measured checkpoints inside the steps (2048 would bill 995 against a measured
++ * 993; 3584 would bill 1011 against 989). It is NOT an upper bound for
++ * unmeasured sizes above 2576 -- only measured points carry a guarantee.
++ */
++const DEEPSEEK_VISION_FRAME_TOKENS: ReadonlyArray<readonly [number, number]> = [
++	[256, 198],
++	[512, 198],
++	[768, 363],
++	[1024, 653],
++	[1280, 995],
++	[2576, 1011],
++];
++
++const MODEL_FRAME_TOKEN_STEPS: Readonly<Record<string, ReadonlyArray<readonly [number, number]>>> = {
++	"deepseek/deepseek-v4-flash-vision-exp": DEEPSEEK_VISION_FRAME_TOKENS,
++	"deepseek/deepseek-v4.1-flash": DEEPSEEK_VISION_FRAME_TOKENS,
++	"deepseek/deepseek-v4-flash": DEEPSEEK_VISION_FRAME_TOKENS,
++};
++
++
+ /** Eval-validated shapes, keyed by the provider family they won on. */
+ export const SHAPES = {
+ 	/** `11on16-bw`: 8x13 glyphs on an 11px advance (extra tracking), black ink.
+@@ -416,8 +477,9 @@
+  * eval-winning shape — and frame size — for its model line, falling back to
+  * the API family's winner when the model is unmeasured. Billing (token
+  * estimate, detail hint) is computed for the resolved frame size from the
+- * model's catalog image rule. Accepts a full pi-ai `Model` or any
+- * `{ api, id }` subset.
++ * model's catalog image rule -- except where {@link MODEL_FRAME_TOKEN_STEPS}
++ * carries a measurement the catalog rule cannot express. Accepts a full pi-ai
++ * `Model` or any `{ api, id }` subset.
+  */
+ export function resolveShape(model?: ShapeTarget, variant?: ShapeVariantName | "auto"): Shape {
+ 	if (variant && variant !== "auto") return priceShape(SHAPE_VARIANTS[variant], model);
+@@ -534,11 +596,20 @@
+ }
+ 
+ /**
+- * Per-request image-count budgets by provider id. These cap how many images an
+- * entire request may carry (archive/system-prompt/tool-result imaging combined).
+- * The values are conservative policy caps under the vendor hard limits
+- * (Anthropic 100, OpenAI 500, Gemini ~2500); unknown providers fall to a safe
+- * floor rather than sending unbounded attachments.
++ * Per-request image-count budgets keyed by provider id *and* by wire `api`
++ * family. These cap how many images an entire request may carry
++ * (archive/system-prompt/tool-result imaging combined). The values are
++ * conservative policy caps under the vendor hard limits (Anthropic 100,
++ * OpenAI 500, Gemini ~2500); unknown keys fall to a safe floor rather than
++ * sending unbounded attachments.
++ *
++ * The `api` entries are what user-configured gateway providers resolve
++ * through: a hand-written `models.yml` provider (`pixel`, `pqh`, ...) is never
++ * in this table by id, so {@link providerImageBudget} retries on its wire
++ * api. A gateway forwards to the same upstream the api family names, so it
++ * inherits that family's cap instead of the floor of 5 -- where a single new
++ * image evicts the oldest one from the outbound request, rewriting a
++ * mid-history tool result and voiding the whole prompt-cache prefix.
+  */
+ export const PROVIDER_IMAGE_BUDGETS: Record<string, number> = {
+ 	anthropic: 90,
+@@ -548,21 +619,71 @@
+ 	google: 200,
+ 	"google-vertex": 200,
+ 	"google-gemini-cli": 200,
++	"google-antigravity": 200,
++	"opencode-go": 200,
++	"zhipu-coding-plan": 200,
++	commandcode: 200,
++	"openai-completions": 200,
++	"ollama-chat": 200,
+ 	openrouter: 90,
+ 	umans: 10,
++	// Wire-api families (see doc comment): keyed identically so a custom
++	// gateway provider inherits its upstream's cap.
++	"anthropic-messages": 90,
++	"bedrock-converse-stream": 90,
++	"openai-responses": 200,
++	"openai-codex-responses": 200,
++	"azure-openai-responses": 200,
++	"google-generative-ai": 200,
++	devin: 200,
++	"devin-agent": 200,
+ };
+ 
++/** Command Code provider id / wire-api namespace. The plugin mints one provider
++ *  id and one wire api per configured account (`commandcode` +
++ *  `commandcode-custom` for the primary, `commandcode-b` +
++ *  `commandcode-custom-b` for every alias added via `COMMANDCODE_ACCOUNTS`), so
++ *  the alias names are created at runtime and can never be enumerated in
++ *  {@link PROVIDER_IMAGE_BUDGETS}. They all reach the same gateway, so they
++ *  inherit its cap by namespace rather than falling to the floor of 5 -- where
++ *  {@link providerFrameBudget} would clamp the snapcompact archive to 5 frames.
++ *  The trailing separator keeps an unrelated `commandcodex...` id out. */
++const COMMAND_CODE_NAMESPACE = /^commandcode(?:[-_]|$)/;
++const COMMAND_CODE_IMAGE_BUDGET = 200;
++
+ /** Safe floor for unknown providers (strictest mainstream measured: Groq ~5). */
+ export const DEFAULT_PROVIDER_IMAGE_BUDGET = 5;
+ 
+-/** Per-request image budget for `provider`; unknown providers get the floor. */
+-export function providerImageBudget(provider: string | undefined): number {
+-	return (provider !== undefined ? PROVIDER_IMAGE_BUDGETS[provider] : undefined) ?? DEFAULT_PROVIDER_IMAGE_BUDGET;
++/** Per-request image budget for `provider`, falling back to the wire `api`
++ *  family before the floor. Provider ids multiply faster than wire apis
++ *  (e.g. `google-antigravity` rides the `google-gemini-cli` api), and silently
++ *  dropping to the floor of 5 makes a single attached image evict the oldest
++ *  snapcompact archive frame -- rewriting `contents[0]` and voiding the whole
++ *  prompt-cache prefix.
++ *
++ *  The lookup order is provider id, then wire api, then the Command Code
++ *  namespace. The namespace sits LAST on purpose: an explicit `api` entry is a
++ *  measurement of the upstream that actually serves the request, so it must
++ *  keep outranking the gateway heuristic -- `commandcode-b` on
++ *  `anthropic-messages` stays at Anthropic's 90. Only names that would
++ *  otherwise fall to the floor are rescued. */
++export function providerImageBudget(provider: string | undefined, api?: string | undefined): number {
++	if (provider !== undefined) {
++		const byProvider = PROVIDER_IMAGE_BUDGETS[provider];
++		if (byProvider !== undefined) return byProvider;
++	}
++	if (api !== undefined) {
++		const byApi = PROVIDER_IMAGE_BUDGETS[api];
++		if (byApi !== undefined) return byApi;
++	}
++	if (provider !== undefined && COMMAND_CODE_NAMESPACE.test(provider)) return COMMAND_CODE_IMAGE_BUDGET;
++	if (api !== undefined && COMMAND_CODE_NAMESPACE.test(api)) return COMMAND_CODE_IMAGE_BUDGET;
++	return DEFAULT_PROVIDER_IMAGE_BUDGET;
+ }
+ 
+ /** Archive frame cap for `provider`: image budget, never above {@link MAX_FRAMES_DEFAULT}. */
+-export function providerFrameBudget(provider: string | undefined): number {
+-	return Math.min(providerImageBudget(provider), MAX_FRAMES_DEFAULT);
++export function providerFrameBudget(provider: string | undefined, api?: string | undefined): number {
++	return Math.min(providerImageBudget(provider, api), MAX_FRAMES_DEFAULT);
+ }
+ 
+ /** Key under `CompactionEntry.preserveData` holding the frame archive. */

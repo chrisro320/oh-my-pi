@@ -1,4 +1,4 @@
-// Attribute every prompt-cache miss to the exact prefix segment that changed.
+// Observe request-prefix drift and measured cache usage without inventing causality.
 //
 // Why this exists: resume-cache misses kept recurring after 0082 because each
 // investigation was retrospective — by the time a miss showed up in usage, the
@@ -6,13 +6,13 @@
 // payload" can never find the break; the break is between the LAST LIVE request
 // and the FIRST RESUMED one, and those live in different processes.
 //
-// So: fingerprint every outbound request (per system block, tools, per message)
-// and persist the fingerprint. A new process reads the previous one off disk, so
-// the first request after resume is diffed against the last request before exit.
+// Fingerprint outbound requests per system block, tool set and message, and
+// persist the fingerprints. Resumed processes compare against earlier requests
+// from the same session/model. These are request-only observations: message_end
+// has no shared request ID, so completion usage cannot be attributed to the
+// newest request, its headers or its diff.
 //
-// A prompt cache is a byte-exact prefix match. Any segment before the last
-// breakpoint that changes voids the whole thing, so the first differing index is
-// the whole answer. Classification:
+// Request classification:
 //   APPEND_ONLY     - prefix intact, only new tail messages (healthy)
 //   SYSTEM_DRIFT    - a system block changed (system prompt / rules / memories)
 //   TOOLS_DRIFT     - tool schemas changed (model switch, tool gating)
@@ -24,11 +24,9 @@
 //   ENVELOPE_DRIFT  - cached prefix intact but a non-prefix request field moved
 //                     (`metadata.user_id` partitions the cache server-side)
 //
-// On top of whichever verdict fired, a DIAGNOSTIC-ONLY `ttlShift` note marks a
-// changed breakpoint TTL MEMBERSHIP (position-independent: marker indexes
-// legally translate as the tail grows, so only the sorted unique TTL set
-// compares). 5m and 1h live in SEPARATE Anthropic pools — byte-identical
-// content queried under the other TTL reads nothing back.
+// A diagnostic-only `ttlShift` note records changed breakpoint TTL membership.
+// Marker indexes legally translate as the tail grows, so this compares only
+// the sorted unique TTL set. A change is observable, not proof of a cache miss.
 //
 // Wire formats: OpenAI/Anthropic keep the cached prefix top-level (`messages`,
 // `system`, `tools`); Google Antigravity/Gemini nests it under `request`
@@ -63,10 +61,6 @@ const LOG_MAX_BYTES = 2 * 1024 * 1024;
 /** Session key used when no session id can be resolved. Keep it process-local so
  * payloads without identity cannot share a state file across OMP processes. */
 const DEFAULT_SESSION = `pid-${process.pid}`;
-/** Chars of a rewritten message kept for identification. Enough to name the
- *  culprit (an `<advisory>` tag, a `<system-reminder>`, a tool result header)
- *  without turning the audit log into a second transcript. */
-const SAMPLE_CHARS = 100;
 
 interface Fingerprint {
 	at: string;
@@ -108,7 +102,7 @@ interface Fingerprint {
 	responseHeaders?: string;
     /** Session key this fingerprint belongs to (process-local when unresolvable). */
     sessionId: string;
-    /** Truncated text sample per message for naming the culprit in a rewrite. */
+    /** Length-only diagnostics. Never persist message or reasoning excerpts. */
     samples: string[];
 }
 
@@ -133,16 +127,6 @@ interface SessionState {
 	 *  mechanism keeps distinct models in one session from overwriting each
 	 *  other's baseline. */
 	recent?: Fingerprint[];
-	/** Latest diff per model id.
-	 *
-	 *  The verdict is written when the RESPONSE arrives, but the diff is
-	 *  computed when a REQUEST leaves. A single slot is therefore claimed by
-	 *  whichever model requested last — and a session that interleaves models
-	 *  (a parallel agent, a keepalive, a title generator) routinely slots
-	 *  another model's request in between. The verdict then names a rewrite
-	 *  from a history this response never saw, with an index past its own
-	 *  message count, and reads as a confident root cause. */
-	lastDiffByModel?: Record<string, Diff>;
 	note: string;
 }
 
@@ -407,6 +391,9 @@ function loadState(sessionKey: string): SessionState {
 				st.last = restored;
 				st.recent = [restored];
 			}
+			for (const fp of st.recent ?? []) {
+				fp.samples = fp.samples.map(sample => sample.match(/^len=\d+/)?.[0] ?? "");
+			}
 		}
 	} catch {
 		// Corrupt or partial file: re-seed cleanly on the next request.
@@ -485,9 +472,8 @@ function fingerprint(target: object, sessionIdOverride?: string): Fingerprint | 
 		const hashInput = content !== undefined ? contentForHash(content) : contentForHash(message);
 		const text = (textOf(content) || responseType || "").replace(/\s+/g, " ");
 		fp.messages.push(`${role ?? responseType ?? "?"}:${sha(hashInput)}`);
-		// Length leads the sample: a tail-appended edit (the common rewrite) is
-		// invisible in a head-truncated excerpt but obvious in the length.
-		fp.samples.push(`len=${text.length} ${text.slice(0, SAMPLE_CHARS)}`);
+		// Content hashes detect rewrites; diagnostics retain lengths, never prose.
+		fp.samples.push(`len=${text.length}`);
 
 		if (Array.isArray(content)) {
 			for (const block of content) {
@@ -788,7 +774,7 @@ function diff(prev: Fingerprint, next: Fingerprint): Diff {
 		return {
 			kind: "HISTORY_REWRITE",
 			index: i,
-			detail: `messages[${i}] ${roleNote} | was ${JSON.stringify(prev.samples[i] ?? "")} | now ${JSON.stringify(next.samples[i] ?? "")}`,
+			detail: `messages[${i}] ${roleNote} | was ${prev.messages[i]} ${prev.samples[i]?.match(/^len=\d+/)?.[0] ?? ""} | now ${next.messages[i]} ${next.samples[i]?.match(/^len=\d+/)?.[0] ?? ""}`,
 			ttlShift,
 		};
 	}
@@ -865,32 +851,17 @@ export default function (pi: ExtensionAPI): void {
 
 			const next = fingerprint(payload, sessionKey);
 			if (!next) return undefined;
-			// The VERDICT is always measured against the immediately preceding
-			// request OF THE SAME MODEL. Substituting a better-matching older
-			// candidate would silence real regressions: when some older candidate
-			// happens to be a complete prefix of this request, a genuine rollback or
-			// rewrite relative to the actual predecessor gets relabelled
-			// append-only and disappears. Substituting another model's request is
-			// worse: a session that interleaves models (advisor, title generator,
-			// keepalive) would name the other model's system prompt as the drift on
-			// rows that were clean cache hits.
+			// Compare request bytes only. Same-model requests can still represent
+			// different purposes; without a request ID this is not a response cause.
 			const candidates = st.recent ?? (st.last ? [st.last] : []);
 			const sameModel = candidates.filter(c => c.model === next.model);
 			const prev = sameModel[0];
 			const d: Diff = prev ? diff(prev, next) : { kind: "IDENTICAL", detail: "no baseline" };
 			const crossProcess = prev !== undefined && prev.pid !== next.pid;
-			// LIMITATION (pre-existing, not fixed here): one diff slot per model
-			// means two outstanding requests of the SAME model overwrite the
-			// earlier diff before its usage arrives, so a response can still be
-			// attributed to a different request of its own model.
-			st.lastDiffByModel = { ...st.lastDiffByModel, [next.model]: d };
 			st.note = `${d.kind}${d.index !== undefined ? `@${d.index}` : ""}${crossProcess ? " (cross-process)" : ""} session=${sessionKey}`;
 
-			// Annotation only. A side-channel or keepalive predecessor carries a
-			// virtual tail, so the next real turn reads as a mid-history rewrite
-			// against it while some earlier real request is a clean prefix. Naming
-			// that alternative explains the verdict without overriding it; the
-			// paired `usage.cacheRead` decides whether anything was actually lost.
+			// A side request may carry a virtual tail. An older matching prefix is
+			// useful context, but neither candidate is correlated with usage.
 			const alt = bestBaseline(
 				// Identity, never the ISO-millisecond `at`: two distinct requests
 				// in the same millisecond would otherwise delete each other.
@@ -909,6 +880,7 @@ export default function (pi: ExtensionAPI): void {
 					messages: next.messages.length,
 					breakpoints: next.breakpoints,
 					crossProcess,
+					correlation: "request-only",
 					sharedPrefix: prev ? sharedPrefix(prev, next) : undefined,
 					diff: d,
 					// A rewrite against the predecessor that is a clean append
@@ -951,9 +923,9 @@ export default function (pi: ExtensionAPI): void {
 		return undefined;
 	});
 
-	// Usage is the verdict: pairing it with the diff turns "cache missed again"
-	// into "cache missed because messages[100] flipped user -> developer".
-	pi.on("message_end", event => {
+	// The hook has no shared request ID. Report measured usage independently;
+	// never attach the newest request's diff, headers or session as its cause.
+	pi.on("message_end", (event, ctx) => {
 		try {
 			const message: unknown = event.message;
 			if (message === null || typeof message !== "object") return;
@@ -966,24 +938,12 @@ export default function (pi: ExtensionAPI): void {
 			const input = typeof usage.input === "number" ? usage.input : 0;
 
 			const model = "model" in message && typeof message.model === "string" ? message.model : undefined;
-			const st = loadState(activeSessionKey);
-			// Match the diff to THIS response's model. Single-model sessions keep
-			// the old behaviour via the lone-slot fallback; only an interleaved
-			// session (where the unmatched slot is the actual bug) reports no
-			// diff rather than another model's.
-			const slots = st.lastDiffByModel ?? {};
-			const slotKeys = Object.keys(slots);
-			const d =
-				model !== undefined && slots[model] !== undefined
-					? slots[model]
-					: slotKeys.length === 1
-						? slots[slotKeys[0]]
-						: undefined;
-			const broken = d !== undefined && d.kind !== "APPEND_ONLY" && d.kind !== "IDENTICAL";
-			// Diagnostic-only note: annotates ANY verdict, never replaces the
-			// prefix diagnosis. A clean-looking turn that swapped TTL pools
-			// still misses, so the miss line must carry the swap.
-			const shiftNote = d?.ttlShift !== undefined ? ` | ttl ${d.ttlShift}` : "";
+			let observedSessionId: string | undefined;
+			try {
+				observedSessionId = ctx.sessionManager.getSessionId();
+			} catch {
+				// A detached response may have no active session context.
+			}
 			// Strict hit ratio per established acceptance convention:
 			// cacheRead / (cacheRead + cacheWrite + input). Below 50% the
 			// turn is reported as a miss even when some bytes were reused —
@@ -991,32 +951,24 @@ export default function (pi: ExtensionAPI): void {
 			const denom = cacheRead + cacheWrite + input;
 			const strictPct = denom > 0 ? ((cacheRead / denom) * 100).toFixed(1) : "0.0";
 			const verdict =
-				denom > 0 && cacheRead / denom >= 0.5
-					? `hit (strict ${strictPct}%)${shiftNote}`
-					: broken
-						? `MISS CAUSED BY ${d.kind} (strict ${strictPct}%)${shiftNote}`
-						: `MISS (prefix intact, strict ${strictPct}% — look at breakpoints/TTL/request envelope)${shiftNote}`;
+				denom === 0
+					? "unknown (no input usage; uncorrelated)"
+					: cacheRead / denom >= 0.5
+						? `hit (strict ${strictPct}%; uncorrelated)`
+						: `MISS (strict ${strictPct}%; cause unknown — uncorrelated)`;
 
 			write(
 				LOG_PATH,
 				`${JSON.stringify({
 					at: new Date().toISOString(),
-					sessionId: activeSessionKey,
+					observedSessionId,
 					model: model ?? "unknown",
 					usage: { input, cacheRead, cacheWrite },
+					cacheStatus: denom === 0 ? "unknown" : cacheRead / denom >= 0.5 ? "hit" : "miss",
+					strictHitRate: denom > 0 ? cacheRead / denom : undefined,
 					verdict,
-					// The auth/beta fingerprint of the outbound call. It lives only in
-					// the rolling state otherwise, so a miss whose diff says "prefix
-					// intact" cannot be told apart from a credential switch after the
-					// fact — and a credential switch IS one of the causes.
-					//
-					// LIMITATION (pre-existing, not fixed here): this reads `st.last`,
-					// the session's newest request of ANY model, so an interloper
-					// between this request and its response can name the wrong call's
-					// credential/header fingerprint.
-					headers: st.last?.headers,
-					responseHeaders: st.last?.responseHeaders,
-					diff: d,
+					correlation: "unavailable",
+					cause: "unknown",
 				})}\n`,
 				true,
 			);
@@ -1026,7 +978,7 @@ export default function (pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("cacheaudit", {
-		description: "Prompt-cache prefix audit: what changed before the last miss",
+		description: "Request-prefix drift and uncorrelated cache usage",
 		handler: async (_args, ctx) => {
 			const tail = existsSync(LOG_PATH)
 				? readFileSync(LOG_PATH, "utf8").trimEnd().split("\n").slice(-10).join("\n")

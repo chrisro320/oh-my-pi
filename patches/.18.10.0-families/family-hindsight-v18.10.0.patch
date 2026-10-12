@@ -1,0 +1,880 @@
+--- a/dist/types/hindsight/state.d.ts
++++ b/dist/types/hindsight/state.d.ts
+@@ -92,11 +92,11 @@
+     recallForCompaction(messages: HindsightMessage[]): Promise<string | undefined>;
+     runMentalModelLoad(scope: BankScope): Promise<void>;
+     /**
+-     * Starts a bounded reload for a new transcript without blocking the session
+-     * transition. A result that misses the first-turn deadline is discarded so
+-     * the previous snapshot stays frozen for the whole transcript.
++     * Starts a bounded reload owned by the target transcript. Read-only replicas
++     * replay frozen snapshots without remote loads or metadata publication.
++     * An omitted readOnly option preserves the current transcript policy.
+      */
+-    beginMentalModelsTranscriptReload(): void;
++    beginMentalModelsTranscriptReload(options?: { readOnly?: boolean }): void;
+     reloadMentalModels(): Promise<boolean>;
+     attachSessionListeners(): void;
+     dispose(): void;
+--- a/dist/types/memory-backend/recall-entry.d.ts
++++ b/dist/types/memory-backend/recall-entry.d.ts
+@@ -30,9 +30,13 @@
+  * The latest recall for `scope` on the current branch that a turn followed, with the
+  * memories still current per the latest change report delivered after it. Undefined
+  * when the branch needs a fresh recall: none was recorded since the last context
+- * reset, or no turn followed one (a branch that edits the first prompt asks a
+- * different question).
++ * reset, or no turn followed a native record (a branch that edits the first prompt
++ * asks a different question). Migrated `legacyCommitted` Hindsight records retain
++ * their old commit-time freeze without requiring a new post-migration turn.
+  */
+ export declare function findPersistedRecall(sessionManager: Pick<SessionManager, "getBranch">, scope: string): PersistedRecall | undefined;
+-/** Records a fresh recall. */
+-export declare function persistRecall(sessionManager: Pick<SessionManager, "appendCustomEntry">, scope: string, recall: PersistedRecall): void;
++/** Records a fresh recall, or explicitly adopts a commit-frozen legacy Hindsight snapshot. */
++export declare function persistRecall(sessionManager: Pick<SessionManager, "appendCustomEntry">, scope: string, recall: PersistedRecall, options?: {
++    /** Preserve a legacy Hindsight snapshot frozen by its generation-owned commit. */
++    legacyCommitted?: true;
++}): void;
+--- a/dist/types/session/session-memory.d.ts
++++ b/dist/types/session/session-memory.d.ts
+@@ -46,16 +46,18 @@
+     get transition(): Promise<void>;
+     /** Base prompt captured before a per-turn memory promotion. */
+     get promotionSnapshot(): string[] | undefined;
++    /** Block the memory backend last promoted onto the system prompt. */
++    get promotionTail(): string | undefined;
+     /** Clears the per-turn memory promotion after a canonical prompt rebuild. */
+     clearPromotionSnapshot(): void;
+     /** Captures the canonical prompt before the first per-turn memory promotion. */
+-    capturePromotionSnapshot(prompt: string[]): void;
++    capturePromotionSnapshot(prompt: string[], tail?: string): void;
+     /** Restores a promotion snapshot while rolling back a failed session switch. */
+-    restorePromotionSnapshot(prompt: string[] | undefined): void;
++    restorePromotionSnapshot(prompt: string[] | undefined, tail?: string): void;
+     /** Rekeys every active memory backend to the current provider session. */
+     rekeyForCurrentSessionId(): void;
+     /** Resets transcript-scoped memory counters and removes a promoted prompt. */
+-    resetContextForNewTranscript(): Promise<void>;
++    resetContextForNewTranscript(options?: { readOnly?: boolean }): Promise<void>;
+     /** Cancel the local rollout-memory startup owned by this session. */
+     cancelLocalMemoryStartup(): void;
+     /** Start a new local rollout-memory generation and cancel its predecessor. */
+--- a/dist/types/session/session-tools.d.ts
++++ b/dist/types/session/session-tools.d.ts
+@@ -35,7 +35,8 @@
+     memoryBackendSession(): MemoryBackendStartOptions["session"];
+     clearInheritedProviderPromptCacheKey(): void;
+     clearMemoryPromotionSnapshot(): void;
+-    captureMemoryPromotionSnapshot(prompt: string[]): void;
++    captureMemoryPromotionSnapshot(prompt: string[], tail?: string): void;
++    memoryPromotionTail(): string | undefined;
+     emitNotice(level: "info" | "warning" | "error", message: string, source?: string): void;
+     notifyCommandMetadataChanged(): void;
+     localProtocolOptions(): LocalProtocolOptions;
+--- a/src/hindsight/backend.ts
++++ b/src/hindsight/backend.ts
+@@ -82,15 +82,15 @@
+ 
+ 		const state = session?.getHindsightSessionState();
+ 		const primary = state?.aliasOf ?? state;
+-		const recallSnippet = primary?.lastRecallSnippet;
+ 		const mentalModelsSnippet = primary?.mentalModelsSnippet;
+ 
+-		// Order: static instructions → mental models (stable, curated) → recall
+-		// (volatile per turn). Stable context first so the LLM's prior is
+-		// anchored on curated knowledge.
++		// Order: static instructions -> mental models (stable, curated). The
++		// per-turn recall block is deliberately not joined here: the host promotes
++		// it onto the system prompt as its own trailing message and re-applies it
++		// after every base rebuild, so the block keeps one slot instead of moving
++		// in and out of this developer message as the snippet comes and goes.
+ 		const parts = [prompt.render(hindsightInstructions, { toolRefs: memoryToolRefs(session?.getXdevToolEntries()) })];
+ 		if (mentalModelsSnippet) parts.push(mentalModelsSnippet);
+-		if (recallSnippet) parts.push(recallSnippet);
+ 		return parts.join("\n\n");
+ 	},
+ 
+@@ -310,12 +310,13 @@
+ 	previous?.dispose();
+ 	state.attachSessionListeners();
+ 
+-	// Kick off mental-model bootstrap. Resolves asynchronously; the first
+-	// turn races and is covered in `beforeAgentStartPrompt` via
++	// Kick off mental-model bootstrap. The first turn awaits the bounded load
++	// and mandatory target publication in `beforeAgentStartPrompt` via
+ 	// `mentalModelsLoadPromise`. Subsequent turns see the populated cache
+ 	// because `runMentalModelLoad` calls `refreshBaseSystemPrompt`.
+ 	if (config.mentalModelsEnabled) {
+-		state.mentalModelsLoadPromise = state.runMentalModelLoad(scope).catch(err => {
++		state.mentalModelsLoadPromise = state.runMentalModelLoad(scope);
++		void state.mentalModelsLoadPromise.catch(err => {
+ 			logger.debug("Hindsight: mental-model bootstrap failed", { bankId: state.bankId, error: String(err) });
+ 		});
+ 	}
+--- a/src/hindsight/state.ts
++++ b/src/hindsight/state.ts
+@@ -1,5 +1,5 @@
+ import { logger } from "@oh-my-pi/pi-utils";
+-import { findPersistedRecall, persistRecall } from "../memory-backend/recall-entry";
++import { findPersistedRecall, MEMORY_RECALL_ENTRY_TYPE, persistRecall } from "../memory-backend/recall-entry";
+ import type { MemoryPromptPreparation } from "../memory-backend/types";
+ import type { AgentSession } from "../session/agent-session";
+ import { type BankScope, ensureBankExists } from "./bank";
+@@ -25,6 +25,24 @@
+ const RETAIN_FLUSH_INTERVAL_MS = 5_000;
+ const MENTAL_MODEL_LOAD_TIMED_OUT = Symbol("mental-model-load-timed-out");
+ 
++/**
++ * Custom-entry type carrying the first-turn recall block. A resume rebuilds the
++ * system prompt from scratch; re-running recall there would emit a different
++ * block (fresh query, fresh results) and shift the cached prefix, so the
++ * provider re-bills the whole conversation. Replaying the persisted bytes keeps
++ * the prefix identical and the prompt cache warm.
++ */
++const RECALL_SNIPPET_CUSTOM_TYPE = "hindsight_recall_snippet";
++
++/**
++ * Custom-entry type carrying this transcript's `<mental_models>` snapshot. Same
++ * reasoning as the recall marker: the block lives in the system prompt, so
++ * re-listing it on resume shifts the cache prefix. Mental models change only
++ * when server-side consolidation rewrites them, which no in-flight
++ * conversation depends on.
++ */
++const MENTAL_MODELS_SNIPPET_CUSTOM_TYPE = "hindsight_mental_models_snippet";
++
+ interface PendingRetainItem {
+ 	content: string;
+ 	context?: string;
+@@ -242,6 +260,8 @@
+ 	 */
+ 	mentalModelsLoadPromise?: Promise<void>;
+ 	#mentalModelsLoadGeneration = 0;
++	/** Replica transcripts may replay snapshots, but never adopt or refresh them. */
++	#transcriptReadOnly = false;
+ 	unsubscribe?: () => void;
+ 	/** Alias states delegate persistence config to a primary parent state. */
+ 	aliasOf?: HindsightSessionState;
+@@ -432,21 +452,62 @@
+ 		}
+ 	}
+ 
++	/**
++	 * Replays a block this session already injected, so a resume keeps the
++	 * system-prompt prefix byte-identical. Reads the newest marker of that type
++	 * on the branch; `undefined` means the transcript has none. An empty string
++	 * is a real answer -- it records that the block was empty when first loaded.
++	 */
++	#loadPersistedSnippet(customType: string): string | undefined {
++		const branch = this.session.sessionManager?.getBranch?.();
++		if (!branch) return undefined;
++		for (let index = branch.length - 1; index >= 0; index--) {
++			const entry = branch[index];
++			// Snapshots are per-transcript: a `reset_boundary` (`/clear`, focus
++			// attach, new transcript) starts a new conversation, so markers from
++			// before it must not answer for the post-reset turns. Without this,
++			// a stale non-empty marker replays outdated memories into the new
++			// transcript, and a stale EMPTY marker (0021/0023 freeze) suppresses
++			// recall for the rest of the new conversation.
++			if (entry.type === "reset_boundary") break;
++			// A scoped recall supersedes the unscoped legacy format, even when it
++			// belongs to another scope or has not yet been followed by a turn.
++			if (
++				customType === RECALL_SNIPPET_CUSTOM_TYPE &&
++				entry.type === "custom" &&
++				entry.customType === MEMORY_RECALL_ENTRY_TYPE
++			) return undefined;
++			if (entry.type !== "custom" || entry.customType !== customType) continue;
++			const data = entry.data;
++			if (data && typeof data === "object" && "snippet" in data) {
++				if ("scope" in data && data.scope !== this.#recallScope()) return undefined;
++				const snippet = data.snippet;
++				if (typeof snippet === "string") return snippet;
++			}
++			return undefined;
++		}
++		return undefined;
++	}
++
+ 	async beforeAgentStartPrompt(
+ 		promptText: string,
+ 		signal?: AbortSignal,
+ 	): Promise<MemoryPromptPreparation | undefined> {
+ 		if (this.config.mentalModelsEnabled && this.mentalModelsLoadPromise && this.mentalModelsLoadedAt === undefined) {
+-			await Promise.race([this.mentalModelsLoadPromise, Bun.sleep(MENTAL_MODEL_FIRST_TURN_DEADLINE_MS)]);
++			try {
++				// The load owns the remote deadline. Do not race required target
++				// prompt publication against another timeout and admit stale bytes.
++				await this.mentalModelsLoadPromise;
++			} catch (error) {
++				// Preparation failures are optional in the host; a failed mandatory
++				// snapshot handoff must instead fail the owning turn at commit.
++				return { commit: () => { throw error; } };
++			}
+ 		}
+ 
+ 		if (!this.config.autoRecall || this.hasRecalledForFirstTurn) return undefined;
+ 
+-		const latestPrompt = promptText.trim();
+-		if (!latestPrompt) return undefined;
+ 		const generation = ++this.#recallGeneration;
+-		// Reuse this transcript's recall so a resumed session sends the same prompt. Hindsight
+-		// memories cannot be looked up by id, so changes since are not reported.
+ 		const persisted = findPersistedRecall(this.session.sessionManager, this.#recallScope());
+ 		if (persisted !== undefined) {
+ 			return {
+@@ -454,7 +515,27 @@
+ 				commit: () => this.#commitRecall(generation, persisted.text, false),
+ 			};
+ 		}
++		const legacy = this.#loadPersistedSnippet(RECALL_SNIPPET_CUSTOM_TYPE);
++		if (legacy !== undefined) {
++			return {
++				context: legacy || undefined,
++				commit: () => {
++					if (!this.#commitRecall(generation, legacy, false)) return false;
++					// The old producer appended only on a generation-owned commit,
++					// including "". Bind those already-frozen bytes to the scope
++					// adopting them, not a claimed historical server/account identity.
++					if (!this.#transcriptReadOnly) {
++						persistRecall(this.session.sessionManager, this.#recallScope(),
++							{ text: legacy, memories: [] }, { legacyCommitted: true });
++					}
++					return true;
++				},
++			};
++		}
+ 
++		if (this.#transcriptReadOnly) return undefined;
++		const latestPrompt = promptText.trim();
++		if (!latestPrompt) return undefined;
+ 		const history = extractMessages(this.session.sessionManager);
+ 		const queryMessages = [...history, { role: "user" as const, content: latestPrompt }];
+ 		const query = composeRecallQuery(latestPrompt, queryMessages, this.config.recallContextTurns);
+@@ -463,7 +544,7 @@
+ 		if (!ok) return undefined;
+ 
+ 		return {
+-			context: context ?? undefined,
++			context: context || undefined,
+ 			commit: () => this.#commitRecall(generation, context ?? "", true),
+ 		};
+ 	}
+@@ -472,8 +553,10 @@
+ 	#commitRecall(generation: number, context: string, persist: boolean): boolean {
+ 		if (this.#recallGeneration !== generation) return false;
+ 		this.hasRecalledForFirstTurn = true;
+-		if (context) this.lastRecallSnippet = context;
+-		if (persist) persistRecall(this.session.sessionManager, this.#recallScope(), { text: context, memories: [] });
++		this.lastRecallSnippet = context || undefined;
++		if (persist && !this.#transcriptReadOnly) {
++			persistRecall(this.session.sessionManager, this.#recallScope(), { text: context, memories: [] });
++		}
+ 		return true;
+ 	}
+ 
+@@ -505,8 +588,25 @@
+ 	async runMentalModelLoad(scope: BankScope): Promise<void> {
+ 		if (!this.config.mentalModelsEnabled) return;
+ 		const generation = ++this.#mentalModelsLoadGeneration;
+-		const previousSnippet = this.mentalModelsSnippet;
++		if (this.session.isSessionTransitioning) {
++			await this.session.waitForSessionTransition();
++			if (generation !== this.#mentalModelsLoadGeneration) return;
++		}
++		const persisted = this.#loadPersistedSnippet(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE);
++		const previousSnippet = persisted || undefined;
++		this.mentalModelsSnippet = previousSnippet;
+ 		this.mentalModelsLoadedAt = undefined;
++		await this.session.refreshBaseSystemPrompt(() => generation === this.#mentalModelsLoadGeneration);
++		if (generation !== this.#mentalModelsLoadGeneration) return;
++		if (persisted !== undefined) {
++			this.mentalModelsLoadedAt = Date.now();
++			this.#persistMentalModelsSnippet(persisted);
++			return;
++		}
++		if (this.#transcriptReadOnly) {
++			this.mentalModelsLoadedAt = Date.now();
++			return;
++		}
+ 
+ 		const bootstrap = (async () => {
+ 			// Create/ensure the bank BEFORE the first mental-model POST so we don't
+@@ -514,6 +614,7 @@
+ 			// that surfaces as a FK / 404 on Hindsight's side. `ensureBankExists`
+ 			// is idempotent (PUT) and skips after the first call via `banksSet`.
+ 			await ensureBankExists(this.client, this.bankId, this.config, this.banksSet);
++			if (generation !== this.#mentalModelsLoadGeneration || this.#transcriptReadOnly) return;
+ 
+ 			// Seeding is opt-in (`hindsight.mentalModelAutoSeed`). Default behaviour is
+ 			// read-only: we surface whatever models the operator has curated on the
+@@ -523,36 +624,52 @@
+ 				const seeds = resolveSeedsForScope(scope, this.config.scoping);
+ 				if (seeds.length > 0) {
+ 					await ensureMentalModels(this.client, this.bankId, seeds, this.config.debug);
++					if (generation !== this.#mentalModelsLoadGeneration || this.#transcriptReadOnly) return;
+ 				}
+ 			}
+ 
+-			await this.#loadAndPublishMentalModels(generation, previousSnippet, "MM load");
++			await this.#loadAndPublishMentalModels(generation, previousSnippet, "MM load", persisted);
+ 		})();
+ 		await this.#settleMentalModelsLoadWithinDeadline(bootstrap, generation, previousSnippet);
+ 	}
+ 
+ 	/**
+-	 * Starts a bounded reload for a new transcript without blocking the session
+-	 * transition. A result that misses the first-turn deadline is discarded so
+-	 * the previous snapshot stays frozen for the whole transcript.
++	 * Starts a bounded reload owned by the target transcript. Its recorded
++	 * answer is authoritative; a transcript without one starts empty, never
++	 * inheriting the previous session's snapshot on failure or timeout.
+ 	 */
+-	beginMentalModelsTranscriptReload(): void {
+-		if (!this.config.mentalModelsEnabled) return;
++	beginMentalModelsTranscriptReload(options?: { readOnly?: boolean }): void {
++		if (options?.readOnly !== undefined) this.#transcriptReadOnly = options.readOnly;
++		this.#recallGeneration++;
+ 		const generation = ++this.#mentalModelsLoadGeneration;
+-		const previousSnippet = this.mentalModelsSnippet;
+-		this.mentalModelsLoadedAt = undefined;
+-		const reload = this.#settleMentalModelsLoadWithinDeadline(
+-			this.#loadAndPublishMentalModels(generation, previousSnippet, "MM transcript reload"),
+-			generation,
+-			previousSnippet,
+-		).catch(error => {
+-			if (generation === this.#mentalModelsLoadGeneration) {
+-				this.mentalModelsSnippet = previousSnippet;
+-				this.mentalModelsLoadedAt = Date.now();
+-			}
+-			logger.debug("Hindsight: mental-model transcript reload failed", { error: String(error) });
+-		});
++		if (!this.config.mentalModelsEnabled) return;
++		const reload = (async () => {
++			// The transition can still cancel or roll back. Do not read a partially
++			// adopted branch, publish, or persist until its outermost scope settles.
++			if (this.session.isSessionTransitioning) await this.session.waitForSessionTransition();
++			if (generation !== this.#mentalModelsLoadGeneration) return;
++			const persisted = this.#loadPersistedSnippet(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE);
++			const previousSnippet = persisted || undefined;
++			this.mentalModelsSnippet = previousSnippet;
++			this.mentalModelsLoadedAt = undefined;
++			await this.session.refreshBaseSystemPrompt(() => generation === this.#mentalModelsLoadGeneration);
++			if (generation !== this.#mentalModelsLoadGeneration) return;
++			await this.#settleMentalModelsLoadWithinDeadline(
++				this.#loadAndPublishMentalModels(generation, previousSnippet, "MM transcript reload", persisted),
++				generation,
++				previousSnippet,
++			).catch(error => {
++				if (generation === this.#mentalModelsLoadGeneration) {
++					this.mentalModelsSnippet = previousSnippet;
++					this.mentalModelsLoadedAt = Date.now();
++				}
++				logger.debug("Hindsight: mental-model transcript reload failed", { error: String(error) });
++			});
++		})();
+ 		this.mentalModelsLoadPromise = reload;
++		void reload.catch(error => {
++			logger.debug("Hindsight: mental-model target publication failed", { error: String(error) });
++		});
+ 	}
+ 
+ 	async #settleMentalModelsLoadWithinDeadline(
+@@ -572,13 +689,65 @@
+ 		this.#mentalModelsLoadGeneration++;
+ 		this.mentalModelsSnippet = previousSnippet;
+ 		this.mentalModelsLoadedAt = Date.now();
++		// Freeze the answer this transcript actually sends. The deadline has now
++		// decided that this transcript goes out with `previousSnippet` (usually no
++		// block at all), and letting the late load land later would rebuild the
++		// base system prompt with a freshly rendered block, trip the content-diff
++		// guard in session-tools (`clearInheritedProviderPromptCacheKey`) and bill
++		// the whole prefix on turn one. Persisting the frozen bytes keeps a later
++		// RESUME byte-identical too: without a marker the resumed session would
++		// re-list, get a real block, and shift the same prefix. `/memory mm
++		// reload` stays the explicit escape hatch.
++		if (this.#loadPersistedSnippet(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE) === undefined) {
++			this.#persistMentalModelsSnippet(previousSnippet);
++		}
++	}
++
++	/**
++	 * Records this transcript's `<mental_models>` answer so a resume replays the
++	 * same bytes instead of re-listing. `?? ""` is load-bearing for the same
++	 * reason as the recall marker: `#loadPersistedSnippet` only accepts
++	 * `typeof snippet === "string"`, so a `null` would read back as "no answer
++	 * recorded" and reopen the prefix shift.
++	 */
++	#persistMentalModelsSnippet(snippet: string | undefined): void {
++		if (this.#transcriptReadOnly) return;
++		const branch = this.session.sessionManager?.getBranch?.() ?? [];
++		for (let index = branch.length - 1; index >= 0; index--) {
++			const entry = branch[index];
++			if (entry.type === "reset_boundary") break;
++			if (entry.type !== "custom" || entry.customType !== MENTAL_MODELS_SNIPPET_CUSTOM_TYPE) continue;
++			const data = entry.data;
++			if (data && typeof data === "object" && "snippet" in data && "scope" in data &&
++				data.snippet === (snippet ?? "") && data.scope === this.#recallScope()) return;
++			break;
++		}
++		this.session.sessionManager?.appendCustomEntry?.(MENTAL_MODELS_SNIPPET_CUSTOM_TYPE, {
++			snippet: snippet ?? "",
++			scope: this.#recallScope(),
++		});
+ 	}
+ 
+ 	async #loadAndPublishMentalModels(
+ 		generation: number,
+ 		previousSnippet: string | undefined,
+ 		reason: "MM load" | "MM reload" | "MM transcript reload",
++		persisted?: string,
+ 	): Promise<void> {
++		if (generation !== this.#mentalModelsLoadGeneration) return;
++		// Automatic loads capture the target branch's recorded answer before
++		// any await. Only explicit `/memory mm reload` omits that snapshot.
++		if (persisted !== undefined) {
++			this.mentalModelsLoadedAt = Date.now();
++			this.#persistMentalModelsSnippet(persisted);
++			return;
++		}
++
++		if (this.#transcriptReadOnly) {
++			this.mentalModelsLoadedAt = Date.now();
++			return;
++		}
++
+ 		const result = await tryLoadMentalModelsBlock(
+ 			this.client,
+ 			this.bankId,
+@@ -587,6 +756,10 @@
+ 		);
+ 		if (generation !== this.#mentalModelsLoadGeneration) return;
+ 		if (!result.ok) {
++			// A fetch failure is not an answer: keep the snapshot that is already
++			// on the wire but record nothing, so a later resume retries the list
++			// instead of freezing a transient outage for the whole transcript.
++			// Mirrors the recall path, where `ok: false` also persists no marker.
+ 			this.mentalModelsLoadedAt = Date.now();
+ 			return;
+ 		}
+@@ -599,9 +772,11 @@
+ 		if (generation !== this.#mentalModelsLoadGeneration) return;
+ 		if (!published) this.mentalModelsSnippet = previousSnippet;
+ 		this.mentalModelsLoadedAt = Date.now();
++		this.#persistMentalModelsSnippet(this.mentalModelsSnippet);
+ 	}
+ 
+ 	async reloadMentalModels(): Promise<boolean> {
++		if (this.#transcriptReadOnly) return false;
+ 		if (this.aliasOf) return false;
+ 		if (!this.config.mentalModelsEnabled) return false;
+ 		const generation = ++this.#mentalModelsLoadGeneration;
+--- a/src/memory-backend/recall-entry.ts
++++ b/src/memory-backend/recall-entry.ts
+@@ -52,6 +52,9 @@
+ 	 * project's memories into another.
+ 	 */
+ 	scope: string;
++	/** Migrated Hindsight snapshots were frozen by the old producer's commit,
++	 * even if no later message was appended. Native recalls keep turn-followed semantics. */
++	legacyCommitted?: true;
+ }
+ 
+ function isRecalledMemories(value: unknown): value is RecalledMemory[] {
+@@ -100,8 +103,9 @@
+  * The latest recall for `scope` on the current branch that a turn followed, with the
+  * memories still current per the latest change report delivered after it. Undefined
+  * when the branch needs a fresh recall: none was recorded since the last context
+- * reset, or no turn followed one (a branch that edits the first prompt asks a
+- * different question).
++ * reset, or no turn followed a native record (a branch that edits the first prompt
++ * asks a different question). Migrated `legacyCommitted` Hindsight records retain
++ * their old commit-time freeze without requiring a new post-migration turn.
+  */
+ export function findPersistedRecall(
+ 	sessionManager: Pick<SessionManager, "getBranch">,
+@@ -120,10 +124,10 @@
+ 				reported = entry.details.memories;
+ 			}
+ 		} else if (
+-			turnFollowed &&
+ 			entry.type === "custom" &&
+ 			entry.customType === MEMORY_RECALL_ENTRY_TYPE &&
+ 			isMemoryRecallEntryData(entry.data) &&
++			(turnFollowed || entry.data.legacyCommitted === true) &&
+ 			entry.data.scope === scope
+ 		) {
+ 			return { text: entry.data.text, memories: reported ?? entry.data.memories };
+@@ -132,16 +136,18 @@
+ 	return undefined;
+ }
+ 
+-/** Records a fresh recall. */
++/** Records a fresh recall, or explicitly adopts a commit-frozen legacy Hindsight snapshot. */
+ export function persistRecall(
+ 	sessionManager: Pick<SessionManager, "appendCustomEntry">,
+ 	scope: string,
+ 	recall: PersistedRecall,
++	options?: { legacyCommitted?: true },
+ ): void {
+ 	sessionManager.appendCustomEntry(MEMORY_RECALL_ENTRY_TYPE, {
+ 		version: 1,
+ 		scope,
+ 		text: recall.text,
+ 		memories: recall.memories,
++		...(options?.legacyCommitted ? { legacyCommitted: true as const } : {}),
+ 	} satisfies MemoryRecallEntryData);
+ }
+--- a/src/session/agent-session.ts
++++ b/src/session/agent-session.ts
+@@ -524,6 +524,7 @@
+ 	cfgToolsApproval,
+ } from "../tools/settings";
+ import { cfgTtsrJudge } from "../export/ttsr-settings";
++import { cfgMemoryBackend } from "../memory-backend/settings";
+ 
+ /** Advisor settings whose edit toggles or rebuilds a running advisor. */
+ const cfgAdvisorRuntimeInputs = combine({
+@@ -1148,6 +1149,8 @@
+ 	#providerSessionState = new Map<string, ProviderSessionState>();
+ 	readonly #cacheWarmer: CacheWarmer | undefined;
+ 	#hindsightSessionState: HindsightSessionState | undefined = undefined;
++	/** Replica memory may replay frozen answers but cannot publish local transcript metadata. */
++	#memoryTranscriptReadOnly = false;
+ 	readonly #memory: SessionMemory;
+ 	readonly rawSseDebugBuffer: RawSseDebugBuffer;
+ 
+@@ -2063,7 +2066,8 @@
+ 			memoryBackendSession: () => this,
+ 			clearInheritedProviderPromptCacheKey: () => this.#clearInheritedProviderPromptCacheKey(),
+ 			clearMemoryPromotionSnapshot: () => this.#memory.clearPromotionSnapshot(),
+-			captureMemoryPromotionSnapshot: prompt => this.#memory.capturePromotionSnapshot(prompt),
++			captureMemoryPromotionSnapshot: (prompt, tail) => this.#memory.capturePromotionSnapshot(prompt, tail),
++			memoryPromotionTail: () => this.#memory.promotionTail,
+ 			emitNotice: (level, message, source) => this.emitNotice(level, message, source),
+ 			notifyCommandMetadataChanged: () => this.#notifyCommandMetadataChanged(),
+ 			localProtocolOptions: () => this.#localProtocolOptions(),
+@@ -2815,6 +2819,9 @@
+ 	setHindsightSessionState(state: HindsightSessionState | undefined): HindsightSessionState | undefined {
+ 		const previous = this.#hindsightSessionState;
+ 		this.#hindsightSessionState = state;
++		if (state && !state.aliasOf && this.#memoryTranscriptReadOnly) {
++			state.beginMentalModelsTranscriptReload({ readOnly: true });
++		}
+ 		return previous;
+ 	}
+ 
+@@ -5294,6 +5301,13 @@
+ 			const settled = Promise.withResolvers<void>();
+ 			this.#sessionTransitionSettled = settled.promise;
+ 			this.#resolveSessionTransition = settled.resolve;
++			// Invalidate source loads before any branch/file swap. Reload waits
++			// for this scope, including cancellation and rollback, to settle.
++			if (cfgMemoryBackend.get(this.settings) === "hindsight" && !this.#hindsightSessionState?.aliasOf) {
++				this.#hindsightSessionState?.beginMentalModelsTranscriptReload({
++					readOnly: this.#memoryTranscriptReadOnly,
++				});
++			}
+ 		}
+ 		return this.#sessionTransitionScope;
+ 	}
+@@ -5948,7 +5962,6 @@
+ 		// Re-prime the advisors across the conversation boundary and undo any
+ 		// memory promotion so the next turn rebuilds from the base system prompt.
+ 		this.#advisors.resetSessionState();
+-		await this.#memory.resetContextForNewTranscript();
+ 
+ 		// Record a durable boundary on the persisted branch. The collapsed live
+ 		// transcript and the model-context rebuild start emission after the latest
+@@ -5956,6 +5969,8 @@
+ 		// on-disk record and the plain `transcript:true` export path keep the full
+ 		// pre-reset history.
+ 		this.sessionManager.appendResetBoundary();
++		// Snapshot lookup must see the boundary before starting a transcript reload.
++		await this.#memory.resetContextForNewTranscript({ readOnly: this.#memoryTranscriptReadOnly });
+ 
+ 		resetCapabilities();
+ 		await this.refreshBaseSystemPrompt();
+@@ -9868,7 +9883,8 @@
+ 			// #syncAppendOnlyContext only re-runs on model or setting changes.
+ 			this.agent.appendOnlyContext?.invalidateForModelChange();
+ 			this.#memory.rekeyForCurrentSessionId();
+-			await this.#memory.resetContextForNewTranscript();
++			this.#memoryTranscriptReadOnly = false;
++			await this.#memory.resetContextForNewTranscript({ readOnly: false });
+ 			this.#pendingNextTurnMessages = [];
+ 			// The abort above may have skipped the loop's final aside poll (issue: stranded
+ 			// asides survive an aborted turn by design so a resumed session can still see
+@@ -10022,7 +10038,8 @@
+ 			this.#memory.rekeyForCurrentSessionId();
+ 			this.#advisors.reattachRecorderFeeds();
+ 			advisorRecordersDetached = false;
+-			await this.#memory.resetContextForNewTranscript();
++			this.#memoryTranscriptReadOnly = false;
++			await this.#memory.resetContextForNewTranscript({ readOnly: false });
+ 
+ 			// Emit session_switch event with reason "fork" to hooks
+ 			if (this.#extensionRunner) {
+@@ -11407,6 +11424,7 @@
+ 		// Flush pending writes before switching so restore snapshots reflect committed state.
+ 		await this.sessionManager.flush();
+ 		const previousSessionState = this.sessionManager.captureState();
++		const previousMemoryTranscriptReadOnly = this.#memoryTranscriptReadOnly;
+ 		const bashTransition = this.#bash.beginSessionTransition();
+ 		// Only same-session reloads compare against the prior context to detect
+ 		// rollback edits (`#didSessionMessagesChange` below). Building it for a
+@@ -11437,6 +11455,7 @@
+ 		const previousBaseSystemPrompt = this.#tools.baseSystemPrompt;
+ 		const previousSystemPrompt = this.agent.state.systemPrompt;
+ 		const previousBaseSystemPromptBeforeMemoryPromotion = this.#memory.promotionSnapshot;
++		const previousMemoryPromotionTail = this.#memory.promotionTail;
+ 		const previousFreshProviderSessionId = this.#freshProviderSessionId;
+ 		const previousInheritedProviderPromptCacheKey = this.#inheritedProviderPromptCacheKey;
+ 
+@@ -11477,6 +11496,12 @@
+ 			// The file may be reloaded at the same path with a different latest contract (or the
+ 			// switch rolled back via restoreState); re-read it on the next model call either way.
+ 			this.#sessionInit = undefined;
++			this.#memoryTranscriptReadOnly = options?.preserveLocalCwd === true;
++			if (cfgMemoryBackend.get(this.settings) === "hindsight" && !this.#hindsightSessionState?.aliasOf) {
++				this.#hindsightSessionState?.beginMentalModelsTranscriptReload({
++					readOnly: this.#memoryTranscriptReadOnly,
++				});
++			}
+ 			await this.sessionManager.setSessionFile(sessionPath);
+ 			this.#bash.markSessionTransition(bashTransition);
+ 			const newCwd = this.sessionManager.getCwd();
+@@ -11620,9 +11645,6 @@
+ 				hasServiceTierEntry ? (sessionContext.serviceTier ?? {}) : configuredServiceTierByFamily,
+ 			);
+ 
+-			if (switchingToDifferentSession) {
+-				await this.#memory.resetContextForNewTranscript();
+-			}
+ 			if (switchingToDifferentSession || didReloadConversationChange) {
+ 				this.#clearSessionScopedToolState();
+ 			}
+@@ -11670,15 +11692,32 @@
+ 				if (options?.onModelFallback) options.onModelFallback(modelFallbackWarning);
+ 				else this.emitNotice("warning", modelFallbackWarning);
+ 			}
++			// A successful reload owns a fresh recall slot even when only custom
++			// snapshot metadata changed and displayed messages stayed identical.
++			// Clearing before cwd/model/hooks settle would lose it on rollback.
++			try {
++				await this.#memory.resetContextForNewTranscript({ readOnly: this.#memoryTranscriptReadOnly });
++			} catch (refreshError) {
++				logger.warn("Failed to refresh memory prompt after session switch", {
++					targetSessionFile: sessionPath,
++					error: String(refreshError),
++				});
++			}
+ 			return true;
+ 		} catch (error) {
+ 			this.sessionManager.restoreState(previousSessionState);
+ 			this.#freshProviderSessionId = previousFreshProviderSessionId;
+ 			this.#syncAgentSessionId(previousSessionState.sessionId, false);
+ 			this.#memory.rekeyForCurrentSessionId();
++			this.#memoryTranscriptReadOnly = previousMemoryTranscriptReadOnly;
++			if (cfgMemoryBackend.get(this.settings) === "hindsight" && !this.#hindsightSessionState?.aliasOf) {
++				this.#hindsightSessionState?.beginMentalModelsTranscriptReload({
++					readOnly: this.#memoryTranscriptReadOnly,
++				});
++			}
+ 			this.agent.setTools(previousTools);
+ 			this.#tools.setBaseSystemPrompt(previousBaseSystemPrompt);
+-			this.#memory.restorePromotionSnapshot(previousBaseSystemPromptBeforeMemoryPromotion);
++			this.#memory.restorePromotionSnapshot(previousBaseSystemPromptBeforeMemoryPromotion, previousMemoryPromotionTail);
+ 			this.agent.setSystemPrompt(previousSystemPrompt);
+ 			this.agent.replaceMessages(previousAgentMessages);
+ 			this.agent.replaceQueues(previousSteeringMessages, previousFollowUpMessages);
+@@ -11893,7 +11932,8 @@
+ 			this.#clearInheritedProviderPromptCacheKey();
+ 			this.#syncAgentSessionId();
+ 			this.#memory.rekeyForCurrentSessionId();
+-			await this.#memory.resetContextForNewTranscript();
++			this.#memoryTranscriptReadOnly = false;
++			await this.#memory.resetContextForNewTranscript({ readOnly: false });
+ 
+ 			// Reload messages from entries (works for both file and in-memory mode)
+ 			const sessionContext = this.buildDisplaySessionContext();
+@@ -12015,7 +12055,8 @@
+ 			this.#freshProviderSessionId = undefined;
+ 			this.#syncAgentSessionId();
+ 			this.#memory.rekeyForCurrentSessionId();
+-			await this.#memory.resetContextForNewTranscript();
++			this.#memoryTranscriptReadOnly = false;
++			await this.#memory.resetContextForNewTranscript({ readOnly: false });
+ 
+ 			const sessionContext = this.buildDisplaySessionContext();
+ 
+@@ -12357,6 +12398,9 @@
+ 		this.#todo.syncFromBranch();
+ 		this.#modelMentions.syncFromBranch();
+ 		this.#closeCodexProviderSessionsForHistoryRewrite();
++		// The branch is committed; discard the abandoned recall and promoted
++		// tail so first preparation replays this branch's frozen answer.
++		await this.#memory.resetContextForNewTranscript({ readOnly: this.#memoryTranscriptReadOnly });
+ 
+ 		this.#branchSummaryAbortController = undefined;
+ 
+--- a/src/session/session-memory.ts
++++ b/src/session/session-memory.ts
+@@ -64,6 +64,7 @@
+ 	#memoryBackendTransition: Promise<void> = Promise.resolve();
+ 	#localMemoryStartupAbort: AbortController | undefined;
+ 	#baseSystemPromptBeforeMemoryPromotion: string[] | undefined;
++	#baseSystemPromptPromotionTail: string | undefined;
+ 	/** Cwd the running backend state was built for; a transcript is never retained after it moved. */
+ 	#runtimeCwd: string | undefined;
+ 	/** Apply waiting behind the current transition; later requests join it. */
+@@ -171,19 +172,34 @@
+ 		return this.#baseSystemPromptBeforeMemoryPromotion;
+ 	}
+ 
++	/**
++	 * Block the memory backend last promoted onto the system prompt. A base
++	 * rebuild replaces the prompt array wholesale, so the block is re-attached
++	 * from here and keeps one slot. It used to have two carriers -- joined into
++	 * the developer message once the backend had published a snippet, and
++	 * injected as a trailing system message before that -- so a restart, resume
++	 * or rebuild moved identical bytes between message boundaries and the
++	 * provider re-billed every cached prefix past the move point.
++	 */
++	get promotionTail(): string | undefined {
++		return this.#baseSystemPromptPromotionTail;
++	}
++
+ 	/** Clears the per-turn memory promotion after a canonical prompt rebuild. */
+ 	clearPromotionSnapshot(): void {
+ 		this.#baseSystemPromptBeforeMemoryPromotion = undefined;
+ 	}
+ 
+ 	/** Captures the canonical prompt before the first per-turn memory promotion. */
+-	capturePromotionSnapshot(prompt: string[]): void {
++	capturePromotionSnapshot(prompt: string[], tail?: string): void {
+ 		this.#baseSystemPromptBeforeMemoryPromotion ??= prompt;
++		if (tail !== undefined) this.#baseSystemPromptPromotionTail = tail;
+ 	}
+ 
+ 	/** Restores a promotion snapshot while rolling back a failed session switch. */
+-	restorePromotionSnapshot(prompt: string[] | undefined): void {
++	restorePromotionSnapshot(prompt: string[] | undefined, tail?: string): void {
+ 		this.#baseSystemPromptBeforeMemoryPromotion = prompt;
++		this.#baseSystemPromptPromotionTail = tail;
+ 	}
+ 	/** Rekeys every active memory backend to the current provider session. */
+ 	rekeyForCurrentSessionId(): void {
+@@ -206,7 +222,7 @@
+ 	}
+ 
+ 	/** New transcript: reset Hindsight counters and reload its frozen mental-model snapshot. */
+-	#resetHindsightConversationTrackingIfHindsight(): boolean {
++	#resetHindsightConversationTrackingIfHindsight(options?: { readOnly?: boolean }): boolean {
+ 		if (cfgMemoryBackend.get(this.#host.settings) !== "hindsight") return false;
+ 		const state = this.#host.getHindsightSessionState();
+ 		if (!state || state.aliasOf) return false;
+@@ -214,7 +230,7 @@
+ 		// Start a bounded first-turn reload without delaying /new, fork, clear, or
+ 		// session switches. A slow result is discarded so the previous snapshot
+ 		// remains byte-stable for this transcript (#11961).
+-		state.beginMentalModelsTranscriptReload();
++		state.beginMentalModelsTranscriptReload(options);
+ 		return true;
+ 	}
+ 
+@@ -227,15 +243,20 @@
+ 	}
+ 
+ 	/** Resets transcript-scoped memory counters and removes a promoted prompt. */
+-	async resetContextForNewTranscript(): Promise<void> {
++	async resetContextForNewTranscript(options?: { readOnly?: boolean }): Promise<void> {
+ 		const hadPromotedMemoryPrompt = this.#baseSystemPromptBeforeMemoryPromotion !== undefined;
+-		const resetHindsight = this.#resetHindsightConversationTrackingIfHindsight();
++		const hadPromotionTail = this.#baseSystemPromptPromotionTail !== undefined;
++		const resetHindsight = this.#resetHindsightConversationTrackingIfHindsight(options);
+ 		const resetMnemopi = this.#resetMnemopiConversationTrackingIfMnemopi();
+ 		if (hadPromotedMemoryPrompt) {
+ 			this.#host.setBaseSystemPrompt(this.#baseSystemPromptBeforeMemoryPromotion!);
+ 			this.#baseSystemPromptBeforeMemoryPromotion = undefined;
+ 		}
+-		if (resetHindsight || resetMnemopi || hadPromotedMemoryPrompt) {
++		// The tail is transcript-scoped like the counters above: a fresh transcript
++		// re-recalls on its first turn, so a block kept here would otherwise ride
++		// into the new conversation if that recall comes back empty.
++		this.#baseSystemPromptPromotionTail = undefined;
++		if (resetHindsight || resetMnemopi || hadPromotedMemoryPrompt || hadPromotionTail) {
+ 			await this.#host.refreshBaseSystemPrompt();
+ 		}
+ 	}
+--- a/src/session/session-tools.ts
++++ b/src/session/session-tools.ts
+@@ -82,7 +82,8 @@
+ 	memoryBackendSession(): MemoryBackendStartOptions["session"];
+ 	clearInheritedProviderPromptCacheKey(): void;
+ 	clearMemoryPromotionSnapshot(): void;
+-	captureMemoryPromotionSnapshot(prompt: string[]): void;
++	captureMemoryPromotionSnapshot(prompt: string[], tail?: string): void;
++	memoryPromotionTail(): string | undefined;
+ 	emitNotice(level: "info" | "warning" | "error", message: string, source?: string): void;
+ 	notifyCommandMetadataChanged(): void;
+ 	localProtocolOptions(): LocalProtocolOptions;
+@@ -1359,7 +1360,12 @@
+ 				if (this.#lastAppliedToolSignature !== undefined && !restoresTranscriptPrompt) {
+ 					this.#host.clearInheritedProviderPromptCacheKey();
+ 				}
+-				this.#baseSystemPrompt = rebuiltSystemPrompt;
++				// The promoted recall block keeps its slot across a wholesale rebuild;
++				// see the promotion comment in `buildSystemPromptForAgentStart`.
++				const promotionTail = this.#host.memoryPromotionTail();
++				this.#baseSystemPrompt = promotionTail
++					? [...rebuiltSystemPrompt, promotionTail]
++					: rebuiltSystemPrompt;
+ 				this.#host.clearMemoryPromotionSnapshot();
+ 				this.#applyAgentSystemPrompt(this.#baseSystemPrompt);
+ 				invalidateToolSchemaMetadata(this.#host.agent.state.tools);
+@@ -2154,7 +2160,12 @@
+ 				// awaiting its final commit: its own lifecycle published its own
+ 				// snapshot, so only carry the prompt forward.
+ 				if (this.#baseSystemPrompt !== previousBaseSystemPrompt) return true;
+-				this.#baseSystemPrompt = built.systemPrompt;
++				// The promoted recall block keeps its slot across a wholesale rebuild;
++				// see the promotion comment in `buildSystemPromptForAgentStart`.
++				const promotionTail = this.#host.memoryPromotionTail();
++				this.#baseSystemPrompt = promotionTail
++					? [...built.systemPrompt, promotionTail]
++					: built.systemPrompt;
+ 				this.#promptSurface = candidate;
+ 				this.#setBasePromptXdevNames(built.xdevCatalogNames);
+ 				this.#host.clearMemoryPromotionSnapshot();
+@@ -2210,7 +2221,12 @@
+ 			}
+ 			if (!isCurrent()) return { systemPrompt: this.#baseSystemPrompt };
+ 
+-			const preparedBase = refreshed?.systemPrompt ?? this.#baseSystemPrompt;
++			// `preparedBase` may be the live array when no refresh happened, and that
++			// array can already end with a block promoted on an earlier turn: strip it
++			// before re-staging, or this turn would carry the block twice.
++			const promoted = this.#host.memoryPromotionTail();
++			const base = refreshed?.systemPrompt ?? this.#baseSystemPrompt;
++			const preparedBase = promoted !== undefined && base[base.length - 1] === promoted ? base.slice(0, -1) : base;
+ 			const stablePrompt = [...preparedBase, injected];
+ 			return {
+ 				systemPrompt: stablePrompt,
+@@ -2221,8 +2237,14 @@
+ 					// A handler may have refreshed tools or policy. Promote the recall onto
+ 					// that winning base, never replace it with the preparation's snapshot.
+ 					const currentBase = this.#baseSystemPrompt;
+-					this.#host.captureMemoryPromotionSnapshot(currentBase);
+-					this.#baseSystemPrompt = currentBase === preparedBase ? stablePrompt : [...currentBase, injected];
++					// A rebuild during the await re-attached the previous block; drop it
++					// before staging this one so the tail stays a single message.
++					const withoutTail =
++						promoted !== undefined && currentBase[currentBase.length - 1] === promoted
++							? currentBase.slice(0, -1)
++							: currentBase;
++					this.#host.captureMemoryPromotionSnapshot(currentBase, injected);
++					this.#baseSystemPrompt = currentBase === preparedBase ? stablePrompt : [...withoutTail, injected];
+ 					this.#applyAgentSystemPrompt(this.#baseSystemPrompt);
+ 					return true;
+ 				},

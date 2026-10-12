@@ -59,7 +59,7 @@
 //
 // Log: ~/.omp/agent/context-persist-audit.log (JSONL, 1 MiB rotation).
 // Logged on the first check per session, on every new non-ok signature, and on
-// the transition back to ok. A new non-ok signature also raises a UI warning.
+// the transition back to ok. Diagnostics are log-only; no UI notifications.
 import type { AgentMessage, ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { convertToLlm } from "@oh-my-pi/pi-coding-agent/session/messages";
 import { buildSessionContext } from "@oh-my-pi/pi-coding-agent/session/session-context";
@@ -316,16 +316,6 @@ export default function contextPersistAudit(pi: ExtensionAPI): void {
 			if (signature === lastSignature.get(sessionId)) return;
 			lastSignature.set(sessionId, signature);
 			writeLog({ at: new Date().toISOString(), pid: process.pid, sessionId, ms, ...result, anchorError });
-			// `pending-commit` is the normal in-flight window of a message_end-persisted
-			// aside, not a fork: the next request commits it at the same index and the
-			// verdict returns to ok. It stays in the log (a crash inside the window
-			// really does drop it) but must not raise a warning every turn.
-			if (result.status !== "ok" && result.status !== "pending-commit" && ctx.hasUI) {
-				ctx.ui.notify(
-					`context-persist-audit: ${result.status} at message ${result.index} (live ${result.liveCount}, file ${result.fileCount}); a resume would miss the prompt cache from there`,
-					"warning",
-				);
-			}
 		} catch (error) {
 			try {
 				writeLog({ at: new Date().toISOString(), pid: process.pid, error: String(error) });

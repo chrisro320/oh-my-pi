@@ -21,17 +21,16 @@
 // install instead of the tree under test. Fails closed on a missing root or an
 // unsupported version.
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { MockModel } from "@oh-my-pi/pi-ai/providers/mock";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM;
-const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
-const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT;
+const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? (NM ? `${NM}/pi-coding-agent` : undefined);
+const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? (NM ? `${NM}/pi-ai` : undefined);
 assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree under test");
 assert.ok(AI_ROOT, "OMP_PATCH_VERIFY_AI_ROOT must point to the pi-ai tree under test");
-assert.ok(NM, "OMP_PATCH_VERIFY_NM must point to the @oh-my-pi node_modules tree under test");
 
 let agentVersion: string;
 try {
@@ -46,7 +45,27 @@ try {
 // Version-scoped: the length-stop incomplete-retry branch that appends this
 // reminder exists only in the 18.4.1 plan. A tree without the behavior must
 // fail, never skip.
-assert.ok(["18.4.1", "18.4.4", "18.7.0"].includes(agentVersion), `unsupported length-stop reminder persist gate version: ${agentVersion}`);
+assert.ok(["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion), `unsupported length-stop reminder persist gate version: ${agentVersion}`);
+const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
+const privateHome = mkdtempSync(join(tmpdir(), "omp-length-home-"));
+for (const key of Object.keys(process.env)) {
+	if (key !== "PATH" && key !== "TMPDIR") delete process.env[key];
+}
+Object.assign(process.env, {
+	HOME: privateHome, XDG_CONFIG_HOME: join(privateHome, "config"), XDG_CACHE_HOME: join(privateHome, "cache"),
+	XDG_DATA_HOME: join(privateHome, "data"), XDG_STATE_HOME: join(privateHome, "state"),
+});
+process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
+// Private HOME must also precede runtime startup (os.homedir may be cached).
+if (!privateProcess) {
+	const child = Bun.spawnSync([process.execPath, import.meta.path, ...process.argv.slice(2)], {
+		env: { ...process.env, OMP_DURABILITY_BOOT: "1",
+			OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT, OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT },
+	});
+	process.stdout.write(child.stdout);
+	process.stderr.write(child.stderr);
+	process.exit(child.exitCode);
+}
 
 // No provider call is possible: the mock provider never fetches, and any direct
 // fetch throws. The assertion below proves the run stayed offline.
@@ -65,9 +84,6 @@ const { buildSessionContext } = await import(`${AGENT_ROOT}/src/session/session-
 const { convertToLlm } = await import(`${AGENT_ROOT}/src/session/messages.ts`);
 const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
 const { ModelRegistry } = await import(`${AGENT_ROOT}/src/config/model-registry.ts`);
-// Same module instance the SDK loads, so its resolved agent dir is the one the
-// date/cwd anchor map was written under.
-const { getAgentDir } = await import(`${NM}/pi-utils/src/dirs.ts`);
 
 // Stable body fragment of prompts/system/length-stop-retry.md.
 const REMINDER_FRAGMENT = "output limit while still reasoning";
@@ -124,10 +140,8 @@ function wire(messages: Message[]): string[] {
 	});
 }
 
-let managerId = "";
 try {
 	const manager = SessionManager.create(cwd, sessionDir);
-	managerId = manager.getSessionId();
 	const model = createMockModel({
 		id: "mock",
 		responses: [
@@ -202,6 +216,8 @@ try {
 	await manager.flush();
 	const sessionFile = manager.getSessionFile();
 	if (!sessionFile) throw new Error("the file-backed session must expose its session file");
+	await session.dispose();
+	await manager.close();
 	const reopened = await SessionManager.open(sessionFile);
 	const resumedModel = createMockModel({ id: "mock", responses: [{ content: ["after restart"] }] });
 	const resumed = await openSession(reopened, resumedModel);
@@ -225,12 +241,10 @@ try {
 		0,
 		`the gate must not touch the network (attempted: ${fetchUrls.slice(0, 3).join(", ")})`,
 	);
+	await resumed.dispose();
+	await reopened.close();
+	authStorage.close();
 	console.log("length-stop reminder persist: ALL PASS");
 } finally {
 	rmSync(root, { recursive: true, force: true });
-	// The date/cwd anchor map lives outside the temp root (getAgentDir() is
-	// frozen at module load); drop only this session's file.
-	rmSync(join(getAgentDir(), "date-cwd-anchors", `${managerId.replace(/[^A-Za-z0-9._-]/g, "_")}.json`), {
-		force: true,
-	});
 }
