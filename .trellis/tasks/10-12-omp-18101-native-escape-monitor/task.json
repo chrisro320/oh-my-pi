@@ -23,6 +23,7 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {
-    "requested_profile": "hard"
+    "requested_profile": "hard",
+    "spec_update": "spec/backend/patch-rollup-contracts.md: native addon overlay scenario"
   }
 }

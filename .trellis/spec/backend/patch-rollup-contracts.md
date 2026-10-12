@@ -740,3 +740,32 @@ Machine-check at delivery and review:
 ### 7. Wrong vs Correct
 
 Wrong: two atomic pointer replacements are treated as one transaction, or `HOME` makes an old-global controller safe for a new release. Correct: durable intent plus fail-closed receipt coherence protects the gap; an installed ledger has an explicit physical runtime binding.
+
+## Scenario: Native addon overlay (pi-natives)
+
+### 1. Scope / Trigger
+A defect lives in compiled `pi-natives` Rust code (e.g. the Linux Escape monitor cancelling on every `MappingNotify`). Text patches cannot reach it; a TS workaround around native behavior is rejected.
+
+### 2. Signatures
+`patches/native/<NNNN>-*.patch` (source diff against the pinned upstream commit), `patches/native/build-natives.sh <work> <out>`, `patches/native/overlay.json` (original and rebuilt SHA-256 per addon), `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi`.
+
+### 3. Contracts
+- Build from the pinned upstream commit with its `rust-toolchain.toml`, release profile, both CPU variants (`x86-64-v3` modern, `x86-64-v2` baseline) and the upstream version stamp; exports must equal the shipped addon.
+- Local builds are not bit-identical to upstream CI: verify against the recorded rebuilt hashes, never against upstream bytes.
+- Install into the staging runtime before `prepare`; the candidate-tree digest does not cover `pi-natives-linux-x64`, the runtime-tree digest does. Re-run the verifier on the installed release.
+- Live acceptance runs only in a scratch window with user consent, via the real OMP path after activation, with an `xinput test-xi2 --root` witness for device switches. Physical Escape must still cancel.
+
+### 4. Validation & Error Matrix
+| Condition | Required result |
+|---|---|
+| Rebuilt hash differs from `overlay.json` | Stop; re-run live checks before recording new hashes |
+| Verifier sees original upstream hash | FAIL (overlay missing) |
+
+### 5. Good / Base / Bad Cases
+Good: overlay PASS in staging and installed release; loaded `.node` hash (`/proc/<pid>/maps`) equals the rebuilt hash. Bad: edit the addon inside an immutable release, or claim acceptance from a direct-native harness only.
+
+### 6. Tests Required
+`grep -c '"rebuilt"' patches/native/overlay.json` and `verify-native-overlay.py --nm <installed-runtime>/node_modules/@oh-my-pi` at delivery and review.
+
+### 7. Wrong vs Correct
+Wrong: pre-switch the XTEST device from TS so the monitor never sees the mapping change. Correct: fix the monitor (re-read Escape on `MappingNotify`, cancel only when it cannot) in a recorded native overlay.
