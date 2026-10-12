@@ -1,0 +1,8 @@
+{
+  "release": "18.10.1-59edb2f9d189-15014870-98f49ed8",
+  "omp_version": "omp/18.10.1 (installed; ready for a new process)",
+  "processes": {"2456299": "18.10.1-59edb2f9d189-15014870-98f49ed8", "2456350": "18.10.1-59edb2f9d189-15014870-98f49ed8"},
+  "patch_ledger_link": "/home/chris/.bun/install/omp-releases/18.10.1-59edb2f9d189-15014870-98f49ed8/ledger",
+  "config": {"retry.maxRetries": 8},
+  "activation": "user exited all omp normally and resumed; no kill, no launcher bypass"
+}

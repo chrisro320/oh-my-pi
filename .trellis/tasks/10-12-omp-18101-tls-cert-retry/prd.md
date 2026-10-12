@@ -21,3 +21,4 @@ Family `0099-omp-retry-slow-schedule`: retries wait 3-3-5-5-10-10-15-15 s instea
 
 ## Known limit
 The schedule covers about 66 s of outage; a longer outage on one route still ends the turn (model fallback applies only where `retry.fallbackChains` defines a chain).
+The phrase is a heuristic: Bun also emits it when a custom corporate CA bundle is missing, and that deterministic case now surfaces after about 66 s of retries instead of at once.
