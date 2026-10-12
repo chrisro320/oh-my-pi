@@ -23,6 +23,7 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {
-    "requested_profile": "hard"
+    "requested_profile": "hard",
+    "spec_update": "backend/patch-rollup-contracts.md: committed installed private smoke harness rule (Immutable code installation scenario, Tests Required)"
   }
 }
