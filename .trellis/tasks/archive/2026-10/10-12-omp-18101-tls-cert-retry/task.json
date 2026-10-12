@@ -3,7 +3,7 @@
   "name": "omp-18101-tls-cert-retry",
   "title": "OMP 18.10.1: retry transient TLS 'unknown certificate verification error'",
   "description": "Classify Bun's transient 'unknown certificate verification error' as Flag.Transient so model turns auto-retry; new independent patch 0098; publish",
-  "status": "planning",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "chris",
   "assignee": "chris",
   "createdAt": "2026-10-12",
-  "completedAt": null,
+  "completedAt": "2026-10-12",
   "branch": null,
   "base_branch": "trellis/ds-snapcompact-tuning",
   "worktree_path": null,
@@ -23,6 +23,7 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {
-    "requested_profile": "normal"
+    "requested_profile": "normal",
+    "spec_update": "spec/backend/patch-rollup-contracts.md: post-cutover family rule"
   }
 }
