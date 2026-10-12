@@ -203,3 +203,30 @@ E2E verified patch 0063: real session 01a0a05f (openai-codex/gpt-5.6-luna) /comp
 ### Status
 
 [OK] **Completed**
+
+
+## Session 9: OMP 18.10.1 S1 + Tern footer releases
+
+**Date**: 2026-10-12
+**Task**: OMP 18.10.1 S1 + Tern footer releases
+**Branch**: `trellis/ds-snapcompact-tuning`
+
+### Summary
+
+Published 18.10.1-87c8c1c88769 then 18.10.1-14ba3537d44c (S1 0010 guard removal; cache_turn turn/session rate; 16-cell middle-truncated branch; bare reset-credit count). Recreated and committed installed smoke harness. Footer confirmed in Tern after dropping token_total.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d54fbfb7c` | (see git log) |
+| `6ee8098e0` | (see git log) |
+| `512dea8a6` | (see git log) |
+| `dd3726ae6` | (see git log) |
+| `aedf5ec08` | (see git log) |
+| `2abb429d1` | (see git log) |
+| `d070e7b30` | (see git log) |
+
+### Status
+
+[OK] **Completed**
