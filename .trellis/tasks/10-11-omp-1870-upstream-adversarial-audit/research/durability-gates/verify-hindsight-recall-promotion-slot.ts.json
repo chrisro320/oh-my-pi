@@ -1,0 +1,12 @@
+{
+  "gate": "verify-hindsight-recall-promotion-slot.ts",
+  "started": "2026-10-12T06:06:44.715376+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-hindsight-recall-promotion-slot.ts"
+  ],
+  "gate_sha256": "5a0af745d4769aa37f0d48cb9ba3e7ecf2e05e45e74935643a05bf0ecfcd4f10",
+  "exit": 1,
+  "stdout": "",
+  "stderr": "\n[Uncaught Exception] TypeError: undefined is not an object (evaluating 'this.#host.agent.state.messages.findLast')\n    at #latestReply (/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-tools.ts:1532:33)\n    at new SessionTools (/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-tools.ts:544:30)\n    at /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-hindsight-recall-promotion-slot.ts:166:26\n    at processTicksAndRejections (native:7:39)\n"
+}

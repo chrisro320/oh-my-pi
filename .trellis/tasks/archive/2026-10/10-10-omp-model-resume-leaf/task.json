@@ -1,0 +1,41 @@
+{
+  "id": "omp-model-resume-leaf",
+  "name": "omp-model-resume-leaf",
+  "title": "Preserve model selection across session resume",
+  "description": "Fix OMP 18.7.0 model-switch settings detached from the active branch before new input; preserve last selected model across resume without reading abandoned branches.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-10-10",
+  "completedAt": "2026-10-10",
+  "branch": null,
+  "base_branch": "trellis/ds-snapcompact-tuning",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "patches/.18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch",
+    "patches/verify-model-selection-resume.ts",
+    "patches/.retired/10-10-18.7.0-model-selection-resume/baseline.json"
+  ],
+  "notes": "Repository-only fix; no deployment. Production delta: 37 added lines, 1 removed line in agent-session.ts. One real SDK switch/navigation/fresh-process-resume regression: pre-fix exit 1 at restored-model assertion (actual astra, expected sol); fixed exit 0, PASS model=sol effort=high. Official pinned six-package resolved-plan replay passed at fuzz=0 and matched the exercised fixed sandbox byte-for-byte. apply.sh and family oracle bash syntax passed; repair manifest loader passed. Broad suite not run per user instruction. Source review corrected routing and fallback attribution preservation; those edges were not exercised. Official 18.4.4 navigateTree has the same missing persistence; original incident's exact navigation caller remains unobserved.",
+  "meta": {
+    "deployment": {
+      "status": "deployed",
+      "authorizedAt": "2026-10-10",
+      "unit": "omp-model-resume-deploy-retry-1791635889751.service",
+      "driver": "/home/chris/.cache/omp-resume-deploy-tLUy3x/deploy.py",
+      "log": "/home/chris/.cache/omp-1844-upgrade/deploy-watch.log",
+      "scope": "Only the declared model-resume source delta; all other six-package bytes equal live, standalone extensions untouched, no live database operation.",
+      "evidence": "Retry service journal at 2026-10-10 08:39:25 reports RESULT: DEPLOYED 18.7.0-model-resume. Atomic code/ledger exchange completed; fresh formal omp/18.7.0 and 24/24 APPLIED post-verification passed. Preflight verified live 58/58, staged 24/24, and only the declared model-resume source delta. No database operation or standalone extension update. User confirmed applied.",
+      "rollback": "/home/chris/.omp/backups/upgrade-18.7.0-24layers-20261010-083922/rollback.py --execute"
+    }
+  }
+}

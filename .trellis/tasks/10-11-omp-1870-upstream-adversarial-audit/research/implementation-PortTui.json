@@ -1,0 +1,243 @@
+{
+  "agent": "PortTui",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "owner": "PortTui",
+      "status": "implementation_complete",
+      "root": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+      "fragment_accounting": {
+        "owned_paths": 24,
+        "recorded_family_path_fragments": 27,
+        "unfinished_paths": [],
+        "families": {
+          "family-status-accounting": 8,
+          "family-usage-pipeline": 3,
+          "0050-omp-session-history-preview": 4,
+          "family-image-display": 5,
+          "family-input-translation": 7
+        },
+        "recording": "All manual changes were recorded through driver accept/amend. No new paths, amendment conflicts, or hand-edited fragments."
+      },
+      "semantic_changes": [
+        {
+          "area": "R09/R10 status accounting",
+          "details": [
+            "Added cache_turn.describe using the same settled-assistant selection and formatted cache values as ANSI rendering.",
+            "Shared cache-inclusive total calculation between token_total.render and token_total.describe, including orchestrationCacheRead.",
+            "Native cache_hit now consumes sessionManager.getMainCacheHitRate(), matching ANSI and excluding auxiliary usage from the rate without removing it from aggregate accounting.",
+            "Retained schema/declaration, startup, and gallery-fixture accounting contracts."
+          ]
+        },
+        {
+          "area": "Usage refresh",
+          "details": [
+            "Preserved Anthropic cold-start/new-completed-turn admission and 60-second gate, other-provider 50-second TTL/new-turn bypass, provider whitelist, and in-flight/sequence handling.",
+            "Resolved the upstream conflict by keeping render-cache invalidation without fetch-completion repaint, while retaining upstream reset-expiry notices and Codex reset processing."
+          ]
+        },
+        {
+          "area": "Session history preview",
+          "details": [
+            "Retained injected read-only host loading, scrollable role-labeled history, original displayText, empty/error presentation, and generation/disposal guards.",
+            "Space opens history only with an empty query. The native picker exposes Preview only in that state; ordinary search-space remains input.",
+            "Preserved upstream native picker grouping, search, metadata side preview, scope controls, and input-lock behavior. Added full-history native description, native scroll commands, and Resume/Close actions.",
+            "Preview replaces the list in the content slot. Its viewport subtracts panel chrome; cramped terminal frames remain bounded.",
+            "Preview closes and disposes its ScrollView on dismissal/selection/exit; exit cancels preview timers. Failed-resume unlock restores the list instead of leaving a disposed preview mounted."
+          ]
+        },
+        {
+          "area": "Image display",
+          "details": [
+            "Completed imageFingerprint/ensurePng/completedPng/pngFailureReason cutover with exported PngConversionResult source/declaration closure; no old helper callers remain in the searched TUI/coding-agent trees.",
+            "Retained bounded pending/settled/failure conversion slots, sanitized failure reasons, and display-only conversion without modifying original model image payloads.",
+            "Adapted assistant success/failure/pending display ownership to upstream kittyDisplayed/kittyPreviouslyDisplayed. Hidden/replaced slots release their results, and late completion cannot resurrect an absent slot; disposal clears display ownership.",
+            "Made assistant budgeted image IDs component-, slot-, and fingerprint-specific so a replaced payload transmits its bytes rather than reusing an already-resident image at that position. Tool/native assistant slot namespaces remain distinct.",
+            "Tool conversions acquire their retirement barrier and publish cached results before display construction. Both PNG conversions and upstream figure raster work participate in pending retirement; completion preserves version invalidation and repaint error handling.",
+            "Preserved PNG-preferred notebook MIME selection in eval/py/display.ts."
+          ]
+        },
+        {
+          "area": "Input displayText",
+          "details": [
+            "Preserved original operator text, including explicitly empty displayText, across transcript construction, editable drafts, outline labels, session history, tree search/native/ANSI rows, and whole-turn/block copying.",
+            "Canonical model content extraction remains unchanged."
+          ]
+        }
+      ],
+      "cross_owner_contracts": [
+        {
+          "peer": "PortHost",
+          "api": "SessionPreviewLoader = (path: string) => Promise<readonly AgentMessage[]>; SessionSelectorOptions.loadPreviewMessages?: SessionPreviewLoader; SessionPickerHost.loadPreviewMessages?(): SessionPreviewLoader.",
+          "coordination": "PortHost confirmed main.ts supplies () => loadSessionMessagesReadOnly and selector-controller.ts supplies loadSessionMessagesReadOnly directly. No pi-tui -> pi-coding-agent dependency was introduced."
+        }
+      ],
+      "owned_paths": [
+        "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts",
+        "pi-coding-agent/src/cli/gallery-fixtures/status-line.ts",
+        "pi-coding-agent/src/eval/py/display.ts",
+        "pi-tui/dist/types/status-line/host.d.ts",
+        "pi-tui/dist/types/status-line/schema.d.ts",
+        "pi-tui/src/status-line/host.ts",
+        "pi-tui/src/status-line/schema.ts",
+        "pi-tui/src/status-line/segments.ts",
+        "pi-tui/src/status-line/startup.ts",
+        "pi-tui/src/status-line/component.ts",
+        "pi-tui/dist/types/apps/session-picker.d.ts",
+        "pi-tui/dist/types/overlays/session-selector.d.ts",
+        "pi-tui/src/apps/session-picker.ts",
+        "pi-tui/src/overlays/session-selector.ts",
+        "pi-tui/dist/types/chat/image-loading.d.ts",
+        "pi-tui/src/chat/assistant-message.ts",
+        "pi-tui/src/chat/image-loading.ts",
+        "pi-tui/src/chat/tool-execution.ts",
+        "pi-tui/dist/types/chat/transcript-entry.d.ts",
+        "pi-tui/src/chat/chat-transcript-builder.ts",
+        "pi-tui/src/chat/transcript-entry.ts",
+        "pi-tui/src/chat/transcript-outline.ts",
+        "pi-tui/src/overlays/copy-selector.ts",
+        "pi-tui/src/overlays/tree-selector.ts"
+      ],
+      "exercised_checks": {
+        "policy_greps": "All three work-order policy searches matched the required contracts and PRD requirements.",
+        "merge_markers": "No unresolved conflict markers in the searched owned source/declaration surfaces.",
+        "manifest": "Owner manifest reports 24 paths, 27 family/path fragments, and no unfinished paths.",
+        "runtime": "Not exercised. No tests, builds, lint, formatters, UI automation, or provider/auth/usage requests were run."
+      },
+      "parent_acceptance": [
+        {
+          "surface": "Native and ANSI status",
+          "steps": [
+            "Extend existing verify-main-cache-hit.ts rather than adding a duplicate gate: keep the real SessionManager main-plus-auxiliary producer fixture and exercise actual StatusLineComponent native composer facts/describePreview and ANSI status rendering with cache_turn, cache_hit, token_total configured.",
+            "Assert both rendered forms show cache-inclusive aggregate totals and the same main-only rate; include nonzero orchestrationCacheRead. Cover no settled assistant, a newer unsettled/error/aborted assistant, and a newer successful zero-cache assistant.",
+            "In the isolated native terminal, inspect the mounted composer/status appearance preview with that synthetic session. cache_turn must render without a dispatch exception; direct describeSegment execution alone is insufficient surface evidence."
+          ]
+        },
+        {
+          "surface": "Quota cadence",
+          "steps": [
+            "Use a synthetic host and controlled clock through StatusLineComponent.refreshUsageInBackground: cold Anthropic fetch once; idle advance does not fetch; a new completed turn at 59,999 ms is gated; another new turn at 60,000 ms fetches.",
+            "Exercise other-provider TTL and new-turn bypass, then complete the synthetic fetch and observe cache invalidation with no forced repaint callback. Preserve provider filtering and upstream reset notice behavior. Never connect the fixture to real usage/auth."
+          ]
+        },
+        {
+          "surface": "History selector",
+          "steps": [
+            "Update verify-session-history-preview.ts version routing to include 18.10.0; its current explicit allowlists reject this target.",
+            "Using synthetic private session files, open both standalone --resume and in-session /resume. With empty search press Space; inspect role-labeled original prompt and assistant text. Scroll using arrows, PageUp/PageDown, Home/End, wheel and scrollbar; resize to short heights and confirm the footer stays inside the terminal.",
+            "Escape/Space returns to the same list selection/query. Type a nonempty query followed by Space and confirm it remains search input. Enter in preview resumes; Ctrl+C exits. Repeat on the native picker, including its Preview/Resume/Close buttons.",
+            "Hold the injected loader unresolved, close/dispose the preview, then settle it and verify no stale frame or selection. Exercise loader rejection and failed-resume unlock."
+          ]
+        },
+        {
+          "surface": "Image rendering and retirement",
+          "steps": [
+            "Reuse verify-kitty-shared-png-cache.ts and verify-kitty-conversion-finalization.ts against the integrated selected roots. Include an already-settled shared PNG when constructing a new tool component; it must appear on its first render, without waiting for another callback.",
+            "Drive delayed successful and failed non-PNG results through the real transcript/tool retirement consumer, not only ensurePng. Retirement must wait until graphics or the sanitized failure label is committed, while upstream figure-pending behavior remains intact.",
+            "On a Kitty-capable isolated terminal with a real ImageBudget, replace A with B in the same assistant/tool slot, including native PNGs; inspect actual new transmission/placement, not only unbudgeted escape-string differences. Hide/replace while conversion is pending, settle it, and confirm no old image returns. Repeat corrupt payloads and confirm stable failure labels; source data/MIME remain unchanged.",
+            "Pass a notebook MIME bundle containing PNG and JPEG through renderKernelDisplay and confirm one preferred PNG representation."
+          ]
+        },
+        {
+          "surface": "Translated display text",
+          "steps": [
+            "Reuse the owning translation fixture after integration: persist canonical translated content plus distinct original displayText, reopen it, and inspect transcript, /tree search/rows, /copy payloads and history preview.",
+            "Repeat with displayText equal to an empty string; no operator-facing surface may substitute canonical text."
+          ]
+        }
+      ],
+      "integration_notes": {
+        "risk_closure": "R09/R10 source repairs are complete; final risk closure still requires Main's actual-consumer/surface evidence.",
+        "docs_and_specs": "Main owns documentation/changelog changes. Capture shared render/describe accounting, the exact injected loader signature, native/ANSI preview ownership, named PngConversionResult, and displayed-only conversion retention in the frontend contract.",
+        "regression_prevention": "The recurring failure class is incomplete propagation across native versus ANSI surfaces and across cached versus asynchronous image completion. Extend existing consumer fixtures at those boundaries; do not add source-wording checks.",
+        "remaining_code_blockers": []
+      }
+    },
+    {
+      "owner": "PortTui",
+      "status": "complete",
+      "followup": "Sent GateHost18100 the exact native/ANSI status entry points, unchanged injected preview loader contract, image return-type addition, and focused cached-PNG/budgeted-replacement acceptance requirements.",
+      "source_changes_since_previous_result": false,
+      "additional_runtime_checks": false
+    },
+    {
+      "status": "complete",
+      "scope": "F3/F4 follow-up repairs, preserving the previously completed PortTui migration",
+      "changes": [
+        {
+          "path": "pi-tui/src/chat/assistant-message.ts",
+          "details": [
+            "Tracks current native/tool image source slots separately from displayed PNG ownership.",
+            "Releases obsolete ImageBudget keys only when source content is replaced or removed; same-source rebuilds, hiding, and transcript disposal preserve resident graphics.",
+            "Keeps stable placement identities for unchanged content and assigns fresh revisions for replacements, including A\u2192B\u2192A before a residency sweep.",
+            "Preserves kittyDisplayed/kittyPreviouslyDisplayed cleanup and shared conversion behavior."
+          ]
+        },
+        {
+          "path": "pi-tui/src/chat/tool-execution.ts",
+          "details": [
+            "Tracks current result-image source slots and releases only replaced/removed budget identities.",
+            "Reuses unchanged fingerprints and placement keys across display rebuilds.",
+            "Disposal permanently detaches this component from PNG publication, rebuilds, version changes, and repaint requests without cancelling shared conversion work.",
+            "Conversion finalization still removes its awaited fingerprint and releases the pending retirement barrier exactly once after disposal.",
+            "Ignores result updates and display rebuilding after disposal."
+          ]
+        }
+      ],
+      "fragment_accounting": {
+        "family": "family-image-display",
+        "recorded": [
+          "AMENDED family-image-display pi-tui/src/chat/tool-execution.ts",
+          "AMENDED family-image-display pi-tui/src/chat/assistant-message.ts"
+        ],
+        "amendment_conflicts": false,
+        "declarations": "Intentionally unchanged: follow-up changes are private implementation details.",
+        "docs": "Main retains documentation and findings-closure ownership."
+      },
+      "coordination": {
+        "ReviewSurface18100": "Notified directly that recorded final source is ready for read-only focused recheck.",
+        "GateHost18100": "Coordinated real-component H/A/B retirement and disposed/live shared-conversion assertions; gate owner reports fixtures added but not executed."
+      },
+      "parent_acceptance_steps": [
+        {
+          "gate": "patches/verify-kitty-shared-png-cache.ts",
+          "steps": [
+            "For both real AssistantMessageComponent and ToolExecutionComponent, use ImageBudget(2), render historical H, then dispose H's component without releasing its scrollback graphic.",
+            "Render source A, replace the same source slot with B, and perform the normal residency sweep: only obsolete A should be purged, while H remains resident.",
+            "Repeat identical B and exercise hide/show: placement identity should remain stable, without an additional image transmission.",
+            "Remove the source slot to exercise explicit retirement; optionally cover A\u2192B\u2192A before sweeping to distinguish current ownership from a previously released identity."
+          ]
+        },
+        {
+          "gate": "patches/verify-kitty-conversion-finalization.ts",
+          "steps": [
+            "Subscribe disposed and live real tool components to the same uncached non-PNG payload before awaiting conversion; seal their results and dispose only the first component.",
+            "After shared conversion settlement and its completion callbacks, the disposed component must have no new repaint, budget acquisition, block-version change, or descendant replacement.",
+            "Both pending barriers must settle; the live subscriber must still publish its converted image and become finalizable."
+          ]
+        }
+      ],
+      "verification": "No tests, builds, lint, formatters, UI automation, or provider/auth requests were run. Only required source edits and driver fragment generation were performed.",
+      "outstanding_source_blockers": []
+    },
+    {
+      "status": "complete",
+      "review_addendum": {
+        "reviewer": "ReviewSurface18100",
+        "result": "PASS",
+        "scope": "Read-only focused recheck of F3/F4 recorded amendments.",
+        "findings": {
+          "F3": "Resolved by static inspection: source-slot/render-key agreement, replacement/removal release, unchanged and hidden ownership preservation, and fresh replacement revisions.",
+          "F4": "Resolved by static inspection: terminal disposal guard, no late PNG publication/rebuild/repaint, balanced pending cleanup, and no cancellation of shared subscribers."
+        },
+        "representation": "Reviewer inspected both recorded image-family diffs and confirmed neither owned path has a pending family operation.",
+        "limitations": "Static review only. Main's actual-consumer runtime acceptance remains outstanding; no checks were run by PortTui."
+      }
+    }
+  ]
+}

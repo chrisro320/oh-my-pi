@@ -1,0 +1,12 @@
+{
+  "gate": "verify-rejected-prepared-draft-restore.ts",
+  "started": "2026-10-12T06:31:38.228461+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-rejected-prepared-draft-restore.ts"
+  ],
+  "gate_sha256": "9c7d5d70e14edcdf2bd05aa3791fb207aad608e9b5debf18a1e2e08ac8847a84",
+  "exit": 1,
+  "stdout": "",
+  "stderr": "83 | import { dirname, join } from \"node:path\";\n84 | \n85 | const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;\n86 | assert.ok(AGENT_ROOT, \"OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree under test\");\n87 | const agentVersion = String((JSON.parse(readFileSync(join(AGENT_ROOT, \"package.json\"), \"utf8\")) as { version?: string }).version);\n88 | assert.ok([\"18.4.4\", \"18.7.0\", \"18.10.0\"].includes(agentVersion), `rejected prepared draft gate: unsupported selected tree version ${agentVersion}`);\n            ^\nAssertionError: rejected prepared draft gate: unsupported selected tree version 18.10.1\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-rejected-prepared-draft-restore.ts:88:8\n\nBun v1.3.14 (Linux x64)\n"
+}

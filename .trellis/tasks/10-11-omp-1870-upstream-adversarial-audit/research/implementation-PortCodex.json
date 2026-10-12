@@ -1,0 +1,168 @@
+{
+  "agent": "PortCodex",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "owner": "PortCodex",
+      "status": "complete",
+      "root": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+      "owned_paths_completed": [
+        "pi-ai/src/providers/openai-responses.ts",
+        "pi-ai/src/providers/openai-codex-responses.ts",
+        "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+        "pi-ai/src/types.ts",
+        "pi-ai/dist/types/types.d.ts",
+        "pi-ai/src/stream.ts",
+        "pi-ai/dist/types/stream.d.ts"
+      ],
+      "implementation": {
+        "R05": {
+          "change": "Added chain-only enforcement at the shared openCodexSseTransport admission, before onPayload/HTTP work, plus a check of the replacement wire body. Buffered invalid_access_program recovery now encounters the same typed CodexCompactionChainLostError instead of bypassing the initial-transport guard.",
+          "preserved": [
+            "Ordinary-turn access-program removal and WS/SSE recovery.",
+            "Bounded WebSocket reconnect and generate:false chain restoration.",
+            "Deferred onAccept(commit, rollback) metadata transactions, pre-upgrade metadata snapshots, rejected-summary rollback and accepted-summary append-baseline invalidation.",
+            "Upstream sessionId ownership/releaseSession; retained local attempt-scoped fallback rather than restoring permanent WebSocket disable state."
+          ],
+          "scope": "Compaction entitlement fallback fails closed; no new compaction entitlement retry mechanism was added."
+        },
+        "M03": {
+          "change": "Adapted durable providerPayload.effortControl to the sessionId-required upstream planner and bounded effortControls map.",
+          "details": [
+            "Normal requests restore the latest matching successful assistant snapshot; failed/aborted responses do not hide it.",
+            "A latest matching legacy response without a snapshot resets the baseline rather than reviving an older snapshot.",
+            "Durable transitions are cloned before planning, and successful outputs receive a cloned snapshot so later plans cannot mutate persisted history.",
+            "Side requests retain upstream parentSessionId throwaway-copy behavior when live parent state exists; otherwise they restore the supplied durable history under the side session identity.",
+            "Retained minimizeEffort/lowestCodexWireEffort behavior and releaseSession/close cleanup."
+          ]
+        },
+        "persistent_prefix": "Retained providerOnly markers and Responses trailing-scaffolding accounting, including additive juice-instruction accounting, so provider-only tails remain outside append baselines.",
+        "shared_types_and_stream": "Retained displayText, conversationId, exported mapOptionsForApi and conversationId forwarding; source and published declarations are complete.",
+        "thinking_provenance": "Added ProviderDroppedThinkingReplay.source?: \"client-prefix-binding\" to source/declarations under 0094, with comments distinguishing legacy committed client omissions from server-managed drop reports."
+      },
+      "fragment_accounting": {
+        "driver_status": "All seven owned paths READY; every path has pending:null and next equal to its family count.",
+        "family_path_fragments": 17,
+        "nonempty_fragments": 16,
+        "empty_fragments": [
+          {
+            "family": "0017-omp-openai-responses-native-replay-warm",
+            "path": "pi-ai/src/providers/openai-responses.ts",
+            "before_after_sha256": "5563a553b96cccfd89c971131be40c17a3b24f4fbaa2a7b7a3404ca469a960f0",
+            "explanation": "The entire historical 0017 contribution was nativeHistoryReplayWarmed:false -> true. Target upstream already initializes !model.compat.connectionBoundNativeHistory. Its ordinary self-contained replay behavior subsumes the retained capability; restoring unconditional true would erase the deliberate connection-bound exception. No local 0017 code remains. Upstream closeCount and close/re-warm behavior were preserved."
+          }
+        ],
+        "families": {
+          "0017-omp-openai-responses-native-replay-warm": 1,
+          "family-persistent-prefix-resume": 3,
+          "family-devin-wire": 4,
+          "0069-omp-codex-effort-history-resume": 3,
+          "family-input-translation": 2,
+          "family-compaction": 2,
+          "0094-omp-anthropic-thinking-drop-resume": 2
+        },
+        "recording": "Resolved source conflicts with accept; recorded provenance and compaction declaration repairs with amend. No hand-edited fragments and no failed amendment remains."
+      },
+      "cross_owner_contracts": [
+        {
+          "owner": "PortCore",
+          "contract": "CodexCompactionChainLostError, prepareCompactionRecovery, requestDiagnostics and onAccept(commit, rollback) remain unchanged. PortCore confirmed unconditional typed-sentinel propagation from outer compact(), effective-lane checks for generic conversion/local trimming, and native API checks only for serializer typing. UserMessage.displayText remains available."
+        },
+        {
+          "owner": "PortAnthropic",
+          "contract": "Agreed ProviderDroppedThinkingReplay.source?: \"client-prefix-binding\". Missing source denotes legacy committed client omission. PortAnthropic owns rejecting unknown provenance and keeping new server drop_block reports outside durable client-deletion state."
+        },
+        {
+          "owner": "PortOtherProviders",
+          "contract": "Exact retained field is StreamOptions.conversationId?: string, inherited by SimpleStreamOptions and forwarded by exported mapOptionsForApi to DevinOptions. No devinConversationId alias or new payload API."
+        }
+      ],
+      "verification": {
+        "executed": [
+          "Port driver accept/amend/status representation operations.",
+          "SHA-256 accounting of all 17 assigned before/after fragment pairs; only 0017 is empty.",
+          "All three required grep-based policy checks from the work order."
+        ],
+        "not_run": [
+          "Builds, lint, typechecks, tests, formatters or smoke runs.",
+          "Provider/auth/usage calls or credential operations."
+        ],
+        "limitations": "Implementation and source-level reasoning are not executable behavioral acceptance. Main must perform integrated consumer verification. An initial wildcard checksum command overexpanded nonexistent suffix paths; this tool issue was reported, then exact-family checksum accounting completed successfully."
+      },
+      "minimal_acceptance_for_main": [
+        {
+          "gate": "patches/verify-codex-compaction-chain-fail-closed.ts",
+          "cases": [
+            "Extend target-version selection to 18.10.0 for existing recovery, metadata, bounded-open and declaration cases.",
+            "Call outer compact() with native openai-responses and effective remoteCompaction.api=openai-codex-responses; require typed terminal refusal and zero V1/SSE sends.",
+            "Establish an eligible synthetic-account ordinary WS baseline, then emit buffered idless invalid_access_program during compaction; require typed refusal, zero HTTP/SSE/V1 requests and unchanged accepted metadata.",
+            "Use a distinct synthetic account/model identity for the ordinary entitlement control because rejected programs are process-cached; require successful ordinary recovery without access_programs.",
+            "Retain generate:false reconnect, exhausted-chain typed failure, invalid-summary rollback and accepted-summary commit cases."
+          ]
+        },
+        {
+          "gate": "patches/verify-codex-effort-resume.ts",
+          "cases": [
+            "Retain existing actual-stream persistence, JSON reload, branch, immutable-snapshot, legacy/provider/model and rewrite/compaction cases.",
+            "Add a parentSessionId side request with minimizeEffort: historical prefix/baseline retained, only side effort lowered, parent snapshot and next main request unaffected.",
+            "Exercise releaseSession and restore from serialized effort history, including a legacy snapshot without sessionId; assert the request uses the normalized current session identity.",
+            "Include a no-sessionId control that emits no stable-effort history updates."
+          ]
+        },
+        {
+          "gate": "Focused Responses consumer case",
+          "cases": [
+            "First request with self-contained native history and fresh provider state replays native items.",
+            "A connectionBoundNativeHistory model starts cold; successful response warms it, and close() during an in-flight response prevents stale re-warming.",
+            "Retain provider-only-tail append/delta coverage under the persistent-prefix family; do not attribute that distinct behavior to 0017."
+          ]
+        },
+        {
+          "gate": "Shared declaration/forwarding acceptance",
+          "cases": [
+            "Consume published effortControl, displayText, providerOnly and thinking provenance declarations.",
+            "Retain the real mapOptionsForApi Devin conversationId forwarding assertion.",
+            "Exercise legacy client omission versus new server drop_block behavior through PortAnthropic's owning consumer fixture."
+          ]
+        }
+      ],
+      "integration_notes": [
+        "Main owns controller handling and migration-matrix evidence for the empty 0017 fragment; do not fabricate an empty patch or report unexecuted consumer subsumption proof.",
+        "Docs/spec closure should record central SSE admission enforcement, normalized-session durable effort restoration plus side isolation, and the explicit client-prefix-binding provenance contract. No repository docs/controller/gates were edited by this owner.",
+        "No remaining owned implementation blocker."
+      ]
+    },
+    {
+      "owner": "PortCodex",
+      "status": "complete",
+      "followup": "Provided GateWire18100 the final effort lifecycle, parent/minimization rules, legacy snapshot behavior, typed entitlement refusal, synthetic-account isolation requirement, unchanged WebSocket exchange shape and acceptance-transaction APIs. No additional source changes or verification runs."
+    },
+    {
+      "owner": "PortCodex",
+      "status": "complete",
+      "followup": "Clarified ProviderDroppedThinkingReplay.model as the originating request model, which may differ from the fallback-served carrier assistant for explicit client-prefix-binding records.",
+      "files_changed": [
+        "pi-ai/src/types.ts",
+        "pi-ai/dist/types/types.d.ts"
+      ],
+      "fragment_recording": "Both amendments recorded successfully under 0094-omp-anthropic-thinking-drop-resume.",
+      "coordination": "Confirmed completed clarification to PortAnthropic; no schema change.",
+      "verification": "No checks executed."
+    },
+    {
+      "owner": "PortCodex",
+      "status": "complete",
+      "coordination_closed": "PortAnthropic acknowledged the ReviewWire18100 F1 source/declaration comment closure. No additional work requested."
+    },
+    {
+      "owner": "PortCodex",
+      "status": "complete",
+      "followup": "Provided GateWire18100 exact Responses fixture controls and initialization pitfalls: statefulResponses:false, explicit replay filtering override, a fresh provider-state map per host variant, matching historical provider/model identity, and accepted-output warming/closeCount semantics. No source changes or checks executed."
+    }
+  ]
+}

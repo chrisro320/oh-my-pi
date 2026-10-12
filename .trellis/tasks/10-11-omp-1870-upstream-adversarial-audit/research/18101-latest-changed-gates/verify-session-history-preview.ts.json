@@ -1,0 +1,12 @@
+{
+  "gate": "verify-session-history-preview.ts",
+  "started": "2026-10-12T06:31:30.983848+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-session-history-preview.ts"
+  ],
+  "gate_sha256": "a70edfb39bca9e5c78633052e6583b07e5fb84ba0dbea7ab540c7f747bdfb5f8",
+  "exit": 1,
+  "stdout": "",
+  "stderr": "28 | \n29 | const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${os.homedir()}/.bun/install/global/node_modules/@oh-my-pi`;\n30 | const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;\n31 | const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;\n32 | const agentVersion = JSON.parse(fs.readFileSync(`${AGENT_ROOT}/package.json`, \"utf8\")).version;\n33 | assert.ok([\"18.1.14\", \"18.1.18\", \"18.2.3\", \"18.2.10\", \"18.3.3\", \"18.4.1\", \"18.4.4\", \"18.7.0\", \"18.10.0\"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);\n            ^\nAssertionError: unsupported preview version: 18.10.1\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-session-history-preview.ts:33:8\n\nBun v1.3.14 (Linux x64)\n"
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "package": "pi-coding-agent",
+    "version": "18.10.1",
+    "registry": "https://registry.npmjs.org/@oh-my-pi/pi-coding-agent/18.10.1",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-coding-agent/-/pi-coding-agent-18.10.1.tgz",
+    "integrity": "sha512-xvHDKLcAsGvDwLQG6PHZEYiELQPKJ4NiSc/yeurja8IZkC7yALjR+2pbEiCT4cSdyIfEmHFDhDUze8hSxYpiZA==",
+    "sha256": "a22afae2e8e799f877552164655f1e7a14717c1dc714c8d5432f2111198be57d",
+    "bytes": 14446933,
+    "root": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.1-canonical/node_modules/@oh-my-pi/pi-coding-agent"
+  },
+  {
+    "package": "pi-agent-core",
+    "version": "18.10.1",
+    "registry": "https://registry.npmjs.org/@oh-my-pi/pi-agent-core/18.10.1",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-agent-core/-/pi-agent-core-18.10.1.tgz",
+    "integrity": "sha512-9QzavlMWQdtGvPfcI7ie9pDuF0uGDg/CNK/vqAEFPP/YaQuJZtjPmQ3ZIu7zd6yTiM+Le59XTXVRc/x7xnkppw==",
+    "sha256": "5b50af1e2a1a9e8646580f60cbb3ef118fe6a09aeaafeb37c1c14b5a6d181dd4",
+    "bytes": 427178,
+    "root": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.1-canonical/node_modules/@oh-my-pi/pi-agent-core"
+  },
+  {
+    "package": "pi-ai",
+    "version": "18.10.1",
+    "registry": "https://registry.npmjs.org/@oh-my-pi/pi-ai/18.10.1",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-ai/-/pi-ai-18.10.1.tgz",
+    "integrity": "sha512-nqPKNsRxEg8U0fxzJvmpIRfUNblSS14BS+Q+8adL7zqQGHrdqaV6HOFcQJGJsTQbtVgejiLQIkNos5hjSDHHIg==",
+    "sha256": "e25bd6d0011fe928910f137effe3ff32a21bf91a5a561a4bb448684a70a12065",
+    "bytes": 1978769,
+    "root": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.1-canonical/node_modules/@oh-my-pi/pi-ai"
+  },
+  {
+    "package": "pi-catalog",
+    "version": "18.10.1",
+    "registry": "https://registry.npmjs.org/@oh-my-pi/pi-catalog/18.10.1",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-catalog/-/pi-catalog-18.10.1.tgz",
+    "integrity": "sha512-MfYy+jt9FaIruj85h9A5w/Rj2jG0p6DJeK+ew2nu4oLiZlyMmOlvcC+8pNyMVP0s28qzP2xge5BHPb+5lUspHQ==",
+    "sha256": "36856eb3edbe6d0c1faa0d052c786c2ee4f660b6db0464ab9550e33ae5484a5b",
+    "bytes": 1107145,
+    "root": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.1-canonical/node_modules/@oh-my-pi/pi-catalog"
+  },
+  {
+    "package": "snapcompact",
+    "version": "18.10.1",
+    "registry": "https://registry.npmjs.org/@oh-my-pi/snapcompact/18.10.1",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/snapcompact/-/snapcompact-18.10.1.tgz",
+    "integrity": "sha512-FlJUoqbAsxViho4v+7CKlW9yhWrjutfD8hjfIGymJstqZzWvaXeXw+E5Ev43E/5KnISsAb3O6idH4egbOMAPJg==",
+    "sha256": "c07bcbc691ef7c6082d987e6ce6dd9e572c71a14cd044328ec6feeb36653f9e2",
+    "bytes": 142131,
+    "root": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.1-canonical/node_modules/@oh-my-pi/snapcompact"
+  },
+  {
+    "package": "pi-tui",
+    "version": "18.10.1",
+    "registry": "https://registry.npmjs.org/@oh-my-pi/pi-tui/18.10.1",
+    "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-tui/-/pi-tui-18.10.1.tgz",
+    "integrity": "sha512-WUormPmnFblAQJJqHDXq3tCu/kiYut/iEyKXAMOS1RLnid8NC/rCHj/5ukclksJtY38UZ0/MBjP83rQA0IEvmg==",
+    "sha256": "39a45cf0c2e365a3cf02d3270237aa0616302a2ff7a82356df923eaeaa8cd662",
+    "bytes": 2642666,
+    "root": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.1-canonical/node_modules/@oh-my-pi/pi-tui"
+  }
+]

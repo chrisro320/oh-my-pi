@@ -1,0 +1,12 @@
+{
+  "gate": "verify-session-pin-static-auth-ui.ts",
+  "started": "2026-10-12T06:31:31.012430+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-session-pin-static-auth-ui.ts"
+  ],
+  "gate_sha256": "619b52257d8dd57302bcb7ba5afaec4e0913995f811d363582dc5470a7c56e40",
+  "exit": 1,
+  "stdout": "",
+  "stderr": "15 | \tconst module = await import(`${root}/src/modes/controllers/selector-controller.ts`);\n16 | \tassert.equal(typeof module.SelectorController, \"function\");\n17 | \tconsole.log(\"PASS retained 18.2.3 auth UI load gate\");\n18 | \tprocess.exit(0);\n19 | }\n20 | assert.ok([\"18.2.10\", \"18.3.3\", \"18.4.1\", \"18.4.4\", \"18.7.0\", \"18.10.0\"].includes(version), \"Adapt selector behavior fixtures when changing the version plan\");\n            ^\nAssertionError: Adapt selector behavior fixtures when changing the version plan\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-session-pin-static-auth-ui.ts:20:8\n\nBun v1.3.14 (Linux x64)\n"
+}

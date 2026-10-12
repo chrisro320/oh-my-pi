@@ -1,0 +1,193 @@
+{
+  "parent_model": "openai-codex/gpt-6-astra",
+  "reviewers": [
+    {
+      "agent": "AuditAnthropic",
+      "requested_model": "@default",
+      "role": "primary",
+      "model_change_evidence": {
+        "text": "{\"model\":\"openai-codex/gpt-6-astra\",\"resolvedModelIsFallback\":false,\"timestamp\":\"2026-10-12T03:32:20.965Z\"}",
+        "details": {
+          "resolvedPath": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditAnthropic.jsonl",
+          "meta": {
+            "source": {
+              "type": "path",
+              "value": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditAnthropic.jsonl"
+            }
+          }
+        }
+      }
+    },
+    {
+      "agent": "AuditPeripheral",
+      "requested_model": "@default",
+      "role": "primary",
+      "model_change_evidence": {
+        "text": "{\"model\":\"openai-codex/gpt-6-astra\",\"resolvedModelIsFallback\":false,\"timestamp\":\"2026-10-12T03:32:20.986Z\"}",
+        "details": {
+          "resolvedPath": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditPeripheral.jsonl",
+          "meta": {
+            "source": {
+              "type": "path",
+              "value": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditPeripheral.jsonl"
+            }
+          }
+        }
+      }
+    },
+    {
+      "agent": "AuditResume",
+      "requested_model": "@default",
+      "role": "primary",
+      "model_change_evidence": {
+        "text": "{\"model\":\"openai-codex/gpt-6-astra\",\"resolvedModelIsFallback\":false,\"timestamp\":\"2026-10-12T03:32:20.994Z\"}",
+        "details": {
+          "resolvedPath": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditResume.jsonl",
+          "meta": {
+            "source": {
+              "type": "path",
+              "value": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditResume.jsonl"
+            }
+          }
+        }
+      }
+    },
+    {
+      "agent": "AuditAuth",
+      "requested_model": "@default",
+      "role": "primary",
+      "model_change_evidence": {
+        "text": "{\"model\":\"openai-codex/gpt-6-astra\",\"resolvedModelIsFallback\":false,\"timestamp\":\"2026-10-12T03:32:21.002Z\"}",
+        "details": {
+          "resolvedPath": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditAuth.jsonl",
+          "meta": {
+            "source": {
+              "type": "path",
+              "value": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditAuth.jsonl"
+            }
+          }
+        }
+      }
+    },
+    {
+      "agent": "AuditLocalCompact",
+      "requested_model": "@default",
+      "role": "primary",
+      "model_change_evidence": {
+        "text": "{\"model\":\"openai-codex/gpt-6-astra\",\"resolvedModelIsFallback\":false,\"timestamp\":\"2026-10-12T03:32:21.010Z\"}",
+        "details": {
+          "resolvedPath": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditLocalCompact.jsonl",
+          "meta": {
+            "source": {
+              "type": "path",
+              "value": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditLocalCompact.jsonl"
+            }
+          }
+        }
+      }
+    },
+    {
+      "agent": "AuditRemoteCompact",
+      "requested_model": "@default",
+      "role": "primary",
+      "model_change_evidence": {
+        "text": "{\"model\":\"openai-codex/gpt-6-astra\",\"resolvedModelIsFallback\":false,\"timestamp\":\"2026-10-12T03:32:21.017Z\"}",
+        "details": {
+          "resolvedPath": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditRemoteCompact.jsonl",
+          "meta": {
+            "source": {
+              "type": "path",
+              "value": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditRemoteCompact.jsonl"
+            }
+          }
+        }
+      }
+    },
+    {
+      "agent": "AuditUpstream",
+      "requested_model": "@default",
+      "role": "primary",
+      "model_change_evidence": {
+        "text": "{\"model\":\"openai-codex/gpt-6-astra\",\"resolvedModelIsFallback\":false,\"timestamp\":\"2026-10-12T03:32:21.025Z\"}",
+        "details": {
+          "resolvedPath": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditUpstream.jsonl",
+          "meta": {
+            "source": {
+              "type": "path",
+              "value": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditUpstream.jsonl"
+            }
+          }
+        }
+      }
+    },
+    {
+      "agent": "AuditExtensions",
+      "requested_model": "@default",
+      "role": "primary",
+      "model_change_evidence": {
+        "text": "{\"model\":\"openai-codex/gpt-6-astra\",\"resolvedModelIsFallback\":false,\"timestamp\":\"2026-10-12T03:32:21.032Z\"}",
+        "details": {
+          "resolvedPath": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditExtensions.jsonl",
+          "meta": {
+            "source": {
+              "type": "path",
+              "value": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/AuditExtensions.jsonl"
+            }
+          }
+        }
+      }
+    },
+    {
+      "agent": "SecondAuthWire",
+      "requested_model": "@default",
+      "role": "independent",
+      "model_change_evidence": {
+        "text": "{\"model\":\"openai-codex/gpt-6-astra\",\"resolvedModelIsFallback\":false,\"timestamp\":\"2026-10-12T04:01:36.491Z\"}",
+        "details": {
+          "resolvedPath": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/SecondAuthWire.jsonl",
+          "meta": {
+            "source": {
+              "type": "path",
+              "value": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/SecondAuthWire.jsonl"
+            }
+          }
+        }
+      }
+    },
+    {
+      "agent": "SecondResumeStorage",
+      "requested_model": "@default",
+      "role": "independent",
+      "model_change_evidence": {
+        "text": "{\"model\":\"openai-codex/gpt-6-astra\",\"resolvedModelIsFallback\":false,\"timestamp\":\"2026-10-12T04:01:36.504Z\"}",
+        "details": {
+          "resolvedPath": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/SecondResumeStorage.jsonl",
+          "meta": {
+            "source": {
+              "type": "path",
+              "value": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/SecondResumeStorage.jsonl"
+            }
+          }
+        }
+      }
+    },
+    {
+      "agent": "SecondCompaction",
+      "requested_model": "@default",
+      "role": "independent",
+      "model_change_evidence": {
+        "text": "{\"model\":\"openai-codex/gpt-6-astra\",\"resolvedModelIsFallback\":false,\"timestamp\":\"2026-10-12T04:01:36.512Z\"}",
+        "details": {
+          "resolvedPath": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/SecondCompaction.jsonl",
+          "meta": {
+            "source": {
+              "type": "path",
+              "value": "/home/chris/.omp/agent/sessions/-orca-projects-omp-move/2026-10-12T03-12-21-048Z_01a12e18-d238-7000-88ea-c850fd38981c/SecondCompaction.jsonl"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "source": "Model-change records from this audit's own subagent session files; no transcript payloads copied."
+}

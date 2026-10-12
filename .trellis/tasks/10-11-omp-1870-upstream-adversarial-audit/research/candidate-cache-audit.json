@@ -1,0 +1,9 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-cache-prefix-audit.ts"
+  ],
+  "exit": 1,
+  "stdout": "",
+  "stderr": "890 | \t\t\t...process.env,\n891 | \t\t\tOMP_CACHE_AUDIT_STATE_DIR: HOME,\n892 | \t\t\tOMP_CACHE_AUDIT_LOG: LOG_PATH,\n893 | \t\t},\n894 | \t});\n895 | \tassert.equal(res.exitCode, 0, `subprocess test failed with exit code ${res.exitCode}:\\n${res.stderr.toString()}`);\n              ^\nAssertionError: subprocess test failed with exit code 1:\nerror: Cannot find module './patches/cache-prefix-audit-extension.ts' from '/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/cache-audit/[eval]'\n\nBun v1.3.14 (Linux x64)\n\n\n1 !== 0\n\n generatedMessage: false,\n     actual: 1,\n   expected: 0,\n   operator: \"strictEqual\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-cache-prefix-audit.ts:895:9\n\nBun v1.3.14 (Linux x64)\n"
+}

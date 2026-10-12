@@ -1,0 +1,12 @@
+{
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-ollama-cloud-usage.ts"
+  ],
+  "exit": 0,
+  "stdout": "0025 verify: all assertions passed\n",
+  "stderr": "",
+  "time": "2026-10-12T07:21:53.217206+00:00",
+  "runtime": "/home/chris/.cache/omp-18101-migration/runtime/node_modules/@oh-my-pi",
+  "isolation": "allowlisted environment, private HOME/XDG/agent; no production credential operations"
+}

@@ -1,0 +1,332 @@
+{
+  "agent": "ReviewDiagnostic18100",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "status": "FINDINGS",
+      "filesChanged": [],
+      "summary": "The R14 usage handler now follows the requested conservative contract: request diffs remain request-only, and message_end usage is explicitly uncorrelated with unknown cause. I found one fail-open registry parsing issue and one meaningful regression-test gap. This was a static, read-only review; no tests or deployment actions were performed.",
+      "findings": [
+        {
+          "id": "CHECK-R14-01",
+          "severity": "P2",
+          "file": "patches/apply.sh",
+          "line": 172,
+          "relatedLocations": [
+            {
+              "file": "patches/apply.sh",
+              "lines": "189-190"
+            },
+            {
+              "file": "patches/apply.sh",
+              "lines": "676-680"
+            }
+          ],
+          "title": "An unterminated final registry record silently disappears from the selected plan",
+          "evidence": "_omp_family_plan uses `while IFS=$'\\t' read -r file root_key members extra; do` without processing a nonempty record when read reaches EOF. Its only final completeness check is that PATCHES has at least one entry. The newly admitted 18.10.0 branch uses this parser and then adds capability 0017 independently. Thus the parser does not validate or append the final record if that record lacks a terminating newline.",
+          "impact": "[INFERENCE, not executed] A registry containing earlier valid rows and a final unterminated row is accepted as a shorter plan. That final family's patch and capability-selected gates disappear without an error; even a malformed or missing-patch final record bypasses validation. This is a concrete silent-shrink admission, not a complaint about the parent's currently in-progress artifacts.",
+          "minimalFix": "Process a nonempty final record after EOF through the same validation path, or explicitly reject an unterminated registry before admitting any plan. Do not silently skip it.",
+          "focusedCheck": "In an isolated controller/registry copy, resolve two valid rows with and without the final newline. Require identical complete output, or an explicit nonzero rejection for the unterminated form\u2014never successful one-row output. Also make the unterminated last row reference a missing patch and require rejection. Main should run this through the existing selected-version controller coverage; not executed here."
+        },
+        {
+          "id": "CHECK-R14-02",
+          "severity": "P2",
+          "file": "patches/verify-cache-prefix-audit.ts",
+          "line": 583,
+          "relatedLocations": [
+            {
+              "file": "patches/verify-cache-prefix-audit.ts",
+              "lines": "559-585"
+            },
+            {
+              "file": "patches/verify-cache-prefix-audit.ts",
+              "lines": "773-789"
+            }
+          ],
+          "title": "The same-model overlap fixture never populates the headers whose borrowing it claims to prohibit",
+          "evidence": "Section 3b sends main/main-rewrite/side payloads and asserts usage.headers and usage.responseHeaders are undefined, but none of those requests receives a header observation. All observeHeader calls occur later, under other session keys, with no subsequent message_end for those sessions. The latest request therefore has no headers to borrow. The fixture meaningfully distinguishes HISTORY_REWRITE from the side request's SYSTEM_DRIFT, but its two header assertions are vacuous. No request-row assertion currently checks `correlation === \"request-only\"` either.",
+          "impact": "[INFERENCE, not executed] Reintroducing `headers: st.last?.headers` and `responseHeaders: st.last?.responseHeaders` into the otherwise corrected usage row would still pass these fixtures. That leaves an explicitly named R14 regression unprotected despite an assertion claiming coverage.",
+          "minimalFix": "Give the main and interloping requests distinct synthetic request/response header observations using the existing observation entry point, establish that the latest request actually contains the interloper's header fingerprints, and then require the completion row to contain neither. Retain the existing drift assertions and explicitly assert request-only correlation on the request rows. Exclude HEADER_DRIFT rows when selecting request-diff rows.",
+          "focusedCheck": "Main should run `bun patches/verify-cache-prefix-audit.ts` in the isolated verification environment after strengthening this fixture. A disposable negative control that restores only latest-request header borrowing must fail; the corrected handler must pass. No provider calls are needed. Not executed here."
+        }
+      ],
+      "reviewedConclusions": [
+        {
+          "scope": "No trustworthy shared request identity",
+          "evidence": [
+            "Candidate pi-coding-agent/src/extensibility/extensions/types.ts:998-1001 defines before_provider_request as type plus payload; :1060-1063 defines message_end as type plus message.",
+            "Candidate pi-coding-agent/src/extensibility/extensions/runner.ts:2131-2134 constructs that payload-only request event.",
+            "Candidate pi-ai/src/types.ts:1290-1309 provides an optional provider responseId, not an identity shared with the outbound hook."
+          ],
+          "conclusion": "There is no shared request ID in the reviewed hook contract. Keeping usage uncorrelated is correct. Model equality, timestamps, newest state, or responseId must not be used to infer the missing association."
+        },
+        {
+          "scope": "R14 implementation",
+          "evidence": [
+            "patches/cache-prefix-audit-extension.ts:854-863 compares chronological same-model request fingerprints without assigning a response cause.",
+            "patches/cache-prefix-audit-extension.ts:885 labels outbound observations request-only.",
+            "patches/cache-prefix-audit-extension.ts:928-976 reads usage from the completed message, writes correlation=unavailable and cause=unknown, and emits no diff, headers, responseHeaders, or originating sessionId.",
+            "patches/cache-prefix-audit-extension.ts:943-948 obtains only observedSessionId from the event context, not from the latest request."
+          ],
+          "conclusion": "The response-attribution repair is sound by source inspection. The same-model fixture still meaningfully protects request drift and removal of the erroneous diff/session association. Full request correlation is neither implemented nor required by this assignment."
+        },
+        {
+          "scope": "Privacy and request-drift preservation",
+          "evidence": [
+            "patches/cache-prefix-audit-extension.ts:396-398 strips legacy sample prose during restoration.",
+            "patches/cache-prefix-audit-extension.ts:475-478 retains content hashes and length-only samples.",
+            "patches/cache-prefix-audit-extension.ts:775-779 preserves rewrite index/role/hash diagnostics without exposing legacy sample text.",
+            "patches/verify-cache-prefix-audit.ts:44-72 covers four reasoning-block forms and legacy diff excerpts."
+          ],
+          "conclusion": "The reviewed changes preserve content-change observation without persisting new message/reasoning excerpts or signatures. Existing historical log scrubbing is not claimed."
+        },
+        {
+          "scope": "18.10.0 routing",
+          "evidence": [
+            "patches/apply.sh:166 resolves the registry by selected version; :171 clears capability state.",
+            "patches/apply.sh:661-675 admits the family release with exact package-version checks outside read-only queries.",
+            "patches/apply.sh:677-680 explicitly records 0017 as upstream-owned.",
+            "patches/apply.sh:684-688 rejects the 18.10.0 repository/0097 overlay rather than silently substituting deployed."
+          ],
+          "conclusion": "The intended version routing and explicit overlay rejection are present. They remain subject to the registry EOF finding above. Missing in-progress .18.10.0-families/manifest/registry artifacts were not treated as terminal defects."
+        }
+      ],
+      "integrationRequirements": [
+        {
+          "subject": "0017 retirement remains pending consumer proof",
+          "evidence": [
+            "Candidate pi-ai/src/providers/openai-responses.ts:462 initializes the flag from !model.compat.connectionBoundNativeHistory; :475-478 preserves close/reset behavior.",
+            "Candidate pi-ai/src/providers/openai-responses.ts:1583-1611 consumes that flag for native replay and thinking signatures; :1285-1287 warms only when closeCount still matches.",
+            "research/implementation-PortCodex.json:88-94 explicitly states that behavioral verification was not run; :115-119 specifies the ordinary and connection-bound acceptance cases."
+          ],
+          "requiredAction": "Keep M11 and physical-retirement acceptance open until Main exercises the actual supported ordinary and connection-bound Responses consumers. The explicit upstream capability declaration is not itself retirement proof. Preserve the upstream conditional; do not restore an unconditional true merely to retain a physical patch."
+        },
+        {
+          "subject": "Synchronize the active diagnostic contract before closing R14",
+          "evidence": [
+            ".trellis/spec/backend/extension-runtime-contracts.md:1152 still says lastDiffByModel remains; :1184 still describes usage borrowing newest headers as current behavior.",
+            "patches/PATCHES.md:1230 still describes MISS CAUSED BY pairing, and :1238-1241 describe the superseded usage/diff contract.",
+            "patches/cache-prefix-audit-extension.ts:1 still says every miss is attributed to an exact changed segment."
+          ],
+          "requiredAction": "Update the active descriptions to distinguish request-only byte observations from uncorrelated measured usage, explicitly retaining the absence of full request correlation. Mark historical descriptions as superseded rather than implying the unsafe association remains required."
+        }
+      ],
+      "verification": {
+        "executed": [
+          {
+            "command": "git diff -- patches/cache-prefix-audit-extension.ts patches/verify-cache-prefix-audit.ts patches/apply.sh",
+            "result": "Exit 0; reviewed the complete diff and relevant current source ranges."
+          },
+          {
+            "command": "grep-tool policy checks for `Pristine input MUST|Full-chain verification MUST|Same-family repairs MUST`",
+            "result": "Required clauses found in patch-rollup-contracts.md at lines 36, 48 and 78."
+          },
+          {
+            "command": "grep-tool policy checks for `A gate MUST fail|Default sandbox fixtures MUST|Absolute-path imports defeat` and `exchange idempotency|Every SSE admission|credit-aware rebuild|common adoption`",
+            "result": "Required clauses found in verification-gate-contracts.md at lines 33, 43, 86, 1001, 1008, 1016 and 1020."
+          },
+          {
+            "command": "grep-tool policy check for `R7:|R9:|R10:|R12:`",
+            "result": "Required requirements and acceptance references found in the task PRD."
+          }
+        ],
+        "notRun": [
+          "Tests, builds, lint, typechecks, formatters, smoke runs, or controller execution.",
+          "Provider requests, production credential/database access or copying, process signals, live changes, and nested agents."
+        ],
+        "evidenceBoundary": "All behavioral conclusions in this report are source-based. No successful runtime acceptance, physical-patch retirement, deployment, or activation is claimed."
+      }
+    },
+    {
+      "status": "PASS",
+      "filesChanged": [],
+      "scope": "Focused, read-only recheck of CHECK-R14-01, CHECK-R14-02, and the subprocess import/environment repair. This is not a complete candidate or deployment approval.",
+      "resolvedFindings": [
+        {
+          "id": "CHECK-R14-01",
+          "file": "patches/apply.sh",
+          "lines": "172-190",
+          "conclusion": "Closed by source inspection. The loop now processes a nonempty unterminated final record through the same path/root/file/capability validation and PATCHES append. The previous successful-shorter-plan path caused by dropping that record is removed."
+        },
+        {
+          "id": "CHECK-R14-02",
+          "file": "patches/verify-cache-prefix-audit.ts",
+          "lines": "561-591",
+          "conclusion": "Closed by source inspection. The fixture now populates distinct main/side request and response fingerprints, asserts that persisted latest-request state contains the side fingerprints, and then forbids all four borrowed fields on the completion row. Request rows explicitly require request-only correlation and retain the exact IDENTICAL/HISTORY_REWRITE/SYSTEM_DRIFT sequence.",
+          "sensitivity": "[INFERENCE, not executed] Restoring only latest-request header borrowing would now produce populated side fingerprints and fail the completion assertions, rather than passing because the fields were never populated."
+        }
+      ],
+      "additionalReview": [
+        {
+          "file": "patches/verify-cache-prefix-audit.ts",
+          "lines": "780-799",
+          "conclusion": "The subsequent header test now restricts its drift count to its own hdr-s fixture sessions. The new overlap observations therefore do not contaminate that count; the cross-process hdr-x assertion remains independently scoped."
+        },
+        {
+          "file": "patches/verify-cache-prefix-audit.ts",
+          "lines": "870-897",
+          "conclusion": "The child import is constructed from import.meta.url and JSON-encoded into the generated module, eliminating the prior dependence on the caller's working directory. The child uses the current executable, an explicit environment allowlist, and explicit private audit state/log paths. It does not inherit provider-key variables or OMP_CACHE_AUDIT_STATE through a process.env spread."
+        },
+        {
+          "file": "patches/cache-prefix-audit-extension.ts",
+          "lines": "875-976",
+          "conclusion": "The reviewed handler still emits request-only diffs separately from completion usage. Completion rows retain correlation=unavailable and cause=unknown without borrowing diff, headers, responseHeaders, or originating sessionId. No unsafe request-correlation inference was introduced."
+        },
+        {
+          "file": "patches/apply.sh",
+          "lines": "661-690",
+          "conclusion": "The per-version family routing, explicit upstream capability 0017, and rejection of the 18.10.0 repository/0097 overlay remain intact."
+        }
+      ],
+      "verification": {
+        "commandsRun": [],
+        "readOnlyInspections": [
+          "Read the repaired registry loop and version-routing branch.",
+          "Read the strengthened same-model fixture, subsequent header fixtures, and subprocess code.",
+          "Used targeted grep to anchor the revised header, correlation, import, and environment lines.",
+          "Read the request and completion emission paths."
+        ],
+        "tests": "Not run, as instructed. No builds, lint, typechecks, formatters, provider calls, credential/database access, live changes, or process signals were performed.",
+        "parentReportedEvidence": "Main reports that the initial isolated audit run passed the repaired overlap sections before failing at the old cwd-relative child import. That observation was accepted without rerunning it; the revised child path has only been source-reviewed here."
+      },
+      "remainingIntegrationBoundaries": [
+        "The earlier requirement for actual ordinary and connection-bound native Responses consumer proof still governs 0017 physical retirement; this focused PASS does not establish that proof.",
+        "Final diagnostic documentation/spec synchronization remains an integration obligation from the previous report.",
+        "The new release verifier/exporter/manifest, goalModeActive repair, restored catalog declarations, and regenerated complete candidate were not independently reviewed in this focused recheck."
+      ]
+    },
+    {
+      "status": "FINDINGS",
+      "filesChanged": [],
+      "scope": "Evidence update only; no additional source review performed.",
+      "findings": [
+        {
+          "id": "CHECK-R14-02",
+          "file": "patches/verify-cache-prefix-audit.ts",
+          "section": "3b: same-model overlap",
+          "evidence": "Main reports that the positive gate passed but the first header-borrowing mutant also passed: request state used SESSION while the completion context supplied ctx-crosstalk, so the mutant's context-session lookup did not reach the populated state.",
+          "impact": "The positive result does not establish header-borrowing sensitivity. My previous sensitivity statement was explicitly an inference, not executed proof; this observed counterexample leaves that acceptance point open.",
+          "minimalFix": "Use the same SESSION for the request contexts and message_end context, retaining the populated side-header assertions and forbidden completion fields, as Main is implementing.",
+          "focusedCheck": "Main's corrected positive run must pass and the exact header-only borrowing mutant must fail at the header assertion."
+        }
+      ],
+      "verification": {
+        "commandsRun": [],
+        "testsRun": [],
+        "boundary": "Accepted Main's observations without rerunning them. No further source review will be undertaken before the requested final combined-artifact scope."
+      },
+      "correlationContract": "Unchanged: this fixture correction does not introduce or justify production request/usage correlation."
+    },
+    {
+      "status": "FINDINGS",
+      "filesChanged": [],
+      "summary": "The revised R14 implementation and same-model overlap fixture satisfy the requested non-causal contract. The 18.10 controller routing, unterminated-final-row handling, explicit 0017 capability, and rejection of the 0097 repository overlay are correct in the reviewed source. The current generated representation contains 23 physical families and 58 capabilities; no missing in-progress artifact is reported as a defect. Three findings remain in the representation oracle and active documentation.",
+      "findings": [
+        {
+          "id": "CHECK-18100-01",
+          "severity": "P2",
+          "location": "patches/verify-release-family-plan.py:20-31",
+          "relatedLocations": [
+            "patches/verify-release-family-plan.py:109-126",
+            ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/export-candidate.py:42-46",
+            ".trellis/spec/backend/patch-rollup-contracts.md:251-252"
+          ],
+          "title": "Tree equality and reverse-to-pristine silently exclude directories",
+          "evidence": "tree_manifest records files with modes and hashes, and symlinks with targets, but silently skips every directory. The exporter uses this same function for unowned-edit detection and candidate/pristine digests; the verifier uses it for candidate equality, read-only controller checking, reverse restoration, and second replay. The existing verifier's structural manifest at patches/verify-patch-family-rollups.sh:270-272 includes directory entries and modes, and the project contract explicitly requires file/directory/symlink-set comparison.",
+          "impact": "[INFERENCE] Adding or removing an empty directory, or changing an existing directory's permissions, is invisible to all these comparisons. Consequently, the recorded PASS establishes file-byte/file-mode/symlink equality, not the complete structural restoration required by the contract. This does not contradict the reported successful run; it identifies a blind spot in its oracle.",
+          "minimalRecommendedFix": "Include directory entries and their modes in the shared tree manifest, following the existing structural-manifest convention. Account explicitly for parent directories legitimately introduced by owned files without weakening unowned-edit detection, then regenerate the manifests and representation evidence.",
+          "focusedCheck": "Main should use disposable trees to show that an extra empty directory, a missing empty directory, and a changed directory mode each change the structural manifest or fail the relevant comparison, then rerun the selected 18.10 representation verifier. Not executed by this reviewer."
+        },
+        {
+          "id": "CHECK-18100-02",
+          "severity": "P2",
+          "location": "patches/verify-release-family-plan.py:65-73",
+          "relatedLocations": [
+            ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/export-candidate.py:75-84",
+            "patches/verify-family-plan.py:113-167",
+            "patches/apply.sh:816"
+          ],
+          "title": "Capability completeness is checked against another generated output, not the retained capability contract",
+          "evidence": "The verifier compares controller patch/root ordering with manifest families and compares the controller's flattened capability union with the manifest's flattened union. It never checks that union against an independent retained baseline or compares each registry row's capability ownership with its manifest family. The exporter generates both outputs from the mutable 18.7 registry. In contrast, the existing verify-family-plan.py validates approved family ownership and exact coverage against a frozen deployed baseline.",
+          "impact": "[INFERENCE] Removing 0088 from both the generated registry and manifest leaves patch bytes and tree digests unchanged, so this verifier can still pass with 57 capabilities while apply.sh no longer selects verify-compaction-cache-liveness.ts. A capability-owner swap between registry rows is also invisible to the flattened comparison. The current inspected artifacts do contain all 58 capabilities; the defect is admission of a silently reduced or misowned future plan.",
+          "minimalRecommendedFix": "Validate the target capability union and family ownership against the independently captured retained baseline/migration contract, with 0017 explicitly represented as the allowed upstream adoption and approved root promotions preserved. Also compare per-row registry capability ownership with the manifest, rather than only comparing the flattened union. Reuse the existing independent-baseline validation pattern instead of treating a second generated file as the completeness oracle.",
+          "focusedCheck": "Main should confirm that removing 0088 from both generated metadata files fails before replay, and that swapping capability ownership between two registry rows fails even when the global capability union and all patch bytes remain unchanged. Not executed by this reviewer."
+        },
+        {
+          "id": "CHECK-18100-03",
+          "severity": "P2",
+          "location": "patches/PATCHES.md:1228-1241",
+          "relatedLocations": [
+            ".trellis/spec/backend/extension-runtime-contracts.md:1152-1184",
+            ".trellis/spec/backend/patch-rollup-contracts.md:658"
+          ],
+          "title": "Active documentation still advertises the unsafe causal contract and excludes the new routing contract",
+          "evidence": "PATCHES.md still describes the extension as a cache-miss attribution tool and says message_end pairs usage with the request diff to emit 'MISS CAUSED BY <KIND>'. The extension contract still names lastDiffByModel and says completion headers read st.last. The rollup contract says OMP_PATCH_PLAN is supported only for 18.7.0. These statements conflict with the reviewed implementation, which deliberately emits uncorrelated usage and supports deployed-only 18.10 routing.",
+          "impact": "Operators and later maintainers are directed toward the exact causal inference R14 removes, and toward obsolete version-selection rules. Historical incident descriptions can remain, but they are not currently clearly superseded by the new active contract.",
+          "minimalRecommendedFix": "Update the active extension and routing documentation, marking historical causal behavior as superseded. Document request-only drift, completion correlation unavailable/cause unknown, observedSessionId as context rather than request correlation, per-version registries, 18.10 deployed-only selection, rejection of 0097, and the distinction between declarative 0017 adoption and still-required native-consumer proof. Do not claim deployment or full request correlation.",
+          "focusedCheck": "Main should inspect the active documentation for remaining current-tense claims of diff/header attribution, per-model completion slots, or 18.7-only plan support. Historical examples should be explicitly labeled as historical rather than used as the current contract."
+        }
+      ],
+      "acceptedReviewResults": [
+        {
+          "area": "R14 implementation",
+          "evidence": "patches/cache-prefix-audit-extension.ts:874-974 preserves request drift rows with correlation='request-only'. message_end reads measured usage and message model, labels correlation='unavailable' and cause='unknown', and does not load the newest request's diff, headers, responseHeaders, or request session. observedSessionId comes from hook context and is separately named. No unsafe request-ID inference is recommended."
+        },
+        {
+          "area": "Meaningful same-model overlap protection",
+          "evidence": "patches/verify-cache-prefix-audit.ts:533-591 uses the same model and SESSION for the main requests, interloper, and completion. Distinct main/side request and response headers are populated, the persisted side values are asserted, request drift remains observable, and completion borrowing is rejected. The corrected positive and header-only negative artifacts substantiate the fixture rather than relying on empty header fields."
+        },
+        {
+          "area": "Earlier review findings",
+          "evidence": "CHECK-R14-01 is closed in source by apply.sh:172 processing an unterminated final registry row. CHECK-R14-02 is closed by the corrected populated-header fixture and recorded negative failure at verify-cache-prefix-audit.ts:591 with actual 'auth=apikey:side version=v betas='."
+        },
+        {
+          "area": "18.10 controller and offline representation path",
+          "evidence": "apply.sh selects a version-specific registry, declares 0017 explicitly, and rejects the repository overlay for 18.10. verify-patch-family-rollups.sh:102-120 routes the selected target to the new verifier. That verifier constructs a temporary HOME and restricted environment with OMP_PATCH_OFFLINE_VERIFY=1, validates archive/patch digests, uses zero-fuzz replay, and does not invoke behavioral/provider gates. No production credential access was introduced in this reviewed path."
+        }
+      ],
+      "verification": {
+        "performedByReviewer": [
+          {
+            "command": "git diff -- patches/apply.sh patches/verify-patch-family-rollups.sh patches/cache-prefix-audit-extension.ts patches/verify-cache-prefix-audit.ts patches/verify-release-family-plan.py .trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/export-candidate.py",
+            "result": "Exit 0; reviewed the tracked diff. New Python files were also read directly because untracked files are not included in git diff."
+          },
+          {
+            "command": "Read/grep inspection of the task inputs, relevant specs, current source, generated registry/manifest, and recorded evidence artifacts",
+            "result": "Completed source-only review. No tests, builds, lint, formatters, provider calls, production credential/DB access, live changes, or repository mutations were performed."
+          }
+        ],
+        "recordedMainEvidenceReviewed": [
+          {
+            "artifact": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/candidate-export-final.json",
+            "result": "Recorded exit 0; generated-not-verified; 153 owned paths, 23 physical families; candidate digest 6b1b64ed23ea3f12651e92328149a25271edabae332fb65bf4acd1440fc6f5f9."
+          },
+          {
+            "artifact": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/candidate-representation-final.json",
+            "command": "python3 patches/verify-release-family-plan.py --version 18.10.0 --tgz-cache /tmp/omp-18100-audit-cd9kqmcj/archives",
+            "result": "Recorded exit 0/PASS; 23 families, 58 capabilities, upstream adoption 0017, matching candidate digest, zero-fuzz replay, reverse restoration, second replay, and controller read-only check. behavioral_checks_run=false. Accepted as evidence within the oracle limitations reported above; not rerun."
+          },
+          {
+            "artifact": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/candidate-cache-prefix-audit-corrected.json",
+            "command": "/home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/patches/verify-cache-prefix-audit.ts",
+            "result": "Recorded exit 0; 'cache-prefix-audit verification: ok'. Not rerun."
+          },
+          {
+            "artifact": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/candidate-cache-prefix-header-negative-corrected.json",
+            "result": "Recorded exit 1 at the intended headers assertion, with actual side-request header fingerprint versus expected undefined. This is meaningful negative-control evidence, not an import/load failure. Not rerun."
+          }
+        ]
+      },
+      "acceptanceBoundaries": [
+        "0017's registry/manifest adoption is not proof that the physical patch can be retired behaviorally. Actual ordinary and connection-bound native-consumer evidence remains required, as specified in the assignment.",
+        "Reverse followed by replay is not evidence of an idempotent second forward controller apply without reversal.",
+        "Representation evidence does not establish runtime behavioral acceptance, activation, deployment, or full request correlation."
+      ]
+    }
+  ]
+}

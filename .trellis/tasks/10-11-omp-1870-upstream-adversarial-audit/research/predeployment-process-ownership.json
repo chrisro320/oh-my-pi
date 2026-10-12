@@ -1,0 +1,51 @@
+{
+  "at": "2026-10-12T05:02:52.458465+00:00",
+  "processes": [
+    {
+      "pid": 573567,
+      "ppid": 1503,
+      "comm": "omp daemon brok",
+      "entry_paths": [
+        "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts"
+      ],
+      "worker_flags": [],
+      "cwd": "unavailable: proc access denied",
+      "exe": "unavailable: proc access denied"
+    },
+    {
+      "pid": 1299157,
+      "ppid": 1298902,
+      "comm": "omp",
+      "entry_paths": [
+        "/home/chris/.bun/bin/omp"
+      ],
+      "worker_flags": [],
+      "cwd": "unavailable: proc access denied",
+      "exe": "unavailable: proc access denied"
+    },
+    {
+      "pid": 1409646,
+      "ppid": 573567,
+      "comm": "omp",
+      "entry_paths": [
+        "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts"
+      ],
+      "worker_flags": [],
+      "cwd": "unavailable: proc access denied",
+      "exe": "unavailable: proc access denied"
+    },
+    {
+      "pid": 1453095,
+      "ppid": 1299157,
+      "comm": "omp daemon brok",
+      "entry_paths": [
+        "/home/chris/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts"
+      ],
+      "worker_flags": [],
+      "cwd": "unavailable: proc access denied",
+      "exe": "unavailable: proc access denied"
+    }
+  ],
+  "sensitive_environment_read": false,
+  "raw_argv_recorded": false
+}

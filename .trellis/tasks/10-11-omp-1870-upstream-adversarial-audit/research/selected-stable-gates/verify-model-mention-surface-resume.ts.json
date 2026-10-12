@@ -1,0 +1,11 @@
+{
+  "gate": "verify-model-mention-surface-resume.ts",
+  "started": "2026-10-12T05:48:13.897046+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-model-mention-surface-resume.ts"
+  ],
+  "exit": 0,
+  "stdout": "PASS model-mention surface resume: 2 resumed requests carry the advertised surface (7473 tool bytes, codex head 16602 bytes), control unchanged\n",
+  "stderr": ""
+}

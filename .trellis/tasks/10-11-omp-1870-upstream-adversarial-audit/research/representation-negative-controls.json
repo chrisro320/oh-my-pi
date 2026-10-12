@@ -1,0 +1,10 @@
+{
+  "directory_extra_detected": true,
+  "directory_missing_detected": true,
+  "directory_mode_detected": true,
+  "valid_capabilities": 58,
+  "negative_rejections": [
+    "manifest changed retained family order, roots or capability ownership",
+    "registry per-family capability ownership differs from manifest"
+  ]
+}

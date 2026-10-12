@@ -1,0 +1,12 @@
+{
+  "gate": "verify-interrupt-prune-symmetry.ts",
+  "started": "2026-10-12T06:06:43.552210+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-interrupt-prune-symmetry.ts"
+  ],
+  "gate_sha256": "3888d59a883dcd6243b9d1144ca64a3be81cb3fc9bc9df6550570fa022f79c3b",
+  "exit": 0,
+  "stdout": "=== Testing interrupted-turn render symmetry (0043) ===\n  aborted: live == rebuilt, 2 wire messages, no remnant\n  error: live == rebuilt, 2 wire messages, no remnant\n  committed-text stall: partial text retained, live == rebuilt\n  committed-text stall with requestControls: text and controls both retained\n  uncontinued stall-shaped turn still pruned\n  markerless remnant pruned on the live path\n  bare marker converts to nothing\n  completed turn untouched\n  transcript still renders the interrupted turn\n=== interrupted-turn render symmetry OK ===\n",
+  "stderr": ""
+}

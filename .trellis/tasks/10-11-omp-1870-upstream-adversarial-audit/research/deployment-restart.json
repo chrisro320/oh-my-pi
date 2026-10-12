@@ -1,0 +1,25 @@
+{
+  "status": "RUNNING_INSTALLED_18.10.1",
+  "user_report": "Restarted",
+  "published_version_observation": {
+    "command": "/home/chris/.bun/bin/omp --version",
+    "exit": 0,
+    "stdout": "omp/18.10.1 (installed; ready for a new process)\n"
+  },
+  "current_process_observation": {
+    "pid": 1714285,
+    "comm": "omp",
+    "source_entry": "/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+    "method": "Current eval parent identity and filtered /proc cmdline; no process environment or session payload read"
+  },
+  "release_receipt_observation": {
+    "version": "18.10.1",
+    "code_installation": "complete",
+    "current_session_upgrade": false,
+    "production_activation": false,
+    "production_admission_started": true
+  },
+  "interpretation": "The launcher records admission before exec, not runtime activation. Its static false activation/current-session fields are preserved verbatim; the independently observed current process is executing the installed18.10.1 source after the user restart. Automatic code downgrade is no longer permitted.",
+  "credential_operations": "No Anthropic/provider/auth/usage probe or credential read, copy, refresh or rewrite performed by the restart verification.",
+  "scope": "Version, receipt and current process identity only; no additional review or test suite."
+}

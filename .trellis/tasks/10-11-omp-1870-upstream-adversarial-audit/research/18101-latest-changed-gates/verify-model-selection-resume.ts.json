@@ -1,0 +1,12 @@
+{
+  "gate": "verify-model-selection-resume.ts",
+  "started": "2026-10-12T06:31:38.209991+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-model-selection-resume.ts"
+  ],
+  "gate_sha256": "b7d91f0c4df3168424878412b79f2fb7b6ff55d30bf71b6c6521460d3ef2059d",
+  "exit": 1,
+  "stdout": "",
+  "stderr": " 6 | import { join } from \"node:path\";\n 7 | \n 8 | const root = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;\n 9 | assert.ok(root, \"OMP_PATCH_VERIFY_AGENT_ROOT must name the isolated agent package\");\n10 | const version = JSON.parse(readFileSync(join(root, \"package.json\"), \"utf8\")).version;\n11 | assert.ok([\"18.7.0\", \"18.10.0\"].includes(version),\n            ^\nAssertionError: model-selection resume requires a supported isolated package\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-model-selection-resume.ts:11:8\n\nBun v1.3.14 (Linux x64)\n"
+}

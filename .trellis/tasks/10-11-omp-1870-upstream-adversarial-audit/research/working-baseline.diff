@@ -1,0 +1,909 @@
+diff --git a/.gitignore b/.gitignore
+index 0ab695283..1b46dc2ee 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -17,3 +17,6 @@ omp-session-*.html
+ 
+ # Local workflow-config backup (never tracked)
+ workdlowbak/
++
++# Local reproducible native build outputs
++patches/.native-artifacts/
+diff --git a/.trellis/spec/backend/extension-runtime-contracts.md b/.trellis/spec/backend/extension-runtime-contracts.md
+index b59d23596..6a119251c 100644
+--- a/.trellis/spec/backend/extension-runtime-contracts.md
++++ b/.trellis/spec/backend/extension-runtime-contracts.md
+@@ -344,6 +344,9 @@ interface Diff {
+   `~/.omp/agent/cache-prefix-audit.log` (JSONL, 2 MiB rotation).
+   `OMP_CACHE_AUDIT_STATE_DIR` and `OMP_CACHE_AUDIT_LOG` overrides must be supported for
+   test isolation.
++- **Diagnostic Privacy**: Persist only message lengths and content hashes, never
++  message/reasoning excerpts or signatures. Strip legacy sample prose on restore;
++  diffs must also suppress legacy excerpts without hiding `HISTORY_REWRITE`.
+ - **Mirror Parity**: `patches/cache-prefix-audit-extension.ts` and
+   `~/.omp/agent/extensions/cache-prefix-audit.ts` must maintain 100% byte parity.
+ 
+@@ -1110,7 +1113,8 @@ Correct: derive task.py and active_task.py byte-for-byte from the clean scaffold
+ ### 3. Contracts
+ - Keep one real user message: model conversion strips `displayText`; UI/history/draft restoration prefer it. Do not interpret translated text as a new command.
+ - Await preparation outside the generic extension timeout. Capture draft/session ownership before awaiting; don't overwrite a newer draft with an older result.
+-- Fresh sessions enable `cline-pass/deepseek-v4.1-flash`, low effort, no tools. Use native credentials, independent hidden history and stable `omp-translator:<sessionId>` identity.
++- Fresh sessions enable `deepseek/deepseek-flash` using `api: openai-completions` and the official `https://api.deepseek.com/v1` base URL, low effort, no tools. Use native credentials, independent hidden history and stable `omp-translator:<sessionId>` identity. Keep API keys in private user configuration, never in the extension or repository.
++- Translator connectivity repair must not silently broaden into global DNS/proxy changes. Global resolver changes require separate authorization and a working direct bootstrap path for `dns.default-nameserver` / `dns.proxy-server-nameserver`; a DoH request succeeding through the existing proxy is not bootstrap proof. Preserve selector choices and routing rules, and retain a known-working configuration for immediate rollback.
+ - Native soft sees complete translator pairs plus the previous summary, not the main session. Commit a fitting checkpoint before reuse; do not create an extra full-history payload log.
+ 
+ ### 4. Validation & Error Matrix
+@@ -1125,6 +1129,8 @@ Correct: derive task.py and active_task.py byte-for-byte from the clean scaffold
+ 
+ ### 6. Tests Required
+ - Keep verification proportional: actual CLI/provider smoke for original display versus English delivery, failure keys and resume; controlled synthetic history may reach real soft. No new permanent gate/test matrix or repeated reviews for this feature.
++- For DNS changes, validate direct bootstrap independently before live reload (`GET /proxies/DIRECT/delay` against the proposed resolver is a reachability check, not full DNS correctness proof). A successful DNS response is insufficient: verify the returned proxy-node address is reachable using an isolated instance with the actual node configuration and no TUN changes. Plaintext bootstrap requires explicit acceptance of visibility/interception risk; do not claim zero DNS leakage. Failed bootstrap blocks deployment; a post-reload connection failure requires immediate rollback before more candidate probes. Honor provider probe exclusions: do not send Anthropic HTTP/API requests or DNS queries when the user forbids them.
++- Short DNS/HTTP smoke success proves current reachability, not sustained stability. Treat later user-reported instability as ground truth; when rolling back DNS, restore only the changed resolver fields so subsequent user routing/configuration edits survive. Preserve a separately authorized endpoint-specific repair when reverting a broader resolver migration.
+ - Report only observed coverage. Contract inventory: `grep -nE 'prepare_user_input|appendEntryPersisted|allowTruncation' patches/input-translator-extension.ts patches/.18.3.3-candidates/0082-omp-user-display-text-v18.3.3-candidate.patch`.
+ 
+ ### 7. Wrong vs Correct
+diff --git a/.trellis/spec/backend/patch-rollup-contracts.md b/.trellis/spec/backend/patch-rollup-contracts.md
+index 501e65e68..baa344a7f 100644
+--- a/.trellis/spec/backend/patch-rollup-contracts.md
++++ b/.trellis/spec/backend/patch-rollup-contracts.md
+@@ -661,6 +661,8 @@ bash patches/verify-patch-family-rollups.sh --version 18.7.0
+ - The next upstream update MUST start from this verified family representation and its capability ownership, not reconstruct an active chain from the retired 58 numeric layers. Port each family against the target release and revalidate behavior; version-specific patch bytes are not blindly reusable. Retained OLD58/OLD59 remain historical replay/rollback evidence, and0097 remains opt-in.
+ - Revision order: archive exact prior bytes and hash; regenerate the owning family's net diff; rebase affected context without absorbing another family; verify independent OLD/NEW semantics, gate coverage and round-trip; update ledger; deploy only with separate authorization.
+ - A repair changes intended behavior, unlike this representation-only cutover. For later repairs, compare unchanged surfaces byte-for-byte and prove the approved behavior delta with the relevant regression gate; do not falsely require a behavioral repair to equal its broken OLD tree.
++- The 2026-10-10 model-selection repair keeps one persistent-prefix-resume owner. Its archived prior family and additive delta are SHA-pinned under `.retired/10-10-18.7.0-model-selection-resume/`. Preserve the original representation oracle separately; repaired-tree equality is OLD plus that declared delta, never equality to the broken OLD tree or an exclusion of entire changed files.
++- `navigateTree` retains the live model and thinking. Committed destination ancestry must record that retained selection with its routing, role and fallback attribution; cancelled/no-op moves remain unchanged. `verify-model-selection-resume.ts` supplies one focused switch/navigation/fresh-process-resume regression, selected alongside0093.
+ 
+ ### 4. Validation & Error Matrix
+ 
+diff --git a/patches/.18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch b/patches/.18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch
+index 58dbfe473..5ec7e6069 100644
+--- a/patches/.18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch
++++ b/patches/.18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch
+@@ -1,3 +1,5 @@
++diff --git a/pi-ai/dist/types/types.d.ts b/pi-ai/dist/types/types.d.ts
++index cd65045..d52767b 100644
+ --- a/pi-ai/dist/types/types.d.ts
+ +++ b/pi-ai/dist/types/types.d.ts
+ @@ -889,6 +889,8 @@ export interface UserMessage {
+@@ -18,6 +20,8 @@
+      /** True if the message was injected by the system (e.g., auto-continue) and initiates a fresh run rather than continuing the current one. */
+      synthetic?: boolean;
+      /** True when the synthetic prompt was a deliberate operator action (`.`, `c` continue shortcut) rather than an automatic continuation — its timestamp is the turn's prompt time. */
++diff --git a/pi-ai/src/providers/openai-responses.ts b/pi-ai/src/providers/openai-responses.ts
++index 6b852b6..0e5df2d 100644
+ --- a/pi-ai/src/providers/openai-responses.ts
+ +++ b/pi-ai/src/providers/openai-responses.ts
+ @@ -1539,6 +1539,18 @@ export function buildParams(
+@@ -56,6 +60,8 @@
+  	}
+  
+  	return { params, trailingScaffoldingItems, strictToolsApplied };
++diff --git a/pi-ai/src/types.ts b/pi-ai/src/types.ts
++index 303bc85..41247b7 100644
+ --- a/pi-ai/src/types.ts
+ +++ b/pi-ai/src/types.ts
+ @@ -1125,6 +1125,8 @@ export interface UserMessage {
+@@ -76,6 +82,8 @@
+  	/** True if the message was injected by the system (e.g., auto-continue) and initiates a fresh run rather than continuing the current one. */
+  	synthetic?: boolean;
+  	/** True when the synthetic prompt was a deliberate operator action (`.`, `c` continue shortcut) rather than an automatic continuation — its timestamp is the turn's prompt time. */
++diff --git a/pi-coding-agent/dist/types/session/agent-session.d.ts b/pi-coding-agent/dist/types/session/agent-session.d.ts
++index 13089f9..82ff3f1 100644
+ --- a/pi-coding-agent/dist/types/session/agent-session.d.ts
+ +++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
+ @@ -565,7 +565,9 @@ export declare class AgentSession implements SettingsScope {
+@@ -89,6 +97,8 @@
+      /**
+       * Transcript for TUI display. Full history is kept for export/resume-style
+       * callers; live chat can collapse compacted history to keep the hot render
++diff --git a/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts b/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
++index 1e60b9e..06ad95c 100644
+ --- a/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
+ +++ b/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
+ @@ -13,17 +13,19 @@
+@@ -119,6 +129,8 @@
+ +    constructor(sessionId?: () => string | undefined, anchorRoot?: () => string);
+      transform(context: Context, date: string, cwd: string): Context;
+  }
++diff --git a/pi-coding-agent/dist/types/session/messages.d.ts b/pi-coding-agent/dist/types/session/messages.d.ts
++index bb1508b..105458a 100644
+ --- a/pi-coding-agent/dist/types/session/messages.d.ts
+ +++ b/pi-coding-agent/dist/types/session/messages.d.ts
+ @@ -72,6 +72,18 @@ export interface DemotedInterruptedThinking {
+@@ -140,6 +152,8 @@
+  /** A provider-rejection turn carrying nothing but the error flag: stopReason
+   *  "error" with no text, thinking, or tool calls — e.g. a request the provider
+   *  rejected before any output (an oversized 413 payload). Persisting it writes an
++diff --git a/pi-coding-agent/src/collab/guest.ts b/pi-coding-agent/src/collab/guest.ts
++index 6c4fed3..f563aab 100644
+ --- a/pi-coding-agent/src/collab/guest.ts
+ +++ b/pi-coding-agent/src/collab/guest.ts
+ @@ -605,7 +605,9 @@ export class CollabGuestLink {
+@@ -153,6 +167,8 @@
+  				}
+  				break;
+  			}
++diff --git a/pi-coding-agent/src/sdk.ts b/pi-coding-agent/src/sdk.ts
++index 5665263..1d19e0b 100644
+ --- a/pi-coding-agent/src/sdk.ts
+ +++ b/pi-coding-agent/src/sdk.ts
+ @@ -2188,7 +2188,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
+@@ -208,9 +224,19 @@
+  				return new Agent({
+  					...captureOptions,
+  					cwd: sessionManager.getCwd(),
++diff --git a/pi-coding-agent/src/session/agent-session.ts b/pi-coding-agent/src/session/agent-session.ts
++index c64fa06..dfba117 100644
+ --- a/pi-coding-agent/src/session/agent-session.ts
+ +++ b/pi-coding-agent/src/session/agent-session.ts
+-@@ -1614,8 +1614,11 @@ export class AgentSession implements SettingsScope {
++@@ -120,6 +120,7 @@ import type { ModelRegistry } from "../config/model-registry";
++ import {
++ 	DEFAULT_PREWALK_TARGET,
++ 	disabledProviderIds,
+++	formatModelStringWithRouting,
++ 	getModelMatchPreferences,
++ 	type ResolvedModelRoleValue,
++ 	resolveCliModel,
++@@ -1614,8 +1615,11 @@ export class AgentSession implements SettingsScope {
+  			kernelOwnerId: config.evalKernelOwnerId ?? `agent-session:${Snowflake.next()}`,
+  		});
+  		this.#evalToolSession = config.evalToolSession;
+@@ -224,7 +250,7 @@
+  		const ircHost: IrcBridgeHost = {
+  			agent: this.agent,
+  			sessionManager: this.sessionManager,
+-@@ -6518,16 +6521,54 @@ export class AgentSession implements SettingsScope {
++@@ -6518,16 +6522,54 @@ export class AgentSession implements SettingsScope {
+  		return this.#providerBoundary.getImageAttachments();
+  	}
+  
+@@ -283,7 +309,7 @@
+  	#buildEvalStateContextMessage(): CustomMessage | undefined {
+  		const session = this.#evalToolSession;
+  		if (!session) return undefined;
+-@@ -11179,7 +11220,9 @@ export class AgentSession implements SettingsScope {
++@@ -11179,7 +11221,9 @@ export class AgentSession implements SettingsScope {
+  		// blowing the heap before the new session even loads (issue #3846). The
+  		// error-recovery path rebuilds the context on demand from the restored
+  		// state instead.
+@@ -294,7 +320,7 @@
+  		// switchSession replaces these arrays wholesale during load/rollback, so retaining
+  		// the existing message objects is sufficient and avoids structured-clone failures for
+  		// extension/custom metadata that is valid to persist but not cloneable.
+-@@ -11659,8 +11702,12 @@ export class AgentSession implements SettingsScope {
++@@ -11659,8 +11703,12 @@ export class AgentSession implements SettingsScope {
+  			this.#memory.rekeyForCurrentSessionId();
+  			await this.#memory.resetContextForNewTranscript();
+  
+@@ -309,6 +335,59 @@
+  
+  			// Emit session_branch event to hooks (after branch completes)
+  			if (this.#extensionRunner) {
++@@ -12094,6 +12142,17 @@ export class AgentSession implements SettingsScope {
++ 			newLeafId = targetId;
++ 		}
++ 
+++		// Navigation changes history, not the live model selection. Keep its
+++		// durable role (including ephemeral restore policy) on the new branch.
+++		const activeModel = this.model;
+++		const activeBranch = this.sessionManager.getBranch();
+++		const activeModelEntry = activeBranch.findLast(entry => entry.type === "model_change");
+++		const activeModelRole = activeModelEntry?.role ?? "default";
+++		const activeDefaultModel =
+++			activeModelRole === "default"
+++				? undefined
+++				: activeBranch.findLast(entry => entry.type === "model_change" && (entry.role ?? "default") === "default");
+++
++ 		// Switch leaf (with or without summary)
++ 		// Summary is attached at the navigation target position (newLeafId), not the old branch
++ 		const bashTransition = this.#bash.beginSessionTransition();
++@@ -12121,7 +12180,31 @@ export class AgentSession implements SettingsScope {
++ 		}
++ 
++ 		// Update agent state — build display context to populate agent messages.
++-		const stateContext = this.sessionManager.buildSessionContext();
+++		let stateContext = this.sessionManager.buildSessionContext();
+++		let modelStateChanged = false;
+++		if (activeDefaultModel?.type === "model_change" && stateContext.models.default !== activeDefaultModel.model) {
+++			this.sessionManager.appendModelChange(activeDefaultModel.model, "default", activeDefaultModel.resolvedModelIsFallback);
+++			modelStateChanged = true;
+++		}
+++		if (activeModel) {
+++			const activeModelString = formatModelStringWithRouting(activeModel);
+++			if (
+++				modelStateChanged ||
+++				stateContext.models[activeModelRole] !== activeModelString ||
+++				this.sessionManager.getLastModelChangeRole() !== activeModelRole
+++			) {
+++				this.sessionManager.appendModelChange(activeModelString, activeModelRole, activeModelEntry?.resolvedModelIsFallback);
+++				modelStateChanged = true;
+++			}
+++		}
+++		if (
+++			stateContext.thinkingLevel !== this.thinkingLevel ||
+++			stateContext.configuredThinkingLevel !== this.configuredThinkingLevel()
+++		) {
+++			this.sessionManager.appendThinkingLevelChange(this.thinkingLevel, this.configuredThinkingLevel());
+++			modelStateChanged = true;
+++		}
+++		if (modelStateChanged) stateContext = this.sessionManager.buildSessionContext();
++ 		const displayContext = this.#withEvalStateContext(deobfuscateSessionContext(stateContext, this.#obfuscator));
++ 		this.agent.replaceMessages(displayContext.messages);
++ 		this.#rehydrateCheckpointRewindState();
++diff --git a/pi-coding-agent/src/session/date-cwd-reminder.ts b/pi-coding-agent/src/session/date-cwd-reminder.ts
++index ecf76a3..58ed9c8 100644
+ --- a/pi-coding-agent/src/session/date-cwd-reminder.ts
+ +++ b/pi-coding-agent/src/session/date-cwd-reminder.ts
+ @@ -3,15 +3,50 @@
+@@ -637,6 +716,8 @@
+ +		return messages === context.messages ? context : { ...context, messages };
+  	}
+  }
++diff --git a/pi-coding-agent/src/session/messages.ts b/pi-coding-agent/src/session/messages.ts
++index ab325d1..3968231 100644
+ --- a/pi-coding-agent/src/session/messages.ts
+ +++ b/pi-coding-agent/src/session/messages.ts
+ @@ -6,7 +6,6 @@
+@@ -835,6 +916,8 @@
+  	});
+  	return out;
+  }
++diff --git a/pi-coding-agent/src/session/session-context.ts b/pi-coding-agent/src/session/session-context.ts
++index 01ff85b..1457c14 100644
+ --- a/pi-coding-agent/src/session/session-context.ts
+ +++ b/pi-coding-agent/src/session/session-context.ts
+ @@ -12,7 +12,7 @@ import {
+@@ -882,6 +965,8 @@
+  			// A failed turn that emitted tool calls persists paired synthetic
+  			// tool_result placeholders after it. Dropping only the assistant would
+  			// strand those results with no preceding tool_use — a shape providers
++diff --git a/pi-coding-agent/src/session/session-maintenance.ts b/pi-coding-agent/src/session/session-maintenance.ts
++index bad01c9..a28c2db 100644
+ --- a/pi-coding-agent/src/session/session-maintenance.ts
+ +++ b/pi-coding-agent/src/session/session-maintenance.ts
+ @@ -3175,21 +3175,13 @@ export class SessionMaintenance {
+@@ -939,6 +1024,8 @@
+  	/**
+  	 * Attempt context promotion to a larger model.
+  	 * Returns true if promotion succeeded (caller should retry without compacting).
++diff --git a/pi-coding-agent/src/session/session-tools.ts b/pi-coding-agent/src/session/session-tools.ts
++index c2633b4..6e9c1e2 100644
+ --- a/pi-coding-agent/src/session/session-tools.ts
+ +++ b/pi-coding-agent/src/session/session-tools.ts
+ @@ -22,6 +22,7 @@ import { resolveMemoryBackend } from "../memory-backend/resolve";
+@@ -1122,6 +1209,8 @@
+  				this.#setBasePromptXdevNames(built.xdevCatalogNames);
+  				this.#host.clearMemoryPromotionSnapshot();
+  				if (
++diff --git a/pi-coding-agent/src/session/turn-recovery.ts b/pi-coding-agent/src/session/turn-recovery.ts
++index 6a31237..4dc056f 100644
+ --- a/pi-coding-agent/src/session/turn-recovery.ts
+ +++ b/pi-coding-agent/src/session/turn-recovery.ts
+ @@ -11,6 +11,7 @@ import type {
+diff --git a/patches/DEPLOYMENT-RUNBOOK.md b/patches/DEPLOYMENT-RUNBOOK.md
+index 9d30cbf77..4c26edc19 100644
+--- a/patches/DEPLOYMENT-RUNBOOK.md
++++ b/patches/DEPLOYMENT-RUNBOOK.md
+@@ -50,6 +50,10 @@ Representation-only repository work is not deployment authorization. Before an a
+ 5. Linux `renameat2(..., RENAME_EXCHANGE)` 原子交換各目錄；第二次交換失敗時立即反交換 global。舊樹與獨立備份均保留。
+ 6. 新程序使用正式 source CLI、私有 HOME 驗版本與工具呼叫；controller `--check` 必須與 staged `--print-plan` 的實際 entry 數量一致，且無 CONFLICT/MISSING。正式 auth/session 由使用者重啟後沿用。
+ 
++等待停機的 watcher 必須由獨立的 user service 啟動（`systemd-run --user`），並傳入目前 `PATH`；不可只把 OMP tool job 設為 detached。2026-10-09 的 detached watcher 仍以 `__omp_worker_daemon_broker` 為祖先，將自己的 parent 排除後誤報「all omp processes gone」，隨後被部署器的 ancestry gate 正確拒絕。不得移除該 gate。
++
++啟動後用 `systemctl --user show <unit> -p MainPID -p ActiveState -p ControlGroup` 及 `ps -o pid,ppid,args -p <pid>,<ppid>` 驗證：watcher parent 必須是獨立的 `systemd --user`，不能是任何 OMP 程序。`active/running` 只證明正在等待，只有 post-verify 完成後的 `RESULT: DEPLOYED` 才能宣稱已部署。
++
+ Ledger 不再依賴 `../vendor/pi-commandcode-provider`：該外掛已於 2026-09-27 退役（使用者改用官方原版端點），其跨註冊校驗腿已隨之移除。
+ 
+ `bun update -g` 對本專案無效（global `package.json` pin 死確切版本），必須 `bun add -g <pkg>@<version>`。
+diff --git a/patches/PATCHES.md b/patches/PATCHES.md
+index b2ea51e50..0b5c35a00 100644
+--- a/patches/PATCHES.md
++++ b/patches/PATCHES.md
+@@ -81,6 +81,8 @@ The registry owns exact order and roots; this table documents ownership, not a s
+ 
+ Repair an existing family by archiving its current revision and replacing its net diff, not by appending a numeric tail. Preserve capability gates and historical hashes. Original18.7.0 candidates now live under `.retired/10-09-18.7.0-pre-family/.18.7.0-candidates/`; only0097 remains in the root candidate directory. Earlier-version plans and files are unchanged.
+ 
++2026-10-10 model-resume repair (repository only): `navigateTree` keeps the live model/thinking but previously dropped their ancestry when moving behind a model switch. The persistent-prefix-resume family now records the retained selection on the destination, preserving routing, role and fallback attribution. Prior family bytes and the explicit repair delta are pinned in `.retired/10-10-18.7.0-model-selection-resume/baseline.json`. One real-SDK regression, `verify-model-selection-resume.ts`, fails before the repair (`astra` instead of `sol`) and passes after it (`sol`, effort `high`) across fresh processes. No live deployment or broad test suite was performed.
++
+ Evidence and limits: `.trellis/tasks/10-09-omp-1870-family-consolidation/research/`. Selected oracle passed OLD58/NEW24 and OLD59/NEW25 complete-tree equality, both zero-fuzz round-trips, all24 owned-delta/reverse checks, ten fail-closed cases, omission/mutation negatives, and eight-version gate parity. Independent control/proof reviews passed after corrections. Repository verification is not authorization to deploy; live58 remains untouched until a separately approved transaction.
+ 
+ 
+@@ -813,7 +815,10 @@ Evidence and limits: `.trellis/tasks/10-09-omp-1870-family-consolidation/researc
+ ### 0082 — 普通輸入自動英譯，介面保留原文（僅 18.3.3）
+ 
+ - 核心補丁：`.18.3.3-candidates/0082-omp-user-display-text-v18.3.3-candidate.patch`（`${NM}`）。同一條使用者訊息的 `content` 供模型使用，`displayText` 供介面、歷史與草稿還原；舊訊息不遷移。普通 Enter／Ctrl+Enter 等待 `prepare_user_input`，原生命令及自動生成的提示不經翻譯。
+-- 配套插件：`input-translator-extension.ts`，部署至 `~/.omp/agent/extensions/`。預設開啟，使用原生憑證與 `cline-pass/deepseek-v4.1-flash`、low、無工具；保留會話自己的翻譯歷史，長上下文使用原生 soft，不壓縮主會話。
++- 配套插件：`input-translator-extension.ts`，部署至 `~/.omp/agent/extensions/`。預設開啟，使用原生憑證與 `deepseek/deepseek-flash`（`api: openai-completions`、官方 `https://api.deepseek.com/v1`）、low、無工具；保留會話自己的翻譯歷史，長上下文使用原生 soft，不壓縮主會話。2026-10-07 依使用者要求由 Cline 切換；key 僅存本機私有設定，不進 repo。原生請求為 `POST /v1/chat/completions`；初次連線失敗定位為 Mihomo DNS timeout。經使用者授權，於本機 `clashctl` 的 `mixin.yaml`／`runtime.yaml` 為 `api.deepseek.com` 精確新增 AliDNS／DNSPod DoH policy，保留全域 DNS 與 `DIRECT`。設定熱重載回傳 HTTP 204，PID 與 46 個 selector 選擇不變；原生 CLI 使用同一模型及 low 完成實際英譯請求（33.74 秒），本次未重驗 TUI 翻譯介面。
++- **2026-10-07 DNS 遷移回滾**：首次經授權移除中國 DNS 的嘗試，將 bootstrap／節點解析器也換為 Cloudflare／Quad9 DoH，因直連 bootstrap 不通造成代理聯網中斷；經代理的 DoH 探測不能證明 bootstrap 可用。當時已回滾至前一條記錄的可用設定，兩份設定與遷移前備份逐位元組相同，熱重載 HTTP 204、PID 與 46 個 selector 不變；Google 回傳 204、未帶憑證的 DeepSeek 根端點回傳 401。該次全加密 bootstrap 方案未部署，最終方案見下一條。
++- **2026-10-07 非中國 DNS 試行（已回退）**：使用者接受僅 bootstrap 保留非中國明文 DNS。當時 `default-nameserver`／`proxy-server-nameserver` 改為 Google UDP `8.8.8.8`／`8.8.4.4`；一般 `nameserver` 與精確 `api.deepseek.com` policy 使用 Cloudflare `https://1.0.0.1/dns-query`／Quad9 `https://9.9.9.9/dns-query`。隔離與即時連線檢查曾通過：Google 204、DeepSeek 根端點 401，原生 `completeSimple` 請求 HTTP 200、1,438 ms；但不能據此保證持續穩定。使用者後續回報網路特別不穩定，因此已撤回此方案，現行設定見下一條。試行前備份：`/home/chris/clashctl/resources/backups/non-cn-dns-udp-2026-10-07T10-47-31-111Z/`。
++- **2026-10-07 16:39 UTC 穩定性回退（現行）**：僅恢復上述四個 DNS 欄位，保留試行後使用者新增的其他設定。一般 DNS 恢復 `114.114.114.114`／`8.8.8.8`，bootstrap 恢復 `223.5.5.5`／`119.29.29.29`，代理節點解析另保留原有 `1.1.1.1`／`8.8.8.8`；`api.deepseek.com` 恢復精確 AliDNS／DNSPod DoH policy，API 路由維持 `DIRECT`。熱重載 HTTP 204，PID 與 46 個 selector 不變；回退後 Google 204、未帶憑證的 DeepSeek 根端點 401。未探測 Anthropic，未改憑證；此為即時連線證據，不宣稱長期穩定性已驗證。回退前狀態另備份至 `/home/chris/clashctl/resources/backups/stability-rollback-2026-10-07T16-39-01-096Z/`。
+ - 指令：`/translator` 查看狀態；`/translator off`／`on` 控制本會話；`/translator model <provider/id>` 切換獨立翻譯模型。失敗時 Escape 重試，Enter 僅本次送原文，不靜默降級。
+ - 實際驗證：真實 CLI／供應商完成中文輸入、原文顯示、英文送達、失敗按鍵及新程序 resume；受控合成歷史觸發兩次真實 soft，保留前次摘要，沒有主會話 compaction 或額外 payload dump。47 層既有 pristine 基線追加 0082，以零 fuzz 套用並逐檔比對。
+ - 按使用者要求不新增測試檔、門禁或 review 輪次。完整退出並重新啟動 OMP 才會載入；`/resume` 不能熱載入新源碼。
+@@ -837,11 +842,11 @@ Evidence and limits: `.trellis/tasks/10-09-omp-1870-family-consolidation/researc
+ 
+ ### 0085 — 被拒絕的已準備提交與準備取消時的還原（僅 18.4.4）
+ 
++Historical representation note: the following 18.4.4 tail placement and layer counts describe the original repair checkpoint. In the 18.7.0 family plan, this capability belongs to input-translation; future repairs revise that family.
++
+ - 補丁：`.18.4.4-candidates/0085-omp-rejected-prepared-draft-restore-v18.4.4-candidate.patch`（`${AGENT}`，`src/main.ts`、`src/modes/controllers/input-controller.ts`、`src/slash-commands/helpers/draft.ts`，加上兩個 shipped declaration hunk：`dist/types/main.d.ts`、`dist/types/slash-commands/helpers/draft.d.ts`）。0082 已部署、定稿層不可變，故此修復以 0082 之後的新尾層落層，18.4.4 計畫為 52 層（0085 落層時為 51 層，live 目前 50）。
+ - 問題：0082 的審查留下兩個缺口。#2：已準備（`prepared`）的提交經 `onInputCallback` 走到 `submitInteractiveInput`，`session.prompt` 被拒絕時只顯示錯誤，操作者的原文與附件早已離開編輯器，因此遺失。#4：取消 Ctrl+Enter 的準備時，還原邏輯只檢查文字與 revision；準備期間貼入圖片不改變兩者，圖片清單會被還原的舊附件整個覆蓋。兩者在 18.4.1 的 0082 上就存在，不是遷移迴歸。
+ - 修法（最終形態）：`draft.ts` 新增 `restoreRejectedDraft` / `retainRejectedDraft` 與守衛 `editorHoldsNewerDraft`。**每條拒絕路徑只有一個 owner，且由明確信號決定**：session 的 prompt-dropped callback（`interactive-mode.ts` 的 `#restoreDroppedPrompt`）會先把草稿寫回編輯器再 rethrow，該情境拋的是 `AgentStartPolicyChangedError`；此類別未匯出，故 `main.ts` 以類別自帶的 `error.name === "AgentStartPolicyChangedError"` 辨識（duck typing），命中時才跳過自身還原——不是靠內容相等、也不是靠 transcript 長度。**其餘任何 throw 都還原**：這是刻意的寬規則，殘餘已接受——聚合的 transcript 狀態分不出「派送前拒絕」與「回合已收下訊息後的罕見失敗」，故罕見的入回合後失敗仍會把已送出文字當可還原草稿提回（寧可重複，不可遺失）。**還原永不覆蓋較新內容**：`editorHoldsNewerDraft` 把「文字 revision 變了、有文字、**或有非本草稿自帶的待送圖片**」任一視為較新，此時只把被拒絕的輸入放進 `deferredDraftSnapshots`（原文供顯示、模型文字為 canonical）並提示；附件新舊由模組私有的 `isDraftOwnedImage(draft, image)` 判定：編輯器待送圖片是**同一個物件**，或與某張捕獲圖片**同 bytes 與 mimeType**，都算草稿自己的（`editor.pendingImages.some(image => !isDraftOwnedImage(draft, image))`），不是任何非空清單都算較新——一般 Enter 在被 admission 前附件仍留在編輯器，準備期間貼入的圖才是較新草稿。採值相等是因為受支援的 `input` handler 會回傳**重建但等值**的替換物件（`event.images.map(image => ({ ...image }))`），單靠參照會把它誤判成較新草稿。殘餘（已接受）：與捕獲圖片同 bytes、同 mime 的**重新貼上**圖片會被當成草稿自己的。`input-controller.ts` 的私有還原改為委派給它（取代原本的 `#retainRejectedSubmission`）。未準備的提交行為不變。
+-Historical representation note: the following 18.4.4 tail placement and layer counts describe the original repair checkpoint. In the 18.7.0 family plan, this capability belongs to input-translation; future repairs revise that family.
+-
+ - 閘門：`verify-rejected-prepared-draft-restore.ts`（依計畫含 0085 執行），共 **10 條腿**。以小型替身驅動**真實** `submitInteractiveInput`（legs 1-6：被拒還原、較新草稿保留、成功不還原、session 自持的 `AgentStartPolicyChangedError`、同文字的獨立拒絕、派送前 transcript 增長）與**真實** `InputController.setupEditorSubmitHandler` 的取消路徑（legs 7-8：一般 Enter 自帶附件仍在待送時文字直接回編輯器；準備期間貼圖則存活；leg 9：已註冊的 `input` handler 回傳**重建但等值**的替換圖片物件——受支援的 `event.images.map(image => ({ ...image }))` 轉換——在沒有較新文字或貼圖時仍直接回文字），另有共用 helper 控制組（leg 10）。敏感性（負向對照）：沒有 0085 的 18.4.4 樹上 leg 1 就紅（編輯器仍為空）；第二輪修正前的樹 legs 5、6、7 紅（同文字草稿被吞、transcript 增長反而抑制還原、取消的 Enter 拿不回文字）；拿掉所有權跳過則 leg 4 紅；拿掉 `editorHoldsNewerDraft` 的草稿圖片條件則 leg 8 紅（貼入的圖被擄回的舊附件覆蓋，leg 7 仍綠）；改回僅參照的所有權則 leg 9 紅（重建但等值的物件被誤判為較新草稿，legs 7、8 仍綠）。
+ - Shipped declaration 與型別檢查：0085 補上 `dist/types/main.d.ts`、`dist/types/slash-commands/helpers/draft.d.ts` 兩個 hunk，使套件型別消費者看得到放寬的 runtime 契約與新匯出。本批沙盒樹沒有 in-tree typecheck（樹內無 `tsgo`，亦無 `tsconfig.json`），故宣告改以消費者探針證明：以 `tsc` 6.0.3（`/home/chris/.local/bin/tsc`）經 `package.json` 的 `types` 條件匯入 shipped `.d.ts`，對舊宣告為紅、修正後為綠，且移除 `@ts-expect-error` 的變體會逐一點名新契約要求的成員；另以 grep 逐欄對照原始碼。Bun 不做型別檢查，綠色行為閘門不等於型別證明。
+ - 未涵蓋（accepted）：Ctrl+Enter／follow-up 入口（`#submitFollowUp` 及其自己的還原呼叫點）、經 dequeue 還原（`handleDequeue`）、composer 自己的 `[Image #N]` chip 繪製（替身的 `setCollapsedText` 只存純文字）。未動：`#restoreDroppedPrompt`（`interactive-mode.ts`）仍有同型的圖片覆蓋寫法，不在 Review #4 範圍。
+@@ -921,9 +926,6 @@ Historical representation note: the following 18.4.4 tail placement and layer co
+   - (e) 升級到 18.5.0 時衝突點預期在 `#idleStopReason`、`#schedule`、`#refresh`（上游已加 `onRefreshStart/End`）。
+ - 生效條件：需**完整退出並重開 omp**；同時部署 `cron-extension.ts` → `~/.omp/agent/extensions/cron.ts`（先備份，`cmp` 對齊）。
+ 
+-### 0091 — 已退役（併入 0092）
+-
+-- 原檔：`.retired/10-03-0091-rolled-into-0092/0091-omp-cache-warming-idle-budget-v18.4.4-candidate.patch`；sha256 `2875658a53fb631aa372dcfca8b8b3ef178dcc8246c0e48e2d1fa09e632cda8a`；7,358 B。2026-10-03 01:10 部署（55 層），缺陷為回合結束後設預算不會恢復保活。
+ ### 0093 — 固定 system prompt 的模型識別，不混入動態 effort（18.7.0；family 表示尚未部署）
+ 
+ - Active owner: `.18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch` (`NM`). Original0093 bytes: `.retired/10-09-18.7.0-pre-family/.18.7.0-candidates/0093-omp-prompt-model-identity-v18.7.0-candidate.patch`.
+@@ -956,6 +958,9 @@ Historical representation note: the following 18.4.4 tail placement and layer co
+ - **2026-10-09 同編號修正（使用者要求不新增補丁）**：`gpt-6.1-sol` 的 catalog standard window 為 272k、maximum 為 922k；`compact()` 卻把 standard window 當成 native request 的硬容量，在網路送出前拒絕 session `01a11a91` 的 281,553-token 估算，並可能截短 trailing tool output。Codex V2 現在保留完整輸入，由 provider 判定容量（含 cold recovery）；不改全域 window／壓縮觸發門檻，不改其他 OpenAI V2 lanes 的原有檢查。
+ - **跨層驗收**：既有 gate 直接呼叫 `compact()`，用真實 provider transport＋loopback WebSocket 驗證超過 272k 的 cold user、cold tool output、live chain；全文保留、native summary 回傳、零 HTTP／soft fallback。Provider `context_length_exceeded` 仍原樣失敗，恰好一個 compaction frame。修前以 `estimated 300288 tokens > 272000` 失敗，修後四案及原握手／metadata／published-types gate 通過。此為本地 wire proof，不宣稱真實服務端接受或 cache hit。
+ 
++### 0091 — 已退役（併入 0092）
++
++- 原檔：`.retired/10-03-0091-rolled-into-0092/0091-omp-cache-warming-idle-budget-v18.4.4-candidate.patch`；sha256 `2875658a53fb631aa372dcfca8b8b3ef178dcc8246c0e48e2d1fa09e632cda8a`；7,358 B。2026-10-03 01:10 部署（55 層），缺陷為回合結束後設預算不會恢復保活。
+ 
+ ## 3. 已撤下的補丁
+ 
+diff --git a/patches/apply.sh b/patches/apply.sh
+index 7040ece89..8f65613bc 100755
+--- a/patches/apply.sh
++++ b/patches/apply.sh
+@@ -794,6 +794,7 @@ _omp_run_gates() {
+ 	_omp_gate 0081 verify-main-cache-hit.ts
+ 	_omp_gate 0083 verify-model-mention-surface-resume.ts
+ 	_omp_gate 0093 verify-prompt-effort-resume.ts
++	_omp_gate 0093 verify-model-selection-resume.ts
+ 	_omp_gate 0094 verify-anthropic-thinking-drop-resume.ts
+ 	_omp_gate 0095 verify-context-persist-audit.ts
+ 	_omp_gate 0084 verify-length-stop-reminder-persist.ts
+diff --git a/patches/cache-prefix-audit-extension.ts b/patches/cache-prefix-audit-extension.ts
+index 0dbe6691a..8392e39ef 100644
+--- a/patches/cache-prefix-audit-extension.ts
++++ b/patches/cache-prefix-audit-extension.ts
+@@ -63,10 +63,6 @@ const LOG_MAX_BYTES = 2 * 1024 * 1024;
+ /** Session key used when no session id can be resolved. Keep it process-local so
+  * payloads without identity cannot share a state file across OMP processes. */
+ const DEFAULT_SESSION = `pid-${process.pid}`;
+-/** Chars of a rewritten message kept for identification. Enough to name the
+- *  culprit (an `<advisory>` tag, a `<system-reminder>`, a tool result header)
+- *  without turning the audit log into a second transcript. */
+-const SAMPLE_CHARS = 100;
+ 
+ interface Fingerprint {
+ 	at: string;
+@@ -108,7 +104,7 @@ interface Fingerprint {
+ 	responseHeaders?: string;
+     /** Session key this fingerprint belongs to (process-local when unresolvable). */
+     sessionId: string;
+-    /** Truncated text sample per message for naming the culprit in a rewrite. */
++    /** Length-only diagnostics. Never persist message or reasoning excerpts. */
+     samples: string[];
+ }
+ 
+@@ -407,6 +403,9 @@ function loadState(sessionKey: string): SessionState {
+ 				st.last = restored;
+ 				st.recent = [restored];
+ 			}
++			for (const fp of st.recent ?? []) {
++				fp.samples = fp.samples.map(sample => sample.match(/^len=\d+/)?.[0] ?? "");
++			}
+ 		}
+ 	} catch {
+ 		// Corrupt or partial file: re-seed cleanly on the next request.
+@@ -485,9 +484,8 @@ function fingerprint(target: object, sessionIdOverride?: string): Fingerprint |
+ 		const hashInput = content !== undefined ? contentForHash(content) : contentForHash(message);
+ 		const text = (textOf(content) || responseType || "").replace(/\s+/g, " ");
+ 		fp.messages.push(`${role ?? responseType ?? "?"}:${sha(hashInput)}`);
+-		// Length leads the sample: a tail-appended edit (the common rewrite) is
+-		// invisible in a head-truncated excerpt but obvious in the length.
+-		fp.samples.push(`len=${text.length} ${text.slice(0, SAMPLE_CHARS)}`);
++		// Content hashes detect rewrites; diagnostics retain lengths, never prose.
++		fp.samples.push(`len=${text.length}`);
+ 
+ 		if (Array.isArray(content)) {
+ 			for (const block of content) {
+@@ -788,7 +786,7 @@ function diff(prev: Fingerprint, next: Fingerprint): Diff {
+ 		return {
+ 			kind: "HISTORY_REWRITE",
+ 			index: i,
+-			detail: `messages[${i}] ${roleNote} | was ${JSON.stringify(prev.samples[i] ?? "")} | now ${JSON.stringify(next.samples[i] ?? "")}`,
++			detail: `messages[${i}] ${roleNote} | was ${prev.messages[i]} ${prev.samples[i]?.match(/^len=\d+/)?.[0] ?? ""} | now ${next.messages[i]} ${next.samples[i]?.match(/^len=\d+/)?.[0] ?? ""}`,
+ 			ttlShift,
+ 		};
+ 	}
+diff --git a/patches/input-translator-extension.ts b/patches/input-translator-extension.ts
+index 0f3eaf678..1a8172494 100644
+--- a/patches/input-translator-extension.ts
++++ b/patches/input-translator-extension.ts
+@@ -62,7 +62,7 @@ export type TranslatorInFlightDecision = "cancel" | "send-original";
+ const RECORD_VERSION = 1;
+ 
+ /** Default translator model: the exact catalog id, resolved natively. */
+-const DEFAULT_MODEL_SPEC = "cline-pass/deepseek-v4.1-flash";
++const DEFAULT_MODEL_SPEC = "deepseek/deepseek-flash";
+ 
+ /** A fresh session starts translating; `/translator off` is session-local. */
+ const DEFAULT_ENABLED = true;
+diff --git a/patches/verify-cache-prefix-audit.ts b/patches/verify-cache-prefix-audit.ts
+index 4e00ccf7a..fc3adf1ca 100644
+--- a/patches/verify-cache-prefix-audit.ts
++++ b/patches/verify-cache-prefix-audit.ts
+@@ -41,6 +41,36 @@ const logLines = (): Array<Record<string, unknown>> =>
+ 		.filter(Boolean)
+ 		.map(line => JSON.parse(line) as Record<string, unknown>);
+ 
++// Diagnostics must detect reasoning changes without exposing reasoning or signatures.
++for (const makeBlock of [
++	(value: string) => ({ type: "thinking", thinking: value, signature: `${value}-signature` }),
++	(value: string) => ({ thought: true, text: value, thoughtSignature: `${value}-signature` }),
++	(value: string) => ({ type: "redacted_thinking", data: value }),
++	(value: string) => ({ type: "reasoning_text", text: value }),
++]) {
++	const payload = (value: string) => ({
++		model: "audit-privacy",
++		system: "stable",
++		tools: [],
++		messages: [{
++			role: "assistant",
++			content: [makeBlock(value), { type: "text", text: "visible answer" }],
++		}],
++	});
++	const before = ext.fingerprint(payload("PRIVATE_REASONING_BEFORE"));
++	const after = ext.fingerprint(payload("PRIVATE_REASONING_AFTER"));
++	assert.ok(before && after);
++	const delta = ext.diff(before, after);
++	assert.equal(delta.kind, "HISTORY_REWRITE", "private reasoning changes must remain detectable");
++	assert.ok(
++		!JSON.stringify({ before, after, delta }).includes("PRIVATE_REASONING"),
++		"persisted fingerprints and diagnostic excerpts must never expose reasoning",
++	);
++	const legacy = { ...before, samples: ["len=24 PRIVATE_REASONING_LEGACY"] };
++	assert.ok(!JSON.stringify(ext.diff(legacy, after)).includes("PRIVATE_REASONING"),
++		"legacy baseline excerpts must not leak into new diagnostic output");
++}
++
+ // ---------------------------------------------------------------------------
+ // Payload builders: Google Antigravity nests the body under `request`; the
+ // Anthropic/OpenAI shape keeps everything top-level.
+@@ -265,8 +295,6 @@ const gemTurn2 = [
+ 	assert.equal(ext.diff(af1, af2).kind, "APPEND_ONLY");
+ 	assert.deepEqual(af2.breakpoints, ["3:1h"]);
+ 
+-	// Thinking blocks contribute their text, not an opaque <type>.
+-	assert.match(af1.samples[1], /hmm hello/);
+ 
+ 	// In-place edit -> HISTORY_REWRITE with the exact index.
+ 	const aEdit = anthropicPayload([
+diff --git a/patches/verify-family-plan.py b/patches/verify-family-plan.py
+index 9f37af995..a94aa9d58 100755
+--- a/patches/verify-family-plan.py
++++ b/patches/verify-family-plan.py
+@@ -14,6 +14,14 @@ Usage:
+   verify-family-plan.py <baseline.json> ids <deployed|repository>
+   verify-family-plan.py <baseline.json> registry-plan <plan.tsv>
+   verify-family-plan.py <baseline.json> registry-check <plan.tsv>
++  verify-family-plan.py <baseline.json> repair-manifest
++
++`repair-manifest` reads the frozen same-family behavioral-repair manifest
++(baseline.json under .retired/10-10-18.7.0-model-selection-resume/) rather than
++the pre-family snapshot. It prints one "<field>\\t<value>" line per field in
++fixed order (family, root, previous, previous-sha256, repair, repair-sha256);
++the SHA-256 values are the only source of truth for the archived original
++family bytes and the additive repair delta, so callers never hardcode them.
+ 
+ Exit status is 0 on success and 1 on any contract violation (diagnostic on
+ stderr). `registry-check` prints a one-line OK summary on stdout.
+@@ -27,6 +35,11 @@ ROOTS = {"AGENT", "CORE", "AI", "SNAP", "TUI", "NM"}
+ ID_RE = re.compile(r"^\d{4}$")
+ FAMILY_RE = re.compile(r"^family-[a-z0-9][a-z0-9-]*-v18\.7\.0\.patch$")
+ INDEPENDENT_RE = re.compile(r"^(\d{4})-[A-Za-z0-9._-]+\.patch$")
++SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
++# The active family path of a same-family repair, and the plain patch name its
++# additive repair delta keeps inside the retired directory.
++REPAIR_FAMILY_PREFIX = ".18.7.0-families/"
++REPAIR_DELTA_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.patch$")
+ 
+ # Approved maintenance boundaries; coverage alone cannot detect ownership swaps.
+ FAMILY_MEMBERS = {
+@@ -207,6 +220,51 @@ def cmd_registry_check(baseline, args):
+     print("OK rows={} members={}".format(len(order), members))
+ 
+ 
++def validate_repair(baseline):
++    """Validate a same-family behavioral-repair manifest.
++
++    The manifest names the single active family, its package root, the archived
++    copy of its ORIGINAL bytes and the additive repair delta, each pinned by
++    SHA-256. Callers read the hashes from here so no value is hardcoded, and a
++    malformed or unsafe manifest fails closed instead of being half-honoured.
++    """
++    fields = {}
++    for key in ("family", "previousFamily", "previousFamilySha256", "repair", "repairSha256"):
++        value = baseline.get(key)
++        if not isinstance(value, str) or not value:
++            fail("repair manifest has no usable '{}'".format(key))
++        fields[key] = value
++    root = baseline.get("root")
++    if root not in ROOTS:
++        fail("repair manifest root '{}' is not a package root".format(root))
++    family = fields["family"]
++    if not family.startswith(REPAIR_FAMILY_PREFIX):
++        fail("repair manifest family '{}' is not under {}".format(family, REPAIR_FAMILY_PREFIX))
++    base = family[len(REPAIR_FAMILY_PREFIX):]
++    if "/" in base or not FAMILY_RE.match(base):
++        fail("repair manifest family '{}' is not family-<name>-v18.7.0.patch".format(family))
++    if fields["previousFamily"] != base:
++        fail("repair manifest previousFamily '{}' is not the archived copy of '{}'".format(
++            fields["previousFamily"], base))
++    for key in ("previousFamilySha256", "repairSha256"):
++        if not SHA256_RE.match(fields[key]):
++            fail("repair manifest {} is not a lowercase sha256: {}".format(key, fields[key]))
++    repair = fields["repair"]
++    if "/" in repair or ".." in repair or not REPAIR_DELTA_RE.match(repair):
++        fail("repair manifest repair '{}' is not a plain patch file name".format(repair))
++    return root, fields
++
++
++def cmd_repair_manifest(baseline, _args):
++    root, fields = validate_repair(baseline)
++    print("family\t{}".format(fields["family"]))
++    print("root\t{}".format(root))
++    print("previous\t{}".format(fields["previousFamily"]))
++    print("previous-sha256\t{}".format(fields["previousFamilySha256"]))
++    print("repair\t{}".format(fields["repair"]))
++    print("repair-sha256\t{}".format(fields["repairSha256"]))
++
++
+ COMMANDS = {
+     "controller-sha": cmd_controller_sha,
+     "patch-hashes": cmd_patch_hashes,
+@@ -215,6 +273,7 @@ COMMANDS = {
+     "ids": cmd_ids,
+     "registry-plan": cmd_registry_plan,
+     "registry-check": cmd_registry_check,
++    "repair-manifest": cmd_repair_manifest,
+ }
+ 
+ 
+diff --git a/patches/verify-patch-family-rollups.sh b/patches/verify-patch-family-rollups.sh
+index 06bfce79b..990cae338 100755
+--- a/patches/verify-patch-family-rollups.sh
++++ b/patches/verify-patch-family-rollups.sh
+@@ -14,6 +14,16 @@
+ #                                   frozen OLD58/OLD59 vs controller-resolved
+ #                                   NEW24/NEW25, zero-fuzz replay, gate parity
+ #
++#   18.7.0 additionally carries one explicitly declared same-family behavioral
++#   repair (model selection surviving history navigation and fresh-process
++#   resume). Its frozen manifest — .retired/10-10-18.7.0-model-selection-resume/
++#   baseline.json — pins the ARCHIVED original family bytes and the additive
++#   repair delta, both by SHA-256. The OLD/NEW oracle is therefore
++#   "frozen OLD58 + declared repair == NEW24" (and OLD59 + repair == NEW25),
++#   never a plain OLD==NEW; the archived family itself is separately proven
++#   equal to its original member-rebased baseline, so the historical
++#   representation oracle survives the repair.
++#
+ # Contract (design.md 驗證契約):
+ #   1. Pristine baselines = OFFICIAL npm tarballs only, fetched fresh into a
+ #      mktemp dir (`npm pack`, falling back to the registry URL) and checked
+@@ -106,6 +116,12 @@ FAMILY_OLD_CONTROLLER="${FAMILY_OLD_DIR}/apply.sh"
+ FAMILY_REGISTRY="${HERE}/.18.7.0-families/plan.tsv"
+ FAMILY_HELPER="${HERE}/verify-family-plan.py"
+ 
++# Same-family behavioral repair (2026-10-10). The manifest pins the archived
++# ORIGINAL bytes of one active family and the additive repair delta that lands
++# on top of it; both SHA-256 values live only in the manifest.
++FAMILY_REPAIR_DIR="${HERE}/.retired/10-10-18.7.0-model-selection-resume"
++FAMILY_REPAIR_BASELINE="${FAMILY_REPAIR_DIR}/baseline.json"
++
+ # Native0097 auxiliary extraction. NATIVE_FILENAME is the manifest-named addon
+ # the sandbox must unpack; WITH_NATIVE is 1 only for repository/native trees.
+ NATIVE_FILENAME=""
+@@ -275,10 +291,11 @@ declare -A TGZSHA8=(
+ )
+ 
+ # ------------------------------------------------------- selected 18.7.0 mode
+-# Verification of the consolidated representation: frozen OLD58/OLD59 vs
+-# controller-resolved NEW24/NEW25, zero-fuzz replay, gate parity, fail-closed
+-# inputs and meaningful negative controls. Nothing here touches live packages,
+-# credentials, or the real controller.
++# Verification of the consolidated representation: frozen OLD58/OLD59 PLUS the
++# manifest-declared additive repair vs controller-resolved NEW24/NEW25,
++# zero-fuzz replay, gate parity, fail-closed inputs and meaningful negative
++# controls. Nothing here touches live packages, credentials, or the real
++# controller.
+ 
+ apply_plan_dir0() { # <tree> <patch-dir> <file:root>... — zero-fuzz application
+ 	local t="$1" d="$2"
+@@ -305,6 +322,13 @@ reverse_plan_dir0() { # <tree> <patch-dir> <plan-array-name> — reverse at --fu
+ 	done
+ }
+ 
++# apply_declared_repair <tree>: apply the manifest-declared additive repair
++# delta at --fuzz=0 to a materialized OLD tree's NM root. It is the ONLY repair
++# allowed onto OLD before the "OLD + declared repair == NEW" comparison.
++apply_declared_repair() {
++	fwd0 "$(patchroot "$1" "$REPAIR_ROOT")" "${FAMILY_REPAIR_DIR}/${REPAIR_DELTA}"
++}
++
+ native_manifest_field() { # <field>
+ 	python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' \
+ 		"${HERE}/native-computeruse.json" "$1"
+@@ -375,10 +399,18 @@ make_selected_controller() {
+ # (no gate actually runs, no live tree is read); the resulting ordered script
+ # list must equal the NEW controller's own --print-gates selection for every
+ # supported plan. This compares actual dispatch, not a capability list.
++#
++# One documented exception: the same-family behavioral repair registers exactly
++# one additional gate (verify-model-selection-resume.ts) on the existing 0093
++# capability dispatch slot. 18.7.0 NEW must therefore equal the historical
++# suite PLUS exactly that gate — no other addition, removal or reorder — while
++# every historical plan and the repository overlay stay exactly equal.
+ verify_gate_parity() {
+ 	local oldctl="$G/oldctl" shim="$G/gate-shim" nm="$G/gate-nm/@oh-my-pi"
+ 	local versions=(18.1.14 18.1.18 18.2.3 18.2.10 18.3.3 18.4.1 18.4.4 18.7.0)
+-	local c p v oldplan
++	local c p v oldplan repair_gate="verify-model-selection-resume.ts"
++	local i count idx slot
++	local -a old_gates new_gates new_without
+ 	rm -rf "$oldctl" "$shim" "$G/gate-nm"
+ 	mkdir -p "$oldctl" "$shim" "$nm"
+ 	cp "$FAMILY_OLD_CONTROLLER" "$oldctl/apply.sh"
+@@ -445,20 +477,48 @@ SHIM
+ 				|| die "gate parity: NEW --print-gates failed for ${v}"
+ 		fi
+ 		[[ -s "$G/gate-new-$v.txt" ]] || die "gate parity: NEW selected no gates for ${v}"
+-		if ! diff -u "$G/gate-old-$v.txt" "$G/gate-new-$v.txt" >"$G/gate-diff-$v.txt"; then
+-			echo "FAIL gate parity ${v}: OLD and NEW select different gate suites"
+-			head -20 "$G/gate-diff-$v.txt"
+-			exit 1
++		if [[ "$v" != "18.7.0" ]]; then
++			if ! diff -u "$G/gate-old-$v.txt" "$G/gate-new-$v.txt" >"$G/gate-diff-$v.txt"; then
++				echo "FAIL gate parity ${v}: OLD and NEW select different gate suites"
++				head -20 "$G/gate-diff-$v.txt"
++				exit 1
++			fi
++			echo "PASS gate parity ${v}: $(wc -l <"$G/gate-new-$v.txt") selected gates identical"
++			continue
+ 		fi
+-		echo "PASS gate parity ${v}: $(wc -l <"$G/gate-new-$v.txt") selected gates identical"
++		# 18.7.0: exactly one added gate, named exactly, at the 0093 capability
++		# dispatch slot. Removing it must reproduce the historical suite in
++		# order, so no gate was renamed, dropped or reordered.
++		mapfile -t old_gates <"$G/gate-old-$v.txt"
++		mapfile -t new_gates <"$G/gate-new-$v.txt"
++		count=0; idx=-1
++		for ((i = 0; i < ${#new_gates[@]}; i++)); do
++			if [[ "${new_gates[i]}" == "$repair_gate" ]]; then
++				count=$((count + 1)); idx=$i
++			fi
++		done
++		[[ $count -eq 1 ]] \
++			|| die "gate parity 18.7.0: expected exactly one ${repair_gate}, found ${count}"
++		mapfile -t new_without < <(printf '%s\n' "${new_gates[@]}" | grep -vx -- "$repair_gate")
++		[[ "${new_without[*]}" == "${old_gates[*]}" ]] \
++			|| die "gate parity 18.7.0: removing ${repair_gate} does not reproduce the historical suite (membership or order changed)"
++		slot=-1
++		for ((i = 0; i < ${#old_gates[@]}; i++)); do
++			[[ "${old_gates[i]}" == "verify-prompt-effort-resume.ts" ]] && slot=$i
++		done
++		[[ $slot -ge 0 ]] || die "gate parity 18.7.0: the historical suite lost its 0093 capability gate"
++		[[ $idx -eq $slot || $idx -eq $((slot + 1)) ]] \
++			|| die "gate parity 18.7.0: ${repair_gate} dispatched at index ${idx}, not the 0093 capability slot (${slot} or $((slot + 1)))"
++		echo "PASS gate parity 18.7.0: historical suite ($(wc -l <"$G/gate-old-$v.txt") gates) + exactly ${repair_gate} at the 0093 capability slot"
+ 	done
+-	# The 0097 overlay has no gate-suite entry: repository must select the same.
++	# The 0097 overlay has no gate-suite entry: repository must select the same
++	# suite as the deployed 18.7.0 plan, repair gate included.
+ 	OMP_PATCH_VERSION=18.7.0 OMP_PATCH_PLAN=repository bash "${HERE}/apply.sh" --print-gates \
+ 		>"$G/gate-new-repo.txt" 2>/dev/null \
+ 		|| die "gate parity: NEW --print-gates failed for the repository plan"
+-	diff -u "$G/gate-old-18.7.0.txt" "$G/gate-new-repo.txt" >/dev/null \
++	diff -u "$G/gate-new-18.7.0.txt" "$G/gate-new-repo.txt" >/dev/null \
+ 		|| die "gate parity: the repository 0097 overlay changed the selected gate suite"
+-	echo "PASS gate parity repository: the 0097 overlay leaves the gate suite unchanged"
++	echo "PASS gate parity repository: the 0097 overlay leaves the selected gate suite unchanged"
+ }
+ 
+ # Rebase only each owner's OLD members onto the ordered prerequisite prefix.
+@@ -469,6 +529,7 @@ verify_owned_deltas() (
+ 	export GIT_COMMITTER_NAME=family-oracle GIT_COMMITTER_EMAIL=oracle@localhost
+ 	local lab="$G/owned" spec file root id pristine before after
+ 	local prehash premanifest posthash postmanifest members member
++	local members_hash members_manifest repaired=0
+ 	local -a ids one
+ 	local -A commits=()
+ 	cp -a "$G/pristine6" "$lab"
+@@ -497,8 +558,25 @@ verify_owned_deltas() (
+ 				|| die "owned delta rebase conflict for ${file}/${member}: $(cat "$G/owned-rebase.log")"
+ 		done
+ 		after="$(owned_git rev-parse HEAD)"
+-		posthash="$(tree_hash "$lab/$NMROOT")"
+-		postmanifest="$(tree_manifest "$lab/$NMROOT")"
++		members_hash="$(tree_hash "$lab/$NMROOT")"
++		members_manifest="$(tree_manifest "$lab/$NMROOT")"
++		posthash="$members_hash"
++		postmanifest="$members_manifest"
++		repaired=0
++		if [[ "$file" == "$REPAIR_FAMILY_REL" ]]; then
++			# This owner alone additionally carries the declared additive
++			# repair: its active family is the rebased OLD members PLUS the
++			# pinned delta. Every other owner keeps its exact rebased-member
++			# expectation.
++			[[ "$root" == "$REPAIR_ROOT" ]] \
++				|| die "repair owner root ${root} != manifest root ${REPAIR_ROOT}"
++			apply_declared_repair "$lab"
++			sweep_check "$lab/$NMROOT"
++			posthash="$(tree_hash "$lab/$NMROOT")"
++			postmanifest="$(tree_manifest "$lab/$NMROOT")"
++			repaired=1
++			owned_git reset -q --hard "$after"
++		fi
+ 		owned_git reset -q --hard "$before"
+ 		apply_plan_dir0 "$lab" "$HERE" "$file:$root"
+ 		sweep_check "$lab/$NMROOT"
+@@ -510,10 +588,22 @@ verify_owned_deltas() (
+ 		[[ "$(tree_hash "$lab/$NMROOT")" == "$prehash" \
+ 			&& "$(tree_manifest "$lab/$NMROOT")" == "$premanifest" ]] \
+ 			|| die "family reverse failed to restore its prerequisite state: ${file}"
++		if [[ $repaired -eq 1 ]]; then
++			# Original-representation oracle: the pinned ARCHIVED family bytes
++			# must still reproduce exactly the rebased OLD members, with no
++			# repair applied. This is what keeps the pre-repair oracle alive.
++			owned_git reset -q --hard "$before"
++			apply_plan_dir0 "$lab" "$FAMILY_REPAIR_DIR" "$REPAIR_PREV:$REPAIR_ROOT"
++			sweep_check "$lab/$NMROOT"
++			[[ "$(tree_hash "$lab/$NMROOT")" == "$members_hash" \
++				&& "$(tree_manifest "$lab/$NMROOT")" == "$members_manifest" ]] \
++				|| die "archived original family does not reproduce its rebased OLD members: ${REPAIR_PREV}"
++			echo "  ok    archived original family == rebased OLD members (no repair): ${REPAIR_PREV}"
++		fi
+ 		owned_git reset -q --hard "$after"
+-		echo "  ok    owned delta + reverse: ${file}"
++		echo "  ok    owned delta + reverse: ${file}$([[ $repaired -eq 1 ]] && echo ' (+ declared repair)')"
+ 	done <"$FAMILY_REGISTRY"
+-	echo "PASS 1870 owned deltas: all 24 owners equal independently rebased OLD members and reverse exactly"
++	echo "PASS 1870 owned deltas: all 24 owners equal independently rebased OLD members and reverse exactly (${REPAIR_PREV} additionally pins the declared repair, and its archived original still equals the rebased members)"
+ )
+ 
+ run_selected_1870() {
+@@ -522,6 +612,7 @@ run_selected_1870() {
+ 	[[ -f "$FAMILY_OLD_CONTROLLER" ]] || die "frozen OLD controller missing: ${FAMILY_OLD_CONTROLLER}"
+ 	[[ -f "$FAMILY_REGISTRY" ]] || die "family registry missing: ${FAMILY_REGISTRY}"
+ 	[[ -f "$FAMILY_HELPER" ]] || die "family oracle helper missing: ${FAMILY_HELPER}"
++	[[ -f "$FAMILY_REPAIR_BASELINE" ]] || die "same-family repair manifest missing: ${FAMILY_REPAIR_BASELINE}"
+ 	[[ -f "${HERE}/native-computeruse.json" ]] || die "native0097 manifest missing"
+ 	command -v python3 >/dev/null 2>&1 || die "python3 is required for the family oracle helper"
+ 	command -v bun >/dev/null 2>&1 || die "bun is required to exercise the isolated native0097 preflight"
+@@ -544,6 +635,9 @@ run_selected_1870() {
+ 	) || die "frozen OLD patch bytes drifted from baseline.json"
+ 
+ 	local -a OLD_DEP OLD_REP NEW_DEP NEW_REP REG_PLAN
++	# Repair manifest fields (resolved from baseline.json below, never hardcoded).
++	local REPAIR_FAMILY_REL="" REPAIR_ROOT="" REPAIR_PREV="" REPAIR_PREV_SHA=""
++	local REPAIR_DELTA="" REPAIR_DELTA_SHA="" rkey rval
+ 	mapfile -t OLD_DEP < <(python3 "$FAMILY_HELPER" "$FAMILY_BASELINE" variant deployed)
+ 	mapfile -t OLD_REP < <(python3 "$FAMILY_HELPER" "$FAMILY_BASELINE" variant repository)
+ 	[[ ${#OLD_DEP[@]} -eq 58 && ${#OLD_REP[@]} -eq 59 ]] \
+@@ -571,6 +665,47 @@ run_selected_1870() {
+ 		|| die "explicit OMP_PATCH_PLAN=deployed differs from the default plan"
+ 	echo "PASS 1870 plan: registry owns 24 rows / 58 ids; deployed=24, repository=25 (+0097)"
+ 
++	# ---- same-family behavioral repair ----------------------------------
++	# The active family is the archived ORIGINAL revision plus one additive
++	# repair delta. Both byte objects are pinned by the manifest's SHA-256
++	# values, so nothing here hardcodes a digest: the oracle below is
++	# "OLD + declared repair == NEW", never a plain OLD == NEW.
++	while IFS=$'\t' read -r rkey rval; do
++		case "$rkey" in
++			family) REPAIR_FAMILY_REL="$rval" ;;
++			root) REPAIR_ROOT="$rval" ;;
++			previous) REPAIR_PREV="$rval" ;;
++			previous-sha256) REPAIR_PREV_SHA="$rval" ;;
++			repair) REPAIR_DELTA="$rval" ;;
++			repair-sha256) REPAIR_DELTA_SHA="$rval" ;;
++			*) die "repair manifest exposed an unexpected field: ${rkey}" ;;
++		esac
++	done < <(python3 "$FAMILY_HELPER" "$FAMILY_REPAIR_BASELINE" repair-manifest) \
++		|| die "repair manifest failed validation: ${FAMILY_REPAIR_BASELINE}"
++	for rkey in REPAIR_FAMILY_REL REPAIR_ROOT REPAIR_PREV REPAIR_PREV_SHA REPAIR_DELTA REPAIR_DELTA_SHA; do
++		[[ -n "${!rkey}" ]] || die "repair manifest did not supply ${rkey}"
++	done
++	[[ "$REPAIR_ROOT" == "NM" ]] || die "repair delta root is ${REPAIR_ROOT}, expected NM"
++	[[ "$REPAIR_FAMILY_REL" == *"/${REPAIR_PREV}" ]] \
++		|| die "repair manifest family ${REPAIR_FAMILY_REL} is not the archived copy ${REPAIR_PREV}"
++	[[ -f "${HERE}/${REPAIR_FAMILY_REL}" ]] || die "active repair family missing: ${REPAIR_FAMILY_REL}"
++	[[ -f "${FAMILY_REPAIR_DIR}/${REPAIR_PREV}" ]] || die "archived original family missing: ${REPAIR_PREV}"
++	[[ -f "${FAMILY_REPAIR_DIR}/${REPAIR_DELTA}" ]] || die "declared repair delta missing: ${REPAIR_DELTA}"
++	got="$(sha256sum "${FAMILY_REPAIR_DIR}/${REPAIR_PREV}" | awk '{print $1}')"
++	[[ "$got" == "$REPAIR_PREV_SHA" ]] \
++		|| die "archived original family sha256 drifted (got ${got}, want ${REPAIR_PREV_SHA})"
++	got="$(sha256sum "${FAMILY_REPAIR_DIR}/${REPAIR_DELTA}" | awk '{print $1}')"
++	[[ "$got" == "$REPAIR_DELTA_SHA" ]] \
++		|| die "declared repair delta sha256 drifted (got ${got}, want ${REPAIR_DELTA_SHA})"
++	cmp -s "${HERE}/${REPAIR_FAMILY_REL}" "${FAMILY_REPAIR_DIR}/${REPAIR_PREV}" \
++		&& die "the archived original family is byte-identical to the active family; there is no additive repair to declare"
++	[[ "$(awk -F'\t' -v f="$REPAIR_FAMILY_REL" -v r="$REPAIR_ROOT" \
++		'$1==f && $2==r {n++} END{print n+0}' "$FAMILY_REGISTRY")" -eq 1 ]] \
++		|| die "repair owner is not exactly one registry row ${REPAIR_FAMILY_REL}:${REPAIR_ROOT}"
++	[[ " ${REG_PLAN[*]} " == *" ${REPAIR_FAMILY_REL}:${REPAIR_ROOT} "* ]] \
++		|| die "repair owner is not part of the resolved deployed plan"
++	echo "PASS 1870 repair: archived original family pinned (${REPAIR_PREV_SHA:0:12}…) and additive repair delta pinned (${REPAIR_DELTA_SHA:0:12}…); active family = archived + declared repair"
++
+ 	# ---- family member coverage and touched-path unions -----------------
+ 	declare -A OLD_PATH_BY_ID=()
+ 	local spec base id file root members member opath oroot
+@@ -637,26 +772,30 @@ run_selected_1870() {
+ 	echo "PASS 1870 native: auxiliary archives verified (addon sha256 == manifest stockSha256)"
+ 	verify_owned_deltas
+ 
+-	# ---- OLD58/NEW24 and OLD59/NEW25 tree equality ----------------------
++	# ---- OLD58 + declared repair / NEW24 (and OLD59 + repair / NEW25) ----
+ 	mkpkgs "$G/old-dep" "$TGZD1870" full
+ 	apply_plan_dir0 "$G/old-dep" "$OLD" "${OLD_DEP[@]}"
+ 	sweep_check "$G/old-dep"
++	apply_declared_repair "$G/old-dep"
++	sweep_check "$G/old-dep"
+ 	mkpkgs "$G/new-dep" "$TGZD1870" full
+ 	apply_plan_dir0 "$G/new-dep" "$HERE" "${NEW_DEP[@]}"
+ 	sweep_check "$G/new-dep"
+-	require_trees_equal "$G/old-dep" "$G/new-dep" "deployed OLD58/NEW24"
+-	echo "PASS 1870 deployed: OLD58 == NEW24 (bytes, types, modes, symlinks); NEW applied at --fuzz=0"
++	require_trees_equal "$G/old-dep" "$G/new-dep" "deployed OLD58 + declared repair / NEW24"
++	echo "PASS 1870 deployed: OLD58 + declared repair == NEW24 (bytes, types, modes, symlinks); NEW applied at --fuzz=0"
+ 
+ 	WITH_NATIVE=1
+ 	mkpkgs "$G/old-rep" "$TGZD1870" full
+ 	apply_plan_dir0 "$G/old-rep" "$OLD" "${OLD_REP[@]}"
+ 	sweep_check "$G/old-rep"
++	apply_declared_repair "$G/old-rep"
++	sweep_check "$G/old-rep"
+ 	mkpkgs "$G/new-rep" "$TGZD1870" full
+ 	apply_plan_dir0 "$G/new-rep" "$HERE" "${NEW_REP[@]}"
+ 	sweep_check "$G/new-rep"
+ 	WITH_NATIVE=0
+-	require_trees_equal "$G/old-rep" "$G/new-rep" "repository OLD59/NEW25"
+-	echo "PASS 1870 repository: OLD59 == NEW25 (bytes, types, modes, symlinks); NEW applied at --fuzz=0"
++	require_trees_equal "$G/old-rep" "$G/new-rep" "repository OLD59 + declared repair / NEW25"
++	echo "PASS 1870 repository: OLD59 + declared repair == NEW25 (bytes, types, modes, symlinks); NEW applied at --fuzz=0"
+ 
+ 	# ---- reverse to pristine and zero-fuzz reapply ----------------------
+ 	local applied_hash applied_manifest
+@@ -811,7 +950,7 @@ $(cat "$G/selected-fail.txt")"
+ 	sweep_check "$omit_tree"
+ 	trees_equal "$G/old-dep" "$omit_tree" \
+ 		&& die "negative control: omitting ${target_family} still matched OLD — comparator is inert"
+-	echo "PASS 1870 negative (omitted): dropping ${target_family} makes OLD58 != NEW tree"
++	echo "PASS 1870 negative (omitted): dropping ${target_family} makes (OLD58 + declared repair) != NEW tree"
+ 
+ 	local mutdir="$G/mutpatch" mutpatch
+ 	mkdir -p "$mutdir"
+@@ -835,7 +974,7 @@ $(cat "$G/selected-fail.txt")"
+ 		&& die "negative control: the mutated family produced no byte change"
+ 	trees_equal "$G/old-dep" "$mut_tree" \
+ 		&& die "negative control: a mutated family still matched OLD — comparator is inert"
+-	echo "PASS 1870 negative (mutated): a one-line mutation in ${target_family} makes OLD58 != NEW tree"
++	echo "PASS 1870 negative (mutated): a one-line mutation in ${target_family} makes (OLD58 + declared repair) != NEW tree"
+ 
+ 	# ---- actual OLD/NEW selected gate dispatch --------------------------
+ 	verify_gate_parity
+@@ -1015,7 +1154,7 @@ echo "PASS static: apply.sh chain (25 entries, no supersede), rollup hygiene, re
+ 
+ if [[ "$MODE" == "selected1870" ]]; then
+ 	run_selected_1870
+-	echo "ALL PASS: 18.7.0 family consolidation verified (OLD58/NEW24, OLD59/NEW25)"
++	echo "ALL PASS: 18.7.0 family consolidation verified (OLD58 + declared repair == NEW24, OLD59 + declared repair == NEW25)"
+ 	exit 0
+ fi
+ 

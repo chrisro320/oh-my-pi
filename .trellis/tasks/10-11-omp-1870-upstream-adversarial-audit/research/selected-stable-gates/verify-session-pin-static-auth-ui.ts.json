@@ -1,0 +1,11 @@
+{
+  "gate": "verify-session-pin-static-auth-ui.ts",
+  "started": "2026-10-12T05:48:02.523946+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-session-pin-static-auth-ui.ts"
+  ],
+  "exit": 0,
+  "stdout": "PASS model hub: render and Escape\nPASS temporary model picker: render and Escape\nPASS session pin: render and Escape (/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime/node_modules/@oh-my-pi/pi-coding-agent)\nALL VERIFICATIONS PASSED SUCCESSFULLY!\n",
+  "stderr": ""
+}

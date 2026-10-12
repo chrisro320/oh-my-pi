@@ -1,0 +1,48 @@
+[
+  {
+    "version": "18.7.0",
+    "root": "/tmp/omp-18100-audit-cd9kqmcj/runtime-18.7.0",
+    "omp_dependency_versions": {
+      "pi-tui": "18.7.0",
+      "snapcompact": "18.7.0",
+      "pi-catalog": "18.7.0",
+      "pi-ai": "18.7.0",
+      "pi-agent-core": "18.7.0",
+      "pi-coding-agent": "18.7.0",
+      "pi-natives-linux-x64": "18.7.0",
+      "pi-mnemopi": "18.7.0",
+      "omp-stats": "18.7.0",
+      "omptype": "18.7.0",
+      "pi-wire": "18.7.0",
+      "pi-utils": "18.7.0",
+      "pi-natives": "18.7.0"
+    },
+    "nested_selected_copies": [],
+    "lock_sha256": "d590ca1a58342ef85e03b8ba9d48bb5590d7efe5e19b0381a6f4e127f4820039",
+    "postinstall": "blocked",
+    "selected_sources": "fresh copies of verified tarballs (baseline fully patched)"
+  },
+  {
+    "version": "18.10.0",
+    "root": "/tmp/omp-18100-audit-cd9kqmcj/runtime-18.10.0",
+    "omp_dependency_versions": {
+      "pi-tui": "18.10.0",
+      "snapcompact": "18.10.0",
+      "pi-catalog": "18.10.0",
+      "pi-ai": "18.10.0",
+      "pi-agent-core": "18.10.0",
+      "pi-coding-agent": "18.10.0",
+      "pi-natives-linux-x64": "18.10.0",
+      "pi-mnemopi": "18.10.0",
+      "omp-stats": "18.10.0",
+      "omptype": "18.10.0",
+      "pi-wire": "18.10.0",
+      "pi-utils": "18.10.0",
+      "pi-natives": "18.10.0"
+    },
+    "nested_selected_copies": [],
+    "lock_sha256": "723f1399e8305be99f0f20d2d4cde6521bbd18beff799c4170856418c4954298",
+    "postinstall": "blocked",
+    "selected_sources": "fresh copies of verified 18.10.0 tarballs; unpatched upstream"
+  }
+]

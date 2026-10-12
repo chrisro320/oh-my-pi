@@ -1,0 +1,12 @@
+{
+  "gate": "verify-idle-ephemeral-reservation.ts",
+  "started": "2026-10-12T10:03:44.918972+00:00",
+  "command": [
+    "bun",
+    "/tmp/omp-s1-after/snapshot/patches/verify-idle-ephemeral-reservation.ts"
+  ],
+  "gate_sha256": "93eb9a36cd46a61a6a03886533f25ee695dddeb8733c1dd2fe0deb2979f8febb",
+  "exit": 0,
+  "stdout": "idle ephemeral reservation verification: ok (18.10.1)\n",
+  "stderr": ""
+}

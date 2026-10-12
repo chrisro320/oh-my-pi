@@ -1,0 +1,166 @@
+{
+  "agent": "PortCore",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "owner": "PortCore",
+      "status": "complete",
+      "root": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+      "families_completed": [
+        "family-input-translation",
+        "family-compaction"
+      ],
+      "owned_paths_completed": [
+        "pi-agent-core/src/agent.ts",
+        "pi-agent-core/src/compaction/messages.ts",
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-agent-core/src/compaction/anthropic.ts",
+        "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+        "pi-agent-core/src/compaction/compaction-trace.ts",
+        "pi-agent-core/dist/types/compaction/compaction.d.ts",
+        "pi-agent-core/dist/types/compaction/anthropic.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+        "pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md",
+        "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+        "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md"
+      ],
+      "fragment_accounting": {
+        "owned_paths": 13,
+        "family_path_fragments": 15,
+        "family_input_translation": 4,
+        "family_compaction": 11,
+        "pending_conflicts": 0,
+        "accepted": [
+          "pi-agent-core/src/compaction/compaction.ts"
+        ],
+        "amended_in_family_compaction": [
+          "pi-agent-core/src/compaction/compaction.ts",
+          "pi-agent-core/dist/types/compaction/compaction.d.ts",
+          "pi-agent-core/src/compaction/anthropic.ts",
+          "pi-agent-core/dist/types/compaction/anthropic.d.ts"
+        ],
+        "registered": [],
+        "evidence": "Driver reported READY after conflict acceptance and AMENDED for all four repairs. Final ownership manifest has pending:null and next equal to family count for all 13 paths. No unrecorded edits remain."
+      },
+      "semantic_changes": [
+        {
+          "finding": "R04",
+          "change": "compact() now rethrows an existing CodexCompactionChainLostError independently of model.api. Generic V2 failures are converted using isCodexCompactionV2Lane(model), not the native serializer predicate. Typed errors retain their identity and retryable classification; no internal V1 or summary fallback follows them."
+        },
+        {
+          "finding": "R04 / capacity-policy closure",
+          "change": "The V2 local trimming/preflight exclusion now uses the effective Codex lane. Native model.api checks remain for Codex serializer construction and recovery-body typing."
+        },
+        {
+          "finding": "M06",
+          "change": "Retained full host-vouched summary/native contexts, previous-summary ownership, single history-summary request for accepted live split turns, classified overflow-to-ordinary-cold planning, explicit cold reasons, and host-owned configured next-method transitions. No capacity attestation or live-chain size heuristic was introduced."
+        },
+        {
+          "finding": "M06 / retained cold-replan defect",
+          "change": "A provider-overflow replan of a cold cut-prefix request clears useCachePreservingPrefix. Smaller windows no longer resend the rejected original prefix or hide their carried summary. Existing budgets, partitioning and retry limits are unchanged."
+        },
+        {
+          "finding": "M06 / custom endpoint boundary",
+          "change": "Anthropic live-context selection is disabled for remoteEndpoint requests, matching the existing history-scope guard. Such endpoints receive serialized targets and cannot claim whole-live-chain semantics."
+        },
+        {
+          "finding": "Source/declaration documentation",
+          "change": "Updated native context documentation and compact() failure contract in source and declarations; removed the obsolete comment implying a one-window live admission gate and avoided claiming observed native cache hits."
+        }
+      ],
+      "upstream_behavior_preserved": [
+        "V2 retainedUserItems and isUserAuthored selection preserve genuine user-authored turns separately from generated summaries and ephemeral recovery context.",
+        "V1 preserve-data updates use the already-cleared preserveData accumulator, retaining upstream stale-native-payload cleanup while restoring the family trace event.",
+        "Native Context request envelope, filesDueBefore, safe-cut retained-tail boundaries, retained file metadata, exactTail and signed summary preservation remain intact.",
+        "V2 collector acceptance still commits metadata and invalidates the affected baseline only after a valid summary; collector rejection invokes rollback.",
+        "Agent default conversion retains upstream provider-refusal filtering and developer-role handling while stripping UserMessage.displayText. Compaction conversion also strips displayText without mutating stored presentation data.",
+        "All three assigned prompt assets and their source imports remain present; no prompt semantics were retired."
+      ],
+      "cross_owner_contracts": {
+        "buildCachePreservingContext": "SummaryOptions.buildCachePreservingContext?: (scope: CachePreservingSummaryScope, candidate: Model, signal?: AbortSignal) => Promise<CachePreservingSummaryContext | undefined>",
+        "scope": "type CachePreservingSummaryScope = \"history\" | \"turn-prefix\" | \"live\"",
+        "context": "interface CachePreservingSummaryContext { context: Context; previousSummaryInPrefix: boolean }",
+        "ownership": "Host returns undefined unless exact active host-model identity and session/leaf ownership survive asynchronous preparation. Core does not reconstruct that ownership from message counts.",
+        "buildProviderContext": "SummaryOptions.buildProviderContext?: (summarized: AgentMessage[], retained: AgentMessage[], signal?: AbortSignal) => Promise<Context>",
+        "isUserAuthored": "SummaryOptions.isUserAuthored?: (message: AgentMessage) => boolean",
+        "summary_notifications": [
+          "onLiveChainSelected?: () => void",
+          "onCacheFallback?: (reason: string) => void"
+        ],
+        "recovery": "CompactionV2Request.prepareCompactionRecovery?: () => Promise<OpenAICodexCompactionBody>",
+        "native_request": "AnthropicNativeCompactionRequest { context: Context; instructions: string; filesDueBefore?: number; maxTokens: number; reasoning?: Effort }",
+        "coordination": [
+          "PortLifecycle and PortMaintenance received exact callback signatures; PortMaintenance confirmed maintenance/advisor ownership guards and effective-lane speculation exclusions.",
+          "PortCodex received the R04 boundary and unchanged acceptance/recovery API; shared UserMessage.displayText source/declaration retention was requested.",
+          "PortAnthropic confirmed unchanged native builder/API and actual top-level compaction.type=summarize audit classification.",
+          "Main received the two narrow cold-replan/custom-endpoint decisions."
+        ]
+      },
+      "verification": {
+        "behavioral_checks_run": [],
+        "builds_tests_lint_formatters_provider_calls": "None, as instructed.",
+        "policy_presence_checks": "All three required grep-tool policy commands returned the specified rollup, verification and PRD anchors.",
+        "safety": "No credentials, live package mirrors, production databases, provider/auth/usage requests, deployment operations or git commits were accessed/performed."
+      },
+      "minimal_main_acceptance": [
+        {
+          "group": "V03 / actual compact()",
+          "suggestion": "Extend the existing alternate-effective-API case in verify-codex-compaction-chain-fail-closed.ts to call compact(), not only requestCompactionV2Streaming. Assert the typed terminal sentinel and zero intercepted V1/SSE/local-summary sends. Retain the existing real transport acceptance/rollback, reconnect and ordinary-turn controls supplied by PortCodex."
+        },
+        {
+          "group": "V05 / summary consumer",
+          "suggestion": "Use the existing host-built split-turn case to observe the exact full live prefix plus one instruction, no turn-prefix summary leg, and unchanged session/model ownership rejection. Retain the existing tiny and multi-window provider-overflow cases, including allowTruncation:false and final-source sentinel coverage."
+        },
+        {
+          "group": "V05 / narrow cold-replan regression",
+          "suggestion": "Add one case where a fitting host cut prefix is rejected by the provider and the cold target is repartitioned. Observe smaller target-window requests and the carried summary in later requests; the rejected original cut prefix must not be resent."
+        },
+        {
+          "group": "V05 / custom endpoint",
+          "suggestion": "One intercepted generateSummary remoteEndpoint request should use serialized target semantics and never invoke the live-context callback or claim whole-chain replay."
+        },
+        {
+          "group": "V05 / native consumer",
+          "suggestion": "Run the existing native live-context consumer against the integrated host callback. Observe complete vouched-for Context, safe-cut retained-tail/files metadata, actual top-level native envelope and no hidden local fallback; pass that builder output through the native audit to ensure the ordinary baseline remains unchanged."
+        },
+        {
+          "group": "V10 / declarations and translation",
+          "suggestion": "Use published declarations to consume the callback signatures, recovery callback, native request shape and UserMessage.displayText. Exercise canonical translated content through both core conversions while stored displayText remains available."
+        }
+      ],
+      "integration_notes": [
+        "Existing Codex gate version branches explicitly list versions only through 18.7.0; Main must include 18.10.0 in behavioral and declaration coverage rather than silently skipping it.",
+        "External docs/specs/gates remain Main-owned and were not edited. The existing authority-boundary spec already captures R04; the older iterative-compaction signature section still lists only history/turn-prefix and should be reconciled with the retained live scope.",
+        "Implementation is recorded, not behaviorally verified. No claim of live provider acceptance, native cache hit or completed deployment is made."
+      ],
+      "open_blockers": []
+    },
+    {
+      "owner": "PortCore",
+      "status": "complete",
+      "driver_update_action": "No amendment failed in this slice; all four amend commands already succeeded. No dedicated conflict snapshots or accept-amend operation are needed. The previously submitted implementation and fragment accounting remain current."
+    },
+    {
+      "owner": "PortCore",
+      "status": "complete",
+      "followup": "Answered GateWire18100 with exact callback/native-result contracts, the actual compact() effective-API sentinel fixture, and narrow cold-prefix/custom-endpoint consumer checks. No additional source changes or verification were performed; all recorded fragments remain current."
+    },
+    {
+      "owner": "PortCore",
+      "status": "complete",
+      "followup_finding": "ReviewWire18100 F2",
+      "source_changed": "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "fix": "Buffered chain-loss retry classification now uses the existing exact two-code CODEX_CHAIN_REJECTION_CODES set: previous_response_not_found and codex_previous_response_stale. Both retain non-generating baseline recovery within the existing retry budget. Unrecognized/code-less chain refusals and permanent errors remain terminal; no SSE/V1 admission changed.",
+      "documentation": "The shared code-set comment now states its buffered stale-retry role. No public signatures changed, so declarations intentionally remain unchanged.",
+      "fragment_recording": "port-families.py amend PortCore pi-agent-core/src/compaction/compaction-v2-streaming.ts family-compaction reported AMENDED. No unresolved amendment snapshots or unrecorded changes.",
+      "gate_coordination": "GateWire18100 was instructed to extend its existing stale-once control with one standalone idless {type:'error', code:'codex_previous_response_stale', message:'gone'} frame. Required observations: failed chained attempt, one generate:false recovery, accepted chained compaction, zero SSE/V1 sends; previous_response_not_found remains the control.",
+      "verification": "No tests, builds, lint, formatters, provider requests or other executable checks were run."
+    }
+  ]
+}

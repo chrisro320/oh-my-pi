@@ -1,0 +1,11 @@
+{
+  "started": "2026-10-12T05:41:13.400449+00:00",
+  "command": [
+    "bash",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/registry-eof-controls/apply.sh",
+    "--print-plan"
+  ],
+  "exit": 0,
+  "stdout": ".18.10.0-families/family-status-accounting-v18.10.0.patch:NM\n.18.10.0-families/family-hindsight-v18.10.0.patch:AGENT\n.18.10.0-families/family-usage-pipeline-v18.10.0.patch:NM\n.18.10.0-families/0010-omp-extension-idle-ephemeral-turn-v18.10.0.patch:AGENT\n.18.10.0-families/family-antigravity-wire-v18.10.0.patch:AI\n.18.10.0-families/family-image-budget-snapcompact-v18.10.0.patch:NM\n.18.10.0-families/0032-omp-goal-tool-resident-v18.10.0.patch:AGENT\n.18.10.0-families/family-persistent-prefix-resume-v18.10.0.patch:NM\n.18.10.0-families/0046-omp-supersede-warm-prefix-guard-v18.10.0.patch:AGENT\n.18.10.0-families/0048-omp-advisor-quota-rotation-bound-v18.10.0.patch:AGENT\n.18.10.0-families/0050-omp-session-history-preview-v18.10.0.patch:NM\n.18.10.0-families/family-devin-wire-v18.10.0.patch:NM\n.18.10.0-families/0065-omp-commandcode-deepseek-model-record-parity-v18.10.0.patch:NM\n.18.10.0-families/0069-omp-codex-effort-history-resume-v18.10.0.patch:AI\n.18.10.0-families/0072-omp-session-pin-static-auth-ui-v18.10.0.patch:AGENT\n.18.10.0-families/0074-omp-anthropic-context-cache-boundaries-v18.10.0.patch:AI\n.18.10.0-families/family-image-display-v18.10.0.patch:NM\n.18.10.0-families/family-input-translation-v18.10.0.patch:NM\n.18.10.0-families/family-compaction-v18.10.0.patch:NM\n.18.10.0-families/0090-omp-oauth-durable-refresh-v18.10.0.patch:NM\n.18.10.0-families/0092-omp-cache-warming-idle-budget-v18.10.0.patch:AGENT\n.18.10.0-families/0094-omp-anthropic-thinking-drop-resume-v18.10.0.patch:AI\n.18.10.0-families/0095-omp-context-audit-request-purpose-v18.10.0.patch:AGENT\n",
+  "stderr": ""
+}

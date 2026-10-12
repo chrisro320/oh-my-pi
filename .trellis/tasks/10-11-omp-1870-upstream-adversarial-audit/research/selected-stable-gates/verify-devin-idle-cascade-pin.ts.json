@@ -1,0 +1,11 @@
+{
+  "gate": "verify-devin-idle-cascade-pin.ts",
+  "started": "2026-10-12T05:47:57.416330+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-devin-idle-cascade-pin.ts"
+  ],
+  "exit": 0,
+  "stdout": "devin idle cascade pin verification: ok (18.10.0)\n",
+  "stderr": ""
+}

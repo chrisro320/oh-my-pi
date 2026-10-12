@@ -1,0 +1,24 @@
+[
+  {
+    "version": "18.7.0",
+    "command": [
+      "/home/chris/.bun/bin/bun",
+      "/tmp/omp-18100-audit-cd9kqmcj/runtime-18.7.0/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+      "--version"
+    ],
+    "exit": 0,
+    "stdout": "omp/18.7.0\n",
+    "stderr": ""
+  },
+  {
+    "version": "18.10.0",
+    "command": [
+      "/home/chris/.bun/bin/bun",
+      "/tmp/omp-18100-audit-cd9kqmcj/runtime-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+      "--version"
+    ],
+    "exit": 0,
+    "stdout": "omp/18.10.0\n",
+    "stderr": ""
+  }
+]

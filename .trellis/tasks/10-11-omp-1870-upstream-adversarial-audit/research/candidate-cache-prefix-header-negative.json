@@ -1,0 +1,10 @@
+{
+  "started": "2026-10-12T05:42:12.042805+00:00",
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/diagnostic-header-negative/verify-cache-prefix-audit.ts"
+  ],
+  "exit": 0,
+  "stdout": "cache-prefix-audit verification: ok\n",
+  "stderr": ""
+}

@@ -1,0 +1,11 @@
+{
+  "gate": "verify-supersede-warm-prefix-guard.ts",
+  "started": "2026-10-12T05:47:54.820656+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-supersede-warm-prefix-guard.ts"
+  ],
+  "exit": 0,
+  "stdout": "=== Testing supersede warm-prefix guard (0046) ===\n  fixture suffix after the candidate: 1279 tokens (stock gate 8000)\n  stock (limit 8000): pruned 1, saved 490 context tokens\n  guarded (limit 0): pruned 0 \u2014 warm prefix untouched\n  candidate's own successor keeps its suffix > 0: every supersede rewrite defers\n  idle flush: pruned 1 \u2014 deferral, not a leak\n  source gate holds: suffixTokenLimit: 0, unconditional\n=== supersede warm-prefix guard OK ===\n",
+  "stderr": ""
+}

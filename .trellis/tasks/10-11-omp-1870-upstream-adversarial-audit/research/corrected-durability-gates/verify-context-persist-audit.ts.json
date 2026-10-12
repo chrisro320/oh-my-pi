@@ -1,0 +1,12 @@
+{
+  "gate": "verify-context-persist-audit.ts",
+  "started": "2026-10-12T06:19:25.118702+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-durability-gates/snapshot/patches/verify-context-persist-audit.ts"
+  ],
+  "gate_sha256": "3f01a09d1639617bcac1d56e6df8e0e9bedbe38a200c973abe595c331b7d825e",
+  "exit": 0,
+  "stdout": "context-persist-audit: ALL PASS\n",
+  "stderr": ""
+}

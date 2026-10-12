@@ -1,0 +1,294 @@
+{
+  "agent": "ReviewSurface18100",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "status": "FINDINGS",
+      "filesChanged": [],
+      "findings": [
+        {
+          "id": "F1",
+          "priority": "P1",
+          "title": "Loop replay drops preparation provenance and can execute translated text as a command",
+          "location": {
+            "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/modes/controllers/input-controller.ts",
+            "lines": "1429-1430"
+          },
+          "relatedLocations": [
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/modes/interactive-mode.ts",
+              "lines": "2922-2932,3066-3074"
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/main.ts",
+              "lines": "472-488"
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/session/agent-session.ts",
+              "lines": "7540-7569"
+            }
+          ],
+          "evidence": "Ordinary input preparation replaces text with the canonical model text and separately records prepared/displayText. The idle loop capture stores only that text through setLoopPrompt(string). The next iteration calls startPendingSubmission({ text: prompt }), losing both prepared and displayText. submitInteractiveInput then permits skill dispatch and enables normal prompt expansion; AgentSession's enabled expansion path executes extension/custom commands.",
+          "impact": "[INFERENCE from the complete dispatch path] With loop mode enabled, an ordinary submission prepared into '/fixture-command' is sent literally on its first iteration but can execute a registered local command on the next iteration. A prepared '/skill:name' similarly enters skill dispatch. Ordinary translated loop iterations also lose the operator's original display text. This violates the explicit prepared-text-never-executes-commands boundary.",
+          "minimalFix": "Preserve the loop submission's text, displayText and prepared provenance together, and replay that snapshot. Update the loop capture callsites and corresponding source/declaration contracts, including streaming and compaction captures. Preserve deliberate user-authored command behavior; do not re-prepare generated text or globally disable loop command support.",
+          "discriminatingAcceptance": "Extend the existing prepared-input consumer harness with one loop boundary: use the real InputController to prepare ordinary text into a registered '/fixture-command', then drive the real loop replay and submitInteractiveInput. Assert zero local-command executions across the initial submission and one replay, literal canonical provider content on both, and original displayText on both. Do not hand-construct the replay's prepared flag, since losing it is the defect."
+        },
+        {
+          "id": "F2",
+          "priority": "P2",
+          "title": "Queue editing can remove or promote the wrong message when prepared and plain inputs share canonical text",
+          "location": {
+            "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/session/agent-session.ts",
+            "lines": "8641"
+          },
+          "relatedLocations": [
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/session/agent-session.ts",
+              "lines": "7617,7693,8520,8546,9391-9410,9433-9441"
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/session/queued-messages.ts",
+              "lines": "109-114"
+            }
+          ],
+          "evidence": "The queue writer records options.rawText ?? text. Both prompt queue paths pass typedText, and steer/followUp pass text, even when displayText contains the operator's original input. The matcher searches this raw-text WeakMap across the queue before considering the displayed queue-chip text. The prior family-input-translation history explicitly passed options.displayText ?? text/typedText; that integration is missing in the current source.",
+          "impact": "[INFERENCE] Queue prepared content 'hello' with displayText '\u4f60\u597d', followed by plain 'hello'. Removing the displayed plain 'hello' matches and deletes the prepared entry instead. takeQueuedMessage and promoteQueuedMessage share the same matcher, so draft restoration and steering can also target the wrong submission or its hidden companions.",
+          "minimalFix": "Use displayText as the queue's operator-facing identity when present, while retaining the existing raw pre-expansion fallback for ordinary commands. Centralizing options.displayText ?? options.rawText ?? text in the queue writer avoids missing one of the four callers. Do not change canonical message content or provider signatures.",
+          "discriminatingAcceptance": "Reuse the existing real-session case in /home/chris/orca/projects/omp-move/patches/verify-user-display-text-queue.ts:151-164. It queues prepared 'hello'/'\u4f60\u597d' before plain 'hello', removes 'hello', and requires the prepared entry to remain before removal by '\u4f60\u597d'. No additional repetitive test is necessary."
+        },
+        {
+          "id": "F3",
+          "priority": "P2",
+          "title": "Content-addressed image replacements never release their superseded graphics IDs",
+          "location": {
+            "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-tui/src/chat/tool-execution.ts",
+            "lines": "1668-1677,1714-1723"
+          },
+          "relatedLocations": [
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-tui/src/chat/assistant-message.ts",
+              "lines": "1566-1578"
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-tui/src/components/image.ts",
+              "lines": "259-267,383-402,429-450"
+            }
+          ],
+          "evidence": "Both consumers now include the payload fingerprint in imageKey, correctly allocating a distinct graphic for replacement content. Neither consumer calls ImageBudget.release for the superseded key. Tool display rebuilding merely detaches the previous image children. ImageBudget explicitly provides release for permanent replacements, and otherwise its residency sweep retires the oldest non-live transmitted ID.",
+          "impact": "[INFERENCE] With cap=2, retain historical image H, display tool image A, then replace A with B. The resident set becomes H/A/B; because A was not released, the sweep retires older H instead of obsolete A. The delete removes H's scrollback placements even though only H and B remain meaningful images. Repeated replacement also retains obsolete graphics until ordinary capacity pressure; an unlimited budget never sweeps them.",
+          "minimalFix": "Track the budget keys owned by current image slots and release keys on actual content replacement/removal in both tool and assistant consumers. Use the existing ImageBudget.release contract. Do not release unchanged keys on routine rebuilding, overlay hiding, or transcript retirement, since those cases can still own terminal placements.",
+          "discriminatingAcceptance": "Add one ownership case to /home/chris/orca/projects/omp-move/patches/verify-kitty-shared-png-cache.ts using a real ToolExecutionComponent and ImageBudget(2): transmit H and leave it in history, render A, replace its slot with B, then run the normal budget sweep. Assert takePurgeIds contains A's ID and not H's, B transmits once, and repainting unchanged B preserves its ID. The existing A/B placement test does not distinguish this retirement error."
+        },
+        {
+          "id": "F4",
+          "priority": "P2",
+          "title": "Tool image conversion completion rebuilds components after disposal",
+          "location": {
+            "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-tui/src/chat/tool-execution.ts",
+            "lines": "669-685"
+          },
+          "relatedLocations": [
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-tui/src/chat/tool-execution.ts",
+              "lines": "888-890,1268-1278,1711-1725"
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-tui/src/tui.ts",
+              "lines": "589-593"
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-tui/src/components/image.ts",
+              "lines": "674-677"
+            }
+          ],
+          "evidence": "The conversion chain always publishes its result and its finally block always increments display versions, rebuilds the card, and requests rendering. ToolExecutionComponent.dispose only stops animation and calls Container.dispose; Container only propagates disposal to existing children and installs no disposed guard. A successful late rebuild constructs new Image children, whose constructor immediately acquires an ID from the shared budget. The assistant-image path, in contrast, clears display ownership on disposal and checks ownership before publishing.",
+          "impact": "[INFERENCE] Clearing or switching sessions while a non-PNG tool image is converting allows a dead card to allocate image IDs and request a repaint after teardown. These newly allocated IDs were never rendered or explicitly released and therefore do not enter the transmitted-image sweep. This is a retained lifecycle hazard in the reviewed completion path, not evidence of an exercised runtime crash.",
+          "minimalFix": "Invalidate the tool component's image-completion ownership on disposal and guard publication/rebuild/repaint against disposal. Always remove the awaited conversion and release its pending-conversion barrier exactly once, even when the visual completion is discarded. Do not cancel the shared conversion needed by other live consumers.",
+          "discriminatingAcceptance": "Extend /home/chris/orca/projects/omp-move/patches/verify-kitty-conversion-finalization.ts with one real-component case: start a unique uncached WebP conversion, dispose the card before settlement, then await settlement. Assert no post-disposal repaint, no new image-budget acquisition/children, and released pending-conversion accounting. A second live subscriber to that same conversion must still render successfully."
+        }
+      ],
+      "reviewNotes": [
+        "Reviewed the completed owner metadata and per-family source changes for PortHost, PortTui and PortOtherProviders, following the work order and check.jsonl references. F2 is an integration mismatch between the Host queue presentation and the session queue producer/matcher.",
+        "Static inspection found the injected session-preview loader and its public declarations connected through both host entry paths; preview disposal/generation checks and ANSI/native render paths were inspected. No additional concrete preview finding is reported.",
+        "Static inspection found R09/R10 implemented through shared render/describe calculations, the primary-only cache getter, aggregate token accounting, and matching host declarations/fixtures. This is not runtime acceptance.",
+        "Devin assignment and chat are inside one two-attempt auth-recovery loop; assignment/chat 401/403 invalidation and final-attempt bounds were inspected. No provider request was made, and no speculative change to upstream assignment authentication is recommended.",
+        "The generated CommandCode rule at providers/commandcode.kdl:146 matches its KDL source for stripImageInput=false, text/image input, supportsStrictMode=true and supportsMultipleSystemMessages=false. The separate effort rule remains present. Generation metadata was inspected, not independently rerun."
+      ],
+      "verification": {
+        "executed": [
+          {
+            "command": "git diff --stat",
+            "result": "Inspected the repository change summary; product review used the isolated migration worktree and family history/fragments rather than treating repository inventory as behavior evidence."
+          },
+          {
+            "command": "Read-only diff -ru/-u comparisons between pristine 18.10.0 and isolated work package files",
+            "result": "Inspected the Host, TUI, Devin, Antigravity and catalog changes. Difference exit statuses were expected, not failing acceptance checks."
+          },
+          {
+            "command": "grep-tool equivalent: Pristine input MUST|Full-chain verification MUST|Same-family repairs MUST",
+            "result": "Required patch-rollup policy matches found."
+          },
+          {
+            "command": "grep-tool equivalent: A gate MUST fail|Default sandbox fixtures MUST|Absolute-path imports defeat|exchange idempotency|Every SSE admission|credit-aware rebuild",
+            "result": "Required verification-gate policy matches found."
+          },
+          {
+            "command": "grep-tool equivalent: R7:|R9:|R10:|R12:",
+            "result": "Required PRD acceptance headings found."
+          },
+          {
+            "command": "Targeted read/find/grep and JSON queries over owned sources, declarations, history, specs and existing consumer gates",
+            "result": "Static evidence and discriminating acceptance cases collected; no behavior result is claimed."
+          }
+        ],
+        "notRun": "No builds, lint, typechecks, tests, formatters, benchmarks, catalog regeneration, native desktop actions or provider calls were run. No production credentials or databases were accessed or copied. Final focused acceptance remains with the main agent."
+      }
+    },
+    {
+      "status": "PASS",
+      "scope": "Focused read-only recheck of the PortTui amendments addressing F3 and F4 only. This does not supersede the earlier F1/F2 findings or constitute runtime acceptance.",
+      "filesChanged": [],
+      "reviewedFindings": [
+        {
+          "id": "F3",
+          "disposition": "Resolved by static inspection",
+          "evidence": [
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-tui/src/chat/tool-execution.ts",
+              "lines": "622-627,653-676,1728-1766",
+              "detail": "Source-slot synchronization now releases replaced/removed keys before rebuilding. Unchanged data/MIME retains its key. Image construction consumes the synchronized key, and each replacement receives a new revision, preventing A\u2192B\u2192A from reacquiring an identity already marked for release."
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-tui/src/chat/assistant-message.ts",
+              "lines": "1521-1557,1605-1623,1784-1786",
+              "detail": "Native and tool-result source slots use the same identity lifecycle. Synchronization precedes display rebuilding, releases removed/replaced ownership, and preserves unchanged keys independently of image visibility. Slot names agree between synchronization and rendering."
+            }
+          ],
+          "assessment": "The amended consumers use ImageBudget.release for actual source replacement/removal, without releasing ownership merely for rebuilding, hiding, or disposal. No remaining concrete F3 defect was found."
+        },
+        {
+          "id": "F4",
+          "disposition": "Resolved by static inspection",
+          "evidence": [
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-tui/src/chat/tool-execution.ts",
+              "lines": "707-724,928-933,1309-1311",
+              "detail": "Disposal marks the component terminal before child teardown. Late conversion publication checks that state. The finally block always removes its awaited key and decrements the retirement barrier, then exits before version changes, rebuilding, or repaint when disposed. The display-rebuild entry point also rejects disposed work."
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-tui/src/chat/tool-execution.ts",
+              "lines": "601-602,701-706",
+              "detail": "Post-disposal result delivery is ignored. Awaited-key deduplication retains one pending-counter increment and one finally cleanup per subscribed conversion, without cancelling the shared conversion."
+            }
+          ],
+          "assessment": "The previously identified post-disposal PNG publication/rebuild/repaint path is closed. No remaining concrete F4 defect was found."
+        }
+      ],
+      "verification": {
+        "executed": [
+          {
+            "command": "diff -u fragments/family-image-display/pi-tui/src/chat/tool-execution.ts/before fragments/family-image-display/pi-tui/src/chat/tool-execution.ts/after",
+            "result": "Inspected the full recorded family diff; exit 1 indicates expected source differences."
+          },
+          {
+            "command": "diff -u fragments/family-image-display/pi-tui/src/chat/assistant-message.ts/before fragments/family-image-display/pi-tui/src/chat/assistant-message.ts/after",
+            "result": "Inspected the full recorded family diff; exit 1 indicates expected source differences."
+          },
+          {
+            "command": "Targeted read/grep over amended work sources, owner metadata, ImageBudget release/sweep behavior, and assistant display transformation",
+            "result": "Checked source-slot/render-key agreement, replacement versus visibility ownership, disposal guards, and finally cleanup. Both owner records have no pending family operation."
+          }
+        ],
+        "notRun": "No tests, builds, lint, typechecks, formatters, provider calls, or repository mutations were performed."
+      },
+      "mainAcceptanceRemaining": [
+        "Use the existing shared-PNG consumer gate for the cap=2 H/A/B replacement case: obsolete A is purged before historical H. Include A\u2192B\u2192A before a sweep to discriminate released-key reacquisition, and verify an unchanged rebuild/hide-show does not retire its key.",
+        "Use the existing conversion-finalization consumer gate for disposal before an uncached conversion settles: no new image-budget acquisition or repaint after disposal, pending accounting settles, and another live subscriber still completes."
+      ]
+    },
+    {
+      "status": "PASS",
+      "scope": "Focused read-only source/declaration recheck of F1 and F2. No tests were run or reviewed in this follow-up. The separate goalModeActive/0032 repair is outside this review.",
+      "filesChanged": [],
+      "reviewedFindings": [
+        {
+          "id": "F1",
+          "disposition": "Resolved by static inspection",
+          "evidence": [
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/modes/controllers/input-controller.ts",
+              "lines": "1246,1348-1349,1413-1414,1433-1436",
+              "detail": "All loop capture callsites now pass snapshots. Prepared input carries text/displayText/prepared through compaction, streaming and idle capture; deliberate user-authored skill commands retain an unprepared snapshot."
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/modes/interactive-mode.ts",
+              "lines": "2817-2822,2923-2933,3067-3079,3255-3273",
+              "detail": "setLoopPrompt copies the three provenance fields into an owned snapshot. Scheduling and deferred iterations retain snapshot identity. Replay passes that snapshot directly to startPendingSubmission, which preserves displayText and prepared."
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/main.ts",
+              "lines": "472-489,523-530",
+              "detail": "Replayed prepared input continues to bypass skill dispatch and disables command/template expansion. Local-consume/rejection parking compares the snapshot fields and identity, rather than treating canonical text alone as ownership."
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/modes/utils/ui-helpers.ts",
+              "lines": "1236-1300,1389-1398",
+              "detail": "Compaction delivery preserves preparation provenance and skips command interpretation. Loop parking uses the owned snapshot, and the first prompt also forwards displayText with expansion disabled for prepared input."
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/dist/types/modes/types.d.ts",
+              "lines": "85-86,196,566",
+              "detail": "The published LoopPrompt type, context property and setter match the source contract. interactive-mode.d.ts imports the same type and uses it at lines 188 and 328."
+            }
+          ],
+          "assessment": "The previously identified provenance loss is closed. A work-root search found no remaining string-valued loopPrompt/setLoopPrompt consumer requiring migration. No new concrete F1 issue was found."
+        },
+        {
+          "id": "F2",
+          "disposition": "Resolved by static inspection",
+          "evidence": [
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/session/agent-session.ts",
+              "lines": "8641,8687,8711,8725,9432-9439",
+              "detail": "The centralized queue writer now selects displayText ?? rawText ?? text and records that identity for every queue branch. Removal, take and promotion share the matcher that consumes it. Explicit empty displayText remains authoritative because the selection uses nullish coalescing."
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/session/queued-messages.ts",
+              "lines": "101-112,115-124",
+              "detail": "The chip-text fallback likewise prefers displayText, while restored canonicalText remains separate. The fix therefore removes canonical prepared text as an alternate queue identity without rewriting provider content."
+            },
+            {
+              "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/dist/types/session/agent-session.d.ts",
+              "lines": "815-838",
+              "detail": "Published queue-editing documentation now specifies original operator identity and explicitly excludes prepared canonical text as a second identity; callable signatures remain consistent."
+            }
+          ],
+          "assessment": "The prepared 'hello'/'\u4f60\u597d' followed by plain 'hello' collision is resolved in the producer/matcher path. The same centralized fix covers prompt, steer and followUp admission. No new concrete F2 issue was found."
+        }
+      ],
+      "verification": {
+        "executed": [
+          {
+            "command": "Targeted read/grep of LoopPrompt, loopPrompt and setLoopPrompt across the isolated work root",
+            "result": "Inspected all capture, replay, parking and declaration consumers; no remaining string-contract mismatch found."
+          },
+          {
+            "command": "Targeted read/grep of queue identity production, all WeakMap writes, queue editing, chip fallback and published declarations",
+            "result": "Confirmed consistent operator-facing identity selection with canonical text preserved separately."
+          },
+          {
+            "command": "Targeted grep of family-input-translation fragment after-files and read of owner metadata",
+            "result": "The reviewed loop snapshots, declaration changes and centralized queue identity are recorded in the family fragments; inspected Host ownership records have no pending operation."
+          }
+        ],
+        "notRun": "No tests, builds, lint, typechecks, formatters, CLI runs, provider calls or mutations were performed. Main's reported CLI failure was not rerun."
+      },
+      "conclusion": "F1 and F2 now have source-review closure. Combined with the earlier focused F3/F4 recheck, all four findings from this review are closed at the static-review level. Parent-owned focused consumer acceptance and integration remain necessary; no runtime pass is claimed."
+    }
+  ]
+}

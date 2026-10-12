@@ -1,0 +1,440 @@
+{
+  "version": "18.10.1",
+  "candidate_tree_sha256": "a50842b5a6a1b8d234d9bfd14d5a0e86fe6567242118ba0105e97bf7769068b3",
+  "complete_source_comparison": {
+    "old_source_files": 3107,
+    "new_source_files": 3107,
+    "changed_paths": [
+      {
+        "path": "pi-coding-agent/src/modes/interactive-mode.ts",
+        "old": [
+          "file",
+          420,
+          "cbdca2e23c57d71939b4ba47316d063d195140d917da706cb4976a984d6a1feb"
+        ],
+        "new": [
+          "file",
+          420,
+          "199bcd641b631a885d62dbee1610150a0dfac2021e0ac62698eb3d588482e7b2"
+        ]
+      },
+      {
+        "path": "pi-tui/src/apps/autoresearch-dashboard.ts",
+        "old": [
+          "file",
+          420,
+          "039914e7f3ed8c54e8955209599a105654bc22205af7c75fedff2f1a991e59a7"
+        ],
+        "new": [
+          "file",
+          420,
+          "a565410a8fe24fe69220cb8ab9b8580f66de993f64d5165a6ba095ba46a54ea9"
+        ]
+      },
+      {
+        "path": "pi-tui/src/chat/assistant-message.ts",
+        "old": [
+          "file",
+          420,
+          "d5daeeb803b4cf20d5a16387b9350b896ca45f4e4437452e3212262aa81e49b4"
+        ],
+        "new": [
+          "file",
+          420,
+          "e0322c2b634702234d1ee6257617ae95c6e61f4bdfba50c3cddf5e5cca059649"
+        ]
+      },
+      {
+        "path": "pi-tui/src/chat/user-message.ts",
+        "old": [
+          "file",
+          420,
+          "508059cabe3b55335fd3d4e712d9111be1d9e581f1e9e0d11be2e3ce2b24855b"
+        ],
+        "new": [
+          "file",
+          420,
+          "2ac24f4b6d3c551dfb767a4b44b3798c3bf80d3295a4b592392ef3cfa25a3516"
+        ]
+      },
+      {
+        "path": "pi-tui/src/chrome/countdown-timer.ts",
+        "old": [
+          "file",
+          420,
+          "0d646757731f57676ad17b123af89ee761f49deedb092a433d7865b8b39fd59d"
+        ],
+        "new": [
+          "file",
+          420,
+          "fd12ac1249532cc6eaebf5e29de63a0412467b7afa530573e76b59ebbee8bee1"
+        ]
+      },
+      {
+        "path": "pi-tui/src/native/reconcile.ts",
+        "old": [
+          "file",
+          420,
+          "ef9b79a5289a2f47d7ad2ed58672d65a90407e253198772da44f1fe60426469b"
+        ],
+        "new": [
+          "file",
+          420,
+          "88e836b1334fa5a74cd11445aaf512dcbcf1905392fde16d3b8ea50468edaab6"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/advisor-config.ts",
+        "old": [
+          "file",
+          420,
+          "98673172fb59c042462ab57e5038839da428bbce7cbf90d8d7764175adf6d3bb"
+        ],
+        "new": [
+          "file",
+          420,
+          "8da6bf9d6c724fbf92f32e089c1b24f264ffe8c71f08b9c85ffccca224037d89"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/annotation-overlay.ts",
+        "old": [
+          "file",
+          420,
+          "c6bcc8ce518c50a0c9ed081a70281db56f7314a474fb13941d2b106fa9b0f1ea"
+        ],
+        "new": [
+          "file",
+          420,
+          "a1431d051a4ca49e062eceb7d30805e2fb5a76d93c31ee6ea443081bf4fccece"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/ask-dialog.ts",
+        "old": [
+          "file",
+          420,
+          "fba77be8b6f4367014a7ed7d59dd62ba2e0c50e28cb988bd264b1585a172b0f1"
+        ],
+        "new": [
+          "file",
+          420,
+          "c726c4732e765159f1d77b105c8dc12b45fbe16c19a735e9b6b1b1ee31c4f970"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/btw-history-panel.ts",
+        "old": [
+          "file",
+          420,
+          "1e55f56040aa8f6d14a2d7976550da0fbf661688ccd4efa319904f7529c1eaac"
+        ],
+        "new": [
+          "file",
+          420,
+          "d46ee9a7dd20ade3cb91c306c2e7af73580a92d0ec11ef8e860ac6a6a937c507"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/hook-editor.ts",
+        "old": [
+          "file",
+          420,
+          "09118b6cb1ed88ab6ef7c98f63d6ce5d809c0fd659ec6b284b459bb6e87fd10b"
+        ],
+        "new": [
+          "file",
+          420,
+          "c87e3c401d147e4b9754db6ff1e2a151b68c79f0c47f8c0d9d291179a3dafdfe"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/hook-input.ts",
+        "old": [
+          "file",
+          420,
+          "80408068fee74cb4c0c692ce8681da3d7c271f70f73a6044d569fb9b9759e12f"
+        ],
+        "new": [
+          "file",
+          420,
+          "c7ab99353a83b2d27c568cc09df5782045d942b62392cbc9c80611e84f0a75a1"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/jobs-panel.ts",
+        "old": [
+          "file",
+          420,
+          "c9fe5770633056718df0a344e0852835c711b4972009f6867f2c55392b800a6e"
+        ],
+        "new": [
+          "file",
+          420,
+          "26f76b261ffe3e0ac986c87673b200cad83557b7d0776c9dfa4b24ff17ab2f6a"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/login-dialog.ts",
+        "old": [
+          "file",
+          420,
+          "2dd0fa351577546a7189d292a381ecdae3be36a3541a7f22bc80016fc88c8159"
+        ],
+        "new": [
+          "file",
+          420,
+          "f229bf6e1bc92033493d4bbe0b78461cf3734e0dd1a9027ec03aba425631a81d"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/mcp-add-wizard.ts",
+        "old": [
+          "file",
+          420,
+          "3f2dc56ecfaa05cbce470cc90e1ad2a159c4004ac67dcaf961318cb1270cd2d3"
+        ],
+        "new": [
+          "file",
+          420,
+          "22f441b826e9e6ed1b205055e9b30fa3b929bb95eb042c414267df1e1cbf5713"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/pause-screen.ts",
+        "old": [
+          "file",
+          420,
+          "1f94afe54231ac1d1a213c44eda2a5f9b9bc2b707c67fc850cc8a9c3d3299456"
+        ],
+        "new": [
+          "file",
+          420,
+          "66897cd5aea79683e5bb12839840077c5d50a4583162d3af197ece95af22a7d2"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/plugin-selector.ts",
+        "old": [
+          "file",
+          420,
+          "1065f000bf879889f6df3fe69e27b9302750c34c4361463c2198a6b3520682ea"
+        ],
+        "new": [
+          "file",
+          420,
+          "af6d4f6e98498f1d067eb7daaa33052c6b3b29a339c87e614d06d1f5fb7ade74"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/queue-mode-selector.ts",
+        "old": [
+          "file",
+          420,
+          "10364ba4763a255f0141f1ac098f3252bb71b9981b7aac5094a1cb9185858b43"
+        ],
+        "new": [
+          "file",
+          420,
+          "4855d9c9c3188b5c2fa5ca8bcdb6c3be8900898a4915fb52047b40c0badc66d6"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/report-panel.ts",
+        "old": [
+          "file",
+          420,
+          "8a25d11ee97445ca6df455a191b44c768e7c78d7630ade2333623c1e9d223a2b"
+        ],
+        "new": [
+          "file",
+          420,
+          "c3389730f7e9af7d89050661be2cfcf5a9d5e700897b3502c3175933cf8187b7"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/reset-usage-selector.ts",
+        "old": [
+          "file",
+          420,
+          "b79d4541ce0ab4820c127844f85072cac1c2e387d5ac30398043507c62e28d3f"
+        ],
+        "new": [
+          "file",
+          420,
+          "d204b9d12937e67aedc83850d206740514629bd306f3a1b3196c83bb7d3b37b6"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/session-account-selector.ts",
+        "old": [
+          "file",
+          420,
+          "64018c46cc0bd5c322372cbcf0edf0beda05d63020bad5c3dfd69657893a962d"
+        ],
+        "new": [
+          "file",
+          420,
+          "1ad2e05454aa07d00b2e84644a6dbfeec4373eb1b84c08e3d50c82ccb0dcb015"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/session-info-overlay.ts",
+        "old": [
+          "file",
+          420,
+          "892e2ff5f1a8354b205af06d099ee386dec326cf5b1f46bf8758a245f0fba89d"
+        ],
+        "new": [
+          "file",
+          420,
+          "04bf35b446099ea508a7ac5c41ed9eccf36fbb34cda61f1804c1014513a34603"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/show-images-selector.ts",
+        "old": [
+          "file",
+          420,
+          "e430edee27e37cc8740db4d09e5bf887fe53311556652bf5bfb2adb6244ef679"
+        ],
+        "new": [
+          "file",
+          420,
+          "d272a7efc92db15933a470c218532c16ff722b00baea0624f327c6f71787ce39"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/theme-selector.ts",
+        "old": [
+          "file",
+          420,
+          "d842144bc0a45c51834744421406d5ba990792ccdd4aba912d259bb7d73b3e42"
+        ],
+        "new": [
+          "file",
+          420,
+          "36b9c960248841479464ca0516bada9f4428ed166386ad982926aaa889c08ef7"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/thinking-selector.ts",
+        "old": [
+          "file",
+          420,
+          "4e534498742502113d3fc51ec47bba24872b84528045d342b9be59f37960db42"
+        ],
+        "new": [
+          "file",
+          420,
+          "120e7323037a64572e300230d61de683fe8b30f14b3fafa14f3c55ff1a942e44"
+        ]
+      },
+      {
+        "path": "pi-tui/src/overlays/usage-dashboard.ts",
+        "old": [
+          "file",
+          420,
+          "00bfc85bead9eebd408fa5c0754c89698965c412be87fb0aec90b246410263db"
+        ],
+        "new": [
+          "file",
+          420,
+          "b4f1b582c8521b57094a320a62202cb80f857813cb0f012d98242bbf90e129f5"
+        ]
+      },
+      {
+        "path": "pi-tui/src/status-line/context-usage.ts",
+        "old": [
+          "file",
+          420,
+          "76fc82488805216c723e8d834e0f65e4e14224e604601e0ef16deb3f0473b3a0"
+        ],
+        "new": [
+          "file",
+          420,
+          "9d2c1c616b82c4a40ecd6a7088f6bb1b8c26d23671d860d542a5f3c79ae18e36"
+        ]
+      },
+      {
+        "path": "pi-tui/src/tools/grep.ts",
+        "old": [
+          "file",
+          420,
+          "5b4bfed66ca958d47bcf254115b1dd2c6373e247cfa1cf6acbb74417a8c0ae34"
+        ],
+        "new": [
+          "file",
+          420,
+          "93e112a2478e1646cd7284cc599e8f239202e12e75503011a0875416e81182ed"
+        ]
+      },
+      {
+        "path": "pi-tui/src/tools/grouped-file-output.ts",
+        "old": [
+          "file",
+          420,
+          "323ce1efa15ff0b4ac18289ab50d81410af3162138e9ae755670c7d2d2f882b5"
+        ],
+        "new": [
+          "file",
+          420,
+          "ad444b97a9cb910ea481618e7994cdb9cf4e0674a2d4f2dd4c1411554c93e9d5"
+        ]
+      }
+    ]
+  },
+  "unchanged_high_risk_modules": [
+    {
+      "path": "pi-ai/src/auth/refresh.ts",
+      "sha256": "a46b66ae13eb3254d697e007113a73aa5bc9d74734216932381411b8b6e9c2c9",
+      "unchanged_from_passing_18_10_0": true
+    },
+    {
+      "path": "pi-ai/src/auth/sqlite-credential-store.ts",
+      "sha256": "208c4ee9de0ba6aa8cbe54bdd57495a661ffbfede473f1a7b2a5e81de9f54168",
+      "unchanged_from_passing_18_10_0": true
+    },
+    {
+      "path": "pi-ai/src/providers/anthropic.ts",
+      "sha256": "f21d4163cd5c6aebad4aeb1024ea65582d220f1a32c91bbe7cdd4116bafb4e60",
+      "unchanged_from_passing_18_10_0": true
+    },
+    {
+      "path": "pi-ai/src/providers/openai-codex-responses.ts",
+      "sha256": "d08a999d8edfc48ef2bcdda0577b657982fcbff683b4ffcd71815e1b3b78656e",
+      "unchanged_from_passing_18_10_0": true
+    },
+    {
+      "path": "pi-coding-agent/src/session/agent-session.ts",
+      "sha256": "5cab2de3935c93ab4e0ba035a5022f79111510c884dd3edd973870053fbc1e94",
+      "unchanged_from_passing_18_10_0": true
+    },
+    {
+      "path": "pi-coding-agent/src/session/session-manager.ts",
+      "sha256": "b9233cd03573d9c886a1198de0ff014f6858793b0c9dcc27d71ec482aafdfa34",
+      "unchanged_from_passing_18_10_0": true
+    },
+    {
+      "path": "pi-coding-agent/src/session/session-storage.ts",
+      "sha256": "963e637443757163f7ee164732dc47ba84ce80c7ac52c0d95463100a4d490eb0",
+      "unchanged_from_passing_18_10_0": true
+    },
+    {
+      "path": "pi-coding-agent/src/session/date-cwd-reminder.ts",
+      "sha256": "8a168f3c811ef614875587c4e40069c4d084c21b99094d554b15d0cfeaede400",
+      "unchanged_from_passing_18_10_0": true
+    }
+  ],
+  "inherited_acceptance": "research/consumer-acceptance-index.json",
+  "rerun_evidence": [
+    "research/18101-latest-changed-gates/summary.json",
+    "research/18101-latest-corrected-gates/summary.json",
+    "research/native-discovery-after.json"
+  ],
+  "independent_latest_reviews": [
+    "research/candidate-review-ReviewLatestHost18101.json",
+    "research/candidate-review-ReviewLatestTui18101.json"
+  ],
+  "boundary": "48 selected18.10.0 gates passed; not a claim all49 latest gates were rerun. Latest source delta was reviewed, affected selected consumers and13-case native lifecycle ran. No live provider calls."
+}

@@ -1,0 +1,18 @@
+{
+  "started": "2026-10-12T06:10:26.073201+00:00",
+  "command": [
+    "python3",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/run-selected-gates.py",
+    "--repo",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/runner-admission-controls/selected-checkout",
+    "--runtime",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime",
+    "--output",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/runner-admission-controls/selected-output",
+    "--only",
+    "verify-spec-contracts.sh"
+  ],
+  "exit": 1,
+  "stdout": "verify-spec-contracts.sh: 1\n=== verification-gate-contracts conformance ===\n  ok    spec file present\n  FAIL  spec not indexed\n  ok    verify-snapcompact-model-billing.ts defers reduction behavior to the session consumer gate\n  ok    no gate hardcodes a live package path\n  skip  ledger /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/runner-admission-controls/selected-output/verify-spec-contracts/home/.omp/patches not present on this host\n\nspec-contracts verification: FAILED\n\n",
+  "stderr": ""
+}

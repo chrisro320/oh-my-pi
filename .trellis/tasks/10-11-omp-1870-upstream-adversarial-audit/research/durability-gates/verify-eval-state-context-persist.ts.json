@@ -1,0 +1,12 @@
+{
+  "gate": "verify-eval-state-context-persist.ts",
+  "started": "2026-10-12T06:06:45.092324+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-eval-state-context-persist.ts"
+  ],
+  "gate_sha256": "07697120b1d70b4e8e6104b86caca3400069c76f9ab7f9aadba7185ff22a73b7",
+  "exit": 0,
+  "stdout": "PASS eval state context persist: resume wire-equal, read-only snapshots write nothing, state change appends once\n",
+  "stderr": ""
+}

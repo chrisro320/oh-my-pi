@@ -76,6 +76,7 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
   kept or deleted. The verifier MUST assert every abandoned number is absent
   from the `apply.sh` chain; documentation alone is not an acceptance gate.
 - Same-family repairs MUST revise that family's single active representation. Archive the previous revision first, preserve capability ownership and gates, and revalidate the complete chain. A new independent capability requires an explicit ownership decision, not automatic numeric tail allocation.
+- Removing a "redundant" guard MUST be proven, not argued from appearance: the surviving check runs with no intervening `await`, covers a superset of the conditions, and produces outcomes that no consumer can tell apart. Observe the affected window before and after the edit with the same consumer smoke; a guard whose early exit avoids a side effect (for example, opening an in-flight bracket or aborting an idle reservation) is not redundant. Example: 0010's attempt-wrapper guard was removed on 2026-10-12 because `#runAgentContinue` performs a superset check on entry.
 - Textual CLEAN, reversible patches, and a green representation oracle do not
   prove executable source. In 18.2.3, old 0048 fuzzy-applied into invalid scopes.
   Import the real SDK and launch the source CLI after whole-chain replay; then
@@ -513,7 +514,7 @@ An upstream upgrade whose releases add new session behavior (18.3.4-18.4.1: sess
 ### 2. Signatures
 - `research/replay-1841.py --nm <sandbox NM> [--before NNNN | --until NNNN]`: rebuild six roots from pinned tarballs, strict `--fuzz=0` dry-run gated replay of `apply.sh --print-plan`; a failing layer is skipped whole and later layers sharing its files are flagged `after-skip`.
 - `research/mkcand-1841.py snapshot|emit --nm <NM> --layer NNNN [--extra REL]`: same-ID candidates only from real before/after files; `emit` re-replays to prove `APPLIED` at its stack depth.
-- `research/run-prefix-1841.py` / `run-remote-prefix-1841.py` / `run-tag-prefix-1841.py`: two fresh bun processes (live, then resume) comparing provider-facing bytes.
+- Historical18.4.1 prefix/remote/tag runners compared two fresh Bun processes. Those temporary runners were removed with the obsolete baseline; retained JSON captures are evidence, not runnable current commands. Use the current controller-selected resume/compaction gates.
 - `research/deploy-1841.py prepare|preflight|deploy --execute [--root R --rehearsal]`.
 
 ### 3. Contracts
@@ -655,19 +656,22 @@ bash patches/verify-patch-family-rollups.sh --version 18.7.0
 ### 3. Contracts
 
 - `.18.7.0-families/plan.tsv` is the authoritative base registry: one row per physical entry, with TAB-separated patch path relative to `patches/`, package-root symbol, and comma-separated historical capability IDs. The resolver owns ordering and plan selection.
-- `OMP_PATCH_PLAN` is supported only for 18.7.0: unset or `deployed` selects the consolidated deployed baseline; `repository` additionally selects the unchanged, undeployed0097 overlay. Missing files never implicitly choose a smaller plan.
+- `OMP_PATCH_PLAN` is supported for18.7.0,18.10.0 and18.10.1 using the corresponding `.<version>-families/plan.tsv`. Unset or `deployed` selects the migrated baseline. Only18.7.0 accepts `repository` to add its unchanged, undeployed0097 overlay;18.10.x rejects that selection until separately migrated. Missing files never implicitly choose a smaller plan.
 - Numeric member IDs are capability provenance, not active patch aliases. `_omp_plan_has` remains physical; `_omp_has_capability` selects behavior gates. `--print-gates` uses the same dispatch path as actual execution.
 - The initial cutover maps OLD58 to NEW24 and OLD59 to NEW25. These are acceptance snapshots for this migration, not timeless hardcoded counts. Subsequent same-family revisions preserve physical count and ownership.
+- The18.10.0/18.10.1 candidates have23 physical families and58 retained capabilities. Capability0017 is explicitly upstream-owned, not silently dropped; retirement requires actual ordinary self-contained and connection-bound native Responses consumers. The independent frozen baseline and approved per-family ownership, not two generated outputs agreeing with each other, govern capability completeness.0090 uses `NM`;0048 moves from `AGENT` to `NM` only in18.10.1 for the advisor native picker repair.
 - The next upstream update MUST start from this verified family representation and its capability ownership, not reconstruct an active chain from the retired 58 numeric layers. Port each family against the target release and revalidate behavior; version-specific patch bytes are not blindly reusable. Retained OLD58/OLD59 remain historical replay/rollback evidence, and0097 remains opt-in.
 - Revision order: archive exact prior bytes and hash; regenerate the owning family's net diff; rebase affected context without absorbing another family; verify independent OLD/NEW semantics, gate coverage and round-trip; update ledger; deploy only with separate authorization.
 - A repair changes intended behavior, unlike this representation-only cutover. For later repairs, compare unchanged surfaces byte-for-byte and prove the approved behavior delta with the relevant regression gate; do not falsely require a behavioral repair to equal its broken OLD tree.
+- The 2026-10-10 model-selection repair keeps one persistent-prefix-resume owner. Its archived prior family and additive delta are SHA-pinned under `.retired/10-10-18.7.0-model-selection-resume/`. Preserve the original representation oracle separately; repaired-tree equality is OLD plus that declared delta, never equality to the broken OLD tree or an exclusion of entire changed files.
+- `navigateTree` retains the live model and thinking. Committed destination ancestry must record that retained selection with its routing, role and fallback attribution; cancelled/no-op moves remain unchanged. `verify-model-selection-resume.ts` supplies one focused switch/navigation/fresh-process-resume regression, selected alongside0093.
 
 ### 4. Validation & Error Matrix
 
 | Condition | Required result |
 | --- | --- |
 | Missing/empty registry, missing entry, malformed root, duplicate capability | Fail before mutation |
-| Unknown `OMP_PATCH_PLAN`, or explicit selection for another release | Exit 2 |
+| Unknown `OMP_PATCH_PLAN`, unsupported release, or18.10.x repository overlay | Exit 2 |
 | Same-release representation-only OLD/NEW mismatch | Reject cutover |
 | Same-family repair adds an active tail | Reject representation; update family instead |
 | Historical-ID rename removes a behavior gate | Reject until gate coverage is restored |
@@ -686,3 +690,52 @@ Selected-version verification must prove independent OLD58/NEW24 and OLD59/NEW25
 
 Wrong: immutable deployed revision implies a permanent new active patch for every repair.
 Correct: immutable archived revisions provide provenance; one replaceable, verified active revision per functional family prevents layer growth.
+
+## Scenario: Immutable code installation before old-process retirement
+
+### 1. Scope / Trigger
+
+Deploy a verified release while old OMP processes still own live sessions or OAuth state. Installation is not hot activation.
+
+### 2. Signatures
+
+```sh
+python3 -I patches/publish-release.py prepare --home <home> --runtime <private-runtime> --ledger <patches> --version 18.10.1
+python3 -I patches/publish-release.py publish --release <physical-release> --smoke <installed-private-smoke.json>
+python3 -I patches/publish-release.py rollback --release <physical-release>
+python3 -I patches/verify-release-publication.py
+```
+
+### 3. Contracts
+
+- Full dependency/native closure lives at `~/.bun/install/omp-releases/<version-digests>/runtime`; no external aliases or shared regular-file inodes. Never replace old global paths beneath running imports/workers.
+- Installed `ledger/.runtime-root` binds `apply.sh` to that physical runtime. Missing/mismatched binding fails closed; bound apply/revert rejects mutation. `--check` checks the release-local source link, not the admission wrapper.
+- One code-only lock serializes publication, rollback and new production admission. Retain the exact old launcher target and old ledger; persist transaction intent before publishing the closed launcher, ledger pointer and final receipt.
+- Receipt `code_installation=complete` means installed code. `current_session_upgrade=false` and `production_activation=false` remain explicit. Process identities use boot ID, PID and start time, supplemented by a fresh ownership scan.
+- Standalone `--version`/`--help` report admission state without loading OMP. Source CLI/help/tool/native smoke uses the installed physical path with private HOME/XDG/agent and no provider requests.
+- Persist `production_admission_started=true` before source exec. After any possible admission, automatic code-only downgrade is forbidden: older OAuth code does not honor the new exchange journal. Never restore token/session state as package rollback.
+- No watcher, force bypass, process signals, credential refresh or live DB connection is part of installation.
+
+### 4. Validation & Error Matrix
+
+| Boundary | Required result |
+|---|---|
+| Partial launcher/ledger publication | Admission closed; compensate using retained code pointers |
+| Old owner still alive, unresolved ownership or incomplete receipt | Normal launch exits75 before importing OMP |
+| Captured owner exited or PID reused | Start-time/boot identity distinguishes the new process; fresh scan still applies |
+| Bound ledger apply/revert | Exit2 without global mutation |
+| Possible production admission | Automatic code-only rollback refuses |
+
+### 5. Good / Base / Bad Cases
+
+Good: independent installed closure passes private smoke, public launcher/ledger agree, old sessions continue on old paths and new admission waits. Base: a complete staged tree is only staging. Bad: relabel a migration cache as deployed, mutate global lazy-import paths, or downgrade after token exchange may have started.
+
+### 6. Tests Required
+
+Use the synthetic publication gate for partial-pointer failure, exact code rollback, live old-owner blocking, missing-binding refusal and durable-before-exec ordering. Then run actual installed source version/read/native IPC/gallery plus bound controller checks in private HOME. Never execute production provider probes to make an acceptance checkbox green.
+Machine-check at delivery and review:
+`grep -nE 'production_admission_started|runtime-root|current_session_upgrade|production_activation' patches/release-launcher.py patches/publish-release.py patches/apply.sh patches/DEPLOYMENT-RUNBOOK.md`
+
+### 7. Wrong vs Correct
+
+Wrong: two atomic pointer replacements are treated as one transaction, or `HOME` makes an old-global controller safe for a new release. Correct: durable intent plus fail-closed receipt coherence protects the gap; an installed ledger has an explicit physical runtime binding.

@@ -1,0 +1,114 @@
+{
+  "scope": "Deployment-priority pruning only, following Main's updated instruction. No relocation/consolidation proposal, new tests, edits, commands, builds, lint, formatters, or provider calls.",
+  "delete_now": [
+    {
+      "file": "patches/verify-spec-contracts.sh",
+      "delete_range": "1-96: whole file",
+      "reason": "Pure meta/source/ledger checks: spec existence/indexing (34-37), forbidden variable spellings in another test (40-50), hardcoded-path spelling (59-69), selected repository/ledger byte comparisons (71-88). It invokes no product consumer and does not establish the behavioral guarantees implied by its documentation.",
+      "remove_current_references": [
+        "patches/apply.sh:468",
+        "patches/PATCHES.md:1452"
+      ],
+      "historical_references": "patches/.retired/10-09-18.7.0-pre-family/apply.sh:1001 remains an archived-controller reference for Main's rollup handling. Task research JSON results also mention the old execution; they are historical evidence, not live callers."
+    },
+    {
+      "file": "patches/cache-prefix-audit-baseline-test.ts",
+      "delete_range": "1-163: whole file",
+      "reason": "Unregistered standalone algorithm simulation. sharedPrefix, naiveBaseline, bestBaseline and classify are copied locally at 15-69; cases at 86-158 exercise only those copies. There is no production import, so breaking/removing the actual extension cannot fail this script.",
+      "remove_current_references": [],
+      "reference_evidence": "Filename search found no references in patches/, .trellis/spec/, or the active audit task.",
+      "important_distinction": "This duplicates algorithm logic, not proven case-for-case consumer coverage. Preserve the real extension and its consumer verifier; do not claim all six simulation scenarios already exist there."
+    }
+  ],
+  "keep": [
+    {
+      "files": [
+        "patches/verify-cache-prefix-audit.ts"
+      ],
+      "classification": "Unselected by apply.sh but meaningful documented extension coverage",
+      "evidence": "Imports the real extension at :27. Tests reasoning privacy at :44-71, persisted cross-process baseline at :496-524, populated same-model side-request/header isolation at :528-591, and per-model/equal-timestamp baseline behavior at :597-749. Current documentation reference: patches/PATCHES.md:1239-1248.",
+      "decision": "Keep. Absence from patches/apply.sh:461-518 does not make the runtime extension dead."
+    },
+    {
+      "files": [
+        "patches/verify-auto-continue.ts"
+      ],
+      "classification": "Unselected manual-extension behavior, not source-only",
+      "evidence": "Imports ./auto-continue-extension.ts at :2; tests real event-handler continuation at :49-93, false-positive HTTP-code rejection and listener cleanup at :95-142, in-flight abort at :144-168, and command disabling at :170-199. Manual deployment and verification are documented at patches/PATCHES.md:1300-1308.",
+      "decision": "Keep. Notification regexes inspect emitted output, not production source spelling. Current installed-extension status was not inspected."
+    },
+    {
+      "files": [
+        "patches/verify-session-cache-keepalive.ts"
+      ],
+      "classification": "Unselected extension policy coverage, distinct from host reservation and CacheWarmer",
+      "evidence": "Loads ./cron-extension at :114. Busy/queued admission and budget preservation: :241-259; hit/miss/error accounting and nonce differentiation: :261-294; lifecycle abort/stale completion: :296-313; exact finite/default/re-enable run budgets: :474-531. References: patches/PATCHES.md:1264 and .trellis/spec/backend/extension-runtime-contracts.md:188.",
+      "decision": "Keep; not a duplicate of the host's idle-reservation gate."
+    },
+    {
+      "files": [
+        "patches/verify-idle-ephemeral-reservation.ts",
+        "patches/verify-cache-warming-idle-budget.ts"
+      ],
+      "classification": "Distinct host behavior",
+      "evidence": "Reservation verifies side abort/settlement before replacement-main dispatch at verify-idle-ephemeral-reservation.ts:198-216, raw-side concurrency at :294-309, and admitted-but-unstarted exclusion at :343-347. Warming verifies five-hour request count/expiry at verify-cache-warming-idle-budget.ts:208-220 and stop-on-first-miss/error at :225-240. Registrations: patches/apply.sh:488,517.",
+      "decision": "Keep both. Scheduling policy, reservation ownership and actual warmer stop conditions are different observables."
+    },
+    {
+      "files": [
+        "patches/verify-codex-effort-resume.ts",
+        "patches/verify-prompt-effort-resume.ts",
+        "patches/verify-model-selection-resume.ts"
+      ],
+      "classification": "Unique effort/model/fork/first-resume guarantees",
+      "evidence": "Codex gate :139-191 checks serialized historical effort baseline, switch position, actual transport and fork isolation; :194-246 checks rewritten/legacy/provider/model boundaries. Prompt-effort gate :322-395 compares actual system/tools/instructions/input and configured serialized effort across two fresh-process resumes. Model-selection gate :179-222 checks A\u2192B navigation/fork\u2192fresh-process model/effort and current fallback provenance. Registrations: patches/apply.sh:494,508-509.",
+      "decision": "Keep all three. Similar names do not mean duplicate consumers: provider history, SDK prompt construction and durable model selection differ."
+    },
+    {
+      "files": [
+        "patches/verify-turn-recovery-reminder-persist.ts",
+        "patches/verify-length-stop-reminder-persist.ts"
+      ],
+      "classification": "Distinct recovery paths with durable wire observations",
+      "evidence": "Turn-recovery :181-217 asserts exactly one continuation, retained partial assistant, reminder persistence/order and rebuilt/live equality; :237-260 retains controls alongside text. Length-stop :190-209 checks one persisted reminder plus removal of the failed length turn; :212-236 compares the reopened session's next provider prefix. Registrations: patches/apply.sh:502,512.",
+      "decision": "Keep; the recovery triggers and preserved/discarded assistant semantics differ."
+    },
+    {
+      "files": [
+        "patches/verify-goal-tool-resident.ts"
+      ],
+      "classification": "Actual SDK behavior, despite older source-only documentation",
+      "evidence": "Real createAgentSession import at :10; restricted/unrestricted construction at :16-30; resident goal and stable toolset across active/paused/dropped/absent states at :32-41. Registration: patches/apply.sh:472.",
+      "decision": "Keep. Do not classify it from the historical source-shape description in PATCHES.md:397."
+    },
+    {
+      "files": [
+        "patches/verify-session-pin-static-auth-ui.ts"
+      ],
+      "classification": "Current first-use UI behavior plus an obsolete version branch",
+      "evidence": "Only :12-19 is the historical 18.2.3 load-only branch. Current behavior invokes both model selectors, renders fixture data, closes on Escape and restores focus at :71-79; invokes/renders/closes the session pin selector at :84-92. Registration: patches/apply.sh:496.",
+      "decision": "Keep the file. The legacy branch does not justify deleting current first-use coverage; no branch-refactoring proposal in this deployment-priority pass."
+    },
+    {
+      "files": [
+        "patches/verify-hindsight-recall-snapshot.ts",
+        "patches/verify-session-transfer-authority.ts",
+        "patches/verify-resume-cache-breakpoint.ts"
+      ],
+      "classification": "Meaningful current migration/fork/transfer/wire behavior",
+      "evidence": "Hindsight :270-274 preserves exact first-resume legacy recall bytes without re-recall; :763-766 compares first ordered prompt blocks with a fresh process; :838-842 preserves inherited MM prompt/cache behavior on fork. Transfer :98-101 rejects a live writer without journal replacement, :129-151 preserves concurrent local history and one journal per identity, :359-363 protects departed history during inode recovery. Breakpoint :250-257 checks bounded marker placement/TTL; :343-351 prohibits marking thinking blocks. Registrations: patches/apply.sh:470,474-476,489.",
+      "decision": "Keep; historical data compatibility exercised by current versions is not unsupported-only verification."
+    }
+  ],
+  "source_only_trims": "The only high-confidence source/meta removal recommended is the entire verify-spec-contracts.sh file. No further source-wording deletion ranges are established in the retained consumers inspected. Do not remove runtime output, serialized-wire, persisted-fixture or package-version assertions merely because they use includes/match/readFileSync.",
+  "remaining_scope": "No deletion recommendation for the other session-history/UI/display gates. The broader exhaustive inventory was intentionally stopped in favor of the two immediate, evidenced deletions, as Main requested.",
+  "mandatory_checks": {
+    "performed": "All three required grep-tool equivalents from research/latest-delta-work-order.md.",
+    "evidence": [
+      "patch-rollup-contracts.md:36,48,78",
+      "verification-gate-contracts.md:33,43,86,1001,1028-1033",
+      "task prd.md:23,25-28"
+    ],
+    "tests": "None executed. No additional suites or new tests proposed."
+  }
+}

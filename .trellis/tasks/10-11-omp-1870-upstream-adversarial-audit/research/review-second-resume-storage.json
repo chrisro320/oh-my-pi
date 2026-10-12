@@ -1,0 +1,52 @@
+{
+  "findings": [
+    {
+      "title": "Revalidate local journals under the import ownership lease",
+      "body": "CONFIRMED TARGET-UPSTREAM defect, strong source inference rather than an executed reproduction. unpackSession reads/classifies local journals at session-transfer.ts:590\u2013595 before claiming ownership at 605; if their owner appends a new entry and releases its lease in between, claimSession succeeds because session-storage.ts:1239\u20131265 validates header identity and ownership, not the earlier contents. setAside then removes the changed journal from its original path, publication replaces it, and line 617 deletes its backup, losing the local-only entry. Acquire the session-ID lease before discovery/classification and hold it through publication; revalidate discovery under that lease. The smallest discriminating probe is precisely one append-and-close between classification and claim: require refusal or an incoming fork, with the local append preserved. This confirms the first-pass issue but corrects its stale line references.",
+      "priority": 1,
+      "confidence": 0.99,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-transfer.ts",
+      "line_start": 603,
+      "line_end": 606
+    },
+    {
+      "title": "Guard departed-session adoption outside CLI startup",
+      "body": "CONFIRMED TARGET-UPSTREAM defect; merge the duplicate upstream/extensions claims into this one issue. The departed marker is consumed only by forkIfMovedAway, whose callers are in main.ts startup routes (1242\u20131297 and 2156); selector-controller.ts:1914, rpc-mode.ts:877 and acp-agent.ts:1323 instead call AgentSession.switchSession, which directly invokes setSessionFile at agent-session.ts:11481. SessionManager's adoption implementation (session-manager.ts:2290\u20132384) neither interprets the marker nor forks, and an otherwise unowned departed source remains writable under its original identity. Thus same-cwd interactive/RPC/ACP resume violates the new stale-copy contract and permits independent continuation of the transferred identity. Place the check in the shared writable adoption transition, preserving rollback/cancellation and allowing transfer's read-only opens. A synthetic departed journal adopted through startup and switchSession is sufficient: both must produce a new ID and leave the original journal unchanged; no provider request is needed.",
+      "priority": 1,
+      "confidence": 0.99,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-transfer.ts",
+      "line_start": 665,
+      "line_end": 670
+    },
+    {
+      "title": "Carry date/cwd anchors with cloned session history",
+      "body": "CONFIRMED CURRENT-BASELINE family defect, not a new target-upstream regression. SDK constructs the injector with sessionManager.getSessionId (sdk.ts:4144), not the inherited providerPromptCacheKey; full fork mints a new ID while preserving entries and its cache key (session-manager.ts:2292\u20132331), and copySessionArtifacts copies only the journal's sibling artifact directory (162\u2013191), excluding getAgentDir()/date-cwd-anchors. Consequently this load clears the old map, and the next provider transform of a transcript with multiple previously stamped user turns omits all earlier stamps and remints only the newest eligible one. Inherited cache identity does not compensate for altered request bytes. Persist transferable per-message anchors with the session or explicitly copy them at full/entry-fork boundaries and carry them in future transfer archives; merely copying artifacts as currently laid out cannot work. Strong source inference; a two-user-turn transform, actual fork, and post-fork transform comparison is the smallest remaining probe, with an unchanged earlier stamp as the observable.",
+      "priority": 2,
+      "confidence": 0.99,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/replay-18.7.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/date-cwd-reminder.ts",
+      "line_start": 181,
+      "line_end": 186
+    },
+    {
+      "title": "Retain branch-persisted Codex effort state during migration",
+      "body": "CONFIRMED MIGRATION LOSS only; not an independently introduced upstream regression. Baseline openai-codex-responses.ts:1646\u20131679 restores a cloned effortControl from the latest successful matching assistant payload and records it on completion at 3601\u20133602. Target applyCodexStableEffort takes no history/context and resolves only providerState.effortControls, so a fresh process loses the old request-level effort baseline and configuration_update history despite an unchanged journal. Rebase the existing persistence family into this planner while retaining upstream parent-session handling and minimizeEffort; do not retire it on the basis of process-local continuity. This is separate from SDK model/effort selection rollback: a fixed selected high effort can still produce a different wire prefix after a prior low-to-high transition. A fresh-state request-builder probe using the committed low-to-high assistant history would discriminate this specific gap without provider traffic.",
+      "priority": 1,
+      "confidence": 0.98,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/providers/openai-codex-responses.ts",
+      "line_start": 1642,
+      "line_end": 1651
+    },
+    {
+      "title": "Preserve legacy Hindsight snapshots in the family rebase",
+      "body": "CONFIRMED MIGRATION LOSS, with a narrower remedy than mandatory conversion to upstream records. Target recall-entry.ts:106\u2013132 only consumes versioned, scope-matching memory_recall entries followed by a message; it cannot read baseline hindsight_recall_snippet/{snippet}, including a committed empty string, and target state.ts:450\u2013466 consequently falls through to fresh recall. Mental-model loading at 508\u2013595 also does not restore the baseline hindsight_mental_models_snippet. The existing family-hindsight patch already owns legacy snapshot lookup with reset_boundary handling (patch lines 110\u2013128), so a correct rebase retaining that reader and the frozen mental-model/promotion behavior can solve this without rewriting historical journals or adding a separate migration layer. If translating legacy records instead, their original server/account/tag scope is not encoded in {snippet}; do not treat them as arbitrary-scope matches or invent provenance. No completed target rebase is part of the pinned comparison, so its compatibility cannot be asserted. Test only the resulting actual reader/prompt path with a completed legacy transcript and changed synthetic recall, including empty snapshots and a reset boundary; source inspection alone establishes the pristine target incompatibility.",
+      "priority": 1,
+      "confidence": 0.99,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/hindsight/state.ts",
+      "line_start": 448,
+      "line_end": 455
+    }
+  ],
+  "overall_correctness": "incorrect",
+  "explanation": "Independent disposition: the two transfer issues are new upstream defects; missing date/cwd anchor inheritance is a baseline family defect; Codex effort history, target navigation rollback, and legacy Hindsight compatibility are migration requirements, not novel upstream regressions, and Hindsight needs a compatible family rebase rather than necessarily a separate conversion mechanism. Additionally, the parent's fork-baseline-smoke.json observes live sol/medium but fresh-process astra/high after fork(entryId): baseline AgentSession.fork delegates to #branchIntoNewSession (9890\u20139906), createBranchedSession retains only the selected ancestry (session-manager.ts:3714\u20133756), and the branch transition retains live model/effort without journaling them (agent-session.ts:11850\u201311893), whereas SDK restore reads the surviving model/thinking records (sdk.ts:1947\u20132008); full fork instead preserves all entries, and the current navigation-only repair at 12309\u201312375 does not cover entry forks, so extend its role-aware/default-plus-temporary model and configured-thinking capture to the shared branch transition rather than changing SDK restore or assuming historical selection was intended (this is an additional confirmed baseline coverage gap, not a patch-introduced review finding). No source was changed or executed by this reviewer, the three mandatory policy grep checks passed, and only the explicitly identified transfer interleaving and anchor-inheritance behaviors still need discriminating runtime evidence; the supplied fork/navigation observations do not need repetition.",
+  "confidence": 0.98
+}

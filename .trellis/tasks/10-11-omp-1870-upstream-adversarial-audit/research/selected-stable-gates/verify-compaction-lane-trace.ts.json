@@ -1,0 +1,11 @@
+{
+  "gate": "verify-compaction-lane-trace.ts",
+  "started": "2026-10-12T05:48:01.905039+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-compaction-lane-trace.ts"
+  ],
+  "exit": 0,
+  "stdout": "PASS compaction lane trace: codex-v2 live tools + trace, openai-v1 trace, anthropic-native trace\n",
+  "stderr": ""
+}

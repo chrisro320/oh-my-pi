@@ -1,0 +1,14 @@
+{
+  "started": "2026-10-12T06:04:03.762036+00:00",
+  "command": [
+    "python3",
+    "/home/chris/orca/projects/omp-move/patches/verify-release-family-plan.py",
+    "--version",
+    "18.10.0",
+    "--tgz-cache",
+    "/tmp/omp-18100-audit-cd9kqmcj/archives"
+  ],
+  "exit": 1,
+  "stdout": "sandbox: /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/representation-structural/tmp/omp-family-18.10.0-ozm0vx04\n",
+  "stderr": "Traceback (most recent call last):\n  File \"/home/chris/orca/projects/omp-move/patches/verify-release-family-plan.py\", line 181, in <module>\n    main()\n  File \"/home/chris/orca/projects/omp-move/patches/verify-release-family-plan.py\", line 138, in main\n    raise RuntimeError(\"extracted pristine tree differs from migration input\")\nRuntimeError: extracted pristine tree differs from migration input\n"
+}

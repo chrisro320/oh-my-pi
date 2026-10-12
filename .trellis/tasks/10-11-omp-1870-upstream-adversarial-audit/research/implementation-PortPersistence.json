@@ -1,0 +1,347 @@
+{
+  "agent": "PortPersistence",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "owner": "PortPersistence",
+      "status": "implemented; ready for main-agent integration and acceptance",
+      "root": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+      "fragment_accounting": {
+        "owned_paths": 23,
+        "family_path_fragments": 26,
+        "families": {
+          "family-status-accounting": 2,
+          "family-hindsight": 8,
+          "family-persistent-prefix-resume": 16
+        },
+        "all_paths_ready": true,
+        "pending_conflicts": 0,
+        "recording": "Every changed source/declaration was recorded through accept/amend; eight additional paths were registered before editing. No amendment conflicts remain.",
+        "ledger": "owners/PortPersistence.json"
+      },
+      "completed_paths": [
+        "pi-coding-agent/src/session/session-manager.ts",
+        "pi-coding-agent/dist/types/session/session-manager.d.ts",
+        "pi-coding-agent/src/hindsight/backend.ts",
+        "pi-coding-agent/src/hindsight/state.ts",
+        "pi-coding-agent/src/session/session-memory.ts",
+        "pi-coding-agent/dist/types/session/session-memory.d.ts",
+        "pi-coding-agent/src/session/session-tools.ts",
+        "pi-coding-agent/dist/types/session/session-tools.d.ts",
+        "pi-coding-agent/src/session/date-cwd-reminder.ts",
+        "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts",
+        "pi-coding-agent/src/session/messages.ts",
+        "pi-coding-agent/dist/types/session/messages.d.ts",
+        "pi-coding-agent/src/session/session-context.ts",
+        "pi-coding-agent/src/session/turn-recovery.ts",
+        "pi-coding-agent/src/collab/guest.ts",
+        "pi-coding-agent/src/session/session-transfer.ts",
+        "pi-coding-agent/dist/types/session/session-transfer.d.ts",
+        "pi-coding-agent/src/session/session-storage.ts",
+        "pi-coding-agent/dist/types/session/session-storage.d.ts",
+        "pi-coding-agent/src/session/session-transfer-marker.ts",
+        "pi-coding-agent/dist/types/session/session-transfer-marker.d.ts",
+        "pi-coding-agent/src/memory-backend/recall-entry.ts",
+        "pi-coding-agent/dist/types/memory-backend/recall-entry.d.ts"
+      ],
+      "semantic_changes": {
+        "R03": [
+          "Date/cwd anchors now have a session-owned date-cwd-anchors.json artifact, with one-way reading of the legacy workstation-global ID map.",
+          "Full fork, entry branch, forkFrom, and automatic conflicting-writer sibling creation copy existing anchor state synchronously before publishing the new journal. Explicit empty maps remain distinct from missing state.",
+          "The injector accepts a session-file getter and reloads when session identity or file changes. Archive packing includes legacy anchors without modifying the source; unpacking materializes explicit empty state for older archives lacking anchors, preventing unrelated same-ID local maps from leaking into imported history.",
+          "The existing per-message key and rendered reminder bytes are unchanged. Transfer notices and the destination cwd remain intentional new context."
+        ],
+        "R07": [
+          "Added SessionManager.adoptForWrite(), which mutates the same manager into a fresh fork for a departed source, preserves anchors/artifacts/cache lineage, repairs interrupted fork tails, and appends the existing visible fork notice.",
+          "Public setSessionFile awaits writable adoption by default. Raw open remains non-adopting; setSessionFile(path, { writable: false }) supports replica inspection.",
+          "Failed adoption restores the captured manager state and releases its new ownership claim. restoreState also releases a claim belonging to a different restored session identity.",
+          "Removed forkIfMovedAway and migrated its callers through coordination. Transfer marker parsing/rendering moved to a shared source/declaration module, avoiding a SessionManager/archive-command runtime cycle."
+        ],
+        "R08": [
+          "Import creates one private FileSessionStorage instance and claims the incoming session ID exclusively against the immutable staged journal before discovering or reading local journals.",
+          "Exclusive claims refuse existing same-process holders as well as other processes, and throw on lock-acquisition errors instead of accepting the ordinary writer's best-effort no-op lease.",
+          "Only the importer's private storage instance may share the reserved lease during staged publication. openRelocated accepts that storage instance.",
+          "Discovery, classification, divergence handling, set-aside, publication, backup removal, and rollback all remain inside the ownership lifetime."
+        ],
+        "M07": [
+          "Target-native recalls retain memory_recall version/scope/text/memories and the upstream turn-followed rule.",
+          "Legacy hindsight_recall_snippet text is replayed exactly, including empty strings, without automatic recall. On the generation-owned replay commit it is adopted into memory_recall with optional legacyCommitted: true.",
+          "The adopted scope is explicitly the current adoption scope, not invented historical provenance. Any newer canonical recall blocks fallback to an older unscoped legacy record; reset boundaries stop both readers.",
+          "legacyCommitted preserves the old producer's commit-time freeze even if no new message follows the migration. It is never added to ordinary target-native recalls.",
+          "Mental-model snapshots retain exact empty/nonempty bytes, scoped adoption, reset boundaries, generation ownership, timeout freezing, and explicit reload behavior. Existing snapshots bypass bootstrap/list refresh; equal scoped snapshots are not appended again.",
+          "The single trailing memory-promotion slot is preserved across prompt rebuilds while retaining the target's restored-prompt digest binding."
+        ],
+        "M02_and_status": [
+          "Retained durable retry reminders in both live messages and SessionManager, interrupted assistant/tool-result pruning, committed-text stall exceptions, request-control carriers, and frozen advertised-agent state.",
+          "Advertised-agent restoration now distinguishes a recorded empty list from no snapshot and stops inheritance at reset boundaries.",
+          "Retained main-assistant-only cache-hit accounting on the target's session entry index, including its branch-view caching and auxiliary/subagent usage accounting."
+        ]
+      },
+      "race_ordering": "The importer now acquires the ID lease before findLocalCopies or loadEntriesFromFile touches local journals. An append completed before acquisition is included in classification and causes a divergent incoming fork when necessary. A live owner prevents acquisition. A writer starting afterwards cannot acquire the reserved ID; ordinary SessionManager conflict handling continues it under another ID rather than appending into the importer's journal. The same exclusive reservation survives placement and backup disposal. This is an implementation ordering argument, not an executed race result.",
+      "legacy_first_request_bytes": {
+        "old_producer_evidence": "history/family-hindsight/after/pi-coding-agent/src/hindsight/state.ts:521-550: successful recall returns a staged preparation; its commit first checks #recallGeneration, then appends hindsight_recall_snippet with snippet: context ?? ''. The legacy reader at :490-510 restores that marker without requiring a subsequent message.",
+        "preservation": "Nonempty legacy text is neither trimmed nor re-rendered; it remains one trailing promotion block. Empty legacy text maps to no block and suppresses fresh recall. The migration adds only non-model-facing metadata. Mental-model snapshot text remains in its original prompt carrier. Source-level preservation is implemented; fresh-process serialized-request equality remains for Main to exercise.",
+        "scope_limit": "Legacy records contain no historical server/account/tag provenance. As approved by Main, migration binds the preserved snapshot to the first adopting scope and does not claim to reconstruct missing historical provenance."
+      },
+      "cross_owner_contracts": {
+        "PortLifecycle": {
+          "api": [
+            "await sessionManager.adoptForWrite() before SDK ID/history/model/prefix reads",
+            "await sessionManager.setSessionFile(path, { writable: !options?.preserveLocalCwd })",
+            "new DateCwdReminderInjector(() => sessionManager.getSessionId(), undefined, () => sessionManager.getSessionFile())"
+          ],
+          "acknowledgement": "PortLifecycle reported recording SDK adoption/date wiring, effective-ID reclassification after switch adoption, advisor drain, and preserved replica/rollback/provider cleanup. Auto-learn capture keeps its independent ID namespace."
+        },
+        "PortHost": {
+          "api": "Replace forkIfMovedAway assignments with await manager.adoptForWrite(); the manager object remains the same.",
+          "family": "family-persistent-prefix-resume",
+          "closure": "Static source/declaration search found no remaining forkIfMovedAway reference."
+        },
+        "additional_public_shapes": [
+          "SessionManager.setSessionFile(sessionFile: string, options?: { writable?: boolean }): Promise<void>",
+          "SessionManager.adoptForWrite(): Promise<void>",
+          "SessionManager.openRelocated(sessionPath, recordedCwd, cwd, sessionDir?, storage?): Promise<SessionManager>",
+          "FileSessionStorage.claimSession(sessionId, sessionPath, options?: { exclusive?: boolean }): (() => void) | null",
+          "persistRecall(sessionManager, scope, recall, options?: { legacyCommitted?: true }): void"
+        ],
+        "marker_module": "SessionTransferDetails, SESSION_TRANSFER_MESSAGE_TYPE, sessionTransferDetails, lastSessionTransfer, and appendTransferNotice now belong to session/session-transfer-marker.ts and its d.ts. No compatibility re-export remains in session-transfer."
+      },
+      "observed_checks": {
+        "policy_greps": "All three work-order policy grep groups matched the required contracts.",
+        "merge_markers": "No merge markers found across all 23 owned paths.",
+        "representation": "Driver accepted/amended every edited path; final owner ledger has next equal to family count and pending null for every path.",
+        "not_run": [
+          "Builds",
+          "Tests",
+          "Typechecks",
+          "Linters",
+          "Formatters",
+          "Provider/auth/usage requests",
+          "Production database/session reads"
+        ],
+        "runtime_acceptance": "Not exercised; no runtime-pass claim."
+      },
+      "narrow_acceptance_for_main": [
+        {
+          "id": "V01/R03",
+          "observable": "Stamp two synthetic user turns with different dates/cwds, exercise full/entry fork and pack/unpack, reopen in a fresh process, and compare historical serialized message bytes. Check an explicit empty map separately; permit only intentional new transfer notice/new-message cwd bytes."
+        },
+        {
+          "id": "V01/M07",
+          "observable": "Extend verify-hindsight-recall-snapshot.ts for 18.10.0: canonical memory_recall assertions for new output; exact legacy empty/nonempty/MM replay; migration commit followed by restart without another message; no legacy fallback after scope change; reset-boundary refresh; native uncommitted/turn-followed negative control. Compare ordered prompt-block arrays through the actual host, not only marker fields."
+        },
+        {
+          "id": "V01/M02",
+          "observable": "Retain the actual live-versus-rebuilt conversion case containing a durable developer reminder and interrupted paired tool result, plus explicit-empty advertised-agent restoration."
+        },
+        {
+          "id": "V06/R07",
+          "observable": "Mark a synthetic session departed, adopt through actual switchSession and SDK startup, and require a new ID/path plus an unchanged source. Raw open and writable:false inspection must not fork. Exercise cwd rejection rollback ownership."
+        },
+        {
+          "id": "V06/R08",
+          "observable": "Use the deterministic append-before-import-claim schedule: retain the local-only append or refuse; equal/prefix imports should still replace once. Include a same-process held lease and injected lease-acquisition failure to discriminate exclusive/fail-closed import ownership."
+        },
+        {
+          "id": "V07",
+          "observable": "Existing status consumer gate should continue using SessionManager.getMainCacheHitRate with one main-plus-auxiliary usage fixture."
+        }
+      ],
+      "spec_and_docs_handoff": {
+        "owner": "Main, per work order; no repository docs or gates edited here.",
+        "root_causes": [
+          "Cross-layer ownership: durable prefix artifacts previously belonged to a process/session ID rather than transferred history.",
+          "Propagation gap: moved-source protection was a CLI wrapper rather than the writable adoption boundary.",
+          "Implicit authority assumption: a successful later claim was treated as validating an earlier journal comparison.",
+          "Schema migration gap: unscoped commit-frozen legacy records were mistaken for absent native turn-followed recalls."
+        ],
+        "contracts_to_preserve": [
+          "Record the adoption APIs and read-only exception alongside the common-adoption verification contract.",
+          "Document claim-before-discovery ordering, private-storage exclusive ownership, and failure/rollback lease lifetime.",
+          "Document legacyCommitted as migration provenance only; never set it for native preparation or infer historical scope.",
+          "Document date-cwd-anchors.json as transferred session state, with exact legacy-map migration and explicit-empty precedence."
+        ],
+        "wrong_vs_correct": "Wrong: read/classify journals, then claim; treat unknown legacy scope as matching every scope. Correct: reserve the ID first and classify under ownership; preserve legacy bytes once, bind adoption scope, and block older unscoped fallback."
+      },
+      "open_risks": [
+        "Runtime/source-declaration/package acceptance remains unexecuted by design and belongs to Main.",
+        "Older transfer archives that never contained date/cwd anchors cannot reconstruct absent historical anchor bytes; unpacking deliberately prevents unrelated local state from supplying them.",
+        "Legacy Hindsight historical scope is unknowable from the old schema; the approved adoption-scope policy is explicit rather than a provenance claim."
+      ]
+    },
+    {
+      "owner": "PortPersistence",
+      "followup": "Delivered exact landed APIs, canonical/legacy memory semantics, anchor artifact layout, read-only adoption exception, and a deterministic public-consumer import race schedule to GateDurability18100. No additional source edits or checks performed."
+    },
+    {
+      "owner": "PortPersistence",
+      "status": "Assigned implementation and repair amendments complete; independent recheck requested. Runtime acceptance remains Main-owned.",
+      "fragment_accounting": {
+        "owned_paths": 24,
+        "family_path_fragments": 27,
+        "families": {
+          "family-status-accounting": 2,
+          "family-hindsight": 8,
+          "family-persistent-prefix-resume": 17
+        },
+        "driver_state": "Every path has next equal to its family count and pending:null.",
+        "latest_amendments": [
+          "pi-coding-agent/src/session/session-manager.ts",
+          "pi-coding-agent/dist/types/session/session-manager.d.ts",
+          "pi-coding-agent/src/session/session-storage.ts",
+          "pi-coding-agent/dist/types/session/session-storage.d.ts",
+          "pi-coding-agent/src/session/session-transfer.ts",
+          "pi-coding-agent/src/session/turn-recovery.ts",
+          "pi-coding-agent/dist/types/session/turn-recovery.d.ts"
+        ],
+        "newly_registered_this_round": "pi-coding-agent/dist/types/session/turn-recovery.d.ts"
+      },
+      "repairs": {
+        "F1": "Archive artifacts remain a tuple array; anchor-member detection now uses some. Missing legacy members receive explicit empty anchors without overwriting supplied bytes.",
+        "F2": "openRelocated performs writable adoption before relocation by default. continueRecent's moved-project route uses it. Staged import explicitly opts out under its existing incoming-ID reservation; raw open remains claim-free.",
+        "F3": "Writable admission claims the ID with strict lock-error handling, refreshes and classifies disk provenance under that claim, and retains ownership through writable use. Contention refuses admission, as approved by Main. markSessionMoved uses an exclusive private-storage reservation that refuses same-process holders. close retains its claim until queued persistence settles.",
+        "F4": "beginWritableAdoption returns a commit/rollback transaction. A departed source remains owned and unchanged while a newly minted continuation is prepared. Rollback drains and deletes transaction-owned initial/current fork outputs before relinquishing its claim, then restores target state. Lifecycle reports integration through cancellable switch work.",
+        "F5": "moveTo rollback now includes final header publication, including rejection after bytes land. Artifact relocation is deferred until that publication succeeds. Rollback reverses the journal path and restores metadata without replacing the current entries array, preserving completed concurrent appends. Import publication retains an additional claim through close and cleanup; backup-restoration failures are surfaced rather than merely logged.",
+        "F6": "forkFrom claims its minted ID before copying anchors or first publication, refuses pre-existing output paths, and owns cleanup until returning successfully. Failure cleanup handles landed journals and artifact-only failed publication, then releases the minted claim. File storage deletion no longer skips artifact cleanup when the journal is absent.",
+        "F9_support": "TurnRecovery.maybeRestoreRetryFallbackPrimary accepts an optional admissionCurrent callback and checks it at entry and after credentials, provider-reset, and model-sync awaits. Source and declaration match; Lifecycle owns scheduling-generation integration."
+      },
+      "preserved_capabilities": [
+        "Durable date/cwd anchors follow forked, branched, adopted and imported history; canonical per-session artifacts take precedence over legacy ID maps, including explicit empty state.",
+        "Durable retry reminders, paired interrupted-tool pruning, frozen agent advertisements and promotion-tail ownership are preserved.",
+        "Upstream session entry-index caching and status-accounting capabilities remain intact.",
+        "Legacy recall/MM snapshots preserve empty versus absent answers, reset boundaries, scope matching and single trailing promotion semantics."
+      ],
+      "race_ordering": [
+        "Import validates and stages the archive, then exclusively claims its incoming session ID before discovering, reading or classifying local journals.",
+        "A local append completed before that claim participates in prefix/divergence classification. A live writer holding the claim causes import refusal instead of overwrite.",
+        "The incoming claim spans classification, replacement backups, publication and rollback. Divergent forks additionally own their newly minted ID through initial publication and failure cleanup.",
+        "Writable resume claims before refreshing departure provenance. Successful admission retains the claim, so a competing departure cannot enter between admission and first write."
+      ],
+      "legacy_first_request_bytes": {
+        "behavior": "Replay the exact persisted legacy snippet, including the empty string, instead of performing a fresh recall. Adopt it into memory_recall under the current adoption scope with legacyCommitted:true; do not invent historical scope provenance.",
+        "producer_evidence": "history/family-hindsight/after/pi-coding-agent/src/hindsight/state.ts:521-550: successful prepared recall commit checks its recall generation, then appends {snippet: context ?? \"\"} without requiring a later user/message entry.",
+        "flag_boundary": "Only migrated legacy committed/frozen records receive legacyCommitted:true. Native target records retain upstream turn-followed/cancellation semantics.",
+        "scope_boundary": "A canonical memory_recall record terminates legacy fallback even when its scope does not match; later scoped reads cannot recover an older unscoped answer."
+      },
+      "public_contracts": {
+        "SessionManager.beginWritableAdoption": "(): Promise<SessionAdoption>, where SessionAdoption exposes commit():void and rollback():Promise<void>.",
+        "SessionManager.adoptForWrite": "():Promise<void>; immediately commits non-cancellable admission.",
+        "SessionManager.setSessionFile": "(path, {writable?:boolean}); writable:false loads without adoption.",
+        "SessionManager.openRelocated": "(path, recordedCwd, cwd, sessionDir?, storage?, options?:{adoptForWrite?:boolean}); default true, reserved staged import passes false.",
+        "SessionStorage.claimSession": "Optional options {exclusive?:boolean; strict?:boolean}; strict propagates lock failures, exclusive additionally refuses existing same-process holders.",
+        "TurnRecovery.maybeRestoreRetryFallbackPrimary": "(admissionCurrent?:()=>boolean):Promise<boolean>.",
+        "memory_history_commit": "Lifecycle uses existing SessionMemory.resetContextForNewTranscript after committed changed-history transitions, including same-ID navigation/reload; it clears committed recall and promotion tail before target snapshot reconstruction.",
+        "coordination": "PortLifecycle, PortHost and GateDurability18100 received the exact APIs and failure-injection boundary. ReviewPersistence18100 was asked to independently recheck F1-F9 across both owners."
+      },
+      "acceptance_suggestions": [
+        "Actual stale-open \u2192 completed departure \u2192 writable admission must fork/refuse, never append to the departed ID; departure attempted after successful admission must be refused.",
+        "Actual cancelled cross-cwd AgentSession.switchSession must leave no new journal or artifact directory.",
+        "Actual pack/unpack must preserve nonempty anchors and explicitly freeze absent legacy anchors.",
+        "Inject writeLinesAtomic failure after its delegate publishes the relocated target journal/header. Do not require destination artifacts at that hook: artifact relocation now occurs afterward. Check created/replaced rollback, including exact prior nonempty artifacts.",
+        "Inject divergent fork's first publish failure after the delegate lands bytes; require no owned outputs and exclusive reacquisition of the minted ID.",
+        "Exercise Lifecycle's same-ID canonical/legacy empty/nonempty/reset reconstruction and held continuation setup across navigation."
+      ],
+      "verification": {
+        "executed": "Driver registration/amendment/status operations and the three work-order-required static policy searches only.",
+        "not_executed": "No builds, tests, lint, formatters, runtime smoke, provider/auth/usage requests, or production database/session reads.",
+        "review_status": "Focused independent recheck requested; no runtime success claim."
+      },
+      "documentation_handoff": "Main owns repository documentation and gates. Record the transaction APIs, claim-before-classification ordering, delayed artifact relocation failure hook, and narrowly scoped legacyCommitted migration semantics."
+    },
+    {
+      "owner": "PortPersistence",
+      "status": "Follow-up R3/R4 implementation and R1/R2/R6 supporting APIs complete; owning-family amendments recorded.",
+      "implemented": {
+        "R3": {
+          "behavior": "Disposable import staging now requires complete artifact publication. Ordinary relocation retains upstream best-effort merging and intentional stranded-source behavior.",
+          "publication": "Both normal and divergent unpack paths pass requireCompleteArtifacts:true. Strict relocation uses whole-directory rename when possible; EXDEV uses fs.promises.cp into an exclusively created destination while retaining staging originals. Copy failure removes the owned partial destination and propagates through journal/backup rollback. Divergent forks perform strict artifact copy under their minted-ID claim before journal publication.",
+          "api": "moveTo(..., options?:{requireCompleteArtifacts?:boolean}), openRelocated(..., options?:{adoptForWrite?:boolean;requireCompleteArtifacts?:boolean}), and forkFrom options.requireCompleteArtifacts."
+        },
+        "R4": {
+          "behavior": "Hindsight transcript read-only mode replays frozen mental-model snapshots without remote loading, scoped migration, or metadata persistence. Legacy recall replay likewise skips canonical migration; absent recall does not trigger remote automatic recall.",
+          "ownership": "beginMentalModelsTranscriptReload({readOnly?:boolean}) updates policy synchronously and invalidates outgoing recall/MM generations before awaiting transition settlement. Omitting the option preserves current policy. Post-await bootstrap guards prevent outgoing work from continuing into replica publication.",
+          "api": "SessionMemory.resetContextForNewTranscript({readOnly?:boolean}) forwards the policy. Hindsight source and published declaration match."
+        },
+        "R1_support": "Added SessionManager.retainWritableOwnership():SessionOwnership. An admitted writer obtains an independent strict claim retained across raw target loading; release() relinquishes it after success, while restore() transfers it synchronously back to the restored outgoing manager. Lifecycle agreed and owns the switch consumer.",
+        "R2_support": "Exported existing SessionManagerStateSnapshot in source and declaration without changing its shape. Host/Lifecycle agreed to move selector relocation inside switchSession, using existing moveTo/rollbackMove plus adoption rollback rather than a precommitted factory.",
+        "R6_support": "Usage fallback setup captures prompt generation and session ID and rechecks ownership after health/key/confirmation awaits. Candidate application independently fences key/model-reset/sync/event awaits and does not restore stale model state into replacement history."
+      },
+      "amended_paths": {
+        "family-persistent-prefix-resume": [
+          "pi-coding-agent/src/session/session-manager.ts",
+          "pi-coding-agent/dist/types/session/session-manager.d.ts",
+          "pi-coding-agent/src/session/session-transfer.ts",
+          "pi-coding-agent/src/session/turn-recovery.ts"
+        ],
+        "family-hindsight": [
+          "pi-coding-agent/src/hindsight/state.ts",
+          "pi-coding-agent/dist/types/hindsight/state.d.ts",
+          "pi-coding-agent/src/session/session-memory.ts",
+          "pi-coding-agent/dist/types/session/session-memory.d.ts"
+        ]
+      },
+      "accounting": {
+        "owned_paths": 25,
+        "family_path_fragments": 28,
+        "new_registration": "pi-coding-agent/dist/types/hindsight/state.d.ts in family-hindsight",
+        "amendment_results": "All eight driver amendments returned AMENDED without conflicts."
+      },
+      "coordination": {
+        "PortLifecycle": "Agreed retained-claim release/restore contract, read-only mode preservation and rollback restoration, new-state initialization before MM bootstrap, exported snapshot type, and usage-fallback generation guards.",
+        "PortHost": "Agreed selector relocation moves inside Lifecycle's switch transaction; no new manager factory.",
+        "GateDurability18100": "Received exact strict-copy filesystem hooks, options and ownership boundaries for R1/R3 acceptance.",
+        "ReviewPersistence18100": "Notified to independently recheck the follow-up changes once Lifecycle/Host consumers land.",
+        "GateHost18100": "Confirmed genuine sequential resume must preserve the session-owned date/cwd artifact; journal-only fixture copies are not supported fork/import equivalents."
+      },
+      "verification": "No tests, builds, lint, formatters, runtime checks, provider/auth requests, or production session/database reads. Only source inspection, edits, coordination and port-driver representation generation occurred this round.",
+      "acceptance_handoff": [
+        "Pause an actual switch while its outgoing lease is retained; attempted departure must be refused, and cancellation must restore writable authority without a gap.",
+        "Actual EXDEV unpack with fs.promises.cp failure must fail and restore prior journals/artifacts, never succeed with a missing frozen snapshot. Cover divergent fork cleanup too.",
+        "Activate/resync a Hindsight replica with legacy empty/nonempty MM snapshots, await mentalModelsLoadPromise, and require no additional journal entries or remote memory load.",
+        "Exercise ordinary prompt and usage-fallback setup suspended across navigation; require no stale model/effort receipt or dispatch."
+      ],
+      "documentation_handoff": "Main-owned docs should distinguish complete disposable-import publication from ordinary stranded-artifact relocation, document retained outgoing ownership across cancellation, and record read-only memory replay as an explicit transcript policy."
+    },
+    {
+      "owner": "PortPersistence",
+      "supplement": "PortLifecycle reports the coordinated R1/R4 consumers and declarations are now recorded: outgoing claim retention/restoration, persistent read-only memory mode across transitions, rollback policy restoration, explicit writable mode for new local identities, and read-only initialization of newly bound Hindsight state before bootstrap.",
+      "evidence_boundary": "Peer implementation confirmation only; no additional edits or verification performed."
+    },
+    {
+      "owner": "PortPersistence",
+      "status": "S1 coherent model-selection repair complete and recorded.",
+      "changes": [
+        "TurnRecoveryHost.setModelWithProviderSessionReset now accepts commitSelection?:()=>void; source and published declaration agree.",
+        "Candidate fallback commits routing ownership, fallback-chain state, ephemeral model receipt with fallback provenance, and effort inside that synchronous callback.",
+        "Primary restoration and Fireworks downgrade use the same callback boundary.",
+        "Existing durable default model anchors remain unchanged. Generation cancellation after commit stops further setup/events rather than undoing a selection already captured by replacement history.",
+        "Fireworks setup also fences credential and reconciliation awaits against session/history changes."
+      ],
+      "cross_owner_contract": "PortLifecycle reports its existing setter invokes commitSelection immediately after agent.setModel, before model_changed observers or the first model-dependent reconciliation await, and has recorded that amendment.",
+      "fragments": [
+        "AMENDED family-persistent-prefix-resume pi-coding-agent/src/session/turn-recovery.ts",
+        "AMENDED family-persistent-prefix-resume pi-coding-agent/dist/types/session/turn-recovery.d.ts"
+      ],
+      "acceptance_handoff": "GateHost18100 received the exact seam for holding real reconciliation after the coherent selection commit, navigating, and comparing live/fresh-resume model, role, fallback provenance, default anchor and effort. ReviewPersistence18100 was asked to independently recheck S1.",
+      "verification": "No checks, tests, builds, lint, formatters, provider requests or production state reads. Driver amendment results establish representation recording only."
+    },
+    {
+      "owner": "PortPersistence",
+      "investigation": "Reported positive-inode continuation failure is explained by a missing synthetic terminal identity in the frozen gate, not an assistant-history admission rule.",
+      "evidence": [
+        "verify-session-transfer-authority.ts:18-24 strips all terminal environment variables; its child runs with piped stdin.",
+        "pi-tui/src/ttyid.ts:41-83 returns null without a TTY or supported terminal environment identifier.",
+        "session-paths.ts:464-465 skips breadcrumb writes and :510-511 skips breadcrumb reads when that identifier is absent.",
+        "continueRecent's moved-project branch permits newestInTargetDir===null; it does not require an assistant turn in the explicitly identified breadcrumb session."
+      ],
+      "gate_handoff": "GateDurability18100 was advised to set a synthetic TMUX_PANE after environment scrubbing and assert the real breadcrumb contains the source path and cwdIdentity before rename. Existing history/source-preservation assertions remain unchanged.",
+      "review_update": "ReviewPersistence18100 independently returned static PASS for S1's coherent selection amendment. It explicitly did not grant runtime or deployment approval.",
+      "verification": "No failure rerun, executable check, code edit, provider request, or production state read performed."
+    }
+  ]
+}

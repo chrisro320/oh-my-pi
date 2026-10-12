@@ -1,0 +1,146 @@
+{
+  "agent": "PortMaintenance",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "owner": "PortMaintenance",
+      "status": "implementation_complete",
+      "root": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+      "fragment_accounting": {
+        "owned_paths": 9,
+        "family_path_fragments": 14,
+        "all_paths_ready": true,
+        "pending_conflicts": 0,
+        "families": [
+          "family-image-budget-snapcompact",
+          "family-persistent-prefix-resume",
+          "0046-omp-supersede-warm-prefix-guard",
+          "0048-omp-advisor-quota-rotation-bound",
+          "family-input-translation",
+          "family-compaction"
+        ],
+        "recorded_operations": [
+          "accept PortMaintenance pi-coding-agent/src/session/provider-image-budget.ts",
+          "accept PortMaintenance pi-coding-agent/src/session/session-maintenance.ts (warm-prefix family, then compaction family)",
+          "amend PortMaintenance pi-coding-agent/src/session/session-maintenance.ts family-compaction",
+          "amend PortMaintenance pi-coding-agent/src/session/session-advisors.ts family-compaction",
+          "amend PortMaintenance snapcompact/dist/types/snapcompact.d.ts family-image-budget-snapcompact"
+        ],
+        "unrecorded_edits": false
+      },
+      "completed_paths": [
+        {
+          "path": "pi-coding-agent/src/session/provider-image-budget.ts",
+          "changes": "Resolved the old clamp-versus-new shared clamp conflict by retaining the target's separate image-count and inline-byte budgeting. The outgoing count guard passes both model.provider and model.api to providerImageBudget."
+        },
+        {
+          "path": "pi-coding-agent/src/session/session-maintenance.ts",
+          "changes": "Retained repeated previous-archive replacement credit, durable length-stop reminders, all-zero warm-prefix supersede protection alongside target lookback support, host-vouched compaction callbacks, effective Codex speculation admission guards, and configured retry/method fallbacks. Added session/generation/message snapshot ownership checks around asynchronous context construction. Remote speculative candidate filtering also excludes effective Codex candidates. Explicit speculative sessionId/preferWebsockets overrides now survive the shared compaction helper."
+        },
+        {
+          "path": "pi-coding-agent/src/session/session-advisors.ts",
+          "changes": "Retained quota-rotation grace, translation display behavior, and compaction callback wiring. Added the missing CompactionPreparation type import. Live compaction replay now uses the advisor's actual in-memory messages rather than reconstructing its summary/control objects from synthetic entries. Checks cancellation, owning session, advisor provider session, exact model, and message-array identity/length around context construction. Compaction preserves the advisor Agent's actual promptCacheKey, including inherited/pinned keys."
+        },
+        {
+          "path": "pi-coding-agent/src/session/session-provider-boundary.ts",
+          "changes": "Retained exact active-model identity checking, previous-summary presence detection, and convertMessagesToLlmWithSource's post-extension source array."
+        },
+        {
+          "path": "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+          "changes": "Retained target buildLiveProviderContext plus complete convertMessagesToLlm/convertMessagesToLlmWithSource host declarations."
+        },
+        {
+          "path": "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts",
+          "changes": "Retained public conversion and cache-identity helper declarations; no new external callback signature was required."
+        },
+        {
+          "path": "pi-coding-agent/src/session/snapcompact-inline.ts",
+          "changes": "Retained provider/API-aware budgeting in both estimated savings and the actual inline transformer."
+        },
+        {
+          "path": "snapcompact/src/snapcompact.ts",
+          "changes": "Retained explicit-provider, wire-API, then Command Code alias namespace precedence; Devin/devin-agent budgets remain 200. Preserved exact-model measured DeepSeek steps in shared frameBilling/frameTokens/frameBillingKey."
+        },
+        {
+          "path": "snapcompact/dist/types/snapcompact.d.ts",
+          "changes": "Retained measuredSteps and optional API parameters for both budget functions; corrected public budget documentation to describe the provider/API/alias resolution contract."
+        }
+      ],
+      "upstream_behavior_preserved": [
+        "The target's shared image clamp, request-body byte budget, and image-only omission behavior remain intact.",
+        "The target's frame rerendering, threshold/headroom calculations, and tokenizer dimension-based accounting remain intact. No retired frame-ceiling subtraction was restored.",
+        "Previous archive credit is added only to the pre-compaction baseline; it is not subtracted again from the replacement projection.",
+        "Target buildProviderContext and isUserAuthored handling remain alongside the local live-context callback.",
+        "Existing native-history eligibility, authentication candidate handling, retry budgets, and explicit configured next-method transitions remain unchanged."
+      ],
+      "cross_owner_contracts": {
+        "PortCore": "Confirmed unchanged SummaryOptions.buildCachePreservingContext(scope: history|turn-prefix|live, candidate: Model, signal?: AbortSignal) => Promise<{context: Context; previousSummaryInPrefix: boolean}|undefined>, plus isCodexCompactionV2Lane export. The returned context remains a Context, not an extra wrapper.",
+        "PortLifecycle": "Confirmed existing maintenance host bindings for convertMessagesToLlmWithSource and buildLiveProviderContext. Lifecycle confirmed conversion itself does not append live/journal entries; extension mutations should invalidate the voucher. No new host API/declaration requirement.",
+        "callsites_accounted_for": [
+          "Maintenance shared helper used by manual and speculative compaction.",
+          "Maintenance direct automatic compact() call.",
+          "Advisor direct compact() call and its private callback builder.",
+          "Lifecycle-owned bindings and core-owned consumer/declaration contract coordinated explicitly."
+        ]
+      },
+      "verification": {
+        "executed": [
+          "Port driver accept/amend/status representation operations.",
+          "All three mandatory work-order policy grep queries returned the required policy/authorization clauses."
+        ],
+        "not_executed": [
+          "Builds",
+          "Lint",
+          "Tests",
+          "Formatters",
+          "Provider, authentication, usage, refresh, or other production credential operations"
+        ],
+        "evidence_boundary": "READY fragments and source inspection are not behavioral acceptance or evidence of provider cache hits."
+      },
+      "narrow_acceptance_for_main": [
+        {
+          "gate": "patches/verify-snapcompact-frame-reprice.ts",
+          "purpose": "Already exercises actual SDK session.compact: first image archive, reducing repeated replacement, and rejection of an inflating successor with the previous archive unchanged and zero provider fallback. Preserve these actual-consumer assertions when adapting target fixtures."
+        },
+        {
+          "gate": "patches/verify-compaction-cache-liveness.ts and patches/verify-anthropic-native-compaction-live-context.ts",
+          "purpose": "Their existing supplied callbacks exercise core consumers, not the maintenance/advisor voucher builders. Add a small actual-host entry leg rather than another capacity sweep: manual summary, automatic/native, and advisor compaction must carry the live system/tools, an in-memory sentinel, retained tail, and prior summary exactly once. Assert the advisor's pinned cache key. A controlled async conversion that changes session/leaf/message identity must withdraw the voucher. Existing cold-overflow coverage remains the core owner's acceptance."
+        },
+        {
+          "gate": "patches/verify-prefix-cache-compaction.ts",
+          "purpose": "Replace the source-wiring assertions with the actual host-built-request leg above. Keep exact-runtime-model versus equivalent-clone controls and transformed-summary removal behavior; source wording alone does not exercise these contracts."
+        },
+        {
+          "gate": "patches/verify-provider-image-budget.ts",
+          "purpose": "Existing clamp consumers cover custom wire APIs, Command Code aliases, Devin 200, explicit-provider precedence, and unknown-provider floor. Preserve the target's independent inline-byte-budget behavior rather than restoring the old monolithic clamp."
+        },
+        {
+          "gate": "patches/verify-snapcompact-model-billing.ts",
+          "purpose": "Its shared frameTokens/frameBillingKey assertions are currently conditional on version === 18.7.0; select them for 18.10.0 too. Exercise an actual Tokenizer compaction-summary frame across measured/unmeasured model switching, without restoring a second frame subtraction."
+        },
+        {
+          "gate": "Owning compaction host acceptance",
+          "purpose": "Exercise both speculative admissions with native and alternate effective Codex APIs, plus an alternate effective-Codex candidate. Assert no isolated Codex speculation is dispatched. A non-Codex speculative request must retain its :spec: sessionId and preferWebsockets:false. Keep configured manual/automatic next-method fallback and retry-budget controls distinct from forbidden internal SSE/V1 replay."
+        }
+      ],
+      "documentation_handoff": {
+        "owner": "Main",
+        "updates_needed": [
+          "Record M06/M08/M09 source implementation and keep consumer verification status separate.",
+          "Update the existing iterative cache-preserving compaction contract to include live scope, actual in-memory advisor replay, cancellation/session ownership checks, and pinned advisor cache-key preservation.",
+          "Record the migration pitfall: a text-clean callback hunk can still miss a type import or reconstruct a different request, and helper-only fixtures will not detect it."
+        ]
+      },
+      "open_source_blockers": []
+    },
+    {
+      "owner": "PortMaintenance",
+      "followup": "Confirmed GateHost18100 needs no new fixture flags or API changes for snapcompact-frame-reprice, provider-image-budget, or model-billing. Reiterated repeated replacement credit, preservation of target rerender/count-versus-byte clamp behavior, no double subtraction, and 18.10 shared frame-pricing/key coverage. No additional source changes or checks."
+    }
+  ]
+}

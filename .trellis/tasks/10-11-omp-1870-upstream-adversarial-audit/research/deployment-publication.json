@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "-I",
+    "/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39/ledger/publish-release.py",
+    "publish",
+    "--release",
+    "/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39",
+    "--smoke",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/installed-private-smoke.json"
+  ],
+  "exit": 0,
+  "stdout": "{\n  \"schema_version\": 1,\n  \"home\": \"/home/chris\",\n  \"release\": \"/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39\",\n  \"version\": \"18.10.1\",\n  \"candidate_tree_sha256\": \"a50842b5a6a1b8d234d9bfd14d5a0e86fe6567242118ba0105e97bf7769068b3\",\n  \"runtime_tree_sha256\": \"2b9bd3dc84d9ee5189b061177a9287ea04331c49fa01812efe517c4238e4338d\",\n  \"ledger_tree_sha256\": \"279f8e761bcd7ec72094d81b0d4166becfa49fd6e214536813dc577d9cce94b5\",\n  \"package_versions\": {\n    \"pi-catalog\": \"18.10.1\",\n    \"pi-natives-linux-x64\": \"18.10.1\",\n    \"pi-utils\": \"18.10.1\",\n    \"pi-ai\": \"18.10.1\",\n    \"pi-natives\": \"18.10.1\",\n    \"pi-coding-agent\": \"18.10.1\",\n    \"snapcompact\": \"18.10.1\",\n    \"omp-stats\": \"18.10.1\",\n    \"omptype\": \"18.10.1\",\n    \"pi-agent-core\": \"18.10.1\",\n    \"pi-wire\": \"18.10.1\",\n    \"pi-tui\": \"18.10.1\",\n    \"pi-mnemopi\": \"18.10.1\"\n  },\n  \"launcher_sha256\": \"649ed302ebec69bf655e071379bb93a457f75169f6a4895eb9c059f5bcf1cadd\",\n  \"code_installation\": \"complete\",\n  \"current_session_upgrade\": false,\n  \"production_activation\": false,\n  \"production_admission_started\": false,\n  \"old_owners\": [\n    {\n      \"pid\": 573567,\n      \"start_time\": \"20547184\",\n      \"boot_id\": \"8d1e7f48-a661-4107-9161-7d9d9ea05498\",\n      \"comm\": \"omp daemon brok\",\n      \"state\": \"S\"\n    },\n    {\n      \"pid\": 1299157,\n      \"start_time\": \"24669071\",\n      \"boot_id\": \"8d1e7f48-a661-4107-9161-7d9d9ea05498\",\n      \"comm\": \"omp\",\n      \"state\": \"S\"\n    },\n    {\n      \"pid\": 1453095,\n      \"start_time\": \"25316811\",\n      \"boot_id\": \"8d1e7f48-a661-4107-9161-7d9d9ea05498\",\n      \"comm\": \"omp daemon brok\",\n      \"state\": \"S\"\n    },\n    {\n      \"pid\": 1651097,\n      \"start_time\": \"26016016\",\n      \"boot_id\": \"8d1e7f48-a661-4107-9161-7d9d9ea05498\",\n      \"comm\": \"omp\",\n      \"state\": \"S\"\n    }\n  ],\n  \"rollback\": {\n    \"launcher_target\": \"../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts\",\n    \"ledger_backup\": \"/home/chris/.omp/patches.rollback-18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39\"\n  },\n  \"credential_operations\": \"none; agent directory excluded\",\n  \"independent_code_inodes\": true,\n  \"private_smoke\": {\n    \"path\": \"/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/installed-private-smoke.json\",\n    \"sha256\": \"e2201c16be44b1ae6736954f4233e3b5883e0838890945c839e8df8c4e09f823\"\n  }\n}\n",
+  "stderr": "",
+  "time": "2026-10-12T07:25:18.740682+00:00"
+}

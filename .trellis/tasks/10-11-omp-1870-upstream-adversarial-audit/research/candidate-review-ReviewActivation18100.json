@@ -1,0 +1,46 @@
+{
+  "status": "PASS \u2014 scoped independent source review of PUB-01 through PUB-04 and the updated documentation.",
+  "filesChanged": [],
+  "conclusion": "The four requested fixes address the reported defects. No remaining deployment blocker was found within this re-review scope. Main can proceed with the already-planned synthetic publication scenario, interrupted preparation exercise, installed private smoke, and authorized code publication. This is not a claim that those operations have run or that production activation has occurred.",
+  "closed_findings": [
+    {
+      "id": "PUB-01",
+      "result": "Closed in source. Census disappearance now refuses admission; a zero-owner result requires matching PID/start/boot identities across classification. The successor-census fixture asserts refusal before exec or admission-flag mutation.",
+      "evidence": [
+        "patches/release-launcher.py:47-60,70-97",
+        "patches/verify-release-publication.py:118-124"
+      ]
+    },
+    {
+      "id": "PUB-02",
+      "result": "Closed in source. sync_tree flushes regular files and then directories bottom-up. Preparation completes that boundary before writing the durable receipt, renaming the prepared directory, and fsyncing its parent.",
+      "evidence": [
+        "patches/publish-release.py:35-46,99-100,133-137"
+      ]
+    },
+    {
+      "id": "PUB-03",
+      "result": "Closed in source. bin/omp is copied from the frozen temporary ledger, and launcher_sha256 is derived from that same frozen ledger file\u2014not the mutable input ledger.",
+      "evidence": [
+        "patches/publish-release.py:113-128"
+      ]
+    },
+    {
+      "id": "PUB-04",
+      "result": "Closed in source. Preparation uses a unique .prepare-* sibling, includes the full-runtime digest in release identity, publishes the complete directory by rename, permits verified staged reuse, and removes only the invocation-owned temporary directory on caught failure. An uncatchable interruption can leave an orphan temporary directory, but it no longer occupies the deterministic final release name.",
+      "evidence": [
+        "patches/publish-release.py:97-118,133-141"
+      ]
+    }
+  ],
+  "documentation": {
+    "result": "The current procedure now explicitly supersedes historical global replacement, mutable-ledger, watcher and rollback instructions. It documents the actual commands, installed-source/private-smoke boundary, installer-only version output, ownership gate, and irreversible post-admission downgrade barrier.",
+    "evidence": [
+      "patches/DEPLOYMENT-RUNBOOK.md:7-30",
+      ".trellis/spec/backend/patch-rollup-contracts.md:710-736"
+    ],
+    "machine_acceptance": "The requested production_admission_started|runtime-root|current_session_upgrade|production_activation grep was performed; matching contract text is present in the scripts/controller, runbook and spec."
+  },
+  "availability_note": "Concurrent process churn may refuse an otherwise benign launch or publication census. That is a fail-closed availability outcome, not credential admission; no force bypass should be added to make such an invocation pass.",
+  "verification_boundary": "Source inspection and policy grep only. No tests, builds, edits, process actions, production-state reads, or provider calls were performed. Main remains the execution and deployment owner."
+}

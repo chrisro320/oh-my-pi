@@ -1,0 +1,11 @@
+{
+  "gate": "verify-anthropic-cache-boundaries.ts",
+  "started": "2026-10-12T05:48:03.582688+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-anthropic-cache-boundaries.ts"
+  ],
+  "exit": 1,
+  "stdout": "",
+  "stderr": "\n[Uncaught Exception] AssertionError: long: server-tool credit must stop before rebuilding; safe text may retry once\n\n4 !== 2\n\n\n4 !== 2\n\n    at /home/chris/orca/projects/omp-move/patches/verify-anthropic-cache-boundaries.ts:164:12\n    at processTicksAndRejections (native:7:39)\n"
+}

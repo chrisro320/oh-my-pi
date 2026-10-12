@@ -1,0 +1,1089 @@
+{
+  "schema_version": 1,
+  "baseline": "18.7.0 current working 24-family plan",
+  "target": "18.10.1 (5d0aaffaf1f987503ce129a642fb6e30339615af)",
+  "decision": "INSTALLED_LATEST_PENDING_RESTART",
+  "status_semantics": "verified-candidate identifies repaired client consumers with synthetic acceptance and independent review; this verified candidate is now installed, but no live provider behavior or production activation is claimed. blocked-activation identifies old owners that the installed admission gate correctly refuses. excluded-by-plan means an unselected capability is not deployed.",
+  "severity_semantics": {
+    "P1": "Block affected capability/cutover until resolved or explicitly waived; conditional reachability is described.",
+    "P2": "Required repair or explicit scoped waiver; not automatically a global provider failure."
+  },
+  "update_contract": "Preserve IDs; update status, evidence and acceptance together. Do not promote static findings to observed without an executed consumer.",
+  "installation_evidence": "research/deployment-final.json",
+  "risks": [
+    {
+      "id": "R01",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "baseline-defect",
+      "title": "Ambiguous refresh exchange can redeem the same token twice",
+      "affected": [
+        "patched-18.7.0",
+        "18.10.0 migration"
+      ],
+      "families": [
+        "0090-omp-oauth-durable-refresh"
+      ],
+      "evidence_level": "observed-synthetic",
+      "summary": "A consumed synthetic R0 followed by response loss leaves the row active. A subsequent getApiKey sends R0 again; synthetic invalid_grant then disables the row. Durable lease/CAS does not make the remote exchange exactly-once. Crash, failed persistence, or lease takeover can leave the same ambiguity.",
+      "remediation": "Keep 0090 and add a durable per-row/token-generation exchange reservation before the POST. Never redeem an ambiguous generation again merely because a lease expired. Persist a known replacement before returning it; quarantine an unknown outcome and require recovery/reauth unless the provider supplies proven idempotency or recovery. This trades availability for credential safety.",
+      "acceptance": "V02: after simulated response loss, a second caller must issue zero additional POSTs for R0; a successful R1 survives waiter cancellation and owner commit races. No claim about actual provider revocation or grace windows.",
+      "evidence": [
+        "research/oauth-ambiguous-probe.json",
+        "research/review-auth.json",
+        "research/review-second-auth-wire.json"
+      ],
+      "independent_review": [
+        "SecondAuthWire"
+      ],
+      "source_anchors": [],
+      "implementation_evidence": [
+        "research/final-durability-gates/verify-oauth-durable-refresh.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R02",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "baseline-defect",
+      "title": "fork(entryId) restores the historical model and effort after restart",
+      "affected": [
+        "patched-18.7.0"
+      ],
+      "families": [
+        "family-persistent-prefix-resume",
+        "0069-omp-codex-effort-history-resume"
+      ],
+      "evidence_level": "observed-source-consumer",
+      "summary": "Actual SDK: astra/high -> sol/medium -> fork at an earlier assistant -> next live turn sol/medium -> fresh process astra/high. The dirty navigation repair does not cover the shared new-session branch boundary.",
+      "remediation": "Persist the effective model and thinking/effort selection on every successful writable branch/fork adoption in #branchIntoNewSession; preserve explicit fallback and ephemeral semantics. Do not fix only navigateTree.",
+      "acceptance": "V01: A->B, fork before B, send and flush, dispose, reopen in a fresh process: next serialized request and restored UI remain B with the same effort.",
+      "evidence": [
+        "research/fork-baseline-smoke.json",
+        "research/verify-model-selection-resume-18.7.0.log",
+        "research/review-resume.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [],
+      "implementation_evidence": [
+        "research/final-selection-gates/verify-model-selection-resume.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R03",
+      "status": "verified-candidate",
+      "severity": "P2",
+      "classification": "baseline-defect",
+      "title": "Session-ID changes lose persisted date/cwd anchors",
+      "affected": [
+        "patched-18.7.0"
+      ],
+      "families": [
+        "family-persistent-prefix-resume"
+      ],
+      "evidence_level": "observed-component-plus-callgraph",
+      "summary": "The real injector loses an earlier stamped message and restamps a later one after a session-ID change. Actual fork/import paths create a new ID but do not carry the date-cwd-anchors artifact. Full SDK wire-prefix capture for this path was not executed.",
+      "remediation": "Move anchor ownership into the session-owned persisted artifact set, or copy exact anchors atomically when cloning history; retain explicit-empty state and survive process restart.",
+      "acceptance": "V01: historical date/cwd bytes before a fork/import must equal those in the first fresh-process request afterwards; only new messages may receive new anchors.",
+      "evidence": [
+        "research/prefix-and-status-probe.json",
+        "research/review-resume.json",
+        "research/review-second-resume-storage.json"
+      ],
+      "independent_review": [
+        "SecondResumeStorage"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "replay-18.7.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/date-cwd-reminder.ts",
+          "line_start": 181,
+          "line_end": 186
+        }
+      ],
+      "implementation_evidence": [
+        "research/durability-gates/verify-date-cwd-anchor-stability.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R04",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "baseline-defect",
+      "title": "Effective Codex lane sentinel is swallowed by outer compact() catch",
+      "affected": [
+        "patched-18.7.0"
+      ],
+      "families": [
+        "family-compaction"
+      ],
+      "evidence_level": "observed-source-consumer",
+      "summary": "model.api=openai-responses with remoteCompaction.api=openai-codex-responses enters chain-only V2, throws CodexCompactionChainLostError, but the outer catch checks the native API and enters V1. One full-history /responses/compact request was intercepted.",
+      "remediation": "Rethrow the typed chain-loss sentinel unconditionally at the outer compaction boundary; use the effective-lane predicate for transport policy, reserving native-api checks for serializer typing.",
+      "acceptance": "V03: call compact(), not only requestCompactionV2Streaming, with the alternate effective API; assert typed terminal refusal and zero V1/SSE sends.",
+      "evidence": [
+        "research/compact-effective-lane-probe.json",
+        "research/review-remote-findings.json",
+        "research/review-second-compaction.json"
+      ],
+      "independent_review": [
+        "SecondCompaction"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "replay-18.7.0/node_modules/@oh-my-pi/pi-agent-core/src/compaction/compaction.ts",
+          "line_start": 2357,
+          "line_end": 2364
+        }
+      ],
+      "implementation_evidence": [
+        "research/corrected-wire-gates/verify-codex-compaction-chain-fail-closed.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R05",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "baseline-defect",
+      "title": "Entitlement rejection bypasses the chain-only SSE prohibition",
+      "affected": [
+        "patched-18.7.0"
+      ],
+      "families": [
+        "family-compaction"
+      ],
+      "evidence_level": "static-independent",
+      "summary": "With an eligible account/model and a live ordinary WS chain, a buffered invalid_access_program error strips access_programs and directly opens SSE. This path bypasses the transport-exception guard and can submit full history. No local-WS reproduction was executed; a drafted probe was removed.",
+      "remediation": "Enforce the compaction no-SSE invariant at every SSE admission, including buffered-error entitlement retries. Keep ordinary-turn entitlement recovery, reconnect via generate:false, and typed failure on exhausted chain recovery.",
+      "acceptance": "V03, after implementation approval: one eligible-account local-WS error case must make zero SSE/V1 sends; ordinary-turn entitlement recovery remains permitted. Do not add an unrelated transport suite.",
+      "evidence": [
+        "research/review-remote-findings.json",
+        "research/review-second-compaction.json"
+      ],
+      "independent_review": [
+        "SecondCompaction"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "replay-18.7.0/node_modules/@oh-my-pi/pi-ai/src/providers/openai-codex-responses.ts",
+          "line_start": 1935,
+          "line_end": 1936
+        }
+      ],
+      "implementation_evidence": [
+        "research/corrected-wire-gates/verify-codex-compaction-chain-fail-closed.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R06",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "target-defect",
+      "title": "Anthropic cache-control retry bypasses fallback-credit forfeiture protection",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "0074-omp-anthropic-context-cache-boundaries"
+      ],
+      "evidence_level": "observed-synthetic",
+      "summary": "Actual streamAnthropic retries a cache_control 400 without fallback_credit_token despite refusedContent containing an anthropicServerTool. The new retry rung calls prepareParams directly, bypassing credit-aware rebuildParams. This proves a tokenless replay, not actual provider rebilling.",
+      "remediation": "Route both cache-control retry rungs through rebuildParams(streamFailure), which invokes forfeitFallbackCredit and stops unsafe server-tool replay. Preserve the target credit protocol for safe requests.",
+      "acceptance": "V04: a credited server-tool refusal followed by cache-control rejection must stop before a tokenless second request; a safe text-only case may follow the existing credit-aware policy.",
+      "evidence": [
+        "research/anthropic-credit-probe.json",
+        "research/review-anthropic.json",
+        "research/review-second-auth-wire.json"
+      ],
+      "independent_review": [
+        "SecondAuthWire"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/providers/anthropic.ts",
+          "line_start": 3805,
+          "line_end": 3811
+        }
+      ],
+      "implementation_evidence": [
+        "research/corrected-wire-gates/verify-anthropic-cache-boundaries.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R07",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "target-defect",
+      "title": "In-process resume bypasses moved-session adoption guard",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "family-persistent-prefix-resume"
+      ],
+      "evidence_level": "static-independent",
+      "summary": "forkIfMovedAway is called at CLI startup, but selector/RPC/ACP resume reaches switchSession -> setSessionFile without that guard. A departed source may continue writing its old ID while the destination owns the same lineage.",
+      "remediation": "Enforce moved-marker handling at the common writable session-adoption boundary, including selector, RPC and ACP. Preserve read-only transfer inspection and cancellation/rollback ownership.",
+      "acceptance": "V06: mark a synthetic source moved; in-process writable adoption must fork/refuse by policy rather than append to the departed ID; read-only inspection remains nonmutating.",
+      "evidence": [
+        "research/review-upstream.json",
+        "research/review-extensions.json",
+        "research/review-second-resume-storage.json"
+      ],
+      "independent_review": [
+        "SecondResumeStorage"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-transfer.ts",
+          "line_start": 665,
+          "line_end": 670
+        }
+      ],
+      "implementation_evidence": [
+        "research/corrected-durability-gates/verify-session-transfer-authority.ts.json",
+        "research/final-selection-gates/verify-session-history-preview.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R08",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "target-defect",
+      "title": "Session import compares journals before acquiring ownership",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "family-persistent-prefix-resume"
+      ],
+      "evidence_level": "static-independent",
+      "summary": "unpack classifies local transcript prefixes before claiming the session lease. A live owner may append and release between comparison and claim; the import can then publish older incoming bytes and delete the set-aside newer transcript.",
+      "remediation": "Acquire session-ID ownership before discovering/reading/classifying writable local journals; revalidate any new copies under that ownership and hold it through publication. Never delete a divergent backup as a mere successful-prefix replacement.",
+      "acceptance": "V06: deterministic append-between-discovery-and-claim schedule must retain the new local message or refuse import; equal/prefix imports still complete without duplicate identities.",
+      "evidence": [
+        "research/review-upstream.json",
+        "research/review-second-resume-storage.json"
+      ],
+      "independent_review": [
+        "SecondResumeStorage"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-transfer.ts",
+          "line_start": 603,
+          "line_end": 606
+        }
+      ],
+      "implementation_evidence": [
+        "research/corrected-durability-gates/verify-session-transfer-authority.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R09",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "baseline-defect",
+      "title": "Native cache_turn description crashes",
+      "affected": [
+        "patched-18.7.0"
+      ],
+      "families": [
+        "family-status-accounting"
+      ],
+      "evidence_level": "observed-source-consumer",
+      "summary": "describeSegment(\"cache_turn\", {}) throws TypeError because the new segment has render but no describe; the native renderer dispatches describe.",
+      "remediation": "Add describe using the same settled-assistant cache semantics as render; retain the target native segment lifecycle.",
+      "acceptance": "V07: render the actual native cache_turn surface with a settled assistant; confirm values and no dispatch exception. The audit exercised describeSegment directly, not the desktop surface.",
+      "evidence": [
+        "research/prefix-and-status-probe.json",
+        "research/review-peripheral-findings.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [
+        {
+          "tree_path": "replay-18.7.0/node_modules/@oh-my-pi/pi-tui/src/status-line/segments.ts",
+          "line_start": 1015,
+          "line_end": 1018
+        }
+      ],
+      "implementation_evidence": [
+        "research/selected-stable-gates/verify-main-cache-hit.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R10",
+      "status": "verified-candidate",
+      "severity": "P2",
+      "classification": "baseline-defect",
+      "title": "Native and ANSI token/cache accounting disagree",
+      "affected": [
+        "patched-18.7.0"
+      ],
+      "families": [
+        "family-status-accounting",
+        "family-usage-pipeline"
+      ],
+      "evidence_level": "static-primary",
+      "summary": "token_total describe omits cacheRead/orchestrationCacheRead and cache_hit describe includes auxiliary usage rather than the main-only calculation used by patched render.",
+      "remediation": "Share existing settled/main accounting values across render and describe without introducing a second formula; preserve cache-inclusive totals and main-only hit rate.",
+      "acceptance": "V07: use one main-plus-auxiliary usage fixture and inspect both actual render forms for the same totals and rate; no source-text assertion.",
+      "evidence": [
+        "research/review-peripheral-findings.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [
+        {
+          "tree_path": "replay-18.7.0/node_modules/@oh-my-pi/pi-tui/src/status-line/segments.ts",
+          "line_start": 739,
+          "line_end": 745
+        }
+      ],
+      "implementation_evidence": [
+        "research/selected-stable-gates/verify-main-cache-hit.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R11",
+      "status": "verified-candidate",
+      "severity": "P2",
+      "classification": "baseline-defect",
+      "title": "Broker usage branch drops the provider filter",
+      "affected": [
+        "patched-18.7.0",
+        "stock-18.10.0"
+      ],
+      "families": [
+        "family-usage-pipeline",
+        "0090-omp-oauth-durable-refresh"
+      ],
+      "evidence_level": "static-independent",
+      "summary": "getUsageSnapshots takes storeOverride before the local provider filter; the remote store/broker requests all providers. A non-Anthropic active provider can therefore cause an Anthropic usage probe and related credential activity.",
+      "remediation": "Carry provider filtering through override, client, broker request, server selection and cache key; intersect any runtime provider filter consistently. Update source and declarations together.",
+      "acceptance": "V02: through the real broker consumer, a non-Anthropic filter produces zero Anthropic usage/refresh calls, while the selected provider still returns usage.",
+      "evidence": [
+        "research/review-auth.json",
+        "research/review-second-auth-wire.json"
+      ],
+      "independent_review": [
+        "SecondAuthWire"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "replay-18.7.0/node_modules/@oh-my-pi/pi-ai/src/auth/usage.ts",
+          "line_start": 807,
+          "line_end": 807
+        }
+      ],
+      "implementation_evidence": [
+        "research/final-durability-gates/verify-oauth-durable-refresh.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R12",
+      "status": "verified-candidate",
+      "severity": "P2",
+      "classification": "baseline-defect",
+      "title": "Devin AssignModel auth rejection does not invalidate cached auth",
+      "affected": [
+        "patched-18.7.0"
+      ],
+      "families": [
+        "family-devin-wire"
+      ],
+      "evidence_level": "static-primary",
+      "summary": "AssignModel runs before the chat retry and throws on 401/403; the cached JWT remains reusable until expiry, so later turns repeat the same failure.",
+      "remediation": "Include assignment auth rejection in the same bounded auth-cache invalidation/refresh loop as chat; exactly one fresh retry, while non-auth assignment failures remain terminal.",
+      "acceptance": "V09: assignment 401 then success must refresh once and use the new JWT; non-auth failure must not refresh or retry.",
+      "evidence": [
+        "research/review-peripheral-findings.json",
+        "research/review-peripheral.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [
+        {
+          "tree_path": "replay-18.7.0/node_modules/@oh-my-pi/pi-ai/src/providers/devin.ts",
+          "line_start": 264,
+          "line_end": 267
+        }
+      ],
+      "implementation_evidence": [
+        "research/selected-stable-gates/verify-devin-auth-cache.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R13",
+      "status": "verified-candidate",
+      "severity": "P2",
+      "classification": "diagnostic-defect",
+      "title": "Anthropic wire audit misclassifies the native-compaction envelope",
+      "affected": [
+        "patched-18.7.0",
+        "18.10.0 migration"
+      ],
+      "families": [
+        "0074-omp-anthropic-context-cache-boundaries",
+        "family-compaction",
+        "0095-omp-context-audit-request-purpose"
+      ],
+      "evidence_level": "static-independent",
+      "summary": "The retained audit recognizes legacy context_management.pause_after_compaction, while the actual native request uses top-level compaction.type=summarize. It may skip the compact comparison and overwrite the ordinary baseline.",
+      "remediation": "Classify the real top-level envelope and keep compaction/main baselines separated. This repairs diagnostics, not a demonstrated provider cache defect.",
+      "acceptance": "V04: pass the actual native builder output through the diagnostic and assert compact classification plus unchanged ordinary baseline.",
+      "evidence": [
+        "research/review-anthropic.json",
+        "research/review-second-auth-wire.json"
+      ],
+      "independent_review": [
+        "SecondAuthWire"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "replay-18.7.0/node_modules/@oh-my-pi/pi-ai/src/providers/anthropic-request-audit.ts",
+          "line_start": 79,
+          "line_end": 82
+        }
+      ],
+      "implementation_evidence": [
+        "research/selected-stable-gates/verify-anthropic-request-audit.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "R14",
+      "status": "verified-candidate",
+      "severity": "P2",
+      "classification": "diagnostic-defect",
+      "title": "Side requests can contaminate cache-miss attribution",
+      "affected": [
+        "current repository extension",
+        "18.10.0 side-request expansion"
+      ],
+      "families": [
+        "0095-omp-context-audit-request-purpose"
+      ],
+      "evidence_level": "static-parent",
+      "summary": "cache-prefix-audit-extension keys a mutable diff by session+payload model, then associates message_end usage. Same-model title/side requests can replace the main comparison and produce an unsupported MISS CAUSED BY attribution.",
+      "remediation": "Correlate request and completion by stable request identity, provider, wire model, purpose and lineage; compare system/tools inside that lineage rather than making their hash part of the key. Missing correlation must report unknown, not a cause.",
+      "acceptance": "V08: same-model main/side interleaving cannot borrow payload diffs or populated headers. Request diffs explicitly report request-only correlation; completion usage reports unavailable correlation and unknown cause when no stable request identity is supplied. Privacy remains sample-free.",
+      "evidence": [
+        "research/review-extensions.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [],
+      "implementation_evidence": [
+        "research/candidate-cache-prefix-audit-corrected.json",
+        "research/candidate-cache-prefix-header-negative-corrected.json",
+        "research/candidate-review-ReviewDiagnostic18100.json"
+      ],
+      "verification_boundary": "False causal attribution is removed. Full request/completion correlation is not claimed.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M01",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "migration-loss",
+      "title": "0090 durable-refresh protections are not subsumed upstream",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "0090-omp-oauth-durable-refresh"
+      ],
+      "evidence_level": "observed-gate-plus-static-independent",
+      "summary": "Target loses waiter-only cancellation, login-only Anthropic bootstrap, same-owner pre-CAS renewal, and owner-only durable return without caller stale writes. The target gate failed its first identity-preservation scenario; other losses are independently source-traced, not all executed.",
+      "remediation": "Rebase the entire owner protocol across refresh/select/usage/refreshById and broker routes; keep new reason/overrideMints behavior only where compatible with single durable ownership. Also close R01.",
+      "acceptance": "V02: rerun the existing focused OAuth gate against the complete candidate, preserving every current assertion; require safe missing-identity rotation, cancellation, expiry, takeover, and no post-owner overwrite.",
+      "evidence": [
+        "research/focused-probes.json",
+        "research/review-auth.json",
+        "research/review-second-auth-wire.json"
+      ],
+      "independent_review": [
+        "SecondAuthWire"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/auth/refresh.ts",
+          "line_start": 497,
+          "line_end": 505
+        },
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/registry/oauth/anthropic.ts",
+          "line_start": 94,
+          "line_end": 101
+        },
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/auth/select.ts",
+          "line_start": 777,
+          "line_end": 786
+        },
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/auth/refresh.ts",
+          "line_start": 329,
+          "line_end": 339
+        }
+      ],
+      "implementation_evidence": [
+        "research/final-durability-gates/verify-oauth-durable-refresh.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M02",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "migration-loss",
+      "title": "Persistent-prefix and navigation-selection family remains required",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "family-persistent-prefix-resume"
+      ],
+      "evidence_level": "observed-source-consumer-plus-static",
+      "summary": "Stock target navigation keeps B live but a fresh process restores A. Retry/eval/length-reminder durability, paired-tool pruning and frozen request-prefix state remain local capabilities; the current dirty family is authoritative.",
+      "remediation": "Rebase the complete working family, not only committed HEAD. Preserve the local navigateTree repair while moving selection durability to all writable branch boundaries; audit durable versus live serialized messages.",
+      "acceptance": "V01: compare first outgoing wire prefixes and B model/effort after navigation and fresh resume; exercise one persisted reminder and one interrupted tool pair through real conversion, not a session-only reconstruction.",
+      "evidence": [
+        "research/resume-target-smoke.json",
+        "research/review-resume.json",
+        "research/baseline-manifest.json"
+      ],
+      "independent_review": [
+        "SecondResumeStorage"
+      ],
+      "source_anchors": [],
+      "implementation_evidence": [
+        "research/corrected-host-gates/verify-prompt-effort-resume.ts.json",
+        "research/durability-gates/verify-interrupt-prune-symmetry.ts.json",
+        "research/durability-gates/verify-turn-recovery-reminder-persist.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M03",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "migration-loss",
+      "title": "Codex effort replay must survive the new planner lifecycle",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "0069-omp-codex-effort-history-resume"
+      ],
+      "evidence_level": "static-independent",
+      "summary": "Target effort state is process-local. Replaying history without assistant providerPayload.effortControl can reset the low header/high update sequence or omit a configuration_update after restart.",
+      "remediation": "Port durable effort metadata and historical replay into the new sessionId-required planner; preserve parentSessionId copying, releaseSession cleanup and minimized side effort.",
+      "acceptance": "V01: change effort twice, flush and restart; compare exact historical effort control ordering and the next request effort, including a low initial header.",
+      "evidence": [
+        "research/review-resume.json",
+        "research/review-second-resume-storage.json"
+      ],
+      "independent_review": [
+        "SecondResumeStorage"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/providers/openai-codex-responses.ts",
+          "line_start": 1646,
+          "line_end": 1655
+        }
+      ],
+      "implementation_evidence": [
+        "research/selected-stable-gates/verify-codex-effort-resume.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M04",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "semantic-rebase",
+      "title": "0094 must distinguish legacy omissions from new server-managed drop reports",
+      "affected": [
+        "stock-18.10.0 plus naive 0094 replay"
+      ],
+      "families": [
+        "0094-omp-anthropic-thinking-drop-resume"
+      ],
+      "evidence_level": "static-primary",
+      "summary": "Upstream deliberately retains server-reported drop_block material on the wire to preserve prefix identity. Mechanically replaying old client deletion semantics would undo that behavior; old sessions still require their already-committed omission state.",
+      "remediation": "Split provenance: restore legacy durable omission sets for first resume; persist explicit client-side 400 prefix-binding removals; never convert a new server-managed drop report into client deletion. Preserve signed/redacted/tool block order and model compatibility.",
+      "acceptance": "V04: old-session omission bytes remain stable; a new server-managed report leaves historical signed blocks on wire; explicit client repair persists across a fresh process.",
+      "evidence": [
+        "research/review-anthropic.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [],
+      "implementation_evidence": [
+        "research/corrected-wire-gates/verify-anthropic-thinking-drop-resume.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M05",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "migration-loss",
+      "title": "Anthropic checkpoint eligibility and OAuth retention policy require rebase",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "0074-omp-anthropic-context-cache-boundaries"
+      ],
+      "evidence_level": "static-primary",
+      "summary": "Upstream rewrites the backwards checkpoint walk; local thinking/redacted eligibility and OAuth cacheRetention=none handling are not subsumed. Simple user-turn counts do not bound tool/image content-block distance.",
+      "remediation": "Rebase eligibility into the new walk, keeping upstream head relocation and maximum breakpoint accounting. Preserve exact requested TTL and no-cache policy rather than unconditional OAuth tool markers.",
+      "acceptance": "V04: inspect actual serialized breakpoints with thinking/redacted/tool/image history at the checkpoint boundary; no more than the provider limit, and cacheRetention=none produces no markers.",
+      "evidence": [
+        "research/review-anthropic.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [],
+      "implementation_evidence": [
+        "research/corrected-wire-gates/verify-anthropic-cache-boundaries.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M06",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "migration-loss",
+      "title": "Host-vouched summary/native compaction capabilities must be retained",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "family-compaction"
+      ],
+      "evidence_level": "static-independent",
+      "summary": "Stock target uses cut summaries/native safeCut instead of the full live host-vouched replay. Losing the local callback/ownership/model gates changes request shape. Prefix equality still cannot prove a server cache hit across native compact beta/context namespaces.",
+      "remediation": "Rebase the full live-context callback closure through manual, automatic and advisor calls; retain same-host-model and leaf/session ownership, one-call split-turn summary, classified capacity handling, and explicit configured method transitions.",
+      "acceptance": "V05: intercept actual host-built summary/native requests and assert history coverage and no hidden fallback; live cache-read acceptance remains a separate explicitly authorized provider observation.",
+      "evidence": [
+        "research/review-local-compaction.json",
+        "research/review-second-compaction.json"
+      ],
+      "independent_review": [
+        "SecondCompaction"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-agent-core/src/compaction/compaction.ts",
+          "line_start": 890,
+          "line_end": 896
+        }
+      ],
+      "implementation_evidence": [
+        "research/selected-stable-gates/verify-compaction-cache-liveness.ts.json",
+        "research/selected-stable-gates/verify-anthropic-native-compaction-live-context.ts.json",
+        "research/selected-stable-gates/verify-compaction-lane-trace.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M07",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "migration-loss",
+      "title": "Hindsight recall schema transition can change the first resumed prefix",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "family-hindsight"
+      ],
+      "evidence_level": "static-independent",
+      "summary": "Target memory_recall {version,scope,text,memories} does not automatically understand local hindsight_recall_snippet or MM snapshots. Treating legacy records as absent reinjects recall or changes prefix bytes.",
+      "remediation": "Explicitly migrate old records into the new ownership model while preserving exact text, empty snapshots, reset boundaries, scope, MM snapshots and promotion tail. Do not refresh legacy content during resume.",
+      "acceptance": "V01: reopen legacy nonempty and explicit-empty snapshots in fresh processes; first wire bytes remain identical and no new recall is injected before the next permitted boundary.",
+      "evidence": [
+        "research/review-extensions.json",
+        "research/review-second-resume-storage.json"
+      ],
+      "independent_review": [
+        "SecondResumeStorage"
+      ],
+      "source_anchors": [
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/hindsight/state.ts",
+          "line_start": 448,
+          "line_end": 455
+        }
+      ],
+      "implementation_evidence": [
+        "research/final-durability-gates/verify-hindsight-recall-snapshot.ts.json",
+        "research/corrected-durability-gates/verify-context-persist-audit.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M08",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "migration-loss",
+      "title": "Image/snapcompact budgets lose prior archive credit and provider-specific accounting",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "family-image-budget-snapcompact"
+      ],
+      "evidence_level": "static-primary",
+      "summary": "Target lacks repeated-pass archive credit, provider/API/alias-aware limits including Devin 200, and measured DeepSeek frame pricing in the active tokenizer/key domain. These are separate consumer boundaries, not grounds for blanket fallback limits.",
+      "remediation": "Rebase all family members on the new frame rerender calculations; credit the replaced archive and carry the resolved provider/API into every outgoing image guard and shared tokenizer.",
+      "acceptance": "V05: one repeated compact pass must preserve the replaced-archive credit; one provider/API alias boundary must choose its actual limit and measured frame cost through the outgoing consumer.",
+      "evidence": [
+        "research/review-local-compaction.json",
+        "research/review-peripheral.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-maintenance.ts",
+          "line_start": 2553,
+          "line_end": 2556
+        },
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/provider-image-budget.ts",
+          "line_start": 133,
+          "line_end": 138
+        },
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/snapcompact/src/snapcompact.ts",
+          "line_start": 264,
+          "line_end": 266
+        }
+      ],
+      "implementation_evidence": [
+        "research/selected-stable-gates/verify-provider-image-budget.ts.json",
+        "research/selected-stable-gates/verify-snapcompact-frame-reprice.ts.json",
+        "research/selected-stable-gates/verify-snapcompact-model-billing.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M09",
+      "status": "verified-candidate",
+      "severity": "P2",
+      "classification": "migration-loss",
+      "title": "Warm-prefix supersede and idle-budget protections are not upstreamed",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "0010-omp-extension-idle-ephemeral-turn",
+        "0046-omp-supersede-warm-prefix-guard",
+        "0092-omp-cache-warming-idle-budget"
+      ],
+      "evidence_level": "static-primary",
+      "summary": "A bounded 8000-token supersede lookback still rewrites previously sent warm history. The stock cache warmer retains fixed idle limits and lacks local parking/budget/result behavior; idle side work still needs synchronous reservation and epoch cancellation.",
+      "remediation": "Keep zero-suffix warm-prefix guarding, synchronous idle admission and cancellation/drain ownership; retain post-turn budget parking and one-hour cache deadline without changing the system/tools prefix.",
+      "acceptance": "V08: a warm sent suffix is not rewritten; an idle reservation excludes a racing main turn and drains on session transition; exhausted budget parks without creating extra requests.",
+      "evidence": [
+        "research/review-local-compaction.json",
+        "research/review-extensions.json",
+        "research/review-anthropic.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [
+        {
+          "tree_path": "pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-maintenance.ts",
+          "line_start": 755,
+          "line_end": 759
+        }
+      ],
+      "implementation_evidence": [
+        "research/selected-stable-gates/verify-supersede-warm-prefix-guard.ts.json",
+        "research/corrected-host-gates/verify-idle-ephemeral-reservation.ts.json",
+        "research/selected-stable-gates/verify-cache-warming-idle-budget.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M10",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "migration-loss",
+      "title": "Input translation and request-purpose changes require complete host/plugin cutover",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "family-input-translation",
+        "0095-omp-context-audit-request-purpose"
+      ],
+      "evidence_level": "static-primary",
+      "summary": "Local translation owns prepare/ack/persisted append/cancel/drain/displayText across host, queue, extension exports and declarations. Purpose fields must reach actual SDK/provider events; target also changes history indexing and side requests.",
+      "remediation": "Rebase the complete ownership protocol and d.ts/exports; keep the dirty extension default-model and fail-closed compatibility changes. Preserve target history-index bookkeeping. Remove obsolete aliases rather than maintaining dual semantics.",
+      "acceptance": "V08: translate then cancel/session-switch before append and prove no stale insertion; accepted translated text and displayText survive resume. Correlate main/side purpose without storing side turns in the main transcript.",
+      "evidence": [
+        "research/review-extensions.json",
+        "research/baseline-manifest.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [],
+      "implementation_evidence": [
+        "research/selected-stable-gates/verify-user-display-text-queue.ts.json",
+        "research/corrected-host-gates/verify-rejected-prepared-draft-restore.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M11",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "semantic-rebase",
+      "title": "Native replay warming is only partially adopted upstream",
+      "affected": [
+        "stock-18.10.0"
+      ],
+      "families": [
+        "0017-omp-openai-responses-native-replay-warm"
+      ],
+      "evidence_level": "static-primary",
+      "summary": "Target initializes nativeHistoryReplayWarmed from !model.compat.connectionBoundNativeHistory. This adopts the ordinary self-contained case but intentionally preserves connection-bound warmup; blanket true would remove a necessary exception.",
+      "remediation": "Reduce 0017 to any demonstrably missing capability rather than overwrite the new conditional. Retire only after real supported-model consumers prove full subsumption; no current unconditional retirement.",
+      "acceptance": "V09: self-contained native history does not trigger redundant warm replay; connection-bound history still performs its required initialization on a new connection.",
+      "evidence": [
+        "research/review-resume.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [],
+      "implementation_evidence": [
+        "research/selected-stable-gates/verify-prefix-cache-compaction.ts.json"
+      ],
+      "verification_boundary": "Actual repaired18.10.0 synthetic consumer; exact unchanged-source or affected-consumer18.10.1 evidence tracked in latest release acceptance. No production-provider claim.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "M12",
+      "status": "excluded-by-plan",
+      "severity": "P1",
+      "classification": "optional-package-blocker",
+      "title": "Undeployed 0097 native candidate is incompatible with the target IPC API",
+      "affected": [
+        "optional 0097 on 18.10.0"
+      ],
+      "families": [],
+      "evidence_level": "static-primary",
+      "summary": "The 18.7 candidate native binary lacks the target IpcConnection/IpcServer contract. Controller version/hash checks correctly refuse it; it is not part of the deployed 24 families.",
+      "remediation": "Keep 0097 excluded. Only an explicit feature selection may trigger a new native build, target-specific source/declaration rebase and checksum publication.",
+      "acceptance": "V10 only if explicitly selected: native imports and IPC client/server handshake must execute against the target binary, not merely pass patch application.",
+      "evidence": [
+        "research/review-peripheral.json",
+        "research/baseline-manifest.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [],
+      "implementation_evidence": [
+        "../../../patches/.18.10.1-families/manifest.json",
+        "research/candidate-18.10.1-representation-initial.json"
+      ]
+    },
+    {
+      "id": "M13",
+      "status": "blocked-activation",
+      "severity": "P1",
+      "classification": "deployment-gate",
+      "title": "Equal DB versions do not prove safe journal/auth rollback",
+      "affected": [
+        "18.7.0 -> 18.10.1 cutover"
+      ],
+      "families": [],
+      "evidence_level": "observed-synthetic-and-installed-admission",
+      "summary": "Reviewed agent schema 6 and auth schema 8 remain unchanged, so no new schema-migration defect is asserted. New journal semantics, token rotations, ownership markers and native/daemon IPC can still make a code-only or stale-data rollback unsafe.",
+      "remediation": "Preserve the whole runtime/native/ledger closure and immutable old source paths. Never restore token state as code rollback. Production admission must exclude old credential-capable owners/spawn authorities; code installation is distinct from activation. Deployment is explicitly authorized; no additional approval is required.",
+      "acceptance": "V10/V11: validate synthetic resume/import plus process ownership and code-only rollback shape; do not infer safety from schema integers or restore stale token snapshots.",
+      "evidence": [
+        "research/review-upstream.json",
+        "research/review-peripheral.json",
+        "research/runtime-isolation.json"
+      ],
+      "independent_review": [],
+      "source_anchors": [],
+      "implementation_evidence": [
+        "research/code-only-backup.json",
+        "research/candidate-review-ReviewActivation18100.json",
+        "research/release-publication-final-boundary.json",
+        "research/installed-private-smoke.json",
+        "research/deployment-final.json"
+      ],
+      "operational_state": "Code installation and publication complete. Captured old sessions/brokers remain live; installed launcher refuses normal production launch with exit75. No forced retirement, current-session upgrade or production admission occurred. Exit old owners normally before launching; pre-admission code rollback remains available."
+    },
+    {
+      "id": "TUI-18101-HOOK",
+      "status": "verified-candidate",
+      "severity": "P2",
+      "classification": "latest-upstream-defect",
+      "title": "Disposed native hook input resurrects countdown",
+      "affected": [
+        "18.10.1"
+      ],
+      "families": [
+        "family-input-translation"
+      ],
+      "evidence_level": "observed-synthetic",
+      "summary": "Disposed native hook input resurrects countdown",
+      "remediation": "HookInputComponent terminal dispose guard rejects native/input/paste and timer continuation",
+      "acceptance": "Actual native component assertions; cancelled and uncancelled controls. No real OAuth/provider calls.",
+      "evidence": [
+        "research/native-dialog-18101-before.json"
+      ],
+      "implementation_evidence": [
+        "research/native-discovery-after.json",
+        "research/candidate-review-ReviewLatestHost18101.json",
+        "research/candidate-review-ReviewLatestTui18101.json"
+      ],
+      "verification_boundary": "Actual dialog/native description contract, not OS clipboard or real server OAuth.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "TUI-18101-PATH",
+      "status": "verified-candidate",
+      "severity": "P2",
+      "classification": "latest-upstream-defect",
+      "title": "Native File copy rejects Windows and UNC paths",
+      "affected": [
+        "18.10.1"
+      ],
+      "families": [
+        "0050-omp-session-history-preview"
+      ],
+      "evidence_level": "observed-synthetic",
+      "summary": "Native File copy rejects Windows and UNC paths",
+      "remediation": "Use explicit In-memory sentinel instead of POSIX-only path heuristic",
+      "acceptance": "Actual native component assertions; cancelled and uncancelled controls. No real OAuth/provider calls.",
+      "evidence": [
+        "research/native-dialog-18101-before.json"
+      ],
+      "implementation_evidence": [
+        "research/native-discovery-after.json",
+        "research/candidate-review-ReviewLatestHost18101.json",
+        "research/candidate-review-ReviewLatestTui18101.json"
+      ],
+      "verification_boundary": "Actual dialog/native description contract, not OS clipboard or real server OAuth.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "TUI-18101-1",
+      "status": "verified-candidate",
+      "severity": "P1",
+      "classification": "latest-upstream-defect",
+      "title": "Closed MCP wizard starts OAuth or subsequent metadata request",
+      "affected": [
+        "18.10.1"
+      ],
+      "families": [
+        "0090-omp-oauth-durable-refresh"
+      ],
+      "evidence_level": "observed-synthetic",
+      "summary": "Closed MCP wizard starts OAuth or subsequent metadata request",
+      "remediation": "Terminal close invalidates attempt before notification; every async continuation checks ownership before a subsequent side effect",
+      "acceptance": "Actual native component assertions; cancelled and uncancelled controls. No real OAuth/provider calls.",
+      "evidence": [
+        "research/native-discovery-before.json"
+      ],
+      "implementation_evidence": [
+        "research/native-discovery-after.json",
+        "research/candidate-review-ReviewLatestHost18101.json",
+        "research/candidate-review-ReviewLatestTui18101.json"
+      ],
+      "verification_boundary": "Actual dialog/native description contract, not OS clipboard or real server OAuth.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "TUI-18101-2",
+      "status": "verified-candidate",
+      "severity": "P2",
+      "classification": "latest-upstream-defect",
+      "title": "Reserved native copy action copies BTW button label",
+      "affected": [
+        "18.10.1"
+      ],
+      "families": [
+        "family-input-translation"
+      ],
+      "evidence_level": "observed-synthetic",
+      "summary": "Reserved native copy action copies BTW button label",
+      "remediation": "Emit and receive copy-answer rather than terminal-local copy",
+      "acceptance": "Actual native component assertions; cancelled and uncancelled controls. No real OAuth/provider calls.",
+      "evidence": [
+        "research/latest-tui-actions-before-corrected.json"
+      ],
+      "implementation_evidence": [
+        "research/native-discovery-after.json",
+        "research/candidate-review-ReviewLatestHost18101.json",
+        "research/candidate-review-ReviewLatestTui18101.json"
+      ],
+      "verification_boundary": "Actual dialog/native description contract, not OS clipboard or real server OAuth.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    },
+    {
+      "id": "TUI-18101-3",
+      "status": "verified-candidate",
+      "severity": "P2",
+      "classification": "latest-upstream-defect",
+      "title": "Advisor keyboard End selects hidden Done entry",
+      "affected": [
+        "18.10.1"
+      ],
+      "families": [
+        "0048-omp-advisor-quota-rotation-bound"
+      ],
+      "evidence_level": "observed-synthetic",
+      "summary": "Advisor keyboard End selects hidden Done entry",
+      "remediation": "Keep Done visible in native picker catalogue and apply existing draft transition",
+      "acceptance": "Actual native component assertions; cancelled and uncancelled controls. No real OAuth/provider calls.",
+      "evidence": [
+        "research/latest-tui-actions-before-corrected.json"
+      ],
+      "implementation_evidence": [
+        "research/native-discovery-after.json",
+        "research/candidate-review-ReviewLatestHost18101.json",
+        "research/candidate-review-ReviewLatestTui18101.json"
+      ],
+      "verification_boundary": "Actual dialog/native description contract, not OS clipboard or real server OAuth.",
+      "latest_acceptance": "research/latest-release-acceptance.json"
+    }
+  ]
+}

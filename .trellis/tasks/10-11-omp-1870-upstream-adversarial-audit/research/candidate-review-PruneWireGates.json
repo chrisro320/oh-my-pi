@@ -1,0 +1,91 @@
+{
+  "scope": "Applied Main's updated priority: immediate high-confidence deletions/trims only. No relocation, consolidation, edits, commands, builds, tests, provider calls, or credential inspection.",
+  "delete_whole_files": [
+    {
+      "file": "patches/verify-snapcompact-frame-budget.ts",
+      "range": "1-55 (entire file)",
+      "classification": "Unregistered manual diagnostic, not meaningful verification; not an unsupported-baseline gate.",
+      "reason": "Reads a caller-supplied transcript (14-26), invokes compact (29-42), exits successfully when no archive exists (43-47), and only prints frame sizes/TOTAL (48-55). It never asserts the advertised 3 MB bound or another observable. Deleting it removes a manual reporting utility, not an enforced safety invariant.",
+      "references": "No registration in current patches/apply.sh:462-518. patches/PATCHES.md:257 documents its historical invocation; :1380 calls it an orphan diagnostic. Mark those references historical/removed rather than retaining a runnable command."
+    }
+  ],
+  "trim_source_only": [
+    {
+      "file": "patches/verify-ollama-cloud-usage.ts",
+      "delete_ranges": [
+        "28-35"
+      ],
+      "documentation_repairs": [
+        "Remove the obsolete static-check description at line 7.",
+        "Update patches/PATCHES.md:1451 to describe the retained behavior rather than endpoint/source spelling."
+      ],
+      "classification": "Pure source-text/implementation-wording assertions.",
+      "reason": "These assertions inspect source substrings, including the absence of statusForUsedFraction. Keep the real fetchUsage assertions at 63-142: window mapping, clamping/status, error handling, and especially zero fetches for local/keyless providers (115-142). The mock does not inspect the requested URL, so removing line 30 deliberately removes only lexical endpoint presence, not an existing wire-endpoint assertion.",
+      "current_controller_reference": "patches/apply.sh:467; retain this registration.",
+      "relevance": "No version-specific branch; retained behavior remains selected for the current plans."
+    }
+  ],
+  "trim_exact_duplicates": [
+    {
+      "file": "patches/verify-snapcompact-model-billing.ts",
+      "delete_ranges": [
+        "164-168",
+        "172",
+        "178",
+        "180",
+        "182-187",
+        "189"
+      ],
+      "classification": "Ten duplicated producer-helper assertions, not redundant downstream consumer coverage.",
+      "duplicate_evidence": "The same provider/API inputs and expected budgets are already asserted by patches/verify-provider-image-budget.ts:124-144. Both files import the selected SNAPCOMPACT_ROOT/src/snapcompact.ts; provider-image additionally exercises clampProviderContextImages at 145-150.",
+      "preserve": "Keep billing's unique assertions at 171 (primary commandcode versus Anthropic API), 175 (alias plus unknown wire API), and 188 (undefined provider plus commandcodex API). Do not delete the whole namespace section. Keep measured pricing, off-curve IDs and frame cache-key discrimination at 104-153.",
+      "current_controller_references": "patches/apply.sh:465-466 retains both files.",
+      "relevance": "Duplicates run independently of version. Billing also has distinct 18.7.0/18.10.x tokenizer/frame-cache assertions at 107-116."
+    }
+  ],
+  "do_not_delete_for_this_prune": [
+    {
+      "files": [
+        "patches/verify-oauth-durable-refresh.ts"
+      ],
+      "reason": "Unique credential safety: healthy legacy rows survive startup unchanged (563-600), cancellation does not discard a consumed rotation (911-980), and latest-release ambiguous generations cannot be redeemed again after restart/lease expiry (1374-1390). Broker filters and authoritative-row projection are separate consumer coverage (1432-1558). These are durable-store/request-count assertions, not source wording.",
+      "controller": "patches/apply.sh:516; file selects 18.4.4/18.7.0/18.10.0/18.10.1 at 82-84."
+    },
+    {
+      "files": [
+        "patches/verify-anthropic-cache-boundaries.ts",
+        "patches/verify-anthropic-request-audit.ts",
+        "patches/verify-anthropic-thinking-drop-resume.ts"
+      ],
+      "reason": "Do not treat these as interchangeable cache tests. Cache-boundaries has latest-release credit-safe retry assertions, including no second request after credited server-tool execution (119-184). Request-audit compares archived bytes against actual final fetch bytes and rejects credential leakage (75-81). Thinking-drop distinguishes current server reports from legacy durable omission records and checks scope/carrier matching (207-210,367-387). Those legacy records are current migration inputs, not obsolete-baseline-only coverage.",
+      "controller": "patches/apply.sh:498-499,510."
+    },
+    {
+      "files": [
+        "patches/verify-codex-compaction-chain.ts",
+        "patches/verify-codex-compaction-chain-fail-closed.ts",
+        "patches/verify-codex-compaction-chain-fail-closed-faults.sh"
+      ],
+      "reason": "Body-builder coverage is not a duplicate of transport admission: chain.ts:109-183 checks inherited baseline fields and pending tool outputs; fail-closed.ts:193-233 checks effective-lane refusal at actual outer consumers, and :434-482 checks accepted metadata/chain recovery. Fault runner :24-29 has stale version lists, but still explicitly includes supported 18.4.4; :43-75 and :110-146 mutate meaningful behavior/types. That does not justify whole-file deletion.",
+      "controller": "patches/apply.sh:490,495; standalone fault-runner invocation documented in .trellis/spec/backend/verification-gate-contracts.md:435."
+    },
+    {
+      "files": [
+        "patches/verify-provider-image-budget.ts",
+        "patches/verify-snapcompact-model-billing.ts",
+        "patches/verify-devin-auth-cache.ts"
+      ],
+      "reason": "Keep producer and consumer checks distinct: provider-image:99-114 verifies unchanged mid-history bytes and oldest-image eviction, while :145-150 checks alias behavior. Billing:107-116 checks measured frame prices and model-dependent cache invalidation. Devin-auth-cache:277-365 checks out-of-order JWT-cache publication and one shared assignment/chat recovery budget; removing it loses credential-cache safety.",
+      "controller": "patches/apply.sh:465-466,469."
+    },
+    {
+      "files": [
+        "patches/verify-devin-fusion.ts",
+        "patches/verify-devin-fusion-faults.py"
+      ],
+      "reason": "Unselected is not proof of uselessness. The gate contains actual wire assertions (150-157,244-246), real provider credential/close-scoped assignment-cache checks (382-394), and SDK handoff consumers (417-454). Its fault companion:18-29 targets those behaviors and :40 invokes the gate. Neither is registered in current apply.sh:462-518. Current selected-release compatibility/live ownership is unknown from this narrowed audit; no deletion recommendation."
+    }
+  ],
+  "remaining_scope": "No additional high-confidence whole-file deletion established. I did not expand into an exhaustive version audit after Main narrowed the task. Old version branches inside otherwise meaningful current compaction gates are not deletion grounds.",
+  "required_machine_checks": "Completed all three mandated grep-tool checks: patch-rollup-contracts.md matched at 36/48/78; verification-gate-contracts.md matched at 33/43/86/1001/1028/1032; PRD matched R7/R9/R10/R12 at 23/25/26/28. Read the embedded repository instructions/backend index and current verification contract. No executable verification performed."
+}

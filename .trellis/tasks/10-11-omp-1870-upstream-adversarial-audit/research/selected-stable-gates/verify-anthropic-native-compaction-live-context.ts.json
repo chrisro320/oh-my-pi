@@ -1,0 +1,11 @@
+{
+  "gate": "verify-anthropic-native-compaction-live-context.ts",
+  "started": "2026-10-12T05:48:01.692329+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-anthropic-native-compaction-live-context.ts"
+  ],
+  "exit": 0,
+  "stdout": "PASS anthropic native compaction live context: scopes=live messages=4 tools=1 fallback=native-no-live-chain\n",
+  "stderr": ""
+}

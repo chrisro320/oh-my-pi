@@ -1,0 +1,409 @@
+{
+  "agent": "ReviewPersistence18100",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "status": "FINDINGS",
+      "filesChanged": [],
+      "reviewRoot": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work",
+      "evidenceLevel": "Static source, declaration, callsite, and diff review only. Runtime consequences below are explicitly marked as inference; no acceptance checks were executed.",
+      "findings": [
+        {
+          "id": "F1",
+          "priority": "P1",
+          "title": "Every unpack reaches an array.has call before acquiring import authority",
+          "file": "pi-coding-agent/src/session/session-transfer.ts",
+          "line": 536,
+          "evidence": "SessionArchiveContents.artifacts is declared as [relative: string, bytes: Uint8Array][] at line 287 and is consumed as an array throughout archive loading. The new missing-anchor branch calls contents.artifacts.has(DATE_CWD_ANCHORS_ARTIFACT). Arrays have no has method.",
+          "impact": "[INFERENCE] Every otherwise-valid unpack fails with a TypeError at this branch, including archives that already contain date/cwd anchors. This is also a TypeScript closure defect, although no typecheck was run. Import ownership and publication code cannot be reached.",
+          "minimalRepair": "Use the existing array representation consistently, for example artifacts.some(([relative]) => relative === DATE_CWD_ANCHORS_ARTIFACT). Only create the explicit empty snapshot when the member is absent; do not overwrite a supplied snapshot.",
+          "focusedAcceptance": "Main should exercise actual packSession/unpackSession through patches/verify-session-transfer-authority.ts, with both a nonempty date/cwd artifact and a legacy archive lacking it. Check the imported artifact bytes and the explicit-empty behavior, not just successful return."
+        },
+        {
+          "id": "F2",
+          "priority": "P1",
+          "title": "Writable relocation mutates departed sources before the moved-session guard runs",
+          "file": "pi-coding-agent/src/session/session-manager.ts",
+          "line": 4231,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/session-manager.ts:4350-4355",
+            "pi-coding-agent/src/main.ts:960,1310-1312,1326-1328,2214-2217",
+            "pi-coding-agent/src/modes/controllers/selector-controller.ts:1922-1925"
+          ],
+          "evidence": "openRelocated raw-opens the source and calls moveTo before returning. moveTo renames the journal/artifacts and rewrites the header. CLI callers invoke adoptForWrite only after this returns; the selector relocates and closes the manager before switchSession performs adoption. continueRecent's moved-project breadcrumb branch likewise calls moveTo before its caller adopts.",
+          "impact": "[INFERENCE] Resuming a departed session from a removed/renamed working directory relocates and rewrites the departed source under its old identity before creating the continuation fork. The source therefore is not preserved unchanged. An intentional new-cwd notice on the fork does not justify moving the historical departed copy first.",
+          "minimalRepair": "For writable resume/continue relocation, adopt the source before moving the writable result. Preserve a separate non-adopting path for staged archive publication and raw inspection; blindly adding adoption to every openRelocated call would incorrectly fork imports.",
+          "focusedAcceptance": "Use an actual CLI/selector resume of a departed synthetic session whose recorded worktree is gone, plus the positive-inode continueRecent relocation route. Require unchanged source path, journal bytes, and artifacts, with only the newly adopted fork relocated."
+        },
+        {
+          "id": "F3",
+          "priority": "P1",
+          "title": "Writable admission classifies an unowned cached transcript",
+          "file": "pi-coding-agent/src/session/session-manager.ts",
+          "line": 2322,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/session-manager.ts:1105-1115,1873-1894",
+            "pi-coding-agent/src/session/session-storage.ts:1241-1247"
+          ],
+          "evidence": "adoptForWrite reads lastSessionTransfer(this.#entries) and returns immediately when the cached entries have no departed marker. It neither acquires ownership nor refreshes the journal. Raw open intentionally acquires no claim. The eventual claim checks the on-disk header ID, not transfer provenance, and the hot append path does not reload intervening entries.",
+          "impact": "[INFERENCE] A manager opened before another process marks that session moved can subsequently pass adoption using stale entries, acquire the unchanged ID after the marking process closes, and append into the departed source. There is also an unprotected interval between a successful no-marker admission and the first write.",
+          "minimalRepair": "Classify current transfer provenance under the appropriate writable ownership boundary, refreshing stale disk state before deciding, and retain authority through writable use. Keep raw inspection and replica loading non-adopting.",
+          "focusedAcceptance": "Extend the actual transfer-authority gate: raw-open a synthetic manager, complete markSessionMoved from another isolated process, then adopt and append with the already-open manager. It must fork/refuse rather than append to the departed ID. Also cover departure racing the admission-to-first-write interval."
+        },
+        {
+          "id": "F4",
+          "priority": "P2",
+          "title": "Failed or cancelled adoption restores memory but leaves its published fork behind",
+          "file": "pi-coding-agent/src/session/session-manager.ts",
+          "line": 2338,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/session-manager.ts:2325-2343,2475-2505",
+            "pi-coding-agent/src/session/agent-session.ts:11845-11863,12038,12119-12120"
+          ],
+          "evidence": "adoptForWrite publishes a fork before copying remaining artifacts and flushing the transfer notice. Its catch drains/closes, releases the claim, and restores the snapshot, but does not remove the new journal or artifact directory. switchSession also performs this adoption before the cwd callback can reject; its rollback restores the previous manager but does not undo the already-successful fork publication.",
+          "impact": "[INFERENCE] A rejected cross-cwd switch can return false while leaving a discoverable new fork and copied date/cwd artifacts. A later adoption-publication error can leave an orphan whose last durable marker is still departed. The claim release present in this catch is not itself the defect; the durable side effects survive rollback.",
+          "minimalRepair": "Treat the newly created fork as transaction-owned until adoption/switch commit. Preflight cancellable cwd decisions where possible, and remove only newly owned journal/artifact outputs on rejection or failure while their ownership is still held. Preserve the original error and source bytes.",
+          "focusedAcceptance": "Through actual AgentSession.switchSession, reject onCwdChange for a departed target and assert no added journal/artifact directory. Separately fail transfer-notice publication after the fork lands, then assert restored manager identity, unchanged source, no orphan output, and reacquirable leases."
+        },
+        {
+          "id": "F5",
+          "priority": "P1",
+          "title": "Import rollback cannot remove a destination when relocation fails after landing",
+          "file": "pi-coding-agent/src/session/session-transfer.ts",
+          "line": 478,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/session-transfer.ts:479-490,569-575",
+            "pi-coding-agent/src/session/session-manager.ts:2605-2671,2706,4229-4234"
+          ],
+          "evidence": "placeSession records the destination only after await open() returns. openRelocated may already have renamed the staged journal and artifacts before moveTo's final header rewrite at line 2706 rejects. That rewrite is outside moveTo's rename rollback catch. openRelocated closes the manager and rethrows; placeSession still has placed === undefined and cannot remove the landed output before unpackSession calls restoreAside.",
+          "impact": "[INFERENCE] A failed created import can leave a discoverable, unarrived journal. For replacement, the landed artifact directory can prevent restoration of a nonempty backed-up directory; restoreAside logs that error and continues. The outer incoming-ID claim is eventually released even though rollback did not restore the prior visible state. These paths become reachable after F1 is repaired.",
+          "minimalRepair": "Keep relocation/publication rollback ownership through the final header rewrite. Ensure the transaction knows every landed journal/artifact path even when the opener rejects, and removes or reverses its own publication before restoring backups and releasing the incoming-ID claim.",
+          "focusedAcceptance": "Inject a storage publication failure specifically after the staged journal/artifacts have moved, using actual unpackSession. Cover both created and replaced imports, including nonempty artifacts. Require no new discoverable journal on failure and byte-identical restoration of every prior journal/artifact before authority is released."
+        },
+        {
+          "id": "F6",
+          "priority": "P1",
+          "title": "A failed forkFrom publication strands the freshly minted session lease",
+          "file": "pi-coding-agent/src/session/session-manager.ts",
+          "line": 4086,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/session-manager.ts:1757-1797,4029-4090",
+            "pi-coding-agent/src/session/session-transfer.ts:478-479,558-563",
+            "pi-coding-agent/src/session/session-storage.ts:520,1256-1267"
+          ],
+          "evidence": "forkFrom creates a private manager, copies date/cwd state, and awaits its first atomic rewrite without a failure cleanup scope. The rewrite acquires the new session-ID claim before storage publication. If publication rejects, the manager is never returned to placeSession and cannot be closed there. The module-level lease map retains the holder. unpackSession's outer finally releases only the original incoming ID, not this newly minted fork ID.",
+          "impact": "[INFERENCE] A divergent import that fails during initial fork publication leaks an ownership claim for the process lifetime and can leave a date/cwd artifact directory or landed journal behind. This is distinct from the correctly released incoming-ID reservation.",
+          "minimalRepair": "Make forkFrom own cleanup until it successfully returns: drain/close the private manager, release the minted-ID claim, and remove transaction-created outputs on failed publication. Cleanup must also handle a storage failure reported after bytes have landed.",
+          "focusedAcceptance": "Use actual divergent unpackSession/forkFrom with a failing first atomic publish after claim acquisition. Record the minted ID through the real storage boundary; after rejection require exclusive reacquisition of that ID, no orphan output, and unchanged divergent local copies."
+        },
+        {
+          "id": "F7",
+          "priority": "P1",
+          "title": "Replica activation still runs transcript-persisting resume producers",
+          "file": "pi-coding-agent/src/session/agent-session.ts",
+          "line": 11875,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/agent-session.ts:6797-6809,11845,11948-11960",
+            "pi-coding-agent/src/collab/guest.ts:500,613"
+          ],
+          "evidence": "The guest activates its replica with preserveLocalCwd: true, which only changes setSessionFile to writable: false. switchSession then calls buildDisplaySessionContext() with its new persistEvalStateContext default of true. It also retains the interrupted-turn repair append path. The guest's later compaction/branch refresh explicitly passes persistEvalStateContext: false, but initial activation and full resync do not.",
+          "impact": "[INFERENCE] An eval-containing replica whose local eval state differs can acquire a local eval-state-context entry during activation/resync; an eligible interrupted snapshot can also receive a local abort record. These are local transcript mutations, not replicated host entries, and break the promised non-writing replica boundary.",
+          "minimalRepair": "Propagate replica/read-only intent through all switch-time transcript producers, including both display-context rebuilds and interrupted-turn repair. Keep ordinary writable resume persistence enabled.",
+          "focusedAcceptance": "Exercise actual guest welcome/full-resync with an eval-containing and interrupted synthetic host snapshot. The activated replica's transcript must contain exactly replicated entries, with no local eval, repair, or moved-adoption entries. Separately confirm writable resume still persists its intended reminder."
+        },
+        {
+          "id": "F8",
+          "priority": "P1",
+          "title": "Same-ID history replacement retains the outgoing committed recall and promoted tail",
+          "file": "pi-coding-agent/src/session/agent-session.ts",
+          "line": 12800,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/agent-session.ts:11989-11990,12772-12808",
+            "pi-coding-agent/src/hindsight/state.ts:506-509,628-657",
+            "pi-coding-agent/src/session/session-memory.ts:228-265"
+          ],
+          "evidence": "navigateTree replaces the active branch/messages but never resets transcript-scoped memory. The transition hook only calls beginMentalModelsTranscriptReload, which increments the recall generation and reloads mental models without clearing hasRecalledForFirstTurn or lastRecallSnippet. beforeAgentStartPrompt returns before looking up native/legacy snapshots when that flag is true. The promoted memory tail is likewise retained. Same-path switchSession reload resets memory only when switchingToDifferentSession is true, not when didReloadConversationChange is true.",
+          "impact": "[INFERENCE] After recalling on branch A, navigating to branch B or across a reset boundary can keep A's recall in the first live request, even when B commits an empty or different native/legacy snapshot. Mental models can correctly reload while the stale recall tail survives. A fresh process reconstructs B instead, causing historical prefix drift rather than an intentional visible transfer/cwd change.",
+          "minimalRepair": "At successful same-ID history-replacement commits, reset committed recall ownership and the promoted tail, then let the target branch's frozen native/legacy answer drive first-turn preparation. Do not perform this reset for cancelled/no-op navigation or a rolled-back switch.",
+          "focusedAcceptance": "Extend patches/verify-hindsight-recall-snapshot.ts through actual AgentSession navigation and same-path reload. Use branches with canonical and legacy empty/nonempty snapshots and a reset boundary. Compare the first live request's ordered system blocks with fresh-process reconstruction, assert the target snapshot is used, and forbid remote recall when a committed target answer exists."
+        },
+        {
+          "id": "F9",
+          "priority": "P1",
+          "title": "Continuation generation ownership stops at the idle-drain boundary",
+          "file": "pi-coding-agent/src/session/agent-session.ts",
+          "line": 4695,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/agent-session.ts:4695-4720,4826-4847,12708,12858-12859",
+            "pi-coding-agent/src/session/turn-recovery.ts:2403-2421"
+          ],
+          "evidence": "The scheduler captures/checks a generation after idle-ephemeral settlement, then enters #runAgentContinue. That method awaits fallback restoration and possibly compaction/preflight without retaining that captured generation through to agent.continue. Its generation check exists only in the AgentBusyError retry path and is conditional on request.options.generation; resumeAfterAskReanswer supplies none. navigateTree commits by incrementing #promptGeneration but does not cancel/drain this active continuation. Fallback restoration itself awaits getApiKey and later publishes model metadata without a history-generation guard.",
+          "impact": "[INFERENCE] A continuation suspended in fallback restoration can outlive a successful navigation, then publish the old continuation's model change and dispatch against replacement history. The new generation check around idle reservation draining does not cover later awaits. This can undo the intended durable model/effort ownership at the history boundary.",
+          "minimalRepair": "Carry one admission generation through the entire continuation setup and revalidate after awaits and before both metadata mutation and dispatch. Prevent fallback restoration from publishing across a history change, or cancel/drain these setup tasks before committing the replacement history.",
+          "focusedAcceptance": "Through the actual continuation scheduler, hold a local fallback-restoration/setup boundary, commit navigateTree, then release it. Require no stale model/effort entries and no stale agent.continue dispatch on the target branch. Include ask-reanswer scheduling, which currently has no explicit generation option; use isolated local credentials and intercepted transport only."
+        }
+      ],
+      "staticObservations": [
+        "The incoming archive ID is now claimed exclusively against the staged journal before findLocalCopies and prefix comparison. The outer finally covers ordinary publication and rollback paths; F5 and F6 concern outputs/resources not adequately owned by that scope.",
+        "Model-selection capture/persistence explicitly retains routed model identity, effective/configured effort, fallback provenance, and the default-role anchor. This is encouraging static evidence, not proof of the requested live-versus-fresh-process behavior.",
+        "The reviewed transition entries synchronously abort idle-ephemeral and input-preparation reservations and drain admitted persisted extension appends before replacing manager history. F9 identifies a later continuation await outside those protections.",
+        "Marker parsing/rendering has source and declaration modules at session-transfer-marker. The repository/candidate search found consumers using that module, including verify-session-transfer-authority.ts; no stale live forkIfMovedAway callsite or compatibility re-export was found in the searched trees.",
+        "Visible arrived/forked notices and an intentional changed-cwd suffix were not treated as historical prefix defects. The reported prefix issue is stale committed recall surviving target-history replacement."
+      ],
+      "verification": {
+        "performed": [
+          {
+            "command": "git diff --stat",
+            "result": "Read-only repository change inventory inspected."
+          },
+          {
+            "command": "git diff --no-index <pristine-18.10.0 file> <candidate file>",
+            "result": "Inspected relevant source diffs, including session-manager, agent-session, SDK, cache-warmer, session-memory, session-context, messages, session-tools, and turn-recovery. Exit status 1 indicated differences, not a failed acceptance check."
+          },
+          {
+            "command": "Static read/grep of task check.jsonl inputs, PRD/design/risk material, work-order policy anchors, owner manifests, candidate source/declarations, and actual acceptance consumers",
+            "result": "Completed static ownership, import/declaration, transition, lease, rollback, and publication-path tracing. Findings cite candidate-relative paths under reviewRoot."
+          }
+        ],
+        "notRun": "No builds, lint, typechecks, tests, formatters, smoke runs, provider requests, or production credential/database operations. No repository, live-mirror, task-artifact, or global changes were made.",
+        "recommendedMainAction": "Repair the findings, then run the existing focused actual-consumer acceptance gates once against the integrated candidate, extending the specific missing cases above. These recommendations are not claimed as exercised verification."
+      }
+    },
+    {
+      "status": "FINDINGS",
+      "filesChanged": [],
+      "reviewRoot": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work",
+      "reviewPhase": "Independent read-only recheck after PortPersistence's completion notification and PortLifecycle's reported amendments.",
+      "assessment": {
+        "F1": "Original array.has defect is statically addressed by tuple-array some().",
+        "F2": "Original relocation-before-adoption defect is statically addressed: writable openRelocated adopts first, continueRecent uses it, and staged import explicitly opts out.",
+        "F3": "Target admission now claims strictly, refreshes provenance, and retains authority. The outgoing-session rollback path still bypasses that protection; see R1.",
+        "F4": "Direct switchSession now owns a reversible adoption transaction. The selector's preliminary relocation still commits outside it; see R2.",
+        "F5": "The original final-header-publication failure is now inside moveTo rollback. Import still accepts an incomplete artifact relocation as success; see R3.",
+        "F6": "The original forkFrom publication-failure lease leak is statically addressed. Its cleanup holds the minted claim, and placeSession retains an additional claim through close/cleanup.",
+        "F7": "Eval, explicit-model metadata, and interrupted-turn repair writes are guarded for replicas. Hindsight snapshot publication is not; see R4.",
+        "F8": "Committed navigateTree now resets recall and promotion state. Same-path reload detection still ignores recall-only history changes; see R5.",
+        "F9": "Scheduled continuation generation ownership and its primary-restoration callback are improved. Another live restoration caller remains unguarded; see R6."
+      },
+      "findings": [
+        {
+          "id": "R1",
+          "previousFinding": "F3/F4 interaction",
+          "priority": "P1",
+          "title": "A failed switch restores an outgoing transcript whose ownership was released during the transaction",
+          "file": "pi-coding-agent/src/session/agent-session.ts",
+          "line": 12105,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/agent-session.ts:11886-11888,11896-11907",
+            "pi-coding-agent/src/session/session-manager.ts:2251-2278,2450-2452"
+          ],
+          "evidence": "switchSession snapshots the outgoing session, then setSessionFile(..., { writable: false }) releases its claim. The new beginWritableAdoption transaction protects the target only. On failure, restoreState(previousSessionState) restores the old cached entries without reacquiring/refetching the outgoing transcript through writable admission. restoreState clears a mismatched claim but does not obtain one for the restored identity.",
+          "impact": "[INFERENCE] While the target's cwd/model/hook work awaits, another process can mark the now-unclaimed outgoing session departed. If the switch then fails, the old cached snapshot becomes live again; its next hot append can acquire the unchanged header ID and append to that departed source. Strict admission on the target does not close this rollback race.",
+          "minimalRepair": "Retain the outgoing session's authority for the entire cancellable switch and release it only on successful commit, or explicitly re-admit/refetch the outgoing session under ownership before making rollback live. Do not resume the cached snapshot unowned.",
+          "focusedAcceptance": "With actual AgentSession.switchSession, pause a target cwd decision after the outgoing claim is released, attempt markSessionMoved on the outgoing synthetic journal from an isolated second owner, then reject the switch. Either departure must be refused while rollback remains possible, or rollback must safely re-admit/refuse. A subsequent prompt must never append to a departed old ID."
+        },
+        {
+          "id": "R2",
+          "previousFinding": "F4",
+          "priority": "P2",
+          "title": "Selector relocation commits a departed fork before cancellable switchSession begins",
+          "file": "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+          "line": 1866,
+          "relatedLocations": [
+            "pi-coding-agent/src/modes/controllers/selector-controller.ts:1922-1925",
+            "pi-coding-agent/src/session/session-manager.ts:4383-4388",
+            "pi-coding-agent/src/session/agent-session.ts:11792-11803"
+          ],
+          "evidence": "handleResumeSession calls #relocateFromRemovedWorktree before switchSession. That helper now calls the default-adopting openRelocated, which commits its adoption, then closes the manager. Only afterward does switchSession emit its cancellable session_before_switch hook. The later transaction therefore has no rollback ownership of the already-created fork.",
+          "impact": "[INFERENCE] Cancelling the real selector resume of a departed removed-worktree session still leaves a newly published, relocated fork and copied date/cwd artifacts, even though handleResumeSession returns false. The direct switchSession repair does not cover this interacting PortHost path.",
+          "minimalRepair": "Keep the relocation/adoption transaction reversible through the selector's actual switch outcome, or move that preparation inside the switch transaction after cancellable admission. Commit only after the real resume succeeds; delete only the newly owned fork on cancellation.",
+          "focusedAcceptance": "Use the actual selector handleResumeSession path with a departed removed-worktree fixture and a cancelling session_before_switch handler. Require unchanged source bytes/path/artifacts and no extra journal or artifact directory after the false result."
+        },
+        {
+          "id": "R3",
+          "previousFinding": "F5 follow-on",
+          "priority": "P1",
+          "title": "Unpack can report success with stranded artifacts and then delete their staging originals",
+          "file": "pi-coding-agent/src/session/session-manager.ts",
+          "line": 350,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/session-manager.ts:291-305,350-363,2811",
+            "pi-coding-agent/src/session/session-transfer.ts:577-602"
+          ],
+          "evidence": "The revised move defers artifact relocation until after header publication, but relocateArtifactsDirectory still treats mergeDirectoryInto's stranded entries as a warning and returns \"merged\". Per-entry copy/move failures are collected rather than thrown. unpackSession then treats placement as successful, removes replaced backups, and unconditionally removes its temporary staging directory.",
+          "impact": "[INFERENCE] On a cross-device import, a failed move/copy of date-cwd-anchors.json or another archive artifact can leave that file in staging while the import succeeds. The final staging removal destroys the only unpacked copy, so the imported journal lacks its frozen snapshot. This defeats exact artifact migration and can reintroduce historical date/cwd drift. Ordinary relocation's policy of retaining stranded source files is not safe for disposable import staging.",
+          "minimalRepair": "Require lossless artifact publication for staged imports. Propagate incomplete relocation to the import transaction and clean up/restore under its existing claim, rather than treating stranded entries as successful publication. Preserve ordinary non-import merge semantics where retaining source artifacts is intentional.",
+          "focusedAcceptance": "Exercise actual unpackSession across the EXDEV/merge path and fail transfer of the date/cwd artifact at the filesystem boundary. Require either complete byte-identical artifact publication or a failed import with prior locals restored; successful import with the snapshot silently omitted must be impossible."
+        },
+        {
+          "id": "R4",
+          "previousFinding": "F7",
+          "priority": "P1",
+          "title": "Read-only replica switching still appends scoped Hindsight mental-model snapshots",
+          "file": "pi-coding-agent/src/hindsight/state.ts",
+          "line": 727,
+          "relatedLocations": [
+            "pi-coding-agent/src/hindsight/state.ts:628-649,698-713",
+            "pi-coding-agent/src/session/agent-session.ts:11785,12085-12089",
+            "pi-coding-agent/src/session/session-memory.ts:228-265",
+            "pi-coding-agent/src/collab/guest.ts:500"
+          ],
+          "evidence": "preserveLocalCwd now guards the identified switch-time metadata producers, but the transition still schedules beginMentalModelsTranscriptReload and a committed identity/history change still calls resetContextForNewTranscript. After the transition settles, the mental-model loader calls #persistMentalModelsSnippet. A legacy unscoped persisted snippet is deliberately re-appended with the local scope at lines 710-713, with no replica/read-only guard.",
+          "impact": "[INFERENCE] A Hindsight-enabled guest activating a host snapshot containing an unscoped legacy mental-model record writes a local scoped custom entry into the replica. This case needs no remote memory request: the persisted-answer branch itself appends. The replica therefore still ceases to be an exact host-entry mirror.",
+          "minimalRepair": "Carry read-only replica intent through memory reload/publication as well as eval/repair code. A replica may read a frozen snapshot but must not migrate, refresh, or persist local memory metadata into that journal. Also invalidate outgoing pending loads without granting them target-replica write authority.",
+          "focusedAcceptance": "Activate/resync a replica through the real preserveLocalCwd switch with Hindsight enabled and a legacy unscoped empty/nonempty mental-model record. Await the actual mentalModelsLoadPromise and assert that no local custom entry was appended and no remote load was attempted."
+        },
+        {
+          "id": "R5",
+          "previousFinding": "F8",
+          "priority": "P1",
+          "title": "Same-path reload resets recall only when displayed messages change",
+          "file": "pi-coding-agent/src/session/agent-session.ts",
+          "line": 12085,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/agent-session.ts:11944-11946",
+            "pi-coding-agent/src/session/messages.ts:207-216",
+            "pi-coding-agent/src/session/session-context.ts:229-230,405-406",
+            "pi-coding-agent/src/hindsight/state.ts:506-509",
+            "pi-coding-agent/src/memory-backend/recall-entry.ts:106-130"
+          ],
+          "evidence": "The new reset condition is switchingToDifferentSession || didReloadConversationChange. The latter compares only built message arrays. Recall snapshots are custom metadata, not transcript messages; changing a legacy recall snapshot or a valid legacyCommitted memory_recall record can leave those arrays identical. beginMentalModelsTranscriptReload still does not clear hasRecalledForFirstTurn or the promoted recall tail.",
+          "impact": "[INFERENCE] Reloading the same path after a committed recall-only history replacement retains the previous nonempty recall, even when the target records an empty or different answer. The first fresh-process request uses the target answer instead. The navigateTree fix does not cover this same-ID/same-message case.",
+          "minimalRepair": "Base transcript-memory ownership invalidation on the committed relevant history/snapshot change, not only message equality. Alternatively, safely reset/replay committed recall on every successful same-path reload. Preserve the current no-reset behavior for cancelled/rolled-back switches.",
+          "focusedAcceptance": "Extend the actual Hindsight snapshot gate with a same-path reload whose user/assistant messages are unchanged but whose committed legacy or legacyCommitted recall changes from nonempty to empty/different. Compare first live and fresh-process system blocks and prohibit remote recall when the target contains a committed answer."
+        },
+        {
+          "id": "R6",
+          "previousFinding": "F9",
+          "priority": "P1",
+          "title": "The ordinary prompt caller does not pass the new fallback-restoration ownership guard",
+          "file": "pi-coding-agent/src/session/agent-session.ts",
+          "line": 8162,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/agent-session.ts:8153-8165,12775-12776",
+            "pi-coding-agent/src/session/turn-recovery.ts:2363-2424"
+          ],
+          "evidence": "#runAgentContinue now passes isCurrent to maybeRestoreRetryFallbackPrimary, but #promptWithMessage still calls it without that predicate despite already capturing generation. The restoration helper's checks are conditional on receiving the predicate. It awaits getApiKey and later changes the model and appends model/effort metadata. navigateTree's new abort loop cancels usage-preflight controllers, not this unguarded restoration await.",
+          "impact": "[INFERENCE] An ordinary admitted prompt suspended in primary-restoration setup can survive a successful navigation and then publish the old prompt's model/effort changes into the replacement branch. A later prompt-generation check may drop dispatch, but it cannot undo those history mutations. The producer is guarded for scheduled continuations but not for this actual consumer.",
+          "minimalRepair": "Pass the captured prompt admission predicate to every live restoration caller and revalidate immediately after the await before further setup mutations. Apply the same ownership rule to other model-changing preflight paths across branch/history replacement, rather than relying solely on a post-preflight dispatch check.",
+          "focusedAcceptance": "Through actual session.prompt, suspend the local fallback-restoration credential/setup boundary, commit navigateTree, then release it. Require no stale model/effort entry or stale dispatch on the target branch. Keep credentials synthetic and transport intercepted; no real provider call is needed."
+        }
+      ],
+      "declarationAndImportReview": {
+        "result": "No additional declaration/import mismatch found in the amended API shapes inspected.",
+        "inspected": [
+          "SessionAdoption and beginWritableAdoption source/declaration parity",
+          "SessionStorage/FileSessionStorage strict/exclusive claim options",
+          "openRelocated adoption option and staged-import opt-out",
+          "TurnRecovery optional admission-current callback source/declaration parity",
+          "AgentSession's SessionAdoption type import"
+        ],
+        "limitation": "This is source closure evidence, not compiler or runtime approval."
+      },
+      "verification": {
+        "performed": [
+          "Read completed amendments and interacting callsites after the owner completion notification.",
+          "Statically traced target and outgoing lease ownership, adoption commit/rollback, initial fork publication cleanup, relocation header/artifact publication, replica memory publication, same-path recall comparison, and continuation/ordinary-prompt generation ownership.",
+          "Used read/grep/find only during this recheck; inspected source and declarations directly."
+        ],
+        "notRun": "No builds, tests, lint, typechecks, formatters, smoke runs, provider requests, production credential/database access, live-mirror operations, or global changes.",
+        "runtimeApproval": false,
+        "recommendedMainAcceptance": "After repairs, main should run the focused actual-consumer transfer-authority and Hindsight snapshot gates with the cases above, plus the ordinary-prompt history-replacement race. The statically addressed items still require that final acceptance; none are reported as runtime-tested."
+      }
+    },
+    {
+      "status": "FINDINGS",
+      "filesChanged": [],
+      "reviewRoot": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work",
+      "reviewPhase": "Focused independent source recheck after Main confirmed all three owners' R1-R6 amendments complete.",
+      "findings": [
+        {
+          "id": "S1",
+          "relatedFinding": "R6 / original F9, interacting with durable model-selection provenance",
+          "priority": "P1",
+          "title": "History replacement can capture the new live fallback model with the old durable role and provenance",
+          "file": "pi-coding-agent/src/session/turn-recovery.ts",
+          "line": 2118,
+          "relatedLocations": [
+            "pi-coding-agent/src/session/turn-recovery.ts:2121-2137",
+            "pi-coding-agent/src/session/agent-session.ts:11109-11127",
+            "pi-coding-agent/src/session/agent-session.ts:12326-12338,12916"
+          ],
+          "evidence": "applyRetryFallbackCandidate awaits setModelWithProviderSessionReset(candidate) before appending its EPHEMERAL_MODEL_CHANGE_ROLE/fallback receipt and applying effort. The setter changes agent.state.model synchronously at agent-session.ts:11109, then awaits model-dependent reconciliation at line 11127. During that await, navigateTree can capture the selection: #captureModelSelection takes the model from live state but role, resolvedModelIsFallback, and the default-role anchor from the latest existing journal entry. After navigation increments the generation, the new ownsHistory guard at turn-recovery.ts:2121 returns without publishing the pending fallback receipt.",
+          "impact": "[INFERENCE] Start with durable default B, begin fallback to F, and navigate while model reconciliation is suspended after the live swap. Navigation observes live F but B's default/non-fallback metadata, so it can persist F as the new default, omitting fallback provenance and the B default-role anchor. The resumed fallback then drops its receipt. Fresh-process resume can consequently restore F as a durable default instead of preserving the intended ephemeral fallback/default relationship. The added pre/post-await generation checks prevent later stale dispatch, but do not make this split model/receipt observation coherent.",
+          "minimalRepair": "Make the live model change and its durable role/provenance/effort selection a single history-owned commit before yielding to asynchronous reconciliation, or fence history replacement until that selection commit settles. Preserve the original default anchor. Another check after reconciliation alone cannot repair metadata already captured by navigation.",
+          "focusedAcceptance": "Extend the actual model-selection resume consumer with a fallback whose model-dependent reconciliation is held after the live model swap. Commit navigateTree during that interval, release reconciliation, then compare live and fresh-process selection, configured/effective effort, fallback provenance, and the default-role anchor. Use synthetic credentials and intercepted transport; no real provider request is necessary."
+        }
+      ],
+      "recheckResults": {
+        "R1_retainedOutgoingClaim": "The outgoing claim is now independently retained before the switch's abort/load awaits, transferred back to the restored manager on rollback, and released through a using scope otherwise. The previously reported departure-during-rollback gap is addressed in the inspected source.",
+        "R2_commonRelocationTransaction": "Selector preparation is now descriptive only. It passes relocateTo to switchSession after which cancellable admission, writable adoption, relocation, inverse move/owned-fork cleanup, and rollback are handled together. The reviewed source/declaration option shapes agree.",
+        "R3_disposableArtifactPublication": "Both import paths request requireCompleteArtifacts. Strict relocation uses a whole-directory rename or complete copy into an exclusively created directory; incomplete copying rejects and removes its partial destination. EXDEV copying retains staging originals, and rollback handles the copied destination. Ordinary best-effort merge semantics remain separate.",
+        "R4_persistentReplicaMemoryPolicy": "The inspected lifecycle stores replica read-only policy, propagates it through transition reloads and newly installed Hindsight state, restores it on switch rollback, and clears it for writable new/forked transcripts. Hindsight snapshot persistence, legacy recall migration, and automatic/explicit mental-model loading now honor the policy.",
+        "R5_everyCommittedSamePathRecallReload": "Successful switchSession now resets transcript-scoped recall/promotion state independently of displayed-message equality. The reset remains after switch commit; cancelled and rolled-back paths retain the prior recall ownership.",
+        "R6_promptAndContinuationOwnership": "The previously unguarded ordinary-prompt primary-restoration caller now supplies its admission predicate and rechecks it after awaits. Continuation scheduling, usage preflight, and fallback candidates also carry generation/identity guards. S1 is the remaining interaction between a partially visible model swap and history-selection capture.",
+        "idleLateSuccess": "runIdleEphemeralTurn now checks the combined signal after runEphemeralTurn returns. Its existing catch maps internal reservation revocation to undefined, and finally releases/settles the reservation. This addresses the reported late-success path in static trace; I did not rerun the reported failure."
+      },
+      "declarationClosure": {
+        "result": "No additional import/declaration mismatch found in the amended shapes inspected.",
+        "inspected": [
+          "SessionOwnership and retainWritableOwnership",
+          "Exported SessionManagerStateSnapshot",
+          "switchSession relocateTo",
+          "moveTo/openRelocated/forkFrom requireCompleteArtifacts options",
+          "Hindsight readOnly reload option and SessionMemory forwarding",
+          "AgentSession's new type imports and corresponding declaration options"
+        ],
+        "qualification": "Static source closure only, not compilation or runtime approval."
+      },
+      "verification": {
+        "performed": "Read-only source/declaration/callsite tracing using read and grep, plus the earlier targeted find for replica-policy ownership. Rechecked the integrated consumer shapes after Main's completion notification.",
+        "notRun": "No builds, tests, lint, typechecks, formatters, smoke runs, provider requests, production credential/database access, live operations, or repository mutations. The user-reported idle failure was not rerun.",
+        "runtimeApproval": false,
+        "recommendedMainAction": "Resolve S1 before final model-selection acceptance. Main should then run the focused frozen-integration consumer gates, including the retained-claim, selector-cancellation, strict-artifact, replica-snapshot, same-path recall, and idle late-success cases already identified."
+      }
+    },
+    {
+      "status": "PASS",
+      "filesChanged": [],
+      "scope": "Focused read-only recheck of S1's synchronous model-selection commit amendment.",
+      "assessment": "S1 is addressed in the inspected source. This is static review approval for that amendment, not runtime or deployment approval.",
+      "evidence": [
+        {
+          "location": "pi-coding-agent/src/session/agent-session.ts:1905-1906,11101-11131",
+          "observation": "The recovery binding forwards commitSelection. The setter executes it immediately after the live model assignment and before model_changed notification or asynchronous model-dependent reconciliation."
+        },
+        {
+          "location": "pi-coding-agent/src/session/turn-recovery.ts:2109-2143",
+          "observation": "Candidate fallback now commits routing/chain state, the ephemeral fallback-provenance receipt, and effective/configured effort in that synchronous callback. Generation changes after reconciliation stop subsequent setup without undoing the already-committed coherent selection."
+        },
+        {
+          "location": "pi-coding-agent/src/session/turn-recovery.ts:2325-2435",
+          "observation": "Fireworks fallback and primary restoration also use the callback boundary. Primary restoration clears fallback state and records its non-fallback ephemeral selection and effort together."
+        },
+        {
+          "location": "pi-coding-agent/src/session/model-controls.ts:516-564",
+          "observation": "Effort changes append their durable configured/effective receipt before emitting thinking_level_changed, so navigation initiated by that notification cannot capture the prior effort receipt."
+        },
+        {
+          "location": "pi-coding-agent/src/session/agent-session.ts:12326-12338; pi-coding-agent/dist/types/session/turn-recovery.d.ts:69-70",
+          "observation": "The existing selection capture can now observe matching live model and journal provenance at the previously vulnerable reconciliation await. The original default-role anchor remains separate, and the recovery host source/declaration signatures agree."
+        }
+      ],
+      "verification": {
+        "performed": [
+          "Read the amended recovery producers, AgentSession binding/setter, effort persistence ordering, selection capture, and corresponding declaration.",
+          "Used read and grep only. No files were changed."
+        ],
+        "notRun": "No builds, tests, lint, typechecks, formatters, provider requests, production credential/database operations, or live/global changes.",
+        "runtimeApproval": false
+      },
+      "recommendedMainAcceptance": "GateHost/Main should still run the held actual-reconciliation consumer acceptance against the frozen integration: navigate while fallback reconciliation is suspended, then compare live versus fresh-process model, effort, fallback provenance, and the retained default-role anchor. This reviewer did not execute that acceptance."
+    }
+  ]
+}

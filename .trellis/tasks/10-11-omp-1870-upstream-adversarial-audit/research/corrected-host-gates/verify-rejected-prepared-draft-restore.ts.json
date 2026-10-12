@@ -1,0 +1,12 @@
+{
+  "gate": "verify-rejected-prepared-draft-restore.ts",
+  "started": "2026-10-12T06:04:50.349676+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-host-gates/ledger/verify-rejected-prepared-draft-restore.ts"
+  ],
+  "gate_sha256": "9c7d5d70e14edcdf2bd05aa3791fb207aad608e9b5debf18a1e2e08ac8847a84",
+  "exit": 0,
+  "stdout": "verify-rejected-prepared-draft-restore: PASS (18.10.0)\n",
+  "stderr": ""
+}

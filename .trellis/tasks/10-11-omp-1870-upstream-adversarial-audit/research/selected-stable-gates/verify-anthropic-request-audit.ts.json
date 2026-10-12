@@ -1,0 +1,11 @@
+{
+  "gate": "verify-anthropic-request-audit.ts",
+  "started": "2026-10-12T05:48:05.273552+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-anthropic-request-audit.ts"
+  ],
+  "exit": 0,
+  "stdout": "PASS Anthropic final-wire audit: exact OAuth bytes, native prefix diff, side/session isolation, raw usage/request ID, real cache-warmer baseline isolation, I/O failure isolation, opt-out; zero network\n",
+  "stderr": ""
+}

@@ -1,0 +1,249 @@
+{
+  "baseline_candidate_version": "18.10.0",
+  "selected_count": 48,
+  "status": "PASS",
+  "latest_per_gate": {
+    "verify-antigravity-envelope.ts": {
+      "gate": "verify-antigravity-envelope.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-antigravity-envelope.ts.json"
+    },
+    "verify-prefix-cache-compaction.ts": {
+      "gate": "verify-prefix-cache-compaction.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-prefix-cache-compaction.ts.json"
+    },
+    "verify-provider-image-budget.ts": {
+      "gate": "verify-provider-image-budget.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-provider-image-budget.ts.json"
+    },
+    "verify-snapcompact-model-billing.ts": {
+      "gate": "verify-snapcompact-model-billing.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-snapcompact-model-billing.ts.json"
+    },
+    "verify-ollama-cloud-usage.ts": {
+      "gate": "verify-ollama-cloud-usage.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-ollama-cloud-usage.ts.json"
+    },
+    "verify-spec-contracts.sh": {
+      "gate": "verify-spec-contracts.sh",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-spec-contracts.sh.json"
+    },
+    "verify-devin-auth-cache.ts": {
+      "gate": "verify-devin-auth-cache.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-devin-auth-cache.ts.json"
+    },
+    "verify-goal-tool-resident.ts": {
+      "gate": "verify-goal-tool-resident.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-goal-tool-resident.ts.json"
+    },
+    "verify-devin-metadata.ts": {
+      "gate": "verify-devin-metadata.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-devin-metadata.ts.json"
+    },
+    "verify-supersede-warm-prefix-guard.ts": {
+      "gate": "verify-supersede-warm-prefix-guard.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-supersede-warm-prefix-guard.ts.json"
+    },
+    "verify-snapcompact-frame-reprice.ts": {
+      "gate": "verify-snapcompact-frame-reprice.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-snapcompact-frame-reprice.ts.json"
+    },
+    "verify-session-history-preview.ts": {
+      "gate": "verify-session-history-preview.ts",
+      "exit": 0,
+      "evidence": "research/final-selection-gates/verify-session-history-preview.ts.json"
+    },
+    "verify-devin-thinking-signature.ts": {
+      "gate": "verify-devin-thinking-signature.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-devin-thinking-signature.ts.json"
+    },
+    "verify-devin-idle-cascade-pin.ts": {
+      "gate": "verify-devin-idle-cascade-pin.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-devin-idle-cascade-pin.ts.json"
+    },
+    "verify-idle-ephemeral-reservation.ts": {
+      "gate": "verify-idle-ephemeral-reservation.ts",
+      "exit": 0,
+      "evidence": "research/corrected-host-gates/verify-idle-ephemeral-reservation.ts.json"
+    },
+    "verify-resume-cache-breakpoint.ts": {
+      "gate": "verify-resume-cache-breakpoint.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-resume-cache-breakpoint.ts.json"
+    },
+    "verify-codex-compaction-chain.ts": {
+      "gate": "verify-codex-compaction-chain.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-codex-compaction-chain.ts.json"
+    },
+    "verify-commandcode-model-record-parity.ts": {
+      "gate": "verify-commandcode-model-record-parity.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-commandcode-model-record-parity.ts.json"
+    },
+    "verify-anthropic-native-compaction-live-context.ts": {
+      "gate": "verify-anthropic-native-compaction-live-context.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-anthropic-native-compaction-live-context.ts.json"
+    },
+    "verify-compaction-lane-trace.ts": {
+      "gate": "verify-compaction-lane-trace.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-compaction-lane-trace.ts.json"
+    },
+    "verify-codex-effort-resume.ts": {
+      "gate": "verify-codex-effort-resume.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-codex-effort-resume.ts.json"
+    },
+    "verify-codex-compaction-chain-fail-closed.ts": {
+      "gate": "verify-codex-compaction-chain-fail-closed.ts",
+      "exit": 0,
+      "evidence": "research/corrected-wire-gates/verify-codex-compaction-chain-fail-closed.ts.json"
+    },
+    "verify-session-pin-static-auth-ui.ts": {
+      "gate": "verify-session-pin-static-auth-ui.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-session-pin-static-auth-ui.ts.json"
+    },
+    "verify-read-description-live.ts": {
+      "gate": "verify-read-description-live.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-read-description-live.ts.json"
+    },
+    "verify-anthropic-cache-boundaries.ts": {
+      "gate": "verify-anthropic-cache-boundaries.ts",
+      "exit": 0,
+      "evidence": "research/corrected-wire-gates/verify-anthropic-cache-boundaries.ts.json"
+    },
+    "verify-anthropic-request-audit.ts": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-anthropic-request-audit.ts.json"
+    },
+    "verify-python-display-mime-preference.ts": {
+      "gate": "verify-python-display-mime-preference.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-python-display-mime-preference.ts.json"
+    },
+    "verify-kitty-conversion-finalization.ts": {
+      "gate": "verify-kitty-conversion-finalization.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-kitty-conversion-finalization.ts.json"
+    },
+    "verify-kitty-shared-png-cache.ts": {
+      "gate": "verify-kitty-shared-png-cache.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-kitty-shared-png-cache.ts.json"
+    },
+    "verify-main-cache-hit.ts": {
+      "gate": "verify-main-cache-hit.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-main-cache-hit.ts.json"
+    },
+    "verify-model-mention-surface-resume.ts": {
+      "gate": "verify-model-mention-surface-resume.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-model-mention-surface-resume.ts.json"
+    },
+    "verify-prompt-effort-resume.ts": {
+      "gate": "verify-prompt-effort-resume.ts",
+      "exit": 0,
+      "evidence": "research/corrected-host-gates/verify-prompt-effort-resume.ts.json"
+    },
+    "verify-model-selection-resume.ts": {
+      "gate": "verify-model-selection-resume.ts",
+      "exit": 0,
+      "evidence": "research/final-selection-gates/verify-model-selection-resume.ts.json"
+    },
+    "verify-anthropic-thinking-drop-resume.ts": {
+      "gate": "verify-anthropic-thinking-drop-resume.ts",
+      "exit": 0,
+      "evidence": "research/corrected-wire-gates/verify-anthropic-thinking-drop-resume.ts.json"
+    },
+    "verify-user-display-text-queue.ts": {
+      "gate": "verify-user-display-text-queue.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-user-display-text-queue.ts.json"
+    },
+    "verify-rejected-prepared-draft-restore.ts": {
+      "gate": "verify-rejected-prepared-draft-restore.ts",
+      "exit": 0,
+      "evidence": "research/corrected-host-gates/verify-rejected-prepared-draft-restore.ts.json"
+    },
+    "verify-compaction-cache-liveness.ts": {
+      "gate": "verify-compaction-cache-liveness.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-compaction-cache-liveness.ts.json"
+    },
+    "verify-cache-warming-idle-budget.ts": {
+      "gate": "verify-cache-warming-idle-budget.ts",
+      "exit": 0,
+      "evidence": "research/selected-stable-gates/verify-cache-warming-idle-budget.ts.json"
+    },
+    "verify-hindsight-recall-snapshot.ts": {
+      "gate": "verify-hindsight-recall-snapshot.ts",
+      "exit": 0,
+      "evidence": "research/final-durability-gates/verify-hindsight-recall-snapshot.ts.json"
+    },
+    "verify-interrupt-prune-symmetry.ts": {
+      "gate": "verify-interrupt-prune-symmetry.ts",
+      "exit": 0,
+      "evidence": "research/durability-gates/verify-interrupt-prune-symmetry.ts.json"
+    },
+    "verify-date-cwd-anchor-stability.ts": {
+      "gate": "verify-date-cwd-anchor-stability.ts",
+      "exit": 0,
+      "evidence": "research/durability-gates/verify-date-cwd-anchor-stability.ts.json"
+    },
+    "verify-session-transfer-authority.ts": {
+      "gate": "verify-session-transfer-authority.ts",
+      "exit": 0,
+      "evidence": "research/corrected-durability-gates/verify-session-transfer-authority.ts.json"
+    },
+    "verify-hindsight-recall-promotion-slot.ts": {
+      "gate": "verify-hindsight-recall-promotion-slot.ts",
+      "exit": 0,
+      "evidence": "research/corrected-durability-gates/verify-hindsight-recall-promotion-slot.ts.json"
+    },
+    "verify-eval-state-context-persist.ts": {
+      "gate": "verify-eval-state-context-persist.ts",
+      "exit": 0,
+      "evidence": "research/durability-gates/verify-eval-state-context-persist.ts.json"
+    },
+    "verify-turn-recovery-reminder-persist.ts": {
+      "gate": "verify-turn-recovery-reminder-persist.ts",
+      "exit": 0,
+      "evidence": "research/durability-gates/verify-turn-recovery-reminder-persist.ts.json"
+    },
+    "verify-context-persist-audit.ts": {
+      "gate": "verify-context-persist-audit.ts",
+      "exit": 0,
+      "evidence": "research/corrected-durability-gates/verify-context-persist-audit.ts.json"
+    },
+    "verify-length-stop-reminder-persist.ts": {
+      "gate": "verify-length-stop-reminder-persist.ts",
+      "exit": 0,
+      "evidence": "research/durability-gates/verify-length-stop-reminder-persist.ts.json"
+    },
+    "verify-oauth-durable-refresh.ts": {
+      "gate": "verify-oauth-durable-refresh.ts",
+      "exit": 0,
+      "evidence": "research/final-durability-gates/verify-oauth-durable-refresh.ts.json"
+    }
+  },
+  "latest_release": "18.10.1",
+  "latest_delta_acceptance": "Additional affected consumers are tracked separately; unchanged source proof and installed smoke are required."
+}

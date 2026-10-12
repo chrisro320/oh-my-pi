@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "filesChanged": [],
+  "scope": "Final read-only review of the MCP discovery-continuation repair and extended actual-wizard oracle. No remaining concrete findings in this repair.",
+  "closure": {
+    "id": "TUI-18101-1-continuation",
+    "sourceEvidence": "pi-tui/src/overlays/mcp-add-wizard.ts:1516 now checks attempt ownership immediately after discovery and before fetchResourceMetadataScopes. The existing check after the scopes await remains. Cancellation therefore rejects the stale continuation before starting another dependency call, while an uncancelled attempt retains its normal flow.",
+    "oracleEvidence": "patches/verify-native-dialog-lifecycle.ts now waits until the actual wizard enters deferred discovery, cancels before resolving scopeless endpoints, and asserts zero subsequent metadata/OAuth/completion calls and no post-close rendering. Its uncancelled control requires one metadata fetch and one OAuth call, so the negative case cannot pass merely by disabling the path."
+  },
+  "verification": [
+    {
+      "command": "Read current mcp-add-wizard.ts:1490-1548 and verify-native-dialog-lifecycle.ts:84-253.",
+      "result": "Source and oracle satisfy the requested ownership boundary. No checks were executed."
+    },
+    {
+      "command": "Read research/native-discovery-before.json and research/native-discovery-after.json, including the complete recorded stdout.",
+      "result": "Main's recorded baseline exits 1 on the expected metadata-count assertion (1 !== 0). Main's repaired run exits 0 with all 13 cases PASS and empty stderr. These are Main's executed results, not reviewer reruns."
+    }
+  ],
+  "checksNotRun": "No tests, builds, lint, formatters, provider/auth/usage calls, edits or process signals.",
+  "binding": {
+    "requested_model": "@default",
+    "resolved_model": "openai-codex/gpt-6-astra",
+    "role": "trellis-check",
+    "nested_dispatch": false
+  }
+}

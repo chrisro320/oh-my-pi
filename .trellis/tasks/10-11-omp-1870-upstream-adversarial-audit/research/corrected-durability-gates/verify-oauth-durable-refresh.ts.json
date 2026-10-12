@@ -1,0 +1,12 @@
+{
+  "gate": "verify-oauth-durable-refresh.ts",
+  "started": "2026-10-12T06:19:28.404155+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-durability-gates/snapshot/patches/verify-oauth-durable-refresh.ts"
+  ],
+  "gate_sha256": "475021e9073235000fc7ba9ad4b1f493f720438e265a421fe84e5c212356164e",
+  "exit": 1,
+  "stdout": "=== verify-oauth-durable-refresh (0090) :: /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-durability-gates/verify-oauth-durable-refresh/runtime/node_modules/@oh-my-pi/pi-ai ===\n  PASS  startup and credentials.reload preserve duplicate healthy legacy rows byte-for-byte\n  PASS  xAI optional userinfo cannot discard a known replacement\n  PASS  health probes project the winning row without obsolete routing identity\n  PASS  usage fallback keeps an existing valid bearer but cannot probe after concurrent logout\n  PASS  terminal usage rejection retires a reachable legacy quota alias across reopen\n  PASS  refresh preserves stored identity without bootstrap\n  PASS  refresh with no stored identity stores no metadata and still rotates\n  PASS  login identity hook still bootstraps; refresh phase does not\n  PASS  cancellation while waiting for a peer lease issues no token request\n  PASS  cancel after server consumption: owner persists, attached waiter succeeds\n  PASS  >15s lease expiry (injected clock) does not lose the minted token\n  SKIP  >15s real synchronous stall (set OMP_PATCH_VERIFY_OAUTH_REAL_STALL=1)\n  PASS  peer takeover is not clobbered by the previous owner\n  PASS  refresh: concurrent replacement wins while the original lease remains owned\n  PASS  refresh: concurrent logout wins while the original lease remains owned\n  PASS  keys: concurrent replacement wins while the original lease remains owned\n  PASS  keys: concurrent logout wins while the original lease remains owned\n  PASS  usage: concurrent replacement wins while the original lease remains owned\n  PASS  usage: concurrent logout wins while the original lease remains owned\n",
+  "stderr": "  FAIL  takeover-only\n        No credential with id=1\n"
+}

@@ -1,0 +1,12 @@
+{
+  "gate": "verify-hindsight-recall-snapshot.ts",
+  "started": "2026-10-12T06:24:26.935439+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/final-durability-gates/snapshot/patches/verify-hindsight-recall-snapshot.ts"
+  ],
+  "gate_sha256": "75fe47c9e37b63044a30e0791732116a3a7a20dc6f2e22e84b8bdf55e1fbaa6d",
+  "exit": 0,
+  "stdout": "=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===\n  ok empty recall persists a marker\n  ok null recall normalised to empty string\n  ok empty marker replayed on resume, recall not re-run\n  ok non-empty recall unchanged\n  ok failed recall not frozen\n  ok slow MM load frozen, resume replays it and never re-lists\n  ok reset_boundary isolates snapshots, stale empty marker cannot suppress recall\n  ok live and replayed recall preparations reject stale ownership\n  ok transcript reload replays target bytes and rejects deadline/superseded publication\n  ok actual same-ID navigation/reload uses frozen target recall and fresh-process carrier order\n  ok actual switch revokes source loads before adoption and restores rollback ownership\n  ok same-marker fork preserves cache identity; failed/timed-out tree reload clears source prompt\n  ok actual /clear publishes its boundary before target snapshot lookup\nPASS hindsight recall snapshot: empty recalls frozen, resume prefix stable\n",
+  "stderr": ""
+}

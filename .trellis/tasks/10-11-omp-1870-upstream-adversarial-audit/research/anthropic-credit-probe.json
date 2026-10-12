@@ -1,0 +1,193 @@
+{
+  "probe": "anthropic-credit-probe",
+  "version": "18.10.0",
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/tmp/omp-18100-audit-cd9kqmcj/anthropic-credit-probe.ts"
+  ],
+  "root": "/tmp/omp-18100-audit-cd9kqmcj/runtime-18.10.0/node_modules/@oh-my-pi",
+  "source_sha256": "9c1e9ad46a016b4563d03866a56577bb6d03b9e450dfd99dc3bcc2d1bff65905",
+  "exit": 0,
+  "stdout": "{\"requests\":[{\"body\":{\"model\":\"claude-opus-5-5\",\"max_tokens\":64,\"stream\":true,\"system\":[{\"type\":\"text\",\"text\":\"fixed synthetic system\",\"cache_control\":{\"type\":\"ephemeral\",\"ttl\":\"1h\"}}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"synthetic request\"}]}],\"fallback_credit_token\":\"synthetic-credit\"},\"headers\":{\"accept\":\"text/event-stream\",\"accept-encoding\":\"gzip, deflate, br, zstd\",\"anthropic-beta\":\"fallback-credit-2026-06-01\",\"anthropic-dangerous-direct-browser-access\":\"true\",\"anthropic-version\":\"2023-06-01\",\"connection\":\"keep-alive\",\"content-type\":\"application/json\",\"x-api-key\":\"synthetic-api-key\",\"x-app\":\"cli\"}},{\"body\":{\"model\":\"claude-opus-5-5\",\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"synthetic request\",\"cache_control\":{\"type\":\"ephemeral\"}}]}],\"system\":[{\"type\":\"text\",\"text\":\"fixed synthetic system\",\"cache_control\":{\"type\":\"ephemeral\"}}],\"max_tokens\":64,\"thinking\":{\"type\":\"adaptive\",\"block_binding\":{\"prefix_mismatch_behavior\":\"drop_block\"}},\"context_management\":{\"edits\":[{\"type\":\"clear_thinking_20251015\",\"keep\":\"all\"}]},\"stream\":true},\"headers\":{\"accept\":\"text/event-stream\",\"accept-encoding\":\"gzip, deflate, br, zstd\",\"anthropic-beta\":\"fallback-credit-2026-06-01\",\"anthropic-dangerous-direct-browser-access\":\"true\",\"anthropic-version\":\"2023-06-01\",\"connection\":\"keep-alive\",\"content-type\":\"application/json\",\"x-api-key\":\"synthetic-api-key\",\"x-app\":\"cli\"}},{\"body\":{\"model\":\"claude-opus-5-5\",\"max_tokens\":64,\"stream\":true,\"system\":[{\"type\":\"text\",\"text\":\"fixed synthetic system\",\"cache_control\":{\"type\":\"ephemeral\",\"ttl\":\"1h\"}}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"synthetic request\"}]}],\"fallback_credit_token\":\"synthetic-credit\"},\"headers\":{\"accept\":\"text/event-stream\",\"accept-encoding\":\"gzip, deflate, br, zstd\",\"anthropic-beta\":\"fallback-credit-2026-06-01\",\"anthropic-dangerous-direct-browser-access\":\"true\",\"anthropic-version\":\"2023-06-01\",\"connection\":\"keep-alive\",\"content-type\":\"application/json\",\"x-api-key\":\"synthetic-api-key\",\"x-app\":\"cli\"}},{\"body\":{\"model\":\"claude-opus-5-5\",\"max_tokens\":64,\"stream\":true,\"system\":[{\"type\":\"text\",\"text\":\"fixed synthetic system\",\"cache_control\":{\"type\":\"ephemeral\",\"ttl\":\"1h\"}}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"synthetic request\"}]}],\"fallback_credit_token\":\"synthetic-credit\"},\"headers\":{\"accept\":\"text/event-stream\",\"accept-encoding\":\"gzip, deflate, br, zstd\",\"anthropic-beta\":\"fallback-credit-2026-06-01\",\"anthropic-dangerous-direct-browser-access\":\"true\",\"anthropic-version\":\"2023-06-01\",\"connection\":\"keep-alive\",\"content-type\":\"application/json\",\"x-api-key\":\"synthetic-api-key\",\"x-app\":\"cli\"}}],\"stopReason\":\"stop\"}\n",
+  "stderr": "",
+  "capture": {
+    "requests": [
+      {
+        "body": {
+          "model": "claude-opus-5-5",
+          "max_tokens": 64,
+          "stream": true,
+          "system": [
+            {
+              "type": "text",
+              "text": "fixed synthetic system",
+              "cache_control": {
+                "type": "ephemeral",
+                "ttl": "1h"
+              }
+            }
+          ],
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "synthetic request"
+                }
+              ]
+            }
+          ],
+          "fallback_credit_token": "synthetic-credit"
+        },
+        "headers": {
+          "accept": "text/event-stream",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "anthropic-beta": "fallback-credit-2026-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+          "anthropic-version": "2023-06-01",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "x-api-key": "synthetic-api-key",
+          "x-app": "cli"
+        }
+      },
+      {
+        "body": {
+          "model": "claude-opus-5-5",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "synthetic request",
+                  "cache_control": {
+                    "type": "ephemeral"
+                  }
+                }
+              ]
+            }
+          ],
+          "system": [
+            {
+              "type": "text",
+              "text": "fixed synthetic system",
+              "cache_control": {
+                "type": "ephemeral"
+              }
+            }
+          ],
+          "max_tokens": 64,
+          "thinking": {
+            "type": "adaptive",
+            "block_binding": {
+              "prefix_mismatch_behavior": "drop_block"
+            }
+          },
+          "context_management": {
+            "edits": [
+              {
+                "type": "clear_thinking_20251015",
+                "keep": "all"
+              }
+            ]
+          },
+          "stream": true
+        },
+        "headers": {
+          "accept": "text/event-stream",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "anthropic-beta": "fallback-credit-2026-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+          "anthropic-version": "2023-06-01",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "x-api-key": "synthetic-api-key",
+          "x-app": "cli"
+        }
+      },
+      {
+        "body": {
+          "model": "claude-opus-5-5",
+          "max_tokens": 64,
+          "stream": true,
+          "system": [
+            {
+              "type": "text",
+              "text": "fixed synthetic system",
+              "cache_control": {
+                "type": "ephemeral",
+                "ttl": "1h"
+              }
+            }
+          ],
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "synthetic request"
+                }
+              ]
+            }
+          ],
+          "fallback_credit_token": "synthetic-credit"
+        },
+        "headers": {
+          "accept": "text/event-stream",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "anthropic-beta": "fallback-credit-2026-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+          "anthropic-version": "2023-06-01",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "x-api-key": "synthetic-api-key",
+          "x-app": "cli"
+        }
+      },
+      {
+        "body": {
+          "model": "claude-opus-5-5",
+          "max_tokens": 64,
+          "stream": true,
+          "system": [
+            {
+              "type": "text",
+              "text": "fixed synthetic system",
+              "cache_control": {
+                "type": "ephemeral",
+                "ttl": "1h"
+              }
+            }
+          ],
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "synthetic request"
+                }
+              ]
+            }
+          ],
+          "fallback_credit_token": "synthetic-credit"
+        },
+        "headers": {
+          "accept": "text/event-stream",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "anthropic-beta": "fallback-credit-2026-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+          "anthropic-version": "2023-06-01",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "x-api-key": "synthetic-api-key",
+          "x-app": "cli"
+        }
+      }
+    ],
+    "stopReason": "stop"
+  }
+}

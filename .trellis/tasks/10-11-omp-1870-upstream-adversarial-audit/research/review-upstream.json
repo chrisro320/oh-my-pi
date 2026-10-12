@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "title": "Apply the moved-session guard to in-process resume too",
+      "body": "TARGET-UPSTREAM: The new departed-marker guard is called only by main.ts startup routes. Interactive resume reaches selector-controller.ts:1914 -> AgentSession.switchSession (agent-session.ts:11480) -> SessionManager.setSessionFile (session-manager.ts:2286), none of which checks the transfer marker. Therefore /resume of a session previously marked with `omp session moved` continues writing the stale original ID instead of creating the promised fork, allowing two machines to advance the same session identity. Both 18.7 trees lack this newly introduced transfer contract; this is not a lost local patch. Move/adapt the guard into the shared session-adoption boundary, preserving cancellation and rollback behavior. Absorb into the persistent-prefix/resume family's navigation gate: compare startup resume and in-process resume of one synthetic departed session and require a new ID and unchanged original journal in both.",
+      "priority": 1,
+      "confidence": 0.98,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-transfer.ts",
+      "line_start": 665,
+      "line_end": 670
+    },
+    {
+      "title": "Compare local transcripts after acquiring their ownership lease",
+      "body": "TARGET-UPSTREAM: unpackSession reads local copies and decides they are prefixes at lines 585-590, then only acquires leases at line 600. A live process can append a message after that read and exit before the claim, so the claim succeeds and setAside replaces its now-diverged transcript; the backups containing the new message are then deleted. The successful lease does not validate the earlier snapshot. Acquire ownership before reading/classifying replaceable copies and hold it through publication (revalidate discovery as necessary). This new transfer path does not exist in either 18.7 tree. Absorb into the session-persistence/rollback acceptance gate with one controlled interleaving: append and close between prefix read and lease acquisition, and require either refusal or a fork, never replacement of the newer local transcript.",
+      "priority": 1,
+      "confidence": 0.98,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-transfer.ts",
+      "line_start": 598,
+      "line_end": 601
+    }
+  ],
+  "overall_correctness": "incorrect",
+  "explanation": "Pinned e0fc1cf4..b83200eb changes 1,722 repository files and 579 files under agent/ai/coding-agent src; the broad inventory and focused source review covered new session transfer and startup routing, storage publication, schema compatibility, plugin loading, native IPC migration, reset fencing, auth broker/gateway changes, and Anthropic/tool-prompt changes, finding two concrete new transfer defects rather than baseline defects or lost local protection, while release highlights include tar-based session transfer, removed-worktree relocation, fork tail repair, streamed journal rewrites, session-bound system-prompt digests, endpoint-scoped Anthropic cache-option fallback, OAuth account pools, broker snapshot optimizations, shared saved-reset fencing, and native IPC transport (this is changed-area coverage, not a claim of exhaustive correctness of all 579 files). Rebase/retain the persistent-prefix/resume capability and absorb the departed-session navigation bypass there; assign the unpack race to session persistence/rollback acceptance, retain/rebase Anthropic cache and credential protections rather than retire them on apparent upstream similarity, and retain source/declaration/runtime closure and deployment gates because the inspected source ABI changes include UsageLedgerStore.invalidateUsageCache(provider?, signal?) and explicit child asyncJobManager injection; rejected false positives include an alleged agent.db schema-version upgrade (agent schema remains 6 and auth schema remains 8, with the baseline and replay both already having auth refresh leases), forged proxy headers by default (resolve-peer.ts:2-7 requires explicit trust), unconsumed daemon generation IDs (launch/broker.ts:633-638 dispatches them), and wholly missing reset coordination (usage-cli.ts:1416 and agent-session.ts:12897 both consume withResetFence), but equal schema versions do not establish safe code-only rollback of rewritten journals or credential state. Outstanding acceptance questions are source/declaration closure after full 24-family rebase, Anthropic fallback interaction with mandatory local TTL/namespace and signed-prefix invariants, full restored tool/system-prompt identity after new digest/memory behavior, native IPC coexistence with old resident daemons, and rollback after transfer/fork writes; the partial 3/24 target replay is not a candidate, no tests/provider requests or live-data reads were performed, the three required policy grep checks passed, and only the two finding-specific synthetic consumer probes are recommended here rather than broad suite expansion.",
+  "confidence": 0.94
+}

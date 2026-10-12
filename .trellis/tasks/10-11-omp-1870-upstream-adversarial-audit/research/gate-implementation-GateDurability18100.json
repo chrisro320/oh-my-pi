@@ -1,0 +1,99 @@
+{
+  "agent": "GateDurability18100",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "status": "implementation_complete_unverified",
+      "files_changed": [
+        "patches/verify-oauth-durable-refresh.ts",
+        "patches/verify-hindsight-recall-snapshot.ts",
+        "patches/verify-hindsight-recall-promotion-slot.ts",
+        "patches/verify-date-cwd-anchor-stability.ts",
+        "patches/verify-eval-state-context-persist.ts",
+        "patches/verify-turn-recovery-reminder-persist.ts",
+        "patches/verify-length-stop-reminder-persist.ts",
+        "patches/verify-context-persist-audit.ts",
+        "patches/verify-interrupt-prune-symmetry.ts",
+        "patches/verify-session-transfer-authority.ts"
+      ],
+      "implemented": {
+        "oauth": [
+          "Explicit 18.10.0 reservation-policy branch; historical 18.4.4/18.7.0 resend behavior remains in the older-release branch.",
+          "503 after exchange invocation now requires unresolved failure, unchanged active credentials, and zero second POST.",
+          "Response-loss fixture persists ambiguity, expires the lease clock, and invokes refresh in a real fresh subprocess; it requires zero additional sends.",
+          "Late successful result after owner timeout must remain staged until a fresh-process owner publishes it without re-exchange. Existing takeover-only case also checks staged recovery after lease expiry.",
+          "Healthy current-schema synthetic row with NULL identity_key must retain exact row fields and auth revision at startup; ordinary healthy access must not reserve a generation.",
+          "Pre-aborted and cancelled lease-waiting callers must leave the exchange journal empty.",
+          "Real broker server router, client, remote store, and AuthStorage usage consumer run through an intercepted Request/Response bridge. Concurrent distinct provider filters, cached filter reuse, explicit empty filtering, and runtime-local fallback exclusion require zero unrelated Anthropic usage/refresh."
+        ],
+        "memory": [
+          "New target recalls assert canonical memory_recall text; older producers retain legacy snippet assertions.",
+          "Actual file-backed legacy empty/nonempty snapshots migrate and replay through two fresh subprocesses without a following message, preserving exact text and one scoped canonical record.",
+          "Cancelled preparation cannot alter committed legacy migration history. Changed bank scope cannot fall back to unscoped legacy text. Native records retain message-followed commitment semantics; reset boundaries invalidate canonical recall.",
+          "Scoped mental-model migration and deduplication expectations follow PortPersistence's contract.",
+          "Removed promotion source-text assertions; added actual developer-instruction consumer observation alongside retained SessionMemory and SessionTools lifecycle behavior."
+        ],
+        "anchors_and_transfer": [
+          "Removed date/cwd source-text assertions.",
+          "Actual SessionManager fork changes the session ID while preserving injector-produced historical bytes.",
+          "Actual pack/unpack transfers owned anchor state after source fixture removal; a fresh subprocess reopens the imported journal and applies the real injector. New destination messages receive the new date/cwd.",
+          "Added the authorized focused transfer gate because no existing verifier invoked these authority consumers.",
+          "Transfer gate exercises held-owner refusal, deterministic append/flushSync/close immediately before the actual claim call, divergent fork preservation, equal/prefix identity preservation, nonmutating moved inspection, and writable adoption through AgentSession.switchSession."
+        ],
+        "remaining_gate_adaptation": [
+          "Added explicit target API/version branches for eval, recovery, length-stop, and interrupted-turn gates.",
+          "Removed incidental eval source-text assertions; retained direct read-only persistence behavior.",
+          "Context audit now respects the selected AI root, including across its private child process.",
+          "Gates isolate credentials/settings and establish private HOME/XDG at process startup before package imports; unexpected fetches are intercepted.",
+          "Length-stop reopen now disposes the original session before reopening its file."
+        ]
+      },
+      "coordination": {
+        "PortAuth": "Confirmed reservation/staging/public refreshStored APIs, future-only startup behavior, ambiguity policy, and broker filter contracts directly.",
+        "PortPersistence": "Confirmed canonical legacyCommitted semantics, scoped MM migration, injector session-file argument, adoption APIs, and deterministic import claim hook directly.",
+        "Main": "Notified that the new transfer verifier requires 18.10.0 registration and that controller/runbook/spec updates remain Main-owned."
+      },
+      "verification": {
+        "executed": [],
+        "not_executed": "No builds, lint, typechecks, tests, formatters, smoke runs, provider calls, or production credential/database operations. Only source/spec inspection and edits were performed.",
+        "policy_reference_reads": "Read the work-order-required grep anchors in patch-rollup-contracts.md, verification-gate-contracts.md, and task prd.md; these are policy-presence references, not product verification."
+      },
+      "main_acceptance": {
+        "prerequisite": "Use the complete dependency-connected integrated 18.10.0 candidate, not migration work/ or the partial audit replay.",
+        "environment": {
+          "OMP_PATCH_VERIFY_NM": "Absolute candidate node_modules/@oh-my-pi directory",
+          "OMP_PATCH_VERIFY_AGENT_ROOT": "Optional override: candidate pi-coding-agent directory",
+          "OMP_PATCH_VERIFY_AI_ROOT": "Optional override: candidate pi-ai directory",
+          "OMP_PATCH_VERIFY_OAUTH_REAL_STALL": "Leave unset for normal focused acceptance; injected-clock coverage remains enabled."
+        },
+        "commands": [
+          "bun patches/verify-oauth-durable-refresh.ts",
+          "bun patches/verify-hindsight-recall-snapshot.ts",
+          "bun patches/verify-hindsight-recall-promotion-slot.ts",
+          "bun patches/verify-date-cwd-anchor-stability.ts",
+          "bun patches/verify-session-transfer-authority.ts",
+          "bun patches/verify-eval-state-context-persist.ts",
+          "bun patches/verify-turn-recovery-reminder-persist.ts",
+          "bun patches/verify-length-stop-reminder-persist.ts",
+          "bun patches/verify-context-persist-audit.ts",
+          "bun patches/verify-interrupt-prune-symmetry.ts"
+        ],
+        "integration": "Register verify-session-transfer-authority.ts only for the 18.10.0 persistence/transfer capability. Update Main-owned gate mapping, runbook/changelog and verification contract documentation. No controller or product source was edited here."
+      },
+      "remaining_uncovered_risks": [
+        "These edits have not been executed; runtime acceptance and negative-control results remain unproven until Main's focused run.",
+        "Synthetic transport cannot establish provider-side idempotency, revocation, actual consumption, billing, or cache hits.",
+        "Auth restart coverage uses fresh processes over completed durable writes, not OS kill/power-loss injection.",
+        "Transfer coverage reaches the common writable boundary through the SDK switch, not separate RPC/ACP transport adapters or cross-process kernel-lock failure injection.",
+        "Memory scope discrimination changes the bank; server/token/tag permutations are not expanded into a new matrix.",
+        "Portable-anchor coverage includes archives carrying anchors; older archives missing the artifact are not separately exercised.",
+        "Removed eval source-wording assertions do not constitute behavioral coverage of every collab/branch comparison caller; the direct read-only API remains exercised."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "overall_correctness": "incorrect",
+  "explanation": "These three defects are introduced by the current local families and present in the fully replayed 18.7 baseline; they are not new upstream18.10 regressions. Narrow missing-method probe: import describeSegment from the selected private root's pi-tui/src/status-line/segments.ts and invoke describeSegment(\"cache_turn\", {} as Parameters<typeof describeSegment>[1]); this reaches the missing describe method before reading any context fields, so a TypeError demonstrates the actual dispatch defect without UI/native desktop actions. No probe was executed; the complete family migration report remains in the previously delivered explanation.",
+  "confidence": 0.99,
+  "findings": [
+    {
+      "title": "Implement native description for the new cache_turn segment",
+      "body": "CURRENT-BASELINE defect in family-status-accounting: cache_turn is registered but defines only render(). Selecting it in the native status line reaches describeSegment(), which calls SEGMENTS[id]?.describe(ctx) at pi-tui/src/status-line/segments.ts:1338; because the segment exists but describe does not, it throws TypeError instead of displaying turn-cache usage. The native caller routes configured segments through this function in pi-tui/src/status-line/component.ts:3598-3602. Add describe() using the same settled-assistant selection and cache-read/rate calculation as render(), returning null when hidden, and preserve both implementations in the18.10 rebase. A narrow actual-consumer invocation is describeSegment(\"cache_turn\", {} as Parameters<typeof describeSegment>[1]); the current failure occurs before accessing ctx.",
+      "priority": 1,
+      "confidence": 1,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/replay-18.7.0/node_modules/@oh-my-pi/pi-tui/src/status-line/segments.ts",
+      "line_start": 1015,
+      "line_end": 1018
+    },
+    {
+      "title": "Apply accounting changes to native status descriptions too",
+      "body": "CURRENT-BASELINE defect in family-status-accounting: the patch updates only ANSI render() calculations. Native status dispatch uses describe(), whose token_total calculation at lines755-759 still excludes cacheRead and orchestrationCacheRead, and whose cache_hit calculation at lines1007-1011 still includes auxiliary-model usage rather than calling getMainCacheHitRate(). With cached input or auxiliary usage, the native UI therefore shows different totals and cache rates from the family's intended semantics and its ANSI renderer. Update both describe() implementations to share the patched accounting; verify through describeSegment(\"token_total\", ctx) and describeSegment(\"cache_hit\", ctx) with nonzero cache counters and a main-cache rate different from the aggregate rate.",
+      "priority": 2,
+      "confidence": 1,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/replay-18.7.0/node_modules/@oh-my-pi/pi-tui/src/status-line/segments.ts",
+      "line_start": 739,
+      "line_end": 745
+    },
+    {
+      "title": "Invalidate cached Devin auth when AssignModel rejects it",
+      "body": "CURRENT-BASELINE defect introduced by family-devin-wire's auth cache: router models invoke assignDevinModel() before the chat-response auth-retry branch. If AssignModel rejects a cached JWT with401/403, it throws at providers/devin.ts:845, terminating the turn without invalidating the cache. Later router turns reuse the same rejected token until its cached expiry; pristine18.7 fetched auth anew each turn. Handle assignment authentication rejection within the existing two-attempt loop: invalidate on either rejection, force-refresh and retry only after the first rejection, and keep non-auth assignment errors terminal. A synthetic cached-token \u2192 AssignModel401 \u2192 refreshed assignment fixture should prove recovery and exactly one subsequent chat request.",
+      "priority": 2,
+      "confidence": 0.98,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/replay-18.7.0/node_modules/@oh-my-pi/pi-ai/src/providers/devin.ts",
+      "line_start": 264,
+      "line_end": 267
+    }
+  ]
+}

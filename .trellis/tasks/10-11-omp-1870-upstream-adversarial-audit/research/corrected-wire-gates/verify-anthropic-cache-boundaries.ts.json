@@ -1,0 +1,12 @@
+{
+  "gate": "verify-anthropic-cache-boundaries.ts",
+  "started": "2026-10-12T06:02:47.452652+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-wire-gates/ledger/verify-anthropic-cache-boundaries.ts"
+  ],
+  "gate_sha256": "eb54f32072ef23635a6996339cacca525e3010f39a36e119d735752f61d29e5f",
+  "exit": 0,
+  "stdout": "PASS Anthropic cache boundaries (18.10.0): 7 ordinary captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary, credit-safe retry on both rungs; zero provider traffic\n",
+  "stderr": ""
+}

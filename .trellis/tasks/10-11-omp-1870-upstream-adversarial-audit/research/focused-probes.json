@@ -1,0 +1,38 @@
+[
+  {
+    "version": "18.10.0",
+    "gate": "verify-oauth-durable-refresh.ts",
+    "command": [
+      "/home/chris/.bun/bin/bun",
+      "/home/chris/orca/projects/omp-move/patches/verify-oauth-durable-refresh.ts"
+    ],
+    "root": "/tmp/omp-18100-audit-cd9kqmcj/runtime-18.10.0/node_modules/@oh-my-pi",
+    "exit": 1,
+    "log": "verify-oauth-durable-refresh-18.10.0.log",
+    "output": "=== verify-oauth-durable-refresh (0090) :: /tmp/omp-18100-audit-cd9kqmcj/runtime-18.10.0/node_modules/@oh-my-pi/pi-ai ===\n  FAIL  refresh preserves stored identity without bootstrap\n        stored account identity must survive a refresh that omits it\n"
+  },
+  {
+    "version": "18.7.0",
+    "gate": "verify-model-selection-resume.ts",
+    "command": [
+      "/home/chris/.bun/bin/bun",
+      "/home/chris/orca/projects/omp-move/patches/verify-model-selection-resume.ts"
+    ],
+    "root": "/tmp/omp-18100-audit-cd9kqmcj/runtime-18.7.0/node_modules/@oh-my-pi",
+    "exit": 0,
+    "log": "verify-model-selection-resume-18.7.0.log",
+    "output": "PASS switch -> navigation -> fresh-process resume: model=sol, effort=high\n"
+  },
+  {
+    "version": "18.7.0",
+    "gate": "verify-oauth-durable-refresh.ts",
+    "command": [
+      "/home/chris/.bun/bin/bun",
+      "/home/chris/orca/projects/omp-move/patches/verify-oauth-durable-refresh.ts"
+    ],
+    "root": "/tmp/omp-18100-audit-cd9kqmcj/runtime-18.7.0/node_modules/@oh-my-pi",
+    "exit": 0,
+    "log": "verify-oauth-durable-refresh-18.7.0.log",
+    "output": "=== verify-oauth-durable-refresh (0090) :: /tmp/omp-18100-audit-cd9kqmcj/runtime-18.7.0/node_modules/@oh-my-pi/pi-ai ===\n  PASS  refresh preserves stored identity without bootstrap\n  PASS  refresh with no stored identity stores no metadata and still rotates\n  PASS  login identity hook still bootstraps; refresh phase does not\n  PASS  cancellation while waiting for a peer lease issues no token request\n  PASS  cancel after server consumption: owner persists, attached waiter succeeds\n  PASS  >15s lease expiry (injected clock) does not lose the minted token\n  SKIP  >15s real synchronous stall (set OMP_PATCH_VERIFY_OAUTH_REAL_STALL=1)\n  PASS  peer takeover is not clobbered by the previous owner\n  PASS  refresh: concurrent replacement wins while the original lease remains owned\n  PASS  refresh: concurrent logout wins while the original lease remains owned\n  PASS  keys: concurrent replacement wins while the original lease remains owned\n  PASS  keys: concurrent logout wins while the original lease remains owned\n  PASS  usage: concurrent replacement wins while the original lease remains owned\n  PASS  usage: concurrent logout wins while the original lease remains owned\n  PASS  takeover-only\n  PASS  replacement-before-invalid-grant\n  PASS  account changed by refresh must satisfy its own plan gate\n  PASS  genuine invalid_grant disables only the attempted row\n  PASS  transient failure keeps the row; the next refresh uses the saved token\n  PASS  next refresh sends the previously saved refresh token\n  PASS  pre-aborted caller issues no token request\n\nPASS verify-oauth-durable-refresh: 20 scenario(s) ok\n"
+  }
+]

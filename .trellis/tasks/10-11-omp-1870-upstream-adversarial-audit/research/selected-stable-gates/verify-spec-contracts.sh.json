@@ -1,0 +1,11 @@
+{
+  "gate": "verify-spec-contracts.sh",
+  "started": "2026-10-12T05:47:52.176784+00:00",
+  "command": [
+    "bash",
+    "/home/chris/orca/projects/omp-move/patches/verify-spec-contracts.sh"
+  ],
+  "exit": 0,
+  "stdout": "=== verification-gate-contracts conformance ===\n  ok    spec file present\n  ok    spec indexed in backend/index.md\n  ok    verify-snapcompact-model-billing.ts defers reduction behavior to the session consumer gate\n  ok    no gate hardcodes a live package path\n  skip  ledger /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/selected-stable-gates/verify-spec-contracts/home/.omp/patches not present on this host\n\nspec-contracts verification: ok\n",
+  "stderr": ""
+}

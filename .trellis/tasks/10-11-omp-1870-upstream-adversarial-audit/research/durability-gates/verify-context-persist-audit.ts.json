@@ -1,0 +1,12 @@
+{
+  "gate": "verify-context-persist-audit.ts",
+  "started": "2026-10-12T06:06:47.663227+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-context-persist-audit.ts"
+  ],
+  "gate_sha256": "cb9ef03abcd3d72743f8b23b724b4a6724929c294ab517497e4db46b174a1dd9",
+  "exit": 1,
+  "stdout": "",
+  "stderr": "\n[Uncaught Exception] AssertionError: welcome: replica reads the exact host's frozen answer\n+ actual - expected\n\n+ ''\n- '<mental_models>\\nexact host snapshot\\n</mental_models>'\n\n+ actual - expected\n\n+ ''\n- '<mental_models>\\nexact host snapshot\\n</mental_models>'\n\n    at /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-context-persist-audit.ts:409:13\n    at processTicksAndRejections (native:7:39)\n31 | \t\t\t\tOMP_CONTEXT_AUDIT_EXTENSION: EXTENSION, OMP_CONTEXT_AUDIT_CHILD: \"1\",\n32 | \t\t\t},\n33 | \t\t});\n34 | \t\tprocess.stdout.write(result.stdout);\n35 | \t\tprocess.stderr.write(result.stderr);\n36 | \t\tassert.equal(result.exitCode, 0, \"isolated context audit gate failed\");\n              ^\nAssertionError: isolated context audit gate failed\n\n1 !== 0\n\n generatedMessage: false,\n     actual: 1,\n   expected: 0,\n   operator: \"strictEqual\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-context-persist-audit.ts:36:10\n\nBun v1.3.14 (Linux x64)\n"
+}

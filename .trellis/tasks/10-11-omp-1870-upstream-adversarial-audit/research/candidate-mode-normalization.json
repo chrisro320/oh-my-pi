@@ -1,0 +1,52 @@
+[
+  {
+    "path": "pi-catalog/dist/types/wire/devin.d.ts",
+    "before": "0o664",
+    "after": "0o644"
+  },
+  {
+    "path": "pi-ai/src/providers/anthropic-request-audit.ts",
+    "before": "0o664",
+    "after": "0o644"
+  },
+  {
+    "path": "pi-ai/dist/types/providers/anthropic-request-audit.d.ts",
+    "before": "0o664",
+    "after": "0o644"
+  },
+  {
+    "path": "pi-coding-agent/src/session/session-transfer-marker.ts",
+    "before": "0o664",
+    "after": "0o644"
+  },
+  {
+    "path": "pi-coding-agent/dist/types/session/session-transfer-marker.d.ts",
+    "before": "0o664",
+    "after": "0o644"
+  },
+  {
+    "path": "pi-agent-core/src/compaction/compaction-trace.ts",
+    "before": "0o664",
+    "after": "0o644"
+  },
+  {
+    "path": "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+    "before": "0o664",
+    "after": "0o644"
+  },
+  {
+    "path": "pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md",
+    "before": "0o664",
+    "after": "0o644"
+  },
+  {
+    "path": "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+    "before": "0o664",
+    "after": "0o644"
+  },
+  {
+    "path": "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+    "before": "0o664",
+    "after": "0o644"
+  }
+]

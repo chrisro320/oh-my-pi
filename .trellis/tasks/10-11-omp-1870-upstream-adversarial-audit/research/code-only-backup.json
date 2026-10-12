@@ -1,0 +1,18 @@
+{
+  "policy": "Code-only backup. No production databases, credential reads or agent-directory traversal.",
+  "launcher": "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+  "roots": [
+    {
+      "name": "global",
+      "source": "/home/chris/.bun/install/global",
+      "backup": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/code-only-backup/global",
+      "sha256": "b812f70e2e1eb685239a71ffb35c20058ed1e3559ffbcf5cb34d0e1a14e69db7"
+    },
+    {
+      "name": "ledger",
+      "source": "/home/chris/.omp/patches",
+      "backup": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/code-only-backup/ledger",
+      "sha256": "59a7df6f0c9b0dcce12a10c54299aefcf51309f9035b8ca176a6b21212242bda"
+    }
+  ]
+}

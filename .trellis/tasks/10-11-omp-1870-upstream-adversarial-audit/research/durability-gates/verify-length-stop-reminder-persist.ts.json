@@ -1,0 +1,12 @@
+{
+  "gate": "verify-length-stop-reminder-persist.ts",
+  "started": "2026-10-12T06:06:48.544495+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-length-stop-reminder-persist.ts"
+  ],
+  "gate_sha256": "b9ff6a5e9b757e165046016897a6d67a375d7f310a4442400a038a024e1f0b32",
+  "exit": 0,
+  "stdout": "length-stop reminder persist: ALL PASS\n",
+  "stderr": ""
+}

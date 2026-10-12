@@ -1,0 +1,12 @@
+{
+  "gate": "verify-kitty-shared-png-cache.ts",
+  "started": "2026-10-12T06:31:31.372824+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-kitty-shared-png-cache.ts"
+  ],
+  "gate_sha256": "5227ab1c881f2f8b44224136ef490d39583efdef6b52d5fb820b51f24582a766",
+  "exit": 0,
+  "stdout": "kitty shared PNG cache: eight graphics, tool/assistant/native slot replacement, late callbacks, failure, dedupe and 200-image eviction PASS\n",
+  "stderr": ""
+}

@@ -1,0 +1,11 @@
+{
+  "gate": "verify-session-history-preview.ts",
+  "started": "2026-10-12T05:47:56.436410+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-session-history-preview.ts"
+  ],
+  "exit": 0,
+  "stdout": "Starting Session History Preview verification...\n\u2713 fixture guard rejects live state and stray paths before access\n\u2713 list mode renders the fixture title and compact model, no transcript body\n\u2713 Space opens the preview and renders the fixture transcript verbatim, without tool noise\n\u2713 Esc closes the preview, while Esc in the list still cancels the picker\n\u2713 Space with a non-empty query edits the search text instead of opening the preview\n\u2713 Enter inside the preview resumes the selected session\n\u2713 Ctrl+C inside the preview exits the picker\n\u2713 mouse wheel scrolls the preview viewport across the whole transcript\n\u2713 scrollbar drag seeks the preview and Esc still leaves it cleanly\n\u2713 a tool-call turn keeps its real multi-line code fence\n\u2713 scanner resolves the newest role like resume (default/fallback\u2192default, role-scoped\u2192its model), falls back to last-served, and stays unset when empty\n\nALL VERIFICATIONS PASSED SUCCESSFULLY!\n",
+  "stderr": ""
+}

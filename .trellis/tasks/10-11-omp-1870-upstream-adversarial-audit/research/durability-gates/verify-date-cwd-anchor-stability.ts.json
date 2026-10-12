@@ -1,0 +1,12 @@
+{
+  "gate": "verify-date-cwd-anchor-stability.ts",
+  "started": "2026-10-12T06:06:43.773328+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-date-cwd-anchor-stability.ts"
+  ],
+  "gate_sha256": "0d5dc6a1148c2503eb25795ccea449ca28b8a18df24b78b7d30354e5f4713d75",
+  "exit": 0,
+  "stdout": "GATE 2 behaviour: PASS\nPASS date-cwd anchor stability: slot-stable, stamp-frozen, rollover-local, resume-replayable\n",
+  "stderr": ""
+}

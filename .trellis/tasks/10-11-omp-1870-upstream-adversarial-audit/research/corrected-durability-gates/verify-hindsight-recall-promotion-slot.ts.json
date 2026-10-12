@@ -1,0 +1,12 @@
+{
+  "gate": "verify-hindsight-recall-promotion-slot.ts",
+  "started": "2026-10-12T06:19:24.723981+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-durability-gates/snapshot/patches/verify-hindsight-recall-promotion-slot.ts"
+  ],
+  "gate_sha256": "63947ebdcbf183a726f3eec9f81f7465ba1792704ad816aa8e81be9ea8f6d5a2",
+  "exit": 0,
+  "stdout": "verify-hindsight-recall-promotion-slot: ok\n",
+  "stderr": ""
+}

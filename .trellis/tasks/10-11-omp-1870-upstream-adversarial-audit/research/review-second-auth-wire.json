@@ -1,0 +1,79 @@
+{
+  "overall_correctness": "incorrect",
+  "explanation": "Independent disposition: CONFIRMED the bootstrap, initiating-caller cancellation, owner-only persistence, broker usage-filter, advisor rotation-grace, cache-credit retry, and native-compaction diagnostic claims; QUALIFIED the pre-CAS renewal claim to the expired-but-not-taken-over owner case and the broader 0090 safety claim because current baseline still permits ambiguous-exchange replay, persistence-failure replay, and overlapping exchanges after lease takeover. The parent's synthetic ambiguous-exchange probe demonstrates duplicate client sends of R0 followed by synthetic invalid_grant disabling, not actual Anthropic revocation behavior; registry/engine/common.ts:203-263 performs one token POST, so a claim of automatic registry token-exchange retries is REJECTED, while ownership polling, later refresh invocations, and auth-broker/client.ts:473-518 transport retries are distinct mechanisms. Retain/rebase 0090 and the other affected protections rather than retire them, block a lossless-migration verdict until these gaps are resolved, preserve target reason/overrideMints policy, and treat the findings below as source-backed inference except for the parent's explicitly bounded observations; I ran no executable checks, made no edits or provider calls, and completed the three required policy grep checks.",
+  "confidence": 0.96,
+  "findings": [
+    {
+      "title": "Keep initiating-caller cancellation outside the durable refresh operation",
+      "body": "CONFIRMED migration loss at T auth/refresh.ts:497-505: the initiating signal is combined with the owner signal, and #requestOAuthCredentialRefresh races cancellation against exchange completion at 583-594; select.ts:770-775, usage.ts's preflight refresh, and auth-broker/server.ts:937-941 pass caller signals into this path. A disconnect after provider consumption can abandon R1 and release ownership while R0 remains stored. Existing waiters have isolated raceSignal handling, but that does not isolate the initiating caller. Restore B's waiter-only cancellation after lease acquisition, retaining a bounded owner operation and forwarding reason. QUALIFIED broader protection: B itself still releases the lease after an ambiguous exchange or failed persistence (B refresh.ts:277-322, 345-380), and its ten-second Promise.race at 598-619 cannot prove the provider stopped. The parent's research/oauth-ambiguous-probe.json observed two sends of synthetic-R0 and synthetic invalid_grant disabling; it does not establish real server grace or account loss. B sqlite-credential-store.ts:502-519 permits an expired lease to be acquired by another process even while the old owner remains in flight: owner/row CAS protects the eventual database write, not the external grant. PreflightFailures suppresses only the same selection pass, cooldowns only postpone another attempt, and recent-mint reuse is populated only after successful persistence, so none is a durable ambiguous-attempt guard. Recommended additional fail-closed behavior is a durable per-row/token-generation exchange reservation committed before POST, refusing to send if reservation persistence fails; an ambiguous result or lost owner leaves that generation quarantined instead of making R0 redeemable when a lease expires. If R1 is known but its commit fails, recover/persist that result without another R0 exchange. This sacrifices automatic availability and may require reauthorization after an unconsumed request; no client can prove non-consumption, recover an unreceived R1, or guarantee both transparent recovery and no duplicate redemption without provider recovery/idempotency support.",
+      "priority": 1,
+      "confidence": 0.99,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/auth/refresh.ts",
+      "line_start": 497,
+      "line_end": 505
+    },
+    {
+      "title": "Return refreshed Anthropic credentials before optional bootstrap enrichment",
+      "body": "CONFIRMED migration loss: T registry/engine/refresh.ts:74-103 awaits the after-refresh hook after the token grant, but mapCredentials leaves omitted response identity fields unset rather than copying them from stored credentials. Consequently this hook calls bootstrap even when the stored row already has account identity; bootstrap uses its own 30-second signal at anthropic.ts:51-61, while auth/refresh.ts bounds the operation at ten seconds. Missing response identity plus sufficiently slow bootstrap therefore loses the successful refresh result before persistence. The parent's B PASS20/T first-missing-identity failure is supporting observation only for its stated gate coverage. Restore the login-only bootstrap branch and stored identity preservation for refresh, rather than increasing the timeout or assuming stored identity prevents the fetch. The broker path is also reachable: pi-coding-agent/src/cli/auth-broker-cli.ts:114-135 overrides refresh with the registry exchange and declares refreshOAuthCredentialMints:true; the provider branch currently omits its incoming signal, but OAuthRefresher's own race still abandons a slow result. The upstream overrideMints policy correctly recognizes successful broker-local minting, and reason/reuseRecentMint can avoid some subsequent auth-recovery exchanges after a successful durable commit; neither rescues a refresh whose first result never committed. Keep these upstream improvements when rebasing.",
+      "priority": 1,
+      "confidence": 0.99,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/registry/oauth/anthropic.ts",
+      "line_start": 94,
+      "line_end": 101
+    },
+    {
+      "title": "Return the durable owner's row instead of persisting caller snapshots",
+      "body": "CONFIRMED, with a narrower race condition than 'every peer update is overwritten': T restores post-owner writes in select.ts:777-793, refresh.ts:669-682, and usage.ts:183-209. pool.replaceById at pool.ts:476-484 computes expected bytes from the current pool, not from the caller's pre-await snapshot, so its CAS does not prove that the proposed updated value was derived from those bytes. A concrete metadata case is forced broker refresh of a managed MCP row: the owner reads a peer-updated tokenUrl/clientId/clientSecret and persists them, then refreshById merges token fields into its older attempted row; mergeRefreshedCredential at refresh.ts:73-86 does not copy those subtype fields, and replaceById can successfully replace the owner's row with stale subtype metadata. Managed MCP refresh consumes those fields at pi-coding-agent/src/mcp/oauth-credentials.ts:109-117. A same-process pool reload to R2 before a continuation using R1 similarly defeats the intended CAS provenance, including usage persistence; a disk-only R2 change not loaded into the pool is normally caught by CAS and must not be described as an unconditional clobber. Restore B's lease-backed read/resync-only branches in all three callers, retaining ordinary CAS for non-lease stores. Forced-refresh intent remains deliberate: expires:0 bypasses freshness, refreshById bypasses recent-mint reuse unless explicitly requested, and auth-recovery reuse is a separate policy rather than a reason to retain caller-side persistence.",
+      "priority": 1,
+      "confidence": 0.97,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/auth/refresh.ts",
+      "line_start": 669,
+      "line_end": 682
+    },
+    {
+      "title": "Renew the unchanged owner before committing its refresh result",
+      "body": "QUALIFIED confirmation of migration loss: T removes B refresh.ts:328-343's same-owner renewal and passes Date.now() directly into the expiry-fenced update. If a successfully completed exchange resumes after event-loop starvation has expired the lease, before timeout/renewal callbacks have run, and no peer has taken over, the fenced update rejects R1 solely because the owner's lease expired. T reloads the old row at 342-349 rather than persisting the known successful result. Restore the immediate same-owner renewal before CAS and retain both owner and serialized-row fences. This specifically repairs expired ownership with no takeover; sqlite-credential-store.ts:511-519 renews by owner and checks expiry for commits, so an actual takeover still must reject the old owner. It does not prevent a second process from already having sent R0 during a lease-expiry window and must not be presented as an exactly-once exchange guarantee. Under normal event-loop scheduling the ten-second operation timeout precedes the fifteen-second lease expiry, so the reported failure needs the specified scheduling/expiry condition rather than merely a slow endpoint.",
+      "priority": 2,
+      "confidence": 0.97,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/auth/refresh.ts",
+      "line_start": 331,
+      "line_end": 339
+    },
+    {
+      "title": "Propagate the usage provider filter across the broker boundary",
+      "body": "CONFIRMED current-baseline family defect, not a newly introduced upstream regression: B usage.ts exposes providers but applies it only on this final local path; the earlier storeOverride branch at 774-805 calls storeOverride() without a filter, shares an all-provider in-flight key, and also fails to intersect runtime-local providers with the requested set. The real consumer path is agent-session.ts:12573-12575 -> usage.reports -> auth-broker/remote-store.ts:1218-1220 -> broker server.ts:679, which calls usage.reports with only signal. Thus a filtered non-Anthropic report request can initiate Anthropic usage work once the broker's relevant cache/cooldown allows a fresh fetch. This is not evidence that every repaint performs a network call. Extend the store hook and broker request/server routing to carry a normalized provider set; include it in aggregate request/cache identity and intersect local fallback providers before collection. Filtering only the returned reports does not prevent the unauthorized fan-out. Preserve this family but repair the end-to-end filter before claiming its provider-specific polling protections survive migration.",
+      "priority": 2,
+      "confidence": 0.99,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/replay-18.7.0/node_modules/@oh-my-pi/pi-ai/src/auth/usage.ts",
+      "line_start": 805,
+      "line_end": 805
+    },
+    {
+      "title": "Retain the advisor's bounded quota-rotation grace",
+      "body": "CONFIRMED migration loss: T returns immediately whenever markReached reports switched, before checking the configured fallback policy at 2150 onward. B session-advisors.ts:2112-2125 tracks provider/count and allows only the bounded grace rotation, resetting on successful turns at 1581-1583. With enough accounts to produce a second consecutive switched outcome and a usable configured fallback, T keeps retrying the same provider where B proceeds to the fallback. Rebase the per-advisor counter and successful-turn reset while preserving T's distinct account-policy-denial branch at 2091-2100. This is an intentional retained local protection absent upstream, not evidence that the upstream account-policy change itself is defective.",
+      "priority": 2,
+      "confidence": 0.98,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-coding-agent/src/session/session-advisors.ts",
+      "line_start": 2122,
+      "line_end": 2122
+    },
+    {
+      "title": "Use the credit-aware rebuild helper in both cache-control retry rungs",
+      "body": "CONFIRMED target-upstream regression by independent caller/dispatch tracing: sdk.ts:4370-4380 forwards a consumed fallback-credit redemption; anthropic.ts:2699-2723 starts with the frozen credited body. The earlier bad-request handler does not universally block this path: continuation rejection switches to unchanged shape at 3591-3608, then an unchanged-body cache_control rejection whose message does not contain fallback_credit_token falls through to the new cache retry branches. Both this branch and 3870-3874 call prepareParams directly, constructing an ordinary body without the redemption token while leaving usingFallbackCredit true. This bypasses forfeitFallbackCredit at 2831-2845, which explicitly forbids abandoning credit when refusedContent contains anthropicServerTool, and can repeat already-performed server-tool work without credit. It also leaves credit-specific beta selection at 2924 onward and continuation postprocessing at 3931 onward attached to a non-redemption body. Use rebuildParams(streamFailure) in both rungs, failing closed for prior server-tool work and clearing redemption state for allowed ordinary retries. Actual rebilling remains provider-dependent; the provable defect is a tokenless replay bypassing the existing billing-safety guard. A single discriminating synthetic probe should reject the unchanged credited request with a cache-control error and assert that server-tool redemption emits no subsequent ordinary request; no live billing test is needed. Cache fallback itself is intentional: T getCacheControl:726-744 retains OAuth-default long TTL where supported, successful fallback latches are keyed by endpoint/model at 678-703 and 3965-3972 rather than credential, and transform-messages.ts:899-905,970 preserves the explicit credential-bound signed/redacted-thinking fence. I found no additional provable cross-account cache or signature leak in these inspected paths; server cache namespace equivalence cannot be inferred from equal wire bytes, and endpoint-level fallback state surviving account rotation is not alone proof of such a leak.",
+      "priority": 1,
+      "confidence": 0.99,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi/pi-ai/src/providers/anthropic.ts",
+      "line_start": 3805,
+      "line_end": 3811
+    },
+    {
+      "title": "Recognize top-level compaction in the retained wire diagnostic",
+      "body": "CONFIRMED current-baseline diagnostic defect: B anthropic.ts:5009-5014 emits top-level compaction:{type:'summarize'}, whereas the audit's consuming dispatch only recognizes context_management.edits[].pause_after_compaction. The current native request therefore misses the native-compaction comparison at 97-113 and, without sideRequest/refresh, advances the ordinary baseline at 115-118. Recognize both current top-level summarize and legacy envelopes, and exclude either from ordinary baseline advancement. This undermines diagnostic evidence for prefix equality, not proof of an actual provider cache miss; retain/rebase the diagnostic with this correction rather than treating its current classifications as an acceptance oracle.",
+      "priority": 2,
+      "confidence": 0.99,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/replay-18.7.0/node_modules/@oh-my-pi/pi-ai/src/providers/anthropic-request-audit.ts",
+      "line_start": 79,
+      "line_end": 82
+    }
+  ]
+}

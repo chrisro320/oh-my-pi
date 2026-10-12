@@ -1,0 +1,10 @@
+{
+  "started": "2026-10-12T05:43:27.210550+00:00",
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/diagnostic-header-negative/verify-cache-prefix-audit.ts"
+  ],
+  "exit": 1,
+  "stdout": "",
+  "stderr": "586 | \tconst mainVerdict = logLines().at(-1);\n587 | \tassert.equal(mainVerdict.model, MAIN);\n588 | \tassert.equal(mainVerdict.correlation, \"unavailable\");\n589 | \tassert.equal(mainVerdict.cause, \"unknown\");\n590 | \tfor (const key of [\"diff\", \"headers\", \"responseHeaders\", \"sessionId\"]) {\n591 | \t\tassert.equal(mainVerdict[key], undefined, `${key} must not be borrowed from a different request`);\n               ^\nAssertionError: headers must not be borrowed from a different request\n+ actual - expected\n\n+ 'auth=apikey:side version=v betas='\n- undefined\n\n generatedMessage: false,\n     actual: \"auth=apikey:side version=v betas=\",\n   expected: undefined,\n   operator: \"strictEqual\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/diagnostic-header-negative/verify-cache-prefix-audit.ts:591:10\n\nBun v1.3.14 (Linux x64)\n"
+}

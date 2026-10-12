@@ -1,0 +1,349 @@
+{
+  "agent": "PortOtherProviders",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "owner": "PortOtherProviders",
+      "completed_source_paths": [
+        "pi-ai/src/providers/devin.ts",
+        "pi-ai/src/providers/google-gemini-cli.ts",
+        "pi-catalog/src/wire/devin.ts",
+        "pi-catalog/src/compat/rules/providers/commandcode.kdl",
+        "pi-catalog/dist/types/wire/devin.d.ts"
+      ],
+      "recorded_changes": {
+        "family-devin-wire": [
+          "Resolved provider conflict using the target frameConnectMessage helper while retaining the local two-attempt auth cache loop, epoch invalidation, signatures and metadata.",
+          "AssignModel 401/403 now invalidates the same cache key and consumes the same two-attempt budget as chat. Only attempt zero continues to forced refresh; final auth rejection invalidates then throws; non-auth assignment errors immediately throw.",
+          "Registered and amended pi-catalog/dist/types/wire/devin.d.ts to expose retained sessionId:string and requestId:bigint on both released-CLI metadata helpers."
+        ],
+        "family-antigravity-wire": [
+          "Existing clean merged source retained deterministic base-session envelope identity and side-turn guards for stepIndex and lastExecutionId; target discovery consumers were not changed."
+        ],
+        "0065-omp-commandcode-deepseek-model-record-parity": [
+          "Amended commandcode.kdl with the retained strict/single-system axes and replaced stale plugin-parity rationale with the deployed endpoint contract. Target effort/modality/pricing/default data stays intact."
+        ]
+      },
+      "dependency": {
+        "path": "pi-catalog/src/compat/rules.json",
+        "owner": "Main generation assistance requested",
+        "details": "The minified whole-file conflict requires representation generation. The npm package omits scripts. Captured commit b83200eb866821f02625332025b453f06ce4e12a has pure compileCompatRules(rulesDir) in packages/catalog/scripts/compat-compiler/index.ts; Main has the exact entry point and has authorized safe temporary generation. Awaiting artifact before final accept."
+      },
+      "verification": "No tests, builds, linters, formatters, provider/auth/usage calls or live credential access. Required three policy grep calls returned the specified contract text; these are presence-only evidence."
+    },
+    {
+      "minimal_gate_adjustments": [
+        {
+          "gate": "patches/verify-devin-auth-cache.ts",
+          "change": "Extend the existing streamDevin synthetic-fetch fixture to cover router assignment; keep the actual protobuf encoders/decoder and current auth-epoch legs.",
+          "observables": [
+            "Warm cached credentials, then AssignModel 401/403 followed by successful assignment: exactly one additional GetUserJwt, at most two assignment attempts, the same cascadeId across assignment/chat, and fresh userJwt on GetChatMessage.",
+            "Terminal second authentication rejection must clear the cache; the next independent turn must fetch auth again. Include a chat-first rejection followed by assignment rejection to discriminate one shared budget from separate assignment/chat retry loops.",
+            "Non-auth assignment rejection, e.g. 500, ends the turn without refreshing, repeating assignment, or sending chat."
+          ],
+          "wire_note": "Preserve target AssignModel metadata: devinWireMetadata(turn.apiKey) intentionally omits userJwt. Assert the fresh JWT on chat, not assignment."
+        },
+        {
+          "gate": "patches/verify-antigravity-envelope.ts",
+          "change": "Retain direct buildRequest assertions; add a shared-state main/side/main sequence and, for lastExecutionId, one synthetic successful stream sequence through streamGoogleGeminiCli.",
+          "observables": [
+            "Main sessionId, agentId and trajectoryId remain deterministic when side suffixes differ.",
+            "Side requests do not advance shared stepIndex or overwrite lastExecutionId; the next main request references the preceding main response, not the side response."
+          ],
+          "isolation": "Intercept every request, including target version discovery; no real fetch or credentials."
+        },
+        {
+          "gate": "patches/verify-commandcode-model-record-parity.ts",
+          "change": "Use target pi-catalog/src/build.ts buildModel on a synthetic neutral discovered spec, then capture the actual openai-completions request through onPayload/injected fetch. Keep one sibling negative control; no retired plugin parity path.",
+          "observables": [
+            "deepseek/deepseek-v4.1-flash retains text/image, low/high/max effort ladder, target limits and the 0.15/0.6/0.003/0 price tuple.",
+            "Two ordered system prompts reach one system message joined by a blank line and a strict-capable object tool reaches the request with strict enabled.",
+            "Sibling deepseek-v4-flash is not accidentally granted the model-scoped single-system/image-strip overrides."
+          ]
+        },
+        {
+          "gate": "patches/verify-devin-metadata.ts",
+          "change": "Include 18.10.0 in the exact 3000.11.3 CLI tuple version selection; retain encoded field 9/10 and separate discovery-identity assertions."
+        },
+        {
+          "gate": "patches/verify-devin-idle-cascade-pin.ts",
+          "change": "Include 18.10.0 in both supported-version and auth.keys.setRuntime branches; retain actual host guarded-idle/raw-side behavior plus mapOptionsForApi forwarding assertions."
+        }
+      ],
+      "cross_owner_confirmations": {
+        "PortCodex": "Confirmed StreamOptions.conversationId?:string, inherited SimpleStreamOptions, exported mapOptionsForApi and source/declaration forwarding retained; no new shared fields.",
+        "PortLifecycle": "Confirmed guarded idle pins conversationId only for provider devin; raw side turns retain unique side IDs and target parentSessionId/releaseSession behavior."
+      },
+      "documentation_handoff": "Main owns docs/spec updates. Record the R12 contract as one per-turn authentication-recovery budget covering every pre-chat authenticated operation and chat; invalidate on both first and final rejection, and do not infer router coverage from non-router auth-cache fixtures."
+    },
+    {
+      "title": "Devin per-turn assignment/chat authentication recovery",
+      "scope_trigger": "Router models may reject cached credentials during AssignModel before GetChatMessage; non-router-only cache probes cannot establish this boundary.",
+      "signatures": [
+        "streamDevin(model, context, options): AssistantMessageEventStream",
+        "assignDevinModel(...): Promise<ModelAssignment>",
+        "fetchDevinAuthMetadata(..., forceRefresh=false)",
+        "invalidateDevinAuth(apiKey, baseUrl): void"
+      ],
+      "contracts": [
+        "One two-attempt loop owns assignment and chat together, not one loop per operation.",
+        "Either operation's 401/403 invalidates the cache key (apiKey, original baseUrl), including the final rejection; invalidation advances the existing cache write epoch.",
+        "Only the first rejection permits one forced auth refresh and reconstruction of assignment/chat using returned credentials and custom server URL.",
+        "Assignment failures outside 401/403, including malformed responses and transport failures, terminate without retry or chat fallback.",
+        "A router UID is never substituted for failed assignment. Assignment/cascade identity is retained; existing target metadata wire shapes stay unchanged."
+      ],
+      "error_matrix": {
+        "first_assignment_401_or_403": "Invalidate; refresh once; repeat assignment and then chat if assignment succeeds.",
+        "second_assignment_401_or_403": "Invalidate; terminal error; no third attempt and no chat.",
+        "first_chat_401_then_second_assignment_403": "Final assignment invalidates and terminates, demonstrating a shared rather than independent retry budget.",
+        "assignment_non_auth_failure": "Terminal; zero additional refreshes, assignments or chat requests.",
+        "late_old_auth_completion": "Existing epoch guard prevents its cache write from replacing a newer refresh or invalidation."
+      },
+      "cases": {
+        "good": "Cached credentials rejected by assignment; refreshed credentials produce a valid assignment and one successful chat.",
+        "base": "Cached credentials accepted; no extra GetUserJwt on another turn.",
+        "bad": "Assignment runs outside recovery and poisons subsequent turns until JWT expiry; or assignment receives its own additional retry budget."
+      },
+      "tests_required": "Extend the existing actual streamDevin/protobuf synthetic-fetch gate at these boundaries; use no real provider, credential store or transport. Main performs execution after integration.",
+      "wrong_vs_correct": "Wrong: infer router recovery from chat-only 401 fixtures. Correct: drive AssignModel rejection, inspect subsequent chat's fresh JWT and cascade, and observe bounded request counts plus terminal-cache invalidation.",
+      "knowledge_capture_owner": "Main; no repository docs/specs edited by this subagent."
+    },
+    {
+      "owner": "PortOtherProviders",
+      "status": "Source implementation complete; generated catalog artifact delegated to Main under the authorized integration exception.",
+      "root": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+      "implemented": {
+        "family-devin-wire": {
+          "paths": [
+            "pi-ai/src/providers/devin.ts",
+            "pi-catalog/src/wire/devin.ts",
+            "pi-catalog/dist/types/wire/devin.d.ts"
+          ],
+          "changes": [
+            "Resolved the provider conflict while retaining target frameConnectMessage/ConnectFrameDecoder usage, bounded frame decoding, sanitized HTTP errors, tool-call ID normalization, request payload hooks and default request configuration.",
+            "AssignModel 401/403 now invalidates the existing auth cache inside the same two-attempt loop used by chat. Attempt zero may refresh once and retry; attempt one invalidates and throws. Non-auth assignment failures immediately terminate without refresh, another assignment, or chat fallback.",
+            "Preserved auth expiry/epoch protection, trailing standalone thinking signatures, sealed replay signatureType, deterministic history IDs, response IDs, turn timing and request metadata identity.",
+            "Added missing shipped declaration fields sessionId:string and requestId:bigint to both devinWireMetadata and devinCliMetadata return types. Discovery metadata remains unchanged."
+          ],
+          "bounded_recovery": "Assignment and chat share one attempt counter, so a first chat rejection followed by an assignment rejection cannot acquire a second recovery budget. Each retry rebuilds assignment/chat with freshly resolved credentials and server URL while retaining cascadeId. AssignModel intentionally retains the target session-token-only metadata contract; the fresh userJwt is observable on subsequent GetChatMessage."
+        },
+        "family-antigravity-wire": {
+          "paths": [
+            "pi-ai/src/providers/google-gemini-cli.ts"
+          ],
+          "changes": [
+            "Retained the clean driver-merged deterministic base-session sessionId/agentId/trajectoryId behavior.",
+            "Retained side-turn guards preventing shared stepIndex advancement and lastExecutionId replacement.",
+            "Left target catalog discovery result consumers unchanged, including models/rejectedStatus handling and Gemini CLI fallback behavior."
+          ]
+        },
+        "0065-omp-commandcode-deepseek-model-record-parity": {
+          "completed_source": "pi-catalog/src/compat/rules/providers/commandcode.kdl",
+          "changes": [
+            "Preserved exact-model supports-strict-mode=true and supports-multiple-system-messages=false for commandcode/deepseek/deepseek-v4.1-flash alongside target image modality, effort ladder, pricing and other catalog data.",
+            "Replaced stale retired-plugin rationale with the deployed endpoint contract. No plugin or second registrant was restored."
+          ],
+          "integration_artifact": "pi-catalog/src/compat/rules.json"
+        }
+      },
+      "fragment_accounting": {
+        "accepted": [
+          "family-devin-wire: pi-ai/src/providers/devin.ts"
+        ],
+        "amended": [
+          "0065-omp-commandcode-deepseek-model-record-parity: pi-catalog/src/compat/rules/providers/commandcode.kdl",
+          "family-devin-wire: pi-catalog/dist/types/wire/devin.d.ts"
+        ],
+        "newly_registered": [
+          "family-devin-wire: pi-catalog/dist/types/wire/devin.d.ts"
+        ],
+        "retained_ready_driver_fragments": [
+          "family-antigravity-wire: pi-ai/src/providers/google-gemini-cli.ts",
+          "family-devin-wire: pi-catalog/src/wire/devin.ts"
+        ],
+        "main_owned_generation_remaining": {
+          "path": "pi-catalog/src/compat/rules.json",
+          "state": "Original whole-minified-file conflict remains; not hand edited or falsely accepted.",
+          "reason": "Parent authorized Main-owned generation after integration when the existing generator writes additional files. The upstream CLI writes rules.json, auth-ids.ts and provider-ids.ts; npm packages omit its scripts.",
+          "source": "Captured commit b83200eb866821f02625332025b453f06ce4e12a, packages/catalog/scripts/compat-compiler/index.ts exports pure async compileCompatRules(rulesDir).",
+          "publication": "Main should serialize compileCompatRules(work/pi-catalog/src/compat/rules) into the owned rules.json only, then run: python3 /home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/port-families.py --root /home/chris/.cache/omp-18100-migration-yvvyjfr2 accept PortOtherProviders pi-catalog/src/compat/rules.json",
+          "provenance_requirement": "Keep all target catalog data. Final commandcode.kdl adds five lines after the original line148; use compiler-produced source offsets rather than copying old JSON.",
+          "generation_executed_here": false
+        }
+      },
+      "cross_owner_contracts": {
+        "PortCodex": "Confirmed existing StreamOptions.conversationId?:string, inherited SimpleStreamOptions, exported mapOptionsForApi and source/declaration forwarding; no new shared API.",
+        "PortLifecycle": "Confirmed guarded idle Devin-only main conversationId pin, with independent raw side identities and target parentSessionId/releaseSession behavior retained.",
+        "Main": "Received compiler entry point, output side effects, declaration ownership notice, and the AssignModel-versus-chat JWT acceptance distinction."
+      },
+      "minimal_acceptance_for_main": [
+        "Extend verify-devin-auth-cache.ts with actual streamDevin/protobuf router fixtures for assignment 401/403 recovery, terminal second rejection plus next-turn reauthentication, shared chat/assignment retry budget, and non-auth terminal behavior.",
+        "Extend verify-antigravity-envelope.ts with shared-state main/side/main observations; use synthetic successful streams to observe lastExecutionId ownership rather than only checking builder state.",
+        "In verify-commandcode-model-record-parity.ts, materialize the neutral discovered spec with target buildModel and observe the actual OpenAI-completions payload: one ordered joined system message, strict tool schema, retained text/image, low/high/max and target pricing/limits. Keep a sibling negative control; do not revive plugin parity.",
+        "Add 18.10.0 to verify-devin-metadata.ts's exact 3000.11.3 tuple selection and both relevant version branches in verify-devin-idle-cascade-pin.ts.",
+        "Run the registered signature, metadata, idle-pin and representation/declaration gates only after integration. No provider-server success or cache-hit claim is made."
+      ],
+      "verification": {
+        "executed": "Only the three mandated policy grep calls; all specified contract text was found. Port-driver accept/amend/register commands generated fragment representations.",
+        "not_executed": [
+          "tests",
+          "builds",
+          "linters",
+          "formatters",
+          "smoke runs",
+          "provider/auth/usage requests"
+        ],
+        "safety": "No production credentials, settings, session databases, global installation or live cache were accessed or modified."
+      },
+      "documentation_handoff": "Main owns repository docs/changelog/spec updates. Capture the R12 rule: every authenticated pre-chat operation and chat share one recovery budget; invalidate even after the final rejection, and router recovery requires an actual assignment consumer fixture."
+    },
+    {
+      "status": "Generator input frozen as requested",
+      "path": "pi-catalog/src/compat/rules/providers/commandcode.kdl",
+      "fragment": "0065-omp-commandcode-deepseek-model-record-parity amendment already recorded",
+      "further_edits": false,
+      "behavioral_checks_run": false,
+      "next_action_on_main_notification": "Record the published rules.json with driver accept, then report complete fragment accounting."
+    },
+    {
+      "owner": "PortOtherProviders",
+      "status": "Complete \u2014 all six owned paths recorded; driver status reports pending:null and next:1 for every path. This supersedes earlier reports of pending catalog generation.",
+      "root": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+      "fragment_accounting": [
+        {
+          "family": "family-antigravity-wire",
+          "path": "pi-ai/src/providers/google-gemini-cli.ts",
+          "recording": "Retained READY clean-merge fragment"
+        },
+        {
+          "family": "family-devin-wire",
+          "path": "pi-ai/src/providers/devin.ts",
+          "recording": "Accepted resolved conflict and bounded assignment recovery"
+        },
+        {
+          "family": "family-devin-wire",
+          "path": "pi-catalog/src/wire/devin.ts",
+          "recording": "Retained READY clean-merge fragment"
+        },
+        {
+          "family": "family-devin-wire",
+          "path": "pi-catalog/dist/types/wire/devin.d.ts",
+          "recording": "Registered new affected declaration, then amended"
+        },
+        {
+          "family": "0065-omp-commandcode-deepseek-model-record-parity",
+          "path": "pi-catalog/src/compat/rules/providers/commandcode.kdl",
+          "recording": "Amended retained compatibility directives and endpoint-contract comment"
+        },
+        {
+          "family": "0065-omp-commandcode-deepseek-model-record-parity",
+          "path": "pi-catalog/src/compat/rules.json",
+          "recording": "Accepted Main-generated target artifact; driver returned READY"
+        }
+      ],
+      "semantic_results": {
+        "R12": "AssignModel 401/403 participates in the existing shared two-attempt assignment/chat loop. Each rejection invalidates the auth cache and advances its epoch. Only attempt zero permits one forced refresh; a second rejection terminates. Non-auth assignment errors terminate immediately without refresh, reassignment or chat fallback.",
+        "Devin": "Retained auth caching/epochs, trailing thinking-signature capture, sealed replay signatureType, metadata session/request IDs, deterministic history IDs and conversationId precedence. Preserved target Connect framing/decoding, tool ID handling, payload hooks and model configuration. Published metadata declarations now expose sessionId:string and requestId:bigint.",
+        "Antigravity": "Retained deterministic base-session identity and guards preventing side turns from advancing shared stepIndex or replacing lastExecutionId. Target discovery result consumers remain unchanged.",
+        "DeepSeek": "Retained strict-mode=true and multiple-system-messages=false for the exact commandcode deepseek-v4.1-flash record alongside target modalities, efforts, pricing, limits and other catalog fields. No retired plugin parity path restored."
+      },
+      "catalog_generation": {
+        "performed_by": "Main",
+        "evidence": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/catalog-generation.json",
+        "compiler_commit": "b83200eb866821f02625332025b453f06ce4e12a",
+        "pure_entry": "packages/catalog/scripts/compat-compiler/index.ts",
+        "parser": "@bgotink/kdl@0.4.0",
+        "bytes": 441626,
+        "rules": 999,
+        "files": 234,
+        "sha256": "39378f2c3eba3c4de3189e8ccf5a3e47fa949e9bc3081212f2ec6a6c3507c5d5",
+        "recording_command": "python3 /home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/port-families.py --root /home/chris/.cache/omp-18100-migration-yvvyjfr2 accept PortOtherProviders pi-catalog/src/compat/rules.json"
+      },
+      "cross_owner_closure": {
+        "PortCodex": "Confirmed existing conversationId shared field, mapOptionsForApi export and source/declaration forwarding. No new shared API needed.",
+        "PortLifecycle": "Confirmed guarded idle Devin-only main cascade pin; raw side turns retain independent side IDs and target parentSessionId/releaseSession behavior.",
+        "Main": "Completed pure catalog generation; artifact accepted into 0065. Repository gates/docs/controller/deployment remain Main-owned."
+      },
+      "minimal_acceptance_suggestions": [
+        "Extend verify-devin-auth-cache.ts with actual streamDevin/protobuf router cases: assignment 401/403 recovery, final invalidation and next-turn fresh auth, a mixed chat/assignment rejection proving one shared budget, and terminal non-auth failure. Assert fresh userJwt on subsequent chat; target AssignModel intentionally omits userJwt from its metadata.",
+        "Extend verify-antigravity-envelope.ts with shared-state main/side/main observations; use a synthetic successful stream sequence for lastExecutionId ownership.",
+        "Use target buildModel plus the actual OpenAI-completions payload in the existing Commandcode gate to observe strict tools, one joined ordered system message and retained catalog fields; keep one sibling negative control and no plugin dependency.",
+        "Include 18.10.0 in the existing metadata gate's 3000.11.3 selection and both idle-cascade gate version branches. Retain signature, metadata-wire and actual idle-host assertions.",
+        "After integration, run the focused existing provider gates plus representation/declaration closure once."
+      ],
+      "verification": {
+        "executed": "Required three policy grep calls; fragment-generation accept/amend/register commands; final driver status. Catalog generation evidence was read, not independently rerun.",
+        "not_run": "No tests, builds, lint, formatters, smoke runs or provider/auth/usage requests.",
+        "production_safety": "No production credentials, settings, session databases, global installation or live cache accessed or modified by this agent."
+      },
+      "open_implementation_blockers": [],
+      "remaining_main_responsibilities": "Behavioral acceptance has not been exercised. Preserve that distinction in R12 closure and docs/changelog; the earlier incremental acceptance/spec-contract sections provide the narrow observables."
+    },
+    {
+      "status": "Gate coordination complete; implementation unchanged",
+      "recipient": "GateHost18100",
+      "guidance": [
+        "Existing synthetic protobuf and five-byte Connect frames remain applicable.",
+        "Add 18.10.0 to metadata gate's exact 3000.11.3 tuple selection.",
+        "Router fixture needs modelRouter=true and valid assignment modelUid/assignmentJwt; fresh userJwt is asserted on chat only.",
+        "Observe stable cascadeId, shared retry budget and fresh auth on the next turn after final rejection."
+      ],
+      "checks_run": false
+    },
+    {
+      "status": "Complete \u2014 unshipped declaration artifact removed and recorded",
+      "correction": "Retracted the earlier claim that pi-catalog/dist/types/wire/devin.d.ts is a shipped public declaration surface. Main confirmed 18.10.0 exports source types.",
+      "changes": [
+        "Deleted work/pi-catalog/dist/types/wire/devin.d.ts.",
+        "Ran driver amend for that path under family-devin-wire; it returned AMENDED.",
+        "Left the actual src/wire/devin.ts return shapes intact, including inferred sessionId:string and requestId:bigint.",
+        "Notified GateHost18100 to discard the obsolete declaration guidance."
+      ],
+      "recording_command": "python3 /home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/port-families.py --root /home/chris/.cache/omp-18100-migration-yvvyjfr2 amend PortOtherProviders pi-catalog/dist/types/wire/devin.d.ts family-devin-wire",
+      "retained_deliverables": [
+        "family-antigravity-wire: pi-ai/src/providers/google-gemini-cli.ts",
+        "family-devin-wire: pi-ai/src/providers/devin.ts and pi-catalog/src/wire/devin.ts",
+        "0065: pi-catalog/src/compat/rules/providers/commandcode.kdl and generated pi-catalog/src/compat/rules.json"
+      ],
+      "bounded_assignment_recovery": "Unchanged: assignment and chat share one two-attempt budget; 401/403 always invalidates, only the first rejection allows fresh retry, and non-auth assignment failures terminate.",
+      "checks_run": false,
+      "open_blockers": []
+    },
+    {
+      "status": "Complete \u2014 shipped declaration restored with metadata type closure",
+      "supersedes": "The prior declaration-removal report is withdrawn. Main's pinned npm archive manifest is authoritative; the declaration is shipped.",
+      "path": "pi-catalog/dist/types/wire/devin.d.ts",
+      "changes": [
+        "Restored the complete declaration file.",
+        "Retained sessionId:string and requestId:bigint on both devinWireMetadata and devinCliMetadata return types.",
+        "Left devinDiscoveryMetadata unchanged.",
+        "Recorded the restoration with driver amend under family-devin-wire; command returned AMENDED.",
+        "Notified GateHost18100 of the archive-backed correction."
+      ],
+      "recording_command": "python3 /home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/port-families.py --root /home/chris/.cache/omp-18100-migration-yvvyjfr2 amend PortOtherProviders pi-catalog/dist/types/wire/devin.d.ts family-devin-wire",
+      "final_owned_paths": [
+        "pi-ai/src/providers/google-gemini-cli.ts",
+        "pi-ai/src/providers/devin.ts",
+        "pi-catalog/src/wire/devin.ts",
+        "pi-catalog/dist/types/wire/devin.d.ts",
+        "pi-catalog/src/compat/rules/providers/commandcode.kdl",
+        "pi-catalog/src/compat/rules.json"
+      ],
+      "remaining_implementation_blockers": [],
+      "checks_run": false,
+      "verification_owner": "Main will verify against the pinned npm archive; no verification was rerun here."
+    },
+    {
+      "status": "Complete",
+      "coordination_closed": "GateHost18100 confirms no further gate changes are required for the restored declaration. Metadata gates retain actual protobuf assertions; declaration/package closure remains Main-owned.",
+      "final_state": "All six owned paths, including the shipped metadata declaration and generated catalog rules, are recorded in their assigned family fragments.",
+      "additional_changes": false,
+      "additional_checks": false
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "command": [
+    "python3",
+    "patches/verify-release-family-plan.py",
+    "--version",
+    "18.10.1",
+    "--tgz-cache",
+    "/tmp/omp-18100-audit-cd9kqmcj/archives"
+  ],
+  "exit": 0,
+  "source": "bg_47 delivered output",
+  "status": "PASS",
+  "candidate_tree_sha256": "59bc01c7b55f12d6ddd2966bfcc2d8bdd8cb2226163d2b0ea42d2a598b30d8a4",
+  "families": 23,
+  "capabilities": 58,
+  "zero_fuzz": true,
+  "reverse_to_pristine": true,
+  "second_replay_identical": true,
+  "controller_check_read_only": true,
+  "behavioral_checks_run": false,
+  "superseded_by_native_dialog_repairs": true
+}

@@ -1,0 +1,13 @@
+{
+  "started": "2026-10-12T05:45:24.105020+00:00",
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "--preload",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/offline-preload.ts",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+    "--version"
+  ],
+  "exit": 0,
+  "stdout": "omp/18.10.0\n",
+  "stderr": ""
+}

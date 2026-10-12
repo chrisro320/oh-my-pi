@@ -1,0 +1,13 @@
+{
+  "command": [
+    "bash",
+    "/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39/ledger/apply.sh",
+    "--check"
+  ],
+  "exit": 0,
+  "stdout": "APPLIED  .18.10.1-families/family-status-accounting-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-hindsight-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-usage-pipeline-v18.10.1.patch\nAPPLIED  .18.10.1-families/0010-omp-extension-idle-ephemeral-turn-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-antigravity-wire-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-image-budget-snapcompact-v18.10.1.patch\nAPPLIED  .18.10.1-families/0032-omp-goal-tool-resident-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-persistent-prefix-resume-v18.10.1.patch\nAPPLIED  .18.10.1-families/0046-omp-supersede-warm-prefix-guard-v18.10.1.patch\nAPPLIED  .18.10.1-families/0048-omp-advisor-quota-rotation-bound-v18.10.1.patch\nAPPLIED  .18.10.1-families/0050-omp-session-history-preview-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-devin-wire-v18.10.1.patch\nAPPLIED  .18.10.1-families/0065-omp-commandcode-deepseek-model-record-parity-v18.10.1.patch\nAPPLIED  .18.10.1-families/0069-omp-codex-effort-history-resume-v18.10.1.patch\nAPPLIED  .18.10.1-families/0072-omp-session-pin-static-auth-ui-v18.10.1.patch\nAPPLIED  .18.10.1-families/0074-omp-anthropic-context-cache-boundaries-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-image-display-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-input-translation-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-compaction-v18.10.1.patch\nAPPLIED  .18.10.1-families/0090-omp-oauth-durable-refresh-v18.10.1.patch\nAPPLIED  .18.10.1-families/0092-omp-cache-warming-idle-budget-v18.10.1.patch\nAPPLIED  .18.10.1-families/0094-omp-anthropic-thinking-drop-resume-v18.10.1.patch\nAPPLIED  .18.10.1-families/0095-omp-context-audit-request-purpose-v18.10.1.patch\nAPPLIED  bin/omp -> src/cli.ts\n",
+  "stderr": "",
+  "time": "2026-10-12T07:25:00.170391+00:00",
+  "runtime": "/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39/runtime/node_modules/@oh-my-pi",
+  "isolation": "allowlisted environment, private HOME/XDG/agent; no production credential operations"
+}

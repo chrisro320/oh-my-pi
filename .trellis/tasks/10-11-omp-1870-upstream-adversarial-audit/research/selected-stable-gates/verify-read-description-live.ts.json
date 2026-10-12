@@ -1,0 +1,11 @@
+{
+  "gate": "verify-read-description-live.ts",
+  "started": "2026-10-12T05:48:03.196345+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-read-description-live.ts"
+  ],
+  "exit": 0,
+  "stdout": "PASS read description is model-live: google-antigravity/gemini-3.8-flash <-> commandcode/deepseek/deepseek-v4.1-flash both match a fresh build\n",
+  "stderr": ""
+}

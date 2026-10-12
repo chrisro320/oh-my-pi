@@ -1,0 +1,7 @@
+{
+  "old": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi",
+  "canonical": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0-canonical/node_modules/@oh-my-pi",
+  "umask": "022",
+  "directory_mode_changes": 489,
+  "file_or_symlink_changes": []
+}

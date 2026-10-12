@@ -1,0 +1,11 @@
+{
+  "gate": "verify-python-display-mime-preference.ts",
+  "started": "2026-10-12T05:48:06.476930+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-python-display-mime-preference.ts"
+  ],
+  "exit": 0,
+  "stdout": "python display MIME preference: ALL PASS\n",
+  "stderr": ""
+}

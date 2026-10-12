@@ -1,0 +1,41 @@
+{
+  "probe": "prefix-and-status-probe",
+  "version": "18.7.0",
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/tmp/omp-18100-audit-cd9kqmcj/prefix-and-status-probe.ts"
+  ],
+  "root": "/tmp/omp-18100-audit-cd9kqmcj/runtime-18.7.0/node_modules/@oh-my-pi",
+  "source_sha256": "530f9ac09c6321262d877b44316a242b616d5c82df6cae37b99a6d2a1ad7d90a",
+  "exit": 0,
+  "stdout": "{\"before\":[{\"role\":\"user\",\"content\":\"first synthetic turn\\n\\n<system-reminder>\\nToday: 2026-10-11; current working directory: '/synthetic'. Do not repeat this information in your reply.\\n</system-reminder>\",\"timestamp\":1},{\"role\":\"user\",\"content\":\"second synthetic turn\\n\\n<system-reminder>\\nToday: 2026-10-11; current working directory: '/synthetic'. Do not repeat this information in your reply.\\n</system-reminder>\",\"timestamp\":2}],\"after\":[{\"role\":\"user\",\"content\":\"first synthetic turn\",\"timestamp\":1},{\"role\":\"user\",\"content\":\"second synthetic turn\\n\\n<system-reminder>\\nToday: 2026-10-11; current working directory: '/synthetic'. Do not repeat this information in your reply.\\n</system-reminder>\",\"timestamp\":2}],\"firstHistoricalMessageChanged\":true,\"nativeError\":\"TypeError: SEGMENTS[id]?.describe is not a function. (In 'SEGMENTS[id]?.describe(ctx)', 'SEGMENTS[id]?.describe' is undefined)\"}\n",
+  "stderr": "",
+  "capture": {
+    "before": [
+      {
+        "role": "user",
+        "content": "first synthetic turn\n\n<system-reminder>\nToday: 2026-10-11; current working directory: '/synthetic'. Do not repeat this information in your reply.\n</system-reminder>",
+        "timestamp": 1
+      },
+      {
+        "role": "user",
+        "content": "second synthetic turn\n\n<system-reminder>\nToday: 2026-10-11; current working directory: '/synthetic'. Do not repeat this information in your reply.\n</system-reminder>",
+        "timestamp": 2
+      }
+    ],
+    "after": [
+      {
+        "role": "user",
+        "content": "first synthetic turn",
+        "timestamp": 1
+      },
+      {
+        "role": "user",
+        "content": "second synthetic turn\n\n<system-reminder>\nToday: 2026-10-11; current working directory: '/synthetic'. Do not repeat this information in your reply.\n</system-reminder>",
+        "timestamp": 2
+      }
+    ],
+    "firstHistoricalMessageChanged": true,
+    "nativeError": "TypeError: SEGMENTS[id]?.describe is not a function. (In 'SEGMENTS[id]?.describe(ctx)', 'SEGMENTS[id]?.describe' is undefined)"
+  }
+}

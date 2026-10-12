@@ -1,0 +1,12 @@
+{
+  "gate": "verify-session-transfer-authority.ts",
+  "started": "2026-10-12T06:06:44.341277+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-session-transfer-authority.ts"
+  ],
+  "gate_sha256": "24ef57ea6a36aff46d98bbf48406bcd1a67d96817859cc626acbca4437e11fcc",
+  "exit": 1,
+  "stdout": "",
+  "stderr": "\n[Uncaught Exception] AssertionError: positive inode recovery must resume history rather than silently create an empty session\n    at /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-session-transfer-authority.ts:355:10\n    at processTicksAndRejections (native:7:39)\n"
+}

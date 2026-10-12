@@ -1,0 +1,11 @@
+{
+  "gate": "verify-kitty-shared-png-cache.ts",
+  "started": "2026-10-12T05:48:06.874399+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-kitty-shared-png-cache.ts"
+  ],
+  "exit": 0,
+  "stdout": "kitty shared PNG cache: eight graphics, tool/assistant/native slot replacement, late callbacks, failure, dedupe and 200-image eviction PASS\n",
+  "stderr": ""
+}

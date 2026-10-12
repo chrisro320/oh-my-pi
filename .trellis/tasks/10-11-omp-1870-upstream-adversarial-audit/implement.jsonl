@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend package/layer rules; embed original text in each implementation work order."}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "Official pristine bytes, same-family ownership, complete controller replay and rollback closure."}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "Actual consumer proof, isolation, and the new persistence/retry authority-boundary contracts."}
+{"file": ".trellis/spec/backend/extension-runtime-contracts.md", "reason": "Idle admission, translation and request-purpose lifecycle obligations."}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Native status, selector and image-display layer guidance."}
+{"file": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/risk-register.json", "reason": "Stable findings, exact conditions, remediation and required acceptance observables."}
+{"file": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/family-migration-matrix.json", "reason": "Complete 24-family capability ownership and explicitly excluded 0097."}
+{"file": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/verification.md", "reason": "Executed evidence versus bounded future acceptance; no broad or meaningless tests."}

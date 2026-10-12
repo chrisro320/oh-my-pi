@@ -1,0 +1,19 @@
+{
+  "failure": "verification timed out after180s while formatting reverse mismatch; redundant tree hashing fixed",
+  "reverse_differences": [
+    {
+      "path": "pi-catalog/dist/types/wire/devin.d.ts",
+      "pristine": [
+        "file",
+        420,
+        "9797ed5a99a0b95d1dfcf53183b28327ef215b4f5aa55b728da460bea703c623"
+      ],
+      "restored": [
+        "file",
+        436,
+        "9797ed5a99a0b95d1dfcf53183b28327ef215b4f5aa55b728da460bea703c623"
+      ]
+    }
+  ],
+  "candidate_tree_sha256": "ac555ea250e315592ea94d6062c3c0bde35bc7b9d0bf5e48385a2869ad2c0149"
+}

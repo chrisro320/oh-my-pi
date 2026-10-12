@@ -1,0 +1,11 @@
+{
+  "gate": "verify-antigravity-envelope.ts",
+  "started": "2026-10-12T05:47:51.478683+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-antigravity-envelope.ts"
+  ],
+  "exit": 0,
+  "stdout": "=== Testing Antigravity Request Envelope (0014) ===\nPASS verify-antigravity-envelope: all 0014 assertions ok!\n",
+  "stderr": ""
+}

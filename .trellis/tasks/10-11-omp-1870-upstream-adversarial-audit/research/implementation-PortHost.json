@@ -1,0 +1,237 @@
+{
+  "agent": "PortHost",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "owner": "PortHost",
+      "status": "complete",
+      "root": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+      "accounting": {
+        "ownedPaths": 34,
+        "familyPathFragments": 51,
+        "unresolvedOwnerStates": [],
+        "families": {
+          "0010-omp-extension-idle-ephemeral-turn": 6,
+          "0032-omp-goal-tool-resident": 2,
+          "0050-omp-session-history-preview": 4,
+          "0072-omp-session-pin-static-auth-ui": 1,
+          "0092-omp-cache-warming-idle-budget": 4,
+          "0095-omp-context-audit-request-purpose": 5,
+          "family-input-translation": 27,
+          "family-persistent-prefix-resume": 1,
+          "family-usage-pipeline": 1
+        },
+        "recording": "All owned paths are recorded through accept/amend. The main.ts adoption and types.d.ts event-union attribution conflicts were resolved in dedicated intermediate snapshots and successfully published with accept-amend. No unrecorded source edits remain."
+      },
+      "semanticChanges": [
+        "Rebased host preparation, acknowledged persistence actions, cancellation ownership, original displayText, canonical queue/signature text, rejected-draft restoration, exporters, history projections, and corresponding shipped declarations.",
+        "Serialized preparation execution behind the previous preparation, rather than merely serializing already-running promises. Checked session ownership before preparation and again after awaiting preparation at Enter/Ctrl+Enter admission.",
+        "Fixed a clean-merge semantic regression in UiHelpers: upstream's new builtin-command dispatcher now runs inside the existing !prepared guard. Prepared model text cannot execute builtin commands during compaction queue draining.",
+        "Completed the public ExtensionEvent union with PrepareUserInputEvent in source and declarations; excluded it from generic RunnerEmitEvent so the dedicated no-generic-timeout preparation path remains authoritative.",
+        "Retained ContextEvent purpose through the extension runner while preserving the upstream no-handler fast path and context-history-index bookkeeping.",
+        "Rebased static provider/auth and model-overlay imports, retaining upstream singleton menu focus/release behavior instead of restoring obsolete SettingsMenu state or synchronous package requires.",
+        "Kept goal resident for enabled unrestricted sessions, including explicit top-level tool selections with no active goal. Restricted tool rosters remain excluded.",
+        "Migrated all seven main.ts moved-session admission sites to await SessionManager.adoptForWrite() on the same manager; removed the obsolete forkIfMovedAway import. Attributed the change to family-persistent-prefix-resume.",
+        "Merged operator-facing dump displayText behavior with upstream timestamp and duration headings, and retained target-side title generation instead of restoring the removed controller title hook."
+      ],
+      "intentionalUpstreamPreservation": [
+        "Target session-listing stat cache, status scanning, empty-session handling and history behavior remain intact.",
+        "Target context index annotation/recovery and abort handling remain intact.",
+        "Target RPC raw-input identity map remains session-owned; display chips use original text, while restored local signatures retain canonical text.",
+        "Target ephemeral request construction, parent-session request controls and provider-state cleanup remain owned by PortLifecycle.",
+        "Model-facing history formatting stays canonical unless an operator-facing caller explicitly requests useDisplayText.",
+        "Existing accepted rejected-draft limitations were not broadened: AgentStartPolicyChangedError remains owned by the session callback; late provider/recovery exceptions may offer already-sent text as a restorable draft."
+      ],
+      "crossOwnerContracts": [
+        {
+          "peer": "PortTui",
+          "contract": "SessionPreviewLoader = (path: string) => Promise<readonly AgentMessage[]>; SessionSelectorOptions.loadPreviewMessages?: SessionPreviewLoader; SessionPickerHost.loadPreviewMessages?(): SessionPreviewLoader.",
+          "hostWiring": "main.ts supplies () => loadSessionMessagesReadOnly; selector-controller.ts supplies loadSessionMessagesReadOnly directly. No pi-tui -> coding-agent import was introduced."
+        },
+        {
+          "peer": "PortLifecycle",
+          "contract": "Preserve prepare/persist/cancel/drain/displayText APIs, runIdleEphemeralTurn host actions, raw RPC input identities, and SDK resident-goal behavior. Confirmed runner-less command context includes guarded idle action.",
+          "purpose": "SDK main transformations default to turn; provider-boundary auxiliary conversion uses side-request, including ephemeral/title snapshots."
+        },
+        {
+          "peer": "PortPersistence",
+          "contract": "SessionManager.adoptForWrite(): Promise<void> mutates the same manager; its session directory carries the explicit directory choice. main.ts callsites fully migrated."
+        }
+      ],
+      "r14": {
+        "newPublicTelemetryApiAdded": false,
+        "gap": "BeforeProviderRequestEvent has payload only. AfterProviderResponseEvent.requestId is provider-returned metadata before body consumption, not a trustworthy join to final usage. MessageEndEvent contains no matching host request identity. ContextEvent purpose alone cannot correlate interleaved same-model requests.",
+        "mainDecision": "Repository audit repair remains Main-owned. Missing trustworthy correlation must report unknown/uncorrelated usage, never causal MISS CAUSED BY. Auxiliary turns must not be persisted to manufacture correlation."
+      },
+      "acceptanceSuggestions": [
+        {
+          "existingConsumer": "patches/verify-session-pin-static-auth-ui.ts",
+          "change": "Add 18.10.0 to the supported version selection. Preserve real first-use model picker/hub and session-pin invocation after legacy shim installation; expose ui.overlayStack if exercising the target's new repeated-open behavior."
+        },
+        {
+          "existingConsumer": "patches/verify-session-history-preview.ts",
+          "change": "Add 18.10.0 to supported and movedUi selections. Keep the injected guarded read-only loader, original-text preview, empty-search-only Space and scrolling assertions; incorporate PortTui's native preview routing acceptance."
+        },
+        {
+          "existingConsumer": "patches/verify-rejected-prepared-draft-restore.ts",
+          "change": "Retain existing restore ownership assertions. Add a deferred pair of preparations crossing session cancellation and cover Ctrl+Enter. Drive the real compaction queue drain with prepared text resembling a builtin command; require a canonical prompt with original displayText and zero builtin dispatch."
+        },
+        {
+          "existingConsumer": "patches/verify-idle-ephemeral-reservation.ts",
+          "change": "Select 18.10.0 for supported version, submission-window and auth.keys.setRuntime fixture branches; retain actual session reservation/cancel/settle observations."
+        },
+        {
+          "existingConsumer": "patches/verify-context-persist-audit.ts and the integrated SDK consumer fixture",
+          "change": "Observe actual main and auxiliary context producers rather than manually supplying purpose alone. Require side-request to skip persistence diagnostics, a genuine main missing reminder to remain reportable, preserved context-history indices, and no auxiliary transcript append."
+        },
+        {
+          "existingConsumer": "Existing tool/SDK and declaration consumers",
+          "change": "Check enabled resident goal with an explicit unrestricted list and absent/paused/completed goal state, and exclusion with restrictToolNames. Import preparation/persisted-append/context types through shipped package declaration exports."
+        }
+      ],
+      "specAndDocsForMain": {
+        "ownership": "No repository docs, gates, extensions or controllers were edited.",
+        "capture": "Document that prepared input must bypass every command interpreter added to a queue drain, including builtin dispatch; preparation must execute in submission order and recheck session ownership after awaits. Keep source/declaration event unions and dedicated-runner exclusions synchronized."
+      },
+      "verification": {
+        "executed": [
+          "Required grep policy anchors in patch-rollup-contracts.md",
+          "Required grep policy anchors in verification-gate-contracts.md",
+          "Required R7/R9/R10/R12 grep anchors in prd.md",
+          "Port driver representation generation and atomic amendment publication",
+          "Ownership manifest accounting: 34 paths, 51 family-path fragments, no pending states"
+        ],
+        "notExecuted": [
+          "Builds",
+          "Tests",
+          "Lint",
+          "Formatters",
+          "Runtime smoke",
+          "Provider requests",
+          "Real auth or usage calls"
+        ],
+        "scope": "No behavioral acceptance is claimed. Main owns integrated verification and deployment."
+      },
+      "blockers": []
+    },
+    {
+      "owner": "PortHost",
+      "status": "complete",
+      "crossOwnerConfirmation": {
+        "PortLifecycle": "Confirmed SDK goal residency respects restrictToolNames and reaches initialTools. Confirmed original submitted text remains in #queuedMessageRawText for RPC removal/promotion, displayText remains the original chip fallback, and canonical content remains provider input. Lifecycle's adjustment was recorded to family-input-translation; no request-envelope API was added."
+      },
+      "implementationReport": "The preceding complete PortHost result remains authoritative; no further PortHost edits or verification were performed."
+    },
+    {
+      "status": "complete",
+      "addressed": "ReviewSurface18100 F1: loop replay preserves prepared-input provenance.",
+      "implementation": [
+        "Added exported LoopPrompt = Readonly<Pick<SubmittedUserInput, \"text\" | \"displayText\" | \"prepared\">> in source and declarations. InteractiveMode stores an owned copy for each capture.",
+        "Migrated every loop capture, including skill, streaming, compaction and idle paths, to the snapshot contract. Intentional native commands remain unprepared.",
+        "Loop timers, condition gates and replay retain snapshot identity. Replay passes the complete snapshot directly to startPendingSubmission without re-preparation.",
+        "Main submission and compaction-drain failure handling match provenance and capture identity before pausing a loop, so older dispatches cannot pause a newer same-text capture."
+      ],
+      "files_changed": [
+        "pi-coding-agent/src/modes/types.ts",
+        "pi-coding-agent/dist/types/modes/types.d.ts",
+        "pi-coding-agent/src/modes/interactive-mode.ts",
+        "pi-coding-agent/dist/types/modes/interactive-mode.d.ts",
+        "pi-coding-agent/src/modes/controllers/input-controller.ts",
+        "pi-coding-agent/src/main.ts",
+        "pi-coding-agent/src/modes/utils/ui-helpers.ts"
+      ],
+      "fragment_accounting": {
+        "family": "family-input-translation",
+        "amendments_recorded": 7,
+        "driver_results": "All seven amend commands returned AMENDED; no amendment conflicts or new paths.",
+        "overall_owned_accounting": "34 owned paths / 51 family-path fragments; unchanged by this repair."
+      },
+      "consumer_coordination": {
+        "owner": "GateHost18100",
+        "fixture": "patches/verify-rejected-prepared-draft-restore.ts",
+        "case": "Real InputController preparation -> owned loop snapshot -> actual getUserInput delayed replay -> submitInteractiveInput. Canonical /fixture-command and original display text must survive, preparation occurs once, local command count remains zero, and an explicitly typed command still executes.",
+        "api": "Existing public getUserInput() and armLoopAutoSubmit() exercise actual replay; no new test-only replay API. Communicated LoopPrompt contract and private settings/history isolation prerequisites."
+      },
+      "intentional_unchanged": [
+        "main.d.ts retains its existing Pick<InteractiveMode, ...> signature and inherits the new loopPrompt type.",
+        "ui-helpers.d.ts exposes no changed private helper signature.",
+        "No repository extension, gate or documentation files edited; Main owns integration/documentation."
+      ],
+      "verification": {
+        "executed": "Required rollup-policy, gate-policy and PRD presence greps returned the expected clauses. Driver amendment generation completed.",
+        "not_executed": "No tests, builds, lint, formatters, provider requests or auth operations."
+      },
+      "remaining_integration_note": "Previously reported R14 correlation gap remains unchanged: existing provider hooks and message_end do not supply trustworthy end-to-end correlation. No telemetry pipeline or request-envelope API added; Main owns the repository audit repair and accepted unknown/uncorrelated usage outcome."
+    },
+    {
+      "supplement": "GateHost18100 confirmed the real loop-boundary consumer fixture is implemented in patches/verify-rejected-prepared-draft-restore.ts.",
+      "fixture_contract": "Uses private settings/history, an unstarted real InteractiveMode, real InputController preparation, initial getUserInput submission, actual delayed getUserInput replay, and submitInteractiveInput. Asserts both turns retain literal canonical /fixture-command plus original displayText, preparation runs once, and local command execution stays zero. After disabling loop mode, explicitly typing the command executes it once without an extra model turn.",
+      "verification": "GateHost18100 explicitly reported no execution. Main still owns integrated acceptance."
+    },
+    {
+      "acknowledged": "Main owns the tools/index.ts orphaned goalModeActive repair and its 0032 fragment amendment. I will not edit that file concurrently.",
+      "correction": "The earlier resident-goal repair was incomplete: the default-list reference survived removal of its declaration. CLI --version did not exercise that path. Main's reported isolated read failure is accepted without rerunning it.",
+      "required_semantics": "Resident goal inclusion remains goalEnabled && !restrictToolNames; do not restore active-goal gating."
+    },
+    {
+      "cross_owner_contract": "PortPersistence reports openRelocated now defaults to writable adoption before relocation; only staged archive publication opts out. Existing Host CLI/selector callers need no signature change, and their subsequent adoptForWrite remains idempotent.",
+      "host_action": "No Host edits required for this contract update. Lifecycle owns integration of beginWritableAdoption() for cancellable switching.",
+      "verification": "No checks or provider/auth operations performed."
+    },
+    {
+      "status": "complete",
+      "finding": "ReviewPersistence18100 R2 \u2014 selector relocation committed a departed fork before cancellable switch admission.",
+      "files_changed": [
+        "pi-coding-agent/src/modes/controllers/selector-controller.ts"
+      ],
+      "implementation": [
+        "Removed the selector's pre-switch SessionManager.openRelocated call and committed-manager close.",
+        "Replaced the mutating helper with read-only removed-worktree detection. The helper captures destination cwd and the explicit current sessionDir while retaining movedFrom solely for the success status.",
+        "handleResumeSession now passes the original source path plus relocateTo into the common switch transaction. Its public signature, cwd callback, model-fallback notification and post-success UI flow remain intact."
+      ],
+      "cross_owner_contract": {
+        "PortLifecycle": "Confirmed source and public declaration option: switchSession(sessionPath, { relocateTo?: { cwd: string; sessionDir?: string }, ... }). It is exclusive with preserveLocalCwd. Lifecycle owns after-hook adoption/relocation and rollback through the actual switch outcome.",
+        "PortPersistence": "Confirmed existing captureState/moveTo/rollbackMove and beginWritableAdoption APIs suffice. A nonfork move is reversed before adoption rollback; a departed fork's adoption rollback removes only its newly owned original/current paths.",
+        "destination_preservation": "Retained explicit sessionDir; a cwd-only option would incorrectly substitute a derived directory for configured session roots."
+      },
+      "declaration_closure": "SelectorController's public handleResumeSession signature is unchanged; its .d.ts therefore remains intentionally unchanged. Lifecycle owns the changed switchSession source/.d.ts contract.",
+      "fragment_accounting": {
+        "family": "family-persistent-prefix-resume",
+        "attribution": "Approved explicitly by Main.",
+        "driver_result": "AMENDED family-persistent-prefix-resume pi-coding-agent/src/modes/controllers/selector-controller.ts",
+        "conflicts": 0,
+        "effect": "One existing owned path gains this family's contribution, carried through later 0050/0072 snapshots by the driver. No manual fragment edits or backward copying of later capabilities.",
+        "overall": "34 owned paths / 52 family-path fragments."
+      },
+      "consumer_fixture": {
+        "owner": "GateHost18100",
+        "agreed_case": "Real SelectorController.handleResumeSession with the actual removed-worktree detector, a departed synthetic session and a cancelling session_before_switch SDK handler. Compare original journal path/bytes, anchor and sentinel artifacts, and directory listings; require false with no extra journal or artifact directory.",
+        "verification_owner": "Main"
+      },
+      "root_cause_and_spec_handoff": {
+        "category": "Cross-layer contract and incomplete consumer propagation.",
+        "previous_error": "Treating later adoptForWrite as harmless/idempotent overlooked the earlier irreversible selector preparation.",
+        "contract_for_Main_documentation": "Cancellable selectors must pass read-only relocation intent and the original target path into common admission; they must not publish a writable fork before the cancellable hook. Retain explicit destination sessionDir and rollback ownership until switch commit."
+      },
+      "verification": {
+        "executed": "Required rollup-policy, gate-policy and PRD presence greps returned their clauses; representation amendment completed.",
+        "not_executed": "No tests, builds, lint, formatters, provider requests, auth operations or git commands."
+      }
+    },
+    {
+      "supplement": "GateHost18100 confirmed the R2 actual-selector cancellation case is added to the history-preview gate.",
+      "assertions": "Actual removed-worktree detector and departed synthetic journal with date/cwd anchor plus binary sentinel; session_before_switch receives the original source path; handleResumeSession returns false; active session identity/cwd/entries and complete source/target bucket snapshots remain unchanged, including directory structure; no provider calls.",
+      "verification": "Fixture remains unexecuted. Main owns acceptance execution."
+    },
+    {
+      "fixture_correction": "GateHost18100 identified the prepared-input gate timeout as an unused getUserInput waiter after an explicitly typed extension command. InputController intentionally consumes that command inline rather than resolving the main submission waiter.",
+      "action": "GateHost18100 owns cancelling/draining the unused waiter while retaining command/provider/preparation assertions. No Host source change is needed.",
+      "evidence_limit": "The peer reports initial and replay turns finished; this is not a completed gate pass. No checks were run by PortHost."
+    }
+  ]
+}

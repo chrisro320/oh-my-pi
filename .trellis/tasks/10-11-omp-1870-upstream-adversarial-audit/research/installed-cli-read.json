@@ -1,0 +1,23 @@
+{
+  "command": [
+    "bun",
+    "--preload",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/offline-preload.ts",
+    "/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+    "--no-session",
+    "--no-skills",
+    "--no-lsp",
+    "-e",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/cli-smoke.mjs",
+    "--model",
+    "upgrade-smoke/verification",
+    "-p",
+    "Read the fixture file and report."
+  ],
+  "exit": 0,
+  "stdout": "O\nM\nP\n_\n1\n8\n.\n1\n0\n.\n1\n_\nS\nM\nO\nK\nE\n_\nO\nK\n",
+  "stderr": "Working...\n",
+  "time": "2026-10-12T07:25:01.069914+00:00",
+  "runtime": "/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39/runtime/node_modules/@oh-my-pi",
+  "isolation": "allowlisted environment, private HOME/XDG/agent; no production credential operations"
+}

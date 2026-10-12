@@ -1,0 +1,6257 @@
+[
+  {
+    "package": "pi-coding-agent",
+    "path": "CHANGELOG.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/CHANGELOG-kxngcqkq.md",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/CHANGELOG-m7pmrt6j.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/cli.js",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/docs-index.generated.txt",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/template-65mwrmj7.css",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/template-f8wx9vfn.css",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/advisor/delta-split.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/advisor/runtime.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/async/job-manager.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/auto-graph/planner.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/autoresearch/helpers.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/blob-broker/broker.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/blob-broker/service.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/blob-broker/store.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/capability/context-file.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/capability/index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cleanse/parsers.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/anonymize-cli.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/auth-broker-cli.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/auth-gateway-cli.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/build-service.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/command-help.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/flag-tables.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/gc-cli.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/ps-data.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/session-arg.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/update-cli.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/usage-cli.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/cli/worker-selectors.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/collab/protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/collab/registry.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/collab/relay-client.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/collab/replication-shrink.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/commands/anonymize.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/commands/auth-broker.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/commands/auth.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/commands/say.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/commands/session.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/commands/usage.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/commit/cli.d.ts",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/commit/utils/exclusions.d.ts",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/compress/protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/config/account-pools.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/config/compaction-threshold.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/config/model-patch.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/config/model-provider-discovery.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/config/model-registry.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/config/model-resolver.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/config/models-config-schema-bundle.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/config/models-config-schema.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/config/models-config.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/config/registry.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/config/settings.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/dap/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/discovery/custom-context-files.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/discovery/index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/eval/backend.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/eval/js/shared/helpers.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/eval/js/shared/rewrite-imports.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/eval/js/shared/runtime.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/eval/js/tool-bridge.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/exec/bash-executor.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/exec/direnv.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/exec/settings.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/export/ttsr.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/custom-commands/bundled/annotate/api.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/custom-commands/bundled/annotate/direct-source.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/custom-commands/bundled/annotate/fullscreen.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/custom-commands/bundled/annotate/text-source.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/custom-commands/bundled/review/index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/custom-commands/bundled/review/prompt.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/custom-commands/bundled/review/target.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/extensions/runner.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/extensions/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/legacy-pi-ai-shim.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/legacy-pi-coding-agent-shim.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/legacy-pi-transcript.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/extensibility/legacy-pi-tui-shim.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/goals/runtime.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/goals/settings.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/hindsight/transcript.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/ida/protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/internal-urls/cfg-protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/internal-urls/docs-index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/internal-urls/hyperlink-targets.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/internal-urls/mcp-protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/internal-urls/omp-protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/internal-urls/registry-helpers.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/internal-urls/skill-protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/internal-urls/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/jsonrpc/message-framing.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/judgment/index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/launch/ensure.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/launch/paths.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/launch/protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/lib/xai-http.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/lsp/client.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/lsp/mux/protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/lsp/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/lsp/utils.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/mcp/json-rpc.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/mcp/manager.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/mcp/smithery-connect.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/mcp/transports/sse.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/memories/index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/memory-backend/recall-entry.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/memory-backend/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/mnemopi/embed-client.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/mnemopi/embed-protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/mnemopi/embed-server.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/mnemopi/embed-worker.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/mnemopi/state.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/modes/controllers/command-controller.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/modes/controllers/composer-prediction-controller.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/modes/controllers/event-controller.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/modes/controllers/extension-ui-controller.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/modes/interactive-mode.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/modes/rpc/rpc-types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/modes/rpc/wire/rpc-wire.generated.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/modes/settings.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/modes/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/modes/utils/ui-helpers.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/predict/client.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/predict/protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/registry/agent-registry.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/sdk.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/secrets/obfuscator.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/security/auth.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/agent-session-events.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/agent-session-types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/agent-session.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/async-job-delivery.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/blob-store.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/claude-auto-reset.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/codex-auto-reset.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/context-settings.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/exit-diagnostics.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/irc-bridge.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/messages.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/model-compaction-threshold.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/provider-image-budget.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/reset-expiry.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/reset-fence.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/retry-fallback-chains.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-advisors.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-anonymizer.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-context.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-dump-format.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-history-format.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-listing.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-maintenance.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-manager.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-paths.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-persistence.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-stats.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-storage.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-tools.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-transfer.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/session-worktree.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/settings.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/sub-sessions.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/ttsr-outputs.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/turn-recovery.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/session/unexpected-stop-classifier.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/slash-commands/builtin-completions.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/slash-commands/helpers/active-oauth-account.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/slash-commands/helpers/reset-usage.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/slash-commands/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/ssh/utils.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/stream/paint-encoder.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/stream/paths.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/stream/protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/stream/publisher.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/stt/wav.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/jsonl-server.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/shared-worker.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/terminal-launch.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/terminal-launch/cmux.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/terminal-launch/herdr.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/terminal-launch/orca.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/terminal-launch/providers.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/terminal-launch/request.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/terminal-launch/shared.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/terminal-launch/tmux.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/terminal-launch/types.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/terminal-launch/validate.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/subprocess/terminal-launch/zellij.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/task/executor.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/task/omp-command.d.ts",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/task/settings.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/task/structured-subagent.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/task/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/task/workpool.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tiny/jsonl-socket.d.ts",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tiny/message-preproc.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tiny/title-client.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tiny/title-protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tiny/worker-server.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/ast-grep.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/attach.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/downloads.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/frames.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/launch.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/relay/bridge.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/relay/daemon.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/relay/probe.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/relay/protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/relay/server.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/screenshot.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/shared-daemon.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/tab-protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/tab-supervisor.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/tern/blocks.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/tern/kind.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/tern/tern-tab.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/tern/wire.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/browser/webmcp.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/computer/protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/computer/window-miss.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/computer/worker.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/file-mutation-queue.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/jfind/questions.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/output-meta.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/output-schema-validator.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/read-json.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/read.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/shell-tokenize.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tools/xdev.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tts/models.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tts/settings.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tts/tts-client.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/tts/tts-protocol.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/atomic-file.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/config-file-sources.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/external-editor.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/grammars.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/image-resize.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/nerd-font-glyphs.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/run-status.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/shell-quote.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/shell-snapshot.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/title-card.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/title-generator.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/utils/title-settings.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/web/scrapers/docs-rs.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/web/scrapers/index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/web/scrapers/twitter.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/web/scrapers/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/web/scrapers/utils.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/web/search/index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/web/search/providers/xai.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "dist/types/web/x.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "examples/custom-tools/README.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "package.json",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "scripts/bench-title-card-nf.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "scripts/bench-title-card-v2.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "scripts/bench-title-card-v3.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "scripts/bench-title-card-v4.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "scripts/bench-title-card-v5.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "scripts/bench-title-card.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "scripts/bench-title-fork.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "scripts/bench-title-fork.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "scripts/compile-binary.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "scripts/generate-nerd-font-glyphs.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/activity/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/advisor/delta-split.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/advisor/runtime.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/async/job-manager.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/auto-graph/planner.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/auto-thinking/classifier.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/autoresearch/helpers.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/autoresearch/tools/run-experiment.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/blob-broker/broker.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/blob-broker/daemon.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/blob-broker/provider-files.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/blob-broker/server.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/blob-broker/service.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/blob-broker/store.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/blob-broker/stream-fallback.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/blob-broker/uploaders-image-hosts.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/blob-broker/uploaders-object-storage.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/capability/context-file.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/capability/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cleanse/agent.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cleanse/checkers.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cleanse/parsers.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli-commands.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/anonymize-cli.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/auth-broker-cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/auth-gateway-cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/build-service.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/command-help.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/flag-tables.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/gallery-fixtures/agentic.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/gallery-screenshot.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/gc-cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/git-tui/ai-stage.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/models-cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/profile-alias.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/ps-cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/ps-data.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/read-cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/render-cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/session-arg.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/ssh-cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/ttsr-cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/update-cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/usage-cli.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cli/worker-selectors.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/collab/guest.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/collab/host.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/collab/protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/collab/registry.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/collab/relay-client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/collab/replication-shrink.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/commands/anonymize.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/commands/auth-broker.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/commands/auth.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/commands/say.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/commands/session.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/commands/toks.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/commands/update.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/commands/usage.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/commit/cli.ts",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/commit/utils/exclusions.ts",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/compress/protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/account-pools.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/all-settings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/compaction-threshold.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/model-discovery.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/model-patch.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/model-provider-discovery.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/model-registry.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/model-resolver.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/models-config-schema-bundle.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/models-config.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/registry.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/settings-ui.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/config/settings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/cursor.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/dap/client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/dap/config.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/dap/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/discovery/codex.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/discovery/custom-context-files.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/discovery/helpers.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/discovery/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/edit/auto-repair.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/edit/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/agent-bridge.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/backend.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/completion-bridge.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/js/shared/helpers.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/js/shared/prelude.txt",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/js/shared/rewrite-imports.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/js/shared/runtime.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/js/tool-bridge.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/js/worker-core.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/kernel-base.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/py/prelude.py",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/py/runner.py",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/speculation/eval-args-stream.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/eval/workpool-bridge.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/exec/bash-executor.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/exec/direnv.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/exec/settings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/export/html/template.css",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/export/html/web-palette.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/export/ttsr.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/custom-commands/bundled/annotate/api.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/custom-commands/bundled/annotate/direct-source.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/custom-commands/bundled/annotate/fullscreen.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/custom-commands/bundled/annotate/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/custom-commands/bundled/annotate/text-source.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/custom-commands/bundled/review/diff.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/custom-commands/bundled/review/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/custom-commands/bundled/review/prompt.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/custom-commands/bundled/review/target.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/extensions/runner.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/extensions/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/legacy-pi-ai-shim.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/legacy-pi-coding-agent-shim.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/legacy-pi-transcript.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/legacy-pi-tui-shim.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/plugins/loader.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/extensibility/plugins/manager.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/goals/runtime.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/goals/settings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/hindsight/state.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/hindsight/transcript.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/ida/client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/ida/host.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/ida/protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/artifact-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/cfg-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/docs-index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/history-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/hyperlink-targets.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/local-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/mcp-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/memory-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/omp-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/registry-helpers.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/router.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/skill-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/internal-urls/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/jsonrpc/message-framing.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/judgment/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/launch/broker.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/launch/client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/launch/ensure.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/launch/paths.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/launch/protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/lib/xai-http.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/live/controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/live/transport.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/lsp/client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/lsp/config.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/lsp/edits.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/lsp/lspmux.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/lsp/mux/daemon.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/lsp/mux/protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/lsp/mux/server.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/lsp/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/lsp/utils.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/main.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/markit/converters/docx.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/markit/converters/epub.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/markit/converters/pptx.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/markit/converters/xlsx.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mcp/client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mcp/json-rpc.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mcp/manager.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mcp/smithery-connect.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mcp/tool-cache.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mcp/transports/sse.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/memories/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/memory-backend/recall-entry.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/memory-backend/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mnemopi/backend.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mnemopi/config.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mnemopi/embed-client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mnemopi/embed-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mnemopi/embed-server.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mnemopi/embed-worker.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/mnemopi/state.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/acp/acp-agent.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/acp/acp-mode.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/btw-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/command-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/composer-prediction-controller.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/event-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/extension-ui-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/input-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/live-command-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/mcp-command-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/omfg-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/selector-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/session-focus-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/ssh-command-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/controllers/tan-command-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/interactive-mode.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/model-browser-source.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/print-mode.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/rpc/rpc-frame.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/rpc/rpc-mode.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/rpc/rpc-types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/rpc/wire/events.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/rpc/wire/rpc-wire.generated.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/rpc/wire/rpc-wire.schema.json",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/rpc/wire/state.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/settings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/setup.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/status-line-host.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/utils/ui-helpers.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/modes/warp-events.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/predict/client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/predict/daemon.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/predict/protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/priority.json",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/judge/auto-graph.json",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/judge/auto-thinking.json",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/judge/find.json",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/judge/git-stage.json",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/judge/unexpected-stop.json",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/review-request.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/session/transfer-arrived.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/session/transfer-departed.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/session/transfer-stale-fork.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/system/auto-graph-column-question.md",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/system/auto-graph-kind-question.md",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/system/auto-graph-transpose-question.md",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/system/auto-thinking-bucket-question.md",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/system/auto-thinking-level-question.md",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/system/auto-thinking-solution-space-question.md",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/system/composer-prediction-user.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/system/memory-recall-changes.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/system/title-card.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/system/title-fork.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/system/x-read.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/tools/browser.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/tools/computer-screen-locked-capture.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/tools/computer-screen-state.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/tools/computer.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/tools/eval-agents.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/tools/find-name-question.md",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/tools/find-passage-question.md",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/tools/find-sketch-question.md",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/tools/task.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/tools/web-search.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/prompts/tools/write-device-only.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/registry/agent-lifecycle.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/registry/agent-registry.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/registry/persisted-agents.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/sdk.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/secrets/obfuscator.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/security/auth.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/security/cloud.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/agent-session-events.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/agent-session-types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/agent-session.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/agent-storage.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/async-job-delivery.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/blob-store.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/claude-auto-reset.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/codex-auto-reset.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/context-settings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/context-usage-runtime.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/exit-diagnostics.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/irc-bridge.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/messages.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/model-compaction-threshold.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/provider-image-budget.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/reset-expiry.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/reset-fence.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/retry-fallback-chains.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/role-models.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-advisors.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-anonymizer.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-context.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-dump-format.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-history-format.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-listing.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-maintenance.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-manager.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-paths.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-persistence.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-stats.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-storage.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-tools.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-transfer.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/session-worktree.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/settings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/sub-sessions.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/todo-tracker.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/ttsr-coordinator.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/ttsr-outputs.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/turn-recovery.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/session/unexpected-stop-classifier.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/slash-commands/builtin-collaboration.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/slash-commands/builtin-completions.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/slash-commands/builtin-lifecycle.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/slash-commands/builtin-registry.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/slash-commands/builtin-session.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/slash-commands/helpers/active-oauth-account.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/slash-commands/helpers/logout.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/slash-commands/helpers/reset-usage.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/slash-commands/helpers/usage-accounts.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/slash-commands/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/speculation/host.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/ssh/connection-manager.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/ssh/file-transfer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/ssh/utils.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/stream/console-tui.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/stream/paint-encoder.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/stream/paths.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/stream/protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/stream/publisher.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/stream/streamer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/stt/endpointer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/stt/stt-controller.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/stt/wav.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/jsonl-server.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/shared-worker.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/terminal-launch.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/terminal-launch/cmux.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/terminal-launch/herdr.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/terminal-launch/orca.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/terminal-launch/providers.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/terminal-launch/request.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/terminal-launch/shared.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/terminal-launch/tmux.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/terminal-launch/types.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/terminal-launch/validate.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/subprocess/terminal-launch/zellij.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/task/completion-probe.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/task/executor.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/task/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/task/omp-command.ts",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/task/persisted-revive.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/task/settings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/task/structured-subagent.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/task/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/task/workpool.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tiny/jsonl-socket.ts",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tiny/message-preproc.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tiny/mlx-server.py",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tiny/title-client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tiny/title-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tiny/worker-server.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/ask.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/ast-edit.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/ast-grep.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/bash.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/attach.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/cmux/cmux-tab.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/declarations.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/downloads.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/frames.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/launch.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/prelude.js",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/prelude.py",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/readable.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/recording.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/registry.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/relay/bridge.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/relay/daemon.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/relay/extension-assets/background.js.txt",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/relay/probe.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/relay/protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/relay/server.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/screenshot.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/settings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/shared-daemon.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/tab-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/tab-supervisor.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/tab-worker.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/tern/blocks.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/tern/kind.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/tern/tern-tab.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/tern/wire.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/browser/webmcp.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/computer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/computer/call.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/computer/declarations.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/computer/prelude.js",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/computer/prelude.py",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/computer/protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/computer/window-miss.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/computer/worker.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/eval.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/fetch.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/file-mutation-queue.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/glob.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/grep.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/image-gen.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/jfind/questions.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/memory-retain.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/output-meta.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/output-schema-validator.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/read-archive.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/read-format.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/read-json.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/read-summary.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/read.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/run-scope.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/settings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/shell-tokenize.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/sqlite-reader.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/tts.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/write-content.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/write.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tools/xdev.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tts/models.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tts/settings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tts/tts-client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tts/tts-protocol.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tts/tts-worker.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/tts/vocalizer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/atomic-file.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/block-context.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/config-file-sources.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/external-editor.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/grammars.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/image-loading.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/image-question.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/image-resize.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/nerd-font-glyphs.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/nerd-font-glyphs.txt",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/run-status.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/shell-quote.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/shell-snapshot.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/terminal-graphics.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/title-card.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/title-generator.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/title-settings.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/turndown.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/utils/video.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/vibe/runtime.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/discourse.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/docs-rs.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/github.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/hackernews.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/lemmy.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/mastodon.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/nuget.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/twitter.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/utils.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/scrapers/youtube.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/search/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/search/providers/anthropic.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/search/providers/gemini.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/search/providers/openai.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/search/providers/perplexity.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/search/providers/xai.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/web/x.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-coding-agent",
+    "path": "src/workspace-tree.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "CHANGELOG.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "dist/types/agent.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "dist/types/compaction/compaction.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "dist/types/compaction/messages.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "dist/types/compaction/pruning.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "dist/types/compaction/tool-protection.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "dist/types/index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "dist/types/speculative-execution.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "dist/types/tool-arguments.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "dist/types/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "package.json",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/agent-loop.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/agent.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/append-only-context.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/compaction/compaction-v2-streaming.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/compaction/compaction.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/compaction/messages.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/compaction/openai.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/compaction/pruning.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/compaction/tool-protection.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/speculative-execution.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/telemetry.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/tool-arguments.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-agent-core",
+    "path": "src/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "CHANGELOG.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth-broker/client.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth-broker/remote-store.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth-broker/server.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth-broker/snapshot-cache.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth-gateway/dispatch.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth-gateway/http.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth-gateway/session-state.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth-storage.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth/affinity.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth/cascade.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth/oauth.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth/policy.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth/refresh.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth/select.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth/sqlite-credential-store.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth/store.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/auth/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/dialect/terminator-wait.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/env-api-key.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/error/auth.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/error/flags.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/images/shared.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/judgment/index.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/judgment/native.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/judgment/openai-decisions.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/judgment/question-file.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/judgment/systemone.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/judgment/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/judgment/typesafe.d.ts",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/judgment/wire.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/provider-session-state.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/anthropic-client.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/anthropic-state.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/anthropic.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/connect-frame.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/cursor.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/cursor/interaction-query.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/google-shared.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/inference-headers.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/openai-codex-responses.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/openai-codex/request-transformer.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/openai-configuration-update.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/openai-responses-wire.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/openai-responses.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/openai-shared.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/providers/transform-messages.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/registry/oauth/cloudflare-workers-ai.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/registry/oauth/cursor.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/stream.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/transcription/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/usage.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/utils/anthropic-auth.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/utils/aws-profile.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/utils/block-symbols.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/utils/glyph-codec.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/utils/leaked-thinking-stream.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/utils/resolve-peer.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/utils/retry-wait.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "dist/types/utils/schema/normalize.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "package.json",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth-broker/client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth-broker/discover.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth-broker/remote-store.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth-broker/server.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth-broker/snapshot-cache.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth-gateway/dispatch.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth-gateway/http.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth-gateway/routes/systemone.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth-gateway/server.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth-gateway/session-state.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth-storage.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/affinity.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/blocks.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/cascade.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/health.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/oauth.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/policy.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/pool.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/refresh.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/resets.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/rotation.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/select.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/sqlite-credential-store.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/store.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/usage-cache.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/auth/usage.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/dialect/deepseek.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/dialect/gemini.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/dialect/hermes.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/dialect/kimi.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/dialect/qwen-xml.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/dialect/qwen3.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/dialect/terminator-wait.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/env-api-key.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/error/auth.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/error/flags.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/error/rate-limit.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/images/openai-hosted.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/images/openai-images.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/images/shared.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/judgment/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/judgment/native.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/judgment/openai-decisions-predicate.md",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/judgment/openai-decisions.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/judgment/question-file.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/judgment/systemone.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/judgment/text.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/judgment/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/judgment/typesafe.ts",
+    "status": "deleted"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/judgment/wire.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/provider-session-state.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/amazon-bedrock.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/anthropic-client.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/anthropic-state.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/anthropic.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/apple-foundation-models.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/azure-openai-responses.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/connect-frame.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/cursor.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/cursor/interaction-query.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/devin.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/factory-droid/gemini.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/gitlab-duo-workflow.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/google-shared.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/google-vertex.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/google.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/inference-headers.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/ollama.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/openai-codex-responses.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/openai-codex/request-transformer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/openai-completions.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/openai-configuration-update.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/openai-responses-wire.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/openai-responses.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/openai-shared.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/systemone-server.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/transcriptions-server.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/providers/transform-messages.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/registry/aws.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/registry/cloudflare-ai-gateway.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/registry/hooks/api-key.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/registry/oauth/callback-server.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/registry/oauth/cloudflare-ai-gateway.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/registry/oauth/cloudflare-workers-ai.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/registry/oauth/cursor.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/stream.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/transcription/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/usage.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/usage/claude.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/usage/github-copilot.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/anthropic-auth.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/aws-profile.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/block-symbols.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/empty-completion-retry.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/glyph-codec.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/leaked-thinking-stream.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/resolve-peer.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/retry-wait.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/schema/CONSTRAINTS.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/schema/fields.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/schema/normalize.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-ai",
+    "path": "src/utils/thinking-loop.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "CHANGELOG.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/compat/auth-ids.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/compat/judgment-questions.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/compat/prompt-cache-lookback.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/compat/provider-ids.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/compat/reasoning-carry.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/compat/request-size.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/compat/taxonomy.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/compat/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/discovery/antigravity.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/model-manager.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/provider-models/account-access.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/provider-models/google.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/provider-models/openai-compat.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/provider-models/special.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/wire/cloudflare-ai-gateway.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/wire/cloudflare.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "dist/types/wire/factory-droid.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "package.json",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/build.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/auth-ids.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/axes.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/cascade.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/judgment-questions.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/prompt-cache-lookback.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/provider-ids.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/reasoning-carry.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/request-size.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/resolve.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules.json",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/README.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/auth/_order.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/auth/cloudflare-workers-ai.kdl",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/auth/coralbricks.kdl",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/classes/anthropic.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/classes/deepseek.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/classes/glm.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/classes/kimi.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/classes/minimax.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/classes/openai.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/classes/qwen.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/abliteration.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/anthropic.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/cloudflare-workers-ai.kdl",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/coralbricks.kdl",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/cursor.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/devin.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/factory-droid.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/github-copilot.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/groq.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/judgment-questions.kdl",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/litellm.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/mistral.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/moonshot.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/openai-codex.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/openai.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/opencode-zen.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/openrouter.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/providers/zhipu-coding-plan.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/rules/runtime/behavior.kdl",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/taxonomy.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/compat/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/discovery/antigravity.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/discovery/cursor.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/discovery/devin.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/model-cache.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/model-manager.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/model-tokenizer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/models.json",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/provider-models/account-access.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/provider-models/cache-provider-id.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/provider-models/descriptors.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/provider-models/google.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/provider-models/openai-compat.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/provider-models/special.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/wire/cloudflare-ai-gateway.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/wire/cloudflare.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-catalog",
+    "path": "src/wire/factory-droid.ts",
+    "status": "modified"
+  },
+  {
+    "package": "snapcompact",
+    "path": "package.json",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "CHANGELOG.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "README.md",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/app-keybindings.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/apps/debug/log-viewer.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/apps/debug/raw-sse-buffer.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/apps/git/help.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/charts/chart-plan.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/charts/chart-svg.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/charts/table-data.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/chat/assistant-message.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/chat/compaction-summary-message.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/chat/execution-shared.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/chat/fence-figure.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/chat/svg-figure.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/chat/table-chart.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/chat/tool-execution.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/chat/user-message.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/chrome/shared.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/chrome/transcript-container.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/box.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/disclosure.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/editor.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/form.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/image.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/key-value-list.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/layout/row.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/layout/stack.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/markdown.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/scroll-view.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/section.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/table.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/text.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/tree-view.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/components/truncated-text.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/debug-server.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/fuzzy.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/keybinding-matchers.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/kitty-graphics.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/loop-watchdog.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/multiplexers/cmux.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/multiplexers/herdr.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/multiplexers/notify.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/multiplexers/orca.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/multiplexers/screen.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/multiplexers/tmux.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/multiplexers/types.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/multiplexers/wmux.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/multiplexers/zellij.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/native/backend.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/native/blobs.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/native/encode.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/native/overlay.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/agent-hub-projection.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/agent-hub-types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/agent-hub.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/agent-transcript-viewer.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/annotation-overlay.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/annotation-types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/ask-dialog.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/history-search.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/hook-selector.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/model-browser.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/model-hub.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/session-observer-registry.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/session-selector.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/settings-defs.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/usage-dashboard.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/overlays/usage-display.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/prompt/composer.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/prompt/custom-editor.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/prompt/image-source.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/prompt/interactive-context-helpers.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/render/output-pane.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/render/render-utils.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/render/tool-card.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/render/width-aware-text.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/setup/scenes/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/status-line/component.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/status-line/host.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/status-line/types.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/terminal-capabilities.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/terminal-multiplexer.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/terminal.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/theme/schema.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/theme/symbols.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/theme/theme-class.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/theme/theme.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/theme/tui-adapters.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/tmux.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/tools/eval.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/tools/native-view.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/tools/output-meta.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/tools/renderer.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/tools/streaming-output.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/tools/task.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/tools/write.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/tools/yield.d.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/tui.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "dist/types/vim.d.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "package.json",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/app-keybindings.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/apps/autoresearch-dashboard.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/apps/debug/log-viewer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/apps/debug/raw-sse-buffer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/apps/debug/raw-sse.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/apps/git/diff-pane.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/apps/git/help.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/autocomplete.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/charts/chart-plan.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/charts/chart-svg.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/charts/table-data.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/advisor-message.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/assistant-message.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/chat-transcript-builder.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/compaction-summary-message.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/execution-shared.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/fence-figure.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/read-tool-group.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/skill-message.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/svg-figure.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/table-chart.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/tool-execution.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chat/user-message.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chrome/shared.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/chrome/transcript-container.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/box.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/disclosure.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/editor.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/form.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/image.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/key-value-list.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/layout/row.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/layout/stack.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/markdown.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/scroll-view.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/section.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/settings-list.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/table.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/text.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/tree-view.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/components/truncated-text.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/debug-server.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/fuzzy.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/hotkeys-markdown.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/keybinding-matchers.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/kitty-graphics.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/loop-watchdog.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/multiplexers/cmux.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/multiplexers/herdr.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/multiplexers/notify.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/multiplexers/orca.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/multiplexers/screen.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/multiplexers/tmux.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/multiplexers/types.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/multiplexers/wmux.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/multiplexers/zellij.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/native/backend.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/native/blobs.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/native/encode.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/native/overlay.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/native/reconcile.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/agent-hub-projection.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/agent-hub-types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/agent-hub.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/agent-transcript-viewer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/agents-hub.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/annotation-overlay.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/annotation-types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/ask-dialog.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/btw-history-panel.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/copy-selector.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/extensions/state-manager.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/history-search.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/hook-selector.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/jobs-panel.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/model-browser.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/model-hub.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/move-overlay.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/oauth-selector.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/plan-review-overlay.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/rewind-selector.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/session-observer-registry.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/session-selector.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/settings-defs.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/settings-selector.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/snapcompact-shape-preview.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/tree-selector.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/usage-dashboard.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/overlays/usage-display.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/prompt/attachment-chips.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/prompt/composer-attachments.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/prompt/composer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/prompt/custom-editor.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/prompt/image-source.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/prompt/interactive-context-helpers.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/prompt/macos-spelling.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/prompt/magic-keywords.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/prompt/tips.txt",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/prompt/welcome.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/prompt/word-completion.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/render/composite.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/render/output-pane.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/render/render-utils.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/render/tool-card.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/render/width-aware-text.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/setup/scenes/model.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/setup/scenes/splash.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/setup/scenes/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/status-line/component.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/status-line/host.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/status-line/segments.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/status-line/types.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/terminal-capabilities.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/terminal-multiplexer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/terminal.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/theme/schema-validation.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/theme/schema.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/theme/session-color.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/theme/symbols.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/theme/theme-class.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/theme/theme-schema.json",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/theme/theme.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/theme/tui-adapters.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tmux.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/ast-edit.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/ast-grep.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/bash.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/default-renderer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/edit.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/eval-format/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/eval-format/javascript.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/eval.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/fetch.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/grep.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/index.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/lsp.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/mcp.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/native-view.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/output-meta.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/read.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/renderer.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/streaming-output.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/task.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/todo.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/wait.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/write.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tools/yield.ts",
+    "status": "added"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/tui.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/vim.ts",
+    "status": "modified"
+  },
+  {
+    "package": "pi-tui",
+    "path": "src/windows-input-mode.ts",
+    "status": "modified"
+  }
+]

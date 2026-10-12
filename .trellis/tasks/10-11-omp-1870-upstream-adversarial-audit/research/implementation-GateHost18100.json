@@ -1,0 +1,310 @@
+{
+  "agent": "GateHost18100",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "status": "complete",
+      "scope": "Gate-only adaptations completed. Product source, controller, documentation, family fragments, credentials and production databases were not edited or accessed. Existing user edits in verify-model-selection-resume.ts were preserved.",
+      "changed_files": [
+        {
+          "path": "patches/verify-model-selection-resume.ts",
+          "lines": "9-10, 57-79, 98-111",
+          "change": "Accept 18.10.0 and exercise persisted A/low -> B/high before historical navigation and fork. Both live continuation and fresh-process resume must retain B/high. Existing translator persistence case retained."
+        },
+        {
+          "path": "patches/verify-prompt-effort-resume.ts",
+          "lines": "40-42, 89",
+          "change": "Accept 18.10.0; child environment is allowlisted rather than inheriting provider credentials. Existing real SDK/Codex serialization and prefix assertions retained."
+        },
+        {
+          "path": "patches/verify-model-mention-surface-resume.ts",
+          "lines": "34, 224",
+          "change": "Accept 18.10.0; allowlist child environment. Preserve actual provider-builder tool surface and historical-prefix assertions."
+        },
+        {
+          "path": "patches/verify-main-cache-hit.ts",
+          "lines": "12-14, 40-96, 118-143",
+          "change": "Exercise actual StatusLineComponent through compiled native Reconciler and ANSI rendering. Assert main-only hit ratio while aggregate token display includes auxiliary and orchestration cache-read usage, before and after reload."
+        },
+        {
+          "path": "patches/verify-session-history-preview.ts",
+          "lines": "33-34, 52-81, 243, 280-287, 311-329",
+          "change": "Adapt target native schema and actual selector actions. Empty-query native Preview, materialized history and Resume/Close are observed. Nonempty search retains a matching session and awaits asynchronous settlement before asserting Space does not preview."
+        },
+        {
+          "path": "patches/verify-user-display-text-queue.ts",
+          "lines": "37-40, 119, 151-164",
+          "change": "Accept 18.10.0 and flush before persisted reload. Existing prepared hello/display \u4f60\u597d versus plain hello collision assertions remain unchanged; no canonical-first weakening."
+        },
+        {
+          "path": "patches/verify-rejected-prepared-draft-restore.ts",
+          "lines": "4-8, 38-40, 88-95, 127, 429-502, 504-627",
+          "change": "Accept target API and isolate process-wide runtime paths before imports. Add real SDK/controller cancellation with disk reload, proving late preparation neither dispatches nor persists. Add one real loop-provenance boundary: actual InputController capture, unstarted InteractiveMode/Composer with terminal I/O sink, scheduled getUserInput replay and submitInteractiveInput. Both turns preserve canonical command-looking text and original display text, prepare only once, and execute no command; deliberately typed command still executes locally."
+        },
+        {
+          "path": "patches/verify-idle-ephemeral-reservation.ts",
+          "lines": "33-36, 55, 369-441",
+          "change": "Accept target API. Strengthen existing transition case with a successful provider result deliberately released after cancellation. Transition must wait before history/ID mutation; late result cannot enter messages or persisted entries."
+        },
+        {
+          "path": "patches/verify-cache-warming-idle-budget.ts",
+          "lines": "56, 66, 294-306",
+          "change": "Use onModeChanged and exercise off -> idle before the old parked timer fires; old work must not revive. Remove unnecessary realpath access to the nonexistent live installation under private HOME."
+        },
+        {
+          "path": "patches/verify-devin-auth-cache.ts",
+          "lines": "11-12, 67, 296-358",
+          "change": "Decode real Connect-framed chat requests. Preserve existing cache/race cases and add bounded assignment-auth recovery cases: AssignModel intentionally carries no userJwt; GetChatMessage must observe fresh JWT; assignment/chat share two attempts; terminal auth failure invalidates for the next turn; nonauth assignment failure does not retry."
+        },
+        {
+          "path": "patches/verify-devin-metadata.ts",
+          "lines": "31",
+          "change": "Select target CLI tuple 3000.11.3 for 18.10.0 while retaining actual protobuf sessionId/requestId checks."
+        },
+        {
+          "path": "patches/verify-commandcode-model-record-parity.ts",
+          "lines": "45-69",
+          "change": "Remove incidental source/KDL wording, compiler-grouping and provenance assertions. Assert actual resolved runtime policy: image capability, strict mode, multiple-system-message setting, cost patch and sibling negative control."
+        },
+        {
+          "path": "patches/verify-kitty-conversion-finalization.ts",
+          "lines": "9-10, 66-127",
+          "change": "Add one disposed/live shared-conversion boundary. Late completion must not repaint, acquire graphics, change block version or rebuild dead descendants; pending retirement accounting settles, while the live subscriber renders and transmits successfully."
+        },
+        {
+          "path": "patches/verify-kitty-shared-png-cache.ts",
+          "lines": "174-238",
+          "change": "Consolidate graphics-identity and retirement into one ImageBudget(2) H/A->B fixture parameterized over the two real slot owners. Historical H survives retirement; replacement purges only A, transmits B once, and same-B rebuilding keeps its ID. Also retain a focused already-cached first-display finalization case."
+        },
+        {
+          "path": "patches/verify-snapcompact-model-billing.ts",
+          "lines": "107",
+          "change": "Apply existing measured frameBilling/frameTokens/billing-key assertions to 18.10.0."
+        }
+      ],
+      "intentionally_unchanged": [
+        {
+          "path": "patches/verify-provider-image-budget.ts",
+          "reason": "PortMaintenance confirmed existing public clamp/budget signatures and meaningful provider/API alias, count, byte and floor cases remain applicable."
+        },
+        {
+          "path": "patches/verify-snapcompact-frame-reprice.ts",
+          "reason": "Existing real SDK first/reducing/inflating successor and prior-archive-credit cases already cover the relevant consumer contract; no additional signature adaptation was required."
+        }
+      ],
+      "source_api_contracts_used": [
+        {
+          "contract": "Session admission",
+          "details": "createAgentSession awaits SessionManager.adoptForWrite(): Promise<void>. setSessionFile(path, {writable: !preserveLocalCwd}) awaits common writable admission. Raw SessionManager.open remains appropriate for nonmutating fixture inspection after flush. No owned gate imports the removed transfer-marker re-export."
+        },
+        {
+          "contract": "Loop provenance",
+          "details": "PortHost's LoopPrompt is Readonly<Pick<SubmittedUserInput, 'text' | 'displayText' | 'prepared'>>. InputController captures it via setLoopPrompt; actual getUserInput schedules the loop and passes the snapshot into startPendingSubmission. Prepared dispatch disables command/template expansion without disabling deliberate commands."
+        },
+        {
+          "contract": "Cancellation and queue identity",
+          "details": "Session transitions synchronously invalidate preparation/idle ownership and await idle settlement before adoption. Queue operator identity uses displayText ?? rawText ?? text; canonical provider content is unchanged."
+        },
+        {
+          "contract": "Native surfaces",
+          "details": "Reconciler materializes nodes as {k,p,c}; add operations carry the node at index 4. StatusLineComponent.describePreview()/getTopBorder() and actual selector native actions are exercised. Picker action arrays and button actions.click follow the target schema."
+        },
+        {
+          "contract": "Devin R12",
+          "details": "AssignModel uses metadata without userJwt. GetChatMessage is Connect-framed and uses the recovered userJwt plus assignmentJwt. Assignment and chat share the same two-attempt authentication-recovery budget."
+        },
+        {
+          "contract": "Kitty ownership",
+          "details": "ensurePng/completedPng share conversions. ImageBudget.release is for permanently replaced/removed slot ownership, not hide/rebuild/transcript disposal. Tool disposal invalidates visual completion but still releases pending/awaited accounting; other live subscribers continue. No public signature changes were needed."
+        },
+        {
+          "contract": "Snapcompact",
+          "details": "Provider-image clamp receives provider and API. Existing frame reprice, prior archive credit and measured/unmeasured billing contracts remain unchanged."
+        }
+      ],
+      "verification": {
+        "executed": "Static API/spec/gate reads, mandatory policy grep presence checks, and owner coordination only.",
+        "not_executed": "No builds, lint, typechecks, tests, formatters, smoke runs, provider requests or native desktop actions. These edits have not been runtime-verified.",
+        "main_environment": "Run from the repository using an allowlisted environment. NM must be the dependency-complete fully integrated 18.10.0 candidate, not the source-only work root, pristine tree, partial audit replay or live installation. LAB must be a new private directory; create its private-home/config, cache, data, state and tmp directories first.",
+        "environment_template": "env -i PATH=\"$PATH\" HOME=\"$LAB/private-home\" XDG_CONFIG_HOME=\"$LAB/private-home/config\" XDG_CACHE_HOME=\"$LAB/private-home/cache\" XDG_DATA_HOME=\"$LAB/private-home/data\" XDG_STATE_HOME=\"$LAB/private-home/state\" TMPDIR=\"$LAB/tmp\" OMP_PATCH_OFFLINE_VERIFY=1 OMP_PATCH_VERIFY_NM=\"$NM\" OMP_PATCH_VERIFY_AGENT_ROOT=\"$NM/pi-coding-agent\" OMP_PATCH_VERIFY_CORE_ROOT=\"$NM/pi-agent-core\" OMP_PATCH_VERIFY_AI_ROOT=\"$NM/pi-ai\" OMP_PATCH_VERIFY_CATALOG_ROOT=\"$NM/pi-catalog\" OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT=\"$NM/snapcompact\" OMP_PATCH_VERIFY_TUI_ROOT=\"$NM/pi-tui\" bun patches/<gate>.ts",
+        "commands": [
+          "bun patches/verify-model-selection-resume.ts",
+          "bun patches/verify-prompt-effort-resume.ts",
+          "bun patches/verify-model-mention-surface-resume.ts",
+          "bun patches/verify-main-cache-hit.ts",
+          "bun patches/verify-session-history-preview.ts",
+          "bun patches/verify-user-display-text-queue.ts",
+          "bun patches/verify-rejected-prepared-draft-restore.ts",
+          "bun patches/verify-idle-ephemeral-reservation.ts",
+          "bun patches/verify-cache-warming-idle-budget.ts",
+          "bun patches/verify-devin-auth-cache.ts",
+          "bun patches/verify-devin-metadata.ts",
+          "bun patches/verify-commandcode-model-record-parity.ts",
+          "bun patches/verify-kitty-conversion-finalization.ts",
+          "bun patches/verify-kitty-shared-png-cache.ts",
+          "bun patches/verify-provider-image-budget.ts",
+          "bun patches/verify-snapcompact-frame-reprice.ts",
+          "bun patches/verify-snapcompact-model-billing.ts"
+        ],
+        "execution_order": "Main should run the selected gates serially once after all source amendments and dependencies are integrated. The real loop fixture waits for the production 800ms scheduling boundary; it does not fake the replay flags."
+      },
+      "remaining_outside_ownership": [
+        {
+          "scope": "Other consumer gates",
+          "items": [
+            "verify-codex-effort-resume.ts and hindsight/date-cwd prefix/reconstruction gates",
+            "V06 departed writable adoption and append-before-import-claim schedules",
+            "OAuth/broker, Anthropic and Codex policy/transport gates",
+            "verify-antigravity-envelope.ts and verify-session-pin-static-auth-ui.ts",
+            "Remaining host-vouched compaction gates"
+          ]
+        },
+        {
+          "scope": "Representation and documentation closure",
+          "items": [
+            "Main owns controller resolution, full-chain/reverse/idempotence checks and dependency-complete SDK/CLI acceptance.",
+            "Main owns permanent spec/changelog documentation, including R12's intentionally JWT-free AssignModel, loop provenance, and image slot/disposal ownership.",
+            "apply.sh already registers all owned entry points; Main should retain frame-reprice selection through the target family's 0045/0062 capability condition."
+          ]
+        }
+      ],
+      "residual_risk": "Runtime/API integration remains unverified by instruction. The new cases specifically target the reviewed F1/F3/F4 consumer defects; F2 uses the existing collision assertion. No additional source-removal/hide/show permutations or exhaustive retry suites were added."
+    },
+    {
+      "supplement": "PortOtherProviders reports the authoritative npm archive manifest includes pi-catalog/dist/types/wire/devin.d.ts. The owner restored sessionId:string and requestId:bigint on both metadata helpers and recorded the family amendment.",
+      "gate_impact": "No further owned-gate edits are required; verify-devin-metadata.ts continues to inspect actual protobuf behavior. Declaration/package closure remains Main's integration responsibility.",
+      "verification": "No additional checks were run."
+    },
+    {
+      "status": "complete",
+      "supplement": "Added the requested F9 continuation-ownership consumer case.",
+      "files_changed": [
+        {
+          "path": "patches/verify-idle-ephemeral-reservation.ts",
+          "lines": "28-30, 531-647",
+          "change": "One 18.10.0-only scheduler case uses actual provider fallback and real navigation rather than copied generation guards or manually injected recovery state."
+        }
+      ],
+      "case": {
+        "setup": "A registered offline primary/low model first succeeds, then returns a deterministic 503. Actual retry policy routes to fallback/high; the fixture asserts that exact three-call sequence before continuing.",
+        "held_boundary": "After the fallback settles, the public registry cooldown reset makes restoration eligible. A wrapper delegates to the real local ModelRegistry.getApiKey(primary), then holds its successful result.",
+        "schedule": "Call actual resumeAfterAskReanswer(), which supplies no explicit generation. A delegating observer counts real agent.continue invocations without replacing its behavior.",
+        "interleaving": "While restoration is suspended, commit actual navigateTree to the seeded historical branch. Capture the adopted journal entries and leaf, then release the lookup and await waitForIdle.",
+        "acceptance": [
+          "No stale agent.continue invocation or provider dispatch.",
+          "The adopted fallback/high model and effort remain unchanged.",
+          "Journal entries and leaf remain byte-identical to their post-navigation snapshots; no stale restoration metadata is appended.",
+          "A subsequent ordinary prompt still dispatches, proving admission was not simply disabled."
+        ]
+      },
+      "coordination": "PortLifecycle confirmed this is the appropriate real fallback seam and is carrying scheduling-admission ownership through continuation setup and fallback restoration. GateDurability18100 was informed that F9 is covered here, avoiding duplicate fixtures.",
+      "verification": {
+        "executed": "Static source/API inspection and owner coordination only.",
+        "not_run": "No builds, lint, tests, typechecks, formatters or provider calls.",
+        "main_command": "bun patches/verify-idle-ephemeral-reservation.ts",
+        "environment": "Use the previously supplied allowlisted private HOME/XDG/TMPDIR environment and dependency-complete integrated 18.10.0 OMP_PATCH_VERIFY_* roots. Run after PortLifecycle's F9 amendments are integrated."
+      },
+      "remaining_outside_ownership": "Product repair and independent F1/F2 source rechecks remain with their assigned owners/Main. No other gate, source, controller or documentation file was changed for this supplement."
+    },
+    {
+      "status": "complete",
+      "supplement": "Implemented the requested R2 selector-cancellation and R6 ordinary-prompt controls without running checks.",
+      "changed_files": [
+        {
+          "path": "patches/verify-session-history-preview.ts",
+          "lines": "39-44, 580-688",
+          "change": "Add actual SelectorController.handleResumeSession cancellation for a departed removed-worktree session. The fixture initializes only a private synthetic Git repository, uses real managed-worktree discovery, creates real date/cwd artifacts plus a binary sentinel, and cancels through the SDK session_before_switch extension event. It asserts false return, original requested path at the cancellation hook, unchanged active identity/cwd/entries, byte-identical source and target session-directory trees including directories/artifacts, no recreated worktree and no provider call. Process-wide agent paths are redirected before selected-module imports."
+        },
+        {
+          "path": "patches/verify-idle-ephemeral-reservation.ts",
+          "lines": "531-654",
+          "change": "Share the existing real fallback-restoration setup between two serial admission routes: resumeAfterAskReanswer() without an explicit generation, and ordinary session.prompt(). Both suspend the successful real local primary-key lookup, commit navigateTree, then release. Both assert no stale continue/provider dispatch, no model/effort restoration and no post-navigation journal/leaf changes. A subsequent normal prompt remains the positive admission control."
+        }
+      ],
+      "source_contracts": {
+        "selector": "PortHost confirmed handleResumeSession(path, {settingsFlushed?: boolean}) remains unchanged. It performs read-only removed-worktree detection and passes relocateTo:{cwd,sessionDir} with the original path to actual switchSession; Lifecycle applies relocation only after cancellable admission inside the reversible transaction. The gate exercises this consumer rather than reproducing it.",
+        "restoration": "PortLifecycle confirmed ordinary prompt and scheduled continuation both retain their admission ownership through primary restoration and subsequent preflight. The fixture injects only at real local ModelRegistry.getApiKey; no generation/recovery fields or guard logic are fabricated."
+      },
+      "main_rerun_required": {
+        "gates": [
+          "bun patches/verify-session-history-preview.ts",
+          "bun patches/verify-idle-ephemeral-reservation.ts"
+        ],
+        "when": "After integrated R2/R6 source amendments land. Any earlier frozen stable-batch results do not cover these followup cases.",
+        "environment": "Use the previously supplied credential-free allowlisted private HOME/XDG/TMPDIR environment with OMP_PATCH_OFFLINE_VERIFY=1 and all OMP_PATCH_VERIFY_* roots pointing to the dependency-complete integrated 18.10.0 candidate.",
+        "additional_prerequisite": "The selector gate's new fixture needs the local git executable for `git init --quiet` in a private temporary directory. It performs no commit, fetch, worktree mutation on the repository, or remote operation."
+      },
+      "verification": "Static API/source inspection and owner coordination only. No builds, lint, tests, typechecks, formatters, smoke runs or provider requests were executed.",
+      "remaining_outside_ownership": "Main owns reruns and representation/docs closure. GateDurability18100 owns the remaining R1/R3/R4/R5 acceptance controls; product repairs remain with PortHost/PortLifecycle/Persistence."
+    },
+    {
+      "acknowledged": "PortHost confirmed that the R2 actual-selector cancellation fixture matches the repaired source contract.",
+      "changes_since_previous_result": false,
+      "verification": "No additional checks were run; Main still owns the two indicated post-integration gate reruns."
+    },
+    {
+      "status": "Completed the reported gate-fixture repairs without changing product source or weakening assertions.",
+      "edits": [
+        {
+          "path": "/home/chris/orca/projects/omp-move/patches/verify-prompt-effort-resume.ts",
+          "lines": "345-353",
+          "repair": "Resume the preceding process's actual persisted session path instead of copying only its JSONL into a new basename. Each resume still runs in a fresh process. Exact historical message and serialized provider-input prefix comparisons remain unchanged.",
+          "root_cause": "The reported mismatch contains missing date/cwd reminder content, not incidental assistant metadata. In 18.10.0 those frozen anchors belong to an artifact directory beside the journal. A JSONL-only copy drops that state.",
+          "risk": "Fixture-only correction; does not relax prefix, effort, tools, instructions, or retained-thinking assertions."
+        },
+        {
+          "path": "/home/chris/orca/projects/omp-move/patches/verify-rejected-prepared-draft-restore.ts",
+          "lines": "607-620",
+          "repair": "After deliberately typing the registered extension command, assert its local execution, unchanged provider-call count, unchanged preparation count, and no errors; then cancel and drain the unused model-input waiter. Do not await that waiter as though the local command were a model submission.",
+          "root_cause": "InputController intentionally executes registered local commands inline and returns without resolving getUserInput(). The gate incorrectly awaited that unresolved waiter. The recorded log contains both initial and real-loop provider turns before the timeout.",
+          "risk": "The actual loop replay provenance case remains intact. No timeout suppression or fabricated model submission was introduced."
+        }
+      ],
+      "source_api_contracts": [
+        {
+          "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/session/date-cwd-reminder.ts",
+          "lines": "94-126,233-248",
+          "contract": "Session-owned date-cwd-anchors.json is addressed by the persisted journal basename. Owned state takes precedence over the legacy session-ID map, including explicit empty owned state. PortPersistence confirmed that real fork/import consumers copy or deliberately freeze those artifacts."
+        },
+        {
+          "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/modes/controllers/input-controller.ts",
+          "lines": "1354-1374",
+          "contract": "A non-prepared registered extension command executes through session.prompt() inline and does not become a model-input callback submission. PortHost confirmed this is intentional."
+        },
+        {
+          "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-coding-agent/src/modes/interactive-mode.ts",
+          "lines": "2800-2813",
+          "contract": "getUserInput() retains its waiter until onInputCallback resolves it; cleanup must release a waiter intentionally left pending by an inline command."
+        }
+      ],
+      "observed_evidence": {
+        "effort_failure": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/selected-stable-gates/verify-prompt-effort-resume/result.json",
+        "prepared_timeout": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/selected-stable-gates/verify-rejected-prepared-draft-restore/result.json",
+        "prepared_execution_log": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/selected-stable-gates/verify-rejected-prepared-draft-restore/home/.omp/logs/omp.2026-10-12.1536025.log:8-16",
+        "verification": "No builds, lint, tests, formatters, smoke runs, or provider calls were executed. These edits have not been rerun."
+      },
+      "main_acceptance": {
+        "environment": "Use the fully integrated dependency-complete NM and a fresh private LAB for each gate: env -i PATH=\"$PATH\" HOME=\"$LAB/private-home\" XDG_CONFIG_HOME=\"$LAB/private-home/config\" XDG_CACHE_HOME=\"$LAB/private-home/cache\" XDG_DATA_HOME=\"$LAB/private-home/data\" XDG_STATE_HOME=\"$LAB/private-home/state\" TMPDIR=\"$LAB/tmp\" OMP_PATCH_OFFLINE_VERIFY=1 OMP_PATCH_VERIFY_NM=\"$NM\" OMP_PATCH_VERIFY_AGENT_ROOT=\"$NM/pi-coding-agent\" OMP_PATCH_VERIFY_CORE_ROOT=\"$NM/pi-agent-core\" OMP_PATCH_VERIFY_AI_ROOT=\"$NM/pi-ai\" OMP_PATCH_VERIFY_CATALOG_ROOT=\"$NM/pi-catalog\" OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT=\"$NM/snapcompact\" OMP_PATCH_VERIFY_TUI_ROOT=\"$NM/pi-tui\" bun <gate-path>",
+        "repaired_fixture_commands": [
+          "bun /home/chris/orca/projects/omp-move/patches/verify-prompt-effort-resume.ts",
+          "bun /home/chris/orca/projects/omp-move/patches/verify-rejected-prepared-draft-restore.ts"
+        ],
+        "also_required_after_product_integration": [
+          "bun /home/chris/orca/projects/omp-move/patches/verify-idle-ephemeral-reservation.ts \u2014 retain the strict late-cancelled-result invariant; includes the held fallback/history-replacement cases.",
+          "bun /home/chris/orca/projects/omp-move/patches/verify-session-history-preview.ts \u2014 includes the subsequently added real removed-worktree cancellation/artifact-preservation case; its earlier batch PASS does not cover that addition."
+        ]
+      },
+      "remaining_outside_ownership": [
+        "PortLifecycle reported that its late-result fix is recorded: after provider success runIdleEphemeralTurn checks the combined signal, with session-owned cancellation returning undefined. The existing gate assertion at the reported failure remains strict; Main must integrate and execute it.",
+        "Product family/controller integration and all final acceptance execution remain Main's responsibility.",
+        "GateDurability18100 owns transfer-authority and real fork/import artifact gates. No changes were made to those files.",
+        "Previously passing gates do not require another run merely because these two fixture files changed; apply Main's source-impact selection for subsequent product amendments."
+      ]
+    }
+  ]
+}

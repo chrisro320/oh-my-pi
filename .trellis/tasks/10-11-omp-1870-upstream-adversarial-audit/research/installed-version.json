@@ -1,0 +1,15 @@
+{
+  "command": [
+    "bun",
+    "--preload",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/offline-preload.ts",
+    "/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+    "--version"
+  ],
+  "exit": 0,
+  "stdout": "omp/18.10.1\n",
+  "stderr": "",
+  "time": "2026-10-12T07:24:59.569740+00:00",
+  "runtime": "/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39/runtime/node_modules/@oh-my-pi",
+  "isolation": "allowlisted environment, private HOME/XDG/agent; no production credential operations"
+}

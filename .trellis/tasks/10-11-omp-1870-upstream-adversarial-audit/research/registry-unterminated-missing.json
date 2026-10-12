@@ -1,0 +1,11 @@
+{
+  "started": "2026-10-12T05:41:13.407578+00:00",
+  "command": [
+    "bash",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/registry-eof-controls/apply.sh",
+    "--print-plan"
+  ],
+  "exit": 2,
+  "stdout": "",
+  "stderr": "family patch missing: .18.10.0-families/missing.patch\n"
+}

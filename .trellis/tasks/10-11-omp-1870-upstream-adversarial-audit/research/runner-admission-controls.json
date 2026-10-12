@@ -1,0 +1,7 @@
+{
+  "external_namespace_aliases_rejected": 3,
+  "internal_relative_link_allowed": true,
+  "empty_selection_exit": 2,
+  "selected_invalid_spec_exit": 1,
+  "frozen_spec_unchanged_after_original_edit": true
+}

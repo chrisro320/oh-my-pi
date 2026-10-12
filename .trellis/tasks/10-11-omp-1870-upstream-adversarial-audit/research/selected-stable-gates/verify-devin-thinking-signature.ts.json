@@ -1,0 +1,11 @@
+{
+  "gate": "verify-devin-thinking-signature.ts",
+  "started": "2026-10-12T05:47:57.314111+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-devin-thinking-signature.ts"
+  ],
+  "exit": 0,
+  "stdout": "=== Testing Devin thinking signature capture + replay (0058) ===\nPASS verify-devin-thinking-signature: all 0058 assertions ok!\n",
+  "stderr": ""
+}

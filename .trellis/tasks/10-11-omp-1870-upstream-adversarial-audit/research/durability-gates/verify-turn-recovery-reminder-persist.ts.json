@@ -1,0 +1,12 @@
+{
+  "gate": "verify-turn-recovery-reminder-persist.ts",
+  "started": "2026-10-12T06:06:46.289850+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-turn-recovery-reminder-persist.ts"
+  ],
+  "gate_sha256": "52b5284b8354524fa050e74b4619f79852f3162f92a3c8472996502cf4a1badb",
+  "exit": 0,
+  "stdout": "  committed-text stall: partial kept, reminder persisted once, live == rebuilt\n  committed-text stall with requestControls: text and controls retained, live == rebuilt\nturn-recovery reminder persist: ALL PASS\n",
+  "stderr": ""
+}

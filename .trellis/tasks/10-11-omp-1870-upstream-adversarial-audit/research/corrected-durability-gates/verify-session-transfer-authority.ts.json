@@ -1,0 +1,12 @@
+{
+  "gate": "verify-session-transfer-authority.ts",
+  "started": "2026-10-12T06:19:23.852280+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-durability-gates/snapshot/patches/verify-session-transfer-authority.ts"
+  ],
+  "gate_sha256": "f8a84ec55a003aa841211788fcfcb16ebece30a09b7bad5aa039b927565e9d95",
+  "exit": 0,
+  "stdout": "PASS session transfer authority: claim-before-read, transactional imports/adoption, portable anchors and relocation\n",
+  "stderr": ""
+}

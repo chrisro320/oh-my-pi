@@ -1,0 +1,148 @@
+{
+  "agent": "PortAnthropic",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "status": "complete",
+      "owner": "PortAnthropic",
+      "root": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+      "families": [
+        "0074-omp-anthropic-context-cache-boundaries",
+        "0094-omp-anthropic-thinking-drop-resume"
+      ],
+      "paths": [
+        {
+          "path": "pi-ai/src/providers/anthropic.ts",
+          "status": "READY; both family merges accepted",
+          "changes": [
+            "Both cache-control retry rungs call credit-aware rebuildParams(streamFailure), retaining the upstream frozen-credit protocol and forfeiture guard.",
+            "Retained the upstream backward checkpoint walk and lazy 15-turn checkpoint generation. Per-call provenance no longer blocks caching; clear_at resets both trailing candidates and conversational-turn count, keeping all message anchors before the first server-cleared message.",
+            "Trailing candidate selection shares block eligibility with decoration: thinking, redacted_thinking, fallback and tool-control blocks cannot consume an anchor; ordinary text, images, tool use and tool results remain eligible.",
+            "Preserved upstream stable-head relocation and four-breakpoint accounting. The real builder explicitly disables the OAuth identity marker when resolved cacheControl is absent, including cacheRetention=none.",
+            "Preserved upstream client-identity/session-scoped state, fast-mode rearming, successful-only cache fallback latches, newer retry mechanisms and native compaction construction.",
+            "Restored durable legacy/client omission records without reinstating server-report-driven client deletion. Removed the obsolete synthetic-transformation/union path now that explicit client repair is the sole new durable-record producer."
+          ]
+        },
+        {
+          "path": "pi-ai/src/providers/anthropic-request-audit.ts",
+          "status": "READY; 0074 amendment recorded",
+          "changes": [
+            "Recognizes top-level compaction.type=summarize as native compaction while retaining legacy envelope recognition; both compare with, but never replace, the ordinary baseline.",
+            "Keeps the original transport input and response untouched, allowlisted diagnostic headers, private file modes and existing failure isolation.",
+            "Redacts fallback_credit_token only in the archived copy and labels that redaction in metadata. Ordinary final-fetch archives remain byte-exact."
+          ]
+        },
+        {
+          "path": "pi-ai/dist/types/providers/anthropic-request-audit.d.ts",
+          "status": "READY; retained 0074 declaration fragment",
+          "changes": [
+            "No public audit signature changed; existing declaration remains applicable."
+          ]
+        }
+      ],
+      "old_session_vs_new_server_drop": {
+        "legacy": "A droppedThinkingReplay record without source retains its historical meaning: already-committed client omissions. Matching endpoint/model plus assistant api/provider/model restores stable thinking-signature/redacted-data keys before the first resumed build. History is only read, not rewritten.",
+        "explicit_client_repair": "A prefix-binding 400 that invokes client stripping records source:\"client-prefix-binding\" with endpoint, model and exact suffix keys. This record survives retry output resets and is readable by a fresh session-state map.",
+        "new_server_report": "New drop_block reports populate inputTransformations and upstream warning-dedup state only. They never enter prefixDroppedThinkingBlocks or create droppedThinkingReplay, so historical server-owned signed/redacted blocks remain on subsequent requests.",
+        "scope": "Unknown provenance, malformed records and foreign scopes are ignored. Opaque clients retain upstream identity isolation and do not invent a durable endpoint. Existing caller opt-out behavior when providerSessionState is absent is unchanged."
+      },
+      "shared_interfaces": [
+        {
+          "owner": "PortCodex",
+          "agreement": "Accepted addition of source?: \"client-prefix-binding\" to ProviderDroppedThinkingReplay in src/types.ts and dist/types/types.d.ts, attributed to 0094, with comments distinguishing legacy omissions from server-managed reports. No ProviderPayload union change required."
+        },
+        {
+          "owner": "PortCore",
+          "agreement": "No native-compaction API change; retained instructions/filesDueBefore contract and confirmed classification of actual builder output."
+        }
+      ],
+      "fragment_accounting": {
+        "recorded_entries": 4,
+        "pending_conflicts": 0,
+        "commands": [
+          "accept PortAnthropic pi-ai/src/providers/anthropic.ts [0074]",
+          "accept PortAnthropic pi-ai/src/providers/anthropic.ts [0094]",
+          "amend PortAnthropic pi-ai/src/providers/anthropic-request-audit.ts 0074-omp-anthropic-context-cache-boundaries"
+        ],
+        "final_driver_status": "All three owned paths READY: next=1/1, 1/1, and 2/2; pending=null throughout."
+      },
+      "minimal_parent_acceptance": [
+        {
+          "area": "R06 credit retries",
+          "existing_fixture": "research/anthropic-credit-probe.json and its actual streamAnthropic fixture",
+          "extension": "Use offline injected fetch with synthetic frozen redemption containing anthropicServerTool. Exercise unchanged-body cache rejection directly and after continuation-shape rejection, with long retention (ttl/scope rung) and short retention (remove-all rung). Assert no tokenless request after either rejection. Add one text-only refusal that may forfeit credit and succeeds through the existing ordinary retry policy; observe both body token removal and credit-specific header-state removal."
+        },
+        {
+          "area": "M05 checkpoints",
+          "existing_fixture": "patches/verify-anthropic-cache-boundaries.ts",
+          "extension": "Capture actual final HTTP serialization for OAuth/API-key none/short/long retention. Add 15th/30th conversational-turn boundaries containing multiple image/tool blocks, consecutive thinking/redacted-only tails and tool-control messages. Assert eligible anchor placement, unchanged non-cache bytes, at most four markers, zero markers for none, requested TTL, retained stable-system relocation, and no message anchors at/after clear_at. Per-call-marked stable context remains eligible; changed context remains on wire."
+        },
+        {
+          "area": "M04 durable provenance",
+          "existing_fixture": "patches/verify-anthropic-thinking-drop-resume.ts",
+          "extension": "Add an explicit 18.10.0 branch rather than retaining its hard-coded 18.7.0-only assertion. Seed a historical source-less durable record and compare first-resume omissions; independently emit a new server report and require signed/redacted history to remain on later calls and fresh-map JSON-roundtrip resume. Then inject the explicit prefix-binding 400, require source:\"client-prefix-binding\", and compare omission bytes after a fresh-map resume. Keep endpoint/model/provider isolation, malformed/unknown-source rejection and opaque-client isolation. Retain historical 18.7.0 expectations only in that version branch."
+        },
+        {
+          "area": "R13 native classification and privacy",
+          "existing_fixture": "patches/verify-anthropic-request-audit.ts plus patches/verify-anthropic-native-compaction-live-context.ts",
+          "extension": "Produce native requests with the real anthropicCompaction/native builder, not an onPayload imitation. Send main -> native equal -> native changed, asserting native-compaction classification, actual prefix comparison and unchanged ordinary baseline pointer; keep one legacy-envelope case. Preserve exact ordinary final-fetch bytes and nonmutation/I/O-failure checks. A credited request must reach the sink with its synthetic token while all diagnostic files omit that token and metadata identifies redaction."
+        }
+      ],
+      "verification": {
+        "executed": [
+          "Driver representation commands and final ownership status.",
+          "All three mandatory grep policy checks; required rollup, gate and PRD safety clauses were present."
+        ],
+        "not_executed": [
+          "Tests, builds, typechecks, lint, formatters or smoke runs.",
+          "Any credentials/auth/usage/provider requests."
+        ],
+        "runtime_evidence": "No runtime acceptance claim; Main owns integrated verification."
+      },
+      "main_owned_documentation": {
+        "required_updates": [
+          "Document source-less legacy client omissions versus source:\"client-prefix-binding\" and server-only inputTransformations under the existing authority-boundary contract.",
+          "Document that credited diagnostic archives redact fallback_credit_token while ordinary archives remain exact final-fetch captures.",
+          "Update the existing 0094 gate's version-specific semantics instead of treating new upstream server-managed retention as a regression."
+        ],
+        "root_cause": "Change-propagation and authority-boundary errors: new retries bypassed the existing credit boundary, diagnostics retained an obsolete native envelope assumption, and old server reports no longer authorize new client deletion."
+      },
+      "remaining_limits": [
+        "The retained 15-user-turn checkpoint interval is not a guarantee about provider content-block lookback distance.",
+        "Offline serialization can demonstrate replay/classification behavior, not live cache hits or provider rebilling.",
+        "Shared source/declaration provenance work is owned and accepted by PortCodex; Main must integrate and verify that sibling fragment with these changes."
+      ]
+    },
+    {
+      "status": "complete",
+      "amendment_followup": "No amendment conflict occurred for PortAnthropic. Both family accepts and the audit amendment succeeded; the submitted fragment accounting remains applicable. No dedicated amendment snapshots need resolution."
+    },
+    {
+      "status": "complete",
+      "followup": "Sent GateWire18100 the exact durable provenance, native classification/baseline, privacy-redaction and both credit-aware retry contracts for actual-consumer acceptance. No source or fragment changes were needed."
+    },
+    {
+      "status": "complete",
+      "finding": "ReviewWire18100 F1",
+      "path": "pi-ai/src/providers/anthropic.ts",
+      "family": "0094-omp-anthropic-thinking-drop-resume",
+      "repair": "Explicit source:\"client-prefix-binding\" records restore by originating request identity (replay.model), even when successful server fallback labels the carrier assistant with served model B. Endpoint, current requested model, carrier api/provider, malformed-record and unknown-source guards remain. Source-less legacy records additionally retain carrier-model equality. Served-model accounting is unchanged.",
+      "fragment": "amend PortAnthropic pi-ai/src/providers/anthropic.ts 0094-omp-anthropic-thinking-drop-resume succeeded.",
+      "coordination": [
+        "GateWire18100 received the actual fallback SSE block shape and A\u2192B repair/resume acceptance criteria, including foreign-scope and legacy-carrier negatives.",
+        "PortCodex was asked to clarify the originating-request-model comment in shared source/declarations; no public schema change is required."
+      ],
+      "verification": "No checks or provider requests were run. GateWire18100 owns the actual-consumer fixture."
+    },
+    {
+      "status": "complete",
+      "finding": "ReviewWire18100 F1",
+      "declaration_closure": "PortCodex confirmed the originating-request-model comments are updated in pi-ai/src/types.ts and pi-ai/dist/types/types.d.ts, both recorded under 0094. No schema change or checks."
+    }
+  ]
+}

@@ -1,0 +1,430 @@
+{
+  "agent": "PortLifecycle",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "owner": "PortLifecycle",
+      "status": "implementation_complete",
+      "root": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+      "files": [
+        {
+          "path": "pi-coding-agent/src/session/agent-session.ts",
+          "families": [
+            "family-hindsight",
+            "family-usage-pipeline",
+            "0010-omp-extension-idle-ephemeral-turn",
+            "family-persistent-prefix-resume",
+            "family-devin-wire",
+            "family-input-translation",
+            "family-compaction",
+            "0095-omp-context-audit-request-purpose"
+          ]
+        },
+        {
+          "path": "pi-coding-agent/dist/types/session/agent-session.d.ts",
+          "families": [
+            "family-usage-pipeline",
+            "0010-omp-extension-idle-ephemeral-turn",
+            "family-persistent-prefix-resume",
+            "family-input-translation",
+            "family-compaction"
+          ]
+        },
+        {
+          "path": "pi-coding-agent/src/sdk.ts",
+          "families": [
+            "0032-omp-goal-tool-resident",
+            "family-persistent-prefix-resume",
+            "0092-omp-cache-warming-idle-budget",
+            "0095-omp-context-audit-request-purpose"
+          ]
+        },
+        {
+          "path": "pi-coding-agent/src/session/agent-session-types.ts",
+          "families": [
+            "family-devin-wire",
+            "family-input-translation",
+            "0095-omp-context-audit-request-purpose"
+          ]
+        },
+        {
+          "path": "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+          "families": [
+            "family-devin-wire",
+            "family-input-translation",
+            "0095-omp-context-audit-request-purpose"
+          ]
+        },
+        {
+          "path": "pi-coding-agent/src/session/cache-warmer.ts",
+          "families": [
+            "0092-omp-cache-warming-idle-budget"
+          ]
+        },
+        {
+          "path": "pi-coding-agent/dist/types/session/cache-warmer.d.ts",
+          "families": [
+            "0092-omp-cache-warming-idle-budget"
+          ]
+        }
+      ],
+      "semantic_repairs": [
+        {
+          "findings": [
+            "R02",
+            "M02"
+          ],
+          "change": "Added shared role-aware model/effort capture and persistence used by #branchIntoNewSession, full fork, branchFromBtw and navigateTree. Preserves routed model identity, default-model restoration anchor, resolvedModelIsFallback provenance, concrete effort and configured thinking selector. Removed navigation-only duplicate persistence logic."
+        },
+        {
+          "findings": [
+            "R03",
+            "R07"
+          ],
+          "change": "SDK awaits SessionManager.adoptForWrite before identity/history/prefix reads and supplies the session-file getter to DateCwdReminderInjector. switchSession uses setSessionFile(path, { writable: !preserveLocalCwd }), detects a changed effective session ID after same-path adoption, and drains advisor recorders before loading any replacement. This retains the target's provider/cache/memory/rollback cleanup for moved-session forks without writable adoption of read-only replicas."
+        },
+        {
+          "findings": [
+            "M09"
+          ],
+          "change": "Retained synchronous idle reservation, admitted-submission exclusion, epoch finalizers and transition/disposal aborts. Added settlement draining at all seven history/session transition entries. Main prompt generation is captured before reservation cancellation; scheduled continuation rejects a generation superseded while waiting for idle settlement."
+        },
+        {
+          "findings": [
+            "M10"
+          ],
+          "change": "Retained translation preparation cancellation, durable append acknowledgements, admitted-append draining, displayText and purpose tagging. Preserved the target WeakMap queue identity contract: exact submitted text remains the primary removal/promotion key, while original displayText remains the queue-chip fallback."
+        },
+        {
+          "findings": [
+            "M09"
+          ],
+          "change": "Retained parked idle budgets, cache-entry-clock scheduling, expiry and hit/miss/error results. onModeChanged now also cancels parked runs immediately, preventing a quick off/streaming-to-idle toggle from reviving a parked request. Source and declaration comments describe the retained behavior."
+        }
+      ],
+      "selection_capture_boundaries": {
+        "capture": "After cancellable hooks and asynchronous flush/advisor drains, immediately before destination history adoption. Full fork captures immediately before its asynchronous manager fork; entry branch/fork and BTW capture at their corresponding adoption boundary. Navigation captures before its synchronous leaf rewrite.",
+        "persistence": "Only after destination adoption, before post-branch hooks: preserve a nondefault role's default restoration anchor, then the active routed model and role/provenance, then effective/configured thinking. Unchanged receipts are not duplicated. Cancelled before-branch hooks do not write destination selection metadata.",
+        "first_resume": "An ordinary temporary selection B restores B and its persisted effort after branching before B's original entries. The intentional fallback/ephemeral role remains fallback and restores its preserved default model instead. Configured auto thinking remains auto, not an accidentally frozen concrete level. Explicit SDK model/thinking options retain their existing precedence; getRestorableSessionModels and SDK restore policy were not replaced."
+      },
+      "retained_target_and_family_capabilities": [
+        "Target annotations in runner-less command context coexist with guarded idle action.",
+        "Target side request parentSessionId, topic-specific side lineage, stream cancellation and finally-based provider-state release remain intact.",
+        "Devin guarded idle alone pins conversationId to the main session; concurrent raw side turns remain independent.",
+        "Hindsight promotion-tail capture/rollback and transcript-reload invalidation remain wired; legacy recall/MM reader ownership stays with PortPersistence.",
+        "Durable eval snapshots remain append-only, deduplicated against the newest matching reminder; read-only rebuilds can suppress persistence.",
+        "Maintenance and handoff retain convertMessagesToLlmWithSource, live-provider-context callbacks and target context construction.",
+        "Goal remains resident only for unrestricted goal-enabled tool rosters.",
+        "Provider-scoped usage querying, main versus side-request context purpose, and warmer result events retain declaration closure."
+      ],
+      "cross_owner_contracts": {
+        "PortPersistence": [
+          "adoptForWrite(): Promise<void> at SDK writable startup",
+          "setSessionFile(path, options?: { writable?: boolean }) for switchSession",
+          "DateCwdReminderInjector(sessionIdGetter, undefined, sessionFileGetter)",
+          "Persistence owns exact anchor cloning/import, moved adoption implementation, R08 lease ordering and M07 legacy snapshot reconstruction. Auto-learn's distinct capture ID remains independently namespaced."
+        ],
+        "PortHost": [
+          "Confirmed resident goal roster and restricted-tool exclusion",
+          "Confirmed raw submitted queue identity plus displayText fallback",
+          "No new public request-envelope API; existing purpose contract retained"
+        ],
+        "PortCore_and_PortMaintenance": [
+          "No new compaction callback API",
+          "Preserved convertMessagesToLlmWithSource/buildLiveProviderContext closure",
+          "Confirmed mutation-sensitive session/leaf/model voucher withdrawal is appropriate"
+        ],
+        "PortOtherProviders": [
+          "Confirmed Devin conversationId semantics and isolated raw side IDs"
+        ]
+      },
+      "fragment_accounting": {
+        "owned_paths": 7,
+        "path_family_contributions": 25,
+        "unique_families": 10,
+        "recording": "Initial conflicts accepted with the driver. Semantic changes amended into persistent-prefix, idle, input-translation and cache-warming families. Idle amendment required dedicated snapshots; all six conflict snapshots were resolved without pulling later translation code into earlier families, then accept-amend published them successfully. Every subsequent source/declaration edit was amended. No new paths or manually edited fragments.",
+        "pending_conflicts": 0,
+        "unrecorded_edits": 0
+      },
+      "minimal_existing_fixture_changes": [
+        {
+          "fixture": "patches/verify-model-selection-resume.ts",
+          "suggestion": "Reuse its actual SDK/fresh-process fixture for entry fork, branch, full fork and BTW adoption. Capture first outgoing model/effort and historical prefix bytes, not getters alone. Include one cancelled hook and the intentional fallback-role/explicit SDK override controls. Continue using real SessionManager instances, which now supply adoptForWrite."
+        },
+        {
+          "fixture": "patches/verify-idle-ephemeral-reservation.ts",
+          "suggestion": "Add 18.10.0 to selected-version, submission-window and auth.keys.setRuntime branches. Extend its transition leg by holding aborted side settlement and asserting no identity/history mutation until release. Retain scheduled-continuation coalescing, replacement epoch, raw side concurrency and disposal assertions."
+        },
+        {
+          "fixture": "patches/verify-cache-warming-idle-budget.ts",
+          "suggestion": "Add onModeChanged to WarmerLike and extend the existing parked-disable case to toggle off then idle before the next poll; require no resumed request. Existing budget, TTL, miss/error and result cases remain applicable."
+        },
+        {
+          "fixture": "Existing translation and compaction consumer gates",
+          "suggestion": "Exercise queue removal/promotion by both submitted canonical text and original display chip, then cancellation before append. Run the existing host-vouched compaction cases against the integrated callback implementations; no new wording tests."
+        }
+      ],
+      "verification": {
+        "executed": [
+          "Required patch-rollup policy grep",
+          "Required verification-gate policy grep",
+          "Required PRD R7/R9/R10/R12 grep",
+          "Driver accept/amend/accept-amend representation generation"
+        ],
+        "not_executed": [
+          "Builds",
+          "Tests",
+          "Lint",
+          "Formatters",
+          "Provider/auth/usage requests",
+          "Deployment"
+        ],
+        "qualification": "Policy presence and fragment generation are not behavioral acceptance. Main must exercise the integrated actual consumers once all owners land."
+      },
+      "documentation_handoff": "Main owns repository docs/spec updates. Preserve the concrete rule that every history-adoption boundary captures live role/default/provenance plus configured effort after cancellable hooks, and persists only after adoption; SDK startup must perform writable adoption before reading session identity or prefix artifacts. Record transition abort-before-await plus settle-before-mutation and immediate parked-mode cancellation.",
+      "remaining_risks": [
+        "Cross-owner APIs and full source/declaration closure require Main's integrated acceptance.",
+        "First-resume wire-prefix equality, moved-source nonmutation and imported-anchor preservation were not executed by this assignment.",
+        "No claim of live provider cache hits or production credential behavior."
+      ]
+    },
+    {
+      "owner": "PortLifecycle",
+      "status": "complete",
+      "additional_coordination": {
+        "GateHost18100": "Sent exact existing fixture adaptations and acceptance boundaries for 18.10.0 version/auth branches, transition settlement and stale-generation exclusion, moved writable adoption, common branch/fork/BTW selection durability, fallback/explicit override controls, dual queue identities and immediate parked-warmer mode cancellation."
+      },
+      "implementation_report": "The preceding complete implementation report remains authoritative. No additional source changes or verification were performed."
+    },
+    {
+      "owner": "PortLifecycle",
+      "status": "complete",
+      "additional_coordination": {
+        "GateWire18100": "Clarified that CacheWarmerDeps.decide returns Promise<'warm'|'stop'>. #decide explicitly wraps that string in an internal {override} race envelope; extension handlers independently return {action?}, which runner.emitCacheWarmingDecision reduces to the string. Gate should replace legacy true with 'warm', not change production code."
+      },
+      "source_changes": [],
+      "verification": "No tests or other runtime checks executed. Read the current decision/reducer declarations to answer the contract question."
+    },
+    {
+      "owner": "PortLifecycle",
+      "status": "complete",
+      "review_finding": "ReviewSurface18100 F2",
+      "repair": {
+        "path": "pi-coding-agent/src/session/agent-session.ts",
+        "change": "Centralized #queueUserMessage now records options.displayText ?? options.rawText ?? text as the queue-editing identity. A prepared canonical 'hello' displayed as '\u4f60\u597d' no longer captures removal/promotion intended for a later plain 'hello'. Ordinary command submissions retain their pre-expansion raw-text identity, and canonical provider content is unchanged."
+      },
+      "declaration_closure": "Updated the source and pi-coding-agent/dist/types/session/agent-session.d.ts queue-removal documentation to define prepared displayText ownership and prohibit treating canonical translation as an alternate queue identity.",
+      "recording": "All source and declaration changes successfully amended into family-input-translation; no unrecorded edits remain.",
+      "coordination": "GateHost18100 received the corrected identity contract and confirmed the existing hello/\u4f60\u597d-versus-plain-hello collision assertions remain intact.",
+      "supersedes": "The earlier canonical-first prepared-message recommendation and associated acceptance suggestion are withdrawn. Prepared input is identified by displayText; raw pre-expansion identity applies only when displayText is absent.",
+      "verification": "No checks, tests, builds, lint or formatters were run. Main's reported existing-gate failure was accepted without rerunning it."
+    },
+    {
+      "owner": "PortLifecycle",
+      "status": "Owned implementation and fragment amendments complete; no verification executed.",
+      "followup_findings": {
+        "F4": "Integrated PortPersistence's agreed SessionAdoption transaction. switchSession loads the target with writable:false, begins writable adoption only for non-replicas, commits after fallible switch work, and awaits rollback before restoring the previous manager/runtime. Adoption rollback errors are surfaced after runtime restoration.",
+        "F7": "preserveLocalCwd now suppresses both display-context eval persistence calls, interrupted-turn repair, and explicit-model journal receipts. Source and published declaration document the replica boundary.",
+        "F8": "Moved switch recall reset out of rollback-capable work to the committed end; it now includes changed-history same-path reloads. Successful navigateTree resets transcript-scoped recall ownership and promoted tails after branch/messages adoption. No-op, ask-reopen probe, cancelled hook, and rolled-back switch paths do not execute that reset.",
+        "F9": "Every scheduled continuation captures a required admission generation, including resumeAfterAskReanswer without an explicit generation. The same generation governs delay, idle settlement, active-attempt coalescing, fallback restoration, compaction, usage preflight, busy waits, and final continue admission. Stale preflight completion cannot publish readiness/drain state. Successful navigation aborts active usage-preflight controllers. Recovery receives an isCurrent callback to guard its asynchronous model/effort/receipt mutations."
+      },
+      "recorded_amendments": [
+        {
+          "family": "family-persistent-prefix-resume",
+          "paths": [
+            "pi-coding-agent/src/session/agent-session.ts",
+            "pi-coding-agent/dist/types/session/agent-session.d.ts"
+          ],
+          "driver_result": "AMENDED"
+        },
+        {
+          "family": "family-hindsight",
+          "paths": [
+            "pi-coding-agent/src/session/agent-session.ts"
+          ],
+          "driver_result": "AMENDMENT ACCEPTED",
+          "resolution": "Resolved six dedicated intermediate snapshots to retain the recall-reset repair without leaking the later persistent-prefix SessionAdoption API into earlier families."
+        },
+        {
+          "family": "0010-omp-extension-idle-ephemeral-turn",
+          "paths": [
+            "pi-coding-agent/src/session/agent-session.ts",
+            "pi-coding-agent/dist/types/session/agent-session.d.ts"
+          ],
+          "driver_result": "AMENDED"
+        }
+      ],
+      "complete_assignment_accounting": {
+        "owned_paths": 7,
+        "path_family_contributions": 25,
+        "families": 10,
+        "paths": {
+          "pi-coding-agent/src/session/agent-session.ts": [
+            "family-hindsight",
+            "family-usage-pipeline",
+            "0010-omp-extension-idle-ephemeral-turn",
+            "family-persistent-prefix-resume",
+            "family-devin-wire",
+            "family-input-translation",
+            "family-compaction",
+            "0095-omp-context-audit-request-purpose"
+          ],
+          "pi-coding-agent/dist/types/session/agent-session.d.ts": [
+            "family-usage-pipeline",
+            "0010-omp-extension-idle-ephemeral-turn",
+            "family-persistent-prefix-resume",
+            "family-input-translation",
+            "family-compaction"
+          ],
+          "pi-coding-agent/src/sdk.ts": [
+            "0032-omp-goal-tool-resident",
+            "family-persistent-prefix-resume",
+            "0092-omp-cache-warming-idle-budget",
+            "0095-omp-context-audit-request-purpose"
+          ],
+          "pi-coding-agent/src/session/agent-session-types.ts": [
+            "family-devin-wire",
+            "family-input-translation",
+            "0095-omp-context-audit-request-purpose"
+          ],
+          "pi-coding-agent/dist/types/session/agent-session-types.d.ts": [
+            "family-devin-wire",
+            "family-input-translation",
+            "0095-omp-context-audit-request-purpose"
+          ],
+          "pi-coding-agent/src/session/cache-warmer.ts": [
+            "0092-omp-cache-warming-idle-budget"
+          ],
+          "pi-coding-agent/dist/types/session/cache-warmer.d.ts": [
+            "0092-omp-cache-warming-idle-budget"
+          ]
+        },
+        "unrecorded_source_edits": 0
+      },
+      "selection_and_first_resume": {
+        "capture_boundary": "Common branch/fork/BTW/navigation selection capture occurs after cancellation/hooks and relevant drains, immediately before the identity/history mutation. Destination receipts preserve the routed active model, role and fallback provenance, default-role selection, and effective/configured thinking.",
+        "resume_semantics": "Normal temporary selection remains durable through successful cloned or navigated history. Intentional fallback/ephemeral-role restoration still returns to the durable default; explicit SDK model/thinking overrides retain precedence. SDK writable adoption precedes session-ID/history/prefix construction. Date/cwd injection resolves the current adopted session ID and file.",
+        "recall_boundary": "Committed changed history clears outgoing first-turn recall ownership and promotion tail; first preparation consumes the target branch's native or legacy frozen answer, including committed empty answers, via the existing SessionMemory reset contract confirmed by PortPersistence."
+      },
+      "cross_owner_contracts": {
+        "PortPersistence": [
+          "SessionManager.beginWritableAdoption(): Promise<SessionAdoption>; SessionAdoption.commit(): void; rollback(): Promise<void>.",
+          "TurnRecovery.maybeRestoreRetryFallbackPrimary(admissionCurrent?: () => boolean): Promise<boolean>, with peer-owned source/declaration guards after awaits and before mutations.",
+          "Existing SessionMemory.resetContextForNewTranscript() is the agreed committed-history reset API."
+        ],
+        "PortHost": "Prior goal/input-translation host/type contracts retained; no further host API changes in this follow-up.",
+        "PortCore_and_PortMaintenance": "Prior live cache-preserving compaction callback contract retained; no compaction signature changes in this follow-up."
+      },
+      "minimal_existing_consumer_acceptance": {
+        "GateHost18100": "Peer reports an unexecuted real-SDK held-fallback case added to verify-idle-ephemeral-reservation.ts: schedule ask-reanswer without a generation, hold local primary getApiKey, navigate actual history, release, require no stale continue/provider dispatch or model/effort/entry mutation; ordinary next prompt is the positive control.",
+        "GateDurability18100": "Requested actual preserveLocalCwd switch with eval/interrupted history and exact replica entries; actual same-ID navigation and same-path reload with native/legacy empty/nonempty recall snapshots; cancellation/no-op/rollback controls; cancelled adoption leaves no transaction-owned fork/artifacts.",
+        "other_existing_fixtures": "Retain the previously reported 18.10 SDK fixture adaptation, actual fork/BTW model-effort first-resume cases, unchanged prepared-displayText collision assertions, and parked cache-warmer off/on cancellation case."
+      },
+      "evidence": {
+        "exercised": "Driver representation amendments and dedicated amendment publication only; required policy-presence grep calls found all mandated rollup, gate and PRD patterns.",
+        "not_exercised": [
+          "Tests",
+          "Builds",
+          "Lint",
+          "Formatters",
+          "Provider or usage requests",
+          "Real authentication"
+        ],
+        "integration_note": "Peer-owned SessionAdoption and recovery admission-guard implementations are coordinated dependencies; Main owns their integration and executable acceptance."
+      },
+      "knowledge_for_main_docs": {
+        "root_cause": "Cross-layer lifecycle ownership was narrower than the actual mutation surface: read-only file adoption did not disable local transcript producers, history identity was conflated with session ID, and an optional scheduler generation did not fence later awaited recovery mutations.",
+        "required_contract": "Document replica producer suppression, transaction-owned adoption until switch commit, recall reset only on committed history changes, and admission generation retained across every continuation setup boundary.",
+        "wrong_vs_correct": "Wrong: protect only setSessionFile or the initial idle await. Correct: fence the transcript-producing callsites and recovery metadata mutation boundary, and distinguish cancelled/rolled-back transitions from committed changed history.",
+        "scope": "Repository docs/specs/changelog and acceptance gates remain Main-owned; no sibling or repository documentation paths were edited."
+      }
+    },
+    {
+      "owner": "PortLifecycle",
+      "supplement": "PortPersistence has now reported the coordinated public/source/declaration APIs available: SessionAdoption, SessionManager.beginWritableAdoption(), and TurnRecovery.maybeRestoreRetryFallbackPrimary(admissionCurrent?).",
+      "cross_owner_evidence": "Peer reports admission guards at recovery entry and after getApiKey, provider-reset, and model-sync awaits; adoption holds ownership through commit/rollback and rollback removes only transaction-owned outputs before restoring target state.",
+      "verification": "This is peer implementation confirmation, not executable verification. No additional source edits or checks were performed."
+    },
+    {
+      "owner": "PortLifecycle",
+      "status": "Requested lifecycle interaction repairs and observed idle-result repair implemented and recorded.",
+      "files_changed": [
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts"
+      ],
+      "repairs": {
+        "R1": "switchSession retains the outgoing manager's strict writable ownership before cancellable target work. Rollback restores the previous state and synchronously transfers retained authority back into the manager. The independent retained reference is released when the switch scope exits.",
+        "R2_host_integration": "Added source/declaration option relocateTo?: { cwd: string; sessionDir?: string }, incompatible with preserveLocalCwd. Relocation now occurs after before-switch admission and writable adoption, inside the common switch transaction. Existing target identities use rollbackMove(snapshot) on subsequent failure; newly minted forks remain owned by adoption rollback. PortHost passes the original source path and both relocation arguments without precommitting an openRelocated operation.",
+        "R4": "Added persistent lifecycle-owned replica memory intent. Transition invalidation preserves that intent; switch installs target intent before the target-file await and restores outgoing intent on rollback. Committed reset and same-ID navigation pass readOnly explicitly. Newly bound non-alias Hindsight states inherit replica mode before backend bootstrap. New local/fork/branch/BTW identities explicitly return to writable memory mode.",
+        "R5": "Every successful switch/reload now resets and replays transcript-scoped recall, including metadata-only replacements whose displayed messages are identical. Cancellation and rollback still do not reset committed recall ownership.",
+        "R6": "Ordinary prompt setup passes its captured admission predicate to fallback restoration and immediately revalidates after the await. Its usage-preflight wrapper receives the original generation and setup signal, rejects stale completion before publishing readiness, and subsequent setup awaits revalidate admission before further mutations. The existing scheduled-continuation guard remains intact.",
+        "observed_idle_failure": "runIdleEphemeralTurn now checks the combined cancellation signal after successful provider completion and before returning its result. Thus a provider that ignores cancellation cannot publish a late success. The existing catch translates session-owned cancellation into undefined while preserving caller-signal cancellation behavior. Reservation clearing and settlement remain in finally; Devin conversation pinning is unchanged."
+      },
+      "representation": {
+        "family-persistent-prefix-resume": "Source/declaration amendments recorded for retained outgoing ownership and transactional relocation.",
+        "family-hindsight": "Source amendments accepted for unconditional committed reload reset and replica memory intent. Dedicated conflict snapshots preserved earlier-family behavior without importing later adoption/relocation APIs.",
+        "0010-omp-extension-idle-ephemeral-turn": "Source amendment recorded for ordinary-prompt admission guards; source/declaration amendment accepted for late idle-result admission. Pre-Devin snapshots retain cancellation checking without importing Devin conversation pinning.",
+        "unrecorded_source_edits": 0,
+        "original_assignment_accounting": "All previously reported seven owned paths and 25 path-family contributions remain recorded."
+      },
+      "cross_owner_interfaces": {
+        "PortPersistence": [
+          "SessionManager.retainWritableOwnership(): SessionOwnership, with release() and restore().",
+          "Exported SessionManagerStateSnapshot, shape unchanged, used by relocation rollback.",
+          "Hindsight.beginMentalModelsTranscriptReload(options?: { readOnly?: boolean }) and SessionMemory.resetContextForNewTranscript(options?: { readOnly?: boolean }); omission preserves mode.",
+          "Peer reports usage-fallback setup/candidate publication now fence awaited boundaries with captured prompt generation and session ID."
+        ],
+        "PortHost": "Shared relocateTo switch option implemented by lifecycle and consumed by the detection-only selector path."
+      },
+      "acceptance_handoff": {
+        "GateHost18100": "Informed of the observed late-success bug and repair. Keep the existing :428 undefined assertion unchanged. Peer added the ordinary-prompt admission leg to the same real held-fallback/navigation fixture used by ask-reanswer.",
+        "GateDurability18100": "Coordinated retained outgoing ownership during rejected switch, replica legacy empty/nonempty mental-model replay without writes/remote load, and recall-only same-path reload with identical displayed messages.",
+        "Main": "Rebuild the next frozen candidate from the recorded fragments before running acceptance. The prior stable candidate's observed failure was not rerun here."
+      },
+      "verification": {
+        "executed": "Representation-generation amend/accept-amend commands and mandatory policy-presence grep calls only.",
+        "not_executed": [
+          "Tests or gate reruns",
+          "Builds",
+          "Lint",
+          "Formatters",
+          "Provider requests",
+          "Usage requests",
+          "Real authentication"
+        ],
+        "claim_boundary": "Implementation and fragment publication are complete; executable acceptance remains Main-owned."
+      },
+      "docs_contract_for_main": "Record that cancellation must be checked at result publication even after transport success; rollback authority must outlive cancellable switching; replica memory may replay but never migrate/publish snapshots; recall ownership follows committed history metadata, not displayed-message equality; every fallback-restoration caller must carry its admission predicate."
+    },
+    {
+      "owner": "PortLifecycle",
+      "coordination": "PortPersistence has acknowledged the recorded R1/R4 consumer integration. No unresolved cross-owner API questions remain for this handoff.",
+      "verification": "No additional edits or checks performed."
+    },
+    {
+      "owner": "PortLifecycle",
+      "finding": "S1",
+      "status": "Coordinated host-side selection commit implemented and recorded.",
+      "change": "TurnRecovery's host binding now forwards commitSelection to #setModelWithProviderSessionReset(model, commitSelection?). The setter invokes it synchronously immediately after agent.setModel, before model_changed fanout and the first reconciliation await. This lets recovery publish durable role/provenance/effort with the live model before navigation can capture the selection.",
+      "path": "pi-coding-agent/src/session/agent-session.ts",
+      "family": "family-persistent-prefix-resume",
+      "driver_result": "AMENDED",
+      "declarations": "No public AgentSession declaration change; the setter is private. PortPersistence owns the changed TurnRecoveryHost interface/declaration and recovery producers.",
+      "acceptance": "Main should use the existing model-selection resume consumer with held model reconciliation, actual navigateTree, and live/fresh-process assertions for model, configured/effective effort, fallback provenance, and default-role anchor.",
+      "verification": "No tests, builds, lint, formatters, provider requests, or authentication performed. No unrecorded lifecycle source edits remain."
+    },
+    {
+      "owner": "PortLifecycle",
+      "finding": "S1",
+      "coordination": "Provided GateHost18100 the real exported SessionTools.prototype.reconcileThinkTool reconciliation boundary and canonical model/effort/journal observables. The fixture must preserve intentional semantics: live ephemeral fallback F remains active, while fresh SDK resume without an explicit override restores durable default B.",
+      "producer_confirmation": "PortPersistence reports all three recovery model-change producers now commit selection through the synchronous callback; stale reconciliation no longer rolls back a selection already captured by replacement history.",
+      "changes": "No additional lifecycle source edits.",
+      "verification": "No checks performed."
+    }
+  ]
+}

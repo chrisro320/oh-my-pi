@@ -1,0 +1,11 @@
+{
+  "gate": "verify-prefix-cache-compaction.ts",
+  "started": "2026-10-12T05:47:51.580533+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-prefix-cache-compaction.ts"
+  ],
+  "exit": 0,
+  "stdout": "PASS prefix-cache compaction: structured=1 flat=1 windows=12\n",
+  "stderr": ""
+}

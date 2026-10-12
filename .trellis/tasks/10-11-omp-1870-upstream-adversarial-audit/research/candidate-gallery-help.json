@@ -1,0 +1,14 @@
+{
+  "started": "2026-10-12T05:46:00.373610+00:00",
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "--preload",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/offline-preload.ts",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+    "gallery",
+    "--help"
+  ],
+  "exit": 0,
+  "stdout": "Preview tool, composer, and status-line renderers in a deterministic visual gallery\n\nUSAGE\n  $ omp gallery [FLAGS]\n\nFLAGS\n      --surface=<value>   Render only tool, composer, or segment surfaces (repeatable; default: all)\n  -t, --tool=<value>      Render a single tool by name\n      --composer=<value>  Render a single composer shape by name\n      --segment=<value>   Render a single status-line segment by name\n  -s, --state=<value>     Render only the given lifecycle state(s)\n  -w, --width=<int>       Render width in columns\n  -e, --expanded          Render the expanded variant of each renderer\n      --plain             Strip ANSI styling from the output\n      --screenshot        Capture the rendered output as PNG screenshot(s) via VHS instead of printing ANSI (requires vhs)\n  -o, --out=<value>       Screenshot output path (with --screenshot); suffixed per image when split across multiple\n      --font=<value>      Screenshot font family (default: JetBrainsMono Nerd Font)\n      --font-size=<int>   Screenshot font size in points (default: 18)\n",
+  "stderr": ""
+}

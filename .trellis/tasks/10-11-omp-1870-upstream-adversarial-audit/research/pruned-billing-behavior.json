@@ -1,0 +1,12 @@
+{
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-snapcompact-model-billing.ts"
+  ],
+  "exit": 0,
+  "stdout": "source=/home/chris/.cache/omp-18101-migration/runtime/node_modules/@oh-my-pi/snapcompact\nmeasured ids: deepseek/deepseek-v4-flash-vision-exp=995 claude=4761 off-curve: deepseek/deepseek-v4-pro=5024 deepseek/deepseek-v4-flash-fast=5024\nPASS: 17 shipped shapes retain measured pricing and provider/API precedence\n",
+  "stderr": "",
+  "time": "2026-10-12T07:21:53.279080+00:00",
+  "runtime": "/home/chris/.cache/omp-18101-migration/runtime/node_modules/@oh-my-pi",
+  "isolation": "allowlisted environment, private HOME/XDG/agent; no production credential operations"
+}

@@ -1,0 +1,12 @@
+{
+  "gate": "verify-oauth-durable-refresh.ts",
+  "started": "2026-10-12T06:31:39.170528+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-oauth-durable-refresh.ts"
+  ],
+  "gate_sha256": "b9ff5ddbd204e8773c5aad8e77447277614f2ec5aace2265a1b96d0f027fac36",
+  "exit": 1,
+  "stdout": "",
+  "stderr": "78 | \t\t`verify-oauth-durable-refresh: ${AI_ROOT} is not a complete pi-ai tree (src/auth-storage.ts / src/auth/refresh.ts missing)`,\n79 | \t);\n80 | \tprocess.exit(2);\n81 | }\n82 | const aiVersion = JSON.parse(readFileSync(join(AI_ROOT, \"package.json\"), \"utf8\")).version;\n83 | assert.ok([\"18.4.4\", \"18.7.0\", \"18.10.0\"].includes(aiVersion), `unsupported OAuth gate version: ${aiVersion}`);\n            ^\nAssertionError: unsupported OAuth gate version: 18.10.1\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-oauth-durable-refresh.ts:83:8\n\nBun v1.3.14 (Linux x64)\n"
+}

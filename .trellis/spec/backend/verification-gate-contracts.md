@@ -108,8 +108,11 @@ that no suite invokes is not a gate.
   fields for the same final model; assert fixture metadata/edit-mode separately.
   In 18.3.3, temporary survives resume; ephemeral restores the durable model.
   Test persisted defaults with private `Settings.loadIsolated`, flush and reload,
-  not `Settings.isolated`. Reproduction:
-  `.trellis/tasks/09-27-omp-1833-deploy/research/run-model-lifecycle.py` proves eight comparisons across ten processes, including fresh A/B. It does not prove HTTP bytes/cache hits. Store digests, not full prompts; never pin obsolete wording.
+  not `Settings.isolated`. Historical18.3.3 lifecycle captures proved eight
+  comparisons across ten processes; their temporary runner was removed with the
+  obsolete baseline. Current entry points are `verify-model-selection-resume.ts`
+  and `verify-prompt-effort-resume.ts`. Store digests, not full prompts; never pin
+  obsolete wording or mistake a model-state check for HTTP cache-hit proof.
 
 - Registered gates resolve package-specific `OMP_PATCH_VERIFY_<PACKAGE>_ROOT`
   before `OMP_PATCH_VERIFY_NM`, then the local HOME default. PACKAGE is AGENT,
@@ -795,8 +798,8 @@ transition, not a disposable request result. This contract covers 0090 on 18.4.4
   metadata and write a second time after the CAS owner saved or reloaded a winner.
   Test an old organization replaced by an organization-less login, not tokens alone.
 - Do not remove invalid-grant disabling or blindly replay a possibly consumed
-  token. A transport failure before receipt is different from losing a received
-  token after it was mapped.
+  token. A proven pre-send failure differs from an ambiguous exchange outcome:
+  response loss, timeout or lease expiry cannot prove the server did not redeem it.
 - Tests use synthetic grants and private SQLite only. Reading, copying or
   refreshing operator credentials is not a verification mechanism.
 
@@ -810,7 +813,7 @@ transition, not a disposable request result. This contract covers 0090 on 18.4.4
 | Event-loop stall outlives lease, same owner remains | Same-owner renewal then fenced save |
 | Peer takes ownership, changes credential or logs out | Old owner cannot overwrite or resurrect the row |
 | Genuine invalid grant | Disable the attempted row, not a peer replacement |
-| Transient refresh failure | Keep the credential active |
+| Proven pre-send transient failure | Keep the credential active; an ambiguous post-send outcome must not authorize redemption of the same generation |
 
 ### 5. Good / Base / Bad Cases
 
@@ -979,3 +982,210 @@ unconditionally precedes all V2 requests.
 Correct: keep that preflight only on non-Codex lanes; Codex sends unchanged history
 to its existing provider-authoritative path. Keep automatic compaction thresholds
 separate from input admission.
+
+## Scenario: Upgrade review across persistence and retry authority boundaries
+
+### 1. Scope / Trigger
+
+Use when migrating session adoption, credential refresh, compaction retry or
+Anthropic replay policy. The18.7.0-to-18.10.1 migration repaired consumer-visible
+gaps despite previously passing lower-layer gates. Its synthetic acceptance is
+not evidence of live server idempotency, credential status or cache-hit rates.
+Evidence and remediation ownership:
+`.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/risk-register.json`.
+
+### 2. Signatures
+
+- `AgentSession.fork(entryId)` / `navigateTree(...)` / `switchSession(...)`:
+  writable adoption must preserve the effective model, effort and historical
+  date/cwd anchors through session persistence and fresh-process startup.
+- `compact(...)` -> `requestCompactionV2Streaming(...)`:
+  `remoteCompaction.api` can select the Codex lane even when `model.api` differs.
+- Refresh ownership is not exchange idempotency. The safety identity is the
+  credential row plus refresh-token generation, not merely the lease owner.
+- Anthropic `fallback_credit_token`, `compaction: { type: "summarize" }` and
+  server-reported `drop_block` have distinct retry/diagnostic/replay meanings.
+- `CredentialRefreshExchangeStore.reserveCredentialRefreshExchange(id, expectedData, lease)`,
+  `stageCredentialRefreshResult(id, expectedData, owner, credential)` and
+  `commitCredentialRefreshResult(id, expectedData, credential, lease)` separate
+  future-exchange reservation, late-result retention and fenced publication.
+- `SessionManager.beginWritableAdoption()` returns commit/rollback ownership;
+  `adoptForWrite()` commits non-cancellable adoption. `AgentSession` persists the
+  captured model/effort/routing/role/fallback together before reconciliation awaits.
+
+### 3. Contracts
+
+- Session-selection durability belongs at the successful common adoption
+  boundary, not only one navigation entry point. Import must classify writable
+  local journals under session ownership; startup-only moved-marker checks do
+  not protect selector, RPC or ACP adoption.
+- Lease/CAS success proves durable-write ownership, not exactly-once remote
+  redemption. An ambiguous generation must not become redeemable merely because
+  its lease expires. A fail-closed reservation/recovery design must explicitly
+  state its availability cost; never claim provider revocation without evidence.
+- Startup never creates an exchange reservation or rewrites healthy legacy rows.
+  Reserve only a future real exchange. Pending-without-result refuses a second
+  redemption; a staged replacement may recover under the current lease. A
+  cancelled waiter cannot cancel the shared durable result. Broker consumers
+  reload the authoritative whole row instead of publishing stale metadata.
+- A typed chain-loss refusal must survive every outer catch. Every SSE admission,
+  including buffered entitlement-error replay, must enforce the effective
+  compaction lane policy. Configured host method transitions remain distinct
+  from hidden internal full-history replay.
+- Anthropic retry rungs must use the credit-aware rebuild boundary. New
+  server-managed drop reports must not be interpreted as old client-deletion
+  instructions; legacy committed omissions must still reproduce on first resume.
+- Correlated diagnostics require a shared request identity, provider, wire model,
+  purpose and lineage. Without that identity, emit request diffs with
+  `correlation: "request-only"` and completion usage with
+  `correlation: "unavailable", cause: "unknown"`. Never borrow the latest
+  request's diff, headers, response headers or session as the completion's cause.
+  `observedSessionId` records hook context only. No-input usage is `unknown`.
+
+### 4. Validation & Error Matrix
+
+| Boundary | Required observation |
+|---|---|
+| A -> B -> fork before B -> fresh process | Next request remains B with the chosen effort |
+| Unknown token-exchange outcome -> another caller | No second POST of that token generation |
+| Effective Codex API -> typed chain loss | No V1/SSE replay at the outer consumer |
+| Compaction entitlement rejection | No direct SSE escape; ordinary-turn recovery remains separate |
+| Credited server-tool refusal -> cache-control retry | No uncredited replay bypassing the credit guard |
+| Native `compaction.type=summarize` diagnostic | Compact classification; ordinary baseline unchanged |
+| Import racing a local append | Preserve the append or refuse; never silently replace it |
+| Same-model main/side overlap with populated distinct headers | Completion contains measured usage but no borrowed request fields |
+
+### 5. Good / Base / Bad Cases
+
+Good: the actual caller, persistence boundary and next process are exercised.
+Base: existing provider policy and ordinary-turn recovery remain unchanged.
+Bad: a transport-only assertion passes while its caller catches and retries;
+a CAS protects the row while the same external token is redeemed again.
+
+### 6. Tests Required
+
+Use the smallest existing consumer fixture that discriminates each changed
+boundary. Extend `verify-model-selection-resume.ts`,
+`verify-oauth-durable-refresh.ts` or
+`verify-codex-compaction-chain-fail-closed.ts` only when implementing the related
+fix; do not run broad suites merely to certify an investigation. Keep synthetic
+credentials and private storage. Static review is labeled inference; local wire
+proof is not provider cache-hit, billing, revocation or idempotency proof.
+The overlap fixture must use a consistent session context and populate both
+request and response fingerprints. A header-only borrowing mutant must fail
+the forbidden-header assertion while the unchanged handler passes; empty
+fixture fields are not evidence of isolation.
+
+Machine-check the retained contract at delivery and review:
+`grep -nE 'exchange idempotency|Every SSE admission|credit-aware rebuild|common adoption' .trellis/spec/backend/verification-gate-contracts.md`
+This checks presence only; consumer evidence establishes behavior.
+
+### 7. Wrong vs Correct
+
+Wrong: `if (model.api === "openai-codex-responses") throw chainLoss;`
+inside an outer catch that otherwise enters V1.
+Correct: propagate the typed refusal independently of native API, and use the
+effective lane for every replay admission.
+
+## Scenario: Pinned release-family representation proof
+
+### 1. Scope / Trigger
+
+Use when rebasing functional families across an upstream release. Source owners
+record exact per-path before/after transitions; generated patches are not proof
+until replayed against independently extracted official archives.
+
+### 2. Signatures
+
+- `research/export-candidate.py --root <migration> --repo <checkout>`
+- `python3 patches/verify-release-family-plan.py --version 18.10.1 --tgz-cache <archives>`
+- `OMP_PATCH_VERSION=18.10.1 OMP_PATCH_PLAN=deployed bash patches/apply.sh --print-plan`
+
+### 3. Contracts
+
+The exporter rejects unfinished paths, unrecorded bytes, unowned edits and
+unexpected empty families. The manifest pins official archive SHA-256 values,
+patch hashes, roots, capability ownership and complete pristine/candidate trees.
+Trees include file modes and symlink targets. Preserve shipped modes; new text
+files use `0644`, and patch replay uses `umask 022`.
+
+The verifier extracts pinned packages under a private HOME and performs actual
+zero-fuzz replay, independent candidate equality, read-only controller `--check`,
+reverse-to-pristine and a second identical replay. No production package or
+credential store is an input to this verifier. Representation PASS does not
+establish consumer behavior, a provider cache hit or deployment.
+
+### 4. Validation & Error Matrix
+
+| Input or boundary | Required result |
+|---|---|
+| Missing/wrong archive or patch hash | Refuse before replay |
+| Unterminated valid final registry row | Include and validate the row |
+| Unterminated final row naming a missing patch | Exit 2, never silently shorten the plan |
+| Duplicate capability ownership | Refuse |
+| Replay bytes/modes/links differ from independent candidate | Refuse |
+| Target repository/0097 overlay not migrated | Exit 2 |
+
+### 5. Good / Base / Bad Cases
+
+Good: all selected families replay, reverse and replay identically from pinned
+archives. Base: retained historical plans remain independently selectable.
+Bad: three applicable patches are presented as a complete migration, or a
+successful `--check` substitutes for a clean-chain replay.
+
+### 6. Tests Required
+
+Run the selected release verifier and only the controller-selected meaningful
+consumer gates. Freeze gate sources before execution and record their hashes;
+do not let concurrent edits change a running acceptance batch. Package-created
+files must survive mode-sensitive equality. Native API changes also require
+the actual source CLI and `smokeTestDaemonBroker()` in a private runtime scope.
+
+Machine-check presence at delivery and independent review:
+`grep -nE 'Pinned release-family|umask 022|Unterminated|Freeze gate sources' .trellis/spec/backend/verification-gate-contracts.md`
+
+### 7. Wrong vs Correct
+
+Wrong: regenerate a manifest from the replay output and call the matching hash
+an independent oracle.
+Correct: derive the expected tree from recorded owner transitions, then compare
+an independently extracted-and-patched tree against it.
+
+
+## Scenario: Native dialog ownership and semantic actions (18.10.1)
+
+### 1. Scope / Trigger
+
+Native events can remain queued after a dialog closes; each async dependency can resume after cancellation. Terminal-reserved actions differ from application actions.
+
+### 2. Signatures
+
+`HookInputComponent.dispose()` is terminal. `MCPAddWizard` whole-dialog cancellation sets `#closed` and advances `#attempt` before abort/callback; connection/discovery/scopes/OAuth/health continuations recheck ownership. `BtwHistoryPanel` emits/handles `copy-answer`. Advisor Tools keeps `__done` in its native picker catalogue.
+
+### 3. Contracts
+
+Never restart a disposed input timer or deliver another result. A validation-rejected submit remains editable. Closing MCP must prevent a new metadata fetch or OAuth callback from a stale continuation; this does not promise instant cancellation of an already-running transport. Preserve active-OAuth Escape's existing abort-flow behavior. Native File copying accepts POSIX, Windows and UNC paths, excluding the explicit `In-memory` sentinel. Every keyboard-selected advisor item must be rendered.
+
+### 4. Validation & Error Matrix
+
+| Boundary | Required result |
+|---|---|
+| Settled input receives queued native/input/paste | No new timer, timeout or result |
+| Connection or deferred discovery resolves after close | No subsequent dependency call/completion/render |
+| Uncancelled scopeless discovery | Metadata fetch and OAuth still reached |
+| BTW emitted Copy answer action | Copies actual answer, not button label |
+| Advisor Tools End then Enter | Visible Done applies draft and returns to detail |
+
+### 5. Good / Base / Bad Cases
+
+Good: drive the actual wizard through a deferred discovery and its emitted Cancel action. Base: uncancelled control proves the dependency path is live. Bad: a connection-only oracle claims discovery cancellation coverage, or a renderer hides an item still reachable by keyboard.
+
+### 6. Tests Required
+
+`OMP_PATCH_VERIFY_TUI_ROOT=<isolated-18.10.1-pi-tui> bun patches/verify-native-dialog-lifecycle.ts` exercises real components with synthetic callbacks/timers and no provider/clipboard operations. Retain the discriminating pre-fix failure and post-fix result, not duplicate whole-suite runs. Actual installed gallery/native IPC remain separate smoke evidence.
+Machine-check at delivery/review:
+`grep -nE 'verify-native-dialog-lifecycle|copy-answer|cancelDuringDiscovery' patches/apply.sh patches/verify-native-dialog-lifecycle.ts`
+
+### 7. Wrong vs Correct
+
+Wrong: check cancellation only after both discovery and resource-scope awaits. Correct: check ownership after each await, before initiating the next external effect.

@@ -1,0 +1,49 @@
+[
+  {
+    "mode": "live",
+    "command": [
+      "/home/chris/.bun/bin/bun",
+      "/tmp/omp-18100-audit-cd9kqmcj/resume-selection-probe.ts",
+      "live"
+    ],
+    "exit": 0,
+    "stdout": "{\"file\":\"/tmp/omp-18100-audit-cd9kqmcj/resume-target/sessions/2026-10-12T03-38-23-060Z_01a12e30-a7d4-7000-a883-178eb589ed46.jsonl\",\"model\":\"sol\",\"calls\":[{\"model\":\"astra\",\"effort\":\"high\"},{\"model\":\"sol\",\"effort\":\"high\"}]}\n",
+    "stderr": "",
+    "capture": {
+      "file": "/tmp/omp-18100-audit-cd9kqmcj/resume-target/sessions/2026-10-12T03-38-23-060Z_01a12e30-a7d4-7000-a883-178eb589ed46.jsonl",
+      "model": "sol",
+      "calls": [
+        {
+          "model": "astra",
+          "effort": "high"
+        },
+        {
+          "model": "sol",
+          "effort": "high"
+        }
+      ]
+    }
+  },
+  {
+    "mode": "resume",
+    "command": [
+      "/home/chris/.bun/bin/bun",
+      "/tmp/omp-18100-audit-cd9kqmcj/resume-selection-probe.ts",
+      "resume",
+      "/tmp/omp-18100-audit-cd9kqmcj/resume-target/sessions/2026-10-12T03-38-23-060Z_01a12e30-a7d4-7000-a883-178eb589ed46.jsonl"
+    ],
+    "exit": 0,
+    "stdout": "{\"file\":\"/tmp/omp-18100-audit-cd9kqmcj/resume-target/sessions/2026-10-12T03-38-23-060Z_01a12e30-a7d4-7000-a883-178eb589ed46.jsonl\",\"model\":\"astra\",\"calls\":[{\"model\":\"astra\",\"effort\":\"high\"}]}\n",
+    "stderr": "",
+    "capture": {
+      "file": "/tmp/omp-18100-audit-cd9kqmcj/resume-target/sessions/2026-10-12T03-38-23-060Z_01a12e30-a7d4-7000-a883-178eb589ed46.jsonl",
+      "model": "astra",
+      "calls": [
+        {
+          "model": "astra",
+          "effort": "high"
+        }
+      ]
+    }
+  }
+]

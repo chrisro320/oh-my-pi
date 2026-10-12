@@ -1,0 +1,495 @@
+{
+  "agent": "PortAuth",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "owner": "PortAuth",
+      "status": "implementation_complete",
+      "root": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+      "families_completed": [
+        "family-usage-pipeline",
+        "0090-omp-oauth-durable-refresh"
+      ],
+      "fragment_accounting": {
+        "owned_paths": 24,
+        "family_path_fragments": 29,
+        "family_usage_pipeline_fragments": 14,
+        "oauth_0090_fragments": 15,
+        "pending_conflicts": 0,
+        "evidence": "Driver accept resolved select.ts; every subsequent edit was recorded with amend under its owning family. Final driver status reports pending:null and next equal to family count for all 24 paths. No amendment conflict snapshots were needed."
+      },
+      "owned_paths": [
+        "pi-ai/dist/types/auth/types.d.ts",
+        "pi-ai/dist/types/auth/usage-cache.d.ts",
+        "pi-ai/dist/types/auth/usage.d.ts",
+        "pi-ai/src/auth/types.ts",
+        "pi-ai/src/auth/usage-cache.ts",
+        "pi-ai/src/auth/usage.ts",
+        "pi-ai/src/usage/ollama.ts",
+        "pi-ai/dist/types/registry/oauth/anthropic.d.ts",
+        "pi-ai/src/auth/refresh.ts",
+        "pi-ai/src/auth/select.ts",
+        "pi-ai/src/registry/oauth/anthropic.ts",
+        "pi-ai/src/auth/store.ts",
+        "pi-ai/dist/types/auth/store.d.ts",
+        "pi-ai/src/auth/sqlite-credential-store.ts",
+        "pi-ai/dist/types/auth/sqlite-credential-store.d.ts",
+        "pi-ai/src/auth-broker/client.ts",
+        "pi-ai/dist/types/auth-broker/client.d.ts",
+        "pi-ai/src/auth-broker/remote-store.ts",
+        "pi-ai/dist/types/auth-broker/remote-store.d.ts",
+        "pi-ai/src/auth-broker/server.ts",
+        "pi-ai/src/registry/engine/refresh.ts",
+        "pi-coding-agent/src/cli/auth-broker-cli.ts",
+        "pi-ai/src/registry/oauth/snowflake.ts",
+        "pi-ai/src/registry/oauth/factory-droid.ts"
+      ],
+      "semantic_changes": {
+        "oauth_owner": [
+          "Retained waiter-only cancellation, login-only Anthropic bootstrap, immediate same-owner renewal before fenced persistence, and owner-only persistence in selection, refreshById, usage and the health caller's shared persistence helper.",
+          "Public refreshStored also races only the individual wait; internal singleflight calls the uncancelled owned operation directly, avoiding accidental poisoning of every waiter by a nested public cancellation race.",
+          "Preserved upstream reason forwarding, overrideMints/recent-mint policy, credential subtypes, organization scope, broker account pools and snapshot fencing.",
+          "Usage now projects the winning stored row after lease-backed refresh instead of reconstructing usage identity from its pre-await snapshot.",
+          "An expired credential with no durable row id cannot fall through to an unowned local token exchange. Local non-sentinel refresh requires the complete durable exchange-store contract; broker-redacted credentials continue through the remote hook.",
+          "Genuine invalid-grant handling remains, with row-value and owner fencing. Ambiguity uses the existing OAuthError/token-refresh surface and does not automatically disable the credential row."
+        ],
+        "durable_exchange": [
+          "Added one additive auth_credential_refresh_exchanges table: credential_id primary key, generation, owner, expected_hash, replacement_data. Generation and expected row bytes are SHA-256 fingerprints; no additional plaintext R0 copy is persisted.",
+          "Reservation is created only after an actual future refresh passes freshness/canRefresh/cancellation checks and obtains ownership, immediately before invoking the refresh callback. Reservation failure prevents invocation.",
+          "A same-generation pending reservation is never renewed into permission to redeem again. Lease expiry, process restart, response loss, timeout and HTTP 503 do not authorize another application-level send for that generation.",
+          "A known successful result is staged before credential publication. Publication and reservation retirement are one transaction, fenced by the current lease, unchanged original row, and exact staged replacement.",
+          "Only the immutable exchange owner can stage its result. Staging can finish after its write lease expires but cannot update the credential row. A subsequent lease owner may publish that already-staged result without another token request.",
+          "The durable owner bounds its wait without racing away the provider result before the staging continuation. Late successful responses are still staged. A failed staging write retains the result in memory for persistence retry, not another exchange.",
+          "Removed the generic registry engine's post-response cancellation discard. Limited Snowflake response-parser and Factory post-refresh identity cancellation guards to login, retaining token validation and Factory organization-scope logic. Broker CLI now forwards its existing signal to registry refresh.",
+          "SQLite uses synchronous=FULL so the pre-exchange reservation is committed before dispatch. Existing schema version remains 8; the journal is additive."
+        ],
+        "startup_preservation": [
+          "Journal initialization creates an empty table only: no credential enumeration, reservation population, token migration or quarantine.",
+          "Removed the target constructor's unconditional credential identity-key backfill and its now-unused helper. Existing current-version credential data, identity columns and timestamps are not rewritten by this startup path. Ordinary credential loading and identity derivation on read/future writes remain."
+        ],
+        "usage_pipeline": [
+          "Normalized provider filters propagate through UsageService store override, RemoteAuthCredentialStore, AuthBrokerClient query parameters and the actual broker server's UsageApi.reports call.",
+          "The normalized provider set participates in UsageService override singleflight identity and remote aggregate cache/singleflight identity. Undefined means all; an explicit empty set means none.",
+          "Per-credential broker usage requests now request only that credential's provider. Runtime-local extension fallback is intersected with the requested set. Broker overlays are restricted in the returned scoped result.",
+          "Preserved remote account-pool filtering, selected-provider account-count timeout sizing, invalidation epochs and failure cooldown behavior.",
+          "Retained canonical Anthropic usage cache keys, read-only legacy lookup, last-good behavior, provider-scoped local fanout and Ollama Cloud session/weekly enrichment."
+        ]
+      },
+      "public_contracts": {
+        "exchange_store": [
+          "CredentialRefreshExchange = {status:'reserved'} | {status:'pending'; credential?: OAuthCredential}",
+          "reserveCredentialRefreshExchange(id, expectedData, lease): CredentialRefreshExchange | undefined",
+          "stageCredentialRefreshResult(id, expectedData, originalOwner, credential): boolean",
+          "commitCredentialRefreshResult(id, expectedData, credential, currentLease): boolean",
+          "hasRefreshExchanges(store) narrows the complete lease+journal capability."
+        ],
+        "usage": [
+          "CredentialUpstream.fetchUsageReports(options?: {signal?: AbortSignal; providers?: readonly Provider[]})",
+          "RemoteAuthCredentialStore.fetchUsageReports uses that same options contract.",
+          "AuthBrokerClient.fetchUsage adds providers to its existing options object.",
+          "GET /v1/usage carries repeated provider query parameters; provider= represents an explicit empty set.",
+          "normalizeUsageProviders is declared alongside its usage-cache source export."
+        ],
+        "declaration_closure": "Updated all changed store, SQLite, remote-store, broker-client, usage-cache and auth option declaration surfaces. Registry engine, Factory, Snowflake and broker CLI changes preserve their public signatures. Existing Anthropic declaration documents login-only bootstrap."
+      },
+      "redemption_and_storage_trace": [
+        "Key selection eager preflight and final-candidate resolution -> OAuthRefresher.refresh -> per-id singleflight -> owned stored refresh -> durable reservation -> local/custom registry dispatch -> stage -> renewed, fenced commit. Selection only resynchronizes the winning row afterwards.",
+        "OAuthAccounts.refresh -> refreshById -> the same singleflight/owner path. Its return is read-only and redacted; it does not remerge a caller snapshot into storage.",
+        "Usage near-expiry preflight and health's expired-token preflight -> the same refresher. UsageService.persistRefreshedCredential refuses lease-backed secondary writes; health uses that helper.",
+        "Broker scheduler and POST /v1/credential/:id/refresh -> OAuthAccounts.refresh. Remote-store/client delegation carries reason; the CLI's overrideMints:true local override executes registry refresh or managed MCP refresh under the broker's durable owner.",
+        "Managed MCP local path -> oauth.refreshStored with subtype-aware canRefresh/merge -> refreshManagedMcpOAuthCredential -> refreshMCPOAuthToken. Its broker path delegates by id into the same durable owner. The MCP helper performs one token fetch, not a token retry loop.",
+        "Built-in registry request refresh -> postTokenRequest, which makes one application-level token POST. Cursor's hook makes one refresh POST; Snowflake makes one refresh POST; Copilot's helper preserves its non-rotating credential behavior. Registered custom callbacks must honor the documented one-attempt contract.",
+        "Public low-level registry/MCP token helpers remain provider primitives, not storage owners. The internal storage callers found converge through the owner above; callers deliberately invoking those primitives outside AuthStorage are outside the journal guarantee. Broker HTTP retry can request a later, successfully persisted generation, but an unresolved generation cannot be re-exchanged through the guarded owner."
+      ],
+      "safety_argument": "[INFERENCE, source-backed; not executed] For a stored generation G, the atomic reservation is durable before the callback that can send G. A later owner seeing that reservation either publishes its exact known staged replacement or fails without invoking the callback. Reservation is not cleared on timeout, response loss or lease release; therefore those events do not cause an additional application-level redemption of G. Full-row and generation fences prevent an old result from poisoning or overwriting a concurrent login/logout/replacement. This is not provider exactly-once semantics and does not establish server consumption, revocation, transport-level retransmission or idempotency behavior.",
+      "availability_and_deployment": {
+        "tradeoff": "An admitted callback is conservatively ambiguous after failure, including 503 or a crash between reservation and actual send. Automatic refresh of that generation is unavailable until a known replacement can be recovered or the user reauthenticates. Already-aborted callers, lease-wait cancellation, freshness short-circuits and canRefresh refusal create no reservation. Failure after invocation is not inferred to be pre-send merely from its error name.",
+        "known_result_limit": "A committed staged replacement survives credential-publication failure and is recoverable without resending R0. If storage itself cannot stage a known result, it is retained in memory while that process survives; a crash before any successful staging commit can still require reauthentication. The durable reservation continues to prevent blind reuse.",
+        "mixed_runtime_limit": "The additive table is schema-compatible with older readers, but old auth writers do not implement its protocol and can redeem an ambiguous generation. Drain/stop every old auth writer, including broker/gateway processes, before enabling the new runtime. A rollback to an unprotected writer is not a credential-safe recovery mechanism. Preserve the current credential DB and never restore older token bytes.",
+        "production_boundary": "No production database, credentials, login, refresh, usage or external provider request was accessed or exercised."
+      },
+      "minimal_main_acceptance_changes": [
+        "Adapt the existing gate's 'transient 503, then resend saved token' scenario: keep assertions that the row stays active and token bytes unchanged, but require the second refresh to reject with zero additional token POSTs. Fold response-loss/reopen coverage into this same ambiguous-generation fixture rather than creating a new retry matrix.",
+        "Extend the existing takeover-only or failed-save schedule to observe staged R1, release/expire the peer lease, reopen the private store and recover R1 with no additional R0 POST. A one-shot failure of tryUpdateAuthCredentialIfMatches distinguishes durable staging from an in-memory-only repair.",
+        "Retain the existing initiating-waiter cancellation, missing-identity bootstrap, same-owner expiry, genuine invalid-grant and login/logout winner assertions. Add reservation-count-zero assertions to existing pre-aborted and lease-wait cancellation cases, then demonstrate that an uncancelled future attempt still works.",
+        "Add an existing-row startup control using synthetic current-schema rows, including a NULL identity_key: compare raw data/identity/disabled/timestamps and auth revision before and after store construction; the journal must remain empty. Do not seed this from workstation credentials.",
+        "Add one actual broker consumer fixture with an expired synthetic Anthropic row and a different requested provider. Drive UsageService -> real remote store/client -> broker handler, counting provider usage and refresh calls: selected provider returns a report, Anthropic counters remain zero across coalesced/cache-scoped requests. Include explicit-empty and normalized-set assertions in that fixture.",
+        "Main should run the adapted existing OAuth gate once against the integrated private candidate, plus declaration-consumer checking through package entry points and complete representation replay. No new broad suite or source-wording tests are proposed."
+      ],
+      "main_docs_updates": [
+        "Document the three journal methods, generation-versus-lease authority, staged-result recovery and the intentional 503/ambiguous-outcome availability change in the existing OAuth verification contract/runbook.",
+        "Record current-row startup preservation, additive schema version-8 compatibility, synchronous=FULL write behavior, and the mandatory mixed-writer drain/code-only rollback limitation.",
+        "Document provider-filter transport/options and normalized aggregate cache identity in the existing usage/broker contract."
+      ],
+      "verification": {
+        "executed": [
+          "Required rollup-policy, verification-policy and PRD safety-presence grep checks.",
+          "Port-driver register/accept/amend/status representation operations."
+        ],
+        "not_executed": [
+          "Tests",
+          "Builds",
+          "Typechecks",
+          "Lint",
+          "Formatters",
+          "Smoke runs",
+          "Provider/auth/usage requests"
+        ],
+        "behavioral_evidence": "Static implementation and caller tracing only. No passing runtime or provider-safety claim is made."
+      },
+      "cross_owner_coordination": "Ownership notices and API/safety decisions were sent to Main. No sibling-owned source was edited; no additional peer API changes are required beyond the existing provider-filter UI/session contracts.",
+      "blockers": []
+    },
+    {
+      "owner": "PortAuth",
+      "status": "implementation_complete",
+      "fragment_accounting": {
+        "owned_paths": 24,
+        "recorded_fragments": 29,
+        "usage_pipeline_fragments": 14,
+        "oauth_0090_fragments": 15,
+        "pending_conflicts": 0
+      },
+      "implementation": {
+        "durable_refresh": "Future admitted local refreshes reserve a generation fingerprint durably before invoking redemption. Pending generations cannot be redeemed again after ambiguous failure, lease takeover, or restart. Known replacements are staged with original-owner and current-row fencing, then published only by the current lease owner through an atomic staged-result commit.",
+        "cancellation": "Waiter cancellation does not cancel the admitted owner or discard late successful results. Already-aborted calls, cancelled lease waits, fresh credentials, and canRefresh refusals do not reserve a generation.",
+        "existing_credentials": "The new journal starts empty. Removed unconditional startup identity backfill; no new startup token scan, migration, quarantine, or healthy-row rewrite was introduced.",
+        "upstream_features": "Preserved refresh reason, overrideMints, account pools, broker delegation, genuine invalid-grant handling, login/logout fencing, and login-only Anthropic identity bootstrap.",
+        "usage_filtering": "Provider selection now reaches UsageService overrides, remote-store caches and singleflight identities, broker client query parameters, and server usage requests. Source and declaration contracts are updated."
+      },
+      "safety_scope": {
+        "claim": "Static implementation argument: an unresolved reserved generation cannot invoke another redemption through the durable auth owner. This is not a claim of provider exactly-once semantics.",
+        "availability_tradeoff": "Failures after invocation, including HTTP 503, remain ambiguous and prevent automatic redemption of that generation. A staged replacement permits recovery without another POST; otherwise sign-in or proven recovery is required. A crash after reservation but before transmission conservatively sacrifices availability.",
+        "mixed_runtime_limitation": "Schema changes are additive, but old auth writers do not honor the journal. Deployment must drain all old writers, including broker/gateway processes, without modifying token data."
+      },
+      "gate_handoff": "Sent GateDurability18100 the exact reservation/stage/commit APIs, deterministic synthetic-fixture hooks, 503 expectation change, late-result recovery checks, provider-filter checks, and existing-row startup preservation assertions.",
+      "verification": {
+        "executed": [
+          "Required machine-checkable policy searches",
+          "Port-driver registration, fragment acceptance/amendment, and accounting"
+        ],
+        "not_run": [
+          "Tests",
+          "Builds",
+          "Lint",
+          "Formatters",
+          "Provider/auth/usage requests"
+        ],
+        "production_database_access": false
+      },
+      "suggested_main_acceptance": [
+        "Ambiguous 503 or lost response: no second token POST for the reserved generation after retry, expiry, or reopen.",
+        "Known replacement: recover staged result after failed publication with zero additional POSTs.",
+        "Late success: stage after owner timeout, but publish only under a newly valid lease.",
+        "Login/logout/replacement: fence stale reservation, staging, and publication.",
+        "Cancellation before admission or while waiting: leave journal empty.",
+        "Current-schema startup: preserve raw healthy-row data, identity fields, timestamps, disabled state, and auth revision; journal remains empty.",
+        "Real broker/client/store provider filtering: exclude unselected-provider usage and refresh activity."
+      ],
+      "blockers": []
+    },
+    {
+      "owner": "PortAuth",
+      "status": "review_repairs_complete",
+      "findings_addressed": [
+        {
+          "id": "AUTH-CHECK-01",
+          "repair": "Normal CredentialPool.reload() no longer prunes or disables duplicate rows. Removed the same mutating prune from ordinary usage collection. Explicit credential set/upsert deduplication remains intact."
+        },
+        {
+          "id": "AUTH-CHECK-02",
+          "repair": "Registry request refresh no longer performs optional userinfo enrichment. Mapped replacements retain stored accountId/email when omitted; login enrichment is unchanged."
+        },
+        {
+          "id": "AUTH-CHECK-03",
+          "repair": "Broker refresh returns the complete current redacted row, including intentional field absence. Refresh, selection, usage, and health recognize both local lease ownership and authoritative upstream ownership, adopting the winning row rather than merging stale metadata or writing it again."
+        },
+        {
+          "id": "AUTH-CHECK-04",
+          "repair": "An admitted delegated refresh has its own bounded 10-second owner lifetime. Individual signals only cancel their respective waits; the initiating waiter cannot cancel the shared broker fetch. Pre-admission cancellation remains effective. Existing non-authoritative custom override fallback is preserved."
+        },
+        {
+          "id": "AUTH-CHECK-05",
+          "repair": "Health projects the winning stored OAuth row into usage and completion probes, updates displayed identity, and skips probes if the row disappeared or changed credential type. Provider support checks use the resulting current request."
+        },
+        {
+          "id": "AUTH-CHECK-06",
+          "repair": "UsageCache.invalidateReport() clears the canonical report and every supported legacy alias. Definitive OAuth failure, usage HTTP 401/403, and fallback report clearing use this operation, preventing legacy last-good resurrection."
+        },
+        {
+          "id": "AUTH-CHECK-07",
+          "repair": "An unchanged refresh secret is encoded as refresh:null in replacement_data, referring to the exact hash-fenced active row rather than copying R0. Recovery reconstructs the secret only after row/hash matching; staging comparison and commit use the same encoding."
+        }
+      ],
+      "changed_paths": [
+        "pi-ai/src/auth/pool.ts",
+        "pi-ai/src/auth/health.ts",
+        "pi-ai/src/registry/engine/refresh.ts",
+        "pi-ai/src/auth/sqlite-credential-store.ts",
+        "pi-ai/src/auth/refresh.ts",
+        "pi-ai/src/auth/select.ts",
+        "pi-ai/src/auth/usage.ts",
+        "pi-ai/src/auth/usage-cache.ts",
+        "pi-ai/dist/types/auth/usage-cache.d.ts",
+        "pi-ai/src/auth/store.ts",
+        "pi-ai/dist/types/auth/store.d.ts",
+        "pi-ai/src/auth-broker/remote-store.ts",
+        "pi-ai/dist/types/auth-broker/remote-store.d.ts"
+      ],
+      "public_contracts": {
+        "new_helper": "hasAuthoritativeOAuthRefresh(store: AuthCredentialStore): boolean",
+        "upstream_refresh": "CredentialUpstream.refreshOAuthCredential(...): Promise<OAuthCredential>; complete authoritative row and updated store snapshot before resolution.",
+        "remote_refresh": "RemoteAuthCredentialStore.refreshOAuthCredential(...): Promise<RemoteOAuthCredential>.",
+        "cache_invalidation": "UsageCache.invalidateReport(request: UsageRequestDescriptor): void.",
+        "unchanged": "Health and public OAuth refresh option signatures; pool/health declarations intentionally unchanged because their public APIs did not change."
+      },
+      "fragment_accounting": {
+        "owned_paths": 26,
+        "family_path_fragments": 33,
+        "usage_pipeline_fragments": 14,
+        "oauth_0090_fragments": 19,
+        "newly_registered": [
+          "pi-ai/src/auth/pool.ts",
+          "pi-ai/src/auth/health.ts"
+        ],
+        "all_amendments_recorded": true,
+        "pending_conflicts": 0,
+        "family_separation": "Usage invalidation/read-only collection repairs recorded under family-usage-pipeline; authoritative OAuth projections and broker contracts recorded under 0090."
+      },
+      "coordination": {
+        "independent_recheck": "Notified ReviewAuth18100 after all amendments were recorded; no independent recheck result claimed.",
+        "gate_owner": "Sent GateDurability18100 focused fixture changes, exact unchanged-refresh reference encoding, broker contracts, usage alias inputs, and health completionProbe signature."
+      },
+      "limitations": {
+        "verification_status": "Implementation conclusions remain source-based, not runtime-tested.",
+        "availability": "Ambiguous admitted exchanges, including 503 after invocation, still block same-generation redemption until staged-result recovery or reauthentication. No provider exactly-once claim.",
+        "deployment": "Additive journal schema does not protect old writers that ignore it. Drain all old auth writers before deployment; do not modify or roll back token data."
+      },
+      "verification": {
+        "executed": [
+          "Required policy searches",
+          "Port-driver registration, amendments, and final accounting"
+        ],
+        "not_run": [
+          "Tests",
+          "Builds",
+          "Lint",
+          "Formatters",
+          "Provider/auth/usage requests"
+        ],
+        "production_database_access": false,
+        "repo_patches_or_runtime_modified": false
+      },
+      "blockers": []
+    },
+    {
+      "status": "fixture_contract_answered",
+      "provider_id": "xai-oauth",
+      "evidence": [
+        "pi-catalog/src/compat/rules/auth/xai-oauth.kdl:2 declares OAuth auth identity xai-oauth.",
+        "pi-catalog/src/compat/rules/auth/xai.kdl declares separate API-key-only identity xai.",
+        "pi-ai/src/registry/oauth/index.ts resolves the provider definition directly."
+      ],
+      "coordination": "Sent GateDurability18100 the corrected literal provider ID and source references.",
+      "source_changes": false,
+      "checks_run": false
+    },
+    {
+      "owner": "PortAuth",
+      "status": "requested_recheck_repairs_complete",
+      "findings_addressed": [
+        {
+          "id": "AUTH-CHECK-03-RECHECK",
+          "repair": "Broker-sentinel refreshStored awaits delegation, rereads the winning row by stable ID through credentialFromRow, and returns it without invoking the partial-result/subtype merger or publishing another snapshot. Missing/type-replaced rows produce no credential."
+        },
+        {
+          "id": "AUTH-CHECK-08",
+          "repair": "Stored-refresh keep-on-failure rereads the current row instead of returning captured bearer bytes. Ordinary usage projects the current row after both success and failure; missing/type-replaced rows clear canonical/legacy reports and return without a provider probe."
+        },
+        {
+          "id": "AUTH-CHECK-09",
+          "repair": "OAuthRefresher distinguishes the actual caller override from the built-in store hook. Documented value-returning overrides are merged and published once only while the observed full row still matches; changed rows/logout win. Built-in broker refresh adopts its complete authoritative row. Selection, usage, and health only project the stored winner."
+        }
+      ],
+      "clean_cutover": {
+        "removed": [
+          "hasAuthoritativeOAuthRefresh source export and declaration",
+          "mergeRefreshedUsageCredential source export and declaration",
+          "UsageService.persistRefreshedCredential source method and declaration",
+          "Consumer-side stale merge/second-publication branches"
+        ],
+        "retained": [
+          "Public refreshOAuthCredential value-returning override contract",
+          "Public refresh and refreshStored signatures",
+          "Pre-admission cancellation and waiter-only cancellation after admission",
+          "Durable future-generation reservation and unchanged-secret reference encoding"
+        ]
+      },
+      "changed_paths": [
+        "pi-ai/src/auth/refresh.ts",
+        "pi-ai/src/auth/select.ts",
+        "pi-ai/src/auth/usage.ts",
+        "pi-ai/dist/types/auth/usage.d.ts",
+        "pi-ai/src/auth/health.ts",
+        "pi-ai/src/auth/store.ts",
+        "pi-ai/dist/types/auth/store.d.ts",
+        "pi-ai/src/auth/pool.ts",
+        "pi-ai/dist/types/auth/pool.d.ts",
+        "pi-ai/src/auth/types.ts",
+        "pi-ai/dist/types/auth/types.d.ts",
+        "pi-ai/src/auth-broker/remote-store.ts",
+        "pi-ai/dist/types/auth-broker/remote-store.d.ts"
+      ],
+      "fragment_accounting": {
+        "owned_paths": 27,
+        "family_path_fragments": 35,
+        "usage_pipeline_fragments": 14,
+        "oauth_0090_fragments": 21,
+        "all_changes_recorded": true,
+        "new_registration": "pi-ai/dist/types/auth/pool.d.ts",
+        "amendment_conflicts": 0
+      },
+      "coordination": {
+        "gate": "Sent GateDurability18100 focused managed-MCP, failed-refresh logout, and value-returning override scenarios and the final single-owner contract.",
+        "review": "Requested independent ReviewAuth18100 recheck after all amendments were recorded."
+      },
+      "additional_risk_reported_to_main": {
+        "status": "Source observation, not runtime-tested; not silently modified outside the requested three repairs.",
+        "risk": "RemoteAuthCredentialStore.tryDisableAuthCredentialIfMatches ignores expectedData and forwards an unconditional broker disable. Downstream definitive-failure handling therefore warrants separate review for concurrent replacement safety.",
+        "suggested_boundary": "Durable-owner-only automatic disable, or broker-side conditional generation fencing; preserve genuine invalid-grant handling at the durable owner."
+      },
+      "verification": {
+        "executed": [
+          "Required policy searches",
+          "Port-driver registration and amendments"
+        ],
+        "not_run": [
+          "Tests",
+          "Builds",
+          "Lint",
+          "Formatters",
+          "Provider/auth/usage requests"
+        ],
+        "production_database_access": false,
+        "repository_patches_or_runtime_modified": false
+      },
+      "main_acceptance": [
+        "Managed MCP delegated refresh preserves the complete winning subtype row, including removed fields, without invoking its outer merger.",
+        "Failed refresh plus concurrent logout/type replacement returns no stored credential and performs no usage probe.",
+        "Remote store with a documented value-returning override returns/publishes A1, not unchanged A0.",
+        "Concurrent replacement/logout fences override publication; selectors and probes receive the winner without stale optional metadata."
+      ]
+    },
+    {
+      "owner": "PortAuth",
+      "status": "automatic_disable_repair_complete",
+      "repair": {
+        "authority": "Automatic conditional disable is now an optional authoritative-store capability. SQLite retains full-row and lease-fenced disable; RemoteAuthCredentialStore no longer implements or declares the unsafe conditional method.",
+        "consumers": "CredentialPool treats absent conditional-disable capability as refusal, never as permission to issue an unconditional delete. refreshStored performs automatic definitive-failure disable only for local exchanges.",
+        "fallback": "Broker-backed refreshStored keep-on-failure revalidates the authoritative snapshot under the owner's deadline before returning any current credential. If revalidation fails, the original refresh error propagates instead of returning unverifiable stale bearer bytes.",
+        "explicit_user_disable": "Unchanged: deleteAuthCredential, AuthBrokerClient.disableCredential, and the explicit broker disable endpoint still perform user-requested disable."
+      },
+      "genuine_invalid_grant_trace": [
+        "auth-broker/server.ts refresh route invokes storage.oauth.refresh.",
+        "auth-broker-cli.ts constructs SQLite-backed AuthStorage with refreshOAuthCredentialMints:true.",
+        "OAuthRefresher local exchange handles definitive failure with the same-owner lease/full-row fence.",
+        "SqliteAuthCredentialStore.tryDisableAuthCredentialIfMatches retains its conditional SQL implementation."
+      ],
+      "changed_paths": [
+        "pi-ai/src/auth/store.ts",
+        "pi-ai/dist/types/auth/store.d.ts",
+        "pi-ai/src/auth-broker/remote-store.ts",
+        "pi-ai/dist/types/auth-broker/remote-store.d.ts",
+        "pi-ai/src/auth/pool.ts",
+        "pi-ai/src/auth/refresh.ts"
+      ],
+      "fragments": {
+        "all_six_amendments_recorded_under": "0090-omp-oauth-durable-refresh",
+        "conflicts": 0,
+        "total_owned_paths": 27,
+        "total_family_path_fragments": 35
+      },
+      "coordination": {
+        "reviewer": "Notified ReviewAuth18100 with the final optional-capability contract and source trace.",
+        "gate_owner": "Coordinated the stale-snapshot delegated invalid_grant race: zero automatic /disable POST, healthy server replacement remains active, explicit user disable still succeeds; existing genuine server invalid_grant control remains."
+      },
+      "availability_tradeoff": "A failed delegated refresh cannot retain a cached access credential when its authoritative snapshot cannot be revalidated within the owner deadline.",
+      "verification": {
+        "executed": [
+          "Source caller/authority tracing",
+          "Required policy searches",
+          "Port-driver amendments"
+        ],
+        "not_run": [
+          "Tests",
+          "Builds",
+          "Lint",
+          "Formatters",
+          "Provider/auth/usage requests"
+        ],
+        "production_database_access": false,
+        "runtime_or_repo_patches_modified": false
+      },
+      "blockers": []
+    },
+    {
+      "owner": "PortAuth",
+      "status": "AUTH-CHECK-10_repair_complete",
+      "changed_source": "pi-ai/src/auth/usage.ts",
+      "repair": "After adopting the stored winner, compute its usageCacheIdentity and compare it with the original request's accountKey. On identity change, invalidate the original canonical and legacy report aliases and return null before prior-report lookup, provider probing, cache publication, reconciliation, or history recording. Normal same-identity token rotation proceeds unchanged.",
+      "scope": "UsageService local report/reports path only. Health continues projecting and probing the winning row without attributing a result to the old usage cache/history request.",
+      "representation": {
+        "family": "family-usage-pipeline",
+        "status": "AMENDMENT ACCEPTED",
+        "conflict_resolution": "Resolved only dedicated snapshots files/1 and files/3, placing the identity fence into their existing pre-0090 refresh flow. Preserved later OAuth-family ownership and final work source.",
+        "new_paths": 0,
+        "declaration_changes": 0
+      },
+      "coordination": {
+        "gate_owner": "Provided GateDurability18100 the focused A-to-B race observables, public history API, and existing usage identity/key helpers.",
+        "reviewer": "Requested ReviewAuth18100 source recheck after amendment acceptance."
+      },
+      "suggested_acceptance": [
+        "Request A yields null after adopting identity B, with no B usage probe and no A history entry.",
+        "Original canonical/legacy report aliases cannot resurrect a report.",
+        "A separate request for B probes and caches under B's identity.",
+        "Token rotation with unchanged canonical identity still returns ordinary usage."
+      ],
+      "verification": {
+        "executed": [
+          "Required policy searches",
+          "Port-driver amendment and conflict-snapshot acceptance"
+        ],
+        "not_run": [
+          "Tests",
+          "Builds",
+          "Lint",
+          "Formatters",
+          "Provider/auth/usage requests"
+        ],
+        "production_database_access": false
+      },
+      "blockers": []
+    },
+    {
+      "owner": "PortAuth",
+      "status": "independent_source_review_passed",
+      "reviewer": "ReviewAuth18100",
+      "review_scope": "Source-only closure of AUTH-CHECK-01 through AUTH-CHECK-10, AUTH-CHECK-03-RECHECK, and the stale automatic broker-disable defect.",
+      "additional_changes": false,
+      "remaining_main_acceptance": "Integrated representation replay and focused synthetic durability, cancellation, replacement/logout, override, automatic-disable, and usage-identity scenarios. No runtime or deployment approval is claimed.",
+      "deployment_constraints": [
+        "Drain and stop all old refresh writers and brokers; persist known received outcomes and prevent old-process restarts before admitting journal-aware writers.",
+        "Exclude old clients that can issue unconditional automatic disable when enforcing the new stale-disable guarantee.",
+        "Do not restart journal-unaware writers against unresolved journal state during rollback.",
+        "Do not infer pre-journal exchange outcomes or backfill, reclassify, disable, rewrite, or copy healthy existing credentials."
+      ],
+      "verification_performed_by_portauth": "No tests, builds, lint, typechecks, formatters, provider requests, or production database access."
+    }
+  ]
+}

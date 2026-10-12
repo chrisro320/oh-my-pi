@@ -1,0 +1,18 @@
+{
+  "checked_utc": "2026-10-12T04:31:06.643641+00:00",
+  "result": "PASS",
+  "family_rows": 24,
+  "unique_risk_rows": 27,
+  "all_references_exist": true,
+  "all_family_dispositions_complete": true,
+  "reviewers_current_model_no_fallback": 11,
+  "context_manifest_rows": {
+    "implement.jsonl": 8,
+    "check.jsonl": 9
+  },
+  "captured_ledger_files_byte_unchanged": 27,
+  "optional_0097_selected": false,
+  "candidate_implemented": false,
+  "provider_requests_during_validation": 0,
+  "checks": "Artifact/schema/link/model-record/baseline-hash validation only; no product tests rerun."
+}

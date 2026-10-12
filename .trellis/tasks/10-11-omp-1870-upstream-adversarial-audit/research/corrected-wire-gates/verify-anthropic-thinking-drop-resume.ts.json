@@ -1,0 +1,12 @@
+{
+  "gate": "verify-anthropic-thinking-drop-resume.ts",
+  "started": "2026-10-12T06:02:47.632212+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-wire-gates/ledger/verify-anthropic-thinking-drop-resume.ts"
+  ],
+  "gate_sha256": "3a014144b5e886007b5feb421709607b1ee5a1d3ae0b8182596c90e11e948699",
+  "exit": 0,
+  "stdout": "PASS anthropic thinking-drop resume (18.10.0): 26 offline requests; legacy omissions, repeated resume, endpoint/model isolation, new blocks kept, durable 400 repair, invalid/malformed reports ignored, server reports remain on wire\n",
+  "stderr": ""
+}

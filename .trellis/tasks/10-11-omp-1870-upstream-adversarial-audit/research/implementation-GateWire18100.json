@@ -1,0 +1,197 @@
+{
+  "agent": "GateWire18100",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "status": "complete",
+      "summary": "Adapted the owned verification gates for the 18.10.0 source contracts. No product source, controller, credentials, databases, or unrelated files were changed. No builds, lint, tests, formatters, gate executions, or provider calls were run.",
+      "files_changed": [
+        {
+          "path": "patches/verify-anthropic-cache-boundaries.ts",
+          "lines": "11, 78-80, 119-181",
+          "changes": "Added target-only actual-stream credit regressions for both cache-control retry rungs, with server-tool refusal and text-only recovery controls. Retained existing cache, TTL, no-cache, extension-prefix, and server-cleared-boundary cases."
+        },
+        {
+          "path": "patches/verify-anthropic-request-audit.ts",
+          "lines": "13, 29, 49-98, 184",
+          "changes": "Honors the catalog-specific selected root. Uses the actual target native-compaction builder instead of fabricating the legacy envelope; asserts native classification and unchanged ordinary baseline after both equal and changed native requests. Uses the documented warmer action on 18.7/18.10."
+        },
+        {
+          "path": "patches/verify-anthropic-thinking-drop-resume.ts",
+          "lines": "19-20, 186-231, 275-280, 305-311, 335-374",
+          "changes": "Admits 18.10.0. Separates legacy source-less committed omissions, server-managed reports, and explicit client-prefix-binding repairs. Checks server reports preserve signed/redacted wire blocks live and after fresh-state resume; legacy omissions and client repairs remain durable. Retains endpoint/model isolation and malformed-record cases."
+        },
+        {
+          "path": "patches/verify-anthropic-native-compaction-live-context.ts",
+          "lines": "5-8, 77, 108-121, 163",
+          "changes": "Admits target whole-chain and signed-native behavior, removes the target fixture's legacy encrypted payload field, and adds fail-closed default transport. Removes incidental instruction/log wording checks while preserving message, signature, boundary, fallback-reason, and warning observables."
+        },
+        {
+          "path": "patches/verify-codex-compaction-chain.ts",
+          "lines": "25-28, 44, 48-51",
+          "changes": "Admits 18.10.0, removes an unused root and obsolete source-wiring coverage claims. Existing behavioral serializer checks remain."
+        },
+        {
+          "path": "patches/verify-codex-compaction-chain-fail-closed.ts",
+          "lines": "39-58, 231-249, 322-333, 487-551, 600, 812-826",
+          "changes": "Admits 18.10.0 throughout existing recovery, capacity, metadata, and declaration-consumer legs. Adds actual compact() effective-lane terminal refusal, actual loopback entitlement rejection with no SSE/V1/local fallback, and an independent ordinary-turn entitlement recovery control. Removes maintenance source-text assertions. Blocks uninjected HTTP."
+        },
+        {
+          "path": "patches/verify-codex-effort-resume.ts",
+          "lines": "25-44, 140-177, 251-257",
+          "changes": "Admits 18.10.0, exercises a low initial target effort header and persisted required sessionId, and retains actual serialized resume/branch/history cases. Blocks uninjected HTTP."
+        },
+        {
+          "path": "patches/verify-prefix-cache-compaction.ts",
+          "lines": "5-8, 70, 784-814",
+          "changes": "Admits target live-chain behavior and blocks default network transport. Removes host import/callsite-count/source-wiring assertions and incidental merged-heading assertions; keeps behavioral request/prefix/summary-presence checks."
+        },
+        {
+          "path": "patches/verify-compaction-cache-liveness.ts",
+          "lines": "90, 518-525, 922-968, 1015-1106, 1262-1267, 1312-1318, 1402-1406, 1828-1832",
+          "changes": "Removed stale instructional comments and incidental log/error/summary-heading wording assertions. Retained actual request coverage, prefix identity, simulated cache behavior, named fallback reasons, and existing tiny-target/multi-window overflow regressions."
+        },
+        {
+          "path": "patches/verify-compaction-lane-trace.ts",
+          "lines": "23-26, 88, 396, 408, 424, 449, 473, 513",
+          "changes": "Admits 18.10.0 in all relevant trace legs, uses signed-only target native fixtures, and blocks uninjected network transport."
+        }
+      ],
+      "intentionally_unchanged": [
+        {
+          "path": "patches/verify-resume-cache-breakpoint.ts",
+          "reason": "Version-independent repository-extension consumer with synthetic payloads; no target API admission or fixture migration was required."
+        }
+      ],
+      "expected_outcome_changes_not_executed": [
+        "[INFERENCE] Target credited server-tool refusals stop after one credited request on each cache-control rung; safe text-only controls issue one tokenless rebuilt request with the appropriate retained-or-removed markers.",
+        "[INFERENCE] Target native compaction is classified from compaction.type=summarize and cannot advance the ordinary baseline; legacy-release audit behavior remains exercised through its existing envelope.",
+        "[INFERENCE] Target server-managed thinking drops no longer create client omission records or remove historical signed/redacted blocks. Legacy omissions and explicit client-prefix-binding repairs still reproduce after JSON/fresh-state resume.",
+        "[INFERENCE] An effective Codex-lane refusal survives outer compact() without V1, SSE, or local summarization. Buffered entitlement refusal remains terminal after a chained WebSocket frame; ordinary entitlement recovery remains permitted.",
+        "[INFERENCE] Target effort resume retains the low original request-level effort, historical configuration_update position, and required session identity.",
+        "[INFERENCE] Target whole-chain/native/trace branches now run instead of being rejected or selecting older-release behavior. Incidental wording/source spelling changes no longer fail the removed assertions."
+      ],
+      "acceptance": {
+        "execution_owner": "Main",
+        "runtime_prerequisite": "CANDIDATE_NM must be Main's dependency-complete, fully rebased 18.10.0 @oh-my-pi directory. The migration work/ source tree has no dependency closure; do not substitute the pristine, partial-replay, stock audit runtime, or live global tree. PRIVATE_HOME must be a fresh private directory.",
+        "environment_and_runner": "mkdir -p \"$PRIVATE_HOME/config\" \"$PRIVATE_HOME/cache\" \"$PRIVATE_HOME/data\" \"$PRIVATE_HOME/agent\"\nrun_gate() {\n  env -i PATH=/home/chris/.bun/bin:/usr/local/bin:/usr/bin:/bin HOME=\"$PRIVATE_HOME\" XDG_CONFIG_HOME=\"$PRIVATE_HOME/config\" XDG_CACHE_HOME=\"$PRIVATE_HOME/cache\" XDG_DATA_HOME=\"$PRIVATE_HOME/data\" PI_CODING_AGENT_DIR=\"$PRIVATE_HOME/agent\" OMP_PATCH_OFFLINE_VERIFY=1 OMP_PAYLOAD_ARCHIVE_OFF=1 OMP_RESUME_CACHE_LOG=\"$PRIVATE_HOME/resume-cache.log\" OMP_PATCH_VERIFY_NM=\"$CANDIDATE_NM\" OMP_PATCH_VERIFY_AI_ROOT=\"$CANDIDATE_NM/pi-ai\" OMP_PATCH_VERIFY_CORE_ROOT=\"$CANDIDATE_NM/pi-agent-core\" OMP_PATCH_VERIFY_AGENT_ROOT=\"$CANDIDATE_NM/pi-coding-agent\" OMP_PATCH_VERIFY_CATALOG_ROOT=\"$CANDIDATE_NM/pi-catalog\" OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT=\"$CANDIDATE_NM/snapcompact\" OMP_PATCH_VERIFY_TUI_ROOT=\"$CANDIDATE_NM/pi-tui\" /home/chris/.bun/bin/bun \"/home/chris/orca/projects/omp-move/patches/$1\"\n}",
+        "smallest_selected_risk_commands": [
+          "run_gate verify-anthropic-cache-boundaries.ts",
+          "run_gate verify-anthropic-request-audit.ts",
+          "run_gate verify-anthropic-thinking-drop-resume.ts",
+          "run_gate verify-codex-compaction-chain-fail-closed.ts",
+          "run_gate verify-codex-effort-resume.ts"
+        ],
+        "remaining_owned_commands_for_main_selection": [
+          "run_gate verify-codex-compaction-chain.ts",
+          "run_gate verify-anthropic-native-compaction-live-context.ts",
+          "run_gate verify-prefix-cache-compaction.ts",
+          "run_gate verify-compaction-cache-liveness.ts",
+          "run_gate verify-compaction-lane-trace.ts",
+          "run_gate verify-resume-cache-breakpoint.ts"
+        ],
+        "notes": [
+          "Run selected gates sequentially once after integration, not against siblings' intermediate work.",
+          "The fail-closed gate retains its existing published-declaration consumer and invokes tsc; tsc must be available on the allowlisted PATH.",
+          "The request-audit gate deliberately enables archival only inside its own temporary directory.",
+          "These are client-consumer observations, not evidence of provider cache hits, billing, or credential safety."
+        ]
+      },
+      "coordination": [
+        "PortAnthropic confirmed provenance, native audit taxonomy, and both credit-aware retry observables.",
+        "PortCodex confirmed sessionId-required effort state and the eligible-account entitlement fixture, including distinct account identities for controls.",
+        "PortCore confirmed native signed-result requirements, live callback shape, and outer compact() effective-lane refusal.",
+        "PortLifecycle confirmed CacheWarmer decide returns \"warm\"/\"stop\"; the internal override envelope was not a source defect.",
+        "GateHost18100 confirmed existing actual host compact/archive and native-surface consumers remain in its owned gates."
+      ],
+      "outside_ownership": [
+        "patches/apply.sh and deployment/patch documentation must bind and describe the completed target plan; not edited.",
+        "patches/verify-model-selection-resume.ts and patches/verify-oauth-durable-refresh.ts remain separate lifecycle/auth acceptance owners; not edited.",
+        "Removed host source-wiring assertions do not establish manual/automatic/advisor callback closure. Main should retain actual host-consumer coverage rather than replace those assertions with new text checks."
+      ],
+      "verification_results": [],
+      "open_implementation_blockers": []
+    },
+    {
+      "status": "Follow-up gate edits complete; no checks executed.",
+      "changes": [
+        {
+          "path": "/home/chris/orca/projects/omp-move/patches/verify-anthropic-thinking-drop-resume.ts",
+          "lines": "65\u2013101, 173\u2013185, 336\u2013387",
+          "behavior": "Extended the existing explicit-prefix-binding 400 case: request A retries without its rejected thinking keys, the accepted retry actually serves fallback B, then JSON-round-tripped history with fresh provider state must omit those keys on the first resumed A request. Added controls proving request B cannot inherit A's repair and a source-less legacy record still rejects a mismatched carrier model. Older-release behavior remains applicable."
+        },
+        {
+          "path": "/home/chris/orca/projects/omp-move/patches/verify-codex-compaction-chain-fail-closed.ts",
+          "lines": "311\u2013322, 344\u2013346, 381\u2013398, 434\u2013496",
+          "behavior": "Added the target-only buffered, idless codex_previous_response_stale case beside previous_response_not_found. Both one-shot stale cases require exactly one generate:false recovery between rejected and accepted compactions; the accepted compaction must use the newly acknowledged response ID. HTTP/SSE/V1 escape count remains zero."
+        },
+        {
+          "path": "/home/chris/orca/projects/omp-move/patches/verify-prefix-cache-compaction.ts",
+          "lines": "778\u2013871",
+          "behavior": "Added actual streamOpenAIResponses proof for upstream 0017 adoption: ordinary native history replays its opaque reasoning on the initial request; connection-bound history withholds it initially and replays it after an accepted completion. Each variant uses its own fresh public state map, real intercepted SSE consumption, and statefulResponses:false so assertions inspect full wire input rather than private helpers or delta artifacts. Removed two unused prose-matching constants."
+        }
+      ],
+      "coordination": {
+        "PortAnthropic": "Confirmed fallback SSE shape and request-scoped client-prefix-binding provenance; source repair remains with that owner.",
+        "PortCore": "Confirmed standalone idless stale-alias frame and exact two-code recovery classification; source repair remains with that owner.",
+        "PortCodex": "Confirmed native Responses options, per-provider state isolation, usable-output warming, and full-replay fixture requirements."
+      },
+      "expected_outcome_changes": [
+        "[INFERENCE] Before the F1 source repair, resumed A wrongly replays the rejected blocks when the repair record is carried by fallback model B; the amended case should fail there and pass after the repair.",
+        "[INFERENCE] Before the F2 source repair, buffered codex_previous_response_stale terminates instead of recovering; the added alias case should fail there while the existing previous_response_not_found control continues to recover.",
+        "[INFERENCE] The target's upstream 0017 implementation should pass both native-history variants without a product patch. An always-cold initialization fails the ordinary first request; an always-warm initialization fails the connection-bound first request."
+      ],
+      "verification": {
+        "executed": [],
+        "instruction": "Main should run these three gates once after the corresponding source fixes and dependency-complete candidate integration. Do not point at the partial work tree, pristine target, or live installation.",
+        "commands": "# CANDIDATE_NM must be Main's final dependency-complete @oh-my-pi candidate root.\n: \"${CANDIDATE_NM:?Set the final isolated candidate package root}\"\nPRIVATE_HOME=$(mktemp -d /tmp/omp-wire-gates.XXXXXX)\nmkdir -p \"$PRIVATE_HOME/config\" \"$PRIVATE_HOME/cache\" \"$PRIVATE_HOME/data\" \"$PRIVATE_HOME/agent\"\nfor gate in verify-anthropic-thinking-drop-resume.ts verify-codex-compaction-chain-fail-closed.ts verify-prefix-cache-compaction.ts; do\n  env -i PATH=/home/chris/.bun/bin:/usr/local/bin:/usr/bin:/bin HOME=\"$PRIVATE_HOME\" XDG_CONFIG_HOME=\"$PRIVATE_HOME/config\" XDG_CACHE_HOME=\"$PRIVATE_HOME/cache\" XDG_DATA_HOME=\"$PRIVATE_HOME/data\" PI_CODING_AGENT_DIR=\"$PRIVATE_HOME/agent\" OMP_PATCH_OFFLINE_VERIFY=1 OMP_PAYLOAD_ARCHIVE_OFF=1 OMP_RESUME_CACHE_LOG=\"$PRIVATE_HOME/resume-cache.log\" OMP_PATCH_VERIFY_NM=\"$CANDIDATE_NM\" OMP_PATCH_VERIFY_AI_ROOT=\"$CANDIDATE_NM/pi-ai\" OMP_PATCH_VERIFY_CORE_ROOT=\"$CANDIDATE_NM/pi-agent-core\" OMP_PATCH_VERIFY_AGENT_ROOT=\"$CANDIDATE_NM/pi-coding-agent\" OMP_PATCH_VERIFY_CATALOG_ROOT=\"$CANDIDATE_NM/pi-catalog\" OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT=\"$CANDIDATE_NM/snapcompact\" OMP_PATCH_VERIFY_TUI_ROOT=\"$CANDIDATE_NM/pi-tui\" /home/chris/.bun/bin/bun \"/home/chris/orca/projects/omp-move/patches/$gate\" || break\ndone",
+        "prerequisite": "The existing fail-closed declaration-consumer case requires tsc on the allowlisted PATH."
+      },
+      "scope": "Only the three owned verification files above changed in this follow-up. No product source, credentials, databases, external gates, or live/global trees were touched."
+    },
+    {
+      "status": "Repaired all three reported gate failures. No gate reruns, tests, builds, lint, or formatters executed.",
+      "repairs": [
+        {
+          "path": "/home/chris/orca/projects/omp-move/patches/verify-codex-compaction-chain-fail-closed.ts",
+          "lines": "514\u2013517, 543\u2013560",
+          "cause": "The ordinary stream and buffered compaction collector use different entitlement-recovery paths. Ordinary #tryDropRejectedAccessPrograms reopens the healthy WebSocket after stripping access_programs; the fixture incorrectly expected its unused SSE responder's text.",
+          "evidence": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-ai/src/providers/openai-codex-responses.ts:3421\u20133451; PortCodex confirmed healthy-WS reuse.",
+          "repair": "Removed the mock-echo SSE expectation and responder. Assert exactly two ordinary WS attempts after seeding: entitled chained request, then entitlement-free full replay on the same healthy socket. HTTP interception now throws and its counter must stay zero. Compaction still requires typed terminal refusal, one chained attempt, zero HTTP/SSE/V1, zero soft fallback, and no committed refused metadata.",
+          "expected_change": "[INFERENCE] The ordinary control succeeds through its actual WebSocket recovery instead of failing on 'ok' versus 'recovered'."
+        },
+        {
+          "path": "/home/chris/orca/projects/omp-move/patches/verify-anthropic-cache-boundaries.ts",
+          "lines": "137\u2013146",
+          "cause": "The supposed successful retry contained no content blocks, so the public stream's separate benign-empty-completion policy generated additional requests.",
+          "evidence": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-ai/src/utils/empty-completion-retry.ts:137\u2013149.",
+          "repair": "Added a valid text block start/delta/stop to the accepted SSE response. Did not disable retries or relax attempt counts, credit stripping, TTL-rung assertions, or the server-tool no-replay boundary.",
+          "expected_change": "[INFERENCE] Each safe-text rung makes exactly two attempts rather than four; each server-tool credit case still stops after one."
+        },
+        {
+          "path": "/home/chris/orca/projects/omp-move/patches/verify-anthropic-thinking-drop-resume.ts",
+          "lines": "394\u2013400, 416\u2013420",
+          "cause": "18.10 exposes baseURL through a getter without a setter. The old fixture assigned over it; additionally, constructing that client no longer represents an opaque endpoint.",
+          "evidence": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-ai/src/providers/anthropic-client.ts:188\u2013216; the 18.7 baseline class at :191\u2013205 has no endpoint getter.",
+          "repair": "Use constructor-owned endpoints directly on 18.10; retain endpoint publication only for the 18.7 fixture. Model an opaque injected client by exposing the real client's Messages resource without its endpoint. Actual transport remains intercepted and no provider helper is reimplemented.",
+          "expected_change": "[INFERENCE] The endpoint-isolation cases proceed without readonly-property failure, while the opaque-client case still genuinely lacks endpoint provenance."
+        }
+      ],
+      "verification": {
+        "observed": "Read Main's three existing result.json failures; did not reproduce them.",
+        "rerun_only": [
+          "verify-codex-compaction-chain-fail-closed.ts",
+          "verify-anthropic-cache-boundaries.ts",
+          "verify-anthropic-thinking-drop-resume.ts"
+        ],
+        "commands": "# Use the same dependency-complete CANDIDATE_NM and private PRIVATE_HOME as Main's isolated selected-stable-gates run.\n: \"${CANDIDATE_NM:?}\" \"${PRIVATE_HOME:?}\"\nfor gate in verify-codex-compaction-chain-fail-closed.ts verify-anthropic-cache-boundaries.ts verify-anthropic-thinking-drop-resume.ts; do\n  env -i PATH=/home/chris/.bun/bin:/usr/local/bin:/usr/bin:/bin HOME=\"$PRIVATE_HOME\" XDG_CONFIG_HOME=\"$PRIVATE_HOME/config\" XDG_CACHE_HOME=\"$PRIVATE_HOME/cache\" XDG_DATA_HOME=\"$PRIVATE_HOME/data\" PI_CODING_AGENT_DIR=\"$PRIVATE_HOME/agent\" OMP_PATCH_OFFLINE_VERIFY=1 OMP_PAYLOAD_ARCHIVE_OFF=1 OMP_RESUME_CACHE_LOG=\"$PRIVATE_HOME/resume-cache.log\" OMP_PATCH_VERIFY_NM=\"$CANDIDATE_NM\" OMP_PATCH_VERIFY_AI_ROOT=\"$CANDIDATE_NM/pi-ai\" OMP_PATCH_VERIFY_CORE_ROOT=\"$CANDIDATE_NM/pi-agent-core\" OMP_PATCH_VERIFY_AGENT_ROOT=\"$CANDIDATE_NM/pi-coding-agent\" OMP_PATCH_VERIFY_CATALOG_ROOT=\"$CANDIDATE_NM/pi-catalog\" OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT=\"$CANDIDATE_NM/snapcompact\" OMP_PATCH_VERIFY_TUI_ROOT=\"$CANDIDATE_NM/pi-tui\" /home/chris/.bun/bin/bun \"/home/chris/orca/projects/omp-move/patches/$gate\" || break\ndone"
+      },
+      "scope": "Only these three owned gates changed. No product-source repair was needed for the identified fixture faults; no external gates, credentials, databases, or live/global installations were modified."
+    }
+  ]
+}

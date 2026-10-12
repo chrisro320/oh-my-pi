@@ -1,0 +1,11 @@
+{
+  "gate": "verify-user-display-text-queue.ts",
+  "started": "2026-10-12T05:48:24.333619+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-user-display-text-queue.ts"
+  ],
+  "exit": 0,
+  "stdout": "verify-user-display-text-queue: PASS (18.10.0, queue identity)\n",
+  "stderr": ""
+}

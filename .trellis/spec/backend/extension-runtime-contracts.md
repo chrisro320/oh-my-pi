@@ -344,8 +344,15 @@ interface Diff {
   `~/.omp/agent/cache-prefix-audit.log` (JSONL, 2 MiB rotation).
   `OMP_CACHE_AUDIT_STATE_DIR` and `OMP_CACHE_AUDIT_LOG` overrides must be supported for
   test isolation.
+- **Diagnostic Privacy**: Persist only message lengths and content hashes, never
+  message/reasoning excerpts or signatures. Strip legacy sample prose on restore;
+  diffs must also suppress legacy excerpts without hiding `HISTORY_REWRITE`.
 - **Mirror Parity**: `patches/cache-prefix-audit-extension.ts` and
   `~/.omp/agent/extensions/cache-prefix-audit.ts` must maintain 100% byte parity.
+- **Persistence Audit Presentation**: `context-persist-audit-extension.ts` is
+  log-only by user decision (2026-10-12). Preserve divergence classification,
+  side-request exclusion and the content-free rotating audit log; never mutate
+  session history or notify the UI. Disabling its notification is not a drift fix.
 
 ### 4. Validation & Error Matrix
 
@@ -1106,17 +1113,22 @@ Correct: derive task.py and active_task.py byte-for-byte from the clean scaffold
 - `prepare_user_input({ inputId, sessionId, target: "main", source: "interactive", submission: "submit" | "followUp", text, images?, signal })` returns `{ action: "submit", modelText? } | { action: "cancel" } | undefined`.
 - `appendEntryPersisted(customType, data, { sessionId, signal }): Promise<string>` acknowledges a durable native session entry. `userInputPreparationVersion` is `1`.
 - `/translator [status|on|off|model <provider/id>]`; `SummaryOptions.allowTruncation?: boolean` defaults to existing behavior, while the translator passes `false`.
+- Queue consumers: `AgentSession.popLastQueuedMessage()` and `InputController` empty submit share ordinary and live-steered input ownership.
 
 ### 3. Contracts
 - Keep one real user message: model conversion strips `displayText`; UI/history/draft restoration prefer it. Do not interpret translated text as a new command.
+- Alt+Up must withdraw a live-steered message before aborting its response; return its original `displayText`, preserve other queued input, and prevent the withdrawn message from entering history or being redelivered.
+- A queued continuation checks idle status before reserving its in-flight slot. Its later `shouldContinue` checks queue policy, not session idle status: the reservation itself makes `isStreaming` true. Never add a timeout to hide a cancel/reschedule loop.
 - Await preparation outside the generic extension timeout. Capture draft/session ownership before awaiting; don't overwrite a newer draft with an older result.
-- Fresh sessions enable `cline-pass/deepseek-v4.1-flash`, low effort, no tools. Use native credentials, independent hidden history and stable `omp-translator:<sessionId>` identity.
+- Fresh sessions enable `deepseek/deepseek-flash` using `api: openai-completions` and the official `https://api.deepseek.com/v1` base URL, low effort, no tools. Use native credentials, independent hidden history and stable `omp-translator:<sessionId>` identity. Keep API keys in private user configuration, never in the extension or repository.
+- Translator connectivity repair must not silently broaden into global DNS/proxy changes. Global resolver changes require separate authorization and a working direct bootstrap path for `dns.default-nameserver` / `dns.proxy-server-nameserver`; a DoH request succeeding through the existing proxy is not bootstrap proof. Preserve selector choices and routing rules, and retain a known-working configuration for immediate rollback.
 - Native soft sees complete translator pairs plus the previous summary, not the main session. Commit a fitting checkpoint before reuse; do not create an extra full-history payload log.
 
 ### 4. Validation & Error Matrix
 - Translation/soft failure → explicit modal; Escape retries, Enter durably chooses original-send for this input only.
 - Lifecycle cancellation → no stale delivery; persistence failure → no successful acknowledgement.
 - Cancellation after disk commit does not undo a write: return its entry ID, then suppress stale caller effects.
+- Empty Enter with live steering → abort the current response, deliver the retained input once in a fresh run, then settle; Alt+Up → restore the draft without delivering it.
 
 ### 5. Good / Base / Bad Cases
 - Good: Chinese remains visible while the corresponding English is sent automatically.
@@ -1125,7 +1137,11 @@ Correct: derive task.py and active_task.py byte-for-byte from the clean scaffold
 
 ### 6. Tests Required
 - Keep verification proportional: actual CLI/provider smoke for original display versus English delivery, failure keys and resume; controlled synthetic history may reach real soft. No new permanent gate/test matrix or repeated reviews for this feature.
+- Queue repair smoke must use actual `AgentSession.prompt`, live-steering acceptance and the real empty-submit handler under private HOME with fetch blocked; assert exactly one continuation and no withdrawn-message transcript entry. Keep the probe temporary.
+- For DNS changes, validate direct bootstrap independently before live reload (`GET /proxies/DIRECT/delay` against the proposed resolver is a reachability check, not full DNS correctness proof). A successful DNS response is insufficient: verify the returned proxy-node address is reachable using an isolated instance with the actual node configuration and no TUN changes. Plaintext bootstrap requires explicit acceptance of visibility/interception risk; do not claim zero DNS leakage. Failed bootstrap blocks deployment; a post-reload connection failure requires immediate rollback before more candidate probes. Honor provider probe exclusions: do not send Anthropic HTTP/API requests or DNS queries when the user forbids them.
+- Short DNS/HTTP smoke success proves current reachability, not sustained stability. Treat later user-reported instability as ground truth; when rolling back DNS, restore only the changed resolver fields so subsequent user routing/configuration edits survive. Preserve a separately authorized endpoint-specific repair when reverting a broader resolver migration.
 - Report only observed coverage. Contract inventory: `grep -nE 'prepare_user_input|appendEntryPersisted|allowTruncation' patches/input-translator-extension.ts patches/.18.3.3-candidates/0082-omp-user-display-text-v18.3.3-candidate.patch`.
+- Queue contract inventory: `grep -nE 'peekLiveSteeredMessages|withdrawUndeliveredQueuedMessages|canContinueQueuedMessages' patches/.18.10.1-families/family-input-translation-v18.10.1.patch`.
 
 ### 7. Wrong vs Correct
 ```text
@@ -1133,40 +1149,44 @@ Wrong: add a custom/developer message containing the translation beside the orig
 Correct: one UserMessage { content: English, displayText: original }; presentation and model boundaries select their own field.
 ```
 
-## Scenario: Per-model audit baseline and identity dedupe (18.4.4)
+## Scenario: Per-model request baselines and uncorrelated completion usage
 
 ### 1. Scope / Trigger
 
-`patches/cache-prefix-audit-extension.ts` (mirror `~/.omp/agent/extensions/cache-prefix-audit.ts`). The verdict must be measured against the immediately preceding request of the SAME model, and the candidate window must dedupe by request identity, not by the ISO-millisecond `at`.
+`patches/cache-prefix-audit-extension.ts` (deployment mirror `~/.omp/agent/extensions/cache-prefix-audit.ts`). Request diffs compare the preceding request of the SAME model; candidate identity is not the ISO-millisecond `at`. Completion usage is independently measured, not paired with the latest request.
 
 Incident (session `01a0f047`, 2026-09-30): the advisor `gpt-5.6-luna` sat between two claude requests, so claude's clean append was logged `SYSTEM_DRIFT system[0] 940ccaef… -> d17688e7…` — luna's own system prompt — on a row whose usage was 96-99% hit.
 
 ### 2. Signatures
 
-`SessionState.recent?: Fingerprint[]` is newest-first and now capped PER MODEL at `BASELINE_HISTORY`; `SessionState.lastDiffByModel` stays per model. The baseline choice is `const sameModel = candidates.filter(c => c.model === next.model); const prev = sameModel[0];`.
+`SessionState.recent?: Fingerprint[]` is newest-first and capped PER MODEL at `BASELINE_HISTORY`. Request rows carry `correlation: "request-only"`. Completion rows carry `correlation: "unavailable", cause: "unknown"`, `cacheStatus` and `strictHitRate`; there is no per-model completion diff slot.
 
 ### 3. Contracts
 
-- The verdict baseline (`prev`) is the newest `st.recent` entry whose `model` equals `next.model`; the candidate window keeps `BASELINE_HISTORY` entries PER MODEL, so a burst of one model's requests cannot evict another model's baseline. A model's first request reads `IDENTICAL / no baseline`, never another model's diff.
+- The request baseline (`prev`) is the newest `st.recent` entry whose `model` equals `next.model`; each model retains `BASELINE_HISTORY` entries. A first request reads `IDENTICAL / no baseline`, never another model's diff.
 - Candidate identity is the fingerprint object (`c !== next && c !== prev`), NEVER the `at` ISO-millisecond timestamp: two distinct requests in the same millisecond must not filter each other out of `recent`.
 - `st.last` (the newest request of ANY model) is kept only for cross-process pid continuity and state-file compatibility; it is not a baseline.
+- `message_end` has no shared request ID. Never attach `diff`, `headers`, `responseHeaders` or originating `sessionId` from request state. `observedSessionId` is current hook context, not a correlation key.
+- Usage is a hit only when `cacheRead / (cacheRead + cacheWrite + input) >= 0.5`; no input usage is unknown. Neither a miss nor a request diff alone proves cause.
 
 ### 4. Validation & Error Matrix
 
-| Observation | Required verdict |
+| Observation | Required result |
 |---|---|
 | claude N follows claude N-1 append-only, a luna request in between | `APPEND_ONLY` for claude |
 | a model's first request in the session | `IDENTICAL / no baseline` |
 | 12 luna requests between two claude requests | claude's baseline survives |
 | two models' requests share one ISO millisecond | neither baseline is deleted |
+| Same-model main/side overlap, distinct populated headers | Completion contains no borrowed request fields |
+| Zero total input usage | `cacheStatus: "unknown"` |
 
 ### 5. Good / Base / Bad Cases
 
-Good: interleaved claude/luna keeps `APPEND_ONLY` for claude and `SYSTEM_DRIFT` only for luna's own change. Base: a single-model session behaves exactly as before. Bad: `prev = st.last` labels a 96-99% hit with the other model's system prompt.
+Good: interleaved models retain their own request baselines and completion rows remain uncorrelated. Base: strict usage ratios remain independently observable. Bad: assigning the newest same-model diff or headers to an earlier completion.
 
 ### 6. Tests Required
 
-`bun patches/verify-cache-prefix-audit.ts` — section 3c (interleaved models: per-model baseline; a 12-request burst) and section 3d (equal ISO millisecond: a frozen clock pins all three fingerprints to one millisecond and claude still reads `APPEND_ONLY`). Reverting to `prev = st.last` or a global window fails 3c; deduping by `at` fails 3d.
+`bun patches/verify-cache-prefix-audit.ts` covers per-model baselines, equal-timestamp identity dedupe and same-model overlap. The overlap uses consistent session context and populated distinct main/side request and response fingerprints. A disposable header-only borrowing mutant must fail while the current handler passes; undefined fixture headers cannot prove isolation.
 
 Machine check (fails when the baseline is not per model, or when dedupe uses `at`):
 
@@ -1175,7 +1195,7 @@ grep -n 'const sameModel = candidates.filter\|sameModel.filter(c => c !== next' 
 bun patches/verify-cache-prefix-audit.ts
 ```
 
-Residual limits (pre-existing, NOT fixed here): one diff slot per model means two outstanding requests of the SAME model overwrite the earlier diff before its usage arrives; and the usage row's `headers`/`responseHeaders` still read `st.last`, so an interloper can name the wrong call's credential/header fingerprint.
+Limit: no end-to-end request ID is introduced. Earlier August–September 2026 per-model diff slots and completion header borrowing are superseded, not retained as fallback attribution. Request fingerprints cannot independently prove provider cache namespace, billing or server-side hit behavior.
 
 ### 7. Wrong vs Correct
 

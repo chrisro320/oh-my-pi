@@ -1,0 +1,12 @@
+{
+  "command": [
+    "bun",
+    "/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39/ledger/verify-native-dialog-lifecycle.ts"
+  ],
+  "exit": 0,
+  "stdout": "PASS settled native input ignores queued native, keyboard and paste delivery\nPASS refused native submit remains editable and retryable\nPASS native File copy preserves /home/user/session.jsonl\nPASS native File copy preserves C:\\Users\\user\\session.jsonl\nPASS native File copy preserves \\\\server\\share\\session.jsonl\nPASS native File copy preserves In-memory\nPASS MCP pending connection cancellation: native\nPASS MCP pending connection cancellation: keyboard\nPASS MCP pending connection cancellation: none\nPASS MCP discovery continuation ownership: cancelled=true\nPASS MCP discovery continuation ownership: cancelled=false\nPASS BTW emitted Copy answer action reaches application answer copying\nPASS advisor Tools End selection remains visible and applies its draft\n",
+  "stderr": "",
+  "time": "2026-10-12T07:24:59.862399+00:00",
+  "runtime": "/home/chris/.bun/install/omp-releases/18.10.1-a50842b5a6a1-2b9bd3dc-90f16e39/runtime/node_modules/@oh-my-pi",
+  "isolation": "allowlisted environment, private HOME/XDG/agent; no production credential operations"
+}

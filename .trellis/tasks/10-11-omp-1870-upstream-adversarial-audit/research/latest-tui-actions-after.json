@@ -1,0 +1,10 @@
+{
+  "started": "2026-10-12T06:42:37.532552+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-native-dialog-lifecycle.ts"
+  ],
+  "exit": 0,
+  "stdout": "PASS settled native input ignores queued native, keyboard and paste delivery\nPASS refused native submit remains editable and retryable\nPASS native File copy preserves /home/user/session.jsonl\nPASS native File copy preserves C:\\Users\\user\\session.jsonl\nPASS native File copy preserves \\\\server\\share\\session.jsonl\nPASS native File copy preserves In-memory\nPASS MCP pending connection cancellation: native\nPASS MCP pending connection cancellation: keyboard\nPASS MCP pending connection cancellation: none\nPASS BTW emitted Copy answer action reaches application answer copying\nPASS advisor Tools End selection remains visible and applies its draft\n",
+  "stderr": ""
+}

@@ -1,0 +1,11 @@
+{
+  "gate": "verify-model-selection-resume.ts",
+  "started": "2026-10-12T05:48:20.497347+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-model-selection-resume.ts"
+  ],
+  "exit": 0,
+  "stdout": "PASS persisted A -> B -> navigation/fork -> fresh-process resume: model=sol, effort=high\n",
+  "stderr": ""
+}

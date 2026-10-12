@@ -1,0 +1,12 @@
+{
+  "gate": "verify-rejected-prepared-draft-restore.ts",
+  "started": "2026-10-12T06:37:09.681507+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18101-migration/verification/latest-corrected-gates/snapshot/patches/verify-rejected-prepared-draft-restore.ts"
+  ],
+  "gate_sha256": "4a2b15e3daaab601ec58017003ffe6fc0d49a0b70f6d5875f5524ee3b773de8e",
+  "exit": 0,
+  "stdout": "verify-rejected-prepared-draft-restore: PASS (18.10.1)\n",
+  "stderr": ""
+}

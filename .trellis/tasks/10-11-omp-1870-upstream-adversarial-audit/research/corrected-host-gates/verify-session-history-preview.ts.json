@@ -1,0 +1,12 @@
+{
+  "gate": "verify-session-history-preview.ts",
+  "started": "2026-10-12T06:04:39.977307+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-host-gates/ledger/verify-session-history-preview.ts"
+  ],
+  "gate_sha256": "5fb5001525f27a6862353c6e28d997ce65cc614344fb524fa9e3d3a1fce6a570",
+  "exit": 1,
+  "stdout": "Starting Session History Preview verification...\n\u2713 fixture guard rejects live state and stray paths before access\n\u2713 list mode renders the fixture title and compact model, no transcript body\n\u2713 Space opens the preview and renders the fixture transcript verbatim, without tool noise\n\u2713 Esc closes the preview, while Esc in the list still cancels the picker\n\u2713 Space with a non-empty query edits the search text instead of opening the preview\n\u2713 Enter inside the preview resumes the selected session\n\u2713 Ctrl+C inside the preview exits the picker\n\u2713 mouse wheel scrolls the preview viewport across the whole transcript\n\u2713 scrollbar drag seeks the preview and Esc still leaves it cleanly\n\u2713 a tool-call turn keeps its real multi-line code fence\n\u2713 scanner resolves the newest role like resume (default/fallback\u2192default, role-scoped\u2192its model), falls back to last-served, and stays unset when empty\n",
+  "stderr": "\n[Uncaught Exception] AssertionError: worktree fixture must stay private\n    at /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-host-gates/ledger/verify-session-history-preview.ts:601:9\n    at processTicksAndRejections (native:7:39)\n"
+}

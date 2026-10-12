@@ -1,0 +1,32 @@
+[
+  {
+    "package": "pi-coding-agent",
+    "explicit_directories": 0,
+    "existing_package_mode": "0o775"
+  },
+  {
+    "package": "pi-agent-core",
+    "explicit_directories": 0,
+    "existing_package_mode": "0o775"
+  },
+  {
+    "package": "pi-ai",
+    "explicit_directories": 0,
+    "existing_package_mode": "0o775"
+  },
+  {
+    "package": "pi-tui",
+    "explicit_directories": 0,
+    "existing_package_mode": "0o775"
+  },
+  {
+    "package": "pi-catalog",
+    "explicit_directories": 0,
+    "existing_package_mode": "0o775"
+  },
+  {
+    "package": "snapcompact",
+    "explicit_directories": 0,
+    "existing_package_mode": "0o775"
+  }
+]

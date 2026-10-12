@@ -1,0 +1,14 @@
+{
+  "started": "2026-10-12T06:04:02.164110+00:00",
+  "command": [
+    "python3",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/export-candidate.py",
+    "--root",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+    "--repo",
+    "/home/chris/orca/projects/omp-move"
+  ],
+  "exit": 0,
+  "stdout": "{\n  \"status\": \"generated-not-verified\",\n  \"version\": \"18.10.0\",\n  \"families\": 23,\n  \"owned_paths\": 155,\n  \"candidate_tree_sha256\": \"e26ecd49b6ce74608f1089d420405f97b4e1cb1c3e3ab185198a3ad1f022ecfa\"\n}\n",
+  "stderr": ""
+}

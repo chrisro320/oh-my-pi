@@ -1,0 +1,649 @@
+[
+  {
+    "id": "family-status-accounting",
+    "order": 1,
+    "patch": ".18.7.0-families/family-status-accounting-v18.7.0.patch",
+    "root": "NM",
+    "source_sha256": "a66b586c589e2aa008721cf7c23a7e92e6d9f1859b05a0c53d8d9fbabd74e211",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-coding-agent/dist/types/session/session-manager.d.ts",
+      "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts",
+      "pi-coding-agent/src/cli/gallery-fixtures/status-line.ts",
+      "pi-coding-agent/src/session/session-manager.ts",
+      "pi-tui/dist/types/status-line/host.d.ts",
+      "pi-tui/dist/types/status-line/schema.d.ts",
+      "pi-tui/src/status-line/host.ts",
+      "pi-tui/src/status-line/schema.ts",
+      "pi-tui/src/status-line/segments.ts",
+      "pi-tui/src/status-line/startup.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-coding-agent/dist/types/session/session-manager.d.ts",
+      "pi-coding-agent/src/session/session-manager.ts",
+      "pi-tui/dist/types/status-line/host.d.ts",
+      "pi-tui/src/status-line/host.ts",
+      "pi-tui/src/status-line/segments.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "family-hindsight",
+    "order": 2,
+    "patch": ".18.7.0-families/family-hindsight-v18.7.0.patch",
+    "root": "AGENT",
+    "source_sha256": "ae69732ee772466c1e1b1d705e70e9639f813c3f95a40bf25cc7eaf781812148",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-coding-agent/dist/types/session/session-memory.d.ts",
+      "pi-coding-agent/dist/types/session/session-tools.d.ts",
+      "pi-coding-agent/src/hindsight/backend.ts",
+      "pi-coding-agent/src/hindsight/state.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/session-memory.ts",
+      "pi-coding-agent/src/session/session-tools.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-coding-agent/dist/types/session/session-tools.d.ts",
+      "pi-coding-agent/src/hindsight/state.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/session-tools.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "family-usage-pipeline",
+    "order": 3,
+    "patch": ".18.7.0-families/family-usage-pipeline-v18.7.0.patch",
+    "root": "NM",
+    "source_sha256": "feb2d96922da49e683b2671dcf95453c5fba1448ebb6eeb6e1a674b41e9c1409",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-ai/dist/types/auth/types.d.ts",
+      "pi-ai/dist/types/auth/usage-cache.d.ts",
+      "pi-ai/dist/types/auth/usage.d.ts",
+      "pi-ai/src/auth/types.ts",
+      "pi-ai/src/auth/usage-cache.ts",
+      "pi-ai/src/auth/usage.ts",
+      "pi-ai/src/usage/ollama.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/src/modes/status-line-host.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-tui/dist/types/status-line/host.d.ts",
+      "pi-tui/src/status-line/component.ts",
+      "pi-tui/src/status-line/host.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-ai/dist/types/auth/types.d.ts",
+      "pi-ai/src/auth/types.ts",
+      "pi-ai/src/auth/usage-cache.ts",
+      "pi-ai/src/auth/usage.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/src/modes/status-line-host.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-tui/dist/types/status-line/host.d.ts",
+      "pi-tui/src/status-line/component.ts",
+      "pi-tui/src/status-line/host.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0010-omp-extension-idle-ephemeral-turn",
+    "order": 4,
+    "patch": ".18.7.0-families/0010-omp-extension-idle-ephemeral-turn-v18.7.0.patch",
+    "root": "AGENT",
+    "source_sha256": "80003e0d782f98e6dc4f4ab3d4d61889a993d3ae012f28296ee900e0933d71fa",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/modes/acp/acp-agent.ts",
+      "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+      "pi-coding-agent/src/modes/runtime-init.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/modes/acp/acp-agent.ts",
+      "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "family-antigravity-wire",
+    "order": 5,
+    "patch": ".18.7.0-families/family-antigravity-wire-v18.7.0.patch",
+    "root": "AI",
+    "source_sha256": "94f0c1a335c7afd90684fa34a00128325615ee5892d320f1c9bb790eb80dd356",
+    "text_replay": "clean",
+    "touched_paths": [
+      "pi-ai/src/providers/google-gemini-cli.ts"
+    ],
+    "upstream_changed_touched_paths": [],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "family-image-budget-snapcompact",
+    "order": 6,
+    "patch": ".18.7.0-families/family-image-budget-snapcompact-v18.7.0.patch",
+    "root": "NM",
+    "source_sha256": "b9ebcabfc62684ecf7ee5c9132fbd99f5dfbafc8073d0b34afa28e250eeab86e",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-coding-agent/src/session/provider-image-budget.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts",
+      "pi-coding-agent/src/session/snapcompact-inline.ts",
+      "snapcompact/dist/types/snapcompact.d.ts",
+      "snapcompact/src/snapcompact.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-coding-agent/src/session/provider-image-budget.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0017-omp-openai-responses-native-replay-warm",
+    "order": 7,
+    "patch": ".18.7.0-families/0017-omp-openai-responses-native-replay-warm-v18.7.0.patch",
+    "root": "AI",
+    "source_sha256": "5c8ab6e8bf3f648a87930f5ee1c3cdca3fd8098fa63a50bf0c61a1d17c15bb64",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-ai/src/providers/openai-responses.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-ai/src/providers/openai-responses.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0032-omp-goal-tool-resident",
+    "order": 8,
+    "patch": ".18.7.0-families/0032-omp-goal-tool-resident-v18.7.0.patch",
+    "root": "AGENT",
+    "source_sha256": "7a5340b4928ab1cbdf14554dbd4344a0e242adb25bc0b59d7001eebd97b58f19",
+    "text_replay": "clean",
+    "touched_paths": [
+      "pi-coding-agent/src/modes/interactive-mode.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/tools/index.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-coding-agent/src/modes/interactive-mode.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/tools/index.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "family-persistent-prefix-resume",
+    "order": 9,
+    "patch": ".18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch",
+    "root": "NM",
+    "source_sha256": "94d4f464ea4ec66d8690d6adf978346e6123a87578820b82cee0979e568419bf",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/openai-responses.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts",
+      "pi-coding-agent/dist/types/session/messages.d.ts",
+      "pi-coding-agent/src/collab/guest.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/date-cwd-reminder.ts",
+      "pi-coding-agent/src/session/messages.ts",
+      "pi-coding-agent/src/session/session-context.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts",
+      "pi-coding-agent/src/session/session-tools.ts",
+      "pi-coding-agent/src/session/turn-recovery.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/openai-responses.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/dist/types/session/messages.d.ts",
+      "pi-coding-agent/src/collab/guest.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/messages.ts",
+      "pi-coding-agent/src/session/session-context.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts",
+      "pi-coding-agent/src/session/session-tools.ts",
+      "pi-coding-agent/src/session/turn-recovery.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0046-omp-supersede-warm-prefix-guard",
+    "order": 10,
+    "patch": ".18.7.0-families/0046-omp-supersede-warm-prefix-guard-v18.7.0.patch",
+    "root": "AGENT",
+    "source_sha256": "f4c22da1de65e867a6907416f9ef58f4a9264283536cbcdda63b5b3cb70e2ca6",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0048-omp-advisor-quota-rotation-bound",
+    "order": 11,
+    "patch": ".18.7.0-families/0048-omp-advisor-quota-rotation-bound-v18.7.0.patch",
+    "root": "AGENT",
+    "source_sha256": "df9da27604669e4ac8c9cd42ccca3a3406a7c8a5ac4d749cfd2ad27f60b11fd3",
+    "text_replay": "clean",
+    "touched_paths": [
+      "pi-coding-agent/src/session/session-advisors.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-coding-agent/src/session/session-advisors.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0050-omp-session-history-preview",
+    "order": 12,
+    "patch": ".18.7.0-families/0050-omp-session-history-preview-v18.7.0.patch",
+    "root": "NM",
+    "source_sha256": "1297dc1bc16f2d6c48306b67244a3f3dee4ade00561ce62326a33971a87798e2",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-coding-agent/dist/types/session/session-listing.d.ts",
+      "pi-coding-agent/src/main.ts",
+      "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+      "pi-coding-agent/src/session/session-listing.ts",
+      "pi-tui/dist/types/apps/session-picker.d.ts",
+      "pi-tui/dist/types/overlays/session-selector.d.ts",
+      "pi-tui/src/apps/session-picker.ts",
+      "pi-tui/src/overlays/session-selector.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-coding-agent/dist/types/session/session-listing.d.ts",
+      "pi-coding-agent/src/main.ts",
+      "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+      "pi-coding-agent/src/session/session-listing.ts",
+      "pi-tui/dist/types/overlays/session-selector.d.ts",
+      "pi-tui/src/overlays/session-selector.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "family-devin-wire",
+    "order": 13,
+    "patch": ".18.7.0-families/family-devin-wire-v18.7.0.patch",
+    "root": "NM",
+    "source_sha256": "131ef78588e1c506dff08a754be18924c8dbabce731b67f66d766b0fceecc6a7",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-ai/dist/types/stream.d.ts",
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/devin.ts",
+      "pi-ai/src/stream.ts",
+      "pi-ai/src/types.ts",
+      "pi-catalog/src/wire/devin.ts",
+      "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+      "pi-coding-agent/src/session/agent-session-types.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-ai/dist/types/stream.d.ts",
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/devin.ts",
+      "pi-ai/src/stream.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+      "pi-coding-agent/src/session/agent-session-types.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0065-omp-commandcode-deepseek-model-record-parity",
+    "order": 14,
+    "patch": ".18.7.0-families/0065-omp-commandcode-deepseek-model-record-parity-v18.7.0.patch",
+    "root": "NM",
+    "source_sha256": "7d9206fc867793917eed5f07e08765b8a66b46ed358015250525829b6d63cad4",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-catalog/src/compat/rules.json",
+      "pi-catalog/src/compat/rules/providers/commandcode.kdl"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-catalog/src/compat/rules.json"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0069-omp-codex-effort-history-resume",
+    "order": 15,
+    "patch": ".18.7.0-families/0069-omp-codex-effort-history-resume-v18.7.0.patch",
+    "root": "AI",
+    "source_sha256": "1282685d39b0dc1d591dbc09e98de21c12ddf9bfe788f430cdcf768573012a45",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-ai/src/types.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-ai/src/types.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0072-omp-session-pin-static-auth-ui",
+    "order": 16,
+    "patch": ".18.7.0-families/0072-omp-session-pin-static-auth-ui-v18.7.0.patch",
+    "root": "AGENT",
+    "source_sha256": "a07d08cb8e16f6c5aeccba3abc62b5993fb8f97c796cc14d70e829ff3b00e899",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-coding-agent/src/modes/controllers/selector-controller.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-coding-agent/src/modes/controllers/selector-controller.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0074-omp-anthropic-context-cache-boundaries",
+    "order": 17,
+    "patch": ".18.7.0-families/0074-omp-anthropic-context-cache-boundaries-v18.7.0.patch",
+    "root": "AI",
+    "source_sha256": "3aca427e064a139480766a5dbf7e0d6421937387bb1af399e782f3575f683752",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-ai/dist/types/providers/anthropic-request-audit.d.ts",
+      "pi-ai/src/providers/anthropic-request-audit.ts",
+      "pi-ai/src/providers/anthropic.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-ai/src/providers/anthropic.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "family-image-display",
+    "order": 18,
+    "patch": ".18.7.0-families/family-image-display-v18.7.0.patch",
+    "root": "NM",
+    "source_sha256": "1c1c9acf791482756eb73c8574a37777305a76626527faa02d7f35c68af9fc02",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-coding-agent/src/eval/py/display.ts",
+      "pi-tui/dist/types/chat/image-loading.d.ts",
+      "pi-tui/src/chat/assistant-message.ts",
+      "pi-tui/src/chat/image-loading.ts",
+      "pi-tui/src/chat/tool-execution.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-tui/src/chat/assistant-message.ts",
+      "pi-tui/src/chat/tool-execution.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "family-input-translation",
+    "order": 19,
+    "patch": ".18.7.0-families/family-input-translation-v18.7.0.patch",
+    "root": "NM",
+    "source_sha256": "dc6bc30ef4d7043eb4ca64c8cf22ba92e2a0c5270cc88a1dbbe701b3f1d03812",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/agent.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-agent-core/src/compaction/messages.ts",
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts",
+      "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+      "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+      "pi-coding-agent/dist/types/main.d.ts",
+      "pi-coding-agent/dist/types/modes/interactive-mode.d.ts",
+      "pi-coding-agent/dist/types/modes/types.d.ts",
+      "pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/dist/types/session/session-history-format.d.ts",
+      "pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts",
+      "pi-coding-agent/src/export/html/template.js",
+      "pi-coding-agent/src/export/share.ts",
+      "pi-coding-agent/src/extensibility/extensions/loader.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/main.ts",
+      "pi-coding-agent/src/modes/acp/acp-agent.ts",
+      "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+      "pi-coding-agent/src/modes/controllers/input-controller.ts",
+      "pi-coding-agent/src/modes/interactive-mode.ts",
+      "pi-coding-agent/src/modes/runtime-init.ts",
+      "pi-coding-agent/src/modes/types.ts",
+      "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+      "pi-coding-agent/src/session/agent-session-types.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/queued-messages.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-dump-format.ts",
+      "pi-coding-agent/src/session/session-history-format.ts",
+      "pi-coding-agent/src/session/session-listing.ts",
+      "pi-coding-agent/src/slash-commands/helpers/draft.ts",
+      "pi-tui/dist/types/chat/transcript-entry.d.ts",
+      "pi-tui/src/chat/chat-transcript-builder.ts",
+      "pi-tui/src/chat/transcript-entry.ts",
+      "pi-tui/src/chat/transcript-outline.ts",
+      "pi-tui/src/overlays/copy-selector.ts",
+      "pi-tui/src/overlays/session-selector.ts",
+      "pi-tui/src/overlays/tree-selector.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/agent.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-agent-core/src/compaction/messages.ts",
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/types.ts",
+      "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+      "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+      "pi-coding-agent/dist/types/modes/interactive-mode.d.ts",
+      "pi-coding-agent/dist/types/modes/types.d.ts",
+      "pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/dist/types/session/session-history-format.d.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/main.ts",
+      "pi-coding-agent/src/modes/acp/acp-agent.ts",
+      "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+      "pi-coding-agent/src/modes/controllers/input-controller.ts",
+      "pi-coding-agent/src/modes/interactive-mode.ts",
+      "pi-coding-agent/src/modes/types.ts",
+      "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+      "pi-coding-agent/src/session/agent-session-types.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-dump-format.ts",
+      "pi-coding-agent/src/session/session-history-format.ts",
+      "pi-coding-agent/src/session/session-listing.ts",
+      "pi-tui/src/chat/chat-transcript-builder.ts",
+      "pi-tui/src/overlays/copy-selector.ts",
+      "pi-tui/src/overlays/session-selector.ts",
+      "pi-tui/src/overlays/tree-selector.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "family-compaction",
+    "order": 20,
+    "patch": ".18.7.0-families/family-compaction-v18.7.0.patch",
+    "root": "NM",
+    "source_sha256": "0c83cb25fc7f8e691bc827a3e3b37954de20de1c6c97610b4d14b3270faa6c6e",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-agent-core/dist/types/compaction/anthropic.d.ts",
+      "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+      "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/anthropic.ts",
+      "pi-agent-core/src/compaction/compaction-trace.ts",
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md",
+      "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+      "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+      "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+      "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts",
+      "pi-coding-agent/src/session/session-provider-boundary.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-agent-core/dist/types/compaction/compaction.d.ts",
+      "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+      "pi-agent-core/src/compaction/compaction.ts",
+      "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+      "pi-ai/src/providers/openai-codex-responses.ts",
+      "pi-coding-agent/dist/types/session/agent-session.d.ts",
+      "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+      "pi-coding-agent/src/session/agent-session.ts",
+      "pi-coding-agent/src/session/session-advisors.ts",
+      "pi-coding-agent/src/session/session-maintenance.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0090-omp-oauth-durable-refresh",
+    "order": 21,
+    "patch": ".18.7.0-families/0090-omp-oauth-durable-refresh-v18.7.0.patch",
+    "root": "AI",
+    "source_sha256": "a00921b59d7880e287ee174d3da2ce57dacc9d8336ae0c85e58c2470f825669c",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-ai/dist/types/registry/oauth/anthropic.d.ts",
+      "pi-ai/src/auth/refresh.ts",
+      "pi-ai/src/auth/select.ts",
+      "pi-ai/src/auth/usage.ts",
+      "pi-ai/src/registry/oauth/anthropic.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-ai/src/auth/refresh.ts",
+      "pi-ai/src/auth/select.ts",
+      "pi-ai/src/auth/usage.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0092-omp-cache-warming-idle-budget",
+    "order": 22,
+    "patch": ".18.7.0-families/0092-omp-cache-warming-idle-budget-v18.7.0.patch",
+    "root": "AGENT",
+    "source_sha256": "1cb790ce893a4a43ec592efc16ed49a92f43da58e0cdce40d5c078ab0527e118",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+      "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
+      "pi-coding-agent/dist/types/session/cache-warmer.d.ts",
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/extensibility/shared-events.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/cache-warmer.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+      "pi-coding-agent/src/extensibility/extensions/types.ts",
+      "pi-coding-agent/src/sdk.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0094-omp-anthropic-thinking-drop-resume",
+    "order": 23,
+    "patch": ".18.7.0-families/0094-omp-anthropic-thinking-drop-resume-v18.7.0.patch",
+    "root": "AI",
+    "source_sha256": "c7a41d5d93fdef2f502e0d391a50135be24eae3f276c962bc5edbd8d913c22c2",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/anthropic.ts",
+      "pi-ai/src/types.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-ai/dist/types/types.d.ts",
+      "pi-ai/src/providers/anthropic.ts",
+      "pi-ai/src/types.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  },
+  {
+    "id": "0095-omp-context-audit-request-purpose",
+    "order": 24,
+    "patch": ".18.7.0-families/0095-omp-context-audit-request-purpose-v18.7.0.patch",
+    "root": "AGENT",
+    "source_sha256": "e1c77a9b364a5cdda83087f38f55bbdde1b936d4d259500bfd58a8f2de9610ea",
+    "text_replay": "conflict",
+    "touched_paths": [
+      "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+      "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/extensibility/hooks/runner.ts",
+      "pi-coding-agent/src/extensibility/shared-events.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/agent-session-types.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "upstream_changed_touched_paths": [
+      "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+      "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+      "pi-coding-agent/src/extensibility/extensions/runner.ts",
+      "pi-coding-agent/src/sdk.ts",
+      "pi-coding-agent/src/session/agent-session-types.ts",
+      "pi-coding-agent/src/session/agent-session.ts"
+    ],
+    "migration_decision": "pending_review",
+    "findings": []
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "gate": "verify-devin-auth-cache.ts",
+  "started": "2026-10-12T05:47:52.183288+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-devin-auth-cache.ts"
+  ],
+  "exit": 0,
+  "stdout": "=== Testing Devin auth cache + turn timing (0055) ===\nPASS verify-devin-auth-cache: cache epochs and shared assignment/chat recovery\n",
+  "stderr": ""
+}

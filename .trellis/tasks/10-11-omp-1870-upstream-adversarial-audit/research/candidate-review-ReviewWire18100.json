@@ -1,0 +1,344 @@
+{
+  "agent": "ReviewWire18100",
+  "models": [
+    [
+      "openai-codex",
+      "gpt-6-astra"
+    ]
+  ],
+  "reports": [
+    {
+      "status": "FINDINGS",
+      "filesChanged": [],
+      "summary": "Read-only review found two source-confirmed defects: Anthropic client thinking-omission records can become unrestorable after a successful server-side model fallback, and buffered Codex stale-chain errors use an inconsistent retry classification. Neither defect was runtime-exercised. The audited R04/R05/R06/R13 repairs are present in source, but this review does not close their runtime acceptance gates.",
+      "roots": {
+        "work": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work",
+        "migration": "/home/chris/.cache/omp-18100-migration-yvvyjfr2",
+        "target": "/tmp/omp-18100-audit-cd9kqmcj/pristine-18.10.0/node_modules/@oh-my-pi",
+        "baseline": "/tmp/omp-18100-audit-cd9kqmcj/replay-18.7.0/node_modules/@oh-my-pi"
+      },
+      "findings": [
+        {
+          "id": "F1",
+          "severity": "P2",
+          "owner": "PortAnthropic",
+          "risk": "M04: durable explicit client thinking omissions across resume; interaction with target server-side fallback semantics",
+          "file": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-ai/src/providers/anthropic.ts",
+          "lines": "739-753, particularly 751",
+          "title": "A successful server-side fallback invalidates the carrier identity of an explicit client omission record",
+          "evidenceLevel": "Source-confirmed incompatible conditions; runtime consequence is [INFERENCE], not an executed reproduction.",
+          "evidence": [
+            "restorePrefixDroppedThinking requires both replay.model === model.id and message.model === replay.model. The latter check is at line 751.",
+            "rememberPrefixBindingFailure stores the originating request model in output.droppedThinkingReplay.model at lines 2254-2260; its caller supplies model.id at lines 3730-3737. The record deliberately survives retry-output resets.",
+            "The retained target fallback handler assigns output.model = fallback.to.model at line 3247. Thus a request for model A can produce a successful assistant message labeled B while carrying the valid explicit omission record scoped to A.",
+            "The same-session omission set already contains the rejected A thinking keys. A fresh provider state restoring the serialized A\u2192B result skips that record at line 751. Original A history remains eligible for replay when the next request again uses A.",
+            "The offending restoration condition is also present in fragments/0094-omp-anthropic-thinking-drop-resume/pi-ai/src/providers/anthropic.ts/after."
+          ],
+          "impact": "[INFERENCE] After JSON persistence and fresh-process resume on A, previously rejected signed/redacted thinking can reappear in the first request. The prefix differs from the repaired live-session prefix and may incur another prefix-binding rejection. No provider cache loss or billing impact was measured.",
+          "minimalRecommendedFix": "Validate new explicit client repair records against the originating request identity rather than the eventual served-model label. Preserve endpoint/provider isolation and appropriate legacy/foreign-record checks. Do not undo the target's intentional served-model accounting.",
+          "smallestExecutableAcceptance": "Extend the existing patches/verify-anthropic-thinking-drop-resume.ts explicit prefix-binding-400 case: request model A, let the repair retry complete through a valid server fallback A\u2192B, JSON-round-trip the resulting history, then request A using a fresh provider-state map. Intercept the actual provider builder and assert that its first resumed request omits exactly the same rejected signed/redacted blocks as the post-repair live request. Retain existing foreign endpoint/provider/model controls. No real credentials or provider calls are needed."
+        },
+        {
+          "id": "F2",
+          "severity": "P2",
+          "owner": "PortCore",
+          "risk": "R04/R05 and family-compaction: recoverable chain loss must retain generate:false recovery without SSE/V1 fallback",
+          "file": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+          "lines": "838-844, particularly 842",
+          "title": "Buffered codex_previous_response_stale is incorrectly classified as terminal",
+          "evidenceLevel": "Source-confirmed inconsistent classification; runtime consequence is [INFERENCE], not an executed reproduction.",
+          "evidence": [
+            "CODEX_CHAIN_REJECTION_CODES recognizes both previous_response_not_found and codex_previous_response_stale at lines 783-785.",
+            "Buffered error frames become CompactionV2StreamFailure with their code and chainLost verdict at lines 693-715.",
+            "isRetryableCompactionError returns true for a chain-lost stream failure only when error.code === \"previous_response_not_found\" at line 842. The recognized codex_previous_response_stale alias therefore becomes nonretryable, including in chainLossOr at lines 374-380.",
+            "In pi-ai/src/providers/openai-codex-responses.ts, lines 2492-2498 explicitly put both codes in the same stale-response recovery class. Buffered stale errors reset the append baseline at lines 1960-1968, while the thrown-error path returns CodexCompactionChainLostError(..., true) at lines 1971-1979.",
+            "The provider's lines 2130-2180 implement the non-generating baseline recovery that a subsequent retry could use. The collector's terminal classification prevents that retry.",
+            "The same condition is present in fragments/family-compaction/pi-agent-core/src/compaction/compaction-v2-streaming.ts/after."
+          ],
+          "impact": "[INFERENCE] A recoverable expired-chain response aborts compaction when delivered as a buffered frame, even though the same stale condition is recoverable through the thrown-error path. This is an availability/recovery regression, not evidence of a full-history send.",
+          "minimalRecommendedFix": "Use a consistent recoverable stale-code predicate for buffered failures, including both explicitly recognized stale codes. Keep permanent refusals terminal and retain the centralized no-SSE/no-V1 policy.",
+          "smallestExecutableAcceptance": "Extend the existing local-WebSocket stale-once scenario in patches/verify-codex-compaction-chain-fail-closed.ts to emit codex_previous_response_stale once. Assert a failed chained attempt followed by one generate:false baseline recovery and an accepted chained compaction, with zero SSE/V1 sends. The existing previous_response_not_found case is the control; no broad retry matrix is needed."
+        }
+      ],
+      "focusedReview": [
+        {
+          "area": "R06: both Anthropic credit-sensitive cache-control retry rungs",
+          "result": "Repair present in source.",
+          "evidence": "pi-ai/src/providers/anthropic.ts:3884 and 3948 use rebuildParams(streamFailure). The credit-aware helper at 2896-2910 refuses unsafe credit forfeiture when refusedContent includes an anthropicServerTool.",
+          "qualification": "No synthetic or live request was executed. Main should retain the actual-builder credited-server-tool refusal case and its safe-text control."
+        },
+        {
+          "area": "M04: thinking provenance",
+          "result": "The intended server-managed versus client-managed split is present, subject to F1.",
+          "evidence": "anthropic.ts:717-724 accepts legacy records or explicit client-prefix-binding provenance. Server input-transformation reporting at 2284-2334 does not add omission keys. Explicit client repair stores durable keys.",
+          "qualification": "Do not regress to treating every server drop_block report as a durable local deletion."
+        },
+        {
+          "area": "M05: checkpoints, clear_at and target head-cache policy",
+          "result": "The port retains the target checkpoint walk and head relocation while adding block eligibility, clear_at boundary handling and no-cache stripping.",
+          "evidence": "anthropic.ts:4463-4474 filters ineligible checkpoint blocks; 4513-4613 handles checkpoint selection and the first clear_at:\"next_user_message\" boundary; 4676 onward retains target head-cache placement; 5282 strips cache control when caching is disabled.",
+          "qualification": "A user-turn interval is not itself proof of a provider content-block lookback guarantee. Actual serialized multi-block/TTL/head/clear_at behavior remains unexercised; no cache-hit claim is justified."
+        },
+        {
+          "area": "R13: native audit classification and redaction",
+          "result": "Repair present in source.",
+          "evidence": "pi-ai/src/providers/anthropic-request-audit.ts:81-86 recognizes top-level compaction.type=\"summarize\"; 91-97 redacts fallback_credit_token in the archived body; 123-126 prevents native/side/refresh requests from replacing the ordinary baseline. Completion diagnostics at 143-151 do not archive the fallback-credit stop details.",
+          "qualification": "The remaining acceptance is the actual native builder output passing through the diagnostic, proving compact classification, unchanged ordinary baseline and disk-token redaction without modifying the transmitted body."
+        },
+        {
+          "area": "R04/R05: effective Codex lane and every SSE admission",
+          "result": "The audited full-history escapes are blocked in source, with F2 affecting recovery rather than fail-closed policy.",
+          "evidence": "pi-agent-core/src/compaction/compaction-v2-streaming.ts:153-155 uses the effective lane. compaction.ts:2360-2366 propagates the typed sentinel and handles alternate effective Codex APIs. openai-codex-responses.ts:2383 onward centralizes compaction rejection in openCodexSseTransport and rechecks the transformed body, covering the buffered entitlement retry admission.",
+          "qualification": "No alternate-effective-API or eligible-account entitlement fixture was run. Ordinary-turn entitlement recovery remains intentionally permitted."
+        },
+        {
+          "area": "Codex acceptance transactions and reconnect",
+          "result": "The reviewed implementation defers accepted metadata and append-baseline changes until collector acceptance, and preserves generate:false recovery.",
+          "evidence": "openai-codex-responses.ts:1908-1923 stages acceptance; compaction-v2-streaming.ts:415-473 accepts only a valid collected result. Provider recovery at 2130-2180 refuses generating/invalid recovery output and establishes a live response anchor before chained compaction.",
+          "qualification": "Collector rejection, interruption and cancellation rollback were inspected, not executed. Existing focused transaction cases should supply runtime evidence."
+        },
+        {
+          "area": "M06: cold replan and live summary/native context",
+          "result": "The cold overflow replan invalidates cache-preserving-prefix reuse, and live context is obtained from the owning host rather than reconstructed inside core.",
+          "evidence": "pi-agent-core/src/compaction/compaction.ts:1152 clears useCachePreservingPrefix on ordinary cold overflow replanning; surrounding summary flow retains the carried summary and the newly planned window. Native handling at 2541-2665 consumes direct host-vouched Context with summary/tail checks.",
+          "qualification": "No capacity sweep is warranted. The discriminating existing case is a cold replan whose new window excludes content in the old prefix."
+        },
+        {
+          "area": "M06: primary host identity/generation and advisor ownership",
+          "result": "The reviewed live suppliers include identity fences and use the correct owner contexts.",
+          "evidence": "pi-coding-agent/src/session/session-maintenance.ts:3566-3626 captures session ID, prompt generation, leaf, exact messages array/count and model, and rechecks around asynchronous conversion/context building. session-advisors.ts:2337-2391 uses the advisor's own agent/messages/session/model and builds its own side-request context. Manual, automatic and advisor compaction callsites are wired.",
+          "qualification": "No suspend/resume race was exercised. This source review does not independently prove every lifecycle mutation invalidates a suspended callback."
+        },
+        {
+          "area": "M03/M08/M09 and R03 scope",
+          "result": "The reviewed slices retain durable Codex effort restoration, repeated archive credit, resolved image-budget/measured-billing forwarding and zero-suffix warm-prefix protection.",
+          "evidence": "openai-codex-responses.ts:1681-1736 restores and clones a matching persisted effort snapshot while respecting session-scoped planning. session-maintenance.ts:2608-2643 uses repeated archive credit in the matching tokenizer domain; its warm-prefix guard retains suffixTokenLimit:0. Image-budget and snapcompact callsites/declarations were reviewed against their fragments.",
+          "qualification": "R03 fork/import anchor ownership and the full M09 idle reservation/epoch lifecycle extend into other owners. These four source slices alone cannot close those end-to-end risks."
+        }
+      ],
+      "physical0017": {
+        "family": "0017-omp-openai-responses-native-replay-warm",
+        "disposition": "Subsumed at source for ordinary self-contained native history; deliberately not equivalent for connection-bound native history. Retiring the duplicate physical hunk is reasonable, but unconditional behavioral equivalence and M11 runtime acceptance are not established by this review.",
+        "evidence": [
+          "The historical 0017 patch only changed nativeHistoryReplayWarmed from false to true.",
+          "The migration's 0017 before/after fragment comparison produced no difference. The later openai-responses.ts changes belong to persistent-prefix support, not a remaining 0017 implementation.",
+          "Both target and candidate initialize nativeHistoryReplayWarmed as !model.compat.connectionBoundNativeHistory at pi-ai/src/providers/openai-responses.ts:462.",
+          "The flag gates actual native replay/thinking-signature serialization at lines 1583 and 1606-1610, not merely a diagnostic.",
+          "Successful output warms the state only with the unchanged-close-count fence at 1285-1287; close resets it at 475-479.",
+          "pi-catalog/src/types.ts:1118-1125 documents why connection-bound opaque history must be rebuilt on a new connection/process."
+        ],
+        "ordinaryHistory": "The target already enables immediate replay on a fresh state for ordinary self-contained history. The old blanket true assignment adds no capability on that route.",
+        "connectionBoundHistory": "The target intentionally starts cold, rebuilds visible content, and warms only after a successful response on the valid connection. Reapplying the historical unconditional true would bypass this upstream safety contract. This is an intentional exception, not proof that the old patch and target are universally equivalent.",
+        "smallestRuntimeProofNeeded": [
+          "Through the actual Responses consumer and an intercepted local transport, load persisted ordinary native history into a fresh provider map. Assert native items/signatures are present in the first serialized request and there is no preliminary warm request. Include the Azure adapter only if its coverage is claimed.",
+          "Use the same consumer with connectionBoundNativeHistory enabled. Assert the first request reconstructs visible content without stale opaque replay/signatures; after a successful response, assert the next request can use the warmed history. Reuse the close/late-completion case to prove a stale response cannot rewarm a closed generation."
+        ],
+        "acceptanceStatus": "Not executed. Preserve the capability acceptance gate and record the connection-bound exception when retiring the physical patch."
+      },
+      "scope": {
+        "ownerManifests": "Read migration/owners/PortAnthropic.json, PortCodex.json, PortCore.json and PortMaintenance.json. All enumerated entries have pending:null and next equal to the family count.",
+        "enumeration": "32 distinct paths, 50 owner-declared family stages. Fragment locations are migration/fragments/<family>/<path>/{before,after,exists.json}; 0017 is a no-op stage.",
+        "owners": {
+          "PortAnthropic": [
+            {
+              "families": [
+                "0074-omp-anthropic-context-cache-boundaries"
+              ],
+              "paths": [
+                "pi-ai/dist/types/providers/anthropic-request-audit.d.ts",
+                "pi-ai/src/providers/anthropic-request-audit.ts"
+              ]
+            },
+            {
+              "families": [
+                "0074-omp-anthropic-context-cache-boundaries",
+                "0094-omp-anthropic-thinking-drop-resume"
+              ],
+              "paths": [
+                "pi-ai/src/providers/anthropic.ts"
+              ]
+            }
+          ],
+          "PortCodex": [
+            {
+              "families": [
+                "0017-omp-openai-responses-native-replay-warm",
+                "family-persistent-prefix-resume"
+              ],
+              "paths": [
+                "pi-ai/src/providers/openai-responses.ts"
+              ]
+            },
+            {
+              "families": [
+                "family-persistent-prefix-resume",
+                "family-devin-wire",
+                "0069-omp-codex-effort-history-resume",
+                "family-input-translation",
+                "0094-omp-anthropic-thinking-drop-resume"
+              ],
+              "paths": [
+                "pi-ai/dist/types/types.d.ts",
+                "pi-ai/src/types.ts"
+              ]
+            },
+            {
+              "families": [
+                "family-devin-wire"
+              ],
+              "paths": [
+                "pi-ai/dist/types/stream.d.ts",
+                "pi-ai/src/stream.ts"
+              ]
+            },
+            {
+              "families": [
+                "0069-omp-codex-effort-history-resume",
+                "family-compaction"
+              ],
+              "paths": [
+                "pi-ai/src/providers/openai-codex-responses.ts"
+              ]
+            },
+            {
+              "families": [
+                "family-compaction"
+              ],
+              "paths": [
+                "pi-ai/dist/types/providers/openai-codex-responses.d.ts"
+              ]
+            }
+          ],
+          "PortCore": [
+            {
+              "families": [
+                "family-input-translation",
+                "family-compaction"
+              ],
+              "paths": [
+                "pi-agent-core/dist/types/compaction/compaction.d.ts",
+                "pi-agent-core/src/compaction/compaction.ts"
+              ]
+            },
+            {
+              "families": [
+                "family-input-translation"
+              ],
+              "paths": [
+                "pi-agent-core/src/agent.ts",
+                "pi-agent-core/src/compaction/messages.ts"
+              ]
+            },
+            {
+              "families": [
+                "family-compaction"
+              ],
+              "paths": [
+                "pi-agent-core/dist/types/compaction/anthropic.d.ts",
+                "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+                "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+                "pi-agent-core/src/compaction/anthropic.ts",
+                "pi-agent-core/src/compaction/compaction-trace.ts",
+                "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+                "pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md",
+                "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+                "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md"
+              ]
+            }
+          ],
+          "PortMaintenance": [
+            {
+              "families": [
+                "family-image-budget-snapcompact"
+              ],
+              "paths": [
+                "pi-coding-agent/src/session/provider-image-budget.ts",
+                "pi-coding-agent/src/session/snapcompact-inline.ts",
+                "snapcompact/dist/types/snapcompact.d.ts",
+                "snapcompact/src/snapcompact.ts"
+              ]
+            },
+            {
+              "families": [
+                "family-image-budget-snapcompact",
+                "family-persistent-prefix-resume",
+                "0046-omp-supersede-warm-prefix-guard",
+                "family-compaction"
+              ],
+              "paths": [
+                "pi-coding-agent/src/session/session-maintenance.ts"
+              ]
+            },
+            {
+              "families": [
+                "0048-omp-advisor-quota-rotation-bound",
+                "family-input-translation",
+                "family-compaction"
+              ],
+              "paths": [
+                "pi-coding-agent/src/session/session-advisors.ts"
+              ]
+            },
+            {
+              "families": [
+                "family-compaction"
+              ],
+              "paths": [
+                "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+                "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts",
+                "pi-coding-agent/src/session/session-provider-boundary.ts"
+              ]
+            }
+          ]
+        }
+      },
+      "verification": {
+        "buildLintTypecheckTestFormatterSmokeCommands": [],
+        "result": "Not run, as explicitly required by the assignment. No runtime PASS is claimed.",
+        "inspectionPerformed": "Read the mandatory work order, check.jsonl references, task requirements/specs, relevant risk/migration rows, owner manifests and before/after fragments; inspected the current git diff and scoped baseline/target/candidate source differences. Review was static and read-only.",
+        "safety": "No edits, formatting, nested agents, credential/DB access or copying, provider calls, or live/global mutations."
+      }
+    },
+    {
+      "status": "PASS",
+      "filesChanged": [],
+      "scope": "Independent read-only recheck limited to F1/F2 repairs, their recorded fragments, and immediate replay/retry invariants. No remaining concrete defect identified within this scope.",
+      "closures": [
+        {
+          "id": "F1",
+          "status": "CLOSED_IN_SOURCE",
+          "file": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-ai/src/providers/anthropic.ts",
+          "lines": "747-754",
+          "evidence": [
+            "Explicit client-prefix-binding records now permit a carrier whose served model differs from the originating request model.",
+            "Restoration still requires matching assistant api/provider, replay endpoint, and replay.model === current requested model.id.",
+            "Legacy records without source still require message.model === replay.model. Unknown provenance and malformed records remain rejected by readDroppedThinkingReplay.",
+            "The explicit repair still records the originating requested model and survives retry-output resets; the target's served-model accounting remains intact.",
+            "The repair is present in fragments/0094-omp-anthropic-thinking-drop-resume/pi-ai/src/providers/anthropic.ts/after:747-754.",
+            "The source and declaration agree on originating-request-model semantics: pi-ai/src/types.ts:1193-1201 and pi-ai/dist/types/types.d.ts:952-960."
+          ],
+          "conclusion": "The specific A-request/B-served-carrier restoration rejection reported in F1 is removed without removing the requested-model, endpoint, API, provider, or legacy-carrier fences."
+        },
+        {
+          "id": "F2",
+          "status": "CLOSED_IN_SOURCE",
+          "file": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+          "lines": "785-788,839-848",
+          "evidence": [
+            "Buffered chain-loss retry classification now uses Object.hasOwn(CODEX_CHAIN_REJECTION_CODES, error.code).",
+            "That set contains exactly previous_response_not_found and codex_previous_response_stale.",
+            "Undefined codes and other chain-rejection codes do not become retryable. Explicit CodexCompactionChainLostError.retryable values and permanent-failure handling remain intact.",
+            "The existing retry budget, abort checks, and terminal typed-chain-loss propagation remain in the immediate caller at lines 321-386.",
+            "The same repair is recorded in fragments/family-compaction/pi-agent-core/src/compaction/compaction-v2-streaming.ts/after."
+          ],
+          "conclusion": "Both recognized stale-anchor codes now receive the same buffered recovery classification. The repair does not introduce an SSE/V1 fallback or broaden retry eligibility to generic invalid-request errors."
+        }
+      ],
+      "verification": {
+        "commandsRun": [],
+        "result": "No tests, builds, lint, typechecks, formatters, smoke runs, or edits performed, as instructed. Evidence is source/fragment inspection only.",
+        "runtimeAcceptance": "Still unexercised here. GateWire18100's narrow real-consumer controls remain the runtime evidence needed for fallback-carrier persistence/restoration and stale-alias non-generating recovery. This source closure does not claim those controls passed or close unrelated migration risks."
+      }
+    }
+  ]
+}

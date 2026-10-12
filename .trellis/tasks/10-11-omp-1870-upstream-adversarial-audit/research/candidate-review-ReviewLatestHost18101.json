@@ -1,0 +1,59 @@
+{
+  "status": "PASS",
+  "filesChanged": [],
+  "scope": "Independent read-only recheck of DELTA-HOST-01, DELTA-HOST-02 and patches/verify-native-dialog-lifecycle.ts against /home/chris/.cache/omp-18101-migration/work.",
+  "summary": "Both findings are closed by the reviewed source changes and Main's recorded before/after acceptance evidence. No remaining issue was identified in these repairs or their focused oracle. The upstream native UI migration is preserved.",
+  "closures": [
+    {
+      "id": "DELTA-HOST-01",
+      "status": "CLOSED",
+      "references": [
+        "pi-tui/src/overlays/hook-input.ts:59,79-82,105-136",
+        "patches/verify-native-dialog-lifecycle.ts:33-64"
+      ],
+      "assessment": "Terminal #disposed state is set before timer/child cleanup. Native events, keyboard input and paste delivery reject disposed ownership before resetting timers or invoking callbacks; expiry also checks disposal. Disposal is idempotent. Attempting Submit does not itself dispose the component, preserving validation rejection and retry.",
+      "acceptanceAssessment": "The oracle imports the actual selected-root HookInputComponent, disposes it from its successful-submit callback, delivers stale native/keyboard/paste input, then checks zero late timeouts, exactly one result and zero retained timer ownership. Its separate rejected-submit case requires the actual values ['bad', 'bad-fixed'], detecting premature disposal. This discriminates the reported bug without duplicating the component's logic."
+    },
+    {
+      "id": "DELTA-HOST-02",
+      "status": "CLOSED",
+      "references": [
+        "pi-tui/src/overlays/session-info-overlay.ts:229-235",
+        "patches/verify-native-dialog-lifecycle.ts:72-84"
+      ],
+      "assessment": "The File row now excludes only the report producer's explicit 'In-memory' sentinel. POSIX, drive-letter and UNC paths retain the native copy target without changing their text or reverting the identity-field layout.",
+      "acceptanceAssessment": "The oracle describes the actual selected-root SessionInfoOverlay. For all three file-path forms it requires the copy action and exact descendant text; for 'In-memory' it requires no copy target. These assertions detect both the original missing-action defect and accidental path rewriting."
+    }
+  ],
+  "oracleReview": {
+    "result": "PASS",
+    "details": [
+      "Package metadata and all three runtime imports resolve through OMP_PATCH_VERIFY_TUI_ROOT; missing root, wrong version or import failure aborts rather than silently passing.",
+      "Fixtures use synthetic report strings, callbacks and timer registries. Timer globals are restored in finally, and component cleanup is also protected by finally.",
+      "Individual assertion failures accumulate and cause the final assertion to fail; they are not swallowed into a successful exit.",
+      "patches/apply.sh:785-786 registers this oracle specifically for 18.10.1, matching its version assertion."
+    ],
+    "limit": "The oracle drives real components directly with synthetic UI/timer callbacks. It does not exercise the complete TSP transport, visible terminal or operating-system clipboard. No such coverage is claimed or required to close these two source-local repairs."
+  },
+  "verification": [
+    {
+      "activity": "Source review and grep-tool searches",
+      "result": "Reviewed both repaired source boundaries, the complete 86-line oracle and its controller registration. Rechecked all required work-order specification/PRD presence patterns; all were found."
+    },
+    {
+      "activity": "Read Main's research/native-dialog-18101-before.json",
+      "result": "Recorded command: bun /home/chris/orca/projects/omp-move/patches/verify-native-dialog-lifecycle.ts. Exit 1 documents the late timeout and missing drive-letter/UNC copy actions. The refusal-retry, POSIX and In-memory cases passed before repair."
+    },
+    {
+      "activity": "Read Main's research/native-dialog-18101-after.json",
+      "result": "Same recorded command exited 0 with six PASS cases and empty stderr: stale delivery, refused-submit retry, POSIX, drive-letter, UNC and In-memory."
+    }
+  ],
+  "executionLimits": "I did not rerun the oracle or execute tests, builds, lint, formatting, provider/auth/usage operations or process signals. Runtime results above are attributed to Main's evidence artifacts; my independent work was read-only source/oracle review.",
+  "binding": {
+    "requested_model": "@default",
+    "resolved_model": "openai-codex/gpt-6-astra",
+    "role": "trellis-check",
+    "nested_dispatch": false
+  }
+}

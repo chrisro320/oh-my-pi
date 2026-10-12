@@ -1,0 +1,25 @@
+{
+  "overall_correctness": "incorrect",
+  "explanation": "Both findings are defects in the fully patched 18.7 baseline's local chain-only protection, not new upstream 18.10 regressions. The first should be exercised through requestCompactionV2Streaming with a real local WebSocket and counting HTTP handler; the second must be exercised through compact(), because the lower-level streaming function correctly refuses the effective Codex lane and the outer consumer is what swallows its sentinel. No tests, builds, edits or provider calls were performed.",
+  "confidence": 0.99,
+  "findings": [
+    {
+      "title": "Guard entitlement-rejection replay against Codex compaction SSE fallback",
+      "body": "B87 is /tmp/omp-18100-audit-cd9kqmcj/replay-18.7.0/node_modules/@oh-my-pi. The new chain-only guard at these lines handles transport exceptions, but streamCodexCompactionEvents subsequently dispatches buffered error frames at lines 1962\u20131976: dropRejectedCodexAccessPrograms returning true directly calls openCodexSseTransport, bypassing openInitialCodexEventStream's prohibition. Reachable input: a Codex model whose accountAccess[accountId].cyberPrograms includes daybreak_blue, a synthetic OAuth-shaped token resolving that accountId, and an established successful normal-turn WS baseline using the same sessionId/providerSessionState/model/token; then call requestCompactionV2Streaming with a valid compaction request and return {type:'error',code:'invalid_access_program',message:'access program rejected'} from the local WS server. createCodexRequestContext:1474\u20131475 applies access_programs to the compaction body; access-programs.ts:47\u201359 strips it and selects replay; the HTTP path sends the full transformed transcript, and a valid HTTP compaction summary can be accepted as success. Minimal probe: use the existing local WS compaction fixture concept, opt the synthetic account into daybreak_blue, make only the compaction WS exchange reject entitlement, and count HTTP requests; require zero HTTP requests and no successful result attributed to the rejected WS frame. The existing requestDiagnostics box is not refreshed by this direct replay either. Minimal fix: prevent this buffered-error branch from invoking SSE for compaction; propagate a typed failure or recover a validated WS baseline without the program, while retaining ordinary-turn entitlement fallback. The replay branch itself predates the patch, but the newly introduced chain-only policy incompletely excludes it.",
+      "priority": 1,
+      "confidence": 0.99,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/replay-18.7.0/node_modules/@oh-my-pi/pi-ai/src/providers/openai-codex-responses.ts",
+      "line_start": 1935,
+      "line_end": 1936
+    },
+    {
+      "title": "Rethrow chain-loss errors when the effective remote API is Codex",
+      "body": "The new catch uses isCodexResponsesModel, defined at compaction.ts:1934\u20131935 as model.api === 'openai-codex-responses', rather than the effective lane used by its callee. Minimal reachable configuration: model.api='openai-responses', provider='openai' (or another enabled compatible provider), remoteCompaction={enabled:true,api:'openai-codex-responses',v2StreamingEnabled:true,endpoint:'http://127.0.0.1:<port>/responses/compact'}, a nonempty valid preparation, and settings.remoteEnabled/settings.remoteStreamingV2Enabled not false. compact() enters V2 at lines 2149\u20132153; requestCompactionV2Streaming classifies effective Codex at compaction-v2-streaming.ts:153\u2013165 and throws CodexCompactionChainLostError at 303\u2013305 before network activity because the native model API cannot use its live Codex transport. This catch does not rethrow that sentinel, saves it as nativeCompactionError, and enters the V1 block at 2380; shouldUseOpenAiRemoteCompaction in openai.ts:342\u2013356 accepts this configuration, and the local compatible endpoint receives full history. Minimal consumer-level probe: adapt a compact() preparation fixture with one user/assistant history and inject a counting local fetch; assert the chain-loss sentinel and zero fetches, rather than only testing requestCompactionV2Streaming (which already behaves correctly). It is sufficient for the counting fetch to reject immediately after recording the unexpected V1 POST; a successful V1 response is not necessary to prove the forbidden request. Minimal fix: unconditionally rethrow CodexCompactionChainLostError and use isCodexCompactionV2Lane for policy decisions, reserving the narrower model.api guard for serializer typing. This is a local baseline protection gap, not a new 18.10 regression.",
+      "priority": 1,
+      "confidence": 0.99,
+      "file_path": "/tmp/omp-18100-audit-cd9kqmcj/replay-18.7.0/node_modules/@oh-my-pi/pi-agent-core/src/compaction/compaction.ts",
+      "line_start": 2357,
+      "line_end": 2364
+    }
+  ]
+}

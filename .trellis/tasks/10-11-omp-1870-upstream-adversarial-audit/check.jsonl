@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Independent review against the original backend conventions."}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "Verify selected family coverage, representation and rollback ownership."}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "Reject helper-only, source-wording, simulated-cache-hit and ambiguous-redemption claims."}
+{"file": ".trellis/spec/backend/extension-runtime-contracts.md", "reason": "Check main/side ownership, cancellation, request correlation and durable state."}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Actual native and selector surface acceptance, not ANSI-only proof."}
+{"file": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/risk-register.json", "reason": "Close each finding only with its observable evidence or explicit scoped waiver."}
+{"file": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/family-migration-matrix.json", "reason": "Prevent omitted families, unsafe retirement and accidental 0097 activation."}
+{"file": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/verification.md", "reason": "Distinguish executed baseline/stock-target probes from proposed candidate checks."}
+{"file": ".trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/reviewer-model-bindings.json", "reason": "Preserve explicit current-model-only reviewer routing without fallback."}

@@ -1,0 +1,11 @@
+{
+  "gate": "verify-resume-cache-breakpoint.ts",
+  "started": "2026-10-12T05:48:01.461076+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-resume-cache-breakpoint.ts"
+  ],
+  "exit": 0,
+  "stdout": "ok synthetic resumed session: 4 -> 4 breakpoints, released 21, anchor 20\nok live growth (418->457 messages, +41 blocks): anchor 417, marks 417,456\nok live growth negatives: +2 step, boundary 16/17, side request, shrink\nok thinking-ended growth: anchor scans back to the eligible text block\nok mixed-TTL anchor: 1h chosen over the newest 5m marker\nok mixed-TTL decline: no legal TTL, no anchor\nok continuity: equal-first-message conversations do not share a base\nok continuity: string and image-only first messages both tracked\nok tracker cap: 20 side requests leave the main predecessor in place\nok continuity: an equal tail in a different session does not anchor\nok continuity: a rewrite of the second-to-last message is caught\nok continuity: an early rewrite with an equal tail is an accepted residual\nok continuity: a tool_use input field named cache_control is hashed\nok continuity: penultimate message shape decorated array -> string still anchors on the previous tail\nok continuity: penultimate message shape string -> text block still anchors on the previous tail\nPASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap\n",
+  "stderr": ""
+}

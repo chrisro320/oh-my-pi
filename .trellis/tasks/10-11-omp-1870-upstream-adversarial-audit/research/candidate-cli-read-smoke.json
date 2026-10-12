@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "--preload",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/offline-preload.ts",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+    "--no-session",
+    "--no-skills",
+    "--no-lsp",
+    "-e",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/cli-smoke.mjs",
+    "--model",
+    "upgrade-smoke/verification",
+    "-p",
+    "Read the fixture file and report."
+  ],
+  "exit": 1,
+  "stdout": "",
+  "stderr": "791 | \t\tname => (name in BUILTIN_TOOLS || name in HIDDEN_TOOLS) && isToolAllowed(name),\n792 | \t) ?? [\n793 | \t\t...Object.keys(BUILTIN_TOOLS).filter(isToolAllowed),\n794 | \t\t...(externalThinkingActive ? [\"think\"] : []),\n795 | \t\t...(includeYield ? [\"yield\"] : []),\n796 | \t\t...(goalModeActive ? [\"goal\"] : []),\n            ^\nReferenceError: goalModeActive is not defined\n      at resolveBuiltinToolPlan (/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/tools/index.ts:796:7)\n      at createTools (/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/tools/index.ts:825:42)\n      at run (node:async_hooks:62:22)\n      at time (/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime/node_modules/@oh-my-pi/pi-utils/src/logger.ts:921:37)\n      at createAgentSessionScoped (/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/sdk.ts:2472:16)\n\n",
+  "source_tree_sha256": "ac555ea250e315592ea94d6062c3c0bde35bc7b9d0bf5e48385a2869ad2c0149"
+}

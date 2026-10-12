@@ -1,0 +1,12 @@
+{
+  "gate": "verify-hindsight-recall-snapshot.ts",
+  "started": "2026-10-12T06:06:36.932175+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-hindsight-recall-snapshot.ts"
+  ],
+  "gate_sha256": "3ce9770d42574e306b74a9384f9a3f22e19048e2da479e76c71e221490d42497",
+  "exit": 1,
+  "stdout": "=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===\n  ok empty recall persists a marker\n  ok null recall normalised to empty string\n  ok empty marker replayed on resume, recall not re-run\n  ok non-empty recall unchanged\n  ok failed recall not frozen\n  ok slow MM load frozen, resume replays it and never re-lists\n  ok reset_boundary isolates snapshots, stale empty marker cannot suppress recall\n  ok live and replayed recall preparations reject stale ownership\n  ok transcript reload replays target bytes and rejects deadline/superseded publication\n",
+  "stderr": "\n[Uncaught Exception] AssertionError: fixture must have a genuinely promoted outgoing recall tail\n+ actual - expected\n\n+ 'STATIC RECALL HISTORY FIXTURE'\n- '<memories>\\nOUTGOING BRANCH ONLY\\n</memories>'\n\n+ actual - expected\n\n+ 'STATIC RECALL HISTORY FIXTURE'\n- '<memories>\\nOUTGOING BRANCH ONLY\\n</memories>'\n\n    at /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/durability-gates/ledger/verify-hindsight-recall-snapshot.ts:673:12\n    at processTicksAndRejections (native:7:39)\n"
+}

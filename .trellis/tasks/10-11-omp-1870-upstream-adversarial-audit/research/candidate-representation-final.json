@@ -1,0 +1,14 @@
+{
+  "started": "2026-10-12T05:44:47.575158+00:00",
+  "command": [
+    "python3",
+    "/home/chris/orca/projects/omp-move/patches/verify-release-family-plan.py",
+    "--version",
+    "18.10.0",
+    "--tgz-cache",
+    "/tmp/omp-18100-audit-cd9kqmcj/archives"
+  ],
+  "exit": 0,
+  "stdout": "sandbox: /home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/representation-final/tmp/omp-family-18.10.0-l5ll2ws3\n{\n  \"status\": \"PASS\",\n  \"version\": \"18.10.0\",\n  \"families\": 23,\n  \"capabilities\": 58,\n  \"upstream_adoptions\": [\n    \"0017\"\n  ],\n  \"candidate_tree_sha256\": \"6b1b64ed23ea3f12651e92328149a25271edabae332fb65bf4acd1440fc6f5f9\",\n  \"zero_fuzz\": true,\n  \"reverse_to_pristine\": true,\n  \"second_replay_identical\": true,\n  \"controller_check_read_only\": true,\n  \"behavioral_checks_run\": false\n}\n",
+  "stderr": ""
+}

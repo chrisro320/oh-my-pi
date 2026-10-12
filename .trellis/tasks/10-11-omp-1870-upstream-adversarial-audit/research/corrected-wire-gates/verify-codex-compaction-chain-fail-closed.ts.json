@@ -1,0 +1,12 @@
+{
+  "gate": "verify-codex-compaction-chain-fail-closed.ts",
+  "started": "2026-10-12T06:02:46.210494+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-wire-gates/ledger/verify-codex-compaction-chain-fail-closed.ts"
+  ],
+  "gate_sha256": "d83a14289cc3f07ec7e3b471027ea6041f2fdabe5c1cd129b708470cf8f2b217",
+  "exit": 0,
+  "stdout": "0070 gate: local WebSocket ready\n0096 capacity: cold-user PASS (375007 tokens; standard window 272000)\n0096 capacity: cold-tool PASS (375007 tokens; standard window 272000)\n0096 capacity: live-user PASS (375007 tokens; standard window 272000)\n0096 capacity: provider-overflow PASS (375007 tokens; standard window 272000)\nverify-codex-compaction-chain-fail-closed: transport, retry, metadata and public types PASS\n",
+  "stderr": ""
+}

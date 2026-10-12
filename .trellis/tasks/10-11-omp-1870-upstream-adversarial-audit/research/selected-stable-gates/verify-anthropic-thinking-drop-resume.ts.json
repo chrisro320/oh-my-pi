@@ -1,0 +1,11 @@
+{
+  "gate": "verify-anthropic-thinking-drop-resume.ts",
+  "started": "2026-10-12T05:48:24.152847+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-anthropic-thinking-drop-resume.ts"
+  ],
+  "exit": 1,
+  "stdout": "",
+  "stderr": "\n[Uncaught Exception] TypeError: Attempted to assign to readonly property.\n    at assign (unknown)\n    at /home/chris/orca/projects/omp-move/patches/verify-anthropic-thinking-drop-resume.ts:394:24\n    at processTicksAndRejections (native:7:39)\n"
+}

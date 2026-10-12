@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "-I",
+    "/home/chris/orca/projects/omp-move/patches/verify-release-publication.py"
+  ],
+  "exit": 0,
+  "stdout": "PASS partial publication restores exact old launcher and ledger without restoring state\nPASS installed launcher reports version but refuses production while captured old owner survives\nPASS missing release binding fails closed without global fallback\nPASS pre-admission rollback restores code pointers and preserves current synthetic state\nPASS an unsettled parent/successor census refuses before admission or exec\nPASS durable admission precedes source exec and permanently refuses automatic code downgrade\nPASS synthetic publication boundary; no OMP provider or credential operations\n",
+  "stderr": "OMP launch refused: process census changed; successor ownership requires a fresh launch\n",
+  "time": "2026-10-12T07:19:27.630528+00:00",
+  "runtime": "/home/chris/.cache/omp-18101-migration/runtime/node_modules/@oh-my-pi",
+  "isolation": "allowlisted environment, private HOME/XDG/agent; no production credential operations"
+}

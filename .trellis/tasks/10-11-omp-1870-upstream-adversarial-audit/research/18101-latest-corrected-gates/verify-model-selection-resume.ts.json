@@ -1,0 +1,12 @@
+{
+  "gate": "verify-model-selection-resume.ts",
+  "started": "2026-10-12T06:37:04.141646+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18101-migration/verification/latest-corrected-gates/snapshot/patches/verify-model-selection-resume.ts"
+  ],
+  "gate_sha256": "599512f80935f37079ebdf816f449f2110a136d6ad7dc16ae432c680e9a0e990",
+  "exit": 0,
+  "stdout": "PASS fallback reconciliation -> navigation -> fresh-process resume: live=luna/high, resumed=sol/high, default=sol\nPASS persisted A -> B -> navigation/fork -> fresh-process resume: model=sol, effort=high\n",
+  "stderr": ""
+}

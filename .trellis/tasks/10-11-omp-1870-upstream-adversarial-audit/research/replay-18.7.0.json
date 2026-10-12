@@ -1,0 +1,218 @@
+[
+  {
+    "family": "family-status-accounting-v18.7.0.patch",
+    "patch": ".18.7.0-families/family-status-accounting-v18.7.0.patch",
+    "root": "NM",
+    "clean": true,
+    "dry_run": "checking file pi-coding-agent/dist/types/session/session-manager.d.ts\nchecking file pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts\nchecking file pi-coding-agent/src/cli/gallery-fixtures/status-line.ts\nchecking file pi-coding-agent/src/session/session-manager.ts\nchecking file pi-tui/dist/types/status-line/host.d.ts\nchecking file pi-tui/dist/types/status-line/schema.d.ts\nchecking file pi-tui/src/status-line/host.ts\nchecking file pi-tui/src/status-line/schema.ts\nchecking file pi-tui/src/status-line/segments.ts\nchecking file pi-tui/src/status-line/startup.ts\n",
+    "applied": true,
+    "output": "patching file pi-coding-agent/dist/types/session/session-manager.d.ts\npatching file pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts\npatching file pi-coding-agent/src/cli/gallery-fixtures/status-line.ts\npatching file pi-coding-agent/src/session/session-manager.ts\npatching file pi-tui/dist/types/status-line/host.d.ts\npatching file pi-tui/dist/types/status-line/schema.d.ts\npatching file pi-tui/src/status-line/host.ts\npatching file pi-tui/src/status-line/schema.ts\npatching file pi-tui/src/status-line/segments.ts\npatching file pi-tui/src/status-line/startup.ts\n"
+  },
+  {
+    "family": "family-hindsight-v18.7.0.patch",
+    "patch": ".18.7.0-families/family-hindsight-v18.7.0.patch",
+    "root": "AGENT",
+    "clean": true,
+    "dry_run": "checking file dist/types/session/session-memory.d.ts\nchecking file dist/types/session/session-tools.d.ts\nchecking file src/hindsight/backend.ts\nchecking file src/hindsight/state.ts\nchecking file src/session/agent-session.ts\nchecking file src/session/session-memory.ts\nchecking file src/session/session-tools.ts\n",
+    "applied": true,
+    "output": "patching file dist/types/session/session-memory.d.ts\npatching file dist/types/session/session-tools.d.ts\npatching file src/hindsight/backend.ts\npatching file src/hindsight/state.ts\npatching file src/session/agent-session.ts\npatching file src/session/session-memory.ts\npatching file src/session/session-tools.ts\n"
+  },
+  {
+    "family": "family-usage-pipeline-v18.7.0.patch",
+    "patch": ".18.7.0-families/family-usage-pipeline-v18.7.0.patch",
+    "root": "NM",
+    "clean": true,
+    "dry_run": "checking file pi-ai/dist/types/auth/types.d.ts\nchecking file pi-ai/dist/types/auth/usage-cache.d.ts\nchecking file pi-ai/dist/types/auth/usage.d.ts\nchecking file pi-ai/src/auth/types.ts\nchecking file pi-ai/src/auth/usage-cache.ts\nchecking file pi-ai/src/auth/usage.ts\nchecking file pi-ai/src/usage/ollama.ts\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\nchecking file pi-coding-agent/src/modes/status-line-host.ts\nchecking file pi-coding-agent/src/session/agent-session.ts\nchecking file pi-tui/dist/types/status-line/host.d.ts\nchecking file pi-tui/src/status-line/component.ts\nchecking file pi-tui/src/status-line/host.ts\n",
+    "applied": true,
+    "output": "patching file pi-ai/dist/types/auth/types.d.ts\npatching file pi-ai/dist/types/auth/usage-cache.d.ts\npatching file pi-ai/dist/types/auth/usage.d.ts\npatching file pi-ai/src/auth/types.ts\npatching file pi-ai/src/auth/usage-cache.ts\npatching file pi-ai/src/auth/usage.ts\npatching file pi-ai/src/usage/ollama.ts\npatching file pi-coding-agent/dist/types/session/agent-session.d.ts\npatching file pi-coding-agent/src/modes/status-line-host.ts\npatching file pi-coding-agent/src/session/agent-session.ts\npatching file pi-tui/dist/types/status-line/host.d.ts\npatching file pi-tui/src/status-line/component.ts\npatching file pi-tui/src/status-line/host.ts\n"
+  },
+  {
+    "family": "0010-omp-extension-idle-ephemeral-turn-v18.7.0.patch",
+    "patch": ".18.7.0-families/0010-omp-extension-idle-ephemeral-turn-v18.7.0.patch",
+    "root": "AGENT",
+    "clean": true,
+    "dry_run": "checking file src/session/agent-session.ts\nHunk #1 succeeded at 158 (offset 1 line).\nHunk #2 succeeded at 807 (offset 1 line).\nHunk #3 succeeded at 981 (offset 1 line).\nHunk #4 succeeded at 1085 (offset 1 line).\nHunk #5 succeeded at 1285 (offset 1 line).\nHunk #6 succeeded at 1359 (offset 1 line).\nHunk #7 succeeded at 1468 (offset 1 line).\nHunk #8 succeeded at 1888 (offset 1 line).\nHunk #9 succeeded at 4671 (offset 2 lines).\nHunk #10 succeeded at 4712 (offset 2 lines).\nHunk #11 succeeded at 5226 (offset 2 lines).\nHunk #12 succeeded at 5435 (offset 2 lines).\nHunk #13 succeeded at 7756 (offset 2 lines).\nHunk #14 succeeded at 7976 (offset 2 lines).\nHunk #15 succeeded at 8081 (offset 2 lines).\nHunk #16 succeeded at 8530 (offset 2 lines).\nHunk #17 succeeded at 8547 (offset 2 lines).\nHunk #18 succeeded at 10799 (offset 2 lines).\nHunk #19 succeeded at 11873 (offset 3 lines).\nHunk #20 succeeded at 11968 (offset 3 lines).\nHunk #21 succeeded at 11976 (offset 3 lines).\nHunk #22 succeeded at 12001 (offset 3 lines).\nHunk #23 succeeded at 12014 (offset 3 lines).\nHunk #24 succeeded at 12129 (offset 3 lines).\nchecking file dist/types/extensibility/extensions/types.d.ts\nchecking file dist/types/session/agent-session.d.ts\nchecking file src/extensibility/extensions/runner.ts\nchecking file src/extensibility/extensions/types.ts\nchecking file src/modes/acp/acp-agent.ts\nchecking file src/modes/controllers/extension-ui-controller.ts\nchecking file src/modes/runtime-init.ts\n",
+    "applied": true,
+    "output": "patching file src/session/agent-session.ts\nHunk #1 succeeded at 158 (offset 1 line).\nHunk #2 succeeded at 807 (offset 1 line).\nHunk #3 succeeded at 981 (offset 1 line).\nHunk #4 succeeded at 1085 (offset 1 line).\nHunk #5 succeeded at 1285 (offset 1 line).\nHunk #6 succeeded at 1359 (offset 1 line).\nHunk #7 succeeded at 1468 (offset 1 line).\nHunk #8 succeeded at 1888 (offset 1 line).\nHunk #9 succeeded at 4671 (offset 2 lines).\nHunk #10 succeeded at 4712 (offset 2 lines).\nHunk #11 succeeded at 5226 (offset 2 lines).\nHunk #12 succeeded at 5435 (offset 2 lines).\nHunk #13 succeeded at 7756 (offset 2 lines).\nHunk #14 succeeded at 7976 (offset 2 lines).\nHunk #15 succeeded at 8081 (offset 2 lines).\nHunk #16 succeeded at 8530 (offset 2 lines).\nHunk #17 succeeded at 8547 (offset 2 lines).\nHunk #18 succeeded at 10799 (offset 2 lines).\nHunk #19 succeeded at 11873 (offset 3 lines).\nHunk #20 succeeded at 11968 (offset 3 lines).\nHunk #21 succeeded at 11976 (offset 3 lines).\nHunk #22 succeeded at 12001 (offset 3 lines).\nHunk #23 succeeded at 12014 (offset 3 lines).\nHunk #24 succeeded at 12129 (offset 3 lines).\npatching file dist/types/extensibility/extensions/types.d.ts\npatching file dist/types/session/agent-session.d.ts\npatching file src/extensibility/extensions/runner.ts\npatching file src/extensibility/extensions/types.ts\npatching file src/modes/acp/acp-agent.ts\npatching file src/modes/controllers/extension-ui-controller.ts\npatching file src/modes/runtime-init.ts\n"
+  },
+  {
+    "family": "family-antigravity-wire-v18.7.0.patch",
+    "patch": ".18.7.0-families/family-antigravity-wire-v18.7.0.patch",
+    "root": "AI",
+    "clean": true,
+    "dry_run": "checking file src/providers/google-gemini-cli.ts\n",
+    "applied": true,
+    "output": "patching file src/providers/google-gemini-cli.ts\n"
+  },
+  {
+    "family": "family-image-budget-snapcompact-v18.7.0.patch",
+    "patch": ".18.7.0-families/family-image-budget-snapcompact-v18.7.0.patch",
+    "root": "NM",
+    "clean": true,
+    "dry_run": "checking file pi-coding-agent/src/session/provider-image-budget.ts\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nchecking file pi-coding-agent/src/session/snapcompact-inline.ts\nchecking file snapcompact/dist/types/snapcompact.d.ts\nchecking file snapcompact/src/snapcompact.ts\n",
+    "applied": true,
+    "output": "patching file pi-coding-agent/src/session/provider-image-budget.ts\npatching file pi-coding-agent/src/session/session-maintenance.ts\npatching file pi-coding-agent/src/session/snapcompact-inline.ts\npatching file snapcompact/dist/types/snapcompact.d.ts\npatching file snapcompact/src/snapcompact.ts\n"
+  },
+  {
+    "family": "0017-omp-openai-responses-native-replay-warm-v18.7.0.patch",
+    "patch": ".18.7.0-families/0017-omp-openai-responses-native-replay-warm-v18.7.0.patch",
+    "root": "AI",
+    "clean": true,
+    "dry_run": "checking file src/providers/openai-responses.ts\n",
+    "applied": true,
+    "output": "patching file src/providers/openai-responses.ts\n"
+  },
+  {
+    "family": "0032-omp-goal-tool-resident-v18.7.0.patch",
+    "patch": ".18.7.0-families/0032-omp-goal-tool-resident-v18.7.0.patch",
+    "root": "AGENT",
+    "clean": true,
+    "dry_run": "checking file src/modes/interactive-mode.ts\nchecking file src/sdk.ts\nchecking file src/tools/index.ts\n",
+    "applied": true,
+    "output": "patching file src/modes/interactive-mode.ts\npatching file src/sdk.ts\npatching file src/tools/index.ts\n"
+  },
+  {
+    "family": "family-persistent-prefix-resume-v18.7.0.patch",
+    "patch": ".18.7.0-families/family-persistent-prefix-resume-v18.7.0.patch",
+    "root": "NM",
+    "clean": true,
+    "dry_run": "checking file pi-ai/dist/types/types.d.ts\nchecking file pi-ai/src/providers/openai-responses.ts\nchecking file pi-ai/src/types.ts\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\nchecking file pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts\nchecking file pi-coding-agent/dist/types/session/messages.d.ts\nchecking file pi-coding-agent/src/collab/guest.ts\nchecking file pi-coding-agent/src/sdk.ts\nchecking file pi-coding-agent/src/session/agent-session.ts\nchecking file pi-coding-agent/src/session/date-cwd-reminder.ts\nchecking file pi-coding-agent/src/session/messages.ts\nchecking file pi-coding-agent/src/session/session-context.ts\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nchecking file pi-coding-agent/src/session/session-tools.ts\nchecking file pi-coding-agent/src/session/turn-recovery.ts\n",
+    "applied": true,
+    "output": "patching file pi-ai/dist/types/types.d.ts\npatching file pi-ai/src/providers/openai-responses.ts\npatching file pi-ai/src/types.ts\npatching file pi-coding-agent/dist/types/session/agent-session.d.ts\npatching file pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts\npatching file pi-coding-agent/dist/types/session/messages.d.ts\npatching file pi-coding-agent/src/collab/guest.ts\npatching file pi-coding-agent/src/sdk.ts\npatching file pi-coding-agent/src/session/agent-session.ts\npatching file pi-coding-agent/src/session/date-cwd-reminder.ts\npatching file pi-coding-agent/src/session/messages.ts\npatching file pi-coding-agent/src/session/session-context.ts\npatching file pi-coding-agent/src/session/session-maintenance.ts\npatching file pi-coding-agent/src/session/session-tools.ts\npatching file pi-coding-agent/src/session/turn-recovery.ts\n"
+  },
+  {
+    "family": "0046-omp-supersede-warm-prefix-guard-v18.7.0.patch",
+    "patch": ".18.7.0-families/0046-omp-supersede-warm-prefix-guard-v18.7.0.patch",
+    "root": "AGENT",
+    "clean": true,
+    "dry_run": "checking file src/session/session-maintenance.ts\nHunk #1 succeeded at 733 (offset -6 lines).\n",
+    "applied": true,
+    "output": "patching file src/session/session-maintenance.ts\nHunk #1 succeeded at 733 (offset -6 lines).\n"
+  },
+  {
+    "family": "0048-omp-advisor-quota-rotation-bound-v18.7.0.patch",
+    "patch": ".18.7.0-families/0048-omp-advisor-quota-rotation-bound-v18.7.0.patch",
+    "root": "AGENT",
+    "clean": true,
+    "dry_run": "checking file src/session/session-advisors.ts\nHunk #1 succeeded at 129 (offset -3 lines).\nHunk #2 succeeded at 348 (offset -3 lines).\nHunk #3 succeeded at 1575 (offset -3 lines).\nHunk #4 succeeded at 2105 (offset -3 lines).\n",
+    "applied": true,
+    "output": "patching file src/session/session-advisors.ts\nHunk #1 succeeded at 129 (offset -3 lines).\nHunk #2 succeeded at 348 (offset -3 lines).\nHunk #3 succeeded at 1575 (offset -3 lines).\nHunk #4 succeeded at 2105 (offset -3 lines).\n"
+  },
+  {
+    "family": "0050-omp-session-history-preview-v18.7.0.patch",
+    "patch": ".18.7.0-families/0050-omp-session-history-preview-v18.7.0.patch",
+    "root": "NM",
+    "clean": true,
+    "dry_run": "checking file pi-coding-agent/dist/types/session/session-listing.d.ts\nchecking file pi-coding-agent/src/main.ts\nchecking file pi-coding-agent/src/modes/controllers/selector-controller.ts\nchecking file pi-coding-agent/src/session/session-listing.ts\nchecking file pi-tui/dist/types/apps/session-picker.d.ts\nchecking file pi-tui/dist/types/overlays/session-selector.d.ts\nchecking file pi-tui/src/apps/session-picker.ts\nchecking file pi-tui/src/overlays/session-selector.ts\n",
+    "applied": true,
+    "output": "patching file pi-coding-agent/dist/types/session/session-listing.d.ts\npatching file pi-coding-agent/src/main.ts\npatching file pi-coding-agent/src/modes/controllers/selector-controller.ts\npatching file pi-coding-agent/src/session/session-listing.ts\npatching file pi-tui/dist/types/apps/session-picker.d.ts\npatching file pi-tui/dist/types/overlays/session-selector.d.ts\npatching file pi-tui/src/apps/session-picker.ts\npatching file pi-tui/src/overlays/session-selector.ts\n"
+  },
+  {
+    "family": "family-devin-wire-v18.7.0.patch",
+    "patch": ".18.7.0-families/family-devin-wire-v18.7.0.patch",
+    "root": "NM",
+    "clean": true,
+    "dry_run": "checking file pi-ai/dist/types/stream.d.ts\nchecking file pi-ai/dist/types/types.d.ts\nchecking file pi-ai/src/providers/devin.ts\nchecking file pi-ai/src/stream.ts\nchecking file pi-ai/src/types.ts\nchecking file pi-catalog/src/wire/devin.ts\nchecking file pi-coding-agent/dist/types/session/agent-session-types.d.ts\nchecking file pi-coding-agent/src/session/agent-session-types.ts\nchecking file pi-coding-agent/src/session/agent-session.ts\nHunk #1 succeeded at 10881 (offset 1 line).\nHunk #2 succeeded at 11009 (offset 1 line).\n",
+    "applied": true,
+    "output": "patching file pi-ai/dist/types/stream.d.ts\npatching file pi-ai/dist/types/types.d.ts\npatching file pi-ai/src/providers/devin.ts\npatching file pi-ai/src/stream.ts\npatching file pi-ai/src/types.ts\npatching file pi-catalog/src/wire/devin.ts\npatching file pi-coding-agent/dist/types/session/agent-session-types.d.ts\npatching file pi-coding-agent/src/session/agent-session-types.ts\npatching file pi-coding-agent/src/session/agent-session.ts\nHunk #1 succeeded at 10881 (offset 1 line).\nHunk #2 succeeded at 11009 (offset 1 line).\n"
+  },
+  {
+    "family": "0065-omp-commandcode-deepseek-model-record-parity-v18.7.0.patch",
+    "patch": ".18.7.0-families/0065-omp-commandcode-deepseek-model-record-parity-v18.7.0.patch",
+    "root": "NM",
+    "clean": true,
+    "dry_run": "checking file pi-catalog/src/compat/rules.json\nchecking file pi-catalog/src/compat/rules/providers/commandcode.kdl\n",
+    "applied": true,
+    "output": "patching file pi-catalog/src/compat/rules.json\npatching file pi-catalog/src/compat/rules/providers/commandcode.kdl\n"
+  },
+  {
+    "family": "0069-omp-codex-effort-history-resume-v18.7.0.patch",
+    "patch": ".18.7.0-families/0069-omp-codex-effort-history-resume-v18.7.0.patch",
+    "root": "AI",
+    "clean": true,
+    "dry_run": "checking file dist/types/types.d.ts\nchecking file src/types.ts\nchecking file src/providers/openai-codex-responses.ts\nHunk #2 succeeded at 463 (offset -4 lines).\nHunk #3 succeeded at 770 (offset -4 lines).\nHunk #4 succeeded at 1054 (offset -4 lines).\nHunk #5 succeeded at 1061 (offset -4 lines).\nHunk #6 succeeded at 1074 (offset -4 lines).\nHunk #7 succeeded at 1521 (offset -4 lines).\nHunk #8 succeeded at 1539 (offset -4 lines).\nHunk #9 succeeded at 1595 (offset -4 lines).\nHunk #10 succeeded at 3230 (offset -39 lines).\n",
+    "applied": true,
+    "output": "patching file dist/types/types.d.ts\npatching file src/types.ts\npatching file src/providers/openai-codex-responses.ts\nHunk #2 succeeded at 463 (offset -4 lines).\nHunk #3 succeeded at 770 (offset -4 lines).\nHunk #4 succeeded at 1054 (offset -4 lines).\nHunk #5 succeeded at 1061 (offset -4 lines).\nHunk #6 succeeded at 1074 (offset -4 lines).\nHunk #7 succeeded at 1521 (offset -4 lines).\nHunk #8 succeeded at 1539 (offset -4 lines).\nHunk #9 succeeded at 1595 (offset -4 lines).\nHunk #10 succeeded at 3230 (offset -39 lines).\n"
+  },
+  {
+    "family": "0072-omp-session-pin-static-auth-ui-v18.7.0.patch",
+    "patch": ".18.7.0-families/0072-omp-session-pin-static-auth-ui-v18.7.0.patch",
+    "root": "AGENT",
+    "clean": true,
+    "dry_run": "checking file src/modes/controllers/selector-controller.ts\n",
+    "applied": true,
+    "output": "patching file src/modes/controllers/selector-controller.ts\n"
+  },
+  {
+    "family": "0074-omp-anthropic-context-cache-boundaries-v18.7.0.patch",
+    "patch": ".18.7.0-families/0074-omp-anthropic-context-cache-boundaries-v18.7.0.patch",
+    "root": "AI",
+    "clean": true,
+    "dry_run": "checking file dist/types/providers/anthropic-request-audit.d.ts\nchecking file src/providers/anthropic-request-audit.ts\nchecking file src/providers/anthropic.ts\n",
+    "applied": true,
+    "output": "patching file dist/types/providers/anthropic-request-audit.d.ts\npatching file src/providers/anthropic-request-audit.ts\npatching file src/providers/anthropic.ts\n"
+  },
+  {
+    "family": "family-image-display-v18.7.0.patch",
+    "patch": ".18.7.0-families/family-image-display-v18.7.0.patch",
+    "root": "NM",
+    "clean": true,
+    "dry_run": "checking file pi-coding-agent/src/eval/py/display.ts\nchecking file pi-tui/dist/types/chat/image-loading.d.ts\nchecking file pi-tui/src/chat/assistant-message.ts\nchecking file pi-tui/src/chat/image-loading.ts\nchecking file pi-tui/src/chat/tool-execution.ts\n",
+    "applied": true,
+    "output": "patching file pi-coding-agent/src/eval/py/display.ts\npatching file pi-tui/dist/types/chat/image-loading.d.ts\npatching file pi-tui/src/chat/assistant-message.ts\npatching file pi-tui/src/chat/image-loading.ts\npatching file pi-tui/src/chat/tool-execution.ts\n"
+  },
+  {
+    "family": "family-input-translation-v18.7.0.patch",
+    "patch": ".18.7.0-families/family-input-translation-v18.7.0.patch",
+    "root": "NM",
+    "clean": true,
+    "dry_run": "checking file pi-agent-core/dist/types/compaction/compaction.d.ts\nchecking file pi-agent-core/src/agent.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-agent-core/src/compaction/messages.ts\nchecking file pi-ai/dist/types/types.d.ts\nchecking file pi-ai/src/types.ts\nchecking file pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts\nchecking file pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts\nchecking file pi-coding-agent/dist/types/extensibility/extensions/types.d.ts\nchecking file pi-coding-agent/dist/types/main.d.ts\nchecking file pi-coding-agent/dist/types/modes/interactive-mode.d.ts\nchecking file pi-coding-agent/dist/types/modes/types.d.ts\nchecking file pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts\nchecking file pi-coding-agent/dist/types/session/agent-session-types.d.ts\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\nchecking file pi-coding-agent/dist/types/session/session-history-format.d.ts\nchecking file pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts\nchecking file pi-coding-agent/src/export/html/template.js\nchecking file pi-coding-agent/src/export/share.ts\nchecking file pi-coding-agent/src/extensibility/extensions/loader.ts\nchecking file pi-coding-agent/src/extensibility/extensions/runner.ts\nchecking file pi-coding-agent/src/extensibility/extensions/types.ts\nchecking file pi-coding-agent/src/main.ts\nchecking file pi-coding-agent/src/modes/acp/acp-agent.ts\nchecking file pi-coding-agent/src/modes/controllers/extension-ui-controller.ts\nchecking file pi-coding-agent/src/modes/controllers/input-controller.ts\nchecking file pi-coding-agent/src/modes/interactive-mode.ts\nchecking file pi-coding-agent/src/modes/runtime-init.ts\nchecking file pi-coding-agent/src/modes/types.ts\nchecking file pi-coding-agent/src/modes/utils/ui-helpers.ts\nchecking file pi-coding-agent/src/session/agent-session-types.ts\nchecking file pi-coding-agent/src/session/agent-session.ts\nHunk #1 succeeded at 329 (offset 1 line).\nHunk #2 succeeded at 983 (offset 1 line).\nHunk #3 succeeded at 2315 (offset 1 line).\nHunk #4 succeeded at 5235 (offset 1 line).\nHunk #5 succeeded at 5319 (offset 1 line).\nHunk #6 succeeded at 5524 (offset 1 line).\nHunk #7 succeeded at 5726 (offset 1 line).\nHunk #8 succeeded at 5915 (offset 1 line).\nHunk #9 succeeded at 7382 (offset 1 line).\nHunk #10 succeeded at 7427 (offset 1 line).\nHunk #11 succeeded at 7503 (offset 1 line).\nHunk #12 succeeded at 7531 (offset 1 line).\nHunk #13 succeeded at 7583 (offset 1 line).\nHunk #14 succeeded at 7604 (offset 1 line).\nHunk #15 succeeded at 8302 (offset 1 line).\nHunk #16 succeeded at 8327 (offset 1 line).\nHunk #17 succeeded at 8340 (offset 1 line).\nHunk #18 succeeded at 8406 (offset 1 line).\nHunk #19 succeeded at 8475 (offset 1 line).\nHunk #20 succeeded at 8504 (offset 1 line).\nHunk #21 succeeded at 8518 (offset 1 line).\nHunk #22 succeeded at 9032 (offset 1 line).\nHunk #23 succeeded at 9066 (offset 1 line).\nHunk #24 succeeded at 9729 (offset 1 line).\nHunk #25 succeeded at 9876 (offset 1 line).\nHunk #26 succeeded at 11334 (offset 1 line).\nHunk #27 succeeded at 11752 (offset 1 line).\nHunk #28 succeeded at 11894 (offset 1 line).\nHunk #29 succeeded at 12071 (offset 1 line).\nchecking file pi-coding-agent/src/session/queued-messages.ts\nchecking file pi-coding-agent/src/session/session-advisors.ts\nchecking file pi-coding-agent/src/session/session-dump-format.ts\nchecking file pi-coding-agent/src/session/session-history-format.ts\nchecking file pi-coding-agent/src/session/session-listing.ts\nchecking file pi-coding-agent/src/slash-commands/helpers/draft.ts\nchecking file pi-tui/dist/types/chat/transcript-entry.d.ts\nchecking file pi-tui/src/chat/chat-transcript-builder.ts\nchecking file pi-tui/src/chat/transcript-entry.ts\nchecking file pi-tui/src/chat/transcript-outline.ts\nchecking file pi-tui/src/overlays/copy-selector.ts\nchecking file pi-tui/src/overlays/session-selector.ts\nchecking file pi-tui/src/overlays/tree-selector.ts\n",
+    "applied": true,
+    "output": "patching file pi-agent-core/dist/types/compaction/compaction.d.ts\npatching file pi-agent-core/src/agent.ts\npatching file pi-agent-core/src/compaction/compaction.ts\npatching file pi-agent-core/src/compaction/messages.ts\npatching file pi-ai/dist/types/types.d.ts\npatching file pi-ai/src/types.ts\npatching file pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts\npatching file pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts\npatching file pi-coding-agent/dist/types/extensibility/extensions/types.d.ts\npatching file pi-coding-agent/dist/types/main.d.ts\npatching file pi-coding-agent/dist/types/modes/interactive-mode.d.ts\npatching file pi-coding-agent/dist/types/modes/types.d.ts\npatching file pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts\npatching file pi-coding-agent/dist/types/session/agent-session-types.d.ts\npatching file pi-coding-agent/dist/types/session/agent-session.d.ts\npatching file pi-coding-agent/dist/types/session/session-history-format.d.ts\npatching file pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts\npatching file pi-coding-agent/src/export/html/template.js\npatching file pi-coding-agent/src/export/share.ts\npatching file pi-coding-agent/src/extensibility/extensions/loader.ts\npatching file pi-coding-agent/src/extensibility/extensions/runner.ts\npatching file pi-coding-agent/src/extensibility/extensions/types.ts\npatching file pi-coding-agent/src/main.ts\npatching file pi-coding-agent/src/modes/acp/acp-agent.ts\npatching file pi-coding-agent/src/modes/controllers/extension-ui-controller.ts\npatching file pi-coding-agent/src/modes/controllers/input-controller.ts\npatching file pi-coding-agent/src/modes/interactive-mode.ts\npatching file pi-coding-agent/src/modes/runtime-init.ts\npatching file pi-coding-agent/src/modes/types.ts\npatching file pi-coding-agent/src/modes/utils/ui-helpers.ts\npatching file pi-coding-agent/src/session/agent-session-types.ts\npatching file pi-coding-agent/src/session/agent-session.ts\nHunk #1 succeeded at 329 (offset 1 line).\nHunk #2 succeeded at 983 (offset 1 line).\nHunk #3 succeeded at 2315 (offset 1 line).\nHunk #4 succeeded at 5235 (offset 1 line).\nHunk #5 succeeded at 5319 (offset 1 line).\nHunk #6 succeeded at 5524 (offset 1 line).\nHunk #7 succeeded at 5726 (offset 1 line).\nHunk #8 succeeded at 5915 (offset 1 line).\nHunk #9 succeeded at 7382 (offset 1 line).\nHunk #10 succeeded at 7427 (offset 1 line).\nHunk #11 succeeded at 7503 (offset 1 line).\nHunk #12 succeeded at 7531 (offset 1 line).\nHunk #13 succeeded at 7583 (offset 1 line).\nHunk #14 succeeded at 7604 (offset 1 line).\nHunk #15 succeeded at 8302 (offset 1 line).\nHunk #16 succeeded at 8327 (offset 1 line).\nHunk #17 succeeded at 8340 (offset 1 line).\nHunk #18 succeeded at 8406 (offset 1 line).\nHunk #19 succeeded at 8475 (offset 1 line).\nHunk #20 succeeded at 8504 (offset 1 line).\nHunk #21 succeeded at 8518 (offset 1 line).\nHunk #22 succeeded at 9032 (offset 1 line).\nHunk #23 succeeded at 9066 (offset 1 line).\nHunk #24 succeeded at 9729 (offset 1 line).\nHunk #25 succeeded at 9876 (offset 1 line).\nHunk #26 succeeded at 11334 (offset 1 line).\nHunk #27 succeeded at 11752 (offset 1 line).\nHunk #28 succeeded at 11894 (offset 1 line).\nHunk #29 succeeded at 12071 (offset 1 line).\npatching file pi-coding-agent/src/session/queued-messages.ts\npatching file pi-coding-agent/src/session/session-advisors.ts\npatching file pi-coding-agent/src/session/session-dump-format.ts\npatching file pi-coding-agent/src/session/session-history-format.ts\npatching file pi-coding-agent/src/session/session-listing.ts\npatching file pi-coding-agent/src/slash-commands/helpers/draft.ts\npatching file pi-tui/dist/types/chat/transcript-entry.d.ts\npatching file pi-tui/src/chat/chat-transcript-builder.ts\npatching file pi-tui/src/chat/transcript-entry.ts\npatching file pi-tui/src/chat/transcript-outline.ts\npatching file pi-tui/src/overlays/copy-selector.ts\npatching file pi-tui/src/overlays/session-selector.ts\npatching file pi-tui/src/overlays/tree-selector.ts\n"
+  },
+  {
+    "family": "family-compaction-v18.7.0.patch",
+    "patch": ".18.7.0-families/family-compaction-v18.7.0.patch",
+    "root": "NM",
+    "clean": true,
+    "dry_run": "checking file pi-agent-core/dist/types/compaction/anthropic.d.ts\nchecking file pi-agent-core/dist/types/compaction/compaction-trace.d.ts\nchecking file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\nchecking file pi-agent-core/dist/types/compaction/compaction.d.ts\nchecking file pi-agent-core/src/compaction/anthropic.ts\nchecking file pi-agent-core/src/compaction/compaction-trace.ts\nchecking file pi-agent-core/src/compaction/compaction-v2-streaming.ts\nchecking file pi-agent-core/src/compaction/compaction.ts\nchecking file pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md\nchecking file pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md\nchecking file pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md\nchecking file pi-ai/dist/types/providers/openai-codex-responses.d.ts\nchecking file pi-ai/src/providers/openai-codex-responses.ts\nchecking file pi-coding-agent/dist/types/session/agent-session.d.ts\nchecking file pi-coding-agent/dist/types/session/session-maintenance.d.ts\nchecking file pi-coding-agent/dist/types/session/session-provider-boundary.d.ts\nchecking file pi-coding-agent/src/session/agent-session.ts\nHunk #1 succeeded at 2318 (offset 1 line).\nHunk #2 succeeded at 2376 (offset 1 line).\nHunk #3 succeeded at 6728 (offset 1 line).\nchecking file pi-coding-agent/src/session/session-advisors.ts\nchecking file pi-coding-agent/src/session/session-maintenance.ts\nchecking file pi-coding-agent/src/session/session-provider-boundary.ts\n",
+    "applied": true,
+    "output": "patching file pi-agent-core/dist/types/compaction/anthropic.d.ts\npatching file pi-agent-core/dist/types/compaction/compaction-trace.d.ts\npatching file pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts\npatching file pi-agent-core/dist/types/compaction/compaction.d.ts\npatching file pi-agent-core/src/compaction/anthropic.ts\npatching file pi-agent-core/src/compaction/compaction-trace.ts\npatching file pi-agent-core/src/compaction/compaction-v2-streaming.ts\npatching file pi-agent-core/src/compaction/compaction.ts\npatching file pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md\npatching file pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md\npatching file pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md\npatching file pi-ai/dist/types/providers/openai-codex-responses.d.ts\npatching file pi-ai/src/providers/openai-codex-responses.ts\npatching file pi-coding-agent/dist/types/session/agent-session.d.ts\npatching file pi-coding-agent/dist/types/session/session-maintenance.d.ts\npatching file pi-coding-agent/dist/types/session/session-provider-boundary.d.ts\npatching file pi-coding-agent/src/session/agent-session.ts\nHunk #1 succeeded at 2318 (offset 1 line).\nHunk #2 succeeded at 2376 (offset 1 line).\nHunk #3 succeeded at 6728 (offset 1 line).\npatching file pi-coding-agent/src/session/session-advisors.ts\npatching file pi-coding-agent/src/session/session-maintenance.ts\npatching file pi-coding-agent/src/session/session-provider-boundary.ts\n"
+  },
+  {
+    "family": "0090-omp-oauth-durable-refresh-v18.7.0.patch",
+    "patch": ".18.7.0-families/0090-omp-oauth-durable-refresh-v18.7.0.patch",
+    "root": "AI",
+    "clean": true,
+    "dry_run": "checking file src/auth/usage.ts\nchecking file dist/types/registry/oauth/anthropic.d.ts\nchecking file src/auth/refresh.ts\nchecking file src/auth/select.ts\nchecking file src/registry/oauth/anthropic.ts\n",
+    "applied": true,
+    "output": "patching file src/auth/usage.ts\npatching file dist/types/registry/oauth/anthropic.d.ts\npatching file src/auth/refresh.ts\npatching file src/auth/select.ts\npatching file src/registry/oauth/anthropic.ts\n"
+  },
+  {
+    "family": "0092-omp-cache-warming-idle-budget-v18.7.0.patch",
+    "patch": ".18.7.0-families/0092-omp-cache-warming-idle-budget-v18.7.0.patch",
+    "root": "AGENT",
+    "clean": true,
+    "dry_run": "checking file dist/types/extensibility/extensions/types.d.ts\nchecking file src/extensibility/extensions/types.ts\nchecking file src/sdk.ts\nHunk #1 succeeded at 4266 (offset 1 line).\nchecking file src/extensibility/shared-events.ts\nchecking file src/session/cache-warmer.ts\nchecking file dist/types/session/cache-warmer.d.ts\nchecking file dist/types/extensibility/shared-events.d.ts\n",
+    "applied": true,
+    "output": "patching file dist/types/extensibility/extensions/types.d.ts\npatching file src/extensibility/extensions/types.ts\npatching file src/sdk.ts\nHunk #1 succeeded at 4266 (offset 1 line).\npatching file src/extensibility/shared-events.ts\npatching file src/session/cache-warmer.ts\npatching file dist/types/session/cache-warmer.d.ts\npatching file dist/types/extensibility/shared-events.d.ts\n"
+  },
+  {
+    "family": "0094-omp-anthropic-thinking-drop-resume-v18.7.0.patch",
+    "patch": ".18.7.0-families/0094-omp-anthropic-thinking-drop-resume-v18.7.0.patch",
+    "root": "AI",
+    "clean": true,
+    "dry_run": "checking file src/types.ts\nchecking file src/providers/anthropic.ts\nchecking file dist/types/types.d.ts\n",
+    "applied": true,
+    "output": "patching file src/types.ts\npatching file src/providers/anthropic.ts\npatching file dist/types/types.d.ts\n"
+  },
+  {
+    "family": "0095-omp-context-audit-request-purpose-v18.7.0.patch",
+    "patch": ".18.7.0-families/0095-omp-context-audit-request-purpose-v18.7.0.patch",
+    "root": "AGENT",
+    "clean": true,
+    "dry_run": "checking file src/extensibility/shared-events.ts\nchecking file src/extensibility/extensions/runner.ts\nchecking file src/extensibility/hooks/runner.ts\nchecking file src/sdk.ts\nchecking file src/session/agent-session-types.ts\nchecking file src/session/agent-session.ts\nHunk #1 succeeded at 937 (offset 1 line).\nHunk #2 succeeded at 2065 (offset 1 line).\nchecking file dist/types/extensibility/shared-events.d.ts\nchecking file dist/types/extensibility/extensions/runner.d.ts\nchecking file dist/types/session/agent-session-types.d.ts\n",
+    "applied": true,
+    "output": "patching file src/extensibility/shared-events.ts\npatching file src/extensibility/extensions/runner.ts\npatching file src/extensibility/hooks/runner.ts\npatching file src/sdk.ts\npatching file src/session/agent-session-types.ts\npatching file src/session/agent-session.ts\nHunk #1 succeeded at 937 (offset 1 line).\nHunk #2 succeeded at 2065 (offset 1 line).\npatching file dist/types/extensibility/shared-events.d.ts\npatching file dist/types/extensibility/extensions/runner.d.ts\npatching file dist/types/session/agent-session-types.d.ts\n"
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "gate": "verify-prompt-effort-resume.ts",
+  "started": "2026-10-12T06:04:44.623503+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/corrected-host-gates/ledger/verify-prompt-effort-resume.ts"
+  ],
+  "gate_sha256": "a05749f494b14c8507f9dd1194af106fcdcdd9efaff288f145d6b3516380ee7c",
+  "exit": 0,
+  "stdout": "PASS prompt-effort resume: 2 scenarios (max->high, high->max) keep 2+2+2 requests prefix-identical with effort on the wire\n",
+  "stderr": ""
+}

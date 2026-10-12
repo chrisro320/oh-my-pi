@@ -1,0 +1,10 @@
+{
+  "started": "2026-10-12T06:36:46.081582+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-native-dialog-lifecycle.ts"
+  ],
+  "exit": 0,
+  "stdout": "PASS settled native input ignores queued native, keyboard and paste delivery\nPASS refused native submit remains editable and retryable\nPASS native File copy preserves /home/user/session.jsonl\nPASS native File copy preserves C:\\Users\\user\\session.jsonl\nPASS native File copy preserves \\\\server\\share\\session.jsonl\nPASS native File copy preserves In-memory\n",
+  "stderr": ""
+}

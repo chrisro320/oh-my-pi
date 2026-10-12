@@ -1,0 +1,20 @@
+{
+  "started": "2026-10-12T06:10:25.747944+00:00",
+  "command": [
+    "python3",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/run-selected-gates.py",
+    "--repo",
+    "/home/chris/orca/projects/omp-move",
+    "--runtime",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/runtime",
+    "--output",
+    "/home/chris/.cache/omp-18100-migration-yvvyjfr2/verification/runner-admission-controls/empty-output",
+    "--only",
+    "verify-spec-contracts.sh",
+    "--exclude",
+    "verify-spec-contracts.sh"
+  ],
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: run-selected-gates.py [-h] --repo REPO --runtime RUNTIME --output\n                             OUTPUT [--only ONLY] [--exclude EXCLUDE]\nrun-selected-gates.py: error: gate filters selected no acceptance work\n"
+}

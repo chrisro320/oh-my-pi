@@ -1,0 +1,12 @@
+{
+  "gate": "verify-kitty-conversion-finalization.ts",
+  "started": "2026-10-12T06:31:31.035115+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18101-migration/verification/latest-changed-gates/snapshot/patches/verify-kitty-conversion-finalization.ts"
+  ],
+  "gate_sha256": "0c72f0559268d57dff4ead81787ddac608d14c347933c0b90f90311192c8554e",
+  "exit": 0,
+  "stdout": "kitty conversion finalization: ALL PASS\n",
+  "stderr": ""
+}

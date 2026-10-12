@@ -1,0 +1,57 @@
+{
+  "packages": [
+    {
+      "name": "@oh-my-pi/omp-stats",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/omptype",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/pi-agent-core",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/pi-ai",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/pi-catalog",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/pi-coding-agent",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/pi-mnemopi",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/pi-natives",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/pi-natives-linux-x64",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/pi-tui",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/pi-utils",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/pi-wire",
+      "version": "18.10.0"
+    },
+    {
+      "name": "@oh-my-pi/snapcompact",
+      "version": "18.10.0"
+    }
+  ],
+  "external_symlinks": []
+}

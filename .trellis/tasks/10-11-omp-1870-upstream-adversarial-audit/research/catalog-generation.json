@@ -1,0 +1,13 @@
+{
+  "commit": "b83200eb866821f02625332025b453f06ce4e12a",
+  "parser": "@bgotink/kdl@0.4.0",
+  "pure_entry": "packages/catalog/scripts/compat-compiler/index.ts",
+  "result": {
+    "path": "/home/chris/.cache/omp-18100-migration-yvvyjfr2/work/pi-catalog/src/compat/rules.json",
+    "bytes": 441626,
+    "rules": 999,
+    "files": 234
+  },
+  "sha256": "39378f2c3eba3c4de3189e8ccf5a3e47fa949e9bc3081212f2ec6a6c3507c5d5",
+  "provider_calls": 0
+}

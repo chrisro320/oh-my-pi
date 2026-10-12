@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "/home/chris/orca/projects/omp-move/patches/verify-release-family-plan.py",
+    "--version",
+    "18.10.1",
+    "--tgz-cache",
+    "/tmp/omp-18100-audit-cd9kqmcj/archives"
+  ],
+  "exit": 0,
+  "stdout": "sandbox: /home/chris/.cache/omp-18101-migration/verification/representation-final/tmp/omp-family-18.10.1-cls5fnrb\n{\n  \"status\": \"PASS\",\n  \"version\": \"18.10.1\",\n  \"families\": 23,\n  \"capabilities\": 58,\n  \"upstream_adoptions\": [\n    \"0017\"\n  ],\n  \"candidate_tree_sha256\": \"a50842b5a6a1b8d234d9bfd14d5a0e86fe6567242118ba0105e97bf7769068b3\",\n  \"zero_fuzz\": true,\n  \"reverse_to_pristine\": true,\n  \"second_replay_identical\": true,\n  \"controller_check_read_only\": true,\n  \"behavioral_checks_run\": false\n}\n",
+  "stderr": "",
+  "time": "2026-10-12T07:01:47.645327+00:00",
+  "runtime": "/home/chris/.cache/omp-18101-migration/runtime/node_modules/@oh-my-pi",
+  "isolation": "allowlisted environment, private HOME/XDG/agent; no production credential operations"
+}

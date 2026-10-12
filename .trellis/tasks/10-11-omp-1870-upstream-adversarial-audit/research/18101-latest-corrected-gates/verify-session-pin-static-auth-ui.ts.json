@@ -1,0 +1,12 @@
+{
+  "gate": "verify-session-pin-static-auth-ui.ts",
+  "started": "2026-10-12T06:37:03.438324+00:00",
+  "command": [
+    "bun",
+    "/home/chris/.cache/omp-18101-migration/verification/latest-corrected-gates/snapshot/patches/verify-session-pin-static-auth-ui.ts"
+  ],
+  "gate_sha256": "bcfcfe410195d4a99988bdda089255e0a13c17a2707fff120519d869f0b737c5",
+  "exit": 0,
+  "stdout": "PASS model hub: render and Escape\nPASS temporary model picker: render and Escape\nPASS session pin: render and Escape (/home/chris/.cache/omp-18101-migration/runtime/node_modules/@oh-my-pi/pi-coding-agent)\nALL VERIFICATIONS PASSED SUCCESSFULLY!\n",
+  "stderr": ""
+}

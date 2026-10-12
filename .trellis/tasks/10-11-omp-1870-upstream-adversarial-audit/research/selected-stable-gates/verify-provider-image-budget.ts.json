@@ -1,0 +1,11 @@
+{
+  "gate": "verify-provider-image-budget.ts",
+  "started": "2026-10-12T05:47:51.982213+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-provider-image-budget.ts"
+  ],
+  "exit": 0,
+  "stdout": "provider-image-budget verification: ok\n",
+  "stderr": ""
+}

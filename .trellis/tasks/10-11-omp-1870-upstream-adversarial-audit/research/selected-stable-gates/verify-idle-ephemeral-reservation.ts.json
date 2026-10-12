@@ -1,0 +1,11 @@
+{
+  "gate": "verify-idle-ephemeral-reservation.ts",
+  "started": "2026-10-12T05:48:00.088093+00:00",
+  "command": [
+    "bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-idle-ephemeral-reservation.ts"
+  ],
+  "exit": 1,
+  "stdout": "",
+  "stderr": "\n[Uncaught Exception] AssertionError: Expected values to be strictly equal:\n+ actual - expected\n\n+ {\n+   assistantMessage: {\n+     api: 'mock',\n+     content: [\n+       {\n+         text: 'late canceled idle result',\n+         type: 'text'\n+       }\n+     ],\n+     duration: 0.4538399999999001,\n+     errorMessage: undefined,\n+     fallbackCreditHandle: undefined,\n+     model: 'mock-model',\n+     provider: 'mock',\n+     responseId: undefined,\n+     role: 'assistant',\n+     serviceTier: undefined,\n+     stopDetails: undefined,\n+     stopReason: 'stop',\n+     timestamp: 1791784081429,\n+     usage: {\n+       cacheRead: 0,\n+       cacheWrite: 0,\n+       cost: {\n+         cacheRead: 0,\n+         cacheWrite: 0,\n+         input: 0,\n+         output: 0,\n+         total: 0\n+       },\n+       input: 0,\n+       output: 0,\n+       totalTokens: 0\n+     }\n+   },\n+   replyText: 'late canceled idle result'\n+ }\n- undefined\n\n+ actual - expected\n\n+ {\n+   assistantMessage: {\n+     api: 'mock',\n+     content: [\n+       {\n+         text: 'late canceled idle result',\n+         type: 'text'\n+       }\n+     ],\n+     duration: 0.4538399999999001,\n+     errorMessage: undefined,\n+     fallbackCreditHandle: undefined,\n+     model: 'mock-model',\n+     provider: 'mock',\n+     responseId: undefined,\n+     role: 'assistant',\n+     serviceTier: undefined,\n+     stopDetails: undefined,\n+     stopReason: 'stop',\n+     timestamp: 1791784081429,\n+     usage: {\n+       cacheRead: 0,\n+       cacheWrite: 0,\n+       cost: {\n+         cacheRead: 0,\n+         cacheWrite: 0,\n+         input: 0,\n+         output: 0,\n+         total: 0\n+       },\n+       input: 0,\n+       output: 0,\n+       totalTokens: 0\n+     }\n+   },\n+   replyText: 'late canceled idle result'\n+ }\n- undefined\n\n    at /home/chris/orca/projects/omp-move/patches/verify-idle-ephemeral-reservation.ts:428:12\n    at processTicksAndRejections (native:7:39)\n"
+}
