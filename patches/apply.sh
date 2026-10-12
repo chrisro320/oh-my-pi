@@ -515,6 +515,7 @@ _omp_run_gates() {
 	_omp_gate 0090 verify-oauth-durable-refresh.ts oauth
 	_omp_gate 0092 verify-cache-warming-idle-budget.ts warm
 	_omp_gate 0098 verify-tls-verify-transient-retry.ts
+	_omp_gate 0099 verify-retry-slow-schedule.ts
 }
 
 if [[ "$MODE" == print-gates ]]; then

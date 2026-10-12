@@ -13,8 +13,11 @@ New family `0098-omp-tls-verify-transient-retry` (root AI, `pi-ai/src/error/flag
 
 ## Acceptance
 - `verify-tls-verify-transient-retry.ts` passes on the candidate and fails on the previous release.
-- `verify-release-family-plan.py --version 18.10.1` PASS with 24 families / 59 capabilities.
+- `verify-release-family-plan.py --version 18.10.1` PASS with 25 families / 60 capabilities.
 - All selected gates pass on the staging runtime; installed private smoke PASS; native overlay PASS.
 
+## Retry pacing (added by the user at publish time)
+Family `0099-omp-retry-slow-schedule`: retries wait 3-3-5-5-10-10-15-15 s instead of 0.5 s doubling to 8 s; config `retry.maxRetries: 8`.
+
 ## Known limit
-Default backoff (about 0.5 s doubling to 8 s, `retry.maxRetries: 4`) covers seconds of jitter, not a multi-minute route outage.
+The schedule covers about 66 s of outage; a longer outage on one route still ends the turn (model fallback applies only where `retry.fallbackChains` defines a chain).

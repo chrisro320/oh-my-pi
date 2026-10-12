@@ -572,6 +572,18 @@
       "paths": [
         "pi-ai/src/error/flags.ts"
       ]
+    },
+    {
+      "id": "0099-omp-retry-slow-schedule",
+      "patch": ".18.10.1-families/0099-omp-retry-slow-schedule-v18.10.1.patch",
+      "root": "AGENT",
+      "capabilities": [
+        "0099"
+      ],
+      "sha256": "223c0e2ac9e67f8998210a376d8a252eb5ab7d645e80649f8774bfbc5ea7e390",
+      "paths": [
+        "pi-coding-agent/src/session/retry-fallback-chains.ts"
+      ]
     }
   ],
   "upstream_adoptions": [
@@ -583,5 +595,5 @@
     }
   ],
   "pristine_tree_sha256": "e565fa89582d4c3a1d5773b210b311966e442b96f2086031953ee71f09c7d910",
-  "candidate_tree_sha256": "6ab7f5fd669494465aa2f973b1f91ad8c4f0e55d37d17caaffb5546d260ea2da"
+  "candidate_tree_sha256": "59edb2f9d189991efce3e6a435844bb8a6caffd3c649e72e6b17cd72c123dfe9"
 }
