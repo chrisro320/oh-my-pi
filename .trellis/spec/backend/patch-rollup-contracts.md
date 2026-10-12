@@ -765,7 +765,7 @@ A defect lives in compiled `pi-natives` Rust code (e.g. the Linux Escape monitor
 Good: overlay PASS in staging and installed release; loaded `.node` hash (`/proc/<pid>/maps`) equals the rebuilt hash. Bad: edit the addon inside an immutable release, or claim acceptance from a direct-native harness only.
 
 ### 6. Tests Required
-`grep -c '"rebuilt"' patches/native/overlay.json` and `verify-native-overlay.py --nm <installed-runtime>/node_modules/@oh-my-pi` at delivery and review.
+`grep -c '"rebuilt_sha256"' patches/native/overlay.json` (expect 2) and `verify-native-overlay.py --nm <installed-runtime>/node_modules/@oh-my-pi` at delivery and review.
 
 ### 7. Wrong vs Correct
 Wrong: pre-switch the XTEST device from TS so the monitor never sees the mapping change. Correct: fix the monitor (re-read Escape on `MappingNotify`, cancel only when it cannot) in a recorded native overlay.
