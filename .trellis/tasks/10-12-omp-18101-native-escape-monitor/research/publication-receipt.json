@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "home": "/home/chris",
+  "release": "/home/chris/.bun/install/omp-releases/18.10.1-14ba3537d44c-990bce05-4de13d17",
+  "version": "18.10.1",
+  "candidate_tree_sha256": "14ba3537d44c7da78e09fea2bfd4c0afd8aaaa17473d4fddbca1219645933c3f",
+  "runtime_tree_sha256": "990bce05fa8cd3907b0680eb2490de4f5b1509540ff8c334c19835a9b1833b7c",
+  "ledger_tree_sha256": "8fb0f5a1caed29572b2b28f6be16d723c08fec7867b118a21792e4ea37fad354",
+  "package_versions": {
+    "pi-catalog": "18.10.1",
+    "pi-natives-linux-x64": "18.10.1",
+    "pi-utils": "18.10.1",
+    "pi-ai": "18.10.1",
+    "pi-natives": "18.10.1",
+    "pi-coding-agent": "18.10.1",
+    "snapcompact": "18.10.1",
+    "omp-stats": "18.10.1",
+    "omptype": "18.10.1",
+    "pi-agent-core": "18.10.1",
+    "pi-wire": "18.10.1",
+    "pi-tui": "18.10.1",
+    "pi-mnemopi": "18.10.1"
+  },
+  "launcher_sha256": "649ed302ebec69bf655e071379bb93a457f75169f6a4895eb9c059f5bcf1cadd",
+  "code_installation": "complete",
+  "current_session_upgrade": false,
+  "production_activation": false,
+  "production_admission_started": false,
+  "old_owners": [
+    {
+      "pid": 2268991,
+      "start_time": "27876093",
+      "boot_id": "8d1e7f48-a661-4107-9161-7d9d9ea05498",
+      "comm": "omp",
+      "state": "S"
+    },
+    {
+      "pid": 2269270,
+      "start_time": "27877094",
+      "boot_id": "8d1e7f48-a661-4107-9161-7d9d9ea05498",
+      "comm": "omp daemon brok",
+      "state": "S"
+    },
+    {
+      "pid": 2278142,
+      "start_time": "27928166",
+      "boot_id": "8d1e7f48-a661-4107-9161-7d9d9ea05498",
+      "comm": "omp daemon brok",
+      "state": "S"
+    },
+    {
+      "pid": 2311384,
+      "start_time": "28105769",
+      "boot_id": "8d1e7f48-a661-4107-9161-7d9d9ea05498",
+      "comm": "omp",
+      "state": "S"
+    },
+    {
+      "pid": 2374240,
+      "start_time": "28326570",
+      "boot_id": "8d1e7f48-a661-4107-9161-7d9d9ea05498",
+      "comm": "omp",
+      "state": "S"
+    }
+  ],
+  "rollback": {
+    "launcher_target": "/home/chris/.bun/install/omp-releases/18.10.1-14ba3537d44c-b859193f-a0185992/bin/omp",
+    "ledger_backup": "/home/chris/.omp/patches.rollback-18.10.1-14ba3537d44c-990bce05-4de13d17"
+  },
+  "credential_operations": "none; agent directory excluded",
+  "independent_code_inodes": true,
+  "private_smoke": {
+    "path": "/home/chris/orca/projects/omp-move/.trellis/tasks/10-12-omp-18101-native-escape-monitor/research/installed-private-smoke.json",
+    "sha256": "230cf4f832d6350e45337d54d358512450dc52b2a2f17d8f6cadad81d76d867f"
+  }
+}
