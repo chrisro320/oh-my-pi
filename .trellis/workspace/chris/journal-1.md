@@ -230,3 +230,45 @@ Published 18.10.1-87c8c1c88769 then 18.10.1-14ba3537d44c (S1 0010 guard removal;
 ### Status
 
 [OK] **Completed**
+
+
+## Session 10: OMP 18.10.1: retry transient TLS verify errors (0098) + slow retry schedule (0099)
+
+**Date**: 2026-10-12
+**Task**: OMP 18.10.1: retry transient TLS verify errors (0098) + slow retry schedule (0099)
+**Branch**: `trellis/ds-snapcompact-tuning`
+
+### Summary
+
+Bun's bare 'unknown certificate verification error' now retries; retries wait 3-3-5-5-10-10-15-15 s; published, activated, independently reviewed (no blockers).
+
+### Main Changes
+
+- 0098 pi-ai flags.ts: TLS verify phrase classified transient (model turns only)
+- 0099 retry-fallback-chains.ts: fixed slow schedule; config retry.maxRetries 8
+- Post-cutover families declared via ADDED_FAMILIES (25 families / 60 capabilities)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5d5fa4097` | (see git log) |
+| `ae24c9c3a` | (see git log) |
+| `9c4666bf7` | (see git log) |
+| `b32d30a19` | (see git log) |
+| `b7b9deb6f` | (see git log) |
+| `9f591244d` | (see git log) |
+
+### Testing
+
+- [OK] Pristine replay PASS; 50 gates PASS; gates fail on previous release; installed smoke PASS; native overlay PASS
+- [OK] Activation: processes on 18.10.1-59edb2f9d189-15014870-98f49ed8; reviewer: no blockers
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Fix stale retry-fallback-chains.d.ts comment at next artifact regeneration
+- Optional: delete unused staged releases (ask first)

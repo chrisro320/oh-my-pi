@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
+- **Total Sessions**: 10
 - **Last Active**: 2026-10-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~232 | Active |
+| `journal-1.md` | ~274 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 10 | 2026-10-12 | OMP 18.10.1: retry transient TLS verify errors (0098) + slow retry schedule (0099) | `5d5fa4097`, `ae24c9c3a`, `9c4666bf7`, `b32d30a19`, `b7b9deb6f`, `9f591244d` | `trellis/ds-snapcompact-tuning` |
 | 9 | 2026-10-12 | OMP 18.10.1 S1 + Tern footer releases | `d54fbfb7c`, `6ee8098e0`, `512dea8a6`, `dd3726ae6`, `aedf5ec08`, `2abb429d1`, `d070e7b30` | `trellis/ds-snapcompact-tuning` |
 | 8 | 2026-09-26 | 完成 0080 Kitty 共用 PNG 快取 | `008294b52` | `trellis/ds-snapcompact-tuning` |
 | 7 | 2026-09-19 | read 描述 constructor 快照致 resume 斷前綴（0073 getter 化） | `9cd249a`, `3864190` | `trellis/ds-snapcompact-tuning` |
