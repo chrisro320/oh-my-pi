@@ -1,0 +1,40 @@
+--- patches/.retired/10-13-18.10.1-status-footer-reset-format/family-status-accounting-v18.10.1.patch	2026-10-12 11:20:40.129969705 -0400
++++ patches/.18.10.1-families/family-status-accounting-v18.10.1.patch	2026-10-13 03:28:41.186080612 -0400
+@@ -284,6 +284,37 @@
+  const sessionNameSegment: StatusLineSegment = {
+  	id: "session_name",
+  	render(ctx) {
++@@ -1176,18 +1218,18 @@
++ }
++ 
++ function formatUsageReset(value: number, unit: "m" | "h"): string {
++-	if (unit === "m") {
++-		// Short-window reset timers retain minute precision.
++-		if (value < 60) return `${value}m`;
++-		const hours = Math.floor(value / 60);
++-		const mins = value % 60;
++-		return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
++-	}
++-	// total hours (7d window: max 168)
++-	if (value < 24) return `${value}h`;
++-	const days = Math.floor(value / 24);
++-	const hours = value % 24;
++-	return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+++	// Countdowns collapse to a single one-decimal unit so the footer stays narrow:
+++	// minutes become hours past one hour (275m -> 4.5h), hours become days past
+++	// one day (154h -> 6.4d); below the first unit the value keeps its own unit.
+++	const perUnit = unit === "m" ? 60 : 24;
+++	const unitName = unit === "m" ? "h" : "d";
+++	if (value < perUnit) return `${value}${unit}`;
+++	// Tenths are counted as an integer so a float division cannot drop a whole
+++	// tenth and render 4.5 as 4.4; a trailing zero fraction is stripped.
+++	const tenths = Math.floor((value * 10) / perUnit);
+++	const whole = Math.floor(tenths / 10);
+++	const fraction = tenths % 10;
+++	return `${fraction === 0 ? whole : `${whole}.${fraction}`}${unitName}`;
++ }
++ 
++ /** Expiring saved resets outrank the usable/unusable color: red within 24 hours, yellow within 7 days. */
+ @@ -1223,24 +1265,8 @@
+  			// shows 1.88 → "1% used"; OpenCode's endpoint emits floored integers).
+  			parts.push(formatQuotaWindow(ctx, "mo", u.monthly.percent, u.monthly.resetHours, "h", "floor"));

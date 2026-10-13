@@ -1,0 +1,353 @@
+--- a/pi-coding-agent/dist/types/session/session-manager.d.ts
++++ b/pi-coding-agent/dist/types/session/session-manager.d.ts
+@@ -251,6 +251,8 @@
+     /** Seed additional directories from settings or a passed list. Also called on resumed sessions with --add-dir; persists the updated header when the session file is already durable. No-op when the normalized list is unchanged (avoids rewriting large session files on every startup). */
+     setAdditionalDirectories(directories: string[]): Promise<void>;
+     getUsageStatistics(): UsageStatistics;
++    /** Primary assistant cache hit rate; excludes auxiliary model usage. */
++    getMainCacheHitRate(): number | undefined;
+     /**
+      * Open a new per-turn budget window: snapshot the cumulative output baseline,
+      * reset the eval-subagent counter, and set the (optional) ceiling.
+--- a/pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts
++++ b/pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts
+@@ -52,6 +52,7 @@
+ 				premiumRequests: options.premiumRequests ?? 2,
+ 				cost: options.cost ?? 0.42,
+ 			}),
++			getMainCacheHitRate: () => (48_000 / (48_000 + 1_200 + 12_400)) * 100,
+ 			getSessionName: () => "gallery",
+ 			getSessionId: () => "gallery-session-id",
+ 		},
+--- a/pi-coding-agent/src/cli/gallery-fixtures/status-line.ts
++++ b/pi-coding-agent/src/cli/gallery-fixtures/status-line.ts
+@@ -49,6 +49,7 @@
+ 				premiumRequests: 0,
+ 				cost: 0,
+ 			}),
++			getMainCacheHitRate: () => undefined,
+ 			getSessionName: () => "gallery",
+ 		},
+ 		getAsyncJobSnapshot: () => ({ running: [] }),
+--- a/pi-coding-agent/src/session/session-manager.ts
++++ b/pi-coding-agent/src/session/session-manager.ts
+@@ -515,6 +515,9 @@
+ 	#labels = new Map<string, string>();
+ 	#leaf: string | null = null;
+ 	#usage = emptyUsageStatistics();
++	#mainInput = 0;
++	#mainCacheRead = 0;
++	#mainCacheWrite = 0;
+ 	// Branch memo: getBranch() walks leaf-to-root per call (array + Set +
+ 	// reverse) on per-frame/per-turn paths. The branch only changes on
+ 	// insert/rebuild/setLeaf, so cache the array keyed on (leaf, generation).
+@@ -531,6 +534,9 @@
+ 		this.#labels.clear();
+ 		this.#leaf = null;
+ 		this.#usage = emptyUsageStatistics();
++		this.#mainInput = 0;
++		this.#mainCacheRead = 0;
++		this.#mainCacheWrite = 0;
+ 		this.#generation++;
+ 		this.#branchCache = undefined;
+ 	}
+@@ -578,6 +584,12 @@
+ 		if (usage && entry.type === "message" && entry.message.role === "toolResult") {
+ 			this.#usage.subagentCost += usage.cost.total;
+ 		}
++		if (entry.type === "message" && entry.message.role === "assistant" && entry.message.usage) {
++			const { input, cacheRead, cacheWrite } = entry.message.usage;
++			this.#mainInput += input;
++			this.#mainCacheRead += cacheRead;
++			this.#mainCacheWrite += cacheWrite;
++		}
+ 	}
+ 
+ 	has(id: string): boolean {
+@@ -636,6 +648,11 @@
+ 		return { ...this.#usage };
+ 	}
+ 
++	mainCacheHitRate(): number | undefined {
++		if (!this.#mainCacheRead) return undefined;
++		return (this.#mainCacheRead / (this.#mainCacheRead + this.#mainCacheWrite + this.#mainInput)) * 100;
++	}
++
+ 	pathTo(id: string | null | undefined = this.#leaf): SessionEntry[] {
+ 		// The memoized default-leaf branch stays private — callers may
+ 		// sort/reverse/splice the result (the return type is SessionEntry[]),
+@@ -3094,6 +3111,11 @@
+ 		return this.#index.usageSnapshot();
+ 	}
+ 
++	/** Primary assistant cache hit rate; excludes auxiliary model usage. */
++	getMainCacheHitRate(): number | undefined {
++		return this.#index.mainCacheHitRate();
++	}
++
+ 	/**
+ 	 * Open a new per-turn budget window: snapshot the cumulative output baseline,
+ 	 * reset the eval-subagent counter, and set the (optional) ceiling.
+--- a/pi-tui/dist/types/status-line/host.d.ts
++++ b/pi-tui/dist/types/status-line/host.d.ts
+@@ -54,6 +54,7 @@
+             /** Portion of `cost` carried by completed subagent task results. */
+             subagentCost?: number;
+         };
++        getMainCacheHitRate(): number | undefined;
+     };
+     modelRegistry: {
+         isUsingOAuth(model: Model): boolean;
+--- a/pi-tui/dist/types/status-line/schema.d.ts
++++ b/pi-tui/dist/types/status-line/schema.d.ts
+@@ -1,5 +1,5 @@
+ /** Status line segment identifiers accepted by custom status-line settings. */
+-export declare const STATUS_LINE_SEGMENT_IDS: readonly ["pi", "status", "model", "mode", "path", "git", "pr", "subagents", "token_in", "token_out", "token_total", "token_rate", "cost", "context_pct", "context_total", "time_spent", "time", "session", "hostname", "cache_read", "cache_write", "cache_hit", "session_name", "usage", "collab", "stream", "vim"];
++export declare const STATUS_LINE_SEGMENT_IDS: readonly ["pi", "status", "model", "mode", "path", "git", "pr", "subagents", "token_in", "token_out", "token_total", "token_rate", "cost", "context_pct", "context_total", "time_spent", "time", "session", "hostname", "cache_read", "cache_write", "cache_hit", "cache_turn", "session_name", "usage", "collab", "stream", "vim"];
+ /** One identifier from the supported status-line segment catalog. */
+ export type StatusLineSegmentId = (typeof STATUS_LINE_SEGMENT_IDS)[number];
+ /** Baseline segments used when Custom is selected without segment overrides. */
+--- a/pi-tui/src/status-line/host.ts
++++ b/pi-tui/src/status-line/host.ts
+@@ -48,6 +48,7 @@
+ 			/** Portion of `cost` carried by completed subagent task results. */
+ 			subagentCost?: number;
+ 		};
++		getMainCacheHitRate(): number | undefined;
+ 	};
+ 	modelRegistry: {
+ 		isUsingOAuth(model: Model): boolean;
+--- a/pi-tui/src/status-line/schema.ts
++++ b/pi-tui/src/status-line/schema.ts
+@@ -22,6 +22,7 @@
+ 	"cache_read",
+ 	"cache_write",
+ 	"cache_hit",
++	"cache_turn",
+ 	"session_name",
+ 	"usage",
+ 	"collab",
+--- a/pi-tui/src/status-line/segments.ts
++++ b/pi-tui/src/status-line/segments.ts
+@@ -11,7 +11,7 @@
+ 	relativePathWithinNormalizedRoot,
+ } from "@oh-my-pi/pi-utils";
+ import { type SymbolKey, type Theme, type ThemeColor, theme } from "../theme";
+-import { shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "../render/render-utils";
++import { shortenPath, TRUNCATE_LENGTHS, truncateMiddleToWidth, truncateToWidth } from "../render/render-utils";
+ import { fileHyperlink } from "../render/hyperlink";
+ import { getSessionAccentAnsi, getSessionAccentHex } from "../theme/session-color";
+ import { summarizeLoopCondition } from "./loop";
+@@ -626,6 +626,9 @@
+ 	return [span(value.slice(0, slash + 1), "statusLinePath dim"), leaf];
+ }
+ 
++/** Widest branch label (terminal cells) the footer shows; longer names keep both ends around an ellipsis. */
++const BRANCH_LABEL_MAX = 16;
++
+ const gitSegment: StatusLineSegment = {
+ 	id: "git",
+ 	render(ctx) {
+@@ -639,7 +642,7 @@
+ 		const showBranch = opts.showBranch !== false;
+ 		let content = "";
+ 		if (showBranch && branch) {
+-			content = withIcon(theme.icon.branch, branch);
++			content = withIcon(theme.icon.branch, truncateMiddleToWidth(branch, BRANCH_LABEL_MAX));
+ 		}
+ 
+ 		// Add status indicators
+@@ -677,7 +680,7 @@
+ 		const colorName = isDirty ? "statusLineGitDirty" : "statusLineGitClean";
+ 		const showBranch = opts.showBranch !== false;
+ 		const spans: TspSpan[] = [];
+-		if (showBranch && branch) spans.push(span(branch, colorName));
++		if (showBranch && branch) spans.push(span(truncateMiddleToWidth(branch, BRANCH_LABEL_MAX), colorName));
+ 		if (status) {
+ 			// Spans join as one text: each count after the branch or a previous count leads with a space.
+ 			const push = (text: string, token: string): void => {
+@@ -728,15 +731,17 @@
+ 
+ const tokenOutSegment: StatusLineSegment = singleStatSegment("token_out", "output", "output", "statusLineOutput");
+ 
++/** Cached reads still consume the provider's rate-limit window. */
++function totalUsageTokens(ctx: SegmentContext): number {
++	const { input, output, cacheRead, cacheWrite, orchestrationInput, orchestrationOutput, orchestrationCacheRead } =
++		ctx.usageStats;
++	return input + output + cacheRead + cacheWrite + orchestrationInput + orchestrationOutput + orchestrationCacheRead;
++}
++
+ const tokenTotalSegment: StatusLineSegment = {
+ 	id: "token_total",
+ 	render(ctx) {
+-		// Excludes cacheRead: that field re-reads the full cached context every
+-		// turn, making the cumulative sum N×context_size. Orchestration cache read
+-		// follows the same rule; orchestration input/output remain in the total so
+-		// provider-side service work is preserved without labeling it prompt input.
+-		const { input, output, cacheWrite, orchestrationInput, orchestrationOutput } = ctx.usageStats;
+-		const total = input + output + cacheWrite + orchestrationInput + orchestrationOutput;
++		const total = totalUsageTokens(ctx);
+ 		if (!total) return { content: "", visible: false };
+ 
+ 		const content = formatMetric({
+@@ -746,8 +751,7 @@
+ 		return { content: theme.fg("statusLineSpend", content ?? ""), visible: true };
+ 	},
+ 	describe(ctx) {
+-		const { input, output, cacheWrite, orchestrationInput, orchestrationOutput } = ctx.usageStats;
+-		const total = input + output + cacheWrite + orchestrationInput + orchestrationOutput;
++		const total = totalUsageTokens(ctx);
+ 		if (!total) return null;
+ 		return segView([span(formatNumber(total), "statusLineSpend")], "tokens");
+ 	},
+@@ -994,17 +998,9 @@
+ const cacheHitSegment: StatusLineSegment = {
+ 	id: "cache_hit",
+ 	render(ctx) {
+-		const { cacheRead, cacheWrite, input } = ctx.usageStats;
+-		if (!cacheRead) return { content: "", visible: false };
+-
+-		// Hit rate = cacheRead / total prompt tokens. The prompt is the sum of
+-		// cacheRead (served from cache), cacheWrite (newly cached this turn) and
+-		// input (uncached). Including uncached input keeps the denominator honest
+-		// for Anthropic/OpenRouter; DeepSeek reports its miss as input with
+-		// cacheWrite 0, so this still yields hit/(hit+miss).
+-		const total = cacheRead + cacheWrite + input;
+-
+-		const rate = (cacheRead / total) * 100;
++		// Only primary assistant messages contribute; auxiliary model calls stay in total usage.
++		const rate = ctx.session.sessionManager.getMainCacheHitRate();
++		if (rate === undefined) return { content: "", visible: false };
+ 		const rateStr = rate.toFixed(2);
+ 
+ 		const parts: string[] = [theme.icon.cache];
+@@ -1012,13 +1008,59 @@
+ 		return { content: parts.join(" "), visible: true };
+ 	},
+ 	describe(ctx) {
+-		const { cacheRead, cacheWrite, input } = ctx.usageStats;
+-		if (!cacheRead) return null;
+-		const rate = (cacheRead / (cacheRead + cacheWrite + input)) * 100;
++		const rate = ctx.session.sessionManager.getMainCacheHitRate();
++		if (rate === undefined) return null;
+ 		return segView([span(`${rate.toFixed(2)}%`, "statusLineSpend")], "cache");
+ 	},
+ };
+ 
++/** Hit rate of the latest settled assistant turn; undefined when it reported no cache read. */
++function lastTurnCacheRate(ctx: SegmentContext): number | undefined {
++	// Streaming usage is partial: input can arrive before cacheRead is backfilled.
++	const messages = ctx.session.messages ?? ctx.session.state.messages;
++	for (let index = messages.length - 1; index >= 0; index--) {
++		const message = messages[index];
++		if (
++			message?.role !== "assistant" ||
++			!message.stopReason ||
++			!message.usage ||
++			message.stopReason === "aborted" ||
++			message.stopReason === "error"
++		) {
++			continue;
++		}
++		const { cacheRead, cacheWrite, input } = message.usage;
++		return cacheRead ? (cacheRead / (cacheRead + cacheWrite + input)) * 100 : undefined;
++	}
++	return undefined;
++}
++
++/** `<turn>% /<session>%`: latest turn's hit rate, then the main-session hit rate. */
++function cacheTurnParts(ctx: SegmentContext): Array<{ text: string; color: ThemeColor }> {
++	const parts: Array<{ text: string; color: ThemeColor }> = [];
++	const turn = lastTurnCacheRate(ctx);
++	if (turn !== undefined) parts.push({ text: `${turn.toFixed(1)}%`, color: "statusLineOutput" });
++	const session = ctx.session.sessionManager.getMainCacheHitRate();
++	if (session !== undefined) {
++		parts.push({ text: `${parts.length ? " /" : ""}${session.toFixed(2)}%`, color: "statusLineSpend" });
++	}
++	return parts;
++}
++
++const cacheTurnSegment: StatusLineSegment = {
++	id: "cache_turn",
++	render(ctx) {
++		const parts = cacheTurnParts(ctx);
++		if (parts.length === 0) return { content: "", visible: false };
++		const text = parts.map(part => theme.fg(part.color, part.text)).join("");
++		return { content: withIcon(theme.icon.cache, text), visible: true };
++	},
++	describe(ctx) {
++		const parts = cacheTurnParts(ctx);
++		return parts.length === 0 ? null : segView(parts.map(part => span(part.text, part.color)), "cache");
++	},
++};
++
+ const sessionNameSegment: StatusLineSegment = {
+ 	id: "session_name",
+ 	render(ctx) {
+@@ -1223,24 +1265,8 @@
+ 			// shows 1.88 → "1% used"; OpenCode's endpoint emits floored integers).
+ 			parts.push(formatQuotaWindow(ctx, "mo", u.monthly.percent, u.monthly.resetHours, "h", "floor"));
+ 		}
+-		if (u.resetCredits) {
+-			const resets = u.resetCredits;
+-			let resetText = `✦ ${resets.bankedCount}`;
+-			if (resets.redeemableCount !== resets.bankedCount) {
+-				resetText += ` (${resets.redeemableCount} usable)`;
+-			}
+-			if (resets.expiryHours !== undefined) {
+-				const expiring = resets.expiring ? `▲ ${resets.expiring.count} ` : "";
+-				resetText += ` ${expiring}exp ${formatUsageReset(resets.expiryHours, "h")}`;
+-			} else if (resets.expired) {
+-				resetText += " expired";
+-			}
+-			if (resets.redeemableCount === 0 && resets.unavailableReason) {
+-				const reason = truncateToWidth(sanitizeStatusText(resets.unavailableReason), TRUNCATE_LENGTHS.SHORT);
+-				if (reason) resetText += ` ${reason}`;
+-			}
+-			parts.push(theme.fg(resetCreditsColor(resets), resetText));
+-		}
++		// Bare count only; state travels in the color and details live in the usage dashboard.
++		if (u.resetCredits) parts.push(theme.fg(resetCreditsColor(u.resetCredits), `✦${u.resetCredits.bankedCount}`));
+ 		const content = withIcon(theme.icon.time, parts.join(theme.sep.dot));
+ 		return { content, visible: true };
+ 	},
+@@ -1260,20 +1286,7 @@
+ 			parts.push(describeQuotaWindow("7d", u.sevenDay.percent, u.sevenDay.resetHours, "h", "round"));
+ 		}
+ 		if (u.monthly) parts.push(describeQuotaWindow("mo", u.monthly.percent, u.monthly.resetHours, "h", "floor"));
+-		if (u.resetCredits) {
+-			const resets = u.resetCredits;
+-			let resetText = `✦ ${resets.bankedCount}`;
+-			if (resets.redeemableCount !== resets.bankedCount) resetText += ` (${resets.redeemableCount} usable)`;
+-			if (resets.expiryHours !== undefined) {
+-				const expiring = resets.expiring ? `▲ ${resets.expiring.count} ` : "";
+-				resetText += ` ${expiring}exp ${formatUsageReset(resets.expiryHours, "h")}`;
+-			} else if (resets.expired) resetText += " expired";
+-			if (resets.redeemableCount === 0 && resets.unavailableReason) {
+-				const reason = sanitizeStatusText(resets.unavailableReason);
+-				if (reason) resetText += ` ${reason}`;
+-			}
+-			parts.push([span(resetText, resetCreditsColor(resets))]);
+-		}
++		if (u.resetCredits) parts.push([span(`✦${u.resetCredits.bankedCount}`, resetCreditsColor(u.resetCredits))]);
+ 		const spans: TspSpan[] = [];
+ 		for (const part of parts) {
+ 			if (spans.length > 0) spans.push(span(theme.sep.dot, "dim"));
+@@ -1310,6 +1323,7 @@
+ 	cache_read: cacheReadSegment,
+ 	cache_write: cacheWriteSegment,
+ 	cache_hit: cacheHitSegment,
++	cache_turn: cacheTurnSegment,
+ 	session_name: sessionNameSegment,
+ 	usage: usageSegment,
+ 	collab: collabSegment,
+--- a/pi-tui/src/status-line/startup.ts
++++ b/pi-tui/src/status-line/startup.ts
+@@ -69,6 +69,7 @@
+ 			getSessionName: () => undefined,
+ 			getSessionId: () => "",
+ 			getUsageStatistics: () => NO_USAGE,
++			getMainCacheHitRate: () => undefined,
+ 		},
+ 		modelRegistry: { isUsingOAuth: () => data.usingSubscription },
+ 		getContextUsage: () =>

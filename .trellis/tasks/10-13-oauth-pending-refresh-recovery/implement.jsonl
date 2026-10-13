@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/verification-gate-contracts.md", "reason": "Machine-checkable gate rules"}
+{"file": ".trellis/spec/backend/patch-rollup-contracts.md", "reason": "Single-layer patch and ledger rules"}
+{"file": ".trellis/spec/backend/extension-runtime-contracts.md", "reason": "Extension command conventions"}
+{"file": "reports/12-anthropic-oauth-pending-refresh-tls-recovery.md", "reason": "Incident evidence and recovery sequence"}

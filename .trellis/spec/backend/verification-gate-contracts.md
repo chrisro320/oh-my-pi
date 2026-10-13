@@ -1189,3 +1189,77 @@ Machine-check at delivery/review:
 ### 7. Wrong vs Correct
 
 Wrong: check cancellation only after both discovery and resource-scope awaits. Correct: check ownership after each await, before initiating the next external effect.
+
+## Scenario: Clock-dependent proxy disconnects
+
+### 1. Scope / Trigger
+
+Cross-provider socket/EOF bursts near minute boundaries require host-clock and proxy-path evidence before provider code changes. Mieru v3.38.0 accepts minute timestamps only within the current minute plus/minus one; a 71-second lag can exceed that range.
+
+### 2. Signatures
+
+Use `timedatectl show --property=NTPSynchronized`, `timedatectl timesync-status`, and independent HTTP Date samples with request round-trip bounds. The local Mihomo controller's authenticated `GET /rules`, `GET /proxies`, and `GET /configs` expose loaded rules, selected nodes, and routing mode; never print its secret.
+
+### 3. Contracts
+
+NTP must not depend on a transport requiring an already-correct clock. Verify a reachable numeric time server before authorizing its destination-IP + UDP + port-123 direct exception; preserve other UDP guards, DNS policy, and model routes. Direct NTP exposes its source public IP to the time server/network path, not model credentials. Back up configuration before changing it and obtain authorization before stepping the clock or changing connectivity.
+
+### 4. Validation & Error Matrix
+
+| Observation | Required interpretation |
+|---|---|
+| `NTPSynchronized=no` with an old small offset | Old offset is not proof of current clock accuracy |
+| NTP resolves to a fake IP or meets a UDP reject | Prove a real reachable endpoint and its loaded routing exception |
+| Short HTTP succeeds between periodic disconnects | Insufficient persistent-connection evidence |
+| Anthropic routing remains proxied | No new direct route; not a guarantee about provider risk control |
+
+### 5. Good / Base / Bad Cases
+
+Good: observed clock skew and a pre-fix persistent failure are followed by fresh NTP packets and a sustained post-fix connection. Base: unrelated routes and DNS compare equal to the backup. Bad: attribute every socket error to time, or call the repair complete after one short request.
+
+### 6. Tests Required
+
+For a host-only repair, use live smoke rather than permanent provider tests: assert synchronized state with fresh packet counts/offsets, confirm the narrow loaded rule is used, compare unaffected DNS/routes with the backup, and hold an unauthenticated echo WebSocket across at least three minute boundaries. Distinguish probe-initiated normal close from unexpected close. Do not use production Anthropic credentials or claim an unexercised account acceptance result.
+
+Machine-check at delivery and review:
+`grep -nE 'Clock-dependent proxy|NTPSynchronized|three minute boundaries|Direct NTP' .trellis/spec/backend/verification-gate-contracts.md`
+
+### 7. Wrong vs Correct
+
+Wrong: broaden DNS/direct routing, retry indefinitely, or relogin to mask a time-dependent proxy failure. Correct: restore independent time synchronization with the narrowest verified exception and prove the original persistent-connection boundary without altering model/auth behavior.
+
+
+## Scenario: Explicit unlock of an at-most-once refresh marker
+
+### 1. Scope / Trigger
+
+An OAuth refresh exchange left unresolved (the POST may have reached the provider) blocks every later refresh by design. Any supported way out must preserve at-most-once for rotating refresh tokens. Source incident: `reports/12-anthropic-oauth-pending-refresh-tls-recovery.md`; implementation: family 0090 unlock revision plus the `/auth-unlock` extension.
+
+### 2. Signatures
+
+`oauth.inspectUnresolvedRefresh(provider)` (read-only, redacted, returns an opaque fence and `holdsUnstagedResult`); `oauth.unlockAndRefreshStored(provider, { fence })`; store `inspectUnresolvedCredentialRefreshExchange` / `releaseUnresolvedCredentialRefreshExchange`. Fence = hash over credential bytes plus exchange generation, owner and expected hash, never the mutable lease owner.
+
+### 3. Contracts
+
+- Release is atomic with the successor reservation: the old marker is replaced by the new owner's reservation inside ONE transaction. NEVER delete the marker in one transaction and reserve in another (a busy error or crash between them erases the ambiguity barrier).
+- Order inside the shared owned-refresh path: lease, persist any known in-memory minted result under its original owner, release with fence, POST, stage, commit. A staged replacement is recovered, never discarded.
+- The fence is captured BEFORE the user confirms and checked inside the release transaction, so a stale confirmation cannot release a newer attempt.
+- Remote, delegated or unsupported runtimes and credentials fail closed; the unlock path never disables or deletes a credential and never prints tokens or identifiers; no automatic release anywhere.
+- A consumed-token result held only in another live process's memory is an accepted, documented residual risk; mitigations are the confirmation text and refusing when this process holds an unstaged result.
+- Unlock-only gate surface and scenarios are scoped to the revised plan version (`hasUnlockRevision`), not to every plan that has exchange reservation; frozen plans keep their original scenarios.
+
+### 4. Validation & Error Matrix
+
+Inspect: `pending`, `no-credential`, `credential-disabled`, `no-exchange`, `staged-replacement`, `remote-credential`, `unsupported-store`, `delegated-runtime`. Release: `released`, `not-pending`, `staged-replacement-present`, `row-changed`, `fence-mismatch`, `lease-not-held`. Unlock outcome: `refreshed`, `nothing-to-unlock`, `fence-mismatch`, `staged-result-recovered`, `failed`.
+
+### 5. Good / Base / Bad Cases
+
+Good: fenced unlock mints exactly one token and retires the marker. Base: staged replacement is recovered with zero extra POST. Bad: stale fence after a failed first attempt (same generation, replaced marker), peer-held lease, busy second writer, remote runtime.
+
+### 6. Tests Required
+
+`patches/verify-oauth-durable-refresh.ts` scenarios (a)-(s) with fault variants, red on the pre-change tree and fail-closed on an incomplete tree; `patches/verify-oauth-unlock-fence-faults.sh` (control, weakened-fence mutation, missing member, release-atomicity revert) run through the real controller dispatch, which runs `.sh` gates under bash inside the oauth isolation and passes ONLY `OMP_PATCH_VERIFY_AI_ROOT` (inheriting sibling-root env vars mixes isolated and live trees and fails spuriously). Compare `apply.sh --print-gates` for every frozen version against `git show HEAD:patches/apply.sh` after registering a new gate. Machine-check: `grep -nE 'hasUnlockRevision|releaseUnresolvedCredentialRefreshExchange|markerReserved' patches/verify-oauth-durable-refresh.ts patches/.18.10.1-families/0090-omp-oauth-durable-refresh-v18.10.1.patch`.
+
+### 7. Wrong vs Correct
+
+Wrong: delete the unresolved marker, then reserve; hash the mutable lease owner into the fence; apply unlock assertions to frozen plans; trust a gate that only goes red because a method is missing. Correct: replace the marker atomically under lease and fence, keep the fence over immutable exchange identity, version-scope the new surface, and prove a weakened fence turns a named gate red.

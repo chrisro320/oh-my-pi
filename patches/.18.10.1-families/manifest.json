@@ -56,7 +56,7 @@
         "0004",
         "0081"
       ],
-      "sha256": "2485ecdb7c0f69b94ead07cd44d8e0179f1c081864ec599ba0a6795b76a85283",
+      "sha256": "8392cf05ef6fe01330bc9319c3fbd464816b6b3587b11e84413cb88f99976595",
       "paths": [
         "pi-coding-agent/dist/types/session/session-manager.d.ts",
         "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts",
@@ -483,10 +483,12 @@
       "capabilities": [
         "0090"
       ],
-      "sha256": "72733625b16f3e4ac180ca7dbaa7dcaeb7f4fe7a0b0504f89c37da0693438e85",
+      "sha256": "cb5bbf9cf9cfc4448b33ac6c836b660ae57544c0c3dd4bd2796dc2901f937791",
       "paths": [
         "pi-ai/dist/types/auth-broker/remote-store.d.ts",
+        "pi-ai/dist/types/auth/oauth.d.ts",
         "pi-ai/dist/types/auth/pool.d.ts",
+        "pi-ai/dist/types/auth/refresh.d.ts",
         "pi-ai/dist/types/auth/sqlite-credential-store.d.ts",
         "pi-ai/dist/types/auth/store.d.ts",
         "pi-ai/dist/types/auth/types.d.ts",
@@ -494,6 +496,7 @@
         "pi-ai/dist/types/registry/oauth/anthropic.d.ts",
         "pi-ai/src/auth-broker/remote-store.ts",
         "pi-ai/src/auth/health.ts",
+        "pi-ai/src/auth/oauth.ts",
         "pi-ai/src/auth/pool.ts",
         "pi-ai/src/auth/refresh.ts",
         "pi-ai/src/auth/select.ts",
@@ -506,6 +509,7 @@
         "pi-ai/src/registry/oauth/factory-droid.ts",
         "pi-ai/src/registry/oauth/snowflake.ts",
         "pi-coding-agent/src/cli/auth-broker-cli.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
         "pi-tui/src/overlays/mcp-add-wizard.ts"
       ]
     },
@@ -584,6 +588,23 @@
       "paths": [
         "pi-coding-agent/src/session/retry-fallback-chains.ts"
       ]
+    },
+    {
+      "id": "0100-omp-stepfun-step-plan",
+      "patch": ".18.10.1-families/0100-omp-stepfun-step-plan-v18.10.1.patch",
+      "root": "NM",
+      "capabilities": [
+        "0100"
+      ],
+      "sha256": "5f9bbbd8bd7117de1af27aed032b8d5bfd7ad821d33db61b0eedd2539350c9f4",
+      "paths": [
+        "pi-catalog/dist/types/provider-models/openai-compat.d.ts",
+        "pi-catalog/src/compat/rules.json",
+        "pi-catalog/src/compat/rules/auth/stepfun.kdl",
+        "pi-catalog/src/compat/rules/providers/stepfun.kdl",
+        "pi-catalog/src/models.json",
+        "pi-catalog/src/provider-models/openai-compat.ts"
+      ]
     }
   ],
   "upstream_adoptions": [
@@ -595,5 +616,5 @@
     }
   ],
   "pristine_tree_sha256": "e565fa89582d4c3a1d5773b210b311966e442b96f2086031953ee71f09c7d910",
-  "candidate_tree_sha256": "59edb2f9d189991efce3e6a435844bb8a6caffd3c649e72e6b17cd72c123dfe9"
+  "candidate_tree_sha256": "7b7b41c247d7cbe3e29fac9350dfb4b1f0447ad3e9e1a20a496cecb1c85c5e4b"
 }

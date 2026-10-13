@@ -21,7 +21,8 @@ ROOTS = {"NM": "", "AGENT": "pi-coding-agent", "CORE": "pi-agent-core",
 # not retained baseline members, and follow every retained family in order.
 ADDED_FAMILIES = {
     "18.10.1": [{"id": "0098-omp-tls-verify-transient-retry", "root": "AI", "capabilities": ["0098"]},
-                {"id": "0099-omp-retry-slow-schedule", "root": "AGENT", "capabilities": ["0099"]}],
+                {"id": "0099-omp-retry-slow-schedule", "root": "AGENT", "capabilities": ["0099"]},
+                {"id": "0100-omp-stepfun-step-plan", "root": "NM", "capabilities": ["0100"]}],
 }
 
 
@@ -84,6 +85,37 @@ def validate_capability_contract(here, manifest):
     return expected_union
 
 
+# Same-family repairs replace the family's single active representation, so the
+# superseded revision must stay archived with its pinned bytes and must not
+# remain the active entry (patch-rollup-contracts: archived bytes and pinned
+# hashes are retained; a revised family is not a second layer).
+RETIRED_REPAIRS = (
+    {
+        "dir": ".retired/10-13-18.10.1-0090-pre-unlock",
+        "family": "0090-omp-oauth-durable-refresh",
+    },
+)
+
+
+def validate_retired_repairs(here, manifest):
+    for repair in RETIRED_REPAIRS:
+        baseline = json.loads((here / repair["dir"] / "baseline.json").read_text())
+        archived = here / repair["dir"] / baseline["previousFamily"]
+        if hashlib.sha256(archived.read_bytes()).hexdigest() != baseline["previousFamilySha256"]:
+            raise RuntimeError(f"archived revision drifted from its pinned hash: {repair['dir']}")
+        delta = here / repair["dir"] / baseline["repair"]
+        if hashlib.sha256(delta.read_bytes()).hexdigest() != baseline["repairSha256"]:
+            raise RuntimeError(f"declared repair delta drifted: {repair['dir']}")
+        active = [entry for entry in manifest["families"] if entry["id"] == repair["family"]]
+        if len(active) != 1:
+            raise RuntimeError(f"{repair['family']} must have exactly one active representation")
+        if active[0]["sha256"] == baseline["previousFamilySha256"]:
+            raise RuntimeError(f"retired revision is still the active representation: {repair['family']}")
+        if hashlib.sha256((here / active[0]["patch"]).read_bytes()).hexdigest() != active[0]["sha256"]:
+            raise RuntimeError(f"active revision digest mismatch: {repair['family']}")
+    return [repair["family"] for repair in RETIRED_REPAIRS]
+
+
 def command(args, *, env, cwd=None, input=None):
     result = subprocess.run(args, env=env, cwd=cwd, input=input, capture_output=True)
     if result.returncode:
@@ -105,6 +137,7 @@ def main():
     if manifest["version"] != args.version:
         raise RuntimeError("manifest version mismatch")
     expected_capabilities = validate_capability_contract(here, manifest)
+    retired_repairs = validate_retired_repairs(here, manifest)
     sandbox = Path(tempfile.mkdtemp(prefix=f"omp-family-{args.version}-"))
     print(f"sandbox: {sandbox}", flush=True)
     try:
@@ -181,6 +214,7 @@ def main():
             raise RuntimeError("unmigrated repository overlay was not rejected")
         print(json.dumps({"status": "PASS", "version": args.version, "families": len(resolved),
                           "capabilities": len(capabilities), "upstream_adoptions": adopted,
+                          "retired_repairs": retired_repairs,
                           "candidate_tree_sha256": tree_digest(nm), "zero_fuzz": True,
                           "reverse_to_pristine": True, "second_replay_identical": True,
                           "controller_check_read_only": True, "behavioral_checks_run": False}, indent=2))

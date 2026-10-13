@@ -1,0 +1,16 @@
+{
+  "version": "18.10.1",
+  "family": ".18.10.1-families/family-status-accounting-v18.10.1.patch",
+  "root": "NM",
+  "previousFamily": "family-status-accounting-v18.10.1.patch",
+  "previousFamilySha256": "2485ecdb7c0f69b94ead07cd44d8e0179f1c081864ec599ba0a6795b76a85283",
+  "supersededPublished": {
+    "release": "18.10.1-87c8c1c88769-52b95c63-178125dc",
+    "file": "family-status-accounting-v18.10.1.published-87c8c1c88769.patch",
+    "sha256": "3a758dc391f495f212dff4b6b0b7e76ceedfd353ec50ae97e8fe9c16e545bfd2"
+  },
+  "predecessorRetiredDir": "patches/.retired/10-12-18.10.1-status-footer",
+  "repair": "footer-reset-format.delta.patch",
+  "repairSha256": "4873a230a94d567453b5bb0b7a2baaec9739b35a2a494403cd1365cb654fcd2a",
+  "currentFamilySha256": "8392cf05ef6fe01330bc9319c3fbd464816b6b3587b11e84413cb88f99976595"
+}

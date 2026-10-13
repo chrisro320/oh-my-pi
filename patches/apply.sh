@@ -428,8 +428,16 @@ _omp_gate() {
 				oauth_verify_root="$(mktemp -d)"
 				trap 'rm -rf -- "$oauth_verify_root"' EXIT
 				cp -a --reflink=auto "${NM}/.." "${oauth_verify_root}/node_modules"
-				OMP_PATCH_VERIFY_AI_ROOT="${oauth_verify_root}/node_modules/@oh-my-pi/pi-ai" \
-					bun "${HERE}/${script}"
+				case "$script" in
+					*.sh)
+						OMP_PATCH_VERIFY_AI_ROOT="${oauth_verify_root}/node_modules/@oh-my-pi/pi-ai" \
+							bash "${HERE}/${script}"
+						;;
+					*)
+						OMP_PATCH_VERIFY_AI_ROOT="${oauth_verify_root}/node_modules/@oh-my-pi/pi-ai" \
+							bun "${HERE}/${script}"
+						;;
+				esac
 			)
 			;;
 		warm)
@@ -503,6 +511,11 @@ _omp_run_gates() {
 	_omp_gate 0079 verify-kitty-conversion-finalization.ts
 	_omp_gate 0080 verify-kitty-shared-png-cache.ts
 	_omp_gate 0081 verify-main-cache-hit.ts
+	# The one-decimal reset countdowns exist only in the 18.10.1 family revision;
+	# the 18.4.4/18.7.0/18.10.0 plans keep their own frozen family bytes.
+	if [[ "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+		_omp_gate 0081 verify-usage-reset-format.ts
+	fi
 	_omp_gate 0083 verify-model-mention-surface-resume.ts
 	_omp_gate 0093 verify-prompt-effort-resume.ts
 	_omp_gate 0093 verify-model-selection-resume.ts
@@ -513,6 +526,11 @@ _omp_run_gates() {
 	_omp_gate 0085 verify-rejected-prepared-draft-restore.ts
 	_omp_gate 0088 verify-compaction-cache-liveness.ts
 	_omp_gate 0090 verify-oauth-durable-refresh.ts oauth
+	# The unlock revision and its fault controls ship with the 18.10.1 plan only;
+	# 18.10.0 keeps the frozen reserve/stage/commit tree and its own gate list.
+	if [[ "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+		_omp_gate 0090 verify-oauth-unlock-fence-faults.sh oauth
+	fi
 	_omp_gate 0092 verify-cache-warming-idle-budget.ts warm
 	_omp_gate 0098 verify-tls-verify-transient-retry.ts
 	_omp_gate 0099 verify-retry-slow-schedule.ts

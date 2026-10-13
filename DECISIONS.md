@@ -113,6 +113,70 @@ Retry pacing: the independent `reviewer` (codex route) failed three times in a r
 
 Activation and review: the user exited all omp normally and resumed; both processes run `18.10.1-59edb2f9d189-15014870-98f49ed8` and `~/.omp/patches` points at its ledger. Independent `reviewer` review: no blockers; both gates pass on the new release and fail on the previous one; attempts are 1-based at all three callers; retry-after and `retry.maxDelayMs` still bound the waits; no prompt or tool bytes change. Accepted limit: the phrase is a heuristic, not proof of a network fault. Bun emits the same opaque wording when a custom corporate CA bundle is missing (`pi-utils/src/tls-fetch.ts`), and such a deterministic failure now costs about 66 s of retries before it surfaces. Accepted because this machine has no custom CA and the cost is bounded. Deferred: the `dist/types/.../retry-fallback-chains.d.ts` comment still describes jittered exponential backoff; the signature is unchanged, so it is fixed at the next artifact regeneration instead of a release of its own. Not a finding: `ledger/.runtime-root` is the binding file written by `publish-release.py`, the only allowed difference from repo `patches/`.
 
+## Follow-up: StepFun Step Plan endpoint (2026-10-12)
+
+The user identified the built-in StepFun provider's service route and explicitly prohibited changing `~/.omp/agent/models.yml`. After comparing the official protocol URLs, the user chose to retain OpenAI Chat Completions.
+
+| Decision | Chosen | Rejected and why |
+|---|---|---|
+| Endpoint | `https://api.stepfun.ai/step_plan/v1` for built-in `stepfun` | `/step_plan` alone: OMP appends `/chat/completions`, not `/v1/chat/completions`; that base belongs to the Anthropic protocol |
+| Scope | Keep provider ID, model IDs, credentials, protocol and custom providers unchanged; synchronize the manager default, KDL seed/auth definitions and generated catalog data | Editing `models.yml`: expressly forbidden. Migrating to Anthropic: the user selected OpenAI |
+| Delivery | New source family `0100-omp-stepfun-step-plan`, immutable release, normal restart | Mutating live source or clearing production model/auth databases |
+| Verification | Actual `streamOpenAICompletions` with synthetic request-local fetch and private HOME; baseline requests `/v1/chat/completions`, candidate requests `/step_plan/v1/chat/completions` and consumes a complete `OK` SSE response | Real credential/billing probes: not required to prove URL assembly and not performed |
+
+Official contract: https://platform.stepfun.ai/docs/en/step-plan/integrations/reasoning-api . Four built-in model rows and the compiled login validator use the same Step Plan base URL. The inactive stock `dist/cli.js` is intentionally unchanged: the release executes `src/cli.ts` through `bin/source-omp`.
+
+Upstream report: https://github.com/can1357/oh-my-pi/issues/4036#issuecomment-6127442987 . Added the observed 18.10.1 failure and routing evidence to the existing Step Plan issue instead of creating a duplicate. The report distinguishes subscription routing from valid pay-as-you-go use and explicitly does not claim live billing recovery.
+
+Independent source review found no blockers. The existing materialization policy hashes compiled `rules.json`, so old model-cache rows are rejected on restart; adding a new StepFun-specific cache key or clearing the production database would be unnecessary scope. Discovery smoke also confirmed `/step_plan/v1/models` and preserved an explicit `https://custom.example/v1` override.
+
+`python3 patches/verify-release-family-plan.py --version 18.10.1` passed with 26 families / 61 capabilities: zero fuzz, reverse to pristine, identical second replay, read-only controller check. Candidate tree: `755f89d58f76d9d4c522fc5ba4f1b1a4a9f367608f42258a143eb737b96a8d9c`. This is patch-chain proof, not a live provider acceptance test.
+
+Installed release: `18.10.1-755f89d58f76-54053d23-5f7644b4`. Installed-path private smoke passed all six required checks (`version`, `cli-read`, `native-ipc`, `gallery`, `bound-controller`, `native-dialog`), and the actual installed StepFun stream/discovery probe passed. Evidence: `/home/chris/.cache/omp-stepfun-xeb54nz1/installed-private-smoke.json`. Publication receipt records `code_installation: complete`, `current_session_upgrade: false`, `production_activation: false`; the public launcher reports restart required while old owners remain. No processes were killed.
+
+`models.yml` is byte-for-byte unchanged (SHA-256 `0fe0a67292c694fb7f1e5425d1732dd2a84b39a825b5d4486e9b2ff4165fbc7c`). The source workspace and patch-generation inputs are `/home/chris/.cache/omp-stepfun-xeb54nz1/`; the throwaway provider probe was removed after verification.
+
+## Follow-up: Clock-dependent proxy disconnects (2026-10-12)
+
+- **Observed cause:** independent HTTPS Date samples agreed that the local clock lagged by about 71 seconds. `systemd-timesyncd` was unsynchronized and repeatedly timed out against fake-IP `198.18.0.46:123`. The installed Mieru v3.38.0 transport encodes `floor(UnixSeconds / 60)` and accepts only the receiver's current minute plus/minus one; this lag can exceed that window near minute boundaries. Proxy EOF bursts and an unauthenticated WebSocket closing with code `1006` at local second 49 support this diagnosis. This does not establish the cause of every historical provider failure.
+- **Decision:** after the user's authorization, advance the clock by 71.032 seconds, then make time synchronization independent of the time-sensitive proxy. A direct NTP probe to `203.107.6.88` succeeded in about 43 ms. Install `/etc/systemd/timesyncd.conf.d/20-direct-ntp.conf` with that numeric server and no fallback, and prepend a destination-IP + UDP + port-123 `DIRECT` exception to clashctl profiles `12` and `13`. Regenerate and validate the active runtime, hot-load it through the existing controller, and restart only `systemd-timesyncd`.
+- **Rejected:** broad DNS whitelisting, allowing all UDP, changing model routes, adding OMP retries, reauthenticating, disabling TLS verification, or restarting the running proxy/OMP sessions. These either widen exposure or fail to repair the observed clock dependency.
+- **Privacy boundary:** the NTP server and the local network path can observe the direct time-synchronization traffic and its source public IP. NTP carries no model credentials or conversation. DNS configuration and all previous routing rules compare equal to the backup; no Anthropic DNS/direct exception was added. The loaded controller remains in `rule` mode and routes Anthropic/Claude through its existing AI group and `pro-家庭宽带-美国ATT01-2X` Vless node. This configuration proof is not an Anthropic account or risk-control acceptance test.
+- **Verification:** `NTPSynchronized=yes`; four NTP packets received, latest offset `+40.155ms`. The loaded narrow NTP rule recorded four hits. An unauthenticated `wss://ws.postman-echo.com/raw` connection remained open for 190 seconds with 38 echoes across three minute boundaries, then the probe closed it normally (`1000`). No production model credentials were used.
+- **Recovery material:** original `mixin.yaml`, `runtime.yaml`, and `timesyncd.conf` are preserved under `/home/chris/clashctl/resources/backup-ntp-20261012-1658/`. If the numeric NTP endpoint becomes unavailable, verify a replacement and update both the time-server setting and the narrow proxy exception together; do not add a proxy-dependent fallback.
+- **Knowledge update:** preserve the operational rule in `/home/chris/clashctl/README.md` and the clock/proxy verification contract in `.trellis/spec/backend/verification-gate-contracts.md`. No OMP source, credentials, sessions, or release artifacts changed in this repair.
+- **Assumptions:** preserve the existing proxy exits and accept direct NTP traffic as the authorized exception. Continued reachability of the selected time server is not guaranteed; Anthropic's internal risk decisions are not observable here.
+
+### 校時修復：五題確認
+
+1. 這次新增的是什麼？ A. Anthropic DNS 白名單；B. 單一 NTP IP 的 UDP/123 直連。
+2. 誰會直接看見這筆校時流量的來源公網 IP？ A. NTP server 與網路路徑上的觀察者；B. 因此必然是 Anthropic。
+3. 為什麼 71 秒誤差能造成週期性斷線？ A. Mieru 檢查分鐘時間戳的容許範圍；B. 所有 API 憑證都立即過期。
+4. 一次短 HTTP 成功足以驗證修復嗎？ A. 是；B. 否，還要檢查持續校時與跨分鐘長連線。
+5. 這次是否證明所有 socket error 都已消失、帳號風控必定通過？ A. 是；B. 否，驗證限於已觀察的時鐘／proxy 故障。
+
+答案：1B、2A、3A、4B、5B。接下來：A. 繼續使用目前修復；B. 若仍有錯誤，按新錯誤時間與實際 proxy 路徑繼續取證，不重新登入或盲目改路由。
+
+## Follow-up: unresolved OAuth refresh unlock (2026-10-13)
+
+Source incident: `reports/12-anthropic-oauth-pending-refresh-tls-recovery.md` — a TLS failure during an Anthropic token refresh leaves the exchange journal `pending` for that refresh-token generation, `refresh.ts` refuses before any POST, and the session reports `No API key found`, which invites the user to recreate `agent.db`.
+
+| Problem | Chosen change | Rejected alternative and reason |
+|---|---|---|
+| A stuck exchange has no supported way out and the session text misdescribes it | Revise the family's single active file `0090-omp-oauth-durable-refresh` in place: a read-only redacted `inspectUnresolvedRefresh` + `unlockAndRefreshStored(provider, {fence})` inside the shared owned-refresh path, and an `agent-session` message that names `/auth-unlock` | A new patch number/tail layer would split one lock across two representations; automatic release of a guessed pre-send failure would weaken the at-most-once guarantee the incident depends on |
+| A stale confirmation must not release a newer attempt | Opaque fence over credential bytes + exchange generation/owner/expected_hash, checked inside the one `.immediate()` release transaction; a peer lease refuses instead of blocking | Hashing the mutable write-lease owner would invalidate a confirmation on lease renewal; a non-transactional check would race a replaced marker |
+| A release and its own reservation must not be two transactions | The release transaction installs the caller's reservation for the same generation before it returns, so the marker is never absent; a failed/busy release rolls back to the old marker | Deleting the marker and reserving afterwards would let a crash or `SQLITE_BUSY` between them leave an active row with no ambiguity marker, so the next ordinary refresh would POST a possibly consumed token with no consent |
+| A minted result already in memory must not be re-exchanged | Unlock persists the held result under its ORIGINAL exchange owner before releasing, and refuses when that result cannot be staged | Releasing first (or reserving first) would risk a second POST of an already-consumed token |
+| Remote/broker-held tokens cannot be verified locally | Fail closed (`remote-credential`, `delegated-runtime`, `unsupported-store`) for `REMOTE_REFRESH_SENTINEL`, non-local minting and stores without the journal | Locally unlocking a broker-held generation would bypass the broker's own ownership |
+
+Evidence: previous revision `72733625b16f3e4ac180ca7dbaa7dcaeb7f4fe7a0b0504f89c37da0693438e85` and delta `a4199fc2…` archived in `.retired/10-13-18.10.1-0090-pre-unlock/`; new revision `cb5bbf9cf9cfc4448b33ac6c836b660ae57544c0c3dd4bd2796dc2901f937791` (26 touched paths). `verify-oauth-durable-refresh.ts` = 45 scenarios green on the replayed chain tree (all 28 pre-existing 0090 scenarios plus (a)-(s)); red before the change (fail-closed surface abort). `verify-oauth-unlock-fence-faults.sh` control green, weakened-fence mutation red at (f), incomplete store fails closed at the named member, and reverting the release back to delete-then-reserve (both halves) turns the boundary case (s) red while (a) still passes. Full-chain replay (26 families / 61 capabilities), reverse-to-pristine, second replay, read-only `--check` and the retired-revision assertions pass; candidate tree `7b7b41c2…`. Source CLI launched from the chain tree (`omp/18.10.1`). No production credential, `agent.db` or provider traffic was used.
+
+## Follow-up: Footer reset countdowns as one-decimal units (2026-10-13)
+
+The Tern composer still dropped `cache_turn` with `usage` at `5h 3% (4h 35m) · 7d 0% (6d 10h) · ✦1`. `formatUsageReset` (shared by the rendered `usage` segment and its native `describe` twin) now collapses minutes past an hour and hours past a day into one-decimal single units (275 min -> `4.5h`, 154 h -> `6.4d`, 119 -> `1.9h`, 1439 -> `23.9h`, 167 -> `6.9d`; whole units drop `.0`). Tenths are counted as an integer (`floor(value * 10 / perUnit)`) so float division cannot print `4.4`. Rejected: keeping the two-unit form (the composer budget is the constraint) and a settings-level width knob (schema work nobody asked for).
+
+Evidence: new gate `verify-usage-reset-format.ts` asserts 14 boundaries on both surfaces, the exact `5h 3% (4.5h) · 7d 0% (6.4d)` line (unicode) and its ascii twin, and that `4h 35m` / `6d 10h` are gone; it is red on the pre-change tree and on `Math.round` and `toFixed(1)` mutations, green after. `verify-main-cache-hit.ts` still passes. Full 26-family zero-fuzz replay, reverse-to-pristine and identical second replay. Family bytes at `.retired/10-13-18.10.1-status-footer-reset-format/` (archived `2485ecdb…`, delta `4873a230…`, new `8392cf05…`). Not published; installs only with the next release.
+
 ## 五題確認
 
 1. 為什麼空 Enter 會卡住？ A. 網路配額不足；B. 續跑工作用 idle 條件否決自己剛取得的 busy 狀態。
