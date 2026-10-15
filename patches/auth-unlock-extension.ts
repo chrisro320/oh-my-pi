@@ -18,9 +18,14 @@ import type { OAuthRefreshUnlockInspection, OAuthRefreshUnlockResult } from "@oh
 
 const DEFAULT_PROVIDER = "anthropic";
 
-// Unauthenticated GET to a POST-only token endpoint. Any completed HTTPS
-// response (normally HTTP 405) proves the TLS handshake works in this process.
-const PREFLIGHT_URLS: Record<string, string> = {
+// Only these providers keep a durable unresolved-exchange marker (patch family
+// 0090), so only these can be stuck and released here. The map's key is the
+// provider the runtime journals; its value is the token endpoint that refresh
+// POSTs to, probed unauthenticated (HTTP 405 for the POST-only anthropic
+// endpoint) to prove the TLS handshake works in this process. Every other
+// provider refreshes directly and has nothing to unlock, and the runtime's own
+// `inspectUnresolvedRefresh` reports it as `not-applicable` first.
+const PROTECTED_PROVIDERS: Record<string, string> = {
 	anthropic: "https://api.anthropic.com/v1/oauth/token",
 };
 const PREFLIGHT_TIMEOUT_MS = 15_000;
@@ -43,6 +48,12 @@ function formatExpiry(expiresAt: number | undefined): string {
 export default function (pi: ExtensionAPI) {
 	pi.registerCommand("auth-unlock", {
 		description: "Unlock a stuck OAuth refresh exchange for one provider (explicit, fenced, one refresh)",
+		// One quick option per protected provider, derived from the same map the
+		// handler routes through, so a completion can never name an unprotected one.
+		getArgumentCompletions: (prefix: string) =>
+			Object.keys(PROTECTED_PROVIDERS)
+				.filter(provider => provider.startsWith(prefix.trimStart().toLowerCase()))
+				.map(provider => ({ value: provider, label: `${provider} · unlock a stuck OAuth refresh` })),
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
 			const notify = (message: string, level: "info" | "error" | "warning" = "info") => ctx.ui.notify(message, level);
 			const provider = (args || "").trim().split(/\s+/)[0] || DEFAULT_PROVIDER;
@@ -57,9 +68,15 @@ export default function (pi: ExtensionAPI) {
 				notify("auth-unlock: unsupported runtime (the fenced unlock API is not present in this omp build)", "error");
 				return;
 			}
-			const preflightUrl = PREFLIGHT_URLS[provider];
+			const preflightUrl = PROTECTED_PROVIDERS[provider];
 			if (!preflightUrl) {
-				notify(`auth-unlock: refused, no TLS preflight endpoint is known for provider "${provider}"`, "error");
+				// Not a refusal by accident: these providers never keep an unresolved
+				// exchange, so a refresh for one has no marker to release.
+				notify(
+					`auth-unlock: not applicable to "${provider}"; only ` +
+						`${Object.keys(PROTECTED_PROVIDERS).join(", ")} credentials keep a durable refresh exchange`,
+					"info",
+				);
 				return;
 			}
 
@@ -126,6 +143,12 @@ export default function (pi: ExtensionAPI) {
 					break;
 				case "nothing-to-unlock":
 					notify(`auth-unlock: nothing to unlock for ${provider}`, "info");
+					break;
+				case "not-applicable":
+					notify(
+						`auth-unlock: not applicable to ${provider}${result.error ? ` (${result.error})` : ""}`,
+						"info",
+					);
 					break;
 				case "fence-mismatch":
 					notify("auth-unlock: the refresh state changed after you looked; no change was made, run the command again", "warning");

@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-15",
+  "candidate": "2fc569d968ea57c3ca8513a0da7f8b158af52be1e5c65bb15822bedba182ea33",
+  "familyOracle": {"exitCode":0,"families":26,"capabilities":61,"zeroFuzz":true,"reverseToPristine":true,"secondReplayIdentical":true,"controllerCheckReadOnly":true,"sandbox":"/tmp/omp-family-18.10.1-sgfup3zn"},
+  "oauthGate": {"command":"OMP_PATCH_VERIFY_AI_ROOT=<staged pi-ai> bun patches/verify-oauth-durable-refresh.ts","exitCode":0,"passedScenarios":50,"optionalRealTimeStall":"not run; injected-clock lease expiry passed"},
+  "unlockExtension": {"exitCode":0,"anthropicOnly":true,"nonAnthropicNoInspectOrFetch":true,"mutationsRejected":["protect google-antigravity again","preflight wrong host"]},
+  "faultControls": {"executedBy":"AnthropicOnlyProtection","exitCode":0,"controlScenarios":50,"controls":["q: weak fence caught by f","p: missing store inspection fails closed","p2: missing staged accessor fails closed","z: all-provider journal caught by u","z2: unscoped inspection caught by t","s: non-atomic release caught by s"],"initialHarnessFailure":"expected t although refresh-only scope mutation correctly failed u; test-only expectation fixed"},
+  "credentialOperations":"synthetic fixtures only; no production refresh, deletion, journal reset or database copy"
+}

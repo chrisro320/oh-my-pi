@@ -483,7 +483,7 @@
       "capabilities": [
         "0090"
       ],
-      "sha256": "cb5bbf9cf9cfc4448b33ac6c836b660ae57544c0c3dd4bd2796dc2901f937791",
+      "sha256": "b5af67a0e4d4538a31044bd6f211a96ec588841377f8ca15b40db71585b72e10",
       "paths": [
         "pi-ai/dist/types/auth-broker/remote-store.d.ts",
         "pi-ai/dist/types/auth/oauth.d.ts",
@@ -508,6 +508,10 @@
         "pi-ai/src/registry/oauth/anthropic.ts",
         "pi-ai/src/registry/oauth/factory-droid.ts",
         "pi-ai/src/registry/oauth/snowflake.ts",
+        "pi-catalog/dist/types/model-manager.d.ts",
+        "pi-catalog/src/model-manager.ts",
+        "pi-catalog/src/provider-models/google.ts",
+        "pi-catalog/src/provider-models/special.ts",
         "pi-coding-agent/src/cli/auth-broker-cli.ts",
         "pi-coding-agent/src/session/agent-session.ts",
         "pi-tui/src/overlays/mcp-add-wizard.ts"
@@ -616,5 +620,5 @@
     }
   ],
   "pristine_tree_sha256": "e565fa89582d4c3a1d5773b210b311966e442b96f2086031953ee71f09c7d910",
-  "candidate_tree_sha256": "7b7b41c247d7cbe3e29fac9350dfb4b1f0447ad3e9e1a20a496cecb1c85c5e4b"
+  "candidate_tree_sha256": "880ad5cc1190875ec89990221b66dd602dc5f90b8d2eeb73e18675fff653712b"
 }

@@ -94,6 +94,18 @@ RETIRED_REPAIRS = (
         "dir": ".retired/10-13-18.10.1-0090-pre-unlock",
         "family": "0090-omp-oauth-durable-refresh",
     },
+    {
+        "dir": ".retired/10-15-18.10.1-0090-pre-anthropic",
+        "family": "0090-omp-oauth-durable-refresh",
+    },
+    {
+        "dir": ".retired/10-15-18.10.1-0090-pre-codex403",
+        "family": "0090-omp-oauth-durable-refresh",
+    },
+    {
+        "dir": ".retired/10-15-18.10.1-0090-pre-google403",
+        "family": "0090-omp-oauth-durable-refresh",
+    },
 )
 
 

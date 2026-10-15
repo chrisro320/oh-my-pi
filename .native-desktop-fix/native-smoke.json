@@ -1,0 +1,58 @@
+[
+  {
+    "variant": "modern",
+    "mode": "hang",
+    "exit": 0,
+    "stdout": "FIXTURE {\"ready\": true, \"pid\": 1528813, \"owner\": \":1.1\", \"mode\": \"hang\"}\n{\"capabilities\":{\"backend\":\"x11\",\"capture\":true,\"input\":true,\"ax\":false,\"backgroundWindowInput\":true,\"takeover\":true,\"applications\":true,\"menus\":false,\"heldInput\":true,\"spaces\":false,\"globalEscape\":true,\"capturePermission\":\"granted\",\"inputPermission\":\"granted\",\"axPermission\":\"unavailable\",\"displayCount\":1,\"screenLocked\":false,\"displayAsleep\":false,\"displayServer\":\":1\"},\"elapsedMs\":2002.887659}\nBOUNDED_STARTUP_AND_CAPTURE_OK\n\nFIXTURE_EVENTS [\"HUNG_REQUEST\"]\n",
+    "stderr": "\n"
+  },
+  {
+    "variant": "modern",
+    "mode": "single",
+    "exit": 0,
+    "stdout": "FIXTURE {\"ready\": true, \"pid\": 1528914, \"owner\": \":1.1\", \"mode\": \"single\"}\n{\"capabilities\":{\"backend\":\"x11\",\"capture\":true,\"input\":true,\"ax\":true,\"backgroundWindowInput\":true,\"takeover\":true,\"applications\":true,\"menus\":true,\"heldInput\":true,\"spaces\":false,\"globalEscape\":true,\"capturePermission\":\"granted\",\"inputPermission\":\"granted\",\"axPermission\":\"granted\",\"displayCount\":1,\"screenLocked\":false,\"displayAsleep\":false,\"displayServer\":\":1\"},\"elapsedMs\":21.253338}\nWINDOW {\"id\":\"4194308\",\"title\":\"Fixture - Google Chrome\",\"app\":\"Google-chrome\",\"x\":2561,\"y\":58,\"width\":600,\"height\":400,\"focused\":true}\nPROFILE_FRAME_QUERY_AND_REVERSE_CLICK_OK\n\nFIXTURE_EVENTS [\"{\\\"click\\\": true, \\\"x\\\": 300, \\\"y\\\": 200, \\\"root_x\\\": 2861, \\\"root_y\\\": 258}\"]\n",
+    "stderr": "\n"
+  },
+  {
+    "variant": "modern",
+    "mode": "ambiguous",
+    "exit": 0,
+    "stdout": "FIXTURE {\"ready\": true, \"pid\": 1528963, \"owner\": \":1.1\", \"mode\": \"ambiguous\"}\n{\"capabilities\":{\"backend\":\"x11\",\"capture\":true,\"input\":true,\"ax\":true,\"backgroundWindowInput\":true,\"takeover\":true,\"applications\":true,\"menus\":true,\"heldInput\":true,\"spaces\":false,\"globalEscape\":true,\"capturePermission\":\"granted\",\"inputPermission\":\"granted\",\"axPermission\":\"granted\",\"displayCount\":1,\"screenLocked\":false,\"displayAsleep\":false,\"displayServer\":\":1\"},\"elapsedMs\":20.682757000000002}\nWINDOW {\"id\":\"4194308\",\"title\":\"Fixture - Google Chrome\",\"app\":\"Google-chrome\",\"x\":2561,\"y\":58,\"width\":600,\"height\":400,\"focused\":true}\nFORWARD_AMBIGUITY_REJECTED\n\nFIXTURE_EVENTS []\n",
+    "stderr": "\n"
+  },
+  {
+    "variant": "modern",
+    "mode": "exact-collision",
+    "exit": 0,
+    "stdout": "FIXTURE {\"ready\": true, \"pid\": 1529047, \"owner\": \":1.1\", \"mode\": \"exact-collision\"}\n{\"capabilities\":{\"backend\":\"x11\",\"capture\":true,\"input\":true,\"ax\":true,\"backgroundWindowInput\":true,\"takeover\":true,\"applications\":true,\"menus\":true,\"heldInput\":true,\"spaces\":false,\"globalEscape\":true,\"capturePermission\":\"granted\",\"inputPermission\":\"granted\",\"axPermission\":\"granted\",\"displayCount\":1,\"screenLocked\":false,\"displayAsleep\":false,\"displayServer\":\":1\"},\"elapsedMs\":20.379645}\nWINDOW {\"id\":\"4194308\",\"title\":\"Fixture - Google Chrome\",\"app\":\"Google-chrome\",\"x\":2561,\"y\":58,\"width\":600,\"height\":400,\"focused\":true}\nFORWARD_AMBIGUITY_REJECTED\n\nFIXTURE_EVENTS []\n",
+    "stderr": "\n"
+  },
+  {
+    "variant": "baseline",
+    "mode": "hang",
+    "exit": 0,
+    "stdout": "FIXTURE {\"ready\": true, \"pid\": 1529119, \"owner\": \":1.1\", \"mode\": \"hang\"}\n{\"capabilities\":{\"backend\":\"x11\",\"capture\":true,\"input\":true,\"ax\":false,\"backgroundWindowInput\":true,\"takeover\":true,\"applications\":true,\"menus\":false,\"heldInput\":true,\"spaces\":false,\"globalEscape\":true,\"capturePermission\":\"granted\",\"inputPermission\":\"granted\",\"axPermission\":\"unavailable\",\"displayCount\":1,\"screenLocked\":false,\"displayAsleep\":false,\"displayServer\":\":1\"},\"elapsedMs\":2002.992617}\nBOUNDED_STARTUP_AND_CAPTURE_OK\n\nFIXTURE_EVENTS [\"HUNG_REQUEST\"]\n",
+    "stderr": "\n"
+  },
+  {
+    "variant": "baseline",
+    "mode": "single",
+    "exit": 0,
+    "stdout": "FIXTURE {\"ready\": true, \"pid\": 1529178, \"owner\": \":1.1\", \"mode\": \"single\"}\n{\"capabilities\":{\"backend\":\"x11\",\"capture\":true,\"input\":true,\"ax\":true,\"backgroundWindowInput\":true,\"takeover\":true,\"applications\":true,\"menus\":true,\"heldInput\":true,\"spaces\":false,\"globalEscape\":true,\"capturePermission\":\"granted\",\"inputPermission\":\"granted\",\"axPermission\":\"granted\",\"displayCount\":1,\"screenLocked\":false,\"displayAsleep\":false,\"displayServer\":\":1\"},\"elapsedMs\":17.429355}\nWINDOW {\"id\":\"4194308\",\"title\":\"Fixture - Google Chrome\",\"app\":\"Google-chrome\",\"x\":2561,\"y\":58,\"width\":600,\"height\":400,\"focused\":true}\nPROFILE_FRAME_QUERY_AND_REVERSE_CLICK_OK\n\nFIXTURE_EVENTS [\"{\\\"click\\\": true, \\\"x\\\": 300, \\\"y\\\": 200, \\\"root_x\\\": 2861, \\\"root_y\\\": 258}\"]\n",
+    "stderr": "\n"
+  },
+  {
+    "variant": "baseline",
+    "mode": "ambiguous",
+    "exit": 0,
+    "stdout": "FIXTURE {\"ready\": true, \"pid\": 1529229, \"owner\": \":1.1\", \"mode\": \"ambiguous\"}\n{\"capabilities\":{\"backend\":\"x11\",\"capture\":true,\"input\":true,\"ax\":true,\"backgroundWindowInput\":true,\"takeover\":true,\"applications\":true,\"menus\":true,\"heldInput\":true,\"spaces\":false,\"globalEscape\":true,\"capturePermission\":\"granted\",\"inputPermission\":\"granted\",\"axPermission\":\"granted\",\"displayCount\":1,\"screenLocked\":false,\"displayAsleep\":false,\"displayServer\":\":1\"},\"elapsedMs\":21.43253}\nWINDOW {\"id\":\"4194308\",\"title\":\"Fixture - Google Chrome\",\"app\":\"Google-chrome\",\"x\":2561,\"y\":58,\"width\":600,\"height\":400,\"focused\":true}\nFORWARD_AMBIGUITY_REJECTED\n\nFIXTURE_EVENTS []\n",
+    "stderr": "\n"
+  },
+  {
+    "variant": "baseline",
+    "mode": "exact-collision",
+    "exit": 0,
+    "stdout": "FIXTURE {\"ready\": true, \"pid\": 1529276, \"owner\": \":1.1\", \"mode\": \"exact-collision\"}\n{\"capabilities\":{\"backend\":\"x11\",\"capture\":true,\"input\":true,\"ax\":true,\"backgroundWindowInput\":true,\"takeover\":true,\"applications\":true,\"menus\":true,\"heldInput\":true,\"spaces\":false,\"globalEscape\":true,\"capturePermission\":\"granted\",\"inputPermission\":\"granted\",\"axPermission\":\"granted\",\"displayCount\":1,\"screenLocked\":false,\"displayAsleep\":false,\"displayServer\":\":1\"},\"elapsedMs\":21.468694000000003}\nWINDOW {\"id\":\"4194308\",\"title\":\"Fixture - Google Chrome\",\"app\":\"Google-chrome\",\"x\":2561,\"y\":58,\"width\":600,\"height\":400,\"focused\":true}\nFORWARD_AMBIGUITY_REJECTED\n\nFIXTURE_EVENTS []\n",
+    "stderr": "\n"
+  }
+]

@@ -1,0 +1,96 @@
+--- a/pi-catalog/src/provider-models/google.ts
++++ b/pi-catalog/src/provider-models/google.ts
+@@ -6,8 +6,9 @@
+ import { fetchGeminiModels } from "../discovery/gemini";
+ import { fetchGeminiCliQuotaModels } from "../discovery/gemini-cli";
+ import type { ModelManagerOptions } from "../model-manager";
+-import type { FetchImpl, ModelSpec } from "../types";
++import type { FetchImpl, Model, ModelSpec } from "../types";
+ import { unionAccountCatalogs } from "./account-access";
++import { toModelSpec } from "./bundled-references";
+ 
+ export interface GoogleModelManagerConfig {
+ 	apiKey?: string;
+@@ -102,7 +103,7 @@
+ 		dynamicModelsAuthoritative: providerEntry("google-antigravity")?.dynamicModelsAuthoritative === true,
+ 		...(resolveAccounts
+ 			? {
+-					fetchDynamicModels: async () => {
++					fetchDynamicModels: async previous => {
+ 						const accounts = await resolveAccounts();
+ 						if (!accounts || accounts.length === 0) return null;
+ 						const fetcher = toDiscoveryFetch(config?.fetch);
+@@ -121,10 +122,26 @@
+ 							// A transient failure would leave the union partial; keep the previous catalog.
+ 							if (!result) return null;
+ 							if (result.rejectedStatus !== undefined) {
+-								logger.warn("Antigravity model discovery skipped an account whose credential was rejected", {
++								// A 403 keeps the rows that account last discovered, re-keyed to
++								// that account alone; a 401, a keyless account, and every account
++								// without own-keyed history keep the previous skip.
++								const retained =
++									result.rejectedStatus === 403 && accountKey !== undefined
++										? retainedAccountCatalog(previous ?? [], accountKey)
++										: [];
++								if (retained.length === 0) {
++									logger.warn("Antigravity model discovery skipped an account whose credential was rejected", {
++										accountKey,
++										status: result.rejectedStatus,
++									});
++									continue;
++								}
++								logger.warn("Antigravity model discovery retained the last discovered models of a rejected account", {
+ 									accountKey,
+ 									status: result.rejectedStatus,
++									models: retained.length,
+ 								});
++								catalogs.push({ accountKey, models: retained });
+ 								continue;
+ 							}
+ 							catalogs.push({ accountKey, models: result.models });
+@@ -132,11 +149,17 @@
+ 						if (catalogs.length === 0) return null;
+ 						const tagAccess = catalogs.every(catalog => catalog.accountKey !== undefined);
+ 						return unionAccountCatalogs(
+-							catalogs.map(({ accountKey, models }) =>
+-								tagAccess && accountKey !== undefined
+-									? models.map(model => ({ ...model, accountAccess: { [accountKey]: {} } }))
+-									: models,
+-							),
++							catalogs.map(({ accountKey, models }) => {
++								if (tagAccess && accountKey !== undefined) {
++									return models.map(model => ({ ...model, accountAccess: { [accountKey]: {} } }));
++								}
++								// All-or-none tagging is off, so no model may advertise per-account
++								// access — including a rejected account's retained rows, which would
++								// otherwise pin a shared model to the rejected credential.
++								return models.map(model =>
++									model.accountAccess === undefined ? model : { ...model, accountAccess: undefined },
++								);
++							}),
+ 						);
+ 					},
+ 				}
+@@ -144,6 +167,22 @@
+ 	};
+ }
+ 
++/** The previous catalog's rows keyed to one rejected account, re-keyed to that account alone. */
++function retainedAccountCatalog(
++	previous: readonly Model<"google-gemini-cli">[],
++	accountKey: string,
++): ModelSpec<"google-gemini-cli">[] {
++	const retained: ModelSpec<"google-gemini-cli">[] = [];
++	for (const model of previous) {
++		const access = model.accountAccess;
++		if (!access || !Object.hasOwn(access, accountKey)) continue;
++		const own = access[accountKey];
++		if (own === undefined) continue;
++		retained.push({ ...toModelSpec(model), accountAccess: { [accountKey]: own } });
++	}
++	return retained;
++}
++
+ export function googleGeminiCliModelManagerOptions(
+ 	config?: GoogleGeminiCliModelManagerConfig,
+ ): ModelManagerOptions<"google-gemini-cli"> {

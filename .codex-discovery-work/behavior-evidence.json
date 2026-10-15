@@ -1,0 +1,8 @@
+{
+  "date": "2026-10-15",
+  "scenario": "persist successful Plus+Prolite model catalogs in private SQLite; next cycle Plus200 without shared model, Prolite403; resolve with a new manager options instance",
+  "before": {"release":"18.10.1-2fc569d968ea-812850d7-593e7f62","exitCode":1,"failure":"403: rejected account keeps only its own access","gate":"verify-codex-account-eligibility-retention.ts phase2"},
+  "afterInitial": {"exitCode":0,"result":"PASS 8 phases, fake fetch, private models.db","note":"Final fixture correction will reseed history for independent removed-account and successful-omission coverage; unrelated inherited-fallback phase removed"},
+  "isolation":"fake credentials, injected fetch, private models.db; no production credential or catalog access",
+  "policy":"Codex discovery403 only; retain only current rejected account own-keyed prior models; no retries, no credential or generation fallback changes"
+}

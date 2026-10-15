@@ -6,8 +6,8 @@
   "patches": [
     {
       "file": "0001-escape-monitor-mapping-refresh.patch",
-      "sha256": "bb54088fa142e91ac63b65c490a109350f82ec07186ab372157081315928c898",
-      "summary": "Linux Escape monitor re-reads the keycode on MappingNotify instead of cancelling; XTEST slave switches no longer revoke control"
+      "sha256": "177900f072d0a5fc81da495cb3327ba99fc474b097c556ca3cb3d3b30ed019ad",
+      "summary": "Linux desktop: refresh Escape mapping, bound AT-SPI startup, and match Chrome profile-decorated AX titles without relaxing PID or ambiguity checks"
     }
   ],
   "files": [
@@ -15,13 +15,13 @@
       "file": "pi_natives.linux-x64-modern.node",
       "target_cpu": "x86-64-v3",
       "original_sha256": "835714b605e16d310e9c18cd1c1f77a2752271b3f79b63a9a89d18d8b4c57186",
-      "rebuilt_sha256": "4db8e35bbcc386bff82b3fba928c48b1ac84bf8945e2cca6e7574c63e9df8504"
+      "rebuilt_sha256": "2155bde2c331c122ee63f88b82ff25fa49541766ae4ee6104aa2b2f69d703887"
     },
     {
       "file": "pi_natives.linux-x64-baseline.node",
       "target_cpu": "x86-64-v2",
       "original_sha256": "0c44a4a65058f3ac0285a4ad0f602625b73bea105d7f454c5fa2f12487b1608a",
-      "rebuilt_sha256": "bef8be7cc5c3959373019beab40b5bd93c80d3b41f43550b4458111f268fb499"
+      "rebuilt_sha256": "49a891960ff043844ac3d49aa6a4533f5d600fe9e5af25fdf27cedb1fb5bd9f5"
     }
   ]
 }

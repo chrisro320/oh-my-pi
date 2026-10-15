@@ -1,0 +1,18 @@
+{
+  "result": {
+    "keyReleaseObserved": true,
+    "cancellationSource": "programmatic",
+    "acquire": {
+      "active": true
+    },
+    "afterTyping": {
+      "active": true
+    },
+    "hold": "Error: Cancelled: desktop operation cancelled; input may be partial; inspect before retrying",
+    "afterEscape": {
+      "active": false
+    },
+    "status": "PASS"
+  },
+  "text": "a native-fix-ok \n"
+}

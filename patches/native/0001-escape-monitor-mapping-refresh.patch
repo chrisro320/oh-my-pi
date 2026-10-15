@@ -98,3 +98,105 @@ index f24d1f8226..f9dd5d857d 100644
  					},
  					Ok(Some(_)) => {},
  					Ok(None) => break,
+diff --git a/crates/pi-natives/src/desktop/linux/ax.rs b/crates/pi-natives/src/desktop/linux/ax.rs
+index a4a4ca1e1a..dfa7edfa92 100644
+--- a/crates/pi-natives/src/desktop/linux/ax.rs
++++ b/crates/pi-natives/src/desktop/linux/ax.rs
+@@ -36,7 +36,15 @@ impl AtSpiAx {
+ 			.build()
+ 			.map_err(|err| DesktopError::ax_failed(format!("AT-SPI runtime: {err}")))?;
+ 		let connection = rt
+-			.block_on(atspi::AccessibilityConnection::new())
++			.block_on(async {
++				// Optional accessibility must not block X11 capture and input startup.
++				tokio::time::timeout(
++					std::time::Duration::from_secs(2),
++					atspi::AccessibilityConnection::new(),
++				)
++				.await
++			})
++			.map_err(|_| DesktopError::ax_failed("AT-SPI connection timed out"))?
+ 			.map_err(|err| DesktopError::ax_failed(format!("AT-SPI connection: {err}")))?;
+ 		Ok(Self { rt, connection })
+ 	}
+@@ -282,9 +290,22 @@ fn atspi_window_id(frame: &ObjectRefOwned) -> String {
+ 	format!("atspi:{name}:{}", frame.path())
+ }
+ 
++fn frame_title_matches(window: &DesktopWindow, title: &str) -> bool {
++	window.title == title
++		// Chrome decorates its AX browser-frame name with the profile name.
++		|| (window.app.eq_ignore_ascii_case("google-chrome")
++			&& window.title.ends_with(" - Google Chrome")
++			&& title
++				.strip_prefix(window.title.as_str())
++				.and_then(|suffix| suffix.strip_prefix(" \u{2013} "))
++				.is_some_and(|profile| !profile.is_empty()))
++}
++
+ fn native_window_for_frame(windows: &[DesktopWindow], pid: u32, title: &str) -> CoreResult<String> {
+ 	let mut matches = windows.iter().filter(|window| {
+-		!window.id.starts_with("atspi:") && window.pid == Some(pid) && window.title == title
++		!window.id.starts_with("atspi:")
++			&& window.pid == Some(pid)
++			&& frame_title_matches(window, title)
+ 	});
+ 	let first = matches.next().ok_or_else(|| {
+ 		DesktopError::window_not_found("AT-SPI frame has no matching native window")
+@@ -348,7 +369,7 @@ impl AxBackend for AtSpiAx {
+ 					.as_accessible_proxy(self.connection.connection())
+ 					.await
+ 					.map_err(|err| err.to_string())?;
+-				if proxy.name().await.map_err(|err| err.to_string())? == win.title {
++				if frame_title_matches(win, &proxy.name().await.map_err(|err| err.to_string())?) {
+ 					matches.push(frame);
+ 				}
+ 			}
+@@ -809,6 +830,47 @@ mod tests {
+ 		assert!(native_window_for_frame(&windows, 20, "Document").is_err());
+ 	}
+ 
++	#[test]
++	fn chrome_profile_titles_preserve_unique_window_ownership() {
++		let mut window = DesktopWindow {
++			id:      "1".into(),
++			pid:     Some(10),
++			title:   "Settings - Google Chrome".into(),
++			app:     "Google-chrome".into(),
++			x:       0,
++			y:       0,
++			width:   100,
++			height:  100,
++			focused: false,
++		};
++		let title = "Settings - Google Chrome \u{2013} work";
++		assert_eq!(native_window_for_frame(&[window.clone()], 10, title).unwrap(), "1");
++		assert!(native_window_for_frame(&[window.clone()], 20, title).is_err());
++		assert!(native_window_for_frame(&[window.clone(), window.clone()], 10, title).is_err());
++		let mut exact = window.clone();
++		exact.id = "2".into();
++		exact.title = title.into();
++		assert!(native_window_for_frame(&[window.clone(), exact], 10, title).is_err());
++		for mismatch in [
++			"Settings - Google Chrome \u{2013} ",
++			"Settings - Google Chrome - work",
++			"Settings - Google Chrome extra \u{2013} work",
++		] {
++			assert!(native_window_for_frame(&[window.clone()], 10, mismatch).is_err());
++		}
++		window.app = "Editor".into();
++		assert!(native_window_for_frame(&[window.clone()], 10, title).is_err());
++		assert_eq!(
++			native_window_for_frame(&[window.clone()], 10, &window.title).unwrap(),
++			"1"
++		);
++		window.app = "Google-chrome".into();
++		window.title = "Save As".into();
++		assert!(native_window_for_frame(&[window.clone()], 10, "Save As \u{2013} work").is_err());
++		window.title.clear();
++		assert!(native_window_for_frame(&[window], 10, " \u{2013} work").is_err());
++	}
++
+ 	#[test]
+ 	fn focused_search_skips_null_child_refs() {
+ 		use atspi::zbus::{

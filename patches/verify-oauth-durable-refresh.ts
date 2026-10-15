@@ -35,6 +35,7 @@
 
 import { Database } from "bun:sqlite";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
@@ -111,6 +112,7 @@ type Cred = {
 	clientSecret?: string;
 	resource?: string;
 	authorizationUrl?: string;
+	projectId?: string;
 };
 
 /** Redacted snapshot credential returned by `oauth.refresh` (refresh token is a sentinel). */
@@ -157,6 +159,7 @@ interface Store {
 		lease: { owner: string; nowMs: number },
 	): boolean;
 	inspectUnresolvedCredentialRefreshExchange(id: number): ExchangeInspection;
+	readStagedCredentialRefreshResult(id: number, expectedData: string): Cred | undefined;
 	releaseUnresolvedCredentialRefreshExchange(
 		id: number,
 		expectedData: string,
@@ -491,18 +494,18 @@ async function withCase(fn: (c: CaseEnv) => Promise<void>, options?: Record<stri
 	}
 }
 
-async function seed(c: CaseEnv, credential: Cred): Promise<number> {
-	await c.auth.credentials.upsert(PROVIDER, credential);
+async function seed(c: CaseEnv, credential: Cred, provider = PROVIDER): Promise<number> {
+	await c.auth.credentials.upsert(provider, credential);
 	const row = c.store
-		.listAuthCredentials(PROVIDER)
+		.listAuthCredentials(provider)
 		.find(entry => entry.credential.refresh === credential.refresh);
 	assert.ok(row, `the seeded row (refresh=${credential.refresh}) must be durably readable`);
 	return row.id;
 }
 
-function rowOf(c: CaseEnv, id: number): Cred | undefined {
+function rowOf(c: CaseEnv, id: number, provider = PROVIDER): Cred | undefined {
 	return c.store
-		.listAuthCredentials(PROVIDER)
+		.listAuthCredentials(provider)
 		.find(row => row.id === id)
 		?.credential;
 }
@@ -586,6 +589,11 @@ function requireUnlockSurface(c: CaseEnv): Auth["oauth"] {
 		typeof c.store.inspectUnresolvedCredentialRefreshExchange,
 		"function",
 		"the selected tree must expose the store's exchange inspection (0090 unlock revision)",
+	);
+	assert.equal(
+		typeof c.store.readStagedCredentialRefreshResult,
+		"function",
+		"the selected tree must expose the store's read-only staged-replacement accessor (0090 Anthropic-only revision)",
 	);
 	assert.equal(
 		typeof c.store.releaseUnresolvedCredentialRefreshExchange,
@@ -673,6 +681,38 @@ function seedPendingMarker(c: CaseEnv, id: number): void {
 		"the fixture must reserve the row's generation",
 	);
 	c.store.releaseCredentialRefreshLease(id, lease.owner);
+}
+
+/**
+ * Write a journal row by hand, exactly as an earlier revision would have left it
+ * for a provider this revision no longer journals (migration fixture only).
+ * `staged` reproduces the replacement bytes that revision would have staged;
+ * `stale` reproduces a marker whose generation no longer belongs to the row.
+ */
+function seedLegacyExchange(c: CaseEnv, id: number, options?: { staged?: Cred; stale?: boolean }): Record<string, unknown> {
+	const data = rawRowData(c, id);
+	const current = JSON.parse(data) as { access?: string; refresh?: string; type?: string };
+	const generation = createHash("sha256")
+		.update(options?.stale ? "legacy-generation" : current.refresh || current.access || data)
+		.digest("hex");
+	const expectedHash = createHash("sha256")
+		.update(options?.stale ? "legacy-row-bytes" : data)
+		.digest("hex");
+	let replacement: string | null = null;
+	if (options?.staged) {
+		const { type: _type, ...fields } = options.staged as unknown as Record<string, unknown>;
+		if (fields.refresh === current.refresh) fields.refresh = null;
+		replacement = JSON.stringify(fields);
+	}
+	const db = new Database(join(c.dir, "auth.db"));
+	try {
+		db.query(
+			"INSERT INTO auth_credential_refresh_exchanges (credential_id, generation, owner, expected_hash, replacement_data) VALUES (?, ?, ?, ?, ?)",
+		).run(id, generation, "legacy-owner", expectedHash, replacement);
+	} finally {
+		db.close();
+	}
+	return { credential_id: id, generation, owner: "legacy-owner", expected_hash: expectedHash, replacement_data: replacement };
 }
 
 /** The provider-facing tool contract: what a cached prefix is keyed on. */
@@ -2118,12 +2158,279 @@ await scenario("pre-aborted caller issues no token request", async () => {
 	}
 });
 // ---------------------------------------------------------------------------
-// 0090 unlock revision (18.10.1 only): every scenario below is red on the
-// pre-change tree, because the fenced release and the public unlock API do not
-// exist there, and is skipped by the frozen 18.10.0 tree that must keep running
-// the exchange scenarios above.
+// 0090 unlock revision (18.10.1 only): the unlock scenarios (a)-(s) are red on
+// the pre-change tree, because the fenced release and the public unlock API do
+// not exist there, and the whole block is skipped by the frozen 18.10.0 tree
+// that must keep running the exchange scenarios above. Scenarios (t)-(w) are
+// behavioural against the INSTALLED revision instead: it journals every provider,
+// so a non-Anthropic legacy marker either reports eligible or fences the refresh.
 // ---------------------------------------------------------------------------
 if (hasUnlockRevision) {
+	// ---------------------------------------------------------------------------
+	// Anthropic-only scope of the durable journal. Durable unknown-outcome
+	// protection is intentionally limited to anthropic: every other provider
+	// refreshes under the ordinary lease + CAS path, never reserving, staging or
+	// rewriting a journal entry. These scenarios are behavioural (no source-text
+	// or wiring assertions): on the installed revision, which journals every
+	// provider, a legacy marker either reports `eligible: true` or refuses the
+	// refresh as unresolved.
+	// ---------------------------------------------------------------------------
+	await scenario("(t) unlock is not applicable to a provider without the journal", async () => {
+		const t = installTransport({
+			token: () => {
+				throw new Error("a not-applicable unlock must never request a token");
+			},
+		});
+		try {
+			await withCase(async c => {
+				const oauth = requireUnlockSurface(c);
+				for (const provider of ["google-antigravity", "openai-codex", "xai-oauth"]) {
+					const bare = await oauth.inspectUnresolvedRefresh(provider);
+					assert.equal(bare.reason, "not-applicable", `${provider}: refused before any row or journal read`);
+					assert.equal(bare.eligible, false, `${provider}: never eligible`);
+					assert.equal(bare.fence, undefined, `${provider}: no fence may be handed out`);
+					assert.equal(bare.holdsUnstagedResult, false, `${provider}: no held result`);
+				}
+				const id = await seed(
+					c,
+					expiredCred({ access: "ga-t-0", refresh: "ga-t-r0", projectId: "ga-t-project" }),
+					"google-antigravity",
+				);
+				const legacy = seedLegacyExchange(c, id);
+				const inspected = await oauth.inspectUnresolvedRefresh("google-antigravity");
+				assert.equal(inspected.reason, "not-applicable", "a legacy marker must not make another provider eligible");
+				const unlocked = await oauth.unlockAndRefreshStored("google-antigravity", { fence: "unused-fence" });
+				assert.equal(unlocked.outcome, "not-applicable", "unlock reports not applicable, not recovery or failure");
+				assert.equal(t.tokenPosts, 0, "a not-applicable unlock issues no token request");
+				assert.deepEqual(exchangeRows(c), [legacy], "a not-applicable unlock leaves the legacy marker untouched");
+				const row = rowOf(c, id, "google-antigravity");
+				assert.equal(row?.access, "ga-t-0", "a not-applicable unlock rewrites no credential row");
+				assert.equal(row?.refresh, "ga-t-r0");
+			});
+		} finally {
+			t.restore();
+		}
+	});
+
+	await scenario("(u) a legacy non-Anthropic pending marker neither fences nor is rewritten", async () => {
+		const provider = "google-antigravity";
+		const t = installTransport({
+			tokenMarker: "oauth2.googleapis.com/token",
+			token: () => tokenReply("ga-u-access-1", "ga-u-refresh-1"),
+		});
+		try {
+			await withCase(async c => {
+				const id = await seed(
+					c,
+					expiredCred({ access: "ga-u-access-0", refresh: "ga-u-refresh-0", projectId: "ga-u-project" }),
+					provider,
+				);
+				const legacy = seedLegacyExchange(c, id);
+				const entry = await c.auth.oauth.refresh(id);
+				assert.equal(t.tokenPosts, 1, "a stale unresolved marker must not block the ordinary exchange");
+				assert.equal(entry.credential?.access, "ga-u-access-1", "the ordinary exchange publishes the rotated token");
+				const row = rowOf(c, id, provider);
+				assert.equal(row?.access, "ga-u-access-1");
+				assert.equal(row?.refresh, "ga-u-refresh-1", "the rotated refresh token must be stored");
+				assert.equal(row?.projectId, "ga-u-project", "provider metadata must survive");
+				assert.deepEqual(exchangeRows(c), [legacy], "a non-Anthropic exchange must not reserve, stage or rewrite the journal");
+			});
+		} finally {
+			t.restore();
+		}
+	});
+
+	await scenario("(v) a legacy staged replacement is adopted only for the row it was staged for", async () => {
+		const provider = "google-antigravity";
+		const t = installTransport({
+			tokenMarker: "oauth2.googleapis.com/token",
+			token: () => tokenReply("ga-v-fresh-access", "ga-v-fresh-refresh"),
+		});
+		try {
+			await withCase(async c => {
+				// The generation the marker belongs to: its replacement is the only
+				// known-minted successor, so it is published without a second exchange.
+				const adoptedId = await seed(
+					c,
+					expiredCred({ access: "ga-v-0", refresh: "ga-v-r0", projectId: "ga-v-project" }),
+					provider,
+				);
+				const staged: Cred = {
+					type: "oauth",
+					access: "ga-v-staged-access",
+					refresh: "ga-v-staged-refresh",
+					expires: Date.now() + 3_600_000,
+					projectId: "ga-v-project",
+				};
+				seedLegacyExchange(c, adoptedId, { staged });
+				const adopted = await c.auth.oauth.refresh(adoptedId);
+				assert.equal(t.tokenPosts, 0, "a staged replacement must be published without another exchange");
+				assert.equal(
+					adopted.credential?.access,
+					"ga-v-staged-access",
+					"the staged successor must be the published credential",
+				);
+				const adoptedRow = rowOf(c, adoptedId, provider);
+				assert.equal(adoptedRow?.refresh, "ga-v-staged-refresh", "the staged refresh token must be stored");
+				assert.equal(adoptedRow?.projectId, "ga-v-project", "provider metadata must survive adoption");
+				assert.deepEqual(exchangeRows(c), [], "adopting retires the marker it published");
+
+				// A marker whose generation no longer belongs to the row stays inert:
+				// the ordinary exchange runs and the stale bytes are never published.
+				const staleId = await seed(
+					c,
+					expiredCred({ access: "ga-v-stale-0", refresh: "ga-v-stale-r0", projectId: "ga-v-project" }),
+					provider,
+				);
+				const stale = seedLegacyExchange(c, staleId, {
+					stale: true,
+					staged: { ...staged, access: "ga-v-stale-staged-access", refresh: "ga-v-stale-staged-refresh" },
+				});
+				const refreshed = await c.auth.oauth.refresh(staleId);
+				assert.equal(t.tokenPosts, 1, "a stale marker must not suppress the ordinary exchange");
+				assert.equal(refreshed.credential?.access, "ga-v-fresh-access", "the fresh exchange wins, not the stale bytes");
+				const staleRow = rowOf(c, staleId, provider);
+				assert.equal(staleRow?.access, "ga-v-fresh-access");
+				assert.deepEqual(exchangeRows(c), [stale], "a stale marker is left byte-identical");
+			});
+		} finally {
+			t.restore();
+		}
+	});
+
+	await scenario("(w) a non-Anthropic peer takeover still wins the CAS and writes no journal row", async () => {
+		const provider = "google-antigravity";
+		const gate = Promise.withResolvers<void>();
+		const postStarted = Promise.withResolvers<void>();
+		const t = installTransport({
+			tokenMarker: "oauth2.googleapis.com/token",
+			onTokenPost: () => postStarted.resolve(),
+			token: () => tokenReply("ga-w-owner-access", "ga-w-owner-refresh", { waitFor: gate.promise }),
+		});
+		try {
+			await withCase(async c => {
+				const id = await seed(
+					c,
+					expiredCred({ access: "ga-w-0", refresh: "ga-w-r0", projectId: "ga-w-project" }),
+					provider,
+				);
+				const owner = c.auth.oauth.refresh(id);
+				c.cleanup.push(async () => {
+					gate.resolve();
+					await Promise.allSettled([owner]);
+				});
+				await waitForPost(postStarted.promise, owner);
+
+				// Peer process: the owner's lease expired (clock advance), so the peer
+				// takes it and writes its own freshly rotated credential.
+				t.advanceClock(20_000);
+				assert.ok(
+					c.store.tryAcquireCredentialRefreshLease(id, "peer-owner", Date.now() + 15_000),
+					"the peer must be able to take over the expired lease",
+				);
+				const peerCred: Cred = {
+					type: "oauth",
+					access: "ga-w-peer-access",
+					refresh: "ga-w-peer-refresh",
+					expires: Date.now() + 3_600_000,
+					projectId: "ga-w-project",
+				};
+				c.store.updateAuthCredential(id, peerCred);
+
+				gate.resolve();
+				await owner.then(
+					() => undefined,
+					() => undefined,
+				);
+				const row = rowOf(c, id, provider);
+				assert.equal(row?.access, "ga-w-peer-access", "a peer rotation must survive the previous owner's CAS");
+				assert.equal(row?.refresh, "ga-w-peer-refresh", "a peer rotation must not be clobbered");
+				assert.equal(t.tokenPosts, 1, "the owner must not mint a second token request after a takeover");
+				assert.deepEqual(exchangeRows(c), [], "a non-Anthropic exchange leaves no journal row behind");
+			});
+		} finally {
+			t.restore();
+		}
+	});
+
+	await scenario("(x) a staged adoption cannot publish over a lost lease or a replaced row", async () => {
+		const provider = "google-antigravity";
+		const t = installTransport({
+			tokenMarker: "oauth2.googleapis.com/token",
+			token: () => tokenReply("ga-x-fresh-access", "ga-x-fresh-refresh"),
+		});
+		try {
+			await withCase(async c => {
+				// Deterministic hook, no sleeps: the fixture rewrites the row (and, in
+				// the lease phase, takes the expired lease) exactly between the staged
+				// read and the publication the adoption performs.
+				const readStaged = c.store.readStagedCredentialRefreshResult.bind(c.store);
+				let phase: "none" | "row" | "lease" = "none";
+				c.store.readStagedCredentialRefreshResult = (rowId, expectedData) => {
+					const staged = readStaged(rowId, expectedData);
+					if (!staged || phase === "none") return staged;
+					if (phase === "lease") {
+						t.advanceClock(20_000);
+						assert.ok(
+							c.store.tryAcquireCredentialRefreshLease(rowId, "peer-owner", Date.now() + 15_000),
+							"the peer must be able to take over the expired lease",
+						);
+					}
+					c.store.updateAuthCredential(rowId, {
+						type: "oauth",
+						access: `ga-x-peer-access-${rowId}`,
+						refresh: `ga-x-peer-refresh-${rowId}`,
+						expires: Date.now() + 3_600_000,
+						projectId: "ga-x-project",
+					});
+					phase = "none";
+					return staged;
+				};
+
+				const stages: Array<{ phase: "row" | "lease"; throws: boolean }> = [
+					{ phase: "row", throws: false },
+					{ phase: "lease", throws: true },
+				];
+				for (const stage of stages) {
+					const id = await seed(
+						c,
+						expiredCred({ access: `ga-x-${stage.phase}-0`, refresh: `ga-x-${stage.phase}-r0`, projectId: "ga-x-project" }),
+						provider,
+					);
+					const legacy = seedLegacyExchange(c, id, {
+						staged: {
+							type: "oauth",
+							access: `ga-x-staged-access-${stage.phase}`,
+							refresh: `ga-x-staged-refresh-${stage.phase}`,
+							expires: Date.now() + 3_600_000,
+							projectId: "ga-x-project",
+						},
+					});
+					phase = stage.phase;
+					const attempt = c.auth.oauth.refresh(id);
+					if (stage.throws) {
+						await assert.rejects(attempt, /ownership was lost/, `${stage.phase}: a lost lease must refuse`);
+					} else {
+						const entry = await attempt;
+						assert.equal(
+							entry.credential?.access,
+							`ga-x-peer-access-${id}`,
+							`${stage.phase}: the concurrent winner is returned, never the staged bytes`,
+						);
+					}
+					const row = rowOf(c, id, provider);
+					assert.equal(row?.access, `ga-x-peer-access-${id}`, `${stage.phase}: the peer's row survives`);
+					assert.equal(row?.refresh, `ga-x-peer-refresh-${id}`, `${stage.phase}: the peer's refresh token survives`);
+					assert.equal(t.tokenPosts, 0, `${stage.phase}: a known-minted replacement is never re-exchanged`);
+					assert.deepEqual(exchangeRows(c), [legacy], `${stage.phase}: the obsolete marker is left untouched`);
+					mutateDb(c, "DELETE FROM auth_credential_refresh_exchanges");
+				}
+			});
+		} finally {
+			t.restore();
+		}
+	});
+
 	await scenario("(a) a fenced unlock releases the marker and mints exactly one token", async () => {
 		let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
 		const t = installTransport({ token: () => reply });
@@ -2536,6 +2843,7 @@ if (hasUnlockRevision) {
 					stageCredentialRefreshResult: true,
 					commitCredentialRefreshResult: true,
 					inspectUnresolvedCredentialRefreshExchange: true,
+					readStagedCredentialRefreshResult: true,
 					releaseUnresolvedCredentialRefreshExchange: true,
 				};
 				const hidden = new Proxy(c.store as object, {

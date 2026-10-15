@@ -1,0 +1,168 @@
+{
+  "release": "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9",
+  "status": "PASS",
+  "checks": {
+    "version": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "--preload",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/10-13-oauth-pending-refresh-recovery/research/smoke/offline-preload.ts",
+        "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "omp/18.10.1\n",
+      "stderr": "",
+      "time": "2026-10-15T09:02:34.061495+00:00",
+      "runtime": "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9/runtime/node_modules/@oh-my-pi",
+      "isolation": "allowlisted environment (PATH, private HOME/XDG/agent, TERM, LANG, harness smoke selectors); private HOME/XDG/agent; no production credential, agent-directory or provider operation; fetch/WebSocket blocked by offline-preload.ts",
+      "assertion": {
+        "expect": "stdout == 'omp/18.10.1'",
+        "matched": true
+      }
+    },
+    "cli-read": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "--preload",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/10-13-oauth-pending-refresh-recovery/research/smoke/offline-preload.ts",
+        "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+        "--no-session",
+        "--no-skills",
+        "--no-lsp",
+        "-e",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/10-13-oauth-pending-refresh-recovery/research/smoke/cli-smoke.ts",
+        "--model",
+        "release-smoke/verification",
+        "-p",
+        "Read the fixture file and report."
+      ],
+      "exit": 0,
+      "stdout": "O\nM\nP\n_\n1\n8\n.\n1\n0\n.\n1\n_\nS\nM\nO\nK\nE\n_\nO\nK\n",
+      "stderr": "Working...\n",
+      "time": "2026-10-15T09:02:35.455564+00:00",
+      "runtime": "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9/runtime/node_modules/@oh-my-pi",
+      "isolation": "allowlisted environment (PATH, private HOME/XDG/agent, TERM, LANG, harness smoke selectors); private HOME/XDG/agent; no production credential, agent-directory or provider operation; fetch/WebSocket blocked by offline-preload.ts",
+      "assertion": {
+        "expect": "exit 0 and stdout contains 'OMP_18.10.1_SMOKE_OK' after the real read tool ran",
+        "matched": true
+      }
+    },
+    "native-ipc": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "--preload",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/10-13-oauth-pending-refresh-recovery/research/smoke/offline-preload.ts",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/10-13-oauth-pending-refresh-recovery/research/smoke/ipc-smoke.ts"
+      ],
+      "exit": 0,
+      "stdout": "OMP_18.10.1_NATIVE_IPC_OK\n",
+      "stderr": "",
+      "time": "2026-10-15T09:02:35.613836+00:00",
+      "runtime": "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9/runtime/node_modules/@oh-my-pi",
+      "isolation": "allowlisted environment (PATH, private HOME/XDG/agent, TERM, LANG, harness smoke selectors); private HOME/XDG/agent; no production credential, agent-directory or provider operation; fetch/WebSocket blocked by offline-preload.ts",
+      "assertion": {
+        "expect": "exit 0 and stdout contains 'OMP_18.10.1_NATIVE_IPC_OK' after both native IPC exchanges",
+        "matched": true
+      }
+    },
+    "gallery": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "--preload",
+        "/home/chris/orca/projects/omp-move/.trellis/tasks/10-13-oauth-pending-refresh-recovery/research/smoke/offline-preload.ts",
+        "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+        "gallery",
+        "--surface",
+        "segment",
+        "--plain",
+        "--width",
+        "100"
+      ],
+      "exit": 0,
+      "stdout": "\n\u2500\u2500 segment \u00b7 pi \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 idle\n  \u03c0\n\n  \u00b7 active\n  \u2839 1m\n\n  \u00b7 focused subagent\n  \ud83d\udc7b Scout\n\n\u2500\u2500 segment \u00b7 status \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 multiple extension statuses\n  Indexer ready \u00b7 Tests passing\n\n\u2500\u2500 segment \u00b7 model \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 normal\n  \u2b22 Sonnet 4.5 \u00b7 \u25d2 high\n\n  \u00b7 fast + advisor active\n  \u2b22 Sonnet 4.5 \ud83d\udc41 \u26a1 \u00b7 \u25d2 high\n\n  \u00b7 advisor warning\n  \u2b22 Sonnet 4.5 \ud83d\udc41 \u00b7 \u25d2 high\n\n  \u00b7 advisor error\n  \u2b22 Sonnet 4.5 \ud83d\udc41 \u00b7 \u25d2 high\n\n  \u00b7 advisor paused\n  \u2b22 Sonnet 4.5 \ud83d\udc41 \u00b7 \u25d2 high\n\n  \u00b7 advisor done (yielded)\n  \u2b22 Sonnet 4.5 \ud83d\ude48 \u00b7 \u25d2 high\n\n\u2500\u2500 segment \u00b7 mode \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 active\n  \ud83d\uddfa Plan\n\n  \u00b7 warning / paused\n  \ud83d\uddfa Plan \u23f8\n\n  \u00b7 prewalk active\n  \ud83c\udfc3 Prewalk\n\n  \u00b7 vibe active\n  \ud83d\udc65 Vibe\n\n  \u00b7 loop active\n  \u21bb Loop running 4/10\n\n  \u00b7 loop paused\n  \u23f8 Loop paused 4/10\n\n  \u00b7 goal active\n  \ud83c\udfaf Goal 12K/50K\n\n  \u00b7 goal paused\n  \u23f8 Goal 12K/50K\n\n  \u00b7 goal complete\n  \u2714 Goal 12K/50K\n\n  \u00b7 goal budget warning\n  \u26a0 Goal 12K/50K\n\n  \u00b7 goal dropped\n  \u23f9 Goal 12K/50K\n\n\u2500\u2500 segment \u00b7 path \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 workspace path\n  \ud83d\udcc1 /workspace/oh-my-pi \u21b3 oh-my-pi\n\n  \u00b7 linked worktree\n  \ud83c\udf33 oh-my-pi\n\n\u2500\u2500 segment \u00b7 git \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 clean\n  \u2442 main\n\n  \u00b7 dirty\n  \u2442 gallery\u2026eference *3 +2 ?1\n\n\u2500\u2500 segment \u00b7 pr \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u2934 #1842\n\n\u2500\u2500 segment \u00b7 subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udc65 3\n\n\u2500\u2500 segment \u00b7 token_in \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u2935 12K\n\n\u2500\u2500 segment \u00b7 token_out \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u2934 3.6K\n\n\u2500\u2500 segment \u00b7 token_total \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83e\ude99 69K\n\n\u2500\u2500 segment \u00b7 token_rate \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u26a1 87.3 tok/s\n\n\u2500\u2500 segment \u00b7 cost \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 metered + premium + advisor\n  $0.42 \u2605 2 + \ud83d\udc41 0.08\n\n  \u00b7 subscription\n  (sub)\n\n  \u00b7 subscription + subagents\n  S0.38 (+1.27)\n\n  \u00b7 premium requests\n  \u2605 2\n\n\u2500\u2500 segment \u00b7 context_pct \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 normal\n  \u25eb 22.0%/200K \u27f2\n\n  \u00b7 warning\n  \u25eb 72.0%/200K \u27f2\n\n  \u00b7 error\n  \u25eb 96.0%/200K \u27f2\n\n  \u00b7 active compaction\n  \u25eb 72.0%/200K \u27f2\n\n  \u00b7 armed compaction\n  \u25eb 72.0%/200K \u27f2\n\n\u2500\u2500 segment \u00b7 context_total \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u25eb 200K\n\n\u2500\u2500 segment \u00b7 time_spent \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \u23f1 6m12s\n\n\u2500\u2500 segment \u00b7 time \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 24-hour with seconds\n  \u23f1 14:07:09\n\n  \u00b7 12-hour\n  \u23f1 2:07pm\n\n\u2500\u2500 segment \u00b7 session \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83c\udd94 gallery-\n\n\u2500\u2500 segment \u00b7 hostname \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udda5 gallery-host\n\n\u2500\u2500 segment \u00b7 cache_read \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udcbe 48K\n\n\u2500\u2500 segment \u00b7 cache_write \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udcbe 1.2K\n\n\u2500\u2500 segment \u00b7 cache_hit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udcbe 77.92%\n\n\u2500\u2500 segment \u00b7 cache_turn \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  \ud83d\udcbe 77.92%\n\n\u2500\u2500 segment \u00b7 session_name \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  gallery\n\n\u2500\u2500 segment \u00b7 usage \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 all windows\n  \u23f1 Pro \u00b7 5h 32% (1.1h) \u00b7 1d 44% (5.1h) \u00b7 7d 68% (2.1d) \u00b7 mo 77% (9d)\n\n  \u00b7 normal\n  \u23f1 Pro \u00b7 5h 24% (1.2h)\n\n  \u00b7 warning\n  \u23f1 Pro \u00b7 5h 65% (1.2h)\n\n  \u00b7 error\n  \u23f1 Pro \u00b7 5h 92% (1.2h)\n\n\u2500\u2500 segment \u00b7 collab \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 host active\n  \u21c4 collab:3\n\n  \u00b7 guest active\n  \u21c4 collab guest:3\n\n\u2500\u2500 segment \u00b7 stream \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 canonical\n  (hidden for this sample)\n\n\u2500\u2500 segment \u00b7 vim \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n  \u00b7 normal\n  NORMAL\n\n  \u00b7 insert\n  INSERT\n\n  \u00b7 visual with count\n  V-LINE 4L 2d\n\n  \u00b7 icon mode\n  \u25a0\n\n",
+      "stderr": "",
+      "time": "2026-10-15T09:02:36.008823+00:00",
+      "runtime": "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9/runtime/node_modules/@oh-my-pi",
+      "isolation": "allowlisted environment (PATH, private HOME/XDG/agent, TERM, LANG, harness smoke selectors); private HOME/XDG/agent; no production credential, agent-directory or provider operation; fetch/WebSocket blocked by offline-preload.ts",
+      "assertion": {
+        "expect": "exit 0, cache_turn segment present without 'trn ', git segment rendered",
+        "matched": true
+      },
+      "observations": {
+        "cache_turn_present": true,
+        "cache_turn_contains_trn": false,
+        "cache_samples": {
+          "cache_read": "\ud83d\udcbe 48K",
+          "cache_write": "\ud83d\udcbe 1.2K",
+          "cache_hit": "\ud83d\udcbe 77.92%",
+          "cache_turn": "\ud83d\udcbe 77.92%"
+        },
+        "git_samples": [
+          "\u2442 main",
+          "\u2442 gallery\u2026eference *3 +2 ?1"
+        ],
+        "git_truncated_samples": [
+          "\u2442 gallery\u2026eference *3 +2 ?1"
+        ],
+        "long_branch_fixture": "present"
+      }
+    },
+    "bound-controller": {
+      "command": [
+        "bash",
+        "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9/ledger/apply.sh",
+        "--check"
+      ],
+      "exit": 0,
+      "stdout": "APPLIED  .18.10.1-families/family-status-accounting-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-hindsight-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-usage-pipeline-v18.10.1.patch\nAPPLIED  .18.10.1-families/0010-omp-extension-idle-ephemeral-turn-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-antigravity-wire-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-image-budget-snapcompact-v18.10.1.patch\nAPPLIED  .18.10.1-families/0032-omp-goal-tool-resident-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-persistent-prefix-resume-v18.10.1.patch\nAPPLIED  .18.10.1-families/0046-omp-supersede-warm-prefix-guard-v18.10.1.patch\nAPPLIED  .18.10.1-families/0048-omp-advisor-quota-rotation-bound-v18.10.1.patch\nAPPLIED  .18.10.1-families/0050-omp-session-history-preview-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-devin-wire-v18.10.1.patch\nAPPLIED  .18.10.1-families/0065-omp-commandcode-deepseek-model-record-parity-v18.10.1.patch\nAPPLIED  .18.10.1-families/0069-omp-codex-effort-history-resume-v18.10.1.patch\nAPPLIED  .18.10.1-families/0072-omp-session-pin-static-auth-ui-v18.10.1.patch\nAPPLIED  .18.10.1-families/0074-omp-anthropic-context-cache-boundaries-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-image-display-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-input-translation-v18.10.1.patch\nAPPLIED  .18.10.1-families/family-compaction-v18.10.1.patch\nAPPLIED  .18.10.1-families/0090-omp-oauth-durable-refresh-v18.10.1.patch\nAPPLIED  .18.10.1-families/0092-omp-cache-warming-idle-budget-v18.10.1.patch\nAPPLIED  .18.10.1-families/0094-omp-anthropic-thinking-drop-resume-v18.10.1.patch\nAPPLIED  .18.10.1-families/0095-omp-context-audit-request-purpose-v18.10.1.patch\nAPPLIED  .18.10.1-families/0098-omp-tls-verify-transient-retry-v18.10.1.patch\nAPPLIED  .18.10.1-families/0099-omp-retry-slow-schedule-v18.10.1.patch\nAPPLIED  .18.10.1-families/0100-omp-stepfun-step-plan-v18.10.1.patch\nAPPLIED  bin/omp -> src/cli.ts\n",
+      "stderr": "NOTE: OMP_PATCH_VERSION unset \u2014 routed to installed 18.10.1\n",
+      "time": "2026-10-15T09:02:37.883573+00:00",
+      "runtime": "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9/runtime/node_modules/@oh-my-pi",
+      "isolation": "allowlisted environment (PATH, private HOME/XDG/agent, TERM, LANG, harness smoke selectors); private HOME/XDG/agent; no production credential, agent-directory or provider operation",
+      "assertion": {
+        "expect": "exit 0 and every stdout line reports APPLIED",
+        "matched": true,
+        "lines": 27
+      }
+    },
+    "native-dialog": {
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9/ledger/verify-native-dialog-lifecycle.ts"
+      ],
+      "exit": 0,
+      "stdout": "PASS settled native input ignores queued native, keyboard and paste delivery\nPASS refused native submit remains editable and retryable\nPASS native File copy preserves /home/user/session.jsonl\nPASS native File copy preserves C:\\Users\\user\\session.jsonl\nPASS native File copy preserves \\\\server\\share\\session.jsonl\nPASS native File copy preserves In-memory\nPASS MCP pending connection cancellation: native\nPASS MCP pending connection cancellation: keyboard\nPASS MCP pending connection cancellation: none\nPASS MCP discovery continuation ownership: cancelled=true\nPASS MCP discovery continuation ownership: cancelled=false\nPASS BTW emitted Copy answer action reaches application answer copying\nPASS advisor Tools End selection remains visible and applies its draft\n",
+      "stderr": "",
+      "time": "2026-10-15T09:02:38.123775+00:00",
+      "runtime": "/home/chris/.bun/install/omp-releases/18.10.1-7b7b41c247d7-427cd841-930ca4b9/runtime/node_modules/@oh-my-pi",
+      "isolation": "allowlisted environment (PATH, private HOME/XDG/agent, TERM, LANG, harness smoke selectors); private HOME/XDG/agent; no production credential, agent-directory or provider operation",
+      "assertion": {
+        "expect": "exit 0 and every stdout line reports PASS",
+        "matched": true,
+        "lines": 13
+      }
+    }
+  },
+  "environment": {
+    "allowlisted_keys": [
+      "HOME",
+      "LANG",
+      "PATH",
+      "PI_CODING_AGENT_DIR",
+      "TERM",
+      "XDG_CACHE_HOME",
+      "XDG_CONFIG_HOME",
+      "XDG_DATA_HOME",
+      "XDG_STATE_HOME"
+    ],
+    "harness_keys": [
+      "OMP_PATCH_VERIFY_TUI_ROOT",
+      "OMP_SMOKE_FIXTURE",
+      "OMP_SMOKE_RUNTIME"
+    ],
+    "private_home": "/tmp/omp-18101-smoke-8lphrtxy/home",
+    "private_home_removed": true
+  },
+  "boundary": "Physical staged release runtime and ledger, throwaway private HOME/XDG/agent, synthetic offline model provider over the real read tool, real native IPC; fetch and WebSocket blocked on the version, CLI read, native-IPC and gallery checks. No production credential, agent directory, database or provider request was touched."
+}

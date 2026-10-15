@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-15",
+  "revision": "0090 Google Antigravity discovery 403 eligibility retention (on top of the Codex 403 revision)",
+  "family_sha256": "b5af67a0e4d4538a31044bd6f211a96ec588841377f8ca15b40db71585b72e10",
+  "previous_family_sha256": "e2d2accf77dddaf21f6791dff6ecb3bc6cbc63392909b3178dd6526d005fea74",
+  "candidate_tree_sha256": "880ad5cc1190875ec89990221b66dd602dc5f90b8d2eeb73e18675fff653712b",
+  "previous_candidate_tree_sha256": "df729e9c0734114a7e04ea5518a71ca3dba792652d5c6a4eea77598750d94ab8",
+  "changedRuntimePaths": [
+    "pi-catalog/src/provider-models/google.ts"
+  ],
+  "codexRevisionChangedRuntimePaths": [
+    "pi-catalog/src/model-manager.ts",
+    "pi-catalog/src/provider-models/special.ts",
+    "pi-catalog/dist/types/model-manager.d.ts"
+  ],
+  "archive": {
+    "dir": "patches/.retired/10-15-18.10.1-0090-pre-google403",
+    "previousFamilySha256": "e2d2accf77dddaf21f6791dff6ecb3bc6cbc63392909b3178dd6526d005fea74",
+    "repair": "google-403-retention.delta.patch",
+    "repairSha256": "9a687dd5e171e9d61508fa782f3308a72ebfe61bc00f7af00e7927d835a0abd6"
+  },
+  "googleGate": {
+    "path": "patches/verify-google-account-eligibility-retention.ts",
+    "baseline": { "exitCode": 1, "assertion": "403: rejected account keeps only its own access" },
+    "candidate": {
+      "exitCode": 0,
+      "phases": 9,
+      "coverage": [
+        "successful history persisted with per-account eligibility",
+        "403 retains rejected account only while the successful sibling updates",
+        "keyless successful sibling keeps all-or-none tagging off with no access hints",
+        "401 unchanged",
+        "absent account pruned, unknown 403 no fabrication",
+        "successful omission removes entitlement",
+        "successful empty roster removes partition",
+        "cold 403 no fabrication",
+        "keyless 403 borrows no history"
+      ],
+      "isolation": "fake OAuth tokens, single configured .invalid endpoint, injected fetch, private SQLite database"
+    },
+    "runner": "main"
+  },
+  "codexGate": {
+    "path": "patches/verify-codex-account-eligibility-retention.ts",
+    "baseline": { "exitCode": 1, "assertion": "403: rejected account keeps only its own access" },
+    "candidate": { "exitCode": 0, "phases": 7 },
+    "runner": "main"
+  },
+  "candidateDigestMethod": "six pinned archive packages copied from release 18.10.1-df729e9c0734-c01c4268-b786864a (its tree digest equals the pre-revision manifest candidate), plus the archived repair delta; see .codex-discovery-work/candidate-digest.py",
+  "familyOracle": { "runBy": "main", "status": "PASS", "families": 26, "capabilities": 61, "zeroFuzz": true, "reverseToPristine": true, "secondReplayIdentical": true, "controllerCheckReadOnly": true },
+  "review": { "sourceFindings": 0, "reviewer": "ReviewGoogleRetention" },
+  "installedPrivateSmoke": { "status": "PASS", "checks": ["version", "cli-read", "native-ipc", "gallery", "bound-controller", "native-dialog"], "retentionGates": "Google 9 and Codex 7 phases passed against installed physical release", "nativeOverlay": "PASS unchanged 2 addons, 1 patches" }, 
+  "unchanged": "Existing 29 family sections byte-identical; Codex 403 seam untouched; Anthropic-only protection, pin and actual generation fallback unchanged; no retry/schema/config additions"
+}

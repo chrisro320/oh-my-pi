@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-15",
+  "isolation": "private HOME/XDG/agent; synthetic SQLite credentials; provider override with synthetic rotating tokens; fetch forbidden; no live token refresh",
+  "candidate": "2fc569d968ea57c3ca8513a0da7f8b158af52be1e5c65bb15822bedba182ea33",
+  "after": {
+    "exitCode": 0,
+    "rows": [
+      {"provider":"anthropic","outcome":"unresolved","refreshCalls":0,"updated":false,"legacyMarkers":1},
+      {"provider":"openai-codex","outcome":"success","refreshCalls":1,"updated":true,"legacyMarkers":1},
+      {"provider":"google-antigravity","outcome":"success","refreshCalls":1,"updated":true,"legacyMarkers":1},
+      {"provider":"xai-oauth","outcome":"success","refreshCalls":1,"updated":true,"legacyMarkers":1}
+    ]
+  },
+  "before": {
+    "release": "18.10.1-7b7b41c247d7-427cd841-930ca4b9",
+    "exitCode": 1,
+    "anthropic": {"outcome":"unresolved","refreshCalls":0,"updated":false},
+    "openai-codex": {"outcome":"unresolved","refreshCalls":0,"updated":false},
+    "failure": "Expected values to be strictly equal: actual unresolved, expected success"
+  },
+  "reviews": {"AnthropicProtocol":"no remaining blockers; static review", "NonAnthropicMigration":"no remaining blockers; static review"}
+}

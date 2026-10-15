@@ -1,0 +1,146 @@
+--- a/pi-catalog/dist/types/model-manager.d.ts
++++ b/pi-catalog/dist/types/model-manager.d.ts
+@@ -78,8 +78,12 @@
+      * command-backed credentials that must wait until an actual request.
+      */
+     restoreCachedHeaders?: (model: Readonly<Model>) => Pick<Model, "headers" | "resolveHeaders"> | undefined;
+-    /** Optional dynamic endpoint fetcher. */
+-    fetchDynamicModels?: () => Promise<readonly ModelSpec<TApi>[] | null>;
++    /**
++     * Optional dynamic endpoint fetcher. Receives the previous resolved catalog
++     * (restored cache rows, `staticModels` excluded) so account-scoped discovery
++     * can retain an account's last discovered eligibility after a rejected fetch.
++     */
++    fetchDynamicModels?: (previous?: readonly Model<TApi>[]) => Promise<readonly ModelSpec<TApi>[] | null>;
+     /** Optional stencil.so fallback hook. */
+     modelsDev?: ModelsDevFallback<TApi, TModelsDevPayload>;
+     /** Clock override for deterministic tests. */
+--- a/pi-catalog/src/model-manager.ts
++++ b/pi-catalog/src/model-manager.ts
+@@ -100,8 +100,12 @@
+ 	 * command-backed credentials that must wait until an actual request.
+ 	 */
+ 	restoreCachedHeaders?: (model: Readonly<Model>) => Pick<Model, "headers" | "resolveHeaders"> | undefined;
+-	/** Optional dynamic endpoint fetcher. */
+-	fetchDynamicModels?: () => Promise<readonly ModelSpec<TApi>[] | null>;
++	/**
++	 * Optional dynamic endpoint fetcher. Receives the previous resolved catalog
++	 * (restored cache rows, `staticModels` excluded) so account-scoped discovery
++	 * can retain an account's last discovered eligibility after a rejected fetch.
++	 */
++	fetchDynamicModels?: (previous?: readonly Model<TApi>[]) => Promise<readonly ModelSpec<TApi>[] | null>;
+ 	/** Optional stencil.so fallback hook. */
+ 	modelsDev?: ModelsDevFallback<TApi, TModelsDevPayload>;
+ 	/** Clock override for deterministic tests. */
+@@ -334,7 +338,7 @@
+ 	}
+ 
+ 	const [fetchedModelsDevModels, fetchedDynamicModels] = shouldFetchFromNetwork
+-		? await Promise.all([fetchModelsDev(options), dynamicFetcher ? fetchDynamicModels(dynamicFetcher) : null])
++		? await Promise.all([fetchModelsDev(options), dynamicFetcher ? fetchDynamicModels(dynamicFetcher, usableCachedModels) : null])
+ 		: [null, null];
+ 	const modelsDevFetchSucceeded = fetchedModelsDevModels !== null;
+ 	const normalizedModelsDevModels = fetchedModelsDevModels?.models ?? [];
+@@ -504,10 +508,11 @@
+ }
+ 
+ async function fetchDynamicModels<TApi extends Api>(
+-	fetcher: () => Promise<readonly ModelSpec<TApi>[] | null>,
++	fetcher: (previous?: readonly Model<TApi>[]) => Promise<readonly ModelSpec<TApi>[] | null>,
++	previous: readonly Model<TApi>[],
+ ): Promise<DiscoveredModelSet<TApi> | null> {
+ 	try {
+-		const models = await fetcher();
++		const models = await fetcher(previous);
+ 		if (models === null) {
+ 			return null;
+ 		}
+--- a/pi-catalog/src/provider-models/special.ts
++++ b/pi-catalog/src/provider-models/special.ts
+@@ -66,7 +66,7 @@
+ 		dynamicModelsAuthoritative: providerEntry("openai-codex")?.dynamicModelsAuthoritative === true,
+ 		...(resolveAccounts
+ 			? {
+-					fetchDynamicModels: async () => {
++					fetchDynamicModels: async previous => {
+ 						const accounts = await resolveAccounts();
+ 						if (!accounts || accounts.length === 0) return null;
+ 						const results = await Promise.all(
+@@ -81,7 +81,7 @@
+ 								}),
+ 							})),
+ 						);
+-						return unionCodexModels(results);
++						return unionCodexModels(results, previous ?? []);
+ 					},
+ 				}
+ 			: undefined),
+@@ -90,26 +90,37 @@
+ 
+ /**
+  * Merge complete per-account Codex catalogs into one authoritative list via
+- * {@link unionAccountCatalogs}.
++ * {@link unionAccountCatalogs}, returning `null` when any account's fetch failed
++ * transiently so a partial list cannot replace the previous catalog.
+  *
+- * Returns `null` when any account's fetch failed transiently, so a partial list
+- * cannot replace the previous or bundled authoritative catalog. An account
+- * whose credential the backend rejected outright (401/403 — revoked or
+- * deauthorized) contributes nothing and is skipped instead: it would otherwise
+- * veto every sibling account's models until the user removes it. If no account
+- * produced a catalog, discovery aborts the same way.
++ * A `403` rejection keeps the rows that account last discovered, re-keyed to
++ * that account alone; a `401` and every account without own-keyed history keep
++ * the previous skip. A successful `200` replaces the account's partition
++ * wholesale, including an empty roster.
+  */
+ function unionCodexModels(
+ 	results: readonly { accountId: string | undefined; result: CodexModelDiscoveryResult | null }[],
++	previous: readonly Model<"openai-codex-responses">[],
+ ): ModelSpec<"openai-codex-responses">[] | null {
+ 	const catalogs: ModelSpec<"openai-codex-responses">[][] = [];
+ 	for (const { accountId, result } of results) {
+ 		if (!result) return null;
+ 		if (result.rejectedStatus !== undefined) {
+-			logger.warn("Codex model discovery skipped an account whose credential was rejected", {
++			const retained =
++				result.rejectedStatus === 403 && accountId !== undefined ? retainedAccountCatalog(previous, accountId) : [];
++			if (retained.length === 0) {
++				logger.warn("Codex model discovery skipped an account whose credential was rejected", {
++					accountId,
++					status: result.rejectedStatus,
++				});
++				continue;
++			}
++			logger.warn("Codex model discovery retained the last discovered models of a rejected account", {
+ 				accountId,
+ 				status: result.rejectedStatus,
++				models: retained.length,
+ 			});
++			catalogs.push(retained);
+ 			continue;
+ 		}
+ 		catalogs.push(result.models);
+@@ -117,6 +128,22 @@
+ 	return catalogs.length > 0 ? unionAccountCatalogs(catalogs) : null;
+ }
+ 
++/** The previous catalog's rows keyed to one rejected account, re-keyed to that account alone. */
++function retainedAccountCatalog(
++	previous: readonly Model<"openai-codex-responses">[],
++	accountId: string,
++): ModelSpec<"openai-codex-responses">[] {
++	const retained: ModelSpec<"openai-codex-responses">[] = [];
++	for (const model of previous) {
++		const access = model.accountAccess;
++		if (!access || !Object.hasOwn(access, accountId)) continue;
++		const own = access[accountId];
++		if (own === undefined) continue;
++		retained.push({ ...toModelSpec(model), accountAccess: { [accountId]: own } });
++	}
++	return retained;
++}
++
+ // ---------------------------------------------------------------------------
+ // Cursor
+ // ---------------------------------------------------------------------------

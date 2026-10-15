@@ -531,6 +531,12 @@ _omp_run_gates() {
 	if [[ "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
 		_omp_gate 0090 verify-oauth-unlock-fence-faults.sh oauth
 	fi
+	# Codex/Antigravity 403 eligibility retention ships with the 18.10.1 family
+	# revision; the 18.10.0 plan keeps its frozen family bytes and gate list.
+	if [[ "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+		_omp_gate 0090 verify-codex-account-eligibility-retention.ts
+		_omp_gate 0090 verify-google-account-eligibility-retention.ts
+	fi
 	_omp_gate 0092 verify-cache-warming-idle-budget.ts warm
 	_omp_gate 0098 verify-tls-verify-transient-retry.ts
 	_omp_gate 0099 verify-retry-slow-schedule.ts

@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-15",
+  "release": "18.10.1-7b7b41c247d7-427cd841-930ca4b9",
+  "discovery": {"method": "GET", "path": "/backend-api/codex/models?client_version=0.159.0", "status": 200, "accountPrefix": "d964d865", "tokenRefresh": false},
+  "catalog": {"updatedAt": "2026-10-15T13:06:01.442Z", "gpt-6-astra": {"proliteAllowed": true, "accountCount": 2}, "gpt-6.1-sol": {"proliteAllowed": true, "accountCount": 2}, "manualWrite": false},
+  "generation": {"command": "bun .prolite-recovery/recover-prolite-codex.ts --smoke --prolite d964d865 --json", "provider": "openai-codex", "model": "gpt-6-astra", "accountSelection": "explicit Prolite access token, no fallback", "ok": true, "status": "stop", "text": "PROLITE_OK", "exitCode": 0},
+  "currentSessionCatalogReload": "not performed; fresh process required",
+  "credentialMutations": "none"
+}
