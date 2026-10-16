@@ -1260,3 +1260,50 @@ OMP_RESUME_CACHE_LOG=/tmp/resume-cache-check.log bun patches/verify-resume-cache
 Wrong: match the previous request by a conversation name (model + first message), hash only the newest message, hash a bare-string message differently from the provider's text-block rewrite, strip every nested `cache_control` (even inside `tool_use.input`), or always add the anchor at the tail.
 Correct: match by session id plus a two-message tail hash, canonicalize a bare-string message to the provider's single text block before hashing, scan back to the eligible block, settle the TTL against the wire order, and fund the anchor by releasing the interior marker.
 ```
+
+## Scenario: Notebook save gate gates automatic rollovers only (18.10.1)
+
+### 1. Scope / Trigger
+
+`patches/context-notes-save-gate.ts` vetoes `session_before_compact` while the experimental notebook is stale. The hook event carries no mode or reason. Trigger: any change that adds a compaction path, a runtime emit site of `session_before_compact`, or a change to the `auto_compaction_start` / `auto_compaction_end` lifecycle events. Owners: the extension (consumer) and `family-compaction-v18.10.1.patch` (runtime event order).
+
+### 2. Signatures
+
+```ts
+// extension state: undefined = no automatic pass in flight
+let autoCompactionReason: string | undefined   // set on auto_compaction_start, cleared on auto_compaction_end and session switch/start
+// onBeforeCompact: if (autoCompactionReason === undefined) return undefined  // manual compaction
+```
+
+### 3. Contracts
+
+- Every automatic pass that can reach `session_before_compact` (`#runExperimentalContextRollover`, `runAutoCompaction`, including `new_context`) awaits `auto_compaction_start` first and emits `auto_compaction_end` in a `finally`/exit path.
+- A hook with no pass in flight is a manual compaction (`/compact`, `ctx.compact`): it rolls over directly even with a stale notebook (user decision 2026-10-16). No hidden save turn exists; the user saves by hand.
+- Automatic rollovers stay strictly gated and never fail open; the repair continuation and notices are unchanged.
+- Feature off (setting false, tools absent, runtime on->off): the gate re-probes each call and stops vetoing; manual compaction uses the configured `compaction.methodOrder` chain.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| stale notebook, hook with no pass in flight | no veto, no repair message, no notice, no anchor side effect |
+| stale notebook, pass in flight (threshold/overflow/idle/incomplete) | veto; bounded repair except overflow |
+| `auto_compaction_end`, session switch or start | reason cleared; next hook is manual |
+| runtime adds an automatic path that skips `auto_compaction_start` | that path passes with a stale notebook (fail-open); fix the runtime |
+
+### 5. Good / Base / Bad Cases
+
+- Good: manual `/compact` with a stale notebook rolls over; a `new_context` rollover with a stale notebook is vetoed.
+- Base: notebook fresh, both paths pass.
+- Bad: inferring manual vs automatic from idle state, `customInstructions` or message shape inside the hook; keeping the reason after the pass ends.
+
+### 6. Tests Required
+
+`bun patches/verify-context-notes-save-gate.ts` (manual, per-reason, handback, switch scenarios; mutations: manual gated again, fail-open on automatic passes, reason kept after the pass) and `OMP_NM=<candidate @oh-my-pi root> bun patches/verify-manual-compaction-direct.ts` (real SDK: manual direct rollover with stale/fresh/no notebook, `new_context` with a stale notebook vetoed, feature off incl. runtime on->off). A harness must load the real gate: sessions built with `restrictToolNames` ignore `additionalExtensionPaths`; use `preloadedPreparedExtensions` and keep an order probe. The installed global runtime may predate the feature (18.7.0): build the failing-before control from the HEAD family, never from the installed tree.
+
+### 7. Wrong vs Correct
+
+```text
+Wrong: add a hidden save turn before manual compaction, or tag events with a mode field the old runtime lacks.
+Correct: gate by "automatic pass in flight" using the existing lifecycle events; fail closed for automatic paths.
+```

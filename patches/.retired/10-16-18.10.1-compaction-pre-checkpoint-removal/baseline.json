@@ -1,0 +1,6 @@
+{
+  "previousFamily": "family-compaction-v18.10.1.patch",
+  "previousFamilySha256": "bcd78ba8277c8f0defe34ac7475b76a81586e1151badbe3fc27d618e66e5a1a0",
+  "repair": "checkpoint-removal.delta.patch",
+  "repairSha256": "e8c341352029cccd2bcac1f95d29c8c4dcd53da52a46d3022515efa47c11f642"
+}

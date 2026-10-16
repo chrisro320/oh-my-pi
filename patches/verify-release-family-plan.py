@@ -118,6 +118,10 @@ RETIRED_REPAIRS = (
         "dir": ".retired/10-16-18.10.1-compaction-pre-tail-notes",
         "family": "family-compaction",
     },
+    {
+        "dir": ".retired/10-16-18.10.1-compaction-pre-checkpoint-removal",
+        "family": "family-compaction",
+    },
 )
 
 

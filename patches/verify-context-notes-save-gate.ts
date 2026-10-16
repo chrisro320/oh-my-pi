@@ -1,9 +1,12 @@
 // Gate for the notebook save-before-rollover addon (not a patch layer).
 //
-// Invariant: while the experimental notebook toolset is live, a context rollover
-// is vetoed exactly when the newest visible committed notebook revision is not
-// newer than the newest user message / work tool result. One checkpoint reminder
-// is delivered at 45% of the full context window per rollover boundary.
+// Invariant: while the experimental notebook toolset is live, an automatic
+// context rollover is vetoed exactly when the newest visible committed notebook
+// revision is not newer than the newest user message / work tool result. The
+// hook event carries no reason, so the gate only gates a rollover while an
+// `auto_compaction_start` pass is in flight; a manual `/compact` rolls over
+// directly even with a stale notebook. One checkpoint reminder is delivered at
+// 45% of the full context window per rollover boundary.
 // Nothing here touches the network, credentials, a real session or the installed
 // runtime: the extension imports only types, so
 // this file drives it with a fixture journal and a fake `pi`.
@@ -12,8 +15,10 @@
 //   bun patches/verify-context-notes-save-gate.ts
 // Optional: OMP_CONTEXT_NOTES_SAVE_GATE=<file> selects the copy under test; the
 // fault controls below re-enter this file with mutated temporary copies.
+// Optional result JSON: OMP_CONTEXT_NOTES_SAVE_GATE_RESULT. Otherwise the gate
+// writes only stdout.
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +26,42 @@ import { fileURLToPath } from "node:url";
 const SHIPPED = resolve(dirname(fileURLToPath(import.meta.url)), "context-notes-save-gate.ts");
 const EXTENSION = process.env.OMP_CONTEXT_NOTES_SAVE_GATE?.trim() ?? SHIPPED;
 const IS_CHILD = process.env.OMP_CONTEXT_NOTES_SAVE_GATE_CHILD === "1";
+const RESULT_PATH = process.env.OMP_CONTEXT_NOTES_SAVE_GATE_RESULT?.trim();
+
+// Report bookkeeping: the summary lines and the mutation-control verdicts, so a
+// run can be archived beside the other smoke reports. Written on exit, so a
+// failed assertion still leaves the failing summary behind.
+const summaryLines: string[] = [];
+const mutationControls: Array<{ name: string; rejected: boolean; detail: string }> = [];
+const emitLog = console.log.bind(console);
+console.log = (...args: unknown[]) => {
+	summaryLines.push(args.map(value => String(value)).join(" "));
+	emitLog(...args);
+};
+if (RESULT_PATH && !IS_CHILD) {
+	process.on("exit", code => {
+		try {
+			mkdirSync(dirname(RESULT_PATH), { recursive: true });
+			writeFileSync(
+				RESULT_PATH,
+				`${JSON.stringify(
+					{
+						verifier: "context-notes-save-gate",
+						extension: EXTENSION,
+						status: code === 0 ? "PASS" : "FAIL",
+						exitCode: code,
+						summary: summaryLines,
+						mutationControls,
+					},
+					null,
+					2,
+				)}\n`,
+			);
+		} catch {
+			// The report is best effort: stdout already carries the verdict.
+		}
+	});
+}
 
 const mod = await import(EXTENSION);
 const register = mod.default as (pi: unknown) => void;
@@ -61,7 +102,22 @@ const assistants = (count: number, prefix = "a") =>
 	Array.from({ length: count }, (_unused, index) => assistant(`${prefix}${index}`));
 
 /** Fake `pi` + fake `ctx`: captures registrations, sends and notices. */
-function harness(options: { tools?: string[]; throwOnSend?: boolean; agentKind?: "main" | "sub" } = {}) {
+interface Harness {
+	pi: Record<string, unknown>;
+	handlers: Map<string, Array<(event: unknown, ctx: unknown) => unknown>>;
+	sent: Array<{ message: Record<string, unknown>; options: Record<string, unknown> | undefined }>;
+	notified: Array<{ message: string; level: string }>;
+	calls: string[];
+	ctxFor(
+		entries: readonly unknown[],
+		options?: { idle?: boolean; noBranch?: boolean; notifyThrows?: boolean; percent?: number },
+	): unknown;
+	emit(type: string, event: Record<string, unknown>, ctx: unknown): Promise<unknown>;
+	setTools(next: string[]): void;
+	start(active?: string[]): Promise<void>;
+}
+
+function harness(options: { tools?: string[]; throwOnSend?: boolean; agentKind?: "main" | "sub" } = {}): Harness {
 	const handlers = new Map<string, Array<(event: unknown, ctx: unknown) => unknown>>();
 	const sent: Array<{ message: Record<string, unknown>; options: Record<string, unknown> | undefined }> = [];
 	const notified: Array<{ message: string; level: string }> = [];
@@ -129,6 +185,26 @@ function harness(options: { tools?: string[]; throwOnSend?: boolean; agentKind?:
 			await emit("session_start", {}, ctxFor([]));
 		},
 	};
+}
+
+/**
+ * Drive one automatic rollover the way the runtime does: the reason-carrying
+ * `auto_compaction_start` first, then the veto hook, then `auto_compaction_end`.
+ * The hook event itself carries no reason, so this ordering is the only thing
+ * that distinguishes an automatic pass from a manual `/compact`.
+ */
+async function automaticRollover(
+	surface: Harness,
+	reason: string,
+	ctx: unknown,
+	branchEntries: readonly unknown[],
+): Promise<unknown> {
+	await surface.emit("auto_compaction_start", { reason, action: "context-full" }, ctx);
+	try {
+		return await surface.emit("session_before_compact", { branchEntries }, ctx);
+	} finally {
+		await surface.emit("auto_compaction_end", {}, ctx);
+	}
 }
 
 // The factory must not probe the runtime: `getActiveTools()` throws before the
@@ -248,7 +324,7 @@ register(gate.pi);
 await gate.start();
 const staleCtx = gate.ctxFor(staleEntries);
 assert.deepEqual(
-	await gate.emit("session_before_compact", { branchEntries: staleEntries }, staleCtx),
+	await automaticRollover(gate, "threshold", staleCtx, staleEntries),
 	{ cancel: true },
 	"a stale notebook vetoes the rollover",
 );
@@ -264,7 +340,7 @@ assert.equal(gate.notified.length, 0, "the first veto is guided by the repair, n
 
 // The same activity again: still vetoed, no second repair, one bounded notice.
 assert.deepEqual(
-	await gate.emit("session_before_compact", { branchEntries: staleEntries }, staleCtx),
+	await automaticRollover(gate, "threshold", staleCtx, staleEntries),
 	{ cancel: true },
 	"a repeated veto still cancels",
 );
@@ -273,12 +349,12 @@ assert.equal(gate.notified.length, 1, "the blocked rollover surfaces visible gui
 
 // New work re-arms exactly one more repair for the new activity episode.
 staleEntries.push(toolResult("t2", "grep"));
-await gate.emit("session_before_compact", { branchEntries: staleEntries }, staleCtx);
+await automaticRollover(gate, "threshold", staleCtx, staleEntries);
 assert.equal(gate.sent.length, 2, "new work re-arms one repair continuation");
 
 // An empty notebook write is not progress: it must not re-arm the repair loop.
 staleEntries.push(notebook("n9", ""));
-await gate.emit("session_before_compact", { branchEntries: staleEntries }, staleCtx);
+await automaticRollover(gate, "threshold", staleCtx, staleEntries);
 assert.equal(gate.sent.length, 2, "an empty write does not re-arm an autonomous repair");
 
 // A fresh notebook (committed write, no work after it) is allowed through.
@@ -287,7 +363,7 @@ register(allow.pi);
 await allow.start();
 const freshEntries: unknown[] = [user("u1"), assistant("a1"), toolResult("t1", "bash"), notebook("n1", "index")];
 assert.equal(
-	await allow.emit("session_before_compact", { branchEntries: freshEntries }, allow.ctxFor(freshEntries)),
+	await automaticRollover(allow, "threshold", allow.ctxFor(freshEntries), freshEntries),
 	undefined,
 	"a fresh notebook lets the rollover proceed",
 );
@@ -296,7 +372,7 @@ assert.equal(allow.sent.length + allow.notified.length, 0, "an allowed rollover 
 // Work after the write makes it stale again.
 const workedAfter = [...freshEntries, toolResult("t2", "read")];
 assert.deepEqual(
-	await allow.emit("session_before_compact", { branchEntries: workedAfter }, allow.ctxFor(workedAfter)),
+	await automaticRollover(allow, "threshold", allow.ctxFor(workedAfter), workedAfter),
 	{ cancel: true },
 	"work after the notebook write makes the rollover stale again",
 );
@@ -307,7 +383,7 @@ const idle = harness();
 register(idle.pi);
 await idle.start();
 assert.deepEqual(
-	await idle.emit("session_before_compact", { branchEntries: staleEntries }, idle.ctxFor(staleEntries, { idle: true })),
+	await automaticRollover(idle, "threshold", idle.ctxFor(staleEntries, { idle: true }), staleEntries),
 	{ cancel: true },
 	"an idle rollover with a stale notebook is vetoed",
 );
@@ -319,7 +395,7 @@ assert.equal(idle.notified.length, 1, "an idle rollover surfaces visible guidanc
 const overflow = harness();
 register(overflow.pi);
 await overflow.start();
-await overflow.emit("auto_compaction_start", { reason: "overflow" }, overflow.ctxFor(staleEntries));
+await overflow.emit("auto_compaction_start", { reason: "overflow", action: "context-full" }, overflow.ctxFor(staleEntries));
 assert.deepEqual(
 	await overflow.emit("session_before_compact", { branchEntries: staleEntries }, overflow.ctxFor(staleEntries)),
 	{ cancel: true },
@@ -329,29 +405,31 @@ assert.equal(overflow.sent.length, 0, "overflow suppresses the repair continuati
 assert.equal(overflow.notified.length, 1, "overflow surfaces visible guidance");
 await overflow.emit("auto_compaction_end", {}, overflow.ctxFor(staleEntries));
 assert.deepEqual(
-	await overflow.emit("session_before_compact", { branchEntries: staleEntries }, overflow.ctxFor(staleEntries)),
+	await automaticRollover(overflow, "overflow", overflow.ctxFor(staleEntries), staleEntries),
 	{ cancel: true },
 	"the veto outlives the compaction pass that raised it",
 );
 
 // Disabling the feature after attach stops the veto (the handler itself stays
-// registered, so classic speculation needs a reload to come back).
+// registered, so classic speculation needs a reload to come back). The probe is
+// re-run per hook, so an automatic pass is not gated either.
 const disabled = harness();
 register(disabled.pi);
 await disabled.start();
 disabled.setTools(["read", "grep"]);
 assert.equal(
-	await disabled.emit("session_before_compact", { branchEntries: staleEntries }, disabled.ctxFor(staleEntries)),
+	await automaticRollover(disabled, "threshold", disabled.ctxFor(staleEntries), staleEntries),
 	undefined,
 	"a disabled notebook feature stops vetoing rollovers",
 );
+assert.equal(disabled.sent.length + disabled.notified.length, 0, "a disabled notebook feature queues no guidance");
 
 // A failing send or a failing UI must never turn the veto into an accidental pass.
 const hostile = harness({ throwOnSend: true });
 register(hostile.pi);
 await hostile.start();
 assert.deepEqual(
-	await hostile.emit("session_before_compact", { branchEntries: staleEntries }, hostile.ctxFor(staleEntries)),
+	await automaticRollover(hostile, "threshold", hostile.ctxFor(staleEntries), staleEntries),
 	{ cancel: true },
 	"a failing send still vetoes",
 );
@@ -361,22 +439,121 @@ const uiDown = harness();
 register(uiDown.pi);
 await uiDown.start();
 assert.deepEqual(
-	await uiDown.emit(
-		"session_before_compact",
-		{ branchEntries: staleEntries },
-		uiDown.ctxFor(staleEntries, { notifyThrows: true }),
-	),
+	await automaticRollover(uiDown, "threshold", uiDown.ctxFor(staleEntries, { notifyThrows: true }), staleEntries),
 	{ cancel: true },
 	"a failing UI still vetoes",
 );
 assert.deepEqual(
-	await uiDown.emit("session_before_compact", { branchEntries: [] }, uiDown.ctxFor([], { noBranch: true })),
+	await automaticRollover(uiDown, "threshold", uiDown.ctxFor([], { noBranch: true }), []),
 	{ cancel: true },
 	"an unreadable journal still vetoes",
 );
 console.log("ok  gate: stale vetoes every attempt, bounded repair, overflow/idle guidance, live re-probe");
 
+// ------------------------------------------------- manual rollover pass ------
+// The hook event carries no reason: only a pass in flight gates a rollover, so a
+// manual `/compact` (no `auto_compaction_start`) rolls over directly even with a
+// stale notebook, and must leave the guidance anchors untouched.
+const manual = harness();
+register(manual.pi);
+await manual.start();
+const manualEntries: unknown[] = [user("u1"), assistant("a1"), toolResult("t1", "bash")];
+const manualCtx = manual.ctxFor(manualEntries);
+assert.equal(
+	await manual.emit("session_before_compact", { branchEntries: manualEntries }, manualCtx),
+	undefined,
+	"a manual compaction with a stale notebook rolls over directly",
+);
+assert.equal(manual.sent.length, 0, "a manual compaction queues no repair continuation");
+assert.equal(manual.notified.length, 0, "a manual compaction surfaces no notice");
+assert.deepEqual(
+	await automaticRollover(manual, "threshold", manualCtx, manualEntries),
+	{ cancel: true },
+	"a later automatic pass with the stale notebook is still vetoed",
+);
+assert.equal(manual.sent.length, 1, "the manual pass did not consume the repair anchor");
+assert.equal(manual.notified.length, 0, "the first automatic veto is guided by the repair, not a notice");
+assert.deepEqual(
+	await automaticRollover(manual, "threshold", manualCtx, manualEntries),
+	{ cancel: true },
+	"a repeated automatic veto still cancels",
+);
+assert.equal(manual.sent.length, 1, "the repair continuation cannot rearm");
+assert.equal(manual.notified.length, 1, "the repeated automatic veto surfaces the bounded notice");
+console.log("ok  manual: a stale notebook does not block a manual rollover and consumes no guidance anchor");
+
+// Every automatic reason gates, and each keeps its own guidance behaviour.
+for (const reason of ["threshold", "overflow", "idle", "incomplete"]) {
+	const pass = harness();
+	register(pass.pi);
+	await pass.start();
+	const passEntries: unknown[] = [user("u1"), assistant("a1"), toolResult("t1", "bash")];
+	const passCtx = pass.ctxFor(passEntries);
+	assert.deepEqual(
+		await automaticRollover(pass, reason, passCtx, passEntries),
+		{ cancel: true },
+		`an automatic ${reason} pass with a stale notebook is vetoed`,
+	);
+	if (reason === "overflow") {
+		assert.equal(pass.sent.length, 0, "an overflow pass suppresses the repair continuation");
+		assert.equal(pass.notified.length, 1, "an overflow pass surfaces visible guidance");
+	} else {
+		assert.equal(pass.sent.length, 1, `an automatic ${reason} pass queues one repair continuation`);
+		assert.equal(pass.notified.length, 0, `an automatic ${reason} pass is guided by the repair, not a notice`);
+	}
+}
+console.log("ok  reasons: threshold/overflow/idle/incomplete all gate while the pass is in flight");
+
+// `auto_compaction_end` clears the recorded reason, so the next hook is manual
+// again and rolls over directly.
+const handedBack = harness();
+register(handedBack.pi);
+await handedBack.start();
+const handedEntries: unknown[] = [user("u1"), assistant("a1"), toolResult("t1", "bash")];
+const handedCtx = handedBack.ctxFor(handedEntries);
+await handedBack.emit("auto_compaction_start", { reason: "threshold", action: "context-full" }, handedCtx);
+assert.deepEqual(
+	await handedBack.emit("session_before_compact", { branchEntries: handedEntries }, handedCtx),
+	{ cancel: true },
+	"the pass in flight gates the hook",
+);
+await handedBack.emit("auto_compaction_end", {}, handedCtx);
+const afterPassSent = handedBack.sent.length;
+assert.equal(
+	await handedBack.emit("session_before_compact", { branchEntries: handedEntries }, handedCtx),
+	undefined,
+	"after the pass ends the next hook is manual and rolls over directly",
+);
+assert.equal(handedBack.sent.length, afterPassSent, "the manual hook after the pass queues nothing new");
+assert.equal(handedBack.notified.length, 0, "the manual hook after the pass surfaces no notice");
+console.log("ok  handback: `auto_compaction_end` clears the reason and reopens manual rollover");
+
+// A session switch or reload while a reason is recorded clears it too, so a
+// manual hook after it is not misread as an automatic pass.
+const switched = harness();
+register(switched.pi);
+await switched.start();
+const switchedCtx = switched.ctxFor(staleEntries);
+await switched.emit("auto_compaction_start", { reason: "threshold", action: "context-full" }, switchedCtx);
+await switched.emit("session_switch", {}, switchedCtx);
+assert.equal(
+	await switched.emit("session_before_compact", { branchEntries: staleEntries }, switchedCtx),
+	undefined,
+	"a session switch clears the recorded automatic reason",
+);
+await switched.emit("auto_compaction_start", { reason: "idle", action: "context-full" }, switchedCtx);
+await switched.emit("session_start", {}, switchedCtx);
+assert.equal(
+	await switched.emit("session_before_compact", { branchEntries: staleEntries }, switchedCtx),
+	undefined,
+	"a session start/reload clears the recorded automatic reason",
+);
+assert.equal(switched.sent.length + switched.notified.length, 0, "a cleared reason queues no guidance");
+console.log("ok  switch: session switch/reload clears the in-flight reason");
+
 // --------------------------------------------------------- write receipts ----
+// Every hook below is driven inside an automatic pass, because a bare hook is a
+// manual rollover and is never gated.
 const receipts = harness();
 register(receipts.pi);
 const receiptEntries: unknown[] = [notebook("n1", "index")];
@@ -385,7 +562,7 @@ await receipts.start();
 await receipts.emit("tool_call", { toolName: "context_notes", input: {} }, receipts.ctxFor(receiptEntries));
 await receipts.emit("tool_result", { toolName: "context_notes", isError: false }, receipts.ctxFor(receiptEntries));
 assert.equal(
-	await receipts.emit("session_before_compact", { branchEntries: receiptEntries }, receipts.ctxFor(receiptEntries)),
+	await automaticRollover(receipts, "threshold", receipts.ctxFor(receiptEntries), receiptEntries),
 	undefined,
 	"a notebook read leaves the notebook fresh",
 );
@@ -397,7 +574,7 @@ await receipts.emit(
 );
 await receipts.emit("tool_result", { toolName: "context_notes", isError: true }, receipts.ctxFor(receiptEntries));
 assert.equal(
-	await receipts.emit("session_before_compact", { branchEntries: receiptEntries }, receipts.ctxFor(receiptEntries)),
+	await automaticRollover(receipts, "threshold", receipts.ctxFor(receiptEntries), receiptEntries),
 	undefined,
 	"a failed oversized write does not invalidate a fresh notebook",
 );
@@ -406,7 +583,7 @@ await receipts.emit("tool_call", { toolName: "context_notes", input: { text: "ne
 receiptEntries.push(notebook("n2", "new index"));
 await receipts.emit("tool_result", { toolName: "context_notes", isError: true }, receipts.ctxFor(receiptEntries));
 assert.deepEqual(
-	await receipts.emit("session_before_compact", { branchEntries: receiptEntries }, receipts.ctxFor(receiptEntries)),
+	await automaticRollover(receipts, "threshold", receipts.ctxFor(receiptEntries), receiptEntries),
 	{ cancel: true },
 	"a revision from a failed write is not fresh",
 );
@@ -414,7 +591,7 @@ assert.deepEqual(
 // revision is still on the branch that was navigated to.
 await receipts.emit("session_tree", {}, receipts.ctxFor(receiptEntries));
 assert.deepEqual(
-	await receipts.emit("session_before_compact", { branchEntries: receiptEntries }, receipts.ctxFor(receiptEntries)),
+	await automaticRollover(receipts, "threshold", receipts.ctxFor(receiptEntries), receiptEntries),
 	{ cancel: true },
 	"a failed revision stays rejected across in-memory tree navigation",
 );
@@ -423,7 +600,7 @@ await receipts.emit("tool_call", { toolName: "context_notes", input: { text: "co
 receiptEntries.push(notebook("n3", "committed"));
 await receipts.emit("tool_result", { toolName: "context_notes", isError: false }, receipts.ctxFor(receiptEntries));
 assert.equal(
-	await receipts.emit("session_before_compact", { branchEntries: receiptEntries }, receipts.ctxFor(receiptEntries)),
+	await automaticRollover(receipts, "threshold", receipts.ctxFor(receiptEntries), receiptEntries),
 	undefined,
 	"a committed revision clears the rejected one",
 );
@@ -434,7 +611,7 @@ const branchB: unknown[] = [notebook("b1", "branch B index")];
 await receipts.emit("tool_call", { toolName: "context_notes", input: { text: "y".repeat(20_000) } }, receipts.ctxFor(branchB));
 await receipts.emit("tool_result", { toolName: "context_notes", isError: true }, receipts.ctxFor(branchB));
 assert.equal(
-	await receipts.emit("session_before_compact", { branchEntries: branchB }, receipts.ctxFor(branchB)),
+	await automaticRollover(receipts, "threshold", receipts.ctxFor(branchB), branchB),
 	undefined,
 	"a failed write after a session switch does not reject the new branch's notebook",
 );
@@ -600,6 +777,21 @@ if (!IS_CHILD) {
 				from: "\t\t\t\t\tif (current !== before) rejectedEntryId = current;",
 				to: "\t\t\t\t\trejectedEntryId = current;",
 			},
+			{
+				name: "gates manual compaction again",
+				from: "\t\tif (autoCompactionReason === undefined) return undefined;\n",
+				to: "",
+			},
+			{
+				name: "fails open on automatic passes too",
+				from: "\t\tif (autoCompactionReason === undefined) return undefined;\n",
+				to: "\t\tif (autoCompactionReason !== undefined) return undefined;\n",
+			},
+			{
+				name: "keeps the reason after the compaction pass ends",
+				from: '\t\tpi.on("auto_compaction_end", () => {\n\t\t\tautoCompactionReason = undefined;\n\t\t});',
+				to: '\t\tpi.on("auto_compaction_end", () => {\n\t\t\t// mutation: the reason is never cleared\n\t\t});',
+			},
 		];
 		for (const mutation of mutations) {
 			assert.ok(source.includes(mutation.from), `mutation fixture must match the shipped extension: ${mutation.name}`);
@@ -610,6 +802,16 @@ if (!IS_CHILD) {
 				stdout: "pipe",
 				stderr: "pipe",
 			});
+			const rejected = run.exitCode !== 0;
+			mutationControls.push({
+				name: mutation.name,
+				rejected,
+				detail: run.stderr
+					.toString()
+					.split("\n")
+					.map(line => line.trim())
+					.find(line => line.startsWith("AssertionError") || line.startsWith("error:")) ?? "",
+			});
 			assert.notEqual(run.exitCode, 0, `${mutation.name}: the gate must reject this copy`);
 			console.log(`ok  mutation rejected: ${mutation.name}`);
 		}
@@ -618,4 +820,6 @@ if (!IS_CHILD) {
 	}
 }
 
-console.log("\nPASS verify-context-notes-save-gate: strict rollover gate, bounded repair, one 45% checkpoint per window");
+console.log(
+	"\nPASS verify-context-notes-save-gate: automatic rollovers gated, manual rollover ungated, bounded repair, one 45% checkpoint per window",
+);

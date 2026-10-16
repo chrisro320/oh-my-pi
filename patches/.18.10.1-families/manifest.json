@@ -452,7 +452,7 @@
         "0089",
         "0096"
       ],
-      "sha256": "bcd78ba8277c8f0defe34ac7475b76a81586e1151badbe3fc27d618e66e5a1a0",
+      "sha256": "8dff5cab97bbaa0aac97349324580531dbc82e386fe408ed8aa25e26f23b51ed",
       "paths": [
         "pi-agent-core/dist/types/compaction/anthropic.d.ts",
         "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
@@ -625,5 +625,5 @@
     }
   ],
   "pristine_tree_sha256": "e565fa89582d4c3a1d5773b210b311966e442b96f2086031953ee71f09c7d910",
-  "candidate_tree_sha256": "a2666f6619249623cd3a86bd43dfda2ac9854e00dfa8f4d96d28f3b392d7c794"
+  "candidate_tree_sha256": "cc62c788bfe4438e56575b4655975d32cca4fe4426e9e21e92d8c4ed21b8651a"
 }

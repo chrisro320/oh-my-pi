@@ -18,8 +18,14 @@
 // session reloads. One midpoint reminder is delivered at 45% of the full model
 // context window per rollover boundary; near-threshold guidance stays runtime-owned.
 //
-// Limitations: the hook carries no reason/mode, so the gate covers every
-// compaction path while the feature is active; the repair continuation is queued
+// Scope: only automatic rollovers are gated. Every automatic pass (threshold,
+// overflow, idle, incomplete, `new_context`) emits `auto_compaction_start`
+// before `session_before_compact`; a hook that fires with no such pass in
+// flight is a manual compaction (`/compact`, `ctx.compact`) and rolls over
+// directly, by the user's decision, even with a stale notebook. The hook itself
+// carries no reason/mode, so this relies on that event order.
+//
+// Limitations: the repair continuation is queued
 // only from an in-flight turn; a notebook written inside `eval` is followed by
 // the enclosing `eval` result, which counts as work after the write; repair
 // dedupe is per process. Only hidden custom messages and a UI notice leave this
@@ -220,7 +226,8 @@ export default function contextNotesSaveGate(pi: ExtensionAPI): void {
 	// repair cannot rearm and guidance is not repeated.
 	let lastRepairAnchor: string | undefined;
 	let lastNoticeAnchor: string | undefined;
-	// Reason of the auto-compaction pass in flight (the hook event carries none).
+	// Reason of the auto-compaction pass in flight (the hook event carries none);
+	// undefined means no automatic pass, so a hook now is a manual compaction.
 	let autoCompactionReason: string | undefined;
 	let midpointBoundary: string | undefined;
 
@@ -284,6 +291,8 @@ export default function contextNotesSaveGate(pi: ExtensionAPI): void {
 		// Synchronous by design: the runner swallows a throw or timeout as
 		// `undefined`, which would let a stale rollover proceed.
 		if (!notebookActive(ctx)) return undefined;
+		// Manual compaction is never gated: no automatic pass is in flight.
+		if (autoCompactionReason === undefined) return undefined;
 		let state: NotesJournalState;
 		try {
 			state = inspectNotesJournal(entriesOf(ctx, event), rejectedEntryId);

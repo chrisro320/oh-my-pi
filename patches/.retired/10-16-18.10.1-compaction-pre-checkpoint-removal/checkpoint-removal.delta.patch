@@ -1,0 +1,270 @@
+--- a/pi-coding-agent/dist/types/session/session-maintenance.d.ts
++++ b/pi-coding-agent/dist/types/session/session-maintenance.d.ts
+@@ -64,13 +64,6 @@
+     hasExperimentalContextRolloverTools(): boolean;
+     takeExperimentalContextRolloverRequest(context: AgentTurnEndContext | undefined): boolean;
+     queueExperimentalContextNotesReminder(prompt: string): void;
+-    /** Whether this session is the main agent rather than a subagent. */
+-    isMainSession(): boolean;
+-    /**
+-     * Delivers one hidden notes-checkpoint request (non-interrupting while a turn is live) and resolves once the
+-     * session has settled idle again, or early when `signal` aborts (the request is then withdrawn).
+-     */
+-    runNotesCheckpoint(prompt: string, signal: AbortSignal): Promise<void>;
+     memoryBackendSession(): MemoryBackendOperationContext["session"];
+     emitSessionEvent(event: AgentSessionEvent, options?: {
+         detachExtensions?: boolean;
+--- a/pi-coding-agent/src/session/agent-session.ts
++++ b/pi-coding-agent/src/session/agent-session.ts
+@@ -610,9 +610,6 @@
+ 	grep: true,
+ };
+ 
+-/** Custom message type of the hidden notebook-save request that precedes a manual notes-backed compaction. */
+-const NOTES_CHECKPOINT_MESSAGE_TYPE = "manual-compaction-notes-checkpoint";
+-
+ /** Internal marker for hook messages queued through the agent loop */
+ // ============================================================================
+ // Constants
+@@ -2407,8 +2404,6 @@
+ 				}
+ 				return true;
+ 			},
+-			isMainSession: () => this.#agentKind === "main",
+-			runNotesCheckpoint: (prompt, signal) => this.#runNotesCheckpoint(prompt, signal),
+ 			takeExperimentalContextRolloverRequest: context => {
+ 				for (const toolResult of context?.toolResults ?? []) {
+ 					if (toolResult.isError) continue;
+@@ -6787,82 +6782,6 @@
+ 		return this.#maintenance.compact(customInstructions, options);
+ 	}
+ 
+-	/**
+-	 * Delivers the hidden notes checkpoint of a manual notes-backed compaction. A live turn receives it as an
+-	 * aside (next step boundary, never mid tool batch) and runs on to idle by itself; an idle session starts one
+-	 * agent-initiated turn directly, which this explicit request authorizes even for clients that defer such turns.
+-	 * Resolves once the session is idle again, or when `signal` aborts: a still-queued aside is withdrawn, a turn
+-	 * this call started is aborted, and the pending delivery has fully unwound before this returns, so nothing
+-	 * dispatches afterwards. The caller reads the journal for the outcome.
+-	 */
+-	async #runNotesCheckpoint(prompt: string, signal: AbortSignal): Promise<void> {
+-		if (signal.aborted) return;
+-		const generation = this.#promptGeneration;
+-		const checkpointMessage = (): CustomMessage => ({
+-			role: "custom",
+-			customType: NOTES_CHECKPOINT_MESSAGE_TYPE,
+-			content: prompt,
+-			display: false,
+-			details: undefined,
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
+-		let startedTurn = false;
+-		const aborted = Promise.withResolvers<void>();
+-		const onAbort = () => aborted.resolve();
+-		signal.addEventListener("abort", onAbort, { once: true });
+-		const settleIdle = async (): Promise<void> => {
+-			while (!signal.aborted) {
+-				await Promise.race([this.waitForIdle(), aborted.promise]);
+-				// A wake that just took a stranded aside holds an in-flight claim before its turn streams;
+-				// no awaitable covers that gap, so re-check on a short timer.
+-				if (signal.aborted || !this.isStreaming) return;
+-				await Bun.sleep(10);
+-			}
+-		};
+-		const startTurn = async (): Promise<void> => {
+-			// No await sits between this check and the dispatch's generation capture, so an abort after it
+-			// is caught by the generation check (or aborts the started turn below).
+-			if (signal.aborted) return;
+-			startedTurn = true;
+-			await this.#admitSubmission(() => this.#promptAgentInitiatedMessage(checkpointMessage()));
+-		};
+-		const deliver = async (): Promise<void> => {
+-			if (this.isStreaming) {
+-				this.#irc.queueAside([checkpointMessage()]);
+-				await settleIdle();
+-				// The run ended before a step boundary took the aside: withdraw it and start the one turn here.
+-				if (signal.aborted || !this.#discardNotesCheckpointAside()) return;
+-			}
+-			await startTurn();
+-			await settleIdle();
+-		};
+-		const delivery = deliver();
+-		try {
+-			await Promise.race([delivery, aborted.promise]);
+-		} finally {
+-			signal.removeEventListener("abort", onAbort);
+-			this.#discardNotesCheckpointAside();
+-		}
+-		if (!signal.aborted) return;
+-		// Cancelled by `abortCompaction` alone (a session abort already stopped the turn and bumped the
+-		// generation): stop the checkpoint turn this call started, then let the delivery unwind.
+-		if (startedTurn && this.#promptGeneration === generation && this.isStreaming) {
+-			await this.abort({ goalReason: "internal", preserveCompaction: true });
+-		}
+-		await delivery.catch(() => undefined);
+-	}
+-
+-	/** Removes a still-queued notes-checkpoint aside from the IRC aside queue; true when one was queued. */
+-	#discardNotesCheckpointAside(): boolean {
+-		const snapshot = this.#irc.clearPending();
+-		const asides = snapshot.asides.filter(
+-			record => !(record.role === "custom" && record.customType === NOTES_CHECKPOINT_MESSAGE_TYPE),
+-		);
+-		this.#irc.restorePending({ ...snapshot, asides });
+-		return asides.length !== snapshot.asides.length;
+-	}
+-
+ 	/** Cancel active manual, automatic, and handoff maintenance, preserving an optional source reason. */
+ 	abortCompaction(reason?: unknown): void {
+ 		void this.#maintenance.abortCompaction(reason);
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -91,7 +91,6 @@
+ 	resolveMethodSettings,
+ 	resolveSpeculationMethod,
+ } from "./compaction-methods";
+-import { getContextNotes } from "./context-notes";
+ import {
+ 	assistantTurnDelivered,
+ 	convertToLlm,
+@@ -408,64 +407,6 @@
+ 	}
+ }
+ 
+-/** Hidden request for the notebook save that precedes a manual notes-backed compaction. */
+-const MANUAL_NOTES_CHECKPOINT_PROMPT = [
+-	"<manual-compaction-notes-checkpoint>",
+-	"The user explicitly requested a context rollover. Save the durable notebook before it is committed.",
+-	"1. You may read or search what you need to make the notebook accurate, but do not edit files, run commands or start new work.",
+-	"2. Make one context_notes call that replaces the whole notebook: current goal, constraints, decisions, progress, changed files, evidence paths, blockers, unfinished work and exact next steps. Keep it a compact index (one line per item, no copied logs or file bodies), drop stale entries and stay well under 16 KiB.",
+-	"3. That context_notes call MUST be the last tool call of this turn. Do not call new_context and do not use any other tool after it.",
+-	"4. When it reports success, reply with one short sentence and stop. If it fails, say so and stop.",
+-	"</manual-compaction-notes-checkpoint>",
+-].join("\n");
+-
+-/** Results of these tools are notebook bookkeeping, not work that outdates a saved notebook. */
+-const NOTES_HOUSEKEEPING_TOOLS: Record<string, true> = { context_notes: true, new_context: true };
+-
+-/** Branch state captured before a manual notes checkpoint; the checkpoint must leave a newer notebook on the same branch. */
+-interface NotesCheckpointBaseline {
+-	sessionId: string;
+-	leafId: string;
+-}
+-
+-/**
+- * Why the checkpoint did not leave a committed, fresh notebook, or `undefined`
+- * when it did. Fresh means: a NEW non-empty revision after the baseline whose
+- * `context_notes` result succeeded, with no user message or work tool result
+- * after it (assistant prose is not work).
+- */
+-function notesCheckpointFailure(branch: readonly SessionEntry[], baseline: NotesCheckpointBaseline): string | undefined {
+-	const leafIndex = branch.findLastIndex(entry => entry.id === baseline.leafId);
+-	if (leafIndex < 0) return "工作階段分支在檢查點期間已變更";
+-	for (let index = leafIndex + 1; index < branch.length; index++) {
+-		const type = branch[index].type;
+-		if (type === "compaction" || type === "reset_boundary") return "檢查點期間已出現其他上下文邊界";
+-	}
+-	const revision = getContextNotes(branch);
+-	if (!revision) return "檢查點沒有寫入新的筆記修訂";
+-	const revisionIndex = branch.findLastIndex(entry => entry.id === revision.entryId);
+-	if (revisionIndex <= leafIndex) return "檢查點沒有寫入新的筆記修訂";
+-	if (revision.text.trim().length === 0) return "新的筆記修訂是空的";
+-	let committed = false;
+-	for (let index = revisionIndex + 1; index < branch.length; index++) {
+-		const entry = branch[index];
+-		if (entry.type !== "message") continue;
+-		const message = entry.message;
+-		if (message.role === "user") return "存檔後出現了新的使用者訊息";
+-		if (message.role !== "toolResult") continue;
+-		if (!Object.hasOwn(NOTES_HOUSEKEEPING_TOOLS, message.toolName)) return "存檔後仍有其他工具作業";
+-		if (
+-			message.toolName === "context_notes" &&
+-			!message.isError &&
+-			isRecord(message.details) &&
+-			message.details.entryId === revision.entryId
+-		) {
+-			committed = true;
+-		}
+-	}
+-	return committed ? undefined : "筆記寫入未確認提交";
+-}
+-
+ /** Capabilities borrowed from the owning AgentSession. */
+ export interface SessionMaintenanceHost {
+ 	agent: Agent;
+@@ -492,13 +433,6 @@
+ 	hasExperimentalContextRolloverTools(): boolean;
+ 	takeExperimentalContextRolloverRequest(context: AgentTurnEndContext | undefined): boolean;
+ 	queueExperimentalContextNotesReminder(prompt: string): void;
+-	/** Whether this session is the main agent rather than a subagent. */
+-	isMainSession(): boolean;
+-	/**
+-	 * Delivers one hidden notes-checkpoint request (non-interrupting while a turn is live) and resolves once the
+-	 * session has settled idle again, or early when `signal` aborts (the request is then withdrawn).
+-	 */
+-	runNotesCheckpoint(prompt: string, signal: AbortSignal): Promise<void>;
+ 	memoryBackendSession(): MemoryBackendOperationContext["session"];
+ 	emitSessionEvent(event: AgentSessionEvent, options?: { detachExtensions?: boolean }): Promise<void>;
+ 	emitNotice(level: "info" | "warning" | "error", message: string, source?: string): void;
+@@ -1247,20 +1181,6 @@
+ 
+ 		try {
+ 			if (ownsCompactionController) {
+-				// An explicit default notes-backed compaction first asks the model for ONE notebook
+-				// save, before this pass aborts anything. The pass already owns the compaction
+-				// marker, so auto-rollover, new_context and duplicate manual requests are held off
+-				// while it waits; a stale or unsaved result cancels the compaction here, before
+-				// `session_before_compact` hooks can run. An inherited resume stays owed on failure.
+-				const notesCheckpoint = this.#manualNotesCheckpointBaseline(customInstructions, options);
+-				if (notesCheckpoint) {
+-					resumeInterruptedTurn =
+-						inheritedResume &&
+-						options?.suppressContinuation !== true &&
+-						cfgCompactionAutoContinue.get(this.#host.settings) !== false;
+-					interruptedTurnGeneration = this.#host.promptGeneration();
+-					await this.#runManualNotesCheckpoint(notesCheckpoint, compactionAbortController.signal);
+-				}
+ 				// A manual compaction aborts the live turn, tool loop included. Without a
+ 				// resume the agent sits idle on a half-finished loop (an autoresearch run,
+ 				// a pending tool result) until the user types "continue" by hand.
+@@ -1692,39 +1612,6 @@
+ 				}
+ 			}
+ 		}
+-	}
+-
+-	/** Branch snapshot for a manual notes checkpoint, or `undefined` when none applies (subagent, nothing to roll over). */
+-	#manualNotesCheckpointBaseline(
+-		customInstructions: string | undefined,
+-		options: CompactOptions | undefined,
+-	): NotesCheckpointBaseline | undefined {
+-		const model = this.#model;
+-		if (
+-			!model ||
+-			!this.#host.isMainSession() ||
+-			!this.#usesExperimentalContextManagement() ||
+-			options?.mode ||
+-			customInstructions ||
+-			options?.internalGuidance
+-		) {
+-			return undefined;
+-		}
+-		const branch = this.#host.sessionManager.getBranch();
+-		const leaf = branch.at(-1);
+-		// Nothing to roll over: the pass below rejects it as a no-op without a hidden turn.
+-		if (!leaf || !prepareCompaction(branch, this.#compactionSettings, model, this.#tokenizer)) return undefined;
+-		return { sessionId: this.#host.sessionId(), leafId: leaf.id };
+-	}
+-
+-	/** Runs the single hidden checkpoint and cancels the compaction unless it left a committed, fresh notebook. */
+-	async #runManualNotesCheckpoint(baseline: NotesCheckpointBaseline, signal: AbortSignal): Promise<void> {
+-		await this.#host.runNotesCheckpoint(MANUAL_NOTES_CHECKPOINT_PROMPT, signal);
+-		if (signal.aborted || this.#host.isDisposed() || this.#host.sessionId() !== baseline.sessionId) {
+-			throw new CompactionCancelledError(undefined, { cause: signal.reason });
+-		}
+-		const failure = notesCheckpointFailure(this.#host.sessionManager.getBranchView(), baseline);
+-		if (failure) throw new Error(`手動壓縮已取消：存檔檢查點未留下已提交且最新的筆記（${failure}）。未建立壓縮邊界。`);
+ 	}
+ 
+ 	/**
