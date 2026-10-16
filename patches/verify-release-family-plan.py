@@ -22,7 +22,8 @@ ROOTS = {"NM": "", "AGENT": "pi-coding-agent", "CORE": "pi-agent-core",
 ADDED_FAMILIES = {
     "18.10.1": [{"id": "0098-omp-tls-verify-transient-retry", "root": "AI", "capabilities": ["0098"]},
                 {"id": "0099-omp-retry-slow-schedule", "root": "AGENT", "capabilities": ["0099"]},
-                {"id": "0100-omp-stepfun-step-plan", "root": "NM", "capabilities": ["0100"]}],
+                {"id": "0100-omp-stepfun-step-plan", "root": "NM", "capabilities": ["0100"]},
+                {"id": "0101-omp-subagent-warm-revival-persisted-prompt", "root": "AGENT", "capabilities": ["0101"]}],
 }
 
 

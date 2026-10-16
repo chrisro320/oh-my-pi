@@ -24,3 +24,4 @@
 .18.10.1-families/0098-omp-tls-verify-transient-retry-v18.10.1.patch	AI	0098
 .18.10.1-families/0099-omp-retry-slow-schedule-v18.10.1.patch	AGENT	0099
 .18.10.1-families/0100-omp-stepfun-step-plan-v18.10.1.patch	NM	0100
+.18.10.1-families/0101-omp-subagent-warm-revival-persisted-prompt-v18.10.1.patch	AGENT	0101

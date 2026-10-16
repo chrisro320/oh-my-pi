@@ -614,6 +614,18 @@
         "pi-catalog/src/models.json",
         "pi-catalog/src/provider-models/openai-compat.ts"
       ]
+    },
+    {
+      "id": "0101-omp-subagent-warm-revival-persisted-prompt",
+      "patch": ".18.10.1-families/0101-omp-subagent-warm-revival-persisted-prompt-v18.10.1.patch",
+      "root": "AGENT",
+      "capabilities": [
+        "0101"
+      ],
+      "sha256": "e87a81f35eb452ea7e23a2b3f39aeb440b9656ec615b9d4696a6dded3e779181",
+      "paths": [
+        "pi-coding-agent/src/task/executor.ts"
+      ]
     }
   ],
   "upstream_adoptions": [
@@ -625,5 +637,5 @@
     }
   ],
   "pristine_tree_sha256": "e565fa89582d4c3a1d5773b210b311966e442b96f2086031953ee71f09c7d910",
-  "candidate_tree_sha256": "cc62c788bfe4438e56575b4655975d32cca4fe4426e9e21e92d8c4ed21b8651a"
+  "candidate_tree_sha256": "4187e4fd7c38398ad46742510a82bbc92a19315cc725abdde23dfe66b3d29d6c"
 }

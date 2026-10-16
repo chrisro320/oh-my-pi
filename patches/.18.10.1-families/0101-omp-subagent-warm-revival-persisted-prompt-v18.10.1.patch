@@ -1,0 +1,39 @@
+--- a/src/task/executor.ts
++++ b/src/task/executor.ts
+@@ -77,7 +77,7 @@
+ import { ASYNC_RESULT_MESSAGE_TYPE } from "../session/async-job-delivery";
+ import type { AuthStorage } from "../session/auth-storage";
+ import { SKILL_PROMPT_MESSAGE_TYPE } from "../session/messages";
+-import { hasConversationalHistory, SessionManager } from "../session/session-manager";
++import { extractSessionInit, hasConversationalHistory, SessionManager } from "../session/session-manager";
+ import { truncateTail } from "@oh-my-pi/pi-tui/tools/streaming-output";
+ import {
+ 	type ConfiguredThinkingLevel,
+@@ -3824,6 +3824,10 @@
+ 			reopened.adoptArtifactManager(capture.parentArtifactManager);
+ 		}
+ 		await refreshSubagentIrcRoot(capture.spec.prompt, reopened, capture.sessionFile);
++		// Reuse the persisted prompt bytes verbatim, as cold revival does. Re-rendering would
++		// refresh the IRC peer roster, break the provider prefix cache after every revival and
++		// append a second session_init. A transcript without session_init keeps the render path.
++		const init = extractSessionInit(reopened.getEntries());
+ 		const mcpManager = capture.spec.options.mcpManager;
+ 		const mcpFollower = mcpManager ? followMCPTools(mcpManager, explicitSubagentToolNames(capture.spec)) : undefined;
+ 		let revived: AgentSession;
+@@ -3838,6 +3842,7 @@
+ 					reopened,
+ 					expectedAgentRef,
+ 				),
++				...(init && init.systemPrompt.length > 0 ? { systemPrompt: () => [...init.systemPrompt] } : undefined),
+ 				oauthAccountPools: Object.hasOwn(agentAccountPools, capture.agentName)
+ 					? agentAccountPools[capture.agentName]
+ 					: undefined,
+@@ -3848,6 +3853,8 @@
+ 		}
+ 		mcpFollower?.bind(revived);
+ 		trackSubagentSettings(revived, capture);
++		// The yield tool schema carries the last pooled batch's items; the replayed prefix must match it.
++		if (init?.workPoolYieldItems) await revived.setWorkPoolYieldItems(init.workPoolYieldItems);
+ 		// Re-run the executor's extension wiring on the rebuilt session. Skipping it leaves the
+ 		// runner pre-init, so a `tool_call` handler touching a runtime action trips the
+ 		// fail-closed gate and blocks every tool (including `yield`) in the revived agent (issue #8824).

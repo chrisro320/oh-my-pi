@@ -1307,3 +1307,50 @@ let autoCompactionReason: string | undefined   // set on auto_compaction_start, 
 Wrong: add a hidden save turn before manual compaction, or tag events with a mode field the old runtime lacks.
 Correct: gate by "automatic pass in flight" using the existing lifecycle events; fail closed for automatic paths.
 ```
+
+## Scenario: Warm subagent revival keeps the persisted system prompt (18.10.1)
+
+### 1. Scope / Trigger
+
+`createWarmSubagentReviver` (`src/task/executor.ts`) revives an idle-parked subagent in-process. Trigger: any change to `buildSubagentSessionOptions`, `collectIrcPeerRoster`, the subagent prompt template, `session_init` persistence, or any new revival path. Owner: `0101-omp-subagent-warm-revival-persisted-prompt-v18.10.1.patch` (standalone, applied last).
+
+### 2. Signatures
+
+```ts
+const init = extractSessionInit(reopened.getEntries())   // latest session_init, or null
+// createAgentSession({ ...buildSubagentSessionOptions(...), ...(init && init.systemPrompt.length > 0 ? { systemPrompt: () => [...init.systemPrompt] } : undefined) })
+// after create: if (init?.workPoolYieldItems) await revived.setWorkPoolYieldItems(init.workPoolYieldItems)
+```
+
+### 3. Contracts
+
+- A revived subagent sends the system blocks it persisted, byte for byte; nothing re-renders the IRC peer roster (`ircPeers`, parked/omitted counts) or registry-derived yield items on revival. Live subagents already never re-render mid-session, so revival is the only drift point.
+- Cold revival (`persisted-revive.ts`) and warm revival must stay equivalent on this point; a new revival path copies the same two steps.
+- A transcript without `session_init` (or an empty prompt) keeps the render path and never throws.
+- Roster content and `agent://<id>` routing are unchanged; `refreshSubagentIrcRoot` still runs.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| roster changed while parked (new peer, peer parked) | revived system blocks equal pre-park bytes; one `session_init` after the first post-revival call |
+| pooled yield items at spawn | restored; yield tool schema equals pre-park |
+| legacy transcript without `session_init` | revives via render path, no throw |
+| roster unchanged | identical result with or without the patch |
+
+### 5. Good / Base / Bad Cases
+
+- Good: park, spawn a peer, revive: first post-revival request hits the prefix cache.
+- Base: roster unchanged; both paths equal.
+- Bad: re-rendering the template on revive (roster or yield items drift, second `session_init`, 2-9% cache hit and a full cacheWrite per revival).
+
+### 6. Tests Required
+
+`OMP_NM=<candidate @oh-my-pi root> bun patches/verify-subagent-warm-revival-prompt.ts` (real `runSubprocess` + `AgentLifecycleManager.park`/`ensureLive` + `IrcBus.send`; 8 scenarios, 4 mutation copies). It must exit non-zero on the control tree (chain without 0101): a1, a2, b, b2 fail. MCP reload or extension/tool-policy changes can still alter the tools prefix; that is out of scope.
+
+### 7. Wrong vs Correct
+
+```text
+Wrong: rebuild the subagent prompt on revival "to stay current".
+Correct: replay the persisted prompt bytes; refresh only routing state.
+```
