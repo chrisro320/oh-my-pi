@@ -7,12 +7,17 @@
 //      write each other's state file, and a cross-process resume diff works.
 //   4. Header fingerprints are scoped per session+host; TTL membership and
 //      envelope drift are detected without false positives.
+//   5. Devin Cascade wire (`chatMessagePrompts`/`cascadeId`/`chatModelUid`)
+//      fingerprints through the payload adapter; the hash-only `devin`
+//      identity record stays on the request row. A disposable mutant whose
+//      adapter is neutralized must fail the append/id-rename/cascade scenarios.
 //
 // Run: bun patches/verify-cache-prefix-audit.ts   (exits 0 on success)
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 
 // Redirect the extension's state directory and log BEFORE the module is
@@ -374,7 +379,7 @@ interface FakeCommand {
 	handler: (args: string, ctx: FakeCtx) => Promise<void>;
 }
 
-function createHarness(): {
+function createHarness(impl: Pick<typeof ext, "default"> = ext): {
 	emit(name: string, event: Record<string, unknown>, ctxSession?: string): void;
 	command: FakeCommand | undefined;
 	notifications: string[];
@@ -391,7 +396,7 @@ function createHarness(): {
 		},
 		logger: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} },
 	} as unknown as ExtensionAPI;
-	ext.default(pi);
+	impl.default(pi);
 	return {
 		emit(name: string, event: Record<string, unknown>, ctxSession = "ctx-session") {
 			const ctx: FakeCtx = {
@@ -926,6 +931,164 @@ function createHarness(): {
 	assert.equal(drift.kind, "TOOLS_DRIFT");
 	assert.match(drift.detail ?? "", /bash\([0-9a-f]+->[0-9a-f]+\)/, "changed tool must be named with both hashes");
 	assert.ok(!(drift.detail ?? "").includes("read("), "unchanged tool must not be named");
+}
+
+// ---------------------------------------------------------------------------
+// 6. Devin Cascade wire format
+//
+//    The payload has no messages/contents/input, so it reaches the fingerprint
+//    only through adaptDevinPayload. The hash-only `devin` identity record is
+//    attached to the REQUEST row; message_end rows must stay uncorrelated.
+//    `metadata`, `executionId` and `modelAssignmentJwt` are never read or
+//    persisted, and shrinking `configuration.maxTokens` must never drift.
+// ---------------------------------------------------------------------------
+const devinBase = [
+	{ messageId: "cascade-01#0#user", prompt: "SENTINEL_DEVIN_PROMPT_ALPHA fix the loader", source: "user", signature: "sig-a" },
+	{ messageId: "cascade-01#1#assistant", prompt: "SENTINEL_DEVIN_PROMPT_BETA reading", source: "assistant", signature: "sig-b" },
+];
+const devinAppended = [...devinBase, { messageId: "cascade-01#2#user", prompt: "continue", source: "user", signature: "sig-c" }];
+// Same three prompts with messageId[1] renamed: a rewrite, not an append.
+const devinRenamed = devinAppended.map((p, i) => (i === 1 ? { ...p, messageId: "cascade-01#1#renamed" } : p));
+const devinTurn5 = [...devinRenamed, { messageId: "cascade-02#3#user", prompt: "once more", source: "user", signature: "sig-d" }];
+
+function devinPayload(chatMessagePrompts: unknown[], overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return {
+		prompt: "SENTINEL_DEVIN_SYSTEM You are a coding agent.",
+		cascadeId: "cascade-01",
+		chatModelUid: "gemini-4-argon-high",
+		requestType: "chat",
+		plannerMode: "plan",
+		chatMessagePrompts,
+		tools: [{ name: "shell" }],
+		toolChoice: "auto",
+		disableParallelToolCalls: false,
+		// maxTokens shrinks with every request (window minus usage); the
+		// adapter drops it or every turn would read ENVELOPE_DRIFT.
+		configuration: { maxTokens: 1_000_000, temperature: 0.2 },
+		metadata: { credential: "SENTINEL_DEVIN_METADATA" },
+		executionId: "SENTINEL_DEVIN_EXECUTION",
+		modelAssignmentJwt: "SENTINEL_DEVIN_JWT",
+		...overrides,
+	};
+}
+
+// One driver for the real extension and the neutralized mutant, so scenarios
+// a-c run literally the same emissions on both.
+function emitDevinLane(impl: Pick<typeof ext, "default">, ctxSession: string): void {
+	const harness = createHarness(impl);
+	harness.emit("before_provider_request", { payload: devinPayload(devinBase) }, ctxSession);
+	harness.emit(
+		"before_provider_request",
+		{ payload: devinPayload(devinAppended, { configuration: { maxTokens: 950_000, temperature: 0.2 } }) },
+		ctxSession,
+	);
+	harness.emit(
+		"before_provider_request",
+		{ payload: devinPayload(devinRenamed, { configuration: { maxTokens: 900_000, temperature: 0.2 } }) },
+		ctxSession,
+	);
+	harness.emit(
+		"before_provider_request",
+		{ payload: devinPayload(devinRenamed, { cascadeId: "cascade-02", configuration: { maxTokens: 850_000, temperature: 0.2 } }) },
+		ctxSession,
+	);
+	harness.emit(
+		"before_provider_request",
+		{ payload: devinPayload(devinTurn5, { cascadeId: "cascade-02", configuration: { maxTokens: 800_000, temperature: 0.2 } }) },
+		ctxSession,
+	);
+	harness.emit(
+		"before_provider_request",
+		{ payload: devinPayload(devinTurn5, { cascadeId: "cascade-02", configuration: { maxTokens: 700_000, temperature: 0.2 } }) },
+		ctxSession,
+	);
+	harness.emit(
+		"message_end",
+		{ message: { role: "assistant", model: "gemini-4-argon", usage: { input: 40, cacheRead: 150, cacheWrite: 10 } } },
+		ctxSession,
+	);
+}
+
+{
+	emitDevinLane(ext, "ctx-devin");
+	const rows = logLines().filter(line => line.sessionId === "ctx-devin" && line.usage === undefined);
+	assert.equal(rows.length, 6, "every Devin request must produce one request row");
+	// f. chatModelUid's effort suffix is stripped into a stable lane key.
+	assert.ok(rows.every(line => line.model === "gemini-4-argon"), "chatModelUid effort suffix must be stripped");
+	// a+d. Clean appends; shrinking configuration.maxTokens never drifts.
+	assert.deepEqual(
+		rows.map(line => line.diff.kind),
+		["IDENTICAL", "APPEND_ONLY", "HISTORY_REWRITE", "ENVELOPE_DRIFT", "APPEND_ONLY", "IDENTICAL"],
+		"Devin lane diff sequence; shrinking maxTokens must never read ENVELOPE_DRIFT",
+	);
+	// a. The append request row carries the hash-only identity record.
+	const appendDevin = rows[1].devin as Record<string, unknown> | undefined;
+	assert.ok(appendDevin, "clean append row must carry a devin record");
+	assert.equal(appendDevin.prompts, 3, "devin.prompts counts chatMessagePrompts");
+	assert.match(String(appendDevin.idsSha), /^[0-9a-f]{12}$/, "devin.idsSha is a content hash");
+	assert.equal(appendDevin.cascadeChanged, false);
+	assert.equal(appendDevin.prevPrompts, 2);
+	// b. A renamed messageId is a rewrite at its index, in both views.
+	const renameRow = rows[2];
+	assert.equal(renameRow.diff.kind, "HISTORY_REWRITE");
+	assert.equal(renameRow.diff.index, 1);
+	assert.equal((renameRow.devin as Record<string, unknown>).firstIdDrift, 1, "renamed messageId surfaces at its index");
+	// c. A changed cascadeId is envelope drift plus the lane flag.
+	const cascadeRow = rows[3];
+	assert.equal(cascadeRow.diff.kind, "ENVELOPE_DRIFT");
+	assert.equal((cascadeRow.devin as Record<string, unknown>).cascadeChanged, true);
+
+	// a+e. Only hashes persist: no prompt prose, credentials or per-request
+	// identifiers anywhere in the log or the state file.
+	const logRaw = readFileSync(LOG_PATH, "utf8");
+	const stateRaw = readFileSync(ext.statePathFor("ctx-devin"), "utf8");
+	for (const sentinel of [
+		"SENTINEL_DEVIN_METADATA",
+		"SENTINEL_DEVIN_EXECUTION",
+		"SENTINEL_DEVIN_JWT",
+		"SENTINEL_DEVIN_SYSTEM",
+		"SENTINEL_DEVIN_PROMPT_ALPHA",
+		"SENTINEL_DEVIN_PROMPT_BETA",
+	]) {
+		assert.ok(!logRaw.includes(sentinel), `${sentinel} must never reach the log`);
+		assert.ok(!stateRaw.includes(sentinel), `${sentinel} must never reach the state file`);
+	}
+
+	// g. The usage row stays uncorrelated: no borrowed devin/diff/sessionId.
+	const usageRow = logLines().filter(line => line.observedSessionId === "ctx-devin").at(-1);
+	assert.ok(usageRow);
+	assert.equal(usageRow.model, "gemini-4-argon");
+	for (const key of ["devin", "diff", "sessionId"]) {
+		assert.equal(usageRow[key], undefined, `${key} must never be borrowed onto a usage row`);
+	}
+	assert.equal(usageRow.observedSessionId, "ctx-devin");
+	assert.equal(usageRow.correlation, "unavailable");
+	assert.equal(usageRow.cause, "unknown");
+}
+
+// Mutation control: a disposable copy whose adaptDevinPayload always returns
+// undefined must FAIL scenarios a-c — the unadapted payload never
+// fingerprints, so there is no append row, no id-drift index and no cascade
+// flag to assert.
+{
+	const extSourcePath = fileURLToPath(new URL("./cache-prefix-audit-extension.ts", import.meta.url));
+	const source = readFileSync(extSourcePath, "utf8");
+	const mutantSource = source.replace(
+		"function adaptDevinPayload(raw: unknown):",
+		"function adaptDevinPayload(_raw: unknown): { adapted: Record<string, unknown>; snapshot: DevinSnapshot } | undefined {\n\treturn undefined;\n}\nfunction adaptDevinPayloadSuppressed(raw: unknown):",
+	);
+	assert.notEqual(mutantSource, source, "mutation must rewrite adaptDevinPayload");
+	const mutantPath = join(HOME, "cache-prefix-audit-mutant.ts");
+	writeFileSync(mutantPath, mutantSource);
+	// Dynamic import is required: the mutant module only exists at runtime, in
+	// the test HOME, and must not share module state with the real extension.
+	const mutant = (await import(mutantPath)) as Pick<typeof ext, "default">;
+	emitDevinLane(mutant, "ctx-devin-mutant");
+	const mutantRows = logLines().filter(line => line.sessionId === "ctx-devin-mutant" && line.usage === undefined);
+	assert.equal(mutantRows.length, 0, "neutralized adapter must fail a-c: no Devin request fingerprints at all");
+	assert.ok(!mutantRows.some(line => line.devin !== undefined), "mutant: no devin record (a fails)");
+	assert.ok(!mutantRows.some(line => (line.devin as Record<string, unknown> | undefined)?.firstIdDrift !== undefined), "mutant: no id drift (b fails)");
+	assert.ok(!mutantRows.some(line => (line.devin as Record<string, unknown> | undefined)?.cascadeChanged === true), "mutant: no cascade flag (c fails)");
 }
 
 console.log("cache-prefix-audit verification: ok");

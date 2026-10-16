@@ -33,6 +33,11 @@
 // (`contents`, `systemInstruction`, `tools`). Both shapes are normalized, so a
 // Google-only payload no longer fingerprints as undefined.
 //
+// Devin Cascade payloads (`chatMessagePrompts`, `cascadeId`, `chatModelUid`)
+// carry none of those keys; an adapter re-expresses them in the generic shape
+// before fingerprinting. Each request row gains a hash-only `devin` identity
+// record; usage rows stay uncorrelated.
+//
 // State isolation: one state file per session
 // (`cache-prefix-state-<safeSessionId>.json`) so concurrent OMP instances
 // (Gemini, Opus, GLM) never overwrite each other's fingerprint. Session id
@@ -818,6 +823,100 @@ function write(path: string, body: string, append: boolean): void {
 	appendFileSync(path, body, { mode: 0o600 });
 }
 
+/** Devin Cascade wire shape: `{ prompt, chatMessagePrompts[], cascadeId, chatModelUid, tools[] }`.
+ *  It has no `messages`/`contents`, so `extractPayloadSections` skipped every
+ *  Devin request and the whole lane stayed invisible to the audit. Re-express
+ *  it in the generic shape so it fingerprints like any other lane.
+ *  `messageId` is part of each prompt's hashed content: Devin seeds it from
+ *  cascadeId + index + role, so an id drift surfaces as HISTORY_REWRITE at the
+ *  first renamed prompt, and a cascadeId change surfaces as ENVELOPE_DRIFT.
+ *  `metadata` (credentials), `executionId` (random per request) and
+ *  `modelAssignmentJwt` are never read. Only hashes are kept, never prose. */
+interface DevinSnapshot {
+	cascadeId: string;
+	ids: string[];
+	bodies: string[];
+}
+
+const devinLast = new Map<string, DevinSnapshot>();
+
+function bigintSafe(value: unknown): unknown {
+	return JSON.parse(JSON.stringify(value ?? null, (_key, v: unknown) => (typeof v === "bigint" ? v.toString() : v)));
+}
+
+function adaptDevinPayload(raw: unknown): { adapted: Record<string, unknown>; snapshot: DevinSnapshot } | undefined {
+	if (!isRecord(raw) || !Array.isArray(raw.chatMessagePrompts) || typeof raw.cascadeId !== "string") return undefined;
+	const ids: string[] = [];
+	const bodies: string[] = [];
+	const messages = raw.chatMessagePrompts.map((entry: unknown) => {
+		const p = isRecord(entry) ? entry : {};
+		const id = typeof p.messageId === "string" ? p.messageId : "";
+		const body = {
+			prompt: p.prompt,
+			thinking: p.thinking,
+			signature: sha(p.signature ?? ""),
+			toolCallId: p.toolCallId,
+			toolResultIsError: p.toolResultIsError,
+			toolCalls: Array.isArray(p.toolCalls) ? p.toolCalls.map(call => bigintSafe(call)) : [],
+			images: Array.isArray(p.images)
+				? p.images.map(img => (isRecord(img) ? `${String(img.mimeType)}:${sha(img.base64Data)}` : "?"))
+				: [],
+		};
+		ids.push(id);
+		bodies.push(sha(body));
+		return { role: `src${String(p.source)}`, content: [{ type: "devin-prompt", id, body }] };
+	});
+	// maxTokens shrinks with every request (window minus usage) without
+	// touching the cache, so it would flag ENVELOPE_DRIFT on every turn.
+	const { maxTokens: _maxTokens, ...configuration } = (bigintSafe(raw.configuration) ?? {}) as Record<string, unknown>;
+	const adapted: Record<string, unknown> = {
+		// chatModelUid carries the thinking-effort suffix (`gemini-4-argon-high`)
+		// that varies between turns of one lane; strip it so every request
+		// lands on a stable per-lane model key.
+		model:
+			typeof raw.chatModelUid === "string"
+				? raw.chatModelUid.replace(/-(minimal|low|medium|high|xhigh|max)$/, "")
+				: "unknown",
+		system: raw.prompt,
+		tools: raw.tools,
+		messages,
+		cascadeId: raw.cascadeId,
+		requestType: raw.requestType,
+		plannerMode: raw.plannerMode,
+		toolChoice: bigintSafe(raw.toolChoice),
+		systemPromptCacheOptions: bigintSafe(raw.systemPromptCacheOptions),
+		disableParallelToolCalls: raw.disableParallelToolCalls,
+		configuration,
+	};
+	return { adapted, snapshot: { cascadeId: raw.cascadeId, ids, bodies } };
+}
+
+/** First index inside the shared length where the two lists differ. A plain
+ *  append is not drift, so only the overlapping range is compared. */
+function firstDriftWithin(a: string[], b: string[]): number | undefined {
+	const n = Math.min(a.length, b.length);
+	for (let i = 0; i < n; i++) if (a[i] !== b[i]) return i;
+	return undefined;
+}
+
+/** Per-request Devin identity record for the log, against the previous request
+ *  of the same session and model lane. Request-row only: `message_end` never
+ *  reads this map, so no response borrows request data. */
+function devinDrift(key: string, now: DevinSnapshot, model: string): Record<string, unknown> {
+	const slot = `${key}\0${model}`;
+	const before = devinLast.get(slot);
+	devinLast.set(slot, now);
+	return {
+		cascadeId: now.cascadeId,
+		prompts: now.ids.length,
+		idsSha: sha(now.ids),
+		cascadeChanged: before ? before.cascadeId !== now.cascadeId : undefined,
+		firstIdDrift: before ? firstDriftWithin(before.ids, now.ids) : undefined,
+		firstBodyDrift: before ? firstDriftWithin(before.bodies, now.bodies) : undefined,
+		prevPrompts: before?.ids.length,
+	};
+}
+
 export default function (pi: ExtensionAPI): void {
 	installHeaderProbe((fp, url, phase) => {
 		try {
@@ -832,7 +931,8 @@ export default function (pi: ExtensionAPI): void {
 		try {
 			const rawPayload: unknown = isRecord(event) && "payload" in event ? event.payload : event;
 			if (rawPayload === null || typeof rawPayload !== "object") return undefined;
-			const payload = rawPayload as Record<string, unknown>;
+			const devin = adaptDevinPayload(rawPayload);
+			const payload = devin?.adapted ?? (rawPayload as Record<string, unknown>);
 
             // Session identity: payload id wins; otherwise use the active session id
             // when available, with a process-local fallback for unresolvable calls.
@@ -883,6 +983,7 @@ export default function (pi: ExtensionAPI): void {
 					correlation: "request-only",
 					sharedPrefix: prev ? sharedPrefix(prev, next) : undefined,
 					diff: d,
+					devin: devin ? devinDrift(sessionKey, devin.snapshot, next.model) : undefined,
 					// A rewrite against the predecessor that is a clean append
 					// against an earlier request is the virtual-tail signature.
 					// Still reported, just explained.

@@ -513,3 +513,25 @@ Historical cutover below; the later "45% notebook midpoint checkpoint" decision 
 3. What happens to a legacy transcript without `session_init`? It revives through the old re-render path, no throw.
 4. Does peer routing change? No; `agent://<id>` messages still revive and wake the parked agent.
 5. Is anything deployed? Code and the extension mirror are installed; production activation waits for the old owners to exit and a clean restart.
+
+## Devin lane ported into the request-only cache-prefix audit (2026-10-16)
+
+- The Devin Cascade adapter was ported from the live mirror into `patches/cache-prefix-audit-extension.ts`: `DevinSnapshot`, `bigintSafe`, `adaptDevinPayload`, `firstDriftWithin` and `devinDrift`, plus the adapt-first step and the `devin` field inside `before_provider_request`. The mirror's model-suffix comment was corrected: the `chatModelUid` thinking-effort suffix is stripped so every request lands on a stable per-lane model key, not to pair a usage row. Request-only contract kept: the `devin` identity record lives on the request row only, `message_end` still emits `observedSessionId`, `correlation: "unavailable"` and `cause: "unknown"`, and no module-level slot is readable by the response path.
+- Rejected: syncing the repo copy over the live mirror verbatim — the mirror is the only place the Devin lane existed, so an unmodified sync would silently drop it (310 `devin`-tagged usage rows for `gpt-6-1-sol` in current logs).
+- Rejected: keeping the live mirror's causal lineage — it pairs `message_end` usage with `lastDiffByModel` and logs `sessionId: activeSessionKey`, which misattributes subagent responses to whichever session requested last; porting that would revert the 2026-10-12 request-only decision.
+- Rejected: copying `devinRecordByModel` — its only consumer was the causal usage row, and a module-level per-model record readable by `message_end` is exactly the response-borrowing mechanism the request-only contract removed.
+- Verification: `bun patches/verify-cache-prefix-audit.ts` gains a Devin lane (append, messageId rename, cascadeId change, shrinking `maxTokens`, credential/privacy sentinels, uncorrelated usage row) plus a mutation control whose neutralized `adaptDevinPayload` fails the append/id-rename/cascade scenarios.
+- Equivalence on real payloads (throwaway replay, deleted afterwards): the archived Devin payloads of two real sessions (38 `swe-2` requests and 94 mixed-lane requests) were replayed through the live mirror and the repo copy in separate processes with redirected log/state. All 132 request rows agree on model, message count, diff kind/index, `sharedPrefix`, `breakpoints`, `candidates` and the `devin` record (zero field differences).
+- Deployment: the live mirror was a divergent lineage (mtime 2026-10-14, matching no committed blob). It was replaced by the repo copy after `cmp` against a backup copy `cache-prefix-audit.ts.bak-20261016-pre-request-only`; `cmp patches/cache-prefix-audit-extension.ts ~/.omp/agent/extensions/cache-prefix-audit.ts` is identical and the verifier passes after the sync. Running processes keep the old module in memory; new processes load the request-only audit. From then on usage rows carry `observedSessionId` (from the emitting session's own `ctx.sessionManager`), never the last requester's session or a borrowed diff.
+- Known gap, unchanged: the header probe still labels `HEADER_DRIFT` rows with the module-level last-request session (the fetch wrapper has no session context and no request ID exists); those rows are best-effort.
+
+### Live check of the 0101 subagent prefix fix (2026-10-16, real provider, real task tool)
+
+- Probe agent `RevivalProbeA` (`sonic`, `deepseek-v4.1-flash`) yielded, parked after the 420 s idle TTL, and was revived by a message while a new live peer (`AuditDevinPort`) existed; its persisted roster listed only `Main` plus 11 parked peers, so a re-render would have differed.
+- Result: one `session_init` before and after; the four system block hashes are identical; the audit request row of the first post-revival request is `APPEND_ONLY` with `sharedPrefix` 5 (no `SYSTEM_DRIFT`); usage went from `input 6727 / cacheRead 4224` (cold start) to `input 239 / cacheRead 10880` (97.9% hit).
+- Not covered: no unpatched control run in the same process (the offline gate covers it: a1/a2/b fail without 0101; history shows 27/27 revival misses of 2-9% before the fix); the probe context is small.
+
+### Resume check of the notebook after the direct `/compact` change (2026-10-16)
+
+- The notebook head is frozen at compaction and later revisions are append-only delivery messages replayed at their receipt position; the checkpoint-removal delta touched only `agent-session.ts` and `session-maintenance.ts`, not the notebook projection or prompts.
+- Live: resuming this session in the new release at 13:03:47Z read 15,784 system+tools tokens written by the old process; the next 38 main requests chained exactly (`cacheRead[n] == cacheRead[n-1] + cacheWrite[n-1]`, 97.0% aggregate hit). A new rollover or compaction rewrites the history by design.

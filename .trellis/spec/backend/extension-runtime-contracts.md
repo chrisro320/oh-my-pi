@@ -321,7 +321,14 @@ interface Diff {
   Anthropic/OpenAI Chat (`messages`, `system`, `tools`), OpenAI Responses
   (`input`, `instructions`, `tools`), and nested Google formats
   (`request.contents`, `request.systemInstruction`, `request.tools`). It must
-  never return `undefined` for a valid conversation payload.
+  never return `undefined` for a valid conversation payload. Devin Cascade
+  payloads (`prompt`, `chatMessagePrompts`, `cascadeId`, `chatModelUid`) carry
+  none of these keys; `adaptDevinPayload()` re-expresses them in the generic
+  shape before fingerprinting, strips the `chatModelUid` thinking-effort
+  suffix into a stable per-lane model key, and drops `configuration.maxTokens`
+  because it shrinks every turn without touching the cache. The request row
+  carries a hash-only `devin` identity record; `metadata`, `executionId` and
+  `modelAssignmentJwt` are never read.
 - **Responses item identity**: role/content items hash normalized content.
   Role-less Responses items such as `function_call` and
   `function_call_output` hash the complete wire item except `cache_control` and
@@ -361,6 +368,7 @@ interface Diff {
 | Google Antigravity payload (`request.contents`) | Extracted without `undefined`; parts normalized |
 | Anthropic/OpenAI payload (`messages`) | Extracted with blocks normalized |
 | OpenAI Responses payload (`input`, `instructions`) | Map to messages/system; exclude both keys from envelope hashing |
+| Devin Cascade payload (`chatMessagePrompts`, `cascadeId`) | Adapted to the generic shape before fingerprinting; renamed `messageId` flags `HISTORY_REWRITE`, changed `cascadeId` flags `ENVELOPE_DRIFT`, `devin` record on request rows only |
 | Role-less Responses call/output changes in place | Flag as `HISTORY_REWRITE`; never collapse to `?:sha(undefined)` |
 | Non-conversation payload | Return `undefined` without error |
 | Multiple OMP processes run concurrently | Isolated to separate state files; zero cross-session drift |
