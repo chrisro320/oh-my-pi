@@ -1,0 +1,13 @@
+--- a/pi-coding-agent/src/task/executor.ts
++++ b/pi-coding-agent/src/task/executor.ts
+@@ -1157,6 +1157,10 @@
+ 		// rejected the context (#13211). A per-spawn override still wins.
+ 		"compaction.midTurnEnabled": true,
+ 		...overrides,
++		// Notes-backed context windows belong to the top-level session only. This pin
++		// lives in the child's own overlay layer, so it survives live parent edits, rides
++		// `overlayLayers()` into every warm/persisted revival, and outranks per-spawn overrides.
++		"compaction.experimentalContextManagement": false,
+ 	});
+ 	subagentSettings[kRootCompactionThresholds] = rootThresholds;
+ 	return subagentSettings;

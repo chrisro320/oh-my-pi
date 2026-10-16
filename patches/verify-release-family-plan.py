@@ -106,6 +106,18 @@ RETIRED_REPAIRS = (
         "dir": ".retired/10-15-18.10.1-0090-pre-google403",
         "family": "0090-omp-oauth-durable-refresh",
     },
+    {
+        "dir": ".retired/10-15-18.10.1-compaction-pre-child-notes",
+        "family": "family-compaction",
+    },
+    {
+        "dir": ".retired/10-15-18.10.1-compaction-pre-manual-notes",
+        "family": "family-compaction",
+    },
+    {
+        "dir": ".retired/10-16-18.10.1-compaction-pre-tail-notes",
+        "family": "family-compaction",
+    },
 )
 
 

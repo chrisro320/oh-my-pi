@@ -1,0 +1,1 @@
+{"version":"18.10.1","family":".18.10.1-families/family-compaction-v18.10.1.patch","root":"NM","previousFamily":"family-compaction-v18.10.1.patch","previousFamilySha256":"1bd955dde25ddd8aef3f971264f25bb509d5930e82f010bad8bff508e6362cd5","repair":"child-notes-disable.delta.patch","repairSha256":"4bcb290e422113531c4834010255cac8bf0771aa5fdc1948c26058a16cb91023"}

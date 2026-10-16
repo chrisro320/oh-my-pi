@@ -452,7 +452,7 @@
         "0089",
         "0096"
       ],
-      "sha256": "1bd955dde25ddd8aef3f971264f25bb509d5930e82f010bad8bff508e6362cd5",
+      "sha256": "bcd78ba8277c8f0defe34ac7475b76a81586e1151badbe3fc27d618e66e5a1a0",
       "paths": [
         "pi-agent-core/dist/types/compaction/anthropic.d.ts",
         "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
@@ -468,12 +468,17 @@
         "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
         "pi-ai/src/providers/openai-codex-responses.ts",
         "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/context-notes.d.ts",
         "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
         "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts",
+        "pi-coding-agent/src/prompts/system/context-notes.md",
         "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/context-notes.ts",
         "pi-coding-agent/src/session/session-advisors.ts",
+        "pi-coding-agent/src/session/session-context.ts",
         "pi-coding-agent/src/session/session-maintenance.ts",
-        "pi-coding-agent/src/session/session-provider-boundary.ts"
+        "pi-coding-agent/src/session/session-provider-boundary.ts",
+        "pi-coding-agent/src/task/executor.ts"
       ]
     },
     {
@@ -620,5 +625,5 @@
     }
   ],
   "pristine_tree_sha256": "e565fa89582d4c3a1d5773b210b311966e442b96f2086031953ee71f09c7d910",
-  "candidate_tree_sha256": "880ad5cc1190875ec89990221b66dd602dc5f90b8d2eeb73e18675fff653712b"
+  "candidate_tree_sha256": "a2666f6619249623cd3a86bd43dfda2ac9854e00dfa8f4d96d28f3b392d7c794"
 }

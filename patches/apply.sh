@@ -489,6 +489,8 @@ _omp_run_gates() {
 	_omp_gate 0050 verify-session-history-preview.ts
 	if [[ "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
 		_omp_gate "" verify-native-dialog-lifecycle.ts
+		_omp_gate "" verify-manual-notes-compaction.ts
+		_omp_gate "" verify-context-notes-append-projection.ts
 	fi
 	_omp_gate 0058 verify-devin-thinking-signature.ts
 	_omp_gate 0060 verify-devin-idle-cascade-pin.ts
