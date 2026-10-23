@@ -1,0 +1,28 @@
+{
+  "verifier": "context-notes-save-gate",
+  "status": "PASS",
+  "extension": "/home/chris/orca/projects/omp-move/patches/context-notes-save-gate.ts",
+  "extensionSha256": "0888e2a247bfa9e9d1f3ab30e1b2834886dd9c7997f68af75251017ed350ef4f",
+  "checks": [
+    "dormant: probes only, no veto while the notebook toolset is off",
+    "children: no repair or rollover veto, including depth-zero clones",
+    "journal state: freshness ordering, housekeeping, reset boundary, empty/rejected writes",
+    "gate: stale vetoes every attempt, bounded repair, overflow/idle guidance, live re-probe",
+    "marker: summary path waved through, notes-backed and absent markers veto, toolset-off untouched",
+    "receipts: read/failed/oversized writes, flush-failure rejection, navigation reset",
+    "quiet: no periodic injection across 50+/100+ ordinary turns",
+    "midpoint: 45 percent boundary, once per window, save/resume dedupe, reset, idle deferral and child isolation",
+    "hygiene: no journal writes, only bounded repair continuations"
+  ],
+  "mutationsRejected": [
+    "fails open instead of vetoing a stale rollover",
+    "ignores work after the notebook write",
+    "treats an empty notebook as saved",
+    "lets a repair rearm on every stale attempt",
+    "rearms a repair on an empty write",
+    "attaches the veto in child sessions",
+    "rejects a fresh notebook after a failed write that appended nothing",
+    "ignores the summary-path marker and vetoes every rollover",
+    "treats an absent marker as a summary-path compaction"
+  ]
+}

@@ -1,0 +1,261 @@
+{
+  "verifier": "manual-notes-compaction",
+  "root": "/home/chris/.bun/install/global/node_modules/@oh-my-pi",
+  "agentVersion": "18.7.0",
+  "checkpointCustomType": "manual-compaction-notes-checkpoint",
+  "scenarios": [
+    {
+      "name": "idle-new-write",
+      "ok": false,
+      "failures": [
+        "threw: the idle manual compaction must succeed"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "ignored-save",
+      "ok": false,
+      "failures": [
+        "threw: exactly one checkpoint turn must run"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "empty-save",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 0,
+        "outcome": "rejected:Error:provider request 3 classified \"user\", expected \"checkpoint\"",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:user"
+        ]
+      }
+    },
+    {
+      "name": "oversize-save",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 0,
+        "outcome": "rejected:Error:provider request 3 classified \"user\", expected \"checkpoint\"",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:user"
+        ]
+      }
+    },
+    {
+      "name": "work-after-save",
+      "ok": false,
+      "failures": [
+        "threw: the checkpoint revision still commits"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "duplicate-request",
+      "ok": false,
+      "failures": [
+        "threw: a duplicate request must not run a second checkpoint"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "abort-mid-checkpoint",
+      "ok": false,
+      "failures": [
+        "threw: timeout: checkpoint request reached the provider"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "busy-tool-batch",
+      "ok": false,
+      "failures": [
+        "threw: the whole tool batch must complete, got 0 results"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "child-session",
+      "ok": false,
+      "failures": [
+        "threw: the child rollover must still commit"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "notebook-disabled",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 0,
+        "compactions": 1,
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:user"
+        ]
+      }
+    },
+    {
+      "name": "plain-compact-fresh-notebook",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 0,
+        "compactions": 1,
+        "providerCalls": [
+          "1:user",
+          "2:user"
+        ]
+      }
+    },
+    {
+      "name": "plain-compact-stale-notebook-vetoed",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 0,
+        "checkpointMessages": 0,
+        "outcome": "rejected:CompactionCancelledError:Compaction cancelled",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:user"
+        ]
+      }
+    },
+    {
+      "name": "explicit-soft-mode-live-notebook",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 0,
+        "compactions": 1,
+        "outcome": "resolved",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:user",
+          "4:user"
+        ]
+      }
+    },
+    {
+      "name": "explicit-remote-mode-live-notebook",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 0,
+        "compactions": 1,
+        "outcome": "resolved",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:user",
+          "4:user"
+        ]
+      }
+    },
+    {
+      "name": "explicit-snapcompact-mode-live-notebook",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 0,
+        "compactions": 0,
+        "outcome": "rejected:Error:snapcompact cannot run locally: mock-model is text-only.",
+        "providerCalls": [
+          "1:user",
+          "2:user"
+        ]
+      }
+    },
+    {
+      "name": "focused-compact-live-notebook",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 0,
+        "compactions": 1,
+        "outcome": "resolved",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:user",
+          "4:user"
+        ]
+      }
+    },
+    {
+      "name": "child-session-plain-compact",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 0,
+        "compactions": 1,
+        "providerCalls": [
+          "1:user",
+          "2:user"
+        ]
+      }
+    },
+    {
+      "name": "context-mode-rejects-focus",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 0,
+        "checkpointMessages": 0,
+        "outcome": "rejected:Error:unexpected provider request 3: script exhausted",
+        "providerCalls": [
+          "1:user",
+          "2:user"
+        ]
+      }
+    },
+    {
+      "name": "context-mode-rejected-setting-off",
+      "ok": false,
+      "failures": [
+        "threw: the running tool must not be aborted by the rejected request"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "context-mode-rejected-tools-absent",
+      "ok": false,
+      "failures": [
+        "threw: the running tool must not be aborted by the rejected request"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "new-context-rollover-unchanged",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "providerCalls": [
+          "1:user",
+          "2:user"
+        ]
+      }
+    },
+    {
+      "name": "parse-compact-args",
+      "ok": false,
+      "failures": [
+        "threw: `context` must parse as the context mode"
+      ],
+      "observations": {}
+    }
+  ],
+  "runtimeErrors": [],
+  "status": "FAIL"
+}

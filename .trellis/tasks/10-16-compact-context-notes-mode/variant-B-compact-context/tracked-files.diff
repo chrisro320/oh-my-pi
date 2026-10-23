@@ -1,0 +1,940 @@
+diff --git a/.trellis/spec/backend/extension-runtime-contracts.md b/.trellis/spec/backend/extension-runtime-contracts.md
+index 3de925baf..dc655a8e0 100644
+--- a/.trellis/spec/backend/extension-runtime-contracts.md
++++ b/.trellis/spec/backend/extension-runtime-contracts.md
+@@ -1260,3 +1260,48 @@ OMP_RESUME_CACHE_LOG=/tmp/resume-cache-check.log bun patches/verify-resume-cache
+ Wrong: match the previous request by a conversation name (model + first message), hash only the newest message, hash a bare-string message differently from the provider's text-block rewrite, strip every nested `cache_control` (even inside `tool_use.input`), or always add the anchor at the tail.
+ Correct: match by session id plus a two-message tail hash, canonicalize a bare-string message to the provider's single text block before hashing, scan back to the eligible block, settle the TTL against the wire order, and fund the anchor by releasing the interior marker.
+ ```
++
++## Scenario: Compaction-path marker for the notebook save gate (18.10.1)
++
++### 1. Scope / Trigger
++
++`patches/context-notes-save-gate.ts` vetoes `session_before_compact` while the experimental notebook is stale. The hook event carries no mode, so summary-path compactions (plain `/compact`) were vetoed too. Trigger: any change that adds a compaction path, a `/compact` subcommand, or a `session_before_compact` emit site. Owner: `family-compaction-v18.10.1.patch` (runtime) and the extension (consumer).
++
++### 2. Signatures
++
++```ts
++interface SessionBeforeCompactEvent { notesBacked?: boolean } // false = summary path; true/absent = notes-backed
++type CompactMode = "soft" | "remote" | "snapcompact" | "context"
++```
++
++### 3. Contracts
++
++- Every emit site states its path: notes-backed rollover (`#compactExperimentalContext`, `#runExperimentalContextRollover`) emits `true`; summary paths (manual `compact()` summary pipeline, `runAutoCompaction`) emit `false`.
++- The gate waves through only `notesBacked === false`. Absent or `true` keeps the strict veto, so version skew in either direction stays fail-closed.
++- Only `/compact context` runs the hidden notes checkpoint and the notes-backed rollover; it is rejected before `disconnectFromAgent()`/`abort()` when the notebook is not live, and rejects focus text.
++
++### 4. Validation & Error Matrix
++
++| Condition | Required result |
++|---|---|
++| stale notebook, `notesBacked:false` | no veto, no repair message, no notice |
++| stale notebook, `true` or absent | veto, bounded repair as before |
++| `mode:"context"`, notebook not live | throw before abort; running turn survives |
++| new emit site without a marker | treated as notes-backed (veto); fix the site |
++
++### 5. Good / Base / Bad Cases
++
++- Good: plain `/compact` summarizes with a stale notebook; `/compact context` saves first.
++- Base: automatic rollover still vetoed while stale.
++- Bad: inferring the path from `customInstructions`, idle state or message shape inside the hook.
++
++### 6. Tests Required
++
++`bun patches/verify-context-notes-save-gate.ts` (marker scenarios plus mutations: marker ignored; absent treated as false) and `OMP_NM=<candidate> bun patches/verify-manual-notes-compaction.ts`. A gate harness MUST prove the real extension is live (marker-stripped control must veto): sessions built with `restrictToolNames` ignore `additionalExtensionPaths`, which once left the real gate unexercised. Re-grep `session_before_compact` over src and dist for every emit site.
++
++### 7. Wrong vs Correct
++
++```text
++Wrong: gate passes every manual compaction, or treats a missing marker as a summary path.
++Correct: pass only an explicit `false`; mark every emit site; keep absent = veto.
++```
+diff --git a/DECISIONS.md b/DECISIONS.md
+index 40f262e37..72fe427f0 100644
+--- a/DECISIONS.md
++++ b/DECISIONS.md
+@@ -471,3 +471,22 @@ Historical cutover below; the later "45% notebook midpoint checkpoint" decision
+ 4. May recovery append a notebook while another tool batch is running? No; the active run owns safe aside delivery.
+ 5. What promotes the latest revision into the new head? Compaction, with the existing native Anthropic ordering exception.
+ 
++## Notes checkpoint only for `/compact context` (2026-10-16)
++
++- User ask: stop recording notes before plain compaction; record only when the compact subcommand is `context`. The ask timed out unanswered, so the recommended defaults were taken and are NOT user-confirmed: (1) "context" means a new manual subcommand `/compact context`; (2) plain `/compact` under a live notebook takes the configured `compaction.methodOrder` summary path; (3) repository and verifiers only, no deployment.
++- Behavior: `/compact context` is the only manual path that runs the hidden `manual-compaction-notes-checkpoint` and then the notes-backed rollover. Plain `/compact`, `/compact soft|remote|snapcompact`, focus text and `internalGuidance` never checkpoint and never reach `#compactExperimentalContext`. `context` rejects focus text and, when the notebook is not live, rejects before `disconnectFromAgent()`/`abort()` so a running turn survives. Automatic compaction, child sessions and notebook-disabled sessions are unchanged.
++- Gate coupling: the strict save gate vetoed every `session_before_compact`, so a stale notebook would have blocked the new summary path. `SessionBeforeCompactEvent.notesBacked?: boolean` is emitted `true` at both notes-backed rollover sites and `false` at both summary sites; the gate skips only an explicit `false`. An absent marker still vetoes, so a new extension on an old runtime and an old extension on any runtime both stay fail-closed. Consequence of the old extension on the new runtime: plain `/compact` with a stale notebook is still vetoed until the extension mirror is redeployed.
++- Rejected: keeping plain `/compact` notes-backed without the checkpoint (the gate would veto it whenever the notebook is stale, so "don't record" would mean "refuse"); letting the gate pass every manual compaction (would also pass `/compact context`); inferring mode from `customInstructions` or idle state inside the hook (no reliable signal); a new `compaction.methodOrder` value `context` (no such method exists; widens the change); a new setting or patch family.
++- Behavior change for callers that pass no mode and previously received the notes-backed rollover under a live notebook: TUI/ACP slash `/compact`, RPC `compact` (no mode field, so RPC clients cannot request `context`), compact-first model switch (`selector-controller.ts`), loop-mode compact iterations, and extension/SDK `ctx.compact()` without options (extensions opt in with `{ mode: "context" }`). No installed local extension calls `compact`. These callers now summarize instead of rolling over.
++- Patch integration: `family-compaction-v18.10.1.patch` regenerated from the pinned prefix (family SHA-256 `4aae367192272590c86277dfe93e1e6f4d1535fea055adaa22d937cfab3d15c0`, candidate tree `366940414a5424afefa0c4f681b13ec0a27be8259bb47550813510fe92051bcd`). Superseded family, generated delta and baseline are pinned under `patches/.retired/10-16-18.10.1-compaction-pre-compact-context/`. The stock `dist/cli.js` bundle stays unmarked by design (source entrypoints execute under Bun, per PATCHES.md).
++- Verification: `verify-manual-notes-compaction.ts` 19/19 on the candidate tree and 16/19 failing on the pre-change installed runtime; `verify-context-notes-save-gate.ts` passes with nine mutation controls rejected (two new: marker ignored, absent marker treated as summary); `verify-context-notes-append-projection.ts` 14/14 unchanged; family oracle 26 families / 61 capabilities (zero-fuzz forward, reverse to pristine, identical second replay, read-only controller identification). An independent read-only reviewer re-ran the gates, enumerated all emit sites and callers, and returned approve with no findings. Evidence: `.notes-compact-context-smoke/`.
++- Verification gap found: the earlier manual-checkpoint harness never loaded the save gate (sessions with `restrictToolNames` ignore `additionalExtensionPaths`), so its "no repair turn" claim was not exercised against the real gate. The harness now injects the real gate through `preloadedPreparedExtensions`, and a marker-stripped control proves the gate is live. The automatic summary-path `notesBacked:false` site is verified by diff and grep only, not executed.
++- Not done: deployment, installed extension mirror `~/.omp/agent/extensions/context-notes-save-gate.ts`, live-provider smoke. Activation needs an immutable-release publish plus the extension mirror copy and a clean restart; no hot activation is claimed.
++
++### Five-question check
++
++1. Which manual command records notes first? Only `/compact context`.
++2. What does plain `/compact` do under a live notebook now? Summary compaction by `compaction.methodOrder`, with no checkpoint and no gate veto.
++3. What does an absent `notesBacked` marker mean to the gate? Notes-backed, so it vetoes while the notebook is stale.
++4. What happens on `/compact context` when the notebook is not live? An immediate rejection before the running turn is aborted.
++5. Is anything deployed? No; runtime release publish and the extension mirror copy are separate steps.
+diff --git a/patches/.18.10.1-families/family-compaction-v18.10.1.patch b/patches/.18.10.1-families/family-compaction-v18.10.1.patch
+index 17dd2c57e..ce5a085bf 100644
+--- a/patches/.18.10.1-families/family-compaction-v18.10.1.patch
++++ b/patches/.18.10.1-families/family-compaction-v18.10.1.patch
+@@ -3393,6 +3393,21 @@
+  export class CodexWebSocketTransportError extends Error {
+  	constructor(detail: string, options?: ErrorOptions) {
+  		super(`${CODEX_WEBSOCKET_TRANSPORT_ERROR_PREFIX}: ${detail}`, options);
++--- a/pi-coding-agent/dist/types/extensibility/extensions/types.d.ts
+++++ b/pi-coding-agent/dist/types/extensibility/extensions/types.d.ts
++@@ -217,7 +217,11 @@
++     /**
++      * Force a one-off compaction mode for this invocation, replacing the
++      * configured `compaction.methodOrder` (`/compact soft`, `remote`, or
++-     * `snapcompact`). Omitted = configured preference order.
+++     * `snapcompact`). Omitted = configured preference order. `context` saves the
+++     * notebook (one hidden checkpoint turn) and then rolls over from it; it needs
+++     * `compaction.experimentalContextManagement` with the notebook tools live and
+++     * takes no focus text. With no mode and no focus text, a live notebook still takes
+++     * the notebook rollover, without a checkpoint.
++      */
++     mode?: CompactMode;
++     /**
+ --- a/pi-coding-agent/dist/types/session/agent-session.d.ts
+ +++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
+ @@ -603,6 +603,8 @@
+@@ -3404,6 +3419,27 @@
+      /** Apply session-level stream hooks to a direct side request. */
+      prepareSimpleStreamOptions(options: SimpleStreamOptions, provider?: string): SimpleStreamOptions;
+      /** Current steering mode */
++--- a/pi-coding-agent/dist/types/session/compact-modes.d.ts
+++++ b/pi-coding-agent/dist/types/session/compact-modes.d.ts
++@@ -12,7 +12,7 @@
++  */
++ import type { CompactionMethod } from "./compaction-methods.js";
++ /** Subcommand selecting a one-off compaction mode for manual `/compact`. */
++-export type CompactMode = "soft" | "remote" | "snapcompact";
+++export type CompactMode = "soft" | "remote" | "snapcompact" | "context";
++ /**
++  * Per-invocation ordered methods merged over the configured
++  * `compaction.methodOrder` for this run.
++@@ -29,7 +29,8 @@
++     /**
++      * When true, the mode produces no LLM summary, so trailing focus text is
++      * meaningless and rejected by the parser (snapcompact archives history into
++-     * images without a directed summary).
+++     * images and context rolls over from the saved notebook, both without a
+++     * directed summary).
++      */
++     readonly rejectsFocus?: boolean;
++ }
+ --- a/pi-coding-agent/dist/types/session/context-notes.d.ts
+ +++ b/pi-coding-agent/dist/types/session/context-notes.d.ts
+ @@ -1,3 +1,4 @@
+@@ -3474,6 +3510,21 @@
+  }
+ +export declare function prefixCarriesCompactionSummary(messages: AgentMessage[]): boolean;
+ +export declare function sharesActivePromptCacheIdentity(candidate: Model | undefined, activeModel: Model | undefined): boolean;
++--- a/pi-coding-agent/src/extensibility/extensions/types.ts
+++++ b/pi-coding-agent/src/extensibility/extensions/types.ts
++@@ -398,7 +398,11 @@
++ 	/**
++ 	 * Force a one-off compaction mode for this invocation, replacing the
++ 	 * configured `compaction.methodOrder` (`/compact soft`, `remote`, or
++-	 * `snapcompact`). Omitted = configured preference order.
+++	 * `snapcompact`). Omitted = configured preference order. `context` saves the
+++	 * notebook (one hidden checkpoint turn) and then rolls over from it; it needs
+++	 * `compaction.experimentalContextManagement` with the notebook tools live and
+++	 * takes no focus text. With no mode and no focus text, a live notebook still takes
+++	 * the notebook rollover, without a checkpoint.
++ 	 */
++ 	mode?: CompactMode;
++ 	/**
+ --- a/pi-coding-agent/src/prompts/system/context-notes.md
+ +++ b/pi-coding-agent/src/prompts/system/context-notes.md
+ @@ -1,5 +1,6 @@
+@@ -3716,6 +3767,49 @@
+  			await this.agent.prompt(message);
+  			await this.#waitForPostPromptRecovery();
+  			return true;
++--- a/pi-coding-agent/src/session/compact-modes.ts
+++++ b/pi-coding-agent/src/session/compact-modes.ts
++@@ -13,7 +13,7 @@
++ import type { CompactionMethod } from "./compaction-methods";
++ 
++ /** Subcommand selecting a one-off compaction mode for manual `/compact`. */
++-export type CompactMode = "soft" | "remote" | "snapcompact";
+++export type CompactMode = "soft" | "remote" | "snapcompact" | "context";
++ 
++ /**
++  * Per-invocation ordered methods merged over the configured
++@@ -32,7 +32,8 @@
++ 	/**
++ 	 * When true, the mode produces no LLM summary, so trailing focus text is
++ 	 * meaningless and rejected by the parser (snapcompact archives history into
++-	 * images without a directed summary).
+++	 * images and context rolls over from the saved notebook, both without a
+++	 * directed summary).
++ 	 */
++ 	readonly rejectsFocus?: boolean;
++ }
++@@ -52,6 +53,12 @@
++ 		name: "snapcompact",
++ 		description: "Archive history onto dense bitmap images the model reads back (no LLM call)",
++ 		overrides: { methodOrder: ["snapcompact"] },
+++		rejectsFocus: true,
+++	},
+++	{
+++		name: "context",
+++		description: "Save the notebook, then roll over from it without an LLM summary (needs experimental context management)",
+++		overrides: {},
++ 		rejectsFocus: true,
++ 	},
++ ];
++@@ -90,7 +97,7 @@
++ 	const focus = spaceIndex === -1 ? "" : trimmed.slice(spaceIndex + 1).trim();
++ 	if (mode.rejectsFocus && focus) {
++ 		return {
++-			error: `/compact ${mode.name} does not take focus instructions (it archives history without an LLM summary).`,
+++			error: `/compact ${mode.name} does not take focus instructions (it compacts without a directed LLM summary).`,
++ 		};
++ 	}
++ 	return { mode: mode.name, instructions: focus || undefined };
+ --- a/pi-coding-agent/src/session/context-notes.ts
+ +++ b/pi-coding-agent/src/session/context-notes.ts
+ @@ -1,4 +1,5 @@
+@@ -4135,13 +4229,24 @@
+  	obfuscateTextForProvider(text: string | undefined): string | undefined;
+  	obfuscatePreparationForProvider(preparation: CompactionPreparation): CompactionPreparation;
+  	closeCodexProviderSessionsForHistoryRewrite(): void;
+-@@ -1173,6 +1247,20 @@
++@@ -1133,6 +1207,10 @@
++ 		if (compactMode?.rejectsFocus && (customInstructions || options?.internalGuidance)) {
++ 			throw new Error(`/compact ${compactMode.name} does not take focus instructions.`);
++ 		}
+++		// `/compact context` rolls over from the saved notebook, so the notebook tools must be
+++		// live. Validate here, before the abort below, so a rejected request never interrupts
+++		// a running turn.
+++		if (options?.mode === "context") this.#assertContextModeAvailable();
++ 		let methods: CompactionMethod[] = [];
++ 		let selectedMethodIndex = -1;
++ 		let compactionCommitted = false;
++@@ -1173,6 +1251,20 @@
+  
+  		try {
+  			if (ownsCompactionController) {
+-+				// An explicit default notes-backed compaction first asks the model for ONE notebook
+-+				// save, before this pass aborts anything. The pass already owns the compaction
+-+				// marker, so auto-rollover, new_context and duplicate manual requests are held off
+++				// `/compact context` first asks the model for ONE notebook save, before this pass
+++				// aborts anything. The pass already owns the compaction marker, so auto-rollover,
+++				// new_context and duplicate manual requests are held off
+ +				// while it waits; a stale or unsaved result cancels the compaction here, before
+ +				// `session_before_compact` hooks can run. An inherited resume stays owed on failure.
+ +				const notesCheckpoint = this.#manualNotesCheckpointBaseline(customInstructions, options);
+@@ -4156,7 +4261,19 @@
+  				// A manual compaction aborts the live turn, tool loop included. Without a
+  				// resume the agent sits idle on a half-finished loop (an autoresearch run,
+  				// a pending tool result) until the user types "continue" by hand.
+-@@ -1558,7 +1646,7 @@
++@@ -1193,9 +1285,10 @@
++ 			if (!activeModel) {
++ 				throw new Error("No model selected");
++ 			}
+++			if (options?.mode === "context") this.#assertContextModeAvailable();
++ 			if (
++ 				this.#usesExperimentalContextManagement() &&
++-				!options?.mode &&
+++				(!options?.mode || options.mode === "context") &&
++ 				!customInstructions &&
++ 				!options?.internalGuidance
++ 			) {
++@@ -1558,7 +1651,7 @@
+  			) {
+  				this.#host.emitNotice(
+  					"warning",
+@@ -4165,13 +4282,20 @@
+  					"compaction",
+  				);
+  				return await this.compact(
+-@@ -1604,6 +1692,39 @@
+- 				}
+- 			}
++@@ -1606,10 +1699,52 @@
+  		}
++ 	}
++ 
+++	/** Throws unless the notebook-backed rollover tools are live, which `/compact context` requires. */
+++	#assertContextModeAvailable(): void {
+++		if (!this.#usesExperimentalContextManagement()) {
+++			throw new Error(
+++				"/compact context requires compaction.experimentalContextManagement and the context_notes, new_context, read and grep tools.",
+++			);
+++		}
+ +	}
+ +
+-+	/** Branch snapshot for a manual notes checkpoint, or `undefined` when none applies (subagent, nothing to roll over). */
+++	/** Branch snapshot for the `/compact context` notes checkpoint, or `undefined` when none applies (any other mode, subagent, nothing to roll over). */
+ +	#manualNotesCheckpointBaseline(
+ +		customInstructions: string | undefined,
+ +		options: CompactOptions | undefined,
+@@ -4181,7 +4305,7 @@
+ +			!model ||
+ +			!this.#host.isMainSession() ||
+ +			!this.#usesExperimentalContextManagement() ||
+-+			options?.mode ||
+++			options?.mode !== "context" ||
+ +			customInstructions ||
+ +			options?.internalGuidance
+ +		) {
+@@ -4202,10 +4326,18 @@
+ +		}
+ +		const failure = notesCheckpointFailure(this.#host.sessionManager.getBranchView(), baseline);
+ +		if (failure) throw new Error(`手動壓縮已取消：存檔檢查點未留下已提交且最新的筆記（${failure}）。未建立壓縮邊界。`);
+- 	}
+- 
+++	}
+++
+  	/**
+-@@ -2137,6 +2258,14 @@
++ 	 * Commit a notebook-backed boundary without generating, imaging, or otherwise
++-	 * rewriting the canonical transcript. Explicit compact modes and focused
++-	 * manual compactions deliberately bypass this path.
+++	 * rewriting the canonical transcript. Explicit summary modes (`soft`, `remote`,
+++	 * `snapcompact`) and focused manual compactions deliberately bypass this path.
++ 	 */
++ 	async #compactExperimentalContext(
++ 		model: Model,
++@@ -2137,6 +2272,14 @@
+  		const method = resolveSpeculationMethod(model, settings, {
+  			skipRemote: this.#nativeSpeculationFailed(model),
+  		});
+@@ -4220,7 +4352,7 @@
+  		if (!method) return;
+  		this.#startSpeculationRun(contextTokens, method);
+  	}
+-@@ -2212,6 +2341,14 @@
++@@ -2212,6 +2355,14 @@
+  		const method = resolveSpeculationMethod(model, settings, {
+  			skipRemote: this.#nativeSpeculationFailed(model),
+  		});
+@@ -4235,7 +4367,7 @@
+  		if (!method) return false;
+  		const thresholdTokens = resolveThresholdTokens(contextWindow, settings);
+  		const graceCapTokens = Math.min(
+-@@ -2281,8 +2418,11 @@
++@@ -2281,8 +2432,11 @@
+  			if (compactionPrep.kind === "fromHook") return clear();
+  			const candidates = this.#getCompactionModelCandidates(
+  				this.#host.modelRegistry.getAvailable(),
+@@ -4249,7 +4381,7 @@
+  					: undefined,
+  			);
+  			if (candidates.length === 0) return clear();
+-@@ -3536,6 +3676,68 @@
++@@ -3536,6 +3690,68 @@
+  		);
+  	}
+  
+@@ -4318,7 +4450,7 @@
+  	async #compactWithFallbackModel(
+  		preparation: CompactionPreparation,
+  		customInstructions: string | undefined,
+-@@ -3573,6 +3775,7 @@
++@@ -3573,6 +3789,7 @@
+  						buildProviderContext: (summarized, retained, signal) =>
+  							this.#host.buildLiveProviderContext(summarized, retained, signal),
+  						isUserAuthored: isUserAuthoredMessage,
+@@ -4326,7 +4458,7 @@
+  						telemetry,
+  						// Honor the user's /model thinking selection (incl. `off`) on
+  						// the manual `/compact` path. Clamped per-model inside compact()
+-@@ -3580,10 +3783,10 @@
++@@ -3580,10 +3797,10 @@
+  						// (xai-oauth/grok-build) don't trip requireSupportedEffort.
+  						thinkingLevel: this.#host.thinkingLevel(),
+  						tools: this.#host.agent.state.tools,
+@@ -4339,7 +4471,7 @@
+  						// Route every summarization HTTP request through the
+  						// session's side-stream transport so the provider
+  						// concurrency cap (e.g. providers.ollama-cloud.maxConcurrency)
+-@@ -5144,6 +5347,7 @@
++@@ -5144,6 +5361,7 @@
+  									buildProviderContext: (summarized, retained, signal) =>
+  										this.#host.buildLiveProviderContext(summarized, retained, signal),
+  									isUserAuthored: isUserAuthoredMessage,
+@@ -4347,7 +4479,7 @@
+  									telemetry,
+  									// Honor the user's /model thinking selection on the
+  									// auto-compaction path — the most-fired compaction
+-@@ -5165,9 +5369,11 @@
++@@ -5165,9 +5383,11 @@
+  							);
+  							break;
+  						} catch (error) {
+@@ -4360,7 +4492,7 @@
+  
+  							const message = error instanceof Error ? error.message : String(error);
+  							const id = AIError.classify(
+-@@ -5178,7 +5384,7 @@
++@@ -5178,7 +5398,7 @@
+  								if (!nativeCompactionFailure) lastError = this.#buildCompactionAuthError();
+  								break;
+  							}
+@@ -4369,7 +4501,7 @@
+  								const nativeFailure = error instanceof NativeCompactionError;
+  								logger.warn(
+  									nativeFailure
+-@@ -5211,9 +5417,11 @@
++@@ -5211,9 +5431,11 @@
+  								retrySettings.enabled &&
+  								attempt < retrySettings.maxRetries &&
+  								!AIError.is(id, AIError.Flag.ContextOverflow) &&
+@@ -4384,7 +4516,7 @@
+  							if (!shouldRetry) {
+  								if (error instanceof NativeCompactionError) {
+  									nativeCompactionFailure ??= { error, provider: candidate.provider };
+-@@ -5303,7 +5511,7 @@
++@@ -5303,7 +5525,7 @@
+  				},
+  			});
+  		} catch (error) {
+@@ -4393,7 +4525,7 @@
+  				await this.#emitLifecycleEvent(
+  					{
+  						type: "auto_compaction_end",
+-@@ -5335,10 +5543,11 @@
++@@ -5335,10 +5557,11 @@
+  						result: undefined,
+  						aborted: false,
+  						willRetry: false,
+diff --git a/patches/.18.10.1-families/manifest.json b/patches/.18.10.1-families/manifest.json
+index 689c34927..5e23eeb2c 100644
+--- a/patches/.18.10.1-families/manifest.json
++++ b/patches/.18.10.1-families/manifest.json
+@@ -452,7 +452,7 @@
+         "0089",
+         "0096"
+       ],
+-      "sha256": "bcd78ba8277c8f0defe34ac7475b76a81586e1151badbe3fc27d618e66e5a1a0",
++      "sha256": "60cf96ec120fb69ebe092d17e8233407af5714fd1dc36ba01db76ab7b0234f78",
+       "paths": [
+         "pi-agent-core/dist/types/compaction/anthropic.d.ts",
+         "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+@@ -467,12 +467,16 @@
+         "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+         "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+         "pi-ai/src/providers/openai-codex-responses.ts",
++        "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+         "pi-coding-agent/dist/types/session/agent-session.d.ts",
++        "pi-coding-agent/dist/types/session/compact-modes.d.ts",
+         "pi-coding-agent/dist/types/session/context-notes.d.ts",
+         "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+         "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts",
++        "pi-coding-agent/src/extensibility/extensions/types.ts",
+         "pi-coding-agent/src/prompts/system/context-notes.md",
+         "pi-coding-agent/src/session/agent-session.ts",
++        "pi-coding-agent/src/session/compact-modes.ts",
+         "pi-coding-agent/src/session/context-notes.ts",
+         "pi-coding-agent/src/session/session-advisors.ts",
+         "pi-coding-agent/src/session/session-context.ts",
+@@ -625,5 +629,5 @@
+     }
+   ],
+   "pristine_tree_sha256": "e565fa89582d4c3a1d5773b210b311966e442b96f2086031953ee71f09c7d910",
+-  "candidate_tree_sha256": "a2666f6619249623cd3a86bd43dfda2ac9854e00dfa8f4d96d28f3b392d7c794"
++  "candidate_tree_sha256": "b7d28ca6e3eff7c4a8a600bf3fdaad8cb80d873ecf613d0ceca011685002df94"
+ }
+diff --git a/patches/PATCHES.md b/patches/PATCHES.md
+index b765eadc2..dc9f2ac3e 100644
+--- a/patches/PATCHES.md
++++ b/patches/PATCHES.md
+@@ -1262,6 +1262,10 @@ Historical representation note: the following 18.4.4 tail placement and layer co
+   - Append-only notebook projection (2026-10-16, existing `family-compaction`): changed saves stay at their safe chronological delivery position, including the first save; resume no longer promotes the latest notebook into the head. Compaction alone folds the newest revision into the new head, preserving native Anthropic's leading block/retained tool group. Same-text saves retain checkpoint receipts without duplicate injection; clear emits a tombstone. Interrupted saves recover before the next idle dispatch, never during an active tool batch. No additional schema, setting, state file or plugin. Archive: `.retired/10-16-18.10.1-compaction-pre-tail-notes/`; representation proof: `.notes-tail-smoke/family-oracle.json`. Gate: `OMP_NM=<candidate>/node_modules/@oh-my-pi bun patches/verify-context-notes-append-projection.ts`.
+   - Real-SDK projection proof: fourteen candidate scenarios pass, including a real nested JavaScript eval save, live/resume model-visible prefix parity, steering/abort boundaries, same-text receipts, clear/tombstone, compaction promotion, native signed-thinking ordering and branch/reset isolation. Old installed control fails the thirteen changed paths; its unchanged native ordering case still passes. Evidence: `.notes-tail-smoke/projection.json` and `projection.before.json`. Mock transport/private HOME with fetch denied; this is not a measured remote cache-hit guarantee.
+   - Published immutable release `18.10.1-a2666f661924-ce8d42bf-0765dba2`; installed-path projection gate passes all fourteen cases and the private installation smoke passes all six checks. Receipts: `.notes-tail-smoke/{preparation,publication,projection.installed,installed-private-smoke}.json`. Code installation is complete, but current-session upgrade and production activation remain false until the old session/broker owners exit cleanly. No forced termination or in-place installed-code edit.
++  - `/compact context` (2026-10-16, existing `family-compaction`; narrows the "explicit default manual compaction" notes checkpoint above): `CompactMode` gains `context`, the ONLY manual path that records notes (hidden `manual-compaction-notes-checkpoint` turn, then the notes-backed rollover). `/compact context` takes no focus text and is rejected before the running turn is aborted when `compaction.experimentalContextManagement` or the context_notes/new_context/read/grep tools are missing. Plain `/compact` (no mode, focus text or `internalGuidance`) keeps its notes-backed routing with a live notebook but no longer runs the checkpoint turn, so the strict save gate judges the notebook as it stands: a fresh notebook rolls over, a stale one is vetoed. Explicit `soft|remote|snapcompact`, focus text, `internalGuidance`, automatic compaction, child sessions and notebook-disabled sessions are unchanged. No event marker and no gate change: `context-notes-save-gate.ts` stays strict.
++  - Behavior change vs the previous revision: only the removal of the automatic checkpoint for every no-mode caller of `compact()` with a live notebook (TUI/ACP/RPC slash `/compact`, RPC `compact`, session-only model switch with compact-first, loop-mode `compact`, extension/ACP `ctx.compact(string | CompactOptions)`); routing is unchanged. Extensions and slash users opt in to the checkpoint with `{ mode: "context" }` / `/compact context`. `RpcClient.compact` has no mode argument, so RPC clients cannot request the checkpoint.
++  - Archive: `.retired/10-16-18.10.1-compaction-pre-compact-context/` (superseded family bytes, generated delta, `baseline.json` hashes). Family SHA-256 `60cf96ec120fb69ebe092d17e8233407af5714fd1dc36ba01db76ab7b0234f78`; candidate tree `b7d28ca6e3eff7c4a8a600bf3fdaad8cb80d873ecf613d0ceca011685002df94`. The 26-family / 61-capability oracle passes zero-fuzz forward, reverse-to-pristine, identical second replay and read-only controller identification: `.notes-compact-context-smoke/family-oracle.json`, `family-regeneration.json`.
++  - Proof: `patches/verify-manual-notes-compaction.ts` loads the real gate through `preloadedPreparedExtensions` (the earlier `additionalExtensionPaths` option is ignored by `restrictToolNames` sessions, so the gate was never loaded there) and passes 22 scenarios on the candidate: the nine checkpoint scenarios retargeted to `mode: "context"`, plain compaction with a fresh notebook (zero checkpoint turns, notes rollover committed) and a stale notebook (vetoed by the real gate, nothing committed), explicit soft/remote/snapcompact and focused compaction (zero checkpoint turns, summary path), child and notebook-disabled sessions, `/compact context` rejected without aborting a running turn (setting off, tools absent) or with focus text, the `new_context` rollover, and `parseCompactArgs`. Against the previously installed runtime 10 of 22 fail (the new `context` behavior). `verify-context-notes-append-projection.ts` (focused compaction only) passes all fourteen scenarios unchanged; `verify-context-notes-save-gate.ts` passes untouched. Evidence: `.notes-compact-context-smoke/{manual,manual.before,projection}.json`. Not deployed; installed mirror and runtime untouched.
+ 
+ - `patches/payload-dump-extension.ts`：prompt 缓存探测（`OMP_DUMP` / `OMP_DUMP_EXIT`）
+ 
+diff --git a/patches/verify-manual-notes-compaction.ts b/patches/verify-manual-notes-compaction.ts
+index e16602fc1..f8aa26a32 100644
+--- a/patches/verify-manual-notes-compaction.ts
++++ b/patches/verify-manual-notes-compaction.ts
+@@ -1,12 +1,14 @@
+-// Manual notes-backed compaction checkpoint — consumer behaviour gate.
++// `/compact context` notes checkpoint and plain-compact routing — consumer behaviour gate.
+ //
+-// When the experimental notebook is live on the MAIN session, a plain manual
+-// compaction (`session.compact()` with no mode / customInstructions /
+-// internalGuidance) must first run ONE hidden notebook checkpoint turn before
++// `/compact context` (`session.compact(undefined, { mode: "context" })`) is the
++// ONLY manual path that records notes: with the experimental notebook live on the
++// MAIN session it first runs ONE hidden notebook checkpoint turn, then commits
+ // the notes-backed rollover. The checkpoint is a real persisted agent turn
+ // driven by a hidden `custom_message` (`manual-compaction-notes-checkpoint`);
+ // the model is asked to call `context_notes`. The rollover itself makes no
+-// provider request.
++// provider request. Plain `compact()` (no mode, focus text or internalGuidance)
++// keeps the notes-backed rollover routing but runs NO checkpoint turn, so the
++// real save gate judges the notebook as it stands.
+ //
+ // The gate asserts CONSUMER behaviour, never wording, wiring or defaults:
+ //   - a new committed non-empty notebook revision newer than the pre-checkpoint
+@@ -20,7 +22,15 @@
+ //     revision, boundary or turn after the response is released;
+ //   - a busy live tool batch must not be interrupted (checkpoint arrives as an
+ //     aside at a step boundary), and the batch's tool results all land;
+-//   - a child session and a non-notebook session never checkpoint.
++//   - a child session and a non-notebook session never checkpoint;
++//   - plain compaction with a FRESH notebook runs zero checkpoint turns and commits
++//     the notes rollover through the loaded gate; with a STALE notebook the real
++//     gate vetoes it (no compaction, no checkpoint);
++//   - explicit summary modes and focus text run zero checkpoint turns and keep the
++//     summary path;
++//   - `/compact context` without a live notebook, or with focus text, is rejected
++//     before the running turn is aborted;
++//   - `parseCompactArgs` accepts `context` and rejects `context <focus>`.
+ //
+ // Root selection mirrors the other gates: OMP_NM (absolute @oh-my-pi path),
+ // then OMP_PATCH_VERIFY_NM, then the local install. It runs against a private
+@@ -38,6 +48,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+ import { homedir, tmpdir } from "node:os";
+ import { dirname, join, resolve } from "node:path";
+ 
++import contextNotesSaveGate from "./context-notes-save-gate.ts";
++
+ const NM =
+ 	process.env.OMP_NM ?? process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+ const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
+@@ -86,6 +98,7 @@ const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
+ const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
+ const { initializeExtensions } = await import(`${AGENT_ROOT}/src/modes/runtime-init.ts`);
+ const { CONTEXT_NOTES_ENTRY_TYPE, MAX_CONTEXT_NOTES_BYTES } = await import(`${AGENT_ROOT}/src/session/context-notes.ts`);
++const { parseCompactArgs, COMPACT_MODES } = await import(`${AGENT_ROOT}/src/session/compact-modes.ts`);
+ const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
+ 
+ const CHECKPOINT_CUSTOM_TYPE = "manual-compaction-notes-checkpoint";
+@@ -143,14 +156,21 @@ const expect = (condition: unknown, message: string): void => {
+ 	if (!condition) throw new Error(message);
+ };
+ 
+-type Entry = { type?: string; customType?: string; details?: unknown; message?: { role?: string; toolName?: string; isError?: boolean } };
++type Entry = {
++	type?: string;
++	customType?: string;
++	details?: unknown;
++	summary?: string;
++	message?: { role?: string; toolName?: string; isError?: boolean; stopReason?: string };
++};
+ /** The AgentSession surface this gate drives; the rest of the runtime is untouched. */
+ interface HarnessSession {
+ 	prompt(text: string): Promise<unknown>;
+-	compact(): Promise<unknown>;
++	compact(customInstructions?: string, options?: { mode?: string }): Promise<unknown>;
+ 	waitForIdle(): Promise<void>;
+ 	abortCompaction(reason?: unknown): void;
+ 	subscribe(listener: (event: { type: string }) => void): () => void;
++	extensionRunner?: { hasHandlers(name: string): boolean };
+ 	dispose(): Promise<void>;
+ }
+ 
+@@ -205,7 +225,10 @@ async function makeSession(options: {
+ 		settings,
+ 		model: options.model,
+ 		sessionManager: manager,
+-		additionalExtensionPaths: (options.gate ?? true) ? [GATE_PATH] : [],
++		// `restrictToolNames` sessions ignore `additionalExtensionPaths`; only prepared
++		// extensions bind, so the real gate factory is handed over explicitly.
++		preloadedPreparedExtensions:
++			(options.gate ?? true) ? [{ path: GATE_PATH, resolvedPath: GATE_PATH, factory: contextNotesSaveGate, error: null }] : [],
+ 		disableExtensionDiscovery: true,
+ 		skills: [],
+ 		rules: [],
+@@ -323,15 +346,18 @@ async function run(options: {
+ 	});
+ }
+ 
+-const compactOutcome = (harness: Harness): Promise<string> =>
+-	harness.session.compact().then(
++const CONTEXT_MODE = { mode: "context" };
++const compactOutcome = (harness: Harness, options?: { mode?: string }, customInstructions?: string): Promise<string> =>
++	harness.session.compact(customInstructions, options).then(
+ 		() => "resolved",
+ 		(error: Error) => `rejected:${error.name}:${error.message}`,
+ 	);
++const detailsKind = (entry: Entry): unknown =>
++	typeof entry.details === "object" && entry.details !== null && "kind" in entry.details ? entry.details.kind : undefined;
+ 
+ // --------------------------------------------------------------- scenarios --
+ 
+-// 1. Idle manual request with a FRESH prior notebook: the checkpoint must still
++// 1. Idle `/compact context` with a FRESH prior notebook: the checkpoint must still
+ //    require a NEW committed revision, then commit exactly one rollover.
+ await run({
+ 	name: "idle-new-write",
+@@ -343,7 +369,7 @@ await run({
+ 	],
+ 	setup: harness => harness.session.prompt("begin"),
+ 	act: async harness => {
+-		expect((await compactOutcome(harness)) === "resolved", "the idle manual compaction must succeed");
++		expect((await compactOutcome(harness, CONTEXT_MODE)) === "resolved", "the idle manual compaction must succeed");
+ 	},
+ 	assertions: harness => {
+ 		const branch = harness.branch();
+@@ -353,9 +379,8 @@ await run({
+ 		expect(notes.length === 2, `expected a NEW notebook revision, got ${notes.length}`);
+ 		expect(compactions.length === 1, `expected exactly one compaction entry, got ${compactions.length}`);
+ 		expect(branch.indexOf(notes[1]) < branch.indexOf(compactions[0]), "the new revision must precede the compaction");
+-		const details = compactions[0].details;
+-		const kind = typeof details === "object" && details !== null && "kind" in details ? details.kind : undefined;
+-		expect(kind === "experimental-context-rollover", `unexpected compaction kind: ${JSON.stringify(details)}`);
++		const kind = detailsKind(compactions[0]);
++		expect(kind === "experimental-context-rollover", `unexpected compaction kind: ${JSON.stringify(compactions[0].details)}`);
+ 		expect(gateMessages(branch).length === 0, "the save gate must not queue a repair on success");
+ 		return { checkpointMessages: 1, notebookRevisions: notes.length, compactions: 1, kind };
+ 	},
+@@ -372,7 +397,7 @@ await run({
+ 	],
+ 	setup: harness => harness.session.prompt("begin"),
+ 	act: async harness => {
+-		harness.outcome = await compactOutcome(harness);
++		harness.outcome = await compactOutcome(harness, CONTEXT_MODE);
+ 	},
+ 	assertions: harness => {
+ 		const branch = harness.branch();
+@@ -397,7 +422,7 @@ await run({
+ 	],
+ 	setup: harness => harness.session.prompt("begin"),
+ 	act: async harness => {
+-		harness.outcome = await compactOutcome(harness);
++		harness.outcome = await compactOutcome(harness, CONTEXT_MODE);
+ 	},
+ 	assertions: harness => {
+ 		const branch = harness.branch();
+@@ -420,7 +445,7 @@ await run({
+ 	],
+ 	setup: harness => harness.session.prompt("begin"),
+ 	act: async harness => {
+-		harness.outcome = await compactOutcome(harness);
++		harness.outcome = await compactOutcome(harness, CONTEXT_MODE);
+ 	},
+ 	assertions: harness => {
+ 		const branch = harness.branch();
+@@ -445,7 +470,7 @@ await run({
+ 	],
+ 	setup: harness => harness.session.prompt("begin"),
+ 	act: async harness => {
+-		harness.outcome = await compactOutcome(harness);
++		harness.outcome = await compactOutcome(harness, CONTEXT_MODE);
+ 	},
+ 	assertions: harness => {
+ 		const branch = harness.branch();
+@@ -470,7 +495,7 @@ await run({
+ 	],
+ 	setup: harness => harness.session.prompt("begin"),
+ 	act: async harness => {
+-		const outcomes = await Promise.all([compactOutcome(harness), compactOutcome(harness)]);
++		const outcomes = await Promise.all([compactOutcome(harness, CONTEXT_MODE), compactOutcome(harness, CONTEXT_MODE)]);
+ 		harness.outcomes = outcomes;
+ 	},
+ 	assertions: harness => {
+@@ -504,7 +529,7 @@ await run({
+ 	],
+ 	setup: harness => harness.session.prompt("begin"),
+ 	act: async harness => {
+-		const pending = compactOutcome(harness);
++		const pending = compactOutcome(harness, CONTEXT_MODE);
+ 		await withTimeout(checkpointStarted.promise, 10_000, "checkpoint request reached the provider");
+ 		harness.session.abortCompaction("gate-abort");
+ 		await Bun.sleep(0);
+@@ -545,7 +570,7 @@ await run({
+ 	act: async harness => {
+ 		let compacting: Promise<string> | undefined;
+ 		const unsubscribe = harness.session.subscribe((event: { type: string }) => {
+-			if (event.type === "tool_execution_start" && !compacting) compacting = compactOutcome(harness);
++			if (event.type === "tool_execution_start" && !compacting) compacting = compactOutcome(harness, CONTEXT_MODE);
+ 		});
+ 		await withTimeout(harness.session.prompt("begin"), 30_000, "busy turn");
+ 		if (compacting) harness.outcome = await withTimeout(compacting, 30_000, "busy compact");
+@@ -580,7 +605,7 @@ await run({
+ 	],
+ 	setup: harness => harness.session.prompt("begin"),
+ 	act: async harness => {
+-		expect((await compactOutcome(harness)) === "resolved", "the child rollover must still commit");
++		expect((await compactOutcome(harness, CONTEXT_MODE)) === "resolved", "the child rollover must still commit");
+ 	},
+ 	assertions: harness => {
+ 		const branch = harness.branch();
+@@ -614,6 +639,252 @@ await run({
+ 	},
+ });
+ 
++// 11-12. Plain `compact()` with a live notebook and the real save gate loaded: no
++//     checkpoint turn, so the gate judges the notebook as it stands. A fresh
++//     notebook rolls over (notes-backed, no provider request); a stale one is
++//     vetoed by the gate with no compaction entry.
++await run({
++	name: "plain-compact-fresh-notebook",
++	steps: [
++		{ role: "user", respond: noteWrite("prior notebook") },
++		{ role: "any", respond: plainText("noted") },
++	],
++	setup: harness => harness.session.prompt("begin"),
++	act: async harness => {
++		expect(
++			harness.session.extensionRunner?.hasHandlers("session_before_compact") === true,
++			"the save-gate extension must be loaded for this scenario",
++		);
++		harness.outcome = await compactOutcome(harness);
++	},
++	assertions: (harness, log) => {
++		const branch = harness.branch();
++		const compactions = compactionEntries(branch);
++		expect(harness.outcome === "resolved", `plain compaction with a fresh notebook must commit: ${harness.outcome}`);
++		expect(checkpointEntries(branch).length === 0, "plain compaction must not run a notes checkpoint");
++		expect(log.length === 2, `no provider request may follow the scripted turn: ${log.join(",")}`);
++		expect(noteRevisions(branch).length === 1, "plain compaction must not add a notebook revision");
++		expect(compactions.length === 1, `expected exactly one compaction entry, got ${compactions.length}`);
++		expect(detailsKind(compactions[0]) === "experimental-context-rollover", "plain compaction keeps the notes-backed routing");
++		expect(gateMessages(branch).length === 0, "the save gate must not queue a repair on a fresh notebook");
++		return { checkpointMessages: 0, compactions: 1, providerCalls: log.length };
++	},
++});
++await run({
++	name: "plain-compact-stale-notebook-vetoed",
++	steps: [
++		{ role: "user", respond: noteWrite("prior notebook") },
++		{ role: "any", respond: { content: [toolCall("read", { path: "file.txt" })] } },
++		{ role: "any", respond: plainText("read done") },
++	],
++	setup: harness => harness.session.prompt("begin"),
++	act: async harness => {
++		const branch = harness.branch();
++		const lastNote = noteRevisions(branch).at(-1);
++		const work = branch.findLast(entry => entry.type === "message" && entry.message?.toolName === "read");
++		expect(lastNote && work && branch.indexOf(lastNote) < branch.indexOf(work), "the notebook must be stale before compaction");
++		harness.outcome = await compactOutcome(harness);
++	},
++	assertions: (harness, log) => {
++		const branch = harness.branch();
++		expect(String(harness.outcome).startsWith("rejected:"), `a stale plain compaction must be vetoed by the gate: ${harness.outcome}`);
++		expect(compactionEntries(branch).length === 0, "a vetoed compaction must not commit");
++		expect(checkpointEntries(branch).length === 0, "a vetoed plain compaction must not run a notes checkpoint");
++		expect(noteRevisions(branch).length === 1, "no notebook revision may be added");
++		expect(log.length === 3, `no provider request may follow the scripted turn: ${log.join(",")}`);
++		return { compactions: 0, checkpointMessages: 0, outcome: harness.outcome };
++	},
++});
++
++// 13-16. Explicit summary modes and focus text keep the summary path with a live,
++//     fresh notebook and the real gate loaded: zero checkpoint turns and no notes
++//     rollover. `remote` falls back to the local summary on the mock model;
++//     `snapcompact` may refuse a text-only model; neither may checkpoint.
++const SUMMARY_TEXT = "summary of the conversation";
++function summaryPathScenario(
++	name: string,
++	options: { invoke: (harness: Harness) => Promise<string>; expectCommit: boolean },
++) {
++	return run({
++		name,
++		methodOrder: ["soft"],
++		summary: { role: "any", respond: plainText(SUMMARY_TEXT) },
++		steps: [
++			{ role: "user", respond: noteWrite("prior notebook") },
++			{ role: "any", respond: plainText("noted") },
++		],
++		setup: harness => harness.session.prompt("begin"),
++		act: async harness => {
++			expect(
++				harness.session.extensionRunner?.hasHandlers("session_before_compact") === true,
++				"the save-gate extension must be loaded for this scenario",
++			);
++			harness.outcome = await options.invoke(harness);
++		},
++		assertions: (harness, log) => {
++			const branch = harness.branch();
++			const compactions = compactionEntries(branch);
++			expect(checkpointEntries(branch).length === 0, "a summary-path compaction must not run a notes checkpoint");
++			expect(!log.some(call => call.endsWith(":checkpoint")), `no provider request may be a checkpoint: ${log.join(",")}`);
++			expect(noteRevisions(branch).length === 1, "a summary-path compaction must not add a notebook revision");
++			expect(
++				compactions.every(entry => detailsKind(entry) !== "experimental-context-rollover"),
++				"a summary-path compaction must not commit the notes rollover",
++			);
++			if (options.expectCommit) {
++				expect(harness.outcome === "resolved", `the summary-path compaction must commit: ${harness.outcome}`);
++				expect(compactions.length === 1, `expected exactly one compaction entry, got ${compactions.length}`);
++				expect(String(compactions[0].summary).includes(SUMMARY_TEXT), "the compaction entry must carry the model summary");
++			}
++			return { checkpointMessages: 0, compactions: compactions.length, outcome: harness.outcome };
++		},
++	});
++}
++await summaryPathScenario("explicit-soft-mode-live-notebook", {
++	expectCommit: true,
++	invoke: harness => compactOutcome(harness, { mode: "soft" }),
++});
++await summaryPathScenario("explicit-remote-mode-live-notebook", {
++	expectCommit: true,
++	invoke: harness => compactOutcome(harness, { mode: "remote" }),
++});
++await summaryPathScenario("explicit-snapcompact-mode-live-notebook", {
++	expectCommit: false,
++	invoke: harness => compactOutcome(harness, { mode: "snapcompact" }),
++});
++await summaryPathScenario("focused-compact-live-notebook", {
++	expectCommit: true,
++	invoke: harness => compactOutcome(harness, undefined, "keep the api surface"),
++});
++
++// 17. A child session never checkpoints, for a plain request either; the
++//     notes-backed rollover itself still commits.
++await run({
++	name: "child-session-plain-compact",
++	child: true,
++	steps: [
++		{ role: "user", respond: noteWrite("prior notebook") },
++		{ role: "any", respond: plainText("noted") },
++	],
++	setup: harness => harness.session.prompt("begin"),
++	act: async harness => {
++		expect((await compactOutcome(harness)) === "resolved", "the child rollover must still commit");
++	},
++	assertions: harness => {
++		const branch = harness.branch();
++		expect(checkpointEntries(branch).length === 0, "a child session must not run a notebook checkpoint");
++		expect(compactionEntries(branch).length === 1, "the child rollover itself still commits");
++		return { checkpointMessages: 0, compactions: 1 };
++	},
++});
++
++// 18. `/compact context` with focus text is rejected up front: no provider request,
++//     no checkpoint, no compaction.
++await run({
++	name: "context-mode-rejects-focus",
++	steps: [
++		{ role: "user", respond: noteWrite("prior notebook") },
++		{ role: "any", respond: plainText("noted") },
++	],
++	setup: harness => harness.session.prompt("begin"),
++	act: async harness => {
++		harness.outcome = await compactOutcome(harness, CONTEXT_MODE, "some focus");
++	},
++	assertions: (harness, log) => {
++		const branch = harness.branch();
++		expect(String(harness.outcome).startsWith("rejected:"), `context mode with focus text must be rejected: ${harness.outcome}`);
++		expect(log.length === 2, `no provider request may follow the scripted turn: ${log.join(",")}`);
++		expect(checkpointEntries(branch).length === 0, "a rejected request must not run a checkpoint");
++		expect(compactionEntries(branch).length === 0, "a rejected request must not commit a compaction");
++		return { compactions: 0, checkpointMessages: 0, outcome: harness.outcome };
++	},
++});
++
++// 14-15. `/compact context` without a live notebook is rejected up front, while a
++//     live tool batch runs: the turn must finish untouched (no abort, no compaction,
++//     no checkpoint) because the rejection happens before the manual pass aborts.
++function rejectedContextScenario(name: string, options: { experimental: boolean; tools: string[] }) {
++	return run({
++		name,
++		experimental: options.experimental,
++		tools: options.tools,
++		gate: false,
++		steps: [
++			{ role: "user", respond: { content: [toolCall("bash", { command: "sleep 0.6" })] } },
++			{ role: "any", respond: plainText("turn finished") },
++		],
++		act: async harness => {
++			let compacting: Promise<string> | undefined;
++			const unsubscribe = harness.session.subscribe((event: { type: string }) => {
++				if (event.type === "tool_execution_start" && !compacting) compacting = compactOutcome(harness, CONTEXT_MODE);
++			});
++			await withTimeout(harness.session.prompt("begin"), 30_000, "running turn");
++			unsubscribe();
++			expect(compacting, "the running turn must have started a tool");
++			harness.outcome = await withTimeout(compacting as Promise<string>, 30_000, "rejected context compact");
++		},
++		assertions: (harness, log) => {
++			const branch = harness.branch();
++			const tool = branch.find(entry => entry.type === "message" && entry.message?.toolName === "bash");
++			const assistants = branch.filter(entry => entry.type === "message" && entry.message?.role === "assistant");
++			expect(String(harness.outcome).startsWith("rejected:"), `/compact context must be rejected: ${harness.outcome}`);
++			expect(tool && tool.message?.isError !== true, "the running tool must not be aborted by the rejected request");
++			expect(assistants.at(-1)?.message?.stopReason === "stop", "the running turn must complete normally, not abort");
++			expect(log.length === 2, `the turn must make exactly its two scripted requests: ${log.join(",")}`);
++			expect(compactionEntries(branch).length === 0, "a rejected request must not commit a compaction");
++			expect(checkpointEntries(branch).length === 0, "a rejected request must not run a checkpoint");
++			return { compactions: 0, checkpointMessages: 0, outcome: harness.outcome };
++		},
++	});
++}
++await rejectedContextScenario("context-mode-rejected-setting-off", {
++	experimental: false,
++	tools: [...NOTEBOOK_TOOLS, "bash"],
++});
++await rejectedContextScenario("context-mode-rejected-tools-absent", {
++	experimental: true,
++	tools: ["read", "grep", "bash"],
++});
++
++// 21. A model-requested `new_context` rollover (automatic path) stays notes-backed
++//     and never runs the manual checkpoint.
++await run({
++	name: "new-context-rollover-unchanged",
++	steps: [
++		{
++			role: "user",
++			respond: { content: [toolCall("context_notes", { text: "fresh notebook" }), toolCall("new_context", {})] },
++		},
++		{ role: "any", respond: plainText("rolled over") },
++	],
++	act: async harness => {
++		await withTimeout(harness.session.prompt("begin"), 30_000, "new_context turn");
++	},
++	assertions: harness => {
++		const branch = harness.branch();
++		const compactions = compactionEntries(branch);
++		expect(compactions.length === 1, `expected exactly one automatic rollover, got ${compactions.length}`);
++		expect(detailsKind(compactions[0]) === "experimental-context-rollover", "the automatic rollover must stay notes-backed");
++		expect(checkpointEntries(branch).length === 0, "an automatic rollover must not run the manual checkpoint");
++		return { compactions: 1 };
++	},
++});
++
++// 17. `/compact` argument parsing: `context` is a mode that rejects focus text.
++await scenario("parse-compact-args", async record => {
++	const context = parseCompactArgs("context");
++	expect(context.mode === "context" && context.instructions === undefined && !("error" in context), "`context` must parse as the context mode");
++	const focused = parseCompactArgs("context some focus");
++	expect("error" in focused && typeof focused.error === "string", "`context <focus>` must be rejected");
++	const plain = parseCompactArgs("keep the api surface");
++	expect(plain.mode === undefined && plain.instructions === "keep the api surface", "free text stays focus instructions");
++	expect(parseCompactArgs("soft").mode === "soft", "existing modes still parse");
++	expect(Object.keys(parseCompactArgs("")).length === 0, "empty arguments select no mode");
++	const entry = COMPACT_MODES.find((mode: { name: string }) => mode.name === "context");
++	expect(entry && entry.rejectsFocus === true && entry.overrides.methodOrder === undefined, "the mode table must list `context` without method overrides");
++	record({ contextParse: context, focusedRejected: true });
++});
++
+ // ------------------------------------------------------------------ report --
+ const failures = results.filter(result => !result.ok);
+ const report = {
+diff --git a/patches/verify-release-family-plan.py b/patches/verify-release-family-plan.py
+index 0b02fc711..123bf800e 100755
+--- a/patches/verify-release-family-plan.py
++++ b/patches/verify-release-family-plan.py
+@@ -118,6 +118,10 @@ RETIRED_REPAIRS = (
+         "dir": ".retired/10-16-18.10.1-compaction-pre-tail-notes",
+         "family": "family-compaction",
+     },
++    {
++        "dir": ".retired/10-16-18.10.1-compaction-pre-compact-context",
++        "family": "family-compaction",
++    },
+ )
+ 
+ 

@@ -1,0 +1,1 @@
+Variant B (`/compact context` + checkpoint only there, gate strict). Superseded 2026-10-16 by user decision: remove the forced manual notes checkpoint entirely. Backup only; restore by copying files back.

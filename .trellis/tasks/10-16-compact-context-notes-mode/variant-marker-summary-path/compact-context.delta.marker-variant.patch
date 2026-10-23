@@ -1,0 +1,248 @@
+--- a/pi-coding-agent/dist/types/extensibility/extensions/types.d.ts
++++ b/pi-coding-agent/dist/types/extensibility/extensions/types.d.ts
+@@ -217,7 +217,9 @@
+     /**
+      * Force a one-off compaction mode for this invocation, replacing the
+      * configured `compaction.methodOrder` (`/compact soft`, `remote`, or
+-     * `snapcompact`). Omitted = configured preference order.
++     * `snapcompact`). Omitted = configured preference order. `context` is the only
++     * notes-backed mode: it saves the notebook, then rolls over from it, and needs
++     * `compaction.experimentalContextManagement` with the notebook tools live.
+      */
+     mode?: CompactMode;
+     /**
+--- a/pi-coding-agent/dist/types/extensibility/shared-events.d.ts
++++ b/pi-coding-agent/dist/types/extensibility/shared-events.d.ts
+@@ -71,6 +71,12 @@
+     branchEntries: SessionEntry[];
+     /** Optional user-provided instructions for the summary */
+     customInstructions?: string;
++    /**
++     * `false` for summary-path compactions (method-order summaries, snapcompact, remote).
++     * `true` or absent means a notes-backed rollover that restores state from the notebook;
++     * consumers MUST treat an absent marker as notes-backed.
++     */
++    notesBacked?: boolean;
+     /** Abort signal - handlers should pass this to LLM calls and check it periodically */
+     signal: AbortSignal;
+ }
+--- a/pi-coding-agent/dist/types/session/compact-modes.d.ts
++++ b/pi-coding-agent/dist/types/session/compact-modes.d.ts
+@@ -12,7 +12,7 @@
+  */
+ import type { CompactionMethod } from "./compaction-methods.js";
+ /** Subcommand selecting a one-off compaction mode for manual `/compact`. */
+-export type CompactMode = "soft" | "remote" | "snapcompact";
++export type CompactMode = "soft" | "remote" | "snapcompact" | "context";
+ /**
+  * Per-invocation ordered methods merged over the configured
+  * `compaction.methodOrder` for this run.
+@@ -29,7 +29,8 @@
+     /**
+      * When true, the mode produces no LLM summary, so trailing focus text is
+      * meaningless and rejected by the parser (snapcompact archives history into
+-     * images without a directed summary).
++     * images and context rolls over from the saved notebook, both without a
++     * directed summary).
+      */
+     readonly rejectsFocus?: boolean;
+ }
+--- a/pi-coding-agent/src/extensibility/extensions/types.ts
++++ b/pi-coding-agent/src/extensibility/extensions/types.ts
+@@ -398,7 +398,9 @@
+ 	/**
+ 	 * Force a one-off compaction mode for this invocation, replacing the
+ 	 * configured `compaction.methodOrder` (`/compact soft`, `remote`, or
+-	 * `snapcompact`). Omitted = configured preference order.
++	 * `snapcompact`). Omitted = configured preference order. `context` is the only
++	 * notes-backed mode: it saves the notebook, then rolls over from it, and needs
++	 * `compaction.experimentalContextManagement` with the notebook tools live.
+ 	 */
+ 	mode?: CompactMode;
+ 	/**
+--- a/pi-coding-agent/src/extensibility/shared-events.ts
++++ b/pi-coding-agent/src/extensibility/shared-events.ts
+@@ -82,6 +82,12 @@
+ 	branchEntries: SessionEntry[];
+ 	/** Optional user-provided instructions for the summary */
+ 	customInstructions?: string;
++	/**
++	 * `false` for summary-path compactions (method-order summaries, snapcompact, remote).
++	 * `true` or absent means a notes-backed rollover that restores state from the notebook;
++	 * consumers MUST treat an absent marker as notes-backed.
++	 */
++	notesBacked?: boolean;
+ 	/** Abort signal - handlers should pass this to LLM calls and check it periodically */
+ 	signal: AbortSignal;
+ }
+--- a/pi-coding-agent/src/session/compact-modes.ts
++++ b/pi-coding-agent/src/session/compact-modes.ts
+@@ -13,7 +13,7 @@
+ import type { CompactionMethod } from "./compaction-methods";
+ 
+ /** Subcommand selecting a one-off compaction mode for manual `/compact`. */
+-export type CompactMode = "soft" | "remote" | "snapcompact";
++export type CompactMode = "soft" | "remote" | "snapcompact" | "context";
+ 
+ /**
+  * Per-invocation ordered methods merged over the configured
+@@ -32,7 +32,8 @@
+ 	/**
+ 	 * When true, the mode produces no LLM summary, so trailing focus text is
+ 	 * meaningless and rejected by the parser (snapcompact archives history into
+-	 * images without a directed summary).
++	 * images and context rolls over from the saved notebook, both without a
++	 * directed summary).
+ 	 */
+ 	readonly rejectsFocus?: boolean;
+ }
+@@ -52,6 +53,12 @@
+ 		name: "snapcompact",
+ 		description: "Archive history onto dense bitmap images the model reads back (no LLM call)",
+ 		overrides: { methodOrder: ["snapcompact"] },
++		rejectsFocus: true,
++	},
++	{
++		name: "context",
++		description: "Save the notebook, then roll over from it without an LLM summary (needs experimental context management)",
++		overrides: {},
+ 		rejectsFocus: true,
+ 	},
+ ];
+@@ -90,7 +97,7 @@
+ 	const focus = spaceIndex === -1 ? "" : trimmed.slice(spaceIndex + 1).trim();
+ 	if (mode.rejectsFocus && focus) {
+ 		return {
+-			error: `/compact ${mode.name} does not take focus instructions (it archives history without an LLM summary).`,
++			error: `/compact ${mode.name} does not take focus instructions (it compacts without a directed LLM summary).`,
+ 		};
+ 	}
+ 	return { mode: mode.name, instructions: focus || undefined };
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -1207,6 +1207,10 @@
+ 		if (compactMode?.rejectsFocus && (customInstructions || options?.internalGuidance)) {
+ 			throw new Error(`/compact ${compactMode.name} does not take focus instructions.`);
+ 		}
++		// `/compact context` rolls over from the saved notebook, so the notebook tools must be
++		// live. Validate here, before the abort below, so a rejected request never interrupts
++		// a running turn.
++		if (options?.mode === "context") this.#assertContextModeAvailable();
+ 		let methods: CompactionMethod[] = [];
+ 		let selectedMethodIndex = -1;
+ 		let compactionCommitted = false;
+@@ -1247,12 +1251,13 @@
+ 
+ 		try {
+ 			if (ownsCompactionController) {
+-				// An explicit default notes-backed compaction first asks the model for ONE notebook
+-				// save, before this pass aborts anything. The pass already owns the compaction
+-				// marker, so auto-rollover, new_context and duplicate manual requests are held off
+-				// while it waits; a stale or unsaved result cancels the compaction here, before
+-				// `session_before_compact` hooks can run. An inherited resume stays owed on failure.
+-				const notesCheckpoint = this.#manualNotesCheckpointBaseline(customInstructions, options);
++				// `/compact context` first asks the model for ONE notebook save, before this pass
++				// aborts anything. The pass already owns the compaction marker, so auto-rollover,
++				// new_context and duplicate manual requests are held off while it waits; a stale
++				// or unsaved result cancels the compaction here, before `session_before_compact`
++				// hooks can run. An inherited resume stays owed on failure. Every other manual
++				// compaction (plain, explicit method mode, focus text) records no notes.
++				const notesCheckpoint = this.#manualNotesCheckpointBaseline(options);
+ 				if (notesCheckpoint) {
+ 					resumeInterruptedTurn =
+ 						inheritedResume &&
+@@ -1281,12 +1286,9 @@
+ 			if (!activeModel) {
+ 				throw new Error("No model selected");
+ 			}
+-			if (
+-				this.#usesExperimentalContextManagement() &&
+-				!options?.mode &&
+-				!customInstructions &&
+-				!options?.internalGuidance
+-			) {
++			if (options?.mode === "context") {
++				// The notebook state may have changed while the checkpoint ran.
++				this.#assertContextModeAvailable();
+ 				const result = await this.#compactExperimentalContext(
+ 					activeModel,
+ 					compactionAbortController,
+@@ -1377,6 +1379,7 @@
+ 					preparation,
+ 					branchEntries: pathEntries,
+ 					customInstructions,
++					notesBacked: false,
+ 					signal: compactionAbortController.signal,
+ 				})) as SessionBeforeCompactResult | undefined;
+ 
+@@ -1694,19 +1697,26 @@
+ 		}
+ 	}
+ 
+-	/** Branch snapshot for a manual notes checkpoint, or `undefined` when none applies (subagent, nothing to roll over). */
+-	#manualNotesCheckpointBaseline(
+-		customInstructions: string | undefined,
+-		options: CompactOptions | undefined,
+-	): NotesCheckpointBaseline | undefined {
++	/** Throws unless the notebook-backed rollover tools are live, which `/compact context` requires. */
++	#assertContextModeAvailable(): void {
++		if (!this.#usesExperimentalContextManagement()) {
++			throw new Error(
++				"/compact context requires compaction.experimentalContextManagement and the context_notes, new_context, read and grep tools.",
++			);
++		}
++	}
++
++	/**
++	 * Branch snapshot for the `/compact context` notes checkpoint, or `undefined` when none applies
++	 * (any other mode, subagent, nothing to roll over).
++	 */
++	#manualNotesCheckpointBaseline(options: CompactOptions | undefined): NotesCheckpointBaseline | undefined {
+ 		const model = this.#model;
+ 		if (
+ 			!model ||
++			options?.mode !== "context" ||
+ 			!this.#host.isMainSession() ||
+-			!this.#usesExperimentalContextManagement() ||
+-			options?.mode ||
+-			customInstructions ||
+-			options?.internalGuidance
++			!this.#usesExperimentalContextManagement()
+ 		) {
+ 			return undefined;
+ 		}
+@@ -1729,8 +1739,8 @@
+ 
+ 	/**
+ 	 * Commit a notebook-backed boundary without generating, imaging, or otherwise
+-	 * rewriting the canonical transcript. Explicit compact modes and focused
+-	 * manual compactions deliberately bypass this path.
++	 * rewriting the canonical transcript. Only `/compact context` takes this path
++	 * manually; plain, explicit method-mode and focused compactions use the summary path.
+ 	 */
+ 	async #compactExperimentalContext(
+ 		model: Model,
+@@ -1754,6 +1764,7 @@
+ 				preparation,
+ 				branchEntries: entries,
+ 				customInstructions: undefined,
++				notesBacked: true,
+ 				signal: signalController.signal,
+ 			})) as SessionBeforeCompactResult | undefined;
+ 			if (hookResult?.cancel) throw new CompactionCancelledError();
+@@ -1884,6 +1895,7 @@
+ 					preparation,
+ 					branchEntries: this.#host.sessionManager.getBranch(),
+ 					customInstructions: undefined,
++					notesBacked: true,
+ 					signal: controller.signal,
+ 				})) as SessionBeforeCompactResult | undefined;
+ 				if (hookResult?.cancel) {
+@@ -5019,6 +5031,7 @@
+ 					preparation,
+ 					branchEntries: pathEntriesForCompaction,
+ 					customInstructions: undefined,
++					notesBacked: false,
+ 					signal: autoCompactionSignal,
+ 				})) as SessionBeforeCompactResult | undefined;
+ 

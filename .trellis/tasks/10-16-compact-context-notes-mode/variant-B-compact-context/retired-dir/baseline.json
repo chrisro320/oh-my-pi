@@ -1,0 +1,6 @@
+{
+  "previousFamily": "family-compaction-v18.10.1.patch",
+  "previousFamilySha256": "bcd78ba8277c8f0defe34ac7475b76a81586e1151badbe3fc27d618e66e5a1a0",
+  "repair": "compact-context.delta.patch",
+  "repairSha256": "ef7e151de9f625070acab2801548c5bdde24a9d3d2bf914674c7e41073540e19"
+}
