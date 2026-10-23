@@ -272,3 +272,27 @@ Bun's bare 'unknown certificate verification error' now retries; retries wait 3-
 
 - Fix stale retry-fallback-chains.d.ts comment at next artifact regeneration
 - Optional: delete unused staged releases (ask first)
+
+
+## Session 11: OMP 18.12.6 migration, install and activation
+
+**Date**: 2026-10-23
+**Task**: OMP 18.12.6 migration, install and activation
+**Branch**: `trellis/ds-snapcompact-tuning`
+
+### Summary
+
+Migrated 27 families/62 capabilities to 18.12.6 (candidate 87abd557); Tern caught a rebase-lost queue-policy deletion, fixed in family. Installed release 18.12.6-87abd557af5b-693348fb-09428d79 with private-copy release smoke; published; activated after old owners exited normally (admission true, bound check 28 APPLIED). Spec: immutable installation scenario updated.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `753d5e429` | (see git log) |
+| `41fdab384` | (see git log) |
+| `c902797c1` | (see git log) |
+| `577d7ad24` | (see git log) |
+
+### Status
+
+[OK] **Completed**
