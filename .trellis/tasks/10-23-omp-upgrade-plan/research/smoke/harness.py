@@ -31,11 +31,11 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def validate_runtime(path):
+def validate_runtime(path, staged_release=None):
     root = Path(path).resolve(strict=True)
     live = Path(pwd.getpwuid(os.getuid()).pw_dir)
     for forbidden in (live / ".bun/install", live / ".omp"):
-        if root.is_relative_to(forbidden.resolve()):
+        if root.is_relative_to(forbidden.resolve()) and root != staged_release:
             raise ValueError("installed/cache/agent trees are not sandbox acceptance inputs")
     for entry in root.rglob("*"):
         if entry.is_symlink() and not entry.resolve(strict=True).is_relative_to(root):

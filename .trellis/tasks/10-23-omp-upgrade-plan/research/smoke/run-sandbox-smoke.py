@@ -28,11 +28,19 @@ matched and both source/copy freezes held; any failure/timeout returns 1 (argume
 errors return 2). Temporary copies are removed on success and failure. Output tails
 are bounded by harness.OUTPUT_LIMIT per stream; full drained-stream hashes/counts
 are retained, not unbounded capture files. No verification runs at import.
+
+Staged release (input to ``publish-release.py publish``):
+  python3 research/smoke/run-sandbox-smoke.py --release "$RELEASE" --out "$EVIDENCE_JSON"
+selects ``$RELEASE/runtime`` and ``$RELEASE/ledger`` of an unpublished receipt, requires
+their tree digests to equal the receipt before and after, and records ``release``. The
+checks execute byte-identical private copies, because the probes must live inside the
+runtime and writing them into the installed tree would change its digest.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -42,6 +50,9 @@ import shutil
 import tempfile
 from uuid import uuid4
 from urllib.parse import unquote, urlsplit
+import sys
+
+sys.dont_write_bytecode = True  # never write __pycache__ into a selected installed ledger
 
 from harness import (VERSION, bun_path, copy_ledger, copy_runtime, environment,
                      freeze, now, run, validate_runtime, write_json)
@@ -49,6 +60,13 @@ from harness import (VERSION, bun_path, copy_ledger, copy_runtime, environment,
 HERE = Path(__file__).resolve().parent
 PROBES = ("offline-preload.ts", "offline-control.ts", "cli-smoke.ts", "ipc-smoke.ts")
 CHECKS = ("version", "cli-read", "native-ipc", "gallery", "bound-controller", "native-dialog")
+
+
+def load_module(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def identity(manifest):
@@ -90,19 +108,32 @@ def assertion(row, expect, matched):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--runtime", required=True, type=Path)
-    parser.add_argument("--ledger", required=True, type=Path)
+    parser.add_argument("--runtime", type=Path)
+    parser.add_argument("--ledger", type=Path)
+    parser.add_argument("--release", type=Path)
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--timeout", type=int, default=600)
     args = parser.parse_args()
     os.umask(0o077)
     if args.timeout <= 0:
         parser.error("timeout must be positive")
-    runtime = validate_runtime(args.runtime)
+    release = receipt = tree_digest = None
+    if args.release:
+        if args.runtime or args.ledger:
+            parser.error("--release selects its own runtime and ledger")
+        release = args.release.resolve(strict=True)
+        receipt = json.loads((release / "release.json").read_text())
+        if receipt.get("code_installation") != "staged" or receipt.get("production_admission_started"):
+            parser.error("--release must be an unpublished staged release")
+        tree_digest = load_module("release_tree", release / "ledger/verify-release-family-plan.py").tree_digest
+        args.runtime, args.ledger = release / "runtime", release / "ledger"
+    elif not (args.runtime and args.ledger):
+        parser.error("--runtime and --ledger are required without --release")
+    runtime = validate_runtime(args.runtime, release and (release / "runtime").resolve(strict=True))
     ledger = args.ledger.resolve(strict=True)
     live = Path(pwd.getpwuid(os.getuid()).pw_dir)
     for forbidden in (live / ".bun/install", live / ".omp"):
-        if ledger.is_relative_to(forbidden.resolve()):
+        if release is None and ledger.is_relative_to(forbidden.resolve()):
             parser.error("installed/cache/agent ledgers are not sandbox acceptance inputs")
     for entry in ledger.rglob("*"):
         if entry.is_symlink() and not entry.resolve(strict=True).is_relative_to(ledger):
@@ -120,8 +151,18 @@ def main():
                "boundary": "Repository/sandbox only; synthetic model, real read/native IPC, no provider proof; "
                            "process-local fetch/WebSocket guard inside a loopback-only OS network namespace. "
                            "Bound-controller is identification only; no publication/activation/physical UI proof."}
+    if release is not None:
+        payload["release"] = str(release)
     work = None
+
+    def receipt_digests():
+        return {"runtime": tree_digest(runtime) == receipt["runtime_tree_sha256"],
+                "ledger": tree_digest(ledger) == receipt["ledger_tree_sha256"]}
     try:
+        if release is not None:
+            payload["receipt_digests_before"] = receipt_digests()
+            if not all(payload["receipt_digests_before"].values()):
+                raise RuntimeError("staged release differs from its receipt")
         source_runtime = freeze(runtime)
         source_ledger = freeze(ledger)
         payload["source_freeze"] = {"runtime": identity(source_runtime), "ledger": identity(source_ledger)}
@@ -227,6 +268,9 @@ def main():
                 "copied_runtime": freeze(selected_runtime) == copied_runtime,
                 "copied_ledger": freeze(selected_ledger) == copied_ledger,
             }
+            if release is not None:
+                payload["freeze_unchanged"].update(
+                    {f"receipt_{key}": value for key, value in receipt_digests().items()})
             if (all(payload["freeze_unchanged"].values()) and len(payload["checks"]) == len(CHECKS)
                     and all(row["assertion"]["matched"] for row in payload["checks"].values())):
                 payload["status"] = "PASS"

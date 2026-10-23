@@ -6,7 +6,7 @@
 
 ## 18.12.6 sandbox migration, not installation
 
-The approved upgrade task targets exact18.12.6/commit `45c35e40c46166dc726ccc52f5d27f40f2449f99` in independent private trees only. Installed18.10.1 remains unchanged. Do not run `publish-release.py prepare` or `publish` without separate user authorization after candidate acceptance.
+The approved upgrade task targets exact18.12.6/commit `45c35e40c46166dc726ccc52f5d27f40f2449f99`. Installation was authorized by the user on 2026-10-23 after candidate acceptance: `prepare --version 18.12.6`, then the installed smoke `.trellis/tasks/10-23-omp-upgrade-plan/research/smoke/run-sandbox-smoke.py --release <staged-release> --out <json>`, then `publish`. Unlike the18.10.1 in-place smoke, the18.12.6 release smoke checks the staged runtime/ledger digests against the receipt before and after, and executes byte-identical private copies, because its probes must live inside the runtime. It proves installed bytes, not installed-path permissions, bindings or launcher admission; those are covered by the receipt/launcher review and the post-publish blocked-launch observation.
 
 Selected acquisition uses the already-audited independent npm closure with a pinned package-lock (145instances,13OMPexact18.12.6,zero dependency errors/lock mismatches/external or hardlink aliases). Reusing the successful signature audit does not authorize new provider or credential checks. Target native recipe is `native/18.12.6/overlay.json`; pass it explicitly as the optional third build argument and as `verify-native-overlay.py --overlay`, never overwrite the historical18.10.1 recipe. Both target outputs already exist and have passed identity/hash checks; do not rebuild merely to recover context.
 
