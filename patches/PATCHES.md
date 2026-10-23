@@ -7,11 +7,11 @@
 
 ## 18.12.6 isolated migration boundary
 
-- Pinned target commit: `45c35e40c46166dc726ccc52f5d27f40f2449f99`. The user approved repository/sandbox implementation, then installation on 2026-10-23 (see below); production activation waits for old owners to exit.
+- Pinned target commit: `45c35e40c46166dc726ccc52f5d27f40f2449f99`. The user approved repository/sandbox implementation, then installation on 2026-10-23 (see below). The release is installed and active.
 - Acquisition completed:13official exact-version OMP archives with integrity/SHA256/pinned SLSA subjects; selected independent npm closure145instances with zero dependency errors, lock mismatches or external/hardlink aliases. Reused prior144verified registry signatures/74attestations; no repeated crypto audit. Evidence: `.trellis/tasks/10-23-omp-upgrade-plan/research/acquisition-*`.
 - Both target native variants compiled and stamped18.12.6 in the retained private build. Direct loads report exact18.12.6; target overlay verification passes rebuilt copies and the installed runtime, and rejects official upstream originals. Physical native acceptance PASS (`research/physical-acceptance-result.json`). Recipe/actual hashes: `native/18.12.6/overlay.json`; evidence: task `research/native-build-result.json`.
 - Repository/sandbox acceptance (2026-10-23): 27 families / 62 capabilities (0017, 0078 upstream; 0079/0080 local; 0097 excluded); final candidate `87abd557af5b7c166dd3fadfc1bd68c5eb7cad641af41dac8424cfd7ca55a4bf` passes the representation oracle and all 57 controller-selected gates in one run (`gates-final-v3`), plus sandbox smoke, OAuth controller controls and companion checks, all inside a loopback-only network namespace; edited gates also pass on a private 18.10.1 closure. Physical native and Tern checks pass. Tern found a rebase-lost queue-policy deletion in `family-input-translation` (abort with a queued steer livelocked); the family now restores it, and `verify-user-display-text-queue.ts` leg 3 guards it.
-- Installation (2026-10-23, user-authorized): immutable release `18.12.6-87abd557af5b-693348fb-09428d79` is installed and published (release smoke `installed-private-smoke.json` PASS). Production activation is pending until every old 18.10.1 owner exits normally.
+- Installation (2026-10-23, user-authorized): immutable release `18.12.6-87abd557af5b-693348fb-09428d79` is installed and published (release smoke `installed-private-smoke.json` PASS). It became active after all old 18.10.1 owners exited normally (`production_admission_started:true`; bound `--check` 28 APPLIED, no CONFLICT or MISSING). A code-only rollback is no longer allowed.
 
 ## 18.10.1 verified release and installation boundary
 
