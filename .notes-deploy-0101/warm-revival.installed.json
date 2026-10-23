@@ -1,0 +1,225 @@
+{
+  "verifier": "subagent-warm-revival-prompt",
+  "root": "/home/chris/.bun/install/omp-releases/18.10.1-4187e4fd7c38-991bd082-f34bd4f8/runtime/node_modules/@oh-my-pi",
+  "agentVersion": "18.10.1",
+  "scenarios": [
+    {
+      "name": "a1-new-peer-while-parked",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "rosterBeforePark": {
+          "peers": [],
+          "parkedCount": 0,
+          "omittedCount": 0
+        },
+        "rosterAtRevival": {
+          "peers": [
+            {
+              "id": "1-LivePeer",
+              "displayName": "revival-probe",
+              "kind": "sub",
+              "status": "idle"
+            }
+          ],
+          "parkedCount": 0,
+          "omittedCount": 0
+        },
+        "systemBlocks": 3,
+        "sessionInitsBeforePark": 1,
+        "sessionInitsAfterRevival": 1,
+        "yieldItems": [],
+        "toolsIdentical": true
+      }
+    },
+    {
+      "name": "a2-peer-parked-before-revive",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "rosterBeforePark": {
+          "peers": [
+            {
+              "id": "1-EarlyPeer",
+              "displayName": "revival-probe",
+              "kind": "sub",
+              "status": "idle"
+            }
+          ],
+          "parkedCount": 0,
+          "omittedCount": 0
+        },
+        "rosterAtRevival": {
+          "peers": [],
+          "parkedCount": 1,
+          "omittedCount": 0
+        },
+        "systemBlocks": 3,
+        "sessionInitsBeforePark": 1,
+        "sessionInitsAfterRevival": 1,
+        "yieldItems": [],
+        "toolsIdentical": true
+      }
+    },
+    {
+      "name": "b-pooled-yield-items",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "rosterBeforePark": {
+          "peers": [],
+          "parkedCount": 0,
+          "omittedCount": 0
+        },
+        "rosterAtRevival": {
+          "peers": [
+            {
+              "id": "1-LivePeer",
+              "displayName": "revival-probe",
+              "kind": "sub",
+              "status": "idle"
+            }
+          ],
+          "parkedCount": 0,
+          "omittedCount": 0
+        },
+        "systemBlocks": 3,
+        "sessionInitsBeforePark": 2,
+        "sessionInitsAfterRevival": 2,
+        "yieldItems": [
+          {
+            "id": "pool-1:item-1",
+            "index": 1
+          }
+        ],
+        "toolsIdentical": true
+      }
+    },
+    {
+      "name": "c-legacy-transcript-without-session-init",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "systemBlocks": 3,
+        "sessionInitsAfterRevival": 0
+      }
+    },
+    {
+      "name": "d-peer-routing-after-revival",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "receipt": {
+          "to": "0-ProbeD",
+          "outcome": "revived"
+        },
+        "modelRequestsAfterSend": 1
+      }
+    },
+    {
+      "name": "e-roster-unchanged-control",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "rosterBeforePark": {
+          "peers": [],
+          "parkedCount": 0,
+          "omittedCount": 0
+        },
+        "rosterAtRevival": {
+          "peers": [],
+          "parkedCount": 0,
+          "omittedCount": 0
+        },
+        "systemBlocks": 3,
+        "sessionInitsBeforePark": 1,
+        "sessionInitsAfterRevival": 1,
+        "yieldItems": [],
+        "toolsIdentical": true
+      }
+    },
+    {
+      "name": "b2-pooled-yield-items-roster-unchanged",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "rosterBeforePark": {
+          "peers": [],
+          "parkedCount": 0,
+          "omittedCount": 0
+        },
+        "rosterAtRevival": {
+          "peers": [],
+          "parkedCount": 0,
+          "omittedCount": 0
+        },
+        "systemBlocks": 3,
+        "sessionInitsBeforePark": 2,
+        "sessionInitsAfterRevival": 2,
+        "yieldItems": [
+          {
+            "id": "pool-1:item-1",
+            "index": 1
+          }
+        ],
+        "toolsIdentical": true
+      }
+    },
+    {
+      "name": "f-info-pooled-followup-after-revival",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "protocolParagraphInSystemPrompt": false,
+        "liveYieldItems": [
+          {
+            "id": "pool-2:item-1",
+            "index": 1
+          }
+        ]
+      }
+    }
+  ],
+  "status": "PASS",
+  "mutationControls": [
+    {
+      "name": "drop the persisted systemPrompt override",
+      "rejected": true,
+      "failedScenarios": [
+        "a1-new-peer-while-parked",
+        "a2-peer-parked-before-revive",
+        "b-pooled-yield-items"
+      ],
+      "detail": "exit 1"
+    },
+    {
+      "name": "drop the yield-items restore",
+      "rejected": true,
+      "failedScenarios": [
+        "b-pooled-yield-items",
+        "b2-pooled-yield-items-roster-unchanged"
+      ],
+      "detail": "exit 1"
+    },
+    {
+      "name": "treat a transcript without session_init as a revival failure",
+      "rejected": true,
+      "failedScenarios": [
+        "c-legacy-transcript-without-session-init"
+      ],
+      "detail": "exit 1"
+    },
+    {
+      "name": "rewrite the persisted prompt instead of reusing it verbatim",
+      "rejected": true,
+      "failedScenarios": [
+        "a1-new-peer-while-parked",
+        "a2-peer-parked-before-revive",
+        "b-pooled-yield-items",
+        "e-roster-unchanged-control",
+        "b2-pooled-yield-items-roster-unchanged"
+      ],
+      "detail": "exit 1"
+    }
+  ]
+}

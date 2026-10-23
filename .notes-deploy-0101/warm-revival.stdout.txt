@@ -1,0 +1,13 @@
+  PASS a1-new-peer-while-parked
+  PASS a2-peer-parked-before-revive
+  PASS b-pooled-yield-items
+  PASS c-legacy-transcript-without-session-init
+  PASS d-peer-routing-after-revival
+  PASS e-roster-unchanged-control
+  PASS b2-pooled-yield-items-roster-unchanged
+  PASS f-info-pooled-followup-after-revival
+{"status":"PASS","scenarios":8,"failed":[],"result":"/home/chris/orca/projects/omp-move/.notes-deploy-0101/warm-revival.installed.json"}
+  ok   mutation rejected: drop the persisted systemPrompt override -> a1-new-peer-while-parked,a2-peer-parked-before-revive,b-pooled-yield-items
+  ok   mutation rejected: drop the yield-items restore -> b-pooled-yield-items,b2-pooled-yield-items-roster-unchanged
+  ok   mutation rejected: treat a transcript without session_init as a revival failure -> c-legacy-transcript-without-session-init
+  ok   mutation rejected: rewrite the persisted prompt instead of reusing it verbatim -> a1-new-peer-while-parked,a2-peer-parked-before-revive,b-pooled-yield-items,e-roster-unchanged-control,b2-pooled-yield-items-roster-unchanged

@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "removedSymbols": [
+    "manual-compaction-notes-checkpoint",
+    "MANUAL_NOTES_CHECKPOINT_PROMPT",
+    "NotesCheckpointBaseline",
+    "notesCheckpointFailure",
+    "manualNotesCheckpointBaseline",
+    "runManualNotesCheckpoint",
+    "runNotesCheckpoint",
+    "NOTES_CHECKPOINT_MESSAGE_TYPE",
+    "discardNotesCheckpointAside",
+    "NOTES_HOUSEKEEPING_TOOLS",
+    "isMainSession"
+  ],
+  "remainingReferencesInCandidateTree": {},
+  "deltaIsExactInverseOfManualNotesDelta": true,
+  "routingUnchanged": "#compactExperimentalContext condition (experimental live && no mode && no focus text && no internalGuidance) is untouched",
+  "callersThatLoseTheHiddenCheckpoint": [
+    "slash-commands/builtin-lifecycle.ts (TUI `/compact` via handleCompactCommand; ACP/RPC slash `/compact` via session.compact(parsed.instructions, mode?))",
+    "modes/controllers/command-controller.ts#handleCompactCommand (TUI /compact; compactingLoader path)",
+    "modes/rpc/rpc-mode.ts `compact` command (session.compact(command.customInstructions); no mode field)",
+    "modes/controllers/selector-controller.ts (session-only model switch compact-first: handleCompactCommand(undefined, undefined, ...))",
+    "modes/interactive-mode.ts (loop-mode compact iterations: handleCompactCommand(); plan approve-and-compact passes internalGuidance and never used the notes path)",
+    "extensibility/extensions/compact-handler.ts runExtensionCompact -> ctx.compact(string|CompactOptions) via runtime-init.ts, modes/acp/acp-agent.ts, modes/controllers/extension-ui-controller.ts, session/agent-session.ts (command-context compact)"
+  ],
+  "note": "all no-mode, no-focus, no-internalGuidance callers of AgentSession.compact() on a main session with a live notebook lose the hidden checkpoint; explicit modes, focus text, internalGuidance and child sessions never ran it"
+}

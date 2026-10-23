@@ -1,0 +1,97 @@
+{
+  "verifier": "subagent-warm-revival-prompt",
+  "root": "/tmp/warm-revival/ctrl/node_modules/@oh-my-pi",
+  "agentVersion": "18.10.1",
+  "scenarios": [
+    {
+      "name": "a1-new-peer-while-parked",
+      "ok": false,
+      "failures": [
+        "threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 6550: before=\"0-ProbeA1`. Currently visible peers:\\\\n- (no other agents)\\\\n\\\\nUse peer messages only for quick coordination, never long-f\" after=\"0-ProbeA1`. Currently visible peers:\\\\n- `1-LivePeer` — revival-probe (sub, idle)\\\\n\\\\nUse peer messages only for quick coo\""
+      ],
+      "observations": {}
+    },
+    {
+      "name": "a2-peer-parked-before-revive",
+      "ok": false,
+      "failures": [
+        "threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 6550: before=\"0-ProbeA2`. Currently visible peers:\\\\n- `1-EarlyPeer` — revival-probe (sub, idle)\\\\n\\\\nUse peer messages only for quick co\" after=\"0-ProbeA2`. Currently visible peers:\\\\n- (no other agents)\\\\n\\\\nUse peer messages only for quick coordination, never long-f\""
+      ],
+      "observations": {}
+    },
+    {
+      "name": "b-pooled-yield-items",
+      "ok": false,
+      "failures": [
+        "threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 6549: before=\"`0-ProbeB`. Currently visible peers:\\\\n- (no other agents)\\\\n\\\\nUse peer messages only for quick coordination, never long-f\" after=\"`0-ProbeB`. Currently visible peers:\\\\n- `1-LivePeer` — revival-probe (sub, idle)\\\\n\\\\nUse peer messages only for quick coo\""
+      ],
+      "observations": {}
+    },
+    {
+      "name": "c-legacy-transcript-without-session-init",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "systemBlocks": 3,
+        "sessionInitsAfterRevival": 0
+      }
+    },
+    {
+      "name": "d-peer-routing-after-revival",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "receipt": {
+          "to": "0-ProbeD",
+          "outcome": "revived"
+        },
+        "modelRequestsAfterSend": 1
+      }
+    },
+    {
+      "name": "e-roster-unchanged-control",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "rosterBeforePark": {
+          "peers": [],
+          "parkedCount": 0,
+          "omittedCount": 0
+        },
+        "rosterAtRevival": {
+          "peers": [],
+          "parkedCount": 0,
+          "omittedCount": 0
+        },
+        "systemBlocks": 3,
+        "sessionInitsBeforePark": 1,
+        "sessionInitsAfterRevival": 1,
+        "yieldItems": [],
+        "toolsIdentical": true
+      }
+    },
+    {
+      "name": "b2-pooled-yield-items-roster-unchanged",
+      "ok": false,
+      "failures": [
+        "threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 7516: before=\"nally record an incremental section.\\\\n\\\\nWorkpool yield protocol:\\\\n- Complete items in order. After EACH item, call `yiel\" after=\"nally record an incremental section.\\\\n\\\\nYield protocol:\\\\n- Omit `type` for the normal single terminal structured result \""
+      ],
+      "observations": {}
+    },
+    {
+      "name": "f-info-pooled-followup-after-revival",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "protocolParagraphInSystemPrompt": true,
+        "liveYieldItems": [
+          {
+            "id": "pool-2:item-1",
+            "index": 1
+          }
+        ]
+      }
+    }
+  ],
+  "status": "FAIL"
+}

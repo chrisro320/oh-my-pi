@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "release": "/home/chris/.bun/install/omp-releases/18.10.1-14d1e60540b2-e3991b5e-00608cd3",
+  "command": "OMP_PATCH_VERIFY_AGENT_ROOT=<release>/runtime/node_modules/@oh-my-pi/pi-coding-agent bun patches/verify-model-selection-resume.ts",
+  "checks": [
+    "target default exits auto on temporary switch; mock-provider effort high",
+    "explicit temporary low beats model default high",
+    "target without default keeps auto",
+    "persisted switch adopts high and fresh-process resume keeps high",
+    "prior navigation/fork/fallback cases"
+  ],
+  "runtime_tree_sha256_after": "e3991b5eeac930c3d53263b95ac0b9cfaaf1c515ce739d12e2100ce5ba57151e",
+  "ledger_tree_sha256_after": "e3e89b997755a20db4042acbccb0c033b6e98e29c9a73cdb7c1f7a1495f5aee5",
+  "temporary_probe_removed": true,
+  "provider_requests": "none; isolated HOME, fetch forbidden, mock provider"
+}

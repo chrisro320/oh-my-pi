@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "runtime": "18.10.1-6b674ed1e2af",
+  "modelSwitch": "same session id and exact notebook revision",
+  "replacement": "new current revision; old A remains in journal",
+  "fullFork": "new id inherits B; C write isolated from parent B",
+  "branch": "new id inherits A visible before selected user prompt, not later B/C",
+  "beforeFirstSave": "no notebook",
+  "reset": "earlier notebook hidden",
+  "rebuiltContext": "contains inherited A",
+  "syntheticProviderCalls": 6,
+  "blockedFetches": 12,
+  "errors": []
+}

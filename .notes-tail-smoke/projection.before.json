@@ -1,0 +1,130 @@
+{
+  "verifier": "context-notes-append-projection",
+  "root": "/home/chris/.bun/install/omp-releases/18.10.1-93cb0736c0bc-fa020e24-c9fe97bd/runtime/node_modules/@oh-my-pi",
+  "agentVersion": "18.10.1",
+  "notesFrame": "<experimental-context-notes>",
+  "assumptions": [
+    "the notebook (and its context_notes tool) is gated by compaction.experimentalContextManagement",
+    "the Anthropic native lane is seeded with the runtime's own withAnthropicCompactionPreserveData writer; a live native compaction needs a real Anthropic endpoint",
+    "the compaction scenarios use the classic soft summarizer path via explicit compact() focus instructions, so no hidden notes checkpoint runs",
+    "head means the leading region of the provider payload: the promoted revision is first, or follows the compaction summary/block it was folded into",
+    "an interrupted batch is aborted when the next tool starts after the durable notebook save; aborted transport attempts are not counted as sent requests",
+    "prefix comparisons use model-visible roles, content and tool associations; SDK telemetry is not provider prompt content"
+  ],
+  "scenarios": [
+    {
+      "name": "live-save-projects-at-tail",
+      "ok": false,
+      "failures": [
+        "the request after the save must carry one revision, got 0\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "batch-save-defers-past-tool-results",
+      "ok": false,
+      "failures": [
+        "the batch request must carry one revision, got 0\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "resume-replays-identical-prefix",
+      "ok": false,
+      "failures": [
+        "the live request must carry the saved revision once\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "revisions-append-and-keep-prior-prefix",
+      "ok": false,
+      "failures": [
+        "the first revision must be projected at its save position\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "identical-resave-receipt-without-duplicate",
+      "ok": false,
+      "failures": [
+        "the first save must be projected at its save position\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "clear-tombstone-then-fresh-save",
+      "ok": false,
+      "failures": [
+        "the first save must be projected at its save position\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "invalid-and-empty-revisions-inject-nothing",
+      "ok": false,
+      "failures": [
+        "an invalid revision must inject nothing, got 0\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "steering-during-save-keeps-replay-position",
+      "ok": false,
+      "failures": [
+        "the notebook must reach the provider after a save with queued steering"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "interrupted-save-flushed-before-next-request",
+      "ok": false,
+      "failures": [
+        "the recovery turn's first request must carry the pending revision, got 0\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "interrupted-clear-flushed-before-next-request",
+      "ok": false,
+      "failures": [
+        "the first save must be projected at its save position\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "compaction-promotes-latest-to-head",
+      "ok": false,
+      "failures": [
+        "the revision must be live after the save\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "anthropic-native-compaction-keeps-block-first",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "noteIndex": 2,
+        "retainedSignature": "sig-verify-1"
+      }
+    },
+    {
+      "name": "nested-eval-save-replays-at-tail",
+      "ok": false,
+      "failures": [
+        "Expected values to be strictly equal:\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "historical-branch-and-reset-isolate-notes",
+      "ok": false,
+      "failures": [
+        "Expected values to be strictly equal:\n\n0 !== 1\n"
+      ],
+      "observations": {}
+    }
+  ],
+  "status": "FAIL"
+}

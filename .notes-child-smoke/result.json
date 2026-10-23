@@ -1,0 +1,604 @@
+{
+  "runtimeVersion": "18.10.1",
+  "runtimeRootBasename": "runtime/node_modules/@oh-my-pi/pi-coding-agent",
+  "addonSha256": "b8b405ce967e56afcfb0f426e3ee6f535a5f18ec4714c90a2061fe3fa6d4aef9",
+  "notesCadence": 50,
+  "totalStepsPerRun": 64,
+  "crossStep": 60,
+  "thresholdTokens": 20000,
+  "parent": {
+    "identity": {
+      "kind": "main",
+      "id": "Main",
+      "name": "main",
+      "depth": 0
+    },
+    "activeTools": [
+      "read",
+      "grep",
+      "context_notes",
+      "new_context"
+    ],
+    "registered": [
+      "session_start",
+      "session_switch",
+      "session_branch",
+      "session_tree",
+      "before_agent_start",
+      "turn_end",
+      "session_before_compact",
+      "tool_call",
+      "tool_result",
+      "auto_compaction_start",
+      "auto_compaction_end"
+    ],
+    "cadenceInjection": {
+      "kind": "sendMessage",
+      "customType": "context-notes-maintenance-reminder",
+      "deliverAs": "aside",
+      "triggerTurn": false,
+      "atTurnEnd": 50,
+      "assistantMessages": 50
+    },
+    "firstProviderRequestWithReminder": 51,
+    "vetoes": 6,
+    "allInjections": [
+      {
+        "kind": "sendMessage",
+        "customType": "context-notes-maintenance-reminder",
+        "deliverAs": "aside",
+        "triggerTurn": false,
+        "atTurnEnd": 50,
+        "assistantMessages": 50
+      },
+      {
+        "kind": "sendMessage",
+        "customType": "context-notes-maintenance-reminder",
+        "deliverAs": "nextTurn",
+        "triggerTurn": true,
+        "atTurnEnd": 61,
+        "assistantMessages": 61
+      },
+      {
+        "kind": "sendMessage",
+        "customType": "context-notes-maintenance-reminder",
+        "deliverAs": "nextTurn",
+        "triggerTurn": true,
+        "atTurnEnd": 62,
+        "assistantMessages": 62
+      },
+      {
+        "kind": "sendMessage",
+        "customType": "context-notes-maintenance-reminder",
+        "deliverAs": "nextTurn",
+        "triggerTurn": true,
+        "atTurnEnd": 63,
+        "assistantMessages": 63
+      }
+    ],
+    "notices": [
+      {
+        "message": "context-notes: rollover blocked (no notebook revision is visible on this branch). Write the notebook with context_notes, then call new_context again.",
+        "type": "error"
+      },
+      {
+        "message": "context-notes: rollover blocked (no notebook revision is visible on this branch). Write the notebook with context_notes, then call new_context again.",
+        "type": "error"
+      }
+    ],
+    "compactionEvents": [
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false",
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false",
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false",
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false",
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false",
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false"
+    ],
+    "committedCompactions": 0,
+    "llmSteps": 67,
+    "turnEnds": 67,
+    "settingValue": true
+  },
+  "children": {
+    "task-depth-1": {
+      "identity": {
+        "kind": "sub",
+        "id": "0-SmokeTask",
+        "name": "task",
+        "depth": 1,
+        "parentId": "Main"
+      },
+      "handedSettingsValue": false,
+      "childSessionSettingValue": false,
+      "parentSessionSettingValue": true,
+      "parentSettingsObjectValue": true,
+      "activeTools": [
+        "read",
+        "grep"
+      ],
+      "allToolNames": [
+        "read",
+        "grep",
+        "goal",
+        "write",
+        "init_experiment",
+        "run_experiment",
+        "log_experiment",
+        "update_notes"
+      ],
+      "registeredAddonEvents": [
+        "session_start",
+        "session_switch",
+        "session_branch",
+        "session_tree",
+        "before_agent_start"
+      ],
+      "firedAddonEvents": [
+        "session_start",
+        "before_agent_start"
+      ],
+      "hasBeforeCompactHandler": false,
+      "addonInjections": 0,
+      "addonNotices": 0,
+      "addonVetoes": 0,
+      "reminderEntriesInJournal": 0,
+      "reminderRequests": 0,
+      "llmSteps": 64,
+      "summaryRequests": 2,
+      "compactionEvents": [
+        "start:context-full:threshold",
+        "end:context-full:aborted=false:result=true"
+      ],
+      "committedCompactions": [
+        {
+          "method": "soft",
+          "fromExtension": false,
+          "detailsKind": null,
+          "summaryHead": "CHILD-TRADITIONAL-SUMMARY[task-depth-1]\n## Goal\n- synthetic ",
+          "isNotesRollover": false
+        }
+      ],
+      "compactionSettings": {
+        "enabled": true,
+        "experimentalContextManagement": false,
+        "methodOrder": [
+          "soft"
+        ],
+        "thresholdPercent": -1,
+        "thresholdTokens": 20000,
+        "keepRecentTokens": 1,
+        "midTurnEnabled": true,
+        "asyncEnabled": false,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      }
+    },
+    "clone-depth-0": {
+      "identity": {
+        "kind": "sub",
+        "id": "Tan-SmokeClone",
+        "name": "sub",
+        "depth": 0,
+        "parentId": "Main"
+      },
+      "handedSettingsValue": false,
+      "childSessionSettingValue": false,
+      "parentSessionSettingValue": true,
+      "parentSettingsObjectValue": true,
+      "activeTools": [
+        "read",
+        "grep"
+      ],
+      "allToolNames": [
+        "read",
+        "grep",
+        "goal",
+        "write",
+        "init_experiment",
+        "run_experiment",
+        "log_experiment",
+        "update_notes"
+      ],
+      "registeredAddonEvents": [
+        "session_start",
+        "session_switch",
+        "session_branch",
+        "session_tree",
+        "before_agent_start"
+      ],
+      "firedAddonEvents": [
+        "session_start",
+        "before_agent_start"
+      ],
+      "hasBeforeCompactHandler": false,
+      "addonInjections": 0,
+      "addonNotices": 0,
+      "addonVetoes": 0,
+      "reminderEntriesInJournal": 0,
+      "reminderRequests": 0,
+      "llmSteps": 64,
+      "summaryRequests": 2,
+      "compactionEvents": [
+        "start:context-full:threshold",
+        "end:context-full:aborted=false:result=true"
+      ],
+      "committedCompactions": [
+        {
+          "method": "soft",
+          "fromExtension": false,
+          "detailsKind": null,
+          "summaryHead": "CHILD-TRADITIONAL-SUMMARY[clone-depth-0]\n## Goal\n- synthetic",
+          "isNotesRollover": false
+        }
+      ],
+      "compactionSettings": {
+        "enabled": true,
+        "experimentalContextManagement": false,
+        "methodOrder": [
+          "soft"
+        ],
+        "thresholdPercent": -1,
+        "thresholdTokens": 20000,
+        "keepRecentTokens": 1,
+        "midTurnEnabled": true,
+        "asyncEnabled": false,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      }
+    }
+  },
+  "settingsMatrix": [
+    {
+      "config": "midturn-off/soft",
+      "child": "depth-1",
+      "parentBefore": {
+        "enabled": true,
+        "experimentalContextManagement": true,
+        "methodOrder": [
+          "soft"
+        ],
+        "thresholdPercent": -1,
+        "thresholdTokens": 12345,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": false,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "childAfter": {
+        "enabled": true,
+        "experimentalContextManagement": false,
+        "methodOrder": [
+          "soft"
+        ],
+        "thresholdPercent": -1,
+        "thresholdTokens": 12345,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": true,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "onlyExperimentalDiffersFromOverlay": true
+    },
+    {
+      "config": "midturn-off/soft",
+      "child": "depth-0",
+      "parentBefore": {
+        "enabled": true,
+        "experimentalContextManagement": true,
+        "methodOrder": [
+          "soft"
+        ],
+        "thresholdPercent": -1,
+        "thresholdTokens": 12345,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": false,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "childAfter": {
+        "enabled": true,
+        "experimentalContextManagement": false,
+        "methodOrder": [
+          "soft"
+        ],
+        "thresholdPercent": -1,
+        "thresholdTokens": 12345,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": true,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "onlyExperimentalDiffersFromOverlay": true
+    },
+    {
+      "config": "disabled/shake+soft/percent",
+      "child": "depth-1",
+      "parentBefore": {
+        "enabled": false,
+        "experimentalContextManagement": true,
+        "methodOrder": [
+          "shake",
+          "soft"
+        ],
+        "thresholdPercent": 70,
+        "thresholdTokens": -1,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": true,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "childAfter": {
+        "enabled": false,
+        "experimentalContextManagement": false,
+        "methodOrder": [
+          "shake",
+          "soft"
+        ],
+        "thresholdPercent": 70,
+        "thresholdTokens": -1,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": true,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "onlyExperimentalDiffersFromOverlay": true
+    },
+    {
+      "config": "disabled/shake+soft/percent",
+      "child": "depth-0",
+      "parentBefore": {
+        "enabled": false,
+        "experimentalContextManagement": true,
+        "methodOrder": [
+          "shake",
+          "soft"
+        ],
+        "thresholdPercent": 70,
+        "thresholdTokens": -1,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": true,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "childAfter": {
+        "enabled": false,
+        "experimentalContextManagement": false,
+        "methodOrder": [
+          "shake",
+          "soft"
+        ],
+        "thresholdPercent": 70,
+        "thresholdTokens": -1,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": true,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "onlyExperimentalDiffersFromOverlay": true
+    },
+    {
+      "config": "defaults",
+      "child": "depth-1",
+      "parentBefore": {
+        "enabled": true,
+        "experimentalContextManagement": true,
+        "methodOrder": [
+          "remote",
+          "snapcompact",
+          "handoff",
+          "shake",
+          "soft"
+        ],
+        "thresholdPercent": -1,
+        "thresholdTokens": -1,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": true,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "childAfter": {
+        "enabled": true,
+        "experimentalContextManagement": false,
+        "methodOrder": [
+          "remote",
+          "snapcompact",
+          "handoff",
+          "shake",
+          "soft"
+        ],
+        "thresholdPercent": -1,
+        "thresholdTokens": -1,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": true,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "onlyExperimentalDiffersFromOverlay": true
+    },
+    {
+      "config": "defaults",
+      "child": "depth-0",
+      "parentBefore": {
+        "enabled": true,
+        "experimentalContextManagement": true,
+        "methodOrder": [
+          "remote",
+          "snapcompact",
+          "handoff",
+          "shake",
+          "soft"
+        ],
+        "thresholdPercent": -1,
+        "thresholdTokens": -1,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": true,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "childAfter": {
+        "enabled": true,
+        "experimentalContextManagement": false,
+        "methodOrder": [
+          "remote",
+          "snapcompact",
+          "handoff",
+          "shake",
+          "soft"
+        ],
+        "thresholdPercent": -1,
+        "thresholdTokens": -1,
+        "keepRecentTokens": 20000,
+        "midTurnEnabled": true,
+        "asyncEnabled": true,
+        "handoffSaveToDisk": false,
+        "autoContinue": true,
+        "remoteStreamingV2Enabled": true,
+        "v2RetainedMessageBudget": 64000,
+        "idleEnabled": false,
+        "idleThresholdTokens": 200000,
+        "idleTimeoutSeconds": 300,
+        "supersedeReads": true,
+        "dropUseless": true
+      },
+      "onlyExperimentalDiffersFromOverlay": true
+    }
+  ],
+  "overlayContract": {
+    "plain": false,
+    "explicitTrueOverride": false,
+    "grandchild": false,
+    "grandchildExplicitTrue": false,
+    "warmReviveRestore": false,
+    "perAgentThresholds": {
+      "experimental": false,
+      "tokens": 777,
+      "percent": 33
+    },
+    "parent": true,
+    "liveReadThroughAfterParentEdit": 11111
+  },
+  "fetchAttempts": 48,
+  "fetchTargetsBlocked": {
+    "127.0.0.1:11434/api/tags": 7,
+    "127.0.0.1:8080/models": 7,
+    "127.0.0.1:8080/props": 7,
+    "127.0.0.1:1234/api/v0/models": 7,
+    "127.0.0.1:1234/v1/models": 7,
+    "catalog.stencil.so/models.json.zstd": 1,
+    "coding-intl.dashscope.aliyuncs.com/v1/models": 1,
+    "hyper.charm.land/v1/models": 7,
+    "api.commandcode.ai/provider/v1/models": 1,
+    "api.kilo.ai/api/gateway/models": 1,
+    "api.venice.ai/api/v1/models": 1,
+    "zenmux.ai/api/v1/models": 1
+  },
+  "ok": true
+}

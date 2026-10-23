@@ -1,0 +1,8 @@
+{
+  "previous_runtime_tree_sha256": "991bd082ec5b7dede2b7d69f2a583d7f9d29b6ce387c53d7ae99fb11f11c9642",
+  "installed_runtime_tree_sha256": "e3991b5eeac930c3d53263b95ac0b9cfaaf1c515ce739d12e2100ce5ba57151e",
+  "changed_paths": [
+    "node_modules/@oh-my-pi/pi-coding-agent/src/session/model-controls.ts"
+  ],
+  "unrelated_runtime_changes": false
+}

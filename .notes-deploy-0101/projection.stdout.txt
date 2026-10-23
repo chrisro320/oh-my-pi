@@ -1,0 +1,15 @@
+  PASS live-save-projects-at-tail
+  PASS batch-save-defers-past-tool-results
+  PASS resume-replays-identical-prefix
+  PASS revisions-append-and-keep-prior-prefix
+  PASS identical-resave-receipt-without-duplicate
+  PASS clear-tombstone-then-fresh-save
+  PASS invalid-and-empty-revisions-inject-nothing
+  PASS steering-during-save-keeps-replay-position
+  PASS interrupted-save-flushed-before-next-request
+  PASS interrupted-clear-flushed-before-next-request
+  PASS compaction-promotes-latest-to-head
+  PASS anthropic-native-compaction-keeps-block-first
+  PASS nested-eval-save-replays-at-tail
+  PASS historical-branch-and-reset-isolate-notes
+{"status":"PASS","scenarios":14,"failed":[],"result":"/home/chris/orca/projects/omp-move/.notes-deploy-0101/projection.installed.json"}

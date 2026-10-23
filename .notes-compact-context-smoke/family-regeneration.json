@@ -1,0 +1,40 @@
+{
+  "status": "PASS",
+  "familySha256": "8dff5cab97bbaa0aac97349324580531dbc82e386fe408ed8aa25e26f23b51ed",
+  "deltaSha256": "e8c341352029cccd2bcac1f95d29c8c4dcd53da52a46d3022515efa47c11f642",
+  "previousFamilySha256": "bcd78ba8277c8f0defe34ac7475b76a81586e1151badbe3fc27d618e66e5a1a0",
+  "candidate_tree_sha256": "cc62c788bfe4438e56575b4655975d32cca4fe4426e9e21e92d8c4ed21b8651a",
+  "headFamilyReproducedFromPristinePrefix": true,
+  "paths": [
+    "pi-agent-core/dist/types/compaction/anthropic.d.ts",
+    "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+    "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+    "pi-agent-core/dist/types/compaction/compaction.d.ts",
+    "pi-agent-core/src/compaction/anthropic.ts",
+    "pi-agent-core/src/compaction/compaction-trace.ts",
+    "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+    "pi-agent-core/src/compaction/compaction.ts",
+    "pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md",
+    "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+    "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+    "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+    "pi-ai/src/providers/openai-codex-responses.ts",
+    "pi-coding-agent/dist/types/session/agent-session.d.ts",
+    "pi-coding-agent/dist/types/session/context-notes.d.ts",
+    "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+    "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts",
+    "pi-coding-agent/src/prompts/system/context-notes.md",
+    "pi-coding-agent/src/session/agent-session.ts",
+    "pi-coding-agent/src/session/context-notes.ts",
+    "pi-coding-agent/src/session/session-advisors.ts",
+    "pi-coding-agent/src/session/session-context.ts",
+    "pi-coding-agent/src/session/session-maintenance.ts",
+    "pi-coding-agent/src/session/session-provider-boundary.ts",
+    "pi-coding-agent/src/task/executor.ts"
+  ],
+  "changed": [
+    "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+    "pi-coding-agent/src/session/agent-session.ts",
+    "pi-coding-agent/src/session/session-maintenance.ts"
+  ]
+}

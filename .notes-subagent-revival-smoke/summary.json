@@ -1,0 +1,126 @@
+{
+  "task": "10-16-subagent-revival-prompt-stability",
+  "patch": "patches/.18.10.1-families/0101-omp-subagent-warm-revival-persisted-prompt-v18.10.1.patch",
+  "patch_sha256": "e87a81f35eb452ea7e23a2b3f39aeb440b9656ec615b9d4696a6dded3e779181",
+  "root": "AGENT (patch -p1 from pi-coding-agent, path src/task/executor.ts)",
+  "control_tree": "pristine 18.10.1 + 26 committed families (manifest candidate_tree_sha256 cc62c788bfe4438e56575b4655975d32cca4fe4426e9e21e92d8c4ed21b8651a) with node_modules from ~/.cache/omp-checkpoint-removal/runtime",
+  "candidate_tree_sha256": "4187e4fd7c38398ad46742510a82bbc92a19315cc725abdde23dfe66b3d29d6c",
+  "verifier": "patches/verify-subagent-warm-revival-prompt.ts",
+  "candidate": {
+    "exit_code": 0,
+    "status": "PASS",
+    "scenarios": {
+      "a1-new-peer-while-parked": true,
+      "a2-peer-parked-before-revive": true,
+      "b-pooled-yield-items": true,
+      "c-legacy-transcript-without-session-init": true,
+      "d-peer-routing-after-revival": true,
+      "e-roster-unchanged-control": true,
+      "b2-pooled-yield-items-roster-unchanged": true,
+      "f-info-pooled-followup-after-revival": true
+    },
+    "mutation_controls": [
+      {
+        "name": "drop the persisted systemPrompt override",
+        "rejected": true,
+        "failed_scenarios": [
+          "a1-new-peer-while-parked",
+          "a2-peer-parked-before-revive",
+          "b-pooled-yield-items"
+        ]
+      },
+      {
+        "name": "drop the yield-items restore",
+        "rejected": true,
+        "failed_scenarios": [
+          "b-pooled-yield-items",
+          "b2-pooled-yield-items-roster-unchanged"
+        ]
+      },
+      {
+        "name": "treat a transcript without session_init as a revival failure",
+        "rejected": true,
+        "failed_scenarios": [
+          "c-legacy-transcript-without-session-init"
+        ]
+      },
+      {
+        "name": "rewrite the persisted prompt instead of reusing it verbatim",
+        "rejected": true,
+        "failed_scenarios": [
+          "a1-new-peer-while-parked",
+          "a2-peer-parked-before-revive",
+          "b-pooled-yield-items",
+          "e-roster-unchanged-control",
+          "b2-pooled-yield-items-roster-unchanged"
+        ]
+      }
+    ]
+  },
+  "control": {
+    "exit_code": 1,
+    "status": "FAIL",
+    "scenarios": {
+      "a1-new-peer-while-parked": false,
+      "a2-peer-parked-before-revive": false,
+      "b-pooled-yield-items": false,
+      "c-legacy-transcript-without-session-init": true,
+      "d-peer-routing-after-revival": true,
+      "e-roster-unchanged-control": true,
+      "b2-pooled-yield-items-roster-unchanged": false,
+      "f-info-pooled-followup-after-revival": true
+    },
+    "failures": {
+      "a1-new-peer-while-parked": [
+        "threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 6550: before=\"0-ProbeA1`. Currently visible peers:\\\\n- (no other agents)\\\\n\\\\nUse peer messages only for quick coordination, never long-f\" after=\"0-ProbeA1`. Currently visible peers:\\\\n- `1-LivePeer` \u2014 revival-probe (sub, idle)\\\\n\\\\nUse peer messages only for quick coo\""
+      ],
+      "a2-peer-parked-before-revive": [
+        "threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 6550: before=\"0-ProbeA2`. Currently visible peers:\\\\n- `1-EarlyPeer` \u2014 revival-probe (sub, idle)\\\\n\\\\nUse peer messages only for quick co\" after=\"0-ProbeA2`. Currently visible peers:\\\\n- (no other agents)\\\\n\\\\nUse peer messages only for quick coordination, never long-f\""
+      ],
+      "b-pooled-yield-items": [
+        "threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 6549: before=\"`0-ProbeB`. Currently visible peers:\\\\n- (no other agents)\\\\n\\\\nUse peer messages only for quick coordination, never long-f\" after=\"`0-ProbeB`. Currently visible peers:\\\\n- `1-LivePeer` \u2014 revival-probe (sub, idle)\\\\n\\\\nUse peer messages only for quick coo\""
+      ],
+      "b2-pooled-yield-items-roster-unchanged": [
+        "threw: revived system prompt blocks must equal the pre-park blocks: first difference at char 7516: before=\"nally record an incremental section.\\\\n\\\\nWorkpool yield protocol:\\\\n- Complete items in order. After EACH item, call `yiel\" after=\"nally record an incremental section.\\\\n\\\\nYield protocol:\\\\n- Omit `type` for the normal single terminal structured result \""
+      ]
+    }
+  },
+  "informational_f": {
+    "candidate": {
+      "protocolParagraphInSystemPrompt": false,
+      "liveYieldItems": [
+        {
+          "id": "pool-2:item-1",
+          "index": 1
+        }
+      ]
+    },
+    "control": {
+      "protocolParagraphInSystemPrompt": true,
+      "liveYieldItems": [
+        {
+          "id": "pool-2:item-1",
+          "index": 1
+        }
+      ]
+    }
+  },
+  "oracle": {
+    "command": "python3 patches/verify-release-family-plan.py --version 18.10.1 --tgz-cache ~/.cache/omp-patch-tgz-18.10.1",
+    "exit_code": 0,
+    "families": 27,
+    "capabilities": 62,
+    "zero_fuzz": true,
+    "reverse_to_pristine": true,
+    "second_replay_identical": true,
+    "controller_check_read_only": true
+  },
+  "rollups_entrypoint": {
+    "command": "bash patches/verify-patch-family-rollups.sh --version 18.10.1 --tgz-cache ~/.cache/omp-patch-tgz-18.10.1",
+    "exit_code": 0
+  },
+  "apply_sh_syntax": {
+    "command": "bash -n patches/apply.sh",
+    "exit_code": 0
+  }
+}

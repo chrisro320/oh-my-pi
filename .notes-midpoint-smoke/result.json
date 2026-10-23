@@ -1,0 +1,281 @@
+{
+  "status": "PASS",
+  "runtime": "18.10.1-6b674ed1e2af",
+  "injections": [
+    {
+      "phase": "midpoint",
+      "options": {
+        "deliverAs": "aside"
+      },
+      "response": 2
+    },
+    {
+      "phase": "rollover",
+      "options": {
+        "deliverAs": "aside"
+      },
+      "response": 13
+    }
+  ],
+  "observations": [
+    {
+      "phase": "midpoint",
+      "response": 0,
+      "checkpoints": 0,
+      "toolResults": 0
+    },
+    {
+      "phase": "midpoint",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 30005,
+        "contextWindow": 200000,
+        "percent": 15.0025
+      },
+      "streaming": true
+    },
+    {
+      "phase": "midpoint",
+      "response": 1,
+      "checkpoints": 0,
+      "toolResults": 1
+    },
+    {
+      "phase": "midpoint",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 93224,
+        "contextWindow": 200000,
+        "percent": 46.611999999999995
+      },
+      "streaming": true
+    },
+    {
+      "phase": "midpoint",
+      "response": 2,
+      "checkpoints": 1,
+      "toolResults": 25
+    },
+    {
+      "phase": "midpoint",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100053,
+        "contextWindow": 200000,
+        "percent": 50.0265
+      },
+      "streaming": true
+    },
+    {
+      "phase": "midpoint",
+      "response": 3,
+      "checkpoints": 1,
+      "toolResults": 26
+    },
+    {
+      "phase": "midpoint",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100053,
+        "contextWindow": 200000,
+        "percent": 50.0265
+      },
+      "streaming": true
+    },
+    {
+      "phase": "midpoint",
+      "response": 4,
+      "checkpoints": 1,
+      "toolResults": 27
+    },
+    {
+      "phase": "midpoint",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100005,
+        "contextWindow": 200000,
+        "percent": 50.002500000000005
+      },
+      "streaming": true
+    },
+    {
+      "phase": "midpoint",
+      "response": 5,
+      "checkpoints": 1,
+      "toolResults": 28
+    },
+    {
+      "phase": "midpoint",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100053,
+        "contextWindow": 200000,
+        "percent": 50.0265
+      },
+      "streaming": true
+    },
+    {
+      "phase": "midpoint",
+      "response": 6,
+      "checkpoints": 1,
+      "toolResults": 29
+    },
+    {
+      "phase": "midpoint",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100000,
+        "contextWindow": 200000,
+        "percent": 50
+      },
+      "streaming": true
+    },
+    {
+      "phase": "midpoint",
+      "response": 7,
+      "checkpoints": 1,
+      "toolResults": 29
+    },
+    {
+      "phase": "midpoint",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100000,
+        "contextWindow": 200000,
+        "percent": 50
+      },
+      "streaming": true
+    },
+    {
+      "phase": "reload",
+      "response": 8,
+      "checkpoints": 1,
+      "toolResults": 29
+    },
+    {
+      "phase": "reload",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100000,
+        "contextWindow": 200000,
+        "percent": 50
+      },
+      "streaming": true
+    },
+    {
+      "phase": "rollover",
+      "response": 9,
+      "checkpoints": 1,
+      "toolResults": 29
+    },
+    {
+      "phase": "rollover",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100005,
+        "contextWindow": 200000,
+        "percent": 50.002500000000005
+      },
+      "streaming": true
+    },
+    {
+      "phase": "rollover",
+      "response": 10,
+      "checkpoints": 1,
+      "toolResults": 30
+    },
+    {
+      "phase": "rollover",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100008,
+        "contextWindow": 200000,
+        "percent": 50.004000000000005
+      },
+      "streaming": true
+    },
+    {
+      "phase": "rollover",
+      "response": 11,
+      "checkpoints": 1,
+      "toolResults": 6
+    },
+    {
+      "phase": "rollover",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 1005,
+        "contextWindow": 200000,
+        "percent": 0.5025
+      },
+      "streaming": true
+    },
+    {
+      "phase": "rollover",
+      "response": 12,
+      "checkpoints": 1,
+      "toolResults": 7
+    },
+    {
+      "phase": "rollover",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 92005,
+        "contextWindow": 200000,
+        "percent": 46.002500000000005
+      },
+      "streaming": true
+    },
+    {
+      "phase": "rollover",
+      "response": 13,
+      "checkpoints": 2,
+      "toolResults": 8
+    },
+    {
+      "phase": "rollover",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100053,
+        "contextWindow": 200000,
+        "percent": 50.0265
+      },
+      "streaming": true
+    },
+    {
+      "phase": "rollover",
+      "response": 14,
+      "checkpoints": 2,
+      "toolResults": 9
+    },
+    {
+      "phase": "rollover",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100053,
+        "contextWindow": 200000,
+        "percent": 50.0265
+      },
+      "streaming": true
+    },
+    {
+      "phase": "rollover",
+      "response": 15,
+      "checkpoints": 2,
+      "toolResults": 10
+    },
+    {
+      "phase": "rollover",
+      "event": "turn_end",
+      "usage": {
+        "tokens": 100000,
+        "contextWindow": 200000,
+        "percent": 50
+      },
+      "streaming": true
+    }
+  ],
+  "blockedFetches": 18,
+  "errors": [],
+  "providerCalls": 16
+}

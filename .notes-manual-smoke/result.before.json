@@ -1,0 +1,101 @@
+{
+  "verifier": "manual-notes-compaction",
+  "root": "/home/chris/.bun/install/omp-releases/18.10.1-6b674ed1e2af-dd9e6113-176718ac/runtime/node_modules/@oh-my-pi",
+  "agentVersion": "18.10.1",
+  "checkpointCustomType": "manual-compaction-notes-checkpoint",
+  "scenarios": [
+    {
+      "name": "idle-new-write",
+      "ok": false,
+      "failures": [
+        "threw: expected exactly one checkpoint message"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "ignored-save",
+      "ok": false,
+      "failures": [
+        "threw: an ignored save must not commit a compaction"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "empty-save",
+      "ok": false,
+      "failures": [
+        "threw: an empty save must not commit a compaction"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "oversize-save",
+      "ok": false,
+      "failures": [
+        "threw: an oversized save must not commit a compaction"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "work-after-save",
+      "ok": false,
+      "failures": [
+        "threw: work after the save must cancel the compaction"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "duplicate-request",
+      "ok": false,
+      "failures": [
+        "threw: a duplicate request must not run a second checkpoint"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "abort-mid-checkpoint",
+      "ok": false,
+      "failures": [
+        "threw: timeout: checkpoint request reached the provider"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "busy-tool-batch",
+      "ok": false,
+      "failures": [
+        "threw: the whole tool batch must complete, got 0 results"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "child-session",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 0,
+        "compactions": 1,
+        "providerCalls": [
+          "1:user",
+          "2:user"
+        ]
+      }
+    },
+    {
+      "name": "notebook-disabled",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 0,
+        "compactions": 1,
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:user"
+        ]
+      }
+    }
+  ],
+  "runtimeErrors": [],
+  "status": "FAIL"
+}

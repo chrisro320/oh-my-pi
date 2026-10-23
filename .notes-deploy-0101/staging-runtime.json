@@ -1,0 +1,26 @@
+{
+ "previous_candidate_expected": "cc62c788bfe4438e56575b4655975d32cca4fe4426e9e21e92d8c4ed21b8651a",
+ "head_candidate_expected": "4187e4fd7c38398ad46742510a82bbc92a19315cc725abdde23dfe66b3d29d6c",
+ "before_patch_candidate": "cc62c788bfe4438e56575b4655975d32cca4fe4426e9e21e92d8c4ed21b8651a",
+ "before_equal": true,
+ "runtime_tree_before": "4d7cbbb2f71bff4ba68f8df5933bba1708f613cc7dc2fb129f6fafee9418ca06",
+ "family": {
+  "id": "0101-omp-subagent-warm-revival-persisted-prompt",
+  "patch": ".18.10.1-families/0101-omp-subagent-warm-revival-persisted-prompt-v18.10.1.patch",
+  "root": "AGENT",
+  "capabilities": [
+   "0101"
+  ],
+  "sha256": "e87a81f35eb452ea7e23a2b3f39aeb440b9656ec615b9d4696a6dded3e779181",
+  "paths": [
+   "pi-coding-agent/src/task/executor.ts"
+  ]
+ },
+ "patch_rc": 0,
+ "patch_stdout": "patching file src/task/executor.ts\n",
+ "patch_stderr": "",
+ "after_patch_candidate": "4187e4fd7c38398ad46742510a82bbc92a19315cc725abdde23dfe66b3d29d6c",
+ "after_equal": true,
+ "runtime_tree_after": "991bd082ec5b7dede2b7d69f2a583d7f9d29b6ce387c53d7ae99fb11f11c9642",
+ "stray_orig_rej": []
+}

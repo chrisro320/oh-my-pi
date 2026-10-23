@@ -1,0 +1,167 @@
+{
+  "verifier": "manual-notes-compaction",
+  "root": "/home/chris/orca/projects/omp-move/.notes-manual-work/node_modules/@oh-my-pi",
+  "agentVersion": "18.10.1",
+  "checkpointCustomType": "manual-compaction-notes-checkpoint",
+  "scenarios": [
+    {
+      "name": "idle-new-write",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 1,
+        "notebookRevisions": 2,
+        "compactions": 1,
+        "kind": "experimental-context-rollover",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:checkpoint",
+          "4:checkpoint"
+        ]
+      }
+    },
+    {
+      "name": "ignored-save",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 0,
+        "checkpointMessages": 1,
+        "gateMessages": 0,
+        "outcome": "rejected:Error:手動壓縮已取消：存檔檢查點未留下已提交且最新的筆記（檢查點沒有寫入新的筆記修訂）。未建立壓縮邊界。",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:checkpoint"
+        ]
+      }
+    },
+    {
+      "name": "empty-save",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 0,
+        "outcome": "rejected:Error:手動壓縮已取消：存檔檢查點未留下已提交且最新的筆記（新的筆記修訂是空的）。未建立壓縮邊界。",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:checkpoint",
+          "4:checkpoint"
+        ]
+      }
+    },
+    {
+      "name": "oversize-save",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 0,
+        "outcome": "rejected:Error:手動壓縮已取消：存檔檢查點未留下已提交且最新的筆記（檢查點沒有寫入新的筆記修訂）。未建立壓縮邊界。",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:checkpoint",
+          "4:checkpoint"
+        ]
+      }
+    },
+    {
+      "name": "work-after-save",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 0,
+        "notebookRevisions": 2,
+        "outcome": "rejected:Error:手動壓縮已取消：存檔檢查點未留下已提交且最新的筆記（存檔後仍有其他工具作業）。未建立壓縮邊界。",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:checkpoint",
+          "4:checkpoint",
+          "5:checkpoint"
+        ]
+      }
+    },
+    {
+      "name": "duplicate-request",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 1,
+        "notebookRevisions": 2,
+        "compactions": 1,
+        "outcomes": [
+          "resolved",
+          "rejected:Error:Compaction already in progress"
+        ],
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:checkpoint",
+          "4:checkpoint"
+        ]
+      }
+    },
+    {
+      "name": "abort-mid-checkpoint",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 0,
+        "notebookRevisions": 1,
+        "outcome": "rejected:CompactionCancelledError:Compaction cancelled",
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:checkpoint"
+        ]
+      }
+    },
+    {
+      "name": "busy-tool-batch",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "batchToolResults": 3,
+        "checkpointMessages": 1,
+        "compactions": 1,
+        "providerCalls": [
+          "1:user",
+          "2:checkpoint",
+          "3:checkpoint"
+        ]
+      }
+    },
+    {
+      "name": "child-session",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 0,
+        "compactions": 1,
+        "providerCalls": [
+          "1:user",
+          "2:user"
+        ]
+      }
+    },
+    {
+      "name": "notebook-disabled",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "checkpointMessages": 0,
+        "compactions": 1,
+        "providerCalls": [
+          "1:user",
+          "2:user",
+          "3:user"
+        ]
+      }
+    }
+  ],
+  "runtimeErrors": [],
+  "status": "PASS"
+}

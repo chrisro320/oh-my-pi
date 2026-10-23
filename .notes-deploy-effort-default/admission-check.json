@@ -1,0 +1,18 @@
+{
+  "release": "/home/chris/.bun/install/omp-releases/18.10.1-14d1e60540b2-e3991b5e-00608cd3",
+  "launcher_target": "/home/chris/.bun/install/omp-releases/18.10.1-14d1e60540b2-e3991b5e-00608cd3/bin/omp",
+  "ledger_target": "/home/chris/.bun/install/omp-releases/18.10.1-14d1e60540b2-e3991b5e-00608cd3/ledger",
+  "version": {
+    "exit": 0,
+    "stdout": "omp/18.10.1 (installed; restart required; old owners: 3005634,3078013,3082043,3082354,3100715)\n",
+    "stderr": ""
+  },
+  "normal_launch": {
+    "exit": 75,
+    "stdout": "",
+    "stderr": "OMP release installed; launch blocked by old owners: 3005634,3078013,3082043,3082354,3100715\n"
+  },
+  "production_admission_started": false,
+  "production_activation": false,
+  "source_cli_executed_by_normal_launch": false
+}

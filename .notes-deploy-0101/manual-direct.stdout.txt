@@ -1,0 +1,18 @@
+  PASS manual-stale-notebook-direct
+  PASS manual-fresh-notebook-direct
+  PASS manual-no-notebook-revision-direct
+  PASS new-context-stale-notebook-vetoed
+  PASS new-context-fresh-notebook-commits
+  PASS feature-off-setting-summary-path
+  PASS feature-off-tools-absent-summary-path
+  PASS feature-toggled-off-setting-live-session
+  PASS feature-toggled-off-tools-live-session
+  PASS classic-automatic-tools-absent
+  PASS classic-automatic-toggled-off
+  PASS explicit-soft-mode
+  PASS explicit-remote-mode
+  PASS explicit-snapcompact-mode
+  PASS focused-compact
+  PASS child-session-pinned-off-summary-path
+  PASS child-session-notebook-rollover-direct
+{"status":"PASS","scenarios":17,"failed":[],"result":"/home/chris/orca/projects/omp-move/.notes-deploy-0101/manual-direct.installed.json"}

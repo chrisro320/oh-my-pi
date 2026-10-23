@@ -1,0 +1,111 @@
+{
+  "runtimeVersion": "18.10.1",
+  "runtimeRootBasename": "runtime/node_modules/@oh-my-pi/pi-coding-agent",
+  "addonSha256": "b8b405ce967e56afcfb0f426e3ee6f535a5f18ec4714c90a2061fe3fa6d4aef9",
+  "notesCadence": 50,
+  "totalStepsPerRun": 64,
+  "crossStep": 60,
+  "thresholdTokens": 20000,
+  "parent": {
+    "identity": {
+      "kind": "main",
+      "id": "Main",
+      "name": "main",
+      "depth": 0
+    },
+    "activeTools": [
+      "read",
+      "grep",
+      "context_notes",
+      "new_context"
+    ],
+    "registered": [
+      "session_start",
+      "session_switch",
+      "session_branch",
+      "session_tree",
+      "before_agent_start",
+      "turn_end",
+      "session_before_compact",
+      "tool_call",
+      "tool_result",
+      "auto_compaction_start",
+      "auto_compaction_end"
+    ],
+    "cadenceInjection": {
+      "kind": "sendMessage",
+      "customType": "context-notes-maintenance-reminder",
+      "deliverAs": "aside",
+      "triggerTurn": false,
+      "atTurnEnd": 50,
+      "assistantMessages": 50
+    },
+    "firstProviderRequestWithReminder": 51,
+    "vetoes": 6,
+    "allInjections": [
+      {
+        "kind": "sendMessage",
+        "customType": "context-notes-maintenance-reminder",
+        "deliverAs": "aside",
+        "triggerTurn": false,
+        "atTurnEnd": 50,
+        "assistantMessages": 50
+      },
+      {
+        "kind": "sendMessage",
+        "customType": "context-notes-maintenance-reminder",
+        "deliverAs": "nextTurn",
+        "triggerTurn": true,
+        "atTurnEnd": 61,
+        "assistantMessages": 61
+      },
+      {
+        "kind": "sendMessage",
+        "customType": "context-notes-maintenance-reminder",
+        "deliverAs": "nextTurn",
+        "triggerTurn": true,
+        "atTurnEnd": 62,
+        "assistantMessages": 62
+      },
+      {
+        "kind": "sendMessage",
+        "customType": "context-notes-maintenance-reminder",
+        "deliverAs": "nextTurn",
+        "triggerTurn": true,
+        "atTurnEnd": 63,
+        "assistantMessages": 63
+      }
+    ],
+    "notices": [
+      {
+        "message": "context-notes: rollover blocked (no notebook revision is visible on this branch). Write the notebook with context_notes, then call new_context again.",
+        "type": "error"
+      },
+      {
+        "message": "context-notes: rollover blocked (no notebook revision is visible on this branch). Write the notebook with context_notes, then call new_context again.",
+        "type": "error"
+      }
+    ],
+    "compactionEvents": [
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false",
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false",
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false",
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false",
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false",
+      "start:context-full:threshold",
+      "end:context-full:aborted=true:result=false"
+    ],
+    "committedCompactions": 0,
+    "llmSteps": 67,
+    "turnEnds": 67,
+    "settingValue": true
+  },
+  "ok": false,
+  "failure": "AssertionError [ERR_ASSERTION]: task-depth-1: createSubagentSettings must hand the child false\n\ntrue !== false\n\n    at /home/chris/orca/projects/omp-move/.notes-child-smoke/notes-child-routing-smoke.ts:695:10\n    at processTicksAndRejections (native:7:39)",
+  "fetchAttempts": 12
+}

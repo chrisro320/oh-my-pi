@@ -1,0 +1,76 @@
+{
+  "command": "cd /home/chris/orca/projects/omp-move && OMP_PATCH_VERIFY_NM=/home/chris/.bun/install/omp-releases/18.10.1-880ad5cc1190-17ff72ae-d0de9d7a/runtime/node_modules/@oh-my-pi bun .notes-maintenance-smoke/notes-maintenance-runtime-smoke.ts",
+  "artifact": "/home/chris/orca/projects/omp-move/.notes-maintenance-smoke/notes-maintenance-runtime-smoke.ts",
+  "exitCode": 0,
+  "observedFinalLine": "notes-maintenance runtime smoke: ALL PASS",
+  "observedSummary": {
+    "cadence": 50,
+    "cadenceLeg": {
+      "turns": 107,
+      "turnsAtSave": 57,
+      "reminderInjections": 2,
+      "reminderMessagesInOneRequestAtBoundary": 1,
+      "reminderMessagesInOneRequestAtEnd": 2
+    },
+    "oversizeRejected": true,
+    "workAfterWriteVetoes": 1,
+    "rollover": {
+      "count": 1,
+      "compactionEvents": [
+        "start:context-full",
+        "end:context-full:aborted=true:result=false",
+        "start:context-full",
+        "end:context-full:aborted=false:result=true"
+      ]
+    },
+    "resume": {
+      "liveLines": 6,
+      "resumedLines": 6,
+      "prefixEqual": true
+    },
+    "crossTurnVetoes": 2,
+    "addonEventsRegistered": [
+      "session_start",
+      "before_agent_start",
+      "tool_call",
+      "tool_result",
+      "turn_end",
+      "turn_end",
+      "before_agent_start",
+      "turn_end",
+      "before_agent_start",
+      "turn_end",
+      "before_agent_start",
+      "turn_end",
+      "before_agent_start",
+      "turn_end",
+      "before_agent_start",
+      "turn_end",
+      "before_agent_start",
+      "turn_end",
+      "before_agent_start",
+      "tool_call",
+      "tool_result",
+      "turn_end",
+      "auto_compaction_start",
+      "session_before_compact",
+      "auto_compaction_end",
+      "turn_end",
+      "before_agent_start",
+      "turn_end",
+      "before_agent_start",
+      "tool_call",
+      "tool_result",
+      "turn_end",
+      "auto_compaction_start",
+      "session_before_compact",
+      "auto_compaction_end",
+      "turn_end",
+      "before_agent_start",
+      "turn_end"
+    ],
+    "ok": true
+  },
+  "observedStdoutSha256": "8b3180dc686701121b85652518f4ca971201023cf7ce93a0fa7f3e082fda6c74",
+  "observedStdout": "{\n  \"cadence\": 50,\n  \"cadenceLeg\": {\n    \"turns\": 107,\n    \"turnsAtSave\": 57,\n    \"reminderInjections\": 2,\n    \"reminderMessagesInOneRequestAtBoundary\": 1,\n    \"reminderMessagesInOneRequestAtEnd\": 2\n  },\n  \"oversizeRejected\": true,\n  \"workAfterWriteVetoes\": 1,\n  \"rollover\": {\n    \"count\": 1,\n    \"compactionEvents\": [\n      \"start:context-full\",\n      \"end:context-full:aborted=true:result=false\",\n      \"start:context-full\",\n      \"end:context-full:aborted=false:result=true\"\n    ]\n  },\n  \"resume\": {\n    \"liveLines\": 6,\n    \"resumedLines\": 6,\n    \"prefixEqual\": true\n  },\n  \"crossTurnVetoes\": 2,\n  \"addonEventsRegistered\": [\n    \"session_start\",\n    \"before_agent_start\",\n    \"tool_call\",\n    \"tool_result\",\n    \"turn_end\",\n    \"turn_end\",\n    \"before_agent_start\",\n    \"turn_end\",\n    \"before_agent_start\",\n    \"turn_end\",\n    \"before_agent_start\",\n    \"turn_end\",\n    \"before_agent_start\",\n    \"turn_end\",\n    \"before_agent_start\",\n    \"turn_end\",\n    \"before_agent_start\",\n    \"turn_end\",\n    \"before_agent_start\",\n    \"tool_call\",\n    \"tool_result\",\n    \"turn_end\",\n    \"auto_compaction_start\",\n    \"session_before_compact\",\n    \"auto_compaction_end\",\n    \"turn_end\",\n    \"before_agent_start\",\n    \"turn_end\",\n    \"before_agent_start\",\n    \"tool_call\",\n    \"tool_result\",\n    \"turn_end\",\n    \"auto_compaction_start\",\n    \"session_before_compact\",\n    \"auto_compaction_end\",\n    \"turn_end\",\n    \"before_agent_start\",\n    \"turn_end\"\n  ],\n  \"ok\": true\n}\nnotes-maintenance runtime smoke: ALL PASS\n"
+}

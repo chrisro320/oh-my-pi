@@ -1,0 +1,290 @@
+{
+  "verifier": "manual-compaction-direct",
+  "root": "/home/chris/.bun/install/omp-releases/18.10.1-4187e4fd7c38-991bd082-f34bd4f8/runtime/node_modules/@oh-my-pi",
+  "agentVersion": "18.10.1",
+  "scenarios": [
+    {
+      "name": "manual-stale-notebook-direct",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "kind": "experimental-context-rollover",
+        "hiddenTurns": 0,
+        "notices": 0,
+        "hookOrder": [
+          "session_before_compact"
+        ],
+        "providerCalls": [
+          "1",
+          "2",
+          "3"
+        ]
+      }
+    },
+    {
+      "name": "manual-fresh-notebook-direct",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "kind": "experimental-context-rollover",
+        "hiddenTurns": 0,
+        "notices": 0,
+        "hookOrder": [
+          "session_before_compact"
+        ],
+        "providerCalls": [
+          "1",
+          "2"
+        ]
+      }
+    },
+    {
+      "name": "manual-no-notebook-revision-direct",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "kind": "experimental-context-rollover",
+        "hiddenTurns": 0,
+        "notices": 0,
+        "hookOrder": [
+          "session_before_compact"
+        ],
+        "providerCalls": [
+          "1"
+        ]
+      }
+    },
+    {
+      "name": "new-context-stale-notebook-vetoed",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 0,
+        "repairs": 1,
+        "hookOrder": [
+          "auto_compaction_start",
+          "session_before_compact",
+          "auto_compaction_end"
+        ],
+        "providerCalls": [
+          "1",
+          "2"
+        ]
+      }
+    },
+    {
+      "name": "new-context-fresh-notebook-commits",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "hookOrder": [
+          "auto_compaction_start",
+          "session_before_compact",
+          "auto_compaction_end"
+        ],
+        "providerCalls": [
+          "1",
+          "2"
+        ]
+      }
+    },
+    {
+      "name": "feature-off-setting-summary-path",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "summaryPath": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ]
+      }
+    },
+    {
+      "name": "feature-off-tools-absent-summary-path",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "summaryPath": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ]
+      }
+    },
+    {
+      "name": "feature-toggled-off-setting-live-session",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "summaryPath": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "name": "feature-toggled-off-tools-live-session",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "summaryPath": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "name": "classic-automatic-tools-absent",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "summaryPath": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ]
+      }
+    },
+    {
+      "name": "classic-automatic-toggled-off",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "summaryPath": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "name": "explicit-soft-mode",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "summaryPath": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "name": "explicit-remote-mode",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "summaryPath": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "name": "explicit-snapcompact-mode",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 0,
+        "outcome": "rejected:Error:snapcompact cannot run locally: mock-model is text-only.",
+        "providerCalls": [
+          "1",
+          "2",
+          "3"
+        ]
+      }
+    },
+    {
+      "name": "focused-compact",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "summaryPath": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "name": "child-session-pinned-off-summary-path",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "summaryPath": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ]
+      }
+    },
+    {
+      "name": "child-session-notebook-rollover-direct",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "kind": "experimental-context-rollover",
+        "hiddenTurns": 0,
+        "notices": 0,
+        "providerCalls": [
+          "1",
+          "2",
+          "3"
+        ]
+      }
+    }
+  ],
+  "runtimeErrors": [],
+  "status": "PASS"
+}

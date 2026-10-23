@@ -1,0 +1,38 @@
+{
+ "command": "python3 -I patches/publish-release.py prepare --home $HOME --runtime ~/.cache/omp-release-0101/runtime --ledger patches --version 18.10.1",
+ "exit": 0,
+ "receipt": {
+  "schema_version": 1,
+  "home": "/home/chris",
+  "release": "/home/chris/.bun/install/omp-releases/18.10.1-4187e4fd7c38-991bd082-f34bd4f8",
+  "version": "18.10.1",
+  "candidate_tree_sha256": "4187e4fd7c38398ad46742510a82bbc92a19315cc725abdde23dfe66b3d29d6c",
+  "runtime_tree_sha256": "991bd082ec5b7dede2b7d69f2a583d7f9d29b6ce387c53d7ae99fb11f11c9642",
+  "ledger_tree_sha256": "94760922396f0e5a055dd7b799dd6b2f54673b9e5a6cb5ad5fb30db38c06c9ee",
+  "package_versions": {
+   "pi-catalog": "18.10.1",
+   "pi-natives-linux-x64": "18.10.1",
+   "pi-utils": "18.10.1",
+   "pi-ai": "18.10.1",
+   "pi-natives": "18.10.1",
+   "pi-coding-agent": "18.10.1",
+   "snapcompact": "18.10.1",
+   "omp-stats": "18.10.1",
+   "omptype": "18.10.1",
+   "pi-agent-core": "18.10.1",
+   "pi-wire": "18.10.1",
+   "pi-tui": "18.10.1",
+   "pi-mnemopi": "18.10.1"
+  },
+  "launcher_sha256": "649ed302ebec69bf655e071379bb93a457f75169f6a4895eb9c059f5bcf1cadd",
+  "code_installation": "staged",
+  "current_session_upgrade": false,
+  "production_activation": false,
+  "production_admission_started": false,
+  "old_owners": [],
+  "rollback": null,
+  "credential_operations": "none; agent directory excluded",
+  "independent_code_inodes": true
+ },
+ "release_json_equals_receipt": true
+}

@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "familySha256": "1fb5ba87cddc3c6600baf37b6062f418a5fb5e8b55ea4bfc1ea9fc3c66f90540",
+  "candidate_tree_sha256": "93cb0736c0bcf0cce92d48efc76b5269e0fa787683420ccc99aec8357431b394",
+  "changed": [
+    "pi-coding-agent/src/session/agent-session.ts",
+    "pi-coding-agent/src/session/session-maintenance.ts",
+    "pi-coding-agent/dist/types/session/session-maintenance.d.ts"
+  ]
+}

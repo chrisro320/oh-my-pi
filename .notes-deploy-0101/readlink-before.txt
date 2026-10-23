@@ -1,0 +1,2 @@
+/home/chris/.bun/install/omp-releases/18.10.1-a2666f661924-ce8d42bf-0765dba2/bin/omp
+/home/chris/.bun/install/omp-releases/18.10.1-a2666f661924-ce8d42bf-0765dba2/ledger

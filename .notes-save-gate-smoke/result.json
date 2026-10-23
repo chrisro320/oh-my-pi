@@ -1,0 +1,503 @@
+{
+  "runtimeVersion": "18.10.1",
+  "runtimeRootBasename": "runtime/node_modules/@oh-my-pi/pi-coding-agent",
+  "addonSha256": "e72ce20d80da323b4673767b7878ed826bb3e821107087a4658ccc5c80b09ffe",
+  "addonRepairCustomType": "context-notes-save-gate-repair",
+  "runtimePressureCustomType": "experimental-context-notes-reminder",
+  "thresholdTokens": 20000,
+  "longLegThresholdTokens": 150000,
+  "pressureBandTokens": [
+    11808,
+    20000
+  ],
+  "usages": {
+    "low": 1000,
+    "band": 15000,
+    "over": 30000
+  },
+  "legA": {
+    "llmSteps": 111,
+    "identity": {
+      "kind": "main",
+      "id": "Main",
+      "name": "main",
+      "depth": 0
+    },
+    "registered": [
+      "session_start",
+      "session_switch",
+      "session_branch",
+      "session_tree",
+      "before_agent_start",
+      "session_before_compact",
+      "tool_call",
+      "tool_result",
+      "auto_compaction_start",
+      "auto_compaction_end"
+    ],
+    "addonInjections": 0,
+    "addonNotices": 0,
+    "addonVetoes": 0,
+    "beforeCompactHandled": 0,
+    "compactionEvents": [],
+    "journalCustomTypes": [
+      "system-prompt-digest",
+      "tool_execution_start",
+      "tool-call-loop-redirect"
+    ],
+    "pressureReminderEntries": 0
+  },
+  "legB": {
+    "llmSteps": 23,
+    "stepsPerBoundary": [
+      [
+        0,
+        12
+      ],
+      [
+        1,
+        11
+      ]
+    ],
+    "pressureReminderEntriesPerBoundary": [
+      1,
+      1
+    ],
+    "maxReminderMessagesPerRequestPerBoundary": [
+      1,
+      1
+    ],
+    "firstReminderOnWireAtStepInBoundary": [
+      4,
+      4
+    ],
+    "addonInjections": 0,
+    "addonVetoes": 0,
+    "beforeCompactHandled": 1,
+    "compactionEvents": [
+      "start:context-full:threshold",
+      "end:context-full:aborted=false:result=true"
+    ],
+    "committedCompactions": [
+      {
+        "method": null,
+        "isNotesRollover": true
+      }
+    ],
+    "reminderHead": "<context-window-reminder>\nThe current context window is nearing its rollover thr"
+  },
+  "legC": {
+    "llmSteps": 27,
+    "snapshots": {
+      "C1-absent": {
+        "vetoes": 2,
+        "beforeCompactHandled": 2,
+        "injections": [
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          }
+        ],
+        "notices": 1,
+        "committedCompactions": 0,
+        "llmSteps": 5,
+        "summaryRequests": 0,
+        "compactionEvents": [
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false"
+        ]
+      },
+      "C2-old-notes-user-input": {
+        "vetoes": 3,
+        "beforeCompactHandled": 3,
+        "injections": [
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          }
+        ],
+        "notices": 1,
+        "committedCompactions": 0,
+        "llmSteps": 10,
+        "summaryRequests": 0,
+        "compactionEvents": [
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false"
+        ]
+      },
+      "C3-work-after-notes": {
+        "vetoes": 4,
+        "beforeCompactHandled": 4,
+        "injections": [
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          }
+        ],
+        "notices": 1,
+        "committedCompactions": 0,
+        "llmSteps": 15,
+        "summaryRequests": 0,
+        "compactionEvents": [
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false"
+        ]
+      },
+      "C4-auto-threshold-stale": {
+        "vetoes": 6,
+        "beforeCompactHandled": 6,
+        "injections": [
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          }
+        ],
+        "notices": 1,
+        "committedCompactions": 0,
+        "llmSteps": 20,
+        "summaryRequests": 0,
+        "compactionEvents": [
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false"
+        ]
+      },
+      "C5-fresh-new_context": {
+        "vetoes": 6,
+        "beforeCompactHandled": 7,
+        "injections": [
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          }
+        ],
+        "notices": 1,
+        "committedCompactions": 1,
+        "llmSteps": 24,
+        "summaryRequests": 0,
+        "compactionEvents": [
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=false:result=true"
+        ]
+      },
+      "C6-auto-fresh": {
+        "vetoes": 6,
+        "beforeCompactHandled": 8,
+        "injections": [
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          },
+          {
+            "customType": "context-notes-save-gate-repair",
+            "deliverAs": "nextTurn",
+            "triggerTurn": true
+          }
+        ],
+        "notices": 1,
+        "committedCompactions": 2,
+        "llmSteps": 27,
+        "summaryRequests": 0,
+        "compactionEvents": [
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=true:result=false",
+          "start:context-full:threshold",
+          "end:context-full:aborted=false:result=true",
+          "start:context-full:threshold",
+          "end:context-full:aborted=false:result=true"
+        ]
+      }
+    },
+    "notices": [
+      {
+        "type": "error",
+        "head": "context-notes-save-gate: rollover blocked (no notebook revision is visible on this branch). Write the notebook with cont"
+      }
+    ],
+    "allInjections": [
+      {
+        "customType": "context-notes-save-gate-repair",
+        "deliverAs": "nextTurn",
+        "triggerTurn": true,
+        "contentHead": "Context rollover is blocked: no notebook revision is visible",
+        "atLlmStep": 2
+      },
+      {
+        "customType": "context-notes-save-gate-repair",
+        "deliverAs": "nextTurn",
+        "triggerTurn": true,
+        "contentHead": "Context rollover is blocked: a user message arrived after th",
+        "atLlmStep": 8
+      },
+      {
+        "customType": "context-notes-save-gate-repair",
+        "deliverAs": "nextTurn",
+        "triggerTurn": true,
+        "contentHead": "Context rollover is blocked: tool work happened after the la",
+        "atLlmStep": 13
+      },
+      {
+        "customType": "context-notes-save-gate-repair",
+        "deliverAs": "nextTurn",
+        "triggerTurn": true,
+        "contentHead": "Context rollover is blocked: tool work happened after the la",
+        "atLlmStep": 16
+      },
+      {
+        "customType": "context-notes-save-gate-repair",
+        "deliverAs": "nextTurn",
+        "triggerTurn": true,
+        "contentHead": "Context rollover is blocked: tool work happened after the la",
+        "atLlmStep": 17
+      }
+    ],
+    "journalCustomTypes": [
+      "system-prompt-digest",
+      "tool_execution_start",
+      "context-notes-save-gate-repair",
+      "experimental_context_notes"
+    ],
+    "committedCompactions": [
+      {
+        "method": null,
+        "isNotesRollover": true
+      },
+      {
+        "method": null,
+        "isNotesRollover": true
+      }
+    ],
+    "pressureReminderEntries": 0
+  },
+  "legD1": {
+    "identity": {
+      "kind": "sub",
+      "id": "Tan-SmokeClone",
+      "name": "sub",
+      "depth": 0,
+      "parentId": "Main"
+    },
+    "settingValue": true,
+    "notebookToolsActive": true,
+    "activeTools": [
+      "read",
+      "grep",
+      "context_notes",
+      "new_context"
+    ],
+    "registered": [
+      "session_start",
+      "session_switch",
+      "session_branch",
+      "session_tree",
+      "before_agent_start"
+    ],
+    "fired": [
+      "session_start",
+      "before_agent_start"
+    ],
+    "llmSteps": 113,
+    "addonInjections": 0,
+    "addonNotices": 0,
+    "addonVetoes": 0,
+    "hasBeforeCompactHandler": false,
+    "compactionEvents": [
+      "start:context-full:threshold",
+      "end:context-full:aborted=false:result=true",
+      "start:context-full:threshold",
+      "end:context-full:aborted=false:result=true",
+      "start:context-full:threshold",
+      "end:context-full:aborted=false:result=true"
+    ],
+    "runtimeOutcomeCommittedCompactions": [
+      {
+        "method": null,
+        "isNotesRollover": true,
+        "fromExtension": false
+      },
+      {
+        "method": null,
+        "isNotesRollover": true,
+        "fromExtension": false
+      },
+      {
+        "method": null,
+        "isNotesRollover": true,
+        "fromExtension": false
+      }
+    ],
+    "summaryRequests": 0
+  },
+  "legD2": {
+    "identity": {
+      "kind": "sub",
+      "id": "0-SmokeTask",
+      "name": "task",
+      "depth": 1,
+      "parentId": "Main"
+    },
+    "settingValue": false,
+    "parentSettingsObjectValue": true,
+    "activeTools": [
+      "read",
+      "grep"
+    ],
+    "registered": [
+      "session_start",
+      "session_switch",
+      "session_branch",
+      "session_tree",
+      "before_agent_start"
+    ],
+    "llmSteps": 111,
+    "addonInjections": 0,
+    "addonNotices": 0,
+    "addonVetoes": 0,
+    "hasBeforeCompactHandler": false
+  },
+  "fetchAttempts": 30,
+  "fetchTargetsBlocked": {
+    "127.0.0.1:11434/api/tags": 4,
+    "127.0.0.1:8080/models": 4,
+    "127.0.0.1:8080/props": 4,
+    "127.0.0.1:1234/api/v0/models": 4,
+    "127.0.0.1:1234/v1/models": 4,
+    "catalog.stencil.so/models.json.zstd": 1,
+    "coding-intl.dashscope.aliyuncs.com/v1/models": 1,
+    "hyper.charm.land/v1/models": 4,
+    "api.commandcode.ai/provider/v1/models": 1,
+    "api.kilo.ai/api/gateway/models": 1,
+    "api.venice.ai/api/v1/models": 1,
+    "zenmux.ai/api/v1/models": 1
+  },
+  "fixtureAdjustments": [
+    "AUTO_SUCCESS reads at low usage: crossing the threshold before the notebook write is a legitimately stale attempt; only the write step reports over-threshold usage",
+    "AUTO_STALE final reply reports low usage: an over-threshold last assistant usage otherwise re-triggers a (correctly vetoed) pre-prompt compaction in the next prompt",
+    "threshold 20k was reached by ~82 steps of stored-context estimate (runtime prices stored tool results beyond the 1k reported usage), so the >100-step legs use a 150k threshold"
+  ],
+  "ok": true,
+  "mutationControl": {
+    "mutation": "copy of the addon with a 50th-turn aside sendMessage added behind an obfuscated turn_end registration (temp file, deleted)",
+    "outcome": "smoke exited 1 at leg A: \"addon sent messages\" customType context-notes-maintenance-reminder deliverAs aside atLlmStep 50",
+    "goodResultRestored": true
+  }
+}

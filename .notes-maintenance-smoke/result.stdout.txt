@@ -1,0 +1,69 @@
+{
+  "cadence": 50,
+  "cadenceLeg": {
+    "turns": 107,
+    "turnsAtSave": 57,
+    "reminderInjections": 2,
+    "reminderMessagesInOneRequestAtBoundary": 1,
+    "reminderMessagesInOneRequestAtEnd": 2
+  },
+  "oversizeRejected": true,
+  "workAfterWriteVetoes": 1,
+  "rollover": {
+    "count": 1,
+    "compactionEvents": [
+      "start:context-full",
+      "end:context-full:aborted=true:result=false",
+      "start:context-full",
+      "end:context-full:aborted=false:result=true"
+    ]
+  },
+  "resume": {
+    "liveLines": 6,
+    "resumedLines": 6,
+    "prefixEqual": true
+  },
+  "crossTurnVetoes": 2,
+  "addonEventsRegistered": [
+    "session_start",
+    "before_agent_start",
+    "tool_call",
+    "tool_result",
+    "turn_end",
+    "turn_end",
+    "before_agent_start",
+    "turn_end",
+    "before_agent_start",
+    "turn_end",
+    "before_agent_start",
+    "turn_end",
+    "before_agent_start",
+    "turn_end",
+    "before_agent_start",
+    "turn_end",
+    "before_agent_start",
+    "turn_end",
+    "before_agent_start",
+    "tool_call",
+    "tool_result",
+    "turn_end",
+    "auto_compaction_start",
+    "session_before_compact",
+    "auto_compaction_end",
+    "turn_end",
+    "before_agent_start",
+    "turn_end",
+    "before_agent_start",
+    "tool_call",
+    "tool_result",
+    "turn_end",
+    "auto_compaction_start",
+    "session_before_compact",
+    "auto_compaction_end",
+    "turn_end",
+    "before_agent_start",
+    "turn_end"
+  ],
+  "ok": true
+}
+notes-maintenance runtime smoke: ALL PASS

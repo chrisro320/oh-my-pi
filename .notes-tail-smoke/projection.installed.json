@@ -1,0 +1,149 @@
+{
+  "verifier": "context-notes-append-projection",
+  "root": "/home/chris/.bun/install/omp-releases/18.10.1-a2666f661924-ce8d42bf-0765dba2/runtime/node_modules/@oh-my-pi",
+  "agentVersion": "18.10.1",
+  "notesFrame": "<experimental-context-notes>",
+  "assumptions": [
+    "the notebook (and its context_notes tool) is gated by compaction.experimentalContextManagement",
+    "the Anthropic native lane is seeded with the runtime's own withAnthropicCompactionPreserveData writer; a live native compaction needs a real Anthropic endpoint",
+    "the compaction scenarios use the classic soft summarizer path via explicit compact() focus instructions, so no hidden notes checkpoint runs",
+    "head means the leading region of the provider payload: the promoted revision is first, or follows the compaction summary/block it was folded into",
+    "an interrupted batch is aborted when the next tool starts after the durable notebook save; aborted transport attempts are not counted as sent requests",
+    "prefix comparisons use model-visible roles, content and tool associations; SDK telemetry is not provider prompt content"
+  ],
+  "scenarios": [
+    {
+      "name": "live-save-projects-at-tail",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "noteIndex": 3,
+        "providerRequests": 3
+      }
+    },
+    {
+      "name": "batch-save-defers-past-tool-results",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "noteIndex": 4,
+        "toolResults": 2
+      }
+    },
+    {
+      "name": "resume-replays-identical-prefix",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "noteIndex": 3,
+        "deliveryReceipts": 1,
+        "providerRequests": 1
+      }
+    },
+    {
+      "name": "revisions-append-and-keep-prior-prefix",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "earlierIndex": 3,
+        "laterIndex": 8
+      }
+    },
+    {
+      "name": "identical-resave-receipt-without-duplicate",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "noteIndex": 3,
+        "revisions": 2,
+        "receipts": 2
+      }
+    },
+    {
+      "name": "clear-tombstone-then-fresh-save",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "noteIndex": 3,
+        "tombstoneIndex": 8,
+        "injectionsAfterClear": 2
+      }
+    },
+    {
+      "name": "invalid-and-empty-revisions-inject-nothing",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "noteIndex": 7,
+        "injectionsAfterEmpty": 0
+      }
+    },
+    {
+      "name": "steering-during-save-keeps-replay-position",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "noteIndex": 5,
+        "steeringIndex": 4,
+        "liveRequests": 2
+      }
+    },
+    {
+      "name": "interrupted-save-flushed-before-next-request",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "noteIndex": 4,
+        "outcome": "resolved",
+        "savePoints": 3
+      }
+    },
+    {
+      "name": "interrupted-clear-flushed-before-next-request",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "earlierIndex": 3,
+        "tombstoneIndex": 9
+      }
+    },
+    {
+      "name": "compaction-promotes-latest-to-head",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "headIndex": 0,
+        "tailIndex": 8,
+        "retainedIndex": -1
+      }
+    },
+    {
+      "name": "anthropic-native-compaction-keeps-block-first",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "noteIndex": 2,
+        "retainedSignature": "sig-verify-1"
+      }
+    },
+    {
+      "name": "nested-eval-save-replays-at-tail",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "noteIndex": 3,
+        "evalResultIndex": 2
+      }
+    },
+    {
+      "name": "historical-branch-and-reset-isolate-notes",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "historicalNoteIndex": 3,
+        "postResetNoteIndex": 3
+      }
+    }
+  ],
+  "status": "PASS"
+}

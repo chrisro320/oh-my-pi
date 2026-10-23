@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "home": "/home/chris",
+  "release": "/home/chris/.bun/install/omp-releases/18.10.1-93cb0736c0bc-fa020e24-c9fe97bd",
+  "version": "18.10.1",
+  "candidate_tree_sha256": "93cb0736c0bcf0cce92d48efc76b5269e0fa787683420ccc99aec8357431b394",
+  "runtime_tree_sha256": "fa020e24889b40012a4d4bf175334b21269787be8156778ac1abf6d4a9b83164",
+  "ledger_tree_sha256": "3192408d8ddc661edb5455cf0ee45e50666b8bc7b380f27fdb0ec91a0470c876",
+  "package_versions": {
+    "pi-catalog": "18.10.1",
+    "pi-natives-linux-x64": "18.10.1",
+    "pi-utils": "18.10.1",
+    "pi-ai": "18.10.1",
+    "pi-natives": "18.10.1",
+    "pi-coding-agent": "18.10.1",
+    "snapcompact": "18.10.1",
+    "omp-stats": "18.10.1",
+    "omptype": "18.10.1",
+    "pi-agent-core": "18.10.1",
+    "pi-wire": "18.10.1",
+    "pi-tui": "18.10.1",
+    "pi-mnemopi": "18.10.1"
+  },
+  "launcher_sha256": "649ed302ebec69bf655e071379bb93a457f75169f6a4895eb9c059f5bcf1cadd",
+  "code_installation": "staged",
+  "current_session_upgrade": false,
+  "production_activation": false,
+  "production_admission_started": false,
+  "old_owners": [],
+  "rollback": null,
+  "credential_operations": "none; agent directory excluded",
+  "independent_code_inodes": true
+}

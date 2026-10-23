@@ -1,0 +1,83 @@
+{
+  "verifier": "context-notes-save-gate",
+  "extension": "/home/chris/orca/projects/omp-move/patches/context-notes-save-gate.ts",
+  "status": "PASS",
+  "exitCode": 0,
+  "summary": [
+    "ok  dormant: probes only, no veto while the notebook toolset is off",
+    "ok  children: no repair or rollover veto, including depth-zero clones",
+    "ok  journal state: freshness ordering, housekeeping, reset boundary, empty/rejected writes",
+    "ok  gate: stale vetoes every attempt, bounded repair, overflow/idle guidance, live re-probe",
+    "ok  manual: a stale notebook does not block a manual rollover and consumes no guidance anchor",
+    "ok  reasons: threshold/overflow/idle/incomplete all gate while the pass is in flight",
+    "ok  handback: `auto_compaction_end` clears the reason and reopens manual rollover",
+    "ok  switch: session switch/reload clears the in-flight reason",
+    "ok  receipts: read/failed/oversized writes, flush-failure rejection, navigation reset",
+    "ok  quiet: no periodic injection across 50+/100+ ordinary turns",
+    "ok  midpoint: 45 percent boundary, once per window, save/resume dedupe, reset, idle deferral and child isolation",
+    "ok  hygiene: no journal writes, only bounded repair continuations",
+    "ok  mutation rejected: fails open instead of vetoing a stale rollover",
+    "ok  mutation rejected: ignores work after the notebook write",
+    "ok  mutation rejected: treats an empty notebook as saved",
+    "ok  mutation rejected: lets a repair rearm on every stale attempt",
+    "ok  mutation rejected: rearms a repair on an empty write",
+    "ok  mutation rejected: attaches the veto in child sessions",
+    "ok  mutation rejected: rejects a fresh notebook after a failed write that appended nothing",
+    "ok  mutation rejected: gates manual compaction again",
+    "ok  mutation rejected: fails open on automatic passes too",
+    "ok  mutation rejected: keeps the reason after the compaction pass ends",
+    "\nPASS verify-context-notes-save-gate: automatic rollovers gated, manual rollover ungated, bounded repair, one 45% checkpoint per window"
+  ],
+  "mutationControls": [
+    {
+      "name": "fails open instead of vetoing a stale rollover",
+      "rejected": true,
+      "detail": "AssertionError: a stale notebook vetoes the rollover"
+    },
+    {
+      "name": "ignores work after the notebook write",
+      "rejected": true,
+      "detail": "AssertionError: work after the notebook is stale"
+    },
+    {
+      "name": "treats an empty notebook as saved",
+      "rejected": true,
+      "detail": "AssertionError: an empty write is stale"
+    },
+    {
+      "name": "lets a repair rearm on every stale attempt",
+      "rejected": true,
+      "detail": "AssertionError: an ignored repair cannot rearm an autonomous repair"
+    },
+    {
+      "name": "rearms a repair on an empty write",
+      "rejected": true,
+      "detail": "AssertionError: an empty write does not re-arm an autonomous repair"
+    },
+    {
+      "name": "attaches the veto in child sessions",
+      "rejected": true,
+      "detail": "AssertionError: Expected values to be strictly equal:"
+    },
+    {
+      "name": "rejects a fresh notebook after a failed write that appended nothing",
+      "rejected": true,
+      "detail": "AssertionError: a failed oversized write does not invalidate a fresh notebook"
+    },
+    {
+      "name": "gates manual compaction again",
+      "rejected": true,
+      "detail": "AssertionError: a manual compaction with a stale notebook rolls over directly"
+    },
+    {
+      "name": "fails open on automatic passes too",
+      "rejected": true,
+      "detail": "AssertionError: a stale notebook vetoes the rollover"
+    },
+    {
+      "name": "keeps the reason after the compaction pass ends",
+      "rejected": true,
+      "detail": "AssertionError: after the pass ends the next hook is manual and rolls over directly"
+    }
+  ]
+}
