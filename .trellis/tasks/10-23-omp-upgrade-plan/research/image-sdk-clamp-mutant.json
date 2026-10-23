@@ -1,0 +1,8 @@
+{
+  "network": "bwrap --unshare-net (loopback only)",
+  "exit": 1,
+  "positive_exit": 0,
+  "positive_evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-focus-netns-v3/verify-provider-image-budget/result.json",
+  "mutation": "removed sdk.ts:4425 transformContext clampProviderContextImages call only",
+  "tail": "\n[Uncaught Exception] AssertionError: official: actual outbound image count\n\n601 !== 600\n\n\n601 !== 600\n\n    at <anonymous> (/tmp/omp-upgrade-18126-01a1684f/gates-focus-netns-v3/snapshot/patches/verify-provider-image-budget.ts:316:12)\n    at processTicksAndRejections (native:7:39)\n"
+}

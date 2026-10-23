@@ -1,0 +1,62 @@
+{
+  "command": [
+    "/home/chris/.local/bin/tsc",
+    "--noEmit",
+    "--strict",
+    "--skipLibCheck",
+    "--module",
+    "NodeNext",
+    "--moduleResolution",
+    "NodeNext",
+    "--target",
+    "ESNext",
+    "--types",
+    "node",
+    "declaration-consumer.ts"
+  ],
+  "started": "2026-10-23T12:51:07.467668+00:00",
+  "finished": "2026-10-23T12:51:08.597852+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 0,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "environment_keys": [
+    "HOME",
+    "LANG",
+    "NO_COLOR",
+    "OMP_PATCH_OFFLINE_VERIFY",
+    "OMP_PATCH_PLAN",
+    "OMP_PATCH_REPO_ROOT",
+    "OMP_PATCH_VERIFY_AGENT_ROOT",
+    "OMP_PATCH_VERIFY_AI_ROOT",
+    "OMP_PATCH_VERIFY_CATALOG_ROOT",
+    "OMP_PATCH_VERIFY_CORE_ROOT",
+    "OMP_PATCH_VERIFY_NM",
+    "OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT",
+    "OMP_PATCH_VERIFY_TUI_ROOT",
+    "OMP_PATCH_VERSION",
+    "OMP_PAYLOAD_ARCHIVE",
+    "OMP_RESUME_EVENT_LOG",
+    "PATH",
+    "PI_CODING_AGENT_DIR",
+    "TERM",
+    "TMPDIR",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_RUNTIME_DIR",
+    "XDG_STATE_HOME"
+  ],
+  "selected_runtime": "/tmp/omp-upgrade-18126-01a1684f/candidate",
+  "private_home": "/tmp/omp-final-verify-ocl2vlxt/home"
+}

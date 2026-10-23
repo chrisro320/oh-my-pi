@@ -59,7 +59,8 @@ PY
 }
 
 gate() { # <ai-root> <log>: run the contract gate against an isolated tree
-	OMP_PATCH_VERIFY_AI_ROOT="$1" bun "$GATE" >"$2" 2>&1
+	env -u OMP_PATCH_VERIFY_NM -u OMP_PATCH_VERIFY_AGENT_ROOT \
+		OMP_PATCH_VERIFY_AI_ROOT="$1" bun "$GATE" >"$2" 2>&1
 }
 
 # 0. Control: the unmutated copy must pass, or the controls below prove nothing.
@@ -70,6 +71,26 @@ if ! gate "$CONTROL" "$WORK/control.log"; then
 	exit 1
 fi
 echo "PASS control: the isolated copy is green ($(grep -c '^  PASS' "$WORK/control.log") scenarios)"
+
+# Exact target only: prove the real SIGTERM scenario detects a removed drain,
+# not just a missing journal member or a token-shaped fixture echo.
+VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$AI/package.json")"
+if [[ "$VERSION" == "18.12.6" ]]; then
+	DRAIN="$(mktree shutdown-drain)"
+	replace_once "$DRAIN/src/auth/refresh.ts" \
+		'postmortem.register("oauth-refresh", () => this.#drainRefreshes(), {' \
+		'postmortem.register("oauth-refresh", () => undefined, {'
+	if gate "$DRAIN" "$WORK/shutdown-drain.log"; then
+		echo "FAIL: dropping the shutdown drain left the target contract green" >&2
+		exit 1
+	fi
+	grep -q '^  FAIL  target sigterm:' "$WORK/shutdown-drain.log" || {
+		echo "FAIL: the removed shutdown drain was not caught at the target SIGTERM boundary" >&2
+		grep '^  FAIL' "$WORK/shutdown-drain.log" >&2
+		exit 1
+	}
+	echo "PASS target: removing shutdown drain turns the real SIGTERM rotation scenario red"
+fi
 
 # (q) Drop the exchange OWNER from the fence hash. Every new line stays in place
 # and the fence still covers the row bytes, the generation and the expected hash;

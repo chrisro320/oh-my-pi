@@ -1,0 +1,24 @@
+{
+  "scope": "Private historical shared-gate regression input, not target acceptance",
+  "runtime": "/tmp/omp-upgrade-18126-01a1684f/historical-regression",
+  "dependency_source": "/home/chris/.cache/omp-18101-unlock-migration/runtime",
+  "source": "/tmp/omp-upgrade-18126-01a1684f/rebase/old-work",
+  "source_candidate_sha256": "14d1e60540b2b24e618b7ad9cff6be2c8c023fc754f541731189514218243bc7",
+  "baseline_candidate_sha256": "14d1e60540b2b24e618b7ad9cff6be2c8c023fc754f541731189514218243bc7",
+  "all_thirteen_versions": {
+    "pi-catalog": "18.10.1",
+    "pi-natives-linux-x64": "18.10.1",
+    "pi-utils": "18.10.1",
+    "pi-ai": "18.10.1",
+    "pi-natives": "18.10.1",
+    "pi-coding-agent": "18.10.1",
+    "snapcompact": "18.10.1",
+    "omp-stats": "18.10.1",
+    "omptype": "18.10.1",
+    "pi-agent-core": "18.10.1",
+    "pi-wire": "18.10.1",
+    "pi-tui": "18.10.1",
+    "pi-mnemopi": "18.10.1"
+  },
+  "external_alias_count": 0
+}

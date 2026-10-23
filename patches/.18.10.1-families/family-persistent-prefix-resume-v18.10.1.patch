@@ -1674,6 +1674,24 @@
  	});
  	return out;
  }
+--- a/pi-coding-agent/src/session/model-controls.ts
++++ b/pi-coding-agent/src/session/model-controls.ts
+@@ -566,12 +566,11 @@
+ 	}
+ 
+ 	/**
+-	 * Re-apply the active thinking selection after a model change. Preserves `auto`
+-	 * (re-clamping the provisional level to the new model); otherwise re-applies the
+-	 * preferred default or the current effective level.
++	 * Re-apply thinking after a model change. Prefer the target model's configured
++	 * default; otherwise preserve `auto` or the current effective level.
+ 	 */
+ 	#reapplyThinkingLevel(preferredDefault?: ThinkingLevel): void {
+-		this.setThinkingLevel(this.#autoThinking ? AUTO_THINKING : (preferredDefault ?? this.#thinkingLevel));
++		this.setThinkingLevel(preferredDefault ?? (this.#autoThinking ? AUTO_THINKING : this.#thinkingLevel));
+ 	}
+ 
+ 	/** All selectable effort selectors for the active model, in cycle order. */
 --- a/pi-coding-agent/src/session/session-context.ts
 +++ b/pi-coding-agent/src/session/session-context.ts
 @@ -12,7 +12,7 @@

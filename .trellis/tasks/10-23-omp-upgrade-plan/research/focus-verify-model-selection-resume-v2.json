@@ -1,0 +1,22 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-model-selection-resume.ts"
+  ],
+  "started": "2026-10-23T13:03:35.443402+00:00",
+  "finished": "2026-10-23T13:03:43.628340+00:00",
+  "exit": 1,
+  "timeout": false,
+  "stdout": "PASS fallback reconciliation -> navigation -> fresh-process resume: live=luna/high, resumed=sol/high, default=sol\nPASS configured auto -> target defaultLevel: temporary/persisted switches commit high, explicit effort wins, no-default keeps auto\n",
+  "stderr": "212 | \t\t\tXDG_CONFIG_HOME: join(lab, \"config\"), XDG_CACHE_HOME: join(lab, \"cache\"),\n213 | \t\t\tXDG_DATA_HOME: join(lab, \"data\"), XDG_STATE_HOME: join(lab, \"state\"),\n214 | \t\t\tPROBE_AGENT_ROOT: root, PROBE_LAB: lab,\n215 | \t\t},\n216 | \t});\n217 | \tassert.equal(result.exitCode, 0, `${mode}: ${result.stdout}\\n${result.stderr}`);\n              ^\nAssertionError: unverified: \n\n[Uncaught Exception] AssertionError: real catalog policy must produce an unverified fixture\n    at /tmp/omp-upgrade-18126-01a1684f/candidate/node_modules/@oh-my-pi/pi-coding-agent/.verify-model-selection-resume-1313709.ts:69:9\n    at processTicksAndRejections (native:7:39)\n\n[Recovery]\n  Main: omp --resume 01a168dc-31a3-7000-a49c-846324f209b9\n\n\n1 !== 0\n\n generatedMessage: false,\n     actual: 1,\n   expected: 0,\n   operator: \"strictEqual\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-model-selection-resume.ts:217:9\n\nBun v1.3.14 (Linux x64)\n",
+  "output_bytes": {
+    "stdout": 245,
+    "stderr": 954
+  },
+  "output_sha256": {
+    "stdout": "661b1fa0fb4cb1d21c743ef259894a725f31e78db3d13c4be2d9f746eba6df39",
+    "stderr": "09c9d2441a630d9ecad1eeed3f65c0c2da3902b0841171ecfadd914d37228438"
+  },
+  "output_truncated": false,
+  "output_complete": true
+}

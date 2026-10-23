@@ -85,7 +85,7 @@ import { dirname, join } from "node:path";
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
 assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree under test");
 const agentVersion = String((JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")) as { version?: string }).version);
-assert.ok(["18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion), `rejected prepared draft gate: unsupported selected tree version ${agentVersion}`);
+assert.ok(["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion), `rejected prepared draft gate: unsupported selected tree version ${agentVersion}`);
 
 // InteractiveMode opens prompt history and can persist presentation state. Its
 // process-wide paths must be private before any selected module is imported.

@@ -49,10 +49,10 @@ try {
 	// running the transport assertions against a tree without the patch.
 	const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
 	assert.ok(
-		["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion),
+		["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion),
 		`unsupported 0070 transport gate version: ${aiVersion}`,
 	);
-	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion);
+	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion);
 	const ai = await import(`${AI_ROOT}/src/providers/openai-codex-responses.ts`);
 	const core = await import(`${CORE_ROOT}/src/compaction/compaction-v2-streaming.ts`);
 	const { compact } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
@@ -190,7 +190,7 @@ try {
 
 	// Effective Codex selection must govern the outer consumer as well as the
 	// transport. A refusal delivered after request preparation cannot enter V1.
-	if (["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion)) {
+	if (["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion)) {
 		const altLaneModels = [
 			{
 				label: "remoteCompaction.api",
@@ -228,7 +228,7 @@ try {
 				`${label}: chain-only lane must refuse a chain-less V2 send`,
 			);
 			assert.equal(altSends, 0, `${label}: no HTTP request may escape the chain-only refusal`);
-			if (["18.10.0", "18.10.1"].includes(aiVersion) && label === "remoteCompaction.api") {
+			if (["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion) && label === "remoteCompaction.api") {
 				let softSends = 0;
 				await assert.rejects(compact({
 					firstKeptEntryId: "effective-lane-boundary",
@@ -378,6 +378,46 @@ try {
 			baseUrl: `http://127.0.0.1:${server.port}`,
 			preferWebsockets: true,
 		};
+		if (aiVersion === "18.12.6") {
+			// Target keeps independent lite/full socket axes. Even a model whose
+			// metadata advertises lite must compact on the ordinary live full chain.
+			mode = "success";
+			frames = [];
+			compactionSends = 0;
+			const states = new Map<string, ProviderSessionState>();
+			let httpSends = 0;
+			const options = {
+				apiKey: "fixture-key", sessionId: "target-transport-axes", providerSessionState: states,
+				preferWebsockets: true,
+				fetch: async () => { httpSends++; throw new Error("No HTTP replay allowed"); },
+			};
+			const axisModel = { ...model, useResponsesLite: true };
+			const context = { systemPrompt: ["transport axes"],
+				messages: [{ role: "user", content: [{ type: "text", text: "axis seed" }], timestamp: 1 }] };
+			try {
+				const full = await ai.streamOpenAICodexResponses(axisModel, context, options).result();
+				assert.equal(full.stopReason, "stop", full.errorMessage);
+				const fullResponse = `resp_${sequence}`;
+				const fullSocket = frames.at(-1)!.socket;
+				const lite = await ai.streamOpenAICodexResponses(axisModel, context, { ...options, responsesLite: true }).result();
+				assert.equal(lite.stopReason, "stop", lite.errorMessage);
+				const liteSocket = frames.at(-1)!.socket;
+				assert.notEqual(liteSocket, fullSocket, "lite and full live turns must use separate target sockets");
+				assert.equal(frames.at(-1)!.body.previous_response_id, undefined, "the first lite turn cannot borrow the full baseline");
+				const before = frames.length;
+				await core.requestCompactionV2Streaming(axisModel, options.apiKey,
+					{ ...request, sessionId: options.sessionId }, undefined,
+					{ ...options, timeoutMs: 2000, retryWait: async () => {} });
+				const sent = frames.slice(before);
+				assert.equal(sent.length, 1, "healthy target compaction must not recover or replay either transport");
+				assert.equal(sent[0].socket, fullSocket, "compaction must stay on the full live socket");
+				assert.equal(sent[0].body.previous_response_id, fullResponse, "compaction must retain the full live response ID");
+				assert.deepEqual(sent[0].body.input, [{ type: "compaction_trigger" }], "target compaction remains trigger-only");
+				assert.equal(httpSends, 0, "transport-axis selection must never enable an HTTP fallback");
+			} finally {
+				for (const state of states.values()) state.close();
+			}
+		}
 		for (const scenario of [
 			"cold",
 			"sse-disabled",
@@ -390,7 +430,7 @@ try {
 			"exhausted",
 			"invalid-summary",
 			...(supportsChainRecovery ? ["stale-once"] : []),
-			...(["18.10.0", "18.10.1"].includes(aiVersion) ? ["stale-alias-once"] : []),
+			...(["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion) ? ["stale-alias-once"] : []),
 		]) {
 			mode = scenario;
 			frames = [];
@@ -498,7 +538,7 @@ try {
 				for (const state of states.values()) state.close();
 			}
 		}
-		if (["18.10.0", "18.10.1"].includes(aiVersion)) {
+		if (["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion)) {
 			// Buffered entitlement errors used to bypass the transport-exception
 			// no-SSE guard. Separate accounts keep the ordinary control independent
 			// of the provider's process-wide rejected-program cache.
@@ -563,7 +603,7 @@ try {
 				}
 			}
 		}
-		if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion)) {
+		if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion)) {
 			for (const scenario of ["recovery-invalid", "invalid-summary", "success"]) {
 				mode = scenario;
 				frames = [];
@@ -611,7 +651,7 @@ try {
 		// straight to the expensive soft summarizer. The lane has no SSE to replay,
 		// so these scenarios also pin that no HTTP request ever escapes it.
 		// These plans retain bounded open retries and provider-authoritative capacity.
-		if (["18.7.0", "18.10.0", "18.10.1"].includes(aiVersion)) {
+		if (["18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion)) {
 			const websocketRetryBudget = Number(process.env.PI_CODEX_WEBSOCKET_RETRY_BUDGET);
 			assert.ok(
 				Number.isInteger(websocketRetryBudget) && websocketRetryBudget > 0,
@@ -823,29 +863,31 @@ try {
 		`import { openCodexCompactionEventStream, applyOpenAICodexCompactionResponseMetadata } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  declare const model: Parameters<typeof openCodexCompactionEventStream>[0];
  declare const body: Parameters<typeof openCodexCompactionEventStream>[1];
- void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion) ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion) ? "rollback();" : ""} } });
+ void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion) ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion) ? "rollback();" : ""} } });
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: {} });
  // @ts-expect-error A primitive cannot store accepted metadata.
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: 1 });
- ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion) ? `
+ ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion) ? `
  import type { SummaryOptions, CachePreservingSummaryScope, CachePreservingSummaryContext } from ${JSON.stringify(`${CORE_ROOT}/dist/types/compaction/compaction.js`)};
  import { buildCodexChainedRequestBody } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  import { createAnthropicRequestAudit } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/anthropic-request-audit.js`)};
  import { imageFingerprint, ensurePng, completedPng, pngFailureReason } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`}/dist/types/chat/image-loading.js`)};
- import type { ImageContent } from ${JSON.stringify(`${AI_ROOT}/dist/types/types.js`)};
+ import type { ImageContent, Model } from ${JSON.stringify(`${AI_ROOT}/dist/types/types.js`)};
  declare const image: ImageContent;
  void buildCodexChainedRequestBody({ model: "fixture", input: [] }, undefined);
  void createAnthropicRequestAudit({ provider: "anthropic", sideRequest: false, refresh: false });
  void imageFingerprint(image); void ensurePng(image); void completedPng("hash"); void pngFailureReason("hash");
- ${["18.7.0", "18.10.0", "18.10.1"].includes(aiVersion) ? `
+ ${["18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion) ? `
  import { maxFramesForDataBudget, providerImageBudget, providerFrameBudget } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
  import type { ShapeGeometry } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
- declare const shape: ShapeGeometry; void maxFramesForDataBudget(shape);
+ declare const shape: ShapeGeometry; void maxFramesForDataBudget(shape${aiVersion === "18.12.6" ? ", 1024" : ""});
  ` : `
  import { FRAME_DATA_BYTES_PER_SHAPE, maxFramesForDataBudget, shedFramesOverBudget, providerImageBudget, providerFrameBudget } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
  void FRAME_DATA_BYTES_PER_SHAPE; void maxFramesForDataBudget(1024, undefined); void shedFramesOverBudget([]);
  `}
- void providerImageBudget("anthropic", "anthropic-messages"); void providerFrameBudget("anthropic", "anthropic-messages");
+ ${aiVersion === "18.12.6"
+   ? 'void providerImageBudget(model); void providerFrameBudget(model);'
+   : 'void providerImageBudget("anthropic", "anthropic-messages"); void providerFrameBudget("anthropic", "anthropic-messages");'}
  import type { AgentSession } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/agent-session.js`)};
  import type { SessionProviderBoundary } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-provider-boundary.js`)};
  import type { SessionMaintenanceHost } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-maintenance.js`)};
@@ -862,6 +904,18 @@ try {
    void validScope; void candidate; return liveContext;
  } };
  void liveScope; void summaryOptions;
+ ${aiVersion === "18.12.6" ? `
+ const targetSummaryOptions: SummaryOptions = {
+   buildProviderContext: async (summarized, retained, signal, candidate) => {
+     const actualModel: Model = candidate;
+     void summarized; void retained; void signal; void actualModel;
+     return liveContext.context;
+   },
+ };
+ void targetSummaryOptions;
+ void maintenanceHost.buildLiveProviderContext([], [], undefined, model);
+ void openCodexCompactionEventStream(model, body, { apiKey: "fixture", responsesLite: false });
+ ` : ""}
  import { mapOptionsForApi } from ${JSON.stringify(`${AI_ROOT}/dist/types/stream.js`)};
  import type { UserMessage, DeveloperMessage } from ${JSON.stringify(`${AI_ROOT}/dist/types/types.js`)};
  import { DateCwdReminderInjector, dateCwdAnchorKey, applyDateCwdAnchors } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/date-cwd-reminder.js`)};
@@ -876,7 +930,7 @@ try {
  declare const memory: SessionMemory; declare const toolsHost: SessionToolsHost;
  void memory.promotionTail; memory.capturePromotionSnapshot([], "tail"); memory.restorePromotionSnapshot(undefined, "tail");
  void toolsHost.memoryPromotionTail(); toolsHost.captureMemoryPromotionSnapshot([], "tail");
- void session.buildDisplaySessionContext({ persistEvalStateContext: false });
+ void session.buildDisplaySessionContext(${aiVersion === "18.12.6" ? "model, " : ""}{ persistEvalStateContext: false });
  void session.runIdleEphemeralTurn({ promptText: "fixture" });
  traceCompaction({ k: "type-probe" });
  ` : ""}

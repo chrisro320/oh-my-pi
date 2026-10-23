@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-session-pin-static-auth-ui.ts"
+  ],
+  "started": "2026-10-23T12:51:31.140118+00:00",
+  "finished": "2026-10-23T12:51:31.870748+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "PASS model hub: render and Escape\nPASS temporary model picker: render and Escape\nPASS session pin: render and Escape (/tmp/omp-upgrade-18126-01a1684f/historical-regression/node_modules/@oh-my-pi/pi-coding-agent)\nALL VERIFICATIONS PASSED SUCCESSFULLY!\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 251,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "fe334ebe184a4f80093ca260f5592fdbd7d106ebb588769655e182dae2480e5c",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "gate": "verify-session-pin-static-auth-ui.ts",
+  "version": "18.10.1",
+  "runtime": "/tmp/omp-upgrade-18126-01a1684f/historical-regression"
+}

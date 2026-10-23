@@ -1,0 +1,24 @@
+{
+  "network": "bwrap --die-with-parent --unshare-net --bind / / --dev /dev --proc /proc --",
+  "rows": [
+    {
+      "gate": "verify-auth-unlock-extension.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "ok  anthropic -> https://api.anthropic.com/v1/oauth/token\nok  not-applicable outcome reported without a failure message\nok  google-antigravity not applicable; advertised = anthropic\nok  openai-codex not applicable; advertised = anthropic\nok  xai-oauth not applicable; advertised = anthropic\nok  mcp-remote not applicable; advertised = anthropic\nok  mutation rejected: protects google-antigravity again\nok  mutation rejected: preflights another host\n\nPASS verify-auth-unlock-extension: anthropic-only routing, no network, no credentials\n"
+    },
+    {
+      "gate": "verify-cache-prefix-audit.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "cache-prefix-audit verification: ok\n"
+    },
+    {
+      "gate": "verify-context-notes-save-gate.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "ok  dormant: probes only, no veto hook, quiet while the notebook toolset is off\nok  children: no checkpoint or rollover veto, including depth-zero clones\nok  quiet: no periodic injection across 50+/100+ ordinary turns\nok  midpoint: 45 percent boundary, once per window, save/resume dedupe, reset, idle deferral and child isolation\nok  hygiene: no journal writes, only deferred-safe asides\nok  mutation rejected: delivers the checkpoint below 45 percent\nok  mutation rejected: delivers checkpoints in child sessions\nok  mutation rejected: ignores the persisted delivery receipt\nok  mutation rejected: rearms the checkpoint inside the same boundary\nok  mutation rejected: wakes an idle session for the checkpoint\n\nPASS verify-context-notes-save-gate: no rollover veto, one 45% checkpoint per window\n"
+    }
+  ],
+  "status": "PASS"
+}

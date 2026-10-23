@@ -113,7 +113,7 @@ function nativeCompactionResponse(requestModel: Model): AssistantMessage {
 			type: "anthropicCompaction",
 			provider: requestModel.provider,
 			content: "NATIVE_SUMMARY",
-			...(["18.10.0", "18.10.1"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
+			...(["18.10.0", "18.10.1", "18.12.6"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
 			signature: "offline-signed-summary",
 		},
 	} as AssistantMessage;
@@ -160,7 +160,7 @@ assert.ok(preparation, "fixture must prepare compaction");
 // gate has always pinned on it -- the whole-chain fixture and its `recent-user`
 // boundary are 0088-only, and replacing the older fixture rather than selecting
 // per plan is what broke the older branch.
-const wholeChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(coreVersion);
+const wholeChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(coreVersion);
 const livePreparation = {
 	...preparation,
 	firstKeptEntryId: "recent-user",
@@ -286,7 +286,7 @@ assert.equal(result.summary, "NATIVE_SUMMARY", "native summary must become the c
 // operator must not see a warning for it.
 assert.deepEqual(cacheColdLogReasons(), [], "an accepted native live chain must not warn");
 
-if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(coreVersion)) {
+if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(coreVersion)) {
 	const { getPreservedAnthropicCompactionData } = await import(`${CORE_ROOT}/src/compaction/anthropic.ts`);
 	assert.equal(
 		result.firstKeptEntryId,
@@ -391,6 +391,39 @@ if (wholeChainPlan) {
 		["native-no-live-chain"],
 		"the native fallback must warn with the same named reason",
 	);
+}
+if (coreVersion === "18.12.6") {
+	// Consume the target public callback rather than supplying only the custom
+	// live-cache callback: the native fallback must thread its actual model.
+	let providerContextCalls = 0;
+	let captured: Context | undefined;
+	await compact(
+		{ ...preparation, tokensBefore: 100_000,
+			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true } },
+		model, "test", undefined, undefined,
+		{
+			convertToLlm: messages => messages as Context["messages"],
+			buildCachePreservingContext: async () => undefined,
+			buildProviderContext: async (summarized, retained, signal, candidate) => {
+				providerContextCalls++;
+				assert.equal(candidate, model, "native provider-context callback must receive the actual fourth model argument");
+				assert.ok(summarized.length > 0, "provider-context callback must consume a real summarized prefix");
+				assert.ok(Array.isArray(retained), "provider-context callback must receive the actual retained tail");
+				assert.equal(signal, undefined, "the caller's signal must retain its argument position");
+				return { systemPrompt: ["TARGET_PROVIDER_CONTEXT"], messages: summarized as Context["messages"], tools: liveContext.tools };
+			},
+			completeImpl: async (requestModel, context, options) => {
+				if (options.anthropicCompaction) {
+					captured = context;
+					return nativeCompactionResponse(requestModel);
+				}
+				return assistant(requestModel);
+			},
+		},
+	);
+	assert.equal(providerContextCalls, 1, "native fallback must invoke the target provider-context consumer once");
+	assert.deepEqual(captured?.systemPrompt, ["TARGET_PROVIDER_CONTEXT"], "native request must carry the public callback's system prompt");
+	assert.deepEqual(captured?.tools, liveContext.tools, "native request must carry the public callback's normalized tools");
 }
 
 if (wholeChainPlan) {

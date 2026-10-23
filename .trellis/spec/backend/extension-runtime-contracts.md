@@ -910,7 +910,9 @@ prevents initialization from overwriting project-owned extension changes.
 ```text
 anchorKey(message) = <role>:<timestamp-or-?>:<sha256(original-content)[0:16]>
 .trellis/.runtime/omp-anchors/<context-key>.json
-.trellis/.runtime/omp-anchors/<context-key>.state.json
+  { version: 1, anchors: Record<string, string>, lastFullContent: string | null,
+    segmentSeen: boolean, compactionId: string | null }
+.trellis/.runtime/omp-anchors/<context-key>.state.json (legacy read-only input)
 .trellis/.runtime/omp-anchors/<context-key>.snapshot.md
 
 context(event, ctx) -> undefined | { messages: AgentMessage[] }
@@ -923,16 +925,35 @@ current_hash(path) -> SHA-256 after CRLF-to-LF normalization
 - Inject into the newest user message; never append a transient message or
   change message count, role ordering, or earlier anchor bytes.
 - Fix an anchor's injected text on first sight. Tool continuations and resumed
-  processes replay every known anchor byte-for-byte from the per-context map.
-- Isolate anchor/state/snapshot files by session context key and write them with
-  mode `0600`. Corrupt or missing state degrades to a full injection, never a
-  blocked turn.
-- Three states are required: first/compacted injection sends full content;
-  unchanged content sends an unchanged stub; changed content after an earlier
+  processes replay known anchors byte-for-byte within a compaction segment.
+- Isolate receipts/snapshots by session context key with mode `0600`. Commit anchors,
+  last-full content and observed segment together in one version-1 receipt via
+  same-directory temporary write plus atomic rename. Never acknowledge the segment
+  in an independent `.segment.json` or write legacy `.state.json` separately.
+- Load legacy flat anchor maps with legacy last-full state without changing their
+  injected bytes. Missing/corrupt read state may re-anchor; malformed segment identity
+  is ambiguous, not evidence authorizing a prefix rewrite.
+- A failed receipt commit stays dirty. Every context callback must successfully
+  retry it before projecting; on continued failure call `ctx.abort()` and report the
+  error. Throwing alone is insufficient: the runner catches context-hook errors.
+  Snapshot failure is different: send full compact content and keep last-full state
+  unchanged so a later new anchor retries the snapshot.
+- Main-session task context contains PRD/info paths and a reference index deduplicated
+  by resolved file path, preserving manifest reasons. It never expands those file
+  bodies. Role-filtered subagent contexts retain their existing full-content loading.
+- Three states are required: first/compacted injection sends the full compact
+  index; unchanged content sends an unchanged stub; changed content after an earlier
   full snapshot refreshes the snapshot and sends a delta stub.
-- `session_before_compact` sets process-local boolean state. The next successful
-  injection must be full even when compaction and injection occur in the same
-  millisecond; timestamp comparison is forbidden.
+- Only committed compaction establishes a new prefix segment. A cancelled/failed
+  `session_before_compact` must not alter cached anchor bytes or force reinjection.
+- At a newly committed boundary (`session_compact` or a branch compaction id
+  different from the persisted observed segment), retire legacy expanded task
+  anchors before replay. Ordinary resume is not a boundary. Legacy state without
+  a segment marker is ambiguous: preserve its bytes until a successful compaction.
+  Do not edit live receipt files behind a running process.
+- Local post-compaction estimates count stored messages, not this later `context`
+  hook projection. Validate actual projected payload bytes as well as stored
+  context estimates; a small `tokensAfter` does not prove a bounded provider request.
 - A snapshot write failure keeps the full text on the message and must not
   advance persisted last-full state. A later call must retry the full snapshot.
 - The shared memory CLI remains `shared/scripts/mem/trellis_mem.py`; the OMP
@@ -950,14 +971,21 @@ current_hash(path) -> SHA-256 after CRLF-to-LF normalization
 
 | Condition | Required behavior |
 |---|---|
-| First context call for a session | Full text merged into newest user anchor |
+| First context call for a session | Full compact index merged into newest user anchor; no referenced bodies |
 | Tool continuation with no new user message | Same anchor bytes; pure tail append |
-| Process resumes with persisted map | Every prior anchor replays identically |
+| Process resumes without a new compaction boundary | Every prior anchor replays identically |
 | Snapshot equals current workflow state | Unchanged stub points to snapshot |
 | Workflow state changed | Snapshot refresh plus delta stub |
-| Compaction occurred before next injection | Full replay regardless of state equality |
+| Newly committed compaction event or changed persisted branch id | Compact index; legacy expanded task anchors do not refill retained messages |
+| Legacy state has no observed segment marker | Preserve existing prefix until successful compaction; resume alone is not authorization |
+| Cancelled or failed compaction | Existing anchors remain byte-identical |
+| Huge duplicated main manifests and PRD/info | One resolved reference per file, all manifest reasons retained, no full bodies |
+| Role-filtered subagent | Existing role-specific full content, not the other role's manifest |
 | Snapshot directory/write fails | Full text; last-full state not advanced |
-| Anchor/state JSON is corrupt | Ignore it and safely re-anchor/replay full |
+| Atomic receipt temp write or rename fails | Old receipt intact; dirty retry required; abort request if commit still fails |
+| Restart before first post-compaction request | Empty anchors and last-full state plus new id are one receipt; send compact index once |
+| Receipt segment identity is malformed | Preserve existing anchor text; record current segment without retirement |
+| Anchor JSON is missing/unreadable | Re-anchor; no malformed identity may authorize retirement |
 | Extension absent during init | Install fork edition |
 | Extension matches recorded official hash | Overlay fork edition |
 | Extension is modified or hash is missing | Preserve original; write `index.ts.new` |
@@ -971,8 +999,8 @@ current_hash(path) -> SHA-256 after CRLF-to-LF normalization
 - **Bad:** append a transient `custom` message. The next call rebuilds history
   without it and can place an assistant message at that index, flipping the role
   and invalidating the provider cache prefix.
-- **Bad:** compare compaction and injection millisecond timestamps. Equal values
-  can suppress the required full replay.
+- **Bad:** retire anchors in `session_before_compact`; cancelled summarization then
+  changes the active provider prefix despite no committed compaction.
 - **Bad:** copy the fork extension unconditionally during init. This destroys a
   project's extension logic instead of producing a reviewable `.new` candidate.
 
@@ -980,8 +1008,16 @@ current_hash(path) -> SHA-256 after CRLF-to-LF normalization
 
 For extension changes, exercise the real hook with assertions for unchanged
 message count, continuation tail append, cross-process anchor replay,
-full/unchanged/delta states, compaction-forced full replay, and snapshot-write
-failure fallback. No real provider request is required.
+full/unchanged/delta states, committed-compaction recovery of legacy anchors,
+cancelled-compaction prefix preservation, and snapshot-write failure fallback.
+Also exercise receipt write/rename failures before and after the first projection,
+restart recovery and exact replay after retry. Prove actual runner request rejection
+through its abort signal; a callback throwing by itself is not fail-closed evidence.
+Use huge duplicated manifests/PRD/info to assert main context excludes file bodies;
+assert role-filtered subagents still receive their required content. No real provider
+request is required. Run `bun patches/verify-trellis-context-refill.ts` for the project
+repair's real callback regression; source-fork parity is not an activation gate for
+this deliberately project-local repair.
 
 For initialization changes, run `trellis init --omp --skip-existing --yes` in an
 isolated git repository, then execute the documented fork overlay and assert all
@@ -999,6 +1035,12 @@ test ! -e ~/orca/projects/trellis/omp/agents/reviewer2.md
 python3 ~/orca/projects/trellis/scripts/doctor.py
 ```
 
+The `cmp`/doctor commands apply when synchronizing the fork overlay, not to a
+project-local repair whose shared fork already has independent changes. For this
+repair, delivery and review both check the new lifecycle/index symbols with
+`grep -nE 'session_compact|compaction|reference|reason' .omp/extensions/trellis/index.ts`
+and inspect the actual callback behavior with the verifier above.
+
 The doctor may still report independently managed project-version or
 project-skill shadow drift; the Kimi derivation gate must say hooks/templates are
 equal to upstream plus patches.
@@ -1013,6 +1055,16 @@ return { messages: [...event.messages, transientContextMessage] };
 // Correct: preserve the slot and freeze the first injected bytes for its key.
 const text = injectedByAnchor.get(key) ?? selectFullOrStub(turnContent);
 return { messages: replaceNewestUserWithoutChangingLength(event.messages, text) };
+```
+
+```ts
+// Wrong: a cancellable attempt is not a new provider-history segment.
+pi.on("session_before_compact", () => injectedByAnchor.clear());
+
+// Correct: retire the legacy expansion only after committed compaction.
+pi.on("session_compact", (_event, ctx) => reconcileCommittedSegment(ctx));
+// An ordinary resume replays saved bytes; a newly observed committed id can
+// reconcile a boundary that happened while this extension was not running.
 ```
 
 ```sh
@@ -1269,51 +1321,54 @@ Wrong: match the previous request by a conversation name (model + first message)
 Correct: match by session id plus a two-message tail hash, canonicalize a bare-string message to the provider's single text block before hashing, scan back to the eligible block, settle the TTL against the wire order, and fund the anchor by releasing the interior marker.
 ```
 
-## Scenario: Notebook save gate gates automatic rollovers only (18.10.1)
+## Scenario: Notebook reminders never gate compaction (18.10.1)
 
 ### 1. Scope / Trigger
 
-`patches/context-notes-save-gate.ts` vetoes `session_before_compact` while the experimental notebook is stale. The hook event carries no mode or reason. Trigger: any change that adds a compaction path, a runtime emit site of `session_before_compact`, or a change to the `auto_compaction_start` / `auto_compaction_end` lifecycle events. Owners: the extension (consumer) and `family-compaction-v18.10.1.patch` (runtime event order).
+`patches/context-notes-save-gate.ts` is reminder-only despite its historical filename. The user removed all notebook-freshness enforcement on 2026-10-23. Trigger: changes to notebook reminders or compaction integration; do not restore a save gate through another entry point.
 
 ### 2. Signatures
 
 ```ts
-// extension state: undefined = no automatic pass in flight
-let autoCompactionReason: string | undefined   // set on auto_compaction_start, cleared on auto_compaction_end and session switch/start
-// onBeforeCompact: if (autoCompactionReason === undefined) return undefined  // manual compaction
+// Existing reminder receipt identity stays stable across upgrades.
+const MIDPOINT_CUSTOM_TYPE = "context-notes-save-gate-midpoint";
+// turn_end: pi.sendMessage(due.message, { deliverAs: "aside" })
+// before_agent_start: return { message: due.message } when deferred
 ```
 
 ### 3. Contracts
 
-- Every automatic pass that can reach `session_before_compact` (`#runExperimentalContextRollover`, `runAutoCompaction`, including `new_context`) awaits `auto_compaction_start` first and emits `auto_compaction_end` in a `finally`/exit path.
-- A hook with no pass in flight is a manual compaction (`/compact`, `ctx.compact`): it rolls over directly even with a stale notebook (user decision 2026-10-16). No hidden save turn exists; the user saves by hand.
-- Automatic rollovers stay strictly gated and never fail open; the repair continuation and notices are unchanged.
-- Feature off (setting false, tools absent, runtime on->off): the gate re-probes each call and stops vetoing; manual compaction uses the configured `compaction.methodOrder` chain.
+- No compaction veto hook, notebook-freshness scan, failed-write receipt, automatic-pass tracking, repair continuation or blocking notice. The addon must not disable classic speculative compaction.
+- Keep the main-only, active-toolset 45% reminder, safe full-tool-batch delivery, idle deferral, persisted receipt dedupe and compaction/reset rearming. Runtime near-threshold guidance and notebook validation are unchanged.
+- Manual `/compact`, automatic rollover and `new_context` are not obstructed by missing, empty or old notebook content. Notes-backed rollover still carries only the latest saved notebook; removing the gate does not save unfinished work.
 
 ### 4. Validation & Error Matrix
 
 | Condition | Required result |
 |---|---|
-| stale notebook, hook with no pass in flight | no veto, no repair message, no notice, no anchor side effect |
-| stale notebook, pass in flight (threshold/overflow/idle/incomplete) | veto; bounded repair except overflow |
-| `auto_compaction_end`, session switch or start | reason cleared; next hook is manual |
-| runtime adds an automatic path that skips `auto_compaction_start` | that path passes with a stale notebook (fail-open); fix the runtime |
+| stale notebook followed by tool work and `new_context` | notes-backed compaction commits, saved notebook text retained, no repair turn |
+| notebook usage below 45%, invalid usage, child or toolset inactive | no midpoint reminder |
+| live successful step at/above 45% | one safe aside per compaction/reset boundary |
+| settled session at/above 45% | no wake; defer to next user prompt |
+| persisted receipt after navigation/resume | no duplicate reminder |
 
 ### 5. Good / Base / Bad Cases
 
-- Good: manual `/compact` with a stale notebook rolls over; a `new_context` rollover with a stale notebook is vetoed.
-- Base: notebook fresh, both paths pass.
-- Bad: inferring manual vs automatic from idle state, `customInstructions` or message shape inside the hook; keeping the reason after the pass ends.
+- Good: save, read/grep/eval, then roll over without a veto.
+- Base: fresh-note manual and automatic rollover remain notes-backed.
+- Bad: replacing the deleted veto with a no-op hook (still disables speculation), another freshness heuristic, or forced save turn.
 
 ### 6. Tests Required
 
-`bun patches/verify-context-notes-save-gate.ts` (manual, per-reason, handback, switch scenarios; mutations: manual gated again, fail-open on automatic passes, reason kept after the pass) and `OMP_NM=<candidate @oh-my-pi root> bun patches/verify-manual-compaction-direct.ts` (real SDK: manual direct rollover with stale/fresh/no notebook, `new_context` with a stale notebook vetoed, feature off incl. runtime on->off). A harness must load the real gate: sessions built with `restrictToolNames` ignore `additionalExtensionPaths`; use `preloadedPreparedExtensions` and keep an order probe. The installed global runtime may predate the feature (18.7.0): build the failing-before control from the HEAD family, never from the installed tree.
+`bun patches/verify-context-notes-save-gate.ts` preserves reminder behavior and five mutation controls. `OMP_NM=<installed @oh-my-pi root> bun patches/verify-manual-compaction-direct.ts` exercises actual SDK entry paths with private HOME, synthetic transport and fetch denied, including stale `new_context` commit and exact retained notebook text. Use `preloadedPreparedExtensions`: restricted-tool sessions ignore `additionalExtensionPaths`.
+
+Machine check for removed enforcement: `grep -nE 'inspectNotesJournal|NOTES_REPAIR_CUSTOM_TYPE|session_before_compact|autoCompactionReason|writeSnapshot|rejectedEntryId|cancel: true|triggerTurn' patches/context-notes-save-gate.ts` returns no matches. The companion mirror may be updated independently; frozen runtime/ledger bytes stay immutable. Already-loaded handlers require a clean process restart.
 
 ### 7. Wrong vs Correct
 
 ```text
-Wrong: add a hidden save turn before manual compaction, or tag events with a mode field the old runtime lacks.
-Correct: gate by "automatic pass in flight" using the existing lifecycle events; fail closed for automatic paths.
+Wrong: block rollover because any tool result followed the notebook save.
+Correct: remind once at a safe boundary; never veto compaction or request a repair turn.
 ```
 
 ## Scenario: Warm subagent revival keeps the persisted system prompt (18.10.1)

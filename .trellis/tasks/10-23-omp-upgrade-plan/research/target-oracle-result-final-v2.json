@@ -1,0 +1,29 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "-I",
+    "/home/chris/orca/projects/omp-move/patches/verify-release-family-plan.py",
+    "--version",
+    "18.12.6",
+    "--tgz-cache",
+    "/tmp/omp-upgrade-18126-01a1684f/archives"
+  ],
+  "network": "bwrap --unshare-net (loopback only)",
+  "started": "2026-10-23T14:16:27.763820+00:00",
+  "finished": "2026-10-23T14:16:33.090618+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "sandbox: /tmp/omp-final-verify-m3aribo7/tmp/omp-family-18.12.6-y04llgt6\n{\n  \"status\": \"PASS\",\n  \"version\": \"18.12.6\",\n  \"families\": 27,\n  \"capabilities\": 62,\n  \"upstream_adoptions\": [\n    \"0017\",\n    \"0078\"\n  ],\n  \"retired_repairs\": [\n    \"0090-omp-oauth-durable-refresh\",\n    \"0090-omp-oauth-durable-refresh\",\n    \"0090-omp-oauth-durable-refresh\",\n    \"0090-omp-oauth-durable-refresh\",\n    \"family-compaction\",\n    \"family-compaction\",\n    \"family-compaction\",\n    \"family-compaction\",\n    \"family-persistent-prefix-resume\"\n  ],\n  \"candidate_tree_sha256\": \"87abd557af5b7c166dd3fadfc1bd68c5eb7cad641af41dac8424cfd7ca55a4bf\",\n  \"zero_fuzz\": true,\n  \"reverse_to_pristine\": true,\n  \"second_replay_identical\": true,\n  \"controller_check_read_only\": true,\n  \"behavioral_checks_run\": false\n}\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 785,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "1ae6813ae9c11289e9fcb1aaf0fc0b814b0ff9b276d60b4b22e828e1abd1ce04",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "selected_runtime": "/tmp/omp-upgrade-18126-01a1684f/candidate"
+}

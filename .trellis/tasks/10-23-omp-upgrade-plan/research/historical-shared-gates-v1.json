@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "cases": [
+    {
+      "gate": "verify-provider-image-budget.ts",
+      "exit": 0,
+      "stdout": "provider-image-budget verification: ok\n",
+      "stderr": ""
+    },
+    {
+      "gate": "verify-snapcompact-model-billing.ts",
+      "exit": 0,
+      "stdout": "source=/tmp/omp-upgrade-18126-01a1684f/historical-regression/node_modules/@oh-my-pi/snapcompact\nmeasured ids: deepseek/deepseek-v4-flash-vision-exp=995 claude=4761 off-curve: deepseek/deepseek-v4-pro=5024 deepseek/deepseek-v4-flash-fast=5024\nPASS: 17 shipped shapes retain measured pricing and provider/API precedence\n",
+      "stderr": ""
+    },
+    {
+      "gate": "verify-session-pin-static-auth-ui.ts",
+      "exit": 0,
+      "stdout": "PASS model hub: render and Escape\nPASS temporary model picker: render and Escape\nPASS session pin: render and Escape (/tmp/omp-upgrade-18126-01a1684f/historical-regression/node_modules/@oh-my-pi/pi-coding-agent)\nALL VERIFICATIONS PASSED SUCCESSFULLY!\n",
+      "stderr": ""
+    },
+    {
+      "gate": "verify-native-dialog-lifecycle.ts",
+      "exit": 0,
+      "stdout": "PASS settled native input ignores queued native, keyboard and paste delivery\nPASS refused native submit remains editable and retryable\nPASS native File copy preserves /home/user/session.jsonl\nPASS native File copy preserves C:\\Users\\user\\session.jsonl\nPASS native File copy preserves \\\\server\\share\\session.jsonl\nPASS native File copy preserves In-memory\nPASS MCP pending connection cancellation: native\nPASS MCP pending connection cancellation: keyboard\nPASS MCP pending connection cancellation: none\nPASS MCP discovery continuation ownership: cancelled=true\nPASS MCP discovery continuation ownership: cancelled=false\nPASS BTW emitted Copy answer action reaches application answer copying\nPASS advisor Tools End selection remains visible and applies its draft\n",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{"file":".trellis/spec/backend/index.md","reason":"Independent review spec routing"}
+{"file":".trellis/spec/backend/patch-rollup-contracts.md","reason":"Audit preservation, replay and family history against authoritative rules"}
+{"file":".trellis/spec/backend/verification-gate-contracts.md","reason":"Reject false-green source-only and wrong-root evidence"}
+{"file":".trellis/tasks/10-23-omp-upgrade-plan/research/deployment-boundary.md","reason":"Audit claimed observations and immutable-release deployment constraints"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/upstream-releases.md", "reason": "Separate official release claims from unproven capability adoption"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/patch-baseline.md", "reason": "Audit capability preservation, companion drift and verification scope"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/capability-migration.md", "reason": "Audit full62ID coverage and adoption evidence boundary"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/target-native-source.md", "reason": "Verify native source evidence versus unexecuted acceptance"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/target-task-prefix-source.md", "reason": "Audit source observations versus unexecuted adoption claims"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/target-auth-compaction-source.md", "reason": "Audit source observations versus unexecuted auth, compaction and image adoption claims"}
+{"file": ".trellis/spec/backend/extension-runtime-contracts.md", "reason": "Audit latest reminder-only notebook and persisted revival contracts, not stale baseline gating"}

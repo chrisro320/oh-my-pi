@@ -1,0 +1,12 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend spec routing for the migration scope"}
+{"file":".trellis/spec/backend/patch-rollup-contracts.md","reason":"Pristine replay, family ownership, immutable history, declarations and capability preservation"}
+{"file":".trellis/spec/backend/verification-gate-contracts.md","reason":"Changed-consumer behavioral verification and isolated runtime roots"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Trace package, native, extension, persistence and launcher boundaries"}
+{"file":".trellis/tasks/10-23-omp-upgrade-plan/research/deployment-boundary.md","reason":"Observed installed baseline, admission barrier and target-version tooling gaps"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/upstream-releases.md", "reason": "Official candidate metadata, changelog overlap and source-verification gaps"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/patch-baseline.md", "reason": "Measured controller inventory, installed parity and extension drift boundaries"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/capability-migration.md", "reason": "Complete capability preservation and disposition map for pinned18.12.6"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/target-native-source.md", "reason": "Target native source gaps requiring safety-preserving adaptation"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/target-task-prefix-source.md", "reason": "Source-mapped warm revival, model effort, MIME and prefix target contracts"}
+{"file": ".trellis/tasks/10-23-omp-upgrade-plan/research/target-auth-compaction-source.md", "reason": "Pinned auth shutdown, compaction model, Codex transport, warming and catalog-policy source obligations"}
+{"file": ".trellis/spec/backend/extension-runtime-contracts.md", "reason": "Read precise reminder-only notebook and persisted warm-revival sections; never restore removed freshness veto"}

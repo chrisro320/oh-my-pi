@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-snapcompact-model-billing.ts"
+  ],
+  "started": "2026-10-23T12:51:31.052312+00:00",
+  "finished": "2026-10-23T12:51:31.139460+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "source=/tmp/omp-upgrade-18126-01a1684f/historical-regression/node_modules/@oh-my-pi/snapcompact\nmeasured ids: deepseek/deepseek-v4-flash-vision-exp=995 claude=4761 off-curve: deepseek/deepseek-v4-pro=5024 deepseek/deepseek-v4-flash-fast=5024\nPASS: 17 shipped shapes retain measured pricing and provider/API precedence\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 318,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "23aeb81b9d532cfaea954ac09196aa75dcd9ff857f749acd0daa382e33abba62",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "gate": "verify-snapcompact-model-billing.ts",
+  "version": "18.10.1",
+  "runtime": "/tmp/omp-upgrade-18126-01a1684f/historical-regression"
+}

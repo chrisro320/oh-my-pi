@@ -19,7 +19,7 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const agentVersion = (await Bun.file(`${AGENT_ROOT}/package.json`).json()).version;
-assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion),
+assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion),
 	`unsupported eval persistence gate version: ${agentVersion}`);
 const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
 const privateHome = mkdtempSync(join(tmpdir(), "omp-eval-home-"));
@@ -64,7 +64,7 @@ type Message = Record<string, unknown> & { role: string; customType?: string; co
 async function openSession(sessionManager: Manager) {
 	const agentDir = join(root, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,
@@ -151,7 +151,9 @@ try {
 
 	// GATE 2: read-only snapshots never write, and a committing rebuild with an
 	// unchanged runtime adds nothing (the persisted reminder already replays).
-	resumed.buildDisplaySessionContext({ persistEvalStateContext: false });
+	// 18.12.6 selects the context model first and accepts persistence options second.
+	if (agentVersion === "18.12.6") resumed.buildDisplaySessionContext(model, { persistEvalStateContext: false });
+	else resumed.buildDisplaySessionContext({ persistEvalStateContext: false });
 	resumed.buildDisplaySessionContext();
 	assert.equal(persistedReminders(restarted), 1, "rebuilds with unchanged eval state must not write");
 
@@ -162,7 +164,9 @@ try {
 		kernelId: "kernel-verify",
 		alive: true,
 	});
-	const readOnly = resumed.buildDisplaySessionContext({ persistEvalStateContext: false });
+	const readOnly = agentVersion === "18.12.6"
+		? resumed.buildDisplaySessionContext(model, { persistEvalStateContext: false })
+		: resumed.buildDisplaySessionContext({ persistEvalStateContext: false });
 	assert.equal(persistedReminders(restarted), 1, "a read-only snapshot must not persist the changed reminder");
 	const committed = resumed.buildDisplaySessionContext();
 	assert.equal(persistedReminders(restarted), 2, "a committing rebuild must persist the changed reminder once");

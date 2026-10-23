@@ -1,0 +1,473 @@
+{
+  "version": "18.12.6",
+  "runtime": "/tmp/omp-upgrade-18126-01a1684f/candidate",
+  "controller_sha256": "2d7b7f74fa0ea79604d0006752002560b6667c001f088a3426f5ea5c10f39abe",
+  "ledger_hash_manifest": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/ledger-sha256.json",
+  "selected_by_controller": [
+    "verify-antigravity-envelope.ts",
+    "verify-prefix-cache-compaction.ts",
+    "verify-provider-image-budget.ts",
+    "verify-snapcompact-model-billing.ts",
+    "verify-ollama-cloud-usage.ts",
+    "verify-devin-auth-cache.ts",
+    "verify-hindsight-recall-snapshot.ts",
+    "verify-interrupt-prune-symmetry.ts",
+    "verify-goal-tool-resident.ts",
+    "verify-date-cwd-anchor-stability.ts",
+    "verify-session-transfer-authority.ts",
+    "verify-devin-metadata.ts",
+    "verify-supersede-warm-prefix-guard.ts",
+    "verify-snapcompact-frame-reprice.ts",
+    "verify-session-history-preview.ts",
+    "verify-native-dialog-lifecycle.ts",
+    "verify-manual-compaction-direct.ts",
+    "verify-context-notes-append-projection.ts",
+    "verify-devin-thinking-signature.ts",
+    "verify-devin-idle-cascade-pin.ts",
+    "verify-idle-ephemeral-reservation.ts",
+    "verify-resume-cache-breakpoint.ts",
+    "verify-codex-compaction-chain.ts",
+    "verify-commandcode-model-record-parity.ts",
+    "verify-anthropic-native-compaction-live-context.ts",
+    "verify-compaction-lane-trace.ts",
+    "verify-codex-effort-resume.ts",
+    "verify-codex-compaction-chain-fail-closed.ts",
+    "verify-session-pin-static-auth-ui.ts",
+    "verify-read-description-live.ts",
+    "verify-anthropic-cache-boundaries.ts",
+    "verify-anthropic-request-audit.ts",
+    "verify-hindsight-recall-promotion-slot.ts",
+    "verify-eval-state-context-persist.ts",
+    "verify-turn-recovery-reminder-persist.ts",
+    "verify-python-display-mime-preference.ts",
+    "verify-kitty-conversion-finalization.ts",
+    "verify-kitty-shared-png-cache.ts",
+    "verify-main-cache-hit.ts",
+    "verify-usage-reset-format.ts",
+    "verify-model-mention-surface-resume.ts",
+    "verify-prompt-effort-resume.ts",
+    "verify-model-selection-resume.ts",
+    "verify-anthropic-thinking-drop-resume.ts",
+    "verify-context-persist-audit.ts",
+    "verify-length-stop-reminder-persist.ts",
+    "verify-user-display-text-queue.ts",
+    "verify-rejected-prepared-draft-restore.ts",
+    "verify-compaction-cache-liveness.ts",
+    "verify-oauth-durable-refresh.ts",
+    "verify-oauth-unlock-fence-faults.sh",
+    "verify-codex-account-eligibility-retention.ts",
+    "verify-google-account-eligibility-retention.ts",
+    "verify-cache-warming-idle-budget.ts",
+    "verify-tls-verify-transient-retry.ts",
+    "verify-retry-slow-schedule.ts",
+    "verify-subagent-warm-revival-prompt.ts"
+  ],
+  "requested": [
+    "verify-antigravity-envelope.ts",
+    "verify-prefix-cache-compaction.ts",
+    "verify-provider-image-budget.ts",
+    "verify-snapcompact-model-billing.ts",
+    "verify-ollama-cloud-usage.ts",
+    "verify-devin-auth-cache.ts",
+    "verify-hindsight-recall-snapshot.ts",
+    "verify-interrupt-prune-symmetry.ts",
+    "verify-goal-tool-resident.ts",
+    "verify-date-cwd-anchor-stability.ts",
+    "verify-session-transfer-authority.ts",
+    "verify-devin-metadata.ts",
+    "verify-supersede-warm-prefix-guard.ts",
+    "verify-snapcompact-frame-reprice.ts",
+    "verify-session-history-preview.ts",
+    "verify-native-dialog-lifecycle.ts",
+    "verify-manual-compaction-direct.ts",
+    "verify-context-notes-append-projection.ts",
+    "verify-devin-thinking-signature.ts",
+    "verify-devin-idle-cascade-pin.ts",
+    "verify-idle-ephemeral-reservation.ts",
+    "verify-resume-cache-breakpoint.ts",
+    "verify-codex-compaction-chain.ts",
+    "verify-commandcode-model-record-parity.ts",
+    "verify-anthropic-native-compaction-live-context.ts",
+    "verify-compaction-lane-trace.ts",
+    "verify-codex-effort-resume.ts",
+    "verify-codex-compaction-chain-fail-closed.ts",
+    "verify-session-pin-static-auth-ui.ts",
+    "verify-read-description-live.ts",
+    "verify-anthropic-cache-boundaries.ts",
+    "verify-anthropic-request-audit.ts",
+    "verify-hindsight-recall-promotion-slot.ts",
+    "verify-eval-state-context-persist.ts",
+    "verify-turn-recovery-reminder-persist.ts",
+    "verify-python-display-mime-preference.ts",
+    "verify-kitty-conversion-finalization.ts",
+    "verify-kitty-shared-png-cache.ts",
+    "verify-main-cache-hit.ts",
+    "verify-usage-reset-format.ts",
+    "verify-model-mention-surface-resume.ts",
+    "verify-prompt-effort-resume.ts",
+    "verify-model-selection-resume.ts",
+    "verify-anthropic-thinking-drop-resume.ts",
+    "verify-context-persist-audit.ts",
+    "verify-length-stop-reminder-persist.ts",
+    "verify-user-display-text-queue.ts",
+    "verify-rejected-prepared-draft-restore.ts",
+    "verify-compaction-cache-liveness.ts",
+    "verify-oauth-durable-refresh.ts",
+    "verify-oauth-unlock-fence-faults.sh",
+    "verify-codex-account-eligibility-retention.ts",
+    "verify-google-account-eligibility-retention.ts",
+    "verify-cache-warming-idle-budget.ts",
+    "verify-tls-verify-transient-retry.ts",
+    "verify-retry-slow-schedule.ts",
+    "verify-subagent-warm-revival-prompt.ts"
+  ],
+  "only": [],
+  "exclude": [],
+  "executed": [
+    {
+      "gate": "verify-antigravity-envelope.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-antigravity-envelope/result.json"
+    },
+    {
+      "gate": "verify-prefix-cache-compaction.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-prefix-cache-compaction/result.json"
+    },
+    {
+      "gate": "verify-provider-image-budget.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-provider-image-budget/result.json"
+    },
+    {
+      "gate": "verify-snapcompact-model-billing.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-snapcompact-model-billing/result.json"
+    },
+    {
+      "gate": "verify-ollama-cloud-usage.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-ollama-cloud-usage/result.json"
+    },
+    {
+      "gate": "verify-devin-auth-cache.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-devin-auth-cache/result.json"
+    },
+    {
+      "gate": "verify-hindsight-recall-snapshot.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-hindsight-recall-snapshot/result.json"
+    },
+    {
+      "gate": "verify-interrupt-prune-symmetry.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-interrupt-prune-symmetry/result.json"
+    },
+    {
+      "gate": "verify-goal-tool-resident.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-goal-tool-resident/result.json"
+    },
+    {
+      "gate": "verify-date-cwd-anchor-stability.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-date-cwd-anchor-stability/result.json"
+    },
+    {
+      "gate": "verify-session-transfer-authority.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-session-transfer-authority/result.json"
+    },
+    {
+      "gate": "verify-devin-metadata.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-devin-metadata/result.json"
+    },
+    {
+      "gate": "verify-supersede-warm-prefix-guard.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-supersede-warm-prefix-guard/result.json"
+    },
+    {
+      "gate": "verify-snapcompact-frame-reprice.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-snapcompact-frame-reprice/result.json"
+    },
+    {
+      "gate": "verify-session-history-preview.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-session-history-preview/result.json"
+    },
+    {
+      "gate": "verify-native-dialog-lifecycle.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-native-dialog-lifecycle/result.json"
+    },
+    {
+      "gate": "verify-manual-compaction-direct.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-manual-compaction-direct/result.json"
+    },
+    {
+      "gate": "verify-context-notes-append-projection.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-context-notes-append-projection/result.json"
+    },
+    {
+      "gate": "verify-devin-thinking-signature.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-devin-thinking-signature/result.json"
+    },
+    {
+      "gate": "verify-devin-idle-cascade-pin.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-devin-idle-cascade-pin/result.json"
+    },
+    {
+      "gate": "verify-idle-ephemeral-reservation.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-idle-ephemeral-reservation/result.json"
+    },
+    {
+      "gate": "verify-resume-cache-breakpoint.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-resume-cache-breakpoint/result.json"
+    },
+    {
+      "gate": "verify-codex-compaction-chain.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-codex-compaction-chain/result.json"
+    },
+    {
+      "gate": "verify-commandcode-model-record-parity.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-commandcode-model-record-parity/result.json"
+    },
+    {
+      "gate": "verify-anthropic-native-compaction-live-context.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-anthropic-native-compaction-live-context/result.json"
+    },
+    {
+      "gate": "verify-compaction-lane-trace.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-compaction-lane-trace/result.json"
+    },
+    {
+      "gate": "verify-codex-effort-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-codex-effort-resume/result.json"
+    },
+    {
+      "gate": "verify-codex-compaction-chain-fail-closed.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-codex-compaction-chain-fail-closed/result.json"
+    },
+    {
+      "gate": "verify-session-pin-static-auth-ui.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-session-pin-static-auth-ui/result.json"
+    },
+    {
+      "gate": "verify-read-description-live.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-read-description-live/result.json"
+    },
+    {
+      "gate": "verify-anthropic-cache-boundaries.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-anthropic-cache-boundaries/result.json"
+    },
+    {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-anthropic-request-audit/result.json"
+    },
+    {
+      "gate": "verify-hindsight-recall-promotion-slot.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-hindsight-recall-promotion-slot/result.json"
+    },
+    {
+      "gate": "verify-eval-state-context-persist.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-eval-state-context-persist/result.json"
+    },
+    {
+      "gate": "verify-turn-recovery-reminder-persist.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-turn-recovery-reminder-persist/result.json"
+    },
+    {
+      "gate": "verify-python-display-mime-preference.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-python-display-mime-preference/result.json"
+    },
+    {
+      "gate": "verify-kitty-conversion-finalization.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-kitty-conversion-finalization/result.json"
+    },
+    {
+      "gate": "verify-kitty-shared-png-cache.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-kitty-shared-png-cache/result.json"
+    },
+    {
+      "gate": "verify-main-cache-hit.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-main-cache-hit/result.json"
+    },
+    {
+      "gate": "verify-usage-reset-format.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-usage-reset-format/result.json"
+    },
+    {
+      "gate": "verify-model-mention-surface-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-model-mention-surface-resume/result.json"
+    },
+    {
+      "gate": "verify-prompt-effort-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-prompt-effort-resume/result.json"
+    },
+    {
+      "gate": "verify-model-selection-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-model-selection-resume/result.json"
+    },
+    {
+      "gate": "verify-anthropic-thinking-drop-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-anthropic-thinking-drop-resume/result.json"
+    },
+    {
+      "gate": "verify-context-persist-audit.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-context-persist-audit/result.json"
+    },
+    {
+      "gate": "verify-length-stop-reminder-persist.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-length-stop-reminder-persist/result.json"
+    },
+    {
+      "gate": "verify-user-display-text-queue.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-user-display-text-queue/result.json"
+    },
+    {
+      "gate": "verify-rejected-prepared-draft-restore.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-rejected-prepared-draft-restore/result.json"
+    },
+    {
+      "gate": "verify-compaction-cache-liveness.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-compaction-cache-liveness/result.json"
+    },
+    {
+      "gate": "verify-oauth-durable-refresh.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-oauth-durable-refresh/result.json"
+    },
+    {
+      "gate": "verify-oauth-unlock-fence-faults.sh",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-oauth-unlock-fence-faults/result.json"
+    },
+    {
+      "gate": "verify-codex-account-eligibility-retention.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-codex-account-eligibility-retention/result.json"
+    },
+    {
+      "gate": "verify-google-account-eligibility-retention.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-google-account-eligibility-retention/result.json"
+    },
+    {
+      "gate": "verify-cache-warming-idle-budget.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-cache-warming-idle-budget/result.json"
+    },
+    {
+      "gate": "verify-tls-verify-transient-retry.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-tls-verify-transient-retry/result.json"
+    },
+    {
+      "gate": "verify-retry-slow-schedule.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-retry-slow-schedule/result.json"
+    },
+    {
+      "gate": "verify-subagent-warm-revival-prompt.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/verify-subagent-warm-revival-prompt/result.json"
+    }
+  ],
+  "runtime_hash_manifest": "/tmp/omp-upgrade-18126-01a1684f/gates-final-v3/runtime-sha256.json",
+  "runtime_unchanged": true,
+  "status": "PASS"
+}

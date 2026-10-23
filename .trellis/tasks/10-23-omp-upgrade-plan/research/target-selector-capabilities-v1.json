@@ -1,0 +1,52 @@
+{
+  "command": [
+    "bash",
+    "/home/chris/orca/projects/omp-move/patches/apply.sh",
+    "--print-capabilities"
+  ],
+  "started": "2026-10-23T12:52:28.439923+00:00",
+  "finished": "2026-10-23T12:52:28.446083+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "0004\n0010\n0014\n0017\n0025\n0026\n0030\n0031\n0032\n0033\n0034\n0035\n0036\n0037\n0038\n0043\n0044\n0046\n0047\n0048\n0050\n0052\n0054\n0055\n0056\n0057\n0058\n0060\n0062\n0063\n0065\n0066\n0067\n0068\n0069\n0070\n0071\n0072\n0074\n0075\n0076\n0077\n0078\n0079\n0080\n0081\n0082\n0083\n0084\n0085\n0088\n0089\n0090\n0092\n0093\n0094\n0095\n0096\n0098\n0099\n0100\n0101\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 310,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "81a2d8e30618acc41471f0e36a6ff1a89598f60e327a1d2c8da70b196a7ceeb5",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "environment_keys": [
+    "HOME",
+    "LANG",
+    "NO_COLOR",
+    "OMP_PATCH_OFFLINE_VERIFY",
+    "OMP_PATCH_PLAN",
+    "OMP_PATCH_REPO_ROOT",
+    "OMP_PATCH_VERIFY_AGENT_ROOT",
+    "OMP_PATCH_VERIFY_AI_ROOT",
+    "OMP_PATCH_VERIFY_CATALOG_ROOT",
+    "OMP_PATCH_VERIFY_CORE_ROOT",
+    "OMP_PATCH_VERIFY_NM",
+    "OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT",
+    "OMP_PATCH_VERIFY_TUI_ROOT",
+    "OMP_PATCH_VERSION",
+    "OMP_PAYLOAD_ARCHIVE",
+    "OMP_RESUME_EVENT_LOG",
+    "PATH",
+    "PI_CODING_AGENT_DIR",
+    "TERM",
+    "TMPDIR",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_RUNTIME_DIR",
+    "XDG_STATE_HOME"
+  ],
+  "selected_runtime": "/tmp/omp-upgrade-18126-01a1684f/candidate",
+  "private_home": "/tmp/omp-final-verify-lclun3t2/home"
+}

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Retained release representation verification. Removed pre18.4.4 baselines
 # are never downloaded or reconstructed by this entrypoint.
-# Default: latest pinned family release. Explicit18.7.0 retains its independent
-# OLD58/OLD59 plus declared repair oracle, including native0097 opt-in proof.
-# Cross-release18.10.x uses the official-archive/candidate hash oracle.
+# Default stays18.10.1;18.12.6 requires explicit selection. Explicit18.7.0
+# retains its independent OLD58/OLD59 plus declared repair oracle, including
+# native0097 opt-in proof. Cross-release18.10.x and18.12.6 use the
+# official-archive/candidate hash oracle.
 set -euo pipefail
 
 die() { echo "FAIL: $*" >&2; exit 1; }
@@ -13,7 +14,7 @@ KEEP=0
 TGZ_CACHE="${OMP_PATCH_TGZ_CACHE:-}"
 SELECTED_VERSION="18.10.1"
 usage() {
-	echo "usage: $0 [--version <18.7.0|18.10.0|18.10.1>] [--keep] [--tgz-cache DIR]" >&2
+	echo "usage: $0 [--version <18.7.0|18.10.0|18.10.1|18.12.6>] [--keep] [--tgz-cache DIR]" >&2
 	exit 2
 }
 while [[ $# -gt 0 ]]; do
@@ -38,7 +39,7 @@ if [[ -n "$SELECTED_VERSION" ]]; then
 	[[ "$MODE" == "full" ]] || die "--version cannot be combined with --selftest"
 	case "$SELECTED_VERSION" in
 		18.7.0) MODE=selected1870 ;;
-		18.10.0|18.10.1) MODE=selectedRelease ;;
+		18.10.0|18.10.1|18.12.6) MODE=selectedRelease ;;
 		*) die "--version ${SELECTED_VERSION} has no selected verifier" ;;
 	esac
 fi

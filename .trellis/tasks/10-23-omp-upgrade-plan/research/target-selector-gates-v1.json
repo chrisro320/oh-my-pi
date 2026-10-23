@@ -1,0 +1,52 @@
+{
+  "command": [
+    "bash",
+    "/home/chris/orca/projects/omp-move/patches/apply.sh",
+    "--print-gates"
+  ],
+  "started": "2026-10-23T12:52:28.446645+00:00",
+  "finished": "2026-10-23T12:52:28.453104+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "verify-antigravity-envelope.ts\nverify-prefix-cache-compaction.ts\nverify-provider-image-budget.ts\nverify-snapcompact-model-billing.ts\nverify-ollama-cloud-usage.ts\nverify-devin-auth-cache.ts\nverify-hindsight-recall-snapshot.ts\nverify-interrupt-prune-symmetry.ts\nverify-goal-tool-resident.ts\nverify-date-cwd-anchor-stability.ts\nverify-session-transfer-authority.ts\nverify-devin-metadata.ts\nverify-supersede-warm-prefix-guard.ts\nverify-snapcompact-frame-reprice.ts\nverify-session-history-preview.ts\nverify-native-dialog-lifecycle.ts\nverify-manual-compaction-direct.ts\nverify-context-notes-append-projection.ts\nverify-devin-thinking-signature.ts\nverify-devin-idle-cascade-pin.ts\nverify-idle-ephemeral-reservation.ts\nverify-resume-cache-breakpoint.ts\nverify-codex-compaction-chain.ts\nverify-commandcode-model-record-parity.ts\nverify-anthropic-native-compaction-live-context.ts\nverify-compaction-lane-trace.ts\nverify-codex-effort-resume.ts\nverify-codex-compaction-chain-fail-closed.ts\nverify-session-pin-static-auth-ui.ts\nverify-read-description-live.ts\nverify-anthropic-cache-boundaries.ts\nverify-anthropic-request-audit.ts\nverify-hindsight-recall-promotion-slot.ts\nverify-eval-state-context-persist.ts\nverify-turn-recovery-reminder-persist.ts\nverify-python-display-mime-preference.ts\nverify-kitty-conversion-finalization.ts\nverify-kitty-shared-png-cache.ts\nverify-main-cache-hit.ts\nverify-usage-reset-format.ts\nverify-model-mention-surface-resume.ts\nverify-prompt-effort-resume.ts\nverify-model-selection-resume.ts\nverify-anthropic-thinking-drop-resume.ts\nverify-context-persist-audit.ts\nverify-length-stop-reminder-persist.ts\nverify-user-display-text-queue.ts\nverify-rejected-prepared-draft-restore.ts\nverify-compaction-cache-liveness.ts\nverify-oauth-durable-refresh.ts\nverify-oauth-unlock-fence-faults.sh\nverify-codex-account-eligibility-retention.ts\nverify-google-account-eligibility-retention.ts\nverify-cache-warming-idle-budget.ts\nverify-tls-verify-transient-retry.ts\nverify-retry-slow-schedule.ts\nverify-subagent-warm-revival-prompt.ts\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 2036,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "7b99b049054a59d9508564234487ceba19a81dd60a6360d3bf08776df3259a63",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "environment_keys": [
+    "HOME",
+    "LANG",
+    "NO_COLOR",
+    "OMP_PATCH_OFFLINE_VERIFY",
+    "OMP_PATCH_PLAN",
+    "OMP_PATCH_REPO_ROOT",
+    "OMP_PATCH_VERIFY_AGENT_ROOT",
+    "OMP_PATCH_VERIFY_AI_ROOT",
+    "OMP_PATCH_VERIFY_CATALOG_ROOT",
+    "OMP_PATCH_VERIFY_CORE_ROOT",
+    "OMP_PATCH_VERIFY_NM",
+    "OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT",
+    "OMP_PATCH_VERIFY_TUI_ROOT",
+    "OMP_PATCH_VERSION",
+    "OMP_PAYLOAD_ARCHIVE",
+    "OMP_RESUME_EVENT_LOG",
+    "PATH",
+    "PI_CODING_AGENT_DIR",
+    "TERM",
+    "TMPDIR",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_RUNTIME_DIR",
+    "XDG_STATE_HOME"
+  ],
+  "selected_runtime": "/tmp/omp-upgrade-18126-01a1684f/candidate",
+  "private_home": "/tmp/omp-final-verify-x6ua44e3/home"
+}

@@ -1,0 +1,190 @@
+{
+  "candidate_nm": "/tmp/omp-upgrade-18126-01a1684f/candidate/node_modules/@oh-my-pi",
+  "display": "X11 :0 (KDE Plasma)",
+  "human_approval": "user chose A (physical Tern/native) and 3A (restart AT-SPI bus); physical typing and Escape performed by the user",
+  "native": {
+    "type_after_physical_input": {
+      "result": {
+        "mode": "type",
+        "start": "2026-10-23T13:57:31.594Z",
+        "startupMs": 7,
+        "windowCount": 15,
+        "window": "146800660",
+        "acquire": {
+          "active": true
+        },
+        "op": "ok",
+        "stateAfter": {
+          "active": true
+        },
+        "escapeStops": 0,
+        "end": "2026-10-23T13:57:31.848Z"
+      },
+      "screen": "user's physical text then full 'echo native-fix-ok' in omp-cu-scratch (type-after.png)",
+      "status": "PASS"
+    },
+    "physical_escape_cancel": {
+      "result": {
+        "mode": "escape",
+        "start": "2026-10-23T13:58:32.438Z",
+        "startupMs": 8,
+        "windowCount": 15,
+        "window": "146800660",
+        "acquire": {
+          "active": true
+        },
+        "op": "Error: Cancelled: desktop operation cancelled; input may be partial; inspect before retrying",
+        "stateAfter": {
+          "active": false
+        },
+        "escapeStops": 1,
+        "end": "2026-10-23T13:58:53.868Z"
+      },
+      "status": "PASS"
+    },
+    "atspi_hung_bus_bounded": {
+      "result": {
+        "mode": "ax-unavailable",
+        "start": "2026-10-23T13:53:20.627Z",
+        "startupMs": 2012,
+        "windowCount": 15,
+        "op": "Error: AxUnsupported: accessibility is unavailable on this backend",
+        "ms": 9,
+        "escapeStops": 0,
+        "end": "2026-10-23T13:53:20.637Z"
+      },
+      "note": "session bus pointed at a silent unix socket; startup bounded at ~2s, window listing kept, AX reported unsupported",
+      "status": "PASS"
+    },
+    "atspi_missing_socket": {
+      "result": {
+        "mode": "ax-unavailable",
+        "start": "2026-10-23T13:53:20.692Z",
+        "startupMs": 7,
+        "windowCount": 15,
+        "op": "Error: AxUnsupported: accessibility is unavailable on this backend",
+        "ms": 1,
+        "escapeStops": 0,
+        "end": "2026-10-23T13:53:20.693Z"
+      },
+      "note": "pre-existing environment fault: /run/user/1000/at-spi/bus_0 deleted while launcher alive; fails fast"
+    },
+    "atspi_restart": "killed stale at-spi-bus-launcher/dbus-daemon/registryd (user-approved 3A); reactivated on demand, bus_0 recreated",
+    "chrome_pid_ownership": {
+      "result": {
+        "mode": "ax-chrome",
+        "start": "2026-10-23T14:00:06.859Z",
+        "startupMs": 8,
+        "windowCount": 17,
+        "chromeWindows": [
+          {
+            "id": "56623126",
+            "app": "Google-chrome",
+            "pid": 1357851,
+            "titleSuffix": " - Google Chrome"
+          },
+          {
+            "id": "56623107",
+            "app": "Google-chrome",
+            "pid": 1357851,
+            "titleSuffix": " - Google Chrome"
+          },
+          {
+            "id": "77594628",
+            "app": "Google-chrome",
+            "pid": 2809743,
+            "titleSuffix": " - Google Chrome"
+          }
+        ],
+        "snapshots": [
+          {
+            "id": "56623126",
+            "ok": true,
+            "ms": 205,
+            "keys": [
+              "text",
+              "nodeCount",
+              "truncated"
+            ]
+          },
+          {
+            "id": "56623107",
+            "ok": true,
+            "ms": 89,
+            "keys": [
+              "text",
+              "nodeCount",
+              "truncated"
+            ]
+          },
+          {
+            "id": "77594628",
+            "ok": false,
+            "ms": 3,
+            "error": "Error: AxFailed: AT-SPI window root: application 'Google-chrome' (pid Some(2809743)) has 0 AT-SPI matches; refusing ambiguous ownership"
+          }
+        ],
+        "escapeStops": 0,
+        "end": "2026-10-23T14:00:07.157Z"
+      },
+      "note": "temporary offline Chrome (bwrap netns, temp user-data-dir) snapshots OK; user's Chrome pid 2809743 (registered on the old bus) refused with 0 matches",
+      "status": "PASS"
+    },
+    "chrome_profile_decorated_title": {
+      "result": [
+        {
+          "id": "56623126",
+          "title": "omp-ax-probe-two - Google Chrome",
+          "pid": 1357851,
+          "nodeCount": 219,
+          "root": "- window \"omp-ax-probe-two - Google Chrome \u2013 Person 1\" [ref=e1] app=Google-chrome: \"\ufffc\" (focused)"
+        },
+        {
+          "id": "56623107",
+          "title": "omp-ax-probe - Google Chrome",
+          "pid": 1357851,
+          "nodeCount": 219,
+          "root": "- window \"omp-ax-probe - Google Chrome\" [ref=e220] app=Google-chrome: \"\ufffc\""
+        }
+      ],
+      "note": "AX frame 'omp-ax-probe-two - Google Chrome \u2013 Person 1' matched to native 'omp-ax-probe-two - Google Chrome'; undecorated Default-profile window matched exactly; same pid, no swap",
+      "status": "PASS"
+    },
+    "chrome_ambiguity_refusal": {
+      "snapshots": [
+        {
+          "id": "56623129",
+          "ok": false,
+          "ms": 3,
+          "error": "Error: AxFailed: AT-SPI window root: window 'omp-ax-probe-two - Google Chrome' has 2 matching AT-SPI frames"
+        },
+        {
+          "id": "56623126",
+          "ok": false,
+          "ms": 4,
+          "error": "Error: AxFailed: AT-SPI window root: window 'omp-ax-probe-two - Google Chrome' has 2 matching AT-SPI frames"
+        },
+        {
+          "id": "56623107",
+          "ok": true,
+          "ms": 198,
+          "keys": [
+            "text",
+            "nodeCount",
+            "truncated"
+          ]
+        },
+        {
+          "id": "77594628",
+          "ok": false,
+          "ms": 2,
+          "error": "Error: AxFailed: AT-SPI window root: application 'Google-chrome' (pid Some(2809743)) has 0 AT-SPI matches; refusing ambiguous ownership"
+        }
+      ],
+      "status": "PASS"
+    },
+    "control_not_available": "official npm pi-natives-linux-x64 addon is rejected by the 18.12.6 JS loader as outdated, so no unpatched hung-bus control could run"
+  },
+  "cleanup": "temp Chrome instance and profile removed; scratch xterm closed; silent socket stopped",
+  "tern_ui": "PENDING user checklist"
+}

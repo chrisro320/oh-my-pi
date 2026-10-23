@@ -1,0 +1,56 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "-I",
+    "/home/chris/orca/projects/omp-move/patches/verify-release-family-plan.py",
+    "--version",
+    "18.12.6",
+    "--tgz-cache",
+    "/tmp/omp-upgrade-18126-01a1684f/archives"
+  ],
+  "started": "2026-10-23T12:49:44.439330+00:00",
+  "finished": "2026-10-23T12:49:49.381652+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "sandbox: /tmp/omp-final-verify-f98mn755/tmp/omp-family-18.12.6-lcjc0d7b\n{\n  \"status\": \"PASS\",\n  \"version\": \"18.12.6\",\n  \"families\": 27,\n  \"capabilities\": 62,\n  \"upstream_adoptions\": [\n    \"0017\",\n    \"0078\"\n  ],\n  \"retired_repairs\": [\n    \"0090-omp-oauth-durable-refresh\",\n    \"0090-omp-oauth-durable-refresh\",\n    \"0090-omp-oauth-durable-refresh\",\n    \"0090-omp-oauth-durable-refresh\",\n    \"family-compaction\",\n    \"family-compaction\",\n    \"family-compaction\",\n    \"family-compaction\",\n    \"family-persistent-prefix-resume\"\n  ],\n  \"candidate_tree_sha256\": \"c6035df6dfe0e1f9cc3f849fd39c01b2aa1dba99e2bbb3cd718fa7f532dab438\",\n  \"zero_fuzz\": true,\n  \"reverse_to_pristine\": true,\n  \"second_replay_identical\": true,\n  \"controller_check_read_only\": true,\n  \"behavioral_checks_run\": false\n}\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 785,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "9ab7b3cdd33b496498f3579ed5f6d48b921c7b41b39e6d983e929d886afd0e6b",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "environment_keys": [
+    "HOME",
+    "LANG",
+    "NO_COLOR",
+    "OMP_PATCH_OFFLINE_VERIFY",
+    "OMP_PATCH_PLAN",
+    "OMP_PATCH_REPO_ROOT",
+    "OMP_PATCH_VERIFY_AGENT_ROOT",
+    "OMP_PATCH_VERIFY_AI_ROOT",
+    "OMP_PATCH_VERIFY_CATALOG_ROOT",
+    "OMP_PATCH_VERIFY_CORE_ROOT",
+    "OMP_PATCH_VERIFY_NM",
+    "OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT",
+    "OMP_PATCH_VERIFY_TUI_ROOT",
+    "OMP_PATCH_VERSION",
+    "OMP_PAYLOAD_ARCHIVE",
+    "OMP_RESUME_EVENT_LOG",
+    "PATH",
+    "PI_CODING_AGENT_DIR",
+    "TERM",
+    "TMPDIR",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_RUNTIME_DIR",
+    "XDG_STATE_HOME"
+  ],
+  "selected_runtime": "/tmp/omp-upgrade-18126-01a1684f/candidate",
+  "private_home": "/tmp/omp-final-verify-f98mn755/home"
+}

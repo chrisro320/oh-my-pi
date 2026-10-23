@@ -1,0 +1,23 @@
+{
+  "kind": "unpatched complete closure negative control",
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-23-omp-upgrade-plan/research/stepfun-smoke.ts",
+    "--nm",
+    "/tmp/omp-upgrade-18126-01a1684f/runtime/node_modules/@oh-my-pi"
+  ],
+  "env": {
+    "PATH": "/usr/local/bin:/usr/bin:/bin",
+    "HOME": "/tmp/omp-stepfun-smoke.6m0zh68z/home",
+    "TMPDIR": "/tmp/omp-stepfun-smoke.6m0zh68z/tmp",
+    "XDG_CACHE_HOME": "/tmp/omp-stepfun-smoke.6m0zh68z/cache/xdg",
+    "XDG_CONFIG_HOME": "/tmp/omp-stepfun-smoke.6m0zh68z/home/.config",
+    "XDG_DATA_HOME": "/tmp/omp-stepfun-smoke.6m0zh68z/home/.local/share",
+    "BUN_INSTALL_CACHE_DIR": "/tmp/omp-stepfun-smoke.6m0zh68z/cache/bun",
+    "LANG": "C.UTF-8"
+  },
+  "exit": 1,
+  "stdout": "{\n  \"status\": \"fail\",\n  \"nm\": \"/tmp/omp-upgrade-18126-01a1684f/runtime/node_modules/@oh-my-pi\",\n  \"modules\": [\n    {\n      \"package\": \"@oh-my-pi/pi-catalog\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/runtime/node_modules/@oh-my-pi/pi-catalog/src/provider-models/openai-compat.ts\"\n    },\n    {\n      \"package\": \"@oh-my-pi/pi-catalog\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/runtime/node_modules/@oh-my-pi/pi-catalog/src/build.ts\"\n    },\n    {\n      \"package\": \"@oh-my-pi/pi-catalog\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/runtime/node_modules/@oh-my-pi/pi-catalog/src/models.ts\"\n    },\n    {\n      \"package\": \"@oh-my-pi/pi-catalog\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/runtime/node_modules/@oh-my-pi/pi-catalog/src/compat/auth.ts\"\n    },\n    {\n      \"package\": \"@oh-my-pi/pi-ai\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/runtime/node_modules/@oh-my-pi/pi-ai/src/providers/openai-completions.ts\"\n    },\n    {\n      \"package\": \"@oh-my-pi/pi-ai\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/runtime/node_modules/@oh-my-pi/pi-ai/src/registry/engine/api-key.ts\"\n    }\n  ],\n  \"cases\": [\n    {\n      \"name\": \"built-in\",\n      \"calls\": [\n        {\n          \"method\": \"GET\",\n          \"url\": \"https://api.stepfun.ai/v1/models\"\n        }\n      ],\n      \"selectedModel\": {\n        \"id\": \"stepfun-smoke-chat\",\n        \"baseUrl\": \"https://api.stepfun.ai/v1\"\n      },\n      \"result\": {}\n    }\n  ],\n  \"catalogDependency\": \"file:///tmp/omp-upgrade-18126-01a1684f/runtime/node_modules/@oh-my-pi/pi-catalog/src/compat/resolve.ts\",\n  \"error\": \"built-in: default/override discovery URL\\n+ actual - expected\\n\\n  [\\n    {\\n      method: 'GET',\\n+     url: 'https://api.stepfun.ai/v1/models'\\n-     url: 'https://api.stepfun.ai/step_plan/v1/models'\\n    }\\n  ]\\n\",\n  \"deniedGlobalFetchCalls\": 0\n}\n",
+  "stderr": "",
+  "selected_runtime_tree_sha256": "a4882b4baf86f61f05bd56bb7c52183ce040337eba5336f1d7d55363f086c6ea"
+}

@@ -1,0 +1,157 @@
+--- a/dist/types/extensibility/extensions/runner.d.ts
++++ b/dist/types/extensibility/extensions/runner.d.ts
+@@ -396,7 +396,7 @@
+     emitPrepareUserInput(event: PrepareUserInputEvent): Promise<PrepareUserInputResult>;
+     /** Emit input event. Transforms chain, "handled" short-circuits. */
+     emitInput(text: string, images: ImageContent[] | undefined, source: "interactive" | "rpc" | "extension"): Promise<InputEventResult>;
+-    emitContext(messages: AgentMessage[], signal?: AbortSignal): Promise<AgentMessage[]>;
++    emitContext(messages: AgentMessage[], signal?: AbortSignal, purpose?: ContextEvent["purpose"]): Promise<AgentMessage[]>;
+     /** Runs request payload hooks with the model used for that provider request. */
+     emitBeforeProviderRequest(payload: unknown, model?: Model, signal?: AbortSignal): Promise<BeforeProviderRequestEventResult>;
+     /** Runs response hooks with the model that produced that provider response. */
+--- a/dist/types/extensibility/shared-events.d.ts
++++ b/dist/types/extensibility/shared-events.d.ts
+@@ -155,6 +155,8 @@
+     type: "context";
+     /** Messages about to be sent to the LLM (deep copy, safe to modify) */
+     messages: AgentMessage[];
++    /** Full agent turn, or an auxiliary conversion such as a compaction prefix. */
++    purpose: "turn" | "side-request";
+ }
+ /**
+  * Fired when an agent loop starts (once per user prompt).
+--- a/dist/types/session/agent-session-types.d.ts
++++ b/dist/types/session/agent-session-types.d.ts
+@@ -16,7 +16,7 @@
+ import type { TtsrManager } from "../export/ttsr.js";
+ import type { LoadedCustomCommand } from "../extensibility/custom-commands/index.js";
+ import type { CustomTool } from "../extensibility/custom-tools/types.js";
+-import type { ExtensionRunner, PreparedExtension } from "../extensibility/extensions/index.js";
++import type { ContextEvent, ExtensionRunner, PreparedExtension } from "../extensibility/extensions/index.js";
+ import type { CacheWarmer } from "./cache-warmer.js";
+ import type { ContextUsage } from "../extensibility/extensions/types.js";
+ import type { SkillDescriptionCatalog } from "../extensibility/skill-descriptions.js";
+@@ -274,7 +274,7 @@
+     /** Re-resolves settings-gated tools against live settings; driven by `SessionTools.reconcileBuiltinTools`. */
+     reconcileSettingsGatedTools?: (isBuiltIn: (name: string) => boolean) => Promise<SettingsGatedToolDelta>;
+     /** Current session pre-LLM message transform pipeline. */
+-    transformContext?: (messages: AgentMessage[], signal?: AbortSignal) => AgentMessage[] | Promise<AgentMessage[]>;
++    transformContext?: (messages: AgentMessage[], signal?: AbortSignal, purpose?: ContextEvent["purpose"]) => AgentMessage[] | Promise<AgentMessage[]>;
+     /** Provider request transform applied after message conversion. */
+     transformProviderContext?: (context: Context, model: Model) => Context | Promise<Context>;
+     /** Stream wrapper for side-channel requests. */
+--- a/src/extensibility/extensions/runner.ts
++++ b/src/extensibility/extensions/runner.ts
+@@ -2152,7 +2152,11 @@
+ 		return transformed;
+ 	}
+ 
+-	async emitContext(messages: AgentMessage[], signal?: AbortSignal): Promise<AgentMessage[]> {
++	async emitContext(
++		messages: AgentMessage[],
++		signal?: AbortSignal,
++		purpose: ContextEvent["purpose"] = "turn",
++	): Promise<AgentMessage[]> {
+ 		// Check if any extensions actually have context handlers before building
+ 		// the context object or cloning; this runs on every provider request.
+ 		if (!this.hasHandlers("context")) return messages;
+@@ -2177,7 +2181,7 @@
+ 			if (!handlers || handlers.length === 0) continue;
+ 
+ 			for (const handler of handlers) {
+-				const event: ContextEvent = { type: "context", messages: currentMessages };
++				const event: ContextEvent = { type: "context", messages: currentMessages, purpose };
+ 				const handlerResult = await this.#runHandlerWithTimeout(
+ 					handler,
+ 					event,
+--- a/src/extensibility/hooks/runner.ts
++++ b/src/extensibility/hooks/runner.ts
+@@ -380,7 +380,7 @@
+ 
+ 			for (const handler of handlers) {
+ 				try {
+-					const event: ContextEvent = { type: "context", messages: currentMessages };
++					const event: ContextEvent = { type: "context", messages: currentMessages, purpose: "turn" };
+ 					const handlerResult = await handler(event, ctx);
+ 
+ 					if (handlerResult && (handlerResult as ContextEventResult).messages) {
+--- a/src/extensibility/shared-events.ts
++++ b/src/extensibility/shared-events.ts
+@@ -193,6 +193,8 @@
+ 	type: "context";
+ 	/** Messages about to be sent to the LLM (deep copy, safe to modify) */
+ 	messages: AgentMessage[];
++	/** Full agent turn, or an auxiliary conversion such as a compaction prefix. */
++	purpose: "turn" | "side-request";
+ }
+ 
+ /**
+--- a/src/sdk.ts
++++ b/src/sdk.ts
+@@ -131,6 +131,7 @@
+ import type { UserWaitTracker } from "./extensibility/extensions/user-wait";
+ import { formatExtensionLoadNotifications } from "./extensibility/extensions/load-errors";
+ import { partitionStartupExtensions, recordStartupVerdicts } from "./extensibility/extensions/startup-deferral";
++import type { ContextEvent } from "./extensibility/shared-events";
+ import {
+ 	createSkillDescriptionCompressor,
+ 	openSessionSkillDescriptionStore,
+@@ -4368,8 +4369,12 @@
+ 			return obfuscateMessages(obfuscator, converted);
+ 		};
+ 
+-		const transformContext = async (messages: AgentMessage[], signal?: AbortSignal) => {
+-			const withContext = await extensionRunner.emitContext(messages, signal);
++		const transformContext = async (
++			messages: AgentMessage[],
++			signal?: AbortSignal,
++			purpose: ContextEvent["purpose"] = "turn",
++		) => {
++			const withContext = await extensionRunner.emitContext(messages, signal, purpose);
+ 			return wrapSteeringForModel(withContext);
+ 		};
+ 		// Per-request provider-context transforms. Obfuscate FIRST so secrets are
+--- a/src/session/agent-session-types.ts
++++ b/src/session/agent-session-types.ts
+@@ -35,7 +35,7 @@
+ import type { TtsrManager } from "../export/ttsr";
+ import type { LoadedCustomCommand } from "../extensibility/custom-commands";
+ import type { CustomTool } from "../extensibility/custom-tools/types";
+-import type { ExtensionRunner, PreparedExtension } from "../extensibility/extensions";
++import type { ContextEvent, ExtensionRunner, PreparedExtension } from "../extensibility/extensions";
+ import type { CacheWarmer } from "./cache-warmer";
+ import type { ContextUsage } from "../extensibility/extensions/types";
+ import type { SkillDescriptionCatalog } from "../extensibility/skill-descriptions";
+@@ -303,7 +303,11 @@
+ 	/** Re-resolves settings-gated tools against live settings; driven by `SessionTools.reconcileBuiltinTools`. */
+ 	reconcileSettingsGatedTools?: (isBuiltIn: (name: string) => boolean) => Promise<SettingsGatedToolDelta>;
+ 	/** Current session pre-LLM message transform pipeline. */
+-	transformContext?: (messages: AgentMessage[], signal?: AbortSignal) => AgentMessage[] | Promise<AgentMessage[]>;
++	transformContext?: (
++		messages: AgentMessage[],
++		signal?: AbortSignal,
++		purpose?: ContextEvent["purpose"],
++	) => AgentMessage[] | Promise<AgentMessage[]>;
+ 	/** Provider request transform applied after message conversion. */
+ 	transformProviderContext?: (context: Context, model: Model) => Context | Promise<Context>;
+ 	/** Stream wrapper for side-channel requests. */
+--- a/src/session/agent-session.ts
++++ b/src/session/agent-session.ts
+@@ -1114,7 +1114,7 @@
+ 	/** `<lane>#<window>` of the wrap-up window this session already told the model about. */
+ 	#anthropicWrapUpHinted: string | undefined;
+ 
+-	#transformContext: (messages: AgentMessage[], signal?: AbortSignal) => AgentMessage[] | Promise<AgentMessage[]>;
++	#transformContext: NonNullable<AgentSessionConfig["transformContext"]>;
+ 	#onPayload: SimpleStreamOptions["onPayload"] | undefined;
+ 	#onResponse: SimpleStreamOptions["onResponse"] | undefined;
+ 	/**
+@@ -2358,7 +2358,7 @@
+ 			model: () => this.model,
+ 			sessionId: () => this.sessionId,
+ 			localProtocolOptions: () => this.#localProtocolOptions(),
+-			transformContext: (messages, signal) => this.#transformContext(messages, signal),
++			transformContext: (messages, signal) => this.#transformContext(messages, signal, "side-request"),
+ 			convertToLlm: messages => this.#convertToLlm(messages),
+ 			onPayload: this.#onPayload,
+ 			onResponse: this.#onResponse,

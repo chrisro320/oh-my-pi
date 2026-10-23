@@ -21,7 +21,7 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const agentVersion = (await Bun.file(`${AGENT_ROOT}/package.json`).json()).version;
-assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion),
+assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion),
 	`unsupported turn recovery gate version: ${agentVersion}`);
 const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
 const privateHome = mkdtempSync(join(tmpdir(), "omp-recovery-home-"));
@@ -71,7 +71,7 @@ try {
 	const manager = SessionManager.inMemory(cwd);
 	const agentDir = join(root, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,
@@ -134,7 +134,7 @@ try {
 	// resume cannot rebuild, and it is also what identifies the kept turn as a
 	// continuation (see verify-interrupt-prune-symmetry.ts). Version-scoped: 18.3.3
 	// has no `handleCommittedTextStreamStall`, so its tree keeps the assertions above.
-	if (["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)) {
+	if (["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) {
 		const STALL_PARTIAL = "half a sentence the user already saw";
 		const stallWork = join(root, "stall-work");
 		mkdirSync(stallWork, { recursive: true });

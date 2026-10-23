@@ -1,0 +1,35 @@
+{
+  "version": "18.12.6",
+  "runtime": "/tmp/omp-upgrade-18126-01a1684f/runtime",
+  "lockfile": "runtime/package-lock.json",
+  "lockfile_sha256": "70aa4e516b0160e1959fe2719417f94b8345f32d9506e54853fdfa115bc00d35",
+  "toolchain": {
+    "bun": "1.3.14",
+    "bun_bin": "/home/chris/.bun/bin/bun",
+    "npm": "11.12.1",
+    "node": "v24.15.0"
+  },
+  "install": "Reused completed npm install --ignore-scripts --no-audit --no-fund verification tree; copied non-OMP dependencies with independent regular files; retained all13 independently extracted verified OMP directories",
+  "omp_reextracted_from_verified_archives": true,
+  "omp_packages": [
+    "omp-stats",
+    "omptype",
+    "pi-agent-core",
+    "pi-ai",
+    "pi-catalog",
+    "pi-coding-agent",
+    "pi-mnemopi",
+    "pi-natives",
+    "pi-natives-linux-x64",
+    "pi-tui",
+    "pi-utils",
+    "pi-wire",
+    "snapcompact"
+  ],
+  "assertions": {
+    "all_exact_version": true,
+    "no_symlink_aliases": true,
+    "no_nested_omp": true
+  },
+  "replaced_initial_bun_closure": "Initial Bun tree had invalid telemetry and ONNX peer resolutions; retained initial lock and inventory as historical evidence, not selected runtime"
+}

@@ -173,7 +173,7 @@ function _omp_plan_has {
 
 declare -A PLAN_CAPABILITIES=()
 function _omp_has_capability {
-	if [[ "$OMP_PATCH_VERSION" == "18.7.0" || "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+	if [[ "$OMP_PATCH_VERSION" == "18.7.0" || "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" ]]; then
 		[[ -n "${PLAN_CAPABILITIES[$1]:-}" ]]
 	else
 		_omp_plan_has "$1"
@@ -223,7 +223,7 @@ function _omp_tail_candidate {
 # Versioned plan selection. PATCHES is the retained historical-plan base, not
 # a deployable chain: its a-sides span upstream releases. Family releases replace
 # that array with their versioned registry. Supported versions:18.4.4,
-# 18.7.0,18.10.0 and18.10.1. Older baselines were removed by the user.
+# 18.7.0,18.10.0,18.10.1 and18.12.6. Older baselines were removed by the user.
 # Unset OMP_PATCH_VERSION auto-routes by the installed pi-coding-agent
 # version (exact match only) so the documented one-key re-apply flow keeps
 # working; an explicit value must match the installed version or fail
@@ -233,12 +233,12 @@ if [[ -z "${OMP_PATCH_VERSION+x}" ]]; then
 	pkgjson="${NM}/pi-coding-agent/package.json"
 	installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
 	case "$installed" in
-	18.1.14|18.1.18|18.2.3|18.2.10|18.3.3|18.4.1|18.4.4|18.7.0|18.10.0|18.10.1)
+	18.1.14|18.1.18|18.2.3|18.2.10|18.3.3|18.4.1|18.4.4|18.7.0|18.10.0|18.10.1|18.12.6)
 		OMP_PATCH_VERSION="$installed"
 		echo "NOTE: OMP_PATCH_VERSION unset — routed to installed ${installed}" >&2
 		;;
 	*)
-		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4, 18.7.0, 18.10.0, 18.10.1); set OMP_PATCH_VERSION explicitly" >&2
+		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4, 18.7.0, 18.10.0, 18.10.1, 18.12.6); set OMP_PATCH_VERSION explicitly" >&2
 		exit 2
 		;;
 	esac
@@ -356,12 +356,16 @@ case "$OMP_PATCH_VERSION" in
 	# extension event (hit | miss | error).
 	_omp_tail_candidate "18.4.4" "0092-omp-cache-warming-idle-budget" "${AGENT}"
 	;;
-18.7.0|18.10.0|18.10.1)
+18.7.0|18.10.0|18.10.1|18.12.6)
 	# One active revision per functional family. Historical bytes are archived.
 	case "${OMP_PATCH_PLAN:-deployed}" in
 		deployed|repository) ;;
 		*) echo "OMP_PATCH_PLAN must be deployed or repository" >&2; exit 2 ;;
 	esac
+	if [[ "$OMP_PATCH_VERSION" == "18.12.6" && ! -f "${HERE}/.18.12.6-families/manifest.json" ]]; then
+		echo "family manifest missing: ${HERE}/.18.12.6-families/manifest.json" >&2
+		exit 2
+	fi
 	if [[ "$READ_ONLY_QUERY" != 1 ]]; then
 		for package in pi-coding-agent pi-agent-core pi-ai pi-catalog snapcompact pi-tui; do
 			package_version="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "${NM}/${package}/package.json" 2>/dev/null || true)"
@@ -372,10 +376,18 @@ case "$OMP_PATCH_VERSION" in
 		done
 	fi
 	_omp_family_plan
-	if [[ "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+	if [[ "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" ]]; then
 		# Upstream b83200eb retains self-contained native replay warming while
-		# deliberately excluding connection-bound histories; no local 0017 remains.
+		# deliberately excluding connection-bound histories; no local 0017
+		# remains (18.12.6 keeps the same proven upstream adoption).
 		PLAN_CAPABILITIES[0017]=upstream
+	fi
+	if [[ "$OMP_PATCH_VERSION" == "18.12.6" ]]; then
+		# Approved upstream adoption (unpatched-target producer proof plus
+		# mutation controls): the target's own MIME producer covers 0078, so
+		# no local patch remains; its consumer gate stays selected via the
+		# upstream capability marker.
+		PLAN_CAPABILITIES[0078]=upstream
 	fi
 	# The undeployed computeruse candidate is an explicit repository overlay.
 	# A missing file never implicitly selects a smaller deployment plan.
@@ -389,18 +401,18 @@ case "$OMP_PATCH_VERSION" in
 	fi
 	;;
 *)
-	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known:18.4.4,18.7.0,18.10.0,18.10.1)" >&2
+	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known:18.4.4,18.7.0,18.10.0,18.10.1,18.12.6)" >&2
 	exit 2
 	;;
 esac
 
-if [[ "$OMP_PATCH_VERSION" != "18.7.0" && "$OMP_PATCH_VERSION" != "18.10.0" && "$OMP_PATCH_VERSION" != "18.10.1" && -n "${OMP_PATCH_PLAN+x}" ]]; then
-	echo "OMP_PATCH_PLAN is supported only for 18.7.0, 18.10.0 and 18.10.1" >&2
+if [[ "$OMP_PATCH_VERSION" != "18.7.0" && "$OMP_PATCH_VERSION" != "18.10.0" && "$OMP_PATCH_VERSION" != "18.10.1" && "$OMP_PATCH_VERSION" != "18.12.6" && -n "${OMP_PATCH_PLAN+x}" ]]; then
+	echo "OMP_PATCH_PLAN is supported only for 18.7.0, 18.10.0, 18.10.1 and 18.12.6" >&2
 	exit 2
 fi
 
 if [[ "$MODE" == "print-capabilities" ]]; then
-	if [[ "$OMP_PATCH_VERSION" == "18.7.0" || "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+	if [[ "$OMP_PATCH_VERSION" == "18.7.0" || "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" ]]; then
 		printf '%s\n' "${!PLAN_CAPABILITIES[@]}" | sort
 	else
 		for entry in "${PATCHES[@]}"; do
@@ -428,6 +440,8 @@ _omp_gate() {
 				oauth_verify_root="$(mktemp -d)"
 				trap 'rm -rf -- "$oauth_verify_root"' EXIT
 				cp -a --reflink=auto "${NM}/.." "${oauth_verify_root}/node_modules"
+				# Outer selectors must not redirect consumers out of this private copy.
+				unset OMP_PATCH_VERIFY_AGENT_ROOT OMP_PATCH_VERIFY_NM
 				case "$script" in
 					*.sh)
 						OMP_PATCH_VERIFY_AI_ROOT="${oauth_verify_root}/node_modules/@oh-my-pi/pi-ai" \
@@ -478,7 +492,7 @@ _omp_run_gates() {
 	_omp_gate "" verify-interrupt-prune-symmetry.ts
 	_omp_gate 0032 verify-goal-tool-resident.ts
 	_omp_gate 0047 verify-date-cwd-anchor-stability.ts
-	if [[ "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+	if [[ "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" ]]; then
 		_omp_gate 0047 verify-session-transfer-authority.ts
 	fi
 	_omp_gate 0056 verify-devin-metadata.ts
@@ -487,7 +501,7 @@ _omp_run_gates() {
 		_omp_gate "" verify-snapcompact-frame-reprice.ts
 	fi
 	_omp_gate 0050 verify-session-history-preview.ts
-	if [[ "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+	if [[ "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" ]]; then
 		_omp_gate "" verify-native-dialog-lifecycle.ts
 		_omp_gate "" verify-manual-compaction-direct.ts
 		_omp_gate "" verify-context-notes-append-projection.ts
@@ -513,9 +527,10 @@ _omp_run_gates() {
 	_omp_gate 0079 verify-kitty-conversion-finalization.ts
 	_omp_gate 0080 verify-kitty-shared-png-cache.ts
 	_omp_gate 0081 verify-main-cache-hit.ts
-	# The one-decimal reset countdowns exist only in the 18.10.1 family revision;
-	# the 18.4.4/18.7.0/18.10.0 plans keep their own frozen family bytes.
-	if [[ "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+	# The one-decimal reset countdowns exist only in the 18.10.1 family revision
+	# (inherited by the 18.12.6 plan); the 18.4.4/18.7.0/18.10.0 plans keep
+	# their own frozen family bytes.
+	if [[ "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" ]]; then
 		_omp_gate 0081 verify-usage-reset-format.ts
 	fi
 	_omp_gate 0083 verify-model-mention-surface-resume.ts
@@ -528,14 +543,16 @@ _omp_run_gates() {
 	_omp_gate 0085 verify-rejected-prepared-draft-restore.ts
 	_omp_gate 0088 verify-compaction-cache-liveness.ts
 	_omp_gate 0090 verify-oauth-durable-refresh.ts oauth
-	# The unlock revision and its fault controls ship with the 18.10.1 plan only;
-	# 18.10.0 keeps the frozen reserve/stage/commit tree and its own gate list.
-	if [[ "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+	# The unlock revision and its fault controls ship with the 18.10.1 revision
+	# (carried into the 18.12.6 plan); 18.10.0 keeps the frozen
+	# reserve/stage/commit tree and its own gate list.
+	if [[ "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" ]]; then
 		_omp_gate 0090 verify-oauth-unlock-fence-faults.sh oauth
 	fi
 	# Codex/Antigravity 403 eligibility retention ships with the 18.10.1 family
-	# revision; the 18.10.0 plan keeps its frozen family bytes and gate list.
-	if [[ "$OMP_PATCH_VERSION" == "18.10.1" ]]; then
+	# revision (carried into the 18.12.6 plan); the 18.10.0 plan keeps its
+	# frozen family bytes and gate list.
+	if [[ "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" ]]; then
 		_omp_gate 0090 verify-codex-account-eligibility-retention.ts
 		_omp_gate 0090 verify-google-account-eligibility-retention.ts
 	fi

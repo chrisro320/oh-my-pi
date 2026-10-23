@@ -221,7 +221,7 @@ def main():
     stage.add_argument("--home", type=Path, required=True)
     stage.add_argument("--runtime", type=Path, required=True)
     stage.add_argument("--ledger", type=Path, required=True)
-    stage.add_argument("--version", choices=["18.10.1"], required=True)
+    stage.add_argument("--version", choices=["18.10.1", "18.12.6"], required=True)
     publication = commands.add_parser("publish")
     publication.add_argument("--release", type=Path, required=True)
     publication.add_argument("--smoke", type=Path, required=True)

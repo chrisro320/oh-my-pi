@@ -82,13 +82,10 @@ if (!existsSync(join(AI_ROOT, "src", "auth-storage.ts")) || !existsSync(join(AI_
 	process.exit(2);
 }
 const aiVersion = JSON.parse(readFileSync(join(AI_ROOT, "package.json"), "utf8")).version;
-assert.ok(["18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion), `unsupported OAuth gate version: ${aiVersion}`);
-const hasExchangeReservation = ["18.10.0", "18.10.1"].includes(aiVersion);
-// The fenced unlock revision ships only with the 18.10.1 plan. The frozen
-// 18.10.0 tree carries reserve/stage/commit but no unlock surface, so the
-// unlock assertions (and their fault controls) must be scoped to 18.10.1 alone
-// while the exchange scenarios keep running on both.
-const hasUnlockRevision = aiVersion === "18.10.1";
+assert.ok(["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion), `unsupported OAuth gate version: ${aiVersion}`);
+const hasExchangeReservation = ["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion);
+// Frozen 18.10.0 keeps reserve/stage/commit without the later unlock surface.
+const hasUnlockRevision = ["18.10.1", "18.12.6"].includes(aiVersion);
 
 // ---------------------------------------------------------------------------
 // Local structural contracts for the selected tree. The module specifier is a
@@ -252,7 +249,14 @@ const PROVIDER = "anthropic";
 // Import-time loggers and provider discovery must see only the private home.
 const runRealStall = process.env.OMP_PATCH_VERIFY_OAUTH_REAL_STALL === "1";
 const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
-const privateHome = mkdtempSync(join(tmpdir(), "omp-oauth-home-"));
+// Signal hard-exit bypasses `exit` listeners. Nest that child's HOME under its
+// parent-owned synthetic case so withCase cleans it even after real SIGTERM.
+let homeParent = tmpdir();
+if (process.argv[2] === "--rotation-interrupt") {
+	homeParent = realpathSync(process.argv[3]);
+	assert.ok(homeParent.startsWith(join(tmpdir(), "omp-oauth-verify-")), "rotation HOME must remain in the synthetic case");
+}
+const privateHome = mkdtempSync(join(homeParent, "omp-oauth-home-"));
 for (const key of Object.keys(process.env)) {
 	if (key !== "PATH" && key !== "TMPDIR") delete process.env[key];
 }
@@ -529,10 +533,10 @@ function exchangeRows(c: CaseEnv): unknown[] {
 }
 
 /** A real fresh process has no in-memory exchange/result cache to rescue it. */
-async function refreshAfterProcessRestart(c: CaseEnv, id: number): Promise<{ error?: string; access?: string; tokenPosts: number }> {
+async function refreshAfterProcessRestart(c: CaseEnv, id: number, mode: "refresh" | "access" = "refresh"): Promise<{ error?: string; access?: string; tokenPosts: number }> {
 	c.auth.close();
 	const output = join(c.dir, "restart-result.json");
-	const child = Bun.spawnSync([process.execPath, import.meta.path, "--restart-refresh", c.dir, String(id), output], {
+	const child = Bun.spawnSync([process.execPath, import.meta.path, "--restart-refresh", c.dir, String(id), output, mode], {
 		env: { PATH: process.env.PATH, TMPDIR: process.env.TMPDIR,
 			OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
 		stdout: "pipe", stderr: "pipe",
@@ -895,7 +899,7 @@ async function scenario(name: string, fn: () => Promise<void>): Promise<void> {
 		console.log(`  PASS  ${name}`);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		console.error(`  FAIL  ${name}\n        ${message.split("\n")[0]}`);
+		console.error(`  FAIL  ${name}\n${error instanceof Error ? error.stack ?? message : message}`);
 		process.exit(1);
 	} finally {
 		clearTimeout(watchdog);
@@ -924,7 +928,9 @@ if (process.argv[2] === "--restart-refresh") {
 		let access: string | undefined;
 		let error: string | undefined;
 		try {
-			access = (await auth.oauth.refresh(Number(process.argv[4]))).credential.access;
+			access = process.argv[6] === "access"
+				? await auth.getApiKey(PROVIDER)
+				: (await auth.oauth.refresh(Number(process.argv[4]))).credential.access;
 		} catch (caught) {
 			error = caught instanceof Error ? caught.message : String(caught);
 		}
@@ -968,6 +974,106 @@ if (process.argv[2] === "--unlock-held-result") {
 		t.restore();
 	}
 	process.exit(0);
+}
+if (process.argv[2] === "--rotation-interrupt") {
+	assert.equal(aiVersion, "18.12.6", "shutdown fixtures consume the exact target lifecycle");
+	const dir = realpathSync(process.argv[3]);
+	assert.ok(dir.startsWith(join(tmpdir(), "omp-oauth-verify-")), "rotation child may read only the synthetic gate store");
+	const id = Number(process.argv[4]);
+	const output = process.argv[5];
+	const mode = process.argv[6];
+	assert.ok(mode === "sigterm" || mode === "staged-exit");
+	const store = await StoreClass.open(join(dir, "auth.db"));
+	const auth = new AuthStorageClass(store);
+	const response = Promise.withResolvers<void>();
+	const receipt = { tokenPosts: 0, staged: false, signalled: false };
+	const stage = store.stageCredentialRefreshResult.bind(store);
+	store.stageCredentialRefreshResult = (...args) => {
+		const saved = stage(...args);
+		if (saved) {
+			receipt.staged = true;
+			writeFileSync(output, JSON.stringify(receipt));
+			// Real process interruption after the durable stage but before publication.
+			if (mode === "staged-exit") process.exit(86);
+		}
+		return saved;
+	};
+	installTransport({
+		onTokenPost: () => {
+			receipt.tokenPosts++;
+			writeFileSync(output, JSON.stringify(receipt));
+			if (mode === "sigterm") {
+				setTimeout(() => {
+					receipt.signalled = true;
+					writeFileSync(output, JSON.stringify(receipt));
+					process.kill(process.pid, "SIGTERM");
+				}, 0);
+				// The provider has consumed the old generation; its rotated result
+				// arrives only after the actual SIGTERM starts postmortem draining.
+				setTimeout(() => response.resolve(), 100);
+			} else {
+				response.resolve();
+			}
+		},
+		token: () => tokenReply("interrupt-access-1", "interrupt-refresh-1", { waitFor: response.promise }),
+	});
+	await auth.credentials.reload();
+	await auth.oauth.refresh(id);
+	// SIGTERM's real postmortem handler must terminate this process, not this fixture.
+	await Bun.sleep(60_000);
+	throw new Error("rotation child was not terminated at its required boundary");
+}
+
+if (aiVersion === "18.12.6") {
+	for (const mode of ["sigterm", "staged-exit"]) {
+		await scenario(`target ${mode}: interrupted rotation is durably recoverable without another POST`, async () => {
+			await withCase(async c => {
+				const id = await seed(c, expiredCred({ access: "interrupt-access-0", refresh: "interrupt-refresh-0" }));
+				const output = join(c.dir, `rotation-${mode}.json`);
+				const child = Bun.spawn([process.execPath, import.meta.path, "--rotation-interrupt", c.dir, String(id), output, mode], {
+					env: {
+						PATH: process.env.PATH, TMPDIR: process.env.TMPDIR,
+						HOME: privateHome, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+						XDG_CACHE_HOME: process.env.XDG_CACHE_HOME, XDG_DATA_HOME: process.env.XDG_DATA_HOME,
+						XDG_STATE_HOME: process.env.XDG_STATE_HOME, OMP_DURABILITY_BOOT: "1",
+						OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT,
+					},
+					stdout: "pipe", stderr: "pipe",
+				});
+				let deadline: NodeJS.Timeout | undefined;
+				try {
+					const code = await Promise.race([
+						child.exited,
+						new Promise<never>((_, reject) => {
+							deadline = setTimeout(() => { child.kill("SIGKILL"); reject(new Error("rotation child failed to exit")); }, 10_000);
+						}),
+					]);
+					const stderr = await new Response(child.stderr).text();
+					assert.equal(code, mode === "staged-exit" ? 86 : 143, `rotation child exit: ${stderr}`);
+					const receipt = JSON.parse(readFileSync(output, "utf8"));
+					assert.equal(receipt.tokenPosts, 1, "the child must exercise exactly one real auth token exchange");
+					assert.equal(receipt.staged, true, "the real store must durably stage the rotated provider result");
+					assert.equal(receipt.signalled, mode === "sigterm");
+					if (mode === "sigterm") {
+						assert.equal(rowOf(c, id)?.refresh, "interrupt-refresh-1", "SIGTERM drain must commit before process exit");
+						assert.deepEqual(exchangeRows(c), [], "shutdown publication retires its journal");
+					} else {
+						assert.equal(rowOf(c, id)?.refresh, "interrupt-refresh-0", "interruption must precede publication");
+						assert.equal(exchangeRows(c).length, 1, "the interrupted stage must remain in the durable journal");
+					}
+					const recovered = await refreshAfterProcessRestart(c, id, mode === "sigterm" ? "access" : "refresh");
+					assert.equal(recovered.error, undefined, "the actual fresh auth consumer must recover the rotation");
+					assert.equal(recovered.access, "interrupt-access-1");
+					assert.equal(recovered.tokenPosts, 0, "fresh-process recovery must never redeem the consumed generation again");
+					assert.equal(rowOf(c, id)?.refresh, "interrupt-refresh-1");
+					assert.deepEqual(exchangeRows(c), [], "recovered publication retires the journal");
+				} finally {
+					clearTimeout(deadline);
+					child.kill();
+				}
+			});
+		});
+	}
 }
 
 console.log(`=== verify-oauth-durable-refresh (0090) :: ${AI_ROOT} ===`);

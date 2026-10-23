@@ -1,0 +1,21 @@
+{
+  "status": "FAIL",
+  "cases": [
+    {
+      "case": "durable",
+      "exit": 1,
+      "matched": false
+    },
+    {
+      "case": "faults",
+      "exit": 1,
+      "matched": false
+    },
+    {
+      "case": "removed-scrub",
+      "exit": 1,
+      "matched": false
+    }
+  ],
+  "source_dispatch_sha256": "cf9ec44905e17d4364fa92bb1e7556503361a990a8ec26c677767a5330bee2c9"
+}

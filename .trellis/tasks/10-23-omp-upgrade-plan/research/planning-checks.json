@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "scope": "planning structure and referenced files only, not target execution",
+  "family_owners": 27,
+  "local_capability_ids": 61,
+  "total_with_existing_upstream_adoption": 62,
+  "duplicate_ids": false,
+  "missing_capability_ids": [],
+  "per_family_ownership_matches": true,
+  "referenced_existing_gate_files": 16,
+  "missing_gate_files": [],
+  "required_artifacts_present": true,
+  "manifest_entries": {
+    "implement.jsonl": 12,
+    "check.jsonl": 11
+  },
+  "all_execution_checkboxes_unchecked": true
+}

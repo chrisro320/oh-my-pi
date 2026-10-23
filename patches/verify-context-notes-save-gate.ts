@@ -1,12 +1,11 @@
-// Gate for the notebook save-before-rollover addon (not a patch layer).
+// Gate for the notebook midpoint-reminder addon (not a patch layer).
 //
-// Invariant: while the experimental notebook toolset is live, an automatic
-// context rollover is vetoed exactly when the newest visible committed notebook
-// revision is not newer than the newest user message / work tool result. The
-// hook event carries no reason, so the gate only gates a rollover while an
-// `auto_compaction_start` pass is in flight; a manual `/compact` rolls over
-// directly even with a stale notebook. One checkpoint reminder is delivered at
-// 45% of the full context window per rollover boundary.
+// Invariant: while the experimental notebook toolset is live on the main
+// session, exactly one hidden checkpoint reminder is delivered at 45% of the
+// full model context window per rollover boundary: an aside after a completed
+// step, or a `before_agent_start` payload deferred while idle. The addon
+// registers no `session_before_compact` handler, so no rollover is gated and
+// classic speculative compaction stays enabled; children stay dormant.
 // Nothing here touches the network, credentials, a real session or the installed
 // runtime: the extension imports only types, so
 // this file drives it with a fixture journal and a fake `pi`.
@@ -65,20 +64,14 @@ if (RESULT_PATH && !IS_CHILD) {
 
 const mod = await import(EXTENSION);
 const register = mod.default as (pi: unknown) => void;
-const { inspectNotesJournal, NOTES_REPAIR_CUSTOM_TYPE, CONTEXT_NOTES_ENTRY_TYPE, REQUIRED_ROLLOVER_TOOLS } = mod as {
-	inspectNotesJournal: (entries: readonly unknown[], rejectedEntryId?: string) => {
-		revisionId: string | undefined;
-		text: string;
-		stale: boolean;
-		reason: string;
-		activityId: string | undefined;
-	};
-	NOTES_REPAIR_CUSTOM_TYPE: string;
-	CONTEXT_NOTES_ENTRY_TYPE: string;
+const { REQUIRED_ROLLOVER_TOOLS } = mod as {
 	REQUIRED_ROLLOVER_TOOLS: readonly string[];
 };
 
 // ---------------------------------------------------------------- fixtures --
+// Mirrors the runtime's notebook revision entry type. The reminder never reads
+// it, but fixture branches carry realistic entries.
+const CONTEXT_NOTES_ENTRY_TYPE = "experimental_context_notes";
 const notebook = (id: string, text: string, extra: Record<string, unknown> = {}) => ({
 	type: "custom",
 	id,
@@ -91,11 +84,6 @@ const assistant = (id: string, stopReason = "toolUse") => ({
 	message: { role: "assistant", stopReason, content: [] },
 });
 const user = (id: string) => ({ type: "message", id, message: { role: "user", content: [] } });
-const toolResult = (id: string, toolName: string) => ({
-	type: "message",
-	id,
-	message: { role: "toolResult", toolName, content: [] },
-});
 const resetBoundary = (id: string) => ({ type: "reset_boundary", id });
 const compaction = (id: string) => ({ type: "compaction", id });
 const assistants = (count: number, prefix = "a") =>
@@ -108,10 +96,7 @@ interface Harness {
 	sent: Array<{ message: Record<string, unknown>; options: Record<string, unknown> | undefined }>;
 	notified: Array<{ message: string; level: string }>;
 	calls: string[];
-	ctxFor(
-		entries: readonly unknown[],
-		options?: { idle?: boolean; noBranch?: boolean; notifyThrows?: boolean; percent?: number },
-	): unknown;
+	ctxFor(entries: readonly unknown[], options?: { idle?: boolean; percent?: number }): unknown;
 	emit(type: string, event: Record<string, unknown>, ctx: unknown): Promise<unknown>;
 	setTools(next: string[]): void;
 	start(active?: string[]): Promise<void>;
@@ -146,17 +131,13 @@ function harness(options: { tools?: string[]; throwOnSend?: boolean; agentKind?:
 			throw new Error("the addon must not write journal entries");
 		},
 	};
-	const ctxFor = (
-		entries: readonly unknown[],
-		ctxOptions: { idle?: boolean; noBranch?: boolean; notifyThrows?: boolean; percent?: number } = {},
-	) => ({
+	const ctxFor = (entries: readonly unknown[], ctxOptions: { idle?: boolean; percent?: number } = {}) => ({
 		agent: { kind: options.agentKind ?? "main", depth: 0 },
 		isIdle: () => ctxOptions.idle ?? false,
 		getContextUsage: () => ctxOptions.percent === undefined ? undefined : ({ tokens: ctxOptions.percent * 100, contextWindow: 10_000, percent: ctxOptions.percent }),
-		sessionManager: ctxOptions.noBranch ? {} : { getBranch: () => entries },
+		sessionManager: { getBranch: () => entries },
 		ui: {
 			notify(message: string, level: string) {
-				if (ctxOptions.notifyThrows) throw new Error("ui down");
 				notified.push({ message, level });
 			},
 		},
@@ -187,44 +168,20 @@ function harness(options: { tools?: string[]; throwOnSend?: boolean; agentKind?:
 	};
 }
 
-/**
- * Drive one automatic rollover the way the runtime does: the reason-carrying
- * `auto_compaction_start` first, then the veto hook, then `auto_compaction_end`.
- * The hook event itself carries no reason, so this ordering is the only thing
- * that distinguishes an automatic pass from a manual `/compact`.
- */
-async function automaticRollover(
-	surface: Harness,
-	reason: string,
-	ctx: unknown,
-	branchEntries: readonly unknown[],
-): Promise<unknown> {
-	await surface.emit("auto_compaction_start", { reason, action: "context-full" }, ctx);
-	try {
-		return await surface.emit("session_before_compact", { branchEntries }, ctx);
-	} finally {
-		await surface.emit("auto_compaction_end", {}, ctx);
-	}
-}
-
 // The factory must not probe the runtime: `getActiveTools()` throws before the
-// runner initializes, and registering the veto early would disable classic
-// speculative compaction.
+// runner initializes.
 const dormant = harness();
 register(dormant.pi);
-assert.ok(!dormant.handlers.has("session_before_compact"), "the factory must not register the veto before the toolset is live");
 assert.ok(!dormant.calls.includes("getActiveTools"), "the factory must not probe getActiveTools");
 assert.ok(!dormant.calls.includes("appendEntry"), "the factory must not write journal entries");
 
-// Feature off: the four rollover tools are absent, so no veto is registered.
+// Feature off: the four rollover tools are absent, so the reminder stays quiet.
 await dormant.start(["read", "grep"]);
-assert.ok(!dormant.handlers.has("session_before_compact"), "feature off must not register the veto");
-assert.equal(
-	await dormant.emit("session_before_compact", { branchEntries: [] }, dormant.ctxFor([])),
-	undefined,
-	"feature off leaves the rollover untouched",
-);
-console.log("ok  dormant: probes only, no veto while the notebook toolset is off");
+const dormantCtx = dormant.ctxFor([], { percent: 90 });
+assert.equal(await dormant.emit("before_agent_start", {}, dormantCtx), undefined, "feature off adds no start payload");
+await dormant.emit("turn_end", { message: { stopReason: "toolUse" } }, dormantCtx);
+assert.equal(dormant.sent.length + dormant.notified.length, 0, "feature off delivers no checkpoint");
+console.log("ok  dormant: probes only, no veto hook, quiet while the notebook toolset is off");
 
 // Child identities must stay dormant even with the full notebook toolset.
 // Depth zero deliberately covers non-task children such as /tan clones.
@@ -234,388 +191,9 @@ await child.start();
 const childContext = child.ctxFor([user("u1"), ...assistants(120)], { percent: 90 });
 assert.equal(await child.emit("before_agent_start", {}, childContext), undefined);
 await child.emit("turn_end", { message: { stopReason: "toolUse" } }, childContext);
-assert.equal(await child.emit("session_before_compact", { branchEntries: [] }, childContext), undefined);
-assert.equal(child.sent.length, 0, "children receive no repair message");
-assert.equal(child.notified.length, 0, "children receive no notebook notice");
-assert.ok(!child.handlers.has("session_before_compact"), "children retain classic speculation without a veto hook");
-console.log("ok  children: no repair or rollover veto, including depth-zero clones");
-
-// ------------------------------------------------------------ journal state --
-const empty = inspectNotesJournal([]);
-assert.deepEqual(
-	[empty.stale, empty.reason, empty.revisionId],
-	[true, "no-notes", undefined],
-	"an empty branch has no notebook",
-);
-const fresh = inspectNotesJournal([notebook("n1", "index")]);
-assert.deepEqual([fresh.stale, fresh.reason], [false, "fresh"], "a trailing notebook is fresh");
-assert.equal(
-	inspectNotesJournal([notebook("n1", "index"), toolResult("t1", "bash")]).reason,
-	"work-after",
-	"work after the notebook is stale",
-);
-assert.equal(
-	inspectNotesJournal([notebook("n1", "index"), user("u1")]).reason,
-	"user-input-after",
-	"a user message after the notebook is stale",
-);
-assert.equal(
-	inspectNotesJournal([
-		notebook("n1", "index"),
-		toolResult("t1", "context_notes"),
-		toolResult("t2", "new_context"),
-	]).reason,
-	"fresh",
-	"notebook housekeeping results do not make the notebook stale",
-);
-assert.equal(
-	inspectNotesJournal([notebook("n1", "index"), assistant("a1")]).reason,
-	"fresh",
-	"an assistant acknowledgement does not make the notebook stale",
-);
-assert.equal(
-	inspectNotesJournal([notebook("n1", "index"), resetBoundary("r1")]).reason,
-	"no-notes",
-	"a reset boundary hides earlier notebook revisions",
-);
-assert.equal(
-	inspectNotesJournal([resetBoundary("r1"), notebook("n2", "index")]).reason,
-	"fresh",
-	"a notebook after the reset boundary is visible",
-);
-assert.equal(
-	inspectNotesJournal([notebook("n1", "index"), notebook("n2", "index", { extra: 1 })]).revisionId,
-	"n1",
-	"a revision with unexpected keys is not a notebook",
-);
-assert.equal(
-	inspectNotesJournal([notebook("n1", "index"), user("u1"), notebook("n2", "index")]).reason,
-	"fresh",
-	"a successful same-text rewrite is a new valid save",
-);
-// An empty or whitespace-only write is stale, not a save.
-assert.equal(
-	inspectNotesJournal([notebook("n1", "index"), assistant("a1"), notebook("n2", "")]).reason,
-	"empty-notes",
-	"an empty write is stale",
-);
-assert.equal(
-	inspectNotesJournal([notebook("n1", "x"), notebook("n2", "  ")]).reason,
-	"empty-notes",
-	"a whitespace-only write is stale",
-);
-const rejected = inspectNotesJournal(
-	[notebook("n1", "index"), assistant("a1"), toolResult("t1", "read"), notebook("n2", "new")],
-	"n2",
-);
-assert.deepEqual(
-	[rejected.reason, rejected.activityId],
-	["rejected-write", "t1"],
-	"an uncommitted revision is never fresh and never re-arms a repair",
-);
-console.log("ok  journal state: freshness ordering, housekeeping, reset boundary, empty/rejected writes");
-
-// ------------------------------------------------------------------- gate ----
-const staleEntries: unknown[] = [user("u1"), assistant("a1"), toolResult("t1", "bash")];
-
-// Stale with no notebook: veto, one repair continuation, no notice on the first attempt.
-const gate = harness();
-register(gate.pi);
-await gate.start();
-const staleCtx = gate.ctxFor(staleEntries);
-assert.deepEqual(
-	await automaticRollover(gate, "threshold", staleCtx, staleEntries),
-	{ cancel: true },
-	"a stale notebook vetoes the rollover",
-);
-assert.equal(gate.sent.length, 1, "the first stale veto queues one repair continuation");
-assert.equal(gate.sent[0].message.customType, NOTES_REPAIR_CUSTOM_TYPE, "the repair is a hidden custom message");
-assert.equal(gate.sent[0].message.display, false, "the repair is hidden from the transcript");
-assert.deepEqual(
-	gate.sent[0].options,
-	{ deliverAs: "nextTurn", triggerTurn: true },
-	"the repair continuation is queued, never awaited",
-);
-assert.equal(gate.notified.length, 0, "the first veto is guided by the repair, not by a notice");
-
-// The same activity again: still vetoed, no second repair, one bounded notice.
-assert.deepEqual(
-	await automaticRollover(gate, "threshold", staleCtx, staleEntries),
-	{ cancel: true },
-	"a repeated veto still cancels",
-);
-assert.equal(gate.sent.length, 1, "an ignored repair cannot rearm an autonomous repair");
-assert.equal(gate.notified.length, 1, "the blocked rollover surfaces visible guidance once");
-
-// New work re-arms exactly one more repair for the new activity episode.
-staleEntries.push(toolResult("t2", "grep"));
-await automaticRollover(gate, "threshold", staleCtx, staleEntries);
-assert.equal(gate.sent.length, 2, "new work re-arms one repair continuation");
-
-// An empty notebook write is not progress: it must not re-arm the repair loop.
-staleEntries.push(notebook("n9", ""));
-await automaticRollover(gate, "threshold", staleCtx, staleEntries);
-assert.equal(gate.sent.length, 2, "an empty write does not re-arm an autonomous repair");
-
-// A fresh notebook (committed write, no work after it) is allowed through.
-const allow = harness();
-register(allow.pi);
-await allow.start();
-const freshEntries: unknown[] = [user("u1"), assistant("a1"), toolResult("t1", "bash"), notebook("n1", "index")];
-assert.equal(
-	await automaticRollover(allow, "threshold", allow.ctxFor(freshEntries), freshEntries),
-	undefined,
-	"a fresh notebook lets the rollover proceed",
-);
-assert.equal(allow.sent.length + allow.notified.length, 0, "an allowed rollover queues nothing");
-
-// Work after the write makes it stale again.
-const workedAfter = [...freshEntries, toolResult("t2", "read")];
-assert.deepEqual(
-	await automaticRollover(allow, "threshold", allow.ctxFor(workedAfter), workedAfter),
-	{ cancel: true },
-	"work after the notebook write makes the rollover stale again",
-);
-assert.equal(allow.sent.length, 1, "work after the write re-arms one repair continuation");
-
-// An idle rollover: veto and guidance, but never an autonomous turn.
-const idle = harness();
-register(idle.pi);
-await idle.start();
-assert.deepEqual(
-	await automaticRollover(idle, "threshold", idle.ctxFor(staleEntries, { idle: true }), staleEntries),
-	{ cancel: true },
-	"an idle rollover with a stale notebook is vetoed",
-);
-assert.equal(idle.sent.length, 0, "an idle rollover never starts a repair turn");
-assert.equal(idle.notified.length, 1, "an idle rollover surfaces visible guidance");
-
-// Provider overflow: veto and guidance, and no repair turn that would repeat the
-// oversized input.
-const overflow = harness();
-register(overflow.pi);
-await overflow.start();
-await overflow.emit("auto_compaction_start", { reason: "overflow", action: "context-full" }, overflow.ctxFor(staleEntries));
-assert.deepEqual(
-	await overflow.emit("session_before_compact", { branchEntries: staleEntries }, overflow.ctxFor(staleEntries)),
-	{ cancel: true },
-	"an overflow rollover with a stale notebook is vetoed",
-);
-assert.equal(overflow.sent.length, 0, "overflow suppresses the repair continuation");
-assert.equal(overflow.notified.length, 1, "overflow surfaces visible guidance");
-await overflow.emit("auto_compaction_end", {}, overflow.ctxFor(staleEntries));
-assert.deepEqual(
-	await automaticRollover(overflow, "overflow", overflow.ctxFor(staleEntries), staleEntries),
-	{ cancel: true },
-	"the veto outlives the compaction pass that raised it",
-);
-
-// Disabling the feature after attach stops the veto (the handler itself stays
-// registered, so classic speculation needs a reload to come back). The probe is
-// re-run per hook, so an automatic pass is not gated either.
-const disabled = harness();
-register(disabled.pi);
-await disabled.start();
-disabled.setTools(["read", "grep"]);
-assert.equal(
-	await automaticRollover(disabled, "threshold", disabled.ctxFor(staleEntries), staleEntries),
-	undefined,
-	"a disabled notebook feature stops vetoing rollovers",
-);
-assert.equal(disabled.sent.length + disabled.notified.length, 0, "a disabled notebook feature queues no guidance");
-
-// A failing send or a failing UI must never turn the veto into an accidental pass.
-const hostile = harness({ throwOnSend: true });
-register(hostile.pi);
-await hostile.start();
-assert.deepEqual(
-	await automaticRollover(hostile, "threshold", hostile.ctxFor(staleEntries), staleEntries),
-	{ cancel: true },
-	"a failing send still vetoes",
-);
-assert.equal(hostile.sent.length, 0, "the failed queue queued nothing");
-assert.equal(hostile.notified.length, 1, "a failed queue still surfaces visible guidance");
-const uiDown = harness();
-register(uiDown.pi);
-await uiDown.start();
-assert.deepEqual(
-	await automaticRollover(uiDown, "threshold", uiDown.ctxFor(staleEntries, { notifyThrows: true }), staleEntries),
-	{ cancel: true },
-	"a failing UI still vetoes",
-);
-assert.deepEqual(
-	await automaticRollover(uiDown, "threshold", uiDown.ctxFor([], { noBranch: true }), []),
-	{ cancel: true },
-	"an unreadable journal still vetoes",
-);
-console.log("ok  gate: stale vetoes every attempt, bounded repair, overflow/idle guidance, live re-probe");
-
-// ------------------------------------------------- manual rollover pass ------
-// The hook event carries no reason: only a pass in flight gates a rollover, so a
-// manual `/compact` (no `auto_compaction_start`) rolls over directly even with a
-// stale notebook, and must leave the guidance anchors untouched.
-const manual = harness();
-register(manual.pi);
-await manual.start();
-const manualEntries: unknown[] = [user("u1"), assistant("a1"), toolResult("t1", "bash")];
-const manualCtx = manual.ctxFor(manualEntries);
-assert.equal(
-	await manual.emit("session_before_compact", { branchEntries: manualEntries }, manualCtx),
-	undefined,
-	"a manual compaction with a stale notebook rolls over directly",
-);
-assert.equal(manual.sent.length, 0, "a manual compaction queues no repair continuation");
-assert.equal(manual.notified.length, 0, "a manual compaction surfaces no notice");
-assert.deepEqual(
-	await automaticRollover(manual, "threshold", manualCtx, manualEntries),
-	{ cancel: true },
-	"a later automatic pass with the stale notebook is still vetoed",
-);
-assert.equal(manual.sent.length, 1, "the manual pass did not consume the repair anchor");
-assert.equal(manual.notified.length, 0, "the first automatic veto is guided by the repair, not a notice");
-assert.deepEqual(
-	await automaticRollover(manual, "threshold", manualCtx, manualEntries),
-	{ cancel: true },
-	"a repeated automatic veto still cancels",
-);
-assert.equal(manual.sent.length, 1, "the repair continuation cannot rearm");
-assert.equal(manual.notified.length, 1, "the repeated automatic veto surfaces the bounded notice");
-console.log("ok  manual: a stale notebook does not block a manual rollover and consumes no guidance anchor");
-
-// Every automatic reason gates, and each keeps its own guidance behaviour.
-for (const reason of ["threshold", "overflow", "idle", "incomplete"]) {
-	const pass = harness();
-	register(pass.pi);
-	await pass.start();
-	const passEntries: unknown[] = [user("u1"), assistant("a1"), toolResult("t1", "bash")];
-	const passCtx = pass.ctxFor(passEntries);
-	assert.deepEqual(
-		await automaticRollover(pass, reason, passCtx, passEntries),
-		{ cancel: true },
-		`an automatic ${reason} pass with a stale notebook is vetoed`,
-	);
-	if (reason === "overflow") {
-		assert.equal(pass.sent.length, 0, "an overflow pass suppresses the repair continuation");
-		assert.equal(pass.notified.length, 1, "an overflow pass surfaces visible guidance");
-	} else {
-		assert.equal(pass.sent.length, 1, `an automatic ${reason} pass queues one repair continuation`);
-		assert.equal(pass.notified.length, 0, `an automatic ${reason} pass is guided by the repair, not a notice`);
-	}
-}
-console.log("ok  reasons: threshold/overflow/idle/incomplete all gate while the pass is in flight");
-
-// `auto_compaction_end` clears the recorded reason, so the next hook is manual
-// again and rolls over directly.
-const handedBack = harness();
-register(handedBack.pi);
-await handedBack.start();
-const handedEntries: unknown[] = [user("u1"), assistant("a1"), toolResult("t1", "bash")];
-const handedCtx = handedBack.ctxFor(handedEntries);
-await handedBack.emit("auto_compaction_start", { reason: "threshold", action: "context-full" }, handedCtx);
-assert.deepEqual(
-	await handedBack.emit("session_before_compact", { branchEntries: handedEntries }, handedCtx),
-	{ cancel: true },
-	"the pass in flight gates the hook",
-);
-await handedBack.emit("auto_compaction_end", {}, handedCtx);
-const afterPassSent = handedBack.sent.length;
-assert.equal(
-	await handedBack.emit("session_before_compact", { branchEntries: handedEntries }, handedCtx),
-	undefined,
-	"after the pass ends the next hook is manual and rolls over directly",
-);
-assert.equal(handedBack.sent.length, afterPassSent, "the manual hook after the pass queues nothing new");
-assert.equal(handedBack.notified.length, 0, "the manual hook after the pass surfaces no notice");
-console.log("ok  handback: `auto_compaction_end` clears the reason and reopens manual rollover");
-
-// A session switch or reload while a reason is recorded clears it too, so a
-// manual hook after it is not misread as an automatic pass.
-const switched = harness();
-register(switched.pi);
-await switched.start();
-const switchedCtx = switched.ctxFor(staleEntries);
-await switched.emit("auto_compaction_start", { reason: "threshold", action: "context-full" }, switchedCtx);
-await switched.emit("session_switch", {}, switchedCtx);
-assert.equal(
-	await switched.emit("session_before_compact", { branchEntries: staleEntries }, switchedCtx),
-	undefined,
-	"a session switch clears the recorded automatic reason",
-);
-await switched.emit("auto_compaction_start", { reason: "idle", action: "context-full" }, switchedCtx);
-await switched.emit("session_start", {}, switchedCtx);
-assert.equal(
-	await switched.emit("session_before_compact", { branchEntries: staleEntries }, switchedCtx),
-	undefined,
-	"a session start/reload clears the recorded automatic reason",
-);
-assert.equal(switched.sent.length + switched.notified.length, 0, "a cleared reason queues no guidance");
-console.log("ok  switch: session switch/reload clears the in-flight reason");
-
-// --------------------------------------------------------- write receipts ----
-// Every hook below is driven inside an automatic pass, because a bare hook is a
-// manual rollover and is never gated.
-const receipts = harness();
-register(receipts.pi);
-const receiptEntries: unknown[] = [notebook("n1", "index")];
-await receipts.start();
-// A read (no `text` parameter) never changes the notebook.
-await receipts.emit("tool_call", { toolName: "context_notes", input: {} }, receipts.ctxFor(receiptEntries));
-await receipts.emit("tool_result", { toolName: "context_notes", isError: false }, receipts.ctxFor(receiptEntries));
-assert.equal(
-	await automaticRollover(receipts, "threshold", receipts.ctxFor(receiptEntries), receiptEntries),
-	undefined,
-	"a notebook read leaves the notebook fresh",
-);
-// A failed write that appended nothing (oversized) keeps the earlier revision.
-await receipts.emit(
-	"tool_call",
-	{ toolName: "context_notes", input: { text: "x".repeat(20_000) } },
-	receipts.ctxFor(receiptEntries),
-);
-await receipts.emit("tool_result", { toolName: "context_notes", isError: true }, receipts.ctxFor(receiptEntries));
-assert.equal(
-	await automaticRollover(receipts, "threshold", receipts.ctxFor(receiptEntries), receiptEntries),
-	undefined,
-	"a failed oversized write does not invalidate a fresh notebook",
-);
-// A failed write whose flush failed leaves a revision behind: it is not committed.
-await receipts.emit("tool_call", { toolName: "context_notes", input: { text: "new index" } }, receipts.ctxFor(receiptEntries));
-receiptEntries.push(notebook("n2", "new index"));
-await receipts.emit("tool_result", { toolName: "context_notes", isError: true }, receipts.ctxFor(receiptEntries));
-assert.deepEqual(
-	await automaticRollover(receipts, "threshold", receipts.ctxFor(receiptEntries), receiptEntries),
-	{ cancel: true },
-	"a revision from a failed write is not fresh",
-);
-// Navigation on the same in-memory journal keeps the rejection: the failed
-// revision is still on the branch that was navigated to.
-await receipts.emit("session_tree", {}, receipts.ctxFor(receiptEntries));
-assert.deepEqual(
-	await automaticRollover(receipts, "threshold", receipts.ctxFor(receiptEntries), receiptEntries),
-	{ cancel: true },
-	"a failed revision stays rejected across in-memory tree navigation",
-);
-// A later successful write commits and clears the rejection.
-await receipts.emit("tool_call", { toolName: "context_notes", input: { text: "committed" } }, receipts.ctxFor(receiptEntries));
-receiptEntries.push(notebook("n3", "committed"));
-await receipts.emit("tool_result", { toolName: "context_notes", isError: false }, receipts.ctxFor(receiptEntries));
-assert.equal(
-	await automaticRollover(receipts, "threshold", receipts.ctxFor(receiptEntries), receiptEntries),
-	undefined,
-	"a committed revision clears the rejected one",
-);
-// Switching sessions resets the receipt bookkeeping, so a failed write on the
-// branch we switch to cannot be compared against the branch we came from.
-await receipts.emit("session_switch", {}, receipts.ctxFor([notebook("b1", "branch B index")]));
-const branchB: unknown[] = [notebook("b1", "branch B index")];
-await receipts.emit("tool_call", { toolName: "context_notes", input: { text: "y".repeat(20_000) } }, receipts.ctxFor(branchB));
-await receipts.emit("tool_result", { toolName: "context_notes", isError: true }, receipts.ctxFor(branchB));
-assert.equal(
-	await automaticRollover(receipts, "threshold", receipts.ctxFor(branchB), branchB),
-	undefined,
-	"a failed write after a session switch does not reject the new branch's notebook",
-);
-console.log("ok  receipts: read/failed/oversized writes, flush-failure rejection, navigation reset");
+assert.equal(child.sent.length, 0, "children receive no checkpoint");
+assert.equal(child.notified.length, 0, "children receive no notice");
+console.log("ok  children: no checkpoint or rollover veto, including depth-zero clones");
 
 // ------------------------------------------------- context checkpoint -------
 // Turn count alone still never queues anything below the midpoint.
@@ -727,14 +305,14 @@ assert.ok(recovered?.message, "a synchronous failed send does not consume the ch
 console.log("ok  midpoint: 45 percent boundary, once per window, save/resume dedupe, reset, idle deferral and child isolation");
 
 // ------------------------------------------------------- surface hygiene -----
-for (const surface of [gate, quiet, receipts]) {
+for (const surface of [quiet, midpoint, resumed]) {
 	assert.ok(!surface.calls.includes("appendEntry"), "the addon never writes journal entries");
 }
 assert.ok(
-	gate.sent.length > 0 && gate.sent.every(item => item.options?.triggerTurn === true && item.options.deliverAs === "nextTurn"),
-	"only bounded repair continuations are queued from the gate",
+	midpoint.sent.length > 0 && midpoint.sent.every(item => item.options?.deliverAs === "aside" && item.options?.triggerTurn !== true),
+	"only safe-boundary asides are ever queued",
 );
-console.log("ok  hygiene: no journal writes, only bounded repair continuations");
+console.log("ok  hygiene: no journal writes, only deferred-safe asides");
 
 // ----------------------------------------------------------- fault controls --
 if (!IS_CHILD) {
@@ -743,54 +321,29 @@ if (!IS_CHILD) {
 		const source = readFileSync(SHIPPED, "utf8");
 		const mutations: Array<{ name: string; from: string; to: string }> = [
 			{
-				name: "fails open instead of vetoing a stale rollover",
-				from: "\t\treturn { cancel: true };\n\t};",
-				to: "\t\treturn undefined;\n\t};",
+				name: "delivers the checkpoint below 45 percent",
+				from: "usage.percent < 45",
+				to: "usage.percent < 0",
 			},
 			{
-				name: "ignores work after the notebook write",
-				from: '\t\t\t\treason = "work-after";',
-				to: '\t\t\t\treason = "fresh";',
-			},
-			{
-				name: "treats an empty notebook as saved",
-				from: "} else if (visible.text.trim().length === 0) {",
-				to: "} else if (false) {",
-			},
-			{
-				name: "lets a repair rearm on every stale attempt",
-				from: "anchor !== lastRepairAnchor && ",
-				to: "",
-			},
-			{
-				name: "rearms a repair on an empty write",
-				from: "if (text !== undefined && text.trim().length > 0 && entry.id !== rejectedEntryId) return entry.id;",
-				to: "if (text !== undefined && entry.id !== rejectedEntryId) return entry.id;",
-			},
-			{
-				name: "attaches the veto in child sessions",
+				name: "delivers checkpoints in child sessions",
 				from: '\t\tif (ctx.agent.kind !== "main") return false;\n',
 				to: "",
 			},
 			{
-				name: "rejects a fresh notebook after a failed write that appended nothing",
-				from: "\t\t\t\t\tif (current !== before) rejectedEntryId = current;",
-				to: "\t\t\t\t\trejectedEntryId = current;",
+				name: "ignores the persisted delivery receipt",
+				from: 'if (entries[index].type === "custom_message" && entries[index].customType === MIDPOINT_CUSTOM_TYPE) return undefined;',
+				to: 'if (entries[index].type === "custom_message" && entries[index].customType === "never") return undefined;',
 			},
 			{
-				name: "gates manual compaction again",
-				from: "\t\tif (autoCompactionReason === undefined) return undefined;\n",
+				name: "rearms the checkpoint inside the same boundary",
+				from: "if (midpointBoundary === boundary) return undefined;",
 				to: "",
 			},
 			{
-				name: "fails open on automatic passes too",
-				from: "\t\tif (autoCompactionReason === undefined) return undefined;\n",
-				to: "\t\tif (autoCompactionReason !== undefined) return undefined;\n",
-			},
-			{
-				name: "keeps the reason after the compaction pass ends",
-				from: '\t\tpi.on("auto_compaction_end", () => {\n\t\t\tautoCompactionReason = undefined;\n\t\t});',
-				to: '\t\tpi.on("auto_compaction_end", () => {\n\t\t\t// mutation: the reason is never cleared\n\t\t});',
+				name: "wakes an idle session for the checkpoint",
+				from: 'if (ctx.isIdle() || event.message.stopReason === "error" || event.message.stopReason === "aborted") return;',
+				to: 'if (event.message.stopReason === "error" || event.message.stopReason === "aborted") return;',
 			},
 		];
 		for (const mutation of mutations) {
@@ -821,5 +374,5 @@ if (!IS_CHILD) {
 }
 
 console.log(
-	"\nPASS verify-context-notes-save-gate: automatic rollovers gated, manual rollover ungated, bounded repair, one 45% checkpoint per window",
+	"\nPASS verify-context-notes-save-gate: no rollover veto, one 45% checkpoint per window",
 );

@@ -87,6 +87,7 @@ that no suite invokes is not a gate.
   automatically read a workstation's live request log or session database.
   Prove removal with a guard that rejects live paths before access. Private HOME
   and credential-free environment isolation are not OS-level network isolation.
+- Subprocess evidence capture must drain stdout and stderr concurrently, hash/count all observed bytes and retain bounded tails without unbounded temporary capture files. Record `output_truncated` and `output_complete`; six-check smoke assertions fail on truncation or timeout even when their marker appears. Exercise actual children producing both streams beyond the bound and a deadline-controlled child; these capture checks are harness proof, not target runtime acceptance.
 - Type-only imports must also be portable: no `/home/<user>/...` paths. Runtime
   imports remain selected-root absolute paths. A local structural fixture is
   preferable to a type dependency on an unrelated live install.
@@ -685,6 +686,7 @@ A gate or probe that runs in a sandbox HOME still inherits the caller's process 
 - `patches/verify-hindsight-recall-snapshot.ts` runs `delete process.env.HINDSIGHT_API_URL` before any dynamic import. `HINDSIGHT_API_URL` outranks the `hindsight.apiUrl` setting.
 - Sandbox `env.sh` files unset `CODEX_HOME COMMANDCODE_KEY_POOL HINDSIGHT_API_URL PI_FORCE_IMAGE_PROTOCOL` before the HOME guard.
 - Probe runners (`run-*-1844.py`) build an explicit env dict instead of inheriting.
+- `apply.sh::_omp_gate <capability> <script> oauth` makes a complete dependency copy, sets its private `OMP_PATCH_VERIFY_AI_ROOT` for shell/Bun dispatch, and unsets inherited `OMP_PATCH_VERIFY_AGENT_ROOT OMP_PATCH_VERIFY_NM` inside that subshell. Keep `OMP_PATCH_VERIFY_OAUTH_REAL_STALL=1` intact for real timer-starvation coverage; outer selectors remain available after the subshell exits.
 
 ### 3. Contracts
 - Every env var that redirects a service, credential pool or terminal protocol is scrubbed by the gate itself, not only by the caller: `apply.sh` and CI may run gates from a shell that has it set.
@@ -692,6 +694,9 @@ A gate or probe that runs in a sandbox HOME still inherits the caller's process 
 - Fail-closed shell drivers with `set -euo pipefail` never pipe into `head -1` (SIGPIPE turns into exit 141); capture the output into a variable first.
 - Gates that assert an exact version list (`=== "18.4.1"`) are widened per supported version in the same change that adds the plan; a tree outside the list fails, never skips.
 - A gate assertion that reads one compiled rule (for example a cost patch) must accept the compiler regrouping that rule into a multi-id block on a newer catalog.
+- A private AI root alone is insufficient when the verifier prefers an inherited agent selector. Scrub at the real common OAuth dispatch boundary before either launch kind; gate-owned HOME/XDG bootstrap and sibling package resolution must still select the complete private closure. Do not repair only one verifier's inner child environment or remove the real-stall flag.
+- (18.12.6) A process-local `globalThis.fetch` stub is not a network boundary. Target `pi-ai/src/utils/transport-fetch.ts` selects a `node:https` Cowork transport for native Anthropic unless the caller passes `options.fetch`; one image gate reached the real host with a synthetic key (401). Every provider-capable gate, smoke and mutation control runs inside an OS network namespace with loopback only (task harness: `bwrap --die-with-parent --unshare-net --bind / / --dev /dev --proc /proc --`), and each result row records that boundary. Long-lived evaluation kernels must reload the harness module before reuse; a stale import silently drops the wrapper.
+- (18.12.6) To capture an SDK request, wrap the real `session.agent.streamFn` and add only `fetch` to its options. Do not substitute a hand-built request or bypass `transformProviderContext`. The SDK reports a throwing transport as a retried connection error, so the capture must keep its first assertion error and rethrow it after the turn; otherwise a mutant fails on request count instead of the named observable.
 
 ### 4. Validation & Error Matrix
 | Symptom | Verdict |
@@ -699,12 +704,17 @@ A gate or probe that runs in a sandbox HOME still inherits the caller's process 
 | Gate output contains the operator's real data (mental models, memories) | Environment leak; scrub the variable in the gate |
 | Passes first apply, fails second in same sandbox | External state; run the dead/real A/B |
 | Driver exits 141 with no gate output | `head` under pipefail |
+| OAuth copy selects an inherited outer agent/NM root | Isolation failure even if AI, HOME and credentials are private |
+| Removing only the OAuth selector scrub loads a poisoned agent path | Discriminating control; unrelated earlier/import failures do not count |
+| Synthetic-key provider 401 from a "fetch-blocked" gate | Transport bypass; rerun only under the network namespace, never with real credentials |
+| Mutation control fails on request count instead of the named value | Capture assertion swallowed by SDK retry; surface the first capture error |
 
 ### 5. Good / Base / Bad Cases
 Good: same tree, dead endpoint passes twice, real endpoint fails twice, gate with the scrub passes with the real endpoint set. Bad: loosening `rejected clear must restore source snapshot`.
 
 ### 6. Tests Required
 Run each gate once with the redirecting variable set to a live-looking URL and once unset; results must match.
+For an OAuth dispatcher change, extract the real `_omp_gate` function without invoking apply-mode mutation. Poison both inherited outer selectors; run both actual durable-refresh and unlock/fence entry points through its `oauth` branch, with real synchronous-stall coverage enabled. Remove only the scrub in a disposable in-memory dispatcher and require a nonzero failure naming the poisoned agent path. A direct clean-root verifier run does not prove controller isolation.
 
 ### 7. Wrong vs Correct
 Wrong: trust `HOME=<sandbox>` alone. Correct: `delete process.env.<VAR>` in the gate and `unset` in `env.sh`.
@@ -727,6 +737,10 @@ Three 18.4.4 follow-up gates were written or extended under review: `patches/ver
 - Run a negative control for EVERY leg, and keep it in the gate header. The 0085 gate documents that removing 0085 fails leg 1, the pre-round-2 tree fails legs 5, 6 and 7, dropping the ownership skip fails leg 4, removing the draft-image condition fails leg 8 (leg 7 stays green there), and reference-only image ownership fails leg 9 (legs 7 and 8 stay green there); the audit gate's section 3c fails when `prev = st.last` or the window is global.
 - An explicitly widened runtime contract and new public exports need declaration-hunk proof, not only a Bun run. The sandbox tree ships neither `tsgo` nor a `tsconfig.json`, so the 0085 gate's shipped `.d.ts` hunks were proved with a `tsc` 6.0.3 consumer probe against `package.json`'s `types` condition (red against the old declarations, green after; a variant without `@ts-expect-error` names the members the new contract requires) plus a grep of each declared field against its source. Bun executes without typechecking, so a green behavior gate is not type proof.
 - `Bun.sleep` between fixture requests is NOT a substitute for controlling timestamps. A sleep can only widen the gap; it cannot pin two requests into one millisecond. The equal-timestamp case freezes the clock so all three fingerprints share one ISO millisecond, and asserts that pin before testing the dedupe.
+- (18.12.6 port) A drift scenario must change an input the target still re-renders. Target warm revival snapshots the IRC roster and restores pooled yield items, so roster drift no longer separates persisted prompt bytes from a re-render (the drop-override mutant stayed green). `verify-subagent-warm-revival-prompt.ts` scenario `g` flips the live parent setting `includeModelInPrompt` while parked (revival restores its overlay onto that live parent), asserts the revived prompt keeps the persisted model line, and proves the drift is real with a fresh spawn that lacks it.
+- (18.12.6 port) Upstream release data is not a local contract. Remove literal pins that only restate a catalog value (Devin CLI tuple) and keep the invariant the patch owns (one released version carried identically in both fields, round-trip equality). When upstream narrows an input rule, adapt the fixture to the shape every supported plan treats identically (a bare JWT-shaped Devin session token) instead of asserting the old shape.
+- (18.12.6 port) Compare wire-visible fields, not runtime objects: target assistant blocks carry an internal `Symbol(provider.block.index)` that breaks `deepEqual`.
+- (18.12.6 port) Target-only signature changes are version-conditional at the call site (`buildDisplaySessionContext(model, options)`, hindsight `buildDeveloperInstructions(agentDir, cwd, settings, session)`, `maxFramesForDataBudget(shape, budget)`, `keys.setRuntime`, the `task.structured` setting). An unconditional change breaks still-admitted historical plans; rerun every edited gate against a private complete historical closure, not only the target.
 
 ### 4. Validation & Error Matrix
 

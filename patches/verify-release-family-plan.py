@@ -27,6 +27,27 @@ ADDED_FAMILIES = {
 }
 
 
+# Approved upstream adoptions per family release. 0017 is the existing 18.10.x
+# adoption; 0078 joined it on 18.12.6 after unpatched-target producer proof
+# plus mutation controls (research/mime-adoption-0078.md). A new adoption
+# lands here only with consumer/negative-control proof and the generated
+# manifest's upstream_adoptions entry — the oracle never takes the manifest's
+# own adoption claim on trust. An approved adoption releases the capability
+# from its frozen-snapshot family while keeping it in the acceptance union.
+APPROVED_ADOPTIONS = {
+    "18.10.0": [
+        {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
+    ],
+    "18.10.1": [
+        {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
+    ],
+    "18.12.6": [
+        {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
+        {"capability": "0078", "family": "family-image-display"},
+    ],
+}
+
+
 def tree_manifest(root):
     result = {}
     for path in sorted(root.rglob("*")):
@@ -47,7 +68,39 @@ def tree_digest(root):
     return hashlib.sha256(json.dumps(tree_manifest(root), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def canonicalize_extracted(root):
+    """Pin extracted directory modes to 0755; files and symlinks keep archive modes.
+
+    tarfile honors member directory modes while os.mkdir honors the process
+    umask, so a raw extraction can carry 0775 directories. The frozen release
+    digests were recorded with directories at 0755; normalizing here keeps the
+    pristine/candidate digests independent of the extracting tool and
+    environment and reproduces that historical convention byte-for-byte.
+    """
+    for path in root.rglob("*"):
+        if stat.S_ISDIR(path.lstat().st_mode):
+            os.chmod(path, 0o755)
+
+
 def retained_families(here, version):
+    if version == "18.12.6":
+        # The target contract derives from the frozen 18.10.1 ownership
+        # manifest — owner order, roots and capability membership — not the
+        # stale 18.7.0 pre-family baseline. An approved adoption removes the
+        # capability from its snapshot family; the union still contains it.
+        snapshot = json.loads((here / ".18.10.1-families/manifest.json").read_text())
+        if snapshot.get("version") != "18.10.1":
+            raise RuntimeError("frozen 18.10.1 family manifest is missing or mismatched")
+        adopted_ids = {entry["capability"] for entry in APPROVED_ADOPTIONS[version]}
+        retained = []
+        for entry in snapshot["families"]:
+            capabilities = [item for item in entry["capabilities"] if item not in adopted_ids]
+            if capabilities:
+                retained.append({"id": entry["id"], "root": entry["root"],
+                                 "capabilities": capabilities})
+        union = sorted({item for entry in retained for item in entry["capabilities"]}
+                       | adopted_ids)
+        return retained, union
     if version not in {"18.10.0", "18.10.1"}:
         raise RuntimeError("no approved retained-family migration contract for this release")
     spec = importlib.util.spec_from_file_location("family_oracle", here / "verify-family-plan.py")
@@ -81,7 +134,7 @@ def validate_capability_contract(here, manifest):
     if rows != expected_rows:
         raise RuntimeError("registry per-family capability ownership differs from manifest")
     adopted = [{key: entry[key] for key in ("capability", "family")} for entry in manifest["upstream_adoptions"]]
-    if adopted != [{"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"}]:
+    if adopted != APPROVED_ADOPTIONS.get(version):
         raise RuntimeError("unapproved upstream capability adoption")
     return expected_union
 
@@ -122,6 +175,10 @@ RETIRED_REPAIRS = (
     {
         "dir": ".retired/10-16-18.10.1-compaction-pre-checkpoint-removal",
         "family": "family-compaction",
+    },
+    {
+        "dir": ".retired/10-16-18.10.1-prefix-pre-model-default-effort",
+        "family": "family-persistent-prefix-resume",
     },
 )
 
@@ -207,6 +264,9 @@ def main():
             with tarfile.open(source) as bundle:
                 bundle.extractall(unpack, filter="data")
             shutil.move(str(unpack / "package"), nm / archive["package"])
+        # Normalize archive extraction only; replay and reversal must expose
+        # any subsequent directory-mode drift rather than repairing it.
+        canonicalize_extracted(nm)
         pristine = tree_manifest(nm)
         if hashlib.sha256(json.dumps(pristine, sort_keys=True, separators=(",", ":")).encode()).hexdigest() != manifest["pristine_tree_sha256"]:
             raise RuntimeError("extracted pristine tree differs from migration input")

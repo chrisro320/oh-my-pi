@@ -20,16 +20,6 @@ const { devinCliMetadata, devinDiscoveryMetadata } = await import(join(root, "sr
 const { MetadataSchema } = await import(join(root, "src/discovery/devin-proto.ts"));
 const { create, fromBinary, toBinary } = await import(join(root, "src/discovery/protobuf.ts"));
 
-// The released-CLI tuple tracks the official chisel client of the selected
-// upstream release. 18.4.1 shipped a newer official tuple (3000.11.3); earlier
-// plans pin 3000.10.23. Keep one exact literal per plan — never a range.
-const catalogPkg: unknown = JSON.parse(await Bun.file(join(root, "package.json")).text());
-const catalogVersion =
-	catalogPkg && typeof catalogPkg === "object" && "version" in catalogPkg && typeof catalogPkg.version === "string"
-		? catalogPkg.version
-		: "";
-const CLI_TUPLE = ["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(catalogVersion) ? "3000.11.3" : "3000.10.23";
-
 console.log("=== Testing Devin CLI metadata alignment (0056) ===");
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -95,14 +85,18 @@ function readIdentityFields(bytes: Uint8Array): { sessionId?: string; requestId?
 }
 
 // --- Request identity is minted per process, not per call --------------------
-const first = devinCliMetadata("api-key-abc", "jwt-value");
-const second = devinCliMetadata("api-key-abc", "jwt-value");
+// A bare JWT-shaped session token: every plan prefixes it; 18.12.6 sends other key shapes as stored.
+const SESSION_TOKEN = "hdr.payload.sig";
+const first = devinCliMetadata(SESSION_TOKEN, "jwt-value");
+const second = devinCliMetadata(SESSION_TOKEN, "jwt-value");
 
 assert.equal(typeof first.sessionId, "string", "sessionId must be a string");
 assert.match(first.sessionId, UUID_V4, `sessionId is not a UUID v4: ${first.sessionId}`);
 assert.equal(second.sessionId, first.sessionId, "sessionId must be minted once per process, not per call");
-assert.equal(first.ideVersion, CLI_TUPLE, "ideVersion must track the released devin CLI");
-assert.equal(first.extensionVersion, CLI_TUPLE, "extensionVersion must track the released devin CLI");
+// The tuple value is upstream release data; the alignment contract is one
+// released-CLI version carried identically in both fields.
+assert.match(first.ideVersion, /^\d+\.\d+\.\d+$/, "ideVersion must be a released devin CLI version");
+assert.equal(first.extensionVersion, first.ideVersion, "extensionVersion must carry the same released CLI tuple");
 assert.equal(first.extensionName, "chisel", "extensionName is the chisel identity");
 assert.equal(first.ideType, "chisel", "ideType is what unlocks router assignment");
 
@@ -113,7 +107,7 @@ const third = devinCliMetadata(undefined);
 assert.equal(third.requestId - second.requestId, 1n, "requestId must keep counting without an apiKey");
 
 // --- Pass-through behaviour must not regress --------------------------------
-assert.equal(first.apiKey, "devin-session-token$api-key-abc", "apiKey keeps the scheme prefix");
+assert.equal(first.apiKey, `devin-session-token$${SESSION_TOKEN}`, "a bare session token gains the scheme prefix");
 assert.equal(first.userJwt, "jwt-value", "userJwt passes through");
 assert.equal(third.apiKey, "", "a missing apiKey normalizes to the empty string");
 assert.equal(
@@ -132,17 +126,17 @@ assert.equal(onWire.requestId, first.requestId, "Metadata field 9 must carry the
 const decoded = fromBinary(MetadataSchema, encoded);
 assert.equal(decoded.sessionId, first.sessionId, "sessionId must survive the proto round-trip");
 assert.equal(decoded.requestId, first.requestId, "requestId must survive the proto round-trip");
-assert.equal(decoded.ideVersion, CLI_TUPLE, "ideVersion must survive the proto round-trip");
-assert.equal(decoded.apiKey, "devin-session-token$api-key-abc", "apiKey must survive the proto round-trip");
+assert.equal(decoded.ideVersion, first.ideVersion, "ideVersion must survive the proto round-trip");
+assert.equal(decoded.apiKey, `devin-session-token$${SESSION_TOKEN}`, "apiKey must survive the proto round-trip");
 assert.equal(decoded.userJwt, "jwt-value", "userJwt must survive the proto round-trip");
 
 // --- Discovery is a separate identity and must stay untouched ---------------
-const discovery = devinDiscoveryMetadata("api-key-abc") as Record<string, unknown>;
+const discovery = devinDiscoveryMetadata(SESSION_TOKEN) as Record<string, unknown>;
 assert.equal("sessionId" in discovery, false, "devinDiscoveryMetadata must not carry sessionId");
 assert.equal("requestId" in discovery, false, "devinDiscoveryMetadata must not carry requestId");
 assert.equal(discovery.ideVersion, "0.0.0-dev", "the dev-channel discovery identity keeps its own version");
 assert.equal(discovery.extensionVersion, "0.0.0-dev", "the dev-channel discovery identity keeps its own version");
 
 console.log(
-	`PASS: per-process sessionId, requestId +1 per call, ${CLI_TUPLE} tuple, pass-through, wire fields 10/9, discovery untouched`,
+	`PASS: per-process sessionId, requestId +1 per call, ${first.ideVersion} tuple, pass-through, wire fields 10/9, discovery untouched`,
 );

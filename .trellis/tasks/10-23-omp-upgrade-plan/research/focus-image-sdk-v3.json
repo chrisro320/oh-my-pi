@@ -1,0 +1,24 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-provider-image-budget.ts"
+  ],
+  "started": "2026-10-23T13:06:57.167821+00:00",
+  "finished": "2026-10-23T13:07:11.562126+00:00",
+  "exit": 1,
+  "timeout": false,
+  "stdout": "",
+  "stderr": "\n[Uncaught Exception] AssertionError: official: exactly one intercepted provider request\n\n0 !== 1\n\n\n0 !== 1\n\n    at verifyCatalogBudgets (/home/chris/orca/projects/omp-move/patches/verify-provider-image-budget.ts:357:13)\n    at processTicksAndRejections (native:7:39)\n",
+  "output_bytes": {
+    "stdout": 0,
+    "stderr": 268
+  },
+  "output_sha256": {
+    "stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr": "974c5a53d86e89fe3058e982c82e411c7849d20897c3367908ff5b63bf063dd6"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "selected_runtime": "/tmp/omp-focused-q3cr2xjo/runtime",
+  "gate": "verify-provider-image-budget.ts"
+}

@@ -1,0 +1,51 @@
+{
+  "defect": "18.12.6 rebase kept upstream-moved `if (this.isStreaming) return false;` in #canContinueQueuedMessages; abort with queued steer -> queued-message-drain livelock",
+  "tern_run1": {
+    "session": "/tmp/omp-upgrade-18126-01a1684f/physical/tern-run1-evidence",
+    "log_counts": "27344 scheduled / 27343 skipped should-continue-false"
+  },
+  "repro_queue_livelock_repro_ts": [
+    {
+      "label": "candidate",
+      "mode": "abort",
+      "exit": 124,
+      "timeout": true,
+      "out": ""
+    },
+    {
+      "label": "fixed-copy",
+      "mode": "abort",
+      "exit": 0,
+      "timeout": false,
+      "out": "{\"settled\":\"idle\",\"ticks\":22,\"calls\":[\"[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"slow one\\\\n\\\\n<sys\",\"[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"<system-notice>\\\\\"],\"queued\":false,\"streaming\":false}\n"
+    },
+    {
+      "label": "historical-18.10.1",
+      "mode": "abort",
+      "exit": 0,
+      "timeout": false,
+      "out": "{\"settled\":\"idle\",\"ticks\":22,\"calls\":[\"[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"slow one\\\\n\\\\n<sys\",\"[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"<system-notice>\\\\\"],\"queued\":false,\"streaming\":false}\n"
+    }
+  ],
+  "gate_leg3": [
+    {
+      "label": "target-fixed",
+      "exit": 0,
+      "network": "bwrap --unshare-net (loopback only)",
+      "tail": "verify-user-display-text-queue: PASS (18.12.6, queue identity, abort drain)\n"
+    },
+    {
+      "label": "historical-18.10.1",
+      "exit": 0,
+      "network": "bwrap --unshare-net (loopback only)",
+      "tail": "verify-user-display-text-queue: PASS (18.10.1, queue identity, abort drain)\n"
+    },
+    {
+      "label": "target-unfixed-control",
+      "exit": 1,
+      "network": "bwrap --unshare-net (loopback only)",
+      "tail": "\n[Uncaught Exception] AssertionError: queued steer after abort must drain once (exit null, signal SIGKILL; a timeout is the drain livelock): \n    at /home/chris/orca/projects/omp-move/patches/verify-user-display-text-queue.ts:219:10\n    at processTicksAndRejections (native:7:39)\n"
+    }
+  ],
+  "candidate_after_fix": "87abd557af5b7c166dd3fadfc1bd68c5eb7cad641af41dac8424cfd7ca55a4bf"
+}

@@ -8,6 +8,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { gunzipSync } from "node:zlib";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
@@ -16,8 +17,8 @@ const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const version = String(
 	(JSON.parse(readFileSync(`${AI}/package.json`, "utf8")) as { version?: string }).version ?? "",
 );
-assert.ok(["18.7.0", "18.10.0", "18.10.1"].includes(version), `unsupported thinking-drop resume gate version: ${version}`);
-const serverManagedDrops = ["18.10.0", "18.10.1"].includes(version);
+assert.ok(["18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(version), `unsupported thinking-drop resume gate version: ${version}`);
+const serverManagedDrops = ["18.10.0", "18.10.1", "18.12.6"].includes(version);
 
 // Static imports cannot work here: the tree under test is selected at runtime by
 // env (pristine / patched / fault), so the module specifiers are data, not
@@ -63,10 +64,14 @@ globalThis.fetch = (() => {
 	throw new Error("network forbidden in the thinking-drop resume gate");
 }) as unknown as typeof fetch;
 
-const transport = (async (url: string, init?: RequestInit) => {
-	const body = JSON.parse(String(init?.body)) as WireBody;
+const transport = (async (input: string | URL | Request, init?: RequestInit) => {
+	const request = new Request(input, init);
+	const bytes = Buffer.from(await request.arrayBuffer());
+	const encoding = request.headers.get("content-encoding");
+	assert.ok(!encoding || encoding === "gzip", "capture must decode the actual supported wire encoding");
+	const body = JSON.parse((encoding ? gunzipSync(bytes) : bytes).toString("utf8")) as WireBody;
 	wire.push(body);
-	urls.push(String(url));
+	urls.push(request.url);
 	if (failNext !== null) {
 		const message = failNext;
 		failNext = null;

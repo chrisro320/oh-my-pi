@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-23",
+  "candidate": "87abd557af5b7c166dd3fadfc1bd68c5eb7cad641af41dac8424cfd7ca55a4bf",
+  "runtime": "/tmp/omp-upgrade-18126-01a1684f/physical/tern/runtime (diff -rq == candidate)",
+  "user_observation": "d and e OK (user report in Tern)",
+  "session": "/tmp/omp-upgrade-18126-01a1684f/physical/tern/private/agent/sessions/-work/2026-10-23T14-44-49-166Z_01a16938-bf8e-7000-848b-bbb52af87ffb.jsonl",
+  "messages": [
+    {
+      "time": "14:45:17",
+      "role": "user",
+      "stop": "",
+      "text": "slow one"
+    },
+    {
+      "time": "14:45:19",
+      "role": "assistant",
+      "stop": "aborted",
+      "text": ""
+    },
+    {
+      "time": "14:45:27",
+      "role": "user",
+      "stop": "",
+      "text": "queued text"
+    },
+    {
+      "time": "14:45:29",
+      "role": "assistant",
+      "stop": "aborted",
+      "text": ""
+    },
+    {
+      "time": "14:45:29",
+      "role": "user",
+      "stop": "",
+      "text": "queued text"
+    },
+    {
+      "time": "14:45:33",
+      "role": "assistant",
+      "stop": "stop",
+      "text": "[astra effort=high] ack: <system-notice> User interjection d"
+    }
+  ],
+  "checks": {
+    "a-c": "PASS (earlier run)",
+    "d": "PASS after fix (abort with queued text no longer freezes)",
+    "e": "PASS (empty Enter with queued steer aborts and delivers once)",
+    "f": "ACCEPTED VIA AUTOMATED GATES by user decision (A): verify-manual-compaction-direct.ts, verify-context-notes-append-projection.ts PASS in gates-final-v3; sandbox mock cannot reach the auto-compaction threshold",
+    "g": "ACCEPTED VIA AUTOMATED GATES by user decision (A): verify-subagent-warm-revival-prompt.ts PASS in gates-final-v3; sandbox mock never emits a task tool call",
+    "h": "PASS (agent-driven in Tern with user-approved control): 'image' -> read tern-fixture.png renders inline Kitty image; second image + text scrolls first image off top (clipped, no ghost); scroll back reconstructs it; /resume switch to another session and back rehydrates both images; /exit clean, no process left"
+  },
+  "h_session": "01a1693f-9a52-7000-ad9e-a9d3e11d0abd",
+  "h_screenshots": {
+    "1-first-render": "/tmp/omp-upgrade-18126-01a1684f/physical/tern-h-evidence/1-first-render.png",
+    "2-second-image-first-clipped": "/tmp/omp-upgrade-18126-01a1684f/physical/tern-h-evidence/2-second-image-first-clipped.png",
+    "3-scroll-up-reconstructed": "/tmp/omp-upgrade-18126-01a1684f/physical/tern-h-evidence/3-scroll-up-reconstructed.png",
+    "4-after-switch-and-resume": "/tmp/omp-upgrade-18126-01a1684f/physical/tern-h-evidence/4-after-switch-and-resume.png",
+    "5-clean-exit": "/tmp/omp-upgrade-18126-01a1684f/physical/tern-h-evidence/5-clean-exit.png"
+  }
+}

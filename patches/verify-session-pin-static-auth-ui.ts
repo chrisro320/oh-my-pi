@@ -5,10 +5,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-const root = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? process.env.OMP_VERIFY_PKG_ROOT ??
-	`${os.homedir()}/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent`;
+const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${os.homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
+const root = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? process.env.OMP_VERIFY_PKG_ROOT ?? `${NM}/pi-coding-agent`;
+const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ??
+	(process.env.OMP_PATCH_VERIFY_NM ? `${NM}/pi-tui` : `${path.dirname(root)}/pi-tui`);
 assert.ok(fs.existsSync(root), `Missing selected package: ${root}`);
 const version = JSON.parse(fs.readFileSync(`${root}/package.json`, "utf8")).version;
+if (process.env.OMP_PATCH_VERSION) assert.equal(version, process.env.OMP_PATCH_VERSION, "selector fixture must match the selected plan");
 if (version === "18.2.3") {
 	const { installLegacyPiSpecifierShim } = await import(`${root}/src/extensibility/plugins/legacy-pi-compat.ts`);
 	installLegacyPiSpecifierShim();
@@ -17,11 +20,12 @@ if (version === "18.2.3") {
 	console.log("PASS retained 18.2.3 auth UI load gate");
 	process.exit(0);
 }
-assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(version), "Adapt selector behavior fixtures when changing the version plan");
+assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(version), "Adapt selector behavior fixtures when changing the version plan");
+// Runtime-selected package roots keep first-use imports inside the chosen tree.
 const { SelectorController } = await import(`${root}/src/modes/controllers/selector-controller.ts`);
 const { Settings } = await import(`${root}/src/config/settings.ts`);
 const { installLegacyPiSpecifierShim } = await import(`${root}/src/extensibility/plugins/legacy-pi-compat.ts`);
-const { initThemeSync } = await import(`${path.dirname(root)}/pi-tui/src/theme/theme.ts`);
+const { initThemeSync } = await import(`${TUI_ROOT}/src/theme/theme.ts`);
 initThemeSync();
 
 // Mirror startup: load the controller, arm the compatibility plugin, then open
@@ -68,6 +72,10 @@ const context = {
 	showError(message: string) { throw new Error(message); },
 };
 const controller = new SelectorController(context);
+if (version === "18.12.6") {
+	// The target picker reads the viewed session, which may be a focused child.
+	Object.assign(context, { viewSession: context.session });
+}
 for (const temporaryOnly of [false, true]) {
 	controller.showModelSelector({ temporaryOnly });
 	assert.ok(visible, "opening a model selector must mount its overlay");

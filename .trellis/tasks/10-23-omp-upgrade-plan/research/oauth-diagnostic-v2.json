@@ -1,0 +1,22 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-oauth-durable-refresh.ts"
+  ],
+  "started": "2026-10-23T12:58:13.154791+00:00",
+  "finished": "2026-10-23T12:58:13.730541+00:00",
+  "exit": 1,
+  "timeout": false,
+  "stdout": "",
+  "stderr": "  FAIL  target sigterm: interrupted rotation is durably recoverable without another POST\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n\n+ 'unexpected-resend'\n- 'interrupt-access-1'\n\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-oauth-durable-refresh.ts:1064:13)\n    at async withCase (/home/chris/orca/projects/omp-move/patches/verify-oauth-durable-refresh.ts:485:9)\n    at async <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-oauth-durable-refresh.ts:1028:10)\n    at async scenario (/home/chris/orca/projects/omp-move/patches/verify-oauth-durable-refresh.ts:897:9)\n    at processTicksAndRejections (native:7:39)\n",
+  "output_bytes": {
+    "stdout": 0,
+    "stderr": 697
+  },
+  "output_sha256": {
+    "stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr": "94c6603c05f97c42015c60b5d39d5304acee4611c4523839d9e6e806e58395dc"
+  },
+  "output_truncated": false,
+  "output_complete": true
+}

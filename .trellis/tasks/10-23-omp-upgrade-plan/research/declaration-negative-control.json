@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/home/chris/.local/bin/tsc",
+    "--noEmit",
+    "--strict",
+    "--skipLibCheck",
+    "--module",
+    "NodeNext",
+    "--moduleResolution",
+    "NodeNext",
+    "--target",
+    "ESNext",
+    "--types",
+    "node",
+    "declaration-consumer.ts"
+  ],
+  "cwd": "/tmp/omp-upgrade-18126-01a1684f/candidate",
+  "exit": 2,
+  "stdout": "declaration-consumer.ts(6,15): error TS2305: Module '\"@oh-my-pi/pi-coding-agent/extensibility/extensions/types\"' has no exported member 'IdleEphemeralTurnOptions'.\ndeclaration-consumer.ts(6,41): error TS2305: Module '\"@oh-my-pi/pi-coding-agent/extensibility/extensions/types\"' has no exported member 'IdleEphemeralTurnResult'.\ndeclaration-consumer.ts(17,68): error TS2551: Property 'runIdleEphemeralTurn' does not exist on type 'AgentSession'. Did you mean 'runEphemeralTurn'?\n",
+  "stderr": "",
+  "probe_sha256": "5de700f5f32e87bf99e6e605102fd7556787fb0647c7e4db27646c104c790d85",
+  "scope": "Public declaration consumer against complete unpatched18.12.6 closure; only missing idle API declarations fail; skipLibCheck skips dependency internals, not consumer calls"
+}

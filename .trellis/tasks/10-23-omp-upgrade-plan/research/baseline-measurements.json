@@ -1,0 +1,400 @@
+{
+  "selectors": {
+    "--print-plan": {
+      "exit": 0,
+      "lines": [
+        ".18.10.1-families/family-status-accounting-v18.10.1.patch:NM",
+        ".18.10.1-families/family-hindsight-v18.10.1.patch:AGENT",
+        ".18.10.1-families/family-usage-pipeline-v18.10.1.patch:NM",
+        ".18.10.1-families/0010-omp-extension-idle-ephemeral-turn-v18.10.1.patch:AGENT",
+        ".18.10.1-families/family-antigravity-wire-v18.10.1.patch:AI",
+        ".18.10.1-families/family-image-budget-snapcompact-v18.10.1.patch:NM",
+        ".18.10.1-families/0032-omp-goal-tool-resident-v18.10.1.patch:AGENT",
+        ".18.10.1-families/family-persistent-prefix-resume-v18.10.1.patch:NM",
+        ".18.10.1-families/0046-omp-supersede-warm-prefix-guard-v18.10.1.patch:AGENT",
+        ".18.10.1-families/0048-omp-advisor-quota-rotation-bound-v18.10.1.patch:NM",
+        ".18.10.1-families/0050-omp-session-history-preview-v18.10.1.patch:NM",
+        ".18.10.1-families/family-devin-wire-v18.10.1.patch:NM",
+        ".18.10.1-families/0065-omp-commandcode-deepseek-model-record-parity-v18.10.1.patch:NM",
+        ".18.10.1-families/0069-omp-codex-effort-history-resume-v18.10.1.patch:AI",
+        ".18.10.1-families/0072-omp-session-pin-static-auth-ui-v18.10.1.patch:AGENT",
+        ".18.10.1-families/0074-omp-anthropic-context-cache-boundaries-v18.10.1.patch:AI",
+        ".18.10.1-families/family-image-display-v18.10.1.patch:NM",
+        ".18.10.1-families/family-input-translation-v18.10.1.patch:NM",
+        ".18.10.1-families/family-compaction-v18.10.1.patch:NM",
+        ".18.10.1-families/0090-omp-oauth-durable-refresh-v18.10.1.patch:NM",
+        ".18.10.1-families/0092-omp-cache-warming-idle-budget-v18.10.1.patch:AGENT",
+        ".18.10.1-families/0094-omp-anthropic-thinking-drop-resume-v18.10.1.patch:AI",
+        ".18.10.1-families/0095-omp-context-audit-request-purpose-v18.10.1.patch:AGENT",
+        ".18.10.1-families/0098-omp-tls-verify-transient-retry-v18.10.1.patch:AI",
+        ".18.10.1-families/0099-omp-retry-slow-schedule-v18.10.1.patch:AGENT",
+        ".18.10.1-families/0100-omp-stepfun-step-plan-v18.10.1.patch:NM",
+        ".18.10.1-families/0101-omp-subagent-warm-revival-persisted-prompt-v18.10.1.patch:AGENT"
+      ],
+      "stderr": ""
+    },
+    "--print-capabilities": {
+      "exit": 0,
+      "lines": [
+        "0004",
+        "0010",
+        "0014",
+        "0017",
+        "0025",
+        "0026",
+        "0030",
+        "0031",
+        "0032",
+        "0033",
+        "0034",
+        "0035",
+        "0036",
+        "0037",
+        "0038",
+        "0043",
+        "0044",
+        "0046",
+        "0047",
+        "0048",
+        "0050",
+        "0052",
+        "0054",
+        "0055",
+        "0056",
+        "0057",
+        "0058",
+        "0060",
+        "0062",
+        "0063",
+        "0065",
+        "0066",
+        "0067",
+        "0068",
+        "0069",
+        "0070",
+        "0071",
+        "0072",
+        "0074",
+        "0075",
+        "0076",
+        "0077",
+        "0078",
+        "0079",
+        "0080",
+        "0081",
+        "0082",
+        "0083",
+        "0084",
+        "0085",
+        "0088",
+        "0089",
+        "0090",
+        "0092",
+        "0093",
+        "0094",
+        "0095",
+        "0096",
+        "0098",
+        "0099",
+        "0100",
+        "0101"
+      ],
+      "stderr": ""
+    },
+    "--print-gates": {
+      "exit": 0,
+      "lines": [
+        "verify-antigravity-envelope.ts",
+        "verify-prefix-cache-compaction.ts",
+        "verify-provider-image-budget.ts",
+        "verify-snapcompact-model-billing.ts",
+        "verify-ollama-cloud-usage.ts",
+        "verify-devin-auth-cache.ts",
+        "verify-hindsight-recall-snapshot.ts",
+        "verify-interrupt-prune-symmetry.ts",
+        "verify-goal-tool-resident.ts",
+        "verify-date-cwd-anchor-stability.ts",
+        "verify-session-transfer-authority.ts",
+        "verify-devin-metadata.ts",
+        "verify-supersede-warm-prefix-guard.ts",
+        "verify-snapcompact-frame-reprice.ts",
+        "verify-session-history-preview.ts",
+        "verify-native-dialog-lifecycle.ts",
+        "verify-manual-compaction-direct.ts",
+        "verify-context-notes-append-projection.ts",
+        "verify-devin-thinking-signature.ts",
+        "verify-devin-idle-cascade-pin.ts",
+        "verify-idle-ephemeral-reservation.ts",
+        "verify-resume-cache-breakpoint.ts",
+        "verify-codex-compaction-chain.ts",
+        "verify-commandcode-model-record-parity.ts",
+        "verify-anthropic-native-compaction-live-context.ts",
+        "verify-compaction-lane-trace.ts",
+        "verify-codex-effort-resume.ts",
+        "verify-codex-compaction-chain-fail-closed.ts",
+        "verify-session-pin-static-auth-ui.ts",
+        "verify-read-description-live.ts",
+        "verify-anthropic-cache-boundaries.ts",
+        "verify-anthropic-request-audit.ts",
+        "verify-hindsight-recall-promotion-slot.ts",
+        "verify-eval-state-context-persist.ts",
+        "verify-turn-recovery-reminder-persist.ts",
+        "verify-python-display-mime-preference.ts",
+        "verify-kitty-conversion-finalization.ts",
+        "verify-kitty-shared-png-cache.ts",
+        "verify-main-cache-hit.ts",
+        "verify-usage-reset-format.ts",
+        "verify-model-mention-surface-resume.ts",
+        "verify-prompt-effort-resume.ts",
+        "verify-model-selection-resume.ts",
+        "verify-anthropic-thinking-drop-resume.ts",
+        "verify-context-persist-audit.ts",
+        "verify-length-stop-reminder-persist.ts",
+        "verify-user-display-text-queue.ts",
+        "verify-rejected-prepared-draft-restore.ts",
+        "verify-compaction-cache-liveness.ts",
+        "verify-oauth-durable-refresh.ts",
+        "verify-oauth-unlock-fence-faults.sh",
+        "verify-codex-account-eligibility-retention.ts",
+        "verify-google-account-eligibility-retention.ts",
+        "verify-cache-warming-idle-budget.ts",
+        "verify-tls-verify-transient-retry.ts",
+        "verify-retry-slow-schedule.ts",
+        "verify-subagent-warm-revival-prompt.ts"
+      ],
+      "stderr": ""
+    }
+  },
+  "family_count": 27,
+  "owned_capabilities": 61,
+  "owned_paths": 179,
+  "comparisons": {
+    "apply.sh": {
+      "equal": true,
+      "repo_sha256": "2d914fb743c2b85af4abfd4751aaad84b8e3e9444dac1f20b09d18f3f7a6e516",
+      "installed_sha256": "2d914fb743c2b85af4abfd4751aaad84b8e3e9444dac1f20b09d18f3f7a6e516"
+    },
+    ".18.10.1-families/plan.tsv": {
+      "equal": true,
+      "repo_sha256": "793dc782663ea79d602da87fe98539296a687c9eeff78c728afa2baea39ba5b4",
+      "installed_sha256": "793dc782663ea79d602da87fe98539296a687c9eeff78c728afa2baea39ba5b4"
+    },
+    ".18.10.1-families/manifest.json": {
+      "equal": true,
+      "repo_sha256": "64c328613e403c3f8551b210060c106b8f117c9d82fcc3d47ba09d34e906ac1a",
+      "installed_sha256": "64c328613e403c3f8551b210060c106b8f117c9d82fcc3d47ba09d34e906ac1a"
+    },
+    "verify-model-selection-resume.ts": {
+      "equal": true,
+      "repo_sha256": "4a7f52f6549a0cde6bfa8d88a379885137a9e4250fcb618612826dcf235ecc3b",
+      "installed_sha256": "4a7f52f6549a0cde6bfa8d88a379885137a9e4250fcb618612826dcf235ecc3b"
+    },
+    "verify-release-family-plan.py": {
+      "equal": true,
+      "repo_sha256": "3347a7dddfc7ef7810344adab342aaa28d732350d4a7b609e69f4bf697f14b86",
+      "installed_sha256": "3347a7dddfc7ef7810344adab342aaa28d732350d4a7b609e69f4bf697f14b86"
+    },
+    "PATCHES.md": {
+      "equal": false,
+      "repo_sha256": "2eb053e3961148e53ce94b98417766280e49077ccb806932deb17ff986ca0f05",
+      "installed_sha256": "cc0226e10469a678163abad2f1877dfe37b66b5162df756b2048b300e17f8ff8"
+    },
+    ".18.10.1-families/family-status-accounting-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "8392cf05ef6fe01330bc9319c3fbd464816b6b3587b11e84413cb88f99976595",
+      "installed_sha256": "8392cf05ef6fe01330bc9319c3fbd464816b6b3587b11e84413cb88f99976595"
+    },
+    ".18.10.1-families/family-hindsight-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "12af8ccc483fb269e108833f0111836d2ec215c97ec0b9b228e2bff2f425b075",
+      "installed_sha256": "12af8ccc483fb269e108833f0111836d2ec215c97ec0b9b228e2bff2f425b075"
+    },
+    ".18.10.1-families/family-usage-pipeline-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "b2a4593019f0d0d5a9d4a34dcd30c0c5215b9e8dc49a15f290a6cae77a4f2037",
+      "installed_sha256": "b2a4593019f0d0d5a9d4a34dcd30c0c5215b9e8dc49a15f290a6cae77a4f2037"
+    },
+    ".18.10.1-families/0010-omp-extension-idle-ephemeral-turn-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "93bf37ce74c72979716385f0fc983b7625bd6e0e0c4c3caeedf106025033662b",
+      "installed_sha256": "93bf37ce74c72979716385f0fc983b7625bd6e0e0c4c3caeedf106025033662b"
+    },
+    ".18.10.1-families/family-antigravity-wire-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "008f335af176eabea265d5f208352b568f5f3f0e3f08a398dc92fca11f2feb1e",
+      "installed_sha256": "008f335af176eabea265d5f208352b568f5f3f0e3f08a398dc92fca11f2feb1e"
+    },
+    ".18.10.1-families/family-image-budget-snapcompact-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "5fa4a8e5917df664466a666ecf4bcaadc936abe67b8be8c53f1c2bb7822d3575",
+      "installed_sha256": "5fa4a8e5917df664466a666ecf4bcaadc936abe67b8be8c53f1c2bb7822d3575"
+    },
+    ".18.10.1-families/0032-omp-goal-tool-resident-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "b69529abd90590b0f479cb6740e4f816ebea6674dc77470a0a9bd5600bd1e347",
+      "installed_sha256": "b69529abd90590b0f479cb6740e4f816ebea6674dc77470a0a9bd5600bd1e347"
+    },
+    ".18.10.1-families/family-persistent-prefix-resume-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "fe4c7f358af61594efe3facc3982d852deb3bd861efb257d129dc7ade70b1e13",
+      "installed_sha256": "fe4c7f358af61594efe3facc3982d852deb3bd861efb257d129dc7ade70b1e13"
+    },
+    ".18.10.1-families/0046-omp-supersede-warm-prefix-guard-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "8a65510bb1edd1466b14cd18bb1534f6de3c10410d8cbba92c9987d0f783bc23",
+      "installed_sha256": "8a65510bb1edd1466b14cd18bb1534f6de3c10410d8cbba92c9987d0f783bc23"
+    },
+    ".18.10.1-families/0048-omp-advisor-quota-rotation-bound-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "3efb8fbf10c888a8b35d5d76b3c18491149076c734d463e0a64b5319a6ad9ee8",
+      "installed_sha256": "3efb8fbf10c888a8b35d5d76b3c18491149076c734d463e0a64b5319a6ad9ee8"
+    },
+    ".18.10.1-families/0050-omp-session-history-preview-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "747f6982b3d59acb35fbe9fce70e69ef4c4feb9c5042f93b4cb5be8ae0bdcbda",
+      "installed_sha256": "747f6982b3d59acb35fbe9fce70e69ef4c4feb9c5042f93b4cb5be8ae0bdcbda"
+    },
+    ".18.10.1-families/family-devin-wire-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "192907511f749868560b8c8a6820ec9d160a297bd3d4c4f868f6ac00af46bff3",
+      "installed_sha256": "192907511f749868560b8c8a6820ec9d160a297bd3d4c4f868f6ac00af46bff3"
+    },
+    ".18.10.1-families/0065-omp-commandcode-deepseek-model-record-parity-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "01431c43f743822ddb5e71783f9da9b68aa4c20561e275bb59ba5a191ed3108a",
+      "installed_sha256": "01431c43f743822ddb5e71783f9da9b68aa4c20561e275bb59ba5a191ed3108a"
+    },
+    ".18.10.1-families/0069-omp-codex-effort-history-resume-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "21dacedd5086ccd57f6c202719d6d2fc5e55527366541706e28b3d0d24516a20",
+      "installed_sha256": "21dacedd5086ccd57f6c202719d6d2fc5e55527366541706e28b3d0d24516a20"
+    },
+    ".18.10.1-families/0072-omp-session-pin-static-auth-ui-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "083bd5fba1ea14aed2caa396915104d0722db71dbc9dd901fbe5abbd708390db",
+      "installed_sha256": "083bd5fba1ea14aed2caa396915104d0722db71dbc9dd901fbe5abbd708390db"
+    },
+    ".18.10.1-families/0074-omp-anthropic-context-cache-boundaries-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "27f75e51138aef3236680e2c4aec3ebe114a4111ad8a6b2b1a637f96926e6537",
+      "installed_sha256": "27f75e51138aef3236680e2c4aec3ebe114a4111ad8a6b2b1a637f96926e6537"
+    },
+    ".18.10.1-families/family-image-display-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "825e2ca71d90b39a766cd3fb2bc0bd50105296de3e889f5675ddf685e5b2629e",
+      "installed_sha256": "825e2ca71d90b39a766cd3fb2bc0bd50105296de3e889f5675ddf685e5b2629e"
+    },
+    ".18.10.1-families/family-input-translation-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "223ce16a0c38f30fc598e89843bfe3574a4c066d54bd5709fae3f10097483707",
+      "installed_sha256": "223ce16a0c38f30fc598e89843bfe3574a4c066d54bd5709fae3f10097483707"
+    },
+    ".18.10.1-families/family-compaction-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "8dff5cab97bbaa0aac97349324580531dbc82e386fe408ed8aa25e26f23b51ed",
+      "installed_sha256": "8dff5cab97bbaa0aac97349324580531dbc82e386fe408ed8aa25e26f23b51ed"
+    },
+    ".18.10.1-families/0090-omp-oauth-durable-refresh-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "b5af67a0e4d4538a31044bd6f211a96ec588841377f8ca15b40db71585b72e10",
+      "installed_sha256": "b5af67a0e4d4538a31044bd6f211a96ec588841377f8ca15b40db71585b72e10"
+    },
+    ".18.10.1-families/0092-omp-cache-warming-idle-budget-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "928583f2caa77af63b69f699b6998bd0f89b2c2464a9f79e331b0b8283621adf",
+      "installed_sha256": "928583f2caa77af63b69f699b6998bd0f89b2c2464a9f79e331b0b8283621adf"
+    },
+    ".18.10.1-families/0094-omp-anthropic-thinking-drop-resume-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "51b1799c0e5838d032ff26415ae24dd49ce54b965830848cc676e34e736eaa04",
+      "installed_sha256": "51b1799c0e5838d032ff26415ae24dd49ce54b965830848cc676e34e736eaa04"
+    },
+    ".18.10.1-families/0095-omp-context-audit-request-purpose-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "5998e185fdb85fd4613bd66b7a37018683f91589e0d92401e2fb7f394dabc5de",
+      "installed_sha256": "5998e185fdb85fd4613bd66b7a37018683f91589e0d92401e2fb7f394dabc5de"
+    },
+    ".18.10.1-families/0098-omp-tls-verify-transient-retry-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "6d7425bed77a6ba216678cf8eeaec0177cb55c35ecc9ac601e15fa4fb8ee251b",
+      "installed_sha256": "6d7425bed77a6ba216678cf8eeaec0177cb55c35ecc9ac601e15fa4fb8ee251b"
+    },
+    ".18.10.1-families/0099-omp-retry-slow-schedule-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "223c0e2ac9e67f8998210a376d8a252eb5ab7d645e80649f8774bfbc5ea7e390",
+      "installed_sha256": "223c0e2ac9e67f8998210a376d8a252eb5ab7d645e80649f8774bfbc5ea7e390"
+    },
+    ".18.10.1-families/0100-omp-stepfun-step-plan-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "5f9bbbd8bd7117de1af27aed032b8d5bfd7ad821d33db61b0eedd2539350c9f4",
+      "installed_sha256": "5f9bbbd8bd7117de1af27aed032b8d5bfd7ad821d33db61b0eedd2539350c9f4"
+    },
+    ".18.10.1-families/0101-omp-subagent-warm-revival-persisted-prompt-v18.10.1.patch": {
+      "equal": true,
+      "repo_sha256": "e87a81f35eb452ea7e23a2b3f39aeb440b9656ec615b9d4696a6dded3e779181",
+      "installed_sha256": "e87a81f35eb452ea7e23a2b3f39aeb440b9656ec615b9d4696a6dded3e779181"
+    }
+  },
+  "companions": {
+    "cache-prefix-audit-extension.ts": {
+      "live_file": "cache-prefix-audit.ts",
+      "equal": true,
+      "repo_sha256": "51982af0cc025cdee5995ea3578103dd96cdd1e84fafddc8ec2a2c174fed3d56",
+      "live_sha256": "51982af0cc025cdee5995ea3578103dd96cdd1e84fafddc8ec2a2c174fed3d56"
+    },
+    "context-notes-save-gate.ts": {
+      "live_file": "context-notes-save-gate.ts",
+      "equal": true,
+      "repo_sha256": "005dbc0dc36a661a51683de40c97681abd761b720ece635501c7269c81b0abe8",
+      "live_sha256": "005dbc0dc36a661a51683de40c97681abd761b720ece635501c7269c81b0abe8"
+    },
+    "input-translator-extension.ts": {
+      "live_file": "input-translator-extension.ts",
+      "equal": true,
+      "repo_sha256": "5c3b4047ead209cc7f6fa9da2049fd546b1a22e755a5589647c9e44052e7c22c",
+      "live_sha256": "5c3b4047ead209cc7f6fa9da2049fd546b1a22e755a5589647c9e44052e7c22c"
+    },
+    "cron-extension.ts": {
+      "live_file": "cron.ts",
+      "equal": true,
+      "repo_sha256": "0ba30e7fabeed5a0904c99a694a415278101956dc5dded29a604e919a579f843",
+      "live_sha256": "0ba30e7fabeed5a0904c99a694a415278101956dc5dded29a604e919a579f843"
+    },
+    "resume-cache-breakpoint-extension.ts": {
+      "live_file": "resume-cache-breakpoint.ts",
+      "equal": true,
+      "repo_sha256": "5c324d97bf2236b455c5c227051e2ab4a59ee6e6e846e256dc56d95b7608cd8f",
+      "live_sha256": "5c324d97bf2236b455c5c227051e2ab4a59ee6e6e846e256dc56d95b7608cd8f"
+    },
+    "context-persist-audit-extension.ts": {
+      "live_file": "context-persist-audit.ts",
+      "equal": true,
+      "repo_sha256": "3f1604dbb0ae21ebf617b8a7aa17059f68706d714ae3be4f777aba6c74c41c1c",
+      "live_sha256": "3f1604dbb0ae21ebf617b8a7aa17059f68706d714ae3be4f777aba6c74c41c1c"
+    },
+    "auth-unlock-extension.ts": {
+      "live_file": "auth-unlock.ts",
+      "equal": true,
+      "repo_sha256": "46fe50d53c4992858232d8ffcdb78a9c63e1bfec696e79dbeb119dad49de0f87",
+      "live_sha256": "46fe50d53c4992858232d8ffcdb78a9c63e1bfec696e79dbeb119dad49de0f87"
+    },
+    "auto-continue-extension.ts": {
+      "live_file": "auto-continue.ts",
+      "equal": false,
+      "repo_sha256": "06a1682f7b38caf8b741fe646b228be154527f21f2861fe888882762737df867",
+      "live_sha256": "bb32eb727377762f28110afe108ae5783313426610552fc6af4ce09027321799"
+    },
+    "magic-commands-extension.ts": {
+      "live_file": "magic-commands.ts",
+      "equal": false,
+      "repo_sha256": "3f0fbc52dd1b747d89849cc3bce90baceb639e8622fd7db8fccd23b4af818fd3",
+      "live_sha256": "604b74167d4dacf4639c7338b40a71a587706c9ba5c9f372c5fbb7615d073519"
+    },
+    "turn-timer-extension.ts": {
+      "live_file": "turn-timer.ts",
+      "equal": true,
+      "repo_sha256": "101b6fafa60f80d9ae65ca8a5106a714cfff3b7ee1c0f83ea66841e17dc80327",
+      "live_sha256": "101b6fafa60f80d9ae65ca8a5106a714cfff3b7ee1c0f83ea66841e17dc80327"
+    }
+  }
+}

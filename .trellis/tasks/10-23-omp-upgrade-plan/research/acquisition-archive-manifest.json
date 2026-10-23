@@ -1,0 +1,112 @@
+{
+  "version": "18.12.6",
+  "pinned_commit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+  "registry": "https://registry.npmjs.org",
+  "verification": "npm dist.integrity (sha512) + dist.shasum (sha1) verified pre-extraction; sha256 recorded",
+  "archives": [
+    {
+      "name": "@oh-my-pi/omp-stats",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/omp-stats/-/omp-stats-18.12.6.tgz",
+      "integrity": "sha512-BvRe/++D5UOTSkxLc2DWYVnrFzkEk0wIxUHKIGQcirO0ovFqUbEr25lbqE0vnP1KhU5NW24MzvDmBBkAr8bUbA==",
+      "sha1": "e69df5fc8731b9c098839f6ffb57230bfcfbe55b",
+      "sha256": "947f5e599c0d1782493479cb066e5788cc572523035fb2a22739bfe3dac1a573",
+      "bytes": 552709
+    },
+    {
+      "name": "@oh-my-pi/omptype",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/omptype/-/omptype-18.12.6.tgz",
+      "integrity": "sha512-s0KVs/0RrBwS01TGZKm30R10npWG+WWnr2uzs2zqpX//cLucHus7B3VXeZ1dCwVUggmnFofgS3dKo2oUrLMVog==",
+      "sha1": "e7a962b75ecd00ea0a33d350af67a226413627d2",
+      "sha256": "4a2a4f0db6779466a43592c8c8c6f720e1380fa96daddcc5ab454080c70da4ae",
+      "bytes": 278946
+    },
+    {
+      "name": "@oh-my-pi/pi-agent-core",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-agent-core/-/pi-agent-core-18.12.6.tgz",
+      "integrity": "sha512-BS85MS7yDPXC3ooSWMKGFZIFywECGfZHaeTmx56iV9ZBaJEw4f3jAEteoOo6imWTY9klZZlmoi79e2N9Um4ANw==",
+      "sha1": "8a569a9d07c8ed163a36b5aec9447fa621100464",
+      "sha256": "d5794ee1cc3c437627822fef6075e2b04e0506e5f0abd01e9135577df28d622c",
+      "bytes": 440553
+    },
+    {
+      "name": "@oh-my-pi/pi-ai",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-ai/-/pi-ai-18.12.6.tgz",
+      "integrity": "sha512-Ld54zgvMLYPONS1aqj4dIyhwFsNBvjP7vLosP2HoKNfW4q2lTObdGcHFsshoA7TtgVVgUh0R8zjsmoET1AX3JQ==",
+      "sha1": "649616f9306049bb9b77516a9ed90b359469588f",
+      "sha256": "8643ee9717dbbec5d9462f1c5836a29be8b03e04767d79b8289637c37d5e2004",
+      "bytes": 2046288
+    },
+    {
+      "name": "@oh-my-pi/pi-catalog",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-catalog/-/pi-catalog-18.12.6.tgz",
+      "integrity": "sha512-3f6K8AgDTHGoGDkxUB2+NkSc+HTF4NA5b2EWjqbObxiZQTJtBK58DBMH78anRSptdgAt/xH5a4TOLo4dyK9sWQ==",
+      "sha1": "e6ec842b1bc5660e35186a701f371417aac85e5f",
+      "sha256": "978f58d9f44e6f24f169c16c9b72d93368c8a519a29179d54545cecf02a475f4",
+      "bytes": 1161866
+    },
+    {
+      "name": "@oh-my-pi/pi-coding-agent",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-coding-agent/-/pi-coding-agent-18.12.6.tgz",
+      "integrity": "sha512-Wo+FcJ7A3RY/OFuafj4hcdIAXc/W7NMxbanwQh3Cmy8s57+ihLOLgAv+HROxHBkssEMg0MaScwkQ9xwqLPiC/g==",
+      "sha1": "7762bf3888fa4a841545ea2e13f6e22e74f24792",
+      "sha256": "8088b050a405cc4073c8f4b32d338ebb0ecc2f0d18be05852f20960b73e819e1",
+      "bytes": 15233742
+    },
+    {
+      "name": "@oh-my-pi/pi-mnemopi",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-mnemopi/-/pi-mnemopi-18.12.6.tgz",
+      "integrity": "sha512-DFwZbuo5uWz2K2qZ4jGaUgAwg6o6rDPcd4RrbRVbAsVLx8bKpKGF2XRBHTUO3ddtkYt/9KMa7fnKZGcnny+ewQ==",
+      "sha1": "dfac243e5730ccb091352f84c59707b4b34a986d",
+      "sha256": "f680f3914abd6c308892e89be7e9a1f88f9554f67db193c01a94e59480167660",
+      "bytes": 319335
+    },
+    {
+      "name": "@oh-my-pi/pi-natives",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-natives/-/pi-natives-18.12.6.tgz",
+      "integrity": "sha512-+Wkya/qqxnH2PlukMunxovOb1brrY+A/kIl0dgU1oFkYa6/4C1GsPrc5TIpR04MvJWZb6aH9uR5DmxlmTsR0QA==",
+      "sha1": "ddce29adab1c9fb630d598d8cf8b65f541a8c5e6",
+      "sha256": "fcc07d360c0f91582787823dd327cd4ee07bca86c6cf1d4c2ddc0aea99c9f493",
+      "bytes": 163557
+    },
+    {
+      "name": "@oh-my-pi/pi-natives-linux-x64",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-natives-linux-x64/-/pi-natives-linux-x64-18.12.6.tgz",
+      "integrity": "sha512-Dr03a4R2sU03/Qn5I9JgY8c3dnt7O2JNeV8FaFEJsiAlp8DKgfKfrsbVHDk4kqYgiNVfD4Zbyr20e3eFra6rSg==",
+      "sha1": "9bd90da9fb12dbab651e4adcda9d2017b86c1e93",
+      "sha256": "16c79fdc9783c7eb08ffd48867771eae792f6c0377a5eb5fc5ebb5e84ac5e931",
+      "bytes": 93274142
+    },
+    {
+      "name": "@oh-my-pi/pi-tui",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-tui/-/pi-tui-18.12.6.tgz",
+      "integrity": "sha512-3jW1LDk6PcmfktGop6Q2+NJBtvMaBgwLmTBKYb2mKFMOTubpnhDs50djKp/zdc2UIEYcEck6Yh83gZA+H8qrdg==",
+      "sha1": "839bb4d4b79324cf7574fcb46b7f64e9d145e7de",
+      "sha256": "64b87738016aa4e57485d96cda084e9d6623283ef661524848ded15c6d92c93c",
+      "bytes": 2733438
+    },
+    {
+      "name": "@oh-my-pi/pi-utils",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-utils/-/pi-utils-18.12.6.tgz",
+      "integrity": "sha512-+dX5BgX3p50HoeuItmXwiOkcX8EbLMfvObhfjYBYTUCB5qznAxkbKMVu2ZjM0MRx44yzXuYAG8Okk7OOcvreKw==",
+      "sha1": "e452330a9a187956360996ec15fc12ea04fe4500",
+      "sha256": "aa8c60f42c1817b6aa6ab244b5abab863d905cf0b5c043852a4c1a4f5fa8525f",
+      "bytes": 584914
+    },
+    {
+      "name": "@oh-my-pi/pi-wire",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-wire/-/pi-wire-18.12.6.tgz",
+      "integrity": "sha512-NPREkkLEUqbcqJ5T/NOg2xF3d5wYSE92CWoEwxMvbyBerdyU0JhZKFgciiAiHTg5F/cH9oYJNr3Dm8MRVrpDWA==",
+      "sha1": "d86e361fd0c6439db0e02b89b1c49c8406d6b03c",
+      "sha256": "f4e62a1826152e34f8764d2f9984aca639a08f17d1e0de0bc3b8a041b0dd334c",
+      "bytes": 139685
+    },
+    {
+      "name": "@oh-my-pi/snapcompact",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/snapcompact/-/snapcompact-18.12.6.tgz",
+      "integrity": "sha512-w34sYdM5vw6Pilqf5krZZgcFVpLnfaYsLT2yA/G30j+YNlg8oB6WxmShmY8LqNFlxbP373Fet8bLkuqRdHuBCQ==",
+      "sha1": "32541fceab3c6a45d0e270c6501e5d3ee19cb930",
+      "sha256": "10aa54e2dd3a14ac91b8fb1f30b6358578b552bcd9acc9b3ab1e323b1ae3366e",
+      "bytes": 146667
+    }
+  ]
+}

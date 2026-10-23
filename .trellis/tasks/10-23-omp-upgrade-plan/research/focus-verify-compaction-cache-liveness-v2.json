@@ -1,0 +1,22 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-compaction-cache-liveness.ts"
+  ],
+  "started": "2026-10-23T13:03:34.549327+00:00",
+  "finished": "2026-10-23T13:03:35.442978+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "PASS compaction cache liveness: turns=40 chain=433 boundary=354 green(cacheRead=43350, cacheWrite=5, readBlocks=433) red(cacheRead=50, cacheWrite=35405, readBlocks=0) namespaceFault(readBlocks=0) prefixFallbacks=[\"no-live-chain\"] mixedTtl(readBlocks=1) stubFallback=no-live-chain bigMessageTokens=421351 failingChainTokens=128611 overflowChainTokens=539011 noUsageRidesLive=true retry=live-chain-overflow-retry overflowRetry=live-chain-overflow-retry splitLive=1req/true splitRefused=no-live-chain previousOutsideChain=previous-summary-not-in-prefix nonAnthropicMessages=1 nonAnthropicTokens=56500\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 598,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "b2cd9fa0985b2e130db0d01a155d763e5ecb4bbf856af1778b8fe952cca60e7b",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true
+}

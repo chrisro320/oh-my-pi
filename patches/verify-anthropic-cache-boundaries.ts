@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { gunzipSync } from "node:zlib";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
@@ -22,9 +23,12 @@ type Payload = { system: Block[]; tools: Block[]; messages: Message[] };
 const wire: Payload[] = [];
 const originalFetch = globalThis.fetch;
 const stopped = "OFFLINE_CACHE_BOUNDARY_CAPTURE";
-globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
-	assert.ok(typeof init?.body === "string" || init?.body instanceof Uint8Array, "capture must observe serialized HTTP bytes");
-	wire.push(JSON.parse(await new Response(init!.body).text()));
+globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+	const request = new Request(input, init);
+	const bytes = Buffer.from(await request.arrayBuffer());
+	const encoding = request.headers.get("content-encoding");
+	assert.ok(!encoding || encoding === "gzip", "capture must decode the actual supported wire encoding");
+	wire.push(JSON.parse((encoding ? gunzipSync(bytes) : bytes).toString("utf8")));
 	return new Response(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: stopped } }), {
 		status: 400,
 		headers: { "content-type": "application/json" },
@@ -116,7 +120,7 @@ try {
 	const apiKey = await capture([injected, assistant, user("Next")], "short", false);
 	assert.ok(messageBreakpoints(apiKey).includes(apiKey.messages.length - 1), "API-key requests must cache extension-injected history too");
 	assert.ok(breakpoints(apiKey).every(block => !block.cache_control?.ttl || block.cache_control.ttl === "5m"), "short retention must not gain a one-hour breakpoint");
-	if (["18.10.0", "18.10.1"].includes(aiVersion)) {
+	if (["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion)) {
 		// Both cache-control rungs rebuild the request. After a credited refusal
 		// with an already-run server tool, neither may send an uncredited replay.
 		// Text-only controls prove each rung is reached, not disabled wholesale.
@@ -183,7 +187,7 @@ try {
 			}
 		}
 	}
-	console.log(`PASS Anthropic cache boundaries (${aiVersion}): ${wire.length} ordinary captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary${["18.10.0", "18.10.1"].includes(aiVersion) ? ", credit-safe retry on both rungs" : ""}; zero provider traffic`);
+	console.log(`PASS Anthropic cache boundaries (${aiVersion}): ${wire.length} ordinary captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary${["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion) ? ", credit-safe retry on both rungs" : ""}; zero provider traffic`);
 } finally {
 	globalThis.fetch = originalFetch;
 }

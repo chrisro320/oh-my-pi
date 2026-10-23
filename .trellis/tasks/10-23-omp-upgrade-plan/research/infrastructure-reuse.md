@@ -1,0 +1,13 @@
+# Reused migration infrastructure
+
+Read-only `MigrationInfraMap` source investigation identified these existing implementations; this document records source findings, not an execution result.
+
+- `.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/research/port-families.py`: controller-ordered per-path three-way migration, owned before/after fragments, explicit conflict acceptance and same-family amendment. `export-candidate.py` rejects unowned edits and exports the target family registry/manifest. The target source integration owner reuses this ownership model rather than generating duplicate final-file patches.
+- The same task's `run-selected-gates.py`: private ledger snapshot, dynamic `apply.sh --print-gates`, target-root binding and isolated mutation fixtures. The new target runner preserves these boundaries and permits priority subsets.
+- `.trellis/tasks/archive/2026-10/10-12-omp-18101-footer-release/research/smoke/`: existing real source CLI/read-tool, native IPC/broker, gallery, controller and dialog checks. The target sandbox harness adapts actual version/API contracts without claiming a physical installed release.
+- `.trellis/tasks/09-26-omp-1833-upgrade/implement.md:44-45` and `09-28-omp-1841-upgrade-plan/implement.md:16`: private exact-version dependency closure, `bun install --ignore-scripts`, independent archive extraction to avoid mutable cache hardlinks, and actual resolution inventory.
+- Existing `patches/verify-release-family-plan.py` and `verify-patch-family-rollups.sh`: pinned official archive replay/reverse/second replay and controller-selected plan. Existing version restrictions require explicit18.12.6 adaptation; the stale18.7.0 ownership table is not the current baseline.
+- Existing `patches/native/build-natives.sh`, `verify-native-overlay.py`: pinned source/patch build of modern x86-64-v3 and baseline x86-64-v2 addons. Target metadata/stamping/hashes must be independently rebuilt; historical addons are not reused.
+- Existing `publish-release.py` supports later independent immutable preparation and admission control, but it is not invoked for this repo/sandbox authorization. The sandbox smoke must not manufacture an installed-path receipt.
+
+The complete OMP closure is thirteen packages: `pi-catalog`, `pi-natives-linux-x64`, `pi-utils`, `pi-ai`, `pi-natives`, `pi-coding-agent`, `snapcompact`, `omp-stats`, `omptype`, `pi-agent-core`, `pi-wire`, `pi-tui`, `pi-mnemopi`. All target archives are independently pinned, not just the six patched roots. Existing private18.10.1 code trees are historical references only, never target pristine or production credential sources.

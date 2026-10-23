@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "scope": "Throwaway actual extraction normalization helper; not target replay",
+  "initial_digest": "d4e5778171516e2513c908e72a24a2656f38a8ea6bbd2f454153e0af6187b559",
+  "normalized_digest": "466ec321aebdb2ddfa6e63c5148bcda64925865888e93266f39cc7f32c768a2b",
+  "directory_mode": "0755",
+  "regular_file_mode_preserved": "0751",
+  "symlink_target_preserved": "script",
+  "later_directory_drift_visible": true
+}

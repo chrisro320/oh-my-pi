@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "files_compared": 5639,
+  "differences": [],
+  "acquisition_text_manifest_sha256": "728e0643027d5f55e12b2fc52f66053fa404ffb986a5208fa4b6cb697070bcd4",
+  "oracle_full_tree_sha256": "9f609e1fefd74e1902e73e930d24b9d983d90c3b4df24aac031fa1bbd5a97cdd",
+  "reason": "Different documented digest encodings, not changed pristine inputs"
+}

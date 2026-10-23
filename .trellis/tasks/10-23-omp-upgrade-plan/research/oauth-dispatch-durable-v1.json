@@ -1,0 +1,27 @@
+{
+  "command": [
+    "bash",
+    "-c",
+    "set -euo pipefail\n_omp_gate() {\n\tlocal capability=\"$1\" script=\"$2\" isolation=\"${3:-}\" entry pkg\n\tif [[ -n \"$capability\" ]] && ! _omp_has_capability \"$capability\"; then\n\t\t[[ \"$MODE\" == print-gates ]] || echo \"${script%.*}: skipped ($capability not in this plan)\"\n\t\treturn 0\n\tfi\n\tif [[ \"$MODE\" == print-gates ]]; then\n\t\tprintf '%s\\n' \"$script\"\n\t\treturn 0\n\tfi\n\tcase \"$isolation\" in\n\t\toauth)\n\t\t\t(\n\t\t\t\toauth_verify_root=\"$(mktemp -d)\"\n\t\t\t\ttrap 'rm -rf -- \"$oauth_verify_root\"' EXIT\n\t\t\t\tcp -a --reflink=auto \"${NM}/..\" \"${oauth_verify_root}/node_modules\"\n\t\t\t\t# Outer selectors must not redirect consumers out of this private copy.\n\t\t\t\tunset OMP_PATCH_VERIFY_AGENT_ROOT OMP_PATCH_VERIFY_NM\n\t\t\t\tcase \"$script\" in\n\t\t\t\t\t*.sh)\n\t\t\t\t\t\tOMP_PATCH_VERIFY_AI_ROOT=\"${oauth_verify_root}/node_modules/@oh-my-pi/pi-ai\" \\\n\t\t\t\t\t\t\tbash \"${HERE}/${script}\"\n\t\t\t\t\t\t;;\n\t\t\t\t\t*)\n\t\t\t\t\t\tOMP_PATCH_VERIFY_AI_ROOT=\"${oauth_verify_root}/node_modules/@oh-my-pi/pi-ai\" \\\n\t\t\t\t\t\t\tbun \"${HERE}/${script}\"\n\t\t\t\t\t\t;;\n\t\t\t\tesac\n\t\t\t)\n\t\t\t;;\n\t\twarm)\n\t\t\t(\n\t\t\t\twarm_verify_root=\"$(mktemp -d)\"\n\t\t\t\ttrap 'rm -rf -- \"$warm_verify_root\"' EXIT\n\t\t\t\tmkdir -p \"${warm_verify_root}/node_modules/@oh-my-pi\"\n\t\t\t\tfor entry in \"${NM}/..\"/* \"${NM}/..\"/.[!.]* \"${NM}/..\"/..?*; do\n\t\t\t\t\t[[ -e \"$entry\" || -L \"$entry\" ]] || continue\n\t\t\t\t\t[[ \"${entry##*/}\" == \"@oh-my-pi\" ]] || ln -s \"$entry\" \"${warm_verify_root}/node_modules/${entry##*/}\"\n\t\t\t\tdone\n\t\t\t\tfor pkg in \"${NM}\"/* \"${NM}\"/.[!.]* \"${NM}\"/..?*; do\n\t\t\t\t\t[[ -e \"$pkg\" || -L \"$pkg\" ]] || continue\n\t\t\t\t\t[[ \"${pkg##*/}\" == \"pi-coding-agent\" ]] || ln -s \"$pkg\" \"${warm_verify_root}/node_modules/@oh-my-pi/${pkg##*/}\"\n\t\t\t\tdone\n\t\t\t\tcp -a --reflink=auto \"${AGENT}\" \"${warm_verify_root}/node_modules/@oh-my-pi/pi-coding-agent\"\n\t\t\t\tOMP_PATCH_VERIFY_AGENT_ROOT=\"${warm_verify_root}/node_modules/@oh-my-pi/pi-coding-agent\" \\\n\t\t\t\t\tbun \"${HERE}/${script}\"\n\t\t\t)\n\t\t\t;;\n\t\t*)\n\t\t\tcase \"$script\" in\n\t\t\t\t*.sh) bash \"${HERE}/${script}\" ;;\n\t\t\t\t*) bun \"${HERE}/${script}\" ;;\n\t\t\tesac\n\t\t\t;;\n\tesac\n}\n\n_omp_gate \"\" \"verify-oauth-durable-refresh.ts\" oauth\n"
+  ],
+  "started": "2026-10-23T12:50:58.658374+00:00",
+  "finished": "2026-10-23T12:50:59.735761+00:00",
+  "exit": 1,
+  "timeout": false,
+  "stdout": "",
+  "stderr": "  FAIL  target sigterm: interrupted rotation is durably recoverable without another POST\n        Expected values to be strictly equal:\n",
+  "output_bytes": {
+    "stdout": 0,
+    "stderr": 135
+  },
+  "output_sha256": {
+    "stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr": "9072712d735fd286468de235ceeec7973fd86f275cf62bab704cd531576ee7ea"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "case": "durable",
+  "poison_agent_root": "/tmp/omp-oauth-dispatch-mciqwb6o/outer-agent-must-not-load",
+  "real_stall": true,
+  "matched": false
+}

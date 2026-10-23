@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "-I",
+    "/home/chris/orca/projects/omp-move/patches/verify-release-publication.py",
+    "--version",
+    "18.12.6"
+  ],
+  "exit": 0,
+  "stdout": "PASS partial publication restores exact old launcher and ledger without restoring state\nPASS installed launcher reports version but refuses production while captured old owner survives\nPASS missing release binding fails closed without global fallback\nPASS pre-admission rollback restores code pointers and preserves current synthetic state\nPASS an unsettled parent/successor census refuses before admission or exec\nPASS durable admission precedes source exec and permanently refuses automatic code downgrade\nPASS synthetic publication boundary; no OMP provider or credential operations\n",
+  "stderr": "OMP launch refused: process census changed; successor ownership requires a fresh launch\n",
+  "scope": "Synthetic HOME fixture only; no permanent release installation/publication/admission or real credentials"
+}

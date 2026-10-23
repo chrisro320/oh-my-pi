@@ -5,7 +5,9 @@ import { join } from "node:path";
 
 const root = process.env.OMP_PATCH_VERIFY_TUI_ROOT;
 assert.ok(root, "OMP_PATCH_VERIFY_TUI_ROOT must select the isolated TUI package");
-assert.equal(JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version, "18.10.1");
+const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
+assert.ok(["18.10.1", "18.12.6"].includes(version), `unsupported native-dialog fixture version: ${version}`);
+if (process.env.OMP_PATCH_VERSION) assert.equal(version, process.env.OMP_PATCH_VERSION, "dialog fixture must match the selected plan");
 const { HookInputComponent } = await import(`${root}/src/overlays/hook-input.ts`);
 const { SessionInfoOverlay } = await import(`${root}/src/overlays/session-info-overlay.ts`);
 const { getThemeByName, setThemeInstance } = await import(`${root}/src/theme/index.ts`);

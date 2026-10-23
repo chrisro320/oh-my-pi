@@ -1,0 +1,19 @@
+{
+  "version": "18.12.6",
+  "upstream_commit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+  "status": "running",
+  "pid": 1188935,
+  "work_root": "/home/chris/.cache/omp-upgrade-18126-01a1684f-native",
+  "log": "/home/chris/.cache/omp-upgrade-18126-01a1684f-native/build.log",
+  "result": "/home/chris/.cache/omp-upgrade-18126-01a1684f-native/build-result.json",
+  "command": ["bash", "patches/native/build-natives.sh", "/home/chris/.cache/omp-upgrade-18126-01a1684f-native/work", "/home/chris/.cache/omp-upgrade-18126-01a1684f-native/out", "patches/native/18.12.6/overlay.json"],
+  "environment": {
+    "allowlisted": true,
+    "private_home": true,
+    "private_cargo_home": true,
+    "rustup_home": "/home/chris/.rustup",
+    "rustup_toolchain": "nightly-2026-10-06",
+    "cargo_build_jobs": 12
+  },
+  "prerequisites": {"cc": "/usr/bin/cc", "gcc": "/usr/bin/gcc", "xkbcommon": "1.6.0", "tsc": "6.0.3"}
+}

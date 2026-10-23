@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "candidate": "/tmp/omp-upgrade-18126-01a1684f/candidate",
+  "source_tree_sha256": "c6035df6dfe0e1f9cc3f849fd39c01b2aa1dba99e2bbb3cd718fa7f532dab438",
+  "pristine_oracle_tree_sha256": "9f609e1fefd74e1902e73e930d24b9d983d90c3b4df24aac031fa1bbd5a97cdd",
+  "source_packages_copied": [
+    "pi-agent-core",
+    "pi-ai",
+    "pi-catalog",
+    "pi-coding-agent",
+    "pi-tui",
+    "snapcompact"
+  ],
+  "package_versions": {
+    "snapcompact": "18.12.6",
+    "pi-tui": "18.12.6",
+    "pi-coding-agent": "18.12.6",
+    "pi-catalog": "18.12.6",
+    "pi-ai": "18.12.6",
+    "pi-agent-core": "18.12.6",
+    "omp-stats": "18.12.6",
+    "omptype": "18.12.6",
+    "pi-mnemopi": "18.12.6",
+    "pi-natives": "18.12.6",
+    "pi-natives-linux-x64": "18.12.6",
+    "pi-utils": "18.12.6",
+    "pi-wire": "18.12.6"
+  },
+  "preserved_native_hashes": {
+    "pi_natives.linux-x64-modern.node": "20030d690bc7335256cb87961cd7d3b27fe0e928b73b3d2f5b447af460440f3d",
+    "pi_natives.linux-x64-baseline.node": "5492770ba987a9369f6e438a3fa877e5e380d01ee5f57fa36af62143543680fc"
+  }
+}

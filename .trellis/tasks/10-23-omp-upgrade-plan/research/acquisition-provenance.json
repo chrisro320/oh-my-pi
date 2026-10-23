@@ -1,0 +1,137 @@
+{
+  "version": "18.12.6",
+  "pinned_commit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+  "verification": "npm /-/npm/v1/attestations SLSA-v1 payload content check: subject sha512 == dist.integrity and buildDefinition.resolvedDependencies[].digest.gitCommit == pinned commit; registry publish attestations + ECDSA signatures present. Cryptographic bundle verification: see runtime phase npm audit signatures.",
+  "packages": [
+    {
+      "name": "@oh-my-pi/omp-stats",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/omp-stats@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/omptype",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/omptype@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/pi-agent-core",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/pi-agent-core@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/pi-ai",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/pi-ai@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/pi-catalog",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/pi-catalog@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/pi-coding-agent",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/pi-coding-agent@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/pi-mnemopi",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/pi-mnemopi@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/pi-natives",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/pi-natives@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/pi-natives-linux-x64",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/pi-natives-linux-x64@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/pi-tui",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/pi-tui@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/pi-utils",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/pi-utils@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/pi-wire",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/pi-wire@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    },
+    {
+      "name": "@oh-my-pi/snapcompact",
+      "slsa_subject": "pkg:npm/%40oh-my-pi/snapcompact@18.12.6",
+      "slsa_gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+      "source_repo": "https://github.com/can1357/oh-my-pi",
+      "subject_digest_matches_integrity": true,
+      "gitcommit_matches_pinned": true,
+      "publish_attestations": 1,
+      "registry_signatures": 2
+    }
+  ]
+}

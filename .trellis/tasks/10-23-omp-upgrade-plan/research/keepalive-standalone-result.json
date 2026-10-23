@@ -1,0 +1,21 @@
+{
+  "network": "bwrap --die-with-parent --unshare-net --bind / / --dev /dev --proc /proc --",
+  "rows": [
+    {
+      "case": "clean",
+      "exit": 0,
+      "timeout": false,
+      "ok": true,
+      "tail": "session cache keepalive verification: ok\n"
+    },
+    {
+      "case": "mutant-no-run-decrement",
+      "exit": 1,
+      "timeout": false,
+      "ok": true,
+      "tail": "   ^\nAssertionError: The input did not match the regular expression /remaining 2\\/3 attempts/. Input:\n\n'session cache keepalive\\n' +\n  '  scheduled\\n' +\n  '  every 4m \u00b7 openai-codex/gpt-5.6-sol\\n' +\n  '  remaining 3/3 attempts\\n' +\n  '  next 2026-10-23T13:34:52.428Z (240s)\\n' +\n  '  reason keepalive settled\\n' +\n  '  attempts 1 \u00b7 hits 1 \u00b7 misses 0 \u00b7 skipped 0 \u00b7 errors 0\\n' +\n  '  last cache-hit at 2026-10-23T13:30:52.428Z\\n' +\n  '    input=3 output=1 cacheRead=123 cacheWrite=2 duration=0ms\\n' +\n  '  log /tmp/omp-session-cache-keepalive-test.jsonl'\n\n generatedMessage: true,\n     actual: \"session cache keepalive\\n  scheduled\\n  every 4m \u00b7 openai-codex/gpt-5.6-sol\\n  remaining 3/3 attempts\\n  next 2026-10-23T13:34:52.428Z (240s)\\n  reason keepalive settled\\n  attempts 1 \u00b7 hits 1 \u00b7 misses 0 \u00b7 skipped 0 \u00b7 errors 0\\n  last cache-hit at 2026-10-23T13:30:52.428Z\\n    input=3 output=1 cacheRead=123 cacheWrite=2 duration=0ms\\n  log /tmp/omp-session-cache-keepalive-test.jsonl\",\n   expected: /remaining 2\\/3 attempts/,\n   operator: \"match\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/omp-keepalive-n4zj1ccd/mutant-no-run-decrement/verify-session-cache-keepalive.ts:271:8\n\nBun v1.3.14 (Linux x64)\n"
+    }
+  ],
+  "candidate_runtime_copy": true,
+  "status": "PASS"
+}

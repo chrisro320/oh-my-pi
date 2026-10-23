@@ -1,0 +1,760 @@
+--- a/pi-tui/dist/types/chat/image-loading.d.ts
++++ b/pi-tui/dist/types/chat/image-loading.d.ts
+@@ -49,22 +49,13 @@
+  * positional ids like `${toolCallId}:${index}`, which go stale when the images
+  * behind a position are replaced.
+  */
+-export declare function imagePayloadKey(image: ImageContent): string;
+-/**
+- * The PNG conversion of `image` when one is still resident, else `undefined`.
+- * Synchronous so renderers can use an already-converted image on the spot
+- * instead of scheduling another async re-render.
+- */
+-export declare function cachedPngConversion(image: ImageContent): ImageContent | undefined;
+-/**
+- * Converts `image` to PNG at most once per distinct payload: concurrent callers
+- * share one in-flight conversion and later callers hit {@link pngCache}.
+- * Kitty-graphics renderers use this because `convertImageToPng` is a full
+- * decode plus re-encode, and the same image is delivered repeatedly (read-result
+- * replay) and rebuilt from scratch on resume, rewind, and `/tree` navigation.
+- *
+- * Rejections are not cached — a payload that failed to decode is retried by the
+- * next caller, matching {@link convertImageToPng}'s contract.
+- */
+-export declare function convertImageToPngShared(image: ImageContent): Promise<ImageContent>;
++export declare function imageFingerprint(image: Pick<ImageContent, "data" | "mimeType">): string;
++/** A settled display-only PNG, or the sanitized reason conversion failed. */
++export interface PngConversionResult {
++    png: ImageContent | null;
++    reason?: string;
++}
++export declare function ensurePng(image: ImageContent, fingerprint?: string): Promise<ImageContent | null>;
++export declare function completedPng(fingerprint: string): PngConversionResult | undefined;
++export declare function pngFailureReason(fingerprint: string, conversion?: Promise<ImageContent | null>): string;
+ export declare function ensureSupportedImageInput(image: ImageContent): Promise<ImageContent | null>;
+--- a/pi-tui/src/chat/assistant-message.ts
++++ b/pi-tui/src/chat/assistant-message.ts
+@@ -14,7 +14,7 @@
+ } from "../components/markdown";
+ import { Spacer } from "../components/spacer";
+ import { Text } from "../components/text";
+-import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
++import { formatDuration, formatNumber, logger } from "@oh-my-pi/pi-utils";
+ import chalk from "@oh-my-pi/pi-utils/chalk";
+ import { LRUCache } from "@oh-my-pi/pi-utils/lru";
+ import type { AssistantThinkingRenderer } from "./extension-types";
+@@ -28,7 +28,7 @@
+ import { Memo } from "../native/memo";
+ import { EMPTY_LINK_TARGETS, resolveImageOptions } from "../render/render-utils";
+ import { WidthAwareText } from "../render";
+-import { cachedPngConversion, convertImageToPngShared, imagePayloadKey } from "./image-loading";
++import { completedPng, ensurePng, imageFingerprint, pngFailureReason, type PngConversionResult } from "./image-loading";
+ import { canonicalizeMessage, formatThinkingForDisplay, hasDisplayableThinking } from "./thinking-display";
+ import { resolveAssistantErrorPresentation } from "./transcript-render-helpers";
+ import { type CacheInvalidation, CacheInvalidationMarkerComponent } from "./cache-invalidation-marker";
+@@ -245,6 +245,8 @@
+ 	return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+ }
+ 
++let assistantMessageInstanceSeq = 0;
++
+ /**
+  * Renders an assistant message; streaming content remains mutable until the
+  * provider finalizes it because later deltas can revise earlier Markdown.
+@@ -256,6 +258,7 @@
+  */
+ export class AssistantMessageComponent extends Container {
+ 	readonly transcriptBlockMode = "appendOnly" as const;
++	readonly #instanceId = ++assistantMessageInstanceSeq;
+ 	#contentContainer: Container;
+ 	#markerSlot: Container;
+ 	#cacheMarker?: CacheInvalidationMarkerComponent;
+@@ -265,24 +268,29 @@
+ 	#toolImagesByCallId = new Map<string, ImageContent[]>();
+ 	/** File each grouped read showed that Tern's media viewer shows, for native `media` nodes. */
+ 	#toolMediaPathByCallId = new Map<string, string>();
+-	/**
+-	 * Payload keys ({@link imagePayloadKey}) whose Kitty PNG conversion this
+-	 * component is awaiting, so a re-delivered image neither re-encodes nor
+-	 * schedules a second {@link updateContent} cascade. The conversions
+-	 * themselves live in the bounded process-wide cache behind
+-	 * {@link convertImageToPngShared}; an evicted one is redone on the next
+-	 * render instead of being pinned here for the session.
++	// Source ownership is independent of visibility and retirement into scrollback.
++	#imageBudgetSlots = new Map<
++		string,
++		{ data: string; mimeType: string; fingerprint: string; key: string; generation: number }
++	>();
++	#imageBudgetGeneration = 0;
++	#imageBudgetRevision = 0;
++	/**
++	 * Payload fingerprints ({@link imageFingerprint}) whose Kitty PNG conversion
++	 * this component is awaiting, so a re-delivered image neither re-encodes nor
++	 * schedules a second {@link updateContent} cascade. The conversions live in
++	 * the bounded process-wide cache behind {@link ensurePng}.
+ 	 */
+ 	#kittyConversionsAwaited = new Set<string>();
+ 	/**
+-	 * Conversions the current image children display, by payload key. Rebuilt
+-	 * on every full render pass ({@link updateContent}), so a conversion is held
+-	 * only while it is on screen — a re-render after the shared cache evicted
+-	 * it still finds it — and released once hidden or replaced.
++	 * Conversions or failure labels the current image children display, by
++	 * fingerprint; undefined marks a displayed image still awaiting conversion.
++	 * Rebuilt on every full render pass, so settled results survive shared-cache
++	 * eviction only while displayed and are released once hidden or replaced.
+ 	 */
+-	#kittyDisplayed = new Map<string, ImageContent>();
++	#kittyDisplayed = new Map<string, PngConversionResult | undefined>();
+ 	/** The previous pass's {@link #kittyDisplayed}, readable only during a render pass. */
+-	#kittyPreviouslyDisplayed: Map<string, ImageContent> | undefined;
++	#kittyPreviouslyDisplayed: Map<string, PngConversionResult | undefined> | undefined;
+ 	#showImages = true;
+ 	#showToolResultImages = true;
+ 	/** Charts under numeric tables; off for subagent transcripts. */
+@@ -654,6 +662,8 @@
+ 
+ 	override dispose(): void {
+ 		this.#stopThinkingAnimation();
++		this.#kittyDisplayed.clear();
++		this.#kittyPreviouslyDisplayed = undefined;
+ 		super.dispose();
+ 	}
+ 
+@@ -1590,31 +1600,81 @@
+ 		}
+ 	}
+ 
+-	/** A displayable Kitty PNG for a non-PNG `image`: the shared cache, else this component's displayed copy. */
+-	#kittyConversion(image: ImageContent): ImageContent | undefined {
+-		const cached = cachedPngConversion(image);
+-		if (cached) return cached;
+-		const key = imagePayloadKey(image);
+-		return this.#kittyDisplayed.get(key) ?? this.#kittyPreviouslyDisplayed?.get(key);
++	/** Release only content replaced or removed, never a same-source display rebuild. */
++	#syncImageBudgetSlots(message: AssistantMessage): void {
++		const budget = this.#imageBudget;
++		if (!budget) return;
++		this.#imageBudgetGeneration++;
++		for (let i = 0; i < message.content.length; i++) {
++			const image = message.content[i];
++			if (image.type === "image") this.#syncImageBudgetSlot(`native:${i}`, image);
++		}
++		for (const [toolCallId, images] of this.#toolImagesByCallId) {
++			for (let i = 0; i < images.length; i++) {
++				this.#syncImageBudgetSlot(`tool:${toolCallId}:${i}`, images[i]);
++			}
++		}
++		for (const [key, slot] of this.#imageBudgetSlots) {
++			if (slot.generation === this.#imageBudgetGeneration) continue;
++			budget.release(slot.key);
++			this.#imageBudgetSlots.delete(key);
++		}
++	}
++
++	#syncImageBudgetSlot(key: string, image: ImageContent): void {
++		const slot = this.#imageBudgetSlots.get(key);
++		if (slot && slot.data === image.data && slot.mimeType === image.mimeType) {
++			slot.generation = this.#imageBudgetGeneration;
++			return;
++		}
++		if (slot) this.#imageBudget?.release(slot.key);
++		const fingerprint = imageFingerprint(image);
++		this.#imageBudgetSlots.set(key, {
++			data: image.data,
++			mimeType: image.mimeType,
++			fingerprint,
++			// A -> B -> A must not reacquire A's already released identity.
++			key: `am${this.#instanceId}:${key}:${fingerprint}:${++this.#imageBudgetRevision}`,
++			generation: this.#imageBudgetGeneration,
++		});
++	}
++
++	/** A settled display result, retained only by the shared cache or visible image children. */
++	#kittyConversion(key: string): PngConversionResult | undefined {
++		return this.#kittyDisplayed.get(key) ?? this.#kittyPreviouslyDisplayed?.get(key) ?? completedPng(key);
+ 	}
+ 
+ 	#convertImagesForKitty(entries: Array<{ image: ImageContent; key: string }>): void {
+ 		if (TERMINAL.imageProtocol !== ImageProtocol.Kitty) return;
+ 		for (const { image } of entries) {
+-			if (image.mimeType === "image/png" || this.#kittyConversion(image)) continue;
+-			const key = imagePayloadKey(image);
++			if (image.mimeType === "image/png") continue;
++			const key = imageFingerprint(image);
++			if (this.#kittyConversion(key)) continue;
+ 			if (this.#kittyConversionsAwaited.has(key)) continue;
+ 			this.#kittyConversionsAwaited.add(key);
+-			convertImageToPngShared(image)
+-				.then(() => {
++			const conversion = ensurePng(image, key);
++			void conversion
++				.then(png => {
+ 					this.#kittyConversionsAwaited.delete(key);
++					// A replaced or hidden image no longer owns a display slot. Do not
++					// retain its late result after the shared cache has evicted it.
++					if (!this.#kittyDisplayed.has(key)) return;
++					this.#kittyDisplayed.set(
++						key,
++						png ? { png } : { png: null, reason: pngFailureReason(key, conversion) },
++					);
+ 					if (this.#lastMessage) {
+ 						this.updateContent(this.#lastMessage, { transient: this.#lastUpdateTransient });
+ 					}
+ 					this.#onImageUpdate?.();
+ 				})
+-				.catch(() => {
++				.finally(() => {
+ 					this.#kittyConversionsAwaited.delete(key);
++				})
++				.catch(error => {
++					// The chain is discarded, so a fault in the publish or repaint path must be
++					// logged instead of surfacing as an unhandled rejection that can kill the TUI.
++					logger.error("Assistant image slot completion failed", { err: error });
+ 				});
+ 		}
+ 	}
+@@ -1628,11 +1688,13 @@
+ 
+ 		if (withLeadingSpacer) this.#contentContainer.addChild(new Spacer(1));
+ 		for (const { image, key, sourcePath } of entries) {
+-			let displayImage: ImageContent | undefined = image;
+-			if (TERMINAL.imageProtocol === ImageProtocol.Kitty && image.mimeType !== "image/png") {
+-				displayImage = this.#kittyConversion(image);
+-				if (displayImage) this.#kittyDisplayed.set(imagePayloadKey(image), displayImage);
+-			}
++			const needsPng = TERMINAL.imageProtocol === ImageProtocol.Kitty && image.mimeType !== "image/png";
++			const slot = this.#imageBudgetSlots.get(key);
++			const fingerprint = slot?.fingerprint ?? (needsPng ? imageFingerprint(image) : undefined);
++			const kittyFingerprint = needsPng ? fingerprint : undefined;
++			const conversion = kittyFingerprint === undefined ? undefined : this.#kittyConversion(kittyFingerprint);
++			if (kittyFingerprint !== undefined) this.#kittyDisplayed.set(kittyFingerprint, conversion);
++			const displayImage = kittyFingerprint === undefined ? image : conversion?.png;
+ 			if (TERMINAL.imageProtocol && displayImage) {
+ 				this.#contentContainer.addChild(
+ 					new Image(
+@@ -1643,16 +1705,17 @@
+ 							...resolveImageOptions(),
+ 							sourcePath,
+ 							budget: this.#imageBudget,
+-							imageKey: key,
++							imageKey: slot?.key,
+ 							requestRender: this.#onImageUpdate,
+ 						},
+ 					),
+ 				);
+ 				continue;
+ 			}
+-			this.#contentContainer.addChild(
+-				new Text(theme.fg("toolOutput", linkedImageText(`[Image: ${image.mimeType}]`, image, sourcePath)), 1, 0),
+-			);
++			const reason = conversion?.png === null ? (conversion.reason ?? "unknown error") : undefined;
++			const label =
++				reason === undefined ? `[Image: ${image.mimeType}]` : `[Image: ${image.mimeType} — PNG conversion failed: ${reason}]`;
++			this.#contentContainer.addChild(new Text(theme.fg("toolOutput", linkedImageText(label, image, sourcePath)), 1, 0));
+ 		}
+ 	}
+ 
+@@ -1660,7 +1723,7 @@
+ 		if (!this.#showToolResultImages) return;
+ 		const entries = Array.from(this.#toolImagesByCallId.entries()).flatMap(([toolCallId, images]) => {
+ 			const sourcePath = this.#toolMediaPathByCallId.get(toolCallId);
+-			return images.map((image, index) => ({ image, key: `${toolCallId}:${index}`, sourcePath }));
++			return images.map((image, index) => ({ image, key: `tool:${toolCallId}:${index}`, sourcePath }));
+ 		});
+ 		this.#renderImageEntries(entries, true);
+ 	}
+@@ -1807,6 +1870,7 @@
+ 		// Narration the provider returned as thinking renders as answer text.
+ 		message = this.#displayMessage(presentNarrationAsAnswer(message), this.#lastUpdateTransient);
+ 		this.#displayedMessage = message;
++		this.#syncImageBudgetSlots(message);
+ 
+ 		// Streaming-speed gauge: only a live, in-flight render of the single
+ 		// animating hidden-thinking block feeds the shared session tracker. The
+--- a/pi-tui/src/chat/image-loading.ts
++++ b/pi-tui/src/chat/image-loading.ts
+@@ -1,5 +1,6 @@
+ import type { ImageContent, Model } from "@oh-my-pi/pi-ai";
+ import { decodeBase64ImageData, formatBytes, parseImageMetadata, SUPPORTED_IMAGE_MIME_TYPES } from "@oh-my-pi/pi-utils";
++import { LRUCache } from "@oh-my-pi/pi-utils/lru";
+ 
+ export const MAX_IMAGE_INPUT_BYTES = 20 * 1024 * 1024;
+ 
+@@ -108,85 +109,102 @@
+ 	return { ...image, data, mimeType: "image/png" };
+ }
+ 
+-/**
+- * Byte ceiling for {@link convertImageToPngShared}'s resident conversions.
+- * Converted PNGs are larger than the webp/jpeg they came from, so the cache is
+- * bounded and evicts least-recently-used entries rather than growing with the
+- * session's image history.
+- */
+-const PNG_CACHE_MAX_BYTES = 32 * 1024 * 1024;
+-
+-/** Least-recently-used first; {@link touchPngCache} re-inserts on hit. */
+-const pngCache = new Map<string, ImageContent>();
+-let pngCacheBytes = 0;
+-const pngConversionsInFlight = new Map<string, Promise<ImageContent>>();
+-
+-/** Cache lookup that also marks `key` as most recently used. */
+-function touchPngCache(key: string): ImageContent | undefined {
+-	const hit = pngCache.get(key);
+-	if (!hit) return undefined;
+-	pngCache.delete(key);
+-	pngCache.set(key, hit);
+-	return hit;
+-}
+-
+-/**
+- * Content-addressed identity of an image payload, stable across components and
+- * transcript rebuilds. Callers key their own per-image state by this instead of
+- * positional ids like `${toolCallId}:${index}`, which go stale when the images
+- * behind a position are replaced.
+- */
+-export function imagePayloadKey(image: ImageContent): string {
+-	return `${image.mimeType}:${image.data.length}:${Bun.hash(image.data)}`;
++/** A full-content key; including MIME keeps a mislabeled payload out of a valid image entry. */
++export function imageFingerprint(image: Pick<ImageContent, "data" | "mimeType">): string {
++	return new Bun.CryptoHasher("sha256").update(image.mimeType).update("\0").update(image.data).digest("hex");
++}
++
++/** A settled display-only PNG, or the sanitized reason conversion failed. */
++export interface PngConversionResult {
++	png: ImageContent | null;
++	reason?: string;
++}
++
++/** A shared conversion slot: pending while `result` is still absent. */
++type PngConversion = {
++	promise: Promise<ImageContent | null>;
++	bytes: number;
++	result?: PngConversionResult;
++};
++
++const KITTY_PNG_CACHE_BYTES = 32 * 1024 * 1024;
++/** Bounds distinct conversions so a run of tiny failure entries cannot grow the cache by count. */
++const KITTY_PNG_CACHE_ENTRIES = 256;
++/**
++ * Pending and settled conversions live in the same bounded entry, so a caller
++ * keeps the promise it first received while that entry is retained. A pending
++ * entry reserves its input bytes; once settled it weighs its output, and an
++ * output larger than the whole budget is skipped by the LRU.
++ */
++const convertedPng = new LRUCache<string, PngConversion>({
++	max: KITTY_PNG_CACHE_ENTRIES,
++	maxSize: KITTY_PNG_CACHE_BYTES,
++	sizeCalculation: entry => entry.bytes,
++});
++/**
++ * Sanitized reason of a failed conversion, keyed by its own promise: a
++ * subscriber that still holds the promise can always read the reason, even when
++ * the LRU slot was evicted before it settled. Weak keys keep this from retaining
++ * anything the callers have already dropped.
++ */
++const failureReasons = new WeakMap<Promise<ImageContent | null>, string>();
++
++/**
++ * Display-only PNG conversion shared process-wide and keyed by
++ * {@link imageFingerprint}: concurrent callers share one flight, later callers
++ * reuse the resident slot, and the provider's original ImageContent is never
++ * changed. An undecodable payload resolves `null` with its sanitized reason
++ * retained rather than rejecting, so a caller's repaint path and diagnostic
++ * label both stay meaningful.
++ */
++export function ensurePng(image: ImageContent, fingerprint = imageFingerprint(image)): Promise<ImageContent | null> {
++	if (image.mimeType === "image/png") return Promise.resolve(image);
++	const cached = convertedPng.get(fingerprint);
++	if (cached) return cached.promise;
++	const conversion = (async (): Promise<ImageContent | null> => {
++		// Settling may only rewrite the slot this flight still owns: an entry that was
++		// evicted, or replaced by a newer conversion, must not resurrect itself over it.
++		const settle = (png: ImageContent | null, reason?: string): void => {
++			if (convertedPng.peek(fingerprint)?.promise !== conversion) return;
++			const size = png ? png.data.length : (reason ?? "").length;
++			convertedPng.set(fingerprint, { promise: conversion, bytes: Math.max(1, size), result: { png, reason } });
++		};
++		let reason = "unknown error";
++		for (let attempt = 0; attempt < 2; attempt++) {
++			try {
++				const png = await convertImageToPng(image);
++				settle(png);
++				return png;
++			} catch (error) {
++				reason = error instanceof Error ? error.message : String(error);
++			}
++		}
++		reason = reason.replace(/[\x00-\x1f\x7f]/g, " ").slice(0, 160) || "unknown error";
++		// The reason is the entire payload of a failure, so keep it reachable through the
++		// promise even when the LRU slot was evicted while this conversion was running.
++		failureReasons.set(conversion, reason);
++		settle(null, reason);
++		return null;
++	})();
++	// Registering the running conversion is what dedupes concurrent callers and reserves its
++	// input bytes; the settled slot keeps handing back this very promise.
++	convertedPng.set(fingerprint, { promise: conversion, bytes: Math.max(1, image.data.length) });
++	return conversion;
+ }
+ 
+-/**
+- * The PNG conversion of `image` when one is still resident, else `undefined`.
+- * Synchronous so renderers can use an already-converted image on the spot
+- * instead of scheduling another async re-render.
+- */
+-export function cachedPngConversion(image: ImageContent): ImageContent | undefined {
+-	return touchPngCache(imagePayloadKey(image));
++/** Synchronous display snapshot for a settled entry; absent while it is still converting. */
++export function completedPng(fingerprint: string): PngConversionResult | undefined {
++	return convertedPng.get(fingerprint)?.result;
+ }
+ 
+ /**
+- * Converts `image` to PNG at most once per distinct payload: concurrent callers
+- * share one in-flight conversion and later callers hit {@link pngCache}.
+- * Kitty-graphics renderers use this because `convertImageToPng` is a full
+- * decode plus re-encode, and the same image is delivered repeatedly (read-result
+- * replay) and rebuilt from scratch on resume, rewind, and `/tree` navigation.
+- *
+- * Rejections are not cached — a payload that failed to decode is retried by the
+- * next caller, matching {@link convertImageToPng}'s contract.
++ * Read after {@link ensurePng} settles with null; pass the conversion promise to
++ * read that flight's own reason first, so an evicted slot cannot degrade the
++ * label to `unknown error`.
+  */
+-export function convertImageToPngShared(image: ImageContent): Promise<ImageContent> {
+-	const key = imagePayloadKey(image);
+-	const cached = touchPngCache(key);
+-	if (cached) return Promise.resolve(cached);
+-	const running = pngConversionsInFlight.get(key);
+-	if (running) return running;
+-	const conversion = convertImageToPng(image)
+-		.then(({ data }) => {
+-			pngConversionsInFlight.delete(key);
+-			// Only the payload is shared; caller-specific fields (`url`,
+-			// `providerFile`, `detail`) describe the source image, not this PNG.
+-			const converted: ImageContent = { type: "image", data, mimeType: "image/png" };
+-			pngCache.set(key, converted);
+-			pngCacheBytes += data.length;
+-			for (const [oldest, entry] of pngCache) {
+-				if (pngCacheBytes <= PNG_CACHE_MAX_BYTES) break;
+-				if (oldest === key) continue;
+-				pngCache.delete(oldest);
+-				pngCacheBytes -= entry.data.length;
+-			}
+-			return converted;
+-		})
+-		.catch(error => {
+-			pngConversionsInFlight.delete(key);
+-			throw error;
+-		});
+-	pngConversionsInFlight.set(key, conversion);
+-	return conversion;
++export function pngFailureReason(fingerprint: string, conversion?: Promise<ImageContent | null>): string {
++	const flightReason = conversion === undefined ? undefined : failureReasons.get(conversion);
++	return flightReason ?? convertedPng.get(fingerprint)?.result?.reason ?? "unknown error";
+ }
+ 
+ export async function ensureSupportedImageInput(image: ImageContent): Promise<ImageContent | null> {
+--- a/pi-tui/src/chat/tool-execution.ts
++++ b/pi-tui/src/chat/tool-execution.ts
+@@ -48,7 +48,7 @@
+ } from "../render/render-utils";
+ import type { XdevMountedState } from "../tools/xdev";
+ import { isFramedBlockComponent, markFramedBlockComponent, renderStatusLine, WidthAwareText } from "../render/index";
+-import { cachedPngConversion, convertImageToPngShared, imagePayloadKey } from "./image-loading";
++import { completedPng, ensurePng, imageFingerprint, pngFailureReason, type PngConversionResult } from "./image-loading";
+ import { FenceFigure } from "./fence-figure";
+ import { sanitizeWithOptionalSixelPassthrough } from "../render/sixel";
+ import { renderDiff } from "../chrome/diff";
+@@ -365,8 +365,11 @@
+ 	// #contentBox, everything else the generic #contentText fallback.
+ 	#usesContentBox = false;
+ 	#multiFileBoxes: (Box | Spacer)[] = []; // Extra boxes for multi-file edit results
+-	#imageComponents: Image[] = [];
++	#imageComponents: (Image | Text)[] = [];
+ 	#imageSpacers: Spacer[] = [];
++	// Source slots outlive display rebuilds and retirement into scrollback.
++	#imageBudgetSlots: ({ data: string; mimeType: string; fingerprint: string; key: string } | undefined)[] = [];
++	#imageBudgetRevision = 0;
+ 	/** The renderer's {@link ToolRenderer.figure} drawing; kept across rebuilds while its language is unchanged, so it redraws in place and its raster survives them. */
+ 	#figure: FenceFigure | undefined;
+ 	readonly #instanceId = ++toolExecutionInstanceSeq;
+@@ -404,6 +407,8 @@
+ 	// so a terminal resize re-shapes image-bearing results to rescale them without
+ 	// forcing the common image-free result to re-shape on every resize tick.
+ 	#renderedImageCount = 0;
++	#pendingImageConversions = 0;
++	#disposed = false;
+ 	// `stateBgKey|themeEpoch` of the tint last handed to #contentText. Re-tinting
+ 	// drops its wrap cache, so a rebuild whose tint is unchanged skips it and the
+ 	// inner Text re-wraps only when the reformatted card text actually differs.
+@@ -426,13 +431,17 @@
+ 	#editMode?: EditMode;
+ 	#editDiffPreview?: PerFileDiffPreview[];
+ 	#previewReady?: PromiseWithResolvers<void>;
+-	// Payload keys whose Kitty PNG conversion is already awaited; the converted
+-	// images themselves live in the process-wide cache behind
+-	// `convertImageToPngShared`, so rebuilt components reuse them.
++	// Payload fingerprints whose Kitty PNG conversion is already awaited; the
++	// converted images themselves live in the process-wide cache behind
++	// `ensurePng`, so rebuilt components reuse them.
+ 	#kittyConversionsAwaited = new Set<string>();
+ 	// Conversions this component displays, held so a later re-render still finds
+ 	// them after the bounded shared cache evicts them.
+ 	#kittyConverted = new Map<string, ImageContent>();
++	// Settled failures this component displays, kept with their sanitized reason
++	// so a repaint after the shared slot is evicted still labels the image instead
++	// of silently dropping it.
++	#kittyConversionFailures = new Map<string, string>();
+ 	// Spinner animation for partial task results
+ 	#spinnerFrame?: number;
+ 	#spinnerActive = false;
+@@ -636,6 +645,7 @@
+ 	}
+ 
+ 	updateResult(result: ToolResultFrame, isPartial = false, _toolCallId?: string): void {
++		if (this.#disposed) return;
+ 		const hadNoResult = this.#result === undefined;
+ 		const wasPartialResult = this.#result !== undefined && this.#isPartial;
+ 		const firstResultRepaintShapePainted = this.#firstResultViewportRepaintShapePainted;
+@@ -659,14 +669,19 @@
+ 		}
+ 		this.#updateSpinnerAnimation();
+ 		this.#updateTodoStrikeAnimation();
++		if (this.#ui.imageBudget || TERMINAL.imageProtocol === ImageProtocol.Kitty) {
++			const imageBlocks = this.#getAllImageBlocks();
++			this.#syncImageBudgetSlots(imageBlocks);
++			// Acquire the retirement barrier and publish any cached PNG before building
++			// the display; a settled shared conversion needs no asynchronous repaint.
++			this.#maybeConvertImagesForKitty(imageBlocks);
++		}
+ 		this.#updateDisplay();
+ 		this.#resetDisplayForResultTopologyChange(
+ 			hadNoResult && firstResultRepaintShapePainted,
+ 			wasPartialResult && partialResultPainted,
+ 			isPartial,
+ 		);
+-		// Convert non-PNG images to PNG for Kitty protocol (async)
+-		this.#maybeConvertImagesForKitty();
+ 	}
+ 
+ 	/**
+@@ -684,45 +699,94 @@
+ 		return [...contentImages, ...detailImages, ...xdevImages];
+ 	}
+ 
++	/** Release only replaced source slots; hiding, rebuilding or retiring keeps their graphics. */
++	#syncImageBudgetSlots(images: readonly ToolImageBlock[]): void {
++		const budget = this.#ui.imageBudget;
++		if (!budget) return;
++		const count = Math.max(images.length, this.#imageBudgetSlots.length);
++		for (let i = 0; i < count; i++) {
++			const image = images[i];
++			const slot = this.#imageBudgetSlots[i];
++			if (!image?.data || !image.mimeType) {
++				if (slot) budget.release(slot.key);
++				this.#imageBudgetSlots[i] = undefined;
++				continue;
++			}
++			if (slot?.data === image.data && slot.mimeType === image.mimeType) continue;
++			if (slot) budget.release(slot.key);
++			const fingerprint = imageFingerprint({ data: image.data, mimeType: image.mimeType });
++			this.#imageBudgetSlots[i] = {
++				data: image.data,
++				mimeType: image.mimeType,
++				fingerprint,
++				// A -> B -> A must not reacquire A's already released identity.
++				key: `te${this.#instanceId}:${i}:${fingerprint}:${++this.#imageBudgetRevision}`,
++			};
++		}
++		this.#imageBudgetSlots.length = images.length;
++	}
++
+ 	/**
+ 	 * Convert non-PNG images to PNG for Kitty graphics protocol.
+ 	 * Kitty requires PNG format (f=100), so JPEG/GIF/WebP won't display.
+ 	 */
+-	#maybeConvertImagesForKitty(): void {
++	#maybeConvertImagesForKitty(images: readonly ToolImageBlock[]): void {
+ 		// Only needed for Kitty protocol
+ 		if (TERMINAL.imageProtocol !== ImageProtocol.Kitty) return;
+ 		if (!this.#result) return;
+ 
+-		for (const img of this.#getAllImageBlocks()) {
++		for (let i = 0; i < images.length; i++) {
++			const img = images[i];
+ 			if (!img.data || !img.mimeType) continue;
+ 			// Skip if already PNG or already converted anywhere in this process
+ 			if (img.mimeType === "image/png") continue;
+ 			const image: ImageContent = { type: "image", data: img.data, mimeType: img.mimeType };
+-			const key = imagePayloadKey(image);
+-			if (this.#kittyConverted.has(key)) continue;
+-			const cached = cachedPngConversion(image);
++			const key = this.#imageBudgetSlots[i]?.fingerprint ?? imageFingerprint(image);
++			if (this.#kittyConverted.has(key) || this.#kittyConversionFailures.has(key)) continue;
++			const cached = completedPng(key);
+ 			if (cached) {
+-				this.#kittyConverted.set(key, cached);
++				this.#publishKittyConversion(key, cached);
+ 				continue;
+ 			}
+ 			if (this.#kittyConversionsAwaited.has(key)) continue;
+ 			this.#kittyConversionsAwaited.add(key);
++			this.#pendingImageConversions++;
+ 
+ 			// Convert async - catch errors from processing
+-			convertImageToPngShared(image)
+-				.then(converted => {
+-					this.#kittyConverted.set(key, converted);
++			const conversion = ensurePng(image, key);
++			void conversion
++				.then(png => {
++					// Disposal detaches this subscriber, not the shared conversion.
++					if (this.#disposed) return;
++					// A settled failure publishes its sanitized reason, so the label names the
++					// real decoder error even after the shared slot has been evicted.
++					this.#publishKittyConversion(key, png ? { png } : { png: null, reason: pngFailureReason(key, conversion) });
++				})
++				.finally(() => {
++					// The identity cleanup and the barrier release run before the repaint, so a
++					// terminal container that observes the paint also observes both.
++					this.#kittyConversionsAwaited.delete(key);
++					this.#pendingImageConversions--;
++					if (this.#disposed) return;
++					this.#blockVersion++;
+ 					this.#displayInputVersion++;
+ 					this.#updateDisplay();
+ 					this.#ui.requestRender();
+ 				})
+-				.catch(() => {
+-					// Ignore conversion failures - display will use original image format
+-					this.#kittyConversionsAwaited.delete(key);
++				.catch(error => {
++					// The chain is discarded, so a fault in the publish or repaint path must be
++					// logged instead of surfacing as an unhandled rejection that can kill the TUI.
++					logger.error("Tool result image slot completion failed", { err: error });
+ 				});
+ 		}
+ 	}
+ 
++	/** Record a settled conversion; a null PNG publishes its sanitized failure reason. */
++	#publishKittyConversion(key: string, result: PngConversionResult): void {
++		if (result.png) this.#kittyConverted.set(key, result.png);
++		else this.#kittyConversionFailures.set(key, result.reason ?? "unknown error");
++	}
++
+ 	/**
+ 	 * Start or stop spinner animation for live states that visibly tick.
+ 	 */
+@@ -859,9 +923,9 @@
+ 		}
+ 	}
+ 
+-	/** Whether the result's figure still waits for its raster; the transcript holds retirement meanwhile. */
++	/** Pending PNGs and figures must settle before the transcript retires their rows. */
+ 	isTranscriptBlockPending(): boolean {
+-		return this.#toolActivityVisible && this.#figure?.pending === true;
++		return this.#toolActivityVisible && (this.#pendingImageConversions > 0 || this.#figure?.pending === true);
+ 	}
+ 
+ 	/**
+@@ -871,6 +935,8 @@
+ 	 */
+ 	isTranscriptBlockFinalized(): boolean {
+ 		if (!this.#toolActivityVisible) return true;
++		// Retiring before async PNG conversion commits a permanently incomplete image block.
++		if (this.#pendingImageConversions > 0) return false;
+ 		if (this.#sealed) return true;
+ 		if (this.#result === undefined) return false;
+ 		// A parked background task's call already returned; job frames that land
+@@ -936,6 +1002,8 @@
+ 	 * interval alive and keep being repainted.
+ 	 */
+ 	override dispose(): void {
++		if (this.#disposed) return;
++		this.#disposed = true;
+ 		this.stopAnimation();
+ 		super.dispose();
+ 	}
+@@ -1325,6 +1393,7 @@
+ 	}
+ 
+ 	#updateDisplay(): void {
++		if (this.#disposed) return;
+ 		// `TERMINAL.imageProtocol` is resolved by an async capability probe during
+ 		// TUI startup, so a result rendered before it lands must re-shape once it
+ 		// does (it gates Image children vs text fallback in #rebuildDisplay); keyed
+@@ -1742,6 +1811,7 @@
+ 		this.#imageSpacers = [];
+ 		this.#syncFigure();
+ 
++		let renderedImageCount = 0;
+ 		if (this.#result) {
+ 			const imageBlocks = this.#getAllImageBlocks();
+ 			const sourcePath = readMediaPath(this.#rawDetails);
+@@ -1749,17 +1819,28 @@
+ 			for (let i = 0; i < imageBlocks.length; i++) {
+ 				const img = imageBlocks[i];
+ 				if (TERMINAL.imageProtocol && this.#showImages && img.data && img.mimeType) {
+-					// Use converted PNG for Kitty protocol if available
++					// Use converted PNG for Kitty protocol if available. A slot may be
++					// re-delivered with different bytes, so only its own fingerprint renders.
+ 					const source: ImageContent = { type: "image", data: img.data, mimeType: img.mimeType };
++					const slot = this.#imageBudgetSlots[i];
++					const key = slot?.fingerprint ?? imageFingerprint(source);
+ 					const converted =
+ 						TERMINAL.imageProtocol === ImageProtocol.Kitty && img.mimeType !== "image/png"
+-							? (this.#kittyConverted.get(imagePayloadKey(source)) ?? cachedPngConversion(source))
++							? this.#kittyConverted.get(key)
+ 							: undefined;
+-					const imageData = converted?.data ?? img.data;
+-					const imageMimeType = converted?.mimeType ?? img.mimeType;
+ 
+-					// For Kitty, skip non-PNG images that haven't been converted yet
+-					if (TERMINAL.imageProtocol === ImageProtocol.Kitty && imageMimeType !== "image/png") {
++					// For Kitty, a non-PNG image without a conversion has no graphics form.
++					if (TERMINAL.imageProtocol === ImageProtocol.Kitty && img.mimeType !== "image/png" && !converted) {
++						const reason = this.#kittyConversionFailures.get(key);
++						if (reason !== undefined) {
++							const failure = new Text(
++								theme.fg("toolOutput", `[Image: ${img.mimeType} — PNG conversion failed: ${reason}]`),
++								1,
++								0,
++							);
++							this.#imageComponents.push(failure);
++							this.addChild(failure);
++						}
+ 						continue;
+ 					}
+ 
+@@ -1767,23 +1848,24 @@
+ 					this.addChild(spacer);
+ 					this.#imageSpacers.push(spacer);
+ 					const imageComponent = new Image(
+-						imageData,
+-						imageMimeType,
++						converted?.data ?? img.data,
++						converted?.mimeType ?? img.mimeType,
+ 						{ fallbackColor: (s: string) => theme.fg("toolOutput", s) },
+ 						{
+ 							...resolveImageOptions(),
+ 							sourcePath,
+ 							budget: this.#ui.imageBudget,
+-							imageKey: `te${this.#instanceId}:${i}`,
++							imageKey: slot?.key,
+ 							requestRender: () => this.#ui.requestRender(),
+ 						},
+ 					);
+ 					this.#imageComponents.push(imageComponent);
+ 					this.addChild(imageComponent);
++					renderedImageCount++;
+ 				}
+ 			}
+ 		}
+-		this.#renderedImageCount = this.#imageComponents.length;
++		this.#renderedImageCount = renderedImageCount;
+ 	}
+ 
+ 	/**

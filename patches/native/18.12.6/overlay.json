@@ -1,0 +1,27 @@
+{
+  "version": "18.12.6",
+  "package": "pi-natives-linux-x64",
+  "upstream_commit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+  "toolchain": "rust-toolchain.toml channel (nightly-2026-10-06); cargo --release; CMAKE_GENERATOR=Unix Makefiles",
+  "patches": [
+    {
+      "file": "0001-escape-monitor-mapping-refresh.patch",
+      "sha256": "e2746453df9c4ee1ffc798a0a3689f36652978839fc2b50badb8548c23f1b4ad",
+      "summary": "Linux desktop: refresh Escape mapping, bound AT-SPI startup, and match Chrome profile-decorated AX titles without relaxing PID or ambiguity checks"
+    }
+  ],
+  "files": [
+    {
+      "file": "pi_natives.linux-x64-modern.node",
+      "target_cpu": "x86-64-v3",
+      "original_sha256": "d4f2b357c2b0610d74963ae654782a07dbc6ca01c4055f18a429c8b0eb854a27",
+      "rebuilt_sha256": "20030d690bc7335256cb87961cd7d3b27fe0e928b73b3d2f5b447af460440f3d"
+    },
+    {
+      "file": "pi_natives.linux-x64-baseline.node",
+      "target_cpu": "x86-64-v2",
+      "original_sha256": "3ea6efaf3825eaba19750d36c0fc932397bd7ce255875c424ba92c9ddd9af1bc",
+      "rebuilt_sha256": "5492770ba987a9369f6e438a3fa877e5e380d01ee5f57fa36af62143543680fc"
+    }
+  ]
+}

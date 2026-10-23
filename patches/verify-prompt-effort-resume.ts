@@ -39,7 +39,7 @@ try {
 }
 // Both retained plans carry the effort-independent prompt identity; unsupported
 // trees fail closed rather than skipping the behavioral assertions.
-assert.ok(["18.7.0", "18.10.0", "18.10.1"].includes(version), `unsupported prompt-effort resume gate version: ${version}`);
+assert.ok(["18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(version), `unsupported prompt-effort resume gate version: ${version}`);
 
 const LAB_ROOT = process.env.OMP_PATCH_VERIFY_PROMPT_EFFORT_LAB ?? mkdtempSync(join(tmpdir(), "prompt-effort-"));
 const PROBE = join(AGENT_ROOT, ".verify-prompt-effort-resume.probe.ts");

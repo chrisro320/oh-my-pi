@@ -1,0 +1,58 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "-B",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-23-omp-upgrade-plan/research/smoke/run-sandbox-smoke.py",
+    "--runtime",
+    "/tmp/omp-upgrade-18126-01a1684f/candidate",
+    "--ledger",
+    "/home/chris/orca/projects/omp-move/patches",
+    "--out",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-23-omp-upgrade-plan/research/sandbox-smoke-result-v1.json"
+  ],
+  "started": "2026-10-23T12:51:22.105320+00:00",
+  "finished": "2026-10-23T12:51:49.346321+00:00",
+  "exit": 1,
+  "timeout": false,
+  "stdout": "status=FAIL evidence=/home/chris/orca/projects/omp-move/.trellis/tasks/10-23-omp-upgrade-plan/research/sandbox-smoke-result-v1.json\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 132,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "8cbe2ffdfafc44207780a4cb0d4dd1ca245877d94df3e68c099720a6487d7406",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "environment_keys": [
+    "HOME",
+    "LANG",
+    "NO_COLOR",
+    "OMP_PATCH_OFFLINE_VERIFY",
+    "OMP_PATCH_PLAN",
+    "OMP_PATCH_REPO_ROOT",
+    "OMP_PATCH_VERIFY_AGENT_ROOT",
+    "OMP_PATCH_VERIFY_AI_ROOT",
+    "OMP_PATCH_VERIFY_CATALOG_ROOT",
+    "OMP_PATCH_VERIFY_CORE_ROOT",
+    "OMP_PATCH_VERIFY_NM",
+    "OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT",
+    "OMP_PATCH_VERIFY_TUI_ROOT",
+    "OMP_PATCH_VERSION",
+    "OMP_PAYLOAD_ARCHIVE",
+    "OMP_RESUME_EVENT_LOG",
+    "PATH",
+    "PI_CODING_AGENT_DIR",
+    "TERM",
+    "TMPDIR",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_RUNTIME_DIR",
+    "XDG_STATE_HOME"
+  ],
+  "selected_runtime": "/tmp/omp-upgrade-18126-01a1684f/candidate",
+  "private_home": "/tmp/omp-final-verify-ixwbjt7c/home"
+}

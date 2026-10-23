@@ -1,0 +1,130 @@
+{
+  "network": "bwrap --die-with-parent --unshare-net --bind / / --dev /dev --proc /proc --",
+  "version": "18.10.1",
+  "closure": "/tmp/omp-upgrade-18126-01a1684f/historical-regression",
+  "rows": [
+    {
+      "gate": "verify-provider-image-budget.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "provider-image-budget verification: ok\n"
+    },
+    {
+      "gate": "verify-codex-compaction-chain-fail-closed.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "0070 gate: local WebSocket ready\n0096 capacity: cold-user PASS (375007 tokens; standard window 272000)\n0096 capacity: cold-tool PASS (375007 tokens; standard window 272000)\n0096 capacity: live-user PASS (375007 tokens; standard window 272000)\n0096 capacity: provider-overflow PASS (375007 tokens; standard window 272000)\nverify-codex-compaction-chain-fail-closed: transport, retry, metadata and public types PASS\n"
+    },
+    {
+      "gate": "verify-idle-ephemeral-reservation.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "idle ephemeral reservation verification: ok (18.10.1)\n"
+    },
+    {
+      "gate": "verify-model-selection-resume.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "PASS fallback reconciliation -> navigation -> fresh-process resume: live=luna/high, resumed=sol/high, default=sol\nPASS configured auto -> target defaultLevel: temporary/persisted switches commit high, explicit effort wins, no-default keeps auto\nPASS persisted A -> B -> navigation/fork -> fresh-process resume: model=sol, effort=high\n"
+    },
+    {
+      "gate": "verify-subagent-warm-revival-prompt.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "  PASS a1-new-peer-while-parked\n  PASS a2-peer-parked-before-revive\n  PASS b-pooled-yield-items\n  PASS c-legacy-transcript-without-session-init\n  PASS d-peer-routing-after-revival\n  PASS e-roster-unchanged-control\n  PASS b2-pooled-yield-items-roster-unchanged\n  PASS f-info-pooled-followup-after-revival\n{\"status\":\"PASS\",\"scenarios\":8,\"failed\":[]}\n  ok   mutation rejected: drop the persisted systemPrompt override -> a1-new-peer-while-parked,a2-peer-parked-before-revive,b-pooled-yield-items,d-peer-routing-after-revival\n  ok   mutation rejected: drop the yield-items restore -> b-pooled-yield-items,b2-pooled-yield-items-roster-unchanged\n  ok   mutation rejected: treat a transcript without session_init as a revival failure -> c-legacy-transcript-without-session-init\n  ok   mutation rejected: rewrite the persisted prompt instead of reusing it verbatim -> a1-new-peer-while-parked,a2-peer-parked-before-revive,b-pooled-yield-items,d-peer-routing-after-revival,e-roster-unchanged-control,b2-pooled-yield-items-roster-unchanged\n",
+      "note": "rerun after scoping task.structured to 18.12.6"
+    },
+    {
+      "gate": "verify-session-transfer-authority.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "PASS session transfer authority: claim-before-read, transactional imports/adoption, portable anchors and relocation\n"
+    },
+    {
+      "gate": "verify-eval-state-context-persist.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "PASS eval state context persist: resume wire-equal, read-only snapshots write nothing, state change appends once\n"
+    },
+    {
+      "gate": "verify-turn-recovery-reminder-persist.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "  committed-text stall: partial kept, reminder persisted once, live == rebuilt\n  committed-text stall with requestControls: text and controls retained, live == rebuilt\nturn-recovery reminder persist: ALL PASS\n"
+    },
+    {
+      "gate": "verify-model-mention-surface-resume.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "PASS model-mention surface resume: 2 resumed requests carry the advertised surface (7473 tool bytes, codex head 16602 bytes), control unchanged\n"
+    },
+    {
+      "gate": "verify-length-stop-reminder-persist.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "length-stop reminder persist: ALL PASS\n"
+    },
+    {
+      "gate": "verify-hindsight-recall-snapshot.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===\n  ok empty recall persists a marker\n  ok null recall normalised to empty string\n  ok empty marker replayed on resume, recall not re-run\n  ok non-empty recall unchanged\n  ok failed recall not frozen\n  ok slow MM load frozen, resume replays it and never re-lists\n  ok reset_boundary isolates snapshots, stale empty marker cannot suppress recall\n  ok live and replayed recall preparations reject stale ownership\n  ok transcript reload replays target bytes and rejects deadline/superseded publication\n  ok actual same-ID navigation/reload uses frozen target recall and fresh-process carrier order\n  ok actual switch revokes source loads before adoption and restores rollback ownership\n  ok same-marker fork preserves cache identity; failed/timed-out tree reload clears source prompt\n  ok actual /clear publishes its boundary before target snapshot lookup\nPASS hindsight recall snapshot: empty recalls frozen, resume prefix stable\n"
+    },
+    {
+      "gate": "verify-hindsight-recall-promotion-slot.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "verify-hindsight-recall-promotion-slot: ok\n"
+    },
+    {
+      "gate": "verify-interrupt-prune-symmetry.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "=== Testing interrupted-turn render symmetry (0043) ===\n  aborted: live == rebuilt, 2 wire messages, no remnant\n  error: live == rebuilt, 2 wire messages, no remnant\n  committed-text stall: partial text retained, live == rebuilt\n  committed-text stall with requestControls: text and controls both retained\n  uncontinued stall-shaped turn still pruned\n  markerless remnant pruned on the live path\n  bare marker converts to nothing\n  completed turn untouched\n  transcript still renders the interrupted turn\n=== interrupted-turn render symmetry OK ===\n"
+    },
+    {
+      "gate": "verify-goal-tool-resident.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "PASS goal tool residency: active, paused, dropped, absent, restricted session\n"
+    },
+    {
+      "gate": "verify-session-history-preview.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "Starting Session History Preview verification...\n\u2713 fixture guard rejects live state and stray paths before access\n\u2713 list mode renders the fixture title and compact model, no transcript body\n\u2713 Space opens the preview and renders the fixture transcript verbatim, without tool noise\n\u2713 Esc closes the preview, while Esc in the list still cancels the picker\n\u2713 Space with a non-empty query edits the search text instead of opening the preview\n\u2713 Enter inside the preview resumes the selected session\n\u2713 Ctrl+C inside the preview exits the picker\n\u2713 mouse wheel scrolls the preview viewport across the whole transcript\n\u2713 scrollbar drag seeks the preview and Esc still leaves it cleanly\n\u2713 a tool-call turn keeps its real multi-line code fence\n\u2713 scanner resolves the newest role like resume (default/fallback\u2192default, role-scoped\u2192its model), falls back to last-served, and stays unset when empty\n\nALL VERIFICATIONS PASSED SUCCESSFULLY!\n"
+    },
+    {
+      "gate": "verify-devin-idle-cascade-pin.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "devin idle cascade pin verification: ok (18.10.1)\n"
+    },
+    {
+      "gate": "verify-codex-effort-resume.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "PASS Codex effort: transport persistence, JSONL resume, branch isolation, immutable history, rewrite/compaction reset, legacy/provider/model boundaries\n"
+    },
+    {
+      "gate": "verify-user-display-text-queue.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "verify-user-display-text-queue: PASS (18.10.1, queue identity)\n"
+    },
+    {
+      "gate": "verify-rejected-prepared-draft-restore.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "verify-rejected-prepared-draft-restore: PASS (18.10.1)\n"
+    },
+    {
+      "gate": "verify-devin-metadata.ts",
+      "exit": 0,
+      "timeout": false,
+      "tail": "=== Testing Devin CLI metadata alignment (0056) ===\nPASS: per-process sessionId, requestId +1 per call, 3000.11.3 tuple, pass-through, wire fields 10/9, discovery untouched\n"
+    }
+  ],
+  "historical_closure_unchanged": true,
+  "status": "PASS"
+}

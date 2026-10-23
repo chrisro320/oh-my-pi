@@ -1,0 +1,25 @@
+{
+  "version": "18.12.6",
+  "root": "/tmp/omp-upgrade-18126-01a1684f/pristine/@oh-my-pi",
+  "roots": [
+    "pi-coding-agent",
+    "pi-agent-core",
+    "pi-ai",
+    "pi-catalog",
+    "snapcompact",
+    "pi-tui"
+  ],
+  "file_count": 5639,
+  "symlink_count": 0,
+  "directory_modes_actual": [
+    "755"
+  ],
+  "directory_normalization": "all directories chmod 0755 post-extraction; file modes as archive records; actual modes listed per file",
+  "tree_sha256": "728e0643027d5f55e12b2fc52f66053fa404ffb986a5208fa4b6cb697070bcd4",
+  "digest_method": "sha256 of sorted lines `<mode> <sha256>  @oh-my-pi/<pkg>/<relpath>`",
+  "listings": {
+    "files": "pristine-manifest-files.txt",
+    "dirs": "pristine-manifest-dirs.txt",
+    "symlinks": "pristine-manifest-symlinks.txt"
+  }
+}

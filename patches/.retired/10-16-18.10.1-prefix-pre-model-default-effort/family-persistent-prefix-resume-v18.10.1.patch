@@ -1,0 +1,3560 @@
+--- a/pi-ai/dist/types/types.d.ts
++++ b/pi-ai/dist/types/types.d.ts
+@@ -932,6 +932,8 @@
+     content: string | (TextContent | ImageContent)[];
+     /** True if the message was injected by the system (e.g., auto-continue). */
+     synthetic?: boolean;
++    /** True when present only in a provider request; never persisted or replayed. */
++    providerOnly?: boolean;
+     /** True when injected mid-turn as a steer; consumed by the agent's pre-LLM transform to wrap it for emphasis. Never rendered. */
+     steering?: boolean;
+     /** True when the provider delivered this steer into the response it was streaming (`response.steer`). Display-only; never sent. */
+@@ -949,6 +951,8 @@
+     content: string | (TextContent | ImageContent)[];
+     /** Who initiated this message for billing/attribution semantics. */
+     attribution?: MessageAttribution;
++    /** True when present only in a provider request; never persisted or replayed. */
++    providerOnly?: boolean;
+     /** True if the message was injected by the system (e.g., auto-continue) and initiates a fresh run rather than continuing the current one. */
+     synthetic?: boolean;
+     /** True when the synthetic prompt was a deliberate operator action (`.`, `c` continue shortcut) rather than an automatic continuation — its timestamp is the turn's prompt time. */
+--- a/pi-ai/src/providers/openai-responses.ts
++++ b/pi-ai/src/providers/openai-responses.ts
+@@ -1586,6 +1586,18 @@
+ 	// retain required text/placeholder replay, including DeepSeek's #10690 fallback.
+ 	const canReconstructReasoningReplay =
+ 		!policy.reasoning.filterReasoningHistory || policy.reasoning.allowsSyntheticReasoningContentForToolCalls;
++	// Count the provider-only scaffolding this request appends at the tail (the
++	// date/cwd reminder). Those messages are part of the wire, never history, so
++	// the chained-compaction baseline must exclude them exactly like the juice
++	// instruction below -- otherwise the previous turn's synthetic tail lands in
++	// the delta baseline and the transport rebuilds the whole prefix.
++	let trailingScaffoldingItems = 0;
++	for (let i = context.messages.length - 1; i >= 0; i--) {
++		const message = context.messages[i]!;
++		if (message.role !== "user" || message.providerOnly !== true) break;
++		trailingScaffoldingItems++;
++	}
++
+ 	const messages = buildResponsesInput({
+ 		model,
+ 		context,
+@@ -1750,7 +1762,6 @@
+ 	applyOpenAIExtraBody(params, options?.extraBody);
+ 	applyOpenAIResponsesPromptCachePolicy(params, model, options, statefulCacheBaseline);
+ 
+-	let trailingScaffoldingItems = 0;
+ 	if (options?.forceReasoningOff && model.compat.requiresReasoningOffJuiceInstruction) {
+ 		const effort = options.reasoning ?? "medium";
+ 		const juice = getJuiceValue(effort);
+@@ -1758,7 +1769,7 @@
+ 			role: "developer",
+ 			content: [{ type: "input_text", text: `# Juice: ${juice} !important` }],
+ 		});
+-		trailingScaffoldingItems = 1;
++		trailingScaffoldingItems++;
+ 	}
+ 
+ 	return { params, trailingScaffoldingItems, strictToolsApplied };
+--- a/pi-ai/src/types.ts
++++ b/pi-ai/src/types.ts
+@@ -1173,6 +1173,8 @@
+ 	content: string | (TextContent | ImageContent)[];
+ 	/** True if the message was injected by the system (e.g., auto-continue). */
+ 	synthetic?: boolean;
++	/** True when present only in a provider request; never persisted or replayed. */
++	providerOnly?: boolean;
+ 	/** True when injected mid-turn as a steer; consumed by the agent's pre-LLM transform to wrap it for emphasis. Never rendered. */
+ 	steering?: boolean;
+ 	/** True when the provider delivered this steer into the response it was streaming (`response.steer`). Display-only; never sent. */
+@@ -1191,6 +1193,8 @@
+ 	content: string | (TextContent | ImageContent)[];
+ 	/** Who initiated this message for billing/attribution semantics. */
+ 	attribution?: MessageAttribution;
++	/** True when present only in a provider request; never persisted or replayed. */
++	providerOnly?: boolean;
+ 	/** True if the message was injected by the system (e.g., auto-continue) and initiates a fresh run rather than continuing the current one. */
+ 	synthetic?: boolean;
+ 	/** True when the synthetic prompt was a deliberate operator action (`.`, `c` continue shortcut) rather than an automatic continuation — its timestamp is the turn's prompt time. */
+--- a/pi-coding-agent/dist/types/session/agent-session.d.ts
++++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
+@@ -575,7 +575,9 @@
+     get messages(): AgentMessage[];
+     /** Latest image attachments addressable by tools as `Image #N` or `attachment://N`. */
+     getImageAttachments(): ImageAttachmentEntry[];
+-    buildDisplaySessionContext(): SessionContext;
++    buildDisplaySessionContext(options?: {
++        persistEvalStateContext?: boolean;
++    }): SessionContext;
+     /**
+      * Transcript for TUI display. Full history is kept for export/resume-style
+      * callers; live chat can collapse compacted history to keep the hot render
+@@ -1216,8 +1218,10 @@
+      */
+     switchSession(sessionPath: string, options?: {
+         onCwdChange?: (newCwd: string, previousCwd: string) => Promise<boolean>;
+-        /** Collab snapshot adoption keeps the guest's process cwd and marks the replica runtime-only. */
++        /** Collab snapshots keep the guest cwd and never append local resume metadata to the replica. */
+         preserveLocalCwd?: boolean;
++        /** Relocate a removed-worktree session inside this switch transaction; incompatible with preserveLocalCwd. */
++        relocateTo?: { cwd: string; sessionDir?: string };
+         /**
+          * Use this model instead of the target's saved one, like an explicit
+          * `--model` at startup, and record it in the session when it differs.
+--- a/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
++++ b/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
+@@ -1,29 +1,29 @@
+ /**
+- * Date/cwd reminder injection.
+- *
+- * The system prompt must stay byte-stable so open-weight chat templates that
+- * render tool schemas *after* the system content keep their prefix cache
+- * (#7404). The per-request date/cwd line used to live at the tail of the
+- * system prompt (`project-prompt.md`), which invalidated the whole tool array
+- * on every directory change or day rollover. It now rides on the first user
+- * turn of each provider request instead: built at request time (never stored
+- * in the session), deterministic per `(date, cwd)`, so the bytes are stable
+- * for the lifetime of a session/day and refresh automatically at midnight.
++ * Date/cwd reminders ride inside real user messages. Per-message text is frozen
++ * in a session-owned artifact and inherited with cloned or imported history.
+  */
+ import type { Context, Message } from "@oh-my-pi/pi-ai";
+ /** Renders the reminder text for the given local calendar date and cwd. */
+ export declare function renderDateCwdReminder(date: string, cwd: string): string;
+-/** Whether `message` is a developer turn a {@link DateCwdReminderInjector} inserted. */
+-export declare function isDateCwdReminderControl(message: Message): boolean;
++/** Anchor key for a message: stable across processes, collision-resistant. */
++export declare function dateCwdAnchorKey(message: Message, content: string): string;
++/** Session-owned artifact, copied with history and included in transfer archives. */
++export declare const DATE_CWD_ANCHORS_ARTIFACT = "date-cwd-anchors.json";
++/** Reads session-owned state first, including {}, then the pre-upgrade ID map. */
++export declare function readDateCwdAnchors(sessionId: string, sessionFile?: string, anchorRoot?: string): Record<string, string> | undefined;
++/** Publish the frozen state before a cloned journal can be adopted under a new ID. */
++export declare function copyDateCwdAnchors(sourceId: string, sourceFile: string, destinationFile: string): void;
+ /**
+- * Keeps volatile date/cwd reminders append-only across provider requests.
+- *
+- * The first value is attached to the first user turn. A changed value attaches
+- * to a newly appended user turn or a persistent developer turn, leaving every
+- * previously sent message byte-identical.
++ * Stamps the reminder into the last real user message, replaying frozen stamps
++ * for every message that already carries one.
+  */
++export declare function applyDateCwdAnchors(messages: Message[], reminder: string, anchors: Record<string, string>): {
++    messages: Message[];
++    dirty: boolean;
++};
++/** Applies the reminder through the upstream injector contract. */
+ export declare class DateCwdReminderInjector {
+     #private;
+-    /** Apply the current reminder while preserving all earlier injected bytes. */
++    constructor(sessionId?: () => string | undefined, anchorRoot?: () => string, sessionFile?: () => string | undefined);
+     transform(context: Context, date: string, cwd: string): Context;
+ }
+--- a/pi-coding-agent/dist/types/session/messages.d.ts
++++ b/pi-coding-agent/dist/types/session/messages.d.ts
+@@ -78,6 +78,18 @@
+  * empty-thinking blocks, and trailing empty text placeholders.
+  */
+ export declare function demoteInterruptedThinking(message: Pick<AssistantMessage, "content">): DemotedInterruptedThinking | undefined;
++/**
++ * Distinctive sentence of `prompts/system/stream-stall-continue.md`, the reminder
++ * `TurnRecovery.handleCommittedTextStreamStall` appends when a transport stall
++ * killed a turn whose text had already rendered.
++ */
++export declare const STREAM_STALL_CONTINUE_REMINDER_TEXT = "The provider connection dropped mid-response:";
++/**
++ * True when the assistant turn at `messages[index]` was kept by the committed-text
++ * stall continuation — identified by its continuation reminder, which is the
++ * durable record of that decision — so both provider paths retain its text.
++ */
++export declare function followedByStreamStallContinueReminder(messages: AgentMessage[], index: number): boolean;
+ /** A provider-rejection turn carrying nothing but the error flag: stopReason
+  *  "error" with no text, thinking, or tool calls — e.g. a request the provider
+  *  rejected before any output (an oversized 413 payload). Persisting it writes an
+--- a/pi-coding-agent/dist/types/session/session-manager.d.ts
++++ b/pi-coding-agent/dist/types/session/session-manager.d.ts
+@@ -27,7 +27,17 @@
+  */
+ export declare function copySessionArtifacts(sourceSessionFile: string, destinationSessionFile: string): Promise<void>;
+ export type ReadonlySessionManager = Pick<SessionManager, "getCwd" | "getRecordedCwd" | "getSessionDir" | "getSessionId" | "getSessionFile" | "getSessionName" | "getArtifactsDir" | "getArtifactManager" | "allocateArtifactPath" | "saveArtifact" | "getArtifactPath" | "getLeafId" | "getLeafEntry" | "getEntry" | "getLabel" | "getBranch" | "getHeader" | "getEntries" | "getTree" | "getUsageStatistics" | "putBlob" | "putBlobSync">;
+-interface SessionManagerStateSnapshot {
++/** Writable admission remains reversible until the caller commits its switch. */
++export interface SessionAdoption {
++    commit(): void;
++    rollback(): Promise<void>;
++}
++/** An outgoing writer's authority retained while a switch may still roll back. */
++export interface SessionOwnership {
++    release(): void;
++    restore(): void;
++}
++export interface SessionManagerStateSnapshot {
+     cwd: string;
+     sessionDir: string;
+     sessionId: string;
+@@ -140,8 +150,14 @@
+      * target) and the error names where the session file actually lives.
+      */
+     rollbackMove(snapshot: SessionManagerStateSnapshot): Promise<void>;
+-    /** Switch to a different session file (resume / branch). */
+-    setSessionFile(sessionFile: string): Promise<void>;
++    /** Pin an admitted writer without releasing it when this manager loads another file. */
++    retainWritableOwnership(): SessionOwnership;
++    /** Switch to a session for writing; replicas may explicitly request inspection only. */
++    setSessionFile(sessionFile: string, options?: { writable?: boolean }): Promise<void>;
++    /** Adopt writable history, forking a departed source with its frozen state and notice. */
++    adoptForWrite(): Promise<void>;
++    /** Claim, refresh current transfer provenance, and retain rollback ownership of a new fork. */
++    beginWritableAdoption(): Promise<SessionAdoption>;
+     /**
+      * Start a new session and persist its header before returning.
+      *
+@@ -160,7 +176,7 @@
+         newSessionFile: string;
+     } | undefined>;
+     /** Move the session to a new working directory. */
+-    moveTo(newCwd: string, targetSessionDir?: string): Promise<void>;
++    moveTo(newCwd: string, targetSessionDir?: string, options?: { requireCompleteArtifacts?: boolean }): Promise<void>;
+     /**
+      * Force the session onto disk even with no assistant message yet (ACP
+      * session/new must create a discoverable file immediately).
+@@ -194,7 +210,7 @@
+      * history, and Ctrl+C must not rebuild the whole JSONL string just to flush.
+      */
+     flushSync(): void;
+-    /** Flush, then close the append writer. */
++    /** Flush and close the append writer before relinquishing writable ownership. */
+     close(): Promise<void>;
+     /**
+      * Raise the terminal write barrier ahead of the final {@link close}. Once
+@@ -540,6 +556,8 @@
+      */
+     static forkFrom(sourcePath: string, cwd: string, sessionDir?: string, storage?: SessionStorage, options?: {
+         copyArtifacts?: boolean;
++        /** Disposable import staging requires every artifact, never best-effort copies. */
++        requireCompleteArtifacts?: boolean;
+         suppressBreadcrumb?: boolean;
+         sessionFile?: string;
+         resetInheritedCost?: boolean;
+@@ -569,9 +587,10 @@
+      * Open a session whose recorded directory `recordedCwd` is gone and move it,
+      * artifacts included, into `cwd` so it resumes from there.
+      * @param sessionDir Target session directory; defaults to `cwd`'s.
++     * @param options.adoptForWrite Defaults true. Only an already-reserved staged import may opt out.
+      * @throws {SessionMoveRefusedError} when another live omp process writes the session.
+      */
+-    static openRelocated(sessionPath: string, recordedCwd: string, cwd: string, sessionDir?: string): Promise<SessionManager>;
++    static openRelocated(sessionPath: string, recordedCwd: string, cwd: string, sessionDir?: string, storage?: SessionStorage, options?: { adoptForWrite?: boolean; requireCompleteArtifacts?: boolean }): Promise<SessionManager>;
+     /**
+      * Lock-free peek for cold subagent revival: returns the recorded working
+      * directory (session header) and the latest `session_init` contract (system
+--- a/pi-coding-agent/dist/types/session/session-storage.d.ts
++++ b/pi-coding-agent/dist/types/session/session-storage.d.ts
+@@ -155,8 +155,11 @@
+      * then moves its session to a sibling instead of writing that file.
+      * Optional because only backends with a process-owned lock can tell that
+      * another process writes a session.
++     * `strict` propagates lock failures instead of best-effort admission.
++     * `exclusive` also refuses existing same-process holders; only managers
++     * sharing that reservation's storage instance may join it.
+      */
+-    claimSession?(sessionId: string, sessionPath: string): (() => void) | null;
++    claimSession?(sessionId: string, sessionPath: string, options?: { exclusive?: boolean; strict?: boolean }): (() => void) | null;
+     /**
+      * Atomically delete a session and its artifacts only when `shouldDelete`
+      * accepts the current session content. Optional because backends without a
+@@ -234,10 +237,12 @@
+     /**
+      * The lease is an OS lock (abstract socket, named mutex, or `flock` sidecar
+      * under ~/.omp/run/session-owners), so the kernel drops a dead owner's claim.
+-     * Never throws: a lock that cannot be taken for another reason counts as
+-     * owned, so it never moves a session off its file.
++     * Ordinary writers preserve the existing best-effort lock-error policy;
++     * strict writable admission propagates lock failures. Exclusive transfer
++     * ownership additionally refuses existing holders (including this process).
++     * Only its private storage instance may share the publication reservation.
+      */
+-    claimSession(sessionId: string, sessionPath: string): (() => void) | null;
++    claimSession(sessionId: string, sessionPath: string, options?: { exclusive?: boolean; strict?: boolean }): (() => void) | null;
+     /**
+      * Conditionally delete under the same cross-process lock used by the first
+      * durable append to a draft-only session.
+--- /dev/null
++++ b/pi-coding-agent/dist/types/session/session-transfer-marker.d.ts
+@@ -0,0 +1,23 @@
++import type { FileEntry } from "./session-entries.js";
++import type { SessionManager } from "./session-manager.js";
++/** `customType` of the transcript entries that record a session moving between machines. */
++export declare const SESSION_TRANSFER_MESSAGE_TYPE = "session-transfer";
++/** Transfer provenance shared by archive commands and writable session adoption. */
++export type SessionTransferDetails = {
++    kind: "arrived";
++    fromCwd: string;
++    cwd: string;
++} | {
++    kind: "departed";
++    to: string;
++} | {
++    kind: "forked";
++    source: string;
++    to: string;
++};
++/** Transfer details of `entry`, or `undefined` when it is not a session-transfer marker. */
++export declare function sessionTransferDetails(entry: FileEntry): SessionTransferDetails | undefined;
++/** The latest session-transfer marker in append order, if any. */
++export declare function lastSessionTransfer(entries: readonly FileEntry[]): SessionTransferDetails | undefined;
++/** Append a visible, model-facing transfer marker and make it durable. */
++export declare function appendTransferNotice(manager: SessionManager, details: SessionTransferDetails): Promise<void>;
+--- a/pi-coding-agent/dist/types/session/session-transfer.d.ts
++++ b/pi-coding-agent/dist/types/session/session-transfer.d.ts
+@@ -1,9 +1,6 @@
+-import type { FileEntry } from "./session-entries.js";
+-import { SessionManager } from "./session-manager.js";
++import type { SessionManager } from "./session-manager.js";
+ /** Archive format version written by {@link packSession} and the only one {@link unpackSession} reads. */
+ export declare const SESSION_ARCHIVE_VERSION = 1;
+-/** `customType` of the transcript entries that record a session moving between machines. */
+-export declare const SESSION_TRANSFER_MESSAGE_TYPE = "session-transfer";
+ /** `manifest.json` of a session archive. */
+ export interface SessionArchiveManifest {
+     /** Archive format version ({@link SESSION_ARCHIVE_VERSION}). */
+@@ -15,24 +12,6 @@
+     /** omp version that wrote the archive. */
+     omp: string;
+ }
+-/**
+- * Structured details of a {@link SESSION_TRANSFER_MESSAGE_TYPE} entry:
+- * - `arrived` — unpacked here from `fromCwd` on another machine into `cwd`;
+- * - `departed` — this copy was handed to `to` and is stale from here on;
+- * - `forked` — a stale copy (`source`) was resumed, so it continued as a fork.
+- */
+-export type SessionTransferDetails = {
+-    kind: "arrived";
+-    fromCwd: string;
+-    cwd: string;
+-} | {
+-    kind: "departed";
+-    to: string;
+-} | {
+-    kind: "forked";
+-    source: string;
+-    to: string;
+-};
+ /** User-facing failure of a pack, unpack, or move marker: missing input, bad archive, live owner. */
+ export declare class SessionTransferError extends Error {
+     constructor(message: string);
+@@ -69,10 +48,6 @@
+     /** How the session was placed. */
+     mode: UnpackMode;
+ }
+-/** Transfer details of `entry`, or `undefined` when it is not a session-transfer marker. */
+-export declare function sessionTransferDetails(entry: FileEntry): SessionTransferDetails | undefined;
+-/** The latest session-transfer marker in append order, if any. */
+-export declare function lastSessionTransfer(entries: readonly FileEntry[]): SessionTransferDetails | undefined;
+ /**
+  * Pack `sessionFile` with its artifacts and referenced blobs into the tar
+  * `outPath` (written atomically). Refuses a session another live omp process
+@@ -98,10 +73,3 @@
+  * and this copy is stale. Refuses a session another live omp process writes.
+  */
+ export declare function markSessionMoved(sessionFile: string, label: string): Promise<void>;
+-/**
+- * Resume guard: when `manager`'s latest transfer marker says the session moved
+- * away, close it untouched and return a fork of it (in `sessionDir`, default:
+- * the cwd's session directory) carrying a visible `forked` notice. Otherwise
+- * return `manager` itself.
+- */
+-export declare function forkIfMovedAway(manager: SessionManager, sessionDir?: string): Promise<SessionManager>;
+--- a/pi-coding-agent/dist/types/session/turn-recovery.d.ts
++++ b/pi-coding-agent/dist/types/session/turn-recovery.d.ts
+@@ -66,7 +66,8 @@
+     appendSessionMessage(message: AssistantMessage): void;
+     persistedAssistantEntryId(message: AssistantMessage): string | undefined;
+     sessionMessageAlreadyPersisted(message: AssistantMessage): boolean;
+-    setModelWithProviderSessionReset(model: Model): Promise<void>;
++    /** Commit selection metadata synchronously with the live model, before observers or reconciliation. */
++    setModelWithProviderSessionReset(model: Model, commitSelection?: () => void): Promise<void>;
+     /** Edit mode resolved for the active model and settings, captured before a fallback swap. */
+     resolveActiveEditMode(): EditMode;
+     /** Rebuilds the model-dependent base system prompt when a swap changed the edit mode or model policy. */
+@@ -207,7 +208,7 @@
+      * primary, so callers can re-run the pre-send context-fit check against the
+      * reverted (possibly smaller) window before issuing the next request.
+      */
+-    maybeRestoreRetryFallbackPrimary(): Promise<boolean>;
++    maybeRestoreRetryFallbackPrimary(admissionCurrent?: () => boolean): Promise<boolean>;
+     /** Applies model fallback policy from live usage health before a turn starts. */
+     maybeApplyUsageAwareFallback(signal: AbortSignal, confirmer?: UsageFallbackConfirmer): Promise<boolean>;
+     /** Applies automatic retry, credential rotation, and model fallback policy. */
+--- a/pi-coding-agent/src/collab/guest.ts
++++ b/pi-coding-agent/src/collab/guest.ts
+@@ -609,7 +609,9 @@
+ 					// history, so rebuild the message array from the ingested entries
+ 					// exactly as the host does after appendCompaction/branchWithSummary
+ 					// (session-maintenance.ts, agent-session.ts).
+-					this.#ctx.session.agent.replaceMessages(this.#ctx.session.buildDisplaySessionContext().messages);
++					this.#ctx.session.agent.replaceMessages(
++						this.#ctx.session.buildDisplaySessionContext({ persistEvalStateContext: false }).messages,
++					);
+ 				}
+ 				break;
+ 			}
+--- a/pi-coding-agent/src/main.ts
++++ b/pi-coding-agent/src/main.ts
+@@ -114,7 +114,6 @@
+ import type { ForeignSessionInfo, ForeignSessionSource, ForeignSessionStore } from "./session/foreign-session-store";
+ import { resolveResumableSession, type SessionInfo } from "./session/session-listing";
+ import { ForkSourceNotFoundError, SessionManager, SessionMoveRefusedError } from "./session/session-manager";
+-import { forkIfMovedAway } from "./session/session-transfer";
+ import { shouldShowStartupSplash } from "./startup-splash";
+ import {
+ 	discoverSystemPromptOverride,
+@@ -1239,7 +1238,8 @@
+ 				throw err;
+ 			}
+ 			// A copy whose conversation moved to another machine continues as a fork.
+-			return await forkIfMovedAway(manager, parsed.sessionDir);
++			await manager.adoptForWrite();
++			return manager;
+ 		}
+ 		const match = await resolveResumableSession(sessionArg, cwd, parsed.sessionDir);
+ 		if (!match) {
+@@ -1254,7 +1254,8 @@
+ 				askToMoveSession,
+ 			);
+ 			if (moveResult.status === "moved") {
+-				return await forkIfMovedAway(moveResult.manager, parsed.sessionDir);
++				await moveResult.manager.adoptForWrite();
++				return moveResult.manager;
+ 			}
+ 			if (moveResult.status === "declined") {
+ 				return undefined;
+@@ -1269,16 +1270,21 @@
+ 				askToMoveSession,
+ 			);
+ 			if (moveResult.status === "moved") {
+-				return await forkIfMovedAway(moveResult.manager, parsed.sessionDir);
++				await moveResult.manager.adoptForWrite();
++				return moveResult.manager;
+ 			}
+ 			if (moveResult.status === "declined") {
+ 				return undefined;
+ 			}
+ 		}
+-		return await forkIfMovedAway(await SessionManager.open(match.session.path, parsed.sessionDir), parsed.sessionDir);
++		const manager = await SessionManager.open(match.session.path, parsed.sessionDir);
++		await manager.adoptForWrite();
++		return manager;
+ 	}
+ 	if (parsed.continue) {
+-		return await forkIfMovedAway(await SessionManager.continueRecent(cwd, parsed.sessionDir), parsed.sessionDir);
++		const manager = await SessionManager.continueRecent(cwd, parsed.sessionDir);
++		await manager.adoptForWrite();
++		return manager;
+ 	}
+ 	// --resume without value is handled separately (needs picker UI)
+ 	// If --session-dir provided without --continue/--resume, create new session there
+@@ -1291,10 +1297,8 @@
+ 	// overriding them with CLI defaults.
+ 	// An explicit startup goal starts fresh even when implicit auto-resume is configured.
+ 	if (parsed.goal === undefined && cfgAutoResume.get(activeSettings)) {
+-		const manager = await forkIfMovedAway(
+-			await SessionManager.continueRecent(cwd, parsed.sessionDir),
+-			parsed.sessionDir,
+-		);
++		const manager = await SessionManager.continueRecent(cwd, parsed.sessionDir);
++		await manager.adoptForWrite();
+ 		if (manager.getEntries().length > 0) {
+ 			parsed.continue = true;
+ 		}
+@@ -2153,12 +2157,10 @@
+ 				process.exit(0);
+ 			}
+ 			try {
+-				sessionManager = await forkIfMovedAway(
+-					(await SessionManager.isFromRemovedWorktree(selected, cwd, parsedArgs.sessionDir))
+-						? await openRelocatedSession(selected, cwd, parsedArgs.sessionDir)
+-						: await SessionManager.open(selected.path),
+-					parsedArgs.sessionDir,
+-				);
++				sessionManager = (await SessionManager.isFromRemovedWorktree(selected, cwd, parsedArgs.sessionDir))
++					? await openRelocatedSession(selected, cwd, parsedArgs.sessionDir)
++					: await SessionManager.open(selected.path, parsedArgs.sessionDir);
++				await sessionManager.adoptForWrite();
+ 			} catch (error: unknown) {
+ 				if (error instanceof SessionResolutionError) exitForSessionResolutionError(error);
+ 				throw error;
+--- a/pi-coding-agent/src/modes/controllers/selector-controller.ts
++++ b/pi-coding-agent/src/modes/controllers/selector-controller.ts
+@@ -1903,15 +1903,15 @@
+ 				return false;
+ 			}
+ 		}
+-		const target = await this.#relocateFromRemovedWorktree(sessionPath);
+-		if (!target) return false;
++		const relocation = await this.#getRemovedWorktreeRelocation(sessionPath);
+ 		await this.ctx.prepareSessionSwitch();
+ 		this.ctx.resetObserverRegistry();
+-		// AgentSession owns the transaction. It restores the complete source state
+-		// if applying the target project's cwd fails, including in-memory sessions.
++		// AgentSession owns adoption and relocation through the cancellable switch.
++		// Merely selecting a departed session must not publish a continuation fork.
+ 		let modelFallbackWarning: string | undefined;
+ 		if (
+-			(await this.ctx.session.switchSession(target.sessionPath, {
++			(await this.ctx.session.switchSession(sessionPath, {
++				relocateTo: relocation?.destination,
+ 				onCwdChange: async (newCwd, sourceCwd) => {
+ 					if (normalizePathForComparison(newCwd) === normalizePathForComparison(sourceCwd)) return true;
+ 					return this.ctx.applyCwdChange(newCwd);
+@@ -1933,8 +1933,8 @@
+ 		await this.ctx.renderInitialMessages({ clearTerminalHistory: true });
+ 		await this.ctx.reloadTodos();
+ 		this.ctx.showStatus(
+-			target.movedFrom
+-				? `Resumed session, moved here from removed worktree ${shortenPath(target.movedFrom)}`
++			relocation
++				? `Resumed session, moved here from removed worktree ${shortenPath(relocation.movedFrom)}`
+ 				: movedProject
+ 					? `Resumed session in ${shortenPath(newCwd)}`
+ 					: "Resumed session",
+@@ -1944,31 +1944,21 @@
+ 	}
+ 
+ 	/**
+-	 * Move a session recorded in a removed worktree of this repository into the
+-	 * current folder before resuming it: its own directory cannot be entered.
+-	 * Returns the session file to switch to, or undefined after reporting a failed move.
++	 * Describe a removed-worktree relocation without changing its journal or
++	 * artifacts. The common switch transaction applies it after cancellable
++	 * admission and retains rollback ownership until the resume succeeds.
+ 	 */
+-	async #relocateFromRemovedWorktree(
++	async #getRemovedWorktreeRelocation(
+ 		sessionPath: string,
+-	): Promise<{ sessionPath: string; movedFrom?: string } | undefined> {
++	): Promise<{ destination: { cwd: string; sessionDir: string }; movedFrom: string } | undefined> {
+ 		const sessionManager = this.ctx.sessionManager;
+ 		// Never move the live session out from under its own writer.
+-		if (sessionManager.getSessionFile() === sessionPath) return { sessionPath };
++		if (sessionManager.getSessionFile() === sessionPath) return undefined;
+ 		const cwd = sessionManager.getCwd();
+ 		const sessionDir = sessionManager.getSessionDir();
+ 		const info = await readSessionInfo(sessionPath);
+-		if (!info || !(await SessionManager.isFromRemovedWorktree(info, cwd, sessionDir))) return { sessionPath };
+-		try {
+-			const relocated = await SessionManager.openRelocated(sessionPath, info.cwd, cwd, sessionDir);
+-			const movedPath = relocated.getSessionFile() ?? sessionPath;
+-			await relocated.close();
+-			return { sessionPath: movedPath, movedFrom: info.cwd };
+-		} catch (error) {
+-			this.ctx.showError(
+-				`Could not move the session out of removed worktree ${shortenPath(info.cwd)}: ${error instanceof Error ? error.message : String(error)}`,
+-			);
+-			return undefined;
+-		}
++		if (!info || !(await SessionManager.isFromRemovedWorktree(info, cwd, sessionDir))) return undefined;
++		return { destination: { cwd, sessionDir }, movedFrom: info.cwd };
+ 	}
+ 
+ 	async handleSessionDeleteCommand(): Promise<void> {
+--- a/pi-coding-agent/src/sdk.ts
++++ b/pi-coding-agent/src/sdk.ts
+@@ -1858,6 +1858,9 @@
+ 		logger.time("sessionManager", () =>
+ 			SessionManager.create(cwd, SessionManager.getDefaultSessionDir(cwd, agentDir)),
+ 		);
++	// Writable startup adoption precedes all identity, history and prefix reads.
++	// Raw SessionManager.open() remains available for nonmutating inspection.
++	await sessionManager.adoptForWrite();
+ 	const configuredDirs = options.additionalDirectories
+ 		? options.additionalDirectories
+ 		: cfgWorkspaceAdditionalDirectories.get(settings);
+@@ -2225,10 +2228,12 @@
+ 
+ 	try {
+ 		const getActiveModelString = (): string | undefined => {
+-			const activeModel = agent?.state.model;
+-			if (activeModel) return formatModelString(activeModel);
+-			if (model) return formatModelString(model);
+-			return undefined;
++			const activeModel = agent?.state.model ?? model;
++			if (!activeModel) return undefined;
++			// Inherit the live route and effective effort, not just the model identity.
++			// A later effort change must not reuse the startup selector or restart auto triage.
++			const effort = agent?.state.model ? agent.state.thinkingLevel : toReasoningEffort(effectiveThinkingLevel);
++			return formatModelSelectorValue(formatModelStringWithRouting(activeModel), effort);
+ 		};
+ 		// Per-path mutation counter shared across edit/write tools. Late-diagnostics
+ 		// entries capture it at fetch time and are dropped at injection if a newer
+@@ -3911,6 +3916,7 @@
+ 					? { mode: "compact", toolNames: [...toolNames, ...mountedPromptToolNames] }
+ 					: { mode: "full" },
+ 			);
++			const promptModel = agent?.state.model ?? model;
+ 			const defaultPrompt = await buildSystemPromptInternal({
+ 				cwd: promptCwd,
+ 				additionalWorkspaceRoots: sessionManager.getAdditionalDirectories(),
+@@ -3948,7 +3954,7 @@
+ 				securityEnabled: cfgSecurityEnabled.get(settings),
+ 				settingsApproval: toolSession.settingsApproval === true,
+ 				evalPreludes: toolSession.getAdvertisedEvalPreludes?.(),
+-				model: getActiveModelString(),
++				model: promptModel ? formatModelString(promptModel) : undefined,
+ 				includeModelInPrompt: cfgIncludeModelInPrompt.get(settings),
+ 				personality: agentKind === "sub" ? "none" : cfgPersonality.get(settings),
+ 				subagent: agentKind === "sub",
+@@ -4179,7 +4185,11 @@
+ 			model => modelRegistry.getApiKey(model, providerSessionId),
+ 		);
+ 		disposeCallbacks.add(() => blobBroker.dispose());
+-		const dateCwdReminder = new DateCwdReminderInjector();
++		const dateCwdReminder = new DateCwdReminderInjector(
++			() => sessionManager.getSessionId(),
++			undefined,
++			() => sessionManager.getSessionFile(),
++		);
+ 		// Always installed; the getter-backed options are snapshotted per request,
+ 		// so `snapcompact.*` changes apply on the next call (a no-op while both are off).
+ 		const snapcompactInline = new SnapcompactInlineTransformer(
+@@ -4214,7 +4224,7 @@
+ 			// Byte budget after decoration: URL/file-referenced images carry no inline bytes.
+ 			transformed = clampProviderContextImageBytes(transformed, transformModel);
+ 			// Keep per-request volatility out of the system prompt: the date/cwd
+-			// reminder rides on the first user turn so open-weight providers keep
++			// reminder rides on a provider-only tail so open-weight providers keep
+ 			// their tool-schema prefix cache (#7404).
+ 			return dateCwdReminder.transform(
+ 				transformed,
+@@ -5169,7 +5179,7 @@
+ 				const captureModel = captureOptions.initialState?.model;
+ 				const captureSessionId = captureOptions.sessionId;
+ 				if (!captureModel || !captureSessionId) throw new Error("Auto-learn capture identity is incomplete");
+-				const captureDateCwdReminder = new DateCwdReminderInjector();
++				const captureDateCwdReminder = new DateCwdReminderInjector(() => captureSessionId);
+ 				return new Agent({
+ 					...captureOptions,
+ 					cwd: sessionManager.getCwd(),
+--- a/pi-coding-agent/src/session/agent-session.ts
++++ b/pi-coding-agent/src/session/agent-session.ts
+@@ -120,6 +120,7 @@
+ import {
+ 	DEFAULT_PREWALK_TARGET,
+ 	disabledProviderIds,
++	formatModelStringWithRouting,
+ 	getModelMatchPreferences,
+ 	type ResolvedModelRoleValue,
+ 	resolveCliModel,
+@@ -428,7 +429,7 @@
+ 	type SessionDumpLiveState,
+ } from "./session-dump-format";
+ import { collectSubSessions, type SubSession } from "./sub-sessions";
+-import type { BranchSummaryEntry, NewSessionOptions } from "./session-entries";
++import type { BranchSummaryEntry, ModelChangeEntry, NewSessionOptions } from "./session-entries";
+ import { SessionHandoff, type SessionHandoffHost } from "./session-handoff";
+ import {
+ 	COMPACTION_CHECK_NONE,
+@@ -441,7 +442,9 @@
+ 	copySessionArtifacts,
+ 	extractSessionInit,
+ 	type PersistedSessionInit,
++	type SessionAdoption,
+ 	type SessionManager,
++	type SessionManagerStateSnapshot,
+ } from "./session-manager";
+ import { SessionMemory, type SessionMemoryHost } from "./session-memory";
+ import { buildSessionMetadata } from "./session-metadata";
+@@ -532,6 +535,16 @@
+ import { cfgTtsrJudge } from "../export/ttsr-settings";
+ import { cfgMemoryBackend } from "../memory-backend/settings";
+ 
++/** Live selection carried across a history rewrite without changing resume-role policy. */
++interface SessionModelSelection {
++	model?: string;
++	role: string;
++	resolvedModelIsFallback?: boolean;
++	defaultModel?: ModelChangeEntry;
++	thinkingLevel: ThinkingLevel | undefined;
++	configuredThinkingLevel: ConfiguredThinkingLevel | undefined;
++}
++
+ /** Advisor settings whose edit toggles or rebuilds a running advisor. */
+ const cfgAdvisorRuntimeInputs = combine({
+ 	enabled: cfgAdvisorEnabled,
+@@ -1731,8 +1744,11 @@
+ 			kernelOwnerId: config.evalKernelOwnerId ?? `agent-session:${Snowflake.next()}`,
+ 		});
+ 		this.#evalToolSession = config.evalToolSession;
+-		const initialEvalStateContext = this.#buildEvalStateContextMessage();
+-		if (initialEvalStateContext) this.agent.appendMessage(initialEvalStateContext);
++		const initialEvalStateContext = this.#nextEvalStateContext(this.agent.state.messages);
++		if (initialEvalStateContext) {
++			this.#persistEvalStateContext(initialEvalStateContext);
++			this.agent.appendMessage(initialEvalStateContext);
++		}
+ 		const ircHost: IrcBridgeHost = {
+ 			agent: this.agent,
+ 			sessionManager: this.sessionManager,
+@@ -1873,7 +1889,8 @@
+ 			appendSessionMessage: message => this.#appendSessionMessage(message),
+ 			persistedAssistantEntryId: message => (message as PersistedAssistantMessage)[kPersistedSessionEntryId],
+ 			sessionMessageAlreadyPersisted: message => this.#sessionMessageAlreadyPersisted(message),
+-			setModelWithProviderSessionReset: model => this.#setModelWithProviderSessionReset(model),
++			setModelWithProviderSessionReset: (model, commitSelection) =>
++				this.#setModelWithProviderSessionReset(model, commitSelection),
+ 			resolveActiveEditMode: () => this.#tools.resolveActiveEditMode(),
+ 			syncAfterModelChange: previousEditMode => this.#tools.syncAfterModelChange(previousEditMode),
+ 			resetCurrentResponsesProviderSession: reason => this.#resetCurrentResponsesProviderSession(reason),
+@@ -6726,16 +6743,54 @@
+ 		return this.#providerBoundary.getImageAttachments();
+ 	}
+ 
+-	buildDisplaySessionContext(): SessionContext {
+-		return this.#withEvalStateContext(this.#providerBoundary.buildDisplaySessionContext());
++	/**
++	 * Rebuilds the agent-facing context from session entries. Callers that
++	 * commit the result persist a new eval reminder so every later rebuild,
++	 * including a resumed process, replays it at the same index; read-only
++	 * snapshots pass `persistEvalStateContext: false` and write nothing.
++	 */
++	buildDisplaySessionContext(options?: { persistEvalStateContext?: boolean }): SessionContext {
++		return this.#withEvalStateContext(
++			this.#providerBoundary.buildDisplaySessionContext(),
++			options?.persistEvalStateContext ?? true,
++		);
+ 	}
+ 
+-	#withEvalStateContext(context: SessionContext): SessionContext {
+-		const evalStateContext = this.#buildEvalStateContextMessage();
++	#withEvalStateContext(context: SessionContext, persist = true): SessionContext {
++		const evalStateContext = this.#nextEvalStateContext(context.messages);
+ 		if (!evalStateContext) return context;
++		if (persist) this.#persistEvalStateContext(evalStateContext);
+ 		return { ...context, messages: [...context.messages, evalStateContext] };
+ 	}
+ 
++	/**
++	 * The reminder to append, or undefined when the context's newest eval
++	 * reminder already carries the current text. History is append-only: an
++	 * older snapshot stays at its index (rewriting it would fork the cached
++	 * prefix) and the newest one, last in the context, is authoritative.
++	 */
++	#nextEvalStateContext(messages: readonly AgentMessage[]): CustomMessage | undefined {
++		const message = this.#buildEvalStateContextMessage();
++		if (!message) return undefined;
++		for (let index = messages.length - 1; index >= 0; index--) {
++			const existing = messages[index];
++			if (existing.role !== "custom" || existing.customType !== message.customType) continue;
++			return existing.content === message.content ? undefined : message;
++		}
++		return message;
++	}
++
++	#persistEvalStateContext(message: CustomMessage): void {
++		this.sessionManager.appendCustomMessageEntry(
++			message.customType,
++			message.content,
++			message.display,
++			undefined,
++			message.attribution,
++			message.timestamp,
++		);
++	}
++
+ 	#buildEvalStateContextMessage(): CustomMessage | undefined {
+ 		const session = this.#evalToolSession;
+ 		if (!session) return undefined;
+@@ -10145,6 +10200,7 @@
+ 			// stop and settle in-flight advisors before muting their feeds.
+ 			await this.#advisors.drainAndDetachRecorders();
+ 			const bashTransition = this.#bash.beginSessionTransition();
++			const selection = this.#captureModelSelection();
+ 
+ 			// Fork the session (creates new session file with same entries)
+ 			let forkResult: { oldSessionFile: string; newSessionFile: string } | undefined;
+@@ -10163,6 +10219,7 @@
+ 			}
+ 			this.#bash.markSessionTransition(bashTransition);
+ 			this.#bash.finishSessionTransition(bashTransition, true);
++			this.#persistModelSelection(selection);
+ 			// The fork clones the transcript and keeps this recovery state running
+ 			// under a fresh id, so the work already produced is still this session's.
+ 			this.#recovery.reanchorServedAttribution(previousSessionId);
+@@ -10887,7 +10944,7 @@
+ 		}
+ 	}
+ 
+-	async #setModelWithProviderSessionReset(model: Model): Promise<void> {
++	async #setModelWithProviderSessionReset(model: Model, commitSelection?: () => void): Promise<void> {
+ 		const currentModel = this.model;
+ 		const isChanging = !currentModel || !modelsAreEqual(currentModel, model);
+ 		if (currentModel) {
+@@ -10897,6 +10954,9 @@
+ 			}
+ 		}
+ 		this.agent.setModel(model);
++		// Publish durable role/provenance and effort with the live model before
++		// observers or asynchronous reconciliation can capture this selection.
++		commitSelection?.();
+ 		// Model mutations driven through ModelControls (explicit /model, prewalk
+ 		// hand-offs, retry-fallback, model cycling) funnel through this method,
+ 		// so this is the single point that notifies subscribers (ACP config
+@@ -11575,8 +11635,10 @@
+ 		sessionPath: string,
+ 		options?: {
+ 			onCwdChange?: (newCwd: string, previousCwd: string) => Promise<boolean>;
+-			/** Collab snapshot adoption keeps the guest's process cwd and marks the replica runtime-only. */
++			/** Collab snapshots keep the guest cwd and never append local resume metadata to the replica. */
+ 			preserveLocalCwd?: boolean;
++			/** Relocate a removed-worktree session inside this switch transaction; incompatible with preserveLocalCwd. */
++			relocateTo?: { cwd: string; sessionDir?: string };
+ 			/**
+ 			 * Use this model instead of the target's saved one, like an explicit
+ 			 * `--model` at startup, and record it in the session when it differs.
+@@ -11591,6 +11653,9 @@
+ 			onModelFallback?: (warning: string) => void;
+ 		},
+ 	): Promise<boolean> {
++		if (options?.preserveLocalCwd && options.relocateTo) {
++			throw new Error("A read-only replica cannot be relocated while switching sessions.");
++		}
+ 		const explicitModel = options?.model;
+ 		if (explicitModel && !this.#modelRegistry.hasConfiguredAuth(explicitModel)) {
+ 			throw new Error(`No API key for ${explicitModel.provider}/${explicitModel.id}`);
+@@ -11598,7 +11663,7 @@
+ 		using _transition = this.#beginSessionTransition();
+ 		await this.#idleEphemeralReservation?.settled;
+ 		const previousSessionFile = this.sessionManager.getSessionFile();
+-		const switchingToDifferentSession = previousSessionFile
++		let switchingToDifferentSession = previousSessionFile
+ 			? path.resolve(previousSessionFile) !== path.resolve(sessionPath)
+ 			: true;
+ 		// Emit session_before_switch event (can be cancelled)
+@@ -11614,6 +11679,11 @@
+ 			}
+ 		}
+ 
++		// Keep the outgoing journal owned until rollback is impossible. Raw target
++		// loading releases the manager's claim, not this independently retained one.
++		const outgoingOwnership = this.sessionManager.retainWritableOwnership();
++		using _outgoingOwnership = { [Symbol.dispose]: () => outgoingOwnership.release() };
++
+ 		this.#disconnectFromAgent();
+ 		await this.abort({ goalReason: "internal" });
+ 		await this.#sessionBeforeSwitchReconciler?.();
+@@ -11632,7 +11702,9 @@
+ 		// blowing the heap before the new session even loads (issue #3846). The
+ 		// error-recovery path rebuilds the context on demand from the restored
+ 		// state instead.
+-		const previousSessionContext = switchingToDifferentSession ? undefined : this.buildDisplaySessionContext();
++		const previousSessionContext = switchingToDifferentSession
++			? undefined
++			: this.buildDisplaySessionContext({ persistEvalStateContext: false });
+ 		// switchSession replaces these arrays wholesale during load/rollback, so retaining
+ 		// the existing message objects is sufficient and avoids structured-clone failures for
+ 		// extension/custom metadata that is valid to persist but not cloneable.
+@@ -11685,12 +11757,13 @@
+ 		this.#usagePreflightReadyModel = undefined;
+ 
+ 		let cwdChangeTarget: string | undefined;
++		let writableAdoption: SessionAdoption | undefined;
++		let relocationSnapshot: SessionManagerStateSnapshot | undefined;
+ 		try {
+-			if (switchingToDifferentSession) {
+-				// Stop and settle in-flight advisors while the old-session feeds can
+-				// still observe message_end, then mute before swapping files.
+-				await this.#advisors.drainAndDetachRecorders();
+-			}
++			// Even a same-path reload can adopt a departed session as a new fork.
++			// Drain while the old-session feeds still own the manager, before loading
++			// or cloning its replacement.
++			await this.#advisors.drainAndDetachRecorders();
+ 			// The file may be reloaded at the same path with a different latest contract (or the
+ 			// switch rolled back via restoreState); re-read it on the next model call either way.
+ 			this.#sessionInit = undefined;
+@@ -11700,7 +11773,22 @@
+ 					readOnly: this.#memoryTranscriptReadOnly,
+ 				});
+ 			}
+-			await this.sessionManager.setSessionFile(sessionPath);
++			await this.sessionManager.setSessionFile(sessionPath, { writable: false });
++			const targetSessionId = this.sessionManager.getSessionId();
++			if (!options?.preserveLocalCwd) {
++				writableAdoption = await this.sessionManager.beginWritableAdoption();
++			}
++			if (options?.relocateTo) {
++				// Adoption owns newly minted forks; only an existing target needs
++				// an inverse move before its adoption authority can be released.
++				const snapshot =
++					this.sessionManager.getSessionId() === targetSessionId
++						? this.sessionManager.captureState()
++						: undefined;
++				await this.sessionManager.moveTo(options.relocateTo.cwd, options.relocateTo.sessionDir);
++				relocationSnapshot = snapshot;
++			}
++			switchingToDifferentSession ||= previousSessionState.sessionId !== this.sessionManager.getSessionId();
+ 			this.#bash.markSessionTransition(bashTransition);
+ 			const newCwd = this.sessionManager.getCwd();
+ 			const recordedCwd = this.sessionManager.getRecordedCwd() ?? previousSessionState.cwd;
+@@ -11729,7 +11817,9 @@
+ 			this.#syncAgentSessionId(undefined, false);
+ 			this.#memory.rekeyForCurrentSessionId();
+ 
+-			let sessionContext = this.buildDisplaySessionContext();
++			let sessionContext = this.buildDisplaySessionContext({
++				persistEvalStateContext: !options?.preserveLocalCwd,
++			});
+ 			// Resolve the target's model before announcing the switch, so an
+ 			// unrestorable one rolls back before any hook sees the target session.
+ 			const targetModelStrings = getRestorableSessionModels(
+@@ -11795,13 +11885,13 @@
+ 					targetModelStrings.length > 0
+ 						? resolveSessionModelSelector(this.#modelRegistry, targetModelStrings[0])?.model
+ 						: undefined;
+-				if (explicitModel && !(savedModel && modelsAreEqual(savedModel, targetModel))) {
++				if (!options?.preserveLocalCwd && explicitModel && !(savedModel && modelsAreEqual(savedModel, targetModel))) {
+ 					this.sessionManager.appendModelChange(`${targetModel.provider}/${targetModel.id}`);
+ 				}
+ 			}
+ 
+ 			const model = this.model;
+-			if (model) {
++			if (model && !options?.preserveLocalCwd) {
+ 				const interruptedTurnAbort = createInterruptedTurnAbortMessage(this.sessionManager.getBranch(), {
+ 					api: model.api,
+ 					provider: model.provider,
+@@ -11809,7 +11899,9 @@
+ 				});
+ 				if (interruptedTurnAbort) {
+ 					this.sessionManager.appendMessage(interruptedTurnAbort);
+-					sessionContext = this.buildDisplaySessionContext();
++					sessionContext = this.buildDisplaySessionContext({
++						persistEvalStateContext: !options?.preserveLocalCwd,
++					});
+ 					this.agent.replaceMessages(sessionContext.messages);
+ 				}
+ 			}
+@@ -11890,6 +11982,7 @@
+ 				if (options?.onModelFallback) options.onModelFallback(modelFallbackWarning);
+ 				else this.emitNotice("warning", modelFallbackWarning);
+ 			}
++			writableAdoption?.commit();
+ 			// A successful reload owns a fresh recall slot even when only custom
+ 			// snapshot metadata changed and displayed messages stayed identical.
+ 			// Clearing before cwd/model/hooks settle would lose it on rollback.
+@@ -11903,7 +11996,21 @@
+ 			}
+ 			return true;
+ 		} catch (error) {
++			const rollbackErrors: unknown[] = [];
++			if (relocationSnapshot) {
++				try {
++					await this.sessionManager.rollbackMove(relocationSnapshot);
++				} catch (rollbackError) {
++					rollbackErrors.push(rollbackError);
++				}
++			}
++			try {
++				await writableAdoption?.rollback();
++			} catch (rollbackError) {
++				rollbackErrors.push(rollbackError);
++			}
+ 			this.sessionManager.restoreState(previousSessionState);
++			outgoingOwnership.restore();
+ 			this.#freshProviderSessionId = previousFreshProviderSessionId;
+ 			this.#syncAgentSessionId(previousSessionState.sessionId, false);
+ 			this.#memory.rekeyForCurrentSessionId();
+@@ -11987,6 +12094,9 @@
+ 				}
+ 			}
+ 			this.#bash.finishSessionTransition(bashTransition, false);
++			if (rollbackErrors.length > 0) {
++				throw new AggregateError([error, ...rollbackErrors], "Failed to roll back writable session adoption");
++			}
+ 			if (error === SESSION_CWD_CHANGE_REJECTED) return false;
+ 			throw error;
+ 		}
+@@ -12047,6 +12157,63 @@
+ 	}
+ 
+ 	/**
++	 * Capture after cancellable hooks and drains, immediately before replacing history.
++	 * Keep the durable default behind temporary/ephemeral roles: an ephemeral model
++	 * remains live after the rewrite but still restores the default on a fresh resume.
++	 */
++	#captureModelSelection(): SessionModelSelection {
++		const branch = this.sessionManager.getBranch();
++		const entry = branch.findLast(entry => entry.type === "model_change");
++		const role = entry?.role ?? "default";
++		return {
++			model: this.model ? formatModelStringWithRouting(this.model) : undefined,
++			role,
++			resolvedModelIsFallback: entry?.resolvedModelIsFallback,
++			defaultModel:
++				role === "default"
++					? undefined
++					: branch.findLast(entry => entry.type === "model_change" && (entry.role ?? "default") === "default"),
++			thinkingLevel: this.thinkingLevel,
++			configuredThinkingLevel: this.configuredThinkingLevel(),
++		};
++	}
++
++	/** Record the captured live selection only after the destination history was adopted. */
++	#persistModelSelection(selection: SessionModelSelection): void {
++		const branch = this.sessionManager.getBranch();
++		const latestModel = branch.findLast(entry => entry.type === "model_change");
++		const sameModel = (entry: ModelChangeEntry | undefined, model: string, fallback?: boolean): boolean =>
++			entry?.model === model && entry.resolvedModelIsFallback === fallback;
++		let defaultChanged = false;
++		if (selection.defaultModel) {
++			const currentDefault = branch.findLast(
++				entry => entry.type === "model_change" && (entry.role ?? "default") === "default",
++			);
++			const { model, resolvedModelIsFallback } = selection.defaultModel;
++			if (!sameModel(currentDefault, model, resolvedModelIsFallback)) {
++				this.sessionManager.appendModelChange(model, "default", resolvedModelIsFallback);
++				defaultChanged = true;
++			}
++		}
++		if (
++			selection.model &&
++			(defaultChanged ||
++				(latestModel?.role ?? "default") !== selection.role ||
++				!sameModel(latestModel, selection.model, selection.resolvedModelIsFallback))
++		) {
++			this.sessionManager.appendModelChange(selection.model, selection.role, selection.resolvedModelIsFallback);
++		}
++		const thinking = branch.findLast(entry => entry.type === "thinking_level_change");
++		if (
++			!thinking ||
++			thinking.thinkingLevel !== selection.thinkingLevel ||
++			(thinking.configured ?? thinking.thinkingLevel) !== selection.configuredThinkingLevel
++		) {
++			this.sessionManager.appendThinkingLevelChange(selection.thinkingLevel, selection.configuredThinkingLevel);
++		}
++	}
++
++	/**
+ 	 * Shared {@link branch}/{@link fork}(entryId) transition: moves the live session onto a
+ 	 * new session file holding the root-to-`leafId` path (an empty one when `leafId` is
+ 	 * null), emitting `session_before_branch`/`session_branch` with `reason` for `entryId`.
+@@ -12105,6 +12272,7 @@
+ 		try {
+ 			advisorRecordersDetached = true;
+ 			await this.#advisors.drainAndDetachRecorders();
++			const selection = this.#captureModelSelection();
+ 			try {
+ 				// A prompt admitted during the drain awaits above belongs to the history
+ 				// being replaced; the generation bump drops its pending setup.
+@@ -12123,6 +12291,7 @@
+ 			} finally {
+ 				this.#bash.finishSessionTransition(bashTransition, sessionTransitioned);
+ 			}
++			this.#persistModelSelection(selection);
+ 			this.#clearSessionScopedToolState();
+ 			this.#rehydrateCheckpointRewindState();
+ 			this.#todo.syncFromBranch();
+@@ -12134,8 +12303,12 @@
+ 			this.#memoryTranscriptReadOnly = false;
+ 			await this.#memory.resetContextForNewTranscript({ readOnly: false });
+ 
+-			// Reload messages from entries (works for both file and in-memory mode)
+-			const sessionContext = this.buildDisplaySessionContext();
++			// Reload messages from entries (works for both file and in-memory mode).
++			// A hook that skips the restore keeps the old messages, so nothing is
++			// committed and the eval reminder must not be persisted either.
++			const sessionContext = this.buildDisplaySessionContext({
++				persistEvalStateContext: !skipConversationRestore,
++			});
+ 
+ 			// Emit session_branch event to hooks (after branch completes)
+ 			if (this.#extensionRunner) {
+@@ -12225,6 +12398,7 @@
+ 		try {
+ 			advisorRecordersDetached = true;
+ 			await this.#advisors.drainAndDetachRecorders();
++			const selection = this.#captureModelSelection();
+ 			try {
+ 				if (this.sessionManager.getSessionId() !== sessionId || this.sessionManager.getLeafId() !== leafId) {
+ 					throw new Error("Cannot branch /btw: session changed since /btw started");
+@@ -12239,6 +12413,7 @@
+ 			} finally {
+ 				this.#bash.finishSessionTransition(bashTransition, sessionTransitioned);
+ 			}
++			this.#persistModelSelection(selection);
+ 
+ 			this.#clearSessionScopedToolState();
+ 
+@@ -12573,6 +12748,9 @@
+ 			newLeafId = targetId;
+ 		}
+ 
++		// Navigation changes history, not the live model or its durable role.
++		const selection = this.#captureModelSelection();
++
+ 		// Switch leaf (with or without summary)
+ 		// Summary is attached at the navigation target position (newLeafId), not the old branch
+ 		const bashTransition = this.#bash.beginSessionTransition();
+@@ -12599,6 +12777,7 @@
+ 			this.#bash.finishSessionTransition(bashTransition, branchTransitioned);
+ 		}
+ 
++		this.#persistModelSelection(selection);
+ 		// Update agent state — build display context to populate agent messages.
+ 		const stateContext = this.sessionManager.buildSessionContext();
+ 		const displayContext = this.#withEvalStateContext(deobfuscateSessionContext(stateContext, this.#obfuscator));
+--- a/pi-coding-agent/src/session/date-cwd-reminder.ts
++++ b/pi-coding-agent/src/session/date-cwd-reminder.ts
+@@ -3,15 +3,50 @@
+  *
+  * The system prompt must stay byte-stable so open-weight chat templates that
+  * render tool schemas *after* the system content keep their prefix cache
+- * (#7404). The per-request date/cwd line used to live at the tail of the
+- * system prompt (`project-prompt.md`), which invalidated the whole tool array
+- * on every directory change or day rollover. It now rides on the first user
+- * turn of each provider request instead: built at request time (never stored
+- * in the session), deterministic per `(date, cwd)`, so the bytes are stable
+- * for the lifetime of a session/day and refresh automatically at midnight.
++ * (#7404). The per-request date/cwd line therefore cannot live at the tail of
++ * the system prompt (`project-prompt.md`), which invalidated the whole tool
++ * array on every directory change or day rollover.
++ *
++ * It used to ride on a *provider-only tail message*: built at request time,
++ * never stored in the session. That kept the system prompt stable but cost one
++ * cache breakpoint every single turn. The synthetic tail occupies a message
++ * slot, so on the next turn the real assistant reply lands on that same index
++ * and Anthropic sees a ROLE FLIP mid-history:
++ *
++ *   turn N     messages[326] = user  "<system-reminder> Today: ..."   (synthetic)
++ *   turn N+1   messages[326] = assistant "...real reply..."             (real)
++ *
++ * Measured on session 01a0778e (claude-opus-5, ~620k context): every turn
++ * reported `HISTORY_REWRITE` with `sharedPrefix` advancing in steps of TWO
++ * (314 -> 316 -> ... -> 328) instead of the `n-1` pure tail-append shape, i.e. the
++ * reminder AND the preceding real reply were both re-billed each turn. On long
++ * replies that was 11 815-12 335 `cacheWrite` tokens per turn against ~600k of
++ * `cacheRead` (strict 97.9-98.1%); short replies fell back to ~1 600. At that
++ * context size the 2% gap is ~12k tokens of full-price recompute per turn, and
++ * re-billed `input` costs about 10x `cacheRead`.
++ *
++ * The reminder now rides *inside the last real user message* and the text is
++ * frozen per message via a persisted anchor map. Consequences:
++ *
++ *   - the message COUNT never changes, so no slot is ever re-typed and the
++ *     prefix stays a pure `n-1` tail append;
++ *   - a message that was once stamped keeps its ORIGINAL stamp forever, so its
++ *     bytes are stable across turns, across `resume`, and across processes;
++ *   - a day rollover only affects the NEXT user message. The cost is exactly
++ *     one stale `Today:` line left in history per rollover, which is far
++ *     cheaper than re-billing two messages every turn.
++ *
++ * The anchor key is `role:timestamp:sha256(pre-injection content)[0..16]`.
++ * Hashing the PRE-injection content is what makes the key reproducible: that
++ * is the byte sequence rebuilt from the session JSONL on resume. Keying on
++ * `role:timestamp` alone would let two messages minted in the same millisecond
++ * reuse each other's text (the failure 0016 hit in the Trellis anchor map).
+  */
+-import type { Context, Message, UserMessage } from "@oh-my-pi/pi-ai";
+-import { prompt } from "@oh-my-pi/pi-utils";
++import { createHash } from "node:crypto";
++import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
++import { dirname, join } from "node:path";
++import type { Context, ImageContent, Message, TextContent } from "@oh-my-pi/pi-ai";
++import { getAgentDir, prompt } from "@oh-my-pi/pi-utils";
+ import dateCwdReminderTemplate from "../prompts/system/date-cwd-reminder.md" with { type: "text" };
+ 
+ /** Renders the reminder text for the given local calendar date and cwd. */
+@@ -19,112 +54,220 @@
+ 	return prompt.render(dateCwdReminderTemplate, { date, cwd }).trim();
+ }
+ 
+-function messageStartsWithReminder(message: UserMessage, reminder: string): boolean {
+-	if (typeof message.content === "string") return message.content.startsWith(reminder);
+-	return message.content[0]?.type === "text" && message.content[0].text === reminder;
++/** Anchor key for a message: stable across processes, collision-resistant. */
++export function dateCwdAnchorKey(message: Message, content: string): string {
++	const digest = createHash("sha256").update(content).digest("hex").slice(0, 16);
++	return `${message.role}:${String(message.timestamp ?? 0)}:${digest}`;
++}
++/** The text a reminder rides on: a string content, or the last text block of
++ *  a block array (real user messages arrive as `(TextContent|ImageContent)[]`
++ *  from the session loader; a plain typed message is a string). */
++function textOf(message: Message): string | undefined {
++	if (typeof message.content === "string") return message.content;
++	if (Array.isArray(message.content)) {
++		for (let i = message.content.length - 1; i >= 0; i--) {
++			const block = message.content[i]!;
++			if (block.type === "text") return block.text;
++		}
++	}
++	return undefined;
++}
++/** The message with `reminder` appended to its ride-on text, same content kind. */
++function withStamp(message: Message, text: string, reminder: string): Message {
++	if (typeof message.content === "string") return { ...message, content: `${text}\n\n${reminder}` };
++	const blocks = message.content as (TextContent | ImageContent)[];
++	for (let i = blocks.length - 1; i >= 0; i--) {
++		const block = blocks[i]!;
++		if (block.type !== "text") continue;
++		const next = blocks.slice();
++		next[i] = { ...block, text: `${block.text}\n\n${reminder}` };
++		return { ...message, content: next };
++	}
++	return { ...message, content: [...blocks, { type: "text", text: reminder } as TextContent] };
++}
++function anchorFile(sessionId: string, root: string): string {
++	// Session-scoped so switching sessions cannot cross-contaminate stamps.
++	const safe = sessionId.replace(/[^A-Za-z0-9._-]/g, "_");
++	return join(root, `${safe}.json`);
++}
++
++/** Session-owned artifact, copied with history and included in transfer archives. */
++export const DATE_CWD_ANCHORS_ARTIFACT = "date-cwd-anchors.json";
++
++function sessionAnchorFile(sessionFile: string): string {
++	let realFile = sessionFile;
++	try {
++		realFile = realpathSync(sessionFile);
++	} catch {}
++	return join(realFile.endsWith(".jsonl") ? realFile.slice(0, -6) : `${realFile}.artifacts`, DATE_CWD_ANCHORS_ARTIFACT);
+ }
+ 
+-function injectReminder(message: UserMessage, reminder: string): UserMessage {
+-	const content: UserMessage["content"] =
+-		typeof message.content === "string"
+-			? `${reminder}\n\n${message.content}`
+-			: [{ type: "text", text: reminder }, ...message.content];
+-	return { ...message, content };
++/** Reads session-owned state first, including {}, then the pre-upgrade ID map. */
++export function readDateCwdAnchors(
++	sessionId: string,
++	sessionFile?: string,
++	anchorRoot: string = join(getAgentDir(), "date-cwd-anchors"),
++): Record<string, string> | undefined {
++	const owned = sessionFile ? sessionAnchorFile(sessionFile) : undefined;
++	const file = owned && existsSync(owned) ? owned : anchorFile(sessionId, anchorRoot);
++	if (!existsSync(file)) return undefined;
++	const anchors: Record<string, string> = {};
++	try {
++		const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
++		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
++			for (const [key, value] of Object.entries(parsed)) {
++				if (typeof value === "string") anchors[key] = value;
++			}
++		}
++	} catch {
++		// Preserve the existing corrupt-map policy, but never fall back to a
++		// stale legacy map when the session already owns an explicit snapshot.
++	}
++	return anchors;
+ }
+ 
+-/** Developer turns the injector inserted; every other output message maps to an input one. */
+-const reminderControls = new WeakSet<Message>();
++function writeAnchors(file: string, anchors: Record<string, string>): void {
++	mkdirSync(dirname(file), { recursive: true });
++	const tmp = `${file}.${String(process.pid)}.tmp`;
++	writeFileSync(tmp, JSON.stringify(anchors), { mode: 0o600 });
++	renameSync(tmp, file);
++}
+ 
+-/** Whether `message` is a developer turn a {@link DateCwdReminderInjector} inserted. */
+-export function isDateCwdReminderControl(message: Message): boolean {
+-	return reminderControls.has(message);
++/** Publish the frozen state before a cloned journal can be adopted under a new ID. */
++export function copyDateCwdAnchors(sourceId: string, sourceFile: string, destinationFile: string): void {
++	const destination = sessionAnchorFile(destinationFile);
++	if (sessionAnchorFile(sourceFile) === destination) return;
++	const anchors = readDateCwdAnchors(sourceId, sourceFile);
++	// Missing state stays missing; an explicit empty snapshot must be copied.
++	if (anchors !== undefined) writeAnchors(destination, anchors);
+ }
+ 
+ /**
+- * Keeps volatile date/cwd reminders append-only across provider requests.
++ * Stamps the reminder into the last real user message, replaying frozen stamps
++ * for every message that already carries one.
+  *
+- * The first value is attached to the first user turn. A changed value attaches
+- * to a newly appended user turn or a persistent developer turn, leaving every
+- * previously sent message byte-identical.
++ * `anchors` is mutated in place for newly stamped messages; the caller decides
++ * when to persist. Returns the original array when nothing changed so callers
++ * can keep their identity checks cheap.
+  */
++export function applyDateCwdAnchors(
++	messages: Message[],
++	reminder: string,
++	anchors: Record<string, string>,
++): { messages: Message[]; dirty: boolean } {
++	// Drop any legacy provider-only tail: an in-process Context can be reused
++	// across requests, and leaving the old synthetic tail in place would
++	// reintroduce the very slot churn this replaces.
++	let end = messages.length;
++	while (end > 0) {
++		const message = messages[end - 1]!;
++		if (message.role !== "user" || message.providerOnly !== true) break;
++		end--;
++	}
++	const base = end === messages.length ? messages : messages.slice(0, end);
++	if (base.length === 0) return { messages, dirty: false };
++
++	// The newest real user message is the only one eligible for a NEW stamp.
++	let newestUser = -1;
++	for (let i = base.length - 1; i >= 0; i--) {
++		const message = base[i]!;
++		if (message.role === "user" && message.providerOnly !== true && textOf(message) !== undefined) {
++			newestUser = i;
++			break;
++		}
++	}
++
++	let dirty = false;
++	let changed = base !== messages;
++	const out: Message[] = new Array(base.length);
++	for (let i = 0; i < base.length; i++) {
++		const message = base[i]!;
++		const text =
++			message.role === "user" && message.providerOnly !== true ? textOf(message) : undefined;
++		if (text === undefined) {
++			out[i] = message;
++			continue;
++		}
++		const key = dateCwdAnchorKey(message, text);
++		const stamp = anchors[key];
++		if (stamp !== undefined) {
++			out[i] = withStamp(message, text, stamp);
++			changed = true;
++			continue;
++		}
++		// Only the newest user message may mint a stamp. Older unstamped
++		// messages predate this mechanism (or came from a session recorded
++		// before it landed) and MUST stay byte-identical to their JSONL form.
++		if (i !== newestUser) {
++			out[i] = message;
++			continue;
++		}
++		anchors[key] = reminder;
++		dirty = true;
++		out[i] = withStamp(message, text, reminder);
++		changed = true;
++	}
++	return changed ? { messages: out, dirty } : { messages, dirty };
++}
++
++/** Applies the reminder through the upstream injector contract. */
+ export class DateCwdReminderInjector {
+-	#root: UserMessage | undefined;
+-	#currentReminder: string | undefined;
+-	#injections = new Map<Message, Message>();
+-	#controls: Array<{ anchor: Message; message: Message }> = [];
+-	#seen = new WeakSet<object>();
++	readonly #sessionId: () => string | undefined;
++	readonly #anchorRoot: () => string;
++	readonly #sessionFile: () => string | undefined;
++	#loadedFor: string | undefined;
++	#anchors: Record<string, string> = {};
+ 
+-	/** Apply the current reminder while preserving all earlier injected bytes. */
+-	transform(context: Context, date: string, cwd: string): Context {
+-		if (!context.systemPrompt || context.systemPrompt.length === 0 || context.messages.length === 0) return context;
+-		const reminder = renderDateCwdReminder(date, cwd);
+-		const messages = this.#inject(context.messages, reminder);
+-		return messages === context.messages ? context : { ...context, messages };
++	constructor(
++		sessionId: () => string | undefined = () => undefined,
++		// Injectable so the regression gate can point at a temp dir: getAgentDir()
++		// is frozen at module load, so swapping HOME cannot redirect it.
++		anchorRoot: () => string = () => join(getAgentDir(), "date-cwd-anchors"),
++		sessionFile: () => string | undefined = () => undefined,
++	) {
++		this.#sessionId = sessionId;
++		this.#anchorRoot = anchorRoot;
++		this.#sessionFile = sessionFile;
+ 	}
+ 
+-	#inject(messages: Message[], reminder: string): Message[] {
+-		const firstUser = messages.find((message): message is UserMessage => message.role === "user");
+-		if (!firstUser) return messages;
+-		if (this.#root !== firstUser) {
+-			// A new first user turn: a compaction summary or a different conversation.
+-			// Turns kept from the earlier history must keep the reminders they were
+-			// sent with, or their bytes change under signed thinking; reminders on
+-			// turns that are gone are dropped. The new root gets the current reminder.
+-			const present = new Set<Message>(messages);
+-			for (const message of this.#injections.keys()) {
+-				if (!present.has(message)) this.#injections.delete(message);
+-			}
+-			this.#controls = this.#controls.filter(control => present.has(control.anchor));
+-			this.#root = firstUser;
+-			this.#currentReminder = reminder;
+-			if (!this.#injections.has(firstUser) && !messageStartsWithReminder(firstUser, reminder)) {
+-				this.#injections.set(firstUser, injectReminder(firstUser, reminder));
+-			}
+-		} else if (this.#currentReminder !== reminder) {
+-			let newUser: UserMessage | undefined;
+-			for (let index = messages.length - 1; index >= 0; index--) {
+-				const candidate = messages[index]!;
+-				if (candidate.role === "user" && !this.#seen.has(candidate)) {
+-					newUser = candidate;
+-					break;
+-				}
+-			}
+-			if (newUser) {
+-				this.#injections.set(newUser, injectReminder(newUser, reminder));
+-			} else {
+-				const anchor = messages.at(-1)!;
+-				const control: Message = {
+-					role: "developer",
+-					content: reminder,
+-					synthetic: true,
+-					timestamp: Date.now(),
+-				};
+-				reminderControls.add(control);
+-				this.#controls.push({ anchor, message: control });
+-			}
+-			this.#currentReminder = reminder;
++	#load(sessionId: string): void {
++		const sessionFile = this.#sessionFile();
++		const owner = `${sessionId}\0${sessionFile ?? this.#anchorRoot()}`;
++		if (this.#loadedFor === owner) return;
++		this.#loadedFor = owner;
++		this.#anchors = readDateCwdAnchors(sessionId, sessionFile, this.#anchorRoot()) ?? {};
++		// One-way migration: future clones and archives carry this state rather
++		// than depending on a workstation-global ID directory.
++		if (sessionFile && !existsSync(sessionAnchorFile(sessionFile))) this.#persist(sessionId);
++	}
++
++	#persist(sessionId: string): void {
++		const sessionFile = this.#sessionFile();
++		const file = sessionFile ? sessionAnchorFile(sessionFile) : anchorFile(sessionId, this.#anchorRoot());
++		try {
++			writeAnchors(file, this.#anchors);
++		} catch {
++			// Persistence is an optimization for resume; an in-memory map still
++			// keeps this process byte-stable.
+ 		}
++	}
+ 
+-		const controlsByAnchor = new Map<Message, Message[]>();
+-		for (const control of this.#controls) {
+-			const controls = controlsByAnchor.get(control.anchor);
+-			if (controls) controls.push(control.message);
+-			else controlsByAnchor.set(control.anchor, [control.message]);
+-		}
+-
+-		let changed = false;
+-		const out: Message[] = [];
+-		for (const message of messages) {
+-			const injected = this.#injections.get(message);
+-			out.push(injected ?? message);
+-			if (injected) changed = true;
+-			const controls = controlsByAnchor.get(message);
+-			if (controls) {
+-				out.push(...controls);
+-				changed = true;
+-			}
+-			this.#seen.add(message);
++	transform(context: Context, date: string, cwd: string): Context {
++		if (!context.systemPrompt || context.systemPrompt.length === 0 || context.messages.length === 0) return context;
++		const sessionId = this.#sessionId();
++		if (sessionId === undefined) {
++			// No session identity (one-shot / capture agents with no id): fall back
++			// to in-memory anchors only. Still slot-stable within the process.
++			const { messages } = applyDateCwdAnchors(context.messages, renderDateCwdReminder(date, cwd), this.#anchors);
++			return messages === context.messages ? context : { ...context, messages };
+ 		}
+-		return changed ? out : messages;
++		this.#load(sessionId);
++		const { messages, dirty } = applyDateCwdAnchors(
++			context.messages,
++			renderDateCwdReminder(date, cwd),
++			this.#anchors,
++		);
++		if (dirty) this.#persist(sessionId);
++		return messages === context.messages ? context : { ...context, messages };
+ 	}
+ }
+--- a/pi-coding-agent/src/session/messages.ts
++++ b/pi-coding-agent/src/session/messages.ts
+@@ -6,7 +6,6 @@
+  */
+ import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+ import {
+-	isUserInterruptAbort,
+ 	isCustomMessageContent,
+ 	type BashExecutionMessage,
+ 	type PythonExecutionMessage,
+@@ -474,6 +473,34 @@
+ 	return next !== undefined && next.role === "custom" && next.customType === INTERRUPTED_THINKING_MESSAGE_TYPE;
+ }
+ 
++/**
++ * Distinctive sentence of `prompts/system/stream-stall-continue.md`, the
++ * developer reminder `TurnRecovery.handleCommittedTextStreamStall` appends when
++ * a transport stall killed a turn whose text had already rendered.
++ */
++export const STREAM_STALL_CONTINUE_REMINDER_TEXT = "The provider connection dropped mid-response:";
++
++/**
++ * True when the assistant turn at `messages[index]` was kept by the
++ * committed-text stall continuation — identified by its continuation reminder,
++ * which is the durable record of that decision (it is written to the session
++ * file), so the live provider call and a rebuild from disk agree. Both paths
++ * then retain the already-rendered partial text the model is told to continue.
++ */
++export function followedByStreamStallContinueReminder(messages: AgentMessage[], index: number): boolean {
++	const next = messages[index + 1];
++	if (next === undefined || next.role !== "developer") return false;
++	const content = next.content;
++	const text =
++		typeof content === "string"
++			? content
++			: content
++					.filter(block => block.type === "text")
++					.map(block => block.text)
++					.join("\n");
++	return text.includes(STREAM_STALL_CONTINUE_REMINDER_TEXT);
++}
++
+ /** Drop an incomplete trailing thinking run from an interrupted assistant in the LLM view. */
+ function stripDemotedThinkingForLlm(message: AssistantMessage): AssistantMessage {
+ 	const demoted = demoteInterruptedThinking(message);
+@@ -1014,6 +1041,7 @@
+  */
+ interface ConvertMemoEntry {
+ 	interruptedNext: boolean;
++	stallContinued: boolean;
+ 	fragment: Message[];
+ }
+ const convertCache = new WeakMap<AgentMessage, ConvertMemoEntry>();
+@@ -1039,6 +1067,7 @@
+ 	output: Message[];
+ 	tail: AgentMessage | undefined;
+ 	prefixOutputLen: number;
++	prunedToolCallIds: Set<string> | undefined;
+ }
+ 
+ let convertGeneration = 0;
+@@ -1056,8 +1085,9 @@
+ });
+ 
+ /** Convert one message to its LLM fragment. `interruptedNext` is true only for an
+- *  assistant turn immediately followed by its interrupted-thinking marker. */
+-function convertOne(m: AgentMessage, interruptedNext: boolean): Message[] {
++ *  assistant turn immediately followed by its interrupted-thinking marker;
++ *  `stallContinued` only for one followed by a committed-text stall reminder. */
++function convertOne(m: AgentMessage, interruptedNext: boolean, stallContinued: boolean): Message[] {
+ 	switch (m.role) {
+ 		case "bashExecution":
+ 			if (m.excludeFromContext) {
+@@ -1124,6 +1154,12 @@
+ 		}
+ 		case "custom": {
+ 			if (!isCustomMessageContent(m.content)) return [];
++			// Process-local marker: minted in memory on abort and never written to
++			// the session JSONL. Sending it would make the wire prefix depend on
++			// which process rendered it -- the live turn carries the note, a resumed
++			// turn rebuilt from disk does not -- voiding the implicit cache from that
++			// index on.
++			if (m.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) return [];
+ 			if (isSteeringUserMessage(m)) {
+ 				const converted = convertMessageToLlm(wrapSteeringUserMessage(m));
+ 				return converted ? [converted] : [];
+@@ -1151,16 +1187,43 @@
+ 			return converted ? [converted] : [];
+ 		}
+ 		case "assistant": {
++			if (m.stopReason === "aborted" || m.stopReason === "error") {
++				// A committed-text stall continuation is the first exception: the transport
++				// died after its text had rendered, `handleCommittedTextStreamStall` kept the
++				// turn and asked the model to continue where it stopped, and its continuation
++				// reminder immediately follows. Keep the committed text AND any recorded
++				// request controls; dropping either hides the text the model is told to
++				// continue, or forks the live wire against the rebuilt one.
++				if (stallContinued) {
++					// `strippedToolCalls` is a TUI-only marker written by the transcript
++					// branch of `buildSessionContext`. It must never ride a provider message.
++					const continued: AssistantMessage & { strippedToolCalls?: number } = { ...m };
++					delete continued.strippedToolCalls;
++					const converted = convertMessageToLlm(canonicalizeXdToolCallNames(continued));
++					return converted ? [converted] : [];
++				}
++				// A recorded request-controls carrier is the next exception: later Anthropic
++				// requests replay its `tool_removal` / `tool_addition` off the top-level tool
++				// list, so the turn survives as a control-only message with the interrupted
++				// payload filtered out.
++				if (m.requestControls !== undefined) {
++					const carrier: AssistantMessage & { strippedToolCalls?: number } = { ...m, content: [] };
++					delete carrier.strippedToolCalls;
++					const converted = convertMessageToLlm(canonicalizeXdToolCallNames(carrier));
++					return converted ? [converted] : [];
++				}
++				// Otherwise an interrupted/failed turn is a transcript event, not replayable
++				// history. `buildSessionContext` prunes it on the rebuild path, but the live
++				// path feeds agent state straight into `convertToLlm`
++				// (`agent-loop.prepareProviderCall`: `messages = context.messages`), so it must
++				// be pruned here too -- otherwise the two paths disagree at every interrupt
++				// point and the implicit cache dies from that index on.
++				return [];
++			}
+ 			// Persisted/displayed messages retain interrupted thinking. Signed or
+ 			// encrypted blocks replay natively; incomplete unsigned runs are
+ 			// stripped whether or not they were long enough for a continuity note.
+-			const userInterrupted = m.stopReason === "aborted" && isUserInterruptAbort(m);
+-			const source = interruptedNext || userInterrupted ? stripDemotedThinkingForLlm(m) : m;
+-			// An empty interrupted response still carries the controls its request
+-			// sent (e.g. an Anthropic `tool_removal`); later requests replay them from it.
+-			if (userInterrupted && !interruptedNext && source.content.length === 0 && m.requestControls === undefined) {
+-				return [];
+-			}
++			const source = interruptedNext ? stripDemotedThinkingForLlm(m) : m;
+ 			const converted = convertMessageToLlm(canonicalizeXdToolCallNames(source));
+ 			return converted ? [converted] : [];
+ 		}
+@@ -1189,12 +1252,14 @@
+ 
+ /** Cached per-message conversion. Reuses the stored fragment while identity and
+  *  `interruptedNext` neighbor state hold; recomputes on a neighbor flip. */
+-function convertOneCached(m: AgentMessage, interruptedNext: boolean): Message[] {
++function convertOneCached(m: AgentMessage, interruptedNext: boolean, stallContinued: boolean): Message[] {
+ 	const cached = convertCache.get(m);
+-	if (cached !== undefined && cached.interruptedNext === interruptedNext) return cached.fragment;
+-	const fragment = convertOne(m, interruptedNext);
++	if (cached !== undefined && cached.interruptedNext === interruptedNext && cached.stallContinued === stallContinued) {
++		return cached.fragment;
++	}
++	const fragment = convertOne(m, interruptedNext, stallContinued);
+ 	for (const message of fragment) copyPerCallContextMessage(message, m);
+-	convertCache.set(m, { interruptedNext, fragment });
++	convertCache.set(m, { interruptedNext, stallContinued, fragment });
+ 	return fragment;
+ }
+ 
+@@ -1240,6 +1305,7 @@
+ 	// array while swapping earlier identities, forcing a full rebuild.
+ 	let out: Message[];
+ 	let start: number;
++	let prunedToolCallIds: Set<string> | undefined;
+ 	if (
+ 		sameGeneration &&
+ 		len > memo.length &&
+@@ -1249,6 +1315,7 @@
+ 	) {
+ 		out = memo.output.slice(0, memo.prefixOutputLen);
+ 		start = memo.length - 1;
++		prunedToolCallIds = memo.prunedToolCallIds;
+ 	} else {
+ 		out = [];
+ 		start = 0;
+@@ -1260,8 +1327,16 @@
+ 	for (let i = start; i < len; i++) {
+ 		if (i === len - 1) prefixOutputLen = out.length;
+ 		const m = messages[i];
++		if (m.role === "assistant" && (m.stopReason === "aborted" || m.stopReason === "error")) {
++			// Keep synthetic results paired with their discarded call across appends.
++			for (const block of m.content) {
++				if (block.type === "toolCall") (prunedToolCallIds ??= new Set()).add(block.id);
++			}
++		}
++		if (m.role === "toolResult" && prunedToolCallIds?.has(m.toolCallId)) continue;
+ 		const interruptedNext = m.role === "assistant" && followedByInterruptedThinking(messages, i);
+-		const fragment = convertOneCached(m, interruptedNext);
++		const stallContinued = m.role === "assistant" && followedByStreamStallContinueReminder(messages, i);
++		const fragment = convertOneCached(m, interruptedNext, stallContinued);
+ 		for (const msg of fragment) out.push(msg);
+ 	}
+ 	if (len === 0) prefixOutputLen = 0;
+@@ -1274,6 +1349,7 @@
+ 		output: out,
+ 		tail,
+ 		prefixOutputLen,
++		prunedToolCallIds,
+ 	});
+ 	return out;
+ }
+--- a/pi-coding-agent/src/session/session-context.ts
++++ b/pi-coding-agent/src/session/session-context.ts
+@@ -12,7 +12,7 @@
+ 	createBranchSummaryMessage,
+ 	createCompactionSummaryMessage,
+ 	createCustomMessage,
+-	INTERRUPTED_THINKING_MESSAGE_TYPE,
++	followedByStreamStallContinueReminder,
+ 	isEmptyErrorTurn,
+ 	PREWALK_PLAN_MESSAGE_TYPE,
+ 	VIBE_MODE_CONTEXT_MESSAGE_TYPE,
+@@ -736,16 +736,30 @@
+ 	// later user message follows through non-context entries (`session_exit`,
+ 	// labels, etc.); otherwise a resumed session replays a dead partial turn
+ 	// and can spend minutes reprocessing old context before the new prompt.
+-	// Keep the interrupted-thinking continuity pair: convertToLlm strips the
+-	// unsafe trailing thinking from that assistant and sends the hidden
+-	// continuity note instead.
++	// The interrupted-thinking continuity marker is never persisted to the
++	// session JSONL, so keeping an abort alive because that marker follows makes
++	// the wire history a function of process-local state: the live process keeps
++	// the turn, a resumed process rebuilding from disk drops it, and the implicit
++	// prompt cache dies at every interrupt point. Prune unconditionally so both
++	// paths render the same sequence; `convertOne` prunes the live path and the
++	// marker itself.
++	//
++	// The one turn that survives on both paths is a recorded request-controls
++	// carrier: later Anthropic requests replay its `tool_removal`/`tool_addition`
++	// off the declared tool list, so dropping it here would fork the wire against
++	// the live process. It is left in place -- `convertOne` empties its interrupted
++	// payload and drops the paired synthetic results -- so the pre-conversion
++	// sequences of the live and rebuild paths are identical as well.
+ 	if (!options?.transcript) {
+ 		for (let i = messages.length - 1; i >= 0; i--) {
+ 			const message = messages[i];
+ 			if (message?.role !== "assistant") continue;
+ 			if (message.stopReason !== "aborted" && message.stopReason !== "error") continue;
+-			const next = messages[i + 1];
+-			if (next?.role === "custom" && next.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) continue;
++			if (message.requestControls !== undefined) continue;
++			// A committed-text stall turn is kept: its continuation reminder follows,
++			// the text already rendered, and `convertOne` retains it for the provider.
++			// Pruning it here would drop the rendered text on resume only.
++			if (followedByStreamStallContinueReminder(messages, i)) continue;
+ 			// A failed turn that emitted tool calls persists paired synthetic
+ 			// tool_result placeholders after it. Dropping only the assistant would
+ 			// strand those results with no preceding tool_use — a shape providers
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -3232,21 +3232,13 @@
+ 					// same context re-runs the same plan into the same cap, so tell the
+ 					// model what happened and to act in smaller steps.
+ 					if (assistantMessage.usage.output > 0) {
+-						this.#host.agent.appendMessage({
+-							role: "developer",
+-							content: [
+-								{
+-									type: "text",
+-									text: prompt.render(lengthStopRetryTemplate, {
+-										outputTokens: assistantMessage.usage.output,
+-										retryCount: this.#incompleteRecoveryAttempts,
+-										maxRetries: INCOMPLETE_RECOVERY_MAX_RETRIES,
+-									}),
+-								},
+-							],
+-							attribution: "agent",
+-							timestamp: Date.now(),
+-						});
++						this.#appendLengthStopReminder(
++							prompt.render(lengthStopRetryTemplate, {
++								outputTokens: assistantMessage.usage.output,
++								retryCount: this.#incompleteRecoveryAttempts,
++								maxRetries: INCOMPLETE_RECOVERY_MAX_RETRIES,
++							}),
++						);
+ 					}
+ 					logger.debug("Retrying response.incomplete without compaction (below threshold)", {
+ 						model: `${assistantMessage.provider}/${assistantMessage.model}`,
+@@ -3377,6 +3369,25 @@
+ 	}
+ 
+ 	/**
++	 * Append the length-stop retry reminder to the live context AND the session
++	 * file, as the other recovery reminders do (see turn-recovery.ts). Kept in
++	 * memory only, a rebuild from disk (resume, in-process context rebuild) drops
++	 * it, so the next request forks the provider's cached prefix at the reminder's
++	 * index and re-writes the whole tail. The caller appends it after dropping the
++	 * persisted length turn, so the file order stays identical to the live order.
++	 */
++	#appendLengthStopReminder(text: string): void {
++		const reminder: Message = {
++			role: "developer",
++			content: [{ type: "text", text }],
++			attribution: "agent",
++			timestamp: Date.now(),
++		};
++		this.#host.agent.appendMessage(reminder);
++		this.#host.sessionManager.appendMessage(reminder);
++	}
++
++	/**
+ 	 * Attempt context promotion to a larger model.
+ 	 * Returns true if promotion succeeded (caller should retry without compacting).
+ 	 */
+--- a/pi-coding-agent/src/session/session-manager.ts
++++ b/pi-coding-agent/src/session/session-manager.ts
+@@ -29,6 +29,8 @@
+ import { ArtifactManager } from "./artifacts";
+ import { type BlobPutOptions, type BlobPutResult, BlobStore, lazyImageDataSync } from "./blob-store";
+ import type { CompactionMethod } from "./compaction-methods";
++import { copyDateCwdAnchors } from "./date-cwd-reminder";
++import { appendTransferNotice, lastSessionTransfer } from "./session-transfer-marker";
+ import {
+ 	type BashExecutionMessage,
+ 	type CustomMessage,
+@@ -303,6 +305,21 @@
+ 	return stranded;
+ }
+ 
++/** Publish every staged artifact or remove the transaction's partial directory. */
++async function copyArtifactsDirectoryCompletely(source: string, destination: string): Promise<void> {
++	await fs.promises.mkdir(destination);
++	try {
++		await fs.promises.cp(source, destination, { recursive: true, force: false, errorOnExist: true });
++	} catch (error) {
++		try {
++			await fs.promises.rm(destination, { recursive: true, force: true });
++		} catch (cleanupError) {
++			throw new AggregateError([error, cleanupError], `Could not remove incomplete artifacts at "${destination}".`);
++		}
++		throw error;
++	}
++}
++
+ /**
+  * Relocate a session's artifacts directory for {@link SessionManager.moveTo}.
+  *
+@@ -323,7 +340,26 @@
+  * but not reachable through `artifact://` — two writers that shared one id
+  * space cannot both be.
+  */
+-async function relocateArtifactsDirectory(source: string, destination: string): Promise<"renamed" | "merged"> {
++async function relocateArtifactsDirectory(
++	source: string,
++	destination: string,
++	requireComplete = false,
++): Promise<"renamed" | "merged" | "copied"> {
++	if (requireComplete) {
++		const occupant = await fs.promises.lstat(destination).catch((error: unknown) => {
++			if (isEnoent(error)) return null;
++			throw error;
++		});
++		if (occupant) throw new Error(`Cannot publish staged artifacts onto existing directory "${destination}".`);
++		try {
++			await fs.promises.rename(source, destination);
++			return "renamed";
++		} catch (error) {
++			if (!isFsError(error) || error.code !== "EXDEV") throw error;
++			await copyArtifactsDirectoryCompletely(source, destination);
++			return "copied";
++		}
++	}
+ 	try {
+ 		await fs.promises.rename(source, destination);
+ 		return "renamed";
+@@ -746,7 +782,19 @@
+ 	| "putBlobSync"
+ >;
+ 
+-interface SessionManagerStateSnapshot {
++/** Writable admission remains reversible until the caller commits its switch. */
++export interface SessionAdoption {
++	commit(): void;
++	rollback(): Promise<void>;
++}
++
++/** An outgoing writer's authority retained while a switch may still roll back. */
++export interface SessionOwnership {
++	release(): void;
++	restore(): void;
++}
++
++export interface SessionManagerStateSnapshot {
+ 	cwd: string;
+ 	sessionDir: string;
+ 	sessionId: string;
+@@ -1264,8 +1312,10 @@
+ 		const from = this.#sessionFile as string;
+ 		const previousSessionId = this.#sessionId;
+ 		const timestamp = nowIso();
+-		this.#sessionId = mintSessionId();
+-		const to = path.join(path.dirname(from), `${fileSafeTimestamp(timestamp)}_${this.#sessionId}.jsonl`);
++		const newSessionId = mintSessionId();
++		const to = path.join(path.dirname(from), `${fileSafeTimestamp(timestamp)}_${newSessionId}.jsonl`);
++		copyDateCwdAnchors(previousSessionId, from, to);
++		this.#sessionId = newSessionId;
+ 		this.#header = {
+ 			...this.#header,
+ 			id: this.#sessionId,
+@@ -2238,6 +2288,10 @@
+ 		this.#closeWriterEventually();
+ 		this.#diskTail = Promise.resolve();
+ 		this.#clearDiskError();
++		if (this.#sessionClaim?.sessionId !== snapshot.sessionId) {
++			this.#sessionClaim?.release?.();
++			this.#sessionClaim = undefined;
++		}
+ 
+ 		this.#cwd = snapshot.cwd;
+ 		this.#sessionDir = snapshot.sessionDir;
+@@ -2299,23 +2353,168 @@
+ 			await this.#rewriteAtomically();
+ 		}
+ 	}
+-	/** Switch to a different session file (resume / branch). */
+-	async setSessionFile(sessionFile: string): Promise<void> {
++	/** Pin an admitted writer without releasing it when this manager loads another file. */
++	retainWritableOwnership(): SessionOwnership {
++		const sessionId = this.#sessionId;
++		const sessionFile = this.#sessionFile;
++		const release = this.#persist && sessionFile && this.#sessionClaim?.release
++			? this.#storage.claimSession?.(sessionId, sessionFile, { strict: true })
++			: undefined;
++		if (release === null) throw new SessionMoveRefusedError(`Cannot retain writable ownership of "${sessionFile}".`);
++		let retained = release;
++		return {
++			release: () => {
++				retained?.();
++				retained = undefined;
++			},
++			restore: () => {
++				if (!retained) return;
++				if (this.#sessionId !== sessionId) throw new Error("Restore the outgoing session before its ownership.");
++				this.#sessionClaim?.release?.();
++				this.#sessionClaim = { sessionId, release: retained };
++				retained = undefined;
++			},
++		};
++	}
++
++	/** Switch to a session for writing; replicas may explicitly request inspection only. */
++	async setSessionFile(sessionFile: string, options?: { writable?: boolean }): Promise<void> {
+ 		await this.#setSessionFile(sessionFile);
++		if (options?.writable !== false) await this.adoptForWrite();
++	}
++
++	/** Admit writable history and immediately commit a non-cancellable resume. */
++	async adoptForWrite(): Promise<void> {
++		const adoption = await this.beginWritableAdoption();
++		adoption.commit();
++	}
++
++	/**
++	 * Claim before refreshing transfer provenance, then retain that authority
++	 * through writable use. A departed source stays untouched; only its newly
++	 * minted continuation belongs to this transaction and may be rolled back.
++	 */
++	async beginWritableAdoption(): Promise<SessionAdoption> {
++		const originalClaim = this.#sessionClaim;
++		let sourceClaim = originalClaim;
++		let sourceSnapshot: SessionManagerStateSnapshot | undefined;
++		let forkId: string | undefined;
++		let forkFile: string | undefined;
++		let settled = false;
++		const adoption: SessionAdoption = {
++			commit: () => {
++				if (settled) return;
++				settled = true;
++				if (forkId) sourceClaim?.release?.();
++			},
++			rollback: async () => {
++				if (settled) return;
++				settled = true;
++				if (forkId) {
++					if (this.#sessionId !== forkId) throw new Error("Writable adoption changed identity before rollback.");
++					// A successful move may have relocated the transaction's fork.
++					// Delete both owned paths before releasing its minted-ID claim.
++					await this.#drainAndCloseWriter().catch(() => {});
++					await this.#storage.drain().catch(() => {});
++					try {
++						for (const file of new Set([forkFile, this.#sessionFile])) {
++							if (file) await this.#removeUncommittedSession(file, forkId);
++						}
++					} finally {
++						this.#sessionClaim?.release?.();
++						this.#sessionClaim = undefined;
++						this.restoreState(sourceSnapshot!);
++						this.#sessionClaim = originalClaim;
++						if (sourceClaim !== originalClaim) sourceClaim?.release?.();
++					}
++				} else if (sourceClaim !== originalClaim) {
++					sourceClaim?.release?.();
++					this.#sessionClaim = originalClaim;
++				}
++			},
++		};
++		if (!this.#persist || !this.#sessionFile) return adoption;
++		const source = this.#sessionFile;
++		try {
++			if (!sourceClaim?.release) {
++				const release = this.#storage.claimSession?.(this.#sessionId, source, { strict: true });
++				if (release === null) {
++					throw new SessionMoveRefusedError(
++						`Cannot resume session "${source}" for writing: another writer or transfer owns it, or its identity changed.`,
++					);
++				}
++				sourceClaim = release ? { sessionId: this.#sessionId, release } : undefined;
++				this.#sessionClaim = sourceClaim;
++				if (this.#fileIsCurrent || this.#storage.existsSync(source)) {
++					const unchangedSince = { entries: this.#entries, length: this.#entries.length };
++					const loaded = await loadSessionFile(source, this.#storage, { throwIfMissing: true });
++					const header = loaded.entries.find(entry => entry.type === "session");
++					if (!header || header.id !== this.#sessionId) {
++						throw new SessionMoveRefusedError(`Cannot resume session "${source}": its identity changed.`);
++					}
++					await this.#setSessionFile(source, loaded, { throwIfMissing: true, preserveClaim: true, unchangedSince });
++				}
++			}
++			const marker = lastSessionTransfer(this.#entries);
++			if (marker?.kind !== "departed") return adoption;
++			sourceSnapshot = this.captureState();
++			const fork = await SessionManager.forkFrom(source, this.#cwd, this.#sessionDir, this.#storage, {
++				suppressBreadcrumb: true,
++				repairInterruptedTail: true,
++			});
++			forkId = fork.#sessionId;
++			forkFile = fork.#sessionFile;
++			// Transfer the new manager's claim without a release/reacquire gap.
++			this.#sessionClaim = undefined;
++			this.restoreState(fork.captureState());
++			this.#sessionClaim = fork.#sessionClaim;
++			fork.#sessionClaim = undefined;
++			await appendTransferNotice(this, { kind: "forked", source, to: marker.to });
++			logger.info("Resumed a session that moved away; continuing in a fork", {
++				source,
++				movedTo: marker.to,
++				fork: this.#sessionFile,
++			});
++			return adoption;
++		} catch (error) {
++			try {
++				await adoption.rollback();
++			} catch (rollbackError) {
++				throw new AggregateError([error, rollbackError], "Writable adoption failed and rollback could not complete.");
++			}
++			throw error;
++		}
++	}
++
++	/** Remove only a transaction-created identity, including an artifact-only failed publish. */
++	async #removeUncommittedSession(sessionFile: string, sessionId: string): Promise<void> {
++		const loaded = await loadSessionFile(sessionFile, this.#storage);
++		const header = loaded.entries.find(entry => entry.type === "session");
++		if (loaded.invalidHeader || (header && header.id !== sessionId)) {
++			throw new Error(`Refusing to remove unowned session output "${sessionFile}".`);
++		}
++		await this.#storage.deleteSessionWithArtifacts(sessionFile);
+ 	}
+ 
+ 	async #setSessionFile(
+ 		sessionFile: string,
+ 		loadedSession?: SessionLoadResult,
+-		options?: { throwIfMissing?: boolean; newSession?: NewSessionOptions },
++		options?: {
++			throwIfMissing?: boolean;
++			newSession?: NewSessionOptions;
++			preserveClaim?: boolean;
++			unchangedSince?: { entries: SessionEntry[]; length: number };
++		},
+ 	): Promise<void> {
+ 		await this.#drainAndCloseWriter();
+ 		this.#clearDiskError();
+ 		this.#draftOnlySessionCleanupArmed = false;
+-		// A switch gives up the previous file. Opening claims nothing: the first
+-		// write does, so inspecting a session never counts as owning it.
+-		this.#sessionClaim?.release?.();
+-		this.#sessionClaim = undefined;
++		// Raw inspection claims nothing. Admission refreshes under an already
++		// acquired claim and must not drop it while loading current provenance.
++		if (!options?.preserveClaim) {
++			this.#sessionClaim?.release?.();
++			this.#sessionClaim = undefined;
++		}
+ 
+ 		const resolvedSessionFile = path.resolve(sessionFile);
+ 		const loaded = loadedSession ?? (await loadSessionFile(resolvedSessionFile, this.#storage));
+@@ -2379,6 +2578,11 @@
+ 			this.#fallbackRuntimeOnly = false;
+ 		}
+ 
++		if (options?.unchangedSince &&
++			(this.#entries !== options.unchangedSince.entries || this.#entries.length !== options.unchangedSince.length)) {
++			throw new Error("Session changed during writable admission; pending local entries were preserved.");
++		}
++
+ 		this.#applyEntries(header, fileEntries.slice(1) as SessionEntry[]);
+ 		this.#expectedDiskSize = sourceSize;
+ 		this.#additionalDirectories = header.additionalDirectories ?? [];
+@@ -2431,8 +2635,11 @@
+ 		this.#reconcileSessionDirForFallback();
+ 
+ 		const timestamp = nowIso();
+-		this.#sessionId = mintSessionId();
+-		this.#sessionFile = path.join(this.#sessionDir, `${fileSafeTimestamp(timestamp)}_${this.#sessionId}.jsonl`);
++		const newSessionId = mintSessionId();
++		const newSessionFile = path.join(this.#sessionDir, `${fileSafeTimestamp(timestamp)}_${newSessionId}.jsonl`);
++		copyDateCwdAnchors(parentSessionId, oldSessionFile, newSessionFile);
++		this.#sessionId = newSessionId;
++		this.#sessionFile = newSessionFile;
+ 		this.#expectedDiskSize = null;
+ 		this.#header = {
+ 			type: "session",
+@@ -2463,7 +2670,7 @@
+ 	}
+ 
+ 	/** Move the session to a new working directory. */
+-	async moveTo(newCwd: string, targetSessionDir?: string): Promise<void> {
++	async moveTo(newCwd: string, targetSessionDir?: string, options?: { requireCompleteArtifacts?: boolean }): Promise<void> {
+ 		const resolvedCwd = path.resolve(newCwd);
+ 		const resolvedTargetDir = targetSessionDir ? path.resolve(targetSessionDir) : undefined;
+ 		const managedRoot = resolveManagedSessionRoot(this.#sessionDir, this.#cwd);
+@@ -2531,6 +2738,14 @@
+ 		}
+ 
+ 		let sessionFileExisted = false;
++		const previousCwd = this.#cwd;
++		const previousSessionDir = this.#sessionDir;
++		const previousHeader = structuredClone(this.#header);
++		const previousAdditionalDirectories = this.#additionalDirectories;
++		const previousFallbackRuntimeOnly = this.#fallbackRuntimeOnly;
++		let headerChanged = false;
++		let rollbackRelocation: (() => Promise<void>) | undefined;
++		let relocateArtifacts: (() => Promise<void>) | undefined;
+ 		// Track source+dest for concurrent completed appends during relocation
+ 		// (see `#sessionFileRelocating`). Existence of either path decides the
+ 		// live write target — not a `#diskEpoch` bump, which would cancel any
+@@ -2560,66 +2775,66 @@
+ 				sessionFileExisted = this.#storage.existsSync(oldSessionFile);
+ 				let sessionMoved = false;
+ 				let artifactsRenamed = false;
++				let artifactsCopied = false;
+ 
+-				try {
+-					if (sessionFileExisted && sessionPathChanged) {
+-						// The drain awaited: re-check that both paths still hold the
+-						// sessions we checked.
+-						await assertSourceIsOurs(oldSessionFile);
+-						await claimDestination(newSessionFile);
++				rollbackRelocation = async () => {
++					if (artifactsRenamed && oldArtifactsDir && newArtifactsDir) {
++						await fs.promises.rename(newArtifactsDir, oldArtifactsDir);
++					} else if (artifactsCopied && newArtifactsDir) {
++						await fs.promises.rm(newArtifactsDir, { recursive: true, force: true });
++					}
++					if (sessionMoved) {
++						this.#sessionFileRelocating = { source: newSessionFile, dest: oldSessionFile };
+ 						try {
+-							await fs.promises.rename(oldSessionFile, newSessionFile);
++							await fs.promises.rename(newSessionFile, oldSessionFile);
+ 						} catch (error) {
+ 							if (!isFsError(error) || error.code !== "EXDEV") throw error;
+ 							if (this.#sessionFileRelocating) this.#sessionFileRelocating.copying = true;
+-							await moveFileAcrossDevices(oldSessionFile, newSessionFile);
++							await moveFileAcrossDevices(newSessionFile, oldSessionFile);
+ 						}
+-						sessionMoved = true;
++					} else if (sessionPathChanged && !sessionFileExisted && this.#sessionFile === newSessionFile) {
++						await this.#removeUncommittedSession(newSessionFile, this.#sessionId);
+ 					}
++					this.#sessionFile = oldSessionFile;
++					this.#sessionFileRelocating = null;
++				};
++
++				if (sessionFileExisted && sessionPathChanged) {
++					// The drain awaited: re-check that both paths still hold the
++					// sessions we checked.
++					await assertSourceIsOurs(oldSessionFile);
++					await claimDestination(newSessionFile);
++					try {
++						await fs.promises.rename(oldSessionFile, newSessionFile);
++					} catch (error) {
++						if (!isFsError(error) || error.code !== "EXDEV") throw error;
++						if (this.#sessionFileRelocating) this.#sessionFileRelocating.copying = true;
++						await moveFileAcrossDevices(oldSessionFile, newSessionFile);
++					}
++					sessionMoved = true;
++				}
+ 
+-					if (artifactPathChanged) {
++				if (artifactPathChanged) {
++					// A merge into an existing artifact directory is not reversible.
++					// Do not start it until the fallible journal/header publish commits.
++					relocateArtifacts = async () => {
+ 						let artifactStat: fs.Stats | null = null;
+ 						try {
+ 							artifactStat = await fs.promises.stat(oldArtifactsDir);
+ 						} catch (err) {
+-							if (!isEnoent(err)) throw err;
++							if (options?.requireCompleteArtifacts || !isEnoent(err)) throw err;
+ 						}
+ 						if (artifactStat?.isDirectory()) {
+-							// Only a whole-directory rename can be undone by renaming back;
+-							// a merge leaves the rollback below to the session file alone.
+-							artifactsRenamed =
+-								(await relocateArtifactsDirectory(oldArtifactsDir, newArtifactsDir)) === "renamed";
+-						}
+-					}
+-				} catch (err) {
+-					if (artifactsRenamed && oldArtifactsDir && newArtifactsDir) {
+-						try {
+-							await fs.promises.rename(newArtifactsDir, oldArtifactsDir);
+-						} catch (rollbackErr) {
+-							throw new Error(
+-								`Failed to move artifacts and rollback: ${rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)}`,
++							const relocation = await relocateArtifactsDirectory(
++								oldArtifactsDir, newArtifactsDir, options?.requireCompleteArtifacts,
+ 							);
++							artifactsRenamed = relocation === "renamed";
++							artifactsCopied = relocation === "copied";
+ 						}
+-					}
+-
+-					if (sessionMoved) {
+-						try {
+-							try {
+-								await fs.promises.rename(newSessionFile, oldSessionFile);
+-							} catch (error) {
+-								if (!isFsError(error) || error.code !== "EXDEV") throw error;
+-								await moveFileAcrossDevices(newSessionFile, oldSessionFile);
+-							}
+-						} catch (rollbackErr) {
+-							throw new Error(
+-								`Failed to move session file and rollback: ${rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)}`,
+-							);
+-						}
+-					}
+-
+-					throw err;
++					};
+ 				}
+ 
++				headerChanged = true;
+ 				if (sessionFileExisted && sessionPathChanged) {
+ 					this.#header.previousSessionFiles = [
+ 						...new Set([...(this.#header.previousSessionFiles ?? []), path.resolve(oldSessionFile)]),
+@@ -2639,6 +2854,7 @@
+ 				this.#sessionFileRelocating = null;
+ 			}
+ 
++			headerChanged = true;
+ 			this.#cwd = resolvedCwd;
+ 			this.#sessionDir = nextSessionDir;
+ 			this.#header.cwd = resolvedCwd;
+@@ -2662,8 +2878,35 @@
+ 				this.#forceFileCreation = true;
+ 				await this.#rewriteAtomically();
+ 			}
++			await relocateArtifacts?.();
+ 
+ 			if (this.#sessionFile) this.#rememberBreadcrumb(resolvedCwd, this.#sessionFile);
++		} catch (error) {
++			// The final atomic publish can reject after landing. Keep all ID
++			// claims while reversing its path and metadata, before an importer
++			// restores the journals/artifacts it set aside.
++			await this.#drainAndCloseWriter().catch(() => {});
++			this.#clearDiskError();
++			try {
++				await rollbackRelocation?.();
++				this.#cwd = previousCwd;
++				this.#sessionDir = previousSessionDir;
++				this.#header = previousHeader;
++				this.#additionalDirectories = previousAdditionalDirectories;
++				this.#fallbackRuntimeOnly = previousFallbackRuntimeOnly;
++				this.#artifactManager = null;
++				this.#artifactManagerSessionFile = null;
++				if (headerChanged && this.#persist && this.#sessionFile && this.#storage.existsSync(this.#sessionFile)) {
++					// Preserve completed concurrent appends: restore only metadata,
++					// never an older entries snapshot, and publish against live size.
++					this.#expectedDiskSize = this.#storage.statSync(this.#sessionFile).size;
++					this.#rewriteRequired = true;
++					await this.#rewriteAtomically();
++				}
++			} catch (rollbackError) {
++				throw new AggregateError([error, rollbackError], `Session relocation rollback failed at "${this.#sessionFile}".`);
++			}
++			throw error;
+ 		} finally {
+ 			this.#sessionFileRelocating = null;
+ 			// The destination is ours or untouched now.
+@@ -2876,59 +3119,61 @@
+ 		}
+ 	}
+ 
+-	/** Flush, then close the append writer. */
++	/** Flush and close the append writer before relinquishing writable ownership. */
+ 	async close(): Promise<void> {
+ 		if (!this.#persist) return;
+-		// Closing gives up this process's ownership claim; a later write reclaims it.
+ 		const claim = this.#sessionClaim;
+-		claim?.release?.();
+-		if (claim) claim.release = undefined;
+-		// A prior `flushSync` can self-conflict with this manager's own
+-		// unconfirmed deferred publish; drain despite the latch so that
+-		// publish can still confirm before we give up on the transcript.
+-		await this.#scheduleDiskWork(
+-			async () => {
+-				const hadWriter = this.#writer !== undefined;
+-				await this.#closeWriterHandle();
+-				if (hadWriter || (this.#sessionFile && this.#storage.existsSync(this.#sessionFile)))
+-					this.#fileIsCurrent = true;
+-			},
+-			{ ignorePriorError: true },
+-		);
+-		await this.#pendingArtifactCopy?.done;
+-		await this.#dropIfEmptyAndNoDraft();
+-		// Wait for any queued backing writes (IndexedSessionStorage per-path
+-		// tail) to become durable so a graceful shutdown does not exit while
+-		// a fire-and-forget publish is still on the wire.
+-		await this.#scheduleDiskWork(
+-			async () => {
+-				await this.#storage.drain();
+-			},
+-			{ ignorePriorError: true },
+-		);
+-		if (
+-			this.#diskFailure &&
+-			this.#sessionFile &&
+-			this.#storage.defersSyncPublish &&
+-			!this.#entriesReleased &&
+-			this.#shouldHaveSessionFile()
+-		) {
+-			// Deferred-publish only: a synchronous backend's drain() is a
+-			// no-op, so any failure there is a genuine external conflict or a
+-			// permanent write failure, not a self-race this retry can catch
+-			// up on. seal() disabled the ordinary mid-life repair path, so
+-			// close() issues the terminal write directly instead.
+-			const operationError = this.#diskFailure;
+-			const sessionFile = this.#sessionFile;
++		try {
++			// A prior `flushSync` can self-conflict with this manager's own
++			// unconfirmed deferred publish; drain despite the latch so that
++			// publish can still confirm before we give up on the transcript.
+ 			await this.#scheduleDiskWork(
+ 				async () => {
+-					await this.#publishAuthoritativeBody(sessionFile, operationError);
+-					this.#clearDiskError();
++					const hadWriter = this.#writer !== undefined;
++					await this.#closeWriterHandle();
++					if (hadWriter || (this.#sessionFile && this.#storage.existsSync(this.#sessionFile)))
++						this.#fileIsCurrent = true;
+ 				},
+ 				{ ignorePriorError: true },
+-			).catch(() => undefined);
++			);
++			await this.#pendingArtifactCopy?.done;
++			await this.#dropIfEmptyAndNoDraft();
++			// Wait for any queued backing writes (IndexedSessionStorage per-path
++			// tail) to become durable so a graceful shutdown does not exit while
++			// a fire-and-forget publish is still on the wire.
++			await this.#scheduleDiskWork(
++				async () => {
++					await this.#storage.drain();
++				},
++				{ ignorePriorError: true },
++			);
++			if (
++				this.#diskFailure &&
++				this.#sessionFile &&
++				this.#storage.defersSyncPublish &&
++				!this.#entriesReleased &&
++				this.#shouldHaveSessionFile()
++			) {
++				// Deferred-publish only: a synchronous backend's drain() is a
++				// no-op, so any failure there is a genuine external conflict or a
++				// permanent write failure, not a self-race this retry can catch
++				// up on. seal() disabled the ordinary mid-life repair path, so
++				// close() issues the terminal write directly instead.
++				const operationError = this.#diskFailure;
++				const sessionFile = this.#sessionFile;
++				await this.#scheduleDiskWork(
++					async () => {
++						await this.#publishAuthoritativeBody(sessionFile, operationError);
++						this.#clearDiskError();
++					},
++					{ ignorePriorError: true },
++				).catch(() => undefined);
++			}
++			if (this.#diskFailure) throw this.#diskFailure;
++		} finally {
++			claim?.release?.();
++			if (claim) claim.release = undefined;
+ 		}
+-		if (this.#diskFailure) throw this.#diskFailure;
+ 	}
+ 
+ 	/**
+@@ -3895,6 +4140,9 @@
+ 			parentId = labelEntry.id;
+ 		}
+ 
++		if (this.#persist && sourceSessionFile) {
++			copyDateCwdAnchors(this.#sessionId, sourceSessionFile, newSessionFile);
++		}
+ 		this.#header = header;
+ 		this.#entries = [...entriesToKeep, ...labels];
+ 		this.#sessionId = newSessionId;
+@@ -3986,6 +4234,8 @@
+ 		storage: SessionStorage = new FileSessionStorage(),
+ 		options?: {
+ 			copyArtifacts?: boolean;
++			/** Disposable import staging requires every artifact, never best-effort copies. */
++			requireCompleteArtifacts?: boolean;
+ 			suppressBreadcrumb?: boolean;
+ 			sessionFile?: string;
+ 			resetInheritedCost?: boolean;
+@@ -4036,11 +4286,40 @@
+ 			manager.#index.rebuild(history);
+ 		}
+ 		manager.#forceFileCreation = true;
+-		await manager.#rewriteAtomically();
+-		if (options?.copyArtifacts !== false) {
+-			await copySessionArtifacts(sourcePath, manager.#sessionFile!);
++		const sessionFile = manager.#sessionFile!;
++		const artifactsDir = artifactsDirectoryFor(sessionFile);
++		if (storage.existsSync(sessionFile) || (artifactsDir && fs.existsSync(artifactsDir))) {
++			throw new Error(`Cannot fork onto existing session output "${sessionFile}".`);
++		}
++		const release = storage.claimSession?.(manager.#sessionId, sessionFile, { strict: true });
++		if (release === null) throw new SessionMoveRefusedError(`Cannot claim new fork "${sessionFile}".`);
++		manager.#sessionClaim = release ? { sessionId: manager.#sessionId, release } : undefined;
++		try {
++			if (options?.requireCompleteArtifacts) {
++				const sourceArtifacts = artifactsDirectoryFor(sourcePath);
++				if (!sourceArtifacts || !artifactsDir) throw new Error("Staged import requires artifact directories.");
++				await copyArtifactsDirectoryCompletely(sourceArtifacts, artifactsDir);
++			} else if (sourceHeader) {
++				copyDateCwdAnchors(sourceHeader.id, sourcePath, sessionFile);
++			}
++			await manager.#rewriteAtomically();
++			if (!options?.requireCompleteArtifacts && options?.copyArtifacts !== false) {
++				await copySessionArtifacts(sourcePath, sessionFile);
++			}
++			return manager;
++		} catch (error) {
++			await manager.#drainAndCloseWriter().catch(() => {});
++			await storage.drain().catch(() => {});
++			try {
++				await manager.#removeUncommittedSession(sessionFile, manager.#sessionId);
++			} catch (cleanupError) {
++				throw new AggregateError([error, cleanupError], `Fork publication failed and cleanup failed for "${sessionFile}".`);
++			} finally {
++				manager.#sessionClaim?.release?.();
++				manager.#sessionClaim = undefined;
++			}
++			throw error;
+ 		}
+-		return manager;
+ 	}
+ 
+ 	/**
+@@ -4166,6 +4445,7 @@
+ 	 * Open a session whose recorded directory `recordedCwd` is gone and move it,
+ 	 * artifacts included, into `cwd` so it resumes from there.
+ 	 * @param sessionDir Target session directory; defaults to `cwd`'s.
++	 * @param options.adoptForWrite Defaults true. Only an already-reserved staged import may opt out.
+ 	 * @throws {SessionMoveRefusedError} when another live omp process writes the session.
+ 	 */
+ 	static async openRelocated(
+@@ -4173,16 +4453,27 @@
+ 		recordedCwd: string,
+ 		cwd: string,
+ 		sessionDir?: string,
++		storage: SessionStorage = new FileSessionStorage(),
++		options?: { adoptForWrite?: boolean; requireCompleteArtifacts?: boolean },
+ 	): Promise<SessionManager> {
+ 		// Anchor at the missing recorded cwd: `open` otherwise falls back to the
+ 		// launch cwd, which would make the `moveTo` below a no-op whenever the move
+ 		// target equals it. moveTo never chdirs, so the stale cwd is only the
+ 		// relocation source, not a directory we enter.
+-		const manager = await SessionManager.open(sessionPath, sessionDir, undefined, { initialCwd: recordedCwd });
++		const manager = await SessionManager.open(sessionPath, sessionDir, storage, { initialCwd: recordedCwd });
++		let adoption: SessionAdoption | undefined;
+ 		try {
+-			await manager.moveTo(cwd, sessionDir);
++			if (options?.adoptForWrite !== false) adoption = await manager.beginWritableAdoption();
++			await manager.moveTo(cwd, sessionDir, { requireCompleteArtifacts: options?.requireCompleteArtifacts });
++			adoption?.commit();
+ 		} catch (error) {
+-			await manager.close();
++			try {
++				await adoption?.rollback();
++			} catch (rollbackError) {
++				throw new AggregateError([error, rollbackError], "Relocated resume failed and adoption rollback failed.");
++			} finally {
++				await manager.close().catch(() => {});
++			}
+ 			throw error;
+ 		}
+ 		return manager;
+@@ -4296,15 +4587,10 @@
+ 					candidateForMove && hasPositiveMovedProjectEvidence(breadcrumb.cwdIdentity, resolvedCwd);
+ 				if (looksLikeMovedProject) {
+ 					logger.warn("Re-rooting moved session", { from: breadcrumbCwd, to: resolvedCwd });
+-					// Anchor at the gone breadcrumb cwd so the moveTo below relocates the
+-					// session: open() now falls back to the launch cwd for a missing
+-					// recorded cwd, which would no-op moveTo when it equals `cwd`.
+-					const manager = await SessionManager.open(breadcrumb.sessionFile, undefined, storage, {
+-						initialCwd: breadcrumbCwd,
+-					});
+ 					try {
+-						await manager.moveTo(cwd, sessionDir);
+-						return manager;
++						return await SessionManager.openRelocated(
++							breadcrumb.sessionFile, breadcrumbCwd, cwd, sessionDir, storage,
++						);
+ 					} catch (err) {
+ 						if (!(err instanceof SessionMoveRefusedError)) throw err;
+ 						// Another live omp process still writes the session (the
+@@ -4314,7 +4600,6 @@
+ 							from: breadcrumbCwd,
+ 							to: resolvedCwd,
+ 						});
+-						await manager.close();
+ 					}
+ 				} else if (candidateForMove) {
+ 					logger.warn(
+--- a/pi-coding-agent/src/session/session-storage.ts
++++ b/pi-coding-agent/src/session/session-storage.ts
+@@ -207,8 +207,11 @@
+ 	 * then moves its session to a sibling instead of writing that file.
+ 	 * Optional because only backends with a process-owned lock can tell that
+ 	 * another process writes a session.
++	 * `strict` propagates lock failures instead of best-effort admission.
++	 * `exclusive` also refuses existing same-process holders; only managers
++	 * sharing that reservation's storage instance may join it.
+ 	 */
+-	claimSession?(sessionId: string, sessionPath: string): (() => void) | null;
++	claimSession?(sessionId: string, sessionPath: string, options?: { exclusive?: boolean; strict?: boolean }): (() => void) | null;
+ 	/**
+ 	 * Atomically delete a session and its artifacts only when `shouldDelete`
+ 	 * accepts the current session content. Optional because backends without a
+@@ -517,7 +520,7 @@
+  * session and only ever contend with other processes. The OS reclaims a lease
+  * when its process exits, so a crashed owner never blocks a later claim.
+  */
+-const sessionLeases = new Map<string, { lease: FileLockHandle; holders: number }>();
++const sessionLeases = new Map<string, { lease: FileLockHandle; holders: number; exclusiveOwner?: FileSessionStorage }>();
+ 
+ const TEST_SESSION_OWNERS_DIR_ENV = "PI_TEST_SESSION_OWNERS_DIR";
+ 
+@@ -1233,23 +1236,27 @@
+ 	/**
+ 	 * The lease is an OS lock (abstract socket, named mutex, or `flock` sidecar
+ 	 * under ~/.omp/run/session-owners), so the kernel drops a dead owner's claim.
+-	 * Never throws: a lock that cannot be taken for another reason counts as
+-	 * owned, so it never moves a session off its file.
++	 * Ordinary writers preserve the existing best-effort lock-error policy;
++	 * strict writable admission propagates lock failures. Exclusive transfer
++	 * ownership additionally refuses existing holders (including this process).
++	 * Only its private storage instance may share the publication reservation.
+ 	 */
+-	claimSession(sessionId: string, sessionPath: string): (() => void) | null {
++	claimSession(sessionId: string, sessionPath: string, options?: { exclusive?: boolean; strict?: boolean }): (() => void) | null {
+ 		const onDisk = readSessionHeaderIdSync(sessionPath);
+ 		if (onDisk !== undefined && onDisk !== sessionId) return null;
+ 		let held = sessionLeases.get(sessionId);
++		if (held && (options?.exclusive || (held.exclusiveOwner && held.exclusiveOwner !== this))) return null;
+ 		if (!held) {
+ 			let lease: FileLockHandle | null;
+ 			try {
+ 				lease = tryAcquireSessionLease(sessionId);
+ 			} catch (err) {
++				if (options?.exclusive || options?.strict) throw err;
+ 				logger.debug("Session ownership lease unavailable", { sessionId, error: toError(err).message });
+ 				return () => {};
+ 			}
+ 			if (!lease) return null;
+-			held = { lease, holders: 0 };
++			held = { lease, holders: 0, exclusiveOwner: options?.exclusive ? this : undefined };
+ 			sessionLeases.set(sessionId, held);
+ 		}
+ 		const claim = held;
+@@ -1294,8 +1301,13 @@
+ 	 * Artifacts are stored in a sibling directory with the same name minus .jsonl extension.
+ 	 */
+ 	async deleteSessionWithArtifacts(sessionPath: string): Promise<void> {
+-		// Delete the session file itself
+-		await this.unlink(sessionPath);
++		// A failed first publish may leave only artifacts, so a missing journal
++		// must not bypass their cleanup.
++		try {
++			await this.unlink(sessionPath);
++		} catch (error) {
++			if (!isEnoent(error)) throw error;
++		}
+ 
+ 		// Compute artifacts directory: /path/to/session.jsonl -> /path/to/session
+ 		const artifactsDir = sessionPath.slice(0, -6);
+--- a/pi-coding-agent/src/session/session-tools.ts
++++ b/pi-coding-agent/src/session/session-tools.ts
+@@ -22,6 +22,7 @@
+ import { MEMORY_BACKEND_TOOL_NAMES } from "../memory-backend/tool-names";
+ import { invalidateToolSchemaMetadata } from "@oh-my-pi/pi-tui/status-line/context-usage";
+ import type { MemoryBackendStartOptions, MemoryPromptPreparation } from "../memory-backend/types";
++import { getBundledAgent } from "../task/agents";
+ import type { AgentDefinition } from "../task/types";
+ import evalPreludeNoticePrompt from "../prompts/system/eval-prelude-notice.md" with { type: "text" };
+ import sessionAgentNoticePrompt from "../prompts/system/session-agent-notice.md" with { type: "text" };
+@@ -244,6 +245,69 @@
+ }
+ 
+ /**
++ * Journal entry holding the model-agent list a base rebuild last published (see
++ * {@link PromptSurface.sessionAgents}). It is never converted into a provider message: it
++ * exists so a fresh process seeds the same task description the live session ended with,
++ * instead of rebuilding that description from an empty surface and forking the cached
++ * tools prefix away from what the provider already holds.
++ */
++const ADVERTISED_SESSION_AGENTS_ENTRY_TYPE = "advertised_session_agents";
++
++/** Rendered fields of one advertised model agent, persisted for a later resume. */
++interface PersistedSessionAgent {
++	name: string;
++	description: string;
++	tools?: string[];
++	blocking?: boolean;
++	model?: string[];
++}
++
++/** Stable identity of a persisted surface, used to skip redundant journal writes. */
++function advertisedSessionAgentSignature(agents: readonly PersistedSessionAgent[]): string {
++	return JSON.stringify(
++		agents.map(agent => [
++			agent.name,
++			agent.description,
++			agent.tools ?? null,
++			agent.blocking ?? null,
++			agent.model ?? null,
++		]),
++	);
++}
++
++/**
++ * Model agents the branch last published; the newest entry wins. Malformed payloads are
++ * skipped rather than trusted, so a damaged entry degrades to the live surface.
++ */
++function readAdvertisedSessionAgents(entries: readonly SessionEntry[]): PersistedSessionAgent[] | undefined {
++	let latest: PersistedSessionAgent[] | undefined;
++	for (const entry of entries) {
++		if (entry.type === "reset_boundary") {
++			latest = undefined;
++			continue;
++		}
++		if (entry.type !== "custom" || entry.customType !== ADVERTISED_SESSION_AGENTS_ENTRY_TYPE || !isRecord(entry.data)) {
++			continue;
++		}
++		const agents = entry.data.agents;
++		if (!Array.isArray(agents)) continue;
++		const parsed: PersistedSessionAgent[] = [];
++		for (const agent of agents) {
++			if (!isRecord(agent) || typeof agent.name !== "string" || typeof agent.description !== "string") continue;
++			parsed.push({
++				name: agent.name,
++				description: agent.description,
++				tools: Array.isArray(agent.tools) ? agent.tools.filter((tool): tool is string => typeof tool === "string") : undefined,
++				blocking: agent.blocking === true ? true : undefined,
++				model: Array.isArray(agent.model) ? agent.model.filter((name): name is string => typeof name === "string") : undefined,
++			});
++		}
++		latest = parsed;
++	}
++	return latest;
++}
++
++/**
+  * Structured payload persisted on each {@link XDEV_MOUNT_NOTICE_MESSAGE_TYPE}
+  * custom message. Lets a resumed session reconstruct which dynamic devices the
+  * model has already been told about, so reconnecting hosts do not re-announce
+@@ -438,6 +502,8 @@
+ 	 * prefix without the intended prompt refresh. The refresh lifecycle updates it.
+ 	 */
+ 	#promptSurface: PromptSurface;
++	/** Identity of the last model-agent list written to {@link ADVERTISED_SESSION_AGENTS_ENTRY_TYPE}. */
++	#advertisedSessionAgentSignature = "[]";
+ 	#acpPermissionDecisions = new Map<string, "allow_always" | "reject_always">();
+ 
+ 	constructor(host: SessionToolsHost, options: SessionToolsOptions) {
+@@ -485,7 +551,7 @@
+ 		this.#skillWarnings = options.skillWarnings ?? [];
+ 		this.#skillsSettings = options.skillsSettings;
+ 		this.#skillsReloadable = options.skillsReloadable ?? true;
+-		this.#promptSurface = this.#derivePromptSurface();
++		this.#promptSurface = this.#restorePromptSurface();
+ 		// Seed from the construction slate (top-level tools plus xd:// mounts).
+ 		// Left empty, getEnabledToolNames() falls back to live agent.state.tools,
+ 		// so an early reconcile (think/Code Mode after the startup model
+@@ -598,6 +664,63 @@
+ 			sessionAgents: this.#host.sessionAgents(),
+ 		};
+ 	}
++
++	/**
++	 * Construction-time surface. Tagging a model only reaches the task description at a base
++	 * rebuild, so the list a rebuild advertised is what the live session was rendering when it
++	 * exited; a fresh-process resume rebuilds that same description from the durable entry.
++	 * Without it the resumed process starts from an empty list and hands the provider a
++	 * different tools block than the one it cached. Live agents stay the fallback when nothing
++	 * was ever published.
++	 */
++	#restorePromptSurface(): PromptSurface {
++		const derived = this.#derivePromptSurface();
++		const persisted = readAdvertisedSessionAgents(this.#host.sessionManager.getBranch());
++		if (persisted === undefined) return derived;
++		this.#advertisedSessionAgentSignature = advertisedSessionAgentSignature(persisted);
++		if (persisted.length === 0) return { ...derived, sessionAgents: [] };
++		const task = getBundledAgent("task");
++		if (!task) return derived;
++		return {
++			...derived,
++			// Rebuilt through the bundled task agent, mirroring the pseudonym definitions the
++			// session registry derives from it, so the rendered description matches byte for byte.
++			sessionAgents: persisted.map(agent => ({
++				...task,
++				name: agent.name,
++				description: agent.description,
++				tools: agent.tools,
++				blocking: agent.blocking,
++				model: agent.model,
++				filePath: undefined,
++			})),
++		};
++	}
++
++	/** Publishes a rebuilt surface and records the model-agent list it advertises. */
++	#publishPromptSurface(surface: PromptSurface): void {
++		this.#promptSurface = surface;
++		this.#persistAdvertisedSessionAgents(surface.sessionAgents);
++	}
++
++	/**
++	 * Records the published model-agent list on the branch whenever it changes. The write is a
++	 * non-model-facing custom entry, so provider-visible bytes stay untouched.
++	 */
++	#persistAdvertisedSessionAgents(agents: readonly AgentDefinition[]): void {
++		const payload: PersistedSessionAgent[] = agents.map(agent => ({
++			name: agent.name,
++			description: agent.description,
++			tools: agent.tools,
++			blocking: agent.blocking === true ? true : undefined,
++			model: agent.model,
++		}));
++		const signature = advertisedSessionAgentSignature(payload);
++		if (signature === this.#advertisedSessionAgentSignature) return;
++		this.#advertisedSessionAgentSignature = signature;
++		this.#host.sessionManager.appendCustomEntry(ADVERTISED_SESSION_AGENTS_ENTRY_TYPE, { agents: payload });
++	}
++
+ 	/** Drops cached per-session ACP `allow_always`/`reject_always` decisions. */
+ 	clearAcpPermissionDecisions(): void {
+ 		this.#acpPermissionDecisions.clear();
+@@ -1379,7 +1502,7 @@
+ 				this.#pendingToolRosterDeltaAfterBase = undefined;
+ 				// Publish the exact surface the prompt rendered with — never
+ 				// re-derive from live settings, which could diverge mid-flight.
+-				this.#promptSurface = candidateSurface ?? this.#promptSurface;
++				if (candidateSurface) this.#publishPromptSurface(candidateSurface);
+ 			} else if (frozenSignature) {
+ 				this.#notifyToolRosterDelta(previousActiveToolNames, appliedNames);
+ 				this.#lastAppliedToolSignature = frozenSignature;
+@@ -2166,7 +2289,7 @@
+ 				this.#baseSystemPrompt = promotionTail
+ 					? [...built.systemPrompt, promotionTail]
+ 					: built.systemPrompt;
+-				this.#promptSurface = candidate;
++				this.#publishPromptSurface(candidate);
+ 				this.#setBasePromptXdevNames(built.xdevCatalogNames);
+ 				this.#host.clearMemoryPromotionSnapshot();
+ 				if (
+--- /dev/null
++++ b/pi-coding-agent/src/session/session-transfer-marker.ts
+@@ -0,0 +1,62 @@
++import { isRecord, prompt } from "@oh-my-pi/pi-utils";
++import transferArrivedTemplate from "../prompts/session/transfer-arrived.md" with { type: "text" };
++import transferDepartedTemplate from "../prompts/session/transfer-departed.md" with { type: "text" };
++import transferStaleForkTemplate from "../prompts/session/transfer-stale-fork.md" with { type: "text" };
++import type { FileEntry } from "./session-entries";
++import type { SessionManager } from "./session-manager";
++
++/** `customType` of the transcript entries that record a session moving between machines. */
++export const SESSION_TRANSFER_MESSAGE_TYPE = "session-transfer";
++
++/** Transfer provenance shared by archive commands and writable session adoption. */
++export type SessionTransferDetails =
++	| { kind: "arrived"; fromCwd: string; cwd: string }
++	| { kind: "departed"; to: string }
++	| { kind: "forked"; source: string; to: string };
++
++/** Transfer details of `entry`, or `undefined` when it is not a session-transfer marker. */
++export function sessionTransferDetails(entry: FileEntry): SessionTransferDetails | undefined {
++	if (entry.type !== "custom_message" || entry.customType !== SESSION_TRANSFER_MESSAGE_TYPE) return undefined;
++	const details = entry.details;
++	if (!isRecord(details)) return undefined;
++	switch (details.kind) {
++		case "arrived":
++			return typeof details.fromCwd === "string" && typeof details.cwd === "string"
++				? { kind: "arrived", fromCwd: details.fromCwd, cwd: details.cwd }
++				: undefined;
++		case "departed":
++			return typeof details.to === "string" ? { kind: "departed", to: details.to } : undefined;
++		case "forked":
++			return typeof details.source === "string" && typeof details.to === "string"
++				? { kind: "forked", source: details.source, to: details.to }
++				: undefined;
++		default:
++			return undefined;
++	}
++}
++
++/** The latest session-transfer marker in append order, if any. */
++export function lastSessionTransfer(entries: readonly FileEntry[]): SessionTransferDetails | undefined {
++	for (let index = entries.length - 1; index >= 0; index--) {
++		const details = sessionTransferDetails(entries[index]);
++		if (details) return details;
++	}
++	return undefined;
++}
++
++function renderTransferNotice(details: SessionTransferDetails): string {
++	switch (details.kind) {
++		case "arrived":
++			return prompt.render(transferArrivedTemplate, { fromCwd: details.fromCwd, cwd: details.cwd }).trim();
++		case "departed":
++			return prompt.render(transferDepartedTemplate, { to: details.to }).trim();
++		case "forked":
++			return prompt.render(transferStaleForkTemplate, { to: details.to, source: details.source }).trim();
++	}
++}
++
++/** Append a visible, model-facing transfer marker and make it durable. */
++export async function appendTransferNotice(manager: SessionManager, details: SessionTransferDetails): Promise<void> {
++	manager.appendCustomMessageEntry(SESSION_TRANSFER_MESSAGE_TYPE, renderTransferNotice(details), true, details);
++	await manager.flush();
++}
+--- a/pi-coding-agent/src/session/session-transfer.ts
++++ b/pi-coding-agent/src/session/session-transfer.ts
+@@ -9,9 +9,9 @@
+  * - `blobs/<sha256>` — every blob the journal or an artifact transcript references
+  *
+  * Moves are recorded in the transcript as `custom_message` entries of type
+- * {@link SESSION_TRANSFER_MESSAGE_TYPE}: the model sees where the session came
++ * `session-transfer`: the model sees where the session came
+  * from, and a copy whose latest marker says it moved away is stale — resuming
+- * it forks instead of continuing it ({@link forkIfMovedAway}).
++ * it forks instead of continuing it ({@link SessionManager.adoptForWrite}).
+  */
+ import * as fs from "node:fs";
+ import * as path from "node:path";
+@@ -21,7 +21,6 @@
+ 	isEnotdir,
+ 	isRecord,
+ 	logger,
+-	prompt,
+ 	Snowflake,
+ 	TempDir,
+ 	VERSION,
+@@ -33,23 +32,20 @@
+ 	readArchiveEntries,
+ 	writeArchive,
+ } from "@oh-my-pi/pi-utils/ar";
+-import transferArrivedTemplate from "../prompts/session/transfer-arrived.md" with { type: "text" };
+-import transferDepartedTemplate from "../prompts/session/transfer-departed.md" with { type: "text" };
+-import transferStaleForkTemplate from "../prompts/session/transfer-stale-fork.md" with { type: "text" };
+ import { replaceFileAtomically } from "../utils/atomic-file";
+ import { BLOB_HASH_RE, BlobStore } from "./blob-store";
++import { DATE_CWD_ANCHORS_ARTIFACT, readDateCwdAnchors } from "./date-cwd-reminder";
+ import type { FileEntry, SessionEntry, SessionHeader } from "./session-entries";
+ import { findSessionFiles } from "./session-listing";
+ import { loadEntriesFromFile, parseSessionContent, readSessionHeaderId } from "./session-loader";
+ import { SessionManager } from "./session-manager";
+ import { FileSessionStorage } from "./session-storage";
++import type { SessionTransferDetails } from "./session-transfer-marker";
++import { appendTransferNotice, sessionTransferDetails } from "./session-transfer-marker";
+ 
+ /** Archive format version written by {@link packSession} and the only one {@link unpackSession} reads. */
+ export const SESSION_ARCHIVE_VERSION = 1;
+ 
+-/** `customType` of the transcript entries that record a session moving between machines. */
+-export const SESSION_TRANSFER_MESSAGE_TYPE = "session-transfer";
+-
+ /** `manifest.json` of a session archive. */
+ export interface SessionArchiveManifest {
+ 	/** Archive format version ({@link SESSION_ARCHIVE_VERSION}). */
+@@ -62,17 +58,6 @@
+ 	omp: string;
+ }
+ 
+-/**
+- * Structured details of a {@link SESSION_TRANSFER_MESSAGE_TYPE} entry:
+- * - `arrived` — unpacked here from `fromCwd` on another machine into `cwd`;
+- * - `departed` — this copy was handed to `to` and is stale from here on;
+- * - `forked` — a stale copy (`source`) was resumed, so it continued as a fork.
+- */
+-export type SessionTransferDetails =
+-	| { kind: "arrived"; fromCwd: string; cwd: string }
+-	| { kind: "departed"; to: string }
+-	| { kind: "forked"; source: string; to: string };
+-
+ /** User-facing failure of a pack, unpack, or move marker: missing input, bad archive, live owner. */
+ export class SessionTransferError extends Error {
+ 	constructor(message: string) {
+@@ -131,53 +116,6 @@
+ 	return entry.type !== "session";
+ }
+ 
+-/** Transfer details of `entry`, or `undefined` when it is not a session-transfer marker. */
+-export function sessionTransferDetails(entry: FileEntry): SessionTransferDetails | undefined {
+-	if (entry.type !== "custom_message" || entry.customType !== SESSION_TRANSFER_MESSAGE_TYPE) return undefined;
+-	const details = entry.details;
+-	if (!isRecord(details)) return undefined;
+-	switch (details.kind) {
+-		case "arrived":
+-			return typeof details.fromCwd === "string" && typeof details.cwd === "string"
+-				? { kind: "arrived", fromCwd: details.fromCwd, cwd: details.cwd }
+-				: undefined;
+-		case "departed":
+-			return typeof details.to === "string" ? { kind: "departed", to: details.to } : undefined;
+-		case "forked":
+-			return typeof details.source === "string" && typeof details.to === "string"
+-				? { kind: "forked", source: details.source, to: details.to }
+-				: undefined;
+-		default:
+-			return undefined;
+-	}
+-}
+-
+-/** The latest session-transfer marker in append order, if any. */
+-export function lastSessionTransfer(entries: readonly FileEntry[]): SessionTransferDetails | undefined {
+-	for (let index = entries.length - 1; index >= 0; index--) {
+-		const details = sessionTransferDetails(entries[index]);
+-		if (details) return details;
+-	}
+-	return undefined;
+-}
+-
+-function renderTransferNotice(details: SessionTransferDetails): string {
+-	switch (details.kind) {
+-		case "arrived":
+-			return prompt.render(transferArrivedTemplate, { fromCwd: details.fromCwd, cwd: details.cwd }).trim();
+-		case "departed":
+-			return prompt.render(transferDepartedTemplate, { to: details.to }).trim();
+-		case "forked":
+-			return prompt.render(transferStaleForkTemplate, { to: details.to, source: details.source }).trim();
+-	}
+-}
+-
+-/** Append a visible, model-facing transfer marker and make it durable. */
+-async function appendTransferNotice(manager: SessionManager, details: SessionTransferDetails): Promise<void> {
+-	manager.appendCustomMessageEntry(SESSION_TRANSFER_MESSAGE_TYPE, renderTransferNotice(details), true, details);
+-	await manager.flush();
+-}
+-
+ async function requireFile(file: string, what: string): Promise<void> {
+ 	let stat: fs.Stats;
+ 	try {
+@@ -209,12 +147,11 @@
+ }
+ 
+ /**
+- * Take this process's ownership lease on session `id` at `file` — the check
+- * {@link SessionManager.moveTo} uses — or refuse while another live omp process
+- * writes it.
++ * Reserve session `id` against every live writer, including same-process
++ * holders. Only a manager using this private storage may publish a notice.
+  */
+-function claimSessionOrRefuse(id: string, file: string, action: string): () => void {
+-	const release = new FileSessionStorage().claimSession(id, file);
++function claimSessionOrRefuse(id: string, file: string, action: string, storage = new FileSessionStorage()): () => void {
++	const release = storage.claimSession(id, file, { exclusive: true });
+ 	if (!release) {
+ 		throw new SessionTransferError(
+ 			`Cannot ${action} ${file}: another live omp process writes this session. Exit it first. Nothing was changed.`,
+@@ -315,6 +252,12 @@
+ 				if (relative.endsWith(".jsonl")) collectBlobHashes(bytes.toString("utf8"), hashes);
+ 			}
+ 		}
++		// Old sessions stored anchors outside their artifact directory. Capture
++		// that exact map without modifying a journal opened only for inspection.
++		const anchorMember = `${ARTIFACTS_PREFIX}${DATE_CWD_ANCHORS_ARTIFACT}`;
++		if (!members.some(([name]) => name === anchorMember)) {
++			members.push([anchorMember, JSON.stringify(readDateCwdAnchors(id, source) ?? {})]);
++		}
+ 
+ 		const blobs = new BlobStore(getBlobsDir());
+ 		const missingBlobs: string[] = [];
+@@ -484,13 +427,15 @@
+ }
+ 
+ async function restoreAside(aside: readonly AsidePath[]): Promise<void> {
++	const errors: unknown[] = [];
+ 	for (const { original, backup } of [...aside].reverse()) {
+ 		try {
+ 			await fs.promises.rename(backup, original);
+ 		} catch (error) {
+-			logger.error("Failed to restore a session set aside for unpack", { original, backup, error: String(error) });
++			errors.push(new Error(`Failed to restore "${backup}" to "${original}".`, { cause: error }));
+ 		}
+ 	}
++	if (errors.length > 0) throw new AggregateError(errors, "Session import rollback could not restore all prior paths.");
+ }
+ 
+ /** Rename session files and their artifacts directories to sibling backups, all or nothing. */
+@@ -528,22 +473,33 @@
+ async function placeSession(
+ 	open: () => Promise<SessionManager>,
+ 	arrival: SessionTransferDetails,
++	storage: FileSessionStorage,
+ ): Promise<{ sessionFile: string; id: string }> {
++	let manager: SessionManager | undefined;
+ 	let placed: string | undefined;
++	let release: (() => void) | undefined;
+ 	try {
+-		const manager = await open();
++		manager = await open();
+ 		placed = manager.getSessionFile();
+ 		const id = manager.getSessionId();
+-		try {
+-			await appendTransferNotice(manager, arrival);
+-		} finally {
+-			await manager.close();
+-		}
+ 		if (!placed) throw new SessionTransferError("Unpacked session has no session file.");
++		// Keep publication authority even if close reports a late failure.
++		// For a divergent fork this is its minted ID, not the incoming ID.
++		release = storage.claimSession(id, placed, { strict: true }) ?? undefined;
++		if (!release) throw new SessionTransferError(`Lost ownership of unpacked session ${id}.`);
++		await appendTransferNotice(manager, arrival);
++		await manager.close();
+ 		return { sessionFile: placed, id };
+ 	} catch (error) {
+-		if (placed) await removeSessionFiles(placed);
++		await manager?.close().catch(() => {});
++		try {
++			if (placed && release) await removeSessionFiles(placed);
++		} catch (cleanupError) {
++			throw new AggregateError([error, cleanupError], "Session import failed and its publication could not be removed.");
++		}
+ 		throw error;
++	} finally {
++		release?.();
+ 	}
+ }
+ 
+@@ -587,31 +543,55 @@
+ 			await Bun.write(path.join(stagedArtifacts, ...relative.split("/")), bytes);
+ 		}
+ 
+-		const localCopies = await findLocalCopies(id, sessionDir);
+-		let diverged = false;
+-		for (const file of localCopies) {
+-			const entries = (await loadEntriesFromFile(file)).filter(isBodyEntry);
+-			if (!isTranscriptPrefix(entries, contents.entries)) diverged = true;
++		// An older archive may not carry anchors. Make its absence explicit:
++		// never let a same-ID workstation-global map leak into imported history.
++		if (!contents.artifacts.some(([relative]) => relative === DATE_CWD_ANCHORS_ARTIFACT)) {
++			await Bun.write(path.join(stagedArtifacts, DATE_CWD_ANCHORS_ARTIFACT), "{}");
+ 		}
+ 
+-		if (diverged) {
+-			const placed = await placeSession(() => SessionManager.forkFrom(stagedFile, cwd, sessionDir), arrival);
+-			logger.info("Unpacked session as a fork of a diverged local copy", { parent: id, ...placed });
+-			return { ...placed, mode: "forked" };
++		// Claim the ID against the immutable staged journal BEFORE discovering
++		// any local copies. Exclusive ownership also refuses a same-process
++		// writer; only this private storage instance may publish under the claim.
++		const storage = new FileSessionStorage();
++		const release = storage.claimSession(id, stagedFile, { exclusive: true });
++		if (!release) {
++			throw new SessionTransferError(
++				`Cannot import session ${id}: a live omp writer or transfer owns it. Nothing was replaced.`,
++			);
+ 		}
+-
+-		const releases: (() => void)[] = [];
+ 		try {
+-			for (const file of localCopies) releases.push(claimSessionOrRefuse(id, file, "replace"));
++			const localCopies = await findLocalCopies(id, sessionDir);
++			let diverged = false;
++			for (const file of localCopies) {
++				const entries = (await loadEntriesFromFile(file, storage)).filter(isBodyEntry);
++				if (!isTranscriptPrefix(entries, contents.entries)) diverged = true;
++			}
++
++			if (diverged) {
++				const placed = await placeSession(
++					() => SessionManager.forkFrom(stagedFile, cwd, sessionDir, storage, { requireCompleteArtifacts: true }),
++					arrival, storage,
++				);
++				logger.info("Unpacked session as a fork of a diverged local copy", { parent: id, ...placed });
++				return { ...placed, mode: "forked" };
++			}
++
+ 			const aside = await setAside(localCopies);
+ 			let placed: { sessionFile: string; id: string };
+ 			try {
+ 				placed = await placeSession(
+-					() => SessionManager.openRelocated(stagedFile, recordedCwd, cwd, sessionDir),
++					() => SessionManager.openRelocated(stagedFile, recordedCwd, cwd, sessionDir, storage, {
++						adoptForWrite: false, requireCompleteArtifacts: true,
++					}),
+ 					arrival,
++					storage,
+ 				);
+ 			} catch (error) {
+-				await restoreAside(aside);
++				try {
++					await restoreAside(aside);
++				} catch (rollbackError) {
++					throw new AggregateError([error, rollbackError], "Session import failed and prior state could not be restored.");
++				}
+ 				throw error;
+ 			}
+ 			for (const { backup } of aside) await fs.promises.rm(backup, { recursive: true, force: true });
+@@ -619,7 +599,7 @@
+ 			logger.info("Unpacked session", { mode, replaced: localCopies, ...placed });
+ 			return { ...placed, mode };
+ 		} finally {
+-			for (const release of releases) release();
++			release();
+ 		}
+ 	} finally {
+ 		await staging.remove().catch(error => {
+@@ -640,9 +620,10 @@
+ 	const to = label.trim();
+ 	if (!to) throw new SessionTransferError("The move label must not be empty.");
+ 	const id = await requireSessionId(target);
+-	const release = claimSessionOrRefuse(id, target, "mark moved");
++	const storage = new FileSessionStorage();
++	const release = claimSessionOrRefuse(id, target, "mark moved", storage);
+ 	try {
+-		const manager = await SessionManager.open(target, path.dirname(target), undefined, {
++		const manager = await SessionManager.open(target, path.dirname(target), storage, {
+ 			throwIfMissing: true,
+ 			suppressBreadcrumb: true,
+ 		});
+@@ -656,25 +637,3 @@
+ 	}
+ }
+ 
+-/**
+- * Resume guard: when `manager`'s latest transfer marker says the session moved
+- * away, close it untouched and return a fork of it (in `sessionDir`, default:
+- * the cwd's session directory) carrying a visible `forked` notice. Otherwise
+- * return `manager` itself.
+- */
+-export async function forkIfMovedAway(manager: SessionManager, sessionDir?: string): Promise<SessionManager> {
+-	const marker = lastSessionTransfer(manager.getEntries());
+-	if (marker?.kind !== "departed") return manager;
+-	const source = manager.getSessionFile();
+-	if (!source) return manager;
+-	const cwd = manager.getCwd();
+-	await manager.close();
+-	const fork = await SessionManager.forkFrom(source, cwd, sessionDir, undefined, { repairInterruptedTail: true });
+-	await appendTransferNotice(fork, { kind: "forked", source, to: marker.to });
+-	logger.info("Resumed a session that moved away; continuing in a fork", {
+-		source,
+-		movedTo: marker.to,
+-		fork: fork.getSessionFile(),
+-	});
+-	return fork;
+-}
+--- a/pi-coding-agent/src/session/turn-recovery.ts
++++ b/pi-coding-agent/src/session/turn-recovery.ts
+@@ -11,6 +11,7 @@
+ 	AssistantRetryRecoveryKind,
+ 	CodexCompactionContext,
+ 	Effort,
++	Message,
+ 	Model,
+ 	ModelUsageHealth,
+ 	TextContent,
+@@ -258,7 +259,8 @@
+ 	appendSessionMessage(message: AssistantMessage): void;
+ 	persistedAssistantEntryId(message: AssistantMessage): string | undefined;
+ 	sessionMessageAlreadyPersisted(message: AssistantMessage): boolean;
+-	setModelWithProviderSessionReset(model: Model): Promise<void>;
++	/** Commit selection metadata synchronously with the live model, before observers or reconciliation. */
++	setModelWithProviderSessionReset(model: Model, commitSelection?: () => void): Promise<void>;
+ 	/** Edit mode resolved for the active model and settings, captured before a fallback swap. */
+ 	resolveActiveEditMode(): EditMode;
+ 	/** Rebuilds the model-dependent base system prompt when a swap changed the edit mode or model policy. */
+@@ -638,20 +640,12 @@
+ 			model: message.model,
+ 			provider: message.provider,
+ 		});
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [
+-				{
+-					type: "text",
+-					text: prompt.render(malformedFunctionCallRetryTemplate, {
+-						retryCount: this.#malformedFunctionCallRetryCount,
+-						maxRetries: MALFORMED_FUNCTION_CALL_MAX_RETRIES,
+-					}),
+-				},
+-			],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(
++			prompt.render(malformedFunctionCallRetryTemplate, {
++				retryCount: this.#malformedFunctionCallRetryCount,
++				maxRetries: MALFORMED_FUNCTION_CALL_MAX_RETRIES,
++			}),
++		);
+ 		this.#host.scheduleAgentContinue({
+ 			source: "malformed-function-call-retry",
+ 			generation: this.#host.promptGeneration(),
+@@ -709,20 +703,12 @@
+ 			provider: message.provider,
+ 			errorMessage: message.errorMessage,
+ 		});
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [
+-				{
+-					type: "text",
+-					text: prompt.render(streamStallContinueTemplate, {
+-						retryCount: this.#streamStallContinueCount,
+-						maxRetries: STREAM_STALL_CONTINUE_MAX_RETRIES,
+-					}),
+-				},
+-			],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(
++			prompt.render(streamStallContinueTemplate, {
++				retryCount: this.#streamStallContinueCount,
++				maxRetries: STREAM_STALL_CONTINUE_MAX_RETRIES,
++			}),
++		);
+ 		this.#host.scheduleAgentContinue({
+ 			source: "stream-stall-continue",
+ 			generation: this.#host.promptGeneration(),
+@@ -750,8 +736,8 @@
+ 	 * primary, so callers can re-run the pre-send context-fit check against the
+ 	 * reverted (possibly smaller) window before issuing the next request.
+ 	 */
+-	maybeRestoreRetryFallbackPrimary(): Promise<boolean> {
+-		return this.#maybeRestoreRetryFallbackPrimary();
++	maybeRestoreRetryFallbackPrimary(admissionCurrent?: () => boolean): Promise<boolean> {
++		return this.#maybeRestoreRetryFallbackPrimary(admissionCurrent);
+ 	}
+ 
+ 	/** Applies model fallback policy from live usage health before a turn starts. */
+@@ -1086,12 +1072,7 @@
+ 		// in-memory-only reparent lets the empty stop resurface on reload or after
+ 		// a mid-retry process kill.
+ 		await this.#dropAssistantTurnDurably(assistantMessage);
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [{ type: "text", text: this.#emptyStopRetryReminder() }],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(this.#emptyStopRetryReminder());
+ 		this.#host.scheduleAgentContinue({
+ 			source: "empty-stop-retry",
+ 			generation: this.#host.promptGeneration(),
+@@ -1181,12 +1162,7 @@
+ 			return false;
+ 		}
+ 
+-		this.#host.agent.appendMessage({
+-			role: "developer",
+-			content: [{ type: "text", text: this.#unexpectedStopRetryReminder() }],
+-			attribution: "agent",
+-			timestamp: Date.now(),
+-		});
++		this.#appendRetryReminder(this.#unexpectedStopRetryReminder());
+ 		this.#host.scheduleAgentContinue({
+ 			source: "unexpected-stop-retry",
+ 			generation: this.#host.promptGeneration(),
+@@ -1898,6 +1874,11 @@
+ 		const currentModel = this.#host.model();
+ 		if (!currentModel) return false;
+ 		const sessionId = this.#host.sessionManager.getSessionId();
++		const generation = this.#host.promptGeneration();
++		const isCurrent = () => !signal.aborted &&
++			this.#host.promptGeneration() === generation &&
++			this.#host.sessionManager.getSessionId() === sessionId &&
++			modelsAreEqual(this.#host.model(), currentModel);
+ 		const currentSelector = formatRetryFallbackSelector(currentModel, this.#host.thinkingLevel());
+ 		let health: ModelUsageHealth;
+ 		try {
+@@ -1909,7 +1890,7 @@
+ 				signal,
+ 			});
+ 		} catch (error) {
+-			if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
++			if (!isCurrent()) return false;
+ 			logger.debug("Usage-aware runtime preflight failed open", {
+ 				provider: currentModel.provider,
+ 				model: currentModel.id,
+@@ -1917,7 +1898,7 @@
+ 			});
+ 			return false;
+ 		}
+-		if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
++		if (!isCurrent()) return false;
+ 		const selectedAccount = health.accounts.find(account => account.selected);
+ 		if (health.state === "healthy") {
+ 			// A healthy sibling does not end the selected account's reserve episode.
+@@ -1977,7 +1958,7 @@
+ 							signal,
+ 						},
+ 					);
+-					if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
++					if (!isCurrent()) return false;
+ 					if (candidateHealth.state === "depleted" || candidateHealth.state === "reserve") continue;
+ 					if (candidateHealth.state === "healthy") {
+ 						const selected = candidateHealth.accounts.find(account => account.selected);
+@@ -1993,18 +1974,18 @@
+ 						}
+ 					}
+ 				} catch {
+-					if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
++					if (!isCurrent()) return false;
+ 					// Unknown usage fails open for an otherwise valid fallback.
+ 				}
+-				if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
++				if (!isCurrent()) return false;
+ 				let apiKey: string | undefined;
+ 				try {
+ 					apiKey = await this.#host.modelRegistry.getApiKey(candidateModel, this.#host.sessionId(), { signal });
+ 				} catch {
+-					if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
++					if (!isCurrent()) return false;
+ 					continue;
+ 				}
+-				if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
++				if (!isCurrent()) return false;
+ 				if (!apiKey) continue;
+ 				fallback = { role, selector: candidate, apiKey };
+ 				break;
+@@ -2030,18 +2011,14 @@
+ 				},
+ 				signal,
+ 			);
+-			if (
+-				signal.aborted ||
+-				this.#host.sessionManager.getSessionId() !== sessionId ||
+-				!modelsAreEqual(this.#host.model(), currentModel)
+-			)
+-				return false;
++			if (!isCurrent()) return false;
+ 		}
+ 		if (!shouldFallback) {
+ 			// Auto thinking changes effort between turns, not the coding-plan quota.
+ 			this.#usageReserveApproval = { model: formatModelStringWithRouting(currentModel), sessionId };
+ 			return false;
+ 		}
++		if (!isCurrent()) return false;
+ 		this.#usageReserveApproval = undefined;
+ 		return this.applyRetryFallbackCandidate(fallback.role, fallback.selector, currentSelector, {
+ 			pinFallback: true,
+@@ -2095,6 +2072,10 @@
+ 		currentSelector: string,
+ 		options?: { pinFallback?: boolean; apiKey?: string; signal?: AbortSignal; reason?: string },
+ 	): Promise<boolean> {
++		const generation = this.#host.promptGeneration();
++		const sessionId = this.#host.sessionManager.getSessionId();
++		const ownsHistory = () => this.#host.promptGeneration() === generation &&
++			this.#host.sessionManager.getSessionId() === sessionId;
+ 		const resolved = resolveModelOverride([selector.raw], this.#host.modelRegistry, this.#host.settings);
+ 		const candidate = resolved.model ?? this.#host.modelRegistry.find(selector.provider, selector.id);
+ 		if (!candidate) {
+@@ -2103,10 +2084,10 @@
+ 		const apiKey =
+ 			options?.apiKey ??
+ 			(await this.#host.modelRegistry.getApiKey(candidate, this.#host.sessionId(), { signal: options?.signal }));
++		if (!ownsHistory() || options?.signal?.aborted) return false;
+ 		if (!apiKey) {
+ 			throw new Error(`No API key for retry fallback ${selector.raw}`);
+ 		}
+-		if (options?.signal?.aborted) return false;
+ 
+ 		// Capture the configured selector (auto-aware) so a fallback chain preserves
+ 		// `auto` instead of collapsing it to the level it resolved to this turn.
+@@ -2120,51 +2101,39 @@
+ 				? requestedThinkingLevel
+ 				: clampThinkingLevelToCeiling(candidate, requestedThinkingLevel, this.#host.thinkingLevelCeiling());
+ 		const candidateSelector = formatModelStringWithRouting(candidate);
+-		const previousModel = this.#host.model();
+ 		// Capture the edit mode under the outgoing model so the base system prompt
+ 		// can be re-synced once the swap commits — `edit.modelVariants` and other
+ 		// model-dependent prompt policy would otherwise stay pinned to the
+ 		// chain-head model after an auto-fallback (issue #11983).
+ 		const previousEditMode = this.#host.resolveActiveEditMode();
+-		// Mark routing BEFORE the swap: `setModelWithProviderSessionReset` moves the
+-		// model and fans `model_changed` out to subscribers synchronously, and a
+-		// listener reading attribution in that window must already see the incoming
+-		// candidate as fallback-routed. Attribution itself is safe regardless — it
+-		// names the last model that served, which this swap has not changed.
+-		const routedBeforeSwap = this.#fallbackRoutedFor;
+-		const servedBeforeSwap = this.#activeRetryFallback?.served;
+-		this.#markFallbackRouted();
+-		if (this.#activeRetryFallback) this.#activeRetryFallback.served = false;
+-		await this.#host.setModelWithProviderSessionReset(candidate);
+-		if (options?.signal?.aborted) {
+-			this.#fallbackRoutedFor = routedBeforeSwap;
+-			if (this.#activeRetryFallback) this.#activeRetryFallback.served = servedBeforeSwap;
+-			if (previousModel && this.#host.model() === candidate) {
+-				await this.#host.setModelWithProviderSessionReset(previousModel);
+-			}
+-			return false;
+-		}
+-		if (this.#host.model() !== candidate) {
+-			this.#fallbackRoutedFor = routedBeforeSwap;
+-			if (this.#activeRetryFallback) this.#activeRetryFallback.served = servedBeforeSwap;
+-			return false;
+-		}
+-		this.#host.sessionManager.appendModelChange(candidateSelector, EPHEMERAL_MODEL_CHANGE_ROLE, true);
+-		this.#host.settings.getStorage()?.recordModelUsage(candidateSelector);
+-		this.#host.setThinkingLevel(nextThinkingLevel);
+-		if (!this.#activeRetryFallback) {
+-			this.#activeRetryFallback = {
+-				role,
+-				originalSelector: currentSelector,
+-				originalThinkingLevel: currentThinkingLevel,
+-				lastAppliedFallbackThinkingLevel: nextThinkingLevel,
+-				pinned: options?.pinFallback === true,
+-			};
+-		} else {
+-			this.#activeRetryFallback.lastAppliedFallbackThinkingLevel = nextThinkingLevel;
+-			this.#activeRetryFallback.pinned = this.#activeRetryFallback.pinned || options?.pinFallback === true;
+-		}
++		// Publish the model, routing receipt and effort as one synchronous
++		// selection before model observers or asynchronous reconciliation run.
++		// History replacement can then capture a coherent ephemeral selection
++		// with its original durable default anchor.
++		await this.#host.setModelWithProviderSessionReset(candidate, () => {
++			this.#markFallbackRouted();
++			if (!this.#activeRetryFallback) {
++				this.#activeRetryFallback = {
++					role,
++					originalSelector: currentSelector,
++					originalThinkingLevel: currentThinkingLevel,
++					lastAppliedFallbackThinkingLevel: nextThinkingLevel,
++					pinned: options?.pinFallback === true,
++				};
++			} else {
++				this.#activeRetryFallback.served = false;
++				this.#activeRetryFallback.lastAppliedFallbackThinkingLevel = nextThinkingLevel;
++				this.#activeRetryFallback.pinned = this.#activeRetryFallback.pinned || options?.pinFallback === true;
++			}
++			this.#host.sessionManager.appendModelChange(candidateSelector, EPHEMERAL_MODEL_CHANGE_ROLE, true);
++			this.#host.setThinkingLevel(nextThinkingLevel);
++			this.#host.settings.getStorage()?.recordModelUsage(candidateSelector);
++		});
++		// Cancellation after this commit stops setup, not the coherent selection
++		// a concurrent history replacement may already have captured.
++		if (!ownsHistory() || options?.signal?.aborted || this.#host.model() !== candidate) return false;
+ 		await this.#host.syncAfterModelChange(previousEditMode);
++		if (!ownsHistory() || options?.signal?.aborted) return false;
+ 		await this.#host.emitSessionEvent({
+ 			type: "retry_fallback_applied",
+ 			from: currentSelector,
+@@ -2172,7 +2141,7 @@
+ 			role,
+ 			reason: options?.reason,
+ 		});
+-		return true;
++		return ownsHistory() && !options?.signal?.aborted;
+ 	}
+ 
+ 	async #tryRetryModelFallback(
+@@ -2362,19 +2331,26 @@
+ 	async #tryFireworksFastFallback(currentSelector: string): Promise<boolean> {
+ 		const model = this.#activeFireworksFastModel();
+ 		if (!model) return false;
++		const generation = this.#host.promptGeneration();
++		const sessionId = this.#host.sessionManager.getSessionId();
++		const ownsHistory = () => this.#host.promptGeneration() === generation &&
++			this.#host.sessionManager.getSessionId() === sessionId;
+ 		const baseModel = this.#host.modelRegistry.find("fireworks", toFireworksBaseModelId(model.id));
+ 		if (!baseModel) return false;
+ 		const apiKey = await this.#host.modelRegistry.getApiKey(baseModel, this.#host.sessionId());
++		if (!ownsHistory() || !modelsAreEqual(this.#host.model(), model)) return false;
+ 		if (!apiKey) return false;
+ 		const baseSelector = formatModelStringWithRouting(baseModel);
+ 		const previousEditMode = this.#host.resolveActiveEditMode();
+-		// A capability degrade is fallback routing too, even though it arms no
+-		// chain: the base model must not be reported as the configured primary.
+-		this.#markFallbackRouted();
+-		await this.#host.setModelWithProviderSessionReset(baseModel);
+-		this.#host.sessionManager.appendModelChange(baseSelector, EPHEMERAL_MODEL_CHANGE_ROLE, true);
+-		this.#host.settings.getStorage()?.recordModelUsage(baseSelector);
++		await this.#host.setModelWithProviderSessionReset(baseModel, () => {
++			// A capability degrade is fallback routing even though it arms no chain.
++			this.#markFallbackRouted();
++			this.#host.sessionManager.appendModelChange(baseSelector, EPHEMERAL_MODEL_CHANGE_ROLE, true);
++			this.#host.settings.getStorage()?.recordModelUsage(baseSelector);
++		});
++		if (!ownsHistory() || this.#host.model() !== baseModel) return false;
+ 		await this.#host.syncAfterModelChange(previousEditMode);
++		if (!ownsHistory() || this.#host.model() !== baseModel) return false;
+ 		await this.#host.emitSessionEvent({
+ 			type: "retry_fallback_applied",
+ 			from: currentSelector,
+@@ -2382,10 +2358,11 @@
+ 			role: "fireworks-fast",
+ 			reason: "Request rejected by the Fast tier. Retrying on the Standard tier.",
+ 		});
+-		return true;
++		return ownsHistory();
+ 	}
+ 
+-	async #maybeRestoreRetryFallbackPrimary(): Promise<boolean> {
++	async #maybeRestoreRetryFallbackPrimary(admissionCurrent?: () => boolean): Promise<boolean> {
++		if (admissionCurrent && !admissionCurrent()) return false;
+ 		if (!this.#activeRetryFallback) return false;
+ 		if (this.#activeRetryFallback.pinned) return false;
+ 		if (this.#getRetryFallbackRevertPolicy() !== "cooldown-expiry") return false;
+@@ -2426,6 +2403,7 @@
+ 			resolvedPrimary.model ?? this.#host.modelRegistry.find(originalSelector.provider, originalSelector.id);
+ 		if (!primaryModel) return false;
+ 		const apiKey = await this.#host.modelRegistry.getApiKey(primaryModel, this.#host.sessionId());
++		if (admissionCurrent && !admissionCurrent()) return false;
+ 		if (!apiKey) return false;
+ 
+ 		const currentThinkingLevel = this.#host.configuredThinkingLevel();
+@@ -2433,16 +2411,15 @@
+ 			currentThinkingLevel === lastAppliedFallbackThinkingLevel ? originalThinkingLevel : currentThinkingLevel;
+ 		const primarySelector = formatModelStringWithRouting(primaryModel);
+ 		const previousEditMode = this.#host.resolveActiveEditMode();
+-		// Clear before the swap: `setModelWithProviderSessionReset` and
+-		// `setThinkingLevel` both notify subscribers, and an observer reading
+-		// attribution in that window would see the restored primary still tagged
+-		// as fallback-served.
+-		this.clearActiveRetryFallback();
+-		await this.#host.setModelWithProviderSessionReset(primaryModel);
+-		this.#host.sessionManager.appendModelChange(primarySelector, EPHEMERAL_MODEL_CHANGE_ROLE);
+-		this.#host.settings.getStorage()?.recordModelUsage(primarySelector);
+-		this.#host.setThinkingLevel(thinkingToApply);
++		await this.#host.setModelWithProviderSessionReset(primaryModel, () => {
++			this.clearActiveRetryFallback();
++			this.#host.sessionManager.appendModelChange(primarySelector, EPHEMERAL_MODEL_CHANGE_ROLE);
++			this.#host.setThinkingLevel(thinkingToApply);
++			this.#host.settings.getStorage()?.recordModelUsage(primarySelector);
++		});
++		if (admissionCurrent && !admissionCurrent()) return false;
+ 		await this.#host.syncAfterModelChange(previousEditMode);
++		if (admissionCurrent && !admissionCurrent()) return false;
+ 		return true;
+ 	}
+ 
+@@ -3019,6 +2996,26 @@
+ 	}
+ 
+ 	/**
++	 * Append a retry reminder to the live context AND the session file, as the
++	 * plan-mode reminder does. Kept in memory only, a rebuild from disk (resume,
++	 * in-process context rebuild) drops it, so the next request forks the
++	 * provider's cached prefix at the reminder's index and re-writes the rest.
++	 * The 18.4.1 committed-text stall continuation ({@link
++	 * handleCommittedTextStreamStall}) appends its reminder the same way so the
++	 * resumed request keeps the partial turn and the reminder that identifies it.
++	 */
++	#appendRetryReminder(text: string): void {
++		const reminder: Message = {
++			role: "developer",
++			content: [{ type: "text", text }],
++			attribution: "agent",
++			timestamp: Date.now(),
++		};
++		this.#host.agent.appendMessage(reminder);
++		this.#host.sessionManager.appendMessage(reminder);
++	}
++
++	/**
+ 	 * Inject a hidden redirect notice when a thinking/response loop is being retried, so
+ 	 * the retried turn carries an instruction to break the repeated pattern instead of
+ 	 * re-sampling the same stalled context. Injected on every {@link AIError.Flag.ThinkingLoop}

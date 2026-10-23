@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "plan_count": 27,
+  "unique_capability_count": 62,
+  "adopted_0017_in_union": true,
+  "adopted_0078_in_union": true,
+  "0078_absent_from_local_owner": true,
+  "0078_manifest_adoption": true,
+  "0097_absent": true,
+  "gate_count": 57
+}

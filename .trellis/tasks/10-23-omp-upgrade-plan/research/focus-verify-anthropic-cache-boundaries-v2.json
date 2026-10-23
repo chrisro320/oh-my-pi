@@ -1,0 +1,22 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-anthropic-cache-boundaries.ts"
+  ],
+  "started": "2026-10-23T13:03:34.155718+00:00",
+  "finished": "2026-10-23T13:03:34.361081+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "PASS Anthropic cache boundaries (18.12.6): 7 ordinary captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary, credit-safe retry on both rungs; zero provider traffic\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 210,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "1fe281790c6070096a4ef2094f887feec844d5845f42ad4fb21ac2fe5444f80b",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true
+}

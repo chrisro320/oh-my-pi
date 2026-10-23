@@ -207,7 +207,7 @@
         "0084",
         "0093"
       ],
-      "sha256": "351a4d21376b183a69231343b9f086f113888aa8c27b904d83ece3110c24e67e",
+      "sha256": "fe4c7f358af61594efe3facc3982d852deb3bd861efb257d129dc7ade70b1e13",
       "paths": [
         "pi-ai/dist/types/types.d.ts",
         "pi-ai/src/providers/openai-responses.ts",
@@ -227,6 +227,7 @@
         "pi-coding-agent/src/session/agent-session.ts",
         "pi-coding-agent/src/session/date-cwd-reminder.ts",
         "pi-coding-agent/src/session/messages.ts",
+        "pi-coding-agent/src/session/model-controls.ts",
         "pi-coding-agent/src/session/session-context.ts",
         "pi-coding-agent/src/session/session-maintenance.ts",
         "pi-coding-agent/src/session/session-manager.ts",
@@ -637,5 +638,5 @@
     }
   ],
   "pristine_tree_sha256": "e565fa89582d4c3a1d5773b210b311966e442b96f2086031953ee71f09c7d910",
-  "candidate_tree_sha256": "4187e4fd7c38398ad46742510a82bbc92a19315cc725abdde23dfe66b3d29d6c"
+  "candidate_tree_sha256": "14d1e60540b2b24e618b7ad9cff6be2c8c023fc754f541731189514218243bc7"
 }

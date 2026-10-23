@@ -25,7 +25,7 @@ const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-cata
 // Admit only plans that retain durable effort history; unknown trees fail closed.
 const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version as string;
 assert.ok(
-	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(aiVersion),
+	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion),
 	`unsupported Codex effort resume gate version: ${aiVersion}`,
 );
 const { streamOpenAICodexResponses, buildTransformedCodexRequestBody } = await import(
@@ -35,7 +35,7 @@ const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const bundled = getBundledModel("openai-codex", "gpt-6-astra");
 assert.ok(bundled?.compat.supportsConfigurationUpdate, "fixture needs a configuration_update model");
 const model = { ...bundled, baseUrl: "http://127.0.0.1:1/codex-effort-gate" };
-const initialEffort = ["18.10.0", "18.10.1"].includes(aiVersion) ? "low" : "high";
+const initialEffort = ["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion) ? "low" : "high";
 const originalFetch = globalThis.fetch;
 let uninjectedFetches = 0;
 globalThis.fetch = (async () => {
@@ -139,7 +139,7 @@ try {
 	const first = [user("first")];
 	const a = await turn(first, initialEffort);
 	assert.equal(wire.reasoning.effort, initialEffort);
-	if (["18.10.0", "18.10.1"].includes(aiVersion)) {
+	if (["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion)) {
 		assert.ok(a.providerPayload?.type === "openaiResponsesHistory");
 		assert.equal(a.providerPayload.effortControl?.sessionId, "effort-resume-fixture", "the target planner must persist its required session identity");
 	}

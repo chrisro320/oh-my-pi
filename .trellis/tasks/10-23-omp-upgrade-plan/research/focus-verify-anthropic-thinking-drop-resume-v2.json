@@ -1,0 +1,22 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-anthropic-thinking-drop-resume.ts"
+  ],
+  "started": "2026-10-23T13:03:34.361819+00:00",
+  "finished": "2026-10-23T13:03:34.548871+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "PASS anthropic thinking-drop resume (18.12.6): 26 offline requests; legacy omissions, repeated resume, endpoint/model isolation, new blocks kept, durable 400 repair, invalid/malformed reports ignored, server reports remain on wire\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 231,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "e72a1a7e328407a0b2dcf14ed013f17378588a2d18fb893d8d834983d30b53b0",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true
+}

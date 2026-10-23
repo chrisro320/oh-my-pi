@@ -1,0 +1,34 @@
+{
+  "version": "18.12.6",
+  "runtime": "/tmp/omp-upgrade-18126-01a1684f/runtime",
+  "lockfile": "runtime/bun.lock",
+  "lockfile_sha256": "11862e580b283835bc90dcd0b436d76d479c1f5a0b0a2d4d8946c9fdf30b95d5",
+  "toolchain": {
+    "bun": "1.3.14",
+    "bun_bin": "/home/chris/.bun/bin/bun",
+    "npm": "11.12.1",
+    "node": "v24.15.0"
+  },
+  "install": "bun install --ignore-scripts --backend=copyfile, env -i allowlist, BUN_INSTALL_CACHE_DIR=cache/bun",
+  "omp_reextracted_from_verified_archives": true,
+  "omp_packages": [
+    "omp-stats",
+    "omptype",
+    "pi-agent-core",
+    "pi-ai",
+    "pi-catalog",
+    "pi-coding-agent",
+    "pi-mnemopi",
+    "pi-natives",
+    "pi-natives-linux-x64",
+    "pi-tui",
+    "pi-utils",
+    "pi-wire",
+    "snapcompact"
+  ],
+  "assertions": {
+    "all_exact_version": true,
+    "no_symlink_aliases": true,
+    "no_nested_omp": true
+  }
+}

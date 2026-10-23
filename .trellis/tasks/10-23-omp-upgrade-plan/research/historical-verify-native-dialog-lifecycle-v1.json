@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-native-dialog-lifecycle.ts"
+  ],
+  "started": "2026-10-23T12:51:31.871156+00:00",
+  "finished": "2026-10-23T12:51:32.119530+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "PASS settled native input ignores queued native, keyboard and paste delivery\nPASS refused native submit remains editable and retryable\nPASS native File copy preserves /home/user/session.jsonl\nPASS native File copy preserves C:\\Users\\user\\session.jsonl\nPASS native File copy preserves \\\\server\\share\\session.jsonl\nPASS native File copy preserves In-memory\nPASS MCP pending connection cancellation: native\nPASS MCP pending connection cancellation: keyboard\nPASS MCP pending connection cancellation: none\nPASS MCP discovery continuation ownership: cancelled=true\nPASS MCP discovery continuation ownership: cancelled=false\nPASS BTW emitted Copy answer action reaches application answer copying\nPASS advisor Tools End selection remains visible and applies its draft\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 761,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "63dcde5076ee07983a3b8d6f64e4afce501e8a9eb07838343d5ba9172f8a0f56",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "gate": "verify-native-dialog-lifecycle.ts",
+  "version": "18.10.1",
+  "runtime": "/tmp/omp-upgrade-18126-01a1684f/historical-regression"
+}

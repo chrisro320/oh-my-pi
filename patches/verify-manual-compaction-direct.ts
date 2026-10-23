@@ -3,22 +3,23 @@
 // A plain manual compaction (`session.compact()` with no mode / customInstructions /
 // internalGuidance) on a main session with a live notebook rolls over DIRECTLY:
 // there is no hidden notebook-save turn first, whatever the notebook state. The
-// real save gate (`context-notes-save-gate.ts`) is loaded through
-// `preloadedPreparedExtensions` and must wave a manual rollover through even with
-// a stale notebook, while it still vetoes an AUTOMATIC rollover requested by a
-// `new_context` tool call with a stale notebook. That second half pins the
-// cross-layer invariant the gate relies on: every automatic pass emits
-// `auto_compaction_start` BEFORE `session_before_compact`, and a manual pass emits
-// no `auto_compaction_start` at all (an order probe extension records both).
+// real notes addon (`context-notes-save-gate.ts`) is loaded through
+// `preloadedPreparedExtensions` and stays silent throughout. An AUTOMATIC
+// rollover requested by a `new_context` tool call commits the notes-backed
+// rollover even with a stale notebook, retaining the last saved note without an
+// extra provider turn. An order probe extension still pins the cross-layer
+// event contract: every automatic pass emits `auto_compaction_start` BEFORE
+// `session_before_compact`, and a manual pass emits no `auto_compaction_start`
+// at all.
 //
 // The gate asserts CONSUMER behaviour, never wording, wiring or defaults:
 //   - manual rollover (stale notebook, fresh notebook, no notebook revision yet):
 //     exactly one compaction entry with the experimental rollover details, and
 //     nothing else happens -- no extra provider request, no extra custom message
-//     or assistant turn, no new notebook revision, no repair message, no notice;
-//   - automatic `new_context` rollover: vetoed by the real gate with a stale
-//     notebook (zero compaction entries, one bounded repair queued from the
-//     in-flight turn), committed with a fresh one;
+//     or assistant turn, no new notebook revision, no notice;
+//   - automatic `new_context` rollover: commits the notes-backed rollover with a
+//     stale notebook (the saved note is retained, no repair provider turn) and
+//     with a fresh one;
 //   - feature off (setting false, notebook tools absent, or either toggled off
 //     in a live session): plain compaction takes the configured methodOrder
 //     summary path, and classic automatic compaction still commits;
@@ -42,7 +43,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
-import contextNotesSaveGate, { NOTES_REPAIR_CUSTOM_TYPE } from "./context-notes-save-gate.ts";
+import contextNotesSaveGate from "./context-notes-save-gate.ts";
 
 const NM =
 	process.env.OMP_NM ?? process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
@@ -137,6 +138,7 @@ const expect = (condition: unknown, message: string): void => {
 type Entry = {
 	type?: string;
 	customType?: string;
+	data?: { text?: string };
 	details?: unknown;
 	summary?: string;
 	message?: { role?: string; toolName?: string; isError?: boolean; stopReason?: string };
@@ -184,14 +186,12 @@ const noteRevisions = (branch: Entry[]): Entry[] =>
 const customMessages = (branch: Entry[]): Entry[] => branch.filter(entry => entry.type === "custom_message");
 const assistantTurns = (branch: Entry[]): Entry[] =>
 	branch.filter(entry => entry.type === "message" && entry.message?.role === "assistant");
-const repairMessages = (branch: Entry[]): Entry[] =>
-	customMessages(branch).filter(entry => entry.customType === NOTES_REPAIR_CUSTOM_TYPE);
-const gateMessages = (branch: Entry[]): Entry[] =>
+const addonMessages = (branch: Entry[]): Entry[] =>
 	customMessages(branch).filter(entry => (entry.customType ?? "").startsWith("context-notes-save-gate"));
 const detailsKind = (entry: Entry): unknown =>
 	typeof entry.details === "object" && entry.details !== null && "kind" in entry.details ? entry.details.kind : undefined;
 
-/** Extension that records the hook order; registered before the gate so a veto cannot hide an event. */
+/** Extension that records the hook order; registered before the addon so its events are seen first. */
 function orderProbe(order: string[]) {
 	return (pi: { on(event: string, handler: () => undefined): void }): void => {
 		for (const name of ["auto_compaction_start", "session_before_compact", "auto_compaction_end"]) {
@@ -258,7 +258,7 @@ async function makeSession(options: {
 		model: options.model,
 		sessionManager: manager,
 		// `restrictToolNames` sessions ignore `additionalExtensionPaths`; only prepared
-		// extensions bind, so the real gate factory is handed over explicitly.
+		// extensions bind, so the real addon factory is handed over explicitly.
 		preloadedPreparedExtensions: prepared,
 		disableExtensionDiscovery: true,
 		skills: [],
@@ -419,7 +419,7 @@ function expectDirectRollover(harness: Harness, log: string[]): Record<string, u
 	expect(customMessages(branch).length === mark?.customMessages, "a manual rollover must add no hidden custom message");
 	expect(assistantTurns(branch).length === mark?.assistants, "a manual rollover must run no hidden turn");
 	expect(noteRevisions(branch).length === mark?.notebookRevisions, "a manual rollover must not write a notebook revision");
-	expect(gateMessages(branch).length === 0, "the save gate must queue no repair for a manual rollover");
+	expect(addonMessages(branch).length === 0, "the notes addon must emit no custom message for a manual rollover");
 	expect(harness.notices.length === 0, `a manual rollover must raise no notice: ${harness.notices.join("|")}`);
 	return { compactions: 1, kind: ROLLOVER_KIND, hiddenTurns: 0, notices: 0 };
 }
@@ -437,14 +437,14 @@ function expectSummaryPath(harness: Harness): Record<string, unknown> {
 	expect(customMessages(branch).length === mark?.customMessages, "a summary-path compaction must add no hidden custom message");
 	expect(assistantTurns(branch).length === mark?.assistants, "a summary-path compaction must run no hidden turn");
 	expect(noteRevisions(branch).length === mark?.notebookRevisions, "a summary-path compaction must not write a notebook revision");
-	expect(gateMessages(branch).length === 0, "the save gate must queue no repair for a summary-path compaction");
+	expect(addonMessages(branch).length === 0, "the notes addon must emit no custom message for a summary-path compaction");
 	return { compactions: 1, summaryPath: true };
 }
 
-const gateIsLoaded = (harness: Harness): void => {
+const addonIsLoaded = (harness: Harness): void => {
 	expect(
-		harness.session.extensionRunner?.hasHandlers("session_before_compact") === true,
-		"the save-gate extension must be loaded for this scenario",
+		harness.session.extensionRunner?.hasHandlers("before_agent_start") === true,
+		"the notes-reminder extension must be loaded for this scenario",
 	);
 };
 
@@ -455,14 +455,14 @@ const orderOf = (harness: Harness, name: string): number[] =>
 
 // (a) Manual plain compaction with a live notebook rolls over directly, whether the
 //     notebook is stale (user message and tool work after the last save) or fresh.
-//     The gate is loaded and must not veto; no automatic pass is in flight.
+//     The addon is loaded and stays silent.
 await run({
 	name: "manual-stale-notebook-direct",
 	probe: true,
 	steps: [{ respond: noteWrite("prior notebook") }, { respond: readFile() }, { respond: plainText("read done") }],
 	setup: harness => harness.session.prompt("begin"),
 	act: async (harness, log) => {
-		gateIsLoaded(harness);
+		addonIsLoaded(harness);
 		const branch = harness.branch();
 		const lastNote = noteRevisions(branch).at(-1);
 		const work = branch.findLast(entry => entry.type === "message" && entry.message?.toolName === "read");
@@ -483,7 +483,7 @@ await run({
 	steps: [{ respond: noteWrite("prior notebook") }, { respond: plainText("noted") }],
 	setup: harness => harness.session.prompt("begin"),
 	act: async (harness, log) => {
-		gateIsLoaded(harness);
+		addonIsLoaded(harness);
 		markBefore(harness, log);
 		harness.outcome = await compactOutcome(harness);
 	},
@@ -501,7 +501,7 @@ await run({
 	steps: [{ respond: plainText("hello") }],
 	setup: harness => harness.session.prompt("begin"),
 	act: async (harness, log) => {
-		gateIsLoaded(harness);
+		addonIsLoaded(harness);
 		expect(noteRevisions(harness.branch()).length === 0, "the session must have no notebook revision yet");
 		markBefore(harness, log);
 		harness.outcome = await compactOutcome(harness);
@@ -513,30 +513,33 @@ await run({
 	},
 });
 
-// (c) An AUTOMATIC rollover requested by a `new_context` tool call still honours the
-//     gate: a stale notebook is vetoed (no compaction entry, one bounded repair
-//     queued from the in-flight turn); a fresh one commits. Both pin that the pass
-//     emits `auto_compaction_start` before `session_before_compact`.
+// (c) An AUTOMATIC rollover requested by a `new_context` tool call commits the
+//     notes-backed rollover with a stale notebook too: the last saved note is
+//     retained and no repair provider turn is added. Both scenarios pin that the
+//     pass emits `auto_compaction_start` before `session_before_compact`.
 await run({
-	name: "new-context-stale-notebook-vetoed",
+	name: "new-context-stale-notebook-commits",
 	probe: true,
 	steps: [
 		{ respond: { content: [toolCall("context_notes", { text: "prior notebook" }), toolCall("read", { path: "file.txt" }), toolCall("new_context", {})] } },
-		{ respond: plainText("the repair is ignored") },
+		{ respond: plainText("rolled over") },
 	],
 	act: async harness => {
-		gateIsLoaded(harness);
+		addonIsLoaded(harness);
 		await withTimeout(harness.session.prompt("begin"), 30_000, "new_context turn");
 	},
 	assertions: (harness, log) => {
 		const branch = harness.branch();
+		const compactions = compactionEntries(branch);
 		const first = harness.order.indexOf("auto_compaction_start");
 		expect(first >= 0 && harness.order.indexOf("session_before_compact") > first, `an automatic pass must emit auto_compaction_start before the hook: ${harness.order.join(",")}`);
-		expect(compactionEntries(branch).length === 0, "a stale automatic rollover must be vetoed");
-		expect(repairMessages(branch).length === 1, `exactly one bounded repair must be queued, got ${repairMessages(branch).length}`);
-		expect(log.length === 2, `the veto must cost exactly one repair turn: ${log.join(",")}`);
-		expect(noteRevisions(branch).length === 1, "an ignored repair must add no notebook revision");
-		return { compactions: 0, repairs: 1, hookOrder: harness.order };
+		expect(compactions.length === 1, `a stale automatic rollover must commit, got ${compactions.length}`);
+		expect(detailsKind(compactions[0]) === ROLLOVER_KIND, "the automatic rollover must stay notes-backed");
+		expect(noteRevisions(branch).length === 1, "the rollover must retain the last saved note");
+		expect(noteRevisions(branch).at(-1)?.data?.text === "prior notebook", "the rollover must preserve the saved notebook text");
+		expect(addonMessages(branch).length === 0, "the notes addon must emit no repair or reminder");
+		expect(log.length === 2, `the rollover must add no provider turn beyond the scripted continuation: ${log.join(",")}`);
+		return { compactions: 1, hookOrder: harness.order };
 	},
 });
 await run({
@@ -547,7 +550,7 @@ await run({
 		{ respond: plainText("rolled over") },
 	],
 	act: async harness => {
-		gateIsLoaded(harness);
+		addonIsLoaded(harness);
 		await withTimeout(harness.session.prompt("begin"), 30_000, "new_context turn");
 	},
 	assertions: harness => {
@@ -557,13 +560,13 @@ await run({
 		expect(first >= 0 && harness.order.indexOf("session_before_compact") > first, `an automatic pass must emit auto_compaction_start before the hook: ${harness.order.join(",")}`);
 		expect(compactions.length === 1, `expected exactly one automatic rollover, got ${compactions.length}`);
 		expect(detailsKind(compactions[0]) === ROLLOVER_KIND, "the automatic rollover must stay notes-backed");
-		expect(gateMessages(branch).length === 0, "a fresh notebook must queue no repair");
+		expect(addonMessages(branch).length === 0, "a fresh notebook must emit no addon message");
 		return { compactions: 1, hookOrder: harness.order };
 	},
 });
 
 // (d) Feature off: plain compaction follows the configured methodOrder summary path.
-//     The real gate is loaded in every scenario and must not interfere.
+//     The real addon is loaded in every scenario and must not interfere.
 const summaryStep: Step = { respond: plainText(SUMMARY_TEXT) };
 const workTurn: Step[] = [{ respond: readFile() }, { respond: plainText("read done") }];
 const expectSummaryRequested = (harness: Harness, log: string[]): void => {
@@ -613,7 +616,7 @@ await run({
 	steps: [{ respond: noteWrite("prior notebook") }, ...workTurn],
 	setup: harness => harness.session.prompt("begin"),
 	act: async (harness, log) => {
-		gateIsLoaded(harness);
+		addonIsLoaded(harness);
 		cfgCompactionExperimentalContextManagement.override(harness.settings, false);
 		markBefore(harness, log);
 		harness.outcome = await compactOutcome(harness);
@@ -631,7 +634,7 @@ await run({
 	steps: [{ respond: noteWrite("prior notebook") }, ...workTurn],
 	setup: harness => harness.session.prompt("begin"),
 	act: async (harness, log) => {
-		gateIsLoaded(harness);
+		addonIsLoaded(harness);
 		await harness.session.setActiveToolsByName(["read", "grep"]);
 		markBefore(harness, log);
 		harness.outcome = await compactOutcome(harness);
@@ -642,9 +645,32 @@ await run({
 		return expectSummaryPath(harness);
 	},
 });
+// An idle-triggered automatic pass must not reintroduce the removed freshness veto.
+await run({
+	name: "idle-automatic-stale-notebook-commits",
+	probe: true,
+	listModel: true,
+	steps: [{ respond: noteWrite("prior notebook") }, ...workTurn],
+	setup: harness => harness.session.prompt("begin"),
+	act: async (harness, log) => {
+		addonIsLoaded(harness);
+		markBefore(harness, log);
+		await withTimeout(harness.session.runIdleCompaction(), 30_000, "stale notebook idle compaction");
+		harness.outcome = "resolved";
+	},
+	assertions: (harness, log) => {
+		const observed = expectDirectRollover(harness, log);
+		const first = harness.order.indexOf("auto_compaction_start");
+		expect(first >= 0 && harness.order.indexOf("session_before_compact") > first,
+			`idle automatic compaction must emit its start before the hook: ${harness.order.join(",")}`);
+		expect(noteRevisions(harness.branch()).at(-1)?.data?.text === "prior notebook",
+			"idle automatic rollover must retain the exact saved notebook text");
+		return { ...observed, hookOrder: harness.order };
+	},
+});
 
 // Classic automatic compaction is unchanged: with the notebook tools off, an idle
-// automatic pass commits the configured summary and the gate stays out of it.
+// automatic pass commits the configured summary and the addon stays out of it.
 function classicAutomaticScenario(name: string, options: { toggleOff: boolean }) {
 	return run({
 		name,
@@ -671,7 +697,7 @@ await classicAutomaticScenario("classic-automatic-tools-absent", { toggleOff: fa
 await classicAutomaticScenario("classic-automatic-toggled-off", { toggleOff: true });
 
 // (e) Explicit method modes and focus text keep the summary path with a live STALE
-//     notebook and the real gate loaded: never the notes rollover, never vetoed.
+//     notebook and the real addon loaded: never the notes rollover, never vetoed.
 //     `remote` falls back to the local summary on the mock model; `snapcompact` may
 //     refuse a text-only model, which is a refusal of the mode, not a veto.
 function summaryPathScenario(
@@ -685,7 +711,7 @@ function summaryPathScenario(
 		steps: [{ respond: noteWrite("prior notebook") }, ...workTurn],
 		setup: harness => harness.session.prompt("begin"),
 		act: async (harness, log) => {
-			gateIsLoaded(harness);
+			addonIsLoaded(harness);
 			markBefore(harness, log);
 			harness.outcome = await options.invoke(harness);
 		},
@@ -696,8 +722,8 @@ function summaryPathScenario(
 				compactions.every(entry => detailsKind(entry) !== ROLLOVER_KIND),
 				"an explicit or focused compaction must not commit the notes rollover",
 			);
-			expect(!String(harness.outcome).includes("CompactionCancelled"), `the gate must not veto: ${harness.outcome}`);
-			expect(gateMessages(branch).length === 0, "the save gate must queue no repair");
+			expect(!String(harness.outcome).includes("CompactionCancelled"), `the compaction must not be cancelled: ${harness.outcome}`);
+			expect(addonMessages(branch).length === 0, "the notes addon must emit no custom message");
 			if (options.expectCommit) {
 				expect(harness.notices.length === 0, `no notice expected: ${harness.notices.join("|")}`);
 				return expectSummaryPath(harness);
@@ -725,7 +751,7 @@ await summaryPathScenario("focused-compact", {
 
 // (f) Child sessions are unchanged. A real child pins the notebook setting off, so a
 //     plain compaction takes its configured summary path; a depth-1 session that
-//     keeps the setting on still rolls over directly and the main-only gate stays out.
+//     keeps the setting on still rolls over directly and the main-only addon stays out.
 await run({
 	name: "child-session-pinned-off-summary-path",
 	child: true,

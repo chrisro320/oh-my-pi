@@ -26,6 +26,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { gunzipSync } from "node:zlib";
 
 // Trace target must be set before the module under test is imported: the path is
 // read per call, but an isolated tree must never write the real compaction log.
@@ -95,9 +96,12 @@ assert.equal(model.api, "anthropic-messages", "fixture model must take the Anthr
 const wire: WirePayload[] = [];
 const originalFetch = globalThis.fetch;
 const STOPPED = "OFFLINE_COMPACTION_CACHE_CAPTURE";
-globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
-	assert.ok(init?.body, "capture must observe serialized HTTP bytes");
-	wire.push(JSON.parse(await new Response(init.body).text()) as WirePayload);
+globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+	const request = new Request(input, init);
+	const bytes = Buffer.from(await request.arrayBuffer());
+	const encoding = request.headers.get("content-encoding");
+	assert.ok(!encoding || encoding === "gzip", "capture must decode the actual supported wire encoding");
+	wire.push(JSON.parse((encoding ? gunzipSync(bytes) : bytes).toString("utf8")) as WirePayload);
 	return new Response(
 		JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: STOPPED } }),
 		{ status: 400, headers: { "content-type": "application/json" } },
@@ -1115,10 +1119,12 @@ try {
 	const abortedBodies: Array<Record<string, unknown>> = [];
 	const abortedFallbacks: string[] = [];
 	const previousFetch = globalThis.fetch;
-	globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
-		// The provider hands a string for small bodies and a stream/bytes for large
-		// ones; `new Response(...)` decodes all three the way the module sink does.
-		abortedBodies.push(JSON.parse(await new Response(init?.body).text()) as Record<string, unknown>);
+	globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+		const request = new Request(input, init);
+		const bytes = Buffer.from(await request.arrayBuffer());
+		const encoding = request.headers.get("content-encoding");
+		assert.ok(!encoding || encoding === "gzip", "capture must decode the actual supported wire encoding");
+		abortedBodies.push(JSON.parse((encoding ? gunzipSync(bytes) : bytes).toString("utf8")) as Record<string, unknown>);
 		const encoder = new TextEncoder();
 		const frames = [
 			{

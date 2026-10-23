@@ -1,0 +1,6 @@
+{
+  "previousFamily": "family-persistent-prefix-resume-v18.10.1.patch",
+  "previousFamilySha256": "351a4d21376b183a69231343b9f086f113888aa8c27b904d83ece3110c24e67e",
+  "repair": "model-default-effort.delta.patch",
+  "repairSha256": "9fa79f43762baea9e6b9de3b1380fcebca62061a112fa0713c11757454790320"
+}

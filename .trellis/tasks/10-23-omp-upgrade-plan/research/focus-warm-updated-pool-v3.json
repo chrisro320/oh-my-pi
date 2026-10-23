@@ -1,0 +1,24 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-subagent-warm-revival-prompt.ts"
+  ],
+  "started": "2026-10-23T13:06:08.679336+00:00",
+  "finished": "2026-10-23T13:06:17.081433+00:00",
+  "exit": 1,
+  "timeout": false,
+  "stdout": "  PASS a1-new-peer-while-parked\n  PASS a2-peer-parked-before-revive\n  PASS b-pooled-yield-items\n  PASS c-legacy-transcript-without-session-init\n  PASS d-peer-routing-after-revival\n  PASS e-roster-unchanged-control\n  PASS b2-pooled-yield-items-roster-unchanged\n  PASS f-info-pooled-followup-after-revival\n{\"status\":\"PASS\",\"scenarios\":8,\"failed\":[]}\n  FAIL mutation rejected: drop the persisted systemPrompt override -> none\n  ok   mutation rejected: drop the yield-items restore -> b-pooled-yield-items,b2-pooled-yield-items-roster-unchanged\n  ok   mutation rejected: treat a transcript without session_init as a revival failure -> c-legacy-transcript-without-session-init\n  ok   mutation rejected: rewrite the persisted prompt instead of reusing it verbatim -> a1-new-peer-while-parked,a2-peer-parked-before-revive,b-pooled-yield-items,d-peer-routing-after-revival,e-roster-unchanged-control,b2-pooled-yield-items-roster-unchanged\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 931,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "af5dbe50cbf6fc50556a97c0e113406297ca74cf944e2a316576bb9251f726f6",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "selected_runtime": "/tmp/omp-focused-a1260ouq/runtime",
+  "gate": "verify-subagent-warm-revival-prompt.ts"
+}

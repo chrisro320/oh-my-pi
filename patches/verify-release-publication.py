@@ -21,6 +21,11 @@ publisher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publisher)
 launcher = publisher.launcher
 
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--version", choices=["18.10.1", "18.12.6"], default="18.10.1",
+                    help="synthetic release identity; the publish/admission boundary is version-agnostic")
+fixture_version = parser.parse_args().version
+
 with tempfile.TemporaryDirectory(prefix="omp-publication-proof-") as directory:
     home = Path(directory)
     release = home / ".bun/install/omp-releases/fixture"
@@ -30,10 +35,10 @@ with tempfile.TemporaryDirectory(prefix="omp-publication-proof-") as directory:
     old_ledger = home / ".omp/patches"
     package = runtime / "node_modules/@oh-my-pi/pi-coding-agent"
     package.mkdir(parents=True)
-    (package / "package.json").write_text(json.dumps({"version": "18.10.1"}))
-    (ledger / ".18.10.1-families").mkdir(parents=True)
+    (package / "package.json").write_text(json.dumps({"version": fixture_version}))
+    (ledger / f".{fixture_version}-families").mkdir(parents=True)
     (ledger / ".runtime-root").write_text(str(runtime) + "\n")
-    (ledger / ".18.10.1-families/manifest.json").write_text(json.dumps({"candidate_tree_sha256": "fixture"}))
+    (ledger / f".{fixture_version}-families/manifest.json").write_text(json.dumps({"candidate_tree_sha256": "fixture"}))
     (release / "bin").mkdir()
     shutil.copy2(HERE / "release-launcher.py", release / "bin/omp")
     (release / "bin/omp").chmod(0o755)
@@ -48,7 +53,7 @@ with tempfile.TemporaryDirectory(prefix="omp-publication-proof-") as directory:
     initial_state = state.read_bytes()
     receipt_path = release / "release.json"
     staged = {
-        "home": str(home), "release": str(release), "version": "18.10.1",
+        "home": str(home), "release": str(release), "version": fixture_version,
         "code_installation": "staged", "candidate_tree_sha256": "fixture",
         "runtime_tree_sha256": publisher.oracle.tree_digest(runtime),
         "ledger_tree_sha256": publisher.oracle.tree_digest(ledger),
@@ -91,7 +96,7 @@ with tempfile.TemporaryDirectory(prefix="omp-publication-proof-") as directory:
         env = {"PATH": "/usr/bin:/bin", "HOME": str(home)}
         version = subprocess.run([str(public), "--version"], env=env, capture_output=True, text=True, timeout=10)
         denied = subprocess.run([str(public), "--no-session"], env=env, capture_output=True, text=True, timeout=10)
-        assert version.returncode == 0 and "18.10.1" in version.stdout and str(sleeper.pid) in version.stdout
+        assert version.returncode == 0 and fixture_version in version.stdout and str(sleeper.pid) in version.stdout
         assert denied.returncode == 75 and str(sleeper.pid) in denied.stderr
         assert not json.loads(receipt_path.read_text())["production_admission_started"]
         print("PASS installed launcher reports version but refuses production while captured old owner survives")

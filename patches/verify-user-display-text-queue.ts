@@ -15,6 +15,12 @@
 //      original text, never by the other message's text. Negative control: with
 //      the prepared message's raw identity recorded as its model text, removing
 //      "hello" deletes the prepared message first and this gate fails.
+//   3. abort drain (18.10.1+ queue-policy split): a steer queued during a
+//      streaming turn that the user aborts is drained by exactly one
+//      continuation. Runs in a child with a deadline because the regression is
+//      a synchronous reschedule livelock that starves this process's timers.
+//      Negative control: keeping `if (this.isStreaming) return false;` inside
+//      `#canContinueQueuedMessages` (the 18.12.6 rebase defect) times out.
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -34,10 +40,12 @@ const agentVersion = String(
 // removeQueuedMessage (the queue identity leg) exists from 18.4.4; the resume leg
 // is version independent. A tree outside the supported set must fail, never skip.
 assert.ok(
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion),
+	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion),
 	`user display text gate: unsupported selected tree version ${agentVersion}`,
 );
-const hasQueueRemoval = ["18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion);
+const hasQueueRemoval = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion);
+const hasQueuePolicySplit = ["18.10.1", "18.12.6"].includes(agentVersion);
+const ABORT_DRAIN_MARKER = "QUEUE_ABORT_DRAIN_OK";
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
@@ -78,6 +86,34 @@ async function createTestSession(name: string, model: MockModel, manager: Instan
 		restrictToolNames: true,
 	});
 	return session;
+}
+
+if (process.env.OMP_VERIFY_QUEUE_ABORT_DRAIN_CHILD === "1") {
+	const cwd = join(root, "abort-drain");
+	mkdirSync(cwd, { recursive: true });
+	const model = createMockModel({
+		responses: [() => ({ delayMs: 5_000, content: ["held"] }), () => ({ content: ["steered"] })],
+	});
+	const session = await createTestSession("abort-drain", model, SessionManager.inMemory(cwd));
+	try {
+		const held = session.prompt("hold");
+		while (model.calls.length === 0) await Bun.sleep(10);
+		await session.steer("steer after abort");
+		await session.abort();
+		await held.catch(() => {});
+		await session.waitForIdle();
+		assert.equal(model.calls.length, 2, "the queued steer drains in exactly one continuation");
+		assert.ok(
+			JSON.stringify(model.calls[1].context.messages).includes("steer after abort"),
+			"the continuation carries the queued steer",
+		);
+		assert.equal(session.agent.hasQueuedMessages(), false, "nothing stays queued");
+		console.log(ABORT_DRAIN_MARKER);
+	} finally {
+		await session.dispose();
+		rmSync(root, { recursive: true, force: true });
+	}
+	process.exit(0);
 }
 
 function userMessages(messages: UserLike[]): UserLike[] {
@@ -170,7 +206,22 @@ try {
 			await session.dispose();
 		}
 	}
-	console.log(`verify-user-display-text-queue: PASS (${agentVersion}${hasQueueRemoval ? ", queue identity" : ", resume only"})`);
+
+	// ── 3. abort with a queued steer drains once (child, bounded) ────────────
+	if (hasQueuePolicySplit) {
+		const child = Bun.spawnSync([process.execPath, import.meta.path], {
+			env: { ...process.env, OMP_VERIFY_QUEUE_ABORT_DRAIN_CHILD: "1" },
+			timeout: 30_000,
+			// The livelocked child never yields to its SIGTERM handler.
+			killSignal: "SIGKILL",
+		});
+		const output = `${child.stdout.toString()}${child.stderr.toString()}`;
+		assert.ok(
+			child.exitCode === 0 && output.includes(ABORT_DRAIN_MARKER),
+			`queued steer after abort must drain once (exit ${child.exitCode}, signal ${child.signalCode ?? "none"}; a timeout is the drain livelock): ${output.slice(-600)}`,
+		);
+	}
+	console.log(`verify-user-display-text-queue: PASS (${agentVersion}${hasQueueRemoval ? ", queue identity" : ", resume only"}${hasQueuePolicySplit ? ", abort drain" : ""})`);
 } finally {
 	rmSync(root, { recursive: true, force: true });
 }

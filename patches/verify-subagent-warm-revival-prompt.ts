@@ -27,6 +27,9 @@
 //          runtime as well, so the gate is sensitive to roster drift only;
 //   f.     informational only: records what a pooled follow-up installed on a revived agent
 //          does to the rendered system prompt (never fails).
+//   g.     18.12.6 only: a live parent setting read by the default prompt builder
+//          (`includeModelInPrompt`) flips while parked; the revived prompt keeps the
+//          persisted model line while a fresh spawn renders without it.
 // Mutation controls (candidate runs only) copy the runtime, break one part of the warm
 // reviver and require the named scenario to fail.
 //
@@ -34,8 +37,9 @@
 // OMP_PATCH_VERIFY_NM, then the local install; OMP_PATCH_VERIFY_AGENT_ROOT overrides only
 // pi-coding-agent. The run happens in a re-executed child with a private HOME, `fetch`
 // blocked, a synthetic `mock` runtime key and a scripted MockModel: no real credentials,
-// no network. Point OMP_NM at a candidate tree to exercise the patch; point it at a tree
-// without 0101 for the failing-before control (scenarios a1, a2, b and b2 must fail there).
+// no network. Point OMP_NM at a candidate tree to exercise the patch. The historical
+// no-0101 control fails a1/a2/b/b2; target already snapshots the roster, so pooled
+// prompt/yield and persisted-init assertions are the target discriminators.
 //
 // Usage:
 //   bun patches/verify-subagent-warm-revival-prompt.ts
@@ -60,6 +64,7 @@ const NM =
 	process.env.OMP_NM ?? process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
+const agentVersion = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
 
 // The private HOME must precede runtime startup (os.homedir is cached), so the real work
 // runs in a re-executed child that already owns a throwaway HOME.
@@ -113,15 +118,20 @@ interface MutationControl {
 	to: string;
 }
 
+// Mutation anchors name the retained operation, not its nesting indentation.
 const OVERRIDE_LINE =
-	"\t\t\t\t...(init && init.systemPrompt.length > 0 ? { systemPrompt: () => [...init.systemPrompt] } : undefined),\n";
+	"...(init && init.systemPrompt.length > 0 ? { systemPrompt: () => [...init.systemPrompt] } : undefined),\n";
 const RESTORE_LINE =
-	"\t\tif (init?.workPoolYieldItems) await revived.setWorkPoolYieldItems(init.workPoolYieldItems);\n";
-const INIT_LINE = "\t\tconst init = extractSessionInit(reopened.getEntries());\n";
+	"if (init?.workPoolYieldItems) await revived.setWorkPoolYieldItems(init.workPoolYieldItems);\n";
+const INIT_LINE = "const init = extractSessionInit(reopened.getEntries());\n";
 const MUTATIONS: MutationControl[] = [
 	{
 		name: "drop the persisted systemPrompt override",
-		mustFail: ["a1-new-peer-while-parked", "a2-peer-parked-before-revive", "b-pooled-yield-items"],
+		// Target snapshots the roster and restores yield items, so only a live default-prompt
+		// input that changed while parked separates persisted bytes from a re-render.
+		mustFail: agentVersion === "18.12.6"
+			? ["g-default-prompt-setting-drift"]
+			: ["a1-new-peer-while-parked", "a2-peer-parked-before-revive", "b-pooled-yield-items"],
 		from: OVERRIDE_LINE,
 		to: "",
 	},
@@ -287,6 +297,9 @@ async function makeEnv(name: string): Promise<Env> {
 		"compaction.autoContinue": false,
 		// Parking is driven explicitly through AgentLifecycleManager.park(), the call the TTL timer makes.
 		"task.agentIdleTtlMs": 0,
+		// Yield-dependent fixtures opt in; the target's production default stays false.
+		// Historical plans predate the setting and always expose yield.
+		...(agentVersion === "18.12.6" ? { "task.structured": true } : {}),
 	});
 	const settled = { value: false };
 	const model = createMockModel({
@@ -311,6 +324,7 @@ async function spawn(env: Env, id: string, workPoolYieldItems?: Item[]): Promise
 		cwd: env.cwd,
 		agent: AGENT_DEFINITION,
 		task: "Report that you are ready by calling yield.",
+		structured: true,
 		index: env.nextIndex++,
 		id,
 		enableLsp: false,
@@ -433,13 +447,26 @@ async function revivalPreservesContract(
 ): Promise<void> {
 	const { id } = options;
 	const callsBeforeSpawn = env.model.calls.length;
-	const file = await spawn(env, id, options.items);
+	const initialItems = options.items && agentVersion === "18.12.6"
+		? options.items.map(item => ({ ...item, id: `initial-${item.id}` })) : options.items;
+	const file = await spawn(env, id, initialItems);
 	const preSession = liveSession(id);
+	if (options.items && agentVersion === "18.12.6") {
+		await preSession.setWorkPoolYieldItems(options.items);
+		env.settled.value = true;
+		await preSession.prompt("Acknowledge the updated pooled turn contract.");
+		await preSession.waitForIdle();
+	}
 	const preBlocks = [...preSession.agent.state.systemPrompt];
 	const preRoster = rosterOf(id);
 	expect(env.model.calls.length > callsBeforeSpawn, "the spawn must have made a model request");
-	const preRequest = env.model.calls[callsBeforeSpawn];
+	const preRequest = env.model.calls.at(-1)!;
 	const preInits = sessionInits(file).length;
+	expect(
+		same(sessionInits(file).at(-1)?.systemPrompt, preBlocks),
+		"the pre-park prompt must be the actual persisted session_init prompt",
+	);
+	expect(preRequest.context.tools?.some(tool => tool.name === "yield"), "structured spawn must expose the yield tool");
 	if (options.items) {
 		expect(
 			same(sessionInits(file).at(-1)?.workPoolYieldItems, options.items),
@@ -520,6 +547,30 @@ await scenario("b-pooled-yield-items", (env, record) =>
 	}),
 );
 
+// (g) A live parent setting read by the default prompt builder flips while the agent is parked.
+// The revived session restores its overlay on the live parent, so a re-render would drop the
+// model line; the persisted session_init bytes must win.
+if (agentVersion === "18.12.6") {
+	const { cfgIncludeModelInPrompt } = await import(`${AGENT_ROOT}/src/session/settings.ts`);
+	await scenario("g-default-prompt-setting-drift", async (env, record) => {
+		const id = "0-ProbeG";
+		let observations: Record<string, unknown> = {};
+		await revivalPreservesContract(env, value => (observations = value), {
+			id,
+			expectRosterChange: false,
+			driftRoster: async () => {
+				cfgIncludeModelInPrompt.override(env.settings, false);
+			},
+		});
+		expect(liveSession(id).agent.state.systemPrompt.join("\n").includes(MOCK_ID),
+			"the revived prompt must keep the persisted model line");
+		await spawn(env, "1-AfterFlip");
+		expect(!liveSession("1-AfterFlip").agent.state.systemPrompt.join("\n").includes(MOCK_ID),
+			"the flipped setting must change a fresh default-prompt render, or the drift proves nothing");
+		record(observations);
+	});
+}
+
 // (c) A legacy transcript without session_init revives through the re-render path.
 await scenario("c-legacy-transcript-without-session-init", async (env, record) => {
 	const id = "0-ProbeC";
@@ -545,6 +596,8 @@ await scenario("d-peer-routing-after-revival", async (env, record) => {
 	await spawn(env, target);
 	await spawn(env, sender);
 	const preSession = liveSession(target);
+	const preBlocks = [...preSession.agent.state.systemPrompt];
+	const preInits = sessionInits(join(env.artifactsDir, `${target}.jsonl`)).length;
 	await park(target);
 	env.settled.value = true;
 	const marker = "routing-marker-7f3a";
@@ -555,8 +608,11 @@ await scenario("d-peer-routing-after-revival", async (env, record) => {
 	const revived = liveSession(target);
 	expect(revived !== preSession, "the message must revive a fresh session");
 	await withTimeout(revived.waitForIdle(), 30_000, "woken turn idle");
-	const woken = env.model.calls.slice(before).some(call => JSON.stringify(call.context.messages).includes(marker));
-	expect(woken, "the woken turn must send the peer message to the model");
+	const firstWoken = env.model.calls[before];
+	expect(firstWoken, "peer routing must issue a post-revival model request");
+	expect(same(firstWoken.context.systemPrompt, preBlocks), "the first message-woken request must reuse the persisted prompt");
+	expect(JSON.stringify(firstWoken.context.messages).includes(marker), "the first woken request must carry the peer message");
+	expect(sessionInits(join(env.artifactsDir, `${target}.jsonl`)).length === preInits, "message wake must not append session_init");
 	expect(registry().get(target)?.status !== "parked", "the target must not stay parked");
 	record({ receipt, modelRequestsAfterSend: env.model.calls.length - before });
 });
@@ -595,7 +651,7 @@ const failed = results.filter(result => !result.ok);
 const report = {
 	verifier: "subagent-warm-revival-prompt",
 	root: NM,
-	agentVersion: JSON.parse(await Bun.file(`${AGENT_ROOT}/package.json`).text()).version,
+	agentVersion,
 	scenarios: results,
 	status: failed.length === 0 ? "PASS" : "FAIL",
 };

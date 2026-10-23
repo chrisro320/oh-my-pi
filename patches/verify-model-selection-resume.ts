@@ -8,7 +8,7 @@ import { join } from "node:path";
 const root = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
 assert.ok(root, "OMP_PATCH_VERIFY_AGENT_ROOT must name the isolated agent package");
 const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
-assert.ok(["18.7.0", "18.10.0", "18.10.1"].includes(version),
+assert.ok(["18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(version),
  "model-selection resume requires a supported isolated package");
 const lab = mkdtempSync(join(tmpdir(), "model-selection-resume-"));
 const probe = join(root, `.verify-model-selection-resume-${process.pid}.ts`);
@@ -21,6 +21,9 @@ assert.ok(root && lab);
 const mode = process.argv[2];
 const isResume = mode.startsWith("resume");
 const fallbackCase = mode === "fallback" || mode === "resume-fallback";
+const autoCase = mode === "auto";
+const unverifiedCase = mode === "unverified" || mode === "resume-unverified";
+const fixtureProvider = unverifiedCase ? "meta" : "resume-fixture";
 globalThis.fetch = () => { throw new Error("Network forbidden in model-selection resume gate"); };
 // Imports must follow the package root selected at runtime, not the live install.
 const { createAgentSession, discoverAuthStorage } = await import(root + "/src/sdk.ts");
@@ -40,17 +43,18 @@ const settings = await Settings.loadIsolated({ cwd, agentDir, overrides: {
   "retry.fallbackChains": { "resume-fixture/sol": ["resume-fixture/luna:high"] },
  } : {}),
 }});
-settings.setModelRole("default", "resume-fixture/astra");
+settings.setModelRole("default", fixtureProvider + "/astra");
 const authStorage = await discoverAuthStorage(agentDir);
-authStorage.keys.setRuntime("resume-fixture", "offline");
+authStorage.keys.setRuntime(fixtureProvider, "offline");
 const modelRegistry = new ModelRegistry(authStorage, join(agentDir, "models.yml"), { settings });
 const calls = [];
 let failNextB = false;
-const extension = pi => pi.registerProvider("resume-fixture", {
+const extension = pi => pi.registerProvider(fixtureProvider, {
  api: "resume-fixture", baseUrl: "http://127.0.0.1:1/never", apiKey: "offline",
- models: (fallbackCase ? ["astra", "sol", "luna"] : ["astra", "sol"]).map(id => ({ id, name: id, reasoning: true, input: ["text"],
+ models: (unverifiedCase ? ["astra", "sol", "unknown"] : fallbackCase ? ["astra", "sol", "luna"] : ["astra", "sol"]).map(id => ({ id, name: id, reasoning: id !== "unknown", input: ["text"],
   contextWindow: 200000, maxTokens: 4096, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-  thinking: { mode: "effort", efforts: ["low", "medium", "high"] },
+  ...(id !== "unknown" ? { thinking: { mode: "effort", efforts: ["low", "medium", "high"],
+   ...(autoCase && id === "sol" ? { defaultLevel: "high" } : {}) } } : {}),
  })),
  streamSimple(model, context, options) {
   calls.push({ model: model.id, effort: options?.reasoning });
@@ -70,7 +74,40 @@ const { session } = await createAgentSession({ cwd, agentDir, authStorage, model
  skipPythonPreflight: true, toolNames: ["read"], extensions: [extension],
  thinkingLevel: isResume ? undefined : "low",
 });
-if (!isResume) {
+if (unverifiedCase && !isResume) {
+ const unknown = modelRegistry.find(fixtureProvider, "unknown");
+ assert.ok(unknown?.thinking?.unverified, "real catalog policy must produce an unverified fixture");
+ session.setThinkingLevel("auto");
+ await session.setModelTemporary(unknown);
+ assert.equal(session.configuredThinkingLevel(), undefined, "an unverified model must not inherit auto or its metadata default");
+ assert.equal(session.thinkingLevel, undefined, "automatic unverified selection leaves reasoning unset");
+ await session.prompt("unverified automatic selection");
+ await session.setModelTemporary(unknown, "low");
+ assert.equal(session.configuredThinkingLevel(), "low", "an explicit effort opts an unverified model into reasoning");
+ await session.prompt("explicit unverified selection");
+} else if (autoCase) {
+ // Auto is a selector, not a wire effort: a target without thinking.defaultLevel
+ // keeps it, while temporary and persisted switches apply the target default.
+ session.setThinkingLevel("auto");
+ assert.equal(session.configuredThinkingLevel(), "auto", "fixture starts on the inherited auto selector");
+ assert.equal(session.isAutoThinking, true, "auto classification is active");
+ await session.setModelTemporary(modelRegistry.find("resume-fixture", "astra"));
+ assert.equal(session.configuredThinkingLevel(), "auto", "a target without thinking.defaultLevel preserves auto");
+ assert.equal(session.isAutoThinking, true, "auto survives a no-default temporary switch");
+ await session.setModelTemporary(modelRegistry.find("resume-fixture", "sol"));
+ assert.equal(session.configuredThinkingLevel(), "high", "target defaultLevel must beat the inherited auto selector");
+ assert.equal(session.thinkingLevel, "high", "effective effort follows the target defaultLevel");
+ await session.prompt("committed default effort");
+ await session.setModelTemporary(modelRegistry.find("resume-fixture", "sol"), "low");
+ assert.equal(session.configuredThinkingLevel(), "low", "an explicit temporary effort beats the model default");
+ assert.equal(session.thinkingLevel, "low", "explicit temporary effort applies to the agent");
+ await session.prompt("explicit temporary effort");
+ session.setThinkingLevel("auto");
+ assert.equal(session.configuredThinkingLevel(), "auto", "auto re-arms before the persisted switch");
+ await session.setModel(modelRegistry.find("resume-fixture", "sol"), "default", { persist: true });
+ assert.equal(session.configuredThinkingLevel(), "high", "a persisted switch also lets the target default exit auto");
+ assert.equal(session.thinkingLevel, "high", "persisted switch applies the target defaultLevel");
+} else if (!isResume) {
  await session.prompt("first turn");
  const target = manager.getLeafId();
  assert.ok(target);
@@ -190,7 +227,7 @@ try {
 		assert.equal(resumed.calls[0]?.model, "sol", `${mode}: resumed provider uses selected model`);
 		assert.equal(resumed.calls[0]?.effort, "high", `${mode}: resumed provider retains selected thinking level`);
 	}
-	if (["18.10.0", "18.10.1"].includes(version)) {
+	if (["18.10.0", "18.10.1", "18.12.6"].includes(version)) {
 		const live = run("fallback");
 		assert.equal(live.model, "luna", "navigation keeps the coherently committed live fallback");
 		assert.deepEqual(live.calls, [
@@ -220,6 +257,25 @@ try {
 			assert.equal(selection.thinkingChanges.at(-1)?.configured, "high");
 		}
 		console.log("PASS fallback reconciliation -> navigation -> fresh-process resume: live=luna/high, resumed=sol/high, default=sol");
+	}
+	if (["18.10.1", "18.12.6"].includes(version)) {
+		const auto = run("auto");
+		assert.equal(auto.model, "sol", "auto precedence: persisted switch keeps the target model");
+		assert.deepEqual(auto.calls, [{ model: "sol", effort: "high" }, { model: "sol", effort: "low" }],
+			"auto precedence: target default and explicit temporary effort must both reach the actual provider");
+		const resumedAuto = run("resume", auto.file);
+		assert.equal(resumedAuto.model, "sol", "auto precedence: fresh-process resume keeps the persisted target model");
+		assert.deepEqual(resumedAuto.calls, [{ model: "sol", effort: "high" }],
+			"auto precedence: resume restores the committed high effort receipt");
+		console.log("PASS configured auto -> target defaultLevel: temporary/persisted switches commit high, explicit effort wins, no-default keeps auto");
+	}
+	if (version === "18.12.6") {
+		const unverified = run("unverified");
+		assert.deepEqual(unverified.calls, [{ model: "unknown" }, { model: "unknown", effort: "low" }],
+			"target unverified reasoning stays unset until an actual explicit selection");
+		const resumed = run("resume-unverified", unverified.file);
+		assert.deepEqual(resumed.calls, [{ model: "unknown", effort: "low" }],
+			"fresh-process resume retains the explicit unverified effort");
 	}
 	console.log("PASS persisted A -> B -> navigation/fork -> fresh-process resume: model=sol, effort=high");
 } finally {

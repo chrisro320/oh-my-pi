@@ -1,0 +1,24 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-provider-image-budget.ts"
+  ],
+  "started": "2026-10-23T13:07:51.711452+00:00",
+  "finished": "2026-10-23T13:08:34.114162+00:00",
+  "exit": 1,
+  "timeout": false,
+  "stdout": "",
+  "stderr": "\n[Uncaught Exception] AssertionError: official: exactly one intercepted provider request; assistant={\"role\":\"assistant\",\"content\":[],\"api\":\"anthropic-messages\",\"provider\":\"anthropic\",\"model\":\"claude-opus-5-5\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"error\",\"timestamp\":1792760872542,\"requestControls\":{\"messageIndex\":602,\"tools\":{\"declared\":[],\"deferred\":[],\"active\":[]},\"effort\":{\"topLevel\":\"low\",\"tail\":\"low\"}},\"errorMessage\":\"401 {\\\"type\\\":\\\"error\\\",\\\"error\\\":{\\\"type\\\":\\\"authentication_error\\\",\\\"message\\\":\\\"invalid x-api-key\\\"},\\\"request_id\\\":\\\"req_011CgKDoyYoSQn4bV7MLKXhD\\\"}\",\"errorStatus\":401,\"errorId\":16781312,\"duration\":41503.6806,\"completedAt\":1792760914079}\n\n0 !== 1\n\n\n0 !== 1\n\n    at verifyCatalogBudgets (/home/chris/orca/projects/omp-move/patches/verify-provider-image-budget.ts:357:13)\n    at processTicksAndRejections (native:7:39)\n",
+  "output_bytes": {
+    "stdout": 0,
+    "stderr": 968
+  },
+  "output_sha256": {
+    "stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr": "6bdf5b4d4ae8adccd6b6f9eef29d757b1d2cab7f8ff83bd0bd9020ea396e4eda"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "selected_runtime": "/tmp/omp-focused-8i914o2m/runtime",
+  "gate": "verify-provider-image-budget.ts"
+}

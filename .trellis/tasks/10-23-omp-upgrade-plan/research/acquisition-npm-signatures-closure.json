@@ -1,0 +1,460 @@
+{
+  "npm_audit_signatures_exit": 0,
+  "log": "metadata/npm-audit-signatures.log",
+  "recovered_without_rerunning": true,
+  "official_command": "npm audit signatures",
+  "verified_registry_signatures": 144,
+  "verified_attestations": 74,
+  "audit_debug_log": "npm-audit-signatures-debug.log",
+  "observed_http_urls": [
+    "https://registry.npmjs.org/-/npm/v1/attestations/@babel%2fhelper-string-parser@7.29.7",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@babel%2fhelper-validator-identifier@7.29.7",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@babel%2fparser@7.29.9",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@babel%2ftypes@7.29.8",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@emnapi%2fruntime@1.11.3",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@huggingface%2fjinja@0.5.10",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@huggingface%2ftokenizers@0.2.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@img%2fcolour@1.1.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@img%2fsharp-libvips-linux-x64@1.3.4",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@img%2fsharp-linux-x64@0.35.5",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fomp-stats@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fomptype@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-agent-core@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-ai@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-catalog@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-coding-agent@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-mnemopi@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-natives-linux-x64@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-natives@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-tui@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-utils@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-wire@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fsnapcompact@18.12.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fapi-logs@0.220.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fapi@1.9.1",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fcontext-async-hooks@2.12.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fcore@2.12.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fcore@2.9.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fexporter-logs-otlp-proto@0.220.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fexporter-metrics-otlp-http@0.220.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fexporter-metrics-otlp-proto@0.220.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fexporter-trace-otlp-proto@0.220.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fotlp-exporter-base@0.220.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fotlp-transformer@0.220.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fresources@2.12.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fresources@2.9.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fsdk-logs@0.220.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fsdk-metrics@2.12.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fsdk-metrics@2.9.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fsdk-trace-base@2.12.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fsdk-trace-node@2.12.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fsdk-trace@2.12.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@opentelemetry%2fsemantic-conventions@1.43.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/@puppeteer%2fbrowsers@3.0.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/axe-core@4.13.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/chromium-bidi@16.0.1",
+    "https://registry.npmjs.org/-/npm/v1/attestations/detect-libc@2.1.2",
+    "https://registry.npmjs.org/-/npm/v1/attestations/devtools-protocol@0.0.1638949",
+    "https://registry.npmjs.org/-/npm/v1/attestations/emoji-regex@10.6.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/global-agent@4.1.3",
+    "https://registry.npmjs.org/-/npm/v1/attestations/lucide-react@1.61.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/modern-tar@0.7.7",
+    "https://registry.npmjs.org/-/npm/v1/attestations/protobufjs@7.6.6",
+    "https://registry.npmjs.org/-/npm/v1/attestations/puppeteer-core@25.3.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/react-dom@19.2.7",
+    "https://registry.npmjs.org/-/npm/v1/attestations/react@19.2.7",
+    "https://registry.npmjs.org/-/npm/v1/attestations/semver@7.8.5",
+    "https://registry.npmjs.org/-/npm/v1/attestations/sharp@0.35.5",
+    "https://registry.npmjs.org/-/npm/v1/attestations/sherpa-onnx-linux-x64@1.13.8",
+    "https://registry.npmjs.org/-/npm/v1/attestations/sherpa-onnx-node@1.13.2",
+    "https://registry.npmjs.org/-/npm/v1/attestations/typed-query-selector@2.12.3",
+    "https://registry.npmjs.org/-/npm/v1/attestations/undici-types@8.9.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/yargs@18.2.0",
+    "https://registry.npmjs.org/-/npm/v1/attestations/zod@3.25.76",
+    "https://registry.npmjs.org/@babel%2fhelper-string-parser",
+    "https://registry.npmjs.org/@babel%2fhelper-validator-identifier",
+    "https://registry.npmjs.org/@babel%2fparser",
+    "https://registry.npmjs.org/@babel%2ftypes",
+    "https://registry.npmjs.org/@emnapi%2fruntime",
+    "https://registry.npmjs.org/@huggingface%2fjinja",
+    "https://registry.npmjs.org/@huggingface%2ftokenizers",
+    "https://registry.npmjs.org/@huggingface%2ftransformers",
+    "https://registry.npmjs.org/@img%2fcolour",
+    "https://registry.npmjs.org/@img%2fsharp-libvips-linux-x64",
+    "https://registry.npmjs.org/@img%2fsharp-linux-x64",
+    "https://registry.npmjs.org/@isaacs%2ffs-minipass",
+    "https://registry.npmjs.org/@oh-my-pi%2fomp-stats",
+    "https://registry.npmjs.org/@oh-my-pi%2fomptype",
+    "https://registry.npmjs.org/@oh-my-pi%2fpi-agent-core",
+    "https://registry.npmjs.org/@oh-my-pi%2fpi-ai",
+    "https://registry.npmjs.org/@oh-my-pi%2fpi-catalog",
+    "https://registry.npmjs.org/@oh-my-pi%2fpi-coding-agent",
+    "https://registry.npmjs.org/@oh-my-pi%2fpi-mnemopi",
+    "https://registry.npmjs.org/@oh-my-pi%2fpi-natives",
+    "https://registry.npmjs.org/@oh-my-pi%2fpi-natives-linux-x64",
+    "https://registry.npmjs.org/@oh-my-pi%2fpi-tui",
+    "https://registry.npmjs.org/@oh-my-pi%2fpi-utils",
+    "https://registry.npmjs.org/@oh-my-pi%2fpi-wire",
+    "https://registry.npmjs.org/@oh-my-pi%2fsnapcompact",
+    "https://registry.npmjs.org/@opentelemetry%2fapi",
+    "https://registry.npmjs.org/@opentelemetry%2fapi-logs",
+    "https://registry.npmjs.org/@opentelemetry%2fcontext-async-hooks",
+    "https://registry.npmjs.org/@opentelemetry%2fcore",
+    "https://registry.npmjs.org/@opentelemetry%2fexporter-logs-otlp-proto",
+    "https://registry.npmjs.org/@opentelemetry%2fexporter-metrics-otlp-http",
+    "https://registry.npmjs.org/@opentelemetry%2fexporter-metrics-otlp-proto",
+    "https://registry.npmjs.org/@opentelemetry%2fexporter-trace-otlp-proto",
+    "https://registry.npmjs.org/@opentelemetry%2fotlp-exporter-base",
+    "https://registry.npmjs.org/@opentelemetry%2fotlp-transformer",
+    "https://registry.npmjs.org/@opentelemetry%2fresources",
+    "https://registry.npmjs.org/@opentelemetry%2fsdk-logs",
+    "https://registry.npmjs.org/@opentelemetry%2fsdk-metrics",
+    "https://registry.npmjs.org/@opentelemetry%2fsdk-trace",
+    "https://registry.npmjs.org/@opentelemetry%2fsdk-trace-base",
+    "https://registry.npmjs.org/@opentelemetry%2fsdk-trace-node",
+    "https://registry.npmjs.org/@opentelemetry%2fsemantic-conventions",
+    "https://registry.npmjs.org/@protobufjs%2faspromise",
+    "https://registry.npmjs.org/@protobufjs%2fbase64",
+    "https://registry.npmjs.org/@protobufjs%2fcodegen",
+    "https://registry.npmjs.org/@protobufjs%2feventemitter",
+    "https://registry.npmjs.org/@protobufjs%2ffetch",
+    "https://registry.npmjs.org/@protobufjs%2ffloat",
+    "https://registry.npmjs.org/@protobufjs%2fpath",
+    "https://registry.npmjs.org/@protobufjs%2fpool",
+    "https://registry.npmjs.org/@protobufjs%2futf8",
+    "https://registry.npmjs.org/@puppeteer%2fbrowsers",
+    "https://registry.npmjs.org/@types%2fnode",
+    "https://registry.npmjs.org/adm-zip",
+    "https://registry.npmjs.org/ansi-regex",
+    "https://registry.npmjs.org/ansi-styles",
+    "https://registry.npmjs.org/axe-core",
+    "https://registry.npmjs.org/boolean",
+    "https://registry.npmjs.org/chownr",
+    "https://registry.npmjs.org/chromium-bidi",
+    "https://registry.npmjs.org/cliui",
+    "https://registry.npmjs.org/define-data-property",
+    "https://registry.npmjs.org/define-properties",
+    "https://registry.npmjs.org/detect-libc",
+    "https://registry.npmjs.org/detect-node",
+    "https://registry.npmjs.org/devtools-protocol",
+    "https://registry.npmjs.org/emoji-regex",
+    "https://registry.npmjs.org/es-define-property",
+    "https://registry.npmjs.org/es-errors",
+    "https://registry.npmjs.org/es6-error",
+    "https://registry.npmjs.org/escalade",
+    "https://registry.npmjs.org/escape-string-regexp",
+    "https://registry.npmjs.org/flatbuffers",
+    "https://registry.npmjs.org/get-caller-file",
+    "https://registry.npmjs.org/get-east-asian-width",
+    "https://registry.npmjs.org/global-agent",
+    "https://registry.npmjs.org/globalthis",
+    "https://registry.npmjs.org/gopd",
+    "https://registry.npmjs.org/guid-typescript",
+    "https://registry.npmjs.org/has-property-descriptors",
+    "https://registry.npmjs.org/json-stringify-safe",
+    "https://registry.npmjs.org/long",
+    "https://registry.npmjs.org/lucide-react",
+    "https://registry.npmjs.org/matcher",
+    "https://registry.npmjs.org/minipass",
+    "https://registry.npmjs.org/minizlib",
+    "https://registry.npmjs.org/mitt",
+    "https://registry.npmjs.org/modern-tar",
+    "https://registry.npmjs.org/object-keys",
+    "https://registry.npmjs.org/onnxruntime-common",
+    "https://registry.npmjs.org/onnxruntime-node",
+    "https://registry.npmjs.org/onnxruntime-web",
+    "https://registry.npmjs.org/platform",
+    "https://registry.npmjs.org/protobufjs",
+    "https://registry.npmjs.org/puppeteer-core",
+    "https://registry.npmjs.org/react",
+    "https://registry.npmjs.org/react-dom",
+    "https://registry.npmjs.org/roarr",
+    "https://registry.npmjs.org/scheduler",
+    "https://registry.npmjs.org/semver",
+    "https://registry.npmjs.org/semver-compare",
+    "https://registry.npmjs.org/serialize-error",
+    "https://registry.npmjs.org/sharp",
+    "https://registry.npmjs.org/sherpa-onnx-linux-x64",
+    "https://registry.npmjs.org/sherpa-onnx-node",
+    "https://registry.npmjs.org/sprintf-js",
+    "https://registry.npmjs.org/string-width",
+    "https://registry.npmjs.org/strip-ansi",
+    "https://registry.npmjs.org/tar",
+    "https://registry.npmjs.org/tslib",
+    "https://registry.npmjs.org/type-fest",
+    "https://registry.npmjs.org/typed-query-selector",
+    "https://registry.npmjs.org/undici-types",
+    "https://registry.npmjs.org/webdriver-bidi-protocol",
+    "https://registry.npmjs.org/wrap-ansi",
+    "https://registry.npmjs.org/ws",
+    "https://registry.npmjs.org/y18n",
+    "https://registry.npmjs.org/yallist",
+    "https://registry.npmjs.org/yargs",
+    "https://registry.npmjs.org/yargs-parser",
+    "https://registry.npmjs.org/zod"
+  ],
+  "trust_cache": "cache/npm/_tuf/tuf-repo-cdn.sigstore.dev",
+  "trust_endpoint_observation": "TUF trust cache identifies tuf-repo-cdn.sigstore.dev; npm HTTP debug logs do not log TUF HTTP. No claim of packet-level network capture or registry /keys fallback request.",
+  "omp_subjects": [
+    {
+      "name": "@oh-my-pi/omp-stats",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fomp-stats@18.12.6",
+      "bundle_sha256": "ce15359c3b60eda3e7b52ab38ca20a759f965920b546178c82fe5bf3885940a6",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/omp-stats@18.12.6",
+        "digest": {
+          "sha512": "06f45effef83e543934a4c4b7360d66159eb173904934c08c541ca20641c8ab3b4a2f16a51b12bdb995ba84d2f9cfd4a854e4d5b6e0ccef0e6041900afc6d46c"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-BvRe/++D5UOTSkxLc2DWYVnrFzkEk0wIxUHKIGQcirO0ovFqUbEr25lbqE0vnP1KhU5NW24MzvDmBBkAr8bUbA=="
+    },
+    {
+      "name": "@oh-my-pi/omptype",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fomptype@18.12.6",
+      "bundle_sha256": "f5c5966bf02c80f31ad22cf6c40015b4444be87f4e86747faa4185468e533fc2",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/omptype@18.12.6",
+        "digest": {
+          "sha512": "b34295b3fd11ac1c12d354c664a9b7d11d749e9586f965a7af6bb3b36ceaa57fff70bb9c1eeb3b077557799d5d0b05548209a71687e04b774aa36a14acb315a2"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-s0KVs/0RrBwS01TGZKm30R10npWG+WWnr2uzs2zqpX//cLucHus7B3VXeZ1dCwVUggmnFofgS3dKo2oUrLMVog=="
+    },
+    {
+      "name": "@oh-my-pi/pi-agent-core",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-agent-core@18.12.6",
+      "bundle_sha256": "4a8107c00689a76aaf437bb4377880ffb6cb0732f442c31a805517298f1afb34",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/pi-agent-core@18.12.6",
+        "digest": {
+          "sha512": "052f39312ef20cf5c2de8a1258c286159205cb010219f64769e4e6c79ea257d641689130e1fde3004b5ea0ea3a8a659363d925659966a22efd7b637d526e0037"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-BS85MS7yDPXC3ooSWMKGFZIFywECGfZHaeTmx56iV9ZBaJEw4f3jAEteoOo6imWTY9klZZlmoi79e2N9Um4ANw=="
+    },
+    {
+      "name": "@oh-my-pi/pi-ai",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-ai@18.12.6",
+      "bundle_sha256": "0ab2b2ebf30286f5d947def5a1ea92e7f69ce7fc3a19988aa2879dd92648e9a8",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/pi-ai@18.12.6",
+        "digest": {
+          "sha512": "2dde78ce0bcc2d83ce352d5aaa3e1d23287016c341be33fbbcba2c3f61e828d7d6e2ada54ce6dd19c1c5b2c86803b4ed815560521d11f338ec9a8113d405f725"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-Ld54zgvMLYPONS1aqj4dIyhwFsNBvjP7vLosP2HoKNfW4q2lTObdGcHFsshoA7TtgVVgUh0R8zjsmoET1AX3JQ=="
+    },
+    {
+      "name": "@oh-my-pi/pi-catalog",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-catalog@18.12.6",
+      "bundle_sha256": "b45701f63e4c4e3410fe86a1a39084e92a85d663f3902607c8129fa17f05387d",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/pi-catalog@18.12.6",
+        "digest": {
+          "sha512": "ddfe8af008034c71a8183931501dbe36449cf874c5e0d0396f61168ea6ce6f189941326d04ae7c0c1307efc6a7452a6d76002dff11f96b84ce2e8e1dc8af6c59"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-3f6K8AgDTHGoGDkxUB2+NkSc+HTF4NA5b2EWjqbObxiZQTJtBK58DBMH78anRSptdgAt/xH5a4TOLo4dyK9sWQ=="
+    },
+    {
+      "name": "@oh-my-pi/pi-coding-agent",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-coding-agent@18.12.6",
+      "bundle_sha256": "20303fa741655b51b8667f1e8626b0cc2ec9cf6daa822632a23cd716ded59bc6",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/pi-coding-agent@18.12.6",
+        "digest": {
+          "sha512": "5a8f85709ec0dd163f385b9a7e3e2171d2005dcfd6ecd3316da9f0421dc29b2f2ce7bfa284b38b800bfe1d13b11c192cb04320d0c692730910f71c2a2cf882fe"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-Wo+FcJ7A3RY/OFuafj4hcdIAXc/W7NMxbanwQh3Cmy8s57+ihLOLgAv+HROxHBkssEMg0MaScwkQ9xwqLPiC/g=="
+    },
+    {
+      "name": "@oh-my-pi/pi-mnemopi",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-mnemopi@18.12.6",
+      "bundle_sha256": "827f08c626e6af66fef40a8ce8a81b3c2affa419d4c0c228719f33d8aaaf88c6",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/pi-mnemopi@18.12.6",
+        "digest": {
+          "sha512": "0c5c196eea39b96cf62b6a99e2319a52003083aa3aac33dc77846b6d155b02c54bc7c6caa4a185d974411d350eddd76d918b7ff4a31aedf9ca6467279f2f9ec1"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-DFwZbuo5uWz2K2qZ4jGaUgAwg6o6rDPcd4RrbRVbAsVLx8bKpKGF2XRBHTUO3ddtkYt/9KMa7fnKZGcnny+ewQ=="
+    },
+    {
+      "name": "@oh-my-pi/pi-natives",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-natives@18.12.6",
+      "bundle_sha256": "f765a65c538059324ee4a32b02872692a11c9d0e0799b9a52f0d31e3aabf2caf",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/pi-natives@18.12.6",
+        "digest": {
+          "sha512": "f969326bfaaac671f63e5ba432e9f1a2f39bd5baeb63e03f908974760535a059186baff80b51ac3eb7394c8a51d3832f25665be9a1fdb91e439b19664ec47440"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-+Wkya/qqxnH2PlukMunxovOb1brrY+A/kIl0dgU1oFkYa6/4C1GsPrc5TIpR04MvJWZb6aH9uR5DmxlmTsR0QA=="
+    },
+    {
+      "name": "@oh-my-pi/pi-natives-linux-x64",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-natives-linux-x64@18.12.6",
+      "bundle_sha256": "7fc813ecea744b7c74a6d706d6f76db9e363d0b78c0bf23c97d06b098d06727c",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/pi-natives-linux-x64@18.12.6",
+        "digest": {
+          "sha512": "0ebd376b8476b14d37fd09f923d26063c737767b7b3b624d795f05685109b22025a7c0ca81f29faec6d51c393892a62088d55f0f865bcabdb47b7785adaeab4a"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-Dr03a4R2sU03/Qn5I9JgY8c3dnt7O2JNeV8FaFEJsiAlp8DKgfKfrsbVHDk4kqYgiNVfD4Zbyr20e3eFra6rSg=="
+    },
+    {
+      "name": "@oh-my-pi/pi-tui",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-tui@18.12.6",
+      "bundle_sha256": "8533a370a5010248bc6c2600ea9262be3e65dba6512a123bb723c949f56ad9b8",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/pi-tui@18.12.6",
+        "digest": {
+          "sha512": "de35b52c393a3dc99f92d1a8a7a436f8d241b6f31a060c0b99304a61bda628530e4ee6e99e10ece747632a9ff375cd9420461c11c93a621f3781903e1fcaab76"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-3jW1LDk6PcmfktGop6Q2+NJBtvMaBgwLmTBKYb2mKFMOTubpnhDs50djKp/zdc2UIEYcEck6Yh83gZA+H8qrdg=="
+    },
+    {
+      "name": "@oh-my-pi/pi-utils",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-utils@18.12.6",
+      "bundle_sha256": "d527b5183e31b96e3f40e1fe621c330dea1f586bd5d5a3246582360a289abfb3",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/pi-utils@18.12.6",
+        "digest": {
+          "sha512": "f9d5f90605f7a79d07a1eb88b665f088e91c5fc11b2cc7ef39b85f8d80584d4081e6ace703191b28c56ed998ccd0c471e38cb35ee6001bc3a493b38e72fade2b"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-+dX5BgX3p50HoeuItmXwiOkcX8EbLMfvObhfjYBYTUCB5qznAxkbKMVu2ZjM0MRx44yzXuYAG8Okk7OOcvreKw=="
+    },
+    {
+      "name": "@oh-my-pi/pi-wire",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fpi-wire@18.12.6",
+      "bundle_sha256": "58192b7d7f0f7dc63e5f188a847ae95d77bdc95d2c0c85199021d2b06655e1d9",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/pi-wire@18.12.6",
+        "digest": {
+          "sha512": "34f4449242c452a6dca89e53fcd3a0db1177779c18484f76096a04c3132f6f205eaddc94d0985928581c8a20221d383917f707f6860936bdc39bc31156ba4358"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-NPREkkLEUqbcqJ5T/NOg2xF3d5wYSE92CWoEwxMvbyBerdyU0JhZKFgciiAiHTg5F/cH9oYJNr3Dm8MRVrpDWA=="
+    },
+    {
+      "name": "@oh-my-pi/snapcompact",
+      "version": "18.12.6",
+      "official_audit_endpoint": "https://registry.npmjs.org/-/npm/v1/attestations/@oh-my-pi%2fsnapcompact@18.12.6",
+      "bundle_sha256": "fc426c693c93a06e03f891ed2b5987adbd8abc542d563eca352c8afdd1a8e613",
+      "bundle_byte_identical_to_saved_content_check": true,
+      "subject": {
+        "name": "pkg:npm/%40oh-my-pi/snapcompact@18.12.6",
+        "digest": {
+          "sha512": "c37e2c61d339bf0e8f8a5a9fe64ad96607055692e77da62c2d3db203f1b7d23f9836583ca01e96c664a1998f0ba8d165c5b3f7ef715eb7c6cb92ea91747b8109"
+        }
+      },
+      "source": {
+        "uri": "git+https://github.com/can1357/oh-my-pi@refs/heads/main",
+        "digest": {
+          "gitCommit": "45c35e40c46166dc726ccc52f5d27f40f2449f99"
+        }
+      },
+      "npm_audited_integrity": "sha512-w34sYdM5vw6Pilqf5krZZgcFVpLnfaYsLT2yA/G30j+YNlg8oB6WxmShmY8LqNFlxbP373Fet8bLkuqRdHuBCQ=="
+    }
+  ]
+}

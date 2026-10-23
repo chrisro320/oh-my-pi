@@ -1,0 +1,52 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "-e",
+    "const png=\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==\"; const b=Buffer.alloc(1950000);Buffer.from(png,\"base64\").copy(b);b[b.length-1]=9;const m=await new Bun.Image(b).metadata();if(m.width!==1||m.height!==1||b.toString(\"base64\").length!==2600000)throw Error(JSON.stringify(m));console.log(JSON.stringify({width:m.width,height:m.height,encodedBytes:b.toString(\"base64\").length,validPNG:true}));"
+  ],
+  "started": "2026-10-23T12:47:35.705293+00:00",
+  "finished": "2026-10-23T12:47:35.717072+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "{\"width\":1,\"height\":1,\"encodedBytes\":2600000,\"validPNG\":true}\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 62,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "90f85f0991023d7e62b400c745a9a79a75295611f46b2d75f493db16bf7e18e3",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "environment_keys": [
+    "HOME",
+    "LANG",
+    "NO_COLOR",
+    "OMP_PATCH_OFFLINE_VERIFY",
+    "OMP_PATCH_PLAN",
+    "OMP_PATCH_REPO_ROOT",
+    "OMP_PATCH_VERIFY_AGENT_ROOT",
+    "OMP_PATCH_VERIFY_AI_ROOT",
+    "OMP_PATCH_VERIFY_CATALOG_ROOT",
+    "OMP_PATCH_VERIFY_CORE_ROOT",
+    "OMP_PATCH_VERIFY_NM",
+    "OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT",
+    "OMP_PATCH_VERIFY_TUI_ROOT",
+    "OMP_PATCH_VERSION",
+    "OMP_PAYLOAD_ARCHIVE",
+    "OMP_RESUME_EVENT_LOG",
+    "PATH",
+    "PI_CODING_AGENT_DIR",
+    "TERM",
+    "TMPDIR",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_RUNTIME_DIR",
+    "XDG_STATE_HOME"
+  ],
+  "selected_runtime": "/tmp/omp-upgrade-18126-01a1684f/candidate",
+  "private_home": "/tmp/omp-final-verify-ucd5taa5/home"
+}

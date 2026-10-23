@@ -42,6 +42,8 @@ import { homedir } from "node:os";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const SNAP_ROOT = process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`;
+const version = JSON.parse(readFileSync(`${SNAP_ROOT}/package.json`, "utf8")).version;
+if (process.env.OMP_PATCH_VERSION) assert.equal(version, process.env.OMP_PATCH_VERSION, "billing fixture must match the selected plan");
 
 const COMMAND_CODE_API = "commandcode-custom";
 const ALIAS_API = "commandcode-custom-b";
@@ -63,8 +65,7 @@ let snapcompact: {
 		frameSize: number;
 	};
 	SHAPE_VARIANT_NAMES: readonly string[];
-	providerImageBudget(provider?: string, api?: string): number;
-	providerFrameBudget(provider?: string, api?: string): number;
+	providerImageBudget(modelOrProvider?: { provider: string; api: string } | string, api?: string): number;
 	frameBilling(model: { api?: string; id?: string }): unknown;
 	frameBillingKey(billing: unknown): string;
 	frameTokens(billing: unknown, size: { width: number; height: number }): number;
@@ -104,7 +105,7 @@ assert.equal(price(DS), 995, "DeepSeek vision-exp @1568 must price at the measur
 assert.equal(price(DS, ALIAS_API), 995, "an account-suffixed alias api must price identically");
 assert.equal(price(DS, "openai-completions"), 995, "the DeepSeek line is api-independent");
 assert.equal(snapcompact.resolveShape({ api: COMMAND_CODE_API, id: DS }).frameSize, 1568);
-if (["18.7.0", "18.10.0", "18.10.1"].includes(JSON.parse(readFileSync(`${SNAP_ROOT}/package.json`, "utf8")).version)) {
+if (["18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(version)) {
 	const measuredBilling = snapcompact.frameBilling({ api: COMMAND_CODE_API, id: DS });
 	assert.equal(snapcompact.frameTokens(measuredBilling, { width: 1568, height: 1568 }), 995,
 		"tokenizer and shape planning must both use the measured 1568px frame price");
@@ -160,11 +161,23 @@ assert.notEqual(price("claude-fable-latest"), 995, "the high-res Claude line mus
 // Shared provider/API cases live in verify-provider-image-budget.ts.
 // The primary id has its own explicit table entry (200), which outranks the api
 // by the pre-existing provider-first rule — unchanged by 0052.
-assert.equal(snapcompact.providerImageBudget("commandcode", "anthropic-messages"), 200);
-// The alias provider id alone still names the gateway, so it is rescued even on
-// an api string with no entry (the api is not the identifier that matters here).
-assert.equal(snapcompact.providerImageBudget("commandcode-b", "cursor-agent"), 200);
-assert.equal(snapcompact.providerImageBudget(undefined, "commandcodex"), 5);
+if (version === "18.12.6") {
+	const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+	const { buildModel } = await import(`${CATALOG_ROOT}/src/build.ts`);
+	const budget = (provider: string, api: string) => snapcompact.providerImageBudget(buildModel({
+		id: "billing-budget-fixture", name: "Billing budget fixture", provider, api,
+		baseUrl: "https://gateway.invalid/v1", input: ["text", "image"], reasoning: false,
+		contextWindow: 32000, maxTokens: 1024,
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	}));
+	assert.equal(budget("commandcode", "anthropic-messages"), 200);
+	assert.equal(budget("commandcode-b", "cursor-agent"), 200);
+	assert.equal(budget("unknown", "commandcodex"), 5);
+} else {
+	assert.equal(snapcompact.providerImageBudget("commandcode", "anthropic-messages"), 200);
+	assert.equal(snapcompact.providerImageBudget("commandcode-b", "cursor-agent"), 200);
+	assert.equal(snapcompact.providerImageBudget(undefined, "commandcodex"), 5);
+}
 
 console.log(
 	`source=${SNAP_ROOT}\n` +

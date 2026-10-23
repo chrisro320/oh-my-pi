@@ -11,7 +11,7 @@ import { join } from "node:path";
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
-assert.ok(["18.10.0", "18.10.1"].includes(JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version),
+assert.ok(["18.10.0", "18.10.1", "18.12.6"].includes(JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version),
 	"session transfer authority gate requires the selected public transfer APIs");
 const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
 const root = mkdtempSync(join(tmpdir(), "omp-transfer-authority-"));

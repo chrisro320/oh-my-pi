@@ -1,0 +1,35 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/.trellis/tasks/10-23-omp-upgrade-plan/research/stepfun-smoke.ts",
+    "--nm",
+    "/tmp/omp-upgrade-18126-01a1684f/candidate/node_modules/@oh-my-pi"
+  ],
+  "started": "2026-10-23T12:51:15.887971+00:00",
+  "finished": "2026-10-23T12:51:16.035818+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "{\n  \"status\": \"pass\",\n  \"nm\": \"/tmp/omp-upgrade-18126-01a1684f/candidate/node_modules/@oh-my-pi\",\n  \"modules\": [\n    {\n      \"package\": \"@oh-my-pi/pi-catalog\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/candidate/node_modules/@oh-my-pi/pi-catalog/src/provider-models/openai-compat.ts\"\n    },\n    {\n      \"package\": \"@oh-my-pi/pi-catalog\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/candidate/node_modules/@oh-my-pi/pi-catalog/src/build.ts\"\n    },\n    {\n      \"package\": \"@oh-my-pi/pi-catalog\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/candidate/node_modules/@oh-my-pi/pi-catalog/src/models.ts\"\n    },\n    {\n      \"package\": \"@oh-my-pi/pi-catalog\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/candidate/node_modules/@oh-my-pi/pi-catalog/src/compat/auth.ts\"\n    },\n    {\n      \"package\": \"@oh-my-pi/pi-ai\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/candidate/node_modules/@oh-my-pi/pi-ai/src/providers/openai-completions.ts\"\n    },\n    {\n      \"package\": \"@oh-my-pi/pi-ai\",\n      \"version\": \"18.12.6\",\n      \"resolved\": \"file:///tmp/omp-upgrade-18126-01a1684f/candidate/node_modules/@oh-my-pi/pi-ai/src/registry/engine/api-key.ts\"\n    }\n  ],\n  \"cases\": [\n    {\n      \"name\": \"built-in\",\n      \"calls\": [\n        {\n          \"method\": \"GET\",\n          \"url\": \"https://api.stepfun.ai/step_plan/v1/models\"\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"https://api.stepfun.ai/step_plan/v1/chat/completions\",\n          \"model\": \"stepfun-smoke-chat\",\n          \"stream\": true\n        }\n      ],\n      \"selectedModel\": {\n        \"id\": \"stepfun-smoke-chat\",\n        \"baseUrl\": \"https://api.stepfun.ai/step_plan/v1\"\n      },\n      \"result\": {\n        \"stopReason\": \"stop\",\n        \"text\": \"stepfun synthetic completion\",\n        \"events\": [\n          \"start\",\n          \"text_start\",\n          \"text_delta\",\n          \"text_end\",\n          \"done\"\n        ]\n      }\n    },\n    {\n      \"name\": \"custom-override\",\n      \"calls\": [\n        {\n          \"method\": \"GET\",\n          \"url\": \"https://custom.stepfun.invalid/explicit/v1/models\"\n        },\n        {\n          \"method\": \"POST\",\n          \"url\": \"https://custom.stepfun.invalid/explicit/v1/chat/completions\",\n          \"model\": \"stepfun-smoke-chat\",\n          \"stream\": true\n        }\n      ],\n      \"selectedModel\": {\n        \"id\": \"stepfun-smoke-chat\",\n        \"baseUrl\": \"https://custom.stepfun.invalid/explicit/v1\"\n      },\n      \"result\": {\n        \"stopReason\": \"stop\",\n        \"text\": \"stepfun synthetic completion\",\n        \"events\": [\n          \"start\",\n          \"text_start\",\n          \"text_delta\",\n          \"text_end\",\n          \"done\"\n        ]\n      }\n    }\n  ],\n  \"catalogDependency\": \"file:///tmp/omp-upgrade-18126-01a1684f/candidate/node_modules/@oh-my-pi/pi-catalog/src/compat/resolve.ts\",\n  \"bundled\": {\n    \"count\": 4,\n    \"baseUrls\": [\n      \"https://api.stepfun.ai/step_plan/v1\"\n    ]\n  },\n  \"auth\": {\n    \"descriptorBaseUrl\": \"https://api.stepfun.ai/step_plan/v1\",\n    \"calls\": [\n      {\n        \"method\": \"POST\",\n        \"url\": \"https://api.stepfun.ai/step_plan/v1/chat/completions\",\n        \"model\": \"step-5-preview\",\n        \"stream\": false\n      }\n    ]\n  },\n  \"deniedGlobalFetchCalls\": 0\n}\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 3401,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "4362ba62f75ef2c051451755ddfc80ecfe57990bf02cd91c6aa0d53a0fb892bc",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "environment_keys": [
+    "BUN_INSTALL_CACHE_DIR",
+    "HOME",
+    "LANG",
+    "PATH",
+    "TMPDIR",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME"
+  ],
+  "source_tree_sha256": "c6035df6dfe0e1f9cc3f849fd39c01b2aa1dba99e2bbb3cd718fa7f532dab438"
+}

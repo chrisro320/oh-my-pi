@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-provider-image-budget.ts"
+  ],
+  "started": "2026-10-23T12:51:30.965257+00:00",
+  "finished": "2026-10-23T12:51:31.051943+00:00",
+  "exit": 0,
+  "timeout": false,
+  "stdout": "provider-image-budget verification: ok\n",
+  "stderr": "",
+  "output_bytes": {
+    "stdout": 39,
+    "stderr": 0
+  },
+  "output_sha256": {
+    "stdout": "1a09307c6da872315a521944ac5572b70d85f16b52dbe328848557a7497d5d67",
+    "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "gate": "verify-provider-image-budget.ts",
+  "version": "18.10.1",
+  "runtime": "/tmp/omp-upgrade-18126-01a1684f/historical-regression"
+}

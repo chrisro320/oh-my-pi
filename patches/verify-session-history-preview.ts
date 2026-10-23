@@ -30,8 +30,8 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${os.homedir()}/.bun/install/glob
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const agentVersion = JSON.parse(fs.readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
-const movedUi = ["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion);
+assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
+const movedUi = ["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion);
 
 assert.ok(fs.existsSync(AGENT_ROOT), `OMP_PATCH_VERIFY_AGENT_ROOT does not exist: ${AGENT_ROOT}`);
 if (movedUi) assert.ok(fs.existsSync(TUI_ROOT), `OMP_PATCH_VERIFY_TUI_ROOT does not exist: ${TUI_ROOT}`);
@@ -58,7 +58,7 @@ const { listSessions } = await import(`${AGENT_ROOT}/src/session/session-listing
 const { FileSessionStorage } = await import(`${AGENT_ROOT}/src/session/session-storage.ts`);
 const { loadSessionMessagesReadOnly } = await import(`${AGENT_ROOT}/src/session/session-loader.ts`);
 // Native wire materialization is version-selected, never selected by symbol presence.
-const Reconciler = ["18.10.0", "18.10.1"].includes(agentVersion)
+const Reconciler = ["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)
 	? (await import(`${TUI_ROOT}/src/native/reconcile.ts`)).Reconciler
 	: undefined;
 
@@ -247,7 +247,7 @@ assert.ok(
 	"list mode must not render transcript body text before the preview opens",
 );
 console.log("✓ list mode renders the fixture title and compact model, no transcript body");
-if (["18.10.0", "18.10.1"].includes(agentVersion)) assertNativePreviewAction(selector, true);
+if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) assertNativePreviewAction(selector, true);
 
 // --- 2. Space on an empty query opens the preview ----------------------------
 selector.handleInput(" ");
@@ -284,7 +284,7 @@ assert.ok(
 	"a tool-call turn must not leave a phantom empty [Assistant] fence block",
 );
 console.log("✓ Space opens the preview and renders the fixture transcript verbatim, without tool noise");
-if (["18.10.0", "18.10.1"].includes(agentVersion)) {
+if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) {
 	const nodes = nativeNodes(selector);
 	assert.ok(JSON.stringify(nodes).includes(FIXTURE_CONCLUSION), "compiled native history must contain the real transcript");
 	for (const action of ["resume", "close"]) {
@@ -323,16 +323,16 @@ assert.ok(
 	!frameOf(selector).plain.includes(FIXTURE_CONCLUSION),
 	"Space inside a non-empty search query must not open the preview",
 );
-if (["18.10.0", "18.10.1"].includes(agentVersion)) assertNativePreviewAction(selector, false);
+if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) assertNativePreviewAction(selector, false);
 for (let i = 0; i < 5; i++) selector.handleInput("\x7f");
 console.log("✓ Space with a non-empty query edits the search text instead of opening the preview");
 
 // --- 5. Enter inside the preview resumes the selected session ---------------
-if (["18.10.0", "18.10.1"].includes(agentVersion)) selector.handleNativeEvent({ type: "action", key: "", act: "preview", mods: [] });
+if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) selector.handleNativeEvent({ type: "action", key: "", act: "preview", mods: [] });
 else selector.handleInput(" ");
 await settle();
 assert.ok(frameOf(selector).plain.includes(FIXTURE_CONCLUSION), "preview must be open again");
-if (["18.10.0", "18.10.1"].includes(agentVersion)) selector.handleNativeEvent({ type: "action", key: "", act: "resume", mods: [] });
+if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) selector.handleNativeEvent({ type: "action", key: "", act: "resume", mods: [] });
 else selector.handleInput("\n");
 assert.strictEqual(selectedSession, session, "Enter in the preview must resume the selected session");
 console.log("✓ Enter inside the preview resumes the selected session");
@@ -493,7 +493,7 @@ const temporaryThenFallbackPath = writeModelSession("temporary-then-fallback", [
 ]);
 const emptyPath = writeModelSession("empty", []);
 const midFileSwitchPath =
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)
+	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)
 		? writeModelSession("mid-file-switch", [
 				modelChange("prov/configured-model"),
 				{ type: "message", message: { role: "user", content: "x".repeat(6_000) } },
@@ -503,7 +503,7 @@ const midFileSwitchPath =
 			])
 		: undefined;
 const fallbackAfterGapPath =
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion)
+	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)
 		? writeModelSession("fallback-after-gap", [
 				modelChange("prov/configured-model"),
 				{ type: "message", message: { role: "user", content: "x".repeat(33_000) } },
@@ -580,7 +580,7 @@ console.log(
 
 // R2: cancellation belongs to the real selector->session transaction. A
 // departed session from a removed worktree must not fork/relocate beforehand.
-if (["18.10.0", "18.10.1"].includes(agentVersion)) {
+if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) {
 	const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 	const { sessionDirForCwd } = await import(`${AGENT_ROOT}/src/session/session-paths.ts`);
 	const { markSessionMoved } = await import(`${AGENT_ROOT}/src/session/session-transfer.ts`);

@@ -1,0 +1,664 @@
+{
+  "schema_version": 1,
+  "version": "18.12.6",
+  "upstream_commit": "45c35e40c46166dc726ccc52f5d27f40f2449f99",
+  "archives": [
+    {
+      "name": "@oh-my-pi/pi-agent-core",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-agent-core/-/pi-agent-core-18.12.6.tgz",
+      "integrity": "sha512-BS85MS7yDPXC3ooSWMKGFZIFywECGfZHaeTmx56iV9ZBaJEw4f3jAEteoOo6imWTY9klZZlmoi79e2N9Um4ANw==",
+      "sha1": "8a569a9d07c8ed163a36b5aec9447fa621100464",
+      "sha256": "d5794ee1cc3c437627822fef6075e2b04e0506e5f0abd01e9135577df28d622c",
+      "bytes": 440553,
+      "package": "pi-agent-core"
+    },
+    {
+      "name": "@oh-my-pi/pi-ai",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-ai/-/pi-ai-18.12.6.tgz",
+      "integrity": "sha512-Ld54zgvMLYPONS1aqj4dIyhwFsNBvjP7vLosP2HoKNfW4q2lTObdGcHFsshoA7TtgVVgUh0R8zjsmoET1AX3JQ==",
+      "sha1": "649616f9306049bb9b77516a9ed90b359469588f",
+      "sha256": "8643ee9717dbbec5d9462f1c5836a29be8b03e04767d79b8289637c37d5e2004",
+      "bytes": 2046288,
+      "package": "pi-ai"
+    },
+    {
+      "name": "@oh-my-pi/pi-catalog",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-catalog/-/pi-catalog-18.12.6.tgz",
+      "integrity": "sha512-3f6K8AgDTHGoGDkxUB2+NkSc+HTF4NA5b2EWjqbObxiZQTJtBK58DBMH78anRSptdgAt/xH5a4TOLo4dyK9sWQ==",
+      "sha1": "e6ec842b1bc5660e35186a701f371417aac85e5f",
+      "sha256": "978f58d9f44e6f24f169c16c9b72d93368c8a519a29179d54545cecf02a475f4",
+      "bytes": 1161866,
+      "package": "pi-catalog"
+    },
+    {
+      "name": "@oh-my-pi/pi-coding-agent",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-coding-agent/-/pi-coding-agent-18.12.6.tgz",
+      "integrity": "sha512-Wo+FcJ7A3RY/OFuafj4hcdIAXc/W7NMxbanwQh3Cmy8s57+ihLOLgAv+HROxHBkssEMg0MaScwkQ9xwqLPiC/g==",
+      "sha1": "7762bf3888fa4a841545ea2e13f6e22e74f24792",
+      "sha256": "8088b050a405cc4073c8f4b32d338ebb0ecc2f0d18be05852f20960b73e819e1",
+      "bytes": 15233742,
+      "package": "pi-coding-agent"
+    },
+    {
+      "name": "@oh-my-pi/pi-tui",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/pi-tui/-/pi-tui-18.12.6.tgz",
+      "integrity": "sha512-3jW1LDk6PcmfktGop6Q2+NJBtvMaBgwLmTBKYb2mKFMOTubpnhDs50djKp/zdc2UIEYcEck6Yh83gZA+H8qrdg==",
+      "sha1": "839bb4d4b79324cf7574fcb46b7f64e9d145e7de",
+      "sha256": "64b87738016aa4e57485d96cda084e9d6623283ef661524848ded15c6d92c93c",
+      "bytes": 2733438,
+      "package": "pi-tui"
+    },
+    {
+      "name": "@oh-my-pi/snapcompact",
+      "tarball": "https://registry.npmjs.org/@oh-my-pi/snapcompact/-/snapcompact-18.12.6.tgz",
+      "integrity": "sha512-w34sYdM5vw6Pilqf5krZZgcFVpLnfaYsLT2yA/G30j+YNlg8oB6WxmShmY8LqNFlxbP373Fet8bLkuqRdHuBCQ==",
+      "sha1": "32541fceab3c6a45d0e270c6501e5d3ee19cb930",
+      "sha256": "10aa54e2dd3a14ac91b8fb1f30b6358578b552bcd9acc9b3ab1e323b1ae3366e",
+      "bytes": 146667,
+      "package": "snapcompact"
+    }
+  ],
+  "families": [
+    {
+      "id": "family-status-accounting",
+      "patch": ".18.12.6-families/family-status-accounting-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0033",
+        "0004",
+        "0081"
+      ],
+      "sha256": "93f84fa0d5ca712da3de4a58c9618233b1a4837c7a69702b7ef8931691ebbc66",
+      "paths": [
+        "pi-coding-agent/dist/types/session/session-manager.d.ts",
+        "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts",
+        "pi-coding-agent/src/cli/gallery-fixtures/status-line.ts",
+        "pi-coding-agent/src/session/session-manager.ts",
+        "pi-tui/dist/types/status-line/host.d.ts",
+        "pi-tui/dist/types/status-line/schema.d.ts",
+        "pi-tui/src/status-line/host.ts",
+        "pi-tui/src/status-line/schema.ts",
+        "pi-tui/src/status-line/segments.ts",
+        "pi-tui/src/status-line/startup.ts"
+      ]
+    },
+    {
+      "id": "family-hindsight",
+      "patch": ".18.12.6-families/family-hindsight-v18.12.6.patch",
+      "root": "AGENT",
+      "capabilities": [
+        "0034",
+        "0075"
+      ],
+      "sha256": "d79f8012f8677b60762cb0399813707ff9ac9b871dbafb68d9fc010fb34fb83d",
+      "paths": [
+        "pi-coding-agent/dist/types/hindsight/state.d.ts",
+        "pi-coding-agent/dist/types/memory-backend/recall-entry.d.ts",
+        "pi-coding-agent/dist/types/session/session-memory.d.ts",
+        "pi-coding-agent/dist/types/session/session-tools.d.ts",
+        "pi-coding-agent/src/hindsight/backend.ts",
+        "pi-coding-agent/src/hindsight/state.ts",
+        "pi-coding-agent/src/memory-backend/recall-entry.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/session-memory.ts",
+        "pi-coding-agent/src/session/session-tools.ts"
+      ]
+    },
+    {
+      "id": "family-usage-pipeline",
+      "patch": ".18.12.6-families/family-usage-pipeline-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0037",
+        "0025",
+        "0026",
+        "0030",
+        "0031"
+      ],
+      "sha256": "1019742043c6fdec3023959ad8b3a606681b91a90c56c3445c26660c5b6229e8",
+      "paths": [
+        "pi-ai/dist/types/auth-broker/client.d.ts",
+        "pi-ai/dist/types/auth-broker/remote-store.d.ts",
+        "pi-ai/dist/types/auth/store.d.ts",
+        "pi-ai/dist/types/auth/types.d.ts",
+        "pi-ai/dist/types/auth/usage-cache.d.ts",
+        "pi-ai/dist/types/auth/usage.d.ts",
+        "pi-ai/src/auth-broker/client.ts",
+        "pi-ai/src/auth-broker/remote-store.ts",
+        "pi-ai/src/auth-broker/server.ts",
+        "pi-ai/src/auth/store.ts",
+        "pi-ai/src/auth/types.ts",
+        "pi-ai/src/auth/usage-cache.ts",
+        "pi-ai/src/auth/usage.ts",
+        "pi-ai/src/usage/ollama.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/src/modes/status-line-host.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-tui/dist/types/status-line/host.d.ts",
+        "pi-tui/src/status-line/component.ts",
+        "pi-tui/src/status-line/host.ts"
+      ]
+    },
+    {
+      "id": "0010-omp-extension-idle-ephemeral-turn",
+      "patch": ".18.12.6-families/0010-omp-extension-idle-ephemeral-turn-v18.12.6.patch",
+      "root": "AGENT",
+      "capabilities": [
+        "0010"
+      ],
+      "sha256": "6053f9bd30964eadd99e72e10bc9817c32d00c5f34515e90cd545022a9e7c7b7",
+      "paths": [
+        "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/src/extensibility/extensions/runner.ts",
+        "pi-coding-agent/src/extensibility/extensions/types.ts",
+        "pi-coding-agent/src/modes/acp/acp-agent.ts",
+        "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+        "pi-coding-agent/src/modes/runtime-init.ts",
+        "pi-coding-agent/src/session/agent-session.ts"
+      ]
+    },
+    {
+      "id": "family-antigravity-wire",
+      "patch": ".18.12.6-families/family-antigravity-wire-v18.12.6.patch",
+      "root": "AI",
+      "capabilities": [
+        "0014",
+        "0054"
+      ],
+      "sha256": "7ffee3728d530318ac6da051193bd4f1625f93f2c7633171bc185f4494cf758d",
+      "paths": [
+        "pi-ai/src/providers/google-gemini-cli.ts"
+      ]
+    },
+    {
+      "id": "family-image-budget-snapcompact",
+      "patch": ".18.12.6-families/family-image-budget-snapcompact-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0036",
+        "0044",
+        "0052",
+        "0057",
+        "0062"
+      ],
+      "sha256": "8f55f103a386d9413c8f675a0da40507312e27f57ee82660451a895f4e117133",
+      "paths": [
+        "pi-coding-agent/src/session/session-maintenance.ts",
+        "snapcompact/dist/types/snapcompact.d.ts",
+        "snapcompact/src/snapcompact.ts",
+        "pi-catalog/src/compat/request-size.ts",
+        "pi-catalog/dist/types/compat/request-size.d.ts",
+        "pi-catalog/src/compat/rules/providers/image-budget.kdl",
+        "pi-catalog/src/compat/rules/providers/commandcode.kdl",
+        "pi-catalog/src/compat/rules/providers/opencode-go.kdl",
+        "pi-catalog/src/compat/rules/providers/zhipu-coding-plan.kdl",
+        "pi-catalog/src/compat/rules.json",
+        "pi-catalog/src/compat/rules/providers/devin.kdl"
+      ]
+    },
+    {
+      "id": "0032-omp-goal-tool-resident",
+      "patch": ".18.12.6-families/0032-omp-goal-tool-resident-v18.12.6.patch",
+      "root": "AGENT",
+      "capabilities": [
+        "0032"
+      ],
+      "sha256": "414e14d317eaf903c4c4dd406f59ff7d0bd83cb08baae7a8ef8669a81d957a50",
+      "paths": [
+        "pi-coding-agent/src/modes/interactive-mode.ts",
+        "pi-coding-agent/src/sdk.ts",
+        "pi-coding-agent/src/tools/index.ts"
+      ]
+    },
+    {
+      "id": "family-persistent-prefix-resume",
+      "patch": ".18.12.6-families/family-persistent-prefix-resume-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0038",
+        "0043",
+        "0047",
+        "0076",
+        "0077",
+        "0083",
+        "0084",
+        "0093"
+      ],
+      "sha256": "f9cd79094d11777e6910dc73ae8aaaa3823b0ae35cb68a4ac16f413527a85e1f",
+      "paths": [
+        "pi-ai/dist/types/types.d.ts",
+        "pi-ai/src/providers/openai-responses.ts",
+        "pi-ai/src/types.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts",
+        "pi-coding-agent/dist/types/session/messages.d.ts",
+        "pi-coding-agent/dist/types/session/session-manager.d.ts",
+        "pi-coding-agent/dist/types/session/session-storage.d.ts",
+        "pi-coding-agent/dist/types/session/session-transfer-marker.d.ts",
+        "pi-coding-agent/dist/types/session/session-transfer.d.ts",
+        "pi-coding-agent/dist/types/session/turn-recovery.d.ts",
+        "pi-coding-agent/src/collab/guest.ts",
+        "pi-coding-agent/src/main.ts",
+        "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+        "pi-coding-agent/src/sdk.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/date-cwd-reminder.ts",
+        "pi-coding-agent/src/session/messages.ts",
+        "pi-coding-agent/src/session/model-controls.ts",
+        "pi-coding-agent/src/session/session-context.ts",
+        "pi-coding-agent/src/session/session-maintenance.ts",
+        "pi-coding-agent/src/session/session-manager.ts",
+        "pi-coding-agent/src/session/session-storage.ts",
+        "pi-coding-agent/src/session/session-tools.ts",
+        "pi-coding-agent/src/session/session-transfer-marker.ts",
+        "pi-coding-agent/src/session/session-transfer.ts",
+        "pi-coding-agent/src/session/turn-recovery.ts"
+      ]
+    },
+    {
+      "id": "0046-omp-supersede-warm-prefix-guard",
+      "patch": ".18.12.6-families/0046-omp-supersede-warm-prefix-guard-v18.12.6.patch",
+      "root": "AGENT",
+      "capabilities": [
+        "0046"
+      ],
+      "sha256": "fbdc9f13dfaa20689fc7b54b943b01579a8e67910ce05d0ffe1f4ec645f9744a",
+      "paths": [
+        "pi-coding-agent/src/session/session-maintenance.ts"
+      ]
+    },
+    {
+      "id": "0048-omp-advisor-quota-rotation-bound",
+      "patch": ".18.12.6-families/0048-omp-advisor-quota-rotation-bound-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0048"
+      ],
+      "sha256": "75ac186759fd159d86d3a6478e7d81fda82c92d0246c8e2a623d26b61349a3fd",
+      "paths": [
+        "pi-coding-agent/src/session/session-advisors.ts",
+        "pi-tui/src/overlays/advisor-config.ts"
+      ]
+    },
+    {
+      "id": "0050-omp-session-history-preview",
+      "patch": ".18.12.6-families/0050-omp-session-history-preview-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0050"
+      ],
+      "sha256": "5cae69e2e17619c2f69c2f72e97d8c3d23915be497ed07173f3256e1f5675eb4",
+      "paths": [
+        "pi-coding-agent/dist/types/session/session-listing.d.ts",
+        "pi-coding-agent/src/main.ts",
+        "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+        "pi-coding-agent/src/session/session-listing.ts",
+        "pi-tui/dist/types/apps/session-picker.d.ts",
+        "pi-tui/dist/types/overlays/session-selector.d.ts",
+        "pi-tui/src/apps/session-picker.ts",
+        "pi-tui/src/overlays/session-info-overlay.ts",
+        "pi-tui/src/overlays/session-selector.ts"
+      ]
+    },
+    {
+      "id": "family-devin-wire",
+      "patch": ".18.12.6-families/family-devin-wire-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0055",
+        "0071",
+        "0056",
+        "0058",
+        "0060"
+      ],
+      "sha256": "19ea726715a7877e6b409e1aa710c764ffaed7f411975350da4c4dc074bb3f9e",
+      "paths": [
+        "pi-ai/dist/types/stream.d.ts",
+        "pi-ai/dist/types/types.d.ts",
+        "pi-ai/src/providers/devin.ts",
+        "pi-ai/src/stream.ts",
+        "pi-ai/src/types.ts",
+        "pi-catalog/dist/types/wire/devin.d.ts",
+        "pi-catalog/src/wire/devin.ts",
+        "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+        "pi-coding-agent/src/session/agent-session-types.ts",
+        "pi-coding-agent/src/session/agent-session.ts"
+      ]
+    },
+    {
+      "id": "0065-omp-commandcode-deepseek-model-record-parity",
+      "patch": ".18.12.6-families/0065-omp-commandcode-deepseek-model-record-parity-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0065"
+      ],
+      "sha256": "be0a59e195f56ea577d13c02bddfa28f12f38194ada6aaaa25ae53bd4cbaaa55",
+      "paths": [
+        "pi-catalog/src/compat/rules.json",
+        "pi-catalog/src/compat/rules/providers/commandcode.kdl"
+      ]
+    },
+    {
+      "id": "0069-omp-codex-effort-history-resume",
+      "patch": ".18.12.6-families/0069-omp-codex-effort-history-resume-v18.12.6.patch",
+      "root": "AI",
+      "capabilities": [
+        "0069"
+      ],
+      "sha256": "ee2f02d225f816885fae30774fa6078fb1051177abb9cd0629aea365ae7b019f",
+      "paths": [
+        "pi-ai/dist/types/types.d.ts",
+        "pi-ai/src/providers/openai-codex-responses.ts",
+        "pi-ai/src/types.ts"
+      ]
+    },
+    {
+      "id": "0072-omp-session-pin-static-auth-ui",
+      "patch": ".18.12.6-families/0072-omp-session-pin-static-auth-ui-v18.12.6.patch",
+      "root": "AGENT",
+      "capabilities": [
+        "0072"
+      ],
+      "sha256": "d0e2ac5f339c81cf6c16b98c221e3542b1bce4423a3ed7705636692218a9b48c",
+      "paths": [
+        "pi-coding-agent/src/modes/controllers/selector-controller.ts"
+      ]
+    },
+    {
+      "id": "0074-omp-anthropic-context-cache-boundaries",
+      "patch": ".18.12.6-families/0074-omp-anthropic-context-cache-boundaries-v18.12.6.patch",
+      "root": "AI",
+      "capabilities": [
+        "0074"
+      ],
+      "sha256": "4ee8ce70ab3e21f47455109bf3c2d6d2bfd26786c5f9a78e78001a08e15b50c2",
+      "paths": [
+        "pi-ai/dist/types/providers/anthropic-request-audit.d.ts",
+        "pi-ai/src/providers/anthropic-request-audit.ts",
+        "pi-ai/src/providers/anthropic.ts"
+      ]
+    },
+    {
+      "id": "family-image-display",
+      "patch": ".18.12.6-families/family-image-display-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0079",
+        "0080"
+      ],
+      "sha256": "a25cb5e4052ca9ecdf9a9b8b364b12ddec99aae86c7519c958bc43ba3f3d91ab",
+      "paths": [
+        "pi-tui/dist/types/chat/image-loading.d.ts",
+        "pi-tui/src/chat/assistant-message.ts",
+        "pi-tui/src/chat/image-loading.ts",
+        "pi-tui/src/chat/tool-execution.ts"
+      ]
+    },
+    {
+      "id": "family-input-translation",
+      "patch": ".18.12.6-families/family-input-translation-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0082",
+        "0085"
+      ],
+      "sha256": "e5cba76512b4fc37909163fb902007284f9b2c1936d35c12dafb5edb7b8fc5b2",
+      "paths": [
+        "pi-agent-core/dist/types/compaction/compaction.d.ts",
+        "pi-agent-core/src/agent.ts",
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-agent-core/src/compaction/messages.ts",
+        "pi-ai/dist/types/types.d.ts",
+        "pi-ai/src/types.ts",
+        "pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts",
+        "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+        "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+        "pi-coding-agent/dist/types/main.d.ts",
+        "pi-coding-agent/dist/types/modes/interactive-mode.d.ts",
+        "pi-coding-agent/dist/types/modes/types.d.ts",
+        "pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/session-history-format.d.ts",
+        "pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts",
+        "pi-coding-agent/src/export/html/template.js",
+        "pi-coding-agent/src/export/share.ts",
+        "pi-coding-agent/src/extensibility/extensions/loader.ts",
+        "pi-coding-agent/src/extensibility/extensions/runner.ts",
+        "pi-coding-agent/src/extensibility/extensions/types.ts",
+        "pi-coding-agent/src/main.ts",
+        "pi-coding-agent/src/modes/acp/acp-agent.ts",
+        "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
+        "pi-coding-agent/src/modes/controllers/input-controller.ts",
+        "pi-coding-agent/src/modes/interactive-mode.ts",
+        "pi-coding-agent/src/modes/runtime-init.ts",
+        "pi-coding-agent/src/modes/types.ts",
+        "pi-coding-agent/src/modes/utils/ui-helpers.ts",
+        "pi-coding-agent/src/session/agent-session-types.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/queued-messages.ts",
+        "pi-coding-agent/src/session/session-advisors.ts",
+        "pi-coding-agent/src/session/session-dump-format.ts",
+        "pi-coding-agent/src/session/session-history-format.ts",
+        "pi-coding-agent/src/session/session-listing.ts",
+        "pi-coding-agent/src/slash-commands/helpers/draft.ts",
+        "pi-tui/dist/types/chat/transcript-entry.d.ts",
+        "pi-tui/src/chat/chat-transcript-builder.ts",
+        "pi-tui/src/chat/transcript-entry.ts",
+        "pi-tui/src/chat/transcript-outline.ts",
+        "pi-tui/src/overlays/copy-selector.ts",
+        "pi-tui/src/overlays/hook-input.ts",
+        "pi-tui/src/overlays/session-selector.ts",
+        "pi-tui/src/overlays/tree-selector.ts"
+      ]
+    },
+    {
+      "id": "family-compaction",
+      "patch": ".18.12.6-families/family-compaction-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0035",
+        "0063",
+        "0066",
+        "0067",
+        "0068",
+        "0070",
+        "0088",
+        "0089",
+        "0096"
+      ],
+      "sha256": "aca93c290f062e6e14d11633bc8fa7935091b744d380ca1feb7b052375e48136",
+      "paths": [
+        "pi-agent-core/dist/types/compaction/anthropic.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts",
+        "pi-agent-core/dist/types/compaction/compaction.d.ts",
+        "pi-agent-core/src/compaction/anthropic.ts",
+        "pi-agent-core/src/compaction/compaction-trace.ts",
+        "pi-agent-core/src/compaction/compaction-v2-streaming.ts",
+        "pi-agent-core/src/compaction/compaction.ts",
+        "pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md",
+        "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md",
+        "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md",
+        "pi-ai/dist/types/providers/openai-codex-responses.d.ts",
+        "pi-ai/src/providers/openai-codex-responses.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/context-notes.d.ts",
+        "pi-coding-agent/dist/types/session/session-maintenance.d.ts",
+        "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts",
+        "pi-coding-agent/src/prompts/system/context-notes.md",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/context-notes.ts",
+        "pi-coding-agent/src/session/session-advisors.ts",
+        "pi-coding-agent/src/session/session-context.ts",
+        "pi-coding-agent/src/session/session-maintenance.ts",
+        "pi-coding-agent/src/session/session-provider-boundary.ts",
+        "pi-coding-agent/src/task/executor.ts"
+      ]
+    },
+    {
+      "id": "0090-omp-oauth-durable-refresh",
+      "patch": ".18.12.6-families/0090-omp-oauth-durable-refresh-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0090"
+      ],
+      "sha256": "ea025eaee923278bd26c5185071c0c532504c71ce6e229af68cce32973efd979",
+      "paths": [
+        "pi-ai/dist/types/auth-broker/remote-store.d.ts",
+        "pi-ai/dist/types/auth/oauth.d.ts",
+        "pi-ai/dist/types/auth/pool.d.ts",
+        "pi-ai/dist/types/auth/refresh.d.ts",
+        "pi-ai/dist/types/auth/sqlite-credential-store.d.ts",
+        "pi-ai/dist/types/auth/store.d.ts",
+        "pi-ai/dist/types/auth/types.d.ts",
+        "pi-ai/dist/types/auth/usage.d.ts",
+        "pi-ai/dist/types/registry/oauth/anthropic.d.ts",
+        "pi-ai/src/auth-broker/remote-store.ts",
+        "pi-ai/src/auth/health.ts",
+        "pi-ai/src/auth/oauth.ts",
+        "pi-ai/src/auth/pool.ts",
+        "pi-ai/src/auth/refresh.ts",
+        "pi-ai/src/auth/select.ts",
+        "pi-ai/src/auth/sqlite-credential-store.ts",
+        "pi-ai/src/auth/store.ts",
+        "pi-ai/src/auth/types.ts",
+        "pi-ai/src/auth/usage.ts",
+        "pi-ai/src/registry/engine/refresh.ts",
+        "pi-ai/src/registry/oauth/anthropic.ts",
+        "pi-ai/src/registry/oauth/factory-droid.ts",
+        "pi-ai/src/registry/oauth/snowflake.ts",
+        "pi-catalog/dist/types/model-manager.d.ts",
+        "pi-catalog/src/model-manager.ts",
+        "pi-catalog/src/provider-models/google.ts",
+        "pi-catalog/src/provider-models/special.ts",
+        "pi-coding-agent/src/cli/auth-broker-cli.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-tui/src/overlays/mcp-add-wizard.ts"
+      ]
+    },
+    {
+      "id": "0092-omp-cache-warming-idle-budget",
+      "patch": ".18.12.6-families/0092-omp-cache-warming-idle-budget-v18.12.6.patch",
+      "root": "AGENT",
+      "capabilities": [
+        "0092"
+      ],
+      "sha256": "378fa6747738991d21ffb049af5e6e485b1fb100ec98412a31c0de938c3b31a7",
+      "paths": [
+        "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
+        "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
+        "pi-coding-agent/dist/types/session/cache-warmer.d.ts",
+        "pi-coding-agent/src/extensibility/extensions/types.ts",
+        "pi-coding-agent/src/extensibility/shared-events.ts",
+        "pi-coding-agent/src/sdk.ts",
+        "pi-coding-agent/src/session/cache-warmer.ts"
+      ]
+    },
+    {
+      "id": "0094-omp-anthropic-thinking-drop-resume",
+      "patch": ".18.12.6-families/0094-omp-anthropic-thinking-drop-resume-v18.12.6.patch",
+      "root": "AI",
+      "capabilities": [
+        "0094"
+      ],
+      "sha256": "a22fb35cea3ffb6d4cdec94ac7d8795561df98c8a0bf478d884e4627b6705b8e",
+      "paths": [
+        "pi-ai/dist/types/types.d.ts",
+        "pi-ai/src/providers/anthropic.ts",
+        "pi-ai/src/types.ts"
+      ]
+    },
+    {
+      "id": "0095-omp-context-audit-request-purpose",
+      "patch": ".18.12.6-families/0095-omp-context-audit-request-purpose-v18.12.6.patch",
+      "root": "AGENT",
+      "capabilities": [
+        "0095"
+      ],
+      "sha256": "10c0e63f4f38a6a77b848f74c369113106f55922d52012f45cbaf87ac1306153",
+      "paths": [
+        "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
+        "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
+        "pi-coding-agent/dist/types/session/agent-session-types.d.ts",
+        "pi-coding-agent/src/extensibility/extensions/runner.ts",
+        "pi-coding-agent/src/extensibility/hooks/runner.ts",
+        "pi-coding-agent/src/extensibility/shared-events.ts",
+        "pi-coding-agent/src/sdk.ts",
+        "pi-coding-agent/src/session/agent-session-types.ts",
+        "pi-coding-agent/src/session/agent-session.ts"
+      ]
+    },
+    {
+      "id": "0098-omp-tls-verify-transient-retry",
+      "patch": ".18.12.6-families/0098-omp-tls-verify-transient-retry-v18.12.6.patch",
+      "root": "AI",
+      "capabilities": [
+        "0098"
+      ],
+      "sha256": "0b870ed80d54b32b836ddb4853a4a07a07dfc8a63e675069593aaf7e2d851e3f",
+      "paths": [
+        "pi-ai/src/error/flags.ts"
+      ]
+    },
+    {
+      "id": "0099-omp-retry-slow-schedule",
+      "patch": ".18.12.6-families/0099-omp-retry-slow-schedule-v18.12.6.patch",
+      "root": "AGENT",
+      "capabilities": [
+        "0099"
+      ],
+      "sha256": "223c0e2ac9e67f8998210a376d8a252eb5ab7d645e80649f8774bfbc5ea7e390",
+      "paths": [
+        "pi-coding-agent/src/session/retry-fallback-chains.ts"
+      ]
+    },
+    {
+      "id": "0100-omp-stepfun-step-plan",
+      "patch": ".18.12.6-families/0100-omp-stepfun-step-plan-v18.12.6.patch",
+      "root": "NM",
+      "capabilities": [
+        "0100"
+      ],
+      "sha256": "c1a47b0a4515fdfa81af0f9a129bfbd8e8044680474d6481d4ce1e948ba13490",
+      "paths": [
+        "pi-catalog/dist/types/provider-models/openai-compat.d.ts",
+        "pi-catalog/src/compat/rules.json",
+        "pi-catalog/src/compat/rules/auth/stepfun.kdl",
+        "pi-catalog/src/compat/rules/providers/stepfun.kdl",
+        "pi-catalog/src/models.json",
+        "pi-catalog/src/provider-models/openai-compat.ts"
+      ]
+    },
+    {
+      "id": "0101-omp-subagent-warm-revival-persisted-prompt",
+      "patch": ".18.12.6-families/0101-omp-subagent-warm-revival-persisted-prompt-v18.12.6.patch",
+      "root": "AGENT",
+      "capabilities": [
+        "0101"
+      ],
+      "sha256": "8584eba1db14fbe224453f24df91704b18b6a9a3040e3e22ad3b4475ab9610f5",
+      "paths": [
+        "pi-coding-agent/src/task/executor.ts"
+      ]
+    }
+  ],
+  "upstream_adoptions": [
+    {
+      "capability": "0017",
+      "family": "0017-omp-openai-responses-native-replay-warm",
+      "contract": "Ordinary self-contained native replay is warm; connection-bound native history still requires warming.",
+      "source": "pi-ai/src/providers/openai-responses.ts"
+    },
+    {
+      "capability": "0078",
+      "family": "family-image-display",
+      "contract": "Python producer emits exactly one PNG-preferred image with JPEG fallback; real producer and two negative controls passed.",
+      "source": "pi-coding-agent/src/eval/py/runner.py",
+      "evidence": ".trellis/tasks/10-23-omp-upgrade-plan/research/mime-adoption-0078.md"
+    }
+  ],
+  "pristine_tree_sha256": "9f609e1fefd74e1902e73e930d24b9d983d90c3b4df24aac031fa1bbd5a97cdd",
+  "candidate_tree_sha256": "87abd557af5b7c166dd3fadfc1bd68c5eb7cad641af41dac8424cfd7ca55a4bf"
+}

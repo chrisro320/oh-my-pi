@@ -45,7 +45,7 @@ try {
 // Version-scoped: the length-stop incomplete-retry branch that appends this
 // reminder exists only in the 18.4.1 plan. A tree without the behavior must
 // fail, never skip.
-assert.ok(["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion), `unsupported length-stop reminder persist gate version: ${agentVersion}`);
+assert.ok(["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion), `unsupported length-stop reminder persist gate version: ${agentVersion}`);
 const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
 const privateHome = mkdtempSync(join(tmpdir(), "omp-length-home-"));
 for (const key of Object.keys(process.env)) {

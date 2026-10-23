@@ -1,0 +1,21 @@
+{
+  "network": "bwrap --die-with-parent --unshare-net --bind / / --dev /dev --proc /proc --",
+  "rows": [
+    {
+      "check": "runtime-import",
+      "exit": 0,
+      "tail": "translator import ok TRANSLATOR_ENTRY_TYPE,decodeTranslatorState,default,isUsableTranslatorCompletion,normalizeSoftBoundary,translatorPairIdOfEntry\n"
+    },
+    {
+      "check": "tsc-consumer (--lib es2023,dom, bundler resolution)",
+      "exit": 0,
+      "tail": ""
+    },
+    {
+      "check": "tsc negative control: swapped prepareCompaction settings/model args",
+      "exit": 2,
+      "tail": "input-translator-extension.ts(915,50): error TS2345: Argument of type 'Model<Api>' is not assignable to parameter of type 'CompactionSettings'.\n  Type 'Model<Api>' is missing the following properties from type 'CompactionSettings': enabled, keepRecentTokens\n"
+    }
+  ],
+  "status": "PASS"
+}

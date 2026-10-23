@@ -41,6 +41,7 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
   sandbox dependency graph when correcting this; editing package.json alone
   does not remove nested copies. Extract verified targets independently after
   install so mutable source inodes cannot be shared with Bun's cache.
+- Official extraction canonicalizes directory modes to0755 once before recording pristine identity; regular-file modes and symlinks retain archive semantics. `canonicalize_extracted` in `verify-release-family-plan.py` must never run after forward/reverse replay: a later directory-mode mutation must change `tree_digest` and fail equality, not be silently normalized away. Historical pinned digests are never rewritten to accommodate extractor defaults.
 - Generate each family in an isolated tree against documented prerequisites, retaining historical member order where applicable. Interleaved edits require ownership-preserving context rebases, not concatenation or copying whole final shared files.
 - The rollup touched-file set MUST equal the union of its old family touched-file sets.
 - Any failed hunk, `.orig`, `.rej`, or unexpected `Only in` output MUST abort generation. Dry-run and exit-code gates apply to owned layers too. For declaration-only closure, retain validated source hunks byte-for-byte and append declaration diffs; broad regeneration once silently dropped 0052's namespace budget despite a green complete replay. Its real image-budget gate caught `5 !== 200`.
@@ -77,6 +78,7 @@ Cross-package rollups use paths such as `pi-agent-core/...` and are applied from
   from the `apply.sh` chain; documentation alone is not an acceptance gate.
 - Same-family repairs MUST revise that family's single active representation. Archive the previous revision first, preserve capability ownership and gates, and revalidate the complete chain. A new independent capability requires an explicit ownership decision, not automatic numeric tail allocation.
 - Removing a "redundant" guard MUST be proven, not argued from appearance: the surviving check runs with no intervening `await`, covers a superset of the conditions, and produces outcomes that no consumer can tell apart. Observe the affected window before and after the edit with the same consumer smoke; a guard whose early exit avoids a side effect (for example, opening an in-flight bracket or aborting an idle reservation) is not redundant. Example: 0010's attempt-wrapper guard was removed on 2026-10-12 because `#runAgentContinue` performs a superset check on entry.
+- A cross-version rebase MUST re-verify every deletion a family owns, not only its additions. When upstream moves a line the old family deleted (18.12.6 moved `if (this.isStreaming) return false;` below a new ACP block in `#canContinueQueuedMessages`), a 3-way merge keeps the moved copy, the zero-fuzz oracle stays green, and the capability is silently lost. The 18.12.6 input-translation rebase lost the queue-policy split this way; physical Tern acceptance froze on abort-with-queued-steer (synchronous drain reschedule livelock that also ignores SIGTERM). Repair by propagating the deletion through the owner's `after` and every later owner's `before`/`after` snapshot of the shared path, then re-export; prove it with the behavioral leg in `verify-user-display-text-queue.ts` (child with a SIGKILL deadline), not by source inspection.
 - Textual CLEAN, reversible patches, and a green representation oracle do not
   prove executable source. In 18.2.3, old 0048 fuzzy-applied into invalid scopes.
   Import the real SDK and launch the source CLI after whole-chain replay; then
@@ -748,10 +750,11 @@ Wrong: two atomic pointer replacements are treated as one transaction, or `HOME`
 A defect lives in compiled `pi-natives` Rust code (e.g. the Linux Escape monitor cancelling on every `MappingNotify`). Text patches cannot reach it; a TS workaround around native behavior is rejected.
 
 ### 2. Signatures
-`patches/native/<NNNN>-*.patch` (source diff against the pinned upstream commit), `patches/native/build-natives.sh <work> <out>`, `patches/native/overlay.json` (original and rebuilt SHA-256 per addon), `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi`.
+`patches/native/<NNNN>-*.patch` (historical default) or `patches/native/<version>/<NNNN>-*.patch` (new target source diff against its pinned commit); `patches/native/build-natives.sh <work> <out> [overlay-json]`; `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi [--overlay PATH]`. Omitting either overlay argument keeps the historical18.10.1 recipe, not the latest target. The selected overlay pins version/commit/toolchain, patch hashes and both original/rebuilt addon hashes.
 
 ### 3. Contracts
 - Build from the pinned upstream commit with its `rust-toolchain.toml`, release profile, both CPU variants (`x86-64-v3` modern, `x86-64-v2` baseline) and the upstream version stamp; exports must equal the shipped addon.
+- New release recipes live under their version directory; never overwrite the historical default recipe/patch. Build stamping reads the selected overlay version. Verify the runtime package version and both actual rebuilt hashes; null pending hashes fail closed. Recover an existing completed build from its log, current artifact digests and fresh addon identity loads before repeating compilation; a cancelled job handle alone does not prove all subprocess outputs are incomplete.
 - Local builds are not bit-identical to upstream CI: verify against the recorded rebuilt hashes, never against upstream bytes.
 - Install into the staging runtime before `prepare`; the candidate-tree digest does not cover `pi-natives-linux-x64`, the runtime-tree digest does. Re-run the verifier on the installed release.
 - Live acceptance runs only in a scratch window with user consent, via the real OMP path after activation, with an `xinput test-xi2 --root` witness for device switches. Physical Escape must still cancel.
@@ -761,12 +764,13 @@ A defect lives in compiled `pi-natives` Rust code (e.g. the Linux Escape monitor
 |---|---|
 | Rebuilt hash differs from `overlay.json` | Stop; re-run live checks before recording new hashes |
 | Verifier sees original upstream hash | FAIL (overlay missing) |
+| Selected package version differs or rebuilt hash is null | FAIL before claiming overlay acceptance |
 
 ### 5. Good / Base / Bad Cases
 Good: overlay PASS in staging and installed release; loaded `.node` hash (`/proc/<pid>/maps`) equals the rebuilt hash. Bad: edit the addon inside an immutable release, or claim acceptance from a direct-native harness only.
 
 ### 6. Tests Required
-`grep -c '"rebuilt_sha256"' patches/native/overlay.json` (expect 2) and `verify-native-overlay.py --nm <installed-runtime>/node_modules/@oh-my-pi` at delivery and review.
+`grep -c '"rebuilt_sha256"' <selected-overlay-json>` (expect2), `verify-native-overlay.py --nm <selected-runtime>/node_modules/@oh-my-pi --overlay <selected-overlay-json>` at delivery and review, and fresh-process loads of both variants reporting the exact target stamp. The verifier must reject the original official addons against the rebuilt recipe; direct-load/hash results do not waive physical acceptance. Historical calls without explicit overlay retain their default behavior.
 
 ### 7. Wrong vs Correct
 Wrong: pre-switch the XTEST device from TS so the monitor never sees the mapping change. Correct: fix the monitor (re-read Escape on `MappingNotify`, cancel only when it cannot) in a recorded native overlay.

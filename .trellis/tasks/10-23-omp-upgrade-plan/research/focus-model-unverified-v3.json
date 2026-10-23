@@ -1,0 +1,24 @@
+{
+  "command": [
+    "/home/chris/.bun/bin/bun",
+    "/home/chris/orca/projects/omp-move/patches/verify-model-selection-resume.ts"
+  ],
+  "started": "2026-10-23T13:06:08.678955+00:00",
+  "finished": "2026-10-23T13:06:18.267681+00:00",
+  "exit": 1,
+  "timeout": false,
+  "stdout": "PASS fallback reconciliation -> navigation -> fresh-process resume: live=luna/high, resumed=sol/high, default=sol\nPASS configured auto -> target defaultLevel: temporary/persisted switches commit high, explicit effort wins, no-default keeps auto\n",
+  "stderr": "277 | \tif (version === \"18.12.6\") {\n278 | \t\tconst unverified = run(\"unverified\");\n279 | \t\tassert.deepEqual(unverified.calls, [{ model: \"unknown\" }, { model: \"unknown\", effort: \"low\" }],\n280 | \t\t\t\"target unverified reasoning stays unset until an actual explicit selection\");\n281 | \t\tconst resumed = run(\"resume-unverified\", unverified.file);\n282 | \t\tassert.deepEqual(resumed.calls, [{ model: \"unknown\", effort: \"low\" }],\n               ^\nAssertionError: fresh-process resume retains the explicit unverified effort\n+ actual - expected\n\n  [\n    {\n-     effort: 'low',\n      model: 'unknown'\n    }\n  ]\n\n generatedMessage: false,\n     actual: [\n  [Object ...]\n],\n   expected: [\n  [Object ...]\n],\n   operator: \"deepStrictEqual\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-model-selection-resume.ts:282:10\n\nBun v1.3.14 (Linux x64)\n",
+  "output_bytes": {
+    "stdout": 245,
+    "stderr": 870
+  },
+  "output_sha256": {
+    "stdout": "661b1fa0fb4cb1d21c743ef259894a725f31e78db3d13c4be2d9f746eba6df39",
+    "stderr": "54d286bdde21f9b6ccf7955fc684ab74a006d9b63e884145701d025883f1a915"
+  },
+  "output_truncated": false,
+  "output_complete": true,
+  "selected_runtime": "/tmp/omp-focused-e8klhdhk/runtime",
+  "gate": "verify-model-selection-resume.ts"
+}

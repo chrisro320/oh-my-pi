@@ -1,0 +1,3687 @@
+{
+  "runtime": "/tmp/omp-upgrade-18126-01a1684f/runtime",
+  "package_count": 125,
+  "omp_package_count": 13,
+  "lockfile_sha256": "11862e580b283835bc90dcd0b436d76d479c1f5a0b0a2d4d8946c9fdf30b95d5",
+  "lock_mismatches": [
+    {
+      "name": "string-width",
+      "version": "7.2.0",
+      "path": "node_modules/cliui/node_modules/string-width",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "emoji-regex",
+          "spec": "^10.3.0",
+          "type": "prod",
+          "resolved": "node_modules/emoji-regex",
+          "valid": true
+        },
+        {
+          "name": "get-east-asian-width",
+          "spec": "^1.0.0",
+          "type": "prod",
+          "resolved": "node_modules/get-east-asian-width",
+          "valid": true
+        },
+        {
+          "name": "strip-ansi",
+          "spec": "^7.1.0",
+          "type": "prod",
+          "resolved": "node_modules/strip-ansi",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "onnxruntime-common",
+      "version": "1.31.0-dev.20260911-2a43ec07e",
+      "path": "node_modules/onnxruntime-web/node_modules/onnxruntime-common",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "string-width",
+      "version": "7.2.0",
+      "path": "node_modules/wrap-ansi/node_modules/string-width",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "emoji-regex",
+          "spec": "^10.3.0",
+          "type": "prod",
+          "resolved": "node_modules/emoji-regex",
+          "valid": true
+        },
+        {
+          "name": "get-east-asian-width",
+          "spec": "^1.0.0",
+          "type": "prod",
+          "resolved": "node_modules/get-east-asian-width",
+          "valid": true
+        },
+        {
+          "name": "strip-ansi",
+          "spec": "^7.1.0",
+          "type": "prod",
+          "resolved": "node_modules/strip-ansi",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/exporter-trace-otlp-proto/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/exporter-metrics-otlp-proto/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-metrics",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/exporter-metrics-otlp-proto/node_modules/@opentelemetry/sdk-metrics",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.9.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-metrics-otlp-proto/node_modules/@opentelemetry/resources",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/exporter-metrics-otlp-http/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-metrics",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/exporter-metrics-otlp-http/node_modules/@opentelemetry/sdk-metrics",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.9.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-metrics-otlp-http/node_modules/@opentelemetry/resources",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/otlp-transformer/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-metrics",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/otlp-transformer/node_modules/@opentelemetry/sdk-metrics",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.9.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-transformer/node_modules/@opentelemetry/resources",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/core",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/resources/node_modules/@opentelemetry/core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.0.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/sdk-logs/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/core",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/sdk-trace-base/node_modules/@opentelemetry/core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.0.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-trace",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/sdk-trace-base/node_modules/@opentelemetry/sdk-trace",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-trace-base/node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/resources",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/core",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/sdk-metrics/node_modules/@opentelemetry/core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.0.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/sdk-trace/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/core",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/sdk-trace-node/node_modules/@opentelemetry/core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.0.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    }
+  ],
+  "dependency_errors": [
+    {
+      "from": "node_modules/@oh-my-pi/pi-mnemopi",
+      "name": "onnxruntime-node",
+      "spec": "1.21.0",
+      "type": "peerOptional",
+      "resolved": "node_modules/onnxruntime-node",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/core",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.0.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/context-async-hooks",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.0.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/resources",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.3.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/sdk-logs",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.4.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/sdk-metrics",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.9.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/sdk-trace-base",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.3.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/sdk-trace",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.3.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/sdk-trace-node",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.0.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/exporter-trace-otlp-proto/node_modules/@opentelemetry/resources",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.3.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/exporter-metrics-otlp-proto/node_modules/@opentelemetry/resources",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.3.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/exporter-metrics-otlp-proto/node_modules/@opentelemetry/sdk-metrics",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.9.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/exporter-metrics-otlp-http/node_modules/@opentelemetry/resources",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.3.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/exporter-metrics-otlp-http/node_modules/@opentelemetry/sdk-metrics",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.9.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/otlp-transformer/node_modules/@opentelemetry/resources",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.3.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/otlp-transformer/node_modules/@opentelemetry/sdk-metrics",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.9.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/resources/node_modules/@opentelemetry/core",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.0.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/sdk-logs/node_modules/@opentelemetry/resources",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.3.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/sdk-trace-base/node_modules/@opentelemetry/core",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.0.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/sdk-trace-base/node_modules/@opentelemetry/sdk-trace",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.3.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/sdk-metrics/node_modules/@opentelemetry/core",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.0.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/sdk-trace/node_modules/@opentelemetry/resources",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.3.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    },
+    {
+      "from": "node_modules/@opentelemetry/sdk-trace-node/node_modules/@opentelemetry/core",
+      "name": "@opentelemetry/api",
+      "spec": ">=1.0.0 <1.10.0",
+      "type": "peer",
+      "resolved": "node_modules/@opentelemetry/api",
+      "valid": false,
+      "error": "INVALID"
+    }
+  ],
+  "omitted_optional_dependencies": [],
+  "runtime_only_not_in_crypto_audited_tree": [
+    {
+      "name": "@opentelemetry/api",
+      "version": "1.10.0"
+    }
+  ],
+  "files": 25165,
+  "directories": 2116,
+  "symlinks": 6,
+  "maximum_regular_file_link_count": 1,
+  "external_code_or_hardlink_aliases": [],
+  "tree_manifest_sha256": "c7751f10725b3f50bde2d9977e240cd3d7af6b8de2b1ae1e5c3393401a7c9959",
+  "tree_manifest": "runtime-manifest-files.txt",
+  "packages": [
+    {
+      "name": "@babel/helper-string-parser",
+      "version": "7.29.7",
+      "path": "node_modules/@babel/helper-string-parser",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@babel/helper-validator-identifier",
+      "version": "7.29.7",
+      "path": "node_modules/@babel/helper-validator-identifier",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@babel/parser",
+      "version": "7.29.9",
+      "path": "node_modules/@babel/parser",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@babel/types",
+          "spec": "^7.29.8",
+          "type": "prod",
+          "resolved": "node_modules/@babel/types",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@babel/types",
+      "version": "7.29.8",
+      "path": "node_modules/@babel/types",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@babel/helper-string-parser",
+          "spec": "^7.29.7",
+          "type": "prod",
+          "resolved": "node_modules/@babel/helper-string-parser",
+          "valid": true
+        },
+        {
+          "name": "@babel/helper-validator-identifier",
+          "spec": "^7.29.7",
+          "type": "prod",
+          "resolved": "node_modules/@babel/helper-validator-identifier",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@huggingface/jinja",
+      "version": "0.5.10",
+      "path": "node_modules/@huggingface/jinja",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@huggingface/tokenizers",
+      "version": "0.2.0",
+      "path": "node_modules/@huggingface/tokenizers",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@huggingface/transformers",
+      "version": "4.3.1",
+      "path": "node_modules/@huggingface/transformers",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@huggingface/jinja",
+          "spec": "^0.5.10",
+          "type": "prod",
+          "resolved": "node_modules/@huggingface/jinja",
+          "valid": true
+        },
+        {
+          "name": "@huggingface/tokenizers",
+          "spec": "^0.2.0",
+          "type": "prod",
+          "resolved": "node_modules/@huggingface/tokenizers",
+          "valid": true
+        },
+        {
+          "name": "onnxruntime-node",
+          "spec": "1.30.0",
+          "type": "prod",
+          "resolved": "node_modules/onnxruntime-node",
+          "valid": true
+        },
+        {
+          "name": "onnxruntime-web",
+          "spec": "1.31.0-dev.20260914-8d85527a0",
+          "type": "prod",
+          "resolved": "node_modules/onnxruntime-web",
+          "valid": true
+        },
+        {
+          "name": "sharp",
+          "spec": "^0.35.4",
+          "type": "prod",
+          "resolved": "node_modules/sharp",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@img/colour",
+      "version": "1.1.0",
+      "path": "node_modules/@img/colour",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@img/sharp-libvips-linux-x64",
+      "version": "1.3.4",
+      "path": "node_modules/@img/sharp-libvips-linux-x64",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@img/sharp-libvips-linuxmusl-x64",
+      "version": "1.3.4",
+      "path": "node_modules/@img/sharp-libvips-linuxmusl-x64",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@img/sharp-linux-x64",
+      "version": "0.35.5",
+      "path": "node_modules/@img/sharp-linux-x64",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@img/sharp-libvips-linux-x64",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": "node_modules/@img/sharp-libvips-linux-x64",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@img/sharp-linuxmusl-x64",
+      "version": "0.35.5",
+      "path": "node_modules/@img/sharp-linuxmusl-x64",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@img/sharp-libvips-linuxmusl-x64",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": "node_modules/@img/sharp-libvips-linuxmusl-x64",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@oh-my-pi/omp-stats",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/omp-stats",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@oh-my-pi/pi-ai",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-ai",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-catalog",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-catalog",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-utils",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-utils",
+          "valid": true
+        },
+        {
+          "name": "lucide-react",
+          "spec": "^1.24.0",
+          "type": "prod",
+          "resolved": "node_modules/lucide-react",
+          "valid": true
+        },
+        {
+          "name": "react",
+          "spec": "19.2.7",
+          "type": "prod",
+          "resolved": "node_modules/react",
+          "valid": true
+        },
+        {
+          "name": "react-dom",
+          "spec": "19.2.7",
+          "type": "prod",
+          "resolved": "node_modules/react-dom",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@oh-my-pi/omptype",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/omptype",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@oh-my-pi/pi-agent-core",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/pi-agent-core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@oh-my-pi/pi-ai",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-ai",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-catalog",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-catalog",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-natives",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-natives",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-utils",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-utils",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-wire",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-wire",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/snapcompact",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/snapcompact",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/api",
+          "spec": "^1.9.1",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@oh-my-pi/pi-ai",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/pi-ai",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@oh-my-pi/omptype",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/omptype",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-catalog",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-catalog",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-natives",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-natives",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-utils",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-utils",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-wire",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-wire",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@oh-my-pi/pi-catalog",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/pi-catalog",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@oh-my-pi/omptype",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/omptype",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-utils",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-utils",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@oh-my-pi/pi-coding-agent",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/pi-coding-agent",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@babel/parser",
+          "spec": "^7.29.7",
+          "type": "prod",
+          "resolved": "node_modules/@babel/parser",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/omp-stats",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/omp-stats",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/omptype",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/omptype",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-agent-core",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-agent-core",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-ai",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-ai",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-catalog",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-catalog",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-mnemopi",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-mnemopi",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-natives",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-natives",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-tui",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-tui",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-utils",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-utils",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-wire",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-wire",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/snapcompact",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/snapcompact",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/api",
+          "spec": "^1.9.1",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/api-logs",
+          "spec": "^0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/api-logs",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/context-async-hooks",
+          "spec": "^2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/context-async-hooks",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/exporter-logs-otlp-proto",
+          "spec": "^0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-logs-otlp-proto",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/exporter-metrics-otlp-proto",
+          "spec": "^0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-metrics-otlp-proto",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/exporter-trace-otlp-proto",
+          "spec": "^0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-trace-otlp-proto",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "^2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/resources",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-logs",
+          "spec": "^0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-logs",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-metrics",
+          "spec": "^2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-metrics",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-trace-base",
+          "spec": "^2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-trace-base",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-trace-node",
+          "spec": "^2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-trace-node",
+          "valid": true
+        },
+        {
+          "name": "axe-core",
+          "spec": "4.13.0",
+          "type": "prod",
+          "resolved": "node_modules/axe-core",
+          "valid": true
+        },
+        {
+          "name": "puppeteer-core",
+          "spec": "25.3.0",
+          "type": "prod",
+          "resolved": "node_modules/puppeteer-core",
+          "valid": true
+        },
+        {
+          "name": "@huggingface/transformers",
+          "spec": "^4.2.0",
+          "type": "optional",
+          "resolved": "node_modules/@huggingface/transformers",
+          "valid": true
+        },
+        {
+          "name": "sherpa-onnx-node",
+          "spec": "1.13.2",
+          "type": "optional",
+          "resolved": "node_modules/sherpa-onnx-node",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@oh-my-pi/pi-mnemopi",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/pi-mnemopi",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "fastembed",
+          "spec": "3.0.0",
+          "type": "peerOptional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "onnxruntime-node",
+          "spec": "1.21.0",
+          "type": "peerOptional",
+          "resolved": "node_modules/onnxruntime-node",
+          "valid": false
+        },
+        {
+          "name": "@oh-my-pi/pi-ai",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-ai",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-catalog",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-catalog",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-natives",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-natives",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-utils",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-utils",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@oh-my-pi/pi-natives",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/pi-natives",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@oh-my-pi/pi-natives-linux-x64",
+          "spec": "18.12.6",
+          "type": "optional",
+          "resolved": "node_modules/@oh-my-pi/pi-natives-linux-x64",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-natives-linux-arm64",
+          "spec": "18.12.6",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-natives-darwin-x64",
+          "spec": "18.12.6",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-natives-darwin-arm64",
+          "spec": "18.12.6",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-natives-win32-x64",
+          "spec": "18.12.6",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-natives-win32-arm64",
+          "spec": "18.12.6",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@oh-my-pi/pi-natives-linux-x64",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/pi-natives-linux-x64",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@oh-my-pi/pi-tui",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/pi-tui",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@oh-my-pi/omptype",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/omptype",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-agent-core",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-agent-core",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-ai",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-ai",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-catalog",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-catalog",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-natives",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-natives",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-utils",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-utils",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-wire",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-wire",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/snapcompact",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/snapcompact",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@oh-my-pi/pi-utils",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/pi-utils",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@oh-my-pi/pi-natives",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-natives",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@oh-my-pi/pi-wire",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/pi-wire",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@oh-my-pi/snapcompact",
+      "version": "18.12.6",
+      "path": "node_modules/@oh-my-pi/snapcompact",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@oh-my-pi/pi-ai",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-ai",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-catalog",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-catalog",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-natives",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-natives",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-utils",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-utils",
+          "valid": true
+        },
+        {
+          "name": "@oh-my-pi/pi-wire",
+          "spec": "18.12.6",
+          "type": "prod",
+          "resolved": "node_modules/@oh-my-pi/pi-wire",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/api",
+      "version": "1.10.0",
+      "path": "node_modules/@opentelemetry/api",
+      "in_official_crypto_audited_tree": false,
+      "dependencies": []
+    },
+    {
+      "name": "@opentelemetry/api-logs",
+      "version": "0.220.0",
+      "path": "node_modules/@opentelemetry/api-logs",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": "^1.3.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/context-async-hooks",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/context-async-hooks",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.0.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/core",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.0.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/exporter-logs-otlp-proto",
+      "version": "0.220.0",
+      "path": "node_modules/@opentelemetry/exporter-logs-otlp-proto",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": "^1.3.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/otlp-exporter-base",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-exporter-base",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/otlp-transformer",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-transformer",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-logs",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-logs",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/exporter-metrics-otlp-http",
+      "version": "0.220.0",
+      "path": "node_modules/@opentelemetry/exporter-metrics-otlp-http",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": "^1.3.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/otlp-exporter-base",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-exporter-base",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/otlp-transformer",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-transformer",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-metrics-otlp-http/node_modules/@opentelemetry/resources",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-metrics",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-metrics-otlp-http/node_modules/@opentelemetry/sdk-metrics",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/exporter-metrics-otlp-http/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-metrics",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/exporter-metrics-otlp-http/node_modules/@opentelemetry/sdk-metrics",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.9.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-metrics-otlp-http/node_modules/@opentelemetry/resources",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/exporter-metrics-otlp-proto",
+      "version": "0.220.0",
+      "path": "node_modules/@opentelemetry/exporter-metrics-otlp-proto",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": "^1.3.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/exporter-metrics-otlp-http",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-metrics-otlp-http",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/otlp-exporter-base",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-exporter-base",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/otlp-transformer",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-transformer",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-metrics-otlp-proto/node_modules/@opentelemetry/resources",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-metrics",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-metrics-otlp-proto/node_modules/@opentelemetry/sdk-metrics",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/exporter-metrics-otlp-proto/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-metrics",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/exporter-metrics-otlp-proto/node_modules/@opentelemetry/sdk-metrics",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.9.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-metrics-otlp-proto/node_modules/@opentelemetry/resources",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/exporter-trace-otlp-proto",
+      "version": "0.220.0",
+      "path": "node_modules/@opentelemetry/exporter-trace-otlp-proto",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": "^1.3.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/otlp-exporter-base",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-exporter-base",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/otlp-transformer",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-transformer",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/exporter-trace-otlp-proto/node_modules/@opentelemetry/resources",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-trace",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-trace",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/exporter-trace-otlp-proto/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/otlp-exporter-base",
+      "version": "0.220.0",
+      "path": "node_modules/@opentelemetry/otlp-exporter-base",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": "^1.3.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/otlp-transformer",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-transformer",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/otlp-transformer",
+      "version": "0.220.0",
+      "path": "node_modules/@opentelemetry/otlp-transformer",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": "^1.3.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/api-logs",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/api-logs",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-transformer/node_modules/@opentelemetry/resources",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-logs",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-logs",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-metrics",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-transformer/node_modules/@opentelemetry/sdk-metrics",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-trace",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-trace",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/otlp-transformer/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-metrics",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/otlp-transformer/node_modules/@opentelemetry/sdk-metrics",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.9.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/otlp-transformer/node_modules/@opentelemetry/resources",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/resources/node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/core",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/resources/node_modules/@opentelemetry/core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.0.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-logs",
+      "version": "0.220.0",
+      "path": "node_modules/@opentelemetry/sdk-logs",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.4.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/api-logs",
+          "spec": "0.220.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/api-logs",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-logs/node_modules/@opentelemetry/resources",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/sdk-logs/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-metrics",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/sdk-metrics",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.9.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-metrics/node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/resources",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/core",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/sdk-metrics/node_modules/@opentelemetry/core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.0.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-trace",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/sdk-trace",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-trace/node_modules/@opentelemetry/resources",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-trace-base",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/sdk-trace-base",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-trace-base/node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/resources",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-trace",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-trace-base/node_modules/@opentelemetry/sdk-trace",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/core",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/sdk-trace-base/node_modules/@opentelemetry/core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.0.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-trace",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/sdk-trace-base/node_modules/@opentelemetry/sdk-trace",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-trace-base/node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/resources",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/resources",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/sdk-trace-node",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/sdk-trace-node",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.0.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/context-async-hooks",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/context-async-hooks",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-trace-node/node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/sdk-trace-base",
+          "spec": "2.12.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/sdk-trace-base",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/core",
+      "version": "2.12.0",
+      "path": "node_modules/@opentelemetry/sdk-trace-node/node_modules/@opentelemetry/core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.0.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.9.0",
+      "path": "node_modules/@opentelemetry/sdk-trace/node_modules/@opentelemetry/resources",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@opentelemetry/api",
+          "spec": ">=1.3.0 <1.10.0",
+          "type": "peer",
+          "resolved": "node_modules/@opentelemetry/api",
+          "valid": false
+        },
+        {
+          "name": "@opentelemetry/core",
+          "spec": "2.9.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/core",
+          "valid": true
+        },
+        {
+          "name": "@opentelemetry/semantic-conventions",
+          "spec": "^1.29.0",
+          "type": "prod",
+          "resolved": "node_modules/@opentelemetry/semantic-conventions",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@opentelemetry/semantic-conventions",
+      "version": "1.43.0",
+      "path": "node_modules/@opentelemetry/semantic-conventions",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@protobufjs/aspromise",
+      "version": "1.1.2",
+      "path": "node_modules/@protobufjs/aspromise",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@protobufjs/base64",
+      "version": "1.1.2",
+      "path": "node_modules/@protobufjs/base64",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@protobufjs/codegen",
+      "version": "2.0.5",
+      "path": "node_modules/@protobufjs/codegen",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@protobufjs/eventemitter",
+      "version": "1.1.1",
+      "path": "node_modules/@protobufjs/eventemitter",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@protobufjs/fetch",
+      "version": "1.1.1",
+      "path": "node_modules/@protobufjs/fetch",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@protobufjs/aspromise",
+          "spec": "^1.1.1",
+          "type": "prod",
+          "resolved": "node_modules/@protobufjs/aspromise",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@protobufjs/float",
+      "version": "1.0.2",
+      "path": "node_modules/@protobufjs/float",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@protobufjs/path",
+      "version": "1.1.2",
+      "path": "node_modules/@protobufjs/path",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@protobufjs/pool",
+      "version": "1.1.0",
+      "path": "node_modules/@protobufjs/pool",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@protobufjs/utf8",
+      "version": "1.1.2",
+      "path": "node_modules/@protobufjs/utf8",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "@puppeteer/browsers",
+      "version": "3.0.6",
+      "path": "node_modules/@puppeteer/browsers",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "proxy-agent",
+          "spec": ">=8.0.1",
+          "type": "peerOptional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "yauzl",
+          "spec": "^2.10.0 || ^3.4.0",
+          "type": "peerOptional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "modern-tar",
+          "spec": "^0.7.6",
+          "type": "prod",
+          "resolved": "node_modules/modern-tar",
+          "valid": true
+        },
+        {
+          "name": "yargs",
+          "spec": "^18.0.0",
+          "type": "prod",
+          "resolved": "node_modules/yargs",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "@types/node",
+      "version": "26.6.5",
+      "path": "node_modules/@types/node",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "undici-types",
+          "spec": "~8.9.0",
+          "type": "prod",
+          "resolved": "node_modules/undici-types",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "adm-zip",
+      "version": "0.6.1",
+      "path": "node_modules/adm-zip",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "ansi-regex",
+      "version": "6.4.0",
+      "path": "node_modules/ansi-regex",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "ansi-styles",
+      "version": "6.2.3",
+      "path": "node_modules/ansi-styles",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "axe-core",
+      "version": "4.13.0",
+      "path": "node_modules/axe-core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "chromium-bidi",
+      "version": "16.0.1",
+      "path": "node_modules/chromium-bidi",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "devtools-protocol",
+          "spec": "*",
+          "type": "peer",
+          "resolved": "node_modules/devtools-protocol",
+          "valid": true
+        },
+        {
+          "name": "mitt",
+          "spec": "^3.0.1",
+          "type": "prod",
+          "resolved": "node_modules/mitt",
+          "valid": true
+        },
+        {
+          "name": "zod",
+          "spec": "^3.24.1",
+          "type": "prod",
+          "resolved": "node_modules/zod",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "cliui",
+      "version": "9.0.1",
+      "path": "node_modules/cliui",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "string-width",
+          "spec": "^7.2.0",
+          "type": "prod",
+          "resolved": "node_modules/cliui/node_modules/string-width",
+          "valid": true
+        },
+        {
+          "name": "strip-ansi",
+          "spec": "^7.1.0",
+          "type": "prod",
+          "resolved": "node_modules/strip-ansi",
+          "valid": true
+        },
+        {
+          "name": "wrap-ansi",
+          "spec": "^9.0.0",
+          "type": "prod",
+          "resolved": "node_modules/wrap-ansi",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "string-width",
+      "version": "7.2.0",
+      "path": "node_modules/cliui/node_modules/string-width",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "emoji-regex",
+          "spec": "^10.3.0",
+          "type": "prod",
+          "resolved": "node_modules/emoji-regex",
+          "valid": true
+        },
+        {
+          "name": "get-east-asian-width",
+          "spec": "^1.0.0",
+          "type": "prod",
+          "resolved": "node_modules/get-east-asian-width",
+          "valid": true
+        },
+        {
+          "name": "strip-ansi",
+          "spec": "^7.1.0",
+          "type": "prod",
+          "resolved": "node_modules/strip-ansi",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "define-data-property",
+      "version": "1.1.4",
+      "path": "node_modules/define-data-property",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "es-define-property",
+          "spec": "^1.0.0",
+          "type": "prod",
+          "resolved": "node_modules/es-define-property",
+          "valid": true
+        },
+        {
+          "name": "es-errors",
+          "spec": "^1.3.0",
+          "type": "prod",
+          "resolved": "node_modules/es-errors",
+          "valid": true
+        },
+        {
+          "name": "gopd",
+          "spec": "^1.0.1",
+          "type": "prod",
+          "resolved": "node_modules/gopd",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "define-properties",
+      "version": "1.2.1",
+      "path": "node_modules/define-properties",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "define-data-property",
+          "spec": "^1.0.1",
+          "type": "prod",
+          "resolved": "node_modules/define-data-property",
+          "valid": true
+        },
+        {
+          "name": "has-property-descriptors",
+          "spec": "^1.0.0",
+          "type": "prod",
+          "resolved": "node_modules/has-property-descriptors",
+          "valid": true
+        },
+        {
+          "name": "object-keys",
+          "spec": "^1.1.1",
+          "type": "prod",
+          "resolved": "node_modules/object-keys",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "detect-libc",
+      "version": "2.1.2",
+      "path": "node_modules/detect-libc",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "devtools-protocol",
+      "version": "0.0.1638949",
+      "path": "node_modules/devtools-protocol",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "emoji-regex",
+      "version": "10.6.0",
+      "path": "node_modules/emoji-regex",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "es-define-property",
+      "version": "1.0.1",
+      "path": "node_modules/es-define-property",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "es-errors",
+      "version": "1.3.0",
+      "path": "node_modules/es-errors",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "escalade",
+      "version": "3.2.0",
+      "path": "node_modules/escalade",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "escape-string-regexp",
+      "version": "4.0.0",
+      "path": "node_modules/escape-string-regexp",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "flatbuffers",
+      "version": "25.9.23",
+      "path": "node_modules/flatbuffers",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "get-caller-file",
+      "version": "2.0.5",
+      "path": "node_modules/get-caller-file",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "get-east-asian-width",
+      "version": "1.7.0",
+      "path": "node_modules/get-east-asian-width",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "global-agent",
+      "version": "4.1.3",
+      "path": "node_modules/global-agent",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "globalthis",
+          "spec": "^1.0.2",
+          "type": "prod",
+          "resolved": "node_modules/globalthis",
+          "valid": true
+        },
+        {
+          "name": "matcher",
+          "spec": "^4.0.0",
+          "type": "prod",
+          "resolved": "node_modules/matcher",
+          "valid": true
+        },
+        {
+          "name": "semver",
+          "spec": "^7.3.5",
+          "type": "prod",
+          "resolved": "node_modules/semver",
+          "valid": true
+        },
+        {
+          "name": "serialize-error",
+          "spec": "^8.1.0",
+          "type": "prod",
+          "resolved": "node_modules/serialize-error",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "globalthis",
+      "version": "1.0.4",
+      "path": "node_modules/globalthis",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "define-properties",
+          "spec": "^1.2.1",
+          "type": "prod",
+          "resolved": "node_modules/define-properties",
+          "valid": true
+        },
+        {
+          "name": "gopd",
+          "spec": "^1.0.1",
+          "type": "prod",
+          "resolved": "node_modules/gopd",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "gopd",
+      "version": "1.2.0",
+      "path": "node_modules/gopd",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "guid-typescript",
+      "version": "1.0.9",
+      "path": "node_modules/guid-typescript",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "has-property-descriptors",
+      "version": "1.0.2",
+      "path": "node_modules/has-property-descriptors",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "es-define-property",
+          "spec": "^1.0.0",
+          "type": "prod",
+          "resolved": "node_modules/es-define-property",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "long",
+      "version": "5.3.2",
+      "path": "node_modules/long",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "lucide-react",
+      "version": "1.61.0",
+      "path": "node_modules/lucide-react",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "react",
+          "spec": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0",
+          "type": "peer",
+          "resolved": "node_modules/react",
+          "valid": true
+        },
+        {
+          "name": "@types/react",
+          "spec": "*",
+          "type": "peerOptional",
+          "resolved": null,
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "matcher",
+      "version": "4.0.0",
+      "path": "node_modules/matcher",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "escape-string-regexp",
+          "spec": "^4.0.0",
+          "type": "prod",
+          "resolved": "node_modules/escape-string-regexp",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "mitt",
+      "version": "3.0.1",
+      "path": "node_modules/mitt",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "modern-tar",
+      "version": "0.7.7",
+      "path": "node_modules/modern-tar",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "object-keys",
+      "version": "1.1.1",
+      "path": "node_modules/object-keys",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "onnxruntime-common",
+      "version": "1.30.0",
+      "path": "node_modules/onnxruntime-common",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "onnxruntime-node",
+      "version": "1.30.0",
+      "path": "node_modules/onnxruntime-node",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "adm-zip",
+          "spec": "^0.6.0",
+          "type": "prod",
+          "resolved": "node_modules/adm-zip",
+          "valid": true
+        },
+        {
+          "name": "global-agent",
+          "spec": "^4.1.3",
+          "type": "prod",
+          "resolved": "node_modules/global-agent",
+          "valid": true
+        },
+        {
+          "name": "onnxruntime-common",
+          "spec": "1.30.0",
+          "type": "prod",
+          "resolved": "node_modules/onnxruntime-common",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "onnxruntime-web",
+      "version": "1.31.0-dev.20260914-8d85527a0",
+      "path": "node_modules/onnxruntime-web",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "flatbuffers",
+          "spec": "^25.1.24",
+          "type": "prod",
+          "resolved": "node_modules/flatbuffers",
+          "valid": true
+        },
+        {
+          "name": "guid-typescript",
+          "spec": "^1.0.9",
+          "type": "prod",
+          "resolved": "node_modules/guid-typescript",
+          "valid": true
+        },
+        {
+          "name": "long",
+          "spec": "^5.2.3",
+          "type": "prod",
+          "resolved": "node_modules/long",
+          "valid": true
+        },
+        {
+          "name": "onnxruntime-common",
+          "spec": "1.31.0-dev.20260911-2a43ec07e",
+          "type": "prod",
+          "resolved": "node_modules/onnxruntime-web/node_modules/onnxruntime-common",
+          "valid": true
+        },
+        {
+          "name": "platform",
+          "spec": "^1.3.6",
+          "type": "prod",
+          "resolved": "node_modules/platform",
+          "valid": true
+        },
+        {
+          "name": "protobufjs",
+          "spec": "^7.2.4",
+          "type": "prod",
+          "resolved": "node_modules/protobufjs",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "onnxruntime-common",
+      "version": "1.31.0-dev.20260911-2a43ec07e",
+      "path": "node_modules/onnxruntime-web/node_modules/onnxruntime-common",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "platform",
+      "version": "1.3.6",
+      "path": "node_modules/platform",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "protobufjs",
+      "version": "7.6.6",
+      "path": "node_modules/protobufjs",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@protobufjs/aspromise",
+          "spec": "^1.1.2",
+          "type": "prod",
+          "resolved": "node_modules/@protobufjs/aspromise",
+          "valid": true
+        },
+        {
+          "name": "@protobufjs/base64",
+          "spec": "^1.1.2",
+          "type": "prod",
+          "resolved": "node_modules/@protobufjs/base64",
+          "valid": true
+        },
+        {
+          "name": "@protobufjs/codegen",
+          "spec": "^2.0.5",
+          "type": "prod",
+          "resolved": "node_modules/@protobufjs/codegen",
+          "valid": true
+        },
+        {
+          "name": "@protobufjs/eventemitter",
+          "spec": "^1.1.1",
+          "type": "prod",
+          "resolved": "node_modules/@protobufjs/eventemitter",
+          "valid": true
+        },
+        {
+          "name": "@protobufjs/fetch",
+          "spec": "^1.1.1",
+          "type": "prod",
+          "resolved": "node_modules/@protobufjs/fetch",
+          "valid": true
+        },
+        {
+          "name": "@protobufjs/float",
+          "spec": "^1.0.2",
+          "type": "prod",
+          "resolved": "node_modules/@protobufjs/float",
+          "valid": true
+        },
+        {
+          "name": "@protobufjs/path",
+          "spec": "^1.1.2",
+          "type": "prod",
+          "resolved": "node_modules/@protobufjs/path",
+          "valid": true
+        },
+        {
+          "name": "@protobufjs/pool",
+          "spec": "^1.1.0",
+          "type": "prod",
+          "resolved": "node_modules/@protobufjs/pool",
+          "valid": true
+        },
+        {
+          "name": "@protobufjs/utf8",
+          "spec": "^1.1.1",
+          "type": "prod",
+          "resolved": "node_modules/@protobufjs/utf8",
+          "valid": true
+        },
+        {
+          "name": "@types/node",
+          "spec": ">=13.7.0",
+          "type": "prod",
+          "resolved": "node_modules/@types/node",
+          "valid": true
+        },
+        {
+          "name": "long",
+          "spec": "^5.3.2",
+          "type": "prod",
+          "resolved": "node_modules/long",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "puppeteer-core",
+      "version": "25.3.0",
+      "path": "node_modules/puppeteer-core",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@puppeteer/browsers",
+          "spec": "3.0.6",
+          "type": "prod",
+          "resolved": "node_modules/@puppeteer/browsers",
+          "valid": true
+        },
+        {
+          "name": "chromium-bidi",
+          "spec": "16.0.1",
+          "type": "prod",
+          "resolved": "node_modules/chromium-bidi",
+          "valid": true
+        },
+        {
+          "name": "devtools-protocol",
+          "spec": "0.0.1638949",
+          "type": "prod",
+          "resolved": "node_modules/devtools-protocol",
+          "valid": true
+        },
+        {
+          "name": "typed-query-selector",
+          "spec": "^2.12.2",
+          "type": "prod",
+          "resolved": "node_modules/typed-query-selector",
+          "valid": true
+        },
+        {
+          "name": "webdriver-bidi-protocol",
+          "spec": "0.4.2",
+          "type": "prod",
+          "resolved": "node_modules/webdriver-bidi-protocol",
+          "valid": true
+        },
+        {
+          "name": "ws",
+          "spec": "^8.21.0",
+          "type": "prod",
+          "resolved": "node_modules/ws",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "react",
+      "version": "19.2.7",
+      "path": "node_modules/react",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "react-dom",
+      "version": "19.2.7",
+      "path": "node_modules/react-dom",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "react",
+          "spec": "^19.2.7",
+          "type": "peer",
+          "resolved": "node_modules/react",
+          "valid": true
+        },
+        {
+          "name": "scheduler",
+          "spec": "^0.27.0",
+          "type": "prod",
+          "resolved": "node_modules/scheduler",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "scheduler",
+      "version": "0.27.0",
+      "path": "node_modules/scheduler",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "semver",
+      "version": "7.8.5",
+      "path": "node_modules/semver",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "serialize-error",
+      "version": "8.1.0",
+      "path": "node_modules/serialize-error",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "type-fest",
+          "spec": "^0.20.2",
+          "type": "prod",
+          "resolved": "node_modules/type-fest",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "sharp",
+      "version": "0.35.5",
+      "path": "node_modules/sharp",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "@img/colour",
+          "spec": "^1.1.0",
+          "type": "prod",
+          "resolved": "node_modules/@img/colour",
+          "valid": true
+        },
+        {
+          "name": "detect-libc",
+          "spec": "^2.1.2",
+          "type": "prod",
+          "resolved": "node_modules/detect-libc",
+          "valid": true
+        },
+        {
+          "name": "semver",
+          "spec": "^7.8.5",
+          "type": "prod",
+          "resolved": "node_modules/semver",
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-darwin-arm64",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-darwin-x64",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-freebsd-wasm32",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-libvips-darwin-arm64",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-libvips-darwin-x64",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-libvips-linux-arm",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-libvips-linux-arm64",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-libvips-linux-ppc64",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-libvips-linux-riscv64",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-libvips-linux-s390x",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-libvips-linux-x64",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": "node_modules/@img/sharp-libvips-linux-x64",
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-libvips-linuxmusl-arm64",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-libvips-linuxmusl-x64",
+          "spec": "1.3.4",
+          "type": "optional",
+          "resolved": "node_modules/@img/sharp-libvips-linuxmusl-x64",
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-linux-arm",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-linux-arm64",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-linux-ppc64",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-linux-riscv64",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-linux-s390x",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-linux-x64",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": "node_modules/@img/sharp-linux-x64",
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-linuxmusl-arm64",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-linuxmusl-x64",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": "node_modules/@img/sharp-linuxmusl-x64",
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-webcontainers-wasm32",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-win32-arm64",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-win32-ia32",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "@img/sharp-win32-x64",
+          "spec": "0.35.5",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "sherpa-onnx-linux-x64",
+      "version": "1.13.8",
+      "path": "node_modules/sherpa-onnx-linux-x64",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "sherpa-onnx-node",
+      "version": "1.13.2",
+      "path": "node_modules/sherpa-onnx-node",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "sherpa-onnx-darwin-arm64",
+          "spec": "^1.13.2",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "sherpa-onnx-darwin-x64",
+          "spec": "^1.13.2",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "sherpa-onnx-linux-x64",
+          "spec": "^1.13.2",
+          "type": "optional",
+          "resolved": "node_modules/sherpa-onnx-linux-x64",
+          "valid": true
+        },
+        {
+          "name": "sherpa-onnx-linux-arm64",
+          "spec": "^1.13.2",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "sherpa-onnx-win-x64",
+          "spec": "^1.13.2",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "sherpa-onnx-win-ia32",
+          "spec": "^1.13.2",
+          "type": "optional",
+          "resolved": null,
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "string-width",
+      "version": "8.3.0",
+      "path": "node_modules/string-width",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "get-east-asian-width",
+          "spec": "^1.5.0",
+          "type": "prod",
+          "resolved": "node_modules/get-east-asian-width",
+          "valid": true
+        },
+        {
+          "name": "strip-ansi",
+          "spec": "^7.1.2",
+          "type": "prod",
+          "resolved": "node_modules/strip-ansi",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "strip-ansi",
+      "version": "7.2.0",
+      "path": "node_modules/strip-ansi",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "ansi-regex",
+          "spec": "^6.2.2",
+          "type": "prod",
+          "resolved": "node_modules/ansi-regex",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "type-fest",
+      "version": "0.20.2",
+      "path": "node_modules/type-fest",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "typed-query-selector",
+      "version": "2.12.3",
+      "path": "node_modules/typed-query-selector",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "undici-types",
+      "version": "8.9.0",
+      "path": "node_modules/undici-types",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "webdriver-bidi-protocol",
+      "version": "0.4.2",
+      "path": "node_modules/webdriver-bidi-protocol",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "wrap-ansi",
+      "version": "9.0.2",
+      "path": "node_modules/wrap-ansi",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "ansi-styles",
+          "spec": "^6.2.1",
+          "type": "prod",
+          "resolved": "node_modules/ansi-styles",
+          "valid": true
+        },
+        {
+          "name": "string-width",
+          "spec": "^7.0.0",
+          "type": "prod",
+          "resolved": "node_modules/wrap-ansi/node_modules/string-width",
+          "valid": true
+        },
+        {
+          "name": "strip-ansi",
+          "spec": "^7.1.0",
+          "type": "prod",
+          "resolved": "node_modules/strip-ansi",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "string-width",
+      "version": "7.2.0",
+      "path": "node_modules/wrap-ansi/node_modules/string-width",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "emoji-regex",
+          "spec": "^10.3.0",
+          "type": "prod",
+          "resolved": "node_modules/emoji-regex",
+          "valid": true
+        },
+        {
+          "name": "get-east-asian-width",
+          "spec": "^1.0.0",
+          "type": "prod",
+          "resolved": "node_modules/get-east-asian-width",
+          "valid": true
+        },
+        {
+          "name": "strip-ansi",
+          "spec": "^7.1.0",
+          "type": "prod",
+          "resolved": "node_modules/strip-ansi",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "ws",
+      "version": "8.22.0",
+      "path": "node_modules/ws",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "bufferutil",
+          "spec": "^4.0.1",
+          "type": "peerOptional",
+          "resolved": null,
+          "valid": true
+        },
+        {
+          "name": "utf-8-validate",
+          "spec": ">=5.0.2",
+          "type": "peerOptional",
+          "resolved": null,
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "y18n",
+      "version": "5.0.8",
+      "path": "node_modules/y18n",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "yargs",
+      "version": "18.2.0",
+      "path": "node_modules/yargs",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": [
+        {
+          "name": "cliui",
+          "spec": "^9.0.1",
+          "type": "prod",
+          "resolved": "node_modules/cliui",
+          "valid": true
+        },
+        {
+          "name": "escalade",
+          "spec": "^3.1.1",
+          "type": "prod",
+          "resolved": "node_modules/escalade",
+          "valid": true
+        },
+        {
+          "name": "get-caller-file",
+          "spec": "^2.0.5",
+          "type": "prod",
+          "resolved": "node_modules/get-caller-file",
+          "valid": true
+        },
+        {
+          "name": "string-width",
+          "spec": "^8.2.1",
+          "type": "prod",
+          "resolved": "node_modules/string-width",
+          "valid": true
+        },
+        {
+          "name": "y18n",
+          "spec": "^5.0.5",
+          "type": "prod",
+          "resolved": "node_modules/y18n",
+          "valid": true
+        },
+        {
+          "name": "yargs-parser",
+          "spec": "^22.0.0",
+          "type": "prod",
+          "resolved": "node_modules/yargs-parser",
+          "valid": true
+        }
+      ]
+    },
+    {
+      "name": "yargs-parser",
+      "version": "22.0.0",
+      "path": "node_modules/yargs-parser",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    },
+    {
+      "name": "zod",
+      "version": "3.25.76",
+      "path": "node_modules/zod",
+      "in_official_crypto_audited_tree": true,
+      "dependencies": []
+    }
+  ]
+}

@@ -1,0 +1,202 @@
+{
+  "pi-coding-agent/dist/types/session/session-manager.d.ts": [
+    "family-status-accounting",
+    "family-persistent-prefix-resume"
+  ],
+  "pi-coding-agent/src/session/session-manager.ts": [
+    "family-status-accounting",
+    "family-persistent-prefix-resume"
+  ],
+  "pi-tui/dist/types/status-line/host.d.ts": [
+    "family-status-accounting",
+    "family-usage-pipeline"
+  ],
+  "pi-tui/src/status-line/host.ts": [
+    "family-status-accounting",
+    "family-usage-pipeline"
+  ],
+  "pi-coding-agent/src/session/agent-session.ts": [
+    "family-hindsight",
+    "family-usage-pipeline",
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-persistent-prefix-resume",
+    "family-devin-wire",
+    "family-input-translation",
+    "family-compaction",
+    "0090-omp-oauth-durable-refresh",
+    "0095-omp-context-audit-request-purpose"
+  ],
+  "pi-coding-agent/src/session/session-tools.ts": [
+    "family-hindsight",
+    "family-persistent-prefix-resume"
+  ],
+  "pi-ai/dist/types/auth-broker/remote-store.d.ts": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+  ],
+  "pi-ai/dist/types/auth/store.d.ts": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+  ],
+  "pi-ai/dist/types/auth/types.d.ts": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+  ],
+  "pi-ai/dist/types/auth/usage.d.ts": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+  ],
+  "pi-ai/src/auth-broker/remote-store.ts": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+  ],
+  "pi-ai/src/auth/store.ts": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+  ],
+  "pi-ai/src/auth/types.ts": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+  ],
+  "pi-ai/src/auth/usage.ts": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+  ],
+  "pi-coding-agent/dist/types/session/agent-session.d.ts": [
+    "family-usage-pipeline",
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-persistent-prefix-resume",
+    "family-input-translation",
+    "family-compaction"
+  ],
+  "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation",
+    "0092-omp-cache-warming-idle-budget"
+  ],
+  "pi-coding-agent/src/extensibility/extensions/runner.ts": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation",
+    "0095-omp-context-audit-request-purpose"
+  ],
+  "pi-coding-agent/src/extensibility/extensions/types.ts": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation",
+    "0092-omp-cache-warming-idle-budget"
+  ],
+  "pi-coding-agent/src/modes/acp/acp-agent.ts": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation"
+  ],
+  "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation"
+  ],
+  "pi-coding-agent/src/modes/runtime-init.ts": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation"
+  ],
+  "pi-coding-agent/src/session/session-maintenance.ts": [
+    "family-image-budget-snapcompact",
+    "family-persistent-prefix-resume",
+    "0046-omp-supersede-warm-prefix-guard",
+    "family-compaction"
+  ],
+  "pi-coding-agent/src/modes/interactive-mode.ts": [
+    "0032-omp-goal-tool-resident",
+    "family-input-translation"
+  ],
+  "pi-coding-agent/src/sdk.ts": [
+    "0032-omp-goal-tool-resident",
+    "family-persistent-prefix-resume",
+    "0092-omp-cache-warming-idle-budget",
+    "0095-omp-context-audit-request-purpose"
+  ],
+  "pi-ai/dist/types/types.d.ts": [
+    "family-persistent-prefix-resume",
+    "family-devin-wire",
+    "0069-omp-codex-effort-history-resume",
+    "family-input-translation",
+    "0094-omp-anthropic-thinking-drop-resume"
+  ],
+  "pi-ai/src/types.ts": [
+    "family-persistent-prefix-resume",
+    "family-devin-wire",
+    "0069-omp-codex-effort-history-resume",
+    "family-input-translation",
+    "0094-omp-anthropic-thinking-drop-resume"
+  ],
+  "pi-coding-agent/src/main.ts": [
+    "family-persistent-prefix-resume",
+    "0050-omp-session-history-preview",
+    "family-input-translation"
+  ],
+  "pi-coding-agent/src/modes/controllers/selector-controller.ts": [
+    "family-persistent-prefix-resume",
+    "0050-omp-session-history-preview",
+    "0072-omp-session-pin-static-auth-ui"
+  ],
+  "pi-coding-agent/src/session/session-context.ts": [
+    "family-persistent-prefix-resume",
+    "family-compaction"
+  ],
+  "pi-coding-agent/src/session/session-advisors.ts": [
+    "0048-omp-advisor-quota-rotation-bound",
+    "family-input-translation",
+    "family-compaction"
+  ],
+  "pi-coding-agent/src/session/session-listing.ts": [
+    "0050-omp-session-history-preview",
+    "family-input-translation"
+  ],
+  "pi-tui/src/overlays/session-selector.ts": [
+    "0050-omp-session-history-preview",
+    "family-input-translation"
+  ],
+  "pi-coding-agent/dist/types/session/agent-session-types.d.ts": [
+    "family-devin-wire",
+    "family-input-translation",
+    "0095-omp-context-audit-request-purpose"
+  ],
+  "pi-coding-agent/src/session/agent-session-types.ts": [
+    "family-devin-wire",
+    "family-input-translation",
+    "0095-omp-context-audit-request-purpose"
+  ],
+  "pi-catalog/src/compat/rules.json": [
+    "0065-omp-commandcode-deepseek-model-record-parity",
+    "0100-omp-stepfun-step-plan"
+  ],
+  "pi-ai/src/providers/openai-codex-responses.ts": [
+    "0069-omp-codex-effort-history-resume",
+    "family-compaction"
+  ],
+  "pi-ai/src/providers/anthropic.ts": [
+    "0074-omp-anthropic-context-cache-boundaries",
+    "0094-omp-anthropic-thinking-drop-resume"
+  ],
+  "pi-agent-core/dist/types/compaction/compaction.d.ts": [
+    "family-input-translation",
+    "family-compaction"
+  ],
+  "pi-agent-core/src/compaction/compaction.ts": [
+    "family-input-translation",
+    "family-compaction"
+  ],
+  "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts": [
+    "family-input-translation",
+    "0095-omp-context-audit-request-purpose"
+  ],
+  "pi-coding-agent/src/task/executor.ts": [
+    "family-compaction",
+    "0101-omp-subagent-warm-revival-persisted-prompt"
+  ],
+  "pi-coding-agent/dist/types/extensibility/shared-events.d.ts": [
+    "0092-omp-cache-warming-idle-budget",
+    "0095-omp-context-audit-request-purpose"
+  ],
+  "pi-coding-agent/src/extensibility/shared-events.ts": [
+    "0092-omp-cache-warming-idle-budget",
+    "0095-omp-context-audit-request-purpose"
+  ]
+}

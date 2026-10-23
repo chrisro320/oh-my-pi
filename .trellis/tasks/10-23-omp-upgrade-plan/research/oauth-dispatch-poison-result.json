@@ -1,0 +1,37 @@
+{
+  "rows": [
+    {
+      "script": "verify-oauth-durable-refresh.ts",
+      "case": "clean poisoned dispatch",
+      "exit": 0,
+      "timeout": false,
+      "network": "bwrap --unshare-net (loopback only)",
+      "poison_named": false,
+      "tail": " (w) a non-Anthropic peer takeover still wins the CAS and writes no journal row\n  PASS  (x) a staged adoption cannot publish over a lost lease or a replaced row\n  PASS  (a) a fenced unlock releases the marker and mints exactly one token\n  PASS  (b) a staged replacement is published without releasing or exchanging again\n  PASS  (c) a peer-held or expired lease cannot release the exchange\n  PASS  (d) a peer rotation after inspection is refused and the winner survives\n  PASS  (e) a replaced generation or expected hash cannot be released\n  PASS  (f) a transient failure during unlock keeps the row and rotates the fence\n  PASS  (g) invalid_grant during unlock never disables the credential\n  PASS  (h) an absent or disabled credential is refused\n  PASS  (i) a minted result held in memory is published without a second exchange\n  PASS  (j) a stale confirmation cannot release a newer attempt\n  PASS  (k) a timed-out attempt's late result is published without another exchange\n  PASS  (l) remote, delegated and unsupported runtimes are refused\n  PASS  (m) the durable diagnostic survives the cooldown and names /auth-unlock\n  PASS  (n) prompt, tool schemas and cache-prefix bytes are identical across recovery\n  PASS  (o) a result held by another process is refused locally and is the documented residual risk\n  PASS  (s) the release transaction itself installs the new reservation\n  PASS  (r) the shipped declarations type-check for a consumer\n\nPASS verify-oauth-durable-refresh: 53 scenario(s) ok\n",
+      "ok": true
+    },
+    {
+      "script": "verify-oauth-unlock-fence-faults.sh",
+      "case": "clean poisoned dispatch",
+      "exit": 0,
+      "timeout": false,
+      "network": "bwrap --unshare-net (loopback only)",
+      "poison_named": false,
+      "tail": "PASS control: the isolated copy is green (53 scenarios)\nPASS target: removing shutdown drain turns the real SIGTERM rotation scenario red\nPASS (q): a fence that ignores the exchange owner turns FAIL  (f) red\nPASS (p): a tree without the store inspection member fails closed\nPASS (p2): a tree without the staged-replacement accessor fails closed\nPASS (z): an all-provider journal turns the legacy-marker scenario red\nPASS (z2): an unscoped inspect path turns the not-applicable scenario red\nPASS (s): a release that deletes instead of reserving turns the boundary case red\n",
+      "ok": true
+    },
+    {
+      "script": "verify-oauth-durable-refresh.ts",
+      "case": "removed-scrub mutant",
+      "exit": 1,
+      "timeout": false,
+      "network": "bwrap --unshare-net (loopback only)",
+      "poison_named": true,
+      "tail": "y the previous owner\n  PASS  refresh: concurrent replacement wins while the original lease remains owned\n  PASS  refresh: concurrent logout wins while the original lease remains owned\n  PASS  keys: concurrent replacement wins while the original lease remains owned\n  PASS  keys: concurrent logout wins while the original lease remains owned\n  PASS  usage: concurrent replacement wins while the original lease remains owned\n  PASS  usage: concurrent logout wins while the original lease remains owned\n  PASS  takeover-only\n  PASS  replacement-before-invalid-grant\n  PASS  account changed by refresh must satisfy its own plan gate\n  PASS  genuine invalid_grant disables only the attempted row\n  PASS  503 keeps the row; selected generation policy governs the next attempt\n  PASS  lost response survives restart and lease expiry without a second send\n  PASS  known result arriving after owner timeout is published without another exchange\n  FAIL  broker filters, canceled waiters and authoritative replacement identity\nError: ENOENT: no such file or directory, open '/tmp/omp-oauth-dispatch-xrbwvj45/outer-agent-must-not-load/package.json'\n    at readFileSync (unknown)\n    at <anonymous> (/tmp/omp-oauth-dispatch-xrbwvj45/patches/verify-oauth-durable-refresh.ts:1951:27)\n    at scenario (/tmp/omp-oauth-dispatch-xrbwvj45/patches/verify-oauth-durable-refresh.ts:897:9)\n    at /tmp/omp-oauth-dispatch-xrbwvj45/patches/verify-oauth-durable-refresh.ts:1950:8\n    at processTicksAndRejections (native:7:39)\n",
+      "ok": true
+    }
+  ],
+  "network": "bwrap --die-with-parent --unshare-net --bind / / --dev /dev --proc /proc --",
+  "candidate_unchanged": true,
+  "status": "PASS"
+}

@@ -1,0 +1,85 @@
+{
+  "harness_sha256": "32d7f5ef17778fe6c14b0398fabac8cd530935dc07ce2b47eabab5cd9d30c06b",
+  "status": "PASS",
+  "cases": [
+    {
+      "case": "complete",
+      "command": [
+        "/usr/bin/python3",
+        "-c",
+        "import sys;print(\"stdout-marker\");sys.stderr.write(\"stderr-marker\\n\")"
+      ],
+      "started": "2026-10-23T12:37:09.345592+00:00",
+      "finished": "2026-10-23T12:37:09.356360+00:00",
+      "exit": 0,
+      "timeout": false,
+      "output_bytes": {
+        "stdout": 14,
+        "stderr": 14
+      },
+      "output_sha256": {
+        "stdout": "402167cc7f7eb4859187f59fc2f53490aebe7a81a5a979862301992bbef372bd",
+        "stderr": "1d8684afe3696a3ca4caf1e3ac20ea3d90e4bd83dfbb01a414579a985d1c0948"
+      },
+      "output_truncated": false,
+      "output_complete": true,
+      "retained_bytes": {
+        "stdout": 14,
+        "stderr": 14
+      }
+    },
+    {
+      "case": "bounded",
+      "command": [
+        "/usr/bin/python3",
+        "-c",
+        "import sys;sys.stdout.buffer.write(b\"x\"*400000+b\"END\");sys.stderr.buffer.write(b\"y\"*400000+b\"ERR\")"
+      ],
+      "started": "2026-10-23T12:37:09.356407+00:00",
+      "finished": "2026-10-23T12:37:09.368866+00:00",
+      "exit": 0,
+      "timeout": false,
+      "output_bytes": {
+        "stdout": 400003,
+        "stderr": 400003
+      },
+      "output_sha256": {
+        "stdout": "ec47791708bcbefafe4173353c0736c52c0ef3a0211a99ff4c00df4808f55c7a",
+        "stderr": "583d78e2222331282a296fa5a750d7ac4077b2e31eea73ab0d56bcc8e5ca1206"
+      },
+      "output_truncated": true,
+      "output_complete": true,
+      "retained_bytes": {
+        "stdout": 262144,
+        "stderr": 262144
+      }
+    },
+    {
+      "case": "timeout",
+      "command": [
+        "/usr/bin/python3",
+        "-c",
+        "import time;print(\"started\",flush=True);time.sleep(30)"
+      ],
+      "started": "2026-10-23T12:37:09.369806+00:00",
+      "finished": "2026-10-23T12:37:10.372202+00:00",
+      "exit": 124,
+      "timeout": true,
+      "output_bytes": {
+        "stdout": 8,
+        "stderr": 0
+      },
+      "output_sha256": {
+        "stdout": "eff64b343dcb2b1dc113648e7089b9ce9f8a7f6c7808a03a2cffb4ad7302f606",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "output_truncated": false,
+      "output_complete": false,
+      "retained_bytes": {
+        "stdout": 8,
+        "stderr": 0
+      }
+    }
+  ],
+  "scope": "Throwaway actual subprocess capture smoke; not product/runtime acceptance"
+}

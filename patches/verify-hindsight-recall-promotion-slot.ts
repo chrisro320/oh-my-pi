@@ -53,7 +53,7 @@ globalThis.fetch = (() => { throw new Error("Network forbidden in recall promoti
 // never carried it must fail closed rather than measure a pristine tree.
 const agentVersion: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
-	["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1"].includes(agentVersion),
+	["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion),
 	`verify-hindsight-recall-promotion-slot: 0075 is not part of the ${agentVersion} plan`,
 );
 
@@ -65,11 +65,14 @@ const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
 const { hindsightBackend } = await import(`${AGENT_ROOT}/src/hindsight/backend.ts`);
 const recall = "<memories>\nrecall must stay in the promoted tail\n</memories>";
 const instructionState = { mentalModelsSnippet: "<mental_models>stable</mental_models>", lastRecallSnippet: recall };
-const instructions = await hindsightBackend.buildDeveloperInstructions(
+// 18.12.6 adds a cwd parameter after agentDir; historical plans keep three arguments.
+const instructionArgs = [
 	privateHome,
+	...(agentVersion === "18.12.6" ? [privateHome] : []),
 	Settings.isolated({ "memory.backend": "hindsight", "hindsight.apiUrl": "http://127.0.0.1:1" }),
 	{ getHindsightSessionState: () => instructionState, getXdevToolEntries: () => [] },
-);
+];
+const instructions = await hindsightBackend.buildDeveloperInstructions(...instructionArgs);
 assert.ok(instructions?.includes(instructionState.mentalModelsSnippet), "fixture must reach memory developer instructions");
 assert.ok(!instructions.includes(recall), "developer instructions must not duplicate the promoted recall carrier");
 const host = {

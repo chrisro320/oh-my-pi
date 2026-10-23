@@ -1,8 +1,8 @@
 import type { AgentMessage, ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, dirname, isAbsolute, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 // ---------------------------------------------------------------------------
 // Project root detection
@@ -277,7 +277,9 @@ function buildSessionContext(projectRoot: string, contextKey: string | null): st
 }
 
 // ---------------------------------------------------------------------------
-// Task context — prd.md, info.md, and jsonl-referenced spec/research files
+// Task context — subagents get role-filtered FULL bodies (buildTaskContext);
+// the main session gets a compact index of paths + manifest reasons
+// (buildMainTaskContext) so huge/duplicated references stay bounded.
 // ---------------------------------------------------------------------------
 
 type AgentType = "trellis-implement" | "trellis-check" | "trellis-research" | null;
@@ -343,6 +345,81 @@ function buildTaskContext(projectRoot: string, taskDir: string, agentType?: Agen
       if (fileChunks.length > 0) {
          parts.push(`## ${jsonlName}\n\n${fileChunks.join("\n\n---\n\n")}`);
       }
+   }
+
+   return parts.length > 0
+      ? `<task-context>\n${parts.join("\n\n")}\n</task-context>`
+      : "";
+}
+
+// Main-session variant: a compact manifest — prd/info paths plus every
+// jsonl-referenced file deduplicated by resolved path, each manifest row
+// keeping its own reason so implement.jsonl and check.jsonl provenance both
+// stay visible. Bodies are never embedded; the session reads files on demand.
+// Embedding them is what refilled hundreds of KB onto every retained anchor.
+function buildMainTaskContext(projectRoot: string, taskDir: string): string {
+   const parts: string[] = [];
+   const trustedRoots = resolveTrustedRoots(projectRoot);
+   const displayPath = (targetPath: string): string => {
+      const rel = relative(projectRoot, targetPath);
+      return rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel : targetPath;
+   };
+
+   const taskFiles: string[] = [];
+   const prdPath = join(taskDir, "prd.md");
+   if (existsSync(prdPath)) taskFiles.push(`- PRD: ${displayPath(prdPath)}`);
+   const infoPath = join(taskDir, "info.md");
+   if (existsSync(infoPath)) taskFiles.push(`- Info: ${displayPath(infoPath)}`);
+   if (taskFiles.length > 0) {
+      parts.push(`## Task files (read on demand)\n\n${taskFiles.join("\n")}`);
+   }
+
+   // One entry per unique resolved path; identical (jsonl, reason) rows collapse.
+   const references = new Map<string, { sources: { jsonl: string; reason: string }[] }>();
+   for (const jsonlName of ["implement.jsonl", "check.jsonl"]) {
+      const jsonlPath = join(taskDir, jsonlName);
+      if (!existsSync(jsonlPath)) continue;
+
+      let rows: string[];
+      try {
+         rows = readFileSync(jsonlPath, "utf-8").split(/\r?\n/);
+      } catch {
+         continue;
+      }
+
+      for (const line of rows) {
+         const trimmed = line.trim();
+         if (!trimmed) continue;
+         try {
+            const row = JSON.parse(trimmed) as Record<string, unknown>;
+            const file = typeof row.file === "string" ? row.file.trim() : "";
+            if (!file) continue;
+            const targetPath = resolveProjectFile(projectRoot, file, trustedRoots);
+            if (!targetPath) continue;
+            const reason = typeof row.reason === "string" ? row.reason.trim().replace(/\s+/g, " ") : "";
+            let entry = references.get(targetPath);
+            if (!entry) {
+               entry = { sources: [] };
+               references.set(targetPath, entry);
+            }
+            if (!entry.sources.some((s) => s.jsonl === jsonlName && s.reason === reason)) {
+               entry.sources.push({ jsonl: jsonlName, reason });
+            }
+         } catch {
+            // seed rows and malformed lines are non-fatal
+         }
+      }
+   }
+
+   if (references.size > 0) {
+      const lines: string[] = [];
+      for (const [targetPath, entry] of references) {
+         lines.push(`- ${displayPath(targetPath)}`);
+         for (const source of entry.sources) {
+            lines.push(`  - ${source.jsonl}${source.reason ? `: ${source.reason}` : ""}`);
+         }
+      }
+      parts.push(`## Referenced files (read on demand)\n\n${lines.join("\n")}`);
    }
 
    return parts.length > 0
@@ -447,9 +524,12 @@ export default function(pi: ExtensionAPI): void {
    const agentType = detectAgentType();
    const isSubAgent = agentType !== null;
 
-   // A freshly constructed extension has not injected this process yet. If a
-   // compaction event arrives first, the next context call must replay the full
-   // state even when a prior process left a persisted snapshot.
+   // Set only at a COMMITTED compaction boundary: the session_compact event,
+   // or a branch compaction id newer than the persisted observed segment seen
+   // on a later context call. The previous full anchor may then have been
+   // summarized away, so the next injection must be full again.
+   // session_before_compact stays cancellable — it must never touch stored
+   // anchor bytes or force reinjection, so it is deliberately not handled.
    let compactionSinceLastInjection = false;
 
    const rememberContextKey = (ctx?: { sessionManager?: { getSessionId?: () => string | undefined; getSessionFile?: () => string | undefined } }): string | null => {
@@ -465,10 +545,6 @@ export default function(pi: ExtensionAPI): void {
       if (!isSubAgent) {
          ctx.ui.notify("Trellis workflow system available", "info");
       }
-   });
-
-   pi.on("session_before_compact", async () => {
-      compactionSinceLastInjection = true;
    });
 
    pi.on("before_agent_start", async (_event, ctx) => {
@@ -501,6 +577,10 @@ export default function(pi: ExtensionAPI): void {
    // still surviving a restart.
    const injectedByAnchor = new Map<string, string>();
    let anchorsLoadedFor: string | null = null;
+   let lastFullContent: string | null = null;
+   let segmentSeen = false;
+   let observedCompactionId: string | null = null;
+   let receiptDirty = false;
 
    // `timestamp` alone is not unique: two sessions can mint a message in the
    // same millisecond, and reusing another session's text there would inject
@@ -525,74 +605,143 @@ export default function(pi: ExtensionAPI): void {
    const anchorFile = (contextKey: string): string | null =>
       projectRoot ? join(projectRoot, ".trellis", ".runtime", "omp-anchors", `${contextKey}.json`) : null;
 
+   // Anchors, last-full state and segment identity commit together. Legacy flat
+   // maps retain their exact bytes; their old state file is read but never written.
    const loadAnchors = (contextKey: string): void => {
       if (anchorsLoadedFor === contextKey) return;
-      // Entries belong to exactly one session. On a switch, drop the previous
-      // session's map instead of letting its keys leak into this one.
       injectedByAnchor.clear();
       anchorsLoadedFor = contextKey;
+      lastFullContent = null;
+      segmentSeen = false;
+      observedCompactionId = null;
+      receiptDirty = false;
       const file = anchorFile(contextKey);
-      if (!file || !existsSync(file)) return;
+      if (!file) return;
       try {
          const raw = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
-         for (const [key, value] of Object.entries(raw)) {
-            if (typeof value === "string") injectedByAnchor.set(key, value);
+         if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
+         const versioned = raw.version === 1;
+         const anchors = versioned ? raw.anchors : raw;
+         if (!anchors || typeof anchors !== "object" || Array.isArray(anchors) ||
+            Object.values(anchors).some(value => typeof value !== "string")) return;
+         for (const [key, value] of Object.entries(anchors)) injectedByAnchor.set(key, value as string);
+         if (versioned) {
+            if (typeof raw.lastFullContent === "string") lastFullContent = raw.lastFullContent;
+            const validId = raw.compactionId === null ||
+               (typeof raw.compactionId === "string" && raw.compactionId.length > 0);
+            if (raw.segmentSeen === true && validId &&
+               (raw.lastFullContent === null || typeof raw.lastFullContent === "string")) {
+               segmentSeen = true;
+               observedCompactionId = raw.compactionId as string | null;
+            }
+         } else {
+            try {
+               const state = JSON.parse(readFileSync(`${file.slice(0, -5)}.state.json`, "utf8"));
+               if (typeof state?.content === "string") lastFullContent = state.content;
+            } catch { /* Missing legacy state requires one full injection. */ }
          }
-      } catch {
-         // A corrupt store only costs one re-anchor; never block the turn.
-      }
+      } catch { /* Missing or corrupt receipts require re-anchoring. */ }
    };
 
    const saveAnchors = (contextKey: string): void => {
       const file = anchorFile(contextKey);
       if (!file) return;
+      receiptDirty = true;
+      const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
       try {
          mkdirSync(dirname(file), { recursive: true });
-         writeFileSync(file, JSON.stringify(Object.fromEntries(injectedByAnchor)), { mode: 0o600 });
-      } catch {
-         // Losing one write costs one re-anchor on the next resume.
+         writeFileSync(temporary, JSON.stringify({
+            version: 1,
+            anchors: Object.fromEntries(injectedByAnchor),
+            lastFullContent,
+            segmentSeen,
+            compactionId: observedCompactionId,
+         }), { mode: 0o600 });
+         renameSync(temporary, file);
+         receiptDirty = false;
+      } finally {
+         rmSync(temporary, { force: true });
       }
    };
-
-   // Dedup state: the exact bytes of the last FULL injection, persisted per
-   // session. While the rebuilt snapshot matches it, new user messages ride a
-   // short stub instead of re-paying the whole prefix at full input price —
-   // the per-turn 8.5K spike was the same snapshot re-shipping at the tail,
-   // which prefix caching can never cover. Anchors already in `injectedByAnchor`
-   // replay byte-identically either way, so history stays cache-stable.
-   let lastFullContent: string | null | undefined;
-   let lastFullLoadedFor: string | null = null;
-
-   const stateFile = (contextKey: string): string | null => {
-      const f = anchorFile(contextKey);
-      return f ? `${f.slice(0, -5)}.state.json` : null;
-   };
-
-   const loadLastFull = (contextKey: string): void => {
-      if (lastFullLoadedFor === contextKey) return;
-      lastFullLoadedFor = contextKey;
-      const file = stateFile(contextKey);
-      lastFullContent = null;
-      if (!file || !existsSync(file)) return;
+   // Branch inspection — committed compaction entries stay in the branch, so
+   // the newest one's id names the current segment. Both getBranch and
+   // getEntries are accepted; either missing/failing means "cannot prove a
+   // boundary" and every stored byte is preserved.
+   const branchEntries = (ctx?: {
+      sessionManager?: { getBranch?: () => unknown; getEntries?: () => unknown };
+   }): unknown[] | null => {
+      const sm = ctx?.sessionManager;
+      if (!sm) return null;
       try {
-         const raw = JSON.parse(readFileSync(file, "utf8")) as { content?: unknown };
-         if (typeof raw.content === "string") lastFullContent = raw.content;
+         const entries = typeof sm.getBranch === "function"
+            ? sm.getBranch.call(sm)
+            : typeof sm.getEntries === "function"
+               ? sm.getEntries.call(sm)
+               : null;
+         return Array.isArray(entries) ? entries : null;
       } catch {
-         // A corrupt state file only costs one full re-injection.
+         return null;
       }
    };
 
-   const saveLastFull = (contextKey: string, content: string): void => {
-      lastFullContent = content;
-      lastFullLoadedFor = contextKey;
-      const file = stateFile(contextKey);
-      if (!file) return;
-      try {
-         mkdirSync(dirname(file), { recursive: true });
-         writeFileSync(file, JSON.stringify({ content }), { mode: 0o600 });
-      } catch {
-         // Losing the write costs one full re-injection next turn; never block.
+   const lastCompactionId = (entries: unknown[]): string | null => {
+      for (let i = entries.length - 1; i >= 0; i--) {
+         const entry = entries[i] as { type?: unknown; id?: unknown } | null | undefined;
+         if (entry && entry.type === "compaction" && typeof entry.id === "string") {
+            return entry.id;
+         }
       }
+      return null;
+   };
+
+   // One builder shared by the context hook and boundary migration so both see
+   // identical bytes: workflow state + (main) session context & compact task
+   // index, or (subagent) the role-filtered full task context.
+   const computeTurnContent = (contextKey: string | null): {
+      turnContent: string;
+      activeTaskTitle: string | null;
+      activeTaskStatus: string | null;
+   } => {
+      const root = projectRoot as string;
+      const cached = turnCache.get(root, contextKey);
+      let turnContent = cached.workflowMsg;
+      let activeTaskTitle: string | null = null;
+      let activeTaskStatus: string | null = null;
+      if (isSubAgent) {
+         const { taskDir, taskTitle, status } = resolveActiveTaskStatus(root, contextKey);
+         activeTaskTitle = taskTitle;
+         activeTaskStatus = status;
+         if (taskDir) {
+            const taskContext = buildTaskContext(root, taskDir, agentType);
+            if (taskContext) {
+               turnContent = `${taskContext}\n\n${turnContent}`;
+            }
+         }
+      } else {
+         const sessionContext = buildSessionContext(root, contextKey);
+         const { taskDir, taskTitle, status } = resolveActiveTaskStatus(root, contextKey);
+         activeTaskTitle = taskTitle;
+         activeTaskStatus = status;
+         const taskContext = taskDir ? buildMainTaskContext(root, taskDir) : null;
+         const prefix = [sessionContext, taskContext].filter(Boolean).join("\n\n");
+         if (prefix) {
+            turnContent = `${prefix}\n\n${turnContent}`;
+         }
+      }
+      return { turnContent, activeTaskTitle, activeTaskStatus };
+   };
+
+   // The old injection map belongs to the completed segment. Retire it only
+   // here; the next context call anchors the compact index on its newest user.
+   // Persist the empty last-full state too, so a restart before that first call
+   // cannot mistake the previous snapshot for an index already sent this segment.
+   const migrateAnchorsAtBoundary = (contextKey: string, compactionId: string | null): void => {
+      loadAnchors(contextKey);
+      injectedByAnchor.clear();
+      lastFullContent = "";
+      segmentSeen = true;
+      observedCompactionId = compactionId;
+      saveAnchors(contextKey);
    };
 
    const withInjectedText = (message: AgentMessage, text: string): AgentMessage => {
@@ -607,37 +756,38 @@ export default function(pi: ExtensionAPI): void {
    };
 
    pi.on("context", async (event, ctx) => {
+      try {
       if (!projectRoot) return;
       const contextKey = rememberContextKey(ctx);
       // Replay anchors recorded by earlier processes before deciding anything,
       // so a resumed turn re-injects the exact same bytes it did before exit.
       if (contextKey) loadAnchors(contextKey);
+      if (contextKey && receiptDirty) saveAnchors(contextKey);
 
-      const cached = turnCache.get(projectRoot, contextKey);
-      let turnContent = cached.workflowMsg;
-      let activeTaskTitle: string | null = null;
-      let activeTaskStatus: string | null = null;
-      if (isSubAgent) {
-         const { taskDir, taskTitle, status } = resolveActiveTaskStatus(projectRoot, contextKey);
-         activeTaskTitle = taskTitle;
-         activeTaskStatus = status;
-         if (taskDir) {
-            const taskContext = buildTaskContext(projectRoot, taskDir, agentType);
-            if (taskContext) {
-               turnContent = `${taskContext}\n\n${turnContent}`;
+      // Resume-time boundary recovery. The session_compact event is the
+      // primary path; if a compaction committed while this process was not
+      // running, the branch's latest compaction id differs from the persisted
+      // observed segment. THAT mismatch is the only resume-side proof allowed
+      // to retire anchors — an ordinary resume stays in the same segment and
+      // must replay byte-identical text, so a matching or missing id changes
+      // nothing. Legacy state without a marker records the current segment and
+      // preserves bytes until the next successful compaction.
+      if (contextKey) {
+         const entries = branchEntries(ctx);
+         if (entries !== null) {
+            const currentCompactionId = lastCompactionId(entries);
+            if (!segmentSeen) {
+               segmentSeen = true;
+               observedCompactionId = currentCompactionId;
+               saveAnchors(contextKey);
+            } else if (currentCompactionId !== null && observedCompactionId !== currentCompactionId) {
+               compactionSinceLastInjection = true;
+               migrateAnchorsAtBoundary(contextKey, currentCompactionId);
             }
          }
-      } else {
-         const sessionContext = buildSessionContext(projectRoot, contextKey);
-         const { taskDir, taskTitle, status } = resolveActiveTaskStatus(projectRoot, contextKey);
-         activeTaskTitle = taskTitle;
-         activeTaskStatus = status;
-         const taskContext = taskDir ? buildTaskContext(projectRoot, taskDir) : null;
-         const prefix = [sessionContext, taskContext].filter(Boolean).join("\n\n");
-         if (prefix) {
-            turnContent = `${prefix}\n\n${turnContent}`;
-         }
       }
+
+      const { turnContent, activeTaskTitle, activeTaskStatus } = computeTurnContent(contextKey);
 
       const messages = event.messages;
       if (!Array.isArray(messages) || messages.length === 0) return;
@@ -662,7 +812,6 @@ export default function(pi: ExtensionAPI): void {
          if (!injectedByAnchor.has(key)) {
             let text = turnContent;
             if (contextKey) {
-               loadLastFull(contextKey);
                // After a compaction the previous full anchor may have been
                // summarized away — the model can no longer see the snapshot
                // the stub points at, so the next injection must be full again.
@@ -686,15 +835,15 @@ export default function(pi: ExtensionAPI): void {
                   }
 
                   if (snapshotWritten) {
-                     saveLastFull(contextKey, turnContent);
+                     lastFullContent = turnContent;
                      compactionSinceLastInjection = false;
 
                      if (!isFirstOrCompacted) {
                         // Delta Stub (Option A): state updated, snapshot refreshed on disk.
-                        // Never re-ship the 12-15KB full PRD text at full input price.
+                        // Never re-ship the full index/state at full input price.
                         const hash = createHash("sha256").update(turnContent).digest("hex").slice(0, 16);
                         const taskLine = activeTaskTitle ? `- Active Task: ${activeTaskTitle} (${activeTaskStatus ?? "active"})\n` : "";
-                        text = `<trellis-state>\nWorkflow state updated (${hash}). Full snapshot refreshed at: ${snapshotPath}.\n${taskLine}Read that file if full PRD/spec details needed.\n</trellis-state>`;
+                        text = `<trellis-state>\nWorkflow state updated (${hash}). Full snapshot refreshed at: ${snapshotPath}.\n${taskLine}Read that file if full details needed.\n</trellis-state>`;
                      }
                   }
                }
@@ -715,6 +864,36 @@ export default function(pi: ExtensionAPI): void {
       });
       if (!changed) return;
       return { messages: out };
+      } catch (error) {
+         // The runner reports hook exceptions and continues; abort is required
+         // to prevent an unpersisted projection from reaching the provider.
+         ctx.abort();
+         throw error;
+      }
+   });
+
+   // Committed boundary: the compaction entry is already in the branch, so
+   // rewriting anchors recorded in the previous segment cannot disturb its
+   // bytes — the new segment's first request already carries the compact
+   // replacement. This is the ONLY event that may retire anchors; a cancelled
+   // session_before_compact never reaches here, and the handler that used to
+   // listen to it was removed for exactly that reason.
+   pi.on("session_compact", async (event, ctx) => {
+      if (!projectRoot) {
+         projectRoot = findProjectRoot(ctx.cwd);
+      }
+      if (!projectRoot) return;
+      compactionSinceLastInjection = true;
+      // Fall back to the session whose anchors are already loaded when the
+      // event context cannot derive a key.
+      const contextKey = rememberContextKey(ctx) ?? anchorsLoadedFor;
+      if (!contextKey) return;
+      const eventId = (event as { compactionEntry?: { id?: unknown } } | undefined)
+         ?.compactionEntry?.id;
+      const compactionId = typeof eventId === "string" && eventId
+         ? eventId
+         : lastCompactionId(branchEntries(ctx) ?? []);
+      migrateAnchorsAtBoundary(contextKey, compactionId);
    });
 
    // OMP passes Bash event.input through to the tool execution parameters, so

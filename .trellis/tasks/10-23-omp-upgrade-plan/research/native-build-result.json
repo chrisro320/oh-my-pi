@@ -1,0 +1,60 @@
+{
+  "version": "18.12.6",
+  "source": "Recovered prior complete build log; no rebuild repeated",
+  "build_log": "/home/chris/.cache/omp-upgrade-18126-01a1684f-native/build.log",
+  "build_log_sha256": "b1fca5bbdefa11692ac067153fd2693fb45ba39a09c86744e217242815d489b6",
+  "observed_completion_lines": [
+    1627,
+    1832,
+    1833,
+    1834,
+    1835,
+    1836
+  ],
+  "loads": [
+    {
+      "variant": "baseline",
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "-e",
+        "const b=require(\"/home/chris/.cache/omp-upgrade-18126-01a1684f-native/out/pi_natives.linux-x64-baseline.node\");const v=b.__piNativesBuildVersion();if(v!==\"18.12.6\")throw Error(`wrong native version ${v}`);console.log(JSON.stringify({variant:\"baseline\",version:v}));"
+      ],
+      "exit": 0,
+      "stdout": "{\"variant\":\"baseline\",\"version\":\"18.12.6\"}\n",
+      "stderr": "",
+      "sha256": "5492770ba987a9369f6e438a3fa877e5e380d01ee5f57fa36af62143543680fc"
+    },
+    {
+      "variant": "modern",
+      "command": [
+        "/home/chris/.bun/bin/bun",
+        "-e",
+        "const b=require(\"/home/chris/.cache/omp-upgrade-18126-01a1684f-native/out/pi_natives.linux-x64-modern.node\");const v=b.__piNativesBuildVersion();if(v!==\"18.12.6\")throw Error(`wrong native version ${v}`);console.log(JSON.stringify({variant:\"modern\",version:v}));"
+      ],
+      "exit": 0,
+      "stdout": "{\"variant\":\"modern\",\"version\":\"18.12.6\"}\n",
+      "stderr": "",
+      "sha256": "20030d690bc7335256cb87961cd7d3b27fe0e928b73b3d2f5b447af460440f3d"
+    }
+  ],
+  "overlay_verifier": {
+    "exit": 0,
+    "stdout": "PASS native overlay 18.12.6: 2 addons, 1 patches",
+    "nm": "/tmp/omp-upgrade-18126-01a1684f/native-validation/@oh-my-pi"
+  },
+  "physical_control_acquired": false,
+  "official_addon_negative_control": {
+    "command": [
+      "/usr/bin/python3",
+      "-I",
+      "/home/chris/orca/projects/omp-move/patches/verify-native-overlay.py",
+      "--nm",
+      "/tmp/omp-upgrade-18126-01a1684f/runtime/node_modules/@oh-my-pi",
+      "--overlay",
+      "/home/chris/orca/projects/omp-move/patches/native/18.12.6/overlay.json"
+    ],
+    "exit": 1,
+    "stdout": "FAIL pi_natives.linux-x64-modern.node: upstream original != rebuilt 20030d690bc7335256cb87961cd7d3b27fe0e928b73b3d2f5b447af460440f3d\nFAIL pi_natives.linux-x64-baseline.node: upstream original != rebuilt 5492770ba987a9369f6e438a3fa877e5e380d01ee5f57fa36af62143543680fc\n",
+    "stderr": ""
+  }
+}
