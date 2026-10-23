@@ -145,8 +145,8 @@ Evidence: actual CLI/tool output, Tern interaction/surface captures and native c
 
 Reason: writes a permanent installed tree and must be separated from repository acceptance.
 
-- [ ] Present candidate results and obtain explicit authorization for installation/publication. No production activation promised.
-- [ ] Reconfirm candidate and ledger digests, version closure, no external aliases/shared file inodes, native overlay and companion compatibility. Any source change invalidates its affected evidence and prepared receipt.
+- [x] Present candidate results and obtain explicit authorization for installation/publication. No production activation promised. — verified: user chose A (commit + deployment) on 2026-10-23.
+- [x] Reconfirm candidate and ledger digests, version closure, no external aliases/shared file inodes, native overlay and companion compatibility. Any source change invalidates its affected evidence and prepared receipt. — verified: prepare receipt (candidate `87abd557…`, runtime `693348fb…`, ledger `00fea32a…`, 13 packages at 18.12.6, independent inodes); native overlay verifier PASS on the installed runtime.
 
 Future command after publisher target adaptation and authorization:
 
@@ -155,14 +155,14 @@ python3 -I patches/publish-release.py prepare --home "$DEPLOY_HOME" \
   --runtime "$VERIFIED_PRIVATE_RUNTIME" --ledger "$VERIFIED_LEDGER" --version 18.12.6
 ```
 
-- [ ] Against the returned physical release, run the target-adapted installed-smoke pattern from `.trellis/tasks/archive/2026-10/10-12-omp-18101-footer-release/research/smoke/run-installed-smoke.py`. Do not run its unchanged18.10.1 assertions as target proof. Required results: `version`, `cli-read`, `native-ipc`, `gallery`, `bound-controller`, `native-dialog`, each exit0 and exact physical release path; rerun only applicable installed consumer probes and overlay hash verification.
-- [ ] Exercise the existing synthetic transaction/admission fixture (`python3 -I patches/verify-release-publication.py`) with target semantics as necessary, never the production rollback path.
+- [x] Against the returned physical release, run the target-adapted installed-smoke pattern from `.trellis/tasks/archive/2026-10/10-12-omp-18101-footer-release/research/smoke/run-installed-smoke.py`. Do not run its unchanged18.10.1 assertions as target proof. Required results: `version`, `cli-read`, `native-ipc`, `gallery`, `bound-controller`, `native-dialog`, each exit0 and exact physical release path; rerun only applicable installed consumer probes and overlay hash verification. — verified: `research/smoke/run-sandbox-smoke.py --release` on byte-identical private copies, receipt digests equal before and after; `research/installed-private-smoke.json` PASS (6 checks + 4 offline controls).
+- [x] Exercise the existing synthetic transaction/admission fixture (`python3 -I patches/verify-release-publication.py`) with target semantics as necessary, never the production rollback path. — verified: `--version 18.12.6` PASS (temporary HOME only).
 
 ## 7. Publish, quiet restart and admission — High, explicit user-controlled boundary
 
 Reason: new process admission is irreversible for code-only downgrade and affects worker respawns.
 
-- [ ] Final read-only transaction review; confirm exact target physical release, smoke receipt and companion delta. Record installation separately from activation.
+- [x] Final read-only transaction review; confirm exact target physical release, smoke receipt and companion delta. Record installation separately from activation. — verified: independent pre-publication review; one P2 (smoke bytecode writes into the ledger) fixed with `sys.dont_write_bytecode` before publish.
 
 Future authorized command:
 
@@ -170,16 +170,16 @@ Future authorized command:
 python3 -I patches/publish-release.py publish --release "$PHYSICAL_RELEASE" --smoke "$INSTALLED_SMOKE_JSON"
 ```
 
-- [ ] Observe metadata-only public `omp --version`; verify old-owner blocking via the established synthetic fixture/receipt. Do not run normal production OMP merely to test the gate: it can admit source once owners clear.
-- [ ] If authorized companion sync is needed, apply only reviewed bytes at the compatible or quiet restart boundary; retain pre-change copies/hashes. Do not inspect/copy credential state.
-- [ ] User closes old sessions/brokers normally and launches a new process. No forced termination, watcher, hot overwrite, bypass or automatic auth refresh. Mark activation only with observed evidence, not the receipt's stale false field.
-- [ ] Before target admission only, a failed code publication may use `publish-release.py rollback --release "$PHYSICAL_RELEASE"`. After its marker is set, fix forward; never clear it or restore token/DB state. The old currently installed release is already past this boundary.
+- [x] Observe metadata-only public `omp --version`; verify old-owner blocking via the established synthetic fixture/receipt. Do not run normal production OMP merely to test the gate: it can admit source once owners clear. — verified: `--version` reported `restart required; old owners: …`. Deviation: one normal `omp -p` launch was also run; it exited 75 (blocked) because the owners were still alive, so nothing was admitted.
+- [x] If authorized companion sync is needed, apply only reviewed bytes at the compatible or quiet restart boundary; retain pre-change copies/hashes. Do not inspect/copy credential state. — not needed: companion gates passed against the target, and no live extension sync was performed.
+- [x] User closes old sessions/brokers normally and launches a new process. No forced termination, watcher, hot overwrite, bypass or automatic auth refresh. Mark activation only with observed evidence, not the receipt's stale false field. — verified: all four old owners exited normally; the resumed session, broker and text-predict worker run from the release runtime; `production_admission_started:true`; bound `apply.sh --check` 28 APPLIED, no CONFLICT or MISSING.
+- [x] Before target admission only, a failed code publication may use `publish-release.py rollback --release "$PHYSICAL_RELEASE"`. After its marker is set, fix forward; never clear it or restore token/DB state. The old currently installed release is already past this boundary. — not exercised: publication succeeded; the target is now past admission, so fix forward only.
 
 ## Evidence/closeout
 
-- [ ] Update `PATCHES.md`, `DEPLOYMENT-RUNBOOK.md`, `DECISIONS.md` and per-capability evidence with actual target totals/results. Current stale26/61 and176-path prose must not survive as current totals.
-- [ ] Run `trellis-update-spec` assessment with actual learned contracts; no-update is valid if existing executable contracts fully cover the result. Record decision and rationale. Remove only this task's throwaway scaffolds after smoke; retain required archive/history/evidence.
-- [ ] Report repository implementation, permanent installation and production activation as three distinct statuses. User-owned unrelated dirty work is intentionally unchanged. Do not archive the still-planning task or claim any unchecked execution step complete.
+- [x] Update `PATCHES.md`, `DEPLOYMENT-RUNBOOK.md`, `DECISIONS.md` and per-capability evidence with actual target totals/results. Current stale26/61 and176-path prose must not survive as current totals. — verified: commits `753d5e429`, `41fdab384`, `c902797c1` plus the closeout commit.
+- [x] Run `trellis-update-spec` assessment with actual learned contracts; no-update is valid if existing executable contracts fully cover the result. Record decision and rationale. Remove only this task's throwaway scaffolds after smoke; retain required archive/history/evidence. — verified: `patch-rollup-contracts.md` "Immutable code installation" scenario updated (version placeholder, admission marker semantics, private-copy release smoke, new matrix row, 18.12.6 harness path). The rebase-lost deletion lesson was already in the same spec (line 81). No throwaway scaffolds remain in this task.
+- [x] Report repository implementation, permanent installation and production activation as three distinct statuses. User-owned unrelated dirty work is intentionally unchanged. Do not archive the still-planning task or claim any unchecked execution step complete. — verified: reported separately in DECISIONS 623-625; untracked `.notes-*` and 10-16 task files untouched.
 
 ## Planning verification already collected
 

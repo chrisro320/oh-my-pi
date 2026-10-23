@@ -703,7 +703,7 @@ Deploy a verified release while old OMP processes still own live sessions or OAu
 ### 2. Signatures
 
 ```sh
-python3 -I patches/publish-release.py prepare --home <home> --runtime <private-runtime> --ledger <patches> --version 18.10.1
+python3 -I patches/publish-release.py prepare --home <home> --runtime <private-runtime> --ledger <patches> --version <exact-version>
 python3 -I patches/publish-release.py publish --release <physical-release> --smoke <installed-private-smoke.json>
 python3 -I patches/publish-release.py rollback --release <physical-release>
 python3 -I patches/verify-release-publication.py
@@ -714,8 +714,8 @@ python3 -I patches/verify-release-publication.py
 - Full dependency/native closure lives at `~/.bun/install/omp-releases/<version-digests>/runtime`; no external aliases or shared regular-file inodes. Never replace old global paths beneath running imports/workers.
 - Installed `ledger/.runtime-root` binds `apply.sh` to that physical runtime. Missing/mismatched binding fails closed; bound apply/revert rejects mutation. `--check` checks the release-local source link, not the admission wrapper.
 - One code-only lock serializes publication, rollback and new production admission. Retain the exact old launcher target and old ledger; persist transaction intent before publishing the closed launcher, ledger pointer and final receipt.
-- Receipt `code_installation=complete` means installed code. `current_session_upgrade=false` and `production_activation=false` remain explicit. Process identities use boot ID, PID and start time, supplemented by a fresh ownership scan.
-- Standalone `--version`/`--help` report admission state without loading OMP. Source CLI/help/tool/native smoke uses the installed physical path with private HOME/XDG/agent and no provider requests.
+- Receipt `code_installation=complete` means installed code. `current_session_upgrade=false` and `production_activation=false` remain explicit; no tool ever sets `production_activation`, so `production_admission_started=true` is the only activation marker. Process identities use boot ID, PID and start time, supplemented by a fresh ownership scan.
+- Standalone `--version`/`--help` report admission state without loading OMP (`installed; restart required; old owners: …` before, `installed; ready for a new process` after all owners exit). Source CLI/help/tool/native smoke uses private HOME/XDG/agent and no provider requests. When probes must live inside the runtime (18.12.6 onward), smoke runs byte-identical private copies of the installed runtime and ledger and compares both tree digests with the receipt before and after; it never writes into the installed tree (no probes, no `__pycache__`: set `sys.dont_write_bytecode`).
 - Persist `production_admission_started=true` before source exec. After any possible admission, automatic code-only downgrade is forbidden: older OAuth code does not honor the new exchange journal. Never restore token/session state as package rollback.
 - No watcher, force bypass, process signals, credential refresh or live DB connection is part of installation.
 
@@ -728,6 +728,7 @@ python3 -I patches/verify-release-publication.py
 | Captured owner exited or PID reused | Start-time/boot identity distinguishes the new process; fresh scan still applies |
 | Bound ledger apply/revert | Exit2 without global mutation |
 | Possible production admission | Automatic code-only rollback refuses |
+| Release smoke writes into the installed tree or a digest differs from the receipt | Smoke FAIL; do not publish, do not regenerate the receipt |
 
 ### 5. Good / Base / Bad Cases
 
@@ -736,7 +737,7 @@ Good: independent installed closure passes private smoke, public launcher/ledger
 ### 6. Tests Required
 
 Use the synthetic publication gate for partial-pointer failure, exact code rollback, live old-owner blocking, missing-binding refusal and durable-before-exec ordering. Then run actual installed source version/read/native IPC/gallery plus bound controller checks in private HOME. Never execute production provider probes to make an acceptance checkbox green.
-The installed private smoke harness is committed: `.trellis/tasks/archive/2026-10/10-12-omp-18101-footer-release/research/smoke/run-installed-smoke.py --release <physical-release> --out <json>` (with `offline-preload.ts`, `cli-smoke.ts`, `ipc-smoke.ts`). Never keep the harness only in temp/cache dirs; a cleanup once deleted it and forced a rebuild. Each check asserts its expected output, not just exit 0, and the preload must actually reject `fetch`/`WebSocket` (negative-check it when the harness changes).
+Installed private smoke harnesses are committed. 18.10.1 (in place): `.trellis/tasks/archive/2026-10/10-12-omp-18101-footer-release/research/smoke/run-installed-smoke.py --release <physical-release> --out <json>` (with `offline-preload.ts`, `cli-smoke.ts`, `ipc-smoke.ts`). 18.12.6 onward (private copies, loopback-only namespace): `.trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/smoke/run-sandbox-smoke.py --release <physical-release> --out <json>`. Never keep a harness only in temp/cache dirs; a cleanup once deleted it and forced a rebuild. Each check asserts its expected output, not just exit 0, and the preload must actually reject `fetch`/`WebSocket` (negative-check it when the harness changes).
 Machine-check at delivery and review:
 `grep -nE 'production_admission_started|runtime-root|current_session_upgrade|production_activation' patches/release-launcher.py patches/publish-release.py patches/apply.sh patches/DEPLOYMENT-RUNBOOK.md`
 

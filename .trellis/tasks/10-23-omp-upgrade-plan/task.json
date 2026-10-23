@@ -22,5 +22,7 @@
   "parent": null,
   "relatedFiles": [],
   "notes": "",
-  "meta": {}
+  "meta": {
+    "spec_update": "backend/patch-rollup-contracts.md (Immutable code installation: admission marker, private-copy release smoke, matrix row, 18.12.6 harness path)"
+  }
 }
