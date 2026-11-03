@@ -77,11 +77,31 @@ function record(value: unknown): value is Record<string, unknown> {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-/** Normalize the Codex instructions string without changing session prompt state. */
+/** Normalize provider prompt containers without changing session prompt state. */
 function stableProviderPayload(value: unknown): unknown {
-	if (!record(value) || typeof value.instructions !== "string") return value;
-	const instructions = stableXdevCatalog(value.instructions);
-	return instructions === value.instructions ? value : { ...value, instructions };
+	if (!record(value)) return value;
+	let instructions: string | undefined;
+	if (typeof value.instructions === "string") {
+		const stable = stableXdevCatalog(value.instructions);
+		if (stable !== value.instructions) instructions = stable;
+	}
+	let system: unknown[] | undefined;
+	if (Array.isArray(value.system)) {
+		for (let index = 0; index < value.system.length; index++) {
+			const block = value.system[index];
+			if (!record(block) || typeof block.text !== "string") continue;
+			const text = stableXdevCatalog(block.text);
+			if (text === block.text) continue;
+			system ??= value.system.slice();
+			system[index] = { ...block, text };
+		}
+	}
+	if (instructions === undefined && system === undefined) return value;
+	return {
+		...value,
+		...(instructions === undefined ? {} : { instructions }),
+		...(system === undefined ? {} : { system }),
+	};
 }
 
 /**

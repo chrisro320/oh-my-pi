@@ -696,8 +696,22 @@ function begin(previous: Payload): void {
 	const inline = "```json\n{}\n```\n";
 	assert.equal(transform(first.replace("## Additional devices", `${inline}## Additional devices`)), expected.replace("## Additional devices", `${inline}## Additional devices`), "closed inline schemas must not prevent catalog sorting");
 	assert.equal(transform(`\`\`\`\nexample\n\`\`\`\n${first}`), `\`\`\`\nexample\n\`\`\`\n${expected}`, "closed fences must not suppress native catalogs");
-	const untouched = { system: [{ type: "text", text: resumed }], messages: [] };
-	assert.equal(beforeRequest({ payload: untouched }), undefined, "non-Codex payloads are outside this change");
+	for (const prompt of [first, resumed, expected]) {
+		const original = {
+			system: [
+				{ type: "text", text: "untouched", cache_control: { type: "ephemeral" } },
+				{ type: "text", text: prompt, cache_control: { type: "ephemeral", ttl: "1h" } },
+			],
+			messages: [],
+		};
+		const transformed = (beforeRequest({ payload: original }) as typeof original | undefined) ?? original;
+		assert.equal(transformed.system[1].text, expected, "Anthropic system blocks must use the same canonical catalog");
+		assert.deepEqual(transformed.system[1].cache_control, { type: "ephemeral", ttl: "1h" }, "system cache markers must survive catalog normalization");
+		assert.equal(transformed.system[0], original.system[0], "unrelated system blocks must retain their identity");
+		assert.equal(original.system[1].text, prompt, "normalization must not mutate the original Anthropic payload");
+	}
+	const untouched = { system: [{ type: "text", text: "unrelated" }], messages: [] };
+	assert.equal(beforeRequest({ payload: untouched }), undefined, "Anthropic payloads without a native catalog must remain untouched");
 
 	const codexOld = { model: "gpt", instructions: first, input: [{ role: "user", content: resumed }], tools: [{ name: "read" }] };
 	const codexResumed = { ...codexOld, instructions: resumed };
@@ -727,8 +741,9 @@ function begin(previous: Payload): void {
 		{ type: "ephemeral" },
 		"existing Anthropic resume anchoring must still run",
 	);
-	assert.equal(anthropic.system[0].text, resumed, "Anthropic system blocks must not be rewritten");
-	console.log("ok xd catalog: deterministic Codex instructions preserve other content and Anthropic anchors");
+	assert.equal(anthropic.system[0].text, resumed, "normalization must not mutate the original Anthropic system text");
+	assert.equal(anthropicWire.system[0].text, expected, "Anthropic resume requests must normalize the system catalog");
+	console.log("ok xd catalog: deterministic Codex and Anthropic prompts preserve other content and Anthropic anchors");
 }
 
 console.log("PASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap");

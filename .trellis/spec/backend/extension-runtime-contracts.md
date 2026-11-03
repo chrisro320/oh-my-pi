@@ -1272,10 +1272,12 @@ const prev = sameModel[0];
 ### 1. Scope / Trigger
 
 `patches/resume-cache-breakpoint-extension.ts` (mirror `~/.omp/agent/extensions/resume-cache-breakpoint.ts`). It adds one `cache_control` anchor on the first request of a resumed session and, since 18.4.4, when a live request grows past the provider lookback. Incident (session `01a0f047`, 2026-09-30 04:19:57Z): the previous tail sat at content block 601, the next request was 41 blocks later with no marker in between, and the miss cost `cacheRead=14314 / cacheWrite=342867`.
+The same extension canonicalizes native xd:// catalog order before dispatch. Incident `01a19f81-3a22-71dc-bc64-e874e305e361` (2026-11-03): a fresh process rendered `cron` before `api_image`/`generate_image` in Anthropic `system[2]`, invalidating signed history and writing 281,090 cache tokens; the existing Codex-only `instructions` normalization did not see Anthropic system blocks.
 
 ### 2. Signatures
 
 `sessionIdentity(ctx): string`, `findPredecessor(messages, sessionId): TrackedRequest | undefined`, `tailHash(messages, count): string`, `stripCacheControl(message)`, `countContentBlocks(messages)`, `placeAnchor(payload, messages, anchorIndex, tag)`. Constants: `ANTHROPIC_MAX_BREAKPOINTS = 4`, `ANCHOR_LOOKBACK_BLOCKS = 20`, `GROWTH_TRIGGER_BLOCKS = ANCHOR_LOOKBACK_BLOCKS - 4`, `TRACKER_CAP = 8`, `UNCACHEABLE_BLOCKS`.
+`stableXdevCatalog(prompt): string` and `stableProviderPayload(payload): unknown` own prompt-order normalization for both Codex `instructions` and Anthropic `system[]` text blocks.
 
 ### 3. Contracts
 
@@ -1285,6 +1287,8 @@ const prev = sameModel[0];
 - Predecessor identity is continuity of BOTH session and tail, never a name: a tracked request may be reused only when it was recorded under the same session id AND its stored tail hash equals the hash of this request's messages up to the recorded count. The session id comes from `ctx.sessionManager.getSessionId()` with one constant fallback (`sessionIdentity`); the tail hash covers the message count and the last TWO messages, with `cache_control` stripped only at the top level of each content block, and a bare-string `content` canonicalized to the provider's own single text block before hashing (`stripCacheControl` renders `content: "x"` as `[{ type: "text", text: "x" }]`, the shape pi-ai's `applyCacheControlToMessage` rewrites a cache-marked string into; without this an unchanged penultimate message hashes differently between a decorated request and one where the session history is re-converted as a bare string, so the predecessor match — and with it the growth anchor — is lost). It never recurses, so a same-named field inside `tool_use.input` stays a real argument. No model or first-message conversation key participates.
 - A rewrite of a message earlier than the last two that leaves those two equal is an accepted residual: the tracker hashes a constant number of messages per request instead of the whole history, so such a rewrite can still be taken as the predecessor.
 - The tracker is bounded (`TRACKER_CAP`). Eviction spends the oldest entry no larger than the incoming request, and a request smaller than every entry is not recorded at all, so a short side request (a title burst, a keepalive) can never evict the main predecessor. The guarantee is limited and stated as such: eight or more side requests whose histories are at least as long as the main history can spend the cap and push the main predecessor out, so that growth event receives no anchor.
+- `stableProviderPayload` returns the original object when no catalog changes. Otherwise it copies the payload and only changed system blocks; it preserves `cache_control`, unrelated block identity, message history and the input payload. It never rewrites persisted session prompt state.
+- Sort only one complete, unambiguous native `## Additional devices (docs on demand)` section. Duplicate devices/catalogs, malformed rows, missing footers and fenced examples remain unchanged. Every registration permutation of the same devices must render the same provider-facing prompt.
 
 ### 4. Validation & Error Matrix
 
@@ -1298,14 +1302,18 @@ const prev = sameModel[0];
 | short side requests exceed the cap | the main conversation's predecessor survives |
 | eight side requests at least as long as the main history | residual: the main predecessor can be evicted and no anchor is added |
 | growth <= 16 blocks, a +2 step, a shrink, or a side request | no anchor is added |
+| Codex `instructions` or an Anthropic system text block carries a noncanonical native catalog | sort rows before dispatch; preserve all other content and markers |
+| catalog is duplicated, ambiguous, malformed or fenced | return that prompt unchanged |
 
 ### 5. Good / Base / Bad Cases
 
 Good: the captured 418->457 message / 602->643 block shape anchors at 417, releases 455, keeps 456, and stays within the cap. Base: no growth and no resume leaves the markers untouched. Bad: mark a thinking block, emit a 5th marker, key the tracker by a conversation name, hash only the newest message (a rewrite one message earlier then slips through), hash a bare-string message differently from the provider's single-text-block rewrite, or strip a nested `cache_control` that is really tool-call data.
+Good: Codex and Anthropic registration permutations produce identical wire prompts without mutating the input. Base: canonical or non-catalog payloads return the original object. Bad: normalize only `instructions`, reorder session state, drop `cache_control`, or rewrite every system block when only one changed.
 
 ### 6. Tests Required
 
 `OMP_RESUME_CACHE_LOG=<tmp> bun patches/verify-resume-cache-breakpoint.ts` — synthetic resumed session; live growth 418->457 (anchor 417, released 455, survived 456); the negatives (+2 step, boundary 16/17, interleaved side request, shrink); thinking-ended growth; mixed-TTL anchor and mixed-TTL decline; continuity (equal-first-message conversations, string- and image-only first messages, an equal tail in a different session, a rewrite of the second-to-last message, an unchanged penultimate message spelled as the provider's decorated text block in one request and the bare string in the other (both directions), an early rewrite with an equal tail as the accepted residual, a rewritten tool argument named `cache_control`); and the tracker cap with 20 short side requests. A pre-fix tree fails the growth and eligibility cases.
+The same gate covers every Codex registration permutation plus Anthropic before/reordered/canonical system blocks, marker preservation, unrelated-block identity, no-op payload identity and input immutability. Running the updated gate against the pre-fix extension must fail the Anthropic catalog assertion. The incident's actual before/after payloads must normalize to equal system arrays through the installed hook.
 
 Machine check (fails when eligibility, TTL ordering, the cap, or continuity is dropped):
 
@@ -1319,6 +1327,8 @@ OMP_RESUME_CACHE_LOG=/tmp/resume-cache-check.log bun patches/verify-resume-cache
 ```text
 Wrong: match the previous request by a conversation name (model + first message), hash only the newest message, hash a bare-string message differently from the provider's text-block rewrite, strip every nested `cache_control` (even inside `tool_use.input`), or always add the anchor at the tail.
 Correct: match by session id plus a two-message tail hash, canonicalize a bare-string message to the provider's single text block before hashing, scan back to the eligible block, settle the TTL against the wire order, and fund the anchor by releasing the interior marker.
+Wrong: normalize only top-level Codex `instructions` while Anthropic carries the same catalog inside `system[].text`.
+Correct: normalize both provider containers through the same complete-catalog guard, copying only on an actual change.
 ```
 
 ## Scenario: Notebook reminders never gate compaction (18.10.1)
