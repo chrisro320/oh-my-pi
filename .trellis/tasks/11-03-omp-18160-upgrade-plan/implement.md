@@ -181,7 +181,7 @@ authored and reviewed first so their gates are ready before assembly is complete
 
 Prep (once):
 
-- [ ] **Bootstrap the 18.16.0 registry before any plan query** (`apply.sh` refuses `--print-plan` without it, and every
+- [x] **Bootstrap the 18.16.0 registry before any plan query** (`apply.sh` refuses `--print-plan` without it, and every
   later step reads it). First write only `.18.16.0-families/manifest.json` and run `--print-plan` once to observe
   `family registry missing` (exit 2, `apply.sh:187`). Then run an adapted `tools/` script that derives `plan.tsv` and the
   manifest from `.18.12.6-families/manifest.json` in one pass — same row ids/roots/order, **drop only the
@@ -193,13 +193,20 @@ Prep (once):
   (baseline IDs − {0032} + {0102}), and `--print-gates` == the real registrations minus the 18.16.0-deselected `0032` and
   `0082` rows. — Effort: medium — no plan query, no gate list and no oracle run can happen before this exists, and the
   counts must be derived from the registry rather than assumed.
-- [ ] Build the replay ladder: copy the archived `research/rebase-families.py` into `$TASK/research/` and give it a
+  Done (`research/bootstrap-registry-18.16.0.py`): manifest-only → `family registry missing … plan.tsv` exit 2; full →
+  27 rows in manifest order, `--print-capabilities` 62 == registry union == baseline − 0032 + 0102, `--print-gates` 55 =
+  18.12.6's 57 minus exactly `verify-goal-tool-resident.ts` and `verify-user-display-text-queue.ts`; oracle
+  `validate_capability_contract` OK on the skeleton.
+- [x] Build the replay ladder: copy the archived `research/rebase-families.py` into `$TASK/research/` and give it a
   `--through <family>` mode that extracts pristine `$SANDBOX/pristine-18.16.0`, applies the controller plan
   (`OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-plan`) up to and including the named family with `patch -p1
   --fuzz=0`, and prints the accumulated tree digest. — Effort: medium — every family claim depends on being able to replay.
-  "pristine → this family".
-- [ ] Add the per-family failing-hunk dump (`tools/hunk.py` / `tools/fails.py` pattern from the slice harness) so a
-  rejection can be read without eyeballing a log. — Effort: low — a rejection that cannot be read precisely gets 'fixed' by fuzzing.
+  "pristine → this family". Done as `research/rebase-families-18.16.0.py`: the archived ordered state machine
+  (`init`/`prepare`/`accept`/`export`, diff3 proposals against the 18.12.6 chain snapshots), 0032 dropped, 0102 appended,
+  plus `take` (write proposals into the work tree) and `check` (replay every accepted family's emitted patch on fresh
+  pristine at fuzz 0; must equal the work tree). State in `/tmp/omp-plan-18160/rebase`.
+- [x] ~~Per-family failing-hunk dump~~ — superseded: with diff3 proposals a conflict is an in-file marker block (read with
+  `:conflicts` / `conflict://N`), so there is no `.rej` to dump. — Effort: low.
 
 Work order P0 — prefix/compaction/credential invariants (authoring order; `#k` is the manifest position):
 
@@ -280,9 +287,9 @@ Work order P1 — seams other things sit on:
 
 Work order P2 — mechanical remainder:
 
-- [ ] **#1 `family-status-accounting`** (0033, 0004, 0081) — mechanical — Effort: low — 25 hunks apply at offsets 8/11/54; only
+- [x] **#1 `family-status-accounting`** (0033, 0004, 0081) — mechanical — Effort: low — 25 hunks apply at offsets 8/11/54; only
   re-verify the cacheRead rollup against the new accounting. Gates: `verify-usage-reset-format.ts`, `verify-main-cache-hit.ts`.
-- [ ] **#2 `family-hindsight`** (0034, 0075) — mechanical — Effort: low — 3 of 50 rejections are context-only (`signal?`
+- [x] **#2 `family-hindsight`** (0034, 0075) — mechanical — Effort: low — 3 of 50 rejections are context-only (`signal?`
   neighbourhood, import block, one inserted local) plus the `buildDeveloperInstructions` cwd branch. Gates:
   `verify-hindsight-recall-snapshot.ts`, `verify-hindsight-recall-promotion-slot.ts`.
 - [ ] **#5 `family-antigravity-wire`** (0014 semantic, 0054 adopt-verified) — Effort: medium — 3 of 5 hunks rejected at the new.

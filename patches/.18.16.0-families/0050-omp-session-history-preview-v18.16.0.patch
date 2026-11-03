@@ -1,0 +1,889 @@
+--- a/pi-coding-agent/dist/types/session/session-listing.d.ts
++++ b/pi-coding-agent/dist/types/session/session-listing.d.ts
+@@ -36,6 +36,12 @@
+      * synthesized {@link SessionInfo}s (cross-project stubs, tests) leave it unset.
+      */
+     status?: SessionStatus;
++    /**
++     * Model evidenced by the newest tail transition or assistant reply (in
++     * "provider/model" form); use the initial default only if neither is present.
++     * Optional for the same reason as {@link status}: empty sessions have none.
++     */
++    lastModel?: string;
+ }
+ export interface ResolvedSessionMatch {
+     session: SessionInfo;
+--- a/pi-coding-agent/src/main.ts
++++ b/pi-coding-agent/src/main.ts
+@@ -200,11 +200,18 @@
+ 
+ /** Resume/import-only graph boundary; ordinary launches never construct a picker. */
+ async function loadSessionPicker(): Promise<SessionPicker> {
+-	const [{ selectSession }, { HistoryStorage }, { loadPinnedSessionIds }, { FileSessionStorage }] = await Promise.all([
++	const [
++		{ selectSession },
++		{ HistoryStorage },
++		{ loadPinnedSessionIds },
++		{ FileSessionStorage },
++		{ loadSessionMessagesReadOnly },
++	] = await Promise.all([
+ 		import("@oh-my-pi/pi-tui/apps/session-picker"),
+ 		import("./session/history-storage"),
+ 		import("./session/session-pins"),
+ 		import("./session/session-storage"),
++		import("./session/session-loader"),
+ 	]);
+ 	return (sessions, options) => {
+ 		const storage = new FileSessionStorage();
+@@ -218,6 +225,7 @@
+ 				await storage.deleteSessionWithArtifacts(session.path);
+ 				return true;
+ 			},
++			loadPreviewMessages: () => loadSessionMessagesReadOnly,
+ 			loadAllSessions: () => SessionManager.listAllForPicker(storage),
+ 		});
+ 	};
+--- a/pi-coding-agent/src/modes/controllers/selector-controller.ts
++++ b/pi-coding-agent/src/modes/controllers/selector-controller.ts
+@@ -73,6 +73,7 @@
+ import { isUserRequestEntry } from "@oh-my-pi/pi-tui/chat/transcript-entry";
+ import type { SessionEntry, SessionTreeNode } from "../../session/session-entries";
+ import { readSessionInfo, type SessionInfo } from "../../session/session-listing";
++import { loadSessionMessagesReadOnly } from "../../session/session-loader";
+ import { SessionManager } from "../../session/session-manager";
+ import { loadPinnedSessionIds } from "../../session/session-pins";
+ import { FileSessionStorage } from "../../session/session-storage";
+@@ -1850,6 +1851,7 @@
+ 							showCwd: true,
+ 						}),
+ 				historyMatcher,
++				loadPreviewMessages: loadSessionMessagesReadOnly,
+ 				loadAllSessions: () => SessionManager.listAllForPicker(),
+ 				pinnedIds,
+ 				// Live getter so detach/newSession stays accurate; tolerant of partial
+--- a/pi-coding-agent/src/session/session-listing.ts
++++ b/pi-coding-agent/src/session/session-listing.ts
+@@ -50,6 +50,12 @@
+ 	 * synthesized {@link SessionInfo}s (cross-project stubs, tests) leave it unset.
+ 	 */
+ 	status?: SessionStatus;
++	/**
++	 * Model evidenced by the newest tail transition or assistant reply (in
++	 * "provider/model" form); use the initial default only if neither is present.
++	 * Optional for the same reason as {@link status}: empty sessions have none.
++	 */
++	lastModel?: string;
+ }
+ 
+ export interface ResolvedSessionMatch {
+@@ -181,6 +187,77 @@
+ 	return "unknown";
+ }
+ 
++/**
++ * Model shown in picker: the newest tail model_change selects what resume
++ * restores when that transition is visible. This rule lives in
++ * `getRestorableSessionModels` / `getLastModelChangeRole` -- the
++ * branch's newest `model_change` decides, and each role keeps its own newest
++ * value. A `default` (or pre-role) transition, and a `fallback` one (retry
++ * swaps recorded by turn-recovery: transient degradations that must never
++ * masquerade as the user's pick), resolve to the default model; any other role
++ * -- `smol`, `slow`, `vision`, `plan`, `commit`, `tiny`, `task`, `advisor`, or
++ * a settings-defined one -- resolves to that role's own model. When the tail
++ * has no model_change, the newest assistant message identifies the model
++ * that last served the session. Prefer it to the initial default in the
++ * prefix: intervening switches can lie outside both scanned windows.
++ * Only with neither tail signal does the initial default win.
++ */
++function deriveLastModel(suffix: string, prefix: string): string | undefined {
++	const readEntry = (line: string): TailModelEntry | undefined => {
++		if (line.charCodeAt(0) !== 123) return undefined;
++		try {
++			return JSON.parse(line) as TailModelEntry;
++		} catch {
++			return undefined;
++		}
++	};
++	const lines = suffix.split("\n");
++	// Newest role first (walking backwards), then that role's newest model.
++	// Without a tail transition, prefer the last-served model over the prefix
++	// default, which can predate switches in the unscanned middle.
++	const roleModels = new Map<string, string>();
++	let newestRole: string | undefined;
++	let lastServed: string | undefined;
++	for (let i = lines.length - 1; i >= 0; i--) {
++		const entry = readEntry(lines[i]!);
++		if (!entry) continue;
++		if (entry.type === "model_change" && typeof entry.model === "string" && entry.model) {
++			const role = entry.role ?? "default";
++			newestRole ??= role;
++			if (!roleModels.has(role)) roleModels.set(role, entry.model);
++			const resolved = newestRole === "default" || newestRole === "fallback" ? "default" : newestRole;
++			if (roleModels.has(resolved)) break;
++			continue;
++		}
++		if (
++			lastServed === undefined &&
++			entry.type === "message" &&
++			entry.message?.role === "assistant" &&
++			typeof entry.message.model === "string"
++		) {
++			lastServed = entry.message.provider ? `${entry.message.provider}/${entry.message.model}` : entry.message.model;
++		}
++	}
++	const resolvedRole = !newestRole || newestRole === "default" || newestRole === "fallback" ? "default" : newestRole;
++	const fromTail = roleModels.get(resolvedRole) ?? (!newestRole ? lastServed : undefined);
++	if (fromTail) return fromTail;
++	for (const line of prefix.split("\n")) {
++		const entry = readEntry(line);
++		if (entry?.type === "model_change" && typeof entry.model === "string" && (entry.role ?? "default") === "default") {
++			return entry.model;
++		}
++	}
++	return undefined;
++}
++
++/** Tail-window entry shapes this module reads back out of a session file. */
++interface TailModelEntry {
++	type?: string;
++	model?: string;
++	role?: string;
++	message?: { role?: string; provider?: string; model?: string };
++}
++
+ interface TailMessage {
+ 	role?: string;
+ 	stopReason?: string;
+@@ -493,6 +570,7 @@
+ 			size,
+ 			firstMessage: firstMessage || "(no messages)",
+ 			allMessagesText: allMessages.length > 0 ? allMessages.join(" ") : firstMessage,
++			lastModel: deriveLastModel(suffix, content),
+ 			status: withStatus ? deriveSessionStatus(suffix) : undefined,
+ 		};
+ 		// The cache keeps its own shallow copy; hits also hand out copies, so
+--- a/pi-tui/dist/types/apps/session-picker.d.ts
++++ b/pi-tui/dist/types/apps/session-picker.d.ts
+@@ -1,10 +1,12 @@
+-import { type SessionSelectorEntry, type SessionHistoryMatcher } from "../overlays/session-selector.js";
++import { type SessionSelectorEntry, type SessionHistoryMatcher, type SessionPreviewLoader } from "../overlays/session-selector.js";
+ /** Persistence and history capabilities supplied by the session-owning host. */
+ export interface SessionPickerHost<T extends SessionSelectorEntry = SessionSelectorEntry> {
+     loadPinnedIds?(): Promise<ReadonlySet<string>>;
+     loadHistoryMatcher?(): SessionHistoryMatcher;
+     deleteSession?(session: T): Promise<boolean>;
+     loadAllSessions?(): Promise<T[]>;
++    /** Transcript reader for the space-key preview; omit for hosts with no session storage. */
++    loadPreviewMessages?(): SessionPreviewLoader;
+ }
+ /** Presentation and capability controls for the standalone session picker. */
+ export interface SessionPickerOptions<T extends SessionSelectorEntry = SessionSelectorEntry> {
+--- a/pi-tui/dist/types/overlays/session-selector.d.ts
++++ b/pi-tui/dist/types/overlays/session-selector.d.ts
+@@ -1,3 +1,4 @@
++import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+ import { type Component, Input } from "../index.js";
+ import type { TspPickerGroup, TspPickerItem } from "@oh-my-pi/pi-wire";
+ import type { DescribeContext, NativeNode, NativeUiEvent } from "../native/node.js";
+@@ -15,6 +16,11 @@
+     firstMessage: string;
+     allMessagesText: string;
+     status?: SessionSelectorStatus;
++    /**
++     * Model the session last used (selector form, "provider/model"). Optional for
++     * the same reason as {@link status}: empty sessions have none.
++     */
++    lastModel?: string;
+     /** Path to the parent session when this one was forked. */
+     parentSessionPath?: string;
+ }
+@@ -36,6 +42,12 @@
+ /** Returns the IDs of sessions whose recorded prompts match a query, best first. */
+ export type SessionHistoryMatcher = (query: string) => string[];
+ /**
++ * Reads one session's transcript for the space-key preview. Host-supplied:
++ * the picker owns no storage, so it renders whatever a `SessionInfo` path
++ * resolves to without knowing the entry format.
++ */
++export type SessionPreviewLoader = (path: string) => Promise<readonly AgentMessage[]>;
++/**
+  * Filter and rank session picker search results.
+  *
+  * Exact and partial title matches lead. Other literal matches rank by recency
+@@ -71,6 +83,7 @@
+     onExit: () => void;
+     onToggleScope?: () => void;
+     onDeleteRequest?: (session: T) => void;
++    onPreviewRequest?: (session: T) => void;
+     /** Re-render hook for async list updates (fuzzy scan completion, history merge). */
+     onRequestRender?: () => void;
+     constructor(sessions: T[], showCwd?: boolean, historyMatcher?: SessionHistoryMatcher, getTerminalRows?: () => number, pinnedIds?: ReadonlySet<string>, currentSessionPath?: string | (() => string | undefined));
+@@ -121,6 +134,11 @@
+ export interface SessionSelectorOptions<T extends SessionSelectorEntry = SessionSelectorEntry> {
+     onDelete?: (session: T) => Promise<boolean>;
+     historyMatcher?: SessionHistoryMatcher;
++    /**
++     * Loads a session transcript for the space-key preview. Omitted by pickers
++     * with no transcript source; the preview key is then inert.
++     */
++    loadPreviewMessages?: SessionPreviewLoader;
+     /** Loads sessions across all projects for the all-projects scope toggle (Tab). */
+     loadAllSessions?: () => Promise<T[]>;
+     /** Preloaded all-projects list; cached so the first Tab toggle is instant. */
+--- a/pi-tui/src/apps/session-picker.ts
++++ b/pi-tui/src/apps/session-picker.ts
+@@ -1,6 +1,7 @@
+ import { logger } from "@oh-my-pi/pi-utils";
+ import {
+ 	SessionSelectorComponent,
++	type SessionPreviewLoader,
+ 	type SessionSelectorEntry,
+ 	type SessionHistoryMatcher,
+ } from "../overlays/session-selector";
+@@ -12,6 +13,8 @@
+ 	loadHistoryMatcher?(): SessionHistoryMatcher;
+ 	deleteSession?(session: T): Promise<boolean>;
+ 	loadAllSessions?(): Promise<T[]>;
++	/** Transcript reader for the space-key preview; omit for hosts with no session storage. */
++	loadPreviewMessages?(): SessionPreviewLoader;
+ }
+ 
+ /** Presentation and capability controls for the standalone session picker. */
+@@ -64,6 +67,7 @@
+ 				{
+ 					onDelete: options.allowDelete === false ? undefined : host.deleteSession,
+ 					historyMatcher,
++					loadPreviewMessages: host.loadPreviewMessages?.(),
+ 					loadAllSessions: options.allowGlobalScope === false ? undefined : host.loadAllSessions,
+ 					allSessions: options.allSessions,
+ 					getTerminalRows: () => ui.terminal.rows,
+--- a/pi-tui/src/overlays/session-info-overlay.ts
++++ b/pi-tui/src/overlays/session-info-overlay.ts
+@@ -229,7 +229,7 @@
+ 					else if (entry.k === "File") {
+ 						const path = joined(entry.v);
+ 						identity.push(
+-							path.includes("/")
++							path !== "In-memory"
+ 								? identityField("File", [span(path, "path")], "file", `Copy ${path}`)
+ 								: identityField("File", [span(path, "muted")], "file"),
+ 						);
+--- a/pi-tui/src/overlays/session-selector.ts
++++ b/pi-tui/src/overlays/session-selector.ts
+@@ -13,10 +13,11 @@
+ 	truncateToWidth,
+ 	visibleWidth,
+ } from "../index";
++import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+ import * as path from "node:path";
+ import { formatBytes, getProjectDir } from "@oh-my-pi/pi-utils";
+-import type { TspPickerGroup, TspPickerItem, TspSpan, TspText, TspTone } from "@oh-my-pi/pi-wire";
+-import { compact, kv, md, node, span } from "../native/describe";
++import type { TspPickerGroup, TspPickerItem, TspScrollBy, TspSpan, TspText, TspTone } from "@oh-my-pi/pi-wire";
++import { col, compact, kv, md, node, span, text } from "../native/describe";
+ import {
+ 	picker,
+ 	pickerAction,
+@@ -26,8 +27,8 @@
+ 	pickerEvent,
+ 	pickerHits,
+ } from "../native/picker";
+-import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
+-import { hintsRow, type NativeHint, overlayCard } from "../native/overlay";
++import type { DescribeContext, NativeChild, NativeNode, NativeScroll, NativeUiEvent } from "../native/node";
++import { actionBar, actionButton, hintsRow, type NativeHint, overlayCard } from "../native/overlay";
+ import { plainText } from "../native/spans";
+ import { theme } from "../theme/theme";
+ import { contentRowWidth } from "../chrome/selector-helpers";
+@@ -47,6 +48,11 @@
+ 	firstMessage: string;
+ 	allMessagesText: string;
+ 	status?: SessionSelectorStatus;
++	/**
++	 * Model the session last used (selector form, "provider/model"). Optional for
++	 * the same reason as {@link status}: empty sessions have none.
++	 */
++	lastModel?: string;
+ 	/** Path to the parent session when this one was forked. */
+ 	parentSessionPath?: string;
+ }
+@@ -263,9 +269,29 @@
+ 	{ id: "all", label: "All projects" },
+ ];
+ 
++/**
++ * Compact selector form of a model for the metadata line: keep the id part,
++ * trim to the last two "/"-separated segments so vendor-prefixed ids like
++ * "commandcode/deepseek/deepseek-v4.1-flash" stay recognizable, and drop
++ * an ":tag" suffix ("ollama-cloud/glm-5.3-flash:max" -> "glm-5.3-flash").
++ */
++function shortenModelName(selector: string): string {
++	const withoutTag = selector.split(":", 1)[0] ?? selector;
++	const segments = withoutTag.split("/").filter(s => s.length > 0);
++	if (segments.length === 0) return selector;
++	return segments.slice(-2).join("/");
++}
++
+ /** Returns the IDs of sessions whose recorded prompts match a query, best first. */
+ export type SessionHistoryMatcher = (query: string) => string[];
+ 
++/**
++ * Reads one session's transcript for the space-key preview. Host-supplied:
++ * the picker owns no storage, so it renders whatever a `SessionInfo` path
++ * resolves to without knowing the entry format.
++ */
++export type SessionPreviewLoader = (path: string) => Promise<readonly AgentMessage[]>;
++
+ function sessionSearchText(session: SessionSelectorEntry): string {
+ 	const parts = [
+ 		session.id,
+@@ -518,6 +544,7 @@
+ 	readonly #getTerminalRows: () => number;
+ 
+ 	onDeleteRequest?: (session: T) => void;
++	onPreviewRequest?: (session: T) => void;
+ 
+ 	#allSessions: T[];
+ 	#showCwd: boolean;
+@@ -1215,6 +1242,9 @@
+ 			if (status) {
+ 				metadata += ` ${dot} ${status}`;
+ 			}
++			if (session.lastModel) {
++				metadata += ` ${dot} ${dim(shortenModelName(session.lastModel))}`;
++			}
+ 			if (session.parentSessionPath) {
+ 				metadata += ` ${dot} ${dim(`${theme.icon.branch} fork`)}`;
+ 			}
+@@ -1270,6 +1300,14 @@
+ 		// combo instead. Regular Backspace on an empty query means "delete
+ 		// session"; with a typed query it stays bound to the search Input so users
+ 		// can still edit their filter text.
++		// Space on an empty search query -- request history preview
++		if ((matchesKey(keyData, "space") || keyData === " ") && this.#searchInput.getValue().length === 0) {
++			const selected = this.#menu.selectedItem;
++			if (selected && this.onPreviewRequest) {
++				this.onPreviewRequest(selected);
++			}
++			return;
++		}
+ 		if (
+ 			matchesKey(keyData, "delete") ||
+ 			(matchesKey(keyData, "backspace") && this.#searchInput.getValue().length === 0)
+@@ -1332,6 +1370,11 @@
+ export interface SessionSelectorOptions<T extends SessionSelectorEntry = SessionSelectorEntry> {
+ 	onDelete?: (session: T) => Promise<boolean>;
+ 	historyMatcher?: SessionHistoryMatcher;
++	/**
++	 * Loads a session transcript for the space-key preview. Omitted by pickers
++	 * with no transcript source; the preview key is then inert.
++	 */
++	loadPreviewMessages?: SessionPreviewLoader;
+ 	/** Loads sessions across all projects for the all-projects scope toggle (Tab). */
+ 	loadAllSessions?: () => Promise<T[]>;
+ 	/** Preloaded all-projects list; cached so the first Tab toggle is instant. */
+@@ -1378,9 +1421,11 @@
+ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSelectorEntry> extends OverlayPanel {
+ 	#sessionList: SessionList<T>;
+ 	#confirmationDialog: HookSelectorComponent | null = null;
+-	// Hosts whichever of `#sessionList` / `#confirmationDialog` is live this
+-	// frame. The delete dialog REPLACES the list in this slot rather than being
+-	// appended below the picker chrome, so the picker is always
++	#previewView: SessionPreviewView | null = null;
++	readonly #loadPreviewMessages?: SessionPreviewLoader;
++	// Hosts whichever of the list, delete dialog or history preview is live.
++	// Overlays REPLACE the list rather than being appended below the chrome,
++	// so the picker is always
+ 	// `chrome + max(list, dialog) + chrome` and never overflows the viewport
+ 	// (issue #3283: an overflowing dialog frame committed the header into
+ 	// scrollback, stranding it above the viewport once the dialog closed).
+@@ -1456,6 +1501,7 @@
+ 
+ 		this.#messageContainer = new Container();
+ 		this.#onDelete = options.onDelete;
++		this.#loadPreviewMessages = options.loadPreviewMessages;
+ 		this.#loadAllSessions = options.loadAllSessions;
+ 		this.#folderSessions = sessions;
+ 		// Storage directory, not recorded cwd: one folder's sessions may record
+@@ -1488,15 +1534,15 @@
+ 		// Every exit path cancels the list's pending history merge, so a stale
+ 		// debounce timer can never run its SQLite lookup after the picker closed.
+ 		this.#sessionList.onSelect = session => {
+-			this.#sessionList.dispose();
++			this.#prepareExit();
+ 			onSelect(session);
+ 		};
+ 		this.#sessionList.onCancel = () => {
+-			this.#sessionList.dispose();
++			this.#prepareExit();
+ 			onCancel();
+ 		};
+ 		this.#sessionList.onExit = () => {
+-			this.#sessionList.dispose();
++			this.#prepareExit();
+ 			onExit();
+ 		};
+ 		this.#sessionList.onRequestRender = () => this.#onRequestRender?.();
+@@ -1505,6 +1551,11 @@
+ 				this.#showDeleteConfirmation(session);
+ 			};
+ 		}
++		if (this.#loadPreviewMessages) {
++			this.#sessionList.onPreviewRequest = (session: T) => {
++				this.#showPreview(session);
++			};
++		}
+ 		if (this.#loadAllSessions || this.#globalSessions) {
+ 			this.#sessionList.onToggleScope = () => {
+ 				void this.#toggleScope();
+@@ -1572,17 +1623,60 @@
+ 		this.#inputLocked = false;
+ 	}
+ 
++	/** Stop preview work on every exit, without destroying a picker the host may unlock after a failed resume. */
++	#prepareExit(): void {
++		this.#closePreview();
++		clearTimeout(this.#previewTimer);
++		this.#previewTimer = undefined;
++		this.#sessionList.dispose();
++	}
++
+ 	/**
+ 	 * Dispose the session list explicitly: while the delete-confirmation dialog
+ 	 * is mounted the list is detached from the child tree, so Container's
+ 	 * child-walking dispose would miss its pending history-merge timer.
+ 	 */
+ 	override dispose(): void {
++		this.#inputLocked = true;
++		this.#previewView?.dispose();
+ 		this.#sessionList.dispose();
+ 		clearTimeout(this.#previewTimer);
+ 		super.dispose();
+ 	}
+ 
++	#showPreview(session: T): void {
++		if (this.#confirmationDialog || this.#previewView) return;
++		const loadMessages = this.#loadPreviewMessages;
++		if (!loadMessages) return;
++		this.#clearError();
++		this.#previewView = new SessionPreviewView(
++			session,
++			loadMessages,
++			() => this.#closePreview(),
++			() => {
++				this.#sessionList.onSelect?.(session);
++			},
++			() => {
++				this.#sessionList.onExit();
++			},
++			// Top border + leading spacer + four footer rows belong to the panel.
++			() => Math.max(0, this.#getTerminalRows() - 6),
++		);
++		this.#previewView.onRequestRender = () => this.#onRequestRender?.();
++		this.#contentSlot.clear();
++		this.#contentSlot.addChild(this.#previewView);
++		this.#onRequestRender?.();
++	}
++
++	#closePreview(): void {
++		if (!this.#previewView) return;
++		this.#previewView.dispose();
++		this.#previewView = null;
++		this.#contentSlot.clear();
++		this.#contentSlot.addChild(this.#sessionList);
++		this.#onRequestRender?.();
++	}
++
+ 	#clearError(): void {
+ 		this.#messageContainer.clear();
+ 		this.#message = undefined;
+@@ -1665,10 +1759,12 @@
+ 			for (const line of childLines) lines.push(row(line, width));
+ 		}
+ 		const footer = this.#footerLines(width);
+-		if (this.#fillHeight) {
+-			const target = Math.max(0, this.#getTerminalRows() - footer.length);
++		if (this.#fillHeight || this.#previewView) {
++			const rows = Math.max(0, this.#getTerminalRows());
++			if (footer.length > rows) footer.splice(0, footer.length - rows);
++			const target = Math.max(0, rows - footer.length);
+ 			if (lines.length > target) lines.length = target;
+-			else for (let i = lines.length; i < target; i++) lines.push(row("", width));
++			else if (this.#fillHeight) for (let i = lines.length; i < target; i++) lines.push(row("", width));
+ 		}
+ 		this.#footerStart = lines.length;
+ 		for (const line of footer) lines.push(line);
+@@ -1677,12 +1773,17 @@
+ 
+ 	/** Blank · keybinding hint · bottom border. Rendered by {@link render}. */
+ 	#footerLines(width: number): string[] {
++		if (this.#previewView) {
++			const hint = theme.fg("muted", "[↑/↓/PgUp/PgDn/Home/End scroll · Enter resume · Esc/Space close]");
++			return [row("", width), row(hint, width), row("", width), bottomBorder(width)];
++		}
+ 		const scopeHint = this.#scope === "all" ? "current folder" : "all projects";
+ 		// Keys mirror SessionList#handleInput; cancel is `app.interrupt` (raw Escape when unbound).
+ 		const cancel = interruptKey();
++		const previewHint = this.#loadPreviewMessages ? `${formatKeyHint("space")} preview · ` : "";
+ 		const hint = theme.fg(
+ 			"muted",
+-			`[${this.#onDelete ? `${formatKeyHints(["delete", "backspace"])} delete · ` : ""}${formatKeyHint("enter")} select · ${formatKeyHint("tab")} ${scopeHint} · ${cancel} cancel]`,
++			`[${this.#onDelete ? `${formatKeyHints(["delete", "backspace"])} delete · ` : ""}${previewHint}${formatKeyHint("enter")} select · ${formatKeyHint("tab")} ${scopeHint} · ${cancel} cancel]`,
+ 		);
+ 		return [row("", width), row(hint, width), row("", width), bottomBorder(width)];
+ 	}
+@@ -1704,6 +1805,7 @@
+ 	 * path — and the key-hint footer.
+ 	 */
+ 	override describe(cx: DescribeContext): NativeNode {
++		if (this.#previewView) return this.#previewView.describe(cx);
+ 		if (cx.supports("picker")) return this.#describePicker();
+ 		const list = this.#sessionList.describeList();
+ 		const memo = this.#nativeMemo;
+@@ -1732,6 +1834,7 @@
+ 		}
+ 		const hints: (NativeHint | undefined)[] = [];
+ 		if (this.#onDelete) hints.push({ keys: ["delete", "backspace"], label: "delete" });
++		if (this.#loadPreviewMessages) hints.push({ keys: ["space"], label: "preview" });
+ 		hints.push({ keys: ["enter"], label: "select" });
+ 		if (this.#sessionList.onToggleScope) {
+ 			hints.push({ keys: ["tab"], label: this.#scope === "all" ? "current folder" : "all projects" });
+@@ -1780,6 +1883,9 @@
+ 		const loading = message?.kind === "loading";
+ 		const toggle = list.onToggleScope !== undefined;
+ 		const actions = [pickerAction("resume", this.#actionLabel, "enter", { primary: true })];
++		if (this.#loadPreviewMessages && view.query.length === 0) {
++			actions.push(pickerAction("preview", "Preview", "space"));
++		}
+ 		if (this.#onDelete) actions.push(pickerAction("delete", "Delete", "backspace"));
+ 		if (toggle) {
+ 			actions.push(pickerAction("scope", this.#scope === "all" ? "This folder" : "All projects", "tab"));
+@@ -1887,6 +1993,7 @@
+ 			else list.onCancel?.();
+ 		} else if (choice) return;
+ 		else if (ev.act === "resume") list.resumeSelected();
++		else if (ev.act === "preview") list.handleInput(" ");
+ 		else if (ev.act === "delete") list.requestDelete();
+ 		else if (ev.act === "scope") {
+ 			list.onToggleScope?.();
+@@ -1896,6 +2003,10 @@
+ 	/** Picker events (root keypath); fallback: scope tab → toggle scope, click on a session → resume it, exactly like a mouse click. */
+ 	handleNativeEvent(event: NativeUiEvent): void {
+ 		if (this.#inputLocked) return;
++		if (this.#previewView) {
++			this.#previewView.handleNativeEvent(event);
++			return;
++		}
+ 		const ev = pickerEvent(event);
+ 		if (ev) {
+ 			this.#pickerErrorOpen = false;
+@@ -1919,6 +2030,8 @@
+ 		}
+ 		if (this.#confirmationDialog) {
+ 			this.#confirmationDialog.handleInput(keyData);
++		} else if (this.#previewView) {
++			this.#previewView.handleInput(keyData);
+ 		} else {
+ 			this.#sessionList.handleInput(keyData);
+ 		}
+@@ -1932,6 +2045,10 @@
+ 	 */
+ 	#handleMouse(data: string): void {
+ 		if (this.#confirmationDialog) return;
++		if (this.#previewView) {
++			this.#previewView.handleMouse(data, this.#listLineOffset);
++			return;
++		}
+ 		routeSgrMouseInput(data, event => {
+ 			if (event.wheel !== null) {
+ 				this.#sessionList.handleWheel(event.wheel);
+@@ -1948,3 +2065,289 @@
+ 		return this.#sessionList;
+ 	}
+ }
++
++const ANSI_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
++
++function cleanContentText(s: string): string[] {
++	const stripped = s.replace(ANSI_REGEX, "");
++	const noControls = stripped.replace(/\r/g, "").replace(/[\x00-\x08\x0B-\x1F\x7F]/g, "");
++	return replaceTabs(noControls).split("\n").map(l => l.trimEnd());
++}
++
++function extractConversationText(m: AgentMessage): string[] {
++	if (m.role !== "user" && m.role !== "assistant") return [];
++	const raw = "content" in m ? m.content : undefined;
++	if (typeof raw === "string") {
++		return cleanContentText(raw);
++	}
++	if (Array.isArray(raw)) {
++		const hasToolCall = raw.some(b => b && typeof b === "object" && "type" in b && b.type === "toolCall");
++		const lines: string[] = [];
++		for (const block of raw) {
++			if (
++				block &&
++				typeof block === "object" &&
++				"type" in block &&
++				block.type === "text" &&
++				typeof block.text === "string"
++			) {
++				const blockLines = cleanContentText(block.text);
++				if (hasToolCall) {
++					const nonEmpty = blockLines.filter(l => l.trim().length > 0);
++					if (nonEmpty.length === 0 || (nonEmpty.length === 1 && /^```\w*$/.test(nonEmpty[0]!.trim()))) {
++						continue;
++					}
++				}
++				lines.push(...blockLines);
++			}
++		}
++		return lines;
++	}
++	return [];
++}
++
++class SessionPreviewView implements Component {
++	readonly #session: SessionSelectorEntry;
++	readonly #loadMessages: SessionPreviewLoader;
++	readonly #onClose: () => void;
++	readonly #onSelect: () => void;
++	readonly #onExit: () => void;
++	readonly #getContentRows: () => number;
++	readonly #scrollView: ScrollView;
++	onRequestRender?: () => void;
++	#lines: string[] = [];
++	#generation = 0;
++	#disposed = false;
++	#lastRenderWidth = 80;
++	#lastHeaderRows = 3;
++	#lastScrollViewHeight = 10;
++	#isDraggingScrollbar = false;
++	#scroll: NativeScroll | undefined;
++	#native: { body: NativeNode; scroll: NativeScroll | undefined; node: NativeNode } | undefined;
++
++	constructor(
++		session: SessionSelectorEntry,
++		loadMessages: SessionPreviewLoader,
++		onClose: () => void,
++		onSelect: () => void,
++		onExit: () => void,
++		getContentRows: () => number,
++	) {
++		this.#session = session;
++		this.#loadMessages = loadMessages;
++		this.#onClose = onClose;
++		this.#onSelect = onSelect;
++		this.#onExit = onExit;
++		this.#getContentRows = getContentRows;
++		this.#lines = [theme.fg("muted", "Loading session history…")];
++		this.#scrollView = new ScrollView(this.#lines, {
++			height: 0,
++			scrollbar: "auto",
++			theme: { track: t => theme.fg("dim", t), thumb: t => theme.fg("accent", t) },
++		});
++		void this.#loadHistory();
++	}
++
++	async #loadHistory(): Promise<void> {
++		const gen = ++this.#generation;
++		try {
++			const messages = await this.#loadMessages(this.#session.path);
++			if (this.#disposed || gen !== this.#generation) return;
++			this.#formatMessages(messages);
++		} catch (err) {
++			if (this.#disposed || gen !== this.#generation) return;
++			this.#lines = [
++				theme.fg("error", `Failed to load preview: ${err instanceof Error ? err.message : String(err)}`),
++			];
++			this.#scrollView.setLines(this.#lines);
++			this.onRequestRender?.();
++		}
++	}
++
++	#formatMessages(messages: readonly AgentMessage[]): void {
++		const lines: string[] = [];
++		const turns: Array<{ role: "user" | "assistant"; textLines: string[] }> = [];
++		for (const m of messages) {
++			if (m.role === "user" || m.role === "assistant") {
++				const textLines = extractConversationText(m);
++				if (textLines.some(l => l.trim().length > 0)) {
++					turns.push({ role: m.role, textLines });
++				}
++			}
++		}
++
++		if (turns.length === 0) {
++			lines.push(theme.fg("muted", "(No conversation messages found in session)"));
++		} else if (turns.length <= 15) {
++			for (const turn of turns) {
++				this.#appendTurnBlock(lines, turn);
++			}
++		} else {
++			for (let i = 0; i < 2; i++) {
++				this.#appendTurnBlock(lines, turns[i]!);
++			}
++			lines.push("");
++			lines.push(theme.fg("dim", `--- … (${turns.length - 12} conversation turns omitted) … ---`));
++			lines.push("");
++			for (let i = turns.length - 10; i < turns.length; i++) {
++				this.#appendTurnBlock(lines, turns[i]!);
++			}
++		}
++		this.#lines = lines;
++		this.#scrollView.setLines(this.#lines);
++		this.onRequestRender?.();
++	}
++
++	#appendTurnBlock(lines: string[], turn: { role: "user" | "assistant"; textLines: string[] }): void {
++		const roleLabel =
++			turn.role === "user" ? theme.fg("accent", theme.bold("User")) : theme.fg("success", theme.bold("Assistant"));
++		lines.push(`[${roleLabel}]`);
++		const maxLines = 20;
++		for (let i = 0; i < Math.min(turn.textLines.length, maxLines); i++) {
++			lines.push(`  ${turn.textLines[i]}`);
++		}
++		if (turn.textLines.length > maxLines) {
++			lines.push(`  ${theme.fg("dim", `… (${turn.textLines.length - maxLines} more lines)`)}`);
++		}
++		lines.push("");
++	}
++
++	dispose(): void {
++		if (this.#disposed) return;
++		this.#disposed = true;
++		this.#generation++;
++		this.#scrollView.dispose();
++		this.#lines = [];
++		this.#native = undefined;
++		this.onRequestRender = undefined;
++	}
++
++	invalidate(): void {
++		this.#scrollView.invalidate();
++		this.#native = undefined;
++	}
++
++	handleInput(keyData: string): void {
++		if (this.#disposed) return;
++		if (matchesKey(keyData, "ctrl+c")) {
++			this.#onExit();
++			return;
++		}
++		if (matchesKey(keyData, "enter") || matchesKey(keyData, "return") || keyData === "\n") {
++			this.#onSelect();
++			return;
++		}
++		if (matchesKey(keyData, "escape") || matchesKey(keyData, "space") || keyData === " ") {
++			this.#onClose();
++			return;
++		}
++		if (!this.#scrollView.handleScrollKey(keyData)) return;
++		const by: TspScrollBy | undefined = matchesKey(keyData, "up")
++			? "line-up"
++			: matchesKey(keyData, "down")
++				? "line-down"
++				: matchesKey(keyData, "pageUp")
++					? "page-up"
++					: matchesKey(keyData, "pageDown")
++						? "page-down"
++						: matchesKey(keyData, "home")
++							? "start"
++							: matchesKey(keyData, "end")
++								? "end"
++								: undefined;
++		if (by) this.#scroll = { by, n: (this.#scroll?.n ?? 0) + 1 };
++		this.onRequestRender?.();
++	}
++
++	handleWheel(delta: -1 | 1): void {
++		this.#scrollView.scroll(delta * 2);
++		this.onRequestRender?.();
++	}
++
++	handleMouse(data: string, listLineOffset: number): void {
++		routeSgrMouseInput(data, event => {
++			if (event.wheel !== null) {
++				this.handleWheel(event.wheel);
++				return true;
++			}
++
++			const scrollStartRow = listLineOffset + this.#lastHeaderRows;
++			const scrollEndRow = scrollStartRow + this.#lastScrollViewHeight;
++			const isNearRightEdge = event.col >= Math.max(0, this.#lastRenderWidth - 4);
++
++			if (event.leftClick) {
++				if (isNearRightEdge && event.row >= scrollStartRow && event.row < scrollEndRow) {
++					this.#isDraggingScrollbar = true;
++					this.#scrollToRow(event.row - scrollStartRow);
++					return true;
++				}
++			} else if (event.release) {
++				this.#isDraggingScrollbar = false;
++			} else if (event.motion && this.#isDraggingScrollbar) {
++				this.#scrollToRow(event.row - scrollStartRow);
++				return true;
++			}
++			return true;
++		});
++	}
++
++	#scrollToRow(localRow: number): void {
++		if (this.#lastScrollViewHeight <= 1) return;
++		const ratio = Math.max(0, Math.min(1, localRow / (this.#lastScrollViewHeight - 1)));
++		const targetOffset = Math.round(ratio * this.#scrollView.getMaxScrollOffset());
++		this.#scrollView.setScrollOffset(targetOffset);
++		this.onRequestRender?.();
++	}
++
++	describe(cx: DescribeContext): NativeNode {
++		if (this.#disposed) return col([], { hidden: true });
++		this.#scrollView.setHeight(Math.max(0, this.#getContentRows() - 3));
++		const body = this.#scrollView.describe(cx);
++		const memo = this.#native;
++		if (memo?.body === body && memo.scroll === this.#scroll) return memo.node;
++		const result = overlayCard("omp.overlay.sessions", sessionLabel(this.#session), [
++			text([span(`${this.#session.id.slice(0, 8)} · ${shortenPath(this.#session.cwd)}`, "dim")]),
++			{ ...body, key: "history", scroll: this.#scroll },
++			hintsRow([
++				{ keys: ["up", "down", "pageUp", "pageDown", "home", "end"], label: "scroll" },
++				{ keys: ["space"], label: "close" },
++			]),
++			actionBar([
++				actionButton("Resume", "resume", { keys: "enter", tone: "accent" }),
++				null,
++				actionButton("Close preview", "close", { keys: "escape" }),
++			]),
++		]);
++		this.#native = { body, scroll: this.#scroll, node: result };
++		return result;
++	}
++
++	handleNativeEvent(event: NativeUiEvent): void {
++		if (this.#disposed || event.type !== "action") return;
++		if (event.act === "resume") this.#onSelect();
++		else if (event.act === "close") this.#onClose();
++	}
++
++	render(width: number): readonly string[] {
++		if (this.#disposed) return [];
++		this.#lastRenderWidth = width;
++		const lines: string[] = [];
++		const title = this.#session.title || "(Untitled Session)";
++		lines.push(theme.bold(theme.fg("accent", truncateToWidth(title, width))));
++		const status = formatSessionStatus(this.#session.status);
++		const statusStr = status ? ` · ${status}` : "";
++		const modelStr = this.#session.lastModel ? ` · ${shortenModelName(this.#session.lastModel)}` : "";
++		const meta = `${this.#session.id.slice(0, 8)} · ${shortenPath(this.#session.cwd || "")} · ${formatBytes(this.#session.size)}${modelStr}${statusStr}`;
++		lines.push(theme.fg("dim", truncateToWidth(meta, width)));
++		lines.push(theme.fg("dim", "─".repeat(width)));
++		this.#lastHeaderRows = lines.length;
++
++		const contentRows = this.#getContentRows();
++		if (lines.length > contentRows) lines.length = contentRows;
++		const availableHeight = Math.max(0, contentRows - lines.length);
++		this.#lastScrollViewHeight = availableHeight;
++		this.#scrollView.setHeight(availableHeight);
++		lines.push(...this.#scrollView.render(width));
++		return lines;
++	}
++}

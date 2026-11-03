@@ -1,0 +1,206 @@
+--- a/dist/types/types.d.ts
++++ b/dist/types/types.d.ts
+@@ -20,8 +20,10 @@
+ import type { GoogleGeminiCliOptions } from "./providers/google-gemini-cli.js";
+ import type { GoogleVertexOptions } from "./providers/google-vertex.js";
+ import type { OllamaChatOptions } from "./providers/ollama.js";
++import type { ReasoningConfig } from "./providers/openai-codex/request-transformer.js";
+ import type { OpenAICodexResponsesOptions } from "./providers/openai-codex-responses.js";
+ import type { OpenAICompletionsOptions } from "./providers/openai-completions.js";
++import type { OpenAIEffortControlState } from "./providers/openai-configuration-update.js";
+ import type { OpenAIResponsesOptions } from "./providers/openai-responses.js";
+ import type { kStreamingPartialJson } from "./utils/block-symbols.js";
+ import type { AssistantMessageEventStream } from "./utils/event-stream.js";
+@@ -840,6 +842,8 @@
+     provider?: string;
+     dt?: boolean;
+     items: Array<Record<string, unknown>>;
++    /** Durable request baseline and historical effort changes; never sent as history items. */
++    effortControl?: OpenAIEffortControlState<ReasoningConfig["effort"]>;
+ }
+ /** Anthropic `output_config.effort` level. */
+ export type AnthropicOutputEffort = "low" | "medium" | "high" | "xhigh" | "max";
+--- a/src/providers/openai-codex-responses.ts
++++ b/src/providers/openai-codex-responses.ts
+@@ -103,6 +103,7 @@
+ export { setCodexAttestationProvider } from "./openai-codex-attestation";
+ export type { CodexAttestationProvider } from "./openai-codex-attestation";
+ import {
++	createOpenAIEffortControlState,
+ 	type OpenAIEffortControlState,
+ 	planStableOpenAIEffort,
+ 	releaseOpenAIEffortControlSession,
+@@ -476,7 +477,6 @@
+ 	webSocketSessions: Map<string, CodexWebSocketSessionState>;
+ 	webSocketPublicToPrivate: Map<string, string>;
+ 	metadataSessions: Map<string, CodexMetadataSessionState>;
+-	/** `configuration_update` effort baselines, keyed by model + session. */
+ 	effortControls: Map<string, OpenAIEffortControlState<ReasoningConfig["effort"]>>;
+ }
+ 
+@@ -773,6 +773,7 @@
+ 	responsesLite: boolean;
+ 	requestMetadata?: CodexRequestMetadata;
+ 	transformedBody: RequestBody;
++	effortControl?: OpenAIEffortControlState<ReasoningConfig["effort"]>;
+ 	rawRequestDump: RawHttpRequestDump;
+ }
+ 
+@@ -1092,9 +1093,7 @@
+ 		"webSocketPublicToPrivate" in state &&
+ 		state.webSocketPublicToPrivate instanceof Map &&
+ 		"metadataSessions" in state &&
+-		state.metadataSessions instanceof Map &&
+-		"effortControls" in state &&
+-		state.effortControls instanceof Map
++		state.metadataSessions instanceof Map
+ 	);
+ }
+ 
+@@ -1546,12 +1545,14 @@
+ 	options: OpenAICodexResponsesOptions | undefined,
+ ): Promise<CodexRequestContext> {
+ 	const promptCacheKey = getOpenAIPromptCacheKey(options);
+-	const transformedBody = await buildTransformedCodexRequestBody(model, context, options, promptCacheKey);
+-	return createCodexRequestContext(model, transformedBody, options, {
++	const { body, effortControl } = await buildCodexRequestBody(model, context, options, promptCacheKey);
++	const requestContext = createCodexRequestContext(model, body, options, {
+ 		isolateCompactionTransport: true,
+ 		startNewTurn: options?.codexCompaction ? undefined : !isCodexWithinTurnContinuation(context),
+ 		turnStartedAtUnixMs: options?.codexCompaction ? undefined : getCodexTurnStartedAtUnixMs(context),
+ 	});
++	requestContext.effortControl = effortControl;
++	return requestContext;
+ }
+ 
+ /**
+@@ -1578,6 +1579,16 @@
+ 	promptCacheKey = getOpenAIPromptCacheKey(options),
+ 	inputPrefix?: InputItem[],
+ ): Promise<RequestBody> {
++	return (await buildCodexRequestBody(model, context, options, promptCacheKey, inputPrefix)).body;
++}
++
++async function buildCodexRequestBody(
++	model: Model<"openai-codex-responses">,
++	context: Context,
++	options: OpenAICodexResponsesOptions | undefined,
++	promptCacheKey: string | undefined,
++	inputPrefix?: InputItem[],
++): Promise<{ body: RequestBody; effortControl?: OpenAIEffortControlState<ReasoningConfig["effort"]> }> {
+ 	const input = convertMessages(model, context);
+ 	const params: RequestBody = {
+ 		model: model.requestModelId ?? model.id,
+@@ -1623,38 +1634,66 @@
+ 	};
+ 
+ 	const body = await transformRequestBody(params, model, codexOptions, { developerMessages });
+-	applyCodexStableEffort(model, body, options);
+-	return body;
++	const effortControl = applyCodexStableEffort(model, context, body, options);
++	return { body, effortControl };
+ }
+ 
+ /**
+  * Keep the request-level effort byte-stable across a conversation and carry
+- * later changes as `configuration_update` items (GPT-6 family). Requires a
+- * session id and provider session state to remember the baseline; without
+- * them every request stands alone and sends its own effort.
++ * later changes as `configuration_update` items (GPT-6 family). Restore the
++ * current branch's latest successful snapshot, including after a process restart.
++ * Side requests copy their parent's live state without changing its baseline.
+  */
+ function applyCodexStableEffort(
+ 	model: Model<"openai-codex-responses">,
++	context: Context,
+ 	body: RequestBody,
+ 	options: OpenAICodexResponsesOptions | undefined,
+-): void {
++): OpenAIEffortControlState<ReasoningConfig["effort"]> | undefined {
+ 	if (!model.compat.supportsConfigurationUpdate || options?.codexCompaction) return;
+ 	const effort = body.reasoning?.effort;
+ 	if (effort === undefined || effort === "none" || !body.input) return;
+-	const providerState = getCodexProviderSessionState(options?.providerSessionState);
+ 	const sessionId = normalizeOpenAIPromptCacheKey(options?.sessionId);
+-	if (!providerState || !sessionId) return;
+-	const state = resolveOpenAIEffortControlState(
+-		providerState.effortControls,
+-		id => `${model.id}\u0000${id}`,
+-		sessionId,
+-		normalizeOpenAIPromptCacheKey(options?.parentSessionId),
+-	);
++	if (!sessionId) return;
++	const providerState = getCodexProviderSessionState(options?.providerSessionState);
++	const parentSessionId = normalizeOpenAIPromptCacheKey(options?.parentSessionId);
++	const keyOf = (id: string) => `${model.id}\u0000${id}`;
++	const hasParentState =
++		parentSessionId !== undefined &&
++		parentSessionId !== sessionId &&
++		providerState?.effortControls.has(keyOf(parentSessionId));
++	const state = providerState
++		? resolveOpenAIEffortControlState(providerState.effortControls, keyOf, sessionId, parentSessionId)
++		: createOpenAIEffortControlState<ReasoningConfig["effort"]>(sessionId);
++	if (!hasParentState) {
++		let persisted: OpenAIEffortControlState<ReasoningConfig["effort"]> | undefined;
++		for (let index = context.messages.length - 1; index >= 0; index--) {
++			const message = context.messages[index];
++			if (
++				message.role !== "assistant" ||
++				message.api !== model.api ||
++				message.model !== model.id ||
++				message.provider !== model.provider ||
++				message.stopReason === "error" ||
++				message.stopReason === "aborted"
++			)
++				continue;
++			const payload = getOpenAIResponsesHistoryPayload(message.providerPayload, model.provider, message.provider);
++			persisted = payload?.effortControl;
++			// A legacy latest response starts fresh; never revive an older snapshot.
++			break;
++		}
++		state.baseEffort = persisted?.baseEffort;
++		state.currentEffort = persisted?.currentEffort;
++		// Only the planner's private transitions may be mutated, never durable history.
++		state.transitions = persisted ? structuredCloneJSON(persisted.transitions) : [];
++	}
+ 	const lowest = options?.minimizeEffort ? lowestCodexWireEffort(model) : undefined;
+ 	body.reasoning = {
+ 		...body.reasoning,
+ 		effort: planStableOpenAIEffort(state, body.input, effort, lowest === "none" ? undefined : lowest),
+ 	};
++	return state;
+ }
+ 
+ async function openInitialCodexEventStream(
+@@ -3273,6 +3312,9 @@
+ 			this.model.provider,
+ 			this.runtime.finalizeNativeOutputItems(),
+ 		);
++		if (this.requestContext.effortControl) {
++			output.providerPayload.effortControl = structuredCloneJSON(this.requestContext.effortControl);
++		}
+ 		output.duration = performance.now() - this.startTime;
+ 		if (completion.firstTokenTime) {
+ 			output.ttft = completion.firstTokenTime - this.startTime;
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -51,8 +51,10 @@
+ import type { GoogleGeminiCliOptions } from "./providers/google-gemini-cli";
+ import type { GoogleVertexOptions } from "./providers/google-vertex";
+ import type { OllamaChatOptions } from "./providers/ollama";
++import type { ReasoningConfig } from "./providers/openai-codex/request-transformer";
+ import type { OpenAICodexResponsesOptions } from "./providers/openai-codex-responses";
+ import type { OpenAICompletionsOptions } from "./providers/openai-completions";
++import type { OpenAIEffortControlState } from "./providers/openai-configuration-update";
+ import type { OpenAIResponsesOptions } from "./providers/openai-responses";
+ import type { kStreamingPartialJson } from "./utils/block-symbols";
+ import type { AssistantMessageEventStream } from "./utils/event-stream";
+@@ -1070,6 +1072,8 @@
+ 	provider?: string;
+ 	dt?: boolean;
+ 	items: Array<Record<string, unknown>>;
++	/** Durable request baseline and historical effort changes; never sent as history items. */
++	effortControl?: OpenAIEffortControlState<ReasoningConfig["effort"]>;
+ }
+ 
+ /** Anthropic `output_config.effort` level. */

@@ -1,0 +1,47 @@
+--- a/src/task/executor.ts
++++ b/src/task/executor.ts
+@@ -78,7 +78,7 @@
+ import { ASYNC_RESULT_MESSAGE_TYPE } from "../session/async-job-delivery";
+ import type { AuthStorage } from "../session/auth-storage";
+ import { SKILL_PROMPT_MESSAGE_TYPE } from "../session/messages";
+-import { hasConversationalHistory, SessionManager } from "../session/session-manager";
++import { extractSessionInit, hasConversationalHistory, SessionManager } from "../session/session-manager";
+ import { truncateTail } from "@oh-my-pi/pi-tui/tools/streaming-output";
+ import {
+ 	type ConfiguredThinkingLevel,
+@@ -4083,6 +4083,10 @@
+ 			reopened.adoptArtifactManager(capture.parentArtifactManager);
+ 		}
+ 		await refreshSubagentIrcRoot(capture.spec.prompt, reopened, capture.sessionFile);
++		// Reuse the persisted prompt bytes verbatim, as cold revival does. Re-rendering would
++		// refresh the IRC peer roster, break the provider prefix cache after every revival and
++		// append a second session_init. A transcript without session_init keeps the render path.
++		const init = extractSessionInit(reopened.getEntries());
+ 		const mcpManager = capture.spec.options.mcpManager;
+ 		const mcpFollower = mcpManager ? followMCPTools(mcpManager, explicitSubagentToolNames(capture.spec)) : undefined;
+ 		let revived: AgentSession;
+@@ -4099,6 +4103,7 @@
+ 						reopened,
+ 						expectedAgentRef,
+ 					),
++					...(init && init.systemPrompt.length > 0 ? { systemPrompt: () => [...init.systemPrompt] } : undefined),
+ 					oauthAccountPools: Object.hasOwn(agentAccountPools, capture.agentName)
+ 						? agentAccountPools[capture.agentName]
+ 						: undefined,
+@@ -4110,6 +4115,8 @@
+ 			mcpFollower?.bind(revived);
+ 			trackSubagentSettings(revived, capture);
+ 			trackSubagentIrcRoster(revived, capture.spec.prompt);
++			// Pooled yield items are part of the persisted provider tool schema.
++			if (init?.workPoolYieldItems) await revived.setWorkPoolYieldItems(init.workPoolYieldItems);
+ 			const withoutParentOwnedTools = (toolNames: string[]): string[] =>
+ 				capture.keepTodo ? toolNames : toolNames.filter(name => name !== "todo");
+ 			// Strip what the spawn stripped, before extensions start: the rebuilt session enables its defaults again.
+@@ -4129,6 +4136,7 @@
+ 		} finally {
+ 			capture.spec.prompt.reviving = false;
+ 		}
++
+ 		AgentRegistry.global().syncSessionStatus(id, revived);
+ 		attachIrcWakeTurnMonitor(revived, capture.wake);
+ 		return revived;

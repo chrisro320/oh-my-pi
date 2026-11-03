@@ -1,0 +1,26 @@
+--- a/src/session/retry-fallback-chains.ts
++++ b/src/session/retry-fallback-chains.ts
+@@ -81,14 +81,16 @@
+ 	contextWindow?: number | null;
+ }
+ 
+-const RETRY_BACKOFF_MAX_DELAY_MS = 8_000;
+-const RETRY_BACKOFF_JITTER_RATIO = 0.25;
++/**
++ * Fixed slow retry pacing. Short exponential backoff (0.5 s doubling to 8 s)
++ * exhausts the budget inside a multi-second network/proxy outage; these steps
++ * cover about a minute. Attempts past the end reuse the last step.
++ */
++const RETRY_DELAY_SCHEDULE_MS = [3_000, 3_000, 5_000, 5_000, 10_000, 10_000, 15_000, 15_000];
+ 
+-/** Calculates capped exponential retry delay with downward jitter. */
+-export function calculateRetryBackoffDelayMs(baseDelayMs: number, attempt: number): number {
+-	const cappedDelayMs = Math.min(Math.max(0, baseDelayMs) * 2 ** Math.max(0, attempt - 1), RETRY_BACKOFF_MAX_DELAY_MS);
+-	const jitter = 1 - Math.random() * RETRY_BACKOFF_JITTER_RATIO;
+-	return cappedDelayMs * jitter;
++/** Retry delay for a 1-based attempt; `retry.baseDelayMs` no longer applies. */
++export function calculateRetryBackoffDelayMs(_baseDelayMs: number, attempt: number): number {
++	return RETRY_DELAY_SCHEDULE_MS[Math.min(Math.max(1, attempt), RETRY_DELAY_SCHEDULE_MS.length) - 1];
+ }
+ 
+ /** Parses a configured retry fallback selector. */

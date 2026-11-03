@@ -1,0 +1,925 @@
+--- a/dist/types/extensibility/extensions/types.d.ts
++++ b/dist/types/extensibility/extensions/types.d.ts
+@@ -313,6 +313,18 @@
+ }
+ /** Runtime host mode exposed to Pi-compatible extensions. */
+ export type ExtensionMode = "tui" | "rpc" | "json" | "print";
++/** Input for a cache-preserving side-channel turn that must begin while the session is idle. */
++export interface IdleEphemeralTurnOptions {
++    promptText: string;
++    signal?: AbortSignal;
++}
++
++/** Completed side-channel response; provider usage remains available on `assistantMessage`. */
++export interface IdleEphemeralTurnResult {
++    replyText: string;
++    assistantMessage: AssistantMessage;
++}
++
+ /**
+  * The agent a session runs. Extension factories are rebound to every subagent session
+  * (task tool, eval `agent()`, `/tan` clones), so this tells a handler which agent it is serving.
+@@ -541,6 +553,13 @@
+     isProjectTrusted(): boolean;
+     /** Get the current effective system prompt. */
+     getSystemPrompt(): string[];
++    /**
++     * Run one ephemeral turn only if this session is still idle, not compacting
++     * or navigating the session tree, and has no queued messages. Returns
++     * undefined when the final dispatch gate skips the request. The main
++     * transcript and persisted state are not changed.
++     */
++    runIdleEphemeralTurn(options: IdleEphemeralTurnOptions): Promise<IdleEphemeralTurnResult | undefined>;
+     /** Run a /btw-style side turn without appending to history or executing tool calls.
+      * Pass tools: false to omit tool definitions; existing context/provider hooks still run.
+      * Inherits event-handler and registered-tool cancellation, combined with options.signal.
+@@ -1599,6 +1618,7 @@
+     getContextUsage: () => ContextUsage | undefined;
+     compact: (instructionsOrOptions?: string | CompactOptions) => Promise<void>;
+     getSystemPrompt: () => string[];
++    runIdleEphemeralTurn: (options: IdleEphemeralTurnOptions) => Promise<IdleEphemeralTurnResult | undefined>;
+     runEphemeralTurn?: (options: EphemeralTurnOptions) => Promise<EphemeralTurnResult>;
+ }
+ /** Actions for ExtensionCommandContext (ctx.* in command handlers). */
+--- a/dist/types/session/agent-session.d.ts
++++ b/dist/types/session/agent-session.d.ts
+@@ -33,7 +33,7 @@
+ import type { LoadedCustomCommand } from "../extensibility/custom-commands/index.js";
+ import type { CustomTool } from "../extensibility/custom-tools/types.js";
+ import type { ExtensionRunner, ExtensionUIContext, PreparedExtension, ToolInfo } from "../extensibility/extensions/index.js";
+-import type { CompactOptions, ContextUsage } from "../extensibility/extensions/types.js";
++import type { CompactOptions, ContextUsage, IdleEphemeralTurnOptions, IdleEphemeralTurnResult } from "../extensibility/extensions/types.js";
+ import type { Skill, SkillWarning } from "../extensibility/skills.js";
+ import { type FileSlashCommand } from "../extensibility/slash-commands.js";
+ import { GoalRuntime } from "../goals/runtime.js";
+@@ -1280,6 +1280,8 @@
+      * rather than missing context.
+      */
+     runEphemeralTurn(args: EphemeralTurnOptions): Promise<EphemeralTurnResult>;
++    /** Returns no result after session-owned cancellation, even if the provider completes successfully. */
++    runIdleEphemeralTurn(args: IdleEphemeralTurnOptions): Promise<IdleEphemeralTurnResult | undefined>;
+     /**
+      * Reload the current session from disk.
+      *
+@@ -1407,7 +1409,8 @@
+      * follow-up turn, but is deferred to the caller so the resumed turn renders
+      * against the rebuilt UI rather than the stale pre-navigation transcript
+      * (issue #6483). The scheduled continue honors the same disposed/compacting
+-     * guards as every other post-prompt continuation.
++     * guards as every other post-prompt continuation and retains its admission
++     * history generation throughout asynchronous setup.
+      */
+     resumeAfterAskReanswer(): void;
+     /**
+--- a/src/extensibility/extensions/runner.ts
++++ b/src/extensibility/extensions/runner.ts
+@@ -524,6 +524,7 @@
+ 	#getContextUsageFn: () => ContextUsage | undefined = () => undefined;
+ 	#compactFn: (instructionsOrOptions?: string | CompactOptions) => Promise<void> = async () => {};
+ 	#getSystemPromptFn: () => string[] = () => [];
++	#runIdleEphemeralTurnFn: ExtensionContextActions["runIdleEphemeralTurn"] = async () => undefined;
+ 	#runEphemeralTurnFn?: ExtensionContextActions["runEphemeralTurn"];
+ 	#ephemeralTurnBlocker = new AsyncLocalStorage<string | undefined>();
+ 	#getAsyncJobSnapshotFn: () => AsyncJobSnapshot | null = () => null;
+@@ -844,6 +845,7 @@
+ 		this.#getContextUsageFn = contextActions.getContextUsage;
+ 		this.#compactFn = contextActions.compact;
+ 		this.#getSystemPromptFn = contextActions.getSystemPrompt;
++		this.#runIdleEphemeralTurnFn = contextActions.runIdleEphemeralTurn;
+ 		this.#runEphemeralTurnFn = contextActions.runEphemeralTurn;
+ 
+ 		// Command context actions (optional, only for interactive mode)
+@@ -1501,6 +1503,7 @@
+ 			getPendingPlanReview: () => this.#getPendingPlanReviewFn(),
+ 			openPlanReview: () => this.#openPlanReviewFn(),
+ 			getSystemPrompt: () => this.#getSystemPromptFn(),
++			runIdleEphemeralTurn: options => this.#runIdleEphemeralTurnFn(options),
+ 			runEphemeralTurn: runEphemeralTurn
+ 				? async options => {
+ 						if (this.#ephemeralTurnBlocker.getStore()) {
+--- a/src/extensibility/extensions/types.ts
++++ b/src/extensibility/extensions/types.ts
+@@ -511,6 +511,18 @@
+ /** Runtime host mode exposed to Pi-compatible extensions. */
+ export type ExtensionMode = "tui" | "rpc" | "json" | "print";
+ 
++/** Input for a cache-preserving side-channel turn that must begin while the session is idle. */
++export interface IdleEphemeralTurnOptions {
++	promptText: string;
++	signal?: AbortSignal;
++}
++
++/** Completed side-channel response; provider usage remains available on `assistantMessage`. */
++export interface IdleEphemeralTurnResult {
++	replyText: string;
++	assistantMessage: AssistantMessage;
++}
++
+ /**
+  * The agent a session runs. Extension factories are rebound to every subagent session
+  * (task tool, eval `agent()`, `/tan` clones), so this tells a handler which agent it is serving.
+@@ -740,6 +752,13 @@
+ 	isProjectTrusted(): boolean;
+ 	/** Get the current effective system prompt. */
+ 	getSystemPrompt(): string[];
++	/**
++	 * Run one ephemeral turn only if this session is still idle, not compacting
++	 * or navigating the session tree, and has no queued messages. Returns
++	 * undefined when the final dispatch gate skips the request. The main
++	 * transcript and persisted state are not changed.
++	 */
++	runIdleEphemeralTurn(options: IdleEphemeralTurnOptions): Promise<IdleEphemeralTurnResult | undefined>;
+ 
+ 	/** Run a /btw-style side turn without appending to history or executing tool calls.
+ 	 * Pass tools: false to omit tool definitions; existing context/provider hooks still run.
+@@ -2175,6 +2194,7 @@
+ 	getContextUsage: () => ContextUsage | undefined;
+ 	compact: (instructionsOrOptions?: string | CompactOptions) => Promise<void>;
+ 	getSystemPrompt: () => string[];
++	runIdleEphemeralTurn: (options: IdleEphemeralTurnOptions) => Promise<IdleEphemeralTurnResult | undefined>;
+ 	runEphemeralTurn?: (options: EphemeralTurnOptions) => Promise<EphemeralTurnResult>;
+ }
+ 
+--- a/src/modes/acp/acp-agent.ts
++++ b/src/modes/acp/acp-agent.ts
+@@ -3017,6 +3017,7 @@
+ 				getContextUsage: () => record.session.getContextUsage(),
+ 				getSystemPrompt: () => record.session.systemPrompt,
+ 				runEphemeralTurn: args => record.session.runEphemeralTurn(args),
++				runIdleEphemeralTurn: options => record.session.runIdleEphemeralTurn(options),
+ 				compact: instructionsOrOptions => runExtensionCompact(record.session, instructionsOrOptions),
+ 			},
+ 			{
+--- a/src/modes/controllers/extension-ui-controller.ts
++++ b/src/modes/controllers/extension-ui-controller.ts
+@@ -255,6 +255,7 @@
+ 			compact: instructionsOrOptions => this.#compactSession(instructionsOrOptions),
+ 			getSystemPrompt: () => this.ctx.session.systemPrompt,
+ 			runEphemeralTurn: args => this.ctx.session.runEphemeralTurn(args),
++			runIdleEphemeralTurn: options => this.ctx.session.runIdleEphemeralTurn(options),
+ 		};
+ 		const commandActions: ExtensionCommandContextActions = {
+ 			getContextUsage: () => this.ctx.session.getContextUsage(),
+@@ -486,6 +487,7 @@
+ 			compact: instructionsOrOptions => this.#compactSession(instructionsOrOptions),
+ 			getSystemPrompt: () => this.ctx.session.systemPrompt,
+ 			runEphemeralTurn: args => this.ctx.session.runEphemeralTurn(args),
++			runIdleEphemeralTurn: options => this.ctx.session.runIdleEphemeralTurn(options),
+ 		};
+ 		const commandActions: ExtensionCommandContextActions = {
+ 			getContextUsage: () => this.ctx.session.getContextUsage(),
+--- a/src/modes/runtime-init.ts
++++ b/src/modes/runtime-init.ts
+@@ -147,6 +147,7 @@
+ 			getContextUsage: () => session.getContextUsage(),
+ 			getSystemPrompt: () => session.systemPrompt,
+ 			runEphemeralTurn: args => session.runEphemeralTurn(args),
++			runIdleEphemeralTurn: options => session.runIdleEphemeralTurn(options),
+ 			compact: instructionsOrOptions => runExtensionCompact(session, instructionsOrOptions),
+ 		},
+ 		// ExtensionCommandContextActions — commands invokable via prompt("/command")
+--- a/src/session/agent-session.ts
++++ b/src/session/agent-session.ts
+@@ -163,7 +163,12 @@
+ import { extensionEventFromSessionEvent } from "../extensibility/extensions/lifecycle-mirror";
+ import { ManagedTimers } from "../extensibility/extensions/managed-timers";
+ import { createExtensionModelQuery } from "../extensibility/extensions/model-api";
+-import type { CompactOptions, ContextUsage } from "../extensibility/extensions/types";
++import type {
++	CompactOptions,
++	ContextUsage,
++	IdleEphemeralTurnOptions,
++	IdleEphemeralTurnResult,
++} from "../extensibility/extensions/types";
+ import type { CustomCommandContext } from "../extensibility/custom-commands/types";
+ import { SkillDescriptionCatalog } from "../extensibility/skill-descriptions";
+ import type { Skill, SkillWarning } from "../extensibility/skills";
+@@ -691,6 +696,7 @@
+ 
+ type ScheduledAgentContinueRequest = {
+ 	schedulerToken: number;
++	generation: number;
+ 	options: ScheduledAgentContinueOptions;
+ };
+ 
+@@ -719,6 +725,7 @@
+ 
+ type ActiveAgentContinue = {
+ 	schedulerToken: number;
++	generation: number;
+ 	turnEnded: boolean;
+ 	source: string;
+ 	coalescedSources: Set<string>;
+@@ -962,7 +969,7 @@
+ 
+ 	readonly #maintenance: SessionMaintenance;
+ 
+-	// Branch summarization state
++	// Tree-navigation state, including optional branch summarization.
+ 	#branchSummaryAbortController: AbortController | undefined = undefined;
+ 
+ 	readonly #handoff: SessionHandoff;
+@@ -1152,16 +1159,8 @@
+ 	readonly #loopGuards: LoopGuards;
+ 	#promptInFlightCount = 0;
+ 	/**
+-	 * Brackets owned by a client-submitted prompt (`#prompt`) only: claimed
+-	 * synchronously at submission, before any dispatch preprocessing await, and
+-	 * released when the dispatched turn settles. Autonomous in-flight runs —
+-	 * IRC wakes (`#wakeForIrc`), idle yield injections, scheduler continuations,
+-	 * agent-initiated turns, auto-continues, queued-hidden drains — raise
+-	 * `#promptInFlightCount` but not this, so steer admission
+-	 * (`joinActiveTurn`), the dispatch-live park, and the defer-client drain
+-	 * gate can key on real client ownership: a steer must never inject into a
+-	 * run whose output the client has no prompt turn for (its events would be
+-	 * dropped by the ACP host).
++	 * Brackets owned by a client-submitted prompt (`#prompt`) only. Autonomous
++	 * runs raise the total count but must never claim a client's ACP prompt turn.
+ 	 */
+ 	#clientPromptInFlightCount = 0;
+ 	/** Dialogs open and waiting for the user's answer; while any is, the computer turn is ended. */
+@@ -1169,6 +1168,7 @@
+ 	/** Whether the open dialogs ended a prompt's computer turn, which goes on once they settle. */
+ 	#userWaitEndedTurn = false;
+ 	#inFlightEpoch = 0;
++	#idleEphemeralReservation?: { abort: AbortController; settled: Promise<void> };
+ 	#abortInProgress = false;
+ 	/** In-flight {@link abort} calls; each settles after scheduling its stranded-queue drain, which {@link waitForIdle} must observe. */
+ 	#abortUnwinds = new Set<Promise<void>>();
+@@ -1271,16 +1271,29 @@
+ 		}
+ 	}
+ 
+-	#beginInFlight(): number {
++	#beginInFlight(): { epoch: number; idleEphemeralSettled?: Promise<void> } {
+ 		this.#promptInFlightCount++;
+ 		if (this.#promptInFlightCount === 1) {
+ 			this.#acquirePowerAssertion();
+ 			this.#beginComputerTurn();
+ 		}
+-		return this.#inFlightEpoch;
++		const epoch = this.#inFlightEpoch;
++		const reservation = this.#idleEphemeralReservation;
++		if (!reservation) return { epoch };
++		reservation.abort.abort();
++		return { epoch, idleEphemeralSettled: reservation.settled };
+ 	}
+ 
+ 	#endInFlight(epoch: number, onSettled?: () => void | Promise<void>): void {
++		// An old reservation finalizer must not settle a replacement turn's bracket.
++		if (epoch !== this.#inFlightEpoch) {
++			if (onSettled) {
++				void Promise.resolve()
++					.then(onSettled)
++					.catch(error => logger.warn("In-flight settle callback failed", { error: String(error) }));
++			}
++			return;
++		}
+ 		if (onSettled) this.#inFlightSettledCallbacks.push(onSettled);
+ 		// Abort has already taken an earlier epoch's bracket out of the count, so its late finalizer leaves the
+ 		// count to a newer turn; with none in flight it still settles, since a turn begun while abort() was
+@@ -1500,14 +1513,26 @@
+ 		// delaying the observation's finish and mis-attributing the successor's RPC
+ 		// progress to this now-dead wake monitor.
+ 		const generation = this.#promptGeneration;
+-		const inFlightEpoch = this.#beginInFlight();
++		const inFlight = this.#beginInFlight();
+ 		let turnError: unknown;
+ 		// A pooled-turn yield transition (item-set mutation + prompt rebuild) may be
+ 		// in flight when the wake lands. Starting the turn on the stale prompt would
+ 		// advertise one yield schema while the runtime enforces the other, so join
+ 		// the transition before building the turn from a consistent contract.
+-		void this.whenWorkPoolYieldSettled()
++		// An idle-ephemeral reservation may still be settling when the wake lands;
++		// join it before the yield transition so the ownership check below stays
++		// synchronous with the dispatch that follows it.
++		void (inFlight.idleEphemeralSettled
++			? inFlight.idleEphemeralSettled.then(() => this.whenWorkPoolYieldSettled())
++			: this.whenWorkPoolYieldSettled())
+ 			.then(() => {
++				// A supersede during the waits above leaves this wake dead: park the
++				// records for a monitored wake instead of prompting on a stale
++				// generation.
++				if (this.#isDisposed || this.#promptGeneration !== generation) {
++					if (!this.#isDisposed) this.#irc.queueDeferredWake(records);
++					return;
++				}
+ 				// Synchronous ownership check, atomic with the dispatch below:
+ 				// agent.prompt() claims streaming with no await in between, and the
+ 				// yield contract above mutates synchronously, so no install can
+@@ -1562,7 +1587,7 @@
+ 					this.#queuedMessageDrainBlocked ||= parkedQueueDrainBlocked;
+ 				}
+ 				// Release the in-flight bracket BEFORE settling owned async work.
+-				this.#endInFlight(inFlightEpoch);
++				this.#endInFlight(inFlight.epoch);
+ 				await this.#finishTurnObservation(observation, turnError);
+ 			});
+ 	}
+@@ -2136,19 +2161,21 @@
+ 			injectIdle: async messages => {
+ 				const first = messages[0];
+ 				if (!first) return;
+-				// A user interrupt is still in effect: background completions (async job
+-				// results, launch completions, MCP/LSP/advisor asides) must not restart
+-				// the run the user stopped. Fold them into context so the next deliberate
+-				// prompt sees them — same policy as #resumeStrandedIrcAsides.
++				// Background completions must not restart a run the user interrupted.
+ 				if (this.#advisors.autoResumeSuppressed) {
+ 					this.#foldStrandedIrcAsidesIntoContext(messages);
+ 					return;
+ 				}
+-				const inFlightEpoch = this.#beginInFlight();
++				const generation = this.#promptGeneration;
++				const inFlight = this.#beginInFlight();
+ 				try {
++					if (inFlight.idleEphemeralSettled) await inFlight.idleEphemeralSettled;
++					if (this.#isDisposed || this.#promptGeneration !== generation) {
++						throw new Error("Yield queue idle dispatch was superseded");
++					}
+ 					await this.agent.prompt(messages.length === 1 ? first : messages);
+ 				} finally {
+-					this.#endInFlight(inFlightEpoch);
++					this.#endInFlight(inFlight.epoch);
+ 				}
+ 			},
+ 			scheduleIdleFlush: run => {
+@@ -5000,15 +5027,24 @@
+ 		request: ScheduledAgentContinueRequest,
+ 		coalescedSources: Set<string>,
+ 	): Promise<AgentContinueOutcome> {
++		const isCurrent = () =>
++			this.#promptGeneration === request.generation &&
++			!signal.aborted &&
++			!this.#isDisposed &&
++			!this.#abortInProgress;
+ 		try {
+-			// During an automatic-retry saga the primary model's selector cooldown
+-			// can expire while a chain-tail fallback is still mid-backoff. Restoring
+-			// the primary then would reset the retry budget and re-enter a model
+-			// that just failed — an unbounded loop. Skip the cooldown-expiry revert
+-			// for retries; the primary can still be restored on the next user
+-			// prompt or after the saga terminates.
++			if (!isCurrent()) {
++				return {
++					status: "skipped",
++					reason: this.#promptGeneration !== request.generation ? "stale-generation" : "session-unavailable",
++				};
++			}
++			// Do not re-enter the primary selector during an automatic retry saga.
+ 			const isAutomaticRetry = request.options.source === "automatic-retry";
+-			const reverted = isAutomaticRetry ? false : await this.#recovery.maybeRestoreRetryFallbackPrimary();
++			const reverted = isAutomaticRetry ? false : await this.#recovery.maybeRestoreRetryFallbackPrimary(isCurrent);
++			if (this.#promptGeneration !== request.generation) {
++				return { status: "skipped", reason: "stale-generation" };
++			}
+ 			if (signal.aborted || this.#isDisposed || this.#abortInProgress) {
+ 				return { status: "skipped", reason: "post-restore-unavailable" };
+ 			}
+@@ -5019,19 +5055,32 @@
+ 			// predictably oversized request to the reverted (smaller) model.
+ 			if (reverted) {
+ 				await this.#maintenance.runPrePromptCompactionIfNeeded([]);
++				if (this.#promptGeneration !== request.generation) {
++					return { status: "skipped", reason: "stale-generation" };
++				}
+ 				if (signal.aborted || this.#isDisposed || this.#abortInProgress) {
+ 					return { status: "skipped", reason: "post-restore-unavailable" };
+ 				}
+ 			}
+ 			if (cfgRetryUsageAwareFallback.get(this.settings)) {
+-				if (!(await this.#runQueuedUsageAwarePreflight(signal))) {
++				const allowed = await this.#runQueuedUsageAwarePreflight(signal, request.generation);
++				if (this.#promptGeneration !== request.generation) {
++					return { status: "skipped", reason: "stale-generation" };
++				}
++				if (!allowed) {
+ 					return { status: "skipped", reason: "session-unavailable" };
+ 				}
+ 			}
+-			if (signal.aborted || this.#isDisposed || this.#abortInProgress) {
+-				return { status: "skipped", reason: "session-unavailable" };
+-			}
+ 			for (;;) {
++				if (this.#promptGeneration !== request.generation) {
++					return { status: "skipped", reason: "stale-generation" };
++				}
++				if (!isCurrent() || this.isCompacting || this.isGeneratingHandoff) {
++					return { status: "skipped", reason: "session-unavailable" };
++				}
++				if (request.options.shouldContinue && !request.options.shouldContinue()) {
++					return { status: "skipped", reason: "should-continue-false" };
++				}
+ 				try {
+ 					await this.agent.continue(signal);
+ 					return { status: "completed" };
+@@ -5046,25 +5095,19 @@
+ 						schedulerToken: request.schedulerToken,
+ 					});
+ 					await this.agent.waitForIdle();
+-					await this.#drainInFlightEventHandlers();
+-					if (
+-						signal.aborted ||
+-						this.#isDisposed ||
+-						this.#abortInProgress ||
+-						this.isCompacting ||
+-						this.isGeneratingHandoff
+-					) {
+-						return { status: "skipped", reason: "session-unavailable" };
+-					}
+-					if (request.options.generation !== undefined && this.#promptGeneration !== request.options.generation) {
++					if (this.#promptGeneration !== request.generation) {
+ 						return { status: "skipped", reason: "stale-generation" };
+ 					}
+-					if (request.options.shouldContinue && !request.options.shouldContinue()) {
+-						return { status: "skipped", reason: "should-continue-false" };
++					if (!isCurrent()) {
++						return { status: "skipped", reason: "session-unavailable" };
+ 					}
++					await this.#drainInFlightEventHandlers();
+ 				}
+ 			}
+ 		} catch (error) {
++			if (this.#promptGeneration !== request.generation) {
++				return { status: "skipped", reason: "stale-generation" };
++			}
+ 			logger.warn("agent.continue failed after scheduling", {
+ 				source: request.options.source,
+ 				schedulerToken: request.schedulerToken,
+@@ -5079,6 +5122,9 @@
+ 	#scheduleAgentContinue(options: ScheduledAgentContinueOptions): void {
+ 		const request: ScheduledAgentContinueRequest = {
+ 			schedulerToken: ++this.#agentContinueSchedulerToken,
++			// Callers without an explicit generation still belong to the history
++			// present at scheduling, not whichever branch wins a later await.
++			generation: options.generation ?? this.#promptGeneration,
+ 			options,
+ 		};
+ 		logger.debug("agent.continue scheduled", {
+@@ -5110,7 +5156,7 @@
+ 				for (;;) {
+ 					const active = this.#activeAgentContinue;
+ 					if (!active) break;
+-					if (!active.turnEnded) {
++					if (!active.turnEnded && active.generation === request.generation) {
+ 						active.coalescedSources.add(options.source);
+ 						logger.debug("agent.continue coalesced after scheduling", {
+ 							source: options.source,
+@@ -5118,7 +5164,12 @@
+ 							activeSource: active.source,
+ 							activeSchedulerToken: active.schedulerToken,
+ 						});
+-						this.#handleAgentContinueOutcome(await active.promise, request);
++						const outcome = await active.promise;
++						if (this.#promptGeneration !== request.generation) {
++							this.#skipAgentContinue("stale-generation", request);
++							return;
++						}
++						this.#handleAgentContinueOutcome(outcome, request);
+ 						return;
+ 					}
+ 
+@@ -5129,7 +5180,7 @@
+ 						this.#skipAgentContinue("session-unavailable", request);
+ 						return;
+ 					}
+-					if (options.generation !== undefined && this.#promptGeneration !== options.generation) {
++					if (this.#promptGeneration !== request.generation) {
+ 						this.#skipAgentContinue("stale-generation", request);
+ 						return;
+ 					}
+@@ -5139,11 +5190,29 @@
+ 					}
+ 				}
+ 
+-				const inFlightEpoch = this.#beginInFlight();
++				const inFlight = this.#beginInFlight();
+ 				const coalescedSources = new Set([options.source]);
+-				const promise = this.#runAgentContinue(signal, request, coalescedSources);
++				// The attempt must be published BEFORE the first await: a second
++				// scheduled continue arriving while we wait on idleEphemeralSettled
++				// reads #activeAgentContinue and must coalesce onto this attempt
++				// rather than dispatching its own runAgentContinue. Wrapping
++				// settle+run in the attempt's promise keeps that invariant and
++				// routes every outcome (including the settle-window skip that
++				// #runAgentContinue reports on entry)
++				// through #handleAgentContinueOutcome, so the finally below always
++				// balances the in-flight epoch (#promptInFlightCount, power
++				// assertion, settle-drain).
++				const promise = (async (): Promise<AgentContinueOutcome> => {
++					try {
++						if (inFlight.idleEphemeralSettled) await inFlight.idleEphemeralSettled;
++						return await this.#runAgentContinue(signal, request, coalescedSources);
++					} catch (error) {
++						return { status: "failed", error: error instanceof Error ? error : new Error(String(error)) };
++					}
++				})();
+ 				const attempt: ActiveAgentContinue = {
+ 					schedulerToken: request.schedulerToken,
++					generation: request.generation,
+ 					turnEnded: false,
+ 					source: options.source,
+ 					coalescedSources,
+@@ -5160,13 +5229,15 @@
+ 					if (this.#activeAgentContinue === attempt) {
+ 						this.#activeAgentContinue = undefined;
+ 					}
+-					this.#usagePreflightReadyForNextModelCall = false;
+-					this.#endInFlight(inFlightEpoch);
++					if (this.#promptGeneration === request.generation) {
++						this.#usagePreflightReadyForNextModelCall = false;
++					}
++					this.#endInFlight(inFlight.epoch);
+ 				}
+ 			},
+ 			{
+ 				delayMs: options.delayMs,
+-				generation: options.generation,
++				generation: request.generation,
+ 				onSkip: reason => this.#skipAgentContinue(reason, request),
+ 			},
+ 		);
+@@ -5687,6 +5758,16 @@
+ 
+ 	#beginSessionTransition(): Disposable {
+ 		if (this.#sessionTransitionDepth++ === 0) {
++			// The outermost transition is about to await (extension hooks, session
++			// load, agent reset). An idle-ephemeral reservation acquired before it
++			// must not survive into the new session identity: abort it here,
++			// synchronously, so its provider call stops before the transition's
++			// first await rather than dispatching turn output into the session the
++			// transition is replacing. Every transition entry point (newSession,
++			// fork, switchSession, branch, branchFromBtw, navigateTree,
++			// resetSessionContext) funnels through this method, so none can be
++			// missed by construction.
++			this.#idleEphemeralReservation?.abort.abort();
+ 			const settled = Promise.withResolvers<void>();
+ 			this.#sessionTransitionSettled = settled.promise;
+ 			this.#resolveSessionTransition = settled.resolve;
+@@ -5893,6 +5974,7 @@
+ 		this.#isDisposed = true;
+ 		for (const dispose of this.#disposers.splice(0)) dispose();
+ 		this.#modelDiscoveryAbortController.abort();
++		this.#idleEphemeralReservation?.abort.abort();
+ 		this.#queuedMessageDrainBlocked = false;
+ 		this.#usagePreflightReadyForNextModelCall = false;
+ 		this.#detachUsageBeforeQueueDequeue?.();
+@@ -6288,6 +6370,7 @@
+ 	 */
+ 	async resetSessionContext(): Promise<ResetSessionContextResult | undefined> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#idleEphemeralReservation?.settled;
+ 		// Refuse while a response streams OR a foreground user bash/python
+ 		// execution is in flight: those complete via recordBashResult()/
+ 		// recordPythonResult(), which append directly to agent.state when not
+@@ -6455,21 +6538,32 @@
+ 		}
+ 	}
+ 
+-	async #runQueuedUsageAwarePreflight(signal?: AbortSignal): Promise<boolean> {
++	async #runQueuedUsageAwarePreflight(
++		signal?: AbortSignal,
++		generation = this.#promptGeneration,
++	): Promise<boolean> {
++		if (signal?.aborted || this.#promptGeneration !== generation) return false;
+ 		try {
+ 			const allowed = await this.#runUsageAwarePreflight(signal);
++			if (signal?.aborted || this.#promptGeneration !== generation) return false;
+ 			this.#usagePreflightReadyForNextModelCall = allowed;
+ 			this.#usagePreflightReadyModel = allowed ? this.model : undefined;
+ 			this.#queuedMessageDrainBlocked = !allowed && this.agent.hasQueuedMessages();
+ 			return allowed;
+ 		} catch (error) {
++			if (signal?.aborted || this.#promptGeneration !== generation) return false;
+ 			this.#queuedMessageDrainBlocked = this.agent.hasQueuedMessages();
+ 			throw error;
+ 		}
+ 	}
+ 
+-	async #runUsageAwarePreflightForNextModelCall(signal?: AbortSignal): Promise<boolean> {
++	async #runUsageAwarePreflightForNextModelCall(
++		signal?: AbortSignal,
++		generation = this.#promptGeneration,
++	): Promise<boolean> {
++		if (signal?.aborted || this.#promptGeneration !== generation) return false;
+ 		const allowed = await this.#runUsageAwarePreflight(signal);
++		if (signal?.aborted || this.#promptGeneration !== generation) return false;
+ 		this.#usagePreflightReadyForNextModelCall = allowed;
+ 		this.#usagePreflightReadyModel = allowed ? this.model : undefined;
+ 		return allowed;
+@@ -6491,8 +6585,8 @@
+ 						controller.signal,
+ 						this.#usageFallbackConfirmer,
+ 					);
+-					if (fallbackCommitted) return true;
+ 					if (controller.signal.aborted || this.#promptGeneration !== generation) return false;
++					if (fallbackCommitted) return true;
+ 					if (this.model === model || modelsAreEqual(this.model, model)) return true;
+ 				} catch (error) {
+ 					if (controller.signal.aborted || this.#promptGeneration !== generation) return false;
+@@ -8387,26 +8481,34 @@
+ 		// every pre-dispatch bail (generation bump from abort, disposal, usage
+ 		// preflight denial) exits silently, and prompt() uses the outcome to hand
+ 		// the typed text back to the host instead of losing it.
+-		const inFlightEpoch = this.#beginInFlight();
+-		// Client ownership is reserved by #prompt before dispatch preprocessing
+-		// and released when its bracket settles; callers that reach this
+-		// directly (auto-continue, queued-hidden drain) are autonomous and
+-		// deliberately do not claim it.
++		// Client ownership belongs to #prompt; autonomous direct callers do not claim it.
+ 		const generation = this.#promptGeneration;
++		const inFlight = this.#beginInFlight();
+ 		this.#promptSequence++;
+ 		const setupAbort = new AbortController();
+ 		this.#promptSetupAbortController = setupAbort;
++		const isCurrent = () =>
++			this.#promptGeneration === generation &&
++			!setupAbort.signal.aborted &&
++			!this.#isDisposed &&
++			!this.#abortInProgress;
+ 		try {
++			if (inFlight.idleEphemeralSettled) await inFlight.idleEphemeralSettled;
++			if (!isCurrent()) return false;
+ 			options?.onPromptAdmitted?.();
+-			await this.#recovery.maybeRestoreRetryFallbackPrimary();
+-			// Auto-prewalk: return from the previous task's handoff before the usage preflight checks the model,
+-			// then judge this task alongside the rest of setup; the decision is applied right before dispatch.
++			await this.#recovery.maybeRestoreRetryFallbackPrimary(isCurrent);
++			if (!isCurrent()) return false;
++			// Preserve the target's automatic prewalk classification before usage admission.
+ 			const autoPrewalkTask = this.#isAutoPrewalkTask(message);
+ 			if (autoPrewalkTask) await this.#prewalk.beginAutoTask();
++			if (!isCurrent()) return false;
+ 			const autoPrewalk = autoPrewalkTask ? this.#prewalk.classifyAuto(expandedText, setupAbort.signal) : undefined;
+-			if (!(await this.#runUsageAwarePreflightForNextModelCall())) return false;
++			if (!(await this.#runUsageAwarePreflightForNextModelCall(setupAbort.signal, generation)) || !isCurrent()) {
++				return false;
++			}
+ 			// Flush any pending bash messages before the new prompt
+ 			await this.#bash.flushPending();
++			if (!isCurrent()) return false;
+ 			this.#eval.flushPending();
+ 			this.#irc.flushPending();
+ 
+@@ -8425,6 +8527,7 @@
+ 
+ 			// Validate API key
+ 			const apiKey = await this.#modelRegistry.getApiKey(this.model, this.sessionId);
++			if (!isCurrent()) return false;
+ 			if (!apiKey) {
+ 				throw new Error(
+ 					`No API key found for ${this.model.provider}.\n\n` +
+@@ -8443,17 +8546,21 @@
+ 				(lastAssistant.stopReason === "error" || lastAssistant.stopReason === "length")
+ 			) {
+ 				await this.#maintenance.checkCompaction(lastAssistant, false, false);
++				if (!isCurrent()) return false;
+ 			}
+ 
+ 			await this.#prewalk.armPlanYoloIfNeeded();
++			if (!isCurrent()) return false;
+ 
+ 			// Build messages array (session context, eager todo prelude, then active prompt message)
+ 			const messages: AgentMessage[] = [];
+ 			const planReferenceMessage = await this.#buildPlanReferenceMessage?.();
++			if (!isCurrent()) return false;
+ 			if (planReferenceMessage) {
+ 				messages.push(planReferenceMessage);
+ 			}
+ 			const planModeMessage = await this.#buildPlanModeMessage();
++			if (!isCurrent()) return false;
+ 			if (planModeMessage) {
+ 				messages.push(planModeMessage);
+ 			}
+@@ -8639,11 +8746,9 @@
+ 		} finally {
+ 			// The per-turn before_agent_start override lives only for this turn.
+ 			this.#tools.clearTurnSystemPromptOverride();
+-			this.#usagePreflightReadyForNextModelCall = false;
+-			// Client ownership is released by #prompt's bracket, which settles
+-			// after this frame returns; its wake re-checks parked steers
+-			// against zero.
+-			this.#endInFlight(inFlightEpoch);
++			if (this.#promptGeneration === generation) this.#usagePreflightReadyForNextModelCall = false;
++			// #prompt releases client ownership only after this frame has returned.
++			this.#endInFlight(inFlight.epoch);
+ 			if (this.#promptSetupAbortController === setupAbort) this.#promptSetupAbortController = undefined;
+ 		}
+ 	}
+@@ -8754,6 +8859,7 @@
+ 			// The SDK always builds a runner (which receives the annotations factory); this runner-less
+ 			// context only exists for directly constructed sessions, which have no `/annotate` wiring.
+ 			annotations: UNAVAILABLE_ANNOTATIONS,
++			runIdleEphemeralTurn: options => this.runIdleEphemeralTurn(options),
+ 			setInterval: (callback, ms, ...args) => this.#fallbackTimers().setInterval(callback, ms, ...args),
+ 			setTimeout: (callback, ms, ...args) => this.#fallbackTimers().setTimeout(callback, ms, ...args),
+ 			clearTimer: timer => this.#fallbackTimers().clear(timer),
+@@ -9503,8 +9609,11 @@
+ 		message: CustomMessage,
+ 		options?: { acceptTerminalEmptyStop?: boolean },
+ 	): Promise<boolean> {
+-		const inFlightEpoch = this.#beginInFlight();
++		const generation = this.#promptGeneration;
++		const inFlight = this.#beginInFlight();
+ 		try {
++			if (inFlight.idleEphemeralSettled) await inFlight.idleEphemeralSettled;
++			if (this.#isDisposed || this.#promptGeneration !== generation) return false;
+ 			if (!(await this.#runUsageAwarePreflightForNextModelCall())) return false;
+ 			const acceptTerminalEmptyStop = options?.acceptTerminalEmptyStop === true;
+ 			if (acceptTerminalEmptyStop) {
+@@ -9522,7 +9631,7 @@
+ 		} finally {
+ 			this.#usagePreflightReadyForNextModelCall = false;
+ 			this.#recovery.setAcceptTerminalEmptyStop(false);
+-			this.#endInFlight(inFlightEpoch);
++			this.#endInFlight(inFlight.epoch);
+ 		}
+ 	}
+ 
+@@ -10725,6 +10834,7 @@
+ 	 */
+ 	async newSession(options?: NewSessionOptions): Promise<boolean> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#idleEphemeralReservation?.settled;
+ 		this.#assertVibeSessionTransitionAllowed("start a new session");
+ 		const previousSessionFile = this.sessionFile;
+ 
+@@ -10879,6 +10989,7 @@
+ 	 */
+ 	async fork(entryId?: string, options?: { requireIdle?: boolean }): Promise<boolean> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#idleEphemeralReservation?.settled;
+ 		this.#assertVibeSessionTransitionAllowed("fork the session");
+ 		const requireIdleFor = entryId !== undefined || options?.requireIdle ? "fork the session" : undefined;
+ 		if (entryId !== undefined) {
+@@ -12055,6 +12166,65 @@
+ 	}
+ 
+ 	/**
++	 * Atomically reserve the idle side channel against main-turn dispatch. A
++	 * main turn that arrives after the reservation aborts this request and waits
++	 * for it to settle before its own provider call can begin.
++	 *
++	 * Three states can make an apparently idle session unsafe to dispatch on:
++	 *  - a submission admitted by prompt()/promptCustomMessage()/
++	 *    sendCustomMessage() that is still in its preprocessing awaits (image
++	 *    normalization, vision description) and has therefore not yet reached
++	 *    `#beginInFlight()`;
++	 *  - an active session/transcript transition (newSession, fork, switchSession,
++	 *    branch, branchFromBtw, navigateTree, resetSessionContext), whose awaits
++	 *    mean the transcript may be replaced while a side request is in flight;
++	 *  - the busy states the reservation already covered.
++	 * All three are checked synchronously, before the reservation is published,
++	 * so a request that passes them cannot be overtaken by a transition that
++	 * started earlier without holding this method's verdict.
++	 */
++	async runIdleEphemeralTurn(
++		args: IdleEphemeralTurnOptions,
++	): Promise<IdleEphemeralTurnResult | undefined> {
++		if (
++			this.#isDisposed ||
++			this.#promptInFlightCount > 0 ||
++			this.hasAdmittedSubmission ||
++			this.isSessionTransitioning ||
++			this.isStreaming ||
++			this.isCompacting ||
++			this.#branchSummaryAbortController ||
++			this.queuedMessageCount > 0 ||
++			this.#idleEphemeralReservation
++		) {
++			return undefined;
++		}
++
++		const abort = new AbortController();
++		const signal = args.signal ? AbortSignal.any([args.signal, abort.signal]) : abort.signal;
++		const { promise: settled, resolve: resolveSettled } = Promise.withResolvers<void>();
++		const reservation = { abort, settled };
++		this.#idleEphemeralReservation = reservation;
++		try {
++			const result = await this.runEphemeralTurn({ promptText: args.promptText, signal });
++			// Providers may still finish successfully after cancellation. The
++			// reservation, not transport cooperation, owns result publication.
++			signal.throwIfAborted();
++			return result;
++		} catch (error) {
++			// Main turns, transitions, and disposal revoke the reservation. Surface
++			// that handoff as a skipped idle request, not a provider error.
++			if (abort.signal.aborted && !args.signal?.aborted) return undefined;
++			throw error;
++		} finally {
++			if (this.#idleEphemeralReservation === reservation) {
++				this.#idleEphemeralReservation = undefined;
++			}
++			resolveSettled();
++		}
++	}
++
++	/**
+ 	 * Run a single ephemeral side-channel turn against this session's current
+ 	 * model + system prompt + history. The main turn's tool catalog is sent
+ 	 * to preserve the prompt cache unless `tools: false` is requested. The
+@@ -12356,6 +12526,7 @@
+ 			throw new Error(`No API key for ${explicitModel.provider}/${explicitModel.id}`);
+ 		}
+ 		using _transition = this.#beginSessionTransition();
++		await this.#idleEphemeralReservation?.settled;
+ 		const previousSessionFile = this.sessionManager.getSessionFile();
+ 		const switchingToDifferentSession = previousSessionFile
+ 			? path.resolve(previousSessionFile) !== path.resolve(sessionPath)
+@@ -12797,6 +12968,7 @@
+ 		cancelled: boolean;
+ 	}> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#idleEphemeralReservation?.settled;
+ 		const selectedEntry = this.sessionManager.getEntry(entryId);
+ 
+ 		if (selectedEntry?.type !== "message" || selectedEntry.message.role !== "user") {
+@@ -12935,6 +13107,7 @@
+ 		sessionId: string,
+ 	): Promise<{ cancelled: boolean; sessionFile: string | undefined }> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#idleEphemeralReservation?.settled;
+ 		const previousSessionFile = this.sessionFile;
+ 		if (!this.sessionManager.getSessionFile()) {
+ 			throw new Error("Cannot branch /btw: session is not persisted");
+@@ -13112,6 +13285,18 @@
+ 		askReanswerCommitted?: boolean;
+ 	}> {
+ 		using _transition = this.#beginSessionTransition();
++		await this.#idleEphemeralReservation?.settled;
++		// Keep idle side-channel work blocked for the entire tree navigation,
++		// including extension hooks and optional branch summarization.
++		const branchSummaryAbortController = new AbortController();
++		this.#branchSummaryAbortController = branchSummaryAbortController;
++		using _treeNavigationReservation = {
++			[Symbol.dispose]: () => {
++				if (this.#branchSummaryAbortController === branchSummaryAbortController) {
++					this.#branchSummaryAbortController = undefined;
++				}
++			},
++		};
+ 		await this.#bash.flushPending();
+ 		const oldLeafId = this.sessionManager.getLeafId();
+ 
+@@ -13196,8 +13381,6 @@
+ 			userWantsSummary: options.summarize ?? false,
+ 		};
+ 
+-		// Set up abort controller for summarization
+-		this.#branchSummaryAbortController = new AbortController();
+ 		let hookSummary: { summary: string; details?: unknown } | undefined;
+ 		let fromExtension = false;
+ 
+@@ -13206,7 +13389,7 @@
+ 			const result = (await this.#extensionRunner.emit({
+ 				type: "session_before_tree",
+ 				preparation,
+-				signal: this.#branchSummaryAbortController.signal,
++				signal: branchSummaryAbortController.signal,
+ 			})) as SessionBeforeTreeResult | undefined;
+ 
+ 			if (result?.cancel) {
+@@ -13231,7 +13414,7 @@
+ 			const result = await generateBranchSummary(entriesToSummarize, {
+ 				model,
+ 				apiKey: this.#modelRegistry.resolver(model, this.sessionId),
+-				signal: this.#branchSummaryAbortController.signal,
++				signal: branchSummaryAbortController.signal,
+ 				customInstructions: this.#obfuscateTextForProvider(options.customInstructions),
+ 				reserveTokens: cfgBranchSummaryReserveTokens.get(this.settings),
+ 				metadata: this.agent.metadataForProvider(model.provider),
+@@ -13244,7 +13427,6 @@
+ 					return stream.result();
+ 				},
+ 			});
+-			this.#branchSummaryAbortController = undefined;
+ 			if (result.aborted) {
+ 				return { cancelled: true, aborted: true };
+ 			}
+@@ -13264,6 +13446,7 @@
+ 		// All cancellation/no-op exits are behind us. Invalidate prompt setup
+ 		// admitted on the abandoned branch before committing any tree changes.
+ 		this.#promptGeneration++;
++		for (const controller of this.#usagePreflightAbortControllers) controller.abort();
+ 
+ 		// Determine the new leaf position based on target type
+ 		let newLeafId: string | null;
+@@ -13370,8 +13553,6 @@
+ 		// tail so first preparation replays this branch's frozen answer.
+ 		await this.#memory.resetContextForNewTranscript({ readOnly: this.#memoryTranscriptReadOnly });
+ 
+-		this.#branchSummaryAbortController = undefined;
+-
+ 		// Report a committed `ask` re-answer so the interactive caller can resume
+ 		// the agent via `resumeAfterAskReanswer()` *after* rebuilding its
+ 		// transcript. Scheduling the continue here instead would start a fresh
+@@ -13420,7 +13601,8 @@
+ 	 * follow-up turn, but is deferred to the caller so the resumed turn renders
+ 	 * against the rebuilt UI rather than the stale pre-navigation transcript
+ 	 * (issue #6483). The scheduled continue honors the same disposed/compacting
+-	 * guards as every other post-prompt continuation.
++	 * guards as every other post-prompt continuation and retains its admission
++	 * history generation throughout asynchronous setup.
+ 	 */
+ 	resumeAfterAskReanswer(): void {
+ 		this.#scheduleAgentContinue({ source: "ask-reanswer" });
