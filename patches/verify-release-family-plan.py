@@ -24,7 +24,18 @@ ADDED_FAMILIES = {
                 {"id": "0099-omp-retry-slow-schedule", "root": "AGENT", "capabilities": ["0099"]},
                 {"id": "0100-omp-stepfun-step-plan", "root": "NM", "capabilities": ["0100"]},
                 {"id": "0101-omp-subagent-warm-revival-persisted-prompt", "root": "AGENT", "capabilities": ["0101"]}],
+    "18.16.0": [{"id": "0102-omp-computer-control-confirm-deadline", "root": "AGENT", "capabilities": ["0102"]}],
 }
+
+# Approved behaviour removals per family release (user decision, not an
+# adoption): the capability leaves both the retained families and the union.
+# 0032 (goal-tool residency) is retired for 18.16.0 only (Q7).
+RETIRED_CAPABILITIES = {
+    "18.16.0": ["0032"],
+}
+
+# Frozen ownership manifest each family release derives from.
+SNAPSHOT_OF = {"18.12.6": "18.10.1", "18.16.0": "18.12.6"}
 
 
 # Approved upstream adoptions per family release. 0017 is the existing 18.10.x
@@ -42,6 +53,11 @@ APPROVED_ADOPTIONS = {
         {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
     ],
     "18.12.6": [
+        {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
+        {"capability": "0078", "family": "family-image-display"},
+    ],
+    # Extended only by M5-proven whole-ID adoptions, in manifest order.
+    "18.16.0": [
         {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
         {"capability": "0078", "family": "family-image-display"},
     ],
@@ -83,23 +99,28 @@ def canonicalize_extracted(root):
 
 
 def retained_families(here, version):
-    if version == "18.12.6":
-        # The target contract derives from the frozen 18.10.1 ownership
-        # manifest — owner order, roots and capability membership — not the
-        # stale 18.7.0 pre-family baseline. An approved adoption removes the
-        # capability from its snapshot family; the union still contains it.
-        snapshot = json.loads((here / ".18.10.1-families/manifest.json").read_text())
-        if snapshot.get("version") != "18.10.1":
-            raise RuntimeError("frozen 18.10.1 family manifest is missing or mismatched")
+    if version in SNAPSHOT_OF:
+        # The target contract derives from the previous release's frozen
+        # ownership manifest — owner order, roots and capability membership.
+        # An approved adoption removes the capability from its snapshot family
+        # (the union still contains it); an approved retirement removes it from
+        # both; rows left empty disappear; added families follow in order.
+        source = SNAPSHOT_OF[version]
+        snapshot = json.loads((here / f".{source}-families/manifest.json").read_text())
+        if snapshot.get("version") != source:
+            raise RuntimeError(f"frozen {source} family manifest is missing or mismatched")
         adopted_ids = {entry["capability"] for entry in APPROVED_ADOPTIONS[version]}
+        retired_ids = set(RETIRED_CAPABILITIES.get(version, []))
         retained = []
         for entry in snapshot["families"]:
-            capabilities = [item for item in entry["capabilities"] if item not in adopted_ids]
+            capabilities = [item for item in entry["capabilities"]
+                            if item not in adopted_ids and item not in retired_ids]
             if capabilities:
                 retained.append({"id": entry["id"], "root": entry["root"],
                                  "capabilities": capabilities})
-        union = sorted({item for entry in retained for item in entry["capabilities"]}
-                       | adopted_ids)
+        retained.extend(ADDED_FAMILIES.get(version, []))
+        union = sorted(({item for entry in retained for item in entry["capabilities"]}
+                        | adopted_ids) - retired_ids)
         return retained, union
     if version not in {"18.10.0", "18.10.1"}:
         raise RuntimeError("no approved retained-family migration contract for this release")

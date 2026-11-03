@@ -33,6 +33,8 @@ Work orders are dispatched in risk order (M4 P0 → P1 → P2) but **bytes are e
 always regenerated against the accumulated tree at its manifest position, and the replay from pristine through that family
 must be re-run after any edit to it. Dispatch order is authoring/review priority only.
 
+> RESUME: M3 — needs the user's go; first action: create `patches/native/18.16.0/` from the 18.12.6 recipe and add `--locked` to `build-natives.sh` (M1 verified `aa96561b2`; M2 verified, committed with this pointer).
+
 ## M1 — Pin target inputs and complete the closure inventory — High
 
 Reason: a version, source or integrity mismatch invalidates every downstream result, and four closure packages are
@@ -60,12 +62,15 @@ refuses with `family registry missing`/`family patch missing` even for `--print-
 to exist before any plan query can succeed; this milestone makes the routing accept 18.16.0 and proves only the
 fail-closed side, and the registry itself is bootstrapped as M4's first prep step.
 
-- [ ] `patches/apply.sh`: add the 18.16.0 installed-version route and the 18.16.0 family-plan arm; derive the manifest path
+- [x] `patches/apply.sh`: add the 18.16.0 installed-version route and the 18.16.0 family-plan arm; derive the manifest path
   and manifest guard from `$OMP_PATCH_VERSION` (`.{version}-families/manifest.json`) instead of the literal
   `.18.12.6-families/manifest.json`; add 18.16.0 to `OMP_PATCH_PLAN`'s allowed list and to both unsupported-version
   messages; keep `0097`'s 18.7.0-only selection fail-closed (`exit 2`). — Effort: medium — 22 version literals in three
   shapes, several of them equality assertions.
-- [ ] 18.16.0 capability markers in the same arm (design §3): start with `PLAN_CAPABILITIES[0017]=upstream` and
+  Done: also added 18.16.0 to the five gate-selection version tests that carry 18.10.1/18.12.6 family revisions
+  (`0047` transfer authority, native-dialog/manual-compaction/context-notes, `0081` reset format, `0090` unlock faults and
+  403 retention); leaving them out would have silently dropped those gates for the candidate.
+- [x] 18.16.0 capability markers in the same arm (design §3): start with `PLAN_CAPABILITIES[0017]=upstream` and
   `PLAN_CAPABILITIES[0078]=upstream`; further `…=upstream` markers are added only by the M4 assembly step, one per
   whole-ID adoption that passed its M5 proof, in the same change as the manifest and oracle list; **do not** carry `0032`;
   `0102` arrives as an ordinary `plan.tsv` member of its own single-row family with no marker. Add `18.16.0` to the two version lists that
@@ -75,16 +80,15 @@ fail-closed side, and the registry itself is bootstrapped as M4's first prep ste
   adoption markers, because that is what the oracle compares). — Effort: medium — a marker that is missing silently drops
   that capability's gate from the batch, an extra marker makes `--print-capabilities` disagree with the oracle, and a
   marker that the capability test never reads is worse than both: it looks recorded and selects nothing.
-- [ ] Deselect the permanent 0082 gate for 18.16.0 only: wrap `_omp_gate 0082 verify-user-display-text-queue.ts`
+- [x] Deselect the permanent 0082 gate for 18.16.0 only: wrap `_omp_gate 0082 verify-user-display-text-queue.ts`
   (`patches/apply.sh:542`) in a multiline guard (`if [[ "$OMP_PATCH_VERSION" != "18.16.0" ]]; then` / the indented
   `_omp_gate …` on its own line / `fi`; the gate driver only parses standalone indented `_omp_gate` lines); leave the file, its version list and every
   historical registration untouched (the gate hard-fails any tree outside `18.3.3…18.12.6`, so appending `"18.16.0"`
   would either fail the batch or recreate the gate Q10 removes). — Effort: low — one guard around one row.
-- [ ] Deselect `_omp_gate 0032 verify-goal-tool-resident.ts` for 18.16.0 only, with the same multiline guard form as the
-  0082 row (`if [[ "$OMP_PATCH_VERSION" != "18.16.0" ]]; then` / indented `_omp_gate …` on its own line / `fi`). Keep
-  `patches/verify-goal-tool-resident.ts` and every historical registration, so 18.7.0–18.12.6 plans still verify 0032
-  (Q7 retires it for 18.16.0 only). — Effort: low — a target-only guard; deleting the file would break historical plans.
-- [ ] `patches/verify-release-family-plan.py`: add the 18.16.0 arm to `retained_families()` (derive from the frozen
+- [x] ~~Deselect `_omp_gate 0032 verify-goal-tool-resident.ts` with a guard~~ — not needed, so not added: `_omp_gate 0032`
+  already selects through `_omp_has_capability 0032` (`apply.sh:429`), and 0032 is absent from the 18.16.0 registry, so the
+  gate drops out on its own (scratch proof below). The file and every historical registration are untouched. — Effort: low.
+- [x] `patches/verify-release-family-plan.py`: add the 18.16.0 arm to `retained_families()` (derive from the frozen
   `.18.12.6-families/manifest.json` — the pattern `slice-f-native-tooling.md` §Q2 recommends — by filtering the adopted
   ids out of their rows, dropping rows that become empty, applying an explicit removal list for the approved retirement
   (`0032`), and appending the `0102` row), with the expected union computed as `sorted(owned ∪ adopted)`, never a literal
@@ -93,17 +97,27 @@ fail-closed side, and the registry itself is bootstrapped as M4's first prep ste
   handling intact; make sure the 18.12.6 arm keeps reading its frozen manifest. — Effort: high — this is the oracle every downstream claim
   rests on, and a retirement that only deletes a manifest row (without the oracle's removal list) fails as an unapproved
   ownership change instead of reading as the approved removal it is.
-- [ ] `patches/verify-patch-family-rollups.sh`, `patches/publish-release.py` (`prepare --version` choices),
+  Done: one `SNAPSHOT_OF` table (`18.12.6 ← 18.10.1`, `18.16.0 ← 18.12.6`) drives the shared arm, with
+  `RETIRED_CAPABILITIES["18.16.0"] = ["0032"]` and `ADDED_FAMILIES["18.16.0"]` = the `0102` row; the 18.12.6 result is
+  identical to the pre-change function (compared in Python).
+- [x] `patches/verify-patch-family-rollups.sh`, `patches/publish-release.py` (`prepare --version` choices),
   `patches/verify-release-publication.py` (fixture choice): add `18.16.0` to the routing/choice lists.
   `release-launcher.py` is version-agnostic and is not edited. — Effort: low — literal lists only.
-- [ ] Pre-bootstrap fail-closed check (this is all M2 can assert about the plan yet): with the generalized manifest guard
+- [x] Pre-bootstrap fail-closed check (this is all M2 can assert about the plan yet): with the generalized manifest guard
   in place and no `.18.16.0-families/` yet, `OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-plan` must exit 2
   with `family manifest missing: …/.18.16.0-families/manifest.json` (the manifest guard runs before the registry read at
   `apply.sh:187`), and `--print-capabilities`/`--print-gates` must exit 2 without printing a partial plan. The
   `family registry missing` branch is exercised in M4 step 0 (manifest present, `plan.tsv` absent) before the registry is
   written. — Effort: low — a plan query that silently succeeds without a registry would be the defect, not the goal.
-- [ ] Fail-closed matrix: `OMP_PATCH_VERSION=18.16.1` and an unknown version must exit non-zero on every entrypoint; the
+  Done: all three exit 2 with that message, and so does `OMP_PATCH_PLAN=repository`.
+- [x] Fail-closed matrix: `OMP_PATCH_VERSION=18.16.1` and an unknown version must exit non-zero on every entrypoint; the
   18.7.0 suite must be untouched. — Effort: low — negative controls are the point.
+  Done: `18.16.1`, `9.9.9` and empty exit 2 on `--print-plan/--print-capabilities/--print-gates/--check`; rollups exit 1,
+  publish/publication exit 2 on `18.16.1`. `--print-plan/--print-capabilities/--print-gates` for 18.7.0, 18.10.0, 18.10.1
+  and 18.12.6 are byte-identical to the pre-change controller (12/12 SAME).
+  Scratch selection proof (throwaway copy; registry = 18.12.6 rows − 0032 + a placeholder 0102 row): `--print-capabilities`
+  is 62 IDs with 0017/0078/0102 and no 0032, equal to the oracle union; versus 18.12.6, `--print-gates` loses exactly
+  `verify-goal-tool-resident.ts` and `verify-user-display-text-queue.ts`.
 
 Acceptance: the 18.16.0 route is reachable and fails closed before its registry exists; unsupported versions still exit
 non-zero on every entrypoint; `0032` and the 18.16.0 0082 gate are gone from the selection while historical plans keep

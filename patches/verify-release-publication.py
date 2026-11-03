@@ -22,7 +22,7 @@ spec.loader.exec_module(publisher)
 launcher = publisher.launcher
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--version", choices=["18.10.1", "18.12.6"], default="18.10.1",
+parser.add_argument("--version", choices=["18.10.1", "18.12.6", "18.16.0"], default="18.10.1",
                     help="synthetic release identity; the publish/admission boundary is version-agnostic")
 fixture_version = parser.parse_args().version
 
