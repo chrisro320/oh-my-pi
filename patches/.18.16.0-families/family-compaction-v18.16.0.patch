@@ -3995,7 +3995,7 @@
  					: undefined,
  			);
  			if (candidates.length === 0) return clear();
-@@ -3773,6 +3801,71 @@
+@@ -3731,6 +3759,71 @@
  		);
  	}
  
@@ -4067,7 +4067,7 @@
  	async #compactWithFallbackModel(
  		preparation: CompactionPreparation,
  		customInstructions: string | undefined,
-@@ -3810,6 +3903,7 @@
+@@ -3768,6 +3861,7 @@
  						buildProviderContext: (summarized, retained, signal, model) =>
  							this.#host.buildLiveProviderContext(summarized, retained, signal, model),
  						isUserAuthored: isUserAuthoredMessage,
@@ -4075,7 +4075,7 @@
  						telemetry,
  						// Honor the user's /model thinking selection (incl. `off`) on
  						// the manual `/compact` path. Clamped per-model inside compact()
-@@ -3817,7 +3911,7 @@
+@@ -3775,7 +3869,7 @@
  						// (xai-oauth/grok-build) don't trip requireSupportedEffort.
  						thinkingLevel: this.#host.thinkingLevel(),
  						tools: this.#host.agent.state.tools,
@@ -4084,7 +4084,7 @@
  						// Explicit cache keys only (never a sessionId fallback): V2
  						// treats any truthy key as provenance for x-opencode-session.
  						// Conventional summaries run on `candidate`; remote compaction
-@@ -3825,7 +3919,7 @@
+@@ -3783,7 +3877,7 @@
  						promptCacheKey: this.#host.getPromptCacheKeyForModel(candidate),
  						remotePromptCacheKey: this.#host.getPromptCacheKeyForModel(remoteCompactionPolicyModel(candidate)),
  						providerSessionState: this.#host.providerSessionState,
@@ -4093,7 +4093,7 @@
  						codexAccessPrograms: cfgProvidersOpenaiCodexDaybreak.get(this.#host.settings),
  						// Route every summarization HTTP request through the
  						// session's side-stream transport so the provider
-@@ -5885,6 +5979,7 @@
+@@ -5843,6 +5937,7 @@
  									buildProviderContext: (summarized, retained, signal, model) =>
  										this.#host.buildLiveProviderContext(summarized, retained, signal, model),
  									isUserAuthored: isUserAuthoredMessage,
@@ -4101,7 +4101,7 @@
  									telemetry,
  									// Honor the user's /model thinking selection on the
  									// auto-compaction path — the most-fired compaction
-@@ -5912,9 +6007,11 @@
+@@ -5870,9 +5965,11 @@
  							);
  							break;
  						} catch (error) {
@@ -4114,7 +4114,7 @@
  
  							const message = error instanceof Error ? error.message : String(error);
  							const id = AIError.classify(
-@@ -5925,7 +6022,7 @@
+@@ -5883,7 +5980,7 @@
  								if (!nativeCompactionFailure) lastError = this.#buildCompactionAuthError();
  								break;
  							}
@@ -4123,7 +4123,7 @@
  								const nativeFailure = error instanceof NativeCompactionError;
  								logger.warn(
  									nativeFailure
-@@ -5958,9 +6055,11 @@
+@@ -5916,9 +6013,11 @@
  								retrySettings.enabled &&
  								attempt < retrySettings.maxRetries &&
  								!AIError.is(id, AIError.Flag.ContextOverflow) &&
@@ -4138,7 +4138,7 @@
  							if (!shouldRetry) {
  								if (error instanceof NativeCompactionError) {
  									nativeCompactionFailure ??= { error, provider: candidate.provider };
-@@ -6146,7 +6245,7 @@
+@@ -6104,7 +6203,7 @@
  				},
  			});
  		} catch (error) {
@@ -4147,7 +4147,7 @@
  				await this.#emitLifecycleEvent(
  					{
  						type: "auto_compaction_end",
-@@ -6178,10 +6277,11 @@
+@@ -6136,10 +6235,11 @@
  						result: undefined,
  						aborted: false,
  						willRetry: false,

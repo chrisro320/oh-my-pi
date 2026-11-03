@@ -388,6 +388,14 @@ case "$OMP_PATCH_VERSION" in
 		# no local patch remains; its consumer gate stays selected via the
 		# upstream capability marker.
 		PLAN_CAPABILITIES[0078]=upstream
+		if [[ "$OMP_PATCH_VERSION" == "18.16.0" ]]; then
+			# M5 adoptions: upstream owns the contract; the gate stays selected
+			# through the marker so an adopted capability is never silently ungated.
+			PLAN_CAPABILITIES[0066]=upstream
+			PLAN_CAPABILITIES[0072]=upstream
+			PLAN_CAPABILITIES[0079]=upstream
+			PLAN_CAPABILITIES[0062]=upstream
+		fi
 	fi
 	# The undeployed computeruse candidate is an explicit repository overlay.
 	# A missing file never implicitly selects a smaller deployment plan.
@@ -563,6 +571,11 @@ _omp_run_gates() {
 	_omp_gate 0092 verify-cache-warming-idle-budget.ts warm
 	_omp_gate 0098 verify-tls-verify-transient-retry.ts
 	_omp_gate 0099 verify-retry-slow-schedule.ts
+	# 0100's consumer proof is new for the 18.16.0 arm (the 18.12.6 plan proved it
+	# with a throwaway research smoke); older arms keep their frozen gate list.
+	if [[ "$OMP_PATCH_VERSION" == "18.16.0" ]]; then
+		_omp_gate 0100 verify-stepfun-step-plan.ts
+	fi
 	_omp_gate 0101 verify-subagent-warm-revival-prompt.ts
 }
 

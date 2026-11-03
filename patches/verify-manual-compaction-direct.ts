@@ -671,15 +671,42 @@ await run({
 
 // Classic automatic compaction is unchanged: with the notebook tools off, an idle
 // automatic pass commits the configured summary and the addon stays out of it.
-function classicAutomaticScenario(name: string, options: { toggleOff: boolean }) {
+//
+// Upstream vetoes a pass whose projection does not shrink the branch
+// (`#compactionReducesContext`): the old two-message fixture replaced less history
+// than the empty summary wrapper already costs, so the pass was refused with
+// "context-full compaction would not reduce context." before any summary request.
+// The fixture therefore carries real history in its opening turn and a small tail
+// (`compaction.keepRecentTokens: 1` keeps that tail), which is what makes the
+// reduction genuine; the scenario's contract is untouched.
+// 40 substantive lines are what make the replacement a genuine reduction.
+const classicToolsAbsentSteps: Step[] = [
+	{
+		respond: plainText(
+			Array.from(
+				{ length: 40 },
+				(_, line) =>
+					`working note ${line}: read file.txt, confirmed the fixture writes one line, recorded the result.`,
+			).join(" "),
+		),
+	},
+	{ respond: plainText("read done") },
+];
+const classicToolsAbsentPrompts = ["begin", "continue"];
+function classicAutomaticScenario(
+	name: string,
+	options: { toggleOff: boolean; steps: Step[]; prompts: string[] },
+) {
 	return run({
 		name,
 		listModel: true,
 		tools: options.toggleOff ? NOTEBOOK_TOOLS : ["read", "grep"],
 		methodOrder: ["soft"],
 		summary: summaryStep,
-		steps: options.toggleOff ? [{ respond: noteWrite("prior notebook") }, ...workTurn] : workTurn,
-		setup: harness => harness.session.prompt("begin"),
+		steps: options.steps,
+		setup: async harness => {
+			for (const text of options.prompts) await harness.session.prompt(text);
+		},
 		act: async (harness, log) => {
 			if (options.toggleOff) await harness.session.setActiveToolsByName(["read", "grep"]);
 			markBefore(harness, log);
@@ -693,8 +720,16 @@ function classicAutomaticScenario(name: string, options: { toggleOff: boolean })
 		},
 	});
 }
-await classicAutomaticScenario("classic-automatic-tools-absent", { toggleOff: false });
-await classicAutomaticScenario("classic-automatic-toggled-off", { toggleOff: true });
+await classicAutomaticScenario("classic-automatic-tools-absent", {
+	toggleOff: false,
+	steps: classicToolsAbsentSteps,
+	prompts: classicToolsAbsentPrompts,
+});
+await classicAutomaticScenario("classic-automatic-toggled-off", {
+	toggleOff: true,
+	steps: [{ respond: noteWrite("prior notebook") }, ...workTurn],
+	prompts: ["begin"],
+});
 
 // (e) Explicit method modes and focus text keep the summary path with a live STALE
 //     notebook and the real addon loaded: never the notes rollover, never vetoed.

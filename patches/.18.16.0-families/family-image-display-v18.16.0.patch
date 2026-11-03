@@ -475,16 +475,15 @@
  	/** The renderer's {@link ToolRenderer.figure} drawing; kept across rebuilds while its language is unchanged, so it redraws in place and its raster survives them. */
  	#figure: FenceFigure | undefined;
  	readonly #instanceId = ++toolExecutionInstanceSeq;
-@@ -406,6 +409,8 @@
+@@ -406,6 +409,7 @@
  	// so a terminal resize re-shapes image-bearing results to rescale them without
  	// forcing the common image-free result to re-shape on every resize tick.
  	#renderedImageCount = 0;
-+	#pendingImageConversions = 0;
 +	#disposed = false;
  	// `stateBgKey|themeEpoch` of the tint last handed to #contentText. Re-tinting
  	// drops its wrap cache, so a rebuild whose tint is unchanged skips it and the
  	// inner Text re-wraps only when the reformatted card text actually differs.
-@@ -428,13 +433,17 @@
+@@ -428,13 +432,17 @@
  	#editMode?: EditMode;
  	#editDiffPreview?: PerFileDiffPreview[];
  	#previewReady?: PromiseWithResolvers<void>;
@@ -505,7 +504,7 @@
  	// Spinner animation for partial task results
  	#spinnerFrame?: number;
  	#spinnerActive = false;
-@@ -638,6 +647,7 @@
+@@ -638,6 +646,7 @@
  	}
  
  	updateResult(result: ToolResultFrame, isPartial = false, _toolCallId?: string): void {
@@ -513,7 +512,7 @@
  		const hadNoResult = this.#result === undefined;
  		const wasPartialResult = this.#result !== undefined && this.#isPartial;
  		const firstResultRepaintShapePainted = this.#firstResultViewportRepaintShapePainted;
-@@ -661,14 +671,19 @@
+@@ -661,14 +670,19 @@
  		}
  		this.#updateSpinnerAnimation();
  		this.#updateTodoStrikeAnimation();
@@ -535,7 +534,7 @@
  	}
  
  	/**
-@@ -686,46 +701,94 @@
+@@ -686,46 +700,92 @@
  		return [...contentImages, ...detailImages, ...xdevImages];
  	}
  
@@ -596,7 +595,6 @@
  			}
  			if (this.#kittyConversionsAwaited.has(key)) continue;
  			this.#kittyConversionsAwaited.add(key);
-+			this.#pendingImageConversions++;
  
  			// Convert async - catch errors from processing
 -			convertImageToPngShared(image)
@@ -615,7 +613,6 @@
 +					// terminal container that observes the paint also observes both.
  					this.#kittyConversionsAwaited.delete(key);
 -					this.#kittyConverted.set(key, converted);
-+					this.#pendingImageConversions--;
 +					if (this.#disposed) return;
 +					this.#blockVersion++;
  					this.#displayInputVersion++;
@@ -642,31 +639,7 @@
  	/**
  	 * Start or stop spinner animation for live states that visibly tick.
  	 */
-@@ -862,12 +925,9 @@
- 		}
- 	}
- 
--	/** Hold visible results until their figures and Kitty images are ready for immutable scrollback. */
-+	/** Pending PNGs and figures must settle before the transcript retires their rows. */
- 	isTranscriptBlockPending(): boolean {
--		return (
--			this.#toolActivityVisible &&
--			((this.#showImages && this.#kittyConversionsAwaited.size > 0) || this.#figure?.pending === true)
--		);
-+		return this.#toolActivityVisible && (this.#pendingImageConversions > 0 || this.#figure?.pending === true);
- 	}
- 
- 	/**
-@@ -877,6 +937,8 @@
- 	 */
- 	isTranscriptBlockFinalized(): boolean {
- 		if (!this.#toolActivityVisible) return true;
-+		// Retiring before async PNG conversion commits a permanently incomplete image block.
-+		if (this.#pendingImageConversions > 0) return false;
- 		if (this.#sealed) return true;
- 		if (this.#result === undefined) return false;
- 		// A parked background task's call already returned; job frames that land
-@@ -942,6 +1004,8 @@
+@@ -942,6 +1002,8 @@
  	 * interval alive and keep being repainted.
  	 */
  	override dispose(): void {
@@ -675,7 +648,7 @@
  		this.stopAnimation();
  		super.dispose();
  	}
-@@ -1332,6 +1396,7 @@
+@@ -1332,6 +1394,7 @@
  	}
  
  	#updateDisplay(): void {
@@ -683,7 +656,7 @@
  		// `TERMINAL.imageProtocol` is resolved by an async capability probe during
  		// TUI startup, so a result rendered before it lands must re-shape once it
  		// does (it gates Image children vs text fallback in #rebuildDisplay); keyed
-@@ -1749,6 +1814,7 @@
+@@ -1749,6 +1812,7 @@
  		this.#imageSpacers = [];
  		this.#syncFigure();
  
@@ -691,7 +664,7 @@
  		if (this.#result) {
  			const imageBlocks = this.#getAllImageBlocks();
  			const sourcePath = readMediaPath(this.#rawDetails);
-@@ -1756,17 +1822,28 @@
+@@ -1756,17 +1820,28 @@
  			for (let i = 0; i < imageBlocks.length; i++) {
  				const img = imageBlocks[i];
  				if (TERMINAL.imageProtocol && this.#showImages && img.data && img.mimeType) {
@@ -726,7 +699,7 @@
  						continue;
  					}
  
-@@ -1774,23 +1851,24 @@
+@@ -1774,23 +1849,24 @@
  					this.addChild(spacer);
  					this.#imageSpacers.push(spacer);
  					const imageComponent = new Image(

@@ -1,0 +1,92 @@
+{
+	"id": "0062-boundary",
+	"capability": "0062-omp-snapcompact-reduction-baseline-previous-archive",
+	"purpose": "Second-compaction boundary for the 0062 contract: a new snapcompact archive that folds and replaces a standing one must be admitted when the reader's frame price makes it a net reduction, rejected when the same archive is priced at the cross-shape ceiling, and admitted only because the pre-compaction baseline credits the standing summary.",
+	"incident": {
+		"source": "patches/PATCHES.md §0045 failure signature (session 01a06d18-8d5b, gpt-6-astra on a hand-written gateway, api=openai-responses)",
+		"standingFrames": 10,
+		"archiveFrames": 18,
+		"archivedRegionTokens": 63729,
+		"keptTailTokens": 21665,
+		"summaryCeilingTokens": 98757,
+		"summaryTextTokens": 8325,
+		"framePriceCeiling": 5024
+	},
+	"derivation": [
+		"Synthetic by construction: the probe renders the fixture's text from a seeded PRNG over a fixed vocabulary and writes its own session. No live session file is copied.",
+		"Frames, kept tail and ceiling price are the incident's: standing archive 10 frames, successor 18 frames, kept tail 21 665 tokens, and the ceiling bill 18 x 5 024 = 90 432 per successor archive.",
+		"The archived region is derived, not pinned: 108 000 characters -> ~32 000 tokens. With N standing frames and F successor frames the guard's two decisions are (F-N) x shapePrice < region <= F x shapePrice, so the region must sit inside the frame-growth window; the incident's 63 729 tokens is above F x shapePrice = 18 x 3 136 = 56 448, where the credit stops being load-bearing and no control can attribute it. 32 019 sits inside 8 x 3 136 = 25 088 and 56 448 with >= 25% margin on each side.",
+		"Region <= (region capacity / ceiling price) x regionTokens is what makes the ceiling leg reject at all: the archive is cheaper than the text it replaces only while the text is denser than 13 916 / 5 024 = 2.77 chars/token, and cheaper at the shape price while it is denser than 13 916 / 3 136 = 4.44. This vocabulary prices at ~3.4 chars/token in the probe's reader, between the two.",
+		"summaryCeilingTokens is measured, not pinned: the incident's 98 757 = 8 325 text + 90 432 frames, and 8 325 tokens of summary text only appears in a session whose summary carries a long FILES / earlier-summary lead. This fixture's summary template bills ~242 tokens by the probe's tokenizer and ~16 000 by the session tokenizer (the two readers price this vocabulary differently), so the fixture pins only the frame bill and the decisions.",
+		"Token pins below are documentation of the boundary, not part of the verdict: the probe records them and fails only on a wrong decision, a wrong committed frame count, a wrong frame price, or a provider request."
+	],
+	"model": {
+		"base": {
+			"provider": "google",
+			"id": "gemini-3.8-flash"
+		},
+		"contextWindow": 400000,
+		"maxOutputTokens": 32000,
+		"rows": {
+			"shape": {
+				"provider": "anthropic",
+				"id": "synthetic-gateway-model",
+				"api": "anthropic-messages"
+			},
+			"ceiling": {
+				"provider": "anthropic",
+				"id": "synthetic-gateway-model",
+				"api": "synthetic-unpriced-wire"
+			}
+		}
+	},
+	"settings": {
+		"snapcompact.shape": "11on16-bw",
+		"compaction.keepRecentTokens": 2000
+	},
+	"text": {
+		"recipe": "fixture-vocabulary",
+		"weights": {
+			"word": 1,
+			"identifier": 1,
+			"number": 20,
+			"long": 0
+		}
+	},
+	"session": {
+		"standingArchive": {
+			"chars": 160000,
+			"seed": 24285
+		},
+		"boundary": {
+			"archivedRegionChars": 108000,
+			"archivedRegionSeed": 48879,
+			"keptTailChars": 73000,
+			"keptTailSeed": 51966
+		}
+	},
+	"expect": {
+		"standingFrames": 10,
+		"archiveFrames": 18,
+		"archivedRegionTokens": {
+			"value": 32019,
+			"tolerance": 0.1
+		},
+		"keptTailTokens": {
+			"value": 21700,
+			"tolerance": 0.06
+		},
+		"summaryTokens": {
+			"value": 242,
+			"tolerance": 0.2
+		},
+		"framePrices": {
+			"shape": 3136,
+			"ceiling": 5024
+		},
+		"legs": {
+			"shape": "accept",
+			"ceiling": "reject"
+		}
+	}
+}

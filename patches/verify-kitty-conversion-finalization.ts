@@ -6,8 +6,29 @@ const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
 // The replay controller selects the package root at runtime.
 const { ToolExecutionComponent, stopSharedSpinnerTicker } = await import(`${TUI_ROOT}/src/chat/tool-execution.ts`);
 const { TERMINAL, ImageProtocol } = await import(`${TUI_ROOT}/src/terminal-capabilities.ts`);
-const { ensurePng } = await import(`${TUI_ROOT}/src/chat/image-loading.ts`);
+const imageLoading = await import(`${TUI_ROOT}/src/chat/image-loading.ts`);
+// 0080 owns the shared-PNG cache (`ensurePng`); the pristine 18.16.0 target and
+// any tree without that layer ship the same module without the export, so only
+// the 0079 retirement barrier is asserted there.
+type SharedPng = (image: { type: "image"; data: string; mimeType: string }) => Promise<
+	{ type: "image"; data: string; mimeType: string } | undefined
+>;
+const ensurePng: SharedPng | undefined = "ensurePng" in imageLoading ? (imageLoading.ensurePng as SharedPng) : undefined;
 const { ImageBudget } = await import(`${TUI_ROOT}/src/components/image.ts`);
+/**
+ * The transcript's own retirement predicate (`components/transcript-container`
+ * `isFinalized`): a block retires into immutable scrollback only once it reports
+ * finalized AND not pending. 0079's contract is exactly "not retired while a
+ * Kitty conversion is outstanding", so the gate asserts this composition rather
+ * than the local `isTranscriptBlockFinalized` shape that 18.16.0 replaced with
+ * `isTranscriptBlockPending`.
+ */
+function retirementHeld(block: {
+	isTranscriptBlockFinalized(): boolean;
+	isTranscriptBlockPending?(): boolean;
+}): boolean {
+	return block.isTranscriptBlockFinalized() && block.isTranscriptBlockPending?.() !== true;
+}
 const previousProtocol = TERMINAL.imageProtocol;
 const png =
 	"iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGklEQVR4nGMMr0r+b/RPjoHlpyIfA8N/UQYAPVQFw2ujXG4AAAAASUVORK5CYII=";
@@ -33,11 +54,7 @@ try {
 				],
 			});
 			component.seal();
-			assert.equal(
-				component.isTranscriptBlockFinalized(),
-				false,
-				"sealed results must wait for image conversion",
-			);
+			assert.equal(retirementHeld(component), false, "sealed results must wait for image conversion");
 			let timer: Timer | undefined;
 			try {
 				await new Promise<void>((resolve, reject) => {
@@ -47,11 +64,8 @@ try {
 			} finally {
 				clearTimeout(timer);
 			}
-			assert.equal(
-				component.isTranscriptBlockFinalized(),
-				true,
-				"success and failure must both release history retirement",
-			);
+			assert.equal(retirementHeld(component), true, "success and failure must both release history retirement");
+			assert.equal(component.isTranscriptBlockPending(), false, "the barrier itself must release on both paths");
 			const lines = component.render(80).join("\n");
 			assert.equal(
 				lines.includes("\x1b_G"),
@@ -63,67 +77,71 @@ try {
 			component.stopAnimation();
 		}
 	}
-	// Teardown must discard only the dead card's ownership, not a conversion
-	// shared with a live card. No await separates subscription from disposal.
-	const disposalWebp = await new Bun.Image(Buffer.from(png, "base64")).resize(7, 7).webp().toBase64();
-	const disposalImage = { type: "image" as const, data: disposalWebp, mimeType: "image/webp" };
-	class CountingBudget extends ImageBudget {
-		acquisitions = 0;
-		override acquireId(key?: string): number {
-			this.acquisitions++;
-			return super.acquireId(key);
+	if (!ensurePng) {
+		console.log("skip shared-conversion teardown leg: this tree has no 0080 shared PNG cache");
+	} else {
+		// Teardown must discard only the dead card's ownership, not a conversion
+		// shared with a live card. No await separates subscription from disposal.
+		const disposalWebp = await new Bun.Image(Buffer.from(png, "base64")).resize(7, 7).webp().toBase64();
+		const disposalImage = { type: "image" as const, data: disposalWebp, mimeType: "image/webp" };
+		class CountingBudget extends ImageBudget {
+			acquisitions = 0;
+			override acquireId(key?: string): number {
+				this.acquisitions++;
+				return super.acquireId(key);
+			}
 		}
-	}
-	const deadBudget = new CountingBudget(2);
-	const liveBudget = new ImageBudget(2);
-	let deadPaints = 0;
-	const dead = new ToolExecutionComponent("fixture", {}, { useBuiltInRenderer: false }, undefined, {
-		imageBudget: deadBudget,
-		requestRender: () => { deadPaints++; },
-		requestComponentRender: () => { deadPaints++; },
-		resetDisplay: () => { deadPaints++; },
-	});
-	const live = new ToolExecutionComponent("fixture", {}, { useBuiltInRenderer: false }, undefined, {
-		imageBudget: liveBudget,
-		requestRender: () => {},
-		requestComponentRender: () => {},
-		resetDisplay: () => {},
-	});
-	const descendants = (node: { children?: readonly unknown[] }): unknown[] =>
-		(node.children ?? []).flatMap(child => [child, ...descendants(child as { children?: readonly unknown[] })]);
-	try {
-		dead.updateResult({ content: [disposalImage] });
-		live.updateResult({ content: [disposalImage] });
-		dead.seal();
-		live.seal();
-		assert.equal(dead.isTranscriptBlockPending(), true, "the dead card must own an unsettled conversion");
-		assert.equal(live.isTranscriptBlockPending(), true, "the live card subscribes to that same conversion");
-		dead.dispose();
-		const paintsAtDisposal = deadPaints;
-		const acquisitionsAtDisposal = deadBudget.acquisitions;
-		const versionAtDisposal = dead.getTranscriptBlockVersion();
-		const childrenAtDisposal = descendants(dead);
-		assert.ok(await ensurePng(disposalImage), "disposing one subscriber cannot cancel shared conversion");
-		// Drain the component-owned completion/finally handlers, not only the
-		// shared conversion promise.
-		await Bun.sleep(0);
-		assert.equal(deadPaints, paintsAtDisposal, "late completion must not repaint a disposed card");
-		assert.equal(deadBudget.acquisitions, acquisitionsAtDisposal, "late completion must not allocate graphics");
-		assert.equal(dead.getTranscriptBlockVersion(), versionAtDisposal, "late completion must not rebuild the dead card");
-		const childrenAfterSettlement = descendants(dead);
-		assert.equal(childrenAfterSettlement.length, childrenAtDisposal.length);
-		childrenAfterSettlement.forEach((child, index) => assert.equal(child, childrenAtDisposal[index]));
-		assert.equal(dead.isTranscriptBlockPending(), false, "discarded completion still releases its retirement barrier");
-		assert.equal(dead.isTranscriptBlockFinalized(), true);
-		assert.equal(live.isTranscriptBlockPending(), false);
-		assert.equal(live.isTranscriptBlockFinalized(), true);
-		liveBudget.beginPass();
-		assert.match(live.render(80).join("\n"), /\x1b_Ga=p/, "the live subscriber receives the converted graphic");
-		assert.equal(liveBudget.endPass(), false);
-		assert.equal(liveBudget.takeTransmits().length, 1);
-	} finally {
-		dead.dispose();
-		live.dispose();
+		const deadBudget = new CountingBudget(2);
+		const liveBudget = new ImageBudget(2);
+		let deadPaints = 0;
+		const dead = new ToolExecutionComponent("fixture", {}, { useBuiltInRenderer: false }, undefined, {
+			imageBudget: deadBudget,
+			requestRender: () => { deadPaints++; },
+			requestComponentRender: () => { deadPaints++; },
+			resetDisplay: () => { deadPaints++; },
+		});
+		const live = new ToolExecutionComponent("fixture", {}, { useBuiltInRenderer: false }, undefined, {
+			imageBudget: liveBudget,
+			requestRender: () => {},
+			requestComponentRender: () => {},
+			resetDisplay: () => {},
+		});
+		const descendants = (node: { children?: readonly unknown[] }): unknown[] =>
+			(node.children ?? []).flatMap(child => [child, ...descendants(child as { children?: readonly unknown[] })]);
+		try {
+			dead.updateResult({ content: [disposalImage] });
+			live.updateResult({ content: [disposalImage] });
+			dead.seal();
+			live.seal();
+			assert.equal(dead.isTranscriptBlockPending(), true, "the dead card must own an unsettled conversion");
+			assert.equal(live.isTranscriptBlockPending(), true, "the live card subscribes to that same conversion");
+			dead.dispose();
+			const paintsAtDisposal = deadPaints;
+			const acquisitionsAtDisposal = deadBudget.acquisitions;
+			const versionAtDisposal = dead.getTranscriptBlockVersion();
+			const childrenAtDisposal = descendants(dead);
+			assert.ok(await ensurePng(disposalImage), "disposing one subscriber cannot cancel shared conversion");
+			// Drain the component-owned completion/finally handlers, not only the
+			// shared conversion promise.
+			await Bun.sleep(0);
+			assert.equal(deadPaints, paintsAtDisposal, "late completion must not repaint a disposed card");
+			assert.equal(deadBudget.acquisitions, acquisitionsAtDisposal, "late completion must not allocate graphics");
+			assert.equal(dead.getTranscriptBlockVersion(), versionAtDisposal, "late completion must not rebuild the dead card");
+			const childrenAfterSettlement = descendants(dead);
+			assert.equal(childrenAfterSettlement.length, childrenAtDisposal.length);
+			childrenAfterSettlement.forEach((child, index) => assert.equal(child, childrenAtDisposal[index]));
+			assert.equal(dead.isTranscriptBlockPending(), false, "discarded completion still releases its retirement barrier");
+			assert.equal(dead.isTranscriptBlockFinalized(), true);
+			assert.equal(live.isTranscriptBlockPending(), false);
+			assert.equal(live.isTranscriptBlockFinalized(), true);
+			liveBudget.beginPass();
+			assert.match(live.render(80).join("\n"), /\x1b_Ga=p/, "the live subscriber receives the converted graphic");
+			assert.equal(liveBudget.endPass(), false);
+			assert.equal(liveBudget.takeTransmits().length, 1);
+		} finally {
+			dead.dispose();
+			live.dispose();
+		}
 	}
 	// A repaint fault raised from the async conversion callback must be logged, not
 	// left as an unhandled rejection that can interrupt the TUI.
@@ -154,16 +172,17 @@ try {
 			});
 			component.seal();
 			armed = true;
-			for (let tick = 0; tick < 250 && !component.isTranscriptBlockFinalized(); tick++) await Bun.sleep(20);
+			for (let tick = 0; tick < 250 && !retirementHeld(component); tick++) await Bun.sleep(20);
 			// Give the discarded terminal promise a macrotask to report a rejection.
 			await Bun.sleep(50);
 			assert.ok(repaintFaults > 0, "the async conversion repaint must be the exercised fault source");
-			assert.equal(
-				component.isTranscriptBlockFinalized(),
-				true,
-				"a throwing repaint must still release the retirement barrier",
-			);
-			assert.deepEqual(unhandled, [], "a throwing repaint must be logged, not left as an unhandled rejection");
+			assert.equal(retirementHeld(component), true, "a throwing repaint must still release the retirement barrier");
+			// The logging guard for a throwing repaint ships with 0080's completion
+			// rewrite; a tree without it may surface the rejection, so only assert
+			// the guard where the layer exists.
+			if (ensurePng) {
+				assert.deepEqual(unhandled, [], "a throwing repaint must be logged, not left as an unhandled rejection");
+			}
 		} finally {
 			component.stopAnimation();
 		}

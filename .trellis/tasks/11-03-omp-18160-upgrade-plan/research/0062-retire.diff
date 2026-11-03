@@ -1,0 +1,59 @@
+--- a/pi-coding-agent/src/session/session-maintenance.ts
++++ b/pi-coding-agent/src/session/session-maintenance.ts
+@@ -2785,12 +2785,6 @@
+ 	 * them symmetrically so the comparison stays in one local token domain.
+ 	 * Native Responses reasoning that replays is a provider-reported token
+ 	 * price, not a byte guess, so it stays in every region.
+-	 *
+-	 * The archive the new pass supersedes is credited here (see
+-	 * {@link #projectPreviousArchiveTokens}): the summary that replaces it takes
+-	 * its frames off the wire, and `prepareCompaction` hides that record from
+-	 * every region, so the baseline has to add it back or the whole new archive
+-	 * gets charged against a region that no longer carries the old one.
+ 	 */
+ 	#projectPreSnapcompactContextTokens(preparation: CompactionPreparation): number {
+ 		const opts = { excludeEncryptedReasoning: true } as const;
+@@ -2817,43 +2811,7 @@
+ 		tokens += this.#tokenizer.countMessages(preparation.messagesToSummarize, opts);
+ 		tokens += this.#tokenizer.countMessages(preparation.turnPrefixMessages, opts);
+ 		tokens += this.#tokenizer.countMessages(preparation.recentMessages, opts);
+-		tokens += this.#projectPreviousArchiveTokens(preparation);
+ 		return tokens;
+-	}
+-
+-	/**
+-	 * Token cost of the archive a new snapcompact pass supersedes: the previous
+-	 * compaction record's summary text plus the frames it re-attaches.
+-	 *
+-	 * `prepareCompaction` excludes that record from `messagesToSummarize`,
+-	 * `turnPrefixMessages`, and `recentMessages` -- under v2 preserve data the
+-	 * summary must not be summarized again as ordinary history -- so
+-	 * {@link #projectPreSnapcompactContextTokens} sees none of it, while the
+-	 * reduction projection carries the whole new archive (the pass re-renders
+-	 * the superseded text into its pages). Comparing those two as-is only holds
+-	 * for a first pass: from the second pass on, it charges the full new archive
+-	 * against a region that no longer contains the archive being replaced and
+-	 * reports a genuinely reducing compaction as "would not reduce context".
+-	 * Frames are priced by the tokenizer's own model/dimension rates, the same
+-	 * domain the reduction projection counts in, so the comparison weighs the
+-	 * net frame delta and a plan that grows the archive beyond the region it
+-	 * replaces still fails the guard.
+-	 */
+-	#projectPreviousArchiveTokens(preparation: CompactionPreparation): number {
+-		const archive = snapcompact.getPreservedArchive(preparation.previousPreserveData);
+-		if (!archive) return 0;
+-		const blocks = snapcompact.historyBlocks(archive, {
+-			maxFrameDataBytes: snapcompact.frameDataBytesBudget(this.#model),
+-		});
+-		// Only `summary` and `blocks` are priced; the remaining fields are inert
+-		// here (the message is built to be counted, never displayed).
+-		const previousSummary = createCompactionSummaryMessage(
+-			preparation.previousSummary ?? "",
+-			preparation.tokensBefore,
+-			new Date().toISOString(),
+-			{ blocks },
+-		);
+-		return this.#tokenizer.countMessage(previousSummary, { excludeEncryptedReasoning: true });
+ 	}
+ 
+ 	async runPrePromptCompactionIfNeeded(messages: AgentMessage[]): Promise<void> {

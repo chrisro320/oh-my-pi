@@ -2159,6 +2159,248 @@ if (hasExchangeReservation) {
 			});
 		});
 
+		// The five durability sub-contracts 0090a used to own are upstream's now.
+		// Each keeps its own scenario here, so retiring the local hunks cannot also
+		// retire the only evidence: quit and store swap (upstream `close()` /
+		// `replaceStore()` retire), caller-local cancellation (above), the >15 s
+		// lease stall (5), peer takeover + hand-back (6/7) and the advisory
+		// usage-probe refresh (below).
+		await scenario("quit mid-refresh: close() keeps the store open until the rotated grant is saved", async () => {
+			const started = Promise.withResolvers<void>();
+			const release = Promise.withResolvers<void>();
+			const t = installTransport({
+				onTokenPost: () => started.resolve(),
+				token: () => tokenReply("quit-access-1", "quit-refresh-1", { waitFor: release.promise }),
+			});
+			try {
+				await withCase(async c => {
+					const id = await seed(c, expiredCred({ access: "quit-access-0", refresh: "quit-refresh-0" }));
+					const refreshing = c.auth.oauth.refresh(id).then(
+						entry => entry,
+						(error: unknown) => error,
+					);
+					await waitForPost(started.promise, refreshing);
+					c.auth.close();
+					await assert.rejects(
+						() => c.auth.oauth.refresh(id),
+						/shutdown/,
+						"a refresh admitted after close must be refused, not spend a second token",
+					);
+					release.resolve();
+					const outcome = await refreshing;
+					assert.ok(!(outcome instanceof Error), `the admitted exchange must still settle: ${String(outcome)}`);
+					const saved = JSON.parse(rawRowData(c, id)) as { access?: string; refresh?: string };
+					assert.equal(saved.refresh, "quit-refresh-1", "the rotated refresh token is durable before the store closes");
+					assert.equal(saved.access, "quit-access-1", "the rotated access token is durable before the store closes");
+					assert.equal(t.tokenPosts, 1, "exactly one grant, never replayed");
+				});
+			} finally {
+				t.restore();
+			}
+		});
+
+		await scenario("store swap mid-refresh: replaceStore() drains the retired store's save", async () => {
+			const started = Promise.withResolvers<void>();
+			const release = Promise.withResolvers<void>();
+			const t = installTransport({
+				onTokenPost: () => started.resolve(),
+				token: () => tokenReply("swap-access-1", "swap-refresh-1", { waitFor: release.promise }),
+			});
+			try {
+				await withCase(async c => {
+					const id = await seed(c, expiredCred({ access: "swap-access-0", refresh: "swap-refresh-0" }));
+					const refreshing = c.auth.oauth.refresh(id).then(
+						entry => entry,
+						(error: unknown) => error,
+					);
+					await waitForPost(started.promise, refreshing);
+					const next = await StoreClass.open(join(c.dir, "auth-next.db"));
+					c.cleanup.push(async () => next.close());
+					await c.auth.replaceStore(next);
+					release.resolve();
+					const outcome = await refreshing;
+					assert.ok(!(outcome instanceof Error), `the exchange bound to the retired store must settle: ${String(outcome)}`);
+					const saved = JSON.parse(rawRowData(c, id)) as { access?: string; refresh?: string };
+					assert.equal(saved.refresh, "swap-refresh-1", "the retired store holds the rotated refresh token");
+					assert.equal(saved.access, "swap-access-1", "the retired store holds the rotated access token");
+					assert.equal(t.tokenPosts, 1, "exactly one grant, never replayed");
+					assert.equal(c.auth.credentials.list(PROVIDER).length, 0, "the swapped-in store is the active authority");
+				});
+			} finally {
+				t.restore();
+			}
+		});
+
+		await scenario("a rejected token after a takeover hands the lease back instead of disabling", async () => {
+			const t = installTransport({ token: () => ({ kind: "status", status: 400, text: '{"error":"invalid_grant"}' }) });
+			try {
+				await withCase(async c => {
+					const id = await seed(c, expiredCred({ access: "handback-access-0", refresh: "handback-refresh-0" }));
+					// A refresher that stalled holding this row's lease a moment ago: its
+					// successor may still be on its way to the store, so a rejection of the
+					// token we found is no proof the login is dead.
+					assert.ok(
+						c.store.tryAcquireCredentialRefreshLease(id, "stalled-owner", Date.now() - 1),
+						"the stalled lease must be planted on the row",
+					);
+					await assert.rejects(
+						() => c.auth.oauth.refresh(id),
+						/waits for a stalled refresher/,
+						"the takeover rejection must be reported as transient",
+					);
+					assert.ok(rowOf(c, id), "a rejection after a takeover must not disable the row");
+					assert.equal(
+						c.store.getCredentialRefreshLeaseHolder?.(id)?.owner,
+						"stalled-owner",
+						"the lease must go back to the refresher that may still save its token",
+					);
+					assert.equal(t.tokenPosts, 1, "exactly one grant for the attempted row");
+					assert.equal(t.tokenBodies[0]?.refresh_token, "handback-refresh-0",
+						"the attempted grant is the stored one");
+				});
+			} finally {
+				t.restore();
+			}
+		});
+
+		await scenario("an advisory usage-probe refresh never disables the credential", async () => {
+			const t = installTransport({ token: () => ({ kind: "status", status: 400, text: '{"error":"invalid_grant"}' }) });
+			try {
+				await withCase(async c => {
+					const credential = expiredCred({ access: "poll-access-0", refresh: "poll-refresh-0" });
+					const id = await seed(c, credential);
+					let probes = 0;
+					c.auth.usage.setProvider(PROVIDER, {
+						fetchUsage: async () => {
+							probes++;
+							return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
+						},
+					});
+					await c.auth.usage.report(PROVIDER, credential).catch(() => null);
+					assert.equal(t.tokenPosts, 1, "the near-expiry row must have been refreshed for the probe");
+					assert.ok(rowOf(c, id), "an advisory usage probe may never disable the credential");
+					assert.equal(probes, 1, "the probe falls back to the advisory bearer instead of failing the report");
+				});
+			} finally {
+				t.restore();
+			}
+		});
+
+		await scenario("an advisory probe that receives invalid_grant discharges its exchange", async () => {
+			const t = installTransport({ token: () => ({ kind: "status", status: 400, text: '{"error":"invalid_grant"}' }) });
+			try {
+				await withCase(async c => {
+					const credential = expiredCred({ access: "probe-reject-access", refresh: "probe-reject-refresh" });
+					const id = await seed(c, credential);
+					c.auth.usage.setProvider(PROVIDER, {
+						fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
+					});
+					await c.auth.usage.report(PROVIDER, credential).catch(() => null);
+					assert.equal(t.tokenPosts, 1, "the advisory probe must have attempted one grant");
+					assert.ok(rowOf(c, id), "an advisory rejection leaves the row active");
+					assert.deepEqual(exchangeRows(c), [],
+						"a rejection the provider actually sent is a known outcome: no pending marker may survive");
+					const inspection = await requireUnlockSurface(c).inspectUnresolvedRefresh(PROVIDER);
+					assert.equal(inspection.eligible, false, "a known rejection leaves nothing to unlock");
+					// Another process rotates the row; the next interactive refresh adopts the
+					// stored winner with no second grant and no re-login.
+					const peer: Cred = {
+						type: "oauth", access: "probe-peer-access", refresh: "probe-peer-refresh",
+						expires: Date.now() + 3_600_000, accountId: "probe-peer",
+					};
+					c.store.updateAuthCredential(id, peer);
+					const after = await c.auth.oauth.refresh(id);
+					assert.equal(after.credential.access, "probe-peer-access",
+						"the next interactive refresh proceeds on the stored row");
+					assert.equal(t.tokenPosts, 1, "recovering from a known rejection needs no second grant");
+				});
+			} finally {
+				t.restore();
+			}
+		});
+
+		await scenario("an advisory probe whose response was lost keeps its unresolved exchange", async () => {
+			const t = installTransport({ token: () => ({ kind: "network", message: "response lost after synthetic consumption" }) });
+			try {
+				await withCase(async c => {
+					const credential = expiredCred({ access: "probe-lost-access", refresh: "probe-lost-refresh" });
+					const id = await seed(c, credential);
+					c.auth.usage.setProvider(PROVIDER, {
+						fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
+					});
+					await c.auth.usage.report(PROVIDER, credential).catch(() => null);
+					assert.equal(t.tokenPosts, 1, "the advisory probe consumed the generation exactly once");
+					assert.ok(rowOf(c, id), "an unresolved probe outcome never disables the row");
+					assert.equal(exchangeRows(c).length, 1, "an unknown outcome keeps its durable marker");
+					const inspection = await requireUnlockSurface(c).inspectUnresolvedRefresh(PROVIDER);
+					assert.equal(inspection.eligible, true, "the ambiguity stays inspectable and unlockable");
+					await assert.rejects(
+						() => c.auth.oauth.refresh(id),
+						/outcome is unresolved/,
+						"an ambiguous generation is never resent",
+					);
+					assert.equal(t.tokenPosts, 1, "no second grant after an unknown outcome");
+					assert.ok(rowOf(c, id), "the refused refresh leaves the row active");
+				});
+			} finally {
+				t.restore();
+			}
+		});
+
+		await scenario("an advisory probe transport failure that mentions a revoked grant keeps its marker", async () => {
+			// The message is designed to match the free-text definitive pattern; only a
+			// parsed provider answer may discharge, so this must stay ambiguous.
+			const t = installTransport({ token: () => ({ kind: "network", message: "network: certificate revoked (invalid_grant)" }) });
+			try {
+				await withCase(async c => {
+					const credential = expiredCred({ access: "probe-netfail-access", refresh: "probe-netfail-refresh" });
+					const id = await seed(c, credential);
+					c.auth.usage.setProvider(PROVIDER, {
+						fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
+					});
+					await c.auth.usage.report(PROVIDER, credential).catch(() => null);
+					assert.equal(t.tokenPosts, 1, "the advisory probe attempted exactly one grant");
+					assert.ok(rowOf(c, id), "a transport failure never disables the row");
+					assert.equal(exchangeRows(c).length, 1,
+						"no provider answer was read, so the outcome is unknown and the marker stays");
+					const inspection = await requireUnlockSurface(c).inspectUnresolvedRefresh(PROVIDER);
+					assert.equal(inspection.eligible, true, "the ambiguity stays inspectable and unlockable");
+					await assert.rejects(() => c.auth.oauth.refresh(id), /outcome is unresolved/,
+						"an unread outcome is never resent");
+					assert.equal(t.tokenPosts, 1, "no second grant after a transport failure");
+				});
+			} finally {
+				t.restore();
+			}
+		});
+
+		await scenario("an advisory probe 200 with an unusable payload keeps its marker", async () => {
+			// A 2xx envelope whose excerpt names a grant rejection is still not a
+			// refusal of the grant: validation failed, nothing was told to us.
+			const t = installTransport({
+				token: () => ({ kind: "json", body: { error: "invalid_grant", error_description: "grant revoked" } }),
+			});
+			try {
+				await withCase(async c => {
+					const credential = expiredCred({ access: "probe-bad200-access", refresh: "probe-bad200-refresh" });
+					const id = await seed(c, credential);
+					c.auth.usage.setProvider(PROVIDER, {
+						fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
+					});
+					await c.auth.usage.report(PROVIDER, credential).catch(() => null);
+					assert.equal(t.tokenPosts, 1, "the advisory probe attempted exactly one grant");
+					assert.ok(rowOf(c, id), "an unusable 200 never disables the row");
+					assert.equal(exchangeRows(c).length, 1,
+						"a 2xx with a bad payload proves nothing about the grant, so the marker stays");
+					await assert.rejects(() => c.auth.oauth.refresh(id), /outcome is unresolved/,
+						"an unresolved generation is never resent");
+					assert.equal(t.tokenPosts, 1, "no second grant after an unusable 200");
+				});
+			} finally {
+				t.restore();
+			}
+		});
+
 		await scenario("an unpublishable local exchange is refused before the grant", async () => {
 			const t = installTransport({ tokenMarker: "oauth2.googleapis.com/token", token: () => tokenReply("forbidden", "forbidden") });
 			try {

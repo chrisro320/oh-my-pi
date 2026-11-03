@@ -63,6 +63,23 @@ function streamBody(frames: object[]): Uint8Array {
 const AUTH_PATH = "/exa.auth_pb.AuthService/GetUserJwt";
 const CHAT_PATH = "/exa.api_server_pb.ApiServerService/GetChatMessage";
 
+// Connect-protocol frame flags (`pi-ai/src/providers/connect-frame.ts`): 1 flag
+// byte + 4-byte big-endian length + payload.
+const CONNECT_COMPRESSED_FLAG = 0x01;
+
+// 18.16.0 sends a request below `MIN_COMPRESSED_BODY_BYTES` (1024) plain and
+// without `connect-content-encoding`, so the capture must decode per the frame
+// flag: gzip only when CONNECT_COMPRESSED_FLAG is set, raw otherwise.
+// Unconditional gunzip asserted a wire shape the sender no longer guarantees.
+function decodeFrame(body: Uint8Array | Buffer): Uint8Array {
+	const frame = Buffer.from(body);
+	assert.ok(frame.length >= 5, "connect frame has a 5-byte header");
+	const length = frame.readUInt32BE(1);
+	assert.equal(frame.length, 5 + length, "connect frame carries exactly its declared payload");
+	const payload = frame.subarray(5, 5 + length);
+	return (frame[0] & CONNECT_COMPRESSED_FLAG) !== 0 ? gunzipSync(payload) : payload;
+}
+
 const SIG = "sealed.v1.abc123";
 
 // Fetch that returns a thinking delta followed by a STANDALONE signature frame
@@ -77,9 +94,7 @@ function makeFetch(capture: { lastChatBody?: Uint8Array }) {
 		}
 		if (u.endsWith(CHAT_PATH)) {
 			if (init?.body instanceof Uint8Array || Buffer.isBuffer(init?.body)) {
-				const frame = init.body as Uint8Array;
-				// strip 5-byte connect frame header, gunzip
-				capture.lastChatBody = gunzipSync(frame.subarray(5));
+				capture.lastChatBody = decodeFrame(init.body as Uint8Array);
 			}
 			return new Response(
 				streamBody([

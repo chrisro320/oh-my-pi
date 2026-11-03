@@ -2,10 +2,10 @@
   "status": "candidate-exported-unverified",
   "behavioral_checks_run": false,
   "candidate": "/tmp/omp-plan-18160/rebase/work",
-  "candidate_tree_sha256": "fca667ce6e63584f18c3d4c1c3be8970f10d68262101a3404f22f51517b6a6a1",
+  "candidate_tree_sha256": "8b32ff0876b6ccdf561ec8c4d8ac93f27b079d06b1f0ef442f61b42f70af5e69",
   "pristine_tree_sha256": "9f88de1a04fb7d663ecd2b627686f0048252231d1a6293bd34fce4301eaf99a1",
-  "family_count": 27,
-  "local_capability_count": 60,
+  "family_count": 26,
+  "local_capability_count": 56,
   "upstream_adoptions": [
     {
       "capability": "0017",
@@ -19,6 +19,34 @@
       "contract": "Python producer emits exactly one PNG-preferred image with JPEG fallback; real producer and two negative controls passed.",
       "source": "pi-coding-agent/src/eval/py/runner.py",
       "evidence": ".trellis/tasks/10-23-omp-upgrade-plan/research/mime-adoption-0078.md"
+    },
+    {
+      "capability": "0066",
+      "family": "family-compaction",
+      "source": "pi-agent-core/src/compaction/compaction.ts",
+      "evidence": ".trellis/tasks/11-03-omp-18160-upgrade-plan/research/m5-adoptions.md",
+      "contract": "The Anthropic native compaction request carries the live system prompt, wire tools and transformed history via buildProviderContext; the remoteSystemPrompt + summaryOptions.tools fallback stays."
+    },
+    {
+      "capability": "0072",
+      "family": "0072-omp-session-pin-static-auth-ui",
+      "source": "pi-coding-agent/src/modes/controllers/selector-controller.ts",
+      "evidence": ".trellis/tasks/11-03-omp-18160-upgrade-plan/research/m5-adoptions.md",
+      "contract": "The /session pin auth UI loads without a synchronous require of @oh-my-pi auth modules (upstream async loaders since 18.14.0)."
+    },
+    {
+      "capability": "0079",
+      "family": "family-image-display",
+      "source": "pi-tui/src/chat/tool-execution.ts",
+      "evidence": ".trellis/tasks/11-03-omp-18160-upgrade-plan/research/m5-adoptions.md",
+      "contract": "A sealed tool result is not retired while its Kitty image conversion is pending (upstream isTranscriptBlockPending barrier)."
+    },
+    {
+      "capability": "0062",
+      "family": "family-image-budget-snapcompact",
+      "source": "pi-coding-agent/src/session/session-maintenance.ts",
+      "evidence": ".trellis/tasks/11-03-omp-18160-upgrade-plan/research/m5-adoptions.md",
+      "contract": "A second snapcompact pass is admitted when its priced frames reduce context: upstream credits the standing compaction summary in the reduction baseline and prices frames per reader billing rule."
     }
   ],
   "generation": "Ordered merge-file proposals, explicit target API conflict resolutions, accept snapshots, real diff -u before/after export; no behavioral verification.",
@@ -203,11 +231,9 @@
         "0036",
         "0044",
         "0052",
-        "0057",
-        "0062"
+        "0057"
       ],
       "paths": [
-        "pi-coding-agent/src/session/session-maintenance.ts",
         "snapcompact/dist/types/snapcompact.d.ts",
         "snapcompact/src/snapcompact.ts",
         "pi-catalog/src/compat/request-size.ts",
@@ -224,7 +250,6 @@
         "pi-catalog/dist/types/compat/request-size.d.ts"
       ],
       "source": [
-        "pi-coding-agent/src/session/session-maintenance.ts",
         "snapcompact/src/snapcompact.ts",
         "pi-catalog/src/compat/request-size.ts",
         "pi-catalog/src/compat/rules/providers/image-budget.kdl",
@@ -234,7 +259,7 @@
         "pi-catalog/src/compat/rules.json",
         "pi-catalog/src/compat/rules/providers/devin.kdl"
       ],
-      "sha256": "3c555fc47b985fa578e0a53afea1d08efb102ad529d6b45f0ec17d48be0adacc"
+      "sha256": "e89eb9a9f68a50404ecdc0c4c7b919d7ebda2811a8f5500731fbee4885d9a9e9"
     },
     {
       "id": "family-persistent-prefix-resume",
@@ -296,7 +321,7 @@
         "pi-coding-agent/src/session/session-transfer.ts",
         "pi-coding-agent/src/session/turn-recovery.ts"
       ],
-      "sha256": "2b279d30822183c131e5c771c80c5e859cbac1b1012c2fd12a06a492ccaaf761"
+      "sha256": "830674422ac83c49fd53d58b353f4c7962a08fdfddb66f17d1a0f0121c53c186"
     },
     {
       "id": "0046-omp-supersede-warm-prefix-guard",
@@ -424,20 +449,6 @@
       "sha256": "305085360f5ee19a2330928bb0d827beddeb76da4d4be6268f7c30d5b24baf2a"
     },
     {
-      "id": "0072-omp-session-pin-static-auth-ui",
-      "capabilities": [
-        "0072"
-      ],
-      "paths": [
-        "pi-coding-agent/src/modes/controllers/selector-controller.ts"
-      ],
-      "declarations": [],
-      "source": [
-        "pi-coding-agent/src/modes/controllers/selector-controller.ts"
-      ],
-      "sha256": "8a46dccef3459feffda74562a8f952220bd108c3bbc00881aaaf98722eafadc2"
-    },
-    {
       "id": "0074-omp-anthropic-context-cache-boundaries",
       "capabilities": [
         "0074"
@@ -461,7 +472,6 @@
     {
       "id": "family-image-display",
       "capabilities": [
-        "0079",
         "0080"
       ],
       "paths": [
@@ -478,7 +488,7 @@
         "pi-tui/src/chat/image-loading.ts",
         "pi-tui/src/chat/tool-execution.ts"
       ],
-      "sha256": "a35e60c6395940aa7749aa8f7816647d58e585a9aec1ce26c816a972d027caaf"
+      "sha256": "bd8ce5ea0f427e6ebe9e723644b12044991ef3dda58758c119d9165e58829aa7"
     },
     {
       "id": "family-input-translation",
@@ -587,7 +597,6 @@
       "capabilities": [
         "0035",
         "0063",
-        "0066",
         "0067",
         "0068",
         "0070",
@@ -653,7 +662,7 @@
         "pi-coding-agent/src/task/executor.ts",
         "pi-ai/src/providers/openai-codex-state.ts"
       ],
-      "sha256": "4a72a5273a07e9bac4eaac0bc2f90282059e962fa379ff269d18452f953577bc"
+      "sha256": "6c921f591d699e3f7b8d4f0cdc8f1354baaedc40ce6e98435cf2826c384c99d3"
     },
     {
       "id": "0090-omp-oauth-durable-refresh",
@@ -689,7 +698,10 @@
         "pi-catalog/src/provider-models/google.ts",
         "pi-catalog/src/provider-models/special.ts",
         "pi-coding-agent/src/session/agent-session.ts",
-        "pi-tui/src/overlays/mcp-add-wizard.ts"
+        "pi-tui/src/overlays/mcp-add-wizard.ts",
+        "pi-ai/dist/types/error/oauth.d.ts",
+        "pi-ai/src/error/oauth.ts",
+        "pi-ai/src/registry/engine/common.ts"
       ],
       "declarations": [
         "pi-ai/dist/types/auth-broker/remote-store.d.ts",
@@ -701,7 +713,8 @@
         "pi-ai/dist/types/auth/types.d.ts",
         "pi-ai/dist/types/auth/usage.d.ts",
         "pi-ai/dist/types/registry/oauth/anthropic.d.ts",
-        "pi-catalog/dist/types/model-manager.d.ts"
+        "pi-catalog/dist/types/model-manager.d.ts",
+        "pi-ai/dist/types/error/oauth.d.ts"
       ],
       "source": [
         "pi-ai/src/auth-broker/remote-store.ts",
@@ -722,9 +735,11 @@
         "pi-catalog/src/provider-models/google.ts",
         "pi-catalog/src/provider-models/special.ts",
         "pi-coding-agent/src/session/agent-session.ts",
-        "pi-tui/src/overlays/mcp-add-wizard.ts"
+        "pi-tui/src/overlays/mcp-add-wizard.ts",
+        "pi-ai/src/error/oauth.ts",
+        "pi-ai/src/registry/engine/common.ts"
       ],
-      "sha256": "6b34c5851cf9e20737b8c84828c5623c62ec97079abb84f3a73b9a1142f3c6fa"
+      "sha256": "26783f48f581e82c77ff9da880c2480a161b1583bd25d0fbce105be75cb9a3d0"
     },
     {
       "id": "0092-omp-cache-warming-idle-budget",

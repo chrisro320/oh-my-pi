@@ -28,6 +28,18 @@ ARCHIVE_CACHE = Path('/tmp/omp-plan-18160/archives')  # measurement cache; every
 RETIRED_ROWS = {'0032-omp-goal-tool-resident'}  # Q7: approved behaviour removal for 18.16.0
 ADDED_ROWS = [{'id': '0102-omp-computer-control-confirm-deadline', 'root': 'AGENT', 'capabilities': ['0102'], 'paths': []}]
 EVIDENCE = REPO / '.trellis/tasks/11-03-omp-18160-upgrade-plan/research/rebase-evidence-18.16.0.json'
+M5_EVIDENCE = '.trellis/tasks/11-03-omp-18160-upgrade-plan/research/m5-adoptions.md'
+# M5 whole-ID adoptions: each passed a pristine 18.16.0 consumer proof plus a failing fault-copy control (M5_EVIDENCE).
+M5_ADOPTIONS = [
+    {'capability': '0066', 'family': 'family-compaction', 'source': 'pi-agent-core/src/compaction/compaction.ts', 'evidence': M5_EVIDENCE,
+     'contract': 'The Anthropic native compaction request carries the live system prompt, wire tools and transformed history via buildProviderContext; the remoteSystemPrompt + summaryOptions.tools fallback stays.'},
+    {'capability': '0072', 'family': '0072-omp-session-pin-static-auth-ui', 'source': 'pi-coding-agent/src/modes/controllers/selector-controller.ts', 'evidence': M5_EVIDENCE,
+     'contract': 'The /session pin auth UI loads without a synchronous require of @oh-my-pi auth modules (upstream async loaders since 18.14.0).'},
+    {'capability': '0079', 'family': 'family-image-display', 'source': 'pi-tui/src/chat/tool-execution.ts', 'evidence': M5_EVIDENCE,
+     'contract': 'A sealed tool result is not retired while its Kitty image conversion is pending (upstream isTranscriptBlockPending barrier).'},
+    {'capability': '0062', 'family': 'family-image-budget-snapcompact', 'source': 'pi-coding-agent/src/session/session-maintenance.ts', 'evidence': M5_EVIDENCE,
+     'contract': 'A second snapcompact pass is admitted when its priced frames reduce context: upstream credits the standing compaction summary in the reduction baseline and prices frames per reader billing rule.'},
+]
 
 
 def load(path):
@@ -217,6 +229,24 @@ def amend(family_id, path):
     print('amended', family_id, path)
 
 
+def retire(family_id, capability):
+    """Drop an adopted capability from its accepted family; a family left with no capability leaves the chain.
+    The work tree must already be free of its hunks (`check` proves the replay still equals it)."""
+    state = load(ROOT / 'state.json')
+    family = next(f for f in state['families'] if f['id'] == family_id)
+    assert family_id in state['completed'] and capability in family['capabilities']
+    family['capabilities'].remove(capability)
+    if not family['capabilities']:
+        later = state['families'][state['families'].index(family) + 1:state['next']]
+        assert not any(set(family['paths']) & set(f['paths']) for f in later), 'a later owner froze this family\'s after'
+        state['families'].remove(family)
+        state['completed'].remove(family_id)
+        state['next'] -= 1
+        (ROOT / 'fragments' / family_id).rename(ROOT / f'retired-{family_id}')
+    save(ROOT / 'state.json', state)
+    print('retired', capability, 'from', family_id)
+
+
 def take():
     """Write every pending proposal into the work tree; conflicted ones keep their diff3 markers for in-place resolution."""
     state = load(ROOT / 'state.json')
@@ -313,7 +343,7 @@ def export(archives):
                          if row.get('package', row.get('name', '').split('/')[-1]) in packages]
     assert len(selected_archives) == len(packages) and {row['package'] for row in selected_archives} == packages
     # Adoptions beyond the baseline are appended by M5 only, together with their proofs.
-    adoptions = load(BASELINE)['upstream_adoptions']
+    adoptions = load(BASELINE)['upstream_adoptions'] + M5_ADOPTIONS
     local = [capability for family in families for capability in family['capabilities']]
     union = local + [row['capability'] for row in adoptions]
     baseline = load(BASELINE)
@@ -342,7 +372,8 @@ def export(archives):
 if __name__ == '__main__':
     os.umask(0o022)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['old-inputs', 'init', 'prepare', 'take', 'register', 'accept', 'amend', 'check', 'snapshot', 'export'])
+    parser.add_argument('command', choices=['old-inputs', 'init', 'prepare', 'take', 'register', 'accept', 'amend', 'retire', 'check', 'snapshot', 'export'])
+    parser.add_argument('--capability')
     parser.add_argument('--through')
     parser.add_argument('--out', type=Path)
     parser.add_argument('--pristine', type=Path)
@@ -362,6 +393,8 @@ if __name__ == '__main__':
         accept()
     elif args.command == 'amend':
         amend(args.family, args.path)
+    elif args.command == 'retire':
+        retire(args.family, args.capability)
     elif args.command == 'check':
         check()
     elif args.command == 'snapshot':

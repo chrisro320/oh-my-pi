@@ -60,6 +60,10 @@ APPROVED_ADOPTIONS = {
     "18.16.0": [
         {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
         {"capability": "0078", "family": "family-image-display"},
+        {"capability": "0066", "family": "family-compaction"},
+        {"capability": "0072", "family": "0072-omp-session-pin-static-auth-ui"},
+        {"capability": "0079", "family": "family-image-display"},
+        {"capability": "0062", "family": "family-image-budget-snapcompact"},
     ],
 }
 

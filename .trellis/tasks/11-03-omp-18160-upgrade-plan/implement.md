@@ -363,7 +363,7 @@ The milestones below stay as the checklist of record; they run as five steps, ea
 Reason: retirement is only valid with a consumer proof on pristine 18.16.0 **and** a negative control; without them the
 retire-pending hunks stay.
 
-- [ ] Q1 prefix proof: offline first-request byte probe on pristine 18.16.0 (system prompt free of `Today:`; identical bytes
+- [x] Q1 prefix proof (PASS 2026-11-03, `research/q1-prefix-proof-18.16.0.{ts,json}`, both controls red; DECISIONS.md 18.16.0 Q1 entry): offline first-request byte probe on pristine 18.16.0 (system prompt free of `Today:`; identical bytes
   across two processes) and the full-chain replay across midnight rollover, resume, branch, clone/transfer and subagent
   revival. Two negative controls, because the first one must fail *for the right reason*: (a) a fault variant that splices
   `renderDateCwdReminder(date, cwd)` into `context.systemPrompt` turns the byte probe red — a no-op
@@ -372,14 +372,14 @@ retire-pending hunks stay.
   earlier process plus a date rollover must rewrite `messages[0]` and fail the gate. If any rewrite appears, keep the
   journal **and** re-place the `providerOnly` tail for `anthropic-messages` only. — Effort:
   high — this decides whether 0038/0047a are deleted at all.
-- [ ] Q2/Q3 OAuth proofs: per-sub-contract gates for the five adopted `0090a` behaviours (quit mid-refresh, cancelled waiter,
+- [x] Q2/Q3 OAuth proofs (DECISIONS.md "S1 OAuth"; B1/B3 upstream, B2/B4/B5 partial, hunks kept; 62 gate scenarios): per-sub-contract gates for the five adopted `0090a` behaviours (quit mid-refresh, cancelled waiter,
   >15 s stall, peer takeover + hand-back, `usage-probe` refresh) and the fallback-order leg with and without a pinned
   fallback chain. Negative control: real `invalid_grant` disables exactly one row. — Effort: high — five adopted behaviours have no currently-passing gate once the seam is rewritten.
-- [ ] Q5 `0074a`/`0074b` halves each fail-before/pass-after. Correction (P0 gate run): the `cacheRetention:none` →
+- [x] Q5 `0074a`/`0074b` halves each fail-before/pass-after (different first-failing assertions, `research/m5-adoptions.md`). Correction (P0 gate run): the `cacheRetention:none` →
   0-breakpoints assertion does **not** hold upstream — OAuth still sends 1 identity-block breakpoint on both pristine and
   family trees (`anthropic.ts` `buildAnthropicSystemBlocks`; `dropCacheControl` only set by the 400 latch). Per Q5 the
   assertion is scoped out of the 18.16.0 arm, not inverted. — Effort: medium — the two halves must fail for different reasons or the split is cosmetic.
-- [ ] Q6 `0062` — build the replay the plan needs, because no existing file provides it: `verify-snapcompact-frame-reprice.ts`
+- [x] Q6 `0062` (retired, DECISIONS.md "S1 0062"; replay + both controls agree; the live double-`/compact snapcompact` moves to S4 with the user) — build the replay the plan needs, because no existing file provides it: `verify-snapcompact-frame-reprice.ts`
   is a synthetic SDK consumer whose second-compaction legs (an 80k+12k region admitted, an inflating 30k+12k successor
   rejected with `would not reduce context`) contain neither the pinned historical boundary nor an assertion that attributes
   the admission to the standing-summary credit, so it cannot tell upstream's credit from 0062's reprice. Add a
@@ -393,20 +393,20 @@ retire-pending hunks stay.
   double-`/compact snapcompact` under explicit approval. Retire only if the replay and both controls agree; otherwise restore
   the repricing override. — Effort: high — the accept/reject distinction is the whole contract, and today's gate cannot
   attribute it.
-- [ ] Q7 `0032` removal recorded with its gate deletion (no proof required — approved behaviour removal). — Effort: low — an approved removal still needs its gate and its record deleted in the same change.
-- [ ] Q9/Q10/Q11 retirement smokes: `0050` model column renders through `completeSessions`; the throwaway 0082 consumer
+- [x] Q7 `0032` removal recorded with its gate deletion (registry drops 0032; its gate is not selected for 18.16.0, M2) (no proof required — approved behaviour removal). — Effort: low — an approved removal still needs its gate and its record deleted in the same change.
+- [x] Q9/Q10/Q11 retirement smokes (`research/m5-adoptions.md`; 0093 keeps its commit-ordering half): `0050` model column renders through `completeSessions`; the throwaway 0082 consumer
   smoke (not committed, not registered) carries **all** the observations the deselected permanent gate owned — resume keeps
   `content`=translation and `displayText`=original, a prepared follow-up is removed by its own original text rather than a
   sibling's (queue identity), an aborted streaming turn drains exactly one continuation (child process with a deadline), and
   the model still receives the translation on the new submit path; `0093` selector half retired after confirming the
   prompt-label half is native. — Effort: medium — three retirements whose only proof is a smoke on the new path, and one of
   them inherits the only evidence a permanent gate used to produce.
-- [ ] Adoption records: `0079` retirement gate must pass on pristine 18.16.0 **and fail** on pristine 18.12.6;
+- [x] Adoption records (`research/m5-adoptions.md`; 0079's red control is a pristine 18.16.0 fault copy per D24/C17, 18.12.6 is frozen): `0079` retirement gate must pass on pristine 18.16.0 **and fail** on pristine 18.12.6;
   `0017`/`0078`/`0054` keep their recorded-adoption status with re-validated evidence; `0072`'s proof (unpatched repro green
   plus the sync-`require` control reproducing the failure on a fault tree) is recorded as its `upstream_adoptions` entry with
   the evidence path, and the four representations move in that same change (design §3). — Effort: low — an adoption gate that
   already passes on 18.12.6 proves nothing, and an adoption recorded in the manifest alone drops the ID from the plan.
-- [ ] Delete retired hunks from their families, re-emit those families, and replay the chain again (M4 ladder). — Effort:
+- [x] Delete retired hunks from their families, re-emit those families, and replay the chain again (M4 ladder; 0072 family + 0079 hunks removed, `check` replay equals work, oracle PASS `1acb8202…`). — Effort:
   medium — deletion after proof, never before.
 
 Acceptance: every retired sub-contract has a pristine-passing proof plus a failing negative control; every conditional

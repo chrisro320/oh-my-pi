@@ -62,6 +62,16 @@ function makeTool(onPaint: () => void, imageBudget?: InstanceType<typeof ImageBu
 		resetDisplay: () => {},
 	});
 }
+/**
+ * The transcript's retirement predicate (`components/transcript-container`
+ * `isFinalized`): a block settles into scrollback only once it reports finalized
+ * AND not pending. 18.16.0 moved the Kitty barrier from `isTranscriptBlockFinalized`
+ * to `isTranscriptBlockPending`, so the settle signal must be the composition.
+ */
+function retired(block: { isTranscriptBlockFinalized(): boolean; isTranscriptBlockPending?(): boolean }): boolean {
+	return block.isTranscriptBlockFinalized() && block.isTranscriptBlockPending?.() !== true;
+}
+
 async function settle(check: () => boolean): Promise<void> {
 	for (let i = 0; i < 300; i++) {
 		if (check()) return;
@@ -94,14 +104,14 @@ try {
 	try {
 		tool.updateResult(input);
 		tool.seal();
-		await settle(() => tool.isTranscriptBlockFinalized());
+		await settle(() => retired(tool));
 		assert.equal(countGraphics(tool.render(100)), 8, "all eight 2048px WebPs must be graphics");
 		const budget = new ImageBudget(8);
 		const budgetedTool = makeTool(() => {}, budget);
 		try {
 			budgetedTool.updateResult(input);
 			budgetedTool.seal();
-			await settle(() => budgetedTool.isTranscriptBlockFinalized());
+			await settle(() => retired(budgetedTool));
 			budget.beginPass();
 			assert.equal(budgetedTool.render(80).join("\n").split("\x1b_Ga=p").length - 1, 8);
 			budget.endPass();
@@ -120,12 +130,12 @@ try {
 		const firstFrame = tool.render(80).join("\n");
 		assert.equal(input.content.every((image, index) => image.data === eightWebps[index] && image.mimeType === "image/webp"), true);
 		tool.updateResult({ content: [b] });
-		await settle(() => tool.isTranscriptBlockFinalized());
+		await settle(() => retired(tool));
 		assert.equal(countGraphics(tool.render(80)), 1, "replacement slot must render B");
 		const secondFrame = tool.render(80).join("\n");
 		assert.notEqual(secondFrame, firstFrame, "replaced slot cannot keep A's graphic");
 		tool.updateResult({ content: [a] });
-		await settle(() => tool.isTranscriptBlockFinalized());
+		await settle(() => retired(tool));
 		assert.equal(countGraphics(tool.render(80)), 1, "returning slot must render A");
 		assert.equal(tool.render(80).join("\n"), firstFrame, "returning cached A must restore its graphic");
 		const toolE = { type: "image" as const, data: await new Bun.Image(fixturePng(16, 24)).webp().toBase64(), mimeType: "image/webp" };
@@ -136,7 +146,7 @@ try {
 		assert.equal(countGraphics(tool.render(80)), 1, "late tool E conversion must not clear the restored slot");
 		assert.equal(tool.render(80).join("\n"), firstFrame, "late tool E callback cannot replace cached A");
 		tool.updateResult({ content: [badImage] });
-		await settle(() => tool.isTranscriptBlockFinalized());
+		await settle(() => retired(tool));
 		assert.match(tool.render(80).join("\n"), /PNG conversion failed:/);
 		assert.ok(
 			plainText(tool.render(80)).includes(plainText([pngFailureReason(imageFingerprint(badImage))])),

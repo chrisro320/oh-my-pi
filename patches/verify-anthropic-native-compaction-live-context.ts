@@ -229,6 +229,7 @@ const rawTools = [
 ];
 
 const scopes: string[] = [];
+let providerContextCalls = 0;
 const nativeRequests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
 logEvents.length = 0;
 const result = await compact(
@@ -251,6 +252,15 @@ const result = await compact(
 			if (scope !== "live") return undefined;
 			return { context: liveContext, previousSummaryInPrefix: false };
 		},
+		// The target's own seam (0066 upstream adoption): 18.16.0 asks the host for
+		// the live turn's provider context through this callback instead of a
+		// named "live" cache-preserving scope.
+		buildProviderContext: async (summarized, retained, signal, candidate) => {
+			providerContextCalls++;
+			assert.equal(candidate, model, "provider-context callback must receive the actual compaction candidate");
+			assert.ok(Array.isArray(retained), "provider-context callback must receive the retained tail");
+			return liveContext;
+		},
 		completeImpl: async (requestModel, context, options) => {
 			if (options.anthropicCompaction) {
 				nativeRequests.push({ context, options });
@@ -261,8 +271,18 @@ const result = await compact(
 	},
 );
 
-// GATE 1: the native lane asked the host for the live scope and fired exactly once.
-assert.ok(scopes.includes("live"), `native lane must request the "live" scope (saw: ${scopes.join(",") || "<none>"})`);
+// GATE 1: the native lane asked the host for its live context exactly once, through
+// whichever seam this tree owns: the local named scope (<= 18.12.6) or the target's
+// `buildProviderContext` callback. `hasLocalLiveScope` selects the 0088/0089 legs,
+// which need the local whole-chain replay the pristine target does not ship.
+const hasLocalLiveScope = scopes.includes("live");
+// The whole-chain replay legs (0088/0089) need the local named scope; the pristine
+// target retires 0066 without it, so only the 0066 legs run there.
+const localLiveLegs = wholeChainPlan && hasLocalLiveScope;
+assert.ok(
+	hasLocalLiveScope ? true : providerContextCalls === 1,
+	`native lane must obtain the live context once (scopes: ${scopes.join(",") || "<none>"}; provider-context calls: ${providerContextCalls})`,
+);
 assert.equal(nativeRequests.length, 1, "exactly one native compaction request must be issued");
 const [request] = nativeRequests;
 
@@ -313,49 +333,53 @@ if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "1
 	const toolResult = { role: "toolResult", toolCallId: "call-1", toolName: "read", content: [{ type: "text", text: "done" }], timestamp: 25 };
 	const boundaryMessages = [oldUser, call, toolResult, oldAssistant, recentUser, recentAssistant];
 	const boundaryLive = [liveMessages[0], ...boundaryMessages.slice(1)];
-	for (const hasEntryIds of [true, false]) {
-		const requests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
-		const shifted = await compact({
-			...preparation,
-			messagesToSummarize: boundaryMessages.slice(0, 2),
-			turnPrefixMessages: [],
-			recentMessages: boundaryMessages.slice(2),
-			recentEntryIds: hasEntryIds ? ["result", "after-result", "next-user", "next-assistant"] : undefined,
-			firstKeptEntryId: "result",
-			isSplitTurn: false,
-			tokensBefore: 100_000,
-			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
-		}, model, "test", undefined, undefined, {
-			convertToLlm: messages => messages as Context["messages"],
-			buildCachePreservingContext: async () => ({
-				context: { ...liveContext, messages: boundaryLive },
-				previousSummaryInPrefix: false,
-			}),
-			completeImpl: async (requestModel, context, options) => {
-				if (!options.anthropicCompaction) return assistant(requestModel);
-				requests.push({ context, options });
-				return nativeCompactionResponse(requestModel);
-			},
-		});
-		assert.equal(requests.length, 1);
-		if (wholeChainPlan) {
-			// The request is the live chain either way; where `safeCut` landed is
-			// visible only in the cutoff the instructions state.
-			assert.deepEqual(requests[0].context.messages, boundaryLive,
-				"native request must carry the whole live chain regardless of where safeCut lands");
-			if (hasEntryIds) {
-				assert.equal(shifted.firstKeptEntryId, "after-result");
+	if (hasLocalLiveScope) {
+		for (const hasEntryIds of [true, false]) {
+			const requests: Array<{ context: Context; options: SimpleStreamOptions }> = [];
+			const shifted = await compact({
+				...preparation,
+				messagesToSummarize: boundaryMessages.slice(0, 2),
+				turnPrefixMessages: [],
+				recentMessages: boundaryMessages.slice(2),
+				recentEntryIds: hasEntryIds ? ["result", "after-result", "next-user", "next-assistant"] : undefined,
+				firstKeptEntryId: "result",
+				isSplitTurn: false,
+				tokensBefore: 100_000,
+				settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
+			}, model, "test", undefined, undefined, {
+				convertToLlm: messages => messages as Context["messages"],
+				buildCachePreservingContext: async () => ({
+					context: { ...liveContext, messages: boundaryLive },
+					previousSummaryInPrefix: false,
+				}),
+				completeImpl: async (requestModel, context, options) => {
+					if (!options.anthropicCompaction) return assistant(requestModel);
+					requests.push({ context, options });
+					return nativeCompactionResponse(requestModel);
+				},
+			});
+			assert.equal(requests.length, 1);
+			if (wholeChainPlan) {
+				// The request is the live chain either way; where `safeCut` landed is
+				// visible only in the cutoff the instructions state.
+				assert.deepEqual(requests[0].context.messages, boundaryLive,
+					"native request must carry the whole live chain regardless of where safeCut lands");
+				if (hasEntryIds) {
+					assert.equal(shifted.firstKeptEntryId, "after-result");
+				} else {
+					assert.equal(shifted.firstKeptEntryId, "");
+				}
 			} else {
-				assert.equal(shifted.firstKeptEntryId, "");
+				assert.deepEqual(requests[0].context.messages, hasEntryIds ? boundaryLive.slice(0, 3) : boundaryLive,
+					"safeCut must keep a tool call with its result; missing boundary IDs must summarize the snapshot");
+				assert.equal(shifted.firstKeptEntryId, hasEntryIds ? "after-result" : "");
 			}
-		} else {
-			assert.deepEqual(requests[0].context.messages, hasEntryIds ? boundaryLive.slice(0, 3) : boundaryLive,
-				"safeCut must keep a tool call with its result; missing boundary IDs must summarize the snapshot");
-			assert.equal(shifted.firstKeptEntryId, hasEntryIds ? "after-result" : "");
+			const preserved = getPreservedAnthropicCompactionData(shifted.preserveData);
+			assert.equal(preserved?.content, "NATIVE_SUMMARY");
+			assert.equal(preserved?.signature, "offline-signed-summary", "persisted replay must retain the signature");
 		}
-		const preserved = getPreservedAnthropicCompactionData(shifted.preserveData);
-		assert.equal(preserved?.content, "NATIVE_SUMMARY");
-		assert.equal(preserved?.signature, "offline-signed-summary", "persisted replay must retain the signature");
+	} else {
+		console.log("skip 0088 safeCut boundary legs: this tree has no local live scope");
 	}
 }
 // GATE 4: without a live context the lane keeps its hand-built fallback
@@ -390,7 +414,7 @@ const fallback = await compact(
 assert.equal(fallbackRequests.length, 1, "fallback must still issue one native request");
 assert.deepEqual(fallbackRequests[0].context.systemPrompt, ["STALE_SYSTEM"], "fallback keeps remoteSystemPrompt");
 assert.deepEqual(fallbackRequests[0].context.tools, rawTools, "fallback keeps the raw tools");
-if (wholeChainPlan) {
+if (localLiveLegs) {
 	// 0088's named fallback: the reason is durable on the entry, not trace-only.
 	assert.equal(
 		fallback.details?.cacheColdReason,
@@ -408,7 +432,7 @@ if (wholeChainPlan) {
 if (["18.12.6", "18.16.0"].includes(coreVersion)) {
 	// Consume the target public callback rather than supplying only the custom
 	// live-cache callback: the native fallback must thread its actual model.
-	let providerContextCalls = 0;
+	providerContextCalls = 0;
 	let captured: Context | undefined;
 	await compact(
 		{ ...preparation, tokensBefore: 100_000,
@@ -439,7 +463,7 @@ if (["18.12.6", "18.16.0"].includes(coreVersion)) {
 	assert.deepEqual(captured?.tools, liveContext.tools, "native request must carry the public callback's normalized tools");
 }
 
-if (wholeChainPlan) {
+if (localLiveLegs) {
 	// GATE 5: the native lane carries the same deletion as the local one. The
 	// 16:43Z compaction's chain sat at ~129k tokens in a 512k window and was
 	// refused as `native-capacity-unattested`, because no turn of it carried
