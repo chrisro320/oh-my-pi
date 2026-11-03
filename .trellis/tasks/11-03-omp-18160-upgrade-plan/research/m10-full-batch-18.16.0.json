@@ -1,0 +1,585 @@
+{
+  "version": "18.16.0",
+  "runtime": "/var/tmp/omp-18160-s3/runtime",
+  "controller_sha256": "f0034ee6719eaeb340551347aa34a875f9aa066d410903aa914edd121e1c6116",
+  "ledger_hash_manifest": "/var/tmp/omp-18160-s3/full/ledger-sha256.json",
+  "selected_by_controller": [
+    "verify-antigravity-envelope.ts",
+    "verify-prefix-cache-compaction.ts",
+    "verify-provider-image-budget.ts",
+    "verify-snapcompact-model-billing.ts",
+    "verify-ollama-cloud-usage.ts",
+    "verify-devin-auth-cache.ts",
+    "verify-hindsight-recall-snapshot.ts",
+    "verify-interrupt-prune-symmetry.ts",
+    "verify-date-cwd-journal-prefix.ts",
+    "verify-session-transfer-authority.ts",
+    "verify-devin-metadata.ts",
+    "verify-supersede-warm-prefix-guard.ts",
+    "verify-snapcompact-frame-reprice.ts",
+    "verify-session-history-preview.ts",
+    "verify-native-dialog-lifecycle.ts",
+    "verify-manual-compaction-direct.ts",
+    "verify-context-notes-append-projection.ts",
+    "verify-devin-thinking-signature.ts",
+    "verify-devin-idle-cascade-pin.ts",
+    "verify-idle-ephemeral-reservation.ts",
+    "verify-resume-cache-breakpoint.ts",
+    "verify-codex-compaction-chain.ts",
+    "verify-commandcode-model-record-parity.ts",
+    "verify-anthropic-native-compaction-live-context.ts",
+    "verify-compaction-lane-trace.ts",
+    "verify-codex-effort-resume.ts",
+    "verify-codex-compaction-chain-fail-closed.ts",
+    "verify-session-pin-static-auth-ui.ts",
+    "verify-read-description-live.ts",
+    "verify-anthropic-cache-boundaries.ts",
+    "verify-anthropic-request-audit.ts",
+    "verify-hindsight-recall-promotion-slot.ts",
+    "verify-eval-state-context-persist.ts",
+    "verify-turn-recovery-reminder-persist.ts",
+    "verify-python-display-mime-preference.ts",
+    "verify-kitty-conversion-finalization.ts",
+    "verify-kitty-shared-png-cache.ts",
+    "verify-main-cache-hit.ts",
+    "verify-usage-reset-format.ts",
+    "verify-model-mention-surface-resume.ts",
+    "verify-prompt-effort-resume.ts",
+    "verify-model-selection-resume.ts",
+    "verify-anthropic-thinking-drop-resume.ts",
+    "verify-context-persist-audit.ts",
+    "verify-length-stop-reminder-persist.ts",
+    "verify-rejected-prepared-draft-restore.ts",
+    "verify-compaction-cache-liveness.ts",
+    "verify-oauth-durable-refresh.ts",
+    "verify-oauth-unlock-fence-faults.sh",
+    "verify-auth-unlock-extension.ts",
+    "verify-codex-account-eligibility-retention.ts",
+    "verify-google-account-eligibility-retention.ts",
+    "verify-cache-warming-idle-budget.ts",
+    "verify-cron-idle-owners.ts",
+    "verify-session-cache-keepalive.ts",
+    "verify-tls-verify-transient-retry.ts",
+    "verify-retry-slow-schedule.ts",
+    "verify-stepfun-step-plan.ts",
+    "verify-subagent-warm-revival-prompt.ts",
+    "verify-computer-control-confirm-deadline.ts",
+    "verify-extensions-load-18160.ts",
+    "verify-withdrawn-tools-wire.ts",
+    "verify-tool-schema-bytes.ts",
+    "verify-remote-compaction-target-key.ts",
+    "verify-compaction-length-stop.ts",
+    "verify-tokenizer-budget-parity.ts",
+    "verify-held-file-write-guard.ts",
+    "verify-advisor-quota-rotation.ts",
+    "verify-prompt-rebuild-inputs.ts",
+    "verify-provider-registry-lazy.ts",
+    "verify-catalog-regen-parity.ts"
+  ],
+  "requested": [
+    "verify-antigravity-envelope.ts",
+    "verify-prefix-cache-compaction.ts",
+    "verify-provider-image-budget.ts",
+    "verify-snapcompact-model-billing.ts",
+    "verify-ollama-cloud-usage.ts",
+    "verify-devin-auth-cache.ts",
+    "verify-hindsight-recall-snapshot.ts",
+    "verify-interrupt-prune-symmetry.ts",
+    "verify-date-cwd-journal-prefix.ts",
+    "verify-session-transfer-authority.ts",
+    "verify-devin-metadata.ts",
+    "verify-supersede-warm-prefix-guard.ts",
+    "verify-snapcompact-frame-reprice.ts",
+    "verify-session-history-preview.ts",
+    "verify-native-dialog-lifecycle.ts",
+    "verify-manual-compaction-direct.ts",
+    "verify-context-notes-append-projection.ts",
+    "verify-devin-thinking-signature.ts",
+    "verify-devin-idle-cascade-pin.ts",
+    "verify-idle-ephemeral-reservation.ts",
+    "verify-resume-cache-breakpoint.ts",
+    "verify-codex-compaction-chain.ts",
+    "verify-commandcode-model-record-parity.ts",
+    "verify-anthropic-native-compaction-live-context.ts",
+    "verify-compaction-lane-trace.ts",
+    "verify-codex-effort-resume.ts",
+    "verify-codex-compaction-chain-fail-closed.ts",
+    "verify-session-pin-static-auth-ui.ts",
+    "verify-read-description-live.ts",
+    "verify-anthropic-cache-boundaries.ts",
+    "verify-anthropic-request-audit.ts",
+    "verify-hindsight-recall-promotion-slot.ts",
+    "verify-eval-state-context-persist.ts",
+    "verify-turn-recovery-reminder-persist.ts",
+    "verify-python-display-mime-preference.ts",
+    "verify-kitty-conversion-finalization.ts",
+    "verify-kitty-shared-png-cache.ts",
+    "verify-main-cache-hit.ts",
+    "verify-usage-reset-format.ts",
+    "verify-model-mention-surface-resume.ts",
+    "verify-prompt-effort-resume.ts",
+    "verify-model-selection-resume.ts",
+    "verify-anthropic-thinking-drop-resume.ts",
+    "verify-context-persist-audit.ts",
+    "verify-length-stop-reminder-persist.ts",
+    "verify-rejected-prepared-draft-restore.ts",
+    "verify-compaction-cache-liveness.ts",
+    "verify-oauth-durable-refresh.ts",
+    "verify-oauth-unlock-fence-faults.sh",
+    "verify-auth-unlock-extension.ts",
+    "verify-codex-account-eligibility-retention.ts",
+    "verify-google-account-eligibility-retention.ts",
+    "verify-cache-warming-idle-budget.ts",
+    "verify-cron-idle-owners.ts",
+    "verify-session-cache-keepalive.ts",
+    "verify-tls-verify-transient-retry.ts",
+    "verify-retry-slow-schedule.ts",
+    "verify-stepfun-step-plan.ts",
+    "verify-subagent-warm-revival-prompt.ts",
+    "verify-computer-control-confirm-deadline.ts",
+    "verify-extensions-load-18160.ts",
+    "verify-withdrawn-tools-wire.ts",
+    "verify-tool-schema-bytes.ts",
+    "verify-remote-compaction-target-key.ts",
+    "verify-compaction-length-stop.ts",
+    "verify-tokenizer-budget-parity.ts",
+    "verify-held-file-write-guard.ts",
+    "verify-advisor-quota-rotation.ts",
+    "verify-prompt-rebuild-inputs.ts",
+    "verify-provider-registry-lazy.ts",
+    "verify-catalog-regen-parity.ts"
+  ],
+  "only": [],
+  "exclude": [],
+  "executed": [
+    {
+      "gate": "verify-antigravity-envelope.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-antigravity-envelope/result.json"
+    },
+    {
+      "gate": "verify-prefix-cache-compaction.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-prefix-cache-compaction/result.json"
+    },
+    {
+      "gate": "verify-provider-image-budget.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-provider-image-budget/result.json"
+    },
+    {
+      "gate": "verify-snapcompact-model-billing.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-snapcompact-model-billing/result.json"
+    },
+    {
+      "gate": "verify-ollama-cloud-usage.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-ollama-cloud-usage/result.json"
+    },
+    {
+      "gate": "verify-devin-auth-cache.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-devin-auth-cache/result.json"
+    },
+    {
+      "gate": "verify-hindsight-recall-snapshot.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-hindsight-recall-snapshot/result.json"
+    },
+    {
+      "gate": "verify-interrupt-prune-symmetry.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-interrupt-prune-symmetry/result.json"
+    },
+    {
+      "gate": "verify-date-cwd-journal-prefix.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-date-cwd-journal-prefix/result.json"
+    },
+    {
+      "gate": "verify-session-transfer-authority.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-session-transfer-authority/result.json"
+    },
+    {
+      "gate": "verify-devin-metadata.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-devin-metadata/result.json"
+    },
+    {
+      "gate": "verify-supersede-warm-prefix-guard.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-supersede-warm-prefix-guard/result.json"
+    },
+    {
+      "gate": "verify-snapcompact-frame-reprice.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-snapcompact-frame-reprice/result.json"
+    },
+    {
+      "gate": "verify-session-history-preview.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-session-history-preview/result.json"
+    },
+    {
+      "gate": "verify-native-dialog-lifecycle.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-native-dialog-lifecycle/result.json"
+    },
+    {
+      "gate": "verify-manual-compaction-direct.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-manual-compaction-direct/result.json"
+    },
+    {
+      "gate": "verify-context-notes-append-projection.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-context-notes-append-projection/result.json"
+    },
+    {
+      "gate": "verify-devin-thinking-signature.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-devin-thinking-signature/result.json"
+    },
+    {
+      "gate": "verify-devin-idle-cascade-pin.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-devin-idle-cascade-pin/result.json"
+    },
+    {
+      "gate": "verify-idle-ephemeral-reservation.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-idle-ephemeral-reservation/result.json"
+    },
+    {
+      "gate": "verify-resume-cache-breakpoint.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-resume-cache-breakpoint/result.json"
+    },
+    {
+      "gate": "verify-codex-compaction-chain.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-codex-compaction-chain/result.json"
+    },
+    {
+      "gate": "verify-commandcode-model-record-parity.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-commandcode-model-record-parity/result.json"
+    },
+    {
+      "gate": "verify-anthropic-native-compaction-live-context.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-anthropic-native-compaction-live-context/result.json"
+    },
+    {
+      "gate": "verify-compaction-lane-trace.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-compaction-lane-trace/result.json"
+    },
+    {
+      "gate": "verify-codex-effort-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-codex-effort-resume/result.json"
+    },
+    {
+      "gate": "verify-codex-compaction-chain-fail-closed.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-codex-compaction-chain-fail-closed/result.json"
+    },
+    {
+      "gate": "verify-session-pin-static-auth-ui.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-session-pin-static-auth-ui/result.json"
+    },
+    {
+      "gate": "verify-read-description-live.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-read-description-live/result.json"
+    },
+    {
+      "gate": "verify-anthropic-cache-boundaries.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-anthropic-cache-boundaries/result.json"
+    },
+    {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-anthropic-request-audit/result.json"
+    },
+    {
+      "gate": "verify-hindsight-recall-promotion-slot.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-hindsight-recall-promotion-slot/result.json"
+    },
+    {
+      "gate": "verify-eval-state-context-persist.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-eval-state-context-persist/result.json"
+    },
+    {
+      "gate": "verify-turn-recovery-reminder-persist.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-turn-recovery-reminder-persist/result.json"
+    },
+    {
+      "gate": "verify-python-display-mime-preference.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-python-display-mime-preference/result.json"
+    },
+    {
+      "gate": "verify-kitty-conversion-finalization.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-kitty-conversion-finalization/result.json"
+    },
+    {
+      "gate": "verify-kitty-shared-png-cache.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-kitty-shared-png-cache/result.json"
+    },
+    {
+      "gate": "verify-main-cache-hit.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-main-cache-hit/result.json"
+    },
+    {
+      "gate": "verify-usage-reset-format.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-usage-reset-format/result.json"
+    },
+    {
+      "gate": "verify-model-mention-surface-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-model-mention-surface-resume/result.json"
+    },
+    {
+      "gate": "verify-prompt-effort-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-prompt-effort-resume/result.json"
+    },
+    {
+      "gate": "verify-model-selection-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-model-selection-resume/result.json"
+    },
+    {
+      "gate": "verify-anthropic-thinking-drop-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-anthropic-thinking-drop-resume/result.json"
+    },
+    {
+      "gate": "verify-context-persist-audit.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-context-persist-audit/result.json"
+    },
+    {
+      "gate": "verify-length-stop-reminder-persist.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-length-stop-reminder-persist/result.json"
+    },
+    {
+      "gate": "verify-rejected-prepared-draft-restore.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-rejected-prepared-draft-restore/result.json"
+    },
+    {
+      "gate": "verify-compaction-cache-liveness.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-compaction-cache-liveness/result.json"
+    },
+    {
+      "gate": "verify-oauth-durable-refresh.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-oauth-durable-refresh/result.json"
+    },
+    {
+      "gate": "verify-oauth-unlock-fence-faults.sh",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-oauth-unlock-fence-faults/result.json"
+    },
+    {
+      "gate": "verify-auth-unlock-extension.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-auth-unlock-extension/result.json"
+    },
+    {
+      "gate": "verify-codex-account-eligibility-retention.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-codex-account-eligibility-retention/result.json"
+    },
+    {
+      "gate": "verify-google-account-eligibility-retention.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-google-account-eligibility-retention/result.json"
+    },
+    {
+      "gate": "verify-cache-warming-idle-budget.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-cache-warming-idle-budget/result.json"
+    },
+    {
+      "gate": "verify-cron-idle-owners.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-cron-idle-owners/result.json"
+    },
+    {
+      "gate": "verify-session-cache-keepalive.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-session-cache-keepalive/result.json"
+    },
+    {
+      "gate": "verify-tls-verify-transient-retry.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-tls-verify-transient-retry/result.json"
+    },
+    {
+      "gate": "verify-retry-slow-schedule.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-retry-slow-schedule/result.json"
+    },
+    {
+      "gate": "verify-stepfun-step-plan.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-stepfun-step-plan/result.json"
+    },
+    {
+      "gate": "verify-subagent-warm-revival-prompt.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-subagent-warm-revival-prompt/result.json"
+    },
+    {
+      "gate": "verify-computer-control-confirm-deadline.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-computer-control-confirm-deadline/result.json"
+    },
+    {
+      "gate": "verify-extensions-load-18160.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-extensions-load-18160/result.json"
+    },
+    {
+      "gate": "verify-withdrawn-tools-wire.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-withdrawn-tools-wire/result.json"
+    },
+    {
+      "gate": "verify-tool-schema-bytes.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-tool-schema-bytes/result.json"
+    },
+    {
+      "gate": "verify-remote-compaction-target-key.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-remote-compaction-target-key/result.json"
+    },
+    {
+      "gate": "verify-compaction-length-stop.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-compaction-length-stop/result.json"
+    },
+    {
+      "gate": "verify-tokenizer-budget-parity.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-tokenizer-budget-parity/result.json"
+    },
+    {
+      "gate": "verify-held-file-write-guard.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-held-file-write-guard/result.json"
+    },
+    {
+      "gate": "verify-advisor-quota-rotation.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-advisor-quota-rotation/result.json"
+    },
+    {
+      "gate": "verify-prompt-rebuild-inputs.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-prompt-rebuild-inputs/result.json"
+    },
+    {
+      "gate": "verify-provider-registry-lazy.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-provider-registry-lazy/result.json"
+    },
+    {
+      "gate": "verify-catalog-regen-parity.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18160-s3/full/verify-catalog-regen-parity/result.json"
+    }
+  ],
+  "runtime_hash_manifest": "/var/tmp/omp-18160-s3/full/runtime-sha256.json",
+  "runtime_unchanged": true,
+  "status": "PASS"
+}

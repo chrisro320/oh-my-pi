@@ -159,23 +159,58 @@ function countBreakpoints(payload: AnthropicPayload): number {
 }
 
 /**
- * Free one slot by dropping the provider's *interior* message marker — the one
- * between the resume anchor and the newest tail. The newest tail is what the
- * next turn hits, so it must survive; the interior marker sits within a message
- * or two of the anchor, so its prefix is nearly the same cache entry.
- * Returns the message index that was released, or undefined when there is none.
+ * How far above the resume anchor a marker may sit and still be a *near
+ * duplicate* of it: its prefix is then those few messages shorter, so releasing
+ * it re-bills that sliver at worst.
  */
-function releaseInteriorMarker(messages: ProviderMessage[], anchorIndex: number): number | undefined {
-	let newestSeen = false;
+const ANCHOR_NEIGHBOUR_SPAN = 2;
+
+/**
+ * Free one slot by dropping the provider's *interior* message marker — the one
+ * between the resume anchor and the newest tail — but only when removing it
+ * cannot delete the last breakpoint that still covers an *older* prefix.
+ *
+ * 18.16.0 spends the message budget in the order `newest tail -> decimation
+ * checkpoint every 15 conversational user turns -> sub-prefix anchor -> second
+ * tail` (`pi-ai/src/providers/anthropic.ts:4391-4421`). On a session past its
+ * 15th user turn the second-newest marked message is therefore a decimation
+ * checkpoint, 15 or more turns behind the tail, and on the pristine allocation
+ * the sub-prefix anchor behind a per-call mark is a second such marker. Those
+ * are the only breakpoints that let a long or resumed session hit its older
+ * prefix at all, and the anchor being funded reaches back no further than this
+ * request. So a release is legal in exactly two cases:
+ *
+ *  1. the position was never marked by this conversation's previous request
+ *     (`index >= freshFrom`), so no stored cache entry can be lost — that is the
+ *     growth case, where the whole appended region is new; or
+ *  2. the marker is a near duplicate of the anchor ({@link ANCHOR_NEIGHBOUR_SPAN}),
+ *     which is the tail pair a resume normally lands on.
+ *
+ * Anything else declines, and the resume anchor is skipped rather than paid for
+ * with a stored anchor. Returns the released message index, or undefined.
+ */
+function releaseInteriorMarker(
+	messages: ProviderMessage[],
+	anchorIndex: number,
+	freshFrom: number,
+	tag: string,
+): number | undefined {
+	let newestMarked = -1;
 	for (let index = messages.length - 1; index > anchorIndex; index--) {
 		const content = messages[index]?.content;
 		if (!Array.isArray(content)) continue;
-		const marked = content.find(block => block?.cache_control);
-		if (!marked) continue;
-		if (!newestSeen) {
-			newestSeen = true;
+		if (!content.some(block => block?.cache_control)) continue;
+		if (newestMarked < 0) {
+			// The newest marker is the tail the next turn hits; it always stays.
+			newestMarked = index;
 			continue;
 		}
+		if (index < freshFrom && index - anchorIndex > ANCHOR_NEIGHBOUR_SPAN) {
+			log(`${tag}skip stored-anchor index=${index} newest=${newestMarked} anchor=${anchorIndex}`);
+			return undefined;
+		}
+		const marked = content.find(block => block?.cache_control);
+		if (!marked) continue;
 		delete marked.cache_control;
 		return index;
 	}
@@ -339,6 +374,7 @@ function placeAnchor(
 	payload: AnthropicPayload,
 	messages: ProviderMessage[],
 	anchorIndex: number,
+	freshFrom: number,
 	tag: string,
 ): AnthropicPayload | undefined {
 	const anchor = messages[anchorIndex];
@@ -410,7 +446,7 @@ function placeAnchor(
 	// marker of slack to reclaim, and one release would still leave us over.
 	// Releasing a later marker only lowers `maxLater`, so the TTL stays legal.
 	while (countBreakpoints(payload) + 1 > ANTHROPIC_MAX_BREAKPOINTS) {
-		const released = releaseInteriorMarker(messages, anchorIndex);
+		const released = releaseInteriorMarker(messages, anchorIndex, freshFrom, tag);
 		if (released === undefined) {
 			state.lastAction = "skipped: breakpoint budget full, nothing releasable";
 			log(`${tag}skip budget-full count=${countBreakpoints(payload)} messages=${messages.length}`);
@@ -478,7 +514,9 @@ export default function (pi: ExtensionAPI): void {
 				log(`skip fresh-session messages=${messages.length}`);
 				return replacement;
 			}
-			return placeAnchor(payload, messages, lastAssistant - 1, "") ?? replacement;
+			// No predecessor is known on the first request of a session, so every
+			// position may carry a stored entry: only a near duplicate is releasable.
+			return placeAnchor(payload, messages, lastAssistant - 1, messages.length, "") ?? replacement;
 		}
 
 		// Live growth: Anthropic looks for a stored entry only within
@@ -494,7 +532,9 @@ export default function (pi: ExtensionAPI): void {
 			previous.messages < messages.length &&
 			blocks - previous.blocks > GROWTH_TRIGGER_BLOCKS
 		) {
-			return placeAnchor(payload, messages, previous.messages - 1, "growth-") ?? replacement;
+			// Everything past the previous request's tail is new: those markers carry no
+			// stored entry, so one of them can fund the anchor for free.
+			return placeAnchor(payload, messages, previous.messages - 1, previous.messages, "growth-") ?? replacement;
 		}
 		return replacement;
 	});

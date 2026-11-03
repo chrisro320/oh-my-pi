@@ -13,22 +13,29 @@
 // Optional: OMP_AUTH_UNLOCK_EXTENSION=<file> selects the copy under test;
 // the control run below re-enters this file with mutated temporary copies.
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM?.trim();
-const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT?.trim() ?? (NM ? `${NM}/pi-catalog` : undefined);
-if (!CATALOG_ROOT) {
-	console.error("verify-auth-unlock-extension: set OMP_PATCH_VERIFY_NM (or OMP_PATCH_VERIFY_CATALOG_ROOT) to the runtime tree under test");
+const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT?.trim() ?? (NM ? `${NM}/pi-ai` : undefined);
+// The oauth gate isolation hands over AI_ROOT only; the catalog sits beside it.
+const CATALOG_ROOT =
+	process.env.OMP_PATCH_VERIFY_CATALOG_ROOT?.trim() ??
+	(AI_ROOT ? join(dirname(AI_ROOT), "pi-catalog") : NM ? `${NM}/pi-catalog` : undefined);
+if (!CATALOG_ROOT || !AI_ROOT) {
+	console.error(
+		"verify-auth-unlock-extension: set OMP_PATCH_VERIFY_NM, or OMP_PATCH_VERIFY_AI_ROOT (with OMP_PATCH_VERIFY_CATALOG_ROOT) to the runtime tree under test",
+	);
 	process.exit(2);
 }
 const SHIPPED = resolve(dirname(fileURLToPath(import.meta.url)), "auth-unlock-extension.ts");
 const EXTENSION = process.env.OMP_AUTH_UNLOCK_EXTENSION?.trim() ?? SHIPPED;
 // Providers that must never be advertised or routed: the ones a previous
-// revision protected, one that never had a journal, and an unknown name.
-const UNADVERTISED = ["google-antigravity", "openai-codex", "xai-oauth", "mcp-remote"];
+// revision protected, one that never had a journal, the 18.16.0 rotating-token
+// arrival, and an unknown name.
+const UNADVERTISED = ["google-antigravity", "openai-codex", "xai-oauth", "mistral", "mcp-remote"];
 
 /** Token URL a provider's refresh POSTs to: its `refresh { token url=... }`, else the login token URL. */
 function refreshTokenUrl(provider: string): string {
@@ -91,6 +98,9 @@ async function drive(provider: string, options?: { unlock?: unknown; confirm?: b
 const advertised = command.getArgumentCompletions("").map(item => item.value);
 assert.ok(advertised.length > 0, "the command must advertise at least one provider");
 assert.deepEqual(command.getArgumentCompletions("zzz"), [], "a non-matching prefix yields no completions");
+// The completion list is the claim the user acts on, so it is checked before
+// any per-provider work: a provider the journal does not cover must fail here.
+assert.deepEqual(advertised, ["anthropic"], "only the journal-protected provider may be advertised");
 for (const provider of advertised) {
 	assert.deepEqual(
 		command.getArgumentCompletions(provider.slice(0, 3)).map(item => item.value).filter(v => v === provider),
@@ -102,7 +112,6 @@ for (const provider of advertised) {
 	assert.deepEqual(calls, ["inspect"], `${provider}: declined confirmation must not unlock`);
 	console.log(`ok  ${provider} -> ${fetched[0]}`);
 }
-assert.deepEqual(advertised, ["anthropic"], "only the journal-protected provider may be advertised");
 
 // A journal-protected provider whose runtime reports the scope as inapplicable
 // is reported as such, not as a failed refresh.
@@ -125,6 +134,38 @@ for (const provider of UNADVERTISED) {
 	console.log(`ok  ${provider} not applicable; advertised = ${advertised.join(", ")}`);
 }
 
+// U21 (18.16.0): Mistral Vibe OAuth is a new rotating-token login, and the
+// durable exchange journal (0090) must still cover anthropic only. The catalog
+// knows the name, so "unknown provider" cannot explain the refusal; the runtime
+// is asked directly, and it must answer before reading any credential row.
+assert.ok(existsSync(join(CATALOG_ROOT, "src/compat/rules/auth/mistral.kdl")), "mistral must be a catalogued login provider");
+interface RefresherModule {
+	OAuthRefresher: new (deps: { store: Record<string, unknown> }) => {
+		inspectUnresolvedRefresh(provider: string): Promise<{ eligible: boolean; reason?: string; fence?: string }>;
+		unlockAndRefreshStored(provider: string, options: { fence: string }): Promise<{ outcome: string; error?: string }>;
+	};
+}
+// The not-applicable branch returns on the provider name alone, so an empty
+// store is sufficient: anything that reads it means the journal now covers it.
+const { OAuthRefresher }: RefresherModule = await import(join(AI_ROOT, "src/auth/refresh.ts"));
+const refresher = new OAuthRefresher({ store: {} });
+assert.equal(
+	typeof refresher.inspectUnresolvedRefresh,
+	"function",
+	"the selected tree must expose inspectUnresolvedRefresh (0090 unlock revision)",
+);
+assert.equal(typeof refresher.unlockAndRefreshStored, "function", "the selected tree must expose unlockAndRefreshStored");
+const mistral = await refresher.inspectUnresolvedRefresh("mistral");
+assert.deepEqual(
+	{ eligible: mistral.eligible, reason: mistral.reason, fence: mistral.fence },
+	{ eligible: false, reason: "not-applicable", fence: undefined },
+	"the durable exchange journal must not cover Mistral",
+);
+const mistralUnlock = await refresher.unlockAndRefreshStored("mistral", { fence: "u21-control" });
+assert.equal(mistralUnlock.outcome, "not-applicable", "a Mistral unlock must be refused, never attempted");
+assert.match(mistralUnlock.error ?? "", /journal-protected/, "the refusal names the journal scope");
+console.log("ok  mistral: journal not applicable at the runtime, refused before any store read");
+
 // Fault controls: a copy that protects another provider, or that preflights the
 // wrong host, must fail this gate. Each mutation re-enters this file.
 const dir = mkdtempSync(join(tmpdir(), "omp-auth-unlock-gate-"));
@@ -135,6 +176,11 @@ try {
 			name: "protects google-antigravity again",
 			from: '\tanthropic: "https://api.anthropic.com/v1/oauth/token",',
 			to: '\tanthropic: "https://api.anthropic.com/v1/oauth/token",\n\t"google-antigravity": "https://oauth2.googleapis.com/token",',
+		},
+		{
+			name: "protects mistral again",
+			from: '\tanthropic: "https://api.anthropic.com/v1/oauth/token",',
+			to: '\tanthropic: "https://api.anthropic.com/v1/oauth/token",\n\tmistral: "https://api.mistral.ai/v1/oauth/token",',
 		},
 		{
 			name: "preflights another host",

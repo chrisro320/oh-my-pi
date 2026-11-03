@@ -499,7 +499,14 @@ _omp_run_gates() {
 	_omp_gate "" verify-hindsight-recall-snapshot.ts
 	_omp_gate "" verify-interrupt-prune-symmetry.ts
 	_omp_gate 0032 verify-goal-tool-resident.ts
-	_omp_gate 0047 verify-date-cwd-anchor-stability.ts
+	# 18.16.0 replaced the anchor API with upstream's date/cwd journal; its arm
+	# proves the journal prefix instead (DECISIONS.md, Q1).
+	if [[ "$OMP_PATCH_VERSION" != "18.16.0" ]]; then
+		_omp_gate 0047 verify-date-cwd-anchor-stability.ts
+	fi
+	if [[ "$OMP_PATCH_VERSION" == "18.16.0" ]]; then
+		_omp_gate 0047 verify-date-cwd-journal-prefix.ts
+	fi
 	if [[ "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" ]]; then
 		_omp_gate 0047 verify-session-transfer-authority.ts
 	fi
@@ -561,6 +568,9 @@ _omp_run_gates() {
 	if [[ "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" ]]; then
 		_omp_gate 0090 verify-oauth-unlock-fence-faults.sh oauth
 	fi
+	if [[ "$OMP_PATCH_VERSION" == "18.16.0" ]]; then
+		_omp_gate 0090 verify-auth-unlock-extension.ts oauth
+	fi
 	# Codex/Antigravity 403 eligibility retention ships with the 18.10.1 family
 	# revision (carried into the 18.12.6 plan); the 18.10.0 plan keeps its
 	# frozen family bytes and gate list.
@@ -569,6 +579,12 @@ _omp_run_gates() {
 		_omp_gate 0090 verify-google-account-eligibility-retention.ts
 	fi
 	_omp_gate 0092 verify-cache-warming-idle-budget.ts warm
+	# The cron companion's idle-ownership proof is pinned to the 18.16.0 tree
+	# (its catalog skip list and the warmer/session contracts it relies on).
+	if [[ "$OMP_PATCH_VERSION" == "18.16.0" ]]; then
+		_omp_gate 0092 verify-cron-idle-owners.ts warm
+		_omp_gate 0010 verify-session-cache-keepalive.ts
+	fi
 	_omp_gate 0098 verify-tls-verify-transient-retry.ts
 	_omp_gate 0099 verify-retry-slow-schedule.ts
 	# 0100's consumer proof is new for the 18.16.0 arm (the 18.12.6 plan proved it
@@ -577,6 +593,29 @@ _omp_run_gates() {
 		_omp_gate 0100 verify-stepfun-step-plan.ts
 	fi
 	_omp_gate 0101 verify-subagent-warm-revival-prompt.ts
+	# 0102 is new for the 18.16.0 arm: the 18.12.6 plan has no such capability, so
+	# the marker keeps every earlier arm's frozen gate list.
+	_omp_gate 0102 verify-computer-control-confirm-deadline.ts
+	# M7: the companion extensions load through the real host, receive
+	# before_agent_start prompt/revive and shut down cleanly. 18.16.0-only: the
+	# gate pins the tree and needs 0082's prepare_user_input/display text.
+	if [[ "$OMP_PATCH_VERSION" == "18.16.0" ]]; then
+		_omp_gate 0082 verify-extensions-load-18160.ts
+	fi
+	# M9b unowned P0/P1 proofs: registered on the 18.16.0 arm only, so every
+	# earlier plan's gate list stays byte-identical.
+	if [[ "$OMP_PATCH_VERSION" == "18.16.0" ]]; then
+		_omp_gate "" verify-withdrawn-tools-wire.ts
+		_omp_gate "" verify-tool-schema-bytes.ts
+		_omp_gate "" verify-remote-compaction-target-key.ts
+		_omp_gate "" verify-compaction-length-stop.ts
+		_omp_gate "" verify-tokenizer-budget-parity.ts
+		_omp_gate "" verify-held-file-write-guard.ts
+		_omp_gate 0048 verify-advisor-quota-rotation.ts
+		_omp_gate "" verify-prompt-rebuild-inputs.ts
+		_omp_gate "" verify-provider-registry-lazy.ts
+		_omp_gate "" verify-catalog-regen-parity.ts
+	fi
 }
 
 if [[ "$MODE" == print-gates ]]; then

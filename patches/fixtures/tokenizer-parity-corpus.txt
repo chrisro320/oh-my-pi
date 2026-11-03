@@ -1,0 +1,534 @@
+Fixed code-heavy corpus for patches/verify-tokenizer-budget-parity.ts (U6).
+Everything before the first turn marker line is a header the gate ignores; the
+"turn N" marker lines are the turn boundaries of the simulated session.
+The corpus is pinned: the gate asserts that the pre-18.16 bytes/4 estimate lands
+outside the +-2% band and moves the compaction trigger off the native turn, so a
+corpus edit must be re-measured.
+----- turn 1 -----
+// Session cache key derivation: the identity a request is replayed against.
+import type { Model } from "@oh-my-pi/pi-catalog/types";
+
+export interface CacheScope {
+	api: string;
+	provider: string;
+	model: string;
+	toolsDigest: string;
+	systemDigest: string;
+	deployment?: string;
+}
+
+export function deriveCacheKey(scope: CacheScope, turn: number): string {
+	const parts = [
+		scope.api,
+		scope.provider,
+		scope.model,
+		scope.deployment ?? "default",
+		scope.toolsDigest,
+		scope.systemDigest,
+		String(turn),
+	];
+	return parts.map(part => `${part.length}:${part}`).join("|");
+}
+----- turn 2 -----
+export function scopeFor(model: Model<"anthropic-messages">, tools: readonly unknown[], system: string): CacheScope {
+	const toolsDigest = Bun.hash(JSON.stringify(tools)).toString(36);
+	const systemDigest = Bun.hash(system).toString(36);
+	return {
+		api: model.api,
+		provider: model.provider,
+		model: model.id,
+		toolsDigest,
+		systemDigest,
+		deployment: model.compat?.officialEndpoint === true ? undefined : model.provider,
+	};
+}
+
+export function isPrefixHit(previous: CacheScope, next: CacheScope): boolean {
+	if (previous.api !== next.api) return false;
+	if (previous.provider !== next.provider) return false;
+	if (previous.model !== next.model) return false;
+	if (previous.systemDigest !== next.systemDigest) return false;
+	if (previous.toolsDigest !== next.toolsDigest) return false;
+	return (previous.deployment ?? "default") === (next.deployment ?? "default");
+}
+----- turn 3 -----
+// Retry classification for provider failures: which error class retries in
+// place, which rotates the credential, and which surfaces to the user.
+export type RetryVerdict = "in-place" | "rotate" | "surface";
+
+interface FailureShape {
+	status?: number;
+	code?: string;
+	message: string;
+	retryAfterMs?: number;
+}
+
+const TRANSIENT_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504, 529]);
+const PERMANENT_CODES = new Set(["invalid_grant", "invalid_client", "invalid_request_error"]);
+
+export function classifyFailure(failure: FailureShape, attempt: number): RetryVerdict {
+	const status = failure.status ?? 0;
+	if (failure.retryAfterMs !== undefined && failure.retryAfterMs > 0) {
+		return status === 529 && attempt >= 4 ? "surface" : "in-place";
+	}
+	if (status === 401 || status === 403) {
+		return failure.code === "invalid_grant" ? "rotate" : "surface";
+	}
+	if (TRANSIENT_STATUS.has(status)) {
+		return attempt >= 6 ? "surface" : "in-place";
+	}
+	return "surface";
+}
+----- turn 4 -----
+export function classifyMessageFailure(message: string, code: string | undefined, attempt: number): RetryVerdict {
+	if (code !== undefined && PERMANENT_CODES.has(code)) {
+		return "surface";
+	}
+	if (/overloaded|rate.?limit|temporar/i.test(message)) {
+		return attempt >= 6 ? "surface" : "in-place";
+	}
+	return "surface";
+}
+
+export function backoffMs(attempt: number, base = 250, cap = 8000): number {
+	const exponential = Math.min(cap, base * 2 ** attempt);
+	const jitter = Math.floor(Math.random() * (exponential / 4));
+	return exponential + jitter;
+}
+
+export function retryWindow(attempt: number, retryAfterMs: number | undefined, cap = 60_000): number {
+	if (retryAfterMs !== undefined && retryAfterMs > 0) return Math.min(cap, retryAfterMs);
+	return Math.min(cap, backoffMs(attempt));
+}
+----- turn 5 -----
+// Rust: LRU cache of native token counts keyed by fragment text.
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+
+pub struct CountCache {
+	capacity: usize,
+	bytes: usize,
+	byte_limit: usize,
+	entries: HashMap<String, (u32, u64)>,
+	clock: u64,
+}
+
+impl CountCache {
+	pub fn new(capacity: usize, byte_limit: usize) -> Self {
+		Self { capacity, bytes: 0, byte_limit, entries: HashMap::new(), clock: 0 }
+	}
+
+	pub fn get(&mut self, text: &str) -> Option<u32> {
+		self.clock += 1;
+		let clock = self.clock;
+		match self.entries.get_mut(text) {
+			Some(slot) => {
+				slot.1 = clock;
+				Some(slot.0)
+			}
+			None => None,
+		}
+	}
+}
+----- turn 6 -----
+impl CountCache {
+	pub fn insert(&mut self, text: &str, tokens: u32) -> bool {
+		if text.len() > self.byte_limit {
+			return false;
+		}
+		self.clock += 1;
+		let weight = (text.len() * 2 + 64) as u64;
+		if let Some((_, stamp)) = self.entries.get_mut(text) {
+			*stamp = self.clock;
+			return true;
+		}
+		while self.bytes + weight as usize > self.byte_limit || self.entries.len() >= self.capacity {
+			let Some(victim) = self
+				.entries
+				.iter()
+				.min_by_key(|(_, (_, stamp))| *stamp)
+				.map(|(key, _)| key.clone())
+			else {
+				break;
+			};
+			if let Some((_, (_, _))) = self.entries.remove_entry(&victim) {
+				self.bytes = self.bytes.saturating_sub(victim.len() * 2 + 64);
+			}
+		}
+		self.entries.insert(text.to_string(), (tokens, self.clock));
+		self.bytes += weight as usize;
+		true
+	}
+}
+----- turn 7 -----
+-- Session history store: WAL-mode schema plus the resume scan queries.
+CREATE TABLE IF NOT EXISTS sessions (
+	session_id TEXT PRIMARY KEY,
+	title TEXT,
+	project_path TEXT NOT NULL,
+	created_at INTEGER NOT NULL,
+	updated_at INTEGER NOT NULL,
+	message_count INTEGER NOT NULL DEFAULT 0,
+	pinned INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS sessions_updated ON sessions (updated_at DESC);
+CREATE INDEX IF NOT EXISTS sessions_project ON sessions (project_path, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS messages (
+	session_id TEXT NOT NULL REFERENCES sessions (session_id) ON DELETE CASCADE,
+	seq INTEGER NOT NULL,
+	role TEXT NOT NULL,
+	payload BLOB NOT NULL,
+	created_at INTEGER NOT NULL,
+	PRIMARY KEY (session_id, seq)
+);
+----- turn 8 -----
+-- Resume listing: newest sessions first, with their untitled drafts filled in.
+SELECT s.session_id,
+       COALESCE(s.title, d.first_prompt) AS title,
+       s.project_path,
+       s.updated_at,
+       s.message_count
+  FROM sessions AS s
+  LEFT JOIN (
+	SELECT session_id, MIN(substr(payload, 1, 120)) AS first_prompt
+	  FROM messages
+	 WHERE role = 'user'
+	 GROUP BY session_id
+  ) AS d ON d.session_id = s.session_id
+ WHERE s.updated_at >= ?1
+ ORDER BY s.updated_at DESC
+ LIMIT ?2;
+
+-- Retention sweep keeps only the newest N sessions per project.
+DELETE FROM sessions
+ WHERE session_id IN (
+	SELECT session_id
+	  FROM (
+		SELECT session_id,
+		       ROW_NUMBER() OVER (PARTITION BY project_path ORDER BY updated_at DESC) AS rank
+		  FROM sessions
+		 WHERE pinned = 0
+	  )
+	 WHERE rank > 20
+ );
+----- turn 9 -----
+// Go: streaming HTTP reverse proxy with per-route token buckets.
+package proxy
+
+import (
+	"context"
+	"errors"
+	"io"
+	"net/http"
+	"sync"
+	"time"
+)
+
+type bucket struct {
+	tokens float64
+	last   time.Time
+}
+
+type Limiter struct {
+	mu      sync.Mutex
+	rate    float64
+	burst   float64
+	buckets map[string]*bucket
+}
+
+func (l *Limiter) allow(key string, now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	b, ok := l.buckets[key]
+	if !ok {
+		b = &bucket{tokens: l.burst, last: now}
+		l.buckets[key] = b
+	}
+	elapsed := now.Sub(b.last).Seconds()
+	b.tokens += elapsed * l.rate
+	if b.tokens > l.burst {
+		b.tokens = l.burst
+	}
+	b.last = now
+	if b.tokens < 1 {
+		return false
+	}
+	b.tokens--
+	return true
+}
+----- turn 10 -----
+func (l *Limiter) Handle(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !l.allow(r.Header.Get("X-Client-Id"), time.Now()) {
+			http.Error(w, `{"error":"rate_limited","retry_after_ms":500}`, http.StatusTooManyRequests)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
+		defer cancel()
+		out := r.WithContext(ctx)
+		upstream, err := http.DefaultTransport.RoundTrip(out)
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				http.Error(w, `{"error":"upstream_timeout"}`, http.StatusGatewayTimeout)
+				return
+			}
+			http.Error(w, `{"error":"upstream_failed"}`, http.StatusBadGateway)
+			return
+		}
+		defer upstream.Body.Close()
+		w.WriteHeader(upstream.StatusCode)
+		_, _ = io.Copy(w, upstream.Body)
+	})
+}
+----- turn 11 -----
+# Compaction candidate scoring: which history survives a cut point.
+from dataclasses import dataclass
+from typing import Iterable, Sequence
+
+
+@dataclass(frozen=True)
+class Entry:
+    index: int
+    role: str
+    tokens: int
+    pinned: bool = False
+
+
+def keep_recent(entries: Sequence[Entry], budget: int) -> int:
+    """Return the cut index keeping at most `budget` trailing tokens."""
+    total = 0
+    for entry in reversed(entries):
+        if entry.pinned:
+            total += entry.tokens
+            continue
+        if total + entry.tokens > budget:
+            return entry.index + 1
+        total += entry.tokens
+    return 0
+----- turn 12 -----
+def score_candidates(entries: Iterable[Entry], threshold: float) -> list[tuple[int, float]]:
+    scored: list[tuple[int, float]] = []
+    for entry in entries:
+        if entry.role not in {"user", "assistant", "bashExecution"}:
+            continue
+        if entry.pinned:
+            continue
+        penalty = 0.0
+        if entry.role == "bashExecution":
+            penalty += 0.35
+        if entry.tokens > 4000:
+            penalty += 0.25
+        weight = min(1.0, entry.tokens / 2000.0) - penalty
+        if weight >= threshold:
+            scored.append((entry.index, round(weight, 4)))
+    scored.sort(key=lambda pair: (-pair[1], pair[0]))
+    return scored
+
+
+def split_reads(entries: Sequence[Entry]) -> tuple[list[int], list[int]]:
+    read_only: list[int] = []
+    modified: list[int] = []
+    for entry in entries:
+        if entry.role == "toolResult":
+            read_only.append(entry.index)
+        elif entry.role in {"write", "edit"}:
+            modified.append(entry.index)
+    return read_only, modified
+----- turn 13 -----
+// React-style transcript view with a virtualized message list.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Message } from "../types";
+
+const ROW_HEIGHT = 22;
+const OVERSCAN = 8;
+
+export function useVirtualWindow(count: number, viewportHeight: number) {
+	const [scrollTop, setScrollTop] = useState(0);
+	const first = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+	const visible = Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN * 2;
+	const last = Math.min(count, first + visible);
+	const onScroll = useCallback((event: { currentTarget: { scrollTop: number } }) => {
+		setScrollTop(event.currentTarget.scrollTop);
+	}, []);
+	return { first, last, offset: first * ROW_HEIGHT, onScroll };
+}
+----- turn 14 -----
+export function Transcript({ messages, streaming }: { messages: Message[]; streaming: boolean }) {
+	const ref = useRef<HTMLDivElement | null>(null);
+	const [height, setHeight] = useState(480);
+	useEffect(() => {
+		const element = ref.current;
+		if (!element) return;
+		const observer = new ResizeObserver(entries => {
+			for (const entry of entries) setHeight(entry.contentRect.height);
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, []);
+	const window = useVirtualWindow(messages.length, height);
+	const slice = useMemo(() => messages.slice(window.first, window.last), [messages, window.first, window.last]);
+	return (
+		<div ref={ref} onScroll={window.onScroll} role="log" aria-live={streaming ? "polite" : "off"}>
+			<div style={{ height: messages.length * ROW_HEIGHT, position: "relative" }}>
+				<div style={{ transform: `translateY(${window.offset}px)` }}>
+					{slice.map((message, index) => (
+						<Row key={window.first + index} message={message} index={window.first + index} />
+					))}
+				</div>
+			</div>
+		</div>
+	);
+}
+----- turn 15 -----
+:root {
+	--bg: #101418;
+	--panel: #161c22;
+	--border: #243040;
+	--fg: #d8e2ec;
+	--muted: #7d8b9a;
+	--accent: #4fc3f7;
+}
+
+.transcript {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	overflow-y: auto;
+	background: var(--bg);
+	color: var(--fg);
+	font: 13px/1.45 "JetBrains Mono", ui-monospace, monospace;
+}
+
+.transcript .row { padding: 1px 10px; white-space: pre-wrap; word-break: break-word; }
+.transcript .row.user { border-left: 2px solid var(--accent); background: #121a22; }
+.transcript .row.tool { color: var(--muted); border-left: 2px solid var(--border); }
+.transcript .row.error { color: #ff9e9e; border-left: 2px solid #a13333; }
+
+@media (prefers-reduced-motion: reduce) {
+	.transcript .row { transition: none; }
+}
+----- turn 16 -----
+<div class="transcript" role="log">
+	<div class="row user">$ omp --resume</div>
+	<div class="row tool">[session] 3 candidates · newest 2026-10-31</div>
+	<div class="row error">error: launch blocked by old owners (exit 75)</div>
+</div>
+
+{
+	"compaction": {
+		"enabled": true,
+		"strategy": "snapcompact",
+		"thresholdPercent": 42,
+		"reserveTokens": 16384,
+		"keepRecentTokens": 20000,
+		"remoteStreamingV2Enabled": true
+	},
+	"models": {
+		"roles": {
+			"default": "anthropic/claude-opus-5",
+			"smol": "openai/gpt-5-mini",
+			"task": "openai/gpt-5-mini"
+		},
+		"compaction": {
+			"anthropic/claude-opus-5": "f90000",
+			"openai/gpt-5-mini": "60%"
+		}
+	},
+	"tools": { "approval": { "write": "always-ask-cached", "bash": "allow" } }
+}
+----- turn 17 -----
+tokenizer:
+  family: o200k
+  cache:
+    maxEntries: 256
+    maxBytes: 524288
+  fallback: strict
+retry:
+  maxAttempts: 64
+  backoffMs: [250, 500, 1000, 2000, 4000, 8000]
+  transientStatus: [408, 429, 500, 502, 503, 504, 529]
+limiter:
+  rate: 8.0
+  burst: 24
+  window: 60s
+upstream:
+  timeoutMs: 120000
+  keepAlive: true
+  maxIdleConns: 32
+----- turn 18 -----
+#!/usr/bin/env bash
+# Replay the patch chain against a pristine tree and diff the result.
+set -euo pipefail
+readonly WORK=${1:?usage: replay.sh <tree>}
+readonly OUT=${2:-${WORK}.out}
+rm -rf -- "$OUT"
+cp -a -- "$WORK" "$OUT"
+for patch in patches/[0-9][0-9][0-9][0-9]-*.patch; do
+	[[ -f "$patch" ]] || continue
+	if ! patch -p1 -F0 -d "$OUT" --dry-run <"$patch" >/dev/null 2>&1; then
+		printf 'FAIL %s\n' "${patch##*/}" >&2
+		exit 1
+	fi
+	patch -p1 -F0 -d "$OUT" <"$patch" >/dev/null
+	printf 'ok   %s\n' "${patch##*/}"
+done
+(cd "$OUT" && sha256sum -b $(find . -name '*.ts' -print) | sort -k2) >"${OUT}.sha256"
+if diff -q "${OUT}.sha256" "${WORK}.sha256" >/dev/null 2>&1; then
+	echo "replay: identical"
+else
+	echo "replay: drifted" >&2
+	diff -u "${WORK}.sha256" "${OUT}.sha256" | head -40 >&2
+	exit 2
+fi
+----- turn 19 -----
+diff -u --label a/handlers.ts --label b/handlers.ts <<'PATCH'
+@@ -114,8 +114,11 @@ export async function handleWrite(input: WriteInput): Promise<Result> {
+ 	const absolutePath = resolveToCwd(input.path, cwd);
+ 	const existing = await statFile(absolutePath);
+-	if (existing) {
+-		await writeFileWithFallback(absolutePath, input.content);
+-	}
++	if (existing) {
++		assertNotHeldOpen(absolutePath);
++		await writeFileWithFallback(absolutePath, content);
++	}
+ 	return { written: true, path: absolutePath };
+PATCH
+
+const registry = new Map<string, Handler>();
+export function register(scheme: string, handler: Handler): void {
+	if (registry.has(scheme)) throw new Error(`scheme already registered: ${scheme}`);
+	registry.set(scheme, handler);
+}
+export function dispatch(path: string): Handler | undefined {
+	const scheme = /^([a-z][a-z0-9+.-]*):\/\//.exec(path)?.[1];
+	return scheme === undefined ? undefined : registry.get(scheme);
+}
+----- turn 20 -----
+export interface BudgetCheck {
+	fits: boolean;
+	tokens: number;
+	exact: boolean;
+}
+
+export function checkBudget(text: string, budget: number, count: (value: string) => number): BudgetCheck {
+	const bound = Buffer.byteLength(text, "utf-8");
+	if (bound <= budget) return { fits: true, tokens: bound, exact: false };
+	const tokens = count(text);
+	return { fits: tokens <= budget, tokens, exact: true };
+}
+
+export function fifo<T>(capacity: number): { push(value: T): void; drain(): T[] } {
+	const items: T[] = [];
+	return {
+		push(value: T) {
+			items.push(value);
+			if (items.length > capacity) items.splice(0, items.length - capacity);
+		},
+		drain() {
+			return items.splice(0, items.length);
+		},
+	};
+}

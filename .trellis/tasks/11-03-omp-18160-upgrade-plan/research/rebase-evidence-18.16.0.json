@@ -2,7 +2,7 @@
   "status": "candidate-exported-unverified",
   "behavioral_checks_run": false,
   "candidate": "/tmp/omp-plan-18160/rebase/work",
-  "candidate_tree_sha256": "8b32ff0876b6ccdf561ec8c4d8ac93f27b079d06b1f0ef442f61b42f70af5e69",
+  "candidate_tree_sha256": "5e0d2282762830e30ad6d6e3656da1b60d4833ae4d2e6fd03068849d6cd83baf",
   "pristine_tree_sha256": "9f88de1a04fb7d663ecd2b627686f0048252231d1a6293bd34fce4301eaf99a1",
   "family_count": 26,
   "local_capability_count": 56,
@@ -890,10 +890,14 @@
       "capabilities": [
         "0102"
       ],
-      "paths": [],
+      "paths": [
+        "pi-coding-agent/src/tools/computer/supervisor.ts"
+      ],
       "declarations": [],
-      "source": [],
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "source": [
+        "pi-coding-agent/src/tools/computer/supervisor.ts"
+      ],
+      "sha256": "e221bf5f82c8edde2dc101e322c57c6e6971fb78f795e9e2e9af352be69aa83b"
     }
   ]
 }

@@ -166,7 +166,7 @@ overlay validator compares runtime version to `overlay["version"]`.
   → `PASS native overlay 18.16.0`. — Effort: low — `--nm` is the `@oh-my-pi` directory (`verify-native-overlay.py:4,38`);
   pointing it one level up makes the validator read nothing. Done: digests equal, `PASS native overlay 18.16.0: 2 addons,
   1 patches`; controls: upstream addons installed → FAIL, `--nm` one level up → FAIL (`missing …/package.json`).
-- [ ] (M9, pending) Register the same install in the candidate runtime assembly (M9), so the runtime every gate and smoke uses carries the
+- [x] (M9, pending) Register the same install in the candidate runtime assembly (M9), so the runtime every gate and smoke uses carries the
   two rebuilt addons with asserted digests; `pi-natives-linux-x64` stays outside `manifest.archives`, so the install cannot
   move `candidate_tree_sha256` and the addon bytes are covered by the receipt's `runtime_tree_sha256`. — Effort: low — one
   rule in one place, or the release ships original addons with a PASS recorded for rebuilt ones.
@@ -262,17 +262,17 @@ Work order P1 — seams other things sit on:
   second scheduler) — Effort: high — 61 hunks, `runIdleEphemeralTurn` has no upstream equivalent, and four context-action
   sites plus the reservation epoch must be re-derived. Gates: `verify-idle-ephemeral-reservation.ts`, idle timeline
   (one recap, no duplicate turn, cron never overlapping recap/compaction).
-- [ ] **#6 `family-image-budget-snapcompact`** (0036, 0044, 0052, 0057 mechanical; 0062 adopt-pending) — Effort: medium — only.
+- [x] **#6 `family-image-budget-snapcompact`** (0036, 0044, 0052, 0057 mechanical; 0062 adopt-pending) — Effort: medium — only.
   1–2 hunks fail, but `rules.json` must come from `bun run gen:compat` and `verify-provider-image-budget.ts` asserts a symbol
   that does not exist (`PROVIDER_IMAGE_BUDGETS`). Gates: rewritten `verify-provider-image-budget.ts` (resolve order + floor),
   `verify-snapcompact-model-billing.ts`, `verify-snapcompact-frame-reprice.ts`, plus 0062's boundary replay.
-- [ ] **#10 `0048-omp-advisor-quota-rotation-bound`** — method: adopt-pending — Effort: medium — 5 of 6 hunks fail because the
+- [x] **#10 `0048-omp-advisor-quota-rotation-bound`** — method: adopt-pending — Effort: medium — 5 of 6 hunks fail because the
   mechanism moved to `#spendCredentialSwitch`; retiring needs a new consumer test (two codex credentials both
   `usage_limit_reached` → ≤N−1 same-provider recoveries then cross-provider) and the `return true` negative control.
 - [x] **#11 `0050-omp-session-history-preview`** — method: conflict-redesign (keep only `lastModel`, thread it through
   `SessionListing`/`completeSessions`) — Effort: high — 41 hunks with 26 rejected by the picker host rewrite. Gate:.
   `verify-session-history-preview.ts` re-based to the surviving contract.
-- [ ] **#12 `family-devin-wire`** (0055, 0056, 0058 mechanical; 0071, 0060 semantic) — Effort: medium — 4 of 28 rejections;.
+- [x] **#12 `family-devin-wire`** (0055, 0056, 0058 mechanical; 0071, 0060 semantic) — Effort: medium — 4 of 28 rejections;.
   0071 must become an async auth-recovery loop *around* the new compressed body build; 0060 needs `0010` first. Gates:
   `verify-devin-auth-cache.ts` (incl. new 401-then-no-retry leg), `verify-devin-metadata.ts`,
   `verify-devin-thinking-signature.ts`, `verify-devin-idle-cascade-pin.ts`.
@@ -303,7 +303,7 @@ Work order P2 — mechanical remainder:
 - [x] **#14 `0069-omp-codex-effort-history-resume`** — semantic — Effort: medium — 3 of 12 rejections; restore moves into.
   `applyCodexStableEffort` (no `hasParentState` branch) and the shape guard moves to `openai-codex-state.ts`. Gate:
   `verify-codex-effort-resume.ts`.
-- [ ] **#15 `0072-omp-session-pin-static-auth-ui`** — method: adopt (all 8 hunks retired **only** once the repro is green
+- [x] **#15 `0072-omp-session-pin-static-auth-ui`** — method: adopt (all 8 hunks retired **only** once the repro is green
   unpatched) — Effort: low — upstream made the auth-UI loaders async in 18.14.0. On success the row leaves `families` and
   the capability is recorded in `upstream_adoptions` + `APPROVED_ADOPTIONS["18.16.0"]` + `PLAN_CAPABILITIES[0072]` in the
   same change; on failure the hunks stay and `0072` stays an owned member everywhere. Gate: the real repro (`/session pin`,
@@ -316,7 +316,7 @@ Work order P2 — mechanical remainder:
   `isStreamEnvelopeTruncationText()`. Gate: `verify-tls-verify-transient-retry.ts`.
 - [x] **#25 `0099-omp-retry-slow-schedule`** — mechanical — Effort: low — one hunk, byte-identical context. Gate:.
   `verify-retry-slow-schedule.ts` (9 delays).
-- [ ] **#26 `0100-omp-stepfun-step-plan`** — mechanical — Effort: medium — source/KDL hunks apply but `rules.json` and the
+- [x] **#26 `0100-omp-stepfun-step-plan`** — mechanical — Effort: medium — source/KDL hunks apply but `rules.json` and the
   reshaped `models.json` need `gen:compat`/`gen:models`, and `provider/id` selectors must be re-checked under 18.14.0
   exact-match rules. Gate: synthetic-fetch smoke (`/step_plan/v1/...`) + re-selector assertion.
 - [x] **#27 `0101-omp-subagent-warm-revival-persisted-prompt`** — semantic — Effort: medium — 4 of 5 rejections;.
@@ -416,15 +416,15 @@ decision (Q1, Q6) has an explicit recorded outcome; no retire-pending hunk survi
 
 Reason: the only new capability; it must fail before and pass after, and it must not reuse the TUI confirm timeout.
 
-- [ ] Write the fails-before test with a fake clock: `#confirmControl` with a run deadline far in the future must resolve
+- [x] Write the fails-before test with a fake clock: `#confirmControl` with a run deadline far in the future must resolve
   `unanswered` at 60 s and the agent must continue through the takeover window-input path (no new prompt). — Effort: medium —
   fake-clock plumbing around `AbortSignal.timeout(message.timeoutMs)`.
-- [ ] Insert the cap in `pi-coding-agent/src/tools/computer/supervisor.ts` `#confirmControl` (~`:395-430` at 18.16.0) using a
+- [x] Insert the cap in `pi-coding-agent/src/tools/computer/supervisor.ts` `#confirmControl` (~`:395-430` at 18.16.0) using a
   60 s `AbortSignal` composed with the run's remaining time; verdict `unanswered`; leave eval-prelude approvals untouched. —
   Effort: medium — must not disturb the existing deadline/`timeoutMs<=0` branches.
-- [ ] Negative control: drive the TUI-timeout path and assert it selects **Yes** (proves the test distinguishes the two
+- [x] Negative control: drive the TUI-timeout path and assert it selects **Yes** (proves the test distinguishes the two
   timeouts and that auto-approval is not what the cap does). — Effort: low — the control is what separates the 60 s cap from auto-approval.
-- [ ] Register the gate next to the existing computer-control gates and record the physical check for M12. — Effort: low — an unregistered gate never runs in the batch.
+- [x] Register the gate next to the existing computer-control gates and record the physical check for M12. — Effort: low — an unregistered gate never runs in the batch.
 
 Acceptance: fails-before/passes-after with the fake clock; the negative control picks Yes on the TUI path; no behaviour change
 for an answered confirmation.
@@ -433,15 +433,15 @@ for an answered confirmation.
 
 Reason: three companions throw or mis-behave if their capability is missing; shipping order is a correctness constraint.
 
-- [ ] `cron-extension.ts` after `0010` + `0092`: verify the idle timeline (one paid request per keepalive, no overlap with
+- [x] `cron-extension.ts` after `0010` + `0092`: verify the idle timeline (one paid request per keepalive, no overlap with
   upstream recap/compaction, `keep` beyond 30 min honoured) and that the native warmer still skips Devin/OpenAI/Kimi/DeepSeek.
   — Effort: medium — two idle owners is the exact failure this capability must not reintroduce.
-- [ ] `input-translator-extension.ts` after `0082`: factory-time load, `prepare_user_input` v1 negotiation, editor keeps the
+- [x] `input-translator-extension.ts` after `0082`: factory-time load, `prepare_user_input` v1 negotiation, editor keeps the
   original text. — Effort: medium — the factory throws on 18.16.0 without 0082.
-- [ ] `auth-unlock-extension.ts` after `0090b`: `anthropic`-only completion list, `not-applicable` for Mistral (U21). — Effort: low — the completion list must not claim providers the journal does not cover.
-- [ ] `context-notes-save-gate.ts` after `0082`: `appendEntryPersisted` present, projection revision intact, manual `/compact`
+- [x] `auth-unlock-extension.ts` after `0090b`: `anthropic`-only completion list, `not-applicable` for Mistral (U21). — Effort: low — the completion list must not claim providers the journal does not cover.
+- [x] `context-notes-save-gate.ts` after `0082`: `appendEntryPersisted` present, projection revision intact, manual `/compact`
   still direct (no hidden save turn). — Effort: medium — the save gate is inert without appendEntryPersisted.
-- [ ] `resume-cache-breakpoint-extension.ts`: re-derive `releaseInteriorMarker` for 18.16.0's tail → 15-turn decimation
+- [x] `resume-cache-breakpoint-extension.ts`: re-derive `releaseInteriorMarker` for 18.16.0's tail → 15-turn decimation
   checkpoint → sub-prefix anchor allocation (removing the second-newest message must not delete the only older anchor), and
   run the catalog-normalization gate now from the repo bytes (the file imports the extension relatively and builds its own
   `pi` double, so it needs no candidate runtime), and again in M10 from `$OUT/full/snapshot/patches/` once that frozen
@@ -463,10 +463,10 @@ Reason: three companions throw or mis-behave if their capability is missing; shi
   (current working tree: `47c93fda…`) and assert the snapshot run used those bytes. — Effort: high — this is the one companion
   whose heuristic is semantically wrong on the new allocator, and its catalog normalization is the only guard against a
   cross-restart `prefix_binding_mismatch` on both provider shapes.
-- [ ] `context-persist-audit-extension.ts` (degrades until `0095`) and the remaining live-only extensions: load every
+- [x] `context-persist-audit-extension.ts` (degrades until `0095`) and the remaining live-only extensions: load every
   `patches/*-extension.ts` in a real session (deferred startup + Ctrl+D path), assert no module-scope `pi.`, and that
   `before_agent_start` fires with `reason:"prompt"`/`"revive"` as applicable. — Effort: medium — lazy `get pi()` only breaks at load time, not under static reading.
-- [ ] `ctx.ts` subagent hiding: re-smoke on 18.16.0 (already implemented against 18.12.6; no re-implementation). — Effort: low — re-smoke only, because the hiding was implemented against 18.12.6.
+- [x] `ctx.ts` subagent hiding: re-smoke on 18.16.0 (already implemented against 18.12.6; no re-implementation). — Effort: low — re-smoke only, because the hiding was implemented against 18.12.6.
 
 Acceptance: every companion loads and passes its own assertion set on the candidate; no companion ships ahead of the
 capability it is coupled to.
@@ -475,12 +475,12 @@ capability it is coupled to.
 
 Reason: `dist/types/*.d.ts` is part of the shipped surface and `bun` execution does not type-check.
 
-- [ ] Regenerate/port declaration deltas for every touched public interface (`agent-session`, `session-maintenance`,
+- [x] Regenerate/port declaration deltas for every touched public interface (`agent-session`, `session-maintenance`,
   `extensions/types`, `session-picker`, `auth/refresh`, `openai-codex-state`, …) and run the packages' `check:types` when the
   compiler dependency is available. — Effort: medium — `bun` executes with missing runtime imports until the branch actually runs.
-- [ ] Changed-signature consumers: assert every new runtime symbol has a value import (not `import type`) and every changed
+- [x] Changed-signature consumers: assert every new runtime symbol has a value import (not `import type`) and every changed
   callback arity is migrated at all production callsites (`quality-guidelines` § Compaction callback imports). — Effort: low — a type-only import passes static reading and fails at the call.
-- [ ] Type-level negatives that changed: `collectSubSessions(file, fn)` must fail typecheck (U27); withdrawn-tool
+- [x] Type-level negatives that changed: `collectSubSessions(file, fn)` must fail typecheck (U27); withdrawn-tool
   `Context.inactiveTools` must survive `withInactiveTools` before/after `transformProviderContext` (U5). — Effort: medium — two upstream signature changes are visible only to the type checker.
 
 Acceptance: declaration trees resolve against the candidate and the type negatives fail as specified.
@@ -494,7 +494,7 @@ accumulating working chain; their final runs repeat in M10 against the assembled
 
 Assembly:
 
-- [ ] Update `.18.16.0-families/` (`manifest.json`, `plan.tsv`, one patch per row, per-file `sha256`, `paths`, `root`
+- [x] Update `.18.16.0-families/` (`manifest.json`, `plan.tsv`, one patch per row, per-file `sha256`, `paths`, `root`
   lanes) from the **recorded M5 outcomes**, not from a fixed list. Start: `upstream_adoptions = {0017, 0078}` (re-proven)
   and the `0102-omp-computer-control-confirm-deadline` row (member `0102`; no existing family owns
   `tools/computer/supervisor.ts` while `0097` stays excluded). For each adopt-pending ID (0038, 0047a, 0048, 0054, 0062,
@@ -506,25 +506,25 @@ Assembly:
   {0102}), never asserted as a literal. — Effort: high — every downstream tool reads this manifest, and an ID that moves
   between `families` and `upstream_adoptions` without all four representations moving loses either the gate or the
   validation.
-- [ ] Re-assert the controller view against the assembled registry:
+- [x] Re-assert the controller view against the assembled registry:
   `OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-plan/--print-capabilities/--print-gates` and
   `--verify-rollups`, diffed against the manifest (row count and ID union computed from the file, gate list = real registrations); the 18.12.6 plan,
   capability set and gate list must be unchanged by every one of these edits. — Effort: low — the frozen release must stay
   replayable after the routing change.
-- [ ] Assemble twice independently and record `candidate_tree_sha256`; regenerate any family patch whose body changed after
+- [x] Assemble twice independently and record `candidate_tree_sha256`; regenerate any family patch whose body changed after
   review (never edit hunks by hand — `verification-gate-contracts` "circulating a patch change"). — Effort: medium — a digest that does not reproduce cannot be the candidate identity.
 
-- [ ] Assemble `$RUNTIME` for the smoke and install the native overlay into it (M3's rule): candidate bytes + both rebuilt
+- [x] Assemble `$RUNTIME` for the smoke and install the native overlay into it (M3's rule): candidate bytes + both rebuilt
   addons in `node_modules/@oh-my-pi/pi-natives-linux-x64/`, digests asserted against `$SANDBOX/native-out`, then
   `python3 patches/verify-native-overlay.py --nm "$RUNTIME/node_modules/@oh-my-pi" --overlay
   patches/native/18.16.0/overlay.json` → PASS. — Effort: medium — the `native-ipc` and `native-dialog` checks exercise these
   addons, so a runtime without them fails for the wrong reason.
-- [ ] `python3 patches/verify-release-family-plan.py --version 18.16.0 --tgz-cache "$SANDBOX/archives"` — pristine digest →
+- [x] `python3 patches/verify-release-family-plan.py --version 18.16.0 --tgz-cache "$SANDBOX/archives"` — pristine digest →
   forward fuzz-0 replay → reverse to pristine → second identical replay, with the recorded `candidate_tree_sha256`. —
   Effort: high — one command, but it invalidates M4 on any mismatch.
-- [ ] `OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --verify-rollups` and the manifest/plan cross-check (row count,
+- [x] `OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --verify-rollups` and the manifest/plan cross-check (row count,
   capability set, paths, lanes). — Effort: low — the rollup verifier is the only check that the manifest matches the bytes.
-- [ ] Record the oracle result JSON (digests, zero-fuzz, reverse, second replay) as the candidate's identity for every later
+- [x] Record the oracle result JSON (digests, zero-fuzz, reverse, second replay) as the candidate's identity for every later
   gate run. — Effort: low — every later gate claim binds to this digest.
 
 Acceptance: the manifest's capability union equals baseline IDs − {0032} + {0102}, computed from the file; every whole-ID
@@ -543,7 +543,7 @@ roots, `OMP_PATCH_VERSION=18.16.0`) and the recorded sandbox:
 XDG_CONFIG_HOME="$PRIVHOME/.config" XDG_CACHE_HOME="$PRIVHOME/.cache" "$BUN" patches/<gate>.ts` (`BUN` = the harness's
 `bun_path()`; `env -i` clears `PATH`).
 
-- [ ] **U3 — remote compaction must key on the compaction target** (P0, chain identity). New
+- [x] **U3 — remote compaction must key on the compaction target** (P0, chain identity). New
   `patches/verify-remote-compaction-target-key.ts`, registered as
   a multiline guard — `if [[ "$OMP_PATCH_VERSION" == "18.16.0" ]]; then` / indented `_omp_gate "" verify-remote-compaction-target-key.ts`
   on its own line / `fi` (the archived driver parses only standalone indented `_omp_gate` lines). The U5 and U19 gates go on their own lines inside the same block.
@@ -558,7 +558,7 @@ XDG_CONFIG_HOME="$PRIVHOME/.config" XDG_CACHE_HOME="$PRIVHOME/.cache" "$BUN" pat
   `compaction.ts:1769-1772` → explicit `undefined` falls back to the live key. Standalone:
   `… "$BUN" patches/verify-remote-compaction-target-key.ts` in `$OUT/u3` with the fault copy in `$OUT/u3-fault`. — Effort:
   high — a hard-wired live `promptCacheKey` breaks the compaction chain and no current gate reads it.
-- [ ] **U5 — withdrawn-tool wire** (P1, tool-list bytes). New `patches/verify-withdrawn-tools-wire.ts`, registered inside
+- [x] **U5 — withdrawn-tool wire** (P1, tool-list bytes). New `patches/verify-withdrawn-tools-wire.ts`, registered inside
   the same 18.16.0 guard as `_omp_gate "" verify-withdrawn-tools-wire.ts`. Owner: author of #18/#19 (both assemble
   `Context`). Assertions over a
   shrinking tool set: `sentToolDefinitions.withInactiveTools` runs **before and after** `transformProviderContext`
@@ -568,7 +568,7 @@ XDG_CONFIG_HOME="$PRIVHOME/.config" XDG_CACHE_HOME="$PRIVHOME/.cache" "$BUN" pat
   dropped) must lose the withdrawn definition / duplicate the control message → red. Standalone:
   `… "$BUN" patches/verify-withdrawn-tools-wire.ts`. — Effort: medium — M8's type-level check can only prove the field
   survives typing, not that the wire shape survives.
-- [ ] **U19 — held-file guard on the write and tts paths** (P1, credential/DB safety). New
+- [x] **U19 — held-file guard on the write and tts paths** (P1, credential/DB safety). New
   `patches/verify-held-file-write-guard.ts`, registered inside the same 18.16.0 guard as `_omp_gate ""
   verify-held-file-write-guard.ts`. Owner: the
   `family-input-translation` / tool-surface reviewer (the three call sites are `tools/write.ts:3`, `tools/tts.ts:10`,
@@ -579,23 +579,23 @@ XDG_CONFIG_HOME="$PRIVHOME/.config" XDG_CACHE_HOME="$PRIVHOME/.cache" "$BUN" pat
   alive and only integrity-checks backups — so it stays the post-migration integrity check and is not registered here.
   Standalone: `… "$BUN" patches/verify-held-file-write-guard.ts`. — Effort: medium — 18.16.0's `held-file` seam is the only
   guard against the `agent.db` corruption class that loses credentials.
-- [ ] **U6 — native tokenizer counts** (P1, compaction trigger math). New `patches/verify-tokenizer-budget-parity.ts`
+- [x] **U6 — native tokenizer counts** (P1, compaction trigger math). New `patches/verify-tokenizer-budget-parity.ts`
   in the same 18.16.0 guard block. Owner: author of #6 (`family-image-budget-snapcompact`). Fixed repo-owned corpus
   (code-heavy, non-Claude model): `estimateTokens` within ±2% of the native count (`tokenizer.ts:37,87-95`), and the
   configured compaction fill still triggers on the same turn. Negative control: forcing the removed approximate path
   shifts the trigger turn → red. — Effort: medium — every budget number in #6/#19 rests on this count.
-- [ ] **U7 — tool-schema byte stability** (P1, prefix). New `patches/verify-tool-schema-bytes.ts` in the same block.
+- [x] **U7 — tool-schema byte stability** (P1, prefix). New `patches/verify-tool-schema-bytes.ts` in the same block.
   Owner: author of #18. One real SDK session with an `anyOf` tool and an array-without-`items` tool: `JSON.stringify(tools)`
   of request 1 equals request 40 and the caller's schema object is unmutated (`utils/schema/normalize.ts:548,1686-1689`).
   Negative control: a fault copy that normalizes in place makes request 2 differ → red. — Effort: medium — a mid-session
   schema byte change is a full cache rewrite.
-- [ ] **U12 — truncated compaction summary** (P1, chain content). New `patches/verify-compaction-length-stop.ts` in the
+- [x] **U12 — truncated compaction summary** (P1, chain content). New `patches/verify-compaction-length-stop.ts` in the
   same block. Owner: author of #19. Mock provider returns `stopReason:"length"` for the summary: no summary entry is
   committed, the pre-compaction chain is kept, the error matches `incompleteOutputError`
   (`compaction.ts:1075-1077,1185-1187`; `compaction/utils.ts:31-34`), and 0084's length-stop reminder persistence does
   not fire for the summary request. Negative control: a fault copy accepting `length` commits the truncated summary →
   red. — Effort: medium — a truncated summary silently replaces history.
-- [ ] Confirm the ownership of every other P0/P1 row instead of assuming it: walk §4's U1–U32 and record, for each row,
+- [x] Confirm the ownership of every other P0/P1 row instead of assuming it: walk §4's U1–U32 and record, for each row,
   the gate that asserts it (`apply.sh --print-gates` name) or an explicit accepted residual with its reason (U21 Mistral
   `not-applicable`, U32 gateway not enabled). Rows already owned: U1/U2 → M5 Q1 replay, U4 → `0090a` gates, U6 →
   `verify-tokenizer-budget-parity.ts`, U7 → `verify-tool-schema-bytes.ts`, U8/U9/U10 → `verify-codex-compaction-chain*`
@@ -612,24 +612,24 @@ fault copies; §4's coverage map shows no P0/P1 row without an owning gate or a 
 
 Reason: executable consumers, not patch text, decide whether a capability survived.
 
-- [ ] Copy **everything the driver imports** before it can run: the archived driver
+- [x] Copy **everything the driver imports** before it can run: the archived driver
   (`.trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/run-target-gates.py`) imports `harness` from `./smoke` at
   module load, so `$TASK/research/smoke/{harness.py,run-sandbox-smoke.py,cli-smoke.ts,ipc-smoke.ts,offline-*.ts}` must be
   copied first, then `VERSION="18.16.0"` (harness) and the exact-version assertions ported, then the hashes of both the
   driver and the harness frozen with the gate run. Invoke it as `python3 "$TASK/research/run-target-gates.py"` — no
   `research/…` relative form. — Effort: medium — a missing import is a hard crash, not a skipped gate, and the driver must
   take coverage from `apply.sh --print-gates`, never from a copied list.
-- [ ] Q13 verifier porting **before** the batch (it decides which gates can even run on 18.16.0): append `"18.16.0"` only
+- [x] Q13 verifier porting **before** the batch (it decides which gates can even run on 18.16.0): append `"18.16.0"` only
   per proven site, convert `verify-oauth-durable-refresh.ts:979` to membership, rewrite
   `verify-provider-image-budget.ts` against `resolveImageCountBudget` + KDL, then re-freeze gate-source hashes. — Effort:
   medium — a version literal that still says 18.12.6 fails closed on the candidate and would be mistaken for a rebase defect.
-- [ ] Priority run (cache/compaction/OAuth plus the M9b risk gates and the M5-decided gates):
+- [x] Priority run (superseded by the full run below, which covered every gate in one pass) (cache/compaction/OAuth plus the M9b risk gates and the M5-decided gates):
   `python3 "$TASK/research/run-target-gates.py" --repo "$REPO" --runtime "$RUNTIME" --out "$OUT/priority" --only <…>`
   inside `bwrap --unshare-net`, private HOME. — Effort: high — a P0 regression is cheapest to find before the full batch.
-- [ ] Full run: `python3 "$TASK/research/run-target-gates.py" --repo "$REPO" --runtime "$RUNTIME" --out "$OUT/full"` — every
+- [x] Full run: `python3 "$TASK/research/run-target-gates.py" --repo "$REPO" --runtime "$RUNTIME" --out "$OUT/full"` — every
   gate green, every negative control red where it belongs, `oauth`/`warm` isolation honoured by the driver. — Effort: high —
   60+ gates over rewritten seams; expect fixture repairs, not assertion weakening.
-- [ ] Any gate that cannot discriminate (passes with the delta removed) is a defect: fix the gate, or record the capability
+- [x] Any gate that cannot discriminate (passes with the delta removed) is a defect: fix the gate, or record the capability
   as unproven and return to the user. — Effort: medium — a gate that cannot fail is documentation.
 
 Acceptance: full gate batch green on the candidate inside net-isolated private runtimes, with a recorded negative-control
@@ -640,17 +640,17 @@ result per retired/fixed capability, including the M9b risk gates (`verify-remot
 
 Reason: a runnable CLI/loader/render path is not proven by tests, and the release boundary is version-stamped.
 
-- [ ] Confirm the harness copied in M10 is the archived one under the `18.16.0` version pin (`cmp` against
+- [x] Confirm the harness copied in M10 is the archived one under the `18.16.0` version pin (`cmp` against
   `.trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/smoke/*` for everything except the `VERSION` line) and
   that the exact-version assertions still fail closed on a `18.16.1` fixture tree. — Effort: low — the harness must not be
   forked into two divergent copies, and a harness that accepts any version proves nothing.
-- [ ] `python3 "$TASK/research/smoke/run-sandbox-smoke.py" --runtime "$RUNTIME" --ledger "$LEDGER" --out
+- [x] `python3 "$TASK/research/smoke/run-sandbox-smoke.py" --runtime "$RUNTIME" --ledger "$LEDGER" --out
   "$SANDBOX/smoke.json"`:
   six checks (`version`, `cli-read`, `native-ipc`, `gallery`, `bound-controller`, `native-dialog`) plus four offline controls,
   each exit 0 with untruncated output, on byte-identical private copies under a private HOME/XDG/agent and stdin EOF. — Effort: high — tests do not prove the CLI, loader, render or native IPC path.
-- [ ] Confirm the guards: unguarded `fetch(data:)`/WebSocket(loopback) exit 0 with markers, the same calls under `--preload`
+- [x] Confirm the guards: unguarded `fetch(data:)`/WebSocket(loopback) exit 0 with markers, the same calls under `--preload`
   fail with the exact guard error. — Effort: low — without the guards a smoke run can reach a provider.
-- [ ] Record the receipt digests before/after (copies must be unchanged) and the exact runtime path in the evidence JSON. —
+- [x] Record the receipt digests before/after (copies must be unchanged) and the exact runtime path in the evidence JSON. —
   Effort: low — a smoke that mutates its own copy invalidates its evidence.
 
 Acceptance: PASS with 6 checks + 4 controls, digests equal before and after, no provider request and no live agent data.

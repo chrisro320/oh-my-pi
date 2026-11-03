@@ -13,9 +13,28 @@
 // under an isolated HOME where the live logs are absent, and a gate whose
 // assertions depend on a file outside the sandbox silently degrades into a
 // weaker check on exactly the hosts that matter.
+//
+// 18.16.0 re-derivation: the "allocator" sections below start from markers the
+// provider itself places (`applyPromptCaching`'s tail -> 15-turn decimation
+// checkpoint -> second tail order) instead of hand-placing them, because the
+// extension's slot-release heuristic was written for a layout whose interior
+// marker was always a near duplicate of the anchor. The fault controls at the
+// end re-enter this file with mutated extension copies; run without a runtime:
+//   bwrap --die-with-parent --unshare-net --bind / / --dev /dev --proc /proc --
+//     env -i HOME=... bun patches/verify-resume-cache-breakpoint.ts
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import extension from "./resume-cache-breakpoint-extension.ts";
+// The bytes under test: the extension beside this gate, or a mutated copy the
+// fault controls at the end re-enter this file with. The specifier is genuinely
+// runtime-selected — one of N temporary mutations written during this run — so a
+// static import cannot express it; that is the module-loading-boundary exception.
+const SHIPPED = resolve(dirname(fileURLToPath(import.meta.url)), "resume-cache-breakpoint-extension.ts");
+const EXTENSION = process.env.OMP_RESUME_CACHE_BREAKPOINT_EXTENSION?.trim() || SHIPPED;
+const extension = (await import(EXTENSION)).default as (pi: unknown) => void;
 
 const CAP = 4;
 
@@ -647,7 +666,253 @@ function begin(previous: Payload): void {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// The 18.16.0 allocator: the markers these cases start from are the provider's
+// own, not hand-placed.
+//
+// `applyPromptCaching` (candidate `pi-ai/src/providers/anthropic.ts:4391-4421`)
+// spends `4 - headBreakpoints` message markers in the order *newest trailing
+// message -> decimation checkpoint every 15 conversational user turns -> second
+// trailing message*, counting only successful decorations:
+//
+//   session <  15 user turns -> marks {second tail, tail}        (adjacent)
+//   session == 15 user turns -> marks {second tail, tail}        (the checkpoint
+//                               is the tail itself, so the slot falls through)
+//   session >  15 user turns -> marks {checkpoint, tail}         (>= 15 turns apart)
+//
+// The third shape is what the 18.1.18-era heuristic got wrong: its release walk
+// took the *second-newest* marker, which is now a decimation checkpoint — the
+// only breakpoint covering the older prefix — and deleted it to fund an anchor
+// that reaches back no further than the request being sent. Upstream added the
+// checkpoint so a resumed or rewound long session already hits the older prefix,
+// so the tail-neighbour rule below declines rather than trade one for the other.
+// ---------------------------------------------------------------------------
+const DECIMATION_INTERVAL = 15;
+
+/** The provider's decoration of one message: a marker on its last eligible block,
+ *  and a no-op (its own early exit) when that block already carries one. */
+function providerDecorate(messages: Message[], index: number): boolean {
+	const message = messages[index];
+	if (!message) return false;
+	const content = message.content;
+	if (typeof content === "string") {
+		message.content = [{ type: "text", text: content, cache_control: { ...ONE_HOUR } }];
+		return true;
+	}
+	if (!Array.isArray(content)) return false;
+	for (let block = content.length - 1; block >= 0; block--) {
+		const candidate = content[block];
+		if (!candidate?.type) continue;
+		if (candidate.cache_control) return false;
+		candidate.cache_control = { ...ONE_HOUR };
+		return true;
+	}
+	return false;
+}
+
+/** Decorate `payload` the way the provider does, leaving `headBreakpoints` spent. */
+function allocateMessageMarks(payload: Payload, headBreakpoints: number): number[] {
+	const messages = payload.messages ?? [];
+	const budget = Math.max(0, CAP - headBreakpoints);
+	const candidates: number[] = [];
+	for (let index = messages.length - 1; index >= 0 && candidates.length < 2; index--) {
+		const content = messages[index]?.content;
+		if (typeof content === "string" || (Array.isArray(content) && content.length > 0)) candidates.push(index);
+	}
+	let applied = 0;
+	if (candidates.length > 0 && applied < budget && providerDecorate(messages, candidates[0])) applied++;
+	// Fixture constraint: these histories carry no tool-result run, developer
+	// context, or `Continue.` pad, so every wire `user` is a conversational turn.
+	const userTurns = messages.filter(message => message.role === "user").length;
+	if (userTurns >= DECIMATION_INTERVAL) {
+		let turnsSinceCheckpoint = userTurns % DECIMATION_INTERVAL;
+		for (let index = messages.length - 1; index >= 0 && applied < budget; index--) {
+			if (messages[index]?.role !== "user") continue;
+			if (turnsSinceCheckpoint > 0) {
+				turnsSinceCheckpoint--;
+				continue;
+			}
+			turnsSinceCheckpoint = DECIMATION_INTERVAL - 1;
+			if (providerDecorate(messages, index)) applied++;
+		}
+	}
+	for (const index of candidates) {
+		if (applied >= budget) break;
+		if (providerDecorate(messages, index)) applied++;
+	}
+	return markedIndices(payload);
+}
+
+/** A resumed conversation of `userTurns` turns that the provider has decorated.
+ *  `headBreakpoints` is 2: the last tool definition and the last stable system
+ *  block, which is what `applyHeadCaching` anchors. */
+function allocatedConversation(userTurns: number, trailingRole: "user" | "assistant", headBreakpoints = 2): Payload {
+	const messages: Message[] = [];
+	for (let turn = 0; turn < userTurns; turn++) {
+		messages.push({ role: "user", content: [{ type: "text", text: `q${turn}` }] });
+		if (turn < userTurns - 1 || trailingRole === "assistant") {
+			messages.push({ role: "assistant", content: [{ type: "text", text: `a${turn}` }] });
+		}
+	}
+	const payload: Payload = {
+		messages,
+		system: [{ type: "text", text: "base" }, { type: "text", text: "identity", cache_control: { ...ONE_HOUR } }],
+		tools: [{ type: "read" }, { type: "bash", cache_control: { ...ONE_HOUR } }],
+	};
+	const marks = allocateMessageMarks(payload, headBreakpoints);
+	assert.equal(census(payload), headBreakpoints + marks.length, "fixture: the provider's own allocation must agree with its census");
+	return payload;
+}
+
 {
+	// The only older anchor survives. A session past the 15th user turn, resumed
+	// with a new prompt: the provider's two message markers are the tail and a
+	// decimation checkpoint twelve messages behind it — the second-newest message
+	// the old walk would have taken — and the recovery is one marker short of the
+	// cap. It must be declined, not paid for with that checkpoint.
+	const payload = allocatedConversation(21, "user");
+	const marks = markedIndices(payload);
+	assert.equal(census(payload), CAP, "fixture: a long session resumes at the cap");
+	assert.equal(marks.length, 2, `fixture: two message markers expected, got ${marks}`);
+	const [checkpoint, tail] = marks;
+	assert.ok(
+		tail - checkpoint >= DECIMATION_INTERVAL - 5,
+		`fixture: the older marker must be a decimation checkpoint, got ${marks}`,
+	);
+	const anchorIndex = (payload.messages ?? []).findLastIndex(message => message.role === "assistant") - 1;
+	assert.ok(!marks.includes(anchorIndex), "fixture: the resume anchor must start unmarked");
+
+	reArm({ payload: undefined });
+	beforeRequest({ payload });
+
+	assert.ok(census(payload) <= CAP, `declining pushed the wire to ${census(payload)} breakpoints (cap ${CAP})`);
+	assert.deepEqual(
+		markedIndices(payload),
+		[checkpoint, tail],
+		"the only older anchor must survive: releasing it funds a one-request anchor that reaches back no further than this request",
+	);
+	console.log(`ok allocator: long session keeps checkpoint ${checkpoint} (${tail - checkpoint} back) and declines the anchor at ${anchorIndex}`);
+}
+
+{
+	// The growth recovery still works, and only because the marker it spends was
+	// never marked before. The previous request carried 418 messages; this one
+	// appends 39, so the provider's own newest checkpoint lands inside the appended
+	// region, where nothing is cached yet. Releasing *that* marker costs no stored
+	// entry, so the anchor that reconnects to the prefix the server still holds is
+	// funded — the 2026-09-30 incident this path exists for.
+	const previous = allocatedConversation(209, "assistant");
+	const next = allocatedConversation(229, "user");
+	assert.equal(previous.messages?.length, 418, "fixture: the previous request must carry 418 messages");
+	assert.equal(next.messages?.length, 457, "fixture: the next request must carry 457 messages");
+	const marks = markedIndices(next);
+	assert.equal(census(next), CAP, "fixture: the grown request is at the cap");
+	assert.equal(marks.length, 2, `fixture: two message markers expected, got ${marks}`);
+	const [checkpoint, tail] = marks;
+	assert.ok(
+		checkpoint >= 418,
+		`fixture: the interior marker must sit in the appended region (never marked), got ${marks}`,
+	);
+
+	begin(previous);
+	beforeRequest({ payload: next });
+
+	const after = markedIndices(next);
+	assert.ok(after.includes(417), `the previous tail must carry the growth anchor, got ${after}`);
+	assert.ok(after.includes(tail), "the newest tail must survive");
+	assert.ok(!after.includes(checkpoint), `the appended-region marker ${checkpoint} funds the anchor`);
+	assert.ok(census(next) <= CAP, `growth pushed the wire to ${census(next)} breakpoints (cap ${CAP})`);
+	console.log(`ok allocator: growth 418->457 releases appended-region marker ${checkpoint} for anchor 417`);
+}
+
+{
+	// The tail neighbour still funds it. Exactly 15 user turns: the decimation
+	// checkpoint *is* the newest tail, so the provider spends the second slot on
+	// the second trailing message — the near-duplicate marker the release walk was
+	// written for. The near-duplicate clause must keep releasing that one.
+	const payload = allocatedConversation(15, "user");
+	const marks = markedIndices(payload);
+	assert.equal(census(payload), CAP, "fixture: a 15-turn session resumes at the cap");
+	assert.equal(marks.length, 2, `fixture: two message markers expected, got ${marks}`);
+	const [neighbour, tail] = marks;
+	assert.equal(tail - neighbour, 1, `fixture: the second slot must land on the tail neighbour, got ${marks}`);
+	const anchorIndex = (payload.messages ?? []).findLastIndex(message => message.role === "assistant") - 1;
+	assert.equal(anchorIndex, neighbour - 1, "fixture: the anchor sits directly below the tail neighbour");
+
+	reArm({ payload: undefined });
+	beforeRequest({ payload });
+
+	const after = markedIndices(payload);
+	assert.ok(after.includes(anchorIndex), `the tail neighbour must still fund the anchor, got ${after}`);
+	assert.ok(after.includes(tail), "the newest tail must survive — the next turn hits it");
+	assert.ok(!after.includes(neighbour), `the released marker must be the tail neighbour ${neighbour}, got ${after}`);
+	assert.ok(census(payload) <= CAP, `releasing pushed the wire to ${census(payload)} breakpoints (cap ${CAP})`);
+	console.log(`ok allocator: 15-turn session releases tail neighbour ${neighbour} for anchor ${anchorIndex}`);
+}
+
+{
+	// A resume that ends on the assistant's answer already carries the anchor:
+	// the provider's second trailing candidate is the message the extension would
+	// place its marker on. Nothing may be released and nothing re-claimed.
+	const payload = allocatedConversation(9, "assistant");
+	const marks = markedIndices(payload);
+	assert.equal(census(payload), CAP, "fixture: a short session resumes at the cap");
+	assert.equal(marks.length, 2);
+	const anchorIndex = (payload.messages ?? []).findLastIndex(message => message.role === "assistant") - 1;
+	assert.equal(anchorIndex, marks[0], "fixture: the provider already marked the message the anchor wants");
+
+	reArm({ payload: undefined });
+	beforeRequest({ payload });
+
+	assert.deepEqual(markedIndices(payload), marks, "an already-anchored resume must stay byte-identical");
+	assert.equal(census(payload), CAP, "an already-anchored resume must not spend another slot");
+	console.log(`ok allocator: short session already anchored at ${anchorIndex}, marks unchanged`);
+}
+
+{
+	// The invariant itself, at the distance the allocators can actually reach.
+	// Neither allocation puts a stored marker more than two messages above the
+	// anchor today — the tail pair is adjacent, and a checkpoint that far up is
+	// already the tail — so this payload is hand-shaped: the one place the walk is
+	// deliberately given the shape it must refuse. A stored anchor four messages up
+	// (the 15-turn checkpoint spacing of a differently ordered walk, or the pristine
+	// sub-prefix anchor behind a per-call mark) is the only breakpoint covering the
+	// older prefix, and spending it would delete exactly that.
+	const payload = allocatedConversation(21, "assistant");
+	const messages = payload.messages ?? [];
+	// Seven queued prompts after the answer: the window from the anchor to the tail
+	// is wide enough to hold a stored marker outside the near-duplicate span.
+	for (let queued = 0; queued < 7; queued++) {
+		messages.push({ role: "user", content: [{ type: "text", text: `queued ${queued}` }] });
+	}
+	const anchorIndex = messages.findLastIndex(message => message.role === "assistant") - 1;
+	const tail = messages.length - 1;
+	const stored = anchorIndex + 4;
+	assert.ok(tail - stored > 2, "fixture: the stored anchor must sit outside the near-duplicate span");
+	for (const message of messages) {
+		if (Array.isArray(message.content)) for (const block of message.content) delete block.cache_control;
+	}
+	const mark = (index: number): void => {
+		const blocks = messages[index].content as Block[];
+		blocks[blocks.length - 1].cache_control = { ...ONE_HOUR };
+	};
+	mark(stored);
+	mark(tail);
+	assert.deepEqual(markedIndices(payload), [stored, tail], "fixture: one stored older anchor plus the tail");
+
+	reArm({ payload: undefined });
+	beforeRequest({ payload });
+
+	assert.deepEqual(
+		markedIndices(payload),
+		[stored, tail],
+		"a stored anchor four messages up must not be spent on the resume anchor",
+	);
+	console.log(`ok allocator guard: stored anchor ${stored} kept, resume anchor ${anchorIndex} declined`);
+}
+
+{
+
 	const catalog = (names: string[]) =>
 		[
 			"unchanged prefix",
@@ -744,6 +1009,99 @@ function begin(previous: Payload): void {
 	assert.equal(anthropic.system[0].text, resumed, "normalization must not mutate the original Anthropic system text");
 	assert.equal(anthropicWire.system[0].text, expected, "Anthropic resume requests must normalize the system catalog");
 	console.log("ok xd catalog: deterministic Codex and Anthropic prompts preserve other content and Anthropic anchors");
+}
+
+// ---------------------------------------------------------------------------
+// Fault controls. Each mutation re-enters this file with the mutated extension
+// selected, and must fail the assertion named in `expect` — so the controls
+// prove the legs above, not just that an error happened somewhere.
+// ---------------------------------------------------------------------------
+// Only the shipped copy runs the controls: a re-entered mutated copy must assert
+// and exit, never spawn its own grandchildren.
+if (EXTENSION === SHIPPED) {
+	const dir = mkdtempSync(join(tmpdir(), "omp-resume-cache-gate-"));
+	try {
+		const source = readFileSync(SHIPPED, "utf8");
+		const mutations = [
+			{
+				// Ignoring freshness: the appended-region marker is treated as a stored
+				// anchor, so the growth recovery (session 01a0f047) stops working. The
+				// measured-shape leg trips first, the allocator leg right behind it.
+				name: "refuses to spend a never-marked position",
+				from: "if (index < freshFrom && index - anchorIndex > ANCHOR_NEIGHBOUR_SPAN) {",
+				to: "if (index - anchorIndex > ANCHOR_NEIGHBOUR_SPAN) {",
+				expect: /previous tail \(message 417\) must carry a breakpoint|must fund the anchor/,
+			},
+			{
+				// The pre-18.16.0 rule: any marker-but-the-newest is spent, stored or
+				// not, so the only breakpoint covering the older prefix goes.
+				name: "spends a stored older anchor",
+				from: "if (index < freshFrom && index - anchorIndex > ANCHOR_NEIGHBOUR_SPAN) {",
+				to: "if (false) {",
+				expect: /a stored anchor four messages up must not be spent/,
+			},
+			{
+				// A release walk that can never fire: the resume recovery stops working.
+				name: "never releases a near-duplicate marker",
+				from: "const ANCHOR_NEIGHBOUR_SPAN = 2;",
+				to: "const ANCHOR_NEIGHBOUR_SPAN = 0;",
+				expect: /must carry the breakpoint|the tail neighbour must still fund the anchor/,
+			},
+			{
+				// Nothing is protected: the walk spends the newest tail, which is the
+				// marker the next turn hits.
+				name: "releases the newest tail",
+				from: `		if (newestMarked < 0) {
+			// The newest marker is the tail the next turn hits; it always stays.
+			newestMarked = index;
+			continue;
+		}`,
+				to: `		if (newestMarked < 0) {
+			newestMarked = index;
+		}`,
+				expect: /must survive/,
+			},
+			{
+				// No catalog canonicalization: the pre-18.16.0 (unsorted) prompt.
+				name: "leaves the xd catalog in registration order",
+				from: "const sorted = [...rows].sort();",
+				to: "const sorted = rows;",
+				expect: /every registration order must yield the same prompt/,
+			},
+			{
+				// Canonicalizes into the caller's payload: session prompt state is
+				// changed, and the original request body is destroyed.
+				name: "canonicalizes the Anthropic system block in place",
+				from: "system ??= value.system.slice();",
+				to: "system = value.system;",
+				expect: /normalization must not mutate the original Anthropic payload/,
+			},
+			{
+				// The canonical text replaces the block instead of decorating it: the
+				// request loses its cache marker.
+				name: "drops the system block's cache_control",
+				from: "system[index] = { ...block, text };",
+				to: 'system[index] = { type: "text", text };',
+				expect: /system cache markers must survive catalog normalization/,
+			},
+		];
+		for (const mutation of mutations) {
+			assert.ok(source.includes(mutation.from), `mutation fixture must match the shipped extension: ${mutation.name}`);
+			const mutated = join(dir, `${mutation.name.replace(/\W+/g, "-")}.ts`);
+			writeFileSync(mutated, source.replace(mutation.from, mutation.to));
+			const run = Bun.spawnSync([process.execPath, import.meta.path], {
+				env: { ...process.env, OMP_RESUME_CACHE_BREAKPOINT_EXTENSION: mutated },
+				stdout: "pipe",
+				stderr: "pipe",
+			});
+			const output = `${run.stdout.toString()}${run.stderr.toString()}`;
+			assert.notEqual(run.exitCode, 0, `${mutation.name}: the gate must reject this copy`);
+			assert.match(output, mutation.expect, `${mutation.name}: the gate must fail the assertion it protects`);
+			console.log(`ok fault control: rejected a copy that ${mutation.name}`);
+		}
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 }
 
 console.log("PASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap");

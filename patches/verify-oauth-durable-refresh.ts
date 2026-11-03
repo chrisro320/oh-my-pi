@@ -846,8 +846,97 @@ type FixtureSession = {
 	dispose(): Promise<void> | void;
 	state: { tools: readonly unknown[] };
 	systemPrompt: string[];
+	model?: { provider?: string; id?: string };
+	subscribe(listener: (event: { type: string; [key: string]: unknown }) => void): () => void;
 };
 type FixtureModel = { calls: Array<{ context: unknown }> };
+
+/**
+ * One real, offline session whose model sits on the journal provider and has no
+ * usable credential (its row carries an unresolved exchange), optionally with a
+ * pinned fallback chain onto a keyed provider, plus every notice the session emits.
+ */
+async function openPreflightSession(
+	c: CaseEnv,
+	options: { chain: boolean },
+): Promise<{ session: FixtureSession; notices: Array<{ level?: string; message?: string; source?: string }> }> {
+	const { createAgentSession } = await import(`${AGENT_ROOT}/src/sdk.ts`);
+	const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
+	const { ModelRegistry } = await import(`${AGENT_ROOT}/src/config/model-registry.ts`);
+	const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
+	const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
+	registerMockApi("oauth-unlock-gate");
+	const cwd = join(c.dir, "preflight-work");
+	mkdirSync(cwd, { recursive: true });
+	const settings = await Settings.loadIsolated({
+		cwd,
+		agentDir: join(c.dir, "agent"),
+		overrides: {
+			"retry.enabled": true,
+			"retry.maxRetries": 0,
+			"retry.baseDelayMs": 0,
+			...(options.chain
+				? { "retry.fallbackChains": { [`${PROVIDER}/preflight-fixture`]: ["keyed-fixture/fallback"] } }
+				: {}),
+		},
+	});
+	const modelRegistry = new ModelRegistry(c.auth, join(c.dir, "agent", "models.yml"), { settings });
+	// The chain target must be genuinely keyed, or the walk skips it.
+	modelRegistry.registerProvider(
+		"keyed-fixture",
+		{
+			api: "oauth-unlock-gate",
+			baseUrl: "http://127.0.0.1:1/never",
+			apiKey: "offline-fallback-key",
+			models: [
+				{
+					id: "fallback",
+					name: "fallback",
+					input: ["text"],
+					contextWindow: 200_000,
+					maxTokens: 4_096,
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+				},
+			],
+		},
+		"gate",
+	);
+	const model = createMockModel({
+		provider: PROVIDER,
+		id: "preflight-fixture",
+		handler: { content: ["fixture ack"] },
+	});
+	const { session } = await createAgentSession({
+		cwd,
+		agentDir: join(c.dir, "agent"),
+		authStorage: c.auth,
+		settings,
+		modelRegistry,
+		model,
+		sessionManager: SessionManager.create(cwd, join(c.dir, "sessions")),
+		systemPrompt: "Fixture base prompt.",
+		skills: [],
+		rules: [],
+		contextFiles: [],
+		promptTemplates: [],
+		slashCommands: [],
+		disableExtensionDiscovery: true,
+		enableMCP: false,
+		preloadedCustomToolPaths: [],
+		enableLsp: false,
+		skipPythonPreflight: true,
+		toolNames: [],
+		restrictToolNames: true,
+	});
+	const notices: Array<{ level?: string; message?: string; source?: string }> = [];
+	session.subscribe(event => {
+		if (event.type === "notice") notices.push(event as { level?: string; message?: string; source?: string });
+	});
+	c.cleanup.push(async () => {
+		await session.dispose();
+	});
+	return { session: session as FixtureSession, notices };
+}
 
 /** One captured write prefix: the session-owned prompt, its tool schemas, and the real request prefix. */
 type PrefixCapture = {
@@ -2401,6 +2490,40 @@ if (hasExchangeReservation) {
 			}
 		});
 
+		await scenario("an unresolved exchange switches to the fallback model and says so in a notice", async () => {
+			await withCase(async c => {
+				const id = await seed(c, expiredCred({ access: "preflight-fb-0", refresh: "preflight-fb-r0" }));
+				seedPendingMarker(c, id);
+				const { session, notices } = await openPreflightSession(c, { chain: true });
+				const failure = await promptFailure(session);
+				assert.equal(failure, "<no error surfaced>", `a pinned chain must serve the turn: ${failure}`);
+				assert.equal(session.model?.provider, "keyed-fixture",
+					"a provider without a usable credential must switch onto the keyed candidate");
+				const notice = notices.find(entry => entry.source === "auth-unlock");
+				assert.ok(notice, `the silent model switch must be announced: ${JSON.stringify(notices)}`);
+				assert.equal(notice.level, "warning", "the announcement is a non-blocking warning");
+				assert.match(notice.message ?? "", /\/auth-unlock anthropic/,
+					"the notice must name the command that releases the exchange");
+				assert.match(notice.message ?? "", /unresolved token refresh/,
+					"the notice must name the condition");
+			});
+		});
+
+		await scenario("an exhausted fallback chain refuses with the auth-unlock diagnostic", async () => {
+			await withCase(async c => {
+				const id = await seed(c, expiredCred({ access: "preflight-ex-0", refresh: "preflight-ex-r0" }));
+				seedPendingMarker(c, id);
+				const { session } = await openPreflightSession(c, { chain: false });
+				const failure = await promptFailure(session);
+				assert.match(failure, /\/auth-unlock anthropic/,
+					`the refusal must name the command that releases the exchange: ${failure}`);
+				assert.match(failure, /unresolved token refresh/,
+					"the refusal must distinguish an unresolved exchange from a missing credential");
+				assert.ok(!/No API key found/.test(failure),
+					"a pending exchange is not reported as a missing credential");
+			});
+		});
+
 		await scenario("an unpublishable local exchange is refused before the grant", async () => {
 			const t = installTransport({ tokenMarker: "oauth2.googleapis.com/token", token: () => tokenReply("forbidden", "forbidden") });
 			try {
@@ -2787,7 +2910,7 @@ if (hasUnlockRevision) {
 		try {
 			await withCase(async c => {
 				const oauth = requireUnlockSurface(c);
-				for (const provider of ["google-antigravity", "openai-codex", "xai-oauth"]) {
+				for (const provider of ["google-antigravity", "openai-codex", "xai-oauth", "mistral"]) {
 					const bare = await oauth.inspectUnresolvedRefresh(provider);
 					assert.equal(bare.reason, "not-applicable", `${provider}: refused before any row or journal read`);
 					assert.equal(bare.eligible, false, `${provider}: never eligible`);
@@ -2809,6 +2932,22 @@ if (hasUnlockRevision) {
 				const row = rowOf(c, id, "google-antigravity");
 				assert.equal(row?.access, "ga-t-0", "a not-applicable unlock rewrites no credential row");
 				assert.equal(row?.refresh, "ga-t-r0");
+				// Mistral Vibe rotates its token like anthropic but sits outside the
+				// journal: a marker that predates that scoping must stay untouched and
+				// no unlock may ever send a grant for it.
+				const mistralId = await seed(c, expiredCred({ access: "mistral-t-0", refresh: "mistral-t-r0" }), "mistral");
+				const mistralLegacy = seedLegacyExchange(c, mistralId);
+				const mistralInspection = await oauth.inspectUnresolvedRefresh("mistral");
+				assert.equal(mistralInspection.reason, "not-applicable", "mistral: not applicable, not eligible");
+				assert.equal(mistralInspection.eligible, false, "mistral: never eligible");
+				assert.equal(mistralInspection.fence, undefined, "mistral: no fence may be handed out");
+				const mistralUnlock = await oauth.unlockAndRefreshStored("mistral", { fence: "unused-fence" });
+				assert.equal(mistralUnlock.outcome, "not-applicable", "mistral: unlock reports not applicable");
+				assert.equal(t.tokenPosts, 0, "mistral: a not-applicable unlock issues no token request");
+				assert.deepEqual(exchangeRows(c), [legacy, mistralLegacy], "mistral: the marker it never created is untouched");
+				const mistralRow = rowOf(c, mistralId, "mistral");
+				assert.equal(mistralRow?.access, "mistral-t-0", "mistral: the credential row is not rewritten");
+				assert.equal(mistralRow?.refresh, "mistral-t-r0", "mistral: the stored grant is unchanged");
 			});
 		} finally {
 			t.restore();

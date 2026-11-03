@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "version": "18.16.0",
+  "families": 26,
+  "capabilities": 62,
+  "upstream_adoptions": [
+    "0017",
+    "0078",
+    "0066",
+    "0072",
+    "0079",
+    "0062"
+  ],
+  "retired_repairs": [
+    "0090-omp-oauth-durable-refresh",
+    "0090-omp-oauth-durable-refresh",
+    "0090-omp-oauth-durable-refresh",
+    "0090-omp-oauth-durable-refresh",
+    "family-compaction",
+    "family-compaction",
+    "family-compaction",
+    "family-compaction",
+    "family-persistent-prefix-resume"
+  ],
+  "candidate_tree_sha256": "5e0d2282762830e30ad6d6e3656da1b60d4833ae4d2e6fd03068849d6cd83baf",
+  "zero_fuzz": true,
+  "reverse_to_pristine": true,
+  "second_replay_identical": true,
+  "controller_check_read_only": true,
+  "behavioral_checks_run": false
+}

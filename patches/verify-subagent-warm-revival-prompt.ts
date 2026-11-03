@@ -30,6 +30,10 @@
 //   g.     18.12.6 and 18.16.0 only: a live parent setting read by the default prompt builder
 //          (`includeModelInPrompt`) flips while parked; the revived prompt keeps the
 //          persisted model line while a fresh spawn renders without it.
+//   h.     18.16.0 only: a spawn with no explicit tool list mounts discoverable built-ins as
+//          `xd://` devices; the revival must keep the same device catalogue, the same
+//          persisted `session_init.mountedTools` and the same tool wire list (a demotion to
+//          top-level tools reorders the tool block and loses the prefix cache).
 // Mutation controls (candidate runs only) copy the runtime, break one part of the warm
 // reviver and require the named scenario to fail.
 //
@@ -171,6 +175,19 @@ const MUTATIONS: MutationControl[] = [
 		from: "{ systemPrompt: () => [...init.systemPrompt] }",
 		to: "{ systemPrompt: () => [...init.systemPrompt].reverse() }",
 	},
+	// 18.16.0 only: `session_init.mountedTools` is the device partition a revival
+	// must replay. Pinning the enabled set top-level demotes every mounted device
+	// into the tool block -- the regression this control injects.
+	...(["18.16.0"].includes(agentVersion)
+		? [
+				{
+					name: "restore the tool list without its xd:// device partition",
+					mustFail: ["h-mounted-device-catalogue"],
+					from: "const revivedToolNames = revived.getEnabledToolNames();",
+					to: "const revivedToolNames = revived.getEnabledToolNames();\n\t\t\tawait revived.setActiveToolPresentation(revivedToolNames, []);",
+				},
+			]
+		: []),
 ];
 
 if (!privateProcess) {
@@ -268,6 +285,7 @@ interface AgentSessionLike {
 	waitForIdle(): Promise<void>;
 	getWorkPoolYieldItems(): ReadonlyArray<{ id: string; index: number }>;
 	setWorkPoolYieldItems(items: ReadonlyArray<{ id: string; index: number }>): Promise<void>;
+	getMountedXdevToolNames(): string[];
 	sessionManager: { getSessionFile(): string | undefined };
 }
 interface Item {
@@ -280,6 +298,22 @@ const AGENT_DEFINITION = {
 	description: "Warm revival probe agent",
 	systemPrompt: "You are a revival probe agent. Finish every turn by calling yield.",
 	tools: ["read", "write"],
+	source: "user",
+};
+
+/**
+ * U13 fixture: the same agent with no explicit tool list. `createTools` mounts
+ * discoverable built-ins as `xd://` devices only when the caller did not name
+ * its tools, so this is the only spawn shape whose `session_init.mountedTools`
+ * is non-empty — and therefore the only one that can prove a revival replays
+ * the spawn's device partition instead of demoting every device to a top-level
+ * tool (which changes the wire tool list and costs the provider prefix cache
+ * from the first request after the revival).
+ */
+const MOUNTED_DEVICE_AGENT = {
+	name: "revival-mount-probe",
+	description: "Warm revival device-catalogue probe agent",
+	systemPrompt: "You are a revival probe agent. Finish every turn by calling yield.",
 	source: "user",
 };
 
@@ -331,10 +365,15 @@ async function makeEnv(name: string): Promise<Env> {
 	return { cwd, artifactsDir, settings, authStorage, modelRegistry, model, settled, nextIndex: 0 };
 }
 
-async function spawn(env: Env, id: string, workPoolYieldItems?: Item[]): Promise<string> {
+async function spawn(
+	env: Env,
+	id: string,
+	workPoolYieldItems?: Item[],
+	definition: Record<string, unknown> = AGENT_DEFINITION,
+): Promise<string> {
 	const result = await runSubprocess({
 		cwd: env.cwd,
-		agent: AGENT_DEFINITION,
+		agent: definition as never,
 		task: "Report that you are ready by calling yield.",
 		structured: true,
 		index: env.nextIndex++,
@@ -452,6 +491,8 @@ async function revivalPreservesContract(
 	options: {
 		id: string;
 		items?: Item[];
+		/** The fixture spawns with no explicit tool list, so `createTools` mounts `xd://` devices. */
+		mountDevices?: boolean;
 		/** Mutates the roster while the agent is parked (or right before the park). Returns a label. */
 		driftRoster?: () => Promise<void>;
 		expectRosterChange: boolean;
@@ -461,7 +502,7 @@ async function revivalPreservesContract(
 	const callsBeforeSpawn = env.model.calls.length;
 	const initialItems = options.items && ["18.12.6", "18.16.0"].includes(agentVersion)
 		? options.items.map(item => ({ ...item, id: `initial-${item.id}` })) : options.items;
-	const file = await spawn(env, id, initialItems);
+	const file = await spawn(env, id, initialItems, options.mountDevices ? MOUNTED_DEVICE_AGENT : AGENT_DEFINITION);
 	const preSession = liveSession(id);
 	if (options.items && ["18.12.6", "18.16.0"].includes(agentVersion)) {
 		await preSession.setWorkPoolYieldItems(options.items);
@@ -479,6 +520,17 @@ async function revivalPreservesContract(
 		"the pre-park prompt must be the actual persisted session_init prompt",
 	);
 	expect(preRequest.context.tools?.some(tool => tool.name === "yield"), "structured spawn must expose the yield tool");
+	const preMounted = preSession.getMountedXdevToolNames();
+	if (options.mountDevices) {
+		expect(
+			preMounted.length > 0,
+			"the mounted-device fixture must actually mount xd:// devices, or the revival assertion is vacuous",
+		);
+		expect(
+			same(sessionInits(file).at(-1)?.mountedTools, preMounted),
+			`the persisted session_init must record the live device catalogue: ${drift(preMounted, sessionInits(file).at(-1)?.mountedTools)}`,
+		);
+	}
 	if (options.items) {
 		expect(
 			same(sessionInits(file).at(-1)?.workPoolYieldItems, options.items),
@@ -512,6 +564,24 @@ async function revivalPreservesContract(
 	const postInits = sessionInits(file).length;
 	expect(postInits === preInits, `revival must not append a session_init: ${preInits} -> ${postInits}`);
 	if (!options.items) expect(postInits === 1, `exactly one session_init expected, found ${postInits}`);
+	if (options.mountDevices) {
+		const revivedMounted = revived.getMountedXdevToolNames();
+		expect(
+			same(revivedMounted, preMounted),
+			`the revived device catalogue must equal the pre-park one: ${drift(preMounted, revivedMounted)}`,
+		);
+		expect(
+			same(sessionInits(file).at(-1)?.mountedTools, preMounted),
+			`revival must not rewrite the persisted mountedTools: ${drift(preMounted, sessionInits(file).at(-1)?.mountedTools)}`,
+		);
+		// A demoted device reaches the model as a top-level tool, which reorders
+		// and re-schemas the tool block: the provider prefix dies at the first
+		// request after the revival even though the system prompt is unchanged.
+		expect(
+			same(wireTools(request), wireTools(preRequest)),
+			`the first post-revival request must send the pre-park tool wire list: ${drift(wireTools(preRequest), wireTools(request))}`,
+		);
+	}
 	record({
 		rosterBeforePark: JSON.parse(preRoster),
 		rosterAtRevival: JSON.parse(postRoster),
@@ -519,6 +589,8 @@ async function revivalPreservesContract(
 		sessionInitsBeforePark: preInits,
 		sessionInitsAfterRevival: postInits,
 		yieldItems: options.items ?? [],
+		mountedTools: preMounted,
+		revivedMountedTools: revived.getMountedXdevToolNames(),
 		toolsIdentical: same(wireTools(request), wireTools(preRequest)),
 	});
 }
@@ -657,6 +729,23 @@ await scenario("f-info-pooled-followup-after-revival", async (env, record) => {
 		liveYieldItems: revived.getWorkPoolYieldItems(),
 	});
 });
+
+// (h) 18.16.0: a spawn whose tools were mounted as `xd://` devices must revive
+// with the same device catalogue, the same persisted `session_init.mountedTools`
+// and the same tool wire list. A re-render or a top-level restore would demote
+// every device into the tool block.
+if (agentVersion === "18.16.0") {
+	await scenario("h-mounted-device-catalogue", (env, record) =>
+		revivalPreservesContract(env, record, {
+			id: "0-ProbeH",
+			mountDevices: true,
+			expectRosterChange: true,
+			driftRoster: async () => {
+				await spawn(env, "1-MountPeer");
+			},
+		}),
+	);
+}
 
 // ------------------------------------------------------------------ report --
 const failed = results.filter(result => !result.ok);

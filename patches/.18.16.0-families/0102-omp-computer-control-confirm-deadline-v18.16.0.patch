@@ -1,0 +1,30 @@
+--- a/src/tools/computer/supervisor.ts
++++ b/src/tools/computer/supervisor.ts
+@@ -37,6 +37,12 @@
+ // the first ensure may load the desktop addon, so it shares the start budget.
+ const CAPABILITIES_TIMEOUT_MS = 10_000;
+ const RESTART_MESSAGE = "computer worker restarted; captures and ax refs were reset";
++/**
++ * The longest a `control.acquire` confirmation waits for a human answer. The run's own budget can be an hour, so a
++ * dialog left open holds the script that long; after this the verdict is `unanswered` and the script goes on with
++ * window input, which runs in the background without control.
++ */
++const CONTROL_CONFIRM_UNANSWERED_MS = 60_000;
+ 
+ /**
+  * The user's `tools.approval["computer.control"]` policy. The approval mode never decides it: the default `yolo`
+@@ -414,10 +420,10 @@
+ 				// The run has no time left to wait in; a prompt would close before anyone could answer it.
+ 				verdict = "unanswered";
+ 			} else {
+-				// The prompt closes before the run's deadline, so the script hears that nobody answered. The deadline
+-				// aborts the dialog rather than riding its `timeout` option: a timed-out TUI confirm picks its
+-				// highlighted option, which is Yes.
+-				const deadline = AbortSignal.timeout(message.timeoutMs);
++				// The prompt closes before the run's deadline and before the answer cap, so the script hears that nobody
++				// answered. The deadline aborts the dialog rather than riding its `timeout` option: a timed-out TUI
++				// confirm picks its highlighted option, which is Yes.
++				const deadline = AbortSignal.timeout(Math.min(message.timeoutMs, CONTROL_CONFIRM_UNANSWERED_MS));
+ 				const signal = AbortSignal.any([controller.signal, deadline]);
+ 				let approved = false;
+ 				try {

@@ -306,7 +306,7 @@ try {
 			}
 		}
 	}
-	console.log(`PASS Anthropic cache boundaries (${aiVersion}): ${wire.length} ordinary captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary${["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion) ? ", credit-safe retry on both rungs" : ""}; zero provider traffic`);
+	console.log(`PASS Anthropic cache boundaries (${aiVersion}): ${wire.length} ordinary captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary${["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion) ? ", credit-safe retry on both rungs" : ""}; zero provider traffic`);
 } finally {
 	globalThis.fetch = originalFetch;
 }
