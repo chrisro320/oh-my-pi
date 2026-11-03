@@ -33,7 +33,7 @@ Work orders are dispatched in risk order (M4 P0 → P1 → P2) but **bytes are e
 always regenerated against the accumulated tree at its manifest position, and the replay from pristine through that family
 must be re-run after any edit to it. Dispatch order is authoring/review priority only.
 
-> RESUME: M3 — needs the user's go; first action: create `patches/native/18.16.0/` from the 18.12.6 recipe and add `--locked` to `build-natives.sh` (M1 verified `aa96561b2`; M2 verified, committed with this pointer).
+> RESUME: M4 — needs the user's go; first action: M4 step 0, bootstrap `.18.16.0-families/` (manifest-only run → `family registry missing`, then derive `plan.tsv` from 18.12.6 minus 0032 plus 0102). M1 `aa96561b2`, M2 `1ae390a8d`, M3 committed with this pointer; native build tree `~/.cache/omp-plan-18160-native`.
 
 ## M1 — Pin target inputs and complete the closure inventory — High
 
@@ -128,27 +128,35 @@ them.
 Reason: the 18.12.6 addon cannot satisfy the new native surface (`installSqliteLockShim` imported at `cli.ts:30`), and the
 overlay validator compares runtime version to `overlay["version"]`.
 
-- [ ] Create `patches/native/18.16.0/` with `overlay.json` (`version=18.16.0`, `upstream_commit=650f3a1082…`, the one-patch
+- [x] Create `patches/native/18.16.0/` with `overlay.json` (`version=18.16.0`, `upstream_commit=650f3a1082…`, the one-patch
   list) and `0001-escape-monitor-mapping-refresh.patch` as a **byte-identical copy** of the 18.12.6 patch (`sha256
   e2746453…`) — `desktop/control/linux.rs` is unchanged and `desktop/linux/ax.rs` only shrinks after line 436, so hunk #4
   lands at offset −14. Leave `patches/native/overlay.json` and `patches/native/18.12.6/overlay.json` frozen. — Effort: low —
-  the repair itself is unchanged.
-- [ ] Add `--locked` to `patches/native/build-natives.sh`'s `cargo build --release -p pi-natives` (a committed `Cargo.lock`
+  the repair itself is unchanged. Done: `sha256` equal on both copies; frozen overlays unchanged (`git diff --quiet`).
+- [x] Add `--locked` to `patches/native/build-natives.sh`'s `cargo build --release -p pi-natives` (a committed `Cargo.lock`
   exists at both tags) and keep the `build-native-computeruse.ts` behaviour untouched. — Effort: low — one flag, prevents a
   silent crate re-resolution.
-- [ ] Build both variants:
+  Done, plus one change not in the plan: the script's `git checkout --force`/`reset --hard` are refused by the workspace
+  policy, so it now builds from a fresh `git archive` export of the pinned commit (`$work/src-<commit>`) and never
+  rewrites the clone. Same bytes as a checkout here: no git-lfs (checkout also leaves LFS pointers), no `export-ignore`,
+  no `build.rs` reads `.git`.
+- [x] Build both variants:
   `bash patches/native/build-natives.sh "$SANDBOX/native-work" "$SANDBOX/native-out" patches/native/18.16.0/overlay.json`
   (network only for the pinned checkout and crates; no provider calls). — Effort: high — full graph recompile with new.
-  `phf_shared`/feature-parity inputs.
-- [ ] Fresh-process stamp probe of both variants: `__piNativesBuildVersion() === "18.16.0"`. — Effort: low — the stamp is the only evidence the overlay built the right variant.
-- [ ] Export parity before any `rebuilt_sha256` is written: diff the rebuilt addon's export list against the audited upstream
+  `phf_shared`/feature-parity inputs. Done: exit 0, 8m59s + 8m45s (`research/native-build-18.16.0.json`).
+- [x] Fresh-process stamp probe of both variants: `__piNativesBuildVersion() === "18.16.0"`. — Effort: low — the stamp is the only evidence the overlay built the right variant.
+  Done: both `18.16.0` (`research/native-parity-18.16.0.ts`, one child process per addon).
+- [x] Export parity before any `rebuilt_sha256` is written: diff the rebuilt addon's export list against the audited upstream
   `@oh-my-pi/pi-natives-linux-x64@18.16.0` addon, and fill `original_sha256`/`rebuilt_sha256` from real hashes
   (`verify-native-overlay.py` fails closed on nulls by design). — Effort: medium — the parity control is the only thing
-  standing between "it built" and "it is the right binary".
-- [ ] Unit-level checks at the pinned commit:
+  standing between "it built" and "it is the right binary". Done: 151/151 exports equal for both variants; modern
+  `95ebe62d…` (upstream `85b98a2a…`), baseline `6aa35374…` (upstream `33ff4e88…`).
+- [x] Unit-level checks at the pinned commit:
   `cargo test -p pi-natives desktop::linux::ax` (including the chrome-profile-title ownership test) plus the mapping-reseat
   tests. — Effort: low — the mapping-reseat and title-ownership tests are the repair's own regression.
-- [ ] Install **both** rebuilt variants into a native-check runtime laid out like a real install, then verify:
+  Done: `cargo test --locked -p pi-natives --lib desktop::` → 208 + 1 passed, 0 failed, including
+  `chrome_profile_titles_preserve_unique_window_ownership` (the patch's own test) and the Escape-stop control tests.
+- [x] Install **both** rebuilt variants into a native-check runtime laid out like a real install, then verify:
   `NR="$SANDBOX/native-runtime/node_modules/@oh-my-pi"; mkdir -p "$NR"` and extract the M1-verified
   `pi-natives-linux-x64-18.16.0.tgz` into `"$NR/pi-natives-linux-x64"` (its `package.json` is what the validator reads
   for the version, `verify-native-overlay.py:38-41`); then
@@ -156,8 +164,9 @@ overlay validator compares runtime version to `overlay["version"]`.
   assert both digests equal the built files (`sha256sum` both sides), and only then run
   `python3 patches/verify-native-overlay.py --nm "$NR" --overlay patches/native/18.16.0/overlay.json`
   → `PASS native overlay 18.16.0`. — Effort: low — `--nm` is the `@oh-my-pi` directory (`verify-native-overlay.py:4,38`);
-  pointing it one level up makes the validator read nothing.
-- [ ] Register the same install in the candidate runtime assembly (M9), so the runtime every gate and smoke uses carries the
+  pointing it one level up makes the validator read nothing. Done: digests equal, `PASS native overlay 18.16.0: 2 addons,
+  1 patches`; controls: upstream addons installed → FAIL, `--nm` one level up → FAIL (`missing …/package.json`).
+- [ ] (M9, pending) Register the same install in the candidate runtime assembly (M9), so the runtime every gate and smoke uses carries the
   two rebuilt addons with asserted digests; `pi-natives-linux-x64` stays outside `manifest.archives`, so the install cannot
   move `candidate_tree_sha256` and the addon bytes are covered by the receipt's `runtime_tree_sha256`. — Effort: low — one
   rule in one place, or the release ships original addons with a PASS recorded for rebuilt ones.

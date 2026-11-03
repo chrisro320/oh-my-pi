@@ -1,0 +1,31 @@
+{
+  "version": "18.16.0",
+  "upstream_commit": "650f3a108229ee11bf68ba3377f4e8c3391cd424",
+  "command": "bash patches/native/build-natives.sh <W>/work <W>/out patches/native/18.16.0/overlay.json (env -i allowlist, private HOME/CARGO_HOME, RUSTUP toolchain nightly-2026-10-06 from rust-toolchain.toml, CARGO_BUILD_JOBS=12)",
+  "source": "git archive of the pinned commit + 0001 patch (git apply --check then apply); cargo build --release --locked",
+  "build_exit": 0,
+  "build_log": "/home/chris/.cache/omp-plan-18160-native/build.log",
+  "build_log_sha256": "10b65e625ab3cabe0ea99a6cfed88a71ff606990a0162590f2996714fba38c04",
+  "stamp_and_parity": "research/native-parity-18.16.0.json (both variants stamp 18.16.0, 151/151 exports equal to upstream addon)",
+  "unit_tests": {
+    "command": "cargo test --locked -p pi-natives --lib desktop::",
+    "exit": 0,
+    "result": "208 passed + 1 passed, 0 failed",
+    "includes": [
+      "desktop::linux::ax::tests::chrome_profile_titles_preserve_unique_window_ownership",
+      "desktop::linux::ax::tests::frame_ownership_requires_unique_process_and_title",
+      "desktop::control::tests::escape_stops_outlive_the_session_under_its_key",
+      "desktop::control::tests::only_the_users_escape_counts_as_an_escape_stop"
+    ],
+    "log": "/home/chris/.cache/omp-plan-18160-native/test.log",
+    "log_sha256": "0c1e13c61cdb3cd5f1647ccab5cb019902737378e3333c25731bb87ec30efd56"
+  },
+  "overlay_check": {
+    "runtime": "/tmp/omp-plan-18160/native-runtime/node_modules/@oh-my-pi (M1-verified pi-natives-linux-x64-18.16.0.tgz + rebuilt addons, digests asserted equal)",
+    "rebuilt": "PASS native overlay 18.16.0: 2 addons, 1 patches",
+    "controls": {
+      "original_addons_installed": "FAIL (exit 1)",
+      "nm_one_level_up": "FAIL missing package.json (exit 1)"
+    }
+  }
+}

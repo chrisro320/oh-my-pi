@@ -22,11 +22,15 @@ mkdir -p "$work" "$out"
 if [ ! -d "$work/repo/.git" ]; then
 	git clone --filter=blob:none --no-checkout -q https://github.com/can1357/oh-my-pi.git "$work/repo"
 fi
-git -C "$work/repo" checkout -q --force "$commit"
-git -C "$work/repo" reset -q --hard "$commit"
+git -C "$work/repo" cat-file -e "$commit^{commit}" 2>/dev/null || git -C "$work/repo" fetch -q origin "$commit"
+# Build from a fresh export of the pinned tree instead of resetting a checkout:
+# no stale working-tree state can leak in, and the clone is never rewritten.
+src="$work/src-$commit"
+rm -rf "$src"
+mkdir -p "$src"
+git -C "$work/repo" archive "$commit" | tar -x -C "$src"
 for patch in "${patches[@]}"; do
-	git -C "$work/repo" apply --check "$overlay_dir/$patch"
-	git -C "$work/repo" apply "$overlay_dir/$patch"
+	(cd "$src" && git apply --check "$overlay_dir/$patch" && git apply "$overlay_dir/$patch")
 done
 
 # opusic-sys picks Ninja when present; pin one generator so caches never mix.
@@ -34,11 +38,11 @@ export CMAKE_GENERATOR="Unix Makefiles"
 for variant in modern:x86-64-v3 baseline:x86-64-v2; do
 	name="${variant%%:*}"
 	cpu="${variant#*:}"
-	(cd "$work/repo" && RUSTFLAGS="-C target-cpu=$cpu" CARGO_TARGET_DIR="$work/target-$name" \
-		cargo build --release -p pi-natives)
+	(cd "$src" && RUSTFLAGS="-C target-cpu=$cpu" CARGO_TARGET_DIR="$work/target-$name" \
+		cargo build --release --locked -p pi-natives)
 	install -m 0755 "$work/target-$name/release/libpi_natives.so" "$out/pi_natives.linux-x64-$name.node"
 done
 # Release identity: CI writes package.json#version into the linked stamp slot
 # after linking; the loader rejects unstamped addons.
-(cd "$work/repo" && bun scripts/stamp-native-version.ts "$out"/pi_natives.linux-x64-*.node --version "$version")
+(cd "$src" && bun scripts/stamp-native-version.ts "$out"/pi_natives.linux-x64-*.node --version "$version")
 sha256sum "$out"/pi_natives.linux-x64-*.node

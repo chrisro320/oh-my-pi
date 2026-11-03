@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "modern": {
+    "file": "pi_natives.linux-x64-modern.node",
+    "pass": true,
+    "rebuilt_stamp": "18.16.0",
+    "original_stamp": "18.16.0",
+    "exports": 151,
+    "missing": [],
+    "extra": [],
+    "rebuilt_sha256": "95ebe62dc7401c1fb33372cd1e830e7d27b8f265065c6d3fdadb9669ee1aa62b",
+    "original_sha256": "85b98a2af71467d7f70b476ee4c987dd7d5a52e6d88d904e9c702a7de7ce4838"
+  },
+  "baseline": {
+    "file": "pi_natives.linux-x64-baseline.node",
+    "pass": true,
+    "rebuilt_stamp": "18.16.0",
+    "original_stamp": "18.16.0",
+    "exports": 151,
+    "missing": [],
+    "extra": [],
+    "rebuilt_sha256": "6aa35374494c51cf71c3b3afff98fc383e421dc11e3a167dbb904868f80e3c29",
+    "original_sha256": "33ff4e88c1640abb09a481aa9b5eaa87c9b9daed902ee4fb8565a9bd5e20ef3e"
+  }
+}
