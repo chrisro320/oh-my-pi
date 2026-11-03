@@ -1,0 +1,34 @@
+{
+  "version": "18.16.0",
+  "runtime": "/tmp/omp-plan-18160/acq/runtime",
+  "lockfile": "runtime/package-lock.json",
+  "lockfile_sha256": "8a79231b45fa22f2df28b30384d2db0fe2170d39dfa64df61b87a42b5782b457",
+  "toolchain": {
+    "bun": "1.4.4",
+    "bun_bin": "/home/chris/.bun/bin/bun",
+    "npm": "11.12.1",
+    "node": "v24.15.0"
+  },
+  "install": "npm install --ignore-scripts --no-audit --no-fund, env -i allowlist, private npm cache",
+  "omp_reextracted_from_verified_archives": true,
+  "omp_packages": [
+    "omp-stats",
+    "omptype",
+    "pi-agent-core",
+    "pi-ai",
+    "pi-catalog",
+    "pi-coding-agent",
+    "pi-mnemopi",
+    "pi-natives",
+    "pi-natives-linux-x64",
+    "pi-tui",
+    "pi-utils",
+    "pi-wire",
+    "snapcompact"
+  ],
+  "assertions": {
+    "all_exact_version": true,
+    "no_symlink_aliases": true,
+    "no_nested_omp": true
+  }
+}

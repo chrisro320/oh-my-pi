@@ -1,8 +1,8 @@
 # Execution plan: OMP 18.12.6 → pinned 18.16.0
 
-Status: **planning only**. No step below is authorized until the user approves this plan; repository/sandbox
-implementation is the first authorization, and installation, publication and activation each need their own later
-authorization (see `design.md` § Boundaries). Nothing in this file has been executed. Commands that reference 18.16.0
+Status: **M1 authorized and done (2026-11-03)**; M2 onward awaits the user's go. Repository/sandbox implementation is the
+first authorization, and installation, publication and activation each need their own later
+authorization (see `design.md` § Boundaries). Commands that reference 18.16.0
 become valid only after the named tooling change lands; an unsupported-version refusal is not migration evidence.
 
 Goal of the implementation phase: a replayable 18.16.0 candidate whose every retained capability has a discriminating gate,
@@ -38,11 +38,16 @@ must be re-run after any edit to it. Dispatch order is authoring/review priority
 Reason: a version, source or integrity mismatch invalidates every downstream result, and four closure packages are
 currently unattested.
 
-- [ ] Copy and adapt the acquisition script: `cp .trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/acquisition.sh` → `$TASK/research/acquisition-18.16.0.sh`; set `VERSION="18.16.0"`, `PINNED_COMMIT="650f3a108229ee11bf68ba3377f4e8c3391cd424"`, and extend the archive phase to all 13 closure packages including the four missing tarballs (`omptype`, `omp-stats`, `pi-mnemopi`, `pi-natives-linux-x64`). Verify the tag commit and npm attestation subject actually agree for every archive. — Effort: high — provenance for four packages is an open gate, not a formality.
-- [ ] Run the acquisition phases under the allowlisted `env -i` sandbox and record `metadata/{archive-manifest,provenance}.json`: npm `sha512` integrity + `sha1` shasum verified per tarball, `sha256` computed, source commit checked. — Effort: low — the scripted phases already exist.
-- [ ] Build the pristine 18.16.0 tree from the verified tarballs only and record its tree digest; it must reproduce independently (two extractions, same digest) and must differ from the repo/cache copies. Expected reference digest: `9f88de1a…` (`prd.md`). — Effort: medium — digest stability has bitten this pipeline before (bytecode writes, cache hard-links).
-- [ ] Inventory the closure: package set, per-package `dependencies`/`optionalDependencies` deltas versus 18.12.6, and the two new `omptype` edges (`pi-utils`, `snapcompact`). Assert no package added/removed. — Effort: medium — module-init order changes affect the prefix/extension surface.
-- [ ] Record the Bun floor decision in the evidence: `engines.bun >= 1.4.4` on all packages, host Bun 1.4.4 (order `0`), and that the launcher's bun — not the shell's — is the one that must satisfy it. No `bun upgrade`. — Effort: low — a one-line check, but zero headroom.
+- [x] Copy and adapt the acquisition script: `cp .trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/acquisition.sh` → `$TASK/research/acquisition-18.16.0.sh`; set `VERSION="18.16.0"`, `PINNED_COMMIT="650f3a108229ee11bf68ba3377f4e8c3391cd424"`, and extend the archive phase to all 13 closure packages including the four missing tarballs (`omptype`, `omp-stats`, `pi-mnemopi`, `pi-natives-linux-x64`). Verify the tag commit and npm attestation subject actually agree for every archive. — Effort: high — provenance for four packages is an open gate, not a formality.
+  Done 2026-11-03: the archive phase already covered the BFS-derived 13; added a per-package `git ls-remote` check that the attested repo's `v18.16.0` tag names the pinned commit, `$SB`-relative evidence paths, and a real exit code for `npm audit signatures` (the old `rc=$?` was dead under `set -e`).
+- [x] Run the acquisition phases under the allowlisted `env -i` sandbox and record `metadata/{archive-manifest,provenance}.json`: npm `sha512` integrity + `sha1` shasum verified per tarball, `sha256` computed, source commit checked. — Effort: low — the scripted phases already exist.
+  Done: 13/13 archives integrity+shasum OK; 13/13 SLSA subject == integrity, gitCommit == tag == pinned; `npm audit signatures` exit 0 (144 signatures, 74 attestations). Sandbox `/tmp/omp-plan-18160/acq`.
+- [x] Build the pristine 18.16.0 tree from the verified tarballs only and record its tree digest; it must reproduce independently (two extractions, same digest) and must differ from the repo/cache copies. Expected reference digest: `9f88de1a…` (`prd.md`). — Effort: medium — digest stability has bitten this pipeline before (bytecode writes, cache hard-links).
+  Done: `research/pristine-digest-18.16.0.py` (the release verifier's own `canonicalize_extracted`/`tree_digest`) → `9f88de1a04fb…` twice; the same code on 18.12.6 reproduces the manifest's `9f609e1f…`. The acquisition script's listing digest (`31d2cb6b…`) is a different method and is not the manifest value.
+- [x] Inventory the closure: package set, per-package `dependencies`/`optionalDependencies` deltas versus 18.12.6, and the two new `omptype` edges (`pi-utils`, `snapcompact`). Assert no package added/removed. — Effort: medium — module-init order changes affect the prefix/extension surface.
+  Done: `research/closure-inventory-18.16.0.json` — same 13 packages; the only dependency deltas are `pi-utils → omptype` and `snapcompact → omptype`.
+- [x] Record the Bun floor decision in the evidence: `engines.bun >= 1.4.4` on all packages, host Bun 1.4.4 (order `0`), and that the launcher's bun — not the shell's — is the one that must satisfy it. No `bun upgrade`. — Effort: low — a one-line check, but zero headroom.
+  Done: 13/13 `>=1.4.4`; the release launcher execs `~/.bun/bin/bun` (`bin/omp:143-145`), version 1.4.4.
 
 Acceptance: `research/acquisition-18.16.0.json` names every archive with verified integrity and provenance, and the pristine
 digest is reproducible. Blocks everything if an archive cannot be attested.

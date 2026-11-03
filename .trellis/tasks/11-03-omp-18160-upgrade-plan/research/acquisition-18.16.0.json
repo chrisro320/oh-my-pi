@@ -1,0 +1,149 @@
+{
+  "version": "18.16.0",
+  "pinned_commit": "650f3a108229ee11bf68ba3377f4e8c3391cd424",
+  "recorded": "2026-11-03",
+  "archives": [
+    {
+      "name": "@oh-my-pi/omp-stats",
+      "integrity": "sha512-/FaIXLGUMzBQcIUsStMPj7Ffc1ICsS+xujeVdeyW6izHy7+KDr4QzvugHbTKaoPD0Zdd70+6bQM5vJQ7F4xKGA==",
+      "sha1": "ed9168bc4429832cd03fb9a97f3671069c1d1162",
+      "sha256": "9bd6997ac9be45b969046fdc383409752d7301c4c6c94696f5efa7ccf4a0a378",
+      "bytes": 471208
+    },
+    {
+      "name": "@oh-my-pi/omptype",
+      "integrity": "sha512-Ux6nrhkRTgTrNZKNntGUE03QXQA7EV7arexK6W3pN4vJFESMwhs0smIKPuNXAR8nBa0/Ah1ItcHo+GNcGeoD0A==",
+      "sha1": "ed20b76a0d1e19a373035eb9dec90447421e0d86",
+      "sha256": "1e06766b73203eff58a639380bddf5b139ca66824dd9211904b8fb2dc31cb525",
+      "bytes": 186457
+    },
+    {
+      "name": "@oh-my-pi/pi-agent-core",
+      "integrity": "sha512-d8JrluCvDOIFuPTOrjTMjcvOmHDQlNw4FZDIBl9jM+ijn5qHKHgfEU4X6WkKUAs2C6qzCgjNQur21C0bLfisPA==",
+      "sha1": "c652240d87308b079a42291bcadcb9212d98feb0",
+      "sha256": "a5f836892ebeaea0c1bab712053be98f09721f48050ef30d1170fb105b80f362",
+      "bytes": 351778
+    },
+    {
+      "name": "@oh-my-pi/pi-ai",
+      "integrity": "sha512-h0tKpdKkCYNZsvMdvhp6ULkIM5wHNK2ypb7TYenzwcXg0u58zh+5oOvPm+fJhtgYPsf4GPLo0HrplJR2c9IqhA==",
+      "sha1": "4299bf1276fa19d34c94df09f126e40886280061",
+      "sha256": "cb19986eb09e19c5fae6819712dd78d810a2575140faff6495644843a3169e0f",
+      "bytes": 2017593
+    },
+    {
+      "name": "@oh-my-pi/pi-catalog",
+      "integrity": "sha512-N9VdHXNn6OApcx+PLHPIAB8EaJOYxEttjlKq2jiGkvdOuhbPUnShzO4SJcY6clcAnE4uZHsEtR3KcOBH70vC1g==",
+      "sha1": "19aae833651e535ccb3526e6e738a5cd0d3ab7b3",
+      "sha256": "067262a0835023eced631fb8adab7db08e9e890cbfdf636c6bbfcc33cb5f2df7",
+      "bytes": 965123
+    },
+    {
+      "name": "@oh-my-pi/pi-coding-agent",
+      "integrity": "sha512-YJ3Gh5IAnIIFEeOihEIKHk9oGtK5FUEq0zxoox5BZgMtr9jWc420yVjirZC7mOvIP6o9jyxcOIHHRLn56hc7aQ==",
+      "sha1": "98c60f0ba823efe73ee471a4590da4a514cc6630",
+      "sha256": "f4ba920449735d76b6cebbc76778e2ad9cff717bbc2bfecb214431fee119afe4",
+      "bytes": 15036736
+    },
+    {
+      "name": "@oh-my-pi/pi-mnemopi",
+      "integrity": "sha512-zteij7QGa4FwYDWmBz8ns46DWoquI0Xc4jQEtsCxItFaFAJEYPWm8Vwr1fN8NPU4e9hEt4whNd77Hy+I+nszHQ==",
+      "sha1": "c0c159a4ce2a7791cce8351e9a79110fbe8af7a0",
+      "sha256": "fe1cb9a46fc2adfbe64dd76d4376b5f1043ae2a05a410fddfae3934785850543",
+      "bytes": 232426
+    },
+    {
+      "name": "@oh-my-pi/pi-natives",
+      "integrity": "sha512-UKT3SmvTFdI09uuf9sQDx7asB3JD5i5N0zvRW/82dS4CauxQI857xZkm8R54PTWySnvFgVJ1Z3VwTX/73MnaNA==",
+      "sha1": "8739939fe4cf2cc455406b5144de8678ce707b24",
+      "sha256": "a5fc30ac3c7201d1c66fa38880d161763c73a425d7a31a7570faa728f1f7ced6",
+      "bytes": 131237
+    },
+    {
+      "name": "@oh-my-pi/pi-natives-linux-x64",
+      "integrity": "sha512-hd0RhNV6S1tDttmirwKXSZ91uiGN2XLF0qMNtpK1uY6Pav+ZUkyM4GGBdQST530IzrsUCn5E6zjkX98o0QPoBQ==",
+      "sha1": "6d127fd25940d53d8aa9c6d87c27edb495cd6955",
+      "sha256": "9f0ad4990330aba3c545af4b382b6f32f1d2d9559b7dd98a51774be7db9dc2da",
+      "bytes": 97785071
+    },
+    {
+      "name": "@oh-my-pi/pi-tui",
+      "integrity": "sha512-qfv1/NGhh2DzxaelOFCHA28+PlNxa4/LiKseE3sAMjMy4N9Xtaf19c72EwGDT8plpA3+tvDQtmj5n01SeCr/wA==",
+      "sha1": "be59ccce00dd7252f4a98bce7fd5715490f6aac8",
+      "sha256": "399dc7725c3559593ca83fbea43a05a8713115fc078ceb320e47579ebd9ad789",
+      "bytes": 2717742
+    },
+    {
+      "name": "@oh-my-pi/pi-utils",
+      "integrity": "sha512-7QKFtBE0nbEHM09yDX+g420awB1tbjPLoRsGdXSCDa7OKgKGBkKazBflFRM/uPk7lS0guHEB8qJSjs5KXOKL9Q==",
+      "sha1": "5ac2135945d52da3c7e33e0b6db37490d65d263e",
+      "sha256": "39c23ad76b573e51a5834f4d771fd18fb82c37428d148d7f22b264c44248d527",
+      "bytes": 501015
+    },
+    {
+      "name": "@oh-my-pi/pi-wire",
+      "integrity": "sha512-VsIEYSBYweWR3SvtUKyyWF2lTxK8GNFgJeI7ucyjFjw4sl2viC/FJAbCAK4+28fE/ApMMNfUyUYE6DyhJtLlrQ==",
+      "sha1": "a48140f03e3f3d2e1a0c062c6dd3d484f172b8ec",
+      "sha256": "9b793911e5872353717c9dd4ccea971d8941d305e53a7b6419430d11039d427d",
+      "bytes": 49348
+    },
+    {
+      "name": "@oh-my-pi/snapcompact",
+      "integrity": "sha512-HOJeG/2phD60VYbVYSVDg2YsS9oTOsfjKXssk/d9vhVtQ92WBEq4Kw2v7RZDoACFglWEMEo+4miQz+1Ueq2OUQ==",
+      "sha1": "8e3c3e22bbd7f52440d1269341d78b89df067ec8",
+      "sha256": "7288d058a88f091c132f94bcd0e27d49899cd7993a5e651761227d60d8cd3bc1",
+      "bytes": 55974
+    }
+  ],
+  "archive_checks": "per tarball: npm dist.integrity sha512 recomputed and equal; dist.shasum sha1 equal; sha256 computed",
+  "provenance": {
+    "packages": 13,
+    "source_repos": [
+      "https://github.com/can1357/oh-my-pi"
+    ],
+    "all_slsa_subject_eq_integrity": true,
+    "all_gitcommit_eq_pinned": true,
+    "all_tag_v18_16_0_eq_pinned": true,
+    "npm_audit_signatures_exit": 0
+  },
+  "pristine": {
+    "release_method_digest": "9f88de1a04fb7d663ecd2b627686f0048252231d1a6293bd34fce4301eaf99a1",
+    "reproducible": true,
+    "baseline_method_check": {
+      "digest": "9f609e1fefd74e1902e73e930d24b9d983d90c3b4df24aac031fa1bbd5a97cdd",
+      "manifest": "9f609e1fefd74e1902e73e930d24b9d983d90c3b4df24aac031fa1bbd5a97cdd",
+      "match": true
+    },
+    "measurement_archives_equal_verified": true,
+    "acquisition_listing_digest": "see acquisition-pristine-manifest.json tree_sha256 (different method: mode+sha256 lines)"
+  },
+  "closure": {
+    "package_set_unchanged": true,
+    "new_omp_edges": [
+      {
+        "from": "pi-utils",
+        "to": "@oh-my-pi/omptype"
+      },
+      {
+        "from": "snapcompact",
+        "to": "@oh-my-pi/omptype"
+      }
+    ],
+    "other_dependency_deltas": []
+  },
+  "bun_floor": {
+    "engines": [
+      ">=1.4.4"
+    ],
+    "launcher_bun": "/home/chris/.bun/bin/bun (exec at release bin/omp:143-145)",
+    "launcher_bun_version": "1.4.4",
+    "headroom": "zero",
+    "decision": "no bun upgrade; 1.4.4 satisfies >=1.4.4",
+    "runtime_toolchain": {
+      "bun": "1.4.4",
+      "bun_bin": "/home/chris/.bun/bin/bun",
+      "npm": "11.12.1",
+      "node": "v24.15.0"
+    }
+  }
+}

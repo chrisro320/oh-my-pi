@@ -1,0 +1,24 @@
+{
+  "method": "verify-release-family-plan.py canonicalize_extracted + tree_digest over the six manifest roots",
+  "roots": [
+    "pi-agent-core",
+    "pi-ai",
+    "pi-catalog",
+    "pi-coding-agent",
+    "pi-tui",
+    "snapcompact"
+  ],
+  "baseline_18_12_6": {
+    "digest": "9f609e1fefd74e1902e73e930d24b9d983d90c3b4df24aac031fa1bbd5a97cdd",
+    "manifest": "9f609e1fefd74e1902e73e930d24b9d983d90c3b4df24aac031fa1bbd5a97cdd",
+    "match": true
+  },
+  "target_18_16_0": {
+    "runs": [
+      "9f88de1a04fb7d663ecd2b627686f0048252231d1a6293bd34fce4301eaf99a1",
+      "9f88de1a04fb7d663ecd2b627686f0048252231d1a6293bd34fce4301eaf99a1"
+    ],
+    "reproducible": true
+  },
+  "measurement_archives_equal_verified": true
+}

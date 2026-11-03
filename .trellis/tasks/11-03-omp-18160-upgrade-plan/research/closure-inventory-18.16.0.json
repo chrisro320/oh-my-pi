@@ -1,0 +1,383 @@
+{
+  "from": "18.12.6",
+  "to": "18.16.0",
+  "package_set": {
+    "from": [
+      "omp-stats",
+      "omptype",
+      "pi-agent-core",
+      "pi-ai",
+      "pi-catalog",
+      "pi-coding-agent",
+      "pi-mnemopi",
+      "pi-natives",
+      "pi-natives-linux-x64",
+      "pi-tui",
+      "pi-utils",
+      "pi-wire",
+      "snapcompact"
+    ],
+    "to": [
+      "omp-stats",
+      "omptype",
+      "pi-agent-core",
+      "pi-ai",
+      "pi-catalog",
+      "pi-coding-agent",
+      "pi-mnemopi",
+      "pi-natives",
+      "pi-natives-linux-x64",
+      "pi-tui",
+      "pi-utils",
+      "pi-wire",
+      "snapcompact"
+    ],
+    "added": [],
+    "removed": []
+  },
+  "packages": [
+    {
+      "package": "omp-stats",
+      "dependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    },
+    {
+      "package": "omptype",
+      "dependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14",
+          "node": ">=20"
+        },
+        "to": {
+          "bun": ">=1.4.4",
+          "node": ">=20"
+        }
+      }
+    },
+    {
+      "package": "pi-agent-core",
+      "dependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    },
+    {
+      "package": "pi-ai",
+      "dependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    },
+    {
+      "package": "pi-catalog",
+      "dependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    },
+    {
+      "package": "pi-coding-agent",
+      "dependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    },
+    {
+      "package": "pi-mnemopi",
+      "dependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    },
+    {
+      "package": "pi-natives",
+      "dependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    },
+    {
+      "package": "pi-natives-linux-x64",
+      "dependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    },
+    {
+      "package": "pi-tui",
+      "dependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    },
+    {
+      "package": "pi-utils",
+      "dependencies": {
+        "added": [
+          "@oh-my-pi/omptype"
+        ],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    },
+    {
+      "package": "pi-wire",
+      "dependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    },
+    {
+      "package": "snapcompact",
+      "dependencies": {
+        "added": [
+          "@oh-my-pi/omptype"
+        ],
+        "removed": [],
+        "changed": []
+      },
+      "optionalDependencies": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "engines": {
+        "from": {
+          "bun": ">=1.3.14"
+        },
+        "to": {
+          "bun": ">=1.4.4"
+        }
+      }
+    }
+  ],
+  "new_omp_edges": [
+    {
+      "from": "pi-utils",
+      "to": "@oh-my-pi/omptype"
+    },
+    {
+      "from": "snapcompact",
+      "to": "@oh-my-pi/omptype"
+    }
+  ],
+  "engines_bun_to": [
+    {
+      "package": "omp-stats",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "omptype",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "pi-agent-core",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "pi-ai",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "pi-catalog",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "pi-coding-agent",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "pi-mnemopi",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "pi-natives",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "pi-natives-linux-x64",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "pi-tui",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "pi-utils",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "pi-wire",
+      "bun": ">=1.4.4"
+    },
+    {
+      "package": "snapcompact",
+      "bun": ">=1.4.4"
+    }
+  ]
+}
