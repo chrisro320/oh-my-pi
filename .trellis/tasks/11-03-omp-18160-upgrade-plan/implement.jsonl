@@ -1,0 +1,18 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend spec routing for the 18.16.0 rebase scope"}
+{"file":".trellis/spec/backend/patch-rollup-contracts.md","reason":"Pristine official-archive input, chain/ownership rules, one authority per overlapping seam, no hand-edited hunks"}
+{"file":".trellis/spec/backend/verification-gate-contracts.md","reason":"A gate must fail without its delta: negative controls, no tautologies, re-freeze after editing gate sources"}
+{"file":".trellis/spec/backend/extension-runtime-contracts.md","reason":"Idle ephemeral turn reservation and cache-warming contracts that 0010/0092 must re-satisfy on the new idle owner"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Value imports for runtime symbols and full callsite migration after signature changes (declaration milestone)"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"Live agent.db/OAuth credential isolation: read-only backups, no runtime process, no production credential access"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Trace package, native, extension, catalog-artifact and launcher boundaries when a version literal moves"}
+{"file":".trellis/spec/guides/prompt-cache-diagnosis-guide.md","reason":"Correlate resume/compaction cache misses before attributing a prefix regression to the upgrade"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/plan-author-brief.md","reason":"Authoritative Q1-Q13, NEW-0102 and fixed-fact decisions this plan must execute unchanged"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/capability-classification.md","reason":"Per-capability class, 18.16.0 evidence, method and gate for all 62 manifest IDs; U1-U32 risks; tooling obligations"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/slice-a-cache-resume.md","reason":"Prefix/persistent-resume family rebase evidence: failing hunks, 0074 allocator, 0010/0092/0095/0101 seams"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/slice-b-compaction.md","reason":"Chain-anchoring finding, compaction lane re-authoring over buildProviderContext, image-budget regeneration, usage pipeline"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/slice-c-auth-wire.md","reason":"0090 sub-contract split (0090a adopt vs 0090b redesign) and per-file OAuth/auth-storage rejections on 18.16.0"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/slice-d-ui-input.md","reason":"0079/0082/0085/0050 redesign evidence plus the live companion host-API compatibility table"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/slice-e-upstream-risk.md","reason":"Unowned upstream changes with severity and proposed gates; per-family overlap hints to re-check during rebase"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/slice-f-native-tooling.md","reason":"Version-gate inventory with file:line, native rebuild/overlay recipe, missing-archive and export-parity obligations"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/replay-measure-v1.json","reason":"Recorded per-family fuzz-0 result and owned-path replay baseline used to size and order the rebase work"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/tree-diff-v1.json","reason":"Owned vs unowned path accounting (182 owned, 1 deleted) that fixes the family ownership boundary"}

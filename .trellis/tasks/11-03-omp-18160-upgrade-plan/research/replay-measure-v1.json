@@ -1,0 +1,1676 @@
+{
+ "paths": {
+  "pi-coding-agent/dist/types/session/session-manager.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-status-accounting",
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts": {
+   "status": "modified",
+   "owners": [
+    "family-status-accounting"
+   ]
+  },
+  "pi-coding-agent/src/cli/gallery-fixtures/status-line.ts": {
+   "status": "same",
+   "owners": [
+    "family-status-accounting"
+   ]
+  },
+  "pi-coding-agent/src/session/session-manager.ts": {
+   "status": "modified",
+   "owners": [
+    "family-status-accounting",
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-tui/dist/types/status-line/host.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-status-accounting",
+    "family-usage-pipeline"
+   ]
+  },
+  "pi-tui/dist/types/status-line/schema.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-status-accounting"
+   ]
+  },
+  "pi-tui/src/status-line/host.ts": {
+   "status": "modified",
+   "owners": [
+    "family-status-accounting",
+    "family-usage-pipeline"
+   ]
+  },
+  "pi-tui/src/status-line/schema.ts": {
+   "status": "same",
+   "owners": [
+    "family-status-accounting"
+   ]
+  },
+  "pi-tui/src/status-line/segments.ts": {
+   "status": "same",
+   "owners": [
+    "family-status-accounting"
+   ]
+  },
+  "pi-tui/src/status-line/startup.ts": {
+   "status": "modified",
+   "owners": [
+    "family-status-accounting"
+   ]
+  },
+  "pi-coding-agent/dist/types/hindsight/state.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-hindsight"
+   ]
+  },
+  "pi-coding-agent/dist/types/memory-backend/recall-entry.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-hindsight"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/session-memory.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-hindsight"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/session-tools.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-hindsight"
+   ]
+  },
+  "pi-coding-agent/src/hindsight/backend.ts": {
+   "status": "modified",
+   "owners": [
+    "family-hindsight"
+   ]
+  },
+  "pi-coding-agent/src/hindsight/state.ts": {
+   "status": "modified",
+   "owners": [
+    "family-hindsight"
+   ]
+  },
+  "pi-coding-agent/src/memory-backend/recall-entry.ts": {
+   "status": "same",
+   "owners": [
+    "family-hindsight"
+   ]
+  },
+  "pi-coding-agent/src/session/agent-session.ts": {
+   "status": "modified",
+   "owners": [
+    "family-hindsight",
+    "family-usage-pipeline",
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-persistent-prefix-resume",
+    "family-devin-wire",
+    "family-input-translation",
+    "family-compaction",
+    "0090-omp-oauth-durable-refresh",
+    "0095-omp-context-audit-request-purpose"
+   ]
+  },
+  "pi-coding-agent/src/session/session-memory.ts": {
+   "status": "same",
+   "owners": [
+    "family-hindsight"
+   ]
+  },
+  "pi-coding-agent/src/session/session-tools.ts": {
+   "status": "modified",
+   "owners": [
+    "family-hindsight",
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-ai/dist/types/auth-broker/client.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline"
+   ]
+  },
+  "pi-ai/dist/types/auth-broker/remote-store.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/dist/types/auth/store.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/dist/types/auth/types.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/dist/types/auth/usage-cache.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-usage-pipeline"
+   ]
+  },
+  "pi-ai/dist/types/auth/usage.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/auth-broker/client.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline"
+   ]
+  },
+  "pi-ai/src/auth-broker/remote-store.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/auth-broker/server.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline"
+   ]
+  },
+  "pi-ai/src/auth/store.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/auth/types.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/auth/usage-cache.ts": {
+   "status": "same",
+   "owners": [
+    "family-usage-pipeline"
+   ]
+  },
+  "pi-ai/src/auth/usage.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline",
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/usage/ollama.ts": {
+   "status": "same",
+   "owners": [
+    "family-usage-pipeline"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/agent-session.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline",
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-persistent-prefix-resume",
+    "family-input-translation",
+    "family-compaction"
+   ]
+  },
+  "pi-coding-agent/src/modes/status-line-host.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline"
+   ]
+  },
+  "pi-tui/src/status-line/component.ts": {
+   "status": "modified",
+   "owners": [
+    "family-usage-pipeline"
+   ]
+  },
+  "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts": {
+   "status": "modified",
+   "owners": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation",
+    "0092-omp-cache-warming-idle-budget"
+   ]
+  },
+  "pi-coding-agent/src/extensibility/extensions/runner.ts": {
+   "status": "modified",
+   "owners": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation",
+    "0095-omp-context-audit-request-purpose"
+   ]
+  },
+  "pi-coding-agent/src/extensibility/extensions/types.ts": {
+   "status": "modified",
+   "owners": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation",
+    "0092-omp-cache-warming-idle-budget"
+   ]
+  },
+  "pi-coding-agent/src/modes/acp/acp-agent.ts": {
+   "status": "modified",
+   "owners": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts": {
+   "status": "modified",
+   "owners": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/modes/runtime-init.ts": {
+   "status": "modified",
+   "owners": [
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-input-translation"
+   ]
+  },
+  "pi-ai/src/providers/google-gemini-cli.ts": {
+   "status": "modified",
+   "owners": [
+    "family-antigravity-wire"
+   ]
+  },
+  "pi-coding-agent/src/session/session-maintenance.ts": {
+   "status": "modified",
+   "owners": [
+    "family-image-budget-snapcompact",
+    "family-persistent-prefix-resume",
+    "0046-omp-supersede-warm-prefix-guard",
+    "family-compaction"
+   ]
+  },
+  "snapcompact/dist/types/snapcompact.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-image-budget-snapcompact"
+   ]
+  },
+  "snapcompact/src/snapcompact.ts": {
+   "status": "modified",
+   "owners": [
+    "family-image-budget-snapcompact"
+   ]
+  },
+  "pi-catalog/src/compat/request-size.ts": {
+   "status": "same",
+   "owners": [
+    "family-image-budget-snapcompact"
+   ]
+  },
+  "pi-catalog/dist/types/compat/request-size.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-image-budget-snapcompact"
+   ]
+  },
+  "pi-catalog/src/compat/rules/providers/image-budget.kdl": {
+   "status": "new-in-family",
+   "owners": [
+    "family-image-budget-snapcompact"
+   ]
+  },
+  "pi-catalog/src/compat/rules/providers/commandcode.kdl": {
+   "status": "same",
+   "owners": [
+    "family-image-budget-snapcompact",
+    "0065-omp-commandcode-deepseek-model-record-parity"
+   ]
+  },
+  "pi-catalog/src/compat/rules/providers/opencode-go.kdl": {
+   "status": "modified",
+   "owners": [
+    "family-image-budget-snapcompact"
+   ]
+  },
+  "pi-catalog/src/compat/rules/providers/zhipu-coding-plan.kdl": {
+   "status": "same",
+   "owners": [
+    "family-image-budget-snapcompact"
+   ]
+  },
+  "pi-catalog/src/compat/rules.json": {
+   "status": "modified",
+   "owners": [
+    "family-image-budget-snapcompact",
+    "0065-omp-commandcode-deepseek-model-record-parity",
+    "0100-omp-stepfun-step-plan"
+   ]
+  },
+  "pi-catalog/src/compat/rules/providers/devin.kdl": {
+   "status": "same",
+   "owners": [
+    "family-image-budget-snapcompact"
+   ]
+  },
+  "pi-coding-agent/src/modes/interactive-mode.ts": {
+   "status": "modified",
+   "owners": [
+    "0032-omp-goal-tool-resident",
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/sdk.ts": {
+   "status": "modified",
+   "owners": [
+    "0032-omp-goal-tool-resident",
+    "family-persistent-prefix-resume",
+    "0092-omp-cache-warming-idle-budget",
+    "0095-omp-context-audit-request-purpose"
+   ]
+  },
+  "pi-coding-agent/src/tools/index.ts": {
+   "status": "modified",
+   "owners": [
+    "0032-omp-goal-tool-resident"
+   ]
+  },
+  "pi-ai/dist/types/types.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume",
+    "family-devin-wire",
+    "0069-omp-codex-effort-history-resume",
+    "family-input-translation",
+    "0094-omp-anthropic-thinking-drop-resume"
+   ]
+  },
+  "pi-ai/src/providers/openai-responses.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-ai/src/types.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume",
+    "family-devin-wire",
+    "0069-omp-codex-effort-history-resume",
+    "family-input-translation",
+    "0094-omp-anthropic-thinking-drop-resume"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/messages.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/session-storage.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/session-transfer-marker.d.ts": {
+   "status": "new-in-family",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/session-transfer.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/turn-recovery.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/src/collab/guest.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/src/main.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume",
+    "0050-omp-session-history-preview",
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/modes/controllers/selector-controller.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume",
+    "0050-omp-session-history-preview",
+    "0072-omp-session-pin-static-auth-ui"
+   ]
+  },
+  "pi-coding-agent/src/session/date-cwd-reminder.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/src/session/messages.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/src/session/model-controls.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/src/session/session-context.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume",
+    "family-compaction"
+   ]
+  },
+  "pi-coding-agent/src/session/session-storage.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/src/session/session-transfer-marker.ts": {
+   "status": "new-in-family",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/src/session/session-transfer.ts": {
+   "status": "same",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/src/session/turn-recovery.ts": {
+   "status": "modified",
+   "owners": [
+    "family-persistent-prefix-resume"
+   ]
+  },
+  "pi-coding-agent/src/session/session-advisors.ts": {
+   "status": "modified",
+   "owners": [
+    "0048-omp-advisor-quota-rotation-bound",
+    "family-input-translation",
+    "family-compaction"
+   ]
+  },
+  "pi-tui/src/overlays/advisor-config.ts": {
+   "status": "modified",
+   "owners": [
+    "0048-omp-advisor-quota-rotation-bound"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/session-listing.d.ts": {
+   "status": "modified",
+   "owners": [
+    "0050-omp-session-history-preview"
+   ]
+  },
+  "pi-coding-agent/src/session/session-listing.ts": {
+   "status": "modified",
+   "owners": [
+    "0050-omp-session-history-preview",
+    "family-input-translation"
+   ]
+  },
+  "pi-tui/dist/types/apps/session-picker.d.ts": {
+   "status": "modified",
+   "owners": [
+    "0050-omp-session-history-preview"
+   ]
+  },
+  "pi-tui/dist/types/overlays/session-selector.d.ts": {
+   "status": "modified",
+   "owners": [
+    "0050-omp-session-history-preview"
+   ]
+  },
+  "pi-tui/src/apps/session-picker.ts": {
+   "status": "modified",
+   "owners": [
+    "0050-omp-session-history-preview"
+   ]
+  },
+  "pi-tui/src/overlays/session-info-overlay.ts": {
+   "status": "same",
+   "owners": [
+    "0050-omp-session-history-preview"
+   ]
+  },
+  "pi-tui/src/overlays/session-selector.ts": {
+   "status": "modified",
+   "owners": [
+    "0050-omp-session-history-preview",
+    "family-input-translation"
+   ]
+  },
+  "pi-ai/dist/types/stream.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-devin-wire"
+   ]
+  },
+  "pi-ai/src/providers/devin.ts": {
+   "status": "modified",
+   "owners": [
+    "family-devin-wire"
+   ]
+  },
+  "pi-ai/src/stream.ts": {
+   "status": "modified",
+   "owners": [
+    "family-devin-wire"
+   ]
+  },
+  "pi-catalog/dist/types/wire/devin.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-devin-wire"
+   ]
+  },
+  "pi-catalog/src/wire/devin.ts": {
+   "status": "modified",
+   "owners": [
+    "family-devin-wire"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/agent-session-types.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-devin-wire",
+    "family-input-translation",
+    "0095-omp-context-audit-request-purpose"
+   ]
+  },
+  "pi-coding-agent/src/session/agent-session-types.ts": {
+   "status": "modified",
+   "owners": [
+    "family-devin-wire",
+    "family-input-translation",
+    "0095-omp-context-audit-request-purpose"
+   ]
+  },
+  "pi-ai/src/providers/openai-codex-responses.ts": {
+   "status": "modified",
+   "owners": [
+    "0069-omp-codex-effort-history-resume",
+    "family-compaction"
+   ]
+  },
+  "pi-ai/dist/types/providers/anthropic-request-audit.d.ts": {
+   "status": "new-in-family",
+   "owners": [
+    "0074-omp-anthropic-context-cache-boundaries"
+   ]
+  },
+  "pi-ai/src/providers/anthropic-request-audit.ts": {
+   "status": "new-in-family",
+   "owners": [
+    "0074-omp-anthropic-context-cache-boundaries"
+   ]
+  },
+  "pi-ai/src/providers/anthropic-images.ts": {
+   "status": "same",
+   "owners": [
+    "0074-omp-anthropic-context-cache-boundaries"
+   ]
+  },
+  "pi-ai/src/providers/anthropic.ts": {
+   "status": "modified",
+   "owners": [
+    "0074-omp-anthropic-context-cache-boundaries",
+    "0094-omp-anthropic-thinking-drop-resume"
+   ]
+  },
+  "pi-tui/dist/types/chat/image-loading.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-image-display"
+   ]
+  },
+  "pi-tui/src/chat/assistant-message.ts": {
+   "status": "modified",
+   "owners": [
+    "family-image-display"
+   ]
+  },
+  "pi-tui/src/chat/image-loading.ts": {
+   "status": "same",
+   "owners": [
+    "family-image-display"
+   ]
+  },
+  "pi-tui/src/chat/tool-execution.ts": {
+   "status": "modified",
+   "owners": [
+    "family-image-display"
+   ]
+  },
+  "pi-agent-core/dist/types/compaction/compaction.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation",
+    "family-compaction"
+   ]
+  },
+  "pi-agent-core/src/agent.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-agent-core/src/compaction/compaction.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation",
+    "family-compaction"
+   ]
+  },
+  "pi-agent-core/src/compaction/messages.ts": {
+   "status": "same",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/dist/types/extensibility/extensions/loader.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation",
+    "0095-omp-context-audit-request-purpose"
+   ]
+  },
+  "pi-coding-agent/dist/types/main.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/dist/types/modes/interactive-mode.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/dist/types/modes/types.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/dist/types/modes/utils/ui-helpers.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/session-history-format.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/export/html/template.js": {
+   "status": "deleted",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/export/share.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/extensibility/extensions/loader.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/modes/controllers/input-controller.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/modes/types.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/modes/utils/ui-helpers.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/session/queued-messages.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/session/session-dump-format.ts": {
+   "status": "same",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/session/session-history-format.ts": {
+   "status": "same",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-coding-agent/src/slash-commands/helpers/draft.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-tui/dist/types/chat/transcript-entry.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-tui/src/chat/chat-transcript-builder.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-tui/src/chat/transcript-entry.ts": {
+   "status": "same",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-tui/src/chat/transcript-outline.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-tui/src/overlays/copy-selector.ts": {
+   "status": "same",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-tui/src/overlays/hook-input.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-tui/src/overlays/tree-selector.ts": {
+   "status": "modified",
+   "owners": [
+    "family-input-translation"
+   ]
+  },
+  "pi-agent-core/dist/types/compaction/anthropic.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-agent-core/dist/types/compaction/compaction-trace.d.ts": {
+   "status": "new-in-family",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-agent-core/dist/types/compaction/compaction-v2-streaming.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-agent-core/src/compaction/anthropic.ts": {
+   "status": "modified",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-agent-core/src/compaction/compaction-trace.ts": {
+   "status": "new-in-family",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-agent-core/src/compaction/compaction-v2-streaming.ts": {
+   "status": "modified",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-agent-core/src/compaction/prompts/anthropic-compaction-instructions-live-chain.md": {
+   "status": "new-in-family",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-agent-core/src/compaction/prompts/compaction-turn-prefix-from-prefix.md": {
+   "status": "new-in-family",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-agent-core/src/compaction/prompts/compaction-update-summary-from-prefix.md": {
+   "status": "new-in-family",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-ai/dist/types/providers/openai-codex-responses.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/context-notes.d.ts": {
+   "status": "same",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/session-maintenance.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/session-provider-boundary.d.ts": {
+   "status": "modified",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-coding-agent/src/prompts/system/context-notes.md": {
+   "status": "same",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-coding-agent/src/session/context-notes.ts": {
+   "status": "same",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-coding-agent/src/session/session-provider-boundary.ts": {
+   "status": "modified",
+   "owners": [
+    "family-compaction"
+   ]
+  },
+  "pi-coding-agent/src/task/executor.ts": {
+   "status": "modified",
+   "owners": [
+    "family-compaction",
+    "0101-omp-subagent-warm-revival-persisted-prompt"
+   ]
+  },
+  "pi-ai/dist/types/auth/oauth.d.ts": {
+   "status": "same",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/dist/types/auth/pool.d.ts": {
+   "status": "same",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/dist/types/auth/refresh.d.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/dist/types/auth/sqlite-credential-store.d.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/dist/types/registry/oauth/anthropic.d.ts": {
+   "status": "same",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/auth/health.ts": {
+   "status": "same",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/auth/oauth.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/auth/pool.ts": {
+   "status": "same",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/auth/refresh.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/auth/select.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/auth/sqlite-credential-store.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/registry/engine/refresh.ts": {
+   "status": "same",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/registry/oauth/anthropic.ts": {
+   "status": "same",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/registry/oauth/factory-droid.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-ai/src/registry/oauth/snowflake.ts": {
+   "status": "same",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-catalog/dist/types/model-manager.d.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-catalog/src/model-manager.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-catalog/src/provider-models/google.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-catalog/src/provider-models/special.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-coding-agent/src/cli/auth-broker-cli.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-tui/src/overlays/mcp-add-wizard.ts": {
+   "status": "modified",
+   "owners": [
+    "0090-omp-oauth-durable-refresh"
+   ]
+  },
+  "pi-coding-agent/dist/types/extensibility/shared-events.d.ts": {
+   "status": "same",
+   "owners": [
+    "0092-omp-cache-warming-idle-budget",
+    "0095-omp-context-audit-request-purpose"
+   ]
+  },
+  "pi-coding-agent/dist/types/session/cache-warmer.d.ts": {
+   "status": "same",
+   "owners": [
+    "0092-omp-cache-warming-idle-budget"
+   ]
+  },
+  "pi-coding-agent/src/extensibility/shared-events.ts": {
+   "status": "same",
+   "owners": [
+    "0092-omp-cache-warming-idle-budget",
+    "0095-omp-context-audit-request-purpose"
+   ]
+  },
+  "pi-coding-agent/src/session/cache-warmer.ts": {
+   "status": "modified",
+   "owners": [
+    "0092-omp-cache-warming-idle-budget"
+   ]
+  },
+  "pi-coding-agent/src/extensibility/hooks/runner.ts": {
+   "status": "same",
+   "owners": [
+    "0095-omp-context-audit-request-purpose"
+   ]
+  },
+  "pi-ai/src/error/flags.ts": {
+   "status": "modified",
+   "owners": [
+    "0098-omp-tls-verify-transient-retry"
+   ]
+  },
+  "pi-coding-agent/src/session/retry-fallback-chains.ts": {
+   "status": "modified",
+   "owners": [
+    "0099-omp-retry-slow-schedule"
+   ]
+  },
+  "pi-catalog/dist/types/provider-models/openai-compat.d.ts": {
+   "status": "modified",
+   "owners": [
+    "0100-omp-stepfun-step-plan"
+   ]
+  },
+  "pi-catalog/src/compat/rules/auth/stepfun.kdl": {
+   "status": "same",
+   "owners": [
+    "0100-omp-stepfun-step-plan"
+   ]
+  },
+  "pi-catalog/src/compat/rules/providers/stepfun.kdl": {
+   "status": "same",
+   "owners": [
+    "0100-omp-stepfun-step-plan"
+   ]
+  },
+  "pi-catalog/src/models.json": {
+   "status": "modified",
+   "owners": [
+    "0100-omp-stepfun-step-plan"
+   ]
+  },
+  "pi-catalog/src/provider-models/openai-compat.ts": {
+   "status": "modified",
+   "owners": [
+    "0100-omp-stepfun-step-plan"
+   ]
+  }
+ },
+ "replay": [
+  {
+   "family": "family-status-accounting",
+   "root": "NM",
+   "caps": [
+    "0033",
+    "0004",
+    "0081"
+   ],
+   "hunks": 25,
+   "fuzz0": "ok",
+   "fuzz0_fail_lines": [],
+   "fuzz3": "ok",
+   "fuzz3_offsets": 0
+  },
+  {
+   "family": "family-hindsight",
+   "root": "AGENT",
+   "caps": [
+    "0034",
+    "0075"
+   ],
+   "hunks": 50,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 92.",
+    "1 out of 1 hunk FAILED",
+    "Hunk #1 FAILED at 1.",
+    "1 out of 13 hunks FAILED",
+    "Hunk #11 FAILED at 12411.",
+    "1 out of 17 hunks FAILED"
+   ],
+   "fuzz3": "ok",
+   "fuzz3_offsets": 3
+  },
+  {
+   "family": "family-usage-pipeline",
+   "root": "NM",
+   "caps": [
+    "0037",
+    "0025",
+    "0026",
+    "0030",
+    "0031"
+   ],
+   "hunks": 60,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #2 FAILED at 73.",
+    "1 out of 2 hunks FAILED",
+    "Hunk #1 FAILED at 145.",
+    "1 out of 1 hunk FAILED",
+    "Hunk #1 FAILED at 153.",
+    "1 out of 1 hunk FAILED",
+    "Hunk #1 FAILED at 1124.",
+    "1 out of 1 hunk FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 6
+  },
+  {
+   "family": "0010-omp-extension-idle-ephemeral-turn",
+   "root": "AGENT",
+   "caps": [
+    "0010"
+   ],
+   "hunks": 61,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #3 FAILED at 1618.",
+    "1 out of 3 hunks FAILED",
+    "Hunk #1 FAILED at 33.",
+    "1 out of 3 hunks FAILED",
+    "Hunk #1 FAILED at 524.",
+    "Hunk #2 FAILED at 844.",
+    "Hunk #3 FAILED at 1501.",
+    "3 out of 3 hunks FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 16
+  },
+  {
+   "family": "family-antigravity-wire",
+   "root": "AI",
+   "caps": [
+    "0014",
+    "0054"
+   ],
+   "hunks": 5,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #4 FAILED at 1238.",
+    "Hunk #5 FAILED at 1387.",
+    "2 out of 5 hunks FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 0
+  },
+  {
+   "family": "family-image-budget-snapcompact",
+   "root": "NM",
+   "caps": [
+    "0036",
+    "0044",
+    "0052",
+    "0057",
+    "0062"
+   ],
+   "hunks": 14,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 1.",
+    "1 out of 1 hunk FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 0
+  },
+  {
+   "family": "0032-omp-goal-tool-resident",
+   "root": "AGENT",
+   "caps": [
+    "0032"
+   ],
+   "hunks": 8,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #2 FAILED at 5408.",
+    "1 out of 3 hunks FAILED"
+   ],
+   "fuzz3": "ok",
+   "fuzz3_offsets": 1
+  },
+  {
+   "family": "family-persistent-prefix-resume",
+   "root": "NM",
+   "caps": [
+    "0038",
+    "0043",
+    "0047",
+    "0076",
+    "0077",
+    "0083",
+    "0084",
+    "0093"
+   ],
+   "hunks": 167,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 1.",
+    "1 out of 1 hunk FAILED",
+    "Hunk #1 FAILED at 28.",
+    "Hunk #2 FAILED at 141.",
+    "2 out of 6 hunks FAILED",
+    "Hunk #1 FAILED at 66.",
+    "1 out of 2 hunks FAILED",
+    "Hunk #1 FAILED at 117."
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 17
+  },
+  {
+   "family": "0046-omp-supersede-warm-prefix-guard",
+   "root": "AGENT",
+   "caps": [
+    "0046"
+   ],
+   "hunks": 1,
+   "fuzz0": "ok",
+   "fuzz0_fail_lines": [],
+   "fuzz3": "ok",
+   "fuzz3_offsets": 0
+  },
+  {
+   "family": "0048-omp-advisor-quota-rotation-bound",
+   "root": "NM",
+   "caps": [
+    "0048"
+   ],
+   "hunks": 6,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 134.",
+    "Hunk #2 FAILED at 348.",
+    "Hunk #3 FAILED at 1586.",
+    "Hunk #4 FAILED at 2104.",
+    "4 out of 4 hunks FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 3
+  },
+  {
+   "family": "0050-omp-session-history-preview",
+   "root": "NM",
+   "caps": [
+    "0050"
+   ],
+   "hunks": 41,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 200.",
+    "Hunk #2 FAILED at 218.",
+    "2 out of 2 hunks FAILED",
+    "Hunk #1 FAILED at 73.",
+    "Hunk #2 FAILED at 1850.",
+    "2 out of 2 hunks FAILED",
+    "Hunk #1 FAILED at 1.",
+    "1 out of 1 hunk FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 19
+  },
+  {
+   "family": "family-devin-wire",
+   "root": "NM",
+   "caps": [
+    "0055",
+    "0071",
+    "0056",
+    "0058",
+    "0060"
+   ],
+   "hunks": 28,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #7 FAILED at 264.",
+    "1 out of 15 hunks FAILED",
+    "Hunk #1 FAILED at 12237.",
+    "1 out of 2 hunks FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 0
+  },
+  {
+   "family": "0065-omp-commandcode-deepseek-model-record-parity",
+   "root": "NM",
+   "caps": [
+    "0065"
+   ],
+   "hunks": 2,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 1.",
+    "1 out of 1 hunk FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 0
+  },
+  {
+   "family": "0069-omp-codex-effort-history-resume",
+   "root": "AI",
+   "caps": [
+    "0069"
+   ],
+   "hunks": 12,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 103.",
+    "Hunk #4 FAILED at 1092.",
+    "2 out of 8 hunks FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 1
+  },
+  {
+   "family": "0072-omp-session-pin-static-auth-ui",
+   "root": "AGENT",
+   "caps": [
+    "0072"
+   ],
+   "hunks": 8,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 1.",
+    "Hunk #2 FAILED at 118.",
+    "Hunk #3 FAILED at 156.",
+    "Hunk #4 FAILED at 275.",
+    "Hunk #5 FAILED at 2073.",
+    "Hunk #6 FAILED at 2217.",
+    "Hunk #7 FAILED at 2256.",
+    "Hunk #8 FAILED at 2325."
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 0
+  },
+  {
+   "family": "0074-omp-anthropic-context-cache-boundaries",
+   "root": "AI",
+   "caps": [
+    "0074"
+   ],
+   "hunks": 22,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #3 FAILED at 2234.",
+    "1 out of 12 hunks FAILED"
+   ],
+   "fuzz3": "ok",
+   "fuzz3_offsets": 1
+  },
+  {
+   "family": "family-image-display",
+   "root": "NM",
+   "caps": [
+    "0079",
+    "0080"
+   ],
+   "hunks": 28,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 14.",
+    "Hunk #3 FAILED at 245.",
+    "Hunk #7 FAILED at 1598.",
+    "Hunk #11 FAILED at 1818.",
+    "4 out of 11 hunks FAILED",
+    "Hunk #7 FAILED at 699.",
+    "Hunk #8 FAILED at 874.",
+    "2 out of 14 hunks FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 0
+  },
+  {
+   "family": "family-input-translation",
+   "root": "NM",
+   "caps": [
+    "0082",
+    "0085"
+   ],
+   "hunks": 207,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 961.",
+    "1 out of 1 hunk FAILED",
+    "Hunk #1 FAILED at 1202.",
+    "1 out of 1 hunk FAILED",
+    "Hunk #1 FAILED at 10.",
+    "1 out of 3 hunks FAILED",
+    "Hunk #2 FAILED at 1146.",
+    "1 out of 7 hunks FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 48
+  },
+  {
+   "family": "family-compaction",
+   "root": "NM",
+   "caps": [
+    "0035",
+    "0063",
+    "0066",
+    "0067",
+    "0068",
+    "0070",
+    "0088",
+    "0089",
+    "0096"
+   ],
+   "hunks": 168,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 7.",
+    "Hunk #3 FAILED at 41.",
+    "Hunk #4 FAILED at 77.",
+    "3 out of 4 hunks FAILED",
+    "Hunk #1 FAILED at 12.",
+    "Hunk #2 FAILED at 25.",
+    "Hunk #7 FAILED at 279.",
+    "Hunk #8 FAILED at 295."
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 27
+  },
+  {
+   "family": "0090-omp-oauth-durable-refresh",
+   "root": "NM",
+   "caps": [
+    "0090"
+   ],
+   "hunks": 128,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 6.",
+    "Hunk #2 FAILED at 90.",
+    "2 out of 2 hunks FAILED",
+    "Hunk #3 FAILED at 102.",
+    "1 out of 5 hunks FAILED",
+    "Hunk #2 FAILED at 566.",
+    "Hunk #3 FAILED at 971.",
+    "2 out of 4 hunks FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 13
+  },
+  {
+   "family": "0092-omp-cache-warming-idle-budget",
+   "root": "AGENT",
+   "caps": [
+    "0092"
+   ],
+   "hunks": 28,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #3 FAILED at 1146.",
+    "1 out of 4 hunks FAILED",
+    "Hunk #7 FAILED at 456.",
+    "1 out of 13 hunks FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 1
+  },
+  {
+   "family": "0094-omp-anthropic-thinking-drop-resume",
+   "root": "AI",
+   "caps": [
+    "0094"
+   ],
+   "hunks": 12,
+   "fuzz0": "ok",
+   "fuzz0_fail_lines": [],
+   "fuzz3": "ok",
+   "fuzz3_offsets": 0
+  },
+  {
+   "family": "0095-omp-context-audit-request-purpose",
+   "root": "AGENT",
+   "caps": [
+    "0095"
+   ],
+   "hunks": 14,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 396.",
+    "1 out of 1 hunk FAILED",
+    "Hunk #2 FAILED at 274.",
+    "1 out of 2 hunks FAILED",
+    "Hunk #2 FAILED at 303.",
+    "1 out of 2 hunks FAILED",
+    "Hunk #2 FAILED at 2358.",
+    "1 out of 2 hunks FAILED"
+   ],
+   "fuzz3": "ok",
+   "fuzz3_offsets": 4
+  },
+  {
+   "family": "0098-omp-tls-verify-transient-retry",
+   "root": "AI",
+   "caps": [
+    "0098"
+   ],
+   "hunks": 2,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 562.",
+    "Hunk #2 FAILED at 569.",
+    "2 out of 2 hunks FAILED"
+   ],
+   "fuzz3": "ok",
+   "fuzz3_offsets": 2
+  },
+  {
+   "family": "0099-omp-retry-slow-schedule",
+   "root": "AGENT",
+   "caps": [
+    "0099"
+   ],
+   "hunks": 1,
+   "fuzz0": "ok",
+   "fuzz0_fail_lines": [],
+   "fuzz3": "ok",
+   "fuzz3_offsets": 0
+  },
+  {
+   "family": "0100-omp-stepfun-step-plan",
+   "root": "NM",
+   "caps": [
+    "0100"
+   ],
+   "hunks": 8,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 1.",
+    "1 out of 1 hunk FAILED",
+    "Hunk #1 FAILED at 1.",
+    "1 out of 1 hunk FAILED"
+   ],
+   "fuzz3": "fail",
+   "fuzz3_offsets": 0
+  },
+  {
+   "family": "0101-omp-subagent-warm-revival-persisted-prompt",
+   "root": "AGENT",
+   "caps": [
+    "0101"
+   ],
+   "hunks": 5,
+   "fuzz0": "fail",
+   "fuzz0_fail_lines": [
+    "Hunk #1 FAILED at 78.",
+    "Hunk #2 FAILED at 4083.",
+    "Hunk #3 FAILED at 4099.",
+    "Hunk #4 FAILED at 4110.",
+    "4 out of 5 hunks FAILED"
+   ],
+   "fuzz3": "ok",
+   "fuzz3_offsets": 4
+  }
+ ]
+}

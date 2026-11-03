@@ -1,0 +1,13 @@
+{"file":".trellis/spec/backend/index.md","reason":"Independent review spec routing"}
+{"file":".trellis/spec/backend/patch-rollup-contracts.md","reason":"Audit chain order, pristine-only inputs and immutable family history claims"}
+{"file":".trellis/spec/backend/verification-gate-contracts.md","reason":"Reject false-green evidence: source-only passes, tautologies, missing negative controls, unedited gate hashes"}
+{"file":".trellis/spec/backend/extension-runtime-contracts.md","reason":"Audit 0010/0092 against the reservation and keepalive contracts, not just patch application"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Audit declaration/callsite migration and runtime-import completeness"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"Audit that no step touched production credentials, agent.db/models.db or the live runtime"}
+{"file":".trellis/spec/guides/prompt-cache-diagnosis-guide.md","reason":"Audit that prefix/cache claims are correlated evidence, not assumed from a passing replay"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/design.md","reason":"Audit that every Q1-Q13 and NEW-0102 decision appears as an executing branch with its gate and rejected options"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/implement.md","reason":"Audit manifest-order coverage, effort labels, commands and authorization boundaries against prd acceptance criteria"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/capability-classification.md","reason":"Audit 62/62 ID coverage, sub-contract splits and every retirement's proof plus negative control"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/slice-f-native-tooling.md","reason":"Verify the version-gate, native overlay and missing-archive obligations are all represented as steps"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/slice-e-upstream-risk.md","reason":"Verify each P0/P1 upstream risk has an owning gate or an explicit accepted residual"}
+{"file":".trellis/tasks/11-03-omp-18160-upgrade-plan/research/replay-measure-v1.json","reason":"Cross-check claimed per-family failure counts against the recorded measurement instead of prose"}

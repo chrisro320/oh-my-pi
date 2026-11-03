@@ -1,0 +1,28 @@
+{
+  "id": "omp-18160-upgrade-plan",
+  "name": "omp-18160-upgrade-plan",
+  "title": "OMP 18.16.0 upgrade plan: capability classification and patch rebase diff",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "chris",
+  "assignee": "chris",
+  "createdAt": "2026-11-03",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "profile": "hard"
+  }
+}
