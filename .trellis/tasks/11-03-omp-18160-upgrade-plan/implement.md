@@ -677,9 +677,10 @@ Reason: R8 requires a review with no unresolved actionable findings before anyth
   assertion, no fake fallback, boundaries (credentials, publication, activation) intact, declared evidence reproducible. —
   Effort: medium — these are the failure modes this pipeline has actually produced.
 - [x] Dispose of findings; a finding that needs new scope returns to the user instead of being absorbed. — Effort: low — absorbing a finding is how scope silently grows.
-  Done: 5 findings (4 gate/evidence, 1 overclaim) fixed; the idle-owner gap the rewritten gate exposed was fixed in 0092 inside
-  the existing capability (no new scope), re-reviewed (3 holes closed, verdict correct), and M9–M11 re-run on `3cb462bf…`
-  (DECISIONS.md 18.16.0 section). No actionable finding remains.
+  Done: 5 findings (4 gate/evidence, 1 overclaim) fixed. The idle-owner gap that the rewritten gate exposed was fixed in 0092
+  inside the existing capability (no new scope), then made symmetric across warmer, recap and keepalive/compaction; three more
+  review rounds each closed their findings, and the last verdict was correct. M9–M11 re-run on `35567dd8…` (DECISIONS.md 18.16.0
+  section). No actionable finding remains.
 
 Acceptance: review verdict recorded; zero unresolved actionable findings.
 

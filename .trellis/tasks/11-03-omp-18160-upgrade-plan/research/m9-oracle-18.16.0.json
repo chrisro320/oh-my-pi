@@ -22,17 +22,17 @@
     "family-compaction",
     "family-persistent-prefix-resume"
   ],
-  "candidate_tree_sha256": "3cb462bf32327eee9a6e9ec215fecd98759380e8a768fc15a6a07eec3a8927df",
+  "candidate_tree_sha256": "35567dd8cf1a2f31ff0b8ed3c0671ca76c924933fe0d8d17052b0d3ae8be49ba",
   "pristine_tree_sha256": "9f88de1a04fb7d663ecd2b627686f0048252231d1a6293bd34fce4301eaf99a1",
   "zero_fuzz": true,
   "reverse_to_pristine": true,
   "second_replay_identical": true,
   "controller_check_read_only": true,
   "behavioral_checks_run": false,
-  "rerun_reason": "0092 gained the idle-owner defer (cache-warmer.ts, idle-maintenance.ts, agent-session.ts, sdk.ts, agent-session.d.ts) after the previous candidate; implement.md M9 acceptance requires M9 to re-run before M10 continues.",
+  "rerun_reason": "0092 changed again to symmetric idle-owner coordination (cache-warmer.ts, agent-session.ts, idle-maintenance.ts, sdk.ts plus cache-warmer/agent-session/idle-maintenance .d.ts) after the previous candidate; implement.md M9 acceptance requires M9 to re-run before M10 continues. verify-cron-idle-owners.ts was updated in the same change (sha256 b026e929...).",
   "oracle": {
     "command": "python3 patches/verify-release-family-plan.py --version 18.16.0 --tgz-cache /tmp/omp-plan-18160/acq/archives",
-    "stdout": "/var/tmp/omp-18160-s4/oracle-18.16.0.json"
+    "stdout": "/var/tmp/omp-18160-s5/oracle-18.16.0.out"
   },
   "rollups": {
     "command": "OMP_PATCH_VERSION=<version> bash patches/apply.sh --verify-rollups",
@@ -40,11 +40,11 @@
       "status": "PASS",
       "families": 26,
       "capabilities": 62,
-      "candidate_tree_sha256": "3cb462bf32327eee9a6e9ec215fecd98759380e8a768fc15a6a07eec3a8927df",
+      "candidate_tree_sha256": "35567dd8cf1a2f31ff0b8ed3c0671ca76c924933fe0d8d17052b0d3ae8be49ba",
       "zero_fuzz": true,
       "reverse_to_pristine": true,
       "second_replay_identical": true,
-      "stdout": "/var/tmp/omp-18160-s4/rollups-18.16.0.out"
+      "stdout": "/var/tmp/omp-18160-s5/rollups-18.16.0.out"
     },
     "18.12.6_control": {
       "status": "PASS",
@@ -56,13 +56,13 @@
       "zero_fuzz": true,
       "reverse_to_pristine": true,
       "second_replay_identical": true,
-      "stdout": "/var/tmp/omp-18160-s4/rollups-18.12.6.out"
+      "stdout": "/var/tmp/omp-18160-s5/rollups-18.12.6.out"
     }
   },
   "family_0092": {
     "id": "0092-omp-cache-warming-idle-budget",
-    "sha256": "d88bcb70d816aac85b8dfe42571ca9e903b2c179ddd08a2e5b3e579283dad60b",
-    "patch_bytes_sha256": "d88bcb70d816aac85b8dfe42571ca9e903b2c179ddd08a2e5b3e579283dad60b",
+    "sha256": "7faffb497149200d8877868fdfba7542683af4509202593ea791071ac02d377a",
+    "patch_bytes_sha256": "7faffb497149200d8877868fdfba7542683af4509202593ea791071ac02d377a",
     "paths": [
       "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
       "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
@@ -73,11 +73,13 @@
       "pi-coding-agent/src/session/cache-warmer.ts",
       "pi-coding-agent/src/session/agent-session.ts",
       "pi-coding-agent/dist/types/session/agent-session.d.ts",
-      "pi-coding-agent/src/session/idle-maintenance.ts"
+      "pi-coding-agent/src/session/idle-maintenance.ts",
+      "pi-coding-agent/dist/types/session/idle-maintenance.d.ts"
     ],
     "root": "AGENT",
     "rollup_paths_flagged": false
   },
+  "gate_verify_cron_idle_owners_sha256": "b026e92956736cb012cd64aad52db13b89e9332adfd64cdb6971b1167362b893",
   "controller_view": {
     "plan_rows": 26,
     "gates": 71,
@@ -148,8 +150,8 @@
     ]
   },
   "runtime": {
-    "path": "/var/tmp/omp-18160-s4/runtime",
-    "tree_sha256": "de55c263040a062c65d4e0f45e0b5c3de219171ac93aaae1edbae301f8077bcb",
+    "path": "/var/tmp/omp-18160-s5/runtime",
+    "tree_sha256": "96fc50c54ea5b9c25c4cf559e03788ce3e5c1c5244541263cdac9ca268c9f616",
     "files": 26300,
     "tree_sha256_method": "sha256 over sorted \"<kind> <relpath>\\t<sha256|link target>\" lines of every entry",
     "packages": {
@@ -165,12 +167,12 @@
       "pi_natives.linux-x64-baseline.node": "6aa35374494c51cf71c3b3afff98fc383e421dc11e3a167dbb904868f80e3c29"
     },
     "build_script": ".trellis/tasks/11-03-omp-18160-upgrade-plan/research/gate-runtime-18.16.0.sh",
-    "source": "/tmp/omp-plan-18160/rebase/work (candidate work tree, replay digest 3cb462bf)",
+    "source": "/tmp/omp-plan-18160/rebase/work (candidate work tree, replay digest 35567dd8)",
     "overlay": {
       "command": "python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi --overlay patches/native/18.16.0/overlay.json",
       "result": "PASS",
       "line": "PASS native overlay 18.16.0: 2 addons, 1 patches"
     }
   },
-  "timestamp": "2026-11-03T19:17:54.628386+00:00"
+  "timestamp": "2026-11-03T20:45:17.216274+00:00"
 }

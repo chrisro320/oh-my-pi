@@ -2,23 +2,23 @@
   "control": "m11-exact-version-fail-closed",
   "target_version": "18.16.0",
   "fixture": {
-    "path": "/var/tmp/omp-18160-s4/fixture-18161",
+    "path": "/var/tmp/omp-18160-s5/fixture-18161",
     "kind": "hardlink copy of the assembled candidate runtime with every @oh-my-pi manifest rewritten",
     "manifests_rewritten": 13,
     "versions_in_fixture": [
       "18.16.1"
     ],
-    "candidate_runtime": "/var/tmp/omp-18160-s4/runtime",
+    "candidate_runtime": "/var/tmp/omp-18160-s5/runtime",
     "note": "the copy shares inodes with the candidate except the rewritten manifests; the candidate was never modified"
   },
-  "command": "research/smoke/run-sandbox-smoke.py --runtime /var/tmp/omp-18160-s4/fixture-18161 --ledger <repo>/patches --out /var/tmp/omp-18160-s4/never-18161.json",
+  "command": "research/smoke/run-sandbox-smoke.py --runtime /var/tmp/omp-18160-s5/fixture-18161 --ledger <repo>/patches --out /var/tmp/omp-18160-s5/never-18161.json",
   "sandbox": "bwrap --unshare-net, private HOME/XDG/TMPDIR under /var/tmp, env -i, tmpfs masks over ~/.omp and ~/.bun/install/global",
   "exit_code": 1,
   "class": "uncaught ValueError raised by harness.validate_runtime before any copy",
   "verbatim_error": "ValueError: selected omp-stats is not 18.16.0",
-  "stderr_tail": "                     ^^^^^^\n  File \"/home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/smoke/run-sandbox-smoke.py\", line 132, in main\n    runtime = validate_runtime(args.runtime, release and (release / \"runtime\").resolve(strict=True))\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/smoke/harness.py\", line 48, in validate_runtime\n    raise ValueError(f\"selected {package} is not {VERSION}\")\nValueError: selected omp-stats is not 18.16.0\nRUN-EXIT run-sandbox-smoke.py 1 (/var/tmp/omp-18160-s4/fixture-18161)",
+  "stderr_tail": "                     ^^^^^^\n  File \"/home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/smoke/run-sandbox-smoke.py\", line 132, in main\n    runtime = validate_runtime(args.runtime, release and (release / \"runtime\").resolve(strict=True))\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/smoke/harness.py\", line 48, in validate_runtime\n    raise ValueError(f\"selected {package} is not {VERSION}\")\nValueError: selected omp-stats is not 18.16.0\nRUN-EXIT run-sandbox-smoke.py 1 (/var/tmp/omp-18160-s5/fixture-18161)",
   "evidence_file_written": false,
   "harness_sha256": "27d3811419dc125942314f9b856cbcef080bea34c63a346974bfa9d75384a5e1",
   "smoke_script_sha256": "35c6178996590c88b26704a878b2b06a8b8ca2efb2051868107424b209aadfd1",
-  "timestamp": "2026-11-03T19:32:45.869043+00:00"
+  "timestamp": "2026-11-03T21:02:10.712047+00:00"
 }

@@ -132,6 +132,21 @@ cron({ action: "status" | "enable" | "disable", every?: string, runs?: number })
 - The finite `/cron <duration>` / `loop<n>` side-request path remains only for
   providers the host does not warm (Devin, Kimi, OpenAI). The `anthropic` preset
   is removed because it duplicated the host warmer.
+- 18.16.0 (0092) idle-request ownership: warm replay, idle recap, keepalive
+  (`runIdleEphemeralTurn`) and idle compaction are mutually exclusive on the wire,
+  in BOTH directions, and each owner holds its claim until its request settles
+  (an aborted request still owns the wire). Upstream only made idle compaction
+  cancel the warmer; the recap and keepalive orderings are ours. Rules:
+  the warmer publishes ownership before `onRefreshStart` (synchronous
+  subscribers see it), re-checks `defer()` after the async decision hook, and
+  stops a deferred streaming run at `startedAt + MAX_WARMING_AGE_MS`. A
+  maintenance step blocked only by a replay re-arms ONLY its own retry slot;
+  other blockers use `#schedule()`. Never both, and never reset the other
+  step's deadline on a warm hit, because recurring hits would starve idle
+  compaction. Gate: `patches/verify-cron-idle-owners.ts` drives a real session
+  over one counted transport on a frozen clock; a guard that can only be
+  removed without turning any leg red is defence-in-depth and must be recorded
+  as such.
 
 ### 4. Validation & Error Matrix
 

@@ -2,7 +2,7 @@
   "status": "candidate-exported-unverified",
   "behavioral_checks_run": false,
   "candidate": "/tmp/omp-plan-18160/rebase/work",
-  "candidate_tree_sha256": "3cb462bf32327eee9a6e9ec215fecd98759380e8a768fc15a6a07eec3a8927df",
+  "candidate_tree_sha256": "35567dd8cf1a2f31ff0b8ed3c0671ca76c924933fe0d8d17052b0d3ae8be49ba",
   "pristine_tree_sha256": "9f88de1a04fb7d663ecd2b627686f0048252231d1a6293bd34fce4301eaf99a1",
   "family_count": 26,
   "local_capability_count": 56,
@@ -756,13 +756,15 @@
         "pi-coding-agent/src/session/cache-warmer.ts",
         "pi-coding-agent/src/session/agent-session.ts",
         "pi-coding-agent/dist/types/session/agent-session.d.ts",
-        "pi-coding-agent/src/session/idle-maintenance.ts"
+        "pi-coding-agent/src/session/idle-maintenance.ts",
+        "pi-coding-agent/dist/types/session/idle-maintenance.d.ts"
       ],
       "declarations": [
         "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
         "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
         "pi-coding-agent/dist/types/session/cache-warmer.d.ts",
-        "pi-coding-agent/dist/types/session/agent-session.d.ts"
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/dist/types/session/idle-maintenance.d.ts"
       ],
       "source": [
         "pi-coding-agent/src/extensibility/extensions/types.ts",
@@ -772,7 +774,7 @@
         "pi-coding-agent/src/session/agent-session.ts",
         "pi-coding-agent/src/session/idle-maintenance.ts"
       ],
-      "sha256": "d88bcb70d816aac85b8dfe42571ca9e903b2c179ddd08a2e5b3e579283dad60b"
+      "sha256": "7faffb497149200d8877868fdfba7542683af4509202593ea791071ac02d377a"
     },
     {
       "id": "0094-omp-anthropic-thinking-drop-resume",

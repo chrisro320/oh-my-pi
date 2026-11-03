@@ -26,7 +26,7 @@ python3 patches/verify-release-family-plan.py --version 18.16.0 --tgz-cache <arc
 bash patches/verify-patch-family-rollups.sh --version 18.16.0
 ```
 
-`--check` is not acceptance — it peels the final tree. Acceptance is the zero-fuzz replay, reverse-to-pristine and an identical second replay against pinned archives (`$TASK/research/m9-oracle-18.16.0.json`, candidate tree `3cb462bf…`, pristine `9f88de1a…`).
+`--check` is not acceptance — it peels the final tree. Acceptance is the zero-fuzz replay, reverse-to-pristine and an identical second replay against pinned archives (`$TASK/research/m9-oracle-18.16.0.json`, candidate tree `35567dd8…`, pristine `9f88de1a…`).
 
 Gate batch: build a private runtime with `$TASK/research/gate-runtime-18.16.0.sh <source-@oh-my-pi> <out>`, then run **only** the controller-selected gates with `$TASK/research/run-target-gates.py --repo <repo> --runtime <out> --out <fresh>`, inside `bwrap --die-with-parent --unshare-net --bind / / --dev /dev --proc /proc` with a private HOME/XDG. All 71 must be `PASS` and the runtime hash manifest must be unchanged before and after (`$TASK/research/m10-full-batch-18.16.0.json`). Freeze the controller and ledger bytes first; a batch with a moving gate proves nothing.
 

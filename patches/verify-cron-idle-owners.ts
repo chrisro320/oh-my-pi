@@ -171,6 +171,8 @@ interface FakeTimer {
 	ms: number;
 	fn: () => void;
 	cleared: boolean;
+	/** Clock value when the timer was armed, so a leg can fire them in due order. */
+	armedAt: number;
 }
 
 const realSetTimeout = globalThis.setTimeout;
@@ -314,16 +316,27 @@ function liveTimers(): FakeTimer[] {
 	return timers.filter(candidate => !candidate.cleared);
 }
 
-Date.now = () => clock;
-clockGlobal.setTimeout = (fn, ms) => {
-	const timer: FakeTimer = { ms: ms ?? 0, fn, cleared: false };
-	timers.push(timer);
-	return Object.assign(timer, { unref() {} });
-};
-clockGlobal.clearTimeout = timer => {
-	if (timer) timer.cleared = true;
-};
+/** Freeze the clock for a leg; the returned function restores the real one. */
+function installFakeClock(): () => void {
+	timers.length = 0;
+	clock = CLOCK_EPOCH;
+	Date.now = () => clock;
+	clockGlobal.setTimeout = (fn, ms) => {
+		const timer: FakeTimer = { ms: ms ?? 0, fn, cleared: false, armedAt: clock };
+		timers.push(timer);
+		return Object.assign(timer, { unref() {} });
+	};
+	clockGlobal.clearTimeout = timer => {
+		if (timer) timer.cleared = true;
+	};
+	return () => {
+		Date.now = realNow;
+		globalThis.setTimeout = realSetTimeout;
+		globalThis.clearTimeout = realClearTimeout;
+	};
+}
 
+const restoreClock = installFakeClock();
 try {
 	for (const provider of SKIPPED_PROVIDERS) {
 		const model = models.getBundledModels(provider)[0];
@@ -524,9 +537,7 @@ try {
 	}
 	console.log("ok  idle owners: deferred retries stop at the hour bound and fire once the owner clears");
 } finally {
-	Date.now = realNow;
-	globalThis.setTimeout = realSetTimeout;
-	globalThis.clearTimeout = realClearTimeout;
+	restoreClock();
 }
 
 // ---------------------------------------------------------------------------
@@ -550,18 +561,25 @@ interface SessionLike {
 	runIdleCompaction(): Promise<void>;
 	runIdleEphemeralTurn(options: { promptText: string }): Promise<unknown>;
 	enableIdleMaintenance(options?: Record<string, unknown>): void;
+	refreshIdleMaintenance(): void;
+	subscribe(listener: (event: { type: string }) => void): void;
 	dispose(): Promise<void>;
 	isCompacting: boolean;
 	idleRecapRunning: boolean;
+	hasIdleEphemeralReservation: boolean;
 	cacheWarmingStatus?: { state: string; nextWarmAt?: number };
 }
 
 interface LaneState {
 	lanes: string[];
+	/** Aborted requests per lane: a superseded request must be settled, not raced. */
+	aborts: Record<string, number>;
 	inFlight: number;
 	peak: number;
 	/** Lane that stays open until `held.release()` is called. */
 	holding: string | undefined;
+	/** Report the held warm replay as a cache miss, so warming stops instead of churning. */
+	warmMiss: boolean;
 	held: { promise: Promise<void>; resolve: () => void };
 }
 
@@ -569,15 +587,30 @@ registerMockApi("cron-idle-owners");
 const laneRoot = join(tmpdir(), `omp-cron-idle-owners-${process.pid}`);
 
 /** One real session whose mock transport records every provider call on a single wire. */
-async function realSession(name: string, overrides: Record<string, unknown>): Promise<{ session: SessionLike; lane: LaneState }> {
+async function realSession(
+	name: string,
+	overrides: Record<string, unknown>,
+	ttlSeconds = 12,
+): Promise<{ session: SessionLike; lane: LaneState }> {
 	const cwd = join(laneRoot, name);
 	mkdirSync(cwd, { recursive: true });
 	const held = Promise.withResolvers<void>();
-	const lane: LaneState = { lanes: [], inFlight: 0, peak: 0, holding: undefined, held: { promise: held.promise, resolve: held.resolve } };
+	const lane: LaneState = {
+		lanes: [],
+		aborts: {},
+		inFlight: 0,
+		peak: 0,
+		holding: undefined,
+		warmMiss: false,
+		held: { promise: held.promise, resolve: held.resolve },
+	};
 	const model = createMockModel({
 		id: "mock-warm",
 		cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
-		handler: async (context: { messages: Array<{ content?: unknown }> }, options?: { maxTokens?: number }) => {
+		handler: async (
+			context: { messages: Array<{ content?: unknown }> },
+			options?: { maxTokens?: number; signal?: AbortSignal },
+		) => {
 			const text = JSON.stringify(context.messages.at(-1)?.content ?? "");
 			const kind = options?.maxTokens === 1
 				? "warm"
@@ -589,20 +622,25 @@ async function realSession(name: string, overrides: Record<string, unknown>): Pr
 			lane.inFlight += 1;
 			lane.peak = Math.max(lane.peak, lane.inFlight);
 			lane.lanes.push(kind);
+			options?.signal?.addEventListener("abort", () => {
+				lane.aborts[kind] = (lane.aborts[kind] ?? 0) + 1;
+			}, { once: true });
 			try {
 				if (lane.holding === kind) await held.promise;
+				const cacheRead = kind === "warm" && lane.warmMiss ? 0 : 200_000;
 				return {
 					content: ["ok"],
-					usage: { input: 10, output: 1, cacheRead: 200_000, cacheWrite: 0, totalTokens: 200_011 },
+					usage: { input: 10, output: 1, cacheRead, cacheWrite: kind === "warm" && lane.warmMiss ? 200_000 : 0, totalTokens: 200_011 },
 				};
 			} finally {
 				lane.inFlight -= 1;
 			}
 		},
 	});
-	// The warmer only arms for a model that declares a cache lifetime; a 12s
-	// entry puts its refresh point 2s after the turn that wrote it.
-	Object.defineProperty(model, "promptCache", { value: { short: 12 }, enumerable: true });
+	// The warmer only arms for a model that declares a cache lifetime; the entry
+	// length sets both the refresh point (90% of it) and the spacing between
+	// refreshes, which each leg chooses to keep its two lanes distinguishable.
+	Object.defineProperty(model, "promptCache", { value: { short: ttlSeconds }, enumerable: true });
 	const agentDir = join(cwd, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
 	authStorage.keys.setRuntime("mock", "test");
@@ -641,6 +679,25 @@ async function realSession(name: string, overrides: Record<string, unknown>): Pr
 		},
 	});
 	return { session: session as unknown as SessionLike, lane };
+}
+
+/** On a frozen clock, fire every timer due up to `targetMs` and report their delays. */
+async function fireDueTimers(targetMs: number): Promise<number[]> {
+	const fired: number[] = [];
+	for (let step = 0; step < 800; step += 1) {
+		const next = [...timers]
+			.filter(candidate => !candidate.cleared)
+			.sort((a, b) => a.armedAt + a.ms - (b.armedAt + b.ms))[0];
+		if (!next) break;
+		const due = next.armedAt + next.ms;
+		if (due - CLOCK_EPOCH > targetMs) break;
+		next.cleared = true;
+		clock = Math.max(clock, due);
+		fired.push(next.ms);
+		next.fn();
+		await settle();
+	}
+	return fired;
 }
 
 async function waitForLane(lane: LaneState, kind: string, ms: number): Promise<void> {
@@ -706,6 +763,7 @@ try {
 				1,
 				"the superseded replay must not be dispatched again",
 			);
+			assert.equal(lane.aborts.warm, 1, "the warm request must be aborted (settled) before compaction takes the wire");
 			console.log(`ok  idle owners: compaction superseded the warm replay (lanes ${lane.lanes.join(",")})`);
 		} finally {
 			lane.held.resolve();
@@ -771,6 +829,184 @@ try {
 			console.log(`ok  idle owners: a cancelled recap kept the wire until it settled (lanes ${lane.lanes.join(",")})`);
 		} finally {
 			lane.held.resolve();
+			await session.dispose();
+		}
+	}
+	// (a) A warm replay already on the wire: the recap timer must wait for it.
+	//     A 20s entry refreshes every 10s, so the 12s recap deadline lands while
+	//     the held replay owns the wire, and the next gap is long enough to see
+	//     the recap run afterwards.
+	{
+		const { session, lane } = await realSession(
+			"warm-then-recap",
+			{ "recap.enabled": true, "recap.idleSeconds": 12 },
+			20,
+		);
+		try {
+			lane.holding = "warm";
+			lane.warmMiss = true; // the replay the recap waits behind misses, so warming stops there
+			session.enableIdleMaintenance({});
+			await session.prompt("hi");
+			await waitForLane(lane, "warm", 14_000);
+			await Bun.sleep(4_000); // past the recap deadline, warm still held
+			assert.equal(
+				lane.lanes.includes("recap"),
+				false,
+				"a recap must not start while a warm replay owns the wire",
+			);
+			lane.held.resolve();
+			await waitForLane(lane, "recap", 30_000);
+			assert.equal(
+				lane.lanes.filter(kind => kind === "recap").length,
+				1,
+				"the recap runs exactly once after the warm replay settles",
+			);
+			console.log(`ok  idle owners: a warm replay settled before the recap started (lanes ${lane.lanes.join(",")})`);
+		} finally {
+			lane.held.resolve();
+			await session.dispose();
+		}
+	}
+
+	// (b) A keepalive reservation held past the warm deadline: the replay waits.
+	{
+		const { session, lane } = await realSession("keepalive-vs-warm", { "recap.enabled": false });
+		try {
+			lane.holding = "keepalive";
+			await session.prompt("hi");
+			const keepalive = session.runIdleEphemeralTurn({ promptText: "Session cache keepalive probe." });
+			await waitForLane(lane, "keepalive", 8_000);
+			await Bun.sleep(2_800); // past the 2s warm refresh point, reservation still held
+			assert.equal(
+				lane.lanes.includes("warm"),
+				false,
+				"a warm replay must not start while a keepalive reservation is held",
+			);
+			lane.held.resolve();
+			await keepalive;
+			await waitForLane(lane, "warm", 40_000);
+			assert.equal(
+				lane.lanes.filter(kind => kind === "warm").length,
+				1,
+				"the deferred replay refreshes exactly once after the reservation clears",
+			);
+			console.log(`ok  idle owners: a held keepalive kept the warm replay off the wire (lanes ${lane.lanes.join(",")})`);
+		} finally {
+			lane.held.resolve();
+			await session.dispose();
+		}
+	}
+
+	// (d) The other direction: a keepalive must not start beside a warm replay.
+	{
+		const { session, lane } = await realSession("keepalive-blocked", { "recap.enabled": false });
+		try {
+			lane.holding = "warm";
+			await session.prompt("hi");
+			await waitForLane(lane, "warm", 8_000);
+			const refused = await session.runIdleEphemeralTurn({ promptText: "Session cache keepalive probe." });
+			assert.equal(refused, undefined, "the keepalive must be refused while a warm replay is in flight");
+			assert.equal(
+				lane.lanes.filter(kind => kind === "keepalive").length,
+				0,
+				"no keepalive request may be dispatched beside a warm replay",
+			);
+			console.log(`ok  idle owners: the keepalive was refused while a warm replay owned the wire (lanes ${lane.lanes.join(",")})`);
+		} finally {
+			lane.held.resolve();
+			await session.dispose();
+		}
+	}
+
+	// (e) Recurring warm hits must not postpone another owner's deadline: the
+	//     recap and the idle compaction fire when they were armed to fire.
+	{
+		const { session, lane } = await realSession("deadline-keep", {
+			"recap.enabled": true,
+			"recap.idleSeconds": 7,
+			"compaction.idleEnabled": true,
+			"compaction.idleThresholdTokens": 1,
+			"compaction.idleTimeoutSeconds": 60,
+		});
+		const restore = installFakeClock();
+		const fired: number[] = [];
+		try {
+			session.enableIdleMaintenance({});
+			await session.prompt("hi");
+			// Fire whatever is due first, like a real clock would, for 90s of
+			// simulated time while the 12s entry refreshes every 2s.
+			fired.push(...(await fireDueTimers(90_000)));
+			const warmHits = lane.lanes.filter(kind => kind === "warm").length;
+			assert.ok(warmHits >= 10, `the leg must produce recurring warm hits (saw ${warmHits})`);
+			assert.ok(fired.includes(7_000), "the recap must still fire at its own deadline");
+			assert.ok(fired.includes(60_000), "idle compaction must still fire at its own deadline");
+			console.log(`ok  idle owners: ${warmHits} warm hits left both maintenance deadlines intact`);
+		} finally {
+			restore();
+			await session.dispose();
+		}
+	}
+
+	// (f) The start callback runs while the wire is being taken: a subscriber that
+	//     asks for a keepalive there must be refused, not dispatched beside it.
+	{
+		const { session, lane } = await realSession("start-subscriber", { "recap.enabled": false });
+		try {
+			lane.holding = "warm";
+			let outcome = "not-attempted";
+			session.subscribe(event => {
+				if (event.type !== "cache_warming_start" || outcome !== "not-attempted") return;
+				outcome = "pending";
+				void session.runIdleEphemeralTurn({ promptText: "Session cache keepalive probe." }).then(result => {
+					outcome = result === undefined ? "refused" : "dispatched";
+				});
+			});
+			await session.prompt("hi");
+			await waitForLane(lane, "warm", 8_000);
+			await Bun.sleep(300);
+			assert.equal(outcome, "refused", "a cache_warming_start subscriber must not dispatch a keepalive beside the replay");
+			assert.equal(
+				lane.lanes.filter(kind => kind === "keepalive").length,
+				0,
+				"no keepalive request may start from the start callback",
+			);
+			console.log(`ok  idle owners: the start callback already saw the wire busy (lanes ${lane.lanes.join(",")})`);
+		} finally {
+			lane.held.resolve();
+			await session.dispose();
+		}
+	}
+
+	// (g) A warm replay held across both deadlines: the recap retries on its own
+	//     slot, and the armed idle-compaction deadline is never cleared by it.
+	{
+		const { session, lane } = await realSession("deadline-hold", {
+			"recap.enabled": true,
+			"recap.idleSeconds": 7,
+			"compaction.idleEnabled": true,
+			"compaction.idleThresholdTokens": 1,
+			"compaction.idleTimeoutSeconds": 60,
+		});
+		const restore = installFakeClock();
+		try {
+			lane.holding = "warm"; // the replay never settles during this leg
+			session.enableIdleMaintenance({});
+			await session.prompt("hi");
+			const fired = await fireDueTimers(65_000);
+			assert.ok(fired.includes(7_000), "the recap step must come due at its own deadline");
+			assert.ok(
+				fired.includes(60_000),
+				"a blocked recap must not clear the idle-compaction deadline (`fired` lacks 60000)",
+			);
+			assert.equal(
+				lane.lanes.filter(kind => kind === "recap").length,
+				0,
+				"no recap may dispatch while the warm replay holds the wire",
+			);
+			console.log("ok  idle owners: a held warm replay left both maintenance deadlines armed");
+		} finally {
+			lane.held.resolve();
+			restore();
 			await session.dispose();
 		}
 	}

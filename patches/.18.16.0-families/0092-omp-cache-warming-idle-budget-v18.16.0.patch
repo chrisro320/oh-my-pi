@@ -107,7 +107,16 @@
   */
  export declare class CacheWarmer {
      #private;
-@@ -161,7 +170,7 @@
+@@ -143,6 +152,8 @@
+     /** Called exactly once after each onRefreshStart, unless the host cleared it (dispose) while the refresh was in flight. */
+     onRefreshEnd?: (refresh: CacheWarmingRefreshEnd) => void;
+     constructor(deps: CacheWarmerDeps);
++    /** True from the moment a replay is written until its stream settles, aborted or not. */
++    get settling(): boolean;
+     get status(): CacheWarmingStatus;
+     /**
+      * Cache entry the latest confirmed request wrote, while the conversation
+@@ -161,7 +172,7 @@
       */
      onResponse(message: AssistantMessage): void;
      onAgentSettled(): void;
@@ -187,7 +196,7 @@
 +						// An idle recap or a compaction owns the wire: a warm replay defers
 +						// instead of becoming a second concurrent paid request after it.
 +						defer: () =>
-+							session.isCompacting || session.idleRecapRunning
++							session.isCompacting || session.idleRecapRunning || session.hasIdleEphemeralReservation
 +								? "another session-owned request owns the session"
 +								: undefined,
  						decide: event => extensionRunner.emitCacheWarmingDecision(event),
@@ -284,7 +293,7 @@
  	controller: AbortController;
  	phase: "streaming" | "idle";
  	nextWarmAt: number;
-@@ -310,14 +344,22 @@
+@@ -310,21 +344,37 @@
  	getPromptTokens: () => number;
  	/** Current warming mode, read live so setting changes apply without re-arming. */
  	getMode: () => CacheWarmingMode;
@@ -308,7 +317,13 @@
   */
  export class CacheWarmer {
  	#run?: ActiveRun;
-@@ -325,6 +367,8 @@
++	/**
++	 * Replays written to the provider that have not settled yet. A superseded
++	 * request keeps counting until its stream settles, so "no request on the
++	 * wire" is a fact rather than an intention.
++	 */
++	#settling = 0;
+ 	/** Entry the provider confirmed by reading or writing the prompt cache. */
  	#entry?: TrackedCacheEntry;
  	/** Entry the in-flight request will write, published only once its response confirms it. */
  	#pendingEntry?: TrackedCacheEntry;
@@ -317,7 +332,19 @@
  	#inactive: CacheWarmingStatus;
  	readonly #deps: CacheWarmerDeps;
  	/** Called with every paid warm response, including one that missed the cache or was aborted after acceptance. */
-@@ -445,6 +489,7 @@
+@@ -339,6 +389,11 @@
+ 		this.#inactive = { state: "inactive", reason: "waiting for first request" };
+ 	}
+ 
++	/** True from the moment a replay is written until its stream settles, aborted or not. */
++	get settling(): boolean {
++		return this.#settling > 0;
++	}
++
+ 	get status(): CacheWarmingStatus {
+ 		if (this.#deps.getMode() === "off") return { state: "inactive", reason: "cache warming disabled" };
+ 		const run = this.#run;
+@@ -445,6 +500,7 @@
  		}
  		clearTimeout(run.timer);
  		run.timer = undefined;
@@ -325,7 +352,7 @@
  		run.tier = observed;
  		run.delayMs = delayMs;
  		this.#schedule(run);
-@@ -459,12 +504,12 @@
+@@ -459,12 +515,12 @@
  		}
  		run.phase = "idle";
  		const reason = this.#idleStopReason(run);
@@ -341,7 +368,7 @@
  		if (!run) return;
  		const reason = this.#getModeStopReason(run);
  		if (reason) this.#stop(reason);
-@@ -482,15 +527,43 @@
+@@ -482,15 +538,43 @@
  	}
  
  	#idleStopReason(run: ActiveRun): string | undefined {
@@ -390,7 +417,7 @@
  		const run = this.#run;
  		if (!run) return;
  		this.#run = undefined;
-@@ -498,25 +571,106 @@
+@@ -498,25 +582,106 @@
  		run.controller.abort();
  	}
  
@@ -505,7 +532,7 @@
  		run.timer = setTimeout(() => void this.#refresh(run), Math.max(0, run.nextWarmAt - Date.now()));
  		run.timer.unref?.();
  	}
-@@ -551,6 +705,12 @@
+@@ -551,6 +716,12 @@
  	async #refresh(run: ActiveRun): Promise<void> {
  		run.timer = undefined;
  		if (!this.#validateRun(run)) return;
@@ -518,7 +545,7 @@
  		const decision = this.#evaluate(run);
  		const action = await this.#decide(decision);
  		if (!this.#validateRun(run)) return;
-@@ -565,6 +725,12 @@
+@@ -565,17 +736,28 @@
  			return;
  		}
  
@@ -531,7 +558,24 @@
  		run.extensionOverride = extensionOverride;
  		const refresh: CacheWarmingRefreshStart = {
  			phase: run.phase,
-@@ -588,6 +754,7 @@
+ 			provider: run.model.provider,
+ 			model: run.model.id,
+ 		};
+-		this.onRefreshStart?.(refresh);
+ 		let outcome: CacheWarmingRefreshEnd["outcome"] = "error";
+ 		let usage: Usage | undefined;
+ 		const sentAt = Date.now();
++		// Ownership is taken before the start callback and released in the same
++		// finally: a subscriber that synchronously asks for an idle side request
++		// must already see the wire busy, and a throwing callback must not leak
++		// the counter.
++		this.#settling += 1;
+ 		try {
++			this.onRefreshStart?.(refresh);
+ 			const message = await this.#replay(run);
+ 			// Record before the abort check: a refresh cancelled or replaced after the
+ 			// provider accepted it was still billed, and spend tracking must see it.
+@@ -588,6 +770,7 @@
  				return;
  			}
  			if (!message || message.stopReason === "error") {
@@ -539,7 +583,7 @@
  				this.#stop("refresh failed");
  				return;
  			}
-@@ -596,6 +763,7 @@
+@@ -596,6 +779,7 @@
  			// refreshes would each pay a full write.
  			if (message.usage.cacheRead <= 0 || message.usage.cacheWrite > 0) {
  				outcome = "miss";
@@ -547,7 +591,7 @@
  				this.#stop("refresh missed the cache");
  				return;
  			}
-@@ -605,7 +773,9 @@
+@@ -605,9 +789,12 @@
  			run.entry.touchedAt = sentAt;
  			this.#entry = run.entry;
  			if (this.#pendingEntry === run.entry) this.#pendingEntry = undefined;
@@ -556,10 +600,13 @@
 +			run.touchedAt = undefined;
  			this.#schedule(run);
  		} finally {
++			this.#settling -= 1;
  			this.onRefreshEnd?.({
+ 				...refresh,
+ 				outcome,
 --- a/src/session/agent-session.ts
 +++ b/src/session/agent-session.ts
-@@ -7570,6 +7570,11 @@
+@@ -7570,6 +7570,19 @@
  		return this.#maintenance.isCompacting;
  	}
  
@@ -568,23 +615,74 @@
 +		return this.#idleMaintenance?.isRecapRunning === true;
 +	}
 +
++	/**
++	 * True while a warm replay is written but has not settled. Every other idle
++	 * owner yields to it exactly like the warmer yields to them.
++	 */
++	get cacheWarmReplaying(): boolean {
++		return this.#cacheWarmer?.settling === true;
++	}
++
  	/** Background speculative-compaction state, for UI indicators. */
  	get compactionSpeculation(): "idle" | "running" | "armed" {
  		return this.#maintenance.speculationState;
+@@ -13182,7 +13195,8 @@
+ 	 *    branch, branchFromBtw, navigateTree, resetSessionContext), whose awaits
+ 	 *    mean the transcript may be replaced while a side request is in flight;
+ 	 *  - the busy states the reservation already covered, including an idle
+-	 *    recap that {@link IdleMaintenance} already has in flight.
++	 *    recap that {@link IdleMaintenance} already has in flight and a warm
++	 *    replay the cache warmer already has on the wire.
+ 	 * All three are checked synchronously, before the reservation is published,
+ 	 * so a request that passes them cannot be overtaken by a transition that
+ 	 * started earlier without holding this method's verdict.
+@@ -13205,7 +13219,8 @@
+ 			this.#branchSummaryAbortController ||
+ 			this.queuedMessageCount > 0 ||
+ 			this.#idleEphemeralReservation ||
+-			this.#idleMaintenance?.isRecapRunning
++			this.#idleMaintenance?.isRecapRunning ||
++			this.#cacheWarmer?.settling === true
+ 		) {
+ 			return undefined;
+ 		}
 --- a/dist/types/session/agent-session.d.ts
 +++ b/dist/types/session/agent-session.d.ts
-@@ -672,6 +672,8 @@
+@@ -672,6 +672,10 @@
      refreshRpcHostTools(rpcTools: AgentTool[]): Promise<void>;
      /** Whether compaction or manual handoff is active, for prompt admission and UI queuing. */
      get isCompacting(): boolean;
 +    /** True while the idle recap request is in flight; the cache warmer must not replay beside it. */
 +    get idleRecapRunning(): boolean;
++    /** True while a warm replay is written but has not settled; every other idle owner yields to it. */
++    get cacheWarmReplaying(): boolean;
      /** Background speculative-compaction state, for UI indicators. */
      get compactionSpeculation(): "idle" | "running" | "armed";
      /** Strip image content from the current branch and persist the rewrite. */
 --- a/src/session/idle-maintenance.ts
 +++ b/src/session/idle-maintenance.ts
-@@ -90,6 +90,8 @@
+@@ -45,6 +45,7 @@
+ 		| "isCompacting"
+ 		| "isSessionTransitioning"
+ 		| "hasIdleEphemeralReservation"
++		| "cacheWarmReplaying"
+ 		| "model"
+ 		| "messages"
+ 		| "subscribe"
+@@ -67,6 +68,12 @@
+  * compaction request (not a one-token warm replay) reads the still-warm prefix.
+  */
+ const COMPACTION_CACHE_LEAD_MS = 5_000;
++/**
++ * How soon a due maintenance step retries when the wire was owned by another idle
++ * request (a warm replay, a queued turn). Only the step that fired is re-armed, so
++ * every other deadline keeps counting from where it was.
++ */
++const BUSY_RETRY_MS = 2_000;
+ 
+ /** Only the idle-compaction inputs: unrelated `compaction.*` changes must not restart a deadline. */
+ const cfgIdleCompaction = combine({
+@@ -90,6 +97,8 @@
  	#check = 0;
  	/** The recap request in flight; aborted when it is no longer wanted. */
  	#recapRun: AbortController | undefined;
@@ -593,7 +691,7 @@
  	#recapTimer: NodeJS.Timeout | undefined;
  	#compactionTimer: NodeJS.Timeout | undefined;
  	#disposed = false;
-@@ -132,9 +134,13 @@
+@@ -132,9 +141,13 @@
  		for (const stop of this.#stops.splice(0)) stop();
  	}
  
@@ -609,7 +707,135 @@
  	}
  
  	#observe(event: AgentSessionEvent): void {
-@@ -350,7 +356,13 @@
+@@ -153,6 +166,26 @@
+ 		}
+ 	}
+ 
++	/**
++	 * The step that just came due is held back only by a warm replay: retry that
++	 * step soon and leave the other deadline armed. Nothing else is rescheduled —
++	 * clearing both slots here would drop the other step's pending deadline.
++	 */
++	#armBusyRetry(work: keyof PendingStretch): void {
++		const timer = setTimeout(
++			work === "recap" ? () => this.#onRecapDue() : () => this.#onCompactionDue(),
++			BUSY_RETRY_MS,
++		);
++		timer.unref?.();
++		if (work === "recap") {
++			clearTimeout(this.#recapTimer);
++			this.#recapTimer = timer;
++		} else {
++			clearTimeout(this.#compactionTimer);
++			this.#compactionTimer = timer;
++		}
++	}
++
+ 	#clearTimers(): void {
+ 		clearTimeout(this.#recapTimer);
+ 		clearTimeout(this.#compactionTimer);
+@@ -177,11 +210,24 @@
+ 	 * {@link #isSettled}), as it did before the scheduler owned this work.
+ 	 */
+ 	#isQuiet(): boolean {
++		return this.#quietIfWarmReplaySettles(false);
++	}
++
++	/**
++	 * Quiet except for the warm replay on the wire: that one blocker clears on its
++	 * own, so the step retries soon instead of rescheduling the whole stretch.
++	 */
++	#quietExceptWarmReplay(): boolean {
++		return this.#session.cacheWarmReplaying && this.#quietIfWarmReplaySettles(true);
++	}
++
++	#quietIfWarmReplaySettles(warmReplaySettles: boolean): boolean {
+ 		const session = this.#session;
+ 		return (
+ 			!session.isStreaming &&
+ 			!session.hasAdmittedSubmission &&
+ 			!session.hasIdleEphemeralReservation &&
++			(warmReplaySettles || !session.cacheWarmReplaying) &&
+ 			session.queuedMessageCount === 0 &&
+ 			this.#options.scheduledTurn?.() !== true
+ 		);
+@@ -189,7 +235,20 @@
+ 
+ 	/** Quiet, and no background job or delivery can wake the session. */
+ 	#isSettled(): boolean {
+-		return !this.#session.hasIdleEphemeralReservation && isSessionSettled(this.#session, this.#options.scheduledTurn);
++		return (
++			!this.#session.hasIdleEphemeralReservation &&
++			!this.#session.cacheWarmReplaying &&
++			isSessionSettled(this.#session, this.#options.scheduledTurn)
++		);
++	}
++
++	/** Settled except for the warm replay on the wire. */
++	#settledExceptWarmReplay(): boolean {
++		return (
++			this.#session.cacheWarmReplaying &&
++			!this.#session.hasIdleEphemeralReservation &&
++			isSessionSettled(this.#session, this.#options.scheduledTurn)
++		);
+ 	}
+ 
+ 	#recapWanted(): boolean {
+@@ -236,6 +295,7 @@
+ 
+ 	/** Start the recap delay, if this quiet stretch still owes a recap. */
+ 	#armRecap(): void {
++		clearTimeout(this.#recapTimer);
+ 		if (!this.#pending?.recap || this.#recapRun) return;
+ 		const recap = cfgRecap.get(this.#session.settings);
+ 		if (!recap.enabled) return;
+@@ -246,6 +306,7 @@
+ 
+ 	/** Start the idle compaction delay, if this settled stretch still owes it and the context is over the threshold. */
+ 	#armCompaction(): void {
++		clearTimeout(this.#compactionTimer);
+ 		if (!this.#pending?.compaction) return;
+ 		const idle = cfgIdleCompaction.get(this.#session.settings);
+ 		if (
+@@ -291,7 +352,10 @@
+ 		// Blocked work stays owed: the owner's refresh re-arms it. Busy means the stretch is not over after all.
+ 		if (this.#isBlocked()) return;
+ 		if (!this.#isSettled()) {
+-			this.#schedule();
++			// A warm replay is the only thing to wait for: keep the recap deadline
++			// armed and retry this step. Any other blocker reschedules the stretch.
++			if (this.#settledExceptWarmReplay()) this.#armBusyRetry("compaction");
++			else this.#schedule();
+ 			return;
+ 		}
+ 		// Pruning may have run since arming and dropped usage back below the threshold.
+@@ -321,9 +385,12 @@
+ 	#onRecapDue(): void {
+ 		this.#recapTimer = undefined;
+ 		if (!this.#pending?.recap || this.#recapRun) return;
++		// A retry armed while the setting was on can fire after it was turned off.
++		if (!cfgRecap.get(this.#session.settings).enabled) return;
+ 		if (this.#isBlocked()) return;
+ 		if (!this.#isQuiet()) {
+-			this.#schedule();
++			if (this.#quietExceptWarmReplay()) this.#armBusyRetry("recap");
++			else this.#schedule();
+ 			return;
+ 		}
+ 		void this.#runRecap();
+@@ -339,6 +406,11 @@
+ 		const pending = this.#pending;
+ 		const session = this.#session;
+ 		if (!pending) return;
++		if (!cfgRecap.get(session.settings).enabled) {
++			// Disabled while this stretch was waiting: nothing is owed any more.
++			this.#complete(pending, "recap");
++			return;
++		}
+ 		const run = new AbortController();
+ 		this.#recapRun = run;
+ 		try {
+@@ -350,7 +422,13 @@
  				goal: this.#goalText() ?? "",
  				task: nextActionableTask(session.getTodoPhases())?.content ?? "",
  			});
@@ -624,3 +850,14 @@
  			if (this.#recapRun !== run || run.signal.aborted) return;
  			if (this.#isBlocked()) return;
  			if (!this.#isQuiet()) {
+--- a/dist/types/session/idle-maintenance.d.ts
++++ b/dist/types/session/idle-maintenance.d.ts
+@@ -10,7 +10,7 @@
+     onRecap?: (recap: string) => void;
+ }
+ /** The session surface idle maintenance reads and drives. */
+-export type IdleMaintenanceSession = SessionSettleHost & Pick<AgentSession, "settings" | "sessionManager" | "isCompacting" | "isSessionTransitioning" | "hasIdleEphemeralReservation" | "model" | "messages" | "subscribe" | "waitForIdle" | "waitForAdmittedSubmissions" | "getContextUsage" | "getGoalModeState" | "getTodoPhases" | "runIdleCompaction" | "promptCacheEntry" | "runEphemeralTurn">;
++export type IdleMaintenanceSession = SessionSettleHost & Pick<AgentSession, "settings" | "sessionManager" | "isCompacting" | "isSessionTransitioning" | "hasIdleEphemeralReservation" | "cacheWarmReplaying" | "model" | "messages" | "subscribe" | "waitForIdle" | "waitForAdmittedSubmissions" | "getContextUsage" | "getGoalModeState" | "getTodoPhases" | "runIdleCompaction" | "promptCacheEntry" | "runEphemeralTurn">;
+ export declare class IdleMaintenance {
+     #private;
+     constructor(session: IdleMaintenanceSession, options: IdleMaintenanceOptions);
