@@ -180,11 +180,19 @@ RETIRED_REPAIRS = (
         "dir": ".retired/10-16-18.10.1-prefix-pre-model-default-effort",
         "family": "family-persistent-prefix-resume",
     },
+    {
+        "dir": ".retired/11-01-18.12.6-0074-pre-image-prefix",
+        "family": "0074-omp-anthropic-context-cache-boundaries",
+        "version": "18.12.6",
+    },
 )
 
 
 def validate_retired_repairs(here, manifest):
+    checked = []
     for repair in RETIRED_REPAIRS:
+        if repair.get("version", manifest["version"]) != manifest["version"]:
+            continue
         baseline = json.loads((here / repair["dir"] / "baseline.json").read_text())
         archived = here / repair["dir"] / baseline["previousFamily"]
         if hashlib.sha256(archived.read_bytes()).hexdigest() != baseline["previousFamilySha256"]:
@@ -199,7 +207,8 @@ def validate_retired_repairs(here, manifest):
             raise RuntimeError(f"retired revision is still the active representation: {repair['family']}")
         if hashlib.sha256((here / active[0]["patch"]).read_bytes()).hexdigest() != active[0]["sha256"]:
             raise RuntimeError(f"active revision digest mismatch: {repair['family']}")
-    return [repair["family"] for repair in RETIRED_REPAIRS]
+        checked.append(repair["family"])
+    return checked
 
 
 def command(args, *, env, cwd=None, input=None):

@@ -1,0 +1,6 @@
+{
+  "previousFamily": "0074-omp-anthropic-context-cache-boundaries-v18.12.6.patch",
+  "previousFamilySha256": "4ee8ce70ab3e21f47455109bf3c2d6d2bfd26786c5f9a78e78001a08e15b50c2",
+  "repair": "image-prefix.delta.patch",
+  "repairSha256": "9faed9bbabc68f1769201878cd594217360a02112455e6db0b2a840f7b8e666f"
+}

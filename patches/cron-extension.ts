@@ -1,6 +1,6 @@
 // Current-session prompt-cache keepalive for omp.
 //
-// Command: /cron [status | off | <preset> | <duration> | loop<n> <duration> | keep <duration>]
+// Command: /cron [status | off | <preset> | <duration> | loop<n> <duration> | add loop<n> | keep <duration>]
 // Log:     ~/.omp/agent/cache-keepalive.log
 //
 // Two independent mechanisms, one live schedule at a time:
@@ -12,6 +12,7 @@
 //   miss or error; this extension sends no request of its own in this mode.
 // - `/cron <duration>` / `loop<n> <duration>` stay for providers the host does
 //   not warm: finite side requests (one, or at most n in 2..100).
+//   `/cron add loop<n>` extends the active finite budget without touching its countdown.
 // Nothing is persisted. Session changes and process exit discard both.
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import { appendFileSync, mkdirSync, renameSync, statSync } from "node:fs";
@@ -405,7 +406,7 @@ export default function (pi: ExtensionAPI): void {
 			);
 			if (state.nextRunAt) {
 				const remainingSeconds = Math.max(0, Math.ceil((state.nextRunAt - Date.now()) / 1000));
-				lines.push(theme.fg("dim", `  next ${new Date(state.nextRunAt).toISOString()} (${remainingSeconds}s)`));
+				lines.push(theme.fg("dim", `  next ${new Date(state.nextRunAt).toLocaleString(undefined, { hour12: false, timeZoneName: "short" })} (${remainingSeconds}s)`));
 			}
 			if (state.scheduledReason) lines.push(theme.fg("dim", `  reason ${state.scheduledReason}`));
 		}
@@ -427,7 +428,7 @@ export default function (pi: ExtensionAPI): void {
 			const last = state.last;
 			const color = last.outcome === "cache-hit" ? "success" : last.outcome === "provider-error" ? "error" : "warning";
 			lines.push(
-				theme.fg(color, `  last ${last.outcome} at ${new Date(last.at).toISOString()}`),
+				theme.fg(color, `  last ${last.outcome} at ${new Date(last.at).toLocaleString(undefined, { hour12: false, timeZoneName: "short" })}`),
 				last.reason ? theme.fg("dim", `    ${last.reason}`) : "",
 				last.cacheRead === undefined
 					? ""
@@ -457,6 +458,21 @@ export default function (pi: ExtensionAPI): void {
 		state.totalRuns = budget;
 		state.remainingRuns = budget;
 		schedule(ctx, "enabled");
+		return formatStatus(PLAIN_THEME);
+	};
+
+	const addRuns = (runs: number): string => {
+		if (!Number.isInteger(runs) || runs < 1 || runs > 100) {
+			return "error: added loop count must be an integer from 1 through 100";
+		}
+		if (!state.enabled || state.keepMs !== undefined) {
+			return "error: `/cron add loop<n>` requires an active finite keepalive; it does not start a schedule";
+		}
+		const total = (state.totalRuns ?? 0) + runs;
+		if (total > 100) return "error: total loop count cannot exceed 100; the current schedule is unchanged";
+		// Do not schedule or cancel: preserve the live deadline and any in-flight request.
+		state.totalRuns = total;
+		state.remainingRuns = (state.remainingRuns ?? 0) + runs;
 		return formatStatus(PLAIN_THEME);
 	};
 
@@ -512,11 +528,15 @@ export default function (pi: ExtensionAPI): void {
 
 	pi.registerCommand("cron", {
 		description:
-			"Current-session prompt-cache keepalive: status | off | keep <1h..24h> (legacy side-request modes: <duration> | loop<n> <duration> | devin | openai)",
+			"Current-session prompt-cache keepalive: status | off | keep <1h..24h> (legacy side-request modes: <duration> | loop<n> <duration> | add loop<n> | devin | openai)",
 		getArgumentCompletions: prefix =>
 			[
 				{ value: "status", label: "status · show state and hit statistics" },
 				{ value: "off", label: "off · stop the keepalive" },
+				...[1, 5, 10].map(runs => ({
+					value: `add loop${runs}`,
+					label: `add loop${runs} · add ${runs} attempts without resetting the countdown`,
+				})),
 				...["1h", "2h", "3h", "4h", "5h", "6h", "12h", "24h"].map(duration => ({
 					value: `keep ${duration}`,
 					label: `keep ${duration} · host warmer keeps the cache alive for ${duration}`,
@@ -531,6 +551,14 @@ export default function (pi: ExtensionAPI): void {
 			if (input === "off") {
 				disable(ctx);
 				ctx.ui.notify(formatStatus(ctx.ui.theme), "info");
+				return;
+			}
+			if (/^add(?:\s|$)/.test(input)) {
+				const match = /^add\s+loop(\d+)$/.exec(input);
+				const result = match
+					? addRuns(Number(match[1]))
+					: "error: use `/cron add loop<n>` with an explicit count, for example `/cron add loop5`";
+				ctx.ui.notify(result, result.startsWith("error:") ? "error" : "info");
 				return;
 			}
 			const keepMatch = /^keep(?:\s+(.+))?$/.exec(input);

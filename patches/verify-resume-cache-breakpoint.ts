@@ -28,7 +28,7 @@ type Block = {
 type Message = { role?: string; content?: Block[] | string };
 type Payload = { messages?: Message[]; system?: Block[]; tools?: Block[] };
 
-type Handler = (event: { payload: unknown }, ctx?: unknown) => unknown;
+type Handler = (event: { payload?: unknown; systemPrompt?: string[] }, ctx?: unknown) => unknown;
 const handlers = new Map<string, Handler>();
 const pi = {
 	on(name: string, handler: Handler) {
@@ -645,6 +645,90 @@ function begin(previous: Payload): void {
 		);
 		console.log(`ok continuity: penultimate message shape ${label} still anchors on the previous tail`);
 	}
+}
+
+{
+	const catalog = (names: string[]) =>
+		[
+			"unchanged prefix",
+			"# xd:// Tool Devices",
+			"Write JSON args as content.",
+			"## Additional devices (docs on demand)",
+			...names.map(name => `- xd://${name} — ${name} summary`),
+			"",
+			"Read xd://<tool> for full docs + JSON schema before first use.",
+			"unchanged suffix",
+			"- xd://not_in_catalog — leave this alone",
+		].join("\n");
+	const first = catalog(["api_image", "generate_image", "cron"]);
+	const resumed = catalog(["cron", "api_image", "generate_image"]);
+	const expected = catalog(["api_image", "cron", "generate_image"]);
+	assert.equal(handlers.has("before_agent_start"), false, "catalog sorting must not override session prompt state");
+	const transform = (prompt: string) => (beforeRequest({ payload: { instructions: prompt } }) as { instructions: string } | undefined)?.instructions ?? prompt;
+
+	for (const order of [
+		["api_image", "generate_image", "cron"],
+		["api_image", "cron", "generate_image"],
+		["generate_image", "api_image", "cron"],
+		["generate_image", "cron", "api_image"],
+		["cron", "api_image", "generate_image"],
+		["cron", "generate_image", "api_image"],
+	]) {
+		assert.equal(transform(catalog(order)), expected, "every registration order must yield the same prompt");
+	}
+	assert.equal(transform(expected), expected, "an already canonical prompt must be untouched");
+	for (const prompt of [
+		first.replace("- xd://cron — cron summary", "not a catalog row"),
+		catalog(["cron", "cron"]),
+		first.replace("Read xd://<tool> for full docs + JSON schema before first use.", "different footer"),
+		`${first}\n${first}`,
+		"unrelated user text\n- xd://z — z\n- xd://a — a",
+	]) {
+		assert.equal(transform(prompt), prompt, "ambiguous or non-native text must not be rewritten");
+	}
+	assert.equal(transform(`${first}\nproject example:\n${resumed}`), `${first}\nproject example:\n${resumed}`, "an embedded catalog copy makes ownership ambiguous");
+	for (const fence of ["```", "~~~~"]) {
+		const example = `${fence}markdown\n${first}\n${fence}`;
+		assert.equal(transform(example), example, "catalog-shaped fenced examples must remain untouched");
+		const innerExample = first.replace("## Additional devices", `${fence}markdown\n## Additional devices`) + `\n${fence}`;
+		assert.equal(transform(innerExample), innerExample, "a fenced catalog under a plain section heading must remain untouched");
+	}
+	const inline = "```json\n{}\n```\n";
+	assert.equal(transform(first.replace("## Additional devices", `${inline}## Additional devices`)), expected.replace("## Additional devices", `${inline}## Additional devices`), "closed inline schemas must not prevent catalog sorting");
+	assert.equal(transform(`\`\`\`\nexample\n\`\`\`\n${first}`), `\`\`\`\nexample\n\`\`\`\n${expected}`, "closed fences must not suppress native catalogs");
+	const untouched = { system: [{ type: "text", text: resumed }], messages: [] };
+	assert.equal(beforeRequest({ payload: untouched }), undefined, "non-Codex payloads are outside this change");
+
+	const codexOld = { model: "gpt", instructions: first, input: [{ role: "user", content: resumed }], tools: [{ name: "read" }] };
+	const codexResumed = { ...codexOld, instructions: resumed };
+	const oldWire = beforeRequest({ payload: codexOld }) as typeof codexOld;
+	const resumedWire = beforeRequest({ payload: codexResumed }) as typeof codexResumed;
+	assert.deepEqual(oldWire, resumedWire, "Codex side requests must have the same wire prefix across restart");
+	assert.equal(oldWire.instructions, expected);
+	assert.equal(codexOld.instructions, first, "normalization must not mutate the original system text");
+	assert.equal(oldWire.input, codexOld.input, "conversation history must not be copied or rewritten");
+
+
+	reArm({ payload: undefined });
+	const anthropic = {
+		system: [{ type: "text", text: resumed, cache_control: { type: "ephemeral" } }],
+		messages: [
+			{ role: "user", content: [{ type: "text", text: "first" }] },
+			{ role: "assistant", content: [{ type: "text", text: "answer" }] },
+			{ role: "user", content: [{ type: "text", text: "anchor" }] },
+			{ role: "assistant", content: [{ type: "text", text: "last answer" }] },
+			{ role: "user", content: [{ type: "text", text: "current" }] },
+		],
+	};
+	const anthropicWire = beforeRequest({ payload: anthropic }) as typeof anthropic;
+	assert.deepEqual(anthropicWire.system[0].cache_control, { type: "ephemeral" }, "system cache marker must survive");
+	assert.deepEqual(
+		(anthropicWire.messages[2].content[0] as Block).cache_control,
+		{ type: "ephemeral" },
+		"existing Anthropic resume anchoring must still run",
+	);
+	assert.equal(anthropic.system[0].text, resumed, "Anthropic system blocks must not be rewritten");
+	console.log("ok xd catalog: deterministic Codex instructions preserve other content and Anthropic anchors");
 }
 
 console.log("PASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap");

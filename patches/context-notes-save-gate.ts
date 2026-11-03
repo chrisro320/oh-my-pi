@@ -1,9 +1,7 @@
 // @omp-managed-extension
-// Midpoint checkpoint reminder for the experimental context notebook
-// (`compaction.experimentalContextManagement`). Dormant unless the four
-// rollover tools are active; it registers no compaction hook, so no rollover
-// is gated and classic speculative compaction stays untouched.
-// When the feature is off, every hook re-probes the toolset and stays quiet.
+// Structured notebook retention plus the experimental notebook midpoint reminder.
+// Dormant unless the four rollover tools are active. No compaction hook or
+// freshness veto: speculative compaction and notes-backed rollover stay unchanged.
 //
 // Reminder: one hidden checkpoint at 45% of the full model context window per
 // rollover boundary. After a completed step (its full tool batch done) it is
@@ -13,8 +11,8 @@
 // session reloads do not duplicate it, while a new compaction or reset
 // boundary rearms it. Near-threshold guidance stays runtime-owned.
 //
-// Only hidden custom messages leave this addon: no journal, provider,
-// system-prompt or history mutation.
+// Registered IDs are protected mechanically, not semantically. The existing
+// notebook journal and successful tool results own state; there is no side ledger.
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 
 export const REQUIRED_ROLLOVER_TOOLS: readonly string[] = ["context_notes", "new_context", "read", "grep"];
@@ -33,8 +31,160 @@ export interface JournalEntry {
 	customType?: string;
 }
 
+interface NotebookEntry extends JournalEntry {
+	data?: unknown;
+	message?: { role?: string; toolName?: string; isError?: boolean; details?: unknown };
+}
+
+interface IndexRecord {
+	id: string;
+	status: string;
+	source: string;
+	text?: string;
+	summary?: string;
+	supersedes?: string[];
+}
+
+interface NotebookIndex {
+	version: 1;
+	constraints: IndexRecord[];
+	topics: IndexRecord[];
+	decisions: IndexRecord[];
+}
+
+const INDEX_FENCE = /^```context-notes-index[ \t]*\r?$/gm;
+const WRITE_ACK_TYPE = "context-notes-save-gate-ack";
+const INDEX_GROUPS = ["constraints", "topics", "decisions"] as const;
+const INDEX_STATUSES = {
+	constraints: ["active", "revoked", "superseded"],
+	topics: ["open", "completed", "archived"],
+	decisions: ["current", "superseded"],
+};
+const NOTEBOOK_GUIDANCE =
+	"Read the notebook's registered constraints and topic index before continuing. Use read/grep on " +
+	"history://current/full when an earlier decision is relevant, a source is needed, or information conflicts. " +
+	"Keep registered IDs and source pointers when shortening notes; retain superseded records and links. " +
+	"The gate checks structure, not semantic importance, factual accuracy, or whether recall is needed.";
+
+function record(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function nonempty(value: unknown): value is string {
+	return typeof value === "string" && value.trim().length > 0;
+}
+
+function parseIndex(text: string): NotebookIndex | undefined {
+	const fences = [...text.matchAll(INDEX_FENCE)];
+	if (fences.length === 0) return undefined;
+	if (fences.length !== 1) throw new Error("Keep exactly one context-notes-index block.");
+	const start = fences[0].index! + fences[0][0].length;
+	const closing = /^```[ \t]*\r?$/m.exec(text.slice(start));
+	if (!closing) throw new Error("Close the context-notes-index fence.");
+	const index: unknown = JSON.parse(text.slice(start, start + closing.index));
+	if (!record(index) || index.version !== 1 || Object.keys(index).length !== 4) {
+		throw new Error("Index requires version:1 and constraints/topics/decisions arrays.");
+	}
+	const ids = new Set<string>();
+	for (const group of INDEX_GROUPS) {
+		const rows = index[group];
+		if (!Array.isArray(rows)) throw new Error(`${group} must be an array.`);
+		const body = group === "constraints" ? "text" : "summary";
+		for (const row of rows) {
+			if (!record(row) || !nonempty(row.id) || !/^[a-z0-9][a-z0-9._-]*$/i.test(row.id)) {
+				throw new Error(`${group}: each record needs a stable alphanumeric id.`);
+			}
+			if (ids.has(row.id)) throw new Error(`Duplicate registered id: ${row.id}.`);
+			ids.add(row.id);
+			const allowed = ["id", "status", "source", body, ...(group === "topics" ? [] : ["supersedes"])];
+			if (Object.keys(row).some(key => !allowed.includes(key)) || !nonempty(row[body]) || !nonempty(row.source) ||
+				!INDEX_STATUSES[group].includes(row.status as string)) {
+				throw new Error(`${row.id}: require ${allowed.join("/")} with a valid status and nonempty content/source.`);
+			}
+			if (group !== "topics" && (!Array.isArray(row.supersedes) ||
+				row.supersedes.some(id => !nonempty(id)) || new Set(row.supersedes).size !== row.supersedes.length)) {
+				throw new Error(`${row.id}: supersedes must be an array of unique ids (empty when none).`);
+			}
+		}
+	}
+	const parsed = index as unknown as NotebookIndex;
+	for (const group of ["constraints", "decisions"] as const) {
+		const rows = new Map(parsed[group].map(row => [row.id, row]));
+		const successors = new Map<string, string>();
+		for (const row of rows.values()) {
+			for (const id of row.supersedes!) {
+				if (id === row.id || rows.get(id)?.status !== "superseded" || successors.has(id)) {
+					throw new Error(`${row.id}: supersedes must reference a superseded ${group} record with one successor.`);
+				}
+				successors.set(id, row.id);
+			}
+		}
+		for (const row of rows.values()) {
+			if (row.status === "superseded" && !successors.has(row.id)) throw new Error(`${row.id}: missing successor.`);
+			const seen = new Set<string>();
+			let id: string | undefined = row.id;
+			while (id !== undefined) {
+				if (seen.has(id)) throw new Error(`Supersession cycle at ${id}.`);
+				seen.add(id);
+				id = successors.get(id);
+			}
+		}
+	}
+	return parsed;
+}
+
+/** Only durable notebook writes acknowledged by the real tool are accepted. */
+function acceptedIndex(entries: readonly NotebookEntry[]): NotebookIndex | undefined {
+	let boundary = entries.length - 1;
+	while (boundary >= 0 && entries[boundary].type !== "reset_boundary") boundary--;
+	const receipts = new Map<string, string>();
+	for (let i = boundary + 1; i < entries.length; i++) {
+		const entry = entries[i];
+		if (entry.type === "custom" && entry.customType === WRITE_ACK_TYPE && record(entry.data) &&
+			entry.data.version === 1 && typeof entry.data.entryId === "string") receipts.set(entry.data.entryId, "");
+		const message = entries[i].message;
+		if (entries[i].type === "message" && message?.role === "toolResult" && message.toolName === "context_notes" &&
+			message.isError === false && record(message.details) && typeof message.details.entryId === "string" &&
+			typeof message.details.text === "string" && typeof message.details.bytes === "number") {
+			receipts.set(message.details.entryId, message.details.text);
+		}
+	}
+	for (let i = entries.length - 1; i > boundary; i--) {
+		const entry = entries[i];
+		if (entry.type !== "custom" || entry.customType !== "experimental_context_notes" || !record(entry.data) ||
+			entry.data.version !== 1 || Object.keys(entry.data).length !== 2 || typeof entry.data.text !== "string" ||
+			Buffer.byteLength(entry.data.text, "utf8") > 16_384 || !receipts.has(entry.id ?? "") ||
+			(receipts.get(entry.id ?? "") !== "" && receipts.get(entry.id ?? "") !== entry.data.text)) continue;
+		try {
+			const index = parseIndex(entry.data.text);
+			if (index) return index;
+		} catch {
+			// A legacy/malformed historical block never masks earlier registration.
+		}
+	}
+	return undefined;
+}
+
+function retainIndex(previous: NotebookIndex, next: NotebookIndex | undefined): void {
+	if (!next) throw new Error("Keep the registered context-notes-index block; clearing it requires a context reset.");
+	for (const group of INDEX_GROUPS) {
+		const rows = new Map(next[group].map(row => [row.id, row]));
+		for (const old of previous[group]) {
+			const row = rows.get(old.id);
+			if (!row) throw new Error(`Keep registered ${group} id ${old.id}; shorten it to a source pointer instead.`);
+			if (group !== "topics" && old.status !== "active" && old.status !== "current" && row.status !== old.status) {
+				throw new Error(`${old.id}: terminal status ${old.status} cannot be rewritten; register a new id.`);
+			}
+			if (old.supersedes?.some(id => !row.supersedes?.includes(id))) {
+				throw new Error(`${old.id}: keep existing supersedes links.`);
+			}
+		}
+	}
+}
+
 export default function contextNotesSaveGate(pi: ExtensionAPI): void {
 	let midpointBoundary: string | undefined;
+	let pendingWrite: string | undefined;
 
 	const notebookActive = (ctx: ExtensionContext): boolean => {
 		if (ctx.agent.kind !== "main") return false;
@@ -70,13 +220,57 @@ export default function contextNotesSaveGate(pi: ExtensionAPI): void {
 	/** Navigation or reload: per-boundary dedupe is void. */
 	const resetDedupe = (): void => {
 		midpointBoundary = undefined;
+		pendingWrite = undefined;
 	};
+
+	pi.on("tool_call", (event, ctx) => {
+		if (event.toolName !== "context_notes" || !notebookActive(ctx) || typeof event.input.text !== "string") return;
+		if (pendingWrite) return { block: true, reason: "Save one notebook revision per tool batch; retry after its result." };
+		try {
+			const next = parseIndex(event.input.text);
+			const previous = acceptedIndex(ctx.sessionManager.getBranch() as readonly NotebookEntry[]);
+			if (previous) retainIndex(previous, next);
+			pendingWrite = event.toolCallId;
+		} catch (error) {
+			return { block: true, reason: `context-notes-save-gate: ${error instanceof Error ? error.message : String(error)}` };
+		}
+	});
+	pi.on("tool_result", async (event, ctx) => {
+		if (event.toolName !== "context_notes" || !notebookActive(ctx)) return;
+		try {
+			if (!event.isError && typeof event.input.text === "string" && record(event.details) &&
+				typeof event.details.entryId === "string" && event.details.text === event.input.text && parseIndex(event.input.text)) {
+				const entryId = event.details.entryId;
+				if (!ctx.sessionManager.getBranch().some(entry => entry.id === entryId)) {
+					throw new Error("Notebook branch changed before acknowledgement.");
+				}
+				// Eval-bridged tools have no standalone toolResult journal entry.
+				// A durable ID-only receipt references the core entry without copying it.
+				if (ctx.sessionManager.getSessionFile()) {
+					await pi.appendEntryPersisted(WRITE_ACK_TYPE, { version: 1, entryId }, {
+						sessionId: ctx.sessionManager.getSessionId(), signal: new AbortController().signal,
+					});
+				} else {
+					// In-memory SDK journals deliberately have no durable storage.
+					pi.appendEntry(WRITE_ACK_TYPE, { version: 1, entryId });
+				}
+			}
+			if (pendingWrite === event.toolCallId) pendingWrite = undefined;
+			if (!event.isError) return { additionalContext: NOTEBOOK_GUIDANCE };
+		} catch (error) {
+			return {
+				isError: true,
+				content: [{ type: "text", text: `Notebook write was not acknowledged: ${String(error)}. Read notes and retry.` }],
+			};
+		}
+	});
 
 	pi.on("session_start", () => resetDedupe());
 	pi.on("session_switch", () => resetDedupe());
 	pi.on("session_branch", () => resetDedupe());
 	pi.on("session_tree", () => resetDedupe());
 	pi.on("turn_end", (event, ctx) => {
+		pendingWrite = undefined;
 		try {
 			if (ctx.isIdle() || event.message.stopReason === "error" || event.message.stopReason === "aborted") return;
 			const due = dueMidpoint(ctx);
@@ -92,6 +286,7 @@ export default function contextNotesSaveGate(pi: ExtensionAPI): void {
 	// Late notebook activation and settled-turn deferral: return context for the
 	// user's next prompt rather than starting a reminder-only turn while idle.
 	pi.on("before_agent_start", (_event, ctx) => {
+		pendingWrite = undefined;
 		try {
 			const due = dueMidpoint(ctx);
 			if (!due) return undefined;

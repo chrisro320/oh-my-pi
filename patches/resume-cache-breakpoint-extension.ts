@@ -34,6 +34,56 @@ import { dirname, join } from "node:path";
 
 const LOG_PATH = process.env.OMP_RESUME_CACHE_LOG ?? join(homedir(), ".omp", "agent", "resume-cache.log");
 
+const XDEV_SECTION = "# xd:// Tool Devices\n";
+const XDEV_CATALOG = "## Additional devices (docs on demand)\n";
+const XDEV_FOOTER = "\n\nRead xd://<tool> for full docs + JSON schema before first use.";
+
+/** Canonicalize only a complete, unambiguous native xd:// catalog. */
+function stableXdevCatalog(prompt: string): string {
+	const section = prompt.indexOf(XDEV_SECTION);
+	if (section < 0 || prompt.indexOf(XDEV_SECTION, section + XDEV_SECTION.length) >= 0) return prompt;
+	const header = prompt.indexOf(XDEV_CATALOG, section + XDEV_SECTION.length);
+	if (header < 0 || prompt.indexOf(XDEV_CATALOG, header + XDEV_CATALOG.length) >= 0) return prompt;
+	const start = header + XDEV_CATALOG.length;
+	const end = prompt.indexOf(XDEV_FOOTER, start);
+	if (end < 0) return prompt;
+	// Reject examples within fences but allow closed inline-device schema fences.
+	let fence: { char: string; length: number } | undefined;
+	let offset = 0;
+	for (const line of prompt.slice(0, header).split("\n")) {
+		if (offset === section && fence) return prompt;
+		const match = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+		if (match) {
+			if (!fence) fence = { char: match[1][0], length: match[1].length };
+			else if (match[1][0] === fence.char && match[1].length >= fence.length && /^ {0,3}(`+|~+)\s*$/.test(line)) fence = undefined;
+		}
+		offset += line.length + 1;
+	}
+	if (fence) return prompt;
+
+	const rows = prompt.slice(start, end).split("\n");
+	const names = new Set<string>();
+	for (const row of rows) {
+		const match = /^- xd:\/\/(\S+) — [^\r\n]*$/.exec(row);
+		if (!match || names.has(match[1])) return prompt;
+		names.add(match[1]);
+	}
+	const sorted = [...rows].sort();
+	const catalog = sorted.join("\n");
+	return catalog === prompt.slice(start, end) ? prompt : prompt.slice(0, start) + catalog + prompt.slice(end);
+}
+
+function record(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** Normalize the Codex instructions string without changing session prompt state. */
+function stableProviderPayload(value: unknown): unknown {
+	if (!record(value) || typeof value.instructions !== "string") return value;
+	const instructions = stableXdevCatalog(value.instructions);
+	return instructions === value.instructions ? value : { ...value, instructions };
+}
+
 /**
  * Block types Anthropic refuses a `cache_control` marker on, mirroring
  * `applyCacheControlToLastBlock` in pi-ai's Anthropic provider: generated
@@ -358,11 +408,14 @@ function placeAnchor(
 }
 
 export default function (pi: ExtensionAPI): void {
+
 	pi.on("before_provider_request", (event, ctx) => {
-		const payload = event.payload as AnthropicPayload | null;
+		const stable = stableProviderPayload(event.payload);
+		const replacement = stable === event.payload ? undefined : stable;
+		const payload = stable as AnthropicPayload | null;
 		const messages = payload?.messages;
 		// Anthropic shape only: `system` is an array of blocks there.
-		if (!payload || !Array.isArray(messages) || !Array.isArray(payload.system)) return undefined;
+		if (!payload || !Array.isArray(messages) || !Array.isArray(payload.system)) return replacement;
 
 		// Measure this request against the previous one of the same conversation
 		// BEFORE anything below can return, so the tracker never goes stale.
@@ -403,9 +456,9 @@ export default function (pi: ExtensionAPI): void {
 			if (lastAssistant < 1) {
 				state.lastAction = "skipped: fresh session";
 				log(`skip fresh-session messages=${messages.length}`);
-				return undefined;
+				return replacement;
 			}
-			return placeAnchor(payload, messages, lastAssistant - 1, "");
+			return placeAnchor(payload, messages, lastAssistant - 1, "") ?? replacement;
 		}
 
 		// Live growth: Anthropic looks for a stored entry only within
@@ -421,9 +474,9 @@ export default function (pi: ExtensionAPI): void {
 			previous.messages < messages.length &&
 			blocks - previous.blocks > GROWTH_TRIGGER_BLOCKS
 		) {
-			return placeAnchor(payload, messages, previous.messages - 1, "growth-");
+			return placeAnchor(payload, messages, previous.messages - 1, "growth-") ?? replacement;
 		}
-		return undefined;
+		return replacement;
 	});
 
 	// One breakpoint per session, not per process: switching, branching, navigating tree or

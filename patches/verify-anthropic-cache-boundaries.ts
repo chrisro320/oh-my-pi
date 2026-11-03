@@ -17,7 +17,7 @@ const { getBundledModel } = await import(`${CATALOG}/src/models.ts`);
 const model = getBundledModel("anthropic", "claude-opus-5");
 assert.ok(model, "the selected catalog must contain claude-opus-5");
 
-type Block = { type: string; text?: string; cache_control?: { type: string; ttl?: string } };
+type Block = { type: string; text?: string; source?: { type: string; media_type: string; data: string }; content?: Block[]; cache_control?: { type: string; ttl?: string } };
 type Message = { role: string; content: string | Block[]; clear_at?: string };
 type Payload = { system: Block[]; tools: Block[]; messages: Message[] };
 const wire: Payload[] = [];
@@ -55,9 +55,9 @@ const toolResult = {
 	content: [{ type: "text", text: "The inspected file contents." }], isError: false, timestamp: 3,
 };
 
-async function capture(messages: unknown[], retention = "long", oauth = true): Promise<Payload> {
+async function capture(messages: unknown[], retention = "long", oauth = true, activeModel = model): Promise<Payload> {
 	const before = wire.length;
-	const result = await streamAnthropic(model, {
+	const result = await streamAnthropic(activeModel, {
 		systemPrompt: ["Stable project rules.", "Stable memory after the OAuth identity."],
 		messages,
 		tools: [{ name: "inspect", description: "Inspect a value", parameters: { type: "object", properties: {} } }],
@@ -120,6 +120,109 @@ try {
 	const apiKey = await capture([injected, assistant, user("Next")], "short", false);
 	assert.ok(messageBreakpoints(apiKey).includes(apiKey.messages.length - 1), "API-key requests must cache extension-injected history too");
 	assert.ok(breakpoints(apiKey).every(block => !block.cache_control?.ttl || block.cache_control.ttl === "5m"), "short retention must not gain a one-hour breakpoint");
+	if (aiVersion === "18.12.6") {
+		const smallPng = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGklEQVR4nGMMr0r+b/RPjoHlpyIfA8N/UQYAPVQFw2ujXG4AAAAASUVORK5CYII=";
+		const largePng = Buffer.from(await new Bun.Image(Buffer.from(smallPng, "base64")).resize(2029, 1279).png().bytes()).toString("base64");
+		const large = { type: "image", mimeType: "image/png", data: largePng };
+		const small = { type: "image", mimeType: "image/png", data: smallPng };
+		const imageUser = { role: "user", content: [large], timestamp: 1 };
+		const imageResult = { ...toolResult, content: [large, ...Array(18).fill(small)] };
+		const beforeMessages = [imageUser, toolCall, imageResult];
+		const afterMessages = structuredClone([...beforeMessages, assistant, { role: "user", content: [small], timestamp: 4 }]);
+		const source = (payload: Payload) => {
+			const content = payload.messages[0]?.content;
+			assert.ok(Array.isArray(content));
+			const image = content.find(block => block.type === "image");
+			assert.ok(image?.source?.data, "the first user image must reach the wire");
+			return image.source;
+		};
+		const assertStableImages = async (before: Payload, after: Payload, maxDimension: number, maxEncodedBytes?: number) => {
+			assert.ok(JSON.stringify(uncached(after.messages.slice(0, before.messages.length))) === JSON.stringify(uncached(before.messages)),
+				"adding the 21st image must not rewrite earlier user or tool-result images");
+			const checked = new Set<string>();
+			for (const [payload, expectedCount] of [[before, 20], [after, 21]] as const) {
+				const images = payload.messages.flatMap(message =>
+					Array.isArray(message.content) ? message.content.flatMap(block =>
+						block.type === "image" ? [block.source] :
+							block.type === "tool_result" ? (block.content ?? []).filter(part => part.type === "image").map(part => part.source) : []) : []);
+				assert.equal(images.length, expectedCount, `the request must contain ${expectedCount} images`);
+				assert.ok(images.some(image => image?.data === smallPng), "an image already within the cap must retain its bytes");
+				for (const image of images) {
+					assert.ok(image?.data, "every user and tool-result image must have an inline source");
+					if (checked.has(image.data)) continue;
+					checked.add(image.data);
+					const metadata = await new Bun.Image(Buffer.from(image.data, "base64")).metadata();
+					assert.ok(metadata.width && metadata.height && Math.max(metadata.width, metadata.height) <= maxDimension,
+						"every user and tool-result image must fit the effective host dimension");
+					if (maxEncodedBytes !== undefined) {
+						assert.ok(image.data.length <= maxEncodedBytes, "every image must fit the host byte budget");
+					}
+				}
+			}
+		};
+		for (const [name, activeModel, maxDimension, maxEncodedBytes] of [
+			["default", model, 2000, undefined],
+			["larger host limit", { ...model, compat: { ...model.compat, maxImageDimension: 3000 } }, 2000, undefined],
+			["stricter host limit", { ...model, compat: { ...model.compat, maxImageDimension: 1024 } }, 1024, undefined],
+			["stricter payload limit", { ...model, compat: { ...model.compat, maxImagePayloadBytes: 20000 } }, 2000, 18000],
+		] as const) {
+			const single = await capture([imageUser], "short", false, activeModel);
+			const before = await capture(beforeMessages, "short", false, activeModel);
+			const after = await capture(afterMessages, "short", false, activeModel);
+			await assertStableImages(before, after, maxDimension, maxEncodedBytes);
+			assert.deepEqual(source(single), source(before), `${name}: one-image and 20-image requests must use the same image bytes`);
+			assert.notEqual(source(before).data, largePng, `${name}: oversized images must be normalized`);
+		}
+		// Select the same caller-provided candidate roots as the fixtures above.
+		const { streamOpenAIAnthropicShim } = await import(`${AI}/src/providers/openai-anthropic-shim.ts`);
+		const { buildModel } = await import(`${CATALOG}/src/build.ts`);
+		const kimi = buildModel({
+			id: "k3.1-pro", name: "Kimi fixture", provider: "kimi-code", api: "openai-completions",
+			baseUrl: "https://kimi.invalid/v1", input: ["text", "image"], reasoning: false,
+			contextWindow: 262144, maxTokens: 1024, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		});
+		const captureKimi = async (messages: unknown[]): Promise<Payload> => {
+			const before = wire.length;
+			const result = await streamOpenAIAnthropicShim(kimi, {
+				systemPrompt: "Stable project rules.", messages,
+				tools: [{ name: "inspect", description: "Inspect a value", parameters: { type: "object", properties: {} } }],
+			}, { apiKey: "offline-api-key", fetch: globalThis.fetch, maxTokens: 16 }, {
+				anthropicBaseUrl: "https://kimi.invalid", defaultFormat: "anthropic",
+			}).result();
+			assert.equal(wire.length, before + 1, `Kimi shim must reach the offline sink: ${result.errorMessage}`);
+			assert.ok(result.errorMessage?.includes(stopped), "only the offline sink may terminate the Kimi call");
+			return wire[before];
+		};
+		await assertStableImages(await captureKimi(beforeMessages), await captureKimi(afterMessages), 2000);
+		// Observe admission into real image pipelines in the selected candidate root.
+		const { prepareAnthropicImageContext } = await import(`${AI}/src/providers/anthropic-images.ts`);
+		const NativeImage = Bun.Image;
+		let activePipelines = 0;
+		let peakPipelines = 0;
+		class TracedImage extends NativeImage {
+			async metadata() {
+				activePipelines++;
+				peakPipelines = Math.max(peakPipelines, activePipelines);
+				try {
+					return await super.metadata();
+				} finally {
+					activePipelines--;
+				}
+			}
+		}
+		try {
+			Object.defineProperty(Bun, "Image", { value: TracedImage });
+			const concurrencyModel = { ...model, compat: { ...model.compat, maxImageDimension: 8000 } };
+			for (const [count, expectedPeak] of [[20, 1], [21, 4]] as const) {
+				peakPipelines = 0;
+				const content = [...Array.from({ length: 4 }, () => ({ ...large })), ...Array(count - 4).fill(small)];
+				await prepareAnthropicImageContext({ messages: [{ role: "user", content, timestamp: 1 }] }, concurrencyModel);
+				assert.equal(peakPipelines, expectedPeak, `${count} images must retain the existing decode concurrency bound`);
+			}
+		} finally {
+			Object.defineProperty(Bun, "Image", { value: NativeImage });
+		}
+	}
 	if (["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion)) {
 		// Both cache-control rungs rebuild the request. After a credited refusal
 		// with an already-run server tool, neither may send an uncredited replay.

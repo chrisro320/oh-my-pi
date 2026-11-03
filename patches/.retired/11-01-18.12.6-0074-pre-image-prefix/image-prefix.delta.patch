@@ -1,0 +1,105 @@
+--- a/src/providers/anthropic-images.ts
++++ b/src/providers/anthropic-images.ts
+@@ -8,7 +8,8 @@
+ import type { Context, ImageContent, Message, Model, TextContent } from "../types";
+ 
+ const ANTHROPIC_MANY_IMAGE_THRESHOLD = 20;
+-const ANTHROPIC_MANY_IMAGE_MAX_DIMENSION = 2000;
++// Use the many-image cap for every request so adding an image cannot rewrite history.
++const ANTHROPIC_CACHE_STABLE_MAX_DIMENSION = 2000;
+ /**
+  * Image contract of the canonical Anthropic Messages API, used when resolved
+  * model policy names no other: 8000px per side ("At least one of the image
+@@ -28,11 +29,8 @@
+ const ANTHROPIC_IMAGE_RESIZE_ATTEMPTS = 4;
+ 
+ /**
+- * Image bounds for one request. `maxDimension` and `payloadBudget` come from
+- * resolved model policy (`max-image-dimension`, `max-image-payload-bytes`) so
+- * a deployment whose image contract differs from the canonical API can
+- * override them, and the many-image path tightens `maxDimension` further
+- * because many images share one request budget.
++ * Image bounds for one request. The stable dimension limit also respects a
++ * stricter host policy; the payload budget follows the resolved host policy.
+  */
+ interface AnthropicImageCaps {
+ 	maxDimension: number;
+@@ -51,12 +49,7 @@
+ 	return count;
+ }
+ 
+-/**
+- * Ceiling on encoder output pixels in flight. One 8000x8000 RGBA surface is
+- * roughly 256 MiB, so admitting four of them would spike the CLI by a
+- * gigabyte; at the full-resolution cap this yields a single pipeline, while
+- * the many-image cap encodes at most 2000px and keeps the four-way fan-out.
+- */
++/** Preserve the host/count-based concurrency bound for large input decodes. */
+ const ANTHROPIC_IMAGE_RESIZE_PIXEL_BUDGET = 16_000_000;
+ const ANTHROPIC_IMAGE_RESIZE_MAX_CONCURRENCY = 4;
+ 
+@@ -74,9 +67,8 @@
+  * Callers keep message objects stable across turns, so without this every
+  * request (and every in-provider retry of a fresh turn) re-decodes and
+  * re-encodes the same oversized screenshots. A cached value identical to the
+- * key means "already within bounds / unresizable — skip the decode". The caps
+- * depend on image count and on resolved policy, so each pair keeps its own
+- * cache: a value cached at 8000px is not reusable at 2000px.
++ * key means "already within bounds / unresizable — skip the decode". Host
++ * policies may select different caps, so each pair keeps its own cache.
+  */
+ const anthropicImageResizeCaches = new Map<string, WeakMap<ImageContent, ImageContent>>();
+ 
+@@ -92,10 +84,9 @@
+ type ResizeLimiter = <R>(fn: () => Promise<R>) => Promise<R>;
+ 
+ /**
+- * Bounded-concurrency gate for image decode/encode work. The many-image path
+- * fans out over every block of every message; unbounded, 100+ oversized images
+- * would decode concurrently and spike memory by gigabytes. Slots are handed
+- * off directly to the next waiter on release.
++ * Bounded-concurrency gate for image decode/encode work. Unbounded batches
++ * could decode 100+ oversized images concurrently and spike memory. Slots are
++ * handed off directly to the next waiter on release.
+  */
+ function createResizeLimiter(limit: number): ResizeLimiter {
+ 	let active = 0;
+@@ -219,9 +210,8 @@
+ }
+ 
+ /**
+- * Clamp every image a Claude reader would receive to the host's contract.
+- * Limits the model's policy leaves unset fall back to the canonical Anthropic
+- * API. Returns `context` itself when nothing needed resizing.
++ * Clamp every image a Claude reader would receive to the stable dimension and
++ * host payload limits. Returns `context` itself when nothing needed resizing.
+  */
+ export async function prepareAnthropicImageContext(
+ 	context: Context,
+@@ -230,13 +220,9 @@
+ 	if (!model.input.includes("image")) return context;
+ 	const imageCount = countAnthropicImageBlocks(context.messages);
+ 	if (imageCount === 0) return context;
+-	// Many images share one request size budget, so they get the tighter cap.
+-	// A smaller set only has to clear the host's per-image limit.
++	// A count-dependent output cap would re-encode cached images at 20 -> 21.
+ 	const hostMaxDimension = model.compat.maxImageDimension ?? ANTHROPIC_MAX_IMAGE_DIMENSION;
+-	const maxDimension =
+-		imageCount > ANTHROPIC_MANY_IMAGE_THRESHOLD
+-			? Math.min(ANTHROPIC_MANY_IMAGE_MAX_DIMENSION, hostMaxDimension)
+-			: hostMaxDimension;
++	const maxDimension = Math.min(ANTHROPIC_CACHE_STABLE_MAX_DIMENSION, hostMaxDimension);
+ 	const maxPayloadBytes = model.compat.maxImagePayloadBytes ?? ANTHROPIC_MAX_IMAGE_PAYLOAD_BYTES;
+ 	const caps: AnthropicImageCaps = {
+ 		maxDimension,
+@@ -245,7 +231,9 @@
+ 
+ 	let changed = false;
+ 	const state = { resized: 0 };
+-	const limit = createResizeLimiter(anthropicImageResizeConcurrency(maxDimension));
++	// Keep the pre-existing decode concurrency policy independently of the output cap.
++	const concurrencyDimension = imageCount > ANTHROPIC_MANY_IMAGE_THRESHOLD ? maxDimension : hostMaxDimension;
++	const limit = createResizeLimiter(anthropicImageResizeConcurrency(concurrencyDimension));
+ 	const messages = await Promise.all(
+ 		context.messages.map(async message => {
+ 			const next = await resizeAnthropicImageMessage(message, state, limit, caps);

@@ -1,0 +1,252 @@
+{
+  "status": "PASS",
+  "scenarios": [
+    {
+      "name": "legacy-then-structured-registration",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 2,
+        "acks": 1,
+        "receiptShape": "isError===false + entryId/text/bytes",
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ]
+      }
+    },
+    {
+      "name": "omitted-registered-id-blocked",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 1,
+        "blocked": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ]
+      }
+    },
+    {
+      "name": "invalid-schema-blocked",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 1,
+        "blocked": 4,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10"
+        ]
+      }
+    },
+    {
+      "name": "supersession-lifecycle",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 3,
+        "blocked": 3,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10",
+          "11",
+          "12"
+        ]
+      }
+    },
+    {
+      "name": "topic-pointer-and-free-shrink",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 2,
+        "shrank": 32,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ]
+      }
+    },
+    {
+      "name": "same-batch-double-write-blocked",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 1,
+        "blockedInBatch": true,
+        "providerCalls": [
+          "1",
+          "2"
+        ]
+      }
+    },
+    {
+      "name": "failed-write-not-registered",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 2,
+        "failedUnregistered": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "name": "receipt-semantics-ghost-direct-ack",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 6,
+        "acks": 4,
+        "nestedBlocked": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10"
+        ]
+      }
+    },
+    {
+      "name": "ack-append-failure-not-registered",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 3,
+        "acks": 2,
+        "ackFailureMarkedError": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "name": "malformed-history-skipped",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 4,
+        "malformedSkipped": 2,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "name": "reset-boundary-isolates",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 3,
+        "resetIsolated": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "name": "branch-fork-reopen-retain",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "leafProbes": "ack=enforced, note=unregistered, tip=enforced",
+        "forkBlocked": true,
+        "reopenBlocked": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "1",
+          "2"
+        ]
+      }
+    },
+    {
+      "name": "rollover-retains-note-and-ack",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "compactions": 1,
+        "ackRetained": true,
+        "postRolloverBlocked": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ]
+      }
+    },
+    {
+      "name": "in-memory-journal-ack",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "inMemoryAck": true,
+        "blocked": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ]
+      }
+    }
+  ],
+  "runtimeErrors": [],
+  "gate": "/home/chris/orca/projects/omp-move/patches/context-notes-save-gate.ts"
+}

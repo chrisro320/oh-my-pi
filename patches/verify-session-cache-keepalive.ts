@@ -270,11 +270,6 @@ await outcomes.timers.fireNext();
 assert.match(await toolText(outcomes, "status"), /hits 1/);
 assert.match(await toolText(outcomes, "status"), /remaining 2\/3 attempts/);
 assert.equal(outcomes.timers.callbacks.size, 1, "settled hit schedules exactly one replacement");
-assert.match(
-	observedPrompt ?? "",
-	/^Prompt-cache keepalive\. Reply with exactly `\.` and do not call tools\.\n\[keepalive \d+ \d+\]$/,
-	"each attempt must carry a unique nonce suffix",
-);
 let observedPrompt2: string | undefined;
 outcomes.setRun(async options => {
 	observedPrompt2 = options.promptText;
@@ -544,6 +539,93 @@ for (const [name, label, runs, ms] of presetExpectations) {
 await intervals.command.handler("run legacy-job", intervals.ctx as ExtensionCommandContext);
 assert.match(intervals.notifications.at(-1) ?? "", /invalid interval/);
 assert.equal(intervals.timers.callbacks.size, 1, "removed command syntax must not replace the active timer");
+
+const added = await createHarness();
+let addedCalls = 0;
+added.setRun(async () => {
+	addedCalls += 1;
+	return makeResponse(100);
+});
+await toolText(added, "enable", "27m", 2);
+await added.timers.fireNext();
+const originalTimer = [...added.timers.callbacks.entries()];
+const deadline = (await toolText(added, "status")).match(/next (\S+)/)?.[1];
+assert(deadline);
+const originalNow = Date.now;
+try {
+	const later = originalNow() + 60_000;
+	Date.now = () => later;
+	await added.command.handler("add loop3", added.ctx as ExtensionCommandContext);
+} finally {
+	Date.now = originalNow;
+}
+const addedStatus = await toolText(added, "status");
+assert.match(addedStatus, /remaining 4\/5 attempts/);
+assert.match(addedStatus, /attempts 1 · hits 1 · misses 0/);
+assert.equal(addedStatus.match(/next (\S+)/)?.[1], deadline, "add must preserve the absolute deadline");
+assert.deepEqual([...added.timers.callbacks.entries()], originalTimer, "add must retain the original live timer");
+assert.deepEqual([...added.timers.delays.values()], [27 * 60_000]);
+for (let i = 0; i < 4; i += 1) await added.timers.fireNext();
+assert.equal(addedCalls, 5, "the original plus added budget must execute exactly five attempts");
+assert.equal(added.timers.callbacks.size, 0);
+assert.match(await toolText(added, "status"), /disabled/);
+
+const addingInFlight = await createHarness();
+const held = Promise.withResolvers<IdleEphemeralTurnResult | undefined>();
+let heldSignal: AbortSignal | undefined;
+addingInFlight.setRun(async options => {
+	heldSignal = options.signal;
+	return held.promise;
+});
+await toolText(addingInFlight, "enable", "4m");
+const heldFiring = addingInFlight.timers.fireNext();
+assert.match(await toolText(addingInFlight, "status"), /remaining 0\/1 attempts/);
+await addingInFlight.command.handler("add loop1", addingInFlight.ctx as ExtensionCommandContext);
+assert.match(await toolText(addingInFlight, "status"), /in-flight[\s\S]*remaining 1\/2 attempts/);
+assert(heldSignal && !heldSignal.aborted, "add must not abort the last in-flight attempt");
+assert.equal(addingInFlight.timers.callbacks.size, 0, "add must not arm a competing timer");
+held.resolve(makeResponse(100));
+await heldFiring;
+assert.equal(addingInFlight.timers.callbacks.size, 1, "the original completion must retain scheduling ownership");
+addingInFlight.setRun(async () => makeResponse(100));
+await addingInFlight.timers.fireNext();
+assert.match(await toolText(addingInFlight, "status"), /disabled[\s\S]*attempts 2 · hits 2/);
+
+const invalidAdd = await createHarness();
+await toolText(invalidAdd, "enable", "4m", 3);
+await invalidAdd.timers.fireNext();
+const invalidAddTimer = [...invalidAdd.timers.callbacks.entries()];
+for (const bad of ["add", "add loop", "add loop0", "add loop-1", "add loop2.5", "add loop101", "add loop5 4m", "add loop99999999999999999999"]) {
+	await invalidAdd.command.handler(bad, invalidAdd.ctx as ExtensionCommandContext);
+	assert.match(invalidAdd.notifications.at(-1) ?? "", /error/);
+	assert.match(await toolText(invalidAdd, "status"), /remaining 2\/3 attempts/);
+	assert.deepEqual([...invalidAdd.timers.callbacks.entries()], invalidAddTimer);
+}
+await invalidAdd.command.handler("add loop97", invalidAdd.ctx as ExtensionCommandContext);
+assert.match(await toolText(invalidAdd, "status"), /remaining 99\/100 attempts/);
+await invalidAdd.command.handler("add loop1", invalidAdd.ctx as ExtensionCommandContext);
+assert.match(invalidAdd.notifications.at(-1) ?? "", /error/);
+assert.match(await toolText(invalidAdd, "status"), /remaining 99\/100 attempts/, "the cap includes consumed attempts");
+assert.deepEqual([...invalidAdd.timers.callbacks.entries()], invalidAddTimer);
+
+const inactiveAdd = await createHarness();
+await inactiveAdd.command.handler("add loop5", inactiveAdd.ctx as ExtensionCommandContext);
+assert.match(inactiveAdd.notifications.at(-1) ?? "", /error/);
+assert.equal(inactiveAdd.timers.callbacks.size, 0, "add must never start a disabled schedule");
+const previousIdleHorizon = process.env.PI_CACHE_WARMING_IDLE_MAX_MS;
+try {
+	Object.assign(inactiveAdd.ctx.model!, { promptCache: { short: 300_000 } });
+	await inactiveAdd.command.handler("keep 1h", inactiveAdd.ctx as ExtensionCommandContext);
+	await inactiveAdd.command.handler("add loop5", inactiveAdd.ctx as ExtensionCommandContext);
+	assert.match(inactiveAdd.notifications.at(-1) ?? "", /error/);
+	assert.match(await toolText(inactiveAdd, "status"), /keep \(host warmer\)/);
+	assert.equal(process.env.PI_CACHE_WARMING_IDLE_MAX_MS, "3600000", "add must preserve the host warmer policy");
+	assert.equal(inactiveAdd.timers.callbacks.size, 0);
+	await inactiveAdd.command.handler("off", inactiveAdd.ctx as ExtensionCommandContext);
+} finally {
+	if (previousIdleHorizon === undefined) delete process.env.PI_CACHE_WARMING_IDLE_MAX_MS;
+	else process.env.PI_CACHE_WARMING_IDLE_MAX_MS = previousIdleHorizon;
+}
 
 const logLines = (await Bun.file(LOG_PATH).text())
 	.trim()

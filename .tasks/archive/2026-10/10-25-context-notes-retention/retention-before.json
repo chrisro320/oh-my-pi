@@ -1,0 +1,135 @@
+{
+  "status": "FAIL",
+  "scenarios": [
+    {
+      "name": "legacy-then-structured-registration",
+      "ok": false,
+      "failures": [
+        "threw: the notes retention extension must be loaded for this scenario"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "omitted-registered-id-blocked",
+      "ok": false,
+      "failures": [
+        "threw: a blocked write must not add a revision, got 2"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "invalid-schema-blocked",
+      "ok": false,
+      "failures": [
+        "threw: invalid writes must never add a revision"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "supersession-lifecycle",
+      "ok": false,
+      "failures": [
+        "threw: expected three accepted revisions, got 6"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "topic-pointer-and-free-shrink",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 2,
+        "shrank": 32,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ]
+      }
+    },
+    {
+      "name": "same-batch-double-write-blocked",
+      "ok": false,
+      "failures": [
+        "threw: expected the batch reason: {\"role\":\"toolResult\",\"toolCallId\":\"mock-tc-2\",\"toolName\":\"context_notes\",\"content\":[{\"type\":\"text\",\"text\":\"Experimental context notes were not saved because the session branch changed.\"}],\"details\":{},\"isError\":true,\"timestamp\":1792983855158}"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "failed-write-not-registered",
+      "ok": false,
+      "failures": [
+        "threw: each accepted write earns an ack"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "receipt-semantics-ghost-direct-ack",
+      "ok": false,
+      "failures": [
+        "threw: the real tool_result callback must append a durable ack"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "ack-append-failure-not-registered",
+      "ok": false,
+      "failures": [
+        "threw: expected one marked-error write, got 0"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "malformed-history-skipped",
+      "ok": false,
+      "failures": [
+        "threw: expected two malformed + two accepted entries, got 5"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "reset-boundary-isolates",
+      "ok": true,
+      "failures": [],
+      "observations": {
+        "revisions": 3,
+        "resetIsolated": true,
+        "providerCalls": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "name": "branch-fork-reopen-retain",
+      "ok": false,
+      "failures": [
+        "threw: registration must persist note + ack + tip"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "rollover-retains-note-and-ack",
+      "ok": false,
+      "failures": [
+        "threw: the rollover must retain the registered note, got 2"
+      ],
+      "observations": {}
+    },
+    {
+      "name": "in-memory-journal-ack",
+      "ok": false,
+      "failures": [
+        "threw: the in-memory path must append the ack entry"
+      ],
+      "observations": {}
+    }
+  ],
+  "runtimeErrors": [],
+  "gate": "/home/chris/.bun/install/omp-releases/18.12.6-87abd557af5b-693348fb-09428d79/ledger/context-notes-save-gate.ts"
+}

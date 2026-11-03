@@ -372,10 +372,11 @@
       "capabilities": [
         "0074"
       ],
-      "sha256": "4ee8ce70ab3e21f47455109bf3c2d6d2bfd26786c5f9a78e78001a08e15b50c2",
+      "sha256": "990a929c272bb2a460369d4fd5def665d317950a81eed237a223c52d3e689f57",
       "paths": [
         "pi-ai/dist/types/providers/anthropic-request-audit.d.ts",
         "pi-ai/src/providers/anthropic-request-audit.ts",
+        "pi-ai/src/providers/anthropic-images.ts",
         "pi-ai/src/providers/anthropic.ts"
       ]
     },
@@ -660,5 +661,5 @@
     }
   ],
   "pristine_tree_sha256": "9f609e1fefd74e1902e73e930d24b9d983d90c3b4df24aac031fa1bbd5a97cdd",
-  "candidate_tree_sha256": "87abd557af5b7c166dd3fadfc1bd68c5eb7cad641af41dac8424cfd7ca55a4bf"
+  "candidate_tree_sha256": "6f7b50c4264cc34fa4f175722650e012db0641bf1599761735b078e1e2ddf7e4"
 }
