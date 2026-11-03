@@ -11,7 +11,7 @@
  import type { OpenAIResponsesOptions } from "./providers/openai-responses.js";
  import type { kStreamingPartialJson } from "./utils/block-symbols.js";
  import type { AssistantMessageEventStream } from "./utils/event-stream.js";
-@@ -840,6 +842,8 @@
+@@ -851,6 +853,8 @@
      provider?: string;
      dt?: boolean;
      items: Array<Record<string, unknown>>;
@@ -22,15 +22,15 @@
  export type AnthropicOutputEffort = "low" | "medium" | "high" | "xhigh" | "max";
 --- a/src/providers/openai-codex-responses.ts
 +++ b/src/providers/openai-codex-responses.ts
-@@ -103,6 +103,7 @@
+@@ -110,6 +110,7 @@
  export { setCodexAttestationProvider } from "./openai-codex-attestation";
  export type { CodexAttestationProvider } from "./openai-codex-attestation";
  import {
 +	createOpenAIEffortControlState,
  	type OpenAIEffortControlState,
  	planStableOpenAIEffort,
- 	releaseOpenAIEffortControlSession,
-@@ -476,7 +477,6 @@
+ 	resolveOpenAIEffortControlState,
+@@ -480,7 +481,6 @@
  	webSocketSessions: Map<string, CodexWebSocketSessionState>;
  	webSocketPublicToPrivate: Map<string, string>;
  	metadataSessions: Map<string, CodexMetadataSessionState>;
@@ -38,7 +38,7 @@
  	effortControls: Map<string, OpenAIEffortControlState<ReasoningConfig["effort"]>>;
  }
  
-@@ -773,6 +773,7 @@
+@@ -758,6 +758,7 @@
  	responsesLite: boolean;
  	requestMetadata?: CodexRequestMetadata;
  	transformedBody: RequestBody;
@@ -46,18 +46,15 @@
  	rawRequestDump: RawHttpRequestDump;
  }
  
-@@ -1092,9 +1093,7 @@
- 		"webSocketPublicToPrivate" in state &&
- 		state.webSocketPublicToPrivate instanceof Map &&
- 		"metadataSessions" in state &&
--		state.metadataSessions instanceof Map &&
--		"effortControls" in state &&
--		state.effortControls instanceof Map
-+		state.metadataSessions instanceof Map
- 	);
+@@ -1036,6 +1037,7 @@
+ 	firstTokenTime?: number;
  }
  
-@@ -1546,12 +1545,14 @@
++
+ function isCodexWebSocketRetryableStreamError(error: unknown): boolean {
+ 	if (!(error instanceof CodexWebSocketTransportError)) return false;
+ 	const message = error.message.toLowerCase();
+@@ -1473,12 +1475,14 @@
  	options: OpenAICodexResponsesOptions | undefined,
  ): Promise<CodexRequestContext> {
  	const promptCacheKey = getOpenAIPromptCacheKey(options);
@@ -74,7 +71,7 @@
  }
  
  /**
-@@ -1578,6 +1579,16 @@
+@@ -1505,6 +1509,16 @@
  	promptCacheKey = getOpenAIPromptCacheKey(options),
  	inputPrefix?: InputItem[],
  ): Promise<RequestBody> {
@@ -91,7 +88,7 @@
  	const input = convertMessages(model, context);
  	const params: RequestBody = {
  		model: model.requestModelId ?? model.id,
-@@ -1623,38 +1634,66 @@
+@@ -1550,38 +1564,66 @@
  	};
  
  	const body = await transformRequestBody(params, model, codexOptions, { developerMessages });
@@ -172,7 +169,7 @@
  }
  
  async function openInitialCodexEventStream(
-@@ -3273,6 +3312,9 @@
+@@ -3276,6 +3318,9 @@
  			this.model.provider,
  			this.runtime.finalizeNativeOutputItems(),
  		);
@@ -195,7 +192,7 @@
  import type { OpenAIResponsesOptions } from "./providers/openai-responses";
  import type { kStreamingPartialJson } from "./utils/block-symbols";
  import type { AssistantMessageEventStream } from "./utils/event-stream";
-@@ -1070,6 +1072,8 @@
+@@ -1085,6 +1087,8 @@
  	provider?: string;
  	dt?: boolean;
  	items: Array<Record<string, unknown>>;

@@ -1,7 +1,7 @@
 --- a/src/error/flags.ts
 +++ b/src/error/flags.ts
-@@ -562,6 +562,14 @@
- 	return text.includes(STREAM_ENVELOPE_ERROR_PREFIX);
+@@ -583,6 +583,13 @@
+ 	return TRANSIENT_ENVELOPE_PATTERN.test(text) && TRANSIENT_ENVELOPE_TRUNCATION_PATTERN.test(text);
  }
  
 +/**
@@ -11,14 +11,13 @@
 + * wording and stay terminal.
 + */
 +const TRANSIENT_TLS_VERIFY_PATTERN = /\bunknown certificate verification error\b/i;
-+
  function isTransientErrorText(text: string): boolean {
  	return (
  		isUnexpectedSocketCloseMessage(text) ||
-@@ -569,7 +577,8 @@
+@@ -590,7 +597,8 @@
  		PYTHON_HTTP2_STREAM_RESET_PATTERN.test(text) ||
  		PYTHON_HTTP_INCOMPLETE_CHUNK_PATTERN.test(text) ||
- 		(TRANSIENT_ENVELOPE_PATTERN.test(text) && TRANSIENT_ENVELOPE_TRUNCATION_PATTERN.test(text)) ||
+ 		isStreamEnvelopeTruncationText(text) ||
 -		TRANSIENT_TRANSPORT_PATTERN.test(text)
 +		TRANSIENT_TRANSPORT_PATTERN.test(text) ||
 +		TRANSIENT_TLS_VERIFY_PATTERN.test(text)

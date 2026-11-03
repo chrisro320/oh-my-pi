@@ -1,7 +1,7 @@
 --- a/dist/types/hindsight/state.d.ts
 +++ b/dist/types/hindsight/state.d.ts
-@@ -92,11 +92,11 @@
-     recallForCompaction(messages: HindsightMessage[]): Promise<string | undefined>;
+@@ -105,11 +105,11 @@
+     recallForCompaction(messages: HindsightMessage[], signal?: AbortSignal): Promise<string | undefined>;
      runMentalModelLoad(scope: BankScope): Promise<void>;
      /**
 -     * Starts a bounded reload for a new transcript without blocking the session
@@ -95,7 +95,7 @@
  		return parts.join("\n\n");
  	},
  
-@@ -310,12 +310,13 @@
+@@ -311,12 +311,13 @@
  	previous?.dispose();
  	state.attachSessionListeners();
  
@@ -114,14 +114,15 @@
  	}
 --- a/src/hindsight/state.ts
 +++ b/src/hindsight/state.ts
-@@ -1,5 +1,5 @@
- import { logger } from "@oh-my-pi/pi-utils";
+@@ -1,6 +1,6 @@
+ import { logger, sanitizeText, truncate } from "@oh-my-pi/pi-utils";
+ import type { MemoryWriteScope } from "../memory-backend/global-scope";
 -import { findPersistedRecall, persistRecall } from "../memory-backend/recall-entry";
 +import { findPersistedRecall, MEMORY_RECALL_ENTRY_TYPE, persistRecall } from "../memory-backend/recall-entry";
  import type { MemoryPromptPreparation } from "../memory-backend/types";
  import type { AgentSession } from "../session/agent-session";
  import { type BankScope, ensureBankExists } from "./bank";
-@@ -25,6 +25,24 @@
+@@ -34,6 +34,24 @@
  const RETAIN_FLUSH_INTERVAL_MS = 5_000;
  const MENTAL_MODEL_LOAD_TIMED_OUT = Symbol("mental-model-load-timed-out");
  
@@ -146,7 +147,7 @@
  interface PendingRetainItem {
  	content: string;
  	context?: string;
-@@ -242,6 +260,8 @@
+@@ -291,6 +309,8 @@
  	 */
  	mentalModelsLoadPromise?: Promise<void>;
  	#mentalModelsLoadGeneration = 0;
@@ -155,7 +156,7 @@
  	unsubscribe?: () => void;
  	/** Alias states delegate persistence config to a primary parent state. */
  	aliasOf?: HindsightSessionState;
-@@ -432,21 +452,62 @@
+@@ -512,21 +532,62 @@
  		}
  	}
  
@@ -223,7 +224,7 @@
  		const persisted = findPersistedRecall(this.session.sessionManager, this.#recallScope());
  		if (persisted !== undefined) {
  			return {
-@@ -454,7 +515,27 @@
+@@ -534,7 +595,27 @@
  				commit: () => this.#commitRecall(generation, persisted.text, false),
  			};
  		}
@@ -251,7 +252,7 @@
  		const history = extractMessages(this.session.sessionManager);
  		const queryMessages = [...history, { role: "user" as const, content: latestPrompt }];
  		const query = composeRecallQuery(latestPrompt, queryMessages, this.config.recallContextTurns);
-@@ -463,7 +544,7 @@
+@@ -543,7 +624,7 @@
  		if (!ok) return undefined;
  
  		return {
@@ -260,7 +261,7 @@
  			commit: () => this.#commitRecall(generation, context ?? "", true),
  		};
  	}
-@@ -472,8 +553,10 @@
+@@ -552,8 +633,10 @@
  	#commitRecall(generation: number, context: string, persist: boolean): boolean {
  		if (this.#recallGeneration !== generation) return false;
  		this.hasRecalledForFirstTurn = true;
@@ -273,7 +274,7 @@
  		return true;
  	}
  
-@@ -505,8 +588,25 @@
+@@ -585,8 +668,25 @@
  	async runMentalModelLoad(scope: BankScope): Promise<void> {
  		if (!this.config.mentalModelsEnabled) return;
  		const generation = ++this.#mentalModelsLoadGeneration;
@@ -300,7 +301,7 @@
  
  		const bootstrap = (async () => {
  			// Create/ensure the bank BEFORE the first mental-model POST so we don't
-@@ -514,6 +614,7 @@
+@@ -594,6 +694,7 @@
  			// that surfaces as a FK / 404 on Hindsight's side. `ensureBankExists`
  			// is idempotent (PUT) and skips after the first call via `banksSet`.
  			await ensureBankExists(this.client, this.bankId, this.config, this.banksSet);
@@ -308,7 +309,7 @@
  
  			// Seeding is opt-in (`hindsight.mentalModelAutoSeed`). Default behaviour is
  			// read-only: we surface whatever models the operator has curated on the
-@@ -523,36 +624,52 @@
+@@ -603,36 +704,52 @@
  				const seeds = resolveSeedsForScope(scope, this.config.scoping);
  				if (seeds.length > 0) {
  					await ensureMentalModels(this.client, this.bankId, seeds, this.config.debug);
@@ -380,7 +381,7 @@
  	}
  
  	async #settleMentalModelsLoadWithinDeadline(
-@@ -572,13 +689,65 @@
+@@ -652,13 +769,65 @@
  		this.#mentalModelsLoadGeneration++;
  		this.mentalModelsSnippet = previousSnippet;
  		this.mentalModelsLoadedAt = Date.now();
@@ -446,7 +447,7 @@
  		const result = await tryLoadMentalModelsBlock(
  			this.client,
  			this.bankId,
-@@ -587,6 +756,10 @@
+@@ -667,6 +836,10 @@
  		);
  		if (generation !== this.#mentalModelsLoadGeneration) return;
  		if (!result.ok) {
@@ -457,7 +458,7 @@
  			this.mentalModelsLoadedAt = Date.now();
  			return;
  		}
-@@ -599,9 +772,11 @@
+@@ -679,9 +852,11 @@
  		if (generation !== this.#mentalModelsLoadGeneration) return;
  		if (!published) this.mentalModelsSnippet = previousSnippet;
  		this.mentalModelsLoadedAt = Date.now();
@@ -527,7 +528,7 @@
  }
 --- a/src/session/agent-session.ts
 +++ b/src/session/agent-session.ts
-@@ -558,6 +558,7 @@
+@@ -587,6 +587,7 @@
  	cfgToolsApproval,
  } from "../tools/settings";
  import { cfgTtsrJudge } from "../export/ttsr-settings";
@@ -535,7 +536,7 @@
  
  /** Advisor settings whose edit toggles or rebuilds a running advisor. */
  const cfgAdvisorRuntimeInputs = combine({
-@@ -1239,6 +1240,8 @@
+@@ -1331,6 +1332,8 @@
  	#providerSessionState = new Map<string, ProviderSessionState>();
  	readonly #cacheWarmer: CacheWarmer | undefined;
  	#hindsightSessionState: HindsightSessionState | undefined = undefined;
@@ -544,7 +545,7 @@
  	readonly #memory: SessionMemory;
  	readonly rawSseDebugBuffer: RawSseDebugBuffer;
  
-@@ -2238,7 +2241,8 @@
+@@ -2444,7 +2447,8 @@
  			memoryBackendSession: () => this,
  			clearInheritedProviderPromptCacheKey: () => this.#clearInheritedProviderPromptCacheKey(),
  			clearMemoryPromotionSnapshot: () => this.#memory.clearPromotionSnapshot(),
@@ -554,7 +555,7 @@
  			emitNotice: (level, message, source) => this.emitNotice(level, message, source),
  			notifyCommandMetadataChanged: () => this.#notifyCommandMetadataChanged(),
  			localProtocolOptions: () => this.#localProtocolOptions(),
-@@ -3010,6 +3014,9 @@
+@@ -3269,6 +3273,9 @@
  	setHindsightSessionState(state: HindsightSessionState | undefined): HindsightSessionState | undefined {
  		const previous = this.#hindsightSessionState;
  		this.#hindsightSessionState = state;
@@ -564,7 +565,7 @@
  		return previous;
  	}
  
-@@ -5682,6 +5689,13 @@
+@@ -6022,6 +6029,13 @@
  			const settled = Promise.withResolvers<void>();
  			this.#sessionTransitionSettled = settled.promise;
  			this.#resolveSessionTransition = settled.resolve;
@@ -578,7 +579,7 @@
  		}
  		return this.#sessionTransitionScope;
  	}
-@@ -6338,7 +6352,6 @@
+@@ -6681,7 +6695,6 @@
  		// Re-prime the advisors across the conversation boundary and undo any
  		// memory promotion so the next turn rebuilds from the base system prompt.
  		this.#advisors.resetSessionState();
@@ -586,7 +587,7 @@
  
  		// Record a durable boundary on the persisted branch. The collapsed live
  		// transcript and the model-context rebuild start emission after the latest
-@@ -6346,6 +6359,8 @@
+@@ -6689,6 +6702,8 @@
  		// on-disk record and the plain `transcript:true` export path keep the full
  		// pre-reset history.
  		this.sessionManager.appendResetBoundary();
@@ -595,7 +596,7 @@
  
  		resetCapabilities();
  		await this.refreshBaseSystemPrompt();
-@@ -10779,7 +10794,8 @@
+@@ -11461,7 +11476,8 @@
  			// #syncAppendOnlyContext only re-runs on model or setting changes.
  			this.agent.appendOnlyContext?.invalidateForModelChange();
  			this.#memory.rekeyForCurrentSessionId();
@@ -605,7 +606,7 @@
  			this.#pendingNextTurnMessages = [];
  			// The abort above may have skipped the loop's final aside poll (issue: stranded
  			// asides survive an aborted turn by design so a resumed session can still see
-@@ -10933,7 +10949,8 @@
+@@ -11616,7 +11632,8 @@
  			this.#memory.rekeyForCurrentSessionId();
  			this.#advisors.reattachRecorderFeeds();
  			advisorRecordersDetached = false;
@@ -615,7 +616,7 @@
  
  			// Emit session_switch event with reason "fork" to hooks
  			if (this.#extensionRunner) {
-@@ -12363,6 +12380,7 @@
+@@ -13133,6 +13150,7 @@
  		// Flush pending writes before switching so restore snapshots reflect committed state.
  		await this.sessionManager.flush();
  		const previousSessionState = this.sessionManager.captureState();
@@ -623,15 +624,15 @@
  		const bashTransition = this.#bash.beginSessionTransition();
  		// Only same-session reloads compare against the prior context to detect
  		// rollback edits (`#didSessionMessagesChange` below). Building it for a
-@@ -12393,6 +12411,7 @@
+@@ -13163,6 +13181,7 @@
  		const previousBaseSystemPrompt = this.#tools.baseSystemPrompt;
  		const previousSystemPrompt = this.agent.state.systemPrompt;
  		const previousBaseSystemPromptBeforeMemoryPromotion = this.#memory.promotionSnapshot;
 +		const previousMemoryPromotionTail = this.#memory.promotionTail;
  		const previousFreshProviderSessionId = this.#freshProviderSessionId;
  		const previousInheritedProviderPromptCacheKey = this.#inheritedProviderPromptCacheKey;
- 
-@@ -12433,6 +12452,12 @@
+ 		const previousTaskSiblingCandidate = this.sessionManager.getTaskSiblingCandidate();
+@@ -13204,6 +13223,12 @@
  			// The file may be reloaded at the same path with a different latest contract (or the
  			// switch rolled back via restoreState); re-read it on the next model call either way.
  			this.#sessionInit = undefined;
@@ -644,7 +645,7 @@
  			await this.sessionManager.setSessionFile(sessionPath);
  			this.#bash.markSessionTransition(bashTransition);
  			const newCwd = this.sessionManager.getCwd();
-@@ -12581,9 +12606,6 @@
+@@ -13362,9 +13387,6 @@
  				hasServiceTierEntry ? (sessionContext.serviceTier ?? {}) : configuredServiceTierByFamily,
  			);
  
@@ -654,7 +655,7 @@
  			if (switchingToDifferentSession || didReloadConversationChange) {
  				this.#clearSessionScopedToolState();
  			}
-@@ -12631,15 +12653,32 @@
+@@ -13412,15 +13434,32 @@
  				if (options?.onModelFallback) options.onModelFallback(modelFallbackWarning);
  				else this.emitNotice("warning", modelFallbackWarning);
  			}
@@ -688,7 +689,7 @@
  			this.agent.setSystemPrompt(previousSystemPrompt);
  			this.agent.replaceMessages(previousAgentMessages);
  			this.agent.replaceQueues(previousSteeringMessages, previousFollowUpMessages);
-@@ -12854,7 +12893,8 @@
+@@ -13638,7 +13677,8 @@
  			this.#clearInheritedProviderPromptCacheKey();
  			this.#syncAgentSessionId();
  			this.#memory.rekeyForCurrentSessionId();
@@ -698,7 +699,7 @@
  
  			// Reload messages from entries (works for both file and in-memory mode)
  			const sessionContext = this.buildDisplaySessionContext();
-@@ -12976,7 +13016,8 @@
+@@ -13768,7 +13808,8 @@
  			this.#freshProviderSessionId = undefined;
  			this.#syncAgentSessionId();
  			this.#memory.rekeyForCurrentSessionId();
@@ -708,7 +709,7 @@
  
  			const sessionContext = this.buildDisplaySessionContext();
  
-@@ -13324,6 +13365,9 @@
+@@ -14098,6 +14139,9 @@
  		this.#todo.syncFromBranch();
  		this.#modelMentions.syncFromBranch();
  		this.#closeCodexProviderSessionsForHistoryRewrite();
@@ -809,7 +810,7 @@
  	}
 --- a/src/session/session-tools.ts
 +++ b/src/session/session-tools.ts
-@@ -113,7 +113,8 @@
+@@ -127,7 +127,8 @@
  	memoryBackendSession(): MemoryBackendStartOptions["session"];
  	clearInheritedProviderPromptCacheKey(): void;
  	clearMemoryPromotionSnapshot(): void;
@@ -819,7 +820,7 @@
  	emitNotice(level: "info" | "warning" | "error", message: string, source?: string): void;
  	notifyCommandMetadataChanged(): void;
  	localProtocolOptions(): LocalProtocolOptions;
-@@ -1372,7 +1373,12 @@
+@@ -1484,7 +1485,12 @@
  				if (this.#lastAppliedToolSignature !== undefined && !restoresTranscriptPrompt) {
  					this.#host.clearInheritedProviderPromptCacheKey();
  				}
@@ -833,7 +834,7 @@
  				this.#host.clearMemoryPromotionSnapshot();
  				this.#applyAgentSystemPrompt(this.#baseSystemPrompt);
  				invalidateToolSchemaMetadata(this.#host.agent.state.tools);
-@@ -2187,7 +2193,12 @@
+@@ -2310,7 +2316,12 @@
  				// awaiting its final commit: its own lifecycle published its own
  				// snapshot, so only carry the prompt forward.
  				if (this.#baseSystemPrompt !== previousBaseSystemPrompt) return true;
@@ -847,7 +848,7 @@
  				this.#promptSurface = candidate;
  				this.#setBasePromptXdevNames(built.xdevCatalogNames);
  				this.#host.clearMemoryPromotionSnapshot();
-@@ -2243,7 +2254,12 @@
+@@ -2367,7 +2378,12 @@
  			}
  			if (!isCurrent()) return { systemPrompt: this.#baseSystemPrompt };
  
@@ -861,7 +862,7 @@
  			const stablePrompt = [...preparedBase, injected];
  			return {
  				systemPrompt: stablePrompt,
-@@ -2254,8 +2270,14 @@
+@@ -2378,8 +2394,14 @@
  					// A handler may have refreshed tools or policy. Promote the recall onto
  					// that winning base, never replace it with the preparation's snapshot.
  					const currentBase = this.#baseSystemPrompt;

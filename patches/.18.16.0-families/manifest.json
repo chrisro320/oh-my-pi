@@ -1,10 +1,7 @@
 {
   "schema_version": 1,
   "version": "18.16.0",
-  "status": "skeleton",
   "upstream_commit": "650f3a108229ee11bf68ba3377f4e8c3391cd424",
-  "pristine_tree_sha256": "9f88de1a04fb7d663ecd2b627686f0048252231d1a6293bd34fce4301eaf99a1",
-  "candidate_tree_sha256": null,
   "archives": [
     {
       "name": "@oh-my-pi/pi-agent-core",
@@ -71,7 +68,7 @@
         "0004",
         "0081"
       ],
-      "sha256": "93f84fa0d5ca712da3de4a58c9618233b1a4837c7a69702b7ef8931691ebbc66",
+      "sha256": "868bbd2ad1e5817e7c4e6a5f6105cc28ad4fa957e01cc6b9e05f3fddae82c314",
       "paths": [
         "pi-coding-agent/dist/types/session/session-manager.d.ts",
         "pi-coding-agent/src/cli/gallery-fixtures/preview-session.ts",
@@ -93,7 +90,7 @@
         "0034",
         "0075"
       ],
-      "sha256": "d79f8012f8677b60762cb0399813707ff9ac9b871dbafb68d9fc010fb34fb83d",
+      "sha256": "1df62581ce5254a358f5170172e62c5e73ecbed2ffce0d3e377d3056c63f8dbc",
       "paths": [
         "pi-coding-agent/dist/types/hindsight/state.d.ts",
         "pi-coding-agent/dist/types/memory-backend/recall-entry.d.ts",
@@ -118,7 +115,7 @@
         "0030",
         "0031"
       ],
-      "sha256": "1019742043c6fdec3023959ad8b3a606681b91a90c56c3445c26660c5b6229e8",
+      "sha256": "34dbfba67508aa7001c4bad6bb775829963595f500362da6814a0b961dcd472d",
       "paths": [
         "pi-ai/dist/types/auth-broker/client.d.ts",
         "pi-ai/dist/types/auth-broker/remote-store.d.ts",
@@ -149,7 +146,7 @@
       "capabilities": [
         "0010"
       ],
-      "sha256": "6053f9bd30964eadd99e72e10bc9817c32d00c5f34515e90cd545022a9e7c7b7",
+      "sha256": "54d9e83d5885e63481a8763b94e987d70878956b8c98bf03d11011fd4d267da7",
       "paths": [
         "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
         "pi-coding-agent/dist/types/session/agent-session.d.ts",
@@ -158,7 +155,9 @@
         "pi-coding-agent/src/modes/acp/acp-agent.ts",
         "pi-coding-agent/src/modes/controllers/extension-ui-controller.ts",
         "pi-coding-agent/src/modes/runtime-init.ts",
-        "pi-coding-agent/src/session/agent-session.ts"
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/src/session/idle-maintenance.ts",
+        "pi-coding-agent/dist/types/session/idle-maintenance.d.ts"
       ]
     },
     {
@@ -169,7 +168,7 @@
         "0014",
         "0054"
       ],
-      "sha256": "7ffee3728d530318ac6da051193bd4f1625f93f2c7633171bc185f4494cf758d",
+      "sha256": "84b0c5e7fad21a152fb6b8ff1c5d79cee55c6cc7f0569b5e1dd318e37811e641",
       "paths": [
         "pi-ai/src/providers/google-gemini-cli.ts"
       ]
@@ -185,7 +184,7 @@
         "0057",
         "0062"
       ],
-      "sha256": "8f55f103a386d9413c8f675a0da40507312e27f57ee82660451a895f4e117133",
+      "sha256": "3c555fc47b985fa578e0a53afea1d08efb102ad529d6b45f0ec17d48be0adacc",
       "paths": [
         "pi-coding-agent/src/session/session-maintenance.ts",
         "snapcompact/dist/types/snapcompact.d.ts",
@@ -214,13 +213,9 @@
         "0084",
         "0093"
       ],
-      "sha256": "f9cd79094d11777e6910dc73ae8aaaa3823b0ae35cb68a4ac16f413527a85e1f",
+      "sha256": "2b279d30822183c131e5c771c80c5e859cbac1b1012c2fd12a06a492ccaaf761",
       "paths": [
-        "pi-ai/dist/types/types.d.ts",
-        "pi-ai/src/providers/openai-responses.ts",
-        "pi-ai/src/types.ts",
         "pi-coding-agent/dist/types/session/agent-session.d.ts",
-        "pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts",
         "pi-coding-agent/dist/types/session/messages.d.ts",
         "pi-coding-agent/dist/types/session/session-manager.d.ts",
         "pi-coding-agent/dist/types/session/session-storage.d.ts",
@@ -228,11 +223,9 @@
         "pi-coding-agent/dist/types/session/session-transfer.d.ts",
         "pi-coding-agent/dist/types/session/turn-recovery.d.ts",
         "pi-coding-agent/src/collab/guest.ts",
-        "pi-coding-agent/src/main.ts",
         "pi-coding-agent/src/modes/controllers/selector-controller.ts",
         "pi-coding-agent/src/sdk.ts",
         "pi-coding-agent/src/session/agent-session.ts",
-        "pi-coding-agent/src/session/date-cwd-reminder.ts",
         "pi-coding-agent/src/session/messages.ts",
         "pi-coding-agent/src/session/model-controls.ts",
         "pi-coding-agent/src/session/session-context.ts",
@@ -252,7 +245,7 @@
       "capabilities": [
         "0046"
       ],
-      "sha256": "fbdc9f13dfaa20689fc7b54b943b01579a8e67910ce05d0ffe1f4ec645f9744a",
+      "sha256": "4b33fb8f49a9a9abc6ded84886255637d75c8b4923f1c6e0b3bdba55ed934290",
       "paths": [
         "pi-coding-agent/src/session/session-maintenance.ts"
       ]
@@ -264,7 +257,7 @@
       "capabilities": [
         "0048"
       ],
-      "sha256": "75ac186759fd159d86d3a6478e7d81fda82c92d0246c8e2a623d26b61349a3fd",
+      "sha256": "b20b5e1301f50d0d47cec4515d9f6724f54e6c0b54e91d90c19b7e2769af8813",
       "paths": [
         "pi-coding-agent/src/session/session-advisors.ts",
         "pi-tui/src/overlays/advisor-config.ts"
@@ -277,15 +270,11 @@
       "capabilities": [
         "0050"
       ],
-      "sha256": "5cae69e2e17619c2f69c2f72e97d8c3d23915be497ed07173f3256e1f5675eb4",
+      "sha256": "5cfd967773a809f00d58e5fd9e01251615174a93d7d4fc6ebfc8f322c3ae5d81",
       "paths": [
         "pi-coding-agent/dist/types/session/session-listing.d.ts",
-        "pi-coding-agent/src/main.ts",
-        "pi-coding-agent/src/modes/controllers/selector-controller.ts",
         "pi-coding-agent/src/session/session-listing.ts",
-        "pi-tui/dist/types/apps/session-picker.d.ts",
         "pi-tui/dist/types/overlays/session-selector.d.ts",
-        "pi-tui/src/apps/session-picker.ts",
         "pi-tui/src/overlays/session-info-overlay.ts",
         "pi-tui/src/overlays/session-selector.ts"
       ]
@@ -301,7 +290,7 @@
         "0058",
         "0060"
       ],
-      "sha256": "19ea726715a7877e6b409e1aa710c764ffaed7f411975350da4c4dc074bb3f9e",
+      "sha256": "08eb694f73b6a0079a29709d2e56d47e0f4c592f2838a5cd4ea9b5ca174eeb10",
       "paths": [
         "pi-ai/dist/types/stream.d.ts",
         "pi-ai/dist/types/types.d.ts",
@@ -322,7 +311,7 @@
       "capabilities": [
         "0065"
       ],
-      "sha256": "be0a59e195f56ea577d13c02bddfa28f12f38194ada6aaaa25ae53bd4cbaaa55",
+      "sha256": "cc6b60c42b4055d00554761f69e40cf8f10442ad5f3e057da9930c87cfe9d0ba",
       "paths": [
         "pi-catalog/src/compat/rules.json",
         "pi-catalog/src/compat/rules/providers/commandcode.kdl"
@@ -335,7 +324,7 @@
       "capabilities": [
         "0069"
       ],
-      "sha256": "ee2f02d225f816885fae30774fa6078fb1051177abb9cd0629aea365ae7b019f",
+      "sha256": "305085360f5ee19a2330928bb0d827beddeb76da4d4be6268f7c30d5b24baf2a",
       "paths": [
         "pi-ai/dist/types/types.d.ts",
         "pi-ai/src/providers/openai-codex-responses.ts",
@@ -349,7 +338,7 @@
       "capabilities": [
         "0072"
       ],
-      "sha256": "d0e2ac5f339c81cf6c16b98c221e3542b1bce4423a3ed7705636692218a9b48c",
+      "sha256": "8a46dccef3459feffda74562a8f952220bd108c3bbc00881aaaf98722eafadc2",
       "paths": [
         "pi-coding-agent/src/modes/controllers/selector-controller.ts"
       ]
@@ -361,7 +350,7 @@
       "capabilities": [
         "0074"
       ],
-      "sha256": "990a929c272bb2a460369d4fd5def665d317950a81eed237a223c52d3e689f57",
+      "sha256": "2763687da7324f0aeabd36c74d384c0fd22cdad4605301b2744bbe72b9ca0fb5",
       "paths": [
         "pi-ai/dist/types/providers/anthropic-request-audit.d.ts",
         "pi-ai/src/providers/anthropic-request-audit.ts",
@@ -377,7 +366,7 @@
         "0079",
         "0080"
       ],
-      "sha256": "a25cb5e4052ca9ecdf9a9b8b364b12ddec99aae86c7519c958bc43ba3f3d91ab",
+      "sha256": "a35e60c6395940aa7749aa8f7816647d58e585a9aec1ce26c816a972d027caaf",
       "paths": [
         "pi-tui/dist/types/chat/image-loading.d.ts",
         "pi-tui/src/chat/assistant-message.ts",
@@ -393,7 +382,7 @@
         "0082",
         "0085"
       ],
-      "sha256": "e5cba76512b4fc37909163fb902007284f9b2c1936d35c12dafb5edb7b8fc5b2",
+      "sha256": "46f0bde122e8cb7151bf835ca79f807cae5363b80de546c706d168f78f861a86",
       "paths": [
         "pi-agent-core/dist/types/compaction/compaction.d.ts",
         "pi-agent-core/src/agent.ts",
@@ -412,7 +401,6 @@
         "pi-coding-agent/dist/types/session/agent-session.d.ts",
         "pi-coding-agent/dist/types/session/session-history-format.d.ts",
         "pi-coding-agent/dist/types/slash-commands/helpers/draft.d.ts",
-        "pi-coding-agent/src/export/html/template.js",
         "pi-coding-agent/src/export/share.ts",
         "pi-coding-agent/src/extensibility/extensions/loader.ts",
         "pi-coding-agent/src/extensibility/extensions/runner.ts",
@@ -439,7 +427,6 @@
         "pi-tui/src/chat/transcript-outline.ts",
         "pi-tui/src/overlays/copy-selector.ts",
         "pi-tui/src/overlays/hook-input.ts",
-        "pi-tui/src/overlays/session-selector.ts",
         "pi-tui/src/overlays/tree-selector.ts"
       ]
     },
@@ -458,7 +445,7 @@
         "0089",
         "0096"
       ],
-      "sha256": "aca93c290f062e6e14d11633bc8fa7935091b744d380ca1feb7b052375e48136",
+      "sha256": "4a72a5273a07e9bac4eaac0bc2f90282059e962fa379ff269d18452f953577bc",
       "paths": [
         "pi-agent-core/dist/types/compaction/anthropic.d.ts",
         "pi-agent-core/dist/types/compaction/compaction-trace.d.ts",
@@ -484,7 +471,8 @@
         "pi-coding-agent/src/session/session-context.ts",
         "pi-coding-agent/src/session/session-maintenance.ts",
         "pi-coding-agent/src/session/session-provider-boundary.ts",
-        "pi-coding-agent/src/task/executor.ts"
+        "pi-coding-agent/src/task/executor.ts",
+        "pi-ai/src/providers/openai-codex-state.ts"
       ]
     },
     {
@@ -494,7 +482,7 @@
       "capabilities": [
         "0090"
       ],
-      "sha256": "ea025eaee923278bd26c5185071c0c532504c71ce6e229af68cce32973efd979",
+      "sha256": "6b34c5851cf9e20737b8c84828c5623c62ec97079abb84f3a73b9a1142f3c6fa",
       "paths": [
         "pi-ai/dist/types/auth-broker/remote-store.d.ts",
         "pi-ai/dist/types/auth/oauth.d.ts",
@@ -523,7 +511,6 @@
         "pi-catalog/src/model-manager.ts",
         "pi-catalog/src/provider-models/google.ts",
         "pi-catalog/src/provider-models/special.ts",
-        "pi-coding-agent/src/cli/auth-broker-cli.ts",
         "pi-coding-agent/src/session/agent-session.ts",
         "pi-tui/src/overlays/mcp-add-wizard.ts"
       ]
@@ -535,7 +522,7 @@
       "capabilities": [
         "0092"
       ],
-      "sha256": "378fa6747738991d21ffb049af5e6e485b1fb100ec98412a31c0de938c3b31a7",
+      "sha256": "a4db9ef7033b0fbbffe84c58f824d3ad1adec9321c21573da44f1b8ca84f4b83",
       "paths": [
         "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
         "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
@@ -553,7 +540,7 @@
       "capabilities": [
         "0094"
       ],
-      "sha256": "a22fb35cea3ffb6d4cdec94ac7d8795561df98c8a0bf478d884e4627b6705b8e",
+      "sha256": "ffb17f34c321aff1c11e69caeda34b9bd6d810400cad822fd399b854055f90bd",
       "paths": [
         "pi-ai/dist/types/types.d.ts",
         "pi-ai/src/providers/anthropic.ts",
@@ -567,7 +554,7 @@
       "capabilities": [
         "0095"
       ],
-      "sha256": "10c0e63f4f38a6a77b848f74c369113106f55922d52012f45cbaf87ac1306153",
+      "sha256": "84849477a1ef5b7a0d498c29d9cb9ae6f19f7f6b842b2fde9a767b753e73e064",
       "paths": [
         "pi-coding-agent/dist/types/extensibility/extensions/runner.d.ts",
         "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
@@ -587,7 +574,7 @@
       "capabilities": [
         "0098"
       ],
-      "sha256": "0b870ed80d54b32b836ddb4853a4a07a07dfc8a63e675069593aaf7e2d851e3f",
+      "sha256": "034bfde0bd4b8377119a8ae5ed4d81158357000c067c83d58d77cc2e436c0e9c",
       "paths": [
         "pi-ai/src/error/flags.ts"
       ]
@@ -599,7 +586,7 @@
       "capabilities": [
         "0099"
       ],
-      "sha256": "223c0e2ac9e67f8998210a376d8a252eb5ab7d645e80649f8774bfbc5ea7e390",
+      "sha256": "2bdebb2d86a9ec573019ae6cbde0cbf352897257f2aaec8659d532be562f260a",
       "paths": [
         "pi-coding-agent/src/session/retry-fallback-chains.ts"
       ]
@@ -611,7 +598,7 @@
       "capabilities": [
         "0100"
       ],
-      "sha256": "c1a47b0a4515fdfa81af0f9a129bfbd8e8044680474d6481d4ce1e948ba13490",
+      "sha256": "f13e97ae1135e2fa08fc1eca209e1de844c9a9d1197df6eb8208582b0556c7f4",
       "paths": [
         "pi-catalog/dist/types/provider-models/openai-compat.d.ts",
         "pi-catalog/src/compat/rules.json",
@@ -628,7 +615,7 @@
       "capabilities": [
         "0101"
       ],
-      "sha256": "8584eba1db14fbe224453f24df91704b18b6a9a3040e3e22ad3b4475ab9610f5",
+      "sha256": "64fdd398b493c9ae24b3fe1424697e788a2628582382e50c9d998368232a5f6e",
       "paths": [
         "pi-coding-agent/src/task/executor.ts"
       ]
@@ -658,5 +645,7 @@
       "source": "pi-coding-agent/src/eval/py/runner.py",
       "evidence": ".trellis/tasks/10-23-omp-upgrade-plan/research/mime-adoption-0078.md"
     }
-  ]
+  ],
+  "pristine_tree_sha256": "9f88de1a04fb7d663ecd2b627686f0048252231d1a6293bd34fce4301eaf99a1",
+  "candidate_tree_sha256": "fca667ce6e63584f18c3d4c1c3be8970f10d68262101a3404f22f51517b6a6a1"
 }

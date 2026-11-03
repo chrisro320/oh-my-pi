@@ -16,11 +16,24 @@ const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 // version can produce a warm replay. The branch keys on the selected pi-ai
 // version and then requires the warmer module, so a 18.4.x tree that lost it
 // fails closed instead of silently skipping the case.
+// Fail closed on a plan this gate has no arm for. 18.16.0 keeps the 18.12.6
+// arms: the 18.10.x-only compaction-control branches below stay off, exactly as
+// they are for 18.12.6, and the warmer decides through the >= 18.3.5 path.
+const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"];
+const selectedPlan = process.env.OMP_PATCH_VERSION;
+assert.ok(
+	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
+	`unsupported OMP_PATCH_VERSION for the anthropic request audit gate: ${selectedPlan} (supported: ${SUPPORTED_PLANS.join(", ")})`,
+);
 const aiPackage: unknown = JSON.parse(readFileSync(join(AI, "package.json"), "utf8"));
 const aiVersion =
 	aiPackage && typeof aiPackage === "object" && "version" in aiPackage && typeof aiPackage.version === "string"
 		? aiPackage.version
 		: "";
+assert.ok(
+	SUPPORTED_PLANS.includes(aiVersion),
+	`unsupported pi-ai tree version for the anthropic request audit gate: ${aiVersion} (supported: ${SUPPORTED_PLANS.join(", ")})`,
+);
 const [aiMajor, aiMinor, aiPatch] = aiVersion.split(".").map(Number);
 const hasSessionCacheWarmer =
 	aiMajor > 18 || (aiMajor === 18 && (aiMinor > 3 || (aiMinor === 3 && aiPatch >= 5)));

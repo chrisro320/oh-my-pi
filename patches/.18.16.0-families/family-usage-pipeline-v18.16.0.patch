@@ -8,47 +8,78 @@
  import type { ClientUsageReportRequest, ClientUsageReportResponse, ClientUsageSummaryResponse, CredentialBlockDeleteRequest, CredentialBlockRequest, CredentialBlockResponse, CredentialBlocksDeleteResponse, CredentialDisableResponse, CredentialRefreshResponse, CredentialUploadResponse, HealthzResponse, SnapshotResponse, SnapshotStreamEvent, UsageHistoryResponse, UsageResponse, UsageStaleResponse } from "./types.js";
  export interface AuthBrokerClientOptions {
      /** Base URL (e.g. `https://broker.tailnet:8765`). Trailing slashes are trimmed. */
-@@ -72,6 +73,7 @@
+@@ -69,11 +70,17 @@
+     /**
+      * Fetch broker usage, optionally for one provider, with a timeout sized
+      * for serialized same-provider account probes.
++     *
++     * `providers` asks the broker to restrict its own fan-out: the set travels
++     * as repeated `provider` query parameters, and an explicit empty set travels
++     * as one empty parameter so the broker answers "nothing" instead of
++     * everything. `provider` remains the single-provider shorthand.
       */
      fetchUsage(options?: {
          signal?: AbortSignal;
-+        providers?: readonly Provider[];
          maxAccountsPerProvider?: number;
+         provider?: string;
++        providers?: readonly Provider[];
      }): Promise<UsageResponse>;
      /** Recorded usage-limit snapshots from the broker host, oldest first. */
+     fetchUsageHistory(query?: {
 --- a/pi-ai/dist/types/auth-broker/remote-store.d.ts
 +++ b/pi-ai/dist/types/auth-broker/remote-store.d.ts
-@@ -145,7 +145,7 @@
+@@ -144,8 +144,15 @@
+      * Store-level hook consumed by `AuthStorage.usage.reports()` — proxies
       * to the broker's `/v1/usage` endpoint. Shared per-credential caches and
       * cooldowns keep separate clients from multiplying provider probes.
++     *
++     * `providers` travels to the broker, so excluded providers are never probed
++     * upstream and each filter keeps its own cache and in-flight slot. An
++     * explicit empty set answers nothing without touching the broker.
       */
--    fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null>;
-+    fetchUsageReports(options?: { signal?: AbortSignal; providers?: readonly Provider[] }): Promise<UsageReport[] | null>;
+-    fetchUsageReports(signal?: AbortSignal, provider?: Provider): Promise<UsageReport[] | null>;
++    fetchUsageReports(options?: {
++        signal?: AbortSignal;
++        providers?: readonly Provider[];
++    }): Promise<UsageReport[] | null>;
      /**
       * Per-credential usage hook consumed by `UsageService.report`. Pulls
-      * the aggregate broker `/v1/usage` once and serves all callers from the
+      * provider-scoped broker `/v1/usage` once and serves that provider's callers
 --- a/pi-ai/dist/types/auth/store.d.ts
 +++ b/pi-ai/dist/types/auth/store.d.ts
-@@ -153,11 +153,10 @@
-      * `RemoteAuthCredentialStore` proxies to the broker (whose datacenter IP
-      * isn't rate-limited like a heavy residential client).
+@@ -168,9 +168,17 @@
       *
--     * Precedence: `AuthStorageOptions.fetchUsageReports` > this hook > local fan-out.
--     *
-+     * `providers` restricts work before any provider request, not just returned rows.
+      * Precedence: `AuthStorageOptions.fetchUsageReports` > this hook > local fan-out.
+      *
++     * `providers` restricts work before any provider request, not just the
++     * returned rows: a broker-backed store forwards the set so excluded
++     * providers are never probed upstream, and a filter never reuses another
++     * filter's in-flight result. An explicit empty set returns no reports.
++     *
       * `signal` propagates the agent's cancel down to the broker fetch.
       */
--    fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null>;
-+    fetchUsageReports(options?: { signal?: AbortSignal; providers?: readonly Provider[] }): Promise<UsageReport[] | null>;
+-    fetchUsageReports(signal?: AbortSignal, provider?: Provider): Promise<UsageReport[] | null>;
++    fetchUsageReports(options?: {
++        signal?: AbortSignal;
++        providers?: readonly Provider[];
++    }): Promise<UsageReport[] | null>;
      /**
       * Optional store-supplied per-credential usage report lookup. When present,
       * `AuthStorage` consults this before its own per-credential upstream fetch
 --- a/pi-ai/dist/types/auth/types.d.ts
 +++ b/pi-ai/dist/types/auth/types.d.ts
-@@ -1124,6 +1124,13 @@
+@@ -1150,9 +1150,20 @@
+ }
+ /** Usage reporting, observation, and provider configuration. */
+ export interface UsageApi {
+-    /** Fetch usage reports for configured providers, optionally restricted to one provider. */
++    /**
++     * Fetch usage reports for configured providers, optionally restricted to an
++     * explicit provider set. An empty set probes nothing; `providers` wins over
++     * the single-provider `provider` shorthand when both are present.
++     */
      reports(options?: {
-         baseUrlResolver?: (provider: Provider) => string | undefined;
-         signal?: AbortSignal;
+         provider?: Provider;
 +        /**
 +         * Restrict the fan-out to these providers. Callers driving an
 +         * aggressive per-provider gate (e.g. the statusline's anthropic
@@ -56,9 +87,9 @@
 +         * reports outside the set are neither fetched nor parsed.
 +         */
 +        providers?: readonly Provider[];
+         baseUrlResolver?: (provider: Provider) => string | undefined;
+         signal?: AbortSignal;
      }): Promise<UsageReport[] | null>;
-     /** Ingest provider usage limits from response headers. */
-     ingestHeaders(provider: Provider, headers: Record<string, string>, options?: {
 --- a/pi-ai/dist/types/auth/usage-cache.d.ts
 +++ b/pi-ai/dist/types/auth/usage-cache.d.ts
 @@ -30,6 +30,8 @@
@@ -87,20 +118,23 @@
      clearForceRefresh(refresh: ForcedUsageRefresh): void;
 --- a/pi-ai/dist/types/auth/usage.d.ts
 +++ b/pi-ai/dist/types/auth/usage.d.ts
-@@ -32,6 +32,13 @@
+@@ -30,7 +30,16 @@
+     logger: UsageLogger;
+ }
  type UsageReportsOptions = {
-     baseUrlResolver?: (provider: Provider) => string | undefined;
-     signal?: AbortSignal;
++    /** Single-provider shorthand; {@link providers} wins when both are present. */
+     provider?: Provider;
 +    /**
 +     * Restrict the fan-out to these providers. Callers driving an
 +     * aggressive per-provider gate (e.g. the statusline's anthropic
 +     * rate-limit gate) pass the providers they may poll; provider usage
-+     * reports outside the set are neither fetched nor parsed.
++     * reports outside the set are neither fetched nor parsed. An explicit
++     * empty set probes nothing.
 +     */
 +    providers?: readonly Provider[];
+     baseUrlResolver?: (provider: Provider) => string | undefined;
+     signal?: AbortSignal;
  };
- /** Usage reports: per-credential cached fetches, aggregate reports, header ingestion, history. */
- export declare class UsageService implements UsageApi {
 --- a/pi-ai/src/auth-broker/client.ts
 +++ b/pi-ai/src/auth-broker/client.ts
 @@ -9,6 +9,8 @@
@@ -112,21 +146,36 @@
  import type {
  	ClientUsageReportRequest,
  	ClientUsageReportResponse,
-@@ -262,7 +264,7 @@
- 	 * Fetch aggregate broker usage with a timeout sized for serialized
- 	 * same-provider account probes.
+@@ -261,9 +263,19 @@
+ 	/**
+ 	 * Fetch broker usage, optionally for one provider, with a timeout sized
+ 	 * for serialized same-provider account probes.
++	 *
++	 * `providers` asks the broker to restrict its own fan-out: the set travels
++	 * as repeated `provider` query parameters, and an explicit empty set travels
++	 * as one empty parameter so the broker answers "nothing" instead of
++	 * everything. `provider` remains the single-provider shorthand.
  	 */
--	fetchUsage(options: { signal?: AbortSignal; maxAccountsPerProvider?: number } = {}): Promise<UsageResponse> {
-+	fetchUsage(options: { signal?: AbortSignal; providers?: readonly Provider[]; maxAccountsPerProvider?: number } = {}): Promise<UsageResponse> {
+ 	fetchUsage(
+-		options: { signal?: AbortSignal; maxAccountsPerProvider?: number; provider?: string } = {},
++		options: {
++			signal?: AbortSignal;
++			maxAccountsPerProvider?: number;
++			provider?: string;
++			providers?: readonly Provider[];
++		} = {},
+ 	): Promise<UsageResponse> {
  		const requestedAccountCount = options.maxAccountsPerProvider;
  		const accountCount =
- 			typeof requestedAccountCount === "number" && Number.isFinite(requestedAccountCount)
-@@ -270,7 +272,12 @@
+@@ -272,8 +284,14 @@
  				: 1;
  		const perAccountTimeoutMs = Math.max(DEFAULT_TIMEOUT_MS, this.#timeoutMs);
  		const timeoutMs = perAccountTimeoutMs * (accountCount + 1);
--		return this.#request<UsageResponse>("GET", "/v1/usage", {
-+		const providers = normalizeUsageProviders(options.providers);
+-		const query = options.provider !== undefined ? `?${new URLSearchParams({ provider: options.provider })}` : "";
+-		return this.#request<UsageResponse>("GET", `/v1/usage${query}`, {
++		const providers =
++			normalizeUsageProviders(options.providers) ??
++			(options.provider === undefined ? undefined : [options.provider]);
 +		const params = new URLSearchParams();
 +		if (providers?.length === 0) params.append("provider", "");
 +		for (const provider of providers ?? []) params.append("provider", provider);
@@ -145,117 +194,165 @@
  import {
  	type AuthCredential,
  	type AuthCredentialSnapshotEntry,
-@@ -336,8 +337,8 @@
+@@ -117,6 +118,13 @@
+ /** Longest a process exit waits for the final observed-usage report to reach the broker. */
+ const OBSERVED_USAGE_EXIT_FLUSH_MS = 2_000;
+ 
++/**
++ * Cache/in-flight scope for the unfiltered aggregate. Provider sets are keyed
++ * by their canonical (sorted, deduped) JSON form, so callers asking for the
++ * same filter share one broker round-trip and different filters never do.
++ */
++const AGGREGATE_USAGE_SCOPE = JSON.stringify(null);
++
+ function toCredentialBlockSnapshot(block: StoredCredentialBlock): CredentialBlockSnapshot {
+ 	return {
+ 		providerKey: block.providerKey,
+@@ -336,9 +344,9 @@
  	#activityWakeup: PromiseWithResolvers<void> | null = null;
  	#cache: Map<string, CacheEntry> = new Map();
  	#cacheCharacters = 0;
--	#usageCache?: UsageCacheEntry;
--	#usageInflight?: Promise<UsageReport[] | null>;
+-	/** `undefined` is the aggregate scope; provider scopes never stand in for it. */
+-	#usageCache = new Map<Provider | undefined, UsageCacheEntry>();
+-	#usageInflight = new Map<Provider | undefined, Promise<UsageReport[] | null>>();
++	/** `{@link AGGREGATE_USAGE_SCOPE}` is the aggregate scope; provider-scope entries never stand in for it. */
 +	#usageCache = new Map<string, UsageCacheEntry>();
 +	#usageInflight = new Map<string, Promise<UsageReport[] | null>>();
  	#credentialBlockReconcileAfter: Map<string, number> = new Map();
  	/** Exact deleted rows suppressed until their old deadline, including snapshots racing the DELETE acknowledgement. */
  	#deletedCredentialBlocks: Map<string, CredentialBlockSnapshot> = new Map();
-@@ -1283,7 +1284,9 @@
+@@ -1284,8 +1292,8 @@
  		// Snapshot/block updates invalidate quota evidence, not a failed broker
  		// connection's cooldown. Keep the flight too: its completion will queue
  		// one current-generation successor instead of overlapping broker calls.
--		if (this.#usageCache?.reports !== null) this.#usageCache = undefined;
-+		for (const [key, cached] of this.#usageCache) {
-+			if (cached.reports !== null) this.#usageCache.delete(key);
-+		}
+-		for (const [provider, cached] of this.#usageCache) {
+-			if (cached.reports !== null) this.#usageCache.delete(provider);
++		for (const [scope, cached] of this.#usageCache) {
++			if (cached.reports !== null) this.#usageCache.delete(scope);
+ 		}
  		this.#usageCacheEpoch += 1;
  	}
- 
-@@ -1355,11 +1358,15 @@
+@@ -1357,13 +1365,27 @@
+ 	 * Store-level hook consumed by `AuthStorage.usage.reports()` — proxies
  	 * to the broker's `/v1/usage` endpoint. Shared per-credential caches and
  	 * cooldowns keep separate clients from multiplying provider probes.
- 	 */
--	async fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null> {
-+	async fetchUsageReports(options?: { signal?: AbortSignal; providers?: readonly Provider[] }): Promise<UsageReport[] | null> {
+-	 */
+-	async fetchUsageReports(signal?: AbortSignal, provider?: Provider): Promise<UsageReport[] | null> {
+-		this.#noteActivity();
+-		const reports = await raceSignal(this.#loadUsageReports(provider), signal, "auth-broker request aborted");
++	 *
++	 * `providers` travels to the broker, so excluded providers are never probed
++	 * upstream and each filter keeps its own cache and in-flight slot. An
++	 * explicit empty set answers nothing without touching the broker.
++	 */
++	async fetchUsageReports(options?: {
++		signal?: AbortSignal;
++		providers?: readonly Provider[];
++	}): Promise<UsageReport[] | null> {
 +		if (options?.signal?.aborted) throw new AIError.AbortError("auth-broker request aborted");
 +		const providers = normalizeUsageProviders(options?.providers);
 +		if (providers?.length === 0) return [];
- 		this.#noteActivity();
--		const reports = await raceSignal(this.#loadUsageReports(), signal, "auth-broker request aborted");
-+		const reports = await raceSignal(this.#loadUsageReports(providers), options?.signal, "auth-broker request aborted");
++		this.#noteActivity();
++		const reports = await raceSignal(
++			this.#loadUsageReports(providers),
++			options?.signal,
++			"auth-broker request aborted",
++		);
  		if (!reports) return null;
--		return this.#filterUsageReports(this.#applyUsageOverlays(reports));
-+		const visible = this.#filterUsageReports(this.#applyUsageOverlays(reports));
+ 		const visible = this.#filterUsageReports(this.#applyUsageOverlays(reports));
+-		return provider === undefined ? visible : visible.filter(report => report.provider === provider);
 +		return providers ? visible.filter(report => providers.includes(report.provider)) : visible;
  	}
  
  	/**
-@@ -1376,8 +1383,9 @@
+@@ -1380,8 +1402,9 @@
  		credential: OAuthCredential,
  		signal?: AbortSignal,
  	): Promise<UsageReport | null> {
 +		if (signal?.aborted) throw new AIError.AbortError("auth-broker request aborted");
  		this.#noteActivity();
--		const reports = await raceSignal(this.#loadUsageReports(), signal, "auth-broker request aborted");
+-		const reports = await raceSignal(this.#loadUsageReports(provider), signal, "auth-broker request aborted");
 +		const reports = await raceSignal(this.#loadUsageReports([provider]), signal, "auth-broker request aborted");
  		const visibleReports = reports ? this.#filterUsageReports(reports) : null;
  		const matched = visibleReports ? matchUsageReport(visibleReports, provider, credential) : null;
  		const overlay = this.#getActiveUsageOverlay(provider, credential);
-@@ -1489,27 +1497,31 @@
+@@ -1493,20 +1516,22 @@
  		else this.#brokerUsageAccountCounts.set(provider, count - 1);
  	}
  
--	#maxBrokerUsageAccounts(): number {
+-	#maxBrokerUsageAccounts(provider?: Provider): number {
+-		if (provider !== undefined) return this.#brokerUsageAccountCounts.get(provider) ?? 1;
 +	#maxBrokerUsageAccounts(providers?: readonly Provider[]): number {
  		let maximum = 1;
 -		for (const count of this.#brokerUsageAccountCounts.values()) maximum = Math.max(maximum, count);
 +		for (const [provider, count] of this.#brokerUsageAccountCounts) {
-+			if (!providers || providers.includes(provider)) maximum = Math.max(maximum, count);
++			if (providers === undefined || providers.includes(provider)) maximum = Math.max(maximum, count);
 +		}
  		return maximum;
  	}
  
--	#loadUsageReports(): Promise<UsageReport[] | null> {
--		const cached = this.#usageCache;
+-	#loadUsageReports(provider?: Provider): Promise<UsageReport[] | null> {
+-		// An existing aggregate result covers a provider lookup too. The reverse
 +	#loadUsageReports(providers?: readonly Provider[]): Promise<UsageReport[] | null> {
++		// An existing aggregate result covers a filtered lookup too. The reverse
+ 		// is not true: a partial cache must never hide other providers from /usage.
+ 		const now = Date.now();
+-		let cached = this.#usageCache.get(provider);
 +		const key = JSON.stringify(providers ?? null);
-+		const cached = this.#usageCache.get(key);
- 		if (cached && Date.now() - cached.fetchedAt < USAGE_CACHE_TTL_MS) {
- 			return Promise.resolve(cached.reports);
++		let cached = this.#usageCache.get(key);
+ 		if (cached && now - cached.fetchedAt >= USAGE_CACHE_TTL_MS) cached = undefined;
+-		const aggregate = provider === undefined ? undefined : this.#usageCache.get(undefined);
++		const aggregate = providers === undefined ? undefined : this.#usageCache.get(AGGREGATE_USAGE_SCOPE);
+ 		// Prefer the newest successful coverage over a failed fetch in another scope.
+ 		if (
+ 			aggregate &&
+@@ -1517,34 +1542,35 @@
+ 			cached = aggregate;
  		}
--		if (this.#usageInflight) return this.#usageInflight;
-+		const existing = this.#usageInflight.get(key);
-+		if (existing) return existing;
+ 		if (cached) return Promise.resolve(cached.reports);
+-		const existing = this.#usageInflight.get(provider) ?? this.#usageInflight.get(undefined);
++		const existing = this.#usageInflight.get(key) ?? this.#usageInflight.get(AGGREGATE_USAGE_SCOPE);
+ 		if (existing) return existing;
  		const epoch = this.#usageCacheEpoch;
  		const inflight = this.#client
--			.fetchUsage({ maxAccountsPerProvider: this.#maxBrokerUsageAccounts() })
+-			.fetchUsage({ provider, maxAccountsPerProvider: this.#maxBrokerUsageAccounts(provider) })
 +			.fetchUsage({ providers, maxAccountsPerProvider: this.#maxBrokerUsageAccounts(providers) })
  			.then(body => {
  				if (epoch !== this.#usageCacheEpoch) {
--					if (this.#usageInflight === inflight) this.#usageInflight = undefined;
--					return this.#loadUsageReports();
+-					if (this.#usageInflight.get(provider) === inflight) this.#usageInflight.delete(provider);
+-					return this.#loadUsageReports(provider);
 +					if (this.#usageInflight.get(key) === inflight) this.#usageInflight.delete(key);
 +					return this.#loadUsageReports(providers);
  				}
--				this.#usageCache = { reports: body.reports, fetchedAt: Date.now() };
-+				this.#usageCache.set(key, { reports: body.reports, fetchedAt: Date.now() });
- 				return body.reports;
+ 				// Older brokers ignore the query and still return an aggregate.
+ 				// Keep it scoped locally; a scoped response is never an aggregate cache.
+-				const reports =
+-					provider === undefined ? body.reports : body.reports.filter(report => report.provider === provider);
+-				this.#usageCache.set(provider, { reports, fetchedAt: Date.now() });
++				const reports = providers
++					? body.reports.filter(report => providers.includes(report.provider))
++					: body.reports;
++				this.#usageCache.set(key, { reports, fetchedAt: Date.now() });
+ 				return reports;
  			})
  			.catch(error => {
-@@ -1517,13 +1529,13 @@
- 				// Documented 15s TTL fallback: cache the null so sequential callers
- 				// don't re-hit the broker while it's still down. See
- 				// docs/auth-broker-gateway.md § "Client-side single-flight".
--				this.#usageCache = { reports: null, fetchedAt: Date.now() };
+ 				logger.warn("auth-broker usage fetch failed", { error: String(error) });
+ 				// Documented 15s TTL fallback, isolated to the requested scope.
+ 				// Invalidation preserves this cooldown, as it does for aggregate polls.
+-				this.#usageCache.set(provider, { reports: null, fetchedAt: Date.now() });
 +				this.#usageCache.set(key, { reports: null, fetchedAt: Date.now() });
  				return null;
  			})
  			.finally(() => {
--				if (this.#usageInflight === inflight) this.#usageInflight = undefined;
+-				if (this.#usageInflight.get(provider) === inflight) this.#usageInflight.delete(provider);
 +				if (this.#usageInflight.get(key) === inflight) this.#usageInflight.delete(key);
  			});
--		this.#usageInflight = inflight;
+-		this.#usageInflight.set(provider, inflight);
 +		this.#usageInflight.set(key, inflight);
  		return inflight;
  	}
  
-@@ -1640,6 +1652,7 @@
+@@ -1661,6 +1687,7 @@
  		void this.#flushObservedUsage().finally(() => this.#cancelObservedUsageExitFlush?.());
  		this.#cache.clear();
  		this.#cacheCharacters = 0;
@@ -273,11 +370,14 @@
  import { parseBind } from "../utils/parse-bind";
  import { resolvePeer } from "../utils/resolve-peer";
  import { AuthBrokerRefresher, type AuthBrokerRefresherSchedule } from "./refresher";
-@@ -860,7 +861,10 @@
- 						// last fetch instead of hitting provider endpoints repeatedly.
- 						// `req.signal` propagates HTTP-client disconnects all the way to the
+@@ -863,8 +864,12 @@
  						// per-caller cancel without touching the shared upstream fetch.
--						const reports = (await opts.storage.usage.reports?.({ signal: req.signal })) ?? [];
+ 						// Credential selection only needs its own provider. Do not hold
+ 						// that request behind unrelated providers' cold usage probes.
+-						const provider = url.searchParams.get("provider") ?? undefined;
+-						const reports = (await opts.storage.usage.reports?.({ provider, signal: req.signal })) ?? [];
++						// Repeated `provider` parameters carry a caller's whole filter
++						// set; one empty parameter is the explicit "probe nothing".
 +						const providers = url.searchParams.has("provider")
 +							? normalizeUsageProviders(url.searchParams.getAll("provider"))
 +							: undefined;
@@ -287,26 +387,36 @@
  						// `metadata`.
 --- a/pi-ai/src/auth/store.ts
 +++ b/pi-ai/src/auth/store.ts
-@@ -187,11 +187,10 @@
- 	 * `RemoteAuthCredentialStore` proxies to the broker (whose datacenter IP
- 	 * isn't rate-limited like a heavy residential client).
+@@ -203,9 +203,14 @@
  	 *
--	 * Precedence: `AuthStorageOptions.fetchUsageReports` > this hook > local fan-out.
--	 *
-+	 * `providers` restricts work before any provider request, not just returned rows.
+ 	 * Precedence: `AuthStorageOptions.fetchUsageReports` > this hook > local fan-out.
+ 	 *
++	 * `providers` restricts work before any provider request, not just the
++	 * returned rows: a broker-backed store forwards the set so excluded
++	 * providers are never probed upstream, and a filter never reuses another
++	 * filter's in-flight result. An explicit empty set returns no reports.
++	 *
  	 * `signal` propagates the agent's cancel down to the broker fetch.
  	 */
--	fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null>;
+-	fetchUsageReports(signal?: AbortSignal, provider?: Provider): Promise<UsageReport[] | null>;
 +	fetchUsageReports(options?: { signal?: AbortSignal; providers?: readonly Provider[] }): Promise<UsageReport[] | null>;
  	/**
  	 * Optional store-supplied per-credential usage report lookup. When present,
  	 * `AuthStorage` consults this before its own per-credential upstream fetch
 --- a/pi-ai/src/auth/types.ts
 +++ b/pi-ai/src/auth/types.ts
-@@ -1222,6 +1222,13 @@
+@@ -1248,9 +1248,20 @@
+ 
+ /** Usage reporting, observation, and provider configuration. */
+ export interface UsageApi {
+-	/** Fetch usage reports for configured providers, optionally restricted to one provider. */
++	/**
++	 * Fetch usage reports for configured providers, optionally restricted to an
++	 * explicit provider set. An empty set probes nothing; `providers` wins over
++	 * the single-provider `provider` shorthand when both are present.
++	 */
  	reports(options?: {
- 		baseUrlResolver?: (provider: Provider) => string | undefined;
- 		signal?: AbortSignal;
+ 		provider?: Provider;
 +		/**
 +		 * Restrict the fan-out to these providers. Callers driving an
 +		 * aggressive per-provider gate (e.g. the statusline's anthropic
@@ -314,9 +424,9 @@
 +		 * reports outside the set are neither fetched nor parsed.
 +		 */
 +		providers?: readonly Provider[];
+ 		baseUrlResolver?: (provider: Provider) => string | undefined;
+ 		signal?: AbortSignal;
  	}): Promise<UsageReport[] | null>;
- 	/** Ingest provider usage limits from response headers. */
- 	ingestHeaders(
 --- a/pi-ai/src/auth/usage-cache.ts
 +++ b/pi-ai/src/auth/usage-cache.ts
 @@ -2,6 +2,7 @@
@@ -327,19 +437,21 @@
  import type { UsageCredential, UsageProvider, UsageReport } from "../usage";
  import { isRecord } from "../utils";
  
-@@ -36,6 +37,11 @@
+@@ -36,6 +37,13 @@
  /** Cached value and its logical expiry; used by UsageService. */
  export type UsageCacheEntry<T> = { value: T; expiresAt: number };
  
 +/** Canonical provider set for local/broker fan-out and aggregate cache identity. Empty means none. */
 +export function normalizeUsageProviders(providers?: readonly Provider[]): Provider[] | undefined {
-+	return providers === undefined ? undefined : [...new Set(providers.map(provider => provider.trim()).filter(Boolean))].sort();
++	return providers === undefined
++		? undefined
++		: [...new Set(providers.map(provider => provider.trim()).filter(Boolean))].sort();
 +}
 +
  function parseUsageCacheEntry<T>(raw: string): UsageCacheEntry<T> | undefined {
  	try {
  		const parsed = JSON.parse(raw) as { value?: T; expiresAt?: unknown };
-@@ -236,8 +242,87 @@
+@@ -236,8 +244,87 @@
  		return true;
  	}
  
@@ -429,7 +541,7 @@
  	}
  
  	#usageCacheProviderKey(provider: Provider): string {
-@@ -294,7 +379,7 @@
+@@ -294,7 +381,7 @@
  	}
  
  	reportKey(request: UsageRequestDescriptor): string {
@@ -438,7 +550,7 @@
  		const identity = usageCacheIdentity(request.credential);
  		const providerKey = this.#usageCacheProviderKey(request.provider);
  		const cacheKey = `${USAGE_REPORT_KEY_PREFIX}${providerKey}:${baseUrl}:${identity}`;
-@@ -395,10 +480,7 @@
+@@ -395,10 +482,7 @@
  			const requests = await collectRequests();
  			for (const request of requests) {
  				if (provider && request.provider !== provider) continue;
@@ -460,21 +572,24 @@
  	oauthUsageRequest,
  	USAGE_FAILURE_BACKOFF_MS,
  	USAGE_HEADER_INGEST_INTERVAL_MS,
-@@ -108,6 +109,13 @@
+@@ -106,7 +107,16 @@
+ }
+ 
  type UsageReportsOptions = {
- 	baseUrlResolver?: (provider: Provider) => string | undefined;
- 	signal?: AbortSignal;
++	/** Single-provider shorthand; {@link providers} wins when both are present. */
+ 	provider?: Provider;
 +	/**
 +	 * Restrict the fan-out to these providers. Callers driving an
 +	 * aggressive per-provider gate (e.g. the statusline's anthropic
 +	 * rate-limit gate) pass the providers they may poll; provider usage
-+	 * reports outside the set are neither fetched nor parsed.
++	 * reports outside the set are neither fetched nor parsed. An explicit
++	 * empty set probes nothing.
 +	 */
 +	providers?: readonly Provider[];
+ 	baseUrlResolver?: (provider: Provider) => string | undefined;
+ 	signal?: AbortSignal;
  };
- 
- /** Usage reports: per-credential cached fetches, aggregate reports, header ingestion, history. */
-@@ -239,10 +247,17 @@
+@@ -241,10 +251,17 @@
  						refreshedCredential,
  						refreshableCredentialId,
  					);
@@ -493,7 +608,7 @@
  						signal: timeoutSignal,
  					};
  				} catch (error) {
-@@ -252,10 +267,7 @@
+@@ -254,10 +271,7 @@
  						// old usage report after its rotating refresh token is revoked.
  						// This changes cache state only; usage polling remains
  						// non-authoritative about the credential lifecycle.
@@ -505,7 +620,7 @@
  					}
  					// Usage polling is advisory. A refresh can fail while the current
  					// access token remains valid inside the refresh skew, so probe with
-@@ -304,10 +316,7 @@
+@@ -306,10 +320,7 @@
  				// the last-good report so #fetchUsageCached's failure branch can't
  				// keep rendering and ranking from stale quota the way it does for
  				// transient failures. Mirrors the definitive-OAuth-refresh path.
@@ -517,7 +632,7 @@
  			}
  			logger.debug("AuthStorage usage fetch failed", {
  				provider: request.provider,
-@@ -326,7 +335,7 @@
+@@ -328,7 +339,7 @@
  		const cacheKey = this.#deps.cache.reportKey(request);
  		const failureKey = this.#deps.cache.failureKey(cacheKey);
  		const now = Date.now();
@@ -526,7 +641,7 @@
  		// Fresh cache hit: return whatever's there (success or null fallback).
  		if (cached && cached.expiresAt > now) {
  			return cached.value;
-@@ -378,6 +387,8 @@
+@@ -380,6 +391,8 @@
  			// so an expired login does not display stale quota indefinitely.
  			const providerImpl = this.providerFor(request.provider);
  			const retainLastGood = !invalidated && providerImpl?.retainLastGoodOnFailure !== false;
@@ -535,7 +650,7 @@
  			const lastGood = retainLastGood ? this.#deps.cache.lastGood(cacheKey) : null;
  			const failureBackoffMs = providerImpl?.failureBackoffMs ?? USAGE_FAILURE_BACKOFF_MS;
  			const backoffJitter = failureBackoffMs * (Math.random() * 0.5 - 0.25);
-@@ -594,14 +605,8 @@
+@@ -596,14 +609,8 @@
  			const providerImpl = this.providerFor(provider);
  			if (!providerImpl) continue;
  			const baseUrl = options?.baseUrlResolver?.(provider);
@@ -552,46 +667,64 @@
  
  			// A declared OAuth bearer env list means usage probes must ignore stored
  			// API keys and borrowed API-key env aliases. Even when an API-key row
-@@ -758,6 +763,10 @@
+@@ -760,6 +767,13 @@
  
  	/** Fetch all providers’ current usage reports, sharing concurrent polls. */
  	async reports(options?: UsageReportsOptions): Promise<UsageReport[] | null> {
 +		if (options?.signal?.aborted) throw new AIError.AbortError("usage fetch aborted");
-+		const providers = normalizeUsageProviders(options?.providers);
++		const providers = normalizeUsageProviders(
++			options?.providers ?? (options?.provider === undefined ? undefined : [options.provider]),
++		);
++		// An explicit empty set is "probe nothing", not "no restriction".
 +		if (providers?.length === 0) return [];
-+		const providerFilter = providers ? new Set(providers) : undefined;
++		const providerFilter = providers === undefined ? undefined : new Set(providers);
  		// The broker owns its providers' reports; runtime providers registered
  		// only in this process still need local per-credential probes.
  		const storeOverride = this.#deps.store.fetchUsageReports?.bind(this.#deps.store);
-@@ -766,12 +775,12 @@
+@@ -768,22 +782,21 @@
  			// dispatch + credential selection) coalesce into one upstream call.
  			// Each caller's `signal` only cancels THAT caller's await; the
  			// shared upstream fetch runs to completion so peers aren't punished.
--			const overrideKey = `__override__\0${this.#deps.cache.epoch}`;
-+			const overrideKey = `__override__\0${JSON.stringify(providers ?? null)}\0${this.#deps.cache.epoch}`;
+-			const scope = options?.provider === undefined ? "*" : `provider:${options.provider}`;
+-			const overrideKey = `__override__\0${this.#deps.cache.epoch}\0${scope}`;
++			// The scope is part of the key: a narrower filter must not reuse
++			// another filter's result, which would report providers it excluded.
++			const overrideKey = `__override__\0${this.#deps.cache.epoch}\0${JSON.stringify(providers ?? null)}`;
  			let shared = this.#usageReportsInFlight.get(overrideKey);
  			if (!shared) {
  				// Don't forward the caller signal into the shared fetch — first caller's
  				// abort would otherwise cancel the upstream for every peer.
--				shared = storeOverride().finally(() => {
+-				shared = storeOverride(undefined, options?.provider).finally(() => {
 +				shared = storeOverride({ providers }).finally(() => {
  					this.#usageReportsInFlight.delete(overrideKey);
  				});
  				this.#usageReportsInFlight.set(overrideKey, shared);
-@@ -785,13 +794,15 @@
+ 			}
+ 			const fetched = await raceSignal(shared, options?.signal, "usage fetch aborted");
+ 			const reports =
+-				fetched && options?.provider !== undefined
+-					? fetched.filter(report => report.provider === options.provider)
+-					: fetched;
++				fetched && providerFilter ? fetched.filter(report => providerFilter.has(report.provider)) : fetched;
+ 			if (reports) this.#deps.blocks.reconcileReports(reports);
+ 			if (!reports || this.#runtimeUsageProviderOverrides.size === 0) return reports;
+ 
+@@ -792,17 +805,14 @@
  			const brokerProviders = new Set(reports.map(report => report.provider));
  			const localProviders = new Set<Provider>();
  			for (const provider of this.#runtimeUsageProviderOverrides.keys()) {
--				if (!brokerProviders.has(provider)) localProviders.add(provider);
-+				if (!brokerProviders.has(provider) && (!providerFilter || providerFilter.has(provider))) {
-+					localProviders.add(provider);
-+				}
+-				if (options?.provider !== undefined && provider !== options.provider) continue;
++				if (providerFilter && !providerFilter.has(provider)) continue;
+ 				if (!brokerProviders.has(provider)) localProviders.add(provider);
  			}
  			if (localProviders.size === 0) return reports;
  			const localReports = await this.#fetchLocalReports(options, localProviders);
  			return localReports?.length ? [...reports, ...localReports] : reports;
  		}
--		return this.#fetchLocalReports(options);
+-		return this.#fetchLocalReports(
+-			options,
+-			options?.provider !== undefined ? new Set([options.provider]) : undefined,
+-		);
 +		return this.#fetchLocalReports(options, providerFilter);
  	}
  
@@ -756,14 +889,14 @@
 -import type { AnthropicFallbackCreditHandle, AssistantMessage, Context, ImageContent, Judge, Message, Model, ProviderSessionState, ResetCreditAccountStatus, ResetCreditRedeemOutcome, ResetCreditTarget, ServiceTier, ServiceTierByFamily, ServiceTierFamily, SimpleStreamOptions, TextContent, UsageReport } from "@oh-my-pi/pi-ai";
 +import type { AnthropicFallbackCreditHandle, AssistantMessage, Context, ImageContent, Judge, Message, Model, Provider, ProviderSessionState, ResetCreditAccountStatus, ResetCreditRedeemOutcome, ResetCreditTarget, ServiceTier, ServiceTierByFamily, ServiceTierFamily, SimpleStreamOptions, TextContent, UsageReport } from "@oh-my-pi/pi-ai";
  import { type Effort } from "@oh-my-pi/pi-ai";
+ import type { CatalogPolicyInputs } from "@oh-my-pi/pi-catalog/types";
  import { type EditStore, type PowerAssertionOptions } from "@oh-my-pi/pi-natives";
- import type { AdvisorConfig } from "@oh-my-pi/pi-tui/overlays/advisor-config";
-@@ -1452,7 +1452,7 @@
+@@ -1565,7 +1565,7 @@
       * a value computed mid-turn cannot persist after the turn ends/aborts.
       */
      get contextUsageRevision(): number;
 -    fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null>;
-+    fetchUsageReports(signal?: AbortSignal, providers?: readonly Provider[]): Promise<UsageReport[] | null>;
++    fetchUsageReports(signal?: AbortSignal, provider?: Provider): Promise<UsageReport[] | null>;
      /** The newest usage snapshot, available without a network call. */
      get cachedUsageReports(): UsageReport[] | undefined;
      /** Models whose live `/usage` reports map to a quantitative provider scope. */
@@ -774,8 +907,8 @@
  		session.modelRegistry?.authStorage?.oauth.identity(provider, session.sessionId),
  	canFetchUsageReports: session => typeof session.fetchUsageReports === "function",
 -	fetchUsageReports: (session, signal) => session.fetchUsageReports?.(signal) ?? Promise.resolve(null),
-+	fetchUsageReports: (session, signal, providers) =>
-+		session.fetchUsageReports?.(signal, providers) ?? Promise.resolve(null),
++	fetchUsageReports: (session, signal, provider) =>
++		session.fetchUsageReports?.(signal, provider) ?? Promise.resolve(null),
  	resolveActiveRepo: resolveActiveRepoContextSync,
  	lookupPullRequest: cwd =>
  		github.run(cwd, ["pr", "view", "--json", "number,url"], AbortSignal.timeout(GH_COMMAND_TIMEOUT_MS)),
@@ -789,16 +922,16 @@
  	ProviderResponseMetadata,
  	ProviderSessionState,
  	ResetCreditAccountStatus,
-@@ -13568,10 +13569,11 @@
+@@ -14342,10 +14343,11 @@
  		return this.#stats.revision;
  	}
  
 -	async fetchUsageReports(signal?: AbortSignal): Promise<UsageReport[] | null> {
-+	async fetchUsageReports(signal?: AbortSignal, providers?: readonly Provider[]): Promise<UsageReport[] | null> {
++	async fetchUsageReports(signal?: AbortSignal, provider?: Provider): Promise<UsageReport[] | null> {
  		const authStorage = this.#modelRegistry.authStorage;
  		if (!authStorage.usage.reports) return null;
  		const reports = await authStorage.usage.reports({
-+			...(providers && providers.length > 0 ? { providers } : {}),
++			...(provider ? { provider } : {}),
  			baseUrlResolver: provider => {
  				if (provider === "google-antigravity") {
  					const mode = cfgProvidersAntigravityEndpoint.get(this.settings);
@@ -817,7 +950,7 @@
      activeAccount(session: TSession, provider: string): StatusAccountIdentity | undefined;
      canFetchUsageReports(session: TSession): boolean;
 -    fetchUsageReports(session: TSession, signal: AbortSignal): Promise<unknown>;
-+    fetchUsageReports(session: TSession, signal: AbortSignal, providers?: readonly Provider[]): Promise<unknown>;
++    fetchUsageReports(session: TSession, signal: AbortSignal, provider?: Provider): Promise<unknown>;
      resolveActiveRepo(cwd: string): ActiveRepoContext | null;
      lookupPullRequest(cwd: string): Promise<{
          stdout: string;
@@ -931,19 +1064,19 @@
 +			return;
 +		}
  		if (!this.host.canFetchUsageReports(session)) return;
-+		// Whitelist the active provider: the statusline segment renders a single
-+		// session's quota, so poll exactly that provider's endpoint(s).
-+		const providers = activeProvider ? [activeProvider] : undefined;
++		// Scope the fetch to the active provider: the statusline segment renders a
++		// single session's quota, so poll exactly that provider's endpoint(s).
++		const provider = activeProvider || undefined;
  		this.#usageInFlight = true;
  		this.#usageStartTimer = setTimeout(() => {
  			this.#usageStartTimer = null;
 -			void this.#runUsageRefresh(session);
-+			void this.#runUsageRefresh(session, providers);
++			void this.#runUsageRefresh(session, provider);
  		}, STATUS_USAGE_START_DELAY_MS);
  	}
  
 -	async #runUsageRefresh(session: TSession): Promise<void> {
-+	async #runUsageRefresh(session: TSession, providers?: readonly Provider[]): Promise<void> {
++	async #runUsageRefresh(session: TSession, provider?: Provider): Promise<void> {
  		if (this.#disposed || this.session !== session) {
  			this.#usageInFlight = false;
  			return;
@@ -952,7 +1085,7 @@
  		let reportsPromise: Promise<unknown> | undefined;
  		try {
 -			reportsPromise = this.host.fetchUsageReports(session, signal);
-+			reportsPromise = this.host.fetchUsageReports(session, signal, providers);
++			reportsPromise = this.host.fetchUsageReports(session, signal, provider);
  			this.#applyUsageRefreshReports(
  				session,
  				await this.#raceUsageRefreshWithSignal(reportsPromise, signal),
@@ -972,7 +1105,7 @@
  		this.#noticeResetExpiry(session, reports);
  		if (!resetSnapshot) return;
  		const contextKey = this.#formatUsageContextKey(activeProvider, activeIdentity);
-@@ -2534,7 +2590,7 @@
+@@ -2530,7 +2586,7 @@
  	): SegmentContext {
  		const state = this.session.state;
  
@@ -997,11 +1130,11 @@
  	canFetchUsageReports(session: TSession): boolean;
 -	fetchUsageReports(session: TSession, signal: AbortSignal): Promise<unknown>;
 +	/**
-+	 * `providers` narrows the fan-out to one provider's endpoint(s): the status
++	 * `provider` narrows the fan-out to one provider's endpoint(s): the status
 +	 * line renders a single session's quota, so a repaint must not poll every
 +	 * provider the account holds.
 +	 */
-+	fetchUsageReports(session: TSession, signal: AbortSignal, providers?: readonly Provider[]): Promise<unknown>;
++	fetchUsageReports(session: TSession, signal: AbortSignal, provider?: Provider): Promise<unknown>;
  	resolveActiveRepo(cwd: string): ActiveRepoContext | null;
  	lookupPullRequest(cwd: string): Promise<{ stdout: string; exitCode: number }>;
  	calculateTokensPerSecond(messages: readonly AgentMessage[], isStreaming: boolean): number | null;

@@ -82,10 +82,10 @@ if (!existsSync(join(AI_ROOT, "src", "auth-storage.ts")) || !existsSync(join(AI_
 	process.exit(2);
 }
 const aiVersion = JSON.parse(readFileSync(join(AI_ROOT, "package.json"), "utf8")).version;
-assert.ok(["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(aiVersion), `unsupported OAuth gate version: ${aiVersion}`);
-const hasExchangeReservation = ["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion);
+assert.ok(["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion), `unsupported OAuth gate version: ${aiVersion}`);
+const hasExchangeReservation = ["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion);
 // Frozen 18.10.0 keeps reserve/stage/commit without the later unlock surface.
-const hasUnlockRevision = ["18.10.1", "18.12.6"].includes(aiVersion);
+const hasUnlockRevision = ["18.10.1", "18.12.6", "18.16.0"].includes(aiVersion);
 
 // ---------------------------------------------------------------------------
 // Local structural contracts for the selected tree. The module specifier is a
@@ -188,7 +188,8 @@ interface Auth {
 		accessById(provider: string, id: number): Promise<{ ok: boolean } | undefined>;
 		refreshStored(provider: string, options: {
 			credentialId: number; credentialFromRow: (credential: Cred) => Cred;
-			refreshTimeoutMs?: number; refresh: (credential: Cred, signal?: AbortSignal) => Promise<Cred>;
+			refreshTimeoutMs?: number; signal?: AbortSignal;
+			refresh: (credential: Cred, signal?: AbortSignal) => Promise<Cred>;
 		}): Promise<{ credential?: Cred; refreshed: boolean }>;
 		inspectUnresolvedRefresh(provider: string): Promise<UnlockInspection>;
 		unlockAndRefreshStored(
@@ -976,13 +977,22 @@ if (process.argv[2] === "--unlock-held-result") {
 	process.exit(0);
 }
 if (process.argv[2] === "--rotation-interrupt") {
-	assert.equal(aiVersion, "18.12.6", "shutdown fixtures consume the exact target lifecycle");
+	assert.ok(["18.12.6", "18.16.0"].includes(aiVersion), "shutdown fixtures consume the exact target lifecycle");
 	const dir = realpathSync(process.argv[3]);
 	assert.ok(dir.startsWith(join(tmpdir(), "omp-oauth-verify-")), "rotation child may read only the synthetic gate store");
 	const id = Number(process.argv[4]);
 	const output = process.argv[5];
 	const mode = process.argv[6];
 	assert.ok(mode === "sigterm" || mode === "staged-exit");
+	// 18.16.0 moved the signal/exit-handler installation out of a pi-utils module
+	// side effect into an explicit call that the CLI makes at startup
+	// (`pi-coding-agent/src/cli.ts`). A fixture that raises a real SIGTERM must
+	// reproduce that lifecycle, or the process dies on the default disposition and
+	// no drain exists to prove. Older trees install the handlers on import, where
+	// the export does not exist and this is a no-op.
+	const piUtils: { postmortem?: { installProcessHandlers?: () => void } } =
+		await import(join(AI_ROOT, "..", "pi-utils", "src", "index.ts")).catch(() => ({}));
+	if (typeof piUtils.postmortem?.installProcessHandlers === "function") piUtils.postmortem.installProcessHandlers();
 	const store = await StoreClass.open(join(dir, "auth.db"));
 	const auth = new AuthStorageClass(store);
 	const response = Promise.withResolvers<void>();
@@ -1024,7 +1034,7 @@ if (process.argv[2] === "--rotation-interrupt") {
 	throw new Error("rotation child was not terminated at its required boundary");
 }
 
-if (aiVersion === "18.12.6") {
+if (["18.12.6", "18.16.0"].includes(aiVersion)) {
 	for (const mode of ["sigterm", "staged-exit"]) {
 		await scenario(`target ${mode}: interrupted rotation is durably recoverable without another POST`, async () => {
 			await withCase(async c => {
@@ -1917,33 +1927,278 @@ if (hasExchangeReservation) {
 			const id = await seed(c, expiredCred({ access: "late-access-0", refresh: "late-refresh-0" }));
 			const response = Promise.withResolvers<Cred>();
 			const staged = Promise.withResolvers<void>();
+			const publications: Array<{ owner: string; holder: string | undefined; holderLive: boolean; saved: boolean }> = [];
 			const stage = c.store.stageCredentialRefreshResult.bind(c.store);
 			c.store.stageCredentialRefreshResult = (...args) => {
 				const saved = stage(...args);
 				if (saved) staged.resolve();
 				return saved;
 			};
+			const commit = c.store.commitCredentialRefreshResult.bind(c.store);
+			c.store.commitCredentialRefreshResult = (credentialId, expectedData, credential, lease) => {
+				const holder = c.store.getCredentialRefreshLeaseHolder?.(credentialId);
+				const saved = commit(credentialId, expectedData, credential, lease);
+				publications.push({
+					owner: lease.owner,
+					holder: holder?.owner,
+					holderLive: holder !== undefined && holder.expiresAtMs > Date.now(),
+					saved,
+				});
+				return saved;
+			};
 			let exchanges = 0;
-			const refresh = () => c.auth.oauth.refreshStored(PROVIDER, {
-				credentialId: id, credentialFromRow: credential => credential, refreshTimeoutMs: 1,
-				refresh: async () => { exchanges++; return response.promise; },
+			let exchangeAborted = false;
+			const refresh = (refreshTimeoutMs: number) => c.auth.oauth.refreshStored(PROVIDER, {
+				credentialId: id, credentialFromRow: credential => credential, refreshTimeoutMs,
+				refresh: async (_current: Cred, signal: AbortSignal) => {
+					exchanges++;
+					signal.addEventListener("abort", () => { exchangeAborted = true; }, { once: true });
+					return response.promise;
+				},
 			});
-			await assert.rejects(refresh, /timed out/);
-			await assert.rejects(refresh, /outcome is unresolved/);
-			assert.equal(exchanges, 1, "a timeout cannot admit the same exchange twice");
-			response.resolve({ type: "oauth", access: "late-access-1", refresh: "late-refresh-1", expires: Date.now() + 3_600_000 });
-			await staged.promise;
-			assert.equal(rowOf(c, id)?.refresh, "late-refresh-0", "late completion stages but cannot publish without ownership");
-			const recovered = await refreshAfterProcessRestart(c, id);
-			assert.equal(recovered.error, undefined, "a restarted owner must recover a staged known result");
-			assert.equal(recovered.access, "late-access-1", "a restarted owner publishes the known replacement");
-			assert.equal(recovered.tokenPosts, 0, "fresh-process publication must not re-exchange");
-			assert.equal(rowOf(c, id)?.refresh, "late-refresh-1");
-			assert.equal(rowOf(c, id)?.access, "late-access-1");
-			assert.equal(exchanges, 1, "known-result recovery must not invoke a second exchange");
-			assert.deepEqual(exchangeRows(c), [], "successful publication retires the reservation");
+			if (aiVersion === "18.16.0") {
+				// 18.16.0 budgets the caller, not the exchange: the admitted exchange keeps
+				// running (and keeps renewing the row lease), so a retry can never begin a
+				// second exchange and the journal is consulted only under that lease.
+				await assert.rejects(() => refresh(250), /timed out/);
+				assert.equal(exchanges, 1, "the owner timeout must leave its admitted exchange running");
+				assert.equal(exchangeAborted, false, "a caller's budget cannot abort the exchange it abandoned");
+				assert.deepEqual(publications, [], "a timed-out owner cannot publish");
+				const timedOutRow = rowOf(c, id);
+				assert.equal(timedOutRow?.access, "late-access-0", "the timed-out attempt leaves the row untouched");
+				assert.equal(exchangeRows(c).length, 1, "the admitted exchange keeps its durable reservation");
+
+				// (4) The retry rejects without starting an exchange.
+				await assert.rejects(() => refresh(250), /OAuth (token refresh timed out|refresh outcome is unresolved)/);
+				assert.equal(exchanges, 1, "a retry cannot admit the same generation twice");
+				assert.deepEqual(publications, [], "the retry cannot publish either");
+				assert.deepEqual(rowOf(c, id), timedOutRow, "the retry cannot rewrite the row");
+
+				response.resolve({ type: "oauth", access: "late-access-1", refresh: "late-refresh-1", expires: Date.now() + 3_600_000 });
+				// (2) The rotated token is never lost: the abandoned exchange stages it, and
+				// either publishes it itself under its own lease or leaves it for the next owner.
+				const stagedOutcome = await Promise.race([
+					staged.promise.then(() => "staged"),
+					Bun.sleep(5_000).then(() => "lost"),
+				]);
+				assert.equal(stagedOutcome, "staged", "a late known result must be staged before the lease is released");
+				let published = false;
+				for (let attempt = 0; attempt < 40 && !published; attempt++) {
+					published = rowOf(c, id)?.refresh === "late-refresh-1";
+					if (!published) await Bun.sleep(50);
+				}
+				if (published) {
+					// (3) Only a lease owner publishes. The abandoned exchange still holds the
+					// lease, so it commits its own staged result.
+					assert.equal(publications.length, 1, "the late result is published exactly once");
+					assert.equal(publications[0].saved, true, "the lease owner's publication must land");
+					assert.equal(publications[0].holder, publications[0].owner,
+						"only a process that owns the lease may publish the late result");
+					assert.equal(publications[0].holderLive, true, "publication must happen under a live lease");
+					assert.equal(rowOf(c, id)?.access, "late-access-1");
+					assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
+					const reread = await refreshAfterProcessRestart(c, id, "access");
+					assert.equal(reread.error, undefined, "a fresh process must serve the rotated token");
+					assert.equal(reread.access, "late-access-1");
+					assert.equal(reread.tokenPosts, 0, "a fresh process cannot re-exchange a published rotation");
+				} else {
+					assert.equal(rowOf(c, id)?.refresh, "late-refresh-0", "an unpublished late result stays staged");
+					assert.deepEqual(publications, [], "no process without the lease may publish");
+					const recovered = await refreshAfterProcessRestart(c, id);
+					assert.equal(recovered.error, undefined, "a restarted owner must recover a staged known result");
+					assert.equal(recovered.access, "late-access-1", "a restarted owner publishes the known replacement");
+					assert.equal(recovered.tokenPosts, 0, "fresh-process publication must not re-exchange");
+					assert.equal(rowOf(c, id)?.refresh, "late-refresh-1");
+					assert.equal(rowOf(c, id)?.access, "late-access-1");
+					assert.deepEqual(exchangeRows(c), [], "successful publication retires the reservation");
+				}
+				assert.equal(exchanges, 1, "known-result recovery must not invoke a second exchange");
+			} else {
+				await assert.rejects(() => refresh(1), /timed out/);
+				await assert.rejects(() => refresh(1), /outcome is unresolved/);
+				assert.equal(exchanges, 1, "a timeout cannot admit the same exchange twice");
+				response.resolve({ type: "oauth", access: "late-access-1", refresh: "late-refresh-1", expires: Date.now() + 3_600_000 });
+				await staged.promise;
+				assert.equal(rowOf(c, id)?.refresh, "late-refresh-0", "late completion stages but cannot publish without ownership");
+				const recovered = await refreshAfterProcessRestart(c, id);
+				assert.equal(recovered.error, undefined, "a restarted owner must recover a staged known result");
+				assert.equal(recovered.access, "late-access-1", "a restarted owner publishes the known replacement");
+				assert.equal(recovered.tokenPosts, 0, "fresh-process publication must not re-exchange");
+				assert.equal(rowOf(c, id)?.refresh, "late-refresh-1");
+				assert.equal(rowOf(c, id)?.access, "late-access-1");
+				assert.equal(exchanges, 1, "known-result recovery must not invoke a second exchange");
+				assert.deepEqual(exchangeRows(c), [], "successful publication retires the reservation");
+			}
 		});
 	});
+
+	// 18.16.0 moved cancellation into the provider wrapper and stopped tracking the
+	// provider+staging continuation. These arms drive the exchange's own 60s ceiling
+	// through the ordinary OAuth path and prove both repairs, plus the refusal of an
+	// exchange nothing could publish and a caller abort that owns only its own wait.
+	if (aiVersion === "18.16.0") {
+		await scenario("the exchange ceiling stages a late replacement and store close drains it", async () => {
+			const answer = Promise.withResolvers<Cred>();
+			const admitted = Promise.withResolvers<void>();
+			let exchanges = 0;
+			// The ceiling is a fixed 60s constant, so hold exactly that timer and run the
+			// library's own callback: the real backstop fires without the real wait.
+			const realSetTimeout = globalThis.setTimeout;
+			const realClearTimeout = globalThis.clearTimeout;
+			const heldCeilings: Array<() => void> = [];
+			globalThis.setTimeout = ((callback: () => void, delay?: number, ...rest: unknown[]) => {
+				const timer = realSetTimeout(callback, delay, ...(rest as never[]));
+				if (delay === 60_000) {
+					// Off its own schedule: this scenario fires the callback explicitly.
+					realClearTimeout(timer);
+					heldCeilings.push(callback);
+				}
+				return timer;
+			}) as typeof setTimeout;
+			try {
+				await withCase(async c => {
+					const id = await seed(c, expiredCred({ access: "ceiling-access-0", refresh: "ceiling-refresh-0" }));
+					const staged = Promise.withResolvers<void>();
+					let stageAttempts = 0;
+					const stage = c.store.stageCredentialRefreshResult.bind(c.store);
+					c.store.stageCredentialRefreshResult = (...args) => {
+						stageAttempts++;
+						const saved = stage(...args);
+						if (saved) staged.resolve();
+						return saved;
+					};
+					// The ordinary public entry over the real leased exchange. The override
+					// stands in for a provider that answers after this process stopped waiting;
+					// it never observes the cancellation, which is exactly the late case.
+					const refresh = c.auth.oauth.refresh(id);
+					await admitted.promise;
+					assert.equal(heldCeilings.length, 1, "an admitted exchange arms exactly one 60s ceiling");
+					heldCeilings[0]?.();
+					await assert.rejects(() => refresh, /timed out/, "the ceiling ends the owner's wait");
+					assert.equal(exchanges, 1, "the owner's timeout cannot start a second exchange");
+					assert.equal(rowOf(c, id)?.refresh, "ceiling-refresh-0", "an ended attempt publishes nothing");
+					// Ownership is gone, so this process may not publish; the replacement is
+					// still a rotated token, and closing the store must wait for its staging.
+					c.auth.close();
+					answer.resolve({
+						type: "oauth",
+						access: "ceiling-access-1",
+						refresh: "ceiling-refresh-1",
+						expires: Date.now() + 3_600_000,
+					});
+					const stagedOutcome = await Promise.race([
+						staged.promise.then(() => "staged"),
+						Bun.sleep(5_000).then(() => "lost"),
+					]);
+					assert.equal(stageAttempts, 1, "a replacement minted after the ceiling must reach staging");
+					assert.equal(stagedOutcome, "staged", "store close must drain the provider+staging continuation");
+					assert.notEqual(stagedReplacementData(c), null, "the late replacement is durable, not lost with the store");
+					assert.equal(rowOf(c, id)?.refresh, "ceiling-refresh-0", "a released lease cannot publish the late result");
+					// Durable recovery: the next owner publishes the staged replacement with
+					// no further grant, from a store reopened after the drained close.
+					c.store = await StoreClass.open(join(c.dir, "auth.db"));
+					c.auth = new AuthStorageClass(c.store);
+					await c.auth.credentials.reload();
+					const recovered = await c.auth.oauth.refresh(id);
+					assert.equal(recovered.credential.access, "ceiling-access-1", "the staged replacement is recovered");
+					assert.equal(exchanges, 1, "recovery must not run a second exchange");
+					assert.equal(rowOf(c, id)?.access, "ceiling-access-1");
+					assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
+				}, {
+					refreshOAuthCredential: async () => {
+						exchanges++;
+						admitted.resolve();
+						return answer.promise;
+					},
+				});
+			} finally {
+				globalThis.setTimeout = realSetTimeout;
+				globalThis.clearTimeout = realClearTimeout;
+			}
+		});
+
+		await scenario("a caller abort after admission ends only that caller's wait", async () => {
+			await withCase(async c => {
+				const id = await seed(c, expiredCred({ access: "abort-access-0", refresh: "abort-refresh-0" }));
+				const controller = new AbortController();
+				const admitted = Promise.withResolvers<void>();
+				const answer = Promise.withResolvers<Cred>();
+				const refresh = c.auth.oauth.refreshStored(PROVIDER, {
+					credentialId: id,
+					credentialFromRow: credential => credential,
+					signal: controller.signal,
+					refresh: async () => {
+						admitted.resolve();
+						return answer.promise;
+					},
+				});
+				await admitted.promise;
+				controller.abort();
+				const verdict = await Promise.race([
+					refresh.then(
+						() => "resolved",
+						(error: unknown) => (error instanceof Error && error.name === "AbortError" ? "aborted" : `other:${String(error)}`),
+					),
+					Bun.sleep(1_000).then(() => "pending"),
+				]);
+				assert.equal(verdict, "aborted", "an abort after admission must reject this caller's wait at once");
+				// The admitted exchange is not the caller's to cancel: it still persists.
+				answer.resolve({
+					type: "oauth",
+					access: "abort-access-1",
+					refresh: "abort-refresh-1",
+					expires: Date.now() + 3_600_000,
+				});
+				let persisted = false;
+				for (let attempt = 0; attempt < 40 && !persisted; attempt++) {
+					persisted = rowOf(c, id)?.refresh === "abort-refresh-1";
+					if (!persisted) await Bun.sleep(50);
+				}
+				assert.equal(persisted, true, "the caller's abort cannot cancel the admitted exchange");
+				assert.equal(rowOf(c, id)?.access, "abort-access-1", "the rotated token is the one the store keeps");
+			});
+		});
+
+		await scenario("an unpublishable local exchange is refused before the grant", async () => {
+			const t = installTransport({ tokenMarker: "oauth2.googleapis.com/token", token: () => tokenReply("forbidden", "forbidden") });
+			try {
+				await withCase(async c => {
+					const provider = "google-antigravity";
+					const id = await seed(
+						c,
+						expiredCred({ access: "nopublish-0", refresh: "nopublish-r0", projectId: "nopublish-project" }),
+						provider,
+					);
+					// A custom store that carries the lease concern but no publication
+					// primitive at all: no journal and no fenced compare-and-set. Refreshing
+					// here would spend the refresh token and keep the old credential.
+					for (const member of [
+						"tryUpdateAuthCredentialIfMatches",
+						"reserveCredentialRefreshExchange",
+						"stageCredentialRefreshResult",
+						"commitCredentialRefreshResult",
+						"inspectUnresolvedCredentialRefreshExchange",
+						"readStagedCredentialRefreshResult",
+						"releaseUnresolvedCredentialRefreshExchange",
+					]) {
+						Object.defineProperty(c.store, member, { value: undefined, configurable: true });
+					}
+					let reported = "refreshed";
+					try {
+						await c.auth.oauth.refresh(id);
+					} catch (error) {
+						reported = String(error);
+					}
+					assert.equal(t.tokenPosts, 0, "an unpublishable local exchange must be refused before the grant");
+					assert.notEqual(reported, "refreshed", "an unpublishable exchange may never report a refresh");
+					assert.equal(rowOf(c, id, provider)?.refresh, "nopublish-r0", "the stored token is never spent");
+					assert.deepEqual(exchangeRows(c), [], "a refused exchange reserves nothing");
+				});
+			} finally {
+				t.restore();
+			}
+		});
+	}
 }
 
 if (hasExchangeReservation) {
@@ -2476,11 +2731,23 @@ if (hasUnlockRevision) {
 					const staged = readStaged(rowId, expectedData);
 					if (!staged || phase === "none") return staged;
 					if (phase === "lease") {
-						t.advanceClock(20_000);
-						assert.ok(
-							c.store.tryAcquireCredentialRefreshLease(rowId, "peer-owner", Date.now() + 15_000),
-							"the peer must be able to take over the expired lease",
-						);
+						if (aiVersion === "18.16.0") {
+							// 18.16.0 budgets the caller, so advancing the shared clock past the
+							// lease TTL would also spend this call's refresh budget before the
+							// exchange exists. Hand the live lease to the peer instead: the
+							// ownership loss is the same and no clock moves.
+							mutateDb(
+								c,
+								"UPDATE auth_credential_refresh_leases SET owner = 'peer-owner', expires_at_ms = 9999999999999 WHERE credential_id = ?",
+								String(rowId),
+							);
+						} else {
+							t.advanceClock(20_000);
+							assert.ok(
+								c.store.tryAcquireCredentialRefreshLease(rowId, "peer-owner", Date.now() + 15_000),
+								"the peer must be able to take over the expired lease",
+							);
+						}
 					}
 					c.store.updateAuthCredential(rowId, {
 						type: "oauth",
@@ -2883,31 +3150,52 @@ if (hasUnlockRevision) {
 				return saved;
 			};
 			let exchanges = 0;
-			const refresh = () =>
+			const refresh = (refreshTimeoutMs = 1) =>
 				c.auth.oauth.refreshStored(PROVIDER, {
 					credentialId: id,
 					credentialFromRow: credential => credential,
-					refreshTimeoutMs: 1,
+					refreshTimeoutMs,
 					refresh: async () => {
 						exchanges++;
 						started.resolve();
 						return response.promise;
 					},
 				});
-			await assert.rejects(refresh, /timed out/, "the fixture's deadline must expire before its response");
+			// 18.16.0 refuses a spent budget before admitting the exchange, so an
+			// abandoned attempt needs a live budget to reach the exchange it leaves behind.
+			await assert.rejects(
+				() => refresh(aiVersion === "18.16.0" ? 250 : 1),
+				/timed out/,
+				"the fixture's deadline must expire before its response",
+			);
 			await started.promise;
 			const timedOut = await oauth.inspectUnresolvedRefresh(PROVIDER);
 			assert.equal(timedOut.eligible, true, "a timed-out attempt leaves an unresolved generation");
 			assert.ok(timedOut.fence);
 			response.resolve({ type: "oauth", access: "unlock-k-1", refresh: "unlock-k-r1", expires: Date.now() + 3_600_000 });
 			await staged.promise;
-			const settled = await oauth.inspectUnresolvedRefresh(PROVIDER);
-			assert.equal(settled.reason, "staged-replacement", "the late result is durable, not a releasable attempt");
-			const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: timedOut.fence! });
-			assert.equal(result.outcome, "staged-result-recovered", "the late result is published, not re-exchanged");
-			assert.equal(exchanges, 1, "a newer attempt must not re-send the consumed generation");
-			assert.equal(rowOf(c, id)?.access, "unlock-k-1");
-			assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
+			if (aiVersion === "18.16.0") {
+				// The abandoned attempt still owns the lease, so it publishes the late
+				// result itself: nothing is left to unlock and nothing is re-exchanged.
+				let published = false;
+				for (let attempt = 0; attempt < 40 && !published; attempt++) {
+					published = rowOf(c, id)?.access === "unlock-k-1";
+					if (!published) await Bun.sleep(50);
+				}
+				assert.equal(published, true, "the lease owner's late result must reach the row");
+				assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
+				assert.equal(exchanges, 1, "a newer attempt must not re-send the consumed generation");
+				const resolvedK = await oauth.inspectUnresolvedRefresh(PROVIDER);
+				assert.equal(resolvedK.eligible, false, "the published generation is resolved");
+			} else {
+				const settled = await oauth.inspectUnresolvedRefresh(PROVIDER);
+				assert.equal(settled.reason, "staged-replacement", "the late result is durable, not a releasable attempt");
+				const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: timedOut.fence! });
+				assert.equal(result.outcome, "staged-result-recovered", "the late result is published, not re-exchanged");
+				assert.equal(exchanges, 1, "a newer attempt must not re-send the consumed generation");
+				assert.equal(rowOf(c, id)?.access, "unlock-k-1");
+				assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
+			}
 		});
 	});
 
@@ -3270,9 +3558,113 @@ export const wrong = auth.oauth.inspectUnresolvedRefreshes("anthropic");
 	});
 }
 
-// ---------------------------------------------------------------------------
-// Summary
-// ---------------------------------------------------------------------------
+if (aiVersion === "18.16.0") {
+	// 18.16.0 arms for the two fail-closed surfaces the 0090 family keeps: a shared
+	// refresh always names the stored row it rotates, and a process that would mint
+	// locally refuses a store that cannot make the result durable.
+	await scenario("(z1) a credential-object refresh without a stored id is refused", async () => {
+		const { OAuthRefresher } = await import(`${AI_ROOT}/src/auth/refresh.ts`);
+		await withCase(async c => {
+			const id = await seed(c, expiredCred({ access: "no-id-access", refresh: "no-id-refresh" }));
+			const original = rowOf(c, id);
+			// The refresher is the real one; only the pool it would publish into is a
+			// stub, because the refusal must happen before any pool write.
+			const refresher = new OAuthRefresher({
+				store: c.store,
+				pool: { providers: () => [], entries: () => [] } as unknown as ConstructorParameters<
+					typeof OAuthRefresher
+				>[0]["pool"],
+			});
+			await assert.rejects(
+				() =>
+					refresher.refresh(
+						PROVIDER,
+						expiredCred({ access: "no-id-access", refresh: "no-id-refresh" }),
+						undefined,
+					),
+				/requires a stored credential id/,
+				"a refresh must name the stored row it rotates",
+			);
+			assert.deepEqual(rowOf(c, id), original, "a refused refresh cannot touch the row");
+			assert.deepEqual(exchangeRows(c), [], "a refused refresh cannot reserve an exchange");
+		});
+	});
+
+	await scenario("(z2) a local exchange without durable storage is refused", async () => {
+		await withCase(async c => {
+			const id = await seed(c, expiredCred({ access: "no-lease-access", refresh: "no-lease-refresh" }));
+			const original = rowOf(c, id);
+			// Shadow the prototype method: a store whose lease fence is unavailable must
+			// not mint, because the provider consumes the refresh token and nothing can
+			// publish the result safely.
+			const store = c.store as unknown as Record<string, unknown>;
+			store.tryAcquireCredentialRefreshLease = undefined;
+			const bare = new AuthStorageClass(c.store);
+			try {
+				await bare.credentials.reload();
+				await assert.rejects(
+					() => bare.oauth.refresh(id),
+					/requires durable exchange storage/,
+					"a process that would mint locally needs the durable exchange",
+				);
+			} finally {
+				// The consumer shares this store, so closing it here would finalize the
+				// statements the rest of the case reads; the case cleanup owns the close.
+				delete store.tryAcquireCredentialRefreshLease;
+			}
+			assert.deepEqual(rowOf(c, id), original, "a refused exchange cannot rewrite the row");
+			assert.deepEqual(exchangeRows(c), [], "a refused exchange cannot reserve a marker");
+		});
+	});
+
+	await scenario("(z3) an unpublishable unlock mint reports the refusal", async () => {
+		const started = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		// The first post belongs to the pending generation the fixture leaves behind;
+		// the unlock's own exchange is the one that hangs until the row moves.
+		const t = installTransport({
+			onTokenPost: index => {
+				if (index >= 2) started.resolve();
+			},
+			token: index =>
+				index === 1
+					? { kind: "network", message: "synthetic pre-send transfer failure" }
+					: tokenReply("unlock-z-access", "unlock-z-refresh", { waitFor: release.promise }),
+		});
+		try {
+			await withCase(async c => {
+				const oauth = requireUnlockSurface(c);
+				const id = await seed(c, expiredCred({ access: "unlock-z-0", refresh: "unlock-z-r0" }));
+				await leavePendingExchange(c, id);
+				const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
+				assert.equal(inspection.eligible, true, "an owned unresolved generation must be unlockable");
+				const unlocking = oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
+				c.cleanup.push(async () => {
+					release.resolve();
+					await Promise.allSettled([unlocking]);
+				});
+				await waitForPost(started.promise, unlocking);
+				// A concurrent login rewrites the generation the unlock exchanged, so the
+				// minted replacement has no row left to publish onto.
+				const replacement: Cred = {
+					type: "oauth", access: "unlock-z-winner-access", refresh: "unlock-z-winner-refresh",
+					expires: Date.now() + 3_600_000,
+				};
+				c.store.updateAuthCredential(id, replacement);
+				release.resolve();
+				const result = await unlocking;
+				assert.equal(result.outcome, "failed", "an unpublishable mint must report the refusal, not a credential");
+				assert.match(result.error ?? "", /could not be published/,
+					"the refusal must name the lost publication");
+				assert.deepEqual(rowOf(c, id), replacement, "the concurrent winner keeps the row");
+				assert.equal(result.credential, undefined, "a refused unlock hands back no credential");
+			});
+		} finally {
+			t.restore();
+		}
+	});
+}
+
 await Bun.sleep(50);
 const unexpectedRejections = unhandledRejections;
 if (unexpectedRejections.length > 0) {

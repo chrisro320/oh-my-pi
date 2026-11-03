@@ -13,10 +13,30 @@
 # intended reason.
 set -euo pipefail
 
+# Fail closed on a plan this fault gate has no arm for. 18.16.0 takes the
+# 18.12.6 target sections (the shutdown-drain fault proof below); every other
+# version used to skip them and exit green with no proof at all.
+SUPPORTED_PLANS="18.4.4 18.7.0 18.10.0 18.10.1 18.12.6 18.16.0"
+case "${OMP_PATCH_VERSION:-}" in
+	"" | 18.4.4 | 18.7.0 | 18.10.0 | 18.10.1 | 18.12.6 | 18.16.0) ;;
+	*)
+		echo "FAIL: unsupported OMP_PATCH_VERSION for the 0090 fault gate: ${OMP_PATCH_VERSION} (supported: ${SUPPORTED_PLANS// /, })" >&2
+		exit 2
+		;;
+esac
+
 AI="${OMP_PATCH_VERIFY_AI_ROOT:?the controller must hand over an isolated pi-ai copy}"
 GATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/verify-oauth-durable-refresh.ts"
 NMROOT="$(cd "$AI/../.." && pwd -P)"
 [[ -d "$NMROOT/@oh-my-pi" ]] || { echo "FAIL: ${AI} is not inside a node_modules tree" >&2; exit 2; }
+VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$AI/package.json")"
+case "$VERSION" in
+	18.4.4 | 18.7.0 | 18.10.0 | 18.10.1 | 18.12.6 | 18.16.0) ;;
+	*)
+		echo "FAIL: unsupported pi-ai tree version for the 0090 fault gate: ${VERSION} (supported: ${SUPPORTED_PLANS// /, })" >&2
+		exit 2
+		;;
+esac
 WORK="$(mktemp -d)"
 trap 'rm -rf -- "$WORK"' EXIT
 
@@ -63,6 +83,14 @@ gate() { # <ai-root> <log>: run the contract gate against an isolated tree
 		OMP_PATCH_VERIFY_AI_ROOT="$1" bun "$GATE" >"$2" 2>&1
 }
 
+# The same run against one specific gate file, with a scenario selector. The
+# selector must travel as argv: the gate deletes the environment before it
+# re-execs itself, so an environment variable never reaches the scenario block.
+gate_only() { # <gate-file> <ai-root> <log> <selectors>
+	env -u OMP_PATCH_VERIFY_NM -u OMP_PATCH_VERIFY_AGENT_ROOT \
+		OMP_PATCH_VERIFY_AI_ROOT="$2" bun "$1" --only="$4" >"$3" 2>&1
+}
+
 # 0. Control: the unmutated copy must pass, or the controls below prove nothing.
 CONTROL="$(mktree control)"
 if ! gate "$CONTROL" "$WORK/control.log"; then
@@ -73,9 +101,9 @@ fi
 echo "PASS control: the isolated copy is green ($(grep -c '^  PASS' "$WORK/control.log") scenarios)"
 
 # Exact target only: prove the real SIGTERM scenario detects a removed drain,
-# not just a missing journal member or a token-shaped fixture echo.
-VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$AI/package.json")"
-if [[ "$VERSION" == "18.12.6" ]]; then
+# not just a missing journal member or a token-shaped fixture echo. 18.16.0
+# shares the 18.12.6 target lifecycle, so it runs this proof too.
+if [[ "$VERSION" == "18.12.6" || "$VERSION" == "18.16.0" ]]; then
 	DRAIN="$(mktree shutdown-drain)"
 	replace_once "$DRAIN/src/auth/refresh.ts" \
 		'postmortem.register("oauth-refresh", () => this.#drainRefreshes(), {' \
@@ -208,9 +236,16 @@ echo "PASS (z2): an unscoped inspect path turns the not-applicable scenario red"
 # (s) Atomicity: revert the fix back to the previous delete-then-(separately
 # reserved) shape in BOTH halves of it — the store deletes the released marker,
 # and the refresher reserves it as its own transaction again. Every other line of
-# the unlock code stays in place; case (s) must catch the resulting window while
-# the ordinary unlock case (a) still succeeds, proving (s) discriminates on the
-# atomicity property rather than on a broken unlock.
+# the unlock code stays in place.
+#
+# 18.12.6 and older see the red in case (s) itself while the ordinary unlock case
+# (a) stays green, which proves (s) discriminates on the atomicity property rather
+# than on a broken unlock. 18.16.0 retires a failed attempt's reservation on the
+# way out (OAuthRefresher.#retireExchangeReservation), so the deletion-only
+# release also destroys the marker the shared unlock fixture and the "503 keeps
+# the row" case depend on; the gate stops at its first red, long before (s).
+# There the attribution is made by an isolating run of (s) alone against a
+# throwaway copy of the gate whose scenario runner honours `--only=<prefix,...>`.
 ATOMICITY="$(mktree atomicity)"
 replace_once "$ATOMICITY/src/auth/sqlite-credential-store.ts" \
 	'			this.#reserveRefreshExchangeStmt.run(id, generation, lease.owner, expectedHash);
@@ -224,14 +259,81 @@ if gate "$ATOMICITY" "$WORK/atomicity.log"; then
 	echo "FAIL: a deletion-only release left the contract gate green" >&2
 	exit 1
 fi
-grep -q 'FAIL  (s)' "$WORK/atomicity.log" || {
-	echo "FAIL: the atomicity mutation was not caught by case (s)" >&2
-	grep '^  FAIL' "$WORK/atomicity.log" >&2
-	exit 1
-}
-grep -A1 '^  FAIL  (s)' "$WORK/atomicity.log" | grep -q 'reserved by the new owner' || {
-	echo "FAIL: the atomicity mutation failed for a reason unrelated to the lost reservation" >&2
-	grep -A1 '^  FAIL  (s)' "$WORK/atomicity.log" >&2
-	exit 1
-}
+if [[ "$VERSION" == "18.16.0" ]]; then
+	# Where the mutated tree goes red first is itself part of the contract on
+	# 18.16.0: the retired reservation is what the next attempt consults, so the
+	# "503 keeps the row" case is admitted a second exchange long before any
+	# unlock case runs. Assert that red, then attribute (s) below.
+	grep -q '^  FAIL  503 keeps the row' "$WORK/atomicity.log" || {
+		echo "FAIL: the deletion-only release was not caught at the 503 generation policy first" >&2
+		grep '^  FAIL' "$WORK/atomicity.log" >&2
+		exit 1
+	}
+	grep -A1 '^  FAIL  503 keeps the row' "$WORK/atomicity.log" | grep -q 'Missing expected rejection' || {
+		echo "FAIL: the 503 case failed for a reason unrelated to the re-admitted generation" >&2
+		grep -A1 '^  FAIL  503 keeps the row' "$WORK/atomicity.log" >&2
+		exit 1
+	}
+	# One throwaway copy of the gate, then two isolated runs: the control proves
+	# the copy selects exactly the requested case and is green on an unmutated
+	# tree; the mutated run proves (s) is red on its own for the marker contract.
+	ISO_GATE="$WORK/gate-only.ts"
+	cp "$GATE" "$ISO_GATE"
+	replace_once "$ISO_GATE" \
+		'async function scenario(name: string, fn: () => Promise<void>): Promise<void> {
+	const watchdog = setTimeout(() => {' \
+		'const ONLY = process.argv.slice(2).filter(arg => arg.startsWith("--only=")).flatMap(arg => arg.slice(7).split(",")).map(s => s.trim()).filter(Boolean);
+async function scenario(name: string, fn: () => Promise<void>): Promise<void> {
+	if (ONLY.length > 0 && !ONLY.some(prefix => name.startsWith(prefix))) {
+		console.log(`  SKIP  ${name}`);
+		return;
+	}
+	const watchdog = setTimeout(() => {'
+	if ! gate_only "$ISO_GATE" "$CONTROL" "$WORK/atomicity-s-control.log" "(s)"; then
+		echo "FAIL: the isolating copy could not run case (s) green on the control tree" >&2
+		tail -5 "$WORK/atomicity-s-control.log" >&2
+		exit 1
+	fi
+	[[ "$(grep -c '^  PASS' "$WORK/atomicity-s-control.log")" == "1" ]] || {
+		echo "FAIL: the isolating copy did not run exactly one scenario" >&2
+		grep '^  \(PASS\|FAIL\)  ' "$WORK/atomicity-s-control.log" >&2
+		exit 1
+	}
+	if gate_only "$ISO_GATE" "$ATOMICITY" "$WORK/atomicity-s.log" "(s)"; then
+		echo "FAIL: case (s) alone stayed green against the deletion-only release" >&2
+		exit 1
+	fi
+	grep -q '^  FAIL  (s) ' "$WORK/atomicity-s.log" || {
+		echo "FAIL: the atomicity mutation was not caught by case (s)" >&2
+		grep '^  FAIL' "$WORK/atomicity-s.log" >&2
+		exit 1
+	}
+	# Either (s)'s own release assertion or the unlock fixture it starts from must
+	# name the lost marker: both state that a release may not leave the generation
+	# marker-less, so this stays a marker contract and not a symptom.
+	grep -A1 '^  FAIL  (s) ' "$WORK/atomicity-s.log" \
+		| grep -q -e 'reserved by the new owner' -e 'must leave one durable pending marker' || {
+		echo "FAIL: the atomicity mutation failed for a reason unrelated to the lost reservation" >&2
+		grep -A1 '^  FAIL  (s) ' "$WORK/atomicity-s.log" >&2
+		exit 1
+	}
+	# ...and the red must isolate the release: the staged-replacement case (b)
+	# releases no marker and stays green under the same mutation.
+	if ! gate_only "$ISO_GATE" "$ATOMICITY" "$WORK/atomicity-b.log" "(b)"; then
+		echo "FAIL: the atomicity mutation also broke the staged-replacement case, so (s) does not isolate the release" >&2
+		grep '^  FAIL' "$WORK/atomicity-b.log" >&2
+		exit 1
+	fi
+else
+	grep -q 'FAIL  (s)' "$WORK/atomicity.log" || {
+		echo "FAIL: the atomicity mutation was not caught by case (s)" >&2
+		grep '^  FAIL' "$WORK/atomicity.log" >&2
+		exit 1
+	}
+	grep -A1 '^  FAIL  (s)' "$WORK/atomicity.log" | grep -q 'reserved by the new owner' || {
+		echo "FAIL: the atomicity mutation failed for a reason unrelated to the lost reservation" >&2
+		grep -A1 '^  FAIL  (s)' "$WORK/atomicity.log" >&2
+		exit 1
+	}
+fi
 echo "PASS (s): a release that deletes instead of reserving turns the boundary case red"

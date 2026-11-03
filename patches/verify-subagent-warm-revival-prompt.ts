@@ -27,7 +27,7 @@
 //          runtime as well, so the gate is sensitive to roster drift only;
 //   f.     informational only: records what a pooled follow-up installed on a revived agent
 //          does to the rendered system prompt (never fails).
-//   g.     18.12.6 only: a live parent setting read by the default prompt builder
+//   g.     18.12.6 and 18.16.0 only: a live parent setting read by the default prompt builder
 //          (`includeModelInPrompt`) flips while parked; the revived prompt keeps the
 //          persisted model line while a fresh spawn renders without it.
 // Mutation controls (candidate runs only) copy the runtime, break one part of the warm
@@ -64,7 +64,19 @@ const NM =
 	process.env.OMP_NM ?? process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
+// Fail closed on a plan this gate has no arm for. 18.16.0 takes the 18.12.6
+// arms: mutation `g` is the only required failure, `task.structured` is exposed,
+// the yield items are set before spawn, and the includeModelInPrompt drift
+// scenario runs.
+const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"];
+const selectedPlan = process.env.OMP_PATCH_VERSION;
+if (selectedPlan !== undefined && !SUPPORTED_PLANS.includes(selectedPlan)) {
+	throw new Error(`unsupported OMP_PATCH_VERSION for the warm-revival gate: ${selectedPlan} (supported: ${SUPPORTED_PLANS.join(", ")})`);
+}
 const agentVersion = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
+if (!SUPPORTED_PLANS.includes(agentVersion)) {
+	throw new Error(`unsupported pi-coding-agent tree version for the warm-revival gate: ${agentVersion} (supported: ${SUPPORTED_PLANS.join(", ")})`);
+}
 
 // The private HOME must precede runtime startup (os.homedir is cached), so the real work
 // runs in a re-executed child that already owns a throwaway HOME.
@@ -129,7 +141,7 @@ const MUTATIONS: MutationControl[] = [
 		name: "drop the persisted systemPrompt override",
 		// Target snapshots the roster and restores yield items, so only a live default-prompt
 		// input that changed while parked separates persisted bytes from a re-render.
-		mustFail: agentVersion === "18.12.6"
+		mustFail: ["18.12.6", "18.16.0"].includes(agentVersion)
 			? ["g-default-prompt-setting-drift"]
 			: ["a1-new-peer-while-parked", "a2-peer-parked-before-revive", "b-pooled-yield-items"],
 		from: OVERRIDE_LINE,
@@ -299,7 +311,7 @@ async function makeEnv(name: string): Promise<Env> {
 		"task.agentIdleTtlMs": 0,
 		// Yield-dependent fixtures opt in; the target's production default stays false.
 		// Historical plans predate the setting and always expose yield.
-		...(agentVersion === "18.12.6" ? { "task.structured": true } : {}),
+		...(["18.12.6", "18.16.0"].includes(agentVersion) ? { "task.structured": true } : {}),
 	});
 	const settled = { value: false };
 	const model = createMockModel({
@@ -447,11 +459,11 @@ async function revivalPreservesContract(
 ): Promise<void> {
 	const { id } = options;
 	const callsBeforeSpawn = env.model.calls.length;
-	const initialItems = options.items && agentVersion === "18.12.6"
+	const initialItems = options.items && ["18.12.6", "18.16.0"].includes(agentVersion)
 		? options.items.map(item => ({ ...item, id: `initial-${item.id}` })) : options.items;
 	const file = await spawn(env, id, initialItems);
 	const preSession = liveSession(id);
-	if (options.items && agentVersion === "18.12.6") {
+	if (options.items && ["18.12.6", "18.16.0"].includes(agentVersion)) {
 		await preSession.setWorkPoolYieldItems(options.items);
 		env.settled.value = true;
 		await preSession.prompt("Acknowledge the updated pooled turn contract.");
@@ -550,7 +562,7 @@ await scenario("b-pooled-yield-items", (env, record) =>
 // (g) A live parent setting read by the default prompt builder flips while the agent is parked.
 // The revived session restores its overlay on the live parent, so a re-render would drop the
 // model line; the persisted session_init bytes must win.
-if (agentVersion === "18.12.6") {
+if (["18.12.6", "18.16.0"].includes(agentVersion)) {
 	const { cfgIncludeModelInPrompt } = await import(`${AGENT_ROOT}/src/session/settings.ts`);
 	await scenario("g-default-prompt-setting-drift", async (env, record) => {
 		const id = "0-ProbeG";

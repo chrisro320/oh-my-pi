@@ -71,7 +71,10 @@ const mod = (await import(join(agentRoot, "src/session/date-cwd-reminder.ts"))) 
 };
 
 if (process.argv[2] === "--archive-replay") {
-	assert.ok(["18.10.0", "18.10.1"].includes(agentVersion));
+	// 18.16.0 is the only admitted plan above 18.10.1: the transfer/relocation
+	// block below still spawns this child only for 18.10.x, as it does for
+	// 18.12.6, so the 18.16.0 arm is identical to the 18.12.6 arm.
+	assert.ok(["18.10.0", "18.10.1", "18.16.0"].includes(agentVersion));
 	const { SessionManager } = await import(join(agentRoot, "src/session/session-manager.ts"));
 	const manager = await SessionManager.open(process.argv[3]);
 	try {

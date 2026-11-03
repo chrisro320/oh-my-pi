@@ -17,6 +17,21 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const EXTENSION = process.env.OMP_CONTEXT_AUDIT_EXTENSION ?? join(import.meta.dir, "context-persist-audit-extension.ts");
+// Fail closed on a plan this gate has no arm for. 18.16.0 keeps the 18.12.6
+// shape: the 18.10.x-only transfer/audit block below stays off, exactly as it
+// is for 18.12.6. A version outside this list used to reach the unconditional
+// assertions and the extension runtime with no plan at all.
+const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"];
+const selectedPlan = process.env.OMP_PATCH_VERSION;
+assert.ok(
+	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
+	`unsupported OMP_PATCH_VERSION for the context persist audit gate: ${selectedPlan} (supported: ${SUPPORTED_PLANS.join(", ")})`,
+);
+const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
+assert.ok(
+	SUPPORTED_PLANS.includes(agentVersion),
+	`unsupported pi-coding-agent tree version for the context persist audit gate: ${agentVersion} (supported: ${SUPPORTED_PLANS.join(", ")})`,
+);
 
 // HOME must be private before process startup; Bun caches os.homedir().
 if (process.env.OMP_CONTEXT_AUDIT_CHILD !== "1") {
@@ -358,7 +373,7 @@ const reminder = retryReminder();
 		assert.equal(records.at(-1)?.status, "file-extra", "a genuinely truncated main turn must still be detected");
 		await settings.flush();
 
-		if (["18.10.0", "18.10.1"].includes(JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version)) {
+		if (["18.10.0", "18.10.1"].includes(agentVersion)) {
 			const { FileSessionStorage } = await import(`${AGENT_ROOT}/src/session/session-storage.ts`);
 			const { appendTransferNotice } = await import(`${AGENT_ROOT}/src/session/session-transfer-marker.ts`);
 			const { HindsightSessionState } = await import(`${AGENT_ROOT}/src/hindsight/state.ts`);

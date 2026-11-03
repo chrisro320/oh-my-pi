@@ -17,8 +17,8 @@ const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const version = String(
 	(JSON.parse(readFileSync(`${AI}/package.json`, "utf8")) as { version?: string }).version ?? "",
 );
-assert.ok(["18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(version), `unsupported thinking-drop resume gate version: ${version}`);
-const serverManagedDrops = ["18.10.0", "18.10.1", "18.12.6"].includes(version);
+assert.ok(["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(version), `unsupported thinking-drop resume gate version: ${version}`);
+const serverManagedDrops = ["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(version);
 
 // Static imports cannot work here: the tree under test is selected at runtime by
 // env (pristine / patched / fault), so the module specifiers are data, not

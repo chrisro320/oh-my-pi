@@ -1,0 +1,629 @@
+{
+  "probe": "q1-prefix-proof-18.16.0",
+  "question": "Q1 — is the provider-facing messages[0] byte-stable under upstream's date/cwd reminder journal?",
+  "verdict": "PASS",
+  "failingLeg": null,
+  "failingControl": null,
+  "startedAt": "2026-11-03T12:09:39.736Z",
+  "finishedAt": "2026-11-03T12:09:47.182Z",
+  "runtime": "/tmp/omp-plan-18160/q1-rt",
+  "runtimePackages": {
+    "pi-agent-core": "18.16.0",
+    "pi-ai": "18.16.0",
+    "pi-catalog": "18.16.0",
+    "pi-coding-agent": "18.16.0",
+    "pi-tui": "18.16.0",
+    "snapcompact": "18.16.0"
+  },
+  "clock": {
+    "injectedBy": "bun:test setSystemTime — freezes Date.now(); the SDK reads the date from new Date()",
+    "timezone": "UTC",
+    "writerInstant": "2026-11-03T02:30:00.000Z",
+    "rolloverInstant": "2026-11-04T02:30:00.000Z",
+    "writerDate": "2026-11-03",
+    "rolloverDate": "2026-11-04"
+  },
+  "isolation": {
+    "network": "globalThis.fetch throws; every provider call is pi-ai's MockModel",
+    "credentials": "none — a synthetic mock runtime key in a private agent dir",
+    "sessions": "private dirs under --scratch; the installed release and ~/.omp are never touched",
+    "children": "each child runs with env -i (HOME/TMPDIR/TZ/PATH only); the whole probe runs under bwrap --unshare-net"
+  },
+  "placementModel": {
+    "ok": true,
+    "journalCallSite": true,
+    "localProviderOnlyTail": [],
+    "failures": []
+  },
+  "byteProbe": {
+    "ok": true,
+    "processes": [
+      {
+        "label": "process-1",
+        "exitCode": 0,
+        "ok": true,
+        "failures": [],
+        "pid": 1368667,
+        "instant": "2026-11-03T02:30:00.000Z",
+        "date": "2026-11-03",
+        "cwd": "/tmp/omp-plan-18160/q1-scratch/work",
+        "reminder": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>",
+        "systemBlocks": 2,
+        "systemCarriesToday": false,
+        "systemCarriesReminder": false,
+        "requestSha": "4e589d92104597a2d4cb212b9a9d7886521b1c4860f5f89039b110eb424bf482",
+        "messages0Sha": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+        "messages0Role": "user",
+        "messages0Text": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>\nQ1 prefix proof: report the first turn.",
+        "messageCount": 1,
+        "messageRoles": [
+          "user"
+        ],
+        "reminderLanding": [
+          {
+            "index": 0,
+            "role": "user",
+            "form": "prefix"
+          }
+        ],
+        "toolCount": 2,
+        "sessionFile": "/tmp/omp-plan-18160/q1-scratch/p1/sessions/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl",
+        "requests": 1
+      },
+      {
+        "label": "process-2",
+        "exitCode": 0,
+        "ok": true,
+        "failures": [],
+        "pid": 1368863,
+        "instant": "2026-11-03T02:30:00.000Z",
+        "date": "2026-11-03",
+        "cwd": "/tmp/omp-plan-18160/q1-scratch/work",
+        "reminder": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>",
+        "systemBlocks": 2,
+        "systemCarriesToday": false,
+        "systemCarriesReminder": false,
+        "requestSha": "4e589d92104597a2d4cb212b9a9d7886521b1c4860f5f89039b110eb424bf482",
+        "messages0Sha": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+        "messages0Role": "user",
+        "messages0Text": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>\nQ1 prefix proof: report the first turn.",
+        "messageCount": 1,
+        "messageRoles": [
+          "user"
+        ],
+        "reminderLanding": [
+          {
+            "index": 0,
+            "role": "user",
+            "form": "prefix"
+          }
+        ],
+        "toolCount": 2,
+        "sessionFile": "/tmp/omp-plan-18160/q1-scratch/p2/sessions/2026-11-03T02-30-00-000Z_01a1a150-ab77-7346-81a7-6cc85542d6b3.jsonl",
+        "requests": 1
+      }
+    ],
+    "systemPromptCarriesToday": false,
+    "identicalRequestBytes": true,
+    "identicalMessages0": true,
+    "firstRequestSha": "4e589d92104597a2d4cb212b9a9d7886521b1c4860f5f89039b110eb424bf482",
+    "firstMessages0Sha": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+    "firstReminder": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>",
+    "firstReminderLandedAt": "messages[0] user (prefix)",
+    "firstReminderLanding": [
+      {
+        "index": 0,
+        "role": "user",
+        "form": "prefix"
+      }
+    ],
+    "failures": []
+  },
+  "writerSessionFile": "/tmp/omp-plan-18160/q1-scratch/p1/sessions/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl",
+  "writerSessionSha": "bc285097d5ce7b98b09780c00fee75d9c84bef69dfb31de28e8dcb9378130127",
+  "baseline": {
+    "messages0Sha": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+    "requestSha": "4e589d92104597a2d4cb212b9a9d7886521b1c4860f5f89039b110eb424bf482",
+    "firstReminder": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>",
+    "firstReminderLanding": [
+      {
+        "index": 0,
+        "role": "user",
+        "form": "prefix"
+      }
+    ]
+  },
+  "legs": [
+    {
+      "leg": "resume",
+      "pass": true,
+      "messages0ShaBefore": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+      "messages0ShaAfter": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+      "identicalMessages0": true,
+      "reminderLandingBefore": [
+        {
+          "index": 0,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandingAfter": [
+        {
+          "index": 2,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandedAt": "messages[2] user (prefix)",
+      "observations": {
+        "pid": 1369058,
+        "instant": "2026-11-04T02:30:00.000Z",
+        "date": "2026-11-04",
+        "cwd": "/tmp/omp-plan-18160/q1-scratch/work",
+        "reminder": "<system-reminder>\nToday: 2026-11-04; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>",
+        "systemBlocks": 2,
+        "systemCarriesToday": false,
+        "systemCarriesReminder": false,
+        "requestSha": "e458551bf949d4df193ebd6c30e5b47621cbfd5106045aff73e58b0352cd8036",
+        "messages0Sha": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+        "messages0Role": "user",
+        "messages0Text": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>\nQ1 prefix proof: report the first turn.",
+        "messageCount": 3,
+        "messageRoles": [
+          "user",
+          "assistant",
+          "user"
+        ],
+        "reminderLanding": [
+          {
+            "index": 2,
+            "role": "user",
+            "form": "prefix"
+          }
+        ],
+        "toolCount": 2,
+        "requests": 1,
+        "sessionFile": "/tmp/omp-plan-18160/q1-scratch/replay-resume/source/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl",
+        "replay": {
+          "opened": "SessionManager.open",
+          "sessionId": "01a1a150-a8c9-7006-a893-f991c9af8e07"
+        },
+        "sourceSessionFile": "/tmp/omp-plan-18160/q1-scratch/replay-resume/source/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl",
+        "sourceSessionSha": "bc285097d5ce7b98b09780c00fee75d9c84bef69dfb31de28e8dcb9378130127"
+      },
+      "failures": [],
+      "trace": {
+        "exitCode": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "leg": "branch-first-turn",
+      "pass": true,
+      "messages0ShaBefore": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+      "messages0ShaAfter": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+      "identicalMessages0": true,
+      "reminderLandingBefore": [
+        {
+          "index": 0,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandingAfter": [
+        {
+          "index": 1,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandedAt": "messages[1] user (prefix)",
+      "observations": {
+        "pid": 1369149,
+        "instant": "2026-11-04T02:30:00.000Z",
+        "date": "2026-11-04",
+        "cwd": "/tmp/omp-plan-18160/q1-scratch/work",
+        "reminder": "<system-reminder>\nToday: 2026-11-04; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>",
+        "systemBlocks": 2,
+        "systemCarriesToday": false,
+        "systemCarriesReminder": false,
+        "requestSha": "b99478333aecaa1f61606fd20569850bf3d2e76eeec6f9dc6dbf961009befbd7",
+        "messages0Sha": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+        "messages0Role": "user",
+        "messages0Text": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>\nQ1 prefix proof: report the first turn.",
+        "messageCount": 2,
+        "messageRoles": [
+          "user",
+          "user"
+        ],
+        "reminderLanding": [
+          {
+            "index": 1,
+            "role": "user",
+            "form": "prefix"
+          }
+        ],
+        "toolCount": 2,
+        "requests": 1,
+        "sessionFile": "/tmp/omp-plan-18160/q1-scratch/replay-branch-first-turn/sessions/2026-11-04T02-30-00-000Z_01a1a150-b0cb-737d-ae35-d04cfcf94546.jsonl",
+        "replay": {
+          "opened": "createBranchedSession(first user turn)",
+          "anchor": "72ed3ede",
+          "branchedFile": "/tmp/omp-plan-18160/q1-scratch/replay-branch-first-turn/sessions/2026-11-04T02-30-00-000Z_01a1a150-b0cb-737d-ae35-d04cfcf94546.jsonl"
+        },
+        "sourceSessionFile": "/tmp/omp-plan-18160/q1-scratch/replay-branch-first-turn/source/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl",
+        "sourceSessionSha": "bc285097d5ce7b98b09780c00fee75d9c84bef69dfb31de28e8dcb9378130127"
+      },
+      "failures": [],
+      "trace": {
+        "exitCode": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "leg": "branch-last-reply",
+      "pass": true,
+      "messages0ShaBefore": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+      "messages0ShaAfter": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+      "identicalMessages0": true,
+      "reminderLandingBefore": [
+        {
+          "index": 0,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandingAfter": [
+        {
+          "index": 2,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandedAt": "messages[2] user (prefix)",
+      "observations": {
+        "pid": 1369373,
+        "instant": "2026-11-04T02:30:00.000Z",
+        "date": "2026-11-04",
+        "cwd": "/tmp/omp-plan-18160/q1-scratch/work",
+        "reminder": "<system-reminder>\nToday: 2026-11-04; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>",
+        "systemBlocks": 2,
+        "systemCarriesToday": false,
+        "systemCarriesReminder": false,
+        "requestSha": "e458551bf949d4df193ebd6c30e5b47621cbfd5106045aff73e58b0352cd8036",
+        "messages0Sha": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+        "messages0Role": "user",
+        "messages0Text": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>\nQ1 prefix proof: report the first turn.",
+        "messageCount": 3,
+        "messageRoles": [
+          "user",
+          "assistant",
+          "user"
+        ],
+        "reminderLanding": [
+          {
+            "index": 2,
+            "role": "user",
+            "form": "prefix"
+          }
+        ],
+        "toolCount": 2,
+        "requests": 1,
+        "sessionFile": "/tmp/omp-plan-18160/q1-scratch/replay-branch-last-reply/sessions/2026-11-04T02-30-00-000Z_01a1a150-b366-75b1-9695-82fbff894dcb.jsonl",
+        "replay": {
+          "opened": "createBranchedSession(last assistant turn)",
+          "anchor": "3e9e5353",
+          "branchedFile": "/tmp/omp-plan-18160/q1-scratch/replay-branch-last-reply/sessions/2026-11-04T02-30-00-000Z_01a1a150-b366-75b1-9695-82fbff894dcb.jsonl"
+        },
+        "sourceSessionFile": "/tmp/omp-plan-18160/q1-scratch/replay-branch-last-reply/source/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl",
+        "sourceSessionSha": "bc285097d5ce7b98b09780c00fee75d9c84bef69dfb31de28e8dcb9378130127"
+      },
+      "failures": [],
+      "trace": {
+        "exitCode": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "leg": "fork",
+      "pass": true,
+      "messages0ShaBefore": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+      "messages0ShaAfter": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+      "identicalMessages0": true,
+      "reminderLandingBefore": [
+        {
+          "index": 0,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandingAfter": [
+        {
+          "index": 2,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandedAt": "messages[2] user (prefix)",
+      "observations": {
+        "pid": 1369516,
+        "instant": "2026-11-04T02:30:00.000Z",
+        "date": "2026-11-04",
+        "cwd": "/tmp/omp-plan-18160/q1-scratch/work",
+        "reminder": "<system-reminder>\nToday: 2026-11-04; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>",
+        "systemBlocks": 2,
+        "systemCarriesToday": false,
+        "systemCarriesReminder": false,
+        "requestSha": "e458551bf949d4df193ebd6c30e5b47621cbfd5106045aff73e58b0352cd8036",
+        "messages0Sha": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+        "messages0Role": "user",
+        "messages0Text": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>\nQ1 prefix proof: report the first turn.",
+        "messageCount": 3,
+        "messageRoles": [
+          "user",
+          "assistant",
+          "user"
+        ],
+        "reminderLanding": [
+          {
+            "index": 2,
+            "role": "user",
+            "form": "prefix"
+          }
+        ],
+        "toolCount": 2,
+        "requests": 1,
+        "sessionFile": "/tmp/omp-plan-18160/q1-scratch/replay-fork/sessions/2026-11-04T02-30-00-000Z_01a1a150-b5cf-775e-b2cd-7128e66dd639.jsonl",
+        "replay": {
+          "opened": "SessionManager.forkFrom",
+          "sessionId": "01a1a150-b5cf-775e-b2cd-7128e66dd639"
+        },
+        "sourceSessionFile": "/tmp/omp-plan-18160/q1-scratch/replay-fork/source/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl",
+        "sourceSessionSha": "bc285097d5ce7b98b09780c00fee75d9c84bef69dfb31de28e8dcb9378130127"
+      },
+      "failures": [],
+      "trace": {
+        "exitCode": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "leg": "transfer",
+      "pass": true,
+      "messages0ShaBefore": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+      "messages0ShaAfter": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+      "identicalMessages0": true,
+      "reminderLandingBefore": [
+        {
+          "index": 0,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandingAfter": [
+        {
+          "index": 3,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandedAt": "messages[3] user (prefix)",
+      "observations": {
+        "pid": 1369596,
+        "instant": "2026-11-04T02:30:00.000Z",
+        "date": "2026-11-04",
+        "cwd": "/tmp/omp-plan-18160/q1-scratch/work-moved",
+        "reminder": "<system-reminder>\nToday: 2026-11-04; current working directory: '/tmp/omp-plan-18160/q1-scratch/work-moved'. Do not repeat this information in your reply.\n</system-reminder>",
+        "systemBlocks": 2,
+        "systemCarriesToday": false,
+        "systemCarriesReminder": false,
+        "requestSha": "1a29c6d8a9f308940b91a0068bac0d8b36d9119faef571379b2ecdc8a54fc58f",
+        "messages0Sha": "156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54",
+        "messages0Role": "user",
+        "messages0Text": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>\nQ1 prefix proof: report the first turn.",
+        "messageCount": 4,
+        "messageRoles": [
+          "user",
+          "assistant",
+          "developer",
+          "user"
+        ],
+        "reminderLanding": [
+          {
+            "index": 3,
+            "role": "user",
+            "form": "prefix"
+          }
+        ],
+        "toolCount": 2,
+        "requests": 1,
+        "sessionFile": "/tmp/omp-plan-18160/q1-scratch/replay-transfer/sessions/moved/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl",
+        "replay": {
+          "opened": "packSession → unpackSession → SessionManager.open",
+          "packedId": "01a1a150-a8c9-7006-a893-f991c9af8e07",
+          "unpackedId": "01a1a150-a8c9-7006-a893-f991c9af8e07",
+          "mode": "created",
+          "movedCwd": "/tmp/omp-plan-18160/q1-scratch/work-moved",
+          "unpackedFile": "/tmp/omp-plan-18160/q1-scratch/replay-transfer/sessions/moved/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl",
+          "sessionCwdAfterOpen": "/tmp/omp-plan-18160/q1-scratch/work-moved"
+        },
+        "sourceSessionFile": "/tmp/omp-plan-18160/q1-scratch/replay-transfer/source/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl",
+        "sourceSessionSha": "bc285097d5ce7b98b09780c00fee75d9c84bef69dfb31de28e8dcb9378130127"
+      },
+      "failures": [],
+      "trace": {
+        "exitCode": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "leg": "revival",
+      "pass": true,
+      "messages0ShaBefore": "bf54a5988be9508b63e6cd8d4ba32f724b6abecd6eff541f70fd584ee3b6141b",
+      "messages0ShaAfter": "bf54a5988be9508b63e6cd8d4ba32f724b6abecd6eff541f70fd584ee3b6141b",
+      "identicalMessages0": true,
+      "reminderLandingBefore": [
+        {
+          "index": 0,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandingAfter": [
+        {
+          "index": 5,
+          "role": "user",
+          "form": "prefix"
+        }
+      ],
+      "reminderLandedAt": "messages[5] user (prefix)",
+      "observations": {
+        "prePark": {
+          "pid": 1369744,
+          "instant": "2026-11-03T02:30:00.000Z",
+          "date": "2026-11-03",
+          "cwd": "/tmp/omp-plan-18160/q1-scratch/work",
+          "reminder": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>",
+          "systemBlocks": 3,
+          "systemCarriesToday": false,
+          "systemCarriesReminder": false,
+          "requestSha": "181ce573aa1b43dc0fa10add78f9b5051a91e8d0c23d82d00d2e4dacd8135988",
+          "messages0Sha": "bf54a5988be9508b63e6cd8d4ba32f724b6abecd6eff541f70fd584ee3b6141b",
+          "messages0Role": "user",
+          "messages0Text": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>\nReport that you are ready.",
+          "messageCount": 1,
+          "messageRoles": [
+            "user"
+          ],
+          "reminderLanding": [
+            {
+              "index": 0,
+              "role": "user",
+              "form": "prefix"
+            }
+          ],
+          "toolCount": 3
+        },
+        "postRevival": {
+          "pid": 1369744,
+          "instant": "2026-11-03T02:30:00.000Z",
+          "date": "2026-11-04",
+          "cwd": "/tmp/omp-plan-18160/q1-scratch/work",
+          "reminder": "<system-reminder>\nToday: 2026-11-04; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>",
+          "systemBlocks": 3,
+          "systemCarriesToday": false,
+          "systemCarriesReminder": false,
+          "requestSha": "2e37b06e158fc35c579081bdf99984d3be6aef30016ebbe5e09488d55ece232c",
+          "messages0Sha": "bf54a5988be9508b63e6cd8d4ba32f724b6abecd6eff541f70fd584ee3b6141b",
+          "messages0Role": "user",
+          "messages0Text": "<system-reminder>\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>\nReport that you are ready.",
+          "messageCount": 6,
+          "messageRoles": [
+            "user",
+            "assistant",
+            "developer",
+            "developer",
+            "developer",
+            "user"
+          ],
+          "reminderLanding": [
+            {
+              "index": 5,
+              "role": "user",
+              "form": "prefix"
+            }
+          ],
+          "toolCount": 3
+        },
+        "requestsAfterRevival": 1,
+        "subagentSessionFile": "/tmp/omp-plan-18160/q1-scratch/revival/artifacts/q1-revival.jsonl",
+        "date": "2026-11-04",
+        "reminder": "<system-reminder>\nToday: 2026-11-04; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\n</system-reminder>",
+        "messageRoles": [
+          "user",
+          "assistant",
+          "developer",
+          "developer",
+          "developer",
+          "user"
+        ],
+        "pid": 1369744
+      },
+      "failures": [],
+      "trace": {
+        "exitCode": 0,
+        "stderr": ""
+      }
+    }
+  ],
+  "negativeControls": [
+    {
+      "name": "a-system-prompt-injection",
+      "breaks": "splices renderDateCwdReminder(date, cwd) into context.systemPrompt (upstream's removed placement)",
+      "faultRuntime": "/tmp/omp-plan-18160/q1-scratch/fault-a",
+      "mustFailLeg": "first-request",
+      "mustMention": "system prompt carries",
+      "applied": true,
+      "failedLegs": [
+        "first-request"
+      ],
+      "quotedFailure": "byte probe: system prompt carries \"Today:\" — the volatile date line is back in the system prompt (3 blocks, with the full reminder)",
+      "passes": true,
+      "perLeg": [
+        {
+          "leg": "first-request",
+          "ok": false,
+          "failures": [
+            "byte probe: system prompt carries \"Today:\" — the volatile date line is back in the system prompt (3 blocks, with the full reminder)",
+            "byte probe: system prompt carries the rendered date/cwd reminder \"<system-reminder>\\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\\n</system-reminder>\""
+          ]
+        }
+      ]
+    },
+    {
+      "name": "b-journal-less-replay",
+      "breaks": "new DateCwdReminderInjector() with no journal at the SDK's one call site, replayed by a new process",
+      "faultRuntime": "/tmp/omp-plan-18160/q1-scratch/fault-b",
+      "mustFailLeg": "replay:resume",
+      "mustMention": "messages[0] was rewritten",
+      "applied": true,
+      "failedLegs": [
+        "replay:resume"
+      ],
+      "quotedFailure": "replay resume: messages[0] was rewritten: sha256 156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54 -> 5839c21a23f5899c036eb864b382730b0d11fa48b37d29d4fb6af49b2a78d3e6; sent=\"<system-reminder>\\\\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\\\\n</system-reminder>\" now=\"<system-reminder>\\\\nToday: 2026-11-04; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\\\\n</system-reminder>\\\\nQ1 prefix proof: report the first turn.\"",
+      "passes": true,
+      "perLeg": [
+        {
+          "leg": "first-request",
+          "ok": true,
+          "failures": []
+        },
+        {
+          "leg": "replay:resume",
+          "ok": false,
+          "failures": [
+            "replay resume: messages[0] was rewritten: sha256 156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54 -> 5839c21a23f5899c036eb864b382730b0d11fa48b37d29d4fb6af49b2a78d3e6; sent=\"<system-reminder>\\\\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\\\\n</system-reminder>\" now=\"<system-reminder>\\\\nToday: 2026-11-04; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\\\\n</system-reminder>\\\\nQ1 prefix proof: report the first turn.\""
+          ]
+        }
+      ]
+    }
+  ],
+  "setupCommands": [
+    "python3 /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/rebase-families-18.16.0.py snapshot --through family-persistent-prefix-resume --out /tmp/omp-plan-18160/q1-tree",
+    "bash /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/gate-runtime-18.16.0.sh /tmp/omp-plan-18160/q1-tree /tmp/omp-plan-18160/q1-rt"
+  ],
+  "commands": [
+    "env -i HOME=/tmp/omp-plan-18160/q1-scratch/p1/home TMPDIR=/tmp/omp-plan-18160/q1-scratch/p1/home/tmp TZ=UTC PATH=/usr/bin:/bin /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts child --mode first-request --leg first-request --runtime /tmp/omp-plan-18160/q1-rt --instant 2026-11-03T02:30:00.000Z --home /tmp/omp-plan-18160/q1-scratch/p1/home --agent-dir /tmp/omp-plan-18160/q1-scratch/p1/agent --cwd /tmp/omp-plan-18160/q1-scratch/work --session-dir /tmp/omp-plan-18160/q1-scratch/p1/sessions",
+    "env -i HOME=/tmp/omp-plan-18160/q1-scratch/p2/home TMPDIR=/tmp/omp-plan-18160/q1-scratch/p2/home/tmp TZ=UTC PATH=/usr/bin:/bin /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts child --mode first-request --leg first-request --runtime /tmp/omp-plan-18160/q1-rt --instant 2026-11-03T02:30:00.000Z --home /tmp/omp-plan-18160/q1-scratch/p2/home --agent-dir /tmp/omp-plan-18160/q1-scratch/p2/agent --cwd /tmp/omp-plan-18160/q1-scratch/work --session-dir /tmp/omp-plan-18160/q1-scratch/p2/sessions",
+    "env -i HOME=/tmp/omp-plan-18160/q1-scratch/replay-resume/home TMPDIR=/tmp/omp-plan-18160/q1-scratch/replay-resume/home/tmp TZ=UTC PATH=/usr/bin:/bin /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts child --mode replay --leg resume --runtime /tmp/omp-plan-18160/q1-rt --instant 2026-11-04T02:30:00.000Z --home /tmp/omp-plan-18160/q1-scratch/replay-resume/home --agent-dir /tmp/omp-plan-18160/q1-scratch/replay-resume/agent --cwd /tmp/omp-plan-18160/q1-scratch/work --session-dir /tmp/omp-plan-18160/q1-scratch/replay-resume/sessions --session-file /tmp/omp-plan-18160/q1-scratch/replay-resume/source/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl --baseline-json {\"messages0Sha\":\"156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54\",\"requestSha\":\"4e589d92104597a2d4cb212b9a9d7886521b1c4860f5f89039b110eb424bf482\",\"firstReminder\":\"<system-reminder>\\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\\n</system-reminder>\",\"firstReminderLanding\":[{\"index\":0,\"role\":\"user\",\"form\":\"prefix\"}]}",
+    "env -i HOME=/tmp/omp-plan-18160/q1-scratch/replay-branch-first-turn/home TMPDIR=/tmp/omp-plan-18160/q1-scratch/replay-branch-first-turn/home/tmp TZ=UTC PATH=/usr/bin:/bin /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts child --mode replay --leg branch-first-turn --runtime /tmp/omp-plan-18160/q1-rt --instant 2026-11-04T02:30:00.000Z --home /tmp/omp-plan-18160/q1-scratch/replay-branch-first-turn/home --agent-dir /tmp/omp-plan-18160/q1-scratch/replay-branch-first-turn/agent --cwd /tmp/omp-plan-18160/q1-scratch/work --session-dir /tmp/omp-plan-18160/q1-scratch/replay-branch-first-turn/sessions --session-file /tmp/omp-plan-18160/q1-scratch/replay-branch-first-turn/source/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl --baseline-json {\"messages0Sha\":\"156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54\",\"requestSha\":\"4e589d92104597a2d4cb212b9a9d7886521b1c4860f5f89039b110eb424bf482\",\"firstReminder\":\"<system-reminder>\\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\\n</system-reminder>\",\"firstReminderLanding\":[{\"index\":0,\"role\":\"user\",\"form\":\"prefix\"}]}",
+    "env -i HOME=/tmp/omp-plan-18160/q1-scratch/replay-branch-last-reply/home TMPDIR=/tmp/omp-plan-18160/q1-scratch/replay-branch-last-reply/home/tmp TZ=UTC PATH=/usr/bin:/bin /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts child --mode replay --leg branch-last-reply --runtime /tmp/omp-plan-18160/q1-rt --instant 2026-11-04T02:30:00.000Z --home /tmp/omp-plan-18160/q1-scratch/replay-branch-last-reply/home --agent-dir /tmp/omp-plan-18160/q1-scratch/replay-branch-last-reply/agent --cwd /tmp/omp-plan-18160/q1-scratch/work --session-dir /tmp/omp-plan-18160/q1-scratch/replay-branch-last-reply/sessions --session-file /tmp/omp-plan-18160/q1-scratch/replay-branch-last-reply/source/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl --baseline-json {\"messages0Sha\":\"156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54\",\"requestSha\":\"4e589d92104597a2d4cb212b9a9d7886521b1c4860f5f89039b110eb424bf482\",\"firstReminder\":\"<system-reminder>\\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\\n</system-reminder>\",\"firstReminderLanding\":[{\"index\":0,\"role\":\"user\",\"form\":\"prefix\"}]}",
+    "env -i HOME=/tmp/omp-plan-18160/q1-scratch/replay-fork/home TMPDIR=/tmp/omp-plan-18160/q1-scratch/replay-fork/home/tmp TZ=UTC PATH=/usr/bin:/bin /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts child --mode replay --leg fork --runtime /tmp/omp-plan-18160/q1-rt --instant 2026-11-04T02:30:00.000Z --home /tmp/omp-plan-18160/q1-scratch/replay-fork/home --agent-dir /tmp/omp-plan-18160/q1-scratch/replay-fork/agent --cwd /tmp/omp-plan-18160/q1-scratch/work --session-dir /tmp/omp-plan-18160/q1-scratch/replay-fork/sessions --session-file /tmp/omp-plan-18160/q1-scratch/replay-fork/source/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl --baseline-json {\"messages0Sha\":\"156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54\",\"requestSha\":\"4e589d92104597a2d4cb212b9a9d7886521b1c4860f5f89039b110eb424bf482\",\"firstReminder\":\"<system-reminder>\\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\\n</system-reminder>\",\"firstReminderLanding\":[{\"index\":0,\"role\":\"user\",\"form\":\"prefix\"}]}",
+    "env -i HOME=/tmp/omp-plan-18160/q1-scratch/replay-transfer/home TMPDIR=/tmp/omp-plan-18160/q1-scratch/replay-transfer/home/tmp TZ=UTC PATH=/usr/bin:/bin /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts child --mode replay --leg transfer --runtime /tmp/omp-plan-18160/q1-rt --instant 2026-11-04T02:30:00.000Z --home /tmp/omp-plan-18160/q1-scratch/replay-transfer/home --agent-dir /tmp/omp-plan-18160/q1-scratch/replay-transfer/agent --cwd /tmp/omp-plan-18160/q1-scratch/work --session-dir /tmp/omp-plan-18160/q1-scratch/replay-transfer/sessions --session-file /tmp/omp-plan-18160/q1-scratch/replay-transfer/source/2026-11-03T02-30-00-000Z_01a1a150-a8c9-7006-a893-f991c9af8e07.jsonl --moved-cwd /tmp/omp-plan-18160/q1-scratch/work-moved --baseline-json {\"messages0Sha\":\"156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54\",\"requestSha\":\"4e589d92104597a2d4cb212b9a9d7886521b1c4860f5f89039b110eb424bf482\",\"firstReminder\":\"<system-reminder>\\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\\n</system-reminder>\",\"firstReminderLanding\":[{\"index\":0,\"role\":\"user\",\"form\":\"prefix\"}]}",
+    "env -i HOME=/tmp/omp-plan-18160/q1-scratch/revival/home TMPDIR=/tmp/omp-plan-18160/q1-scratch/revival/home/tmp TZ=UTC PATH=/usr/bin:/bin /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts child --mode revival --leg revival --runtime /tmp/omp-plan-18160/q1-rt --instant 2026-11-03T02:30:00.000Z --home /tmp/omp-plan-18160/q1-scratch/revival/home --agent-dir /tmp/omp-plan-18160/q1-scratch/revival/agent --cwd /tmp/omp-plan-18160/q1-scratch/work --session-dir /tmp/omp-plan-18160/q1-scratch/revival/sessions --artifacts-dir /tmp/omp-plan-18160/q1-scratch/revival/artifacts",
+    "env -i HOME=/tmp/omp-plan-18160/q1-scratch/fault-a-system-prompt-injection/writer/home TMPDIR=/tmp/omp-plan-18160/q1-scratch/fault-a-system-prompt-injection/writer/home/tmp TZ=UTC PATH=/usr/bin:/bin /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts child --mode first-request --leg first-request --runtime /tmp/omp-plan-18160/q1-scratch/fault-a --instant 2026-11-03T02:30:00.000Z --home /tmp/omp-plan-18160/q1-scratch/fault-a-system-prompt-injection/writer/home --agent-dir /tmp/omp-plan-18160/q1-scratch/fault-a-system-prompt-injection/writer/agent --cwd /tmp/omp-plan-18160/q1-scratch/work --session-dir /tmp/omp-plan-18160/q1-scratch/fault-a-system-prompt-injection/writer/sessions",
+    "env -i HOME=/tmp/omp-plan-18160/q1-scratch/fault-b-journal-less-replay/writer/home TMPDIR=/tmp/omp-plan-18160/q1-scratch/fault-b-journal-less-replay/writer/home/tmp TZ=UTC PATH=/usr/bin:/bin /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts child --mode first-request --leg first-request --runtime /tmp/omp-plan-18160/q1-scratch/fault-b --instant 2026-11-03T02:30:00.000Z --home /tmp/omp-plan-18160/q1-scratch/fault-b-journal-less-replay/writer/home --agent-dir /tmp/omp-plan-18160/q1-scratch/fault-b-journal-less-replay/writer/agent --cwd /tmp/omp-plan-18160/q1-scratch/work --session-dir /tmp/omp-plan-18160/q1-scratch/fault-b-journal-less-replay/writer/sessions",
+    "env -i HOME=/tmp/omp-plan-18160/q1-scratch/fault-b-journal-less-replay/replay-resume/home TMPDIR=/tmp/omp-plan-18160/q1-scratch/fault-b-journal-less-replay/replay-resume/home/tmp TZ=UTC PATH=/usr/bin:/bin /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts child --mode replay --leg resume --runtime /tmp/omp-plan-18160/q1-scratch/fault-b --instant 2026-11-04T02:30:00.000Z --home /tmp/omp-plan-18160/q1-scratch/fault-b-journal-less-replay/replay-resume/home --agent-dir /tmp/omp-plan-18160/q1-scratch/fault-b-journal-less-replay/replay-resume/agent --cwd /tmp/omp-plan-18160/q1-scratch/work --session-dir /tmp/omp-plan-18160/q1-scratch/fault-b-journal-less-replay/replay-resume/sessions --session-file /tmp/omp-plan-18160/q1-scratch/fault-b-journal-less-replay/writer/sessions/2026-11-03T02-30-00-000Z_01a1a150-c080-73d5-aa6d-92ed8532ca25.jsonl --baseline-json {\"messages0Sha\":\"156581c0e3ddf21dcd9e1f8119312f1dfbe4ea59ff34e9807c2bd7f797652e54\",\"requestSha\":\"4e589d92104597a2d4cb212b9a9d7886521b1c4860f5f89039b110eb424bf482\",\"firstReminder\":\"<system-reminder>\\nToday: 2026-11-03; current working directory: '/tmp/omp-plan-18160/q1-scratch/work'. Do not repeat this information in your reply.\\n</system-reminder>\",\"firstReminderLanding\":[{\"index\":0,\"role\":\"user\",\"form\":\"prefix\"}]}"
+  ],
+  "orchestratorCommand": "bwrap --die-with-parent --unshare-net --bind / / --dev /dev --proc /proc -- env -i HOME=/tmp/omp-plan-18160/orch-home XDG_CONFIG_HOME=/tmp/omp-plan-18160/orch-home/.config XDG_CACHE_HOME=/tmp/omp-plan-18160/orch-home/.cache PATH=/usr/bin:/bin TZ=UTC /home/chris/.bun/bin/bun /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.ts --runtime /tmp/omp-plan-18160/q1-rt --out /home/chris/orca/projects/omp-move/.trellis/tasks/11-03-omp-18160-upgrade-plan/research/q1-prefix-proof-18.16.0.json --scratch /tmp/omp-plan-18160/q1-scratch"
+}

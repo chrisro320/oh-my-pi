@@ -67,7 +67,7 @@ const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-cata
 // Read once, before any assertion: 0088 turns the split history leg into the
 // live-chain shape, and older plans must keep pinning the truncated request.
 const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-const liveChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion);
+const liveChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion);
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, generateSummary, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 const { prefixCarriesCompactionSummary, sharesActivePromptCacheIdentity } = await import(
@@ -75,16 +75,29 @@ const { prefixCarriesCompactionSummary, sharesActivePromptCacheIdentity } = awai
 );
 const { buildResponsesInput } = await import(`${AI_ROOT}/src/providers/openai-shared.ts`);
 const { buildSessionContext } = await import(`${AGENT_ROOT}/src/session/session-context.ts`);
-const { applyDateCwdAnchors, renderDateCwdReminder } = await import(`${AGENT_ROOT}/src/session/date-cwd-reminder.ts`);
+const dateCwd = await import(`${AGENT_ROOT}/src/session/date-cwd-reminder.ts`);
+const { renderDateCwdReminder } = dateCwd;
 const { convertToLlm } = await import(`${AGENT_ROOT}/src/session/messages.ts`);
 
 // 0047 replaced the provider-only tail (`withDateCwdReminder`) with anchored
-// stamps on the newest real user message. This shim reproduces exactly the
-// no-session-id branch of `DateCwdReminderInjector.transform`, which is the
-// transform this file needs to mirror the live provider context.
+// stamps on the newest real user message; 18.16.0 retired the anchor table for
+// a journal-backed injector that prefixes the first user turn of a conversation
+// and appends a control turn when the value later changes (upstream #7404's
+// final shape). Both shims are the identity the live provider request carries,
+// which is what this gate compares against, so select the one the tree ships.
+const anchoredReminderPlan = typeof dateCwd.applyDateCwdAnchors === "function";
+const dateCwdInjector = typeof dateCwd.DateCwdReminderInjector === "function" ? new dateCwd.DateCwdReminderInjector() : undefined;
+assert.ok(
+	anchoredReminderPlan || dateCwdInjector !== undefined,
+	"the selected tree must publish either the anchor table or the journal injector",
+);
 function withDateCwdReminder(context: Context, date: string, cwd: string): Context {
+	if (!anchoredReminderPlan) {
+		const transformed = dateCwdInjector.transform(context, date, cwd);
+		return transformed === context ? context : { ...context, messages: transformed.messages };
+	}
 	if (!context.systemPrompt || context.systemPrompt.length === 0 || context.messages.length === 0) return context;
-	const { messages } = applyDateCwdAnchors(context.messages, renderDateCwdReminder(date, cwd), {});
+	const { messages } = dateCwd.applyDateCwdAnchors(context.messages, renderDateCwdReminder(date, cwd), {});
 	return messages === context.messages ? context : { ...context, messages };
 }
 
@@ -778,7 +791,7 @@ assert.notDeepEqual(
 // 0017 is upstream-owned in 18.10: self-contained Responses history is replayable
 // immediately, but a connection-bound host must first accept a real completion.
 // Observe the real stream consumer's HTTP input, not private warmth state.
-if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) {
+if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)) {
 	const { streamOpenAIResponses } = await import(`${AI_ROOT}/src/providers/openai-responses.ts`);
 	const responsesBase = getBundledModel("openai", "gpt-5.6");
 	assert.ok(responsesBase, "bundled openai/gpt-5.6 must exist");
@@ -875,7 +888,7 @@ if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) {
 // summary is already present. Exercise the production predicate directly;
 // actual host callback ownership belongs to the host consumer gates.
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion),
 	`unsupported prefix gate version: ${agentVersion}`,
 );
 // The 18.1.14 carry-over predates this helper contract.

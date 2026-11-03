@@ -1,84 +1,6 @@
---- a/pi-ai/dist/types/types.d.ts
-+++ b/pi-ai/dist/types/types.d.ts
-@@ -949,6 +949,8 @@
-     content: string | (TextContent | ImageContent)[];
-     /** True if the message was injected by the system (e.g., auto-continue). */
-     synthetic?: boolean;
-+    /** True when present only in a provider request; never persisted or replayed. */
-+    providerOnly?: boolean;
-     /** True when injected mid-turn as a steer; consumed by the agent's pre-LLM transform to wrap it for emphasis. Never rendered. */
-     steering?: boolean;
-     /** True when the provider delivered this steer into the response it was streaming (`response.steer`). Display-only; never sent. */
-@@ -966,6 +968,8 @@
-     content: string | (TextContent | ImageContent)[];
-     /** Who initiated this message for billing/attribution semantics. */
-     attribution?: MessageAttribution;
-+    /** True when present only in a provider request; never persisted or replayed. */
-+    providerOnly?: boolean;
-     /** True if the message was injected by the system (e.g., auto-continue) and initiates a fresh run rather than continuing the current one. */
-     synthetic?: boolean;
-     /** True when the synthetic prompt was a deliberate operator action (`.`, `c` continue shortcut) rather than an automatic continuation — its timestamp is the turn's prompt time. */
---- a/pi-ai/src/providers/openai-responses.ts
-+++ b/pi-ai/src/providers/openai-responses.ts
-@@ -1614,6 +1614,18 @@
- 	// retain required text/placeholder replay, including DeepSeek's #10690 fallback.
- 	const canReconstructReasoningReplay =
- 		!policy.reasoning.filterReasoningHistory || policy.reasoning.allowsSyntheticReasoningContentForToolCalls;
-+	// Count the provider-only scaffolding this request appends at the tail (the
-+	// date/cwd reminder). Those messages are part of the wire, never history, so
-+	// the chained-compaction baseline must exclude them exactly like the juice
-+	// instruction below -- otherwise the previous turn's synthetic tail lands in
-+	// the delta baseline and the transport rebuilds the whole prefix.
-+	let trailingScaffoldingItems = 0;
-+	for (let i = context.messages.length - 1; i >= 0; i--) {
-+		const message = context.messages[i]!;
-+		if (message.role !== "user" || message.providerOnly !== true) break;
-+		trailingScaffoldingItems++;
-+	}
-+
- 	const messages = buildResponsesInput({
- 		model,
- 		context,
-@@ -1781,7 +1793,6 @@
- 	applyOpenAIExtraBody(params, options?.extraBody);
- 	applyOpenAIResponsesPromptCachePolicy(params, model, options, statefulCacheBaseline);
- 
--	let trailingScaffoldingItems = 0;
- 	if (options?.forceReasoningOff && model.compat.requiresReasoningOffJuiceInstruction) {
- 		const effort = options.reasoning ?? "medium";
- 		const juice = getJuiceValue(effort);
-@@ -1789,7 +1800,7 @@
- 			role: "developer",
- 			content: [{ type: "input_text", text: `# Juice: ${juice} !important` }],
- 		});
--		trailingScaffoldingItems = 1;
-+		trailingScaffoldingItems++;
- 	}
- 
- 	return { params, trailingScaffoldingItems, strictToolsApplied };
---- a/pi-ai/src/types.ts
-+++ b/pi-ai/src/types.ts
-@@ -1190,6 +1190,8 @@
- 	content: string | (TextContent | ImageContent)[];
- 	/** True if the message was injected by the system (e.g., auto-continue). */
- 	synthetic?: boolean;
-+	/** True when present only in a provider request; never persisted or replayed. */
-+	providerOnly?: boolean;
- 	/** True when injected mid-turn as a steer; consumed by the agent's pre-LLM transform to wrap it for emphasis. Never rendered. */
- 	steering?: boolean;
- 	/** True when the provider delivered this steer into the response it was streaming (`response.steer`). Display-only; never sent. */
-@@ -1208,6 +1210,8 @@
- 	content: string | (TextContent | ImageContent)[];
- 	/** Who initiated this message for billing/attribution semantics. */
- 	attribution?: MessageAttribution;
-+	/** True when present only in a provider request; never persisted or replayed. */
-+	providerOnly?: boolean;
- 	/** True if the message was injected by the system (e.g., auto-continue) and initiates a fresh run rather than continuing the current one. */
- 	synthetic?: boolean;
- 	/** True when the synthetic prompt was a deliberate operator action (`.`, `c` continue shortcut) rather than an automatic continuation — its timestamp is the turn's prompt time. */
 --- a/pi-coding-agent/dist/types/session/agent-session.d.ts
 +++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
-@@ -612,7 +612,9 @@
+@@ -695,7 +695,9 @@
      get messages(): AgentMessage[];
      /** Latest image attachments addressable by tools as `Image #N` or `attachment://N`. */
      getImageAttachments(): ImageAttachmentEntry[];
@@ -89,7 +11,7 @@
      /**
       * Transcript for TUI display. Full history is kept for export/resume-style
       * callers; live chat can collapse compacted history to keep the hot render
-@@ -1305,8 +1307,10 @@
+@@ -1447,8 +1449,10 @@
       */
      switchSession(sessionPath: string, options?: {
          onCwdChange?: (newCwd: string, previousCwd: string) => Promise<boolean>;
@@ -101,59 +23,9 @@
          /**
           * Use this model instead of the target's saved one, like an explicit
           * `--model` at startup, and record it in the session when it differs.
---- a/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
-+++ b/pi-coding-agent/dist/types/session/date-cwd-reminder.d.ts
-@@ -1,29 +1,29 @@
- /**
-- * Date/cwd reminder injection.
-- *
-- * The system prompt must stay byte-stable so open-weight chat templates that
-- * render tool schemas *after* the system content keep their prefix cache
-- * (#7404). The per-request date/cwd line used to live at the tail of the
-- * system prompt (`project-prompt.md`), which invalidated the whole tool array
-- * on every directory change or day rollover. It now rides on the first user
-- * turn of each provider request instead: built at request time (never stored
-- * in the session), deterministic per `(date, cwd)`, so the bytes are stable
-- * for the lifetime of a session/day and refresh automatically at midnight.
-+ * Date/cwd reminders ride inside real user messages. Per-message text is frozen
-+ * in a session-owned artifact and inherited with cloned or imported history.
-  */
- import type { Context, Message } from "@oh-my-pi/pi-ai";
- /** Renders the reminder text for the given local calendar date and cwd. */
- export declare function renderDateCwdReminder(date: string, cwd: string): string;
--/** Whether `message` is a developer turn a {@link DateCwdReminderInjector} inserted. */
--export declare function isDateCwdReminderControl(message: Message): boolean;
-+/** Anchor key for a message: stable across processes, collision-resistant. */
-+export declare function dateCwdAnchorKey(message: Message, content: string): string;
-+/** Session-owned artifact, copied with history and included in transfer archives. */
-+export declare const DATE_CWD_ANCHORS_ARTIFACT = "date-cwd-anchors.json";
-+/** Reads session-owned state first, including {}, then the pre-upgrade ID map. */
-+export declare function readDateCwdAnchors(sessionId: string, sessionFile?: string, anchorRoot?: string): Record<string, string> | undefined;
-+/** Publish the frozen state before a cloned journal can be adopted under a new ID. */
-+export declare function copyDateCwdAnchors(sourceId: string, sourceFile: string, destinationFile: string): void;
- /**
-- * Keeps volatile date/cwd reminders append-only across provider requests.
-- *
-- * The first value is attached to the first user turn. A changed value attaches
-- * to a newly appended user turn or a persistent developer turn, leaving every
-- * previously sent message byte-identical.
-+ * Stamps the reminder into the last real user message, replaying frozen stamps
-+ * for every message that already carries one.
-  */
-+export declare function applyDateCwdAnchors(messages: Message[], reminder: string, anchors: Record<string, string>): {
-+    messages: Message[];
-+    dirty: boolean;
-+};
-+/** Applies the reminder through the upstream injector contract. */
- export declare class DateCwdReminderInjector {
-     #private;
--    /** Apply the current reminder while preserving all earlier injected bytes. */
-+    constructor(sessionId?: () => string | undefined, anchorRoot?: () => string, sessionFile?: () => string | undefined);
-     transform(context: Context, date: string, cwd: string): Context;
- }
 --- a/pi-coding-agent/dist/types/session/messages.d.ts
 +++ b/pi-coding-agent/dist/types/session/messages.d.ts
-@@ -78,6 +78,18 @@
+@@ -94,6 +94,18 @@
   * empty-thinking blocks, and trailing empty text placeholders.
   */
  export declare function demoteInterruptedThinking(message: Pick<AssistantMessage, "content">): DemotedInterruptedThinking | undefined;
@@ -174,10 +46,10 @@
   *  rejected before any output (an oversized 413 payload). Persisting it writes an
 --- a/pi-coding-agent/dist/types/session/session-manager.d.ts
 +++ b/pi-coding-agent/dist/types/session/session-manager.d.ts
-@@ -28,7 +28,17 @@
+@@ -29,7 +29,17 @@
   */
  export declare function copySessionArtifacts(sourceSessionFile: string, destinationSessionFile: string): Promise<void>;
- export type ReadonlySessionManager = Pick<SessionManager, "getCwd" | "getRecordedCwd" | "getSessionDir" | "getSessionId" | "getSessionFile" | "getSessionName" | "getArtifactsDir" | "getArtifactManager" | "allocateArtifactPath" | "saveArtifact" | "getArtifactPath" | "getLeafId" | "getLeafEntry" | "getEntry" | "getLabel" | "getBranch" | "getHeader" | "getEntries" | "getTree" | "getUsageStatistics" | "putBlob" | "putBlobSync">;
+ export type ReadonlySessionManager = Pick<SessionManager, "getCwd" | "getRecordedCwd" | "getSessionDir" | "getSessionId" | "getSessionFile" | "getSessionName" | "getArtifactsDir" | "ensureOnDisk" | "getArtifactManager" | "allocateArtifactPath" | "saveArtifact" | "getArtifactPath" | "getLeafId" | "getLeafEntry" | "getEntry" | "getLabel" | "getBranch" | "getHeader" | "getEntries" | "getTree" | "getUsageStatistics" | "putBlob" | "putBlobSync">;
 -interface SessionManagerStateSnapshot {
 +/** Writable admission remains reversible until the caller commits its switch. */
 +export interface SessionAdoption {
@@ -193,7 +65,7 @@
      cwd: string;
      sessionDir: string;
      sessionId: string;
-@@ -141,8 +151,14 @@
+@@ -145,8 +155,14 @@
       * target) and the error names where the session file actually lives.
       */
      rollbackMove(snapshot: SessionManagerStateSnapshot): Promise<void>;
@@ -208,9 +80,9 @@
 +    /** Claim, refresh current transfer provenance, and retain rollback ownership of a new fork. */
 +    beginWritableAdoption(): Promise<SessionAdoption>;
      /**
-      * Start a new session and persist its header before returning.
-      *
-@@ -161,7 +177,7 @@
+      * Start a new session and persist its header before returning, except for a
+      * `drop` (/delete) successor.
+@@ -172,7 +188,7 @@
          newSessionFile: string;
      } | undefined>;
      /** Move the session to a new working directory. */
@@ -219,7 +91,7 @@
      /**
       * Force the session onto disk even with no assistant message yet (ACP
       * session/new must create a discoverable file immediately).
-@@ -195,7 +211,7 @@
+@@ -206,7 +222,7 @@
       * history, and Ctrl+C must not rebuild the whole JSONL string just to flush.
       */
      flushSync(): void;
@@ -228,7 +100,7 @@
      close(): Promise<void>;
      /**
       * Raise the terminal write barrier ahead of the final {@link close}. Once
-@@ -565,6 +581,8 @@
+@@ -631,6 +647,8 @@
       */
      static forkFrom(sourcePath: string, cwd: string, sessionDir?: string, storage?: SessionStorage, options?: {
          copyArtifacts?: boolean;
@@ -237,7 +109,7 @@
          suppressBreadcrumb?: boolean;
          sessionFile?: string;
          resetInheritedCost?: boolean;
-@@ -595,9 +613,10 @@
+@@ -661,9 +679,10 @@
       * Open a session whose recorded directory `recordedCwd` is gone and move it,
       * artifacts included, into `cwd` so it resumes from there.
       * @param sessionDir Target session directory; defaults to `cwd`'s.
@@ -251,7 +123,7 @@
       * directory (session header) and the latest `session_init` contract (system
 --- a/pi-coding-agent/dist/types/session/session-storage.d.ts
 +++ b/pi-coding-agent/dist/types/session/session-storage.d.ts
-@@ -167,8 +167,11 @@
+@@ -176,8 +176,11 @@
       * then moves its session to a sibling instead of writing that file.
       * Optional because only backends with a process-owned lock can tell that
       * another process writes a session.
@@ -264,7 +136,7 @@
      /**
       * Atomically delete a session and its artifacts only when `shouldDelete`
       * accepts the current session content. Optional because backends without a
-@@ -253,10 +256,12 @@
+@@ -272,10 +275,12 @@
      /**
       * The lease is an OS lock (abstract socket, named mutex, or `flock` sidecar
       * under ~/.omp/run/session-owners), so the kernel drops a dead owner's claim.
@@ -355,20 +227,23 @@
  /**
   * Pack `sessionFile` with its artifacts and referenced blobs into the tar
   * `outPath` (written atomically). Refuses a session another live omp process
-@@ -98,10 +73,3 @@
-  * and this copy is stale. Refuses a session another live omp process writes.
+@@ -99,9 +74,9 @@
   */
  export declare function markSessionMoved(sessionFile: string, label: string): Promise<void>;
--/**
+ /**
 - * Resume guard: when `manager`'s latest transfer marker says the session moved
 - * away, close it untouched and return a fork of it (in `sessionDir`, default:
 - * the cwd's session directory) carrying a visible `forked` notice. Otherwise
 - * return `manager` itself.
-- */
--export declare function forkIfMovedAway(manager: SessionManager, sessionDir?: string): Promise<SessionManager>;
++ * Resume guard kept as the upstream entrypoint: writable adoption
++ * ({@link SessionManager.adoptForWrite}) claims the session and, when its latest
++ * transfer marker says it moved away, forks it with a visible `forked` notice.
++ * Returns the manager to continue with.
+  */
+ export declare function forkIfMovedAway(manager: SessionManager, sessionDir?: string): Promise<SessionManager>;
 --- a/pi-coding-agent/dist/types/session/turn-recovery.d.ts
 +++ b/pi-coding-agent/dist/types/session/turn-recovery.d.ts
-@@ -66,7 +66,8 @@
+@@ -68,7 +68,8 @@
      appendSessionMessage(message: AssistantMessage): void;
      persistedAssistantEntryId(message: AssistantMessage): string | undefined;
      sessionMessageAlreadyPersisted(message: AssistantMessage): boolean;
@@ -377,8 +252,8 @@
 +    setModelWithProviderSessionReset(model: Model, commitSelection?: () => void): Promise<void>;
      /** Edit mode resolved for the active model and settings, captured before a fallback swap. */
      resolveActiveEditMode(): EditMode;
-     /** Rebuilds the model-dependent base system prompt when a swap changed the edit mode or model policy. */
-@@ -209,7 +210,7 @@
+     /**
+@@ -216,7 +217,7 @@
       * primary, so callers can re-run the pre-send context-fit check against the
       * reverted (possibly smaller) window before issuing the next request.
       */
@@ -389,7 +264,7 @@
      /** Applies automatic retry, credential rotation, and model fallback policy. */
 --- a/pi-coding-agent/src/collab/guest.ts
 +++ b/pi-coding-agent/src/collab/guest.ts
-@@ -609,7 +609,9 @@
+@@ -651,7 +651,9 @@
  					// history, so rebuild the message array from the ingested entries
  					// exactly as the host does after appendCompaction/branchWithSummary
  					// (session-maintenance.ts, agent-session.ts).
@@ -400,100 +275,16 @@
  				}
  				break;
  			}
---- a/pi-coding-agent/src/main.ts
-+++ b/pi-coding-agent/src/main.ts
-@@ -117,7 +117,6 @@
- import { loadRuntimeIdentity } from "./session/runtime-identity";
- import { resolveResumableSession, type SessionInfo } from "./session/session-listing";
- import { ForkSourceNotFoundError, SessionManager, SessionMoveRefusedError } from "./session/session-manager";
--import { forkIfMovedAway } from "./session/session-transfer";
- import { shouldShowStartupSplash } from "./startup-splash";
- import {
- 	discoverSystemPromptOverride,
-@@ -1287,7 +1286,8 @@
- 				throw err;
- 			}
- 			// A copy whose conversation moved to another machine continues as a fork.
--			return await forkIfMovedAway(manager, parsed.sessionDir);
-+			await manager.adoptForWrite();
-+			return manager;
- 		}
- 		const match = await resolveResumableSession(sessionArg, cwd, parsed.sessionDir);
- 		if (!match) {
-@@ -1302,7 +1302,8 @@
- 				askToMoveSession,
- 			);
- 			if (moveResult.status === "moved") {
--				return await forkIfMovedAway(moveResult.manager, parsed.sessionDir);
-+				await moveResult.manager.adoptForWrite();
-+				return moveResult.manager;
- 			}
- 			if (moveResult.status === "declined") {
- 				return undefined;
-@@ -1317,16 +1318,21 @@
- 				askToMoveSession,
- 			);
- 			if (moveResult.status === "moved") {
--				return await forkIfMovedAway(moveResult.manager, parsed.sessionDir);
-+				await moveResult.manager.adoptForWrite();
-+				return moveResult.manager;
- 			}
- 			if (moveResult.status === "declined") {
- 				return undefined;
- 			}
- 		}
--		return await forkIfMovedAway(await SessionManager.open(match.session.path, parsed.sessionDir), parsed.sessionDir);
-+		const manager = await SessionManager.open(match.session.path, parsed.sessionDir);
-+		await manager.adoptForWrite();
-+		return manager;
- 	}
- 	if (parsed.continue) {
--		return await forkIfMovedAway(await SessionManager.continueRecent(cwd, parsed.sessionDir), parsed.sessionDir);
-+		const manager = await SessionManager.continueRecent(cwd, parsed.sessionDir);
-+		await manager.adoptForWrite();
-+		return manager;
- 	}
- 	// --resume without value is handled separately (needs picker UI)
- 	// If --session-dir provided without --continue/--resume, create new session there
-@@ -1339,10 +1345,8 @@
- 	// overriding them with CLI defaults.
- 	// An explicit startup goal starts fresh even when implicit auto-resume is configured.
- 	if (parsed.goal === undefined && cfgAutoResume.get(activeSettings)) {
--		const manager = await forkIfMovedAway(
--			await SessionManager.continueRecent(cwd, parsed.sessionDir),
--			parsed.sessionDir,
--		);
-+		const manager = await SessionManager.continueRecent(cwd, parsed.sessionDir);
-+		await manager.adoptForWrite();
- 		if (manager.getEntries().length > 0) {
- 			parsed.continue = true;
- 		}
-@@ -2209,12 +2213,10 @@
- 				process.exit(0);
- 			}
- 			try {
--				sessionManager = await forkIfMovedAway(
--					(await SessionManager.isFromRemovedWorktree(selected, cwd, parsedArgs.sessionDir))
--						? await openRelocatedSession(selected, cwd, parsedArgs.sessionDir)
--						: await SessionManager.open(selected.path),
--					parsedArgs.sessionDir,
--				);
-+				sessionManager = (await SessionManager.isFromRemovedWorktree(selected, cwd, parsedArgs.sessionDir))
-+					? await openRelocatedSession(selected, cwd, parsedArgs.sessionDir)
-+					: await SessionManager.open(selected.path, parsedArgs.sessionDir);
-+				await sessionManager.adoptForWrite();
- 			} catch (error: unknown) {
- 				if (error instanceof SessionResolutionError) exitForSessionResolutionError(error);
- 				throw error;
 --- a/pi-coding-agent/src/modes/controllers/selector-controller.ts
 +++ b/pi-coding-agent/src/modes/controllers/selector-controller.ts
-@@ -1966,15 +1966,15 @@
- 				return false;
- 			}
- 		}
--		const target = await this.#relocateFromRemovedWorktree(sessionPath);
+@@ -2010,15 +2010,16 @@
+ 		const continuation =
+ 			options?.continuation ??
+ 			(options?.followContinuation ? await findSessionContinuation(sessionPath) : undefined);
+-		const target = await this.#relocateFromRemovedWorktree(continuation?.session.path ?? sessionPath);
 -		if (!target) return false;
-+		const relocation = await this.#getRemovedWorktreeRelocation(sessionPath);
++		const switchPath = continuation?.session.path ?? sessionPath;
++		const relocation = await this.#getRemovedWorktreeRelocation(switchPath);
  		await this.ctx.prepareSessionSwitch();
  		this.ctx.resetObserverRegistry();
 -		// AgentSession owns the transaction. It restores the complete source state
@@ -503,12 +294,12 @@
  		let modelFallbackWarning: string | undefined;
  		if (
 -			(await this.ctx.session.switchSession(target.sessionPath, {
-+			(await this.ctx.session.switchSession(sessionPath, {
++			(await this.ctx.session.switchSession(switchPath, {
 +				relocateTo: relocation?.destination,
  				onCwdChange: async (newCwd, sourceCwd) => {
  					if (normalizePathForComparison(newCwd) === normalizePathForComparison(sourceCwd)) return true;
  					return this.ctx.applyCwdChange(newCwd);
-@@ -1996,8 +1996,8 @@
+@@ -2040,8 +2041,8 @@
  		await this.ctx.renderInitialMessages({ clearTerminalHistory: true });
  		await this.ctx.reloadTodos();
  		this.ctx.showStatus(
@@ -519,7 +310,7 @@
  				: movedProject
  					? `Resumed session in ${shortenPath(newCwd)}`
  					: "Resumed session",
-@@ -2007,31 +2007,21 @@
+@@ -2052,31 +2053,21 @@
  	}
  
  	/**
@@ -561,7 +352,7 @@
  	async handleSessionDeleteCommand(): Promise<void> {
 --- a/pi-coding-agent/src/sdk.ts
 +++ b/pi-coding-agent/src/sdk.ts
-@@ -1931,6 +1931,9 @@
+@@ -2100,6 +2100,9 @@
  		logger.time("sessionManager", () =>
  			SessionManager.create(cwd, SessionManager.getDefaultSessionDir(cwd, agentDir)),
  		);
@@ -571,7 +362,7 @@
  	const configuredDirs = options.additionalDirectories
  		? options.additionalDirectories
  		: cfgWorkspaceAdditionalDirectories.get(settings);
-@@ -2116,11 +2119,9 @@
+@@ -2285,11 +2288,9 @@
  	// Resolves the session/agent thinking level using the same precedence we
  	// apply at startup: explicit option → persisted session entry → restored
  	// model selector suffix → default role's explicit selector → selected
@@ -586,7 +377,7 @@
  	const pickInitialThinkingLevel = (selectedModel: Model | undefined): ConfiguredThinkingLevel | undefined => {
  		let level = options.thinkingLevel;
  		if (level === undefined && hasExistingSession && hasThinkingEntry) {
-@@ -2137,10 +2138,9 @@
+@@ -2306,10 +2307,9 @@
  		const configuredDefaultLevel = parseConfiguredThinkingLevel(cfgDefaultThinkingLevel.get(settings));
  		if (
  			level === undefined &&
@@ -598,91 +389,35 @@
  		}
  		if (level === undefined) {
  			level = automaticThinkingLevel(selectedModel, configuredDefaultLevel);
-@@ -2339,10 +2339,12 @@
- 
- 	try {
- 		const getActiveModelString = (): string | undefined => {
--			const activeModel = agent?.state.model;
--			if (activeModel) return formatModelString(activeModel);
--			if (model) return formatModelString(model);
--			return undefined;
-+			const activeModel = agent?.state.model ?? model;
-+			if (!activeModel) return undefined;
-+			// Inherit the live route and effective effort, not just the model identity.
-+			// A later effort change must not reuse the startup selector or restart auto triage.
-+			const effort = agent?.state.model ? agent.state.thinkingLevel : toReasoningEffort(effectiveThinkingLevel);
-+			return formatModelSelectorValue(formatModelStringWithRouting(activeModel), effort);
- 		};
- 		// Per-path mutation counter shared across edit/write tools. Late-diagnostics
- 		// entries capture it at fetch time and are dropped at injection if a newer
-@@ -4109,6 +4111,7 @@
- 					? { mode: "compact", toolNames: [...toolNames, ...mountedPromptToolNames] }
- 					: { mode: "full" },
- 			);
-+			const promptModel = agent?.state.model ?? model;
- 			const defaultPrompt = await buildSystemPromptInternal({
- 				cwd: promptCwd,
- 				additionalWorkspaceRoots: sessionManager.getAdditionalDirectories(),
-@@ -4145,7 +4148,7 @@
- 				securityEnabled: cfgSecurityEnabled.get(settings),
- 				settingsApproval: toolSession.settingsApproval === true,
- 				evalPreludes: toolSession.getAdvertisedEvalPreludes?.(),
--				model: getActiveModelString(),
-+				model: promptModel ? formatModelString(promptModel) : undefined,
- 				includeModelInPrompt: cfgIncludeModelInPrompt.get(settings),
- 				personality: agentKind === "sub" ? "none" : cfgPersonality.get(settings),
- 				subagent: agentKind === "sub",
-@@ -4383,7 +4386,11 @@
- 			model => modelRegistry.getApiKey(model, providerSessionId),
- 		);
- 		disposeCallbacks.add(() => blobBroker.dispose());
--		const dateCwdReminder = new DateCwdReminderInjector();
-+		const dateCwdReminder = new DateCwdReminderInjector(
-+			() => sessionManager.getSessionId(),
-+			undefined,
-+			() => sessionManager.getSessionFile(),
-+		);
- 		// Always installed; the getter-backed options are snapshotted per request,
- 		// so `snapcompact.*` changes apply on the next call (a no-op while both are off).
- 		const snapcompactInline = new SnapcompactInlineTransformer(
-@@ -4420,7 +4427,7 @@
- 			// Byte budget after decoration: URL/file-referenced images carry no inline bytes.
- 			transformed = clampProviderContextImageBytes(transformed, transformModel);
- 			// Keep per-request volatility out of the system prompt: the date/cwd
--			// reminder rides on the first user turn so open-weight providers keep
-+			// reminder rides on a provider-only tail so open-weight providers keep
- 			// their tool-schema prefix cache (#7404).
- 			return dateCwdReminder.transform(
- 				transformed,
-@@ -5389,7 +5396,7 @@
- 				const captureModel = captureOptions.initialState?.model;
- 				const captureSessionId = captureOptions.sessionId;
- 				if (!captureModel || !captureSessionId) throw new Error("Auto-learn capture identity is incomplete");
--				const captureDateCwdReminder = new DateCwdReminderInjector();
-+				const captureDateCwdReminder = new DateCwdReminderInjector(() => captureSessionId);
- 				return new Agent({
- 					...captureOptions,
- 					cwd: sessionManager.getCwd(),
 --- a/pi-coding-agent/src/session/agent-session.ts
 +++ b/pi-coding-agent/src/session/agent-session.ts
-@@ -125,6 +125,7 @@
+@@ -128,6 +128,7 @@
+ import type { ModelRegistry } from "../config/model-registry";
  import {
- 	DEFAULT_PREWALK_TARGET,
  	disabledProviderIds,
 +	formatModelStringWithRouting,
  	getModelMatchPreferences,
  	type ResolvedModelRoleValue,
  	resolveCliModel,
-@@ -447,7 +448,7 @@
+@@ -144,7 +145,7 @@
+ import { releaseJudgmentBatches } from "../eval/judgment-batch-bridge";
+ import type { EvalPreludeDefinition } from "../eval/preludes";
+ import type { PythonResult } from "../eval/py/executor";
+-import { EVAL_STATE_CONTEXT_TYPE, formatEvalStateContext, isEvalStateContext } from "../eval/state";
++import { EVAL_STATE_CONTEXT_TYPE, formatEvalStateContext } from "../eval/state";
+ import { WorkPoolRegistry } from "../task/workpool";
+ import { type BashPtyOptions, type BashResult, releaseShellSessions } from "../exec/bash-executor";
+ import type { TtsrManager } from "../export/ttsr";
+@@ -464,7 +465,7 @@
  	type SessionDumpLiveState,
  } from "./session-dump-format";
  import { collectSubSessions, type SubSession } from "./sub-sessions";
 -import type { BranchSummaryEntry, NewSessionOptions } from "./session-entries";
-+import type { BranchSummaryEntry, ModelChangeEntry, NewSessionOptions } from "./session-entries";
++import type { BranchSummaryEntry, ModelChangeEntry, NewSessionOptions, SessionEntry } from "./session-entries";
  import { SessionHandoff, type SessionHandoffHost } from "./session-handoff";
  import {
  	COMPACTION_CHECK_NONE,
-@@ -460,7 +461,9 @@
+@@ -478,7 +479,9 @@
  	copySessionArtifacts,
  	extractSessionInit,
  	type PersistedSessionInit,
@@ -692,7 +427,7 @@
  } from "./session-manager";
  import { SessionMemory, type SessionMemoryHost } from "./session-memory";
  import { buildSessionMetadata } from "./session-metadata";
-@@ -566,6 +569,16 @@
+@@ -595,6 +598,16 @@
  import { cfgTtsrJudge } from "../export/ttsr-settings";
  import { cfgMemoryBackend } from "../memory-backend/settings";
  
@@ -709,7 +444,24 @@
  /** Advisor settings whose edit toggles or rebuilds a running advisor. */
  const cfgAdvisorRuntimeInputs = combine({
  	enabled: cfgAdvisorEnabled,
-@@ -1858,19 +1871,10 @@
+@@ -900,6 +913,16 @@
+ 	);
+ }
+ 
++/** Narrows a branch scan to model-change entries, so `findLast` types what it returns. */
++function isModelChangeEntry(entry: SessionEntry): entry is ModelChangeEntry {
++	return entry.type === "model_change";
++}
++
++/** The model change a fresh resume restores: the newest entry scoped to the durable default role. */
++function isDefaultModelChangeEntry(entry: SessionEntry): entry is ModelChangeEntry {
++	return entry.type === "model_change" && (entry.role ?? "default") === "default";
++}
++
+ /** A retry supersedes a failed operation only when its intent matches, allowing a missing append phase to be supplied. */
+ function todoRetryMatches(failed: Record<string, unknown>, retry: Record<string, unknown>): boolean {
+ 	if (Bun.deepEquals(failed, retry)) return true;
+@@ -2039,19 +2062,10 @@
  			kernelOwnerId: config.evalKernelOwnerId ?? `agent-session:${Snowflake.next()}`,
  		});
  		this.#evalToolSession = config.evalToolSession;
@@ -731,7 +483,7 @@
  		}
  		const ircHost: IrcBridgeHost = {
  			agent: this.agent,
-@@ -2026,7 +2030,8 @@
+@@ -2210,7 +2224,8 @@
  			appendSessionMessage: message => this.#appendSessionMessage(message),
  			persistedAssistantEntryId: message => (message as PersistedAssistantMessage)[kPersistedSessionEntryId],
  			sessionMessageAlreadyPersisted: message => this.#sessionMessageAlreadyPersisted(message),
@@ -739,9 +491,9 @@
 +			setModelWithProviderSessionReset: (model, commitSelection) =>
 +				this.#setModelWithProviderSessionReset(model, commitSelection),
  			resolveActiveEditMode: () => this.#tools.resolveActiveEditMode(),
- 			syncAfterModelChange: previousEditMode => this.#tools.syncAfterModelChange(previousEditMode),
- 			resetCurrentResponsesProviderSession: reason => this.#resetCurrentResponsesProviderSession(reason),
-@@ -2562,7 +2567,7 @@
+ 			syncAfterModelChange: (previousEditMode, options) =>
+ 				this.#tools.syncAfterModelChange(previousEditMode, options),
+@@ -2788,7 +2803,7 @@
  			buildDisplaySessionContext: () => this.buildDisplaySessionContext(),
  			persistEvalStateContext: () => {
  				// The rewritten history carries no snapshot yet, so always build one.
@@ -750,7 +502,7 @@
  				if (message) this.sessionManager.appendMessage(message);
  			},
  			convertToLlmForSideRequest: messages => this.#convertToLlmForSideRequest(messages),
-@@ -7139,22 +7144,51 @@
+@@ -7541,22 +7556,51 @@
  		return this.#providerBoundary.getImageAttachments();
  	}
  
@@ -810,7 +562,7 @@
  		const session = this.#evalToolSession;
  		if (!session) return undefined;
  		const historyHasEval = this.sessionManager
-@@ -7162,14 +7196,6 @@
+@@ -7564,14 +7608,6 @@
  			.some(entry => entry.type === "message" && isEvalActivity(entry.message));
  		const content = formatEvalStateContext(session, { historyHasEval });
  		if (!content) return undefined;
@@ -825,7 +577,7 @@
  		return {
  			role: "custom",
  			customType: EVAL_STATE_CONTEXT_TYPE,
-@@ -11030,6 +11056,7 @@
+@@ -11727,6 +11763,7 @@
  			// stop and settle in-flight advisors before muting their feeds.
  			await this.#advisors.drainAndDetachRecorders();
  			const bashTransition = this.#bash.beginSessionTransition();
@@ -833,7 +585,7 @@
  
  			// Fork the session (creates new session file with same entries)
  			let forkResult: { oldSessionFile: string; newSessionFile: string } | undefined;
-@@ -11048,6 +11075,7 @@
+@@ -11745,6 +11782,7 @@
  			}
  			this.#bash.markSessionTransition(bashTransition);
  			this.#bash.finishSessionTransition(bashTransition, true);
@@ -841,7 +593,7 @@
  			// The fork clones the transcript and keeps this recovery state running
  			// under a fresh id, so the work already produced is still this session's.
  			this.#recovery.reanchorServedAttribution(previousSessionId);
-@@ -11777,7 +11805,7 @@
+@@ -12474,7 +12512,7 @@
  		}
  	}
  
@@ -850,7 +602,7 @@
  		const currentModel = this.model;
  		const isChanging = !currentModel || !modelsAreEqual(currentModel, model);
  		if (currentModel) {
-@@ -11787,6 +11815,9 @@
+@@ -12484,6 +12522,9 @@
  			}
  		}
  		this.agent.setModel(model);
@@ -860,7 +612,7 @@
  		// Model mutations driven through ModelControls (explicit /model, prewalk
  		// hand-offs, retry-fallback, model cycling) funnel through this method,
  		// so this is the single point that notifies subscribers (ACP config
-@@ -12505,8 +12536,10 @@
+@@ -13297,8 +13338,10 @@
  		sessionPath: string,
  		options?: {
  			onCwdChange?: (newCwd: string, previousCwd: string) => Promise<boolean>;
@@ -872,7 +624,7 @@
  			/**
  			 * Use this model instead of the target's saved one, like an explicit
  			 * `--model` at startup, and record it in the session when it differs.
-@@ -12521,6 +12554,9 @@
+@@ -13313,6 +13356,9 @@
  			onModelFallback?: (warning: string) => void;
  		},
  	): Promise<boolean> {
@@ -882,7 +634,7 @@
  		const explicitModel = options?.model;
  		if (explicitModel && !this.#modelRegistry.hasConfiguredAuth(explicitModel)) {
  			throw new Error(`No API key for ${explicitModel.provider}/${explicitModel.id}`);
-@@ -12528,7 +12564,7 @@
+@@ -13320,7 +13366,7 @@
  		using _transition = this.#beginSessionTransition();
  		await this.#idleEphemeralReservation?.settled;
  		const previousSessionFile = this.sessionManager.getSessionFile();
@@ -891,7 +643,7 @@
  			? path.resolve(previousSessionFile) !== path.resolve(sessionPath)
  			: true;
  		// Emit session_before_switch event (can be cancelled)
-@@ -12544,6 +12580,11 @@
+@@ -13336,6 +13382,11 @@
  			}
  		}
  
@@ -903,7 +655,7 @@
  		this.#disconnectFromAgent();
  		await this.abort({ goalReason: "internal" });
  		await this.#sessionBeforeSwitchReconciler?.();
-@@ -12562,7 +12603,9 @@
+@@ -13354,7 +13405,9 @@
  		// blowing the heap before the new session even loads (issue #3846). The
  		// error-recovery path rebuilds the context on demand from the restored
  		// state instead.
@@ -914,7 +666,7 @@
  		// switchSession replaces these arrays wholesale during load/rollback, so retaining
  		// the existing message objects is sufficient and avoids structured-clone failures for
  		// extension/custom metadata that is valid to persist but not cloneable.
-@@ -12615,12 +12658,13 @@
+@@ -13408,12 +13461,13 @@
  		this.#usagePreflightReadyModel = undefined;
  
  		let cwdChangeTarget: string | undefined;
@@ -933,7 +685,7 @@
  			// The file may be reloaded at the same path with a different latest contract (or the
  			// switch rolled back via restoreState); re-read it on the next model call either way.
  			this.#sessionInit = undefined;
-@@ -12630,7 +12674,22 @@
+@@ -13423,7 +13477,22 @@
  					readOnly: this.#memoryTranscriptReadOnly,
  				});
  			}
@@ -957,7 +709,7 @@
  			this.#bash.markSessionTransition(bashTransition);
  			const newCwd = this.sessionManager.getCwd();
  			const recordedCwd = this.sessionManager.getRecordedCwd() ?? previousSessionState.cwd;
-@@ -12659,7 +12718,9 @@
+@@ -13455,7 +13524,9 @@
  			this.#syncAgentSessionId(undefined, false);
  			this.#memory.rekeyForCurrentSessionId();
  
@@ -968,7 +720,7 @@
  			// Resolve the target's model before announcing the switch, so an
  			// unrestorable one rolls back before any hook sees the target session.
  			const targetModelStrings = getRestorableSessionModels(
-@@ -12730,13 +12791,13 @@
+@@ -13533,13 +13604,13 @@
  					targetModelStrings.length > 0
  						? resolveSessionModelSelector(this.#modelRegistry, targetModelStrings[0])?.model
  						: undefined;
@@ -984,7 +736,7 @@
  				const interruptedTurnAbort = createInterruptedTurnAbortMessage(this.sessionManager.getBranch(), {
  					api: model.api,
  					provider: model.provider,
-@@ -12744,7 +12805,9 @@
+@@ -13547,7 +13618,9 @@
  				});
  				if (interruptedTurnAbort) {
  					this.sessionManager.appendMessage(interruptedTurnAbort);
@@ -995,7 +747,7 @@
  					this.agent.replaceMessages(sessionContext.messages);
  				}
  			}
-@@ -12825,6 +12888,7 @@
+@@ -13628,6 +13701,7 @@
  				if (options?.onModelFallback) options.onModelFallback(modelFallbackWarning);
  				else this.emitNotice("warning", modelFallbackWarning);
  			}
@@ -1003,7 +755,7 @@
  			// A successful reload owns a fresh recall slot even when only custom
  			// snapshot metadata changed and displayed messages stayed identical.
  			// Clearing before cwd/model/hooks settle would lose it on rollback.
-@@ -12838,7 +12902,21 @@
+@@ -13641,7 +13715,21 @@
  			}
  			return true;
  		} catch (error) {
@@ -1025,7 +777,7 @@
  			this.#freshProviderSessionId = previousFreshProviderSessionId;
  			this.#syncAgentSessionId(previousSessionState.sessionId, false);
  			this.#memory.rekeyForCurrentSessionId();
-@@ -12922,6 +13000,9 @@
+@@ -13728,6 +13816,9 @@
  				}
  			}
  			this.#bash.finishSessionTransition(bashTransition, false);
@@ -1035,7 +787,7 @@
  			if (error === SESSION_CWD_CHANGE_REJECTED) return false;
  			throw error;
  		}
-@@ -12982,6 +13063,63 @@
+@@ -13788,6 +13879,61 @@
  	}
  
  	/**
@@ -1045,7 +797,7 @@
 +	 */
 +	#captureModelSelection(): SessionModelSelection {
 +		const branch = this.sessionManager.getBranch();
-+		const entry = branch.findLast(entry => entry.type === "model_change");
++		const entry = branch.findLast(isModelChangeEntry);
 +		const role = entry?.role ?? "default";
 +		return {
 +			model: this.model ? formatModelStringWithRouting(this.model) : undefined,
@@ -1054,7 +806,7 @@
 +			defaultModel:
 +				role === "default"
 +					? undefined
-+					: branch.findLast(entry => entry.type === "model_change" && (entry.role ?? "default") === "default"),
++					: branch.findLast(isDefaultModelChangeEntry),
 +			thinkingLevel: this.thinkingLevel,
 +			configuredThinkingLevel: this.configuredThinkingLevel(),
 +		};
@@ -1063,14 +815,12 @@
 +	/** Record the captured live selection only after the destination history was adopted. */
 +	#persistModelSelection(selection: SessionModelSelection): void {
 +		const branch = this.sessionManager.getBranch();
-+		const latestModel = branch.findLast(entry => entry.type === "model_change");
++		const latestModel = branch.findLast(isModelChangeEntry);
 +		const sameModel = (entry: ModelChangeEntry | undefined, model: string, fallback?: boolean): boolean =>
 +			entry?.model === model && entry.resolvedModelIsFallback === fallback;
 +		let defaultChanged = false;
 +		if (selection.defaultModel) {
-+			const currentDefault = branch.findLast(
-+				entry => entry.type === "model_change" && (entry.role ?? "default") === "default",
-+			);
++			const currentDefault = branch.findLast(isDefaultModelChangeEntry);
 +			const { model, resolvedModelIsFallback } = selection.defaultModel;
 +			if (!sameModel(currentDefault, model, resolvedModelIsFallback)) {
 +				this.sessionManager.appendModelChange(model, "default", resolvedModelIsFallback);
@@ -1099,7 +849,7 @@
  	 * Shared {@link branch}/{@link fork}(entryId) transition: moves the live session onto a
  	 * new session file holding the root-to-`leafId` path (an empty one when `leafId` is
  	 * null), emitting `session_before_branch`/`session_branch` with `reason` for `entryId`.
-@@ -13040,6 +13178,7 @@
+@@ -13846,6 +13992,7 @@
  		try {
  			advisorRecordersDetached = true;
  			await this.#advisors.drainAndDetachRecorders();
@@ -1107,7 +857,7 @@
  			try {
  				// A prompt admitted during the drain awaits above belongs to the history
  				// being replaced; the generation bump drops its pending setup.
-@@ -13058,6 +13197,7 @@
+@@ -13864,6 +14011,7 @@
  			} finally {
  				this.#bash.finishSessionTransition(bashTransition, sessionTransitioned);
  			}
@@ -1115,7 +865,7 @@
  			this.#clearSessionScopedToolState();
  			this.#rehydrateCheckpointRewindState();
  			this.#todo.syncFromBranch();
-@@ -13069,8 +13209,12 @@
+@@ -13875,8 +14023,12 @@
  			this.#memoryTranscriptReadOnly = false;
  			await this.#memory.resetContextForNewTranscript({ readOnly: false });
  
@@ -1130,7 +880,7 @@
  
  			// Emit session_branch event to hooks (after branch completes)
  			if (this.#extensionRunner) {
-@@ -13160,6 +13304,7 @@
+@@ -13973,6 +14125,7 @@
  		try {
  			advisorRecordersDetached = true;
  			await this.#advisors.drainAndDetachRecorders();
@@ -1138,7 +888,7 @@
  			try {
  				if (this.sessionManager.getSessionId() !== sessionId || this.sessionManager.getLeafId() !== leafId) {
  					throw new Error("Cannot branch /btw: session changed since /btw started");
-@@ -13174,6 +13319,7 @@
+@@ -13987,6 +14140,7 @@
  			} finally {
  				this.#bash.finishSessionTransition(bashTransition, sessionTransitioned);
  			}
@@ -1146,7 +896,7 @@
  
  			this.#clearSessionScopedToolState();
  
-@@ -13512,6 +13658,9 @@
+@@ -14308,6 +14462,9 @@
  			newLeafId = targetId;
  		}
  
@@ -1156,7 +906,7 @@
  		// Switch leaf (with or without summary)
  		// Summary is attached at the navigation target position (newLeafId), not the old branch
  		const bashTransition = this.#bash.beginSessionTransition();
-@@ -13538,6 +13687,7 @@
+@@ -14334,6 +14491,7 @@
  			this.#bash.finishSessionTransition(bashTransition, branchTransitioned);
  		}
  
@@ -1164,389 +914,17 @@
  		// Update agent state — build display context to populate agent messages.
  		const stateContext = this.sessionManager.buildSessionContext({
  			maxFrameDataBytes: frameDataBytesBudget(this.model),
---- a/pi-coding-agent/src/session/date-cwd-reminder.ts
-+++ b/pi-coding-agent/src/session/date-cwd-reminder.ts
-@@ -3,15 +3,50 @@
-  *
-  * The system prompt must stay byte-stable so open-weight chat templates that
-  * render tool schemas *after* the system content keep their prefix cache
-- * (#7404). The per-request date/cwd line used to live at the tail of the
-- * system prompt (`project-prompt.md`), which invalidated the whole tool array
-- * on every directory change or day rollover. It now rides on the first user
-- * turn of each provider request instead: built at request time (never stored
-- * in the session), deterministic per `(date, cwd)`, so the bytes are stable
-- * for the lifetime of a session/day and refresh automatically at midnight.
-+ * (#7404). The per-request date/cwd line therefore cannot live at the tail of
-+ * the system prompt (`project-prompt.md`), which invalidated the whole tool
-+ * array on every directory change or day rollover.
-+ *
-+ * It used to ride on a *provider-only tail message*: built at request time,
-+ * never stored in the session. That kept the system prompt stable but cost one
-+ * cache breakpoint every single turn. The synthetic tail occupies a message
-+ * slot, so on the next turn the real assistant reply lands on that same index
-+ * and Anthropic sees a ROLE FLIP mid-history:
-+ *
-+ *   turn N     messages[326] = user  "<system-reminder> Today: ..."   (synthetic)
-+ *   turn N+1   messages[326] = assistant "...real reply..."             (real)
-+ *
-+ * Measured on session 01a0778e (claude-opus-5, ~620k context): every turn
-+ * reported `HISTORY_REWRITE` with `sharedPrefix` advancing in steps of TWO
-+ * (314 -> 316 -> ... -> 328) instead of the `n-1` pure tail-append shape, i.e. the
-+ * reminder AND the preceding real reply were both re-billed each turn. On long
-+ * replies that was 11 815-12 335 `cacheWrite` tokens per turn against ~600k of
-+ * `cacheRead` (strict 97.9-98.1%); short replies fell back to ~1 600. At that
-+ * context size the 2% gap is ~12k tokens of full-price recompute per turn, and
-+ * re-billed `input` costs about 10x `cacheRead`.
-+ *
-+ * The reminder now rides *inside the last real user message* and the text is
-+ * frozen per message via a persisted anchor map. Consequences:
-+ *
-+ *   - the message COUNT never changes, so no slot is ever re-typed and the
-+ *     prefix stays a pure `n-1` tail append;
-+ *   - a message that was once stamped keeps its ORIGINAL stamp forever, so its
-+ *     bytes are stable across turns, across `resume`, and across processes;
-+ *   - a day rollover only affects the NEXT user message. The cost is exactly
-+ *     one stale `Today:` line left in history per rollover, which is far
-+ *     cheaper than re-billing two messages every turn.
-+ *
-+ * The anchor key is `role:timestamp:sha256(pre-injection content)[0..16]`.
-+ * Hashing the PRE-injection content is what makes the key reproducible: that
-+ * is the byte sequence rebuilt from the session JSONL on resume. Keying on
-+ * `role:timestamp` alone would let two messages minted in the same millisecond
-+ * reuse each other's text (the failure 0016 hit in the Trellis anchor map).
-  */
--import type { Context, Message, UserMessage } from "@oh-my-pi/pi-ai";
--import { prompt } from "@oh-my-pi/pi-utils";
-+import { createHash } from "node:crypto";
-+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
-+import { dirname, join } from "node:path";
-+import type { Context, ImageContent, Message, TextContent } from "@oh-my-pi/pi-ai";
-+import { getAgentDir, prompt } from "@oh-my-pi/pi-utils";
- import dateCwdReminderTemplate from "../prompts/system/date-cwd-reminder.md" with { type: "text" };
- 
- /** Renders the reminder text for the given local calendar date and cwd. */
-@@ -19,112 +54,220 @@
- 	return prompt.render(dateCwdReminderTemplate, { date, cwd }).trim();
- }
- 
--function messageStartsWithReminder(message: UserMessage, reminder: string): boolean {
--	if (typeof message.content === "string") return message.content.startsWith(reminder);
--	return message.content[0]?.type === "text" && message.content[0].text === reminder;
-+/** Anchor key for a message: stable across processes, collision-resistant. */
-+export function dateCwdAnchorKey(message: Message, content: string): string {
-+	const digest = createHash("sha256").update(content).digest("hex").slice(0, 16);
-+	return `${message.role}:${String(message.timestamp ?? 0)}:${digest}`;
-+}
-+/** The text a reminder rides on: a string content, or the last text block of
-+ *  a block array (real user messages arrive as `(TextContent|ImageContent)[]`
-+ *  from the session loader; a plain typed message is a string). */
-+function textOf(message: Message): string | undefined {
-+	if (typeof message.content === "string") return message.content;
-+	if (Array.isArray(message.content)) {
-+		for (let i = message.content.length - 1; i >= 0; i--) {
-+			const block = message.content[i]!;
-+			if (block.type === "text") return block.text;
-+		}
-+	}
-+	return undefined;
-+}
-+/** The message with `reminder` appended to its ride-on text, same content kind. */
-+function withStamp(message: Message, text: string, reminder: string): Message {
-+	if (typeof message.content === "string") return { ...message, content: `${text}\n\n${reminder}` };
-+	const blocks = message.content as (TextContent | ImageContent)[];
-+	for (let i = blocks.length - 1; i >= 0; i--) {
-+		const block = blocks[i]!;
-+		if (block.type !== "text") continue;
-+		const next = blocks.slice();
-+		next[i] = { ...block, text: `${block.text}\n\n${reminder}` };
-+		return { ...message, content: next };
-+	}
-+	return { ...message, content: [...blocks, { type: "text", text: reminder } as TextContent] };
-+}
-+function anchorFile(sessionId: string, root: string): string {
-+	// Session-scoped so switching sessions cannot cross-contaminate stamps.
-+	const safe = sessionId.replace(/[^A-Za-z0-9._-]/g, "_");
-+	return join(root, `${safe}.json`);
-+}
-+
-+/** Session-owned artifact, copied with history and included in transfer archives. */
-+export const DATE_CWD_ANCHORS_ARTIFACT = "date-cwd-anchors.json";
-+
-+function sessionAnchorFile(sessionFile: string): string {
-+	let realFile = sessionFile;
-+	try {
-+		realFile = realpathSync(sessionFile);
-+	} catch {}
-+	return join(realFile.endsWith(".jsonl") ? realFile.slice(0, -6) : `${realFile}.artifacts`, DATE_CWD_ANCHORS_ARTIFACT);
- }
- 
--function injectReminder(message: UserMessage, reminder: string): UserMessage {
--	const content: UserMessage["content"] =
--		typeof message.content === "string"
--			? `${reminder}\n\n${message.content}`
--			: [{ type: "text", text: reminder }, ...message.content];
--	return { ...message, content };
-+/** Reads session-owned state first, including {}, then the pre-upgrade ID map. */
-+export function readDateCwdAnchors(
-+	sessionId: string,
-+	sessionFile?: string,
-+	anchorRoot: string = join(getAgentDir(), "date-cwd-anchors"),
-+): Record<string, string> | undefined {
-+	const owned = sessionFile ? sessionAnchorFile(sessionFile) : undefined;
-+	const file = owned && existsSync(owned) ? owned : anchorFile(sessionId, anchorRoot);
-+	if (!existsSync(file)) return undefined;
-+	const anchors: Record<string, string> = {};
-+	try {
-+		const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
-+		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-+			for (const [key, value] of Object.entries(parsed)) {
-+				if (typeof value === "string") anchors[key] = value;
-+			}
-+		}
-+	} catch {
-+		// Preserve the existing corrupt-map policy, but never fall back to a
-+		// stale legacy map when the session already owns an explicit snapshot.
-+	}
-+	return anchors;
- }
- 
--/** Developer turns the injector inserted; every other output message maps to an input one. */
--const reminderControls = new WeakSet<Message>();
-+function writeAnchors(file: string, anchors: Record<string, string>): void {
-+	mkdirSync(dirname(file), { recursive: true });
-+	const tmp = `${file}.${String(process.pid)}.tmp`;
-+	writeFileSync(tmp, JSON.stringify(anchors), { mode: 0o600 });
-+	renameSync(tmp, file);
-+}
- 
--/** Whether `message` is a developer turn a {@link DateCwdReminderInjector} inserted. */
--export function isDateCwdReminderControl(message: Message): boolean {
--	return reminderControls.has(message);
-+/** Publish the frozen state before a cloned journal can be adopted under a new ID. */
-+export function copyDateCwdAnchors(sourceId: string, sourceFile: string, destinationFile: string): void {
-+	const destination = sessionAnchorFile(destinationFile);
-+	if (sessionAnchorFile(sourceFile) === destination) return;
-+	const anchors = readDateCwdAnchors(sourceId, sourceFile);
-+	// Missing state stays missing; an explicit empty snapshot must be copied.
-+	if (anchors !== undefined) writeAnchors(destination, anchors);
- }
- 
- /**
-- * Keeps volatile date/cwd reminders append-only across provider requests.
-+ * Stamps the reminder into the last real user message, replaying frozen stamps
-+ * for every message that already carries one.
-  *
-- * The first value is attached to the first user turn. A changed value attaches
-- * to a newly appended user turn or a persistent developer turn, leaving every
-- * previously sent message byte-identical.
-+ * `anchors` is mutated in place for newly stamped messages; the caller decides
-+ * when to persist. Returns the original array when nothing changed so callers
-+ * can keep their identity checks cheap.
-  */
-+export function applyDateCwdAnchors(
-+	messages: Message[],
-+	reminder: string,
-+	anchors: Record<string, string>,
-+): { messages: Message[]; dirty: boolean } {
-+	// Drop any legacy provider-only tail: an in-process Context can be reused
-+	// across requests, and leaving the old synthetic tail in place would
-+	// reintroduce the very slot churn this replaces.
-+	let end = messages.length;
-+	while (end > 0) {
-+		const message = messages[end - 1]!;
-+		if (message.role !== "user" || message.providerOnly !== true) break;
-+		end--;
-+	}
-+	const base = end === messages.length ? messages : messages.slice(0, end);
-+	if (base.length === 0) return { messages, dirty: false };
-+
-+	// The newest real user message is the only one eligible for a NEW stamp.
-+	let newestUser = -1;
-+	for (let i = base.length - 1; i >= 0; i--) {
-+		const message = base[i]!;
-+		if (message.role === "user" && message.providerOnly !== true && textOf(message) !== undefined) {
-+			newestUser = i;
-+			break;
-+		}
-+	}
-+
-+	let dirty = false;
-+	let changed = base !== messages;
-+	const out: Message[] = new Array(base.length);
-+	for (let i = 0; i < base.length; i++) {
-+		const message = base[i]!;
-+		const text =
-+			message.role === "user" && message.providerOnly !== true ? textOf(message) : undefined;
-+		if (text === undefined) {
-+			out[i] = message;
-+			continue;
-+		}
-+		const key = dateCwdAnchorKey(message, text);
-+		const stamp = anchors[key];
-+		if (stamp !== undefined) {
-+			out[i] = withStamp(message, text, stamp);
-+			changed = true;
-+			continue;
-+		}
-+		// Only the newest user message may mint a stamp. Older unstamped
-+		// messages predate this mechanism (or came from a session recorded
-+		// before it landed) and MUST stay byte-identical to their JSONL form.
-+		if (i !== newestUser) {
-+			out[i] = message;
-+			continue;
-+		}
-+		anchors[key] = reminder;
-+		dirty = true;
-+		out[i] = withStamp(message, text, reminder);
-+		changed = true;
-+	}
-+	return changed ? { messages: out, dirty } : { messages, dirty };
-+}
-+
-+/** Applies the reminder through the upstream injector contract. */
- export class DateCwdReminderInjector {
--	#root: UserMessage | undefined;
--	#currentReminder: string | undefined;
--	#injections = new Map<Message, Message>();
--	#controls: Array<{ anchor: Message; message: Message }> = [];
--	#seen = new WeakSet<object>();
-+	readonly #sessionId: () => string | undefined;
-+	readonly #anchorRoot: () => string;
-+	readonly #sessionFile: () => string | undefined;
-+	#loadedFor: string | undefined;
-+	#anchors: Record<string, string> = {};
- 
--	/** Apply the current reminder while preserving all earlier injected bytes. */
--	transform(context: Context, date: string, cwd: string): Context {
--		if (!context.systemPrompt || context.systemPrompt.length === 0 || context.messages.length === 0) return context;
--		const reminder = renderDateCwdReminder(date, cwd);
--		const messages = this.#inject(context.messages, reminder);
--		return messages === context.messages ? context : { ...context, messages };
-+	constructor(
-+		sessionId: () => string | undefined = () => undefined,
-+		// Injectable so the regression gate can point at a temp dir: getAgentDir()
-+		// is frozen at module load, so swapping HOME cannot redirect it.
-+		anchorRoot: () => string = () => join(getAgentDir(), "date-cwd-anchors"),
-+		sessionFile: () => string | undefined = () => undefined,
-+	) {
-+		this.#sessionId = sessionId;
-+		this.#anchorRoot = anchorRoot;
-+		this.#sessionFile = sessionFile;
- 	}
- 
--	#inject(messages: Message[], reminder: string): Message[] {
--		const firstUser = messages.find((message): message is UserMessage => message.role === "user");
--		if (!firstUser) return messages;
--		if (this.#root !== firstUser) {
--			// A new first user turn: a compaction summary or a different conversation.
--			// Turns kept from the earlier history must keep the reminders they were
--			// sent with, or their bytes change under signed thinking; reminders on
--			// turns that are gone are dropped. The new root gets the current reminder.
--			const present = new Set<Message>(messages);
--			for (const message of this.#injections.keys()) {
--				if (!present.has(message)) this.#injections.delete(message);
--			}
--			this.#controls = this.#controls.filter(control => present.has(control.anchor));
--			this.#root = firstUser;
--			this.#currentReminder = reminder;
--			if (!this.#injections.has(firstUser) && !messageStartsWithReminder(firstUser, reminder)) {
--				this.#injections.set(firstUser, injectReminder(firstUser, reminder));
--			}
--		} else if (this.#currentReminder !== reminder) {
--			let newUser: UserMessage | undefined;
--			for (let index = messages.length - 1; index >= 0; index--) {
--				const candidate = messages[index]!;
--				if (candidate.role === "user" && !this.#seen.has(candidate)) {
--					newUser = candidate;
--					break;
--				}
--			}
--			if (newUser) {
--				this.#injections.set(newUser, injectReminder(newUser, reminder));
--			} else {
--				const anchor = messages.at(-1)!;
--				const control: Message = {
--					role: "developer",
--					content: reminder,
--					synthetic: true,
--					timestamp: Date.now(),
--				};
--				reminderControls.add(control);
--				this.#controls.push({ anchor, message: control });
--			}
--			this.#currentReminder = reminder;
-+	#load(sessionId: string): void {
-+		const sessionFile = this.#sessionFile();
-+		const owner = `${sessionId}\0${sessionFile ?? this.#anchorRoot()}`;
-+		if (this.#loadedFor === owner) return;
-+		this.#loadedFor = owner;
-+		this.#anchors = readDateCwdAnchors(sessionId, sessionFile, this.#anchorRoot()) ?? {};
-+		// One-way migration: future clones and archives carry this state rather
-+		// than depending on a workstation-global ID directory.
-+		if (sessionFile && !existsSync(sessionAnchorFile(sessionFile))) this.#persist(sessionId);
-+	}
-+
-+	#persist(sessionId: string): void {
-+		const sessionFile = this.#sessionFile();
-+		const file = sessionFile ? sessionAnchorFile(sessionFile) : anchorFile(sessionId, this.#anchorRoot());
-+		try {
-+			writeAnchors(file, this.#anchors);
-+		} catch {
-+			// Persistence is an optimization for resume; an in-memory map still
-+			// keeps this process byte-stable.
- 		}
-+	}
- 
--		const controlsByAnchor = new Map<Message, Message[]>();
--		for (const control of this.#controls) {
--			const controls = controlsByAnchor.get(control.anchor);
--			if (controls) controls.push(control.message);
--			else controlsByAnchor.set(control.anchor, [control.message]);
--		}
--
--		let changed = false;
--		const out: Message[] = [];
--		for (const message of messages) {
--			const injected = this.#injections.get(message);
--			out.push(injected ?? message);
--			if (injected) changed = true;
--			const controls = controlsByAnchor.get(message);
--			if (controls) {
--				out.push(...controls);
--				changed = true;
--			}
--			this.#seen.add(message);
-+	transform(context: Context, date: string, cwd: string): Context {
-+		if (!context.systemPrompt || context.systemPrompt.length === 0 || context.messages.length === 0) return context;
-+		const sessionId = this.#sessionId();
-+		if (sessionId === undefined) {
-+			// No session identity (one-shot / capture agents with no id): fall back
-+			// to in-memory anchors only. Still slot-stable within the process.
-+			const { messages } = applyDateCwdAnchors(context.messages, renderDateCwdReminder(date, cwd), this.#anchors);
-+			return messages === context.messages ? context : { ...context, messages };
- 		}
--		return changed ? out : messages;
-+		this.#load(sessionId);
-+		const { messages, dirty } = applyDateCwdAnchors(
-+			context.messages,
-+			renderDateCwdReminder(date, cwd),
-+			this.#anchors,
-+		);
-+		if (dirty) this.#persist(sessionId);
-+		return messages === context.messages ? context : { ...context, messages };
- 	}
- }
 --- a/pi-coding-agent/src/session/messages.ts
 +++ b/pi-coding-agent/src/session/messages.ts
 @@ -6,7 +6,6 @@
   */
- import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
+ import { type AgentMessage, isProviderRefusalMessage } from "@oh-my-pi/pi-agent-core";
  import {
 -	isUserInterruptAbort,
  	isCustomMessageContent,
  	type BashExecutionMessage,
  	type PythonExecutionMessage,
-@@ -475,6 +474,34 @@
+@@ -534,6 +533,33 @@
  	return next !== undefined && next.role === "custom" && next.customType === INTERRUPTED_THINKING_MESSAGE_TYPE;
  }
  
@@ -1559,10 +937,9 @@
 +
 +/**
 + * True when the assistant turn at `messages[index]` was kept by the
-+ * committed-text stall continuation — identified by its continuation reminder,
-+ * which is the durable record of that decision (it is written to the session
-+ * file), so the live provider call and a rebuild from disk agree. Both paths
-+ * then retain the already-rendered partial text the model is told to continue.
++ * committed-text stall continuation, identified by its continuation reminder:
++ * the durable record of that decision, so the live provider call and a rebuild
++ * from disk agree on keeping the already-rendered partial text.
 + */
 +export function followedByStreamStallContinueReminder(messages: AgentMessage[], index: number): boolean {
 +	const next = messages[index + 1];
@@ -1581,7 +958,7 @@
  /** Drop an incomplete trailing thinking run from an interrupted assistant in the LLM view. */
  function stripDemotedThinkingForLlm(message: AssistantMessage): AssistantMessage {
  	const demoted = demoteInterruptedThinking(message);
-@@ -1015,6 +1042,7 @@
+@@ -1074,6 +1100,7 @@
   */
  interface ConvertMemoEntry {
  	interruptedNext: boolean;
@@ -1589,7 +966,7 @@
  	fragment: Message[];
  }
  const convertCache = new WeakMap<AgentMessage, ConvertMemoEntry>();
-@@ -1040,6 +1068,7 @@
+@@ -1099,6 +1126,7 @@
  	output: Message[];
  	tail: AgentMessage | undefined;
  	prefixOutputLen: number;
@@ -1597,7 +974,7 @@
  }
  
  let convertGeneration = 0;
-@@ -1057,8 +1086,9 @@
+@@ -1116,8 +1144,9 @@
  });
  
  /** Convert one message to its LLM fragment. `interruptedNext` is true only for an
@@ -1609,7 +986,7 @@
  	switch (m.role) {
  		case "bashExecution":
  			if (m.excludeFromContext) {
-@@ -1125,6 +1155,12 @@
+@@ -1184,6 +1213,12 @@
  		}
  		case "custom": {
  			if (!isCustomMessageContent(m.content)) return [];
@@ -1622,7 +999,7 @@
  			if (isSteeringUserMessage(m)) {
  				const converted = convertMessageToLlm(wrapSteeringUserMessage(m));
  				return converted ? [converted] : [];
-@@ -1152,16 +1188,43 @@
+@@ -1211,16 +1246,43 @@
  			return converted ? [converted] : [];
  		}
  		case "assistant": {
@@ -1673,7 +1050,71 @@
  			const converted = convertMessageToLlm(canonicalizeXdToolCallNames(source));
  			return converted ? [converted] : [];
  		}
-@@ -1190,12 +1253,14 @@
+@@ -1257,10 +1319,36 @@
+ function convertMessageAt(
+ 	messages: AgentMessage[],
+ 	index: number,
+-	convert: (m: AgentMessage, interruptedNext: boolean) => Message[],
++	convert: (m: AgentMessage, interruptedNext: boolean, stallContinued: boolean) => Message[],
+ ): Message[] {
+ 	const m = messages[index];
+-	return convert(m, m.role === "assistant" && followedByInterruptedThinking(messages, index));
++	const assistant = m.role === "assistant";
++	return convert(
++		m,
++		assistant && followedByInterruptedThinking(messages, index),
++		assistant && followedByStreamStallContinueReminder(messages, index),
++	);
++}
++
++/**
++ * Replay prune shared by {@link convertToLlm} and
++ * {@link convertMessagesForContextView}: collects the tool-call ids of an
++ * aborted/error assistant turn.
++ *
++ * {@link convertOne} drops that turn from the provider request, so the results
++ * synthesized for its calls are synthetic too and must be pruned with it — a
++ * lone `toolResult` replays as output for a call the request never carried, and
++ * `/context` would bill tokens the model never reads. Everything else returns
++ * `pruned` unchanged (same `Set` identity, which the array memo carries across
++ * appends); re-collecting a turn is idempotent.
++ */
++function trackPrunedToolCalls(m: AgentMessage, pruned: Set<string> | undefined): Set<string> | undefined {
++	if (m.role !== "assistant" || (m.stopReason !== "aborted" && m.stopReason !== "error")) return pruned;
++	let ids = pruned;
++	for (const block of m.content) {
++		if (block.type === "toolCall") (ids ??= new Set()).add(block.id);
++	}
++	return ids;
+ }
+ 
+ /** A converted viewer message and its position in the source and converted histories. */
+@@ -1276,8 +1364,8 @@
+  * {@link wrapSteeringForModel} sends (sharing its wrapper cache); it maps
+  * one-to-one, so source indices hold. Mirrors the {@link convertToLlm} loop
+  * through {@link convertMessageAt}, then drops API-level provider refusals
+- * like the send path's `filterProviderReplayMessages`, since they are never
+- * replayed.
++ * like the send path's `filterProviderReplayMessages` and the tool results
++ * paired with a pruned aborted/error turn, since neither is ever replayed.
+  *
+  * Kept separate from `convertToLlm` because the viewer needs source indices:
+  * reporting them from `convertToLlm` would add a per-message callback and
+@@ -1287,7 +1375,13 @@
+ export function convertMessagesForContextView(messages: AgentMessage[]): ContextViewMessage[] {
+ 	const modelMessages = wrapSteeringForModel(messages);
+ 	const result: ContextViewMessage[] = [];
++	let prunedToolCallIds: Set<string> | undefined;
+ 	for (let sourceIndex = 0; sourceIndex < modelMessages.length; sourceIndex++) {
++		const source = modelMessages[sourceIndex]!;
++		prunedToolCallIds = trackPrunedToolCalls(source, prunedToolCallIds);
++		// Dropping the whole source message keeps `sourceIndex` pointing at it, so
++		// the caller's `sourceMessages[sourceIndex]` lookups stay aligned.
++		if (source.role === "toolResult" && prunedToolCallIds?.has(source.toolCallId)) continue;
+ 		for (const message of convertMessageAt(modelMessages, sourceIndex, convertOne)) {
+ 			if (message.role === "assistant" && isProviderRefusalMessage(message)) continue;
+ 			result.push({ message, sourceIndex, convertedIndex: result.length });
+@@ -1298,12 +1392,14 @@
  
  /** Cached per-message conversion. Reuses the stored fragment while identity and
   *  `interruptedNext` neighbor state hold; recomputes on a neighbor flip. */
@@ -1692,7 +1133,7 @@
  	return fragment;
  }
  
-@@ -1241,6 +1306,7 @@
+@@ -1353,6 +1449,7 @@
  	// array while swapping earlier identities, forcing a full rebuild.
  	let out: Message[];
  	let start: number;
@@ -1700,7 +1141,7 @@
  	if (
  		sameGeneration &&
  		len > memo.length &&
-@@ -1250,6 +1316,7 @@
+@@ -1362,6 +1459,7 @@
  	) {
  		out = memo.output.slice(0, memo.prefixOutputLen);
  		start = memo.length - 1;
@@ -1708,25 +1149,19 @@
  	} else {
  		out = [];
  		start = 0;
-@@ -1261,8 +1328,16 @@
+@@ -1372,6 +1470,11 @@
+ 	let prefixOutputLen = 0;
  	for (let i = start; i < len; i++) {
  		if (i === len - 1) prefixOutputLen = out.length;
- 		const m = messages[i];
-+		if (m.role === "assistant" && (m.stopReason === "aborted" || m.stopReason === "error")) {
-+			// Keep synthetic results paired with their discarded call across appends.
-+			for (const block of m.content) {
-+				if (block.type === "toolCall") (prunedToolCallIds ??= new Set()).add(block.id);
-+			}
-+		}
++		const m = messages[i]!;
++		// Keep synthetic results paired with their discarded call across appends:
++		// the memo hands the id set forward, so only the new suffix must be walked.
++		prunedToolCallIds = trackPrunedToolCalls(m, prunedToolCallIds);
 +		if (m.role === "toolResult" && prunedToolCallIds?.has(m.toolCallId)) continue;
- 		const interruptedNext = m.role === "assistant" && followedByInterruptedThinking(messages, i);
--		const fragment = convertOneCached(m, interruptedNext);
-+		const stallContinued = m.role === "assistant" && followedByStreamStallContinueReminder(messages, i);
-+		const fragment = convertOneCached(m, interruptedNext, stallContinued);
+ 		const fragment = convertMessageAt(messages, i, convertOneCached);
  		for (const msg of fragment) out.push(msg);
  	}
- 	if (len === 0) prefixOutputLen = 0;
-@@ -1275,6 +1350,7 @@
+@@ -1385,6 +1488,7 @@
  		output: out,
  		tail,
  		prefixOutputLen,
@@ -1768,8 +1203,8 @@
 +	followedByStreamStallContinueReminder,
  	isEmptyErrorTurn,
  	PREWALK_PLAN_MESSAGE_TYPE,
- 	VIBE_MODE_CONTEXT_MESSAGE_TYPE,
-@@ -734,16 +734,30 @@
+ 	REWIND_REPORT_MESSAGE_TYPE,
+@@ -755,16 +755,27 @@
  	// later user message follows through non-context entries (`session_exit`,
  	// labels, etc.); otherwise a resumed session replays a dead partial turn
  	// and can spend minutes reprocessing old context before the new prompt.
@@ -1784,12 +1219,12 @@
 +	// paths render the same sequence; `convertOne` prunes the live path and the
 +	// marker itself.
 +	//
-+	// The one turn that survives on both paths is a recorded request-controls
-+	// carrier: later Anthropic requests replay its `tool_removal`/`tool_addition`
-+	// off the declared tool list, so dropping it here would fork the wire against
-+	// the live process. It is left in place -- `convertOne` empties its interrupted
-+	// payload and drops the paired synthetic results -- so the pre-conversion
-+	// sequences of the live and rebuild paths are identical as well.
++	// Two turns survive on both the live and the rebuild path: a recorded
++	// request-controls carrier (later Anthropic requests replay its
++	// `tool_removal`/`tool_addition` off the declared tool list, so dropping it
++	// here would fork the wire against the live process) and a committed-text
++	// stall turn (its continuation reminder follows and the text already rendered;
++	// pruning it would drop that text on resume only).
  	if (!options?.transcript) {
  		for (let i = messages.length - 1; i >= 0; i--) {
  			const message = messages[i];
@@ -1798,16 +1233,24 @@
 -			const next = messages[i + 1];
 -			if (next?.role === "custom" && next.customType === INTERRUPTED_THINKING_MESSAGE_TYPE) continue;
 +			if (message.requestControls !== undefined) continue;
-+			// A committed-text stall turn is kept: its continuation reminder follows,
-+			// the text already rendered, and `convertOne` retains it for the provider.
-+			// Pruning it here would drop the rendered text on resume only.
 +			if (followedByStreamStallContinueReminder(messages, i)) continue;
  			// A failed turn that emitted tool calls persists paired synthetic
  			// tool_result placeholders after it. Dropping only the assistant would
  			// strand those results with no preceding tool_use — a shape providers
 --- a/pi-coding-agent/src/session/session-maintenance.ts
 +++ b/pi-coding-agent/src/session/session-maintenance.ts
-@@ -3301,21 +3301,13 @@
+@@ -2795,7 +2795,9 @@
+ 	#projectPreviousArchiveTokens(preparation: CompactionPreparation): number {
+ 		const archive = snapcompact.getPreservedArchive(preparation.previousPreserveData);
+ 		if (!archive) return 0;
+-		const blocks = snapcompact.historyBlocks(archive, { maxFrameDataBytes: snapcompact.FRAME_DATA_BYTES_BUDGET });
++		const blocks = snapcompact.historyBlocks(archive, {
++			maxFrameDataBytes: snapcompact.frameDataBytesBudget(this.#model),
++		});
+ 		// Only `summary` and `blocks` are priced; the remaining fields are inert
+ 		// here (the message is built to be counted, never displayed).
+ 		const previousSummary = createCompactionSummaryMessage(
+@@ -3467,21 +3469,13 @@
  					// same context re-runs the same plan into the same cap, so tell the
  					// model what happened and to act in smaller steps.
  					if (assistantMessage.usage.output > 0) {
@@ -1836,7 +1279,7 @@
  					}
  					logger.debug("Retrying response.incomplete without compaction (below threshold)", {
  						model: `${assistantMessage.provider}/${assistantMessage.model}`,
-@@ -3446,6 +3438,25 @@
+@@ -3612,6 +3606,25 @@
  	}
  
  	/**
@@ -1864,16 +1307,15 @@
  	 */
 --- a/pi-coding-agent/src/session/session-manager.ts
 +++ b/pi-coding-agent/src/session/session-manager.ts
-@@ -30,6 +30,8 @@
+@@ -32,6 +32,7 @@
  import { ArtifactManager } from "./artifacts";
  import { type BlobPutOptions, type BlobPutResult, BlobStore, lazyImageDataSync } from "./blob-store";
  import type { CompactionMethod } from "./compaction-methods";
-+import { copyDateCwdAnchors } from "./date-cwd-reminder";
 +import { appendTransferNotice, lastSessionTransfer } from "./session-transfer-marker";
  import {
  	type BashExecutionMessage,
  	type CustomMessage,
-@@ -313,6 +315,21 @@
+@@ -321,6 +322,29 @@
  	return stranded;
  }
  
@@ -1881,7 +1323,15 @@
 +async function copyArtifactsDirectoryCompletely(source: string, destination: string): Promise<void> {
 +	await fs.promises.mkdir(destination);
 +	try {
-+		await fs.promises.cp(source, destination, { recursive: true, force: false, errorOnExist: true });
++		// Bun's cp rejects an existing root even when empty, so copy per entry: mkdir keeps
++		// the exclusive claim and errorOnExist still guards every copied path.
++		for (const entry of await fs.promises.readdir(source)) {
++			await fs.promises.cp(path.join(source, entry), path.join(destination, entry), {
++				recursive: true,
++				force: false,
++				errorOnExist: true,
++			});
++		}
 +	} catch (error) {
 +		try {
 +			await fs.promises.rm(destination, { recursive: true, force: true });
@@ -1895,7 +1345,7 @@
  /**
   * Relocate a session's artifacts directory for {@link SessionManager.moveTo}.
   *
-@@ -333,7 +350,26 @@
+@@ -341,7 +365,26 @@
   * but not reachable through `artifact://` — two writers that shared one id
   * space cannot both be.
   */
@@ -1923,7 +1373,7 @@
  	try {
  		await fs.promises.rename(source, destination);
  		return "renamed";
-@@ -761,7 +797,19 @@
+@@ -770,7 +813,19 @@
  	| "putBlobSync"
  >;
  
@@ -1944,20 +1394,7 @@
  	cwd: string;
  	sessionDir: string;
  	sessionId: string;
-@@ -1281,8 +1329,10 @@
- 		const from = this.#sessionFile as string;
- 		const previousSessionId = this.#sessionId;
- 		const timestamp = nowIso();
--		this.#sessionId = mintSessionId();
--		const to = path.join(path.dirname(from), `${fileSafeTimestamp(timestamp)}_${this.#sessionId}.jsonl`);
-+		const newSessionId = mintSessionId();
-+		const to = path.join(path.dirname(from), `${fileSafeTimestamp(timestamp)}_${newSessionId}.jsonl`);
-+		copyDateCwdAnchors(previousSessionId, from, to);
-+		this.#sessionId = newSessionId;
- 		this.#header = {
- 			...this.#header,
- 			id: this.#sessionId,
-@@ -2276,6 +2326,10 @@
+@@ -2310,6 +2365,10 @@
  		this.#closeWriterEventually();
  		this.#diskTail = Promise.resolve();
  		this.#clearDiskError();
@@ -1968,7 +1405,7 @@
  
  		this.#cwd = snapshot.cwd;
  		this.#sessionDir = snapshot.sessionDir;
-@@ -2337,23 +2391,168 @@
+@@ -2374,23 +2433,168 @@
  			await this.#rewriteAtomically();
  		}
  	}
@@ -2144,7 +1581,7 @@
  
  		const resolvedSessionFile = path.resolve(sessionFile);
  		const loaded = loadedSession ?? (await loadSessionFile(resolvedSessionFile, this.#storage));
-@@ -2417,6 +2616,11 @@
+@@ -2454,6 +2658,11 @@
  			this.#fallbackRuntimeOnly = false;
  		}
  
@@ -2156,21 +1593,7 @@
  		this.#applyEntries(header, fileEntries.slice(1) as SessionEntry[]);
  		this.#expectedDiskSize = sourceSize;
  		this.#additionalDirectories = header.additionalDirectories ?? [];
-@@ -2469,8 +2673,11 @@
- 		this.#reconcileSessionDirForFallback();
- 
- 		const timestamp = nowIso();
--		this.#sessionId = mintSessionId();
--		this.#sessionFile = path.join(this.#sessionDir, `${fileSafeTimestamp(timestamp)}_${this.#sessionId}.jsonl`);
-+		const newSessionId = mintSessionId();
-+		const newSessionFile = path.join(this.#sessionDir, `${fileSafeTimestamp(timestamp)}_${newSessionId}.jsonl`);
-+		copyDateCwdAnchors(parentSessionId, oldSessionFile, newSessionFile);
-+		this.#sessionId = newSessionId;
-+		this.#sessionFile = newSessionFile;
- 		this.#expectedDiskSize = null;
- 		this.#header = {
- 			type: "session",
-@@ -2502,7 +2709,7 @@
+@@ -2547,7 +2756,7 @@
  	}
  
  	/** Move the session to a new working directory. */
@@ -2179,7 +1602,7 @@
  		const resolvedCwd = path.resolve(newCwd);
  		const resolvedTargetDir = targetSessionDir ? path.resolve(targetSessionDir) : undefined;
  		const managedRoot = resolveManagedSessionRoot(this.#sessionDir, this.#cwd);
-@@ -2570,6 +2777,14 @@
+@@ -2615,6 +2824,14 @@
  		}
  
  		let sessionFileExisted = false;
@@ -2194,7 +1617,7 @@
  		// Track source+dest for concurrent completed appends during relocation
  		// (see `#sessionFileRelocating`). Existence of either path decides the
  		// live write target — not a `#diskEpoch` bump, which would cancel any
-@@ -2599,66 +2814,66 @@
+@@ -2644,66 +2861,66 @@
  				sessionFileExisted = this.#storage.existsSync(oldSessionFile);
  				let sessionMoved = false;
  				let artifactsRenamed = false;
@@ -2226,7 +1649,7 @@
 -						sessionMoved = true;
 +					} else if (sessionPathChanged && !sessionFileExisted && this.#sessionFile === newSessionFile) {
 +						await this.#removeUncommittedSession(newSessionFile, this.#sessionId);
- 					}
++					}
 +					this.#sessionFile = oldSessionFile;
 +					this.#sessionFileRelocating = null;
 +				};
@@ -2242,7 +1665,7 @@
 +						if (!isFsError(error) || error.code !== "EXDEV") throw error;
 +						if (this.#sessionFileRelocating) this.#sessionFileRelocating.copying = true;
 +						await moveFileAcrossDevices(oldSessionFile, newSessionFile);
-+					}
+ 					}
 +					sessionMoved = true;
 +				}
  
@@ -2303,7 +1726,7 @@
  				if (sessionFileExisted && sessionPathChanged) {
  					this.#header.previousSessionFiles = [
  						...new Set([...(this.#header.previousSessionFiles ?? []), path.resolve(oldSessionFile)]),
-@@ -2678,6 +2893,7 @@
+@@ -2723,6 +2940,7 @@
  				this.#sessionFileRelocating = null;
  			}
  
@@ -2311,7 +1734,7 @@
  			this.#cwd = resolvedCwd;
  			this.#sessionDir = nextSessionDir;
  			this.#header.cwd = resolvedCwd;
-@@ -2701,8 +2917,35 @@
+@@ -2752,8 +2970,35 @@
  				this.#forceFileCreation = true;
  				await this.#rewriteAtomically();
  			}
@@ -2347,7 +1770,7 @@
  		} finally {
  			this.#sessionFileRelocating = null;
  			// The destination is ours or untouched now.
-@@ -2915,59 +3158,61 @@
+@@ -2969,59 +3214,61 @@
  		}
  	}
  
@@ -2408,9 +1831,8 @@
 +					await this.#closeWriterHandle();
 +					if (hadWriter || (this.#sessionFile && this.#storage.existsSync(this.#sessionFile)))
 +						this.#fileIsCurrent = true;
- 				},
- 				{ ignorePriorError: true },
--			).catch(() => undefined);
++				},
++				{ ignorePriorError: true },
 +			);
 +			await this.#pendingArtifactCopy?.done;
 +			await this.#dropIfEmptyAndNoDraft();
@@ -2420,8 +1842,9 @@
 +			await this.#scheduleDiskWork(
 +				async () => {
 +					await this.#storage.drain();
-+				},
-+				{ ignorePriorError: true },
+ 				},
+ 				{ ignorePriorError: true },
+-			).catch(() => undefined);
 +			);
 +			if (
 +				this.#diskFailure &&
@@ -2454,17 +1877,7 @@
  	}
  
  	/**
-@@ -3983,6 +4228,9 @@
- 			parentId = labelEntry.id;
- 		}
- 
-+		if (this.#persist && sourceSessionFile) {
-+			copyDateCwdAnchors(this.#sessionId, sourceSessionFile, newSessionFile);
-+		}
- 		this.#header = header;
- 		this.#entries = [...entriesToKeep, ...labels];
- 		this.#sessionId = newSessionId;
-@@ -4080,6 +4328,8 @@
+@@ -4251,6 +4498,8 @@
  		storage: SessionStorage = new FileSessionStorage(),
  		options?: {
  			copyArtifacts?: boolean;
@@ -2473,7 +1886,7 @@
  			suppressBreadcrumb?: boolean;
  			sessionFile?: string;
  			resetInheritedCost?: boolean;
-@@ -4138,11 +4388,40 @@
+@@ -4309,11 +4558,38 @@
  			manager.#index.rebuild(history);
  		}
  		manager.#forceFileCreation = true;
@@ -2493,8 +1906,6 @@
 +				const sourceArtifacts = artifactsDirectoryFor(sourcePath);
 +				if (!sourceArtifacts || !artifactsDir) throw new Error("Staged import requires artifact directories.");
 +				await copyArtifactsDirectoryCompletely(sourceArtifacts, artifactsDir);
-+			} else if (!options?.seance && sourceHeader) {
-+				copyDateCwdAnchors(sourceHeader.id, sourcePath, sessionFile);
 +			}
 +			await manager.#rewriteAtomically();
 +			if (!options?.seance && !options?.requireCompleteArtifacts && options?.copyArtifacts !== false) {
@@ -2518,7 +1929,7 @@
  	}
  
  	/** Replace inherited `session_init` entries, in place, with inert custom entries keeping the same tree position. */
-@@ -4286,6 +4565,7 @@
+@@ -4457,6 +4733,7 @@
  	 * Open a session whose recorded directory `recordedCwd` is gone and move it,
  	 * artifacts included, into `cwd` so it resumes from there.
  	 * @param sessionDir Target session directory; defaults to `cwd`'s.
@@ -2526,7 +1937,7 @@
  	 * @throws {SessionMoveRefusedError} when another live omp process writes the session.
  	 */
  	static async openRelocated(
-@@ -4293,16 +4573,27 @@
+@@ -4464,16 +4741,27 @@
  		recordedCwd: string,
  		cwd: string,
  		sessionDir?: string,
@@ -2557,26 +1968,36 @@
  			throw error;
  		}
  		return manager;
-@@ -4421,15 +4712,10 @@
+@@ -4605,19 +4893,18 @@
  					candidateForMove && hasPositiveMovedProjectEvidence(breadcrumb.cwdIdentity, resolvedCwd);
  				if (looksLikeMovedProject) {
  					logger.warn("Re-rooting moved session", { from: breadcrumbCwd, to: resolvedCwd });
 -					// Anchor at the gone breadcrumb cwd so the moveTo below relocates the
 -					// session: open() now falls back to the launch cwd for a missing
 -					// recorded cwd, which would no-op moveTo when it equals `cwd`.
--					const manager = await SessionManager.open(breadcrumb.sessionFile, undefined, storage, {
--						initialCwd: breadcrumbCwd,
--					});
+ 					// The breadcrumb names this session, as a file named to `--resume` is named.
++					// openRelocated anchors at the gone breadcrumb cwd (open() would fall
++					// back to the launch cwd) and admits the writer before it moves anything.
+ 					const continuation = await findSessionContinuation(breadcrumb.sessionFile, storage);
+-					const manager = await SessionManager.open(
+-						continuation?.session.path ?? breadcrumb.sessionFile,
+-						undefined,
+-						storage,
+-						{ initialCwd: breadcrumbCwd },
+-					);
  					try {
 -						await manager.moveTo(cwd, sessionDir);
--						return manager;
-+						return await SessionManager.openRelocated(
-+							breadcrumb.sessionFile, breadcrumbCwd, cwd, sessionDir, storage,
++						const manager = await SessionManager.openRelocated(
++							continuation?.session.path ?? breadcrumb.sessionFile,
++							breadcrumbCwd,
++							cwd,
++							sessionDir,
++							storage,
 +						);
+ 						if (continuation) options.onSessionContinuation?.(continuation);
+ 						return manager;
  					} catch (err) {
- 						if (!(err instanceof SessionMoveRefusedError)) throw err;
- 						// Another live omp process still writes the session (the
-@@ -4439,7 +4725,6 @@
+@@ -4629,7 +4916,6 @@
  							from: breadcrumbCwd,
  							to: resolvedCwd,
  						});
@@ -2586,7 +2007,7 @@
  					logger.warn(
 --- a/pi-coding-agent/src/session/session-storage.ts
 +++ b/pi-coding-agent/src/session/session-storage.ts
-@@ -227,8 +227,11 @@
+@@ -241,8 +241,11 @@
  	 * then moves its session to a sibling instead of writing that file.
  	 * Optional because only backends with a process-owned lock can tell that
  	 * another process writes a session.
@@ -2599,7 +2020,7 @@
  	/**
  	 * Atomically delete a session and its artifacts only when `shouldDelete`
  	 * accepts the current session content. Optional because backends without a
-@@ -537,7 +540,7 @@
+@@ -540,7 +543,7 @@
   * session and only ever contend with other processes. The OS reclaims a lease
   * when its process exits, so a crashed owner never blocks a later claim.
   */
@@ -2608,7 +2029,7 @@
  
  const TEST_SESSION_OWNERS_DIR_ENV = "PI_TEST_SESSION_OWNERS_DIR";
  
-@@ -1286,23 +1289,27 @@
+@@ -1328,23 +1331,27 @@
  	/**
  	 * The lease is an OS lock (abstract socket, named mutex, or `flock` sidecar
  	 * under ~/.omp/run/session-owners), so the kernel drops a dead owner's claim.
@@ -2640,7 +2061,7 @@
  			sessionLeases.set(sessionId, held);
  		}
  		const claim = held;
-@@ -1347,8 +1354,13 @@
+@@ -1389,8 +1396,13 @@
  	 * Artifacts are stored in a sibling directory with the same name minus .jsonl extension.
  	 */
  	async deleteSessionWithArtifacts(sessionPath: string): Promise<void> {
@@ -2658,7 +2079,7 @@
  		const artifactsDir = sessionPath.slice(0, -6);
 --- a/pi-coding-agent/src/session/session-tools.ts
 +++ b/pi-coding-agent/src/session/session-tools.ts
-@@ -22,6 +22,7 @@
+@@ -23,6 +23,7 @@
  import { MEMORY_BACKEND_TOOL_NAMES } from "../memory-backend/tool-names";
  import { invalidateToolSchemaMetadata } from "@oh-my-pi/pi-tui/status-line/context-usage";
  import type { MemoryBackendStartOptions, MemoryPromptPreparation } from "../memory-backend/types";
@@ -2666,7 +2087,7 @@
  import type { AgentDefinition } from "../task/types";
  import evalPreludeNoticePrompt from "../prompts/system/eval-prelude-notice.md" with { type: "text" };
  import sessionAgentNoticePrompt from "../prompts/system/session-agent-notice.md" with { type: "text" };
-@@ -274,6 +275,69 @@
+@@ -287,6 +288,69 @@
  }
  
  /**
@@ -2736,7 +2157,7 @@
   * Structured payload persisted on each {@link XDEV_MOUNT_NOTICE_MESSAGE_TYPE}
   * custom message. Lets a resumed session reconstruct which dynamic devices the
   * model has already been told about, so reconnecting hosts do not re-announce
-@@ -462,6 +526,8 @@
+@@ -481,6 +545,8 @@
  	 * prefix without the intended prompt refresh. The refresh lifecycle updates it.
  	 */
  	#promptSurface: PromptSurface;
@@ -2745,7 +2166,7 @@
  	#acpPermissionDecisions = new Map<string, "allow_always" | "reject_always">();
  
  	constructor(host: SessionToolsHost, options: SessionToolsOptions) {
-@@ -509,7 +575,7 @@
+@@ -528,7 +594,7 @@
  		this.#skillWarnings = options.skillWarnings ?? [];
  		this.#skillsSettings = options.skillsSettings;
  		this.#skillsReloadable = options.skillsReloadable ?? true;
@@ -2754,7 +2175,7 @@
  		// Seed from the construction slate (top-level tools plus xd:// mounts).
  		// Left empty, getEnabledToolNames() falls back to live agent.state.tools,
  		// so an early reconcile (think after the startup model resolution)
-@@ -622,6 +688,63 @@
+@@ -665,6 +731,63 @@
  			sessionAgents: this.#host.sessionAgents(),
  		};
  	}
@@ -2818,7 +2239,7 @@
  	/** Drops cached per-session ACP `allow_always`/`reject_always` decisions. */
  	clearAcpPermissionDecisions(): void {
  		this.#acpPermissionDecisions.clear();
-@@ -1392,7 +1515,7 @@
+@@ -1505,7 +1628,7 @@
  				this.#pendingToolRosterDeltaAfterBase = undefined;
  				// Publish the exact surface the prompt rendered with — never
  				// re-derive from live settings, which could diverge mid-flight.
@@ -2827,7 +2248,7 @@
  			} else if (frozenSignature) {
  				this.#notifyToolRosterDelta(previousActiveToolNames, validToolNames);
  				this.#lastAppliedToolSignature = frozenSignature;
-@@ -2199,7 +2322,7 @@
+@@ -2322,7 +2445,7 @@
  				this.#baseSystemPrompt = promotionTail
  					? [...built.systemPrompt, promotionTail]
  					: built.systemPrompt;
@@ -2903,18 +2324,15 @@
 +}
 --- a/pi-coding-agent/src/session/session-transfer.ts
 +++ b/pi-coding-agent/src/session/session-transfer.ts
-@@ -9,9 +9,9 @@
+@@ -9,7 +9,7 @@
   * - `blobs/<sha256>` — every blob the journal or an artifact transcript references
   *
   * Moves are recorded in the transcript as `custom_message` entries of type
 - * {@link SESSION_TRANSFER_MESSAGE_TYPE}: the model sees where the session came
 + * `session-transfer`: the model sees where the session came
   * from, and a copy whose latest marker says it moved away is stale — resuming
-- * it forks instead of continuing it ({@link forkIfMovedAway}).
-+ * it forks instead of continuing it ({@link SessionManager.adoptForWrite}).
+  * it forks instead of continuing it ({@link forkIfMovedAway}).
   */
- import * as fs from "node:fs";
- import * as path from "node:path";
 @@ -21,7 +21,6 @@
  	isEnotdir,
  	isRecord,
@@ -2923,7 +2341,7 @@
  	Snowflake,
  	TempDir,
  	VERSION,
-@@ -33,23 +32,20 @@
+@@ -33,9 +32,6 @@
  	readArchiveEntries,
  	writeArchive,
  } from "@oh-my-pi/pi-utils/ar";
@@ -2932,9 +2350,8 @@
 -import transferStaleForkTemplate from "../prompts/session/transfer-stale-fork.md" with { type: "text" };
  import { replaceFileAtomically } from "../utils/atomic-file";
  import { BLOB_HASH_RE, BlobStore } from "./blob-store";
-+import { DATE_CWD_ANCHORS_ARTIFACT, readDateCwdAnchors } from "./date-cwd-reminder";
  import type { FileEntry, SessionEntry, SessionHeader } from "./session-entries";
- import { findSessionFiles } from "./session-listing";
+@@ -43,13 +39,12 @@
  import { loadEntriesFromFile, parseSessionContent, readSessionHeaderId } from "./session-loader";
  import { SessionManager } from "./session-manager";
  import { FileSessionStorage } from "./session-storage";
@@ -2950,7 +2367,7 @@
  /** `manifest.json` of a session archive. */
  export interface SessionArchiveManifest {
  	/** Archive format version ({@link SESSION_ARCHIVE_VERSION}). */
-@@ -62,17 +58,6 @@
+@@ -62,17 +57,6 @@
  	omp: string;
  }
  
@@ -2968,7 +2385,7 @@
  /** User-facing failure of a pack, unpack, or move marker: missing input, bad archive, live owner. */
  export class SessionTransferError extends Error {
  	constructor(message: string) {
-@@ -131,53 +116,6 @@
+@@ -131,53 +115,6 @@
  	return entry.type !== "session";
  }
  
@@ -3022,7 +2439,7 @@
  async function requireFile(file: string, what: string): Promise<void> {
  	let stat: fs.Stats;
  	try {
-@@ -209,12 +147,11 @@
+@@ -209,12 +146,11 @@
  }
  
  /**
@@ -3039,20 +2456,7 @@
  	if (!release) {
  		throw new SessionTransferError(
  			`Cannot ${action} ${file}: another live omp process writes this session. Exit it first. Nothing was changed.`,
-@@ -315,6 +252,12 @@
- 				if (relative.endsWith(".jsonl")) collectBlobHashes(bytes.toString("utf8"), hashes);
- 			}
- 		}
-+		// Old sessions stored anchors outside their artifact directory. Capture
-+		// that exact map without modifying a journal opened only for inspection.
-+		const anchorMember = `${ARTIFACTS_PREFIX}${DATE_CWD_ANCHORS_ARTIFACT}`;
-+		if (!members.some(([name]) => name === anchorMember)) {
-+			members.push([anchorMember, JSON.stringify(readDateCwdAnchors(id, source) ?? {})]);
-+		}
- 
- 		const blobs = new BlobStore(getBlobsDir());
- 		const missingBlobs: string[] = [];
-@@ -497,13 +440,15 @@
+@@ -497,13 +433,15 @@
  }
  
  async function restoreAside(aside: readonly AsidePath[]): Promise<void> {
@@ -3069,7 +2473,7 @@
  }
  
  /** Rename session files and their artifacts directories to sibling backups, all or nothing. */
-@@ -541,22 +486,33 @@
+@@ -541,22 +479,33 @@
  async function placeSession(
  	open: () => Promise<SessionManager>,
  	arrival: SessionTransferDetails,
@@ -3110,7 +2514,13 @@
  	}
  }
  
-@@ -600,31 +556,55 @@
+@@ -596,35 +545,55 @@
+ 		const stagedFile = staging.join(`${header.timestamp.replace(/[^\w-]/g, "-")}_${id}.jsonl`);
+ 		await Bun.write(stagedFile, contents.journal);
+ 		const stagedArtifacts = stagedFile.slice(0, -".jsonl".length);
++		// Always stage the directory: complete-artifact publication treats a missing one as a failure.
++		await fs.promises.mkdir(stagedArtifacts);
+ 		for (const [relative, bytes] of contents.artifacts) {
  			await Bun.write(path.join(stagedArtifacts, ...relative.split("/")), bytes);
  		}
  
@@ -3119,16 +2529,6 @@
 -		for (const file of localCopies) {
 -			const entries = (await loadEntriesFromFile(file)).filter(isBodyEntry);
 -			if (!isTranscriptPrefix(entries, contents.entries)) diverged = true;
-+		// An older archive may not carry anchors. Make its absence explicit:
-+		// never let a same-ID workstation-global map leak into imported history.
-+		if (!contents.artifacts.some(([relative]) => relative === DATE_CWD_ANCHORS_ARTIFACT)) {
-+			await Bun.write(path.join(stagedArtifacts, DATE_CWD_ANCHORS_ARTIFACT), "{}");
- 		}
- 
--		if (diverged) {
--			const placed = await placeSession(() => SessionManager.forkFrom(stagedFile, cwd, sessionDir), arrival);
--			logger.info("Unpacked session as a fork of a diverged local copy", { parent: id, ...placed });
--			return { ...placed, mode: "forked" };
 +		// Claim the ID against the immutable staged journal BEFORE discovering
 +		// any local copies. Exclusive ownership also refuses a same-process
 +		// writer; only this private storage instance may publish under the claim.
@@ -3139,17 +2539,19 @@
 +				`Cannot import session ${id}: a live omp writer or transfer owns it. Nothing was replaced.`,
 +			);
  		}
--
--		const releases: (() => void)[] = [];
- 		try {
--			for (const file of localCopies) releases.push(claimSessionOrRefuse(id, file, "replace"));
++		try {
 +			const localCopies = await findLocalCopies(id, sessionDir);
 +			let diverged = false;
 +			for (const file of localCopies) {
 +				const entries = (await loadEntriesFromFile(file, storage)).filter(isBodyEntry);
 +				if (!isTranscriptPrefix(entries, contents.entries)) diverged = true;
 +			}
-+
+ 
+-		if (diverged) {
+-			const placed = await placeSession(() => SessionManager.forkFrom(stagedFile, cwd, sessionDir), arrival);
+-			logger.info("Unpacked session as a fork of a diverged local copy", { parent: id, ...placed });
+-			return { ...placed, mode: "forked" };
+-		}
 +			if (diverged) {
 +				const placed = await placeSession(
 +					() => SessionManager.forkFrom(stagedFile, cwd, sessionDir, storage, { requireCompleteArtifacts: true }),
@@ -3158,7 +2560,10 @@
 +				logger.info("Unpacked session as a fork of a diverged local copy", { parent: id, ...placed });
 +				return { ...placed, mode: "forked" };
 +			}
-+
+ 
+-		const releases: (() => void)[] = [];
+-		try {
+-			for (const file of localCopies) releases.push(claimSessionOrRefuse(id, file, "replace"));
  			const aside = await setAside(localCopies);
  			let placed: { sessionFile: string; id: string };
  			try {
@@ -3180,7 +2585,7 @@
  				throw error;
  			}
  			for (const { backup } of aside) await fs.promises.rm(backup, { recursive: true, force: true });
-@@ -632,7 +612,7 @@
+@@ -632,7 +601,7 @@
  			logger.info("Unpacked session", { mode, replaced: localCopies, ...placed });
  			return { ...placed, mode };
  		} finally {
@@ -3189,7 +2594,7 @@
  		}
  	} finally {
  		await staging.remove().catch(error => {
-@@ -653,9 +633,10 @@
+@@ -653,9 +622,10 @@
  	const to = label.trim();
  	if (!to) throw new SessionTransferError("The move label must not be empty.");
  	const id = await requireSessionId(target);
@@ -3202,11 +2607,10 @@
  			throwIfMissing: true,
  			suppressBreadcrumb: true,
  		});
-@@ -669,25 +650,3 @@
- 	}
+@@ -670,24 +640,14 @@
  }
  
--/**
+ /**
 - * Resume guard: when `manager`'s latest transfer marker says the session moved
 - * away, close it untouched and return a fork of it (in `sessionDir`, default:
 - * the cwd's session directory) carrying a visible `forked` notice. Otherwise
@@ -3227,7 +2631,17 @@
 -		fork: fork.getSessionFile(),
 -	});
 -	return fork;
--}
++ * Resume guard: claim `manager`'s session for writing and, when its latest
++ * transfer marker says the session moved away, continue in a fork carrying a
++ * visible `forked` notice. The claim-then-fork transaction (single writer, with
++ * rollback) lives in {@link SessionManager.beginWritableAdoption}; this stays
++ * the resume entrypoint every caller already uses.
++ */
++export async function forkIfMovedAway(manager: SessionManager, _sessionDir?: string): Promise<SessionManager> {
++	await manager.adoptForWrite();
++	return manager;
+ }
++
 --- a/pi-coding-agent/src/session/turn-recovery.ts
 +++ b/pi-coding-agent/src/session/turn-recovery.ts
 @@ -11,6 +11,7 @@
@@ -3238,7 +2652,7 @@
  	Model,
  	ModelUsageHealth,
  	TextContent,
-@@ -267,7 +268,8 @@
+@@ -305,7 +306,8 @@
  	appendSessionMessage(message: AssistantMessage): void;
  	persistedAssistantEntryId(message: AssistantMessage): string | undefined;
  	sessionMessageAlreadyPersisted(message: AssistantMessage): boolean;
@@ -3247,8 +2661,8 @@
 +	setModelWithProviderSessionReset(model: Model, commitSelection?: () => void): Promise<void>;
  	/** Edit mode resolved for the active model and settings, captured before a fallback swap. */
  	resolveActiveEditMode(): EditMode;
- 	/** Rebuilds the model-dependent base system prompt when a swap changed the edit mode or model policy. */
-@@ -647,20 +649,12 @@
+ 	/**
+@@ -690,20 +692,12 @@
  			model: message.model,
  			provider: message.provider,
  		});
@@ -3275,7 +2689,7 @@
  		this.#host.scheduleAgentContinue({
  			source: "malformed-function-call-retry",
  			generation: this.#host.promptGeneration(),
-@@ -720,20 +714,12 @@
+@@ -763,20 +757,12 @@
  			provider: message.provider,
  			errorMessage: message.errorMessage,
  		});
@@ -3302,7 +2716,7 @@
  		this.#host.scheduleAgentContinue({
  			source: "stream-stall-continue",
  			generation: this.#host.promptGeneration(),
-@@ -761,8 +747,8 @@
+@@ -804,8 +790,8 @@
  	 * primary, so callers can re-run the pre-send context-fit check against the
  	 * reverted (possibly smaller) window before issuing the next request.
  	 */
@@ -3313,7 +2727,7 @@
  	}
  
  	/** Applies model fallback policy from live usage health before a turn starts. */
-@@ -1103,12 +1089,7 @@
+@@ -1147,12 +1133,7 @@
  		// in-memory-only reparent lets the empty stop resurface on reload or after
  		// a mid-retry process kill.
  		await this.#dropAssistantTurnDurably(assistantMessage);
@@ -3327,7 +2741,7 @@
  		this.#host.scheduleAgentContinue({
  			source: "empty-stop-retry",
  			generation: this.#host.promptGeneration(),
-@@ -1199,12 +1180,7 @@
+@@ -1243,12 +1224,7 @@
  			return false;
  		}
  
@@ -3341,7 +2755,7 @@
  		this.#host.scheduleAgentContinue({
  			source: "unexpected-stop-retry",
  			generation: this.#host.promptGeneration(),
-@@ -1934,6 +1910,11 @@
+@@ -1982,6 +1958,11 @@
  		const currentModel = this.#host.model();
  		if (!currentModel) return false;
  		const sessionId = this.#host.sessionManager.getSessionId();
@@ -3353,7 +2767,7 @@
  		const currentSelector = formatRetryFallbackSelector(currentModel, this.#host.thinkingLevel());
  		let health: ModelUsageHealth;
  		try {
-@@ -1945,7 +1926,7 @@
+@@ -1993,7 +1974,7 @@
  				signal,
  			});
  		} catch (error) {
@@ -3362,7 +2776,7 @@
  			logger.debug("Usage-aware runtime preflight failed open", {
  				provider: currentModel.provider,
  				model: currentModel.id,
-@@ -1953,7 +1934,7 @@
+@@ -2001,7 +1982,7 @@
  			});
  			return false;
  		}
@@ -3371,39 +2785,16 @@
  		const selectedAccount = health.accounts.find(account => account.selected);
  		if (health.state === "healthy") {
  			// A healthy sibling does not end the selected account's reserve episode.
-@@ -2013,7 +1994,7 @@
- 							signal,
- 						},
- 					);
--					if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
-+					if (!isCurrent()) return false;
- 					if (candidateHealth.state === "depleted" || candidateHealth.state === "reserve") continue;
- 					if (candidateHealth.state === "healthy") {
- 						const selected = candidateHealth.accounts.find(account => account.selected);
-@@ -2029,18 +2010,18 @@
- 						}
- 					}
- 				} catch {
--					if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
-+					if (!isCurrent()) return false;
- 					// Unknown usage fails open for an otherwise valid fallback.
- 				}
--				if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
-+				if (!isCurrent()) return false;
- 				let apiKey: string | undefined;
- 				try {
- 					apiKey = await this.#host.modelRegistry.getApiKey(candidateModel, this.#host.sessionId(), { signal });
- 				} catch {
--					if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
-+					if (!isCurrent()) return false;
- 					continue;
- 				}
--				if (signal.aborted || !modelsAreEqual(this.#host.model(), currentModel)) return false;
-+				if (!isCurrent()) return false;
- 				if (!apiKey) continue;
- 				fallback = { role, selector: candidate, apiKey };
- 				break;
-@@ -2066,18 +2047,14 @@
+@@ -2036,7 +2017,7 @@
+ 		}
+ 		if (!cfgRetryModelFallback.get(this.#host.settings) || this.#host.modelFallbackDisabled?.()) return false;
+ 
+-		const fallback = await this.#findKeyedRetryFallback(currentSelector, currentModel, signal);
++		const fallback = await this.#findKeyedRetryFallback(currentSelector, currentModel, signal, isCurrent);
+ 		if (!fallback) return false;
+ 
+ 		let shouldFallback = health.state === "depleted" || reservePolicy === "auto" || !confirmer;
+@@ -2056,18 +2037,14 @@
  				},
  				signal,
  			);
@@ -3424,7 +2815,32 @@
  		this.#usageReserveApproval = undefined;
  		return this.applyRetryFallbackCandidate(fallback.role, fallback.selector, currentSelector, {
  			pinFallback: true,
-@@ -2131,6 +2108,10 @@
+@@ -2087,7 +2064,11 @@
+ 		const currentModel = this.#host.model();
+ 		if (!currentModel) return false;
+ 		const currentSelector = formatRetryFallbackSelector(currentModel, this.#host.thinkingLevel());
+-		const fallback = await this.#findKeyedRetryFallback(currentSelector, currentModel, signal);
++		const generation = this.#host.promptGeneration();
++		const sessionId = this.#host.sessionManager.getSessionId();
++		const admissionCurrent = () =>
++			this.#host.promptGeneration() === generation && this.#host.sessionManager.getSessionId() === sessionId;
++		const fallback = await this.#findKeyedRetryFallback(currentSelector, currentModel, signal, admissionCurrent);
+ 		if (!fallback) return false;
+ 		return this.applyRetryFallbackCandidate(fallback.role, fallback.selector, currentSelector, {
+ 			apiKey: fallback.apiKey,
+@@ -2101,8 +2082,10 @@
+ 		currentSelector: string,
+ 		currentModel: Model,
+ 		signal: AbortSignal,
++		admissionCurrent?: () => boolean,
+ 	): Promise<{ role: string; selector: RetryFallbackSelector; apiKey: string } | undefined> {
+-		const stale = () => signal.aborted || !modelsAreEqual(this.#host.model(), currentModel);
++		const stale = () =>
++			signal.aborted || !modelsAreEqual(this.#host.model(), currentModel) || (admissionCurrent && !admissionCurrent());
+ 		const ceiling = this.#host.thinkingLevelCeiling();
+ 		for (const role of this.retryFallbackChainKeys(currentSelector, currentModel)) {
+ 			for (const candidate of this.findRetryFallbackCandidates(role, currentSelector, currentModel)) {
+@@ -2204,6 +2187,10 @@
  		currentSelector: string,
  		options?: { pinFallback?: boolean; apiKey?: string; signal?: AbortSignal; reason?: string },
  	): Promise<boolean> {
@@ -3435,7 +2851,7 @@
  		const resolved = resolveModelOverride([selector.raw], this.#host.modelRegistry, this.#host.settings);
  		const candidate = resolved.model ?? this.#host.modelRegistry.find(selector.provider, selector.id);
  		if (!candidate) {
-@@ -2139,10 +2120,10 @@
+@@ -2212,10 +2199,10 @@
  		const apiKey =
  			options?.apiKey ??
  			(await this.#host.modelRegistry.getApiKey(candidate, this.#host.sessionId(), { signal: options?.signal }));
@@ -3447,7 +2863,7 @@
  
  		// Capture the configured selector (auto-aware) so a fallback chain preserves
  		// `auto` instead of collapsing it to the level it resolved to this turn.
-@@ -2156,51 +2137,39 @@
+@@ -2229,51 +2216,39 @@
  				? requestedThinkingLevel
  				: clampThinkingLevelToCeiling(candidate, requestedThinkingLevel, this.#host.thinkingLevelCeiling());
  		const candidateSelector = formatModelStringWithRouting(candidate);
@@ -3521,12 +2937,12 @@
 +		// Cancellation after this commit stops setup, not the coherent selection
 +		// a concurrent history replacement may already have captured.
 +		if (!ownsHistory() || options?.signal?.aborted || this.#host.model() !== candidate) return false;
- 		await this.#host.syncAfterModelChange(previousEditMode);
+ 		await this.#host.syncAfterModelChange(previousEditMode, { retryFallback: true });
 +		if (!ownsHistory() || options?.signal?.aborted) return false;
  		await this.#host.emitSessionEvent({
  			type: "retry_fallback_applied",
  			from: currentSelector,
-@@ -2208,7 +2177,7 @@
+@@ -2281,7 +2256,7 @@
  			role,
  			reason: options?.reason,
  		});
@@ -3535,7 +2951,7 @@
  	}
  
  	async #tryRetryModelFallback(
-@@ -2423,19 +2392,26 @@
+@@ -2537,19 +2512,27 @@
  	async #tryFireworksFastFallback(currentSelector: string): Promise<boolean> {
  		const model = this.#activeFireworksFastModel();
  		if (!model) return false;
@@ -3557,18 +2973,19 @@
 -		this.#host.sessionManager.appendModelChange(baseSelector, EPHEMERAL_MODEL_CHANGE_ROLE, true);
 -		this.#host.settings.getStorage()?.recordModelUsage(baseSelector);
 +		await this.#host.setModelWithProviderSessionReset(baseModel, () => {
-+			// A capability degrade is fallback routing even though it arms no chain.
++			// A capability degrade is fallback routing too, even though it arms no
++			// chain: the base model must not be reported as the configured primary.
 +			this.#markFallbackRouted();
 +			this.#host.sessionManager.appendModelChange(baseSelector, EPHEMERAL_MODEL_CHANGE_ROLE, true);
 +			this.#host.settings.getStorage()?.recordModelUsage(baseSelector);
 +		});
 +		if (!ownsHistory() || this.#host.model() !== baseModel) return false;
- 		await this.#host.syncAfterModelChange(previousEditMode);
+ 		await this.#host.syncAfterModelChange(previousEditMode, { retryFallback: true });
 +		if (!ownsHistory() || this.#host.model() !== baseModel) return false;
  		await this.#host.emitSessionEvent({
  			type: "retry_fallback_applied",
  			from: currentSelector,
-@@ -2443,10 +2419,11 @@
+@@ -2557,10 +2540,11 @@
  			role: "fireworks-fast",
  			reason: "Request rejected by the Fast tier. Retrying on the Standard tier.",
  		});
@@ -3582,7 +2999,7 @@
  		if (!this.#activeRetryFallback) return false;
  		if (this.#activeRetryFallback.pinned) return false;
  		if (this.#getRetryFallbackRevertPolicy() !== "cooldown-expiry") return false;
-@@ -2487,6 +2464,7 @@
+@@ -2601,6 +2585,7 @@
  			resolvedPrimary.model ?? this.#host.modelRegistry.find(originalSelector.provider, originalSelector.id);
  		if (!primaryModel) return false;
  		const apiKey = await this.#host.modelRegistry.getApiKey(primaryModel, this.#host.sessionId());
@@ -3590,7 +3007,7 @@
  		if (!apiKey) return false;
  
  		const currentThinkingLevel = this.#host.configuredThinkingLevel();
-@@ -2494,16 +2472,15 @@
+@@ -2608,18 +2593,19 @@
  			currentThinkingLevel === lastAppliedFallbackThinkingLevel ? originalThinkingLevel : currentThinkingLevel;
  		const primarySelector = formatModelStringWithRouting(primaryModel);
  		const previousEditMode = this.#host.resolveActiveEditMode();
@@ -3604,18 +3021,22 @@
 -		this.#host.settings.getStorage()?.recordModelUsage(primarySelector);
 -		this.#host.setThinkingLevel(thinkingToApply);
 +		await this.#host.setModelWithProviderSessionReset(primaryModel, () => {
++			// Clear inside the commit: observers notified by the swap must not see the
++			// restored primary still tagged as fallback-served.
 +			this.clearActiveRetryFallback();
 +			this.#host.sessionManager.appendModelChange(primarySelector, EPHEMERAL_MODEL_CHANGE_ROLE);
 +			this.#host.setThinkingLevel(thinkingToApply);
 +			this.#host.settings.getStorage()?.recordModelUsage(primarySelector);
 +		});
 +		if (admissionCurrent && !admissionCurrent()) return false;
+ 		// The plain comparison: a hop kept the primary's prompt, so this is a no-op, unless a rebuild
+ 		// while on the fallback rendered the fallback's policy, which the primary must not keep.
  		await this.#host.syncAfterModelChange(previousEditMode);
 +		if (admissionCurrent && !admissionCurrent()) return false;
  		return true;
  	}
  
-@@ -3080,6 +3057,26 @@
+@@ -3249,6 +3235,26 @@
  	}
  
  	/**

@@ -193,11 +193,14 @@ def accept():
 def amend(family_id, path):
     """Capture an explicit post-resolution repair in its existing source owner."""
     state = load(ROOT / 'state.json')
-    assert not state.get('pending')
+    pending = state.get('pending')
+    assert not pending or path not in {record['path'] for record in pending['records']}, 'pending family owns this path'
     index = next(i for i, family in enumerate(state['families']) if family['id'] == family_id)
     family = state['families'][index]
     assert family_id in state['completed']
-    assert not any(path in later['paths'] for later in state['families'][index + 1:]), 'shared repair needs explicit snapshot propagation'
+    # Only an already-accepted later owner froze a snapshot of this path; an unprepared one
+    # will read the repaired work file as its TARGET when it is prepared.
+    assert not any(path in later['paths'] for later in state['families'][index + 1:state['next']]), 'shared repair needs explicit snapshot propagation'
     fragment = ROOT / 'fragments' / family_id / path
     if path not in family['paths']:
         fragment.mkdir(parents=True)
@@ -268,21 +271,41 @@ def check():
     assert replayed == work, 'emitted patches do not reproduce the work tree'
 
 
+def snapshot(through, out):
+    """Fresh pristine + accepted families' emitted patches up to and including `through`, at fuzz 0, into `out`."""
+    state = load(ROOT / 'state.json')
+    ids = [family['id'] for family in state['families'][:state['next']]]
+    assert through in ids, f'{through} is not accepted'
+    assert not out.exists(), f'{out} exists'
+    shutil.copytree(state['pristine'], out)
+    for original in state['families'][:ids.index(through) + 1]:
+        patch, _ = family_patch(original)
+        if patch:
+            command(['patch', '-p1', '--batch', '--forward', '--fuzz=0', '--no-backup-if-mismatch', '--remove-empty-files'], cwd=out / ROOTS[original['root']], input=patch)
+    residue = [str(path) for path in out.rglob('*') if path.name.endswith(('.orig', '.rej'))]
+    assert not residue, residue
+    print(json.dumps({'through': through, 'out': str(out), 'digest': oracle().tree_digest(out)}))
+
+
 def export(archives):
     state = load(ROOT / 'state.json')
-    assert state['next'] == len(state['families']) and not state.get('pending')
+    # Rows not accepted yet (new capabilities authored later, e.g. 0102) keep their registered skeleton row.
+    assert not (state.get('pending') or {}).get('records'), 'a prepared family with proposals must be accepted first'
     TARGET.mkdir(exist_ok=True)
     for path in (ROOT / 'work').rglob('*'):
         assert not path.name.endswith(('.orig', '.rej')), path
         if path.is_file() and path.suffix in {'.ts', '.json', '.kdl', '.py', '.rs', '.md'}:
             assert not any(line.startswith((b'<<<<<<< ', b'||||||| ', b'>>>>>>> ')) for line in path.read_bytes().splitlines()), path
     families = []
-    for original in state['families']:
+    registered = {row['id']: row for row in load(TARGET / 'manifest.json')['families']}
+    for original in state['families'][state['next']:]:
+        families.append(registered[original['id']])
+    for original in reversed(state['families'][:state['next']]):
         patch, paths = family_patch(original)
         assert patch, original['id']
         filename = f"{original['id']}-v{NEW_VERSION}.patch"
         (TARGET / filename).write_bytes(patch)
-        families.append({**original, 'patch': f'.{NEW_VERSION}-families/' + filename, 'sha256': hashlib.sha256(patch).hexdigest(), 'paths': paths})
+        families.insert(0, {**original, 'patch': f'.{NEW_VERSION}-families/' + filename, 'sha256': hashlib.sha256(patch).hexdigest(), 'paths': paths})
     archive_input = load(archives)
     archive_rows = archive_input['archives'] if isinstance(archive_input, dict) else archive_input
     packages = {path.name for path in Path(state['pristine']).iterdir() if path.is_dir()}
@@ -319,7 +342,9 @@ def export(archives):
 if __name__ == '__main__':
     os.umask(0o022)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['old-inputs', 'init', 'prepare', 'take', 'register', 'accept', 'amend', 'check', 'export'])
+    parser.add_argument('command', choices=['old-inputs', 'init', 'prepare', 'take', 'register', 'accept', 'amend', 'check', 'snapshot', 'export'])
+    parser.add_argument('--through')
+    parser.add_argument('--out', type=Path)
     parser.add_argument('--pristine', type=Path)
     parser.add_argument('--archives', type=Path)
     parser.add_argument('--path')
@@ -339,5 +364,7 @@ if __name__ == '__main__':
         amend(args.family, args.path)
     elif args.command == 'check':
         check()
+    elif args.command == 'snapshot':
+        snapshot(args.through, args.out)
     else:
         export(args.archives)

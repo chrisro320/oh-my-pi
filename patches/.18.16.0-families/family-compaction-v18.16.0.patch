@@ -66,12 +66,12 @@
   * compaction item as replacement history.
   */
  import type { Api, CodexCompactionContext, FetchImpl, Model, ProviderSessionState } from "@oh-my-pi/pi-ai";
--import { type OpenAICodexCompactionBody } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
-+import { type OpenAICodexCompactionBody, type OpenAICodexTurnRequestDiagnostics } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+-import type { OpenAICodexCompactionBody } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
++import type { OpenAICodexCompactionBody, OpenAICodexTurnRequestDiagnostics } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
+ import type { CatalogPolicyInputs } from "@oh-my-pi/pi-catalog/types";
  /** Retained-message budget Codex uses after streamed V2 compaction. */
  export declare const V2_RETAINED_MESSAGE_TOKEN_BUDGET = 64000;
- /** Max retries for V2 streaming compaction on transient stream errors. */
-@@ -31,6 +31,8 @@
+@@ -32,6 +32,8 @@
      retainedMessageBudget: number;
      sessionId?: string;
      promptCacheKey?: string;
@@ -80,7 +80,7 @@
  }
  /** Response collected from the V2 stream and converted into replacement history. */
  export interface CompactionV2Response {
-@@ -39,11 +41,20 @@
+@@ -40,11 +42,20 @@
      usedTokens: number;
      usage?: CompactionV2Usage;
      retainedImageCount: number;
@@ -100,11 +100,11 @@
 +export declare function isCodexCompactionV2Lane(model: Model): boolean;
  /** APIs that speak the OpenAI Responses compaction protocol (V1 `/responses/compact` and V2 streaming). */
  export declare function isOpenAiRemoteCompactionApi(api: Api | undefined): boolean;
- /** Clamp the retained-message budget to Codex's known-safe 64K ceiling. */
-@@ -75,6 +86,14 @@
-     providerSessionState?: Map<string, ProviderSessionState>;
+ /**
+@@ -86,6 +97,14 @@
      codexCompaction?: CodexCompactionContext;
      preferWebsockets?: boolean;
+     codexAccessPrograms?: boolean;
 +    /**
 +     * Owner and session this compaction belongs to. One process hosts the
 +     * primary session plus every advisor, each with its own provider session
@@ -135,7 +135,7 @@
  }
  /** Result from compact() - SessionManager adds uuid/parentUuid when saving */
  export interface CompactionResult<T = unknown> {
-@@ -186,11 +196,24 @@
+@@ -198,11 +208,24 @@
   */
  export declare function findCutPoint(entries: SessionEntry[], tokenizer: Tokenizer, startIndex: number, endIndex: number, keepRecentTokens: number): CutPointResult;
  export declare const AUTO_HANDOFF_THRESHOLD_FOCUS: string;
@@ -160,7 +160,7 @@
      promptOverride?: string;
      extraContext?: string[];
      remoteEndpoint?: string;
-@@ -214,6 +237,39 @@
+@@ -226,6 +249,39 @@
       */
      isUserAuthored?: (message: AgentMessage) => boolean;
      /**
@@ -200,7 +200,7 @@
       * Optional telemetry handle. When provided, every LLM call emitted during
       * compaction is wrapped in an OTEL chat span tagged with
       * `omp.gen_ai.oneshot.kind` (`compaction_summary`, `compaction_short_summary`,
-@@ -337,8 +393,12 @@
+@@ -358,8 +414,12 @@
      firstKeptEntryId: string;
      /** Messages that will be summarized and discarded */
      messagesToSummarize: AgentMessage[];
@@ -213,7 +213,7 @@
      /** Messages kept in full after compaction (recent history) */
      recentMessages: AgentMessage[];
      /** Entry IDs parallel to recentMessages, for an Anthropic-safe keep-tail boundary. */
-@@ -401,5 +461,8 @@
+@@ -422,5 +482,8 @@
   *
   * @param preparation - Pre-calculated preparation from prepareCompaction()
   * @param customInstructions - Optional custom focus for the summary
@@ -242,7 +242,7 @@
   */
  
  import type {
-@@ -27,6 +30,7 @@
+@@ -26,6 +29,7 @@
  import { type InstrumentedChatSpanOptions, instrumentedCompleteSimple } from "../telemetry";
  import type { AgentMessage } from "../types";
  import anthropicCompactionInstructionsPrompt from "./prompts/anthropic-compaction-instructions.md" with { type: "text" };
@@ -250,7 +250,7 @@
  
  export const ANTHROPIC_COMPACTION_PRESERVE_KEY = "anthropicCompaction";
  
-@@ -190,12 +194,36 @@
+@@ -189,12 +193,36 @@
  	return messages.length;
  }
  
@@ -288,7 +288,7 @@
  	return prompt.render(anthropicCompactionInstructionsPrompt, {
  		basePrompt,
  		customInstructions,
-@@ -204,7 +232,7 @@
+@@ -203,7 +231,7 @@
  }
  
  export interface AnthropicNativeCompactionRequest {
@@ -327,26 +327,27 @@
 +}
 --- a/pi-agent-core/src/compaction/compaction-v2-streaming.ts
 +++ b/pi-agent-core/src/compaction/compaction-v2-streaming.ts
-@@ -12,10 +12,13 @@
+@@ -11,9 +11,14 @@
+ import * as AIError from "@oh-my-pi/pi-ai/error";
  import { createOpenAICodexCompactionRequestContext } from "@oh-my-pi/pi-ai/providers/openai-codex-compaction";
  import { applyCodexResponsesLiteShape } from "@oh-my-pi/pi-ai/providers/openai-codex/request-transformer";
- import {
--	createOpenAICodexCompatibilityMetadata,
--	openCodexCompactionEventStream,
- 	type OpenAICodexCompactionBody,
--	type OpenAICodexCompatibilityMetadata,
-+	type OpenAICodexTurnRequestDiagnostics,
+-import type {
+-	OpenAICodexCompactionBody,
+-	OpenAICodexCompatibilityMetadata,
++import {
 +	CodexCompactionChainLostError,
 +	isRetryableCodexFailureEvent,
 +	openCodexCompactionEventStream,
++	type OpenAICodexCompactionBody,
 +	type OpenAICodexCompactionResponseMetadata,
++	type OpenAICodexTurnRequestDiagnostics,
 +	recordOpenAICodexCompactionResponseMetadata,
  } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
  import {
  	getOpenAIPromptCacheKey,
-@@ -25,17 +28,11 @@
- } from "@oh-my-pi/pi-ai/providers/openai-shared";
+@@ -24,17 +29,11 @@
  import { captureOpenAIHttpError } from "@oh-my-pi/pi-ai/utils/openai-http";
+ import type { CatalogPolicyInputs } from "@oh-my-pi/pi-catalog/types";
  import { isBedrockOpenAIUrl } from "@oh-my-pi/pi-catalog/hosts";
 -import {
 -	applyCodexResidencyHeader,
@@ -357,14 +358,14 @@
 -	OPENAI_HEADERS,
 -} from "@oh-my-pi/pi-catalog/wire/codex";
 +import { CODEX_BASE_URL } from "@oh-my-pi/pi-catalog/wire/codex";
- import { $env, isUnexpectedSocketCloseMessage, logger, ptree, stringifyJson } from "@oh-my-pi/pi-utils";
+ import { $env, isUnexpectedSocketCloseMessage, logger, ptree, stringifyJson, toError } from "@oh-my-pi/pi-utils";
  import { appendAzureApiVersion, resolveAzureOpenAiBaseUrl } from "./azure-openai-endpoint";
  import { prepareBedrockCompactionRequest } from "./bedrock";
 +import { traceCompaction } from "./compaction-trace";
  
  // ============================================================================
  // Types & Configuration
-@@ -82,6 +79,8 @@
+@@ -81,6 +80,8 @@
  	retainedMessageBudget: number;
  	sessionId?: string;
  	promptCacheKey?: string;
@@ -373,7 +374,7 @@
  }
  
  /** Response collected from the V2 stream and converted into replacement history. */
-@@ -91,6 +90,13 @@
+@@ -90,6 +91,13 @@
  	usedTokens: number;
  	usage?: CompactionV2Usage;
  	retainedImageCount: number;
@@ -387,7 +388,7 @@
  }
  
  // ============================================================================
-@@ -109,7 +115,7 @@
+@@ -108,7 +116,7 @@
  	if (api === "azure-openai-responses") {
  		return appendAzureApiVersion(`${resolveAzureOpenAiBaseUrl(model)}/responses`);
  	}
@@ -396,7 +397,7 @@
  		return resolveOpenAiCodexResponsesEndpoint(model.baseUrl);
  	}
  	return resolveOpenAiResponsesEndpoint(model.baseUrl);
-@@ -135,6 +141,19 @@
+@@ -135,6 +143,19 @@
  	return model.remoteCompaction?.api ?? model.api;
  }
  
@@ -416,10 +417,10 @@
  /** APIs that speak the OpenAI Responses compaction protocol (V1 `/responses/compact` and V2 streaming). */
  export function isOpenAiRemoteCompactionApi(api: Api | undefined): boolean {
  	return api === "openai-responses" || api === "azure-openai-responses" || api === "openai-codex-responses";
-@@ -257,6 +276,14 @@
- 		providerSessionState?: Map<string, ProviderSessionState>;
+@@ -275,6 +296,14 @@
  		codexCompaction?: CodexCompactionContext;
  		preferWebsockets?: boolean;
+ 		codexAccessPrograms?: boolean;
 +		/**
 +		 * Owner and session this compaction belongs to. One process hosts the
 +		 * primary session plus every advisor, each with its own provider session
@@ -431,27 +432,28 @@
  	},
  ): Promise<CompactionV2Response> {
  	let fetchImpl: FetchImpl = options?.fetch ?? globalThis.fetch;
-@@ -273,35 +300,59 @@
+@@ -291,39 +320,60 @@
  	}
  
  	const retryWait = options?.retryWait ?? ((delayMs: number) => Bun.sleep(delayMs));
 -	const isCodexResponses = compactionV2Api(model) === "openai-codex-responses" || model.provider === "openai-codex";
--	const codexMetadata =
--		isCodexResponses && !shouldUseCodexProviderTransport(model)
--			? createOpenAICodexCompatibilityMetadata({
--					sessionId: request.sessionId,
--					providerSessionState: options?.providerSessionState,
--					requestKind: "compaction",
--					compaction: createOpenAICodexCompactionRequestContext({
--						context: options?.codexCompaction,
--						implementation: "responses_compaction_v2",
--					}),
--				})
--			: undefined;
+-	let codexMetadata: OpenAICodexCompatibilityMetadata | undefined;
 +	const isCodexResponses = isCodexCompactionV2Lane(model);
-+	if (isCodexResponses && !shouldUseCodexProviderTransport(model)) {
+ 	if (isCodexResponses && !shouldUseCodexProviderTransport(model)) {
+-		// Metadata generation is request work; importing compaction policy must not load the Codex transport.
+-		const { createOpenAICodexCompatibilityMetadata } =
+-			await import("@oh-my-pi/pi-ai/providers/openai-codex-responses");
+-		codexMetadata = createOpenAICodexCompatibilityMetadata({
+-			sessionId: request.sessionId,
+-			providerSessionState: options?.providerSessionState,
+-			requestKind: "compaction",
+-			compaction: createOpenAICodexCompactionRequestContext({
+-				context: options?.codexCompaction,
+-				implementation: "responses_compaction_v2",
+-			}),
+-		});
 +		throw new CodexCompactionChainLostError("configured Codex V2 endpoint cannot use the live WebSocket chain");
-+	}
+ 	}
  	let lastError: Error | undefined;
 +	// One diagnostics box shared across retries: each attempt overwrites it, so
 +	// a failed attempt still leaves its wire shape (chained? canAppend? item
@@ -473,10 +475,11 @@
  				providerSessionState: options?.providerSessionState,
  				codexCompaction: options?.codexCompaction,
  				preferWebsockets: options?.preferWebsockets,
+ 				codexAccessPrograms: options?.codexAccessPrograms,
 +				requestDiagnostics,
  			});
  		} catch (err) {
- 			const error = err instanceof Error ? err : new Error(String(err));
+ 			const error = toError(err);
  			if (signal?.aborted) throw error;
  
 -			if (isRetryableCompactionError(error) && attempt < V2_COMPACTION_MAX_RETRIES) {
@@ -506,7 +509,7 @@
  				lastError = error;
  				const backoffMs = 2 ** attempt * 1000;
  				logger.warn(`V2 compaction attempt ${attempt + 1} failed, retrying in ${backoffMs}ms`, {
-@@ -313,11 +364,27 @@
+@@ -335,11 +385,27 @@
  				continue;
  			}
  
@@ -536,7 +539,7 @@
  }
  
  async function attemptCompactionV2Streaming(
-@@ -328,10 +395,10 @@
+@@ -350,11 +416,11 @@
  	fetchImpl: FetchImpl,
  	signal: AbortSignal | undefined,
  	options: {
@@ -544,11 +547,12 @@
  		providerSessionState?: Map<string, ProviderSessionState>;
  		codexCompaction?: CodexCompactionContext;
  		preferWebsockets?: boolean;
+ 		codexAccessPrograms?: boolean;
 +		requestDiagnostics?: { current?: OpenAICodexTurnRequestDiagnostics };
  	},
  ): Promise<CompactionV2Response> {
  	// Faithful to Codex: append the compaction trigger as the final input item
-@@ -343,11 +410,18 @@
+@@ -366,13 +432,21 @@
  		store: false,
  		stream: true,
  	};
@@ -557,6 +561,8 @@
 -	}
  
  	if (shouldUseCodexProviderTransport(model)) {
+-		// The native transport is only needed when sending a Codex compaction request.
+-		const { openCodexCompactionEventStream } = await import("@oh-my-pi/pi-ai/providers/openai-codex-responses");
 +		const requestDiagnostics = options.requestDiagnostics ?? {};
 +		// Session metadata this compaction may commit -- only if the collector
 +		// accepts the summary. The provider supplies the applier because the state
@@ -566,14 +572,17 @@
 +		let rollbackAttemptMetadata: (() => void) | undefined;
 +		// Clear before opening: a failure before the wire-shape recording would
 +		// otherwise leave the previous attempt's diagnostics mislabeled as ours.
-+		requestDiagnostics.current = undefined;
++		// Asserted to the cell's declared type: a bare `undefined` narrows the
++		// property for every later read, so the provider's write-back would type
++		// as `never`.
++		requestDiagnostics.current = undefined as OpenAICodexTurnRequestDiagnostics | undefined;
  		const eventStream = await openCodexCompactionEventStream(model, body, {
  			apiKey,
  			signal,
-@@ -355,18 +429,55 @@
- 			sessionId: request.sessionId,
+@@ -381,18 +455,55 @@
  			providerSessionState: options.providerSessionState,
  			preferWebsockets: options.preferWebsockets,
+ 			codexAccessPrograms: options.codexAccessPrograms,
 -			responsesLite: model.useResponsesLite,
 +			prepareCompactionRecovery: request.prepareCompactionRecovery,
 +			// Lite is connection-scoped and appends `:lite` to the WebSocket session
@@ -629,7 +638,7 @@
  		body: stringifyJson(body),
  		signal,
  	});
-@@ -396,7 +507,6 @@
+@@ -422,7 +533,6 @@
  	model: Model,
  	apiKey: string,
  	request: CompactionV2Request,
@@ -637,8 +646,8 @@
  ): Record<string, string> {
  	const api = compactionV2Api(model);
  	const cacheOptions = { sessionId: request.sessionId, promptCacheKey: request.promptCacheKey };
-@@ -425,27 +535,6 @@
- 						{ apiKey, messages: [], sessionId: request.sessionId ?? routingSessionId, promptCacheSessionId },
+@@ -461,27 +571,6 @@
+ 						},
  					).headers,
  				};
 -	if (api === "openai-codex-responses" || model.provider === "openai-codex") {
@@ -665,7 +674,7 @@
  	return headers;
  }
  
-@@ -468,9 +557,14 @@
+@@ -504,9 +593,14 @@
  async function collectCompactionV2Events(
  	events: AsyncIterable<Record<string, unknown>>,
  	request: CompactionV2Request,
@@ -680,7 +689,7 @@
  		handleCompactionV2Event(event, undefined, state);
  	}
  	return finishCompactionV2Collection(state, request);
-@@ -599,16 +693,24 @@
+@@ -635,16 +729,24 @@
  		return;
  	}
  
@@ -715,7 +724,7 @@
  	}
  }
  
-@@ -635,24 +737,137 @@
+@@ -671,24 +773,137 @@
  	};
  }
  
@@ -780,15 +789,7 @@
 + * read here too -- see `createCodexProviderStreamError`.
 + */
 +function compactionV2FailureCode(event: Record<string, unknown>): string | undefined {
- 	const response = isRecord(event.response) ? event.response : undefined;
--	const error = isRecord(event.error)
--		? event.error
--		: response && isRecord(response.error)
--			? response.error
--			: undefined;
--	// Responses `error` events carry code/message at the top level.
--	const message = stringField(error ?? event, "message");
--	const code = error ? (stringField(error, "code") ?? stringField(error, "type")) : stringField(event, "code");
++	const response = isRecord(event.response) ? event.response : undefined;
 +	const error = isRecord(event.error) ? event.error : response && isRecord(response.error) ? response.error : undefined;
 +	return (
 +		(error ? (stringField(error, "code") ?? stringField(error, "type")) : undefined) ??
@@ -798,7 +799,15 @@
 +
 +/** Provider message for a terminal failure frame, across both wire shapes. */
 +function compactionV2FailureMessage(event: Record<string, unknown>): string | undefined {
-+	const response = isRecord(event.response) ? event.response : undefined;
+ 	const response = isRecord(event.response) ? event.response : undefined;
+-	const error = isRecord(event.error)
+-		? event.error
+-		: response && isRecord(response.error)
+-			? response.error
+-			: undefined;
+-	// Responses `error` events carry code/message at the top level.
+-	const message = stringField(error ?? event, "message");
+-	const code = error ? (stringField(error, "code") ?? stringField(error, "type")) : stringField(event, "code");
 +	const error = isRecord(event.error) ? event.error : response && isRecord(response.error) ? response.error : undefined;
 +	return (
 +		(error ? stringField(error, "message") : undefined) ??
@@ -866,15 +875,17 @@
  		error.name === "TimeoutError" ||
 --- a/pi-agent-core/src/compaction/compaction.ts
 +++ b/pi-agent-core/src/compaction/compaction.ts
-@@ -29,6 +29,7 @@
+@@ -27,12 +27,18 @@
+ import type { Dialect } from "@oh-my-pi/pi-ai/dialect";
+ import * as AIError from "@oh-my-pi/pi-ai/error";
  import { createOpenAICodexCompactionRequestContext } from "@oh-my-pi/pi-ai/providers/openai-codex-compaction";
- import {
- 	buildTransformedCodexRequestBody,
+-import type { OpenAICodexCompactionBody } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
++import {
 +	CodexCompactionChainLostError,
- 	type OpenAICodexCompactionBody,
- } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
++	type OpenAICodexCompactionBody,
++} from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
  import type { InputItem as CodexInputItem } from "@oh-my-pi/pi-ai/providers/openai-codex/request-transformer";
-@@ -37,6 +38,9 @@
+ import { buildResponsesInput, resolveOpenAICompatPolicy } from "@oh-my-pi/pi-ai/providers/openai-shared";
  import { isSurvivingAssistant } from "@oh-my-pi/pi-ai/providers/transform-messages";
  import { stripOpenAIResponsesOutputOnlyStatusesForReplay } from "@oh-my-pi/pi-ai/utils";
  import { resolveCatalogPolicy } from "@oh-my-pi/pi-catalog/compat/catalog-policy";
@@ -884,7 +895,7 @@
  import { preferredDialect } from "@oh-my-pi/pi-catalog/identity";
  import { clampThinkingLevelForModel } from "@oh-my-pi/pi-catalog/model-thinking";
  import { isRecord, logger, prompt } from "@oh-my-pi/pi-utils";
-@@ -51,17 +55,20 @@
+@@ -47,17 +53,20 @@
  	getPreservedAnthropicCompactionData,
  	requestAnthropicNativeCompaction,
  	shouldUseAnthropicNativeCompaction,
@@ -905,7 +916,7 @@
  import type { CompactionEntry, SessionEntry } from "./entries";
  import { NativeCompactionError } from "./errors";
  import {
-@@ -85,7 +92,9 @@
+@@ -81,7 +90,9 @@
  import compactionShortSummaryPrompt from "./prompts/compaction-short-summary.md" with { type: "text" };
  import compactionSummaryPrompt from "./prompts/compaction-summary.md" with { type: "text" };
  import compactionTurnPrefixPrompt from "./prompts/compaction-turn-prefix.md" with { type: "text" };
@@ -915,7 +926,7 @@
  import handoffDocumentPrompt from "./prompts/handoff-document.md" with { type: "text" };
  import snapcompactArchiveContextPrompt from "./prompts/snapcompact-archive-context.md" with { type: "text" };
  
-@@ -109,6 +118,16 @@
+@@ -102,6 +113,16 @@
  export interface CompactionDetails {
  	readFiles: string[];
  	modifiedFiles: string[];
@@ -932,7 +943,7 @@
  }
  
  /**
-@@ -594,6 +613,7 @@
+@@ -600,6 +621,7 @@
  const SUMMARIZATION_PROMPT = prompt.render(compactionSummaryPrompt);
  
  const UPDATE_SUMMARIZATION_PROMPT = prompt.render(compactionUpdateSummaryPrompt);
@@ -940,7 +951,7 @@
  
  const SHORT_SUMMARY_PROMPT = prompt.render(compactionShortSummaryPrompt);
  
-@@ -677,12 +697,25 @@
+@@ -683,12 +705,25 @@
  	const message = response.errorMessage ?? "";
  	return /\btool_choice\b/i.test(message) && /\bauto\b/i.test(message) && /\bsupported\b/i.test(message);
  }
@@ -966,7 +977,7 @@
  	promptOverride?: string;
  	extraContext?: string[];
  	remoteEndpoint?: string;
-@@ -711,6 +744,43 @@
+@@ -717,6 +752,43 @@
  	 */
  	isUserAuthored?: (message: AgentMessage) => boolean;
  	/**
@@ -1010,7 +1021,7 @@
  	 * Optional telemetry handle. When provided, every LLM call emitted during
  	 * compaction is wrapped in an OTEL chat span tagged with
  	 * `omp.gen_ai.oneshot.kind` (`compaction_summary`, `compaction_short_summary`,
-@@ -911,27 +981,119 @@
+@@ -926,27 +998,119 @@
  ): Promise<string> {
  	const maxTokens = Math.min(Math.floor(0.8 * reserveTokens), MAX_SUMMARY_TOKENS);
  
@@ -1147,7 +1158,7 @@
  
  	let carriedSummary = previousSummary;
  	while (pending.length > 0) {
-@@ -941,15 +1103,21 @@
+@@ -956,15 +1120,21 @@
  		// neither an exact count nor the clamp, and the bust path hands back the
  		// exact count the proportional clamp needs as its denominator.
  		const budget = tokenizer.checkTokenBudget(text, window.budgetTokens);
@@ -1171,7 +1182,7 @@
  				carriedSummary,
  				model,
  				maxTokens,
-@@ -957,6 +1125,12 @@
+@@ -972,6 +1142,12 @@
  				signal,
  				customInstructions,
  				options,
@@ -1184,7 +1195,7 @@
  			);
  		} catch (error) {
  			// The catalog window can overstate what the provider actually accepts:
-@@ -964,6 +1138,29 @@
+@@ -979,6 +1155,29 @@
  			// credentials (see `anthropic.ts` — the 1M beta is never advertised).
  			// Halve and re-plan rather than failing the whole compaction on a
  			// window size only the provider can tell us is wrong.
@@ -1214,7 +1225,7 @@
  			// Halve what was actually SENT, not the budget it was planned against:
  			// the rejection proves the plan was fiction, so converging on the real
  			// cap must not spend a call per level of an imaginary ladder. The cheap
-@@ -971,12 +1168,11 @@
+@@ -986,12 +1185,11 @@
  			// one tokenization is nothing against the provider round trip already lost.
  			const sentTokens = budget.exact ? budget.tokens : tokenizer.countTokens(text, "strict");
  			const halved = Math.floor(Math.min(window.budgetTokens, sentTokens) / 2);
@@ -1232,7 +1243,7 @@
  			pending.splice(
  				0,
  				1,
-@@ -992,19 +1188,78 @@
+@@ -1007,19 +1205,78 @@
  	return carriedSummary ?? "";
  }
  
@@ -1321,7 +1332,7 @@
  	if (options?.promptOverride) {
  		basePrompt = options.promptOverride;
  	}
-@@ -1012,21 +1267,91 @@
+@@ -1027,21 +1284,91 @@
  		basePrompt = `${basePrompt}\n\nAdditional focus: ${customInstructions}`;
  	}
  
@@ -1423,7 +1434,7 @@
  
  	if (options?.remoteEndpoint) {
  		const endpoint = options.remoteEndpoint;
-@@ -1035,7 +1360,7 @@
+@@ -1050,7 +1377,7 @@
  			key =>
  				requestRemoteCompaction(
  					endpoint,
@@ -1432,7 +1443,7 @@
  					signal,
  					{ fetch: options.fetch, model, apiKey: key },
  				),
-@@ -1044,14 +1369,33 @@
+@@ -1059,14 +1386,33 @@
  		return remote.summary;
  	}
  
@@ -1468,7 +1479,7 @@
  			initiatorOverride: options?.initiatorOverride,
  			metadata: options?.metadata,
  			fetch: options?.fetch,
-@@ -1059,6 +1403,10 @@
+@@ -1074,6 +1420,10 @@
  			promptCacheKey: options?.promptCacheKey,
  			providerSessionState: options?.providerSessionState,
  			codexCompaction: localCodexCompaction(options),
@@ -1479,7 +1490,7 @@
  		},
  		{
  			telemetry: options?.telemetry,
-@@ -1068,6 +1416,48 @@
+@@ -1083,6 +1433,48 @@
  		},
  	);
  
@@ -1528,7 +1539,7 @@
  	if (response.stopReason === "error") {
  		throw createSummarizationError("Summarization failed", response);
  	}
-@@ -1077,6 +1467,19 @@
+@@ -1095,6 +1487,19 @@
  		.map(c => c.text)
  		.join("\n");
  
@@ -1548,9 +1559,9 @@
  	return textContent;
  }
  
-@@ -1229,20 +1632,16 @@
+@@ -1258,20 +1663,16 @@
  	options?: SummaryOptions,
- ): Promise<string> {
+ ): Promise<string | undefined> {
  	const maxTokens = Math.min(512, Math.floor(0.2 * reserveTokens));
 -	const llmMessages = (options?.convertToLlm ?? defaultConvertToLlm)(recentMessages);
 -	const conversationText = serializeConversationForSummary(
@@ -1574,10 +1585,10 @@
 -	promptText += formatAdditionalContext(options?.extraContext);
 -	promptText += SHORT_SUMMARY_PROMPT;
 -
- 	if (options?.remoteEndpoint) {
- 		const endpoint = options.remoteEndpoint;
- 		const remote = await withAuth(
-@@ -1305,8 +1704,12 @@
+ 	let outcome: ShortSummaryOutcome;
+ 	try {
+ 		if (options?.remoteEndpoint) {
+@@ -1376,8 +1777,12 @@
  	firstKeptEntryId: string;
  	/** Messages that will be summarized and discarded */
  	messagesToSummarize: AgentMessage[];
@@ -1590,7 +1601,7 @@
  	/** Messages kept in full after compaction (recent history) */
  	recentMessages: AgentMessage[];
  	/** Entry IDs parallel to recentMessages, for an Anthropic-safe keep-tail boundary. */
-@@ -1493,6 +1896,15 @@
+@@ -1582,6 +1987,15 @@
  	const firstKeptEntryId = firstKeptEntry.id;
  
  	const historyEnd = cutPoint.isSplitTurn ? cutPoint.turnStartIndex : cutPoint.firstKeptEntryIndex;
@@ -1606,7 +1617,7 @@
  
  	const messagesToSummarize = compactionMessages.slice(0, historyEnd);
  	const turnPrefixMessages = cutPoint.isSplitTurn
-@@ -1522,7 +1934,9 @@
+@@ -1611,7 +2025,9 @@
  	return {
  		firstKeptEntryId,
  		messagesToSummarize,
@@ -1616,7 +1627,7 @@
  		recentMessages,
  		recentEntryIds,
  		lastSummarizedEntryId: compactionEntries[cutPoint.firstKeptEntryIndex - 1]?.id,
-@@ -1541,6 +1955,7 @@
+@@ -1630,6 +2046,7 @@
  // ============================================================================
  
  const TURN_PREFIX_SUMMARIZATION_PROMPT = prompt.render(compactionTurnPrefixPrompt);
@@ -1624,7 +1635,7 @@
  function isCodexResponsesModel(model: Model): model is Model<"openai-codex-responses"> {
  	return model.api === "openai-codex-responses";
  }
-@@ -1646,6 +2061,9 @@
+@@ -1735,6 +2152,9 @@
   *
   * @param preparation - Pre-calculated preparation from prepareCompaction()
   * @param customInstructions - Optional custom focus for the summary
@@ -1634,7 +1645,7 @@
   */
  export async function compact(
  	preparation: CompactionPreparation,
-@@ -1671,17 +2089,31 @@
+@@ -1760,17 +2180,31 @@
  	} = preparation;
  
  	const reserveTokens = settings.reserveTokens ?? DEFAULT_RESERVE_TOKENS;
@@ -1667,7 +1678,7 @@
  		telemetry: options?.telemetry,
  		// Honor /model thinking selection on every fan-out summarizer.
  		// Without this propagation, generateSummary / generateTurnPrefixSummary
-@@ -1701,6 +2133,16 @@
+@@ -1795,6 +2229,16 @@
  		// The caller's opt-out must reach every summarization oneshot, otherwise
  		// an outer retry loop multiplies with the inner one (see SummaryOptions).
  		oneshotRetry: options?.oneshotRetry,
@@ -1684,7 +1695,7 @@
  	};
  
  	// An archive keeps the reasoning policy of the model it was rendered for;
-@@ -1772,6 +2214,7 @@
+@@ -1866,6 +2310,7 @@
  		} catch (err) {
  			if (
  				signal?.aborted ||
@@ -1692,7 +1703,7 @@
  				!canCompactBeforeTail ||
  				!AIError.is(AIError.classify(err), AIError.Flag.ContextOverflow)
  			) {
-@@ -1803,7 +2246,10 @@
+@@ -1897,7 +2342,10 @@
  		// too, so pick the user's own messages before serialization erases that,
  		// then serialize each one exactly as the request does.
  		const isUserAuthored = summaryOptions.isUserAuthored ?? ((message: AgentMessage) => message.role === "user");
@@ -1704,7 +1715,7 @@
  		const buildV2Input = async (includeTail: boolean): Promise<RemoteCompactionV2Input> => {
  			const messages = convertToLlm(includeTail ? remoteMessages : remotePrefixMessages);
  			const userMessages = convertToLlm(
-@@ -1824,11 +2270,11 @@
+@@ -1921,11 +2369,11 @@
  				}
  				codexBody = await buildTransformedCodexRequestBody(
  					model,
@@ -1716,9 +1727,9 @@
 -						responsesLite: model.useResponsesLite,
 +						responsesLite: false,
  						sessionId: summaryOptions.sessionId,
- 						promptCacheKey: summaryOptions.promptCacheKey,
+ 						promptCacheKey: summaryOptions.remotePromptCacheKey,
  						providerSessionState: summaryOptions.providerSessionState,
-@@ -1854,7 +2300,7 @@
+@@ -1951,7 +2399,7 @@
  					const userBody = await buildTransformedCodexRequestBody(
  						model,
  						{ messages: [message] },
@@ -1727,14 +1738,18 @@
  					);
  					retainedUserItems.push(...(userBody.input ?? []));
  				}
-@@ -1879,28 +2325,33 @@
+@@ -1977,32 +2425,37 @@
  				? Array.isArray(codexBody.tools)
  					? codexBody.tools
  					: undefined
 -				: summaryOptions.tools
--					? convertTools(summaryOptions.tools, model.compat.supportsStrictMode, model)
 +				: remoteTools
-+					? convertTools(remoteTools, model.compat.supportsStrictMode, model)
+ 					? (await import("@oh-my-pi/pi-ai/providers/openai-responses")).convertTools(
+-							summaryOptions.tools,
++							remoteTools,
+ 							model.compat.supportsStrictMode,
+ 							model,
+ 						)
  					: undefined;
 -			const trimmed = trimRemoteCompactionInputToContextWindow(
 -				remoteHistory,
@@ -1780,8 +1795,8 @@
 -			assertRemoteCompactionInputFits(trimmed, model);
  			const requestOptions = {
  				sessionId: summaryOptions.sessionId,
- 				promptCacheKey: summaryOptions.promptCacheKey,
-@@ -1908,12 +2359,30 @@
+ 				promptCacheKey: summaryOptions.remotePromptCacheKey,
+@@ -2010,12 +2463,35 @@
  				retainedUserItems,
  			};
  			const request = codexBody
@@ -1794,15 +1809,20 @@
  						reasoning: buildCompactionV2Reasoning(model, summaryOptions.thinkingLevel),
  					});
 +			if (isCodexResponsesModel(model) && liveV2) {
-+				request.prepareCompactionRecovery = () =>
-+					buildTransformedCodexRequestBody(model, liveV2.context, {
-+						reasoning: resolveCompactionEffort(model, summaryOptions.thinkingLevel),
-+						forceReasoningOff: summaryOptions.thinkingLevel === ThinkingLevel.Off,
-+						responsesLite: false,
-+						sessionId: summaryOptions.sessionId,
-+						promptCacheKey: summaryOptions.promptCacheKey,
-+						providerSessionState: summaryOptions.providerSessionState,
-+					});
++				// Lazy: the Codex serializer module is loaded only on the Codex compaction lane (same as buildV2Input).
++				request.prepareCompactionRecovery = async () =>
++					(await import("@oh-my-pi/pi-ai/providers/openai-codex-responses")).buildTransformedCodexRequestBody(
++						model,
++						liveV2.context,
++						{
++							reasoning: resolveCompactionEffort(model, summaryOptions.thinkingLevel),
++							forceReasoningOff: summaryOptions.thinkingLevel === ThinkingLevel.Off,
++							responsesLite: false,
++							sessionId: summaryOptions.sessionId,
++							promptCacheKey: summaryOptions.promptCacheKey,
++							providerSessionState: summaryOptions.providerSessionState,
++						},
++					);
 +			}
 +			traceCompaction({
 +				k: "summarize.request", lane: "codex-v2",
@@ -1814,9 +1834,9 @@
  			const remote = await withAuth(
  				apiKey,
  				key =>
-@@ -1922,9 +2391,20 @@
- 						providerSessionState: summaryOptions.providerSessionState,
+@@ -2025,9 +2501,20 @@
  						preferWebsockets: summaryOptions.preferWebsockets,
+ 						codexAccessPrograms: summaryOptions.codexAccessPrograms,
  						codexCompaction: summaryOptions.codexCompaction,
 +						initiator: summaryOptions.initiator,
 +						sessionId: summaryOptions.sessionId,
@@ -1835,7 +1855,7 @@
  			preserveData = { ...preserveData, ...storeCompactionV2PreserveData(remote, model) };
  		};
  		const whole = await buildV2Input(true);
-@@ -1939,12 +2419,34 @@
+@@ -2042,12 +2529,34 @@
  						return true;
  					},
  				);
@@ -1870,7 +1890,7 @@
  				nativeCompactionError = selectNativeCompactionError(nativeCompactionError, err);
  				// Claim the V1 fallback only when the V1 block below will run.
  				logger.warn(
-@@ -1992,6 +2494,7 @@
+@@ -2096,6 +2605,7 @@
  					),
  				{ signal },
  			);
@@ -1878,7 +1898,7 @@
  			preserveData = withOpenAiRemoteCompactionPreserveData(preserveData, remote);
  		};
  		const whole = buildOpenAiNativeHistory(
-@@ -2001,6 +2504,10 @@
+@@ -2105,6 +2615,10 @@
  			supportsOriginalDetail,
  		);
  		if (whole.length > 0) {
@@ -1889,7 +1909,7 @@
  			try {
  				await sendRemoteCompaction(
  					() => sendV1(whole, !canCompactBeforeTail),
-@@ -2016,12 +2523,20 @@
+@@ -2120,12 +2634,20 @@
  						return true;
  					},
  				);
@@ -1910,7 +1930,7 @@
  				nativeCompactionError = selectNativeCompactionError(nativeCompactionError, err);
  				logger.warn("OpenAI remote compaction failed", {
  					error: err instanceof Error ? err.message : String(err),
-@@ -2032,8 +2547,8 @@
+@@ -2136,8 +2658,8 @@
  		}
  	}
  
@@ -1921,7 +1941,7 @@
  	let nativeSummary: string | undefined;
  	let nativeSignature: string | undefined;
  	let nativeFirstKeptEntryId = firstKeptEntryId;
-@@ -2125,28 +2640,95 @@
+@@ -2229,28 +2751,95 @@
  			].filter(files => files.after >= filesDueBefore);
  			if (carried.length > 0) nativeRetainedFiles = carried;
  		}
@@ -2032,7 +2052,7 @@
  					maxTokens: Math.min(Math.floor(0.8 * reserveTokens), MAX_SUMMARY_TOKENS),
  					reasoning: resolveCompactionEffort(model, summaryOptions.thinkingLevel),
  				},
-@@ -2163,6 +2745,13 @@
+@@ -2267,6 +2856,13 @@
  					retry: summaryOneshotRetry(summaryOptions),
  				},
  			);
@@ -2046,7 +2066,7 @@
  			nativeSummary = remote.content;
  			nativeSignature = remote.signature;
  			nativeToolChanges = remote.toolChanges;
-@@ -2173,6 +2762,13 @@
+@@ -2277,6 +2873,13 @@
  			// swallowing it here would downgrade Esc into "fall back to local
  			// summarization" and keep compaction running on an aborted signal.
  			if (signal?.aborted) throw err;
@@ -2060,7 +2080,7 @@
  			nativeCompactionError = selectNativeCompactionError(nativeCompactionError, err);
  			logger.warn("Anthropic server-side compaction failed", {
  				error: err instanceof Error ? err.message : String(err),
-@@ -2203,28 +2799,59 @@
+@@ -2307,28 +2910,59 @@
  		const inputTokens = getCompactionV2PreserveData(preserveData)?.usedTokens ?? 0;
  		summary = formatRemoteCompactionSummary(inputTokens);
  	} else if (isSplitTurn && turnPrefixMessages.length > 0) {
@@ -2133,8 +2153,8 @@
  			model,
  			reserveTokens,
  			apiKey,
-@@ -2290,7 +2917,11 @@
- 		shortSummary,
+@@ -2394,7 +3028,11 @@
+ 		...(shortSummary !== undefined ? { shortSummary } : {}),
  		firstKeptEntryId: nativeSummary !== undefined ? nativeFirstKeptEntryId : firstKeptEntryId,
  		tokensBefore,
 -		details: { readFiles, modifiedFiles } as CompactionDetails,
@@ -2146,7 +2166,7 @@
  		preserveData: finalPreserveData,
  		...(remoteReplayThroughEntryId ? { providerReplayThroughEntryId: remoteReplayThroughEntryId } : {}),
  	};
-@@ -2310,28 +2941,66 @@
+@@ -2414,28 +3052,67 @@
  	const maxTokens = Math.min(Math.floor(0.5 * reserveTokens), MAX_SUMMARY_TOKENS); // Smaller budget for turn prefix
  
  	const llmMessages = (options?.convertToLlm ?? defaultConvertToLlm)(messages);
@@ -2157,7 +2177,7 @@
 -		resolveCatalogPolicy(model).classifierCotExtraction === true,
 +		llmMessages, dialect, resolveCatalogPolicy(model).classifierCotExtraction === true,
  	);
--	const promptText = `<conversation>\n${conversationText}\n</conversation>\n\n${TURN_PREFIX_SUMMARIZATION_PROMPT}`;
+-	const promptText = `<conversation>\n${conversationText}\n</conversation>\n\n${formatAdditionalContext(options?.extraContext)}${TURN_PREFIX_SUMMARIZATION_PROMPT}`;
 -	const summarizationMessages = [
 -		{
 -			role: "user" as const,
@@ -2174,9 +2194,10 @@
 +			serializeConversationForSummary(cachePreservingSummary.context.messages, dialect),
 +			summaryInputBudgetTokens(model, maxTokens),
 +		).fits;
++	const additionalContext = formatAdditionalContext(options?.extraContext);
 +	const promptText = useCachePreservingPrefix
-+		? TURN_PREFIX_SUMMARIZATION_FROM_PREFIX_PROMPT
-+		: `<conversation>\n${conversationText}\n</conversation>\n\n${TURN_PREFIX_SUMMARIZATION_PROMPT}`;
++		? `${additionalContext}${TURN_PREFIX_SUMMARIZATION_FROM_PREFIX_PROMPT}`
++		: `<conversation>\n${conversationText}\n</conversation>\n\n${additionalContext}${TURN_PREFIX_SUMMARIZATION_PROMPT}`;
 +	const summarizationTail = {
 +		role: "user" as const,
 +		content: [{ type: "text" as const, text: promptText }],
@@ -2311,7 +2332,7 @@
 +[Other important info not fitting above]
 --- a/pi-ai/dist/types/providers/openai-codex-responses.d.ts
 +++ b/pi-ai/dist/types/providers/openai-codex-responses.d.ts
-@@ -19,6 +19,8 @@
+@@ -22,6 +22,8 @@
      codexMode?: boolean;
      toolChoice?: ToolChoice;
      preferWebsockets?: boolean;
@@ -2320,7 +2341,7 @@
      serviceTier?: ServiceTier;
      /**
       * Responses Lite transport opt-in. Normal inference defaults to full
-@@ -56,6 +58,11 @@
+@@ -59,6 +61,11 @@
  /** Transport controls for a provider-native Codex V2 compaction stream. */
  export interface OpenAICodexCompactionStreamOptions extends OpenAICodexResponsesOptions {
      apiKey: string;
@@ -2332,7 +2353,7 @@
  }
  /** Inputs for synthesizing Codex request identity outside the normal stream path. */
  export interface OpenAICodexCompatibilityMetadataOptions {
-@@ -149,8 +156,8 @@
+@@ -193,8 +200,8 @@
  /** Serialize normal Codex turns and V2 compaction with the same cacheable prefix. */
  export declare function buildTransformedCodexRequestBody(model: Model<"openai-codex-responses">, context: Context, options: OpenAICodexResponsesOptions | undefined, promptCacheKey?: string | undefined, inputPrefix?: InputItem[]): Promise<RequestBody>;
  /**
@@ -2343,8 +2364,8 @@
   */
  export declare function openCodexCompactionEventStream(model: Model<"openai-codex-responses">, body: OpenAICodexCompactionBody, options: OpenAICodexCompactionStreamOptions): Promise<AsyncGenerator<Record<string, unknown>>>;
  export declare const streamOpenAICodexResponses: StreamFunction<"openai-codex-responses">;
-@@ -180,6 +187,24 @@
- }): OpenAICodexTransportDetails;
+@@ -252,6 +259,24 @@
+ }
  /** Resolve a Codex Responses endpoint exactly as the chat and compaction transports do. */
  export declare function resolveCodexResponsesUrl(baseUrl: string | undefined): string;
 +
@@ -2368,7 +2389,7 @@
  declare function convertMessages(model: Model<"openai-codex-responses">, context: Context): ResponseInput;
  /** @internal Exported for tests. */
  export { convertMessages as convertCodexResponsesMessages };
-@@ -214,3 +239,31 @@
+@@ -287,3 +312,31 @@
  }
  export declare function isRetryableCodexFailureEvent(rawEvent: Record<string, unknown>): boolean;
  export declare function createCodexProviderStreamError(rawEvent: Record<string, unknown>): CodexProviderStreamError;
@@ -2402,7 +2423,7 @@
 +export declare function isCodexStalePreviousResponseError(error: unknown): boolean;
 --- a/pi-ai/src/providers/openai-codex-responses.ts
 +++ b/pi-ai/src/providers/openai-codex-responses.ts
-@@ -172,11 +172,15 @@
+@@ -178,11 +178,15 @@
  	codexMode?: boolean;
  	toolChoice?: ToolChoice;
  	preferWebsockets?: boolean;
@@ -2420,7 +2441,7 @@
  	 */
  	responsesLite?: boolean;
  	/**
-@@ -211,6 +215,26 @@
+@@ -217,6 +221,26 @@
  /** Transport controls for a provider-native Codex V2 compaction stream. */
  export interface OpenAICodexCompactionStreamOptions extends OpenAICodexResponsesOptions {
  	apiKey: string;
@@ -2447,15 +2468,15 @@
  }
  
  /** Inputs for synthesizing Codex request identity outside the normal stream path. */
-@@ -446,7 +470,6 @@
+@@ -450,7 +474,6 @@
   */
- type CodexWebSocketSessionState = {
+ export type CodexWebSocketSessionState = {
  	sessionId: string;
 -	disableWebsocket: boolean;
  	lastRequest?: RequestBody;
  	/** Last completed response; an in-progress response cannot replace the retry baseline. */
  	lastResponseId?: string;
-@@ -466,6 +489,22 @@
+@@ -470,6 +493,22 @@
  	fallbackCount: number;
  	lastFallbackAt?: number;
  	prewarmed: boolean;
@@ -2478,7 +2499,7 @@
  	stats: OpenAICodexWebSocketDebugStats;
  };
  
-@@ -1494,7 +1533,6 @@
+@@ -1424,7 +1463,6 @@
  			? getCodexWebSocketSessionState(sessionKey, transportSessionId, isolatedTransportState)
  			: sharedWebsocketState;
  	if (isolatedTransportState && websocketState && sharedWebsocketState) {
@@ -2486,7 +2507,7 @@
  		websocketState.modelsEtag = sharedWebsocketState.modelsEtag;
  	}
  	const metadataSessionId = transportSessionId ?? crypto.randomUUID();
-@@ -1707,6 +1745,18 @@
+@@ -1637,6 +1675,18 @@
  	transport: CodexTransport;
  }> {
  	const { transformedBody, websocketState } = requestContext;
@@ -2505,7 +2526,7 @@
  	if (websocketState && shouldUseCodexWebSocket(model, websocketState, options?.preferWebsockets)) {
  		const websocketRetryBudget = CODEX_WEBSOCKET_RETRY_BUDGET;
  		let websocketRetries = 0;
-@@ -1727,7 +1777,21 @@
+@@ -1660,7 +1710,21 @@
  				const isFatal = CODEX_WEBSOCKET_FATAL_PATTERNS.some(pattern =>
  					fatalWebSocketMessage.includes(pattern.toLowerCase()),
  				);
@@ -2528,7 +2549,7 @@
  				recordCodexWebSocketFailure(websocketState, activateFallback);
  				CODEX_DEBUG &&
  					logger.debug("[codex] codex websocket fallback", {
-@@ -1744,12 +1808,24 @@
+@@ -1677,12 +1741,24 @@
  					});
  					continue;
  				}
@@ -2553,7 +2574,7 @@
  	try {
  		return await openCodexSseTransport(model, requestContext, requestSetup, options, websocketState, transformedBody);
  	} catch (error) {
-@@ -1767,8 +1843,8 @@
+@@ -1700,8 +1776,8 @@
  }
  
  /**
@@ -2564,7 +2585,7 @@
   */
  export async function openCodexCompactionEventStream(
  	model: Model<"openai-codex-responses">,
-@@ -1782,23 +1858,77 @@
+@@ -1715,23 +1791,77 @@
  		requestBodyForState: RequestBody;
  		transport: CodexTransport;
  	};
@@ -2646,7 +2667,7 @@
  }
  
  async function* streamCodexCompactionEvents(
-@@ -1811,27 +1941,77 @@
+@@ -1744,27 +1874,77 @@
  		requestBodyForState: RequestBody;
  		transport: CodexTransport;
  	},
@@ -2707,7 +2728,7 @@
  					throw error;
  				}
  				const state = requestContext.websocketState;
- 				if (state) recordCodexWebSocketFailure(state, true);
+ 				if (state && !(error instanceof CodexWebSocketBusyError)) recordCodexWebSocketFailure(state, true);
 -				const fallback = await openCodexSseTransport(model, requestContext, requestSetup, options, state);
 +				const diagBeforeFallback = state?.stats.lastTurn?.request;
 +				let fallback: {
@@ -2732,7 +2753,7 @@
  				completed = true;
  				return;
  			}
-@@ -1847,53 +2027,40 @@
+@@ -1780,53 +1960,40 @@
  			) {
  				const replay = await openCodexSseTransport(model, requestContext, requestSetup, options, websocketState);
  				if (websocketState) websocketState.lastTransport = replay.transport;
@@ -2801,19 +2822,19 @@
  }
  async function openCodexWebSocketTransport(
  	model: Model<"openai-codex-responses">,
-@@ -1910,8 +2077,6 @@
+@@ -1841,8 +2008,6 @@
+ 	requestBodyForState: RequestBody;
+ 	transport: CodexTransport;
  }> {
- 	const steered = websocketState.acceptedSteering;
- 	websocketState.acceptedSteering = undefined;
 -	const canAppendBeforeRequest = websocketState.canAppend === true;
 -	let chainedBody = buildCodexChainedRequestBody(requestContext.transformedBody, websocketState);
  	const websocketHeaders = createCodexHeaders(
  		requestContext.requestHeaders,
  		requestContext.accountId,
-@@ -1926,6 +2091,34 @@
- 		await getCodexAttestationHeader(requestContext.accountId),
- 		requestContext.transformedBody,
- 	);
+@@ -1869,6 +2034,34 @@
+ 	const onOwned = () => {
+ 		if (websocketState.acceptedSteering === steered) websocketState.acceptedSteering = undefined;
+ 	};
 +	// Sample the baseline BEFORE the connection settles. getOrCreate clears the
 +	// append state whenever it reconnects (stale-reuse / token-refresh /
 +	// unhealthy), so reading it afterwards cannot distinguish "this request never
@@ -2845,7 +2866,7 @@
  	let websocketConnection = await getOrCreateCodexWebSocketConnection(
  		websocketState,
  		requestContext.turnState,
-@@ -1934,10 +2127,79 @@
+@@ -1877,10 +2070,79 @@
  		model.provider,
  		requestSetup.requestSignal,
  	);
@@ -2925,7 +2946,7 @@
  	// Steering accepted for the previous response lives only on the socket that
  	// accepted it; a replaced socket lost it, so the input is plain history.
  	const steers = steered?.connection === websocketConnection ? steered.steers : [];
-@@ -2000,6 +2262,46 @@
+@@ -1944,6 +2206,46 @@
  	if (replacementWebsocketRequest !== undefined) {
  		websocketRequest = replacementWebsocketRequest as typeof websocketRequest;
  	}
@@ -2972,7 +2993,7 @@
  	recordCodexTurnRequestDiagnostics(websocketState, websocketRequest, "websocket", canAppendBeforeRequest);
  	const requestBodyForState = cloneJsonTree(requestContext.transformedBody);
  	// `onPayload` may rewrite the outgoing frame (e.g. drop `stream_options` or
-@@ -2079,6 +2381,12 @@
+@@ -2024,6 +2326,12 @@
  	requestBodyForState: RequestBody;
  	transport: CodexTransport;
  }> {
@@ -2985,7 +3006,7 @@
  	const open = async (wireBody: RequestBody) => {
  		// Keep the 400 dump honest: record the body actually sent on the wire.
  		requestContext.rawRequestDump.body = wireBody;
-@@ -2109,6 +2417,9 @@
+@@ -2054,6 +2362,9 @@
  	if (replacementWireBody !== undefined) {
  		wireBody = replacementWireBody as RequestBody;
  	}
@@ -2995,7 +3016,7 @@
  	recordCodexTurnRequestDiagnostics(state, wireBody, "sse", canAppendBeforeRequest);
  	// SSE turns never chain, so later reads need only the per-turn knobs (summary
  	// delivery, service tier); copying the whole transcript would be wasted work.
-@@ -2192,7 +2503,64 @@
+@@ -2137,7 +2448,64 @@
  	slow_down: true,
  };
  
@@ -3061,7 +3082,7 @@
  	if (!(error instanceof Error)) return false;
  	if (
  		"code" in error &&
-@@ -2822,6 +3190,12 @@
+@@ -2776,6 +3144,12 @@
  					state.lastResponseId = responseId;
  					state.lastResponseItems = replayableResponseItems;
  					state.canAppend = rawEvent.type === "response.done" || rawEvent.type === "response.completed" || steered;
@@ -3074,7 +3095,7 @@
  				} else {
  					// No response id, or replay sanitization dropped an item the server
  					// still holds. Sanitization is 1:1-or-fewer, so either case makes the
-@@ -3261,6 +3635,8 @@
+@@ -3266,6 +3640,8 @@
  
  	async #reopenWebSocketStream(state: CodexWebSocketSessionState): Promise<void> {
  		try {
@@ -3083,7 +3104,7 @@
  			const next = await openCodexWebSocketTransport(
  				this.model,
  				this.options,
-@@ -3524,7 +3900,6 @@
+@@ -3534,7 +3910,6 @@
  	if (existing) return existing;
  	const created: CodexWebSocketSessionState = {
  		sessionId,
@@ -3091,7 +3112,7 @@
  		canAppend: false,
  		fallbackCount: 0,
  		prewarmed: false,
-@@ -3547,17 +3922,13 @@
+@@ -3550,17 +3925,13 @@
  
  function recordCodexWebSocketFailure(state: CodexWebSocketSessionState, activateFallback: boolean): void {
  	resetCodexWebSocketAppendState(state);
@@ -3111,7 +3132,7 @@
  		state.fallbackCount += 1;
  	}
  }
-@@ -3580,10 +3951,9 @@
+@@ -3583,10 +3954,9 @@
  	state: CodexWebSocketSessionState | undefined,
  	preferWebsockets?: boolean,
  ): boolean {
@@ -3124,16 +3145,15 @@
  	// Env val > Preference
  	const envVal = getOpenAICodexWebSocketEnvValue();
  	if (envVal !== undefined) return envVal;
-@@ -3667,7 +4037,7 @@
- 	return {
- 		websocketPreferred,
- 		lastTransport: state?.lastTransport,
--		websocketDisabled: state?.disableWebsocket ?? false,
-+		websocketDisabled: false,
- 		websocketConnected: state?.connection?.isOpen() ?? false,
- 		fallbackCount: state?.fallbackCount ?? 0,
- 		canAppend: state?.canAppend ?? false,
-@@ -3902,14 +4272,134 @@
+@@ -3595,6 +3965,7 @@
+ 	return true;
+ }
+ 
++
+ function hashJson(value: unknown): string {
+ 	const json = JSON.stringify(value);
+ 	return String(Bun.hash(json === undefined ? "undefined" : json));
+@@ -3819,14 +4190,134 @@
   * Entering or leaving `ultrafast` still breaks the chain: that tier is a
   * separate serving path, and codex-rs sends a full `response.create` across
   * such a switch rather than a `previous_response_id` delta.
@@ -3269,7 +3289,7 @@
  	const appendInput = chainable
  		? buildResponsesDeltaInput(
  				state.lastRequest,
-@@ -3971,14 +4461,29 @@
+@@ -3888,14 +4379,29 @@
  
  interface CodexWebSocketConnectionOptions {
  	onHandshakeHeaders?: (headers: Headers) => void;
@@ -3299,7 +3319,7 @@
  	#socket: Bun.WebSocket | null = null;
  	#queue: Array<Record<string, unknown> | Error | null> = [];
  	#waiters: Array<() => void> = [];
-@@ -4018,6 +4523,7 @@
+@@ -3935,6 +4441,7 @@
  		this.#headers = headers;
  		this.#proxy = options.proxy;
  		this.#onHandshakeHeaders = options.onHandshakeHeaders;
@@ -3307,7 +3327,7 @@
  	}
  
  	isOpen(): boolean {
-@@ -4065,6 +4571,9 @@
+@@ -3987,6 +4494,9 @@
  		const socket = this.#socket;
  		this.#socket = null;
  		this.#stopHeartbeat();
@@ -3317,7 +3337,7 @@
  		this.#rejectSteerWaiters(`websocket closed (${reason})`);
  		if (!socket || (socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING)) return;
  		try {
-@@ -4156,6 +4665,10 @@
+@@ -4078,6 +4588,10 @@
  		socket.onclose = event => {
  			this.#socket = null;
  			this.#stopHeartbeat();
@@ -3328,7 +3348,7 @@
  			this.#rejectSteerWaiters(`websocket closed (${event.code})`);
  			if (!settled) {
  				settled = true;
-@@ -4742,6 +5255,25 @@
+@@ -4666,6 +5180,25 @@
  		onHandshakeHeaders: handshakeHeaders => {
  			updateCodexSessionMetadataFromHeaders(turnState, state, handshakeHeaders);
  		},
@@ -3354,7 +3374,7 @@
  		proxy,
  	});
  	await state.connection.connect(signal);
-@@ -5236,6 +5768,21 @@
+@@ -5160,6 +5693,21 @@
  	return payloads;
  }
  
@@ -3378,7 +3398,7 @@
  		super(`${CODEX_WEBSOCKET_TRANSPORT_ERROR_PREFIX}: ${detail}`, options);
 --- a/pi-coding-agent/dist/types/session/agent-session.d.ts
 +++ b/pi-coding-agent/dist/types/session/agent-session.d.ts
-@@ -638,12 +638,10 @@
+@@ -721,12 +721,10 @@
       * `agent.replaceMessages` or a provider.
       */
      buildTranscriptSessionContext(options?: TranscriptSessionContextOptions): SessionContext;
@@ -3394,7 +3414,7 @@
 +    convertMessagesToLlmWithSource(messages: AgentMessage[], signal?: AbortSignal, model?: Model): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }>;
      /** Apply session-level stream hooks to a direct side request. */
      prepareSimpleStreamOptions(options: SimpleStreamOptions, provider?: string): SimpleStreamOptions;
-     /** Cache identity for the main loop and side requests that reuse its context. */
+     /**
 --- a/pi-coding-agent/dist/types/session/context-notes.d.ts
 +++ b/pi-coding-agent/dist/types/session/context-notes.d.ts
 @@ -1,3 +1,4 @@
@@ -3423,7 +3443,7 @@
 +export declare function createContextNotesMessage(revision: ContextNotesUpdate): CustomMessage;
 --- a/pi-coding-agent/dist/types/session/session-maintenance.d.ts
 +++ b/pi-coding-agent/dist/types/session/session-maintenance.d.ts
-@@ -94,6 +94,10 @@
+@@ -97,6 +97,10 @@
      convertToLlmForSideRequest(messages: AgentMessage[]): Message[];
      /** The provider context a live turn sends for `summarized` + `retained`, cut to the `summarized` range, as `model` reads it. */
      buildLiveProviderContext(summarized: AgentMessage[], retained: AgentMessage[], signal: AbortSignal | undefined, model: Model): Promise<Context>;
@@ -3433,10 +3453,10 @@
 +    convertMessagesToLlmWithSource(messages: AgentMessage[], signal?: AbortSignal, model?: Model): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }>;
      obfuscateTextForProvider(text: string | undefined): string | undefined;
      obfuscatePreparationForProvider(preparation: CompactionPreparation): CompactionPreparation;
-     closeCodexProviderSessionsForHistoryRewrite(): void;
+     /** Gated cache identity: the agent's explicit key, else the Task family key when `model` opts in. */
 --- a/pi-coding-agent/dist/types/session/session-provider-boundary.d.ts
 +++ b/pi-coding-agent/dist/types/session/session-provider-boundary.d.ts
-@@ -67,6 +67,8 @@
+@@ -70,6 +70,8 @@
      convertToLlmForSideRequest(messages: AgentMessage[]): Message[];
      /** Converts session messages using the configured pre-LLM pipeline. */
      convertMessagesToLlm(messages: AgentMessage[], signal?: AbortSignal): Promise<Message[]>;
@@ -3445,7 +3465,7 @@
      /** Applies session-level stream hooks and provider defaults to a side request. */
      prepareSimpleStreamOptions(options: SimpleStreamOptions, provider?: string): SimpleStreamOptions;
      /** Normalizes image payloads for the active model. */
-@@ -76,3 +78,5 @@
+@@ -79,3 +81,5 @@
      /** Normalizes every image embedded in an agent message. */
      normalizeAgentMessageImages<T extends AgentMessage>(message: T): Promise<T>;
  }
@@ -3462,7 +3482,7 @@
  Keep the notebook a compact, current index: task state, decisions, changed files, evidence, blockers, and next steps, one line per item without copied logs or file bodies. Replace stale entries rather than appending, so the notebook stays well under its 16 KiB bound.
 --- a/pi-coding-agent/src/session/agent-session.ts
 +++ b/pi-coding-agent/src/session/agent-session.ts
-@@ -410,6 +410,7 @@
+@@ -426,6 +426,7 @@
  	USER_INTERRUPT_LABEL,
  	VIBE_MODE_CONTEXT_MESSAGE_TYPE,
  } from "./messages";
@@ -3470,7 +3490,7 @@
  import { ModelControls, type ModelControlsHost } from "./model-controls";
  import {
  	isPrewalkPlanNudge,
-@@ -1579,6 +1580,7 @@
+@@ -1748,6 +1749,7 @@
  					return;
  				}
  				observation = this.#startTurnObservation(records);
@@ -3478,26 +3498,26 @@
  				return this.agent.prompt(records);
  			})
  			.catch(error => {
-@@ -2191,6 +2193,7 @@
+@@ -2401,6 +2403,7 @@
  					if (this.#isDisposed || this.#promptGeneration !== generation) {
  						throw new Error("Yield queue idle dispatch was superseded");
  					}
 +					this.#flushPendingContextNotes();
  					await this.agent.prompt(messages.length === 1 ? first : messages);
- 				} finally {
- 					this.#endInFlight(inFlight.epoch);
-@@ -2244,7 +2247,9 @@
- 		// boundary injection would drain them. Foreground tools are unaffected.
- 		this.agent.hasQueuedAsides = () => this.#irc.hasAsides();
- 		this.agent.setAsideMessageProvider(() => {
--			const thunks: AsideMessage[] = this.#irc.drainPending().map(record => () => record);
+ 				} catch (error) {
+ 					turnError = error;
+@@ -2463,7 +2466,9 @@
+ 			// one: that turn's text is its result.
+ 			const keepPeerMessages =
+ 				boundary === "stop" && (this.#ircWakeHolds > 0 || this.#ircWakeTurnObserver !== undefined);
+-			const thunks: AsideMessage[] = this.#irc.drainPending({ keepPeerMessages }).map(record => () => record);
 +			const thunks: AsideMessage[] = [];
 +			for (const message of this.#pendingContextNotesMessages()) thunks.push(() => message);
-+			thunks.push(...this.#irc.drainPending().map(record => () => record));
++			thunks.push(...this.#irc.drainPending({ keepPeerMessages }).map(record => () => record));
  			thunks.push(...this.yieldQueue.drainLazy());
  			// Mid-run todo reconciliation — evaluated at injection time so a turn
  			// that flips a todo just before this poll suppresses the nudge.
-@@ -2607,6 +2612,9 @@
+@@ -2842,6 +2847,9 @@
  				// Persisted date/cwd anchors stamp existing messages; they add no controls.
  				return { ...live, messages: live.messages.slice(0, prefixLength) };
  			},
@@ -3506,16 +3526,16 @@
 +				this.convertMessagesToLlmWithSource(messages, signal, model),
  			obfuscateTextForProvider: text => this.#obfuscateTextForProvider(text),
  			obfuscatePreparationForProvider: preparation => this.#obfuscatePreparationForProvider(preparation),
- 			closeCodexProviderSessionsForHistoryRewrite: () => this.#closeCodexProviderSessionsForHistoryRewrite(),
-@@ -5094,6 +5102,7 @@
- 					return { status: "skipped", reason: "should-continue-false" };
+ 			getPromptCacheKeyForModel: model => this.getPromptCacheKeyForModel(model),
+@@ -5443,6 +5451,7 @@
  				}
  				try {
+ 					if (!this.agent.state.isStreaming) onStart?.();
 +					this.#flushPendingContextNotes();
  					await this.agent.continue(signal);
  					return { status: "completed" };
  				} catch (error) {
-@@ -7278,6 +7287,35 @@
+@@ -7690,6 +7699,35 @@
  		);
  	}
  
@@ -3551,7 +3571,7 @@
  	#buildEvalStateContextMessage(): CustomMessage | undefined {
  		const session = this.#evalToolSession;
  		if (!session) return undefined;
-@@ -7336,6 +7374,16 @@
+@@ -7748,6 +7786,16 @@
  		return await this.#providerBoundary.convertMessagesToLlm(readable, signal);
  	}
  
@@ -3568,15 +3588,15 @@
  	/** Apply session-level stream hooks to a direct side request. */
  	prepareSimpleStreamOptions(options: SimpleStreamOptions, provider = "anthropic"): SimpleStreamOptions {
  		return this.#providerBoundary.prepareSimpleStreamOptions(options, provider);
-@@ -8645,6 +8693,7 @@
- 			if (!(await this.#runUsageAwarePreflightForNextModelCall(setupAbort.signal, generation)) || !isCurrent()) {
+@@ -9135,6 +9183,7 @@
  				return false;
- 			}
+ 			// A capped session hands the prompt back rather than start a run whose first request it refuses.
+ 			if (this.#refuseOverCostCap()) return false;
 +			this.#flushPendingContextNotes();
  			// Flush any pending bash messages before the new prompt
  			await this.#bash.flushPending();
  			if (!isCurrent()) return false;
-@@ -9775,11 +9824,9 @@
+@@ -10290,11 +10339,9 @@
  				this.#resetPromptMaintenanceState();
  			}
  			this.#recovery.setAcceptTerminalEmptyStop(acceptTerminalEmptyStop);
@@ -3694,7 +3714,7 @@
  import { buildSessionMetadata } from "./session-metadata";
  import type { YieldQueue } from "./yield-queue";
  
-@@ -2315,6 +2319,59 @@
+@@ -2401,6 +2405,59 @@
  		}
  	}
  
@@ -3754,7 +3774,7 @@
  	async #maintainAdvisorContext(
  		advisor: ActiveAdvisor,
  		incoming: AgentMessage,
-@@ -2537,13 +2594,18 @@
+@@ -2621,13 +2678,18 @@
  						thinkingLevel: advisorCompactionThinkingLevel,
  						convertToLlm: messages => this.#host.convertToLlmForSideRequest(messages),
  						isUserAuthored: isUserAuthoredMessage,
@@ -3776,7 +3796,7 @@
  						preferWebsockets: this.#host.preferWebsockets(),
 --- a/pi-coding-agent/src/session/session-context.ts
 +++ b/pi-coding-agent/src/session/session-context.ts
-@@ -11,13 +11,17 @@
+@@ -11,14 +11,18 @@
  import {
  	createBranchSummaryMessage,
  	createCompactionSummaryMessage,
@@ -3784,6 +3804,7 @@
  	followedByStreamStallContinueReminder,
  	isEmptyErrorTurn,
  	PREWALK_PLAN_MESSAGE_TYPE,
+ 	REWIND_REPORT_MESSAGE_TYPE,
  	VIBE_MODE_CONTEXT_MESSAGE_TYPE,
  } from "./messages";
 -import { CONTEXT_NOTES_ENTRY_TYPE, getContextNotes, renderContextNotes } from "./context-notes";
@@ -3796,9 +3817,9 @@
  import {
  	type CompactionEntry,
  	type CustomMessageEntry,
-@@ -395,8 +399,25 @@
- 		cacheMissExplainedAt.push(trackMessageCacheState(msg));
- 	};
+@@ -416,8 +420,24 @@
+ 		}
+ 	}
  
 +	const notesProjection = options?.transcript ? undefined : getContextNotesProjection(path);
 +	const noteUpdates = new Map(
@@ -3810,7 +3831,6 @@
 +		for (const update of pendingNotes) pushMessage(createContextNotesMessage(update));
 +		pendingNotes.length = 0;
 +	};
-+
  	const appendMessage = (entry: SessionEntry) => {
  		handleEntryResetTracking(entry);
 +		const noteUpdate = noteUpdates.get(entry.id);
@@ -3822,7 +3842,7 @@
  		if (entry.type === "message") {
  			if (
  				!options?.transcript &&
-@@ -405,8 +426,19 @@
+@@ -426,8 +446,19 @@
  			) {
  				return;
  			}
@@ -3842,7 +3862,7 @@
  			if (
  				!options?.transcript &&
  				(entry.customType === PREWALK_PLAN_MESSAGE_TYPE || entry.customType === VIBE_MODE_CONTEXT_MESSAGE_TYPE)
-@@ -645,29 +677,18 @@
+@@ -666,29 +697,18 @@
  	}
  
  	if (!options?.transcript) {
@@ -3895,13 +3915,13 @@
  	prepareCompaction,
 @@ -65,6 +66,7 @@
  import * as AIError from "@oh-my-pi/pi-ai/error";
- import { openAIResponsesReplaysNativeHistory } from "@oh-my-pi/pi-ai/providers/openai-responses";
+ import { openAIResponsesReplaysNativeHistory } from "@oh-my-pi/pi-ai/providers/openai-responses-state";
  import { sendsImageInputOnWire } from "@oh-my-pi/pi-ai/providers/vision-guard";
 +import { CodexCompactionChainLostError } from "@oh-my-pi/pi-ai/providers/openai-codex-responses";
  import { resolvePromptCacheLookback } from "@oh-my-pi/pi-catalog/compat/prompt-cache-lookback";
  import { modelsAreEqual } from "@oh-my-pi/pi-catalog/models";
- import { isRecord, logger, prompt, Snowflake } from "@oh-my-pi/pi-utils";
-@@ -111,6 +113,7 @@
+ import type { CatalogPolicyInputs } from "@oh-my-pi/pi-catalog/types";
+@@ -112,6 +114,7 @@
  import { buildSessionContext, getLatestCompactionEntry, getOpenAiRemoteCompactionPayload } from "./session-context";
  import type { CompactionEntry, SessionEntry } from "./session-entries";
  import type { SessionManager } from "./session-manager";
@@ -3909,7 +3929,7 @@
  import type { ShakeMode, ShakeResult } from "./shake-types";
  import { resolveSpeculationLeadTokens, SPECULATION_LEAD_MIN_TOKENS } from "./speculation-lead";
  import experimentalContextNotesReminderPrompt from "../prompts/system/experimental-context-notes-reminder.md" with { type: "text" };
-@@ -477,6 +480,12 @@
+@@ -467,6 +470,12 @@
  		signal: AbortSignal | undefined,
  		model: Model,
  	): Promise<Context>;
@@ -3921,17 +3941,17 @@
 +	): Promise<{ transformed: AgentMessage[]; llmMessages: Message[] }>;
  	obfuscateTextForProvider(text: string | undefined): string | undefined;
  	obfuscatePreparationForProvider(preparation: CompactionPreparation): CompactionPreparation;
- 	closeCodexProviderSessionsForHistoryRewrite(): void;
-@@ -1606,7 +1615,7 @@
+ 	/** Gated cache identity: the agent's explicit key, else the Task family key when `model` opts in. */
+@@ -1643,7 +1652,7 @@
  			) {
  				this.#host.emitNotice(
  					"warning",
--					`${methods[selectedMethodIndex]} compaction failed; trying the next preferred method`,
-+					`${methods[selectedMethodIndex]} compaction failed; falling back to ${methods[selectedMethodIndex + 1]} compaction`,
+-					`${methods[selectedMethodIndex]} compaction failed (${err.message}); trying the next preferred method`,
++					`${methods[selectedMethodIndex]} compaction failed (${err.message}); falling back to ${methods[selectedMethodIndex + 1]} compaction`,
  					"compaction",
  				);
- 				return await this.compact(
-@@ -2187,6 +2196,14 @@
+ 				try {
+@@ -2301,6 +2310,14 @@
  		const method = resolveSpeculationMethod(model, settings, {
  			skipRemote: this.#nativeSpeculationFailed(model),
  		});
@@ -3946,7 +3966,7 @@
  		if (!method) return;
  		this.#startSpeculationRun(contextTokens, method);
  	}
-@@ -2262,6 +2279,14 @@
+@@ -2376,6 +2393,14 @@
  		const method = resolveSpeculationMethod(model, settings, {
  			skipRemote: this.#nativeSpeculationFailed(model),
  		});
@@ -3961,7 +3981,7 @@
  		if (!method) return false;
  		const thresholdTokens = resolveThresholdTokens(contextWindow, settings);
  		const graceCapTokens = Math.min(
-@@ -2331,8 +2356,11 @@
+@@ -2445,8 +2470,11 @@
  			if (compactionPrep.kind === "fromHook") return clear();
  			const candidates = this.#getCompactionModelCandidates(
  				this.#host.modelRegistry.getAvailable(),
@@ -3975,7 +3995,7 @@
  					: undefined,
  			);
  			if (candidates.length === 0) return clear();
-@@ -3605,6 +3633,71 @@
+@@ -3773,6 +3801,71 @@
  		);
  	}
  
@@ -4047,7 +4067,7 @@
  	async #compactWithFallbackModel(
  		preparation: CompactionPreparation,
  		customInstructions: string | undefined,
-@@ -3642,6 +3735,7 @@
+@@ -3810,6 +3903,7 @@
  						buildProviderContext: (summarized, retained, signal, model) =>
  							this.#host.buildLiveProviderContext(summarized, retained, signal, model),
  						isUserAuthored: isUserAuthoredMessage,
@@ -4055,20 +4075,25 @@
  						telemetry,
  						// Honor the user's /model thinking selection (incl. `off`) on
  						// the manual `/compact` path. Clamped per-model inside compact()
-@@ -3649,10 +3743,10 @@
+@@ -3817,7 +3911,7 @@
  						// (xai-oauth/grok-build) don't trip requireSupportedEffort.
  						thinkingLevel: this.#host.thinkingLevel(),
  						tools: this.#host.agent.state.tools,
 -						sessionId: this.#host.sessionId(),
 +						sessionId: options?.sessionId ?? this.#host.sessionId(),
- 						promptCacheKey: this.#host.agent.promptCacheKey ?? this.#host.agent.sessionId,
+ 						// Explicit cache keys only (never a sessionId fallback): V2
+ 						// treats any truthy key as provenance for x-opencode-session.
+ 						// Conventional summaries run on `candidate`; remote compaction
+@@ -3825,7 +3919,7 @@
+ 						promptCacheKey: this.#host.getPromptCacheKeyForModel(candidate),
+ 						remotePromptCacheKey: this.#host.getPromptCacheKeyForModel(remoteCompactionPolicyModel(candidate)),
  						providerSessionState: this.#host.providerSessionState,
 -						preferWebsockets: this.#host.preferWebsockets(),
 +						preferWebsockets: options?.preferWebsockets ?? this.#host.preferWebsockets(),
+ 						codexAccessPrograms: cfgProvidersOpenaiCodexDaybreak.get(this.#host.settings),
  						// Route every summarization HTTP request through the
  						// session's side-stream transport so the provider
- 						// concurrency cap (e.g. providers.ollama-cloud.maxConcurrency)
-@@ -5463,6 +5557,7 @@
+@@ -5885,6 +5979,7 @@
  									buildProviderContext: (summarized, retained, signal, model) =>
  										this.#host.buildLiveProviderContext(summarized, retained, signal, model),
  									isUserAuthored: isUserAuthoredMessage,
@@ -4076,7 +4101,7 @@
  									telemetry,
  									// Honor the user's /model thinking selection on the
  									// auto-compaction path — the most-fired compaction
-@@ -5484,9 +5579,11 @@
+@@ -5912,9 +6007,11 @@
  							);
  							break;
  						} catch (error) {
@@ -4089,7 +4114,7 @@
  
  							const message = error instanceof Error ? error.message : String(error);
  							const id = AIError.classify(
-@@ -5497,7 +5594,7 @@
+@@ -5925,7 +6022,7 @@
  								if (!nativeCompactionFailure) lastError = this.#buildCompactionAuthError();
  								break;
  							}
@@ -4098,7 +4123,7 @@
  								const nativeFailure = error instanceof NativeCompactionError;
  								logger.warn(
  									nativeFailure
-@@ -5530,9 +5627,11 @@
+@@ -5958,9 +6055,11 @@
  								retrySettings.enabled &&
  								attempt < retrySettings.maxRetries &&
  								!AIError.is(id, AIError.Flag.ContextOverflow) &&
@@ -4113,7 +4138,7 @@
  							if (!shouldRetry) {
  								if (error instanceof NativeCompactionError) {
  									nativeCompactionFailure ??= { error, provider: candidate.provider };
-@@ -5641,7 +5740,7 @@
+@@ -6146,7 +6245,7 @@
  				},
  			});
  		} catch (error) {
@@ -4122,7 +4147,7 @@
  				await this.#emitLifecycleEvent(
  					{
  						type: "auto_compaction_end",
-@@ -5673,10 +5772,11 @@
+@@ -6178,10 +6277,11 @@
  						result: undefined,
  						aborted: false,
  						willRetry: false,
@@ -4137,7 +4162,7 @@
  					methodIndex: methodIndex + 1,
 --- a/pi-coding-agent/src/session/session-provider-boundary.ts
 +++ b/pi-coding-agent/src/session/session-provider-boundary.ts
-@@ -30,8 +30,38 @@
+@@ -31,8 +31,38 @@
  	validateProviderMaxInFlightRequests,
  } from "./settings";
  
@@ -4176,7 +4201,7 @@
  /** Capabilities borrowed from the owning AgentSession. */
  export interface SessionProviderBoundaryHost {
  	agent: Agent;
-@@ -207,8 +237,23 @@
+@@ -210,8 +240,23 @@
  
  	/** Converts session messages using the configured pre-LLM pipeline. */
  	async convertMessagesToLlm(messages: AgentMessage[], signal?: AbortSignal): Promise<Message[]> {
@@ -4204,14 +4229,25 @@
  	/** Applies session-level stream hooks and provider defaults to a side request. */
 --- a/pi-coding-agent/src/task/executor.ts
 +++ b/pi-coding-agent/src/task/executor.ts
-@@ -1185,6 +1185,10 @@
- 		// rejected the context (#13211). A per-spawn override still wins.
- 		"compaction.midTurnEnabled": true,
- 		...overrides,
-+		// Notes-backed context windows belong to the top-level session only. This pin
-+		// lives in the child's own overlay layer, so it survives live parent edits, rides
-+		// `overlayLayers()` into every warm/persisted revival, and outranks per-spawn overrides.
-+		"compaction.experimentalContextManagement": false,
- 	});
- 	subagentSettings[kRootCompactionThresholds] = rootThresholds;
- 	return subagentSettings;
+@@ -1202,6 +1202,10 @@
+ 			// rejected the context (#13211). A per-spawn override still wins.
+ 			"compaction.midTurnEnabled": true,
+ 			...overrides,
++			// Notes-backed context windows belong to the top-level session only. This pin
++			// lives in the child's own overlay layer, so it survives live parent edits, rides
++			// `overlayLayers()` into every warm/persisted revival, and outranks per-spawn overrides.
++			"compaction.experimentalContextManagement": false,
+ 		},
+ 		{ derived: true },
+ 	);
+--- a/pi-ai/src/providers/openai-codex-state.ts
++++ b/pi-ai/src/providers/openai-codex-state.ts
+@@ -182,7 +182,7 @@
+ 	return {
+ 		websocketPreferred,
+ 		lastTransport: state?.lastTransport,
+-		websocketDisabled: state?.disableWebsocket ?? false,
++		websocketDisabled: false,
+ 		websocketConnected: state?.connection?.isOpen() ?? false,
+ 		fallbackCount: state?.fallbackCount ?? 0,
+ 		canAppend: state?.canAppend ?? false,

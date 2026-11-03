@@ -210,7 +210,7 @@ Prep (once):
 
 Work order P0 — prefix/compaction/credential invariants (authoring order; `#k` is the manifest position):
 
-- [ ] **#8 `family-persistent-prefix-resume`** (0038, 0047a, 0047b, 0043, 0076, 0077, 0083, 0084, 0093-surviving) — method:
+- [x] **#8 `family-persistent-prefix-resume`** (0038, 0047a, 0047b, 0043, 0076, 0077, 0083, 0084, 0093-surviving) — method:
   0038/0047a adopt-pending (hunks retained until Q1's replay proves clean), 0047b/0043/0076/0083/0093-surviving semantic,
   0077/0084 mechanical — Effort: high — 167 hunks with 8 rejections, three semantic re-expressions on rewritten seams.
   (`session-context.ts:766` carrier exemption, `persistEvalStateContext` threading, `#publishPromptSurface`/`#restorePromptSurface`)
@@ -218,21 +218,21 @@ Work order P0 — prefix/compaction/credential invariants (authoring order; `#k`
   `verify-eval-state-context-persist.ts`, `verify-turn-recovery-reminder-persist.ts` (+ one scenario at
   `turn-recovery.ts:3287`), `verify-length-stop-reminder-persist.ts`, `verify-model-mention-surface-resume.ts`,
   `verify-prompt-effort-resume.ts`, `verify-interrupt-prune-symmetry.ts`, `verify-resume-cache-breakpoint.ts`.
-- [ ] **#9 `0046-omp-supersede-warm-prefix-guard`** — method: mechanical — Effort: low — one hunk applies at fuzz 0; only
+- [x] **#9 `0046-omp-supersede-warm-prefix-guard`** — method: mechanical — Effort: low — one hunk applies at fuzz 0; only
   confirm the supersede pass still runs before the new idle-compaction owner can consume the warm prefix (U11). Gate:
   `verify-supersede-warm-prefix-guard.ts`.
-- [ ] **#16 `0074-omp-anthropic-context-cache-boundaries`** — method: semantic, split into `0074a` (mark must not truncate the
+- [x] **#16 `0074-omp-anthropic-context-cache-boundaries`** — method: semantic, split into `0074a` (mark must not truncate the
   decimation range; server `clear_at` resets tail candidates) and `0074b` (2000 px cap at every image count + request audit);
   drop the identity-breakpoint and `cacheRetention:none` halves — Effort: high — the allocator was rewritten.
   (`anthropic.ts:4243-4345`), and both existing gates encode the old allocation. Gates:
   `verify-anthropic-cache-boundaries.ts`, `verify-anthropic-request-audit.ts` (image assertion at 1/20/21 must fail pristine).
-- [ ] **#19 `family-compaction`** (0035, 0063, 0066, 0067, 0068, 0070, 0088, 0089, 0096) — method: 0066 adopt-pending, 0089
+- [x] **#19 `family-compaction`** (0035, 0063, 0066, 0067, 0068, 0070, 0088, 0089, 0096) — method: 0066 adopt-pending, 0089
   mechanical, the rest semantic over `buildProviderContext` (`compaction.ts:706`) with `0088` landing **after**
   `family-input-translation`'s `allowTruncation` — Effort: high — 168 hunks, 22 rejections, 27 offsets; the whole lane is
   re-expressed on one authority. Gates: `verify-prefix-cache-compaction.ts`, `verify-codex-compaction-chain.ts`,
   `verify-codex-compaction-chain-fail-closed.ts` (+ `-faults.sh` 14/14), `verify-compaction-lane-trace.ts`,
   `verify-compaction-cache-liveness.ts`, `verify-anthropic-native-compaction-live-context.ts`.
-- [ ] **#20 `0090-omp-oauth-durable-refresh`** — method: 0090a adopt-pending, 0090b redesign. Journal `reserve` before the
+- [x] **#20 `0090-omp-oauth-durable-refresh`** — method: 0090a adopt-pending, 0090b redesign. Journal `reserve` before the
   POST in `#exchangeLeased` (`refresh.ts:636`); `stage` immediately after the POST returns, before
   `#persistExchangedCredential` is called (`:808`). Inside `#persistExchangedCredential` (`:281-349`) the commit **replaces
   the CAS expression itself** at `:317-323`: for a protected Anthropic exchange with a journal-capable store,
@@ -246,19 +246,19 @@ Work order P0 — prefix/compaction/credential invariants (authoring order; `#k`
   — Effort: high — 128 hunks / 13 `.rej`, and this is the highest credential-safety risk in the plan. Gates:.
   `verify-oauth-durable-refresh.ts`, `verify-oauth-unlock-fence-faults.sh`, `verify-auth-unlock-extension.ts`,
   `verify-codex-account-eligibility-retention.ts`, `verify-google-account-eligibility-retention.ts`.
-- [ ] **#21 `0092-omp-cache-warming-idle-budget`** — method: semantic — Effort: medium — 2 of 28 rejected, but the budget must
+- [x] **#21 `0092-omp-cache-warming-idle-budget`** — method: semantic — Effort: medium — 2 of 28 rejected, but the budget must
   be re-based against `#idleStopReason`/`MAX_IDLE_WARMING_AGE_MS` and `CacheWarmingResultEvent` added to the event union.
   Gate: `verify-cache-warming-idle-budget.ts` + `keep 5h` survival probe.
-- [ ] **#22 `0094-omp-anthropic-thinking-drop-resume`** — method: mechanical — Effort: low — 12 hunks apply at fuzz 0; only
+- [x] **#22 `0094-omp-anthropic-thinking-drop-resume`** — method: mechanical — Effort: low — 12 hunks apply at fuzz 0; only
   re-verify the drop rule does not fight upstream's `dropsForeignReasoningPayload` / `thinkingReplayDisabled`. Gate:
   `verify-anthropic-thinking-drop-resume.ts`.
 
 Work order P1 — seams other things sit on:
 
-- [ ] **#3 `family-usage-pipeline`** (0037, 0025, 0026, 0030 mechanical; 0031 semantic) — Effort: high — 15 rejections in.
+- [x] **#3 `family-usage-pipeline`** (0037, 0025, 0026, 0030 mechanical; 0031 semantic) — Effort: high — 15 rejections in.
   `pi-ai` auth/usage, and 0031 must be re-authored onto upstream's singular `provider` scope. Gates: `verify-ollama-cloud-usage.ts`,
   definition/reference pairing for `ANTHROPIC_USAGE_*`, usage-cache key count, new single-provider leg.
-- [ ] **#4 `0010-omp-extension-idle-ephemeral-turn`** — method: conflict-redesign (participant of `enableIdleMaintenance`, not a
+- [x] **#4 `0010-omp-extension-idle-ephemeral-turn`** — method: conflict-redesign (participant of `enableIdleMaintenance`, not a
   second scheduler) — Effort: high — 61 hunks, `runIdleEphemeralTurn` has no upstream equivalent, and four context-action
   sites plus the reservation epoch must be re-derived. Gates: `verify-idle-ephemeral-reservation.ts`, idle timeline
   (one recap, no duplicate turn, cron never overlapping recap/compaction).
@@ -269,18 +269,18 @@ Work order P1 — seams other things sit on:
 - [ ] **#10 `0048-omp-advisor-quota-rotation-bound`** — method: adopt-pending — Effort: medium — 5 of 6 hunks fail because the
   mechanism moved to `#spendCredentialSwitch`; retiring needs a new consumer test (two codex credentials both
   `usage_limit_reached` → ≤N−1 same-provider recoveries then cross-provider) and the `return true` negative control.
-- [ ] **#11 `0050-omp-session-history-preview`** — method: conflict-redesign (keep only `lastModel`, thread it through
+- [x] **#11 `0050-omp-session-history-preview`** — method: conflict-redesign (keep only `lastModel`, thread it through
   `SessionListing`/`completeSessions`) — Effort: high — 41 hunks with 26 rejected by the picker host rewrite. Gate:.
   `verify-session-history-preview.ts` re-based to the surviving contract.
 - [ ] **#12 `family-devin-wire`** (0055, 0056, 0058 mechanical; 0071, 0060 semantic) — Effort: medium — 4 of 28 rejections;.
   0071 must become an async auth-recovery loop *around* the new compressed body build; 0060 needs `0010` first. Gates:
   `verify-devin-auth-cache.ts` (incl. new 401-then-no-retry leg), `verify-devin-metadata.ts`,
   `verify-devin-thinking-signature.ts`, `verify-devin-idle-cascade-pin.ts`.
-- [ ] **#17 `family-image-display`** (0079 adopt-pending, 0080 semantic, 0078 recorded adoption) — Effort: medium — 8 of 28
+- [x] **#17 `family-image-display`** (0079 adopt-pending, 0080 semantic, 0078 recorded adoption) — Effort: medium — 8 of 28
   rejections because upstream now owns the Kitty finalization barrier; 0080 is re-authored into the rewritten conversion
   blocks and keeps its two `image-loading.ts` hunks. Gates: `verify-kitty-conversion-finalization.ts` (must pass pristine and
   fail on 18.12.6), `verify-kitty-shared-png-cache.ts`, `verify-python-display-mime-preference.ts`.
-- [ ] **#18 `family-input-translation`** (0082 conflict-redesign, 0085 semantic) — Effort: high — 207 hunks, 64 rejections,.
+- [x] **#18 `family-input-translation`** (0082 conflict-redesign, 0085 semantic) — Effort: high — 207 hunks, 64 rejections,.
   3 hunks with no target file; the host side moves onto the rewritten submit closure + `onPromptAdmitted`, the export path
   degrades by decision, and 0085 drops its heuristic. Gates: `verify-rejected-prepared-draft-restore.ts` (10 legs) and the
   throwaway 0082 consumer smoke.
@@ -292,15 +292,15 @@ Work order P2 — mechanical remainder:
 - [x] **#2 `family-hindsight`** (0034, 0075) — mechanical — Effort: low — 3 of 50 rejections are context-only (`signal?`
   neighbourhood, import block, one inserted local) plus the `buildDeveloperInstructions` cwd branch. Gates:
   `verify-hindsight-recall-snapshot.ts`, `verify-hindsight-recall-promotion-slot.ts`.
-- [ ] **#5 `family-antigravity-wire`** (0014 semantic, 0054 adopt-verified) — Effort: medium — 3 of 5 hunks rejected at the new.
+- [x] **#5 `family-antigravity-wire`** (0014 semantic, 0054 adopt-verified) — Effort: medium — 3 of 5 hunks rejected at the new.
   4-argument `buildAntigravityRequestEnvelope`; the `createHash` import must be present (the 18.3.3 `ReferenceError` class) and
   `requestType` stays absent. Gates: `verify-antigravity-envelope.ts` + a restart leg (two fresh provider-session maps → same
   envelope identity).
-- [ ] **#7 `0032-omp-goal-tool-resident`** — method: retire (approved behaviour removal) — Effort: low — delete the 8-hunk
+- [x] **#7 `0032-omp-goal-tool-resident`** — method: retire (approved behaviour removal) — Effort: low — delete the 8-hunk
   patch row, remove `verify-goal-tool-resident.ts` from the gate list, record the removal in `PATCHES.md`/`DECISIONS.md`.
-- [ ] **#13 `0065-omp-commandcode-deepseek-model-record-parity`** — mechanical — Effort: low — the KDL edit applies at offset −1;
+- [x] **#13 `0065-omp-commandcode-deepseek-model-record-parity`** — mechanical — Effort: low — the KDL edit applies at offset −1;
   the artifact must be regenerated, never hand-edited. Gate: `verify-commandcode-model-record-parity.ts`.
-- [ ] **#14 `0069-omp-codex-effort-history-resume`** — semantic — Effort: medium — 3 of 12 rejections; restore moves into.
+- [x] **#14 `0069-omp-codex-effort-history-resume`** — semantic — Effort: medium — 3 of 12 rejections; restore moves into.
   `applyCodexStableEffort` (no `hasParentState` branch) and the shape guard moves to `openai-codex-state.ts`. Gate:
   `verify-codex-effort-resume.ts`.
 - [ ] **#15 `0072-omp-session-pin-static-auth-ui`** — method: adopt (all 8 hunks retired **only** once the repro is green
@@ -309,22 +309,54 @@ Work order P2 — mechanical remainder:
   same change; on failure the hunks stay and `0072` stays an owned member everywhere. Gate: the real repro (`/session pin`,
   `/login`, `/logout`, `/usage reset`) plus the sync-`require` negative control, kept selected through the adoption marker
   so `verify-session-pin-static-auth-ui.ts` still runs against the adopted tree.
-- [ ] **#23 `0095-omp-context-audit-request-purpose`** — semantic — Effort: medium — 4 of 14 rejections, all the `purpose`
+- [x] **#23 `0095-omp-context-audit-request-purpose`** — semantic — Effort: medium — 4 of 14 rejections, all the `purpose`
   threading through `session-provider-boundary.ts`/`agent-session.ts`/`sdk.ts`/`emitContext`. Gate:
   `verify-context-persist-audit.ts`.
-- [ ] **#24 `0098-omp-tls-verify-transient-retry`** — mechanical — Effort: low — context-only rewrite at the new.
+- [x] **#24 `0098-omp-tls-verify-transient-retry`** — mechanical — Effort: low — context-only rewrite at the new.
   `isStreamEnvelopeTruncationText()`. Gate: `verify-tls-verify-transient-retry.ts`.
-- [ ] **#25 `0099-omp-retry-slow-schedule`** — mechanical — Effort: low — one hunk, byte-identical context. Gate:.
+- [x] **#25 `0099-omp-retry-slow-schedule`** — mechanical — Effort: low — one hunk, byte-identical context. Gate:.
   `verify-retry-slow-schedule.ts` (9 delays).
 - [ ] **#26 `0100-omp-stepfun-step-plan`** — mechanical — Effort: medium — source/KDL hunks apply but `rules.json` and the
   reshaped `models.json` need `gen:compat`/`gen:models`, and `provider/id` selectors must be re-checked under 18.14.0
   exact-match rules. Gate: synthetic-fetch smoke (`/step_plan/v1/...`) + re-selector assertion.
-- [ ] **#27 `0101-omp-subagent-warm-revival-persisted-prompt`** — semantic — Effort: medium — 4 of 5 rejections;.
+- [x] **#27 `0101-omp-subagent-warm-revival-persisted-prompt`** — semantic — Effort: medium — 4 of 5 rejections;.
   `extractSessionInit(reopened.getEntries())` + persisted `systemPrompt` + `workPoolYieldItems` restore, and upstream's new
   `session_init.mountedTools` must be preserved. Gate: `verify-subagent-warm-revival-prompt.ts`.
 
 Acceptance: every family body is authored and applies at fuzz 0 in manifest order on the accumulated tree; adopt-pending
 hunks are still present (they leave only in M5b, after their proofs); each P0 family's own gate passes on its partial chain.
+
+**M4 result (2026-11-03):** all 26 authored families accepted, replay digest `fca667ce…`, exported to
+`patches/.18.16.0-families/`. Every P0 gate passed on its partial chain with a negative control. On the full chain, 59
+verifiers pass, the `tsc` differential against pristine shows 0 new errors, and boot prints `omp/18.16.0` (evidence:
+`/tmp/omp-plan-18160/p0/M4Final/`; rationale: DECISIONS.md 18.16.0 section). Carried into S1, each row still open above:
+- #6 / Q6 `0062`: `verify-snapcompact-frame-reprice.ts` fails on both pristine and the chain. 18.16.0's
+  `#projectPreSnapcompactContextTokens` counts the live summary rather than 0036's archive credit, so this is the
+  planned Q6 replay.
+- #12: `verify-devin-thinking-signature.ts` fixture gunzips every frame, but 18.16.0 sends small bodies uncompressed
+  (`MIN_COMPRESSED_BODY_BYTES`). This is a gate fix.
+- `verify-manual-compaction-direct.ts` `classic-automatic-tools-absent`: its 2-message fixture no longer reduces under
+  upstream's `#compactionReducesContext` veto. This is a gate fix.
+- `verify-user-display-text-queue.ts` has no 18.16.0 allowlist entry. Port it or retire it.
+- #10 `0048`, #15 `0072`: adoption proofs. #26 `0100`: the synthetic-fetch smoke against `/step_plan/v1`.
+
+## Remaining sequence after M4 (user choice A, 2026-11-03)
+
+The milestones below stay as the checklist of record; they run as five steps, each started only on the user's go.
+18.12.6 is frozen (DECISIONS.md): gate work targets 18.16.0 only.
+
+1. **S1 = M5** — the adoption proofs Q1 did not already settle (Q2/Q3 OAuth, Q5 halves, Q6 `0062`, 0072 and the other
+   adopt-candidates) and their retirements. — Effort: high — retirement deletes code; each needs a consumer proof and a
+   negative control.
+2. **S2 = M6 + M7** — NEW-0102 and the companion extensions. — Effort: medium — small, independent surfaces with known
+   contracts.
+3. **S3 = M8 + M9 + M9b + M10** — declarations, one assembled candidate and runtime, the unowned-risk proofs, then every
+   target gate once on that candidate. — Effort: high — this is the single run that decides whether capabilities survived.
+4. **S4 = M11 + M12** — private installed-release smoke, then Tern/native acceptance with the user present. — Effort:
+   high — the only proof of the real CLI/loader/render path.
+5. **S5 = M13 + M14** — one final read-only review (no separate pre-review), with docs/spec updated alongside each
+   commit rather than in a separate pass. M15 publication stays a separately authorized step. — Effort: medium — review
+   of an already gate-proven candidate.
 
 ## M5 — Adoption proofs, retirement, and the conditional decisions — High
 
@@ -343,8 +375,10 @@ retire-pending hunks stay.
 - [ ] Q2/Q3 OAuth proofs: per-sub-contract gates for the five adopted `0090a` behaviours (quit mid-refresh, cancelled waiter,
   >15 s stall, peer takeover + hand-back, `usage-probe` refresh) and the fallback-order leg with and without a pinned
   fallback chain. Negative control: real `invalid_grant` disables exactly one row. — Effort: high — five adopted behaviours have no currently-passing gate once the seam is rewritten.
-- [ ] Q5 `0074a`/`0074b` halves each fail-before/pass-after; the `cacheRetention:none` → 0-breakpoints assertion now holds
-  upstream and is recorded as a natural negative control rather than a local claim. — Effort: medium — the two halves must fail for different reasons or the split is cosmetic.
+- [ ] Q5 `0074a`/`0074b` halves each fail-before/pass-after. Correction (P0 gate run): the `cacheRetention:none` →
+  0-breakpoints assertion does **not** hold upstream — OAuth still sends 1 identity-block breakpoint on both pristine and
+  family trees (`anthropic.ts` `buildAnthropicSystemBlocks`; `dropCacheControl` only set by the 400 latch). Per Q5 the
+  assertion is scoped out of the 18.16.0 arm, not inverted. — Effort: medium — the two halves must fail for different reasons or the split is cosmetic.
 - [ ] Q6 `0062` — build the replay the plan needs, because no existing file provides it: `verify-snapcompact-frame-reprice.ts`
   is a synthetic SDK consumer whose second-compaction legs (an 80k+12k region admitted, an inflating 30k+12k successor
   rejected with `would not reduce context`) contain neither the pinned historical boundary nor an assertion that attributes

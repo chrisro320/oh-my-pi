@@ -1,6 +1,6 @@
 --- a/dist/types/extensibility/extensions/runner.d.ts
 +++ b/dist/types/extensibility/extensions/runner.d.ts
-@@ -396,7 +396,7 @@
+@@ -427,7 +427,7 @@
      emitPrepareUserInput(event: PrepareUserInputEvent): Promise<PrepareUserInputResult>;
      /** Emit input event. Transforms chain, "handled" short-circuits. */
      emitInput(text: string, images: ImageContent[] | undefined, source: "interactive" | "rpc" | "extension"): Promise<InputEventResult>;
@@ -31,7 +31,7 @@
  import type { CacheWarmer } from "./cache-warmer.js";
  import type { ContextUsage } from "../extensibility/extensions/types.js";
  import type { SkillDescriptionCatalog } from "../extensibility/skill-descriptions.js";
-@@ -274,7 +274,7 @@
+@@ -291,7 +291,7 @@
      /** Re-resolves settings-gated tools against live settings; driven by `SessionTools.reconcileBuiltinTools`. */
      reconcileSettingsGatedTools?: (isBuiltIn: (name: string) => boolean) => Promise<SettingsGatedToolDelta>;
      /** Current session pre-LLM message transform pipeline. */
@@ -39,10 +39,10 @@
 +    transformContext?: (messages: AgentMessage[], signal?: AbortSignal, purpose?: ContextEvent["purpose"]) => AgentMessage[] | Promise<AgentMessage[]>;
      /** Provider request transform applied after message conversion. */
      transformProviderContext?: (context: Context, model: Model) => Context | Promise<Context>;
-     /** Stream wrapper for side-channel requests. */
+     /**
 --- a/src/extensibility/extensions/runner.ts
 +++ b/src/extensibility/extensions/runner.ts
-@@ -2152,7 +2152,11 @@
+@@ -2285,7 +2285,11 @@
  		return transformed;
  	}
  
@@ -55,7 +55,7 @@
  		// Check if any extensions actually have context handlers before building
  		// the context object or cloning; this runs on every provider request.
  		if (!this.hasHandlers("context")) return messages;
-@@ -2177,7 +2181,7 @@
+@@ -2310,7 +2314,7 @@
  			if (!handlers || handlers.length === 0) continue;
  
  			for (const handler of handlers) {
@@ -96,7 +96,7 @@
  import {
  	createSkillDescriptionCompressor,
  	openSessionSkillDescriptionStore,
-@@ -4368,8 +4369,12 @@
+@@ -4605,8 +4606,12 @@
  			return obfuscateMessages(obfuscator, converted);
  		};
  
@@ -122,7 +122,7 @@
  import type { CacheWarmer } from "./cache-warmer";
  import type { ContextUsage } from "../extensibility/extensions/types";
  import type { SkillDescriptionCatalog } from "../extensibility/skill-descriptions";
-@@ -303,7 +303,11 @@
+@@ -320,7 +320,11 @@
  	/** Re-resolves settings-gated tools against live settings; driven by `SessionTools.reconcileBuiltinTools`. */
  	reconcileSettingsGatedTools?: (isBuiltIn: (name: string) => boolean) => Promise<SettingsGatedToolDelta>;
  	/** Current session pre-LLM message transform pipeline. */
@@ -134,10 +134,10 @@
 +	) => AgentMessage[] | Promise<AgentMessage[]>;
  	/** Provider request transform applied after message conversion. */
  	transformProviderContext?: (context: Context, model: Model) => Context | Promise<Context>;
- 	/** Stream wrapper for side-channel requests. */
+ 	/**
 --- a/src/session/agent-session.ts
 +++ b/src/session/agent-session.ts
-@@ -1114,7 +1114,7 @@
+@@ -1214,7 +1214,7 @@
  	/** `<lane>#<window>` of the wrap-up window this session already told the model about. */
  	#anthropicWrapUpHinted: string | undefined;
  
@@ -146,9 +146,9 @@
  	#onPayload: SimpleStreamOptions["onPayload"] | undefined;
  	#onResponse: SimpleStreamOptions["onResponse"] | undefined;
  	/**
-@@ -2358,7 +2358,7 @@
- 			model: () => this.model,
+@@ -2578,7 +2578,7 @@
  			sessionId: () => this.sessionId,
+ 			costGate: () => this.#costGate,
  			localProtocolOptions: () => this.#localProtocolOptions(),
 -			transformContext: (messages, signal) => this.#transformContext(messages, signal),
 +			transformContext: (messages, signal) => this.#transformContext(messages, signal, "side-request"),

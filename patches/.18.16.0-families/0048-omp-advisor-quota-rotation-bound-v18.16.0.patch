@@ -1,7 +1,7 @@
 --- a/pi-coding-agent/src/session/session-advisors.ts
 +++ b/pi-coding-agent/src/session/session-advisors.ts
 @@ -134,6 +134,13 @@
- import { cfgRetry, cfgTierAdvisor } from "./settings";
+ import { cfgProvidersOpenaiCodexDaybreak, cfgRetry, cfgTierAdvisor } from "./settings";
  
  const ADVISOR_CODEX_SSE_MAX_ATTEMPTS = 1;
 +/**
@@ -14,40 +14,44 @@
  
  /**
   * Buffer added to a sibling credential's unblock deadline before the advisor
-@@ -348,6 +355,8 @@
+@@ -350,6 +357,8 @@
  	pendingCoveredTurn: number;
  	retryFallback?: AdvisorRetryFallbackState;
  	retryFallbackPendingSuccess: boolean;
 +	/** Same-provider quota rotations already granted to this advisor, bounded by {@link ADVISOR_USAGE_LIMIT_ROTATION_GRACE}. */
 +	usageLimitRotations?: { provider: string; count: number };
- 	/** Count of consecutive usage-limit block waits, bounded by retry.maxRetries; reset on turn success. */
- 	usageLimitRetries: number;
- 	signature: string;
-@@ -1586,6 +1595,9 @@
+ 	/**
+ 	 * Consecutive provider-block waits (usage limit or timed rate limit), bounded
+ 	 * by retry.maxRetries. Reset on turn success, abandonment, and conversation
+@@ -1621,6 +1630,9 @@
  					// Commit the delivered batch so retries of a failed turn stay deduped
  					// while this successful turn's context is persisted once (issue #9553).
  					advisorRef.recorder.commitTurn();
 +					// A turn landed, so any quota-rotation grace spent on the way here
 +					// was justified and must not carry into the next failure.
 +					advisorRef.usageLimitRotations = undefined;
- 					// A completed turn ended the usage-limit episode — start the next
+ 					// A completed turn ended the provider-block episode — start the next
  					// block's bounded wait budget fresh.
- 					advisorRef.usageLimitRetries = 0;
-@@ -2104,7 +2116,22 @@
+ 					this.#resetRecoveryBudgets(advisorRef);
+@@ -2149,7 +2161,26 @@
  					signal,
  				},
  			);
--			if (outcome.switched) return true;
-+			// Bound sibling credential rotation before trying cross-provider fallback.
+-			if (outcome.switched && this.#spendCredentialSwitch(advisor, currentModel.provider)) return true;
++			// Bound sibling credential rotation before trying cross-provider fallback:
++			// the advisor's one-rotation grace first, then the pool-traversal budget.
 +			if (outcome.switched) {
 +				const rotating = advisor.usageLimitRotations;
 +				if (rotating?.provider !== currentModel.provider) {
-+					advisor.usageLimitRotations = { provider: currentModel.provider, count: 1 };
-+					return true;
-+				}
-+				if (rotating.count < ADVISOR_USAGE_LIMIT_ROTATION_GRACE) {
-+					rotating.count++;
-+					return true;
++					if (this.#spendCredentialSwitch(advisor, currentModel.provider)) {
++						advisor.usageLimitRotations = { provider: currentModel.provider, count: 1 };
++						return true;
++					}
++				} else if (rotating.count < ADVISOR_USAGE_LIMIT_ROTATION_GRACE) {
++					if (this.#spendCredentialSwitch(advisor, currentModel.provider)) {
++						rotating.count++;
++						return true;
++					}
 +				}
 +				// Grace exhausted: keep walking to the cross-provider chain.
 +			} else {
@@ -59,7 +63,7 @@
  			usageRequestedBlockedUntilMs = outcome.requestedBlockedUntilMs;
 --- a/pi-tui/src/overlays/advisor-config.ts
 +++ b/pi-tui/src/overlays/advisor-config.ts
-@@ -708,7 +708,6 @@
+@@ -712,7 +712,6 @@
  				this.#screen === "tools"
  					? {
  							...props,
@@ -67,7 +71,7 @@
  							actions: [
  								pickerAction("confirm", "Toggle", "enter"),
  								pickerAction("apply", "Apply", "escape", { primary: true, end: true }),
-@@ -1646,7 +1645,7 @@
+@@ -1644,7 +1643,7 @@
  				icon: "tools",
  				noun: "tools",
  				current: [...selected],

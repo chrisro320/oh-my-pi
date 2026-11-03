@@ -1,6 +1,6 @@
 --- a/pi-coding-agent/dist/types/session/session-manager.d.ts
 +++ b/pi-coding-agent/dist/types/session/session-manager.d.ts
-@@ -252,6 +252,8 @@
+@@ -263,6 +263,8 @@
      /** Seed additional directories from settings or a passed list. Also called on resumed sessions with --add-dir; persists the updated header when the session file is already durable. No-op when the normalized list is unchanged (avoids rewriting large session files on every startup). */
      setAdditionalDirectories(directories: string[]): Promise<void>;
      getUsageStatistics(): UsageStatistics;
@@ -31,7 +31,7 @@
  		getAsyncJobSnapshot: () => ({ running: [] }),
 --- a/pi-coding-agent/src/session/session-manager.ts
 +++ b/pi-coding-agent/src/session/session-manager.ts
-@@ -525,6 +525,9 @@
+@@ -533,6 +533,9 @@
  	#labels = new Map<string, string>();
  	#leaf: string | null = null;
  	#usage = emptyUsageStatistics();
@@ -41,7 +41,7 @@
  	// Branch memo: getBranch() walks leaf-to-root per call (array + Set +
  	// reverse) on per-frame/per-turn paths. The branch only changes on
  	// insert/rebuild/setLeaf, so cache the array keyed on (leaf, generation).
-@@ -541,6 +544,9 @@
+@@ -549,6 +552,9 @@
  		this.#labels.clear();
  		this.#leaf = null;
  		this.#usage = emptyUsageStatistics();
@@ -51,7 +51,7 @@
  		this.#generation++;
  		this.#branchCache = undefined;
  	}
-@@ -593,6 +599,12 @@
+@@ -601,6 +607,12 @@
  		if (usage && entry.type === "message" && entry.message.role === "toolResult") {
  			this.#usage.subagentCost += usage.cost.total;
  		}
@@ -64,7 +64,7 @@
  	}
  
  	has(id: string): boolean {
-@@ -651,6 +663,11 @@
+@@ -659,6 +671,11 @@
  		return { ...this.#usage };
  	}
  
@@ -76,7 +76,7 @@
  	pathTo(id: string | null | undefined = this.#leaf): SessionEntry[] {
  		// The memoized default-leaf branch stays private — callers may
  		// sort/reverse/splice the result (the return type is SessionEntry[]),
-@@ -3133,6 +3150,11 @@
+@@ -3187,6 +3204,11 @@
  		return this.#index.usageSnapshot();
  	}
  

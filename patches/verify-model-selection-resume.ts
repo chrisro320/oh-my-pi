@@ -8,7 +8,7 @@ import { join } from "node:path";
 const root = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
 assert.ok(root, "OMP_PATCH_VERIFY_AGENT_ROOT must name the isolated agent package");
 const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
-assert.ok(["18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(version),
+assert.ok(["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(version),
  "model-selection resume requires a supported isolated package");
 const lab = mkdtempSync(join(tmpdir(), "model-selection-resume-"));
 const probe = join(root, `.verify-model-selection-resume-${process.pid}.ts`);
@@ -227,7 +227,7 @@ try {
 		assert.equal(resumed.calls[0]?.model, "sol", `${mode}: resumed provider uses selected model`);
 		assert.equal(resumed.calls[0]?.effort, "high", `${mode}: resumed provider retains selected thinking level`);
 	}
-	if (["18.10.0", "18.10.1", "18.12.6"].includes(version)) {
+	if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(version)) {
 		const live = run("fallback");
 		assert.equal(live.model, "luna", "navigation keeps the coherently committed live fallback");
 		assert.deepEqual(live.calls, [
@@ -258,7 +258,7 @@ try {
 		}
 		console.log("PASS fallback reconciliation -> navigation -> fresh-process resume: live=luna/high, resumed=sol/high, default=sol");
 	}
-	if (["18.10.1", "18.12.6"].includes(version)) {
+	if (["18.10.1", "18.12.6", "18.16.0"].includes(version)) {
 		const auto = run("auto");
 		assert.equal(auto.model, "sol", "auto precedence: persisted switch keeps the target model");
 		assert.deepEqual(auto.calls, [{ model: "sol", effort: "high" }, { model: "sol", effort: "low" }],
@@ -269,7 +269,7 @@ try {
 			"auto precedence: resume restores the committed high effort receipt");
 		console.log("PASS configured auto -> target defaultLevel: temporary/persisted switches commit high, explicit effort wins, no-default keeps auto");
 	}
-	if (version === "18.12.6") {
+	if (["18.12.6", "18.16.0"].includes(version)) {
 		const unverified = run("unverified");
 		assert.deepEqual(unverified.calls, [{ model: "unknown" }, { model: "unknown", effort: "low" }],
 			"target unverified reasoning stays unset until an actual explicit selection");

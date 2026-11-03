@@ -57,7 +57,20 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
+// Fail closed on a plan this gate has no arm for. 18.16.0 takes the 18.12.6
+// arms below: the native summary shape, whole-chain live replay, and the target
+// public live-cache callback.
+const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"];
+const selectedPlan = process.env.OMP_PATCH_VERSION;
+assert.ok(
+	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
+	`unsupported OMP_PATCH_VERSION for the native compaction gate: ${selectedPlan} (supported: ${SUPPORTED_PLANS.join(", ")})`,
+);
 const coreVersion = JSON.parse(readFileSync(`${CORE_ROOT}/package.json`, "utf8")).version;
+assert.ok(
+	SUPPORTED_PLANS.includes(coreVersion),
+	`unsupported pi-agent-core tree version for the native compaction gate: ${coreVersion} (supported: ${SUPPORTED_PLANS.join(", ")})`,
+);
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 const { supportsAnthropicCompaction } = await import(`${AI_ROOT}/src/providers/anthropic.ts`);
@@ -113,7 +126,7 @@ function nativeCompactionResponse(requestModel: Model): AssistantMessage {
 			type: "anthropicCompaction",
 			provider: requestModel.provider,
 			content: "NATIVE_SUMMARY",
-			...(["18.10.0", "18.10.1", "18.12.6"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
+			...(["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
 			signature: "offline-signed-summary",
 		},
 	} as AssistantMessage;
@@ -160,7 +173,7 @@ assert.ok(preparation, "fixture must prepare compaction");
 // gate has always pinned on it -- the whole-chain fixture and its `recent-user`
 // boundary are 0088-only, and replacing the older fixture rather than selecting
 // per plan is what broke the older branch.
-const wholeChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(coreVersion);
+const wholeChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion);
 const livePreparation = {
 	...preparation,
 	firstKeptEntryId: "recent-user",
@@ -286,7 +299,7 @@ assert.equal(result.summary, "NATIVE_SUMMARY", "native summary must become the c
 // operator must not see a warning for it.
 assert.deepEqual(cacheColdLogReasons(), [], "an accepted native live chain must not warn");
 
-if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(coreVersion)) {
+if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion)) {
 	const { getPreservedAnthropicCompactionData } = await import(`${CORE_ROOT}/src/compaction/anthropic.ts`);
 	assert.equal(
 		result.firstKeptEntryId,
@@ -392,7 +405,7 @@ if (wholeChainPlan) {
 		"the native fallback must warn with the same named reason",
 	);
 }
-if (coreVersion === "18.12.6") {
+if (["18.12.6", "18.16.0"].includes(coreVersion)) {
 	// Consume the target public callback rather than supplying only the custom
 	// live-cache callback: the native fallback must thread its actual model.
 	let providerContextCalls = 0;

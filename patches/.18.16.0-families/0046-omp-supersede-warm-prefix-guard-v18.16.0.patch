@@ -1,6 +1,6 @@
 --- a/src/session/session-maintenance.ts
 +++ b/src/session/session-maintenance.ts
-@@ -777,8 +777,27 @@
+@@ -816,8 +816,27 @@
  				// region once the cache is genuinely cold (idle exceeds the 1h TTL).
  				keepBoundaryId,
  				idleFlushMs: PRUNE_IDLE_FLUSH_MS,

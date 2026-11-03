@@ -7,7 +7,7 @@
 +export declare function mapOptionsForApi<TApi extends Api>(model: Model<TApi>, rawOptions?: SimpleStreamOptions, apiKey?: string): OptionsForApi<TApi>;
 --- a/pi-ai/dist/types/types.d.ts
 +++ b/pi-ai/dist/types/types.d.ts
-@@ -351,6 +351,16 @@
+@@ -353,6 +353,16 @@
       */
      promptCacheKey?: string;
      /**
@@ -26,7 +26,7 @@
       * incompatible OpenAI-compatible endpoints.
 --- a/pi-ai/src/providers/devin.ts
 +++ b/pi-ai/src/providers/devin.ts
-@@ -15,6 +15,7 @@
+@@ -16,18 +16,20 @@
  	ChatToolDefinitionSchema,
  	CompletionConfigurationSchema,
  	ConversationalPlannerMode,
@@ -34,7 +34,12 @@
  	GetChatMessageRequestSchema,
  	GetChatMessageResponseSchema,
  	GetUserJwtRequestSchema,
-@@ -26,7 +27,7 @@
+ 	GetUserJwtResponseSchema,
+ 	type ImageData,
+ 	ImageDataSchema,
++	type Metadata,
+ 	MetadataSchema,
+ 	type ModelAssignment,
  	PromptCacheOptionsSchema,
  	StopReason,
  } from "@oh-my-pi/pi-catalog/discovery/devin-proto";
@@ -43,7 +48,7 @@
  import { calculateCost } from "@oh-my-pi/pi-catalog/models";
  import { DEVIN_DEFAULT_BASE_URL, devinCliMetadata } from "@oh-my-pi/pi-catalog/wire/devin";
  import { decodeDevinUnaryMessage } from "@oh-my-pi/pi-catalog/wire/devin-proto";
-@@ -190,6 +191,7 @@
+@@ -195,6 +197,7 @@
  
  		let currentTextBlock: TextContent | null = null;
  		let currentThinkingBlock: ThinkingContent | null = null;
@@ -51,7 +56,7 @@
  		// Tool-call content blocks keyed by streamed tool-call id, plus the JSON-args text
  		// accumulated per id (kept out of the content object so finalized tool calls stay clean).
  		const toolBlocks = new Map<string, ToolCall>();
-@@ -203,6 +205,14 @@
+@@ -208,6 +211,14 @@
  		const blockIndices = new Map<TextContent | ThinkingContent | ToolCall, number>();
  		let activeToolCallId: string | undefined;
  		let latestStopReason = StopReason.UNSPECIFIED;
@@ -66,7 +71,7 @@
  
  		const markFirstToken = () => {
  			if (firstTokenTime === undefined) firstTokenTime = performance.now();
-@@ -224,6 +234,7 @@
+@@ -229,6 +240,7 @@
  			const block = currentThinkingBlock;
  			if (!block) return;
  			currentThinkingBlock = null;
@@ -74,7 +79,7 @@
  			stream.push({
  				type: "thinking_end",
  				contentIndex: blockIndices.get(block)!,
-@@ -235,11 +246,9 @@
+@@ -240,11 +252,9 @@
  		try {
  			const fetchImpl = options?.fetch ?? fetch;
  			const baseUrl = (model.baseUrl || DEVIN_API_URL).replace(/\/+$/, "");
@@ -88,7 +93,7 @@
  				cascadeId: options?.conversationId ?? options?.sessionId ?? crypto.randomUUID(),
  				// Foreign ids (cross-model calls and their results alike): Responses
  				// composites (`call_id|item_id`) keep their wire `call_id`; opaque ids
-@@ -255,41 +264,119 @@
+@@ -260,45 +270,122 @@
  					DEVIN_TOOL_CALL_ID_MAX_LENGTH,
  				),
  			};
@@ -104,18 +109,22 @@
 -			const replacementRequest = await options?.onPayload?.(request, model);
 -			if (replacementRequest !== undefined) request = replacementRequest as typeof request;
 -			const reqBytes = toBinary(GetChatMessageRequestSchema, request);
--			const gz = gzipSync(reqBytes);
+-			// A small request goes out plain and without `connect-content-encoding`,
+-			// so no server sees an encoding it never has to decode.
+-			const compress = reqBytes.byteLength >= MIN_COMPRESSED_BODY_BYTES;
+-			const chatBody = compress ? await gzipAsync(reqBytes) : reqBytes;
+-			const compressedBytes = compress ? chatBody.byteLength : undefined;
 -			logger.debug("devin: sending chat request", {
 -				model: model.id,
 -				tools: context.tools?.length ?? 0,
 -				requestBytes: reqBytes.byteLength,
--				compressedBytes: gz.byteLength,
+-				compressedBytes,
 -			});
--			const frame = frameConnectMessage(gz, CONNECT_COMPRESSED_FLAG);
+-			const frame = frameConnectMessage(chatBody, compress ? CONNECT_COMPRESSED_FLAG : 0);
 +			let response: Response | undefined;
 +			let request: GetChatMessageRequest | undefined;
 +			let reqBytes: Uint8Array | undefined;
-+			let gz: Uint8Array | undefined;
++			let compressedBytes: number | undefined;
 +			let postStartMs = 0;
 +			// Assignment and chat share one auth-recovery budget. A cached token
 +			// rejected with 401/403 is invalidated even on the final attempt; only
@@ -161,10 +170,13 @@
 +				const replacementRequest = await options?.onPayload?.(builtRequest, model);
 +				if (replacementRequest !== undefined) builtRequest = replacementRequest as typeof builtRequest;
 +				const builtReqBytes = toBinary(GetChatMessageRequestSchema, builtRequest);
-+				const builtGz = gzipSync(builtReqBytes);
++				// A small request goes out plain and without `connect-content-encoding`,
++				// so no server sees an encoding it never has to decode.
++				const compress = builtReqBytes.byteLength >= MIN_COMPRESSED_BODY_BYTES;
++				const chatBody = compress ? await gzipAsync(builtReqBytes) : builtReqBytes;
 +				request = builtRequest;
 +				reqBytes = builtReqBytes;
-+				gz = builtGz;
++				compressedBytes = compress ? chatBody.byteLength : undefined;
 +				const dumpDir = process.env.OMP_DEVIN_DUMP;
 +				if (dumpDir) {
 +					// Cache-miss forensics: capture the exact wire request so consecutive
@@ -180,17 +192,17 @@
 +					model: model.id,
 +					tools: context.tools?.length ?? 0,
 +					requestBytes: builtReqBytes.byteLength,
-+					compressedBytes: builtGz.byteLength,
++					compressedBytes,
 +					...(attempt > 0 ? { authRetry: true } : {}),
 +				});
-+				const frame = frameConnectMessage(builtGz, CONNECT_COMPRESSED_FLAG);
++				const frame = frameConnectMessage(chatBody, compress ? CONNECT_COMPRESSED_FLAG : 0);
  
 -			const response = await fetchImpl(chatBaseUrl + CHAT_MESSAGE_PATH, {
 -				method: "POST",
 -				headers: {
 -					"content-type": "application/connect+proto",
 -					"connect-protocol-version": "1",
--					"connect-content-encoding": "gzip",
+-					...(compress ? { "connect-content-encoding": "gzip" } : {}),
 -					"accept-encoding": "identity",
 -					"user-agent": "connect-go/1.18.1 (go1.26.3)",
 -					"connect-accept-encoding": "gzip",
@@ -205,7 +217,7 @@
 +					headers: {
 +						"content-type": "application/connect+proto",
 +						"connect-protocol-version": "1",
-+						"connect-content-encoding": "gzip",
++						...(compress ? { "connect-content-encoding": "gzip" } : {}),
 +						"accept-encoding": "identity",
 +						"user-agent": "connect-go/1.18.1 (go1.26.3)",
 +						"connect-accept-encoding": "gzip",
@@ -232,7 +244,7 @@
 +				}
 +				break;
 +			}
-+			if (!response || !request || !reqBytes || !gz) {
++			if (!response || !request || !reqBytes) {
 +				throw new AIError.ProviderResponseError("Devin API error: chat request was never sent", {
 +					provider: model.provider,
 +					kind: "runtime",
@@ -242,7 +254,7 @@
  
  			if (!response.ok) {
  				const payload = new Uint8Array(await response.arrayBuffer());
-@@ -395,6 +482,10 @@
+@@ -404,6 +491,10 @@
  					// The router reports the concrete model it landed on; it can differ
  					// from the uid AssignModel handed back (fallbacks, capacity routing).
  					if (msg.actualModelUid) output.upstreamModel = msg.actualModelUid;
@@ -253,7 +265,7 @@
  
  					if (msg.deltaThinking) {
  						markFirstToken();
-@@ -422,6 +513,14 @@
+@@ -431,6 +522,14 @@
  						});
  					}
  
@@ -268,7 +280,7 @@
  					if (msg.deltaText) {
  						markFirstToken();
  						endThinkingBlock();
-@@ -525,6 +624,15 @@
+@@ -534,6 +633,15 @@
  			calculateCost(model, output.usage, output.timestamp);
  			output.duration = performance.now() - startTime;
  			if (firstTokenTime) output.ttft = firstTokenTime - startTime;
@@ -284,7 +296,7 @@
  
  			stream.push({ type: "done", reason: doneReason, message: output });
  			stream.end();
-@@ -537,6 +645,15 @@
+@@ -546,6 +654,15 @@
  			output.errorMessage = result.message;
  			output.duration = performance.now() - startTime;
  			if (firstTokenTime) output.ttft = firstTokenTime - startTime;
@@ -300,14 +312,14 @@
  			stream.push({ type: "error", reason: result.stopReason, error: output });
  			stream.end();
  		}
-@@ -555,13 +672,13 @@
+@@ -564,13 +681,13 @@
  	messages: Message[];
  }
  
 -async function fetchDevinAuthMetadata(
 -	apiKey: string | undefined,
 +async function requestDevinAuth(
-+	metadata: ReturnType<typeof create<typeof MetadataSchema>>,
++	metadata: Metadata,
  	baseUrl: string,
  	fetchImpl: NonNullable<StreamOptions["fetch"]>,
  	signal: AbortSignal | undefined,
@@ -318,7 +330,7 @@
  	const response = await fetchImpl(`${baseUrl}${DEVIN_AUTH_PATH}`, {
  		method: "POST",
  		headers: {
-@@ -572,9 +689,138 @@
+@@ -581,9 +698,138 @@
  		body: toBinary(GetUserJwtRequestSchema, request),
  		signal,
  	});
@@ -460,7 +472,7 @@
  	if (!decoded?.userJwt) {
  		throw new AIError.ProviderResponseError("Devin auth error: GetUserJwt returned an empty user JWT", {
  			provider: "devin",
-@@ -582,7 +828,14 @@
+@@ -591,7 +837,14 @@
  		});
  	}
  	const customBaseUrl = decoded.customApiServerUrl.trim();
@@ -476,7 +488,7 @@
  }
  
  /**
-@@ -768,7 +1021,7 @@
+@@ -777,7 +1030,7 @@
  					prompt: promptText,
  					thinking: thinkingText,
  					signature,
@@ -487,7 +499,7 @@
  			);
 --- a/pi-ai/src/stream.ts
 +++ b/pi-ai/src/stream.ts
-@@ -1750,7 +1750,7 @@
+@@ -1767,7 +1767,7 @@
  	);
  }
  
@@ -496,7 +508,7 @@
  	model: Model<TApi>,
  	rawOptions?: SimpleStreamOptions,
  	apiKey?: string,
-@@ -1778,6 +1778,7 @@
+@@ -1796,6 +1796,7 @@
  		taskBudget: options?.taskBudget,
  		sessionId: options?.sessionId,
  		promptCacheKey: options?.promptCacheKey,
@@ -506,7 +518,7 @@
  		codexSseMaxAttempts: options?.codexSseMaxAttempts,
 --- a/pi-ai/src/types.ts
 +++ b/pi-ai/src/types.ts
-@@ -581,6 +581,16 @@
+@@ -587,6 +587,16 @@
  	 */
  	promptCacheKey?: string;
  	/**
@@ -572,7 +584,7 @@
  }
 --- a/pi-coding-agent/dist/types/session/agent-session-types.d.ts
 +++ b/pi-coding-agent/dist/types/session/agent-session-types.d.ts
-@@ -560,6 +560,13 @@
+@@ -603,6 +603,13 @@
      history?: readonly Message[];
      /** Opaque provider-lineage key for a series of related side turns. Rotate it after cancellation or failure before retrying. */
      conversationKey?: string;
@@ -588,7 +600,7 @@
      /** Optional positive safe-integer output-token cap. Transports that omit or overwrite caller output limits reject this option before inference. On budget-thinking models a cap disables optional thinking (models that require it reject the cap). */
 --- a/pi-coding-agent/src/session/agent-session-types.ts
 +++ b/pi-coding-agent/src/session/agent-session-types.ts
-@@ -598,6 +598,13 @@
+@@ -641,6 +641,13 @@
  	history?: readonly Message[];
  	/** Opaque provider-lineage key for a series of related side turns. Rotate it after cancellation or failure before retrying. */
  	conversationKey?: string;
@@ -604,7 +616,7 @@
  	/** Optional positive safe-integer output-token cap. Transports that omit or overwrite caller output limits reject this option before inference. On budget-thinking models a cap disables optional thinking (models that require it reject the cap). */
 --- a/pi-coding-agent/src/session/agent-session.ts
 +++ b/pi-coding-agent/src/session/agent-session.ts
-@@ -12237,7 +12237,16 @@
+@@ -12984,7 +12984,16 @@
  		const reservation = { abort, settled };
  		this.#idleEphemeralReservation = reservation;
  		try {
@@ -622,7 +634,7 @@
  			// Providers may still finish successfully after cancellation. The
  			// reservation, not transport cooperation, owns result publication.
  			signal.throwIfAborted();
-@@ -12359,6 +12368,7 @@
+@@ -13120,6 +13129,7 @@
  				// conversation's, so the side request keeps its cached prefix.
  				parentSessionId: cacheSessionId,
  				promptCacheKey: this.getPromptCacheKeyForModel(model) ?? this.agent.sessionId,

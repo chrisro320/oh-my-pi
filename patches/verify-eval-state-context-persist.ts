@@ -19,7 +19,7 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const agentVersion = (await Bun.file(`${AGENT_ROOT}/package.json`).json()).version;
-assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion),
+assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion),
 	`unsupported eval persistence gate version: ${agentVersion}`);
 const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
 const privateHome = mkdtempSync(join(tmpdir(), "omp-eval-home-"));
@@ -64,7 +64,7 @@ type Message = Record<string, unknown> & { role: string; customType?: string; co
 async function openSession(sessionManager: Manager) {
 	const agentDir = join(root, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,
@@ -151,10 +151,20 @@ try {
 
 	// GATE 2: read-only snapshots never write, and a committing rebuild with an
 	// unchanged runtime adds nothing (the persisted reminder already replays).
-	// 18.12.6 selects the context model first and accepts persistence options second.
-	if (agentVersion === "18.12.6") resumed.buildDisplaySessionContext(model, { persistEvalStateContext: false });
-	else resumed.buildDisplaySessionContext({ persistEvalStateContext: false });
-	resumed.buildDisplaySessionContext();
+	// Where the persistence lives: 18.2.10–18.10.1 take the persistence options
+	// as the sole argument; 18.12.6 and 18.16.0 select the context model first.
+	// 18.16.0 upstream persists only at construction and at history rewrites
+	// (`SessionMaintenanceHost.persistEvalStateContext`); the prefix family
+	// restores the opt-out so a read-only rebuild can prove it never writes.
+	const modelFirstContext = agentVersion === "18.12.6" || agentVersion === "18.16.0";
+	const rebuild = (persistEvalStateContext?: boolean) => {
+		if (persistEvalStateContext === undefined) return resumed.buildDisplaySessionContext();
+		return modelFirstContext
+			? resumed.buildDisplaySessionContext(model, { persistEvalStateContext })
+			: resumed.buildDisplaySessionContext({ persistEvalStateContext });
+	};
+	rebuild(false);
+	rebuild();
 	assert.equal(persistedReminders(restarted), 1, "rebuilds with unchanged eval state must not write");
 
 	// GATE 3: a runtime change appends the new snapshot last; the older one
@@ -164,18 +174,16 @@ try {
 		kernelId: "kernel-verify",
 		alive: true,
 	});
-	const readOnly = agentVersion === "18.12.6"
-		? resumed.buildDisplaySessionContext(model, { persistEvalStateContext: false })
-		: resumed.buildDisplaySessionContext({ persistEvalStateContext: false });
+	const readOnly = rebuild(false);
 	assert.equal(persistedReminders(restarted), 1, "a read-only snapshot must not persist the changed reminder");
-	const committed = resumed.buildDisplaySessionContext();
+	const committed = rebuild();
 	assert.equal(persistedReminders(restarted), 2, "a committing rebuild must persist the changed reminder once");
 	assert.deepEqual(wire(committed.messages as Message[]), wire(readOnly.messages as Message[]), "read-only and committed views agree");
 	const indexes = reminderIndexes(committed.messages as Message[]);
 	assert.equal(indexes[0], 3, "the older reminder keeps its index");
 	assert.equal(indexes.at(-1), committed.messages.length - 1, "the newest reminder is last");
 	assert.match(String((committed.messages.at(-1) as Message).content), /alive/, "the newest reminder carries the live runtime");
-	resumed.buildDisplaySessionContext();
+	rebuild();
 	assert.equal(persistedReminders(restarted), 2, "the changed reminder is persisted once, not per rebuild");
 	await live.dispose();
 	await resumed.dispose();

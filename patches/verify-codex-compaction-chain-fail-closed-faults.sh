@@ -22,10 +22,21 @@ gate = here / "verify-codex-compaction-chain-fail-closed.ts"
 # Supported recovery-era versions carry the non-generating chain-recovery hook;
 # 18.1.18 predates it, so fault expectations differ by supported version.
 version = json.loads((roots["pi-ai"] / "package.json").read_text())["version"]
-supports_recovery = version in ("18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4")
+supports_recovery = version in ("18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.16.0")
+# 18.3.3 onward publish the two-argument acceptance hook (commit + rollback);
+# 18.16.0 keeps that shape.
+generic_acceptance = ("18.3.3", "18.4.1", "18.4.4", "18.16.0")
+# 18.16.0 refuses an SSE admission for a compaction body at the SSE transport
+# itself as well as at the fallback decision, so the mutated `refuseSseFallback`
+# is still stopped — by the later guard, with its own message.
+sse_refusal = (
+    "compaction cannot replay over SSE without its append baseline"
+    if version == "18.16.0" else
+    "sse-disabled: failure must stay terminal"
+)
 acceptance_declaration = (
     "    onAccept?: (\n        commit: (recorded: OpenAICodexCompactionResponseMetadata) => void,\n        rollback: () => void,\n    ) => void;\n"
-    if version in ("18.3.3", "18.4.1", "18.4.4") else
+    if version in generic_acceptance else
     "    onAccept?: (commit: (recorded: OpenAICodexCompactionResponseMetadata) => void) => void;\n"
 )
 
@@ -48,10 +59,10 @@ faults = [
     ("missing acceptance type", types, acceptance_declaration, "", "published acceptance API must type-check"),
     ("unsound metadata target type", types, "websocketState?: { modelsEtag?: string }", "websocketState?: unknown", "published acceptance API must type-check"),
     ("eager baseline reset", ai, "\t\trequestContext.websocketState.lastTransport = initial.transport;", "\t\trequestContext.websocketState.lastTransport = initial.transport;\n\t\tresetCodexWebSocketAppendState(requestContext.websocketState);", "healthy retries must retain their response baseline" if supports_recovery else "CodexCompactionChainLostError"),
-    ("SSE fallback permitted", ai, "const refuseSseFallback = isCompactionWireBody(transformedBody);", "const refuseSseFallback = false;", "sse-disabled: failure must stay terminal"),
+    ("SSE fallback permitted", ai, "const refuseSseFallback = isCompactionWireBody(transformedBody);", "const refuseSseFallback = false;", sse_refusal),
     ("cold full replay permitted", ai, "const mustChain = isCompactionWireBody(requestContext.transformedBody);", "const mustChain = false;", "cold: every sent compaction must chain" if supports_recovery else "cold: failure must stay terminal"),
     ("acceptance does not reset", core, "\t\tapplyAcceptedMetadata?.(acceptedMetadata);", "\t\tvoid acceptedMetadata;", "accepted summary must invalidate its old baseline"),
-    ("accepted metadata dropped", ai, ("\t\t\t" if version in ("18.3.3", "18.4.1", "18.4.4") else "\t\t") + "applyOpenAICodexCompactionResponseMetadata(recorded, requestContext);", "\t\tvoid recorded;", "accepted summary must commit metadata"),
+    ("accepted metadata dropped", ai, ("\t\t\t" if version in generic_acceptance else "\t\t") + "applyOpenAICodexCompactionResponseMetadata(recorded, requestContext);", "\t\tvoid recorded;", "accepted summary must commit metadata"),
     ("raw error swallowed", core, 'type === "response.incomplete" || type === "error"', 'type === "response.incomplete"', "only a real provider code may be preserved"),
 ]
 if version in ("18.3.3", "18.4.1", "18.4.4"):

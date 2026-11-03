@@ -9,7 +9,20 @@ import { gunzipSync } from "node:zlib";
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+// Fail closed on a plan this gate has no arm for: 18.16.0 takes the 18.12.6 arms
+// below (the image-budget fixture and the credit-safe retry rungs). An unknown
+// version must abort instead of silently measuring the pre-18.10.0 contract.
+const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"];
+const selectedPlan = process.env.OMP_PATCH_VERSION;
+assert.ok(
+	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
+	`unsupported OMP_PATCH_VERSION for the cache-boundaries gate: ${selectedPlan} (supported: ${SUPPORTED_PLANS.join(", ")})`,
+);
 const aiVersion = JSON.parse(readFileSync(`${AI}/package.json`, "utf8")).version;
+assert.ok(
+	SUPPORTED_PLANS.includes(aiVersion),
+	`unsupported pi-ai tree version for the cache-boundaries gate: ${aiVersion} (supported: ${SUPPORTED_PLANS.join(", ")})`,
+);
 // These imports select the pristine, patched, or fault tree at runtime.
 const { streamAnthropic } = await import(`${AI}/src/providers/anthropic.ts`);
 const { markPerCallContextMessage } = await import(`${AI}/src/utils/block-symbols.ts`);
@@ -114,13 +127,16 @@ try {
 	const clearIndex = turnScoped.messages.findIndex(message => message.clear_at === "next_user_message");
 	assert.ok(clearIndex >= 0, "fixture must reach Anthropic's server-cleared system boundary");
 	assert.ok(messageBreakpoints(turnScoped).length > 0 && messageBreakpoints(turnScoped).every(index => index < clearIndex), "server-cleared content must retain its cache barrier");
-	for (const oauth of [true, false]) {
-		assert.equal(breakpoints(await capture([injected], "none", oauth)).length, 0, "cacheRetention none must disable OAuth and API-key breakpoints");
+	// 18.16.0 retired the local cacheRetention:none claim (Q5): upstream still sends the OAuth identity-block breakpoint.
+	if (aiVersion !== "18.16.0") {
+		for (const oauth of [true, false]) {
+			assert.equal(breakpoints(await capture([injected], "none", oauth)).length, 0, "cacheRetention none must disable OAuth and API-key breakpoints");
+		}
 	}
 	const apiKey = await capture([injected, assistant, user("Next")], "short", false);
 	assert.ok(messageBreakpoints(apiKey).includes(apiKey.messages.length - 1), "API-key requests must cache extension-injected history too");
 	assert.ok(breakpoints(apiKey).every(block => !block.cache_control?.ttl || block.cache_control.ttl === "5m"), "short retention must not gain a one-hour breakpoint");
-	if (aiVersion === "18.12.6") {
+	if (["18.12.6", "18.16.0"].includes(aiVersion)) {
 		const smallPng = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGklEQVR4nGMMr0r+b/RPjoHlpyIfA8N/UQYAPVQFw2ujXG4AAAAASUVORK5CYII=";
 		const largePng = Buffer.from(await new Bun.Image(Buffer.from(smallPng, "base64")).resize(2029, 1279).png().bytes()).toString("base64");
 		const large = { type: "image", mimeType: "image/png", data: largePng };
@@ -223,7 +239,7 @@ try {
 			Object.defineProperty(Bun, "Image", { value: NativeImage });
 		}
 	}
-	if (["18.10.0", "18.10.1", "18.12.6"].includes(aiVersion)) {
+	if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion)) {
 		// Both cache-control rungs rebuild the request. After a credited refusal
 		// with an already-run server tool, neither may send an uncredited replay.
 		// Text-only controls prove each rung is reached, not disabled wholesale.

@@ -20,7 +20,7 @@ if (version === "18.2.3") {
 	console.log("PASS retained 18.2.3 auth UI load gate");
 	process.exit(0);
 }
-assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(version), "Adapt selector behavior fixtures when changing the version plan");
+assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(version), "Adapt selector behavior fixtures when changing the version plan");
 // Runtime-selected package roots keep first-use imports inside the chosen tree.
 const { SelectorController } = await import(`${root}/src/modes/controllers/selector-controller.ts`);
 const { Settings } = await import(`${root}/src/config/settings.ts`);
@@ -72,7 +72,7 @@ const context = {
 	showError(message: string) { throw new Error(message); },
 };
 const controller = new SelectorController(context);
-if (version === "18.12.6") {
+if (["18.12.6", "18.16.0"].includes(version)) {
 	// The target picker reads the viewed session, which may be a focused child.
 	Object.assign(context, { viewSession: context.session });
 }

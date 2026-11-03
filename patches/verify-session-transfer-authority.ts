@@ -11,7 +11,8 @@ import { join } from "node:path";
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
-assert.ok(["18.10.0", "18.10.1", "18.12.6"].includes(JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version),
+const AGENT_VERSION = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
+assert.ok(["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(AGENT_VERSION),
 	"session transfer authority gate requires the selected public transfer APIs");
 const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
 const root = mkdtempSync(join(tmpdir(), "omp-transfer-authority-"));
@@ -42,13 +43,48 @@ const { FileSessionStorage } = await import(`${AGENT_ROOT}/src/session/session-s
 const { packSession, unpackSession, markSessionMoved } = await import(`${AGENT_ROOT}/src/session/session-transfer.ts`);
 const { lastSessionTransfer } = await import(`${AGENT_ROOT}/src/session/session-transfer-marker.ts`);
 const { readTerminalBreadcrumbEntry } = await import(`${AGENT_ROOT}/src/session/session-paths.ts`);
-const { DateCwdReminderInjector, DATE_CWD_ANCHORS_ARTIFACT, readDateCwdAnchors } =
+const { DateCwdReminderInjector, DATE_CWD_ANCHORS_ARTIFACT, readDateCwdAnchors, createSessionDateCwdReminderJournal } =
 	await import(`${AGENT_ROOT}/src/session/date-cwd-reminder.ts`);
 const { readArchiveEntries, writeArchive } = await import(Bun.resolveSync("@oh-my-pi/pi-utils/ar", AGENT_ROOT));
+// 18.16.0 journals every reminder placement as a `date-cwd-reminder` custom entry of
+// the session JSONL; through 18.12.6 placements lived in a per-session anchor artifact.
+const JOURNAL_PLACEMENTS = AGENT_VERSION === "18.16.0";
+/** The archive artifact whose staged publication the cross-device fixture forces to fail. */
+const STAGED_ARTIFACT = JOURNAL_PLACEMENTS ? "sentinel.bin" : DATE_CWD_ANCHORS_ARTIFACT;
 const cwd = join(root, "work");
 mkdirSync(cwd);
 
-async function archiveFixture(name: string, extended = false, sourceCwd = cwd) {
+/** The session surface a {@link DateCwdReminderJournal} reads and writes. */
+interface ReminderSession {
+	getSessionId(): string;
+	getSessionFile(): string | null;
+	getBranchView(): readonly unknown[];
+	appendCustomEntry(customType: string, data?: unknown): string;
+	getLeafId(): string | null;
+	getEntry(id: string): unknown;
+}
+
+/** The reminder injector for this plan: 18.16.0 reads and writes the session's journal. */
+function reminderInjector(manager: ReminderSession) {
+	return JOURNAL_PLACEMENTS
+		? new DateCwdReminderInjector(createSessionDateCwdReminderJournal(manager))
+		: new DateCwdReminderInjector(() => manager.getSessionId(), undefined, () => manager.getSessionFile());
+}
+
+/** `date-cwd-reminder` placements recorded in one session JSONL, in file order. */
+function journalEntriesOf(journal: string): unknown[] {
+	const entries: unknown[] = [];
+	for (const line of journal.trim().split("\n")) {
+		const parsed: unknown = JSON.parse(line);
+		if (typeof parsed !== "object" || parsed === null) continue;
+		if (!("type" in parsed) || parsed.type !== "custom") continue;
+		if (!("customType" in parsed) || parsed.customType !== "date-cwd-reminder") continue;
+		entries.push(parsed);
+	}
+	return entries;
+}
+
+async function archiveFixture(name: string, extended = false, sourceCwd = cwd, placeReminders = true, writeArtifacts = true) {
 	const sessionDir = join(root, name);
 	const manager = SessionManager.create(sourceCwd, sessionDir);
 	manager.appendMessage({ role: "user", content: `base ${name}`, timestamp: 1 });
@@ -64,14 +100,18 @@ async function archiveFixture(name: string, extended = false, sourceCwd = cwd) {
 	const id = manager.getSessionId();
 	const artifacts = manager.getArtifactsDir();
 	assert.ok(artifacts);
-	mkdirSync(artifacts, { recursive: true });
-	writeFileSync(join(artifacts, "sentinel.bin"), Buffer.from([0, 255, 13, 10, 7]));
-	new DateCwdReminderInjector(() => manager.getSessionId(), undefined, () => manager.getSessionFile())
-		.transform({ systemPrompt: ["fixture"], messages: manager.buildSessionContext().messages }, "2026-09-06", sourceCwd);
+	if (writeArtifacts) {
+		mkdirSync(artifacts, { recursive: true });
+		writeFileSync(join(artifacts, "sentinel.bin"), Buffer.from([0, 255, 13, 10, 7]));
+	}
+	const sent = placeReminders
+		? reminderInjector(manager)
+			.transform({ systemPrompt: ["fixture"], messages: manager.buildSessionContext().messages }, "2026-09-06", sourceCwd)
+		: undefined;
 	await manager.close();
 	const archive = join(root, `${name}.omp-session`);
 	await packSession(file, archive);
-	return { sessionDir, file, id, archive, prefix, artifacts };
+	return { sessionDir, file, id, archive, prefix, artifacts, firstMessage: sent && JSON.stringify(sent.messages[0]) };
 }
 
 /** Capture files and directories, including binary artifacts and orphan folders. */
@@ -139,6 +179,54 @@ try {
 		FileSessionStorage.prototype.claimSession = originalClaim;
 	}
 
+	// A diverged local copy forks even when the incoming session carries no
+	// artifacts: an archive that declares none has nothing left to complete.
+	const bare = await archiveFixture("fork-without-artifacts", false, cwd, true, false);
+	assert.equal(existsSync(bare.artifacts), false, "the fixture must have no artifacts directory at all");
+	const bareLocal = await SessionManager.open(bare.file);
+	bareLocal.appendMessage({ role: "user", content: "divergent local history", timestamp: 11 });
+	await bareLocal.flush();
+	await bareLocal.close();
+	const bareImported = await unpackSession(bare.archive, { cwd, sessionDir: bare.sessionDir });
+	assert.equal(bareImported.mode, "forked", "a diverged copy of an artifact-free session forks");
+	assert.notEqual(bareImported.id, bare.id, "the artifact-free fork acquires a fresh ID");
+	const bareFork = await SessionManager.open(bareImported.sessionFile);
+	try {
+		assert.ok(JSON.stringify(bareFork.getEntries()).includes("base fork-without-artifacts"),
+			"the artifact-free fork resumes the incoming history");
+		assert.ok(!JSON.stringify(bareFork.getEntries()).includes("divergent local history"));
+	} finally {
+		await bareFork.close();
+	}
+
+	if (JOURNAL_PLACEMENTS) {
+		// An archive that declares no artifacts must still import in the other
+		// modes: complete-artifact publication needs a staged artifacts directory
+		// even when it is empty, so nothing stats a directory never staged.
+		for (const mode of ["created", "replaced"] as const) {
+			const noArtifacts = await archiveFixture(`artifact-free-${mode}`, false, cwd, true, false);
+			assert.equal(existsSync(noArtifacts.artifacts), false,
+				`${mode}: the fixture must have no artifacts directory at all`);
+			const destination = mode === "created" ? join(root, `artifact-free-destination-${mode}`) : noArtifacts.sessionDir;
+			mkdirSync(destination, { recursive: true });
+			const imported = await unpackSession(noArtifacts.archive, { cwd, sessionDir: destination });
+			assert.equal(imported.mode, mode, `an artifact-free archive must import as ${mode}`);
+			const manager = await SessionManager.open(imported.sessionFile);
+			try {
+				const placements = createSessionDateCwdReminderJournal(manager).load();
+				assert.ok(placements.length > 0, `${mode}: the published journal must carry the archive's date/cwd placements`);
+				assert.equal(journalEntriesOf(readFileSync(imported.sessionFile, "utf8")).length, placements.length,
+					`${mode}: every journaled placement must survive the publication`);
+				const request = reminderInjector(manager)
+					.transform({ systemPrompt: ["fixture"], messages: manager.buildSessionContext().messages }, "2026-09-06", cwd);
+				assert.equal(JSON.stringify(request.messages[0]), noArtifacts.firstMessage,
+					`${mode}: the artifact-free import must keep its first provider message byte-identical`);
+			} finally {
+				await manager.close();
+			}
+		}
+	}
+
 	for (const extended of [false, true]) {
 		const fixture = await archiveFixture(extended ? "prefix" : "equal", extended);
 		if (extended) writeFileSync(fixture.file, fixture.prefix); // synthetic other-machine prefix
@@ -153,35 +241,84 @@ try {
 		try {
 			assert.equal(lastSessionTransfer(manager.getEntries())?.kind, "arrived");
 			if (extended) assert.ok(JSON.stringify(manager.getEntries()).includes("incoming prefix"));
+			if (JOURNAL_PLACEMENTS) {
+				// The archive's placements travel inside the journal, so a fresh
+				// injector resumed on the imported history re-sends the exact bytes.
+				assert.ok(createSessionDateCwdReminderJournal(manager).load().length > 0,
+					"the imported journal must carry the archive's date/cwd placements");
+				const request = reminderInjector(manager)
+					.transform({ systemPrompt: ["fixture"], messages: manager.buildSessionContext().messages }, "2026-09-06", cwd);
+				assert.equal(JSON.stringify(request.messages[0]), fixture.firstMessage,
+					"a resumed import must keep its first provider message byte-identical");
+			}
 		} finally {
 			await manager.close();
 		}
 	}
 
-	// A legacy archive really lacks the member; it is not an archive whose
-	// anchor map was merely empty. A same-ID local map must not leak into it.
-	const absent = await archiveFixture("absent-anchor");
-	const members = await readArchiveEntries({ path: absent.archive, format: "tar" });
-	assert.equal(members.delete(`artifacts/${DATE_CWD_ANCHORS_ARTIFACT}`), true);
-	const legacyArchive = join(root, "legacy-without-anchor.omp-session");
-	await writeArchive(legacyArchive, "tar", [...members]);
-	const old = await SessionManager.open(absent.file);
-	const legacyContext = { systemPrompt: ["fixture"], messages: old.buildSessionContext().messages };
-	new DateCwdReminderInjector(() => absent.id).transform(legacyContext, "1900-01-01", "POISON GLOBAL CWD");
-	await old.close();
-	rmSync(absent.sessionDir, { recursive: true, force: true });
-	const importedLegacy = await unpackSession(legacyArchive, { cwd, sessionDir: absent.sessionDir });
-	const legacy = await SessionManager.open(importedLegacy.sessionFile);
-	try {
-		assert.equal(readFileSync(join(legacy.getArtifactsDir(), DATE_CWD_ANCHORS_ARTIFACT), "utf8"), "{}",
-			"an absent archive member must publish an explicit empty session-owned map");
-		assert.deepEqual(readDateCwdAnchors(importedLegacy.id, importedLegacy.sessionFile), {});
-		const replay = new DateCwdReminderInjector(() => legacy.getSessionId(), undefined, () => legacy.getSessionFile())
-			.transform({ systemPrompt: ["fixture"], messages: legacy.buildSessionContext().messages }, "2026-09-08", cwd);
-		assert.ok(!JSON.stringify(replay.messages).includes("POISON GLOBAL CWD"));
-		assert.match(JSON.stringify(replay.messages), /2026-09-08/);
-	} finally {
-		await legacy.close();
+	if (JOURNAL_PLACEMENTS) {
+		// A legacy archive carries no `date-cwd-reminder` entries: it is not an
+		// archive whose journal merely records nothing for this branch. A same-ID
+		// local copy's placements must not leak into it — and because a placement
+		// is a transcript entry, such a local copy is a divergent history.
+		const legacyFixture = await archiveFixture("legacy-journal", false, cwd, false);
+		const archivedMembers = await readArchiveEntries({ path: legacyFixture.archive, format: "tar" });
+		const archivedJournal = archivedMembers.get("session.jsonl");
+		assert.ok(archivedJournal, "the legacy fixture archive must carry its journal member");
+		assert.equal(journalEntriesOf(Buffer.from(archivedJournal).toString("utf8")).length, 0,
+			"the legacy fixture archive must carry no date/cwd placements");
+		const old = await SessionManager.open(legacyFixture.file);
+		reminderInjector(old).transform({ systemPrompt: ["fixture"], messages: old.buildSessionContext().messages },
+			"1900-01-01", "POISON GLOBAL CWD");
+		assert.ok(JSON.stringify(createSessionDateCwdReminderJournal(old).load()).includes("POISON GLOBAL CWD"),
+			"fixture must stage a same-ID local placement");
+		await old.close();
+		const poisonedBytes = readFileSync(legacyFixture.file, "utf8");
+		assert.equal(journalEntriesOf(poisonedBytes).length, 1,
+			"the same-ID local copy must hold its own placement before the import");
+		const importedLegacy = await unpackSession(legacyFixture.archive, { cwd, sessionDir: legacyFixture.sessionDir });
+		assert.equal(importedLegacy.mode, "forked",
+			"a same-ID copy carrying placements the archive lacks is a divergent history");
+		const legacy = await SessionManager.open(importedLegacy.sessionFile);
+		try {
+			assert.deepEqual(createSessionDateCwdReminderJournal(legacy).load(), [],
+				"an archive without placements must not inherit a same-ID copy's journal");
+			assert.equal(journalEntriesOf(readFileSync(importedLegacy.sessionFile, "utf8")).length, 0);
+			const replay = reminderInjector(legacy)
+				.transform({ systemPrompt: ["fixture"], messages: legacy.buildSessionContext().messages }, "2026-09-08", cwd);
+			assert.ok(!JSON.stringify(replay.messages).includes("POISON GLOBAL CWD"));
+			assert.match(JSON.stringify(replay.messages), /2026-09-08/);
+			assert.equal(readFileSync(legacyFixture.file, "utf8"), poisonedBytes,
+				"the import must not rewrite the diverged same-ID source");
+		} finally {
+			await legacy.close();
+		}
+	} else {
+		// A legacy archive really lacks the member; it is not an archive whose
+		// anchor map was merely empty. A same-ID local map must not leak into it.
+		const absent = await archiveFixture("absent-anchor");
+		const members = await readArchiveEntries({ path: absent.archive, format: "tar" });
+		assert.equal(members.delete(`artifacts/${DATE_CWD_ANCHORS_ARTIFACT}`), true);
+		const legacyArchive = join(root, "legacy-without-anchor.omp-session");
+		await writeArchive(legacyArchive, "tar", [...members]);
+		const old = await SessionManager.open(absent.file);
+		const legacyContext = { systemPrompt: ["fixture"], messages: old.buildSessionContext().messages };
+		new DateCwdReminderInjector(() => absent.id).transform(legacyContext, "1900-01-01", "POISON GLOBAL CWD");
+		await old.close();
+		rmSync(absent.sessionDir, { recursive: true, force: true });
+		const importedLegacy = await unpackSession(legacyArchive, { cwd, sessionDir: absent.sessionDir });
+		const legacy = await SessionManager.open(importedLegacy.sessionFile);
+		try {
+			assert.equal(readFileSync(join(legacy.getArtifactsDir(), DATE_CWD_ANCHORS_ARTIFACT), "utf8"), "{}",
+				"an absent archive member must publish an explicit empty session-owned map");
+			assert.deepEqual(readDateCwdAnchors(importedLegacy.id, importedLegacy.sessionFile), {});
+			const replay = new DateCwdReminderInjector(() => legacy.getSessionId(), undefined, () => legacy.getSessionFile())
+				.transform({ systemPrompt: ["fixture"], messages: legacy.buildSessionContext().messages }, "2026-09-08", cwd);
+			assert.ok(!JSON.stringify(replay.messages).includes("POISON GLOBAL CWD"));
+			assert.match(JSON.stringify(replay.messages), /2026-09-08/);
+		} finally {
+			await legacy.close();
+		}
 	}
 
 	// Fail only after the destination journal is published. The importer must
@@ -237,15 +374,18 @@ try {
 	const originalLink = fs.link;
 	const originalCopyFile = fs.copyFile;
 	let exdevs = 0;
-	let anchorCopyFailures = 0;
-	let failAnchor = true;
-	const copyingImportedAnchor = (from: string, to: string) =>
+	let artifactCopyFailures = 0;
+	let failArtifact = true;
+	const copyingImportedArtifact = (from: string, to: string) =>
 		!from.startsWith(`${crossDevice.sessionDir}/`) && to.startsWith(`${crossDevice.sessionDir}/`) &&
-		from.endsWith(`/${DATE_CWD_ANCHORS_ARTIFACT}`);
+		from.endsWith(`/${STAGED_ARTIFACT}`);
+	/** The staged publication copies the artifact directory or, per entry, the artifact itself. */
+	const stagedArtifactSource = (source: string) =>
+		source.endsWith(`/${STAGED_ARTIFACT}`) || existsSync(join(source, STAGED_ARTIFACT));
 	fs.rename = async (from, to) => {
 		if (typeof from === "string" && typeof to === "string" &&
 			!from.startsWith(`${crossDevice.sessionDir}/`) && to.startsWith(`${crossDevice.sessionDir}/`) &&
-			existsSync(join(from, DATE_CWD_ANCHORS_ARTIFACT))) {
+			stagedArtifactSource(from)) {
 			exdevs++;
 			throw Object.assign(new Error("synthetic cross-device artifact directory"), { code: "EXDEV" });
 		}
@@ -254,12 +394,12 @@ try {
 	fs.cp = async (from, to, options) => {
 		const source = String(from);
 		const target = String(to);
-		if (failAnchor && !source.startsWith(`${crossDevice.sessionDir}/`) &&
-			target.startsWith(`${crossDevice.sessionDir}/`) && existsSync(join(source, DATE_CWD_ANCHORS_ARTIFACT))) {
+		if (failArtifact && !source.startsWith(`${crossDevice.sessionDir}/`) &&
+			target.startsWith(`${crossDevice.sessionDir}/`) && stagedArtifactSource(source)) {
 			await originalCopy(from, to, { ...options, filter: (entry, destination) => {
-				if (copyingImportedAnchor(entry, destination)) {
-					anchorCopyFailures++;
-					throw Object.assign(new Error("forced archive anchor copy failure"), { code: "EIO" });
+				if (copyingImportedArtifact(entry, destination)) {
+					artifactCopyFailures++;
+					throw Object.assign(new Error("forced archive artifact copy failure"), { code: "EIO" });
 				}
 				return options?.filter?.(entry, destination) ?? true;
 			} });
@@ -270,29 +410,42 @@ try {
 	// The historical merge fallback used link/copyFile instead of cp. Fail
 	// the same artifact there, so a warning-and-success regression is visible.
 	fs.link = async (from, to) => {
-		if (copyingImportedAnchor(String(from), String(to))) {
+		if (copyingImportedArtifact(String(from), String(to))) {
 			throw Object.assign(new Error("synthetic cross-device artifact"), { code: "EXDEV" });
 		}
 		await originalLink(from, to);
 	};
 	fs.copyFile = async (from, to, flags) => {
-		if (failAnchor && copyingImportedAnchor(String(from), String(to))) {
-			anchorCopyFailures++;
-			throw Object.assign(new Error("forced archive anchor copy failure"), { code: "EIO" });
+		if (failArtifact && copyingImportedArtifact(String(from), String(to))) {
+			artifactCopyFailures++;
+			throw Object.assign(new Error("forced archive artifact copy failure"), { code: "EIO" });
 		}
 		await originalCopyFile(from, to, flags);
 	};
 	try {
 		await assert.rejects(() => unpackSession(crossDevice.archive, { cwd, sessionDir: crossDevice.sessionDir }));
-		assert.ok(exdevs > 0 && anchorCopyFailures > 0, "fixture must fail the real cross-device anchor copy");
+		assert.ok(exdevs > 0 && artifactCopyFailures > 0, "fixture must fail the real cross-device artifact copy");
 		assert.deepEqual(snapshotTree(crossDevice.sessionDir), originalTree,
 			"incomplete staged artifact publication fails and restores all prior journal/artifact bytes");
-		failAnchor = false;
+		failArtifact = false;
 		const imported = await unpackSession(crossDevice.archive, { cwd, sessionDir: crossDevice.sessionDir });
 		const importedManager = await SessionManager.open(imported.sessionFile);
 		try {
 			assert.deepEqual(snapshotTree(importedManager.getArtifactsDir()), originalArtifacts,
 				"positive EXDEV import must publish every archive artifact byte-for-byte");
+			if (JOURNAL_PLACEMENTS) {
+				// The placements live in the journal member, so the staged move
+				// publishes them with the session: the moved history keeps the
+				// exact first request it was sent with.
+				const placements = createSessionDateCwdReminderJournal(importedManager).load();
+				assert.ok(placements.length > 0, "the moved journal must carry its date/cwd placements");
+				assert.equal(journalEntriesOf(readFileSync(imported.sessionFile, "utf8")).length, placements.length,
+					"every journaled placement must survive the staged publication");
+				const request = reminderInjector(importedManager)
+					.transform({ systemPrompt: ["fixture"], messages: importedManager.buildSessionContext().messages }, "2026-09-06", cwd);
+				assert.equal(JSON.stringify(request.messages[0]), crossDevice.firstMessage,
+					"the moved session's first provider request must keep messages[0] byte-identical");
+			}
 		} finally {
 			await importedManager.close();
 		}
@@ -471,7 +624,7 @@ try {
 		await session.dispose();
 		authStorage.close();
 	}
-	console.log("PASS session transfer authority: claim-before-read, transactional imports/adoption, portable anchors and relocation");
+	console.log(`PASS session transfer authority: claim-before-read, transactional imports/adoption, ${JOURNAL_PLACEMENTS ? "journaled date/cwd reminders" : "portable anchors"} and relocation`);
 } finally {
 	rmSync(root, { recursive: true, force: true });
 }
