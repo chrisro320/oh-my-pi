@@ -671,12 +671,15 @@ Acceptance: observed physical behaviour matches the gates; the user's approval i
 
 Reason: R8 requires a review with no unresolved actionable findings before anything is proposed for publication.
 
-- [ ] `python3 .trellis/scripts/task.py validate $TASK` (context entries resolve) then a read-only reviewer over
+- [x] `python3 .trellis/scripts/task.py validate $TASK` (context entries resolve) then a read-only reviewer over
   `prd.md`/`design.md`/`implement.md`/research + spec. — Effort: medium — context entries must resolve before a reviewer can rely on them.
-- [ ] Reviewer checks, at minimum: chain order respected, every retirement paired with proof + negative control, no weakened
+- [x] Reviewer checks, at minimum: chain order respected, every retirement paired with proof + negative control, no weakened
   assertion, no fake fallback, boundaries (credentials, publication, activation) intact, declared evidence reproducible. —
   Effort: medium — these are the failure modes this pipeline has actually produced.
-- [ ] Dispose of findings; a finding that needs new scope returns to the user instead of being absorbed. — Effort: low — absorbing a finding is how scope silently grows.
+- [x] Dispose of findings; a finding that needs new scope returns to the user instead of being absorbed. — Effort: low — absorbing a finding is how scope silently grows.
+  Done: 5 findings (4 gate/evidence, 1 overclaim) fixed; the idle-owner gap the rewritten gate exposed was fixed in 0092 inside
+  the existing capability (no new scope), re-reviewed (3 holes closed, verdict correct), and M9–M11 re-run on `3cb462bf…`
+  (DECISIONS.md 18.16.0 section). No actionable finding remains.
 
 Acceptance: review verdict recorded; zero unresolved actionable findings.
 
@@ -684,12 +687,12 @@ Acceptance: review verdict recorded; zero unresolved actionable findings.
 
 Reason: a stale representation is a defect; the next rebase pays for it.
 
-- [ ] `trellis-update-spec`: record what this rebase taught (chain-order evidence, retirement bar, gate-source hash freeze,
+- [x] `trellis-update-spec`: record what this rebase taught (chain-order evidence, retirement bar, gate-source hash freeze,
   the TUI-timeout trap, `buildProviderContext` as the single compaction authority). — Effort: medium — the next rebase pays for an unrecorded lesson.
-- [ ] Update `PATCHES.md` (current family/capability/gate totals, retired capabilities with reasons, adoption records),
+- [x] Update `PATCHES.md` (current family/capability/gate totals, retired capabilities with reasons, adoption records),
   `DECISIONS.md` (Q1–Q13 + NEW-0102 + the Q6 outcome), `DEPLOYMENT-RUNBOOK.md` (18.16.0 commands, native overlay, smoke). —
   Effort: medium — stale totals are the defect that outlives the release.
-- [ ] Remove every stale 18.12.6-as-current total; historical sections stay explicitly historical. — Effort: low — a superseded number presented as current misleads the next upgrade.
+- [x] Remove every stale 18.12.6-as-current total; historical sections stay explicitly historical. — Effort: low — a superseded number presented as current misleads the next upgrade.
 
 Acceptance: docs describe the candidate that actually exists, with no superseded numbers presented as current.
 

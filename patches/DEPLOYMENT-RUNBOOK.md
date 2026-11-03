@@ -4,7 +4,7 @@
 
 安全更新 omp、重套補丁、驗證回退，且不共用或破壞 `agent.db`、`models.db`、OAuth 憑證。
 
-## 18.12.6 migration and installation (active)
+## 18.12.6 migration and installation (installed release; rollback baseline)
 
 The upgrade task targets exact18.12.6/commit `45c35e40c46166dc726ccc52f5d27f40f2449f99`. Installation was authorized by the user on 2026-10-23 after candidate acceptance: `prepare --version 18.12.6`, then the installed smoke `.trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/smoke/run-sandbox-smoke.py --release <staged-release> --out <json>`, then `publish`. Unlike the18.10.1 in-place smoke, the18.12.6 release smoke checks the staged runtime/ledger digests against the receipt before and after, and executes byte-identical private copies, because its probes must live inside the runtime. It proves installed bytes, not installed-path permissions, bindings or launcher admission; those are covered by the receipt/launcher review and the post-publish blocked-launch observation. Release `18.12.6-87abd557af5b-693348fb-09428d79` became active on 2026-10-23 after old owners exited (`production_admission_started:true`); code-only rollback is now refused.
 
@@ -12,16 +12,46 @@ Selected acquisition uses the already-audited independent npm closure with a pin
 
 After source/ledger integration, run the target oracle and selected gates, actual private sandbox smoke, declaration consumer and applicable human-approved Tern/native checks. The sandbox entry point is `.trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/smoke/run-sandbox-smoke.py --runtime <candidate> --ledger <repository-patches> --out <fresh-json>`; its harness runs every command in a loopback-only network namespace (`bwrap --unshare-net`), because native Anthropic's `node:https` transport bypasses fetch stubs. Repository/sandbox acceptance for candidate `87abd557af5b7c166dd3fadfc1bd68c5eb7cad641af41dac8424cfd7ca55a4bf` is complete (oracle, 57/57 gates in one run, smoke, OAuth controller controls, companions, physical native checks, Tern queue/steer/image/resume; `/compact` and parked-agent wake accepted via their gates by user decision). Synthetic `verify-release-publication.py --version 18.12.6` passes only its temporary HOME fault/admission fixture; it does not install or publish a real release.
 
+## 18.16.0 candidate (repository only; not installed)
+
+Nothing in this section is installed or active. The candidate is exact `18.16.0` / commit `650f3a108229ee11bf68ba3377f4e8c3391cd424`; 18.12.6 is still the running release, and its frozen release is the rollback. `prepare`/`publish` below are M15 work and need separate authorization.
+
+Read-only chain queries (the `PATCHES` array is not a plan). `TASK=.trellis/tasks/11-03-omp-18160-upgrade-plan` holds this upgrade's research scripts and receipts:
+
+```sh
+OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-plan           # 26 rows
+OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-capabilities   # 62 capabilities
+OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-gates          # 71 gates
+python3 patches/verify-release-family-plan.py --version 18.16.0 --tgz-cache <archives>
+bash patches/verify-patch-family-rollups.sh --version 18.16.0
+```
+
+`--check` is not acceptance — it peels the final tree. Acceptance is the zero-fuzz replay, reverse-to-pristine and an identical second replay against pinned archives (`$TASK/research/m9-oracle-18.16.0.json`, candidate tree `3cb462bf…`, pristine `9f88de1a…`).
+
+Gate batch: build a private runtime with `$TASK/research/gate-runtime-18.16.0.sh <source-@oh-my-pi> <out>`, then run **only** the controller-selected gates with `$TASK/research/run-target-gates.py --repo <repo> --runtime <out> --out <fresh>`, inside `bwrap --die-with-parent --unshare-net --bind / / --dev /dev --proc /proc` with a private HOME/XDG. All 71 must be `PASS` and the runtime hash manifest must be unchanged before and after (`$TASK/research/m10-full-batch-18.16.0.json`). Freeze the controller and ledger bytes first; a batch with a moving gate proves nothing.
+
+Native overlay: the 18.16.0 recipe is `patches/native/18.16.0/overlay.json` (same single Rust patch, `cargo --release --locked`, both target CPUs). Build with `bash patches/native/build-natives.sh <work> <out> patches/native/18.16.0/overlay.json`, install both `.node` files into the runtime's `pi-natives-linux-x64/`, then `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi --overlay patches/native/18.16.0/overlay.json` must PASS. Never overwrite the 18.12.6 recipe.
+
+Smoke (repository/sandbox only, synthetic model, no provider proof):
+
+```sh
+python3 "$TASK/research/smoke/run-sandbox-smoke.py" --runtime <runtime> --ledger <repo>/patches --out <fresh-json>
+```
+
+It must be `PASS` with six checks at exit 0 plus four offline controls, digests equal before and after, and the exact-version check failing closed on an 18.16.1 tree (`$TASK/research/m11-smoke-18.16.0.json`). Publication, when authorized, is the same three-step `prepare` → installed-path smoke → `publish` sequence as 18.12.6, with `--version 18.16.0`.
+
+Still unproven at this boundary: physical Tern acceptance and the live double `/compact snapcompact`, both of which need 18.16.0 running on the desktop — i.e. they belong to the deployment window, not to repository acceptance.
+
 ## Immutable installation procedure (introduced with 18.10.1)
 
 The sections below this procedure retain historical direct-global deployment and offline database guidance. Do not apply their `bun add -g`, global directory exchange, watcher or mutable-ledger commands to the current immutable release.
 
-1. Pin official archives/commit, rebase the family registry and run the complete representation oracle. Current18.10.1 baseline owns27physical families/61local capabilities plus upstream0017=62capabilities and179unique source/declaration/data paths;0097is excluded. Use controller/manifest outputs as authority and existing changed-consumer gates, not repeated broad suites.
-2. Assemble the full dependency/native closure under private HOME/cache. All13 OMP packages must match18.10.1. Independent copies must have no external aliases or shared regular-file inodes. Never source pristine packages from the live Bun cache.
+1. Pin official archives/commit, rebase the family registry and run the complete representation oracle. The baseline this procedure was written against (18.10.1) owned27physical families/61local capabilities plus upstream0017=62capabilities and179unique source/declaration/data paths;0097is excluded. Current totals belong to the release being installed, not to this paragraph: 18.12.6 is27families/62capabilities and the repository 18.16.0 candidate is26families/62capabilities (its own count of 71 controller-selected gates). Use `--print-plan`/`--print-capabilities`/`--print-gates` and the manifest as authority, and existing changed-consumer gates, not repeated broad suites.
+2. Assemble the full dependency/native closure under private HOME/cache. All13 OMP packages must match the target version. Independent copies must have no external aliases or shared regular-file inodes. Never source pristine packages from the live Bun cache.
    Native overlay: rebuild with `bash patches/native/build-natives.sh <work> <out>`, install both `.node` files into the runtime's `pi-natives-linux-x64/`, then `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi` must PASS. A rebuilt hash differing from `overlay.json` means the recipe or toolchain drifted: record the new hashes only after re-running the live Escape checks.
    The current native overlay also bounds AT-SPI initialization to two seconds and accepts Chrome profile-decorated AX frame titles while retaining PID ownership and ambiguity rejection. For the 2026-10-15 AX-only release, the user explicitly accepted publication on completed automated/native/runtime evidence without repeating physical Escape validation; this is a one-release exception, documented in `DECISIONS.md`, not a passing physical check or a change to the general gate.
 3. Prepare permanent code with:
-   `python3 -I patches/publish-release.py prepare --home "$HOME" --runtime <verified-private-runtime> --ledger <repository-patches> --version 18.10.1`.
+   `python3 -I patches/publish-release.py prepare --version <version> --home "$HOME" --runtime <verified-private-runtime> --ledger <repository-patches>`.
    The receipt names the physical `~/.bun/install/omp-releases/<version-digests>` directory. Old global paths remain unchanged.
 4. Against that installed physical runtime, run source `--version`, actual read-tool CLI, native IPC and gallery smoke under a freshly allowlisted private HOME/XDG/agent (`.trellis/tasks/archive/2026-10/10-12-omp-18101-footer-release/research/smoke/run-installed-smoke.py --release <physical-release> --out <json>`). Block fetch in the source CLI fixture. Run the bound ledger `--check` and native lifecycle gate. Collect the six results as `checks.version`, `cli-read`, `native-ipc`, `gallery`, `bound-controller`, `native-dialog` with `exit:0`, plus the exact `release` and `status:"PASS"`. Re-run `verify-native-overlay.py` against the installed runtime.
 5. Run `python3 -I patches/publish-release.py publish --release <physical-release> --smoke <installed-private-smoke.json>` only after final review. This serializes with first production admission, records old boot/PID/start-time identities, preserves the exact old launcher and ledger, and publishes launcher/ledger under a durable fail-closed receipt. A failed partial publication restores code pointers only.
@@ -73,7 +103,7 @@ For18.7.0, `OMP_PATCH_PLAN=deployed` (also the default) selects the consolidated
 
 Same-family maintenance archives the previous immutable revision and replaces the active family revision rather than appending a repair layer. Follow the existing [family contract](../.trellis/spec/backend/patch-rollup-contracts.md); keep historical rollback bytes unchanged. The 0090 unlock revision (2026-10-13) followed exactly that path: `.retired/10-13-18.10.1-0090-pre-unlock/` holds the superseded `0090-omp-oauth-durable-refresh-v18.10.1.patch` with its pinned hash, `baseline.json` and `unlock-api.delta.patch`; `verify-release-family-plan.py` fails if that archive drifts or if the retired bytes are still the active representation. The 2026-10-15 Anthropic-only scope revision followed the same path again: `.retired/10-15-18.10.1-0090-pre-anthropic/` holds the superseded `cb5bbf9c…` bytes with `baseline.json` and `anthropic-scope.delta.patch`, the active family is `32eac750…` (candidate tree `2fc569d9…`), and plan rows, archives pins, `upstream_adoptions` and `pristine_tree_sha256` are unchanged. The installed 18.10.1 release carries the 2026-10-13 unlock revision (`7b7b41c2…`); the scope revision ships only with the next release, so the running installation still journals every provider.
 
-Historical next-update baseline was the verified18.7.0 family registry. The current next-update baseline is the verified18.10.1 registry, ownership manifest and gates; do not revive the retired58-layer chain or lose the retained18.7.0 history. Port each capability against official upstream bytes;0097 remains excluded.
+Historical next-update baselines were the verified18.7.0 family registry and then the verified18.10.1 registry; both are retained for their own plans. The next-update baseline now is the release that is actually installed (18.12.6) and, for repository work, the 18.16.0 candidate registry in §1 of the ledger. Do not revive the retired58-layer chain or lose the retained18.7.0 history. Port each capability against official upstream bytes;0097 remains excluded.
 
 Representation-only repository work is not deployment authorization. Before an authorized cutover, run the selected-version old/new verifier and isolated CLI/tool smoke, then stage the verified controller, family registry, patches and gates as one ledger. Retain the old ledger/controller as the rollback oracle. A repository/live mismatch during approved staging is not permission to overwrite the live ledger early.
 
@@ -248,7 +278,7 @@ usage_limit_reached
 - 不能只因為 fallback 就嚴格排除 resume 同時造成其他前綴差異；要排除必須比較 payload。
 - 不要拿較早會話的 usage 事件解釋最近一次 resume。
 
-## 6. 更新後驗收
+## 6. 更新後驗收（歷史 direct-global 18.1.x 流程；當前 immutable release 見文首安裝程序）
 
 ```sh
 ~/.bun/bin/omp --version
@@ -258,14 +288,14 @@ OMP_PATCH_VERSION=<部署版本> ~/.omp/patches/apply.sh --check
 確認：
 
 - 版本為預期版本。
-- 部署版本的補丁全部為 `APPLIED`（層數同 §2，**`bin/omp` 狀態行另計**）：18.1.14 為 27 項，18.1.18 為 31 項。
+- 部署版本的補丁全部為 `APPLIED`（層數同 §2，**`bin/omp` 狀態行另計**）：下列歷史層數只適用於各自的 direct-global 計畫——18.1.14 為 27 項、18.1.18 為 31 項；18.12.6 的 bound `--check` 為 28 行（27 補丁 + `bin`），18.16.0 計畫為 26 層。任何層數一律以 `--print-plan` 為準，不以本文數字推算。
 - 版本選擇正確：18.1.14 換 `0004`、`0010`、`0014`、`0017`、`0030`、`0035`、`0038` 並追加 `0047`；18.1.18 再多換 `0033`、`0043`、排除 `0051`、追加 `0047`/`0055`/`0056`/`0058`/`0060`/`0062`。
 - `bin/omp` 指向 patched `src/cli.ts`。
 - live DB 與 credential 沒有被新版 sandbox 命令接觸。
 
-## 7. 回退
+## 7. 回退（歷史 direct-global 流程）
 
-回退前先停止 runtime。回退目標是 18.1.14（唯一留存的舊計畫）；18.0.9 及更早版本已不再受支援，其計畫與候選已退役至 `patches/.retired/09-13-dead-plans/`。
+本節的 `bun add -g` 流程只適用於 historical direct-global 安裝。當前 immutable installation 的回退目標是 18.12.6 的凍結 release（`publish-release.py rollback --release <physical-release>`，且只在 `production_admission_started` 之前；見文首安裝程序）。18.16.0 尚未安裝，因此沒有可回退的 release。18.0.9 及更早版本已不再受支援，其計畫與候選已退役至 `patches/.retired/09-13-dead-plans/`。
 
 ```sh
 OMP_PATCH_VERSION=<部署版本> ~/.omp/patches/apply.sh --revert

@@ -775,3 +775,129 @@ Good: overlay PASS in staging and installed release; loaded `.node` hash (`/proc
 
 ### 7. Wrong vs Correct
 Wrong: pre-switch the XTEST device from TS so the monitor never sees the mapping change. Correct: fix the monitor (re-read Escape on `MappingNotify`, cancel only when it cannot) in a recorded native overlay.
+
+## Scenario: Rebasing a chain-anchored family plan (18.16.0)
+
+### 1. Scope / Trigger
+
+Use when an existing family plan is rebased onto a new upstream release. The
+trigger is a release where some capabilities adopt upstream, some rebase
+mechanically and some must be re-authored on a moved seam. The failure this
+contract prevents is a green representation oracle over a chain that quietly
+lost a capability, a deletion or a gate.
+
+### 2. Signatures
+
+```sh
+OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-plan           # one row per physical family
+OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-capabilities   # capability IDs, upstream included
+OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-gates          # what actually runs
+python3 patches/verify-release-family-plan.py --version 18.16.0 --tgz-cache <archives>
+bash patches/verify-patch-family-rollups.sh --version 18.16.0
+```
+
+Registry: `patches/.<version>-families/plan.tsv` (patch path, TAB, package-root
+symbol, comma-separated capability IDs) plus `manifest.json` (`families`,
+`upstream_adoptions`, `pristine_tree_sha256`, `candidate_tree_sha256`). The
+rebase tool for a release keeps its accepted state, its per-family proposals and
+its adoption list (18.16.0: `research/rebase-families-18.16.0.py`, `M5_ADOPTIONS`).
+
+### 3. Contracts
+
+- Families are **chain-anchored**: a later family's patch is generated against
+  the tree every earlier family produces. Rebase strictly in `plan.tsv` order at
+  `--fuzz=0`; NEVER reorder a family so that it applies, and never let one
+  family's context rebase absorb another family's change. 18.16.0's
+  `family-compaction` must land after `family-input-translation` because it edits
+  the `allowTruncation === false` line 0082 introduced, and its prefix-reuse
+  scopes are re-expressed over upstream's `buildProviderContext` instead of
+  beside it (one authority per seam).
+- `apply.sh --check`, a single-entry probe and a clean forward dry run are
+  representation bookkeeping, not acceptance. Acceptance is zero-fuzz replay from
+  pinned archives, reverse-to-pristine, and an identical second replay, all
+  reaching the same candidate tree digest the gate batch later runs against.
+- Retirement bar: a capability retires only with (a) a consumer proof executed on
+  the **pristine target** and (b) a negative control that turns that same proof
+  red. Release-note similarity, upstream code merely existing, or "we do not use
+  it" are not evidence. An explicitly unused capability (18.16.0 `0032`) retires
+  its registry row as a recorded decision; that is not a proof of equivalence and
+  MUST be written down as a removal.
+- An adoption is one change, not three: the family row leaves `plan.tsv`, its
+  hunks leave the owning patch, and `manifest.upstream_adoptions` gains
+  capability, contract and evidence. `PLAN_CAPABILITIES[<id>]=upstream` keeps the
+  capability's gate selected, so an adopted capability is never silently ungated.
+- The rebase tool owns the adoption list. Re-deriving adoptions from the previous
+  release's manifest erases them on the next export; the list is input to the
+  export, not output of it.
+- A capability that leaves the registry MUST show up as a gate-selection delta,
+  and the delta MUST be recorded in the ledger (`PATCHES.md`). Removing a row is
+  the claim; an unreported gate that stops running is how a capability disappears.
+- `/tmp` is tmpfs. Export accepted patches and the manifest into the repository
+  (`patches/.<version>-families/`) and mirror rebase `state.json` plus fragments
+  to a durable cache directory before the next long step; keep multi-GB runtimes
+  under `/var/tmp`. A reboot must not be able to erase the only copy of an
+  accepted family.
+- `tsc --noEmit` differential is acceptance. Compare pristine and chain counts and
+  attribute every new error to a family: a text hunk audit cannot see a lost
+  import (0072's picker component) or an arity/type change (`/loop` passing a
+  string to a `LoopPrompt` parameter). Fix in the owning family; never widen a
+  signature to hide the loss.
+- A cross-version rebase MUST re-verify every deletion the family owns, not only
+  its additions (see the family-consolidation scenario). 18.16.0 lost the
+  input-translation queue-policy deletion-side, the interrupt-prune symmetry and
+  21 of `family-usage-pipeline`'s 60 hunks before the hunk audit caught them.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| Family applied outside manifest order | Refuse; re-derive it against its true prerequisite tree |
+| Adoption declared without pristine proof and red fault copy | Refuse the adoption |
+| Adopted capability's gate no longer selected | Refuse; restore the `upstream` marker |
+| Capability removed with no ledger entry or gate-delta note | Refuse |
+| Rebase state exists only under `/tmp` | Export to the repo before the next step; do not spend a second pass on it |
+| New `tsc` error relative to pristine | Attribute to a family and fix there; do not widen types |
+| `--check` green offered as acceptance | Reject as evidence |
+
+### 5. Good / Base / Bad Cases
+
+- **Good:** 26 rows / 62 capabilities / 71 gates, one candidate digest shared by
+  oracle, gate batch and smoke, and every retirement carries its pristine proof
+  plus a red fault copy.
+- **Base:** a mechanical family re-emits identical hunks at zero fuzz and only the
+  tree digest moves.
+- **Bad:** reorder families until they apply; declare an adoption because upstream
+  "looks equivalent"; or let a carried-over gate pin stand in for a dropped arm
+  (0082's gate is excluded for 18.16.0 by an explicit guard and replaced by a
+  one-off consumer smoke, which is recorded as weaker evidence, not as a pass).
+
+### 6. Tests Required
+
+```sh
+# Representation: zero-fuzz, reverse, identical second replay, one candidate digest.
+python3 patches/verify-release-family-plan.py --version 18.16.0 --tgz-cache <archives>
+bash patches/verify-patch-family-rollups.sh --version 18.16.0
+
+# Gate selection and totals come from the controller.
+OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-plan | wc -l      # 26
+OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-capabilities | wc -l  # 62
+OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-gates | wc -l    # 71
+```
+
+Assertion points: the manifest's `candidate_tree_sha256` equals the digest the
+gate batch runs against; every `upstream_adoptions` entry has a gate still
+selected; the gate list diff against the previous release is exactly the intended
+additions and removals; every removed capability has a ledger entry.
+
+Machine-check presence at delivery and independent review:
+`grep -nE 'chain-anchored|Retirement bar|gate-selection delta|tmpfs' .trellis/spec/backend/patch-rollup-contracts.md`
+
+### 7. Wrong vs Correct
+
+Wrong: `apply.sh --check` reports every layer APPLIED, so the chain is accepted;
+adoptions are read from the previous release's manifest; a family is kept because
+its capability ID still appears in release notes.
+
+Correct: rebase in manifest order, prove each retirement on pristine with a red
+control, keep the adoption list in the tool and export it into the manifest,
+record the gate-selection delta, and persist accepted state outside `/tmp`.

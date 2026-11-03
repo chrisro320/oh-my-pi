@@ -13,10 +13,12 @@
 //   (c) a refresh that survives a context rewrite (compaction) or a new request
 //       (recap, main turn) overlaps that request instead of yielding to it.
 //
-// The `/cron keep` leg is chain-dependent on purpose: only a host that reads
-// `PI_CACHE_WARMING_IDLE_MAX_MS` (family 0092) keeps a settled session warm, so
-// a stock tree parks and this gate fails there — the companion must never ship
-// ahead of the capability it drives.
+// The idle-owner legs are chain-dependent on purpose. A host that reads
+// `PI_CACHE_WARMING_IDLE_MAX_MS` (family 0092) keeps a settled session warm, and
+// a warmer that defers to an in-flight idle recap (`Session.idleRecapRunning`)
+// keeps one paid request on the wire; a tree without either parks or races, so
+// this gate fails there — the companion must never ship ahead of the capability
+// it drives.
 //
 // Every leg drives the real `CacheWarmer` (OMP_PATCH_VERIFY_AGENT_ROOT) and the
 // real bundled catalog (OMP_PATCH_VERIFY_CATALOG_ROOT, else the agent root's
@@ -32,8 +34,8 @@
 // the red controls can drive a mutated one.
 
 import assert from "node:assert/strict";
-import { readFileSync, realpathSync } from "node:fs";
-import { homedir } from "node:os";
+import { mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 
 interface CacheLifetime {
@@ -175,7 +177,9 @@ const realSetTimeout = globalThis.setTimeout;
 const realClearTimeout = globalThis.clearTimeout;
 const realNow = Date.now;
 const timers: FakeTimer[] = [];
-let offset = 0;
+// Frozen clock: only a fired timer advances it, so a refresh point is exact.
+const CLOCK_EPOCH = 1_800_000_000_000;
+let clock = CLOCK_EPOCH;
 const clockGlobal = globalThis as unknown as {
 	setTimeout: (fn: () => void, ms?: number) => FakeTimer & { unref(): void };
 	clearTimeout: (timer?: FakeTimer) => void;
@@ -183,6 +187,8 @@ const clockGlobal = globalThis as unknown as {
 
 const POLL_MS = 30_000;
 const DECIDE_GUARD_MS = 2_000;
+/** The warmer's own deferral step (`IDLE_OWNER_DEFER_MS` in cache-warmer.ts). */
+const IDLE_DEFER_MS = 30_000;
 
 interface WarmerRun {
 	w: WarmerLike;
@@ -190,6 +196,12 @@ interface WarmerRun {
 	inFlight: { now: number; peak: number };
 	aborts: { n: number };
 	hold: { release?: () => void };
+	/** Set to a reason to make the host report another idle owner holding the wire. */
+	defer: { reason?: string };
+	/** Set to hold the async decision handler open. */
+	decision: { gate?: Promise<void> };
+	/** How often the decision handler was asked. */
+	decisions: { n: number };
 }
 
 function message(model: CatalogModel, cacheRead: number): ReplayMessage {
@@ -211,9 +223,12 @@ function message(model: CatalogModel, cacheRead: number): ReplayMessage {
 }
 
 /** Arm the real warmer for one model; `hold.release` keeps the stream open until called. */
-function warmerFor(model: CatalogModel, options?: { holdStream?: boolean }): WarmerRun {
+function warmerFor(model: CatalogModel, options?: { holdStream?: boolean; idle?: boolean }): WarmerRun {
 	timers.length = 0;
-	offset = 0;
+	clock = CLOCK_EPOCH;
+	const defer: { reason?: string } = {};
+	const decision: { gate?: Promise<void> } = {};
+	const decisions = { n: 0 };
 	const sent = { n: 0 };
 	const inFlight = { now: 0, peak: 0 };
 	const aborts = { n: 0 };
@@ -252,11 +267,30 @@ function warmerFor(model: CatalogModel, options?: { holdStream?: boolean }): War
 		},
 		getPromptTokens: () => 200_000,
 		getMode: () => "idle" as const,
-		decide: async () => "warm" as const,
+		defer: () => defer.reason,
+		decide: async () => {
+			decisions.n += 1;
+			if (decision.gate) await decision.gate;
+			return "warm" as const;
+		},
 		report: () => {},
 	});
 	w.start({ model, context: { messages: [] }, options: { cacheRetention: "long", apiKey: "k" } }, () => true);
-	return { w, sent, inFlight, aborts, hold };
+	// A run stays in its streaming phase unless the caller settles it, which is
+	// what a live session does when the agent run ends.
+	if (options?.idle) w.onAgentSettled();
+	return { w, sent, inFlight, aborts, hold, defer, decision, decisions };
+}
+
+/** Fire the deferral retry the warmer armed; these legs have no parked run. */
+async function fireDeferRetry(): Promise<boolean> {
+	const timer = [...timers].reverse().find(candidate => !candidate.cleared && candidate.ms === IDLE_DEFER_MS);
+	if (!timer) return false;
+	timer.cleared = true;
+	clock += timer.ms;
+	timer.fn();
+	await settle();
+	return true;
 }
 
 /** Fire the pending refresh timer; parked polls and the decide guard are skipped. */
@@ -266,7 +300,7 @@ async function fireRefresh(): Promise<boolean> {
 		.find(candidate => !candidate.cleared && candidate.ms !== POLL_MS && candidate.ms !== DECIDE_GUARD_MS);
 	if (!timer) return false;
 	timer.cleared = true;
-	offset += timer.ms;
+	clock += timer.ms;
 	timer.fn();
 	await settle();
 	return true;
@@ -280,7 +314,7 @@ function liveTimers(): FakeTimer[] {
 	return timers.filter(candidate => !candidate.cleared);
 }
 
-Date.now = () => realNow() + offset;
+Date.now = () => clock;
 clockGlobal.setTimeout = (fn, ms) => {
 	const timer: FakeTimer = { ms: ms ?? 0, fn, cleared: false };
 	timers.push(timer);
@@ -304,12 +338,7 @@ try {
 	{
 		const run = warmerFor(anthropic);
 		assert.equal(run.w.status.state, "scheduled", "the anthropic control must arm, or the skips above prove nothing");
-		// Absolute values differ by the real milliseconds this process spent
-		// arming, so the refresh point is asserted against the wall clock.
-		assert.ok(
-			Math.abs((run.w.status.nextWarmAt ?? 0) - (Date.now() + 54 * MIN)) < 1_000,
-			"a 3600s lifetime refreshes at 90% of its TTL",
-		);
+		assert.equal(run.w.status.nextWarmAt, CLOCK_EPOCH + 54 * MIN, "a 3600s lifetime refreshes at 90% of its TTL");
 		run.w.cancel();
 	}
 	console.log("ok  catalog skip list: devin, openai, openai-codex, kimi-code, deepseek, mistral are never warmed");
@@ -425,48 +454,329 @@ try {
 	console.log("ok  /cron keep: refused without a catalog lifetime, host-owned with one, no second timer");
 
 	// -----------------------------------------------------------------------
-	// 4. No overlap with the upstream idle owners. A recap/compaction rewrites
-	//    the conversation, and a main turn arms a new request: either must make
-	//    the pending (or in-flight) refresh yield, never run beside it.
+	// 4. A deferred retry is bounded, re-checked after the decision handler, and
+	//    fires exactly once the owner that held the wire is gone.
 	// -----------------------------------------------------------------------
 	{
-		let current = true;
+		// (a) A streaming run must not defer itself past the streaming age limit.
 		const run = warmerFor(anthropic);
-		run.w.cancel();
-		run.w.start({ model: anthropic, context: { messages: [] }, options: { cacheRetention: "long", apiKey: "k" } }, () => current);
-		assert.equal(run.w.status.state, "scheduled");
-		current = false; // compaction rewrote the transcript
-		assert.equal(await fireRefresh(), true);
-		assert.equal(run.sent.n, 0, "a refresh whose context was rewritten must not be sent");
-		assert.equal(run.w.status.state, "inactive");
-		assert.equal(run.w.status.reason, "conversation context changed");
-		assert.equal(liveTimers().length, 0, "the invalidated run must leave nothing scheduled");
+		try {
+			run.defer.reason = "an idle recap owns the session";
+			let fires = 0;
+			while (run.w.status.state === "scheduled" && fires < 200) {
+				// The first step is the run's own refresh point; every later step is
+				// the 30 s retry the warmer armed instead of dispatching.
+				const fired = (await fireDeferRetry()) || (await fireRefresh());
+				assert.equal(fired, true, "a deferred run must keep arming its retry");
+				fires += 1;
+			}
+			assert.equal(run.w.status.state, "inactive", "a busy owner must not keep a streaming run alive");
+			assert.equal(run.w.status.reason, "one-hour safety limit reached", `${run.w.status.reason}`);
+			assert.equal(clock, CLOCK_EPOCH + 60 * MIN, "the retries must stop exactly at the streaming bound");
+			assert.equal(run.sent.n, 0, "no request may be sent while the wire is not ours");
+			assert.equal(liveTimers().length, 0, "the stopped run must leave no timer");
+		} finally {
+			run.w.cancel();
+		}
 	}
 	{
-		const run = warmerFor(anthropic, { holdStream: true });
-		assert.equal(run.w.status.state, "scheduled");
-		const firing = fireRefresh();
-		await settle();
-		assert.equal(run.sent.n, 1, "the first refresh is in flight");
-		assert.equal(run.w.status.state, "refreshing");
-		// A new main-loop request (recap, compaction summarize, user turn) arms here.
-		run.w.start({ model: anthropic, context: { messages: [] }, options: { cacheRetention: "long", apiKey: "k" } }, () => true);
-		await settle();
-		assert.equal(run.aborts.n, 1, "the superseded refresh must be aborted, not raced");
-		assert.equal(run.inFlight.peak, 1, "never more than one paid request at a time");
-		assert.equal(liveTimers().length, 1, "exactly one schedule survives the hand-off");
-		assert.equal(run.w.status.state, "scheduled");
-		run.hold.release?.();
-		await firing;
-		await settle();
-		assert.equal(run.inFlight.now, 0, "the aborted stream must settle before the next refresh");
-		run.w.cancel();
+		// (b) An owner that appears while the decision handler is pending still blocks.
+		const run = warmerFor(anthropic);
+		const decision = Promise.withResolvers<void>();
+		run.decision.gate = decision.promise;
+		try {
+			const firing = fireRefresh();
+			await settle();
+			assert.equal(run.sent.n, 0, "the replay waits for the decision handler");
+			run.defer.reason = "an idle recap owns the session";
+			decision.resolve();
+			await firing;
+			await settle();
+			assert.equal(run.sent.n, 0, "a decision answered after the owner appeared must not dispatch");
+			assert.equal(run.w.status.state, "scheduled", "the run waits for the owner instead of replaying");
+			assert.equal(run.w.status.nextWarmAt, clock + IDLE_DEFER_MS, "the retry waits one deferral step");
+			run.decision.gate = undefined;
+			run.defer.reason = undefined;
+			assert.equal(await fireDeferRetry(), true, "the deferred retry must be armed");
+			assert.equal(run.sent.n, 1, "the retry refreshes once the owner is gone");
+		} finally {
+			run.w.cancel();
+		}
 	}
-	console.log("ok  idle owners: a rewritten context and a newer request both supersede a warm refresh");
+	{
+		// (c) The retry fires exactly once, and only after the owner is gone.
+		const run = warmerFor(anthropic);
+		try {
+			run.defer.reason = "an idle recap owns the session";
+			assert.equal(await fireRefresh(), true);
+			assert.equal(run.sent.n, 0, "a deferring run sends nothing");
+			assert.equal(run.decisions.n, 0, "an owner that is already known must not reach the decision handler");
+			assert.equal(run.w.status.state, "scheduled");
+			assert.equal(await fireDeferRetry(), true, "the retry is armed for the deferral step");
+			assert.equal(run.sent.n, 0, "a retry that is still deferred sends nothing");
+			run.defer.reason = undefined;
+			assert.equal(await fireDeferRetry(), true);
+			assert.equal(run.sent.n, 1, "the first retry after the owner clears refreshes once");
+			assert.equal(await fireDeferRetry(), false, "no second deferred timer survives the dispatch");
+		} finally {
+			run.w.cancel();
+		}
+	}
+	console.log("ok  idle owners: deferred retries stop at the hour bound and fire once the owner clears");
 } finally {
 	Date.now = realNow;
 	globalThis.setTimeout = realSetTimeout;
 	globalThis.clearTimeout = realClearTimeout;
 }
+
+// ---------------------------------------------------------------------------
+// 5. No overlap with the upstream idle owners, through a real session. The real
+//    `IdleMaintenance` recap (`session.runEphemeralTurn`), a real compaction
+//    (`session.runIdleCompaction`) and the host warmer share one wire here, and
+//    every provider call is counted: two idle owners must never be in flight at
+//    once, and a keep-alive that yields must not be dropped.
+//    The real timers are back (a live session cannot run on a frozen clock), so
+//    the lanes are driven by wall-clock windows rather than by firing timers.
+// ---------------------------------------------------------------------------
+const AI_ROOT = realpathSync(resolve(process.env.OMP_PATCH_VERIFY_AI_ROOT ?? join(dirname(root), "pi-ai")));
+const { createMockModel, registerMockApi } = await import(join(AI_ROOT, "src/providers/mock.ts"));
+const { createAgentSession, discoverAuthStorage } = await import(join(root, "src/sdk.ts"));
+const { SessionManager } = await import(join(root, "src/session/session-manager.ts"));
+const { Settings } = await import(join(root, "src/config/settings.ts"));
+const { initializeExtensions } = await import(join(root, "src/modes/runtime-init.ts"));
+
+interface SessionLike {
+	prompt(text: string): Promise<unknown>;
+	runIdleCompaction(): Promise<void>;
+	runIdleEphemeralTurn(options: { promptText: string }): Promise<unknown>;
+	enableIdleMaintenance(options?: Record<string, unknown>): void;
+	dispose(): Promise<void>;
+	isCompacting: boolean;
+	idleRecapRunning: boolean;
+	cacheWarmingStatus?: { state: string; nextWarmAt?: number };
+}
+
+interface LaneState {
+	lanes: string[];
+	inFlight: number;
+	peak: number;
+	/** Lane that stays open until `held.release()` is called. */
+	holding: string | undefined;
+	held: { promise: Promise<void>; resolve: () => void };
+}
+
+registerMockApi("cron-idle-owners");
+const laneRoot = join(tmpdir(), `omp-cron-idle-owners-${process.pid}`);
+
+/** One real session whose mock transport records every provider call on a single wire. */
+async function realSession(name: string, overrides: Record<string, unknown>): Promise<{ session: SessionLike; lane: LaneState }> {
+	const cwd = join(laneRoot, name);
+	mkdirSync(cwd, { recursive: true });
+	const held = Promise.withResolvers<void>();
+	const lane: LaneState = { lanes: [], inFlight: 0, peak: 0, holding: undefined, held: { promise: held.promise, resolve: held.resolve } };
+	const model = createMockModel({
+		id: "mock-warm",
+		cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+		handler: async (context: { messages: Array<{ content?: unknown }> }, options?: { maxTokens?: number }) => {
+			const text = JSON.stringify(context.messages.at(-1)?.content ?? "");
+			const kind = options?.maxTokens === 1
+				? "warm"
+				: /keepalive probe/.test(text)
+					? "keepalive"
+					: /<recap>/.test(text)
+						? "recap"
+						: "turn";
+			lane.inFlight += 1;
+			lane.peak = Math.max(lane.peak, lane.inFlight);
+			lane.lanes.push(kind);
+			try {
+				if (lane.holding === kind) await held.promise;
+				return {
+					content: ["ok"],
+					usage: { input: 10, output: 1, cacheRead: 200_000, cacheWrite: 0, totalTokens: 200_011 },
+				};
+			} finally {
+				lane.inFlight -= 1;
+			}
+		},
+	});
+	// The warmer only arms for a model that declares a cache lifetime; a 12s
+	// entry puts its refresh point 2s after the turn that wrote it.
+	Object.defineProperty(model, "promptCache", { value: { short: 12 }, enumerable: true });
+	const agentDir = join(cwd, "agent");
+	const authStorage = await discoverAuthStorage(agentDir);
+	authStorage.keys.setRuntime("mock", "test");
+	const { session } = await createAgentSession({
+		cwd,
+		agentDir,
+		authStorage,
+		model,
+		settings: Settings.isolated({ "providers.cacheWarming": "idle", "providers.cacheRetention": "short", ...overrides }),
+		// The `/cron keep` policy, minimally: force every refresh the horizon allows.
+		extensions: [
+			(pi: { on(name: string, handler: () => unknown): void }) =>
+				pi.on("cache_warming_decision", () => ({ action: "warm" })),
+		],
+		getApiKey: () => "test",
+		systemPrompt: "Test only.",
+		sessionManager: SessionManager.inMemory(cwd),
+		skills: [],
+		rules: [],
+		contextFiles: [],
+		promptTemplates: [],
+		slashCommands: [],
+		disableExtensionDiscovery: true,
+		enableMCP: false,
+		preloadedCustomToolPaths: [],
+		enableLsp: false,
+		skipPythonPreflight: true,
+		toolNames: [],
+		restrictToolNames: false,
+	});
+	// A host wires the extension runtime and then emits session_start.
+	await initializeExtensions(session, {
+		reportSendError: () => {},
+		reportRuntimeError: error => {
+			throw new Error(`extension runtime error: ${JSON.stringify(error)}`);
+		},
+	});
+	return { session: session as unknown as SessionLike, lane };
+}
+
+async function waitForLane(lane: LaneState, kind: string, ms: number): Promise<void> {
+	const deadline = Date.now() + ms;
+	while (Date.now() < deadline) {
+		if (lane.lanes.includes(kind)) return;
+		await Bun.sleep(20);
+	}
+	throw new Error(`lane ${kind} did not start within ${ms}ms (saw ${lane.lanes.join(",") || "nothing"})`);
+}
+
+try {
+	// An idle recap owns the wire: the warm refresh point passes with no replay.
+	{
+		const { session, lane } = await realSession("recap", {
+			"recap.enabled": true,
+			"recap.idleSeconds": 1,
+		});
+		try {
+			assert.equal(
+				typeof session.idleRecapRunning,
+				"boolean",
+				"the selected tree must expose Session.idleRecapRunning (the warmer's idle-owner defer guard)",
+			);
+			lane.holding = "recap";
+			session.enableIdleMaintenance({});
+			await session.prompt("hi");
+			await waitForLane(lane, "recap", 8_000);
+			assert.equal(session.idleRecapRunning, true, "the session must report the recap that owns the wire");
+			await Bun.sleep(2_800);
+			assert.equal(
+				lane.lanes.filter(kind => kind === "warm").length,
+				0,
+				"no warm replay may be dispatched beside an idle recap",
+			);
+			assert.equal(lane.peak, 1, "one paid request at a time");
+			assert.equal(session.cacheWarmingStatus?.state, "scheduled", "the keep-alive defers, it does not stop");
+			assert.ok(
+				(session.cacheWarmingStatus?.nextWarmAt ?? 0) > Date.now() + 20_000,
+				"the deferred refresh is retried after the recap, not dropped",
+			);
+			lane.held.resolve();
+			console.log(`ok  idle owners: an idle recap ran alone, the refresh deferred (lanes ${lane.lanes.join(",")})`);
+		} finally {
+			lane.held.resolve();
+			await session.dispose();
+		}
+	}
+
+	// A compaction takes the wire from an in-flight warm replay.
+	{
+		const { session, lane } = await realSession("compaction", { "recap.enabled": false });
+		try {
+			lane.holding = "warm";
+			await session.prompt("hi");
+			await waitForLane(lane, "warm", 8_000);
+			assert.equal(session.cacheWarmingStatus?.state, "refreshing", "the warm replay owns the wire first");
+			await session.runIdleCompaction();
+			assert.equal(session.cacheWarmingStatus?.state, "inactive", "idle compaction must take the wire from the warmer");
+			assert.equal(lane.peak, 1, "one paid request at a time");
+			assert.equal(
+				lane.lanes.filter(kind => kind === "warm").length,
+				1,
+				"the superseded replay must not be dispatched again",
+			);
+			console.log(`ok  idle owners: compaction superseded the warm replay (lanes ${lane.lanes.join(",")})`);
+		} finally {
+			lane.held.resolve();
+			await session.dispose();
+		}
+	}
+
+	// A keepalive reservation holds the recap back until it settles.
+	{
+		const { session, lane } = await realSession("reservation", {
+			"recap.enabled": true,
+			"recap.idleSeconds": 1,
+		});
+		try {
+			lane.holding = "keepalive";
+			session.enableIdleMaintenance({});
+			await session.prompt("hi");
+			const keepalive = session.runIdleEphemeralTurn({ promptText: "Session cache keepalive probe." });
+			await waitForLane(lane, "keepalive", 8_000);
+			const settled = await Promise.race([
+				Bun.sleep(1_800).then(() => "waited"),
+				keepalive.then(() => "settled"),
+			]);
+			assert.equal(settled, "waited", "the keepalive request must stay in flight while the wire is held");
+			assert.equal(lane.lanes.includes("recap"), false, "an idle recap must not start beside a keepalive reservation");
+			assert.equal(lane.peak, 1, "one paid request at a time");
+			lane.held.resolve();
+			await keepalive;
+			await waitForLane(lane, "recap", 8_000);
+			assert.equal(lane.peak, 1, "the recap runs after the reservation, never beside it");
+			console.log(`ok  idle owners: the keepalive reservation held the recap back (lanes ${lane.lanes.join(",")})`);
+		} finally {
+			lane.held.resolve();
+			await session.dispose();
+		}
+	}
+	// A cancelled recap still owns the wire until its request settles: the abort
+	// ends the stretch, not the provider call it already started.
+	{
+		const { session, lane } = await realSession("cancelled-recap", {
+			"recap.enabled": true,
+			"recap.idleSeconds": 1,
+		});
+		try {
+			lane.holding = "recap";
+			session.enableIdleMaintenance({});
+			await session.prompt("hi");
+			await waitForLane(lane, "recap", 8_000);
+			// New activity supersedes the stretch: the recap is aborted, not settled.
+			await session.prompt("again");
+			assert.equal(session.idleRecapRunning, true, "an aborted recap still owns the wire until it settles");
+			await Bun.sleep(2_800);
+			// The user turn that superseded the stretch may overlap the aborted
+			// recap (that is the cancel working); the *warmer* must not.
+			assert.equal(
+				lane.lanes.filter(kind => kind === "warm").length,
+				0,
+				"no warm replay may start beside an unsettled, aborted recap",
+			);
+			lane.held.resolve();
+			await Bun.sleep(400);
+			assert.equal(session.idleRecapRunning, false, "ownership clears only when the recap request settles");
+			console.log(`ok  idle owners: a cancelled recap kept the wire until it settled (lanes ${lane.lanes.join(",")})`);
+		} finally {
+			lane.held.resolve();
+			await session.dispose();
+		}
+	}
+} finally {
+	rmSync(laneRoot, { recursive: true, force: true });
+}
+
 
 console.log("\nPASS verify-cron-idle-owners: one idle owner, provider skip list intact, no overlap");

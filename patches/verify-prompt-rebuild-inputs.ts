@@ -203,6 +203,10 @@ function childEnv(nm: string, home: string, resultPath: string | undefined): Rec
 		XDG_CACHE_HOME: join(home, "cache"),
 		XDG_DATA_HOME: join(home, "data"),
 		XDG_STATE_HOME: join(home, "state"),
+		// The midnight leg formats local dates; a DST transition in the host's
+		// zone would move the wall day under a 24h step. Pin the zone, and pin
+		// the fixture instant below.
+		TZ: "UTC",
 		OMP_PROMPT_REBUILD_BOOT: "1",
 		OMP_PROMPT_REBUILD_NM: nm,
 		...(SCRATCH_ROOT ? { OMP_PROMPT_REBUILD_SCRATCH: SCRATCH_ROOT } : {}),
@@ -398,7 +402,9 @@ const scratch = mkdtempSync(join(SCRATCH_ROOT ?? tmpdir(), "omp-prompt-rebuild-"
 process.on("exit", () => rmSync(scratch, { recursive: true, force: true }));
 
 const MODEL_ID = "mock-model";
-const BOOT_MS = Date.now();
+// Fixed fixture instant (12:00 UTC, mid-year): the midnight leg must not depend
+// on when the gate runs, and 24h later is always the next wall day under TZ=UTC.
+const BOOT_MS = Date.UTC(2026, 5, 15, 12, 0, 0);
 
 interface Fixture {
 	name: string;

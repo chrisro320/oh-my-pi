@@ -102,6 +102,12 @@ const { Tokenizer } = (await import(`${CORE_ROOT}/src/tokenizer.ts`)) as {
 };
 
 const LENGTH_MESSAGE = core.incompleteOutputError("Summarization failed");
+// The split-turn path issues a SECOND request for the turn prefix; its own
+// length guard reports this message.
+const PREFIX_LENGTH_MESSAGE = core.incompleteOutputError("Turn prefix summarization failed");
+// Stable first line of prompts/compaction-turn-prefix.md: the only way to tell
+// the turn-prefix request apart from the history request in the same compaction.
+const PREFIX_MARKER = "Turn prefix too large; recent-work suffix retained.";
 // Stable fragment of prompts/system/length-stop-retry.md (0084's reminder).
 const REMINDER_FRAGMENT = "output limit while still reasoning";
 
@@ -186,9 +192,95 @@ async function main(): Promise<void> {
 	console.log(`PASS compaction length stop: core rejects with "${LENGTH_MESSAGE}"`);
 
 	// -------------------------------------------------------------------------
-	// LEG 2/3: the real maintenance paths. A committed summary would append a
-	// compaction entry (and rewrite history); a truncated one must append
-	// nothing at all -- compaction entry, message, or 0084 reminder.
+	// LEG 2: the split-turn leg. Here the HISTORY request succeeds and only the
+	// separate turn-prefix request stops at the limit, so the guard that matters
+	// is the one in `generateTurnPrefixSummary` -- a green history leg must not
+	// let a truncated prefix through. The mock answers by request shape, so the
+	// legs cannot be swapped by call ordering.
+	// -------------------------------------------------------------------------
+	const splitSummarizer = createMockModel({
+		id: "mock-split-summarizer",
+		handler: (context: Record<string, unknown>) =>
+			JSON.stringify(context).includes(PREFIX_MARKER)
+				? { content: ["TRUNCATED_TURN_PREFIX"], stopReason: "length", usage: { output: 64 } }
+				: { content: ["HISTORY_SUMMARY"], stopReason: "stop", usage: { output: 32 } },
+	});
+	const splitModel = splitSummarizer.model as Record<string, unknown>;
+	const splitTokenizer = new Tokenizer(splitModel);
+	const splitPreparation = core.prepareCompaction(
+		fixtureEntries(splitModel),
+		{ enabled: true, keepRecentTokens: 1, remoteEnabled: false },
+		splitModel,
+		splitTokenizer,
+	);
+	assert.ok(splitPreparation, "the split fixture must be compactable");
+	assert.equal(splitPreparation.isSplitTurn, true, "the split fixture must cut inside a turn");
+	assert.ok(
+		(splitPreparation.turnPrefixMessages as unknown[]).length > 0,
+		"the split fixture must leave a turn prefix to summarize separately",
+	);
+	await assert.rejects(
+		async () =>
+			core.compact(
+				{ ...splitPreparation, tokensBefore: 100_000, settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: false } },
+				splitModel,
+				"fixture-key",
+				undefined,
+				undefined,
+				{
+					convertToLlm: (messages: unknown) => messages,
+					tools: [],
+					oneshotRetry: false,
+					// No live chain: the split-turn path must issue both requests.
+					buildCachePreservingContext: async () => undefined,
+					completeImpl: async (requestModel: unknown, context: unknown, options: unknown) =>
+						streamMock(requestModel, context, options).result(),
+				},
+			),
+		(error: Error) => {
+			assert.equal(
+				error.message,
+				PREFIX_LENGTH_MESSAGE,
+				"a length-stopped turn prefix must surface its own incomplete-output error",
+			);
+			return true;
+		},
+		"a truncated turn prefix must not be merged into the summary",
+	);
+	const splitCalls = splitSummarizer.calls as Array<{ context: unknown }>;
+	assert.equal(splitCalls.length, 2, "the split turn must issue a history request and a turn-prefix request");
+	assert.ok(
+		!JSON.stringify(splitCalls[0].context).includes(PREFIX_MARKER),
+		"the first split request must be the history leg (it has no turn-prefix prompt)",
+	);
+	assert.ok(
+		JSON.stringify(splitCalls[1].context).includes(PREFIX_MARKER),
+		"the second split request must be the turn-prefix leg",
+	);
+	console.log(`PASS compaction length stop: split-turn prefix rejects with "${PREFIX_LENGTH_MESSAGE}"`);
+
+	// -------------------------------------------------------------------------
+	// LEG 2b: the same split-turn fixture through the real manual maintenance
+	// path: the truncated prefix must commit nothing.
+	// -------------------------------------------------------------------------
+	const splitManual = buildHost(SessionManager.create(cwd, join(cwd, "sessions-split")), splitModel);
+	const splitMaintenance = new SessionMaintenance(splitManual.host);
+	await assert.rejects(
+		async () => await splitMaintenance.compact(),
+		(error: Error) => {
+			assert.equal(error.message, PREFIX_LENGTH_MESSAGE, "the manual path must surface the turn-prefix failure");
+			return true;
+		},
+		"the manual path must not swallow a truncated turn prefix",
+	);
+	assertNothingCommitted(splitManual, "split-turn manual /compact");
+	console.log("PASS compaction length stop: split-turn manual path commits nothing");
+
+	// -------------------------------------------------------------------------
+	// LEG 3/4: the real maintenance paths for a plain (non-split) fixture. A
+	// committed summary would append a compaction entry (and rewrite history); a
+	// truncated one must append nothing at all -- compaction entry, message, or
+	// 0084 reminder.
 	// -------------------------------------------------------------------------
 	interface MaintenanceFixture {
 		host: Record<string, unknown>;
@@ -198,9 +290,9 @@ async function main(): Promise<void> {
 		liveMessages: Array<Record<string, unknown>>;
 	}
 
-	function buildHost(manager: Record<string, unknown>): MaintenanceFixture {
+	function buildHost(manager: Record<string, unknown>, summarizerModel: Record<string, unknown>): MaintenanceFixture {
 		const appended: string[] = [];
-		const branchEntries = fixtureEntries(model);
+		const branchEntries = fixtureEntries(summarizerModel);
 		const trackedManager = {
 			...manager,
 			getBranch: () => branchEntries,
@@ -230,19 +322,19 @@ async function main(): Promise<void> {
 		const host = {
 			agent: {
 				state: { isStreaming: false, systemPrompt: ["SYS"], tools: [], messages: liveMessages },
-				tokenizer,
+				tokenizer: new Tokenizer(summarizerModel),
 				promptCacheKey: undefined,
-				model,
+				model: summarizerModel,
 				telemetry: undefined,
 				metadataForProvider: () => undefined,
 			},
 			settings,
-			model: () => model,
+			model: () => summarizerModel,
 			sessionManager: trackedManager,
 			getPromptCacheKeyForModel: () => undefined,
 			providerSessionState: new Map(),
 			modelRegistry: {
-				getAvailable: () => [model],
+				getAvailable: () => [summarizerModel],
 				getApiKey: async () => "fixture-key",
 				resolver: () => ({}),
 				fitContextWindow: (candidate: unknown) => candidate,
@@ -328,7 +420,7 @@ async function main(): Promise<void> {
 		}
 	}
 
-	const manual = buildHost(SessionManager.create(cwd, join(cwd, "sessions")));
+	const manual = buildHost(SessionManager.create(cwd, join(cwd, "sessions")), model);
 	const manualMaintenance = new SessionMaintenance(manual.host);
 	const manualCallsBefore = summarizerRequests.length;
 	await assert.rejects(
@@ -343,7 +435,7 @@ async function main(): Promise<void> {
 	assertNothingCommitted(manual, "manual /compact");
 	console.log("PASS compaction length stop: manual path rejects and commits nothing");
 
-	const auto = buildHost(SessionManager.create(cwd, join(cwd, "sessions-auto")));
+	const auto = buildHost(SessionManager.create(cwd, join(cwd, "sessions-auto")), model);
 	const autoMaintenance = new SessionMaintenance(auto.host);
 	const autoCallsBefore = summarizerRequests.length;
 	await autoMaintenance.runAutoCompaction("threshold", false, {

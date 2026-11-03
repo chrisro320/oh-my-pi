@@ -10,6 +10,7 @@ metadata only, not capability/plan selection. No verification runs at import.
 from __future__ import annotations
 
 import argparse
+import hashlib
 from pathlib import Path
 import re
 import shlex
@@ -19,6 +20,34 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent / "smoke"))
 from harness import (VERSION, bun_path, copy_ledger, copy_runtime, environment, freeze, run,
                      validate_runtime, write_json)
+
+INSTRUMENTS = Path(__file__).resolve().parent
+
+
+def instrument_digests():
+    """The driver itself and every smoke module it can import, by relative path.
+
+    Coverage comes from the frozen controller, so the instruments that read that
+    coverage are frozen with the run: a driver or harness edited mid-run would
+    otherwise leave evidence nobody can attribute. The invoking shell runner is
+    the caller's process, not this one's, so the caller records it.
+    """
+    paths = [Path(__file__).resolve(), *sorted((INSTRUMENTS / "smoke").glob("*.py"))]
+    return {str(path.relative_to(INSTRUMENTS)): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in paths}
+
+
+def snapshot_instruments(output, digests):
+    """Copy the frozen instruments beside the evidence and verify the copies."""
+    copies = output / "instruments"
+    for relative, digest in digests.items():
+        target = copies / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(INSTRUMENTS / relative, target)
+        if hashlib.sha256(target.read_bytes()).hexdigest() != digest:
+            raise RuntimeError(f"instrument copy differs from its digest: {relative}")
+    write_json(output / "instruments-sha256.json", digests)
+    return copies
 
 
 def main():
@@ -41,6 +70,8 @@ def main():
         parser.error("timeout must be positive")
     output.mkdir(parents=True, exist_ok=False)
     bun = bun_path()
+    instruments = instrument_digests()
+    snapshot_instruments(output, instruments)
     snapshot = output / "snapshot"
     ledger = snapshot / "patches"
     copy_ledger(repo / "patches", ledger)
@@ -118,18 +149,22 @@ def main():
             write_json(output / "summary.json", {"version": VERSION, "runtime": str(runtime),
                        "selected_by_controller": gates, "requested": selected,
                        "only": args.only, "exclude": args.exclude, "executed": results,
-                       "status": "RUNNING"})
+                       "instruments": instruments, "status": "RUNNING"})
         finally:
             if isolated:
                 shutil.rmtree(selected_runtime)
+    instruments_unchanged = instrument_digests() == instruments
     summary = {"version": VERSION, "runtime": str(runtime), "controller_sha256": frozen["apply.sh"],
+               "instruments": {"files": instruments, "unchanged": instruments_unchanged,
+                               "snapshot": str(output / "instruments")},
                "ledger_hash_manifest": str(output / "ledger-sha256.json"),
                "selected_by_controller": gates, "requested": selected,
                "only": args.only, "exclude": args.exclude, "executed": results,
                "runtime_hash_manifest": str(output / "runtime-sha256.json"),
                "runtime_unchanged": freeze(runtime) == frozen_runtime,
                "status": "PASS" if (all(row["status"] == "PASS" for row in results)
-                         and freeze(runtime) == frozen_runtime) else "FAIL"}
+                         and freeze(runtime) == frozen_runtime
+                         and instruments_unchanged) else "FAIL"}
     write_json(output / "summary.json", summary)
     return 0 if summary["status"] == "PASS" else 1
 

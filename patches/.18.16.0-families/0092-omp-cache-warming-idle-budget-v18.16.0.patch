@@ -85,8 +85,15 @@
  /** Refresh at 90% of the TTL while preserving at least ten seconds of margin. */
  export declare function getCacheWarmingDelayMs(ttlMs: number): number | undefined;
  /**
-@@ -128,11 +130,13 @@
+@@ -126,13 +128,20 @@
+     getPromptTokens: () => number;
+     /** Current warming mode, read live so setting changes apply without re-arming. */
      getMode: () => CacheWarmingMode;
++    /**
++     * Why another session-owned request currently owns the session (an idle
++     * recap, a compaction), or undefined when the replay is free to run.
++     */
++    defer?: () => string | undefined;
      /** Extension override hook; failures fall back to the warmer's own decision. */
      decide?: (event: CacheWarmingDecisionEvent) => Promise<CacheWarmingAction>;
 +    /** Fire-and-forget report of each refresh that reached the provider. */
@@ -100,7 +107,7 @@
   */
  export declare class CacheWarmer {
      #private;
-@@ -161,7 +165,7 @@
+@@ -161,7 +170,7 @@
       */
      onResponse(message: AssistantMessage): void;
      onAgentSettled(): void;
@@ -173,9 +180,16 @@
  	/**
 --- a/src/sdk.ts
 +++ b/src/sdk.ts
-@@ -4772,6 +4772,7 @@
+@@ -4771,7 +4771,14 @@
+ 						stream: (model, context, streamOptions) => primaryStreamFn(model, context, streamOptions),
  						getPromptTokens: () => session.lastPromptTokens(),
  						getMode: () => cfgProvidersCacheWarming.get(settings),
++						// An idle recap or a compaction owns the wire: a warm replay defers
++						// instead of becoming a second concurrent paid request after it.
++						defer: () =>
++							session.isCompacting || session.idleRecapRunning
++								? "another session-owned request owns the session"
++								: undefined,
  						decide: event => extensionRunner.emitCacheWarmingDecision(event),
 +						report: event => void extensionRunner.emit(event).catch(() => undefined),
  					});
@@ -236,7 +250,21 @@
  /** A refresh is sent only when it is expected to save at least this many dollars. */
  const CACHE_WARMING_MINIMUM_EXPECTED_SAVINGS = 0.05;
  /**
-@@ -262,11 +281,19 @@
+@@ -69,6 +88,13 @@
+ const IDLE_CONTINUATION_PROBABILITY = 0.15;
+ /** Extension decide calls must answer inside the ten-second expiry margin. */
+ const CACHE_WARMING_DECIDE_TIMEOUT_MS = 2_000;
++/**
++ * A refresh that would overlap another session-owned request waits this long and
++ * re-checks: the idle request that got there first must finish alone, and a
++ * keep-alive that deferred still refreshes the entry it was armed for instead of
++ * paying for a second concurrent request.
++ */
++const IDLE_OWNER_DEFER_MS = 30_000;
+ 
+ /** Refresh at 90% of the TTL while preserving at least ten seconds of margin. */
+ export function getCacheWarmingDelayMs(ttlMs: number): number | undefined {
+@@ -262,11 +288,19 @@
  	result(): Promise<AssistantMessage>;
  }
  
@@ -256,8 +284,16 @@
  	controller: AbortController;
  	phase: "streaming" | "idle";
  	nextWarmAt: number;
-@@ -312,12 +339,14 @@
+@@ -310,14 +344,22 @@
+ 	getPromptTokens: () => number;
+ 	/** Current warming mode, read live so setting changes apply without re-arming. */
  	getMode: () => CacheWarmingMode;
++	/**
++	 * Why another session-owned request currently owns the session (an idle
++	 * recap, a compaction), or undefined when the replay is free to run. A
++	 * deferred refresh re-checks instead of racing that request.
++	 */
++	defer?: () => string | undefined;
  	/** Extension override hook; failures fall back to the warmer's own decision. */
  	decide?: (event: CacheWarmingDecisionEvent) => Promise<CacheWarmingAction>;
 +	/** Fire-and-forget report of each refresh that reached the provider. */
@@ -272,7 +308,7 @@
   */
  export class CacheWarmer {
  	#run?: ActiveRun;
-@@ -325,6 +354,8 @@
+@@ -325,6 +367,8 @@
  	#entry?: TrackedCacheEntry;
  	/** Entry the in-flight request will write, published only once its response confirms it. */
  	#pendingEntry?: TrackedCacheEntry;
@@ -281,7 +317,7 @@
  	#inactive: CacheWarmingStatus;
  	readonly #deps: CacheWarmerDeps;
  	/** Called with every paid warm response, including one that missed the cache or was aborted after acceptance. */
-@@ -445,6 +476,7 @@
+@@ -445,6 +489,7 @@
  		}
  		clearTimeout(run.timer);
  		run.timer = undefined;
@@ -289,7 +325,7 @@
  		run.tier = observed;
  		run.delayMs = delayMs;
  		this.#schedule(run);
-@@ -459,12 +491,12 @@
+@@ -459,12 +504,12 @@
  		}
  		run.phase = "idle";
  		const reason = this.#idleStopReason(run);
@@ -305,7 +341,7 @@
  		if (!run) return;
  		const reason = this.#getModeStopReason(run);
  		if (reason) this.#stop(reason);
-@@ -482,15 +514,43 @@
+@@ -482,15 +527,43 @@
  	}
  
  	#idleStopReason(run: ActiveRun): string | undefined {
@@ -354,7 +390,7 @@
  		const run = this.#run;
  		if (!run) return;
  		this.#run = undefined;
-@@ -498,25 +558,81 @@
+@@ -498,25 +571,106 @@
  		run.controller.abort();
  	}
  
@@ -426,6 +462,31 @@
 +		this.#schedule(parked);
 +	}
 +
++	/**
++	 * Another session-owned request owns the wire: retry the same refresh after it
++	 * clears. The idle horizon is re-checked here, so a run parked at its limit
++	 * lapses (or resumes when the owner raises the horizon) instead of refreshing
++	 * past the entry it was armed for.
++	 */
++	#defer(run: ActiveRun): void {
++		run.nextWarmAt = Date.now() + IDLE_OWNER_DEFER_MS;
++		if (run.phase === "idle") {
++			const idleReason = this.#idleStopReason(run);
++			if (idleReason) {
++				this.#park(run, idleReason);
++				return;
++			}
++		} else if (run.nextWarmAt > run.startedAt + MAX_WARMING_AGE_MS) {
++			// A deferred retry still belongs to the run that armed it, so the
++			// streaming bound {@link #schedule} enforces applies here too: a busy
++			// owner must not keep one streaming run alive past its hour.
++			this.#stop("one-hour safety limit reached");
++			return;
++		}
++		run.timer = setTimeout(() => void this.#refresh(run), IDLE_OWNER_DEFER_MS);
++		run.timer.unref?.();
++	}
++
 +	#schedule(run: ActiveRun): void {
 +		run.extensionOverride = false;
 +		const base = run.touchedAt ?? Date.now();
@@ -444,7 +505,33 @@
  		run.timer = setTimeout(() => void this.#refresh(run), Math.max(0, run.nextWarmAt - Date.now()));
  		run.timer.unref?.();
  	}
-@@ -588,6 +704,7 @@
+@@ -551,6 +705,12 @@
+ 	async #refresh(run: ActiveRun): Promise<void> {
+ 		run.timer = undefined;
+ 		if (!this.#validateRun(run)) return;
++		// Another idle owner is mid-request: yield the wire and retry, never
++		// dispatch a second concurrent paid request beside it.
++		if (this.#deps.defer?.() !== undefined) {
++			this.#defer(run);
++			return;
++		}
+ 		const decision = this.#evaluate(run);
+ 		const action = await this.#decide(decision);
+ 		if (!this.#validateRun(run)) return;
+@@ -565,6 +725,12 @@
+ 			return;
+ 		}
+ 
++		// The owner can appear while an async decision handler is pending, and
++		// #validateRun only re-reads the mode and the conversation.
++		if (this.#deps.defer?.() !== undefined) {
++			this.#defer(run);
++			return;
++		}
+ 		run.extensionOverride = extensionOverride;
+ 		const refresh: CacheWarmingRefreshStart = {
+ 			phase: run.phase,
+@@ -588,6 +754,7 @@
  				return;
  			}
  			if (!message || message.stopReason === "error") {
@@ -452,7 +539,7 @@
  				this.#stop("refresh failed");
  				return;
  			}
-@@ -596,6 +713,7 @@
+@@ -596,6 +763,7 @@
  			// refreshes would each pay a full write.
  			if (message.usage.cacheRead <= 0 || message.usage.cacheWrite > 0) {
  				outcome = "miss";
@@ -460,7 +547,7 @@
  				this.#stop("refresh missed the cache");
  				return;
  			}
-@@ -605,7 +723,9 @@
+@@ -605,7 +773,9 @@
  			run.entry.touchedAt = sentAt;
  			this.#entry = run.entry;
  			if (this.#pendingEntry === run.entry) this.#pendingEntry = undefined;
@@ -470,3 +557,70 @@
  			this.#schedule(run);
  		} finally {
  			this.onRefreshEnd?.({
+--- a/src/session/agent-session.ts
++++ b/src/session/agent-session.ts
+@@ -7570,6 +7570,11 @@
+ 		return this.#maintenance.isCompacting;
+ 	}
+ 
++	/** True while the idle recap request is in flight; the cache warmer must not replay beside it. */
++	get idleRecapRunning(): boolean {
++		return this.#idleMaintenance?.isRecapRunning === true;
++	}
++
+ 	/** Background speculative-compaction state, for UI indicators. */
+ 	get compactionSpeculation(): "idle" | "running" | "armed" {
+ 		return this.#maintenance.speculationState;
+--- a/dist/types/session/agent-session.d.ts
++++ b/dist/types/session/agent-session.d.ts
+@@ -672,6 +672,8 @@
+     refreshRpcHostTools(rpcTools: AgentTool[]): Promise<void>;
+     /** Whether compaction or manual handoff is active, for prompt admission and UI queuing. */
+     get isCompacting(): boolean;
++    /** True while the idle recap request is in flight; the cache warmer must not replay beside it. */
++    get idleRecapRunning(): boolean;
+     /** Background speculative-compaction state, for UI indicators. */
+     get compactionSpeculation(): "idle" | "running" | "armed";
+     /** Strip image content from the current branch and persist the rewrite. */
+--- a/src/session/idle-maintenance.ts
++++ b/src/session/idle-maintenance.ts
+@@ -90,6 +90,8 @@
+ 	#check = 0;
+ 	/** The recap request in flight; aborted when it is no longer wanted. */
+ 	#recapRun: AbortController | undefined;
++	/** Recap side requests that started but have not settled: a cancel aborts, it does not end the request. */
++	#recapSettling = 0;
+ 	#recapTimer: NodeJS.Timeout | undefined;
+ 	#compactionTimer: NodeJS.Timeout | undefined;
+ 	#disposed = false;
+@@ -132,9 +134,13 @@
+ 		for (const stop of this.#stops.splice(0)) stop();
+ 	}
+ 
+-	/** True while the idle recap request is in flight; an owner idle side turn must not overlap it. */
++	/**
++	 * True while the idle recap request is in flight, including one whose controller
++	 * was aborted but whose side request has not settled yet: an owner idle side
++	 * turn and the cache warmer must not overlap it either way.
++	 */
+ 	get isRecapRunning(): boolean {
+-		return this.#recapRun !== undefined;
++		return this.#recapRun !== undefined || this.#recapSettling > 0;
+ 	}
+ 
+ 	#observe(event: AgentSessionEvent): void {
+@@ -350,7 +356,13 @@
+ 				goal: this.#goalText() ?? "",
+ 				task: nextActionableTask(session.getTodoPhases())?.content ?? "",
+ 			});
+-			const { replyText } = await session.runEphemeralTurn({ promptText, signal: run.signal });
++			let replyText = "";
++			this.#recapSettling += 1;
++			try {
++				replyText = (await session.runEphemeralTurn({ promptText, signal: run.signal })).replyText;
++			} finally {
++				this.#recapSettling -= 1;
++			}
+ 			if (this.#recapRun !== run || run.signal.aborted) return;
+ 			if (this.#isBlocked()) return;
+ 			if (!this.#isQuiet()) {

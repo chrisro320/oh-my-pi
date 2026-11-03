@@ -509,7 +509,7 @@
       "capabilities": [
         "0092"
       ],
-      "sha256": "a4db9ef7033b0fbbffe84c58f824d3ad1adec9321c21573da44f1b8ca84f4b83",
+      "sha256": "d88bcb70d816aac85b8dfe42571ca9e903b2c179ddd08a2e5b3e579283dad60b",
       "paths": [
         "pi-coding-agent/dist/types/extensibility/extensions/types.d.ts",
         "pi-coding-agent/dist/types/extensibility/shared-events.d.ts",
@@ -517,7 +517,10 @@
         "pi-coding-agent/src/extensibility/extensions/types.ts",
         "pi-coding-agent/src/extensibility/shared-events.ts",
         "pi-coding-agent/src/sdk.ts",
-        "pi-coding-agent/src/session/cache-warmer.ts"
+        "pi-coding-agent/src/session/cache-warmer.ts",
+        "pi-coding-agent/src/session/agent-session.ts",
+        "pi-coding-agent/dist/types/session/agent-session.d.ts",
+        "pi-coding-agent/src/session/idle-maintenance.ts"
       ]
     },
     {
@@ -664,5 +667,5 @@
     }
   ],
   "pristine_tree_sha256": "9f88de1a04fb7d663ecd2b627686f0048252231d1a6293bd34fce4301eaf99a1",
-  "candidate_tree_sha256": "5e0d2282762830e30ad6d6e3656da1b60d4833ae4d2e6fd03068849d6cd83baf"
+  "candidate_tree_sha256": "3cb462bf32327eee9a6e9ec215fecd98759380e8a768fc15a6a07eec3a8927df"
 }

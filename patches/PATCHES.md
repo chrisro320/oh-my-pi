@@ -1,11 +1,13 @@
 # omp Patch 清單
 
 > 本文件是倉庫補丁台帳；部署時同步至 `~/.omp/patches/`。**版本計畫以 `apply.sh --print-plan` 為準**，canonical `PATCHES` 陣列不是可部署鏈。
-> 標題刻意**不綁版本**：本文件同時記錄 base 18.0.9 鏈、歷史 18.1.5／18.1.10／18.1.14／18.1.18 遷移，以及當前部署。
+> 標題刻意**不綁版本**：本文件同時記錄 base 18.0.9 鏈、歷史 18.1.5／18.1.10／18.1.14／18.1.18 遷移、已安裝 release（18.12.6），以及尚未安裝的 18.16.0 倉庫候選。
 > 讀任何數字前先確認它屬於哪個口徑——見 §1。
 > Current maintenance policy: one active revision per functional family; immutable history does **not** require a new active tail for a repair. The authoritative executable contract is [Patch Rollup Contracts](../.trellis/spec/backend/patch-rollup-contracts.md). Dated entries below preserve historical implementations and counts; their old tail/supersede practices are not current instructions.
 
-## 18.12.6 isolated migration boundary
+## 18.12.6 isolated migration boundary (installed release; rollback baseline)
+
+The totals and receipts in this section belong to 18.12.6 and are historical for the current repository work: the active candidate is 18.16.0 (next section), which is not installed. 18.12.6 stays the installed release, the frozen copy in `omp-releases` is the rollback, and its gate list is unchanged by the 18.16.0 work.
 
 - Pinned target commit: `45c35e40c46166dc726ccc52f5d27f40f2449f99`. The user approved repository/sandbox implementation, then installation on 2026-10-23 (see below). The release is installed and active.
 - Acquisition completed:13official exact-version OMP archives with integrity/SHA256/pinned SLSA subjects; selected independent npm closure145instances with zero dependency errors, lock mismatches or external/hardlink aliases. Reused prior144verified registry signatures/74attestations; no repeated crypto audit. Evidence: `.trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/acquisition-*`. (`patches/.18.12.6-families/manifest.json` still cites the pre-archive task path; it is inside the installed, digest-bound ledger and stays unchanged.)
@@ -13,10 +15,35 @@
 - Repository/sandbox acceptance (2026-10-23): 27 families / 62 capabilities (0017, 0078 upstream; 0079/0080 local; 0097 excluded); final candidate `87abd557af5b7c166dd3fadfc1bd68c5eb7cad641af41dac8424cfd7ca55a4bf` passes the representation oracle and all 57 controller-selected gates in one run (`gates-final-v3`), plus sandbox smoke, OAuth controller controls and companion checks, all inside a loopback-only network namespace; edited gates also pass on a private 18.10.1 closure. Physical native and Tern checks pass. Tern found a rebase-lost queue-policy deletion in `family-input-translation` (abort with a queued steer livelocked); the family now restores it, and `verify-user-display-text-queue.ts` leg 3 guards it.
 - Installation (2026-10-23, user-authorized): immutable release `18.12.6-87abd557af5b-693348fb-09428d79` is installed and published (release smoke `installed-private-smoke.json` PASS). It became active after all old 18.10.1 owners exited normally (`production_admission_started:true`; bound `--check` 28 APPLIED, no CONFLICT or MISSING). A code-only rollback is no longer allowed.
 
+## 18.16.0 candidate boundary (repository; not installed)
+
+- Pinned target commit: `650f3a108229ee11bf68ba3377f4e8c3391cd424` (exact `18.16.0`; a later `latest` does not move it). Everything in this section is repository/sandbox evidence: nothing is published, installed or active, and 18.12.6 remains the running release and the rollback. Publication/installation (M15) and physical Tern plus the live double `/compact snapcompact` acceptance need their own authorizations and, for the latter two, 18.16.0 running on the desktop.
+- Registry: `.18.16.0-families/plan.tsv` plus `manifest.json` — **26 physical family rows / 62 capabilities** (56 local plus upstream `0017`, `0078`, `0066`, `0072`, `0079`, `0062`). `0032` retired, `0102` added, `0097` never in a deployed plan. Pristine tree `9f88de1a04fb7d663ecd2b627686f0048252231d1a6293bd34fce4301eaf99a1`; candidate tree `3cb462bf32327eee9a6e9ec215fecd98759380e8a768fc15a6a07eec3a8927df`. Evidence and research scripts in this section live under `.trellis/tasks/11-03-omp-18160-upgrade-plan/research/` (`research/...` below is relative to it).
+- Acceptance so far: zero-fuzz replay, reverse-to-pristine and an identical second replay PASS (`research/m9-oracle-18.16.0.json`); rollup verifier PASS on 18.16.0 and unchanged on 18.12.6; **71 controller-selected gates PASS in one batch** on the candidate runtime inside `bwrap --unshare-net`, runtime hashes and instrument hashes equal before and after (`research/m10-full-batch-18.16.0.json`); candidate-runtime sandbox smoke PASS (not an installed-release smoke, which belongs to M15) with six checks, four offline controls and source/copy freeze unchanged (`research/m11-smoke-18.16.0.json`), plus the exact-version check failing closed on an 18.16.1 tree (`research/m11-version-control-18.16.1.json`); native overlay `patches/native/18.16.0/overlay.json` PASS with both rebuilt addons stamped 18.16.0.
+- Gate-list deltas against 18.12.6: `verify-goal-tool-resident.ts` is no longer selected (`0032` retired); `verify-user-display-text-queue.ts` is excluded for 18.16.0 only by an explicit guard, because `0082`'s three HTML-export hunks were dropped and its tree pin ends at 18.12.6 — the rebase is proven by a throwaway consumer smoke, not by that gate; `verify-date-cwd-anchor-stability.ts` is replaced by `verify-date-cwd-journal-prefix.ts` because 18.16.0 removed the anchor API the old gate asserts. The remaining 18.16.0-only gates are listed in §6.3.
+- Feature retirements inside the plan (each with a pristine consumer proof and a red fault copy): `0038`'s `providerOnly` tail and `0047a`'s anchors, because upstream's date/cwd journal keeps `messages[0]` byte-identical across resume, branch, fork, transfer and subagent revival with the clock moved a day (`research/q1-prefix-proof-18.16.0.{ts,json}`; both controls red). `0093` keeps only its commit-ordering half; its prompt-label half is effort-free natively.
+- 0102 `0102-omp-computer-control-confirm-deadline` (new family, root `AGENT`, `pi-coding-agent/src/tools/computer/supervisor.ts`): the foreground `control.acquire` confirmation closes `unanswered` at `min(run deadline, 60 s)` through an `AbortSignal` in `#confirmControl`; `timeoutMs<=0`, answered and denied paths are unchanged. The TUI confirm's own `timeout` option is deliberately not used: a timed-out confirm picks its highlighted option, which is **Yes**. Window input keeps running meanwhile and already falls back to takeover without a prompt. `verify-computer-control-confirm-deadline.ts` drives it on a fake clock and is red on pristine and on the chain without 0102; a fault that always caps at 60 s is red too.
+- Gate work in M4–M10 targeted the 18.16.0 tree only, so 18.12.6 arms were not re-proven byte-equivalent (user decision, `DECISIONS.md`); the 18.12.6 controller output is unchanged, and its family bytes plus the frozen `omp-releases` copy remain the rollback until 18.16.0 is activated.
+
+### Upstream adoptions (18.16.0)
+
+An adoption is declared only after a pristine 18.16.0 consumer proof plus a negative control; the capability keeps a gate through the `PLAN_CAPABILITIES[<id>]=upstream` marker, so an adopted capability is never silently ungated. Evidence: `research/m5-adoptions.md`.
+
+| Capability | Family | Contract now owned by upstream | Proof |
+| --- | --- | --- | --- |
+| `0017` | 0017-omp-openai-responses-native-replay-warm | ordinary self-contained native replay is warm; connection-bound native history still requires warming | unchanged from 18.12.6 |
+| `0078` | family-image-display | Python producer emits exactly one PNG-preferred image with JPEG fallback | unchanged from 18.12.6 (real producer, two negative controls) |
+| `0066` | family-compaction | the Anthropic native compaction request carries the live system prompt, wire tools and transformed history through `buildProviderContext`; the `remoteSystemPrompt`/`summaryOptions.tools` fallback stays | `verify-anthropic-native-compaction-live-context.ts`; deleting the `buildProviderContext` branch fails it |
+| `0072` | 0072-omp-session-pin-static-auth-ui (row leaves the chain) | the `/session` pin auth UI loads without a synchronous `require` of `@oh-my-pi` auth modules | `verify-session-pin-static-auth-ui.ts`; a synchronous bare-specifier loader fails it |
+| `0079` | family-image-display (`0080` stays) | a sealed tool result is not retired while its Kitty image conversion is pending | `verify-kitty-conversion-finalization.ts`; removing the `isTranscriptBlockPending` barrier fails it |
+| `0062` | family-image-budget-snapcompact | the standing compaction summary is credited in the reduction baseline and frames are priced per reader | `research/snapcompact-standing-summary-replay.ts` + `fixtures/0062-boundary.json`: the priced second pass is accepted and the ceiling-priced one rejected on pristine |
+
+`0054` and `0048` were kept rather than adopted: `0054` is a zero-delta wire fact that stays a member so its gate remains selected, and the `0048` harness could not attribute the red to the target. `0032` retired because nothing uses the `goal` tool; the 18.16.0 registry simply has no row for it, so `_omp_gate 0032` selects nothing and no version guard is needed.
+
 ## 18.10.1 verified release and installation boundary
 
 - Installed baseline: `18.10.1`, commit `5d0aaffaf1f987503ce129a642fb6e30339615af`. The separately selected upgrade target is pinned18.12.6; target selection or sandbox migration does not install it.
-- `.18.10.1-families/plan.tsv`:23retained physical families plus0098/0099/0100/0101,27families/61local capabilities plus upstream0017=62capabilities,179unique owned source/declaration/data paths.0097is excluded. Full zero-fuzz replay, reverse-to-pristine and identical second replay are required. Current baseline candidate tree: `14d1e60540b2b24e618b7ad9cff6be2c8c023fc754f541731189514218243bc7`; dated entries below retain earlier candidate identities.
+- `.18.10.1-families/plan.tsv`:23retained physical families plus0098/0099/0100/0101,27families/61local capabilities plus upstream0017=62capabilities,179unique owned source/declaration/data paths.0097is excluded. Full zero-fuzz replay, reverse-to-pristine and identical second replay are required. The baseline candidate tree of that release: `14d1e60540b2b24e618b7ad9cff6be2c8c023fc754f541731189514218243bc7`; dated entries below retain earlier candidate identities.
 - 0090 (`0090-omp-oauth-durable-refresh`, NM) was revised in place on 2026-10-13 (unlock revision): an unresolved refresh exchange now has a fenced, read-only inspect plus an explicit release (`oauth.inspectUnresolvedRefresh`, `oauth.unlockAndRefreshStored`), the session error for that state names `/auth-unlock`, and the held-result, fence, lease and release-atomicity refusals ship as scenarios (a)-(s) in `verify-oauth-durable-refresh.ts` with the (p)/(q)/(s) fault controls in `verify-oauth-unlock-fence-faults.sh`. No new patch number and no second layer; the previous revision (pinned `72733625…`) and the delta are archived in `.retired/10-13-18.10.1-0090-pre-unlock/` and asserted by `verify-release-family-plan.py`. Revision `cb5bbf9c…` was itself revised in place on 2026-10-15 (Anthropic-only scope): the durable unknown-outcome journal now protects only `anthropic`. Another provider's local exchange (google-antigravity, openai-codex, xai-oauth, MCP and every other name) keeps the ordinary lease + CAS refresh and never reserves, stages or rewrites a journal entry, so a marker an earlier revision left for it cannot fence it — a pending one is ignored, while a replacement already staged before the cutover is still adopted read-only under the ordinary lease and its marker retired, so a known minted token is never re-sent. `oauth.inspectUnresolvedRefresh` reports `not-applicable` before reading any credential row or journal entry, and `oauth.unlockAndRefreshStored` refuses as `not-applicable` without a token request. Anthropic keeps the whole fenced protocol unchanged (fence, held-result-first staging, release-atomicity, peer-lease refusal); scenarios (t)-(x) cover the scope, the pending bypass, the staged adoption, the ordinary CAS path and the lost-lease/replaced-row refusal. Trade-off: a non-Anthropic unknown refresh outcome may be retried later under the ordinary lease/CAS — those providers have no at-most-once journal promise. The superseded revision (pinned `cb5bbf9cf9cfc4448b33ac6c836b660ae57544c0c3dd4bd2796dc2901f937791`) and its delta are archived in `.retired/10-15-18.10.1-0090-pre-anthropic/`. Active revision: `32eac750733ec2570f7e0c96c5c7b4e0404b9a43c531507b2d4140720d64345b`; candidate tree `2fc569d968ea57c3ca8513a0da7f8b158af52be1e5c65bb15822bedba182ea33`.
 - The same 0090 family was revised again on 2026-10-15 for Codex discovery `403`: retain only the rejected current account's own previously discovered model eligibility from the existing persisted catalog. Successful responses still replace that account's roster, including an empty roster; `401`, no-history accounts, pinning, actual generation fallback and non-Codex discovery are unchanged. No retries, schema or configuration were added. Three pi-catalog source/declaration paths join the family; the preceding 26 sections are byte-identical. The prior `32eac750…` revision and generated delta are archived in `.retired/10-15-18.10.1-0090-pre-codex403/`. Active family: `e2d2accf77dddaf21f6791dff6ecb3bc6cbc63392909b3178dd6526d005fea74`. `verify-codex-account-eligibility-retention.ts` runs under 0090 for 18.10.1 only: seven private SQLite/fake-fetch phases pass; the installed pre-fix baseline fails the mixed-success `403` case. Retention is a routing hint, not a provider permission bypass: an actual generation rejection still follows ordinary fallback.
 - User-requested Google extension of the same 0090 revision: `google-antigravity` discovery `403` now retains only the rejected current account's own last-discovered rows from the existing catalog. `401`, keyless/no-history rejection and actual generation fallback are unchanged; successful and empty rosters still replace eligibility. Mixed-key catalogs retain the pre-existing all-or-none policy: if access tagging is off, retained rows also advertise no per-account hints. No retries, schema or configuration were added. Only `pi-catalog/src/provider-models/google.ts` joins the runtime delta; all preceding 29 sections are byte-identical. Previous revision `e2d2accf…` and generated delta are archived in `.retired/10-15-18.10.1-0090-pre-google403/`; active 0090 family is `b5af67a0e4d4538a31044bd6f211a96ec588841377f8ca15b40db71585b72e10`. `verify-google-account-eligibility-retention.ts` is registered for 18.10.1 only: nine offline/private-SQLite phases pass, and the Codex-only installed baseline fails the Google mixed-success `403` assertion. The existing seven-phase Codex gate still passes. This addresses cached discovery eligibility, not every possible Google rejection.
@@ -25,7 +52,7 @@
 - Verification is bounded: all48 selected18.10.0 gates passed;18.10.1 reruns cover affected consumers plus the new13-case native lifecycle gate. Unchanged source evidence and exact command results are in `.trellis/tasks/10-11-omp-1870-upstream-adversarial-audit/`.
 - Installation uses `publish-release.py` and a permanent independent dependency closure. `release.json` is authoritative for `code_installation`, `production_activation` and `current_session_upgrade`; a candidate or migration cache alone is not installed.
 - The public launcher is an admission wrapper, not the old direct global symlink. It blocks normal new-process startup while old owners survive; exact `--version`/`--help` do not import OMP. Installed source smoke uses private HOME/XDG only.
-- The installed ledger binds to its physical runtime via `.runtime-root`; its controller is read-only. Do not run `bun add -g`, `apply.sh` or `--revert` to update this immutable release. Follow the current [deployment procedure](DEPLOYMENT-RUNBOOK.md#current-18101-immutable-installation).
+- The installed ledger binds to its physical runtime via `.runtime-root`; its controller is read-only. Do not run `bun add -g`, `apply.sh` or `--revert` to update this immutable release. Follow the immutable installation procedure in [the deployment runbook](DEPLOYMENT-RUNBOOK.md#immutable-installation-procedure-introduced-with-18101).
 - No production credentials/session DB are inspected, copied, refreshed or restored by this deployment. No claim of live provider cache hits is made.
 - User-requested cleanup removes pre18.4.4 active plan support, the copied cache-baseline simulation, non-asserting frame-budget diagnostic and source-only spec gate; ten duplicate image-budget assertions and Ollama source-spelling assertions are removed. Historical result captures are retained, not rerun.
 - Post-release queue hotfix: `family-input-translation` now restores live-steered drafts through Alt+Up and separates queue policy from the continuation's own busy reservation. Actual `AgentSession.prompt` + live acceptance + empty-submit consumer smoke passes without network; no new permanent tests. Candidate tree: `028a49dab1de4d7df48044c36c94c0acb911f6d463a3e15b2f543e6b2810c655`.
@@ -42,8 +69,8 @@
 
 | 項目 | 值 |
 |---|---|
-| 當前部署 | `OMP_PATCH_VERSION=18.7.0`（未設則按 installed 版本自動路由） |
-| 當前 live 部署 | **18.7.0、58 層**，包含已修正的0096；本次合併未部署，也未改 live ledger、credentials 或 session。 |
+| 本篇日期的部署（2026-10-09） | `OMP_PATCH_VERSION=18.7.0`（未設則按 installed 版本自動路由） |
+| 本篇日期的 live 部署（2026-10-09） | **18.7.0、58 層**，包含已修正的0096；本次合併未部署，也未改 live ledger、credentials 或 session。 |
 | canonical 陣列 | `PATCHES` 陣列 **25 項**，僅供保留的歷史版本計畫組裝；18.7.0 改讀 family registry。本陣列不是可部署計畫。 |
 | 存活計畫 | 保留18.1.14／18.1.18／18.2.3／18.2.10／18.3.3／18.4.1／18.4.4歷史計畫；18.7.0 repo 的 `deployed` selection 為24層，`repository` selection 為25層；live 仍為原58層。 |
 | 本次表示變更 | 44個舊 entries 合為10個功能家族，14個獨立 entries 保留；0097僅在明確選擇 `repository` 時追加。舊58／59計畫與原始 bytes、hashes 凍結於 `.retired/10-09-18.7.0-pre-family/`。 |
@@ -73,6 +100,8 @@ The `bun update` / reapply / `--revert` instructions below describe retained his
 | 18.4.4 計畫（rollback） | 原 50 項能力加 0085、0088、0089、0090、0092；0086／0087 已退役併入 0088。全部 finalized candidates 維持原 bytes。 | **55** |
 | 18.7.0 family 計畫 | `.18.7.0-families/plan.tsv` 提供10家族＋14獨立 entries；`OMP_PATCH_PLAN=repository` 額外包含未部署0097。省略上游已接管的0045，保留0062 previous-archive credit。 | **24 base / 25 repository / 58 live** |
 | 18.10.0 /18.10.1 family plans |23 physical entries retain58 capabilities;0017 upstream adoption;0090 spans `NM`, and18.10.1 also promotes0048 to `NM` for native advisor closure.0097 remains excluded. 18.10.1 adds post-cutover families 0098, 0099, 0100 and 0101. | **18.10.0: 23 /58; 18.10.1: 27 /62** |
+| 18.12.6 family plan（已安裝 release／rollback） | `.18.12.6-families/plan.tsv`；27 families／62 capabilities（上游 0017、0078；0079／0080 本地）；candidate `87abd557…`；57 controller-selected gates。本節數字屬該 release，不再代表倉庫當前候選。 | **27 / 62；57 gates** |
+| 18.16.0 family plan（倉庫候選，未安裝） | `.18.16.0-families/plan.tsv`；26 families／62 capabilities（56 本地＋上游 0017、0078、0066、0072、0079、0062）；0032 退役、0102 新增；candidate `3cb462bf…`；71 controller-selected gates 全 PASS。 | **26 / 62；71 gates** |
 
 `0047`／`0065` 只存在於版本計畫鏈尾（`0047` 的 a 側是 candidate-0038 的產出形態；`0065` 動的 `pi-catalog/src/compat/rules/providers/commandcode.kdl` 是 18.1.18 才新增的檔）；`0051` 已於 2026-09-15 完全退役（上游 18.1.17 逐字採納，位元組凍結於 `.retired/09-15-0051-upstream-adopted/`，見 §3）；`0019`／`0042` 已隨死計畫退役（上游 18.1.10 移除整套 read description refresh 機制，見 §3）。任何「合併後剩幾層」的算式必須先聲明用哪個口徑。
 
@@ -416,7 +445,7 @@ Evidence and limits: `.trellis/tasks/10-09-omp-1870-family-consolidation/researc
   - **0030 不能让多窗口共用防重入**:`#usageInFlight` 是每个进程/组件各自一份,多个 omp 窗口仍可能各发一次请求。0030 只消除了读写分裂,**不能说「不会再各自撞端点」**。
   - 三份旧 key 是否全部属于同一请求路径:`normalizeClaudeBaseUrl` 已证明「无 path」与「`/v1`」折叠为同一端点;`default` 那份亦为同账号同 org,但未逐字节验证其 report 内容来源。
 
-### 0032 — goal 工具常駐工具集,消除 /guided-goal 注入/回收週期擊穿前綴
+### 0032 — goal 工具常駐工具集,消除 /guided-goal 注入/回收週期擊穿前綴【已退役 2026-11-03，18.16.0 起不再有 registry 行，見 §3】
 - **失敗簽名**(2026-08-30,會話 `01a051c8`,k3):`/guided-goal` 觸發 `setActiveToolsByName` 注入 goal 工具 → 工具簽名翻轉 → system 重拼,把會話中途落盤的 trellis skills(9 條,`人山/.claude/skills/`)、項目 AGENTS.md 的 TRELLIS 塊與 persona 工具清單的 `- Goal: goal` 行(合計 +4.3KB)一起拼進 `system[0]` 中段(payload `0250→0251` diff,`system[0]` 指紋 `d9bb81d1dc42 → e9571f3c523f`)→ 前綴在 system 中段斷裂,`input=184389 / cacheRead=7680`(嚴格命中率 4.0%);audit 舊邏輯因 `cacheRead>0` 誤標 `hit`,真相靠 payload 轉儲實 diff 才定位。
 - **根因**:goal 是「Never in the default set」的隱藏工具——初始 active set 無條件剔除(`sdk.ts:3196`),訪談期臨時注入(`interactive-mode.ts:4159-4162`),goal exit 恢復**不含 goal** 的快照(`:3365-3381`)→ 每個 goal 生命週期邊界(enter/create/exit)都翻轉工具簽名 → 強制 system rebuild → 重掃把當時磁碟上的新內容撿進 system 中段 → 全量重算。會話越長、重算越大。
 - **修法**(三文件,`goal.enabled` 時 goal 常駐):
@@ -1005,6 +1034,12 @@ Historical representation note: the following 18.4.4 tail placement and layer co
 
 ## 3. 已撤下的補丁
 
+### 0032 — goal 工具常駐：2026-11-03 退役（18.16.0）
+
+- 理由：`goal` 工具未使用，常駐化的代價（每會話多一份 goal schema、paused 期間可見可調）沒有換到任何東西。18.16.0 registry 直接沒有 0032 這一行，因此不需要版本守衛：`_omp_gate` 依 capability 選取，缺行即不選取。
+- 邊界：`patches/verify-goal-tool-resident.ts` 與 §2 的失敗簽名、修法全部保留為歷史；18.12.6 已安裝 release 的計畫與 gate 清單不變（該 arm 仍選取此 gate），退役只在 18.16.0 arm 生效。
+- 位元組處理：`patches/0032-omp-goal-tool-resident.patch` 與 `.18.7.0／18.10.0／18.10.1／18.12.6-families/0032-…patch` 全部原地保留（凍結計畫仍可回放，18.12.6 的副本在已安裝、digest 綁定的 ledger 內）。18.16.0 只是不再有這一行，因此沒有退役檔要歸檔，也沒有編號可重用。
+
 ### 2026-09-30 尾層合併：0086＋0087（＋0088 草稿）→ 合併層 0088（`.retired/09-30-0086-0087-rolled-into-0088/`）
 
 一個功能族佔三層尾層對使用者太重；0086／0087 已部署（live 為 53 層）且不可變，故以**治理 rollup**處理：新增合併層 `.18.4.4-candidates/0088-omp-compaction-cache-liveness-v18.4.4-candidate.patch` 取代三者，舊檔位元組凍結、永不編輯。編號 0088 只因為草稿從未部署才重用；**0086／0087 編號永不重用**，草稿自己的檔名也進入 abandoned-number 迴圈（`verify-patch-family-rollups.sh`，該迴圈同時涵蓋 18.3.3／18.4.1／18.4.4 三個計畫）。
@@ -1489,7 +1524,9 @@ Historical representation note: the following 18.4.4 tail placement and layer co
 
 ## 6. 驗證矩陣
 
-### 6.1 自動回歸套件（`apply.sh` apply 模式尾部，共 43 道：42 道 TypeScript 行為閘門 + spec shell 閘門）
+### 6.1 自動回歸套件（`apply.sh` apply 模式尾部；選取數量隨計畫而異：18.10.1 為 43 道、18.12.6 為 57 道、18.16.0 為 71 道）
+
+下表記錄 capability→gate 的職責對應，**不是**第二份可部署清單；實際選取一律以 `OMP_PATCH_VERSION=<v> bash patches/apply.sh --print-gates` 為準，18.16.0 專用閘門見 §6.3。
 
 | 閘門 | 職責 | 所需 env |
 |---|---|---|
@@ -1500,8 +1537,8 @@ Historical representation note: the following 18.4.4 tail placement and layer co
 | `verify-ollama-cloud-usage.ts` | Real usage-provider fetch behavior:5h/7d windows, clamping/status, failure→null and zero requests for local/keyless providers. Source-spelling assertions removed. | `OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-devin-auth-cache.ts`（條件） | 0055 JWT 行程內快取、401 重取、每輪分段計時；只在計畫含 0055 時執行 | — |
 | `verify-hindsight-recall-snapshot.ts` | 0034／0021／0023 快照落盤與 MM deadline 凍結（7 個 behaviour） | — |
-| `verify-goal-tool-resident.ts`（條件） | 0032 goal 工具常駐：active／paused／dropped／absent／restricted 五種 session 下工具清單一致；依計畫含 0032 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_AI_ROOT` |
-| `verify-date-cwd-anchor-stability.ts`（條件） | 0047 date/cwd 提醒改錨在最後一則真實 user 訊息並持久化 anchor map（源碼形態＋行為＋負對照）；依計畫含 0047 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
+| `verify-goal-tool-resident.ts`（條件） | 0032 goal 工具常駐：active／paused／dropped／absent／restricted 五種 session 下工具清單一致；依計畫含 0032 執行。**18.16.0 起 0032 已退役，此 gate 不再被選取（§3）** | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_AI_ROOT` |
+| `verify-date-cwd-anchor-stability.ts`（條件） | 0047 date/cwd 提醒改錨在最後一則真實 user 訊息並持久化 anchor map（源碼形態＋行為＋負對照）；依計畫含 0047 執行。**18.16.0 移除了 anchor API，該 arm 改由 `verify-date-cwd-journal-prefix.ts` 證明（§6.3）** | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 | `verify-interrupt-prune-symmetry.ts` | 0043 打斷殘骸在 rebuild 與 live 兩條路徑對稱剪除；18.16.0 另驗 `/context` viewer 與送出路徑逐則相等（含配對 toolResult）且來源索引不變 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 | `verify-devin-metadata.ts`（條件） | 0056 per-process `sessionId`／遞增 `requestId`，原始位元組驗 field 10／9；只在計畫含 0056 時執行 | — |
 | `verify-supersede-warm-prefix-guard.ts` | 0046 supersede 不得改寫暖前綴中段的 tool result | `OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_CORE_ROOT` |
@@ -1532,7 +1569,7 @@ Historical representation note: the following 18.4.4 tail placement and layer co
 | `verify-subagent-warm-revival-prompt.ts`（條件） | 0101 warm revival 重用 persisted `session_init` prompt：roster 在 park 期間變動後，revived system blocks／首個 post-revival request 的 system blocks 與 yield tool schema 逐位元相同，`session_init` 不增；legacy 無 `session_init` 照舊 re-render 不 throw；IRC 訊息可喚醒 parked agent；roster 不變為對照；四個 mutation copy 必紅；依計畫含 0101 執行 | `OMP_NM`、`OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-model-mention-surface-resume.ts`（條件） | 0083 `^` 標記模型的已發布 task 描述跨新程序 resume 保持；依計畫含 0083 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 | `verify-length-stop-reminder-persist.ts`（條件） | 0084 length-stop 重試提醒雙寫、重建投影一致、重開後前綴相同；依計畫含 0084 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
-| `verify-user-display-text-queue.ts`（條件） | 0082 準備後提交：model text 進 `content`、原文進 `displayText`，重開 session 重建同一 content；18.4.4 另驗 queued `removeQueuedMessage` 以原文識別（雙訊息交叉案例）；依計畫含 0082 執行 | `OMP_PATCH_VERIFY_NM`、`OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_AI_ROOT` |
+| `verify-user-display-text-queue.ts`（條件） | 0082 準備後提交：model text 進 `content`、原文進 `displayText`，重開 session 重建同一 content；18.4.4 另驗 queued `removeQueuedMessage` 以原文識別（雙訊息交叉案例）；依計畫含 0082 執行。**18.16.0 不選取**：該 arm 的 tree pin 止於 18.12.6，且 `0082` 的三個 HTML-export hunk 已丟棄，改以一次性 consumer smoke 證明（§6.3 註） | `OMP_PATCH_VERIFY_NM`、`OMP_PATCH_VERIFY_AGENT_ROOT`、`OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-rejected-prepared-draft-restore.ts`（條件） | 0085：真實 `submitInteractiveInput` + 真實 restore helper 加編輯器替身；dispatch 被拒絕時原文與附件回到空編輯器、有較新草稿時保留為可還原項；準備取消時期間貼入的圖片不被覆蓋；控制組（無較新內容時照常回寫）；僅 18.4.4；依計畫含 0085 執行 | `OMP_PATCH_VERIFY_AGENT_ROOT` |
 | `verify-oauth-durable-refresh.ts`（條件） | 0090：以合成 HTTP 與獨立 SQLite 驅動**真實 auth entry 路徑**——refresh 不觸發 account bootstrap、權杖回應缺身分仍保存輪替位元組、已中止／等待中的呼叫者不發 token POST、輪替後取消只拒絕該 waiter（owner 與存活 waiter 仍成功落盤）、>15 秒同步停滯不丟權杖、被奪取 lease／peer 寫入不覆寫贏家、真 `invalid_grant` 恰停用被嘗試列、transient 錯誤保持 active 且後續 refresh 用已保存權杖；修復前紅、修復後綠（AC5）；不碰 live 憑證 DB、不發真實 provider 流量；僅 18.4.4；依計畫含 0090 執行 | `OMP_PATCH_VERIFY_AI_ROOT` |
 | `verify-compaction-cache-liveness.ts`（條件） | 【**0089**：容量閘門已刪——leg 5 改驗 512k 視窗下約 129k 的 usage-less 鏈仍走 live lane（單一請求、無 cold reason）、leg 5b 驗真正超過 512k 的鏈被 provider 拒斥後仍 `live-chain-overflow-retry`（且被放棄區間的位元組仍出現在被接受的請求中）、leg 5c 驗 signed-thinking 鏈；leg 3g 與其 whole-turn 變體驗**小於重試下限**的被丟棄目標在 live 請求被拒後仍轉入冷路徑（保住 sentinel、仍產出摘要），把 live→cold 過渡改回「目標 transcript 減半」即在此紅】0088（合併層 0086＋0087＋0088 草稿）：以**快取模擬器**（fixture 時鐘、**逐 marker TTL**、20 block 查找窗）驗事故形狀（433 則 live 鏈、摘要邊界 354、主鏈尾部標記每輪 +2）下，摘要請求讀滿 live 鏈、只寫指令（cacheRead 43350／cacheWrite 5），負對照回到截斷前綴必紅（cacheRead 50／cacheWrite 35405）；混合 1h／5m 案例 6 分鐘後 readBlocks=1；第三輪另含 **provider 拒絕 live 請求後的完成型重試**（callback／落盤理由／warning／trace 四者一致＋被丟棄區間 sentinel 出現在被接受的請求＋不拒絕的敏感度對照）、**split turn 兩半**（history 非空／空）與**前一張摘要不在前綴**的具名回退、**整段對話指令等式**（非 live 指令 sha256 凍結於 0086 前位元組、live ＝ 該文字 + 整段對話註記）、**非 Anthropic 折疊邊界指紋**（與 0086 前樹逐位元組相同）；stub 腿驗落盤 `details.cacheColdReason`／trace `liveChainFallback`／`logger.warn` 三者一致（各刪一次即紅），並含 fold 預算 vs 物理容量、system／tools／工具結果／thinking／圖片／自訂指令／保留尾段容量邊界與真實前一張摘要的迭代語意；僅 18.4.4；依計畫含 0088 執行 | `OMP_PATCH_VERIFY_NM`；**第四輪（容量改為 provider 具證）**另含：**短留存線形**負對照（真 provider 建構子下 `cacheRetention:"short"` 的條目全過期⇒readBlocks=0，而 1h 主鏈 433/433）、**簽名 thinking fixture**（簽名 400k 字元、本地估值 >4 倍具證值）三態（具證可容⇒整條送出／具證超窗⇒`live-chain-over-capacity`／無 usage⇒`capacity-unattested`）、容量邊界對（7a／7b／7c／7d／7e／7g 皆為「具證前綴＋附加尾段」的相鄰視窗）、以及以**樹外釘死 digest**（`487befe9…`）取代由生產常數反推的整段對話指令等式 （含 `CORE`／`AI`／`CATALOG` 覆寫） |
@@ -1558,6 +1595,32 @@ Historical representation note: the following 18.4.4 tail placement and layer co
 | session cache keepalive | fake-timer harness 通過；真實 `AgentSession` mock transport race 順序為 side-dispatch → side-abort → side-settled → main-dispatch；live 4m cache hit 另以實際 provider smoke 驗證 |
 | resume 缓存 | session `01a03894`（sonnet）：live 命中 33230→33451，EXIT 后 12s resume 首轮 **cacheRead=33694 / cacheWrite=703**；对照 baseline（无 fix，session `01a03886`）resume 首轮 cacheRead=0 / cacheWrite=38809 |
 | DB safety gate | `patches/verify-db-safety.sh` 只對 sandbox 執行 `PRAGMA integrity_check`；`agent.db`／`models.db` 本體前後 inode/size/mtime/SHA-256 必須一致。WAL/SHM 差異保留 diff；只有 `strace -e trace=%file` 涵蓋每個變動 sidecar 路徑才輸出 `PASS_WITH_EXPECTED_SIDECAR_ACTIVITY`，否則輸出 `UNATTRIBUTED_SIDECAR_ACTIVITY`，本體變動、OMP process 出現或 integrity 失敗則 fail-closed。
+
+### 6.3 18.16.0 專用閘門（17 道；`57 + 17 − 3 = 71`）
+
+只在 18.16.0 arm 註冊，因此每個較早計畫的 gate 清單維持位元組不變。清單以 `OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-gates` 為準。
+
+| 閘門 | Capability | 職責 |
+|---|---|---|
+| `verify-date-cwd-journal-prefix.ts` | 0047 | upstream date/cwd journal 讓 provider-facing `messages[0]` 在 resume／branch／fork／transfer／subagent revival 且時鐘前進一天後仍逐位元相同；取代斷言已移除 anchor API 的 `verify-date-cwd-anchor-stability.ts`（Q1 proof） |
+| `verify-cron-idle-owners.ts` | 0092 | `/cron` 只擁有 policy；它驅動的 host warmer 必須持續跳過 catalog 宣告沒有 prompt-cache lifetime 的 provider，不得出現第二個 idle owner |
+| `verify-session-cache-keepalive.ts` | 0010 | session cache keepalive 的區間上下界、精確重複次數、lifecycle 取消與已移除的 scheduler 表面（先前未在任何計畫註冊） |
+| `verify-auth-unlock-extension.ts` | 0090 | `/auth-unlock` routing：只廣告並放行保有 durable journal 的 provider（現為 `anthropic`），preflight 必須等於該 provider refresh descriptor 的 token URL，declined confirmation 不得呼叫 unlock |
+| `verify-stepfun-step-plan.ts` | 0100 | built-in `stepfun` 的 OpenAI Chat Completions 走 `/step_plan/v1`，caller 的顯式 `baseUrl` 仍優先，`provider/id` 選擇子在 18.16.0 仍解析（18.12.6 只用一次性 smoke 證明） |
+| `verify-computer-control-confirm-deadline.ts` | 0102 | fake clock 驅動 `control.acquire` 的 `unanswered` 上限：`min(run deadline, 60 s)`，且不重用 TUI confirm 的 `timeout`（逾時會選中 Yes） |
+| `verify-extensions-load-18160.ts` | 0082 | 12 個 companion 全數經真實 extension loader 載入、綁定、收到 `before_agent_start` prompt/revive 並乾淨關閉；input-translator 的 `prepare_user_input` v1 契約端到端 |
+| `verify-withdrawn-tools-wire.ts` | — (U5) | 中途撤回的工具仍留在 Anthropic wire 的 `tools` 宣告，撤回以 control block 傳遞 |
+| `verify-tool-schema-bytes.ts` | — (U7) | 同一輸入的 tool schema 在 session 中段不得換一種正規化（`anyOf` union 與無 `items` 陣列是風險面） |
+| `verify-remote-compaction-target-key.ts` | — (U3) | remote compaction 用自己的 `prompt_cache_key`（由 compaction 目標模型派生），live 回合仍用 live 模型的 key |
+| `verify-compaction-length-stop.ts` | — (U12) | `stopReason === "length"` 的摘要請求不得提交被截斷的摘要 |
+| `verify-tokenizer-budget-parity.ts` | — (U6) | compaction／預算的本地 token 計數來自讀取模型家族的 native tokenizer；無第一方家族時落 `o200k_base`，不回到 4 bytes/token 猜測 |
+| `verify-held-file-write-guard.ts` | — (U19) | 任何工具都不得覆寫本行程持有鎖的檔案（live `agent.db`／`-shm`） |
+| `verify-advisor-quota-rotation.ts` | 0048 | 持續回 `usage_limit_reached` 的 sibling credential 最多換一次同 provider 重試，之後走 cross-provider fallback（pristine 在 N=3 帳號時即紅） |
+| `verify-prompt-rebuild-inputs.ts` | — (U2/U15) | 跨午夜不得重繪 system prompt；重繪輸入只能有一份權威 |
+| `verify-provider-registry-lazy.ts` | — (U9) | 被打補丁的 provider 必須經 18.16.0 的 lazy `register-builtins` 表可達 |
+| `verify-catalog-regen-parity.ts` | — (U17) | `rules.json` 由 KDL 逐位元重生成；`models.json` 只等於 pristine 加上 KDL 造成的欄位（`gen:models` 無 pin，不能當重生成來源） |
+
+被 18.16.0 arm 移出選取的三道：`verify-goal-tool-resident.ts`（0032 退役）、`verify-user-display-text-queue.ts`（tree pin 止於 18.12.6，`0082` 的 HTML-export hunk 已丟棄，改用一次性 consumer smoke）、`verify-date-cwd-anchor-stability.ts`（見上）。移除的是選取，不是檔案；檔案與其負對照保留給凍結 arm。
 
 ## 7. 運維記錄：agent.db 結構性損壞與重建（2026-08-29）
 - **发现**:排查配额时对 `~/.omp/agent/agent.db` 跑 `PRAGMA integrity_check`(官方 `.backup` 一致快照与 `mode=ro` 直读**都复现**,不是热 `cp` 造成的假象):

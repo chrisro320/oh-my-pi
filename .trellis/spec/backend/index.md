@@ -19,10 +19,10 @@ This directory contains guidelines for backend development. Fill in each file wi
 | [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
 | [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
-| [Extension Runtime Contracts](./extension-runtime-contracts.md) | Atomic session-bound side requests and prompt-cache keepalive | Active |
-| [Patch Rollup Contracts](./patch-rollup-contracts.md) | Family revisions, immutable history, explicit plan selection, and lossless replay | Active |
+| [Extension Runtime Contracts](./extension-runtime-contracts.md) | Atomic session-bound side requests, prompt-cache keepalive, one compaction-context authority, and confirmation deadlines that never auto-approve | Active |
+| [Patch Rollup Contracts](./patch-rollup-contracts.md) | Family revisions, immutable history, explicit plan selection, chain-anchored rebase order, and lossless replay | Active |
 | [Context Plugin Eval](./context-plugin-eval.md) | Sandbox isolation, sentinel contracts, and cache-prefix probes for context-managing plugins | Active |
-| [Verification Gate Contracts](./verification-gate-contracts.md) | Falsifiable gates, fault-tree construction, pinned fixtures, and representation sync | Active |
+| [Verification Gate Contracts](./verification-gate-contracts.md) | Falsifiable gates, fault copies across an upstream rebase, gate-source freeze, pinned fixtures, and representation sync | Active |
 
 ---
 

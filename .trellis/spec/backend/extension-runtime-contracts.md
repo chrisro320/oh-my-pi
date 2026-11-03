@@ -606,6 +606,16 @@ that cache identity is unproven and the ordinary safe fallback must be used.
 - The advisor captures its own synthetic branch and message snapshot, then uses
   its own Agent, model, tools, converter, and provider transform. Primary state
   must not shape advisor compaction.
+- When the target's `SummaryOptions` carries upstream's
+  `buildProviderContext(summarized, retained, signal, model)`, the model-facing
+  context of a compaction request has exactly ONE authority chain: an attested
+  local live scope (`buildCachePreservingContext("live")`), else
+  `buildProviderContext(...)`, else upstream's `remoteSystemPrompt` +
+  `convertToLlm` + `tools` fallback. NEVER add a parallel hook that rebuilds
+  system/tools/messages beside it, and never hand-supply `summaryOptions.tools`
+  or `remoteSystemPrompt` while `buildProviderContext` is available. 18.16.0
+  adopted capability `0066` on this contract: deleting the `buildProviderContext`
+  branch turns `verify-anthropic-native-compaction-live-context.ts` red.
 - History and split-turn prefix calls request independent scopes and stable
   leaves. The history call folds the history target; the turn-prefix call folds
   only the discarded prefix of the incomplete turn.
@@ -1431,4 +1441,90 @@ const init = extractSessionInit(reopened.getEntries())   // latest session_init,
 ```text
 Wrong: rebuild the subagent prompt on revival "to stay current".
 Correct: replay the persisted prompt bytes; refresh only routing state.
+```
+
+## Scenario: Confirmation deadlines never auto-approve (18.16.0 / 0102)
+
+### 1. Scope / Trigger
+
+Use whenever a host confirmation blocks a script that is already running, and
+whenever that wait is bounded. Task-scoped desktop control is the case that
+produced this contract: `control.acquire` asks the user before a script takes the
+foreground, and the run's own budget can be an hour. A dialog left open holds the
+script that long; a dialog closed by the terminal UI's own timeout answers **Yes**.
+
+### 2. Signatures
+
+```ts
+// pi-coding-agent/src/tools/computer/supervisor.ts
+const CONTROL_CONFIRM_UNANSWERED_MS = 60_000;
+// inside #confirmControl, on the branch that still has run budget:
+const deadline = AbortSignal.timeout(Math.min(message.timeoutMs, CONTROL_CONFIRM_UNANSWERED_MS));
+const signal = AbortSignal.any([controller.signal, deadline]);
+// verdict: "approved" | "denied" | "unanswered"
+```
+
+`message.timeoutMs` is the run-budget-derived wait produced by `worker.ts`
+(`deadline - min(5_000, runTimeout / 4)`), not a UI timeout. The confirmation
+dialog is driven through `signal`: a confirmed answer resolves `approved`, a
+declined answer `denied`, and an abort `unanswered`.
+
+### 3. Contracts
+
+- The cap MUST be `min(run deadline, CONTROL_CONFIRM_UNANSWERED_MS)`: the run's
+  budget alone leaves a one-hour run's dialog open for an hour.
+- The TUI confirm's own `timeout` option MUST NOT be used to bound the wait. A
+  timed-out confirm closes by selecting its highlighted option, which is Yes — so
+  "nobody answered" would be recorded as approval, removing the only live human
+  confirmation exactly when nobody can press Escape.
+- Expiry MUST yield `unanswered` and let the script continue with window input,
+  which needs no control and already falls back to takeover without a prompt. No
+  auto-approval on timeout, and no silent auto-denial of the run.
+- `timeoutMs <= 0` (no run budget left) keeps its existing short-circuit to
+  `unanswered` without opening a prompt; the answered and denied paths are
+  unchanged.
+- The deadline MUST compose with the run's own controller, so cancelling the run
+  still aborts the dialog; the cap must never replace that signal.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| User approves before either deadline | `approved`, script acquires control |
+| User declines | `denied`, unchanged |
+| Neither deadline nor answer within 60 s | `unanswered` at 60 s; script continues with window input |
+| Run budget expires first | `unanswered`; dialog aborted, no verdict selected |
+| `timeoutMs <= 0` | `unanswered` without a prompt |
+| Run cancelled while the dialog is open | dialog aborted, no verdict, run ends |
+| Dialog bounded by the TUI's `timeout` instead of `signal` | Refuse the change; it auto-approves |
+
+### 5. Good / Base / Bad Cases
+
+- **Good:** an unanswered confirmation closes at 60 s with `unanswered` and the
+  script's window input continues; a human who answers still decides.
+- **Base:** the run ends before 60 s, so the run budget is the effective bound.
+- **Bad:** "the run has a deadline, so it is already bounded"; "on timeout assume
+  no" (the run then fails for a reason the user never expressed); "on timeout
+  assume yes" (no human confirmed).
+
+### 6. Tests Required
+
+`bun patches/verify-computer-control-confirm-deadline.ts` with a fake clock over
+the real `AbortSignal.timeout`. Assertion points: the cap fires at exactly
+`min(deadline, 60 s)`; `unanswered` is produced without a selected option; the
+answered and denied paths and `timeoutMs <= 0` are unchanged. It must be red on
+pristine 18.16.0 and on the chain without 0102, and a fault that always caps at
+60 s (ignoring a shorter run deadline) must also be red.
+
+### 7. Wrong vs Correct
+
+```text
+Wrong: pass timeoutMs to the TUI confirm and let it close the dialog.
+Correct: compose AbortSignal.timeout(min(timeoutMs, 60_000)) with the run
+         controller and treat expiry as "unanswered".
+```
+
+```text
+Wrong: auto-approve on timeout "so the script is not blocked".
+Correct: go on with window input, which needs no control, and say nobody answered.
 ```

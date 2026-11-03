@@ -1268,6 +1268,8 @@ Extension: `patches/auth-unlock-extension.ts` -> `~/.omp/agent/extensions/auth-u
 - Provider scope: the journal protocol runs only for the providers named in `DURABLE_EXCHANGE_PROVIDER`, and the store gate (`hasRefreshExchanges`) is required only there. A store with refresh leases but no journal still refreshes every other provider through lease + CAS, while a store without leases keeps failing closed for any local exchange. A legacy marker for an unprotected provider is read-only material: never reserved, never staged, never rewritten; a matching staged replacement may be published once through the fenced commit and its marker retired.
 - Extension provider contract: a provider may appear in `PROTECTED_PROVIDERS` (and therefore in completions and the refusal text) only if it keeps the durable journal AND its value is the token URL that provider's own refresh POSTs to, read from `pi-catalog/src/compat/rules/auth/<provider>.kdl` (`refresh { token url=... }`, else the login `token url`). A preflight against another host proves nothing about the refresh path. Providers without the journal (`google-antigravity`, `openai-codex`, `xai-oauth`, MCP providers) must stay unadvertised and be reported as not applicable before inspect or any network call. The session error text from the 0090 patch still names `/auth-unlock` for every provider; with the journal scoped to `anthropic`, `inspectUnresolvedRefresh` answers `not-applicable` for the rest so that text is never produced for them.
 
+- Discharge is a parsed-provider fact, never a text match. A usage probe that answers `invalid_grant` MUST NOT leave an unresolved marker behind (18.16.0: upstream's "a probe never disables" plus our journal made the next interactive refresh demand sign-in), so a probe's own marker MAY be discharged — fenced on its reservation — and ONLY when the token endpoint answered with status `>= 400` and a *parsed* `error: "invalid_grant"`, carried as `OAuthError.oauthError` from the single site that parses the response body. Classifying from message text is forbidden: the 18.16.0 review showed a transport error whose text says the token was revoked would otherwise discharge a live ambiguity barrier. Transport errors, timeouts, aborts, a 2xx with an unparseable body, `5xx` and `429` all keep the marker and the row `active`.
+
 ### 4. Validation & Error Matrix
 
 Inspect: `pending`, `no-credential`, `credential-disabled`, `no-exchange`, `staged-replacement`, `remote-credential`, `unsupported-store`, `delegated-runtime`, `not-applicable`. Release: `released`, `not-pending`, `staged-replacement-present`, `row-changed`, `fence-mismatch`, `lease-not-held`. Unlock outcome: `refreshed`, `nothing-to-unlock`, `fence-mismatch`, `staged-result-recovered`, `failed`, `not-applicable`.
@@ -1289,3 +1291,127 @@ Extension gate: `OMP_PATCH_VERIFY_NM=<runtime>/node_modules/@oh-my-pi bun patche
 Wrong: delete the unresolved marker, then reserve; hash the mutable lease owner into the fence; apply unlock assertions to frozen plans; trust a gate that only goes red because a method is missing. Correct: replace the marker atomically under lease and fence, keep the fence over immutable exchange identity, version-scope the new surface, and prove a weakened fence turns a named gate red.
 
 Wrong: journal every provider because the fenced release already exists, or add a provider to `PROTECTED_PROVIDERS` because the core API is generic and its login host looks right, or hand-maintain a second provider list for completions; trust a fake-context smoke that never compares the URL with the descriptor. Correct: keep the durable journal on `anthropic` alone and let every other provider refresh under lease + CAS (adopting an already-staged replacement read-only), take the URL from the provider's refresh descriptor, derive completions from the same map, and let `verify-auth-unlock-extension.ts` fail when the map, the descriptor or the advertised list drift.
+
+Wrong: discharge a probe's marker because an error message mentions a revoked or rejected token (`message.match(/revoked|invalid_grant/)`), or let probes skip the journal so a probe can never leave a marker. Correct: carry the parsed `invalid_grant` out of the one body-parse site as `OAuthError.oauthError`, gate discharge on it plus a `>= 400` status, keep every other outcome fenced, and let the probe stay journaled so a lost probe response still cannot lose the rotated token.
+
+## Scenario: Gate falsifiability across an upstream rebase (18.16.0)
+
+### 1. Scope / Trigger
+
+Use when a rebase makes some gates test behaviour upstream now owns, so they pass
+on the **pristine** target as well as on the chain. A gate that passes on pristine
+is not evidence that the chain kept the capability; only a **fault copy** that
+turns it red is. Use this contract as well whenever upstream deletes the API a
+gate drives, or when the acceptance batch itself has to be trusted.
+
+### 2. Signatures
+
+```sh
+OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-gates
+research/gate-runtime-18.16.0.sh <source-@oh-my-pi-dir> <out-dir>      # private runtime + JSON env block
+python3 research/run-target-gates.py --repo <repo> --runtime <out> --out <fresh-dir>
+python3 research/smoke/run-sandbox-smoke.py --runtime <out> --ledger <repo>/patches --out <json>
+```
+
+`run-target-gates.py` obtains coverage from the frozen controller
+(`--print-gates`); its `--only`/`--exclude` arguments only split a batch into
+priority runs. A hand-copied gate list is never a plan. `research/…` paths are
+relative to the upgrade task directory
+(`.trellis/tasks/<upgrade-task>/`), not to the repository root.
+
+### 3. Contracts
+
+- **Gate-source freeze.** Freeze the controller and every `patches/verify-*` byte
+  before a batch and record their hashes; the batch's verdict belongs to those
+  bytes. Concurrent edits to a gate while a batch runs make the result
+  unattributable. Evidence: 18.16.0 records `controller_sha256`, a ledger
+  `sha256` manifest, and a runtime hash manifest with `runtime_unchanged: true`
+  (`research/m10-full-batch-18.16.0.json`); the smoke records `source_freeze`,
+  `copy_freeze` and `freeze_unchanged` for source and copies
+  (`research/m11-smoke-18.16.0.json`).
+- A gate that passes on pristine 18.16.0 MUST ship a fault copy that turns it red,
+  or it is documentation (the family-consolidation rule). This is the normal case
+  for the unowned-upstream gates: withdrawn-tool wire (U5), tool-schema bytes
+  (U7), tokenizer parity (U6), lazy provider registry (U9), compaction length stop
+  (U12), catalog regen parity (U17), held-file write guard (U19).
+- A removed upstream API retires the gate **arm**, never the gate file and never
+  the assertion. 18.16.0 deleted `applyDateCwdAnchors`/`dateCwdAnchorKey`, which
+  `verify-date-cwd-anchor-stability.ts` drives; the 18.16.0 arm is
+  `verify-date-cwd-journal-prefix.ts`, built from the Q1 proof (the journal keeps
+  provider-facing `messages[0]` byte-identical across resume, branch, fork,
+  transfer and subagent revival with the clock moved a day) with both controls
+  red. An arm MUST NOT be kept green by weakening its assertions to something
+  that still compiles.
+- A version-scoped exclusion is an explicit controller guard, not a deleted file:
+  `verify-goal-tool-resident.ts` (0032 retired) and
+  `verify-user-display-text-queue.ts` (0082's tree pin ends at 18.12.6) stay on
+  disk for the frozen arms, and `--print-gates` for every frozen version must stay
+  byte-identical to before the change.
+- NEVER add a test knob to production code to reach a deadline. Drive the real
+  timer: the 0090 exchange backstop is exercised by holding the library's own
+  timer, and 0102's cap is driven by a fake clock over the real
+  `AbortSignal.timeout`.
+- The **TUI confirm**'s own `timeout` option closes a dialog by selecting its
+  highlighted option — which is Yes. It can never stand in for a deadline that
+  must fail closed; test the abort path (`signal`) that yields `unanswered`, and
+  prove the answered and denied paths are unchanged.
+- A gate that reads `HOME` must re-execute itself under a private `HOME` when the
+  ordinary apply suite would otherwise see the operator's tree (the StepFun
+  catalog gate did exactly this after refusing the operator's `HOME`).
+- Every gate batch runs inside `bwrap --unshare-net`: native Anthropic transports
+  over `node:https`, so a `fetch` stub does not isolate a run.
+- The batch receipt must name what actually ran: `selected_by_controller`,
+  `requested`, `only`, `exclude`, and per-gate `exit`/`status`.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| Gate passes on pristine and has no fault copy | Refuse the claim; add the fault copy |
+| Gate-source or controller bytes changed during a batch | Discard the batch |
+| Runtime hash manifest differs before/after | Fail the batch; a gate mutated what it measured |
+| Upstream removed the driven API and the arm was weakened instead of replaced | Refuse; write the replacement proof gate |
+| Frozen version's gate list changed after a controller edit | Refuse; compare `--print-gates` for every frozen version |
+| Gate reads `HOME` and is run from the ordinary apply suite | Re-execute under a private `HOME` |
+| Deadline tested through a UI `timeout` that auto-selects an option | Refuse the test; drive the abort signal |
+
+### 5. Good / Base / Bad Cases
+
+- **Good:** 71 gates selected by the controller, all `PASS`, runtime unchanged,
+  and each gate that also passes on pristine has a named fault copy that is red.
+- **Base:** a chain-only gate goes red on the pre-change tree and green after it;
+  no fault copy is needed because the pre-change tree is the control.
+- **Bad:** treating "it passes on both trees" as proof; adding a debug knob to
+  production auth to reach a backstop; keeping a dropped arm alive by deleting its
+  failing assertions.
+
+### 6. Tests Required
+
+```sh
+# Selection and totals come from the controller, never from a copied list.
+OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-gates | wc -l   # 71
+
+# Frozen versions must not move. Compare with the recorded list, and run the
+# controller from patches/: a copy elsewhere resolves its registry relative to
+# its own directory, so it is a different controller, not a baseline.
+for v in 18.10.1 18.12.6; do
+  OMP_PATCH_VERSION=$v bash patches/apply.sh --print-gates | diff - "$FROZEN/$v.gates"
+done
+```
+
+Assertion points: each new gate's fault copy exits non-zero; `runtime_unchanged`
+is true; the smoke's `freeze_unchanged` is true for source and copies; the
+`executed` array covers exactly `selected_by_controller`.
+
+Machine-check presence at delivery and independent review:
+`grep -nE 'Gate-source freeze|fault copy|removed upstream API retires the gate|TUI confirm' .trellis/spec/backend/verification-gate-contracts.md`
+
+### 7. Wrong vs Correct
+
+Wrong: a gate is green on pristine and on the chain, so the release is covered;
+or upstream deleted the API, so the gate is deleted too.
+
+Correct: every pristine-passing gate carries a fault copy that is red; a removed
+API retires the arm and a new proof gate is written against the surviving
+authority; the batch is frozen and its receipts name the bytes and the gates that
+ran.
