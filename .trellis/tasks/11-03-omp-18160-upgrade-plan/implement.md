@@ -659,11 +659,13 @@ Acceptance: PASS with 6 checks + 4 controls, digests equal before and after, no 
 
 Reason: Escape/PID/ambiguity and the native dialog path can only be observed on the live desktop, with the user present.
 
-- [ ] Agent-driven acceptance with live user approval: Tern window, chat rendering of an image-bearing transcript, Escape
+- [x] Agent-driven acceptance with live user approval: Tern window, chat rendering of an image-bearing transcript, Escape
   cancellation, AT-SPI dialog focus, and the NEW-0102 60 s prompt (a real unanswered confirmation continues through takeover).
   — Effort: medium — scripted, but every action is user-observed.
-- [ ] Record captures/observations per `DEPLOYMENT-RUNBOOK.md`; a missing physical prerequisite blocks the release claim for
+- [x] Record captures/observations per `DEPLOYMENT-RUNBOOK.md`; a missing physical prerequisite blocks the release claim for
   that surface — no inherited waiver. — Effort: low — Tern behaviour is only observable on the desktop.
+  Done on the staged release under a private HOME (`research/m12-physical-18.16.0.md`): all nine surfaces PASS, including
+  the live double `/compact snapcompact`.
 
 Acceptance: observed physical behaviour matches the gates; the user's approval is recorded per action.
 
