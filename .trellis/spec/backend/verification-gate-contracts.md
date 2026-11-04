@@ -1415,3 +1415,102 @@ Correct: every pristine-passing gate carries a fault copy that is red; a removed
 API retires the arm and a new proof gate is written against the surviving
 authority; the batch is frozen and its receipts name the bytes and the gates that
 ran.
+
+## Scenario: Release activation window — physical acceptance before publish, cache continuity after restart (18.16.0)
+
+### 1. Scope / Trigger
+
+Use when a prepared release still needs physical Tern/native or live-compaction
+acceptance, and when it has to be activated. Admission is irreversible for a
+code-only downgrade, so every check that can run before admission must run before
+it.
+
+### 2. Signatures
+
+```sh
+python3 -I patches/publish-release.py prepare --version <v> --home "$HOME" --runtime <rt> --ledger <ledger>
+python3 research/smoke/run-sandbox-smoke.py --release <staged> --out <installed-smoke.json>
+research/m12/run-m12.sh <scenario>        # staged release, private HOME, scripted offline model
+python3 -I patches/publish-release.py publish --release <staged> --smoke <installed-smoke.json>
+omp --version                              # "installed; restart required; old owners: …" until owners exit
+```
+
+### 3. Contracts
+
+- Order: `prepare` → installed-path smoke → physical acceptance on the **staged**
+  release → `publish` → the user exits old sessions normally → first launch
+  (sets `production_admission_started: true`). Physical acceptance MUST NOT wait
+  for admission: under a private HOME with a scripted offline model it touches no
+  credential, no live session and no receipt, so the code rollback stays available.
+- A surface that needs no foreground control (window ambiguity, an AT-SPI read,
+  a double `/compact snapcompact`) runs without a user step; only `control.acquire`
+  approval and physical Escape need the user.
+- Any process started from a release `cli.ts`, including a scratch run of the
+  **new** release under a throwaway HOME, is an old owner for the admission census.
+  Stop it before the restart; never bypass exit 75.
+- Post-restart cache continuity is judged from the session JSONL, not from the
+  status line: for consecutive primary assistant records,
+  `cacheRead[n] == cacheRead[n-1] + cacheWrite[n-1]` means the prefix was fully
+  reused. The first record after a restart is the one that proves resume
+  stability. A record whose usage is all zero is an aborted request, not a miss.
+  A `compaction` entry between the two records resets the prefix by design
+  (including the context rollover at an activation restart); judge the record
+  after it against the new baseline, not as a miss. `cacheRead` above the sum is
+  benign: a sibling request had already cached a longer shared prefix. A drop
+  with no compaction in between is a real miss, even under the cache TTL (the
+  18.12.6 part of upgrade session `01a19f81` has two, both under 4 min apart: a
+  resume at `2026-11-03T07:54:20Z` reused 10,858 of 322,561 tokens, and a plain
+  turn at `14:52:26Z` reused 0).
+- Prove the restart happened between the two records: the owning process's
+  `ps -o lstart` must fall between the last pre-restart record and the first
+  post-restart one.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| Physical surface checked only after admission | Refuse the order; run it on the staged release first |
+| `omp --version` still lists an owner after the user exited | Identify it (`ps -o args`); stop scratch runs, never kill a live OAuth session |
+| `cacheRead[n] < cacheRead[n-1] + cacheWrite[n-1]` after a restart | A resume cache miss; diff the provider-facing prefix before claiming stability |
+| Process start time is not between the two records | The measurement is pre-restart; repeat after a real restart |
+| New desktop apps expose no AT-SPI tree | Check the X root `AT_SPI_BUS` property for a stale bus before blaming the release |
+
+### 5. Good / Base / Bad Cases
+
+- **Good:** M12 9/9 on the staged 18.16.0 release, then publish, then the first
+  post-restart record reads `117623 = 116617 + 1006` with the new process started
+  between them.
+- **Base:** a long tool output adds a large `cacheWrite` while the next
+  `cacheRead` still matches the sum; that is growth, not a miss.
+- **Bad:** deferring live `/compact` until after activation; reading the status
+  line's hit rate as resume proof; counting a pre-restart record as post-restart.
+
+### 6. Tests Required
+
+```sh
+python3 - <<'EOF'   # resume continuity over the current session JSONL
+import json,sys
+rows=[(json.loads(l)) for l in open(sys.argv[1])]
+u=[(e['timestamp'],e['message']['usage']) for e in rows
+   if (e.get('message') or {}).get('role')=='assistant' and e['message'].get('usage')]
+u=[x for x in u if x[1].get('cacheRead') or x[1].get('cacheWrite')]
+for (t0,a),(t1,b) in zip(u,u[1:]):
+    print(t1, 'OK' if b['cacheRead']==a['cacheRead']+a['cacheWrite'] else 'MISS')
+EOF
+```
+
+Assertion points: every post-restart row prints `OK`; the process `lstart` sits
+between the rows around the restart; the receipt shows
+`production_admission_started: true` only after the user's normal restart.
+
+Machine-check presence at delivery and independent review:
+`grep -nE 'staged\*\* release|old owner for the admission census|cacheRead\[n\] == cacheRead' .trellis/spec/backend/verification-gate-contracts.md`
+
+### 7. Wrong vs Correct
+
+Wrong: publish first, then do the physical checks and the live `/compact` in the
+first new session; when the resume looks fast, call the cache stable.
+
+Correct: finish physical acceptance on the staged release under a private HOME,
+publish, stop scratch owners, let the user restart, then confirm the first
+post-restart record's `cacheRead` equals the previous total.

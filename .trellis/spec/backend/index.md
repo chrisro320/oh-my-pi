@@ -22,7 +22,7 @@ This directory contains guidelines for backend development. Fill in each file wi
 | [Extension Runtime Contracts](./extension-runtime-contracts.md) | Atomic session-bound side requests, prompt-cache keepalive, one compaction-context authority, and confirmation deadlines that never auto-approve | Active |
 | [Patch Rollup Contracts](./patch-rollup-contracts.md) | Family revisions, immutable history, explicit plan selection, chain-anchored rebase order, and lossless replay | Active |
 | [Context Plugin Eval](./context-plugin-eval.md) | Sandbox isolation, sentinel contracts, and cache-prefix probes for context-managing plugins | Active |
-| [Verification Gate Contracts](./verification-gate-contracts.md) | Falsifiable gates, fault copies across an upstream rebase, gate-source freeze, pinned fixtures, and representation sync | Active |
+| [Verification Gate Contracts](./verification-gate-contracts.md) | Falsifiable gates, fault copies across an upstream rebase, gate-source freeze, pinned fixtures, representation sync, and the release activation window | Active |
 
 ---
 
