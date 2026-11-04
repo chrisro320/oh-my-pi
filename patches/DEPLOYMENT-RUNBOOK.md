@@ -4,7 +4,7 @@
 
 安全更新 omp、重套補丁、驗證回退，且不共用或破壞 `agent.db`、`models.db`、OAuth 憑證。
 
-## 18.12.6 migration and installation (installed release; rollback baseline)
+## 18.12.6 migration and installation (superseded by 18.16.0 on 2026-11-03)
 
 The upgrade task targets exact18.12.6/commit `45c35e40c46166dc726ccc52f5d27f40f2449f99`. Installation was authorized by the user on 2026-10-23 after candidate acceptance: `prepare --version 18.12.6`, then the installed smoke `.trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/smoke/run-sandbox-smoke.py --release <staged-release> --out <json>`, then `publish`. Unlike the18.10.1 in-place smoke, the18.12.6 release smoke checks the staged runtime/ledger digests against the receipt before and after, and executes byte-identical private copies, because its probes must live inside the runtime. It proves installed bytes, not installed-path permissions, bindings or launcher admission; those are covered by the receipt/launcher review and the post-publish blocked-launch observation. Release `18.12.6-87abd557af5b-693348fb-09428d79` became active on 2026-10-23 after old owners exited (`production_admission_started:true`); code-only rollback is now refused.
 
@@ -12,9 +12,9 @@ Selected acquisition uses the already-audited independent npm closure with a pin
 
 After source/ledger integration, run the target oracle and selected gates, actual private sandbox smoke, declaration consumer and applicable human-approved Tern/native checks. The sandbox entry point is `.trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/smoke/run-sandbox-smoke.py --runtime <candidate> --ledger <repository-patches> --out <fresh-json>`; its harness runs every command in a loopback-only network namespace (`bwrap --unshare-net`), because native Anthropic's `node:https` transport bypasses fetch stubs. Repository/sandbox acceptance for candidate `87abd557af5b7c166dd3fadfc1bd68c5eb7cad641af41dac8424cfd7ca55a4bf` is complete (oracle, 57/57 gates in one run, smoke, OAuth controller controls, companions, physical native checks, Tern queue/steer/image/resume; `/compact` and parked-agent wake accepted via their gates by user decision). Synthetic `verify-release-publication.py --version 18.12.6` passes only its temporary HOME fault/admission fixture; it does not install or publish a real release.
 
-## 18.16.0 candidate (repository only; not installed)
+## 18.16.0 installation (installed release; active)
 
-Nothing in this section is installed or active. The candidate is exact `18.16.0` / commit `650f3a108229ee11bf68ba3377f4e8c3391cd424`; 18.12.6 is still the running release, and its frozen release is the rollback. `prepare`/`publish` below are M15 work and need separate authorization.
+Exact `18.16.0` / commit `650f3a108229ee11bf68ba3377f4e8c3391cd424` is installed as release `18.16.0-35567dd8cf1a-d5545df9-9bf60a81` and active since 2026-11-03 (`production_admission_started:true`), so a code-only rollback is refused. It was installed with the same three-step `prepare` → installed-path smoke → `publish` sequence as 18.12.6 (`$TASK/research/m15-installed-smoke-18.16.0.json`).
 
 Read-only chain queries (the `PATCHES` array is not a plan). `TASK=.trellis/tasks/11-03-omp-18160-upgrade-plan` holds this upgrade's research scripts and receipts:
 
@@ -38,9 +38,9 @@ Smoke (repository/sandbox only, synthetic model, no provider proof):
 python3 "$TASK/research/smoke/run-sandbox-smoke.py" --runtime <runtime> --ledger <repo>/patches --out <fresh-json>
 ```
 
-It must be `PASS` with six checks at exit 0 plus four offline controls, digests equal before and after, and the exact-version check failing closed on an 18.16.1 tree (`$TASK/research/m11-smoke-18.16.0.json`). Publication, when authorized, is the same three-step `prepare` → installed-path smoke → `publish` sequence as 18.12.6, with `--version 18.16.0`.
+It must be `PASS` with six checks at exit 0 plus four offline controls, digests equal before and after, and the exact-version check failing closed on an 18.16.1 tree (`$TASK/research/m11-smoke-18.16.0.json`).
 
-Still unproven at this boundary: physical Tern acceptance and the live double `/compact snapcompact`, both of which need 18.16.0 running on the desktop — i.e. they belong to the deployment window, not to repository acceptance.
+Physical Tern acceptance and the live double `/compact snapcompact` ran on the staged release before `publish`, under a private HOME with a scripted offline model (`$TASK/research/m12-physical-18.16.0.md`, 9/9 PASS). A surface that needs no foreground control (window ambiguity, AT-SPI read, compaction) runs without a user step; only the approved acquire and physical Escape need the user.
 
 ## Immutable installation procedure (introduced with 18.10.1)
 
@@ -295,7 +295,7 @@ OMP_PATCH_VERSION=<部署版本> ~/.omp/patches/apply.sh --check
 
 ## 7. 回退（歷史 direct-global 流程）
 
-本節的 `bun add -g` 流程只適用於 historical direct-global 安裝。當前 immutable installation 的回退目標是 18.12.6 的凍結 release（`publish-release.py rollback --release <physical-release>`，且只在 `production_admission_started` 之前；見文首安裝程序）。18.16.0 尚未安裝，因此沒有可回退的 release。18.0.9 及更早版本已不再受支援，其計畫與候選已退役至 `patches/.retired/09-13-dead-plans/`。
+本節的 `bun add -g` 流程只適用於 historical direct-global 安裝。當前 immutable installation 為 18.16.0，已於 2026-11-03 admission（`production_admission_started:true`），因此 code-only rollback（`publish-release.py rollback --release <physical-release>`）已被拒絕；18.12.6 的凍結 release 僅作歷史保存。18.0.9 及更早版本已不再受支援，其計畫與候選已退役至 `patches/.retired/09-13-dead-plans/`。
 
 ```sh
 OMP_PATCH_VERSION=<部署版本> ~/.omp/patches/apply.sh --revert

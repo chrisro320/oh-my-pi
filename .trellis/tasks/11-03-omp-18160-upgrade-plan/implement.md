@@ -703,31 +703,34 @@ Acceptance: docs describe the candidate that actually exists, with no superseded
 
 Reason: this writes a permanent installed tree; it must be a distinct, explicitly authorized step.
 
-- [ ] Present candidate results (oracle digest, gate batch, smoke receipt, review verdict, physical acceptance) and obtain
+- [x] Present candidate results (oracle digest, gate batch, smoke receipt, review verdict, physical acceptance) and obtain
   explicit authorization for installation/publication. No production activation is promised by it. — Effort: low — publication is a separate authorization, not a formality.
-- [ ] After authorization only, **prepare** (stage; this is the only subcommand that takes the build inputs):
+- [x] After authorization only, **prepare** (stage; this is the only subcommand that takes the build inputs):
   `python3 patches/publish-release.py prepare --version 18.16.0 --home "$PUBLISH_HOME" --runtime "$RUNTIME" --ledger
   "$LEDGER" | tee "$OUT/prepare.json"`, then capture the returned path with
   `RELEASE="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["release"])' < "$OUT/prepare.json")"`.
   `prepare` accepts only `--home/--runtime/--ledger/--version`, copies the verified runtime and ledger, refuses a runtime
   that is not the candidate (`candidate_tree_sha256`) or that mixes versions, and creates no public pointer. — Effort: high —
   this is the first write outside the repo sandbox; `--release`/`--smoke` belong to `publish` and would be rejected here.
-- [ ] Installed-path private smoke against the returned release:
+- [x] Installed-path private smoke against the returned release:
   `python3 "$TASK/research/smoke/run-sandbox-smoke.py" --release "$RELEASE" --out "$SANDBOX/installed-smoke.json"` (release
   digests equal to the receipt before and after). — Effort: high — installed bytes differ from candidate bytes by
   construction, and `publish` refuses a smoke that is not `PASS` for this exact release with all six checks at exit 0.
-- [ ] **Publish** (flips the pointers):
+- [x] **Publish** (flips the pointers):
   `python3 patches/publish-release.py publish --release "$RELEASE" --smoke "$SANDBOX/installed-smoke.json"`. — Effort: high —
   it re-verifies the runtime/ledger digests, records the `private_smoke` hash and the rollback targets, and refuses a
   release that is not `staged`.
-- [ ] `python3 patches/verify-release-publication.py --version 18.16.0` as a **separate** check: it exercises publish and
+- [x] `python3 patches/verify-release-publication.py --version 18.16.0` as a **separate** check: it exercises publish and
   rollback ordering on a synthetic HOME and is not evidence about this release. — Effort: low — treating the synthetic
   verifier as publication proof is the classic false green.
-- [ ] Final read-only transaction review: exact release path, receipt (`code_installation: complete`, `private_smoke`,
+- [x] Final read-only transaction review: exact release path, receipt (`code_installation: complete`, `private_smoke`,
   `rollback`), overlay hashes, companion delta; installation recorded separately from activation. — Effort: medium — the last
   cheap moment to catch a wrong release path.
-- [ ] Activation is a separate user-controlled moment: the user exits old sessions and broker/worker processes normally (exit
+- [x] Activation is a separate user-controlled moment: the user exits old sessions and broker/worker processes normally (exit
   75 is never bypassed), then metadata-only `omp --version` is observed. No code-only downgrade afterwards. — Effort: medium — admission is irreversible for code-only downgrade.
+  Done 2026-11-03: release `18.16.0-35567dd8cf1a-d5545df9-9bf60a81` published, user restarted normally, receipt
+  `production_admission_started: true`, `omp --version` = `18.16.0 (installed; ready for a new process)`, bound `--check`
+  27 APPLIED with no CONFLICT/MISSING, no 18.12.6 process left.
 
 Acceptance: `prepare` returned a staged release whose `candidate_tree_sha256` is the oracle candidate and whose
 `runtime_tree_sha256` covers the installed addons; `installed-smoke.json` is PASS for that exact release; `publish` completed
