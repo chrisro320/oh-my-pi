@@ -726,6 +726,8 @@ Reason: this writes a permanent installed tree; it must be a distinct, explicitl
 - [x] Final read-only transaction review: exact release path, receipt (`code_installation: complete`, `private_smoke`,
   `rollback`), overlay hashes, companion delta; installation recorded separately from activation. — Effort: medium — the last
   cheap moment to catch a wrong release path.
+  Correction 2026-11-03: the companion delta was not checked at publication. `resume-cache-breakpoint` was deployed
+  after activation; see `DECISIONS.md` (companion gap).
 - [x] Activation is a separate user-controlled moment: the user exits old sessions and broker/worker processes normally (exit
   75 is never bypassed), then metadata-only `omp --version` is observed. No code-only downgrade afterwards. — Effort: medium — admission is irreversible for code-only downgrade.
   Done 2026-11-03: release `18.16.0-35567dd8cf1a-d5545df9-9bf60a81` published, user restarted normally, receipt

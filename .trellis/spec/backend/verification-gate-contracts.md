@@ -1448,6 +1448,14 @@ omp --version                              # "installed; restart required; old o
 - Any process started from a release `cli.ts`, including a scratch run of the
   **new** release under a throwaway HOME, is an old owner for the admission census.
   Stop it before the restart; never bypass exit 75.
+- `publish-release.py` never touches `~/.omp/agent`, so companion extensions are
+  **not** part of the release. Before the restart, `cmp` every
+  `patches/*-extension.ts` changed by the upgrade against its live copy in
+  `~/.omp/agent/extensions/` (usually without the `-extension` suffix;
+  `input-translator-extension.ts` keeps it). Copy the changed
+  ones with a backup kept outside that directory (the loader reads every `*.ts`
+  there), and rerun each companion's gate with its live path, e.g.
+  `OMP_RESUME_CACHE_BREAKPOINT_EXTENSION=<live>`.
 - Post-restart cache continuity is judged from the session JSONL, not from the
   status line: for consecutive primary assistant records,
   `cacheRead[n] == cacheRead[n-1] + cacheWrite[n-1]` means the prefix was fully
@@ -1457,10 +1465,14 @@ omp --version                              # "installed; restart required; old o
   (including the context rollover at an activation restart); judge the record
   after it against the new baseline, not as a miss. `cacheRead` above the sum is
   benign: a sibling request had already cached a longer shared prefix. A drop
-  with no compaction in between is a real miss, even under the cache TTL (the
-  18.12.6 part of upgrade session `01a19f81` has two, both under 4 min apart: a
-  resume at `2026-11-03T07:54:20Z` reused 10,858 of 322,561 tokens, and a plain
-  turn at `14:52:26Z` reused 0).
+  with no compaction in between is a real miss, even under the cache TTL. Name its
+  cause before claiming stability. Upgrade session `01a19f81` has two, both less
+  than 4 min after the previous record. At `2026-11-03T07:54:20Z` a resume reused
+  10,858 of 322,561 tokens because the `xd://` catalog came back reordered (`cron`
+  before `api_image`/`generate_image`); Kimi's canonicalization in
+  `resume-cache-breakpoint` fixes that (`817b45555`). At `14:52:26Z` a turn reused
+  0 because enabling the `scout` agent changed the tool definitions; that miss is
+  expected, one-time and user-caused.
 - Prove the restart happened between the two records: the owning process's
   `ps -o lstart` must fall between the last pre-restart record and the first
   post-restart one.
@@ -1471,6 +1483,7 @@ omp --version                              # "installed; restart required; old o
 |---|---|
 | Physical surface checked only after admission | Refuse the order; run it on the staged release first |
 | `omp --version` still lists an owner after the user exited | Identify it (`ps -o args`); stop scratch runs, never kill a live OAuth session |
+| An upgrade-changed `patches/*-extension.ts` differs from its live copy | The companion was never deployed: back up, copy, rerun its gate on the live path |
 | `cacheRead[n] < cacheRead[n-1] + cacheWrite[n-1]` after a restart | A resume cache miss; diff the provider-facing prefix before claiming stability |
 | Process start time is not between the two records | The measurement is pre-restart; repeat after a real restart |
 | New desktop apps expose no AT-SPI tree | Check the X root `AT_SPI_BUS` property for a stale bus before blaming the release |
