@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 11
-- **Last Active**: 2026-10-23
+- **Total Sessions**: 12
+- **Last Active**: 2026-11-03
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~298 | Active |
+| `journal-1.md` | ~333 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 12 | 2026-11-03 | OMP 18.16.0 upgrade: rebase, acceptance, publish, activation | `c9bd061f1`, `b1df2b43e`, `aa96561b2`, `1ae390a8d`, `df59062d5`, `817b45555`, `d1ef1924e`, `bd186e150`, `70cfd5efe`, `2c78c211e`, `b2a4a195b`, `e15e6a12d`, `a3c6b9b53`, `29f2782be`, `cadbce732` | `trellis/ds-snapcompact-tuning` |
 | 11 | 2026-10-23 | OMP 18.12.6 migration, install and activation | `753d5e429`, `41fdab384`, `c902797c1`, `577d7ad24` | `trellis/ds-snapcompact-tuning` |
 | 10 | 2026-10-12 | OMP 18.10.1: retry transient TLS verify errors (0098) + slow retry schedule (0099) | `5d5fa4097`, `ae24c9c3a`, `9c4666bf7`, `b32d30a19`, `b7b9deb6f`, `9f591244d` | `trellis/ds-snapcompact-tuning` |
 | 9 | 2026-10-12 | OMP 18.10.1 S1 + Tern footer releases | `d54fbfb7c`, `6ee8098e0`, `512dea8a6`, `dd3726ae6`, `aedf5ec08`, `2abb429d1`, `d070e7b30` | `trellis/ds-snapcompact-tuning` |

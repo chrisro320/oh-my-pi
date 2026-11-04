@@ -296,3 +296,38 @@ Migrated 27 families/62 capabilities to 18.12.6 (candidate 87abd557); Tern caugh
 ### Status
 
 [OK] **Completed**
+
+
+## Session 12: OMP 18.16.0 upgrade: rebase, acceptance, publish, activation
+
+**Date**: 2026-11-03
+**Task**: OMP 18.16.0 upgrade: rebase, acceptance, publish, activation
+**Branch**: `trellis/ds-snapcompact-tuning`
+
+### Summary
+
+Pinned 18.16.0 (650f3a10): 26 family rows / 62 capabilities rebased zero-fuzz; 0032 retired, 0102 control.acquire 60s unanswered cap added, 0062/0066/0072/0079 adopted upstream with pristine proofs; 0090 F2 OAuth fix; 0092 symmetric idle-request ownership. Oracle PASS, 71/71 gates, smoke PASS; M12 physical 9/9 on staged release under private HOME; published 18.16.0-35567dd8 and admitted after normal restart (code-only rollback now refused). Post-restart cache check on 18.16.0: first record read the full prior prefix (117623 = 116617 + 1006); two unexplained misses found in the 18.12.6 part of the session. Spec: release activation window scenario.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c9bd061f1` | (see git log) |
+| `b1df2b43e` | (see git log) |
+| `aa96561b2` | (see git log) |
+| `1ae390a8d` | (see git log) |
+| `df59062d5` | (see git log) |
+| `817b45555` | (see git log) |
+| `d1ef1924e` | (see git log) |
+| `bd186e150` | (see git log) |
+| `70cfd5efe` | (see git log) |
+| `2c78c211e` | (see git log) |
+| `b2a4a195b` | (see git log) |
+| `e15e6a12d` | (see git log) |
+| `a3c6b9b53` | (see git log) |
+| `29f2782be` | (see git log) |
+| `cadbce732` | (see git log) |
+
+### Status
+
+[OK] **Completed**
