@@ -1473,9 +1473,12 @@ omp --version                              # "installed; restart required; old o
   `resume-cache-breakpoint` fixes that (`817b45555`). At `14:52:26Z` a turn reused
   0 because enabling the `scout` agent changed the tool definitions; that miss is
   expected, one-time and user-caused.
-- Prove the restart happened between the two records: the owning process's
-  `ps -o lstart` must fall between the last pre-restart record and the first
-  post-restart one.
+- Prove the restart happened between the two records with a `custom`
+  `session_exit` entry (`reason: "dispose"`) between them. Process `lstart` only
+  proves a process restart: an in-process resume keeps the pid, and it still
+  reloads every extension, because the loader imports each one with a fresh
+  `?mtime=` tag (`loadLegacyPiModule`, default `reload`). Companion bytes deployed
+  before that resume are therefore live after it.
 
 ### 4. Validation & Error Matrix
 
@@ -1485,14 +1488,15 @@ omp --version                              # "installed; restart required; old o
 | `omp --version` still lists an owner after the user exited | Identify it (`ps -o args`); stop scratch runs, never kill a live OAuth session |
 | An upgrade-changed `patches/*-extension.ts` differs from its live copy | The companion was never deployed: back up, copy, rerun its gate on the live path |
 | `cacheRead[n] < cacheRead[n-1] + cacheWrite[n-1]` after a restart | A resume cache miss; diff the provider-facing prefix before claiming stability |
-| Process start time is not between the two records | The measurement is pre-restart; repeat after a real restart |
+| No `session_exit` entry between the two records | The measurement is pre-restart; repeat after a real restart or resume |
 | New desktop apps expose no AT-SPI tree | Check the X root `AT_SPI_BUS` property for a stale bus before blaming the release |
 
 ### 5. Good / Base / Bad Cases
 
 - **Good:** M12 9/9 on the staged 18.16.0 release, then publish, then the first
-  post-restart record reads `117623 = 116617 + 1006` with the new process started
-  between them.
+  post-restart record reads `117623 = 116617 + 1006` with a `session_exit`
+  between them; after the companion redeploy and an in-process resume (same pid),
+  `193884 = 186987 + 6897`.
 - **Base:** a long tool output adds a large `cacheWrite` while the next
   `cacheRead` still matches the sum; that is growth, not a miss.
 - **Bad:** deferring live `/compact` until after activation; reading the status
@@ -1512,7 +1516,7 @@ for (t0,a),(t1,b) in zip(u,u[1:]):
 EOF
 ```
 
-Assertion points: every post-restart row prints `OK`; the process `lstart` sits
+Assertion points: every post-restart row prints `OK`; a `session_exit` entry sits
 between the rows around the restart; the receipt shows
 `production_admission_started: true` only after the user's normal restart.
 
