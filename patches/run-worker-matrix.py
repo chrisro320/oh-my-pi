@@ -2,8 +2,9 @@
 """Offline selected-root worker matrix with bounded, concurrently drained receipts."""
 import argparse, hashlib, json, os, selectors, signal, subprocess, time
 from pathlib import Path
+from version_registry import resolve_plan
 
-NAMES = """main-cache-hit usage-reset-format hindsight-recall-snapshot hindsight-recall-promotion-slot usage-statusline-gate usage-thread-providers session-transfer-authority date-cwd-journal-prefix interrupt-prune-symmetry eval-state-context-persist turn-recovery-reminder-persist model-mention-surface-resume length-stop-reminder-persist prompt-effort-resume model-selection-resume devin-auth-cache devin-metadata devin-thinking-signature devin-idle-cascade-pin oauth-durable-refresh auth-unlock-extension codex-account-eligibility-retention google-account-eligibility-retention oauth-worker-single-owner subagent-warm-revival-prompt context-persist-audit retry-slow-schedule idle-ephemeral-reservation session-cache-keepalive resume-cache-breakpoint prefix-cache-compaction codex-compaction-chain remote-compaction-target-key compaction-cache-liveness anthropic-native-compaction-live-context compaction-length-stop manual-compaction-direct compaction-live-chain-midnight anthropic-thinking-drop-resume anthropic-request-audit anthropic-cache-boundaries anthropic-threads-cache-shape anthropic-threads-warm-compaction-isolation""".split()
+NAMES = """main-cache-hit usage-reset-format hindsight-recall-snapshot hindsight-recall-promotion-slot usage-statusline-gate usage-thread-providers session-transfer-authority date-cwd-journal-prefix interrupt-prune-symmetry reminder-persist model-mention-surface-resume model-effort-resume devin-wire devin-metadata devin-idle-cascade-pin oauth-durable-refresh auth-unlock-extension account-eligibility-retention oauth-worker-single-owner subagent-warm-revival-prompt context-persist-audit retry-slow-schedule idle-ephemeral-reservation session-cache-keepalive resume-cache-breakpoint prefix-cache-compaction codex-compaction-chain remote-compaction-target-key compaction-cache-liveness anthropic-native-compaction-live-context compaction-length-stop manual-compaction-direct compaction-live-chain-midnight anthropic-thinking-drop-resume anthropic-request-audit anthropic-cache-boundaries anthropic-threads-cache-shape anthropic-threads-warm-compaction-isolation""".split()
 
 def capture(command, timeout):
     started = time.monotonic()
@@ -43,7 +44,9 @@ if __name__ == '__main__':
     parser.add_argument('--modes', nargs='+', choices=('main', 'worker'), default=('main', 'worker'))
     args = parser.parse_args()
     repo = Path(__file__).resolve().parent.parent
-    selected = subprocess.check_output(['bash', str(repo / 'patches/apply.sh'), '--print-gates'], env={**os.environ, 'OMP_PATCH_VERSION': '18.18.0'}, text=True).splitlines()
+    # The plan under test is the runtime, never a literal (fail closed when unregistered).
+    plan = resolve_plan('run-worker-matrix', roots=[Path(args.runtime) / 'node_modules/@oh-my-pi/pi-coding-agent'])
+    selected = subprocess.check_output(['bash', str(repo / 'patches/apply.sh'), '--print-gates'], env={**os.environ, 'OMP_PATCH_VERSION': plan.version}, text=True).splitlines()
     gates = args.gates or [f'verify-{name}.ts' for name in NAMES if f'verify-{name}.ts' in selected]
     rows = []
     for gate in gates:

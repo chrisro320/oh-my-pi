@@ -1,0 +1,113 @@
+{
+  "step": "C5 fix \u2014 repeated-disposal + reentrant-teardown setup restored with the barrier asserts",
+  "what_was_lost": "the first C5 move kept only `updateResult -> assert held -> dispose() -> await settle -> assert released`; the retired shared-PNG gate had also patched Container.prototype.dispose to re-enter `updateResult` on the dying block and called dispose() twice, so the barrier assertion ran after a repeated, reentrant teardown",
+  "restored": {
+    "file": "patches/verify-kitty-conversion-finalization.ts",
+    "lines": "106-124",
+    "setup": "Container.prototype.dispose patched to call `dying.updateResult({ content: [replacementImage] })` before the original teardown; disposed twice; prototype restored in the finally block",
+    "asserts": [
+      {
+        "text": "an in-flight conversion must hold the retirement barrier",
+        "line": 116
+      },
+      {
+        "text": "a disposed block releases its conversion barrier",
+        "line": 121
+      }
+    ],
+    "kept_in_shared_gate": "dispose idempotence/teardown count and the late-paint checks (0080)"
+  },
+  "mutation": {
+    "fault": "c5-0079-reentrant",
+    "what": "a teardown-time result is processed against a disposed block and arms a conversion key with no completion; the barrier is stranded only when the repeated, reentrant teardown re-enters updateResult",
+    "file": "node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.ts",
+    "changes": [
+      "updateResult no longer ignores a disposed block",
+      "a conversion key armed while disposed gets no completion attached"
+    ],
+    "merged_gate": {
+      "status": "FAIL",
+      "exit": 1,
+      "assertion": [
+        "AssertionError: a disposed block releases its conversion barrier"
+      ]
+    },
+    "retired_pre_c5_shared_gate": {
+      "status": "FAIL",
+      "exit": 1,
+      "assertion": [
+        "AssertionError: a disposed block releases its conversion barrier"
+      ]
+    },
+    "retired_control_on_clean_18.18.0": {
+      "status": "PASS",
+      "exit": 0,
+      "assertion": []
+    },
+    "parity": "both gates fail with the identical assertion `a disposed block releases its conversion barrier`; the retired gate passes on the clean runtime"
+  },
+  "clean_runs": {
+    "18.18.0": {
+      "verify-kitty-conversion-finalization.ts": {
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      "verify-kitty-shared-png-cache.ts": {
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      }
+    },
+    "18.19.0_sim": {
+      "verify-kitty-conversion-finalization.ts": {
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      "verify-kitty-shared-png-cache.ts": {
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      }
+    },
+    "18.16.0": {
+      "verify-kitty-conversion-finalization.ts": {
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      "verify-kitty-shared-png-cache.ts": {
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      }
+    }
+  },
+  "assertion_counts": {
+    "pre_c5_conversion": {
+      "asserts": 23,
+      "throws": 1
+    },
+    "conversion_after_move": {
+      "asserts": 25,
+      "throws": 1
+    },
+    "pre_c5_shared": {
+      "asserts": 82,
+      "throws": 1
+    },
+    "shared_after_move": {
+      "asserts": 81,
+      "throws": 1
+    },
+    "map": "research/s5b-assertion-map.md (regenerated; the two moved checks resolve to lines 116 and 121)"
+  },
+  "literal_check": "all touched gate files exit 0 individually; the whole-repo run currently reports 4 literals in apply.sh (the new `_omp_no_gate` message strings added by the parallel-runner work, not this slice)",
+  "files": {
+    "verify-kitty-conversion-finalization.ts": {
+      "lines": 242,
+      "sha256": "a6bded18cee14cefae054c365299bf0b17e84bbde34d70790228181796bc4f3c"
+    }
+  }
+}

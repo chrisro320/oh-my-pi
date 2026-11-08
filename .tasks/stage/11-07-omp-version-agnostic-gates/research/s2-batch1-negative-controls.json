@@ -1,0 +1,43 @@
+{
+ "step": "S2 batch 1 negative controls (3 converted gates)",
+ "runtime": "/var/tmp/omp-vagn-s2/run/rt (18.18.0 candidate copy)",
+ "controls": {
+  "verify-interrupt-prune-symmetry.ts": {
+   "unregistered_label_18.19.0": {
+    "exit": 1,
+    "error": "verify-interrupt-prune-symmetry: OMP_PATCH_VERSION: 18.19.0 is not registered; supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json); add it there and create its .<version>-families/ directory, retiring the oldest in the same change",
+    "refused": true
+   },
+   "env_18.16.0_vs_runtime_18.18.0": {
+    "exit": 1,
+    "error": "verify-interrupt-prune-symmetry: /var/tmp/omp-vagn-s2/run/rt/node_modules/@oh-my-pi/pi-coding-agent/package.json is 18.18.0 but the selected plan is 18.16.0",
+    "refused": true
+   }
+  },
+  "verify-session-transfer-authority.ts": {
+   "unregistered_label_18.19.0": {
+    "exit": 1,
+    "error": "verify-session-transfer-authority: OMP_PATCH_VERSION: 18.19.0 is not registered; supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json); add it there and create its .<version>-families/ directory, retiring the oldest in the same change",
+    "refused": true
+   },
+   "env_18.16.0_vs_runtime_18.18.0": {
+    "exit": 1,
+    "error": "verify-session-transfer-authority: /var/tmp/omp-vagn-s2/run/rt/node_modules/@oh-my-pi/pi-coding-agent/package.json is 18.18.0 but the selected plan is 18.16.0",
+    "refused": true
+   }
+  },
+  "verify-cron-idle-owners.ts": {
+   "unregistered_label_18.19.0": {
+    "exit": 1,
+    "error": "verify-cron-idle-owners: OMP_PATCH_VERSION: 18.19.0 is not registered; supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json); add it there and create its .<version>-families/ directory, retiring the oldest in the same change",
+    "refused": true
+   },
+   "env_18.16.0_vs_runtime_18.18.0": {
+    "exit": 1,
+    "error": "verify-cron-idle-owners: /var/tmp/omp-vagn-s2/run/rt/node_modules/@oh-my-pi/pi-coding-agent/package.json is 18.18.0 but the selected plan is 18.16.0",
+    "refused": true
+   }
+  }
+ },
+ "all_refused": true
+}

@@ -1,0 +1,146 @@
+{
+  "step": "S5 retire moves",
+  "destination": "patches/.retired/11-07-verify-trim",
+  "count": 15,
+  "method": "plain mv (no git index/ref change); sha256 before == after for every file",
+  "files": [
+    {
+      "file": "verify-worker-pool-fixture.ts",
+      "from": "patches/verify-worker-pool-fixture.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-worker-pool-fixture.ts",
+      "sha256": "a12ab703d5aa08db1033696c0864307e0276705a6e56a77afd7bcbe42cfd0440",
+      "sha256_after_move": "a12ab703d5aa08db1033696c0864307e0276705a6e56a77afd7bcbe42cfd0440",
+      "identical": true,
+      "bytes": 4554
+    },
+    {
+      "file": "verify-eval-state-context-persist.ts",
+      "from": "patches/verify-eval-state-context-persist.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-eval-state-context-persist.ts",
+      "sha256": "d53500d2973e73fa359e17101a9d3813b298632bae16ad6c942732c7816df16b",
+      "sha256_after_move": "d53500d2973e73fa359e17101a9d3813b298632bae16ad6c942732c7816df16b",
+      "identical": true,
+      "bytes": 9254
+    },
+    {
+      "file": "verify-turn-recovery-reminder-persist.ts",
+      "from": "patches/verify-turn-recovery-reminder-persist.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-turn-recovery-reminder-persist.ts",
+      "sha256": "851b59b318f51a3c26be9bd80be38192c38fb8014fc37d424108b9b2c209f0a5",
+      "sha256_after_move": "851b59b318f51a3c26be9bd80be38192c38fb8014fc37d424108b9b2c209f0a5",
+      "identical": true,
+      "bytes": 11445
+    },
+    {
+      "file": "verify-length-stop-reminder-persist.ts",
+      "from": "patches/verify-length-stop-reminder-persist.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-length-stop-reminder-persist.ts",
+      "sha256": "691d51e97bc70a76fd901ba1628ab525522dbe04d35fa8e8061f4610f062ae51",
+      "sha256_after_move": "691d51e97bc70a76fd901ba1628ab525522dbe04d35fa8e8061f4610f062ae51",
+      "identical": true,
+      "bytes": 10885
+    },
+    {
+      "file": "verify-codex-account-eligibility-retention.ts",
+      "from": "patches/verify-codex-account-eligibility-retention.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-codex-account-eligibility-retention.ts",
+      "sha256": "ebb00d5a31bb0a3c1d7e3131a5428ee69c7d7307d488230abab66285aaa9925f",
+      "sha256_after_move": "ebb00d5a31bb0a3c1d7e3131a5428ee69c7d7307d488230abab66285aaa9925f",
+      "identical": true,
+      "bytes": 8933
+    },
+    {
+      "file": "verify-google-account-eligibility-retention.ts",
+      "from": "patches/verify-google-account-eligibility-retention.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-google-account-eligibility-retention.ts",
+      "sha256": "01e2328077ea7e22550e8e5ef8f5a15fc244528e94f9b6cc11f2c4dfe754b251",
+      "sha256_after_move": "01e2328077ea7e22550e8e5ef8f5a15fc244528e94f9b6cc11f2c4dfe754b251",
+      "identical": true,
+      "bytes": 13481
+    },
+    {
+      "file": "verify-devin-auth-cache.ts",
+      "from": "patches/verify-devin-auth-cache.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-devin-auth-cache.ts",
+      "sha256": "d86e33bc24b6caa96fd0f4e7ace17a66dc3cbebf77865d1e8939039e4c78b136",
+      "sha256_after_move": "d86e33bc24b6caa96fd0f4e7ace17a66dc3cbebf77865d1e8939039e4c78b136",
+      "identical": true,
+      "bytes": 16800
+    },
+    {
+      "file": "verify-devin-thinking-signature.ts",
+      "from": "patches/verify-devin-thinking-signature.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-devin-thinking-signature.ts",
+      "sha256": "eca7a68251594833af2ddcd89e612486bd296fcee90c4203b49b9eca0f7d900c",
+      "sha256_after_move": "eca7a68251594833af2ddcd89e612486bd296fcee90c4203b49b9eca0f7d900c",
+      "identical": true,
+      "bytes": 7039
+    },
+    {
+      "file": "verify-prompt-effort-resume.ts",
+      "from": "patches/verify-prompt-effort-resume.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-prompt-effort-resume.ts",
+      "sha256": "3016f82937acdb5c7251f790c9eb14b20d431a4d0e5244da57014bad83e7d943",
+      "sha256_after_move": "3016f82937acdb5c7251f790c9eb14b20d431a4d0e5244da57014bad83e7d943",
+      "identical": true,
+      "bytes": 16788
+    },
+    {
+      "file": "verify-model-selection-resume.ts",
+      "from": "patches/verify-model-selection-resume.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-model-selection-resume.ts",
+      "sha256": "2c8480a2c1ef393ac625c8eb34cdb1923bf79663bce17c4afa53d2cda12b8931",
+      "sha256_after_move": "2c8480a2c1ef393ac625c8eb34cdb1923bf79663bce17c4afa53d2cda12b8931",
+      "identical": true,
+      "bytes": 17026
+    },
+    {
+      "file": "verify-withdrawn-tools-wire.ts",
+      "from": "patches/verify-withdrawn-tools-wire.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-withdrawn-tools-wire.ts",
+      "sha256": "2fefd02dfda40c2bde67117fd85aa172363a39c574878dd7f4cd51152eb98273",
+      "sha256_after_move": "2fefd02dfda40c2bde67117fd85aa172363a39c574878dd7f4cd51152eb98273",
+      "identical": true,
+      "bytes": 16533
+    },
+    {
+      "file": "verify-tool-schema-bytes.ts",
+      "from": "patches/verify-tool-schema-bytes.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-tool-schema-bytes.ts",
+      "sha256": "53a7602e79149fc976c0537f80818cc723495d73975f7d61a2a628d53da5a19e",
+      "sha256_after_move": "53a7602e79149fc976c0537f80818cc723495d73975f7d61a2a628d53da5a19e",
+      "identical": true,
+      "bytes": 13628
+    },
+    {
+      "file": "verify-kitty-shared-png-cache.ts",
+      "from": "patches/verify-kitty-shared-png-cache.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-kitty-shared-png-cache.ts",
+      "sha256": "5f7aa835a3c7c396fb9bd6e260ea7d916027c43f66256ea6845da3b9aa3f9df1",
+      "sha256_after_move": "5f7aa835a3c7c396fb9bd6e260ea7d916027c43f66256ea6845da3b9aa3f9df1",
+      "identical": true,
+      "bytes": 25218,
+      "note": "pre-C5 copy kept for mutation parity; the live file stays in place without the two 0079 barrier asserts"
+    },
+    {
+      "file": "verify-cache-warming-idle-budget.ts",
+      "from": "patches/verify-cache-warming-idle-budget.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-cache-warming-idle-budget.ts",
+      "sha256": "da6b767cf36b50e1b8928bc235374bb1cadac66995f90fbad1c3fcb460cb3ace",
+      "sha256_after_move": "da6b767cf36b50e1b8928bc235374bb1cadac66995f90fbad1c3fcb460cb3ace",
+      "identical": true,
+      "bytes": 11816,
+      "note": "C6 fold into verify-idle-warming-owners.ts"
+    },
+    {
+      "file": "verify-cron-idle-owners.ts",
+      "from": "patches/verify-cron-idle-owners.ts",
+      "to": "patches/.retired/11-07-verify-trim/verify-cron-idle-owners.ts",
+      "sha256": "5b026f0a801689f486ed12ee1f08e8d34f3dd26629532eb3d3b57a3fac83df5f",
+      "sha256_after_move": "5b026f0a801689f486ed12ee1f08e8d34f3dd26629532eb3d3b57a3fac83df5f",
+      "identical": true,
+      "bytes": 40237,
+      "note": "C6 fold into verify-idle-warming-owners.ts"
+    }
+  ]
+}

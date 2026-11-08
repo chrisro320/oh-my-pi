@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 import type { ServerWebSocket } from "bun";
 // Type-only, so Bun's transpiler erases it: nothing is loaded from a package to
 // run this gate. The specifier is the package's public subpath rather than a
@@ -47,12 +48,7 @@ try {
 	// 0070 is bound by both plans that carry the Codex V2 compaction lane.
 	// Selecting explicitly keeps an unknown tree failing closed rather than
 	// running the transport assertions against a tree without the patch.
-	const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
-	assert.ok(
-		["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion),
-		`unsupported 0070 transport gate version: ${aiVersion}`,
-	);
-	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion);
+	const plan = resolvePlan({ gate: "verify-codex-compaction-chain-fail-closed", roots: [AI_ROOT] });
 	const ai = await import(`${AI_ROOT}/src/providers/openai-codex-responses.ts`);
 	// 18.16.0 moved the transport-state probe out of openai-codex-responses.ts
 	// into openai-codex-state.ts; both spellings name the same module-level
@@ -199,63 +195,61 @@ try {
 
 	// Effective Codex selection must govern the outer consumer as well as the
 	// transport. A refusal delivered after request preparation cannot enter V1.
-	if (["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
-		const altLaneModels = [
-			{
-				label: "remoteCompaction.api",
-				model: {
-					...bundled,
-					api: "openai-responses" as const,
-					provider: "openai",
-					baseUrl: "http://127.0.0.1:1/v1",
-					remoteCompaction: { enabled: true, api: "openai-codex-responses", v2StreamingEnabled: true },
-				},
+	const altLaneModels = [
+		{
+			label: "remoteCompaction.api",
+			model: {
+				...bundled,
+				api: "openai-responses" as const,
+				provider: "openai",
+				baseUrl: "http://127.0.0.1:1/v1",
+				remoteCompaction: { enabled: true, api: "openai-codex-responses", v2StreamingEnabled: true },
 			},
-			{
-				label: "provider identity",
-				model: {
-					...bundled,
-					api: "openai-responses" as const,
-					provider: "openai-codex",
-					baseUrl: "http://127.0.0.1:1/v1",
-					remoteCompaction: { enabled: true },
-				},
+		},
+		{
+			label: "provider identity",
+			model: {
+				...bundled,
+				api: "openai-responses" as const,
+				provider: "openai-codex",
+				baseUrl: "http://127.0.0.1:1/v1",
+				remoteCompaction: { enabled: true },
 			},
-		];
-		for (const { label, model } of altLaneModels) {
-			assert.equal(core.isCodexCompactionV2Lane(model), true, `${label}: effective Codex lane must be recognized`);
-			let altSends = 0;
-			await assert.rejects(
-				core.requestCompactionV2Streaming(model, "fixture-key", request, undefined, {
-					fetch: async () => {
-						altSends++;
-						return sse(successEvents);
-					},
-					retryWait: async () => {},
-				}),
-				ai.CodexCompactionChainLostError,
-				`${label}: chain-only lane must refuse a chain-less V2 send`,
-			);
-			assert.equal(altSends, 0, `${label}: no HTTP request may escape the chain-only refusal`);
-			if (["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) && label === "remoteCompaction.api") {
-				let softSends = 0;
-				await assert.rejects(compact({
-					firstKeptEntryId: "effective-lane-boundary",
-					messagesToSummarize: [{ role: "user", content: [{ type: "text", text: "History must not escape the effective chain-only lane" }], timestamp: 1 }],
-					turnPrefixMessages: [], recentMessages: [], isSplitTurn: false, tokensBefore: 1000,
-					fileOps: { read: new Set(), written: new Set(), edited: new Set() },
-					settings: { enabled: true, remoteEnabled: true, remoteStreamingV2Enabled: true },
-				}, model, "fixture-key", undefined, undefined, {
-					sessionId: "effective-lane-outer",
-					fetch: async () => {
-						altSends++;
-						throw new DOMException("Forbidden V1/SSE replay", "AbortError");
-					},
-					completeImpl: async () => { softSends++; throw new Error("Forbidden soft fallback"); },
-				}), ai.CodexCompactionChainLostError, "the outer compact catch must propagate the effective-lane sentinel");
-				assert.equal(altSends, 0, "a late chain-loss refusal must never become V1/SSE history replay");
-				assert.equal(softSends, 0, "a late chain-loss refusal must not invoke the local summarizer");
-			}
+		},
+	];
+	for (const { label, model } of altLaneModels) {
+		assert.equal(core.isCodexCompactionV2Lane(model), true, `${label}: effective Codex lane must be recognized`);
+		let altSends = 0;
+		await assert.rejects(
+			core.requestCompactionV2Streaming(model, "fixture-key", request, undefined, {
+				fetch: async () => {
+					altSends++;
+					return sse(successEvents);
+				},
+				retryWait: async () => {},
+			}),
+			ai.CodexCompactionChainLostError,
+			`${label}: chain-only lane must refuse a chain-less V2 send`,
+		);
+		assert.equal(altSends, 0, `${label}: no HTTP request may escape the chain-only refusal`);
+		if (label === "remoteCompaction.api") {
+			let softSends = 0;
+			await assert.rejects(compact({
+				firstKeptEntryId: "effective-lane-boundary",
+				messagesToSummarize: [{ role: "user", content: [{ type: "text", text: "History must not escape the effective chain-only lane" }], timestamp: 1 }],
+				turnPrefixMessages: [], recentMessages: [], isSplitTurn: false, tokensBefore: 1000,
+				fileOps: { read: new Set(), written: new Set(), edited: new Set() },
+				settings: { enabled: true, remoteEnabled: true, remoteStreamingV2Enabled: true },
+			}, model, "fixture-key", undefined, undefined, {
+				sessionId: "effective-lane-outer",
+				fetch: async () => {
+					altSends++;
+					throw new DOMException("Forbidden V1/SSE replay", "AbortError");
+				},
+				completeImpl: async () => { softSends++; throw new Error("Forbidden soft fallback"); },
+			}), ai.CodexCompactionChainLostError, "the outer compact catch must propagate the effective-lane sentinel");
+			assert.equal(altSends, 0, "a late chain-loss refusal must never become V1/SSE history replay");
+			assert.equal(softSends, 0, "a late chain-loss refusal must not invoke the local summarizer");
 		}
 	}
 
@@ -398,45 +392,43 @@ try {
 			baseUrl: `http://127.0.0.1:${server.port}`,
 			preferWebsockets: true,
 		};
-		if (["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
-			// Target keeps independent lite/full socket axes. Even a model whose
-			// metadata advertises lite must compact on the ordinary live full chain.
-			mode = "success";
-			frames = [];
-			compactionSends = 0;
-			const states = new Map<string, ProviderSessionState>();
-			let httpSends = 0;
-			const options = {
-				apiKey: "fixture-key", sessionId: "target-transport-axes", providerSessionState: states,
-				preferWebsockets: true,
-				fetch: async () => { httpSends++; throw new Error("No HTTP replay allowed"); },
-			};
-			const axisModel = { ...model, useResponsesLite: true };
-			const context = { systemPrompt: ["transport axes"],
-				messages: [{ role: "user", content: [{ type: "text", text: "axis seed" }], timestamp: 1 }] };
-			try {
-				const full = await ai.streamOpenAICodexResponses(axisModel, context, options).result();
-				assert.equal(full.stopReason, "stop", full.errorMessage);
-				const fullResponse = `resp_${sequence}`;
-				const fullSocket = frames.at(-1)!.socket;
-				const lite = await ai.streamOpenAICodexResponses(axisModel, context, { ...options, responsesLite: true }).result();
-				assert.equal(lite.stopReason, "stop", lite.errorMessage);
-				const liteSocket = frames.at(-1)!.socket;
-				assert.notEqual(liteSocket, fullSocket, "lite and full live turns must use separate target sockets");
-				assert.equal(frames.at(-1)!.body.previous_response_id, undefined, "the first lite turn cannot borrow the full baseline");
-				const before = frames.length;
-				await core.requestCompactionV2Streaming(axisModel, options.apiKey,
-					{ ...request, sessionId: options.sessionId }, undefined,
-					{ ...options, timeoutMs: 2000, retryWait: async () => {} });
-				const sent = frames.slice(before);
-				assert.equal(sent.length, 1, "healthy target compaction must not recover or replay either transport");
-				assert.equal(sent[0].socket, fullSocket, "compaction must stay on the full live socket");
-				assert.equal(sent[0].body.previous_response_id, fullResponse, "compaction must retain the full live response ID");
-				assert.deepEqual(sent[0].body.input, [{ type: "compaction_trigger" }], "target compaction remains trigger-only");
-				assert.equal(httpSends, 0, "transport-axis selection must never enable an HTTP fallback");
-			} finally {
-				for (const state of states.values()) state.close();
-			}
+		// Target keeps independent lite/full socket axes. Even a model whose
+		// metadata advertises lite must compact on the ordinary live full chain.
+		mode = "success";
+		frames = [];
+		compactionSends = 0;
+		const states = new Map<string, ProviderSessionState>();
+		let httpSends = 0;
+		const options = {
+			apiKey: "fixture-key", sessionId: "target-transport-axes", providerSessionState: states,
+			preferWebsockets: true,
+			fetch: async () => { httpSends++; throw new Error("No HTTP replay allowed"); },
+		};
+		const axisModel = { ...model, useResponsesLite: true };
+		const context = { systemPrompt: ["transport axes"],
+			messages: [{ role: "user", content: [{ type: "text", text: "axis seed" }], timestamp: 1 }] };
+		try {
+			const full = await ai.streamOpenAICodexResponses(axisModel, context, options).result();
+			assert.equal(full.stopReason, "stop", full.errorMessage);
+			const fullResponse = `resp_${sequence}`;
+			const fullSocket = frames.at(-1)!.socket;
+			const lite = await ai.streamOpenAICodexResponses(axisModel, context, { ...options, responsesLite: true }).result();
+			assert.equal(lite.stopReason, "stop", lite.errorMessage);
+			const liteSocket = frames.at(-1)!.socket;
+			assert.notEqual(liteSocket, fullSocket, "lite and full live turns must use separate target sockets");
+			assert.equal(frames.at(-1)!.body.previous_response_id, undefined, "the first lite turn cannot borrow the full baseline");
+			const before = frames.length;
+			await core.requestCompactionV2Streaming(axisModel, options.apiKey,
+				{ ...request, sessionId: options.sessionId }, undefined,
+				{ ...options, timeoutMs: 2000, retryWait: async () => {} });
+			const sent = frames.slice(before);
+			assert.equal(sent.length, 1, "healthy target compaction must not recover or replay either transport");
+			assert.equal(sent[0].socket, fullSocket, "compaction must stay on the full live socket");
+			assert.equal(sent[0].body.previous_response_id, fullResponse, "compaction must retain the full live response ID");
+			assert.deepEqual(sent[0].body.input, [{ type: "compaction_trigger" }], "target compaction remains trigger-only");
+			assert.equal(httpSends, 0, "transport-axis selection must never enable an HTTP fallback");
+		} finally {
+			for (const state of states.values()) state.close();
 		}
 		for (const scenario of [
 			"cold",
@@ -449,8 +441,8 @@ try {
 			"closed",
 			"exhausted",
 			"invalid-summary",
-			...(supportsChainRecovery ? ["stale-once"] : []),
-			...(["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? ["stale-alias-once"] : []),
+			"stale-once",
+			"stale-alias-once",
 		]) {
 			mode = scenario;
 			frames = [];
@@ -491,7 +483,7 @@ try {
 						retryWait: async () => {},
 					},
 				);
-				if (["success", "transient", "malformed", "stale-once", "stale-alias-once"].includes(scenario) || (supportsChainRecovery && scenario === "cold")) {
+				if (["success", "transient", "malformed", "stale-once", "stale-alias-once"].includes(scenario) || scenario === "cold") {
 					const result = await operation;
 					assert.equal(
 						result.compactionItem.encrypted_content,
@@ -525,7 +517,7 @@ try {
 					await assert.rejects(operation, ai.CodexCompactionChainLostError, `${scenario}: failure must stay terminal`);
 					assert.equal(
 						compactionSends,
-						["cold", "sse-disabled"].includes(scenario) ? 0 : scenario === "exhausted" || (supportsChainRecovery && ["closed", "stale"].includes(scenario)) ? 3 : 1,
+						["cold", "sse-disabled"].includes(scenario) ? 0 : scenario === "exhausted" || ["closed", "stale"].includes(scenario) ? 3 : 1,
 					);
 					if (scenario === "invalid-summary") {
 						const details = transportDetails(model, options);
@@ -549,7 +541,7 @@ try {
 					assert.ok(frame.body.previous_response_id, `${scenario}: every sent compaction must chain`);
 					assert.deepEqual(frame.body.input, [{ type: "compaction_trigger" }]);
 					assert.equal(frame.body.generate, undefined, "compaction must generate its summary");
-					if (!(supportsChainRecovery && ["closed", "stale", "stale-once", "stale-alias-once"].includes(scenario))) {
+					if (!["closed", "stale", "stale-once", "stale-alias-once"].includes(scenario)) {
 						assert.equal(frame.socket, compactFrames[0].socket, "healthy retries must stay on the original socket");
 						assert.equal(frame.body.previous_response_id, compactFrames[0].body.previous_response_id, "healthy retries must retain their response baseline");
 					}
@@ -558,107 +550,103 @@ try {
 				for (const state of states.values()) state.close();
 			}
 		}
-		if (["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
-			// Buffered entitlement errors used to bypass the transport-exception
-			// no-SSE guard. Separate accounts keep the ordinary control independent
-			// of the provider's process-wide rejected-program cache.
-			for (const chainOnly of [true, false]) {
-				const accountId = chainOnly ? "offline-compaction-account" : "offline-ordinary-account";
-				const eligible = { ...model, accountAccess: { [accountId]: { cyberPrograms: ["daybreak_blue"] } } };
-				const token = `offline.${Buffer.from(JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: accountId } })).toString("base64url")}.fixture`;
-				const states = new Map<string, ProviderSessionState>();
-				let httpSends = 0;
-				let softSends = 0;
-				const options = {
-					apiKey: token, sessionId: accountId, providerSessionState: states, preferWebsockets: true,
-					fetch: async () => {
-						httpSends++;
-						throw new Error("Entitlement fixture forbids SSE or V1 HTTP replay");
-					},
-				};
-				const context = { systemPrompt: ["entitlement fixture"], messages: [{ role: "user", content: [{ type: "text", text: "seed" }], timestamp: 1 }] };
-				try {
-					mode = "success";
-					frames = [];
-					compactionSends = 0;
-					const seed = await ai.streamOpenAICodexResponses(eligible, context, options).result();
-					assert.equal(seed.stopReason, "stop", seed.errorMessage);
-					assert.equal(httpSends, 0, "the eligible fixture must establish a real WebSocket baseline");
-					assert.equal(frames[0]?.body.access_programs?.cyber, "daybreak_blue");
-					mode = chainOnly ? "entitlement" : "entitlement-ordinary";
-					if (chainOnly) {
-						await assert.rejects(compact({
-							firstKeptEntryId: "entitlement-boundary", messagesToSummarize: context.messages,
-							turnPrefixMessages: [], recentMessages: [], isSplitTurn: false, tokensBefore: 1000,
-							fileOps: { read: new Set(), written: new Set(), edited: new Set() },
-							settings: { enabled: true, remoteEnabled: true, remoteStreamingV2Enabled: true },
-						}, eligible, token, undefined, undefined, {
-							...options,
-							buildCachePreservingContext: async () => ({ context, previousSummaryInPrefix: false }),
-							completeImpl: async () => { softSends++; throw new Error("Forbidden soft fallback"); },
-						}), ai.CodexCompactionChainLostError);
-						assert.equal(compactionSends, 1, "entitlement refusal must be terminal after the chained frame");
-						assert.ok(frames.at(-1)?.body.previous_response_id, "the refusal must occur after live-chain admission");
-						assert.equal(transportDetails(eligible, options).hasTurnState, false, "refused entitlement metadata must roll back");
-					} else {
-						// Ordinary streams reopen their healthy WS after stripping entitlement;
-						// the buffered compaction path is the distinct no-SSE regression.
-						const beforeOrdinary = frames.length;
-						const result = await ai.streamOpenAICodexResponses(eligible, {
-							...context, messages: [...context.messages, seed, { role: "user", content: "next", timestamp: 2 }],
-						}, options).result();
-						assert.equal(result.stopReason, "stop", result.errorMessage);
-						const ordinaryFrames = frames.slice(beforeOrdinary);
-						assert.equal(ordinaryFrames.length, 2, "ordinary entitlement rejection must retry exactly once");
-						assert.equal(ordinaryFrames[0].body.access_programs?.cyber, "daybreak_blue", "the ordinary refusal must exercise an eligible request");
-						assert.ok(ordinaryFrames[0].body.previous_response_id, "the ordinary refusal must follow the seeded baseline");
-						assert.equal(ordinaryFrames[1].body.access_programs, undefined, "ordinary recovery must strip the rejected entitlement");
-						assert.equal(ordinaryFrames[1].body.previous_response_id, undefined, "ordinary recovery must rebuild the invalidated append baseline");
-						assert.equal(ordinaryFrames[1].socket, ordinaryFrames[0].socket, "ordinary recovery should reuse the healthy WebSocket");
-					}
-					assert.equal(httpSends, 0, "compaction must fail closed; the ordinary control must recover on its healthy WebSocket");
-					assert.equal(softSends, 0, "entitlement rejection must not enter the local summarizer");
-				} finally {
-					for (const state of states.values()) state.close();
-				}
-			}
-		}
-		if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
-			for (const scenario of ["recovery-invalid", "invalid-summary", "success"]) {
-				mode = scenario;
+		// Buffered entitlement errors used to bypass the transport-exception
+		// no-SSE guard. Separate accounts keep the ordinary control independent
+		// of the provider's process-wide rejected-program cache.
+		for (const chainOnly of [true, false]) {
+			const accountId = chainOnly ? "offline-compaction-account" : "offline-ordinary-account";
+			const eligible = { ...model, accountAccess: { [accountId]: { cyberPrograms: ["daybreak_blue"] } } };
+			const token = `offline.${Buffer.from(JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: accountId } })).toString("base64url")}.fixture`;
+			const states = new Map<string, ProviderSessionState>();
+			let httpSends = 0;
+			let softSends = 0;
+			const options = {
+				apiKey: token, sessionId: accountId, providerSessionState: states, preferWebsockets: true,
+				fetch: async () => {
+					httpSends++;
+					throw new Error("Entitlement fixture forbids SSE or V1 HTTP replay");
+				},
+			};
+			const context = { systemPrompt: ["entitlement fixture"], messages: [{ role: "user", content: [{ type: "text", text: "seed" }], timestamp: 1 }] };
+			try {
+				mode = "success";
 				frames = [];
 				compactionSends = 0;
-				const states = new Map<string, ProviderSessionState>();
-				// Bun does not expose response headers on its client open event.
-				// Inject only the handshake write, at the real server upgrade boundary.
-				onUpgrade = () => {
-					const provider = states.get("openai-codex-responses") as
-						| { metadataSessions: Map<string, { turnStates: Map<string, { value?: string }> }> }
-						| undefined;
-					for (const session of provider?.metadataSessions.values() ?? [])
-						for (const cell of session.turnStates.values()) cell.value = "minted-by-101";
-				};
-				const options = {
-					apiKey: "fixture-key", sessionId: `handshake-${scenario}`, providerSessionState: states,
-					preferWebsockets: true,
-					codexCompaction: ai.createOpenAICodexCompactionRequestContext({ implementation: "responses_compaction_v2" }),
-					fetch: async () => { throw new Error("No HTTP replay allowed"); },
-				};
-				try {
-					const operation = core.requestCompactionV2Streaming(model, options.apiKey,
-						{ ...request, sessionId: options.sessionId }, undefined,
-						{ ...options, timeoutMs: 2000, retryWait: async () => {} });
-					if (scenario === "success") await operation;
-					else await assert.rejects(operation, ai.CodexCompactionChainLostError);
-					const details = transportDetails(model, options);
-					assert.equal(details.hasTurnState, scenario === "success",
-						`${scenario}: handshake metadata must commit only after accepted compaction`);
-					if (scenario === "invalid-summary")
-						assert.equal(details.canAppend, true, "collector rejection must retain its baseline");
-				} finally {
-					onUpgrade = () => {};
-					for (const state of states.values()) state.close();
+				const seed = await ai.streamOpenAICodexResponses(eligible, context, options).result();
+				assert.equal(seed.stopReason, "stop", seed.errorMessage);
+				assert.equal(httpSends, 0, "the eligible fixture must establish a real WebSocket baseline");
+				assert.equal(frames[0]?.body.access_programs?.cyber, "daybreak_blue");
+				mode = chainOnly ? "entitlement" : "entitlement-ordinary";
+				if (chainOnly) {
+					await assert.rejects(compact({
+						firstKeptEntryId: "entitlement-boundary", messagesToSummarize: context.messages,
+						turnPrefixMessages: [], recentMessages: [], isSplitTurn: false, tokensBefore: 1000,
+						fileOps: { read: new Set(), written: new Set(), edited: new Set() },
+						settings: { enabled: true, remoteEnabled: true, remoteStreamingV2Enabled: true },
+					}, eligible, token, undefined, undefined, {
+						...options,
+						buildCachePreservingContext: async () => ({ context, previousSummaryInPrefix: false }),
+						completeImpl: async () => { softSends++; throw new Error("Forbidden soft fallback"); },
+					}), ai.CodexCompactionChainLostError);
+					assert.equal(compactionSends, 1, "entitlement refusal must be terminal after the chained frame");
+					assert.ok(frames.at(-1)?.body.previous_response_id, "the refusal must occur after live-chain admission");
+					assert.equal(transportDetails(eligible, options).hasTurnState, false, "refused entitlement metadata must roll back");
+				} else {
+					// Ordinary streams reopen their healthy WS after stripping entitlement;
+					// the buffered compaction path is the distinct no-SSE regression.
+					const beforeOrdinary = frames.length;
+					const result = await ai.streamOpenAICodexResponses(eligible, {
+						...context, messages: [...context.messages, seed, { role: "user", content: "next", timestamp: 2 }],
+					}, options).result();
+					assert.equal(result.stopReason, "stop", result.errorMessage);
+					const ordinaryFrames = frames.slice(beforeOrdinary);
+					assert.equal(ordinaryFrames.length, 2, "ordinary entitlement rejection must retry exactly once");
+					assert.equal(ordinaryFrames[0].body.access_programs?.cyber, "daybreak_blue", "the ordinary refusal must exercise an eligible request");
+					assert.ok(ordinaryFrames[0].body.previous_response_id, "the ordinary refusal must follow the seeded baseline");
+					assert.equal(ordinaryFrames[1].body.access_programs, undefined, "ordinary recovery must strip the rejected entitlement");
+					assert.equal(ordinaryFrames[1].body.previous_response_id, undefined, "ordinary recovery must rebuild the invalidated append baseline");
+					assert.equal(ordinaryFrames[1].socket, ordinaryFrames[0].socket, "ordinary recovery should reuse the healthy WebSocket");
 				}
+				assert.equal(httpSends, 0, "compaction must fail closed; the ordinary control must recover on its healthy WebSocket");
+				assert.equal(softSends, 0, "entitlement rejection must not enter the local summarizer");
+			} finally {
+				for (const state of states.values()) state.close();
+			}
+		}
+		for (const scenario of ["recovery-invalid", "invalid-summary", "success"]) {
+			mode = scenario;
+			frames = [];
+			compactionSends = 0;
+			const states = new Map<string, ProviderSessionState>();
+			// Bun does not expose response headers on its client open event.
+			// Inject only the handshake write, at the real server upgrade boundary.
+			onUpgrade = () => {
+				const provider = states.get("openai-codex-responses") as
+					| { metadataSessions: Map<string, { turnStates: Map<string, { value?: string }> }> }
+					| undefined;
+				for (const session of provider?.metadataSessions.values() ?? [])
+					for (const cell of session.turnStates.values()) cell.value = "minted-by-101";
+			};
+			const options = {
+				apiKey: "fixture-key", sessionId: `handshake-${scenario}`, providerSessionState: states,
+				preferWebsockets: true,
+				codexCompaction: ai.createOpenAICodexCompactionRequestContext({ implementation: "responses_compaction_v2" }),
+				fetch: async () => { throw new Error("No HTTP replay allowed"); },
+			};
+			try {
+				const operation = core.requestCompactionV2Streaming(model, options.apiKey,
+					{ ...request, sessionId: options.sessionId }, undefined,
+					{ ...options, timeoutMs: 2000, retryWait: async () => {} });
+				if (scenario === "success") await operation;
+				else await assert.rejects(operation, ai.CodexCompactionChainLostError);
+				const details = transportDetails(model, options);
+				assert.equal(details.hasTurnState, scenario === "success",
+					`${scenario}: handshake metadata must commit only after accepted compaction`);
+				if (scenario === "invalid-summary")
+					assert.equal(details.canAppend, true, "collector rejection must retain its baseline");
+			} finally {
+				onUpgrade = () => {};
+				for (const state of states.values()) state.close();
 			}
 		}
 		// 0063/0068/0070 on the 18.18.0 transport, where `CodexWebSocketConnection`
@@ -666,7 +654,7 @@ try {
 		// socket settled and was reserved, a busy socket is refused (never sent over
 		// SSE, never torn down), a frame is refused unless it still names the socket
 		// that minted its chain, and socket departures reach the append state.
-		if (aiVersion === "18.18.0") {
+		if (plan.since("18.18.0")) {
 			type TransportSession = {
 				connection?: { close(reason?: string): void };
 				canAppend: boolean;
@@ -859,206 +847,203 @@ try {
 		// so the host's configured retry budget never ran and the ladder dropped
 		// straight to the expensive soft summarizer. The lane has no SSE to replay,
 		// so these scenarios also pin that no HTTP request ever escapes it.
-		// These plans retain bounded open retries and provider-authoritative capacity.
-		if (["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
-			const websocketRetryBudget = Number(process.env.PI_CODEX_WEBSOCKET_RETRY_BUDGET);
-			assert.ok(
-				Number.isInteger(websocketRetryBudget) && websocketRetryBudget > 0,
-				"this gate configures its own websocket retry budget",
-			);
-			const openCases: Array<{
-				label: string;
-				refusals: number | "all";
-				preferWebsockets?: boolean;
-				preAborted?: boolean;
-				permanent?: boolean;
-				expect:
-					| { kind: "success"; upgradeAttempts: number }
-					| { kind: "terminal"; retryable: boolean; upgradeAttempts?: number; compactionSends: number };
-			}> = [
-				// Two refused upgrades, then a healthy socket: the lane must stay remote
-				// and must not pay for an SSE replay.
-				{ label: "open-transient", refusals: 2, expect: { kind: "success", upgradeAttempts: 3 } },
-				// Every upgrade refused: the bounded budget must be spent (the retry
-				// budget per attempt, times the caller's own attempts) and the failure
-				// must be reported retryable, so the configured budget still runs
-				// before any fallback.
-				{
-					label: "open-exhausted",
-					refusals: "all",
-					expect: {
-						kind: "terminal",
-						retryable: true,
-						upgradeAttempts: (1 + websocketRetryBudget) * (1 + core.V2_COMPACTION_MAX_RETRIES),
-						compactionSends: 0,
-					},
+		const websocketRetryBudget = Number(process.env.PI_CODEX_WEBSOCKET_RETRY_BUDGET);
+		assert.ok(
+			Number.isInteger(websocketRetryBudget) && websocketRetryBudget > 0,
+			"this gate configures its own websocket retry budget",
+		);
+		const openCases: Array<{
+			label: string;
+			refusals: number | "all";
+			preferWebsockets?: boolean;
+			preAborted?: boolean;
+			permanent?: boolean;
+			expect:
+				| { kind: "success"; upgradeAttempts: number }
+				| { kind: "terminal"; retryable: boolean; upgradeAttempts?: number; compactionSends: number };
+		}> = [
+			// Two refused upgrades, then a healthy socket: the lane must stay remote
+			// and must not pay for an SSE replay.
+			{ label: "open-transient", refusals: 2, expect: { kind: "success", upgradeAttempts: 3 } },
+			// Every upgrade refused: the bounded budget must be spent (the retry
+			// budget per attempt, times the caller's own attempts) and the failure
+			// must be reported retryable, so the configured budget still runs
+			// before any fallback.
+			{
+				label: "open-exhausted",
+				refusals: "all",
+				expect: {
+					kind: "terminal",
+					retryable: true,
+					upgradeAttempts: (1 + websocketRetryBudget) * (1 + core.V2_COMPACTION_MAX_RETRIES),
+					compactionSends: 0,
 				},
-				// Explicitly disabled transport: the socket is never even attempted.
-				{
-					label: "open-disabled",
-					refusals: 0,
-					preferWebsockets: false,
-					expect: { kind: "terminal", retryable: false, upgradeAttempts: 0, compactionSends: 0 },
+			},
+			// Explicitly disabled transport: the socket is never even attempted.
+			{
+				label: "open-disabled",
+				refusals: 0,
+				preferWebsockets: false,
+				expect: { kind: "terminal", retryable: false, upgradeAttempts: 0, compactionSends: 0 },
+			},
+			// An aborted request is a cancellation, not a transient failure.
+			{ label: "open-aborted", refusals: "all", preAborted: true, expect: { kind: "terminal", retryable: false, compactionSends: 0 } },
+			// A permanent provider refusal over a healthy socket still stops on the
+			// first attempt: healing a broken link must not turn a bad request into
+			// a retry storm.
+			{ label: "open-permanent", refusals: 0, permanent: true, expect: { kind: "terminal", retryable: false, compactionSends: 1 } },
+		];
+		for (const testCase of openCases) {
+			mode = testCase.permanent ? "permanent" : "success";
+			frames = [];
+			compactionSends = 0;
+			upgradeAttempts = 0;
+			pendingRefusals = testCase.refusals === "all" ? Number.POSITIVE_INFINITY : testCase.refusals;
+			const states = new Map<string, ProviderSessionState>();
+			let httpSends = 0;
+			const options = {
+				apiKey: "fixture-key",
+				sessionId: `gate-${testCase.label}`,
+				providerSessionState: states,
+				preferWebsockets: testCase.preferWebsockets ?? true,
+				signal: testCase.preAborted ? AbortSignal.abort() : undefined,
+				fetch: async () => {
+					httpSends++;
+					return sse(successEvents);
 				},
-				// An aborted request is a cancellation, not a transient failure.
-				{ label: "open-aborted", refusals: "all", preAborted: true, expect: { kind: "terminal", retryable: false, compactionSends: 0 } },
-				// A permanent provider refusal over a healthy socket still stops on the
-				// first attempt: healing a broken link must not turn a bad request into
-				// a retry storm.
-				{ label: "open-permanent", refusals: 0, permanent: true, expect: { kind: "terminal", retryable: false, compactionSends: 1 } },
-			];
-			for (const testCase of openCases) {
-				mode = testCase.permanent ? "permanent" : "success";
-				frames = [];
-				compactionSends = 0;
-				upgradeAttempts = 0;
-				pendingRefusals = testCase.refusals === "all" ? Number.POSITIVE_INFINITY : testCase.refusals;
-				const states = new Map<string, ProviderSessionState>();
-				let httpSends = 0;
-				const options = {
-					apiKey: "fixture-key",
-					sessionId: `gate-${testCase.label}`,
-					providerSessionState: states,
-					preferWebsockets: testCase.preferWebsockets ?? true,
-					signal: testCase.preAborted ? AbortSignal.abort() : undefined,
-					fetch: async () => {
-						httpSends++;
-						return sse(successEvents);
-					},
-				};
-				try {
-					const operation = core.requestCompactionV2Streaming(
-						model,
-						options.apiKey,
-						{ ...request, sessionId: options.sessionId },
-						options.signal,
-						{ ...options, timeoutMs: 2000, retryWait: async () => {} },
+			};
+			try {
+				const operation = core.requestCompactionV2Streaming(
+					model,
+					options.apiKey,
+					{ ...request, sessionId: options.sessionId },
+					options.signal,
+					{ ...options, timeoutMs: 2000, retryWait: async () => {} },
+				);
+				if (testCase.expect.kind === "success") {
+					const result = await operation;
+					assert.equal(
+						result.compactionItem.encrypted_content,
+						"fixture-summary",
+						`${testCase.label}: a transient open failure must keep the remote lane`,
 					);
-					if (testCase.expect.kind === "success") {
-						const result = await operation;
-						assert.equal(
-							result.compactionItem.encrypted_content,
-							"fixture-summary",
-							`${testCase.label}: a transient open failure must keep the remote lane`,
+					assert.equal(
+						upgradeAttempts,
+						testCase.expect.upgradeAttempts,
+						`${testCase.label}: the refused opens must be retried inside the bounded budget`,
+					);
+					assert.equal(compactionSends, 1, `${testCase.label}: only the accepted attempt may reach the wire`);
+					assert.equal(
+						transportDetails(model, options).lastTransport,
+						"websocket",
+						`${testCase.label}: the lane must stay on the socket`,
+					);
+					assert.ok(
+						frames.some(frame => frame.body.generate === false),
+						`${testCase.label}: the recovered baseline must be minted over the socket`,
+					);
+				} else {
+					await assert.rejects(operation, (error: Error) => {
+						assert.ok(
+							error instanceof ai.CodexCompactionChainLostError,
+							`${testCase.label}: expected a chain-loss error, got ${error.name}: ${error.message}`,
 						);
+						assert.equal(
+							(error as InstanceType<typeof ai.CodexCompactionChainLostError>).retryable,
+							testCase.expect.retryable,
+							`${testCase.label}: retryability is what decides whether the configured budget runs`,
+						);
+						return true;
+					});
+					if (testCase.expect.upgradeAttempts !== undefined) {
 						assert.equal(
 							upgradeAttempts,
 							testCase.expect.upgradeAttempts,
-							`${testCase.label}: the refused opens must be retried inside the bounded budget`,
+							`${testCase.label}: the open retries must be finite and exact`,
 						);
-						assert.equal(compactionSends, 1, `${testCase.label}: only the accepted attempt may reach the wire`);
-						assert.equal(
-							transportDetails(model, options).lastTransport,
-							"websocket",
-							`${testCase.label}: the lane must stay on the socket`,
-						);
-						assert.ok(
-							frames.some(frame => frame.body.generate === false),
-							`${testCase.label}: the recovered baseline must be minted over the socket`,
-						);
-					} else {
-						await assert.rejects(operation, (error: Error) => {
-							assert.ok(
-								error instanceof ai.CodexCompactionChainLostError,
-								`${testCase.label}: expected a chain-loss error, got ${error.name}: ${error.message}`,
-							);
-							assert.equal(
-								(error as InstanceType<typeof ai.CodexCompactionChainLostError>).retryable,
-								testCase.expect.retryable,
-								`${testCase.label}: retryability is what decides whether the configured budget runs`,
-							);
-							return true;
-						});
-						if (testCase.expect.upgradeAttempts !== undefined) {
-							assert.equal(
-								upgradeAttempts,
-								testCase.expect.upgradeAttempts,
-								`${testCase.label}: the open retries must be finite and exact`,
-							);
-						}
-						assert.equal(compactionSends, testCase.expect.compactionSends, `${testCase.label}: wire traffic`);
 					}
-					assert.equal(httpSends, 0, `${testCase.label}: no SSE request may escape the chain-only lane`);
-				} finally {
-					pendingRefusals = 0;
-					for (const state of states.values()) state.close();
+					assert.equal(compactionSends, testCase.expect.compactionSends, `${testCase.label}: wire traffic`);
 				}
+				assert.equal(httpSends, 0, `${testCase.label}: no SSE request may escape the chain-only lane`);
+			} finally {
+				pendingRefusals = 0;
+				for (const state of states.values()) state.close();
 			}
-			// Exercise compact(), not just its transport: the upstream preflight
-			// used the standard 272k window as a hard server limit before any I/O.
-			const { Tokenizer } = await import(`${CORE_ROOT}/src/tokenizer.ts`);
-			const sol = getBundledModel("openai-codex", "gpt-6.1-sol");
-			assert.ok(sol, "Sol fixture must exist");
-			const capacityModel = { ...sol, baseUrl: model.baseUrl, contextWindow: 272_000, preferWebsockets: true };
-			const text = `CAPACITY_START ${"word ".repeat(300_000)}CAPACITY_END`;
-			const tokens = new Tokenizer(capacityModel).countTokens(text);
-			assert.ok(tokens > 272_000 && tokens < 900_000, `fixture must span the false limit, got ${tokens}`);
-			for (const scenario of ["cold-user", "cold-tool", "live-user", "provider-overflow"]) {
-				mode = scenario === "provider-overflow" ? "capacity-overflow" : "success";
-				capacityText = text;
-				frames = [];
-				compactionSends = 0;
-				const states = new Map<string, ProviderSessionState>();
-				let httpSends = 0;
-				let softSends = 0;
-				const user = { role: "user" as const, content: [{ type: "text" as const, text }], timestamp: 1 };
-				const messages = scenario === "cold-tool"
-					? [
-							{ ...user, content: [{ type: "text" as const, text: "Read the full source." }] },
-							{
-								role: "assistant" as const,
-								content: [{ type: "toolCall" as const, id: "call_capacity", name: "read", arguments: {} }],
-								api: capacityModel.api, provider: capacityModel.provider, model: capacityModel.id,
-								usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2,
-									cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
-								stopReason: "toolUse" as const, timestamp: 2,
-							},
-							{ role: "toolResult" as const, toolCallId: "call_capacity", toolName: "read",
-								content: [{ type: "text" as const, text }], isError: false, timestamp: 3 },
-						]
-					: [user];
-				const context = { systemPrompt: ["capacity fixture"], messages };
-				const options = {
-					apiKey: "fixture-key", sessionId: `capacity-${scenario}`, providerSessionState: states,
-					preferWebsockets: true,
-					fetch: async () => { httpSends++; throw new Error("Unexpected HTTP fallback"); },
-				};
-				try {
-					if (scenario === "live-user") {
-						const seed = await ai.streamOpenAICodexResponses(capacityModel, context, options).result();
-						assert.equal(seed.stopReason, "stop", seed.errorMessage);
-					}
-					const operation = compact({
-						firstKeptEntryId: "capacity-boundary", messagesToSummarize: messages, turnPrefixMessages: [],
-						recentMessages: [], isSplitTurn: false, tokensBefore: tokens,
-						fileOps: { read: new Set(), written: new Set(), edited: new Set() },
-						settings: { enabled: true, remoteEnabled: true, remoteStreamingV2Enabled: true },
-					}, capacityModel, options.apiKey, undefined, undefined, {
-						...options, remoteSystemPrompt: context.systemPrompt,
-						buildCachePreservingContext: async () => scenario === "live-user"
-							? { context, previousSummaryInPrefix: false } : undefined,
-						completeImpl: async () => { softSends++; throw new Error("Unexpected soft fallback"); },
-					});
-					if (scenario === "provider-overflow") {
-						await assert.rejects(operation, /fixture provider input limit exceeded/,
-							"the provider's actual capacity rejection must survive");
-					} else {
-						const result = await operation;
-						assert.ok(JSON.stringify(result.preserveData).includes("fixture-summary"),
-							"compact must return the accepted native summary");
-					}
-					assert.equal(compactionSends, 1, `${scenario}: exactly one remote compaction, no overflow retry storm`);
-					assert.equal(httpSends, 0, `${scenario}: no HTTP replay`);
-					assert.equal(softSends, 0, `${scenario}: no local summarizer`);
-					if (scenario === "live-user") {
-						assert.ok(frames.at(-1)?.body.previous_response_id, "live compaction must reuse its baseline");
-						assert.equal(frames.filter(frame => frame.body.generate === false).length, 0, "live chain needs no recovery");
-					}
-					console.log(`0096 capacity: ${scenario} PASS (${tokens} tokens; standard window 272000)`);
-				} finally {
-					capacityText = undefined;
-					for (const state of states.values()) state.close();
+		}
+		// Exercise compact(), not just its transport: the upstream preflight
+		// used the standard 272k window as a hard server limit before any I/O.
+		const { Tokenizer } = await import(`${CORE_ROOT}/src/tokenizer.ts`);
+		const sol = getBundledModel("openai-codex", "gpt-6.1-sol");
+		assert.ok(sol, "Sol fixture must exist");
+		const capacityModel = { ...sol, baseUrl: model.baseUrl, contextWindow: 272_000, preferWebsockets: true };
+		const text = `CAPACITY_START ${"word ".repeat(300_000)}CAPACITY_END`;
+		const tokens = new Tokenizer(capacityModel).countTokens(text);
+		assert.ok(tokens > 272_000 && tokens < 900_000, `fixture must span the false limit, got ${tokens}`);
+		for (const scenario of ["cold-user", "cold-tool", "live-user", "provider-overflow"]) {
+			mode = scenario === "provider-overflow" ? "capacity-overflow" : "success";
+			capacityText = text;
+			frames = [];
+			compactionSends = 0;
+			const states = new Map<string, ProviderSessionState>();
+			let httpSends = 0;
+			let softSends = 0;
+			const user = { role: "user" as const, content: [{ type: "text" as const, text }], timestamp: 1 };
+			const messages = scenario === "cold-tool"
+				? [
+						{ ...user, content: [{ type: "text" as const, text: "Read the full source." }] },
+						{
+							role: "assistant" as const,
+							content: [{ type: "toolCall" as const, id: "call_capacity", name: "read", arguments: {} }],
+							api: capacityModel.api, provider: capacityModel.provider, model: capacityModel.id,
+							usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2,
+								cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+							stopReason: "toolUse" as const, timestamp: 2,
+						},
+						{ role: "toolResult" as const, toolCallId: "call_capacity", toolName: "read",
+							content: [{ type: "text" as const, text }], isError: false, timestamp: 3 },
+					]
+				: [user];
+			const context = { systemPrompt: ["capacity fixture"], messages };
+			const options = {
+				apiKey: "fixture-key", sessionId: `capacity-${scenario}`, providerSessionState: states,
+				preferWebsockets: true,
+				fetch: async () => { httpSends++; throw new Error("Unexpected HTTP fallback"); },
+			};
+			try {
+				if (scenario === "live-user") {
+					const seed = await ai.streamOpenAICodexResponses(capacityModel, context, options).result();
+					assert.equal(seed.stopReason, "stop", seed.errorMessage);
 				}
+				const operation = compact({
+					firstKeptEntryId: "capacity-boundary", messagesToSummarize: messages, turnPrefixMessages: [],
+					recentMessages: [], isSplitTurn: false, tokensBefore: tokens,
+					fileOps: { read: new Set(), written: new Set(), edited: new Set() },
+					settings: { enabled: true, remoteEnabled: true, remoteStreamingV2Enabled: true },
+				}, capacityModel, options.apiKey, undefined, undefined, {
+					...options, remoteSystemPrompt: context.systemPrompt,
+					buildCachePreservingContext: async () => scenario === "live-user"
+						? { context, previousSummaryInPrefix: false } : undefined,
+					completeImpl: async () => { softSends++; throw new Error("Unexpected soft fallback"); },
+				});
+				if (scenario === "provider-overflow") {
+					await assert.rejects(operation, /fixture provider input limit exceeded/,
+						"the provider's actual capacity rejection must survive");
+				} else {
+					const result = await operation;
+					assert.ok(JSON.stringify(result.preserveData).includes("fixture-summary"),
+						"compact must return the accepted native summary");
+				}
+				assert.equal(compactionSends, 1, `${scenario}: exactly one remote compaction, no overflow retry storm`);
+				assert.equal(httpSends, 0, `${scenario}: no HTTP replay`);
+				assert.equal(softSends, 0, `${scenario}: no local summarizer`);
+				if (scenario === "live-user") {
+					assert.ok(frames.at(-1)?.body.previous_response_id, "live compaction must reuse its baseline");
+					assert.equal(frames.filter(frame => frame.body.generate === false).length, 0, "live chain needs no recovery");
+				}
+				console.log(`0096 capacity: ${scenario} PASS (${tokens} tokens; standard window 272000)`);
+			} finally {
+				capacityText = undefined;
+				for (const state of states.values()) state.close();
 			}
 		}
 	} finally {
@@ -1072,11 +1057,10 @@ try {
 		`import { openCodexCompactionEventStream, applyOpenAICodexCompactionResponseMetadata } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  declare const model: Parameters<typeof openCodexCompactionEventStream>[0];
  declare const body: Parameters<typeof openCodexCompactionEventStream>[1];
- void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? "rollback();" : ""} } });
+ void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit, rollback) { commit({ turnState: "ok", providerSessionState: new Map() }); rollback(); } });
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: {} });
  // @ts-expect-error A primitive cannot store accepted metadata.
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: 1 });
- ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? `
  import type { SummaryOptions, CachePreservingSummaryScope, CachePreservingSummaryContext } from ${JSON.stringify(`${CORE_ROOT}/dist/types/compaction/compaction.js`)};
  import { buildCodexChainedRequestBody } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  import { createAnthropicRequestAudit } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/anthropic-request-audit.js`)};
@@ -1086,17 +1070,10 @@ try {
  void buildCodexChainedRequestBody({ model: "fixture", input: [] }, undefined);
  void createAnthropicRequestAudit({ provider: "anthropic", sideRequest: false, refresh: false });
  void imageFingerprint(image); void ensurePng(image); void completedPng("hash"); void pngFailureReason("hash");
- ${["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? `
  import { maxFramesForDataBudget, providerImageBudget, providerFrameBudget } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
  import type { ShapeGeometry } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
- declare const shape: ShapeGeometry; void maxFramesForDataBudget(shape${["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? ", 1024" : ""});
- ` : `
- import { FRAME_DATA_BYTES_PER_SHAPE, maxFramesForDataBudget, shedFramesOverBudget, providerImageBudget, providerFrameBudget } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
- void FRAME_DATA_BYTES_PER_SHAPE; void maxFramesForDataBudget(1024, undefined); void shedFramesOverBudget([]);
- `}
- ${["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)
-   ? 'void providerImageBudget(model); void providerFrameBudget(model);'
-   : 'void providerImageBudget("anthropic", "anthropic-messages"); void providerFrameBudget("anthropic", "anthropic-messages");'}
+ declare const shape: ShapeGeometry; void maxFramesForDataBudget(shape, 1024);
+ void providerImageBudget(model); void providerFrameBudget(model);
  import type { AgentSession } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/agent-session.js`)};
  import type { SessionProviderBoundary } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-provider-boundary.js`)};
  import type { SessionMaintenanceHost } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-maintenance.js`)};
@@ -1113,7 +1090,6 @@ try {
    void validScope; void candidate; return liveContext;
  } };
  void liveScope; void summaryOptions;
- ${["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? `
  const targetSummaryOptions: SummaryOptions = {
    buildProviderContext: async (summarized, retained, signal, candidate) => {
      const actualModel: Model = candidate;
@@ -1124,27 +1100,22 @@ try {
  void targetSummaryOptions;
  void maintenanceHost.buildLiveProviderContext([], [], undefined, model);
  void openCodexCompactionEventStream(model, body, { apiKey: "fixture", responsesLite: false });
- ` : ""}
  import { mapOptionsForApi } from ${JSON.stringify(`${AI_ROOT}/dist/types/stream.js`)};
  import type { UserMessage, DeveloperMessage } from ${JSON.stringify(`${AI_ROOT}/dist/types/types.js`)};
- import { DateCwdReminderInjector, ${["18.16.0", "18.18.0"].includes(aiVersion) ? "isDateCwdReminderControl, createSessionDateCwdReminderJournal, DATE_CWD_REMINDER_CUSTOM_TYPE" : "dateCwdAnchorKey, applyDateCwdAnchors"} } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/date-cwd-reminder.js`)};
+ import { DateCwdReminderInjector, isDateCwdReminderControl, createSessionDateCwdReminderJournal, DATE_CWD_REMINDER_CUSTOM_TYPE } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/date-cwd-reminder.js`)};
  import type { SessionMemory } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-memory.js`)};
  import type { SessionToolsHost } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-tools.js`)};
  import { traceCompaction } from ${JSON.stringify(`${CORE_ROOT}/dist/types/compaction/compaction-trace.js`)};
  declare const user: UserMessage; declare const developer: DeveloperMessage;
-${["18.16.0", "18.18.0"].includes(aiVersion) ? "" : "user.providerOnly = true; developer.providerOnly = true;"}
  void mapOptionsForApi(model, { conversationId: "fixture" });
- void new DateCwdReminderInjector(${["18.16.0", "18.18.0"].includes(aiVersion) ? "" : "() => \"fixture\", () => \"/tmp\""});
- ${["18.16.0", "18.18.0"].includes(aiVersion)
-		? `void isDateCwdReminderControl(user); void DATE_CWD_REMINDER_CUSTOM_TYPE; void createSessionDateCwdReminderJournal;`
-		: `void dateCwdAnchorKey(user, "fixture"); void applyDateCwdAnchors([], "fixture", {});`}
+ void new DateCwdReminderInjector();
+ void isDateCwdReminderControl(user); void DATE_CWD_REMINDER_CUSTOM_TYPE; void createSessionDateCwdReminderJournal;
  declare const memory: SessionMemory; declare const toolsHost: SessionToolsHost;
  void memory.promotionTail; memory.capturePromotionSnapshot([], "tail"); memory.restorePromotionSnapshot(undefined, "tail");
  void toolsHost.memoryPromotionTail(); toolsHost.captureMemoryPromotionSnapshot([], "tail");
- void session.buildDisplaySessionContext(${["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? "model, " : ""}{ persistEvalStateContext: false });
+ void session.buildDisplaySessionContext(model, { persistEvalStateContext: false });
  void session.runIdleEphemeralTurn({ promptText: "fixture" });
  traceCompaction({ k: "type-probe" });
- ` : ""}
  `,
 	);
 	const checked = Bun.spawnSync([

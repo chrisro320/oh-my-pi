@@ -111,8 +111,8 @@ that no suite invokes is not a gate.
   Test persisted defaults with private `Settings.loadIsolated`, flush and reload,
   not `Settings.isolated`. Historical18.3.3 lifecycle captures proved eight
   comparisons across ten processes; their temporary runner was removed with the
-  obsolete baseline. Current entry points are `verify-model-selection-resume.ts`
-  and `verify-prompt-effort-resume.ts`. Store digests, not full prompts; never pin
+  obsolete baseline. Current entry points are the two legs of
+  `verify-model-effort-resume.ts` (commit half and label half). Store digests, not full prompts; never pin
   obsolete wording or mistake a model-state check for HTTP cache-hit proof.
 
 - Registered gates resolve package-specific `OMP_PATCH_VERIFY_<PACKAGE>_ROOT`
@@ -653,7 +653,7 @@ Wrong: prefer the prefix default whenever a model transition has fallen outside 
 A gate whose fixture hand-supplies the value a production module would compute (a refresh flag, a persisted shape, an options object) keeps passing after the producer changes. 18.4.1 removed the flag 0074's audit keyed on, and the gate stayed green because it set that flag itself.
 
 ### 2. Signatures
-`patches/verify-anthropic-request-audit.ts` arms the real `CacheWarmer` from `<AGENT_ROOT>/src/session/cache-warmer.ts` with a stub stream dependency, captures the options it passes, and feeds exactly that object to `streamAnthropic`. `patches/verify-kitty-conversion-finalization.ts` makes `requestRender` throw and listens on `process.on("unhandledRejection")`. `patches/verify-turn-recovery-reminder-persist.ts` GATE 3/4 drives a real `AgentSession` with a scripted mock stall.
+`patches/verify-anthropic-request-audit.ts` arms the real `CacheWarmer` from `<AGENT_ROOT>/src/session/cache-warmer.ts` with a stub stream dependency, captures the options it passes, and feeds exactly that object to `streamAnthropic`. `patches/verify-kitty-conversion-finalization.ts` makes `requestRender` throw and listens on `process.on("unhandledRejection")`. `patches/verify-reminder-persist.ts` turn-recovery leg GATE 3/4 drives a real `AgentSession` with a scripted mock stall.
 
 ### 3. Contracts
 - Produce gate inputs with the real producer module from the selected root whenever it exists; a version that lacks the producer takes a version branch, and a version that should have it fails closed if it is missing.
@@ -1079,7 +1079,7 @@ a CAS protects the row while the same external token is redeemed again.
 ### 6. Tests Required
 
 Use the smallest existing consumer fixture that discriminates each changed
-boundary. Extend `verify-model-selection-resume.ts`,
+boundary. Extend `verify-model-effort-resume.ts`,
 `verify-oauth-durable-refresh.ts` or
 `verify-codex-compaction-chain-fail-closed.ts` only when implementing the related
 fix; do not run broad suites merely to certify an investigation. Keep synthetic

@@ -1,0 +1,26 @@
+{
+  "step": "apply.sh since-18.18.0 preflight and routing on the candidate copy (private HOME, offline, nothing patched)",
+  "probes": {
+    "apply (18.18.0): reaches the companion staging since-arm and refuses before touching the tree (no live ~/.omp/agent in the private HOME)": {
+      "exit": 2,
+      "stderr": "companions: live extensions directory not found: <run>/home-applyprobe/.omp/agent/extensions; 18.18.0 apply stages the enabled companions from it"
+    },
+    "--check (18.18.0): all family entries APPLIED on the candidate": {
+      "exit": 0,
+      "applied": 24,
+      "entries_expected": 24
+    },
+    "--check with OMP_PATCH_VERSION unset: routed to installed": {
+      "exit": 0,
+      "first_line": [
+        "NOTE: OMP_PATCH_VERSION unset \u2014 routed to installed 18.18.0"
+      ]
+    },
+    "--check (18.16.0) on an 18.18.0 tree: refused, package versions must match": {
+      "exit": 2,
+      "stderr": [
+        "pi-coding-agent must be 18.16.0, found: 18.18.0"
+      ]
+    }
+  }
+}

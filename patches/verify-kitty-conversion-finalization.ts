@@ -15,6 +15,7 @@ type SharedPng = (image: { type: "image"; data: string; mimeType: string }) => P
 >;
 const ensurePng: SharedPng | undefined = "ensurePng" in imageLoading ? (imageLoading.ensurePng as SharedPng) : undefined;
 const { ImageBudget } = await import(`${TUI_ROOT}/src/components/image.ts`);
+const { Container } = await import(`${TUI_ROOT}/src/tui.ts`);
 /**
  * The transcript's own retirement predicate (`components/transcript-container`
  * `isFinalized`): a block retires into immutable scrollback only once it reports
@@ -75,6 +76,51 @@ try {
 			assert.ok(lines.includes("display complete"), "conversion must preserve the text result");
 		} finally {
 			component.stopAnimation();
+		}
+	}
+	// 0079: a block disposed while its Kitty conversion is still in flight must
+	// hold its retirement barrier and release it once the (shared) conversion
+	// settles. The setup is the retired shared-PNG gate's: the generic Container
+	// teardown re-enters `updateResult` (a transcript teardown racing a late
+	// result) and dispose runs twice, so the barrier must survive a repeated,
+	// reentrant teardown. The prototype is restored afterwards. Moved here from
+	// verify-kitty-shared-png-cache: the retirement barrier is 0079's contract,
+	// while 0080 owns the cache slot, the dispose idempotence and the late-paint
+	// checks kept there.
+	{
+		const dyingImage = {
+			type: "image" as const,
+			data: await new Bun.Image(Buffer.from(png, "base64")).resize(9, 9).webp().toBase64(),
+			mimeType: "image/webp",
+		};
+		const replacementImage = {
+			type: "image" as const,
+			data: await new Bun.Image(Buffer.from(png, "base64")).resize(5, 5).webp().toBase64(),
+			mimeType: "image/webp",
+		};
+		const dying = new ToolExecutionComponent("fixture", {}, { useBuiltInRenderer: false }, undefined, {
+			requestRender: () => {},
+			requestComponentRender: () => {},
+			resetDisplay: () => {},
+		});
+		const originalDispose = Container.prototype.dispose;
+		Container.prototype.dispose = function (this: Container) {
+			// The generic teardown races the conversion, exactly like a transcript
+			// teardown mid-stream: the disposed block must ignore the late result.
+			if (this === dying) dying.updateResult({ content: [replacementImage] });
+			originalDispose.call(this);
+		};
+		try {
+			dying.updateResult({ content: [dyingImage] });
+			dying.render(80);
+			assert.equal(dying.isTranscriptBlockPending(), true, "an in-flight conversion must hold the retirement barrier");
+			dying.dispose();
+			dying.dispose();
+			if (ensurePng) await ensurePng(dyingImage);
+			for (let tick = 0; tick < 250 && dying.isTranscriptBlockPending(); tick++) await Bun.sleep(20);
+			assert.equal(dying.isTranscriptBlockPending(), false, "a disposed block releases its conversion barrier");
+		} finally {
+			Container.prototype.dispose = originalDispose;
 		}
 	}
 	if (!ensurePng) {

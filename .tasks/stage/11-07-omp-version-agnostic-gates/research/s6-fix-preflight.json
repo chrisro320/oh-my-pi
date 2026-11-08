@@ -1,0 +1,82 @@
+{
+  "menu_gates": 70,
+  "stubbed": 67,
+  "keep": [
+    "verify-tokenizer-budget-parity.ts",
+    "verify-extensions-load-18180.ts",
+    "verify-oauth-durable-refresh.ts"
+  ],
+  "revert": {
+    "exit": 0,
+    "digest_pristine": "82c98d0b106d1b3127fab47c949b61d197d8547eb0ea42c739e0b56b08957dba",
+    "differs_from_candidate": true
+  },
+  "positive_apply": {
+    "exit": 0,
+    "tail": [
+      "PASS         1.1s  verify-anthropic-threads-warm-compaction-isolation.ts          ",
+      "PASS         2.5s  verify-extensions-load-18180.ts                                ",
+      "PASS         9.5s  verify-oauth-durable-refresh.ts                                ",
+      "",
+      "70 gates: 70 PASS; wall 10.1s (sum of gate times 25.2s, 10 jobs); runtime digest unchanged",
+      "smoke: skipped by explicit offline replay mode"
+    ],
+    "digest": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "equals_candidate": true,
+    "bin_omp": "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+    "ok": true
+  },
+  "mutant_gate": {
+    "exit": 1,
+    "stderr_tail": [
+      "NOTE: OMP_PATCH_VERSION unset \u2014 routed to installed 18.18.0",
+      "plan: 24 step(s) rehearsed on a live mirror, all clean",
+      "FAILED: verify-tokenizer-budget-parity.ts [FAIL]"
+    ],
+    "ok": true
+  },
+  "no_bwrap": {
+    "exit": 2,
+    "stderr": "run-gates: bwrap is not installed (gates must run offline in bwrap --unshare-net)",
+    "ok": true
+  },
+  "symlink_absolute": {
+    "exit": 2,
+    "stderr_tail": [
+      "NOTE: OMP_PATCH_VERSION unset \u2014 routed to installed 18.18.0",
+      "run-gates: runtime symlink cannot be re-rooted into a gate sandbox: /var/tmp/omp-pgates/apply-rt/node_modules/zz-escape -> /etc"
+    ],
+    "digest_unchanged": true,
+    "bin_omp_unchanged": true,
+    "no_gate_ran": true,
+    "ok": true
+  },
+  "symlink_relative_escape": {
+    "exit": 2,
+    "stderr_tail": [
+      "NOTE: OMP_PATCH_VERSION unset \u2014 routed to installed 18.18.0",
+      "run-gates: runtime symlink cannot be re-rooted into a gate sandbox: /var/tmp/omp-pgates/apply-rt/node_modules/zz-escape -> ../../../../etc"
+    ],
+    "digest_unchanged": true,
+    "bin_omp_unchanged": true,
+    "no_gate_ran": true,
+    "ok": true
+  },
+  "unwritable_output_dir": {
+    "exit": 2,
+    "stderr_tail": [
+      "NOTE: OMP_PATCH_VERSION unset \u2014 routed to installed 18.18.0",
+      "mktemp: failed to create directory via template '/var/tmp/omp-pgates/ro-out/omp-gates-XXXXXX': Permission denied",
+      "cannot reserve the gate output directory under /var/tmp/omp-pgates/ro-out; set OMP_GATES_WORK_DIR to a writable directory"
+    ],
+    "digest_unchanged": true,
+    "bin_omp_unchanged": true,
+    "ok": true
+  },
+  "unwritable_out_flag": {
+    "exit": 2,
+    "stderr": "run-gates: cannot use the gate output directory (/var/tmp/omp-pgates/ro-out/x): [Errno 13] Permission denied: '/var/tmp/omp-pgates/ro-out/x'; set OMP_GATES_WORK_DIR or --out to a writable directory outside /tmp",
+    "ok": true
+  },
+  "all_ok": true
+}

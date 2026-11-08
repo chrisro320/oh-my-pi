@@ -1,0 +1,1063 @@
+{
+  "step": "S3 leg 5 \u2014 simulated next upgrade 18.19.0 (contract \u00a71: append newest, retire oldest in the same change)",
+  "sandbox": "bwrap --unshare-net --unshare-pid with private HOME/XDG (/var/tmp/omp-vagn-s3/bw.sh); every gate also re-enters its own bwrap --unshare-net via the frozen harness",
+  "temp_copy": "/var/tmp/omp-vagn-s3/sim-repo (cp -a of the repo; the real repo was never written)",
+  "changes": {
+    "registry": {
+      "file": "patches/versions.json",
+      "before": [
+        "18.16.0",
+        "18.18.0"
+      ],
+      "after": [
+        "18.18.0",
+        "18.19.0"
+      ]
+    },
+    "new_families": {
+      "dir": "patches/.18.19.0-families",
+      "from": "patches/.18.18.0-families",
+      "files": 27,
+      "edits": [
+        "plan.tsv: directory prefix .18.18.0-families/ -> .18.19.0-families/ (24 rows)",
+        "manifest.json: version 18.18.0 -> 18.19.0; every families[].patch prefix relocated (24 entries); patch bytes/sha256 unchanged, archives and tree digests unchanged",
+        "approvals.json: version 18.18.0 -> 18.19.0; snapshot 18.16.0 -> 18.18.0 (the new predecessor)"
+      ]
+    },
+    "retired": {
+      "moved": "patches/.18.16.0-families -> patches/.retired/11-07-pre-18.19-plans/.18.16.0-families"
+    },
+    "apply_sh_and_gate_files": "unchanged (contract \u00a71 steps 1-3 need no code edit for the menu; checker notes are optional cleanup and were not followed in this simulation)"
+  },
+  "diff_rq": {
+    "command": "diff -rq /home/chris/orca/projects/omp-move /var/tmp/omp-vagn-s3/sim-repo",
+    "exit": 1,
+    "lines": [
+      "Only in /home/chris/orca/projects/omp-move/patches: .18.16.0-families",
+      "Only in sim-repo/patches: .18.19.0-families",
+      "Only in sim-repo/patches/.retired: 11-07-pre-18.19-plans",
+      "Files /home/chris/orca/projects/omp-move/patches/versions.json and sim-repo/patches/versions.json differ"
+    ],
+    "outside_registry_families_retired": [],
+    "verdict": "the only differences are patches/versions.json, patches/.18.19.0-families (new) and patches/.retired/11-07-pre-18.19-plans (new); .18.16.0-families is reported as 'Only in <real repo>' because it moved"
+  },
+  "refusals": {
+    "18.16.0": {
+      "mode": "--print-gates (and --print-capabilities)",
+      "exit": 2,
+      "stdout_bytes": 0,
+      "stderr": "OMP_PATCH_VERSION: 18.16.0 is retired (older than the oldest supported release); supported: 18.18.0, 18.19.0 (registry: /var/tmp/omp-vagn-s3/sim-repo/patches/versions.json); retired plans live under patches/.retired/",
+      "other_modes": {
+        "--print-plan": {
+          "exit": 2,
+          "stdout_bytes": 0,
+          "stderr": "OMP_PATCH_VERSION: 18.16.0 is retired (older than the oldest supported release); supported: 18.18.0, 18.19.0 (registry: /var/tmp/omp-vagn-s3/sim-repo/patches/versions.json); retired plans live under patches/.retired/"
+        },
+        "--check": {
+          "exit": 2,
+          "stdout_bytes": 0,
+          "stderr": "OMP_PATCH_VERSION: 18.16.0 is retired (older than the oldest supported release); supported: 18.18.0, 18.19.0 (registry: /var/tmp/omp-vagn-s3/sim-repo/patches/versions.json); retired plans live under patches/.retired/"
+        }
+      }
+    },
+    "18.20.0": {
+      "mode": "--print-gates (and --print-capabilities)",
+      "exit": 2,
+      "stdout_bytes": 0,
+      "stderr": "OMP_PATCH_VERSION: 18.20.0 is not registered; supported: 18.18.0, 18.19.0 (registry: /var/tmp/omp-vagn-s3/sim-repo/patches/versions.json); a new release is added there and its .<version>-families/ directory created, retiring the oldest in the same change",
+      "other_modes": {
+        "--print-plan": {
+          "exit": 2,
+          "stdout_bytes": 0,
+          "stderr": "OMP_PATCH_VERSION: 18.20.0 is not registered; supported: 18.18.0, 18.19.0 (registry: /var/tmp/omp-vagn-s3/sim-repo/patches/versions.json); a new release is added there and its .<version>-families/ directory created, retiring the oldest in the same change"
+        },
+        "--check": {
+          "exit": 2,
+          "stdout_bytes": 0,
+          "stderr": "OMP_PATCH_VERSION: 18.20.0 is not registered; supported: 18.18.0, 18.19.0 (registry: /var/tmp/omp-vagn-s3/sim-repo/patches/versions.json); a new release is added there and its .<version>-families/ directory created, retiring the oldest in the same change"
+        }
+      }
+    },
+    "summary": "apply.sh refuses a retired release (older than the oldest registered) and an unregistered one (newer/unknown) in every mode tested: --print-gates, --print-capabilities, --print-plan, --check; exit 2, empty stdout, one message naming the registry and the supported pair"
+  },
+  "menus": {
+    "18.19.0 --print-gates": {
+      "exit": 0,
+      "sha256": "7cbd48dc1bb199e3fc548463fe7c2a2c4d856cb1f75eea66909b97a701e6f25f",
+      "equals_18.18.0_--print-gates": true,
+      "rows": 77
+    },
+    "18.19.0 --print-capabilities": {
+      "exit": 0,
+      "sha256": "15c35ab07383c2dfeab5cc20bba108c6b136927b72886524c235bcce7288912e",
+      "equals_18.18.0_--print-capabilities": true,
+      "rows": 59
+    },
+    "18.18.0 --print-gates": {
+      "exit": 0,
+      "sha256": "7cbd48dc1bb199e3fc548463fe7c2a2c4d856cb1f75eea66909b97a701e6f25f",
+      "equals_18.18.0_--print-gates": true,
+      "rows": 77
+    },
+    "18.18.0 --print-capabilities": {
+      "exit": 0,
+      "sha256": "15c35ab07383c2dfeab5cc20bba108c6b136927b72886524c235bcce7288912e",
+      "equals_18.18.0_--print-capabilities": true,
+      "rows": 59
+    }
+  },
+  "menu_facts": {
+    "rows": 77,
+    "verify-extensions-load-18160_present": false,
+    "verify-extensions-load-18180_present": true,
+    "apply_sh_sha256_real": "69d8a2d2e542b068869cbce53ce6c76f6aa690f9a077535ac665524bd0ac02b2",
+    "apply_sh_sha256_sim": "69d8a2d2e542b068869cbce53ce6c76f6aa690f9a077535ac665524bd0ac02b2",
+    "same": true
+  },
+  "relabel": {
+    "source": "/var/tmp/omp-vagn-s3/runtime-18180 (copy of the m8e candidate runtime)",
+    "target": "/var/tmp/omp-vagn-s3/runtime-18190",
+    "method": "harness.copy_runtime (bytes + rebased absolute links), then (a) top-level \"version\" in every @oh-my-pi/* package.json -> 18.19.0, (b) the same version string in the bundled metadata of pi-coding-agent/dist/cli.js, (c) the PI_NATIVES_VERSION_STAMP inside both pi-natives-linux-x64 .node addons (equal byte length)",
+    "package_json": [
+      {
+        "path": "node_modules/@oh-my-pi/omp-stats/package.json",
+        "name": "@oh-my-pi/omp-stats",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "76c8fe68d6c63853bbf7d252d3669481c7e709ac20ae49febaec1c661f492e1e"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/omptype/package.json",
+        "name": "@oh-my-pi/omptype",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "34c5f61833cc93229f62de04938c671cac3333c5528154836755f52450d22506"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-agent-core/package.json",
+        "name": "@oh-my-pi/pi-agent-core",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "0f77a84ac156eaeb4d96017e62b05d9727cf7a249c8c0c07b0ad086d714bf5d1"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-ai/package.json",
+        "name": "@oh-my-pi/pi-ai",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "a4cf72441f46d6b8cf07deca0e2cb4687bb5a68ffec56456ec451f56a28f3b89"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-catalog/package.json",
+        "name": "@oh-my-pi/pi-catalog",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "f0917e5141c1da9c3ac9b8e9dad745fd73fed9fe09106c8a836714aac90afe90"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-coding-agent/package.json",
+        "name": "@oh-my-pi/pi-coding-agent",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "d47e1cd964999bebbe0f1551542038ed0f42216bf03edd4e1805958d87fb251f"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-mnemopi/package.json",
+        "name": "@oh-my-pi/pi-mnemopi",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "1257d7486febaba7df9560ebe7e79187808bf2bdd360e1cf1c4f064e006192e2"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-natives/package.json",
+        "name": "@oh-my-pi/pi-natives",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "a5e7353f41b180f22064b980775686b5a5e09f96542925158ffecf792241542c"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-natives-linux-x64/package.json",
+        "name": "@oh-my-pi/pi-natives-linux-x64",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "8fbb7ccde242d078b149acc6801d5b49dafff758628463fa4e8d58ec76431cb6"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-tui/package.json",
+        "name": "@oh-my-pi/pi-tui",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "b35a88a28d9038c2df9d698664fe5d8b379ae312526556d683a5728107bb822b"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-utils/package.json",
+        "name": "@oh-my-pi/pi-utils",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "ce1d6bf5b7ea403f9586dcd845bdf217005fac3f6bcf1db8b5978bc61a717911"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-wire/package.json",
+        "name": "@oh-my-pi/pi-wire",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "93472672e5bcb72d3346998fd4f422e8ce088c8598b0a52363ceaa4a1192309e"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/snapcompact/package.json",
+        "name": "@oh-my-pi/snapcompact",
+        "before": "18.18.0",
+        "after": "18.19.0",
+        "sha256_after": "f8716d780330b947c740c46019dad3c0f64a3115bdb2a011556876987131342a"
+      }
+    ],
+    "other_files": [
+      {
+        "path": "node_modules/@oh-my-pi/pi-coding-agent/dist/cli.js",
+        "replaced": 4,
+        "after": "18.19.0",
+        "sha256_after": "b0e89de052b3fcbddf0a2c7dc8d455cd807e70e37ecf8ace97a0156dc1e1c52f"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-natives-linux-x64/pi_natives.linux-x64-modern.node",
+        "replaced": 9,
+        "after": "18.19.0",
+        "sha256_after": "f70783eaf16c2d656e357f8d33207742f51587d8218a32fe84a17bcf703b04d4",
+        "note": "same byte length; includes the PI_NATIVES_VERSION_STAMP the loader compares against the package version"
+      },
+      {
+        "path": "node_modules/@oh-my-pi/pi-natives-linux-x64/pi_natives.linux-x64-baseline.node",
+        "replaced": 9,
+        "after": "18.19.0",
+        "sha256_after": "c8e1f6b6757039c79d69b3e7457e97a6ea6ca2bac03b9523fd06bf01014d358d",
+        "note": "same byte length; includes the PI_NATIVES_VERSION_STAMP the loader compares against the package version"
+      }
+    ],
+    "dependency_pins_left_at_18.18.0": "the @oh-my-pi/* dependency pins inside the manifests are release metadata no gate reads; only the top-level version is what the registry helpers and the native loader compare",
+    "first_attempt": "relabelling the 13 package.json alone made 74/77 gates fail: the prebuilt pi-natives addon reports its own embedded release (PI_NATIVES_VERSION_STAMP:18.18.0) and the loader refuses it for a package declaring 18.19.0 ('reports @oh-my-pi/pi-natives@18.18.0, not the @18.19.0 this loader expects'). That is a property of the simulation (an 18.18.0 binary labelled as a newer release), not of any gate; relabelling the embedded stamp makes the tree self-consistent and the whole menu passes."
+  },
+  "packages_gates_read": {
+    "env_roots_the_harness_exports": {
+      "AGENT": "pi-coding-agent",
+      "CORE": "pi-agent-core",
+      "AI": "pi-ai",
+      "TUI": "pi-tui",
+      "CATALOG": "pi-catalog",
+      "SNAPCOMPACT": "snapcompact"
+    },
+    "gates_reading_each_root": {
+      "apply.sh": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent",
+        "pi-tui",
+        "snapcompact"
+      ],
+      "verify-advisor-quota-rotation.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-anthropic-cache-boundaries.ts": [
+        "pi-ai",
+        "pi-catalog"
+      ],
+      "verify-anthropic-native-compaction-live-context.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog"
+      ],
+      "verify-anthropic-request-audit.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent"
+      ],
+      "verify-anthropic-thinking-drop-resume.ts": [
+        "pi-ai",
+        "pi-catalog"
+      ],
+      "verify-anthropic-threads-cache-shape.ts": [
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent"
+      ],
+      "verify-anthropic-threads-warm-compaction-isolation.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent"
+      ],
+      "verify-antigravity-envelope.ts": [
+        "pi-ai"
+      ],
+      "verify-auth-unlock-extension.ts": [
+        "pi-ai",
+        "pi-catalog"
+      ],
+      "verify-cache-warming-idle-budget.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-catalog-regen-parity.ts": [
+        "pi-catalog"
+      ],
+      "verify-codex-account-eligibility-retention.ts": [
+        "pi-catalog"
+      ],
+      "verify-codex-compaction-chain-fail-closed-faults.sh": [
+        "pi-agent-core",
+        "pi-ai"
+      ],
+      "verify-codex-compaction-chain-fail-closed.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent",
+        "pi-tui",
+        "snapcompact"
+      ],
+      "verify-codex-compaction-chain.ts": [
+        "pi-ai"
+      ],
+      "verify-codex-effort-resume.ts": [
+        "pi-ai",
+        "pi-catalog"
+      ],
+      "verify-codex-text-verbosity.ts": [
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent"
+      ],
+      "verify-commandcode-model-record-parity.ts": [
+        "pi-catalog"
+      ],
+      "verify-compaction-cache-liveness.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog"
+      ],
+      "verify-compaction-lane-trace.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog"
+      ],
+      "verify-compaction-length-stop.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-compaction-live-chain-midnight.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-computer-control-confirm-deadline.ts": [
+        "pi-coding-agent",
+        "pi-tui"
+      ],
+      "verify-context-notes-append-projection.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-context-notes-retention.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-context-persist-audit.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-cron-idle-owners.ts": [
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent"
+      ],
+      "verify-date-cwd-journal-prefix.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-devin-auth-cache.ts": [
+        "pi-ai",
+        "pi-catalog"
+      ],
+      "verify-devin-idle-cascade-pin.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-devin-metadata.ts": [
+        "pi-catalog"
+      ],
+      "verify-devin-thinking-signature.ts": [
+        "pi-ai",
+        "pi-catalog"
+      ],
+      "verify-eval-state-context-persist.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-extensions-load-18160.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-extensions-load-18180.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-google-account-eligibility-retention.ts": [
+        "pi-catalog"
+      ],
+      "verify-held-file-write-guard.ts": [
+        "pi-catalog",
+        "pi-coding-agent"
+      ],
+      "verify-hindsight-recall-promotion-slot.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-hindsight-recall-snapshot.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-idle-ephemeral-reservation.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-interrupt-prune-symmetry.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-kitty-conversion-finalization.ts": [
+        "pi-tui"
+      ],
+      "verify-kitty-shared-png-cache.ts": [
+        "pi-tui"
+      ],
+      "verify-length-stop-reminder-persist.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-main-cache-hit.ts": [
+        "pi-coding-agent",
+        "pi-tui"
+      ],
+      "verify-manual-compaction-direct.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-model-mention-surface-resume.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-model-selection-resume.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-native-dialog-lifecycle.ts": [
+        "pi-tui"
+      ],
+      "verify-oauth-durable-refresh.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-oauth-unlock-fence-faults.sh": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-oauth-worker-single-owner.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-ollama-cloud-usage.ts": [
+        "pi-ai"
+      ],
+      "verify-prefix-cache-compaction.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent"
+      ],
+      "verify-prompt-effort-resume.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-provider-image-budget.ts": [
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent",
+        "snapcompact"
+      ],
+      "verify-provider-registry-lazy.ts": [
+        "pi-ai"
+      ],
+      "verify-python-display-mime-preference.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-read-description-live.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-rejected-prepared-draft-restore.ts": [
+        "pi-ai",
+        "pi-coding-agent",
+        "pi-tui"
+      ],
+      "verify-remote-compaction-target-key.ts": [
+        "pi-agent-core",
+        "pi-catalog",
+        "pi-coding-agent"
+      ],
+      "verify-retry-slow-schedule.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-session-history-preview.ts": [
+        "pi-ai",
+        "pi-coding-agent",
+        "pi-tui"
+      ],
+      "verify-session-pin-static-auth-ui.ts": [
+        "pi-coding-agent",
+        "pi-tui"
+      ],
+      "verify-session-transfer-authority.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-snapcompact-frame-reprice.ts": [
+        "pi-catalog",
+        "pi-coding-agent",
+        "snapcompact"
+      ],
+      "verify-snapcompact-model-billing.ts": [
+        "pi-catalog",
+        "snapcompact"
+      ],
+      "verify-stepfun-step-plan.ts": [
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent"
+      ],
+      "verify-subagent-warm-revival-prompt.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-supersede-warm-prefix-guard.ts": [
+        "pi-agent-core",
+        "pi-coding-agent"
+      ],
+      "verify-tls-verify-transient-retry.ts": [
+        "pi-coding-agent"
+      ],
+      "verify-tokenizer-budget-parity.ts": [
+        "pi-agent-core",
+        "pi-catalog",
+        "pi-coding-agent"
+      ],
+      "verify-tool-schema-bytes.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog"
+      ],
+      "verify-turn-recovery-reminder-persist.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-usage-reset-format.ts": [
+        "pi-tui"
+      ],
+      "verify-usage-statusline-gate.ts": [
+        "pi-ai",
+        "pi-coding-agent",
+        "pi-tui"
+      ],
+      "verify-usage-thread-providers.ts": [
+        "pi-coding-agent",
+        "pi-tui"
+      ],
+      "verify-user-display-text-queue.ts": [
+        "pi-ai",
+        "pi-coding-agent"
+      ],
+      "verify-withdrawn-tools-wire.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog"
+      ],
+      "verify-worker-pool-fixture.ts": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent",
+        "pi-tui",
+        "snapcompact"
+      ],
+      "verify-worker-runtime.ts": [
+        "pi-coding-agent"
+      ],
+      "worker-matrix-entry.ts": [
+        "pi-coding-agent"
+      ],
+      "worker-matrix-runner.ts": [
+        "pi-coding-agent"
+      ],
+      "worker-matrix.sh": [
+        "pi-agent-core",
+        "pi-ai",
+        "pi-catalog",
+        "pi-coding-agent",
+        "pi-tui",
+        "snapcompact"
+      ],
+      "worker-pool-for-tests.ts": [
+        "pi-coding-agent"
+      ],
+      "worker-runtime-probe.ts": [
+        "pi-coding-agent"
+      ],
+      "worker-session-lease-probe.ts": [
+        "pi-coding-agent"
+      ],
+      "worker-thread-scenario.ts": [
+        "pi-coding-agent"
+      ]
+    },
+    "note": "the six roots above are the package.json files gates read through resolvePlan(); all 13 @oh-my-pi manifests were relabelled so any direct reader sees 18.19.0 as well"
+  },
+  "full_batch_18.19.0": {
+    "command": "python3 <sim instruments>/m8-run-target-gates.py --repo /var/tmp/omp-vagn-s3/sim-repo --runtime /var/tmp/omp-vagn-s3/runtime-18190 --out /var/tmp/omp-vagn-s3/full18190 (instruments = frozen driver+harness with VERSION=18.19.0, sha256 recorded in the evidence dir)",
+    "evidence_dir": "/var/tmp/omp-vagn-s3/full18190",
+    "driver_exit": 0,
+    "selected": 77,
+    "executed": 77,
+    "tally": {
+      "PASS": 77
+    },
+    "status": "PASS",
+    "runtime_unchanged": true,
+    "instruments_unchanged": true,
+    "menu_equals_18.18.0_batch": true,
+    "runtime_digest": {
+      "before": "ca0067681d1cfb5d5f40564cb5ee8e5c2e26dbb4bd593999924b44636326cf24",
+      "after": "ca0067681d1cfb5d5f40564cb5ee8e5c2e26dbb4bd593999924b44636326cf24",
+      "files": 25526,
+      "unchanged": true
+    },
+    "gates": [
+      {
+        "gate": "verify-antigravity-envelope.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-prefix-cache-compaction.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-provider-image-budget.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-snapcompact-model-billing.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-devin-auth-cache.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-hindsight-recall-snapshot.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-interrupt-prune-symmetry.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-date-cwd-journal-prefix.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-session-transfer-authority.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-devin-metadata.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-supersede-warm-prefix-guard.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-snapcompact-frame-reprice.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-session-history-preview.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-native-dialog-lifecycle.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-manual-compaction-direct.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-context-notes-append-projection.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-devin-thinking-signature.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-devin-idle-cascade-pin.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-idle-ephemeral-reservation.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-resume-cache-breakpoint.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-codex-compaction-chain.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-anthropic-native-compaction-live-context.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-compaction-lane-trace.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-codex-effort-resume.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-codex-compaction-chain-fail-closed.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-session-pin-static-auth-ui.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-read-description-live.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-anthropic-cache-boundaries.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-anthropic-request-audit.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-hindsight-recall-promotion-slot.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-eval-state-context-persist.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-turn-recovery-reminder-persist.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-python-display-mime-preference.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-kitty-conversion-finalization.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-kitty-shared-png-cache.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-main-cache-hit.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-usage-reset-format.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-model-mention-surface-resume.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-prompt-effort-resume.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-model-selection-resume.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-anthropic-thinking-drop-resume.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-context-persist-audit.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-length-stop-reminder-persist.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-user-display-text-queue.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-rejected-prepared-draft-restore.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-compaction-cache-liveness.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-oauth-durable-refresh.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-oauth-unlock-fence-faults.sh",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-auth-unlock-extension.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-codex-account-eligibility-retention.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-google-account-eligibility-retention.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-cache-warming-idle-budget.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-cron-idle-owners.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-session-cache-keepalive.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-tls-verify-transient-retry.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-retry-slow-schedule.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-subagent-warm-revival-prompt.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-computer-control-confirm-deadline.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-extensions-load-18180.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-codex-text-verbosity.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-usage-statusline-gate.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-usage-thread-providers.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-compaction-live-chain-midnight.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-oauth-worker-single-owner.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-anthropic-threads-cache-shape.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-anthropic-threads-warm-compaction-isolation.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-worker-runtime.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-withdrawn-tools-wire.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-tool-schema-bytes.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-remote-compaction-target-key.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-compaction-length-stop.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-tokenizer-budget-parity.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-held-file-write-guard.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-advisor-quota-rotation.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-prompt-rebuild-inputs.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-provider-registry-lazy.ts",
+        "status": "PASS",
+        "exit": 0
+      },
+      {
+        "gate": "verify-catalog-regen-parity.ts",
+        "status": "PASS",
+        "exit": 0
+      }
+    ],
+    "failures": [],
+    "env_control": {
+      "what": "the same gate, same 18.19.0-labelled runtime, but OMP_PATCH_VERSION=18.18.0",
+      "command": "OMP_PATCH_VERSION=18.18.0 OMP_PATCH_VERIFY_AGENT_ROOT=<runtime-18190>/node_modules/@oh-my-pi/pi-coding-agent bun sim-repo/patches/verify-retry-slow-schedule.ts",
+      "exit": 1,
+      "stderr": "error: verify-retry-slow-schedule: .../pi-coding-agent/package.json is 18.19.0 but the selected plan is 18.18.0 (version-registry.ts:120)",
+      "why_it_matters": "gates cannot pass on a stale env while the runtime says 18.19.0, so the 77/77 batch proves every gate resolved plan 18.19.0 from the relabelled runtime rather than silently keeping 18.18.0"
+    }
+  },
+  "mutation": {
+    "target": "/var/tmp/omp-vagn-s3/runtime-18190-mut/node_modules/@oh-my-pi/pi-coding-agent/src/session/retry-fallback-chains.ts",
+    "what_changed": "reverted capability 0099 to pristine upstream: deleted RETRY_DELAY_SCHEDULE_MS = [3_000, 3_000, 5_000, 5_000, 10_000, 10_000, 15_000, 15_000] and restored calculateRetryBackoffDelayMs(baseDelayMs, attempt) = min(max(0, baseDelayMs) * 2**(attempt-1), 8_000) * (1 - Math.random() * 0.25) (RETRY_BACKOFF_MAX_DELAY_MS / RETRY_BACKOFF_JITTER_RATIO constants restored)",
+    "file_sha256_after": "b5db529983630ee7e60621478868675dbbe93f149e3cf42eb1aee093a21774fc",
+    "command": "same frozen driver with --only verify-retry-slow-schedule.ts --runtime /var/tmp/omp-vagn-s3/runtime-18190-mut --out /var/tmp/omp-vagn-s3/mut-run",
+    "gate": "verify-retry-slow-schedule.ts",
+    "exit": 1,
+    "status": "FAIL",
+    "assertion": "AssertionError: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n+   445.51925782570976,\n+   869.5633643632649,\n+   1819.030543305543,\n+   3058.4094870753315,\n+   6168.498304965527,\n+   7637.010811085473,\n+   7212.403128214584,\n+   7588.555243832517,\n+   7951.309067760834\n-   3000,\n-   3000,\n-   5000,\n-   5000,\n-   10000,\n-   10000,\n-   15000,\n-   15000,\n-   15000\n  ]",
+    "control": "the same gate passed in the unmutated 18.19.0 batch (full18190/verify-retry-slow-schedule/result.json exit 0), so the red comes from the reverted behaviour, not from the relabel",
+    "runtime_unchanged": true
+  },
+  "three_entry_registry": {
+    "registry": "{\"supported\":[\"18.16.0\",\"18.18.0\",\"18.19.0\"]}",
+    "literal_check": {
+      "command": "python3 patches/verify-no-version-literals.py (in the 3-entry copy)",
+      "exit": 1,
+      "stderr": "REGISTRY INVALID: /var/tmp/omp-vagn-s3/sim-3entry/patches/versions.json: must list exactly 2 versions (the running stable one and the one replacing it), found 3"
+    },
+    "apply_sh": {
+      "18.19.0": {
+        "exit": 2,
+        "stderr": "version registry /var/tmp/omp-vagn-s3/sim-3entry/patches/versions.json: must list exactly 2 versions (the running stable one and the one replacing it), found 3"
+      },
+      "18.18.0": {
+        "exit": 2,
+        "stderr": "version registry /var/tmp/omp-vagn-s3/sim-3entry/patches/versions.json: must list exactly 2 versions (the running stable one and the one replacing it), found 3"
+      }
+    }
+  },
+  "status": "PASS"
+}

@@ -1,0 +1,8 @@
+{
+  "finding": "2: hasLocalLiveScope block closed at EOF instead of after the safe-cut loop",
+  "fix": "inserted the closing brace directly after the safe-cut `for` loop (current line 345), removed the stray brace appended at EOF",
+  "structure_reference": "git show 9c9dc16e:patches/verify-anthropic-native-compaction-live-context.ts \u2014 original had if (hasLocalLiveScope){ 336..383 }, then the always-true coreVersion arm 322..384; after unwrapping, the block now closes before GATE 4 exactly as in the pre-change gate",
+  "command": "/var/tmp/omp-vagn-s1/rung.sh /var/tmp/omp-vagn-s1/run/runtime-18180 verify-anthropic-native-compaction-live-context.ts 18.18.0",
+  "exit": 0,
+  "output": "PASS anthropic native compaction live context: scopes=live messages=4 tools=1 fallback=native-no-live-chain"
+}

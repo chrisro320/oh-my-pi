@@ -1,0 +1,114 @@
+{
+  "registry_before": [
+    "18.16.0",
+    "18.18.0"
+  ],
+  "registry_after": [
+    "18.18.0",
+    "18.19.0"
+  ],
+  "families_dir": ".18.19.0-families = copy of .18.18.0-families (version fields 18.18.0 -> 18.19.0, patch bytes unchanged)",
+  "18.19.0 --print-gates": {
+    "exit": 0,
+    "sha256": "7cbd48dc1bb199e3fc548463fe7c2a2c4d856cb1f75eea66909b97a701e6f25f",
+    "identical_to_18.18.0_baseline": true
+  },
+  "18.19.0 --print-capabilities": {
+    "exit": 0,
+    "sha256": "15c35ab07383c2dfeab5cc20bba108c6b136927b72886524c235bcce7288912e",
+    "identical_to_18.18.0_baseline": true
+  },
+  "18.16.0 after upgrade": {
+    "exit": 2,
+    "stderr": "OMP_PATCH_VERSION: 18.16.0 is retired (older than the oldest supported release); supported: 18.18.0, 18.19.0 (registry: <sim>/versions.json); retired plans live under patches/.retired/"
+  },
+  "18.20.0": {
+    "exit": 2,
+    "stderr": "OMP_PATCH_VERSION: 18.20.0 is not registered; supported: 18.18.0, 18.19.0 (registry: <sim>/versions.json); a new release is added there and its .<version>-families/ directory created, retiring the oldest in the same change"
+  },
+  "18.19.0 --print-plan rows": {
+    "exit": 0,
+    "rows": 24
+  },
+  "literal check of converted files on the sim tree": {
+    "exit": 0,
+    "summary": [
+      "registry: 18.18.0, 18.19.0 (exactly 2: ok)",
+      "TOTAL 0 version literals in 0 files (scanned 6; allowed: 19 in comments, 14 as since() boundaries)"
+    ],
+    "stale_since_arm_notes": 14,
+    "meaning": "after the simulated upgrade every since(\"18.18.0\") boundary is <= the new oldest: the check lists them for deletion (never fails on them)"
+  },
+  "example_gates_on_relabelled_runtime": {
+    "verify-codex-text-verbosity.ts": {
+      "runtime relabelled 18.19.0 (OMP_PATCH_VERSION=18.19.0) -> newest behaviour": {
+        "exit": 0,
+        "tail": [
+          "  PASS mutation-control :: shifted default \"high\" rejected (exit 1)",
+          "",
+          "PASS verify-codex-text-verbosity: 3/3 legs"
+        ]
+      },
+      "runtime relabelled 18.19.0, env unset (tree version decides)": {
+        "exit": 0,
+        "tail": [
+          "  PASS mutation-control :: shifted default \"high\" rejected (exit 1)",
+          "",
+          "PASS verify-codex-text-verbosity: 3/3 legs"
+        ]
+      },
+      "runtime relabelled 18.20.0 (unregistered) -> refused": {
+        "exit": 1,
+        "tail": [
+          "      at /var/tmp/omp-vagn-s1/sim/patches/verify-codex-text-verbosity.ts:67:14",
+          "",
+          "Bun v1.4.4 (Linux x64)"
+        ]
+      },
+      "env 18.19.0 vs tree 18.18.0 -> refused": {
+        "exit": 1,
+        "tail": [
+          "      at /var/tmp/omp-vagn-s1/sim/patches/verify-codex-text-verbosity.ts:67:14",
+          "",
+          "Bun v1.4.4 (Linux x64)"
+        ]
+      }
+    },
+    "verify-anthropic-request-audit.ts": {
+      "runtime relabelled 18.19.0 (OMP_PATCH_VERSION=18.19.0) -> newest behaviour": {
+        "exit": 1,
+        "tail": [
+          "      at /var/tmp/omp-vagn-s1/sim/patches/verify-anthropic-request-audit.ts:553:9",
+          "",
+          "Bun v1.4.4 (Linux x64)"
+        ]
+      },
+      "runtime relabelled 18.19.0, env unset (tree version decides)": {
+        "exit": 1,
+        "tail": [
+          "      at /var/tmp/omp-vagn-s1/sim/patches/verify-anthropic-request-audit.ts:553:9",
+          "",
+          "Bun v1.4.4 (Linux x64)"
+        ]
+      },
+      "runtime relabelled 18.20.0 (unregistered) -> refused": {
+        "exit": 1,
+        "tail": [
+          "      at /var/tmp/omp-vagn-s1/sim/patches/verify-anthropic-request-audit.ts:24:14",
+          "",
+          "Bun v1.4.4 (Linux x64)"
+        ]
+      },
+      "env 18.19.0 vs tree 18.18.0 -> refused": {
+        "exit": 1,
+        "tail": [
+          "      at /var/tmp/omp-vagn-s1/sim/patches/verify-anthropic-request-audit.ts:24:14",
+          "",
+          "Bun v1.4.4 (Linux x64)"
+        ]
+      }
+    }
+  },
+  "note": "verify-anthropic-request-audit.ts spawns the still-unconverted verify-anthropic-threads-cache-shape.ts (SUPPORTED_PLANS = [18.18.0]) which fails closed under 18.19.0; its own legs pass. S2 batch 2 converts the child.",
+  "natives": "pi-natives / pi-natives-linux-x64 keep package version 18.18.0 in the relabelled runtimes: the native addon stamp must match its package (main re-stamps for the real \ud83c\udfaf)."
+}

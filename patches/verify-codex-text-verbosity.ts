@@ -34,6 +34,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 // The gate batch runs with a private HOME; the dependency closure belongs to the
 // real account, so resolve the passwd home for this uid (os.userInfo() follows
@@ -63,12 +64,10 @@ const RESULT_PATH = process.env.OMP_TEXT_VERBOSITY_RESULT;
 const IS_BOOT = process.env.OMP_TEXT_VERBOSITY_BOOT === "1";
 const IS_FAULT_CHILD = process.env.OMP_TEXT_VERBOSITY_FAULT_CHILD === "1";
 
-const agentVersion: string = JSON.parse(
-	readFileSync(join(AGENT_ROOT, "package.json"), "utf8"),
-).version;
-const aiVersion: string = JSON.parse(readFileSync(join(AI_ROOT, "package.json"), "utf8")).version;
-assert.equal(agentVersion, "18.18.0", `text-verbosity gate: unsupported agent version ${agentVersion}`);
-assert.equal(aiVersion, "18.18.0", `text-verbosity gate: unsupported pi-ai version ${aiVersion}`);
+const plan = resolvePlan({ gate: "verify-codex-text-verbosity", roots: [AGENT_ROOT, AI_ROOT] });
+// The Codex text.verbosity default exists since 18.18.0; an older tree fails
+// closed here instead of passing a contract it never carried.
+assert.ok(plan.since("18.18.0"), `text-verbosity gate: ${plan.version} predates the Codex text.verbosity default`);
 
 const results: Array<{ name: string; ok: boolean; detail: string }> = [];
 const note = (name: string, ok: boolean, detail: string): void => {
@@ -357,7 +356,7 @@ console.log(`\n${status} verify-codex-text-verbosity: ${results.length - failed.
 if (RESULT_PATH) {
 	await Bun.write(
 		RESULT_PATH,
-		JSON.stringify({ status, agentVersion, aiVersion, results }, null, 2),
+		JSON.stringify({ status, version: plan.version, results }, null, 2),
 	);
 }
 process.exit(failed.length === 0 ? 0 : 1);

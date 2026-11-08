@@ -55,17 +55,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync 
 import { homedir, tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { workerPoolForTests } from "./worker-pool-for-tests.ts";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const GATE = "verify-oauth-worker-single-owner";
-const SUPPORTED_PLANS = ["18.18.0"];
-const selectedPlan = process.env.OMP_PATCH_VERSION;
-assert.ok(
-	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
-	`unsupported OMP_PATCH_VERSION for ${GATE}: ${selectedPlan} (supported: ${SUPPORTED_PLANS.join(", ")})`,
-);
+const plan = resolvePlan({ gate: GATE, roots: [AI_ROOT, AGENT_ROOT] });
+assert.ok(plan.since("18.18.0"), `${GATE}: this worker-mode gate starts on the newest release; tree is ${plan.version}`);
 for (const [name, root] of [
 	["OMP_PATCH_VERIFY_AGENT_ROOT", AGENT_ROOT],
 	["OMP_PATCH_VERIFY_AI_ROOT", AI_ROOT],
@@ -74,12 +71,6 @@ for (const [name, root] of [
 }
 const AGENT = realpathSync(AGENT_ROOT);
 const AI = realpathSync(AI_ROOT);
-const aiVersion = (JSON.parse(readFileSync(join(AI, "package.json"), "utf8")) as { version?: string }).version ?? "";
-const agentVersion = (JSON.parse(readFileSync(join(AGENT, "package.json"), "utf8")) as { version?: string }).version ?? "";
-assert.ok(
-	SUPPORTED_PLANS.includes(aiVersion) && SUPPORTED_PLANS.includes(agentVersion),
-	`${GATE}: unsupported tree versions pi-ai=${aiVersion} pi-coding-agent=${agentVersion} (supported: ${SUPPORTED_PLANS.join(", ")})`,
-);
 const accountHome = readFileSync("/etc/passwd", "utf8")
 	.split("\n")
 	.map(line => line.split(":"))

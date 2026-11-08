@@ -5,6 +5,7 @@
 #   ~/.omp/patches/apply.sh --revert undo, restore the stock bundle entrypoint
 #   ~/.omp/patches/apply.sh --check  report state, change nothing
 #   ~/.omp/patches/apply.sh --verify-rollups  verify family representations
+#   ~/.omp/patches/apply.sh --print-{plan,capabilities,gates,gate-map,families}  read-only menus
 #
 # omp ships its TypeScript sources, and bun can execute them directly, so these
 # are ordinary source patches rather than surgery on the 19 MB dist/cli.js
@@ -16,6 +17,9 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# The one version registry (versions.json) and its shared helper.
+# shellcheck source=version-registry.sh
+source "${HERE}/version-registry.sh"
 BOUND_RELEASE=0
 NM="${HOME}/.bun/install/global/node_modules/@oh-my-pi"
 BIN="${HOME}/.bun/bin/omp"
@@ -50,9 +54,12 @@ case "${1:-}" in
 	--print-capabilities) MODE="print-capabilities" ;;
 	--print-gates) MODE="print-gates" ;;
 	--verify-rollups) MODE="verify-rollups" ;;
+	--print-gate-map) MODE="print-gate-map" ;;
+	--print-no-gate) MODE="print-no-gate" ;;
+	--print-families) MODE="print-families" ;;
 	"") ;;
 	*)
-		echo "usage: $0 [--revert|--check|--print-plan|--print-capabilities|--print-gates|--verify-rollups]" >&2
+		echo "usage: $0 [--revert|--check|--print-plan|--print-capabilities|--print-gates|--print-gate-map|--print-no-gate|--print-families|--verify-rollups]" >&2
 		exit 2
 		;;
 esac
@@ -72,112 +79,21 @@ case "$OFFLINE_VERIFY" in
 		;;
 esac
 
-# patch-file : package-root
-PATCHES=(
-	"0033-omp-cache-turn-status-rollup.patch:${AGENT}"
-	"0004-omp-token-total-cacheread.patch:${AGENT}"
-	"0034-omp-hindsight-snapshot-rollup.patch:${AGENT}"
-	"0037-omp-usage-statusline-gate-rollup.patch:${AGENT}"
-	"0010-omp-extension-idle-ephemeral-turn.patch:${AGENT}"
-	"0035-omp-compaction-prefix-rollup.patch:${NM}"
-	"0014-omp-antigravity-deterministic-session-identity.patch:${AI}"
-	"0036-omp-image-frame-budget-rollup.patch:${NM}"
-	"0017-omp-openai-responses-native-replay-warm.patch:${AI}"
-	"0025-omp-ollama-cloud-usage-api.patch:${AI}"
-	"0026-omp-usage-fetch-anthropic-gate-core.patch:${AI}"
-	"0030-omp-usage-cache-canonical-baseurl.patch:${AI}"
-	"0031-omp-agent-session-providers-forward.patch:${AGENT}"
-	"0032-omp-goal-tool-resident.patch:${AGENT}"
-	"0038-omp-date-cwd-reminder-provider-tail.patch:${NM}"
-	"0041-omp-anthropic-usage-turn-gate-60s.patch:${AGENT}"
-	"0043-omp-interrupt-prune-symmetry.patch:${AGENT}"
-	"0044-omp-image-budget-wire-api-family.patch:${NM}"
-	"0052-omp-snapcompact-model-billing-commandcode-budget.patch:${NM}"
-	"0057-omp-devin-image-budget.patch:${NM}"
-	"0045-omp-snapcompact-frame-reprice.patch:${AGENT}"
-	"0046-omp-supersede-warm-prefix-guard.patch:${AGENT}"
-	"0048-omp-advisor-quota-rotation-bound.patch:${AGENT}"
-	"0050-omp-session-history-preview.patch:${AGENT}"
-	"0054-omp-antigravity-drop-requesttype-agent.patch:${AI}"
-)
-
-if [[ "$MODE" == "verify-rollups" ]]; then
-	# Explicit retained release only; deleted historical baselines are not restored.
-	exec bash "${HERE}/verify-patch-family-rollups.sh" --version "${OMP_PATCH_VERSION:-18.10.1}"
-fi
-
-# Shared versioned-candidate machinery. Usage:
-#   _omp_version_candidates VERSION TARGET...
-# Each TARGET is either a patch-id prefix (entry replaced by its
-# .VERSION-candidates/<name>-vVERSION-candidate.patch, keeping the package
-# root) or omit:<prefix> (entry dropped from this version's plan entirely).
-# Requires the installed pi-coding-agent to be exactly VERSION; fails closed
-# on version mismatch or a missing candidate file.
-function _omp_version_candidates {
-	local version="$1"; shift
-	local pkgjson="${NM}/pi-coding-agent/package.json"
-	local installed
-	# --print-plan is a read-only plan query: the installed-version gate exists
-	# to stop a wrong-version mutation, so it does not apply here. Candidate
-	# existence is still checked — that is a repo completeness property.
-	if [[ "$READ_ONLY_QUERY" != 1 ]]; then
-	installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
-	[[ "$installed" == "$version" ]] || {
-		echo "OMP_PATCH_VERSION=$version requires pi-coding-agent $version, found: ${installed:-<unreadable>}" >&2
-		exit 2
-	}
-	fi
-	local entry name root target mode candidate
-	declare -a version_patches=()
-	for entry in "${PATCHES[@]}"; do
-		name="${entry%%:*}"
-		root="${entry##*:}"
-		mode=keep
-		for target in "$@"; do
-			case "$target" in
-			omit:*)
-				[[ "$name" == "${target#omit:}"-* ]] && { mode=omit; break; }
-				;;
-			*)
-				[[ "$name" == "$target"-* ]] && { mode=replace; break; }
-				;;
-			esac
-		done
-		case "$mode" in
-		omit) ;;
-		replace)
-			candidate=".${version}-candidates/${name%.patch}-v${version}-candidate.patch"
-			[[ -f "${HERE}/${candidate}" ]] || {
-				echo "candidate patch missing: ${HERE}/${candidate}" >&2
-				exit 2
-			}
-			version_patches+=("${candidate}:${root}")
-			;;
-		*) version_patches+=("$entry") ;;
-		esac
-	done
-	PATCHES=("${version_patches[@]}")
-	echo "NOTE: OMP_PATCH_VERSION=$version — plan targets: $*" >&2
-}
-# Physical membership is deliberately separate from capability membership.
-# Native patch lifecycle checks still need a real entry, not a historical ID.
-function _omp_plan_has {
-	local prefix="$1" entry name
-	for entry in "${PATCHES[@]}"; do
-		name="${entry%%:*}"
-		name="${name##*/}"
-		[[ "$name" == "$prefix"-* ]] && return 0
-	done
-	return 1
-}
+# Resolved plan entries, "patch-file:package-root", in application order. They
+# come only from the selected release's family registry (_omp_family_plan).
+PATCHES=()
+# Per registry row, in order: the family id (patch file name without its
+# `-v<version>.patch` suffix) and its comma-joined capabilities. `--print-families`
+# prints them; run-gates.py maps `--families` to capabilities through them.
+FAMILY_IDS=()
+FAMILY_CAPS=()
 
 declare -A PLAN_CAPABILITIES=()
+# Physical membership and capability membership are the same registry: a
+# capability is selected when a family owns it or the manifest records its
+# upstream adoption (marker "upstream").
 function _omp_has_capability {
-	if [[ "$OMP_PATCH_VERSION" == "18.7.0" || "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		[[ -n "${PLAN_CAPABILITIES[$1]:-}" ]]
-	else
-		_omp_plan_has "$1"
-	fi
+	[[ -n "${PLAN_CAPABILITIES[$1]:-}" ]]
 }
 
 function _omp_family_plan {
@@ -186,6 +102,8 @@ function _omp_family_plan {
 	local -a ids
 	[[ -f "$registry" ]] || { echo "family registry missing: $registry" >&2; exit 2; }
 	PATCHES=()
+	FAMILY_IDS=()
+	FAMILY_CAPS=()
 	PLAN_CAPABILITIES=()
 	while IFS=$'\t' read -r file root_key members extra || [[ -n "$file$root_key$members$extra" ]]; do
 		[[ -n "$file" && -n "$members" && -z "$extra" && "$file" != /* && "$file" != *..* ]] || {
@@ -204,274 +122,118 @@ function _omp_family_plan {
 			PLAN_CAPABILITIES[$member]=1
 		done
 		PATCHES+=("${file}:${!root_key}")
+		file="${file##*/}"
+		FAMILY_IDS+=("${file%-v${OMP_PATCH_VERSION}.patch}")
+		FAMILY_CAPS+=("$members")
 	done <"$registry"
 	[[ ${#PATCHES[@]} -gt 0 ]] || { echo "empty family registry" >&2; exit 2; }
 }
-# Tail-candidate appender. Tail entries are not canonical PATCHES members, so
-# `_omp_version_candidates` cannot see them; this appends the versioned
-# candidate with the same fail-closed existence check (a missing candidate is a
-# repo-completeness defect and must exit 2 before anything is touched).
-function _omp_tail_candidate {
-	local version="$1" stem="$2" root="$3"
-	local candidate=".${version}-candidates/${stem}-v${version}-candidate.patch"
-	[[ -f "${HERE}/${candidate}" ]] || {
-		echo "candidate patch missing: ${HERE}/${candidate}" >&2
-		exit 2
-	}
-	PATCHES+=("${candidate}:${root}")
-}
-# Versioned plan selection. PATCHES is the retained historical-plan base, not
-# a deployable chain: its a-sides span upstream releases. Family releases replace
-# that array with their versioned registry. Supported versions:18.4.4,
-# 18.7.0,18.10.0,18.10.1,18.12.6,18.16.0 and18.18.0. Older baselines were removed by the user.
-# Unset OMP_PATCH_VERSION auto-routes by the installed pi-coding-agent
-# version (exact match only) so the documented one-key re-apply flow keeps
-# working; an explicit value must match the installed version or fail
-# closed. Unknown/unsupported values exit 2 before anything is touched.
 
+# Versioned plan selection. versions.json (version-registry.sh) is the only
+# place a supported release is declared; each one is the family registry of
+# .<version>-families/ (plan.tsv + manifest.json). Unset OMP_PATCH_VERSION
+# auto-routes by the installed pi-coding-agent version (exact match only) so
+# the documented one-key re-apply flow keeps working; an explicit value must
+# be registered. Retired and unknown values exit 2 before anything is touched.
 if [[ -z "${OMP_PATCH_VERSION+x}" ]]; then
-	pkgjson="${NM}/pi-coding-agent/package.json"
-	installed="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "$pkgjson" 2>/dev/null || true)"
-	case "$installed" in
-	18.1.14|18.1.18|18.2.3|18.2.10|18.3.3|18.4.1|18.4.4|18.7.0|18.10.0|18.10.1|18.12.6|18.16.0|18.18.0)
-		OMP_PATCH_VERSION="$installed"
-		echo "NOTE: OMP_PATCH_VERSION unset — routed to installed ${installed}" >&2
-		;;
-	*)
-		echo "installed pi-coding-agent '${installed:-<unreadable>}' has no supported plan (known: 18.1.14, 18.1.18, 18.2.3, 18.2.10, 18.3.3, 18.4.1, 18.4.4, 18.7.0, 18.10.0, 18.10.1, 18.12.6, 18.16.0, 18.18.0); set OMP_PATCH_VERSION explicitly" >&2
-		exit 2
-		;;
-	esac
+	installed="$(omp_tree_version "${NM}/pi-coding-agent/package.json")"
+	omp_require_registered "$installed" "installed pi-coding-agent (set OMP_PATCH_VERSION explicitly to select a plan)"
+	OMP_PATCH_VERSION="$installed"
+	echo "NOTE: OMP_PATCH_VERSION unset — routed to installed ${installed}" >&2
+else
+	omp_require_registered "$OMP_PATCH_VERSION" "OMP_PATCH_VERSION"
 fi
 # Gate processes and their children must see the resolved plan even when the
 # caller left OMP_PATCH_VERSION unset: several gates choose their contract (or
 # fail closed) from it.
 export OMP_PATCH_VERSION
 
-case "$OMP_PATCH_VERSION" in
-18.4.4)
-	# 18.4.1 -> 18.4.4 keeps all 49 capabilities as same-ID 18.4.4 candidates.
-	_omp_version_candidates "18.4.4" \
-		0033 0004 0034 0037 0010 0035 0014 0036 0017 0025 0026 0030 \
-		0031 0032 0038 0043 0044 0052 0057 0045 0046 0048 0050 0054 omit:0041
-	if [[ "$READ_ONLY_QUERY" != 1 ]]; then
-		for package in pi-coding-agent pi-agent-core pi-ai pi-catalog snapcompact pi-tui; do
-			package_version="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "${NM}/${package}/package.json" 2>/dev/null || true)"
-			[[ "$package_version" == "$OMP_PATCH_VERSION" ]] || {
-				echo "${package} must be ${OMP_PATCH_VERSION}, found: ${package_version:-<missing>}" >&2
-				exit 2
-			}
-		done
-	fi
-	for i in "${!PATCHES[@]}"; do
-		name="${PATCHES[i]%%:*}"
-		case "${name##*/}" in
-			0004-*|0033-*) PATCHES[i]="${name}:${TUI}" ;;
-			0037-*|0050-*) PATCHES[i]="${name}:${NM}" ;;
-		esac
-	done
-	_omp_tail_candidate "18.4.4" "0047-omp-date-cwd-anchor-stability" "${AGENT}"
-	_omp_tail_candidate "18.4.4" "0055-omp-devin-auth-cache-turn-timing" "${AI}"
-	_omp_tail_candidate "18.4.4" "0071-omp-devin-request-dump" "${AI}"
-	_omp_tail_candidate "18.4.4" "0056-omp-devin-metadata-alignment" "${NM}"
-	_omp_tail_candidate "18.4.4" "0058-omp-devin-thinking-signature-replay" "${AI}"
-	_omp_tail_candidate "18.4.4" "0060-omp-devin-idle-cascade-pin" "${NM}"
-	_omp_tail_candidate "18.4.4" "0062-omp-snapcompact-reduction-baseline-previous-archive" "${AGENT}"
-	_omp_tail_candidate "18.4.4" "0063-omp-codex-v2-compaction-live-chain" "${NM}"
-	_omp_tail_candidate "18.4.4" "0065-omp-commandcode-deepseek-model-record-parity" "${NM}"
-	_omp_tail_candidate "18.4.4" "0066-omp-anthropic-native-compaction-live-context" "${NM}"
-	_omp_tail_candidate "18.4.4" "0067-omp-remote-compaction-lane-trace-live-tools" "${NM}"
-	_omp_tail_candidate "18.4.4" "0068-omp-codex-stale-baseline-chain" "${NM}"
-	_omp_tail_candidate "18.4.4" "0069-omp-codex-effort-history-resume" "${AI}"
-	_omp_tail_candidate "18.4.4" "0070-omp-codex-compaction-chain-fail-closed" "${NM}"
-	_omp_tail_candidate "18.4.4" "0072-omp-session-pin-static-auth-ui" "${AGENT}"
-	# Upstream implements 0073's model-live getter; its behavior gate still runs.
-	_omp_tail_candidate "18.4.4" "0074-omp-anthropic-context-cache-boundaries" "${AI}"
-	_omp_tail_candidate "18.4.4" "0075-omp-hindsight-recall-promotion-slot" "${AGENT}"
-	_omp_tail_candidate "18.4.4" "0076-omp-eval-state-context-persist" "${NM}"
-	_omp_tail_candidate "18.4.4" "0077-omp-turn-recovery-reminder-persist" "${AGENT}"
-	_omp_tail_candidate "18.4.4" "0078-omp-python-display-mime-preference" "${AGENT}"
-	_omp_tail_candidate "18.4.4" "0079-omp-kitty-conversion-finalization" "${TUI}"
-	_omp_tail_candidate "18.4.4" "0080-omp-kitty-shared-png-cache" "${TUI}"
-	_omp_tail_candidate "18.4.4" "0081-omp-main-cache-footer" "${NM}"
-	_omp_tail_candidate "18.4.4" "0082-omp-user-display-text" "${NM}"
-	# 0083: 18.3.4+ absorbs `^` model tags into the task-tool surface only at a
-	# base-prompt rebuild; a fresh-process resume rebuilt that surface from empty
-	# and forked the tools prefix. The committed surface is persisted and restored.
-	_omp_tail_candidate "18.4.4" "0083-omp-model-mention-surface-resume" "${AGENT}"
-	# 0084: 18.3.4+ retries a reasoning-only `length` stop with a developer
-	# reminder appended to agent memory only; any rebuild from the session file
-	# (resume, in-process rebuild) dropped it and forked the prefix at its index.
-	_omp_tail_candidate "18.4.4" "0084-omp-length-stop-reminder-persist" "${AGENT}"
-	# 0085: a prepared submission rejected at dispatch (session.prompt throws)
-	# lost its original text and attachments; an image pasted while a cancelled
-	# preparation awaited was overwritten by the restore. Both restores share one
-	# helper that never writes over a newer draft or attachment.
-	_omp_tail_candidate "18.4.4" "0085-omp-rejected-prepared-draft-restore" "${AGENT}"
-	# 0088 (rollup: the retired 0086 + 0087 + the 0088 draft, bytes frozen under
-	# .retired/09-30-0086-0087-rolled-into-0088/): the summarize request rides the
-	# main chain's live cache entries instead of anchoring the entry at the
-	# summarize boundary -- written once and then never refreshed, because every
-	# later main turn anchored its own advancing tail, so one hour later that entry
-	# is gone and the whole history is rewritten (the 256k-token / $1.15 incident).
-	# On 18.4.4 the Anthropic lane carries the host's whole live chain (whole turns
-	# and split turns alike: a split turn's history leg IS the whole-conversation
-	# request, so the second turn-prefix leg is dropped when the chain is selected
-	# -- no `**Turn Context (split turn):**` merge) and names the scope in its
-	# instruction, but only while the host vouches for the live scope, the previous
-	# summary is absent or inside that chain, and the request fits the window.
-	# Capacity is measured against the provider's OWN usage for the chain (the last
-	# main request's billed input plus a local estimate of what is appended after
-	# it, opaque reasoning bytes excluded), skipping a trailing host control-only
-	# carrier (empty content, all-zero usage) while scanning back; tokenizing signed
-	# thinking locally overstated the incident's 378k-token chain as 630k and
-	# refused it. When the chain IS refused the fallback names the SPECIFIC reason
-	# (capacity-unattested, live-chain-over-capacity, no-live-chain,
-	# previous-summary-not-in-prefix, live-chain-overflow-retry, ...) and the
-	# two-leg path keeps the pre-0088 bytes (serialized, not parallel); an empty
-	# history range (no cut prefix at all) lets the live chain stand alone as the
-	# host-vouched prefix, and every other shape keeps the pre-0088 bytes with a
-	# named reason.
-	_omp_tail_candidate "18.4.4" "0088-omp-compaction-cache-liveness" "${NM}"
-	# 0089: the live-chain capacity gate is DELETED (local and native lanes). The
-	# pre-flight verdict could only refuse a chain the provider would take: the
-	# 16:43Z compaction's ~129k-token chain in a 512k window was refused
-	# `capacity-unattested` because no turn of it carried usable provider usage,
-	# and a signed-thinking chain the local tokenizer overcounts several-fold was
-	# refused as over capacity -- both abandoning the cache for nothing. The live
-	# chain now ships whenever the host vouches for it and the previous-summary
-	# condition holds, and the provider's own rejection is the safety: the
-	# existing `live-chain-overflow-retry` fallback still replans the cold path
-	# (halving the abandoned call's own transcript) and names the reason. The
-	# `no-live-chain` / `no-host-prefix` / `previous-summary-not-in-prefix` and
-	# `live-chain-overflow-retry` reasons remain; `capacity-unattested`,
-	# `live-chain-over-capacity`, `native-capacity-unattested` and
-	# `native-live-chain-over-capacity` are gone.
-	_omp_tail_candidate "18.4.4" "0089-omp-compaction-drop-capacity-gate" "${NM}"
-	# Preserve rotated OAuth tokens across waiter cancellation and timer starvation.
-	# Anthropic refresh never blocks persistence on optional identity bootstrap.
-	_omp_tail_candidate "18.4.4" "0090-omp-oauth-durable-refresh" "${AI}"
-	# 0092 (rolls up 0091, deployed and retired 2026-10-03): the idle cache-warming horizon
-	# becomes a process-local budget an extension owns (PI_CACHE_WARMING_IDLE_MAX_MS;
-	# unset keeps the stock 30 minutes). A run that reaches the horizon is parked
-	# with its request instead of discarded, so a larger budget set after the agent
-	# run settled resumes from the cache entry's own clock. Each refresh that
-	# reached the provider is reported through the new `cache_warming_result`
-	# extension event (hit | miss | error).
-	_omp_tail_candidate "18.4.4" "0092-omp-cache-warming-idle-budget" "${AGENT}"
-	;;
-18.7.0|18.10.0|18.10.1|18.12.6|18.16.0|18.18.0)
-	# One active revision per functional family. Historical bytes are archived.
-	case "${OMP_PATCH_PLAN:-deployed}" in
-		deployed|repository) ;;
-		*) echo "OMP_PATCH_PLAN must be deployed or repository" >&2; exit 2 ;;
-	esac
-	if [[ ( "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ) && ! -f "${HERE}/.${OMP_PATCH_VERSION}-families/manifest.json" ]]; then
-		echo "family manifest missing: ${HERE}/.${OMP_PATCH_VERSION}-families/manifest.json" >&2
-		exit 2
-	fi
-	if [[ "$READ_ONLY_QUERY" != 1 ]]; then
-		for package in pi-coding-agent pi-agent-core pi-ai pi-catalog snapcompact pi-tui; do
-			package_version="$(awk -F'"' '/^[[:space:]]*"version"/ {print $4; exit}' "${NM}/${package}/package.json" 2>/dev/null || true)"
-			[[ "$package_version" == "$OMP_PATCH_VERSION" ]] || {
-				echo "${package} must be ${OMP_PATCH_VERSION}, found: ${package_version:-<missing>}" >&2
-				exit 2
-			}
-		done
-	fi
-	_omp_family_plan
-	if [[ "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		# Upstream b83200eb retains self-contained native replay warming while
-		# deliberately excluding connection-bound histories; no local 0017
-		# remains (18.12.6 keeps the same proven upstream adoption).
-		PLAN_CAPABILITIES[0017]=upstream
-	fi
-	if [[ "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		# Approved upstream adoption (unpatched-target producer proof plus
-		# mutation controls): the target's own MIME producer covers 0078, so
-		# no local patch remains; its consumer gate stays selected via the
-		# upstream capability marker.
-		PLAN_CAPABILITIES[0078]=upstream
-		if [[ "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-			# M5 adoptions: upstream owns the contract; the gate stays selected
-			# through the marker so an adopted capability is never silently ungated.
-			# 18.18.0 mirrors the approved 18.16.0 six; 0054 stays family-owned
-			# until its own adoption lands (upgrade plan M1).
-			PLAN_CAPABILITIES[0066]=upstream
-			PLAN_CAPABILITIES[0072]=upstream
-			PLAN_CAPABILITIES[0079]=upstream
-			PLAN_CAPABILITIES[0062]=upstream
-			if [[ "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-				# 0054 joined in R1 (M1) with its consumer proof plus the
-				# negative control at verify-antigravity-envelope.ts:42; the
-				# gate stays selected so the adopted contract is never ungated.
-				PLAN_CAPABILITIES[0054]=upstream
-			fi
-		fi
-	fi
-	# The undeployed computeruse candidate is an explicit repository overlay.
-	# A missing file never implicitly selects a smaller deployment plan.
-	if [[ "${OMP_PATCH_PLAN:-deployed}" == repository ]]; then
-		[[ "$OMP_PATCH_VERSION" == "18.7.0" ]] || {
-			echo "0097 repository overlay is not migrated for ${OMP_PATCH_VERSION}; use deployed" >&2
-			exit 2
-		}
-		_omp_tail_candidate "18.7.0" "0097-omp-computeruse" "${NM}"
-		PLAN_CAPABILITIES[0097]=1
-	fi
-	;;
-*)
-	echo "OMP_PATCH_VERSION='${OMP_PATCH_VERSION:-<unset>}' unsupported (known:18.4.4,18.7.0,18.10.0,18.10.1,18.12.6,18.16.0,18.18.0)" >&2
-	exit 2
-	;;
-esac
-
-if [[ "$OMP_PATCH_VERSION" != "18.7.0" && "$OMP_PATCH_VERSION" != "18.10.0" && "$OMP_PATCH_VERSION" != "18.10.1" && "$OMP_PATCH_VERSION" != "18.12.6" && "$OMP_PATCH_VERSION" != "18.16.0" && "$OMP_PATCH_VERSION" != "18.18.0" && -n "${OMP_PATCH_PLAN+x}" ]]; then
-	echo "OMP_PATCH_PLAN is supported only for 18.7.0, 18.10.0, 18.10.1, 18.12.6, 18.16.0 and 18.18.0" >&2
-	exit 2
+if [[ "$MODE" == "verify-rollups" ]]; then
+	# Explicit retained release only; deleted historical baselines are not restored.
+	exec bash "${HERE}/verify-patch-family-rollups.sh" --version "$OMP_PATCH_VERSION"
 fi
 
+# One active revision per functional family. Historical bytes are archived.
+case "${OMP_PATCH_PLAN:-deployed}" in
+	deployed) ;;
+	repository)
+		# The undeployed computeruse candidate overlay is retired with its plan.
+		echo "0097 repository overlay is not migrated for ${OMP_PATCH_VERSION}; use deployed" >&2
+		exit 2
+		;;
+	*) echo "OMP_PATCH_PLAN must be deployed or repository" >&2; exit 2 ;;
+esac
+if [[ ! -f "${HERE}/.${OMP_PATCH_VERSION}-families/manifest.json" ]]; then
+	echo "family manifest missing: ${HERE}/.${OMP_PATCH_VERSION}-families/manifest.json" >&2
+	exit 2
+fi
+if [[ "$READ_ONLY_QUERY" != 1 ]]; then
+	for package in pi-coding-agent pi-agent-core pi-ai pi-catalog snapcompact pi-tui; do
+		package_version="$(omp_tree_version "${NM}/${package}/package.json")"
+		[[ "$package_version" == "$OMP_PATCH_VERSION" ]] || {
+			echo "${package} must be ${OMP_PATCH_VERSION}, found: ${package_version:-<missing>}" >&2
+			exit 2
+		}
+	done
+fi
+_omp_family_plan
+# Approved upstream adoptions: the manifest's list must equal the independently
+# reviewed approvals.json next to it (release_approvals.py exits 2 on any
+# omission or unapproved addition, in every mode including --print-gates).
+# Upstream owns the contract, no local patch remains, and the capability's gate
+# stays selected through the marker so an adopted capability is never silently
+# ungated.
+command -v python3 >/dev/null 2>&1 || { echo "python3 is required to read the family manifest" >&2; exit 2; }
+adopted="$(python3 -B -I "${HERE}/release_approvals.py" "$HERE" "$OMP_PATCH_VERSION")" || exit 2
+for member in $adopted; do
+	[[ "$member" =~ ^[0-9]{4}$ && -z "${PLAN_CAPABILITIES[$member]:-}" ]] || {
+		echo "invalid or duplicate upstream adoption: $member" >&2
+		exit 2
+	}
+	PLAN_CAPABILITIES[$member]=upstream
+done
+
 if [[ "$MODE" == "print-capabilities" ]]; then
-	if [[ "$OMP_PATCH_VERSION" == "18.7.0" || "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		printf '%s\n' "${!PLAN_CAPABILITIES[@]}" | sort
-	else
-		for entry in "${PATCHES[@]}"; do
-			name="${entry%%:*}"; name="${name##*/}"
-			printf '%s\n' "${name%%-*}"
-		done | sort -u
-	fi
+	printf '%s\n' "${!PLAN_CAPABILITIES[@]}" | sort
+	exit 0
+fi
+if [[ "$MODE" == "print-families" ]]; then
+	for i in "${!FAMILY_IDS[@]}"; do
+		printf '%s\t%s\n' "${FAMILY_IDS[i]}" "${FAMILY_CAPS[i]}"
+	done
 	exit 0
 fi
 
-# 18.18.0's durability proof traces fsync calls, so the toolchain must be able
-# to trace a child before anything is touched. The proof runs only from a real
-# apply (the gate suite is apply-only), so --check and --revert must stay
+
+# From 18.18.0 the durability proof traces fsync calls, so the toolchain must be
+# able to trace a child before anything is touched. The proof runs only from a
+# real apply (the gate suite is apply-only), so --check and --revert must stay
 # usable on a box without working ptrace. Refuse with the prerequisite named
 # instead of letting the gate fail later (or skip).
-if [[ "$OMP_PATCH_VERSION" == "18.18.0" && "$MODE" == "apply" ]]; then
+if omp_since "$OMP_PATCH_VERSION" 18.18.0 && [[ "$MODE" == "apply" ]]; then
 	if ! command -v strace >/dev/null 2>&1; then
-		echo "18.18.0 plan requires strace: the fsync durability leg must not skip; install strace and re-run" >&2
+		echo "${OMP_PATCH_VERSION} plan requires strace: the fsync durability leg must not skip; install strace and re-run" >&2
 		exit 2
 	fi
 	if ! strace -f -e trace=fsync true >/dev/null 2>&1; then
-		echo "18.18.0 plan requires a working strace (ptrace of a child failed: strace -f -e trace=fsync true); fix ptrace permissions or install a working strace" >&2
+		echo "${OMP_PATCH_VERSION} plan requires a working strace (ptrace of a child failed: strace -f -e trace=fsync true); fix ptrace permissions or install a working strace" >&2
 		exit 2
 	fi
-	# The 18.18.0 chain assumes the thread-safe payload-archive companion. Pin
-	# the source of record here; the LIVE copy is validated only after it has
-	# been staged and its symlinks resolved (_omp_stage_companions), so this
+	# From 18.18.0 the chain assumes the thread-safe payload-archive companion.
+	# Pin the source of record here; the LIVE copy is validated only after it
+	# has been staged and its symlinks resolved (_omp_stage_companions), so this
 	# preflight never opens a path under the live tree. A tree that fails the
 	# gates must never be installed first: the operator deploys the companion,
 	# then re-runs; the message names the source.
 	APPROVED_PAYLOAD="${HERE}/payload-archive-extension.ts"
 	APPROVED_PAYLOAD_SHA256="4ca8e6dd31e34d0162fa2535b6e473a2239823d5636567ce97f129dd026fad93"
 	if [[ ! -f "$APPROVED_PAYLOAD" ]]; then
-		echo "18.18.0 apply requires the approved companion source ${APPROVED_PAYLOAD}" >&2
+		echo "${OMP_PATCH_VERSION} apply requires the approved companion source ${APPROVED_PAYLOAD}" >&2
 		exit 2
 	fi
 	source_payload_sha="$(sha256sum -- "$APPROVED_PAYLOAD" | cut -d' ' -f1)"
 	if [[ "$source_payload_sha" != "$APPROVED_PAYLOAD_SHA256" ]]; then
-		echo "18.18.0 apply: ${APPROVED_PAYLOAD} is not the approved thread-safe payload-archive companion (${source_payload_sha}); restore the approved source before applying" >&2
+		echo "${OMP_PATCH_VERSION} apply: ${APPROVED_PAYLOAD} is not the approved thread-safe payload-archive companion (${source_payload_sha}); restore the approved source before applying" >&2
 		exit 2
 	fi
 fi
@@ -568,11 +330,11 @@ _omp_stage_companions() { # destination
 	local -a names=() missing=() extras=()
 	local entry name target source_dir stem candidate
 	[[ -d "$live" ]] || {
-		echo "companions: live extensions directory not found: ${live}; 18.18.0 apply stages the enabled companions from it" >&2
+		echo "companions: live extensions directory not found: ${live}; ${OMP_PATCH_VERSION} apply stages the enabled companions from it" >&2
 		exit 2
 	}
 	if [[ -L "$live" ]]; then
-		echo "companions: ${live} is a symlink; 18.18.0 apply stages a real extensions directory, not whatever a link resolves to" >&2
+		echo "companions: ${live} is a symlink; ${OMP_PATCH_VERSION} apply stages a real extensions directory, not whatever a link resolves to" >&2
 		exit 2
 	fi
 	# Native extension discovery also loads top-level `.js`, `<dir>/index.ts|
@@ -586,7 +348,7 @@ _omp_stage_companions() { # destination
 		case "$name" in *.bak-*) continue ;; esac
 		if [[ "$name" == *.ts ]]; then
 			if [[ "$name" == "$retired" ]]; then
-				echo "companions: ${live} still contains retired ${retired} (O5); remove it before applying 18.18.0" >&2
+				echo "companions: ${live} still contains retired ${retired} (O5); remove it before applying ${OMP_PATCH_VERSION}" >&2
 				exit 2
 			fi
 			names+=("$name")
@@ -594,18 +356,18 @@ _omp_stage_companions() { # destination
 		fi
 		case "$name" in
 			*.js | *.mjs | *.cjs | package.json)
-				echo "companions: ${live} contains ${name}, an extension entry native discovery loads; 18.18.0 apply stages top-level *.ts companions only — remove it" >&2
+				echo "companions: ${live} contains ${name}, an extension entry native discovery loads; ${OMP_PATCH_VERSION} apply stages top-level *.ts companions only — remove it" >&2
 				exit 2
 				;;
 		esac
 		if [[ -L "$entry" ]]; then
-			echo "companions: ${live} contains symlinked entry ${name}, an extension entry native discovery loads; 18.18.0 apply stages top-level *.ts companions only — remove it" >&2
+			echo "companions: ${live} contains symlinked entry ${name}, an extension entry native discovery loads; ${OMP_PATCH_VERSION} apply stages top-level *.ts companions only — remove it" >&2
 			exit 2
 		fi
 		if [[ -d "$entry" ]]; then
 			for candidate in index.ts index.js index.mjs index.cjs package.json; do
 				if [[ -e "${entry}/${candidate}" || -L "${entry}/${candidate}" ]]; then
-					echo "companions: ${live} contains directory extension ${name}/ (${candidate}), which native discovery loads; 18.18.0 apply stages top-level *.ts companions only — remove it" >&2
+					echo "companions: ${live} contains directory extension ${name}/ (${candidate}), which native discovery loads; ${OMP_PATCH_VERSION} apply stages top-level *.ts companions only — remove it" >&2
 					exit 2
 				fi
 			done
@@ -663,268 +425,229 @@ _omp_stage_companions() { # destination
 	echo "companions: staged ${#names[@]} modules from ${live} (canonical ${#canonical[@]}${extras[*]:+; extra enabled: ${extras[*]}})"
 }
 
-# One dispatch path serves execution and read-only coverage inspection.
+# Gate registration: _omp_gate CAPS SCRIPT [FLAGS] [COVERS]. One registry serves
+# `--print-gates` (menu), `--print-gate-map` (menu plus the metadata the
+# parallel runner and its subset selection use) and, through run-gates.py, the
+# real execution, so the three can never disagree.
+#   CAPS   "" = always selected, tied to no capability; otherwise capability ids
+#          joined by "|": selected when the plan carries (or upstream adopted)
+#          any of them. This is the SELECTION GUARD of the full menu only.
+#   FLAGS  comma list, optional:
+#            tree        writes into the runtime tree: runs on a private copy
+#            companions  needs the staged companion fixture (OMP_EXTENSIONS_STAGED_DIR)
+#            exclusive   timing-sensitive or heavy: runs alone, nothing in parallel
+#            slow        >= 30 s alone: scheduled first so it never becomes the tail
+#   COVERS capability ids joined by "|" that the gate also verifies beyond its
+#          guard (patches/PATCHES.md §2 gate column). Never changes whether the
+#          gate is selected; run-gates.py `--capabilities/--families` select a
+#          gate by CAPS ∪ COVERS, so a fix round runs every proof of what it touched.
+# Every capability of the plan must be covered by a gate (CAPS or COVERS) or be
+# declared with _omp_no_gate CAP REASON; --print-gate-map/--print-no-gate fail
+# (exit 2) otherwise, so a new capability cannot silently have no proof.
+declare -A GATE_COVERED=()
+declare -A NO_GATE=()
+
+_omp_check_capability_id() { # script, id
+	[[ "$2" =~ ^[0-9]{4}$ ]] || { echo "gate registration ${1}: invalid capability id: $2" >&2; exit 2; }
+}
+
 _omp_gate() {
-	local capability="$1" script="$2" isolation="${3:-}" entry pkg
-	if [[ -n "$capability" ]] && ! _omp_has_capability "$capability"; then
-		[[ "$MODE" == print-gates ]] || echo "${script%.*}: skipped ($capability not in this plan)"
-		return 0
+	local caps="$1" script="$2" flags="${3:-}" extra="${4:-}" cap selected=0 covers=""
+	local -a alternatives=() more=()
+	if [[ -n "$caps" ]]; then
+		IFS='|' read -r -a alternatives <<<"$caps"
+		for cap in "${alternatives[@]}"; do
+			_omp_check_capability_id "$script" "$cap"
+			if _omp_has_capability "$cap"; then
+				selected=1
+			fi
+		done
+		[[ "$selected" == 1 ]] || return 0
 	fi
-	if [[ "$MODE" == print-gates ]]; then
-		printf '%s\n' "$script"
-		return 0
-	fi
-	case "$isolation" in
-		oauth)
-			(
-				oauth_verify_root="$(mktemp -d)"
-				trap 'rm -rf -- "$oauth_verify_root"' EXIT
-				cp -a --reflink=auto "${NM}/.." "${oauth_verify_root}/node_modules"
-				# Outer selectors must not redirect consumers out of this private copy.
-				unset OMP_PATCH_VERIFY_AGENT_ROOT OMP_PATCH_VERIFY_NM
-				case "$script" in
-					*.sh)
-						OMP_PATCH_VERIFY_AI_ROOT="${oauth_verify_root}/node_modules/@oh-my-pi/pi-ai" \
-							bash "${HERE}/${script}"
-						;;
-					*)
-						OMP_PATCH_VERIFY_AI_ROOT="${oauth_verify_root}/node_modules/@oh-my-pi/pi-ai" \
-							bun "${HERE}/${script}"
-						;;
-				esac
-			)
-			;;
-		warm)
-			(
-				warm_verify_root="$(mktemp -d)"
-				trap 'rm -rf -- "$warm_verify_root"' EXIT
-				mkdir -p "${warm_verify_root}/node_modules/@oh-my-pi"
-				for entry in "${NM}/.."/* "${NM}/.."/.[!.]* "${NM}/.."/..?*; do
-					[[ -e "$entry" || -L "$entry" ]] || continue
-					[[ "${entry##*/}" == "@oh-my-pi" ]] || ln -s "$entry" "${warm_verify_root}/node_modules/${entry##*/}"
-				done
-				for pkg in "${NM}"/* "${NM}"/.[!.]* "${NM}"/..?*; do
-					[[ -e "$pkg" || -L "$pkg" ]] || continue
-					[[ "${pkg##*/}" == "pi-coding-agent" ]] || ln -s "$pkg" "${warm_verify_root}/node_modules/@oh-my-pi/${pkg##*/}"
-				done
-				cp -a --reflink=auto "${AGENT}" "${warm_verify_root}/node_modules/@oh-my-pi/pi-coding-agent"
-				OMP_PATCH_VERIFY_AGENT_ROOT="${warm_verify_root}/node_modules/@oh-my-pi/pi-coding-agent" \
-					bun "${HERE}/${script}"
-			)
-			;;
-		private)
-			# Complete private runtime copy: these gates fail closed when a
-			# selected root is the operator's live install, so every package root
-			# (not just the one the gate reads first) is redirected into the copy.
-			(
-				private_verify_root="$(mktemp -d)"
-				trap 'rm -rf -- "$private_verify_root"' EXIT
-				cp -a --reflink=auto "${NM}/.." "${private_verify_root}/node_modules"
-				private_nm="${private_verify_root}/node_modules/@oh-my-pi"
-				unset OMP_PATCH_VERIFY_NM OMP_PATCH_VERIFY_AGENT_ROOT OMP_PATCH_VERIFY_AI_ROOT \
-					OMP_PATCH_VERIFY_CORE_ROOT OMP_PATCH_VERIFY_CATALOG_ROOT \
-					OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT OMP_PATCH_VERIFY_TUI_ROOT
-				OMP_PATCH_VERIFY_NM="$private_nm" \
-				OMP_PATCH_VERIFY_AGENT_ROOT="${private_nm}/pi-coding-agent" \
-				OMP_PATCH_VERIFY_CORE_ROOT="${private_nm}/pi-agent-core" \
-				OMP_PATCH_VERIFY_AI_ROOT="${private_nm}/pi-ai" \
-				OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT="${private_nm}/snapcompact" \
-				OMP_PATCH_VERIFY_CATALOG_ROOT="${private_nm}/pi-catalog" \
-				OMP_PATCH_VERIFY_TUI_ROOT="${private_nm}/pi-tui" \
-					bun "${HERE}/${script}"
-			)
-			;;
-		companions)
-			# 18.18.0 apply is the real install, so the companion set it must
-			# load is the live one, staged into a private fixture before the
-			# first patch landed (_omp_stage_companions): the canonical 15 plus
-			# every other enabled module, symlinked entries copied whole. The
-			# gate owns the canonical list (verify-extensions-load-18180.ts
-			# EXPECTED) and requires all 15. --check/--print-* never run gates,
-			# never read live extensions, and never stage.
-			[[ -n "${COMPANION_STAGED:-}" ]] || {
-				echo "companions: no staged live companion fixture (mode: ${MODE}); 18.18.0 apply stages it before patching" >&2
-				exit 2
-			}
-			OMP_EXTENSIONS_STAGED_DIR="$COMPANION_STAGED" bun "${HERE}/${script}"
-			;;
-		*)
-			case "$script" in
-				*.sh) bash "${HERE}/${script}" ;;
-				*) bun "${HERE}/${script}" ;;
-			esac
+	case "$MODE" in
+		print-gates) printf '%s\n' "$script" ;;
+		print-gate-map | print-no-gate)
+			[[ -z "$extra" ]] || IFS='|' read -r -a more <<<"$extra"
+			for cap in "${alternatives[@]}"; do
+				if _omp_has_capability "$cap"; then GATE_COVERED[$cap]=1; fi
+			done
+			for cap in "${more[@]}"; do
+				_omp_check_capability_id "$script" "$cap"
+				if _omp_has_capability "$cap"; then
+					GATE_COVERED[$cap]=1
+					case "|${caps}|" in *"|${cap}|"*) ;; *) covers+="${covers:+,}${cap}" ;; esac
+				fi
+			done
+			[[ "$MODE" == print-gate-map ]] && printf '%s\t%s\t%s\t%s\n' "$script" "${caps//|/,}" "$flags" "$covers"
 			;;
 	esac
+	return 0
+}
+
+_omp_no_gate() { # capability, reason: a plan capability with no observable behaviour to prove
+	[[ "$MODE" == print-gate-map || "$MODE" == print-no-gate ]] || return 0
+	_omp_check_capability_id "_omp_no_gate" "$1"
+	[[ -n "${2:-}" ]] || { echo "_omp_no_gate ${1}: a reason is required" >&2; exit 2; }
+	NO_GATE[$1]="$2"
+}
+
+_omp_check_coverage() {
+	local cap bad=0
+	for cap in $(printf '%s\n' "${!PLAN_CAPABILITIES[@]}" | sort); do
+		if [[ -n "${GATE_COVERED[$cap]:-}" && -n "${NO_GATE[$cap]:-}" ]]; then
+			echo "capability ${cap} is covered by a gate but also declared _omp_no_gate; drop the declaration" >&2; bad=1
+		elif [[ -z "${GATE_COVERED[$cap]:-}" && -z "${NO_GATE[$cap]:-}" ]]; then
+			echo "capability ${cap} has no gate: register a gate with it in CAPS or COVERS, or declare _omp_no_gate ${cap} <reason>" >&2; bad=1
+		fi
+	done
+	for cap in $(printf '%s\n' "${!NO_GATE[@]}" | sort); do
+		if [[ -z "${PLAN_CAPABILITIES[$cap]:-}" ]]; then
+			echo "_omp_no_gate ${cap}: not a capability of the ${OMP_PATCH_VERSION} plan (stale declaration)" >&2; bad=1
+		fi
+	done
+	[[ "$bad" == 0 ]] || exit 2
 }
 
 _omp_run_gates() {
-	_omp_gate "" verify-antigravity-envelope.ts
-	_omp_gate "" verify-prefix-cache-compaction.ts
-	_omp_gate "" verify-provider-image-budget.ts
-	_omp_gate "" verify-snapcompact-model-billing.ts
-	# 0025 is retired for 18.18.0 by user decision (upgrade plan §2.1/§10): the
-	# gate file and every older arm keep their registration, so only the 18.18.0
-	# selection drops it.
-	if [[ "$OMP_PATCH_VERSION" != "18.18.0" ]]; then
-		_omp_gate "" verify-ollama-cloud-usage.ts
-	fi
-	_omp_gate 0055 verify-devin-auth-cache.ts
-	_omp_gate "" verify-hindsight-recall-snapshot.ts
-	_omp_gate "" verify-interrupt-prune-symmetry.ts
-	_omp_gate 0032 verify-goal-tool-resident.ts
-	# 18.16.0 replaced the anchor API with upstream's date/cwd journal; its arm
-	# proves the journal prefix instead (DECISIONS.md, Q1). 18.18.0 carries the
-	# same journal model, so the retired anchor gate stays out of both arms.
-	if [[ "$OMP_PATCH_VERSION" != "18.16.0" && "$OMP_PATCH_VERSION" != "18.18.0" ]]; then
-		_omp_gate 0047 verify-date-cwd-anchor-stability.ts
-	fi
-	if [[ "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		_omp_gate 0047 verify-date-cwd-journal-prefix.ts
-	fi
-	if [[ "$OMP_PATCH_VERSION" == "18.10.0" || "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		_omp_gate 0047 verify-session-transfer-authority.ts
-	fi
+	_omp_gate "" verify-antigravity-envelope.ts "" "0014|0054"
+	_omp_gate "" verify-prefix-cache-compaction.ts "" "0035|0088"
+	_omp_gate "" verify-provider-image-budget.ts "" "0036|0044|0057"
+	_omp_gate "" verify-snapcompact-model-billing.ts "" 0052
+	# 0025 is retired from the newer plan by user decision (upgrade plan
+	# §2.1/§10); the capability decides, so only plans that carry it select the gate.
+	_omp_gate 0025 verify-ollama-cloud-usage.ts
+	# 0055 JWT cache + 0058 thinking signature: one Devin wire gate.
+	_omp_gate "0055|0058" verify-devin-wire.ts
+	_omp_gate "" verify-hindsight-recall-snapshot.ts "" 0034
+	_omp_gate "" verify-interrupt-prune-symmetry.ts "" 0043
+	# Retired gates (goal-tool residency, anchor stability) live under .retired/:
+	# no supported plan carries their capabilities. Upstream's date/cwd journal
+	# replaced the anchor API (DECISIONS.md, Q1).
+	_omp_gate 0047 verify-date-cwd-journal-prefix.ts "" 0038
+	_omp_gate 0047 verify-session-transfer-authority.ts
 	_omp_gate 0056 verify-devin-metadata.ts
-	_omp_gate "" verify-supersede-warm-prefix-guard.ts
-	if _omp_has_capability 0045 || _omp_has_capability 0062 || [[ "$OMP_PATCH_VERSION" == "18.7.0" ]]; then
-		_omp_gate "" verify-snapcompact-frame-reprice.ts
-	fi
+	_omp_gate "" verify-supersede-warm-prefix-guard.ts "" 0046
+	_omp_gate "0045|0062" verify-snapcompact-frame-reprice.ts "" 0052
 	_omp_gate 0050 verify-session-history-preview.ts
-	if [[ "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		_omp_gate "" verify-native-dialog-lifecycle.ts
-		_omp_gate "" verify-manual-compaction-direct.ts
-		_omp_gate "" verify-context-notes-append-projection.ts
-	fi
-	_omp_gate 0058 verify-devin-thinking-signature.ts
+	_omp_gate "" verify-native-dialog-lifecycle.ts
+	_omp_gate "" verify-manual-compaction-direct.ts
+	_omp_gate "" verify-context-notes-append-projection.ts
 	_omp_gate 0060 verify-devin-idle-cascade-pin.ts
 	_omp_gate 0010 verify-idle-ephemeral-reservation.ts
 	_omp_gate "" verify-resume-cache-breakpoint.ts
-	_omp_gate "" verify-codex-compaction-chain.ts
-	# 0065 is retired for 18.18.0 by user decision: its capability leaves the
-	# 18.18.0 plan, so this arm keeps older plans byte-identical and makes the
-	# retirement explicit rather than implicit in plan membership.
-	if [[ "$OMP_PATCH_VERSION" != "18.18.0" ]]; then
-		_omp_gate 0065 verify-commandcode-model-record-parity.ts
-	fi
+	_omp_gate "" verify-codex-compaction-chain.ts "" "0063|0068"
+	# 0065 is retired from the newer plan by user decision: the capability
+	# decides, so only plans that carry it select the gate.
+	_omp_gate 0065 verify-commandcode-model-record-parity.ts
 	_omp_gate 0066 verify-anthropic-native-compaction-live-context.ts
-	_omp_gate 0067 verify-compaction-lane-trace.ts
+	_omp_gate 0067 verify-compaction-lane-trace.ts "" 0068
 	_omp_gate 0069 verify-codex-effort-resume.ts
-	_omp_gate 0070 verify-codex-compaction-chain-fail-closed.ts
+	_omp_gate 0070 verify-codex-compaction-chain-fail-closed.ts "" 0096
 	_omp_gate 0072 verify-session-pin-static-auth-ui.ts
 	_omp_gate "" verify-read-description-live.ts
 	_omp_gate 0074 verify-anthropic-cache-boundaries.ts
 	_omp_gate 0074 verify-anthropic-request-audit.ts
 	_omp_gate 0075 verify-hindsight-recall-promotion-slot.ts
-	_omp_gate 0076 verify-eval-state-context-persist.ts
-	_omp_gate 0077 verify-turn-recovery-reminder-persist.ts
+	# 0076 eval-state / 0077 turn-recovery / 0084 length-stop: one reminder gate.
+	_omp_gate "0076|0077|0084" verify-reminder-persist.ts
 	_omp_gate 0078 verify-python-display-mime-preference.ts
 	_omp_gate 0079 verify-kitty-conversion-finalization.ts
 	_omp_gate 0080 verify-kitty-shared-png-cache.ts
-	_omp_gate 0081 verify-main-cache-hit.ts
-	# The one-decimal reset countdowns exist only in the 18.10.1 family revision
-	# (inherited by the 18.12.6 plan); the 18.4.4/18.7.0/18.10.0 plans keep
-	# their own frozen family bytes.
-	if [[ "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		_omp_gate 0081 verify-usage-reset-format.ts
-	fi
-	_omp_gate 0083 verify-model-mention-surface-resume.ts
-	_omp_gate 0093 verify-prompt-effort-resume.ts
-	_omp_gate 0093 verify-model-selection-resume.ts
+	_omp_gate 0081 verify-main-cache-hit.ts "" "0033|0004"
+	_omp_gate 0081 verify-usage-reset-format.ts "" "0033|0004"
+	# These two write their child probe into the runtime's pi-coding-agent root.
+	_omp_gate 0083 verify-model-mention-surface-resume.ts tree
+	_omp_gate 0093 verify-model-effort-resume.ts tree
 	_omp_gate 0094 verify-anthropic-thinking-drop-resume.ts
 	_omp_gate 0095 verify-context-persist-audit.ts
-	_omp_gate 0084 verify-length-stop-reminder-persist.ts
-	# Q10 (18.16.0): the 0082 HTML-export hunks are dropped and the gate's tree
-	# pin ends at 18.12.6; the rebase is proven by a throwaway consumer smoke.
-	# 18.18.0 rebases 0082 and selects the gate again (upgrade plan row 0082).
-	if [[ "$OMP_PATCH_VERSION" != "18.16.0" ]]; then
+	# Q10: the 18.16.0 plan drops the 0082 HTML-export hunks and this gate's tree
+	# pin ends before it; the rebase that selects the gate again is 18.18.0.
+	if omp_since "$OMP_PATCH_VERSION" 18.18.0; then
 		_omp_gate 0082 verify-user-display-text-queue.ts
 	fi
 	_omp_gate 0085 verify-rejected-prepared-draft-restore.ts
-	_omp_gate 0088 verify-compaction-cache-liveness.ts
-	_omp_gate 0090 verify-oauth-durable-refresh.ts oauth
-	# The unlock revision and its fault controls ship with the 18.10.1 revision
-	# (carried into the 18.12.6 plan); 18.10.0 keeps the frozen
-	# reserve/stage/commit tree and its own gate list.
-	if [[ "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		_omp_gate 0090 verify-oauth-unlock-fence-faults.sh oauth
-	fi
-	if [[ "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		_omp_gate 0090 verify-auth-unlock-extension.ts oauth
-	fi
-	# Codex/Antigravity 403 eligibility retention ships with the 18.10.1 family
-	# revision (carried into the 18.12.6 plan); the 18.10.0 plan keeps its
-	# frozen family bytes and gate list.
-	if [[ "$OMP_PATCH_VERSION" == "18.10.1" || "$OMP_PATCH_VERSION" == "18.12.6" || "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		_omp_gate 0090 verify-codex-account-eligibility-retention.ts
-		_omp_gate 0090 verify-google-account-eligibility-retention.ts
-	fi
-	_omp_gate 0092 verify-cache-warming-idle-budget.ts warm
-	# The cron companion's idle-ownership proof is pinned to the 18.16.0 tree
-	# (its catalog skip list and the warmer/session contracts it relies on);
-	# 18.18.0 takes the same arm.
-	if [[ "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		_omp_gate 0092 verify-cron-idle-owners.ts warm
-		_omp_gate 0010 verify-session-cache-keepalive.ts
-	fi
+	_omp_gate 0088 verify-compaction-cache-liveness.ts "" 0089
+	_omp_gate 0090 verify-oauth-durable-refresh.ts tree
+	_omp_gate 0090 verify-oauth-unlock-fence-faults.sh tree,slow
+	_omp_gate 0090 verify-auth-unlock-extension.ts tree
+	# Codex/Antigravity 403 eligibility retention (one parameterized gate).
+	_omp_gate 0090 verify-account-eligibility-retention.ts
+	# The host warmer's idle budget and the /cron companion's idle-ownership
+	# policy: one 0092 gate with one leg per retired gate. Each leg runs in its
+	# own child process, so the slow real-timer leg stays isolated.
+	_omp_gate 0092 verify-idle-warming-owners.ts slow
+	_omp_gate 0010 verify-session-cache-keepalive.ts
 	_omp_gate 0098 verify-tls-verify-transient-retry.ts
 	_omp_gate 0099 verify-retry-slow-schedule.ts
-	# 0100's consumer proof is new for the 18.16.0 arm (the 18.12.6 plan proved it
-	# with a throwaway research smoke); older arms keep their frozen gate list.
-	# 0100 is retired for 18.18.0, so this arm stays 18.16.0-only.
-	if [[ "$OMP_PATCH_VERSION" == "18.16.0" ]]; then
-		_omp_gate 0100 verify-stepfun-step-plan.ts
-	fi
+	# 0100 is retired from the newer plan, so its consumer proof is selected by
+	# the capability alone.
+	_omp_gate 0100 verify-stepfun-step-plan.ts
 	_omp_gate 0101 verify-subagent-warm-revival-prompt.ts
-	# 0102 is new for the 18.16.0 arm: the 18.12.6 plan has no such capability, so
-	# the marker keeps every earlier arm's frozen gate list.
+	# Capability-selected: a plan that does not carry 0102 never runs its gate.
 	_omp_gate 0102 verify-computer-control-confirm-deadline.ts
 	# M7: the companion extensions load through the real host, receive
-	# before_agent_start prompt/revive and shut down cleanly. 18.16.0-only: the
-	# gate pins the tree and needs 0082's prepare_user_input/display text.
-	if [[ "$OMP_PATCH_VERSION" == "18.16.0" ]]; then
+	# before_agent_start prompt/revive and shut down cleanly. Plans older than
+	# 18.18.0 only: the gate pins that tree and needs 0082's prepare_user_input/display text.
+	if ! omp_since "$OMP_PATCH_VERSION" 18.18.0; then
 		_omp_gate 0082 verify-extensions-load-18160.ts
 	fi
-	# M7 (18.18.0): the live companion set (symlinks followed) against the
+	# M7 (from 18.18.0): the live companion set (symlinks followed) against the
 	# rebased chain, including the four patch-dependency hooks.
-	if [[ "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
+	if omp_since "$OMP_PATCH_VERSION" 18.18.0; then
 		_omp_gate 0082 verify-extensions-load-18180.ts companions
 		# D5: Codex text.verbosity default low and its medium override, over a
 		# loopback-only transport.
 		_omp_gate "" verify-codex-text-verbosity.ts
 		# R1: the usage pipeline's missing behaviour gate (0037 turn gate and
 		# provider scoping, 0026 identity/alias invalidation, 0030 key collapse).
-		_omp_gate 0037 verify-usage-statusline-gate.ts
+		_omp_gate 0037 verify-usage-statusline-gate.ts "" "0026|0030"
 		# R1: 0031 provider scope across the worker boundary, over a real RpcLink
 		# pair plus the pinned worker pool.
 		_omp_gate 0031 verify-usage-thread-providers.ts
 		# O1: journal-injected controls must not shorten the live compaction prefix.
 		_omp_gate 0035 verify-compaction-live-chain-midnight.ts
 		# R5: OAuth stays main-owned when a session is placed in a worker.
-		_omp_gate 0090 verify-oauth-worker-single-owner.ts private
+		_omp_gate 0090 verify-oauth-worker-single-owner.ts tree
 		# M5: logical history diagnostics and summary/warm thread isolation.
-		_omp_gate 0074 verify-anthropic-threads-cache-shape.ts private
-		_omp_gate 0088 verify-anthropic-threads-warm-compaction-isolation.ts private
+		_omp_gate 0074 verify-anthropic-threads-cache-shape.ts tree
+		_omp_gate 0088 verify-anthropic-threads-warm-compaction-isolation.ts tree
 		# M6: real worker realm runtime contracts and shipped placement default.
-		_omp_gate "" verify-worker-runtime.ts
+		_omp_gate "" verify-worker-runtime.ts slow
 	fi
-	# M9b unowned P0/P1 proofs: registered on the 18.16.0 and 18.18.0 arms, so
-	# every earlier plan's gate list stays byte-identical.
-	if [[ "$OMP_PATCH_VERSION" == "18.16.0" || "$OMP_PATCH_VERSION" == "18.18.0" ]]; then
-		_omp_gate "" verify-withdrawn-tools-wire.ts
-		_omp_gate "" verify-tool-schema-bytes.ts
-		_omp_gate "" verify-remote-compaction-target-key.ts
-		_omp_gate "" verify-compaction-length-stop.ts
-		_omp_gate "" verify-tokenizer-budget-parity.ts
-		_omp_gate "" verify-held-file-write-guard.ts
-		_omp_gate 0048 verify-advisor-quota-rotation.ts
-		_omp_gate "" verify-prompt-rebuild-inputs.ts
-		_omp_gate "" verify-provider-registry-lazy.ts
-		_omp_gate "" verify-catalog-regen-parity.ts
+	# M9b unowned P0/P1 proofs.
+	_omp_gate "" verify-tools-wire.ts
+	_omp_gate "" verify-remote-compaction-target-key.ts
+	_omp_gate "" verify-compaction-length-stop.ts
+	_omp_gate "" verify-tokenizer-budget-parity.ts
+	_omp_gate "" verify-held-file-write-guard.ts
+	_omp_gate 0048 verify-advisor-quota-rotation.ts
+	_omp_gate "" verify-prompt-rebuild-inputs.ts
+	_omp_gate "" verify-provider-registry-lazy.ts slow
+	_omp_gate "" verify-catalog-regen-parity.ts
+	# Plan capabilities with nothing observable to prove (or whose proof starts
+	# later) are declared, never silently left without a gate.
+	_omp_no_gate 0071 "Devin request-dump debug switch: diagnostic only, no behaviour a user observes"
+	_omp_no_gate 0017 "upstream-adopted (native replay is warm upstream): no local patch, no local behaviour to pin"
+	if ! omp_since "$OMP_PATCH_VERSION" 18.18.0; then
+		_omp_no_gate 0026 "its proof (verify-usage-statusline-gate) is registered only for the newer plan"
+		_omp_no_gate 0030 "its proof (verify-usage-statusline-gate) is registered only for the newer plan"
+		_omp_no_gate 0031 "its proof (verify-usage-thread-providers) is registered only for the newer plan"
+		_omp_no_gate 0037 "its proof (verify-usage-statusline-gate) is registered only for the newer plan"
 	fi
 }
 
 if [[ "$MODE" == print-gates ]]; then
 	_omp_run_gates
+	exit 0
+fi
+if [[ "$MODE" == print-gate-map || "$MODE" == print-no-gate ]]; then
+	_omp_run_gates
+	_omp_check_coverage
+	if [[ "$MODE" == print-no-gate ]]; then
+		for cap in $(printf '%s\n' "${!NO_GATE[@]}" | sort); do
+			printf '%s\t%s\n' "$cap" "${NO_GATE[$cap]}"
+		done
+	fi
 	exit 0
 fi
 
@@ -943,10 +666,6 @@ if [[ "$MODE" == "print-plan" ]]; then
 	exit 0
 fi
 
-if _omp_plan_has 0097; then
-	bun "${HERE}/native-computeruse.ts" preflight "${NM}"
-fi
-
 # Patch state is a property of the whole stack, not of one entry in isolation.
 # A later entry may rewrite lines an earlier one introduced (0041 over 0037);
 # on the final tree that earlier patch no longer reverse-identifies, and a
@@ -956,10 +675,15 @@ fi
 SANDBOX=""
 PLAN_SANDBOX=""
 COMPANION_ROOT=""
+GATES_OUT=""
 cleanup_sandbox() {
 	[[ -n "$SANDBOX" ]] && rm -rf "$SANDBOX"
 	[[ -n "$PLAN_SANDBOX" ]] && rm -rf "$PLAN_SANDBOX"
 	[[ -n "$COMPANION_ROOT" ]] && rm -rf "$COMPANION_ROOT"
+	# The reserved gate output directory is kept only when gates wrote logs into it.
+	if [[ -n "$GATES_OUT" ]]; then
+		rmdir "$GATES_OUT/logs" "$GATES_OUT/work" "$GATES_OUT" 2>/dev/null || true
+	fi
 	return 0
 }
 trap cleanup_sandbox EXIT
@@ -969,7 +693,7 @@ trap cleanup_sandbox EXIT
 # install. The gate later loads exactly this fixture. The live payload-archive
 # companion is hashed only after staging resolved it into the fixture: the check
 # never opens a path under the live tree.
-if [[ "$OMP_PATCH_VERSION" == "18.18.0" && "$MODE" == "apply" ]]; then
+if omp_since "$OMP_PATCH_VERSION" 18.18.0 && [[ "$MODE" == "apply" ]]; then
 	COMPANION_ROOT="$(mktemp -d)"
 	COMPANION_STAGED="${COMPANION_ROOT}/extensions"
 	_omp_stage_companions "$COMPANION_STAGED"
@@ -979,9 +703,25 @@ if [[ "$OMP_PATCH_VERSION" == "18.18.0" && "$MODE" == "apply" ]]; then
 		staged_payload_sha="$(sha256sum -- "$staged_payload" | cut -d' ' -f1)"
 	fi
 	if [[ "$staged_payload_sha" != "$APPROVED_PAYLOAD_SHA256" ]]; then
-		echo "18.18.0 apply: live ${HOME}/.omp/agent/extensions/payload-archive.ts is not the approved thread-safe payload-archive companion (found ${staged_payload_sha:-missing}, expected ${APPROVED_PAYLOAD_SHA256}); deploy ${APPROVED_PAYLOAD} to the live companion first, then re-run" >&2
+		echo "${OMP_PATCH_VERSION} apply: live ${HOME}/.omp/agent/extensions/payload-archive.ts is not the approved thread-safe payload-archive companion (found ${staged_payload_sha:-missing}, expected ${APPROVED_PAYLOAD_SHA256}); deploy ${APPROVED_PAYLOAD} to the live companion first, then re-run" >&2
 		exit 2
 	fi
+fi
+
+# Everything the parallel gate runner needs is validated now, before the first
+# patch lands (a failure afterwards would leave a patched tree and a switched
+# launcher with no gate run): bwrap and bun, a reserved output directory, the
+# runtime's symlink policy, the gate menu with its capability coverage, and the
+# companion fixture just staged. OMP_GATES_WORK_DIR (default /var/tmp) is where
+# gate logs and private copies go.
+if [[ "$MODE" == "apply" ]]; then
+	GATES_OUT="$(mktemp -d "${OMP_GATES_WORK_DIR:-/var/tmp}/omp-gates-XXXXXX")" || {
+		echo "cannot reserve the gate output directory under ${OMP_GATES_WORK_DIR:-/var/tmp}; set OMP_GATES_WORK_DIR to a writable directory" >&2
+		exit 2
+	}
+	validate_args=(--validate-only --node-modules "$(readlink -f -- "${NM}/..")" --version "$OMP_PATCH_VERSION" --out "$GATES_OUT")
+	[[ -z "$COMPANION_STAGED" ]] || validate_args+=(--companions "$COMPANION_STAGED")
+	python3 -B "${HERE}/run-gates.py" "${validate_args[@]}" || exit 2
 fi
 
 patch_targets() { # patch file -> repo-relative paths it touches
@@ -1247,24 +987,12 @@ fi
 
 if [[ "$MODE" == "apply" ]]; then
 	echo "=== Running Patches Regression Test Suite ==="
-	# Bind gates to the selected tree; credential-sensitive gates copy it again.
-	# The roots are canonicalized: a tree reached through a symlinked global
-	# root ($HOME/.bun/install/global/node_modules) makes the registry gate see
-	# provider modules it imported under one path and compares by another, so
-	# every provider reads as "loaded nothing". Hand the gates the real tree.
-	export OMP_PATCH_VERIFY_NM="$(readlink -f -- "$NM")"
-	export OMP_PATCH_VERIFY_AGENT_ROOT="$(readlink -f -- "$AGENT")"
-	export OMP_PATCH_VERIFY_CORE_ROOT="$(readlink -f -- "$CORE")"
-	export OMP_PATCH_VERIFY_AI_ROOT="$(readlink -f -- "$AI")"
-	export OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT="$(readlink -f -- "$SNAP")"
-	export OMP_PATCH_VERIFY_CATALOG_ROOT="$(readlink -f -- "${NM}/pi-catalog")"
-	export OMP_PATCH_VERIFY_TUI_ROOT="$(readlink -f -- "$TUI")"
-	_omp_run_gates
-fi
-if _omp_plan_has 0097; then
-	native_mode="$MODE"
-	[[ "$native_mode" == "verify-rollups" ]] && native_mode=check
-	bun "${HERE}/native-computeruse.ts" "$native_mode" "${NM}"
+	# Every selected gate runs in its own offline bwrap with a private HOME, in
+	# parallel, against the tree just patched (run-gates.py asks this script
+	# for the menu; the companion fixture staged above is passed through).
+	runner_args=(--node-modules "$(readlink -f -- "${NM}/..")" --version "$OMP_PATCH_VERSION" --out "$GATES_OUT")
+	[[ -z "$COMPANION_STAGED" ]] || runner_args+=(--companions "$COMPANION_STAGED")
+	python3 -B "${HERE}/run-gates.py" "${runner_args[@]}"
 fi
 if [[ "$MODE" != "check" ]]; then
 	if [[ "$OFFLINE_VERIFY" == "1" ]]; then

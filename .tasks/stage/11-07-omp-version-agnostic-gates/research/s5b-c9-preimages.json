@@ -1,0 +1,28 @@
+{
+  "step": "C9 pre-refactor copies (archived verbatim for mutation parity)",
+  "source": "/var/tmp/omp-vagn-s3/sim-repo/patches",
+  "note": "the S3-era ledger copies are byte-identical to the live gates before the C9 refactor (these three gates were unchanged by S5/C3/C5)",
+  "files": [
+    {
+      "file": "verify-date-cwd-journal-prefix.ts",
+      "path": "patches/.retired/11-07-verify-trim/pre-c9/verify-date-cwd-journal-prefix.ts",
+      "sha256": "ab5d278141e3855353e7d400245b54b8b5cceea171832f5b38410bd3c8960cf3",
+      "identical": true,
+      "lines": 933
+    },
+    {
+      "file": "verify-session-transfer-authority.ts",
+      "path": "patches/.retired/11-07-verify-trim/pre-c9/verify-session-transfer-authority.ts",
+      "sha256": "e74ed5452dd7fdb693be0ddf5306daf80f11b032c3f7835b82b897acbac48481",
+      "identical": true,
+      "lines": 670
+    },
+    {
+      "file": "verify-interrupt-prune-symmetry.ts",
+      "path": "patches/.retired/11-07-verify-trim/pre-c9/verify-interrupt-prune-symmetry.ts",
+      "sha256": "484204a210aa1eb962a40d85af13111706cf301614b0a3f3ca27d0d32d902d9c",
+      "identical": true,
+      "lines": 360
+    }
+  ]
+}

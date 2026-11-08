@@ -54,6 +54,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM =
 	process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
@@ -66,14 +67,7 @@ const IS_CHILD = process.env.OMP_EXTENSIONS_LOAD_BOOT === "1";
 // Fail closed on a plan this gate has no arm for: the deferral partition, the
 // context purpose and the translator capability are 18.16.0 behaviour, carried
 // unchanged into 18.18.0.
-const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-const SUPPORTED_PLANS = ["18.16.0", "18.18.0"];
-assert.ok(SUPPORTED_PLANS.includes(agentVersion), `extensions-load gate: unsupported tree version ${agentVersion}`);
-const selectedPlan = process.env.OMP_PATCH_VERSION;
-assert.ok(
-	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
-	`extensions-load gate: unsupported OMP_PATCH_VERSION ${selectedPlan}`,
-);
+const plan = resolvePlan({ gate: "verify-extensions-load-18160", roots: [AGENT_ROOT] });
 
 // HOME must be private before process startup (Bun caches os.homedir()), so the
 // real work runs in a re-executed child that already owns a throwaway HOME.
@@ -94,7 +88,7 @@ if (!IS_CHILD) {
 				OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT,
 				OMP_EXTENSIONS_LOAD_DIR: EXTENSION_DIR,
 				OMP_EXTENSIONS_LOAD_BOOT: "1",
-				...(selectedPlan ? { OMP_PATCH_VERSION: selectedPlan } : {}),
+				OMP_PATCH_VERSION: plan.version,
 				...(RESULT_PATH ? { OMP_EXTENSIONS_LOAD_RESULT: RESULT_PATH } : {}),
 			},
 		});

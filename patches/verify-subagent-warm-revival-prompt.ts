@@ -63,24 +63,18 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM =
 	process.env.OMP_NM ?? process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
-// Fail closed on a plan this gate has no arm for. 18.16.0 takes the 18.12.6
-// arms: mutation `g` is the only required failure, `task.structured` is exposed,
-// the yield items are set before spawn, and the includeModelInPrompt drift
-// scenario runs.
-const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"];
-const selectedPlan = process.env.OMP_PATCH_VERSION;
-if (selectedPlan !== undefined && !SUPPORTED_PLANS.includes(selectedPlan)) {
-	throw new Error(`unsupported OMP_PATCH_VERSION for the warm-revival gate: ${selectedPlan} (supported: ${SUPPORTED_PLANS.join(", ")})`);
-}
-const agentVersion = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-if (!SUPPORTED_PLANS.includes(agentVersion)) {
-	throw new Error(`unsupported pi-coding-agent tree version for the warm-revival gate: ${agentVersion} (supported: ${SUPPORTED_PLANS.join(", ")})`);
-}
+// Fail closed on a plan this gate has no arm for. Every registered release takes
+// the arms below: mutation `g` is the only required failure, `task.structured` is
+// exposed, the yield items are set before spawn, and the includeModelInPrompt
+// drift scenario runs.
+const plan = resolvePlan({ gate: "verify-subagent-warm-revival-prompt", roots: [AGENT_ROOT] });
+const agentVersion = plan.version;
 
 // The private HOME must precede runtime startup (os.homedir is cached), so the real work
 // runs in a re-executed child that already owns a throwaway HOME.
@@ -104,6 +98,7 @@ const childEnv = (agentRoot: string, resultPath: string | undefined): Record<str
 	...(process.env as Record<string, string>),
 	OMP_WARM_REVIVAL_BOOT: "1",
 	OMP_NM: NM,
+	OMP_PATCH_VERSION: plan.version,
 	OMP_PATCH_VERIFY_AGENT_ROOT: agentRoot,
 	OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT,
 	...(resultPath ? { OMP_WARM_REVIVAL_RESULT: resultPath } : {}),
@@ -145,9 +140,7 @@ const MUTATIONS: MutationControl[] = [
 		name: "drop the persisted systemPrompt override",
 		// Target snapshots the roster and restores yield items, so only a live default-prompt
 		// input that changed while parked separates persisted bytes from a re-render.
-		mustFail: ["18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)
-			? ["g-default-prompt-setting-drift"]
-			: ["a1-new-peer-while-parked", "a2-peer-parked-before-revive", "b-pooled-yield-items"],
+		mustFail: ["g-default-prompt-setting-drift"],
 		from: OVERRIDE_LINE,
 		to: "",
 	},
@@ -175,19 +168,15 @@ const MUTATIONS: MutationControl[] = [
 		from: "{ systemPrompt: () => [...init.systemPrompt] }",
 		to: "{ systemPrompt: () => [...init.systemPrompt].reverse() }",
 	},
-	// 18.16.0 only: `session_init.mountedTools` is the device partition a revival
-	// must replay. Pinning the enabled set top-level demotes every mounted device
-	// into the tool block -- the regression this control injects.
-	...(["18.16.0", "18.18.0"].includes(agentVersion)
-		? [
-				{
-					name: "restore the tool list without its xd:// device partition",
-					mustFail: ["h-mounted-device-catalogue"],
-					from: "const revivedToolNames = revived.getEnabledToolNames();",
-					to: "const revivedToolNames = revived.getEnabledToolNames();\n\t\t\tawait revived.setActiveToolPresentation(revivedToolNames, []);",
-				},
-			]
-		: []),
+	// `session_init.mountedTools` is the device partition a revival must replay.
+	// Pinning the enabled set top-level demotes every mounted device into the tool
+	// block -- the regression this control injects.
+	{
+		name: "restore the tool list without its xd:// device partition",
+		mustFail: ["h-mounted-device-catalogue"],
+		from: "const revivedToolNames = revived.getEnabledToolNames();",
+		to: "const revivedToolNames = revived.getEnabledToolNames();\n\t\t\tawait revived.setActiveToolPresentation(revivedToolNames, []);",
+	},
 ];
 
 if (!privateProcess) {
@@ -344,8 +333,7 @@ async function makeEnv(name: string): Promise<Env> {
 		// Parking is driven explicitly through AgentLifecycleManager.park(), the call the TTL timer makes.
 		"task.agentIdleTtlMs": 0,
 		// Yield-dependent fixtures opt in; the target's production default stays false.
-		// Historical plans predate the setting and always expose yield.
-		...(["18.12.6", "18.16.0", "18.18.0"].includes(agentVersion) ? { "task.structured": true } : {}),
+		"task.structured": true,
 	});
 	const settled = { value: false };
 	const model = createMockModel({
@@ -500,11 +488,11 @@ async function revivalPreservesContract(
 ): Promise<void> {
 	const { id } = options;
 	const callsBeforeSpawn = env.model.calls.length;
-	const initialItems = options.items && ["18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)
+	const initialItems = options.items
 		? options.items.map(item => ({ ...item, id: `initial-${item.id}` })) : options.items;
 	const file = await spawn(env, id, initialItems, options.mountDevices ? MOUNTED_DEVICE_AGENT : AGENT_DEFINITION);
 	const preSession = liveSession(id);
-	if (options.items && ["18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) {
+	if (options.items) {
 		await preSession.setWorkPoolYieldItems(options.items);
 		env.settled.value = true;
 		await preSession.prompt("Acknowledge the updated pooled turn contract.");
@@ -634,7 +622,7 @@ await scenario("b-pooled-yield-items", (env, record) =>
 // (g) A live parent setting read by the default prompt builder flips while the agent is parked.
 // The revived session restores its overlay on the live parent, so a re-render would drop the
 // model line; the persisted session_init bytes must win.
-if (["18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) {
+{
 	const { cfgIncludeModelInPrompt } = await import(`${AGENT_ROOT}/src/session/settings.ts`);
 	await scenario("g-default-prompt-setting-drift", async (env, record) => {
 		const id = "0-ProbeG";
@@ -730,11 +718,11 @@ await scenario("f-info-pooled-followup-after-revival", async (env, record) => {
 	});
 });
 
-// (h) 18.16.0: a spawn whose tools were mounted as `xd://` devices must revive
-// with the same device catalogue, the same persisted `session_init.mountedTools`
-// and the same tool wire list. A re-render or a top-level restore would demote
-// every device into the tool block.
-if (["18.16.0", "18.18.0"].includes(agentVersion)) {
+// (h) A spawn whose tools were mounted as `xd://` devices must revive with the
+// same device catalogue, the same persisted `session_init.mountedTools` and the
+// same tool wire list. A re-render or a top-level restore would demote every
+// device into the tool block.
+{
 	await scenario("h-mounted-device-catalogue", (env, record) =>
 		revivalPreservesContract(env, record, {
 			id: "0-ProbeH",

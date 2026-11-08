@@ -141,12 +141,20 @@ A permanent rollup verifier MUST assert:
 Executable gate:
 
 ```sh
-bash patches/verify-patch-family-rollups.sh
-bash patches/verify-patch-family-rollups.sh --selftest
-patches/apply.sh --check
+# Each registered release (patches/versions.json: exactly two, ascending).
+bash patches/verify-patch-family-rollups.sh --version <registered> --tgz-cache <archives>
+python3 patches/verify-no-version-literals.py            # no version literal outside the registry/families/manifests/native/.retired
+python3 patches/verify-no-version-literals.py --selftest # its mutation controls (must all behave)
+OMP_PATCH_VERSION=<registered> patches/apply.sh --check
 OMP_PATCH_OFFLINE_VERIFY=1 patches/apply.sh
 # Only in an isolated HOME/XDG/package tree; compare revert output to pristine.
 ```
+
+The registry (`patches/versions.json`) holds exactly two versions, the running
+stable release and the one replacing it. An upgrade adds the newest and drops the
+oldest in the same change; the dropped plan directory moves under `.retired/`.
+Gates read the plan through `version-registry.{sh,ts}` / `version_registry.py`
+and branch with `since("N.N.N")`, never with version lists.
 
 ### 7. Wrong vs Correct
 
@@ -667,7 +675,7 @@ bash patches/verify-patch-family-rollups.sh --version 18.7.0
 - Revision order: archive exact prior bytes and hash; regenerate the owning family's net diff; rebase affected context without absorbing another family; verify independent OLD/NEW semantics, gate coverage and round-trip; update ledger; deploy only with separate authorization.
 - A repair changes intended behavior, unlike this representation-only cutover. For later repairs, compare unchanged surfaces byte-for-byte and prove the approved behavior delta with the relevant regression gate; do not falsely require a behavioral repair to equal its broken OLD tree.
 - The 2026-10-10 model-selection repair keeps one persistent-prefix-resume owner. Its archived prior family and additive delta are SHA-pinned under `.retired/10-10-18.7.0-model-selection-resume/`. Preserve the original representation oracle separately; repaired-tree equality is OLD plus that declared delta, never equality to the broken OLD tree or an exclusion of entire changed files.
-- `navigateTree` retains the live model and thinking. Committed destination ancestry must record that retained selection with its routing, role and fallback attribution; cancelled/no-op moves remain unchanged. `verify-model-selection-resume.ts` supplies one focused switch/navigation/fresh-process-resume regression, selected alongside0093.
+- `navigateTree` retains the live model and thinking. Committed destination ancestry must record that retained selection with its routing, role and fallback attribution; cancelled/no-op moves remain unchanged. `verify-model-effort-resume.ts` (commit half) supplies one focused switch/navigation/fresh-process-resume regression, selected alongside 0093.
 
 ### 4. Validation & Error Matrix
 
@@ -706,7 +714,7 @@ Deploy a verified release while old OMP processes still own live sessions or OAu
 python3 -I patches/publish-release.py prepare --home <home> --runtime <private-runtime> --ledger <patches> --version <exact-version>
 python3 -I patches/publish-release.py publish --release <physical-release> --smoke <installed-private-smoke.json>
 python3 -I patches/publish-release.py rollback --release <physical-release>
-python3 -I patches/verify-release-publication.py
+python3 -I patches/verify-release-publication.py --version <registered-version>
 ```
 
 ### 3. Contracts
@@ -751,11 +759,11 @@ Wrong: two atomic pointer replacements are treated as one transaction, or `HOME`
 A defect lives in compiled `pi-natives` Rust code (e.g. the Linux Escape monitor cancelling on every `MappingNotify`). Text patches cannot reach it; a TS workaround around native behavior is rejected.
 
 ### 2. Signatures
-`patches/native/<NNNN>-*.patch` (historical default) or `patches/native/<version>/<NNNN>-*.patch` (new target source diff against its pinned commit); `patches/native/build-natives.sh <work> <out> [overlay-json]`; `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi [--overlay PATH]`. Omitting either overlay argument keeps the historical18.10.1 recipe, not the latest target. The selected overlay pins version/commit/toolchain, patch hashes and both original/rebuilt addon hashes.
+`patches/native/<version>/<NNNN>-*.patch` (source diff against that release's pinned commit); `patches/native/build-natives.sh <work> <out> <overlay-json>`; `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi --overlay PATH`. Both overlay arguments are required and there is no default recipe, so a build or check can never silently reuse a retired release. The selected overlay pins version/commit/toolchain, patch hashes and both original/rebuilt addon hashes.
 
 ### 3. Contracts
 - Build from the pinned upstream commit with its `rust-toolchain.toml`, release profile, both CPU variants (`x86-64-v3` modern, `x86-64-v2` baseline) and the upstream version stamp; exports must equal the shipped addon.
-- New release recipes live under their version directory; never overwrite the historical default recipe/patch. Build stamping reads the selected overlay version. Verify the runtime package version and both actual rebuilt hashes; null pending hashes fail closed. Recover an existing completed build from its log, current artifact digests and fresh addon identity loads before repeating compilation; a cancelled job handle alone does not prove all subprocess outputs are incomplete.
+- New release recipes live under their version directory (`patches/native/<version>/overlay.json`); retired recipes move to `patches/.retired/` and are never the default. Build stamping reads the selected overlay version. Verify the runtime package version and both actual rebuilt hashes; null pending hashes fail closed. Recover an existing completed build from its log, current artifact digests and fresh addon identity loads before repeating compilation; a cancelled job handle alone does not prove all subprocess outputs are incomplete.
 - Local builds are not bit-identical to upstream CI: verify against the recorded rebuilt hashes, never against upstream bytes.
 - Install into the staging runtime before `prepare`; the candidate-tree digest does not cover `pi-natives-linux-x64`, the runtime-tree digest does. Re-run the verifier on the installed release.
 - Live acceptance runs only in a scratch window with user consent, via the real OMP path after activation, with an `xinput test-xi2 --root` witness for device switches. Physical Escape must still cancel.
@@ -826,6 +834,19 @@ its adoption list (18.16.0: `research/rebase-families-18.16.0.py`, `M5_ADOPTIONS
   hunks leave the owning patch, and `manifest.upstream_adoptions` gains
   capability, contract and evidence. `PLAN_CAPABILITIES[<id>]=upstream` keeps the
   capability's gate selected, so an adopted capability is never silently ungated.
+- The manifest never vouches for itself: each live release carries
+  `.<version>-families/approvals.json` (snapshot, added families, retired
+  capabilities, upstream adoptions) and `patches/release_approvals.py` requires
+  `manifest.upstream_adoptions` to equal it (ids, families, order). `apply.sh`
+  runs the check in every mode, including `--print-gates`; the release oracle
+  derives retained families from the same file. Dropping or adding an adoption
+  therefore needs two reviewed edits, and an edit to only one is refused. A new
+  release ships `approvals.json` with its plan; no oracle code names a version.
+  The approvals `snapshot` is strictly older than the release (never itself,
+  never a future release); the newest registered release derives from the
+  oldest registered one, and the oldest from exactly one frozen manifest under
+  `.retired/`. A release that names itself as its predecessor could drop a
+  capability from both its manifest and `plan.tsv` unnoticed, so it is refused.
 - The rebase tool owns the adoption list. Re-deriving adoptions from the previous
   release's manifest erases them on the next export; the list is input to the
   export, not output of it.

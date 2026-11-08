@@ -14,9 +14,10 @@
 // absolute and resolved through those roots (never a bare specifier) so an
 // isolated sandbox tree cannot fall back to the install cache's pristine copy.
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 import type { SimpleStreamOptions } from "@oh-my-pi/pi-ai";
 import type { MockModel } from "@oh-my-pi/pi-ai/providers/mock";
 
@@ -25,11 +26,8 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 
-const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.ok(
-	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion),
-	`verify-devin-idle-cascade-pin: 0060 is not part of the ${agentVersion} plan`,
-);
+const plan = resolvePlan({ gate: "verify-devin-idle-cascade-pin", roots: [AGENT_ROOT] });
+const agentVersion = plan.version;
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
@@ -44,13 +42,8 @@ async function createTestSession(name: string, model: MockModel) {
 	mkdirSync(cwd, { recursive: true });
 	const agentDir = join(cwd, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) {
-		authStorage.keys.setRuntime("mock", "test");
-		authStorage.keys.setRuntime("devin", "test");
-	} else {
-		authStorage.setRuntimeApiKey("mock", "test");
-		authStorage.setRuntimeApiKey("devin", "test");
-	}
+	authStorage.keys.setRuntime("mock", "test");
+	authStorage.keys.setRuntime("devin", "test");
 	const { session } = await createAgentSession({
 		cwd,
 		agentDir,

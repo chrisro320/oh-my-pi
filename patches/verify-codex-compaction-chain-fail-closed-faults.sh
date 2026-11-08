@@ -3,7 +3,6 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 python3 -u - "$HERE" <<'PY'
-import json
 import os
 import shutil
 import subprocess
@@ -12,6 +11,9 @@ import tempfile
 from pathlib import Path
 
 here = Path(sys.argv[1])
+sys.path.insert(0, str(here))
+from version_registry import resolve_plan
+
 nm = Path(os.environ.get("OMP_PATCH_VERIFY_NM", str(Path.home() / ".bun/install/global/node_modules/@oh-my-pi")))
 roots = {"pi-ai": Path(os.environ.get("OMP_PATCH_VERIFY_AI_ROOT", nm / "pi-ai")),
          "pi-agent-core": Path(os.environ.get("OMP_PATCH_VERIFY_CORE_ROOT", nm / "pi-agent-core"))}
@@ -20,27 +22,11 @@ core = "pi-agent-core/src/compaction/compaction-v2-streaming.ts"
 channel = "pi-ai/src/providers/responses-websocket-connection.ts"
 types = "pi-ai/dist/types/providers/openai-codex-responses.d.ts"
 gate = here / "verify-codex-compaction-chain-fail-closed.ts"
-# Supported recovery-era versions carry the non-generating chain-recovery hook;
-# 18.1.18 predates it, so fault expectations differ by supported version.
-version = json.loads((roots["pi-ai"] / "package.json").read_text())["version"]
-supports_recovery = version in ("18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.16.0", "18.18.0")
-# 18.3.3 onward publish the two-argument acceptance hook (commit + rollback);
-# 18.16.0 keeps that shape and 18.18.0 inherits it.
-generic_acceptance = ("18.3.3", "18.4.1", "18.4.4", "18.16.0", "18.18.0")
-# 18.16.0 refuses an SSE admission for a compaction body at the SSE transport
-# itself as well as at the fallback decision, so the mutated `refuseSseFallback`
-# is still stopped — by the later guard, with its own message. 18.18.0 takes the
-# same arm.
-sse_refusal = (
-    "compaction cannot replay over SSE without its append baseline"
-    if version in ("18.16.0", "18.18.0") else
-    "sse-disabled: failure must stay terminal"
-)
-acceptance_declaration = (
-    "    onAccept?: (\n        commit: (recorded: OpenAICodexCompactionResponseMetadata) => void,\n        rollback: () => void,\n    ) => void;\n"
-    if version in generic_acceptance else
-    "    onAccept?: (commit: (recorded: OpenAICodexCompactionResponseMetadata) => void) => void;\n"
-)
+# Every supported plan carries the non-generating chain-recovery hook and the
+# two-argument acceptance hook (commit + rollback); a tree without either fails
+# closed in the gate this script mutates.
+plan = resolve_plan("verify-codex-compaction-chain-fail-closed-faults", roots=[roots["pi-ai"]])
+acceptance_declaration = "    onAccept?: (\n        commit: (recorded: OpenAICodexCompactionResponseMetadata) => void,\n        rollback: () => void,\n    ) => void;\n"
 
 def run(tree, gate_path=None):
     env = dict(os.environ, OMP_PATCH_VERIFY_NM=str(tree), OMP_COMPACTION_TRACE_OFF="1")
@@ -60,34 +46,14 @@ faults = [
     ("event type becomes provider code", core, 'stringField(event, "code")\n', 'stringField(event, "code") ?? stringField(event, "type")\n', "only a real provider code may be preserved"),
     ("missing acceptance type", types, acceptance_declaration, "", "published acceptance API must type-check"),
     ("unsound metadata target type", types, "websocketState?: { modelsEtag?: string }", "websocketState?: unknown", "published acceptance API must type-check"),
-    ("eager baseline reset", ai, "\t\trequestContext.websocketState.lastTransport = initial.transport;", "\t\trequestContext.websocketState.lastTransport = initial.transport;\n\t\tresetCodexWebSocketAppendState(requestContext.websocketState);", "healthy retries must retain their response baseline" if supports_recovery else "CodexCompactionChainLostError"),
-    ("SSE fallback permitted", ai, "const refuseSseFallback = isCompactionWireBody(transformedBody);", "const refuseSseFallback = false;", sse_refusal),
-    ("cold full replay permitted", ai, "const mustChain = isCompactionWireBody(requestContext.transformedBody);", "const mustChain = false;", "cold: every sent compaction must chain" if supports_recovery else "cold: failure must stay terminal"),
+    ("eager baseline reset", ai, "\t\trequestContext.websocketState.lastTransport = initial.transport;", "\t\trequestContext.websocketState.lastTransport = initial.transport;\n\t\tresetCodexWebSocketAppendState(requestContext.websocketState);", "healthy retries must retain their response baseline"),
+    ("SSE fallback permitted", ai, "const refuseSseFallback = isCompactionWireBody(transformedBody);", "const refuseSseFallback = false;", "compaction cannot replay over SSE without its append baseline"),
+    ("cold full replay permitted", ai, "const mustChain = isCompactionWireBody(requestContext.transformedBody);", "const mustChain = false;", "cold: every sent compaction must chain"),
     ("acceptance does not reset", core, "\t\tapplyAcceptedMetadata?.(acceptedMetadata);", "\t\tvoid acceptedMetadata;", "accepted summary must invalidate its old baseline"),
-    ("accepted metadata dropped", ai, ("\t\t\t" if version in generic_acceptance else "\t\t") + "applyOpenAICodexCompactionResponseMetadata(recorded, requestContext);", "\t\tvoid recorded;", "accepted summary must commit metadata"),
+    ("accepted metadata dropped", ai, "\t\t\tapplyOpenAICodexCompactionResponseMetadata(recorded, requestContext);", "\t\tvoid recorded;", "accepted summary must commit metadata"),
     ("raw error swallowed", core, 'type === "response.incomplete" || type === "error"', 'type === "response.incomplete"', "only a real provider code may be preserved"),
 ]
-if version in ("18.3.3", "18.4.1", "18.4.4"):
-    faults.extend([
-        ("collector metadata rollback missing", core, "\t\t\trollbackAttemptMetadata?.();", "", "invalid-summary: handshake metadata must commit only after accepted compaction"),
-        ("open metadata rollback missing", ai, "\t\trequestContextForDiag.turnState.value = turnStateBeforeOpen;", "", "recovery-invalid: handshake metadata must commit only after accepted compaction"),
-    ])
-if version in ("18.4.1", "18.4.4"):
-    # 18.4.1 candidates carry the typed V2 failure's `status` and the shared
-    # effective-lane predicate, so these two mutations reproduce the leading
-    # defects: a status-based retry decision that outranks auth, and a lane
-    # predicate narrowed back to `model.api`.
-    faults.extend([
-        ("status outranks auth", core,
-         "\tconst classification = AIError.classify(error);\n\tif (AIError.is(classification, AIError.Flag.AuthFailed)) return false;\n",
-         "\tconst classification = AIError.classify(error);\n\tif (error instanceof CompactionV2StreamFailure && error.status !== undefined) return AIError.isTransientStatus(error.status);\n\tif (AIError.is(classification, AIError.Flag.AuthFailed)) return false;\n",
-         "auth failure must not consume the V2 retry budget"),
-        ("narrow speculation lane predicate", core,
-         'return compactionV2Api(model) === "openai-codex-responses" || model.provider === "openai-codex";',
-         'return model.api === "openai-codex-responses";',
-         "effective Codex lane must be recognized"),
-    ])
-if version == "18.18.0":
+if plan.since("18.18.0"):
     # The 18.18.0 transport wraps ResponsesWebSocketConnection. Each mutation
     # reintroduces one way the lane can silently spend money or cut off another
     # request; the anchors carry their exact tabs and must exist exactly once.

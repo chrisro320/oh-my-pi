@@ -88,6 +88,7 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM =
 	process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
@@ -202,19 +203,9 @@ assert.equal(
 );
 const EXPECTED_STAGED = EXPECTED;
 
-const agentVersion: string = JSON.parse(
-	readFileSync(join(AGENT_ROOT, "package.json"), "utf8"),
-).version;
-assert.equal(
-	agentVersion,
-	"18.18.0",
-	`extensions-load-18180 gate: unsupported tree version ${agentVersion}`,
-);
-const selectedPlan = process.env.OMP_PATCH_VERSION;
-assert.ok(
-	selectedPlan === undefined || selectedPlan === "18.18.0",
-	`extensions-load-18180 gate: unsupported OMP_PATCH_VERSION ${selectedPlan}`,
-);
+const plan = resolvePlan({ gate: "verify-extensions-load-18180", roots: [AGENT_ROOT] });
+const agentVersion = plan.version;
+assert.ok(plan.since("18.18.0"), `extensions-load-18180 gate: this companion-staging set starts on the newest release; tree is ${agentVersion}`);
 
 const sha256 = (bytes: Buffer | string): string => createHash("sha256").update(bytes).digest("hex");
 
@@ -360,7 +351,7 @@ if (!IS_CHILD) {
 				OMP_EXTENSIONS_STAGED_DIR: STAGED_DIR,
 				OMP_EXTENSIONS_LOAD_MANIFEST: join(home, "manifest.json"),
 				OMP_EXTENSIONS_LOAD_BOOT: "1",
-				...(selectedPlan ? { OMP_PATCH_VERSION: selectedPlan } : {}),
+				OMP_PATCH_VERSION: plan.version,
 				...(RESULT_PATH ? { OMP_EXTENSIONS_LOAD_RESULT: RESULT_PATH } : {}),
 			},
 		});

@@ -37,26 +37,15 @@
 // `@oh-my-pi/*` imports resolve — symlink `node_modules` next to it for an
 // isolated variant (see the fault-tree helper in the patch notes).
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const SNAP_ROOT = process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`;
-// Fail closed on a plan this gate has no arm for. 18.16.0 takes the 18.12.6
-// arms: the measured 1568/2576 curve and the catalog-derived image budget. Both
-// used to fall through to the legacy branches.
-const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"];
-const selectedPlan = process.env.OMP_PATCH_VERSION;
-assert.ok(
-	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
-	`unsupported OMP_PATCH_VERSION for the model billing gate: ${selectedPlan} (supported: ${SUPPORTED_PLANS.join(", ")})`,
-);
-const version = JSON.parse(readFileSync(`${SNAP_ROOT}/package.json`, "utf8")).version;
-assert.ok(
-	SUPPORTED_PLANS.includes(version),
-	`unsupported snapcompact tree version for the model billing gate: ${version} (supported: ${SUPPORTED_PLANS.join(", ")})`,
-);
-if (process.env.OMP_PATCH_VERSION) assert.equal(version, process.env.OMP_PATCH_VERSION, "billing fixture must match the selected plan");
+// Fail closed on a plan this gate has no arm for. Every registered release takes
+// the measured curve and the catalog-derived image budget; the legacy branches are
+// retired with their releases.
+resolvePlan({ gate: "verify-snapcompact-model-billing", roots: [SNAP_ROOT] });
 
 const COMMAND_CODE_API = "commandcode-custom";
 const ALIAS_API = "commandcode-custom-b";
@@ -118,7 +107,7 @@ assert.equal(price(DS), 995, "DeepSeek vision-exp @1568 must price at the measur
 assert.equal(price(DS, ALIAS_API), 995, "an account-suffixed alias api must price identically");
 assert.equal(price(DS, "openai-completions"), 995, "the DeepSeek line is api-independent");
 assert.equal(snapcompact.resolveShape({ api: COMMAND_CODE_API, id: DS }).frameSize, 1568);
-if (["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(version)) {
+{
 	const measuredBilling = snapcompact.frameBilling({ api: COMMAND_CODE_API, id: DS });
 	assert.equal(snapcompact.frameTokens(measuredBilling, { width: 1568, height: 1568 }), 995,
 		"tokenizer and shape planning must both use the measured 1568px frame price");
@@ -174,23 +163,17 @@ assert.notEqual(price("claude-fable-latest"), 995, "the high-res Claude line mus
 // Shared provider/API cases live in verify-provider-image-budget.ts.
 // The primary id has its own explicit table entry (200), which outranks the api
 // by the pre-existing provider-first rule — unchanged by 0052.
-if (["18.12.6", "18.16.0", "18.18.0"].includes(version)) {
-	const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
-	const { buildModel } = await import(`${CATALOG_ROOT}/src/build.ts`);
-	const budget = (provider: string, api: string) => snapcompact.providerImageBudget(buildModel({
-		id: "billing-budget-fixture", name: "Billing budget fixture", provider, api,
-		baseUrl: "https://gateway.invalid/v1", input: ["text", "image"], reasoning: false,
-		contextWindow: 32000, maxTokens: 1024,
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-	}));
-	assert.equal(budget("commandcode", "anthropic-messages"), 200);
-	assert.equal(budget("commandcode-b", "cursor-agent"), 200);
-	assert.equal(budget("unknown", "commandcodex"), 5);
-} else {
-	assert.equal(snapcompact.providerImageBudget("commandcode", "anthropic-messages"), 200);
-	assert.equal(snapcompact.providerImageBudget("commandcode-b", "cursor-agent"), 200);
-	assert.equal(snapcompact.providerImageBudget(undefined, "commandcodex"), 5);
-}
+const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+const { buildModel } = await import(`${CATALOG_ROOT}/src/build.ts`);
+const budget = (provider: string, api: string) => snapcompact.providerImageBudget(buildModel({
+	id: "billing-budget-fixture", name: "Billing budget fixture", provider, api,
+	baseUrl: "https://gateway.invalid/v1", input: ["text", "image"], reasoning: false,
+	contextWindow: 32000, maxTokens: 1024,
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+}));
+assert.equal(budget("commandcode", "anthropic-messages"), 200);
+assert.equal(budget("commandcode-b", "cursor-agent"), 200);
+assert.equal(budget("unknown", "commandcodex"), 5);
 
 console.log(
 	`source=${SNAP_ROOT}\n` +

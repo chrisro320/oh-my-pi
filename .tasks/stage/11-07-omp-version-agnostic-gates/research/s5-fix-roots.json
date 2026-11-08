@@ -1,0 +1,17 @@
+{
+  "step": "S5 review fix 3 \u2014 root precedence package-root, then OMP_PATCH_VERIFY_NM (then the standard HOME install)",
+  "change": "patches/verify-reminder-persist.ts: NM defaults to the HOME install; AGENT_ROOT/AI_ROOT derive from their env override or NM; the assertion now checks the resolved root actually contains package.json",
+  "nm_only_run": {
+    "command": "env -i PATH=\u2026 HOME=<private> TMPDIR=<private> OMP_PATCH_VERIFY_NM=/var/tmp/omp-s5/runtime-18180/node_modules/@oh-my-pi bun patches/verify-reminder-persist.ts (bwrap --unshare-net, private HOME; no OMP_PATCH_VERIFY_AGENT_ROOT/AI_ROOT, no OMP_PATCH_VERSION)",
+    "exit": 0,
+    "stdout_tail": [
+      "PASS eval state context persist (18.18.0): resume wire-equal, read-only snapshots write nothing, state change appends once",
+      "  committed-text stall: partial kept, reminder persisted once, live == rebuilt",
+      "  committed-text stall with requestControls: text and controls retained, live == rebuilt",
+      "turn-recovery reminder persist (18.18.0): ALL PASS",
+      "length-stop reminder persist: ALL PASS",
+      "PASS reminder persist (18.18.0): eval-state, turn-recovery, length-stop all legs pass"
+    ],
+    "stderr": ""
+  }
+}

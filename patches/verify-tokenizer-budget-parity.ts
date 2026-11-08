@@ -28,6 +28,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = realpathSync(process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`);
 const CORE_ROOT = realpathSync(process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`);
@@ -38,13 +39,9 @@ const NATIVES_ROOT = realpathSync(process.env.OMP_PATCH_VERIFY_NATIVES_ROOT ?? `
 // for pointing the gate at a fixture measured elsewhere.
 const CORPUS = process.env.OMP_TOKENIZER_PARITY_CORPUS ?? join(import.meta.dir, "fixtures", "tokenizer-parity-corpus.txt");
 
-// Two arms only: this gate is registered inside the 18.16.0/18.18.0 guard, so any
-// other plan must fail closed rather than borrow an assertion it never had.
-const version: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.ok(["18.16.0", "18.18.0"].includes(version), `tokenizer parity gate has no arm for pi-coding-agent ${version}`);
-if (process.env.OMP_PATCH_VERSION) {
-	assert.equal(version, process.env.OMP_PATCH_VERSION, "tokenizer parity fixture must match the selected plan");
-}
+// This gate carries one arm for every registered plan, so an unregistered tree
+// must fail closed rather than borrow an assertion it never had.
+resolvePlan({ gate: "verify-tokenizer-budget-parity", roots: [AGENT_ROOT] });
 // `NODE_ENV=test` switches the tokenizer to its byte fallback outside `strict`,
 // which would make this gate measure the very path it is meant to rule out.
 assert.notEqual(process.env.NODE_ENV, "test", "tokenizer parity gate must not run under NODE_ENV=test");
@@ -144,7 +141,7 @@ function triggerTurn(series: readonly number[], window: number): number | undefi
 
 for (const fixture of MODELS) {
 	const model = catalog.getBundledModel(fixture.provider as never, fixture.id as never);
-	assert.ok(model, `${fixture.provider}/${fixture.id} must be in the 18.16.0 catalog`);
+	assert.ok(model, `${fixture.provider}/${fixture.id} must be in the catalog`);
 	assert.equal(
 		model.tokenizer,
 		undefined,

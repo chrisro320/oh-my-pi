@@ -1,0 +1,627 @@
+{
+  "reviewer_examples": {
+    "family-persistent-prefix-resume": [
+      "verify-interrupt-prune-symmetry.ts",
+      "verify-date-cwd-journal-prefix.ts",
+      "verify-session-transfer-authority.ts",
+      "verify-reminder-persist.ts",
+      "verify-model-mention-surface-resume.ts",
+      "verify-model-effort-resume.ts"
+    ],
+    "includes_verify-interrupt-prune-symmetry": true,
+    "capabilities 0033": [
+      "verify-main-cache-hit.ts",
+      "verify-usage-reset-format.ts"
+    ],
+    "0033_includes_verify-main-cache-hit": true,
+    "capabilities 0043": [
+      "verify-interrupt-prune-symmetry.ts"
+    ],
+    "ok": true
+  },
+  "patches_md_section2_vs_runner_selection": {
+    "rows": 52,
+    "mismatches": [],
+    "per_capability": {
+      "0033": {
+        "selected": [
+          "verify-main-cache-hit.ts",
+          "verify-usage-reset-format.ts"
+        ],
+        "patches_md_gates": [
+          "verify-main-cache-hit.ts",
+          "verify-usage-reset-format.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0004": {
+        "selected": [
+          "verify-main-cache-hit.ts",
+          "verify-usage-reset-format.ts"
+        ],
+        "patches_md_gates": [
+          "verify-main-cache-hit.ts",
+          "verify-usage-reset-format.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0081": {
+        "selected": [
+          "verify-main-cache-hit.ts",
+          "verify-usage-reset-format.ts"
+        ],
+        "patches_md_gates": [
+          "verify-main-cache-hit.ts",
+          "verify-usage-reset-format.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0034": {
+        "selected": [
+          "verify-hindsight-recall-snapshot.ts"
+        ],
+        "patches_md_gates": [
+          "verify-hindsight-recall-snapshot.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0075": {
+        "selected": [
+          "verify-hindsight-recall-promotion-slot.ts"
+        ],
+        "patches_md_gates": [
+          "verify-hindsight-recall-promotion-slot.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0037": {
+        "selected": [
+          "verify-usage-statusline-gate.ts"
+        ],
+        "patches_md_gates": [
+          "verify-usage-statusline-gate.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0026": {
+        "selected": [
+          "verify-usage-statusline-gate.ts"
+        ],
+        "patches_md_gates": [
+          "verify-usage-statusline-gate.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0030": {
+        "selected": [
+          "verify-usage-statusline-gate.ts"
+        ],
+        "patches_md_gates": [
+          "verify-usage-statusline-gate.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0031": {
+        "selected": [
+          "verify-usage-thread-providers.ts"
+        ],
+        "patches_md_gates": [
+          "verify-usage-thread-providers.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0010": {
+        "selected": [
+          "verify-idle-ephemeral-reservation.ts",
+          "verify-session-cache-keepalive.ts"
+        ],
+        "patches_md_gates": [
+          "verify-idle-ephemeral-reservation.ts",
+          "verify-session-cache-keepalive.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0014": {
+        "selected": [
+          "verify-antigravity-envelope.ts"
+        ],
+        "patches_md_gates": [
+          "verify-antigravity-envelope.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0036": {
+        "selected": [
+          "verify-provider-image-budget.ts"
+        ],
+        "patches_md_gates": [
+          "verify-provider-image-budget.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0044": {
+        "selected": [
+          "verify-provider-image-budget.ts"
+        ],
+        "patches_md_gates": [
+          "verify-provider-image-budget.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0052": {
+        "selected": [
+          "verify-snapcompact-model-billing.ts",
+          "verify-snapcompact-frame-reprice.ts"
+        ],
+        "patches_md_gates": [
+          "verify-snapcompact-model-billing.ts",
+          "verify-snapcompact-frame-reprice.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0057": {
+        "selected": [
+          "verify-provider-image-budget.ts"
+        ],
+        "patches_md_gates": [
+          "verify-provider-image-budget.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0038": {
+        "selected": [
+          "verify-date-cwd-journal-prefix.ts"
+        ],
+        "patches_md_gates": [
+          "verify-date-cwd-journal-prefix.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0043": {
+        "selected": [
+          "verify-interrupt-prune-symmetry.ts"
+        ],
+        "patches_md_gates": [
+          "verify-interrupt-prune-symmetry.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0047": {
+        "selected": [
+          "verify-date-cwd-journal-prefix.ts",
+          "verify-session-transfer-authority.ts"
+        ],
+        "patches_md_gates": [
+          "verify-date-cwd-journal-prefix.ts",
+          "verify-session-transfer-authority.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0076": {
+        "selected": [
+          "verify-reminder-persist.ts"
+        ],
+        "patches_md_gates": [
+          "verify-reminder-persist.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0077": {
+        "selected": [
+          "verify-reminder-persist.ts"
+        ],
+        "patches_md_gates": [
+          "verify-reminder-persist.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0083": {
+        "selected": [
+          "verify-model-mention-surface-resume.ts"
+        ],
+        "patches_md_gates": [
+          "verify-model-mention-surface-resume.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0084": {
+        "selected": [
+          "verify-reminder-persist.ts"
+        ],
+        "patches_md_gates": [
+          "verify-reminder-persist.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0093": {
+        "selected": [
+          "verify-model-effort-resume.ts"
+        ],
+        "patches_md_gates": [
+          "verify-model-effort-resume.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0046": {
+        "selected": [
+          "verify-supersede-warm-prefix-guard.ts"
+        ],
+        "patches_md_gates": [
+          "verify-supersede-warm-prefix-guard.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0048": {
+        "selected": [
+          "verify-advisor-quota-rotation.ts"
+        ],
+        "patches_md_gates": [
+          "verify-advisor-quota-rotation.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0050": {
+        "selected": [
+          "verify-session-history-preview.ts"
+        ],
+        "patches_md_gates": [
+          "verify-session-history-preview.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0055": {
+        "selected": [
+          "verify-devin-wire.ts"
+        ],
+        "patches_md_gates": [
+          "verify-devin-wire.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0071": {
+        "selected": [],
+        "patches_md_gates": [],
+        "exit": 2,
+        "ok": true
+      },
+      "0056": {
+        "selected": [
+          "verify-devin-metadata.ts"
+        ],
+        "patches_md_gates": [
+          "verify-devin-metadata.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0058": {
+        "selected": [
+          "verify-devin-wire.ts"
+        ],
+        "patches_md_gates": [
+          "verify-devin-wire.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0060": {
+        "selected": [
+          "verify-devin-idle-cascade-pin.ts"
+        ],
+        "patches_md_gates": [
+          "verify-devin-idle-cascade-pin.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0069": {
+        "selected": [
+          "verify-codex-effort-resume.ts"
+        ],
+        "patches_md_gates": [
+          "verify-codex-effort-resume.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0074": {
+        "selected": [
+          "verify-anthropic-cache-boundaries.ts",
+          "verify-anthropic-request-audit.ts",
+          "verify-anthropic-threads-cache-shape.ts"
+        ],
+        "patches_md_gates": [
+          "verify-anthropic-cache-boundaries.ts",
+          "verify-anthropic-request-audit.ts",
+          "verify-anthropic-threads-cache-shape.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0080": {
+        "selected": [
+          "verify-kitty-shared-png-cache.ts"
+        ],
+        "patches_md_gates": [
+          "verify-kitty-shared-png-cache.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0082": {
+        "selected": [
+          "verify-user-display-text-queue.ts",
+          "verify-extensions-load-18180.ts"
+        ],
+        "patches_md_gates": [
+          "verify-user-display-text-queue.ts",
+          "verify-extensions-load-18180.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0085": {
+        "selected": [
+          "verify-rejected-prepared-draft-restore.ts"
+        ],
+        "patches_md_gates": [
+          "verify-rejected-prepared-draft-restore.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0035": {
+        "selected": [
+          "verify-prefix-cache-compaction.ts",
+          "verify-compaction-live-chain-midnight.ts"
+        ],
+        "patches_md_gates": [
+          "verify-compaction-live-chain-midnight.ts",
+          "verify-prefix-cache-compaction.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0063": {
+        "selected": [
+          "verify-codex-compaction-chain.ts"
+        ],
+        "patches_md_gates": [
+          "verify-codex-compaction-chain.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0067": {
+        "selected": [
+          "verify-compaction-lane-trace.ts"
+        ],
+        "patches_md_gates": [
+          "verify-compaction-lane-trace.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0068": {
+        "selected": [
+          "verify-codex-compaction-chain.ts",
+          "verify-compaction-lane-trace.ts"
+        ],
+        "patches_md_gates": [
+          "verify-codex-compaction-chain.ts",
+          "verify-compaction-lane-trace.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0070": {
+        "selected": [
+          "verify-codex-compaction-chain-fail-closed.ts"
+        ],
+        "patches_md_gates": [
+          "verify-codex-compaction-chain-fail-closed.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0088": {
+        "selected": [
+          "verify-prefix-cache-compaction.ts",
+          "verify-compaction-cache-liveness.ts",
+          "verify-anthropic-threads-warm-compaction-isolation.ts"
+        ],
+        "patches_md_gates": [
+          "verify-compaction-cache-liveness.ts",
+          "verify-anthropic-threads-warm-compaction-isolation.ts",
+          "verify-prefix-cache-compaction.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0089": {
+        "selected": [
+          "verify-compaction-cache-liveness.ts"
+        ],
+        "patches_md_gates": [
+          "verify-compaction-cache-liveness.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0096": {
+        "selected": [
+          "verify-codex-compaction-chain-fail-closed.ts"
+        ],
+        "patches_md_gates": [
+          "verify-codex-compaction-chain-fail-closed.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0090": {
+        "selected": [
+          "verify-oauth-durable-refresh.ts",
+          "verify-oauth-unlock-fence-faults.sh",
+          "verify-auth-unlock-extension.ts",
+          "verify-account-eligibility-retention.ts",
+          "verify-oauth-worker-single-owner.ts"
+        ],
+        "patches_md_gates": [
+          "verify-oauth-durable-refresh.ts",
+          "verify-oauth-unlock-fence-faults.sh",
+          "verify-auth-unlock-extension.ts",
+          "verify-account-eligibility-retention.ts",
+          "verify-oauth-worker-single-owner.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0092": {
+        "selected": [
+          "verify-idle-warming-owners.ts"
+        ],
+        "patches_md_gates": [
+          "verify-idle-warming-owners.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0094": {
+        "selected": [
+          "verify-anthropic-thinking-drop-resume.ts"
+        ],
+        "patches_md_gates": [
+          "verify-anthropic-thinking-drop-resume.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0095": {
+        "selected": [
+          "verify-context-persist-audit.ts"
+        ],
+        "patches_md_gates": [
+          "verify-context-persist-audit.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0098": {
+        "selected": [
+          "verify-tls-verify-transient-retry.ts"
+        ],
+        "patches_md_gates": [
+          "verify-tls-verify-transient-retry.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0099": {
+        "selected": [
+          "verify-retry-slow-schedule.ts"
+        ],
+        "patches_md_gates": [
+          "verify-retry-slow-schedule.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0101": {
+        "selected": [
+          "verify-subagent-warm-revival-prompt.ts"
+        ],
+        "patches_md_gates": [
+          "verify-subagent-warm-revival-prompt.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      },
+      "0102": {
+        "selected": [
+          "verify-computer-control-confirm-deadline.ts"
+        ],
+        "patches_md_gates": [
+          "verify-computer-control-confirm-deadline.ts"
+        ],
+        "exit": 0,
+        "ok": true
+      }
+    },
+    "ok": true
+  },
+  "verify_gate_coverage_script": {
+    "exit": 0,
+    "stdout": "PASS verify-gate-coverage: 52 PATCHES.md \u00a72 rows checked against apply.sh for 18.18.0 (0 difference(s))",
+    "ok": true
+  },
+  "menus_unchanged": {
+    "18.18.0_equals_final_batch_menu": true,
+    "18.18.0_gates": 70,
+    "18.16.0_equals_baseline_with_c6_fold": true,
+    "18.16.0_gates": 64,
+    "capabilities_byte_identical": true,
+    "ok": true
+  },
+  "mutations": {
+    "plan_capability_without_gate_or_declaration": {
+      "print_gate_map_exit": 2,
+      "stderr": "capability 0071 has no gate: register a gate with it in CAPS or COVERS, or declare _omp_no_gate 0071 <reason>",
+      "runner_exit": 2,
+      "ok": true
+    },
+    "stale_no_gate_declaration": {
+      "exit": 2,
+      "stderr": "_omp_no_gate 9999: not a capability of the 18.18.0 plan (stale declaration)",
+      "ok": true
+    },
+    "no_gate_declared_for_covered_capability": {
+      "exit": 2,
+      "stderr": "capability 0090 is covered by a gate but also declared _omp_no_gate; drop the declaration",
+      "ok": true
+    },
+    "covers_dropped_cross_check_red": {
+      "verify_gate_coverage_exit": 1,
+      "stdout": "FAIL 0033: PATCHES.md gates ['verify-main-cache-hit.ts', 'verify-usage-reset-format.ts'] != apply.sh gates (guard \u222a covers) ['verify-usage-reset-format.ts']\nFAIL verify-gate-coverage: 52 PATCHES.md \u00a72 rows checked against apply.sh for 18.18.0 (1 difference(s))",
+      "print_gates_unchanged": true,
+      "ok": true
+    },
+    "covers_dropped_apply_refuses": {
+      "exit": 2,
+      "stderr": "capability 0043 has no gate: register a gate with it in CAPS or COVERS, or declare _omp_no_gate 0043 <reason>",
+      "ok": true
+    },
+    "requested_capability_without_gate_exits_2": {
+      "exit": 2,
+      "stderr": "run-gates: capability 0071 has no gate: Devin request-dump debug switch: diagnostic only, no behaviour a user observes",
+      "ok": true
+    }
+  },
+  "all_ok": true
+}

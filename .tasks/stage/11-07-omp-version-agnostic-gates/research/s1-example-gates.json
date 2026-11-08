@@ -1,0 +1,65 @@
+{
+  "step": "S1 converted example gates on a copy of the 18.18.0 candidate runtime",
+  "runtime": {
+    "source": "/var/tmp/omp-18180-m8e/runtime (not modified)",
+    "copy": "/var/tmp/omp-vagn-s1/run/runtime-18180 (cp -a --reflink)",
+    "candidate_tree_sha256_copy_after_runs": "f74e59923d16bdba7e19ebd24f6f2094d8a1195e4ac191f026c71858d0720f93",
+    "candidate_tree_sha256_source_after_runs": "f74e59923d16bdba7e19ebd24f6f2094d8a1195e4ac191f026c71858d0720f93",
+    "manifest_candidate_tree_sha256": "f74e59923d16bdba7e19ebd24f6f2094d8a1195e4ac191f026c71858d0720f93",
+    "runtime_unchanged": true
+  },
+  "sandbox": "bwrap --ro-bind / / --tmpfs /tmp --bind <run dir> --unshare-net --unshare-pid --die-with-parent, private HOME/XDG (/var/tmp/omp-vagn-s1/bw.sh, rung.sh)",
+  "gate_sha256": {
+    "verify-anthropic-request-audit.ts": "003205566471239e0598ea9eda64f46566eb1cdc47442dc25c7e9382b3c21b6c",
+    "verify-codex-text-verbosity.ts": "ed0d39ff738a7c2182c065d90188cc3aacf198a0293b038ed2ca7421d81c9c31",
+    "verify-oauth-unlock-fence-faults.sh": "f01ac623f0e40f920e04793af3d8fdc2ea4d66b49c0902996b839372f3344377",
+    "run-worker-placement-controls.py": "0c9dcc4ac88e9b246dcbcbb97fd2099e933426a25b2720a247b0e79a23fc0b70",
+    "version-registry.ts": "c86fe4655e94e101f39abbe02cd374918788dbe69e6c00ac18712e0b4f00353e",
+    "version-registry.sh": "7fcb5da6c81e3e7793521ec505638fd89d87200aedeba40fa41720b332a0ed8a",
+    "version_registry.py": "cb27b151b4febc19a8d9b59c6c472f8976554c4dc6dfaff04562709e950d1737"
+  },
+  "runs": {
+    "verify-codex-text-verbosity.ts (TS pin -> resolvePlan + since)": {
+      "env": "OMP_PATCH_VERSION=18.18.0",
+      "exit": 0,
+      "tail": [
+        "PASS default-low :: settings default low -> body text.verbosity low",
+        "  PASS override-medium :: textVerbosity medium -> body text.verbosity medium",
+        "  PASS mutation-control :: shifted default \"high\" rejected (exit 1)",
+        "",
+        "PASS verify-codex-text-verbosity: 3/3 legs"
+      ]
+    },
+    "verify-anthropic-request-audit.ts (TS list + === arms + retired arms)": {
+      "env": "OMP_PATCH_VERSION=18.18.0",
+      "exit": 0,
+      "tail": [
+        "PASS disabled: the audit keeps full-history records and no thread history",
+        "SUMMARY disabled: audit-history,hooks-vs-wire,record-safety,mutation,disabled",
+        "verify-anthropic-threads-cache-shape: PASS (thread cache shape, reconstructed history audit, one wire record per send)"
+      ]
+    },
+    "verify-oauth-unlock-fence-faults.sh (bash)": {
+      "env": "OMP_PATCH_VERSION=18.18.0, isolated node_modules copy as AI root (apply.sh \"oauth\" isolation shape)",
+      "exit": 0,
+      "tail": [
+        "PASS control: the isolated copy is green (68 scenarios)",
+        "PASS target: removing shutdown drain turns the real SIGTERM rotation scenario red",
+        "PASS (q): a fence that ignores the exchange owner turns FAIL  (f) red",
+        "PASS (p): a tree without the store inspection member fails closed",
+        "PASS (p2): a tree without the staged-replacement accessor fails closed",
+        "PASS (z): an all-provider journal turns the legacy-marker scenario red",
+        "PASS (z2): an unscoped inspect path turns the not-applicable scenario red",
+        "PASS (s): a release that deletes instead of reserving turns the boundary case red"
+      ]
+    },
+    "run-worker-placement-controls.py (python)": {
+      "command": "python3 patches/run-worker-placement-controls.py /tmp/omp-vagn-s1-rt <receipt> (each leg runs worker-matrix.sh: own bwrap --unshare-net, private HOME)",
+      "exit": 0,
+      "legs": 43,
+      "all_rejected": true,
+      "version_resolved_from_runtime": "resolve_plan(roots=[runtime pi-coding-agent])"
+    }
+  },
+  "status": "PASS"
+}

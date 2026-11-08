@@ -1,0 +1,232 @@
+{
+  "a_broken_gate": {
+    "exit": 1,
+    "status": "FAIL",
+    "tally": {
+      "PASS": 6,
+      "FAIL": 1
+    },
+    "failing": [
+      "verify-zz-mutant-tokenizer.ts"
+    ],
+    "summary_names_failing_gate": true,
+    "real_gates_all_pass": true,
+    "mutant_log_has_assertion_error": true,
+    "ok": true,
+    "stderr": "FAILED: verify-zz-mutant-tokenizer.ts [FAIL]",
+    "receipt": "/var/tmp/omp-pgates/controls/a-broken-gate.json"
+  },
+  "b_hang_timeout": {
+    "exit": 1,
+    "tally": {
+      "PASS": 1,
+      "TIMEOUT": 1
+    },
+    "failing": [
+      "verify-zz-hang.ts"
+    ],
+    "wall_s": 11.9,
+    "hang_status": "TIMEOUT",
+    "hang_exit": 124,
+    "other_gate_status": "PASS",
+    "summary_names_gate": true,
+    "leftover_processes": null,
+    "ok": true,
+    "stderr": "FAILED: verify-zz-hang.ts [TIMEOUT]"
+  },
+  "c1_tree_flag_writer": {
+    "exit": 0,
+    "status": "PASS",
+    "probe_in_private_copy": true,
+    "probe_in_source": false,
+    "digest_unchanged_receipt": true,
+    "digest_unchanged_independent": true,
+    "ok": true
+  },
+  "c2_unflagged_writer": {
+    "exit": 1,
+    "status": "FAIL",
+    "log_has_EROFS": true,
+    "summary_names_gate": true,
+    "probe_in_source": false,
+    "digest_unchanged_receipt": true,
+    "digest_unchanged_independent": true,
+    "ok": true
+  },
+  "d_exclusive": {
+    "exit": 0,
+    "tally": {
+      "PASS": 8
+    },
+    "wall_s": 11.3,
+    "each_gate_sleeps_s": 2.5,
+    "exclusive_overlaps": [],
+    "parallel_gate_pairs_overlapping": 15,
+    "ok": true
+  },
+  "e1_companions_missing_not_run": {
+    "exit": 1,
+    "tally": {
+      "PASS": 1,
+      "NOT_RUN": 1
+    },
+    "detail": "needs --companions (the staged companion fixture)",
+    "summary_names_gate": true,
+    "ok": true
+  },
+  "e1b_companions_given_pass": {
+    "exit": 0,
+    "tally": {
+      "PASS": 1
+    },
+    "ok": true
+  },
+  "e2_sigterm_pending_not_run": {
+    "exit": 1,
+    "tally": {
+      "NOT_RUN": 4
+    },
+    "failing": [
+      "verify-zz-hang.ts",
+      "verify-zz-par-0.ts",
+      "verify-zz-par-1.ts",
+      "verify-zz-par-2.ts"
+    ],
+    "leftover_processes": null,
+    "ok": true
+  },
+  "f_subset_selection": {
+    "selections": {
+      "capabilities 0090": {
+        "exit": 0,
+        "selected": [
+          "verify-oauth-durable-refresh.ts",
+          "verify-oauth-unlock-fence-faults.sh",
+          "verify-auth-unlock-extension.ts",
+          "verify-account-eligibility-retention.ts",
+          "verify-oauth-worker-single-owner.ts"
+        ],
+        "expected_from_apply_sh_registrations": [
+          "verify-oauth-durable-refresh.ts",
+          "verify-oauth-unlock-fence-faults.sh",
+          "verify-auth-unlock-extension.ts",
+          "verify-account-eligibility-retention.ts",
+          "verify-oauth-worker-single-owner.ts"
+        ],
+        "ok": true,
+        "note": "# 5 of 71 gates selected; 66 not selected"
+      },
+      "capabilities 0090,0092": {
+        "exit": 0,
+        "selected": [
+          "verify-oauth-durable-refresh.ts",
+          "verify-oauth-unlock-fence-faults.sh",
+          "verify-auth-unlock-extension.ts",
+          "verify-account-eligibility-retention.ts",
+          "verify-cache-warming-idle-budget.ts",
+          "verify-cron-idle-owners.ts",
+          "verify-oauth-worker-single-owner.ts"
+        ],
+        "expected_from_apply_sh_registrations": [
+          "verify-oauth-durable-refresh.ts",
+          "verify-oauth-unlock-fence-faults.sh",
+          "verify-auth-unlock-extension.ts",
+          "verify-account-eligibility-retention.ts",
+          "verify-cache-warming-idle-budget.ts",
+          "verify-cron-idle-owners.ts",
+          "verify-oauth-worker-single-owner.ts"
+        ],
+        "ok": true,
+        "note": "# 7 of 71 gates selected; 64 not selected"
+      },
+      "family 0090-omp-oauth-durable-refresh": {
+        "exit": 0,
+        "selected": [
+          "verify-oauth-durable-refresh.ts",
+          "verify-oauth-unlock-fence-faults.sh",
+          "verify-auth-unlock-extension.ts",
+          "verify-account-eligibility-retention.ts",
+          "verify-oauth-worker-single-owner.ts"
+        ],
+        "expected_from_apply_sh_registrations": [
+          "verify-oauth-durable-refresh.ts",
+          "verify-oauth-unlock-fence-faults.sh",
+          "verify-auth-unlock-extension.ts",
+          "verify-account-eligibility-retention.ts",
+          "verify-oauth-worker-single-owner.ts"
+        ],
+        "ok": true,
+        "note": "# 5 of 71 gates selected; 66 not selected"
+      },
+      "family family-persistent-prefix-resume": {
+        "exit": 0,
+        "selected": [
+          "verify-date-cwd-journal-prefix.ts",
+          "verify-session-transfer-authority.ts",
+          "verify-reminder-persist.ts",
+          "verify-model-mention-surface-resume.ts",
+          "verify-model-effort-resume.ts"
+        ],
+        "expected_from_apply_sh_registrations": [
+          "verify-date-cwd-journal-prefix.ts",
+          "verify-session-transfer-authority.ts",
+          "verify-reminder-persist.ts",
+          "verify-model-mention-surface-resume.ts",
+          "verify-model-effort-resume.ts"
+        ],
+        "ok": true,
+        "note": "# 5 of 71 gates selected; 66 not selected"
+      },
+      "family family-devin-wire": {
+        "exit": 0,
+        "selected": [
+          "verify-devin-wire.ts",
+          "verify-devin-metadata.ts",
+          "verify-devin-idle-cascade-pin.ts"
+        ],
+        "expected_from_apply_sh_registrations": [
+          "verify-devin-wire.ts",
+          "verify-devin-metadata.ts",
+          "verify-devin-idle-cascade-pin.ts"
+        ],
+        "ok": true,
+        "note": "# 3 of 71 gates selected; 68 not selected"
+      },
+      "capabilities 0090 --with-unscoped": {
+        "exit": 0,
+        "selected": 28,
+        "ok": true,
+        "note": "# 28 of 71 gates selected; 43 not selected"
+      }
+    },
+    "refusals": {
+      "unknown capability": {
+        "exit": 2,
+        "stderr": "run-gates: capability '9999' is not in this plan; known: 0004 0010 0014 0017 0026 0030 0031 0033 0034 0035 0036 0037 0038 0043 0044 0046 0047 0048 0050 0052 0054 0055 0056 0057 0058 0060 0062 0063 0066 0067 0068 0069 0070 0071 0072 0074 0075 0076 0077 0078 0079 0080 0081 0082 0083 0084 0085 0088 0089 0090 0092 0093 0094 0095 0096 0098 0099 0101 0102",
+        "ok": true
+      },
+      "unknown family": {
+        "exit": 2,
+        "stderr": "run-gates: unknown family 'nope'; plan.tsv families: family-status-accounting, family-hindsight, family-usage-pipeline, 0010-omp-extension-idle-ephemeral-turn, family-antigravity-wire, family-image-budget-snapcompact, family-persistent-prefix-resume, 0046-omp-supersede-warm-prefix-guard, 0048-omp-advisor-quota-rotation-bound, 0050-omp-session-history-preview, family-devin-wire, 0069-omp-codex-effort-history-resume, 0074-omp-anthropic-context-cache-boundaries, family-image-display, family-input-translation, family-compaction, 0090-omp-oauth-durable-refresh, 0092-omp-cache-warming-idle-budget, 0094-omp-anthropic-thinking-drop-resume, 0095-omp-context-audit-request-purpose, 0098-omp-tls-verify-transient-retry, 0099-omp-retry-slow-schedule, 0101-omp-subagent-warm-revival-persisted-prompt, 0102-omp-computer-control-confirm-deadline",
+        "ok": true
+      },
+      "unknown gate": {
+        "exit": 2,
+        "stderr": "run-gates: gate 'verify-nope' is not in this plan's menu (apply.sh --print-gates)",
+        "ok": true
+      },
+      "capability without a gate": {
+        "exit": 2,
+        "stderr": "run-gates: the selection matches no gate (capabilities without a registered gate select nothing); nothing would run, which is a failure",
+        "ok": true
+      }
+    },
+    "ok": true
+  },
+  "source_runtime_digest": {
+    "before": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "after": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "unchanged": true
+  },
+  "all_ok": true
+}

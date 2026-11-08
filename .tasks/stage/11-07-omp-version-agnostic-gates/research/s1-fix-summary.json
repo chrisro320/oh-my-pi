@@ -1,0 +1,42 @@
+{
+  "step": "S1 review fixes (7 items)",
+  "sandbox": "bwrap --unshare-net --unshare-pid, private HOME/XDG (/var/tmp/omp-vagn-s1/bw.sh); sim/controls on temp copies; nothing under ~/.omp touched",
+  "menu_diff": {
+    "18.16.0 --print-gates": "e47e0e1d... byte-identical to /var/tmp/omp-vagn-baseline",
+    "18.16.0 --print-capabilities": "4d8ac593... byte-identical",
+    "18.18.0 --print-gates": "7cbd48dc... byte-identical",
+    "18.18.0 --print-capabilities": "15c35ab0... byte-identical"
+  },
+  "oracles_pass": {
+    "oracle_18.18.0": "PASS, candidate f74e59923d16... unchanged (s1-fix-oracle-18.18.0.json)",
+    "rollups_18.18.0": "PASS (s1-fix-rollups-18.18.0.json)",
+    "oracle_18.16.0": "PASS, candidate 35567dd8cf1a... unchanged (s1-fix-oracle-18.16.0.json)",
+    "rollups_18.16.0": "PASS (s1-fix-rollups-18.16.0.json)",
+    "publication_fixture": "verify-release-publication.py --version 18.18.0 / 18.16.0 PASS; 18.12.6 (retired), 18.19.0 (unregistered) and no --version refused (exit 2); publish-release.py prepare --version 18.12.6 refused"
+  },
+  "items": {
+    "1_adoptions_trust": {
+      "files": ["patches/.18.18.0-families/approvals.json", "patches/.18.16.0-families/approvals.json", "patches/.retired/repairs.json", "patches/release_approvals.py", "patches/apply.sh", "patches/verify-release-family-plan.py", "patches/publish-release.py", "patches/verify-release-publication.py"],
+      "apply_sh": "python3 -I release_approvals.py in every mode (incl. --print-gates/--print-capabilities); exit 2 on any omission/unapproved addition/reorder",
+      "oracle": "ADDED_FAMILIES, RETIRED_CAPABILITIES, SNAPSHOT_OF, APPROVED_ADOPTIONS and inline RETIRED_REPAIRS removed; read from approvals.json / .retired/repairs.json",
+      "controls": "s1-fix-approvals-controls.json (11/11: manifest drops 0066 -> red in --print-gates and --print-capabilities, unapproved 0099 -> red, reorder -> red, approvals-only edits -> red, approvals missing / duplicate key -> red, 18.16.0 drop 0062 -> red); s1-fix-oracle-controls.json (6/6, oracle independent of apply.sh)"
+    },
+    "2_bash_loader": "version-registry.sh now parses real JSON via python3 -I; TS and Py loaders reject duplicate keys and extra keys; selftest loader controls: missing comma, duplicate key, trailing garbage, extra key red and single-line array green in ALL THREE loaders (s1-fix-checker-selftest.txt)",
+    "3_upgrade_procedure": "checker notes evaluate negation and name the surviving branch (6 note controls); contract step 4/6 + sim: appending 18.19.0 and dropping 18.16.0 keeps the 18.19.0 menu == 18.18.0 baseline, verify-extensions-load-18160 NOT in menu; deleting the dead ! omp_since arm and unwrapping the always-true arm keeps menus identical (s1-fix-sim-18.19.0.json)",
+    "4_oauth_faults_harness": "verify-oauth-unlock-fence-faults.sh copies version-registry.ts + versions.json beside gate-only.ts; gate PASS on the 18.18.0 runtime copy; contract §5 rule 'harnesses that copy a gate must copy its registry deps'",
+    "5_checker_shell": "omp_since \"$PLAN\" \"18.18.0\" and plan.since(\"...\") in .sh Python heredocs recognised (green + red controls); contract example uses plan.since",
+    "6_checker_docstrings": "AST-based: only first-statement module/def/class strings are exempt; list-value triple-quoted string and post-code bare string are red controls",
+    "7_gitignore": "patches/.retired/**/.native-artifacts/ added; git check-ignore confirms both the dir and a .node file under .retired/11-07-pre-18.16-plans/.native-artifacts"
+  },
+  "checker": {
+    "selftest": "84/84 controls behaved",
+    "s1_files_clean": "verify-release-family-plan.py publish-release.py verify-release-publication.py release_approvals.py version_registry.py version-registry.ts version-registry.sh apply.sh verify-patch-family-rollups.sh verify-oauth-unlock-fence-faults.sh -> 0 literals, exit 0",
+    "whole_tree": "exit 1 as expected until S2 completes (671 literals in 38 files at last run; S2Batch1 converting in parallel)"
+  },
+  "example_gates_rerun_on_18.18.0_runtime_copy": {
+    "verify-oauth-unlock-fence-faults.sh": "PASS",
+    "verify-anthropic-request-audit.ts": "PASS",
+    "verify-codex-text-verbosity.ts": "PASS 3/3",
+    "run-worker-placement-controls.py": "PASS exit 0 (s1-fix-placement-legs.json; runtime must be a private /tmp copy)"
+  }
+}

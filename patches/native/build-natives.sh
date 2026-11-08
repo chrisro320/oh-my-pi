@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 # Rebuild the linux-x64 pi-natives addons from the pinned upstream commit plus
-# the source patches listed in an overlay manifest. The default overlay is the
-# historical 18.10.1 overlay.json; pass a third argument (e.g.
-# patches/native/18.12.6/overlay.json) to build another pinned recipe. Source
-# patches resolve relative to the chosen overlay file's directory and the
-# addons are stamped with that overlay's version.
+# the source patches listed in an overlay manifest. The overlay is REQUIRED:
+# pass the recipe of the release you are building (patches/native/<version>/
+# overlay.json). Source patches resolve relative to the chosen overlay file's
+# directory and the addons are stamped with that overlay's version. There is no
+# default recipe, so a build can never silently reuse a retired release.
 #
 # Offline: set OMP_NATIVE_UPSTREAM_GIT to a local repository holding the pinned
 # commit (no clone/fetch) and OMP_NATIVE_OFFLINE=1 to add `--offline` to cargo.
-# Usage: build-natives.sh <work-dir> <out-dir> [overlay-json]
+# Usage: build-natives.sh <work-dir> <out-dir> <overlay-json>
 set -euo pipefail
 
-here="$(cd "$(dirname "$0")" && pwd)"
 work="${1:?work dir}"
 out="${2:?out dir}"
-overlay="${3:-$here/overlay.json}"
+overlay="${3:-}"
+if [ -z "$overlay" ]; then
+	echo "usage: build-natives.sh <work-dir> <out-dir> <overlay-json>  (see native/<version>/overlay.json; there is no default recipe)" >&2
+	exit 2
+fi
 overlay_dir="$(cd "$(dirname "$overlay")" && pwd)"
 overlay="$overlay_dir/$(basename "$overlay")"
 commit="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["upstream_commit"])' "$overlay")"

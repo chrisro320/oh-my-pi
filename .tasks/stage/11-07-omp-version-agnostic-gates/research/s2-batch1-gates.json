@@ -1,0 +1,394 @@
+{
+ "step": "S2 batch 1 gate runs (23 menu-selected gates + the fail-closed fault driver)",
+ "sandbox": "bwrap --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp --bind /var/tmp/omp-vagn-s2/run --unshare-net --unshare-pid --die-with-parent, private HOME/XDG (/var/tmp/omp-vagn-s2/bw.sh, rung.sh). FS read-only except the run dir; no network.",
+ "runtime_18_18_0": {
+  "path": "/var/tmp/omp-vagn-s2/run/rt (copy of /var/tmp/omp-vagn-s1/run/runtime-18180, itself the S1 copy of /var/tmp/omp-18180-m8e/runtime)",
+  "oracle_tree_digest_before": "3b2faede573f6ecdc6f69874113813ce2a5d5ebab8fe22c5614a88d499f2cf10",
+  "oracle_tree_digest_after": "3b2faede573f6ecdc6f69874113813ce2a5d5ebab8fe22c5614a88d499f2cf10",
+  "unchanged": true,
+  "note": "digest is verify-release-family-plan.py:tree_digest; it reads 3b2faede\u2026 for the untouched S1 copy and the m8e source as well (the f74e5992\u2026 identity recorded in the prior receipts uses the earlier canonicalization; before==after here is the invariance evidence)"
+ },
+ "runtime_18_16_0": {
+  "path": "/var/tmp/omp-vagn-s2/run/rt1816 (copy of /var/tmp/omp-18160-s5/runtime, read-only source)",
+  "oracle_tree_digest_before": "d5545df9145018f70c6b0a1a9fa23c4e3ffe61107426353783e06bedc565b000",
+  "oracle_tree_digest_after": "d5545df9145018f70c6b0a1a9fa23c4e3ffe61107426353783e06bedc565b000",
+  "unchanged": true,
+  "note": "informational cross-check: 18.16.0 selects 23 of the 25 files (not verify-user-display-text-queue.ts, which is 18.18.0-only, and not the fault driver)"
+ },
+ "menu_selected_18_18_0": [
+  "verify-codex-compaction-chain-fail-closed.ts",
+  "verify-session-history-preview.ts",
+  "verify-hindsight-recall-snapshot.ts",
+  "verify-interrupt-prune-symmetry.ts",
+  "verify-turn-recovery-reminder-persist.ts",
+  "verify-codex-effort-resume.ts",
+  "verify-eval-state-context-persist.ts",
+  "verify-user-display-text-queue.ts",
+  "verify-model-selection-resume.ts",
+  "verify-codex-compaction-chain.ts",
+  "verify-hindsight-recall-promotion-slot.ts",
+  "verify-context-persist-audit.ts",
+  "verify-prompt-rebuild-inputs.ts",
+  "verify-length-stop-reminder-persist.ts",
+  "verify-session-transfer-authority.ts",
+  "verify-prompt-effort-resume.ts",
+  "verify-cron-idle-owners.ts",
+  "verify-catalog-regen-parity.ts",
+  "verify-native-dialog-lifecycle.ts",
+  "verify-tokenizer-budget-parity.ts",
+  "verify-withdrawn-tools-wire.ts",
+  "verify-held-file-write-guard.ts",
+  "verify-snapcompact-frame-reprice.ts"
+ ],
+ "runs_18_18_0": {
+  "verify-codex-compaction-chain-fail-closed.ts": {
+   "exit": 0,
+   "tail": [
+    "0096 capacity: provider-overflow PASS (300006 tokens; standard window 272000)",
+    "verify-codex-compaction-chain-fail-closed: transport, retry, metadata and public types PASS"
+   ]
+  },
+  "verify-session-history-preview.ts": {
+   "exit": 0,
+   "tail": [
+    "",
+    "ALL VERIFICATIONS PASSED SUCCESSFULLY!"
+   ]
+  },
+  "verify-hindsight-recall-snapshot.ts": {
+   "exit": 0,
+   "tail": [
+    "  ok actual /clear publishes its boundary before target snapshot lookup",
+    "PASS hindsight recall snapshot: empty recalls frozen, resume prefix stable"
+   ]
+  },
+  "verify-interrupt-prune-symmetry.ts": {
+   "exit": 0,
+   "tail": [
+    "  transcript still renders the interrupted turn",
+    "=== interrupted-turn render symmetry OK ==="
+   ]
+  },
+  "verify-turn-recovery-reminder-persist.ts": {
+   "exit": 0,
+   "tail": [
+    "  committed-text stall with requestControls: text and controls retained, live == rebuilt",
+    "turn-recovery reminder persist (18.18.0): ALL PASS"
+   ]
+  },
+  "verify-codex-effort-resume.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS Codex effort (18.18.0): transport persistence, JSONL resume, branch isolation, immutable history, rewrite/compaction reset, legacy/provider/model boundaries"
+   ]
+  },
+  "verify-eval-state-context-persist.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS eval state context persist (18.18.0): resume wire-equal, read-only snapshots write nothing, state change appends once"
+   ]
+  },
+  "verify-user-display-text-queue.ts": {
+   "exit": 0,
+   "tail": [
+    "verify-user-display-text-queue: PASS (18.18.0, queue identity, abort drain)"
+   ]
+  },
+  "verify-model-selection-resume.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS startup configured auto -> starting model defaultLevel: high on the wire",
+    "PASS persisted A -> B -> navigation/fork -> fresh-process resume: model=sol, effort=high"
+   ]
+  },
+  "verify-codex-compaction-chain.ts": {
+   "exit": 0,
+   "tail": [
+    "ok   fault control rejected: removed metadata strip (exit 1)",
+    "verify-codex-compaction-chain: live baseline reuse holds"
+   ]
+  },
+  "verify-hindsight-recall-promotion-slot.ts": {
+   "exit": 0,
+   "tail": [
+    "verify-hindsight-recall-promotion-slot: ok"
+   ]
+  },
+  "verify-context-persist-audit.ts": {
+   "exit": 0,
+   "tail": [
+    "context-persist-audit: ALL PASS"
+   ]
+  },
+  "verify-prompt-rebuild-inputs.ts": {
+   "exit": 0,
+   "tail": [
+    "  ok   mutation rejected: ovnfs availability is not a prompt input -> u8-ovnfs-checkout-guidance",
+    "  ok   mutation rejected: ovnfs PATH fallback removed -> u8-ovnfs-path-fallback"
+   ]
+  },
+  "verify-length-stop-reminder-persist.ts": {
+   "exit": 0,
+   "tail": [
+    "length-stop reminder persist: ALL PASS"
+   ]
+  },
+  "verify-session-transfer-authority.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS session transfer authority (18.18.0): claim-before-read, transactional imports/adoption, journaled date/cwd reminders and relocation"
+   ]
+  },
+  "verify-prompt-effort-resume.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS prompt-effort resume: 2 scenarios (max->high, high->max) keep 2+2+2 requests prefix-identical with effort on the wire"
+   ]
+  },
+  "verify-cron-idle-owners.ts": {
+   "exit": 0,
+   "tail": [
+    "",
+    "PASS verify-cron-idle-owners: one idle owner, provider skip list intact, no overlap"
+   ]
+  },
+  "verify-catalog-regen-parity.ts": {
+   "exit": 0,
+   "tail": [
+    "  ok   fault:models-json-path: rejected the mutated copy (exit 1)",
+    "PASS verify-catalog-regen-parity: 8/8 claims hold"
+   ]
+  },
+  "verify-native-dialog-lifecycle.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS BTW emitted Copy answer action reaches application answer copying",
+    "PASS advisor Tools End selection remains visible and applies its draft"
+   ]
+  },
+  "verify-tokenizer-budget-parity.ts": {
+   "exit": 0,
+   "tail": [
+    "tokenizer-budget-parity[compaction grok-4]: fill=3200 native=turn 16 estimate=turn 16 tokenizer=turn 16 removed-bytes4=turn 17 (-9.75%)",
+    "tokenizer-budget-parity verification: ok"
+   ]
+  },
+  "verify-withdrawn-tools-wire.ts": {
+   "exit": 0,
+   "tail": [
+    "=== Testing withdrawn-tool wire (U5, 18.18.0) ===",
+    "PASS verify-withdrawn-tools-wire: withdrawn definitions stay declared once, controls replay once per change, repeated requests are byte-identical, transform-time withdrawals are recomputed (U5)"
+   ]
+  },
+  "verify-held-file-write-guard.ts": {
+   "exit": 0,
+   "tail": [
+    "held-file-guard[control]: plain file written, released store written",
+    "held-file-guard verification: ok"
+   ]
+  },
+  "verify-snapcompact-frame-reprice.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS (18.18.0): session.compact admits the priced successor and rejects its ceiling-priced twin without provider requests"
+   ]
+  },
+  "verify-codex-compaction-chain-fail-closed-faults.sh": {
+   "exit": 0,
+   "tail": [
+    "PASS fault: incomplete runtime cannot pass",
+    "verify-codex-compaction-chain-fail-closed faults: 22 behavioral/type faults rejected"
+   ]
+  }
+ },
+ "runs_18_16_0": {
+  "verify-codex-compaction-chain-fail-closed.ts": {
+   "exit": 0,
+   "tail": [
+    "0096 capacity: provider-overflow PASS (300006 tokens; standard window 272000)",
+    "verify-codex-compaction-chain-fail-closed: transport, retry, metadata and public types PASS"
+   ]
+  },
+  "verify-session-history-preview.ts": {
+   "exit": 0,
+   "tail": [
+    "",
+    "ALL VERIFICATIONS PASSED SUCCESSFULLY!"
+   ]
+  },
+  "verify-hindsight-recall-snapshot.ts": {
+   "exit": 0,
+   "tail": [
+    "  ok actual /clear publishes its boundary before target snapshot lookup",
+    "PASS hindsight recall snapshot: empty recalls frozen, resume prefix stable"
+   ]
+  },
+  "verify-interrupt-prune-symmetry.ts": {
+   "exit": 0,
+   "tail": [
+    "  transcript still renders the interrupted turn",
+    "=== interrupted-turn render symmetry OK ==="
+   ]
+  },
+  "verify-turn-recovery-reminder-persist.ts": {
+   "exit": 0,
+   "tail": [
+    "  committed-text stall with requestControls: text and controls retained, live == rebuilt",
+    "turn-recovery reminder persist (18.16.0): ALL PASS"
+   ]
+  },
+  "verify-codex-effort-resume.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS Codex effort (18.16.0): transport persistence, JSONL resume, branch isolation, immutable history, rewrite/compaction reset, legacy/provider/model boundaries"
+   ]
+  },
+  "verify-eval-state-context-persist.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS eval state context persist (18.16.0): resume wire-equal, read-only snapshots write nothing, state change appends once"
+   ]
+  },
+  "verify-model-selection-resume.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS configured auto -> target defaultLevel: temporary/persisted switches commit high, explicit effort wins, no-default keeps auto",
+    "PASS persisted A -> B -> navigation/fork -> fresh-process resume: model=sol, effort=high"
+   ]
+  },
+  "verify-codex-compaction-chain.ts": {
+   "exit": 0,
+   "tail": [
+    "ok   fault control rejected: removed metadata strip (exit 1)",
+    "verify-codex-compaction-chain: live baseline reuse holds"
+   ]
+  },
+  "verify-hindsight-recall-promotion-slot.ts": {
+   "exit": 0,
+   "tail": [
+    "verify-hindsight-recall-promotion-slot: ok"
+   ]
+  },
+  "verify-context-persist-audit.ts": {
+   "exit": 0,
+   "tail": [
+    "context-persist-audit: ALL PASS"
+   ]
+  },
+  "verify-prompt-rebuild-inputs.ts": {
+   "exit": 0,
+   "tail": [
+    "  ok   mutation rejected: intentField is not a prompt input -> u2-intent-field-flip",
+    "  ok   mutation rejected: out:// replies never advertised -> u15-out-replies-flip"
+   ]
+  },
+  "verify-length-stop-reminder-persist.ts": {
+   "exit": 0,
+   "tail": [
+    "length-stop reminder persist: ALL PASS"
+   ]
+  },
+  "verify-session-transfer-authority.ts": {
+   "exit": 1,
+   "tail": [
+    "",
+    "Bun v1.4.4 (Linux x64)"
+   ]
+  },
+  "verify-prompt-effort-resume.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS prompt-effort resume: 2 scenarios (max->high, high->max) keep 2+2+2 requests prefix-identical with effort on the wire"
+   ]
+  },
+  "verify-cron-idle-owners.ts": {
+   "exit": 0,
+   "tail": [
+    "",
+    "PASS verify-cron-idle-owners: one idle owner, provider skip list intact, no overlap"
+   ]
+  },
+  "verify-catalog-regen-parity.ts": {
+   "exit": 0,
+   "tail": [
+    "  ok   fault:models-json-path: rejected the mutated copy (exit 1)",
+    "PASS verify-catalog-regen-parity: 8/8 claims hold"
+   ]
+  },
+  "verify-native-dialog-lifecycle.ts": {
+   "exit": 0,
+   "tail": [
+    "PASS BTW emitted Copy answer action reaches application answer copying",
+    "PASS advisor Tools End selection remains visible and applies its draft"
+   ]
+  },
+  "verify-tokenizer-budget-parity.ts": {
+   "exit": 0,
+   "tail": [
+    "tokenizer-budget-parity[compaction grok-4]: fill=3200 native=turn 16 estimate=turn 16 tokenizer=turn 16 removed-bytes4=turn 17 (-9.75%)",
+    "tokenizer-budget-parity verification: ok"
+   ]
+  },
+  "verify-withdrawn-tools-wire.ts": {
+   "exit": 0,
+   "tail": [
+    "=== Testing withdrawn-tool wire (U5, 18.16.0) ===",
+    "PASS verify-withdrawn-tools-wire: withdrawn definitions stay declared once, controls replay once per change, repeated requests are byte-identical, transform-time withdrawals are recomputed (U5)"
+   ]
+  },
+  "verify-extensions-load-18160.ts": {
+   "exit": 0,
+   "tail": [
+    "",
+    "PASS verify-extensions-load-18160: 8/8 legs"
+   ]
+  },
+  "verify-held-file-write-guard.ts": {
+   "exit": 0,
+   "tail": [
+    "held-file-guard[control]: plain file written, released store written",
+    "held-file-guard verification: ok"
+   ]
+  },
+  "verify-snapcompact-frame-reprice.ts": {
+   "exit": 1,
+   "tail": [
+    "",
+    "Bun v1.4.4 (Linux x64)"
+   ]
+  }
+ },
+ "exceptions_18_16_0": {
+  "verify-session-transfer-authority.ts": "pre-existing environment gap, not a conversion regression: the gate's existing `await import(\"./worker-pool-for-tests.ts\")` leg loads `${AGENT_ROOT}/src/thread/subagent-worker.ts`; this 18.16.0 copy has no `src/thread/` directory. The conversion did not add or change that import. The gate PASSES on the 18.18.0 candidate.",
+  "verify-snapcompact-frame-reprice.ts": "pre-existing tree/content mismatch, not a conversion regression: the failing assertion (`legacyArchive.truncatedChars > 0`) is inside the priced-pair branch, whose pre-S2 predicate `[\"18.16.0\",\"18.18.0\"].includes(VERSION)` already selected that same branch on 18.16.0; only the retired-only else branch was deleted. The gate PASSES on the 18.18.0 candidate."
+ },
+ "gate_sha256": {
+  "verify-catalog-regen-parity.ts": "4a334aa5239c41268c4ba207b86e2053224a51cea91d32548988bb4502dda3fd",
+  "verify-codex-compaction-chain-fail-closed-faults.sh": "ca12e24640d01eafe74862b9f2b68bb0c24b244f8b31ab6dfb399a9b8aebf292",
+  "verify-codex-compaction-chain-fail-closed.ts": "44be89cc4e915dac4191f9bde9182ca55d788277e7432dc4a43e52f9dd74bea9",
+  "verify-codex-compaction-chain.ts": "ce2e4b1254d41a4515f337e6c2e3b766fe8847fa5650e8dff5a4f6e74ec20062",
+  "verify-codex-effort-resume.ts": "c84bb89285f0c5a0a5b16f7767b8a3a8f7871266573e4f268da91465fdbff16a",
+  "verify-context-persist-audit.ts": "bec659269474ec046ad5ec59424e52fa76fe8bc184d5c2143897c43d53b3f9da",
+  "verify-cron-idle-owners.ts": "5b026f0a801689f486ed12ee1f08e8d34f3dd26629532eb3d3b57a3fac83df5f",
+  "verify-eval-state-context-persist.ts": "d53500d2973e73fa359e17101a9d3813b298632bae16ad6c942732c7816df16b",
+  "verify-extensions-load-18160.ts": "db73a8f278a964bc57ea6132bd5aafaeae955acb22f274999c5a8c318c41f6d3",
+  "verify-held-file-write-guard.ts": "bc86dc87df9b129f562c58a602fe0331b44cb21982621c29e81fe38e00326b00",
+  "verify-hindsight-recall-promotion-slot.ts": "cdac2efb7c63995b686f36677bc9116637ff0cd4d437d54baea451ae7925e91e",
+  "verify-hindsight-recall-snapshot.ts": "3445d6f583ba6e3ef65386178d9ce87af11e1f64ca14970adf23b2c14f055209",
+  "verify-interrupt-prune-symmetry.ts": "484204a210aa1eb962a40d85af13111706cf301614b0a3f3ca27d0d32d902d9c",
+  "verify-length-stop-reminder-persist.ts": "691d51e97bc70a76fd901ba1628ab525522dbe04d35fa8e8061f4610f062ae51",
+  "verify-model-selection-resume.ts": "2c8480a2c1ef393ac625c8eb34cdb1923bf79663bce17c4afa53d2cda12b8931",
+  "verify-native-dialog-lifecycle.ts": "4f701d0e799018073b38b11436ab3d3e3f47fbf03a6d04dd9777ab5dbfcd9717",
+  "verify-prompt-effort-resume.ts": "3016f82937acdb5c7251f790c9eb14b20d431a4d0e5244da57014bad83e7d943",
+  "verify-prompt-rebuild-inputs.ts": "65e8ca914e802d7da6521a223f763f8ef9c45acceaa960118748e0a44e745645",
+  "verify-session-history-preview.ts": "ce8c5f7239de1d531431610a6b7524e061cbfdb2c92ea8e1b717af5d196328e9",
+  "verify-session-transfer-authority.ts": "e74ed5452dd7fdb693be0ddf5306daf80f11b032c3f7835b82b897acbac48481",
+  "verify-snapcompact-frame-reprice.ts": "9c4a7bff8de0c3d75f0f3d7a5ffb94192914f2722c55f752ed11876e65f11867",
+  "verify-tokenizer-budget-parity.ts": "82478dabf731225ecf9dd54e9e97b1b66c8e69ac734279525ec84b4589ed9a82",
+  "verify-turn-recovery-reminder-persist.ts": "851b59b318f51a3c26be9bd80be38192c38fb8014fc37d424108b9b2c209f0a5",
+  "verify-user-display-text-queue.ts": "c3690d2e9780cdf0182fe25bced811d5d3a0b7b40664093d11e49a229470a5d3",
+  "verify-withdrawn-tools-wire.ts": "2fefd02dfda40c2bde67117fd85aa172363a39c574878dd7f4cd51152eb98273"
+ },
+ "date": "2026-11-07",
+ "status": "PASS (18.18.0 candidate: all selected gates + driver green, runtime unchanged)"
+}

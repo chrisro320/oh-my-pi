@@ -1,0 +1,1209 @@
+{
+  "status": "PASS",
+  "interrupted": false,
+  "version": "18.18.0",
+  "node_modules": "/var/tmp/omp-18180-m8e/runtime/node_modules",
+  "finished": "2026-11-08T05:37:48.749+00:00",
+  "runner_sha256": "064269a73994b35eaec8f2ceb2e8969c2ea675133d3ffd5edb05bfdda89c56e4",
+  "apply_sh_sha256": "17fb15b79d320ef6f09d0c24d3df147cf5b5afc0f0b5038f87f65e7cf9867620",
+  "jobs": 10,
+  "timeout_s": 900,
+  "wall_s": 111.1,
+  "total_s": 119.1,
+  "gate_seconds_sum": 434.4,
+  "out": "/var/tmp/omp-gates-hrhxvqbt",
+  "selection": {
+    "menu_total": 70,
+    "selected": 70,
+    "families": [],
+    "capabilities": [],
+    "gates": [],
+    "with_unscoped": false
+  },
+  "runtime_digest": {
+    "method": "sha256 over sorted 'relative-path\\0file-sha256\\n' (paths relative to the node_modules parent)",
+    "entries": 25526,
+    "before": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "after": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "unchanged": true
+  },
+  "tally": {
+    "PASS": 70
+  },
+  "failing": [],
+  "gates": [
+    {
+      "gate": "verify-antigravity-envelope.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.3,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-antigravity-envelope.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "64ae503ead2b6b5352408257cfebefd061ebc4e131a6b8dad0aac920ed846cdc",
+      "started": "2026-11-08T05:35:53.926+00:00",
+      "finished": "2026-11-08T05:35:54.225+00:00"
+    },
+    {
+      "gate": "verify-prefix-cache-compaction.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.84,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-prefix-cache-compaction.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "bcb72527cb3d9d71b19c240044a7afd74ba884c81ad0a18b0591534f3741c4f0",
+      "started": "2026-11-08T05:35:53.927+00:00",
+      "finished": "2026-11-08T05:35:54.772+00:00"
+    },
+    {
+      "gate": "verify-provider-image-budget.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 2.23,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-provider-image-budget.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "d5ef0a96adea9b8e254a686537235431cb50344730bebb8eddbe102bd9a4d10d",
+      "started": "2026-11-08T05:35:53.929+00:00",
+      "finished": "2026-11-08T05:35:56.155+00:00"
+    },
+    {
+      "gate": "verify-snapcompact-model-billing.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.3,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-snapcompact-model-billing.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "8eb0b369a87f56262be23e135201589eddbe22d87ee053f2b297fd68f3297877",
+      "started": "2026-11-08T05:35:53.929+00:00",
+      "finished": "2026-11-08T05:35:54.226+00:00"
+    },
+    {
+      "gate": "verify-devin-wire.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.55,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-devin-wire.log",
+      "flags": [],
+      "capabilities": [
+        "0055",
+        "0058"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "ccfa0a2041beb8108e76d7ea408eb3406d97f98532d9fcc071fbbdcbe6ab8089",
+      "started": "2026-11-08T05:35:53.930+00:00",
+      "finished": "2026-11-08T05:35:54.479+00:00"
+    },
+    {
+      "gate": "verify-hindsight-recall-snapshot.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 14.14,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-hindsight-recall-snapshot.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "39365d0ea5b5c4a5e5d8a7e75674335f0de22df62606097d2fa820f1fe70e8d4",
+      "started": "2026-11-08T05:35:53.931+00:00",
+      "finished": "2026-11-08T05:36:08.073+00:00"
+    },
+    {
+      "gate": "verify-interrupt-prune-symmetry.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.32,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-interrupt-prune-symmetry.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "77987c08bde47682d79d78a2c85a45b71a755147d82839628a0bdb5ccde48b76",
+      "started": "2026-11-08T05:35:54.229+00:00",
+      "finished": "2026-11-08T05:35:54.554+00:00"
+    },
+    {
+      "gate": "verify-date-cwd-journal-prefix.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 9.61,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-date-cwd-journal-prefix.log",
+      "flags": [],
+      "capabilities": [
+        "0047"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "b6ad13eead13f308f48d5955beff86c00479b99ecafc1414738389e8899d9bc4",
+      "started": "2026-11-08T05:35:54.229+00:00",
+      "finished": "2026-11-08T05:36:03.834+00:00"
+    },
+    {
+      "gate": "verify-session-transfer-authority.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.73,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-session-transfer-authority.log",
+      "flags": [],
+      "capabilities": [
+        "0047"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "5b776268349367d72d8d15a2d6fb1e390355be05dd74dce30b2f7d39db5ee74c",
+      "started": "2026-11-08T05:35:54.481+00:00",
+      "finished": "2026-11-08T05:35:56.208+00:00"
+    },
+    {
+      "gate": "verify-devin-metadata.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.12,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-devin-metadata.log",
+      "flags": [],
+      "capabilities": [
+        "0056"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "d6ffe04ebbd2cd619e9d324ec8e85ac602ba2e6ad0722330c956c8f4b04d2005",
+      "started": "2026-11-08T05:35:54.554+00:00",
+      "finished": "2026-11-08T05:35:54.678+00:00"
+    },
+    {
+      "gate": "verify-supersede-warm-prefix-guard.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.17,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-supersede-warm-prefix-guard.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "10a58daa418dde9e2656d52a66bf5f16a213034dd290f78d7ada7c9f046c1c53",
+      "started": "2026-11-08T05:35:54.679+00:00",
+      "finished": "2026-11-08T05:35:54.853+00:00"
+    },
+    {
+      "gate": "verify-snapcompact-frame-reprice.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.78,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-snapcompact-frame-reprice.log",
+      "flags": [],
+      "capabilities": [
+        "0045",
+        "0062"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "9c4a7bff8de0c3d75f0f3d7a5ffb94192914f2722c55f752ed11876e65f11867",
+      "started": "2026-11-08T05:35:54.790+00:00",
+      "finished": "2026-11-08T05:35:56.574+00:00"
+    },
+    {
+      "gate": "verify-session-history-preview.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.33,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-session-history-preview.log",
+      "flags": [],
+      "capabilities": [
+        "0050"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "ce8c5f7239de1d531431610a6b7524e061cbfdb2c92ea8e1b717af5d196328e9",
+      "started": "2026-11-08T05:35:54.856+00:00",
+      "finished": "2026-11-08T05:35:56.187+00:00"
+    },
+    {
+      "gate": "verify-native-dialog-lifecycle.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.37,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-native-dialog-lifecycle.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "4f701d0e799018073b38b11436ab3d3e3f47fbf03a6d04dd9777ab5dbfcd9717",
+      "started": "2026-11-08T05:35:56.176+00:00",
+      "finished": "2026-11-08T05:35:56.546+00:00"
+    },
+    {
+      "gate": "verify-manual-compaction-direct.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 9.38,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-manual-compaction-direct.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "9e9bbfa046bb9042199f716d2175e94ef03ac43fc490051cb05b004202417541",
+      "started": "2026-11-08T05:35:56.208+00:00",
+      "finished": "2026-11-08T05:36:05.589+00:00"
+    },
+    {
+      "gate": "verify-context-notes-append-projection.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 9.56,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-context-notes-append-projection.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "90a1243b3b05674721c3a308fa889544a439709a5d98a62b0a18c609f047c9a1",
+      "started": "2026-11-08T05:35:56.220+00:00",
+      "finished": "2026-11-08T05:36:05.776+00:00"
+    },
+    {
+      "gate": "verify-devin-idle-cascade-pin.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.82,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-devin-idle-cascade-pin.log",
+      "flags": [],
+      "capabilities": [
+        "0060"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "94690be27ada41fd49358ac09e2a40372d973704003dc1957ebf019b63f8a832",
+      "started": "2026-11-08T05:35:56.552+00:00",
+      "finished": "2026-11-08T05:35:58.372+00:00"
+    },
+    {
+      "gate": "verify-idle-ephemeral-reservation.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 5.59,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-idle-ephemeral-reservation.log",
+      "flags": [],
+      "capabilities": [
+        "0010"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "7a4f4c20b346e22fab1c1263b57337207fdeef41ed37810e5a187ba0bc6468a2",
+      "started": "2026-11-08T05:35:56.602+00:00",
+      "finished": "2026-11-08T05:36:02.188+00:00"
+    },
+    {
+      "gate": "verify-resume-cache-breakpoint.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.27,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-resume-cache-breakpoint.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "6f01f6160079b281c11c37c0b12a38453481b49e2053d4531557dbefc134234d",
+      "started": "2026-11-08T05:35:58.393+00:00",
+      "finished": "2026-11-08T05:35:58.660+00:00"
+    },
+    {
+      "gate": "verify-codex-compaction-chain.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.32,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-codex-compaction-chain.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "ce2e4b1254d41a4515f337e6c2e3b766fe8847fa5650e8dff5a4f6e74ec20062",
+      "started": "2026-11-08T05:35:58.662+00:00",
+      "finished": "2026-11-08T05:35:58.979+00:00"
+    },
+    {
+      "gate": "verify-anthropic-native-compaction-live-context.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.37,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-anthropic-native-compaction-live-context.log",
+      "flags": [],
+      "capabilities": [
+        "0066"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "cb3ba8822af284717240be31c4c28859886db5d179fb37380ee734cf29614da2",
+      "started": "2026-11-08T05:35:58.985+00:00",
+      "finished": "2026-11-08T05:35:59.354+00:00"
+    },
+    {
+      "gate": "verify-compaction-lane-trace.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.42,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-compaction-lane-trace.log",
+      "flags": [],
+      "capabilities": [
+        "0067"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "4511a11ea84e1d6076398f8f3d88dfee40fa7054bb72b3dba735150389a0db09",
+      "started": "2026-11-08T05:35:59.362+00:00",
+      "finished": "2026-11-08T05:35:59.784+00:00"
+    },
+    {
+      "gate": "verify-codex-effort-resume.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.17,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-codex-effort-resume.log",
+      "flags": [],
+      "capabilities": [
+        "0069"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "c84bb89285f0c5a0a5b16f7767b8a3a8f7871266573e4f268da91465fdbff16a",
+      "started": "2026-11-08T05:35:59.792+00:00",
+      "finished": "2026-11-08T05:35:59.957+00:00"
+    },
+    {
+      "gate": "verify-codex-compaction-chain-fail-closed.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 2.02,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-codex-compaction-chain-fail-closed.log",
+      "flags": [],
+      "capabilities": [
+        "0070"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "44be89cc4e915dac4191f9bde9182ca55d788277e7432dc4a43e52f9dd74bea9",
+      "started": "2026-11-08T05:35:59.965+00:00",
+      "finished": "2026-11-08T05:36:01.987+00:00"
+    },
+    {
+      "gate": "verify-session-pin-static-auth-ui.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.82,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-session-pin-static-auth-ui.log",
+      "flags": [],
+      "capabilities": [
+        "0072"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "23881ccff6e8a4bb526ce624952366c854dd0a5a872d35f82192ec663c115fc0",
+      "started": "2026-11-08T05:36:01.994+00:00",
+      "finished": "2026-11-08T05:36:02.814+00:00"
+    },
+    {
+      "gate": "verify-read-description-live.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.67,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-read-description-live.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "9a2beefb2f1139baf633d86f661ba1b22d744cf6b39c023b52f4bc7d261ed5e4",
+      "started": "2026-11-08T05:36:02.211+00:00",
+      "finished": "2026-11-08T05:36:02.880+00:00"
+    },
+    {
+      "gate": "verify-anthropic-cache-boundaries.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 2.08,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-anthropic-cache-boundaries.log",
+      "flags": [],
+      "capabilities": [
+        "0074"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "2ec43820a74d247d7b54f07e5480100269b98e6f6e7fdf4b98aa24c1eaa79373",
+      "started": "2026-11-08T05:36:02.840+00:00",
+      "finished": "2026-11-08T05:36:04.916+00:00"
+    },
+    {
+      "gate": "verify-anthropic-request-audit.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 4.98,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-anthropic-request-audit.log",
+      "flags": [],
+      "capabilities": [
+        "0074"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "362ab13cdb350ae383ddc0875b6f0a3bb4db5e1e73f62a6fb62a3ca71e38b010",
+      "started": "2026-11-08T05:36:02.897+00:00",
+      "finished": "2026-11-08T05:36:07.872+00:00"
+    },
+    {
+      "gate": "verify-hindsight-recall-promotion-slot.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.47,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-hindsight-recall-promotion-slot.log",
+      "flags": [],
+      "capabilities": [
+        "0075"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "9b6a56d949f2f2ffe46f7f617884b8dc210c8655932326c4618add6e5bed0f5d",
+      "started": "2026-11-08T05:36:03.835+00:00",
+      "finished": "2026-11-08T05:36:04.306+00:00"
+    },
+    {
+      "gate": "verify-reminder-persist.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 4.33,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-reminder-persist.log",
+      "flags": [],
+      "capabilities": [
+        "0076",
+        "0077",
+        "0084"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "391dd64f6e93254a3f37e6bb6dddb7d7d0c9587d6b150170ce1538cac3ee8b99",
+      "started": "2026-11-08T05:36:04.307+00:00",
+      "finished": "2026-11-08T05:36:08.636+00:00"
+    },
+    {
+      "gate": "verify-python-display-mime-preference.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 3.23,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-python-display-mime-preference.log",
+      "flags": [],
+      "capabilities": [
+        "0078"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "e2da409832b200afef7f77fed5f9e6bfa73a18ade9b648d2f167caebed5213a9",
+      "started": "2026-11-08T05:36:04.922+00:00",
+      "finished": "2026-11-08T05:36:08.149+00:00"
+    },
+    {
+      "gate": "verify-kitty-conversion-finalization.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.37,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-kitty-conversion-finalization.log",
+      "flags": [],
+      "capabilities": [
+        "0079"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "a6bded18cee14cefae054c365299bf0b17e84bbde34d70790228181796bc4f3c",
+      "started": "2026-11-08T05:36:05.590+00:00",
+      "finished": "2026-11-08T05:36:05.962+00:00"
+    },
+    {
+      "gate": "verify-kitty-shared-png-cache.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 7.99,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-kitty-shared-png-cache.log",
+      "flags": [],
+      "capabilities": [
+        "0080"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "b21f3f0a2a407f98b8067bffb427210e326b9c27f60157480de0d118e00a89c2",
+      "started": "2026-11-08T05:36:05.777+00:00",
+      "finished": "2026-11-08T05:36:13.765+00:00"
+    },
+    {
+      "gate": "verify-main-cache-hit.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.32,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-main-cache-hit.log",
+      "flags": [],
+      "capabilities": [
+        "0081"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "277c852f50f1022f3d0922f4c7cd4b8393e3e204eab74d62bb52a5d440b7447a",
+      "started": "2026-11-08T05:36:05.979+00:00",
+      "finished": "2026-11-08T05:36:06.294+00:00"
+    },
+    {
+      "gate": "verify-usage-reset-format.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.26,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-usage-reset-format.log",
+      "flags": [],
+      "capabilities": [
+        "0081"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "f1d6a8d214bd6aa7a36284e3be9fd9ac16375cecfd9d4980ad886888c5497335",
+      "started": "2026-11-08T05:36:06.307+00:00",
+      "finished": "2026-11-08T05:36:06.572+00:00"
+    },
+    {
+      "gate": "verify-model-mention-surface-resume.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 8.41,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-model-mention-surface-resume.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0083"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "d4aec675eaef45f6fc70c807a1c3093a1daf0910c1c84ac56f03039ad55d3ec6",
+      "started": "2026-11-08T05:36:06.577+00:00",
+      "finished": "2026-11-08T05:36:14.987+00:00"
+    },
+    {
+      "gate": "verify-model-effort-resume.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 16.5,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-model-effort-resume.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0093"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "e87f3cae20b9412eed855c347790d662cd3d77218a98aed780b40c6cc736e168",
+      "started": "2026-11-08T05:36:07.895+00:00",
+      "finished": "2026-11-08T05:36:24.393+00:00"
+    },
+    {
+      "gate": "verify-anthropic-thinking-drop-resume.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.22,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-anthropic-thinking-drop-resume.log",
+      "flags": [],
+      "capabilities": [
+        "0094"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "237304e9cc9508850808dd0d87dcbf2819cfa097dbea3dafbd366eae3cfec90f",
+      "started": "2026-11-08T05:36:08.074+00:00",
+      "finished": "2026-11-08T05:36:08.295+00:00"
+    },
+    {
+      "gate": "verify-context-persist-audit.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.02,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-context-persist-audit.log",
+      "flags": [],
+      "capabilities": [
+        "0095"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "bec659269474ec046ad5ec59424e52fa76fe8bc184d5c2143897c43d53b3f9da",
+      "started": "2026-11-08T05:36:08.149+00:00",
+      "finished": "2026-11-08T05:36:09.169+00:00"
+    },
+    {
+      "gate": "verify-user-display-text-queue.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 3.32,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-user-display-text-queue.log",
+      "flags": [],
+      "capabilities": [
+        "0082"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "c3690d2e9780cdf0182fe25bced811d5d3a0b7b40664093d11e49a229470a5d3",
+      "started": "2026-11-08T05:36:08.299+00:00",
+      "finished": "2026-11-08T05:36:11.621+00:00"
+    },
+    {
+      "gate": "verify-rejected-prepared-draft-restore.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 3.17,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-rejected-prepared-draft-restore.log",
+      "flags": [],
+      "capabilities": [
+        "0085"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "7802abf5d86a02e95eeb8b7fb370a8dcc1c335b43b775e002add35c398f2fbd0",
+      "started": "2026-11-08T05:36:08.637+00:00",
+      "finished": "2026-11-08T05:36:11.809+00:00"
+    },
+    {
+      "gate": "verify-compaction-cache-liveness.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.02,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-compaction-cache-liveness.log",
+      "flags": [],
+      "capabilities": [
+        "0088"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "002870d44eb769da7486bb83472bff30a230716d5e3cceca4b128f8c7373f7f1",
+      "started": "2026-11-08T05:36:09.170+00:00",
+      "finished": "2026-11-08T05:36:10.187+00:00"
+    },
+    {
+      "gate": "verify-oauth-durable-refresh.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 10.44,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-oauth-durable-refresh.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0090"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "9149bb7e0a321c7eca238b7fb10e00bfc478b6bd8cf05dd791da4072a8c92ff9",
+      "started": "2026-11-08T05:36:10.200+00:00",
+      "finished": "2026-11-08T05:36:20.638+00:00"
+    },
+    {
+      "gate": "verify-oauth-unlock-fence-faults.sh",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 32.46,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-oauth-unlock-fence-faults.log",
+      "flags": [
+        "slow",
+        "tree"
+      ],
+      "capabilities": [
+        "0090"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "d10efbb9bf45e06c8c50e78ec9f4ad796cb1e88f80192980c6835b9778f6adeb",
+      "started": "2026-11-08T05:35:53.926+00:00",
+      "finished": "2026-11-08T05:36:26.386+00:00"
+    },
+    {
+      "gate": "verify-auth-unlock-extension.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.29,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-auth-unlock-extension.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0090"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "f18bdfa03919d908c2d0c1eb0346efc1c4f0ac0ce51125b9f45741ea14ae118a",
+      "started": "2026-11-08T05:36:11.641+00:00",
+      "finished": "2026-11-08T05:36:12.936+00:00"
+    },
+    {
+      "gate": "verify-account-eligibility-retention.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.27,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-account-eligibility-retention.log",
+      "flags": [],
+      "capabilities": [
+        "0090"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "3dd520f37ad0c32b0887a7ebbeb3e1dbc3b996bce07e69cc4601b77bf3af5fe4",
+      "started": "2026-11-08T05:36:11.901+00:00",
+      "finished": "2026-11-08T05:36:13.169+00:00"
+    },
+    {
+      "gate": "verify-idle-warming-owners.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 70.53,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-idle-warming-owners.log",
+      "flags": [
+        "slow"
+      ],
+      "capabilities": [
+        "0092"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "20d7071d7c5d70c776546610afbeca0156cad6d2af513f85b6b8072ec8ba1b97",
+      "started": "2026-11-08T05:35:53.926+00:00",
+      "finished": "2026-11-08T05:37:04.455+00:00"
+    },
+    {
+      "gate": "verify-session-cache-keepalive.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.07,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-session-cache-keepalive.log",
+      "flags": [],
+      "capabilities": [
+        "0010"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "60dec3289fff8fbd924e4465ca0c4e9afc19d47e9abd39a5cd8ee54fe04381a8",
+      "started": "2026-11-08T05:36:13.173+00:00",
+      "finished": "2026-11-08T05:36:13.238+00:00"
+    },
+    {
+      "gate": "verify-tls-verify-transient-retry.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.42,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-tls-verify-transient-retry.log",
+      "flags": [],
+      "capabilities": [
+        "0098"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "3243a7a0f69dc3402270fb83d6e9c721d1000ee15e44084aab3943348e023af6",
+      "started": "2026-11-08T05:36:13.203+00:00",
+      "finished": "2026-11-08T05:36:13.626+00:00"
+    },
+    {
+      "gate": "verify-retry-slow-schedule.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.42,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-retry-slow-schedule.log",
+      "flags": [],
+      "capabilities": [
+        "0099"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "ffffdd1abb6c1deb727781ff15e04272fdec29f6e619c10a61b129f34b5b2c18",
+      "started": "2026-11-08T05:36:13.241+00:00",
+      "finished": "2026-11-08T05:36:13.656+00:00"
+    },
+    {
+      "gate": "verify-subagent-warm-revival-prompt.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 11.76,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-subagent-warm-revival-prompt.log",
+      "flags": [],
+      "capabilities": [
+        "0101"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "2c90723ec69f39e446d6b759bea0d6bd2d6fd00befc844b844303c688453c22d",
+      "started": "2026-11-08T05:36:13.635+00:00",
+      "finished": "2026-11-08T05:36:25.394+00:00"
+    },
+    {
+      "gate": "verify-computer-control-confirm-deadline.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.47,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-computer-control-confirm-deadline.log",
+      "flags": [],
+      "capabilities": [
+        "0102"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "eaa29f8639bdc7563ac4ebf57c0fbe744c0a5514f3dd2d1beedef55af2b1912d",
+      "started": "2026-11-08T05:36:13.664+00:00",
+      "finished": "2026-11-08T05:36:14.136+00:00"
+    },
+    {
+      "gate": "verify-extensions-load-18180.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 2.13,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-extensions-load-18180.log",
+      "flags": [
+        "companions"
+      ],
+      "capabilities": [
+        "0082"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "dd99056894fccae7798e213cf193471ae51a677368067d99487ed2cb6dc1950a",
+      "started": "2026-11-08T05:36:13.780+00:00",
+      "finished": "2026-11-08T05:36:15.907+00:00"
+    },
+    {
+      "gate": "verify-codex-text-verbosity.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.32,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-codex-text-verbosity.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "ed0d39ff738a7c2182c065d90188cc3aacf198a0293b038ed2ca7421d81c9c31",
+      "started": "2026-11-08T05:36:14.149+00:00",
+      "finished": "2026-11-08T05:36:15.468+00:00"
+    },
+    {
+      "gate": "verify-usage-statusline-gate.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.47,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-usage-statusline-gate.log",
+      "flags": [],
+      "capabilities": [
+        "0037"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "e766c2f4511eac28b5f92a37cc956f51f594f9036c134ef55753c1687694b2e9",
+      "started": "2026-11-08T05:36:15.278+00:00",
+      "finished": "2026-11-08T05:36:15.743+00:00"
+    },
+    {
+      "gate": "verify-usage-thread-providers.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 1.82,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-usage-thread-providers.log",
+      "flags": [],
+      "capabilities": [
+        "0031"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "788b40649b4a9913dc0ff9faf4d825ed6e2d985bf75ccc5066080433c37bf9b9",
+      "started": "2026-11-08T05:36:15.469+00:00",
+      "finished": "2026-11-08T05:36:17.292+00:00"
+    },
+    {
+      "gate": "verify-compaction-live-chain-midnight.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 2.28,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-compaction-live-chain-midnight.log",
+      "flags": [],
+      "capabilities": [
+        "0035"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "4f4ba535eee092d776254e761007ddaa0e914fa96d92d0d311d0920b1a167d26",
+      "started": "2026-11-08T05:36:15.748+00:00",
+      "finished": "2026-11-08T05:36:18.026+00:00"
+    },
+    {
+      "gate": "verify-oauth-worker-single-owner.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 2.35,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-oauth-worker-single-owner.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0090"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "8d3297837079ac04c2278b3a6b6ed447bbdbe934b953512a1686415fe92d4006",
+      "started": "2026-11-08T05:36:15.908+00:00",
+      "finished": "2026-11-08T05:36:18.258+00:00"
+    },
+    {
+      "gate": "verify-anthropic-threads-cache-shape.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.91,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-anthropic-threads-cache-shape.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0074"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "70bda6c16f17173d2bb5133c14e232067bb931deb37330d77fa1de1b8db046da",
+      "started": "2026-11-08T05:36:17.309+00:00",
+      "finished": "2026-11-08T05:36:18.221+00:00"
+    },
+    {
+      "gate": "verify-anthropic-threads-warm-compaction-isolation.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 2.44,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-anthropic-threads-warm-compaction-isolation.log",
+      "flags": [
+        "tree"
+      ],
+      "capabilities": [
+        "0088"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "7ec70435534b1e7fba1ff027a2b4ccbd1b1a37813aba040d59d2d778a744539f",
+      "started": "2026-11-08T05:36:18.027+00:00",
+      "finished": "2026-11-08T05:36:20.466+00:00"
+    },
+    {
+      "gate": "verify-worker-runtime.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 39.33,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-worker-runtime.log",
+      "flags": [
+        "slow"
+      ],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "1775cc59415914a8936c167e7699835328d217902ae780660ab26957d01eae56",
+      "started": "2026-11-08T05:35:53.925+00:00",
+      "finished": "2026-11-08T05:36:33.257+00:00"
+    },
+    {
+      "gate": "verify-tools-wire.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.57,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-tools-wire.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "985ff6681432a4c031248fc11a8ba5c6da76c291714a73c6b53b955b59e54e5c",
+      "started": "2026-11-08T05:36:18.519+00:00",
+      "finished": "2026-11-08T05:36:19.092+00:00"
+    },
+    {
+      "gate": "verify-remote-compaction-target-key.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.77,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-remote-compaction-target-key.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "d25e2adbb2d47f0606f1af8753eff4961d9f3eb249f41a05b3ba1afa87eac758",
+      "started": "2026-11-08T05:36:18.589+00:00",
+      "finished": "2026-11-08T05:36:19.363+00:00"
+    },
+    {
+      "gate": "verify-compaction-length-stop.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.57,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-compaction-length-stop.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "b2838f493a2fee6eef72f5b50f965826f20f83449ed4b17bcba7e6a27c08285a",
+      "started": "2026-11-08T05:36:19.093+00:00",
+      "finished": "2026-11-08T05:36:19.658+00:00"
+    },
+    {
+      "gate": "verify-tokenizer-budget-parity.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.77,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-tokenizer-budget-parity.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "82478dabf731225ecf9dd54e9e97b1b66c8e69ac734279525ec84b4589ed9a82",
+      "started": "2026-11-08T05:36:19.364+00:00",
+      "finished": "2026-11-08T05:36:20.129+00:00"
+    },
+    {
+      "gate": "verify-held-file-write-guard.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.67,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-held-file-write-guard.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "bc86dc87df9b129f562c58a602fe0331b44cb21982621c29e81fe38e00326b00",
+      "started": "2026-11-08T05:36:19.659+00:00",
+      "finished": "2026-11-08T05:36:20.325+00:00"
+    },
+    {
+      "gate": "verify-advisor-quota-rotation.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.77,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-advisor-quota-rotation.log",
+      "flags": [],
+      "capabilities": [
+        "0048"
+      ],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "4afc28644302f364bea73d655984a71f2bf3b59cfcb65841e00af50a191575c3",
+      "started": "2026-11-08T05:36:20.130+00:00",
+      "finished": "2026-11-08T05:36:20.901+00:00"
+    },
+    {
+      "gate": "verify-prompt-rebuild-inputs.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 13.54,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-prompt-rebuild-inputs.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "65e8ca914e802d7da6521a223f763f8ef9c45acceaa960118748e0a44e745645",
+      "started": "2026-11-08T05:36:20.326+00:00",
+      "finished": "2026-11-08T05:36:33.868+00:00"
+    },
+    {
+      "gate": "verify-provider-registry-lazy.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 111.12,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-provider-registry-lazy.log",
+      "flags": [
+        "slow"
+      ],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "c8c2490576fe4db28d44ec19ccf5291e90ce4619f5e75bf9c73030868776869c",
+      "started": "2026-11-08T05:35:53.926+00:00",
+      "finished": "2026-11-08T05:37:45.045+00:00"
+    },
+    {
+      "gate": "verify-catalog-regen-parity.ts",
+      "status": "PASS",
+      "exit": 0,
+      "seconds": 0.52,
+      "log": "/var/tmp/omp-gates-hrhxvqbt/logs/verify-catalog-regen-parity.log",
+      "flags": [],
+      "capabilities": [],
+      "selected_by": [
+        "full menu"
+      ],
+      "gate_sha256": "4a334aa5239c41268c4ba207b86e2053224a51cea91d32548988bb4502dda3fd",
+      "started": "2026-11-08T05:36:20.892+00:00",
+      "finished": "2026-11-08T05:36:21.412+00:00"
+    }
+  ]
+}

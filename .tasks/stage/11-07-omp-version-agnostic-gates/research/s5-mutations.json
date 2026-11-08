@@ -1,0 +1,605 @@
+{
+  "step": "S5 mutation parity \u2014 one single-fault runtime per capability leg",
+  "method": {
+    "fault_applied": "a byte-copy of the 18.18.0 candidate runtime (harness.copy_runtime: bytes + rebased absolute links, validated) with exactly one revert of that capability's behaviour in the installed package source; file sha256 recorded per fault",
+    "merged_run": "the frozen 18.18.0 driver (m8-run-target-gates.py, bwrap --unshare-net, private HOME) with --only <merged gate>; the driver also proves the runtime copy is unchanged after the run",
+    "old_run": "run-old-gate.py: the retired gate copied with version-registry.ts + versions.json beside it (S1 contract for throwaway copies) into the same bwrap/private-HOME environment; every old gate of that merge is run on the same fault runtime, so sibling legs show they stay green",
+    "expectation": "merged gate FAIL and the matching old gate FAIL on the same fault; every sibling old gate PASS (leg isolation)"
+  },
+  "faults": [
+    {
+      "fault": "c1-0076",
+      "capability": "0076 eval-state reminder persistence",
+      "what": "the eval reminder is appended to the live context but never written to the branch",
+      "runtime": "/var/tmp/omp-s5/mut-c1-0076",
+      "file": "node_modules/@oh-my-pi/pi-coding-agent/src/session/agent-session.ts",
+      "reversal": {
+        "removed": "\t\tif (persist) this.#persistEvalStateContext(evalStateContext);",
+        "applied": "\t\tif (false && persist) this.#persistEvalStateContext(evalStateContext);",
+        "file_sha256_after": "602cec2dae9c04be8a9a0278cfbe94c68408542eea54fecbdd037a28c50d5758"
+      },
+      "merged": {
+        "gate": "verify-reminder-persist.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "leg_assertion": "AssertionError: a committing rebuild must persist the changed reminder once",
+        "driver_assertion": "AssertionError: reminder persist leg \"eval-state\" failed (exit 1)",
+        "runtime_unchanged": true
+      },
+      "old_gates": [
+        {
+          "gate": "verify-eval-state-context-persist.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: a committing rebuild must persist the changed reminder once"
+          ]
+        },
+        {
+          "gate": "verify-turn-recovery-reminder-persist.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        },
+        {
+          "gate": "verify-length-stop-reminder-persist.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        }
+      ],
+      "verdict": "PASS",
+      "ledger": "/var/tmp/omp-s5/repo-s5 (frozen S5 ledger; apply.sh owned by S6, gate files byte-identical to the repo)"
+    },
+    {
+      "fault": "c1-0077",
+      "capability": "0077 turn-recovery reminder persistence",
+      "what": "the empty-stop/stall retry reminder is appended to the live context only",
+      "runtime": "/var/tmp/omp-s5/mut-c1-0077",
+      "file": "node_modules/@oh-my-pi/pi-coding-agent/src/session/turn-recovery.ts",
+      "reversal": {
+        "removed": "\t\tthis.#host.sessionManager.appendMessage(reminder);",
+        "applied": "\t\t// fault: retry reminder stays in memory only",
+        "file_sha256_after": "d412b991636c0b02ecf686ee26e7090ce3530a17f5683f0acb16662b357cb82b"
+      },
+      "merged": {
+        "gate": "verify-reminder-persist.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "leg_assertion": "AssertionError: the retry reminder must be persisted exactly once",
+        "driver_assertion": "AssertionError: reminder persist leg \"turn-recovery\" failed (exit 1)",
+        "runtime_unchanged": true
+      },
+      "old_gates": [
+        {
+          "gate": "verify-eval-state-context-persist.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        },
+        {
+          "gate": "verify-turn-recovery-reminder-persist.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: the retry reminder must be persisted exactly once"
+          ]
+        },
+        {
+          "gate": "verify-length-stop-reminder-persist.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        }
+      ],
+      "verdict": "PASS",
+      "ledger": "/var/tmp/omp-s5/repo-s5 (frozen S5 ledger; apply.sh owned by S6, gate files byte-identical to the repo)"
+    },
+    {
+      "fault": "c1-0084",
+      "capability": "0084 length-stop reminder persistence",
+      "what": "the length-stop retry reminder is appended to the live context only",
+      "runtime": "/var/tmp/omp-s5/mut-c1-0084",
+      "file": "node_modules/@oh-my-pi/pi-coding-agent/src/session/session-maintenance.ts",
+      "reversal": {
+        "removed": "\t\tthis.#host.sessionManager.appendMessage(reminder);",
+        "applied": "\t\t// fault: length-stop reminder stays in memory only",
+        "file_sha256_after": "560a4059c9ee5111c32b624ff0fbedc7cdf696a3c20b5a5aeffc48da6e343737"
+      },
+      "merged": {
+        "gate": "verify-reminder-persist.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "leg_assertion": "AssertionError: the length-stop reminder must be persisted exactly once",
+        "driver_assertion": "AssertionError: reminder persist leg \"length-stop\" failed (exit 1)",
+        "runtime_unchanged": true
+      },
+      "old_gates": [
+        {
+          "gate": "verify-eval-state-context-persist.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        },
+        {
+          "gate": "verify-turn-recovery-reminder-persist.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        },
+        {
+          "gate": "verify-length-stop-reminder-persist.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: the length-stop reminder must be persisted exactly once"
+          ]
+        }
+      ],
+      "verdict": "PASS",
+      "ledger": "/var/tmp/omp-s5/repo-s5 (frozen S5 ledger; apply.sh owned by S6, gate files byte-identical to the repo)"
+    },
+    {
+      "fault": "c2-codex",
+      "capability": "0090 Codex 403 eligibility retention",
+      "what": "a Codex 403 account contributes nothing (no retention)",
+      "runtime": "/var/tmp/omp-s5/mut-c2-codex",
+      "file": "node_modules/@oh-my-pi/pi-catalog/src/provider-models/special.ts",
+      "reversal": {
+        "removed": "result.rejectedStatus === 403 && accountId !== undefined ? retainedAccountCatalog(previous, accountId) : [];",
+        "applied": "false ? retainedAccountCatalog(previous, accountId) : [];",
+        "file_sha256_after": "741aa99edca6505f908d549eb43a2fa1137155df3ec2c3818f64c717fd605fad"
+      },
+      "merged": {
+        "gate": "verify-account-eligibility-retention.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "leg_assertion": "AssertionError: 403: rejected account keeps only its own access",
+        "driver_assertion": null,
+        "runtime_unchanged": true
+      },
+      "old_gates": [
+        {
+          "gate": "verify-codex-account-eligibility-retention.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: 403: rejected account keeps only its own access"
+          ]
+        },
+        {
+          "gate": "verify-google-account-eligibility-retention.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        }
+      ],
+      "verdict": "PASS",
+      "ledger": "/var/tmp/omp-s5/repo-s5 (frozen S5 ledger; apply.sh owned by S6, gate files byte-identical to the repo)"
+    },
+    {
+      "fault": "c2-google",
+      "capability": "0090 Antigravity 403 eligibility retention",
+      "what": "an Antigravity 403 account contributes nothing (no retention)",
+      "runtime": "/var/tmp/omp-s5/mut-c2-google",
+      "file": "node_modules/@oh-my-pi/pi-catalog/src/provider-models/google.ts",
+      "reversal": {
+        "removed": "result.rejectedStatus === 403 && accountKey !== undefined",
+        "applied": "false && accountKey !== undefined",
+        "file_sha256_after": "cbc9a657eeb944b97ee043df5a7e9af98d516d32191495a699d31ec2e8982566"
+      },
+      "merged": {
+        "gate": "verify-account-eligibility-retention.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "leg_assertion": "AssertionError: 403: rejected account keeps only its own access",
+        "driver_assertion": null,
+        "runtime_unchanged": true
+      },
+      "old_gates": [
+        {
+          "gate": "verify-codex-account-eligibility-retention.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        },
+        {
+          "gate": "verify-google-account-eligibility-retention.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: 403: rejected account keeps only its own access"
+          ]
+        }
+      ],
+      "verdict": "PASS",
+      "ledger": "/var/tmp/omp-s5/repo-s5 (frozen S5 ledger; apply.sh owned by S6, gate files byte-identical to the repo)"
+    },
+    {
+      "fault": "c4-0055",
+      "capability": "0055 Devin JWT cache",
+      "what": "the auth cache is never consulted, so every turn mints a new JWT",
+      "runtime": "/var/tmp/omp-s5/mut-c4-0055",
+      "file": "node_modules/@oh-my-pi/pi-ai/src/providers/devin.ts",
+      "reversal": {
+        "removed": "\tconst cached = devinAuthCache.get(key);",
+        "applied": "\tconst cached: DevinAuthCacheEntry | undefined = undefined;",
+        "file_sha256_after": "541aa3c153968f7d88ddce4ffab894d0549f1b13fe41a150c1c256db606653f3"
+      },
+      "merged": {
+        "gate": "verify-devin-wire.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "driver_exit": 0,
+        "assertion_lines": [
+          "AssertionError: second turn must reuse cached JWT",
+          "      at authCacheLeg (/var/tmp/omp-s5/mut/c4-0055/merged/snapshot/patches/verify-devin-wire.ts:161:10)",
+          "AssertionError: devin wire leg \"auth-cache\" failed (exit 1)",
+          "      at /var/tmp/omp-s5/mut/c4-0055/merged/snapshot/patches/verify-devin-wire.ts:47:10"
+        ],
+        "runtime_unchanged": true,
+        "leg_assertion": "AssertionError: second turn must reuse cached JWT",
+        "driver_assertion": "AssertionError: devin wire leg \"auth-cache\" failed (exit 1)"
+      },
+      "old_gates": [
+        {
+          "gate": "verify-devin-auth-cache.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: second turn must reuse cached JWT"
+          ]
+        },
+        {
+          "gate": "verify-devin-thinking-signature.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        }
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "fault": "c4-0058",
+      "capability": "0058 Devin thinking-signature capture",
+      "what": "a standalone signature frame no longer attaches to the thinking block",
+      "runtime": "/var/tmp/omp-s5/mut-c4-0058",
+      "file": "node_modules/@oh-my-pi/pi-ai/src/providers/devin.ts",
+      "reversal": {
+        "removed": "\t\t\t\t\tif (msg.deltaSignature && !msg.deltaThinking) {\n\t\t\t\t\t\tconst target = currentThinkingBlock ?? lastThinkingBlock;\n\t\t\t\t\t\tif (target) target.thinkingSignature = msg.deltaSignature;\n\t\t\t\t\t}",
+        "applied": "\t\t\t\t\t// fault: standalone deltaSignature frame ignored",
+        "file_sha256_after": "96fee7798e350245260ecd16a618816a587387fd655d789ffe7bc417eedf564e"
+      },
+      "merged": {
+        "gate": "verify-devin-wire.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "driver_exit": 0,
+        "assertion_lines": [
+          "AssertionError: standalone deltaSignature frame must attach to the thinking block",
+          "      at thinkingSignatureLeg (/var/tmp/omp-s5/mut/c4-0058/merged/snapshot/patches/verify-devin-wire.ts:481:10)",
+          "AssertionError: devin wire leg \"thinking-signature\" failed (exit 1)",
+          "      at /var/tmp/omp-s5/mut/c4-0058/merged/snapshot/patches/verify-devin-wire.ts:47:10"
+        ],
+        "runtime_unchanged": true,
+        "leg_assertion": "AssertionError: standalone deltaSignature frame must attach to the thinking block",
+        "driver_assertion": "AssertionError: devin wire leg \"thinking-signature\" failed (exit 1)"
+      },
+      "old_gates": [
+        {
+          "gate": "verify-devin-auth-cache.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        },
+        {
+          "gate": "verify-devin-thinking-signature.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: standalone deltaSignature frame must attach to the thinking block"
+          ]
+        }
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "fault": "c7-label",
+      "capability": "0093 label half (effort-independent prompt model label)",
+      "what": "the frozen system-prompt label folds the live effort again",
+      "runtime": "/var/tmp/omp-s5/mut-c7-label",
+      "file": "node_modules/@oh-my-pi/pi-coding-agent/src/sdk.ts",
+      "reversal": {
+        "removed": "\t\t\t\tmodel: getActiveModelString(),",
+        "applied": "\t\t\t\tmodel: `${getActiveModelString() ?? \"\"}:${agent?.state.thinkingLevel ?? \"off\"}`,",
+        "file_sha256_after": "7dd6a230bcccacefb84f900e43d4125446b41e974447a2e044738c823688caa5"
+      },
+      "merged": {
+        "gate": "verify-model-effort-resume.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "driver_exit": 0,
+        "assertion_lines": [
+          "AssertionError: max-to-high: effort-only rebuild must preserve the system prompt",
+          "      at /var/tmp/omp-s5/mut/c7-label/merged/snapshot/patches/verify-model-effort-resume.ts:357:10",
+          "AssertionError: model-effort resume leg \"prompt-effort\" failed (exit 1)",
+          "      at /var/tmp/omp-s5/mut/c7-label/merged/snapshot/patches/verify-model-effort-resume.ts:60:10"
+        ],
+        "runtime_unchanged": true,
+        "leg_assertion": "AssertionError: max-to-high: effort-only rebuild must preserve the system prompt",
+        "driver_assertion": "AssertionError: model-effort resume leg \"prompt-effort\" failed (exit 1)"
+      },
+      "old_gates": [
+        {
+          "gate": "verify-model-selection-resume.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        },
+        {
+          "gate": "verify-prompt-effort-resume.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: max-to-high: effort-only rebuild must preserve the system prompt"
+          ]
+        }
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "fault": "c7-commit",
+      "capability": "0093 commit half (persisted selection receipt)",
+      "what": "navigation/fork/fallback no longer record the retained model selection",
+      "runtime": "/var/tmp/omp-s5/mut-c7-commit",
+      "file": "node_modules/@oh-my-pi/pi-coding-agent/src/session/agent-session.ts",
+      "reversal": {
+        "removed": "\t#persistModelSelection(selection: SessionModelSelection): void {\n\t\tconst branch = this.sessionManager.getBranch();",
+        "applied": "\t#persistModelSelection(selection: SessionModelSelection): void {\n\t\tif (true) return; // fault: commit-half reverted\n\t\tconst branch = this.sessionManager.getBranch();",
+        "file_sha256_after": "439ef6a130abca41e3d4e0260d74aaf97515c07a3a77823dd35ca9afd5cd06aa"
+      },
+      "merged": {
+        "gate": "verify-model-effort-resume.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "driver_exit": 0,
+        "assertion_lines": [
+          "AssertionError: live: fresh-process resume retains selected model",
+          "      at /var/tmp/omp-s5/mut/c7-commit/merged/snapshot/patches/verify-model-effort-resume.ts:646:10",
+          "AssertionError: model-effort resume leg \"model-selection\" failed (exit 1)",
+          "      at /var/tmp/omp-s5/mut/c7-commit/merged/snapshot/patches/verify-model-effort-resume.ts:60:10"
+        ],
+        "runtime_unchanged": true,
+        "leg_assertion": "AssertionError: live: fresh-process resume retains selected model",
+        "driver_assertion": "AssertionError: model-effort resume leg \"model-selection\" failed (exit 1)"
+      },
+      "old_gates": [
+        {
+          "gate": "verify-model-selection-resume.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: live: fresh-process resume retains selected model"
+          ]
+        },
+        {
+          "gate": "verify-prompt-effort-resume.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        }
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "fault": "c8-u5",
+      "capability": "U5 withdrawn-tool wire (second withInactiveTools)",
+      "what": "the after-transform recomputation is gone, so a transform-dropped tool is not re-declared",
+      "runtime": "/var/tmp/omp-s5/mut-c8-u5",
+      "file": "node_modules/@oh-my-pi/pi-agent-core/src/agent.ts",
+      "reversal": {
+        "removed": "\t\tcontext = this.#sentToolDefinitions.withInactiveTools(context);",
+        "applied": "deleted line 1006 (the post-transform call)",
+        "file_sha256_after": "3fc034651cce95f02e5a3a54d6f13db0bae35eba289d0d6776ce0ef29c74a255"
+      },
+      "merged": {
+        "gate": "verify-tools-wire.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "driver_exit": 0,
+        "assertion_lines": [
+          "AssertionError: isolated tools wire gate failed",
+          "      at /var/tmp/omp-s5/mut/c8-u5/merged/snapshot/patches/verify-tools-wire.ts:99:10",
+          "AssertionError: tools wire leg \"withdrawn-tools\" failed (exit 1)",
+          "      at /var/tmp/omp-s5/mut/c8-u5/merged/snapshot/patches/verify-tools-wire.ts:62:10"
+        ],
+        "runtime_unchanged": true,
+        "leg_assertion": "AssertionError: a side request recomputes the withdrawn set after transformProviderContext",
+        "driver_assertion": "AssertionError: isolated tools wire gate failed"
+      },
+      "old_gates": [
+        {
+          "gate": "verify-tool-schema-bytes.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        },
+        {
+          "gate": "verify-withdrawn-tools-wire.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: a side request recomputes the withdrawn set after transformProviderContext"
+          ]
+        }
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "fault": "c8-u7",
+      "capability": "U7 tool-schema bytes (enum copy)",
+      "what": "the keyword copy aliases the caller's enum array",
+      "runtime": "/var/tmp/omp-s5/mut-c8-u7",
+      "file": "node_modules/@oh-my-pi/pi-ai/src/utils/schema/normalize.ts",
+      "reversal": {
+        "removed": "\t\tconst existingEnum = Array.isArray(result.enum) ? [...result.enum] : [];",
+        "applied": "\t\tconst existingEnum = Array.isArray(result.enum) ? result.enum : [];",
+        "file_sha256_after": "d21a47a5dbbb031e8bfd125a190477286b46fae2e650a936c58f1eb8085ab5d4"
+      },
+      "merged": {
+        "gate": "verify-tools-wire.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "driver_exit": 0,
+        "assertion_lines": [
+          "AssertionError: isolated tools wire gate failed",
+          "      at /var/tmp/omp-s5/mut/c8-u7/merged/snapshot/patches/verify-tools-wire.ts:99:10",
+          "AssertionError: tools wire leg \"tool-schema-bytes\" failed (exit 1)",
+          "      at /var/tmp/omp-s5/mut/c8-u7/merged/snapshot/patches/verify-tools-wire.ts:62:10"
+        ],
+        "runtime_unchanged": true,
+        "leg_assertion": "AssertionError: the generic schema walk must not mutate the caller's `enum` array",
+        "driver_assertion": "AssertionError: isolated tools wire gate failed"
+      },
+      "old_gates": [
+        {
+          "gate": "verify-tool-schema-bytes.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: the generic schema walk must not mutate the caller's `enum` array"
+          ]
+        },
+        {
+          "gate": "verify-withdrawn-tools-wire.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        }
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "fault": "c2-codex401",
+      "capability": "0090 Codex 401 after 403 retention",
+      "what": "a 401 retains rows exactly like a 403, so the rows the preceding 403 retained survive the unauthorized cycle",
+      "runtime": "/var/tmp/omp-s5/mut-c2-codex401",
+      "file": "node_modules/@oh-my-pi/pi-catalog/src/provider-models/special.ts",
+      "reversal": {
+        "removed": "result.rejectedStatus === 403 && accountId !== undefined",
+        "applied": "result.rejectedStatus !== undefined && accountId !== undefined",
+        "file_sha256_after": "87a76fe66e200337acbbd1e1f732fe979c9fa6de7088a1cfb8f9ed0b8ec9e51b"
+      },
+      "merged": {
+        "gate": "verify-account-eligibility-retention.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "leg_assertion": "AssertionError: 401: no retention",
+        "driver_assertion": null,
+        "runtime_unchanged": true
+      },
+      "old_gates": [
+        {
+          "gate": "verify-codex-account-eligibility-retention.ts",
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: 401: no retention"
+          ]
+        },
+        {
+          "gate": "verify-google-account-eligibility-retention.ts",
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        }
+      ],
+      "verdict": "PASS",
+      "ledger": "/var/tmp/omp-s5/repo-s5 (frozen S5 ledger; apply.sh owned by S6, gate files byte-identical to the repo)"
+    }
+  ],
+  "summary": {
+    "faults": 12,
+    "merged_red": 12,
+    "matching_old_red": 12,
+    "identical_assertion_on_both": 12,
+    "sibling_old_green": true,
+    "verdict": "PASS",
+    "added_in_review_fix": "c2-codex401 (a 401 that retains like a 403 must be caught by the post-403 401 phase)"
+  },
+  "runtime_18_16_0_comparison": {
+    "runtime": "/var/tmp/omp-s5/runtime-18160 (copy of /var/tmp/omp-18160-s5/runtime)",
+    "runtime_digest": "1963c82241bd514225963df90a69f7441a83547518b8b4077bb0475451fe72b5",
+    "merged_gates": "all 7 selected gates (the 5 merged + the two C3 parents) PASS \u2014 run18160/summary.json",
+    "old_gates": [
+      {
+        "gate": "verify-eval-state-context-persist.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      {
+        "gate": "verify-turn-recovery-reminder-persist.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      {
+        "gate": "verify-length-stop-reminder-persist.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      {
+        "gate": "verify-codex-account-eligibility-retention.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      {
+        "gate": "verify-google-account-eligibility-retention.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      {
+        "gate": "verify-devin-auth-cache.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      {
+        "gate": "verify-devin-thinking-signature.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      {
+        "gate": "verify-prompt-effort-resume.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      {
+        "gate": "verify-model-selection-resume.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      {
+        "gate": "verify-withdrawn-tools-wire.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      {
+        "gate": "verify-tool-schema-bytes.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      }
+    ],
+    "match": true,
+    "note": "verify-session-transfer-authority.ts and verify-snapcompact-frame-reprice.ts are known pre-existing 18.16.0 failures and were not run or touched by this slice"
+  }
+}

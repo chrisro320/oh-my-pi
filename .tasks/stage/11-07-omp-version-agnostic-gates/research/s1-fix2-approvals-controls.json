@@ -1,0 +1,164 @@
+[
+  {
+    "control": "unmutated",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 0,
+    "expected": "green",
+    "pass": true,
+    "stderr": ""
+  },
+  {
+    "control": "MUTANT manifest drops 0066 adoption",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: manifest upstream_adoptions differ from approvals.json: omitted ['0066'], unapproved []"
+  },
+  {
+    "control": "MUTANT manifest drops 0066 adoption (--print-capabilities)",
+    "version": "18.18.0",
+    "mode": "capabilities",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: manifest upstream_adoptions differ from approvals.json: omitted ['0066'], unapproved []"
+  },
+  {
+    "control": "MUTANT manifest adds unapproved 0099 adoption",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: manifest upstream_adoptions differ from approvals.json: omitted [], unapproved ['0099']"
+  },
+  {
+    "control": "MUTANT manifest reorders adoptions",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: manifest upstream_adoptions differ from approvals.json: omitted [], unapproved [] (same ids; family or order differs)"
+  },
+  {
+    "control": "MUTANT approvals drops 0054 (manifest unchanged)",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: manifest upstream_adoptions differ from approvals.json: omitted [], unapproved ['0054']"
+  },
+  {
+    "control": "MUTANT approvals adds 0099 (manifest unchanged)",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: manifest upstream_adoptions differ from approvals.json: omitted ['0099'], unapproved []"
+  },
+  {
+    "control": "MUTANT approvals file missing",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: /tmp/appr-0dfei5ui/.18.18.0-families/approvals.json: unreadable ([Errno 2] No such file or directory: '/tmp/appr-0dfei5ui/.18.18.0-families/approvals.json')"
+  },
+  {
+    "control": "MUTANT approvals has a duplicate key",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: duplicate object key: ['schema_version']"
+  },
+  {
+    "control": "unmutated",
+    "version": "18.16.0",
+    "mode": "gates",
+    "exit": 0,
+    "expected": "green",
+    "pass": true,
+    "stderr": ""
+  },
+  {
+    "control": "MUTANT 18.16.0 manifest drops 0062",
+    "version": "18.16.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: manifest upstream_adoptions differ from approvals.json: omitted ['0062'], unapproved []"
+  },
+  {
+    "control": "MUTANT self-snapshot 18.18.0 -> 18.18.0",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: /tmp/appr-fs8n7k89/.18.18.0-families/approvals.json: snapshot 18.18.0 must be strictly older than 18.18.0"
+  },
+  {
+    "control": "MUTANT self-snapshot + 0047 removed from manifest family and plan.tsv",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: /tmp/appr-_pkjuc_o/.18.18.0-families/approvals.json: snapshot 18.18.0 must be strictly older than 18.18.0"
+  },
+  {
+    "control": "MUTANT future snapshot 18.19.0",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: /tmp/appr-q5up_nou/.18.18.0-families/approvals.json: snapshot 18.19.0 must be strictly older than 18.18.0"
+  },
+  {
+    "control": "MUTANT newest must derive from the oldest registered (18.12.6 refused)",
+    "version": "18.18.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: /tmp/appr-8cfzayhw/.18.18.0-families/approvals.json: the newest release 18.18.0 must derive from the oldest registered release 18.16.0, not 18.12.6"
+  },
+  {
+    "control": "MUTANT self-snapshot of the oldest 18.16.0 -> 18.16.0",
+    "version": "18.16.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: /tmp/appr-emd48th3/.18.16.0-families/approvals.json: snapshot 18.16.0 must be strictly older than 18.16.0"
+  },
+  {
+    "control": "MUTANT future snapshot of the oldest (18.18.0)",
+    "version": "18.16.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: /tmp/appr-p1ljoge7/.18.16.0-families/approvals.json: snapshot 18.18.0 must be strictly older than 18.16.0"
+  },
+  {
+    "control": "MUTANT oldest with a snapshot that has no frozen manifest (18.10.1)",
+    "version": "18.16.0",
+    "mode": "gates",
+    "exit": 2,
+    "expected": "red",
+    "pass": true,
+    "stderr": "release approvals refused: /tmp/appr-orpx2qti/.18.16.0-families/approvals.json: snapshot 18.10.1 must resolve to exactly one frozen manifest under .retired/, found 0"
+  }
+]

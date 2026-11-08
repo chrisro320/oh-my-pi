@@ -38,6 +38,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { resolvePlan } from "./version-registry.ts";
 import { join, resolve, sep } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -81,11 +82,8 @@ if (!existsSync(join(AI_ROOT, "src", "auth-storage.ts")) || !existsSync(join(AI_
 	);
 	process.exit(2);
 }
-const aiVersion = JSON.parse(readFileSync(join(AI_ROOT, "package.json"), "utf8")).version;
-assert.ok(["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion), `unsupported OAuth gate version: ${aiVersion}`);
-const hasExchangeReservation = ["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion);
-// Frozen 18.10.0 keeps reserve/stage/commit without the later unlock surface.
-const hasUnlockRevision = ["18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion);
+const plan = resolvePlan({ gate: "verify-oauth-durable-refresh", roots: [AI_ROOT] });
+const aiVersion = plan.version;
 
 // ---------------------------------------------------------------------------
 // Local structural contracts for the selected tree. The module specifier is a
@@ -271,7 +269,7 @@ process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
 // runtimes may cache os.homedir() before a verifier changes process.env.
 if (!privateProcess) {
 	const child = Bun.spawnSync([process.execPath, import.meta.path, ...process.argv.slice(2)], {
-		env: { ...process.env, OMP_DURABILITY_BOOT: "1", OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT,
+		env: { ...process.env, OMP_DURABILITY_BOOT: "1", OMP_PATCH_VERSION: plan.version, OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT,
 			OMP_PATCH_VERIFY_OAUTH_REAL_STALL: runRealStall ? "1" : "0" },
 	});
 	process.stdout.write(child.stdout);
@@ -318,16 +316,14 @@ const RESPONSE_IDENTITY = { uuid: "acct-resp", email_address: "resp@example.com"
 // failing a later scenario for an unrelated reason. Ported trees below the
 // exchange protocol do not carry this surface at all, so the check is scoped to
 // the plans that do.
-if (hasUnlockRevision) {
-	const surfaceDir = mkdtempSync(join(tmpdir(), "omp-oauth-surface-"));
-	try {
-		const surfaceStore = await StoreClass.open(join(surfaceDir, "auth.db"));
-		const surfaceAuth = new AuthStorageClass(surfaceStore);
-		requireUnlockSurface({ auth: surfaceAuth, store: surfaceStore, dir: surfaceDir, cleanup: [] });
-		surfaceAuth.close();
-	} finally {
-		rmSync(surfaceDir, { recursive: true, force: true });
-	}
+const surfaceDir = mkdtempSync(join(tmpdir(), "omp-oauth-surface-"));
+try {
+	const surfaceStore = await StoreClass.open(join(surfaceDir, "auth.db"));
+	const surfaceAuth = new AuthStorageClass(surfaceStore);
+	requireUnlockSurface({ auth: surfaceAuth, store: surfaceStore, dir: surfaceDir, cleanup: [] });
+	surfaceAuth.close();
+} finally {
+	rmSync(surfaceDir, { recursive: true, force: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -539,7 +535,7 @@ async function refreshAfterProcessRestart(c: CaseEnv, id: number, mode: "refresh
 	const output = join(c.dir, "restart-result.json");
 	const child = Bun.spawnSync([process.execPath, import.meta.path, "--restart-refresh", c.dir, String(id), output, mode], {
 		env: { PATH: process.env.PATH, TMPDIR: process.env.TMPDIR,
-			OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
+			OMP_PATCH_VERSION: plan.version, OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
 		stdout: "pipe", stderr: "pipe",
 	});
 	assert.equal(child.exitCode, 0, `fresh auth process failed: ${child.stderr.toString()}`);
@@ -1004,7 +1000,6 @@ function waitForPost(started: Promise<void>, refresh: Promise<unknown>): Promise
 }
 
 if (process.argv[2] === "--restart-refresh") {
-	assert.equal(hasExchangeReservation, true, "restart fixture requires the target exchange protocol");
 	const dir = realpathSync(process.argv[3]);
 	assert.ok(dir.startsWith(join(tmpdir(), "omp-oauth-verify-")), "restart may read only the synthetic gate store");
 	const store = await StoreClass.open(join(dir, "auth.db"));
@@ -1036,7 +1031,6 @@ if (process.argv[2] === "--unlock-held-result") {
 	// Process A of gate (o): mint a token for real, fail to persist it, keep it in
 	// memory, and then try to unlock from here. Stage calls after the first keep
 	// failing, so this process genuinely holds a result it cannot make durable.
-	assert.equal(hasUnlockRevision, true, "the held-result fixture requires the 18.10.1 unlock revision");
 	const dir = realpathSync(process.argv[3]);
 	assert.ok(
 		dir.startsWith(join(tmpdir(), "omp-oauth-verify-")),
@@ -1066,7 +1060,6 @@ if (process.argv[2] === "--unlock-held-result") {
 	process.exit(0);
 }
 if (process.argv[2] === "--rotation-interrupt") {
-	assert.ok(["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion), "shutdown fixtures consume the exact target lifecycle");
 	const dir = realpathSync(process.argv[3]);
 	assert.ok(dir.startsWith(join(tmpdir(), "omp-oauth-verify-")), "rotation child may read only the synthetic gate store");
 	const id = Number(process.argv[4]);
@@ -1123,269 +1116,265 @@ if (process.argv[2] === "--rotation-interrupt") {
 	throw new Error("rotation child was not terminated at its required boundary");
 }
 
-if (["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
-	for (const mode of ["sigterm", "staged-exit"]) {
-		await scenario(`target ${mode}: interrupted rotation is durably recoverable without another POST`, async () => {
-			await withCase(async c => {
-				const id = await seed(c, expiredCred({ access: "interrupt-access-0", refresh: "interrupt-refresh-0" }));
-				const output = join(c.dir, `rotation-${mode}.json`);
-				const child = Bun.spawn([process.execPath, import.meta.path, "--rotation-interrupt", c.dir, String(id), output, mode], {
-					env: {
-						PATH: process.env.PATH, TMPDIR: process.env.TMPDIR,
-						HOME: privateHome, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
-						XDG_CACHE_HOME: process.env.XDG_CACHE_HOME, XDG_DATA_HOME: process.env.XDG_DATA_HOME,
-						XDG_STATE_HOME: process.env.XDG_STATE_HOME, OMP_DURABILITY_BOOT: "1",
-						OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT,
-					},
-					stdout: "pipe", stderr: "pipe",
-				});
-				let deadline: NodeJS.Timeout | undefined;
-				try {
-					const code = await Promise.race([
-						child.exited,
-						new Promise<never>((_, reject) => {
-							deadline = setTimeout(() => { child.kill("SIGKILL"); reject(new Error("rotation child failed to exit")); }, 10_000);
-						}),
-					]);
-					const stderr = await new Response(child.stderr).text();
-					assert.equal(code, mode === "staged-exit" ? 86 : 143, `rotation child exit: ${stderr}`);
-					const receipt = JSON.parse(readFileSync(output, "utf8"));
-					assert.equal(receipt.tokenPosts, 1, "the child must exercise exactly one real auth token exchange");
-					assert.equal(receipt.staged, true, "the real store must durably stage the rotated provider result");
-					assert.equal(receipt.signalled, mode === "sigterm");
-					if (mode === "sigterm") {
-						assert.equal(rowOf(c, id)?.refresh, "interrupt-refresh-1", "SIGTERM drain must commit before process exit");
-						assert.deepEqual(exchangeRows(c), [], "shutdown publication retires its journal");
-					} else {
-						assert.equal(rowOf(c, id)?.refresh, "interrupt-refresh-0", "interruption must precede publication");
-						assert.equal(exchangeRows(c).length, 1, "the interrupted stage must remain in the durable journal");
-					}
-					const recovered = await refreshAfterProcessRestart(c, id, mode === "sigterm" ? "access" : "refresh");
-					assert.equal(recovered.error, undefined, "the actual fresh auth consumer must recover the rotation");
-					assert.equal(recovered.access, "interrupt-access-1");
-					assert.equal(recovered.tokenPosts, 0, "fresh-process recovery must never redeem the consumed generation again");
-					assert.equal(rowOf(c, id)?.refresh, "interrupt-refresh-1");
-					assert.deepEqual(exchangeRows(c), [], "recovered publication retires the journal");
-				} finally {
-					clearTimeout(deadline);
-					child.kill();
-				}
+for (const mode of ["sigterm", "staged-exit"]) {
+	await scenario(`target ${mode}: interrupted rotation is durably recoverable without another POST`, async () => {
+		await withCase(async c => {
+			const id = await seed(c, expiredCred({ access: "interrupt-access-0", refresh: "interrupt-refresh-0" }));
+			const output = join(c.dir, `rotation-${mode}.json`);
+			const child = Bun.spawn([process.execPath, import.meta.path, "--rotation-interrupt", c.dir, String(id), output, mode], {
+				env: {
+					PATH: process.env.PATH, TMPDIR: process.env.TMPDIR,
+					HOME: privateHome, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+					XDG_CACHE_HOME: process.env.XDG_CACHE_HOME, XDG_DATA_HOME: process.env.XDG_DATA_HOME,
+					XDG_STATE_HOME: process.env.XDG_STATE_HOME, OMP_DURABILITY_BOOT: "1",
+					OMP_PATCH_VERSION: plan.version, OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT,
+				},
+				stdout: "pipe", stderr: "pipe",
 			});
+			let deadline: NodeJS.Timeout | undefined;
+			try {
+				const code = await Promise.race([
+					child.exited,
+					new Promise<never>((_, reject) => {
+						deadline = setTimeout(() => { child.kill("SIGKILL"); reject(new Error("rotation child failed to exit")); }, 10_000);
+					}),
+				]);
+				const stderr = await new Response(child.stderr).text();
+				assert.equal(code, mode === "staged-exit" ? 86 : 143, `rotation child exit: ${stderr}`);
+				const receipt = JSON.parse(readFileSync(output, "utf8"));
+				assert.equal(receipt.tokenPosts, 1, "the child must exercise exactly one real auth token exchange");
+				assert.equal(receipt.staged, true, "the real store must durably stage the rotated provider result");
+				assert.equal(receipt.signalled, mode === "sigterm");
+				if (mode === "sigterm") {
+					assert.equal(rowOf(c, id)?.refresh, "interrupt-refresh-1", "SIGTERM drain must commit before process exit");
+					assert.deepEqual(exchangeRows(c), [], "shutdown publication retires its journal");
+				} else {
+					assert.equal(rowOf(c, id)?.refresh, "interrupt-refresh-0", "interruption must precede publication");
+					assert.equal(exchangeRows(c).length, 1, "the interrupted stage must remain in the durable journal");
+				}
+				const recovered = await refreshAfterProcessRestart(c, id, mode === "sigterm" ? "access" : "refresh");
+				assert.equal(recovered.error, undefined, "the actual fresh auth consumer must recover the rotation");
+				assert.equal(recovered.access, "interrupt-access-1");
+				assert.equal(recovered.tokenPosts, 0, "fresh-process recovery must never redeem the consumed generation again");
+				assert.equal(rowOf(c, id)?.refresh, "interrupt-refresh-1");
+				assert.deepEqual(exchangeRows(c), [], "recovered publication retires the journal");
+			} finally {
+				clearTimeout(deadline);
+				child.kill();
+			}
 		});
-	}
+	});
 }
 
 console.log(`=== verify-oauth-durable-refresh (0090) :: ${AI_ROOT} ===`);
-if (hasExchangeReservation) {
-	await scenario("startup and credentials.reload preserve duplicate healthy legacy rows byte-for-byte", async () => {
-		const t = installTransport({ token: () => tokenReply("forbidden", "forbidden") });
-		try {
-			await withCase(async c => {
-				const id = await seed(c, {
-					type: "oauth", access: "healthy-access", refresh: "healthy-refresh",
-					expires: Date.now() + 3_600_000, accountId: "healthy-account", email: "healthy@example.invalid",
-				});
-				c.auth.close();
-				const db = new Database(join(c.dir, "auth.db"));
-				try {
-					// Bypass the explicit-write deduper to represent two healthy rows
-					// left by an older release; normal startup is not a mutation.
-					db.query("UPDATE auth_credentials SET identity_key = NULL WHERE id = ?").run(id);
-					const original = db.query("SELECT data FROM auth_credentials WHERE id = ?").get(id) as { data: string };
-					const duplicate = { ...JSON.parse(original.data), access: "healthy-access-2", refresh: "healthy-refresh-2" };
-					db.query(`INSERT INTO auth_credentials (provider, credential_type, data, identity_key, created_at, updated_at)
-						SELECT provider, credential_type, ?, NULL, created_at, updated_at FROM auth_credentials WHERE id = ?`)
-						.run(JSON.stringify(duplicate), id);
-					const before = db.query("SELECT * FROM auth_credentials ORDER BY id").all();
-					assert.equal(before.length, 2, "fixture requires two active rows with the same account identity");
-					const revision = db.query("SELECT * FROM auth_change_revision").all();
-					c.store = await StoreClass.open(join(c.dir, "auth.db"));
-					c.auth = new AuthStorageClass(c.store);
-					await c.auth.credentials.reload();
-					assert.deepEqual(db.query("SELECT * FROM auth_credentials ORDER BY id").all(), before,
-						"constructor and normal reload cannot prune or rewrite healthy legacy rows");
-					assert.deepEqual(db.query("SELECT * FROM auth_change_revision").all(), revision,
-						"startup must not advance the auth revision");
-					assert.deepEqual(exchangeRows(c), [], "startup must not reserve healthy generations");
-					assert.equal(t.tokenPosts, 0);
-					assert.equal(t.bootstrapGets, 0);
-				} finally {
-					db.close();
-				}
+await scenario("startup and credentials.reload preserve duplicate healthy legacy rows byte-for-byte", async () => {
+	const t = installTransport({ token: () => tokenReply("forbidden", "forbidden") });
+	try {
+		await withCase(async c => {
+			const id = await seed(c, {
+				type: "oauth", access: "healthy-access", refresh: "healthy-refresh",
+				expires: Date.now() + 3_600_000, accountId: "healthy-account", email: "healthy@example.invalid",
 			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("xAI optional userinfo cannot discard a known replacement", async () => {
-		let userinfoGets = 0;
-		const t = installTransport({
-			tokenMarker: "/oauth2/token",
-			token: () => tokenReply("xai-access-1", "xai-refresh-1"),
-			other: url => {
-				if (url === "https://auth.x.ai/.well-known/openid-configuration") {
-					return { kind: "json", body: { token_endpoint: "https://auth.x.ai/oauth2/token" } };
-				}
-				if (url === "https://auth.x.ai/oauth2/userinfo") {
-					userinfoGets++;
-					// Deterministic optional-enrichment cancellation, after token success.
-					throw new DOMException("synthetic optional userinfo deadline", "AbortError");
-				}
-				throw new Error(`Unexpected xAI fixture request: ${url}`);
-			},
-		});
-		try {
-			await withCase(async c => {
-				await c.auth.credentials.upsert("xai-oauth", expiredCred({
-					access: "xai-access-0", refresh: "xai-refresh-0", accountId: "xai-account", email: "xai@example.invalid",
-				}));
-				const [row] = c.store.listAuthCredentials("xai-oauth");
-				assert.ok(row);
-				await c.auth.oauth.refresh(row.id);
-				await reopen(c);
-				const [saved] = c.store.listAuthCredentials("xai-oauth");
-				assert.equal(saved.credential.access, "xai-access-1");
-				assert.equal(saved.credential.refresh, "xai-refresh-1", "successful rotation must survive reopen");
-				assert.equal(saved.credential.accountId, "xai-account");
-				assert.equal(userinfoGets, 0, "refresh must not depend on optional login identity enrichment");
-				assert.equal(t.tokenPosts, 1);
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("health probes project the winning row without obsolete routing identity", async () => {
-		const started = Promise.withResolvers<void>();
-		const release = Promise.withResolvers<void>();
-		const t = installTransport({
-			onTokenPost: () => started.resolve(),
-			token: () => tokenReply("health-stale-access", "health-stale-refresh", { waitFor: release.promise }),
-		});
-		try {
-			await withCase(async c => {
-				const id = await seed(c, expiredCred({
-					access: "health-old-access", refresh: "health-old-refresh", accountId: "health-account", region: "eu",
-				}));
-				const usageCredentials: Array<{ accessToken?: string; region?: string }> = [];
-				const completionCredentials: Array<{ accessToken?: string; region?: string }> = [];
-				c.auth.usage.setProvider(PROVIDER, { fetchUsage: async ({ credential }) => {
-					usageCredentials.push(credential);
-					return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
-				} });
-				const checking = c.auth.health.check({ completionProbe: async ({ credential }) => {
-					completionCredentials.push(credential);
-					return { ok: true };
-				} });
-				c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([checking]); });
-				await waitForPost(started.promise, checking);
-				c.store.updateAuthCredential(id, {
-					type: "oauth", access: "health-winner-access", refresh: "health-winner-refresh",
-					expires: Date.now() + 3_600_000, accountId: "health-account",
-				});
-				release.resolve();
-				await checking;
-				for (const [name, probes] of [["usage", usageCredentials], ["completion", completionCredentials]] as const) {
-					assert.equal(probes.length, 1, `${name} probe must actually execute`);
-					assert.equal(probes[0].accessToken, "health-winner-access");
-					assert.equal(probes[0].region, undefined, `${name} cannot resurrect the old row's removed region`);
-				}
-				assert.equal(rowOf(c, id)?.region, undefined);
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("usage fallback keeps an existing valid bearer but cannot probe after concurrent logout", async () => {
-		const started = Promise.withResolvers<void>();
-		const release = Promise.withResolvers<void>();
-		const t = installTransport({
-			onTokenPost: index => { if (index === 2) started.resolve(); },
-			token: index => index === 1
-				? { kind: "status", status: 503, text: "synthetic advisory refresh failure" }
-				: tokenReply("removed-usage-access", "removed-usage-refresh", { waitFor: release.promise }),
-		});
-		try {
-			await withCase(async c => {
-				const stillPresent: Cred = {
-					type: "oauth", access: "usage-existing-access", refresh: "usage-existing-refresh",
-					expires: Date.now() + 30_000, accountId: "usage-existing",
-				};
-				await seed(c, stillPresent);
-				const probes: string[] = [];
-				c.auth.usage.setProvider(PROVIDER, { fetchUsage: async ({ credential }) => {
-					probes.push(credential.accessToken ?? "");
-					return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
-				} });
-				assert.ok(await c.auth.usage.report(PROVIDER, stillPresent),
-					"an ambiguous refresh failure does not revoke a still-present, still-valid advisory bearer");
-				assert.deepEqual(probes, ["usage-existing-access"]);
-				const removed: Cred = { ...stillPresent, access: "usage-removed-access", refresh: "usage-removed-refresh",
-					accountId: "usage-removed" };
-				const id = await seed(c, removed);
-				const reporting = c.auth.usage.report(PROVIDER, removed);
-				c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([reporting]); });
-				await waitForPost(started.promise, reporting);
-				assert.ok(await c.store.deleteAuthCredential(id, "synthetic usage logout"));
-				release.resolve();
-				assert.equal(await reporting, null, "advisory refresh failure must revalidate the current row");
-				assert.deepEqual(probes, ["usage-existing-access"], "no usage provider sees a logged-out captured token");
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("terminal usage rejection retires a reachable legacy quota alias across reopen", async () => {
-		const { ProviderHttpError } = await import(`${AI_ROOT}/src/error/classes.ts`);
-		const { buildUsageCredential, usageCacheIdentity } = await import(`${AI_ROOT}/src/auth/usage-cache.ts`);
-		const t = installTransport({ token: () => tokenReply("forbidden-cache-refresh", "forbidden-cache-refresh") });
-		try {
-			await withCase(async c => {
-				const credential: Cred = {
-					type: "oauth", access: "cache-access", refresh: "cache-refresh",
-					expires: Date.now() + 3_600_000, accountId: "cache-account",
-				};
-				await seed(c, credential);
-				const legacy = { provider: PROVIDER, fetchedAt: Date.now() - 120_000, limits: [],
-					metadata: { sentinel: "legacy-quota-must-not-resurrect" } };
-				let status = 503;
-				let probes = 0;
-				const impl = { fetchUsage: async () => { probes++; throw new ProviderHttpError("synthetic usage failure", status); } };
-				c.auth.usage.setProvider(PROVIDER, impl);
-				const legacyKey = `usage_cache:report:${PROVIDER}:default:${usageCacheIdentity(buildUsageCredential(credential))}`;
-				c.store.setCache(legacyKey,
-					JSON.stringify({ value: legacy, expiresAt: Date.now() - 60_000 }), Math.floor(Date.now() / 1000) + 3600);
-				assert.deepEqual(await c.auth.usage.report(PROVIDER, credential), legacy,
-					"positive control: transient failure must still find the retained legacy alias");
-				t.advanceClock(120_000);
-				status = 401;
-				assert.equal(await c.auth.usage.report(PROVIDER, credential), null,
-					"definitive rejection must not fall back to the legacy quota on the same request");
-				const cacheDb = new Database(join(c.dir, "auth.db"), { readonly: true });
-				try {
-					const stored = cacheDb.query("SELECT value FROM cache WHERE key = ?").get(legacyKey) as { value: string } | null;
-					assert.equal(stored ? JSON.parse(stored.value).value : null, null,
-						"terminal rejection must retire the alias itself, not merely hide it behind a canonical null");
-				} finally {
-					cacheDb.close();
-				}
-				// Constructor injection does not retire cache aliases; setProvider
-				// would erase the evidence this restart assertion must inspect.
-				await reopen(c, { usageProviderResolver: (provider: string) => provider === PROVIDER ? impl : undefined });
-				t.advanceClock(120_000);
-				assert.equal(await c.auth.usage.report(PROVIDER, credential), null,
-					"restart cannot resurrect an alias invalidated by the terminal response");
-				assert.equal(probes, 3);
+			c.auth.close();
+			const db = new Database(join(c.dir, "auth.db"));
+			try {
+				// Bypass the explicit-write deduper to represent two healthy rows
+				// left by an older release; normal startup is not a mutation.
+				db.query("UPDATE auth_credentials SET identity_key = NULL WHERE id = ?").run(id);
+				const original = db.query("SELECT data FROM auth_credentials WHERE id = ?").get(id) as { data: string };
+				const duplicate = { ...JSON.parse(original.data), access: "healthy-access-2", refresh: "healthy-refresh-2" };
+				db.query(`INSERT INTO auth_credentials (provider, credential_type, data, identity_key, created_at, updated_at)
+					SELECT provider, credential_type, ?, NULL, created_at, updated_at FROM auth_credentials WHERE id = ?`)
+					.run(JSON.stringify(duplicate), id);
+				const before = db.query("SELECT * FROM auth_credentials ORDER BY id").all();
+				assert.equal(before.length, 2, "fixture requires two active rows with the same account identity");
+				const revision = db.query("SELECT * FROM auth_change_revision").all();
+				c.store = await StoreClass.open(join(c.dir, "auth.db"));
+				c.auth = new AuthStorageClass(c.store);
+				await c.auth.credentials.reload();
+				assert.deepEqual(db.query("SELECT * FROM auth_credentials ORDER BY id").all(), before,
+					"constructor and normal reload cannot prune or rewrite healthy legacy rows");
+				assert.deepEqual(db.query("SELECT * FROM auth_change_revision").all(), revision,
+					"startup must not advance the auth revision");
+				assert.deepEqual(exchangeRows(c), [], "startup must not reserve healthy generations");
 				assert.equal(t.tokenPosts, 0);
-			});
-		} finally {
-			t.restore();
-		}
+				assert.equal(t.bootstrapGets, 0);
+			} finally {
+				db.close();
+			}
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("xAI optional userinfo cannot discard a known replacement", async () => {
+	let userinfoGets = 0;
+	const t = installTransport({
+		tokenMarker: "/oauth2/token",
+		token: () => tokenReply("xai-access-1", "xai-refresh-1"),
+		other: url => {
+			if (url === "https://auth.x.ai/.well-known/openid-configuration") {
+				return { kind: "json", body: { token_endpoint: "https://auth.x.ai/oauth2/token" } };
+			}
+			if (url === "https://auth.x.ai/oauth2/userinfo") {
+				userinfoGets++;
+				// Deterministic optional-enrichment cancellation, after token success.
+				throw new DOMException("synthetic optional userinfo deadline", "AbortError");
+			}
+			throw new Error(`Unexpected xAI fixture request: ${url}`);
+		},
 	});
-}
+	try {
+		await withCase(async c => {
+			await c.auth.credentials.upsert("xai-oauth", expiredCred({
+				access: "xai-access-0", refresh: "xai-refresh-0", accountId: "xai-account", email: "xai@example.invalid",
+			}));
+			const [row] = c.store.listAuthCredentials("xai-oauth");
+			assert.ok(row);
+			await c.auth.oauth.refresh(row.id);
+			await reopen(c);
+			const [saved] = c.store.listAuthCredentials("xai-oauth");
+			assert.equal(saved.credential.access, "xai-access-1");
+			assert.equal(saved.credential.refresh, "xai-refresh-1", "successful rotation must survive reopen");
+			assert.equal(saved.credential.accountId, "xai-account");
+			assert.equal(userinfoGets, 0, "refresh must not depend on optional login identity enrichment");
+			assert.equal(t.tokenPosts, 1);
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("health probes project the winning row without obsolete routing identity", async () => {
+	const started = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	const t = installTransport({
+		onTokenPost: () => started.resolve(),
+		token: () => tokenReply("health-stale-access", "health-stale-refresh", { waitFor: release.promise }),
+	});
+	try {
+		await withCase(async c => {
+			const id = await seed(c, expiredCred({
+				access: "health-old-access", refresh: "health-old-refresh", accountId: "health-account", region: "eu",
+			}));
+			const usageCredentials: Array<{ accessToken?: string; region?: string }> = [];
+			const completionCredentials: Array<{ accessToken?: string; region?: string }> = [];
+			c.auth.usage.setProvider(PROVIDER, { fetchUsage: async ({ credential }) => {
+				usageCredentials.push(credential);
+				return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
+			} });
+			const checking = c.auth.health.check({ completionProbe: async ({ credential }) => {
+				completionCredentials.push(credential);
+				return { ok: true };
+			} });
+			c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([checking]); });
+			await waitForPost(started.promise, checking);
+			c.store.updateAuthCredential(id, {
+				type: "oauth", access: "health-winner-access", refresh: "health-winner-refresh",
+				expires: Date.now() + 3_600_000, accountId: "health-account",
+			});
+			release.resolve();
+			await checking;
+			for (const [name, probes] of [["usage", usageCredentials], ["completion", completionCredentials]] as const) {
+				assert.equal(probes.length, 1, `${name} probe must actually execute`);
+				assert.equal(probes[0].accessToken, "health-winner-access");
+				assert.equal(probes[0].region, undefined, `${name} cannot resurrect the old row's removed region`);
+			}
+			assert.equal(rowOf(c, id)?.region, undefined);
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("usage fallback keeps an existing valid bearer but cannot probe after concurrent logout", async () => {
+	const started = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	const t = installTransport({
+		onTokenPost: index => { if (index === 2) started.resolve(); },
+		token: index => index === 1
+			? { kind: "status", status: 503, text: "synthetic advisory refresh failure" }
+			: tokenReply("removed-usage-access", "removed-usage-refresh", { waitFor: release.promise }),
+	});
+	try {
+		await withCase(async c => {
+			const stillPresent: Cred = {
+				type: "oauth", access: "usage-existing-access", refresh: "usage-existing-refresh",
+				expires: Date.now() + 30_000, accountId: "usage-existing",
+			};
+			await seed(c, stillPresent);
+			const probes: string[] = [];
+			c.auth.usage.setProvider(PROVIDER, { fetchUsage: async ({ credential }) => {
+				probes.push(credential.accessToken ?? "");
+				return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
+			} });
+			assert.ok(await c.auth.usage.report(PROVIDER, stillPresent),
+				"an ambiguous refresh failure does not revoke a still-present, still-valid advisory bearer");
+			assert.deepEqual(probes, ["usage-existing-access"]);
+			const removed: Cred = { ...stillPresent, access: "usage-removed-access", refresh: "usage-removed-refresh",
+				accountId: "usage-removed" };
+			const id = await seed(c, removed);
+			const reporting = c.auth.usage.report(PROVIDER, removed);
+			c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([reporting]); });
+			await waitForPost(started.promise, reporting);
+			assert.ok(await c.store.deleteAuthCredential(id, "synthetic usage logout"));
+			release.resolve();
+			assert.equal(await reporting, null, "advisory refresh failure must revalidate the current row");
+			assert.deepEqual(probes, ["usage-existing-access"], "no usage provider sees a logged-out captured token");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("terminal usage rejection retires a reachable legacy quota alias across reopen", async () => {
+	const { ProviderHttpError } = await import(`${AI_ROOT}/src/error/classes.ts`);
+	const { buildUsageCredential, usageCacheIdentity } = await import(`${AI_ROOT}/src/auth/usage-cache.ts`);
+	const t = installTransport({ token: () => tokenReply("forbidden-cache-refresh", "forbidden-cache-refresh") });
+	try {
+		await withCase(async c => {
+			const credential: Cred = {
+				type: "oauth", access: "cache-access", refresh: "cache-refresh",
+				expires: Date.now() + 3_600_000, accountId: "cache-account",
+			};
+			await seed(c, credential);
+			const legacy = { provider: PROVIDER, fetchedAt: Date.now() - 120_000, limits: [],
+				metadata: { sentinel: "legacy-quota-must-not-resurrect" } };
+			let status = 503;
+			let probes = 0;
+			const impl = { fetchUsage: async () => { probes++; throw new ProviderHttpError("synthetic usage failure", status); } };
+			c.auth.usage.setProvider(PROVIDER, impl);
+			const legacyKey = `usage_cache:report:${PROVIDER}:default:${usageCacheIdentity(buildUsageCredential(credential))}`;
+			c.store.setCache(legacyKey,
+				JSON.stringify({ value: legacy, expiresAt: Date.now() - 60_000 }), Math.floor(Date.now() / 1000) + 3600);
+			assert.deepEqual(await c.auth.usage.report(PROVIDER, credential), legacy,
+				"positive control: transient failure must still find the retained legacy alias");
+			t.advanceClock(120_000);
+			status = 401;
+			assert.equal(await c.auth.usage.report(PROVIDER, credential), null,
+				"definitive rejection must not fall back to the legacy quota on the same request");
+			const cacheDb = new Database(join(c.dir, "auth.db"), { readonly: true });
+			try {
+				const stored = cacheDb.query("SELECT value FROM cache WHERE key = ?").get(legacyKey) as { value: string } | null;
+				assert.equal(stored ? JSON.parse(stored.value).value : null, null,
+					"terminal rejection must retire the alias itself, not merely hide it behind a canonical null");
+			} finally {
+				cacheDb.close();
+			}
+			// Constructor injection does not retire cache aliases; setProvider
+			// would erase the evidence this restart assertion must inspect.
+			await reopen(c, { usageProviderResolver: (provider: string) => provider === PROVIDER ? impl : undefined });
+			t.advanceClock(120_000);
+			assert.equal(await c.auth.usage.report(PROVIDER, credential), null,
+				"restart cannot resurrect an alias invalidated by the terminal response");
+			assert.equal(probes, 3);
+			assert.equal(t.tokenPosts, 0);
+		});
+	} finally {
+		t.restore();
+	}
+});
 
 // 1. A stored identity survives a refresh that omits it, and the login-only
 //    bootstrap hook does not run during the refresh.
@@ -1515,7 +1504,7 @@ await scenario("cancellation while waiting for a peer lease issues no token requ
 			await Bun.sleep(80);
 			assert.equal(t.tokenPosts, 0);
 			assert.equal(rowOf(c, id)?.refresh, "refresh-wait");
-			if (hasExchangeReservation) assert.deepEqual(exchangeRows(c), [], "a cancelled lease waiter reserves nothing");
+			assert.deepEqual(exchangeRows(c), [], "a cancelled lease waiter reserves nothing");
 		});
 	} finally {
 		t.restore();
@@ -1726,7 +1715,7 @@ for (const [change, entry] of [
 		});
 		try {
 			await withCase(async c => {
-				const checkUsageIdentity = hasExchangeReservation && entry === "usage" && change === "replacement";
+				const checkUsageIdentity = entry === "usage" && change === "replacement";
 				const identity = checkUsageIdentity ? await import(`${AI_ROOT}/src/auth/usage-cache.ts`) : undefined;
 				const id = await seed(c, expiredCred({
 					access: "access-original", refresh: "refresh-original",
@@ -1835,9 +1824,7 @@ for (const race of ["takeover-only", "replacement-before-invalid-grant"] as cons
 		const t = installTransport({
 			onTokenPost: () => started.resolve(),
 			token: () => race === "takeover-only"
-				? hasExchangeReservation
-					? { kind: "json", body: { access_token: "access-loser", expires_in: 3600 }, waitFor: gate.promise }
-					: tokenReply("access-loser", "refresh-loser", { waitFor: gate.promise })
+				? { kind: "json", body: { access_token: "access-loser", expires_in: 3600 }, waitFor: gate.promise }
 				: { kind: "status", status: 400, text: '{"error":"invalid_grant"}', waitFor: gate.promise },
 		});
 		try {
@@ -1862,7 +1849,7 @@ for (const race of ["takeover-only", "replacement-before-invalid-grant"] as cons
 				gate.resolve();
 				await owner.catch(() => undefined);
 				assert.deepEqual(rowOf(c, id), winner, "a stale owner cannot write or disable the active winner");
-				if (race === "takeover-only" && hasExchangeReservation) {
+				if (race === "takeover-only") {
 					assert.equal(JSON.stringify(exchangeRows(c)).includes("refresh-before"), false,
 						"nonrotating known-result staging must reference, not duplicate, the current R0 plaintext");
 					t.advanceClock(20_000);
@@ -1971,867 +1958,838 @@ await scenario("503 keeps the row; selected generation policy governs the next a
 			assert.equal(failed.refresh, "refresh-t1", "a transient failure must not discard the stored refresh token");
 
 			reply = tokenReply("access-t2", "refresh-t2", { identity: RESPONSE_IDENTITY });
-			if (hasExchangeReservation) {
-				await assert.rejects(() => c.auth.oauth.refresh(id), /outcome is unresolved/,
-					"503 after invocation cannot establish that the generation was not consumed");
-				assert.deepEqual(rowOf(c, id), failed, "an ambiguous attempt must not disable or rewrite the row");
-				assert.equal(t.tokenPosts, 1, "same-generation retry must not send again");
-			} else {
-				await c.auth.oauth.refresh(id);
-				assert.equal(rowOf(c, id)?.access, "access-t2", "the historical recovery refresh must persist");
-				assert.equal(refreshTokenOf(t.tokenBodies[1]), "refresh-t1", "historical retry sends the saved token");
-			}
+			await assert.rejects(() => c.auth.oauth.refresh(id), /outcome is unresolved/,
+				"503 after invocation cannot establish that the generation was not consumed");
+			assert.deepEqual(rowOf(c, id), failed, "an ambiguous attempt must not disable or rewrite the row");
+			assert.equal(t.tokenPosts, 1, "same-generation retry must not send again");
 		});
 	} finally {
 		t.restore();
 	}
 });
 
-if (hasExchangeReservation) {
-	await scenario("lost response survives restart and lease expiry without a second send", async () => {
-		const t = installTransport({ token: () => ({ kind: "network", message: "response lost after synthetic consumption" }) });
-		try {
-			await withCase(async c => {
-				const id = await seed(c, expiredCred({ access: "loss-access", refresh: "loss-refresh" }));
-				const original = rowOf(c, id);
-				await assert.rejects(() => c.auth.oauth.refresh(id));
-				assert.equal(t.tokenPosts, 1, "the fixture must consume the generation exactly once");
-				assert.equal(exchangeRows(c).length, 1, "ambiguity must be durable before reopening");
-				t.advanceClock(60_000);
-				const restarted = await refreshAfterProcessRestart(c, id);
-				assert.match(restarted.error ?? "", /outcome is unresolved/);
-				assert.equal(restarted.tokenPosts, 0, "a fresh process cannot redeem the ambiguous generation");
-				await c.auth.getApiKey(PROVIDER).catch(() => undefined);
-				assert.equal(t.tokenPosts, 1, "expiry, restart and ordinary selection cannot resend an ambiguous generation");
-				assert.deepEqual(rowOf(c, id), original, "response loss leaves the active row intact, not quarantined");
-				assert.equal((await c.store.listDisabledCredentials(PROVIDER)).length, 0);
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("known result arriving after owner timeout is published without another exchange", async () => {
+await scenario("lost response survives restart and lease expiry without a second send", async () => {
+	const t = installTransport({ token: () => ({ kind: "network", message: "response lost after synthetic consumption" }) });
+	try {
 		await withCase(async c => {
-			const id = await seed(c, expiredCred({ access: "late-access-0", refresh: "late-refresh-0" }));
-			const response = Promise.withResolvers<Cred>();
+			const id = await seed(c, expiredCred({ access: "loss-access", refresh: "loss-refresh" }));
+			const original = rowOf(c, id);
+			await assert.rejects(() => c.auth.oauth.refresh(id));
+			assert.equal(t.tokenPosts, 1, "the fixture must consume the generation exactly once");
+			assert.equal(exchangeRows(c).length, 1, "ambiguity must be durable before reopening");
+			t.advanceClock(60_000);
+			const restarted = await refreshAfterProcessRestart(c, id);
+			assert.match(restarted.error ?? "", /outcome is unresolved/);
+			assert.equal(restarted.tokenPosts, 0, "a fresh process cannot redeem the ambiguous generation");
+			await c.auth.getApiKey(PROVIDER).catch(() => undefined);
+			assert.equal(t.tokenPosts, 1, "expiry, restart and ordinary selection cannot resend an ambiguous generation");
+			assert.deepEqual(rowOf(c, id), original, "response loss leaves the active row intact, not quarantined");
+			assert.equal((await c.store.listDisabledCredentials(PROVIDER)).length, 0);
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("known result arriving after owner timeout is published without another exchange", async () => {
+	await withCase(async c => {
+		const id = await seed(c, expiredCred({ access: "late-access-0", refresh: "late-refresh-0" }));
+		const response = Promise.withResolvers<Cred>();
+		const staged = Promise.withResolvers<void>();
+		const publications: Array<{ owner: string; holder: string | undefined; holderLive: boolean; saved: boolean }> = [];
+		const stage = c.store.stageCredentialRefreshResult.bind(c.store);
+		c.store.stageCredentialRefreshResult = (...args) => {
+			const saved = stage(...args);
+			if (saved) staged.resolve();
+			return saved;
+		};
+		const commit = c.store.commitCredentialRefreshResult.bind(c.store);
+		c.store.commitCredentialRefreshResult = (credentialId, expectedData, credential, lease) => {
+			const holder = c.store.getCredentialRefreshLeaseHolder?.(credentialId);
+			const saved = commit(credentialId, expectedData, credential, lease);
+			publications.push({
+				owner: lease.owner,
+				holder: holder?.owner,
+				holderLive: holder !== undefined && holder.expiresAtMs > Date.now(),
+				saved,
+			});
+			return saved;
+		};
+		let exchanges = 0;
+		let exchangeAborted = false;
+		const refresh = (refreshTimeoutMs: number) => c.auth.oauth.refreshStored(PROVIDER, {
+			credentialId: id, credentialFromRow: credential => credential, refreshTimeoutMs,
+			refresh: async (_current: Cred, signal: AbortSignal) => {
+				exchanges++;
+				signal.addEventListener("abort", () => { exchangeAborted = true; }, { once: true });
+				return response.promise;
+			},
+		});
+		// 18.16.0 budgets the caller, not the exchange: the admitted exchange keeps
+		// running (and keeps renewing the row lease), so a retry can never begin a
+		// second exchange and the journal is consulted only under that lease.
+		await assert.rejects(() => refresh(250), /timed out/);
+		assert.equal(exchanges, 1, "the owner timeout must leave its admitted exchange running");
+		assert.equal(exchangeAborted, false, "a caller's budget cannot abort the exchange it abandoned");
+		assert.deepEqual(publications, [], "a timed-out owner cannot publish");
+		const timedOutRow = rowOf(c, id);
+		assert.equal(timedOutRow?.access, "late-access-0", "the timed-out attempt leaves the row untouched");
+		assert.equal(exchangeRows(c).length, 1, "the admitted exchange keeps its durable reservation");
+
+		// (4) The retry rejects without starting an exchange.
+		await assert.rejects(() => refresh(250), /OAuth (token refresh timed out|refresh outcome is unresolved)/);
+		assert.equal(exchanges, 1, "a retry cannot admit the same generation twice");
+		assert.deepEqual(publications, [], "the retry cannot publish either");
+		assert.deepEqual(rowOf(c, id), timedOutRow, "the retry cannot rewrite the row");
+
+		response.resolve({ type: "oauth", access: "late-access-1", refresh: "late-refresh-1", expires: Date.now() + 3_600_000 });
+		// (2) The rotated token is never lost: the abandoned exchange stages it, and
+		// either publishes it itself under its own lease or leaves it for the next owner.
+		const stagedOutcome = await Promise.race([
+			staged.promise.then(() => "staged"),
+			Bun.sleep(5_000).then(() => "lost"),
+		]);
+		assert.equal(stagedOutcome, "staged", "a late known result must be staged before the lease is released");
+		let published = false;
+		for (let attempt = 0; attempt < 40 && !published; attempt++) {
+			published = rowOf(c, id)?.refresh === "late-refresh-1";
+			if (!published) await Bun.sleep(50);
+		}
+		if (published) {
+			// (3) Only a lease owner publishes. The abandoned exchange still holds the
+			// lease, so it commits its own staged result.
+			assert.equal(publications.length, 1, "the late result is published exactly once");
+			assert.equal(publications[0].saved, true, "the lease owner's publication must land");
+			assert.equal(publications[0].holder, publications[0].owner,
+				"only a process that owns the lease may publish the late result");
+			assert.equal(publications[0].holderLive, true, "publication must happen under a live lease");
+			assert.equal(rowOf(c, id)?.access, "late-access-1");
+			assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
+			const reread = await refreshAfterProcessRestart(c, id, "access");
+			assert.equal(reread.error, undefined, "a fresh process must serve the rotated token");
+			assert.equal(reread.access, "late-access-1");
+			assert.equal(reread.tokenPosts, 0, "a fresh process cannot re-exchange a published rotation");
+		} else {
+			assert.equal(rowOf(c, id)?.refresh, "late-refresh-0", "an unpublished late result stays staged");
+			assert.deepEqual(publications, [], "no process without the lease may publish");
+			const recovered = await refreshAfterProcessRestart(c, id);
+			assert.equal(recovered.error, undefined, "a restarted owner must recover a staged known result");
+			assert.equal(recovered.access, "late-access-1", "a restarted owner publishes the known replacement");
+			assert.equal(recovered.tokenPosts, 0, "fresh-process publication must not re-exchange");
+			assert.equal(rowOf(c, id)?.refresh, "late-refresh-1");
+			assert.equal(rowOf(c, id)?.access, "late-access-1");
+			assert.deepEqual(exchangeRows(c), [], "successful publication retires the reservation");
+		}
+		assert.equal(exchanges, 1, "known-result recovery must not invoke a second exchange");
+	});
+});
+
+// 18.16.0 moved cancellation into the provider wrapper and stopped tracking the
+// provider+staging continuation. These arms drive the exchange's own 60s ceiling
+// through the ordinary OAuth path and prove both repairs, plus the refusal of an
+// exchange nothing could publish and a caller abort that owns only its own wait.
+await scenario("the exchange ceiling stages a late replacement and store close drains it", async () => {
+	const answer = Promise.withResolvers<Cred>();
+	const admitted = Promise.withResolvers<void>();
+	let exchanges = 0;
+	// The ceiling is a fixed 60s constant, so hold exactly that timer and run the
+	// library's own callback: the real backstop fires without the real wait.
+	const realSetTimeout = globalThis.setTimeout;
+	const realClearTimeout = globalThis.clearTimeout;
+	const heldCeilings: Array<() => void> = [];
+	globalThis.setTimeout = ((callback: () => void, delay?: number, ...rest: unknown[]) => {
+		const timer = realSetTimeout(callback, delay, ...(rest as never[]));
+		if (delay === 60_000) {
+			// Off its own schedule: this scenario fires the callback explicitly.
+			realClearTimeout(timer);
+			heldCeilings.push(callback);
+		}
+		return timer;
+	}) as typeof setTimeout;
+	try {
+		await withCase(async c => {
+			const id = await seed(c, expiredCred({ access: "ceiling-access-0", refresh: "ceiling-refresh-0" }));
 			const staged = Promise.withResolvers<void>();
-			const publications: Array<{ owner: string; holder: string | undefined; holderLive: boolean; saved: boolean }> = [];
+			let stageAttempts = 0;
 			const stage = c.store.stageCredentialRefreshResult.bind(c.store);
 			c.store.stageCredentialRefreshResult = (...args) => {
+				stageAttempts++;
 				const saved = stage(...args);
 				if (saved) staged.resolve();
 				return saved;
 			};
-			const commit = c.store.commitCredentialRefreshResult.bind(c.store);
-			c.store.commitCredentialRefreshResult = (credentialId, expectedData, credential, lease) => {
-				const holder = c.store.getCredentialRefreshLeaseHolder?.(credentialId);
-				const saved = commit(credentialId, expectedData, credential, lease);
-				publications.push({
-					owner: lease.owner,
-					holder: holder?.owner,
-					holderLive: holder !== undefined && holder.expiresAtMs > Date.now(),
-					saved,
-				});
-				return saved;
-			};
-			let exchanges = 0;
-			let exchangeAborted = false;
-			const refresh = (refreshTimeoutMs: number) => c.auth.oauth.refreshStored(PROVIDER, {
-				credentialId: id, credentialFromRow: credential => credential, refreshTimeoutMs,
-				refresh: async (_current: Cred, signal: AbortSignal) => {
-					exchanges++;
-					signal.addEventListener("abort", () => { exchangeAborted = true; }, { once: true });
-					return response.promise;
+			// The ordinary public entry over the real leased exchange. The override
+			// stands in for a provider that answers after this process stopped waiting;
+			// it never observes the cancellation, which is exactly the late case.
+			const refresh = c.auth.oauth.refresh(id);
+			await admitted.promise;
+			assert.equal(heldCeilings.length, 1, "an admitted exchange arms exactly one 60s ceiling");
+			heldCeilings[0]?.();
+			await assert.rejects(() => refresh, /timed out/, "the ceiling ends the owner's wait");
+			assert.equal(exchanges, 1, "the owner's timeout cannot start a second exchange");
+			assert.equal(rowOf(c, id)?.refresh, "ceiling-refresh-0", "an ended attempt publishes nothing");
+			// Ownership is gone, so this process may not publish; the replacement is
+			// still a rotated token, and closing the store must wait for its staging.
+			c.auth.close();
+			answer.resolve({
+				type: "oauth",
+				access: "ceiling-access-1",
+				refresh: "ceiling-refresh-1",
+				expires: Date.now() + 3_600_000,
+			});
+			const stagedOutcome = await Promise.race([
+				staged.promise.then(() => "staged"),
+				Bun.sleep(5_000).then(() => "lost"),
+			]);
+			assert.equal(stageAttempts, 1, "a replacement minted after the ceiling must reach staging");
+			assert.equal(stagedOutcome, "staged", "store close must drain the provider+staging continuation");
+			assert.notEqual(stagedReplacementData(c), null, "the late replacement is durable, not lost with the store");
+			assert.equal(rowOf(c, id)?.refresh, "ceiling-refresh-0", "a released lease cannot publish the late result");
+			// Durable recovery: the next owner publishes the staged replacement with
+			// no further grant, from a store reopened after the drained close.
+			c.store = await StoreClass.open(join(c.dir, "auth.db"));
+			c.auth = new AuthStorageClass(c.store);
+			await c.auth.credentials.reload();
+			const recovered = await c.auth.oauth.refresh(id);
+			assert.equal(recovered.credential.access, "ceiling-access-1", "the staged replacement is recovered");
+			assert.equal(exchanges, 1, "recovery must not run a second exchange");
+			assert.equal(rowOf(c, id)?.access, "ceiling-access-1");
+			assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
+		}, {
+			refreshOAuthCredential: async () => {
+				exchanges++;
+				admitted.resolve();
+				return answer.promise;
+			},
+		});
+	} finally {
+		globalThis.setTimeout = realSetTimeout;
+		globalThis.clearTimeout = realClearTimeout;
+	}
+});
+
+await scenario("a caller abort after admission ends only that caller's wait", async () => {
+	await withCase(async c => {
+		const id = await seed(c, expiredCred({ access: "abort-access-0", refresh: "abort-refresh-0" }));
+		const controller = new AbortController();
+		const admitted = Promise.withResolvers<void>();
+		const answer = Promise.withResolvers<Cred>();
+		const refresh = c.auth.oauth.refreshStored(PROVIDER, {
+			credentialId: id,
+			credentialFromRow: credential => credential,
+			signal: controller.signal,
+			refresh: async () => {
+				admitted.resolve();
+				return answer.promise;
+			},
+		});
+		await admitted.promise;
+		controller.abort();
+		const verdict = await Promise.race([
+			refresh.then(
+				() => "resolved",
+				(error: unknown) => (error instanceof Error && error.name === "AbortError" ? "aborted" : `other:${String(error)}`),
+			),
+			Bun.sleep(1_000).then(() => "pending"),
+		]);
+		assert.equal(verdict, "aborted", "an abort after admission must reject this caller's wait at once");
+		// The admitted exchange is not the caller's to cancel: it still persists.
+		answer.resolve({
+			type: "oauth",
+			access: "abort-access-1",
+			refresh: "abort-refresh-1",
+			expires: Date.now() + 3_600_000,
+		});
+		let persisted = false;
+		for (let attempt = 0; attempt < 40 && !persisted; attempt++) {
+			persisted = rowOf(c, id)?.refresh === "abort-refresh-1";
+			if (!persisted) await Bun.sleep(50);
+		}
+		assert.equal(persisted, true, "the caller's abort cannot cancel the admitted exchange");
+		assert.equal(rowOf(c, id)?.access, "abort-access-1", "the rotated token is the one the store keeps");
+	});
+});
+
+// The five durability sub-contracts 0090a used to own are upstream's now.
+// Each keeps its own scenario here, so retiring the local hunks cannot also
+// retire the only evidence: quit and store swap (upstream `close()` /
+// `replaceStore()` retire), caller-local cancellation (above), the >15 s
+// lease stall (5), peer takeover + hand-back (6/7) and the advisory
+// usage-probe refresh (below).
+await scenario("quit mid-refresh: close() keeps the store open until the rotated grant is saved", async () => {
+	const started = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	const t = installTransport({
+		onTokenPost: () => started.resolve(),
+		token: () => tokenReply("quit-access-1", "quit-refresh-1", { waitFor: release.promise }),
+	});
+	try {
+		await withCase(async c => {
+			const id = await seed(c, expiredCred({ access: "quit-access-0", refresh: "quit-refresh-0" }));
+			const refreshing = c.auth.oauth.refresh(id).then(
+				entry => entry,
+				(error: unknown) => error,
+			);
+			await waitForPost(started.promise, refreshing);
+			c.auth.close();
+			await assert.rejects(
+				() => c.auth.oauth.refresh(id),
+				/shutdown/,
+				"a refresh admitted after close must be refused, not spend a second token",
+			);
+			release.resolve();
+			const outcome = await refreshing;
+			assert.ok(!(outcome instanceof Error), `the admitted exchange must still settle: ${String(outcome)}`);
+			const saved = JSON.parse(rawRowData(c, id)) as { access?: string; refresh?: string };
+			assert.equal(saved.refresh, "quit-refresh-1", "the rotated refresh token is durable before the store closes");
+			assert.equal(saved.access, "quit-access-1", "the rotated access token is durable before the store closes");
+			assert.equal(t.tokenPosts, 1, "exactly one grant, never replayed");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("store swap mid-refresh: replaceStore() drains the retired store's save", async () => {
+	const started = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	const t = installTransport({
+		onTokenPost: () => started.resolve(),
+		token: () => tokenReply("swap-access-1", "swap-refresh-1", { waitFor: release.promise }),
+	});
+	try {
+		await withCase(async c => {
+			const id = await seed(c, expiredCred({ access: "swap-access-0", refresh: "swap-refresh-0" }));
+			const refreshing = c.auth.oauth.refresh(id).then(
+				entry => entry,
+				(error: unknown) => error,
+			);
+			await waitForPost(started.promise, refreshing);
+			const next = await StoreClass.open(join(c.dir, "auth-next.db"));
+			c.cleanup.push(async () => next.close());
+			await c.auth.replaceStore(next);
+			release.resolve();
+			const outcome = await refreshing;
+			assert.ok(!(outcome instanceof Error), `the exchange bound to the retired store must settle: ${String(outcome)}`);
+			const saved = JSON.parse(rawRowData(c, id)) as { access?: string; refresh?: string };
+			assert.equal(saved.refresh, "swap-refresh-1", "the retired store holds the rotated refresh token");
+			assert.equal(saved.access, "swap-access-1", "the retired store holds the rotated access token");
+			assert.equal(t.tokenPosts, 1, "exactly one grant, never replayed");
+			assert.equal(c.auth.credentials.list(PROVIDER).length, 0, "the swapped-in store is the active authority");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("a rejected token after a takeover hands the lease back instead of disabling", async () => {
+	const t = installTransport({ token: () => ({ kind: "status", status: 400, text: '{"error":"invalid_grant"}' }) });
+	try {
+		await withCase(async c => {
+			const id = await seed(c, expiredCred({ access: "handback-access-0", refresh: "handback-refresh-0" }));
+			// A refresher that stalled holding this row's lease a moment ago: its
+			// successor may still be on its way to the store, so a rejection of the
+			// token we found is no proof the login is dead.
+			assert.ok(
+				c.store.tryAcquireCredentialRefreshLease(id, "stalled-owner", Date.now() - 1),
+				"the stalled lease must be planted on the row",
+			);
+			await assert.rejects(
+				() => c.auth.oauth.refresh(id),
+				/waits for a stalled refresher/,
+				"the takeover rejection must be reported as transient",
+			);
+			assert.ok(rowOf(c, id), "a rejection after a takeover must not disable the row");
+			assert.equal(
+				c.store.getCredentialRefreshLeaseHolder?.(id)?.owner,
+				"stalled-owner",
+				"the lease must go back to the refresher that may still save its token",
+			);
+			assert.equal(t.tokenPosts, 1, "exactly one grant for the attempted row");
+			assert.equal(t.tokenBodies[0]?.refresh_token, "handback-refresh-0",
+				"the attempted grant is the stored one");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("an advisory usage-probe refresh never disables the credential", async () => {
+	const t = installTransport({ token: () => ({ kind: "status", status: 400, text: '{"error":"invalid_grant"}' }) });
+	try {
+		await withCase(async c => {
+			const credential = expiredCred({ access: "poll-access-0", refresh: "poll-refresh-0" });
+			const id = await seed(c, credential);
+			let probes = 0;
+			c.auth.usage.setProvider(PROVIDER, {
+				fetchUsage: async () => {
+					probes++;
+					return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
 				},
 			});
-			if (["18.16.0", "18.18.0"].includes(aiVersion)) {
-				// 18.16.0 budgets the caller, not the exchange: the admitted exchange keeps
-				// running (and keeps renewing the row lease), so a retry can never begin a
-				// second exchange and the journal is consulted only under that lease.
-				await assert.rejects(() => refresh(250), /timed out/);
-				assert.equal(exchanges, 1, "the owner timeout must leave its admitted exchange running");
-				assert.equal(exchangeAborted, false, "a caller's budget cannot abort the exchange it abandoned");
-				assert.deepEqual(publications, [], "a timed-out owner cannot publish");
-				const timedOutRow = rowOf(c, id);
-				assert.equal(timedOutRow?.access, "late-access-0", "the timed-out attempt leaves the row untouched");
-				assert.equal(exchangeRows(c).length, 1, "the admitted exchange keeps its durable reservation");
-
-				// (4) The retry rejects without starting an exchange.
-				await assert.rejects(() => refresh(250), /OAuth (token refresh timed out|refresh outcome is unresolved)/);
-				assert.equal(exchanges, 1, "a retry cannot admit the same generation twice");
-				assert.deepEqual(publications, [], "the retry cannot publish either");
-				assert.deepEqual(rowOf(c, id), timedOutRow, "the retry cannot rewrite the row");
-
-				response.resolve({ type: "oauth", access: "late-access-1", refresh: "late-refresh-1", expires: Date.now() + 3_600_000 });
-				// (2) The rotated token is never lost: the abandoned exchange stages it, and
-				// either publishes it itself under its own lease or leaves it for the next owner.
-				const stagedOutcome = await Promise.race([
-					staged.promise.then(() => "staged"),
-					Bun.sleep(5_000).then(() => "lost"),
-				]);
-				assert.equal(stagedOutcome, "staged", "a late known result must be staged before the lease is released");
-				let published = false;
-				for (let attempt = 0; attempt < 40 && !published; attempt++) {
-					published = rowOf(c, id)?.refresh === "late-refresh-1";
-					if (!published) await Bun.sleep(50);
-				}
-				if (published) {
-					// (3) Only a lease owner publishes. The abandoned exchange still holds the
-					// lease, so it commits its own staged result.
-					assert.equal(publications.length, 1, "the late result is published exactly once");
-					assert.equal(publications[0].saved, true, "the lease owner's publication must land");
-					assert.equal(publications[0].holder, publications[0].owner,
-						"only a process that owns the lease may publish the late result");
-					assert.equal(publications[0].holderLive, true, "publication must happen under a live lease");
-					assert.equal(rowOf(c, id)?.access, "late-access-1");
-					assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
-					const reread = await refreshAfterProcessRestart(c, id, "access");
-					assert.equal(reread.error, undefined, "a fresh process must serve the rotated token");
-					assert.equal(reread.access, "late-access-1");
-					assert.equal(reread.tokenPosts, 0, "a fresh process cannot re-exchange a published rotation");
-				} else {
-					assert.equal(rowOf(c, id)?.refresh, "late-refresh-0", "an unpublished late result stays staged");
-					assert.deepEqual(publications, [], "no process without the lease may publish");
-					const recovered = await refreshAfterProcessRestart(c, id);
-					assert.equal(recovered.error, undefined, "a restarted owner must recover a staged known result");
-					assert.equal(recovered.access, "late-access-1", "a restarted owner publishes the known replacement");
-					assert.equal(recovered.tokenPosts, 0, "fresh-process publication must not re-exchange");
-					assert.equal(rowOf(c, id)?.refresh, "late-refresh-1");
-					assert.equal(rowOf(c, id)?.access, "late-access-1");
-					assert.deepEqual(exchangeRows(c), [], "successful publication retires the reservation");
-				}
-				assert.equal(exchanges, 1, "known-result recovery must not invoke a second exchange");
-			} else {
-				await assert.rejects(() => refresh(1), /timed out/);
-				await assert.rejects(() => refresh(1), /outcome is unresolved/);
-				assert.equal(exchanges, 1, "a timeout cannot admit the same exchange twice");
-				response.resolve({ type: "oauth", access: "late-access-1", refresh: "late-refresh-1", expires: Date.now() + 3_600_000 });
-				await staged.promise;
-				assert.equal(rowOf(c, id)?.refresh, "late-refresh-0", "late completion stages but cannot publish without ownership");
-				const recovered = await refreshAfterProcessRestart(c, id);
-				assert.equal(recovered.error, undefined, "a restarted owner must recover a staged known result");
-				assert.equal(recovered.access, "late-access-1", "a restarted owner publishes the known replacement");
-				assert.equal(recovered.tokenPosts, 0, "fresh-process publication must not re-exchange");
-				assert.equal(rowOf(c, id)?.refresh, "late-refresh-1");
-				assert.equal(rowOf(c, id)?.access, "late-access-1");
-				assert.equal(exchanges, 1, "known-result recovery must not invoke a second exchange");
-				assert.deepEqual(exchangeRows(c), [], "successful publication retires the reservation");
-			}
+			await c.auth.usage.report(PROVIDER, credential).catch(() => null);
+			assert.equal(t.tokenPosts, 1, "the near-expiry row must have been refreshed for the probe");
+			assert.ok(rowOf(c, id), "an advisory usage probe may never disable the credential");
+			assert.equal(probes, 1, "the probe falls back to the advisory bearer instead of failing the report");
 		});
-	});
-
-	// 18.16.0 moved cancellation into the provider wrapper and stopped tracking the
-	// provider+staging continuation. These arms drive the exchange's own 60s ceiling
-	// through the ordinary OAuth path and prove both repairs, plus the refusal of an
-	// exchange nothing could publish and a caller abort that owns only its own wait.
-	if (["18.16.0", "18.18.0"].includes(aiVersion)) {
-		await scenario("the exchange ceiling stages a late replacement and store close drains it", async () => {
-			const answer = Promise.withResolvers<Cred>();
-			const admitted = Promise.withResolvers<void>();
-			let exchanges = 0;
-			// The ceiling is a fixed 60s constant, so hold exactly that timer and run the
-			// library's own callback: the real backstop fires without the real wait.
-			const realSetTimeout = globalThis.setTimeout;
-			const realClearTimeout = globalThis.clearTimeout;
-			const heldCeilings: Array<() => void> = [];
-			globalThis.setTimeout = ((callback: () => void, delay?: number, ...rest: unknown[]) => {
-				const timer = realSetTimeout(callback, delay, ...(rest as never[]));
-				if (delay === 60_000) {
-					// Off its own schedule: this scenario fires the callback explicitly.
-					realClearTimeout(timer);
-					heldCeilings.push(callback);
-				}
-				return timer;
-			}) as typeof setTimeout;
-			try {
-				await withCase(async c => {
-					const id = await seed(c, expiredCred({ access: "ceiling-access-0", refresh: "ceiling-refresh-0" }));
-					const staged = Promise.withResolvers<void>();
-					let stageAttempts = 0;
-					const stage = c.store.stageCredentialRefreshResult.bind(c.store);
-					c.store.stageCredentialRefreshResult = (...args) => {
-						stageAttempts++;
-						const saved = stage(...args);
-						if (saved) staged.resolve();
-						return saved;
-					};
-					// The ordinary public entry over the real leased exchange. The override
-					// stands in for a provider that answers after this process stopped waiting;
-					// it never observes the cancellation, which is exactly the late case.
-					const refresh = c.auth.oauth.refresh(id);
-					await admitted.promise;
-					assert.equal(heldCeilings.length, 1, "an admitted exchange arms exactly one 60s ceiling");
-					heldCeilings[0]?.();
-					await assert.rejects(() => refresh, /timed out/, "the ceiling ends the owner's wait");
-					assert.equal(exchanges, 1, "the owner's timeout cannot start a second exchange");
-					assert.equal(rowOf(c, id)?.refresh, "ceiling-refresh-0", "an ended attempt publishes nothing");
-					// Ownership is gone, so this process may not publish; the replacement is
-					// still a rotated token, and closing the store must wait for its staging.
-					c.auth.close();
-					answer.resolve({
-						type: "oauth",
-						access: "ceiling-access-1",
-						refresh: "ceiling-refresh-1",
-						expires: Date.now() + 3_600_000,
-					});
-					const stagedOutcome = await Promise.race([
-						staged.promise.then(() => "staged"),
-						Bun.sleep(5_000).then(() => "lost"),
-					]);
-					assert.equal(stageAttempts, 1, "a replacement minted after the ceiling must reach staging");
-					assert.equal(stagedOutcome, "staged", "store close must drain the provider+staging continuation");
-					assert.notEqual(stagedReplacementData(c), null, "the late replacement is durable, not lost with the store");
-					assert.equal(rowOf(c, id)?.refresh, "ceiling-refresh-0", "a released lease cannot publish the late result");
-					// Durable recovery: the next owner publishes the staged replacement with
-					// no further grant, from a store reopened after the drained close.
-					c.store = await StoreClass.open(join(c.dir, "auth.db"));
-					c.auth = new AuthStorageClass(c.store);
-					await c.auth.credentials.reload();
-					const recovered = await c.auth.oauth.refresh(id);
-					assert.equal(recovered.credential.access, "ceiling-access-1", "the staged replacement is recovered");
-					assert.equal(exchanges, 1, "recovery must not run a second exchange");
-					assert.equal(rowOf(c, id)?.access, "ceiling-access-1");
-					assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
-				}, {
-					refreshOAuthCredential: async () => {
-						exchanges++;
-						admitted.resolve();
-						return answer.promise;
-					},
-				});
-			} finally {
-				globalThis.setTimeout = realSetTimeout;
-				globalThis.clearTimeout = realClearTimeout;
-			}
-		});
-
-		await scenario("a caller abort after admission ends only that caller's wait", async () => {
-			await withCase(async c => {
-				const id = await seed(c, expiredCred({ access: "abort-access-0", refresh: "abort-refresh-0" }));
-				const controller = new AbortController();
-				const admitted = Promise.withResolvers<void>();
-				const answer = Promise.withResolvers<Cred>();
-				const refresh = c.auth.oauth.refreshStored(PROVIDER, {
-					credentialId: id,
-					credentialFromRow: credential => credential,
-					signal: controller.signal,
-					refresh: async () => {
-						admitted.resolve();
-						return answer.promise;
-					},
-				});
-				await admitted.promise;
-				controller.abort();
-				const verdict = await Promise.race([
-					refresh.then(
-						() => "resolved",
-						(error: unknown) => (error instanceof Error && error.name === "AbortError" ? "aborted" : `other:${String(error)}`),
-					),
-					Bun.sleep(1_000).then(() => "pending"),
-				]);
-				assert.equal(verdict, "aborted", "an abort after admission must reject this caller's wait at once");
-				// The admitted exchange is not the caller's to cancel: it still persists.
-				answer.resolve({
-					type: "oauth",
-					access: "abort-access-1",
-					refresh: "abort-refresh-1",
-					expires: Date.now() + 3_600_000,
-				});
-				let persisted = false;
-				for (let attempt = 0; attempt < 40 && !persisted; attempt++) {
-					persisted = rowOf(c, id)?.refresh === "abort-refresh-1";
-					if (!persisted) await Bun.sleep(50);
-				}
-				assert.equal(persisted, true, "the caller's abort cannot cancel the admitted exchange");
-				assert.equal(rowOf(c, id)?.access, "abort-access-1", "the rotated token is the one the store keeps");
-			});
-		});
-
-		// The five durability sub-contracts 0090a used to own are upstream's now.
-		// Each keeps its own scenario here, so retiring the local hunks cannot also
-		// retire the only evidence: quit and store swap (upstream `close()` /
-		// `replaceStore()` retire), caller-local cancellation (above), the >15 s
-		// lease stall (5), peer takeover + hand-back (6/7) and the advisory
-		// usage-probe refresh (below).
-		await scenario("quit mid-refresh: close() keeps the store open until the rotated grant is saved", async () => {
-			const started = Promise.withResolvers<void>();
-			const release = Promise.withResolvers<void>();
-			const t = installTransport({
-				onTokenPost: () => started.resolve(),
-				token: () => tokenReply("quit-access-1", "quit-refresh-1", { waitFor: release.promise }),
-			});
-			try {
-				await withCase(async c => {
-					const id = await seed(c, expiredCred({ access: "quit-access-0", refresh: "quit-refresh-0" }));
-					const refreshing = c.auth.oauth.refresh(id).then(
-						entry => entry,
-						(error: unknown) => error,
-					);
-					await waitForPost(started.promise, refreshing);
-					c.auth.close();
-					await assert.rejects(
-						() => c.auth.oauth.refresh(id),
-						/shutdown/,
-						"a refresh admitted after close must be refused, not spend a second token",
-					);
-					release.resolve();
-					const outcome = await refreshing;
-					assert.ok(!(outcome instanceof Error), `the admitted exchange must still settle: ${String(outcome)}`);
-					const saved = JSON.parse(rawRowData(c, id)) as { access?: string; refresh?: string };
-					assert.equal(saved.refresh, "quit-refresh-1", "the rotated refresh token is durable before the store closes");
-					assert.equal(saved.access, "quit-access-1", "the rotated access token is durable before the store closes");
-					assert.equal(t.tokenPosts, 1, "exactly one grant, never replayed");
-				});
-			} finally {
-				t.restore();
-			}
-		});
-
-		await scenario("store swap mid-refresh: replaceStore() drains the retired store's save", async () => {
-			const started = Promise.withResolvers<void>();
-			const release = Promise.withResolvers<void>();
-			const t = installTransport({
-				onTokenPost: () => started.resolve(),
-				token: () => tokenReply("swap-access-1", "swap-refresh-1", { waitFor: release.promise }),
-			});
-			try {
-				await withCase(async c => {
-					const id = await seed(c, expiredCred({ access: "swap-access-0", refresh: "swap-refresh-0" }));
-					const refreshing = c.auth.oauth.refresh(id).then(
-						entry => entry,
-						(error: unknown) => error,
-					);
-					await waitForPost(started.promise, refreshing);
-					const next = await StoreClass.open(join(c.dir, "auth-next.db"));
-					c.cleanup.push(async () => next.close());
-					await c.auth.replaceStore(next);
-					release.resolve();
-					const outcome = await refreshing;
-					assert.ok(!(outcome instanceof Error), `the exchange bound to the retired store must settle: ${String(outcome)}`);
-					const saved = JSON.parse(rawRowData(c, id)) as { access?: string; refresh?: string };
-					assert.equal(saved.refresh, "swap-refresh-1", "the retired store holds the rotated refresh token");
-					assert.equal(saved.access, "swap-access-1", "the retired store holds the rotated access token");
-					assert.equal(t.tokenPosts, 1, "exactly one grant, never replayed");
-					assert.equal(c.auth.credentials.list(PROVIDER).length, 0, "the swapped-in store is the active authority");
-				});
-			} finally {
-				t.restore();
-			}
-		});
-
-		await scenario("a rejected token after a takeover hands the lease back instead of disabling", async () => {
-			const t = installTransport({ token: () => ({ kind: "status", status: 400, text: '{"error":"invalid_grant"}' }) });
-			try {
-				await withCase(async c => {
-					const id = await seed(c, expiredCred({ access: "handback-access-0", refresh: "handback-refresh-0" }));
-					// A refresher that stalled holding this row's lease a moment ago: its
-					// successor may still be on its way to the store, so a rejection of the
-					// token we found is no proof the login is dead.
-					assert.ok(
-						c.store.tryAcquireCredentialRefreshLease(id, "stalled-owner", Date.now() - 1),
-						"the stalled lease must be planted on the row",
-					);
-					await assert.rejects(
-						() => c.auth.oauth.refresh(id),
-						/waits for a stalled refresher/,
-						"the takeover rejection must be reported as transient",
-					);
-					assert.ok(rowOf(c, id), "a rejection after a takeover must not disable the row");
-					assert.equal(
-						c.store.getCredentialRefreshLeaseHolder?.(id)?.owner,
-						"stalled-owner",
-						"the lease must go back to the refresher that may still save its token",
-					);
-					assert.equal(t.tokenPosts, 1, "exactly one grant for the attempted row");
-					assert.equal(t.tokenBodies[0]?.refresh_token, "handback-refresh-0",
-						"the attempted grant is the stored one");
-				});
-			} finally {
-				t.restore();
-			}
-		});
-
-		await scenario("an advisory usage-probe refresh never disables the credential", async () => {
-			const t = installTransport({ token: () => ({ kind: "status", status: 400, text: '{"error":"invalid_grant"}' }) });
-			try {
-				await withCase(async c => {
-					const credential = expiredCred({ access: "poll-access-0", refresh: "poll-refresh-0" });
-					const id = await seed(c, credential);
-					let probes = 0;
-					c.auth.usage.setProvider(PROVIDER, {
-						fetchUsage: async () => {
-							probes++;
-							return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
-						},
-					});
-					await c.auth.usage.report(PROVIDER, credential).catch(() => null);
-					assert.equal(t.tokenPosts, 1, "the near-expiry row must have been refreshed for the probe");
-					assert.ok(rowOf(c, id), "an advisory usage probe may never disable the credential");
-					assert.equal(probes, 1, "the probe falls back to the advisory bearer instead of failing the report");
-				});
-			} finally {
-				t.restore();
-			}
-		});
-
-		await scenario("an advisory probe that receives invalid_grant discharges its exchange", async () => {
-			const t = installTransport({ token: () => ({ kind: "status", status: 400, text: '{"error":"invalid_grant"}' }) });
-			try {
-				await withCase(async c => {
-					const credential = expiredCred({ access: "probe-reject-access", refresh: "probe-reject-refresh" });
-					const id = await seed(c, credential);
-					c.auth.usage.setProvider(PROVIDER, {
-						fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
-					});
-					await c.auth.usage.report(PROVIDER, credential).catch(() => null);
-					assert.equal(t.tokenPosts, 1, "the advisory probe must have attempted one grant");
-					assert.ok(rowOf(c, id), "an advisory rejection leaves the row active");
-					assert.deepEqual(exchangeRows(c), [],
-						"a rejection the provider actually sent is a known outcome: no pending marker may survive");
-					const inspection = await requireUnlockSurface(c).inspectUnresolvedRefresh(PROVIDER);
-					assert.equal(inspection.eligible, false, "a known rejection leaves nothing to unlock");
-					// Another process rotates the row; the next interactive refresh adopts the
-					// stored winner with no second grant and no re-login.
-					const peer: Cred = {
-						type: "oauth", access: "probe-peer-access", refresh: "probe-peer-refresh",
-						expires: Date.now() + 3_600_000, accountId: "probe-peer",
-					};
-					c.store.updateAuthCredential(id, peer);
-					const after = await c.auth.oauth.refresh(id);
-					assert.equal(after.credential.access, "probe-peer-access",
-						"the next interactive refresh proceeds on the stored row");
-					assert.equal(t.tokenPosts, 1, "recovering from a known rejection needs no second grant");
-				});
-			} finally {
-				t.restore();
-			}
-		});
-
-		await scenario("an advisory probe whose response was lost keeps its unresolved exchange", async () => {
-			const t = installTransport({ token: () => ({ kind: "network", message: "response lost after synthetic consumption" }) });
-			try {
-				await withCase(async c => {
-					const credential = expiredCred({ access: "probe-lost-access", refresh: "probe-lost-refresh" });
-					const id = await seed(c, credential);
-					c.auth.usage.setProvider(PROVIDER, {
-						fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
-					});
-					await c.auth.usage.report(PROVIDER, credential).catch(() => null);
-					assert.equal(t.tokenPosts, 1, "the advisory probe consumed the generation exactly once");
-					assert.ok(rowOf(c, id), "an unresolved probe outcome never disables the row");
-					assert.equal(exchangeRows(c).length, 1, "an unknown outcome keeps its durable marker");
-					const inspection = await requireUnlockSurface(c).inspectUnresolvedRefresh(PROVIDER);
-					assert.equal(inspection.eligible, true, "the ambiguity stays inspectable and unlockable");
-					await assert.rejects(
-						() => c.auth.oauth.refresh(id),
-						/outcome is unresolved/,
-						"an ambiguous generation is never resent",
-					);
-					assert.equal(t.tokenPosts, 1, "no second grant after an unknown outcome");
-					assert.ok(rowOf(c, id), "the refused refresh leaves the row active");
-				});
-			} finally {
-				t.restore();
-			}
-		});
-
-		await scenario("an advisory probe transport failure that mentions a revoked grant keeps its marker", async () => {
-			// The message is designed to match the free-text definitive pattern; only a
-			// parsed provider answer may discharge, so this must stay ambiguous.
-			const t = installTransport({ token: () => ({ kind: "network", message: "network: certificate revoked (invalid_grant)" }) });
-			try {
-				await withCase(async c => {
-					const credential = expiredCred({ access: "probe-netfail-access", refresh: "probe-netfail-refresh" });
-					const id = await seed(c, credential);
-					c.auth.usage.setProvider(PROVIDER, {
-						fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
-					});
-					await c.auth.usage.report(PROVIDER, credential).catch(() => null);
-					assert.equal(t.tokenPosts, 1, "the advisory probe attempted exactly one grant");
-					assert.ok(rowOf(c, id), "a transport failure never disables the row");
-					assert.equal(exchangeRows(c).length, 1,
-						"no provider answer was read, so the outcome is unknown and the marker stays");
-					const inspection = await requireUnlockSurface(c).inspectUnresolvedRefresh(PROVIDER);
-					assert.equal(inspection.eligible, true, "the ambiguity stays inspectable and unlockable");
-					await assert.rejects(() => c.auth.oauth.refresh(id), /outcome is unresolved/,
-						"an unread outcome is never resent");
-					assert.equal(t.tokenPosts, 1, "no second grant after a transport failure");
-				});
-			} finally {
-				t.restore();
-			}
-		});
-
-		await scenario("an advisory probe 200 with an unusable payload keeps its marker", async () => {
-			// A 2xx envelope whose excerpt names a grant rejection is still not a
-			// refusal of the grant: validation failed, nothing was told to us.
-			const t = installTransport({
-				token: () => ({ kind: "json", body: { error: "invalid_grant", error_description: "grant revoked" } }),
-			});
-			try {
-				await withCase(async c => {
-					const credential = expiredCred({ access: "probe-bad200-access", refresh: "probe-bad200-refresh" });
-					const id = await seed(c, credential);
-					c.auth.usage.setProvider(PROVIDER, {
-						fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
-					});
-					await c.auth.usage.report(PROVIDER, credential).catch(() => null);
-					assert.equal(t.tokenPosts, 1, "the advisory probe attempted exactly one grant");
-					assert.ok(rowOf(c, id), "an unusable 200 never disables the row");
-					assert.equal(exchangeRows(c).length, 1,
-						"a 2xx with a bad payload proves nothing about the grant, so the marker stays");
-					await assert.rejects(() => c.auth.oauth.refresh(id), /outcome is unresolved/,
-						"an unresolved generation is never resent");
-					assert.equal(t.tokenPosts, 1, "no second grant after an unusable 200");
-				});
-			} finally {
-				t.restore();
-			}
-		});
-
-		await scenario("an unresolved exchange switches to the fallback model and says so in a notice", async () => {
-			await withCase(async c => {
-				const id = await seed(c, expiredCred({ access: "preflight-fb-0", refresh: "preflight-fb-r0" }));
-				seedPendingMarker(c, id);
-				const { session, notices } = await openPreflightSession(c, { chain: true });
-				const failure = await promptFailure(session);
-				assert.equal(failure, "<no error surfaced>", `a pinned chain must serve the turn: ${failure}`);
-				assert.equal(session.model?.provider, "keyed-fixture",
-					"a provider without a usable credential must switch onto the keyed candidate");
-				const notice = notices.find(entry => entry.source === "auth-unlock");
-				assert.ok(notice, `the silent model switch must be announced: ${JSON.stringify(notices)}`);
-				assert.equal(notice.level, "warning", "the announcement is a non-blocking warning");
-				assert.match(notice.message ?? "", /\/auth-unlock anthropic/,
-					"the notice must name the command that releases the exchange");
-				assert.match(notice.message ?? "", /unresolved token refresh/,
-					"the notice must name the condition");
-			});
-		});
-
-		await scenario("an exhausted fallback chain refuses with the auth-unlock diagnostic", async () => {
-			await withCase(async c => {
-				const id = await seed(c, expiredCred({ access: "preflight-ex-0", refresh: "preflight-ex-r0" }));
-				seedPendingMarker(c, id);
-				const { session } = await openPreflightSession(c, { chain: false });
-				const failure = await promptFailure(session);
-				assert.match(failure, /\/auth-unlock anthropic/,
-					`the refusal must name the command that releases the exchange: ${failure}`);
-				assert.match(failure, /unresolved token refresh/,
-					"the refusal must distinguish an unresolved exchange from a missing credential");
-				assert.ok(!/No API key found/.test(failure),
-					"a pending exchange is not reported as a missing credential");
-			});
-		});
-
-		await scenario("an unpublishable local exchange is refused before the grant", async () => {
-			const t = installTransport({ tokenMarker: "oauth2.googleapis.com/token", token: () => tokenReply("forbidden", "forbidden") });
-			try {
-				await withCase(async c => {
-					const provider = "google-antigravity";
-					const id = await seed(
-						c,
-						expiredCred({ access: "nopublish-0", refresh: "nopublish-r0", projectId: "nopublish-project" }),
-						provider,
-					);
-					// A custom store that carries the lease concern but no publication
-					// primitive at all: no journal and no fenced compare-and-set. Refreshing
-					// here would spend the refresh token and keep the old credential.
-					for (const member of [
-						"tryUpdateAuthCredentialIfMatches",
-						"reserveCredentialRefreshExchange",
-						"stageCredentialRefreshResult",
-						"commitCredentialRefreshResult",
-						"inspectUnresolvedCredentialRefreshExchange",
-						"readStagedCredentialRefreshResult",
-						"releaseUnresolvedCredentialRefreshExchange",
-					]) {
-						Object.defineProperty(c.store, member, { value: undefined, configurable: true });
-					}
-					let reported = "refreshed";
-					try {
-						await c.auth.oauth.refresh(id);
-					} catch (error) {
-						reported = String(error);
-					}
-					assert.equal(t.tokenPosts, 0, "an unpublishable local exchange must be refused before the grant");
-					assert.notEqual(reported, "refreshed", "an unpublishable exchange may never report a refresh");
-					assert.equal(rowOf(c, id, provider)?.refresh, "nopublish-r0", "the stored token is never spent");
-					assert.deepEqual(exchangeRows(c), [], "a refused exchange reserves nothing");
-				});
-			} finally {
-				t.restore();
-			}
-		});
+	} finally {
+		t.restore();
 	}
-}
+});
 
-if (hasExchangeReservation) {
-	await scenario("broker filters, canceled waiters and authoritative replacement identity", async () => {
-		assert.equal(JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version, aiVersion,
-			"target broker/MCP consumer coverage requires matching selected package versions");
-		// The actual server router runs, but its socket transport is replaced by
-		// an in-process Request/Response bridge consumed by the real client.
-		const { startAuthBroker } = await import(`${AI_ROOT}/src/auth-broker/server.ts`);
-		const { AuthBrokerClient } = await import(`${AI_ROOT}/src/auth-broker/client.ts`);
-		const { RemoteAuthCredentialStore } = await import(`${AI_ROOT}/src/auth-broker/remote-store.ts`);
-		const { refreshOAuthToken } = await import(`${AI_ROOT}/src/registry/oauth/index.ts`);
-		const { refreshStoredManagedMcpOAuthCredential, refreshManagedMcpOAuthCredential } =
-			await import(`${AGENT_ROOT}/src/mcp/oauth-credentials.ts`);
-		const { mcpOAuthCredentialId } = await import(`${AGENT_ROOT}/src/mcp/oauth-flow.ts`);
-		const originalServe = Bun.serve;
-		let route!: (request: Request, server: unknown) => Response | Promise<Response>;
-		let disableRequests = 0;
-		const server = {
-			hostname: "127.0.0.1", port: 8765,
-			requestIP: () => ({ address: "127.0.0.1" }), stop: () => undefined,
-		};
-		Bun.serve = ((options: { fetch: typeof route }) => {
-			route = options.fetch;
-			return server;
-		}) as typeof Bun.serve;
-		let started = Promise.withResolvers<void>();
-		let release = Promise.withResolvers<void>();
-		const t = installTransport({
-			onTokenPost: () => started.resolve(),
-			token: index => tokenReply(`broker-access-${index}`, `broker-refresh-${index}`, { waitFor: release.promise }),
+await scenario("an advisory probe that receives invalid_grant discharges its exchange", async () => {
+	const t = installTransport({ token: () => ({ kind: "status", status: 400, text: '{"error":"invalid_grant"}' }) });
+	try {
+		await withCase(async c => {
+			const credential = expiredCred({ access: "probe-reject-access", refresh: "probe-reject-refresh" });
+			const id = await seed(c, credential);
+			c.auth.usage.setProvider(PROVIDER, {
+				fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
+			});
+			await c.auth.usage.report(PROVIDER, credential).catch(() => null);
+			assert.equal(t.tokenPosts, 1, "the advisory probe must have attempted one grant");
+			assert.ok(rowOf(c, id), "an advisory rejection leaves the row active");
+			assert.deepEqual(exchangeRows(c), [],
+				"a rejection the provider actually sent is a known outcome: no pending marker may survive");
+			const inspection = await requireUnlockSurface(c).inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(inspection.eligible, false, "a known rejection leaves nothing to unlock");
+			// Another process rotates the row; the next interactive refresh adopts the
+			// stored winner with no second grant and no re-login.
+			const peer: Cred = {
+				type: "oauth", access: "probe-peer-access", refresh: "probe-peer-refresh",
+				expires: Date.now() + 3_600_000, accountId: "probe-peer",
+			};
+			c.store.updateAuthCredential(id, peer);
+			const after = await c.auth.oauth.refresh(id);
+			assert.equal(after.credential.access, "probe-peer-access",
+				"the next interactive refresh proceeds on the stored row");
+			assert.equal(t.tokenPosts, 1, "recovering from a known rejection needs no second grant");
 		});
-		try {
-			await withCase(async c => {
-				const id = await seed(c, expiredCred({
-					access: "broker-anthropic", refresh: "broker-anthropic-refresh",
-					accountId: "broker-account", region: "eu", apiEndpoint: "https://obsolete.example.invalid",
-				}));
-				let anthropicUsage = 0;
-				let selectedUsage = 0;
-				c.auth.usage.setProvider(PROVIDER, { fetchUsage: async () => {
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("an advisory probe whose response was lost keeps its unresolved exchange", async () => {
+	const t = installTransport({ token: () => ({ kind: "network", message: "response lost after synthetic consumption" }) });
+	try {
+		await withCase(async c => {
+			const credential = expiredCred({ access: "probe-lost-access", refresh: "probe-lost-refresh" });
+			const id = await seed(c, credential);
+			c.auth.usage.setProvider(PROVIDER, {
+				fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
+			});
+			await c.auth.usage.report(PROVIDER, credential).catch(() => null);
+			assert.equal(t.tokenPosts, 1, "the advisory probe consumed the generation exactly once");
+			assert.ok(rowOf(c, id), "an unresolved probe outcome never disables the row");
+			assert.equal(exchangeRows(c).length, 1, "an unknown outcome keeps its durable marker");
+			const inspection = await requireUnlockSurface(c).inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(inspection.eligible, true, "the ambiguity stays inspectable and unlockable");
+			await assert.rejects(
+				() => c.auth.oauth.refresh(id),
+				/outcome is unresolved/,
+				"an ambiguous generation is never resent",
+			);
+			assert.equal(t.tokenPosts, 1, "no second grant after an unknown outcome");
+			assert.ok(rowOf(c, id), "the refused refresh leaves the row active");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("an advisory probe transport failure that mentions a revoked grant keeps its marker", async () => {
+	// The message is designed to match the free-text definitive pattern; only a
+	// parsed provider answer may discharge, so this must stay ambiguous.
+	const t = installTransport({ token: () => ({ kind: "network", message: "network: certificate revoked (invalid_grant)" }) });
+	try {
+		await withCase(async c => {
+			const credential = expiredCred({ access: "probe-netfail-access", refresh: "probe-netfail-refresh" });
+			const id = await seed(c, credential);
+			c.auth.usage.setProvider(PROVIDER, {
+				fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
+			});
+			await c.auth.usage.report(PROVIDER, credential).catch(() => null);
+			assert.equal(t.tokenPosts, 1, "the advisory probe attempted exactly one grant");
+			assert.ok(rowOf(c, id), "a transport failure never disables the row");
+			assert.equal(exchangeRows(c).length, 1,
+				"no provider answer was read, so the outcome is unknown and the marker stays");
+			const inspection = await requireUnlockSurface(c).inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(inspection.eligible, true, "the ambiguity stays inspectable and unlockable");
+			await assert.rejects(() => c.auth.oauth.refresh(id), /outcome is unresolved/,
+				"an unread outcome is never resent");
+			assert.equal(t.tokenPosts, 1, "no second grant after a transport failure");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("an advisory probe 200 with an unusable payload keeps its marker", async () => {
+	// A 2xx envelope whose excerpt names a grant rejection is still not a
+	// refusal of the grant: validation failed, nothing was told to us.
+	const t = installTransport({
+		token: () => ({ kind: "json", body: { error: "invalid_grant", error_description: "grant revoked" } }),
+	});
+	try {
+		await withCase(async c => {
+			const credential = expiredCred({ access: "probe-bad200-access", refresh: "probe-bad200-refresh" });
+			const id = await seed(c, credential);
+			c.auth.usage.setProvider(PROVIDER, {
+				fetchUsage: async () => ({ provider: PROVIDER, fetchedAt: Date.now(), limits: [] }),
+			});
+			await c.auth.usage.report(PROVIDER, credential).catch(() => null);
+			assert.equal(t.tokenPosts, 1, "the advisory probe attempted exactly one grant");
+			assert.ok(rowOf(c, id), "an unusable 200 never disables the row");
+			assert.equal(exchangeRows(c).length, 1,
+				"a 2xx with a bad payload proves nothing about the grant, so the marker stays");
+			await assert.rejects(() => c.auth.oauth.refresh(id), /outcome is unresolved/,
+				"an unresolved generation is never resent");
+			assert.equal(t.tokenPosts, 1, "no second grant after an unusable 200");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("an unresolved exchange switches to the fallback model and says so in a notice", async () => {
+	await withCase(async c => {
+		const id = await seed(c, expiredCred({ access: "preflight-fb-0", refresh: "preflight-fb-r0" }));
+		seedPendingMarker(c, id);
+		const { session, notices } = await openPreflightSession(c, { chain: true });
+		const failure = await promptFailure(session);
+		assert.equal(failure, "<no error surfaced>", `a pinned chain must serve the turn: ${failure}`);
+		assert.equal(session.model?.provider, "keyed-fixture",
+			"a provider without a usable credential must switch onto the keyed candidate");
+		const notice = notices.find(entry => entry.source === "auth-unlock");
+		assert.ok(notice, `the silent model switch must be announced: ${JSON.stringify(notices)}`);
+		assert.equal(notice.level, "warning", "the announcement is a non-blocking warning");
+		assert.match(notice.message ?? "", /\/auth-unlock anthropic/,
+			"the notice must name the command that releases the exchange");
+		assert.match(notice.message ?? "", /unresolved token refresh/,
+			"the notice must name the condition");
+	});
+});
+
+await scenario("an exhausted fallback chain refuses with the auth-unlock diagnostic", async () => {
+	await withCase(async c => {
+		const id = await seed(c, expiredCred({ access: "preflight-ex-0", refresh: "preflight-ex-r0" }));
+		seedPendingMarker(c, id);
+		const { session } = await openPreflightSession(c, { chain: false });
+		const failure = await promptFailure(session);
+		assert.match(failure, /\/auth-unlock anthropic/,
+			`the refusal must name the command that releases the exchange: ${failure}`);
+		assert.match(failure, /unresolved token refresh/,
+			"the refusal must distinguish an unresolved exchange from a missing credential");
+		assert.ok(!/No API key found/.test(failure),
+			"a pending exchange is not reported as a missing credential");
+	});
+});
+
+await scenario("an unpublishable local exchange is refused before the grant", async () => {
+	const t = installTransport({ tokenMarker: "oauth2.googleapis.com/token", token: () => tokenReply("forbidden", "forbidden") });
+	try {
+		await withCase(async c => {
+			const provider = "google-antigravity";
+			const id = await seed(
+				c,
+				expiredCred({ access: "nopublish-0", refresh: "nopublish-r0", projectId: "nopublish-project" }),
+				provider,
+			);
+			// A custom store that carries the lease concern but no publication
+			// primitive at all: no journal and no fenced compare-and-set. Refreshing
+			// here would spend the refresh token and keep the old credential.
+			for (const member of [
+				"tryUpdateAuthCredentialIfMatches",
+				"reserveCredentialRefreshExchange",
+				"stageCredentialRefreshResult",
+				"commitCredentialRefreshResult",
+				"inspectUnresolvedCredentialRefreshExchange",
+				"readStagedCredentialRefreshResult",
+				"releaseUnresolvedCredentialRefreshExchange",
+			]) {
+				Object.defineProperty(c.store, member, { value: undefined, configurable: true });
+			}
+			let reported = "refreshed";
+			try {
+				await c.auth.oauth.refresh(id);
+			} catch (error) {
+				reported = String(error);
+			}
+			assert.equal(t.tokenPosts, 0, "an unpublishable local exchange must be refused before the grant");
+			assert.notEqual(reported, "refreshed", "an unpublishable exchange may never report a refresh");
+			assert.equal(rowOf(c, id, provider)?.refresh, "nopublish-r0", "the stored token is never spent");
+			assert.deepEqual(exchangeRows(c), [], "a refused exchange reserves nothing");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("broker filters, canceled waiters and authoritative replacement identity", async () => {
+	assert.equal(JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version, aiVersion,
+		"target broker/MCP consumer coverage requires matching selected package versions");
+	// The actual server router runs, but its socket transport is replaced by
+	// an in-process Request/Response bridge consumed by the real client.
+	const { startAuthBroker } = await import(`${AI_ROOT}/src/auth-broker/server.ts`);
+	const { AuthBrokerClient } = await import(`${AI_ROOT}/src/auth-broker/client.ts`);
+	const { RemoteAuthCredentialStore } = await import(`${AI_ROOT}/src/auth-broker/remote-store.ts`);
+	const { refreshOAuthToken } = await import(`${AI_ROOT}/src/registry/oauth/index.ts`);
+	const { refreshStoredManagedMcpOAuthCredential, refreshManagedMcpOAuthCredential } =
+		await import(`${AGENT_ROOT}/src/mcp/oauth-credentials.ts`);
+	const { mcpOAuthCredentialId } = await import(`${AGENT_ROOT}/src/mcp/oauth-flow.ts`);
+	const originalServe = Bun.serve;
+	let route!: (request: Request, server: unknown) => Response | Promise<Response>;
+	let disableRequests = 0;
+	const server = {
+		hostname: "127.0.0.1", port: 8765,
+		requestIP: () => ({ address: "127.0.0.1" }), stop: () => undefined,
+	};
+	Bun.serve = ((options: { fetch: typeof route }) => {
+		route = options.fetch;
+		return server;
+	}) as typeof Bun.serve;
+	let started = Promise.withResolvers<void>();
+	let release = Promise.withResolvers<void>();
+	const t = installTransport({
+		onTokenPost: () => started.resolve(),
+		token: index => tokenReply(`broker-access-${index}`, `broker-refresh-${index}`, { waitFor: release.promise }),
+	});
+	try {
+		await withCase(async c => {
+			const id = await seed(c, expiredCred({
+				access: "broker-anthropic", refresh: "broker-anthropic-refresh",
+				accountId: "broker-account", region: "eu", apiEndpoint: "https://obsolete.example.invalid",
+			}));
+			let anthropicUsage = 0;
+			let selectedUsage = 0;
+			c.auth.usage.setProvider(PROVIDER, { fetchUsage: async () => {
+				anthropicUsage++;
+				return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
+			} });
+			for (const provider of ["gate-selected-a", "gate-selected-b"]) {
+				await c.auth.credentials.upsert(provider, {
+					type: "oauth", access: provider, refresh: `${provider}-refresh`, expires: Date.now() + 3_600_000,
+				});
+				c.auth.usage.setProvider(provider, { fetchUsage: async () => {
+					selectedUsage++;
+					return { provider, fetchedAt: Date.now(), limits: [] };
+				} });
+			}
+			const broker = startAuthBroker({
+				storage: c.auth, bind: "127.0.0.1:8765", bearerTokens: ["synthetic-broker-token"], disableRefresher: true,
+			});
+			let remoteAuth: Auth | undefined;
+			try {
+				const client = new AuthBrokerClient({
+					url: broker.url, token: "synthetic-broker-token", maxRetries: 0,
+					fetchImpl: async (input: RequestInfo | URL, init?: RequestInit) => {
+						const request = new Request(input, init);
+						assert.equal(new URL(request.url).origin, broker.url, "broker transport must stay inside the fixture");
+						if (request.method === "POST" && new URL(request.url).pathname.endsWith("/disable")) disableRequests++;
+						return abortable(Promise.resolve(route(request, server)), request.signal);
+					},
+				});
+				const snapshot = await client.fetchSnapshot();
+				assert.equal(snapshot.status, 200);
+				const remote = new RemoteAuthCredentialStore({
+					client, initialSnapshot: snapshot.snapshot, streamSnapshots: false,
+				});
+				remoteAuth = new AuthStorageClass(remote);
+				await remoteAuth.credentials.reload();
+				// Runtime-local fallback is also excluded by the requested filter.
+				remoteAuth.usage.setProvider(PROVIDER, { fetchUsage: async () => {
 					anthropicUsage++;
 					return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
 				} });
-				for (const provider of ["gate-selected-a", "gate-selected-b"]) {
-					await c.auth.credentials.upsert(provider, {
-						type: "oauth", access: provider, refresh: `${provider}-refresh`, expires: Date.now() + 3_600_000,
-					});
-					c.auth.usage.setProvider(provider, { fetchUsage: async () => {
-						selectedUsage++;
-						return { provider, fetchedAt: Date.now(), limits: [] };
-					} });
-				}
-				const broker = startAuthBroker({
-					storage: c.auth, bind: "127.0.0.1:8765", bearerTokens: ["synthetic-broker-token"], disableRefresher: true,
+				const [a, b] = await Promise.all([
+					remoteAuth.usage.reports({ providers: ["gate-selected-a", "gate-selected-a"] }),
+					remoteAuth.usage.reports({ providers: ["gate-selected-b"] }),
+				]);
+				assert.deepEqual(a?.map(report => report.provider), ["gate-selected-a"]);
+				assert.deepEqual(b?.map(report => report.provider), ["gate-selected-b"],
+					"a different provider filter cannot reuse another in-flight result");
+				const cached = await remoteAuth.usage.reports({ providers: ["gate-selected-a"] });
+				assert.deepEqual(cached?.map(report => report.provider), ["gate-selected-a"]);
+				assert.deepEqual(await remoteAuth.usage.reports({ providers: [] }), [], "explicit empty filter probes nothing");
+				assert.equal(selectedUsage, 2, "each selected provider is fetched once through the real broker");
+				assert.equal(anthropicUsage, 0, "non-Anthropic filters exclude remote and runtime-local Anthropic usage");
+				assert.equal(t.tokenPosts, 0, "filtered usage must never refresh the unrelated Anthropic row");
+
+				const abort = new AbortController();
+				const canceled = remoteAuth.oauth.refresh(id, abort.signal);
+				const canceledOutcome = canceled.then(() => undefined, error => error);
+				await waitForPost(started.promise, canceled);
+				const survivor = remoteAuth.oauth.refresh(id);
+				c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([canceled, survivor]); });
+				abort.abort();
+				assert.ok(await canceledOutcome, "the canceled broker waiter must reject independently");
+				release.resolve();
+				assert.equal((await survivor).credential.access, "broker-access-1",
+					"one canceled caller cannot poison another waiter for the admitted exchange");
+				assert.equal(rowOf(c, id)?.refresh, "broker-refresh-1",
+					"the broker must persist the known replacement despite its initiating caller's cancellation");
+				assert.equal(t.tokenPosts, 1);
+
+				started = Promise.withResolvers<void>();
+				release = Promise.withResolvers<void>();
+				const replacing = remoteAuth.oauth.refresh(id);
+				c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([replacing]); });
+				await waitForPost(started.promise, replacing);
+				const winner: Cred = {
+					type: "oauth", access: "broker-authoritative-access", refresh: "broker-authoritative-refresh",
+					expires: Date.now() + 3_600_000, accountId: "broker-account",
+				};
+				c.store.updateAuthCredential(id, winner);
+				release.resolve();
+				const resolved = (await replacing).credential;
+				assert.equal(resolved.access, winner.access);
+				assert.equal(resolved.region, undefined, "broker refresh output must preserve removed identity fields");
+				assert.equal(resolved.apiEndpoint, undefined);
+				const winningSnapshot = await client.fetchSnapshot();
+				assert.equal(winningSnapshot.status, 200);
+				assert.deepEqual(remote.listAuthCredentials(PROVIDER).find((row: { id: number }) => row.id === id)?.credential,
+					winningSnapshot.snapshot.credentials.find((row: { id: number }) => row.id === id)?.credential,
+					"delegated refresh preserves the authoritative redacted snapshot, including intentional absence");
+				assert.deepEqual(rowOf(c, id), winner, "client projection cannot rewrite the broker's winning row");
+				assert.equal(t.tokenPosts, 2);
+
+				const mcpProvider = mcpOAuthCredentialId("https://mcp.example.invalid");
+				await c.auth.credentials.upsert(mcpProvider, {
+					type: "oauth", access: "mcp-old-access", refresh: "mcp-old-refresh", expires: Date.now() + 120_000,
+					tokenUrl: "https://mcp.example.invalid/v1/oauth/token", clientId: "old-client",
+					clientSecret: "old-client-secret", resource: "https://old-resource.example.invalid",
+					authorizationUrl: "https://mcp.example.invalid/authorize",
 				});
-				let remoteAuth: Auth | undefined;
+				const [mcpRow] = c.store.listAuthCredentials(mcpProvider);
+				await remote.refreshSnapshot();
+				await remoteAuth.credentials.reload();
+				started = Promise.withResolvers<void>();
+				release = Promise.withResolvers<void>();
+				const mcpRefreshing = refreshStoredManagedMcpOAuthCredential(remoteAuth, mcpProvider);
+				c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([mcpRefreshing]); });
+				await waitForPost(started.promise, mcpRefreshing);
+				const mcpWinner: Cred = {
+					type: "oauth", access: "mcp-winning-access", refresh: "mcp-winning-refresh", expires: Date.now() + 120_000,
+					tokenUrl: "https://new-mcp.example.invalid/v1/oauth/token", clientId: "new-client",
+				};
+				c.store.updateAuthCredential(mcpRow.id, mcpWinner);
+				release.resolve();
+				const mcpResult = await mcpRefreshing;
+				assert.equal(mcpResult.credential?.access, mcpWinner.access);
+				assert.equal(mcpResult.credential?.tokenUrl, mcpWinner.tokenUrl,
+					"the actual managed MCP outer refresh cannot restore its pre-await token endpoint");
+				assert.equal(mcpResult.credential?.clientId, "new-client");
+				for (const key of ["clientSecret", "resource", "authorizationUrl"] as const) {
+					assert.equal(mcpResult.credential?.[key], undefined, `MCP refresh preserves removed ${key}`);
+					assert.equal(remoteAuth.credentials.list(mcpProvider)[0]?.credential[key], undefined);
+				}
+				assert.deepEqual(c.store.listAuthCredentials(mcpProvider)[0].credential, mcpWinner);
+
+				// The same actual MCP consumer defaults to advisory fallback.
+				// A still-valid captured token must not survive a concurrent logout.
+				started = Promise.withResolvers<void>();
+				release = Promise.withResolvers<void>();
+				const removedMcp = refreshStoredManagedMcpOAuthCredential(remoteAuth, mcpProvider);
+				c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([removedMcp]); });
+				await waitForPost(started.promise, removedMcp);
+				assert.ok(await c.store.deleteAuthCredential(mcpRow.id, "synthetic MCP logout"));
+				release.resolve();
+				assert.equal((await removedMcp).credential, undefined,
+					"managed MCP keep-on-failure cannot send a captured bearer after logout");
+				assert.equal(remoteAuth.credentials.list(mcpProvider).length, 0);
+
+				// A public value-returning override bypasses the store hook; it
+				// is not allowed to become a successful-looking old-token no-op.
+				const overrideSnapshot = await client.fetchSnapshot();
+				assert.equal(overrideSnapshot.status, 200);
+				const overrideStore = new RemoteAuthCredentialStore({
+					client, initialSnapshot: overrideSnapshot.snapshot, streamSnapshots: false,
+				});
+				let overrideCalls = 0;
+				let overrideEntered = Promise.withResolvers<void>();
+				let overrideRelease: Promise<void> | undefined;
+				let overrideFailure = false;
+				const overrideAuth = new AuthStorageClass(overrideStore, {
+					refreshOAuthCredential: async (_provider: string, _id: number, credential: Cred) => {
+						overrideCalls++;
+						overrideEntered.resolve();
+						await overrideRelease;
+						if (overrideFailure) throw new Error("invalid_grant: synthetic stale delegated failure");
+						return { ...credential, access: "override-access-1", expires: Date.now() + 3_600_000 };
+					},
+				});
+				const postsBeforeOverride = t.tokenPosts;
 				try {
-					const client = new AuthBrokerClient({
-						url: broker.url, token: "synthetic-broker-token", maxRetries: 0,
-						fetchImpl: async (input: RequestInfo | URL, init?: RequestInit) => {
-							const request = new Request(input, init);
-							assert.equal(new URL(request.url).origin, broker.url, "broker transport must stay inside the fixture");
-							if (request.method === "POST" && new URL(request.url).pathname.endsWith("/disable")) disableRequests++;
-							return abortable(Promise.resolve(route(request, server)), request.signal);
-						},
-					});
-					const snapshot = await client.fetchSnapshot();
-					assert.equal(snapshot.status, 200);
-					const remote = new RemoteAuthCredentialStore({
-						client, initialSnapshot: snapshot.snapshot, streamSnapshots: false,
-					});
-					remoteAuth = new AuthStorageClass(remote);
-					await remoteAuth.credentials.reload();
-					// Runtime-local fallback is also excluded by the requested filter.
-					remoteAuth.usage.setProvider(PROVIDER, { fetchUsage: async () => {
-						anthropicUsage++;
-						return { provider: PROVIDER, fetchedAt: Date.now(), limits: [] };
-					} });
-					const [a, b] = await Promise.all([
-						remoteAuth.usage.reports({ providers: ["gate-selected-a", "gate-selected-a"] }),
-						remoteAuth.usage.reports({ providers: ["gate-selected-b"] }),
-					]);
-					assert.deepEqual(a?.map(report => report.provider), ["gate-selected-a"]);
-					assert.deepEqual(b?.map(report => report.provider), ["gate-selected-b"],
-						"a different provider filter cannot reuse another in-flight result");
-					const cached = await remoteAuth.usage.reports({ providers: ["gate-selected-a"] });
-					assert.deepEqual(cached?.map(report => report.provider), ["gate-selected-a"]);
-					assert.deepEqual(await remoteAuth.usage.reports({ providers: [] }), [], "explicit empty filter probes nothing");
-					assert.equal(selectedUsage, 2, "each selected provider is fetched once through the real broker");
-					assert.equal(anthropicUsage, 0, "non-Anthropic filters exclude remote and runtime-local Anthropic usage");
-					assert.equal(t.tokenPosts, 0, "filtered usage must never refresh the unrelated Anthropic row");
-
-					const abort = new AbortController();
-					const canceled = remoteAuth.oauth.refresh(id, abort.signal);
-					const canceledOutcome = canceled.then(() => undefined, error => error);
-					await waitForPost(started.promise, canceled);
-					const survivor = remoteAuth.oauth.refresh(id);
-					c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([canceled, survivor]); });
-					abort.abort();
-					assert.ok(await canceledOutcome, "the canceled broker waiter must reject independently");
-					release.resolve();
-					assert.equal((await survivor).credential.access, "broker-access-1",
-						"one canceled caller cannot poison another waiter for the admitted exchange");
-					assert.equal(rowOf(c, id)?.refresh, "broker-refresh-1",
-						"the broker must persist the known replacement despite its initiating caller's cancellation");
-					assert.equal(t.tokenPosts, 1);
-
-					started = Promise.withResolvers<void>();
-					release = Promise.withResolvers<void>();
-					const replacing = remoteAuth.oauth.refresh(id);
-					c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([replacing]); });
-					await waitForPost(started.promise, replacing);
-					const winner: Cred = {
-						type: "oauth", access: "broker-authoritative-access", refresh: "broker-authoritative-refresh",
-						expires: Date.now() + 3_600_000, accountId: "broker-account",
-					};
-					c.store.updateAuthCredential(id, winner);
-					release.resolve();
-					const resolved = (await replacing).credential;
-					assert.equal(resolved.access, winner.access);
-					assert.equal(resolved.region, undefined, "broker refresh output must preserve removed identity fields");
-					assert.equal(resolved.apiEndpoint, undefined);
-					const winningSnapshot = await client.fetchSnapshot();
-					assert.equal(winningSnapshot.status, 200);
-					assert.deepEqual(remote.listAuthCredentials(PROVIDER).find((row: { id: number }) => row.id === id)?.credential,
-						winningSnapshot.snapshot.credentials.find((row: { id: number }) => row.id === id)?.credential,
-						"delegated refresh preserves the authoritative redacted snapshot, including intentional absence");
-					assert.deepEqual(rowOf(c, id), winner, "client projection cannot rewrite the broker's winning row");
-					assert.equal(t.tokenPosts, 2);
-
-					const mcpProvider = mcpOAuthCredentialId("https://mcp.example.invalid");
-					await c.auth.credentials.upsert(mcpProvider, {
-						type: "oauth", access: "mcp-old-access", refresh: "mcp-old-refresh", expires: Date.now() + 120_000,
-						tokenUrl: "https://mcp.example.invalid/v1/oauth/token", clientId: "old-client",
-						clientSecret: "old-client-secret", resource: "https://old-resource.example.invalid",
-						authorizationUrl: "https://mcp.example.invalid/authorize",
-					});
-					const [mcpRow] = c.store.listAuthCredentials(mcpProvider);
-					await remote.refreshSnapshot();
-					await remoteAuth.credentials.reload();
-					started = Promise.withResolvers<void>();
-					release = Promise.withResolvers<void>();
-					const mcpRefreshing = refreshStoredManagedMcpOAuthCredential(remoteAuth, mcpProvider);
-					c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([mcpRefreshing]); });
-					await waitForPost(started.promise, mcpRefreshing);
-					const mcpWinner: Cred = {
-						type: "oauth", access: "mcp-winning-access", refresh: "mcp-winning-refresh", expires: Date.now() + 120_000,
-						tokenUrl: "https://new-mcp.example.invalid/v1/oauth/token", clientId: "new-client",
-					};
-					c.store.updateAuthCredential(mcpRow.id, mcpWinner);
-					release.resolve();
-					const mcpResult = await mcpRefreshing;
-					assert.equal(mcpResult.credential?.access, mcpWinner.access);
-					assert.equal(mcpResult.credential?.tokenUrl, mcpWinner.tokenUrl,
-						"the actual managed MCP outer refresh cannot restore its pre-await token endpoint");
-					assert.equal(mcpResult.credential?.clientId, "new-client");
-					for (const key of ["clientSecret", "resource", "authorizationUrl"] as const) {
-						assert.equal(mcpResult.credential?.[key], undefined, `MCP refresh preserves removed ${key}`);
-						assert.equal(remoteAuth.credentials.list(mcpProvider)[0]?.credential[key], undefined);
-					}
-					assert.deepEqual(c.store.listAuthCredentials(mcpProvider)[0].credential, mcpWinner);
-
-					// The same actual MCP consumer defaults to advisory fallback.
-					// A still-valid captured token must not survive a concurrent logout.
-					started = Promise.withResolvers<void>();
-					release = Promise.withResolvers<void>();
-					const removedMcp = refreshStoredManagedMcpOAuthCredential(remoteAuth, mcpProvider);
-					c.cleanup.push(async () => { release.resolve(); await Promise.allSettled([removedMcp]); });
-					await waitForPost(started.promise, removedMcp);
-					assert.ok(await c.store.deleteAuthCredential(mcpRow.id, "synthetic MCP logout"));
-					release.resolve();
-					assert.equal((await removedMcp).credential, undefined,
-						"managed MCP keep-on-failure cannot send a captured bearer after logout");
-					assert.equal(remoteAuth.credentials.list(mcpProvider).length, 0);
-
-					// A public value-returning override bypasses the store hook; it
-					// is not allowed to become a successful-looking old-token no-op.
-					const overrideSnapshot = await client.fetchSnapshot();
-					assert.equal(overrideSnapshot.status, 200);
-					const overrideStore = new RemoteAuthCredentialStore({
-						client, initialSnapshot: overrideSnapshot.snapshot, streamSnapshots: false,
-					});
-					let overrideCalls = 0;
-					let overrideEntered = Promise.withResolvers<void>();
-					let overrideRelease: Promise<void> | undefined;
-					let overrideFailure = false;
-					const overrideAuth = new AuthStorageClass(overrideStore, {
-						refreshOAuthCredential: async (_provider: string, _id: number, credential: Cred) => {
-							overrideCalls++;
-							overrideEntered.resolve();
-							await overrideRelease;
-							if (overrideFailure) throw new Error("invalid_grant: synthetic stale delegated failure");
-							return { ...credential, access: "override-access-1", expires: Date.now() + 3_600_000 };
-						},
-					});
-					const postsBeforeOverride = t.tokenPosts;
+					await overrideAuth.credentials.reload();
+					assert.equal((await overrideAuth.oauth.refresh(id)).credential.access, "override-access-1");
+					assert.equal(overrideCalls, 1, "the documented callback must be the selected refresh operation");
+					assert.equal(t.tokenPosts, postsBeforeOverride, "caller override bypasses the built-in broker hook");
+					assert.equal(rowOf(c, id)?.access, winner.access, "value-only override never changes broker-owned secrets");
+					overrideEntered = Promise.withResolvers<void>();
+					const finishFailure = Promise.withResolvers<void>();
+					overrideRelease = finishFailure.promise;
+					overrideFailure = true;
+					const staleFailure = overrideAuth.oauth.refresh(id);
+					const staleOutcome = staleFailure.then(() => undefined, error => error);
 					try {
+						await overrideEntered.promise;
+						const replacement = { ...winner, access: "broker-login-replacement", refresh: "broker-login-refresh" };
+						c.store.updateAuthCredential(id, replacement);
+						// Keep the client's attempted snapshot stale while its captured
+						// failure arrives; only the broker owns conditional invalidation.
+						finishFailure.resolve();
+						await staleOutcome;
+						assert.equal(disableRequests, 0,
+							"automatic stale failure cannot become an unconditional broker disable request");
+						assert.deepEqual(rowOf(c, id), replacement,
+							"the actual broker's concurrent login must survive the stale failure");
+						const explicit = c.store.listAuthCredentials("gate-selected-a")[0];
+						await client.disableCredential(explicit.id, "explicit synthetic user disable");
+						assert.equal(disableRequests, 1, "explicit user disable still reaches the real broker endpoint");
+						assert.equal(c.store.listAuthCredentials("gate-selected-a").length, 0);
+						await overrideStore.refreshSnapshot();
 						await overrideAuth.credentials.reload();
-						assert.equal((await overrideAuth.oauth.refresh(id)).credential.access, "override-access-1");
-						assert.equal(overrideCalls, 1, "the documented callback must be the selected refresh operation");
-						assert.equal(t.tokenPosts, postsBeforeOverride, "caller override bypasses the built-in broker hook");
-						assert.equal(rowOf(c, id)?.access, winner.access, "value-only override never changes broker-owned secrets");
-						overrideEntered = Promise.withResolvers<void>();
-						const finishFailure = Promise.withResolvers<void>();
-						overrideRelease = finishFailure.promise;
-						overrideFailure = true;
-						const staleFailure = overrideAuth.oauth.refresh(id);
-						const staleOutcome = staleFailure.then(() => undefined, error => error);
-						try {
-							await overrideEntered.promise;
-							const replacement = { ...winner, access: "broker-login-replacement", refresh: "broker-login-refresh" };
-							c.store.updateAuthCredential(id, replacement);
-							// Keep the client's attempted snapshot stale while its captured
-							// failure arrives; only the broker owns conditional invalidation.
-							finishFailure.resolve();
-							await staleOutcome;
-							assert.equal(disableRequests, 0,
-								"automatic stale failure cannot become an unconditional broker disable request");
-							assert.deepEqual(rowOf(c, id), replacement,
-								"the actual broker's concurrent login must survive the stale failure");
-							const explicit = c.store.listAuthCredentials("gate-selected-a")[0];
-							await client.disableCredential(explicit.id, "explicit synthetic user disable");
-							assert.equal(disableRequests, 1, "explicit user disable still reaches the real broker endpoint");
-							assert.equal(c.store.listAuthCredentials("gate-selected-a").length, 0);
-							await overrideStore.refreshSnapshot();
-							await overrideAuth.credentials.reload();
-						} finally {
-							finishFailure.resolve();
-							await staleOutcome;
-							overrideFailure = false;
-						}
-						overrideEntered = Promise.withResolvers<void>();
-						const finishOverride = Promise.withResolvers<void>();
-						overrideRelease = finishOverride.promise;
-						const afterLogout = overrideAuth.oauth.refresh(id);
-						const afterLogoutOutcome = afterLogout.then(() => undefined, error => error);
-						try {
-							await overrideEntered.promise;
-							assert.ok(await c.store.deleteAuthCredential(id, "synthetic override logout"));
-							await overrideStore.refreshSnapshot();
-							finishOverride.resolve();
-							assert.ok(await afterLogoutOutcome, "a successful override cannot resurrect a concurrently removed row");
-							assert.equal(overrideStore.listAuthCredentials(PROVIDER).length, 0);
-						} finally {
-							finishOverride.resolve();
-							await afterLogoutOutcome;
-						}
 					} finally {
-						overrideAuth.close();
+						finishFailure.resolve();
+						await staleOutcome;
+						overrideFailure = false;
+					}
+					overrideEntered = Promise.withResolvers<void>();
+					const finishOverride = Promise.withResolvers<void>();
+					overrideRelease = finishOverride.promise;
+					const afterLogout = overrideAuth.oauth.refresh(id);
+					const afterLogoutOutcome = afterLogout.then(() => undefined, error => error);
+					try {
+						await overrideEntered.promise;
+						assert.ok(await c.store.deleteAuthCredential(id, "synthetic override logout"));
+						await overrideStore.refreshSnapshot();
+						finishOverride.resolve();
+						assert.ok(await afterLogoutOutcome, "a successful override cannot resurrect a concurrently removed row");
+						assert.equal(overrideStore.listAuthCredentials(PROVIDER).length, 0);
+					} finally {
+						finishOverride.resolve();
+						await afterLogoutOutcome;
 					}
 				} finally {
-					remoteAuth?.close();
-					await broker.close();
+					overrideAuth.close();
 				}
-			}, {
-				refreshOAuthCredentialMints: true,
-				refreshOAuthCredential: (provider: string, _id: number, credential: Cred, signal?: AbortSignal) =>
-					provider.startsWith("mcp_oauth:")
-						? refreshManagedMcpOAuthCredential(credential, { signal })
-						: refreshOAuthToken(provider, credential, signal),
-			});
-		} finally {
-			t.restore();
-			Bun.serve = originalServe;
-		}
-	});
-}
+			} finally {
+				remoteAuth?.close();
+				await broker.close();
+			}
+		}, {
+			refreshOAuthCredentialMints: true,
+			refreshOAuthCredential: (provider: string, _id: number, credential: Cred, signal?: AbortSignal) =>
+				provider.startsWith("mcp_oauth:")
+					? refreshManagedMcpOAuthCredential(credential, { signal })
+					: refreshOAuthToken(provider, credential, signal),
+		});
+	} finally {
+		t.restore();
+		Bun.serve = originalServe;
+	}
+});
 
 // 10. Rotation chaining: the refresh token minted by one refresh is the one
 //     sent by the next.
@@ -2877,7 +2835,7 @@ await scenario("pre-aborted caller issues no token request", async () => {
 			const row = rowOf(c, id);
 			assert.equal(row?.access, "access-old", "an aborted caller must leave the stored credential untouched");
 			assert.equal(row?.refresh, "refresh-old", "an aborted caller must not rotate the stored refresh token");
-			if (hasExchangeReservation) assert.deepEqual(exchangeRows(c), [], "a pre-aborted caller reserves nothing");
+			assert.deepEqual(exchangeRows(c), [], "a pre-aborted caller reserves nothing");
 		});
 	} finally {
 		t.restore();
@@ -2891,1008 +2849,989 @@ await scenario("pre-aborted caller issues no token request", async () => {
 // behavioural against the INSTALLED revision instead: it journals every provider,
 // so a non-Anthropic legacy marker either reports eligible or fences the refresh.
 // ---------------------------------------------------------------------------
-if (hasUnlockRevision) {
-	// ---------------------------------------------------------------------------
-	// Anthropic-only scope of the durable journal. Durable unknown-outcome
-	// protection is intentionally limited to anthropic: every other provider
-	// refreshes under the ordinary lease + CAS path, never reserving, staging or
-	// rewriting a journal entry. These scenarios are behavioural (no source-text
-	// or wiring assertions): on the installed revision, which journals every
-	// provider, a legacy marker either reports `eligible: true` or refuses the
-	// refresh as unresolved.
-	// ---------------------------------------------------------------------------
-	await scenario("(t) unlock is not applicable to a provider without the journal", async () => {
-		const t = installTransport({
-			token: () => {
-				throw new Error("a not-applicable unlock must never request a token");
-			},
-		});
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				for (const provider of ["google-antigravity", "openai-codex", "xai-oauth", "mistral"]) {
-					const bare = await oauth.inspectUnresolvedRefresh(provider);
-					assert.equal(bare.reason, "not-applicable", `${provider}: refused before any row or journal read`);
-					assert.equal(bare.eligible, false, `${provider}: never eligible`);
-					assert.equal(bare.fence, undefined, `${provider}: no fence may be handed out`);
-					assert.equal(bare.holdsUnstagedResult, false, `${provider}: no held result`);
-				}
-				const id = await seed(
-					c,
-					expiredCred({ access: "ga-t-0", refresh: "ga-t-r0", projectId: "ga-t-project" }),
-					"google-antigravity",
-				);
-				const legacy = seedLegacyExchange(c, id);
-				const inspected = await oauth.inspectUnresolvedRefresh("google-antigravity");
-				assert.equal(inspected.reason, "not-applicable", "a legacy marker must not make another provider eligible");
-				const unlocked = await oauth.unlockAndRefreshStored("google-antigravity", { fence: "unused-fence" });
-				assert.equal(unlocked.outcome, "not-applicable", "unlock reports not applicable, not recovery or failure");
-				assert.equal(t.tokenPosts, 0, "a not-applicable unlock issues no token request");
-				assert.deepEqual(exchangeRows(c), [legacy], "a not-applicable unlock leaves the legacy marker untouched");
-				const row = rowOf(c, id, "google-antigravity");
-				assert.equal(row?.access, "ga-t-0", "a not-applicable unlock rewrites no credential row");
-				assert.equal(row?.refresh, "ga-t-r0");
-				// Mistral Vibe rotates its token like anthropic but sits outside the
-				// journal: a marker that predates that scoping must stay untouched and
-				// no unlock may ever send a grant for it.
-				const mistralId = await seed(c, expiredCred({ access: "mistral-t-0", refresh: "mistral-t-r0" }), "mistral");
-				const mistralLegacy = seedLegacyExchange(c, mistralId);
-				const mistralInspection = await oauth.inspectUnresolvedRefresh("mistral");
-				assert.equal(mistralInspection.reason, "not-applicable", "mistral: not applicable, not eligible");
-				assert.equal(mistralInspection.eligible, false, "mistral: never eligible");
-				assert.equal(mistralInspection.fence, undefined, "mistral: no fence may be handed out");
-				const mistralUnlock = await oauth.unlockAndRefreshStored("mistral", { fence: "unused-fence" });
-				assert.equal(mistralUnlock.outcome, "not-applicable", "mistral: unlock reports not applicable");
-				assert.equal(t.tokenPosts, 0, "mistral: a not-applicable unlock issues no token request");
-				assert.deepEqual(exchangeRows(c), [legacy, mistralLegacy], "mistral: the marker it never created is untouched");
-				const mistralRow = rowOf(c, mistralId, "mistral");
-				assert.equal(mistralRow?.access, "mistral-t-0", "mistral: the credential row is not rewritten");
-				assert.equal(mistralRow?.refresh, "mistral-t-r0", "mistral: the stored grant is unchanged");
-			});
-		} finally {
-			t.restore();
-		}
+// ---------------------------------------------------------------------------
+// Anthropic-only scope of the durable journal. Durable unknown-outcome
+// protection is intentionally limited to anthropic: every other provider
+// refreshes under the ordinary lease + CAS path, never reserving, staging or
+// rewriting a journal entry. These scenarios are behavioural (no source-text
+// or wiring assertions): on the installed revision, which journals every
+// provider, a legacy marker either reports `eligible: true` or refuses the
+// refresh as unresolved.
+// ---------------------------------------------------------------------------
+await scenario("(t) unlock is not applicable to a provider without the journal", async () => {
+	const t = installTransport({
+		token: () => {
+			throw new Error("a not-applicable unlock must never request a token");
+		},
 	});
-
-	await scenario("(u) a legacy non-Anthropic pending marker neither fences nor is rewritten", async () => {
-		const provider = "google-antigravity";
-		const t = installTransport({
-			tokenMarker: "oauth2.googleapis.com/token",
-			token: () => tokenReply("ga-u-access-1", "ga-u-refresh-1"),
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			for (const provider of ["google-antigravity", "openai-codex", "xai-oauth", "mistral"]) {
+				const bare = await oauth.inspectUnresolvedRefresh(provider);
+				assert.equal(bare.reason, "not-applicable", `${provider}: refused before any row or journal read`);
+				assert.equal(bare.eligible, false, `${provider}: never eligible`);
+				assert.equal(bare.fence, undefined, `${provider}: no fence may be handed out`);
+				assert.equal(bare.holdsUnstagedResult, false, `${provider}: no held result`);
+			}
+			const id = await seed(
+				c,
+				expiredCred({ access: "ga-t-0", refresh: "ga-t-r0", projectId: "ga-t-project" }),
+				"google-antigravity",
+			);
+			const legacy = seedLegacyExchange(c, id);
+			const inspected = await oauth.inspectUnresolvedRefresh("google-antigravity");
+			assert.equal(inspected.reason, "not-applicable", "a legacy marker must not make another provider eligible");
+			const unlocked = await oauth.unlockAndRefreshStored("google-antigravity", { fence: "unused-fence" });
+			assert.equal(unlocked.outcome, "not-applicable", "unlock reports not applicable, not recovery or failure");
+			assert.equal(t.tokenPosts, 0, "a not-applicable unlock issues no token request");
+			assert.deepEqual(exchangeRows(c), [legacy], "a not-applicable unlock leaves the legacy marker untouched");
+			const row = rowOf(c, id, "google-antigravity");
+			assert.equal(row?.access, "ga-t-0", "a not-applicable unlock rewrites no credential row");
+			assert.equal(row?.refresh, "ga-t-r0");
+			// Mistral Vibe rotates its token like anthropic but sits outside the
+			// journal: a marker that predates that scoping must stay untouched and
+			// no unlock may ever send a grant for it.
+			const mistralId = await seed(c, expiredCred({ access: "mistral-t-0", refresh: "mistral-t-r0" }), "mistral");
+			const mistralLegacy = seedLegacyExchange(c, mistralId);
+			const mistralInspection = await oauth.inspectUnresolvedRefresh("mistral");
+			assert.equal(mistralInspection.reason, "not-applicable", "mistral: not applicable, not eligible");
+			assert.equal(mistralInspection.eligible, false, "mistral: never eligible");
+			assert.equal(mistralInspection.fence, undefined, "mistral: no fence may be handed out");
+			const mistralUnlock = await oauth.unlockAndRefreshStored("mistral", { fence: "unused-fence" });
+			assert.equal(mistralUnlock.outcome, "not-applicable", "mistral: unlock reports not applicable");
+			assert.equal(t.tokenPosts, 0, "mistral: a not-applicable unlock issues no token request");
+			assert.deepEqual(exchangeRows(c), [legacy, mistralLegacy], "mistral: the marker it never created is untouched");
+			const mistralRow = rowOf(c, mistralId, "mistral");
+			assert.equal(mistralRow?.access, "mistral-t-0", "mistral: the credential row is not rewritten");
+			assert.equal(mistralRow?.refresh, "mistral-t-r0", "mistral: the stored grant is unchanged");
 		});
-		try {
-			await withCase(async c => {
-				const id = await seed(
-					c,
-					expiredCred({ access: "ga-u-access-0", refresh: "ga-u-refresh-0", projectId: "ga-u-project" }),
-					provider,
-				);
-				const legacy = seedLegacyExchange(c, id);
-				const entry = await c.auth.oauth.refresh(id);
-				assert.equal(t.tokenPosts, 1, "a stale unresolved marker must not block the ordinary exchange");
-				assert.equal(entry.credential?.access, "ga-u-access-1", "the ordinary exchange publishes the rotated token");
-				const row = rowOf(c, id, provider);
-				assert.equal(row?.access, "ga-u-access-1");
-				assert.equal(row?.refresh, "ga-u-refresh-1", "the rotated refresh token must be stored");
-				assert.equal(row?.projectId, "ga-u-project", "provider metadata must survive");
-				assert.deepEqual(exchangeRows(c), [legacy], "a non-Anthropic exchange must not reserve, stage or rewrite the journal");
-			});
-		} finally {
-			t.restore();
-		}
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(u) a legacy non-Anthropic pending marker neither fences nor is rewritten", async () => {
+	const provider = "google-antigravity";
+	const t = installTransport({
+		tokenMarker: "oauth2.googleapis.com/token",
+		token: () => tokenReply("ga-u-access-1", "ga-u-refresh-1"),
 	});
-
-	await scenario("(v) a legacy staged replacement is adopted only for the row it was staged for", async () => {
-		const provider = "google-antigravity";
-		const t = installTransport({
-			tokenMarker: "oauth2.googleapis.com/token",
-			token: () => tokenReply("ga-v-fresh-access", "ga-v-fresh-refresh"),
+	try {
+		await withCase(async c => {
+			const id = await seed(
+				c,
+				expiredCred({ access: "ga-u-access-0", refresh: "ga-u-refresh-0", projectId: "ga-u-project" }),
+				provider,
+			);
+			const legacy = seedLegacyExchange(c, id);
+			const entry = await c.auth.oauth.refresh(id);
+			assert.equal(t.tokenPosts, 1, "a stale unresolved marker must not block the ordinary exchange");
+			assert.equal(entry.credential?.access, "ga-u-access-1", "the ordinary exchange publishes the rotated token");
+			const row = rowOf(c, id, provider);
+			assert.equal(row?.access, "ga-u-access-1");
+			assert.equal(row?.refresh, "ga-u-refresh-1", "the rotated refresh token must be stored");
+			assert.equal(row?.projectId, "ga-u-project", "provider metadata must survive");
+			assert.deepEqual(exchangeRows(c), [legacy], "a non-Anthropic exchange must not reserve, stage or rewrite the journal");
 		});
-		try {
-			await withCase(async c => {
-				// The generation the marker belongs to: its replacement is the only
-				// known-minted successor, so it is published without a second exchange.
-				const adoptedId = await seed(
-					c,
-					expiredCred({ access: "ga-v-0", refresh: "ga-v-r0", projectId: "ga-v-project" }),
-					provider,
-				);
-				const staged: Cred = {
-					type: "oauth",
-					access: "ga-v-staged-access",
-					refresh: "ga-v-staged-refresh",
-					expires: Date.now() + 3_600_000,
-					projectId: "ga-v-project",
-				};
-				seedLegacyExchange(c, adoptedId, { staged });
-				const adopted = await c.auth.oauth.refresh(adoptedId);
-				assert.equal(t.tokenPosts, 0, "a staged replacement must be published without another exchange");
-				assert.equal(
-					adopted.credential?.access,
-					"ga-v-staged-access",
-					"the staged successor must be the published credential",
-				);
-				const adoptedRow = rowOf(c, adoptedId, provider);
-				assert.equal(adoptedRow?.refresh, "ga-v-staged-refresh", "the staged refresh token must be stored");
-				assert.equal(adoptedRow?.projectId, "ga-v-project", "provider metadata must survive adoption");
-				assert.deepEqual(exchangeRows(c), [], "adopting retires the marker it published");
+	} finally {
+		t.restore();
+	}
+});
 
-				// A marker whose generation no longer belongs to the row stays inert:
-				// the ordinary exchange runs and the stale bytes are never published.
-				const staleId = await seed(
-					c,
-					expiredCred({ access: "ga-v-stale-0", refresh: "ga-v-stale-r0", projectId: "ga-v-project" }),
-					provider,
-				);
-				const stale = seedLegacyExchange(c, staleId, {
-					stale: true,
-					staged: { ...staged, access: "ga-v-stale-staged-access", refresh: "ga-v-stale-staged-refresh" },
-				});
-				const refreshed = await c.auth.oauth.refresh(staleId);
-				assert.equal(t.tokenPosts, 1, "a stale marker must not suppress the ordinary exchange");
-				assert.equal(refreshed.credential?.access, "ga-v-fresh-access", "the fresh exchange wins, not the stale bytes");
-				const staleRow = rowOf(c, staleId, provider);
-				assert.equal(staleRow?.access, "ga-v-fresh-access");
-				assert.deepEqual(exchangeRows(c), [stale], "a stale marker is left byte-identical");
-			});
-		} finally {
-			t.restore();
-		}
+await scenario("(v) a legacy staged replacement is adopted only for the row it was staged for", async () => {
+	const provider = "google-antigravity";
+	const t = installTransport({
+		tokenMarker: "oauth2.googleapis.com/token",
+		token: () => tokenReply("ga-v-fresh-access", "ga-v-fresh-refresh"),
 	});
+	try {
+		await withCase(async c => {
+			// The generation the marker belongs to: its replacement is the only
+			// known-minted successor, so it is published without a second exchange.
+			const adoptedId = await seed(
+				c,
+				expiredCred({ access: "ga-v-0", refresh: "ga-v-r0", projectId: "ga-v-project" }),
+				provider,
+			);
+			const staged: Cred = {
+				type: "oauth",
+				access: "ga-v-staged-access",
+				refresh: "ga-v-staged-refresh",
+				expires: Date.now() + 3_600_000,
+				projectId: "ga-v-project",
+			};
+			seedLegacyExchange(c, adoptedId, { staged });
+			const adopted = await c.auth.oauth.refresh(adoptedId);
+			assert.equal(t.tokenPosts, 0, "a staged replacement must be published without another exchange");
+			assert.equal(
+				adopted.credential?.access,
+				"ga-v-staged-access",
+				"the staged successor must be the published credential",
+			);
+			const adoptedRow = rowOf(c, adoptedId, provider);
+			assert.equal(adoptedRow?.refresh, "ga-v-staged-refresh", "the staged refresh token must be stored");
+			assert.equal(adoptedRow?.projectId, "ga-v-project", "provider metadata must survive adoption");
+			assert.deepEqual(exchangeRows(c), [], "adopting retires the marker it published");
 
-	await scenario("(w) a non-Anthropic peer takeover still wins the CAS and writes no journal row", async () => {
-		const provider = "google-antigravity";
-		const gate = Promise.withResolvers<void>();
-		const postStarted = Promise.withResolvers<void>();
-		const t = installTransport({
-			tokenMarker: "oauth2.googleapis.com/token",
-			onTokenPost: () => postStarted.resolve(),
-			token: () => tokenReply("ga-w-owner-access", "ga-w-owner-refresh", { waitFor: gate.promise }),
+			// A marker whose generation no longer belongs to the row stays inert:
+			// the ordinary exchange runs and the stale bytes are never published.
+			const staleId = await seed(
+				c,
+				expiredCred({ access: "ga-v-stale-0", refresh: "ga-v-stale-r0", projectId: "ga-v-project" }),
+				provider,
+			);
+			const stale = seedLegacyExchange(c, staleId, {
+				stale: true,
+				staged: { ...staged, access: "ga-v-stale-staged-access", refresh: "ga-v-stale-staged-refresh" },
+			});
+			const refreshed = await c.auth.oauth.refresh(staleId);
+			assert.equal(t.tokenPosts, 1, "a stale marker must not suppress the ordinary exchange");
+			assert.equal(refreshed.credential?.access, "ga-v-fresh-access", "the fresh exchange wins, not the stale bytes");
+			const staleRow = rowOf(c, staleId, provider);
+			assert.equal(staleRow?.access, "ga-v-fresh-access");
+			assert.deepEqual(exchangeRows(c), [stale], "a stale marker is left byte-identical");
 		});
-		try {
-			await withCase(async c => {
-				const id = await seed(
-					c,
-					expiredCred({ access: "ga-w-0", refresh: "ga-w-r0", projectId: "ga-w-project" }),
-					provider,
-				);
-				const owner = c.auth.oauth.refresh(id);
-				c.cleanup.push(async () => {
-					gate.resolve();
-					await Promise.allSettled([owner]);
-				});
-				await waitForPost(postStarted.promise, owner);
+	} finally {
+		t.restore();
+	}
+});
 
-				// Peer process: the owner's lease expired (clock advance), so the peer
-				// takes it and writes its own freshly rotated credential.
-				t.advanceClock(20_000);
-				assert.ok(
-					c.store.tryAcquireCredentialRefreshLease(id, "peer-owner", Date.now() + 15_000),
-					"the peer must be able to take over the expired lease",
-				);
-				const peerCred: Cred = {
-					type: "oauth",
-					access: "ga-w-peer-access",
-					refresh: "ga-w-peer-refresh",
-					expires: Date.now() + 3_600_000,
-					projectId: "ga-w-project",
-				};
-				c.store.updateAuthCredential(id, peerCred);
-
+await scenario("(w) a non-Anthropic peer takeover still wins the CAS and writes no journal row", async () => {
+	const provider = "google-antigravity";
+	const gate = Promise.withResolvers<void>();
+	const postStarted = Promise.withResolvers<void>();
+	const t = installTransport({
+		tokenMarker: "oauth2.googleapis.com/token",
+		onTokenPost: () => postStarted.resolve(),
+		token: () => tokenReply("ga-w-owner-access", "ga-w-owner-refresh", { waitFor: gate.promise }),
+	});
+	try {
+		await withCase(async c => {
+			const id = await seed(
+				c,
+				expiredCred({ access: "ga-w-0", refresh: "ga-w-r0", projectId: "ga-w-project" }),
+				provider,
+			);
+			const owner = c.auth.oauth.refresh(id);
+			c.cleanup.push(async () => {
 				gate.resolve();
-				await owner.then(
-					() => undefined,
-					() => undefined,
-				);
-				const row = rowOf(c, id, provider);
-				assert.equal(row?.access, "ga-w-peer-access", "a peer rotation must survive the previous owner's CAS");
-				assert.equal(row?.refresh, "ga-w-peer-refresh", "a peer rotation must not be clobbered");
-				assert.equal(t.tokenPosts, 1, "the owner must not mint a second token request after a takeover");
-				assert.deepEqual(exchangeRows(c), [], "a non-Anthropic exchange leaves no journal row behind");
+				await Promise.allSettled([owner]);
 			});
-		} finally {
-			t.restore();
-		}
-	});
+			await waitForPost(postStarted.promise, owner);
 
-	await scenario("(x) a staged adoption cannot publish over a lost lease or a replaced row", async () => {
-		const provider = "google-antigravity";
-		const t = installTransport({
-			tokenMarker: "oauth2.googleapis.com/token",
-			token: () => tokenReply("ga-x-fresh-access", "ga-x-fresh-refresh"),
+			// Peer process: the owner's lease expired (clock advance), so the peer
+			// takes it and writes its own freshly rotated credential.
+			t.advanceClock(20_000);
+			assert.ok(
+				c.store.tryAcquireCredentialRefreshLease(id, "peer-owner", Date.now() + 15_000),
+				"the peer must be able to take over the expired lease",
+			);
+			const peerCred: Cred = {
+				type: "oauth",
+				access: "ga-w-peer-access",
+				refresh: "ga-w-peer-refresh",
+				expires: Date.now() + 3_600_000,
+				projectId: "ga-w-project",
+			};
+			c.store.updateAuthCredential(id, peerCred);
+
+			gate.resolve();
+			await owner.then(
+				() => undefined,
+				() => undefined,
+			);
+			const row = rowOf(c, id, provider);
+			assert.equal(row?.access, "ga-w-peer-access", "a peer rotation must survive the previous owner's CAS");
+			assert.equal(row?.refresh, "ga-w-peer-refresh", "a peer rotation must not be clobbered");
+			assert.equal(t.tokenPosts, 1, "the owner must not mint a second token request after a takeover");
+			assert.deepEqual(exchangeRows(c), [], "a non-Anthropic exchange leaves no journal row behind");
 		});
-		try {
-			await withCase(async c => {
-				// Deterministic hook, no sleeps: the fixture rewrites the row (and, in
-				// the lease phase, takes the expired lease) exactly between the staged
-				// read and the publication the adoption performs.
-				const readStaged = c.store.readStagedCredentialRefreshResult.bind(c.store);
-				let phase: "none" | "row" | "lease" = "none";
-				c.store.readStagedCredentialRefreshResult = (rowId, expectedData) => {
-					const staged = readStaged(rowId, expectedData);
-					if (!staged || phase === "none") return staged;
-					if (phase === "lease") {
-						if (["18.16.0", "18.18.0"].includes(aiVersion)) {
-							// 18.16.0 budgets the caller, so advancing the shared clock past the
-							// lease TTL would also spend this call's refresh budget before the
-							// exchange exists. Hand the live lease to the peer instead: the
-							// ownership loss is the same and no clock moves.
-							mutateDb(
-								c,
-								"UPDATE auth_credential_refresh_leases SET owner = 'peer-owner', expires_at_ms = 9999999999999 WHERE credential_id = ?",
-								String(rowId),
-							);
-						} else {
-							t.advanceClock(20_000);
-							assert.ok(
-								c.store.tryAcquireCredentialRefreshLease(rowId, "peer-owner", Date.now() + 15_000),
-								"the peer must be able to take over the expired lease",
-							);
-						}
-					}
-					c.store.updateAuthCredential(rowId, {
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(x) a staged adoption cannot publish over a lost lease or a replaced row", async () => {
+	const provider = "google-antigravity";
+	const t = installTransport({
+		tokenMarker: "oauth2.googleapis.com/token",
+		token: () => tokenReply("ga-x-fresh-access", "ga-x-fresh-refresh"),
+	});
+	try {
+		await withCase(async c => {
+			// Deterministic hook, no sleeps: the fixture rewrites the row (and, in
+			// the lease phase, takes the expired lease) exactly between the staged
+			// read and the publication the adoption performs.
+			const readStaged = c.store.readStagedCredentialRefreshResult.bind(c.store);
+			let phase: "none" | "row" | "lease" = "none";
+			c.store.readStagedCredentialRefreshResult = (rowId, expectedData) => {
+				const staged = readStaged(rowId, expectedData);
+				if (!staged || phase === "none") return staged;
+				if (phase === "lease") {
+					// 18.16.0 budgets the caller, so advancing the shared clock past the
+					// lease TTL would also spend this call's refresh budget before the
+					// exchange exists. Hand the live lease to the peer instead: the
+					// ownership loss is the same and no clock moves.
+					mutateDb(
+						c,
+						"UPDATE auth_credential_refresh_leases SET owner = 'peer-owner', expires_at_ms = 9999999999999 WHERE credential_id = ?",
+						String(rowId),
+					);
+				}
+				c.store.updateAuthCredential(rowId, {
+					type: "oauth",
+					access: `ga-x-peer-access-${rowId}`,
+					refresh: `ga-x-peer-refresh-${rowId}`,
+					expires: Date.now() + 3_600_000,
+					projectId: "ga-x-project",
+				});
+				phase = "none";
+				return staged;
+			};
+
+			const stages: Array<{ phase: "row" | "lease"; throws: boolean }> = [
+				{ phase: "row", throws: false },
+				{ phase: "lease", throws: true },
+			];
+			for (const stage of stages) {
+				const id = await seed(
+					c,
+					expiredCred({ access: `ga-x-${stage.phase}-0`, refresh: `ga-x-${stage.phase}-r0`, projectId: "ga-x-project" }),
+					provider,
+				);
+				const legacy = seedLegacyExchange(c, id, {
+					staged: {
 						type: "oauth",
-						access: `ga-x-peer-access-${rowId}`,
-						refresh: `ga-x-peer-refresh-${rowId}`,
+						access: `ga-x-staged-access-${stage.phase}`,
+						refresh: `ga-x-staged-refresh-${stage.phase}`,
 						expires: Date.now() + 3_600_000,
 						projectId: "ga-x-project",
-					});
-					phase = "none";
-					return staged;
-				};
-
-				const stages: Array<{ phase: "row" | "lease"; throws: boolean }> = [
-					{ phase: "row", throws: false },
-					{ phase: "lease", throws: true },
-				];
-				for (const stage of stages) {
-					const id = await seed(
-						c,
-						expiredCred({ access: `ga-x-${stage.phase}-0`, refresh: `ga-x-${stage.phase}-r0`, projectId: "ga-x-project" }),
-						provider,
-					);
-					const legacy = seedLegacyExchange(c, id, {
-						staged: {
-							type: "oauth",
-							access: `ga-x-staged-access-${stage.phase}`,
-							refresh: `ga-x-staged-refresh-${stage.phase}`,
-							expires: Date.now() + 3_600_000,
-							projectId: "ga-x-project",
-						},
-					});
-					phase = stage.phase;
-					const attempt = c.auth.oauth.refresh(id);
-					if (stage.throws) {
-						await assert.rejects(attempt, /ownership was lost/, `${stage.phase}: a lost lease must refuse`);
-					} else {
-						const entry = await attempt;
-						assert.equal(
-							entry.credential?.access,
-							`ga-x-peer-access-${id}`,
-							`${stage.phase}: the concurrent winner is returned, never the staged bytes`,
-						);
-					}
-					const row = rowOf(c, id, provider);
-					assert.equal(row?.access, `ga-x-peer-access-${id}`, `${stage.phase}: the peer's row survives`);
-					assert.equal(row?.refresh, `ga-x-peer-refresh-${id}`, `${stage.phase}: the peer's refresh token survives`);
-					assert.equal(t.tokenPosts, 0, `${stage.phase}: a known-minted replacement is never re-exchanged`);
-					assert.deepEqual(exchangeRows(c), [legacy], `${stage.phase}: the obsolete marker is left untouched`);
-					mutateDb(c, "DELETE FROM auth_credential_refresh_exchanges");
-				}
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("(a) a fenced unlock releases the marker and mints exactly one token", async () => {
-		let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
-		const t = installTransport({ token: () => reply });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-a-0", refresh: "unlock-a-r0", accountId: "unlock-a" }));
-				await leavePendingExchange(c, id);
-				const postsBefore = t.tokenPosts;
-				const markerBefore = exchangeRows(c);
-				const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(inspection.eligible, true, "an owned unresolved generation must be unlockable");
-				assert.equal(inspection.reason, "pending");
-				assert.equal(inspection.credentialId, id, "the inspection names the row it describes");
-				assert.equal(inspection.expiresAt, rowOf(c, id)?.expires, "the inspection reports the row's own expiry");
-				assert.ok(inspection.fence, "an eligible inspection must hand back the fence");
-				assert.equal(inspection.holdsUnstagedResult, false, "this process holds no minted result");
-				assert.deepEqual(exchangeRows(c), markerBefore, "inspection is read-only");
-
-				reply = tokenReply("unlock-a-1", "unlock-a-r1");
-				const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
-				assert.equal(result.outcome, "refreshed");
-				assert.ok((result.expiresAt ?? 0) > Date.now(), "a refreshed unlock reports the new expiry");
-				assert.equal(t.tokenPosts - postsBefore, 1, "unlock must issue exactly one token request");
-				assert.equal(rowOf(c, id)?.access, "unlock-a-1");
-				assert.equal(rowOf(c, id)?.refresh, "unlock-a-r1");
-				assert.deepEqual(exchangeRows(c), [], "a successful unlock retires the exchange");
-				assert.equal((await c.store.listDisabledCredentials(PROVIDER)).length, 0, "unlock never disables the row");
-				assert.equal((await oauth.inspectUnresolvedRefresh(PROVIDER)).eligible, false, "the state is resolved");
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("(b) a staged replacement is published without releasing or exchanging again", async () => {
-		const t = installTransport({ token: () => tokenReply("forbidden-b", "forbidden-b") });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-b-0", refresh: "unlock-b-r0" }));
-				seedStagedReplacement(c, id, {
-					type: "oauth",
-					access: "unlock-b-1",
-					refresh: "unlock-b-r1",
-					expires: Date.now() + 3_600_000,
+					},
 				});
-				const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(inspection.eligible, false, "a staged replacement is not an unresolved generation");
-				assert.equal(inspection.reason, "staged-replacement");
-				assert.equal(inspection.fence, undefined, "no fence is offered for an already-recoverable result");
+				phase = stage.phase;
+				const attempt = c.auth.oauth.refresh(id);
+				if (stage.throws) {
+					await assert.rejects(attempt, /ownership was lost/, `${stage.phase}: a lost lease must refuse`);
+				} else {
+					const entry = await attempt;
+					assert.equal(
+						entry.credential?.access,
+						`ga-x-peer-access-${id}`,
+						`${stage.phase}: the concurrent winner is returned, never the staged bytes`,
+					);
+				}
+				const row = rowOf(c, id, provider);
+				assert.equal(row?.access, `ga-x-peer-access-${id}`, `${stage.phase}: the peer's row survives`);
+				assert.equal(row?.refresh, `ga-x-peer-refresh-${id}`, `${stage.phase}: the peer's refresh token survives`);
+				assert.equal(t.tokenPosts, 0, `${stage.phase}: a known-minted replacement is never re-exchanged`);
+				assert.deepEqual(exchangeRows(c), [legacy], `${stage.phase}: the obsolete marker is left untouched`);
+				mutateDb(c, "DELETE FROM auth_credential_refresh_exchanges");
+			}
+		});
+	} finally {
+		t.restore();
+	}
+});
 
-				const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: "stale-fence-captured-earlier" });
-				assert.equal(result.outcome, "staged-result-recovered", "the ordinary path publishes the staged result");
-				assert.equal(t.tokenPosts, 0, "publishing a staged replacement must not exchange the generation again");
-				assert.equal(rowOf(c, id)?.access, "unlock-b-1");
-				assert.equal(rowOf(c, id)?.refresh, "unlock-b-r1");
-				assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("(c) a peer-held or expired lease cannot release the exchange", async () => {
-		const t = installTransport({ token: () => ({ kind: "network", message: "synthetic pre-send transfer failure" }) });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-c-0", refresh: "unlock-c-r0" }));
-				await leavePendingExchange(c, id);
-				const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				const postsBefore = t.tokenPosts;
-				const markerBefore = exchangeRows(c);
-				const data = rawRowData(c, id);
-
-				holdLease(c, id, "peer-owner");
-				assert.equal(
-					c.store.releaseUnresolvedCredentialRefreshExchange(id, data, inspection.fence!, {
-						owner: "unlocking-owner",
-						nowMs: Date.now(),
-					}),
-					"lease-not-held",
-					"a caller that does not hold the row lease cannot release the exchange",
-				);
-				const peerHeld = await oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
-				assert.equal(peerHeld.outcome, "failed", "a peer-held lease refuses instead of blocking the confirmation");
-				assert.equal(t.tokenPosts, postsBefore, "a peer-held refusal posts nothing");
-				c.store.releaseCredentialRefreshLease(id, "peer-owner");
-
-				holdLease(c, id, "expired-owner", Date.now() - 1_000);
-				assert.equal(
-					c.store.releaseUnresolvedCredentialRefreshExchange(id, data, inspection.fence!, {
-						owner: "expired-owner",
-						nowMs: Date.now(),
-					}),
-					"lease-not-held",
-					"an expired lease is not held",
-				);
-				assert.deepEqual(exchangeRows(c), markerBefore, "a refused release never touches the marker");
-				assert.equal(rowOf(c, id)?.access, "unlock-c-0", "a refused release never touches the row");
-				assert.equal(t.tokenPosts, postsBefore, "refusals never post");
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("(d) a peer rotation after inspection is refused and the winner survives", async () => {
-		const t = installTransport({ token: () => ({ kind: "network", message: "synthetic pre-send transfer failure" }) });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-d-0", refresh: "unlock-d-r0" }));
-				await leavePendingExchange(c, id);
-				const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				const postsBefore = t.tokenPosts;
-				const staleData = rawRowData(c, id);
-				const winner: Cred = {
-					type: "oauth",
-					access: "unlock-d-winner",
-					refresh: "unlock-d-winner-refresh",
-					expires: Date.now() + 3_600_000,
-				};
-				c.store.updateAuthCredential(id, winner);
-				holdLease(c, id, "unlocking-owner");
-				assert.equal(
-					c.store.releaseUnresolvedCredentialRefreshExchange(id, staleData, inspection.fence!, {
-						owner: "unlocking-owner",
-						nowMs: Date.now(),
-					}),
-					"row-changed",
-					"a row whose bytes changed after inspection cannot be released",
-				);
-				c.store.releaseCredentialRefreshLease(id, "unlocking-owner");
-				const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
-				assert.equal(result.outcome, "fence-mismatch", "the rotated row also fails the captured fence");
-				assert.deepEqual(rowOf(c, id), winner, "the peer's winner must be untouched");
-				assert.equal(t.tokenPosts, postsBefore, "a refused unlock posts nothing");
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("(e) a replaced generation or expected hash cannot be released", async () => {
-		const t = installTransport({ token: () => ({ kind: "network", message: "synthetic pre-send transfer failure" }) });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-e-0", refresh: "unlock-e-r0" }));
-				await leavePendingExchange(c, id);
-				const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				const postsBefore = t.tokenPosts;
-				const data = rawRowData(c, id);
-				holdLease(c, id, "unlocking-owner");
-				const lease = { owner: "unlocking-owner", nowMs: Date.now() };
-				mutateDb(c, "UPDATE auth_credential_refresh_exchanges SET generation = ?", "f".repeat(64));
-				assert.equal(
-					c.store.releaseUnresolvedCredentialRefreshExchange(id, data, inspection.fence!, lease),
-					"fence-mismatch",
-					"a replaced generation must not satisfy the captured fence",
-				);
-				mutateDb(c, "UPDATE auth_credential_refresh_exchanges SET expected_hash = ?", "e".repeat(64));
-				assert.equal(
-					c.store.releaseUnresolvedCredentialRefreshExchange(id, data, inspection.fence!, lease),
-					"fence-mismatch",
-					"a replaced expected hash must not satisfy the captured fence",
-				);
-				assert.equal(exchangeRows(c).length, 1, "a refused release keeps the marker");
-				assert.equal(rowOf(c, id)?.access, "unlock-e-0", "a refused release keeps the row");
-				assert.equal(t.tokenPosts, postsBefore, "refusals never post");
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("(f) a transient failure during unlock keeps the row and rotates the fence", async () => {
-		let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
-		const t = installTransport({ token: () => reply });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-f-0", refresh: "unlock-f-r0" }));
-				await leavePendingExchange(c, id);
-				const first = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				const postsBefore = t.tokenPosts;
-				reply = { kind: "status", status: 503, text: "synthetic service unavailable" };
-				const failed = await oauth.unlockAndRefreshStored(PROVIDER, { fence: first.fence! });
-				assert.equal(failed.outcome, "failed");
-				assert.ok(failed.error, "a failed unlock explains itself");
-				assert.equal(t.tokenPosts - postsBefore, 1, "a failed unlock must not send the generation twice");
-				assert.equal(rowOf(c, id)?.access, "unlock-f-0", "the row stays active after a transient failure");
-				assert.equal(rowOf(c, id)?.refresh, "unlock-f-r0", "the stored refresh token is untouched");
-				assert.equal((await c.store.listDisabledCredentials(PROVIDER)).length, 0, "a failed unlock disables nothing");
-				const second = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(second.eligible, true, "the ambiguity stays durable after a failed unlock");
-				assert.ok(second.fence);
-				assert.notEqual(second.fence, first.fence, "a newer attempt must produce a new fence");
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("(g) invalid_grant during unlock never disables the credential", async () => {
-		let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
-		const t = installTransport({ token: () => reply });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-g-0", refresh: "unlock-g-r0" }));
-				await leavePendingExchange(c, id);
-				const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				reply = { kind: "status", status: 400, text: '{"error":"invalid_grant"}' };
-				const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
-				assert.equal(result.outcome, "failed");
-				assert.equal(c.store.listAuthCredentials(PROVIDER).length, 1, "unlock must not remove the credential");
-				assert.equal(rowOf(c, id)?.access, "unlock-g-0", "the unlock path leaves the row as it was");
-				assert.deepEqual(
-					await c.store.listDisabledCredentials(PROVIDER),
-					[],
-					"a definitive grant answer from the unlock path never disables a credential",
-				);
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("(h) an absent or disabled credential is refused", async () => {
-		const t = installTransport({ token: () => tokenReply("forbidden-h", "forbidden-h") });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const absent = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(absent.eligible, false);
-				assert.equal(absent.reason, "no-credential", "no stored OAuth row is reported as such");
-				assert.equal(absent.holdsUnstagedResult, false);
-				assert.equal(
-					(await oauth.unlockAndRefreshStored(PROVIDER, { fence: "no-marker" })).outcome,
-					"nothing-to-unlock",
-					"an absent credential cannot be unlocked",
-				);
-
-				const id = await seed(c, expiredCred({ access: "unlock-h-0", refresh: "unlock-h-r0" }));
-				seedPendingMarker(c, id);
-				assert.ok(await c.store.deleteAuthCredential(id, "synthetic disable"));
-				const disabled = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(disabled.eligible, false);
-				assert.equal(disabled.reason, "credential-disabled", "a disabled row is reported as such");
-				assert.equal(
-					(await oauth.unlockAndRefreshStored(PROVIDER, { fence: "disabled-marker" })).outcome,
-					"nothing-to-unlock",
-					"a disabled credential cannot be unlocked",
-				);
-				assert.equal(t.tokenPosts, 0, "refusals never post");
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("(i) a minted result held in memory is published without a second exchange", async () => {
+await scenario("(a) a fenced unlock releases the marker and mints exactly one token", async () => {
+	let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
+	const t = installTransport({ token: () => reply });
+	try {
 		await withCase(async c => {
 			const oauth = requireUnlockSurface(c);
-			const id = await seed(c, expiredCred({ access: "unlock-i-0", refresh: "unlock-i-r0" }));
-			let stageCalls = 0;
-			const stage = c.store.stageCredentialRefreshResult.bind(c.store);
-			c.store.stageCredentialRefreshResult = (...args) => {
-				stageCalls++;
-				if (stageCalls === 1) throw new Error("synthetic staging outage");
-				return stage(...args);
-			};
-			let exchanges = 0;
-			await assert.rejects(
-				() =>
-					c.auth.oauth.refreshStored(PROVIDER, {
-						credentialId: id,
-						credentialFromRow: credential => credential,
-						refresh: async () => {
-							exchanges++;
-							return { type: "oauth", access: "unlock-i-1", refresh: "unlock-i-r1", expires: Date.now() + 3_600_000 };
-						},
-					}),
-				/synthetic staging outage/,
-				"a staging outage must surface to the caller",
-			);
-			assert.equal(exchanges, 1, "the fixture must mint exactly once");
+			const id = await seed(c, expiredCred({ access: "unlock-a-0", refresh: "unlock-a-r0", accountId: "unlock-a" }));
+			await leavePendingExchange(c, id);
+			const postsBefore = t.tokenPosts;
+			const markerBefore = exchangeRows(c);
 			const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
-			assert.equal(inspection.holdsUnstagedResult, true, "the minted result is still held by this process");
-			assert.equal(inspection.eligible, true);
-			assert.equal(stagedReplacementData(c), null, "the outage left the marker unstaged");
+			assert.equal(inspection.eligible, true, "an owned unresolved generation must be unlockable");
+			assert.equal(inspection.reason, "pending");
+			assert.equal(inspection.credentialId, id, "the inspection names the row it describes");
+			assert.equal(inspection.expiresAt, rowOf(c, id)?.expires, "the inspection reports the row's own expiry");
+			assert.ok(inspection.fence, "an eligible inspection must hand back the fence");
+			assert.equal(inspection.holdsUnstagedResult, false, "this process holds no minted result");
+			assert.deepEqual(exchangeRows(c), markerBefore, "inspection is read-only");
 
+			reply = tokenReply("unlock-a-1", "unlock-a-r1");
 			const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
-			assert.equal(result.outcome, "staged-result-recovered", "the held result is persisted and published");
-			assert.equal(exchanges, 1, "recovery must not exchange the generation a second time");
-			assert.equal(rowOf(c, id)?.access, "unlock-i-1");
-			assert.equal(rowOf(c, id)?.refresh, "unlock-i-r1");
+			assert.equal(result.outcome, "refreshed");
+			assert.ok((result.expiresAt ?? 0) > Date.now(), "a refreshed unlock reports the new expiry");
+			assert.equal(t.tokenPosts - postsBefore, 1, "unlock must issue exactly one token request");
+			assert.equal(rowOf(c, id)?.access, "unlock-a-1");
+			assert.equal(rowOf(c, id)?.refresh, "unlock-a-r1");
+			assert.deepEqual(exchangeRows(c), [], "a successful unlock retires the exchange");
+			assert.equal((await c.store.listDisabledCredentials(PROVIDER)).length, 0, "unlock never disables the row");
+			assert.equal((await oauth.inspectUnresolvedRefresh(PROVIDER)).eligible, false, "the state is resolved");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(b) a staged replacement is published without releasing or exchanging again", async () => {
+	const t = installTransport({ token: () => tokenReply("forbidden-b", "forbidden-b") });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const id = await seed(c, expiredCred({ access: "unlock-b-0", refresh: "unlock-b-r0" }));
+			seedStagedReplacement(c, id, {
+				type: "oauth",
+				access: "unlock-b-1",
+				refresh: "unlock-b-r1",
+				expires: Date.now() + 3_600_000,
+			});
+			const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(inspection.eligible, false, "a staged replacement is not an unresolved generation");
+			assert.equal(inspection.reason, "staged-replacement");
+			assert.equal(inspection.fence, undefined, "no fence is offered for an already-recoverable result");
+
+			const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: "stale-fence-captured-earlier" });
+			assert.equal(result.outcome, "staged-result-recovered", "the ordinary path publishes the staged result");
+			assert.equal(t.tokenPosts, 0, "publishing a staged replacement must not exchange the generation again");
+			assert.equal(rowOf(c, id)?.access, "unlock-b-1");
+			assert.equal(rowOf(c, id)?.refresh, "unlock-b-r1");
 			assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
 		});
-	});
+	} finally {
+		t.restore();
+	}
+});
 
-	await scenario("(j) a stale confirmation cannot release a newer attempt", async () => {
-		let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
-		const t = installTransport({ token: () => reply });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-j-0", refresh: "unlock-j-r0" }));
-				await leavePendingExchange(c, id);
-				const stale = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.ok(stale.fence);
-				reply = { kind: "status", status: 503, text: "synthetic service unavailable" };
-				const first = await oauth.unlockAndRefreshStored(PROVIDER, { fence: stale.fence! });
-				assert.equal(first.outcome, "failed");
-				const posts = t.tokenPosts;
-				const markers = exchangeRows(c);
-				assert.equal(markers.length, 1, "the failed attempt leaves its own marker");
-				// Same generation, replaced marker: the confirmation the user saw no
-				// longer names the attempt it would authorize.
-				const second = await oauth.unlockAndRefreshStored(PROVIDER, { fence: stale.fence! });
-				assert.equal(second.outcome, "fence-mismatch", "a stale fence must never release a newer attempt");
-				assert.equal(t.tokenPosts, posts, "a fence mismatch posts nothing");
-				assert.deepEqual(exchangeRows(c), markers, "a fence mismatch leaves the marker untouched");
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("(k) a timed-out attempt's late result is published without another exchange", async () => {
+await scenario("(c) a peer-held or expired lease cannot release the exchange", async () => {
+	const t = installTransport({ token: () => ({ kind: "network", message: "synthetic pre-send transfer failure" }) });
+	try {
 		await withCase(async c => {
 			const oauth = requireUnlockSurface(c);
-			const id = await seed(c, expiredCred({ access: "unlock-k-0", refresh: "unlock-k-r0" }));
-			const response = Promise.withResolvers<Cred>();
-			const started = Promise.withResolvers<void>();
-			const staged = Promise.withResolvers<void>();
-			const stage = c.store.stageCredentialRefreshResult.bind(c.store);
-			c.store.stageCredentialRefreshResult = (...args) => {
-				const saved = stage(...args);
-				if (saved) staged.resolve();
-				return saved;
+			const id = await seed(c, expiredCred({ access: "unlock-c-0", refresh: "unlock-c-r0" }));
+			await leavePendingExchange(c, id);
+			const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			const postsBefore = t.tokenPosts;
+			const markerBefore = exchangeRows(c);
+			const data = rawRowData(c, id);
+
+			holdLease(c, id, "peer-owner");
+			assert.equal(
+				c.store.releaseUnresolvedCredentialRefreshExchange(id, data, inspection.fence!, {
+					owner: "unlocking-owner",
+					nowMs: Date.now(),
+				}),
+				"lease-not-held",
+				"a caller that does not hold the row lease cannot release the exchange",
+			);
+			const peerHeld = await oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
+			assert.equal(peerHeld.outcome, "failed", "a peer-held lease refuses instead of blocking the confirmation");
+			assert.equal(t.tokenPosts, postsBefore, "a peer-held refusal posts nothing");
+			c.store.releaseCredentialRefreshLease(id, "peer-owner");
+
+			holdLease(c, id, "expired-owner", Date.now() - 1_000);
+			assert.equal(
+				c.store.releaseUnresolvedCredentialRefreshExchange(id, data, inspection.fence!, {
+					owner: "expired-owner",
+					nowMs: Date.now(),
+				}),
+				"lease-not-held",
+				"an expired lease is not held",
+			);
+			assert.deepEqual(exchangeRows(c), markerBefore, "a refused release never touches the marker");
+			assert.equal(rowOf(c, id)?.access, "unlock-c-0", "a refused release never touches the row");
+			assert.equal(t.tokenPosts, postsBefore, "refusals never post");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(d) a peer rotation after inspection is refused and the winner survives", async () => {
+	const t = installTransport({ token: () => ({ kind: "network", message: "synthetic pre-send transfer failure" }) });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const id = await seed(c, expiredCred({ access: "unlock-d-0", refresh: "unlock-d-r0" }));
+			await leavePendingExchange(c, id);
+			const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			const postsBefore = t.tokenPosts;
+			const staleData = rawRowData(c, id);
+			const winner: Cred = {
+				type: "oauth",
+				access: "unlock-d-winner",
+				refresh: "unlock-d-winner-refresh",
+				expires: Date.now() + 3_600_000,
 			};
-			let exchanges = 0;
-			const refresh = (refreshTimeoutMs = 1) =>
+			c.store.updateAuthCredential(id, winner);
+			holdLease(c, id, "unlocking-owner");
+			assert.equal(
+				c.store.releaseUnresolvedCredentialRefreshExchange(id, staleData, inspection.fence!, {
+					owner: "unlocking-owner",
+					nowMs: Date.now(),
+				}),
+				"row-changed",
+				"a row whose bytes changed after inspection cannot be released",
+			);
+			c.store.releaseCredentialRefreshLease(id, "unlocking-owner");
+			const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
+			assert.equal(result.outcome, "fence-mismatch", "the rotated row also fails the captured fence");
+			assert.deepEqual(rowOf(c, id), winner, "the peer's winner must be untouched");
+			assert.equal(t.tokenPosts, postsBefore, "a refused unlock posts nothing");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(e) a replaced generation or expected hash cannot be released", async () => {
+	const t = installTransport({ token: () => ({ kind: "network", message: "synthetic pre-send transfer failure" }) });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const id = await seed(c, expiredCred({ access: "unlock-e-0", refresh: "unlock-e-r0" }));
+			await leavePendingExchange(c, id);
+			const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			const postsBefore = t.tokenPosts;
+			const data = rawRowData(c, id);
+			holdLease(c, id, "unlocking-owner");
+			const lease = { owner: "unlocking-owner", nowMs: Date.now() };
+			mutateDb(c, "UPDATE auth_credential_refresh_exchanges SET generation = ?", "f".repeat(64));
+			assert.equal(
+				c.store.releaseUnresolvedCredentialRefreshExchange(id, data, inspection.fence!, lease),
+				"fence-mismatch",
+				"a replaced generation must not satisfy the captured fence",
+			);
+			mutateDb(c, "UPDATE auth_credential_refresh_exchanges SET expected_hash = ?", "e".repeat(64));
+			assert.equal(
+				c.store.releaseUnresolvedCredentialRefreshExchange(id, data, inspection.fence!, lease),
+				"fence-mismatch",
+				"a replaced expected hash must not satisfy the captured fence",
+			);
+			assert.equal(exchangeRows(c).length, 1, "a refused release keeps the marker");
+			assert.equal(rowOf(c, id)?.access, "unlock-e-0", "a refused release keeps the row");
+			assert.equal(t.tokenPosts, postsBefore, "refusals never post");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(f) a transient failure during unlock keeps the row and rotates the fence", async () => {
+	let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
+	const t = installTransport({ token: () => reply });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const id = await seed(c, expiredCred({ access: "unlock-f-0", refresh: "unlock-f-r0" }));
+			await leavePendingExchange(c, id);
+			const first = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			const postsBefore = t.tokenPosts;
+			reply = { kind: "status", status: 503, text: "synthetic service unavailable" };
+			const failed = await oauth.unlockAndRefreshStored(PROVIDER, { fence: first.fence! });
+			assert.equal(failed.outcome, "failed");
+			assert.ok(failed.error, "a failed unlock explains itself");
+			assert.equal(t.tokenPosts - postsBefore, 1, "a failed unlock must not send the generation twice");
+			assert.equal(rowOf(c, id)?.access, "unlock-f-0", "the row stays active after a transient failure");
+			assert.equal(rowOf(c, id)?.refresh, "unlock-f-r0", "the stored refresh token is untouched");
+			assert.equal((await c.store.listDisabledCredentials(PROVIDER)).length, 0, "a failed unlock disables nothing");
+			const second = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(second.eligible, true, "the ambiguity stays durable after a failed unlock");
+			assert.ok(second.fence);
+			assert.notEqual(second.fence, first.fence, "a newer attempt must produce a new fence");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(g) invalid_grant during unlock never disables the credential", async () => {
+	let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
+	const t = installTransport({ token: () => reply });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const id = await seed(c, expiredCred({ access: "unlock-g-0", refresh: "unlock-g-r0" }));
+			await leavePendingExchange(c, id);
+			const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			reply = { kind: "status", status: 400, text: '{"error":"invalid_grant"}' };
+			const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
+			assert.equal(result.outcome, "failed");
+			assert.equal(c.store.listAuthCredentials(PROVIDER).length, 1, "unlock must not remove the credential");
+			assert.equal(rowOf(c, id)?.access, "unlock-g-0", "the unlock path leaves the row as it was");
+			assert.deepEqual(
+				await c.store.listDisabledCredentials(PROVIDER),
+				[],
+				"a definitive grant answer from the unlock path never disables a credential",
+			);
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(h) an absent or disabled credential is refused", async () => {
+	const t = installTransport({ token: () => tokenReply("forbidden-h", "forbidden-h") });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const absent = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(absent.eligible, false);
+			assert.equal(absent.reason, "no-credential", "no stored OAuth row is reported as such");
+			assert.equal(absent.holdsUnstagedResult, false);
+			assert.equal(
+				(await oauth.unlockAndRefreshStored(PROVIDER, { fence: "no-marker" })).outcome,
+				"nothing-to-unlock",
+				"an absent credential cannot be unlocked",
+			);
+
+			const id = await seed(c, expiredCred({ access: "unlock-h-0", refresh: "unlock-h-r0" }));
+			seedPendingMarker(c, id);
+			assert.ok(await c.store.deleteAuthCredential(id, "synthetic disable"));
+			const disabled = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(disabled.eligible, false);
+			assert.equal(disabled.reason, "credential-disabled", "a disabled row is reported as such");
+			assert.equal(
+				(await oauth.unlockAndRefreshStored(PROVIDER, { fence: "disabled-marker" })).outcome,
+				"nothing-to-unlock",
+				"a disabled credential cannot be unlocked",
+			);
+			assert.equal(t.tokenPosts, 0, "refusals never post");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(i) a minted result held in memory is published without a second exchange", async () => {
+	await withCase(async c => {
+		const oauth = requireUnlockSurface(c);
+		const id = await seed(c, expiredCred({ access: "unlock-i-0", refresh: "unlock-i-r0" }));
+		let stageCalls = 0;
+		const stage = c.store.stageCredentialRefreshResult.bind(c.store);
+		c.store.stageCredentialRefreshResult = (...args) => {
+			stageCalls++;
+			if (stageCalls === 1) throw new Error("synthetic staging outage");
+			return stage(...args);
+		};
+		let exchanges = 0;
+		await assert.rejects(
+			() =>
 				c.auth.oauth.refreshStored(PROVIDER, {
 					credentialId: id,
 					credentialFromRow: credential => credential,
-					refreshTimeoutMs,
 					refresh: async () => {
 						exchanges++;
-						started.resolve();
-						return response.promise;
+						return { type: "oauth", access: "unlock-i-1", refresh: "unlock-i-r1", expires: Date.now() + 3_600_000 };
 					},
-				});
-			// 18.16.0 refuses a spent budget before admitting the exchange, so an
-			// abandoned attempt needs a live budget to reach the exchange it leaves behind.
-			await assert.rejects(
-				() => refresh(["18.16.0", "18.18.0"].includes(aiVersion) ? 250 : 1),
-				/timed out/,
-				"the fixture's deadline must expire before its response",
-			);
-			await started.promise;
-			const timedOut = await oauth.inspectUnresolvedRefresh(PROVIDER);
-			assert.equal(timedOut.eligible, true, "a timed-out attempt leaves an unresolved generation");
-			assert.ok(timedOut.fence);
-			response.resolve({ type: "oauth", access: "unlock-k-1", refresh: "unlock-k-r1", expires: Date.now() + 3_600_000 });
-			await staged.promise;
-			if (["18.16.0", "18.18.0"].includes(aiVersion)) {
-				// The abandoned attempt still owns the lease, so it publishes the late
-				// result itself: nothing is left to unlock and nothing is re-exchanged.
-				let published = false;
-				for (let attempt = 0; attempt < 40 && !published; attempt++) {
-					published = rowOf(c, id)?.access === "unlock-k-1";
-					if (!published) await Bun.sleep(50);
-				}
-				assert.equal(published, true, "the lease owner's late result must reach the row");
-				assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
-				assert.equal(exchanges, 1, "a newer attempt must not re-send the consumed generation");
-				const resolvedK = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(resolvedK.eligible, false, "the published generation is resolved");
-			} else {
-				const settled = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(settled.reason, "staged-replacement", "the late result is durable, not a releasable attempt");
-				const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: timedOut.fence! });
-				assert.equal(result.outcome, "staged-result-recovered", "the late result is published, not re-exchanged");
-				assert.equal(exchanges, 1, "a newer attempt must not re-send the consumed generation");
-				assert.equal(rowOf(c, id)?.access, "unlock-k-1");
-				assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
-			}
+				}),
+			/synthetic staging outage/,
+			"a staging outage must surface to the caller",
+		);
+		assert.equal(exchanges, 1, "the fixture must mint exactly once");
+		const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
+		assert.equal(inspection.holdsUnstagedResult, true, "the minted result is still held by this process");
+		assert.equal(inspection.eligible, true);
+		assert.equal(stagedReplacementData(c), null, "the outage left the marker unstaged");
+
+		const result = await oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
+		assert.equal(result.outcome, "staged-result-recovered", "the held result is persisted and published");
+		assert.equal(exchanges, 1, "recovery must not exchange the generation a second time");
+		assert.equal(rowOf(c, id)?.access, "unlock-i-1");
+		assert.equal(rowOf(c, id)?.refresh, "unlock-i-r1");
+		assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
+	});
+});
+
+await scenario("(j) a stale confirmation cannot release a newer attempt", async () => {
+	let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
+	const t = installTransport({ token: () => reply });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const id = await seed(c, expiredCred({ access: "unlock-j-0", refresh: "unlock-j-r0" }));
+			await leavePendingExchange(c, id);
+			const stale = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.ok(stale.fence);
+			reply = { kind: "status", status: 503, text: "synthetic service unavailable" };
+			const first = await oauth.unlockAndRefreshStored(PROVIDER, { fence: stale.fence! });
+			assert.equal(first.outcome, "failed");
+			const posts = t.tokenPosts;
+			const markers = exchangeRows(c);
+			assert.equal(markers.length, 1, "the failed attempt leaves its own marker");
+			// Same generation, replaced marker: the confirmation the user saw no
+			// longer names the attempt it would authorize.
+			const second = await oauth.unlockAndRefreshStored(PROVIDER, { fence: stale.fence! });
+			assert.equal(second.outcome, "fence-mismatch", "a stale fence must never release a newer attempt");
+			assert.equal(t.tokenPosts, posts, "a fence mismatch posts nothing");
+			assert.deepEqual(exchangeRows(c), markers, "a fence mismatch leaves the marker untouched");
 		});
-	});
+	} finally {
+		t.restore();
+	}
+});
 
-	await scenario("(l) remote, delegated and unsupported runtimes are refused", async () => {
-		const t = installTransport({ token: () => tokenReply("forbidden-l", "forbidden-l") });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const { REMOTE_REFRESH_SENTINEL } = await import(`${AI_ROOT}/src/auth/types.ts`);
-				const id = await seed(c, expiredCred({ access: "unlock-l-0", refresh: REMOTE_REFRESH_SENTINEL }));
-				seedPendingMarker(c, id);
-				const remote = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(remote.eligible, false, "a broker-held refresh token is never locally unlocked");
-				assert.equal(remote.reason, "remote-credential");
-				assert.equal(remote.credentialId, id, "the refusal still identifies the row for display");
-				const refused = await oauth.unlockAndRefreshStored(PROVIDER, { fence: "remote-marker" });
-				assert.equal(refused.outcome, "failed", "a remote generation refuses");
-				assert.match(refused.error ?? "", /remote-credential/);
-				assert.equal(t.tokenPosts, 0, "a remote refusal never posts");
-
-				// A delegated override that does not mint in this process.
-				const delegated = new AuthStorageClass(c.store, {
-					refreshOAuthCredential: async (_provider: string, _id: number) => {
-						throw new Error("synthetic delegated refresh must never be reached");
-					},
-				});
-				const delegatedInspection = await delegated.oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(delegatedInspection.eligible, false, "a delegated runtime cannot be verified locally");
-				assert.equal(delegatedInspection.reason, "delegated-runtime");
-				const delegatedResult = await delegated.oauth.unlockAndRefreshStored(PROVIDER, { fence: "delegated-marker" });
-				assert.equal(delegatedResult.outcome, "failed");
-				assert.match(delegatedResult.error ?? "", /delegated-runtime/);
-				delegated.close();
-
-				// A store without the exchange journal is not inspectable at all.
-				const { AuthStorage: AuthStorageCtor } = await import(`${AI_ROOT}/src/auth-storage.ts`);
-				const HIDDEN_MEMBERS: Record<string, true> = {
-					reserveCredentialRefreshExchange: true,
-					stageCredentialRefreshResult: true,
-					commitCredentialRefreshResult: true,
-					inspectUnresolvedCredentialRefreshExchange: true,
-					readStagedCredentialRefreshResult: true,
-					releaseUnresolvedCredentialRefreshExchange: true,
-				};
-				const hidden = new Proxy(c.store as object, {
-					get: (target, key) => (HIDDEN_MEMBERS[String(key)] ? undefined : Reflect.get(target, key)),
-					has: (target, key) => (HIDDEN_MEMBERS[String(key)] ? false : Reflect.has(target, key)),
-				});
-				const limited = new AuthStorageCtor(hidden);
-				const limitedInspection = await limited.oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(limitedInspection.eligible, false);
-				assert.equal(limitedInspection.reason, "unsupported-store");
-				const limitedResult = await limited.oauth.unlockAndRefreshStored(PROVIDER, { fence: "unsupported-marker" });
-				assert.equal(limitedResult.outcome, "failed");
-				assert.match(limitedResult.error ?? "", /unsupported-store/);
-				assert.equal(t.tokenPosts, 0, "no refusal may post a token request");
+await scenario("(k) a timed-out attempt's late result is published without another exchange", async () => {
+	await withCase(async c => {
+		const oauth = requireUnlockSurface(c);
+		const id = await seed(c, expiredCred({ access: "unlock-k-0", refresh: "unlock-k-r0" }));
+		const response = Promise.withResolvers<Cred>();
+		const started = Promise.withResolvers<void>();
+		const staged = Promise.withResolvers<void>();
+		const stage = c.store.stageCredentialRefreshResult.bind(c.store);
+		c.store.stageCredentialRefreshResult = (...args) => {
+			const saved = stage(...args);
+			if (saved) staged.resolve();
+			return saved;
+		};
+		let exchanges = 0;
+		const refresh = (refreshTimeoutMs = 1) =>
+			c.auth.oauth.refreshStored(PROVIDER, {
+				credentialId: id,
+				credentialFromRow: credential => credential,
+				refreshTimeoutMs,
+				refresh: async () => {
+					exchanges++;
+					started.resolve();
+					return response.promise;
+				},
 			});
-		} finally {
-			t.restore();
+		// 18.16.0 refuses a spent budget before admitting the exchange, so an
+		// abandoned attempt needs a live budget to reach the exchange it leaves behind.
+		await assert.rejects(
+			() => refresh(250),
+			/timed out/,
+			"the fixture's deadline must expire before its response",
+		);
+		await started.promise;
+		const timedOut = await oauth.inspectUnresolvedRefresh(PROVIDER);
+		assert.equal(timedOut.eligible, true, "a timed-out attempt leaves an unresolved generation");
+		assert.ok(timedOut.fence);
+		response.resolve({ type: "oauth", access: "unlock-k-1", refresh: "unlock-k-r1", expires: Date.now() + 3_600_000 });
+		await staged.promise;
+		// The abandoned attempt still owns the lease, so it publishes the late
+		// result itself: nothing is left to unlock and nothing is re-exchanged.
+		let published = false;
+		for (let attempt = 0; attempt < 40 && !published; attempt++) {
+			published = rowOf(c, id)?.access === "unlock-k-1";
+			if (!published) await Bun.sleep(50);
 		}
+		assert.equal(published, true, "the lease owner's late result must reach the row");
+		assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
+		assert.equal(exchanges, 1, "a newer attempt must not re-send the consumed generation");
+		const resolvedK = await oauth.inspectUnresolvedRefresh(PROVIDER);
+		assert.equal(resolvedK.eligible, false, "the published generation is resolved");
 	});
+});
 
-	await scenario("(m) the durable diagnostic survives the cooldown and names /auth-unlock", async () => {
-		let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
-		const t = installTransport({ token: () => reply });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-m-0", refresh: "unlock-m-r0" }));
-				await leavePendingExchange(c, id);
+await scenario("(l) remote, delegated and unsupported runtimes are refused", async () => {
+	const t = installTransport({ token: () => tokenReply("forbidden-l", "forbidden-l") });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const { REMOTE_REFRESH_SENTINEL } = await import(`${AI_ROOT}/src/auth/types.ts`);
+			const id = await seed(c, expiredCred({ access: "unlock-l-0", refresh: REMOTE_REFRESH_SENTINEL }));
+			seedPendingMarker(c, id);
+			const remote = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(remote.eligible, false, "a broker-held refresh token is never locally unlocked");
+			assert.equal(remote.reason, "remote-credential");
+			assert.equal(remote.credentialId, id, "the refusal still identifies the row for display");
+			const refused = await oauth.unlockAndRefreshStored(PROVIDER, { fence: "remote-marker" });
+			assert.equal(refused.outcome, "failed", "a remote generation refuses");
+			assert.match(refused.error ?? "", /remote-credential/);
+			assert.equal(t.tokenPosts, 0, "a remote refusal never posts");
 
-				assert.equal(await c.auth.getApiKey(PROVIDER), undefined, "an unresolved generation resolves no key");
-				const first = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(first.eligible, true);
-				assert.ok(first.fence);
-				const { session } = await openFixtureSession(c);
-				const beforeText = await promptFailure(session);
-				t.advanceClock(6 * 60_000);
-				assert.equal(
-					await c.auth.getApiKey(PROVIDER),
-					undefined,
-					"the fallback behaviour is unchanged after the transient cooldown",
-				);
-				const second = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(second.eligible, true, "the durable diagnostic must not expire with the cooldown");
-				assert.equal(second.fence, first.fence, "a cooldown cannot change the exchange identity");
-				const afterText = await promptFailure(session);
-				for (const text of [beforeText, afterText]) {
-					assert.match(text, /\/auth-unlock anthropic/, "the session must name the unlock command");
-					assert.doesNotMatch(text, /No API key found/, "an unresolved refresh is not a missing key");
-					assert.doesNotMatch(text, /agent\.db/, "an unresolved refresh must not suggest creating agent.db");
+			// A delegated override that does not mint in this process.
+			const delegated = new AuthStorageClass(c.store, {
+				refreshOAuthCredential: async (_provider: string, _id: number) => {
+					throw new Error("synthetic delegated refresh must never be reached");
+				},
+			});
+			const delegatedInspection = await delegated.oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(delegatedInspection.eligible, false, "a delegated runtime cannot be verified locally");
+			assert.equal(delegatedInspection.reason, "delegated-runtime");
+			const delegatedResult = await delegated.oauth.unlockAndRefreshStored(PROVIDER, { fence: "delegated-marker" });
+			assert.equal(delegatedResult.outcome, "failed");
+			assert.match(delegatedResult.error ?? "", /delegated-runtime/);
+			delegated.close();
+
+			// A store without the exchange journal is not inspectable at all.
+			const { AuthStorage: AuthStorageCtor } = await import(`${AI_ROOT}/src/auth-storage.ts`);
+			const HIDDEN_MEMBERS: Record<string, true> = {
+				reserveCredentialRefreshExchange: true,
+				stageCredentialRefreshResult: true,
+				commitCredentialRefreshResult: true,
+				inspectUnresolvedCredentialRefreshExchange: true,
+				readStagedCredentialRefreshResult: true,
+				releaseUnresolvedCredentialRefreshExchange: true,
+			};
+			const hidden = new Proxy(c.store as object, {
+				get: (target, key) => (HIDDEN_MEMBERS[String(key)] ? undefined : Reflect.get(target, key)),
+				has: (target, key) => (HIDDEN_MEMBERS[String(key)] ? false : Reflect.has(target, key)),
+			});
+			const limited = new AuthStorageCtor(hidden);
+			const limitedInspection = await limited.oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(limitedInspection.eligible, false);
+			assert.equal(limitedInspection.reason, "unsupported-store");
+			const limitedResult = await limited.oauth.unlockAndRefreshStored(PROVIDER, { fence: "unsupported-marker" });
+			assert.equal(limitedResult.outcome, "failed");
+			assert.match(limitedResult.error ?? "", /unsupported-store/);
+			assert.equal(t.tokenPosts, 0, "no refusal may post a token request");
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(m) the durable diagnostic survives the cooldown and names /auth-unlock", async () => {
+	let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
+	const t = installTransport({ token: () => reply });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const id = await seed(c, expiredCred({ access: "unlock-m-0", refresh: "unlock-m-r0" }));
+			await leavePendingExchange(c, id);
+
+			assert.equal(await c.auth.getApiKey(PROVIDER), undefined, "an unresolved generation resolves no key");
+			const first = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(first.eligible, true);
+			assert.ok(first.fence);
+			const { session } = await openFixtureSession(c);
+			const beforeText = await promptFailure(session);
+			t.advanceClock(6 * 60_000);
+			assert.equal(
+				await c.auth.getApiKey(PROVIDER),
+				undefined,
+				"the fallback behaviour is unchanged after the transient cooldown",
+			);
+			const second = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(second.eligible, true, "the durable diagnostic must not expire with the cooldown");
+			assert.equal(second.fence, first.fence, "a cooldown cannot change the exchange identity");
+			const afterText = await promptFailure(session);
+			for (const text of [beforeText, afterText]) {
+				assert.match(text, /\/auth-unlock anthropic/, "the session must name the unlock command");
+				assert.doesNotMatch(text, /No API key found/, "an unresolved refresh is not a missing key");
+				assert.doesNotMatch(text, /agent\.db/, "an unresolved refresh must not suggest creating agent.db");
+			}
+			assert.equal(beforeText, afterText, "the message must not depend on the transient cooldown");
+
+			// The named command resolves the state for real: the next ordinary
+			// resolution serves the freshly minted token instead of failing.
+			reply = tokenReply("unlock-m-1", "unlock-m-r1");
+			const unlocked = await oauth.unlockAndRefreshStored(PROVIDER, { fence: second.fence! });
+			assert.equal(unlocked.outcome, "refreshed");
+			const served = await c.auth.getApiKey(PROVIDER);
+			assert.equal(served, "unlock-m-1", "after unlocking, key resolution serves the minted token");
+			assert.equal((await oauth.inspectUnresolvedRefresh(PROVIDER)).eligible, false);
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(n) prompt, tool schemas and cache-prefix bytes are identical across recovery", async () => {
+	const t = installTransport({ token: () => tokenReply("unlock-n-1", "unlock-n-r1") });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const id = await seed(c, expiredCred({ access: "unlock-n-0", refresh: "unlock-n-r0" }));
+			seedPendingMarker(c, id);
+			// A fresh session per capture keeps the request body comparable: the
+			// credential state is the only input that changes between captures.
+			const capture = async (label: string, basePrompt?: string): Promise<PrefixCapture> => {
+				const { session, model } = await openFixtureSession(c, basePrompt);
+				const before = model.calls.length;
+				// `prompt()` returns false when a pre-dispatch bail drops the
+				// submission (the host hands the text back and resubmits); it throws
+				// when the state cannot serve. Resubmit a dropped turn like the host
+				// does, and require exactly one provider call overall.
+				let admitted = false;
+				for (let attempt = 0; attempt < 3 && !admitted; attempt++) {
+					admitted = await session.prompt("fixture turn");
 				}
-				assert.equal(beforeText, afterText, "the message must not depend on the transient cooldown");
-
-				// The named command resolves the state for real: the next ordinary
-				// resolution serves the freshly minted token instead of failing.
-				reply = tokenReply("unlock-m-1", "unlock-m-r1");
-				const unlocked = await oauth.unlockAndRefreshStored(PROVIDER, { fence: second.fence! });
-				assert.equal(unlocked.outcome, "refreshed");
-				const served = await c.auth.getApiKey(PROVIDER);
-				assert.equal(served, "unlock-m-1", "after unlocking, key resolution serves the minted token");
-				assert.equal((await oauth.inspectUnresolvedRefresh(PROVIDER)).eligible, false);
-			});
-		} finally {
-			t.restore();
-		}
-	});
-
-	await scenario("(n) prompt, tool schemas and cache-prefix bytes are identical across recovery", async () => {
-		const t = installTransport({ token: () => tokenReply("unlock-n-1", "unlock-n-r1") });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-n-0", refresh: "unlock-n-r0" }));
-				seedPendingMarker(c, id);
-				// A fresh session per capture keeps the request body comparable: the
-				// credential state is the only input that changes between captures.
-				const capture = async (label: string, basePrompt?: string): Promise<PrefixCapture> => {
-					const { session, model } = await openFixtureSession(c, basePrompt);
-					const before = model.calls.length;
-					// `prompt()` returns false when a pre-dispatch bail drops the
-					// submission (the host hands the text back and resubmits); it throws
-					// when the state cannot serve. Resubmit a dropped turn like the host
-					// does, and require exactly one provider call overall.
-					let admitted = false;
-					for (let attempt = 0; attempt < 3 && !admitted; attempt++) {
-						admitted = await session.prompt("fixture turn");
-					}
-					assert.ok(admitted, `the fixture turn must be admitted (${label})`);
-					assert.equal(model.calls.length, before + 1, `each capture must reach the provider once (${label})`);
-					const context = lastProviderContext(model);
-					return {
-						system: JSON.stringify(context.systemPrompt),
-						tools: toolContract(context.tools),
-						wire: await captureCachePrefix(context.systemPrompt, context.tools),
-					};
+				assert.ok(admitted, `the fixture turn must be admitted (${label})`);
+				assert.equal(model.calls.length, before + 1, `each capture must reach the provider once (${label})`);
+				const context = lastProviderContext(model);
+				return {
+					system: JSON.stringify(context.systemPrompt),
+					tools: toolContract(context.tools),
+					wire: await captureCachePrefix(context.systemPrompt, context.tools),
 				};
+			};
 
-				// During: the unresolved generation cannot serve, so the documented
-				// fallback does; the write prefix must not notice.
-				process.env.ANTHROPIC_API_KEY = "offline-unlock-fallback";
-				let during: PrefixCapture;
-				try {
-					during = await capture("during");
-				} finally {
-					delete process.env.ANTHROPIC_API_KEY;
-				}
-				const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				const unlocked = await oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
-				assert.equal(unlocked.outcome, "refreshed");
-				// After: the freshly minted OAuth row serves again.
-				const after = await capture("after");
-				// Before: a control whose base prompt carries one extra byte, proving
-				// every compared field discriminates rather than always agreeing.
-				const control = await capture("control", "Fixture base prompt. ");
+			// During: the unresolved generation cannot serve, so the documented
+			// fallback does; the write prefix must not notice.
+			process.env.ANTHROPIC_API_KEY = "offline-unlock-fallback";
+			let during: PrefixCapture;
+			try {
+				during = await capture("during");
+			} finally {
+				delete process.env.ANTHROPIC_API_KEY;
+			}
+			const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			const unlocked = await oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
+			assert.equal(unlocked.outcome, "refreshed");
+			// After: the freshly minted OAuth row serves again.
+			const after = await capture("after");
+			// Before: a control whose base prompt carries one extra byte, proving
+			// every compared field discriminates rather than always agreeing.
+			const control = await capture("control", "Fixture base prompt. ");
 
-				assert.equal(during.system, after.system, "the system prompt must not move with the credential state");
-				assert.equal(during.tools, after.tools, "tool schemas must not move with the credential state");
-				assert.equal(during.wire.system, after.wire.system, "cached system bytes must not move with the credential state");
-				assert.equal(during.wire.tools, after.wire.tools, "cached tool bytes must not move with the credential state");
-				assert.notEqual(control.system, after.system, "a changed base prompt must change the captured system prompt");
-				assert.notEqual(
-					control.wire.system,
-					after.wire.system,
-					"a changed base prompt must change the captured cache prefix",
-				);
+			assert.equal(during.system, after.system, "the system prompt must not move with the credential state");
+			assert.equal(during.tools, after.tools, "tool schemas must not move with the credential state");
+			assert.equal(during.wire.system, after.wire.system, "cached system bytes must not move with the credential state");
+			assert.equal(during.wire.tools, after.wire.tools, "cached tool bytes must not move with the credential state");
+			assert.notEqual(control.system, after.system, "a changed base prompt must change the captured system prompt");
+			assert.notEqual(
+				control.wire.system,
+				after.wire.system,
+				"a changed base prompt must change the captured cache prefix",
+			);
+		});
+	} finally {
+		t.restore();
+	}
+});
+
+await scenario("(o) a result held by another process is refused locally and is the documented residual risk", async () => {
+	const t = installTransport({ token: () => tokenReply("unlock-o-b", "unlock-o-rb") });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const id = await seed(c, expiredCred({ access: "unlock-o-0", refresh: "unlock-o-r0" }));
+			const output = join(c.dir, "held-result.json");
+			const child = Bun.spawnSync([process.execPath, import.meta.path, "--unlock-held-result", c.dir, String(id), output], {
+				env: { PATH: process.env.PATH, TMPDIR: process.env.TMPDIR,
+					OMP_PATCH_VERSION: plan.version, OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
+				stdout: "pipe", stderr: "pipe",
 			});
-		} finally {
-			t.restore();
-		}
-	});
+			assert.equal(child.exitCode, 0, `held-result process failed: ${child.stderr.toString()}`);
+			const held = JSON.parse(readFileSync(output, "utf8")) as {
+				inspection: UnlockInspection;
+				unlock: UnlockResult;
+				tokenPosts: number;
+			};
+			assert.equal(held.inspection.holdsUnstagedResult, true, "A must report the result it holds");
+			assert.equal(held.unlock.outcome, "failed", "A must refuse to release a generation it holds unpersisted");
+			assert.match(held.unlock.error ?? "", /held in memory/, "A's refusal names the held result");
+			assert.equal(held.tokenPosts, 1, "A's refusal must not exchange the generation again");
 
-	await scenario("(o) a result held by another process is refused locally and is the documented residual risk", async () => {
-		const t = installTransport({ token: () => tokenReply("unlock-o-b", "unlock-o-rb") });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-o-0", refresh: "unlock-o-r0" }));
-				const output = join(c.dir, "held-result.json");
-				const child = Bun.spawnSync([process.execPath, import.meta.path, "--unlock-held-result", c.dir, String(id), output], {
-					env: { PATH: process.env.PATH, TMPDIR: process.env.TMPDIR,
-						OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
-					stdout: "pipe", stderr: "pipe",
-				});
-				assert.equal(child.exitCode, 0, `held-result process failed: ${child.stderr.toString()}`);
-				const held = JSON.parse(readFileSync(output, "utf8")) as {
-					inspection: UnlockInspection;
-					unlock: UnlockResult;
-					tokenPosts: number;
-				};
-				assert.equal(held.inspection.holdsUnstagedResult, true, "A must report the result it holds");
-				assert.equal(held.unlock.outcome, "failed", "A must refuse to release a generation it holds unpersisted");
-				assert.match(held.unlock.error ?? "", /held in memory/, "A's refusal names the held result");
-				assert.equal(held.tokenPosts, 1, "A's refusal must not exchange the generation again");
+			// B cannot see A's in-memory result: this is the residual risk the
+			// confirm text warns about, and it is asserted rather than assumed.
+			const fromB = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(fromB.holdsUnstagedResult, false, "B cannot observe another process's held result");
+			assert.equal(fromB.eligible, true, "the durable marker is still releasable");
+			const postsBefore = t.tokenPosts;
+			const unlockedByB = await oauth.unlockAndRefreshStored(PROVIDER, { fence: fromB.fence! });
+			assert.equal(unlockedByB.outcome, "refreshed", "B unlocks the generation it cannot see A consuming");
+			assert.equal(t.tokenPosts - postsBefore, 1, "the residual risk is exactly one extra POST");
+			assert.equal(rowOf(c, id)?.access, "unlock-o-b");
+		});
+	} finally {
+		t.restore();
+	}
+});
 
-				// B cannot see A's in-memory result: this is the residual risk the
-				// confirm text warns about, and it is asserted rather than assumed.
-				const fromB = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(fromB.holdsUnstagedResult, false, "B cannot observe another process's held result");
-				assert.equal(fromB.eligible, true, "the durable marker is still releasable");
-				const postsBefore = t.tokenPosts;
-				const unlockedByB = await oauth.unlockAndRefreshStored(PROVIDER, { fence: fromB.fence! });
-				assert.equal(unlockedByB.outcome, "refreshed", "B unlocks the generation it cannot see A consuming");
-				assert.equal(t.tokenPosts - postsBefore, 1, "the residual risk is exactly one extra POST");
-				assert.equal(rowOf(c, id)?.access, "unlock-o-b");
-			});
-		} finally {
-			t.restore();
-		}
-	});
+await scenario("(s) the release transaction itself installs the new reservation", async () => {
+	const posted = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
+	const t = installTransport({ token: () => reply, onTokenPost: () => posted.resolve() });
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const id = await seed(c, expiredCred({ access: "unlock-s-0", refresh: "unlock-s-r0" }));
+			await leavePendingExchange(c, id);
+			const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			const postsBefore = t.tokenPosts;
+			const markerBefore = exchangeRows(c);
+			const data = rawRowData(c, id);
 
-	await scenario("(s) the release transaction itself installs the new reservation", async () => {
-		const posted = Promise.withResolvers<void>();
-		const release = Promise.withResolvers<void>();
-		let reply: WireReply = { kind: "network", message: "synthetic pre-send transfer failure" };
-		const t = installTransport({ token: () => reply, onTokenPost: () => posted.resolve() });
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-s-0", refresh: "unlock-s-r0" }));
-				await leavePendingExchange(c, id);
-				const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				const postsBefore = t.tokenPosts;
-				const markerBefore = exchangeRows(c);
-				const data = rawRowData(c, id);
+			// (1) The RELEASE ITSELF must install the new reservation. Releasing and
+			// reserving as two transactions leaves a window in which the generation is
+			// unattested, so this is asserted on the store directly, before any POST.
+			holdLease(c, id, "unlock-s-owner");
+			assert.equal(
+				c.store.releaseUnresolvedCredentialRefreshExchange(id, data, inspection.fence!, {
+					owner: "unlock-s-owner",
+					nowMs: Date.now(),
+				}),
+				"released",
+			);
+			const afterRelease = exchangeRows(c);
+			assert.equal(
+				afterRelease.length,
+				1,
+				"the release must leave the generation reserved by the new owner, not marker-less",
+			);
+			assert.equal(
+				markerField(afterRelease, "owner"),
+				"unlock-s-owner",
+				"the surviving marker must name the releasing owner",
+			);
+			assert.equal(
+				markerField(afterRelease, "generation"),
+				markerField(markerBefore, "generation"),
+				"the new reservation must keep the same generation",
+			);
+			assert.equal(stagedReplacementData(c), null, "the new reservation stages nothing");
+			assert.equal(t.tokenPosts, postsBefore, "a reservation is not an exchange");
+			c.store.releaseCredentialRefreshLease(id, "unlock-s-owner");
+			const fenceAfterRelease = (await oauth.inspectUnresolvedRefresh(PROVIDER)).fence;
+			assert.ok(fenceAfterRelease, "the replaced marker must still be inspectable");
 
-				// (1) The RELEASE ITSELF must install the new reservation. Releasing and
-				// reserving as two transactions leaves a window in which the generation is
-				// unattested, so this is asserted on the store directly, before any POST.
-				holdLease(c, id, "unlock-s-owner");
-				assert.equal(
-					c.store.releaseUnresolvedCredentialRefreshExchange(id, data, inspection.fence!, {
+			// (2) A failure INSIDE the replacement write must roll the whole
+			// transaction back to the previous marker, and no ordinary path may then
+			// send a generation that has no attested owner.
+			mutateDb(
+				c,
+				"CREATE TRIGGER omp_gate_block_replacement BEFORE UPDATE ON auth_credential_refresh_exchanges BEGIN SELECT RAISE(ABORT, 'synthetic replacement write failure'); END",
+			);
+			const expectedMarker = exchangeRows(c);
+			holdLease(c, id, "unlock-s-owner");
+			assert.throws(
+				() =>
+					c.store.releaseUnresolvedCredentialRefreshExchange(id, data, fenceAfterRelease!, {
 						owner: "unlock-s-owner",
 						nowMs: Date.now(),
 					}),
-					"released",
-				);
-				const afterRelease = exchangeRows(c);
-				assert.equal(
-					afterRelease.length,
-					1,
-					"the release must leave the generation reserved by the new owner, not marker-less",
-				);
-				assert.equal(
-					markerField(afterRelease, "owner"),
-					"unlock-s-owner",
-					"the surviving marker must name the releasing owner",
-				);
-				assert.equal(
-					markerField(afterRelease, "generation"),
-					markerField(markerBefore, "generation"),
-					"the new reservation must keep the same generation",
-				);
-				assert.equal(stagedReplacementData(c), null, "the new reservation stages nothing");
-				assert.equal(t.tokenPosts, postsBefore, "a reservation is not an exchange");
-				c.store.releaseCredentialRefreshLease(id, "unlock-s-owner");
-				const fenceAfterRelease = (await oauth.inspectUnresolvedRefresh(PROVIDER)).fence;
-				assert.ok(fenceAfterRelease, "the replaced marker must still be inspectable");
+				/synthetic replacement write failure/,
+				"a failing replacement write must surface instead of reporting a release",
+			);
+			c.store.releaseCredentialRefreshLease(id, "unlock-s-owner");
+			assert.deepEqual(exchangeRows(c), expectedMarker, "a failed replacement must roll back to the previous marker");
+			mutateDb(c, "DROP TRIGGER omp_gate_block_replacement");
+			assert.equal(t.tokenPosts, postsBefore, "a rolled-back release posts nothing");
+			await assert.rejects(
+				() => c.auth.oauth.refresh(id),
+				/outcome is unresolved/,
+				"the surviving marker must keep an ordinary refresh from redeeming the generation",
+			);
+			assert.equal(t.tokenPosts, postsBefore, "the surviving marker posts nothing on its own");
 
-				// (2) A failure INSIDE the replacement write must roll the whole
-				// transaction back to the previous marker, and no ordinary path may then
-				// send a generation that has no attested owner.
-				mutateDb(
-					c,
-					"CREATE TRIGGER omp_gate_block_replacement BEFORE UPDATE ON auth_credential_refresh_exchanges BEGIN SELECT RAISE(ABORT, 'synthetic replacement write failure'); END",
-				);
-				const expectedMarker = exchangeRows(c);
-				holdLease(c, id, "unlock-s-owner");
-				assert.throws(
-					() =>
-						c.store.releaseUnresolvedCredentialRefreshExchange(id, data, fenceAfterRelease!, {
-							owner: "unlock-s-owner",
-							nowMs: Date.now(),
-						}),
-					/synthetic replacement write failure/,
-					"a failing replacement write must surface instead of reporting a release",
-				);
-				c.store.releaseCredentialRefreshLease(id, "unlock-s-owner");
-				assert.deepEqual(exchangeRows(c), expectedMarker, "a failed replacement must roll back to the previous marker");
-				mutateDb(c, "DROP TRIGGER omp_gate_block_replacement");
-				assert.equal(t.tokenPosts, postsBefore, "a rolled-back release posts nothing");
-				await assert.rejects(
-					() => c.auth.oauth.refresh(id),
-					/outcome is unresolved/,
-					"the surviving marker must keep an ordinary refresh from redeeming the generation",
-				);
-				assert.equal(t.tokenPosts, postsBefore, "the surviving marker posts nothing on its own");
-
-				// (3) Crash equivalence on the real unlock path: while the POST is in
-				// flight the marker must already belong to the new attempt.
-				reply = tokenReply("unlock-s-1", "unlock-s-r1", { waitFor: release.promise });
-				const unlocking = oauth.unlockAndRefreshStored(PROVIDER, { fence: fenceAfterRelease! });
-				await posted.promise;
-				const inFlight = exchangeRows(c);
-				assert.equal(inFlight.length, 1, "the generation must never be marker-less during the unlock");
-				assert.ok(markerField(inFlight, "owner"), "the in-flight marker must name its owner");
-				assert.equal(stagedReplacementData(c), null, "the in-flight marker stages nothing");
-				release.resolve();
-				const result = await unlocking;
-				assert.equal(result.outcome, "refreshed");
-				assert.equal(rowOf(c, id)?.access, "unlock-s-1");
-				assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
-				assert.equal(t.tokenPosts - postsBefore, 1, "the unlock exchanged the generation exactly once");
-			});
-		} finally {
+			// (3) Crash equivalence on the real unlock path: while the POST is in
+			// flight the marker must already belong to the new attempt.
+			reply = tokenReply("unlock-s-1", "unlock-s-r1", { waitFor: release.promise });
+			const unlocking = oauth.unlockAndRefreshStored(PROVIDER, { fence: fenceAfterRelease! });
+			await posted.promise;
+			const inFlight = exchangeRows(c);
+			assert.equal(inFlight.length, 1, "the generation must never be marker-less during the unlock");
+			assert.ok(markerField(inFlight, "owner"), "the in-flight marker must name its owner");
+			assert.equal(stagedReplacementData(c), null, "the in-flight marker stages nothing");
 			release.resolve();
-			t.restore();
-		}
-	});
+			const result = await unlocking;
+			assert.equal(result.outcome, "refreshed");
+			assert.equal(rowOf(c, id)?.access, "unlock-s-1");
+			assert.deepEqual(exchangeRows(c), [], "publication retires the reservation");
+			assert.equal(t.tokenPosts - postsBefore, 1, "the unlock exchanged the generation exactly once");
+		});
+	} finally {
+		release.resolve();
+		t.restore();
+	}
+});
 
-	await scenario("(r) the shipped declarations type-check for a consumer", async () => {
-		const tsc = process.env.OMP_PATCH_VERIFY_TSC?.trim() || Bun.which("tsc");
-		assert.ok(tsc, "the declaration consumer check needs tsc (or OMP_PATCH_VERIFY_TSC)");
-		// A consumer outside the package, importing ONLY the declaration entry
-		// point: this fails when a public member never reached the shipped .d.ts.
-		const accepted = `import type { AuthStorage, OAuthRefreshUnlockInspection, OAuthRefreshUnlockResult } from "@oh-my-pi/pi-ai";
+await scenario("(r) the shipped declarations type-check for a consumer", async () => {
+	const tsc = process.env.OMP_PATCH_VERIFY_TSC?.trim() || Bun.which("tsc");
+	assert.ok(tsc, "the declaration consumer check needs tsc (or OMP_PATCH_VERIFY_TSC)");
+	// A consumer outside the package, importing ONLY the declaration entry
+	// point: this fails when a public member never reached the shipped .d.ts.
+	const accepted = `import type { AuthStorage, OAuthRefreshUnlockInspection, OAuthRefreshUnlockResult } from "@oh-my-pi/pi-ai";
 declare const auth: AuthStorage;
 export const inspection: Promise<OAuthRefreshUnlockInspection> = auth.oauth.inspectUnresolvedRefresh("anthropic");
 export const unlock: Promise<OAuthRefreshUnlockResult> = auth.oauth.unlockAndRefreshStored("anthropic", { fence: "opaque" });
@@ -3900,151 +3839,148 @@ export const reason: string = (await inspection).reason;
 export const holds: boolean = (await inspection).holdsUnstagedResult;
 export const outcome: string = (await unlock).outcome;
 `;
-		const rejected = `import type { AuthStorage } from "@oh-my-pi/pi-ai";
+	const rejected = `import type { AuthStorage } from "@oh-my-pi/pi-ai";
 declare const auth: AuthStorage;
 export const wrong = auth.oauth.inspectUnresolvedRefreshes("anthropic");
 `;
-		const dir = mkdtempSync(join(tmpdir(), "omp-oauth-consumer-"));
-		const compile = (source: string): { code: number; output: string } => {
-			writeFileSync(join(dir, "consumer.ts"), source);
-			writeFileSync(
-				join(dir, "tsconfig.json"),
-				JSON.stringify({
-					compilerOptions: {
-						noEmit: true,
-						skipLibCheck: true,
-						strict: true,
-						target: "ES2023",
-						module: "ESNext",
-						moduleResolution: "Bundler",
-						lib: ["ES2023", "DOM"],
-						types: [],
-						paths: { "@oh-my-pi/pi-ai": [`${AI_ROOT}/dist/types/index.d.ts`] },
-					},
-					files: ["consumer.ts"],
-				}),
-			);
-			const result = Bun.spawnSync([tsc, "-p", join(dir, "tsconfig.json")], { cwd: dir, stdout: "pipe", stderr: "pipe" });
-			return { code: result.exitCode ?? 1, output: `${result.stdout}${result.stderr}` };
-		};
-		try {
-			const shipped = compile(accepted);
-			assert.equal(shipped.code, 0, `the shipped declarations must type-check a consumer: ${shipped.output}`);
-			const control = compile(rejected);
-			assert.notEqual(control.code, 0, "the consumer control must reject a member the declarations do not have");
-			assert.match(control.output, /inspectUnresolvedRefreshes/, "the control must fail on the missing member");
-		} finally {
-			rmSync(dir, { recursive: true, force: true });
-		}
-	});
-}
+	const dir = mkdtempSync(join(tmpdir(), "omp-oauth-consumer-"));
+	const compile = (source: string): { code: number; output: string } => {
+		writeFileSync(join(dir, "consumer.ts"), source);
+		writeFileSync(
+			join(dir, "tsconfig.json"),
+			JSON.stringify({
+				compilerOptions: {
+					noEmit: true,
+					skipLibCheck: true,
+					strict: true,
+					target: "ES2023",
+					module: "ESNext",
+					moduleResolution: "Bundler",
+					lib: ["ES2023", "DOM"],
+					types: [],
+					paths: { "@oh-my-pi/pi-ai": [`${AI_ROOT}/dist/types/index.d.ts`] },
+				},
+				files: ["consumer.ts"],
+			}),
+		);
+		const result = Bun.spawnSync([tsc, "-p", join(dir, "tsconfig.json")], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+		return { code: result.exitCode ?? 1, output: `${result.stdout}${result.stderr}` };
+	};
+	try {
+		const shipped = compile(accepted);
+		assert.equal(shipped.code, 0, `the shipped declarations must type-check a consumer: ${shipped.output}`);
+		const control = compile(rejected);
+		assert.notEqual(control.code, 0, "the consumer control must reject a member the declarations do not have");
+		assert.match(control.output, /inspectUnresolvedRefreshes/, "the control must fail on the missing member");
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
 
-if (["18.16.0", "18.18.0"].includes(aiVersion)) {
-	// 18.16.0 arms for the two fail-closed surfaces the 0090 family keeps: a shared
-	// refresh always names the stored row it rotates, and a process that would mint
-	// locally refuses a store that cannot make the result durable.
-	await scenario("(z1) a credential-object refresh without a stored id is refused", async () => {
-		const { OAuthRefresher } = await import(`${AI_ROOT}/src/auth/refresh.ts`);
-		await withCase(async c => {
-			const id = await seed(c, expiredCred({ access: "no-id-access", refresh: "no-id-refresh" }));
-			const original = rowOf(c, id);
-			// The refresher is the real one; only the pool it would publish into is a
-			// stub, because the refusal must happen before any pool write.
-			const refresher = new OAuthRefresher({
-				store: c.store,
-				pool: { providers: () => [], entries: () => [] } as unknown as ConstructorParameters<
-					typeof OAuthRefresher
-				>[0]["pool"],
-			});
+// 18.16.0 arms for the two fail-closed surfaces the 0090 family keeps: a shared
+// refresh always names the stored row it rotates, and a process that would mint
+// locally refuses a store that cannot make the result durable.
+await scenario("(z1) a credential-object refresh without a stored id is refused", async () => {
+	const { OAuthRefresher } = await import(`${AI_ROOT}/src/auth/refresh.ts`);
+	await withCase(async c => {
+		const id = await seed(c, expiredCred({ access: "no-id-access", refresh: "no-id-refresh" }));
+		const original = rowOf(c, id);
+		// The refresher is the real one; only the pool it would publish into is a
+		// stub, because the refusal must happen before any pool write.
+		const refresher = new OAuthRefresher({
+			store: c.store,
+			pool: { providers: () => [], entries: () => [] } as unknown as ConstructorParameters<
+				typeof OAuthRefresher
+			>[0]["pool"],
+		});
+		await assert.rejects(
+			() =>
+				refresher.refresh(
+					PROVIDER,
+					expiredCred({ access: "no-id-access", refresh: "no-id-refresh" }),
+					undefined,
+				),
+			/requires a stored credential id/,
+			"a refresh must name the stored row it rotates",
+		);
+		assert.deepEqual(rowOf(c, id), original, "a refused refresh cannot touch the row");
+		assert.deepEqual(exchangeRows(c), [], "a refused refresh cannot reserve an exchange");
+	});
+});
+
+await scenario("(z2) a local exchange without durable storage is refused", async () => {
+	await withCase(async c => {
+		const id = await seed(c, expiredCred({ access: "no-lease-access", refresh: "no-lease-refresh" }));
+		const original = rowOf(c, id);
+		// Shadow the prototype method: a store whose lease fence is unavailable must
+		// not mint, because the provider consumes the refresh token and nothing can
+		// publish the result safely.
+		const store = c.store as unknown as Record<string, unknown>;
+		store.tryAcquireCredentialRefreshLease = undefined;
+		const bare = new AuthStorageClass(c.store);
+		try {
+			await bare.credentials.reload();
 			await assert.rejects(
-				() =>
-					refresher.refresh(
-						PROVIDER,
-						expiredCred({ access: "no-id-access", refresh: "no-id-refresh" }),
-						undefined,
-					),
-				/requires a stored credential id/,
-				"a refresh must name the stored row it rotates",
+				() => bare.oauth.refresh(id),
+				/requires durable exchange storage/,
+				"a process that would mint locally needs the durable exchange",
 			);
-			assert.deepEqual(rowOf(c, id), original, "a refused refresh cannot touch the row");
-			assert.deepEqual(exchangeRows(c), [], "a refused refresh cannot reserve an exchange");
-		});
-	});
-
-	await scenario("(z2) a local exchange without durable storage is refused", async () => {
-		await withCase(async c => {
-			const id = await seed(c, expiredCred({ access: "no-lease-access", refresh: "no-lease-refresh" }));
-			const original = rowOf(c, id);
-			// Shadow the prototype method: a store whose lease fence is unavailable must
-			// not mint, because the provider consumes the refresh token and nothing can
-			// publish the result safely.
-			const store = c.store as unknown as Record<string, unknown>;
-			store.tryAcquireCredentialRefreshLease = undefined;
-			const bare = new AuthStorageClass(c.store);
-			try {
-				await bare.credentials.reload();
-				await assert.rejects(
-					() => bare.oauth.refresh(id),
-					/requires durable exchange storage/,
-					"a process that would mint locally needs the durable exchange",
-				);
-			} finally {
-				// The consumer shares this store, so closing it here would finalize the
-				// statements the rest of the case reads; the case cleanup owns the close.
-				delete store.tryAcquireCredentialRefreshLease;
-			}
-			assert.deepEqual(rowOf(c, id), original, "a refused exchange cannot rewrite the row");
-			assert.deepEqual(exchangeRows(c), [], "a refused exchange cannot reserve a marker");
-		});
-	});
-
-	await scenario("(z3) an unpublishable unlock mint reports the refusal", async () => {
-		const started = Promise.withResolvers<void>();
-		const release = Promise.withResolvers<void>();
-		// The first post belongs to the pending generation the fixture leaves behind;
-		// the unlock's own exchange is the one that hangs until the row moves.
-		const t = installTransport({
-			onTokenPost: index => {
-				if (index >= 2) started.resolve();
-			},
-			token: index =>
-				index === 1
-					? { kind: "network", message: "synthetic pre-send transfer failure" }
-					: tokenReply("unlock-z-access", "unlock-z-refresh", { waitFor: release.promise }),
-		});
-		try {
-			await withCase(async c => {
-				const oauth = requireUnlockSurface(c);
-				const id = await seed(c, expiredCred({ access: "unlock-z-0", refresh: "unlock-z-r0" }));
-				await leavePendingExchange(c, id);
-				const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
-				assert.equal(inspection.eligible, true, "an owned unresolved generation must be unlockable");
-				const unlocking = oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
-				c.cleanup.push(async () => {
-					release.resolve();
-					await Promise.allSettled([unlocking]);
-				});
-				await waitForPost(started.promise, unlocking);
-				// A concurrent login rewrites the generation the unlock exchanged, so the
-				// minted replacement has no row left to publish onto.
-				const replacement: Cred = {
-					type: "oauth", access: "unlock-z-winner-access", refresh: "unlock-z-winner-refresh",
-					expires: Date.now() + 3_600_000,
-				};
-				c.store.updateAuthCredential(id, replacement);
-				release.resolve();
-				const result = await unlocking;
-				assert.equal(result.outcome, "failed", "an unpublishable mint must report the refusal, not a credential");
-				assert.match(result.error ?? "", /could not be published/,
-					"the refusal must name the lost publication");
-				assert.deepEqual(rowOf(c, id), replacement, "the concurrent winner keeps the row");
-				assert.equal(result.credential, undefined, "a refused unlock hands back no credential");
-			});
 		} finally {
-			t.restore();
+			// The consumer shares this store, so closing it here would finalize the
+			// statements the rest of the case reads; the case cleanup owns the close.
+			delete store.tryAcquireCredentialRefreshLease;
 		}
+		assert.deepEqual(rowOf(c, id), original, "a refused exchange cannot rewrite the row");
+		assert.deepEqual(exchangeRows(c), [], "a refused exchange cannot reserve a marker");
 	});
-}
+});
+
+await scenario("(z3) an unpublishable unlock mint reports the refusal", async () => {
+	const started = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	// The first post belongs to the pending generation the fixture leaves behind;
+	// the unlock's own exchange is the one that hangs until the row moves.
+	const t = installTransport({
+		onTokenPost: index => {
+			if (index >= 2) started.resolve();
+		},
+		token: index =>
+			index === 1
+				? { kind: "network", message: "synthetic pre-send transfer failure" }
+				: tokenReply("unlock-z-access", "unlock-z-refresh", { waitFor: release.promise }),
+	});
+	try {
+		await withCase(async c => {
+			const oauth = requireUnlockSurface(c);
+			const id = await seed(c, expiredCred({ access: "unlock-z-0", refresh: "unlock-z-r0" }));
+			await leavePendingExchange(c, id);
+			const inspection = await oauth.inspectUnresolvedRefresh(PROVIDER);
+			assert.equal(inspection.eligible, true, "an owned unresolved generation must be unlockable");
+			const unlocking = oauth.unlockAndRefreshStored(PROVIDER, { fence: inspection.fence! });
+			c.cleanup.push(async () => {
+				release.resolve();
+				await Promise.allSettled([unlocking]);
+			});
+			await waitForPost(started.promise, unlocking);
+			// A concurrent login rewrites the generation the unlock exchanged, so the
+			// minted replacement has no row left to publish onto.
+			const replacement: Cred = {
+				type: "oauth", access: "unlock-z-winner-access", refresh: "unlock-z-winner-refresh",
+				expires: Date.now() + 3_600_000,
+			};
+			c.store.updateAuthCredential(id, replacement);
+			release.resolve();
+			const result = await unlocking;
+			assert.equal(result.outcome, "failed", "an unpublishable mint must report the refusal, not a credential");
+			assert.match(result.error ?? "", /could not be published/,
+				"the refusal must name the lost publication");
+			assert.deepEqual(rowOf(c, id), replacement, "the concurrent winner keeps the row");
+			assert.equal(result.credential, undefined, "a refused unlock hands back no credential");
+		});
+	} finally {
+		t.restore();
+	}
+});
 
 await Bun.sleep(50);
 const unexpectedRejections = unhandledRejections;

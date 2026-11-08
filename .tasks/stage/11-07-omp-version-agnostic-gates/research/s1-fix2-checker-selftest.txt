@@ -1,0 +1,97 @@
+PASS  clean: comment literal and since() boundary only                         expected green, got green
+PASS  MUTANT: version list in a gate                                           expected red, got red
+PASS  MUTANT: === arm in a gate                                                expected red, got red
+PASS  MUTANT: template-string branch                                           expected red, got red
+PASS  MUTANT: literal inside a message string                                  expected red, got red
+PASS  MUTANT: literal after a closed block comment                             expected red, got red
+PASS  clean: block comment literal                                             expected green, got green
+PASS  clean: bash comment and omp_since                                        expected green, got green
+PASS  MUTANT: bash equality arm                                                expected red, got red
+PASS  MUTANT: bash # inside a string is not a comment                          expected red, got red
+PASS  clean: python comment, docstring, since()                                expected green, got green
+PASS  MUTANT: python version tuple                                             expected red, got red
+PASS  MUTANT: python string that mentions # is still code                      expected red, got red
+PASS  MUTANT: json data literal                                                expected red, got red
+PASS  allowlist: .retired, families dir, manifest, native, versions.json       expected green, got green
+PASS  MUTANT: registry with 3 versions                                         expected red, got red
+PASS  MUTANT: registry with 1 version                                          expected red, got red
+PASS  MUTANT: registry not ascending                                           expected red, got red
+PASS  MUTANT: registry entry not N.N.N                                         expected red, got red
+PASS  registry: numeric order (18.9.0 < 18.10.0)                               expected green, got green
+PASS  clean: bash omp_since with a quoted boundary                             expected green, got green
+PASS  MUTANT: bash quoted omp_since followed by an equality arm                expected red, got red
+PASS  clean: since() inside an embedded Python heredoc of a .sh gate           expected green, got green
+PASS  MUTANT: version tuple inside an embedded Python heredoc                  expected red, got red
+PASS  MUTANT: triple-quoted string used as a value is not a docstring          expected red, got red
+PASS  MUTANT: a bare string statement after code is not a docstring            expected red, got red
+PASS  clean: function and class docstrings                                     expected green, got green
+PASS  MUTANT: registry with a missing comma                                    expected red, got red
+PASS  MUTANT: registry with a duplicate key                                    expected red, got red
+PASS  MUTANT: registry with trailing garbage                                   expected red, got red
+PASS  MUTANT: registry with an escaped-spelling duplicate key                  expected red, got red
+PASS  note: live boundary yields no note                                       expected notes none, got match
+PASS  note: always-true term                                                   expected notes match, got match
+PASS  note: negated always-true boundary is an always-false term               expected notes match, got match
+PASS  note: never-true boundary is an always-false term                        expected notes match, got match
+PASS  note: negated never-true boundary is an always-true term                 expected notes match, got match
+PASS  note: Python `not` is negation                                           expected notes match, got match
+PASS  note: after retiring the oldest, its own boundary becomes always-true    expected notes match, got match
+PASS  note: compound guard reports the term, never the whole condition         expected notes match, got match
+PASS  note: compound guard text never claims the whole condition is constant   expected notes match, got match
+PASS  MUTANT: a named file that cannot be read is not clean                    expected red, got red
+PASS  real apply.sh as shipped                                                 expected green, got green
+PASS  MUTANT: real apply.sh + injected version arm                             expected red, got red
+PASS  real verify-anthropic-request-audit.ts as shipped                        expected green, got green
+PASS  MUTANT: real verify-anthropic-request-audit.ts + injected version arm    expected red, got red
+PASS  real verify-codex-text-verbosity.ts as shipped                           expected green, got green
+PASS  MUTANT: real verify-codex-text-verbosity.ts + injected version arm       expected red, got red
+PASS  real verify-oauth-unlock-fence-faults.sh as shipped                      expected green, got green
+PASS  MUTANT: real verify-oauth-unlock-fence-faults.sh + injected version arm  expected red, got red
+PASS  real run-worker-placement-controls.py as shipped                         expected green, got green
+PASS  MUTANT: real run-worker-placement-controls.py + injected version arm     expected red, got red
+PASS  loader bash: newest resolves                                             expected green, got green
+PASS  loader bash: oldest resolves                                             expected green, got green
+PASS  loader bash: retired version refused                                     expected red, got red
+PASS  loader bash: unregistered version refused                                expected red, got red
+PASS  loader bash: MUTANT 3-entry registry refused                             expected red, got red
+PASS  loader bash: MUTANT 1-entry registry refused                             expected red, got red
+PASS  loader bash: MUTANT missing comma refused                                expected red, got red
+PASS  loader bash: MUTANT duplicate key refused                                expected red, got red
+PASS  loader bash: MUTANT trailing garbage refused                             expected red, got red
+PASS  loader bash: MUTANT extra key refused                                    expected red, got red
+PASS  loader bash: MUTANT escaped-spelling duplicate key refused               expected red, got red
+PASS  loader bash: MUTANT any backslash escape refused (escaped key)           expected red, got red
+PASS  loader bash: MUTANT any backslash escape refused (escaped version)       expected red, got red
+PASS  loader bash: real JSON: single-line array accepted                       expected green, got green
+PASS  loader bash: numeric, not string, comparison                             expected green, got green
+PASS  loader python: newest resolves                                           expected green, got green
+PASS  loader python: oldest resolves                                           expected green, got green
+PASS  loader python: retired version refused                                   expected red, got red
+PASS  loader python: unregistered version refused                              expected red, got red
+PASS  loader python: MUTANT 3-entry registry refused                           expected red, got red
+PASS  loader python: MUTANT 1-entry registry refused                           expected red, got red
+PASS  loader python: MUTANT missing comma refused                              expected red, got red
+PASS  loader python: MUTANT duplicate key refused                              expected red, got red
+PASS  loader python: MUTANT trailing garbage refused                           expected red, got red
+PASS  loader python: MUTANT extra key refused                                  expected red, got red
+PASS  loader python: MUTANT escaped-spelling duplicate key refused             expected red, got red
+PASS  loader python: MUTANT any backslash escape refused (escaped key)         expected red, got red
+PASS  loader python: MUTANT any backslash escape refused (escaped version)     expected red, got red
+PASS  loader python: real JSON: single-line array accepted                     expected green, got green
+PASS  loader python: numeric, not string, comparison                           expected green, got green
+PASS  loader ts: newest resolves                                               expected green, got green
+PASS  loader ts: oldest resolves                                               expected green, got green
+PASS  loader ts: retired version refused                                       expected red, got red
+PASS  loader ts: unregistered version refused                                  expected red, got red
+PASS  loader ts: MUTANT 3-entry registry refused                               expected red, got red
+PASS  loader ts: MUTANT 1-entry registry refused                               expected red, got red
+PASS  loader ts: MUTANT missing comma refused                                  expected red, got red
+PASS  loader ts: MUTANT duplicate key refused                                  expected red, got red
+PASS  loader ts: MUTANT trailing garbage refused                               expected red, got red
+PASS  loader ts: MUTANT extra key refused                                      expected red, got red
+PASS  loader ts: MUTANT escaped-spelling duplicate key refused                 expected red, got red
+PASS  loader ts: MUTANT any backslash escape refused (escaped key)             expected red, got red
+PASS  loader ts: MUTANT any backslash escape refused (escaped version)         expected red, got red
+PASS  loader ts: real JSON: single-line array accepted                         expected green, got green
+PASS  loader ts: numeric, not string, comparison                               expected green, got green
+selftest: 96/96 controls behaved

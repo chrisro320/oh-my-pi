@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 // Resolve selected roots before isolating all runtime settings and transports.
 
@@ -10,6 +11,9 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
+// Resolve the plan before the isolation below strips OMP_PATCH_VERSION: an
+// unregistered, retired or mismatched label must be refused, never ignored.
+const plan = resolvePlan({ gate: "verify-hindsight-recall-snapshot", roots: [AGENT_ROOT] });
 const privateHome = mkdtempSync(join(tmpdir(), "omp-recall-home-"));
 for (const key of Object.keys(process.env)) {
 	if (key !== "PATH" && key !== "TMPDIR" && !key.startsWith("OMP_PATCH_VERIFY_")) delete process.env[key];
@@ -24,7 +28,7 @@ process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
 // Private HOME must also precede runtime startup (os.homedir may be cached).
 if (!privateProcess) {
 	const child = Bun.spawnSync([process.execPath, import.meta.path, ...process.argv.slice(2)], {
-		env: { ...process.env, OMP_DURABILITY_BOOT: "1",
+		env: { ...process.env, OMP_DURABILITY_BOOT: "1", OMP_PATCH_VERSION: plan.version,
 			OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT, OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT },
 	});
 	process.stdout.write(child.stdout);
@@ -39,21 +43,14 @@ const { HindsightSessionState } = await import(`${AGENT_ROOT}/src/hindsight/stat
 // `beforeAgentStartPrompt` now returns a staged `MemoryPromptPreparation`
 // instead of a bare string, and the mental-model deadline moved out of that
 // hook into `#settleMentalModelsLoadWithinDeadline` (upstream added generation
-// tracking and `beginMentalModelsTranscriptReload`). The snapshot contract is
-// identical in both; the legs below are gated so neither version is silently
-// measured through the other's shape. An unrecognized version fails closed.
-const agentVersion: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion),
-	`verify-hindsight-recall-snapshot: unsupported selected tree version ${agentVersion}`,
-);
-const isStagedPreparation = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion);
-const isCanonicalRecall = ["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion);
+// tracking and `beginMentalModelsTranscriptReload`). Every registered plan has
+// that staged preparation and the canonical `memory_recall` record, so the legs
+// below are unconditional; the registry admission above already failed closed
+// on any other tree.
 
 console.log("=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===");
 
 const RECALL_TYPE = "hindsight_recall_snippet";
-const producedRecallType = isCanonicalRecall ? "memory_recall" : RECALL_TYPE;
 
 interface CustomEntry {
 	type: "custom";
@@ -132,11 +129,11 @@ function makeState(branch: Array<CustomEntry | { type: "reset_boundary" }>, reca
 		return recallResult;
 	};
 	state.recallForContext = stub;
-	const markers = () => appended.filter(e => e.customType === producedRecallType);
+	const markers = () => appended.filter(e => e.customType === "memory_recall");
 	return { state, markers, calls: () => recallCalls };
 }
 
-const recallText = (entry: CustomEntry | undefined) => isCanonicalRecall ? entry?.data.text : entry?.data.snippet;
+const recallText = (entry: CustomEntry | undefined) => entry?.data.text;
 
 const historyRecallConfig = {
 	autoRecall: true, mentalModelsEnabled: false, hindsightApiUrl: "http://127.0.0.1:1",
@@ -212,7 +209,6 @@ async function openHistoryConsumer(manager: { getSessionId(): string }, cwd: str
 }
 
 if (process.argv[2] === "--first-recall-prompt") {
-	assert.equal(isCanonicalRecall, true);
 	const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 	const manager = await SessionManager.open(process.argv[3]);
 	manager.branch(process.argv[6]);
@@ -229,7 +225,6 @@ if (process.argv[2] === "--first-recall-prompt") {
 // A new process reads the actual journal, then commits only migration metadata:
 // no following turn is written, so legacy commit ownership must survive alone.
 if (process.argv[2] === "--replay-legacy") {
-	assert.equal(isCanonicalRecall, true, "legacy migration child requires the target API");
 	const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 	const manager = await SessionManager.open(process.argv[3]);
 	const state = new HindsightSessionState({
@@ -242,13 +237,13 @@ if (process.argv[2] === "--replay-legacy") {
 	const context = await startTurn(state);
 	await manager.flush();
 	const markers = manager.getBranch().filter((entry: CustomEntry) =>
-		entry.type === "custom" && entry.customType === producedRecallType);
+		entry.type === "custom" && entry.customType === "memory_recall");
 	await manager.close();
 	await Bun.write(process.argv[4], JSON.stringify({ context: context ?? "", calls, markers }));
 	process.exit(0);
 }
 
-if (isCanonicalRecall) {
+{
 	const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 	const root = mkdtempSync(join(tmpdir(), "omp-legacy-recall-"));
 	try {
@@ -361,7 +356,7 @@ console.log("  ok null recall normalised to empty string");
 
 	assert.equal(calls(), 0, "an empty marker MUST suppress re-running recall on resume (0021)");
 	assert.equal(injected ?? "", "", "replaying an empty marker must inject nothing");
-	assert.equal(markers().length, isCanonicalRecall ? 1 : 0, "legacy replay only appends its scoped migration");
+	assert.equal(markers().length, 1, "legacy replay only appends its scoped migration");
 }
 console.log("  ok empty marker replayed on resume, recall not re-run");
 
@@ -396,10 +391,9 @@ console.log("  ok failed recall not frozen");
 // in session-tools, `clearInheritedProviderPromptCacheKey`, and bill the whole
 // prefix). A later resume replays the frozen bytes instead of re-listing.
 //
-// The two versions own different entry points for that deadline, so the drive
-// differs while the contract does not: 18.1.18 races and freezes inside
-// `beforeAgentStartPrompt`; 18.2.3 moved it to `#settleMentalModelsLoadWithinDeadline`
-// (reached through `runMentalModelLoad` / `beginMentalModelsTranscriptReload`).
+// The deadline settles inside the load wrapper since 18.2.3
+// (`#settleMentalModelsLoadWithinDeadline`, reached through `runMentalModelLoad` /
+// `beginMentalModelsTranscriptReload`), which every registered plan has.
 {
 	const MM_TYPE = "hindsight_mental_models_snippet";
 	const mmConfig = {
@@ -432,14 +426,8 @@ console.log("  ok failed recall not frozen");
 	state.recallForContext = async () => ({ context: null, ok: true });
 
 	const ramped = async (): Promise<void> => {
-		if (isStagedPreparation) {
-			// Real entry point: the deadline settles inside the load wrapper.
-			await state.runMentalModelLoad({ bankId: "verify" });
-			return;
-		}
-		// 18.1.18: the hook itself races a load the caller started.
-		state.mentalModelsLoadPromise = new Promise<void>(() => {});
-		await state.beforeAgentStartPrompt("first user turn");
+		// Real entry point: the deadline settles inside the load wrapper.
+		await state.runMentalModelLoad({ bankId: "verify" });
 	};
 
 	const t0 = Date.now();
@@ -471,8 +459,7 @@ console.log("  ok failed recall not frozen");
 	resume.recallForContext = async () => ({ context: null, ok: true });
 	// Non-vacuous detector: a broken replay falls through to the list, which
 	// increments `listCalls` and would trip the assertion below. The first leg
-	// legitimately lists on 18.2.3 (no marker yet) and does not on 18.1.18 (the
-	// hand-set promise bypasses the load), so the baseline is captured, not fixed.
+	// legitimately lists (no marker yet), so the baseline is captured, not fixed.
 	const listBefore = listCalls;
 	await resume.runMentalModelLoad({ bankId: "verify" });
 	assert.equal(listCalls, listBefore, "a resume MUST replay the frozen answer, never re-list");
@@ -515,7 +502,7 @@ console.log("  ok reset_boundary isolates snapshots, stale empty marker cannot s
 
 
 // Staged recall must not mutate the transcript until its current owner commits.
-if (isStagedPreparation) {
+{
 	for (const persisted of [false, true]) {
 		const branch: CustomEntry[] = persisted
 			? [{ type: "custom", customType: RECALL_TYPE, data: { snippet: "TARGET RECALL" } }]
@@ -533,12 +520,12 @@ if (isStagedPreparation) {
 		const current = await state.beforeAgentStartPrompt("current owner");
 		assert.equal(current.commit(), true);
 		assert.equal(state.lastRecallSnippet, "TARGET RECALL");
-		assert.equal(markers().length, persisted && !isCanonicalRecall ? 0 : 1, "commit persists a fresh or migrated answer once");
+		assert.equal(markers().length, 1, "commit persists a fresh or migrated answer once");
 	}
 	console.log("  ok live and replayed recall preparations reject stale ownership");
 }
 
-if (isStagedPreparation) {
+{
 	const MM_TYPE = "hindsight_mental_models_snippet";
 	const target = "<mental_models>TARGET SNAPSHOT</mental_models>";
 	const config = { mentalModelsEnabled: true, mentalModelMaxRenderChars: 16_000 };
@@ -568,14 +555,12 @@ if (isStagedPreparation) {
 		assert.equal(lists, 0, "transcript reload must replay its target marker without listing");
 		assert.equal(fixture.state.mentalModelsSnippet, snapshot || undefined);
 		assert.deepEqual(fixture.published, [snapshot || undefined], "publish exact target snapshot bytes");
-		assert.equal(fixture.appended.length, isCanonicalRecall ? 1 : 0, "legacy MM replay only appends its scoped migration");
-		if (isCanonicalRecall) {
-			assert.equal(fixture.appended[0].data.snippet, snapshot, "migration preserves exact MM bytes");
-			assert.equal(typeof fixture.appended[0].data.scope, "string", "migrated MM is scoped");
-			fixture.state.beginMentalModelsTranscriptReload();
-			await fixture.state.mentalModelsLoadPromise;
-			assert.equal(fixture.appended.length, 1, "scoped MM replay must not duplicate its marker");
-		}
+		assert.equal(fixture.appended.length, 1, "legacy MM replay only appends its scoped migration");
+		assert.equal(fixture.appended[0].data.snippet, snapshot, "migration preserves exact MM bytes");
+		assert.equal(typeof fixture.appended[0].data.scope, "string", "migrated MM is scoped");
+		fixture.state.beginMentalModelsTranscriptReload();
+		await fixture.state.mentalModelsLoadPromise;
+		assert.equal(fixture.appended.length, 1, "scoped MM replay must not duplicate its marker");
 		// An explicit operator reload is the only snapshot bypass.
 		await fixture.state.reloadMentalModels();
 		assert.equal(lists, 1, "explicit MM reload must fetch instead of replaying");
@@ -629,11 +614,11 @@ if (isStagedPreparation) {
 	await oldLoad;
 	assert.equal(switched.state.mentalModelsSnippet, target, "superseded load must not replace target snapshot");
 	assert.deepEqual(switched.published, [undefined, target]);
-	assert.equal(switched.appended.length, isCanonicalRecall ? 1 : 0, "only target MM migration may append");
+	assert.equal(switched.appended.length, 1, "only target MM migration may append");
 	console.log("  ok transcript reload replays target bytes and rejects deadline/superseded publication");
 }
 
-if (isCanonicalRecall) {
+{
 	const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 	const { didSessionMessagesChange } = await import(`${AGENT_ROOT}/src/session/messages.ts`);
 	const readMessageLines = (file: string): string[] => readFileSync(file, "utf8").split("\n")
@@ -775,15 +760,14 @@ if (isCanonicalRecall) {
 }
 
 // Exercise the actual /clear owner, not a branch array preloaded with a boundary.
-if (isStagedPreparation) {
+{
 	const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
 	const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 	const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 	const root = mkdtempSync(join(tmpdir(), "omp-hindsight-clear-"));
 	registerMockApi("hindsight-clear");
 	const authStorage = await discoverAuthStorage(join(root, "agent"));
-	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
-	else authStorage.setRuntimeApiKey("mock", "test");
+	authStorage.keys.setRuntime("mock", "test");
 	const busyStarted = Promise.withResolvers<void>();
 	const releaseBusy = Promise.withResolvers<void>();
 	let mainDispatches = 0;
@@ -802,16 +786,11 @@ if (isStagedPreparation) {
 	});
 	try {
 		const MM_TYPE = "hindsight_mental_models_snippet";
-		if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) {
-			const { cfgMemoryBackend } = await import(`${AGENT_ROOT}/src/memory-backend/settings.ts`);
-			const { cfgHindsightApiUrl } = await import(`${AGENT_ROOT}/src/hindsight/settings.ts`);
-			cfgMemoryBackend.set(session.settings, "hindsight");
-			cfgHindsightApiUrl.set(session.settings, "http://127.0.0.1:1");
-			await session.applyMemoryBackend();
-		} else {
-			session.settings.set("memory.backend", "hindsight");
-			session.settings.set("hindsight.apiUrl", "http://127.0.0.1:1");
-		}
+		const { cfgMemoryBackend } = await import(`${AGENT_ROOT}/src/memory-backend/settings.ts`);
+		const { cfgHindsightApiUrl } = await import(`${AGENT_ROOT}/src/hindsight/settings.ts`);
+		cfgMemoryBackend.set(session.settings, "hindsight");
+		cfgHindsightApiUrl.set(session.settings, "http://127.0.0.1:1");
+		await session.applyMemoryBackend();
 		session.sessionManager.appendMessage({ role: "user", content: "Fork snapshot fixture", timestamp: 1 });
 		session.sessionManager.appendCustomEntry(MM_TYPE, { snippet: "BEFORE CLEAR" });
 		let lists = 0;

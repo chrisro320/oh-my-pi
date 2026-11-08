@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Check that a runtime carries exactly the recorded pi-natives overlay.
 
-Usage: verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi [--overlay PATH]
-The default overlay is the historical native/overlay.json (18.10.1); pass
---overlay (e.g. native/18.12.6/overlay.json) to verify another pinned recipe.
+Usage: verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi --overlay PATH
+The overlay is REQUIRED: pass the recipe of the release under test
+(e.g. patches/native/<version>/overlay.json). There is no default, so a check
+can never silently validate a retired release's recipe.
 Exit 0 only when every overlay patch matches its recorded SHA-256, the runtime
 package reports the overlay's version, and every addon in the runtime equals
 its recorded rebuilt SHA-256. A null rebuilt_sha256 means the target build has
@@ -15,8 +16,6 @@ import json
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent / "native"
-
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -25,7 +24,7 @@ def sha256(path: Path) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--nm", type=Path, required=True)
-    parser.add_argument("--overlay", type=Path, default=HERE / "overlay.json")
+    parser.add_argument("--overlay", type=Path, required=True)
     args = parser.parse_args()
     overlay_path = args.overlay.resolve()
     overlay_dir = overlay_path.parent

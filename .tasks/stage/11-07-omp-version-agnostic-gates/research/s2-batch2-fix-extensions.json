@@ -1,0 +1,18 @@
+{
+  "finding": "1 (blocking): verify-extensions-load-18180.ts:354 still passed the removed `selectedPlan`",
+  "fix": "child env now `OMP_PATCH_VERSION: plan.version` (no conditional spread)",
+  "fixture": "/var/tmp/omp-18180-m8e/full/companions \u2014 the prior task's private 15-module companion staging (never ~/.omp/agent)",
+  "command": "bwrap --unshare-net, private HOME: bun patches/verify-extensions-load-18180.ts with OMP_EXTENSIONS_STAGED_DIR=<fixture>, OMP_PATCH_VERSION=18.18.0, roots from /var/tmp/omp-vagn-s1/run/runtime-18180",
+  "exit": 0,
+  "legs": [
+    "companion-set :: 15 staged modules; spec-update-gate.ts absent",
+    "staged-untouched",
+    "patch-hooks",
+    "load-all",
+    "module-scope",
+    "patch-hooks-runtime",
+    "before-agent-start",
+    "shutdown"
+  ],
+  "output": "PASS verify-extensions-load-18180: 8/8 legs"
+}

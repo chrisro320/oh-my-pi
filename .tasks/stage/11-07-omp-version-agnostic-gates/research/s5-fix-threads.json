@@ -1,0 +1,98 @@
+{
+  "step": "S5 review fix 4 \u2014 the C3 fixture runs standalone (default = all eight legs) once per batch",
+  "runs": {
+    "18.18.0": {
+      "run_dir": "/var/tmp/omp-s5/fix18180",
+      "status": "PASS",
+      "runtime_unchanged": true,
+      "selected": 71,
+      "executed": [
+        {
+          "gate": "verify-anthropic-threads-cache-shape.ts",
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/fix18180/verify-anthropic-threads-cache-shape/result.json"
+        }
+      ]
+    },
+    "18.19.0_sim": {
+      "run_dir": "/var/tmp/omp-s5/fix18190",
+      "status": "PASS",
+      "runtime_unchanged": true,
+      "selected": 71,
+      "executed": [
+        {
+          "gate": "verify-anthropic-threads-cache-shape.ts",
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/fix18190/verify-anthropic-threads-cache-shape/result.json"
+        }
+      ]
+    }
+  },
+  "threads_gate": "verify-anthropic-threads-cache-shape.ts",
+  "legs": "OMP_THREADS_SHAPE_LEGS unset -> LEGS = eligibility, create, continues, audit-history, hooks-vs-wire, record-safety, mutation, disabled",
+  "note": "the two C3 parents (cache-boundaries, request-audit) no longer spawn it; the controller's own registration (apply.sh, 0074, >=18.18.0) is the single run",
+  "merged_reruns": {
+    "18.18.0": {
+      "run_dir": "/var/tmp/omp-s5/fix18180b",
+      "status": "PASS",
+      "runtime_unchanged": true,
+      "selected": 71,
+      "executed": [
+        {
+          "gate": "verify-reminder-persist.ts",
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/fix18180b/verify-reminder-persist/result.json"
+        },
+        {
+          "gate": "verify-account-eligibility-retention.ts",
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/fix18180b/verify-account-eligibility-retention/result.json"
+        }
+      ]
+    },
+    "18.19.0_sim": {
+      "run_dir": "/var/tmp/omp-s5/fix18190b",
+      "status": "PASS",
+      "runtime_unchanged": true,
+      "selected": 71,
+      "executed": [
+        {
+          "gate": "verify-reminder-persist.ts",
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/fix18190b/verify-reminder-persist/result.json"
+        },
+        {
+          "gate": "verify-account-eligibility-retention.ts",
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/fix18190b/verify-account-eligibility-retention/result.json"
+        }
+      ]
+    },
+    "18.16.0": {
+      "run_dir": "/var/tmp/omp-s5/fix18160",
+      "status": "PASS",
+      "runtime_unchanged": true,
+      "selected": 65,
+      "executed": [
+        {
+          "gate": "verify-reminder-persist.ts",
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/fix18160/verify-reminder-persist/result.json"
+        },
+        {
+          "gate": "verify-account-eligibility-retention.ts",
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/fix18160/verify-account-eligibility-retention/result.json"
+        }
+      ]
+    }
+  }
+}

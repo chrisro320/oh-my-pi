@@ -1,0 +1,33 @@
+sandbox: /tmp/omp-family-18.18.0-meszyn8z
+{
+  "status": "PASS",
+  "version": "18.18.0",
+  "families": 24,
+  "capabilities": 59,
+  "upstream_adoptions": [
+    "0017",
+    "0078",
+    "0066",
+    "0072",
+    "0079",
+    "0062",
+    "0054"
+  ],
+  "retired_repairs": [
+    "0090-omp-oauth-durable-refresh",
+    "0090-omp-oauth-durable-refresh",
+    "0090-omp-oauth-durable-refresh",
+    "0090-omp-oauth-durable-refresh",
+    "family-compaction",
+    "family-compaction",
+    "family-compaction",
+    "family-compaction",
+    "family-persistent-prefix-resume"
+  ],
+  "candidate_tree_sha256": "f74e59923d16bdba7e19ebd24f6f2094d8a1195e4ac191f026c71858d0720f93",
+  "zero_fuzz": true,
+  "reverse_to_pristine": true,
+  "second_replay_identical": true,
+  "controller_check_read_only": true,
+  "behavioral_checks_run": false
+}

@@ -221,13 +221,16 @@ def main():
     stage.add_argument("--home", type=Path, required=True)
     stage.add_argument("--runtime", type=Path, required=True)
     stage.add_argument("--ledger", type=Path, required=True)
-    stage.add_argument("--version", choices=["18.10.1", "18.12.6", "18.16.0"], required=True)
+    stage.add_argument("--version", required=True,
+                       help="release identity; must be registered in versions.json")
     publication = commands.add_parser("publish")
     publication.add_argument("--release", type=Path, required=True)
     publication.add_argument("--smoke", type=Path, required=True)
     rollback = commands.add_parser("rollback")
     rollback.add_argument("--release", type=Path, required=True)
     args = parser.parse_args()
+    if args.command == "prepare":
+        oracle.version_registry.require_registered(args.version, "--version")
     os.umask(0o077)
     try:
         if args.command == "prepare":

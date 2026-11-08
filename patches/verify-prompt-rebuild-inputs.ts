@@ -98,19 +98,15 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
-const PLAN_VERSIONS = ["18.16.0", "18.18.0"];
 // Runtime selection is a gate argument (candidate, pristine copy, or a mutated
 // copy), so every package specifier below is genuinely runtime-selected and a
 // static import cannot express it.
 const NM = process.env.OMP_PROMPT_REBUILD_NM ?? process.env.OMP_PATCH_VERIFY_NM ?? join(homedir(), ".bun/install/global/node_modules/@oh-my-pi");
 const AGENT_ROOT = join(NM, "pi-coding-agent");
 const AI_ROOT = join(NM, "pi-ai");
-const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.ok(
-	PLAN_VERSIONS.includes(agentVersion),
-	`this gate pins the 18.16.0/18.18.0 prompt-rebuild contract; pi-coding-agent ${agentVersion} fails closed instead of skipping`,
-);
+const plan = resolvePlan({ gate: "verify-prompt-rebuild-inputs", roots: [AGENT_ROOT] });
 
 const isChildRun = process.env.OMP_PROMPT_REBUILD_BOOT === "1";
 const requestedResultPath = process.env.OMP_PROMPT_REBUILD_RESULT;
@@ -166,10 +162,10 @@ const MUTATIONS: MutationControl[] = [
 		// behind it (`$env.PI_INTENT_PROMPT || intentGuidance || ""`), so the
 		// mutation anchors on the line each pinned tree actually carries.
 		from:
-			agentVersion === "18.16.0"
+			!plan.since("18.18.0")
 				? 'intentGuidance: $env.PI_INTENT_PROMPT ?? "",'
 				: 'intentGuidance: $env.PI_INTENT_PROMPT || intentGuidance || "",',
-		to: agentVersion === "18.16.0" ? 'intentGuidance: "",' : 'intentGuidance: intentGuidance || "",',
+		to: !plan.since("18.18.0") ? 'intentGuidance: "",' : 'intentGuidance: intentGuidance || "",',
 		mustFail: ["u15-pi-intent-prompt"],
 	},
 	{
@@ -195,7 +191,7 @@ const MUTATIONS: MutationControl[] = [
 	},
 	// U8 is 18.18.0-only: the separate-checkout guidance and its `ovnfs.path`
 	// prompt input did not exist on 18.16.0.
-	...(agentVersion === "18.18.0"
+	...(plan.since("18.18.0")
 		? [
 				{
 					name: "ovnfs availability is not a prompt input",
@@ -896,7 +892,7 @@ await scenario("u15-pi-intent-prompt", async fixture => {
 // render exactly once while present, vanish when absent, and rebuild exactly
 // once on each transition. The fixture uses `ovnfs.path` (an explicit absolute
 // path) so the case does not depend on whatever is on PATH.
-if (agentVersion === "18.18.0") {
+if (plan.since("18.18.0")) {
 	await scenario("u8-ovnfs-checkout-guidance", async fixture => {
 		const ovnfsBinary = join(fixture.cwd, "ovnfs-fixture");
 		writeFileSync(ovnfsBinary, "#!/bin/sh\nexit 0\n");
@@ -1001,6 +997,6 @@ if (failed.length > 0) {
 	process.exit(1);
 }
 console.log(
-	`PASS prompt rebuild inputs (${agentVersion}): ${results.length} scenarios — tool-description/intentField rebuild exactly once, midnight keeps system bytes, out:// · AGENTS.md exclusion · PI_INTENT_PROMPT${agentVersion === "18.18.0" ? " · ovnfs checkout guidance" : ""} each change the prompt once`,
+	`PASS prompt rebuild inputs (${plan.version}): ${results.length} scenarios — tool-description/intentField rebuild exactly once, midnight keeps system bytes, out:// · AGENTS.md exclusion · PI_INTENT_PROMPT${plan.since("18.18.0") ? " · ovnfs checkout guidance" : ""} each change the prompt once`,
 );
 process.exit(0);

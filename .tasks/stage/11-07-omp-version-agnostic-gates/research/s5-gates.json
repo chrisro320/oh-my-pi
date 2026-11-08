@@ -1,0 +1,253 @@
+{
+  "step": "S5 gate runs \u2014 merged gates on the 18.18.0 candidate, the relabelled 18.19.0 sim, and the 18.16.0 tree",
+  "driver": "/var/tmp/omp-s5/instruments*/m8-run-target-gates.py (frozen copy of the prior task's driver; harness VERSION constant per release)",
+  "runs": {
+    "18.18.0 candidate": {
+      "version": "18.18.0",
+      "runtime": "/var/tmp/omp-s5/runtime-18180",
+      "runtime_digest_after_run": "760fd0d354f20e1adcc6918656eafdc31baaae188fd7866c768d04972b65070c",
+      "runtime_files": 25526,
+      "runtime_unchanged": true,
+      "controller_sha256": "0fe3bc4ec671d1179da555ba9fceed94e351f01ed0879fa831efdc43435d18bf",
+      "repo": ".",
+      "selected_by_controller": 71,
+      "executed": {
+        "verify-devin-wire.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18180/verify-devin-wire/result.json"
+        },
+        "verify-anthropic-cache-boundaries.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18180/verify-anthropic-cache-boundaries/result.json"
+        },
+        "verify-anthropic-request-audit.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18180/verify-anthropic-request-audit/result.json"
+        },
+        "verify-reminder-persist.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18180/verify-reminder-persist/result.json"
+        },
+        "verify-model-effort-resume.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18180/verify-model-effort-resume/result.json"
+        },
+        "verify-account-eligibility-retention.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18180/verify-account-eligibility-retention/result.json"
+        },
+        "verify-tools-wire.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18180/verify-tools-wire/result.json"
+        }
+      },
+      "all_pass": true
+    },
+    "18.19.0 relabelled sim": {
+      "version": "18.19.0",
+      "runtime": "/var/tmp/omp-s5/runtime-18190",
+      "runtime_digest_after_run": "9b8ea01688332f789777c061bbdcc3ade80d431e3bef41fbc24afebf9f3d8f6c",
+      "runtime_files": 25526,
+      "runtime_unchanged": true,
+      "controller_sha256": "0fe3bc4ec671d1179da555ba9fceed94e351f01ed0879fa831efdc43435d18bf",
+      "repo": "/var/tmp/omp-s5/sim-repo",
+      "selected_by_controller": 71,
+      "executed": {
+        "verify-devin-wire.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18190/verify-devin-wire/result.json"
+        },
+        "verify-anthropic-cache-boundaries.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18190/verify-anthropic-cache-boundaries/result.json"
+        },
+        "verify-anthropic-request-audit.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18190/verify-anthropic-request-audit/result.json"
+        },
+        "verify-reminder-persist.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18190/verify-reminder-persist/result.json"
+        },
+        "verify-model-effort-resume.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18190/verify-model-effort-resume/result.json"
+        },
+        "verify-account-eligibility-retention.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18190/verify-account-eligibility-retention/result.json"
+        },
+        "verify-tools-wire.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18190/verify-tools-wire/result.json"
+        }
+      },
+      "all_pass": true
+    },
+    "18.16.0": {
+      "version": "18.16.0",
+      "runtime": "/var/tmp/omp-s5/runtime-18160",
+      "runtime_digest_after_run": "1963c82241bd514225963df90a69f7441a83547518b8b4077bb0475451fe72b5",
+      "runtime_files": 26306,
+      "runtime_unchanged": true,
+      "controller_sha256": "0fe3bc4ec671d1179da555ba9fceed94e351f01ed0879fa831efdc43435d18bf",
+      "repo": ".",
+      "selected_by_controller": 65,
+      "executed": {
+        "verify-devin-wire.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18160/verify-devin-wire/result.json"
+        },
+        "verify-anthropic-cache-boundaries.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18160/verify-anthropic-cache-boundaries/result.json"
+        },
+        "verify-anthropic-request-audit.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18160/verify-anthropic-request-audit/result.json"
+        },
+        "verify-reminder-persist.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18160/verify-reminder-persist/result.json"
+        },
+        "verify-model-effort-resume.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18160/verify-model-effort-resume/result.json"
+        },
+        "verify-account-eligibility-retention.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18160/verify-account-eligibility-retention/result.json"
+        },
+        "verify-tools-wire.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/run18160/verify-tools-wire/result.json"
+        }
+      },
+      "all_pass": true
+    },
+    "review fix reruns": {
+      "18.18.0 reminder+account": {
+        "run_dir": "/var/tmp/omp-s5/fix18180b",
+        "status": "PASS",
+        "runtime_unchanged": true,
+        "selected": 71,
+        "executed": [
+          {
+            "gate": "verify-reminder-persist.ts",
+            "status": "PASS",
+            "exit": 0,
+            "evidence": "/var/tmp/omp-s5/fix18180b/verify-reminder-persist/result.json"
+          },
+          {
+            "gate": "verify-account-eligibility-retention.ts",
+            "status": "PASS",
+            "exit": 0,
+            "evidence": "/var/tmp/omp-s5/fix18180b/verify-account-eligibility-retention/result.json"
+          }
+        ]
+      },
+      "18.19.0 sim reminder+account": {
+        "run_dir": "/var/tmp/omp-s5/fix18190b",
+        "status": "PASS",
+        "runtime_unchanged": true,
+        "selected": 71,
+        "executed": [
+          {
+            "gate": "verify-reminder-persist.ts",
+            "status": "PASS",
+            "exit": 0,
+            "evidence": "/var/tmp/omp-s5/fix18190b/verify-reminder-persist/result.json"
+          },
+          {
+            "gate": "verify-account-eligibility-retention.ts",
+            "status": "PASS",
+            "exit": 0,
+            "evidence": "/var/tmp/omp-s5/fix18190b/verify-account-eligibility-retention/result.json"
+          }
+        ]
+      },
+      "18.16.0 reminder+account": {
+        "run_dir": "/var/tmp/omp-s5/fix18160",
+        "status": "PASS",
+        "runtime_unchanged": true,
+        "selected": 65,
+        "executed": [
+          {
+            "gate": "verify-reminder-persist.ts",
+            "status": "PASS",
+            "exit": 0,
+            "evidence": "/var/tmp/omp-s5/fix18160/verify-reminder-persist/result.json"
+          },
+          {
+            "gate": "verify-account-eligibility-retention.ts",
+            "status": "PASS",
+            "exit": 0,
+            "evidence": "/var/tmp/omp-s5/fix18160/verify-account-eligibility-retention/result.json"
+          }
+        ]
+      }
+    }
+  },
+  "commands": {
+    "18.18.0": "python3 /var/tmp/omp-s5/instruments/m8-run-target-gates.py --repo <repo> --runtime /var/tmp/omp-s5/runtime-18180 --out /var/tmp/omp-s5/run18180 --only <the 7 gates>",
+    "18.19.0": "python3 /var/tmp/omp-s5/inst-18190/m8-run-target-gates.py --repo /var/tmp/omp-s5/sim-repo --runtime /var/tmp/omp-s5/runtime-18190 --out /var/tmp/omp-s5/run18190 --only <the 7 gates>",
+    "18.16.0": "python3 /var/tmp/omp-s5/inst-18160/m8-run-target-gates.py --repo <repo> --runtime /var/tmp/omp-s5/runtime-18160 --out /var/tmp/omp-s5/run18160 --only <the 7 gates>"
+  },
+  "c3_parents": {
+    "verify-anthropic-cache-boundaries.ts": "PASS in all three runs",
+    "verify-anthropic-request-audit.ts": "PASS in all three runs"
+  },
+  "standalone_threads_fixture": {
+    "18.18.0": {
+      "run_dir": "/var/tmp/omp-s5/fix18180",
+      "status": "PASS",
+      "runtime_unchanged": true,
+      "selected": 71,
+      "executed": [
+        {
+          "gate": "verify-anthropic-threads-cache-shape.ts",
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/fix18180/verify-anthropic-threads-cache-shape/result.json"
+        }
+      ]
+    },
+    "18.19.0 sim": {
+      "run_dir": "/var/tmp/omp-s5/fix18190",
+      "status": "PASS",
+      "runtime_unchanged": true,
+      "selected": 71,
+      "executed": [
+        {
+          "gate": "verify-anthropic-threads-cache-shape.ts",
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/fix18190/verify-anthropic-threads-cache-shape/result.json"
+        }
+      ]
+    },
+    "gate": "verify-anthropic-threads-cache-shape.ts",
+    "legs": "all 8 (no OMP_THREADS_SHAPE_LEGS)"
+  }
+}

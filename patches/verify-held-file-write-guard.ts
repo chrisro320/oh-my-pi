@@ -26,6 +26,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = realpathSync(process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`);
 const AGENT_ROOT = realpathSync(process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`);
@@ -33,13 +34,9 @@ const CATALOG_ROOT = realpathSync(process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `
 const NATIVES_ROOT = realpathSync(process.env.OMP_PATCH_VERIFY_NATIVES_ROOT ?? `${NM}/pi-natives`);
 const UTILS_ROOT = realpathSync(process.env.OMP_PATCH_VERIFY_UTILS_ROOT ?? `${NM}/pi-utils`);
 
-// Two arms only: registered inside the 18.16.0/18.18.0 guard. The seam itself did
-// not exist before 18.16.0, so another plan must fail closed, never skip.
-const version: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.ok(["18.16.0", "18.18.0"].includes(version), `held-file guard gate has no arm for pi-coding-agent ${version}`);
-if (process.env.OMP_PATCH_VERSION) {
-	assert.equal(version, process.env.OMP_PATCH_VERSION, "held-file gate fixture must match the selected plan");
-}
+// Registered plans only: the seam itself did not exist before 18.16.0, so
+// another plan must fail closed, never skip.
+resolvePlan({ gate: "verify-held-file-write-guard", roots: [AGENT_ROOT] });
 // The native `heldFileKind` is a deliberate no-op outside Linux, so the guard
 // itself cannot be exercised there: fail closed instead of reporting a passing
 // probe that measured nothing.

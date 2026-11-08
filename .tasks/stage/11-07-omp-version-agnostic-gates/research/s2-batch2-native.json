@@ -1,0 +1,73 @@
+{
+  "gate": "S2 Batch 2 native tooling \u2014 no default to a retired version",
+  "decision": "overlay argument is REQUIRED in both tools; retired recipes moved to patches/.retired/11-07-pre-18.16-plans/native/",
+  "moves": [
+    {
+      "from": "patches/native/overlay.json",
+      "to": "patches/.retired/11-07-pre-18.16-plans/native/overlay.json",
+      "sha256": {
+        "overlay.json": "0b0aecdc1e361b52396265aa85cbff58997136c39be4610542b7a9c27dcaee5c"
+      }
+    },
+    {
+      "from": "patches/native/0001-escape-monitor-mapping-refresh.patch",
+      "to": "patches/.retired/11-07-pre-18.16-plans/native/0001-escape-monitor-mapping-refresh.patch",
+      "sha256": {
+        "0001-escape-monitor-mapping-refresh.patch": "177900f072d0a5fc81da495cb3327ba99fc474b097c556ca3cb3d3b30ed019ad"
+      }
+    },
+    {
+      "from": "patches/native/18.12.6",
+      "to": "patches/.retired/11-07-pre-18.16-plans/native/18.12.6",
+      "sha256": {
+        "18.12.6/0001-escape-monitor-mapping-refresh.patch": "e2746453df9c4ee1ffc798a0a3689f36652978839fc2b50badb8548c23f1b4ad",
+        "18.12.6/overlay.json": "4630ad70ac32868ee1354ca5fbb8e3f2301c09a095478599d68ef8c08f519568"
+      }
+    }
+  ],
+  "moved_root_patch_reason": "native/18.16.0/overlay.json and native/18.18.0/overlay.json resolve patches[].file relative to their own directory and each dir carries its own copy (18.16.0 -> 0001-escape-monitor-mapping-refresh.patch sha256 verified, 18.18.0 -> 0001-ax-atspi-timeout-chrome-title.patch); neither references the root copy, so it moved with the historical recipe.",
+  "files_changed": [
+    "patches/native/build-natives.sh",
+    "patches/verify-native-overlay.py",
+    "patches/DEPLOYMENT-RUNBOOK.md",
+    ".trellis/spec/backend/patch-rollup-contracts.md",
+    "patches/PATCHES.md (path fix only)"
+  ],
+  "checks": {
+    "build_without_overlay": {
+      "command": "bash patches/native/build-natives.sh /tmp/nb-work /tmp/nb-out",
+      "exit": 2,
+      "output": "usage: build-natives.sh <work-dir> <out-dir> <overlay-json> ... there is no default recipe"
+    },
+    "verify_without_overlay": {
+      "command": "python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi",
+      "exit": 2,
+      "output": "error: the following arguments are required: --overlay"
+    },
+    "overlay_18_18_0": {
+      "command": "bw.sh (bwrap --unshare-net, private HOME) python3 patches/verify-native-overlay.py --nm /var/tmp/omp-vagn-s1/run/runtime-18180/node_modules/@oh-my-pi --overlay patches/native/18.18.0/overlay.json",
+      "exit": 0,
+      "output": "PASS native overlay 18.18.0: 2 addons, 1 patches"
+    },
+    "patches_18_16_0_local": {
+      "command": "sha256 of 18.16.0/overlay.json patches[0].file vs recorded",
+      "exit": 0,
+      "output": "exists=True sha256_match=True"
+    },
+    "menus": {
+      "18.16.0 --print-gates": "identical",
+      "18.16.0 --print-capabilities": "identical",
+      "18.18.0 --print-gates": "identical",
+      "18.18.0 --print-capabilities": "identical",
+      "baseline": "/var/tmp/omp-vagn-baseline/"
+    },
+    "whole_tree_literals": {
+      "command": "python3 patches/verify-no-version-literals.py",
+      "exit": 0,
+      "scanned": 126,
+      "violations": 0,
+      "notes": []
+    }
+  },
+  "note": "The per-file literal invocation reports scanned=1 for two paths; the whole-tree run (126 files) covers both changed tools and is clean."
+}

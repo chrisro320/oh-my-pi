@@ -18,18 +18,17 @@
 // callsites captured at their own `compact()` seam. No provider traffic: the injected fetch
 // answers, and `globalThis.fetch` throws.
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { mock } from "bun:test";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
-const PLAN = process.env.OMP_PATCH_VERSION;
-const PLAN_VERSIONS = ["18.16.0", "18.18.0"];
-assert.ok(PLAN !== undefined && PLAN_VERSIONS.includes(PLAN), "this gate is registered for the 18.16.0/18.18.0 plans only");
+const PLAN = resolvePlan({ gate: "verify-remote-compaction-target-key", roots: [AGENT_ROOT] }).version;
 
 // HOME must be private before process startup; Bun caches os.homedir().
 if (process.env.OMP_REMOTE_COMPACTION_KEY_CHILD !== "1") {
@@ -66,9 +65,6 @@ globalThis.fetch = (() => {
 	fetchAttempts++;
 	throw new Error("network forbidden in the remote compaction target-key gate");
 }) as typeof fetch;
-
-const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.ok(["18.16.0", "18.18.0"].includes(agentVersion), `unsupported pi-coding-agent tree for the remote compaction target-key gate: ${agentVersion}`);
 
 interface Model extends Record<string, unknown> {
 	id: string;

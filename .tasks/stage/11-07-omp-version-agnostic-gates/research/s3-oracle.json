@@ -1,0 +1,171 @@
+{
+  "step": "S3 leg 3 \u2014 release oracle and family rollups for both registered releases",
+  "sandbox": "bwrap --unshare-net --unshare-pid, private HOME/XDG (/var/tmp/omp-vagn-s3/bw.sh); archives from the pinned tarball caches only, no network",
+  "receipts_before": {
+    "oracle_18.18.0": "research/s1-fix2-oracle-18.18.0.json",
+    "rollups_18.18.0": "research/s1-fix2-rollups-18.18.0.json",
+    "oracle_18.16.0": "research/s1-fix2-oracle-18.16.0.json",
+    "rollups_18.16.0": "research/s1-fix2-rollups-18.16.0.json"
+  },
+  "runs": {
+    "oracle_18.18.0": {
+      "command": "python3 verify-release-family-plan.py --version 18.18.0 --tgz-cache /var/tmp/omp-vagn-s1/run/tgz-18180",
+      "exit": 0,
+      "result": {
+        "status": "PASS",
+        "version": "18.18.0",
+        "families": 24,
+        "capabilities": 59,
+        "upstream_adoptions": [
+          "0017",
+          "0078",
+          "0066",
+          "0072",
+          "0079",
+          "0062",
+          "0054"
+        ],
+        "retired_repairs": [
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "family-compaction",
+          "family-compaction",
+          "family-compaction",
+          "family-compaction",
+          "family-persistent-prefix-resume"
+        ],
+        "candidate_tree_sha256": "f74e59923d16bdba7e19ebd24f6f2094d8a1195e4ac191f026c71858d0720f93",
+        "zero_fuzz": true,
+        "reverse_to_pristine": true,
+        "second_replay_identical": true,
+        "controller_check_read_only": true,
+        "behavioral_checks_run": false
+      },
+      "candidate_digest_unchanged": true,
+      "previous_digest": "f74e59923d16bdba7e19ebd24f6f2094d8a1195e4ac191f026c71858d0720f93",
+      "stdout_file": "/var/tmp/omp-vagn-s3/run/or-18.18.0.out",
+      "stdout_sha256": "7eaaf5dd70ec1cd008553a6b8b4248ebd157fd39a01f16d3c471f59f4d93a25e"
+    },
+    "rollups_18.18.0": {
+      "command": "bash verify-patch-family-rollups.sh --version 18.18.0 --tgz-cache /var/tmp/omp-vagn-s1/run/tgz-18180",
+      "exit": 0,
+      "result": {
+        "status": "PASS",
+        "version": "18.18.0",
+        "families": 24,
+        "capabilities": 59,
+        "upstream_adoptions": [
+          "0017",
+          "0078",
+          "0066",
+          "0072",
+          "0079",
+          "0062",
+          "0054"
+        ],
+        "retired_repairs": [
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "family-compaction",
+          "family-compaction",
+          "family-compaction",
+          "family-compaction",
+          "family-persistent-prefix-resume"
+        ],
+        "candidate_tree_sha256": "f74e59923d16bdba7e19ebd24f6f2094d8a1195e4ac191f026c71858d0720f93",
+        "zero_fuzz": true,
+        "reverse_to_pristine": true,
+        "second_replay_identical": true,
+        "controller_check_read_only": true,
+        "behavioral_checks_run": false
+      },
+      "candidate_digest_unchanged": true,
+      "previous_digest": "f74e59923d16bdba7e19ebd24f6f2094d8a1195e4ac191f026c71858d0720f93",
+      "stdout_file": "/var/tmp/omp-vagn-s3/run/ru-18.18.0.out",
+      "stdout_sha256": "96b4d6758785337226ee889747ede967fe04cec1b39de59d5175448bd794892b"
+    },
+    "oracle_18.16.0": {
+      "command": "python3 verify-release-family-plan.py --version 18.16.0 --tgz-cache /var/tmp/omp-vagn-s1/run/tgz-18160",
+      "exit": 0,
+      "result": {
+        "status": "PASS",
+        "version": "18.16.0",
+        "families": 26,
+        "capabilities": 62,
+        "upstream_adoptions": [
+          "0017",
+          "0078",
+          "0066",
+          "0072",
+          "0079",
+          "0062"
+        ],
+        "retired_repairs": [
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "family-compaction",
+          "family-compaction",
+          "family-compaction",
+          "family-compaction",
+          "family-persistent-prefix-resume"
+        ],
+        "candidate_tree_sha256": "35567dd8cf1a2f31ff0b8ed3c0671ca76c924933fe0d8d17052b0d3ae8be49ba",
+        "zero_fuzz": true,
+        "reverse_to_pristine": true,
+        "second_replay_identical": true,
+        "controller_check_read_only": true,
+        "behavioral_checks_run": false
+      },
+      "candidate_digest_unchanged": true,
+      "previous_digest": "35567dd8cf1a2f31ff0b8ed3c0671ca76c924933fe0d8d17052b0d3ae8be49ba",
+      "stdout_file": "/var/tmp/omp-vagn-s3/run/or-18.16.0.out",
+      "stdout_sha256": "4fc49a5caab436961b47222864806c5f44a564c5a0e252dca1113df53520fe9d"
+    },
+    "rollups_18.16.0": {
+      "command": "bash verify-patch-family-rollups.sh --version 18.16.0 --tgz-cache /var/tmp/omp-vagn-s1/run/tgz-18160",
+      "exit": 0,
+      "result": {
+        "status": "PASS",
+        "version": "18.16.0",
+        "families": 26,
+        "capabilities": 62,
+        "upstream_adoptions": [
+          "0017",
+          "0078",
+          "0066",
+          "0072",
+          "0079",
+          "0062"
+        ],
+        "retired_repairs": [
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "0090-omp-oauth-durable-refresh",
+          "family-compaction",
+          "family-compaction",
+          "family-compaction",
+          "family-compaction",
+          "family-persistent-prefix-resume"
+        ],
+        "candidate_tree_sha256": "35567dd8cf1a2f31ff0b8ed3c0671ca76c924933fe0d8d17052b0d3ae8be49ba",
+        "zero_fuzz": true,
+        "reverse_to_pristine": true,
+        "second_replay_identical": true,
+        "controller_check_read_only": true,
+        "behavioral_checks_run": false
+      },
+      "candidate_digest_unchanged": true,
+      "previous_digest": "35567dd8cf1a2f31ff0b8ed3c0671ca76c924933fe0d8d17052b0d3ae8be49ba",
+      "stdout_file": "/var/tmp/omp-vagn-s3/run/ru-18.16.0.out",
+      "stdout_sha256": "53d589e2bab52c02f28776c6e7d90782912a15a2fa2541c23c7247bb2d3cd473"
+    }
+  },
+  "status": "PASS"
+}

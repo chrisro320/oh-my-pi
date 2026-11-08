@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "version": "18.18.0",
+  "note": "Independently reviewed approvals. apply.sh and verify-release-family-plan.py compare manifest.json against this file and fail closed on any difference; a manifest edit alone can neither adopt nor drop a capability.",
+  "snapshot": "18.16.0",
+  "added_families": [],
+  "retired_capabilities": [
+    "0065",
+    "0025",
+    "0100"
+  ],
+  "upstream_adoptions": [
+    {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
+    {"capability": "0078", "family": "family-image-display"},
+    {"capability": "0066", "family": "family-compaction"},
+    {"capability": "0072", "family": "0072-omp-session-pin-static-auth-ui"},
+    {"capability": "0079", "family": "family-image-display"},
+    {"capability": "0062", "family": "family-image-budget-snapcompact"},
+    {"capability": "0054", "family": "family-antigravity-wire"}
+  ]
+}

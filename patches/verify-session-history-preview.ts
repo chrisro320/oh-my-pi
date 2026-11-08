@@ -21,32 +21,28 @@
 // are detected by input semantics (Esc in the preview closes it; Esc in the list
 // cancels the picker).
 //
-// 18.16.0 retired that `Space` preview upstream (Q9: the picker renders its own
-// side preview), so that version takes `verifyUpstreamPicker`: the row's
-// last-model column — 0050's remaining half — must reach both row renderers,
-// and upstream's preview must still render the session with the column present.
+// 18.16.0 retired the `Space` preview upstream (Q9: the picker renders its own
+// side preview), so this gate runs `verifyUpstreamPicker`: the row's last-model
+// column — 0050's remaining half — must reach both row renderers, and upstream's
+// preview must still render the session with the column present.
 
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${os.homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
-const agentVersion = JSON.parse(fs.readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
-const movedUi = ["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion);
-/**
- * 18.16.0 replaced 0050's `Space` preview with a side preview the picker itself
- * renders (Q9): the selector takes no transcript loader, so this arm asserts
- * only the last-model column 0050 still adds, plus a smoke that upstream's
- * preview still renders the selected session with that column present.
- */
-const upstreamPickerPreview = ["18.16.0", "18.18.0"].includes(agentVersion);
+// Every supported plan runs this gate: both carry the pi-tui picker and the
+// picker's own side preview (Q9: the selector takes no transcript loader), so
+// the arms below need no version test. resolvePlan is the fail-closed admission
+// that replaced the enumerated list.
+resolvePlan({ gate: "verify-session-history-preview", roots: [AGENT_ROOT] });
 
 assert.ok(fs.existsSync(AGENT_ROOT), `OMP_PATCH_VERIFY_AGENT_ROOT does not exist: ${AGENT_ROOT}`);
-if (movedUi) assert.ok(fs.existsSync(TUI_ROOT), `OMP_PATCH_VERIFY_TUI_ROOT does not exist: ${TUI_ROOT}`);
+assert.ok(fs.existsSync(TUI_ROOT), `OMP_PATCH_VERIFY_TUI_ROOT does not exist: ${TUI_ROOT}`);
 
 const FIXTURE_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "omp-session-preview-"));
 // Host resume controls below share the same private fixture tree. Redirect
@@ -60,19 +56,13 @@ process.on("exit", () => fs.rmSync(FIXTURE_ROOT, { recursive: true, force: true 
 // which tree is exercised, so the path only exists at run time. A static import
 // cannot express it.
 
-const { SessionSelectorComponent } = await import(
-	movedUi ? `${TUI_ROOT}/src/overlays/session-selector.ts` : `${AGENT_ROOT}/src/modes/components/session-selector.ts`
-);
-const { initThemeSync } = await import(
-	movedUi ? `${TUI_ROOT}/src/theme/theme.ts` : `${AGENT_ROOT}/src/modes/theme/theme.ts`
-);
+const { SessionSelectorComponent } = await import(`${TUI_ROOT}/src/overlays/session-selector.ts`);
+const { initThemeSync } = await import(`${TUI_ROOT}/src/theme/theme.ts`);
 const { listSessions } = await import(`${AGENT_ROOT}/src/session/session-listing.ts`);
 const { FileSessionStorage } = await import(`${AGENT_ROOT}/src/session/session-storage.ts`);
 const { loadSessionMessagesReadOnly } = await import(`${AGENT_ROOT}/src/session/session-loader.ts`);
-// Native wire materialization is version-selected, never selected by symbol presence.
-const Reconciler = ["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)
-	? (await import(`${TUI_ROOT}/src/native/reconcile.ts`)).Reconciler
-	: undefined;
+// Native wire materialization comes from the selected pi-tui tree.
+const { Reconciler } = await import(`${TUI_ROOT}/src/native/reconcile.ts`);
 
 type NativeWireNode = {
 	k: string;
@@ -88,7 +78,6 @@ function nativeNodes(
 	component: InstanceType<typeof SessionSelectorComponent>,
 	supports: (kind: string) => boolean = () => true,
 ): NativeWireNode[] {
-	assert.ok(Reconciler, "the selected native plan must provide its reconciler");
 	const ops = new Reconciler("preview-gate").reconcile({ main: [], dock: [], layer: [component] }, {
 		cols: FRAME_WIDTH, dark: true, reduceMotion: true, supports, feature: () => false,
 	});
@@ -101,24 +90,8 @@ function nativeNodes(
 	return nodes;
 }
 
-function assertNativePreviewAction(component: InstanceType<typeof SessionSelectorComponent>, expected: boolean) {
-	const picker = nativeNodes(component).find(node => node.k === "picker");
-	assert.ok(picker, "the native list must reach the compiled picker surface");
-	assert.ok(Array.isArray(picker.p?.actions), "native picker must expose its actions");
-	assert.equal(picker.p.actions.some(action => action.id === "preview"), expected, "native Preview is available only for an empty query");
-}
-
 const FRAME_WIDTH = 100;
 const TERMINAL_ROWS = 30;
-const WHEEL_DOWN = "\x1b[<65;10;10M";
-const WHEEL_UP = "\x1b[<64;10;10M";
-
-/** Let the preview's async transcript load land before the next frame. */
-function settle(): Promise<void> {
-	const { promise, resolve } = Promise.withResolvers<void>();
-	setTimeout(resolve, 100);
-	return promise;
-}
 
 const stripAnsi = (line: string): string => line.replace(/\x1b\[[0-9;]*m/g, "");
 
@@ -158,13 +131,13 @@ function guardFixtureReads<T>(load: (sessionPath: string) => Promise<T>) {
 const guardedLoader = guardFixtureReads(loadSessionMessagesReadOnly);
 
 /**
- * Selector options every construction site shares. The transcript loader is the
- * retired `Space` preview's dependency: 18.16.0's selector no longer takes one.
+ * Selector options every construction site shares. The selector renders its own
+ * side preview (Q9), so it takes no transcript loader; `guardedLoader` still
+ * backs the fixture-boundary controls below.
  */
 const pickerOptions = {
 	title: "Resume Session",
 	getTerminalRows: () => TERMINAL_ROWS,
-	...(upstreamPickerPreview ? {} : { loadPreviewMessages: guardedLoader }),
 };
 
 const FIXTURE_TITLE = "Session History Preview in omp -r";
@@ -248,20 +221,13 @@ const session = {
 	lastModel: FIXTURE_LAST_MODEL,
 };
 
-let selectedSession: typeof session | null = null;
-let cancelled = false;
-let exited = false;
+// This arm only drives the list/row rendering; selection, cancel and exit have
+// no arm left to observe them, so their callbacks stay inert.
 const selector = new SessionSelectorComponent(
 	[session],
-	chosen => {
-		selectedSession = chosen;
-	},
-	() => {
-		cancelled = true;
-	},
-	() => {
-		exited = true;
-	},
+	() => {},
+	() => {},
+	() => {},
 	pickerOptions,
 );
 
@@ -277,197 +243,15 @@ assert.ok(
 	"list mode must not render transcript body text before the preview opens",
 );
 console.log("✓ list mode renders the fixture title and compact model, no transcript body");
-if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) assertNativePreviewAction(selector, true);
 
-/**
- * 18.1.14–18.12.6: 0050's own `Space` preview and the transcript reader behind
- * it. Upstream replaced both with the picker's side preview in 18.16.0 (Q9),
- * so only the versions that still carry the view exercise it.
- */
-async function verifySpacePreview(): Promise<void> {
-	// --- 2. Space on an empty query opens the preview ----------------------------
-	selector.handleInput(" ");
-	await settle();
-	const previewFrame = frameOf(selector);
-	for (let i = 0; i < previewFrame.lines.length; i++) {
-		const line = previewFrame.lines[i]!;
-		assert.ok(!line.includes("\n"), `Line ${i} must not embed a newline: ${JSON.stringify(line)}`);
-		assert.ok(!line.includes("\r"), `Line ${i} must not embed a carriage return: ${JSON.stringify(line)}`);
-		assert.ok(
-			!/(?<!\x1b)\[(?:38|48);[25];\d+(?:;\d+)*m/.test(line),
-			`Line ${i} must not leak an unescaped ANSI color code: ${JSON.stringify(line)}`,
-		);
-	}
-	assert.ok(previewFrame.plain.includes(FIXTURE_TITLE), "preview must render the fixture's title");
-	assert.ok(
-		previewFrame.plain.includes(FIXTURE_CONCLUSION),
-		"preview must render the fixture's assistant text",
-	);
-	const renderedProbe = previewFrame.plain
-		.split("\n")
-		.map(line => line.replace(/[│|█]/g, "").trim())
-		.find(line => line.includes(FIXTURE_CONCLUSION));
-	assert.ok(renderedProbe, "preview must render assistant body text, not only the role header");
-	assert.ok(
-		fixtureRaw.includes(renderedProbe),
-		`preview text must come from the fixture file; rendered ${JSON.stringify(renderedProbe)} is absent from it`,
-	);
-	assert.ok(previewFrame.plain.includes("[Assistant]"), "preview must label the assistant turn");
-	assert.ok(!previewFrame.plain.includes("[Tool Call]"), "preview must not render machine [Tool Call] noise");
-	assert.ok(!previewFrame.plain.includes("[Result:"), "preview must not render machine [Result:] noise");
-	assert.ok(
-		!/\[Assistant\]\s*\n\s*```\s*\n\s*\[Assistant\]/.test(previewFrame.plain),
-		"a tool-call turn must not leave a phantom empty [Assistant] fence block",
-	);
-	console.log("✓ Space opens the preview and renders the fixture transcript verbatim, without tool noise");
-	if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) {
-		const nodes = nativeNodes(selector);
-		assert.ok(JSON.stringify(nodes).includes(FIXTURE_CONCLUSION), "compiled native history must contain the real transcript");
-		for (const action of ["resume", "close"]) {
-			assert.ok(nodes.some(node => !Array.isArray(node.p?.actions) && node.p?.actions?.click === action),
-				`native history must expose the ${action} action`);
-		}
-	}
+// 0050's own `Space` preview and its transcript-loader dependency are gone
+// upstream since 18.16.0 (Q9), so no supported tree carries that arm; the
+// picker's own side preview is covered by `verifyUpstreamPicker` below.
 
-	// --- 3. Esc in the preview closes it; Esc in the list cancels the picker -----
-	selector.handleInput("\x1b");
-	const closedFrame = frameOf(selector);
-	assert.ok(!closedFrame.plain.includes(FIXTURE_CONCLUSION), "Esc must leave the preview");
-	assert.ok(closedFrame.plain.includes(FIXTURE_TITLE), "Esc must restore the session list");
-	assert.strictEqual(cancelled, false, "Esc inside the preview must close the preview, not cancel the picker");
-
-	const escControl = new SessionSelectorComponent(
-		[session],
-		() => {},
-		() => {
-			cancelled = true;
-		},
-		() => {},
-		pickerOptions,
-	);
-	escControl.handleInput("\x1b");
-	assert.strictEqual(cancelled, true, "control: Esc in list mode must still reach the picker's cancel path");
-	cancelled = false;
-	console.log("✓ Esc closes the preview, while Esc in the list still cancels the picker");
-
-	// --- 4. Space with a non-empty query stays in the list ----------------------
-	for (const key of ["S", "e", "s", "s"]) selector.handleInput(key);
-	assert.ok(frameOf(selector).plain.includes(FIXTURE_TITLE), "the non-empty query must still select the fixture");
-	selector.handleInput(" ");
-	await settle();
-	assert.ok(
-		!frameOf(selector).plain.includes(FIXTURE_CONCLUSION),
-		"Space inside a non-empty search query must not open the preview",
-	);
-	if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) assertNativePreviewAction(selector, false);
-	for (let i = 0; i < 5; i++) selector.handleInput("\x7f");
-	console.log("✓ Space with a non-empty query edits the search text instead of opening the preview");
-
-	// --- 5. Enter inside the preview resumes the selected session ---------------
-	if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) selector.handleNativeEvent({ type: "action", key: "", act: "preview", mods: [] });
-	else selector.handleInput(" ");
-	await settle();
-	assert.ok(frameOf(selector).plain.includes(FIXTURE_CONCLUSION), "preview must be open again");
-	if (["18.10.0", "18.10.1", "18.12.6"].includes(agentVersion)) selector.handleNativeEvent({ type: "action", key: "", act: "resume", mods: [] });
-	else selector.handleInput("\n");
-	assert.strictEqual(selectedSession, session, "Enter in the preview must resume the selected session");
-	console.log("✓ Enter inside the preview resumes the selected session");
-
-	// --- 6. Ctrl+C inside the preview exits the whole picker --------------------
-	let exitCalled = false;
-	const exitSelector = new SessionSelectorComponent(
-		[session],
-		() => {},
-		() => {},
-		() => {
-			exitCalled = true;
-		},
-		pickerOptions,
-	);
-	exitSelector.handleInput(" ");
-	await settle();
-	assert.ok(frameOf(exitSelector).plain.includes(FIXTURE_CONCLUSION), "preview must be open for the Ctrl+C case");
-	exitSelector.handleInput("\x03");
-	assert.strictEqual(exitCalled, true, "Ctrl+C inside the preview must exit the picker");
-	console.log("✓ Ctrl+C inside the preview exits the picker");
-
-	// --- 7. mouse wheel and scrollbar drag move the preview viewport ------------
-	const mouseSelector = new SessionSelectorComponent(
-		[session],
-		() => {},
-		() => {
-			cancelled = true;
-		},
-		() => {},
-		pickerOptions,
-	);
-	mouseSelector.handleInput(" ");
-	await settle();
-	const topFrame = frameOf(mouseSelector);
-	assert.ok(topFrame.plain.includes(FIXTURE_CONCLUSION), "preview must open at the head of the transcript");
-	assert.ok(!topFrame.plain.includes(FIXTURE_TAIL), "the transcript tail must start off-screen");
-
-	for (let i = 0; i < 20; i++) mouseSelector.handleInput(WHEEL_DOWN);
-	assert.ok(
-		frameOf(mouseSelector).plain.includes(FIXTURE_TAIL),
-		"wheel-down must scroll the preview to the tail of the transcript",
-	);
-	for (let i = 0; i < 20; i++) mouseSelector.handleInput(WHEEL_UP);
-	assert.ok(
-		frameOf(mouseSelector).plain.includes(FIXTURE_CONCLUSION),
-		"wheel-up must scroll the preview back to the head of the transcript",
-	);
-	console.log("✓ mouse wheel scrolls the preview viewport across the whole transcript");
-
-	// Scrollbar drag: press on the right edge, drag to the last scroll row, release.
-	// SGR coordinates are 1-based, so the last row inside the preview's scroll
-	// region is 26 for a 100x30 frame with a 21-row viewport.
-	mouseSelector.handleInput("\x1b[<0;98;15M");
-	mouseSelector.handleInput("\x1b[<32;98;26M");
-	mouseSelector.handleInput("\x1b[<0;98;26m");
-	assert.ok(
-		frameOf(mouseSelector).plain.includes(FIXTURE_TAIL),
-		"dragging the scrollbar to the last row must seek to the tail of the transcript",
-	);
-	mouseSelector.handleInput("\x1b");
-	assert.strictEqual(cancelled, false, "Esc after scrolling must close the preview, not cancel the picker");
-	assert.ok(!frameOf(mouseSelector).plain.includes(FIXTURE_TAIL), "Esc after scrolling must leave the preview");
-	cancelled = false;
-	console.log("✓ scrollbar drag seeks the preview and Esc still leaves it cleanly");
-
-	// --- 8. a tool-call turn keeps its real multi-line code fence --------------
-	const codePath = writeFixture("code-fence", [
-		{ type: "message", message: { role: "user", content: "Can you write a sample?" } },
-		{
-			type: "message",
-			message: {
-				role: "assistant",
-				model: FIXTURE_LAST_MODEL,
-				content: [
-					{ type: "text", text: `${FIXTURE_FENCE}\n${FIXTURE_CODE_LINE}\n${FIXTURE_FENCE}` },
-					{ type: "toolCall", name: "bash", id: "call-2" },
-				],
-			},
-		},
-	]);
-	const codeSession = { ...session, id: "code-fence", path: codePath, title: "Code Fence Session", lastModel: undefined };
-	const codeSelector = new SessionSelectorComponent([codeSession], () => {}, () => {}, () => {}, pickerOptions);
-	codeSelector.handleInput(" ");
-	await settle();
-	const codePreview = frameOf(codeSelector).plain;
-	assert.ok(codePreview.includes(FIXTURE_CODE_LINE), "a tool-call turn must keep its multi-line code content");
-	assert.ok(codePreview.includes(FIXTURE_FENCE), "a tool-call turn must keep its code fence opener");
-	console.log("✓ a tool-call turn keeps its real multi-line code fence");
-}
-
-// 18.16.0's selector has no Space preview to drive: its arm runs below, after
-// the scanner fixtures it reads.
-if (!upstreamPickerPreview) await verifySpacePreview();
-
-// --- 9. model producer: the scanner resolves lastModel like resume does ----
-// The 18.16.0 arm below reads these fixtures through the picker row, pinning
-// that the value reaches the column; the assertions after it pin what the value
-// means. Every fixture stays inside FIXTURE_ROOT.
+// --- model producer: the scanner resolves lastModel like resume does ----
+// `verifyUpstreamPicker` below reads these fixtures through the picker row,
+// pinning that the value reaches the column; the assertions after it pin what
+// the value means. Every fixture stays inside FIXTURE_ROOT.
 const storage = new FileSessionStorage();
 const modelDirPath = path.join(FIXTURE_ROOT, "model-scan");
 fs.mkdirSync(modelDirPath, { recursive: true });
@@ -530,31 +314,25 @@ const temporaryThenFallbackPath = writeModelSession("temporary-then-fallback", [
 	assistantTurn("prov/fallback-model"),
 ]);
 const emptyPath = writeModelSession("empty", []);
-const midFileSwitchPath =
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)
-		? writeModelSession("mid-file-switch", [
-				modelChange("prov/configured-model"),
-				{ type: "message", message: { role: "user", content: "x".repeat(6_000) } },
-				modelChange("later/new-model", "temporary"),
-				{ type: "message", message: { role: "user", content: "x".repeat(33_000) } },
-				{ type: "message", message: { role: "assistant", provider: "later", model: "new-model", content: [] } },
-			])
-		: undefined;
-const fallbackAfterGapPath =
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)
-		? writeModelSession("fallback-after-gap", [
-				modelChange("prov/configured-model"),
-				{ type: "message", message: { role: "user", content: "x".repeat(33_000) } },
-				modelChange("prov/fallback-model", "fallback"),
-				{ type: "message", message: { role: "assistant", provider: "prov", model: "fallback-model", content: [] } },
-			])
-		: undefined;
+const midFileSwitchPath = writeModelSession("mid-file-switch", [
+	modelChange("prov/configured-model"),
+	{ type: "message", message: { role: "user", content: "x".repeat(6_000) } },
+	modelChange("later/new-model", "temporary"),
+	{ type: "message", message: { role: "user", content: "x".repeat(33_000) } },
+	{ type: "message", message: { role: "assistant", provider: "later", model: "new-model", content: [] } },
+]);
+const fallbackAfterGapPath = writeModelSession("fallback-after-gap", [
+	modelChange("prov/configured-model"),
+	{ type: "message", message: { role: "user", content: "x".repeat(33_000) } },
+	modelChange("prov/fallback-model", "fallback"),
+	{ type: "message", message: { role: "assistant", provider: "prov", model: "fallback-model", content: [] } },
+]);
 
 const modelScan = await listSessions(modelDirPath, storage);
-// 18.16.0: upstream's picker renders the preview itself (Q9), so 0050 owns only
-// the last-model column. It must reach both row renderers from the scanned
-// listing, and upstream's side preview must still render the selected session
-// with that column present.
+// Upstream's picker renders the preview itself (Q9), so 0050 owns only the
+// last-model column. It must reach both row renderers from the scanned listing,
+// and the side preview must still render the selected session with that column
+// present.
 async function verifyUpstreamPicker(): Promise<void> {
 	const scanned = await listSessions(FIXTURE_ROOT, storage);
 	const fixtureEntry = scanned.find(candidate => candidate.path === fixturePath);
@@ -572,7 +350,7 @@ async function verifyUpstreamPicker(): Promise<void> {
 		"the row metadata must carry the compact form of the session's last model",
 	);
 	assert.ok(!rowFrame.plain.includes(FIXTURE_CONCLUSION), "the row must not carry transcript body text");
-	console.log("✓ 18.16.0 row renders the last-model column from the scanned session");
+	console.log("✓ the row renders the last-model column from the scanned session");
 
 	const fallbackItem = nativeNodes(rowSelector, () => false).find(node => node.k === "item");
 	assert.ok(fallbackItem, "the list fallback must still describe its rows");
@@ -581,7 +359,7 @@ async function verifyUpstreamPicker(): Promise<void> {
 		fallbackDetail.includes("antigravity/gemini-3.8-flash"),
 		`the native list fallback row must carry the same column, got ${JSON.stringify(fallbackDetail)}`,
 	);
-	console.log("✓ 18.16.0 native list fallback carries the same column");
+	console.log("✓ the native list fallback carries the same column");
 
 	// Preview smoke: the picker's own side preview still renders the selection.
 	const sheet = nativeNodes(rowSelector).find(node => node.k === "picker");
@@ -591,7 +369,7 @@ async function verifyUpstreamPicker(): Promise<void> {
 	const preview = JSON.stringify(sheet.c ?? []);
 	assert.ok(preview.includes(FIXTURE_TITLE), "the preview must show the selected session");
 	assert.ok(preview.includes(FIXTURE_TAIL), "the preview must show the tail of the session's own transcript");
-	console.log("✓ 18.16.0 upstream side preview still renders the selected session");
+	console.log("✓ upstream side preview still renders the selected session");
 
 	// The column is the LAST model: a session whose first model_change differs
 	// must read the newest transition, never the opening default.
@@ -606,10 +384,10 @@ async function verifyUpstreamPicker(): Promise<void> {
 		assert.ok(row.includes(expected), `the ${path.basename(file)} row must show its last model ${expected}`);
 		assert.ok(!row.includes(first), `the ${path.basename(file)} row must not show its first model ${first}`);
 	}
-	console.log("✓ 18.16.0 the column reads the last model, never the first");
+	console.log("✓ the column reads the last model, never the first");
 }
 
-if (upstreamPickerPreview) await verifyUpstreamPicker();
+await verifyUpstreamPicker();
 
 const lastModelOf = (file: string): string | undefined => {
 	const entry = modelScan.find(candidate => candidate.path === file);
@@ -631,26 +409,22 @@ assert.strictEqual(
 	"prov/tail-model",
 	"With no model_change, the newest assistant model is the last-served fallback",
 );
-if (midFileSwitchPath) {
-	const bytes = fs.readFileSync(midFileSwitchPath);
-	const switchOffset = bytes.indexOf('"model":"later/new-model"');
-	assert.ok(
-		switchOffset > 4096 && switchOffset < bytes.length - 32_768,
-		"The last model_change must be outside both bounded scanner windows",
-	);
-	assert.strictEqual(
-		lastModelOf(midFileSwitchPath),
-		"later/new-model",
-		"A model change outside the tail must not be hidden by the initial default when the last assistant identifies its provider/model",
-	);
-}
-if (fallbackAfterGapPath) {
-	assert.strictEqual(
-		lastModelOf(fallbackAfterGapPath),
-		"prov/configured-model",
-		"A visible fallback transition must restore the prefix default, not the last fallback assistant",
-	);
-}
+const midFileSwitchBytes = fs.readFileSync(midFileSwitchPath);
+const switchOffset = midFileSwitchBytes.indexOf('"model":"later/new-model"');
+assert.ok(
+	switchOffset > 4096 && switchOffset < midFileSwitchBytes.length - 32_768,
+	"The last model_change must be outside both bounded scanner windows",
+);
+assert.strictEqual(
+	lastModelOf(midFileSwitchPath),
+	"later/new-model",
+	"A model change outside the tail must not be hidden by the initial default when the last assistant identifies its provider/model",
+);
+assert.strictEqual(
+	lastModelOf(fallbackAfterGapPath),
+	"prov/configured-model",
+	"A visible fallback transition must restore the prefix default, not the last fallback assistant",
+);
 assert.strictEqual(
 	lastModelOf(temporaryPath),
 	"prov/temporary-model",
@@ -678,129 +452,122 @@ console.log(
 
 // R2: cancellation belongs to the real selector->session transaction. A
 // departed session from a removed worktree must not fork/relocate beforehand.
-if (["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) {
-	const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
-	const { sessionDirForCwd } = await import(`${AGENT_ROOT}/src/session/session-paths.ts`);
-	const { markSessionMoved } = await import(`${AGENT_ROOT}/src/session/session-transfer.ts`);
-	const { DateCwdReminderInjector, DATE_CWD_REMINDER_CUSTOM_TYPE, createSessionDateCwdReminderJournal } = await import(
-		`${AGENT_ROOT}/src/session/date-cwd-reminder.ts`
-	);
-	const { SelectorController } = await import(`${AGENT_ROOT}/src/modes/controllers/selector-controller.ts`);
-	const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
-	const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
-	const { getWorktreesDir, hashPath } = await import(Bun.resolveSync("@oh-my-pi/pi-utils/dirs", AGENT_ROOT));
-	const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
-	const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
-	// 18.16.0 journals every reminder placement as a `date-cwd-reminder` custom
-	// entry of the session JSONL; through 18.12.6 placements lived in a
-	// per-session anchor artifact next to it. Both are session-owned bytes a
-	// cancelled resume must leave untouched.
-	const journaledReminders = ["18.16.0", "18.18.0"].includes(agentVersion);
-	const cwd = path.join(FIXTURE_ROOT, "selector-repository");
-	fs.mkdirSync(cwd);
-	const init = Bun.spawnSync(["git", "init", "--quiet", cwd], {
-		env: { PATH: process.env.PATH, HOME: FIXTURE_ROOT, XDG_CONFIG_HOME: path.join(FIXTURE_ROOT, "config"), GIT_CONFIG_NOSYSTEM: "1" },
-	});
-	assert.equal(init.exitCode, 0, `private git fixture initialization failed: ${init.stderr.toString()}`);
-	const sessionsRoot = path.join(FIXTURE_ROOT, "selector-sessions");
-	const removedCwd = path.join(getWorktreesDir(), `fixture-${hashPath(cwd)}`);
-	assert.ok(path.resolve(removedCwd).startsWith(FIXTURE_ROOT + path.sep), "worktree fixture must stay private");
-	fs.mkdirSync(removedCwd, { recursive: true });
-	const source = SessionManager.create(removedCwd, sessionDirForCwd(removedCwd, sessionsRoot));
-	source.appendMessage({ role: "user", content: "departed worktree history", timestamp: 1 });
-	await source.ensureOnDisk();
-	await source.flush();
-	const sourceFile = source.getSessionFile();
-	const sourceArtifacts = source.getArtifactsDir();
-	assert.ok(sourceFile && sourceArtifacts);
-	fs.mkdirSync(sourceArtifacts, { recursive: true });
-	fs.writeFileSync(path.join(sourceArtifacts, "sentinel.bin"), Buffer.from([0, 255, 13, 10, 7]));
-	(journaledReminders
-		? new DateCwdReminderInjector(createSessionDateCwdReminderJournal(source))
-		: new DateCwdReminderInjector(() => source.getSessionId(), undefined, () => source.getSessionFile())
-	).transform({ systemPrompt: ["fixture"], messages: source.buildSessionContext().messages }, "2026-09-06", removedCwd);
-	if (journaledReminders) {
-		assert.ok(
-			fs.readFileSync(sourceFile, "utf8").includes(`"customType":"${DATE_CWD_REMINDER_CUSTOM_TYPE}"`),
-			"the source fixture must journal its date/cwd placement before the cancelled resume runs",
-		);
-	}
-	await source.close();
-	await markSessionMoved(sourceFile, "synthetic destination");
-	fs.rmSync(removedCwd, { recursive: true });
-	const currentDir = sessionDirForCwd(cwd, sessionsRoot);
-	assert.equal(await SessionManager.isFromRemovedWorktree({ path: sourceFile, cwd: removedCwd }, cwd, currentDir), true,
-		"the fixture must exercise real removed-worktree discovery, not the ordinary resume path");
+const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
+const { sessionDirForCwd } = await import(`${AGENT_ROOT}/src/session/session-paths.ts`);
+const { markSessionMoved } = await import(`${AGENT_ROOT}/src/session/session-transfer.ts`);
+const { DateCwdReminderInjector, DATE_CWD_REMINDER_CUSTOM_TYPE, createSessionDateCwdReminderJournal } = await import(
+	`${AGENT_ROOT}/src/session/date-cwd-reminder.ts`
+);
+const { SelectorController } = await import(`${AGENT_ROOT}/src/modes/controllers/selector-controller.ts`);
+const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
+const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
+const { getWorktreesDir, hashPath } = await import(Bun.resolveSync("@oh-my-pi/pi-utils/dirs", AGENT_ROOT));
+const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
+const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
+// Every supported plan journals each reminder placement as a `date-cwd-reminder`
+// custom entry of the session JSONL. Those entries, the session file and the
+// per-session artifact directory are all session-owned bytes a cancelled resume
+// must leave untouched.
+const cwd = path.join(FIXTURE_ROOT, "selector-repository");
+fs.mkdirSync(cwd);
+const init = Bun.spawnSync(["git", "init", "--quiet", cwd], {
+	env: { PATH: process.env.PATH, HOME: FIXTURE_ROOT, XDG_CONFIG_HOME: path.join(FIXTURE_ROOT, "config"), GIT_CONFIG_NOSYSTEM: "1" },
+});
+assert.equal(init.exitCode, 0, `private git fixture initialization failed: ${init.stderr.toString()}`);
+const sessionsRoot = path.join(FIXTURE_ROOT, "selector-sessions");
+const removedCwd = path.join(getWorktreesDir(), `fixture-${hashPath(cwd)}`);
+assert.ok(path.resolve(removedCwd).startsWith(FIXTURE_ROOT + path.sep), "worktree fixture must stay private");
+fs.mkdirSync(removedCwd, { recursive: true });
+const source = SessionManager.create(removedCwd, sessionDirForCwd(removedCwd, sessionsRoot));
+source.appendMessage({ role: "user", content: "departed worktree history", timestamp: 1 });
+await source.ensureOnDisk();
+await source.flush();
+const sourceFile = source.getSessionFile();
+const sourceArtifacts = source.getArtifactsDir();
+assert.ok(sourceFile && sourceArtifacts);
+fs.mkdirSync(sourceArtifacts, { recursive: true });
+fs.writeFileSync(path.join(sourceArtifacts, "sentinel.bin"), Buffer.from([0, 255, 13, 10, 7]));
+new DateCwdReminderInjector(createSessionDateCwdReminderJournal(source))
+	.transform({ systemPrompt: ["fixture"], messages: source.buildSessionContext().messages }, "2026-09-06", removedCwd);
+assert.ok(
+	fs.readFileSync(sourceFile, "utf8").includes(`"customType":"${DATE_CWD_REMINDER_CUSTOM_TYPE}"`),
+	"the source fixture must journal its date/cwd placement before the cancelled resume runs",
+);
+await source.close();
+await markSessionMoved(sourceFile, "synthetic destination");
+fs.rmSync(removedCwd, { recursive: true });
+const currentDir = sessionDirForCwd(cwd, sessionsRoot);
+assert.equal(await SessionManager.isFromRemovedWorktree({ path: sourceFile, cwd: removedCwd }, cwd, currentDir), true,
+	"the fixture must exercise real removed-worktree discovery, not the ordinary resume path");
 
-	function snapshotSessionTree(directory: string): Array<[string, string | null]> {
-		const entries: Array<[string, string | null]> = [];
-		for (const child of fs.readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-			const file = path.join(directory, child.name);
-			if (child.isDirectory()) {
-				entries.push([child.name, null]);
-				for (const [relative, bytes] of snapshotSessionTree(file)) entries.push([`${child.name}/${relative}`, bytes]);
-			} else {
-				entries.push([child.name, fs.readFileSync(file).toString("base64")]);
-			}
+function snapshotSessionTree(directory: string): Array<[string, string | null]> {
+	const entries: Array<[string, string | null]> = [];
+	for (const child of fs.readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+		const file = path.join(directory, child.name);
+		if (child.isDirectory()) {
+			entries.push([child.name, null]);
+			for (const [relative, bytes] of snapshotSessionTree(file)) entries.push([`${child.name}/${relative}`, bytes]);
+		} else {
+			entries.push([child.name, fs.readFileSync(file).toString("base64")]);
 		}
-		return entries;
 	}
-	const originalFetch = globalThis.fetch;
-	globalThis.fetch = (() => { throw new Error("Network forbidden in cancelled selector resume"); }) as typeof fetch;
-	const agentDir = path.join(FIXTURE_ROOT, "selector-agent");
-	const settings = await Settings.loadIsolated({ cwd, agentDir, overrides: {
-		"memory.backend": "off", "computer.enabled": false, "secrets.enabled": false, "compaction.enabled": false,
-	} });
-	const authStorage = await discoverAuthStorage(agentDir);
-	authStorage.keys.setRuntime("mock", "offline");
-	registerMockApi("selector-cancel");
-	const model = createMockModel({ responses: [] });
-	const switchTargets: string[] = [];
-	const { session } = await createAgentSession({
-		cwd, agentDir, settings, authStorage, model, getApiKey: () => "offline",
-		sessionManager: SessionManager.create(cwd, currentDir), systemPrompt: "Selector cancellation fixture.",
-		skills: [], rules: [], contextFiles: [], promptTemplates: [], slashCommands: [],
-		disableExtensionDiscovery: true, enableMCP: false, preloadedCustomToolPaths: [],
-		enableLsp: false, skipPythonPreflight: true, toolNames: [],
-		extensions: [pi => pi.on("session_before_switch", event => {
-			switchTargets.push(event.targetSessionFile ?? "");
-			return { cancel: true };
-		})],
-	});
-	try {
-		const manager = session.sessionManager;
-		await manager.ensureOnDisk();
-		await manager.flush();
-		const before = snapshotSessionTree(sessionsRoot);
-		const activeFile = manager.getSessionFile();
-		const activeId = manager.getSessionId();
-		const activeEntries = JSON.stringify(manager.getEntries());
-		const errors: string[] = [];
-		const selector = new SelectorController({
-			session, sessionManager: manager, settings,
-			prepareSessionSwitch: async () => {},
-			resetObserverRegistry: () => {},
-			showError: (message: string) => { errors.push(message); },
-			applyCwdChange: async () => { throw new Error("cancelled resume must not apply a new cwd"); },
-		});
-		assert.equal(await selector.handleResumeSession(sourceFile, { settingsFlushed: true }), false);
-		assert.deepEqual(switchTargets, [sourceFile], "the actual cancellable session hook must receive the requested history");
-		assert.deepEqual(errors, [], "cancellation is not a relocation failure");
-		assert.equal(manager.getSessionId(), activeId);
-		assert.equal(manager.getSessionFile(), activeFile);
-		assert.equal(manager.getCwd(), cwd);
-		assert.equal(JSON.stringify(manager.getEntries()), activeEntries);
-		assert.deepEqual(snapshotSessionTree(sessionsRoot), before,
-			"cancelled selector resume preserves every source/target path, journal byte and artifact, without an orphan fork");
-		assert.equal(fs.existsSync(removedCwd), false, "cancelled resume must not recreate the removed worktree");
-		assert.equal(model.calls.length, 0);
-	} finally {
-		await session.dispose();
-		authStorage.close();
-		globalThis.fetch = originalFetch;
-	}
-	console.log("✓ cancelled removed-worktree resume leaves every session path, journal entry and artifact byte untouched");
+	return entries;
 }
+const originalFetch = globalThis.fetch;
+globalThis.fetch = (() => { throw new Error("Network forbidden in cancelled selector resume"); }) as typeof fetch;
+const agentDir = path.join(FIXTURE_ROOT, "selector-agent");
+const settings = await Settings.loadIsolated({ cwd, agentDir, overrides: {
+	"memory.backend": "off", "computer.enabled": false, "secrets.enabled": false, "compaction.enabled": false,
+} });
+const authStorage = await discoverAuthStorage(agentDir);
+authStorage.keys.setRuntime("mock", "offline");
+registerMockApi("selector-cancel");
+const mockModel = createMockModel({ responses: [] });
+const switchTargets: string[] = [];
+const { session: hostSession } = await createAgentSession({
+	cwd, agentDir, settings, authStorage, model: mockModel, getApiKey: () => "offline",
+	sessionManager: SessionManager.create(cwd, currentDir), systemPrompt: "Selector cancellation fixture.",
+	skills: [], rules: [], contextFiles: [], promptTemplates: [], slashCommands: [],
+	disableExtensionDiscovery: true, enableMCP: false, preloadedCustomToolPaths: [],
+	enableLsp: false, skipPythonPreflight: true, toolNames: [],
+	extensions: [pi => pi.on("session_before_switch", event => {
+		switchTargets.push(event.targetSessionFile ?? "");
+		return { cancel: true };
+	})],
+});
+try {
+	const manager = hostSession.sessionManager;
+	await manager.ensureOnDisk();
+	await manager.flush();
+	const before = snapshotSessionTree(sessionsRoot);
+	const activeFile = manager.getSessionFile();
+	const activeId = manager.getSessionId();
+	const activeEntries = JSON.stringify(manager.getEntries());
+	const errors: string[] = [];
+	const resumeSelector = new SelectorController({
+		session: hostSession, sessionManager: manager, settings,
+		prepareSessionSwitch: async () => {},
+		resetObserverRegistry: () => {},
+		showError: (message: string) => { errors.push(message); },
+		applyCwdChange: async () => { throw new Error("cancelled resume must not apply a new cwd"); },
+	});
+	assert.equal(await resumeSelector.handleResumeSession(sourceFile, { settingsFlushed: true }), false);
+	assert.deepEqual(switchTargets, [sourceFile], "the actual cancellable session hook must receive the requested history");
+	assert.deepEqual(errors, [], "cancellation is not a relocation failure");
+	assert.equal(manager.getSessionId(), activeId);
+	assert.equal(manager.getSessionFile(), activeFile);
+	assert.equal(manager.getCwd(), cwd);
+	assert.equal(JSON.stringify(manager.getEntries()), activeEntries);
+	assert.deepEqual(snapshotSessionTree(sessionsRoot), before,
+		"cancelled selector resume preserves every source/target path, journal byte and artifact, without an orphan fork");
+	assert.equal(fs.existsSync(removedCwd), false, "cancelled resume must not recreate the removed worktree");
+	assert.equal(mockModel.calls.length, 0);
+} finally {
+	await hostSession.dispose();
+	authStorage.close();
+	globalThis.fetch = originalFetch;
+}
+console.log("✓ cancelled removed-worktree resume leaves every session path, journal entry and artifact byte untouched");
 
 fs.rmSync(FIXTURE_ROOT, { recursive: true, force: true });
 console.log("\nALL VERIFICATIONS PASSED SUCCESSFULLY!");

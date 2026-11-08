@@ -1,0 +1,234 @@
+{
+  "step": "C9 \u2014 shared durability harness (private-HOME re-exec, env scrub, spawnSync child, session dir)",
+  "helper": {
+    "path": "patches/durability-harness.ts",
+    "sha256": "0ae306168377d5b56b4b8e6ce00fd8d64f971ec2fefa48b9a5515337ec37fc22",
+    "exports": [
+      "enterPrivateHome (returns the private HOME; boot marker read before the scrub, re-exec via Bun.spawnSync with forwarded output)",
+      "freshSessionDir (a fresh JSONL session directory under the private home)"
+    ],
+    "note": "the helper is imported with a relative specifier beside the gates; a harness that copies one of these gates must copy the helper too (none do: the worker matrix runs gates in place, and run-old-gate copies retired gates that predate the helper)"
+  },
+  "refactored": {
+    "verify-date-cwd-journal-prefix.ts": "boot block only (scrub:false, TMPDIR inside the home, cleanup after the child)",
+    "verify-session-transfer-authority.ts": "boot block only (scrub keeps PATH/TMPDIR, setEnv adds TMUX_PANE + roots)",
+    "verify-interrupt-prune-symmetry.ts": "boot block only (scrub keeps PATH/TMPDIR, re-exec passes the agent root)",
+    "verify-reminder-persist.ts": "boot block only (keeps the leg env + roots, re-exec passes them)"
+  },
+  "behaviour": {
+    "assertions_changed": 0,
+    "evidence": "research/s5b-assertion-map.py counts old == new for these gates (boot-only edits; no assertion statement touched)"
+  },
+  "before_after": {
+    "18.18.0_before": {
+      "status": "PASS",
+      "runtime_unchanged": true,
+      "gates": {
+        "verify-interrupt-prune-symmetry.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-before-18180/verify-interrupt-prune-symmetry/result.json"
+        },
+        "verify-date-cwd-journal-prefix.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-before-18180/verify-date-cwd-journal-prefix/result.json"
+        },
+        "verify-session-transfer-authority.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-before-18180/verify-session-transfer-authority/result.json"
+        }
+      }
+    },
+    "18.18.0_after": {
+      "status": "PASS",
+      "runtime_unchanged": true,
+      "gates": {
+        "verify-interrupt-prune-symmetry.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-after-18180/verify-interrupt-prune-symmetry/result.json"
+        },
+        "verify-date-cwd-journal-prefix.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-after-18180/verify-date-cwd-journal-prefix/result.json"
+        },
+        "verify-session-transfer-authority.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-after-18180/verify-session-transfer-authority/result.json"
+        },
+        "verify-reminder-persist.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-after-18180/verify-reminder-persist/result.json"
+        }
+      }
+    },
+    "18.19.0_sim_after": {
+      "status": "PASS",
+      "runtime_unchanged": true,
+      "gates": {
+        "verify-interrupt-prune-symmetry.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-after-18190/verify-interrupt-prune-symmetry/result.json"
+        },
+        "verify-date-cwd-journal-prefix.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-after-18190/verify-date-cwd-journal-prefix/result.json"
+        },
+        "verify-session-transfer-authority.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-after-18190/verify-session-transfer-authority/result.json"
+        },
+        "verify-reminder-persist.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-after-18190/verify-reminder-persist/result.json"
+        }
+      }
+    },
+    "18.16.0_after": {
+      "status": "FAIL",
+      "runtime_unchanged": true,
+      "gates": {
+        "verify-interrupt-prune-symmetry.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-after-18160/verify-interrupt-prune-symmetry/result.json"
+        },
+        "verify-date-cwd-journal-prefix.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-after-18160/verify-date-cwd-journal-prefix/result.json"
+        },
+        "verify-session-transfer-authority.ts": {
+          "status": "FAIL",
+          "exit": 1,
+          "evidence": "/var/tmp/omp-s5/c9-after-18160/verify-session-transfer-authority/result.json"
+        },
+        "verify-reminder-persist.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c9-after-18160/verify-reminder-persist/result.json"
+        }
+      }
+    },
+    "18.16.0_known_failure": {
+      "gate": "verify-session-transfer-authority.ts",
+      "error": "Cannot find module @oh-my-pi/pi-coding-agent/src/thread/subagent-worker.ts",
+      "status": "pre-existing structural failure on the 18.16.0 tree (the worker-pool module does not exist there); the pre-refactor gate fails identically",
+      "pre_refactor_evidence": "/var/tmp/omp-s5/c9-pre-18160-transfer.json"
+    }
+  },
+  "mutation": {
+    "step": "C9 mutation parity and pre-image controls",
+    "rows": [
+      {
+        "fault": "c9-date-cwd",
+        "gate": "verify-date-cwd-journal-prefix.ts",
+        "runtime": "/var/tmp/omp-s5/mut-c9-date-cwd",
+        "refactored": {
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [],
+          "runtime_unchanged": true
+        },
+        "pre_refactor": {
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": []
+        },
+        "verdict": "PASS",
+        "merged_reason": "FAIL revival: the revived subagent's messages[0] was rewritten: sha256 94737d0d91b016bc324751bf98690ef7af4d2ea0c9750d5bee667e1dc6004493 -> 113b407e439b661011fc44d45755a294109db9908de43d0762b651149a66d7d3; sent=\"<system-reminder>\\\\nToday: 2026-11-03; current working directory: '/var/tmp/omp-s5/c9-mut/c9-date-cwd/verify-date-cwd-journal-prefix/private/tmp/omp-journal-gate-home-yNw5SU/omp-journal-gate-home-AcF0KI/omp-date-cwd-journal-Yu2n4C/work'. Do not repeat this information in your reply.\\\\n</system-reminder>\" now=\"<system-reminder>\\\\nToday: 2026-11-04; current working directory: '/var/tmp/omp-s5/c9-mut/c9-date-cwd/verify-date-cwd-journal-prefix/private/tmp/omp-journal-gate-home-yNw5SU/omp-journal-gate-home-AcF0KI/omp-date-cwd-journal-Yu2n4C/work'. Do n\u2026\"\nFAIL date/cwd journal prefix: 7 failure(s)",
+        "pre_refactor_reason": "FAIL revival: the revived subagent's messages[0] was rewritten: sha256 a6429a1340fa797588eb1e12d52b15b88bcdefe60fc8880979e23953268d2756 -> 8034f64e6e9a66c0d17dffbb26915b2543d2c30588b35277f80d4875d324afe2; sent=\"<system-reminder>\\\\nToday: 2026-11-03; current working directory: '/var/tmp/omp-s5/c9-mut/c9-date-cwd-pre-work/private/tmp/omp-journal-gate-home-SrD7SH/omp-date-cwd-journal-oCN19t/work'. Do not repeat this information in your reply.\\\\n</system-reminder>\" now=\"<system-reminder>\\\\nToday: 2026-11-04; current working directory: '/var/tmp/omp-s5/c9-mut/c9-date-cwd-pre-work/private/tmp/omp-journal-gate-home-SrD7SH/omp-date-cwd-journal-oCN19t/work'. Do not repeat this information in your reply.\\\\n</system-\u2026\"\nFAIL date/cwd journal prefix: 7 failure(s)"
+      },
+      {
+        "fault": "c9-interrupt",
+        "gate": "verify-interrupt-prune-symmetry.ts",
+        "runtime": "/var/tmp/omp-s5/mut-c9-interrupt",
+        "refactored": {
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: live and rebuilt renders of a aborted turn must be byte-identical; a path-local prune breaks the prompt-cache prefix at every interrupt"
+          ],
+          "runtime_unchanged": true
+        },
+        "pre_refactor": {
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: live and rebuilt renders of a aborted turn must be byte-identical; a path-local prune breaks the prompt-cache prefix at every interrupt"
+          ]
+        },
+        "verdict": "PASS"
+      },
+      {
+        "fault": "c9-transfer",
+        "gate": "verify-session-transfer-authority.ts",
+        "runtime": "/var/tmp/omp-s5/mut-c9-transfer",
+        "refactored": {
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: Missing expected rejection: import must refuse an ID whose writer still holds authority"
+          ],
+          "runtime_unchanged": true
+        },
+        "pre_refactor": {
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: Missing expected rejection: import must refuse an ID whose writer still holds authority"
+          ]
+        },
+        "verdict": "PASS"
+      }
+    ],
+    "pre_image_controls_on_clean_18.18.0": {
+      "verify-date-cwd-journal-prefix.ts": {
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      "verify-interrupt-prune-symmetry.ts": {
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      "verify-session-transfer-authority.ts": {
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      }
+    },
+    "summary": {
+      "faults": 3,
+      "both_red": 3,
+      "verdict": "PASS"
+    }
+  },
+  "harness_copy_rule": "run-old-gate.py now also copies worker-pool-for-tests.ts / worker-session-lease-probe.ts / worker-thread-scenario.ts / worker-runtime-probe.ts beside a copied gate; gates that import durability-harness.ts run in place (their relative import resolves beside them)",
+  "lines": {
+    "verify-date-cwd-journal-prefix": {
+      "before": 933,
+      "after": 922
+    },
+    "verify-session-transfer-authority": {
+      "before": 670,
+      "after": 659
+    },
+    "verify-interrupt-prune-symmetry": {
+      "before": 360,
+      "after": 348
+    },
+    "durability-harness": 95,
+    "note": "each boot block became one enterPrivateHome call; the helper is new code shared by four gates"
+  }
+}

@@ -1,11 +1,11 @@
 /** Codex effort history must survive JSONL reload and branch changes. Zero provider calls. */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 // Type-only imports: Bun's transpiler erases them, so running this gate never
 // loads a package. Specifiers are public subpaths of the selected package
 // rather than machine paths; the runtime imports below resolve through
 // OMP_PATCH_VERIFY_*_ROOT, so the gate follows whichever tree it is pointed at.
+import { resolvePlan } from "./version-registry.ts";
 import type { OpenAICodexResponsesOptions } from "@oh-my-pi/pi-ai/src/providers/openai-codex-responses.ts";
 import type {
 	InputItem,
@@ -22,12 +22,8 @@ import type {
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
-// Admit only plans that retain durable effort history; unknown trees fail closed.
-const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version as string;
-assert.ok(
-	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion),
-	`unsupported Codex effort resume gate version: ${aiVersion}`,
-);
+// Every registered plan retains durable effort history; unknown trees fail closed.
+const plan = resolvePlan({ gate: "verify-codex-effort-resume", roots: [AI_ROOT] });
 const { streamOpenAICodexResponses, buildTransformedCodexRequestBody } = await import(
 	`${AI_ROOT}/src/providers/openai-codex-responses.ts`
 );
@@ -35,7 +31,7 @@ const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const bundled = getBundledModel("openai-codex", "gpt-6-astra");
 assert.ok(bundled?.compat.supportsConfigurationUpdate, "fixture needs a configuration_update model");
 const model = { ...bundled, baseUrl: "http://127.0.0.1:1/codex-effort-gate" };
-const initialEffort = ["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? "low" : "high";
+const initialEffort = "low";
 const originalFetch = globalThis.fetch;
 let uninjectedFetches = 0;
 globalThis.fetch = (async () => {
@@ -139,10 +135,8 @@ try {
 	const first = [user("first")];
 	const a = await turn(first, initialEffort);
 	assert.equal(wire.reasoning.effort, initialEffort);
-	if (["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
-		assert.ok(a.providerPayload?.type === "openaiResponsesHistory");
-		assert.equal(a.providerPayload.effortControl?.sessionId, "effort-resume-fixture", "the target planner must persist its required session identity");
-	}
+	assert.ok(a.providerPayload?.type === "openaiResponsesHistory");
+	assert.equal(a.providerPayload.effortControl?.sessionId, "effort-resume-fixture", "the target planner must persist its required session identity");
 	const branchA = [...first, a, user("second")];
 	const b = await turn(branchA, "xhigh");
 	assert.equal(wire.reasoning.effort, initialEffort, "effort switch must keep the original top-level baseline");
@@ -250,7 +244,7 @@ try {
 	assert.deepEqual(updates(plain), [], "unsupported models must not emit configuration_update");
 	assert.equal(uninjectedFetches, 0, "every effort request must use the explicit offline sink");
 	console.log(
-		"PASS Codex effort: transport persistence, JSONL resume, branch isolation, immutable history, rewrite/compaction reset, legacy/provider/model boundaries",
+		`PASS Codex effort (${plan.version}): transport persistence, JSONL resume, branch isolation, immutable history, rewrite/compaction reset, legacy/provider/model boundaries`,
 	);
 } finally {
 	globalThis.fetch = originalFetch;

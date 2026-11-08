@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
-const tuiVersion = JSON.parse(readFileSync(join(TUI_ROOT, "package.json"), "utf8")).version as string;
+const plan = resolvePlan({ gate: "verify-kitty-shared-png-cache", roots: [TUI_ROOT] });
 const { ensurePng, completedPng, imageFingerprint, pngFailureReason } = await import(`${TUI_ROOT}/src/chat/image-loading.ts`);
 const { ToolExecutionComponent, stopSharedSpinnerTicker } = await import(`${TUI_ROOT}/src/chat/tool-execution.ts`);
 const { Container } = await import(`${TUI_ROOT}/src/tui.ts`);
@@ -426,23 +426,24 @@ try {
 		try {
 			dying.updateResult({ content: [dyingImage] });
 			dying.render(80);
-			assert.equal(dying.isTranscriptBlockPending(), true, "an in-flight conversion must hold the retirement barrier");
 			dying.dispose();
 			dying.dispose();
-			// 18.18.0 added the shell-replay teardown above the old idempotence
-			// check, so the generic teardown must run on every call; 18.16.0 owns
-			// the idempotent early return instead.
+			// The shell-replay teardown sits above the old idempotence check from
+			// 18.18.0 on, so the generic teardown must run on every call there.
 			assert.equal(
 				teardowns,
-				tuiVersion === "18.18.0" ? 2 : 1,
-				tuiVersion === "18.18.0"
+				plan.since("18.18.0") ? 2 : 1,
+				plan.since("18.18.0")
 					? "dispose must not early-return: the generic teardown runs on every call"
-					: `${tuiVersion} dispose keeps its idempotent early return`,
+					: `${plan.version} dispose keeps its idempotent early return`,
 			);
 			assert.equal(countGraphics(dying.render(80)), 0, "a teardown-time result cannot paint a disposed block");
 			await ensurePng(dyingImage);
 			await Bun.sleep(50);
-			assert.equal(dying.isTranscriptBlockPending(), false, "a disposed block releases its conversion barrier");
+			// The retirement-barrier halves of this fixture (held while in flight,
+			// released after settle) are 0079's contract and live in
+			// verify-kitty-conversion-finalization.ts; 0080 owns the cache slot,
+			// the teardown and the late-paint checks kept here.
 			assert.equal(countGraphics(dying.render(80)), 0, "a late conversion callback cannot paint a disposed block");
 		} finally {
 			Container.prototype.dispose = originalDispose;

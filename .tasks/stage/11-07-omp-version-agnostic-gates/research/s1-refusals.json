@@ -1,0 +1,48 @@
+{
+  "step": "S1 retired/unregistered versions refused by apply.sh (one place: versions.json)",
+  "refusals": {
+    "18.12.6": {
+      "exit": 2,
+      "stdout_empty": true,
+      "stderr": "OMP_PATCH_VERSION: 18.12.6 is retired (older than the oldest supported release); supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json); retired plans live under patches/.retired/"
+    },
+    "18.4.4": {
+      "exit": 2,
+      "stdout_empty": true,
+      "stderr": "OMP_PATCH_VERSION: 18.4.4 is retired (older than the oldest supported release); supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json); retired plans live under patches/.retired/"
+    },
+    "18.10.1": {
+      "exit": 2,
+      "stdout_empty": true,
+      "stderr": "OMP_PATCH_VERSION: 18.10.1 is retired (older than the oldest supported release); supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json); retired plans live under patches/.retired/"
+    },
+    "18.19.0 unregistered": {
+      "exit": 2,
+      "stdout_empty": true,
+      "stderr": "OMP_PATCH_VERSION: 18.19.0 is not registered; supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json); a new release is added there and its .<version>-families/ directory created, retiring the oldest in the same change"
+    },
+    "garbage": {
+      "exit": 2,
+      "stdout_empty": true,
+      "stderr": "OMP_PATCH_VERSION: 'abc' is not a N.N.N version; supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json)"
+    },
+    "empty": {
+      "exit": 2,
+      "stdout_empty": true,
+      "stderr": "OMP_PATCH_VERSION: '<empty>' is not a N.N.N version; supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json)"
+    },
+    "unset, nothing installed": {
+      "exit": 2,
+      "stderr": "installed pi-coding-agent (set OMP_PATCH_VERSION explicitly to select a plan): '<empty>' is not a N.N.N version; supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json)"
+    },
+    "rollups --version 18.12.6": {
+      "exit": 2,
+      "stderr": "--version: 18.12.6 is retired (older than the oldest supported release); supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json); retired plans live under patches/.retired/"
+    },
+    "OMP_PATCH_PLAN=repository (18.18.0)": {
+      "exit": 2,
+      "stderr": "0097 repository overlay is not migrated for 18.18.0; use deployed"
+    }
+  },
+  "status": "PASS"
+}

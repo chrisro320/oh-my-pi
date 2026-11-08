@@ -1,0 +1,63 @@
+{
+  "sigterm_during_tree_copy": {
+    "control_without_signal": {
+      "exit": 0,
+      "status": "PASS"
+    },
+    "exit": 1,
+    "status": "FAIL",
+    "interrupted": true,
+    "gate_status": "NOT_RUN",
+    "detail": "runner interrupted while this gate was being prepared",
+    "log_says_not_started": true,
+    "stderr": "FAILED: verify-zz-writer-tree.ts [NOT_RUN]\nFAILED: interrupted by SIGINT/SIGTERM; gates that had not finished are NOT_RUN",
+    "ok": true
+  },
+  "sigint_hung_gate": {
+    "seconds_to_exit_after_sigint": 3.5,
+    "exit": 1,
+    "status": "FAIL",
+    "interrupted": true,
+    "tally": {
+      "NOT_RUN": 5
+    },
+    "hang_gate": "NOT_RUN",
+    "queued_gates_with_a_log": [],
+    "leftover_processes": null,
+    "stderr": "FAILED: verify-zz-hang.ts [NOT_RUN], verify-zz-par-0.ts [NOT_RUN], verify-zz-par-1.ts [NOT_RUN], verify-zz-par-2.ts [NOT_RUN], verify-zz-par-3.ts [NOT_RUN]\nFAILED: interrupted by SIGINT/SIGTERM; gates that had not finished are NOT_RUN",
+    "ok": true
+  },
+  "empty_selectors": {
+    "--gates \"\"": {
+      "exit": 2,
+      "stderr": "run-gates: --gates was given an empty list; an empty selector never means the full menu (omit every selector to run the full menu)",
+      "out_dir_created": false,
+      "ok": true
+    },
+    "--capabilities \"\"": {
+      "exit": 2,
+      "stderr": "run-gates: --capabilities was given an empty list; an empty selector never means the full menu (omit every selector to run the full menu)",
+      "out_dir_created": false,
+      "ok": true
+    },
+    "--families \",\"": {
+      "exit": 2,
+      "stderr": "run-gates: --families was given an empty list; an empty selector never means the full menu (omit every selector to run the full menu)",
+      "out_dir_created": false,
+      "ok": true
+    },
+    "empty shell variable": {
+      "exit": 2,
+      "stderr": "run-gates: --gates was given an empty list; an empty selector never means the full menu (omit every selector to run the full menu)",
+      "out_dir_created": false,
+      "ok": true
+    },
+    "ok": true
+  },
+  "source_runtime_digest": {
+    "before": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "after": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "unchanged": true
+  },
+  "all_ok": true
+}

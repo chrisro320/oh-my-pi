@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
+import { enterPrivateHome } from "./durability-harness.ts";
 
 // Attribute: an interrupted (aborted/error) assistant turn must produce the same
 // wire history on both request paths.
@@ -20,28 +22,13 @@ import { join } from "node:path";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
-const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion),
-	`unsupported interrupted-turn gate version: ${agentVersion}`);
-const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
-const privateHome = mkdtempSync(join(tmpdir(), "omp-prune-home-"));
-for (const key of Object.keys(process.env)) {
-	if (key !== "PATH" && key !== "TMPDIR") delete process.env[key];
-}
-Object.assign(process.env, {
-	HOME: privateHome, XDG_CONFIG_HOME: join(privateHome, "config"), XDG_CACHE_HOME: join(privateHome, "cache"),
-	XDG_DATA_HOME: join(privateHome, "data"), XDG_STATE_HOME: join(privateHome, "state"),
-});
-process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
+const plan = resolvePlan({ gate: "verify-interrupt-prune-symmetry", roots: [AGENT_ROOT] });
 // Private HOME must also precede runtime startup (os.homedir may be cached).
-if (!privateProcess) {
-	const child = Bun.spawnSync([process.execPath, import.meta.path, ...process.argv.slice(2)], {
-		env: { ...process.env, OMP_DURABILITY_BOOT: "1", OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
-	});
-	process.stdout.write(child.stdout);
-	process.stderr.write(child.stderr);
-	process.exit(child.exitCode);
-}
+const privateHome = enterPrivateHome({
+	entry: import.meta.path,
+	prefix: "omp-prune-home-",
+	reExecEnv: { OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
+});
 globalThis.fetch = (() => { throw new Error("Network forbidden in interrupted-turn gate"); }) as typeof fetch;
 
 // Runtime-selected specifier: the module tree under test is an isolated sandbox
@@ -143,186 +130,179 @@ for (const stopReason of ["aborted", "error"] as const) {
 	console.log(`  ${stopReason}: live == rebuilt, ${rebuilt.length} wire messages, no remnant`);
 }
 
-if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) {
-	for (const stopReason of ["aborted", "error"] as const) {
-		for (const pairedResult of [false, true]) {
-			const interrupted = abortedEntry("a1", "u1", stopReason);
-			const message = interrupted.message as Record<string, unknown>;
-			const controls = { tools: { declared: ["read"], deferred: [], active: ["read"] }, messageIndex: 1 };
-			message.requestControls = controls;
-			(message.content as unknown[]).push({ type: "toolCall", id: "c1", name: "read", arguments: { path: "/fixture" } });
-			const entries = [userEntry("u1", null, "first ask"), interrupted];
-			if (pairedResult) entries.push({
-				type: "message", id: "t1", parentId: "a1", timestamp: TS,
-				message: { role: "toolResult", toolCallId: "c1", toolName: "read", content: [{ type: "text", text: "cancelled" }], isError: true, timestamp: TS },
-			});
-			entries.push(userEntry("u2", pairedResult ? "t1" : "a1", "second ask"));
-			const rebuilt = rebuildWire(entries, "u2") as Record<string, unknown>[];
-			assert.deepEqual(liveWire(entries, "u2", 1), rebuilt, "control carriers must replay identically");
-			assert.deepEqual(rebuilt.map(message => message.role), ["user", "assistant", "user"]);
-			assert.deepEqual(rebuilt[1].content, [], "interrupted payload must not survive with the controls");
-			assert.deepEqual(rebuilt[1].requestControls, controls, "tool removal controls must survive resume");
-		}
+for (const stopReason of ["aborted", "error"] as const) {
+	for (const pairedResult of [false, true]) {
+		const interrupted = abortedEntry("a1", "u1", stopReason);
+		const message = interrupted.message as Record<string, unknown>;
+		const controls = { tools: { declared: ["read"], deferred: [], active: ["read"] }, messageIndex: 1 };
+		message.requestControls = controls;
+		(message.content as unknown[]).push({ type: "toolCall", id: "c1", name: "read", arguments: { path: "/fixture" } });
+		const entries = [userEntry("u1", null, "first ask"), interrupted];
+		if (pairedResult) entries.push({
+			type: "message", id: "t1", parentId: "a1", timestamp: TS,
+			message: { role: "toolResult", toolCallId: "c1", toolName: "read", content: [{ type: "text", text: "cancelled" }], isError: true, timestamp: TS },
+		});
+		entries.push(userEntry("u2", pairedResult ? "t1" : "a1", "second ask"));
+		const rebuilt = rebuildWire(entries, "u2") as Record<string, unknown>[];
+		assert.deepEqual(liveWire(entries, "u2", 1), rebuilt, "control carriers must replay identically");
+		assert.deepEqual(rebuilt.map(message => message.role), ["user", "assistant", "user"]);
+		assert.deepEqual(rebuilt[1].content, [], "interrupted payload must not survive with the controls");
+		assert.deepEqual(rebuilt[1].requestControls, controls, "tool removal controls must survive resume");
 	}
 }
 
-// ── `/context` viewer (18.16.0) ──────────────────────────────────────────
-// 18.16.0 adds an indexed viewer converter (`convertMessagesForContextView`)
-// next to the send path's `convertToLlm`. It must render exactly the history the
-// request carries: the aborted turn and the synthetic result paired with its
-// call are both gone, and the surviving entries still point at their own source
-// messages (the viewer resolves `sourceMessages[sourceIndex]` per entry).
-if (["18.16.0", "18.18.0"].includes(agentVersion)) {
-	const interrupted = abortedEntry("a1", "u1", "aborted");
-	(interrupted.message as Record<string, unknown>).content = [
-		{ type: "text", text: "partial answer the user cut off" },
-		{ type: "toolCall", id: "c1", name: "read", arguments: { path: "/fixture" } },
-	];
-	const entries = [
-		userEntry("u1", null, "first ask"),
-		interrupted,
-		{
-			type: "message",
-			id: "t1",
-			parentId: "a1",
+// ── `/context` viewer ────────────────────────────────────────────────────
+// Every registered plan ships the indexed viewer converter
+// (`convertMessagesForContextView`) next to the send path's `convertToLlm`. It
+// must render exactly the history the request carries: the aborted turn and the
+// synthetic result paired with its call are both gone, and the surviving entries
+// still point at their own source messages (the viewer resolves
+// `sourceMessages[sourceIndex]` per entry).
+const interruptedView = abortedEntry("a1", "u1", "aborted");
+(interruptedView.message as Record<string, unknown>).content = [
+	{ type: "text", text: "partial answer the user cut off" },
+	{ type: "toolCall", id: "c1", name: "read", arguments: { path: "/fixture" } },
+];
+const viewEntries = [
+	userEntry("u1", null, "first ask"),
+	interruptedView,
+	{
+		type: "message",
+		id: "t1",
+		parentId: "a1",
+		timestamp: TS,
+		message: {
+			role: "toolResult",
+			toolCallId: "c1",
+			toolName: "read",
+			content: [{ type: "text", text: "cancelled" }],
+			isError: true,
 			timestamp: TS,
-			message: {
-				role: "toolResult",
-				toolCallId: "c1",
-				toolName: "read",
-				content: [{ type: "text", text: "cancelled" }],
-				isError: true,
-				timestamp: TS,
-			},
 		},
-		userEntry("u2", "t1", "second ask"),
-	];
-	const accumulated = buildSessionContext(entries, "u2", undefined, { transcript: true }).messages as unknown[];
-	const wire = convertToLlm(accumulated as never) as unknown[];
-	const view = convertMessagesForContextView(accumulated as never);
-	assert.deepEqual(
-		view.map(entry => entry.message),
-		wire,
-		"the /context viewer must not show the tool result of a pruned turn; it would bill output the request never carries",
-	);
-	assert.deepEqual(
-		view.map(entry => entry.sourceIndex),
-		[0, 3],
-		"the /context viewer must keep mapping each entry to the surviving source message",
-	);
-	console.log("  /context drops the paired tool result and keeps its source indices");
-}
+	},
+	userEntry("u2", "t1", "second ask"),
+];
+const accumulatedView = buildSessionContext(viewEntries, "u2", undefined, { transcript: true }).messages as unknown[];
+const viewWire = convertToLlm(accumulatedView as never) as unknown[];
+const view = convertMessagesForContextView(accumulatedView as never);
+assert.deepEqual(
+	view.map(entry => entry.message),
+	viewWire,
+	"the /context viewer must not show the tool result of a pruned turn; it would bill output the request never carries",
+);
+assert.deepEqual(
+	view.map(entry => entry.sourceIndex),
+	[0, 3],
+	"the /context viewer must keep mapping each entry to the surviving source message",
+);
+console.log("  /context drops the paired tool result and keeps its source indices");
 
-// ── Committed-text stall continuation (18.4.1 only) ──────────────────────
+// ── Committed-text stall continuation ───────────────────────────────────
 // A transport stall that kills a turn after its text rendered keeps the turn and
 // appends a continuation reminder: the text was already shown to the user, and
 // the model is asked to continue it. The reminder is the durable record of that
 // decision (patch 0077 writes it to the session file), so both paths must retain
 // the partial text and render the same bytes. The reminder's own text is read
-// from the real prompt asset inside this branch. Version-scoped: 18.3.3 has no
-// `handleCommittedTextStreamStall`, so an 18.3.3 tree keeps the assertions above.
-if (["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) {
-	// The committed-text stall continuation appends this exact template, rendered by
-	// `TurnRecovery.handleCommittedTextStreamStall` and persisted with it (patch
-	// 0077). Read the real asset so the fixture is the durable shape, not a copy.
-	// The asset only exists on 18.4.1, so it is loaded inside this branch.
-	const STREAM_STALL_REMINDER_TEXT = await Bun.file(
-		`${AGENT_ROOT}/src/prompts/system/stream-stall-continue.md`,
-	).text();
-	const stallReminderEntry = (id: string, parentId: string | null): Entry => ({
-		type: "message",
-		id,
-		parentId,
+// from the real prompt asset the tree under test ships.
+// The committed-text stall continuation appends this exact template, rendered by
+// `TurnRecovery.handleCommittedTextStreamStall` and persisted with it (patch
+// 0077). Read the real asset so the fixture is the durable shape, not a copy.
+const STREAM_STALL_REMINDER_TEXT = await Bun.file(
+	`${AGENT_ROOT}/src/prompts/system/stream-stall-continue.md`,
+).text();
+const stallReminderEntry = (id: string, parentId: string | null): Entry => ({
+	type: "message",
+	id,
+	parentId,
+	timestamp: TS,
+	message: {
+		role: "developer",
+		content: [{ type: "text", text: STREAM_STALL_REMINDER_TEXT }],
+		attribution: "agent",
 		timestamp: TS,
-		message: {
-			role: "developer",
-			content: [{ type: "text", text: STREAM_STALL_REMINDER_TEXT }],
-			attribution: "agent",
-			timestamp: TS,
-		},
-	});
-	const stalledEntry = (id: string, parentId: string | null): Entry => ({
-		type: "message",
-		id,
-		parentId,
+	},
+});
+const stalledEntry = (id: string, parentId: string | null): Entry => ({
+	type: "message",
+	id,
+	parentId,
+	timestamp: TS,
+	message: {
+		role: "assistant",
+		content: [{ type: "text", text: "half a sentence the user already saw" }],
+		stopReason: "error",
+		errorMessage: "Anthropic stream stalled while waiting for the next event",
+		model: "deepseek/deepseek-v4-flash-vision-exp",
 		timestamp: TS,
-		message: {
-			role: "assistant",
-			content: [{ type: "text", text: "half a sentence the user already saw" }],
-			stopReason: "error",
-			errorMessage: "Anthropic stream stalled while waiting for the next event",
-			model: "deepseek/deepseek-v4-flash-vision-exp",
-			timestamp: TS,
-		},
-	});
+	},
+});
 
-	const stallEntries = [userEntry("u1", null, "first ask"), stalledEntry("a1", "u1"), stallReminderEntry("d1", "a1")];
-	const stallRebuilt = rebuildWire(stallEntries, "d1") as Record<string, unknown>[];
-	const stallLiveState = buildSessionContext(stallEntries, "d1", undefined, { transcript: true }).messages as unknown[];
-	assert.equal(stallLiveState.length, 3, "the live agent accumulates user + kept partial assistant + reminder");
-	assert.deepEqual(
-		liveStateWire(stallEntries, "d1"),
-		stallRebuilt,
-		"a kept stall continuation must replay identically on both paths",
-	);
-	assert.deepEqual(stallRebuilt.map(message => message.role), ["user", "assistant", "developer"]);
-	assert.ok(
-		JSON.stringify(stallRebuilt[1]).includes("half a sentence the user already saw"),
-		"the committed partial text must reach the wire on both paths; the model is told to continue it",
-	);
-	assert.ok(
-		JSON.stringify(stallRebuilt[2]).includes("The provider connection dropped mid-response"),
-		"the stall continuation reminder must reach the wire",
-	);
-	console.log("  committed-text stall: partial text retained, live == rebuilt");
+const stallEntries = [userEntry("u1", null, "first ask"), stalledEntry("a1", "u1"), stallReminderEntry("d1", "a1")];
+const stallRebuilt = rebuildWire(stallEntries, "d1") as Record<string, unknown>[];
+const stallLiveState = buildSessionContext(stallEntries, "d1", undefined, { transcript: true }).messages as unknown[];
+assert.equal(stallLiveState.length, 3, "the live agent accumulates user + kept partial assistant + reminder");
+assert.deepEqual(
+	liveStateWire(stallEntries, "d1"),
+	stallRebuilt,
+	"a kept stall continuation must replay identically on both paths",
+);
+assert.deepEqual(stallRebuilt.map(message => message.role), ["user", "assistant", "developer"]);
+assert.ok(
+	JSON.stringify(stallRebuilt[1]).includes("half a sentence the user already saw"),
+	"the committed partial text must reach the wire on both paths; the model is told to continue it",
+);
+assert.ok(
+	JSON.stringify(stallRebuilt[2]).includes("The provider connection dropped mid-response"),
+	"the stall continuation reminder must reach the wire",
+);
+console.log("  committed-text stall: partial text retained, live == rebuilt");
 
-	// A kept stall turn can also carry Anthropic request controls (a provider that
-	// supports mid-conversation tool changes records them on the turn). The
-	// committed text AND the controls must both survive: the control-carrier branch
-	// must not empty the content ahead of the continuation branch.
-	const stallControls = { tools: { declared: ["read"], deferred: [], active: ["read"] }, messageIndex: 1 };
-	const controlledStall = stalledEntry("a1", "u1") as Record<string, unknown>;
-	(controlledStall.message as Record<string, unknown>).requestControls = stallControls;
-	const controlledEntries = [userEntry("u1", null, "first ask"), controlledStall, stallReminderEntry("d1", "a1")];
-	const controlledRebuilt = rebuildWire(controlledEntries, "d1") as Record<string, unknown>[];
-	assert.deepEqual(
-		liveStateWire(controlledEntries, "d1"),
-		controlledRebuilt,
-		"a continued stall with recorded controls must replay identically on both paths",
-	);
-	assert.deepEqual(controlledRebuilt.map(message => message.role), ["user", "assistant", "developer"]);
-	assert.ok(
-		JSON.stringify(controlledRebuilt[1].content).includes("half a sentence the user already saw"),
-		"the committed text must survive alongside the request controls",
-	);
-	assert.deepEqual(
-		controlledRebuilt[1].requestControls,
-		stallControls,
-		"the recorded tool controls must survive with the text",
-	);
-	console.log("  committed-text stall with requestControls: text and controls both retained");
+// A kept stall turn can also carry Anthropic request controls (a provider that
+// supports mid-conversation tool changes records them on the turn). The
+// committed text AND the controls must both survive: the control-carrier branch
+// must not empty the content ahead of the continuation branch.
+const stallControls = { tools: { declared: ["read"], deferred: [], active: ["read"] }, messageIndex: 1 };
+const controlledStall = stalledEntry("a1", "u1") as Record<string, unknown>;
+(controlledStall.message as Record<string, unknown>).requestControls = stallControls;
+const controlledEntries = [userEntry("u1", null, "first ask"), controlledStall, stallReminderEntry("d1", "a1")];
+const controlledRebuilt = rebuildWire(controlledEntries, "d1") as Record<string, unknown>[];
+assert.deepEqual(
+	liveStateWire(controlledEntries, "d1"),
+	controlledRebuilt,
+	"a continued stall with recorded controls must replay identically on both paths",
+);
+assert.deepEqual(controlledRebuilt.map(message => message.role), ["user", "assistant", "developer"]);
+assert.ok(
+	JSON.stringify(controlledRebuilt[1].content).includes("half a sentence the user already saw"),
+	"the committed text must survive alongside the request controls",
+);
+assert.deepEqual(
+	controlledRebuilt[1].requestControls,
+	stallControls,
+	"the recorded tool controls must survive with the text",
+);
+console.log("  committed-text stall with requestControls: text and controls both retained");
 
-	// The exact same assistant WITHOUT the continuation reminder stays pruned, and
-	// a plain interrupted carrier still empties: the exception is the recorded
-	// continuation, not committed text or controls in general.
-	const orphanStallEntries = [
-		userEntry("u1", null, "first ask"),
-		stalledEntry("a1", "u1"),
-		userEntry("u2", "a1", "second ask"),
-	];
-	const orphanRebuilt = rebuildWire(orphanStallEntries, "u2") as Record<string, unknown>[];
-	assert.deepEqual(
-		liveStateWire(orphanStallEntries, "u2"),
-		orphanRebuilt,
-		"a stall-shaped turn with no continuation reminder must prune on both paths",
-	);
-	assert.deepEqual(
-		orphanRebuilt.map(message => message.role),
-		["user", "user"],
-		"no uncontinued failed turn may reach the wire",
-	);
-	console.log("  uncontinued stall-shaped turn still pruned");
-}
+// The exact same assistant WITHOUT the continuation reminder stays pruned, and
+// a plain interrupted carrier still empties: the exception is the recorded
+// continuation, not committed text or controls in general.
+const orphanStallEntries = [
+	userEntry("u1", null, "first ask"),
+	stalledEntry("a1", "u1"),
+	userEntry("u2", "a1", "second ask"),
+];
+const orphanRebuilt = rebuildWire(orphanStallEntries, "u2") as Record<string, unknown>[];
+assert.deepEqual(
+	liveStateWire(orphanStallEntries, "u2"),
+	orphanRebuilt,
+	"a stall-shaped turn with no continuation reminder must prune on both paths",
+);
+assert.deepEqual(
+	orphanRebuilt.map(message => message.role),
+	["user", "user"],
+	"no uncontinued failed turn may reach the wire",
+);
+console.log("  uncontinued stall-shaped turn still pruned");
 
 // A remnant with no marker after it (marker is only minted for user interrupts
 // with enough reasoning) must be pruned on the live path too.

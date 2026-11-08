@@ -96,6 +96,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, sep } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 // ---------------------------------------------------------------------------
 // Roots and version pin (no package import happens before these checks).
@@ -105,14 +106,11 @@ const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-a
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const GATE = "verify-anthropic-threads-cache-shape";
-// Message threads land in 18.17.0; this plan's target is 18.18.0. A plan with no
-// arm here fails closed rather than silently skipping the thread assertions.
-const SUPPORTED_PLANS = ["18.18.0"];
-const selectedPlan = process.env.OMP_PATCH_VERSION;
-assert.ok(
-	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
-	`unsupported OMP_PATCH_VERSION for ${GATE}: ${selectedPlan} (supported: ${SUPPORTED_PLANS.join(", ")})`,
-);
+// Message threads land in 18.17.0; this plan's target is the newest release. A
+// plan with no arm here fails closed rather than silently skipping the thread
+// assertions.
+const plan = resolvePlan({ gate: GATE, roots: [AI_ROOT] });
+assert.ok(plan.since("18.18.0"), `${GATE}: this thread fixture starts on the newest release; tree is ${plan.version}`);
 for (const [name, root] of [
 	["OMP_PATCH_VERIFY_AI_ROOT", AI_ROOT],
 	["OMP_PATCH_VERIFY_AGENT_ROOT", AGENT_ROOT],
@@ -123,11 +121,6 @@ for (const [name, root] of [
 const AI = realpathSync(AI_ROOT);
 const AGENT = realpathSync(AGENT_ROOT);
 const CATALOG = realpathSync(CATALOG_ROOT);
-const aiVersion = (JSON.parse(readFileSync(join(AI, "package.json"), "utf8")) as { version?: string }).version ?? "";
-assert.ok(
-	SUPPORTED_PLANS.includes(aiVersion),
-	`${GATE}: unsupported pi-ai tree version ${aiVersion} (supported: ${SUPPORTED_PLANS.join(", ")})`,
-);
 // A gate that ran against the operator's live install would test the wrong tree.
 const accountHome = readFileSync("/etc/passwd", "utf8")
 	.split("\n")
@@ -179,7 +172,7 @@ if (!requestedMode) {
 				OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT,
 				OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT,
 				OMP_PATCH_VERIFY_CATALOG_ROOT: CATALOG_ROOT,
-				...selectedPlan ? { OMP_PATCH_VERSION: selectedPlan } : {},
+				OMP_PATCH_VERSION: plan.version,
 				...requestedLegs ? { [LEGS_ENV]: requestedLegs } : {},
 				[MODE_ENV]: mode,
 				[BOOT_ENV]: "1",

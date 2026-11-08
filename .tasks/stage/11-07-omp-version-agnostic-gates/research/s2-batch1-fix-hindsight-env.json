@@ -1,0 +1,102 @@
+{
+ "step": "S2 batch 1 review fixes: resolve the plan before HOME isolation in the two hindsight gates; report corrections",
+ "files_changed": {
+  "patches/verify-hindsight-recall-snapshot.ts": {
+   "resolvePlan": "before the env-sanitize loop (line ~16)",
+   "child_env": "OMP_PATCH_VERSION: plan.version",
+   "sha256": "39365d0ea5b5c4a5e5d8a7e75674335f0de22df62606097d2fa820f1fe70e8d4"
+  },
+  "patches/verify-hindsight-recall-promotion-slot.ts": {
+   "resolvePlan": "before the env-sanitize loop (line ~33)",
+   "child_env": "OMP_PATCH_VERSION: plan.version",
+   "sha256": "9b6a56d949f2f2ffe46f7f617884b8dc210c8655932326c4618add6e5bed0f5d"
+  }
+ },
+ "controls": {
+  "verify-hindsight-recall-snapshot.ts": {
+   "pass_18.18.0": {
+    "exit": 0,
+    "error": null,
+    "tail": [
+     "  ok actual /clear publishes its boundary before target snapshot lookup",
+     "PASS hindsight recall snapshot: empty recalls frozen, resume prefix stable"
+    ]
+   },
+   "unregistered_label": {
+    "exit": 1,
+    "error": "verify-hindsight-recall-snapshot: OMP_PATCH_VERSION: 18.19.0 is not registered; supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json); add it there and create its .<version>-families/ directory, retiring the oldest in the same change",
+    "tail": [
+     "",
+     "Bun v1.4.4 (Linux x64)"
+    ]
+   },
+   "env_ne_runtime": {
+    "exit": 1,
+    "error": "verify-hindsight-recall-snapshot: /var/tmp/omp-vagn-s2/run/rt/node_modules/@oh-my-pi/pi-coding-agent/package.json is 18.18.0 but the selected plan is 18.16.0",
+    "tail": [
+     "",
+     "Bun v1.4.4 (Linux x64)"
+    ]
+   },
+   "pass_18.16.0": {
+    "exit": 0,
+    "error": null,
+    "tail": [
+     "  ok actual /clear publishes its boundary before target snapshot lookup",
+     "PASS hindsight recall snapshot: empty recalls frozen, resume prefix stable"
+    ]
+   }
+  },
+  "verify-hindsight-recall-promotion-slot.ts": {
+   "pass_18.18.0": {
+    "exit": 0,
+    "error": null,
+    "tail": [
+     "verify-hindsight-recall-promotion-slot: ok"
+    ]
+   },
+   "unregistered_label": {
+    "exit": 1,
+    "error": "verify-hindsight-recall-promotion-slot: OMP_PATCH_VERSION: 18.19.0 is not registered; supported: 18.16.0, 18.18.0 (registry: /home/chris/orca/projects/omp-move/patches/versions.json); add it there and create its .<version>-families/ directory, retiring the oldest in the same change",
+    "tail": [
+     "",
+     "Bun v1.4.4 (Linux x64)"
+    ]
+   },
+   "env_ne_runtime": {
+    "exit": 1,
+    "error": "verify-hindsight-recall-promotion-slot: /var/tmp/omp-vagn-s2/run/rt/node_modules/@oh-my-pi/pi-coding-agent/package.json is 18.18.0 but the selected plan is 18.16.0",
+    "tail": [
+     "",
+     "Bun v1.4.4 (Linux x64)"
+    ]
+   },
+   "pass_18.16.0": {
+    "exit": 0,
+    "error": null,
+    "tail": [
+     "verify-hindsight-recall-promotion-slot: ok"
+    ]
+   }
+  }
+ },
+ "literal_check": {
+  "exit": 0,
+  "output": [
+   "TOTAL 0 version literals in 0 files (scanned 2; allowed: 7 in comments, 0 as since() boundaries)"
+  ]
+ },
+ "menus_byte_identical": {
+  "18.16.0 --print-gates": true,
+  "18.16.0 --print-capabilities": true,
+  "18.18.0 --print-gates": true,
+  "18.18.0 --print-capabilities": true
+ },
+ "report_fixes": [
+  "s2-batch1.md:42 label-dependent condition noted",
+  "s2-batch1.md:47 12 ternaries",
+  "s2-batch1.md:104 and Notes: cron env-unset path documented as an intentional difference (kept per Main)"
+ ],
+ "date": "2026-11-07",
+ "status": "PASS"
+}

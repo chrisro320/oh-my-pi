@@ -6,19 +6,18 @@
 // Real streamAnthropic runs against an offline SSE sink. A fresh provider-state
 // map plus JSON-roundtripped history models the state absent after restart.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { gunzipSync } from "node:zlib";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 
-const version = String(
-	(JSON.parse(readFileSync(`${AI}/package.json`, "utf8")) as { version?: string }).version ?? "",
-);
-assert.ok(["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(version), `unsupported thinking-drop resume gate version: ${version}`);
-const serverManagedDrops = ["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(version);
+const versionPlan = resolvePlan({ gate: "verify-anthropic-thinking-drop-resume", roots: [AI] });
+// Server-managed drops arrived in 18.10.0, older than every registered release,
+// so the whole supported range takes that arm.
+const serverManagedDrops = true;
 
 // Static imports cannot work here: the tree under test is selected at runtime by
 // env (pristine / patched / fault), so the module specifiers are data, not
@@ -429,7 +428,7 @@ assert.ok(hasThinking(wire.at(-1)!, SIG_A), "unknown endpoint cannot restore a s
 assert.equal(replayRecord(opaqueResponse), undefined, "unknown endpoint cannot persist an invented scope");
 plan = () => [];
 
-if (version === "18.18.0") {
+if (versionPlan.since("18.17.0")) {
 	const savedSwitch = process.env.PI_ANTHROPIC_MESSAGE_THREADS;
 	process.env.PI_ANTHROPIC_MESSAGE_THREADS = "1";
 	try {
@@ -467,5 +466,5 @@ for (const [index, body] of wire.entries()) {
 }
 
 console.log(
-	`PASS anthropic thinking-drop resume (${version}): ${wire.length} offline requests; legacy omissions, repeated resume, endpoint/model isolation, new blocks kept, durable 400 repair, invalid/malformed reports ignored${serverManagedDrops ? ", server reports remain on wire" : ""}`,
+	`PASS anthropic thinking-drop resume (${versionPlan.version}): ${wire.length} offline requests; legacy omissions, repeated resume, endpoint/model isolation, new blocks kept, durable 400 repair, invalid/malformed reports ignored${serverManagedDrops ? ", server reports remain on wire" : ""}`,
 );

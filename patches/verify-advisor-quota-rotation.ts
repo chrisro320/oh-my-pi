@@ -37,9 +37,10 @@
 // assertion could discriminate them.
 
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 interface Usage {
 	input: number;
@@ -83,8 +84,7 @@ if (AGENT_ROOT === LIVE_ROOT || AGENT_ROOT.startsWith(LIVE_ROOT + sep)) {
 	throw new Error("refusing to verify against the live install");
 }
 
-const version: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.ok(["18.16.0", "18.18.0"].includes(version), "this gate pins the 18.16.0/18.18.0 tree; another version fails closed instead of skipping");
+const plan = resolvePlan({ gate: "verify-advisor-quota-rotation", roots: [AGENT_ROOT] });
 
 // HOME must be private before process startup: Bun caches `os.homedir()` and
 // `Settings.isolated` derives its agent dir from it on first use.
@@ -100,6 +100,7 @@ if (process.env.OMP_ADVISOR_ROTATION_CHILD !== "1") {
 				XDG_CACHE_HOME: join(home, "cache"),
 				XDG_DATA_HOME: join(home, "data"),
 				XDG_STATE_HOME: join(home, "state"),
+				OMP_PATCH_VERSION: plan.version,
 				OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT,
 				OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT,
 				OMP_ADVISOR_ROTATION_CHILD: "1",

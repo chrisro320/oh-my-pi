@@ -1,6 +1,6 @@
 # E2E Runbook — 驗證 Codex V2 遠端壓縮命中前綴快取（0063）
 
-> 對象：`patches/0063-omp-codex-v2-compaction-live-chain.patch`（見 `PATCHES.md` §2）
+> 對象：0063（現行表示為 `patches/.18.18.0-families/family-compaction-v18.18.0.patch`；能力列見 `PATCHES.md` §2 的 0063，舊補丁檔與事故細節見 `patches/.retired/11-07-PATCHES-history.md` §0063 與 `.retired/11-07-pre-18.16-plans/`）
 > 目的：滿足 PRD 斷言 —— `/compact` 後 session JSONL 的
 > `preserveData.openaiRemoteCompaction.usage.cachedInputTokens > 0`，命中率 > 80%。
 > 狀態：**已執行 PASS（2026-09-14）**——會話 `01a0a05f`（`gpt-5.6-luna`）：`cachedInputTokens:23040`、`cached/input=95.4%≥80%`，腳本 exit 0。以下步驟保留供未來回歸使用（會呼叫付費 provider，約兩次呼叫、數千 token 量級）。

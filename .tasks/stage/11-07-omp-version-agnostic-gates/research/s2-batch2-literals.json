@@ -1,0 +1,59 @@
+{
+  "gate": "S2 Batch 2 literal check (contract 4)",
+  "command": "python3 patches/verify-no-version-literals.py <35 batch files>",
+  "exit": 0,
+  "scanned": 35,
+  "violations": {},
+  "allowed": {
+    "comment": 77,
+    "since": 13
+  },
+  "notes": [],
+  "registry": [
+    "18.16.0",
+    "18.18.0"
+  ],
+  "files": [
+    "patches/publish-release.py",
+    "patches/run-worker-matrix.py",
+    "patches/verify-advisor-quota-rotation.ts",
+    "patches/verify-anthropic-cache-boundaries.ts",
+    "patches/verify-anthropic-native-compaction-live-context.ts",
+    "patches/verify-anthropic-thinking-drop-resume.ts",
+    "patches/verify-anthropic-threads-cache-shape.ts",
+    "patches/verify-anthropic-threads-warm-compaction-isolation.ts",
+    "patches/verify-cache-warming-idle-budget.ts",
+    "patches/verify-compaction-lane-trace.ts",
+    "patches/verify-compaction-length-stop.ts",
+    "patches/verify-compaction-live-chain-midnight.ts",
+    "patches/verify-computer-control-confirm-deadline.ts",
+    "patches/verify-date-cwd-journal-prefix.ts",
+    "patches/verify-devin-idle-cascade-pin.ts",
+    "patches/verify-extensions-load-18180.ts",
+    "patches/verify-idle-ephemeral-reservation.ts",
+    "patches/verify-kitty-shared-png-cache.ts",
+    "patches/verify-model-mention-surface-resume.ts",
+    "patches/verify-oauth-durable-refresh.ts",
+    "patches/verify-oauth-worker-single-owner.ts",
+    "patches/verify-prefix-cache-compaction.ts",
+    "patches/verify-provider-image-budget.ts",
+    "patches/verify-provider-registry-lazy.ts",
+    "patches/verify-rejected-prepared-draft-restore.ts",
+    "patches/verify-release-family-plan.py",
+    "patches/verify-release-publication.py",
+    "patches/verify-remote-compaction-target-key.ts",
+    "patches/verify-retry-slow-schedule.ts",
+    "patches/verify-session-pin-static-auth-ui.ts",
+    "patches/verify-snapcompact-model-billing.ts",
+    "patches/verify-subagent-warm-revival-prompt.ts",
+    "patches/verify-tool-schema-bytes.ts",
+    "patches/verify-worker-pool-fixture.ts",
+    "patches/worker-matrix.sh"
+  ],
+  "post_repair_recheck": {
+    "command": "python3 patches/verify-no-version-literals.py (whole tree)",
+    "exit": 0,
+    "violations": 0,
+    "notes": []
+  }
+}

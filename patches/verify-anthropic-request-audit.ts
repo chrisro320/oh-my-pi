@@ -3,8 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { gunzipSync } from "node:zlib";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { resolvePlan } from "./version-registry.ts";
 
 const root = mkdtempSync(join(tmpdir(), "omp-anthropic-audit-verify-"));
 process.env.PI_CODING_AGENT_DIR = root;
@@ -15,37 +14,17 @@ const AI = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const AGENT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const CORE = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
-// 18.3.5 moved prompt-cache warming out of the provider stream options into
-// pi-coding-agent's session-level CacheWarmer, so only trees at or above that
-// version can produce a warm replay. The branch keys on the selected pi-ai
-// version and then requires the warmer module, so a 18.4.x tree that lost it
-// fails closed instead of silently skipping the case.
-// Fail closed on a plan this gate has no arm for. 18.16.0 keeps the 18.12.6
-// arms: the 18.10.x-only compaction-control branches below stay off, exactly as
-// they are for 18.12.6, and the warmer decides through the >= 18.3.5 path.
-const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"];
-const selectedPlan = process.env.OMP_PATCH_VERSION;
-assert.ok(
-	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
-	`unsupported OMP_PATCH_VERSION for the anthropic request audit gate: ${selectedPlan} (supported: ${SUPPORTED_PLANS.join(", ")})`,
-);
-const aiPackage: unknown = JSON.parse(readFileSync(join(AI, "package.json"), "utf8"));
-const aiVersion =
-	aiPackage && typeof aiPackage === "object" && "version" in aiPackage && typeof aiPackage.version === "string"
-		? aiPackage.version
-		: "";
-assert.ok(
-	SUPPORTED_PLANS.includes(aiVersion),
-	`unsupported pi-ai tree version for the anthropic request audit gate: ${aiVersion} (supported: ${SUPPORTED_PLANS.join(", ")})`,
-);
-if (aiVersion === "18.18.0") {
+// Fail closed on a version the registry does not list; branch on the pi-ai
+// tree's release (OMP_PATCH_VERSION, when set, must agree with it). Every
+// supported release ships the session-level CacheWarmer (18.3.5 moved prompt-cache
+// warming there), so the warm-replay section below always runs and fails closed
+// if the warmer module is missing.
+const plan = resolvePlan({ gate: "verify-anthropic-request-audit", roots: [AI] });
+if (plan.since("18.18.0")) {
 	// Worker embeddings may preload pi-utils before this fixture sets its HOME.
 	const { refreshDirsFromEnv } = await import(Bun.resolveSync("@oh-my-pi/pi-utils", AI));
 	refreshDirsFromEnv();
 }
-const [aiMajor, aiMinor, aiPatch] = aiVersion.split(".").map(Number);
-const hasSessionCacheWarmer =
-	aiMajor > 18 || (aiMajor === 18 && (aiMinor > 3 || (aiMinor === 3 && aiPatch >= 5)));
 const { streamAnthropic } = await import(`${AI}/src/providers/anthropic.ts`);
 const { createAnthropicRequestAudit } = await import(`${AI}/src/providers/anthropic-request-audit.ts`);
 const { getBundledModel } = await import(`${CATALOG}/src/models.ts`);
@@ -78,22 +57,16 @@ async function send(compact = false, changed = false, side = false) {
 	const result = await streamAnthropic(model, { systemPrompt: "Stable rules", messages: [{ role: "user", content: [{ type: "text", text: "Stable input" }], timestamp: 1 }] }, {
 		apiKey: "sk-ant-oat01-offline-audit-fixture", sessionId: "audit-session", fetch: sink,
 		maxTokens: 16, maxRetries: 0, cacheRetention: "long", initiatorOverride: side ? "agent" : undefined,
-		...(compact && ["18.10.0", "18.10.1"].includes(aiVersion) ? { anthropicCompaction: { instructions: "Summarize this fixture." } } : {}),
 		onPayload(payload: any) {
 			if (changed) payload.messages[0].content[0].text = "Changed input";
 			if (compact) {
-				if (!["18.10.0", "18.10.1"].includes(aiVersion)) {
-					payload.context_management = { edits: [{ type: "compact_20260112", pause_after_compaction: true, trigger: { type: "input_tokens", value: 100000 } }] };
-				}
+				payload.context_management = { edits: [{ type: "compact_20260112", pause_after_compaction: true, trigger: { type: "input_tokens", value: 100000 } }] };
 				payload.messages.push({ role: "assistant", content: [{ type: "text", text: "Tail append" }] });
 			}
 		},
 	}).result();
 	assert.equal(result.stopReason, "stop", result.errorMessage);
 	assert.equal(wire.length, before + 1);
-	if (compact && ["18.10.0", "18.10.1"].includes(aiVersion)) {
-		assert.equal(JSON.parse(wire[before]).compaction?.type, "summarize", "the actual provider builder must emit the native envelope");
-	}
 	const entry = metas().find(entry => readFileSync(join(dir, entry.name.replace(".meta.json", ".body.json")), "utf8") === wire[before]);
 	assert.ok(entry, "archive must match actual final fetch bytes, including OAuth cch and onPayload changes");
 	const events = readFileSync(join(dir, entry.name.replace(".meta.json", ".usage.jsonl")), "utf8").trim().split("\n").map(line => JSON.parse(line));
@@ -141,11 +114,11 @@ try {
 	// exactly that object through streamAnthropic. A genuine one-token turn is
 	// indistinguishable and is classified as a refresh, which is the safe direction:
 	// a refresh can only fail to advance the baseline, never corrupt it.
-	if (hasSessionCacheWarmer) {
+	{ // every supported release ships the session CacheWarmer, so this proof never skips
 		const warmerModule = join(AGENT, "src/session/cache-warmer.ts");
 		assert.ok(
 			existsSync(warmerModule),
-			`pi-ai ${aiVersion} ships the session cache warmer; ${warmerModule} must exist`,
+			`pi-ai ${plan.version} ships the session cache warmer; ${warmerModule} must exist`,
 		);
 		const warmSession = "warm-session";
 		const warmDir = join(root, "payloads", warmSession, "anthropic-wire");
@@ -203,7 +176,7 @@ try {
 			},
 			getPromptTokens: () => 100_000,
 			getMode: () => "idle",
-			decide: async () => ["18.7.0", "18.10.0", "18.10.1", "18.18.0"].includes(aiVersion) ? "warm" : true,
+			decide: async () => plan.since("18.18.0") ? "warm" : true,
 		} as never);
 		warmer.start(
 			{
@@ -226,13 +199,13 @@ try {
 			// 18.18.0 replaced `isCurrent: () => boolean` with
 			// `change: () => PromptCacheChange | undefined`: a non-undefined change
 			// stops warming. `true` would mean "changed" and stop before the replay.
-			aiVersion === "18.18.0" ? () => undefined : () => true,
+			plan.since("18.18.0") ? () => undefined : () => true,
 		);
 		for (let i = 0; i < 600 && !warmOptions; i++) await Bun.sleep(10);
 		assert.ok(warmOptions, "the real warmer must replay through its stream dependency");
 		assert.equal(warmOptions.maxTokens, 1, "the warmer's only override is the one-token cap");
 		assert.equal(warmOptions.sessionId, warmSession, "a warm replay keeps the live session identity");
-		if (aiVersion === "18.18.0") assert.equal(warmOptions.requestPurpose, "side", "the real warmer declares its replay side work, whatever options it was armed with");
+		if (plan.since("18.18.0")) assert.equal(warmOptions.requestPurpose, "side", "the real warmer declares its replay side work, whatever options it was armed with");
 
 		const beforeWarm = wire.length;
 		const warmResult = await streamAnthropic(
@@ -261,12 +234,8 @@ try {
 			secondMain.bodyFile,
 			"an ordinary main request must still replace the baseline",
 		);
-	} else {
-		console.log(
-			`pi-ai ${aiVersion} predates the session cache warmer: legacy stream-level refresh classification unchanged`,
-		);
 	}
-	if (aiVersion === "18.18.0") {
+	if (plan.since("18.18.0")) {
 		// Request compression (gzip, bodies of 1 KiB or more to the official host) must not blind the audit: the archive
 		// holds the uncompressed logical body, byte for byte what the compressor was given, while the wire stays compressed.
 		const compressionSession = "audit-compression-session";
@@ -354,7 +323,7 @@ try {
 		assert.equal((await sendStateless("stateless side", "side")).kind, "side", "an explicit side request is side work even when it sends in full");
 		assert.equal(baselineOf(), statelessSecond.bodyFile, "an explicit side request never replaces the baseline");
 	}
-	if (aiVersion === "18.18.0") {
+	if (plan.since("18.18.0")) {
 		// Producers, through their real entry points. An unmarked request is the session's own main turn (the pre-change
 		// default); every same-session side producer declares itself side. A real standalone `pi-agent-core` Agent turn
 		// through the built-in Anthropic provider establishes the baseline; local summaries, edit auto-repair, a memory job
@@ -526,7 +495,7 @@ try {
 			globalThis.fetch = sink as typeof fetch;
 		}
 	}
-	if (aiVersion === "18.18.0") {
+	if (plan.since("18.18.0")) {
 		// Producers, through the real session: its own agent-loop turn carries no purpose (an unmarked request is main),
 		// and the real side-channel path (an ephemeral turn on the same session) declares itself side. The mock provider
 		// records the options each request reached the provider with.
@@ -570,14 +539,7 @@ try {
 	globalThis.fetch = originalFetch;
 	rmSync(root, { recursive: true, force: true });
 }
-
-if (aiVersion === "18.18.0") {
-	// Shared fixture compares the real logical hook with final fetch deltas and
-	// mutates a continue-origin message, including the redaction/record bound.
-	const child = spawnSync(process.execPath, [fileURLToPath(new URL("./verify-anthropic-threads-cache-shape.ts", import.meta.url))], {
-		env: { ...process.env, OMP_THREADS_SHAPE_LEGS: "audit-history,hooks-vs-wire,record-safety,mutation,disabled" }, encoding: "utf8",
-	});
-	process.stdout.write(child.stdout ?? "");
-	process.stderr.write(child.stderr ?? "");
-	assert.equal(child.status, 0, "0074 complete accepted thread history and bounded final-wire records must pass");
-}
+// The 0074 thread fixture (all eight legs, including these audit-history/
+// hooks-vs-wire/record-safety/mutation/disabled legs) is selected on its own by
+// the controller; running it here again was a second identical 935-line process
+// per batch.

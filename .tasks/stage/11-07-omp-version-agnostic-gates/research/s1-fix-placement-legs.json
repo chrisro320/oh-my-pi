@@ -1,0 +1,1252 @@
+{
+  "runtime": "/tmp/omp-vagn-s1-rt",
+  "rows": [
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-main-cache-hit.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.949,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-main-cache-hit.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-usage-reset-format.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.981,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-usage-reset-format.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-hindsight-recall-snapshot.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.946,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-hindsight-recall-snapshot.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-hindsight-recall-promotion-slot.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.956,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-hindsight-recall-promotion-slot.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-usage-statusline-gate.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.936,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-usage-statusline-gate.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-usage-thread-providers.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.959,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-usage-thread-providers.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-session-transfer-authority.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.953,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-session-transfer-authority.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-date-cwd-journal-prefix.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.977,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-date-cwd-journal-prefix.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-interrupt-prune-symmetry.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.949,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-interrupt-prune-symmetry.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-eval-state-context-persist.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.937,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-eval-state-context-persist.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-turn-recovery-reminder-persist.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.92,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-turn-recovery-reminder-persist.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-model-mention-surface-resume.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.927,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-model-mention-surface-resume.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-length-stop-reminder-persist.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.988,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-length-stop-reminder-persist.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-prompt-effort-resume.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.973,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-prompt-effort-resume.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-model-selection-resume.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.956,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-model-selection-resume.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-auth-cache.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.974,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-auth-cache.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-metadata.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.937,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-metadata.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-thinking-signature.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.972,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-thinking-signature.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-idle-cascade-pin.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.957,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-idle-cascade-pin.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-oauth-durable-refresh.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.937,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-oauth-durable-refresh.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-auth-unlock-extension.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.98,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-auth-unlock-extension.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-codex-account-eligibility-retention.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.959,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-codex-account-eligibility-retention.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-google-account-eligibility-retention.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.966,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-google-account-eligibility-retention.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-oauth-worker-single-owner.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.941,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-oauth-worker-single-owner.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-subagent-warm-revival-prompt.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.977,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-subagent-warm-revival-prompt.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-context-persist-audit.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 1.036,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-context-persist-audit.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-retry-slow-schedule.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.976,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-retry-slow-schedule.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-idle-ephemeral-reservation.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.978,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-idle-ephemeral-reservation.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-session-cache-keepalive.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.971,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-session-cache-keepalive.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-resume-cache-breakpoint.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.956,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-resume-cache-breakpoint.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-prefix-cache-compaction.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.95,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-prefix-cache-compaction.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-codex-compaction-chain.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.974,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-codex-compaction-chain.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-remote-compaction-target-key.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.98,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-remote-compaction-target-key.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-compaction-cache-liveness.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 1.012,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-compaction-cache-liveness.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-native-compaction-live-context.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.985,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-native-compaction-live-context.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-compaction-length-stop.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.964,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-compaction-length-stop.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-manual-compaction-direct.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.942,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-manual-compaction-direct.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-compaction-live-chain-midnight.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.973,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-compaction-live-chain-midnight.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-thinking-drop-resume.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.962,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-thinking-drop-resume.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-request-audit.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.954,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-request-audit.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-cache-boundaries.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.963,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-cache-boundaries.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-threads-cache-shape.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 0.977,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-threads-cache-shape.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/tmp/m6-placement-control-9_cqstcu/patches/worker-matrix.sh",
+        "/tmp/omp-vagn-s1-rt",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-threads-warm-compaction-isolation.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "timeout_limit_seconds": 30,
+      "seconds": 1.012,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 754,
+        "sha256": "0fdd983dad5e25568aa3870d5f601da7ba53c7e4906f55206cb1277af6457601",
+        "tail": "19 | } else {\n20 | \tconst fixture = await workerPoolForTests({ entry: new URL(\"./worker-matrix-entry.ts\", import.meta.url) });\n21 | \ttry {\n22 | \t\tconst placement = await fixture.acquireWorker();\n23 | \t\tconst worker = placement.worker as { threadId: string; link: { call(method: string, request: unknown): Promise<{ code: number; thread: string }> } };\n24 | \t\tassert.ok(worker, \"forced placement must not silently select main\");\n              ^\nAssertionError: forced placement must not silently select main\n generatedMessage: false,\n     actual: undefined,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /tmp/m6-placement-control-9_cqstcu/patches/worker-matrix-runner.ts:24:10\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-threads-warm-compaction-isolation.ts",
+      "mutation": "allow main placement; maxWorkers=0",
+      "rejected": true
+    }
+  ]
+}

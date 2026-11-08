@@ -1,0 +1,57 @@
+{
+  "menu_after_trim": [
+    "verify-oauth-durable-refresh.ts",
+    "verify-extensions-load-18180.ts",
+    "verify-tokenizer-budget-parity.ts"
+  ],
+  "keep": [
+    "verify-tokenizer-budget-parity.ts",
+    "verify-extensions-load-18180.ts",
+    "verify-oauth-durable-refresh.ts"
+  ],
+  "apply_ok": {
+    "exit": 0,
+    "tail": [
+      "runtime /var/tmp/omp-pgates/apply-rt/node_modules version 18.18.0: 25526 entries, sha256 3bf743386b0406f6\u2026",
+      "selected 3 of 3 gates, 3 parallel, timeout 900s each; logs in /var/tmp/omp-gates-q9poemoh/logs",
+      "PASS         1.0s  verify-tokenizer-budget-parity.ts                              ",
+      "PASS         2.3s  verify-extensions-load-18180.ts                                ",
+      "PASS         9.0s  verify-oauth-durable-refresh.ts                                ",
+      "",
+      "3 gates: 3 PASS; wall 9.2s (sum of gate times 12.3s, 3 jobs); runtime digest unchanged",
+      "smoke: skipped by explicit offline replay mode"
+    ],
+    "stderr_tail": [
+      "NOTE: OMP_PATCH_VERSION unset \u2014 routed to installed 18.18.0"
+    ]
+  },
+  "apply_with_mutant_gate": {
+    "exit": 1,
+    "tail": [
+      "=== Running Patches Regression Test Suite ===",
+      "runtime /var/tmp/omp-pgates/apply-rt/node_modules version 18.18.0: 25526 entries, sha256 3bf743386b0406f6\u2026",
+      "selected 3 of 3 gates, 3 parallel, timeout 900s each; logs in /var/tmp/omp-gates-77qgr387/logs",
+      "FAIL         0.8s  verify-tokenizer-budget-parity.ts                              /var/tmp/omp-gates-77qgr387/logs/verify-tokenizer-budget-parity.log",
+      "PASS         2.1s  verify-extensions-load-18180.ts                                ",
+      "PASS         8.5s  verify-oauth-durable-refresh.ts                                ",
+      "",
+      "3 gates: 1 FAIL, 2 PASS; wall 8.7s (sum of gate times 11.4s, 3 jobs); runtime digest unchanged"
+    ],
+    "stderr_tail": [
+      "NOTE: OMP_PATCH_VERSION unset \u2014 routed to installed 18.18.0",
+      "FAILED: verify-tokenizer-budget-parity.ts [FAIL]"
+    ]
+  },
+  "preflight_without_bwrap": {
+    "exit": 2,
+    "stderr": "run-gates: bwrap is not installed (gates must run offline in bwrap --unshare-net)"
+  },
+  "runtime_digest": {
+    "before": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "after_ok": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "after_bad": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "unchanged": true
+  },
+  "fake_home_bin_omp": "../install/global/node_modules/@oh-my-pi/pi-coding-agent/src/cli.ts",
+  "ok": true
+}

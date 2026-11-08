@@ -1,0 +1,44 @@
+[
+  {
+    "control": "unmutated 18.18.0",
+    "expected": "green",
+    "got": "green",
+    "pass": true,
+    "message": ""
+  },
+  {
+    "control": "MUTANT manifest drops 0066 adoption",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "unapproved upstream capability adoption: manifest upstream_adoptions differ from approvals.json: omitted ['0066'], unapproved []"
+  },
+  {
+    "control": "MUTANT manifest adds unapproved 0099 adoption",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "unapproved upstream capability adoption: manifest upstream_adoptions differ from approvals.json: omitted [], unapproved ['0099']"
+  },
+  {
+    "control": "MUTANT approvals drop 0054 adoption (manifest keeps it)",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "manifest changed retained family order, roots or capability ownership"
+  },
+  {
+    "control": "MUTANT approvals add a family the manifest lacks",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "manifest changed retained family order, roots or capability ownership"
+  },
+  {
+    "control": "MUTANT approvals retire a retained capability (manifest still owns it)",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "manifest changed retained family order, roots or capability ownership"
+  }
+]

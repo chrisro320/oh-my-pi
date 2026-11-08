@@ -143,7 +143,7 @@ cron({ action: "status" | "enable" | "disable", every?: string, runs?: number })
   maintenance step blocked only by a replay re-arms ONLY its own retry slot;
   other blockers use `#schedule()`. Never both, and never reset the other
   step's deadline on a warm hit, because recurring hits would starve idle
-  compaction. Gate: `patches/verify-cron-idle-owners.ts` drives a real session
+  compaction. Gate: `patches/verify-idle-warming-owners.ts` (cron leg) drives a real session
   over one counted transport on a frozen clock; a guard that can only be
   removed without turning any leg red is defence-in-depth and must be recorded
   as such.

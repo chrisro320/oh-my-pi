@@ -19,19 +19,14 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
 assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree under test");
-
-let version: string;
-try {
-	version = String((JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")) as { version?: string }).version);
-} catch (error) {
-	throw new Error(`advertised-surface resume gate cannot read ${AGENT_ROOT}/package.json (${(error as Error).message})`);
-}
 // Version-scoped: the freeze/notice split this gate defends exists from 18.3.4 on, and the
-// fixture tag syntax is 18.4.1's. A tree without the behavior must fail, never skip.
-assert.ok(["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(version), `unsupported advertised-surface resume gate version: ${version}`);
+// fixture tag syntax is 18.4.1's. Both are older than every registered release, so the full
+// fixture runs on the supported range; an unregistered tree fails closed instead of skipping.
+resolvePlan({ gate: "verify-model-mention-surface-resume", roots: [AGENT_ROOT] });
 
 const LAB_ROOT = process.env.OMP_PATCH_VERIFY_MODEL_MENTION_LAB ?? mkdtempSync(join(tmpdir(), "model-mention-surface-"));
 const PROBE = join(AGENT_ROOT, ".verify-model-mention-surface-resume.probe.ts");

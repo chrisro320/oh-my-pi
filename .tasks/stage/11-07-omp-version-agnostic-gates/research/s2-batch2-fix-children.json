@@ -1,0 +1,97 @@
+{
+  "findings": "4: worker-pool fixture resolved after HOME sanitizing and never forwarded the plan; 5: children of the oauth/warm-revival/advisor/midnight/date-journal gates inherited no plan; 6: boundary-table row",
+  "fixes": {
+    "verify-worker-pool-fixture.ts": "resolvePlan moved to the parent before the child env is built; child env gets OMP_PATCH_VERSION: plan.version; assert.ok(plan.since(\"18.18.0\")) stays the pin",
+    "verify-oauth-durable-refresh.ts": "OMP_PATCH_VERSION: plan.version added to all 4 spawn envs",
+    "verify-subagent-warm-revival-prompt.ts": "childEnv() forwards OMP_PATCH_VERSION: plan.version (both the real run and the mutation copy)",
+    "verify-advisor-quota-rotation.ts": "spawn env forwards OMP_PATCH_VERSION: plan.version",
+    "verify-compaction-live-chain-midnight.ts": "probe env forwards OMP_PATCH_VERSION: plan.version",
+    "verify-date-cwd-journal-prefix.ts": "childEnv(spec) forwards OMP_PATCH_VERSION: plan.version",
+    "research/s2-batch2.md": "worker-pool-fixture row corrected to false@18.16.0 / true@18.18.0"
+  },
+  "reruns": {
+    "verify-worker-pool-fixture.ts": {
+      "exit": 0,
+      "tail": "PASS worker-pool-for-tests: hostsOnMain=false, maxWorkers=4, one worker booted from the tree entry, registry restored, zero provider traffic"
+    },
+    "verify-oauth-durable-refresh.ts": {
+      "exit": 0,
+      "tail": "PASS verify-oauth-durable-refresh: 68 scenario(s) ok"
+    },
+    "verify-subagent-warm-revival-prompt.ts": {
+      "exit": 0,
+      "tail": "{\"status\":\"PASS\",\"scenarios\":10,\"failed\":[]}"
+    },
+    "verify-advisor-quota-rotation.ts": {
+      "exit": 0,
+      "tail": "advisor quota rotation bound (0048): ALL PASS"
+    },
+    "verify-compaction-live-chain-midnight.ts": {
+      "exit": 0,
+      "tail": "PASS midnight mutation: old slice(0, prefixLength) rejected by prefix-byte assertion"
+    },
+    "verify-date-cwd-journal-prefix.ts": {
+      "exit": 0,
+      "tail": "PASS date/cwd journal prefix: provider-facing messages[0] is byte-stable ..."
+    }
+  },
+  "negative_controls": [
+    {
+      "gate": "verify-worker-pool-fixture.ts",
+      "env": "18.19.0",
+      "label": "unregistered",
+      "exit": 1,
+      "message": "89 | \t\t\t`${label}: ${version} is retired (older than the oldest supported release); supported: ${supportedText()} (registry: ${where})`,"
+    },
+    {
+      "gate": "verify-worker-pool-fixture.ts",
+      "env": "18.16.0",
+      "label": "mismatch",
+      "exit": 1,
+      "message": "error: verify-worker-pool-fixture: /var/tmp/omp-vagn-s1/run/runtime-18180/node_modules/@oh-my-pi/pi-coding-agent/package.json is 18.18.0 but the selected plan is 18.16.0"
+    },
+    {
+      "gate": "verify-oauth-durable-refresh.ts",
+      "env": "18.19.0",
+      "label": "unregistered",
+      "exit": 1,
+      "message": "89 | \t\t\t`${label}: ${version} is retired (older than the oldest supported release); supported: ${supportedText()} (registry: ${where})`,"
+    },
+    {
+      "gate": "verify-oauth-durable-refresh.ts",
+      "env": "18.16.0",
+      "label": "mismatch",
+      "exit": 1,
+      "message": "error: verify-oauth-durable-refresh: /var/tmp/omp-vagn-s1/run/runtime-18180/node_modules/@oh-my-pi/pi-ai/package.json is 18.18.0 but the selected plan is 18.16.0"
+    },
+    {
+      "gate": "verify-date-cwd-journal-prefix.ts",
+      "env": "18.19.0",
+      "label": "unregistered",
+      "exit": 1,
+      "message": "89 | \t\t\t`${label}: ${version} is retired (older than the oldest supported release); supported: ${supportedText()} (registry: ${where})`,"
+    },
+    {
+      "gate": "verify-date-cwd-journal-prefix.ts",
+      "env": "18.16.0",
+      "label": "mismatch",
+      "exit": 1,
+      "message": "error: verify-date-cwd-journal-prefix: /var/tmp/omp-vagn-s1/run/runtime-18180/node_modules/@oh-my-pi/pi-coding-agent/package.json is 18.18.0 but the selected plan is 18.16.0"
+    },
+    {
+      "gate": "verify-advisor-quota-rotation.ts",
+      "env": "18.19.0",
+      "label": "unregistered",
+      "exit": 1,
+      "message": "89 | \t\t\t`${label}: ${version} is retired (older than the oldest supported release); supported: ${supportedText()} (registry: ${where})`,"
+    },
+    {
+      "gate": "verify-advisor-quota-rotation.ts",
+      "env": "18.16.0",
+      "label": "mismatch",
+      "exit": 1,
+      "message": "error: verify-advisor-quota-rotation: /var/tmp/omp-vagn-s1/run/runtime-18180/node_modules/@oh-my-pi/pi-coding-agent/package.json is 18.18.0 but the selected plan is 18.16.0"
+    }
+  ],
+  "negative_controls_summary": "4 gates x 2 controls: 18.19.0 -> 'OMP_PATCH_VERSION: 18.19.0 is not registered; supported: 18.16.0, 18.18.0' (exit 1); env=18.16.0 against the 18.18.0 runtime -> 'package.json is 18.18.0 but the selected plan is 18.16.0' (exit 1). Nothing is skipped."
+}

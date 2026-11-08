@@ -22,9 +22,11 @@ spec.loader.exec_module(publisher)
 launcher = publisher.launcher
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--version", choices=["18.10.1", "18.12.6", "18.16.0"], default="18.10.1",
-                    help="synthetic release identity; the publish/admission boundary is version-agnostic")
+parser.add_argument("--version", required=True,
+                    help="synthetic release identity, validated against versions.json; "
+                         "the publish/admission boundary is version-agnostic")
 fixture_version = parser.parse_args().version
+publisher.oracle.version_registry.require_registered(fixture_version, "--version")
 
 with tempfile.TemporaryDirectory(prefix="omp-publication-proof-") as directory:
     home = Path(directory)

@@ -22,9 +22,10 @@
 //      Negative control: keeping `if (this.isStreaming) return false;` inside
 //      `#canContinueQueuedMessages` (the 18.12.6 rebase defect) times out.
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 import type { MockModel } from "@oh-my-pi/pi-ai/providers/mock";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM;
@@ -34,17 +35,12 @@ assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree 
 assert.ok(AI_ROOT, "OMP_PATCH_VERIFY_AI_ROOT must point to the pi-ai tree under test");
 assert.ok(NM, "OMP_PATCH_VERIFY_NM must point to the @oh-my-pi node_modules tree under test");
 
-const agentVersion = String(
-	(JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")) as { version?: string }).version,
-);
-// removeQueuedMessage (the queue identity leg) exists from 18.4.4; the resume leg
-// is version independent. A tree outside the supported set must fail, never skip.
-assert.ok(
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.18.0"].includes(agentVersion),
-	`user display text gate: unsupported selected tree version ${agentVersion}`,
-);
-const hasQueueRemoval = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.18.0"].includes(agentVersion);
-const hasQueuePolicySplit = ["18.10.1", "18.12.6", "18.18.0"].includes(agentVersion);
+const plan = resolvePlan({ gate: "verify-user-display-text-queue", roots: [AGENT_ROOT] });
+// removeQueuedMessage (the queue identity leg) exists from 18.4.4 and the queue
+// policy split from 18.10.1, but the user-turn date/cwd reminder pinned below
+// landed in 18.18.0: an older tree has no arm for this gate, so it fails closed
+// here instead of silently skipping legs. Every registered plan has all three.
+assert.ok(plan.since("18.18.0"), `user display text gate: ${plan.version} predates the user-turn date/cwd reminder`);
 const ABORT_DRAIN_MARKER = "QUEUE_ABORT_DRAIN_OK";
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
@@ -139,18 +135,18 @@ function stripDateCwdReminder(wire: string, expectedCwd: string): string {
 	const open = "<system-reminder>\nToday: ";
 	assert.ok(
 		wire.startsWith(open),
-		`18.18.0 wire must begin with the date/cwd reminder: ${JSON.stringify(wire.slice(0, 160))}`,
+		`the wire must begin with the date/cwd reminder: ${JSON.stringify(wire.slice(0, 160))}`,
 	);
 	const rest = wire.slice(open.length);
 	const separator = "; current working directory: ";
 	const at = rest.indexOf(separator);
-	assert.ok(at > 0, `18.18.0 reminder has no cwd separator: ${JSON.stringify(rest.slice(0, 160))}`);
-	assert.match(rest.slice(0, at), /^\d{4}-\d{2}-\d{2}$/, "18.18.0 reminder date must be YYYY-MM-DD");
+	assert.ok(at > 0, `the date/cwd reminder has no cwd separator: ${JSON.stringify(rest.slice(0, 160))}`);
+	assert.match(rest.slice(0, at), /^\d{4}-\d{2}-\d{2}$/, "the date/cwd reminder date must be YYYY-MM-DD");
 	const tail = rest.slice(at + separator.length);
 	const expectedTail = `'${expectedCwd}'. Do not repeat this information in your reply.\n</system-reminder>`;
 	assert.ok(
 		tail.startsWith(expectedTail),
-		`18.18.0 reminder must name the fixture cwd ${expectedCwd}: ${JSON.stringify(tail.slice(0, 200))}`,
+		`the date/cwd reminder must name the fixture cwd ${expectedCwd}: ${JSON.stringify(tail.slice(0, 200))}`,
 	);
 	const body = tail.slice(expectedTail.length);
 	return body.startsWith("\n\n") ? body.slice(2) : body;
@@ -168,17 +164,17 @@ try {
 			await session.prompt("hello", { displayText: "\u4f60\u597d" });
 			const liveUser = userMessages(session.agent.state.messages as UserLike[]);
 			assert.equal(liveUser.length, 1);
-						const liveText = textOf(liveUser[0].content);
+			const liveText = textOf(liveUser[0].content);
 			assert.equal(liveText, "hello", "live content is the model text");
 			assert.ok(!liveText.includes("\u4f60\u597d"), "the original text never reaches the model-side content");
 			assert.equal(liveUser[0].displayText, "\u4f60\u597d", "live displayText is the original");
 			// The date/cwd reminder rides the wire only. 18.18.0 stamps it onto the
-			// first user turn (prepended text block, date-cwd-reminder.ts:126-132);
-			// older plans appended it at the tail (or not at all). Validate and
-			// strip the known 18.18.0 reminder, then assert the original prefix
-			// contract again: a garbage or unexpected prefix must go red.
+			// first user turn (prepended text block, date-cwd-reminder.ts:126-132),
+			// which the admission above guarantees. Validate and strip it, then
+			// assert the original prefix contract again: a garbage or unexpected
+			// prefix must go red.
 			const wireText = textOf((model.calls[0].context.messages as UserLike[])[0].content);
-			const wireModelText = agentVersion === "18.18.0" ? stripDateCwdReminder(wireText, cwd) : wireText;
+			const wireModelText = stripDateCwdReminder(wireText, cwd);
 			assert.ok(wireModelText.startsWith(liveText), "wire model text starts with the model-side content");
 			assert.ok(!wireText.includes("\u4f60\u597d"), "the original text never reaches the provider wire");
 
@@ -196,64 +192,60 @@ try {
 	}
 
 	// ── 2. queue identity: prepared vs plain message with equal model text ──
-	if (hasQueueRemoval) {
-		const cwd = join(root, "queue");
-		mkdirSync(cwd, { recursive: true });
-		const release = Promise.withResolvers<void>();
-		const started = Promise.withResolvers<void>();
-		const model = createMockModel({
-			responses: [
-				async () => {
-					started.resolve();
-					await release.promise;
-					return { content: ["held"] };
-				},
-				() => ({ content: ["a"] }),
-				() => ({ content: ["b"] }),
-			],
-		});
-		const manager = SessionManager.create(cwd, join(cwd, "sessions"));
-		const session = await createTestSession("queue", model, manager);
-		try {
-			const held = session.prompt("hold");
-			await started.promise;
-			await session.followUp("hello", undefined, { displayText: "\u4f60\u597d" });
-			await session.followUp("hello");
-			const users = () =>
-				(session.agent.peekFollowUpQueue() as UserLike[]).filter(message => message.role === "user");
-			assert.equal(users().length, 2, "both follow-ups queued");
+	const cwd = join(root, "queue");
+	mkdirSync(cwd, { recursive: true });
+	const release = Promise.withResolvers<void>();
+	const started = Promise.withResolvers<void>();
+	const model = createMockModel({
+		responses: [
+			async () => {
+				started.resolve();
+				await release.promise;
+				return { content: ["held"] };
+			},
+			() => ({ content: ["a"] }),
+			() => ({ content: ["b"] }),
+		],
+	});
+	const manager = SessionManager.create(cwd, join(cwd, "sessions"));
+	const session = await createTestSession("queue", model, manager);
+	try {
+		const held = session.prompt("hold");
+		await started.promise;
+		await session.followUp("hello", undefined, { displayText: "\u4f60\u597d" });
+		await session.followUp("hello");
+		const users = () =>
+			(session.agent.peekFollowUpQueue() as UserLike[]).filter(message => message.role === "user");
+		assert.equal(users().length, 2, "both follow-ups queued");
 
-			assert.equal(session.removeQueuedMessage("hello", "followUp"), true);
-			const afterPlain = users();
-			assert.equal(afterPlain.length, 1);
-			assert.equal(afterPlain[0].displayText, "\u4f60\u597d", "removing the typed text 'hello' must delete the plain message, not the prepared one");
+		assert.equal(session.removeQueuedMessage("hello", "followUp"), true);
+		const afterPlain = users();
+		assert.equal(afterPlain.length, 1);
+		assert.equal(afterPlain[0].displayText, "\u4f60\u597d", "removing the typed text 'hello' must delete the plain message, not the prepared one");
 
-			assert.equal(session.removeQueuedMessage("\u4f60\u597d", "followUp"), true);
-			assert.equal(users().length, 0, "the prepared message is removable by its original text");
-			assert.equal(session.removeQueuedMessage("\u4f60\u597d", "followUp"), false, "nothing left to remove");
-			release.resolve();
-			await held;
-		} finally {
-			release.resolve();
-			await session.dispose();
-		}
+		assert.equal(session.removeQueuedMessage("\u4f60\u597d", "followUp"), true);
+		assert.equal(users().length, 0, "the prepared message is removable by its original text");
+		assert.equal(session.removeQueuedMessage("\u4f60\u597d", "followUp"), false, "nothing left to remove");
+		release.resolve();
+		await held;
+	} finally {
+		release.resolve();
+		await session.dispose();
 	}
 
 	// ── 3. abort with a queued steer drains once (child, bounded) ────────────
-	if (hasQueuePolicySplit) {
-		const child = Bun.spawnSync([process.execPath, import.meta.path], {
-			env: { ...process.env, OMP_VERIFY_QUEUE_ABORT_DRAIN_CHILD: "1" },
-			timeout: 30_000,
-			// The livelocked child never yields to its SIGTERM handler.
-			killSignal: "SIGKILL",
-		});
-		const output = `${child.stdout.toString()}${child.stderr.toString()}`;
-		assert.ok(
-			child.exitCode === 0 && output.includes(ABORT_DRAIN_MARKER),
-			`queued steer after abort must drain once (exit ${child.exitCode}, signal ${child.signalCode ?? "none"}; a timeout is the drain livelock): ${output.slice(-600)}`,
-		);
-	}
-	console.log(`verify-user-display-text-queue: PASS (${agentVersion}${hasQueueRemoval ? ", queue identity" : ", resume only"}${hasQueuePolicySplit ? ", abort drain" : ""})`);
+	const child = Bun.spawnSync([process.execPath, import.meta.path], {
+		env: { ...process.env, OMP_PATCH_VERSION: plan.version, OMP_VERIFY_QUEUE_ABORT_DRAIN_CHILD: "1" },
+		timeout: 30_000,
+		// The livelocked child never yields to its SIGTERM handler.
+		killSignal: "SIGKILL",
+	});
+	const output = `${child.stdout.toString()}${child.stderr.toString()}`;
+	assert.ok(
+		child.exitCode === 0 && output.includes(ABORT_DRAIN_MARKER),
+		`queued steer after abort must drain once (exit ${child.exitCode}, signal ${child.signalCode ?? "none"}; a timeout is the drain livelock): ${output.slice(-600)}`,
+	);
+	console.log(`verify-user-display-text-queue: PASS (${plan.version}, queue identity, abort drain)`);
 } finally {
 	rmSync(root, { recursive: true, force: true });
 }

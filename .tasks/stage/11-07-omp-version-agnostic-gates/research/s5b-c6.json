@@ -1,0 +1,179 @@
+{
+  "step": "C6 \u2014 0092 folded into one gate: verify-idle-warming-owners.ts",
+  "change": {
+    "merged_from": [
+      "patches/.retired/11-07-verify-trim/verify-cache-warming-idle-budget.ts",
+      "patches/.retired/11-07-verify-trim/verify-cron-idle-owners.ts"
+    ],
+    "merged_into": "patches/verify-idle-warming-owners.ts",
+    "shape": "one gate, two legs (budget, cron); each leg keeps the retired gate's body verbatim and runs in its own child process, so one leg cannot observe another leg's installed fake timers or patched globals",
+    "lines": {
+      "cache-warming": 330,
+      "cron": 1021,
+      "merged": 1342,
+      "delta": -9
+    },
+    "apply_sh": "_omp_gate 0092 verify-idle-warming-owners.ts slow (read-only runtime mount: the gate writes nothing into the tree; verified with patches/run-gates.py on a read-only copy)",
+    "isolation_change": "the retired pair was registered tree (warming) and tree,slow (cron); the merged gate needs no private runtime copy"
+  },
+  "menus": {
+    "18.16.0": {
+      "before_c6": 65,
+      "after": 64
+    },
+    "18.18.0": {
+      "before_c6": 71,
+      "after": 70
+    },
+    "mapped_baseline_equals_new": true,
+    "capabilities_byte_identical": true
+  },
+  "clean_runs": {
+    "18.18.0_run1": {
+      "status": "PASS",
+      "exit": 0,
+      "assertion": []
+    },
+    "18.18.0_run2": {
+      "status": "PASS",
+      "exit": 0,
+      "assertion": []
+    },
+    "18.18.0_run3": {
+      "status": "PASS",
+      "exit": 0,
+      "assertion": []
+    },
+    "18.19.0_sim": {
+      "status": "PASS",
+      "exit": 0,
+      "assertion": []
+    },
+    "18.16.0": {
+      "status": "PASS",
+      "exit": 0,
+      "assertion": []
+    },
+    "fault_c6-budget": {
+      "merged": {
+        "status": "FAIL",
+        "exit": 1,
+        "assertion": [
+          "AssertionError: 5h: must arm",
+          "AssertionError: idle-warming leg \"budget\" failed (exit 1)"
+        ]
+      },
+      "retired_budget": {
+        "status": "FAIL",
+        "exit": 1,
+        "assertion": [
+          "AssertionError: 5h: must arm"
+        ]
+      },
+      "retired_cron": {
+        "status": "FAIL",
+        "exit": 1,
+        "assertion": []
+      },
+      "expected_red_retired": "verify-cache-warming-idle-budget.ts"
+    },
+    "fault_c6-cron": {
+      "merged": {
+        "status": "FAIL",
+        "exit": 1,
+        "assertion": [
+          "AssertionError: devin: cache economics unavailable",
+          "AssertionError: idle-warming leg \"cron\" failed (exit 1)"
+        ]
+      },
+      "retired_budget": {
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      },
+      "retired_cron": {
+        "status": "FAIL",
+        "exit": 1,
+        "assertion": []
+      },
+      "expected_red_retired": "verify-cron-idle-owners.ts"
+    }
+  },
+  "flakiness": {
+    "runs": 3,
+    "passes": 3,
+    "evidence": [
+      "/var/tmp/omp-s5/c6/run-18180-1.json",
+      "/var/tmp/omp-s5/c6/run-18180-2.json",
+      "/var/tmp/omp-s5/c6/run-18180-3.json"
+    ]
+  },
+  "read_only_run": {
+    "command": "python3 patches/run-gates.py --node-modules /var/tmp/omp-pgates/runtime-18180/node_modules --gates verify-idle-warming-owners",
+    "flags": [
+      "slow"
+    ],
+    "status": "PASS",
+    "seconds": 68.89,
+    "runtime_digest_before": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "runtime_digest_after": "3bf743386b0406f6df4677463ea90787507575d02dfb63ea5d5d6e308eee0242",
+    "runtime_digest_unchanged": true,
+    "note": "run with apply.sh registering the merged gate as `slow` (no private tree copy); the earlier tree,slow attempt is superseded"
+  },
+  "mutation": {
+    "faults": {
+      "c6-budget": {
+        "what": "the process-local idle horizon override is ignored",
+        "merged": {
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: 5h: must arm",
+            "AssertionError: idle-warming leg \"budget\" failed (exit 1)"
+          ]
+        },
+        "retired_budget": {
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: 5h: must arm"
+          ]
+        },
+        "retired_cron": {
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": []
+        },
+        "note": "the retired cron gate also fails on this fault (both old gates read the same horizon override), which is part of why they belong in one gate"
+      },
+      "c6-cron": {
+        "what": "a provider with no declared prompt-cache lifetime is warmed",
+        "merged": {
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": [
+            "AssertionError: devin: cache economics unavailable",
+            "AssertionError: idle-warming leg \"cron\" failed (exit 1)"
+          ]
+        },
+        "retired_budget": {
+          "status": "PASS",
+          "exit": 0,
+          "assertion": []
+        },
+        "retired_cron": {
+          "status": "FAIL",
+          "exit": 1,
+          "assertion": []
+        }
+      }
+    },
+    "parity": "budget fault: merged red (budget leg) + retired warming gate red with the same assertion; cron fault: merged red (cron leg) + retired cron gate red, retired warming gate green"
+  },
+  "apply_sh": "_omp_gate 0092 verify-idle-warming-owners.ts slow",
+  "gate_map": {
+    "gate": "verify-idle-warming-owners.ts",
+    "capabilities": "0092",
+    "flags": "slow"
+  }
+}

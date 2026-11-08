@@ -20,3 +20,4 @@ workdlowbak/
 
 # Local reproducible native build outputs
 patches/.native-artifacts/
+patches/.retired/**/.native-artifacts/

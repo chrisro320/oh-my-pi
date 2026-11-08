@@ -36,18 +36,14 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
-const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
-// 0068's contract is present in every plan that binds it: 18.1.14 predates the
-// patch, 18.1.18, 18.2.3 and 18.2.10 all carry it. Membership is explicit per
-// version so an unknown tree fails closed instead of silently skipping the 0068
-// block.
-assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion),
-	`unsupported Codex chain gate version: ${aiVersion}`,
-);
+
+// 0068's contract is present in every plan that binds it; an unknown tree fails
+// closed in the registry instead of silently skipping the 0068 block.
+resolvePlan({ gate: "verify-codex-compaction-chain", roots: [AI_ROOT] });
 
 // Runtime-selected absolute imports must follow the same selected package root.
 // A hard-coded live import would silently validate the wrong tree in isolation.
@@ -318,133 +314,129 @@ assert.deepEqual(cold.input, compactionBody.input, "cold start must replay the r
 // (pi-ai CHANGELOG, #17590/#17597). One helper owns the removal, so the gate
 // pins it at both ends: the helper's three modes and the real wire producer
 // (`transformRequestBody`) that replay actually goes through. Both only exist
-// from 18.16.0 on, hence the arm.
+// from 18.16.0 on, which every registered plan is.
 const METADATA_FIELD = "internal_chat_message_metadata_passthrough";
 
-if (["18.16.0", "18.18.0"].includes(aiVersion)) {
-	const { transformRequestBody } = await import(`${AI_ROOT}/src/providers/openai-codex/request-transformer.ts`);
-	const { stripOpenAIResponsesInternalMetadataForReplay } = await import(`${AI_ROOT}/src/utils.ts`);
+const { transformRequestBody } = await import(`${AI_ROOT}/src/providers/openai-codex/request-transformer.ts`);
+const { stripOpenAIResponsesInternalMetadataForReplay } = await import(`${AI_ROOT}/src/utils.ts`);
 
-	// 4a. Helper contract: drop the field, keep everything else, and copy only
-	// when there is something to remove (clean items keep their identity, so the
-	// replay path cannot churn item objects on every turn).
-	const cleanItem = { type: "message", role: "user", content: [] };
-	assert.equal(
-		stripOpenAIResponsesInternalMetadataForReplay(cleanItem as never) === cleanItem,
-		true,
-		"a clean item must pass through by identity, not by copy",
-	);
-	const stripped = stripOpenAIResponsesInternalMetadataForReplay({
-		...cleanItem,
-		[METADATA_FIELD]: { content_token_count: 42 },
-	} as never) as Record<string, unknown>;
-	assert.equal(METADATA_FIELD in stripped, false, "the helper must drop the backend-internal metadata block");
-	const droppedId = stripOpenAIResponsesInternalMetadataForReplay(
-		{ id: "fc_1", type: "function_call", [METADATA_FIELD]: { content_token_count: 7 } } as never,
-		"drop-id",
-	) as Record<string, unknown>;
-	assert.equal(METADATA_FIELD in droppedId, false, "drop-id must still drop the metadata block");
-	assert.equal("id" in droppedId, false, "drop-id must drop the response item id as well");
-	assert.equal(droppedId.type, "function_call", "drop-id must preserve the item type");
+// 4a. Helper contract: drop the field, keep everything else, and copy only
+// when there is something to remove (clean items keep their identity, so the
+// replay path cannot churn item objects on every turn).
+const cleanItem = { type: "message", role: "user", content: [] };
+assert.equal(
+	stripOpenAIResponsesInternalMetadataForReplay(cleanItem as never) === cleanItem,
+	true,
+	"a clean item must pass through by identity, not by copy",
+);
+const stripped = stripOpenAIResponsesInternalMetadataForReplay({
+	...cleanItem,
+	[METADATA_FIELD]: { content_token_count: 42 },
+} as never) as Record<string, unknown>;
+assert.equal(METADATA_FIELD in stripped, false, "the helper must drop the backend-internal metadata block");
+const droppedId = stripOpenAIResponsesInternalMetadataForReplay(
+	{ id: "fc_1", type: "function_call", [METADATA_FIELD]: { content_token_count: 7 } } as never,
+	"drop-id",
+) as Record<string, unknown>;
+assert.equal(METADATA_FIELD in droppedId, false, "drop-id must still drop the metadata block");
+assert.equal("id" in droppedId, false, "drop-id must drop the response item id as well");
+assert.equal(droppedId.type, "function_call", "drop-id must preserve the item type");
 
-	// 4b. The real producer: a replayed conversation whose items carry the block
-	// must reach the wire without it, and without losing the call identity the
-	// endpoint validates against.
-	const replayModel = {
-		id: "gpt-6-astra",
-		name: "gpt-6-astra",
-		api: "openai-codex-responses",
-		provider: "openai-codex",
-		baseUrl: "https://chatgpt.com/backend-api/codex",
-		input: ["text"],
-		supportsTools: true,
-		compat: {},
-		identity: { class: "gpt" },
-		contextWindow: 272000,
-		maxTokens: 32000,
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-	};
-	const pollutedCall = {
-		id: "fc_polluted",
-		type: "function_call",
-		call_id: "call_polluted",
-		name: "read",
-		arguments: '{"path":"README.md"}',
-		[METADATA_FIELD]: { content_token_count: 42 },
-	};
-	const pollutedMessage = {
-		id: "msg_polluted",
-		type: "message",
-		role: "user",
-		content: [{ type: "input_text", text: "replayed turn" }],
-		[METADATA_FIELD]: { content_token_count: 11 },
-	};
-	const replayedBody = (await transformRequestBody(
-		{ model: "gpt-6-astra", store: false, stream: true, input: [pollutedMessage, pollutedCall] } as never,
-		replayModel as never,
-		{},
-	)) as { input: Array<Record<string, unknown>> };
-	const wireInput = replayedBody.input;
-	assert.ok(Array.isArray(wireInput) && wireInput.length >= 2, "the wire body must still carry the replayed items");
-	assert.equal(
-		wireInput.some(item => METADATA_FIELD in item),
-		false,
-		`replayed Codex input must not carry ${METADATA_FIELD}: ${JSON.stringify(wireInput)}`,
-	);
-	const wireCall = wireInput.find(item => item.type === "function_call");
-	assert.ok(wireCall, "the replayed tool call must survive the strip");
-	assert.equal(wireCall.call_id, "call_polluted", "the stripped call must keep its call_id");
-	assert.equal(wireCall.name, "read", "the stripped call must keep its tool name");
-	assert.equal(wireCall.arguments, '{"path":"README.md"}', "the stripped call must keep its arguments byte-for-byte");
+// 4b. The real producer: a replayed conversation whose items carry the block
+// must reach the wire without it, and without losing the call identity the
+// endpoint validates against.
+const replayModel = {
+	id: "gpt-6-astra",
+	name: "gpt-6-astra",
+	api: "openai-codex-responses",
+	provider: "openai-codex",
+	baseUrl: "https://chatgpt.com/backend-api/codex",
+	input: ["text"],
+	supportsTools: true,
+	compat: {},
+	identity: { class: "gpt" },
+	contextWindow: 272000,
+	maxTokens: 32000,
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+};
+const pollutedCall = {
+	id: "fc_polluted",
+	type: "function_call",
+	call_id: "call_polluted",
+	name: "read",
+	arguments: '{"path":"README.md"}',
+	[METADATA_FIELD]: { content_token_count: 42 },
+};
+const pollutedMessage = {
+	id: "msg_polluted",
+	type: "message",
+	role: "user",
+	content: [{ type: "input_text", text: "replayed turn" }],
+	[METADATA_FIELD]: { content_token_count: 11 },
+};
+const replayedBody = (await transformRequestBody(
+	{ model: "gpt-6-astra", store: false, stream: true, input: [pollutedMessage, pollutedCall] } as never,
+	replayModel as never,
+	{},
+)) as { input: Array<Record<string, unknown>> };
+const wireInput = replayedBody.input;
+assert.ok(Array.isArray(wireInput) && wireInput.length >= 2, "the wire body must still carry the replayed items");
+assert.equal(
+	wireInput.some(item => METADATA_FIELD in item),
+	false,
+	`replayed Codex input must not carry ${METADATA_FIELD}: ${JSON.stringify(wireInput)}`,
+);
+const wireCall = wireInput.find(item => item.type === "function_call");
+assert.ok(wireCall, "the replayed tool call must survive the strip");
+assert.equal(wireCall.call_id, "call_polluted", "the stripped call must keep its call_id");
+assert.equal(wireCall.name, "read", "the stripped call must keep its tool name");
+assert.equal(wireCall.arguments, '{"path":"README.md"}', "the stripped call must keep its arguments byte-for-byte");
 
-	// 4c. Fault control: a copy of the selected pi-ai with the helper's delete
-	// removed must fail this arm. The child runs the whole gate, so the other
-	// legs double as the unchanged control.
-	if (process.env.OMP_CODEX_CHAIN_FAULT_CHILD !== "1") {
-		const { mkdtempSync, readdirSync, symlinkSync, mkdirSync, rmSync, writeFileSync } = await import("node:fs");
-		const { dirname, join } = await import("node:path");
-		const { tmpdir } = await import("node:os");
-		const dir = mkdtempSync(join(tmpdir(), "omp-codex-chain-fault-"));
-		try {
-			const scope = join(dir, "node_modules", "@oh-my-pi");
-			mkdirSync(scope, { recursive: true });
-			for (const entry of readdirSync(dirname(NM))) {
-				if (entry !== "@oh-my-pi") symlinkSync(join(dirname(NM), entry), join(dir, "node_modules", entry));
-			}
-			for (const entry of readdirSync(dirname(AI_ROOT))) {
-				if (entry !== "pi-ai") symlinkSync(join(dirname(AI_ROOT), entry), join(scope, entry));
-			}
-			const copied = Bun.spawnSync(["cp", "-a", "--reflink=auto", AI_ROOT, join(scope, "pi-ai")]);
-			assert.equal(copied.exitCode, 0, `cannot copy pi-ai for the fault control: ${copied.stderr.toString()}`);
-			const utilsPath = join(scope, "pi-ai", "src", "utils.ts");
-			const utilsSource = readFileSync(utilsPath, "utf8");
-			const deleteLine = "\tdelete sanitized.internal_chat_message_metadata_passthrough;\n";
-			assert.ok(
-				utilsSource.includes(deleteLine),
-				"fault fixture: the metadata strip line must exist in the selected tree (otherwise the legs above pass vacuously)",
-			);
-			writeFileSync(utilsPath, utilsSource.replace(deleteLine, ""));
-			const child = Bun.spawnSync([process.execPath, import.meta.path], {
-				env: {
-					...process.env,
-					OMP_CODEX_CHAIN_FAULT_CHILD: "1",
-					OMP_PATCH_VERIFY_AI_ROOT: join(scope, "pi-ai"),
-					OMP_PATCH_VERIFY_NM: scope,
-				},
-			});
-			const childOutput = `${child.stdout.toString()}${child.stderr.toString()}`;
-			const rejected = child.exitCode !== 0 && childOutput.includes("the helper must drop the backend-internal metadata block");
-			console.log(`  ${rejected ? "ok  " : "FAIL"} fault control rejected: removed metadata strip (exit ${child.exitCode})`);
-			assert.ok(
-				rejected,
-				`a copy without the metadata strip must fail the replay assertion: exit ${child.exitCode} ${childOutput.slice(0, 400)}`,
-			);
-		} finally {
-			rmSync(dir, { recursive: true, force: true });
+// 4c. Fault control: a copy of the selected pi-ai with the helper's delete
+// removed must fail this arm. The child runs the whole gate, so the other
+// legs double as the unchanged control.
+if (process.env.OMP_CODEX_CHAIN_FAULT_CHILD !== "1") {
+	const { mkdtempSync, readdirSync, symlinkSync, mkdirSync, rmSync, writeFileSync } = await import("node:fs");
+	const { dirname, join } = await import("node:path");
+	const { tmpdir } = await import("node:os");
+	const dir = mkdtempSync(join(tmpdir(), "omp-codex-chain-fault-"));
+	try {
+		const scope = join(dir, "node_modules", "@oh-my-pi");
+		mkdirSync(scope, { recursive: true });
+		for (const entry of readdirSync(dirname(NM))) {
+			if (entry !== "@oh-my-pi") symlinkSync(join(dirname(NM), entry), join(dir, "node_modules", entry));
 		}
+		for (const entry of readdirSync(dirname(AI_ROOT))) {
+			if (entry !== "pi-ai") symlinkSync(join(dirname(AI_ROOT), entry), join(scope, entry));
+		}
+		const copied = Bun.spawnSync(["cp", "-a", "--reflink=auto", AI_ROOT, join(scope, "pi-ai")]);
+		assert.equal(copied.exitCode, 0, `cannot copy pi-ai for the fault control: ${copied.stderr.toString()}`);
+		const utilsPath = join(scope, "pi-ai", "src", "utils.ts");
+		const utilsSource = readFileSync(utilsPath, "utf8");
+		const deleteLine = "\tdelete sanitized.internal_chat_message_metadata_passthrough;\n";
+		assert.ok(
+			utilsSource.includes(deleteLine),
+			"fault fixture: the metadata strip line must exist in the selected tree (otherwise the legs above pass vacuously)",
+		);
+		writeFileSync(utilsPath, utilsSource.replace(deleteLine, ""));
+		const child = Bun.spawnSync([process.execPath, import.meta.path], {
+			env: {
+				...process.env,
+				OMP_CODEX_CHAIN_FAULT_CHILD: "1",
+				OMP_PATCH_VERIFY_AI_ROOT: join(scope, "pi-ai"),
+				OMP_PATCH_VERIFY_NM: scope,
+			},
+		});
+		const childOutput = `${child.stdout.toString()}${child.stderr.toString()}`;
+		const rejected = child.exitCode !== 0 && childOutput.includes("the helper must drop the backend-internal metadata block");
+		console.log(`  ${rejected ? "ok  " : "FAIL"} fault control rejected: removed metadata strip (exit ${child.exitCode})`);
+		assert.ok(
+			rejected,
+			`a copy without the metadata strip must fail the replay assertion: exit ${child.exitCode} ${childOutput.slice(0, 400)}`,
+		);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
 	}
-} else {
-	console.log(`  (metadata replay strip is 18.16.0-only; ${aiVersion} arm unchanged)`);
 }
 
 console.log("verify-codex-compaction-chain: live baseline reuse holds");

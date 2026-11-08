@@ -43,14 +43,14 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? join(NM, "pi-catalog");
-const catalogVersion = JSON.parse(readFileSync(join(CATALOG, "package.json"), "utf8")).version;
-// The invariants below were read on 18.16.0 (published artifacts, not a
-// checkout) and re-read unchanged on 18.18.0. An unknown tree fails closed
-// instead of asserting another release's generated shape.
-assert.ok(["18.16.0", "18.18.0"].includes(catalogVersion), `verify-catalog-regen-parity is an 18.16.0/18.18.0 gate, got ${catalogVersion}`);
+// The invariants below were read on the published 18.16.0 artifacts and re-read
+// unchanged on the 18.18.0 candidate. An unregistered tree fails closed instead
+// of asserting another release's generated shape.
+resolvePlan({ gate: "verify-catalog-regen-parity", roots: [CATALOG] });
 
 const RULES_PATH = join(CATALOG, "src", "compat", "rules.json");
 const PROVIDER_IDS_PATH = join(CATALOG, "src", "compat", "provider-ids.ts");

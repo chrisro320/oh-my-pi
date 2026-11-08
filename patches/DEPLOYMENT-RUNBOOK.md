@@ -8,7 +8,7 @@
 
 The upgrade task targets exact18.12.6/commit `45c35e40c46166dc726ccc52f5d27f40f2449f99`. Installation was authorized by the user on 2026-10-23 after candidate acceptance: `prepare --version 18.12.6`, then the installed smoke `.trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/smoke/run-sandbox-smoke.py --release <staged-release> --out <json>`, then `publish`. Unlike the18.10.1 in-place smoke, the18.12.6 release smoke checks the staged runtime/ledger digests against the receipt before and after, and executes byte-identical private copies, because its probes must live inside the runtime. It proves installed bytes, not installed-path permissions, bindings or launcher admission; those are covered by the receipt/launcher review and the post-publish blocked-launch observation. Release `18.12.6-87abd557af5b-693348fb-09428d79` became active on 2026-10-23 after old owners exited (`production_admission_started:true`); code-only rollback is now refused.
 
-Selected acquisition uses the already-audited independent npm closure with a pinned package-lock (145instances,13OMPexact18.12.6,zero dependency errors/lock mismatches/external or hardlink aliases). Reusing the successful signature audit does not authorize new provider or credential checks. Target native recipe is `native/18.12.6/overlay.json`; pass it explicitly as the optional third build argument and as `verify-native-overlay.py --overlay`, never overwrite the historical18.10.1 recipe. Both target outputs already exist and have passed identity/hash checks; do not rebuild merely to recover context.
+Selected acquisition uses the already-audited independent npm closure with a pinned package-lock (145instances,13OMPexact18.12.6,zero dependency errors/lock mismatches/external or hardlink aliases). Reusing the successful signature audit does not authorize new provider or credential checks. The retired target native recipe now lives at `patches/.retired/11-07-pre-18.16-plans/native/18.12.6/overlay.json`; the overlay argument is required (there is no default recipe), so pass it explicitly as the third build argument and as `verify-native-overlay.py --overlay`. Both target outputs already exist and have passed identity/hash checks; do not rebuild merely to recover context.
 
 After source/ledger integration, run the target oracle and selected gates, actual private sandbox smoke, declaration consumer and applicable human-approved Tern/native checks. The sandbox entry point is `.trellis/tasks/archive/2026-10/10-23-omp-upgrade-plan/research/smoke/run-sandbox-smoke.py --runtime <candidate> --ledger <repository-patches> --out <fresh-json>`; its harness runs every command in a loopback-only network namespace (`bwrap --unshare-net`), because native Anthropic's `node:https` transport bypasses fetch stubs. Repository/sandbox acceptance for candidate `87abd557af5b7c166dd3fadfc1bd68c5eb7cad641af41dac8424cfd7ca55a4bf` is complete (oracle, 57/57 gates in one run, smoke, OAuth controller controls, companions, physical native checks, Tern queue/steer/image/resume; `/compact` and parked-agent wake accepted via their gates by user decision). Synthetic `verify-release-publication.py --version 18.12.6` passes only its temporary HOME fault/admission fixture; it does not install or publish a real release.
 
@@ -16,7 +16,7 @@ After source/ledger integration, run the target oracle and selected gates, actua
 
 Exact `18.16.0` / commit `650f3a108229ee11bf68ba3377f4e8c3391cd424` is installed as release `18.16.0-35567dd8cf1a-d5545df9-9bf60a81` and active since 2026-11-03 (`production_admission_started:true`), so a code-only rollback is refused. It was installed with the same three-step `prepare` → installed-path smoke → `publish` sequence as 18.12.6 (`$TASK/research/m15-installed-smoke-18.16.0.json`).
 
-Read-only chain queries (the `PATCHES` array is not a plan). `TASK=.trellis/tasks/11-03-omp-18160-upgrade-plan` holds this upgrade's research scripts and receipts:
+Read-only chain queries (`patches/versions.json` is the only place a supported version is declared; the plan is the selected release's `.<version>-families/plan.tsv`). `TASK=.trellis/tasks/11-03-omp-18160-upgrade-plan` holds this upgrade's research scripts and receipts:
 
 ```sh
 OMP_PATCH_VERSION=18.16.0 bash patches/apply.sh --print-plan           # 26 rows
@@ -28,7 +28,7 @@ bash patches/verify-patch-family-rollups.sh --version 18.16.0
 
 `--check` is not acceptance — it peels the final tree. Acceptance is the zero-fuzz replay, reverse-to-pristine and an identical second replay against pinned archives (`$TASK/research/m9-oracle-18.16.0.json`, candidate tree `35567dd8…`, pristine `9f88de1a…`).
 
-Gate batch: build a private runtime with `$TASK/research/gate-runtime-18.16.0.sh <source-@oh-my-pi> <out>`, then run **only** the controller-selected gates with `$TASK/research/run-target-gates.py --repo <repo> --runtime <out> --out <fresh>`, inside `bwrap --die-with-parent --unshare-net --bind / / --dev /dev --proc /proc` with a private HOME/XDG. All 71 must be `PASS` and the runtime hash manifest must be unchanged before and after (`$TASK/research/m10-full-batch-18.16.0.json`). Freeze the controller and ledger bytes first; a batch with a moving gate proves nothing.
+Gate batch: see "Running the gates" below (`patches/run-gates.py`, parallel, one offline bwrap per gate). Every controller-selected gate must be `PASS` and the runtime digest must be unchanged before and after (`$TASK/research/m10-full-batch-18.16.0.json` is the historical serial receipt). Freeze the ledger bytes first; a batch with a moving gate proves nothing.
 
 Native overlay: the 18.16.0 recipe is `patches/native/18.16.0/overlay.json` (same single Rust patch, `cargo --release --locked`, both target CPUs). Build with `bash patches/native/build-natives.sh <work> <out> patches/native/18.16.0/overlay.json`, install both `.node` files into the runtime's `pi-natives-linux-x64/`, then `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi --overlay patches/native/18.16.0/overlay.json` must PASS. Never overwrite the 18.12.6 recipe.
 
@@ -42,13 +42,29 @@ It must be `PASS` with six checks at exit 0 plus four offline controls, digests 
 
 Physical Tern acceptance and the live double `/compact snapcompact` ran on the staged release before `publish`, under a private HOME with a scripted offline model (`$TASK/research/m12-physical-18.16.0.md`, 9/9 PASS). A surface that needs no foreground control (window ambiguity, AT-SPI read, compaction) runs without a user step; only the approved acquire and physical Escape need the user.
 
+## Running the gates (all releases; `patches/run-gates.py`)
+
+`apply.sh` runs its regression suite through this runner, and upgrade/fix work uses the same command, so installs and acceptance evidence come from one code path. The gate list is never copied: it is `apply.sh --print-gates` for the runtime's version (the runner reads the version from the tree and refuses an unregistered one); each gate runs in its own `bwrap --unshare-net` with a private HOME/`/tmp`, a read-only host filesystem and the runtime mounted read-only (a gate registered `tree` in `apply.sh` gets a private copy instead), in parallel (`-j`, default CPUs/2). The source runtime is hashed before and after and must not change. Failure, timeout or a gate that did not run exits non-zero and the summary names the gate.
+
+```sh
+# Fix rounds: only the gates affected by the change (same capability -> gate mapping apply.sh uses)
+python3 patches/run-gates.py --node-modules <runtime>/node_modules --companions <fixture> --capabilities 0090,0092
+python3 patches/run-gates.py --node-modules <runtime>/node_modules --companions <fixture> --families family-compaction
+python3 patches/run-gates.py --node-modules <runtime>/node_modules --gates verify-devin-wire,verify-tools-wire
+python3 patches/run-gates.py --node-modules <runtime>/node_modules --capabilities 0090 --list     # show the selection only
+# Final acceptance: the full menu, once (add --json <receipt>)
+python3 patches/run-gates.py --node-modules <runtime>/node_modules --companions <fixture> --json <receipt>
+```
+
+Work on a copy of the candidate runtime, never on the live install; `--companions` is the staged companion fixture for `verify-extensions-load-<v>` (private copy, never the live `~/.omp/agent/extensions`). A capability selects every gate that verifies it — the gates registered with it as guard plus those listing it as `COVERS` in `apply.sh` (e.g. `--capabilities 0033` includes `verify-main-cache-hit`; `--families family-persistent-prefix-resume` includes `verify-interrupt-prune-symmetry`); `python3 patches/verify-gate-coverage.py` keeps that mapping equal to the capability → gate table of `PATCHES.md` §2, and `apply.sh` refuses a plan capability that has neither a gate nor an `_omp_no_gate` declaration. A subset skips gates that belong to no capability unless `--with-unscoped`; the full run covers them; an empty selector (`--gates ""`) is an error, never the full menu. During an upgrade the full batch runs once on the first assembled candidate and once as final acceptance (AGENTS.md "Gate runs"); a fix round, or a reviewer finding, reruns only the gates that cover the touched files. A new gate that writes into the runtime tree must be registered `tree` (otherwise it fails with `EROFS`). A real `apply.sh` validates everything the runner needs (`run-gates.py --validate-only`: bwrap, bun, runtime symlink policy, a writable output directory under `OMP_GATES_WORK_DIR`, default `/var/tmp`, menu and coverage) before the first patch lands, so a failure there leaves the tree untouched; SIGINT/SIGTERM kill the running gates and make the batch non-zero. The flag vocabulary, hazard classification and controls are in `.tasks/11-07-omp-version-agnostic-gates/research/contract.md` §5b.
+
 ## Immutable installation procedure (introduced with 18.10.1)
 
 The sections below this procedure retain historical direct-global deployment and offline database guidance. Do not apply their `bun add -g`, global directory exchange, watcher or mutable-ledger commands to the current immutable release.
 
 1. Pin official archives/commit, rebase the family registry and run the complete representation oracle. The baseline this procedure was written against (18.10.1) owned27physical families/61local capabilities plus upstream0017=62capabilities and179unique source/declaration/data paths;0097is excluded. Current totals belong to the release being installed, not to this paragraph: 18.12.6 is27families/62capabilities and the repository 18.16.0 candidate is26families/62capabilities (its own count of 71 controller-selected gates). Use `--print-plan`/`--print-capabilities`/`--print-gates` and the manifest as authority, and existing changed-consumer gates, not repeated broad suites.
 2. Assemble the full dependency/native closure under private HOME/cache. All13 OMP packages must match the target version. Independent copies must have no external aliases or shared regular-file inodes. Never source pristine packages from the live Bun cache.
-   Native overlay: rebuild with `bash patches/native/build-natives.sh <work> <out>`, install both `.node` files into the runtime's `pi-natives-linux-x64/`, then `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi` must PASS. A rebuilt hash differing from `overlay.json` means the recipe or toolchain drifted: record the new hashes only after re-running the live Escape checks.
+   Native overlay: rebuild with `bash patches/native/build-natives.sh <work> <out> patches/native/<version>/overlay.json` (the overlay argument is required), install both `.node` files into the runtime's `pi-natives-linux-x64/`, then `python3 patches/verify-native-overlay.py --nm <runtime>/node_modules/@oh-my-pi --overlay patches/native/<version>/overlay.json` must PASS. A rebuilt hash differing from `overlay.json` means the recipe or toolchain drifted: record the new hashes only after re-running the live Escape checks.
    The current native overlay also bounds AT-SPI initialization to two seconds and accepts Chrome profile-decorated AX frame titles while retaining PID ownership and ambiguity rejection. For the 2026-10-15 AX-only release, the user explicitly accepted publication on completed automated/native/runtime evidence without repeating physical Escape validation; this is a one-release exception, documented in `DECISIONS.md`, not a passing physical check or a change to the general gate.
 3. Prepare permanent code with:
    `python3 -I patches/publish-release.py prepare --version <version> --home "$HOME" --runtime <verified-private-runtime> --ledger <repository-patches>`.
@@ -66,7 +82,7 @@ Before any production source exec, the launcher durably sets `production_admissi
 After possible admission, older OAuth code cannot safely consume the new exchange journal; do not reset the receipt or restore old token state to bypass the barrier. Code backups retain the old global closure and ledger, never `~/.omp/agent`.
 
 Synthetic rollback/admission proof:
-`python3 -I patches/verify-release-publication.py`.
+`python3 -I patches/verify-release-publication.py --version <registered-version>`.
 Its fixture cannot prove provider idempotency, credential validity, real cache hits or production activation.
 
 
@@ -85,25 +101,25 @@ Its fixture cannot prove provider idempotency, credential validity, real cache h
 
 ```sh
 ~/.bun/bin/omp --version
-OMP_PATCH_VERSION=18.7.0 OMP_PATCH_PLAN=deployed bash patches/apply.sh --print-plan
+OMP_PATCH_VERSION=<supported-version> bash patches/apply.sh --print-plan
 ```
 
 版本選擇規則：
 
 ```text
 未設定 OMP_PATCH_VERSION       依 installed pi-coding-agent 版本自動路由（精確匹配，非就近 fallback）
-OMP_PATCH_VERSION=<supported-version> 選擇同版本精確計畫；存活版本見 apply.sh
-18.7.0                       六個官方套件版本必須全為18.7.0；層數由 selected resolved plan 決定
-其他值／顯式值與安裝版不符      exit 2，禁止猜測套用
+OMP_PATCH_VERSION=<supported-version> 選擇同版本精確計畫；支援版本只在 patches/versions.json 登記（恰好兩版：現行穩定版與其接班版）
+六個官方套件版本                  必須全等於所選版本；層數由 selected resolved plan 決定
+其他值／已退役或未登記的版本／顯式值與安裝版不符      exit 2，禁止猜測套用
 ```
 
-The canonical `PATCHES` array serves retained historical plans; it is not a deployable chain. The18.7.0 family plan comes from `.18.7.0-families/plan.tsv`. Always consume `apply.sh --print-plan`, not the array or a glob of patch files.
+Upgrade procedure: add the new release to `patches/versions.json` (appended, ascending) together with its `.<version>-families/` directory (`plan.tsv`, `manifest.json`, `approvals.json`, patches), and drop the oldest release from the registry in the same change; the dropped release's plan directory moves under `.retired/`. The registry always holds exactly two versions; `apply.sh` and every gate fail closed on anything else. `apply.sh` refuses a manifest whose `upstream_adoptions` differ from `approvals.json`, and an `approvals.json` whose `snapshot` is not strictly older than the release (the newest registered release must derive from the oldest registered one; the oldest from a frozen manifest under `.retired/`). After the change run `python3 patches/verify-no-version-literals.py` and follow its `note:` lines: each note judges one `since` term only (an always-true term is dropped while every other predicate in the condition stays, e.g. `omp_since V X && [[ "$MODE" == "apply" ]]` becomes `[[ "$MODE" == "apply" ]]`; an always-false term means its arm is dead: delete it and retire the gate it alone selected). Always consume `apply.sh --print-plan`, never a glob of patch files.
 
-For18.7.0, `OMP_PATCH_PLAN=deployed` (also the default) selects the consolidated deployed baseline. `OMP_PATCH_PLAN=repository` explicitly adds the still-undeployed0097 candidate. Capture the exact selection in staging and transaction evidence; never infer the selection from a missing candidate or activate0097 incidentally. Other selector values fail closed; older versions do not accept this selector.
+`OMP_PATCH_PLAN` accepts only `deployed` (also the default). `repository` fails closed: the 0097 computeruse overlay retired together with its 18.7.0 plan (see `.retired/11-07-pre-18.16-plans/`). Other selector values fail closed too.
 
 Same-family maintenance archives the previous immutable revision and replaces the active family revision rather than appending a repair layer. Follow the existing [family contract](../.trellis/spec/backend/patch-rollup-contracts.md); keep historical rollback bytes unchanged. The 0090 unlock revision (2026-10-13) followed exactly that path: `.retired/10-13-18.10.1-0090-pre-unlock/` holds the superseded `0090-omp-oauth-durable-refresh-v18.10.1.patch` with its pinned hash, `baseline.json` and `unlock-api.delta.patch`; `verify-release-family-plan.py` fails if that archive drifts or if the retired bytes are still the active representation. The 2026-10-15 Anthropic-only scope revision followed the same path again: `.retired/10-15-18.10.1-0090-pre-anthropic/` holds the superseded `cb5bbf9c…` bytes with `baseline.json` and `anthropic-scope.delta.patch`, the active family is `32eac750…` (candidate tree `2fc569d9…`), and plan rows, archives pins, `upstream_adoptions` and `pristine_tree_sha256` are unchanged. The installed 18.10.1 release carries the 2026-10-13 unlock revision (`7b7b41c2…`); the scope revision ships only with the next release, so the running installation still journals every provider.
 
-Historical next-update baselines were the verified18.7.0 family registry and then the verified18.10.1 registry; both are retained for their own plans. The next-update baseline now is the release that is actually installed (18.12.6) and, for repository work, the 18.16.0 candidate registry in §1 of the ledger. Do not revive the retired58-layer chain or lose the retained18.7.0 history. Port each capability against official upstream bytes;0097 remains excluded.
+Historical next-update baselines (the 18.7.0, 18.10.x and 18.12.6 family registries, the non-family `PATCHES` chain and the 0097 native overlay) were retired on 2026-11-07 into `.retired/11-07-pre-18.16-plans/`; only the two registered releases are applied or verified. Port each capability against official upstream bytes; 0097 remains excluded.
 
 Representation-only repository work is not deployment authorization. Before an authorized cutover, run the selected-version old/new verifier and isolated CLI/tool smoke, then stage the verified controller, family registry, patches and gates as one ledger. Retain the old ledger/controller as the rollback oracle. A repository/live mismatch during approved staging is not permission to overwrite the live ledger early.
 

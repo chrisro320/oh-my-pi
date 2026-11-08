@@ -23,9 +23,10 @@
 //     bun patches/verify-computer-control-confirm-deadline.ts
 
 import assert from "node:assert/strict";
-import { readFileSync, realpathSync } from "node:fs";
+import { realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 const rootEnv = process.env.OMP_PATCH_VERIFY_AGENT_ROOT;
 if (!rootEnv) throw new Error("OMP_PATCH_VERIFY_AGENT_ROOT is required");
@@ -34,9 +35,9 @@ const live = resolve(homedir(), ".bun/install/global/node_modules/@oh-my-pi/pi-c
 if (root === live || root.startsWith(live + sep)) throw new Error("refusing to verify against the live install");
 const tuiRoot = realpathSync(resolve(process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? join(root, "..", "pi-tui")));
 
-// 0102 is an 18.16.0 capability: a tree without the branch under test must not fall through to a green run.
-const version: string = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
-assert.ok(["18.16.0", "18.18.0"].includes(version), `unsupported computer-control gate version: ${version}`);
+// 0102 is a registered-release capability: a tree without the branch under test
+// must not fall through to a green run.
+resolvePlan({ gate: "verify-computer-control-confirm-deadline", roots: [root] });
 
 const CAP_MS = 60_000;
 

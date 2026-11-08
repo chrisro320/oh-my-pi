@@ -19,6 +19,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 // Only the explicit offline fetch/completeImpl consumers below may respond.
 globalThis.fetch = (async () => {
@@ -78,21 +79,13 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
-// This gate asserts the 0066/0067 lane contracts, which exist in the 18.1.18,
-// 18.2.3 and 18.2.10 plans. An unknown tree fails closed here instead of
-// surfacing as an unrelated import error. The version is read from the AI root
-// the caller selected, so a sandbox that binds only some roots is still judged
-// on the tree it actually points at.
-const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version as string;
-assert.ok(
-	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion),
-	`unsupported compaction lane trace gate version: ${aiVersion}`,
-);
-// 0088 is a pi-agent-core/pi-coding-agent patch, so whether the tree carries it
-// is the CORE version, not the pi-ai version: keying these legs on the ai
-// package made them run against a tree whose 0088 was reversed, which is not a
-// configuration the lane can reach.
-const coreVersion = JSON.parse(readFileSync(`${CORE_ROOT}/package.json`, "utf8")).version as string;
+// This gate asserts the 0066/0067 lane contracts every registered release ships.
+// An unknown tree fails closed in resolvePlan instead of surfacing as an unrelated
+// import error. Both roots are read, so a sandbox that binds only some roots is
+// still judged on the tree it actually points at (they must agree).
+resolvePlan({ gate: "verify-compaction-lane-trace", roots: [AI_ROOT, CORE_ROOT] });
+// 0088 is a pi-agent-core/pi-coding-agent patch, and every registered release
+// carries it; the lane cannot reach a pre-0088 configuration.
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 
@@ -402,7 +395,6 @@ for (const headers of httpHeaders) {
 						provider: requestModel.provider,
 						content: "NATIVE_SUMMARY",
 						signature: "offline-signed-summary",
-						...(["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
 					},
 				} as AssistantMessage;
 			},
@@ -414,12 +406,10 @@ for (const headers of httpHeaders) {
 	assert.ok(req, "anthropic-native lane must trace summarize.request");
 	assert.equal(req.hasLiveContext, true);
 	assert.equal(req.tools, 1);
-	if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion)) {
-		// 0088: the accepted request is the live chain, so the trace must say so
-		// and must carry no fallback reason.
-		assert.equal(req.usesLiveChainReplay, true, "an accepted native live chain must be traced as the live chain");
-		assert.equal(req.liveChainFallback, undefined, "an accepted native live chain must carry no fallback reason");
-	}
+	// 0088: the accepted request is the live chain, so the trace must say so
+	// and must carry no fallback reason.
+	assert.equal(req.usesLiveChainReplay, true, "an accepted native live chain must be traced as the live chain");
+	assert.equal(req.liveChainFallback, undefined, "an accepted native live chain must carry no fallback reason");
 	assert.ok(use, "anthropic-native lane must trace summarize.usage");
 	assert.equal(use.stopReason, "compaction");
 	assert.equal(use.usage?.cacheRead, 90_000, "anthropic-native usage trace must carry the provider usage verbatim");
@@ -430,21 +420,82 @@ for (const headers of httpHeaders) {
 // the reason on the request trace, not only on the returned entry. This is the
 // trace half of the fallback contract; the native gate asserts the entry half.
 // ---------------------------------------------------------------------------
-if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion)) {
-	const claude: Model = getBundledModel("anthropic", "claude-opus-5");
-	assert.ok(claude, "bundled claude-opus-5 must exist");
-	const { preparation } = fixture(claude);
+const claude: Model = getBundledModel("anthropic", "claude-opus-5");
+assert.ok(claude, "bundled claude-opus-5 must exist");
+const { preparation } = fixture(claude);
+await compact(
+	{ ...preparation, tokensBefore: 100_000, settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true } },
+	claude,
+	"test",
+	undefined,
+	undefined,
+	{
+		convertToLlm: messages => messages as Context["messages"],
+		remoteSystemPrompt: ["STALE_SYSTEM"],
+		tools: RAW_TOOLS as never,
+		buildCachePreservingContext: async () => undefined,
+		completeImpl: async (requestModel, _context, options) => {
+			if (!options.anthropicCompaction) return assistant(requestModel);
+			return {
+				...assistant(requestModel, ""),
+				stopDetails: { type: "compaction" },
+				providerPayload: {
+					type: "anthropicCompaction",
+					provider: requestModel.provider,
+					content: "NATIVE_SUMMARY",
+					signature: "offline-signed-summary",
+				},
+			} as AssistantMessage;
+		},
+	},
+);
+const rows = readTrace();
+const fallbackReq = rows.filter(row => row.k === "summarize.request" && row.lane === "anthropic-native").at(-1);
+assert.ok(fallbackReq, "the fallback native lane must trace summarize.request");
+assert.equal(fallbackReq.hasLiveContext, false, "the fallback native lane has no live context");
+assert.equal(fallbackReq.usesLiveChainReplay, false, "the fallback native lane must not claim a live chain");
+assert.equal(
+	fallbackReq.liveChainFallback,
+	"native-no-live-chain",
+	"the fallback native lane must name its reason on the request trace",
+);
+
+// ---------------------------------------------------------------------------
+// GATE C3 (0088): the narrowed native lane names its exclusions on the request
+// trace too, not only on the returned entry. A whole-chain live request (split
+// turn included, since 0088) is readable from the trace alone, and a chain that
+// does not carry the previous summary names its refusal there as well.
+// ---------------------------------------------------------------------------
+{
+const claude: Model = getBundledModel("anthropic", "claude-opus-5");
+assert.ok(claude, "bundled claude-opus-5 must exist");
+const { preparation, oldAssistant, recentAssistant } = fixture(claude);
+const nativeLiveMessages: Context["messages"] = [
+	{ role: "user", content: [{ type: "text", text: "OLD_USER" }], timestamp: 10 },
+	oldAssistant,
+	{ role: "user", content: [{ type: "text", text: "RECENT_USER" }], timestamp: 30 },
+	recentAssistant,
+];
+const runNativeTrace = async (
+	override: Record<string, unknown>,
+	previousSummaryInPrefix: boolean,
+	liveMessages: Context["messages"] = nativeLiveMessages,
+): Promise<Record<string, unknown> | undefined> => {
 	await compact(
-		{ ...preparation, tokensBefore: 100_000, settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true } },
+		{
+			...preparation,
+			tokensBefore: 100_000,
+			settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
+			...override,
+		},
 		claude,
 		"test",
 		undefined,
 		undefined,
 		{
 			convertToLlm: messages => messages as Context["messages"],
-			remoteSystemPrompt: ["STALE_SYSTEM"],
-			tools: RAW_TOOLS as never,
-			buildCachePreservingContext: async () => undefined,
+			buildCachePreservingContext: async scope =>
+				scope === "live" ? { context: liveContext(liveMessages), previousSummaryInPrefix } : undefined,
 			completeImpl: async (requestModel, _context, options) => {
 				if (!options.anthropicCompaction) return assistant(requestModel);
 				return {
@@ -455,115 +506,50 @@ if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].
 						provider: requestModel.provider,
 						content: "NATIVE_SUMMARY",
 						signature: "offline-signed-summary",
-						...(["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
 					},
 				} as AssistantMessage;
 			},
 		},
 	);
-	const rows = readTrace();
-	const fallbackReq = rows.filter(row => row.k === "summarize.request" && row.lane === "anthropic-native").at(-1);
-	assert.ok(fallbackReq, "the fallback native lane must trace summarize.request");
-	assert.equal(fallbackReq.hasLiveContext, false, "the fallback native lane has no live context");
-	assert.equal(fallbackReq.usesLiveChainReplay, false, "the fallback native lane must not claim a live chain");
-	assert.equal(
-		fallbackReq.liveChainFallback,
-		"native-no-live-chain",
-		"the fallback native lane must name its reason on the request trace",
-	);
-}
-
-// ---------------------------------------------------------------------------
-// GATE C3 (0088): the narrowed native lane names its exclusions on the request
-// trace too, not only on the returned entry. A whole-chain live request (split
-// turn included, since 0088) is readable from the trace alone, and a chain that
-// does not carry the previous summary names its refusal there as well.
-// ---------------------------------------------------------------------------
-if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion)) {
-	const claude: Model = getBundledModel("anthropic", "claude-opus-5");
-	assert.ok(claude, "bundled claude-opus-5 must exist");
-	const { preparation, oldAssistant, recentAssistant } = fixture(claude);
-	const nativeLiveMessages: Context["messages"] = [
-		{ role: "user", content: [{ type: "text", text: "OLD_USER" }], timestamp: 10 },
-		oldAssistant,
-		{ role: "user", content: [{ type: "text", text: "RECENT_USER" }], timestamp: 30 },
-		recentAssistant,
-	];
-	const runNativeTrace = async (
-		override: Record<string, unknown>,
-		previousSummaryInPrefix: boolean,
-		liveMessages: Context["messages"] = nativeLiveMessages,
-	): Promise<Record<string, unknown> | undefined> => {
-		await compact(
-			{
-				...preparation,
-				tokensBefore: 100_000,
-				settings: { enabled: true, keepRecentTokens: 1, reserveTokens: 4096, remoteEnabled: true },
-				...override,
-			},
-			claude,
-			"test",
-			undefined,
-			undefined,
-			{
-				convertToLlm: messages => messages as Context["messages"],
-				buildCachePreservingContext: async scope =>
-					scope === "live" ? { context: liveContext(liveMessages), previousSummaryInPrefix } : undefined,
-				completeImpl: async (requestModel, _context, options) => {
-					if (!options.anthropicCompaction) return assistant(requestModel);
-					return {
-						...assistant(requestModel, ""),
-						stopDetails: { type: "compaction" },
-						providerPayload: {
-							type: "anthropicCompaction",
-							provider: requestModel.provider,
-							content: "NATIVE_SUMMARY",
-							signature: "offline-signed-summary",
-							...(["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
-						},
-					} as AssistantMessage;
-				},
-			},
-		);
-		return readTrace()
-			.filter(row => row.k === "summarize.request" && row.lane === "anthropic-native")
-			.at(-1);
-	};
-	// A split turn now rides the live lane (0088): its trace row must say so, and
-	// name no exclusion.
-	const splitRow = await runNativeTrace({}, true);
-	assert.equal(splitRow?.usesLiveChainReplay, true, "a split native turn must be traced as the live chain");
-	assert.equal(splitRow?.liveChainFallback, undefined, "a live split native turn names no fallback");
-	const priorRow = await runNativeTrace(
-		{
-			previousSummary: "PRIOR_TRACE_SENTINEL",
-			firstKeptEntryId: "recent-user",
-			turnPrefixMessages: [],
-			isSplitTurn: false,
-		},
-		false,
-	);
-	assert.equal(
-		priorRow?.liveChainFallback,
-		"native-previous-summary-not-in-prefix",
-		"a chain that does not carry the previous summary must name its exclusion on the request trace",
-	);
-	assert.equal(priorRow?.usesLiveChainReplay, false, "that refusal must not be traced as the live chain");
-	// The 16:43Z shape (0089): the chain's last assistant turn carries NO usable
-	// provider usage. The capacity gate refused it as `native-capacity-unattested`
-	// and the trace said so; the trace must now read as the live chain with no
-	// fallback named.
-	const noUsageMessages: Context["messages"] = [
-		...nativeLiveMessages.slice(0, -1),
-		{ ...(nativeLiveMessages.at(-1) as Record<string, unknown>), usage: undefined } as Context["messages"][number],
-	];
-	const noUsageRow = await runNativeTrace({}, true, noUsageMessages);
-	assert.equal(
-		noUsageRow?.usesLiveChainReplay,
-		true,
-		"a usage-less native chain must be traced as the live chain",
-	);
-	assert.equal(noUsageRow?.liveChainFallback, undefined, "a usage-less native chain names no fallback");
+	return readTrace()
+		.filter(row => row.k === "summarize.request" && row.lane === "anthropic-native")
+		.at(-1);
+};
+// A split turn now rides the live lane (0088): its trace row must say so, and
+// name no exclusion.
+const splitRow = await runNativeTrace({}, true);
+assert.equal(splitRow?.usesLiveChainReplay, true, "a split native turn must be traced as the live chain");
+assert.equal(splitRow?.liveChainFallback, undefined, "a live split native turn names no fallback");
+const priorRow = await runNativeTrace(
+	{
+		previousSummary: "PRIOR_TRACE_SENTINEL",
+		firstKeptEntryId: "recent-user",
+		turnPrefixMessages: [],
+		isSplitTurn: false,
+	},
+	false,
+);
+assert.equal(
+	priorRow?.liveChainFallback,
+	"native-previous-summary-not-in-prefix",
+	"a chain that does not carry the previous summary must name its exclusion on the request trace",
+);
+assert.equal(priorRow?.usesLiveChainReplay, false, "that refusal must not be traced as the live chain");
+// The 16:43Z shape (0089): the chain's last assistant turn carries NO usable
+// provider usage. The capacity gate refused it as `native-capacity-unattested`
+// and the trace said so; the trace must now read as the live chain with no
+// fallback named.
+const noUsageMessages: Context["messages"] = [
+	...nativeLiveMessages.slice(0, -1),
+	{ ...(nativeLiveMessages.at(-1) as Record<string, unknown>), usage: undefined } as Context["messages"][number],
+];
+const noUsageRow = await runNativeTrace({}, true, noUsageMessages);
+assert.equal(
+	noUsageRow?.usesLiveChainReplay,
+	true,
+	"a usage-less native chain must be traced as the live chain",
+);
+assert.equal(noUsageRow?.liveChainFallback, undefined, "a usage-less native chain names no fallback");
 }
 
 rmSync(traceDir, { recursive: true, force: true });

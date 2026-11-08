@@ -1,0 +1,79 @@
+{
+  "step": "S5 review fix 1 \u2014 Codex 401 follows its 403-retention cycle directly",
+  "change": {
+    "file": "patches/verify-account-eligibility-retention.ts",
+    "why": "the retired Codex gate tested a 401 immediately after the 403 had retained the rejected account's rows; the merged gate re-seeded both accounts first and thereby replaced that retained state before the 401 assertions",
+    "now": "phase 4 re-seeds only for a keyless provider (Antigravity); the keyed provider (Codex) follows its 403-retention cycle directly, so the 401 phase proves the retained rows are dropped",
+    "google_unchanged": "phase 4 still re-seeds for Google before the 401, exactly like the retired Google gate"
+  },
+  "new_fault": {
+    "fault": "c2-codex401",
+    "capability": "0090 Codex 401 after 403 retention",
+    "what": "a 401 retains rows exactly like a 403, so the rows the preceding 403 retained survive the unauthorized cycle",
+    "file": "node_modules/@oh-my-pi/pi-catalog/src/provider-models/special.ts",
+    "reversal": {
+      "removed": "result.rejectedStatus === 403 && accountId !== undefined",
+      "applied": "result.rejectedStatus !== undefined && accountId !== undefined",
+      "file_sha256_after": "87a76fe66e200337acbbd1e1f732fe979c9fa6de7088a1cfb8f9ed0b8ec9e51b"
+    },
+    "merged": {
+      "gate": "verify-account-eligibility-retention.ts",
+      "status": "FAIL",
+      "exit": 1,
+      "leg_assertion": "AssertionError: 401: no retention",
+      "driver_assertion": null,
+      "runtime_unchanged": true
+    },
+    "old_gates": [
+      {
+        "gate": "verify-codex-account-eligibility-retention.ts",
+        "status": "FAIL",
+        "exit": 1,
+        "assertion": [
+          "AssertionError: 401: no retention"
+        ]
+      },
+      {
+        "gate": "verify-google-account-eligibility-retention.ts",
+        "status": "PASS",
+        "exit": 0,
+        "assertion": []
+      }
+    ],
+    "verdict": "PASS"
+  },
+  "rerun": {
+    "merged_18.18.0": "PASS (fix18180b)",
+    "merged_18.19.0_sim": "PASS (fix18190b)",
+    "merged_18.16.0": "PASS (fix18160)",
+    "faults_rerun_with_new_code": {
+      "c2-codex": {
+        "merged": "FAIL",
+        "matching_old": [
+          "verify-codex-account-eligibility-retention.ts"
+        ],
+        "sibling_old": [
+          "verify-google-account-eligibility-retention.ts"
+        ]
+      },
+      "c2-google": {
+        "merged": "FAIL",
+        "matching_old": [
+          "verify-google-account-eligibility-retention.ts"
+        ],
+        "sibling_old": [
+          "verify-codex-account-eligibility-retention.ts"
+        ]
+      },
+      "c2-codex401": {
+        "merged": "FAIL",
+        "matching_old": [
+          "verify-codex-account-eligibility-retention.ts"
+        ],
+        "sibling_old": [
+          "verify-google-account-eligibility-retention.ts"
+        ]
+      }
+    }
+  }
+}

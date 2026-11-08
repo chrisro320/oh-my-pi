@@ -1,0 +1,74 @@
+{
+  "step": "S5 menus \u2014 gate rename map and byte comparisons",
+  "rename_map": {
+    "verify-eval-state-context-persist.ts": "verify-reminder-persist.ts",
+    "verify-turn-recovery-reminder-persist.ts": "verify-reminder-persist.ts",
+    "verify-length-stop-reminder-persist.ts": "verify-reminder-persist.ts",
+    "verify-codex-account-eligibility-retention.ts": "verify-account-eligibility-retention.ts",
+    "verify-google-account-eligibility-retention.ts": "verify-account-eligibility-retention.ts",
+    "verify-devin-auth-cache.ts": "verify-devin-wire.ts",
+    "verify-devin-thinking-signature.ts": "verify-devin-wire.ts",
+    "verify-prompt-effort-resume.ts": "verify-model-effort-resume.ts",
+    "verify-model-selection-resume.ts": "verify-model-effort-resume.ts",
+    "verify-withdrawn-tools-wire.ts": "verify-tools-wire.ts",
+    "verify-tool-schema-bytes.ts": "verify-tools-wire.ts",
+    "verify-cache-warming-idle-budget.ts": "verify-idle-warming-owners.ts",
+    "verify-cron-idle-owners.ts": "verify-idle-warming-owners.ts"
+  },
+  "map_rule": "baseline entry -> merged name (S5 merges + C6); the mapped baseline keeps the FIRST occurrence and drops later duplicates",
+  "menus": {
+    "18.16.0": {
+      "baseline_gates": {
+        "path": "/var/tmp/omp-vagn-baseline/18.16.0--print-gates.txt",
+        "sha256": "e47e0e1da6ec86ca4582310477dcfba933d6fa1b0176426bbf6ac28b575dbb38",
+        "entries": 71
+      },
+      "new_gates": {
+        "path": "/tmp/c6gates-18.16.0.txt",
+        "sha256": "5ce0f8d4cbd0b05c079607d30ad81d370ab18c88c0feaf7964215f3c8b4e0465",
+        "entries": 64
+      },
+      "mapped_baseline_entries": 64,
+      "gates_equal_after_mapping": true,
+      "diff": [],
+      "capabilities": {
+        "baseline_sha256": "4d8ac593deaf0ee8feda79e11fb18dce51df7158571e9512ae3e23c038cf2f40",
+        "new_sha256": "4d8ac593deaf0ee8feda79e11fb18dce51df7158571e9512ae3e23c038cf2f40",
+        "byte_identical": true
+      }
+    },
+    "18.18.0": {
+      "baseline_gates": {
+        "path": "/var/tmp/omp-vagn-baseline/18.18.0--print-gates.txt",
+        "sha256": "7cbd48dc1bb199e3fc548463fe7c2a2c4d856cb1f75eea66909b97a701e6f25f",
+        "entries": 77
+      },
+      "new_gates": {
+        "path": "/tmp/c6gates-18.18.0.txt",
+        "sha256": "b609d6345cd997327d5e8adb122311f957935a48ef574af92054cdc4d7b9a108",
+        "entries": 70
+      },
+      "mapped_baseline_entries": 70,
+      "gates_equal_after_mapping": true,
+      "diff": [],
+      "capabilities": {
+        "baseline_sha256": "15c35ab07383c2dfeab5cc20bba108c6b136927b72886524c235bcce7288912e",
+        "new_sha256": "15c35ab07383c2dfeab5cc20bba108c6b136927b72886524c235bcce7288912e",
+        "byte_identical": true
+      }
+    }
+  },
+  "sim_18.19.0": {
+    "repo": "/var/tmp/omp-s5/sim-repo",
+    "changes": "patches/versions.json -> [18.18.0, 18.19.0]; patches/.18.19.0-families (relocated prefix, version fields, approvals.snapshot 18.18.0); .18.16.0-families -> patches/.retired/11-07-pre-18.19-plans/",
+    "gates_equal_to_18.18.0_menu": true,
+    "gates_entries": 71,
+    "capabilities_equal_to_18.18.0": true,
+    "capabilities": {
+      "path": "/tmp/sim-caps.txt",
+      "sha256": "15c35ab07383c2dfeab5cc20bba108c6b136927b72886524c235bcce7288912e",
+      "baseline_18.18.0_sha256": "15c35ab07383c2dfeab5cc20bba108c6b136927b72886524c235bcce7288912e",
+      "byte_identical_to_18_18_0": true
+    }
+  }
+}

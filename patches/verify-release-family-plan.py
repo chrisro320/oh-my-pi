@@ -15,73 +15,34 @@ import tempfile
 import urllib.request
 
 
+def _load_sibling(name):
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parent / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+version_registry = _load_sibling("version_registry")
+release_approvals = _load_sibling("release_approvals")
+
+
 ROOTS = {"NM": "", "AGENT": "pi-coding-agent", "CORE": "pi-agent-core",
          "AI": "pi-ai", "TUI": "pi-tui", "SNAP": "snapcompact"}
 
-# Capabilities approved after the 18.7.0 family cutover. They are new behavior,
-# not retained baseline members, and follow every retained family in order.
-ADDED_FAMILIES = {
-    "18.10.1": [{"id": "0098-omp-tls-verify-transient-retry", "root": "AI", "capabilities": ["0098"]},
-                {"id": "0099-omp-retry-slow-schedule", "root": "AGENT", "capabilities": ["0099"]},
-                {"id": "0100-omp-stepfun-step-plan", "root": "NM", "capabilities": ["0100"]},
-                {"id": "0101-omp-subagent-warm-revival-persisted-prompt", "root": "AGENT", "capabilities": ["0101"]}],
-    "18.16.0": [{"id": "0102-omp-computer-control-confirm-deadline", "root": "AGENT", "capabilities": ["0102"]}],
-}
-
-# Approved behaviour removals per family release (user decision, not an
-# adoption): the capability leaves both the retained families and the union.
-# 0032 (goal-tool residency) is retired for 18.16.0 only (Q7); 0065, 0025 and
-# 0100 are retired for 18.18.0 (upgrade plan §2.1).
-RETIRED_CAPABILITIES = {
-    "18.16.0": ["0032"],
-    "18.18.0": ["0065", "0025", "0100"],
-}
-
-# Frozen ownership manifest each family release derives from.
-SNAPSHOT_OF = {"18.12.6": "18.10.1", "18.16.0": "18.12.6", "18.18.0": "18.16.0"}
 
 
-# Approved upstream adoptions per family release. 0017 is the existing 18.10.x
-# adoption; 0078 joined it on 18.12.6 after unpatched-target producer proof
-# plus mutation controls (research/mime-adoption-0078.md). A new adoption
-# lands here only with consumer/negative-control proof and the generated
-# manifest's upstream_adoptions entry — the oracle never takes the manifest's
-# own adoption claim on trust. An approved adoption releases the capability
-# from its frozen-snapshot family while keeping it in the acceptance union.
-APPROVED_ADOPTIONS = {
-    "18.10.0": [
-        {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
-    ],
-    "18.10.1": [
-        {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
-    ],
-    "18.12.6": [
-        {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
-        {"capability": "0078", "family": "family-image-display"},
-    ],
-    # Extended only by M5-proven whole-ID adoptions, in manifest order.
-    "18.16.0": [
-        {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
-        {"capability": "0078", "family": "family-image-display"},
-        {"capability": "0066", "family": "family-compaction"},
-        {"capability": "0072", "family": "0072-omp-session-pin-static-auth-ui"},
-        {"capability": "0079", "family": "family-image-display"},
-        {"capability": "0062", "family": "family-image-budget-snapcompact"},
-    ],
-    # 18.18.0 carries the same six approved adoptions plus 0054: its consumer
-    # proof (no `requestType` on any antigravity buildRequest path in the
-    # pristine target) and the negative control at
-    # verify-antigravity-envelope.ts:42 landed with ring segment R1 (M1).
-    "18.18.0": [
-        {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
-        {"capability": "0078", "family": "family-image-display"},
-        {"capability": "0066", "family": "family-compaction"},
-        {"capability": "0072", "family": "0072-omp-session-pin-static-auth-ui"},
-        {"capability": "0079", "family": "family-image-display"},
-        {"capability": "0062", "family": "family-image-budget-snapcompact"},
-        {"capability": "0054", "family": "family-antigravity-wire"},
-    ],
-}
+def snapshot_manifest(here, source):
+    """A live release dir, or the one frozen under .retired/ once its plan was retired."""
+    live = here / f".{source}-families/manifest.json"
+    if live.exists():
+        return live
+    frozen = sorted(here.glob(f".retired/*/.{source}-families/manifest.json"))
+    if len(frozen) != 1:
+        raise RuntimeError(f"frozen {source} family manifest not found (live or exactly one under .retired/)")
+    return frozen[0]
+
+
+
 
 
 def tree_manifest(root):
@@ -119,54 +80,35 @@ def canonicalize_extracted(root):
 
 
 def retained_families(here, version):
-    if version in SNAPSHOT_OF:
-        # The target contract derives from the previous release's frozen
-        # ownership manifest — owner order, roots and capability membership.
-        # An approved adoption removes the capability from its snapshot family
-        # (the union still contains it); an approved retirement removes it from
-        # both; rows left empty disappear; added families follow in order.
-        source = SNAPSHOT_OF[version]
-        snapshot = json.loads((here / f".{source}-families/manifest.json").read_text())
-        if snapshot.get("version") != source:
-            raise RuntimeError(f"frozen {source} family manifest is missing or mismatched")
-        adopted_ids = {entry["capability"] for entry in APPROVED_ADOPTIONS[version]}
-        retired_ids = set(RETIRED_CAPABILITIES.get(version, []))
-        retained = []
-        for entry in snapshot["families"]:
-            capabilities = [item for item in entry["capabilities"]
-                            if item not in adopted_ids and item not in retired_ids]
-            if capabilities:
-                retained.append({"id": entry["id"], "root": entry["root"],
-                                 "capabilities": capabilities})
-        retained.extend(ADDED_FAMILIES.get(version, []))
-        union = sorted(({item for entry in retained for item in entry["capabilities"]}
-                        | adopted_ids) - retired_ids)
-        return retained, union
-    if version not in {"18.10.0", "18.10.1"}:
-        raise RuntimeError("no approved retained-family migration contract for this release")
-    spec = importlib.util.spec_from_file_location("family_oracle", here / "verify-family-plan.py")
-    oracle = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(oracle)
-    baseline = oracle.load_baseline(here / ".retired/10-09-18.7.0-pre-family/baseline.json")
-    old = oracle.validate_registry(baseline, here / ".18.7.0-families/plan.tsv")
+    approvals = release_approvals.load_approvals(here, version)
+    # The target contract derives from the previous release's frozen
+    # ownership manifest — owner order, roots and capability membership.
+    # An approved adoption removes the capability from its snapshot family
+    # (the union still contains it); an approved retirement removes it from
+    # both; rows left empty disappear; added families follow in order.
+    source = approvals["snapshot"]
+    snapshot = json.loads(snapshot_manifest(here, source).read_text())
+    if snapshot.get("version") != source:
+        raise RuntimeError(f"frozen {source} family manifest is missing or mismatched")
+    adopted_ids = {entry["capability"] for entry in approvals["upstream_adoptions"]}
+    retired_ids = set(approvals["retired_capabilities"])
     retained = []
-    for patch, root, capabilities in old:
-        family = Path(patch).name.removesuffix("-v18.7.0.patch")
-        if capabilities == ["0017"]:
-            continue
-        cross_package = capabilities == ["0090"] or (version == "18.10.1" and capabilities == ["0048"])
-        retained.append({"id": family, "root": "NM" if cross_package else root,
-                         "capabilities": capabilities})
-    added = ADDED_FAMILIES.get(version, [])
-    retained.extend(added)
-    union = oracle.variant_ids(baseline, "deployed")
-    union = sorted(set(union) | {item for entry in added for item in entry["capabilities"]})
-    return retained, union
+    for entry in snapshot["families"]:
+        capabilities = [item for item in entry["capabilities"]
+                        if item not in adopted_ids and item not in retired_ids]
+        if capabilities:
+            retained.append({"id": entry["id"], "root": entry["root"],
+                             "capabilities": capabilities})
+    retained.extend({"id": entry["id"], "root": entry["root"], "capabilities": list(entry["capabilities"])}
+                    for entry in approvals["added_families"])
+    union = sorted(({item for entry in retained for item in entry["capabilities"]}
+                    | adopted_ids) - retired_ids)
+    return retained, union, approvals
 
 
 def validate_capability_contract(here, manifest):
     version = manifest["version"]
-    retained, expected_union = retained_families(here, version)
+    retained, expected_union, approvals = retained_families(here, version)
     actual = [{key: entry[key] for key in ("id", "root", "capabilities")} for entry in manifest["families"]]
     if actual != retained:
         raise RuntimeError("manifest changed retained family order, roots or capability ownership")
@@ -174,64 +116,31 @@ def validate_capability_contract(here, manifest):
     expected_rows = [[entry["patch"], entry["root"], ",".join(entry["capabilities"])] for entry in manifest["families"]]
     if rows != expected_rows:
         raise RuntimeError("registry per-family capability ownership differs from manifest")
-    adopted = [{key: entry[key] for key in ("capability", "family")} for entry in manifest["upstream_adoptions"]]
-    if adopted != APPROVED_ADOPTIONS.get(version):
-        raise RuntimeError("unapproved upstream capability adoption")
+    try:
+        release_approvals.check_adoptions(manifest, approvals)
+    except release_approvals.ApprovalError as error:
+        raise RuntimeError(f"unapproved upstream capability adoption: {error}") from error
     return expected_union
 
 
 # Same-family repairs replace the family's single active representation, so the
 # superseded revision must stay archived with its pinned bytes and must not
 # remain the active entry (patch-rollup-contracts: archived bytes and pinned
-# hashes are retained; a revised family is not a second layer).
-RETIRED_REPAIRS = (
-    {
-        "dir": ".retired/10-13-18.10.1-0090-pre-unlock",
-        "family": "0090-omp-oauth-durable-refresh",
-    },
-    {
-        "dir": ".retired/10-15-18.10.1-0090-pre-anthropic",
-        "family": "0090-omp-oauth-durable-refresh",
-    },
-    {
-        "dir": ".retired/10-15-18.10.1-0090-pre-codex403",
-        "family": "0090-omp-oauth-durable-refresh",
-    },
-    {
-        "dir": ".retired/10-15-18.10.1-0090-pre-google403",
-        "family": "0090-omp-oauth-durable-refresh",
-    },
-    {
-        "dir": ".retired/10-15-18.10.1-compaction-pre-child-notes",
-        "family": "family-compaction",
-    },
-    {
-        "dir": ".retired/10-15-18.10.1-compaction-pre-manual-notes",
-        "family": "family-compaction",
-    },
-    {
-        "dir": ".retired/10-16-18.10.1-compaction-pre-tail-notes",
-        "family": "family-compaction",
-    },
-    {
-        "dir": ".retired/10-16-18.10.1-compaction-pre-checkpoint-removal",
-        "family": "family-compaction",
-    },
-    {
-        "dir": ".retired/10-16-18.10.1-prefix-pre-model-default-effort",
-        "family": "family-persistent-prefix-resume",
-    },
-    {
-        "dir": ".retired/11-01-18.12.6-0074-pre-image-prefix",
-        "family": "0074-omp-anthropic-context-cache-boundaries",
-        "version": "18.12.6",
-    },
-)
+# hashes are retained; a revised family is not a second layer). The list lives
+# in .retired/repairs.json, next to the archives it names.
+
+
+def load_retired_repairs(here):
+    data = release_approvals.load_json(here / ".retired/repairs.json")
+    entries = data.get("repairs") if isinstance(data, dict) else None
+    if not isinstance(entries, list) or not entries:
+        raise RuntimeError(".retired/repairs.json must hold a non-empty repairs list")
+    return entries
 
 
 def validate_retired_repairs(here, manifest):
     checked = []
-    for repair in RETIRED_REPAIRS:
+    for repair in load_retired_repairs(here):
         if repair.get("version", manifest["version"]) != manifest["version"]:
             continue
         baseline = json.loads((here / repair["dir"] / "baseline.json").read_text())
@@ -275,6 +184,7 @@ def main():
     args = parser.parse_args()
     if not all(part.isdigit() for part in args.version.split(".")) or len(args.version.split(".")) != 3:
         parser.error("version must be an exact numeric release")
+    version_registry.require_registered(args.version, "--version")
     here = Path(__file__).resolve().parent
     manifest = json.loads((here / f".{args.version}-families/manifest.json").read_text())
     if manifest["version"] != args.version:

@@ -38,13 +38,15 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { enterPrivateHome } from "./durability-harness.ts";
+import { resolvePlan } from "./version-registry.ts";
 
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT
 	?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent`;
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? dirname(AGENT_ROOT);
-const AGENT_VERSION = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-// The journal placement model is 18.16.0's: the older plans keep the anchor map.
-assert.ok(["18.16.0", "18.18.0"].includes(AGENT_VERSION), `the journal placement gate covers 18.16.0 and 18.18.0 only, got ${AGENT_VERSION}`);
+// The journal placement model is this plan's: every registered release ships it,
+// and an unregistered tree fails closed in resolvePlan instead of skipping.
+const plan = resolvePlan({ gate: "verify-date-cwd-journal-prefix", roots: [AGENT_ROOT] });
 
 /** First request: 2026-11-03 (TZ=UTC) — one clear day before the rollover. */
 const WRITER_INSTANT = "2026-11-03T02:30:00.000Z";
@@ -710,6 +712,7 @@ function childEnv(spec: ChildSpec): Record<string, string> {
 	mkdirSync(tmp, { recursive: true });
 	return {
 		PATH: "/usr/bin:/bin", HOME: spec.home, TMPDIR: tmp, TZ: "UTC", LANG: "C.UTF-8",
+		OMP_PATCH_VERSION: plan.version,
 		OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT, OMP_PATCH_VERIFY_NM: NM,
 	};
 }
@@ -903,29 +906,17 @@ if (argv[0] === "child") {
 	const spec = JSON.parse(argv[specIndex + 1]!) as ChildSpec;
 	mkdirSync(spec.home, { recursive: true });
 	await runChild(spec);
-} else if (process.env.OMP_DATE_CWD_JOURNAL_BOOT !== "1") {
-	// A private HOME/XDG/TMPDIR must precede runtime startup (os.homedir may be cached).
-	const privateHome = mkdtempSync(join(tmpdir(), "omp-journal-gate-home-"));
-	const child = Bun.spawnSync({
-		cmd: [process.execPath, import.meta.path, ...argv],
-		env: {
-			...process.env,
-			OMP_DATE_CWD_JOURNAL_BOOT: "1",
-			HOME: privateHome,
-			XDG_CONFIG_HOME: join(privateHome, "config"),
-			XDG_CACHE_HOME: join(privateHome, "cache"),
-			XDG_DATA_HOME: join(privateHome, "data"),
-			XDG_STATE_HOME: join(privateHome, "state"),
-			TMPDIR: privateHome,
-		},
-		stdout: "pipe",
-		stderr: "pipe",
-	});
-	process.stdout.write(child.stdout);
-	process.stderr.write(child.stderr);
-	rmSync(privateHome, { recursive: true, force: true });
-	process.exit(child.exitCode ?? 1);
 } else {
+	// A private HOME/XDG/TMPDIR must precede runtime startup (os.homedir may be cached).
+	enterPrivateHome({
+		entry: import.meta.path,
+		prefix: "omp-journal-gate-home-",
+		bootEnv: "OMP_DATE_CWD_JOURNAL_BOOT",
+		scrub: false,
+		setTmpdir: true,
+		args: argv,
+		cleanup: "after-child",
+	});
 	process.exit(runOrchestrator());
 }
 void $;

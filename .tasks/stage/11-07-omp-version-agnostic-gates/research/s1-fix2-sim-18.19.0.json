@@ -1,0 +1,94 @@
+{
+  "change": "append 18.19.0 AND drop 18.16.0 (registry [18.18.0, 18.19.0]); .18.19.0-families = copy of .18.18.0-families with version fields 18.19.0 and approvals.snapshot 18.18.0; .18.16.0-families moved to .retired/11-07-pre-18.19-plans/",
+  "18.19.0 --print-gates": {
+    "exit": 0,
+    "sha256": "7cbd48dc1bb199e3fc548463fe7c2a2c4d856cb1f75eea66909b97a701e6f25f",
+    "identical_to_18.18.0_baseline": true,
+    "stderr": ""
+  },
+  "18.19.0 --print-capabilities": {
+    "exit": 0,
+    "sha256": "15c35ab07383c2dfeab5cc20bba108c6b136927b72886524c235bcce7288912e",
+    "identical_to_18.18.0_baseline": true,
+    "stderr": ""
+  },
+  "verify-extensions-load-18160 in the 18.19.0 menu": false,
+  "verify-extensions-load-18180 in the 18.19.0 menu": true,
+  "18.16.0 after upgrade": {
+    "exit": 2,
+    "stderr": "OMP_PATCH_VERSION: 18.16.0 is retired (older than the oldest supported release); supported: 18.18.0, 18.19.0 (registry: /var/tmp/omp-vagn-s1/sim/patches/versions.json); retired plans live under patches/.retired/"
+  },
+  "18.12.6": {
+    "exit": 2,
+    "stderr": "OMP_PATCH_VERSION: 18.12.6 is retired (older than the oldest supported release); supported: 18.18.0, 18.19.0 (registry: /var/tmp/omp-vagn-s1/sim/patches/versions.json); retired plans live under patches/.retired/"
+  },
+  "18.20.0": {
+    "exit": 2,
+    "stderr": "OMP_PATCH_VERSION: 18.20.0 is not registered; supported: 18.18.0, 18.19.0 (registry: /var/tmp/omp-vagn-s1/sim/patches/versions.json); a new release is added there and its .<version>-families/ directory created, retiring the oldest in the same change"
+  },
+  "18.19.0 --print-plan rows": {
+    "exit": 0,
+    "rows": 24
+  },
+  "MUTANT 18.19.0 manifest drops 0066": {
+    "exit": 2,
+    "stderr": "release approvals refused: manifest upstream_adoptions differ from approvals.json: omitted ['0066'], unapproved []"
+  },
+  "checker on the sim apply.sh": {
+    "exit": 0,
+    "lines": [
+      "registry: 18.18.0, 18.19.0 (exactly 2: ok)",
+      "TOTAL 0 version literals in 0 files (scanned 1; allowed: 9 in comments, 5 as since() boundaries)",
+      "note: apply.sh:192 since(18.18.0): the since term is always true here: drop that term, keep every other predicate in the condition",
+      "note: apply.sh:558 since(18.18.0): the since term is always true here: drop that term, keep every other predicate in the condition",
+      "note: apply.sh:585 !since(18.18.0): the negated since term is always false here: the term cannot hold: delete it with what only it guards (an `||` operand just drops out)",
+      "note: apply.sh:590 since(18.18.0): the since term is always true here: drop that term, keep every other predicate in the condition",
+      "note: apply.sh:666 since(18.18.0): the since term is always true here: drop that term, keep every other predicate in the condition"
+    ]
+  },
+  "after deleting the dead 18160 arm and unwrapping the 558 arm: menus still equal the 18.18.0 baseline": {
+    "gates": true,
+    "capabilities": true
+  },
+  "compound guards: checker notes (strace/payload preflight and companion staging)": {
+    "term_notes": [
+      "note: apply.sh:192 since(18.18.0): the since term is always true here: drop that term, keep every other predicate in the condition",
+      "note: apply.sh:666 since(18.18.0): the since term is always true here: drop that term, keep every other predicate in the condition"
+    ],
+    "notes_claiming_a_whole_condition_is_constant": [],
+    "ok": true
+  },
+  "strace in the sandbox is unusable": {
+    "exit": 1,
+    "unusable": true
+  },
+  "CONTROL wrong advice (drop the whole guard): --check demands strace": {
+    "exit": 2,
+    "stderr": "18.19.0 plan requires a working strace (ptrace of a child failed: strace -f -e trace=fsync true); fix ptrace permissions or install a working strace",
+    "red_as_expected": true
+  },
+  "following the notes (drop the term): --check works without strace": {
+    "exit": 0,
+    "stdout_tail": [
+      "APPLIED  .18.19.0-families/0101-omp-subagent-warm-revival-persisted-prompt-v18.18.0.patch",
+      "APPLIED  .18.19.0-families/0102-omp-computer-control-confirm-deadline-v18.18.0.patch",
+      "PENDING  bin/omp -> <missing>"
+    ],
+    "stderr": "",
+    "ok": true
+  },
+  "following the notes: apply still refuses without a working strace": {
+    "exit": 2,
+    "stderr": "18.19.0 plan requires a working strace (ptrace of a child failed: strace -f -e trace=fsync true); fix ptrace permissions or install a working strace",
+    "ok": true
+  },
+  "after dropping the two compound-guard terms: menus still equal the 18.18.0 baseline": {
+    "gates": true,
+    "capabilities": true
+  },
+  "18.18.0 (the new oldest; snapshot 18.16.0 frozen under .retired/) --print-gates": {
+    "exit": 0,
+    "identical_to_18.18.0_baseline": true,
+    "stderr": ""
+  }
+}

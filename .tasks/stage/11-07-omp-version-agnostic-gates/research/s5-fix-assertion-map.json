@@ -1,0 +1,117 @@
+{
+  "step": "S5 review fix 2 \u2014 per-assertion inventory regenerated with real destination lines",
+  "script": {
+    "path": "research/s5-assertion-map.py",
+    "sha256": "65948fcfdeaba066419065be6eb342415927c242ccde11046419a2cfb87d3112"
+  },
+  "document": {
+    "path": "research/s5-assertion-map.md",
+    "sha256": "d3d7ca76eff46fc0b56f4bda585b2f78bb8862f6fc3c36d9f74823709047ce3c",
+    "lines": 391
+  },
+  "counts": {
+    "C1": {
+      "old": {
+        "asserts": 41,
+        "throws": 4,
+        "helpers": 0,
+        "total": 45
+      },
+      "new": {
+        "asserts": 43,
+        "throws": 2,
+        "helpers": 0,
+        "total": 45
+      },
+      "unresolved": 0,
+      "new_only": [
+        59,
+        64
+      ]
+    },
+    "C2": {
+      "old": {
+        "asserts": 56,
+        "throws": 3,
+        "helpers": 4,
+        "total": 63
+      },
+      "new": {
+        "asserts": 35,
+        "throws": 3,
+        "helpers": 4,
+        "total": 42
+      },
+      "unresolved": 0,
+      "new_only": [
+        135
+      ]
+    },
+    "C4": {
+      "old": {
+        "asserts": 40,
+        "throws": 1,
+        "helpers": 0,
+        "total": 41
+      },
+      "new": {
+        "asserts": 42,
+        "throws": 1,
+        "helpers": 0,
+        "total": 43
+      },
+      "unresolved": 0,
+      "new_only": [
+        47,
+        52
+      ]
+    },
+    "C7": {
+      "old": {
+        "asserts": 81,
+        "throws": 3,
+        "helpers": 0,
+        "total": 84
+      },
+      "new": {
+        "asserts": 82,
+        "throws": 3,
+        "helpers": 0,
+        "total": 85
+      },
+      "unresolved": 0,
+      "new_only": [
+        60,
+        65
+      ]
+    },
+    "C8": {
+      "old": {
+        "asserts": 57,
+        "throws": 2,
+        "helpers": 0,
+        "total": 59
+      },
+      "new": {
+        "asserts": 55,
+        "throws": 2,
+        "helpers": 0,
+        "total": 57
+      },
+      "unresolved": 0,
+      "new_only": [
+        62,
+        67
+      ]
+    }
+  },
+  "unresolved_total": 0,
+  "new_only_explanations": {
+    "C1": "two driver asserts (leg child exit, known leg name)",
+    "C2": "the Codex provider closure's noFabrication body (the predicate its three old inline asserts carried)",
+    "C4": "two driver asserts",
+    "C7": "two driver asserts",
+    "C8": "two driver asserts"
+  },
+  "regenerated_after": "C5/C6/C9 (the reminder gate's boot block moved into durability-harness.ts, shifting its leg line numbers; the generator re-aligned them)"
+}

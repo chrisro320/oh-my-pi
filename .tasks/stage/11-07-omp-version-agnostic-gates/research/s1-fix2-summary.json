@@ -1,0 +1,20 @@
+{
+  "step": "S1 second review round (3 blocking items)",
+  "sandbox": "bwrap --unshare-net, private HOME; sim/controls on temp copies; no ~/.omp access; no batch-1/batch-2 gate file touched",
+  "menus": "18.16.0 / 18.18.0 --print-gates and --print-capabilities byte-identical to /var/tmp/omp-vagn-baseline (4/4)",
+  "oracles": "oracle + rollups PASS for 18.18.0 (candidate f74e5992...) and 18.16.0 (35567dd8...), digests unchanged (s1-fix2-oracle-*.json, s1-fix2-rollups-*.json)",
+  "item_3_since_term_notes": {
+    "change": "checker notes report the truth of the since TERM only (\"the since term is always true here: drop that term, keep every other predicate in the condition\"); never a whole-condition claim; contract s1/s4 and runbook reworded the same way",
+    "controls": "s1-fix2-checker-selftest.txt: 96/96 (note controls incl. compound guard `omp_since V X && [[ \"$MODE\" == \"apply\" ]]` reports the term and never 'condition is always')",
+    "sim": "s1-fix2-sim-18.19.0.json: notes at apply.sh:192 and :666 say 'drop that term'; following that advice keeps --check at exit 0 with an unusable strace; apply still refuses (exit 2, strace); control: the wrong advice (drop the whole guard) turns --check red (exit 2); menus stay byte-identical to the 18.18.0 baseline after the edits; 18.16.0 moved under .retired/ so the new oldest keeps a frozen predecessor"
+  },
+  "item_A_snapshot": {
+    "change": "release_approvals.load_approvals (apply.sh in every mode, and the oracle through it) requires snapshot strictly older than the release; newest registered -> snapshot == oldest registered (live manifest); oldest -> exactly one frozen manifest under .retired/ (version_registry.snapshot_problem / is_oldest)",
+    "controls": "s1-fix2-approvals-controls.json 18/18 (apply.sh): self-snapshot 18.18.0->18.18.0 red; self-snapshot + 0047 removed from manifest family and plan.tsv red; future snapshot 18.19.0 red; newest with snapshot 18.12.6 red; oldest self / future / unfrozen (18.10.1) red; plus the earlier adoption controls. s1-fix2-oracle-controls.json 10/10 (oracle independent of apply.sh): self-snapshot, self-snapshot + 0047 dropped from the manifest, future snapshot, 0047 dropped with an honest snapshot all red"
+  },
+  "item_B_key_grammar": {
+    "change": "version-registry.sh / version-registry.ts / version_registry.py and the checker reject any backslash anywhere in versions.json (duplicate-key rejection kept), so all accept exactly the same documents",
+    "controls": "selftest: `{\"supp\\u006frted\": [...], \"supported\": [...]}` red in bash, python, ts and the checker; also escaped-key-only and escaped-version red; single-line array still green"
+  },
+  "other": "apply.sh calls release_approvals.py with python3 -B -I (no stray bytecode); S1 files literal-clean (0 literals); the whole-tree checker still exits 1 only because S2 is in progress (160 literals in 8 files at last run)"
+}

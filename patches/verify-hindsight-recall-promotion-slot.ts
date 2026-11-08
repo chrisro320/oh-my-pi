@@ -16,9 +16,10 @@
 // an oracle for the single-carrier contract.
 
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 // Dynamic roots are load-bearing: `OMP_PATCH_VERIFY_AGENT_ROOT` selects the tree
 // under test, so the import specifier only exists at runtime. Every other
@@ -27,6 +28,9 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 assert.ok(AGENT_ROOT, "OMP_PATCH_VERIFY_AGENT_ROOT must point to the agent tree under test");
 const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
+// Resolve the plan before the isolation below strips OMP_PATCH_VERSION: an
+// unregistered, retired or mismatched label must be refused, never ignored.
+const plan = resolvePlan({ gate: "verify-hindsight-recall-promotion-slot", roots: [AGENT_ROOT] });
 const privateHome = mkdtempSync(join(tmpdir(), "omp-promotion-home-"));
 for (const key of Object.keys(process.env)) {
 	if (key !== "PATH" && key !== "TMPDIR") delete process.env[key];
@@ -40,7 +44,7 @@ process.on("exit", () => rmSync(privateHome, { recursive: true, force: true }));
 // Private HOME must also precede runtime startup (os.homedir may be cached).
 if (!privateProcess) {
 	const child = Bun.spawnSync([process.execPath, import.meta.path, ...process.argv.slice(2)], {
-		env: { ...process.env, OMP_DURABILITY_BOOT: "1", OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
+		env: { ...process.env, OMP_DURABILITY_BOOT: "1", OMP_PATCH_VERSION: plan.version, OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT },
 	});
 	process.stdout.write(child.stdout);
 	process.stderr.write(child.stderr);
@@ -49,13 +53,8 @@ if (!privateProcess) {
 globalThis.fetch = (() => { throw new Error("Network forbidden in recall promotion gate"); }) as typeof fetch;
 
 // Plan membership, not symbol existence: 0075 was deployed on the live 18.2.3
-// tree before it was registered, and it is part of the 18.2.10 plan. Plans that
-// never carried it must fail closed rather than measure a pristine tree.
-const agentVersion: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-assert.ok(
-	["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion),
-	`verify-hindsight-recall-promotion-slot: 0075 is not part of the ${agentVersion} plan`,
-);
+// tree before it was registered, and every registered plan carries it. The
+// registry admission above fails closed instead of measuring a pristine tree.
 
 const { SessionMemory } = await import(`${AGENT_ROOT}/src/session/session-memory.ts`);
 
@@ -65,11 +64,10 @@ const { Settings } = await import(`${AGENT_ROOT}/src/config/settings.ts`);
 const { hindsightBackend } = await import(`${AGENT_ROOT}/src/hindsight/backend.ts`);
 const recall = "<memories>\nrecall must stay in the promoted tail\n</memories>";
 const instructionState = { mentalModelsSnippet: "<mental_models>stable</mental_models>", lastRecallSnippet: recall };
-// 18.12.6 and its 18.16.0 successor add a cwd parameter after agentDir; historical
-// plans keep three arguments.
+// Every registered plan adds a cwd parameter after agentDir (18.12.6 added it).
 const instructionArgs = [
 	privateHome,
-	...(["18.12.6", "18.16.0", "18.18.0"].includes(agentVersion) ? [privateHome] : []),
+	privateHome,
 	Settings.isolated({ "memory.backend": "hindsight", "hindsight.apiUrl": "http://127.0.0.1:1" }),
 	{ getHindsightSessionState: () => instructionState, getXdevToolEntries: () => [] },
 ];

@@ -42,14 +42,14 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
-const aiVersion = JSON.parse(readFileSync(join(AI_ROOT, "package.json"), "utf8")).version;
-// The lazy table, the patched provider set and every marker below were read on
-// 18.16.0 and are unchanged on 18.18.0. An unknown tree fails closed instead of
+resolvePlan({ gate: "verify-provider-registry-lazy", roots: [AI_ROOT] });
+// The lazy table, the patched provider set and every marker below are the same
+// on every registered release; an unknown tree fails closed instead of
 // silently asserting another release's provider wiring.
-assert.ok(["18.16.0", "18.18.0"].includes(aiVersion), `verify-provider-registry-lazy is an 18.16.0/18.18.0 gate, got ${aiVersion}`);
 
 const PROVIDERS_DIR = join(AI_ROOT, "src", "providers");
 const TABLE_FILE = join(PROVIDERS_DIR, "register-builtins.ts");
@@ -409,31 +409,44 @@ function copyRuntime(dir: string): string {
 }
 
 if (process.env.OMP_REGISTRY_FAULT_CHILD !== "1") {
-	for (const fault of FAULTS) {
+	// The fault copies are independent (own temp dir, own child), so they run
+	// concurrently; results are recorded in FAULTS order. Each child costs about as
+	// much as this whole file's main body, so running them one after another made
+	// this gate the longest of the batch.
+	const runs = FAULTS.map(async fault => {
 		const dir = mkdtempSync(join(tmpdir(), "omp-registry-fault-"));
 		try {
 			const copy = copyRuntime(dir);
 			fault.apply(copy);
-			const child = Bun.spawnSync([process.execPath, import.meta.path], {
+			const child = Bun.spawn([process.execPath, import.meta.path], {
 				env: {
 					...process.env,
 					OMP_REGISTRY_FAULT_CHILD: "1",
 					OMP_PATCH_VERIFY_AI_ROOT: copy,
 					OMP_PATCH_VERIFY_NM: join(dir, "node_modules", "@oh-my-pi"),
 				},
+				stdout: "pipe",
+				stderr: "pipe",
 			});
-			const output = `${child.stdout.toString()}${child.stderr.toString()}`;
-			const rejected = child.exitCode !== 0 && output.includes(`FAIL ${fault.expect}`);
-			record(
-				`fault:${fault.expect}`,
-				rejected,
-				rejected
-					? `rejected the mutated copy (exit ${child.exitCode})`
-					: `the mutated copy survived: exit ${child.exitCode} ${output.slice(-400)}`,
-			);
+			const [stdout, stderr, exitCode] = await Promise.all([
+				new Response(child.stdout).text(),
+				new Response(child.stderr).text(),
+				child.exited,
+			]);
+			return { fault, exitCode, output: `${stdout}${stderr}` };
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
+	});
+	for (const { fault, exitCode, output } of await Promise.all(runs)) {
+		const rejected = exitCode !== 0 && output.includes(`FAIL ${fault.expect}`);
+		record(
+			`fault:${fault.expect}`,
+			rejected,
+			rejected
+				? `rejected the mutated copy (exit ${exitCode})`
+				: `the mutated copy survived: exit ${exitCode} ${output.slice(-400)}`,
+		);
 	}
 }
 

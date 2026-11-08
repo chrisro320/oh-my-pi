@@ -4,23 +4,14 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${os.homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const root = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? process.env.OMP_VERIFY_PKG_ROOT ?? `${NM}/pi-coding-agent`;
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ??
 	(process.env.OMP_PATCH_VERIFY_NM ? `${NM}/pi-tui` : `${path.dirname(root)}/pi-tui`);
 assert.ok(fs.existsSync(root), `Missing selected package: ${root}`);
-const version = JSON.parse(fs.readFileSync(`${root}/package.json`, "utf8")).version;
-if (process.env.OMP_PATCH_VERSION) assert.equal(version, process.env.OMP_PATCH_VERSION, "selector fixture must match the selected plan");
-if (version === "18.2.3") {
-	const { installLegacyPiSpecifierShim } = await import(`${root}/src/extensibility/plugins/legacy-pi-compat.ts`);
-	installLegacyPiSpecifierShim();
-	const module = await import(`${root}/src/modes/controllers/selector-controller.ts`);
-	assert.equal(typeof module.SelectorController, "function");
-	console.log("PASS retained 18.2.3 auth UI load gate");
-	process.exit(0);
-}
-assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(version), "Adapt selector behavior fixtures when changing the version plan");
+resolvePlan({ gate: "verify-session-pin-static-auth-ui", roots: [root] });
 // Runtime-selected package roots keep first-use imports inside the chosen tree.
 const { SelectorController } = await import(`${root}/src/modes/controllers/selector-controller.ts`);
 const { Settings } = await import(`${root}/src/config/settings.ts`);
@@ -72,10 +63,8 @@ const context = {
 	showError(message: string) { throw new Error(message); },
 };
 const controller = new SelectorController(context);
-if (["18.12.6", "18.16.0", "18.18.0"].includes(version)) {
-	// The target picker reads the viewed session, which may be a focused child.
-	Object.assign(context, { viewSession: context.session });
-}
+// The target picker reads the viewed session, which may be a focused child.
+Object.assign(context, { viewSession: context.session });
 for (const temporaryOnly of [false, true]) {
 	controller.showModelSelector({ temporaryOnly });
 	assert.ok(visible, "opening a model selector must mount its overlay");

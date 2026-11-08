@@ -1,0 +1,25 @@
+{
+  "step": "S3 leg 2 — version literals only where the rule allows them; checker mutation controls all behave",
+  "sandbox": "bwrap --unshare-net, private HOME (/var/tmp/omp-vagn-s3/bw.sh)",
+
+  "whole_tree": {
+    "command": "python3 patches/verify-no-version-literals.py (cwd = repository root)",
+    "exit": 0,
+    "stdout": [
+      "registry: 18.16.0, 18.18.0 (exactly 2: ok)",
+      "TOTAL 0 version literals in 0 files (scanned 126; allowed: 198 in comments, 37 as since() boundaries)"
+    ],
+    "stderr": ""
+  },
+  "notes": "the whole-tree run emits no `note:` line: no since(boundary) sits outside (oldest, newest] any more",
+  "selftest": {
+    "command": "python3 patches/verify-no-version-literals.py --selftest",
+    "exit": 0,
+    "controls": 96,
+    "passed": 96,
+    "verdict_line": "selftest: 96/96 controls behaved",
+    "stdout_file": "/var/tmp/omp-vagn-s3/run/selftest.txt",
+    "stdout_sha256": "5aefd18fc776de4c653b2492126624d18039e9b430363d82fc61f96185f3f51c"
+  },
+  "status": "PASS"
+}

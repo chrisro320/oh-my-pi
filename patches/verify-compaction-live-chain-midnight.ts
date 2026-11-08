@@ -10,10 +10,14 @@ import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, syml
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { mock, setSystemTime } from "bun:test";
+import { resolvePlan } from "./version-registry.ts";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? join(NM, "pi-coding-agent");
-assert.equal(JSON.parse(readFileSync(join(AGENT, "package.json"), "utf8")).version, "18.18.0");
+// The live-chain host this gate proves exists from 18.18.0 (threads land in
+// 18.17.0); an older registered tree has no arm, so fail closed instead of skipping.
+const plan = resolvePlan({ gate: "verify-compaction-live-chain-midnight", roots: [AGENT] });
+assert.ok(plan.since("18.18.0"), "the midnight live-chain host exists from this release on");
 const BEFORE = "2026-11-03T23:59:59.000Z";
 const AFTER = "2026-11-04T00:00:01.000Z";
 
@@ -37,6 +41,7 @@ if (process.env.OMP_COMPACTION_MIDNIGHT_CHILD !== "1") {
 					PATH: process.env.PATH, HOME: home, TMPDIR: home, TZ: "UTC", LANG: "C.UTF-8",
 					XDG_CONFIG_HOME: join(home, "config"), XDG_CACHE_HOME: join(home, "cache"),
 					XDG_DATA_HOME: join(home, "data"), XDG_STATE_HOME: join(home, "state"),
+					OMP_PATCH_VERSION: plan.version,
 					OMP_PATCH_VERIFY_NM: tree, OMP_PATCH_VERIFY_AGENT_ROOT: join(tree, "pi-coding-agent"),
 					OMP_COMPACTION_MIDNIGHT_CHILD: "1", OMP_COMPACTION_TRACE_OFF: "1",
 				},

@@ -1,0 +1,67 @@
+{
+  "gate": "S2 Batch 2 gates on the 18.18.0 candidate runtime",
+  "runtime": "/var/tmp/omp-vagn-s1/run/runtime-18180",
+  "method": "/var/tmp/omp-vagn-s1/rung.sh (bwrap --unshare-net, private HOME/XDG), OMP_PATCH_VERSION=18.18.0",
+  "results": {
+    "pass": [
+      "verify-anthropic-request-audit.ts (receipt /tmp/b2-audit.out)",
+      "verify-anthropic-threads-cache-shape.ts (spawned by the audit gate)",
+      "verify-compaction-lane-trace.ts",
+      "verify-idle-ephemeral-reservation.ts",
+      "verify-oauth-durable-refresh.ts",
+      "verify-anthropic-native-compaction-live-context.ts",
+      "verify-prefix-cache-compaction.ts",
+      "verify-subagent-warm-revival-prompt.ts",
+      "verify-anthropic-cache-boundaries.ts",
+      "verify-devin-idle-cascade-pin.ts",
+      "verify-snapcompact-model-billing.ts",
+      "verify-session-pin-static-auth-ui.ts",
+      "verify-anthropic-thinking-drop-resume.ts",
+      "verify-provider-image-budget.ts",
+      "verify-rejected-prepared-draft-restore.ts",
+      "verify-model-mention-surface-resume.ts",
+      "verify-compaction-length-stop.ts",
+      "verify-remote-compaction-target-key.ts",
+      "verify-advisor-quota-rotation.ts",
+      "verify-date-cwd-journal-prefix.ts",
+      "verify-provider-registry-lazy.ts",
+      "verify-worker-pool-fixture.ts",
+      "verify-tool-schema-bytes.ts",
+      "verify-cache-warming-idle-budget.ts",
+      "verify-computer-control-confirm-deadline.ts",
+      "verify-kitty-shared-png-cache.ts",
+      "verify-anthropic-threads-warm-compaction-isolation.ts",
+      "verify-oauth-worker-single-owner.ts",
+      "verify-compaction-live-chain-midnight.ts",
+      "verify-retry-slow-schedule.ts"
+    ],
+    "fails_closed_before_version_arm": [
+      "verify-extensions-load-18180.ts: exit 1, 'OMP_EXTENSIONS_STAGED_DIR must name an explicitly staged private extension fixture' (environment prerequisite, not exercised)"
+    ],
+    "not_run": [
+      "run-worker-matrix.py",
+      "worker-matrix.sh (matrix harness; every selected gate above passes individually)"
+    ]
+  },
+  "negative_controls": [
+    {
+      "gate": "verify-tool-schema-bytes.ts",
+      "env": "18.19.0",
+      "exit": 1,
+      "behaviour": "refused by resolvePlan (unregistered) - nothing skipped"
+    },
+    {
+      "gate": "verify-retry-slow-schedule.ts",
+      "env": "18.19.0",
+      "exit": 1,
+      "behaviour": "refused by resolvePlan (unregistered)"
+    },
+    {
+      "gate": "verify-oauth-durable-refresh.ts",
+      "env": "18.16.0 vs 18.18.0 runtime",
+      "exit": 1,
+      "behaviour": "pi-ai package.json is 18.18.0 but the selected plan is 18.16.0"
+    }
+  ],
+  "per_gate_receipts": "/tmp/b2-<gate>.out"
+}

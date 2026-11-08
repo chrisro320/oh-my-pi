@@ -1,0 +1,127 @@
+{
+  "step": "C5 \u2014 0079 retirement-barrier asserts moved into verify-kitty-conversion-finalization.ts",
+  "change": {
+    "moved_out_of": "patches/verify-kitty-shared-png-cache.ts",
+    "moved_into": "patches/verify-kitty-conversion-finalization.ts",
+    "asserts_moved": [
+      "an in-flight conversion must hold the retirement barrier",
+      "a disposed block releases its conversion barrier"
+    ],
+    "kept_in_shared_gate": "0080's cache slot, ensurePng/fingerprint coverage, dispose idempotence/teardown and the late-paint checks",
+    "pre_image": {
+      "path": "patches/.retired/11-07-verify-trim/verify-kitty-shared-png-cache.ts",
+      "sha256": "5f7aa835a3c7c396fb9bd6e260ea7d916027c43f66256ea6845da3b9aa3f9df1"
+    }
+  },
+  "files": {
+    "verify-kitty-conversion-finalization.ts": {
+      "lines": 224,
+      "sha256": "9a934bd6d724d85d46053e89189e7c775bc9b749241512e833f640fd4437d2b4"
+    },
+    "verify-kitty-shared-png-cache.ts": {
+      "lines": 456,
+      "sha256": "b21f3f0a2a407f98b8067bffb427210e326b9c27f60157480de0d118e00a89c2"
+    }
+  },
+  "clean_runs": {
+    "clean_18.18.0": {
+      "runtime_unchanged": true,
+      "gates": {
+        "verify-kitty-conversion-finalization.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c5-18180/verify-kitty-conversion-finalization/result.json"
+        },
+        "verify-kitty-shared-png-cache.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c5-18180/verify-kitty-shared-png-cache/result.json"
+        }
+      }
+    },
+    "clean_18.19.0_sim": {
+      "runtime_unchanged": true,
+      "gates": {
+        "verify-kitty-conversion-finalization.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c5-18190/verify-kitty-conversion-finalization/result.json"
+        },
+        "verify-kitty-shared-png-cache.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c5-18190/verify-kitty-shared-png-cache/result.json"
+        }
+      }
+    },
+    "clean_18.16.0": {
+      "runtime_unchanged": true,
+      "gates": {
+        "verify-kitty-conversion-finalization.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c5-18160/verify-kitty-conversion-finalization/result.json"
+        },
+        "verify-kitty-shared-png-cache.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c5-18160/verify-kitty-shared-png-cache/result.json"
+        }
+      }
+    },
+    "retired_pre_c5_on_clean_18.18.0": {
+      "status": "PASS",
+      "exit": 0,
+      "assertion": []
+    },
+    "fault_c5_0079": {
+      "runtime_unchanged": true,
+      "gates": {
+        "verify-kitty-conversion-finalization.ts": {
+          "status": "FAIL",
+          "exit": 1,
+          "evidence": "/var/tmp/omp-s5/c5-mut/verify-kitty-conversion-finalization/result.json"
+        },
+        "verify-kitty-shared-png-cache.ts": {
+          "status": "PASS",
+          "exit": 0,
+          "evidence": "/var/tmp/omp-s5/c5-mut/verify-kitty-shared-png-cache/result.json"
+        }
+      },
+      "retired_gate": {
+        "status": "FAIL",
+        "exit": 1,
+        "assertion": [
+          "AssertionError: a disposed block releases its conversion barrier"
+        ]
+      }
+    }
+  },
+  "mutation": {
+    "fault": "c5-0079",
+    "what": "a disposed block never leaves the awaited-conversion set (the barrier release sits after the disposed early-return)",
+    "file": "node_modules/@oh-my-pi/pi-tui/src/chat/tool-execution.ts",
+    "merged_gate": {
+      "gate": "verify-kitty-conversion-finalization.ts",
+      "status": "FAIL",
+      "assertion": [
+        "AssertionError: a disposed block releases its conversion barrier"
+      ]
+    },
+    "live_shared_gate": {
+      "gate": "verify-kitty-shared-png-cache.ts",
+      "status": "PASS",
+      "why": "it no longer asserts the 0079 barrier; 0080's cache/teardown checks still pass on this fault"
+    },
+    "retired_pre_c5_gate": {
+      "status": "FAIL",
+      "exit": 1,
+      "assertion": [
+        "AssertionError: a disposed block releases its conversion barrier"
+      ]
+    },
+    "parity": "the moved assertion is the one that turns red in both the merged gate and the retired pre-C5 gate"
+  },
+  "menus": "unchanged (no file renamed or added to the selection; only assertions moved)",
+  "superseded_mutation": "the simple stranded-barrier fault (c5-0079) is superseded as the C5 control by c5-0079-reentrant, see research/s5b-c5-fix.json"
+}

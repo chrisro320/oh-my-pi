@@ -1,0 +1,72 @@
+[
+  {
+    "control": "unmutated 18.18.0",
+    "expected": "green",
+    "got": "green",
+    "pass": true,
+    "message": ""
+  },
+  {
+    "control": "MUTANT manifest drops 0066 adoption",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "unapproved upstream capability adoption: manifest upstream_adoptions differ from approvals.json: omitted ['0066'], unapproved []"
+  },
+  {
+    "control": "MUTANT manifest adds unapproved 0099 adoption",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "unapproved upstream capability adoption: manifest upstream_adoptions differ from approvals.json: omitted [], unapproved ['0099']"
+  },
+  {
+    "control": "MUTANT approvals drop 0054 adoption (manifest keeps it)",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "manifest changed retained family order, roots or capability ownership"
+  },
+  {
+    "control": "MUTANT approvals add a family the manifest lacks",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "manifest changed retained family order, roots or capability ownership"
+  },
+  {
+    "control": "MUTANT approvals retire a retained capability (manifest still owns it)",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "manifest changed retained family order, roots or capability ownership"
+  },
+  {
+    "control": "MUTANT self-snapshot 18.18.0 -> 18.18.0",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "/tmp/orc-j873zwyu/.18.18.0-families/approvals.json: snapshot 18.18.0 must be strictly older than 18.18.0"
+  },
+  {
+    "control": "MUTANT self-snapshot + 0047 dropped from the manifest family (self-consistent)",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "/tmp/orc-n58gu1wq/.18.18.0-families/approvals.json: snapshot 18.18.0 must be strictly older than 18.18.0"
+  },
+  {
+    "control": "MUTANT future snapshot 18.19.0",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "/tmp/orc-u58k60zm/.18.18.0-families/approvals.json: snapshot 18.19.0 must be strictly older than 18.18.0"
+  },
+  {
+    "control": "MUTANT 0047 dropped from the manifest family with an honest snapshot",
+    "expected": "red",
+    "got": "red",
+    "pass": true,
+    "message": "manifest changed retained family order, roots or capability ownership"
+  }
+]

@@ -1,0 +1,10 @@
+{
+  "finding": "3: run-worker-placement-controls.py harness copied worker-matrix.sh without its registry dependencies",
+  "fix": "harness now also copies version-registry.sh + versions.json beside worker-matrix.sh",
+  "command": "bwrap --unshare-net, private HOME; runtime reflink copy at /tmp/rt-copy; python3 patches/run-worker-placement-controls.py /tmp/rt-copy <receipt>",
+  "exit": 0,
+  "gates_exercised": 43,
+  "all_mutations_rejected": true,
+  "receipt_source": "/var/tmp/omp-vagn-s1/run/b2-placement.json",
+  "worker_matrix_end_to_end": "not run (full matrix exceeds the ~10 min window; the placement controls above drive 10 gates through worker-matrix.sh in worker mode with the mutation rejected)"
+}
