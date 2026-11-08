@@ -42,6 +42,7 @@ interface IndexRecord {
 	source: string;
 	text?: string;
 	summary?: string;
+	/** Constraints/decisions only; normalized to [] by parseIndex when omitted. */
 	supersedes?: string[];
 }
 
@@ -55,15 +56,15 @@ interface NotebookIndex {
 const INDEX_FENCE = /^```context-notes-index[ \t]*\r?$/gm;
 const WRITE_ACK_TYPE = "context-notes-save-gate-ack";
 const INDEX_GROUPS = ["constraints", "topics", "decisions"] as const;
+const INDEX_KEYS: readonly string[] = ["version", ...INDEX_GROUPS];
 const INDEX_STATUSES = {
 	constraints: ["active", "revoked", "superseded"],
 	topics: ["open", "completed", "archived"],
 	decisions: ["current", "superseded"],
 };
 const NOTEBOOK_GUIDANCE =
-	"Read the notebook's registered constraints and topic index before continuing. Use read/grep on " +
-	"history://current/full when an earlier decision is relevant, a source is needed, or information conflicts. " +
 	"Keep registered IDs and source pointers when shortening notes; retain superseded records and links. " +
+	"Use read/grep on history://current/full when an earlier decision is relevant, a source is needed, or information conflicts. " +
 	"The gate checks structure, not semantic importance, factual accuracy, or whether recall is needed.";
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -74,6 +75,16 @@ function nonempty(value: unknown): value is string {
 	return typeof value === "string" && value.trim().length > 0;
 }
 
+/** Render an offending value for an error message; never throws on cycles. */
+function describe(value: unknown): string {
+	try {
+		const text = JSON.stringify(value);
+		return text === undefined ? String(value) : text;
+	} catch {
+		return String(value);
+	}
+}
+
 function parseIndex(text: string): NotebookIndex | undefined {
 	const fences = [...text.matchAll(INDEX_FENCE)];
 	if (fences.length === 0) return undefined;
@@ -82,28 +93,54 @@ function parseIndex(text: string): NotebookIndex | undefined {
 	const closing = /^```[ \t]*\r?$/m.exec(text.slice(start));
 	if (!closing) throw new Error("Close the context-notes-index fence.");
 	const index: unknown = JSON.parse(text.slice(start, start + closing.index));
-	if (!record(index) || index.version !== 1 || Object.keys(index).length !== 4) {
-		throw new Error("Index requires version:1 and constraints/topics/decisions arrays.");
+	if (!record(index)) {
+		throw new Error('The context-notes-index block must be a JSON object: {"version":1,"constraints":[],"topics":[],"decisions":[]}.');
+	}
+	if (index.version !== 1) throw new Error(`version must be 1 (got ${describe(index.version)}).`);
+	const unknownIndexKeys = Object.keys(index).filter(key => !INDEX_KEYS.includes(key));
+	if (unknownIndexKeys.length > 0) {
+		throw new Error(`Remove unknown index keys: ${unknownIndexKeys.join(", ")}. Allowed: ${INDEX_KEYS.join(", ")}.`);
 	}
 	const ids = new Set<string>();
 	for (const group of INDEX_GROUPS) {
 		const rows = index[group];
-		if (!Array.isArray(rows)) throw new Error(`${group} must be an array.`);
+		if (!Array.isArray(rows)) throw new Error(`${group} must be an array (use [] when empty).`);
 		const body = group === "constraints" ? "text" : "summary";
-		for (const row of rows) {
-			if (!record(row) || !nonempty(row.id) || !/^[a-z0-9][a-z0-9._-]*$/i.test(row.id)) {
-				throw new Error(`${group}: each record needs a stable alphanumeric id.`);
+		const allowed = ["id", "status", "source", body, ...(group === "topics" ? [] : ["supersedes"])];
+		for (const [position, row] of rows.entries()) {
+			const where = `${group}[${position}]`;
+			if (!record(row)) throw new Error(`${where} must be an object with keys: ${allowed.join(", ")}.`);
+			if (!nonempty(row.id) || !/^[a-z0-9][a-z0-9._-]*$/i.test(row.id)) {
+				throw new Error(`${where}: id must be a stable id starting alphanumeric, then alphanumeric/"."/"_"/"-" (got ${describe(row.id)}).`);
 			}
 			if (ids.has(row.id)) throw new Error(`Duplicate registered id: ${row.id}.`);
 			ids.add(row.id);
-			const allowed = ["id", "status", "source", body, ...(group === "topics" ? [] : ["supersedes"])];
-			if (Object.keys(row).some(key => !allowed.includes(key)) || !nonempty(row[body]) || !nonempty(row.source) ||
-				!INDEX_STATUSES[group].includes(row.status as string)) {
-				throw new Error(`${row.id}: require ${allowed.join("/")} with a valid status and nonempty content/source.`);
+			const extraKeys = Object.keys(row).filter(key => !allowed.includes(key));
+			if (extraKeys.length > 0) {
+				throw new Error(`${row.id}: remove unknown keys ${extraKeys.join(", ")}; allowed keys are ${allowed.join(", ")}.`);
 			}
-			if (group !== "topics" && (!Array.isArray(row.supersedes) ||
-				row.supersedes.some(id => !nonempty(id)) || new Set(row.supersedes).size !== row.supersedes.length)) {
-				throw new Error(`${row.id}: supersedes must be an array of unique ids (empty when none).`);
+			if (!nonempty(row[body])) throw new Error(`${row.id}: ${body} must be a nonempty string (got ${describe(row[body])}).`);
+			if (!nonempty(row.source)) {
+				throw new Error(`${row.id}: source must be a nonempty locator string (got ${describe(row.source)}).`);
+			}
+			if (!INDEX_STATUSES[group].includes(row.status as string)) {
+				throw new Error(
+					`${row.id}: invalid status ${describe(row.status)}; valid statuses for ${group} are ` +
+						`${INDEX_STATUSES[group].join("|")}.`,
+				);
+			}
+			if (group !== "topics") {
+				// A missing `supersedes` means "nothing superseded"; a present value
+				// must still be an explicit list of unique nonempty ids.
+				const supersedes = row.supersedes ?? [];
+				if (!Array.isArray(supersedes) || supersedes.some(id => !nonempty(id)) ||
+					new Set(supersedes).size !== supersedes.length) {
+					throw new Error(
+						`${row.id}: supersedes must be an array of unique nonempty ids (got ${describe(row.supersedes)}); ` +
+							"omit it when nothing is superseded.",
+					);
+				}
+				row.supersedes = supersedes;
 			}
 		}
 	}
@@ -112,7 +149,7 @@ function parseIndex(text: string): NotebookIndex | undefined {
 		const rows = new Map(parsed[group].map(row => [row.id, row]));
 		const successors = new Map<string, string>();
 		for (const row of rows.values()) {
-			for (const id of row.supersedes!) {
+			for (const id of row.supersedes ?? []) {
 				if (id === row.id || rows.get(id)?.status !== "superseded" || successors.has(id)) {
 					throw new Error(`${row.id}: supersedes must reference a superseded ${group} record with one successor.`);
 				}
@@ -256,7 +293,9 @@ export default function contextNotesSaveGate(pi: ExtensionAPI): void {
 				}
 			}
 			if (pendingWrite === event.toolCallId) pendingWrite = undefined;
-			if (!event.isError) return { additionalContext: NOTEBOOK_GUIDANCE };
+			if (!event.isError && typeof event.input.text === "string" && event.input.text.length > 0) {
+				return { additionalContext: NOTEBOOK_GUIDANCE };
+			}
 		} catch (error) {
 			return {
 				isError: true,
