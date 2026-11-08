@@ -1,0 +1,176 @@
+{
+  "step": "M8d round-4 controls (findings 5, 6)",
+  "runtime": "/var/tmp/omp-18180-m8d-purpose/runtime",
+  "gates": {
+    "verify-anthropic-request-audit.ts": "d7e1fd3264f6be90600533f2ec98d1d6940c41ef56e1c73f1c0eeb14a6ab251b",
+    "verify-usage-thread-providers.ts": "788b40649b4a9913dc0ff9faf4d825ed6e2d985bf75ccc5066080433c37bf9b9"
+  },
+  "controls": {
+    "purpose-default-side": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-ai/src/providers/anthropic.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: one ordinary lineage must own one baseline",
+      "expected_text": "one ordinary lineage must own one baseline",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "purpose-stateless-is-side": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-ai/src/providers/anthropic.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: a stateless main turn is archived as main",
+      "expected_text": "a stateless main turn is archived as main",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "purpose-initiator-not-side": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-ai/src/providers/anthropic.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: side traffic must not advance the ordinary baseline | + actual - expected",
+      "expected_text": "side traffic must not advance the ordinary baseline",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "devin-wire-forwarding-dropped": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-ai/src/stream.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: loopback: a local summary is archived as side work | + actual - expected",
+      "expected_text": "is archived as side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "purpose-streamsimple-default-side": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-ai/src/stream.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: loopback: an unmarked standalone Agent turn is archived as main | + actual - expected",
+      "expected_text": "an unmarked standalone Agent turn is archived as main",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "marker-summaries": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-agent-core/src/telemetry.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: loopback: a local summary is archived as side work | + actual - expected",
+      "expected_text": "a local summary is archived as side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "marker-auto-repair": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-coding-agent/src/edit/auto-repair.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: loopback: edit auto-repair is archived as side work | + actual - expected",
+      "expected_text": "edit auto-repair is archived as side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "marker-memory": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-coding-agent/src/memories/index.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: loopback: a memory job is archived as side work | + actual - expected",
+      "expected_text": "a memory job is archived as side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "marker-warmer": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-coding-agent/src/session/cache-warmer.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: the real warmer declares its replay side work, whatever options it was armed with | + actual - expected",
+      "expected_text": "the real warmer declares its replay side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "marker-ephemeral-turn": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: a same-session side-channel turn declares itself side work | + actual - expected",
+      "expected_text": "a same-session side-channel turn declares itself side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "usage-sweep-fetches-anthropic": {
+      "gate": "verify-usage-thread-providers.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: a provider outside both salvage providers completes Codex and never requests Anthropic usage | + actual - expected",
+      "expected_text": "never requests Anthropic usage",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "usage-claude-salvage-without-cache": {
+      "gate": "verify-usage-thread-providers.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: without cached Anthropic data Claude salvage is skipped | + actual - expected",
+      "expected_text": "without cached Anthropic data Claude salvage is skipped",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "usage-codex-not-completed": {
+      "gate": "verify-usage-thread-providers.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: the sweep completes Codex, the one provider the scope did not cover, and nothing else | + actual - expected",
+      "expected_text": "completes Codex",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "usage-replace-snapshot": {
+      "gate": "verify-usage-thread-providers.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: Claude salvage evaluates from the cached snapshot | + actual - expected",
+      "expected_text": "Claude salvage evaluates from the cached snapshot",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "usage-empty-scope-probes": {
+      "gate": "verify-usage-thread-providers.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: an empty scope probes no provider and triggers no completion fetch | + actual - expected",
+      "expected_text": "an empty scope probes no provider",
+      "expected_text_seen": true,
+      "status": "PASS"
+    }
+  },
+  "status": "PASS"
+}

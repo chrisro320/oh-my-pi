@@ -1,0 +1,83 @@
+{
+  "step": "M8c round-3 family fixes (findings 1, 5, 6): proof summary",
+  "candidate_tree_sha256": "71a63059d2716bb57585facad6d44efcf5d89a4c776b857e0cc7fa3b39f5fa34",
+  "previous_candidate_tree_sha256": "45f8a88791ceedbb3964eee645f1a5e105553e1b8c3ec22757274df83dd1a3ab",
+  "finding_1_usage_snapshot_and_sweep": {
+    "origin": "Pre-existing in the 18.16.0 family, carried through the 18.18.0 rewrite; not introduced by it. In the 18.16.0 family tree (/tmp/omp-plan-18180/rebase/old-work) pi-tui status-line/component.ts:2109-2128 already scoped the fetch to the active provider (host.fetchUsageReports(session, signal, provider)), status-line-host.ts:59-60 forwarded it, and AgentSession.fetchUsageReports(signal, provider) (agent-session.ts:14969-14993) assigned the scoped result to #usageReports and passed it to #maybeScheduleResetSweep. Pristine 18.16.0/18.18.0 only ever received the unscoped call. The 18.18.0 rewrite only turned the singular provider into a provider set (statusLineHost: provider ? [provider] : undefined), same behaviour.",
+    "fix": "AgentSession.fetchUsageReports merges a scoped result into the cached snapshot (only the scoped providers' rows are replaced; an unscoped fetch still replaces everything; an explicit empty set refreshes and sweeps nothing). #maybeScheduleResetSweep(snapshot, scope) treats providers outside the scope as candidates and, inside the sweep, fetches exactly those into the shared snapshot before planning (#completeUsageSnapshot, 10 s timeout, cached by the usage service), so Codex/Claude salvage is evaluated from any single-provider session; statusline polling stays scoped (no change to component.ts/status-line-host.ts).",
+    "owner": "0095 (agent-session.ts, already the last owner carrying the fetchUsageReports provider-set hunk); harness amend refuses a shared-path amend into an earlier owner.",
+    "gate": "verify-usage-thread-providers.ts consumer leg (real AgentSession, stub usage.reports/oauth.accounts/listResetCredits); worker-runtime-probe usageSessionOpen disables the sweep so the worker-set leg keeps observing only the caller's sets."
+  },
+  "finding_5_request_purpose": {
+    "fix": "StreamOptions.requestPurpose (\"main\"|\"side\"), forwarded by mapOptionsForApi (stream.ts); the Anthropic audit classifies sideRequest = requestPurpose !== \"main\", no longer from statefulResponses/initiatorOverride. The one main-loop producer, the sdk.ts session streamFn, marks requestPurpose \"main\" on the request it sends (not on `merged`, so the warmer replay built from it stays unmarked). Every other same-session producer (local summaries, warmers, edit auto-repair, memory jobs, sharpshooter, title/commit generators, advisors, ephemeral side turns) is side by default, so an unmarked oneshot can never replace the baseline.",
+    "owners": "0094 (anthropic.ts, types.ts, dist types.d.ts), family-devin-wire (stream.ts, sole owner), 0095 (sdk.ts)",
+    "gate": "verify-anthropic-request-audit.ts: stateless main turn establishes/advances the baseline, unmarked stateless request is side, compressed explicit-side and unmarked same-model requests leave the baseline untouched, real AgentSession main turn carries requestPurpose main and a real ephemeral side turn does not; verify-anthropic-threads-cache-shape.ts marks its main sends."
+  },
+  "finding_6_wire_bytes": {
+    "fix": "The audit gains wrapWire installed beneath the compressor (AnthropicClientOptionsArgs.wrapWireFetch); meta.wire.bytes is the encoded body length handed to the transport (gzip length), meta.wire.encoding its content-encoding, meta.wire.logicalBytes the pre-compression length, meta.wire.sends the number of sends (a compression-fallback resend rewrites the record atomically). A request that never reaches the wire wrapper is recorded without a bytes claim.",
+    "owners": "0074 (anthropic-request-audit.ts, dist audit d.ts, dist anthropic.d.ts), 0094 (anthropic.ts)",
+    "gate": "verify-anthropic-request-audit.ts compression leg asserts meta.wire.bytes === the real gzip Uint8Array length, < logical length, logicalBytes, encoding, sends; verify-anthropic-threads-cache-shape.ts record-safety installs the wire wrapper."
+  },
+  "mutations_red": {
+    "purpose-from-stateful": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 1,
+      "red_on": "explicit and unmarked same-session requests are archived as side work"
+    },
+    "purpose-default-main": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 1,
+      "red_on": "explicit and unmarked same-session requests are archived as side work"
+    },
+    "purpose-main-unmarked": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 1,
+      "red_on": "the session's own agent-loop turn declares itself main"
+    },
+    "purpose-stateless-is-side": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 1,
+      "red_on": "a stateless main turn is archived as main"
+    },
+    "wire-bytes-logical": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 1,
+      "red_on": "meta.wire.bytes is the length of the real gzip byte array"
+    },
+    "wire-not-installed": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 1,
+      "red_on": "meta.wire.bytes is the length of the real gzip byte array"
+    },
+    "wire-above-compression": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 1,
+      "red_on": "meta.wire.bytes is the length of the real gzip byte array"
+    },
+    "usage-replace-snapshot": {
+      "gate": "verify-usage-thread-providers.ts",
+      "exit": 1,
+      "red_on": "a scoped fetch leaves another provider's row untouched"
+    },
+    "usage-sweep-scoped-only": {
+      "gate": "verify-usage-thread-providers.ts",
+      "exit": 1,
+      "red_on": "the sweep completes the providers the scope did not cover, and nothing it did"
+    },
+    "usage-sweep-no-topup": {
+      "gate": "verify-usage-thread-providers.ts",
+      "exit": 1,
+      "red_on": "the sweep completes the providers the scope did not cover, and nothing it did"
+    },
+    "usage-empty-scope-probes": {
+      "gate": "verify-usage-thread-providers.ts",
+      "exit": 1,
+      "red_on": "an empty scope probes no provider and triggers no completion fetch"
+    }
+  },
+  "typecheck": "tsc differential (pi-ai, pi-coding-agent) vs the M8 candidate logs: 0 added errors",
+  "oracle": "m8c-oracle-18.18.0.json",
+  "batch": "m8c-full-batch-18.18.0.json",
+  "smoke": "m8c-smoke-18.18.0.json",
+  "older_arms": "m8c-older-arms.json"
+}

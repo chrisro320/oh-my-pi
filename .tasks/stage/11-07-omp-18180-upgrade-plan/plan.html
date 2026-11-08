@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OMP 18.18.0 升級計畫</title>
+<link rel="stylesheet" href="htmlplan.css">
+<script src="htmlplan.js" defer></script>
+<body>
+<header>
+<div class="eyebrow">.tasks/stage/11-07-omp-18180-upgrade-plan</div>
+<h1>OMP 18.18.0 升級計畫</h1>
+<p class="summary">把現在用的客製 omp 18.16.0 升到上游 18.18.0：自訂功能不默默消失，prompt cache、壓縮和 Anthropic 登入都不被破壞。計畫已經過四輪獨立審查；實作、安裝、上線各自另外經你批准。</p>
+</header>
+<main>
+<section class="part" data-part="situation">
+<h2>現況</h2>
+<ul class="points"><li>你現在用的是客製 18.16.0，上面疊了 26 組自訂改動，共 62 項自訂功能。</li><li>上游已經出到 18.18.0，帶來子代理背景執行緒、Anthropic 連續對話等新功能。</li><li><details class="level"><summary>把現有改動直接套到 18.18.0，有一半套不上。</summary><ul><li>退役後剩 24 組，其中 12 組失敗，共 67 處要重寫。</li><li>另有 5 組雖然套得上，但意思已經錯了，例如第一次呼叫 Anthropic 就會當掉。</li></ul></details></li><li>18.16.0 已經修好「跨午夜後日期讓整段對話暫存失效」，這個修正會保留。</li></ul>
+<figure class="diagram"><table class="vis-table"><thead><tr><th></th><th>現在（18.16.0）</th><th>升級後（18.18.0）</th></tr></thead><tbody><tr><th scope="row">子代理背景執行緒</th><td>沒有</td><td>預設開啟</td></tr><tr><th scope="row">Anthropic 連續對話</th><td>沒有</td><td>開啟；符合條件的普通對話只送新訊息</td></tr><tr><th scope="row">Codex 回答長度</th><td>依舊設定</td><td>上游預設「短」</td></tr><tr><th scope="row">跨午夜後的壓縮</th><td>那一次對不上暫存</td><td>修好</td></tr><tr><th scope="row">退役的 3 項功能</th><td>還在</td><td>移除</td></tr><tr><th scope="row">Trellis 專用外掛</th><td>停用中</td><td>已刪除</td></tr></tbody></table></figure>
+</section>
+<section class="part" data-part="complication">
+<h2>難點</h2>
+<ul class="points"><li><details class="level"><summary>新功能和我們的改動互相衝突，但你不接受「為了穩定把新功能全部關掉」。</summary><ul><li>原則：預設採用上游新功能，只有修不好時才暫時關閉，並寫下重新開啟的條件。</li></ul></details></li><li><details class="level"><summary>開啟背景執行緒後，有些改動不會當機，卻會默默多花錢或讓暫存接不上。</summary><ul><li>例如多條執行緒同時更新登入憑證，可能讓 Anthropic 登入失效。</li></ul></details></li><li>Anthropic 連續對話的接續點，可能被暖機重送和壓縮摘要搶走。</li><li>上游把 Codex 的連線整個重寫，我們的壓縮鏈改動要重新寫。</li><li>你正在用的 omp 不能被碰壞，所以所有驗證都要在隔離環境做。</li></ul>
+</section>
+<section class="part" data-part="decision">
+<h2>決定</h2>
+<doc-plan data-prefix="3" open="needs">
+<doc-claim>
+<p>鎖定 18.18.0，之後的 18.18.x 不追。 <span class="decided">本人已選</span></p>
+<doc-claim>
+<p>18.17.0 沒有 18.18.0 對背景子代理當機的修正，兩版工作量幾乎一樣。</p>
+
+</doc-claim>
+</doc-claim>
+<doc-claim>
+<p>退役 3 項少用功能，保留 Hindsight 與 Devin。 <span class="decided">本人已選</span></p>
+<doc-claim>
+<p>退役：Command Code DeepSeek 模型設定、Ollama Cloud 額度顯示、StepFun step plan。</p>
+
+</doc-claim><doc-claim>
+<p>StepFun step plan 退役後就不能用了，上游沒有對應功能。</p>
+
+</doc-claim>
+</doc-claim>
+<doc-claim>
+<p>新功能預設開啟，修不好才暫時關閉。 <span class="decided">本人已選</span></p>
+<doc-claim>
+<p>子代理背景執行緒預設 4 條；同時跑 9 個以上子代理時才會用到。</p>
+
+</doc-claim><doc-claim>
+<p>Anthropic 連續對話採用，衝突在本地修正；修不好時可關閉。</p>
+<doc-claim>
+<p>只有符合條件時才會用：官方 Anthropic API、Claude 4.5 以上、一般對話。</p>
+
+</doc-claim><doc-claim>
+<p>暖機重送和壓縮摘要刻意不走連續對話，避免搶走接續點。</p>
+
+</doc-claim><doc-claim>
+<p>你實際連到的是不是官方 API，要到實作時在隔離環境確認。</p>
+
+</doc-claim>
+</doc-claim><doc-claim>
+<p>Codex 回答長度採上游預設「短」。</p>
+
+</doc-claim>
+</doc-claim>
+<doc-claim>
+<p>修跨午夜壓縮，不修顧問換帳號。 <span class="decided">本人已選</span></p>
+<doc-claim>
+<p>你沒有用多個帳號跑顧問，所以那個情況不會發生。</p>
+
+</doc-claim>
+</doc-claim>
+<doc-claim>
+<p>每一步都先在隔離環境通過檢查才往下走。</p>
+<doc-claim>
+<p>每個檢查都配一份故意弄壞的對照，弄壞時必須亮紅燈。</p>
+
+</doc-claim><doc-claim>
+<p>正在用的 omp、資料庫、憑證和暫存都不碰。</p>
+
+</doc-claim>
+</doc-claim>
+<doc-claim>
+<p>實作分 10 步，另開任務逐步進行。</p>
+<doc-ask id="ask1"><p>下一步怎麼走？</p><label><input type="radio" name="ask1" value="另開實作任務，從第一步開始" checked> 另開實作任務，從第一步開始</label><label><input type="radio" name="ask1" value="先調整計畫"> 先調整計畫</label><label><input type="radio" name="ask1" value="暫停，計畫先保留"> 暫停，計畫先保留</label></doc-ask><doc-claim>
+<p>建架構與退役 → 照搬重套 → 對話與續接 → 壓縮鏈 → 登入</p>
+<figure class="diagram"><div class="vis-flows"><div class="vis-row"><span class="vis-next"><span class="vis-step">建架構與退役</span><i class="vis-arrow" aria-hidden="true">→</i></span><span class="vis-next"><span class="vis-step">照搬重套</span><i class="vis-arrow" aria-hidden="true">→</i></span><span class="vis-next"><span class="vis-step">對話與續接</span><i class="vis-arrow" aria-hidden="true">→</i></span><span class="vis-next"><span class="vis-step">壓縮鏈</span><i class="vis-arrow" aria-hidden="true">→</i></span><span class="vis-step">登入</span></div></div></figure>
+</doc-claim><doc-claim>
+<p>Anthropic 連續對話 → 背景執行緒全測 → 外掛與原生 → 總驗收 → 你親手驗收</p>
+<figure class="diagram"><div class="vis-flows"><div class="vis-row"><span class="vis-next"><span class="vis-step">Anthropic 連續對話</span><i class="vis-arrow" aria-hidden="true">→</i></span><span class="vis-next"><span class="vis-step">背景執行緒全測</span><i class="vis-arrow" aria-hidden="true">→</i></span><span class="vis-next"><span class="vis-step">外掛與原生</span><i class="vis-arrow" aria-hidden="true">→</i></span><span class="vis-next"><span class="vis-step">總驗收</span><i class="vis-arrow" aria-hidden="true">→</i></span><span class="vis-step">你親手驗收</span></div></div></figure>
+</doc-claim>
+</doc-claim>
+</doc-plan>
+</section>
+<section class="part" data-part="outcome">
+<h2>預期成果</h2>
+<ul class="points"><li>升級後，除了你選擇退役的 3 項，原本的自訂功能都還在。</li><li>開新對話、續接舊對話、壓縮之後，暫存照常接上，不會突然用全價重送整段對話。</li><li>跨過午夜後壓縮，也照樣沿用暫存。</li><li>升級後 Anthropic 登入照常可用，開著背景執行緒也不會失效，不用重新登入。</li><li>一次派出很多子代理時，它們會分到背景執行緒平行跑。</li><li><details class="level"><summary>在官方 Anthropic API 上用 Claude 4.5 以上時，符合條件的一般對話每輪只送新訊息，回應延遲較低；上游表示費用不變。</summary><ul><li>暖機重送和壓縮摘要不走連續對話，照舊送完整內容。</li><li>實際連線路線還沒驗證；若某項檢查修不好，會先關閉這個功能上線，並寫下重新開啟的條件。</li></ul></details></li><li>Codex 的回答預設比較短，想要長一點仍可在設定改回。</li><li>上線前，你會在隔離環境親手驗收畫面、Escape 和壓縮。</li></ul>
+</section>
+<section class="part" data-part="execution">
+<h2>分工</h2>
+<ul class="slices"><li class="slice"><span class="agent">main</span><span class="why">整合每一步的結果，每步結束跑一次全部檢查，並向你回報。</span><ul class="notes"><li>第一步（建架構、退役 3 項）交一個 task worker 做，main 驗收。</li></ul></li><li class="slice"><span class="agent">task</span><span class="why">照搬重套的補丁依共用檔案分 3–4 組平行做，共用檔案的照順序由同一人做。</span></li><li class="slice"><span class="agent">taskex</span><span class="why">壓縮鏈和閒置暖機各由一位負責，這兩塊最容易改錯。</span><ul class="notes"><li>背景執行緒全測也由 taskex 負責。</li></ul></li><li class="slice"><span class="agent">reviewer</span><span class="why">上線前做一次獨立審查。</span></li><li class="slice"><span class="agent">main</span><span class="why">👤 最後一步請你在隔離環境親手驗收，安裝與上線另外經你批准。</span></li></ul>
+</section>
+</main>
+</body>
+</html>

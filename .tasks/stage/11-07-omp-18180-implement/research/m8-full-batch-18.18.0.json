@@ -1,0 +1,84 @@
+{
+  "step": "M8 one-controller batch: every gate from OMP_PATCH_VERSION=18.18.0 bash patches/apply.sh --print-gates, in one bwrap --unshare-net run on the candidate runtime with the rebuilt native addons",
+  "driver": ".tasks/stage/11-07-omp-18180-implement/research/m8-run-target-gates.py (adapted from the 18.16.0 M13 driver; hashes itself and every m8-smoke/*.py into the receipt)",
+  "runtime": "/var/tmp/omp-18180-m8/runtime",
+  "native_addons": {
+    "pi_natives.linux-x64-modern.node": "805c244b98c29242ac850a555b804f8fef5a7b20521b2df89bbebf11c17a953a",
+    "pi_natives.linux-x64-baseline.node": "187d620616526161c37b93649c0a722ea8d89082811d756c85685d0c47164ae1",
+    "overlay_check": "PASS native overlay 18.18.0: 2 addons, 1 patches (patches/verify-native-overlay.py --nm <runtime> --overlay patches/native/18.18.0/overlay.json)"
+  },
+  "controller_sha256": "36722c4f3386ccbee7bca15974ce579638edb254be3b8d68afd75688b71030bf",
+  "selected_by_controller": 77,
+  "executed": 77,
+  "instruments": {
+    "files": {
+      "m8-run-target-gates.py": "22c48c83737cae5da24e1fbff3189fc0bca5fb2bb2511406489e585810b42a8a",
+      "m8-smoke/harness.py": "f3204187a5a2ef13345555a0000120aa47d12384493aabce846399ec82dd16d9",
+      "m8-smoke/run-sandbox-smoke.py": "fe7cc8b7754bddaaa8cea882ddee7c6f9217034d22737066e0523ddd35c64287"
+    },
+    "unchanged": true,
+    "snapshot": "/var/tmp/omp-18180-m8/full2/instruments"
+  },
+  "runtime_hash_manifest": "/var/tmp/omp-18180-m8/full2/runtime-sha256.json",
+  "runtime_unchanged": true,
+  "status": "FAIL",
+  "failures": [
+    {
+      "gate": "verify-worker-runtime.ts",
+      "exit": 1,
+      "status": "FAIL",
+      "evidence": "/var/tmp/omp-18180-m8/full2/verify-worker-runtime/result.json"
+    }
+  ],
+  "batch_run_1": {
+    "status": "FAIL",
+    "failed": [
+      "verify-worker-runtime.ts",
+      "verify-prompt-rebuild-inputs.ts"
+    ],
+    "note": "same 77 gates, same runtime; verify-prompt-rebuild-inputs failed on a stale mutation anchor (gate fixture, not product) and was repaired before run 2"
+  },
+  "gate_repairs_during_acceptance": [
+    {
+      "file": "patches/verify-prompt-rebuild-inputs.ts",
+      "class": "gate fixture drifted from the tree it pins",
+      "detail": "the PI_INTENT_PROMPT mutation anchored on 18.16.0's `intentGuidance: $env.PI_INTENT_PROMPT ?? \"\"`; 18.18.0 carries `intentGuidance: $env.PI_INTENT_PROMPT || intentGuidance || \"\"`. All 7 scenarios passed; only the mutation could not be applied ('mutation fixture does not match the runtime').",
+      "fix": "the mutation now selects its anchor by agentVersion (18.16.0 keeps its line), so the mutation still turns u15-pi-intent-prompt red",
+      "rerun": "PASS, 7 scenarios + 6 mutations rejected",
+      "sha256_before": "b3f4106dec864bff1b3eed28ab1fac36d9451c19757f05bcfe442b69fa79a36e",
+      "sha256_after": "f5ad4ca73cb4fdf763b23dedd82aabbd91facd9a8d68542e272f212db523156b"
+    },
+    {
+      "file": "patches/verify-anthropic-threads-warm-compaction-isolation.ts",
+      "class": "coverage gap found by the typecheck differential",
+      "detail": "new leg 9 `summary-native` asserts the Anthropic-native compaction request carries the thread opt-out on the wire (control: the same call threads without it)",
+      "rerun": "PASS 9/9 legs; the one-line mutation that drops the forwarded field turns leg 9 red (child exit 1)"
+    }
+  ],
+  "open_finding": {
+    "gate": "verify-worker-runtime.ts (Q7)",
+    "behaviour": "inside the batch driver the Q7 leg reads 897 of 900 rows: nine subagent workers each record 100 distinct `m6-writer-${writer}/${row}` usage rows through AgentStorage, the probe's own 'no swallowed SQLite write/lock failures' assertion stays green, PRAGMA integrity_check is ok, and the count is 897 in both batch runs",
+    "standalone": "the same gate on the same runtime under a private HOME (bwrap --unshare-net, /tmp HOME) PASSES (rc 0), so the product path can reach 900",
+    "difference": "the driver's per-gate environment (private HOME/XDG/TMPDIR under the evidence dir on /var/tmp, PI_CODING_AGENT_DIR set, OMP_PATCH_PLAN=deployed) vs the /tmp HOME of the standalone run",
+    "assessment": "deterministic under one environment, green under the other: three rows are reported written but not counted. This is outside the 18.18.0 family surface (no family touches agent-storage or the worker probe) and the gate was not weakened",
+    "status": "reported, not resolved; needs its own investigation before publication (either a real silent row loss under 9 concurrent writers or a fixture/environment interaction)",
+    "experiments": [
+      {
+        "case": "driver-like env, TMPDIR=/tmp (tmpfs)",
+        "runtime": "candidate (rebuilt addons)",
+        "Q7": "PASS (900 rows)"
+      },
+      {
+        "case": "driver-like env, TMPDIR=/var/tmp/omp-18180-m8/tmp (disk-backed)",
+        "runtime": "candidate (rebuilt addons)",
+        "Q7": "FAIL (897 rows)"
+      },
+      {
+        "case": "same disk-backed TMPDIR",
+        "runtime": "candidate runtime with the ORIGINAL upstream prebuilt addons",
+        "Q7": "FAIL (897 rows)"
+      }
+    ],
+    "conclusion": "the count depends on the filesystem under TMPDIR, not on the 18.18.0 family changes and not on the rebuilt native addon (the upstream prebuilt addon fails identically). 897 is deterministic on the disk-backed directory and 900 on tmpfs, while the probe's own 'no swallowed SQLite write/lock failures' assertion and PRAGMA integrity_check stay green: three rows are reported written and are missing from COUNT(*). This belongs to AgentStorage's concurrent write path (product), not to the batch driver or the instruments, and the gate was not weakened."
+  }
+}

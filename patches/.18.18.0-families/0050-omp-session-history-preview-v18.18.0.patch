@@ -1,0 +1,193 @@
+--- a/pi-coding-agent/dist/types/session/session-listing.d.ts
++++ b/pi-coding-agent/dist/types/session/session-listing.d.ts
+@@ -39,6 +39,12 @@
+      * synthesized {@link SessionInfo}s (cross-project stubs, tests) leave it unset.
+      */
+     status?: SessionStatus;
++    /**
++     * Model evidenced by the newest tail transition or assistant reply (in
++     * "provider/model" form); use the initial default only if neither is present.
++     * Optional for the same reason as {@link status}: empty sessions have none.
++     */
++    lastModel?: string;
+ }
+ export interface ResolvedSessionMatch {
+     session: SessionInfo;
+--- a/pi-coding-agent/src/session/session-listing.ts
++++ b/pi-coding-agent/src/session/session-listing.ts
+@@ -56,6 +56,12 @@
+ 	 * synthesized {@link SessionInfo}s (cross-project stubs, tests) leave it unset.
+ 	 */
+ 	status?: SessionStatus;
++	/**
++	 * Model evidenced by the newest tail transition or assistant reply (in
++	 * "provider/model" form); use the initial default only if neither is present.
++	 * Optional for the same reason as {@link status}: empty sessions have none.
++	 */
++	lastModel?: string;
+ }
+ 
+ export interface ResolvedSessionMatch {
+@@ -187,6 +193,77 @@
+ 	return "unknown";
+ }
+ 
++/**
++ * Model shown in picker: the newest tail model_change selects what resume
++ * restores when that transition is visible. This rule lives in
++ * `getRestorableSessionModels` / `getLastModelChangeRole` -- the
++ * branch's newest `model_change` decides, and each role keeps its own newest
++ * value. A `default` (or pre-role) transition, and a `fallback` one (retry
++ * swaps recorded by turn-recovery: transient degradations that must never
++ * masquerade as the user's pick), resolve to the default model; any other role
++ * -- `smol`, `slow`, `vision`, `plan`, `commit`, `tiny`, `task`, `advisor`, or
++ * a settings-defined one -- resolves to that role's own model. When the tail
++ * has no model_change, the newest assistant message identifies the model
++ * that last served the session. Prefer it to the initial default in the
++ * prefix: intervening switches can lie outside both scanned windows.
++ * Only with neither tail signal does the initial default win.
++ */
++function deriveLastModel(suffix: string, prefix: string): string | undefined {
++	const readEntry = (line: string): TailModelEntry | undefined => {
++		if (line.charCodeAt(0) !== 123) return undefined;
++		try {
++			return JSON.parse(line) as TailModelEntry;
++		} catch {
++			return undefined;
++		}
++	};
++	const lines = suffix.split("\n");
++	// Newest role first (walking backwards), then that role's newest model.
++	// Without a tail transition, prefer the last-served model over the prefix
++	// default, which can predate switches in the unscanned middle.
++	const roleModels = new Map<string, string>();
++	let newestRole: string | undefined;
++	let lastServed: string | undefined;
++	for (let i = lines.length - 1; i >= 0; i--) {
++		const entry = readEntry(lines[i]!);
++		if (!entry) continue;
++		if (entry.type === "model_change" && typeof entry.model === "string" && entry.model) {
++			const role = entry.role ?? "default";
++			newestRole ??= role;
++			if (!roleModels.has(role)) roleModels.set(role, entry.model);
++			const resolved = newestRole === "default" || newestRole === "fallback" ? "default" : newestRole;
++			if (roleModels.has(resolved)) break;
++			continue;
++		}
++		if (
++			lastServed === undefined &&
++			entry.type === "message" &&
++			entry.message?.role === "assistant" &&
++			typeof entry.message.model === "string"
++		) {
++			lastServed = entry.message.provider ? `${entry.message.provider}/${entry.message.model}` : entry.message.model;
++		}
++	}
++	const resolvedRole = !newestRole || newestRole === "default" || newestRole === "fallback" ? "default" : newestRole;
++	const fromTail = roleModels.get(resolvedRole) ?? (!newestRole ? lastServed : undefined);
++	if (fromTail) return fromTail;
++	for (const line of prefix.split("\n")) {
++		const entry = readEntry(line);
++		if (entry?.type === "model_change" && typeof entry.model === "string" && (entry.role ?? "default") === "default") {
++			return entry.model;
++		}
++	}
++	return undefined;
++}
++
++/** Tail-window entry shapes this module reads back out of a session file. */
++interface TailModelEntry {
++	type?: string;
++	model?: string;
++	role?: string;
++	message?: { role?: string; provider?: string; model?: string };
++}
++
+ interface TailMessage {
+ 	role?: string;
+ 	stopReason?: string;
+@@ -503,6 +580,7 @@
+ 			size,
+ 			firstMessage: firstMessage || "(no messages)",
+ 			allMessagesText: allMessages.length > 0 ? allMessages.join(" ") : firstMessage,
++			lastModel: deriveLastModel(suffix, content),
+ 			status: withStatus ? deriveSessionStatus(suffix) : undefined,
+ 		};
+ 		// The cache keeps its own shallow copy; hits also hand out copies, so
+--- a/pi-tui/dist/types/overlays/session-selector.d.ts
++++ b/pi-tui/dist/types/overlays/session-selector.d.ts
+@@ -15,6 +15,11 @@
+     firstMessage: string;
+     allMessagesText: string;
+     status?: SessionSelectorStatus;
++    /**
++     * Model the session last used (selector form, "provider/model"). Optional for
++     * the same reason as {@link status}: empty sessions have none.
++     */
++    lastModel?: string;
+     /** Path to the parent session when this one was forked. */
+     parentSessionPath?: string;
+ }
+--- a/pi-tui/src/overlays/session-info-overlay.ts
++++ b/pi-tui/src/overlays/session-info-overlay.ts
+@@ -229,7 +229,7 @@
+ 					else if (entry.k === "File") {
+ 						const path = joined(entry.v);
+ 						identity.push(
+-							path.includes("/")
++							path !== "In-memory"
+ 								? identityField("File", [span(path, "path")], "file", `Copy ${path}`)
+ 								: identityField("File", [span(path, "muted")], "file"),
+ 						);
+--- a/pi-tui/src/overlays/session-selector.ts
++++ b/pi-tui/src/overlays/session-selector.ts
+@@ -49,6 +49,11 @@
+ 	firstMessage: string;
+ 	allMessagesText: string;
+ 	status?: SessionSelectorStatus;
++	/**
++	 * Model the session last used (selector form, "provider/model"). Optional for
++	 * the same reason as {@link status}: empty sessions have none.
++	 */
++	lastModel?: string;
+ 	/** Path to the parent session when this one was forked. */
+ 	parentSessionPath?: string;
+ }
+@@ -278,6 +283,19 @@
+ 	{ id: "all", label: "All projects" },
+ ];
+ 
++/**
++ * Compact selector form of a model for the metadata line: keep the id part,
++ * trim to the last two "/"-separated segments so vendor-prefixed ids like
++ * "commandcode/deepseek/deepseek-v4.1-flash" stay recognizable, and drop
++ * an ":tag" suffix ("ollama-cloud/glm-5.3-flash:max" -> "glm-5.3-flash").
++ */
++function shortenModelName(selector: string): string {
++	const withoutTag = selector.split(":", 1)[0] ?? selector;
++	const segments = withoutTag.split("/").filter(s => s.length > 0);
++	if (segments.length === 0) return selector;
++	return segments.slice(-2).join("/");
++}
++
+ /** Returns the IDs of sessions whose recorded prompts match a query, best first. */
+ export type SessionHistoryMatcher = (query: string) => string[];
+ 
+@@ -1208,6 +1226,7 @@
+ 		if (current) push(span("current", "accent"));
+ 		const status = sessionStatusSpan(session.status);
+ 		if (status) push(status);
++		if (session.lastModel) push(span(shortenModelName(session.lastModel), "dim"));
+ 		if (session.parentSessionPath) push(span("fork", "dim"));
+ 		if (this.#showCwd && session.cwd) push(span(shortenPath(session.cwd), "path"));
+ 		const item = node(
+@@ -1323,6 +1342,9 @@
+ 			if (status) {
+ 				metadata += ` ${dot} ${status}`;
+ 			}
++			if (session.lastModel) {
++				metadata += ` ${dot} ${dim(shortenModelName(session.lastModel))}`;
++			}
+ 			if (session.parentSessionPath) {
+ 				metadata += ` ${dot} ${dim(`${theme.icon.branch} fork`)}`;
+ 			}

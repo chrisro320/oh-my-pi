@@ -47,9 +47,9 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const aiVersion = JSON.parse(readFileSync(join(AI_ROOT, "package.json"), "utf8")).version;
 // The lazy table, the patched provider set and every marker below were read on
-// 18.16.0. An unknown tree fails closed instead of silently asserting another
-// release's provider wiring.
-assert.equal(aiVersion, "18.16.0", `verify-provider-registry-lazy is an 18.16.0 gate, got ${aiVersion}`);
+// 18.16.0 and are unchanged on 18.18.0. An unknown tree fails closed instead of
+// silently asserting another release's provider wiring.
+assert.ok(["18.16.0", "18.18.0"].includes(aiVersion), `verify-provider-registry-lazy is an 18.16.0/18.18.0 gate, got ${aiVersion}`);
 
 const PROVIDERS_DIR = join(AI_ROOT, "src", "providers");
 const TABLE_FILE = join(PROVIDERS_DIR, "register-builtins.ts");

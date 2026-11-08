@@ -1,0 +1,56 @@
+{
+  "step": "M8e PurposeFix final recheck: finding 3 (judgment producer), sweep, gate leg + control",
+  "candidate_digest": "f74e59923d16bdba7e19ebd24f6f2094d8a1195e4ac191f026c71858d0720f93",
+  "previous_digest": "743825db568e6330970e374b38aef1e48d4fbde7838bd39d9f59503b3a6e7e06",
+  "judgment_marker": {
+    "file": "pi-ai/src/judgment/chat.ts",
+    "line": 77,
+    "owner_family": "0094-omp-anthropic-thinking-drop-resume"
+  },
+  "gate_leg": {
+    "file": "patches/verify-anthropic-request-audit.ts",
+    "lines": "494-495",
+    "label": "a same-session judgment (loopback lineage)",
+    "real_path": "chatTextBackend(...).complete -> completeSimple -> streamAnthropic"
+  },
+  "control": {
+    "name": "marker-judgment",
+    "script": "research/m8e-purpose-controls.py",
+    "receipt": "research/m8e-purposefix-controls-18.18.0.json",
+    "controls": 16,
+    "status": "PASS"
+  },
+  "unmarked_left_by_design": {
+    "no shared main session": [
+      "pi-ai/src/auth-gateway/server.ts (external callers)",
+      "pi-coding-agent/src/cli/auth-gateway-cli.ts:774 connectivity probe (no session id)",
+      "cli bench/dry-balance (random session ids)",
+      "pi-mnemopi/src/core/local-llm.ts:179 (no sessionId)"
+    ]
+  },
+  "passthroughs_not_producers": [
+    "legacy-pi-ai-shim.ts",
+    "model-registry-mirror.ts:113",
+    "settings-stream-fn.ts default",
+    "read.ts/image-question.ts/eval completion-bridge/skill-descriptions/job-widgets author/caption/image-vision-fallback (via marked instrumentedCompleteSimple)",
+    "pi-ai streamAnthropic wrappers: stream.ts:929, factory-droid.ts, gitlab-duo.ts, openai-anthropic-shim.ts"
+  ],
+  "frozen": {
+    "apply_sh": "3fb7725b66dc80bfeac3b9fe71108efe947c88a747136114cd4a8b4de1946a63",
+    "driver": "336db027aa9bfe3e1f487ed3bfce3969e964d897c71ac8c27e4115e5abd4e08b"
+  },
+  "receipts": [
+    "m8e-oracle-18.18.0.json",
+    "m8e-purposefix-controls-18.18.0.json",
+    "m8e-purposefix-full-batch-18.18.0.json",
+    "m8e-smoke-18.18.0.json",
+    "m8e-older-arms.json"
+  ],
+  "batch": {
+    "tally": {
+      "PASS": 77
+    },
+    "transient_runtime_mismatch_recurred": false
+  },
+  "status": "PASS"
+}

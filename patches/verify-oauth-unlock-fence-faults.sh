@@ -14,11 +14,12 @@
 set -euo pipefail
 
 # Fail closed on a plan this fault gate has no arm for. 18.16.0 takes the
-# 18.12.6 target sections (the shutdown-drain fault proof below); every other
-# version used to skip them and exit green with no proof at all.
-SUPPORTED_PLANS="18.4.4 18.7.0 18.10.0 18.10.1 18.12.6 18.16.0"
+# 18.12.6 target sections (the shutdown-drain fault proof below) and 18.18.0
+# inherits them; every other version used to skip them and exit green with no
+# proof at all.
+SUPPORTED_PLANS="18.4.4 18.7.0 18.10.0 18.10.1 18.12.6 18.16.0 18.18.0"
 case "${OMP_PATCH_VERSION:-}" in
-	"" | 18.4.4 | 18.7.0 | 18.10.0 | 18.10.1 | 18.12.6 | 18.16.0) ;;
+	"" | 18.4.4 | 18.7.0 | 18.10.0 | 18.10.1 | 18.12.6 | 18.16.0 | 18.18.0) ;;
 	*)
 		echo "FAIL: unsupported OMP_PATCH_VERSION for the 0090 fault gate: ${OMP_PATCH_VERSION} (supported: ${SUPPORTED_PLANS// /, })" >&2
 		exit 2
@@ -31,7 +32,7 @@ NMROOT="$(cd "$AI/../.." && pwd -P)"
 [[ -d "$NMROOT/@oh-my-pi" ]] || { echo "FAIL: ${AI} is not inside a node_modules tree" >&2; exit 2; }
 VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$AI/package.json")"
 case "$VERSION" in
-	18.4.4 | 18.7.0 | 18.10.0 | 18.10.1 | 18.12.6 | 18.16.0) ;;
+	18.4.4 | 18.7.0 | 18.10.0 | 18.10.1 | 18.12.6 | 18.16.0 | 18.18.0) ;;
 	*)
 		echo "FAIL: unsupported pi-ai tree version for the 0090 fault gate: ${VERSION} (supported: ${SUPPORTED_PLANS// /, })" >&2
 		exit 2
@@ -103,7 +104,7 @@ echo "PASS control: the isolated copy is green ($(grep -c '^  PASS' "$WORK/contr
 # Exact target only: prove the real SIGTERM scenario detects a removed drain,
 # not just a missing journal member or a token-shaped fixture echo. 18.16.0
 # shares the 18.12.6 target lifecycle, so it runs this proof too.
-if [[ "$VERSION" == "18.12.6" || "$VERSION" == "18.16.0" ]]; then
+if [[ "$VERSION" == "18.12.6" || "$VERSION" == "18.16.0" || "$VERSION" == "18.18.0" ]]; then
 	DRAIN="$(mktree shutdown-drain)"
 	replace_once "$DRAIN/src/auth/refresh.ts" \
 		'postmortem.register("oauth-refresh", () => this.#drainRefreshes(), {' \
@@ -259,11 +260,11 @@ if gate "$ATOMICITY" "$WORK/atomicity.log"; then
 	echo "FAIL: a deletion-only release left the contract gate green" >&2
 	exit 1
 fi
-if [[ "$VERSION" == "18.16.0" ]]; then
+if [[ "$VERSION" == "18.16.0" || "$VERSION" == "18.18.0" ]]; then
 	# Where the mutated tree goes red first is itself part of the contract on
-	# 18.16.0: the retired reservation is what the next attempt consults, so the
-	# "503 keeps the row" case is admitted a second exchange long before any
-	# unlock case runs. Assert that red, then attribute (s) below.
+	# 18.16.0 (and 18.18.0): the retired reservation is what the next attempt
+	# consults, so the "503 keeps the row" case is admitted a second exchange
+	# long before any unlock case runs. Assert that red, then attribute (s) below.
 	grep -q '^  FAIL  503 keeps the row' "$WORK/atomicity.log" || {
 		echo "FAIL: the deletion-only release was not caught at the 503 generation policy first" >&2
 		grep '^  FAIL' "$WORK/atomicity.log" >&2

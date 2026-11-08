@@ -118,7 +118,7 @@ const root = realpathSync(resolve(AGENT_ROOT_ENV));
 const live = resolve(homedir(), ".bun/install/global/node_modules/@oh-my-pi/pi-coding-agent");
 if (root === live || root.startsWith(live + sep)) throw new Error("refusing to verify against the live install");
 const version: string = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
-assert.equal(version, "18.16.0", "this gate pins the 18.16.0 tree; another version fails closed instead of skipping");
+assert.ok(["18.16.0", "18.18.0"].includes(version), "this gate pins the 18.16.0/18.18.0 tree; another version fails closed instead of skipping");
 
 const catalogRoot = realpathSync(
 	resolve(process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? join(dirname(root), "pi-catalog")),
@@ -277,7 +277,7 @@ function warmerFor(model: CatalogModel, options?: { holdStream?: boolean; idle?:
 		},
 		report: () => {},
 	});
-	w.start({ model, context: { messages: [] }, options: { cacheRetention: "long", apiKey: "k" } }, () => true);
+	w.start({ model, context: { messages: [] }, options: { cacheRetention: "long", apiKey: "k" } }, () => process.env.OMP_PATCH_VERSION === "18.18.0" ? undefined : true);
 	// A run stays in its streaming phase unless the caller settles it, which is
 	// what a live session does when the agent run ends.
 	if (options?.idle) w.onAgentSettled();
@@ -609,8 +609,11 @@ async function realSession(
 		cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
 		handler: async (
 			context: { messages: Array<{ content?: unknown }> },
-			options?: { maxTokens?: number; signal?: AbortSignal },
+			options?: { maxTokens?: number; signal?: AbortSignal; onPayload?: (payload: unknown, model: unknown, signal?: AbortSignal) => unknown },
 		) => {
+			// The mock handler is the send boundary; unlike a real provider it does
+			// not call onPayload itself. Publish the same acceptance timestamp.
+			await options?.onPayload?.({}, model, options.signal);
 			const text = JSON.stringify(context.messages.at(-1)?.content ?? "");
 			const kind = options?.maxTokens === 1
 				? "warm"

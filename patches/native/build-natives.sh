@@ -5,6 +5,9 @@
 # patches/native/18.12.6/overlay.json) to build another pinned recipe. Source
 # patches resolve relative to the chosen overlay file's directory and the
 # addons are stamped with that overlay's version.
+#
+# Offline: set OMP_NATIVE_UPSTREAM_GIT to a local repository holding the pinned
+# commit (no clone/fetch) and OMP_NATIVE_OFFLINE=1 to add `--offline` to cargo.
 # Usage: build-natives.sh <work-dir> <out-dir> [overlay-json]
 set -euo pipefail
 
@@ -19,27 +22,39 @@ version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["vers
 mapfile -t patches < <(python3 -c 'import json,sys; [print(p["file"]) for p in json.load(open(sys.argv[1]))["patches"]]' "$overlay")
 
 mkdir -p "$work" "$out"
-if [ ! -d "$work/repo/.git" ]; then
-	git clone --filter=blob:none --no-checkout -q https://github.com/can1357/oh-my-pi.git "$work/repo"
+repo="${OMP_NATIVE_UPSTREAM_GIT:-$work/repo}"
+if [ -n "${OMP_NATIVE_UPSTREAM_GIT:-}" ]; then
+	git -C "$repo" cat-file -e "$commit^{commit}" || {
+		echo "pinned commit $commit is not in $repo" >&2
+		exit 2
+	}
+else
+	if [ ! -d "$work/repo/.git" ]; then
+		git clone --filter=blob:none --no-checkout -q https://github.com/can1357/oh-my-pi.git "$work/repo"
+	fi
+	git -C "$work/repo" cat-file -e "$commit^{commit}" 2>/dev/null || git -C "$work/repo" fetch -q origin "$commit"
 fi
-git -C "$work/repo" cat-file -e "$commit^{commit}" 2>/dev/null || git -C "$work/repo" fetch -q origin "$commit"
 # Build from a fresh export of the pinned tree instead of resetting a checkout:
 # no stale working-tree state can leak in, and the clone is never rewritten.
 src="$work/src-$commit"
 rm -rf "$src"
 mkdir -p "$src"
-git -C "$work/repo" archive "$commit" | tar -x -C "$src"
+git -C "$repo" archive "$commit" | tar -x -C "$src"
 for patch in "${patches[@]}"; do
 	(cd "$src" && git apply --check "$overlay_dir/$patch" && git apply "$overlay_dir/$patch")
 done
 
+cargo_flags=(--release --locked)
+if [ "${OMP_NATIVE_OFFLINE:-0}" = "1" ]; then
+	cargo_flags+=(--offline)
+fi
 # opusic-sys picks Ninja when present; pin one generator so caches never mix.
 export CMAKE_GENERATOR="Unix Makefiles"
 for variant in modern:x86-64-v3 baseline:x86-64-v2; do
 	name="${variant%%:*}"
 	cpu="${variant#*:}"
 	(cd "$src" && RUSTFLAGS="-C target-cpu=$cpu" CARGO_TARGET_DIR="$work/target-$name" \
-		cargo build --release --locked -p pi-natives)
+		cargo build "${cargo_flags[@]}" -p pi-natives)
 	install -m 0755 "$work/target-$name/release/libpi_natives.so" "$out/pi_natives.linux-x64-$name.node"
 done
 # Release identity: CI writes package.json#version into the linked stamp slot

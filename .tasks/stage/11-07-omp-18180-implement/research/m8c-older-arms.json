@@ -1,0 +1,59 @@
+{
+  "step": "M8c older arms: controller gate lists unchanged",
+  "command": "OMP_PATCH_VERSION=<v> bash patches/apply.sh --print-gates | sha256sum (plus wc -l)",
+  "apply_sh_sha256": "edd78b36bbe30ee1539eec948b1f38862d2d65878bf4fc7ce7cb489c1a970031",
+  "arms": {
+    "18.4.4": {
+      "exit": 0,
+      "lines": 42,
+      "sha256": "85904ea1c8a76677c7e79c42d79071619f9e64703c0b0057b60769955e2ab99d"
+    },
+    "18.7.0": {
+      "exit": 0,
+      "lines": 46,
+      "sha256": "fd4d25b08acbebc4c979a363b45c11ba365a592e2c3dff5c9a563ace574d62b9"
+    },
+    "18.10.0": {
+      "exit": 0,
+      "lines": 47,
+      "sha256": "f0cca04141c5a6f8c093fb869fdd938841aa26a28cdd02aadddb0ef4e8ee7512"
+    },
+    "18.10.1": {
+      "exit": 0,
+      "lines": 57,
+      "sha256": "7b99b049054a59d9508564234487ceba19a81dd60a6360d3bf08776df3259a63"
+    },
+    "18.12.6": {
+      "exit": 0,
+      "lines": 57,
+      "sha256": "7b99b049054a59d9508564234487ceba19a81dd60a6360d3bf08776df3259a63"
+    },
+    "18.16.0": {
+      "exit": 0,
+      "lines": 71,
+      "sha256": "e47e0e1da6ec86ca4582310477dcfba933d6fa1b0176426bbf6ac28b575dbb38"
+    },
+    "18.18.0": {
+      "exit": 0,
+      "lines": 77,
+      "sha256": "7cbd48dc1bb199e3fc548463fe7c2a2c4d856cb1f75eea66909b97a701e6f25f"
+    }
+  },
+  "required": {
+    "18.16.0": {
+      "expected": "e47e0e1da6ec86ca4582310477dcfba933d6fa1b0176426bbf6ac28b575dbb38",
+      "actual": "e47e0e1da6ec86ca4582310477dcfba933d6fa1b0176426bbf6ac28b575dbb38",
+      "unchanged": true
+    },
+    "18.12.6": {
+      "expected": "7b99b049054a59d9508564234487ceba19a81dd60a6360d3bf08776df3259a63",
+      "actual": "7b99b049054a59d9508564234487ceba19a81dd60a6360d3bf08776df3259a63",
+      "unchanged": true
+    }
+  },
+  "status": "PASS",
+  "version_control_18.18.1": {
+    "exit": 2,
+    "stderr": "OMP_PATCH_VERSION='18.18.1' unsupported (known:18.4.4,18.7.0,18.10.0,18.10.1,18.12.6,18.16.0,18.18.0)\n"
+  }
+}

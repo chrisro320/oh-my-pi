@@ -48,9 +48,9 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? join(NM, "pi-catalog");
 const catalogVersion = JSON.parse(readFileSync(join(CATALOG, "package.json"), "utf8")).version;
 // The invariants below were read on 18.16.0 (published artifacts, not a
-// checkout). An unknown tree fails closed instead of asserting another
-// release's generated shape.
-assert.equal(catalogVersion, "18.16.0", `verify-catalog-regen-parity is an 18.16.0 gate, got ${catalogVersion}`);
+// checkout) and re-read unchanged on 18.18.0. An unknown tree fails closed
+// instead of asserting another release's generated shape.
+assert.ok(["18.16.0", "18.18.0"].includes(catalogVersion), `verify-catalog-regen-parity is an 18.16.0/18.18.0 gate, got ${catalogVersion}`);
 
 const RULES_PATH = join(CATALOG, "src", "compat", "rules.json");
 const PROVIDER_IDS_PATH = join(CATALOG, "src", "compat", "provider-ids.ts");

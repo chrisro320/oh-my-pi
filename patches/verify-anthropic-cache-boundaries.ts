@@ -5,6 +5,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { gunzipSync } from "node:zlib";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AI = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
@@ -12,7 +14,7 @@ const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 // Fail closed on a plan this gate has no arm for: 18.16.0 takes the 18.12.6 arms
 // below (the image-budget fixture and the credit-safe retry rungs). An unknown
 // version must abort instead of silently measuring the pre-18.10.0 contract.
-const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"];
+const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"];
 const selectedPlan = process.env.OMP_PATCH_VERSION;
 assert.ok(
 	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
@@ -128,7 +130,7 @@ try {
 	assert.ok(clearIndex >= 0, "fixture must reach Anthropic's server-cleared system boundary");
 	assert.ok(messageBreakpoints(turnScoped).length > 0 && messageBreakpoints(turnScoped).every(index => index < clearIndex), "server-cleared content must retain its cache barrier");
 	// 18.16.0 retired the local cacheRetention:none claim (Q5): upstream still sends the OAuth identity-block breakpoint.
-	if (aiVersion !== "18.16.0") {
+	if (!["18.16.0", "18.18.0"].includes(aiVersion)) {
 		for (const oauth of [true, false]) {
 			assert.equal(breakpoints(await capture([injected], "none", oauth)).length, 0, "cacheRetention none must disable OAuth and API-key breakpoints");
 		}
@@ -136,7 +138,7 @@ try {
 	const apiKey = await capture([injected, assistant, user("Next")], "short", false);
 	assert.ok(messageBreakpoints(apiKey).includes(apiKey.messages.length - 1), "API-key requests must cache extension-injected history too");
 	assert.ok(breakpoints(apiKey).every(block => !block.cache_control?.ttl || block.cache_control.ttl === "5m"), "short retention must not gain a one-hour breakpoint");
-	if (["18.12.6", "18.16.0"].includes(aiVersion)) {
+	if (["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
 		const smallPng = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGklEQVR4nGMMr0r+b/RPjoHlpyIfA8N/UQYAPVQFw2ujXG4AAAAASUVORK5CYII=";
 		const largePng = Buffer.from(await new Bun.Image(Buffer.from(smallPng, "base64")).resize(2029, 1279).png().bytes()).toString("base64");
 		const large = { type: "image", mimeType: "image/png", data: largePng };
@@ -239,7 +241,7 @@ try {
 			Object.defineProperty(Bun, "Image", { value: NativeImage });
 		}
 	}
-	if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion)) {
+	if (["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
 		// Both cache-control rungs rebuild the request. After a credited refusal
 		// with an already-run server tool, neither may send an uncredited replay.
 		// Text-only controls prove each rung is reached, not disabled wholesale.
@@ -306,7 +308,17 @@ try {
 			}
 		}
 	}
-	console.log(`PASS Anthropic cache boundaries (${aiVersion}): ${wire.length} ordinary captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary${["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion) ? ", credit-safe retry on both rungs" : ""}; zero provider traffic`);
+	console.log(`PASS Anthropic cache boundaries (${aiVersion}): ${wire.length} ordinary captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary${["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? ", credit-safe retry on both rungs" : ""}; zero provider traffic`);
 } finally {
 	globalThis.fetch = originalFetch;
+}
+
+if (aiVersion === "18.18.0") {
+	// Reuse the one real create/continue fixture instead of a second thread oracle.
+	const child = spawnSync(process.execPath, [fileURLToPath(new URL("./verify-anthropic-threads-cache-shape.ts", import.meta.url))], {
+		env: { ...process.env, OMP_THREADS_SHAPE_LEGS: "eligibility,create,continues" }, encoding: "utf8",
+	});
+	process.stdout.write(child.stdout ?? "");
+	process.stderr.write(child.stderr ?? "");
+	assert.equal(child.status, 0, "0074 thread cache boundaries must pass in enabled and disabled modes");
 }

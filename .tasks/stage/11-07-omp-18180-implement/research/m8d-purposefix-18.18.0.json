@@ -1,0 +1,209 @@
+{
+  "step": "M8d round-4 findings 5 and 6 (PurposeFix)",
+  "candidate_tree_sha256": "743825db568e6330970e374b38aef1e48d4fbde7838bd39d9f59503b3a6e7e06",
+  "previous_candidate_tree_sha256": "71a63059d2716bb57585facad6d44efcf5d89a4c776b857e0cc7fa3b39f5fa34",
+  "apply_sh_sha256": "9e747c08ade6704854c41c00536030c242c69dcd6dacb17a886fd62eb69d8cfa",
+  "finding_5_request_purpose": {
+    "fix": "Unmarked requests are main again (pre-change default). The Anthropic audit classifies sideRequest = requestPurpose === 'side' || initiatorOverride === 'agent'; statefulResponses no longer matters. StreamOptions.requestPurpose is now 'side' only, forwarded by mapOptionsForApi (family-devin-wire). The sdk.ts main marker is removed. Every same-session side producer declares requestPurpose 'side'.",
+    "producers_marked": {
+      "oneshot funnel instrumentedCompleteSimple (compaction/branch/handoff summaries, eval, skill descriptions, job widgets, image question/fallback)": "pi-agent-core/src/telemetry.ts:1889",
+      "AgentSession side stream (ephemeral/idle/btw/irc turns, handoff, maintenance completeImpl)": "pi-coding-agent/src/session/agent-session.ts:2504",
+      "advisors": "pi-coding-agent/src/session/session-advisors.ts:1455",
+      "cache-warmer replay": "pi-coding-agent/src/session/cache-warmer.ts:943",
+      "auto-learn capture turn": "pi-coding-agent/src/sdk.ts:5775",
+      "edit auto-repair": "edit/auto-repair.ts:383",
+      "memory phase1/phase2": "memories/index.ts:906,1053",
+      "mnemopi extraction": "mnemopi/backend.ts:619",
+      "sharpshooter": "sharpshooter/extract.ts:251, consolidate.ts:170",
+      "title generator": "utils/title-generator.ts:386",
+      "commit message generator": "utils/commit-message-generator.ts:120",
+      "changelog": "commit/changelog/generate.ts:69",
+      "conventional commit inference": "commit/conventional/inference.ts:130",
+      "annotate text summary": "extensibility/custom-commands/bundled/annotate/text-summary.ts:28",
+      "tts speech enhancer": "tts/speech-enhancer.ts:98"
+    },
+    "not_marked": "pi-ai auth-gateway server and judgment/tiny-model client (external or sessionless callers), cli bench/dry-balance/auth-gateway connectivity checks (no shared session); read.ts image question goes through the marked funnel.",
+    "owners": "0094 (anthropic.ts, types.ts, dist types.d.ts), 0095 (sdk.ts, agent-session.ts and the pi-coding-agent oneshot files), family-compaction (telemetry.ts, session-advisors.ts: telemetry.ts is a pi-agent-core file, which the AGENT-rooted 0095 cannot carry), 0092 (cache-warmer.ts); family-devin-wire stream.ts:1813 unchanged.",
+    "gate": "verify-anthropic-request-audit.ts: a real standalone pi-agent-core Agent turn through the built-in Anthropic provider, once over a loopback endpoint and once against the official host (gzip), is archived main and owns the baseline; local summaries, edit auto-repair (loopback), a memory job (loopback) and a cache-warmer replay through real streamSimple stay non-main, gzip where the producer exposes a fetch seam (Agent stream function, summaries, warmer); explicit side and initiatorOverride requests, an unmarked request (main), and statefulResponses:false (main unless side) are covered directly; a real AgentSession's main turn is unmarked and its ephemeral side turn declares side."
+  },
+  "finding_6_usage_contract": {
+    "fix": "The sweep's completion fetch is Codex-only (#completeCodexUsageSnapshot). Claude salvage is evaluated from the cached snapshot alone and skipped when it holds no Anthropic rows.",
+    "where": "pi-coding-agent/src/session/agent-session.ts:15962-15977 (completeCodex, claudeEnabled), :16021 (#completeCodexUsageSnapshot)",
+    "gate": "verify-usage-thread-providers.ts consumer leg: real AgentSession driven through the real statusLineHost; a non-Anthropic session with claudeResets.autoRedeem unset heartbeats with zero Anthropic usage fetches and no Claude salvage; Codex still completed."
+  },
+  "typecheck": "tsc differential (pi-ai, pi-coding-agent) vs the m8c candidate logs: 0 added, 0 removed; pi-agent-core telemetry.ts adds no errors.",
+  "controls": {
+    "purpose-default-side": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-ai/src/providers/anthropic.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: one ordinary lineage must own one baseline",
+      "expected_text": "one ordinary lineage must own one baseline",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "purpose-stateless-is-side": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-ai/src/providers/anthropic.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: a stateless main turn is archived as main",
+      "expected_text": "a stateless main turn is archived as main",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "purpose-initiator-not-side": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-ai/src/providers/anthropic.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: side traffic must not advance the ordinary baseline | + actual - expected",
+      "expected_text": "side traffic must not advance the ordinary baseline",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "devin-wire-forwarding-dropped": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-ai/src/stream.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: loopback: a local summary is archived as side work | + actual - expected",
+      "expected_text": "is archived as side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "purpose-streamsimple-default-side": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-ai/src/stream.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: loopback: an unmarked standalone Agent turn is archived as main | + actual - expected",
+      "expected_text": "an unmarked standalone Agent turn is archived as main",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "marker-summaries": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-agent-core/src/telemetry.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: loopback: a local summary is archived as side work | + actual - expected",
+      "expected_text": "a local summary is archived as side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "marker-auto-repair": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-coding-agent/src/edit/auto-repair.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: loopback: edit auto-repair is archived as side work | + actual - expected",
+      "expected_text": "edit auto-repair is archived as side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "marker-memory": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-coding-agent/src/memories/index.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: loopback: a memory job is archived as side work | + actual - expected",
+      "expected_text": "a memory job is archived as side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "marker-warmer": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-coding-agent/src/session/cache-warmer.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: the real warmer declares its replay side work, whatever options it was armed with | + actual - expected",
+      "expected_text": "the real warmer declares its replay side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "marker-ephemeral-turn": {
+      "gate": "verify-anthropic-request-audit.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: a same-session side-channel turn declares itself side work | + actual - expected",
+      "expected_text": "a same-session side-channel turn declares itself side work",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "usage-sweep-fetches-anthropic": {
+      "gate": "verify-usage-thread-providers.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: a provider outside both salvage providers completes Codex and never requests Anthropic usage | + actual - expected",
+      "expected_text": "never requests Anthropic usage",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "usage-claude-salvage-without-cache": {
+      "gate": "verify-usage-thread-providers.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: without cached Anthropic data Claude salvage is skipped | + actual - expected",
+      "expected_text": "without cached Anthropic data Claude salvage is skipped",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "usage-codex-not-completed": {
+      "gate": "verify-usage-thread-providers.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: the sweep completes Codex, the one provider the scope did not cover, and nothing else | + actual - expected",
+      "expected_text": "completes Codex",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "usage-replace-snapshot": {
+      "gate": "verify-usage-thread-providers.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: Claude salvage evaluates from the cached snapshot | + actual - expected",
+      "expected_text": "Claude salvage evaluates from the cached snapshot",
+      "expected_text_seen": true,
+      "status": "PASS"
+    },
+    "usage-empty-scope-probes": {
+      "gate": "verify-usage-thread-providers.ts",
+      "file": "pi-coding-agent/src/session/agent-session.ts",
+      "clean_exit": 0,
+      "mutated_exit": 1,
+      "red": true,
+      "red_on": "AssertionError: an empty scope probes no provider and triggers no completion fetch | + actual - expected",
+      "expected_text": "an empty scope probes no provider",
+      "expected_text_seen": true,
+      "status": "PASS"
+    }
+  },
+  "controls_status": "PASS",
+  "controls_script": "m8d-purpose-controls.py",
+  "oracle": "m8d-oracle-18.18.0.json",
+  "batch": "m8d-purposefix-full-batch-18.18.0.json",
+  "smoke": "m8d-smoke-18.18.0.json",
+  "older_arms": "m8d-older-arms.json",
+  "status": "PASS"
+}

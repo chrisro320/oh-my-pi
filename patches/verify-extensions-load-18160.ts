@@ -64,12 +64,14 @@ const RESULT_PATH = process.env.OMP_EXTENSIONS_LOAD_RESULT;
 const IS_CHILD = process.env.OMP_EXTENSIONS_LOAD_BOOT === "1";
 
 // Fail closed on a plan this gate has no arm for: the deferral partition, the
-// context purpose and the translator capability are 18.16.0 behaviour.
+// context purpose and the translator capability are 18.16.0 behaviour, carried
+// unchanged into 18.18.0.
 const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.equal(agentVersion, "18.16.0", `extensions-load gate: unsupported tree version ${agentVersion}`);
+const SUPPORTED_PLANS = ["18.16.0", "18.18.0"];
+assert.ok(SUPPORTED_PLANS.includes(agentVersion), `extensions-load gate: unsupported tree version ${agentVersion}`);
 const selectedPlan = process.env.OMP_PATCH_VERSION;
 assert.ok(
-	selectedPlan === undefined || selectedPlan === "18.16.0",
+	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
 	`extensions-load gate: unsupported OMP_PATCH_VERSION ${selectedPlan}`,
 );
 

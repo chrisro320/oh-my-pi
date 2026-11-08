@@ -29,3 +29,14 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 - **Do not skip Phase 3.3 `trellis-update-spec`** (required): this batch's specs are written back so the next batch inherits them automatically.
 - Deep usage (skills list / spec mechanism / migration criteria / review blind spots) → `/home/chris/orca/projects/trellis/shared/rules/trellis-handbook-omp.md`, **do not `@`-preload it**. Three moments where it must be read: ① before entering the planning phase of a new trellis task ② before handing work to another model ③ before closing out a batch.
 - **Formal pause (mandatory)**: stopping mid-way through a trellis task **must use `/trellis:paused-work`** (commit + RESUME anchor + no archiving).
+
+# Cost and effectiveness balance
+
+Keep what catches real defects; trim repetition.
+
+- Keep: each new gate leg ships with a mutation control that turns it red; gates run offline in `bwrap --unshare-net` with a private HOME; rebased chains are replayed at fuzz 0 and must equal the work tree.
+- Plan review: at most two full `reviewer` rounds, then one targeted recheck of the remaining blocking items only. Stop when the open items are wording or citation fixes; fix those without another round.
+- Task evidence: TASK.md `## 證據` holds one short line per proof (what was run, result, digest); put full commands, logs and tables in `research/` and link them.
+- Parallelism: map file ownership and ordering before fanning out. Read-only research may be sliced finely, but add one owner for cross-slice risks and verify pool reports before using them. Implementation slices that share files or stack in order (patch families) are handed off in sequence to one owner at a time; only file-disjoint work runs in parallel.
+- Upgrades: skip patch-level releases unless a needed fix or feature lands. Each upgrade, retire customizations upstream now covers and ask which rarely used ones to drop; prefer version-agnostic gates over per-release version literals.
+- Interrupt the user only for real forks that change product behaviour; report progress at milestone ends, not per step.

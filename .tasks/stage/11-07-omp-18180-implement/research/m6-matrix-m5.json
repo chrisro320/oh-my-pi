@@ -1,0 +1,2377 @@
+{
+  "runtime": "/tmp/r2-run/m5",
+  "selected_gates": [
+    "verify-antigravity-envelope.ts",
+    "verify-prefix-cache-compaction.ts",
+    "verify-provider-image-budget.ts",
+    "verify-snapcompact-model-billing.ts",
+    "verify-devin-auth-cache.ts",
+    "verify-hindsight-recall-snapshot.ts",
+    "verify-interrupt-prune-symmetry.ts",
+    "verify-date-cwd-journal-prefix.ts",
+    "verify-session-transfer-authority.ts",
+    "verify-devin-metadata.ts",
+    "verify-supersede-warm-prefix-guard.ts",
+    "verify-snapcompact-frame-reprice.ts",
+    "verify-session-history-preview.ts",
+    "verify-native-dialog-lifecycle.ts",
+    "verify-manual-compaction-direct.ts",
+    "verify-context-notes-append-projection.ts",
+    "verify-devin-thinking-signature.ts",
+    "verify-devin-idle-cascade-pin.ts",
+    "verify-idle-ephemeral-reservation.ts",
+    "verify-resume-cache-breakpoint.ts",
+    "verify-codex-compaction-chain.ts",
+    "verify-anthropic-native-compaction-live-context.ts",
+    "verify-compaction-lane-trace.ts",
+    "verify-codex-effort-resume.ts",
+    "verify-codex-compaction-chain-fail-closed.ts",
+    "verify-session-pin-static-auth-ui.ts",
+    "verify-read-description-live.ts",
+    "verify-anthropic-cache-boundaries.ts",
+    "verify-anthropic-request-audit.ts",
+    "verify-hindsight-recall-promotion-slot.ts",
+    "verify-eval-state-context-persist.ts",
+    "verify-turn-recovery-reminder-persist.ts",
+    "verify-python-display-mime-preference.ts",
+    "verify-kitty-conversion-finalization.ts",
+    "verify-kitty-shared-png-cache.ts",
+    "verify-main-cache-hit.ts",
+    "verify-usage-reset-format.ts",
+    "verify-model-mention-surface-resume.ts",
+    "verify-prompt-effort-resume.ts",
+    "verify-model-selection-resume.ts",
+    "verify-anthropic-thinking-drop-resume.ts",
+    "verify-context-persist-audit.ts",
+    "verify-length-stop-reminder-persist.ts",
+    "verify-user-display-text-queue.ts",
+    "verify-rejected-prepared-draft-restore.ts",
+    "verify-compaction-cache-liveness.ts",
+    "verify-oauth-durable-refresh.ts",
+    "verify-oauth-unlock-fence-faults.sh",
+    "verify-auth-unlock-extension.ts",
+    "verify-codex-account-eligibility-retention.ts",
+    "verify-google-account-eligibility-retention.ts",
+    "verify-cache-warming-idle-budget.ts",
+    "verify-cron-idle-owners.ts",
+    "verify-session-cache-keepalive.ts",
+    "verify-tls-verify-transient-retry.ts",
+    "verify-retry-slow-schedule.ts",
+    "verify-subagent-warm-revival-prompt.ts",
+    "verify-computer-control-confirm-deadline.ts",
+    "verify-extensions-load-18180.ts",
+    "verify-codex-text-verbosity.ts",
+    "verify-usage-statusline-gate.ts",
+    "verify-usage-thread-providers.ts",
+    "verify-compaction-live-chain-midnight.ts",
+    "verify-oauth-worker-single-owner.ts",
+    "verify-withdrawn-tools-wire.ts",
+    "verify-tool-schema-bytes.ts",
+    "verify-remote-compaction-target-key.ts",
+    "verify-compaction-length-stop.ts",
+    "verify-tokenizer-budget-parity.ts",
+    "verify-held-file-write-guard.ts",
+    "verify-advisor-quota-rotation.ts",
+    "verify-prompt-rebuild-inputs.ts",
+    "verify-provider-registry-lazy.ts",
+    "verify-catalog-regen-parity.ts"
+  ],
+  "rows": [
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-main-cache-hit.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.674,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 98,
+        "sha256": "6b379132c93ea292a8976f8d6bac397d198bdf8243a7d96fb75bf42ecef7a1dc",
+        "tail": "verify-main-cache-hit: ANSI/native main-only cache rate and cache-inclusive totals survive reload\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-main-cache-hit.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-main-cache-hit.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.11,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 98,
+        "sha256": "6b379132c93ea292a8976f8d6bac397d198bdf8243a7d96fb75bf42ecef7a1dc",
+        "tail": "verify-main-cache-hit: ANSI/native main-only cache rate and cache-inclusive totals survive reload\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-main-cache-hit.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-usage-reset-format.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.654,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 186,
+        "sha256": "5e83fa52f9aca3ecdfc0051d253ce7c34676550a39c9f2e6e70c4914f2263b92",
+        "tail": "verify-usage-reset-format: 14 countdown boundaries on both surfaces\nverify-usage-reset-format: \u23f1 5h 3% (4.5h) \u00b7 7d 0% (6.4d)\nverify-usage-reset-format: t: 5h 3% (4.5h) - 7d 0% (6.4d)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-usage-reset-format.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-usage-reset-format.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.093,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 186,
+        "sha256": "5e83fa52f9aca3ecdfc0051d253ce7c34676550a39c9f2e6e70c4914f2263b92",
+        "tail": "verify-usage-reset-format: 14 countdown boundaries on both surfaces\nverify-usage-reset-format: \u23f1 5h 3% (4.5h) \u00b7 7d 0% (6.4d)\nverify-usage-reset-format: t: 5h 3% (4.5h) - 7d 0% (6.4d)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-usage-reset-format.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-hindsight-recall-snapshot.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 17.212,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 1002,
+        "sha256": "4d406734306b1343f2c815ae3a73220cdf526fa8a501b82eedaa479b1d678073",
+        "tail": "=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===\n  ok empty recall persists a marker\n  ok null recall normalised to empty string\n  ok empty marker replayed on resume, recall not re-run\n  ok non-empty recall unchanged\n  ok failed recall not frozen\n  ok slow MM load frozen, resume replays it and never re-lists\n  ok reset_boundary isolates snapshots, stale empty marker cannot suppress recall\n  ok live and replayed recall preparations reject stale ownership\n  ok transcript reload replays target bytes and rejects deadline/superseded publication\n  ok actual same-ID navigation/reload uses frozen target recall and fresh-process carrier order\n  ok actual switch revokes source loads before adoption and restores rollback ownership\n  ok same-marker fork preserves cache identity; failed/timed-out tree reload clears source prompt\n  ok actual /clear publishes its boundary before target snapshot lookup\nPASS hindsight recall snapshot: empty recalls frozen, resume prefix stable\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-hindsight-recall-snapshot.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-hindsight-recall-snapshot.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 176.774,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 1002,
+        "sha256": "4d406734306b1343f2c815ae3a73220cdf526fa8a501b82eedaa479b1d678073",
+        "tail": "=== Testing hindsight recall/MM snapshot prefix stability (0021 + 0023) ===\n  ok empty recall persists a marker\n  ok null recall normalised to empty string\n  ok empty marker replayed on resume, recall not re-run\n  ok non-empty recall unchanged\n  ok failed recall not frozen\n  ok slow MM load frozen, resume replays it and never re-lists\n  ok reset_boundary isolates snapshots, stale empty marker cannot suppress recall\n  ok live and replayed recall preparations reject stale ownership\n  ok transcript reload replays target bytes and rejects deadline/superseded publication\n  ok actual same-ID navigation/reload uses frozen target recall and fresh-process carrier order\n  ok actual switch revokes source loads before adoption and restores rollback ownership\n  ok same-marker fork preserves cache identity; failed/timed-out tree reload clears source prompt\n  ok actual /clear publishes its boundary before target snapshot lookup\nPASS hindsight recall snapshot: empty recalls frozen, resume prefix stable\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-hindsight-recall-snapshot.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-hindsight-recall-promotion-slot.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.113,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 43,
+        "sha256": "ab4bbf5f7c636561c99b29dd5bb128f8d3c0e25fc975608759564bb2ec33acbc",
+        "tail": "verify-hindsight-recall-promotion-slot: ok\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-hindsight-recall-promotion-slot.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-hindsight-recall-promotion-slot.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.023,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 43,
+        "sha256": "ab4bbf5f7c636561c99b29dd5bb128f8d3c0e25fc975608759564bb2ec33acbc",
+        "tail": "verify-hindsight-recall-promotion-slot: ok\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-hindsight-recall-promotion-slot.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-usage-statusline-gate.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.841,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 139,
+        "sha256": "9619ea8952df9298fff2812456999425c28966367a2d4125d94fe571f2032a0d",
+        "tail": "verify-usage-statusline-gate: 7-input key collapse, identity/alias invalidation, read-only collection, turn gating and provider scoping ok\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-usage-statusline-gate.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-usage-statusline-gate.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.316,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 139,
+        "sha256": "9619ea8952df9298fff2812456999425c28966367a2d4125d94fe571f2032a0d",
+        "tail": "verify-usage-statusline-gate: 7-input key collapse, identity/alias invalidation, read-only collection, turn gating and provider scoping ok\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-usage-statusline-gate.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-usage-thread-providers.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.152,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 109,
+        "sha256": "5f479cda9f0778642873a5e5ead22be3d843fbd6ba98b756057a1244c8605d85",
+        "tail": "verify-usage-thread-providers: provider/provider-set forwarding survives every hop and a real RPC round trip\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-usage-thread-providers.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-usage-thread-providers.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.608,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 109,
+        "sha256": "5f479cda9f0778642873a5e5ead22be3d843fbd6ba98b756057a1244c8605d85",
+        "tail": "verify-usage-thread-providers: provider/provider-set forwarding survives every hop and a real RPC round trip\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-usage-thread-providers.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-session-transfer-authority.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.729,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 128,
+        "sha256": "1036b4759da484c68704fcd9b592c51ce45b66c0d37ebe601b77e9d5846b509a",
+        "tail": "PASS session transfer authority: claim-before-read, transactional imports/adoption, journaled date/cwd reminders and relocation\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-session-transfer-authority.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-session-transfer-authority.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.642,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 128,
+        "sha256": "1036b4759da484c68704fcd9b592c51ce45b66c0d37ebe601b77e9d5846b509a",
+        "tail": "PASS session transfer authority: claim-before-read, transactional imports/adoption, journaled date/cwd reminders and relocation\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-session-transfer-authority.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-date-cwd-journal-prefix.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 6.239,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 1329,
+        "sha256": "d316981956691a297dbb8bf7963c52388d5bef7d7d951d6ee86c86fd03dad9da",
+        "tail": "PASS byte probe: two processes at 2026-11-03 emit identical first-request bytes (64dc02b0f088bb41); the reminder rides messages[0] user (prefix); system prompt date-free\nPASS replay resume: messages[0] byte-identical at 2026-11-04 (4c6fc5a88daf7f27); rollover reminder at messages[2] user (prefix); system prompt date-free\nPASS replay branch-first-turn: messages[0] byte-identical at 2026-11-04 (4c6fc5a88daf7f27); rollover reminder at messages[1] user (prefix); system prompt date-free\nPASS replay branch-last-reply: messages[0] byte-identical at 2026-11-04 (4c6fc5a88daf7f27); rollover reminder at messages[2] user (prefix); system prompt date-free\nPASS replay fork: messages[0] byte-identical at 2026-11-04 (4c6fc5a88daf7f27); rollover reminder at messages[2] user (prefix); system prompt date-free\nPASS replay transfer: messages[0] byte-identical at 2026-11-04 (4c6fc5a88daf7f27); rollover reminder at messages[3] user (prefix); system prompt date-free\nPASS revival: a parked subagent revived after the rollover keeps messages[0] (2842acb971526d8d = 2842acb971526d8d); reminder at messages[5] user (prefix)\nPASS date/cwd journal prefix: provider-facing messages[0] is byte-stable across resume, branch, fork, transfer and subagent revival; the reminder is journaled on the message chain and the system prompt has no \"Today:\"\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-date-cwd-journal-prefix.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-date-cwd-journal-prefix.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 6.701,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 1329,
+        "sha256": "8828b7c0254b51832bdb6b16d12bc34113fe3bdad6070e61fc1b4e8bc6cd81da",
+        "tail": "PASS byte probe: two processes at 2026-11-03 emit identical first-request bytes (48cd1d45ca616669); the reminder rides messages[0] user (prefix); system prompt date-free\nPASS replay resume: messages[0] byte-identical at 2026-11-04 (3642b8f6c64ff517); rollover reminder at messages[2] user (prefix); system prompt date-free\nPASS replay branch-first-turn: messages[0] byte-identical at 2026-11-04 (3642b8f6c64ff517); rollover reminder at messages[1] user (prefix); system prompt date-free\nPASS replay branch-last-reply: messages[0] byte-identical at 2026-11-04 (3642b8f6c64ff517); rollover reminder at messages[2] user (prefix); system prompt date-free\nPASS replay fork: messages[0] byte-identical at 2026-11-04 (3642b8f6c64ff517); rollover reminder at messages[2] user (prefix); system prompt date-free\nPASS replay transfer: messages[0] byte-identical at 2026-11-04 (3642b8f6c64ff517); rollover reminder at messages[3] user (prefix); system prompt date-free\nPASS revival: a parked subagent revived after the rollover keeps messages[0] (b91a7c2d24480208 = b91a7c2d24480208); reminder at messages[5] user (prefix)\nPASS date/cwd journal prefix: provider-facing messages[0] is byte-stable across resume, branch, fork, transfer and subagent revival; the reminder is journaled on the message chain and the system prompt has no \"Today:\"\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-date-cwd-journal-prefix.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-interrupt-prune-symmetry.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.151,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 618,
+        "sha256": "29188bb3fa6220d5502f80033c6d7bec333e023f11f2edf51e38dc525f02fea0",
+        "tail": "=== Testing interrupted-turn render symmetry (0043) ===\n  aborted: live == rebuilt, 2 wire messages, no remnant\n  error: live == rebuilt, 2 wire messages, no remnant\n  /context drops the paired tool result and keeps its source indices\n  committed-text stall: partial text retained, live == rebuilt\n  committed-text stall with requestControls: text and controls both retained\n  uncontinued stall-shaped turn still pruned\n  markerless remnant pruned on the live path\n  bare marker converts to nothing\n  completed turn untouched\n  transcript still renders the interrupted turn\n=== interrupted-turn render symmetry OK ===\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-interrupt-prune-symmetry.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-interrupt-prune-symmetry.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.112,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 618,
+        "sha256": "29188bb3fa6220d5502f80033c6d7bec333e023f11f2edf51e38dc525f02fea0",
+        "tail": "=== Testing interrupted-turn render symmetry (0043) ===\n  aborted: live == rebuilt, 2 wire messages, no remnant\n  error: live == rebuilt, 2 wire messages, no remnant\n  /context drops the paired tool result and keeps its source indices\n  committed-text stall: partial text retained, live == rebuilt\n  committed-text stall with requestControls: text and controls both retained\n  uncontinued stall-shaped turn still pruned\n  markerless remnant pruned on the live path\n  bare marker converts to nothing\n  completed turn untouched\n  transcript still renders the interrupted turn\n=== interrupted-turn render symmetry OK ===\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-interrupt-prune-symmetry.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-eval-state-context-persist.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.573,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 113,
+        "sha256": "926711c4e20c89803ddc276dc535b6034a9cc6924a93232c0eb3ba6d36859381",
+        "tail": "PASS eval state context persist: resume wire-equal, read-only snapshots write nothing, state change appends once\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-eval-state-context-persist.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-eval-state-context-persist.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.538,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 113,
+        "sha256": "926711c4e20c89803ddc276dc535b6034a9cc6924a93232c0eb3ba6d36859381",
+        "tail": "PASS eval state context persist: resume wire-equal, read-only snapshots write nothing, state change appends once\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-eval-state-context-persist.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-turn-recovery-reminder-persist.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.711,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 209,
+        "sha256": "cab36e75ead624bfcfdc1914b8826d37a60ee967d60a1878c68cf9e2855bef10",
+        "tail": "  committed-text stall: partial kept, reminder persisted once, live == rebuilt\n  committed-text stall with requestControls: text and controls retained, live == rebuilt\nturn-recovery reminder persist: ALL PASS\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-turn-recovery-reminder-persist.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-turn-recovery-reminder-persist.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.776,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 209,
+        "sha256": "cab36e75ead624bfcfdc1914b8826d37a60ee967d60a1878c68cf9e2855bef10",
+        "tail": "  committed-text stall: partial kept, reminder persisted once, live == rebuilt\n  committed-text stall with requestControls: text and controls retained, live == rebuilt\nturn-recovery reminder persist: ALL PASS\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-turn-recovery-reminder-persist.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-model-mention-surface-resume.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 6.009,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 144,
+        "sha256": "b20dc89bdb83f07a97174d95541060a70ff812f11ed5b734dc7617d6b820acbb",
+        "tail": "PASS model-mention surface resume: 2 resumed requests carry the advertised surface (8443 tool bytes, codex head 18072 bytes), control unchanged\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-model-mention-surface-resume.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-model-mention-surface-resume.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 10.163,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 144,
+        "sha256": "b20dc89bdb83f07a97174d95541060a70ff812f11ed5b734dc7617d6b820acbb",
+        "tail": "PASS model-mention surface resume: 2 resumed requests carry the advertised surface (8443 tool bytes, codex head 18072 bytes), control unchanged\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-model-mention-surface-resume.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-length-stop-reminder-persist.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.478,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 39,
+        "sha256": "713f2399361dd049eaaaa1287e890152197581e54b597ec68368d447fef40dc8",
+        "tail": "length-stop reminder persist: ALL PASS\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-length-stop-reminder-persist.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-length-stop-reminder-persist.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.456,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 39,
+        "sha256": "713f2399361dd049eaaaa1287e890152197581e54b597ec68368d447fef40dc8",
+        "tail": "length-stop reminder persist: ALL PASS\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-length-stop-reminder-persist.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-prompt-effort-resume.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 4.596,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 123,
+        "sha256": "24b536823910cefaa5eaabe6072a987a25efa1fa5c51ad5afb2e8d67ecac80bf",
+        "tail": "PASS prompt-effort resume: 2 scenarios (max->high, high->max) keep 2+2+2 requests prefix-identical with effort on the wire\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-prompt-effort-resume.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-prompt-effort-resume.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 7.907,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 123,
+        "sha256": "24b536823910cefaa5eaabe6072a987a25efa1fa5c51ad5afb2e8d67ecac80bf",
+        "tail": "PASS prompt-effort resume: 2 scenarios (max->high, high->max) keep 2+2+2 requests prefix-identical with effort on the wire\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-prompt-effort-resume.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-model-selection-resume.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 7.733,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 412,
+        "sha256": "4e942e98847d25b9c1dfa37c312adec5e0674322057e33ed83f5e6ecbf536ac4",
+        "tail": "PASS fallback reconciliation -> navigation -> fresh-process resume: live=luna/high, resumed=sol/high, default=sol\nPASS configured auto -> target defaultLevel: temporary/persisted switches commit high, explicit effort wins, no-default keeps auto\nPASS startup configured auto -> starting model defaultLevel: high on the wire\nPASS persisted A -> B -> navigation/fork -> fresh-process resume: model=sol, effort=high\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-model-selection-resume.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-model-selection-resume.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 13.201,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 412,
+        "sha256": "4e942e98847d25b9c1dfa37c312adec5e0674322057e33ed83f5e6ecbf536ac4",
+        "tail": "PASS fallback reconciliation -> navigation -> fresh-process resume: live=luna/high, resumed=sol/high, default=sol\nPASS configured auto -> target defaultLevel: temporary/persisted switches commit high, explicit effort wins, no-default keeps auto\nPASS startup configured auto -> starting model defaultLevel: high on the wire\nPASS persisted A -> B -> navigation/fork -> fresh-process resume: model=sol, effort=high\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-model-selection-resume.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-auth-cache.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.69,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 133,
+        "sha256": "3aac31cfc4fe5f6b4b4c5d828363372e736c1cfea4c8ff676434e8c68c9f2fbf",
+        "tail": "=== Testing Devin auth cache + turn timing (0055) ===\nPASS verify-devin-auth-cache: cache epochs and shared assignment/chat recovery\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-auth-cache.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-auth-cache.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.109,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 133,
+        "sha256": "3aac31cfc4fe5f6b4b4c5d828363372e736c1cfea4c8ff676434e8c68c9f2fbf",
+        "tail": "=== Testing Devin auth cache + turn timing (0055) ===\nPASS verify-devin-auth-cache: cache epochs and shared assignment/chat recovery\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-auth-cache.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-metadata.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.668,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 175,
+        "sha256": "c55867d02170ced2add9b2bf1b7cce2570794c19719de982781515b264c36a46",
+        "tail": "=== Testing Devin CLI metadata alignment (0056) ===\nPASS: per-process sessionId, requestId +1 per call, 3000.11.205 tuple, pass-through, wire fields 10/9, discovery untouched\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-metadata.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-metadata.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.1,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 175,
+        "sha256": "c55867d02170ced2add9b2bf1b7cce2570794c19719de982781515b264c36a46",
+        "tail": "=== Testing Devin CLI metadata alignment (0056) ===\nPASS: per-process sessionId, requestId +1 per call, 3000.11.205 tuple, pass-through, wire fields 10/9, discovery untouched\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-metadata.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-thinking-signature.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.656,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 127,
+        "sha256": "349b29d5749b7048a9253c94cc9f6abea07584007b5d5da6f2d7eea194009beb",
+        "tail": "=== Testing Devin thinking signature capture + replay (0058) ===\nPASS verify-devin-thinking-signature: all 0058 assertions ok!\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-thinking-signature.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-thinking-signature.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.107,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 127,
+        "sha256": "349b29d5749b7048a9253c94cc9f6abea07584007b5d5da6f2d7eea194009beb",
+        "tail": "=== Testing Devin thinking signature capture + replay (0058) ===\nPASS verify-devin-thinking-signature: all 0058 assertions ok!\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-thinking-signature.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-idle-cascade-pin.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.131,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 50,
+        "sha256": "ff5d2508487e099f4f79e5380f83c8bd1856fbb8a7b6d884bcbb8422ccdbbb8d",
+        "tail": "devin idle cascade pin verification: ok (18.18.0)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-idle-cascade-pin.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-devin-idle-cascade-pin.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.668,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 50,
+        "sha256": "ff5d2508487e099f4f79e5380f83c8bd1856fbb8a7b6d884bcbb8422ccdbbb8d",
+        "tail": "devin idle cascade pin verification: ok (18.18.0)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-devin-idle-cascade-pin.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-oauth-durable-refresh.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 11.328,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 5367,
+        "sha256": "921ad3209116de5c36008acf77d86c5e1f01aa57c31b3f99d72057532dd35c09",
+        "tail": "  PASS  target sigterm: interrupted rotation is durably recoverable without another POST\n  PASS  target staged-exit: interrupted rotation is durably recoverable without another POST\n=== verify-oauth-durable-refresh (0090) :: /tmp/omp-worker-matrix-qaeZP6dw/runtime/node_modules/@oh-my-pi/pi-ai ===\n  PASS  startup and credentials.reload preserve duplicate healthy legacy rows byte-for-byte\n  PASS  xAI optional userinfo cannot discard a known replacement\n  PASS  health probes project the winning row without obsolete routing identity\n  PASS  usage fallback keeps an existing valid bearer but cannot probe after concurrent logout\n  PASS  terminal usage rejection retires a reachable legacy quota alias across reopen\n  PASS  refresh preserves stored identity without bootstrap\n  PASS  refresh with no stored identity stores no metadata and still rotates\n  PASS  login identity hook still bootstraps; refresh phase does not\n  PASS  cancellation while waiting for a peer lease issues no token request\n  PASS  cancel after server consumption: owner persists, attached waiter succeeds\n  PASS  >15s lease expiry (injected clock) does not lose the minted token\n  SKIP  >15s real synchronous stall (set OMP_PATCH_VERIFY_OAUTH_REAL_STALL=1)\n  PASS  peer takeover is not clobbered by the previous owner\n  PASS  refresh: concurrent replacement wins while the original lease remains owned\n  PASS  refresh: concurrent logout wins while the original lease remains owned\n  PASS  keys: concurrent replacement wins while the original lease remains owned\n  PASS  keys: concurrent logout wins while the original lease remains owned\n  PASS  usage: concurrent replacement wins while the original lease remains owned\n  PASS  usage: concurrent logout wins while the original lease remains owned\n  PASS  takeover-only\n  PASS  replacement-before-invalid-grant\n  PASS  account changed by refresh must satisfy its own plan gate\n  PASS  genuine invalid_grant disables only the attempted row\n  PASS  503 keeps the row; selected generation policy governs the next attempt\n  PASS  lost response survives restart and lease expiry without a second send\n  PASS  known result arriving after owner timeout is published without another exchange\n  PASS  the exchange ceiling stages a late replacement and store close drains it\n  PASS  a caller abort after admission ends only that caller's wait\n  PASS  quit mid-refresh: close() keeps the store open until the rotated grant is saved\n  PASS  store swap mid-refresh: replaceStore() drains the retired store's save\n  PASS  a rejected token after a takeover hands the lease back instead of disabling\n  PASS  an advisory usage-probe refresh never disables the credential\n  PASS  an advisory probe that receives invalid_grant discharges its exchange\n  PASS  an advisory probe whose response was lost keeps its unresolved exchange\n  PASS  an advisory probe transport failure that mentions a revoked grant keeps its marker\n  PASS  an advisory probe 200 with an unusable payload keeps its marker\n  PASS  an unresolved exchange switches to the fallback model and says so in a notice\n  PASS  an exhausted fallback chain refuses with the auth-unlock diagnostic\n  PASS  an unpublishable local exchange is refused before the grant\n  PASS  broker filters, canceled waiters and authoritative replacement identity\n  PASS  next refresh sends the previously saved refresh token\n  PASS  pre-aborted caller issues no token request\n  PASS  (t) unlock is not applicable to a provider without the journal\n  PASS  (u) a legacy non-Anthropic pending marker neither fences nor is rewritten\n  PASS  (v) a legacy staged replacement is adopted only for the row it was staged for\n  PASS  (w) a non-Anthropic peer takeover still wins the CAS and writes no journal row\n  PASS  (x) a staged adoption cannot publish over a lost lease or a replaced row\n  PASS  (a) a fenced unlock releases the marker and mints exactly one token\n  PASS  (b) a staged replacement is published without releasing or exchanging again\n  PASS  (c) a peer-held or expired lease cannot release the exchange\n  PASS  (d) a peer rotation after inspection is refused and the winner survives\n  PASS  (e) a replaced generation or expected hash cannot be released\n  PASS  (f) a transient failure during unlock keeps the row and rotates the fence\n  PASS  (g) invalid_grant during unlock never disables the credential\n  PASS  (h) an absent or disabled credential is refused\n  PASS  (i) a minted result held in memory is published without a second exchange\n  PASS  (j) a stale confirmation cannot release a newer attempt\n  PASS  (k) a timed-out attempt's late result is published without another exchange\n  PASS  (l) remote, delegated and unsupported runtimes are refused\n  PASS  (m) the durable diagnostic survives the cooldown and names /auth-unlock\n  PASS  (n) prompt, tool schemas and cache-prefix bytes are identical across recovery\n  PASS  (o) a result held by another process is refused locally and is the documented residual risk\n  PASS  (s) the release transaction itself installs the new reservation\n  PASS  (r) the shipped declarations type-check for a consumer\n  PASS  (z1) a credential-object refresh without a stored id is refused\n  PASS  (z2) a local exchange without durable storage is refused\n  PASS  (z3) an unpublishable unlock mint reports the refusal\n\nPASS verify-oauth-durable-refresh: 68 scenario(s) ok\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-oauth-durable-refresh.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-oauth-durable-refresh.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 14.897,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 5367,
+        "sha256": "bac0004fcba6b7f4da25064e60aa5a8aa0ef64c016c7807d202b7f079a18e795",
+        "tail": "  PASS  target sigterm: interrupted rotation is durably recoverable without another POST\n  PASS  target staged-exit: interrupted rotation is durably recoverable without another POST\n=== verify-oauth-durable-refresh (0090) :: /tmp/omp-worker-matrix-Txvhnr1t/runtime/node_modules/@oh-my-pi/pi-ai ===\n  PASS  startup and credentials.reload preserve duplicate healthy legacy rows byte-for-byte\n  PASS  xAI optional userinfo cannot discard a known replacement\n  PASS  health probes project the winning row without obsolete routing identity\n  PASS  usage fallback keeps an existing valid bearer but cannot probe after concurrent logout\n  PASS  terminal usage rejection retires a reachable legacy quota alias across reopen\n  PASS  refresh preserves stored identity without bootstrap\n  PASS  refresh with no stored identity stores no metadata and still rotates\n  PASS  login identity hook still bootstraps; refresh phase does not\n  PASS  cancellation while waiting for a peer lease issues no token request\n  PASS  cancel after server consumption: owner persists, attached waiter succeeds\n  PASS  >15s lease expiry (injected clock) does not lose the minted token\n  SKIP  >15s real synchronous stall (set OMP_PATCH_VERIFY_OAUTH_REAL_STALL=1)\n  PASS  peer takeover is not clobbered by the previous owner\n  PASS  refresh: concurrent replacement wins while the original lease remains owned\n  PASS  refresh: concurrent logout wins while the original lease remains owned\n  PASS  keys: concurrent replacement wins while the original lease remains owned\n  PASS  keys: concurrent logout wins while the original lease remains owned\n  PASS  usage: concurrent replacement wins while the original lease remains owned\n  PASS  usage: concurrent logout wins while the original lease remains owned\n  PASS  takeover-only\n  PASS  replacement-before-invalid-grant\n  PASS  account changed by refresh must satisfy its own plan gate\n  PASS  genuine invalid_grant disables only the attempted row\n  PASS  503 keeps the row; selected generation policy governs the next attempt\n  PASS  lost response survives restart and lease expiry without a second send\n  PASS  known result arriving after owner timeout is published without another exchange\n  PASS  the exchange ceiling stages a late replacement and store close drains it\n  PASS  a caller abort after admission ends only that caller's wait\n  PASS  quit mid-refresh: close() keeps the store open until the rotated grant is saved\n  PASS  store swap mid-refresh: replaceStore() drains the retired store's save\n  PASS  a rejected token after a takeover hands the lease back instead of disabling\n  PASS  an advisory usage-probe refresh never disables the credential\n  PASS  an advisory probe that receives invalid_grant discharges its exchange\n  PASS  an advisory probe whose response was lost keeps its unresolved exchange\n  PASS  an advisory probe transport failure that mentions a revoked grant keeps its marker\n  PASS  an advisory probe 200 with an unusable payload keeps its marker\n  PASS  an unresolved exchange switches to the fallback model and says so in a notice\n  PASS  an exhausted fallback chain refuses with the auth-unlock diagnostic\n  PASS  an unpublishable local exchange is refused before the grant\n  PASS  broker filters, canceled waiters and authoritative replacement identity\n  PASS  next refresh sends the previously saved refresh token\n  PASS  pre-aborted caller issues no token request\n  PASS  (t) unlock is not applicable to a provider without the journal\n  PASS  (u) a legacy non-Anthropic pending marker neither fences nor is rewritten\n  PASS  (v) a legacy staged replacement is adopted only for the row it was staged for\n  PASS  (w) a non-Anthropic peer takeover still wins the CAS and writes no journal row\n  PASS  (x) a staged adoption cannot publish over a lost lease or a replaced row\n  PASS  (a) a fenced unlock releases the marker and mints exactly one token\n  PASS  (b) a staged replacement is published without releasing or exchanging again\n  PASS  (c) a peer-held or expired lease cannot release the exchange\n  PASS  (d) a peer rotation after inspection is refused and the winner survives\n  PASS  (e) a replaced generation or expected hash cannot be released\n  PASS  (f) a transient failure during unlock keeps the row and rotates the fence\n  PASS  (g) invalid_grant during unlock never disables the credential\n  PASS  (h) an absent or disabled credential is refused\n  PASS  (i) a minted result held in memory is published without a second exchange\n  PASS  (j) a stale confirmation cannot release a newer attempt\n  PASS  (k) a timed-out attempt's late result is published without another exchange\n  PASS  (l) remote, delegated and unsupported runtimes are refused\n  PASS  (m) the durable diagnostic survives the cooldown and names /auth-unlock\n  PASS  (n) prompt, tool schemas and cache-prefix bytes are identical across recovery\n  PASS  (o) a result held by another process is refused locally and is the documented residual risk\n  PASS  (s) the release transaction itself installs the new reservation\n  PASS  (r) the shipped declarations type-check for a consumer\n  PASS  (z1) a credential-object refresh without a stored id is refused\n  PASS  (z2) a local exchange without durable storage is refused\n  PASS  (z3) an unpublishable unlock mint reports the refusal\n\nPASS verify-oauth-durable-refresh: 68 scenario(s) ok\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-oauth-durable-refresh.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-auth-unlock-extension.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.092,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 715,
+        "sha256": "7aa710f1c22daf426920e0812594b16e94600de4bf899d3c2518072cb7abb214",
+        "tail": "ok  anthropic -> https://api.anthropic.com/v1/oauth/token\nok  not-applicable outcome reported without a failure message\nok  google-antigravity not applicable; advertised = anthropic\nok  openai-codex not applicable; advertised = anthropic\nok  xai-oauth not applicable; advertised = anthropic\nok  mistral not applicable; advertised = anthropic\nok  mcp-remote not applicable; advertised = anthropic\nok  mistral: journal not applicable at the runtime, refused before any store read\nok  mutation rejected: protects google-antigravity again\nok  mutation rejected: protects mistral again\nok  mutation rejected: preflights another host\n\nPASS verify-auth-unlock-extension: anthropic-only routing, no network, no credentials\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-auth-unlock-extension.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-auth-unlock-extension.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 3.923,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 715,
+        "sha256": "7aa710f1c22daf426920e0812594b16e94600de4bf899d3c2518072cb7abb214",
+        "tail": "ok  anthropic -> https://api.anthropic.com/v1/oauth/token\nok  not-applicable outcome reported without a failure message\nok  google-antigravity not applicable; advertised = anthropic\nok  openai-codex not applicable; advertised = anthropic\nok  xai-oauth not applicable; advertised = anthropic\nok  mistral not applicable; advertised = anthropic\nok  mcp-remote not applicable; advertised = anthropic\nok  mistral: journal not applicable at the runtime, refused before any store read\nok  mutation rejected: protects google-antigravity again\nok  mutation rejected: protects mistral again\nok  mutation rejected: preflights another host\n\nPASS verify-auth-unlock-extension: anthropic-only routing, no network, no credentials\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-auth-unlock-extension.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-codex-account-eligibility-retention.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.715,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 89,
+        "sha256": "04015a9c56f21a7f9922ea192f42b80a5c4296cdffaae3bd852cfb60eac49c6c",
+        "tail": "PASS verify-codex-account-eligibility-retention: 7 phases, fake fetch, private models.db\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-codex-account-eligibility-retention.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-codex-account-eligibility-retention.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.16,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 89,
+        "sha256": "04015a9c56f21a7f9922ea192f42b80a5c4296cdffaae3bd852cfb60eac49c6c",
+        "tail": "PASS verify-codex-account-eligibility-retention: 7 phases, fake fetch, private models.db\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-codex-account-eligibility-retention.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-google-account-eligibility-retention.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.709,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 90,
+        "sha256": "487a3b3e0d2b2b0e908e5f3c621021fc0128729bfac74b5af1b4e693e303ad38",
+        "tail": "PASS verify-google-account-eligibility-retention: 9 phases, fake fetch, private models.db\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-google-account-eligibility-retention.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-google-account-eligibility-retention.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.162,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 90,
+        "sha256": "487a3b3e0d2b2b0e908e5f3c621021fc0128729bfac74b5af1b4e693e303ad38",
+        "tail": "PASS verify-google-account-eligibility-retention: 9 phases, fake fetch, private models.db\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-google-account-eligibility-retention.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-oauth-worker-single-owner.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.147,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 561,
+        "sha256": "ba96d13d3dd7d3898ec23440aacce7cac1bee6021b523fc5241ff926cdc2959d",
+        "tail": "PASS worker-fixture: the shared forced-worker pool boots a real host worker\nPASS bridge-surface: inspectUnresolvedRefresh/unlockAndRefreshStored reach main through the real auth bridge\nPASS single-owner: nine worker callers share one token POST per rotation and never resend a grant\nPASS unlock-bridge: a worker-homed fenced unlock mints one token and releases the marker\nSUMMARY worker: worker-fixture,bridge-surface,single-owner,unlock-bridge\nverify-oauth-worker-single-owner: PASS (0090 unlock surface reachable from worker sessions; one owner per rotation)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-oauth-worker-single-owner.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-oauth-worker-single-owner.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.705,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 561,
+        "sha256": "ba96d13d3dd7d3898ec23440aacce7cac1bee6021b523fc5241ff926cdc2959d",
+        "tail": "PASS worker-fixture: the shared forced-worker pool boots a real host worker\nPASS bridge-surface: inspectUnresolvedRefresh/unlockAndRefreshStored reach main through the real auth bridge\nPASS single-owner: nine worker callers share one token POST per rotation and never resend a grant\nPASS unlock-bridge: a worker-homed fenced unlock mints one token and releases the marker\nSUMMARY worker: worker-fixture,bridge-surface,single-owner,unlock-bridge\nverify-oauth-worker-single-owner: PASS (0090 unlock surface reachable from worker sessions; one owner per rotation)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-oauth-worker-single-owner.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-subagent-warm-revival-prompt.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 8.405,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 1201,
+        "sha256": "4e28e13a36c936ca0c55de4f235b441344e34163bc41713c14f7ea2ef2335603",
+        "tail": "  PASS a1-new-peer-while-parked\n  PASS a2-peer-parked-before-revive\n  PASS b-pooled-yield-items\n  PASS g-default-prompt-setting-drift\n  PASS c-legacy-transcript-without-session-init\n  PASS d-peer-routing-after-revival\n  PASS e-roster-unchanged-control\n  PASS b2-pooled-yield-items-roster-unchanged\n  PASS f-info-pooled-followup-after-revival\n  PASS h-mounted-device-catalogue\n{\"status\":\"PASS\",\"scenarios\":10,\"failed\":[]}\n  ok   mutation rejected: drop the persisted systemPrompt override -> g-default-prompt-setting-drift\n  ok   mutation rejected: drop the yield-items restore -> b-pooled-yield-items,b2-pooled-yield-items-roster-unchanged\n  ok   mutation rejected: treat a transcript without session_init as a revival failure -> c-legacy-transcript-without-session-init\n  ok   mutation rejected: rewrite the persisted prompt instead of reusing it verbatim -> a1-new-peer-while-parked,a2-peer-parked-before-revive,b-pooled-yield-items,g-default-prompt-setting-drift,d-peer-routing-after-revival,e-roster-unchanged-control,b2-pooled-yield-items-roster-unchanged,h-mounted-device-catalogue\n  ok   mutation rejected: restore the tool list without its xd:// device partition -> h-mounted-device-catalogue\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-subagent-warm-revival-prompt.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-subagent-warm-revival-prompt.ts"
+      ],
+      "exit": -9,
+      "timeout": true,
+      "seconds": 180.064,
+      "output_complete": false,
+      "stdout": {
+        "bytes": 421,
+        "sha256": "3e7de941284e67750bed07ae4b41eafaca703d918f8619224764dd580f2e9e08",
+        "tail": "  PASS a1-new-peer-while-parked\n  PASS a2-peer-parked-before-revive\n  PASS b-pooled-yield-items\n  PASS g-default-prompt-setting-drift\n  PASS c-legacy-transcript-without-session-init\n  PASS d-peer-routing-after-revival\n  PASS e-roster-unchanged-control\n  PASS b2-pooled-yield-items-roster-unchanged\n  PASS f-info-pooled-followup-after-revival\n  PASS h-mounted-device-catalogue\n{\"status\":\"PASS\",\"scenarios\":10,\"failed\":[]}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-subagent-warm-revival-prompt.ts",
+      "mode": "worker",
+      "status": "FAIL"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-context-persist-audit.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.391,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 32,
+        "sha256": "4185109030cfafa7e7341af87ae7eb50b9693e8c48fe36bd514538fa56de7d79",
+        "tail": "context-persist-audit: ALL PASS\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-context-persist-audit.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-context-persist-audit.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.303,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 32,
+        "sha256": "4185109030cfafa7e7341af87ae7eb50b9693e8c48fe36bd514538fa56de7d79",
+        "tail": "context-persist-audit: ALL PASS\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-context-persist-audit.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-retry-slow-schedule.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.681,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 151,
+        "sha256": "4d7c3d2d0f0ee8fa5278fbb64c20323a27c2f620a414f8b039fcb1bd78ef446a",
+        "tail": "PASS settings-mirror: worker import and live updates preserve fixed retry pacing\nverify-retry-slow-schedule: 3-3-5-5-10-10-15-15 s retry pacing (0099)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-retry-slow-schedule.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-retry-slow-schedule.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.182,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 151,
+        "sha256": "4d7c3d2d0f0ee8fa5278fbb64c20323a27c2f620a414f8b039fcb1bd78ef446a",
+        "tail": "PASS settings-mirror: worker import and live updates preserve fixed retry pacing\nverify-retry-slow-schedule: 3-3-5-5-10-10-15-15 s retry pacing (0099)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-retry-slow-schedule.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-idle-ephemeral-reservation.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.266,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 141,
+        "sha256": "08b62f5a85049dca6a9e10ea6901f257ceca17c0852dc09388bfcf2549c1b1d1",
+        "tail": "idle ephemeral reservation verification: 6 extension hosts supply runIdleEphemeralTurn\nidle ephemeral reservation verification: ok (18.18.0)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-idle-ephemeral-reservation.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-idle-ephemeral-reservation.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 3.332,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 141,
+        "sha256": "08b62f5a85049dca6a9e10ea6901f257ceca17c0852dc09388bfcf2549c1b1d1",
+        "tail": "idle ephemeral reservation verification: 6 extension hosts supply runIdleEphemeralTurn\nidle ephemeral reservation verification: ok (18.18.0)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-idle-ephemeral-reservation.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-session-cache-keepalive.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.731,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 41,
+        "sha256": "4d3bc175a2db78d41d13c294603d1942797848e3a988923cdc5c97ad0820024e",
+        "tail": "session cache keepalive verification: ok\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-session-cache-keepalive.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-session-cache-keepalive.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.243,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 41,
+        "sha256": "4d3bc175a2db78d41d13c294603d1942797848e3a988923cdc5c97ad0820024e",
+        "tail": "session cache keepalive verification: ok\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-session-cache-keepalive.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-resume-cache-breakpoint.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 4.148,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 2161,
+        "sha256": "5d2f6090af515dc62728086958d7a5abdec009767b2d0744050eaa27bdf20422",
+        "tail": "ok synthetic resumed session: 4 -> 4 breakpoints, released 21, anchor 20\nok live growth (418->457 messages, +41 blocks): anchor 417, marks 417,456\nok live growth negatives: +2 step, boundary 16/17, side request, shrink\nok thinking-ended growth: anchor scans back to the eligible text block\nok mixed-TTL anchor: 1h chosen over the newest 5m marker\nok mixed-TTL decline: no legal TTL, no anchor\nok continuity: equal-first-message conversations do not share a base\nok continuity: string and image-only first messages both tracked\nok tracker cap: 20 side requests leave the main predecessor in place\nok continuity: an equal tail in a different session does not anchor\nok continuity: a rewrite of the second-to-last message is caught\nok continuity: an early rewrite with an equal tail is an accepted residual\nok continuity: a tool_use input field named cache_control is hashed\nok continuity: penultimate message shape decorated array -> string still anchors on the previous tail\nok continuity: penultimate message shape string -> text block still anchors on the previous tail\nok allocator: long session keeps checkpoint 28 (12 back) and declines the anchor at 38\nok allocator: growth 418->457 releases appended-region marker 448 for anchor 417\nok allocator: 15-turn session releases tail neighbour 27 for anchor 26\nok allocator: short session already anchored at 16, marks unchanged\nok allocator guard: stored anchor 44 kept, resume anchor 40 declined\nok xd catalog: deterministic Codex and Anthropic prompts preserve other content and Anthropic anchors\nok fault control: rejected a copy that refuses to spend a never-marked position\nok fault control: rejected a copy that spends a stored older anchor\nok fault control: rejected a copy that never releases a near-duplicate marker\nok fault control: rejected a copy that releases the newest tail\nok fault control: rejected a copy that leaves the xd catalog in registration order\nok fault control: rejected a copy that canonicalizes the Anthropic system block in place\nok fault control: rejected a copy that drops the system block's cache_control\nPASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-resume-cache-breakpoint.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-resume-cache-breakpoint.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 7.913,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 2161,
+        "sha256": "5d2f6090af515dc62728086958d7a5abdec009767b2d0744050eaa27bdf20422",
+        "tail": "ok synthetic resumed session: 4 -> 4 breakpoints, released 21, anchor 20\nok live growth (418->457 messages, +41 blocks): anchor 417, marks 417,456\nok live growth negatives: +2 step, boundary 16/17, side request, shrink\nok thinking-ended growth: anchor scans back to the eligible text block\nok mixed-TTL anchor: 1h chosen over the newest 5m marker\nok mixed-TTL decline: no legal TTL, no anchor\nok continuity: equal-first-message conversations do not share a base\nok continuity: string and image-only first messages both tracked\nok tracker cap: 20 side requests leave the main predecessor in place\nok continuity: an equal tail in a different session does not anchor\nok continuity: a rewrite of the second-to-last message is caught\nok continuity: an early rewrite with an equal tail is an accepted residual\nok continuity: a tool_use input field named cache_control is hashed\nok continuity: penultimate message shape decorated array -> string still anchors on the previous tail\nok continuity: penultimate message shape string -> text block still anchors on the previous tail\nok allocator: long session keeps checkpoint 28 (12 back) and declines the anchor at 38\nok allocator: growth 418->457 releases appended-region marker 448 for anchor 417\nok allocator: 15-turn session releases tail neighbour 27 for anchor 26\nok allocator: short session already anchored at 16, marks unchanged\nok allocator guard: stored anchor 44 kept, resume anchor 40 declined\nok xd catalog: deterministic Codex and Anthropic prompts preserve other content and Anthropic anchors\nok fault control: rejected a copy that refuses to spend a never-marked position\nok fault control: rejected a copy that spends a stored older anchor\nok fault control: rejected a copy that never releases a near-duplicate marker\nok fault control: rejected a copy that releases the newest tail\nok fault control: rejected a copy that leaves the xd catalog in registration order\nok fault control: rejected a copy that canonicalizes the Anthropic system block in place\nok fault control: rejected a copy that drops the system block's cache_control\nPASS resume-cache-breakpoint: stays within Anthropic's 4-breakpoint cap\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-resume-cache-breakpoint.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-prefix-cache-compaction.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.727,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 61,
+        "sha256": "b9f448ba51438498349e1269b3583cd5e46a1568a121469215cf88afb766f2ee",
+        "tail": "PASS prefix-cache compaction: structured=1 flat=1 windows=12\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-prefix-cache-compaction.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-prefix-cache-compaction.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.207,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 61,
+        "sha256": "b9f448ba51438498349e1269b3583cd5e46a1568a121469215cf88afb766f2ee",
+        "tail": "PASS prefix-cache compaction: structured=1 flat=1 windows=12\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-prefix-cache-compaction.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-codex-compaction-chain.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.179,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 120,
+        "sha256": "e81895bfdb5dc6a0c19ff533fb972a0be6fe1c7f6279a671d7a0b30117b6d35f",
+        "tail": "  ok   fault control rejected: removed metadata strip (exit 1)\nverify-codex-compaction-chain: live baseline reuse holds\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-codex-compaction-chain.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-codex-compaction-chain.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.147,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 120,
+        "sha256": "e81895bfdb5dc6a0c19ff533fb972a0be6fe1c7f6279a671d7a0b30117b6d35f",
+        "tail": "  ok   fault control rejected: removed metadata strip (exit 1)\nverify-codex-compaction-chain: live baseline reuse holds\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-codex-compaction-chain.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-remote-compaction-target-key.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.271,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 649,
+        "sha256": "1b109451f1853a709fcfd8bcc135918c887487711743c8b2ccb9dee736af318c",
+        "tail": "PASS remote compaction target key: V2 lane forwards the compaction-target key\nPASS remote compaction target key: V1 lane forwards the compaction-target key\nPASS remote compaction target key: an omitted key still defaults to the live key\nPASS remote compaction target key: explicit undefined sends no key\nPASS remote compaction target key: reverse fixture keeps the live key out of compaction\nPASS remote compaction target key: manual callsite selects the compaction-target key\nPASS remote compaction target key: auto callsite selects the compaction-target key\nPASS remote compaction target key: every lane and callsite keys on the compaction target\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-remote-compaction-target-key.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-remote-compaction-target-key.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.201,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 649,
+        "sha256": "1b109451f1853a709fcfd8bcc135918c887487711743c8b2ccb9dee736af318c",
+        "tail": "PASS remote compaction target key: V2 lane forwards the compaction-target key\nPASS remote compaction target key: V1 lane forwards the compaction-target key\nPASS remote compaction target key: an omitted key still defaults to the live key\nPASS remote compaction target key: explicit undefined sends no key\nPASS remote compaction target key: reverse fixture keeps the live key out of compaction\nPASS remote compaction target key: manual callsite selects the compaction-target key\nPASS remote compaction target key: auto callsite selects the compaction-target key\nPASS remote compaction target key: every lane and callsite keys on the compaction target\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-remote-compaction-target-key.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-compaction-cache-liveness.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.306,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 598,
+        "sha256": "b2cd9fa0985b2e130db0d01a155d763e5ecb4bbf856af1778b8fe952cca60e7b",
+        "tail": "PASS compaction cache liveness: turns=40 chain=433 boundary=354 green(cacheRead=43350, cacheWrite=5, readBlocks=433) red(cacheRead=50, cacheWrite=35405, readBlocks=0) namespaceFault(readBlocks=0) prefixFallbacks=[\"no-live-chain\"] mixedTtl(readBlocks=1) stubFallback=no-live-chain bigMessageTokens=421351 failingChainTokens=128611 overflowChainTokens=539011 noUsageRidesLive=true retry=live-chain-overflow-retry overflowRetry=live-chain-overflow-retry splitLive=1req/true splitRefused=no-live-chain previousOutsideChain=previous-summary-not-in-prefix nonAnthropicMessages=1 nonAnthropicTokens=56500\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-compaction-cache-liveness.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-compaction-cache-liveness.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.814,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 598,
+        "sha256": "b2cd9fa0985b2e130db0d01a155d763e5ecb4bbf856af1778b8fe952cca60e7b",
+        "tail": "PASS compaction cache liveness: turns=40 chain=433 boundary=354 green(cacheRead=43350, cacheWrite=5, readBlocks=433) red(cacheRead=50, cacheWrite=35405, readBlocks=0) namespaceFault(readBlocks=0) prefixFallbacks=[\"no-live-chain\"] mixedTtl(readBlocks=1) stubFallback=no-live-chain bigMessageTokens=421351 failingChainTokens=128611 overflowChainTokens=539011 noUsageRidesLive=true retry=live-chain-overflow-retry overflowRetry=live-chain-overflow-retry splitLive=1req/true splitRefused=no-live-chain previousOutsideChain=previous-summary-not-in-prefix nonAnthropicMessages=1 nonAnthropicTokens=56500\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-compaction-cache-liveness.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-native-compaction-live-context.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.693,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 108,
+        "sha256": "24023a305855f0ffefd1f6490014d228169d5df3b5cd76614934587bb9dd5b77",
+        "tail": "PASS anthropic native compaction live context: scopes=live messages=4 tools=1 fallback=native-no-live-chain\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-native-compaction-live-context.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-native-compaction-live-context.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.162,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 108,
+        "sha256": "24023a305855f0ffefd1f6490014d228169d5df3b5cd76614934587bb9dd5b77",
+        "tail": "PASS anthropic native compaction live context: scopes=live messages=4 tools=1 fallback=native-no-live-chain\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-native-compaction-live-context.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-compaction-length-stop.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.25,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 554,
+        "sha256": "b456e7546ec8413b6340df0fcf1d1b13a8e48f43a1fe273dc4202509dc0d22bb",
+        "tail": "PASS compaction length stop: core rejects with \"Summarization failed: model output ended incomplete (stopReason: length)\"\nPASS compaction length stop: split-turn prefix rejects with \"Turn prefix summarization failed: model output ended incomplete (stopReason: length)\"\nPASS compaction length stop: split-turn manual path commits nothing\nPASS compaction length stop: manual path rejects and commits nothing\nPASS compaction length stop: auto path commits nothing and persists no reminder\nPASS compaction length stop: a truncated summary is never committed\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-compaction-length-stop.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-compaction-length-stop.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.197,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 554,
+        "sha256": "b456e7546ec8413b6340df0fcf1d1b13a8e48f43a1fe273dc4202509dc0d22bb",
+        "tail": "PASS compaction length stop: core rejects with \"Summarization failed: model output ended incomplete (stopReason: length)\"\nPASS compaction length stop: split-turn prefix rejects with \"Turn prefix summarization failed: model output ended incomplete (stopReason: length)\"\nPASS compaction length stop: split-turn manual path commits nothing\nPASS compaction length stop: manual path rejects and commits nothing\nPASS compaction length stop: auto path commits nothing and persists no reminder\nPASS compaction length stop: a truncated summary is never committed\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-compaction-length-stop.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-manual-compaction-direct.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 4.15,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 743,
+        "sha256": "28a71046f219ee8c97dd0fed7b8f93d93cea816420316ec6069aeff9cf79f239",
+        "tail": "  PASS manual-stale-notebook-direct\n  PASS manual-fresh-notebook-direct\n  PASS manual-no-notebook-revision-direct\n  PASS new-context-stale-notebook-commits\n  PASS new-context-fresh-notebook-commits\n  PASS feature-off-setting-summary-path\n  PASS feature-off-tools-absent-summary-path\n  PASS feature-toggled-off-setting-live-session\n  PASS feature-toggled-off-tools-live-session\n  PASS idle-automatic-stale-notebook-commits\n  PASS classic-automatic-tools-absent\n  PASS classic-automatic-toggled-off\n  PASS explicit-soft-mode\n  PASS explicit-remote-mode\n  PASS explicit-snapcompact-mode\n  PASS focused-compact\n  PASS child-session-pinned-off-summary-path\n  PASS child-session-notebook-rollover-direct\n{\"status\":\"PASS\",\"scenarios\":18,\"failed\":[]}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-manual-compaction-direct.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-manual-compaction-direct.ts"
+      ],
+      "exit": -9,
+      "timeout": true,
+      "seconds": 180.079,
+      "output_complete": false,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-manual-compaction-direct.ts",
+      "mode": "worker",
+      "status": "FAIL"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-compaction-live-chain-midnight.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.991,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 251,
+        "sha256": "9685daa9523929b24248aeeddf79913b525fb6c3d1a9a3534837a73fb95ad426",
+        "tail": "PASS midnight compaction: 2026-11-03T23:59:59.000Z -> 2026-11-04T00:00:01.000Z; journal control inside cut; 5 byte-identical prefix messages; control at cut excluded\nPASS midnight mutation: old slice(0, prefixLength) rejected by prefix-byte assertion\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-compaction-live-chain-midnight.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-compaction-live-chain-midnight.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 33.923,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 251,
+        "sha256": "9685daa9523929b24248aeeddf79913b525fb6c3d1a9a3534837a73fb95ad426",
+        "tail": "PASS midnight compaction: 2026-11-03T23:59:59.000Z -> 2026-11-04T00:00:01.000Z; journal control inside cut; 5 byte-identical prefix messages; control at cut excluded\nPASS midnight mutation: old slice(0, prefixLength) rejected by prefix-byte assertion\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-compaction-live-chain-midnight.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-thinking-drop-resume.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 0.713,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 319,
+        "sha256": "55626fb89a84b41dbf1dabfa0f8e26868b5d4421a9983ac936c8c89e723e5e1c",
+        "tail": "PASS thinking thread leg: prefix repair, durable cold resume and appended-only continue\nPASS anthropic thinking-drop resume (18.18.0): 30 offline requests; legacy omissions, repeated resume, endpoint/model isolation, new blocks kept, durable 400 repair, invalid/malformed reports ignored, server reports remain on wire\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-thinking-drop-resume.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-thinking-drop-resume.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 1.231,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 319,
+        "sha256": "55626fb89a84b41dbf1dabfa0f8e26868b5d4421a9983ac936c8c89e723e5e1c",
+        "tail": "PASS thinking thread leg: prefix repair, durable cold resume and appended-only continue\nPASS anthropic thinking-drop resume (18.18.0): 30 offline requests; legacy omissions, repeated resume, endpoint/model isolation, new blocks kept, durable 400 repair, invalid/malformed reports ignored, server reports remain on wire\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-thinking-drop-resume.ts",
+      "mode": "worker",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-request-audit.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 0.688,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 936,
+        "sha256": "4d8a0a567dcda9a6ec20c1023ebd12edf34580c2c2e0d5710fd8f04f6c95a93c",
+        "tail": "58 | };\n59 | const originalFetch = globalThis.fetch;\n60 | // Fail closed: any missed injection still lands in this offline sink.\n61 | globalThis.fetch = sink as typeof fetch;\n62 | const dir = join(root, \"payloads\", \"audit-session\", \"anthropic-wire\");\n63 | const metas = () => readdirSync(dir).filter(name => name.endsWith(\".meta.json\")).map(name => ({ name, data: JSON.parse(readFileSync(join(dir, name), \"utf8\")) }));\n                         ^\nENOENT: no such file or directory, scandir '/tmp/omp-anthropic-audit-verify-iY4MOO/payloads/audit-session/anthropic-wire'\n    path: \"/tmp/omp-anthropic-audit-verify-iY4MOO/payloads/audit-session/anthropic-wire\",\n syscall: \"scandir\",\n   errno: -2,\n    code: \"ENOENT\"\n\n      at metas (/home/chris/orca/projects/omp-move/patches/verify-anthropic-request-audit.ts:63:21)\n      at send (/home/chris/orca/projects/omp-move/patches/verify-anthropic-request-audit.ts:90:16)\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-request-audit.ts",
+      "mode": "main",
+      "status": "FAIL"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-request-audit.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.169,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 951,
+        "sha256": "fc77685ef33efc6c30d3af170c498a575eb9eb9f68ceb89e9261270034c446ce",
+        "tail": "58 | };\n59 | const originalFetch = globalThis.fetch;\n60 | // Fail closed: any missed injection still lands in this offline sink.\n61 | globalThis.fetch = sink as typeof fetch;\n62 | const dir = join(root, \"payloads\", \"audit-session\", \"anthropic-wire\");\n63 | const metas = () => readdirSync(dir).filter(name => name.endsWith(\".meta.json\")).map(name => ({ name, data: JSON.parse(readFileSync(join(dir, name), \"utf8\")) }));\n     ^\nENOENT: no such file or directory, scandir '/tmp/omp-anthropic-audit-verify-XUFN3j/payloads/audit-session/anthropic-wire'\n    path: \"/tmp/omp-anthropic-audit-verify-XUFN3j/payloads/audit-session/anthropic-wire\",\n syscall: \"scandir\",\n   errno: -2,\n    code: \"ENOENT\"\n\n      at readdirSync (unknown:1:1)\n      at metas (/home/chris/orca/projects/omp-move/patches/verify-anthropic-request-audit.ts:63:21)\n      at send (/home/chris/orca/projects/omp-move/patches/verify-anthropic-request-audit.ts:90:16)\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-request-audit.ts",
+      "mode": "worker",
+      "status": "FAIL"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-cache-boundaries.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.443,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 805,
+        "sha256": "e51ecb82429f7b067a69a5bdbac2994858135b04baa72b6bce1ff27ee81e686c",
+        "tail": "PASS Anthropic cache boundaries (18.18.0): 19 ordinary captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary, credit-safe retry on both rungs; zero provider traffic\nPASS eligibility: official-endpoint policy, endpoint reroute, explicit flag and env switch\nPASS create: thread:{type:\"create\"} with the full body\nPASS continues: 2 continues carry thread:{type:\"continue\"} with appended-only messages and reduced breakpoints\nSUMMARY enabled: eligibility,create,continues\nPASS eligibility: official-endpoint policy, endpoint reroute, explicit flag and env switch\nPASS create: unthreaded full body\nSUMMARY disabled: eligibility,create,continues\nverify-anthropic-threads-cache-shape: PASS (thread cache shape, reconstructed history audit, one wire record per send)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-cache-boundaries.ts",
+      "mode": "main",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/r2-run/m5",
+        "worker",
+        "/home/chris/orca/projects/omp-move/patches/verify-anthropic-cache-boundaries.ts"
+      ],
+      "exit": 0,
+      "timeout": false,
+      "seconds": 2.878,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 805,
+        "sha256": "e51ecb82429f7b067a69a5bdbac2994858135b04baa72b6bce1ff27ee81e686c",
+        "tail": "PASS Anthropic cache boundaries (18.18.0): 19 ordinary captures; growing history, complete system, TTL, disable, changing context, server-cleared boundary, credit-safe retry on both rungs; zero provider traffic\nPASS eligibility: official-endpoint policy, endpoint reroute, explicit flag and env switch\nPASS create: thread:{type:\"create\"} with the full body\nPASS continues: 2 continues carry thread:{type:\"continue\"} with appended-only messages and reduced breakpoints\nSUMMARY enabled: eligibility,create,continues\nPASS eligibility: official-endpoint policy, endpoint reroute, explicit flag and env switch\nPASS create: unthreaded full body\nSUMMARY disabled: eligibility,create,continues\nverify-anthropic-threads-cache-shape: PASS (thread cache shape, reconstructed history audit, one wire record per send)\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tail": "",
+        "output_truncated": false
+      },
+      "gate": "verify-anthropic-cache-boundaries.ts",
+      "mode": "worker",
+      "status": "PASS"
+    }
+  ]
+}

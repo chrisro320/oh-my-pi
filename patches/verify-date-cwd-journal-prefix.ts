@@ -44,7 +44,7 @@ const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? dirname(AGENT_ROOT);
 const AGENT_VERSION = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
 // The journal placement model is 18.16.0's: the older plans keep the anchor map.
-assert.equal(AGENT_VERSION, "18.16.0", `the journal placement gate covers 18.16.0 only, got ${AGENT_VERSION}`);
+assert.ok(["18.16.0", "18.18.0"].includes(AGENT_VERSION), `the journal placement gate covers 18.16.0 and 18.18.0 only, got ${AGENT_VERSION}`);
 
 /** First request: 2026-11-03 (TZ=UTC) — one clear day before the rollover. */
 const WRITER_INSTANT = "2026-11-03T02:30:00.000Z";

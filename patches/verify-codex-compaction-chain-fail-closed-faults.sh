@@ -17,21 +17,23 @@ roots = {"pi-ai": Path(os.environ.get("OMP_PATCH_VERIFY_AI_ROOT", nm / "pi-ai"))
          "pi-agent-core": Path(os.environ.get("OMP_PATCH_VERIFY_CORE_ROOT", nm / "pi-agent-core"))}
 ai = "pi-ai/src/providers/openai-codex-responses.ts"
 core = "pi-agent-core/src/compaction/compaction-v2-streaming.ts"
+channel = "pi-ai/src/providers/responses-websocket-connection.ts"
 types = "pi-ai/dist/types/providers/openai-codex-responses.d.ts"
 gate = here / "verify-codex-compaction-chain-fail-closed.ts"
 # Supported recovery-era versions carry the non-generating chain-recovery hook;
 # 18.1.18 predates it, so fault expectations differ by supported version.
 version = json.loads((roots["pi-ai"] / "package.json").read_text())["version"]
-supports_recovery = version in ("18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.16.0")
+supports_recovery = version in ("18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.16.0", "18.18.0")
 # 18.3.3 onward publish the two-argument acceptance hook (commit + rollback);
-# 18.16.0 keeps that shape.
-generic_acceptance = ("18.3.3", "18.4.1", "18.4.4", "18.16.0")
+# 18.16.0 keeps that shape and 18.18.0 inherits it.
+generic_acceptance = ("18.3.3", "18.4.1", "18.4.4", "18.16.0", "18.18.0")
 # 18.16.0 refuses an SSE admission for a compaction body at the SSE transport
 # itself as well as at the fallback decision, so the mutated `refuseSseFallback`
-# is still stopped — by the later guard, with its own message.
+# is still stopped — by the later guard, with its own message. 18.18.0 takes the
+# same arm.
 sse_refusal = (
     "compaction cannot replay over SSE without its append baseline"
-    if version == "18.16.0" else
+    if version in ("18.16.0", "18.18.0") else
     "sse-disabled: failure must stay terminal"
 )
 acceptance_declaration = (
@@ -84,6 +86,40 @@ if version in ("18.4.1", "18.4.4"):
          'return compactionV2Api(model) === "openai-codex-responses" || model.provider === "openai-codex";',
          'return model.api === "openai-codex-responses";',
          "effective Codex lane must be recognized"),
+    ])
+if version == "18.18.0":
+    # The 18.18.0 transport wraps ResponsesWebSocketConnection. Each mutation
+    # reintroduces one way the lane can silently spend money or cut off another
+    # request; the anchors carry their exact tabs and must exist exactly once.
+    faults.extend([
+        ("busy socket torn down instead of refused", ai,
+         "\t\t\t\tif (error instanceof CodexWebSocketBusyError) {\n",
+         "\t\t\t\tif (false as boolean) {\n",
+         "Missing expected rejection"),
+        ("hook may drop the chain", ai,
+         "(websocketRequest.previous_response_id === undefined ||\n",
+         "(false ||\n",
+         "Missing expected rejection"),
+        ("replaced socket may carry the chain", ai,
+         "\t\t\t\twebsocketState.connection !== websocketConnection ||\n\t\t\t\t!websocketConnection.isOpen())\n",
+         "\t\t\t\tfalse)\n",
+         "Missing expected rejection"),
+        ("peer close not reported", channel,
+         "\t\tthis.#options.onRetired?.({ reason, peer });\n",
+         "",
+         "timed out waiting for the peer close"),
+        ("local close reported as peer", channel,
+         "\t\tthis.#options.onRetired?.({ reason, peer });\n",
+         "\t\tthis.#options.onRetired?.({ reason, peer: peer ?? `peer (code 1000: ${reason})` });\n",
+         "local close: our own reason"),
+        ("sticky websocket disable", ai,
+         "\tif (!state) return false;\n\t// Env val > Preference",
+         "\tif (!state || state.fallbackCount > 0) return false;\n\t// Env val > Preference",
+         "websocket transport unavailable"),
+        ("sticky websocket disable field returns", ai,
+         "export class CodexCompactionChainLostError extends Error {",
+         "// disableWebsocket\nexport class CodexCompactionChainLostError extends Error {",
+         "a sticky websocket disable would silently re-enable SSE fallback"),
     ])
 
 with tempfile.TemporaryDirectory(prefix="omp-0070-faults-") as temporary:
@@ -138,9 +174,31 @@ with tempfile.TemporaryDirectory(prefix="omp-0070-faults-") as temporary:
         print("PASS fault: chained compaction drops the pending items", flush=True)
     finally:
         body_target.write_bytes(body_original)
+    # The lane-trace gate owns the "no OpenAI-Beta on the compaction HTTP lane"
+    # assertion (18.17 dropped the header from Codex HTTP). Reintroducing the
+    # assignment into the shared header builder must turn it red.
+    lane_gate = here / "verify-compaction-lane-trace.ts"
+    lane_control = run(tree, lane_gate)
+    assert lane_control.returncode == 0, lane_control.stdout + lane_control.stderr
+    print("lane-trace fault control PASS", flush=True)
+    lane_target = tree / core
+    lane_original = lane_target.read_bytes()
+    try:
+        replace(
+            lane_target,
+            "\treturn headers;\n}\n\ninterface CompactionV2CollectionState {",
+            "\theaders[\"OpenAI-Beta\"] = \"responses=experimental\";\n\treturn headers;\n}\n\ninterface CompactionV2CollectionState {",
+        )
+        result = run(tree, lane_gate)
+        output = result.stdout + result.stderr
+        assert result.returncode != 0, "OpenAI-Beta reintroduced: broken behavior stayed green"
+        assert "no OpenAI-Beta header may be sent on the compaction HTTP lane" in output, f"failed for the wrong reason\n{output}"
+        print("PASS fault: OpenAI-Beta reintroduced on the compaction HTTP lane", flush=True)
+    finally:
+        lane_target.write_bytes(lane_original)
     shutil.rmtree(tree / "pi-ai/src")
     incomplete = run(tree)
     assert incomplete.returncode != 0 and "Cannot find module" in incomplete.stderr, incomplete.stdout + incomplete.stderr
     print("PASS fault: incomplete runtime cannot pass", flush=True)
-print(f"verify-codex-compaction-chain-fail-closed faults: {len(faults) + 2} behavioral/type faults rejected")
+print(f"verify-codex-compaction-chain-fail-closed faults: {len(faults) + 3} behavioral/type faults rejected")
 PY

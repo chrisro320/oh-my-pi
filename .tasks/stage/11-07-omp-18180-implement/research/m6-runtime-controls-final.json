@@ -1,0 +1,605 @@
+{
+  "runtime": "/tmp/r2-run/m5final",
+  "baseline": {
+    "command": [
+      "bash",
+      "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+      "/tmp/r2-run/m5final",
+      "main",
+      "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts"
+    ],
+    "exit": 0,
+    "timeout": false,
+    "seconds": 27.63,
+    "output_complete": true,
+    "stdout": {
+      "bytes": 8001,
+      "sha256": "5c4a455f45c9edbf14022516b12079d4ca0018d63a6b3ab36975810bf12470df",
+      "tail": "{\"leg\":\"default\",\"status\":\"PASS\",\"detail\":{\"workers\":4,\"agentIdleTtlMs\":420000}}\nomp/18.18.0\n{\"leg\":\"Q3\",\"status\":\"PASS\",\"detail\":{\"expected\":{\"agentDir\":\"/tmp/omp-worker-matrix-sv5ZXiFb/home/.omp/profiles/m6-profile/agent\",\"profile\":\"m6-profile\",\"env\":\"/tmp/omp-worker-matrix-sv5ZXiFb/home/.omp/profiles/m6-profile/agent\"},\"observed\":{\"agentDir\":\"/tmp/omp-worker-matrix-sv5ZXiFb/home/.omp/profiles/m6-profile/agent\",\"profile\":\"m6-profile\",\"env\":\"/tmp/omp-worker-matrix-sv5ZXiFb/home/.omp/profiles/m6-profile/agent\",\"idle\":\"777777\",\"threadId\":1},\"note\":\"warmers are disabled on subagents; idle budget propagation is diagnostic only\"}}\n{\"leg\":\"0081\",\"status\":\"PASS\",\"detail\":{\"threadId\":2,\"ratio\":90,\"entries\":2,\"footer\":\"\ud83d\udcbe \\u001b[38;5;73m90.00%\\u001b[39m\"}}\n{\"leg\":\"Devin\",\"status\":\"PASS\",\"detail\":{\"rows\":[{\"auth\":1,\"session\":\"6172ce20-1fd5-4f5e-b84d-2ddb45b6a165\",\"requests\":[\"1\",\"2\"],\"threadId\":3},{\"auth\":1,\"session\":\"edcc43e2-603b-4d37-b78e-a8c898f6373e\",\"requests\":[\"1\",\"2\"],\"threadId\":4},{\"auth\":1,\"session\":\"f0107e3b-d1a9-4753-aec7-f61f992f19e2\",\"requests\":[\"1\",\"2\"],\"threadId\":5},{\"auth\":1,\"session\":\"c48d023f-5dc8-4667-b705-4d2d7fa48ec4\",\"requests\":[\"1\",\"2\"],\"threadId\":6}],\"dumps\":[\"1800000000000-2-t4-a0.json\",\"1800000000000-2-t3-a0.json\",\"1800000000000-2-t5-a0.json\",\"1800000000000-2-t6-a0.json\"]}}\n{\"leg\":\"payload\",\"status\":\"PASS\",\"detail\":{\"rows\":[{\"threadId\":7,\"files\":[\"1800000000000-2-7-0001-main-fixture.json\"]},{\"threadId\":8,\"files\":[\"1800000000000-2-8-0001-main-fixture.json\",\"1800000000000-2-7-0001-main-fixture.json\"]}],\"files\":[\"1800000000000-2-8-0001-main-fixture.json\",\"1800000000000-2-7-0001-main-fixture.json\"]}}\n{\"leg\":\"Q7\",\"status\":\"PASS\",\"detail\":{\"rows\":[{\"writer\":0,\"rows\":100,\"threadId\":9},{\"writer\":1,\"rows\":100,\"threadId\":10},{\"writer\":2,\"rows\":100,\"threadId\":11},{\"writer\":3,\"rows\":100,\"threadId\":12},{\"writer\":4,\"rows\":100,\"threadId\":13},{\"writer\":5,\"rows\":100,\"threadId\":14},{\"writer\":6,\"rows\":100,\"threadId\":15},{\"writer\":7,\"rows\":100,\"threadId\":16},{\"writer\":8,\"rows\":100,\"threadId\":17}],\"integrity\":\"ok\",\"committed\":900,\"source\":\"synthetic private-HOME database copy; no live database was read\"}}\n{\"leg\":\"Q8\",\"status\":\"PASS\",\"detail\":{\"residentSurvivedMs\":100,\"idleMs\":30,\"parkedExit\":\"idle\",\"first\":\"w18\",\"replacement\":\"w19\"}}\n{\"leg\":\"Q5\",\"status\":\"PASS\",\"detail\":{\"before\":{\"methods\":[\"AgentSession.runIdleEphemeralTurn\",\"AgentSession.hasIdleEphemeralReservation\",\"SessionManager.getMainCacheHitRate\",\"SessionEntryIndex.mainCacheHitRate\",\"SessionManager.retainWritableOwnership\",\"SessionManager.adoptForWrite\",\"SessionManager.beginWritableAdoption\",\"HindsightSessionState.beginMentalModelsTranscriptReload\",\"RemoteOAuth.inspectUnresolvedRefresh\",\"RemoteOAuth.unlockAndRefreshStored\"],\"mentalModels\":\"LIVE MAIN MM A\",\"recall\":\"LIVE MAIN RECALL A\",\"bank\":true,\"threadId\":20},\"after\":{\"methods\":[\"AgentSession.runIdleEphemeralTurn\",\"AgentSession.hasIdleEphemeralReservation\",\"SessionManager.getMainCacheHitRate\",\"SessionEntryIndex.mainCacheHitRate\",\"SessionManager.retainWritableOwnership\",\"SessionManager.adoptForWrite\",\"SessionManager.beginWritableAdoption\",\"HindsightSessionState.beginMentalModelsTranscriptReload\",\"RemoteOAuth.inspectUnresolvedRefresh\",\"RemoteOAuth.unlockAndRefreshStored\"],\"mentalModels\":\"LIVE MAIN MM B\",\"recall\":\"LIVE MAIN RECALL B\",\"bank\":true,\"threadId\":20}}}\n{\"leg\":\"threads\",\"status\":\"PASS\",\"detail\":{\"main\":{\"anchor\":\"m6-msg-1\",\"stateEntries\":1},\"worker\":{\"summaries\":2,\"continued\":{\"type\":\"continue\",\"previous_message_id\":\"m6-msg-1\"},\"overlay\":{\"midTurn\":true,\"percent\":10,\"tokens\":1024,\"modelOverrides\":false}},\"continued\":{\"thread\":{\"type\":\"continue\",\"previous_message_id\":\"m6-msg-1\"},\"stateEntries\":1},\"mainOverlayUnchanged\":true}}\n{\"leg\":\"Q2\",\"status\":\"PASS\",\"detail\":{\"before\":22,\"after\":23,\"bytes\":12646,\"sha256\":\"aec48e4cf934b17a9f194f79726fb5c9368349e3e11dad4dd19edc6dd23676a7\",\"warmEqual\":true,\"coldEqual\":true}}\n{\"leg\":\"bridges\",\"status\":\"PASS\",\"detail\":{\"before\":{\"base\":500,\"delays\":[3000,3000,5000,5000,10000,10000,15000,15000,15000],\"inspection\":{\"eligible\":false,\"reason\":\"no-credential\",\"holdsUnstagedResult\":false},\"unlock\":{\"outcome\":\"nothing-to-unlock\"},\"threadId\":24},\"after\":{\"base\":90000,\"delays\":[3000,3000,5000,5000,10000,10000,15000,15000,15000],\"inspection\":{\"eligible\":false,\"reason\":\"no-credential\",\"holdsUnstagedResult\":false},\"unlock\":{\"outcome\":\"nothing-to-unlock\"},\"threadId\":24},\"scopes\":[{\"provider\":\"anthropic\",\"providers\":[\"anthropic\"]},{\"providers\":[\"anthropic\",\"openai\"]},{\"providers\":[]},{\"provider\":\"anthropic\",\"providers\":[\"anthropic\"]},{\"providers\":[\"anthropic\",\"openai\"]},{\"providers\":[]}]}}\n{\"leg\":\"OAuth9\",\"status\":\"PASS\",\"detail\":{\"first\":[{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-1\",\"refresh\":\"__remote__\",\"expires\":1794066023139},\"identityKey\":null},\"threadId\":25},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-1\",\"refresh\":\"__remote__\",\"expires\":1794066023139},\"identityKey\":null},\"threadId\":26},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-1\",\"refresh\":\"__remote__\",\"expires\":1794066023139},\"identityKey\":null},\"threadId\":27},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-1\",\"refresh\":\"__remote__\",\"expires\":1794066023139},\"identityKey\":null},\"threadId\":28},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-1\",\"refresh\":\"__remote__\",\"expires\":1794066023139},\"identityKey\":null},\"threadId\":29},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-1\",\"refresh\":\"__remote__\",\"expires\":1794066023139},\"identityKey\":null},\"threadId\":30},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-1\",\"refresh\":\"__remote__\",\"expires\":1794066023139},\"identityKey\":null},\"threadId\":31},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-1\",\"refresh\":\"__remote__\",\"expires\":1794066023139},\"identityKey\":null},\"threadId\":32},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-1\",\"refresh\":\"__remote__\",\"expires\":1794066023139},\"identityKey\":null},\"threadId\":33}],\"second\":[{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-2\",\"refresh\":\"__remote__\",\"expires\":1794066023195},\"identityKey\":null},\"threadId\":25},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-2\",\"refresh\":\"__remote__\",\"expires\":1794066023195},\"identityKey\":null},\"threadId\":26},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-2\",\"refresh\":\"__remote__\",\"expires\":1794066023195},\"identityKey\":null},\"threadId\":27},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-2\",\"refresh\":\"__remote__\",\"expires\":1794066023195},\"identityKey\":null},\"threadId\":28},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-2\",\"refresh\":\"__remote__\",\"expires\":1794066023195},\"identityKey\":null},\"threadId\":29},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-2\",\"refresh\":\"__remote__\",\"expires\":1794066023195},\"identityKey\":null},\"threadId\":30},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-2\",\"refresh\":\"__remote__\",\"expires\":1794066023195},\"identityKey\":null},\"threadId\":31},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-2\",\"refresh\":\"__remote__\",\"expires\":1794066023195},\"identityKey\":null},\"threadId\":32},{\"result\":{\"id\":1,\"provider\":\"anthropic\",\"credential\":{\"type\":\"oauth\",\"access\":\"fixture-access-2\",\"refresh\":\"__remote__\",\"expires\":1794066023195},\"identityKey\":null},\"threadId\":33}],\"tokenPosts\":2,\"grants\":[\"fixture-refresh-seed\",\"fixture-refresh-1\"]}}\n",
+      "output_truncated": false
+    },
+    "stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tail": "",
+      "output_truncated": false
+    }
+  },
+  "controls": [
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-hqqq9mee/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "0081"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.085,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 335,
+        "sha256": "575037d53c72b1b5bffba6baccffe7ef399d891c45387caf39d0687d5b2f8fbd",
+        "tail": "{\"leg\":\"0081\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: real mirror excludes auxiliary usage from worker entries\\n\\n0 !== 90\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:68:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "0081",
+      "target": "pi-coding-agent/src/thread/remote-agent-session.ts",
+      "before": "getMainCacheHitRate: () => this.#entryIndex.mainCacheHitRate(),",
+      "after": "getMainCacheHitRate: () => 0,",
+      "observable": "real mirror excludes auxiliary usage",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-88ri60l2/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "0081"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.116,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 528,
+        "sha256": "979d0abf52b09067162c57b69a761b3ba21fe4576f26d749b542715509ddf423",
+        "tail": "{\"leg\":\"0081\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: 0083 model/eval-tool surface survives the actual mirror\\n+ actual - expected\\n\\n+ []\\n- [\\n-   {\\n-     description: 'fixture',\\n-     evalToolNames: [\\n-       'read'\\n-     ],\\n-     model: 'mock/m6',\\n-     name: 'm6-model',\\n-     source: 'user'\\n-   }\\n- ]\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:66:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "0081",
+      "target": "pi-coding-agent/src/thread/remote-agent-session.ts",
+      "before": "return this.#state.sessionAgents;",
+      "after": "return []; // mutation: drop the advertised model/eval-tool surface",
+      "observable": "0083 model/eval-tool surface survives the actual mirror",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-__bf6sok/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "Q2"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 20.488,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 14725,
+        "sha256": "512227638025f6fea23f5b921f172669fd788503bfe19422ddb53d02850ee361",
+        "tail": "{\"leg\":\"Q2\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: 0101 cold revival preserves pre-park system+tools bytes\\n+ actual - expected\\n\\n+ '{\\\"system\\\":[\\\"M6 MUTATED COLD PREFIX\\\"],\\\"tools\\\":[{\\\"name\\\":\\\"read\\\",\\\"description\\\":\\\"Use `read` for static web; browser only if needed.\\\\\\\\n\\\\\\\\nPut line ranges in `path`, never a separate range/offset/limit parameter: `{\\\\\\\\\\\"path\\\\\\\\\\\":\\\\\\\\\\\"notes.txt:450-455\\\\\\\\\\\"}` reads lines 450-455; `{\\\\\\\\\\\"path\\\\\\\\\\\":\\\\\\\\\\\"notes.txt:-5\\\\\\\\\\\"}` reads the last 5. Include the selector on every ranged call; repeating a bare path does not advance through the file.\\\\\\\\n\\\\\\\\nPath suffixes: :50 or :50- starts at line 50; :50-200 inclusive; :50+150 counts lines; :-60 last 60; commas join ranges (:5-16,960-973) or individual lines (:19,59). A single non-raw range also shows 1 line before and 3 after (e.g. :50-80 shows 49-83); non-raw reads (comma lists too) may add the open/close line of a cut block; only :raw stays exact. :raw verbatim without anchors/prefixes; combine :2-4:raw or :raw:2-4 for exactly those lines; beside :raw a bare number is that one line (:17:raw), :17-:raw runs on. :conflicts lists one line per unresolved merge block. SVG/SVGZ default text; :img rasterizes an SVG/SVGZ into an image, :raw original. Raster images (PNG, JPEG) need no selector; :img rejects them. Video requires ffmpeg/ffprobe: bare preview grid+metadata, :412 frame, :1h5m42s/:90s/:01:23 time.\\\\\\\\n\\\\\\\\nSources:\\\\\\\\n- Bare code: declarations only; re-read ONLY footer-named omissions, NEVER guess `..`/`\u2026`.\\\\\\\\n- Directory: complete root; child listings cap at 12 (`\u2026 N more`), read child; page via :N-M/:-N.\\\\\\\\n- SQLite: file.db tables; :table schema/rows; :table:key by primary key; ?limit=, ?where=, ?q=SELECT.\\\\\\\\n- Archives: ZIP/JAR/APK/WHL, compressed TAR, RAR/7z/ISO/CAB/DEB/RPM/CPIO/AR/LZH/ARJ/ASAR, compressed streams; member via archive.ext:member/path.\\\\\\\\n- JSON/JSONL/NDJSON: file.json?q=<jq filter>; &raw=true unquoted strings, &compact=true one-line values, &offset=&limit= page results; `&` inside the filter \u2192 %26.\\\\\\\\n- PDF/documents: extracted text; notebooks: editable cells; images: decoded inline. URLs: reader text/markdown, :raw original HTML; bare host:port needs trailing slash.\\\",\\\"parameters\\\":{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"i\\\":{\\\"type\\\":\\\"string\\\",\\\"description\\\":\\\"concise intent\\\"},\\\"path\\\":{\\\"type\\\":\\\"string\\\",\\\"description\\\":\\\"Local path, internal URI, or URL; selectors inline.\\\"}},\\\"required\\\":[\\\"path\\\",\\\"i\\\"],\\\"additionalProperties\\\":false}},{\\\"name\\\":\\\"write\\\",\\\"description\\\":\\\"SHOULD `edit` existing files; `write` for required new files or whole-file replacement. NEVER create docs or emojis unless requested.\\\\\\\\n`archive.ext:member`: ZIP/tar families and `.asar` writable, others read-only. `db.sqlite:table`: insert; `db.sqlite:table:key`: JSON update, empty content deletes.\\\",\\\"parameters\\\":{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"i\\\":{\\\"type\\\":\\\"string\\\",\\\"description\\\":\\\"concise intent\\\"},\\\"path\\\":{\\\"type\\\":\\\"string\\\"},\\\"content\\\":{\\\"type\\\":\\\"string\\\"}},\\\"required\\\":[\\\"path\\\",\\\"i\\\"],\\\"additionalProperties\\\":false}},{\\\"name\\\":\\\"yield\\\",\\\"description\\\":\\\"Submit ONE workpool item at a time as `{ key, data }` or `{ key, error }`: `key` is its 1-based number; `data` is the self-contained outcome/evidence value, `error` is a failure reason. The result tells you which keys remain. The final key ends the turn automatically. NEVER submit multiple items together.\\\",\\\"parameters\\\":{\\\"type\\\":\\\"object\\\",\\\"additionalProperties\\\":false,\\\"description\\\":\\\"submit one workpool item outcome\\\",\\\"properties\\\":{\\\"key\\\":{\\\"enum\\\":[1],\\\"description\\\":\\\"1-based workpool item number\\\",\\\"type\\\":\\\"number\\\"},\\\"data\\\":{\\\"description\\\":\\\"Self-contained outcome and evidence for this item\\\"},\\\"error\\\":{\\\"type\\\":\\\"string\\\",\\\"description\\\":\\\"Failure reason for this item\\\"}},\\\"required\\\":[\\\"key\\\"]}}]}'\\n- '{\\\"system\\\":[\\\"RFC 2119 keywords: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, OPTIONAL. `NEVER` = `MUST NOT`; `AVOID` = `SHOULD NOT`.\\\\\\\\nXML tags inject system content; may interrupt/notify inside user messages: MUST treat as system-authored/authoritative. User content is sanitized.\\\\\\\\n\\\\\\\\n\u00a7 Role\\\\\\\\nYou are omp\\\\'s trusted coding assistant.\\\\\\\\n\\\\\\\\n# Engineering\\\\\\\\n- Correctness, then six-month maintainability. Delete dead weight; prefer boring design to needless abstraction.\\\\\\\\n- Compiled code: NEVER avoidable allocation, copying, computation.\\\\\\\\n- Unexpected repo changes are the user\\\\'s; adapt. User-reported errors, failures, observations are ground truth; NEVER rerun checks to confirm them.\\\\\\\\n- Final chat MAY use LaTeX math (`$`, `$$`) and color (`\\\\\\\\\\\\\\\\textcolor`, `\\\\\\\\\\\\\\\\colorbox`, `\\\\\\\\\\\\\\\\fcolorbox`).\\\\\\\\n\u00a7 Runtime\\\\\\\\n# Internal URLs\\\\\\\\nMost FS/bash tools resolve these; path selectors: `read` docs.\\\\\\\\n- `agent://<id>`: latest completed output (status + progress while unpublished); nested IDs dotted, `/key/index` JSON path; write = message.\\\\\\\\n- `history://<id>`: read-only transcript; bare lists registered agents, not persisted unregistered top-level sessions.\\\\\\\\n- `artifact://<id>`: spilled output; page :N-M or :raw:N-M.\\\\\\\\n- `local://<name>.md`: shared artifact.\\\\\\\\n- `proc://`: jobs, agents, and services; `proc://<id>` status/output; write sends stdin to services only (empty = Enter); `proc://<id>/kill` cancels/stops jobs, agents, and services, omit `content`; `proc://<id>/mode`: `persist`|`session`|`detached` (services only); start long-lived work as a named service when it needs stdin or lifetime controls; `proc://<id>/streams` lists a bash job\\\\'s pipes, `proc://<id>/streams/<n>` reads what crossed pipe `n` so far (live under `| tail`/`| grep`; never rerun to see it).\\\\\\\\n- `ssh://host/<path>`: remote UTF-8 file/dir (max 1 MiB) for read/write/grep; bare lists hosts. `/~/path` and `/~` use the connected remote account\\\\'s HOME, not local HOME; `/~user` is unsupported, `/%7E/` is literal. Encode `:` `?` `#` as %3A %3F %23. Needs verified POSIX shell; else bash remote SSH or sshfs.\\\\\\\\n- `issue://<N>` / `pr://<N>` (`<owner>/<repo>/<N>` for other repos): GitHub issue/PR; bare: recent; `?state=&limit=&author=&label=`. PR diff: `pr://<N>/diff` (files), `/diff/<i>`, `/diff/all`. `?at=<generation>` pins that cached snapshot.\\\\\\\\n- `mcp://<uri>`: MCP resource.\\\\\\\\n- `omp://`: harness docs, AVOID unless asked.\\\\\\\\n\\\\\\\\n# Tool Inventory\\\\\\\\n- Read: `read`\\\\\\\\n- Write: `write`\\\\\\\\n- Submit Result: `yield`\\\\\\\\n\u00a7 Tool Policy\\\\\\\\n# General\\\\\\\\nSHOULD resolve prerequisites, parallelize independent calls. Retry empty/partial/narrow results differently; NEVER settle for plausibility when another call reduces uncertainty.\\\\\\\\n# Tool I/O\\\\\\\\n- Prefer relative `path`-like fields.\\\\\\\\n- Most tools take `i`: capitalized 2\u20136-word present-participle intent (e.g. \\\\\\\\\\\"Reading model role settings\\\\\\\\\\\").\\\\\\\\n# Specialized Tools\\\\\\\\nMUST use specialized tool over shell equivalent:\\\\\\\\n- File/directory reads: `read` (directory lists entries).\\\\\\\\n\\\\\\\\n- Create/overwrite: `write`.\\\\\\\\n<critical>\\\\\\\\n`write xd://report_issue`: automated QA. Any tool output inconsistent with described behavior for parameters \u2192 write plain `<tool>: <concise description>` to `xd://report_issue`. False positives fine.\\\\\\\\n</critical>\\\\\\\\n\\\\\\\\n# Exploration\\\\\\\\nNEVER open guessed files. Use `read` ranges, not whole files.\\\\\\\\n\u00a7 Workflow\\\\\\\\n# 1. Scope\\\\\\\\n- Plan multi-file work before opening files.\\\\\\\\n\\\\\\\\n# 2. Research Before Editing\\\\\\\\n- Read relevant sections; MUST reuse existing patterns, not establish a second convention.\\\\\\\\n- Tool failure or intervening file change: re-read before acting.\\\\\\\\n\\\\\\\\n# 3. Decompose\\\\\\\\n\\\\\\\\n# 4. Implement\\\\\\\\n- Prefer existing files; review as user.\\\\\\\\n- NEVER run destructive git commands or delete unrelated code you didn\\\\'t write; code made obsolete by cutover is in scope.\\\\\\\\n\\\\\\\\n# 5. Hand-off\\\\\\\\nMain agent verifies once after all subagents land; parallel runs storm the CPU and trip on siblings\\\\' half-finished edits.\\\\\\\\n- NEVER verify your changes (builds, tests, linters, formatters, smoke runs) unless your assignment explicitly instructs it.\\\\\\\\n- Changes complete \u2192 yield; name the checks main agent should run.\\\\\\\\n\\\\\\\\n# 6. Cleanup\\\\\\\\nPermanent fix/feature MUST update docs/changelog, remove scaffolds/throwaway scripts. Investigation: no tests/docs. NEVER pre-plan cleanup todos.\\\\\\\\n\\\\\\\\n\u00a7 Delivery\\\\\\\\n<contract>\\\\\\\\nInviolable.\\\\\\\\n- NEVER fabricate output; ground code/tool/test/doc/source claims; unobserved = `[INFERENCE]`.\\\\\\\\n- NEVER substitute easier/familiar problem: don\\\\'t infer extra scope\u2014retries, validation, telemetry, abstraction \u201cwhile you\\\\'re at it\u201d\u2014or solve symptom\u2014suppress warning/exception, special-case input\u2014unless asked. Real ask only.\\\\\\\\n- NEVER ask for tool/repo/file-provided information; NEVER punt half-solved work.\\\\\\\\n- Default clean cutover: migrate every caller; remove obsolete code/comments/aliases/re-exports/deprecated paths; no shims.\\\\\\\\n</contract>\\\\\\\\n\\\\\\\\n<completeness>\\\\\\\\n- \u201cDone\u201d: specified end-to-end behavior plus every named acceptance criterion; not compiling scaffold, narrowed test, plausible subset.\\\\\\\\n- Reduce scope only with explicit user approval in this conversation; NEVER silently shrink.\\\\\\\\n- NEVER deliver unfinished work: stubs, placeholders, mocks, no-ops, fake fallbacks, `TODO: implement`, misleading \u201cscaffold\u201d/\u201cMVP\u201d/\u201cv1\u201d/\u201cfoundation\u201d/\u201cfollow-up\u201d. Unavailable real-implementation info \u2192 state missing prerequisite; finish all reachable work.\\\\\\\\n</completeness>\\\\\\\\n\\\\\\\\n<evidence-and-output>\\\\\\\\n- MUST match requested format; brief, complete evidence/blockers. Report only exercised verification.\\\\\\\\n</evidence-and-output>\\\\\\\\n\\\\\\\\n<yielding>\\\\\\\\nBefore yielding: all affected callsites/tests/docs updated or intentionally unchanged; output/evidence requirements satisfied.\\\\\\\\nBefore blocked: ensure info unreachable via tools/context; one failed check \u2260 blocked. Finish reachable work; state exactly missing and tried.\\\\\\\\n</yielding>\\\\\\\\n\\\\\\\\n\u00a7 Critical\\\\\\\\n<critical>\\\\\\\\n- NEVER yield before complete deliverable or while actionable work remains; phase boundary/todo flip/sub-step never stops: same turn.\\\\\\\\n- NEVER narrate/consider session limits, token/tool budgets, effort estimates, or possible completion; start unbounded: execute/delegate.\\\\\\\\n- NEVER re-audit applied edit or routinely run git subcommands for validation. Tool results are verification.\\\\\\\\n</critical>\\\",\\\"<project-context>\\\\\\\\n<workstation>\\\\\\\\n- OS: linux 7.0.0-31-generic\\\\\\\\n- Arch: x64\\\\\\\\n- Model: mock/m6-revival\\\\\\\\n</workstation>\\\\\\\\n</project-context>\\\\\\\\n\\\\\\\\n<critical>\\\\\\\\n- Each response MUST advance the task; completion only stopping condition.\\\\\\\\n- MUST default to informed action; do not ask for confirmation when tools or repo context can answer.\\\\\\\\n- Changes complete \u2192 yield; verification is main agent\\\\'s job. NEVER run it yourself unless your assignment explicitly instructs it.\\\\\\\\n</critical>\\\",\\\"\u00a7 Role\\\\\\\\nSTATIC M6 CHILD\\\\\\\\n\u00a7 Coop\\\\\\\\nYou are operating on a piece of work assigned to you by the main agent.\\\\\\\\n# Peers\\\\\\\\nMessage peers via `write` with `path: \\\\\\\\\\\"agent://<id>\\\\\\\\\\\"` and `content`. Your id is `0-M6Reap`. Peers when this list was written:\\\\\\\\n- `Main` \u2014 main (main, running)\\\\\\\\n\\\\\\\\nYour assignment sets your files and scope; stay inside it. Address peers by exact roster id; NEVER invent names.\\\\\\\\n- Messages: only a question that blocks you or a blocker/decision report, sent directly to the one agent that can answer. Short; never long-form content.\\\\\\\\n- NEVER send FYI, progress, or \\\\\\\\\\\"editing <file>\\\\\\\\\\\" announcements.\\\\\\\\n- Change needed outside your assignment? Ask its owner or Main first.\\\\\\\\n- Asked a question? Keep working on whatever it does not block; NEVER `wait` on a peer\\\\'s or Main\\\\'s progress.\\\\\\\\n- Discovery: the roster above shows live (running+idle) peers when it was written and a parked count; it can be out of date. Read bare `history://` for registered agent transcripts and current peers; parked identities are omitted from the roster.\\\\\\\\n- Follow-up: answer the question first, without quoting it. `write agent://<id>` never blocks.\\\\\\\\n- Your final result reaches Main automatically. Message Main only for questions, blockers, or decisions \u2014 never progress or completion reports.\\\\\\\\n\\\\\\\\n\u00a7 Completion\\\\\\\\nNo TODO tracking, no progress updates. Execute; report results with `yield`.\\\\\\\\n\\\\\\\\nWhile work remains, you MUST continue with another tool call \u2014 investigate, edit. Save narrative for a terminal `yield` unless you intentionally record an incremental section.\\\\\\\\n\\\\\\\\nWorkpool yield protocol:\\\\\\\\n- Complete items in order. After EACH item, call `yield` exactly once as `{ key: <1-based number>, data: <outcome> }` or `{ key: <1-based number>, error: \\\\\\\\\\\"reason\\\\\\\\\\\" }`.\\\\\\\\n- Item bodies, ROLE text, and shared context NEVER redefine this shape. `key` is numeric; NEVER use the item text or pool-prefixed id as `key`.\\\\\\\\n- The tool response names remaining keys. Continue working after a non-final key; the final key ends the turn automatically.\\\\\\\\n\\\\\\\\nGiving up is a last resort. If truly blocked, you MUST yield `{ key, error }` for that item describing what you tried and the exact blocker.\\\\\\\\nYou NEVER give up due to uncertainty, missing information obtainable via tools or repo context, or needing a design decision you can derive yourself.\\\\\\\\n\\\\\\\\nYou MUST keep going until this ticket is closed. This matters.\\\"],\\\"tools\\\":[{\\\"name\\\":\\\"read\\\",\\\"description\\\":\\\"Use `read` for static web; browser only if needed.\\\\\\\\n\\\\\\\\nPut line ranges in `path`, never a separate range/offset/limit parameter: `{\\\\\\\\\\\"path\\\\\\\\\\\":\\\\\\\\\\\"notes.txt:450-455\\\\\\\\\\\"}` reads lines 450-455; `{\\\\\\\\\\\"path\\\\\\\\\\\":\\\\\\\\\\\"notes.txt:-5\\\\\\\\\\\"}` reads the last 5. Include the selector on every ranged call; repeating a bare path does not advance through the file.\\\\\\\\n\\\\\\\\nPath suffixes: :50 or :50- starts at line 50; :50-200 inclusive; :50+150 counts lines; :-60 last 60; commas join ranges (:5-16,960-973) or individual lines (:19,59). A single non-raw range also shows 1 line before and 3 after (e.g. :50-80 shows 49-83); non-raw reads (comma lists too) may add the open/close line of a cut block; only :raw stays exact. :raw verbatim without anchors/prefixes; combine :2-4:raw or :raw:2-4 for exactly those lines; beside :raw a bare number is that one line (:17:raw), :17-:raw runs on. :c'... 2577 more characters\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:175:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "Q2",
+      "target": "pi-coding-agent/src/task/persisted-revive.ts",
+      "before": "systemPrompt: () => [...init.systemPrompt],",
+      "after": "systemPrompt: () => [\"M6 MUTATED COLD PREFIX\"],",
+      "observable": "0101 cold revival preserves",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-b24mgbgn/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "Q3"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.124,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 986,
+        "sha256": "71d5ee14d879e11042e20845d7946f3930dc845ed8715628ebeedf09e28273f5",
+        "tail": "omp/18.18.0\n{\"leg\":\"Q3\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: worker profile must match CLI activation: {\\\"expected\\\":{\\\"agentDir\\\":\\\"/tmp/omp-worker-matrix-XZqXIEwP/home/.omp/profiles/m6-profile/agent\\\",\\\"profile\\\":\\\"m6-profile\\\",\\\"env\\\":\\\"/tmp/omp-worker-matrix-XZqXIEwP/home/.omp/profiles/m6-profile/agent\\\"},\\\"observed\\\":{\\\"agentDir\\\":\\\"/tmp/omp-worker-matrix-XZqXIEwP/home/.omp/agent\\\",\\\"env\\\":\\\"\\\",\\\"idle\\\":\\\"777777\\\",\\\"threadId\\\":1}}\\n+ actual - expected\\n\\n  {\\n+   agentDir: '/tmp/omp-worker-matrix-XZqXIEwP/home/.omp/agent',\\n+   env: '',\\n+   profile: undefined\\n-   agentDir: '/tmp/omp-worker-matrix-XZqXIEwP/home/.omp/profiles/m6-profile/agent',\\n-   env: '/tmp/omp-worker-matrix-XZqXIEwP/home/.omp/profiles/m6-profile/agent',\\n-   profile: 'm6-profile'\\n  }\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:51:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "Q3",
+      "target": "pi-coding-agent/src/thread/subagent-worker.ts",
+      "before": "new Worker(entry.href, { type: \"module\" })",
+      "after": "new Worker(entry.href, { type: \"module\", env: { ...process.env, OMP_PROFILE: \"\", PI_PROFILE: \"\", PI_CODING_AGENT_DIR: \"\" } })",
+      "observable": "worker profile must match CLI activation",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-kd2hnwsr/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "Q5"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.115,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 367,
+        "sha256": "449eb19a5fe4d86ea3b8c4d2a764ee33406777a2988b59602aa3c106c61edbc1",
+        "tail": "{\"leg\":\"Q5\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\\n+ actual - expected\\n\\n+ 'M6 STALE MIRROR'\\n- 'LIVE MAIN MM A'\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:144:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "Q5",
+      "target": "pi-coding-agent/src/thread/services/memory.ts",
+      "before": "mentalModelsSnippet: state => state.mentalModelsSnippet,",
+      "after": "mentalModelsSnippet: state => \"M6 STALE MIRROR\",",
+      "observable": "LIVE MAIN MM A",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-sdzz020x/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "Q7"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.828,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 375,
+        "sha256": "c00754ed4dd50b015d42b4776bffc509356fbdd7428046d2438bbee80213dcae",
+        "tail": "{\"leg\":\"Q7\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\\n+ actual - expected\\n\\n  [\\n    [\\n+     0\\n-     900\\n    ]\\n  ]\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:118:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "Q7",
+      "target": "pi-coding-agent/src/session/agent-storage.ts",
+      "before": "this.#upsertModelUsageStmt.run(modelKey);",
+      "after": "void modelKey; // mutation: lose committed writes",
+      "observable": "900",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-b5coe5hh/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "Q8"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.181,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 337,
+        "sha256": "d5454d354410f7ae04d2780027a039f148a1d78b06eb9c1fa684fd3a5319b5ff",
+        "tail": "{\"leg\":\"Q8\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: resident survives more than three worker idle periods\\n\\nfalse !== true\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:127:32)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "Q8",
+      "target": "pi-coding-agent/src/thread/subagent-worker.ts",
+      "before": "this.#holds++;",
+      "after": "void 0; // mutation: resident no longer holds worker",
+      "observable": "resident survives more than three",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-qdk_ppxz/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "Devin"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.229,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 321,
+        "sha256": "f75624fb7bd02e50affecd39f928899ceecd72c3e8168e2c10e1b69679b2a631",
+        "tail": "{\"leg\":\"Devin\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: a worker mints at most one JWT for two turns\\n\\n2 !== 1\\n\\n    at devin (/home/chris/orca/projects/omp-move/patches/worker-runtime-probe.ts:81:9)\\n    at async <anonymous> (/home/chris/orca/projects/omp-move/patches/worker-matrix-entry.ts:51:59)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "Devin",
+      "target": "pi-ai/src/providers/devin.ts",
+      "before": "const cached = devinAuthCache.get(key);",
+      "after": "const cached = undefined; // mutation: disable JWT reuse",
+      "observable": "a worker mints at most one JWT",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-tha9x4ku/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "Devin"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.267,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 324,
+        "sha256": "8f5f852886bc86fa6790acb8514bdb93d50afc5845b7f50df3c2397034bac91f",
+        "tail": "{\"leg\":\"Devin\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: each realm owns a distinct Devin session UUID\\n\\n1 !== 4\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:83:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "Devin",
+      "target": "pi-catalog/src/wire/devin.ts",
+      "before": "const devinSessionId = crypto.randomUUID();",
+      "after": "const devinSessionId = \"00000000-0000-4000-8000-000000000000\";",
+      "observable": "each realm owns a distinct Devin session UUID",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-kfdnj1qx/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "Devin"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.218,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 316,
+        "sha256": "377ea835cd6941a2a595ba0a711cab0d76943b6dba0c288662444e8bdd5a310a",
+        "tail": "{\"leg\":\"Devin\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\\n\\n0n !== 1n\\n\\n    at devin (/home/chris/orca/projects/omp-move/patches/worker-runtime-probe.ts:83:9)\\n    at async <anonymous> (/home/chris/orca/projects/omp-move/patches/worker-matrix-entry.ts:51:59)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "Devin",
+      "target": "pi-catalog/src/wire/devin.ts",
+      "before": "requestId: BigInt(++devinRequestId),",
+      "after": "requestId: BigInt(devinRequestId),",
+      "observable": "0n !== 1n",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-b2vp864v/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "Devin"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.247,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 341,
+        "sha256": "0065808a36d17ed3c9149d39b2777f88931e226b99b23738b7f81ff3e741c103",
+        "tail": "{\"leg\":\"Devin\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: 0071 each realm keeps its own same-millisecond diagnostic dump\\n\\n1 !== 4\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:86:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "Devin",
+      "target": "pi-ai/src/providers/devin.ts",
+      "before": "${process.pid}-t${threadId}-a${attempt}",
+      "after": "${process.pid}-a${attempt}",
+      "observable": "0071 each realm keeps",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-cf1_p6f7/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "threads"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.143,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 384,
+        "sha256": "b4fde44a809090550fdc9e14e6e80b35ee312060f82bfdf74c415078751f808a",
+        "tail": "{\"leg\":\"threads\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: child summary requests opt out of message threads\\n+ actual - expected\\n\\n+ {\\n+   type: 'create'\\n+ }\\n- undefined\\n\\n    at run (/home/chris/orca/projects/omp-move/patches/worker-thread-scenario.ts:57:39)\\n    at async <anonymous> (/home/chris/orca/projects/omp-move/patches/worker-matrix-entry.ts:51:59)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "threads",
+      "target": "pi-agent-core/src/compaction/compaction.ts",
+      "before": "statefulResponses: model.api === \"anthropic-messages\" ? false : undefined,",
+      "after": "statefulResponses: model.api === \"anthropic-messages\" ? true : undefined,",
+      "observable": "child summary requests opt out",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-zln3k5qb/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "threads"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.117,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 350,
+        "sha256": "57b71d3ca4f051b4afc702414e2e2cfd43998c9804df9b3bb72d0d50b99e7dba",
+        "tail": "{\"leg\":\"threads\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: worker child enables mid-turn compaction despite main preference\\n\\nfalse !== true\\n\\n    at run (/home/chris/orca/projects/omp-move/patches/worker-thread-scenario.ts:42:9)\\n    at async <anonymous> (/home/chris/orca/projects/omp-move/patches/worker-matrix-entry.ts:51:59)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "threads",
+      "target": "pi-coding-agent/src/task/executor.ts",
+      "before": "\"compaction.midTurnEnabled\": true,",
+      "after": "\"compaction.midTurnEnabled\": false,",
+      "observable": "worker child enables mid-turn compaction",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-a7ksp18p/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "bridges"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.097,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 671,
+        "sha256": "133b01f775317d9e758754d3ca6377907f1828621f4e9d90b4ecb14227529f65",
+        "tail": "{\"leg\":\"bridges\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: 0031 provider scopes cross a real worker MessagePort unchanged, including empty scope\\n+ actual - expected\\n\\n  [\\n+   undefined,\\n+   undefined,\\n+   undefined,\\n+   undefined,\\n+   undefined,\\n+   undefined\\n-   [\\n-     'anthropic'\\n-   ],\\n-   [\\n-     'anthropic',\\n-     'openai'\\n-   ],\\n-   [],\\n-   [\\n-     'anthropic'\\n-   ],\\n-   [\\n-     'anthropic',\\n-     'openai'\\n-   ],\\n-   []\\n  ]\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:195:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "bridges",
+      "target": "pi-coding-agent/src/thread/services/auth-remote.ts",
+      "before": "providers: options?.providers,",
+      "after": "providers: undefined,",
+      "observable": "0031 provider scopes cross a real worker MessagePort",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-_wibox1d/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "bridges"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.13,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 349,
+        "sha256": "f95109e9b2471ceb6e5be2954e8353759778cad399aea93ce82a32ec9e68852f",
+        "tail": "{\"leg\":\"bridges\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: 0099 live main settings update reaches the real worker mirror\\n\\n500 !== 90000\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:194:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "bridges",
+      "target": "pi-coding-agent/src/thread/services/settings.ts",
+      "before": "target.applyMirrorState(state);",
+      "after": "void state; // mutation: drop main settings updates",
+      "observable": "0099 live main settings update reaches",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-tvo64vt5/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "bridges"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.109,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 441,
+        "sha256": "437c6f535490ff162d1b54f7ab97eefa21967d471c37cdd8537a0f8e53d25cbd",
+        "tail": "{\"leg\":\"bridges\",\"status\":\"FAIL\",\"detail\":\"Error: M6 MUTATION missing unlock bridge\\n    at inspectUnresolvedRefresh (/tmp/omp-worker-matrix-6bx8H8mr/runtime/node_modules/@oh-my-pi/pi-coding-agent/src/thread/services/auth-remote.ts:397:13)\\n    at serviceBridges (/home/chris/orca/projects/omp-move/patches/worker-runtime-probe.ts:167:54)\\n    at async <anonymous> (/home/chris/orca/projects/omp-move/patches/worker-matrix-entry.ts:51:59)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "bridges",
+      "target": "pi-coding-agent/src/thread/services/auth-remote.ts",
+      "before": "return this.#remote.call(\"oauth.inspectUnresolvedRefresh\", provider);",
+      "after": "throw new Error(\"M6 MUTATION missing unlock bridge\");",
+      "observable": "M6 MUTATION missing unlock bridge",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-mutation-4woj8wzf/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "OAuth9"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.922,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 340,
+        "sha256": "388f87a2f4e7022934be6bfb3599eb562a1c251768dd725c1608bdb905760c3f",
+        "tail": "{\"leg\":\"OAuth9\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: nine real worker threads share exactly one OAuth token POST\\n\\n2 !== 1\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:218:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "OAuth9",
+      "target": "pi-coding-agent/src/thread/services/auth-remote.ts",
+      "before": "return this.#remote.call(\"oauth.refresh\", id, signal, options);",
+      "after": "return this.#remote.call(\"oauth.refresh\", id, signal, options).then(() => this.#remote.call(\"oauth.refresh\", id, signal, options));",
+      "observable": "nine real worker threads share exactly one OAuth token POST",
+      "rejected": true
+    },
+    {
+      "command": [
+        "bash",
+        "/home/chris/orca/projects/omp-move/patches/worker-matrix.sh",
+        "/tmp/m6-payload-mutation-c4rb88qr/runtime",
+        "main",
+        "/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts",
+        "payload",
+        "../../../payload-archive-mutant.ts"
+      ],
+      "exit": 1,
+      "timeout": false,
+      "seconds": 1.125,
+      "output_complete": true,
+      "stdout": {
+        "bytes": 340,
+        "sha256": "db6179c14667c3e549356a3fa8db982415ebb42e5cb25ecc0d7e70f3afcdb1bd",
+        "tail": "{\"leg\":\"payload\",\"status\":\"FAIL\",\"detail\":\"AssertionError [ERR_ASSERTION]: two archive instances in one millisecond must not overwrite\\n\\n1 !== 2\\n\\n    at <anonymous> (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:97:10)\\n    at async leg (/home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:31:29)\"}\n",
+        "output_truncated": false
+      },
+      "stderr": {
+        "bytes": 830,
+        "sha256": "504186b9b7b4ac2c455c5a005e935ba5149c4cb3665f9a49d7c17c63c15ce07b",
+        "tail": "220 | \t\tassert.deepEqual(grants, [\"fixture-refresh-seed\", \"fixture-refresh-1\"], \"no refresh token is ever presented twice\");\n221 | \t\treturn { first, second, tokenPosts: grants.length, grants };\n222 | \t} finally { holds.forEach(release => release()); peers.forEach(peer => peer.terminate()); globalThis.fetch = original; storage.close(); }\n223 | });\n224 | rmSync(scratch, { recursive: true, force: true });\n225 | assert.ok(reports.every(report => report.status === \"PASS\"), \"worker runtime probes contain red legs\");\n             ^\nAssertionError: worker runtime probes contain red legs\n generatedMessage: false,\n     actual: false,\n   expected: true,\n   operator: \"==\",\n       diff: \"simple\",\n       code: \"ERR_ASSERTION\"\n\n      at /home/chris/orca/projects/omp-move/patches/verify-worker-runtime.ts:225:8\n\nBun v1.4.4 (Linux x64)\n",
+        "output_truncated": false
+      },
+      "leg": "payload",
+      "before": "${process.pid}-${threadId}-",
+      "after": "${process.pid}-",
+      "rejected": true
+    }
+  ]
+}

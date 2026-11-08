@@ -85,7 +85,7 @@ const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-cata
 // on the tree it actually points at.
 const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version as string;
 assert.ok(
-	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion),
+	["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion),
 	`unsupported compaction lane trace gate version: ${aiVersion}`,
 );
 // 0088 is a pi-agent-core/pi-coding-agent patch, so whether the tree carries it
@@ -226,7 +226,12 @@ const openai: Model = { ...openaiBase, remoteCompaction: { v2StreamingEnabled: t
 let v2Body: Record<string, unknown> | undefined;
 let v1Body: Record<string, unknown> | undefined;
 let v2ShouldFail = false;
+// 18.17 removed `OpenAI-Beta` from Codex HTTP and the family deletes the Codex
+// header block from the V2 HTTP lane outright; no compaction HTTP request may
+// carry the header again. Every request that reaches the stub is recorded.
+const httpHeaders: Headers[] = [];
 const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+	httpHeaders.push(new Headers(init?.headers));
 	const target = String(url);
 	const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
 	if (target.endsWith("/responses/compact")) {
@@ -342,6 +347,10 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 	);
 	v2ShouldFail = false;
 }
+assert.ok(httpHeaders.length >= 3, "V2 success, V2 refusal and V1 fallback must have reached the HTTP stub");
+for (const headers of httpHeaders) {
+	assert.equal(headers.has("openai-beta"), false, "no OpenAI-Beta header may be sent on the compaction HTTP lane");
+}
 
 // ---------------------------------------------------------------------------
 // GATE C: anthropic-native lane traces request + usage with the API's usage.
@@ -393,7 +402,7 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 						provider: requestModel.provider,
 						content: "NATIVE_SUMMARY",
 						signature: "offline-signed-summary",
-						...(["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
+						...(["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
 					},
 				} as AssistantMessage;
 			},
@@ -405,7 +414,7 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 	assert.ok(req, "anthropic-native lane must trace summarize.request");
 	assert.equal(req.hasLiveContext, true);
 	assert.equal(req.tools, 1);
-	if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion)) {
+	if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion)) {
 		// 0088: the accepted request is the live chain, so the trace must say so
 		// and must carry no fallback reason.
 		assert.equal(req.usesLiveChainReplay, true, "an accepted native live chain must be traced as the live chain");
@@ -421,7 +430,7 @@ const openaiFetch = async (url: string | URL | Request, init?: RequestInit): Pro
 // the reason on the request trace, not only on the returned entry. This is the
 // trace half of the fallback contract; the native gate asserts the entry half.
 // ---------------------------------------------------------------------------
-if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion)) {
+if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion)) {
 	const claude: Model = getBundledModel("anthropic", "claude-opus-5");
 	assert.ok(claude, "bundled claude-opus-5 must exist");
 	const { preparation } = fixture(claude);
@@ -446,7 +455,7 @@ if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(co
 						provider: requestModel.provider,
 						content: "NATIVE_SUMMARY",
 						signature: "offline-signed-summary",
-						...(["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
+						...(["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
 					},
 				} as AssistantMessage;
 			},
@@ -470,7 +479,7 @@ if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(co
 // turn included, since 0088) is readable from the trace alone, and a chain that
 // does not carry the previous summary names its refusal there as well.
 // ---------------------------------------------------------------------------
-if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion)) {
+if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion)) {
 	const claude: Model = getBundledModel("anthropic", "claude-opus-5");
 	assert.ok(claude, "bundled claude-opus-5 must exist");
 	const { preparation, oldAssistant, recentAssistant } = fixture(claude);
@@ -510,7 +519,7 @@ if (["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(co
 							provider: requestModel.provider,
 							content: "NATIVE_SUMMARY",
 							signature: "offline-signed-summary",
-							...(["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
+							...(["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
 						},
 					} as AssistantMessage;
 				},

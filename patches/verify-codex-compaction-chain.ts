@@ -45,7 +45,7 @@ const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).ve
 // version so an unknown tree fails closed instead of silently skipping the 0068
 // block.
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion),
 	`unsupported Codex chain gate version: ${aiVersion}`,
 );
 
@@ -321,7 +321,7 @@ assert.deepEqual(cold.input, compactionBody.input, "cold start must replay the r
 // from 18.16.0 on, hence the arm.
 const METADATA_FIELD = "internal_chat_message_metadata_passthrough";
 
-if (aiVersion === "18.16.0") {
+if (["18.16.0", "18.18.0"].includes(aiVersion)) {
 	const { transformRequestBody } = await import(`${AI_ROOT}/src/providers/openai-codex/request-transformer.ts`);
 	const { stripOpenAIResponsesInternalMetadataForReplay } = await import(`${AI_ROOT}/src/utils.ts`);
 

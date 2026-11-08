@@ -1,0 +1,613 @@
+--- /dev/null
++++ b/dist/types/providers/anthropic-request-audit.d.ts
+@@ -0,0 +1,15 @@
++import type { FetchImpl, RawSseEvent } from "../types";
++type AuditOptions = { sessionId?: string; provider: string; sideRequest: boolean; refresh: boolean };
++export declare const ANTHROPIC_WIRE_RECORD_MAX_BYTES: number;
++export declare function createAnthropicRequestAudit(options: AuditOptions): {
++    setLogicalBody(body: unknown): void;
++    wrapFetch(base: FetchImpl): FetchImpl;
++    /**
++     * Install beneath request compression. Each send that reaches the transport records its real encoded
++     * body length (`meta.wire.bytes`) and `content-encoding`, next to the logical length; a resend of the
++     * same request (compression fallback) replaces the record and bumps `wire.sends`.
++     */
++    wrapWire(base: FetchImpl): FetchImpl;
++    observe(event: RawSseEvent): void;
++} | undefined;
++export {};
+--- /dev/null
++++ b/src/providers/anthropic-request-audit.ts
+@@ -0,0 +1,236 @@
++import { createHash, randomUUID } from "node:crypto";
++import { appendFileSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
++import { join } from "node:path";
++import { getAgentDir, logger } from "@oh-my-pi/pi-utils";
++import type { FetchImpl, RawSseEvent } from "../types";
++
++// Diagnostics never change a request, a response, retries, or method selection.
++// Only the final fetch body is an oracle; a Context is not a wire payload.
++// .body.json is the bounded/redacted final-wire observation; .thread.json
++// preserves the complete logical history on continues (including server-held
++// replies). Only a successful message_stop promotes that history to baseline.
++// Oversized full uploads keep a separate .history.json for lossless comparison;
++// their final-wire observation remains bounded. Hooks still see the logical body.
++type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
++type Body = Record<string, Json>;
++type AuditOptions = { sessionId?: string; provider: string; sideRequest: boolean; refresh: boolean };
++
++export const ANTHROPIC_WIRE_RECORD_MAX_BYTES = 256 * 1024;
++
++function archiveRecord(file: string, text: string, bytes = Buffer.byteLength(text)): boolean {
++	const truncated = Buffer.byteLength(text) > ANTHROPIC_WIRE_RECORD_MAX_BYTES;
++	// Leave room for JSON escaping (up to six bytes per input byte) and metadata.
++	const archived = truncated
++		? JSON.stringify({ truncated: true, bytes, prefix: Buffer.from(text).subarray(0, ANTHROPIC_WIRE_RECORD_MAX_BYTES / 8).toString("utf8") })
++		: text;
++	writeFileSync(file, archived, { mode: 0o600, flag: "wx" });
++	return truncated;
++}
++
++function firstDifference(before: Json | undefined, after: Json | undefined, path: string): string | undefined {
++	if (before === after) return undefined;
++	if (typeof before === "string" && typeof after === "string" && /^system\[\d+\]\.text$/.test(path) &&
++		before.startsWith("x-anthropic-billing-header:") && after.startsWith("x-anthropic-billing-header:")) {
++		// Preserve cc_version changes; only the whole-body attestation necessarily moves each request.
++		if (before.replace(/\bcch=[a-f0-9]{5}\b/g, "cch=*") === after.replace(/\bcch=[a-f0-9]{5}\b/g, "cch=*")) return undefined;
++	}
++	if (Array.isArray(before) && Array.isArray(after)) {
++		for (let i = 0; i < Math.max(before.length, after.length); i++) {
++			const diff = firstDifference(before[i], after[i], `${path}[${i}]`);
++			if (diff) return diff;
++		}
++		return undefined;
++	}
++	if (before && after && typeof before === "object" && typeof after === "object" && !Array.isArray(before) && !Array.isArray(after)) {
++		const beforeKeys = Object.keys(before).filter(key => key !== "cache_control");
++		const afterKeys = Object.keys(after).filter(key => key !== "cache_control");
++		if (beforeKeys.join("\0") !== afterKeys.join("\0")) return `${path}.$keys`;
++		for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
++			if (key === "cache_control") continue;
++			const diff = firstDifference(before[key], after[key], path ? `${path}.${key}` : key);
++			if (diff) return diff;
++		}
++		return undefined;
++	}
++	return path;
++}
++
++function breakpoints(body: Body): { path: string; control: Json }[] {
++	const result: { path: string; control: Json }[] = [];
++	const visit = (value: Json, path: string): void => {
++		if (Array.isArray(value)) {
++			for (let i = 0; i < value.length; i++) visit(value[i]!, `${path}[${i}]`);
++		} else if (value && typeof value === "object") {
++			for (const [key, entry] of Object.entries(value)) {
++				if (key === "cache_control") result.push({ path, control: entry });
++				else visit(entry, path ? `${path}.${key}` : key);
++			}
++		}
++	};
++	for (const key of ["tools", "system", "messages"]) if (body[key]) visit(body[key]!, key);
++	return result;
++}
++
++export function createAnthropicRequestAudit(options: AuditOptions) {
++	if (!options.sessionId || options.provider !== "anthropic" || process.env.OMP_PAYLOAD_ARCHIVE_OFF) return undefined;
++	const sessionId = options.sessionId;
++	const dir = join(getAgentDir(), "payloads", sessionId.replace(/[^a-zA-Z0-9._-]/g, "_"), "anthropic-wire");
++	let current: { stem: string; id: string; baselineFile?: string; historyFile?: string; failed?: boolean } | undefined;
++	// The metadata record of the request in flight: written when its body actually reaches the transport.
++	let pending: { file: string; meta: Record<string, unknown>; logicalBytes: number; truncated: boolean; sends: number } | undefined;
++	let logicalBody: Body | undefined;
++	let warned = false;
++	const failed = (): void => {
++		if (warned) return;
++		warned = true;
++		try { logger.warn("Anthropic wire diagnostics unavailable", { sessionId }); } catch { /* Diagnostics must remain passive. */ }
++	};
++	// `wire.bytes` is the encoded body handed to the transport (gzip length when compressed);
++	// `wire.logicalBytes` is the JSON body before compression, which is what the archive holds.
++	const writeMeta = (record: NonNullable<typeof pending>, observed: { bytes: number; encoding: string } | undefined): void => {
++		const temporary = `${record.file}.${randomUUID()}.tmp`;
++		writeFileSync(temporary, JSON.stringify({ ...record.meta, wire: { ...observed, logicalBytes: record.logicalBytes, sends: record.sends, truncated: record.truncated } }), { mode: 0o600, flag: "wx" });
++		renameSync(temporary, record.file);
++	};
++	// A request that never reached the wire wrapper still gets its record, with no claim about wire bytes.
++	const settleMeta = (): void => {
++		if (!pending || pending.sends > 0) return;
++		try { writeMeta(pending, undefined); } catch { failed(); }
++	};
++	return {
++		/** The hook's full logical body, captured before the thread planner emits a delta. */
++		setLogicalBody(body: unknown): void {
++			logicalBody = body as Body;
++		},
++		wrapFetch(base: FetchImpl): FetchImpl {
++			return async (input, init) => {
++				current = undefined;
++				pending = undefined;
++				try {
++					const rawBody = typeof init?.body === "string" ? init.body : init?.body instanceof Uint8Array ? new TextDecoder().decode(init.body) : undefined;
++					if (rawBody !== undefined) {
++						const body = JSON.parse(rawBody) as Body;
++						if (typeof body.model === "string" && Array.isArray(body.messages)) {
++							const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
++							const endpoint = `${url.origin}${url.pathname}`;
++							const edits = (body.context_management as { edits?: { type?: string; pause_after_compaction?: boolean }[] } | undefined)?.edits ?? [];
++							const compaction = body.compaction;
++							const compact =
++								(compaction !== null && typeof compaction === "object" && !Array.isArray(compaction) && compaction.type === "summarize") ||
++								edits.some(edit => edit.type === "compact_20260112" && edit.pause_after_compaction === true);
++							const replay = !compact && body.messages.some(message => message && typeof message === "object" && !Array.isArray(message) && Array.isArray(message.content) && message.content.some(block => block && typeof block === "object" && !Array.isArray(block) && block.type === "compaction"));
++							const kind = compact ? "native-compaction" : replay ? "compaction-replay" : options.refresh ? "cache-refresh" : options.sideRequest ? "side" : "main";
++							const primary = !compact && !options.sideRequest && !options.refresh;
++							const id = randomUUID();
++							const stem = join(dir, `${Date.now()}-${process.pid}-${id}-${kind}`);
++							const identity = createHash("sha256").update(JSON.stringify([sessionId, options.provider, endpoint, body.model])).digest("hex");
++							const baselineFile = join(dir, `${identity}.baseline.json`);
++							mkdirSync(dir, { recursive: true, mode: 0o700 });
++							// Credit tokens authorize one-shot redemption. Keep them out of disk
++							// diagnostics without changing the final fetch body passed to base.
++							const redactedFields = body.fallback_credit_token !== undefined ? ["fallback_credit_token"] : undefined;
++							const archivedBody = redactedFields
++								? JSON.stringify({ ...body, fallback_credit_token: "[REDACTED]" })
++								: rawBody;
++							const logicalBytes = Buffer.byteLength(rawBody);
++							const truncated = archiveRecord(`${stem}.body.json`, archivedBody, logicalBytes);
++							const thread = body.thread as { type?: string; previous_message_id?: string } | undefined;
++							const continued = thread?.type === "continue";
++							// The logical body contains create + all accepted replies and appends.
++							// A wire delta alone cannot reconstruct assistant replies held by the API.
++							const history = continued && logicalBody ? logicalBody : body;
++							const historyFile = continued ? `${stem}.thread.json` : truncated ? `${stem}.history.json` : `${stem}.body.json`;
++							if (continued || truncated) writeFileSync(historyFile, JSON.stringify({
++								...history,
++								...(history.fallback_credit_token !== undefined ? { fallback_credit_token: "[REDACTED]" } : {}),
++								sessionId,
++								previousMessageId: thread?.previous_message_id,
++							}), { mode: 0o600, flag: "wx" });
++							current = { stem, id };
++							const headers = new Headers(init?.headers);
++							const allowedHeaders: Record<string, string> = {};
++							for (const name of ["anthropic-beta", "anthropic-version", "content-type"]) {
++								const value = headers.get(name);
++								if (value !== null) allowedHeaders[name] = value;
++							}
++							let comparison: Record<string, unknown> | undefined;
++							if (compact || primary) {
++								comparison = { status: "no-baseline" };
++								try {
++									const pointer = JSON.parse(readFileSync(baselineFile, "utf8")) as { file: string; at: number };
++									const before = JSON.parse(readFileSync(pointer.file, "utf8")) as Body;
++									if (!Array.isArray(before.messages) || !Array.isArray(history.messages)) throw new Error("History record unavailable");
++									let difference = firstDifference(before.tools, history.tools, "tools") ?? firstDifference(before.system, history.system, "system");
++									const oldMessages = before.messages as Json[];
++									const messages = history.messages as Json[];
++									// Tail appends are allowed; every earlier continue remains in the comparison.
++									for (let i = 0; !difference && i < oldMessages.length; i++) difference = firstDifference(oldMessages[i], messages[i], `messages[${i}]`);
++									const controls = ["thinking", "output_config", "speed", "tool_choice", "metadata"].filter(key => firstDifference(before[key], history[key], key) !== undefined);
++									comparison = { status: difference ? "prefix-different" : "prefix-equal", firstDifference: difference, baseline: pointer.file, baselineAgeMs: Date.now() - pointer.at, beforeMessages: oldMessages.length, messages: messages.length, controlsChanged: controls, beforeBreakpoints: breakpoints(before), breakpoints: breakpoints(history) };
++								} catch (error) {
++									if ((error as NodeJS.ErrnoException).code !== "ENOENT") { comparison = { status: "comparison-unavailable" }; failed(); }
++								}
++							}
++							// `wire` is completed by wrapWire with the bytes actually handed to the transport; the
++							// body archive above is the logical (pre-compression) body.
++							pending = { file: `${stem}.meta.json`, logicalBytes, truncated, sends: 0, meta: { at: new Date().toISOString(), id, sessionId, provider: options.provider, model: body.model, endpoint, kind, headers: allowedHeaders, redactedFields, comparison,
++								thread: continued ? { type: "continue", wireMessages: body.messages.length, historyMessages: Array.isArray(history.messages) ? history.messages.length : 0 } : undefined,
++							} };
++							if (primary) current = { stem, id, baselineFile, historyFile };
++						}
++					}
++				} catch { failed(); }
++				try {
++					const response = await base(input, init);
++					settleMeta();
++					if (current) {
++						try { appendFileSync(`${current.stem}.usage.jsonl`, `${JSON.stringify({ at: new Date().toISOString(), id: current.id, event: "response", status: response.status, requestId: response.headers.get("request-id") ?? response.headers.get("x-request-id") })}\n`, { mode: 0o600 }); } catch { failed(); }
++					}
++					return response;
++				} catch (error) {
++					settleMeta();
++					if (current) {
++						try { appendFileSync(`${current.stem}.usage.jsonl`, `${JSON.stringify({ id: current.id, event: "transport-error", name: error instanceof Error ? error.name : "unknown" })}\n`, { mode: 0o600 }); } catch { failed(); }
++					}
++					throw error;
++				}
++			};
++		},
++		/**
++		 * Install beneath request compression. Each send that reaches the transport records its real encoded
++		 * body length (`meta.wire.bytes`) and `content-encoding`, next to the logical length; a resend of the
++		 * same request (compression fallback) replaces the record and bumps `wire.sends`.
++		 */
++		wrapWire(base: FetchImpl): FetchImpl {
++			const wrapped: FetchImpl = (input, init) => {
++				try {
++					const body = init?.body;
++					const bytes = typeof body === "string" ? Buffer.byteLength(body) : ArrayBuffer.isView(body) ? body.byteLength : undefined;
++					if (pending && bytes !== undefined) {
++						pending.sends++;
++						writeMeta(pending, { bytes, encoding: new Headers(init?.headers).get("content-encoding") ?? "identity" });
++					}
++				} catch { failed(); }
++				return base(input, init);
++			};
++			if (base.preconnect) wrapped.preconnect = base.preconnect;
++			return wrapped;
++		},
++		observe(event: RawSseEvent): void {
++			if (!current) return;
++			try {
++				const data = JSON.parse(event.data);
++				const usage = data.usage ?? data.message?.usage;
++				if (data.type === "error") current.failed = true;
++				// Only accepted requests advance the baseline; retries and side work cannot.
++				if (data.type === "message_stop" && !current.failed && current.baselineFile && current.historyFile) {
++					const temporary = `${current.baselineFile}.${current.id}.tmp`;
++					writeFileSync(temporary, JSON.stringify({ file: current.historyFile, at: Date.now() }), { mode: 0o600, flag: "wx" });
++					renameSync(temporary, current.baselineFile);
++				}
++				if (!usage && data.type !== "error" && data.type !== "message_stop") return;
++				appendFileSync(`${current.stem}.usage.jsonl`, `${JSON.stringify({ at: new Date().toISOString(), id: current.id, event: data.type ?? event.event, messageId: data.message?.id, usage, stopReason: data.delta?.stop_reason, errorType: data.error?.type })}\n`, { mode: 0o600 });
++			} catch { failed(); }
++		},
++	};
++}
+--- a/src/providers/anthropic-images.ts
++++ b/src/providers/anthropic-images.ts
+@@ -8,7 +8,8 @@
+ import type { Context, ImageContent, Message, Model, TextContent } from "../types";
+ 
+ const ANTHROPIC_MANY_IMAGE_THRESHOLD = 20;
+-const ANTHROPIC_MANY_IMAGE_MAX_DIMENSION = 2000;
++// Use the many-image cap for every request so adding an image cannot rewrite history.
++const ANTHROPIC_CACHE_STABLE_MAX_DIMENSION = 2000;
+ /**
+  * Image contract of the canonical Anthropic Messages API, used when resolved
+  * model policy names no other: 8000px per side ("At least one of the image
+@@ -28,11 +29,8 @@
+ const ANTHROPIC_IMAGE_RESIZE_ATTEMPTS = 4;
+ 
+ /**
+- * Image bounds for one request. `maxDimension` and `payloadBudget` come from
+- * resolved model policy (`max-image-dimension`, `max-image-payload-bytes`) so
+- * a deployment whose image contract differs from the canonical API can
+- * override them, and the many-image path tightens `maxDimension` further
+- * because many images share one request budget.
++ * Image bounds for one request. The stable dimension limit also respects a
++ * stricter host policy; the payload budget follows the resolved host policy.
+  */
+ interface AnthropicImageCaps {
+ 	maxDimension: number;
+@@ -51,12 +49,7 @@
+ 	return count;
+ }
+ 
+-/**
+- * Ceiling on encoder output pixels in flight. One 8000x8000 RGBA surface is
+- * roughly 256 MiB, so admitting four of them would spike the CLI by a
+- * gigabyte; at the full-resolution cap this yields a single pipeline, while
+- * the many-image cap encodes at most 2000px and keeps the four-way fan-out.
+- */
++/** Preserve the host/count-based concurrency bound for large input decodes. */
+ const ANTHROPIC_IMAGE_RESIZE_PIXEL_BUDGET = 16_000_000;
+ const ANTHROPIC_IMAGE_RESIZE_MAX_CONCURRENCY = 4;
+ 
+@@ -74,9 +67,8 @@
+  * Callers keep message objects stable across turns, so without this every
+  * request (and every in-provider retry of a fresh turn) re-decodes and
+  * re-encodes the same oversized screenshots. A cached value identical to the
+- * key means "already within bounds / unresizable — skip the decode". The caps
+- * depend on image count and on resolved policy, so each pair keeps its own
+- * cache: a value cached at 8000px is not reusable at 2000px.
++ * key means "already within bounds / unresizable — skip the decode". Host
++ * policies may select different caps, so each pair keeps its own cache.
+  */
+ const anthropicImageResizeCaches = new Map<string, WeakMap<ImageContent, ImageContent>>();
+ 
+@@ -92,10 +84,9 @@
+ type ResizeLimiter = <R>(fn: () => Promise<R>) => Promise<R>;
+ 
+ /**
+- * Bounded-concurrency gate for image decode/encode work. The many-image path
+- * fans out over every block of every message; unbounded, 100+ oversized images
+- * would decode concurrently and spike memory by gigabytes. Slots are handed
+- * off directly to the next waiter on release.
++ * Bounded-concurrency gate for image decode/encode work. Unbounded batches
++ * could decode 100+ oversized images concurrently and spike memory. Slots are
++ * handed off directly to the next waiter on release.
+  */
+ function createResizeLimiter(limit: number): ResizeLimiter {
+ 	let active = 0;
+@@ -219,9 +210,8 @@
+ }
+ 
+ /**
+- * Clamp every image a Claude reader would receive to the host's contract.
+- * Limits the model's policy leaves unset fall back to the canonical Anthropic
+- * API. Returns `context` itself when nothing needed resizing.
++ * Clamp every image a Claude reader would receive to the stable dimension and
++ * host payload limits. Returns `context` itself when nothing needed resizing.
+  */
+ export async function prepareAnthropicImageContext(
+ 	context: Context,
+@@ -230,13 +220,9 @@
+ 	if (!model.input.includes("image")) return context;
+ 	const imageCount = countAnthropicImageBlocks(context.messages);
+ 	if (imageCount === 0) return context;
+-	// Many images share one request size budget, so they get the tighter cap.
+-	// A smaller set only has to clear the host's per-image limit.
++	// A count-dependent output cap would re-encode cached images at 20 -> 21.
+ 	const hostMaxDimension = model.compat.maxImageDimension ?? ANTHROPIC_MAX_IMAGE_DIMENSION;
+-	const maxDimension =
+-		imageCount > ANTHROPIC_MANY_IMAGE_THRESHOLD
+-			? Math.min(ANTHROPIC_MANY_IMAGE_MAX_DIMENSION, hostMaxDimension)
+-			: hostMaxDimension;
++	const maxDimension = Math.min(ANTHROPIC_CACHE_STABLE_MAX_DIMENSION, hostMaxDimension);
+ 	const maxPayloadBytes = model.compat.maxImagePayloadBytes ?? ANTHROPIC_MAX_IMAGE_PAYLOAD_BYTES;
+ 	const caps: AnthropicImageCaps = {
+ 		maxDimension,
+@@ -245,7 +231,9 @@
+ 
+ 	let changed = false;
+ 	const state = { resized: 0 };
+-	const limit = createResizeLimiter(anthropicImageResizeConcurrency(maxDimension));
++	// Keep the pre-existing decode concurrency policy independently of the output cap.
++	const concurrencyDimension = imageCount > ANTHROPIC_MANY_IMAGE_THRESHOLD ? maxDimension : hostMaxDimension;
++	const limit = createResizeLimiter(anthropicImageResizeConcurrency(concurrencyDimension));
+ 	const messages = await Promise.all(
+ 		context.messages.map(async message => {
+ 			const next = await resizeAnthropicImageMessage(message, state, limit, caps);
+--- a/src/providers/anthropic.ts
++++ b/src/providers/anthropic.ts
+@@ -107,6 +107,7 @@
+ import { createSdkStreamRequestOptions } from "../utils/sdk-stream-timeout";
+ import { notifyRawSseEvent } from "../utils/sse-debug";
+ import { isForcedToolChoice } from "../utils/tool-choice";
++import { createAnthropicRequestAudit } from "./anthropic-request-audit";
+ import {
+ 	AnthropicConnectionTimeoutError,
+ 	type AnthropicFetchOptions,
+@@ -1886,7 +1887,20 @@
+ 		let activeAbortTracker = createAbortSourceTracker(options?.signal);
+ 
+ 		const onSseEvent = options?.onSseEvent;
+-		const rawSseObserver = onSseEvent ? (event: RawSseEvent) => onSseEvent(event, sourceModel) : undefined;
++		const audit = createAnthropicRequestAudit({
++			sessionId:
++				options?.sessionId ?? extractClaudeMetadataSessionId(options?.metadata?.user_id) ?? options?.promptCacheKey,
++			provider: sourceModel.provider,
++			sideRequest: options?.initiatorOverride === "agent",
++			// The host's stored-request refresh is identified by its one-token cap.
++			refresh: options?.maxTokens === 1,
++		});
++		const rawSseObserver = audit || onSseEvent
++			? (event: RawSseEvent) => {
++					audit?.observe(event);
++					onSseEvent?.(event, sourceModel);
++				}
++			: undefined;
+ 		// A request that opts into server-side fallbacks holds its tool-call events
+ 		// until the turn ends: a model that declines later in the same response
+ 		// hands it to the fallback model, and its tool calls must not reach
+@@ -2232,7 +2246,7 @@
+ 						context.tools?.some(tool => ANTHROPIC_BUFFERED_INPUT_TOOLS.has(tool.name)) ?? false,
+ 					thinkingEnabled: options?.thinkingEnabled,
+ 					thinkingDisplay: options?.thinkingDisplay,
+-					fetch: options?.fetch,
++					fetch: audit ? audit.wrapFetch(options?.fetch ?? fetch) : options?.fetch,
+ 					maxRetryDelayMs: options?.maxRetryDelayMs,
+ 					copilotCacheKey,
+ 					copilotCacheSnapshot: copilotCached ?? null,
+@@ -2668,6 +2682,7 @@
+ 					requestExtraBetas.join(",");
+ 				// `params` stays the full body every retry rung and the refusal credit
+ 				// read; only the wire sees the thread shape, with its beta.
++				audit?.setLogicalBody(params);
+ 				const threadRequest = threadTurn?.plan(params, sentBetaHeader);
+ 				const wireParams = threadRequest?.body ?? params;
+ 				if (threadTurn && rawRequestDump) rawRequestDump.body = wireParams;
+@@ -3599,7 +3614,7 @@
+ 						// Rebuild the client too: the retry must stop advertising the
+ 						// extended-cache-ttl beta, and that lives in the default headers.
+ 						({ client, isOAuthToken } = resolveClient());
+-						params = await prepareParams();
++						params = await rebuildParams(streamFailure);
+ 						providerRetryAttempt = 0;
+ 						output.content.length = 0;
+ 						output.model = sourceModel.id;
+@@ -3663,7 +3678,7 @@
+ 						// Rebuild the client too: the retry must stop advertising the
+ 						// extended-cache-ttl beta, and that lives in the default headers.
+ 						({ client, isOAuthToken } = resolveClient());
+-						params = await prepareParams();
++						params = await rebuildParams(streamFailure);
+ 						providerRetryAttempt = 0;
+ 						output.content.length = 0;
+ 						output.model = sourceModel.id;
+@@ -4310,22 +4325,28 @@
+ 	thinking.budget_tokens = output.budgetTokens;
+ }
+ 
++/** Blocks that reject `cache_control`; the predicate keeps the spread below free of them. */
++type NonCacheableAnthropicBlockType = "thinking" | "redacted_thinking" | "fallback" | "tool_addition" | "tool_removal";
++
++function isCacheableAnthropicBlock(
++	block: ContentBlockParam,
++): block is Exclude<ContentBlockParam, { type: NonCacheableAnthropicBlockType }> {
++	// Generated reasoning, fallback boundaries and tool controls reject cache_control.
++	return (
++		block.type !== "thinking" &&
++		block.type !== "redacted_thinking" &&
++		block.type !== "fallback" &&
++		block.type !== "tool_addition" &&
++		block.type !== "tool_removal"
++	);
++}
++
+ function applyCacheControlToLastBlock(blocks: ContentBlockParam[], cacheControl: AnthropicCacheControl): boolean {
+ 	for (let index = blocks.length - 1; index >= 0; index--) {
+ 		const block = blocks[index];
+-		// Anthropic rejects cache_control on generated reasoning, fallback
+-		// boundaries, and mid-conversation tool-control blocks. Preserve the
+-		// requested trailing boundary on ordinary content, including tool use
+-		// and tool results.
+-		if (
+-			block.type === "thinking" ||
+-			block.type === "redacted_thinking" ||
+-			block.type === "fallback" ||
+-			block.type === "tool_addition" ||
+-			block.type === "tool_removal"
+-		) {
+-			continue;
+-		}
++		// Preserve the requested trailing boundary on ordinary content, including
++		// images, tool use and tool results, without decorating generated reasoning.
++		if (!isCacheableAnthropicBlock(block)) continue;
+ 		if ("cache_control" in block && block.cache_control != null) return false;
+ 		blocks[index] = { ...block, cache_control: cloneAnthropicCacheControl(cacheControl) };
+ 		return true;
+@@ -4333,16 +4354,6 @@
+ 	return false;
+ }
+ 
+-/** True for a mid-conversation tool-control message (`role: "system"`, tool-change blocks only). */
+-function isToolControlMessage(message: MessageParam): boolean {
+-	return (
+-		message.role === "system" &&
+-		typeof message.content !== "string" &&
+-		Array.isArray(message.content) &&
+-		message.content.length > 0 &&
+-		message.content.every(block => block.type === "tool_addition" || block.type === "tool_removal")
+-	);
+-}
+ 
+ const ANTHROPIC_MAX_BREAKPOINTS = 4;
+ const ANTHROPIC_DECIMATION_INTERVAL = 15;
+@@ -4394,56 +4405,34 @@
+ 	const messageEnd = hasTrailingAssistantPad ? trailingIndex - 1 : trailingIndex;
+ 
+ 	// A breakpoint caches every preceding byte, not only the decorated message.
+-	// A per-call or turn-scoped message is rebuilt next request, so a prefix
+-	// spanning it cannot match — but only at its own position. Messages after
+-	// the mark are ordinary persisted history with stable bytes, so a later
+-	// breakpoint still matches everything after the mark. The cost is bounded
+-	// to re-billing the marked bytes themselves, not the growing tail.
+-	// Hence two anchors, not a truncation: the newest candidate at or before
+-	// the first per-call/turn-scoped message (when one exists) pins the
+-	// reusable prefix behind the mark, and the rolling tail candidates pin
+-	// the suffix after it. Turn-scoped `clear_at` messages are absent next
+-	// request, so they still truncate the decimation range (ordinals would
+-	// shift), but per-call marks no longer freeze the tail.
++	// Server-cleared messages and their suffix cannot anchor a reusable prefix.
++	// Per-call provenance alone is not a barrier: extension context can retain
++	// identical bytes across requests, and changed bytes must still reach the API.
+ 	//
+-	// One backward walk over the message tail resolves everything the anchor
+-	// selection needs at once: the trailing candidates, the stable prefix end,
+-	// and the conversational-turn count under it. The first per-call/turn-scoped
+-	// message from the start is the last mark this walk sees (so `markIndex` ends
+-	// up as that boundary), and the turn counter — reset on every mark — ends up
+-	// counting exactly the conversational turns before the first mark (the range
+-	// the old forward scan covered). Nothing is materialized: the checkpoint
+-	// search below walks the same history backwards and stops as soon as the
+-	// breakpoint budget is spent.
++	// Keep upstream's backward walk and on-demand decimation checkpoints. Reset
++	// both the turn count and tail candidates at every clear_at mark, so the last
++	// mark encountered (the first in wire order) bounds the reusable prefix.
+ 	let markIndex = -1;
+ 	let stableUserTurns = 0;
+-	// Collect up to 2 trailing candidates from the message tail, skipping
+-	// per-call messages, turn-scoped messages, and mid-conversation
+-	// tool-control messages. A per-call tail candidate is rebuilt next request
+-	// (fresh timestamps on appended probes, fresh redaction bytes), so a
+-	// breakpoint on it cannot match — it would spend the tail anchor on bytes
+-	// that never repeat while the persisted history behind it gets uncached.
+-	// Turn-scoped messages are absent next request for the same reason, and
+-	// tool controls reject cache_control outright. The walk starts at the
+-	// message tail (not the truncated prefix end) so the anchor advances every
+-	// turn; the sub-prefix candidate below covers the reusable region behind
+-	// a mark.
+ 	const trailingCandidates: number[] = [];
+ 	for (let index = messageEnd; index >= 0; index--) {
+ 		const message = params.messages[index];
+ 		if (!message) continue;
+-		if (message.clear_at === "next_user_message" || isPerCallContextMessage(message)) {
++		if (message.clear_at === "next_user_message") {
+ 			markIndex = index;
+ 			stableUserTurns = 0;
++			trailingCandidates.length = 0;
+ 			continue;
+ 		}
+-		if (trailingCandidates.length < 2 && !isToolControlMessage(message)) {
++		if (
++			trailingCandidates.length < 2 &&
++			(typeof message.content === "string" ||
++				(Array.isArray(message.content) && message.content.some(isCacheableAnthropicBlock)))
++		) {
+ 			trailingCandidates.push(index);
+ 		}
+-		// Decimation counts conversational turns, so it reads the provenance marker
+-		// `convertAnthropicMessages` records rather than the wire role. A wire `user`
+-		// can also be a serialized `developer` message, a tool_result run, or an
+-		// interior `Continue.` pad, none of which advance the user turn ordinal.
++		// Wire user messages may instead be developer context, tool results or
++		// Continue pads; only conversational provenance advances the ordinal.
+ 		if (isConversationalUser(message)) stableUserTurns++;
+ 	}
+ 	const stableMessageEnd = markIndex === -1 ? messageEnd : markIndex - 1;
+@@ -4452,21 +4441,15 @@
+ 	// being materialized as index arrays: the newest sits `stableUserTurns %
+ 	// ANTHROPIC_DECIMATION_INTERVAL` conversational turns back from the stable
+ 	// prefix end and every 15th turn follows it, so the walk stops as soon as the
+-	// breakpoint budget is spent. Candidates repeat when a trailing or sub-prefix
+-	// anchor is already a checkpoint; re-decorating the same message is a no-op
+-	// (its block already carries cache_control), so the budget accounting is
+-	// unchanged.
++	// breakpoint budget is spent. Re-decorating an existing anchor is a no-op.
++	// This turn interval does not bound tool/image content-block lookback distance.
+ 	//
+ 	// Priority order:
+-	// 1. Most recent trailing message
++	// 1. Most recent eligible message before the first server-cleared mark
+ 	// 2. Latest decimation checkpoints (newest first) to maintain stable long-context anchors
+-	// 3. Newest message at or before the first per-call/turn-scoped mark, so a
+-	//    volatile interior message costs only its own re-billed bytes instead
+-	//    of invalidating the whole reusable prefix behind it
+-	// 4. Second trailing message
++	// 3. Second eligible trailing message
+ 	//
+-	// Count only successful block decorations toward the message budget so an uncacheable
+-	// block (such as a thinking-only assistant) does not silently consume a breakpoint.
++	// Count only successful block decorations toward the message budget.
+ 	let appliedCount = 0;
+ 	if (trailingCandidates.length > 0 && appliedCount < messageBudget) {
+ 		const message = params.messages[trailingCandidates[0]];
+@@ -4490,12 +4473,6 @@
+ 			}
+ 		}
+ 	}
+-	if (stableMessageEnd < messageEnd && stableMessageEnd >= 0 && appliedCount < messageBudget) {
+-		const message = params.messages[stableMessageEnd];
+-		if (message && applyCacheControlToMessage(message, cacheControl)) {
+-			appliedCount++;
+-		}
+-	}
+ 	for (const index of trailingCandidates) {
+ 		if (appliedCount >= messageBudget) break;
+ 		const message = params.messages[index];
+--- a/dist/types/providers/anthropic.d.ts
++++ b/dist/types/providers/anthropic.d.ts
+@@ -131,6 +131,10 @@
+      */
+     dropPromptCacheBetas?: boolean;
+     fetch?: FetchImpl;
++    /** Wraps the request fetch above compression and below the cch rewriter (request diagnostics: the logical body). */
++    wrapRequestFetch?: (base: FetchImpl) => FetchImpl;
++    /** Wraps the transport beneath compression (request diagnostics: the bytes actually sent). */
++    wrapWireFetch?: (base: FetchImpl) => FetchImpl;
+     maxRetryDelayMs?: number;
+     sessionId?: string;
+     /** Working-identity cache key for this credential+host; undefined off the Copilot path. */

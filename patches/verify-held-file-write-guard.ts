@@ -33,10 +33,10 @@ const CATALOG_ROOT = realpathSync(process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `
 const NATIVES_ROOT = realpathSync(process.env.OMP_PATCH_VERIFY_NATIVES_ROOT ?? `${NM}/pi-natives`);
 const UTILS_ROOT = realpathSync(process.env.OMP_PATCH_VERIFY_UTILS_ROOT ?? `${NM}/pi-utils`);
 
-// One arm only: registered inside the 18.16.0 guard. The seam itself did not
-// exist before 18.16.0, so another plan must fail closed, never skip.
+// Two arms only: registered inside the 18.16.0/18.18.0 guard. The seam itself did
+// not exist before 18.16.0, so another plan must fail closed, never skip.
 const version: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.equal(version, "18.16.0", `held-file guard gate has no arm for pi-coding-agent ${version}`);
+assert.ok(["18.16.0", "18.18.0"].includes(version), `held-file guard gate has no arm for pi-coding-agent ${version}`);
 if (process.env.OMP_PATCH_VERSION) {
 	assert.equal(version, process.env.OMP_PATCH_VERSION, "held-file gate fixture must match the selected plan");
 }

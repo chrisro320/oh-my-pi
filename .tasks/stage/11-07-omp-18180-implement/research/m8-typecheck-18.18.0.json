@@ -1,0 +1,224 @@
+{
+  "step": "M8 typecheck differential (18.16.0 M4 shape)",
+  "version": "18.18.0",
+  "runtime_inputs": {
+    "pristine": "/tmp/omp-plan-18180/rebase/pristine (extracted from the pinned 18.18.0 archives, pristine_tree_sha256 88a0fb78b8d98cf2bc49c0aecb2c17a5444690d39c128484f2bd44ae716234ba)",
+    "candidate": "/var/tmp/omp-18180-m8/snap (pristine + all 24 accepted families at fuzz 0, candidate_tree_sha256 6bc03b1cc59e8d4390f68ae27cb56fc74c7714f5937a3e6a9e8d5de454c8df62)",
+    "assembly": "python3 /tmp/r2/mkrun.py <tree> /var/tmp/omp-18180-m8/tsc/<tree> (third-party deps symlinked read-only from the live install; @oh-my-pi packages copied from the tree under test, unpatched packages from the 18.18.0 cache)"
+  },
+  "command": "tsc -p tsconfig.<pkg>.json   (tsc 6.0.3 at ~/.local/bin/tsc, cwd = the assembled tree)",
+  "tsconfig": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "allowImportingTsExtensions": true,
+    "allowJs": false,
+    "types": [
+      "node"
+    ],
+    "include": [
+      "node_modules/@oh-my-pi/<pkg>/src/**/*.ts"
+    ],
+    "exclude": [
+      "node_modules/@oh-my-pi/<pkg>/src/**/*.test.ts",
+      "node_modules/@oh-my-pi/<pkg>/src/**/*.test.tsx"
+    ]
+  },
+  "packages": [
+    "pi-ai",
+    "pi-agent-core",
+    "pi-coding-agent",
+    "pi-tui",
+    "pi-catalog",
+    "snapcompact"
+  ],
+  "error_counts": {
+    "pristine": {
+      "pi-ai": 222,
+      "pi-agent-core": 26,
+      "pi-coding-agent": 1677,
+      "pi-tui": 185,
+      "pi-catalog": 70,
+      "snapcompact": 4
+    },
+    "candidate": {
+      "pi-ai": 224,
+      "pi-agent-core": 29,
+      "pi-coding-agent": 1676,
+      "pi-tui": 185,
+      "pi-catalog": 70,
+      "snapcompact": 4
+    }
+  },
+  "artifact_classes": {
+    "pristine": {
+      "module_missing_other": 117,
+      "bun_global": 1354,
+      "timer_global": 38,
+      "implicit_any": 99,
+      "md_module": 379,
+      "nodejs_namespace": 59
+    },
+    "candidate": {
+      "module_missing_other": 117,
+      "bun_global": 1355,
+      "timer_global": 38,
+      "implicit_any": 99,
+      "md_module": 382,
+      "nodejs_namespace": 59
+    },
+    "why": "this offline config carries @types/node but no @types/bun, and TypeScript cannot resolve a `.md` import even with `with { type: \"text\" }`. Both classes appear in bulk on pristine (1354 Bun globals, 379 `.md` modules, 38 Timer, 99 implicit-any cascades), so they cancel in the differential and are not defects."
+  },
+  "added": [
+    {
+      "package": "pi-ai",
+      "file": "pi-ai/src/providers/devin.ts",
+      "line": 337,
+      "code": "TS2868",
+      "message": "Cannot find name 'Bun'. Do you need to install type definitions for Bun? Try `npm i --save-dev @types/bun` and then add 'bun' to the types field in your tsconfig.",
+      "class": "artifact"
+    },
+    {
+      "package": "pi-ai",
+      "file": "pi-ai/src/providers/devin.ts",
+      "line": 338,
+      "code": "TS2868",
+      "message": "Cannot find name 'Bun'. Do you need to install type definitions for Bun? Try `npm i --save-dev @types/bun` and then add 'bun' to the types field in your tsconfig.",
+      "class": "artifact"
+    },
+    {
+      "package": "pi-agent-core",
+      "file": "pi-agent-core/src/compaction/anthropic.ts",
+      "line": 32,
+      "code": "TS2307",
+      "message": "Cannot find module './prompts/anthropic-compaction-instructions-live-chain.md' or its corresponding type declarations.",
+      "class": "artifact"
+    },
+    {
+      "package": "pi-agent-core",
+      "file": "pi-agent-core/src/compaction/compaction.ts",
+      "line": 93,
+      "code": "TS2307",
+      "message": "Cannot find module './prompts/compaction-turn-prefix-from-prefix.md' or its corresponding type declarations.",
+      "class": "artifact"
+    },
+    {
+      "package": "pi-agent-core",
+      "file": "pi-agent-core/src/compaction/compaction.ts",
+      "line": 95,
+      "code": "TS2307",
+      "message": "Cannot find module './prompts/compaction-update-summary-from-prefix.md' or its corresponding type declarations.",
+      "class": "artifact"
+    },
+    {
+      "package": "pi-coding-agent",
+      "file": "pi-coding-agent/src/session/session-transfer-marker.ts",
+      "line": 2,
+      "code": "TS2307",
+      "message": "Cannot find module '../prompts/session/transfer-arrived.md' or its corresponding type declarations.",
+      "class": "artifact"
+    },
+    {
+      "package": "pi-coding-agent",
+      "file": "pi-coding-agent/src/session/session-transfer-marker.ts",
+      "line": 3,
+      "code": "TS2307",
+      "message": "Cannot find module '../prompts/session/transfer-departed.md' or its corresponding type declarations.",
+      "class": "artifact"
+    },
+    {
+      "package": "pi-coding-agent",
+      "file": "pi-coding-agent/src/session/session-transfer-marker.ts",
+      "line": 4,
+      "code": "TS2307",
+      "message": "Cannot find module '../prompts/session/transfer-stale-fork.md' or its corresponding type declarations.",
+      "class": "artifact"
+    }
+  ],
+  "removed": [
+    {
+      "package": "pi-coding-agent",
+      "file": "pi-coding-agent/src/hindsight/state.ts",
+      "line": 237,
+      "code": "TS2868",
+      "message": "Cannot find name 'Bun'. Do you need to install type definitions for Bun? Try `npm i --save-dev @types/bun` and then add 'bun' to the types field in your tsconfig."
+    },
+    {
+      "package": "pi-coding-agent",
+      "file": "pi-coding-agent/src/session/session-transfer.ts",
+      "line": 36,
+      "code": "TS2307",
+      "message": "Cannot find module '../prompts/session/transfer-arrived.md' or its corresponding type declarations."
+    },
+    {
+      "package": "pi-coding-agent",
+      "file": "pi-coding-agent/src/session/session-transfer.ts",
+      "line": 37,
+      "code": "TS2307",
+      "message": "Cannot find module '../prompts/session/transfer-departed.md' or its corresponding type declarations."
+    },
+    {
+      "package": "pi-coding-agent",
+      "file": "pi-coding-agent/src/session/session-transfer.ts",
+      "line": 38,
+      "code": "TS2307",
+      "message": "Cannot find module '../prompts/session/transfer-stale-fork.md' or its corresponding type declarations."
+    }
+  ],
+  "added_real_count": 0,
+  "fixed_defects": [
+    {
+      "package": "pi-coding-agent",
+      "files": [
+        "src/modes/interactive-mode.ts",
+        "src/modes/types.ts"
+      ],
+      "owning_family": "family-input-translation",
+      "errors": "TS2304 Cannot find name 'AgentViewSession' x12 (plus 6 TS18048 'miss' possibly undefined and 3 TS7006 cascades that only exist because the name resolved to an error type)",
+      "cause": "the 18.18.0 rebase of family-input-translation replaced the `import type { AgentViewSession } from \"../session/agent-session-handle\"` line while inserting the family's `RestoredQueuedMessage` import (family-input-translation-v18.18.0.patch: `-import type { AgentViewSession } ...`), so the type name no longer resolved",
+      "fix": "restored the import in both files (alphabetical position, before agent-session-types)"
+    },
+    {
+      "package": "pi-coding-agent",
+      "files": [
+        "src/modes/utils/ui-helpers.ts"
+      ],
+      "owning_family": "family-input-translation",
+      "errors": "TS2304 Cannot find name 'PresentedBlock'/'messageBlock' x14 (plus 5 TS7006 cascades)",
+      "cause": "the same rebase hunk dropped `import { messageBlock, PresentedBlock } from \"@oh-my-pi/pi-tui/chat/transcript-presentation\"`. These are VALUES, not types: every transcript row built by this module would have thrown a ReferenceError at runtime, and no gate renders the TUI transcript",
+      "fix": "restored the import"
+    },
+    {
+      "package": "pi-agent-core",
+      "files": [
+        "src/compaction/compaction.ts"
+      ],
+      "owning_family": "family-compaction",
+      "errors": "TS2367 x2 (comparison '\"openai-codex-responses\"' vs '\"anthropic-messages\"' has no overlap)",
+      "cause": "the 18.18.0 summary plumbing guarded `statefulResponses` with a model.api ternary inside two Codex-only branches, where model.api is already narrowed; the guard is dead code",
+      "fix": "removed both dead ternary lines (the option is absent, i.e. undefined, exactly as before; the Anthropic opt-out is asserted by leg 9 of the threads gate)"
+    },
+    {
+      "package": "pi-agent-core",
+      "files": [
+        "src/compaction/compaction.ts",
+        "src/compaction/anthropic.ts",
+        "dist/types/compaction/anthropic.d.ts"
+      ],
+      "owning_family": "family-compaction",
+      "errors": "TS2353 'statefulResponses' does not exist in type 'AnthropicNativeCompactionOptions'",
+      "cause": "a real seam hole: the Anthropic-native compaction lane (0066/0088/0089) was passed the summary thread opt-out, but the native options type did not declare it and `requestAnthropicNativeCompaction` never forwarded it, so an Anthropic native summary would plan a message thread whose settle() replaces the main conversation's thread anchor",
+      "fix": "added `statefulResponses` to the options Pick, forwarded it into the instrumentedCompleteSimple options, mirrored it in the published `dist/types` declaration, and added wire leg `summary-native` to verify-anthropic-threads-warm-compaction-isolation (control: the same call threads without the opt-out)"
+    }
+  ],
+  "verification": "re-ran all six package typechecks on the rebuilt candidate after the fixes: 0 real additions; the 8 remaining added errors are the artifact classes above (2 Bun globals in providers/devin.ts, 3 new compaction prompt `.md` imports, 3 relocated session-transfer prompt `.md` imports)."
+}

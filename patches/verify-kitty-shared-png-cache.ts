@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
+const tuiVersion = JSON.parse(readFileSync(join(TUI_ROOT, "package.json"), "utf8")).version as string;
 const { ensurePng, completedPng, imageFingerprint, pngFailureReason } = await import(`${TUI_ROOT}/src/chat/image-loading.ts`);
 const { ToolExecutionComponent, stopSharedSpinnerTicker } = await import(`${TUI_ROOT}/src/chat/tool-execution.ts`);
+const { Container } = await import(`${TUI_ROOT}/src/tui.ts`);
 const { AssistantMessageComponent } = await import(`${TUI_ROOT}/src/chat/assistant-message.ts`);
 const { ImageBudget } = await import(`${TUI_ROOT}/src/components/image.ts`);
 const { TERMINAL, ImageProtocol } = await import(`${TUI_ROOT}/src/terminal-capabilities.ts`);
@@ -404,7 +408,47 @@ try {
 	} finally {
 		evictedLabelTool.stopAnimation();
 	}
-	console.log("kitty shared PNG cache: eight graphics, tool/assistant/native slot replacement, late callbacks, failure, dedupe and 200-image eviction PASS");
+	// A block disposed while its Kitty conversion is still in flight must be inert:
+	// the late callback may not paint, and dispose must keep upstream's shell-replay
+	// teardown (mark disposed first, never an early return on the second call).
+	{
+		const dyingImage = { type: "image" as const, data: await new Bun.Image(fixturePng(16, 61)).webp().toBase64(), mimeType: "image/webp" };
+		const dying = makeTool(() => {});
+		const originalDispose = Container.prototype.dispose;
+		let teardowns = 0;
+		Container.prototype.dispose = function (this: Container) {
+			teardowns++;
+			// The generic teardown races the conversion, exactly like a transcript
+			// teardown mid-stream: a disposed block must ignore its result.
+			if (this === dying) dying.updateResult({ content: [a] });
+			originalDispose.call(this);
+		};
+		try {
+			dying.updateResult({ content: [dyingImage] });
+			dying.render(80);
+			assert.equal(dying.isTranscriptBlockPending(), true, "an in-flight conversion must hold the retirement barrier");
+			dying.dispose();
+			dying.dispose();
+			// 18.18.0 added the shell-replay teardown above the old idempotence
+			// check, so the generic teardown must run on every call; 18.16.0 owns
+			// the idempotent early return instead.
+			assert.equal(
+				teardowns,
+				tuiVersion === "18.18.0" ? 2 : 1,
+				tuiVersion === "18.18.0"
+					? "dispose must not early-return: the generic teardown runs on every call"
+					: `${tuiVersion} dispose keeps its idempotent early return`,
+			);
+			assert.equal(countGraphics(dying.render(80)), 0, "a teardown-time result cannot paint a disposed block");
+			await ensurePng(dyingImage);
+			await Bun.sleep(50);
+			assert.equal(dying.isTranscriptBlockPending(), false, "a disposed block releases its conversion barrier");
+			assert.equal(countGraphics(dying.render(80)), 0, "a late conversion callback cannot paint a disposed block");
+		} finally {
+			Container.prototype.dispose = originalDispose;
+		}
+	}
+	console.log("kitty shared PNG cache: eight graphics, tool/assistant/native slot replacement, late callbacks, failure, dedupe, dispose-in-flight and 200-image eviction PASS");
 } finally {
 	TERMINAL.imageProtocol = previousProtocol;
 	stopSharedSpinnerTicker();

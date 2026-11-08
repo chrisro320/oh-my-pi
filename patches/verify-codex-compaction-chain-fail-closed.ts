@@ -49,10 +49,10 @@ try {
 	// running the transport assertions against a tree without the patch.
 	const aiVersion = JSON.parse(readFileSync(`${AI_ROOT}/package.json`, "utf8")).version;
 	assert.ok(
-		["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion),
+		["18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion),
 		`unsupported 0070 transport gate version: ${aiVersion}`,
 	);
-	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion);
+	const supportsChainRecovery = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion);
 	const ai = await import(`${AI_ROOT}/src/providers/openai-codex-responses.ts`);
 	// 18.16.0 moved the transport-state probe out of openai-codex-responses.ts
 	// into openai-codex-state.ts; both spellings name the same module-level
@@ -199,7 +199,7 @@ try {
 
 	// Effective Codex selection must govern the outer consumer as well as the
 	// transport. A refusal delivered after request preparation cannot enter V1.
-	if (["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion)) {
+	if (["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
 		const altLaneModels = [
 			{
 				label: "remoteCompaction.api",
@@ -237,7 +237,7 @@ try {
 				`${label}: chain-only lane must refuse a chain-less V2 send`,
 			);
 			assert.equal(altSends, 0, `${label}: no HTTP request may escape the chain-only refusal`);
-			if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion) && label === "remoteCompaction.api") {
+			if (["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) && label === "remoteCompaction.api") {
 				let softSends = 0;
 				await assert.rejects(compact({
 					firstKeptEntryId: "effective-lane-boundary",
@@ -270,6 +270,10 @@ try {
 	let recoveredBaseline: string | undefined;
 	let frames: Frame[] = [];
 	let onUpgrade = () => {};
+	// 18.18.0 transport legs: a request parked mid-stream (`hold`) and the live
+	// server sockets, so a peer close can be driven from the server side.
+	let held: ServerWebSocket<{ id: number }> | undefined;
+	const sockets = new Map<number, ServerWebSocket<{ id: number }>>();
 	// Open-stage fixtures for the 0096 regression below: a refused upgrade (no 101
 	// response) is exactly how a failed handshake -- TLS reset, refused auth, dead
 	// route -- reaches the client as `websocket error: ...`, so counting and
@@ -315,6 +319,9 @@ try {
 			return new Response("WebSocket only", { status: 400 });
 		},
 		websocket: {
+			open(ws) {
+				sockets.set(ws.data.id, ws);
+			},
 			message(ws, data) {
 				const body: Frame["body"] = JSON.parse(String(data));
 				frames.push({ socket: ws.data.id, body });
@@ -332,6 +339,10 @@ try {
 				}
 				if (mode === "entitlement-ordinary" && body.access_programs) {
 					send(ws, { type: "error", code: "invalid_access_program", message: "access program rejected" });
+					return;
+				}
+				if (mode === "hold" && body.input.at(-1)?.type !== "compaction_trigger") {
+					held = ws;
 					return;
 				}
 				if (body.input.at(-1)?.type !== "compaction_trigger") return complete(ws, false);
@@ -387,7 +398,7 @@ try {
 			baseUrl: `http://127.0.0.1:${server.port}`,
 			preferWebsockets: true,
 		};
-		if (["18.12.6", "18.16.0"].includes(aiVersion)) {
+		if (["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
 			// Target keeps independent lite/full socket axes. Even a model whose
 			// metadata advertises lite must compact on the ordinary live full chain.
 			mode = "success";
@@ -439,7 +450,7 @@ try {
 			"exhausted",
 			"invalid-summary",
 			...(supportsChainRecovery ? ["stale-once"] : []),
-			...(["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion) ? ["stale-alias-once"] : []),
+			...(["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? ["stale-alias-once"] : []),
 		]) {
 			mode = scenario;
 			frames = [];
@@ -547,7 +558,7 @@ try {
 				for (const state of states.values()) state.close();
 			}
 		}
-		if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion)) {
+		if (["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
 			// Buffered entitlement errors used to bypass the transport-exception
 			// no-SSE guard. Separate accounts keep the ordinary control independent
 			// of the provider's process-wide rejected-program cache.
@@ -612,7 +623,7 @@ try {
 				}
 			}
 		}
-		if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion)) {
+		if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
 			for (const scenario of ["recovery-invalid", "invalid-summary", "success"]) {
 				mode = scenario;
 				frames = [];
@@ -650,6 +661,195 @@ try {
 				}
 			}
 		}
+		// 0063/0068/0070 on the 18.18.0 transport, where `CodexWebSocketConnection`
+		// wraps `ResponsesWebSocketConnection`: the chain decision is taken after the
+		// socket settled and was reserved, a busy socket is refused (never sent over
+		// SSE, never torn down), a frame is refused unless it still names the socket
+		// that minted its chain, and socket departures reach the append state.
+		if (aiVersion === "18.18.0") {
+			type TransportSession = {
+				connection?: { close(reason?: string): void };
+				canAppend: boolean;
+				lastClose?: { reason: string; generation: number };
+				lastPeerClose?: { reason: string; generation: number };
+			};
+			const sessionOf = (states: Map<string, ProviderSessionState>): TransportSession => {
+				const provider = states.get("openai-codex-responses") as unknown as { webSocketSessions: Map<string, TransportSession> };
+				const sessions = [...provider.webSocketSessions.values()];
+				assert.equal(sessions.length, 1, "each leg owns exactly one transport session");
+				return sessions[0]!;
+			};
+			const until = async (what: string, ready: () => boolean) => {
+				const deadline = Date.now() + 3000;
+				while (!ready()) {
+					assert.ok(Date.now() < deadline, `timed out waiting for ${what}`);
+					await Bun.sleep(5);
+				}
+			};
+			const seedLive = async (label: string) => {
+				mode = "success";
+				frames = [];
+				compactionSends = 0;
+				held = undefined;
+				const states = new Map<string, ProviderSessionState>();
+				let httpSends = 0;
+				const options = {
+					apiKey: "fixture-key", sessionId: `gate-${label}`, providerSessionState: states, preferWebsockets: true,
+					fetch: async () => { httpSends++; throw new Error("No HTTP replay allowed"); },
+				};
+				const context = { systemPrompt: ["fixture"], messages: [{ role: "user" as const, content: [{ type: "text" as const, text: "seed" }], timestamp: 1 }] };
+				const first = await ai.streamOpenAICodexResponses(model, context, options).result();
+				assert.equal(first.stopReason, "stop", first.errorMessage);
+				assert.equal(sessionOf(states).canAppend, true, `${label}: the seed turn must leave a live append baseline`);
+				return { states, options, context, first, httpSends: () => httpSends };
+			};
+			const compactionBody = {
+				model: bundled.id,
+				input: [...input, { type: "compaction_trigger" }],
+				store: false,
+				stream: true,
+			};
+
+			// A request owns the socket mid-stream. The compaction lane must refuse
+			// (it has no SSE to fall back to) and must leave that request alone.
+			{
+				const live = await seedLive("busy");
+				mode = "hold";
+				const before = frames.length;
+				const ordinary = ai.streamOpenAICodexResponses(model, {
+					...live.context,
+					messages: [...live.context.messages, live.first, { role: "user" as const, content: "second", timestamp: 2 }],
+				}, live.options).result();
+				await until("the parked ordinary request", () => held !== undefined);
+				assert.equal(frames.length, before + 1, "busy: only the ordinary request may be on the wire");
+				const heldSocket = frames.at(-1)!.socket;
+				await assert.rejects(
+					core.requestCompactionV2Streaming(model, live.options.apiKey, { ...request, sessionId: live.options.sessionId }, undefined, {
+						...live.options, timeoutMs: 2000, retryWait: async () => {},
+					}),
+					(error: Error) => {
+						assert.ok(error instanceof ai.CodexCompactionChainLostError, `busy: expected a chain-loss refusal, got ${error.name}: ${error.message}`);
+						assert.match(error.message, /websocket busy/, "busy: the refusal must name the busy socket");
+						return true;
+					},
+				);
+				assert.equal(compactionSends, 0, "busy: the refused compaction must not reach the wire");
+				assert.equal(frames.length, before + 1, "busy: the refused compaction must not write a frame");
+				assert.equal(live.httpSends(), 0, "busy: no SSE replay may escape");
+				// The parked request's socket must be intact: it completes normally.
+				mode = "success";
+				complete(held!, false);
+				const done = await ordinary;
+				assert.equal(done.stopReason, "stop", `busy: the parked request must survive the refusal (${done.errorMessage})`);
+				assert.equal(frames.at(-1)!.socket, heldSocket);
+				// Once the socket is free again the very same baseline chains.
+				await core.requestCompactionV2Streaming(model, live.options.apiKey, { ...request, sessionId: live.options.sessionId }, undefined, {
+					...live.options, timeoutMs: 2000, retryWait: async () => {},
+				});
+				const chained = frames.at(-1)!;
+				assert.equal(compactionSends, 1, "busy: the released socket takes exactly one compaction");
+				assert.equal(chained.socket, heldSocket, "busy: compaction must stay on the socket that minted the chain");
+				assert.ok(chained.body.previous_response_id, "busy: the released socket must chain");
+				assert.equal(frames.filter(frame => frame.body.generate === false).length, 0, "busy: a live chain needs no recovery");
+				for (const state of live.states.values()) state.close();
+			}
+
+			// The frame is bound to the socket that minted its chain: a hook that
+			// drops `previous_response_id`, or a socket replaced after the decision,
+			// is refused before anything reaches the wire.
+			for (const hook of ["drops-chain", "replaces-socket"] as const) {
+				const live = await seedLive(hook);
+				const before = frames.length;
+				const onPayload = hook === "drops-chain"
+					? (payload: Record<string, unknown>) => {
+							const { previous_response_id: _dropped, ...rest } = payload;
+							return { ...rest, input: compactionBody.input };
+						}
+					: () => {
+							sessionOf(live.states).connection!.close("gate-replaced");
+							return undefined;
+						};
+				await assert.rejects(
+					ai.openCodexCompactionEventStream(model, compactionBody, {
+						apiKey: live.options.apiKey, sessionId: live.options.sessionId,
+						providerSessionState: live.states, preferWebsockets: true, fetch: live.options.fetch, onPayload,
+					}),
+					(error: Error) => {
+						assert.ok(error instanceof ai.CodexCompactionChainLostError, `${hook}: expected a chain-loss refusal, got ${error.name}: ${error.message}`);
+						assert.equal((error as InstanceType<typeof ai.CodexCompactionChainLostError>).retryable, true, `${hook}: the host may recover the chain`);
+						return true;
+					},
+				);
+				assert.equal(frames.length, before, `${hook}: no compaction frame may be written`);
+				assert.equal(compactionSends, 0, `${hook}: nothing may reach the wire`);
+				assert.equal(live.httpSends(), 0, `${hook}: no SSE replay`);
+				for (const state of live.states.values()) state.close();
+			}
+
+			// Socket departures reach the append state: a peer close is recorded as
+			// the peer's, our own close() is not mistaken for it, and either way the
+			// dead socket stops advertising its chain.
+			{
+				const live = await seedLive("peer-close");
+				const session = sessionOf(live.states);
+				sockets.get(frames.at(-1)!.socket)!.close(1001, "idle-evicted");
+				await until("the peer close", () => session.lastPeerClose !== undefined);
+				assert.match(session.lastPeerClose!.reason, /^peer \(code 1001: idle-evicted\)$/, "peer close: the peer's own code and text");
+				assert.equal(session.lastClose?.reason, session.lastPeerClose!.reason, "peer close: the socket's close cause is the peer's");
+				assert.equal(session.lastClose?.generation, session.lastPeerClose!.generation, "peer close: one socket, one generation");
+				assert.equal(session.canAppend, false, "peer close: a dead socket must not advertise its chain");
+				for (const state of live.states.values()) state.close();
+			}
+			{
+				const live = await seedLive("local-close");
+				const session = sessionOf(live.states);
+				session.connection!.close("gate-local");
+				assert.equal(session.lastClose?.reason, "gate-local", "local close: our own reason");
+				assert.equal(session.lastPeerClose, undefined, "local close: never reported as the peer's");
+				assert.equal(session.canAppend, false, "local close: the chain dies with its socket");
+				await Bun.sleep(100);
+				assert.equal(session.lastPeerClose, undefined, "local close: the peer's close echo is not a peer departure");
+				for (const state of live.states.values()) state.close();
+			}
+
+			// R7: failures are attempt-local. No sticky websocket disable may survive
+			// in the published source or types, and a session whose opens all failed
+			// must try its socket again on the next compaction.
+			for (const file of [`${AI_ROOT}/src/providers/openai-codex-responses.ts`, `${AI_ROOT}/dist/types/providers/openai-codex-responses.d.ts`]) {
+				assert.equal(readFileSync(file, "utf8").includes("disableWebsocket"), false, `${file}: a sticky websocket disable would silently re-enable SSE fallback`);
+			}
+			{
+				mode = "success";
+				frames = [];
+				compactionSends = 0;
+				upgradeAttempts = 0;
+				pendingRefusals = Number.POSITIVE_INFINITY;
+				const states = new Map<string, ProviderSessionState>();
+				const options = {
+					apiKey: "fixture-key", sessionId: "gate-attempt-local", providerSessionState: states, preferWebsockets: true,
+					fetch: async () => { throw new Error("No HTTP replay allowed"); },
+				};
+				try {
+					await assert.rejects(
+						core.requestCompactionV2Streaming(model, options.apiKey, { ...request, sessionId: options.sessionId }, undefined, {
+							...options, timeoutMs: 2000, retryWait: async () => {},
+						}),
+						ai.CodexCompactionChainLostError,
+					);
+					assert.ok(upgradeAttempts > 0, "attempt-local: the failing opens must have been tried");
+					pendingRefusals = 0;
+					upgradeAttempts = 0;
+					const recovered = await core.requestCompactionV2Streaming(model, options.apiKey, { ...request, sessionId: options.sessionId }, undefined, {
+						...options, timeoutMs: 2000, retryWait: async () => {},
+					});
+					assert.equal(recovered.compactionItem.encrypted_content, "fixture-summary");
+					assert.ok(upgradeAttempts >= 1, "attempt-local: a failed open must not disable the socket for later compactions");
+				} finally {
+					pendingRefusals = 0;
+					for (const state of states.values()) state.close();
+				}
+			}
+		}
 		// 0096: a transient websocket OPEN failure in the chain-only compaction lane
 		// must spend the bounded websocket retry budget before the request may fail.
 		// Before the fix the lane read the open failure's "fatal" classification --
@@ -660,7 +860,7 @@ try {
 		// straight to the expensive soft summarizer. The lane has no SSE to replay,
 		// so these scenarios also pin that no HTTP request ever escapes it.
 		// These plans retain bounded open retries and provider-authoritative capacity.
-		if (["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion)) {
+		if (["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
 			const websocketRetryBudget = Number(process.env.PI_CODEX_WEBSOCKET_RETRY_BUDGET);
 			assert.ok(
 				Number.isInteger(websocketRetryBudget) && websocketRetryBudget > 0,
@@ -872,11 +1072,11 @@ try {
 		`import { openCodexCompactionEventStream, applyOpenAICodexCompactionResponseMetadata } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  declare const model: Parameters<typeof openCodexCompactionEventStream>[0];
  declare const body: Parameters<typeof openCodexCompactionEventStream>[1];
- void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion) ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion) ? "rollback();" : ""} } });
+ void openCodexCompactionEventStream(model, body, { apiKey: "fixture", requestDiagnostics: {}, onAccept(commit${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? ", rollback" : ""}) { commit({ turnState: "ok", providerSessionState: new Map() }); ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? "rollback();" : ""} } });
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: {} });
  // @ts-expect-error A primitive cannot store accepted metadata.
  applyOpenAICodexCompactionResponseMetadata({ modelsEtag: "ok" }, { turnState: {}, websocketState: 1 });
- ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion) ? `
+ ${["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? `
  import type { SummaryOptions, CachePreservingSummaryScope, CachePreservingSummaryContext } from ${JSON.stringify(`${CORE_ROOT}/dist/types/compaction/compaction.js`)};
  import { buildCodexChainedRequestBody } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/openai-codex-responses.js`)};
  import { createAnthropicRequestAudit } from ${JSON.stringify(`${AI_ROOT}/dist/types/providers/anthropic-request-audit.js`)};
@@ -886,15 +1086,15 @@ try {
  void buildCodexChainedRequestBody({ model: "fixture", input: [] }, undefined);
  void createAnthropicRequestAudit({ provider: "anthropic", sideRequest: false, refresh: false });
  void imageFingerprint(image); void ensurePng(image); void completedPng("hash"); void pngFailureReason("hash");
- ${["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion) ? `
+ ${["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? `
  import { maxFramesForDataBudget, providerImageBudget, providerFrameBudget } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
  import type { ShapeGeometry } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
- declare const shape: ShapeGeometry; void maxFramesForDataBudget(shape${["18.12.6", "18.16.0"].includes(aiVersion) ? ", 1024" : ""});
+ declare const shape: ShapeGeometry; void maxFramesForDataBudget(shape${["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? ", 1024" : ""});
  ` : `
  import { FRAME_DATA_BYTES_PER_SHAPE, maxFramesForDataBudget, shedFramesOverBudget, providerImageBudget, providerFrameBudget } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_SNAPCOMPACT_ROOT ?? `${NM}/snapcompact`}/dist/types/snapcompact.js`)};
  void FRAME_DATA_BYTES_PER_SHAPE; void maxFramesForDataBudget(1024, undefined); void shedFramesOverBudget([]);
  `}
- ${["18.12.6", "18.16.0"].includes(aiVersion)
+ ${["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)
    ? 'void providerImageBudget(model); void providerFrameBudget(model);'
    : 'void providerImageBudget("anthropic", "anthropic-messages"); void providerFrameBudget("anthropic", "anthropic-messages");'}
  import type { AgentSession } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/agent-session.js`)};
@@ -913,7 +1113,7 @@ try {
    void validScope; void candidate; return liveContext;
  } };
  void liveScope; void summaryOptions;
- ${["18.12.6", "18.16.0"].includes(aiVersion) ? `
+ ${["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? `
  const targetSummaryOptions: SummaryOptions = {
    buildProviderContext: async (summarized, retained, signal, candidate) => {
      const actualModel: Model = candidate;
@@ -927,21 +1127,21 @@ try {
  ` : ""}
  import { mapOptionsForApi } from ${JSON.stringify(`${AI_ROOT}/dist/types/stream.js`)};
  import type { UserMessage, DeveloperMessage } from ${JSON.stringify(`${AI_ROOT}/dist/types/types.js`)};
- import { DateCwdReminderInjector, ${["18.16.0"].includes(aiVersion) ? "isDateCwdReminderControl, createSessionDateCwdReminderJournal, DATE_CWD_REMINDER_CUSTOM_TYPE" : "dateCwdAnchorKey, applyDateCwdAnchors"} } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/date-cwd-reminder.js`)};
+ import { DateCwdReminderInjector, ${["18.16.0", "18.18.0"].includes(aiVersion) ? "isDateCwdReminderControl, createSessionDateCwdReminderJournal, DATE_CWD_REMINDER_CUSTOM_TYPE" : "dateCwdAnchorKey, applyDateCwdAnchors"} } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/date-cwd-reminder.js`)};
  import type { SessionMemory } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-memory.js`)};
  import type { SessionToolsHost } from ${JSON.stringify(`${process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`}/dist/types/session/session-tools.js`)};
  import { traceCompaction } from ${JSON.stringify(`${CORE_ROOT}/dist/types/compaction/compaction-trace.js`)};
  declare const user: UserMessage; declare const developer: DeveloperMessage;
-${["18.16.0"].includes(aiVersion) ? "" : "user.providerOnly = true; developer.providerOnly = true;"}
+${["18.16.0", "18.18.0"].includes(aiVersion) ? "" : "user.providerOnly = true; developer.providerOnly = true;"}
  void mapOptionsForApi(model, { conversationId: "fixture" });
- void new DateCwdReminderInjector(${["18.16.0"].includes(aiVersion) ? "" : "() => \"fixture\", () => \"/tmp\""});
- ${["18.16.0"].includes(aiVersion)
+ void new DateCwdReminderInjector(${["18.16.0", "18.18.0"].includes(aiVersion) ? "" : "() => \"fixture\", () => \"/tmp\""});
+ ${["18.16.0", "18.18.0"].includes(aiVersion)
 		? `void isDateCwdReminderControl(user); void DATE_CWD_REMINDER_CUSTOM_TYPE; void createSessionDateCwdReminderJournal;`
 		: `void dateCwdAnchorKey(user, "fixture"); void applyDateCwdAnchors([], "fixture", {});`}
  declare const memory: SessionMemory; declare const toolsHost: SessionToolsHost;
  void memory.promotionTail; memory.capturePromotionSnapshot([], "tail"); memory.restorePromotionSnapshot(undefined, "tail");
  void toolsHost.memoryPromotionTail(); toolsHost.captureMemoryPromotionSnapshot([], "tail");
- void session.buildDisplaySessionContext(${["18.12.6", "18.16.0"].includes(aiVersion) ? "model, " : ""}{ persistEvalStateContext: false });
+ void session.buildDisplaySessionContext(${["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion) ? "model, " : ""}{ persistEvalStateContext: false });
  void session.runIdleEphemeralTurn({ promptText: "fixture" });
  traceCompaction({ k: "type-probe" });
  ` : ""}

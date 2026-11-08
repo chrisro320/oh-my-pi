@@ -21,7 +21,7 @@ const EXTENSION = process.env.OMP_CONTEXT_AUDIT_EXTENSION ?? join(import.meta.di
 // shape: the 18.10.x-only transfer/audit block below stays off, exactly as it
 // is for 18.12.6. A version outside this list used to reach the unconditional
 // assertions and the extension runtime with no plan at all.
-const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"];
+const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"];
 const selectedPlan = process.env.OMP_PATCH_VERSION;
 assert.ok(
 	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),

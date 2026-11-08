@@ -37,7 +37,7 @@ if (process.env.OMP_PATCH_VERSION) assert.equal(version, process.env.OMP_PATCH_V
 // compiled `rules.json` representation and the resolver the runtime calls.
 // 18.4.4-18.10.1 keep the frozen table arm; 18.12.6 keeps its catalog arm.
 assert.ok(
-	["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(version),
+	["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(version),
 	`unsupported image-budget plan: ${version}`,
 );
 const makeModel = (provider: string, api: string, id = "unclassified-fixture", extra = {}) => buildModel({
@@ -46,7 +46,7 @@ const makeModel = (provider: string, api: string, id = "unclassified-fixture", e
 	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, ...extra,
 } as never);
 
-if (version === "18.16.0") {
+if (["18.16.0", "18.18.0"].includes(version)) {
 	await verifyKdlBudgetRules();
 	await verifyCatalogBudgets();
 	await verifyClampBehaviour();

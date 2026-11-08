@@ -27,14 +27,16 @@ const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${nm}/pi-agent-core
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${nm}/pi-ai`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${nm}/pi-catalog`;
 
-// Fail closed on a plan this gate has no arm for. Only the 18.16.0 controller
-// arm registers it, and its assertions pin that tree's control-block encoding.
+// Fail closed on a plan this gate has no arm for. The 18.16.0 and 18.18.0
+// controller arms register it, and its assertions pin that tree's control-block
+// encoding.
+const PLAN_VERSIONS = ["18.16.0", "18.18.0"];
 const PLAN = process.env.OMP_PATCH_VERSION;
-assert.equal(PLAN, "18.16.0", `unsupported OMP_PATCH_VERSION for the withdrawn-tools wire gate: ${PLAN}`);
+assert.ok(PLAN !== undefined && PLAN_VERSIONS.includes(PLAN), `unsupported OMP_PATCH_VERSION for the withdrawn-tools wire gate: ${PLAN}`);
 const coreVersion: unknown = JSON.parse(readFileSync(join(CORE_ROOT, "package.json"), "utf8"));
 assert.ok(
 	coreVersion !== null && typeof coreVersion === "object" && "version" in coreVersion &&
-		coreVersion.version === "18.16.0",
+		PLAN_VERSIONS.includes(String(coreVersion.version)),
 	`unsupported pi-agent-core tree version for the withdrawn-tools wire gate: ${JSON.stringify(coreVersion)}`,
 );
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Replay one migrated release from pinned official archives, never live packages."""
 import argparse
+import base64
 import hashlib
 import importlib.util
 import json
@@ -29,13 +30,15 @@ ADDED_FAMILIES = {
 
 # Approved behaviour removals per family release (user decision, not an
 # adoption): the capability leaves both the retained families and the union.
-# 0032 (goal-tool residency) is retired for 18.16.0 only (Q7).
+# 0032 (goal-tool residency) is retired for 18.16.0 only (Q7); 0065, 0025 and
+# 0100 are retired for 18.18.0 (upgrade plan §2.1).
 RETIRED_CAPABILITIES = {
     "18.16.0": ["0032"],
+    "18.18.0": ["0065", "0025", "0100"],
 }
 
 # Frozen ownership manifest each family release derives from.
-SNAPSHOT_OF = {"18.12.6": "18.10.1", "18.16.0": "18.12.6"}
+SNAPSHOT_OF = {"18.12.6": "18.10.1", "18.16.0": "18.12.6", "18.18.0": "18.16.0"}
 
 
 # Approved upstream adoptions per family release. 0017 is the existing 18.10.x
@@ -64,6 +67,19 @@ APPROVED_ADOPTIONS = {
         {"capability": "0072", "family": "0072-omp-session-pin-static-auth-ui"},
         {"capability": "0079", "family": "family-image-display"},
         {"capability": "0062", "family": "family-image-budget-snapcompact"},
+    ],
+    # 18.18.0 carries the same six approved adoptions plus 0054: its consumer
+    # proof (no `requestType` on any antigravity buildRequest path in the
+    # pristine target) and the negative control at
+    # verify-antigravity-envelope.ts:42 landed with ring segment R1 (M1).
+    "18.18.0": [
+        {"capability": "0017", "family": "0017-omp-openai-responses-native-replay-warm"},
+        {"capability": "0078", "family": "family-image-display"},
+        {"capability": "0066", "family": "family-compaction"},
+        {"capability": "0072", "family": "0072-omp-session-pin-static-auth-ui"},
+        {"capability": "0079", "family": "family-image-display"},
+        {"capability": "0062", "family": "family-image-budget-snapcompact"},
+        {"capability": "0054", "family": "family-antigravity-wire"},
     ],
 }
 
@@ -228,9 +244,13 @@ def validate_retired_repairs(here, manifest):
         active = [entry for entry in manifest["families"] if entry["id"] == repair["family"]]
         if len(active) != 1:
             raise RuntimeError(f"{repair['family']} must have exactly one active representation")
-        if active[0]["sha256"] == baseline["previousFamilySha256"]:
+        # The invariant is byte identity with the retired revision, so it holds
+        # even while a new release's family digest is still a placeholder; the
+        # declared digest is compared only once it is finalized.
+        active_digest = hashlib.sha256((here / active[0]["patch"]).read_bytes()).hexdigest()
+        if active_digest == baseline["previousFamilySha256"]:
             raise RuntimeError(f"retired revision is still the active representation: {repair['family']}")
-        if hashlib.sha256((here / active[0]["patch"]).read_bytes()).hexdigest() != active[0]["sha256"]:
+        if active[0].get("sha256") and active_digest != active[0]["sha256"]:
             raise RuntimeError(f"active revision digest mismatch: {repair['family']}")
         checked.append(repair["family"])
     return checked
@@ -248,6 +268,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True)
     parser.add_argument("--tgz-cache", type=Path)
+    parser.add_argument("--contract-only", action="store_true",
+                        help="check the version/ownership/retirement/adoption/archive/pristine contract only and "
+                             "report digests still awaiting the family rebases; never claims a replay")
     parser.add_argument("--keep", action="store_true")
     args = parser.parse_args()
     if not all(part.isdigit() for part in args.version.split(".")) or len(args.version.split(".")) != 3:
@@ -275,24 +298,23 @@ def main():
         if (len(set(owned + adopted)) != len(owned + adopted)
                 or capabilities != expected_capabilities or capabilities != sorted(owned + adopted)):
             raise RuntimeError("capability ownership is incomplete or duplicated")
-        for entry in manifest["families"]:
-            actual = hashlib.sha256((here / entry["patch"]).read_bytes()).hexdigest()
-            if actual != entry["sha256"]:
-                raise RuntimeError(f"patch digest mismatch: {entry['patch']}")
         nm = home / ".bun/install/global/node_modules/@oh-my-pi"
         nm.mkdir(parents=True)
         for archive in manifest["archives"]:
             name = f"{archive['package']}-{args.version}.tgz"
+            if archive["tarball"] != f"https://registry.npmjs.org/@oh-my-pi/{archive['package']}/-/{name}":
+                raise RuntimeError(f"archive URL pin mismatch: {name}")
             source = args.tgz_cache / name if args.tgz_cache else sandbox / name
             if not source.exists():
                 if args.tgz_cache:
                     raise RuntimeError(f"pinned archive absent from explicit cache: {source}")
-                if not archive["tarball"].startswith("https://registry.npmjs.org/@oh-my-pi/"):
-                    raise RuntimeError("unexpected archive host")
                 with urllib.request.urlopen(archive["tarball"], timeout=60) as response:
                     source.write_bytes(response.read())
-            if hashlib.sha256(source.read_bytes()).hexdigest() != archive["sha256"]:
+            payload = source.read_bytes()
+            if hashlib.sha256(payload).hexdigest() != archive["sha256"]:
                 raise RuntimeError(f"archive digest mismatch: {name}")
+            if archive.get("integrity") != "sha512-" + base64.b64encode(hashlib.sha512(payload).digest()).decode():
+                raise RuntimeError(f"archive integrity pin mismatch: {name}")
             unpack = sandbox / (archive["package"] + "-unpack")
             unpack.mkdir()
             with tarfile.open(source) as bundle:
@@ -304,6 +326,33 @@ def main():
         pristine = tree_manifest(nm)
         if hashlib.sha256(json.dumps(pristine, sort_keys=True, separators=(",", ":")).encode()).hexdigest() != manifest["pristine_tree_sha256"]:
             raise RuntimeError("extracted pristine tree differs from migration input")
+        # A not-yet-rebased family release records explicit placeholders instead
+        # of digests it cannot vouch for: the family patches are still 18.16.0
+        # bytes and the candidate tree cannot be assembled until M1-M5 rebase.
+        unfinalized = [entry["patch"] for entry in manifest["families"] if not entry.get("sha256")]
+        candidate_unfinalized = not manifest.get("candidate_tree_sha256")
+        if args.contract_only:
+            # Ownership, retirement, adoption, archive-pin and pristine-tree
+            # contract; never a replay claim. Full mode below stays fail-closed.
+            print(json.dumps({"status": "PASS", "mode": "contract-only", "version": args.version,
+                              "families": len(resolved), "capabilities": len(capabilities),
+                              "upstream_adoptions": adopted, "retired_repairs": retired_repairs,
+                              "archive_pins": len(manifest["archives"]),
+                              "pristine_tree_sha256": manifest["pristine_tree_sha256"],
+                              "not_yet_finalized": {"family_patch_digests": len(unfinalized),
+                                                    "candidate_tree_sha256": candidate_unfinalized}},
+                             indent=2))
+            return
+        if unfinalized or candidate_unfinalized:
+            raise RuntimeError(
+                "families not rebased / candidate not finalized: "
+                f"{len(unfinalized)}/{len(manifest['families'])} family patch digests and "
+                f"candidate_tree_sha256 are explicit placeholders (M1-M5 rebase, M8 finalizes); "
+                "rerun with --contract-only for the ownership contract")
+        for entry in manifest["families"]:
+            actual = hashlib.sha256((here / entry["patch"]).read_bytes()).hexdigest()
+            if actual != entry["sha256"]:
+                raise RuntimeError(f"patch digest mismatch: {entry['patch']}")
         def replay(reverse=False):
             entries = list(reversed(manifest["families"])) if reverse else manifest["families"]
             for entry in entries:

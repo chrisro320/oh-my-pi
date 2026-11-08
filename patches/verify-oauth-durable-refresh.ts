@@ -82,10 +82,10 @@ if (!existsSync(join(AI_ROOT, "src", "auth-storage.ts")) || !existsSync(join(AI_
 	process.exit(2);
 }
 const aiVersion = JSON.parse(readFileSync(join(AI_ROOT, "package.json"), "utf8")).version;
-assert.ok(["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion), `unsupported OAuth gate version: ${aiVersion}`);
-const hasExchangeReservation = ["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(aiVersion);
+assert.ok(["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion), `unsupported OAuth gate version: ${aiVersion}`);
+const hasExchangeReservation = ["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion);
 // Frozen 18.10.0 keeps reserve/stage/commit without the later unlock surface.
-const hasUnlockRevision = ["18.10.1", "18.12.6", "18.16.0"].includes(aiVersion);
+const hasUnlockRevision = ["18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(aiVersion);
 
 // ---------------------------------------------------------------------------
 // Local structural contracts for the selected tree. The module specifier is a
@@ -1066,7 +1066,7 @@ if (process.argv[2] === "--unlock-held-result") {
 	process.exit(0);
 }
 if (process.argv[2] === "--rotation-interrupt") {
-	assert.ok(["18.12.6", "18.16.0"].includes(aiVersion), "shutdown fixtures consume the exact target lifecycle");
+	assert.ok(["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion), "shutdown fixtures consume the exact target lifecycle");
 	const dir = realpathSync(process.argv[3]);
 	assert.ok(dir.startsWith(join(tmpdir(), "omp-oauth-verify-")), "rotation child may read only the synthetic gate store");
 	const id = Number(process.argv[4]);
@@ -1123,7 +1123,7 @@ if (process.argv[2] === "--rotation-interrupt") {
 	throw new Error("rotation child was not terminated at its required boundary");
 }
 
-if (["18.12.6", "18.16.0"].includes(aiVersion)) {
+if (["18.12.6", "18.16.0", "18.18.0"].includes(aiVersion)) {
 	for (const mode of ["sigterm", "staged-exit"]) {
 		await scenario(`target ${mode}: interrupted rotation is durably recoverable without another POST`, async () => {
 			await withCase(async c => {
@@ -2045,7 +2045,7 @@ if (hasExchangeReservation) {
 					return response.promise;
 				},
 			});
-			if (aiVersion === "18.16.0") {
+			if (["18.16.0", "18.18.0"].includes(aiVersion)) {
 				// 18.16.0 budgets the caller, not the exchange: the admitted exchange keeps
 				// running (and keeps renewing the row lease), so a retry can never begin a
 				// second exchange and the journal is consulted only under that lease.
@@ -2125,7 +2125,7 @@ if (hasExchangeReservation) {
 	// provider+staging continuation. These arms drive the exchange's own 60s ceiling
 	// through the ordinary OAuth path and prove both repairs, plus the refusal of an
 	// exchange nothing could publish and a caller abort that owns only its own wait.
-	if (aiVersion === "18.16.0") {
+	if (["18.16.0", "18.18.0"].includes(aiVersion)) {
 		await scenario("the exchange ceiling stages a late replacement and store close drains it", async () => {
 			const answer = Promise.withResolvers<Cred>();
 			const admitted = Promise.withResolvers<void>();
@@ -3112,7 +3112,7 @@ if (hasUnlockRevision) {
 					const staged = readStaged(rowId, expectedData);
 					if (!staged || phase === "none") return staged;
 					if (phase === "lease") {
-						if (aiVersion === "18.16.0") {
+						if (["18.16.0", "18.18.0"].includes(aiVersion)) {
 							// 18.16.0 budgets the caller, so advancing the shared clock past the
 							// lease TTL would also spend this call's refresh budget before the
 							// exchange exists. Hand the live lease to the peer instead: the
@@ -3545,7 +3545,7 @@ if (hasUnlockRevision) {
 			// 18.16.0 refuses a spent budget before admitting the exchange, so an
 			// abandoned attempt needs a live budget to reach the exchange it leaves behind.
 			await assert.rejects(
-				() => refresh(aiVersion === "18.16.0" ? 250 : 1),
+				() => refresh(["18.16.0", "18.18.0"].includes(aiVersion) ? 250 : 1),
 				/timed out/,
 				"the fixture's deadline must expire before its response",
 			);
@@ -3555,7 +3555,7 @@ if (hasUnlockRevision) {
 			assert.ok(timedOut.fence);
 			response.resolve({ type: "oauth", access: "unlock-k-1", refresh: "unlock-k-r1", expires: Date.now() + 3_600_000 });
 			await staged.promise;
-			if (aiVersion === "18.16.0") {
+			if (["18.16.0", "18.18.0"].includes(aiVersion)) {
 				// The abandoned attempt still owns the lease, so it publishes the late
 				// result itself: nothing is left to unlock and nothing is re-exchanged.
 				let published = false;
@@ -3939,7 +3939,7 @@ export const wrong = auth.oauth.inspectUnresolvedRefreshes("anthropic");
 	});
 }
 
-if (aiVersion === "18.16.0") {
+if (["18.16.0", "18.18.0"].includes(aiVersion)) {
 	// 18.16.0 arms for the two fail-closed surfaces the 0090 family keeps: a shared
 	// refresh always names the stored row it rotates, and a process that would mint
 	// locally refuses a store that cannot make the result durable.

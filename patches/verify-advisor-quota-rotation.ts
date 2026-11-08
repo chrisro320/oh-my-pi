@@ -84,7 +84,7 @@ if (AGENT_ROOT === LIVE_ROOT || AGENT_ROOT.startsWith(LIVE_ROOT + sep)) {
 }
 
 const version: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.equal(version, "18.16.0", "this gate pins the 18.16.0 tree; another version fails closed instead of skipping");
+assert.ok(["18.16.0", "18.18.0"].includes(version), "this gate pins the 18.16.0/18.18.0 tree; another version fails closed instead of skipping");
 
 // HOME must be private before process startup: Bun caches `os.homedir()` and
 // `Settings.isolated` derives its agent dir from it on first use.

@@ -1,0 +1,144 @@
+{
+  "step": "M8b full release oracle after the Q7/0031/0074/audit-compression family fixes",
+  "sandbox": "bwrap --ro-bind / / --tmpfs /tmp --bind /tmp/r2-run /tmp/r2-run --unshare-net --unshare-pid --die-with-parent, private HOME/XDG (/tmp/r2/bw.sh)",
+  "archives": "pinned official tarballs only, private caches; no download",
+  "commands": {
+    "oracle_18.18.0": "bw.sh python3 verify-release-family-plan.py --version 18.18.0 --tgz-cache /tmp/r2-run/r4-tgz",
+    "rollups_18.18.0": "bw.sh bash verify-patch-family-rollups.sh --version 18.18.0 --tgz-cache /tmp/r2-run/r4-tgz",
+    "oracle_18.16.0": "bw.sh python3 verify-release-family-plan.py --version 18.16.0 --tgz-cache /tmp/r2-run/m8-tgz-18160",
+    "rollups_18.16.0": "bw.sh bash verify-patch-family-rollups.sh --version 18.16.0 --tgz-cache /tmp/r2-run/m8-tgz-18160"
+  },
+  "exit_codes": {
+    "oracle_18.18.0": 0,
+    "rollups_18.18.0": 0,
+    "oracle_18.16.0": 0,
+    "rollups_18.16.0": 0
+  },
+  "oracle_18.18.0": {
+    "status": "PASS",
+    "version": "18.18.0",
+    "families": 24,
+    "capabilities": 59,
+    "upstream_adoptions": [
+      "0017",
+      "0078",
+      "0066",
+      "0072",
+      "0079",
+      "0062",
+      "0054"
+    ],
+    "retired_repairs": [
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "family-compaction",
+      "family-compaction",
+      "family-compaction",
+      "family-compaction",
+      "family-persistent-prefix-resume"
+    ],
+    "candidate_tree_sha256": "45f8a88791ceedbb3964eee645f1a5e105553e1b8c3ec22757274df83dd1a3ab",
+    "zero_fuzz": true,
+    "reverse_to_pristine": true,
+    "second_replay_identical": true,
+    "controller_check_read_only": true,
+    "behavioral_checks_run": false
+  },
+  "rollups_18.18.0": {
+    "status": "PASS",
+    "version": "18.18.0",
+    "families": 24,
+    "capabilities": 59,
+    "upstream_adoptions": [
+      "0017",
+      "0078",
+      "0066",
+      "0072",
+      "0079",
+      "0062",
+      "0054"
+    ],
+    "retired_repairs": [
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "family-compaction",
+      "family-compaction",
+      "family-compaction",
+      "family-compaction",
+      "family-persistent-prefix-resume"
+    ],
+    "candidate_tree_sha256": "45f8a88791ceedbb3964eee645f1a5e105553e1b8c3ec22757274df83dd1a3ab",
+    "zero_fuzz": true,
+    "reverse_to_pristine": true,
+    "second_replay_identical": true,
+    "controller_check_read_only": true,
+    "behavioral_checks_run": false
+  },
+  "oracle_18.16.0": {
+    "status": "PASS",
+    "version": "18.16.0",
+    "families": 26,
+    "capabilities": 62,
+    "upstream_adoptions": [
+      "0017",
+      "0078",
+      "0066",
+      "0072",
+      "0079",
+      "0062"
+    ],
+    "retired_repairs": [
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "family-compaction",
+      "family-compaction",
+      "family-compaction",
+      "family-compaction",
+      "family-persistent-prefix-resume"
+    ],
+    "candidate_tree_sha256": "35567dd8cf1a2f31ff0b8ed3c0671ca76c924933fe0d8d17052b0d3ae8be49ba",
+    "zero_fuzz": true,
+    "reverse_to_pristine": true,
+    "second_replay_identical": true,
+    "controller_check_read_only": true,
+    "behavioral_checks_run": false
+  },
+  "rollups_18.16.0": {
+    "status": "PASS",
+    "version": "18.16.0",
+    "families": 26,
+    "capabilities": 62,
+    "upstream_adoptions": [
+      "0017",
+      "0078",
+      "0066",
+      "0072",
+      "0079",
+      "0062"
+    ],
+    "retired_repairs": [
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "0090-omp-oauth-durable-refresh",
+      "family-compaction",
+      "family-compaction",
+      "family-compaction",
+      "family-compaction",
+      "family-persistent-prefix-resume"
+    ],
+    "candidate_tree_sha256": "35567dd8cf1a2f31ff0b8ed3c0671ca76c924933fe0d8d17052b0d3ae8be49ba",
+    "zero_fuzz": true,
+    "reverse_to_pristine": true,
+    "second_replay_identical": true,
+    "controller_check_read_only": true,
+    "behavioral_checks_run": false
+  },
+  "status": "PASS"
+}

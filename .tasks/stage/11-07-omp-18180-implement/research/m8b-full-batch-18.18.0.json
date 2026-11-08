@@ -1,0 +1,403 @@
+{
+  "step": "M8b final controller batch (after Q7/0031/0074/audit-compression/declaration/durability-control fixes)",
+  "driver": ".tasks/stage/11-07-omp-18180-implement/research/m8-run-target-gates.py (frozen by FixGates, sha256 cd6f155f\u2026)",
+  "command": "python3 m8-run-target-gates.py --repo . --runtime /var/tmp/omp-18180-m8b/runtime --out /var/tmp/omp-18180-m8b/full  (each gate: bwrap --unshare-net, private HOME/TMPDIR under /var/tmp = disk-backed)",
+  "runtime": "/var/tmp/omp-18180-m8b/runtime (M8 13-package closure + rebuilt addons; six patched packages from the final snapshot, byte-identical to it)",
+  "candidate_tree_sha256": "45f8a88791ceedbb3964eee645f1a5e105553e1b8c3ec22757274df83dd1a3ab",
+  "controller_sha256": "ec25d2828d2d09bc58e96ab2dc73e529c4c8e0fc0f3a5ad475839e4836b0abb4",
+  "selected_by_controller": 77,
+  "executed": 77,
+  "passed": 77,
+  "runtime_unchanged": true,
+  "instruments_unchanged": true,
+  "status": "PASS",
+  "gates": [
+    {
+      "gate": "verify-antigravity-envelope.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-prefix-cache-compaction.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-provider-image-budget.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-snapcompact-model-billing.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-devin-auth-cache.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-hindsight-recall-snapshot.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-interrupt-prune-symmetry.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-date-cwd-journal-prefix.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-session-transfer-authority.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-devin-metadata.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-supersede-warm-prefix-guard.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-snapcompact-frame-reprice.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-session-history-preview.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-native-dialog-lifecycle.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-manual-compaction-direct.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-context-notes-append-projection.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-devin-thinking-signature.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-devin-idle-cascade-pin.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-idle-ephemeral-reservation.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-resume-cache-breakpoint.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-codex-compaction-chain.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-anthropic-native-compaction-live-context.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-compaction-lane-trace.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-codex-effort-resume.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-codex-compaction-chain-fail-closed.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-session-pin-static-auth-ui.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-read-description-live.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-anthropic-cache-boundaries.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-hindsight-recall-promotion-slot.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-eval-state-context-persist.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-turn-recovery-reminder-persist.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-python-display-mime-preference.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-kitty-conversion-finalization.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-kitty-shared-png-cache.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-main-cache-hit.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-usage-reset-format.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-model-mention-surface-resume.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-prompt-effort-resume.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-model-selection-resume.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-anthropic-thinking-drop-resume.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-context-persist-audit.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-length-stop-reminder-persist.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-user-display-text-queue.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-rejected-prepared-draft-restore.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-compaction-cache-liveness.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-oauth-durable-refresh.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-oauth-unlock-fence-faults.sh",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-auth-unlock-extension.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-codex-account-eligibility-retention.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-google-account-eligibility-retention.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-cache-warming-idle-budget.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-cron-idle-owners.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-session-cache-keepalive.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-tls-verify-transient-retry.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-retry-slow-schedule.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-subagent-warm-revival-prompt.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-computer-control-confirm-deadline.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-extensions-load-18180.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-codex-text-verbosity.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-usage-statusline-gate.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-usage-thread-providers.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-compaction-live-chain-midnight.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-oauth-worker-single-owner.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-anthropic-threads-cache-shape.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-anthropic-threads-warm-compaction-isolation.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-worker-runtime.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-withdrawn-tools-wire.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-tool-schema-bytes.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-remote-compaction-target-key.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-compaction-length-stop.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-tokenizer-budget-parity.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-held-file-write-guard.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-advisor-quota-rotation.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-prompt-rebuild-inputs.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-provider-registry-lazy.ts",
+      "exit": 0,
+      "status": "PASS"
+    },
+    {
+      "gate": "verify-catalog-regen-parity.ts",
+      "exit": 0,
+      "status": "PASS"
+    }
+  ],
+  "evidence_dir": "/var/tmp/omp-18180-m8b/full (per-gate result.json, summary.json, runtime-sha256.json, ledger-sha256.json)",
+  "extensions_fixture": "canonical 15 companion modules staged from the private snapshot; payload-archive.ts replaced by the repo source"
+}

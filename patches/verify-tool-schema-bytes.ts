@@ -26,13 +26,14 @@ const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${nm}/pi-agent-core
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${nm}/pi-ai`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${nm}/pi-catalog`;
 
-// Fail closed on a plan this gate has no arm for: only the 18.16.0 controller
-// arm registers it, and the pinned request count belongs to that tree.
+// Fail closed on a plan this gate has no arm for: the 18.16.0 and 18.18.0
+// controller arms register it, and the pinned request count belongs to that tree.
+const PLAN_VERSIONS = ["18.16.0", "18.18.0"];
 const PLAN = process.env.OMP_PATCH_VERSION;
-assert.equal(PLAN, "18.16.0", `unsupported OMP_PATCH_VERSION for the tool schema bytes gate: ${PLAN}`);
+assert.ok(PLAN !== undefined && PLAN_VERSIONS.includes(PLAN), `unsupported OMP_PATCH_VERSION for the tool schema bytes gate: ${PLAN}`);
 const aiPackage: unknown = JSON.parse(readFileSync(join(AI_ROOT, "package.json"), "utf8"));
 assert.ok(
-	aiPackage !== null && typeof aiPackage === "object" && "version" in aiPackage && aiPackage.version === "18.16.0",
+	aiPackage !== null && typeof aiPackage === "object" && "version" in aiPackage && PLAN_VERSIONS.includes(String(aiPackage.version)),
 	`unsupported pi-ai tree version for the tool schema bytes gate: ${JSON.stringify(aiPackage)}`,
 );
 

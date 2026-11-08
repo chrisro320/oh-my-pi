@@ -1,0 +1,482 @@
+{
+  "step": "M8e final 77-gate batch after judgment marker + StageFix round 5",
+  "runtime": "/var/tmp/omp-18180-m8e/runtime (== work tree, diff -rq clean)",
+  "evidence_dir": "/var/tmp/omp-18180-m8e/full",
+  "command": "python3 research/m8-run-target-gates.py --repo . --runtime /var/tmp/omp-18180-m8e/runtime --out /var/tmp/omp-18180-m8e/full",
+  "candidate_digest": "f74e59923d16bdba7e19ebd24f6f2094d8a1195e4ac191f026c71858d0720f93",
+  "apply_sh_sha256": "3fb7725b66dc80bfeac3b9fe71108efe947c88a747136114cd4a8b4de1946a63",
+  "driver_sha256": "336db027aa9bfe3e1f487ed3bfce3969e964d897c71ac8c27e4115e5abd4e08b",
+  "selected": 77,
+  "executed": 77,
+  "tally": {
+    "PASS": 77
+  },
+  "runtime_unchanged": true,
+  "runtime_diff_gates": [],
+  "transient_runtime_mismatch_recurred": false,
+  "gates": [
+    {
+      "gate": "verify-antigravity-envelope.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-antigravity-envelope/result.json"
+    },
+    {
+      "gate": "verify-prefix-cache-compaction.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-prefix-cache-compaction/result.json"
+    },
+    {
+      "gate": "verify-provider-image-budget.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-provider-image-budget/result.json"
+    },
+    {
+      "gate": "verify-snapcompact-model-billing.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-snapcompact-model-billing/result.json"
+    },
+    {
+      "gate": "verify-devin-auth-cache.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-devin-auth-cache/result.json"
+    },
+    {
+      "gate": "verify-hindsight-recall-snapshot.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-hindsight-recall-snapshot/result.json"
+    },
+    {
+      "gate": "verify-interrupt-prune-symmetry.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-interrupt-prune-symmetry/result.json"
+    },
+    {
+      "gate": "verify-date-cwd-journal-prefix.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-date-cwd-journal-prefix/result.json"
+    },
+    {
+      "gate": "verify-session-transfer-authority.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-session-transfer-authority/result.json"
+    },
+    {
+      "gate": "verify-devin-metadata.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-devin-metadata/result.json"
+    },
+    {
+      "gate": "verify-supersede-warm-prefix-guard.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-supersede-warm-prefix-guard/result.json"
+    },
+    {
+      "gate": "verify-snapcompact-frame-reprice.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-snapcompact-frame-reprice/result.json"
+    },
+    {
+      "gate": "verify-session-history-preview.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-session-history-preview/result.json"
+    },
+    {
+      "gate": "verify-native-dialog-lifecycle.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-native-dialog-lifecycle/result.json"
+    },
+    {
+      "gate": "verify-manual-compaction-direct.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-manual-compaction-direct/result.json"
+    },
+    {
+      "gate": "verify-context-notes-append-projection.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-context-notes-append-projection/result.json"
+    },
+    {
+      "gate": "verify-devin-thinking-signature.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-devin-thinking-signature/result.json"
+    },
+    {
+      "gate": "verify-devin-idle-cascade-pin.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-devin-idle-cascade-pin/result.json"
+    },
+    {
+      "gate": "verify-idle-ephemeral-reservation.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-idle-ephemeral-reservation/result.json"
+    },
+    {
+      "gate": "verify-resume-cache-breakpoint.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-resume-cache-breakpoint/result.json"
+    },
+    {
+      "gate": "verify-codex-compaction-chain.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-codex-compaction-chain/result.json"
+    },
+    {
+      "gate": "verify-anthropic-native-compaction-live-context.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-anthropic-native-compaction-live-context/result.json"
+    },
+    {
+      "gate": "verify-compaction-lane-trace.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-compaction-lane-trace/result.json"
+    },
+    {
+      "gate": "verify-codex-effort-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-codex-effort-resume/result.json"
+    },
+    {
+      "gate": "verify-codex-compaction-chain-fail-closed.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-codex-compaction-chain-fail-closed/result.json"
+    },
+    {
+      "gate": "verify-session-pin-static-auth-ui.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-session-pin-static-auth-ui/result.json"
+    },
+    {
+      "gate": "verify-read-description-live.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-read-description-live/result.json"
+    },
+    {
+      "gate": "verify-anthropic-cache-boundaries.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-anthropic-cache-boundaries/result.json"
+    },
+    {
+      "gate": "verify-anthropic-request-audit.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-anthropic-request-audit/result.json"
+    },
+    {
+      "gate": "verify-hindsight-recall-promotion-slot.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-hindsight-recall-promotion-slot/result.json"
+    },
+    {
+      "gate": "verify-eval-state-context-persist.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-eval-state-context-persist/result.json"
+    },
+    {
+      "gate": "verify-turn-recovery-reminder-persist.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-turn-recovery-reminder-persist/result.json"
+    },
+    {
+      "gate": "verify-python-display-mime-preference.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-python-display-mime-preference/result.json"
+    },
+    {
+      "gate": "verify-kitty-conversion-finalization.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-kitty-conversion-finalization/result.json"
+    },
+    {
+      "gate": "verify-kitty-shared-png-cache.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-kitty-shared-png-cache/result.json"
+    },
+    {
+      "gate": "verify-main-cache-hit.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-main-cache-hit/result.json"
+    },
+    {
+      "gate": "verify-usage-reset-format.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-usage-reset-format/result.json"
+    },
+    {
+      "gate": "verify-model-mention-surface-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-model-mention-surface-resume/result.json"
+    },
+    {
+      "gate": "verify-prompt-effort-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-prompt-effort-resume/result.json"
+    },
+    {
+      "gate": "verify-model-selection-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-model-selection-resume/result.json"
+    },
+    {
+      "gate": "verify-anthropic-thinking-drop-resume.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-anthropic-thinking-drop-resume/result.json"
+    },
+    {
+      "gate": "verify-context-persist-audit.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-context-persist-audit/result.json"
+    },
+    {
+      "gate": "verify-length-stop-reminder-persist.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-length-stop-reminder-persist/result.json"
+    },
+    {
+      "gate": "verify-user-display-text-queue.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-user-display-text-queue/result.json"
+    },
+    {
+      "gate": "verify-rejected-prepared-draft-restore.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-rejected-prepared-draft-restore/result.json"
+    },
+    {
+      "gate": "verify-compaction-cache-liveness.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-compaction-cache-liveness/result.json"
+    },
+    {
+      "gate": "verify-oauth-durable-refresh.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-oauth-durable-refresh/result.json"
+    },
+    {
+      "gate": "verify-oauth-unlock-fence-faults.sh",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-oauth-unlock-fence-faults/result.json"
+    },
+    {
+      "gate": "verify-auth-unlock-extension.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-auth-unlock-extension/result.json"
+    },
+    {
+      "gate": "verify-codex-account-eligibility-retention.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-codex-account-eligibility-retention/result.json"
+    },
+    {
+      "gate": "verify-google-account-eligibility-retention.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-google-account-eligibility-retention/result.json"
+    },
+    {
+      "gate": "verify-cache-warming-idle-budget.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-cache-warming-idle-budget/result.json"
+    },
+    {
+      "gate": "verify-cron-idle-owners.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-cron-idle-owners/result.json"
+    },
+    {
+      "gate": "verify-session-cache-keepalive.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-session-cache-keepalive/result.json"
+    },
+    {
+      "gate": "verify-tls-verify-transient-retry.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-tls-verify-transient-retry/result.json"
+    },
+    {
+      "gate": "verify-retry-slow-schedule.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-retry-slow-schedule/result.json"
+    },
+    {
+      "gate": "verify-subagent-warm-revival-prompt.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-subagent-warm-revival-prompt/result.json"
+    },
+    {
+      "gate": "verify-computer-control-confirm-deadline.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-computer-control-confirm-deadline/result.json"
+    },
+    {
+      "gate": "verify-extensions-load-18180.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-extensions-load-18180/result.json"
+    },
+    {
+      "gate": "verify-codex-text-verbosity.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-codex-text-verbosity/result.json"
+    },
+    {
+      "gate": "verify-usage-statusline-gate.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-usage-statusline-gate/result.json"
+    },
+    {
+      "gate": "verify-usage-thread-providers.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-usage-thread-providers/result.json"
+    },
+    {
+      "gate": "verify-compaction-live-chain-midnight.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-compaction-live-chain-midnight/result.json"
+    },
+    {
+      "gate": "verify-oauth-worker-single-owner.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-oauth-worker-single-owner/result.json"
+    },
+    {
+      "gate": "verify-anthropic-threads-cache-shape.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-anthropic-threads-cache-shape/result.json"
+    },
+    {
+      "gate": "verify-anthropic-threads-warm-compaction-isolation.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-anthropic-threads-warm-compaction-isolation/result.json"
+    },
+    {
+      "gate": "verify-worker-runtime.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-worker-runtime/result.json"
+    },
+    {
+      "gate": "verify-withdrawn-tools-wire.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-withdrawn-tools-wire/result.json"
+    },
+    {
+      "gate": "verify-tool-schema-bytes.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-tool-schema-bytes/result.json"
+    },
+    {
+      "gate": "verify-remote-compaction-target-key.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-remote-compaction-target-key/result.json"
+    },
+    {
+      "gate": "verify-compaction-length-stop.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-compaction-length-stop/result.json"
+    },
+    {
+      "gate": "verify-tokenizer-budget-parity.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-tokenizer-budget-parity/result.json"
+    },
+    {
+      "gate": "verify-held-file-write-guard.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-held-file-write-guard/result.json"
+    },
+    {
+      "gate": "verify-advisor-quota-rotation.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-advisor-quota-rotation/result.json"
+    },
+    {
+      "gate": "verify-prompt-rebuild-inputs.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-prompt-rebuild-inputs/result.json"
+    },
+    {
+      "gate": "verify-provider-registry-lazy.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-provider-registry-lazy/result.json"
+    },
+    {
+      "gate": "verify-catalog-regen-parity.ts",
+      "exit": 0,
+      "status": "PASS",
+      "evidence": "/var/tmp/omp-18180-m8e/full/verify-catalog-regen-parity/result.json"
+    }
+  ],
+  "status": "PASS"
+}

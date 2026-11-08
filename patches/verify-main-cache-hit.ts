@@ -1,13 +1,13 @@
 // The footer reports primary assistant cache usage, not auxiliary model calls.
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/node_modules/@oh-my-pi`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
-const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
+const { SessionManager, SessionEntryIndex } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 const { SEGMENTS } = await import(`${TUI_ROOT}/src/status-line/segments.ts`);
 const { StatusLineComponent } = await import(`${TUI_ROOT}/src/status-line/component.ts`);
 const { Reconciler } = await import(`${TUI_ROOT}/src/native/reconcile.ts`);
@@ -138,6 +138,46 @@ try {
 	await manager.flush();
 	const reopened = await SessionManager.open(manager.getSessionFile()!);
 	assert.match(footer(reopened).content, /90\.00%/, "reloading the session rebuilds the primary-only ratio");
+	// 0081: the footer is re-targeted onto view sessions whose sessionManager is a
+	// hand-written literal; a missing method must hide the segment, never throw.
+	const bare = { sessionManager: { getUsageStatistics: () => manager.getUsageStatistics() } };
+	const bareHit = SEGMENTS.cache_hit.render({ session: bare, usageStats: manager.getUsageStatistics(), startupPlaceholder: false } as never);
+	assert.equal(bareHit.visible, false, "a view mirror without getMainCacheHitRate hides cache_hit instead of throwing");
+	const bareTurn = SEGMENTS.cache_turn.render({ session: { ...bare, state: { messages: [] }, messages: [] }, usageStats: manager.getUsageStatistics(), startupPlaceholder: false } as never);
+	assert.equal(bareTurn.visible, false, "a view mirror without getMainCacheHitRate hides cache_turn instead of throwing");
+	// 0081 mirror leg: RemoteAgentSession answers from its own SessionEntryIndex,
+	// so a mirror-shaped manager reports the same primary-only ratio.
+	const mirrorIndex = new SessionEntryIndex();
+	mirrorIndex.rebuild(manager.getEntries());
+	const mirror = {
+		getUsageStatistics: () => manager.getUsageStatistics(),
+		getMainCacheHitRate: () => mirrorIndex.mainCacheHitRate(),
+	};
+	const mirrorMessages = manager.getBranch().filter((entry: { type: string }) => entry.type === "message").map((entry: { message: unknown }) => entry.message);
+	const mirrorCtx = { session: { sessionManager: mirror, messages: mirrorMessages, state: { messages: mirrorMessages } }, usageStats: manager.getUsageStatistics(), startupPlaceholder: false };
+	assert.match(SEGMENTS.cache_hit.render(mirrorCtx as never).content, /90\.00%/, "the worker-session mirror reports the primary-only ratio from its index");
+	const mirrorTurn = SEGMENTS.cache_turn.render(mirrorCtx as never).content.replace(/\x1b\[[0-9;]*m/g, "");
+	assert.ok(mirrorTurn.endsWith("90.0% /90.00%"), `the mirror keeps the settled-turn/main pairing, got ${JSON.stringify(mirrorTurn)}`);
+	// 0033: a long git branch keeps both ends within the 16-cell footer budget.
+	const longBranch = "feature/very-long-branch-name";
+	const gitCtx = { git: { branch: longBranch, status: null }, options: {} };
+	const stripped = SEGMENTS.git.render(gitCtx as never).content.replace(/\x1b\[[0-9;]*m/g, "");
+	assert.ok(stripped.endsWith("feature\u2026nch-name"), `long branch must be middle-truncated at 16 cells, got ${JSON.stringify(stripped)}`);
+	assert.ok(!stripped.includes(longBranch), "the full branch name must not survive the footer budget");
+	assert.equal(SEGMENTS.git.describe(gitCtx as never)?.spans?.map((part: { t?: string }) => part.t).join(""), "feature\u2026nch-name", "native git twin truncates the same way");
+	const shortBranch = { git: { branch: "main", status: null }, options: {} };
+	assert.ok(SEGMENTS.git.render(shortBranch as never).content.includes("main"), "a short branch is untouched");
+	// 0033: the reset-credit count stays a bare flame glyph + count.
+	const credits = { usage: { resetCredits: { bankedCount: 3, redeemableCount: 0 } }, options: {} };
+	const creditLine = SEGMENTS.usage.render(credits as never).content.replace(/\x1b\[[0-9;]*m/g, "");
+	assert.ok(creditLine.endsWith("\u27263"), `reset credits render as a bare glyph count, got ${JSON.stringify(creditLine)}`);
+	assert.equal(SEGMENTS.usage.describe(credits as never)?.spans?.map((part: { t?: string }) => part.t).join(""), "\u27263", "native usage twin shows the bare count");
+	// 0081: the optional call is the contract; a required call would crash every view mirror.
+	const segmentSource = readFileSync(`${TUI_ROOT}/src/status-line/segments.ts`, "utf8");
+	assert.equal((segmentSource.match(/getMainCacheHitRate\?\.\(\)/g) ?? []).length, 3, "all three cache reads must optional-call the member");
+	assert.ok(!/getMainCacheHitRate\(\)/.test(segmentSource), "no required-call site may survive in the footer");
+	const mirrorSource = readFileSync(`${AGENT_ROOT}/src/thread/remote-agent-session.ts`, "utf8");
+	assert.ok(mirrorSource.includes("getMainCacheHitRate: () => this.#entryIndex.mainCacheHitRate()"), "RemoteAgentSession must implement the member from its index");
 	assert.equal(reopened.getUsageStatistics().input, 9200, "reloading preserves aggregate billing usage");
 	assertStatusSurfaces(reopened, 12180);
 	console.log("verify-main-cache-hit: ANSI/native main-only cache rate and cache-inclusive totals survive reload");

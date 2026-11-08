@@ -40,11 +40,11 @@ const agentVersion = String(
 // removeQueuedMessage (the queue identity leg) exists from 18.4.4; the resume leg
 // is version independent. A tree outside the supported set must fail, never skip.
 assert.ok(
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion),
+	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.18.0"].includes(agentVersion),
 	`user display text gate: unsupported selected tree version ${agentVersion}`,
 );
-const hasQueueRemoval = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6"].includes(agentVersion);
-const hasQueuePolicySplit = ["18.10.1", "18.12.6"].includes(agentVersion);
+const hasQueueRemoval = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.18.0"].includes(agentVersion);
+const hasQueuePolicySplit = ["18.10.1", "18.12.6", "18.18.0"].includes(agentVersion);
 const ABORT_DRAIN_MARKER = "QUEUE_ABORT_DRAIN_OK";
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
@@ -128,6 +128,34 @@ function textOf(content: unknown): string {
 		.join("");
 }
 
+/**
+ * 18.18.0 prepends the date/cwd reminder to the first user turn of a request
+ * (`date-cwd-reminder.ts`: `[{type:"text", text: reminder}, ...content]`).
+ * Validate that known prefix — including the fixture cwd — and return the model
+ * text that follows it, so the wire assertion stays a `startsWith`: an
+ * unexpected prefix still fails instead of being tolerated.
+ */
+function stripDateCwdReminder(wire: string, expectedCwd: string): string {
+	const open = "<system-reminder>\nToday: ";
+	assert.ok(
+		wire.startsWith(open),
+		`18.18.0 wire must begin with the date/cwd reminder: ${JSON.stringify(wire.slice(0, 160))}`,
+	);
+	const rest = wire.slice(open.length);
+	const separator = "; current working directory: ";
+	const at = rest.indexOf(separator);
+	assert.ok(at > 0, `18.18.0 reminder has no cwd separator: ${JSON.stringify(rest.slice(0, 160))}`);
+	assert.match(rest.slice(0, at), /^\d{4}-\d{2}-\d{2}$/, "18.18.0 reminder date must be YYYY-MM-DD");
+	const tail = rest.slice(at + separator.length);
+	const expectedTail = `'${expectedCwd}'. Do not repeat this information in your reply.\n</system-reminder>`;
+	assert.ok(
+		tail.startsWith(expectedTail),
+		`18.18.0 reminder must name the fixture cwd ${expectedCwd}: ${JSON.stringify(tail.slice(0, 200))}`,
+	);
+	const body = tail.slice(expectedTail.length);
+	return body.startsWith("\n\n") ? body.slice(2) : body;
+}
+
 try {
 	// ── 1. resume keeps model text and display text ─────────────────────────
 	{
@@ -144,11 +172,15 @@ try {
 			assert.equal(liveText, "hello", "live content is the model text");
 			assert.ok(!liveText.includes("\u4f60\u597d"), "the original text never reaches the model-side content");
 			assert.equal(liveUser[0].displayText, "\u4f60\u597d", "live displayText is the original");
-			// The provider tail (date/cwd reminder) is appended on the wire only.
-			assert.ok(
-				textOf((model.calls[0].context.messages as UserLike[])[0].content).startsWith(liveText),
-				"wire carries the model-side content",
-			);
+			// The date/cwd reminder rides the wire only. 18.18.0 stamps it onto the
+			// first user turn (prepended text block, date-cwd-reminder.ts:126-132);
+			// older plans appended it at the tail (or not at all). Validate and
+			// strip the known 18.18.0 reminder, then assert the original prefix
+			// contract again: a garbage or unexpected prefix must go red.
+			const wireText = textOf((model.calls[0].context.messages as UserLike[])[0].content);
+			const wireModelText = agentVersion === "18.18.0" ? stripDateCwdReminder(wireText, cwd) : wireText;
+			assert.ok(wireModelText.startsWith(liveText), "wire model text starts with the model-side content");
+			assert.ok(!wireText.includes("\u4f60\u597d"), "the original text never reaches the provider wire");
 
 			const sessionFile = manager.getSessionFile();
 			assert.ok(sessionFile, "session must be file-backed");

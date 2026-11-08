@@ -35,15 +35,15 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${os.homedir()}/.bun/install/glob
 const TUI_ROOT = process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? `${NM}/pi-tui`;
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const agentVersion = JSON.parse(fs.readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
-const movedUi = ["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion);
+assert.ok(["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion), `unsupported preview version: ${agentVersion}`);
+const movedUi = ["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion);
 /**
  * 18.16.0 replaced 0050's `Space` preview with a side preview the picker itself
  * renders (Q9): the selector takes no transcript loader, so this arm asserts
  * only the last-model column 0050 still adds, plus a smoke that upstream's
  * preview still renders the selected session with that column present.
  */
-const upstreamPickerPreview = agentVersion === "18.16.0";
+const upstreamPickerPreview = ["18.16.0", "18.18.0"].includes(agentVersion);
 
 assert.ok(fs.existsSync(AGENT_ROOT), `OMP_PATCH_VERIFY_AGENT_ROOT does not exist: ${AGENT_ROOT}`);
 if (movedUi) assert.ok(fs.existsSync(TUI_ROOT), `OMP_PATCH_VERIFY_TUI_ROOT does not exist: ${TUI_ROOT}`);
@@ -70,7 +70,7 @@ const { listSessions } = await import(`${AGENT_ROOT}/src/session/session-listing
 const { FileSessionStorage } = await import(`${AGENT_ROOT}/src/session/session-storage.ts`);
 const { loadSessionMessagesReadOnly } = await import(`${AGENT_ROOT}/src/session/session-loader.ts`);
 // Native wire materialization is version-selected, never selected by symbol presence.
-const Reconciler = ["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)
+const Reconciler = ["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)
 	? (await import(`${TUI_ROOT}/src/native/reconcile.ts`)).Reconciler
 	: undefined;
 
@@ -531,7 +531,7 @@ const temporaryThenFallbackPath = writeModelSession("temporary-then-fallback", [
 ]);
 const emptyPath = writeModelSession("empty", []);
 const midFileSwitchPath =
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)
+	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)
 		? writeModelSession("mid-file-switch", [
 				modelChange("prov/configured-model"),
 				{ type: "message", message: { role: "user", content: "x".repeat(6_000) } },
@@ -541,7 +541,7 @@ const midFileSwitchPath =
 			])
 		: undefined;
 const fallbackAfterGapPath =
-	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)
+	["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)
 		? writeModelSession("fallback-after-gap", [
 				modelChange("prov/configured-model"),
 				{ type: "message", message: { role: "user", content: "x".repeat(33_000) } },
@@ -678,7 +678,7 @@ console.log(
 
 // R2: cancellation belongs to the real selector->session transaction. A
 // departed session from a removed worktree must not fork/relocate beforehand.
-if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)) {
+if (["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) {
 	const { SessionManager } = await import(`${AGENT_ROOT}/src/session/session-manager.ts`);
 	const { sessionDirForCwd } = await import(`${AGENT_ROOT}/src/session/session-paths.ts`);
 	const { markSessionMoved } = await import(`${AGENT_ROOT}/src/session/session-transfer.ts`);
@@ -695,7 +695,7 @@ if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)) {
 	// entry of the session JSONL; through 18.12.6 placements lived in a
 	// per-session anchor artifact next to it. Both are session-owned bytes a
 	// cancelled resume must leave untouched.
-	const journaledReminders = agentVersion === "18.16.0";
+	const journaledReminders = ["18.16.0", "18.18.0"].includes(agentVersion);
 	const cwd = path.join(FIXTURE_ROOT, "selector-repository");
 	fs.mkdirSync(cwd);
 	const init = Bun.spawnSync(["git", "init", "--quiet", cwd], {

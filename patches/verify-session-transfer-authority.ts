@@ -12,7 +12,7 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const AGENT_VERSION = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.ok(["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(AGENT_VERSION),
+assert.ok(["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(AGENT_VERSION),
 	"session transfer authority gate requires the selected public transfer APIs");
 const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
 const root = mkdtempSync(join(tmpdir(), "omp-transfer-authority-"));
@@ -23,6 +23,8 @@ Object.assign(process.env, {
 	HOME: root, XDG_CONFIG_HOME: join(root, "config"), XDG_CACHE_HOME: join(root, "cache"),
 	XDG_DATA_HOME: join(root, "data"), XDG_STATE_HOME: join(root, "state"),
 	TMUX_PANE: "%durability-inode",
+	// Kept for the forced-worker fixture and probe entry, which resolve this tree by env.
+	OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT, OMP_PATCH_VERIFY_AI_ROOT: AI_ROOT,
 });
 process.on("exit", () => rmSync(root, { recursive: true, force: true }));
 // Private HOME must also precede runtime startup (os.homedir may be cached).
@@ -48,7 +50,7 @@ const { DateCwdReminderInjector, DATE_CWD_ANCHORS_ARTIFACT, readDateCwdAnchors, 
 const { readArchiveEntries, writeArchive } = await import(Bun.resolveSync("@oh-my-pi/pi-utils/ar", AGENT_ROOT));
 // 18.16.0 journals every reminder placement as a `date-cwd-reminder` custom entry of
 // the session JSONL; through 18.12.6 placements lived in a per-session anchor artifact.
-const JOURNAL_PLACEMENTS = AGENT_VERSION === "18.16.0";
+const JOURNAL_PLACEMENTS = ["18.16.0", "18.18.0"].includes(AGENT_VERSION);
 /** The archive artifact whose staged publication the cross-device fixture forces to fail. */
 const STAGED_ARTIFACT = JOURNAL_PLACEMENTS ? "sentinel.bin" : DATE_CWD_ANCHORS_ARTIFACT;
 const cwd = join(root, "work");
@@ -620,6 +622,82 @@ try {
 		session.sessionManager.appendMessage({ role: "user", content: "write on adopted fork", timestamp: 5 });
 		await session.sessionManager.flush();
 		assert.equal(readFileSync(moved.file, "utf8"), departedBytes, "a switched writer cannot append to the departed source");
+
+		// Q1 (18.18.0 worker mode): ownership across threads. A worker thread has its own module
+		// state, so the per-thread lease map cannot see main's claim; only the OS lease can. While
+		// one thread owns a session the other must get an explicit refusal (adoption, claim, pack),
+		// never a sibling fork, a new ID, a moved path, or journal bytes from a second writer.
+		const { workerPoolForTests } = await import("./worker-pool-for-tests.ts");
+		interface ProbeLink { call(method: "probe", request: Record<string, unknown>): Promise<Record<string, unknown>> }
+		const crossThread = await archiveFixture("cross-thread", false, cwd, false, false);
+		const crossArchive = join(root, "cross-thread-probe.omp-session");
+		const crossTree = () => snapshotTree(crossThread.sessionDir);
+		const pool = await workerPoolForTests({ entry: new URL("./worker-session-lease-probe.ts", import.meta.url) });
+		try {
+			const placement = await pool.acquireWorker();
+			try {
+				const peer: unknown = placement.worker;
+				assert.ok(typeof peer === "object" && peer !== null && "link" in peer, "pool must place the probe on a real worker thread");
+				const link = peer.link as ProbeLink;
+				const probe = (request: Record<string, unknown>) => link.call("probe", request);
+				const refused = (result: Record<string, unknown>, what: string) => {
+					assert.equal(result.outcome, what === "claim" ? "denied" : "refused", `worker ${what} must be refused: ${JSON.stringify(result)}`);
+					if (result.outcome === "refused") assert.match(String(result.message), /live|another|owns|Cannot/i);
+				};
+
+				// Main owns; the worker is refused on every route that could take or fork the session.
+				const owner = await SessionManager.open(crossThread.file);
+				try {
+					await owner.adoptForWrite();
+					owner.appendMessage({ role: "user", content: "main owns the session", timestamp: 20 });
+					await owner.flush();
+					const ownedBytes = readFileSync(crossThread.file, "utf8");
+					const ownedTree = crossTree();
+					refused(await probe({ op: "adopt", file: crossThread.file }), "adopt");
+					refused(await probe({ op: "claim", id: crossThread.id, file: crossThread.file, exclusive: true }), "claim");
+					refused(await probe({ op: "claim", id: crossThread.id, file: crossThread.file, exclusive: false }), "claim");
+					refused(await probe({ op: "pack", file: crossThread.file, archive: crossArchive }), "pack");
+					assert.equal(owner.getSessionId(), crossThread.id, "the owner keeps its session ID");
+					assert.equal(owner.getSessionFile(), crossThread.file, "the owner keeps its session path");
+					assert.equal(readFileSync(crossThread.file, "utf8"), ownedBytes, "a refused worker leaves the journal untouched");
+					assert.deepEqual(crossTree(), ownedTree, "a refused worker creates no sibling file");
+					assert.equal(existsSync(crossArchive), false, "a refused worker pack publishes no archive");
+				} finally {
+					await owner.close();
+				}
+
+				// Main released; the worker adopts the same ID at the same path, still without a sibling.
+				const treeAtRelease = crossTree();
+				const adopted = await probe({ op: "adopt", file: crossThread.file });
+				assert.deepEqual({ ...adopted }, { outcome: "granted", id: crossThread.id, file: crossThread.file },
+					"revival on the worker keeps the session ID and path");
+				assert.deepEqual(crossTree(), treeAtRelease, "worker revival creates no sibling file");
+
+				// The worker owns; main is refused with the explicit error, and the files stay put.
+				const workerBytes = readFileSync(crossThread.file, "utf8");
+				const contender = await SessionManager.open(crossThread.file);
+				try {
+					await assert.rejects(() => contender.adoptForWrite(), /another writer|transfer owns|live/i,
+						"main adoption must be refused while the worker holds the lease");
+				} finally {
+					await contender.close();
+				}
+				assert.equal(new FileSessionStorage().claimSession(crossThread.id, crossThread.file, { exclusive: true }), null,
+					"main exclusive claim must be denied while the worker holds the lease");
+				await assert.rejects(() => packSession(crossThread.file, crossArchive), /live omp process|another/i);
+				assert.equal(readFileSync(crossThread.file, "utf8"), workerBytes, "main cannot write over the worker's journal");
+				assert.deepEqual(crossTree(), treeAtRelease, "a refused main creates no sibling file");
+
+				// After the worker lets go, main takes the same session again.
+				assert.equal((await probe({ op: "release" })).outcome, "released");
+				const retake = new FileSessionStorage().claimSession(crossThread.id, crossThread.file, { exclusive: true });
+				try { assert.ok(retake, "main must acquire once the worker released the lease"); } finally { retake?.(); }
+			} finally {
+				placement.release();
+			}
+		} finally {
+			pool.dispose();
+		}
 	} finally {
 		await session.dispose();
 		authStorage.close();

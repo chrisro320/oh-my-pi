@@ -1,0 +1,19 @@
+{
+  "step": "0054 consumer proof re-run for M8",
+  "positive": {
+    "command": "bwrap ... bun patches/verify-antigravity-envelope.ts (OMP_PATCH_VERIFY_NM/AI_ROOT = candidate runtime)",
+    "where": "covered by the m8 gate batch receipt (verify-antigravity-envelope.ts) and by leg-level runs on /var/tmp/omp-18180-m8/runtime"
+  },
+  "negative_control": {
+    "fixture": "/var/tmp/omp-18180-m8/neg0054 \u2014 hardlink copy of the candidate runtime with one change: `requestType: \"agent\"` added to the Antigravity envelope returned by buildRequest",
+    "command": "bwrap ... env OMP_PATCH_VERIFY_NM=<fixture>/node_modules/@oh-my-pi OMP_PATCH_VERIFY_AI_ROOT=<fixture>/node_modules/@oh-my-pi/pi-ai bun patches/verify-antigravity-envelope.ts",
+    "exit_code": 1,
+    "verbatim_error": "AssertionError: 0054: requestType must be absent",
+    "actual": "'agent'",
+    "expected": "undefined",
+    "fails_at": "patches/verify-antigravity-envelope.ts:42:8",
+    "candidate_runtime_unmodified": true
+  },
+  "record": "patches/.retired/11-07-0054-upstream-adopted/consumer-proof-0054.md",
+  "manifest_row": "0054 -> .retired/11-07-0054-upstream-adopted/consumer-proof-0054.md"
+}

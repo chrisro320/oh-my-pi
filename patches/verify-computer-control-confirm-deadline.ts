@@ -34,9 +34,9 @@ const live = resolve(homedir(), ".bun/install/global/node_modules/@oh-my-pi/pi-c
 if (root === live || root.startsWith(live + sep)) throw new Error("refusing to verify against the live install");
 const tuiRoot = realpathSync(resolve(process.env.OMP_PATCH_VERIFY_TUI_ROOT ?? join(root, "..", "pi-tui")));
 
-// 0102 is an 18.16.0-only capability: a tree without the branch under test must not fall through to a green run.
+// 0102 is an 18.16.0 capability: a tree without the branch under test must not fall through to a green run.
 const version: string = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
-assert.equal(version, "18.16.0", `unsupported computer-control gate version: ${version}`);
+assert.ok(["18.16.0", "18.18.0"].includes(version), `unsupported computer-control gate version: ${version}`);
 
 const CAP_MS = 60_000;
 

@@ -31,10 +31,10 @@ import type { Model } from "@oh-my-pi/pi-ai";
 
 const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion),
 	`verify-idle-ephemeral-reservation: unsupported selected tree version ${agentVersion}`,
 );
-const hasSubmissionWindow = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion);
+const hasSubmissionWindow = ["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion);
 
 const { createMockModel, registerMockApi } = await import(`${AI_ROOT}/src/providers/mock.ts`);
 const { createAgentSession, discoverAuthStorage } = await import(`${AGENT_ROOT}/src/sdk.ts`);
@@ -53,7 +53,7 @@ async function createTestSession(
 	mkdirSync(cwd, { recursive: true });
 	const agentDir = join(cwd, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,
@@ -652,6 +652,35 @@ try {
 			globalThis.fetch = originalFetch;
 		}
 	}
+
+	// Host completeness (extension-runtime-contracts 77-79): every host object
+	// that hands extensions `getSystemPrompt` must also hand them the idle
+	// side-turn hook, or /cron's keepalive cannot reserve on that surface.
+	const HOST_SITES: Array<[string, number]> = [
+		["src/modes/runtime-init.ts", 1],
+		["src/modes/acp/acp-agent.ts", 1],
+		["src/modes/controllers/extension-ui-controller.ts", 2],
+		["src/extensibility/extensions/runner.ts", 1],
+		["src/session/agent-session.ts", 1],
+	];
+	let hostSites = 0;
+	for (const [relative, expected] of HOST_SITES) {
+		const source = readFileSync(join(AGENT_ROOT, relative), "utf8");
+		let from = 0;
+		for (let site = 0; site < expected; site++) {
+			const at = source.indexOf("getSystemPrompt:", from);
+			assert.ok(at >= 0, `${relative}: expected ${expected} getSystemPrompt host constructions`);
+			const line = source.slice(0, at).split("\n").length;
+			assert.ok(
+				/runIdleEphemeralTurn(?![A-Za-z])/.test(source.slice(at, at + 2000)),
+				`${relative}:${line} getSystemPrompt host lacks runIdleEphemeralTurn`,
+			);
+			from = at + 1;
+			hostSites++;
+		}
+	}
+	assert.equal(hostSites, 6, "the 0010 host surface is five files / six constructions");
+	console.log(`idle ephemeral reservation verification: ${hostSites} extension hosts supply runIdleEphemeralTurn`);
 
 	console.log(`idle ephemeral reservation verification: ok (${agentVersion})`);
 } finally {

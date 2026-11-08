@@ -1,0 +1,39 @@
+{
+  "step": "M8 manifest evidence durability",
+  "problem": "`.18.18.0-families/manifest.json` adoption `evidence` pointed into `.tasks/stage/11-07-omp-18180-upgrade-plan/research/`, and the inherited rows pointed at `.trellis/tasks/11-03-omp-18160-upgrade-plan/research/` and `.trellis/tasks/10-23-omp-upgrade-plan/research/` \u2014 all three move (or already moved) when those tasks are archived, so a release artifact referenced a path that only existed while a task was live.",
+  "convention": "`patches/.retired/<date>-<slug>/` already holds durable release evidence next to the bytes it belongs to (e.g. `.retired/09-15-0051-upstream-adopted/`, whose frozen patch is recorded in PATCHES.md); `patches/native/18.18.0/overlay.json` keeps build provenance the same way.",
+  "resolution": {
+    "single_source": ".tasks/stage/11-07-omp-18180-implement/research/rebase-families-18.18.0.py `export` now builds the adoption rows itself: `ADOPTION_EVIDENCE` / `ADOPTION_EVIDENCE_0054` constants rewrite every inherited row that has an `evidence` key and add 0054's own record. Re-running `export` reproduces the manifest rows byte-for-byte, so the field is never hand-edited.",
+    "0054": "`0054` points at its own consumer-proof record (`.retired/11-07-0054-upstream-adopted/consumer-proof-0054.md`), not at a shared plan document.",
+    "inherited": "`0078`, `0066`, `0072`, `0079`, `0062` point at `.retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md`, which carries the 18.18.0 file:line re-verification and names the archived 18.16.0 source records for provenance.",
+    "0017": "unchanged: it has never carried an `evidence` row; its contract is proven by `verify-prefix-cache-compaction`.",
+    "path_convention": "both new values are patches-relative, like the `patch` field in the same manifest row set"
+  },
+  "manifest_rows": {
+    "0017": null,
+    "0078": ".retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md",
+    "0066": ".retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md",
+    "0072": ".retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md",
+    "0079": ".retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md",
+    "0062": ".retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md",
+    "0054": ".retired/11-07-0054-upstream-adopted/consumer-proof-0054.md"
+  },
+  "evidence_files": {
+    "patches/.retired/11-07-18.18.0-upstream-adoptions/adoptions-18.18.0.md": "ea7e1c46f45a10b71b398e3becce7053fbbd3db8bac6b9063851f23fef4e717f",
+    "patches/.retired/11-07-0054-upstream-adopted/consumer-proof-0054.md": "aee282465b2b6547a112bcbec884514dd3cc659c9ff48f473e362d0354b31c36"
+  },
+  "checks": {
+    "every_manifest_evidence_path_resolves": {
+      "0017": null,
+      "0078": true,
+      "0066": true,
+      "0072": true,
+      "0079": true,
+      "0062": true,
+      "0054": true
+    },
+    "oracle_contract_only": "PASS after export (24 families, 59 capabilities, 7 adoptions, no unfinalized digests)",
+    "oracle_full": "PASS (m8-oracle-18.18.0.json)"
+  },
+  "note": "PATCHES.md still describes 0054 as 'kept rather than adopted' for 18.16.0; it is outside this task's edit scope (other-work file) and M7 already flagged the PATCHES.md companion/version notes as a pre-activation item."
+}

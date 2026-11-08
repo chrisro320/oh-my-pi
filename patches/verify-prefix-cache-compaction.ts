@@ -67,7 +67,7 @@ const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-cata
 // Read once, before any assertion: 0088 turns the split history leg into the
 // live-chain shape, and older plans must keep pinning the truncated request.
 const agentVersion = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-const liveChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion);
+const liveChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion);
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { compact, generateSummary, prepareCompaction } = await import(`${CORE_ROOT}/src/compaction/compaction.ts`);
 const { prefixCarriesCompactionSummary, sharesActivePromptCacheIdentity } = await import(
@@ -791,12 +791,15 @@ assert.notDeepEqual(
 // 0017 is upstream-owned in 18.10: self-contained Responses history is replayable
 // immediately, but a connection-bound host must first accept a real completion.
 // Observe the real stream consumer's HTTP input, not private warmth state.
-if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)) {
+if (["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) {
 	const { streamOpenAIResponses } = await import(`${AI_ROOT}/src/providers/openai-responses.ts`);
 	const responsesBase = getBundledModel("openai", "gpt-5.6");
 	assert.ok(responsesBase, "bundled openai/gpt-5.6 must exist");
 	assert.equal(responsesBase.api, "openai-responses");
 	const opaqueReasoning = "offline-native-reasoning-0017";
+	// Control: the arm is only meaningful if it ran. Both the ordinary and the
+	// connection-bound history must each observe two turns.
+	let nativeHistoryRequests = 0;
 	for (const connectionBoundNativeHistory of [false, true]) {
 		const responsesModel = {
 			...responsesBase,
@@ -869,6 +872,7 @@ if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)) {
 				const result = await streamOpenAIResponses(responsesModel, history, options).result();
 				assert.equal(result.stopReason, "stop", result.errorMessage);
 				assert.equal(requests.length, turn + 1, "warming must not depend on an extra retry");
+				nativeHistoryRequests += 1;
 				const request = requests[turn];
 				assert.equal(request.previous_response_id, undefined, "this fixture must observe full native replay rather than a stateful delta");
 				assert.equal(
@@ -881,6 +885,7 @@ if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)) {
 			for (const state of states.values()) state.close();
 		}
 	}
+	assert.equal(nativeHistoryRequests, 4, "the 0017 native-replay fixture must run both histories for two turns on every admitted plan");
 }
 
 
@@ -888,7 +893,7 @@ if (["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)) {
 // summary is already present. Exercise the production predicate directly;
 // actual host callback ownership belongs to the host consumer gates.
 assert.ok(
-	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion),
+	["18.1.14", "18.1.18", "18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion),
 	`unsupported prefix gate version: ${agentVersion}`,
 );
 // The 18.1.14 carry-over predates this helper contract.

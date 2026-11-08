@@ -17,8 +17,8 @@ const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 const version = String(
 	(JSON.parse(readFileSync(`${AI}/package.json`, "utf8")) as { version?: string }).version ?? "",
 );
-assert.ok(["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(version), `unsupported thinking-drop resume gate version: ${version}`);
-const serverManagedDrops = ["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(version);
+assert.ok(["18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(version), `unsupported thinking-drop resume gate version: ${version}`);
+const serverManagedDrops = ["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(version);
 
 // Static imports cannot work here: the tree under test is selected at runtime by
 // env (pristine / patched / fault), so the module specifiers are data, not
@@ -36,7 +36,7 @@ const SIG_B = "sealed.v1.9d7e3a1b5c204f68";
 
 type WireBlock = { type: string; signature?: string; data?: string; text?: string };
 type WireMessage = { role: string; content: string | WireBlock[] };
-type WireBody = { messages: WireMessage[] };
+type WireBody = { messages: WireMessage[]; thread?: { type: string } };
 type FixtureBlock = { type: string; text?: string; thinking?: string; thinkingSignature?: string; data?: string };
 type FixtureMessage = {
 	role: string;
@@ -175,13 +175,14 @@ function assistant(content: FixtureBlock[], timestamp: number, model = fixtureMo
 	};
 }
 
-async function request(state, context, model = fixtureModel, client?: unknown, fallbackModel?: string): Promise<RecordedResponse> {
+async function request(state, context, model = fixtureModel, client?: unknown, fallbackModel?: string, threaded = false): Promise<RecordedResponse> {
 	const result = await streamAnthropic(model, context, {
 		apiKey: "offline-fixture",
 		fetch: transport,
 		client,
 		...(fallbackModel ? { fallbacks: [{ model: fallbackModel }] } : {}),
 		providerSessionState: state,
+		...(threaded ? { sessionId: "thinking-thread-session" } : {}),
 		thinkingEnabled: true,
 		reasoning: "high",
 	}).result();
@@ -427,6 +428,35 @@ const opaqueResponse = await request(new Map(), clientContext, fixtureModel, opa
 assert.ok(hasThinking(wire.at(-1)!, SIG_A), "unknown endpoint cannot restore a scoped invalidation");
 assert.equal(replayRecord(opaqueResponse), undefined, "unknown endpoint cannot persist an invented scope");
 plan = () => [];
+
+if (version === "18.18.0") {
+	const savedSwitch = process.env.PI_ANTHROPIC_MESSAGE_THREADS;
+	process.env.PI_ANTHROPIC_MESSAGE_THREADS = "1";
+	try {
+		const threadModel = { ...fixtureModel, baseUrl: "http://127.0.0.1:47835" };
+		const threadState = new Map();
+		const threadContext = { systemPrompt: "stable thread prompt", messages: [user("first", 1), assistant(boundContent, 2), user("next", 3)] };
+		const start = wire.length;
+		failNext = prefixBindingError;
+		const repaired = await request(threadState, threadContext, threadModel, undefined, undefined, true);
+		assert.equal(wire[start]?.thread?.type, "create", "thread repair must start on an enabled thread");
+		assert.ok(replayRecord(repaired), "threaded prefix repair must record durable omissions");
+		assert.ok(!hasThinking(wire.at(-1)!, SIG_A), "thread repair omits rejected signed blocks");
+		const saved = JSON.parse(JSON.stringify({ ...threadContext, messages: [...threadContext.messages, repaired, user("thread next", 4)] }));
+		const resumedState = new Map();
+		const first = await request(resumedState, saved, threadModel, undefined, undefined, true);
+		assert.equal(wire.at(-1)?.thread?.type, "create", "cold resume creates a new thread, not a stale server anchor");
+		assert.ok(!hasThinking(wire.at(-1)!, SIG_A) && !hasRedacted(wire.at(-1)!, DATA_R), "threaded cold resume preserves the committed omission");
+		saved.messages.push(first, user("continue new thread", 5));
+		await request(resumedState, saved, threadModel, undefined, undefined, true);
+		assert.equal(wire.at(-1)?.thread?.type, "continue", "the repaired resumed conversation continues its new anchor");
+		assert.equal(wire.at(-1)?.messages.length, 1, "the continue sends only the appended user message");
+		console.log("PASS thinking thread leg: prefix repair, durable cold resume and appended-only continue");
+	} finally {
+		if (savedSwitch === undefined) delete process.env.PI_ANTHROPIC_MESSAGE_THREADS;
+		else process.env.PI_ANTHROPIC_MESSAGE_THREADS = savedSwitch;
+	}
+}
 
 // ── metadata must never ride the wire ───────────────────────────────────────
 for (const [index, body] of wire.entries()) {

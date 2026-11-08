@@ -1,0 +1,88 @@
+--- a/src/providers/google-gemini-cli.ts
++++ b/src/providers/google-gemini-cli.ts
+@@ -3,7 +3,7 @@
+  * Shared implementation for both google-gemini-cli and google-antigravity providers.
+  * Uses the Cloud Code Assist API endpoint to access Gemini and Claude models.
+  */
+-import { randomBytes, randomUUID } from "node:crypto";
++import { createHash, randomBytes, randomUUID } from "node:crypto";
+ import { scheduler } from "node:timers/promises";
+ import { type } from "@oh-my-pi/omptype";
+ import { calculateCost } from "@oh-my-pi/pi-catalog/models";
+@@ -1105,7 +1105,10 @@
+ 					// Commit after a fully successful attempt (content + finish reason);
+ 					// used as the next request's last_execution_id. Overwrite even when
+ 					// undefined so a response without an id can't leave a stale value.
+-					if (providerState) {
++					// Ephemeral side-channel turns (:side:) must not overwrite the main
++					// session's lastExecutionId.
++					const isEphemeral = typeof options?.sessionId === "string" && options.sessionId.includes(":side:");
++					if (providerState && !isEphemeral) {
+ 						providerState.lastExecutionId = lastResponseId;
+ 					}
+ 					break;
+@@ -1155,6 +1158,11 @@
+ const INT63_MASK = (1n << 63n) - 1n;
+ const ANTIGRAVITY_RANDOM_BOUND = 9_000_000_000_000_000_000n;
+ 
++function deriveDeterministicUuid(seed: string, namespace = ""): string {
++	const hash = createHash("sha256").update(`${namespace}:${seed}`).digest("hex");
++	return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
++}
++
+ function formatSignedDecimalSessionId(value: bigint): string {
+ 	return `-${value.toString()}`;
+ }
+@@ -1259,21 +1267,34 @@
+ 	context: Context,
+ 	profile: AntigravityModelWireProfile | undefined,
+ 	state: AntigravityProviderSessionState | undefined,
++	sessionKeyOverride?: string,
+ ): AntigravityRequestEnvelope {
+ 	const contextSteps = Math.max(1, context.messages.length);
+ 	let requestIndex = 0;
++	let step = contextSteps;
++	const isEphemeral = typeof sessionKeyOverride === "string" && sessionKeyOverride.includes(":side:");
++	const rawSessionKey = sessionKeyOverride ? sessionKeyOverride.replace(/:side:.*$/, "") : getFirstUserTextForAntigravitySession(context);
++	const sessionKey = rawSessionKey;
++	const defaultAgentId = sessionKey ? deriveDeterministicUuid(sessionKey, "antigravity-agent") : randomUUID();
++	const defaultTrajectoryId = sessionKey
++		? deriveDeterministicUuid(sessionKey, "antigravity-trajectory")
++		: randomUUID();
++	const defaultSessionId = sessionKey ? deriveSignedDecimalFromHash(sessionKey) : deriveAntigravitySessionId(context);
+ 	if (state) {
+-		state.agentId ??= randomUUID();
+-		state.trajectoryId ??= randomUUID();
+-		state.sessionId ??= randomSignedDecimalSessionId();
+-		state.stepIndex = Math.max(contextSteps, (state.stepIndex ?? 0) + 1);
++		state.agentId ??= defaultAgentId;
++		state.trajectoryId ??= defaultTrajectoryId;
++		state.sessionId ??= defaultSessionId;
++		// A side-channel request numbers itself as the next step but never advances the main chain.
++		step = Math.max(contextSteps, (state.stepIndex ?? 0) + 1);
+ 		requestIndex = state.requestCount ?? 0;
+-		state.requestCount = requestIndex + 1;
++		if (!isEphemeral) {
++			state.stepIndex = step;
++			state.requestCount = requestIndex + 1;
++		}
+ 	}
+-	const agentId = state?.agentId ?? randomUUID();
+-	const trajectoryId = state?.trajectoryId ?? randomUUID();
+-	const sessionId = state?.sessionId ?? deriveAntigravitySessionId(context);
+-	const step = state?.stepIndex ?? contextSteps;
++	const agentId = state?.agentId ?? defaultAgentId;
++	const trajectoryId = state?.trajectoryId ?? defaultTrajectoryId;
++	const sessionId = state?.sessionId ?? defaultSessionId;
+ 	const requestId = `agent/${agentId}/${Date.now()}/${trajectoryId}/${step}`;
+ 	const isClaude = model.identity.class === "anthropic";
+ 	const labels: Record<string, string> = {};
+@@ -1445,7 +1466,7 @@
+ 			}
+ 		}
+ 		const state = getAntigravityProviderSessionState(options.providerSessionState);
+-		const envelope = buildAntigravityRequestEnvelope(model, context, profile, state);
++		const envelope = buildAntigravityRequestEnvelope(model, context, profile, state, options.sessionId);
+ 		request.labels = envelope.labels;
+ 		if (Object.keys(generationConfig).length > 0) {
+ 			request.generationConfig = generationConfig;

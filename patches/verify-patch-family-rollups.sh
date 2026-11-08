@@ -14,7 +14,7 @@ KEEP=0
 TGZ_CACHE="${OMP_PATCH_TGZ_CACHE:-}"
 SELECTED_VERSION="18.10.1"
 usage() {
-	echo "usage: $0 [--version <18.7.0|18.10.0|18.10.1|18.12.6|18.16.0>] [--keep] [--tgz-cache DIR]" >&2
+	echo "usage: $0 [--version <18.7.0|18.10.0|18.10.1|18.12.6|18.16.0|18.18.0>] [--keep] [--tgz-cache DIR]" >&2
 	exit 2
 }
 while [[ $# -gt 0 ]]; do
@@ -39,7 +39,7 @@ if [[ -n "$SELECTED_VERSION" ]]; then
 	[[ "$MODE" == "full" ]] || die "--version cannot be combined with --selftest"
 	case "$SELECTED_VERSION" in
 		18.7.0) MODE=selected1870 ;;
-		18.10.0|18.10.1|18.12.6|18.16.0) MODE=selectedRelease ;;
+		18.10.0|18.10.1|18.12.6|18.16.0|18.18.0) MODE=selectedRelease ;;
 		*) die "--version ${SELECTED_VERSION} has no selected verifier" ;;
 	esac
 fi

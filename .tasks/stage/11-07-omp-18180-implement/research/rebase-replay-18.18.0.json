@@ -1,0 +1,1825 @@
+{
+  "version": "18.18.0",
+  "families": 24,
+  "applied_families": 12,
+  "failed_families": 12,
+  "failed_hunks": 67,
+  "pristine_tree_sha256": "88a0fb78b8d98cf2bc49c0aecb2c17a5444690d39c128484f2bd44ae716234ba",
+  "residue_files": 31,
+  "order": [
+    "family-status-accounting",
+    "family-hindsight",
+    "family-usage-pipeline",
+    "0010-omp-extension-idle-ephemeral-turn",
+    "family-antigravity-wire",
+    "family-image-budget-snapcompact",
+    "family-persistent-prefix-resume",
+    "0046-omp-supersede-warm-prefix-guard",
+    "0048-omp-advisor-quota-rotation-bound",
+    "0050-omp-session-history-preview",
+    "family-devin-wire",
+    "0069-omp-codex-effort-history-resume",
+    "0074-omp-anthropic-context-cache-boundaries",
+    "family-image-display",
+    "family-input-translation",
+    "family-compaction",
+    "0090-omp-oauth-durable-refresh",
+    "0092-omp-cache-warming-idle-budget",
+    "0094-omp-anthropic-thinking-drop-resume",
+    "0095-omp-context-audit-request-purpose",
+    "0098-omp-tls-verify-transient-retry",
+    "0099-omp-retry-slow-schedule",
+    "0101-omp-subagent-warm-revival-persisted-prompt",
+    "0102-omp-computer-control-confirm-deadline"
+  ],
+  "report": [
+    {
+      "id": "family-status-accounting",
+      "root": "NM",
+      "capabilities": [
+        "0033",
+        "0004",
+        "0081"
+      ],
+      "applied": false,
+      "failed_hunks": 5,
+      "failures": [
+        {
+          "hunk": 1,
+          "at": 1
+        },
+        {
+          "hunk": 1,
+          "at": 22
+        },
+        {
+          "hunk": 1,
+          "at": 12
+        },
+        {
+          "hunk": 8,
+          "at": 1019
+        },
+        {
+          "hunk": 12,
+          "at": 1288
+        }
+      ],
+      "max_offset": 57,
+      "offsets_over_50": [
+        {
+          "hunk": 1,
+          "at": 112,
+          "offset": 57
+        }
+      ]
+    },
+    {
+      "id": "family-hindsight",
+      "root": "AGENT",
+      "capabilities": [
+        "0034",
+        "0075"
+      ],
+      "applied": false,
+      "failed_hunks": 6,
+      "failures": [
+        {
+          "hunk": 2,
+          "at": 311
+        },
+        {
+          "hunk": 1,
+          "at": 1
+        },
+        {
+          "hunk": 2,
+          "at": 34
+        },
+        {
+          "hunk": 3,
+          "at": 291
+        },
+        {
+          "hunk": 2,
+          "at": 1332
+        },
+        {
+          "hunk": 14,
+          "at": 13432
+        }
+      ],
+      "max_offset": 405,
+      "offsets_over_50": [
+        {
+          "hunk": 3,
+          "at": 2608,
+          "offset": 163
+        },
+        {
+          "hunk": 4,
+          "at": 3442,
+          "offset": 171
+        },
+        {
+          "hunk": 5,
+          "at": 6287,
+          "offset": 260
+        },
+        {
+          "hunk": 6,
+          "at": 6954,
+          "offset": 261
+        },
+        {
+          "hunk": 7,
+          "at": 6961,
+          "offset": 261
+        },
+        {
+          "hunk": 8,
+          "at": 11855,
+          "offset": 381
+        },
+        {
+          "hunk": 9,
+          "at": 12011,
+          "offset": 381
+        },
+        {
+          "hunk": 10,
+          "at": 13548,
+          "offset": 400
+        },
+        {
+          "hunk": 11,
+          "at": 13579,
+          "offset": 400
+        },
+        {
+          "hunk": 12,
+          "at": 13622,
+          "offset": 401
+        },
+        {
+          "hunk": 13,
+          "at": 13786,
+          "offset": 401
+        },
+        {
+          "hunk": 15,
+          "at": 14063,
+          "offset": 405
+        },
+        {
+          "hunk": 16,
+          "at": 14194,
+          "offset": 405
+        },
+        {
+          "hunk": 17,
+          "at": 14525,
+          "offset": 405
+        }
+      ]
+    },
+    {
+      "id": "family-usage-pipeline",
+      "root": "NM",
+      "capabilities": [
+        "0037",
+        "0026",
+        "0030",
+        "0031"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 386,
+      "offsets_over_50": [
+        {
+          "hunk": 2,
+          "at": 1616,
+          "offset": 51
+        },
+        {
+          "hunk": 2,
+          "at": 14729,
+          "offset": 386
+        },
+        {
+          "hunk": 2,
+          "at": 186,
+          "offset": 62
+        },
+        {
+          "hunk": 5,
+          "at": 2152,
+          "offset": 106
+        },
+        {
+          "hunk": 6,
+          "at": 2170,
+          "offset": 106
+        },
+        {
+          "hunk": 7,
+          "at": 2231,
+          "offset": 106
+        },
+        {
+          "hunk": 8,
+          "at": 2266,
+          "offset": 106
+        },
+        {
+          "hunk": 9,
+          "at": 2692,
+          "offset": 106
+        },
+        {
+          "hunk": 2,
+          "at": 148,
+          "offset": 51
+        }
+      ]
+    },
+    {
+      "id": "0010-omp-extension-idle-ephemeral-turn",
+      "root": "AGENT",
+      "capabilities": [
+        "0010"
+      ],
+      "applied": false,
+      "failed_hunks": 5,
+      "failures": [
+        {
+          "hunk": 2,
+          "at": 314
+        },
+        {
+          "hunk": 6,
+          "at": 1258
+        },
+        {
+          "hunk": 11,
+          "at": 3567
+        },
+        {
+          "hunk": 25,
+          "at": 6883
+        },
+        {
+          "hunk": 3,
+          "at": 172
+        }
+      ],
+      "max_offset": 398,
+      "offsets_over_50": [
+        {
+          "hunk": 3,
+          "at": 1878,
+          "offset": 59
+        },
+        {
+          "hunk": 3,
+          "at": 1468,
+          "offset": 51
+        },
+        {
+          "hunk": 4,
+          "at": 1573,
+          "offset": 51
+        },
+        {
+          "hunk": 3,
+          "at": 1756,
+          "offset": 129
+        },
+        {
+          "hunk": 3,
+          "at": 2451,
+          "offset": 63
+        },
+        {
+          "hunk": 2,
+          "at": 847,
+          "offset": 86
+        },
+        {
+          "hunk": 3,
+          "at": 876,
+          "offset": 86
+        },
+        {
+          "hunk": 4,
+          "at": 1148,
+          "offset": 99
+        },
+        {
+          "hunk": 5,
+          "at": 1358,
+          "offset": 109
+        },
+        {
+          "hunk": 7,
+          "at": 1489,
+          "offset": 127
+        },
+        {
+          "hunk": 8,
+          "at": 1806,
+          "offset": 135
+        },
+        {
+          "hunk": 9,
+          "at": 1880,
+          "offset": 135
+        },
+        {
+          "hunk": 10,
+          "at": 2526,
+          "offset": 161
+        },
+        {
+          "hunk": 12,
+          "at": 5452,
+          "offset": 96
+        },
+        {
+          "hunk": 13,
+          "at": 5480,
+          "offset": 96
+        },
+        {
+          "hunk": 14,
+          "at": 5521,
+          "offset": 96
+        },
+        {
+          "hunk": 15,
+          "at": 5548,
+          "offset": 96
+        },
+        {
+          "hunk": 16,
+          "at": 5582,
+          "offset": 96
+        },
+        {
+          "hunk": 17,
+          "at": 5590,
+          "offset": 96
+        },
+        {
+          "hunk": 18,
+          "at": 5606,
+          "offset": 96
+        },
+        {
+          "hunk": 19,
+          "at": 5616,
+          "offset": 96
+        },
+        {
+          "hunk": 20,
+          "at": 5624,
+          "offset": 96
+        },
+        {
+          "hunk": 21,
+          "at": 5663,
+          "offset": 96
+        },
+        {
+          "hunk": 22,
+          "at": 6358,
+          "offset": 258
+        },
+        {
+          "hunk": 23,
+          "at": 6574,
+          "offset": 258
+        },
+        {
+          "hunk": 24,
+          "at": 6971,
+          "offset": 259
+        },
+        {
+          "hunk": 26,
+          "at": 7184,
+          "offset": 265
+        },
+        {
+          "hunk": 27,
+          "at": 9229,
+          "offset": 295
+        },
+        {
+          "hunk": 28,
+          "at": 9284,
+          "offset": 295
+        },
+        {
+          "hunk": 29,
+          "at": 9304,
+          "offset": 295
+        },
+        {
+          "hunk": 30,
+          "at": 9511,
+          "offset": 297
+        },
+        {
+          "hunk": 31,
+          "at": 9624,
+          "offset": 297
+        },
+        {
+          "hunk": 32,
+          "at": 10390,
+          "offset": 297
+        },
+        {
+          "hunk": 33,
+          "at": 10412,
+          "offset": 297
+        },
+        {
+          "hunk": 34,
+          "at": 11889,
+          "offset": 379
+        },
+        {
+          "hunk": 35,
+          "at": 12045,
+          "offset": 379
+        },
+        {
+          "hunk": 36,
+          "at": 13274,
+          "offset": 398
+        },
+        {
+          "hunk": 37,
+          "at": 13696,
+          "offset": 398
+        },
+        {
+          "hunk": 38,
+          "at": 14140,
+          "offset": 386
+        },
+        {
+          "hunk": 39,
+          "at": 14280,
+          "offset": 386
+        },
+        {
+          "hunk": 40,
+          "at": 14444,
+          "offset": 386
+        },
+        {
+          "hunk": 41,
+          "at": 14540,
+          "offset": 386
+        },
+        {
+          "hunk": 42,
+          "at": 14548,
+          "offset": 386
+        },
+        {
+          "hunk": 43,
+          "at": 14573,
+          "offset": 386
+        },
+        {
+          "hunk": 44,
+          "at": 14586,
+          "offset": 386
+        },
+        {
+          "hunk": 45,
+          "at": 14608,
+          "offset": 386
+        },
+        {
+          "hunk": 46,
+          "at": 14715,
+          "offset": 386
+        },
+        {
+          "hunk": 47,
+          "at": 14763,
+          "offset": 386
+        }
+      ]
+    },
+    {
+      "id": "family-antigravity-wire",
+      "root": "AI",
+      "capabilities": [
+        "0014",
+        "0054"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 0,
+      "offsets_over_50": []
+    },
+    {
+      "id": "family-image-budget-snapcompact",
+      "root": "NM",
+      "capabilities": [
+        "0036",
+        "0044",
+        "0052",
+        "0057"
+      ],
+      "applied": false,
+      "failed_hunks": 1,
+      "failures": [
+        {
+          "hunk": 1,
+          "at": 1
+        }
+      ],
+      "max_offset": 0,
+      "offsets_over_50": []
+    },
+    {
+      "id": "family-persistent-prefix-resume",
+      "root": "NM",
+      "capabilities": [
+        "0038",
+        "0043",
+        "0047",
+        "0076",
+        "0077",
+        "0083",
+        "0084",
+        "0093"
+      ],
+      "applied": false,
+      "failed_hunks": 10,
+      "failures": [
+        {
+          "hunk": 1,
+          "at": 29
+        },
+        {
+          "hunk": 1,
+          "at": 68
+        },
+        {
+          "hunk": 3,
+          "at": 2307
+        },
+        {
+          "hunk": 2,
+          "at": 145
+        },
+        {
+          "hunk": 3,
+          "at": 465
+        },
+        {
+          "hunk": 26,
+          "at": 13701
+        },
+        {
+          "hunk": 1,
+          "at": 32
+        },
+        {
+          "hunk": 4,
+          "at": 594
+        },
+        {
+          "hunk": 5,
+          "at": 731
+        },
+        {
+          "hunk": 2,
+          "at": 306
+        }
+      ],
+      "max_offset": 379,
+      "offsets_over_50": [
+        {
+          "hunk": 5,
+          "at": 695,
+          "offset": 58
+        },
+        {
+          "hunk": 6,
+          "at": 727,
+          "offset": 58
+        },
+        {
+          "hunk": 6,
+          "at": 1001,
+          "offset": 88
+        },
+        {
+          "hunk": 7,
+          "at": 2221,
+          "offset": 159
+        },
+        {
+          "hunk": 8,
+          "at": 2384,
+          "offset": 160
+        },
+        {
+          "hunk": 9,
+          "at": 2964,
+          "offset": 161
+        },
+        {
+          "hunk": 10,
+          "at": 7806,
+          "offset": 250
+        },
+        {
+          "hunk": 11,
+          "at": 7858,
+          "offset": 250
+        },
+        {
+          "hunk": 12,
+          "at": 12122,
+          "offset": 359
+        },
+        {
+          "hunk": 13,
+          "at": 12141,
+          "offset": 359
+        },
+        {
+          "hunk": 14,
+          "at": 12871,
+          "offset": 359
+        },
+        {
+          "hunk": 15,
+          "at": 12881,
+          "offset": 359
+        },
+        {
+          "hunk": 16,
+          "at": 13716,
+          "offset": 378
+        },
+        {
+          "hunk": 17,
+          "at": 13734,
+          "offset": 378
+        },
+        {
+          "hunk": 18,
+          "at": 13744,
+          "offset": 378
+        },
+        {
+          "hunk": 19,
+          "at": 13760,
+          "offset": 378
+        },
+        {
+          "hunk": 20,
+          "at": 13783,
+          "offset": 378
+        },
+        {
+          "hunk": 21,
+          "at": 13840,
+          "offset": 379
+        },
+        {
+          "hunk": 22,
+          "at": 13856,
+          "offset": 379
+        },
+        {
+          "hunk": 23,
+          "at": 13903,
+          "offset": 379
+        },
+        {
+          "hunk": 24,
+          "at": 13983,
+          "offset": 379
+        },
+        {
+          "hunk": 25,
+          "at": 13997,
+          "offset": 379
+        },
+        {
+          "hunk": 27,
+          "at": 14083,
+          "offset": 369
+        },
+        {
+          "hunk": 28,
+          "at": 14181,
+          "offset": 366
+        },
+        {
+          "hunk": 29,
+          "at": 14244,
+          "offset": 366
+        },
+        {
+          "hunk": 30,
+          "at": 14357,
+          "offset": 366
+        },
+        {
+          "hunk": 31,
+          "at": 14376,
+          "offset": 366
+        },
+        {
+          "hunk": 32,
+          "at": 14388,
+          "offset": 366
+        },
+        {
+          "hunk": 33,
+          "at": 14490,
+          "offset": 366
+        },
+        {
+          "hunk": 34,
+          "at": 14505,
+          "offset": 366
+        },
+        {
+          "hunk": 35,
+          "at": 14827,
+          "offset": 366
+        },
+        {
+          "hunk": 36,
+          "at": 14856,
+          "offset": 366
+        },
+        {
+          "hunk": 14,
+          "at": 4558,
+          "offset": 61
+        },
+        {
+          "hunk": 15,
+          "at": 4618,
+          "offset": 61
+        },
+        {
+          "hunk": 16,
+          "at": 4793,
+          "offset": 61
+        },
+        {
+          "hunk": 17,
+          "at": 4801,
+          "offset": 61
+        },
+        {
+          "hunk": 18,
+          "at": 4953,
+          "offset": 61
+        },
+        {
+          "hunk": 19,
+          "at": 4976,
+          "offset": 61
+        }
+      ]
+    },
+    {
+      "id": "0046-omp-supersede-warm-prefix-guard",
+      "root": "AGENT",
+      "capabilities": [
+        "0046"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 0,
+      "offsets_over_50": []
+    },
+    {
+      "id": "0048-omp-advisor-quota-rotation-bound",
+      "root": "NM",
+      "capabilities": [
+        "0048"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 0,
+      "offsets_over_50": []
+    },
+    {
+      "id": "0050-omp-session-history-preview",
+      "root": "NM",
+      "capabilities": [
+        "0050"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 0,
+      "offsets_over_50": []
+    },
+    {
+      "id": "family-devin-wire",
+      "root": "NM",
+      "capabilities": [
+        "0055",
+        "0071",
+        "0056",
+        "0058",
+        "0060"
+      ],
+      "applied": false,
+      "failed_hunks": 1,
+      "failures": [
+        {
+          "hunk": 2,
+          "at": 13129
+        }
+      ],
+      "max_offset": 378,
+      "offsets_over_50": [
+        {
+          "hunk": 1,
+          "at": 13362,
+          "offset": 378
+        }
+      ]
+    },
+    {
+      "id": "0069-omp-codex-effort-history-resume",
+      "root": "AI",
+      "capabilities": [
+        "0069"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 124,
+      "offsets_over_50": [
+        {
+          "hunk": 5,
+          "at": 1351,
+          "offset": -124
+        },
+        {
+          "hunk": 6,
+          "at": 1385,
+          "offset": -124
+        },
+        {
+          "hunk": 7,
+          "at": 1440,
+          "offset": -124
+        },
+        {
+          "hunk": 8,
+          "at": 3205,
+          "offset": -113
+        }
+      ]
+    },
+    {
+      "id": "0074-omp-anthropic-context-cache-boundaries",
+      "root": "AI",
+      "capabilities": [
+        "0074"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 104,
+      "offsets_over_50": [
+        {
+          "hunk": 5,
+          "at": 3612,
+          "offset": 76
+        },
+        {
+          "hunk": 6,
+          "at": 3676,
+          "offset": 76
+        },
+        {
+          "hunk": 7,
+          "at": 4323,
+          "offset": 104
+        },
+        {
+          "hunk": 8,
+          "at": 4352,
+          "offset": 104
+        },
+        {
+          "hunk": 9,
+          "at": 4403,
+          "offset": 104
+        },
+        {
+          "hunk": 10,
+          "at": 4439,
+          "offset": 104
+        },
+        {
+          "hunk": 11,
+          "at": 4471,
+          "offset": 104
+        }
+      ]
+    },
+    {
+      "id": "family-image-display",
+      "root": "NM",
+      "capabilities": [
+        "0080"
+      ],
+      "applied": false,
+      "failed_hunks": 3,
+      "failures": [
+        {
+          "hunk": 1,
+          "at": 29
+        },
+        {
+          "hunk": 1,
+          "at": 48
+        },
+        {
+          "hunk": 8,
+          "at": 1002
+        }
+      ],
+      "max_offset": 319,
+      "offsets_over_50": [
+        {
+          "hunk": 5,
+          "at": 866,
+          "offset": 220
+        },
+        {
+          "hunk": 6,
+          "at": 897,
+          "offset": 227
+        },
+        {
+          "hunk": 7,
+          "at": 927,
+          "offset": 227
+        },
+        {
+          "hunk": 9,
+          "at": 1693,
+          "offset": 301
+        },
+        {
+          "hunk": 10,
+          "at": 2129,
+          "offset": 319
+        },
+        {
+          "hunk": 11,
+          "at": 2137,
+          "offset": 319
+        },
+        {
+          "hunk": 12,
+          "at": 2166,
+          "offset": 319
+        }
+      ]
+    },
+    {
+      "id": "family-input-translation",
+      "root": "NM",
+      "capabilities": [
+        "0082",
+        "0085"
+      ],
+      "applied": false,
+      "failed_hunks": 7,
+      "failures": [
+        {
+          "hunk": 1,
+          "at": 10
+        },
+        {
+          "hunk": 1,
+          "at": 17
+        },
+        {
+          "hunk": 1,
+          "at": 145
+        },
+        {
+          "hunk": 1,
+          "at": 32
+        },
+        {
+          "hunk": 1,
+          "at": 41
+        },
+        {
+          "hunk": 1,
+          "at": 375
+        },
+        {
+          "hunk": 3,
+          "at": 1282
+        }
+      ],
+      "max_offset": 377,
+      "offsets_over_50": [
+        {
+          "hunk": 5,
+          "at": 1655,
+          "offset": 55
+        },
+        {
+          "hunk": 6,
+          "at": 1865,
+          "offset": 55
+        },
+        {
+          "hunk": 7,
+          "at": 1903,
+          "offset": 57
+        },
+        {
+          "hunk": 4,
+          "at": 2339,
+          "offset": 129
+        },
+        {
+          "hunk": 5,
+          "at": 2187,
+          "offset": 59
+        },
+        {
+          "hunk": 6,
+          "at": 2438,
+          "offset": 59
+        },
+        {
+          "hunk": 7,
+          "at": 2484,
+          "offset": 61
+        },
+        {
+          "hunk": 5,
+          "at": 2014,
+          "offset": 53
+        },
+        {
+          "hunk": 6,
+          "at": 3424,
+          "offset": 91
+        },
+        {
+          "hunk": 7,
+          "at": 3434,
+          "offset": 91
+        },
+        {
+          "hunk": 8,
+          "at": 3448,
+          "offset": 91
+        },
+        {
+          "hunk": 9,
+          "at": 3515,
+          "offset": 91
+        },
+        {
+          "hunk": 10,
+          "at": 3580,
+          "offset": 91
+        },
+        {
+          "hunk": 11,
+          "at": 3588,
+          "offset": 91
+        },
+        {
+          "hunk": 12,
+          "at": 3865,
+          "offset": 91
+        },
+        {
+          "hunk": 13,
+          "at": 3877,
+          "offset": 91
+        },
+        {
+          "hunk": 14,
+          "at": 4011,
+          "offset": 97
+        },
+        {
+          "hunk": 15,
+          "at": 4023,
+          "offset": 97
+        },
+        {
+          "hunk": 16,
+          "at": 4043,
+          "offset": 97
+        },
+        {
+          "hunk": 17,
+          "at": 4053,
+          "offset": 97
+        },
+        {
+          "hunk": 18,
+          "at": 4089,
+          "offset": 97
+        },
+        {
+          "hunk": 19,
+          "at": 4151,
+          "offset": 97
+        },
+        {
+          "hunk": 20,
+          "at": 5088,
+          "offset": 284
+        },
+        {
+          "hunk": 21,
+          "at": 9063,
+          "offset": 368
+        },
+        {
+          "hunk": 2,
+          "at": 1093,
+          "offset": 94
+        },
+        {
+          "hunk": 4,
+          "at": 2987,
+          "offset": 161
+        },
+        {
+          "hunk": 5,
+          "at": 6362,
+          "offset": 249
+        },
+        {
+          "hunk": 6,
+          "at": 6449,
+          "offset": 249
+        },
+        {
+          "hunk": 7,
+          "at": 6661,
+          "offset": 249
+        },
+        {
+          "hunk": 8,
+          "at": 6864,
+          "offset": 249
+        },
+        {
+          "hunk": 9,
+          "at": 7063,
+          "offset": 250
+        },
+        {
+          "hunk": 10,
+          "at": 8757,
+          "offset": 259
+        },
+        {
+          "hunk": 11,
+          "at": 8800,
+          "offset": 259
+        },
+        {
+          "hunk": 12,
+          "at": 8877,
+          "offset": 259
+        },
+        {
+          "hunk": 13,
+          "at": 8906,
+          "offset": 259
+        },
+        {
+          "hunk": 14,
+          "at": 8962,
+          "offset": 259
+        },
+        {
+          "hunk": 15,
+          "at": 8984,
+          "offset": 259
+        },
+        {
+          "hunk": 16,
+          "at": 9829,
+          "offset": 277
+        },
+        {
+          "hunk": 17,
+          "at": 9855,
+          "offset": 277
+        },
+        {
+          "hunk": 18,
+          "at": 9868,
+          "offset": 277
+        },
+        {
+          "hunk": 19,
+          "at": 10026,
+          "offset": 277
+        },
+        {
+          "hunk": 20,
+          "at": 10074,
+          "offset": 277
+        },
+        {
+          "hunk": 21,
+          "at": 10129,
+          "offset": 277
+        },
+        {
+          "hunk": 22,
+          "at": 10161,
+          "offset": 277
+        },
+        {
+          "hunk": 23,
+          "at": 10175,
+          "offset": 277
+        },
+        {
+          "hunk": 24,
+          "at": 10372,
+          "offset": 277
+        },
+        {
+          "hunk": 25,
+          "at": 10390,
+          "offset": 277
+        },
+        {
+          "hunk": 26,
+          "at": 10415,
+          "offset": 277
+        },
+        {
+          "hunk": 27,
+          "at": 10920,
+          "offset": 277
+        },
+        {
+          "hunk": 28,
+          "at": 10954,
+          "offset": 277
+        },
+        {
+          "hunk": 29,
+          "at": 11090,
+          "offset": 277
+        },
+        {
+          "hunk": 30,
+          "at": 11162,
+          "offset": 277
+        },
+        {
+          "hunk": 31,
+          "at": 11211,
+          "offset": 277
+        },
+        {
+          "hunk": 32,
+          "at": 12072,
+          "offset": 359
+        },
+        {
+          "hunk": 33,
+          "at": 12229,
+          "offset": 359
+        },
+        {
+          "hunk": 34,
+          "at": 13900,
+          "offset": 377
+        },
+        {
+          "hunk": 35,
+          "at": 14389,
+          "offset": 364
+        },
+        {
+          "hunk": 36,
+          "at": 14591,
+          "offset": 364
+        },
+        {
+          "hunk": 37,
+          "at": 14758,
+          "offset": 364
+        }
+      ]
+    },
+    {
+      "id": "family-compaction",
+      "root": "NM",
+      "capabilities": [
+        "0035",
+        "0063",
+        "0067",
+        "0068",
+        "0070",
+        "0088",
+        "0089",
+        "0096"
+      ],
+      "applied": false,
+      "failed_hunks": 12,
+      "failures": [
+        {
+          "hunk": 14,
+          "at": 571
+        },
+        {
+          "hunk": 12,
+          "at": 1960
+        },
+        {
+          "hunk": 13,
+          "at": 2021
+        },
+        {
+          "hunk": 15,
+          "at": 2085
+        },
+        {
+          "hunk": 16,
+          "at": 2152
+        },
+        {
+          "hunk": 19,
+          "at": 2354
+        },
+        {
+          "hunk": 27,
+          "at": 4228
+        },
+        {
+          "hunk": 28,
+          "at": 4275
+        },
+        {
+          "hunk": 29,
+          "at": 4327
+        },
+        {
+          "hunk": 30,
+          "at": 4418
+        },
+        {
+          "hunk": 5,
+          "at": 2678
+        },
+        {
+          "hunk": 12,
+          "at": 3877
+        }
+      ],
+      "max_offset": 585,
+      "offsets_over_50": [
+        {
+          "hunk": 5,
+          "at": 1339,
+          "offset": -124
+        },
+        {
+          "hunk": 6,
+          "at": 1551,
+          "offset": -124
+        },
+        {
+          "hunk": 7,
+          "at": 1586,
+          "offset": -124
+        },
+        {
+          "hunk": 8,
+          "at": 1617,
+          "offset": -124
+        },
+        {
+          "hunk": 9,
+          "at": 1652,
+          "offset": -124
+        },
+        {
+          "hunk": 10,
+          "at": 1667,
+          "offset": -124
+        },
+        {
+          "hunk": 11,
+          "at": 1750,
+          "offset": -124
+        },
+        {
+          "hunk": 14,
+          "at": 1925,
+          "offset": -124
+        },
+        {
+          "hunk": 17,
+          "at": 2142,
+          "offset": -90
+        },
+        {
+          "hunk": 18,
+          "at": 2178,
+          "offset": -90
+        },
+        {
+          "hunk": 20,
+          "at": 2880,
+          "offset": -113
+        },
+        {
+          "hunk": 21,
+          "at": 3376,
+          "offset": -113
+        },
+        {
+          "hunk": 22,
+          "at": 3669,
+          "offset": -90
+        },
+        {
+          "hunk": 23,
+          "at": 3684,
+          "offset": -90
+        },
+        {
+          "hunk": 24,
+          "at": 3713,
+          "offset": -90
+        },
+        {
+          "hunk": 25,
+          "at": 3724,
+          "offset": -90
+        },
+        {
+          "hunk": 26,
+          "at": 3949,
+          "offset": -90
+        },
+        {
+          "hunk": 31,
+          "at": 4421,
+          "offset": -585
+        },
+        {
+          "hunk": 32,
+          "at": 4948,
+          "offset": -571
+        },
+        {
+          "hunk": 2,
+          "at": 1870,
+          "offset": 121
+        },
+        {
+          "hunk": 3,
+          "at": 2550,
+          "offset": 147
+        },
+        {
+          "hunk": 4,
+          "at": 2613,
+          "offset": 147
+        },
+        {
+          "hunk": 5,
+          "at": 2995,
+          "offset": 148
+        },
+        {
+          "hunk": 6,
+          "at": 5525,
+          "offset": 74
+        },
+        {
+          "hunk": 7,
+          "at": 7936,
+          "offset": 237
+        },
+        {
+          "hunk": 8,
+          "at": 8023,
+          "offset": 237
+        },
+        {
+          "hunk": 9,
+          "at": 9445,
+          "offset": 262
+        },
+        {
+          "hunk": 10,
+          "at": 10603,
+          "offset": 264
+        },
+        {
+          "hunk": 1,
+          "at": 1262,
+          "offset": 60
+        }
+      ]
+    },
+    {
+      "id": "0090-omp-oauth-durable-refresh",
+      "root": "NM",
+      "capabilities": [
+        "0090"
+      ],
+      "applied": false,
+      "failed_hunks": 2,
+      "failures": [
+        {
+          "hunk": 2,
+          "at": 347
+        },
+        {
+          "hunk": 3,
+          "at": 530
+        }
+      ],
+      "max_offset": 262,
+      "offsets_over_50": [
+        {
+          "hunk": 1,
+          "at": 9471,
+          "offset": 262
+        }
+      ]
+    },
+    {
+      "id": "0092-omp-cache-warming-idle-budget",
+      "root": "AGENT",
+      "capabilities": [
+        "0092"
+      ],
+      "applied": false,
+      "failed_hunks": 13,
+      "failures": [
+        {
+          "hunk": 1,
+          "at": 52
+        },
+        {
+          "hunk": 4,
+          "at": 152
+        },
+        {
+          "hunk": 5,
+          "at": 288
+        },
+        {
+          "hunk": 6,
+          "at": 336
+        },
+        {
+          "hunk": 7,
+          "at": 365
+        },
+        {
+          "hunk": 10,
+          "at": 509
+        },
+        {
+          "hunk": 12,
+          "at": 659
+        },
+        {
+          "hunk": 13,
+          "at": 673
+        },
+        {
+          "hunk": 15,
+          "at": 705
+        },
+        {
+          "hunk": 16,
+          "at": 714
+        },
+        {
+          "hunk": 6,
+          "at": 210
+        },
+        {
+          "hunk": 11,
+          "at": 372
+        },
+        {
+          "hunk": 13,
+          "at": 406
+        }
+      ],
+      "max_offset": 365,
+      "offsets_over_50": [
+        {
+          "hunk": 5,
+          "at": 237,
+          "offset": 67
+        },
+        {
+          "hunk": 8,
+          "at": 582,
+          "offset": 111
+        },
+        {
+          "hunk": 9,
+          "at": 597,
+          "offset": 111
+        },
+        {
+          "hunk": 11,
+          "at": 644,
+          "offset": 119
+        },
+        {
+          "hunk": 14,
+          "at": 825,
+          "offset": 129
+        },
+        {
+          "hunk": 1,
+          "at": 7807,
+          "offset": 237
+        },
+        {
+          "hunk": 2,
+          "at": 13560,
+          "offset": 365
+        },
+        {
+          "hunk": 3,
+          "at": 13584,
+          "offset": 365
+        }
+      ]
+    },
+    {
+      "id": "0094-omp-anthropic-thinking-drop-resume",
+      "root": "AI",
+      "capabilities": [
+        "0094"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 76,
+      "offsets_over_50": [
+        {
+          "hunk": 7,
+          "at": 3458,
+          "offset": 76
+        },
+        {
+          "hunk": 8,
+          "at": 3473,
+          "offset": 76
+        }
+      ]
+    },
+    {
+      "id": "0095-omp-context-audit-request-purpose",
+      "root": "AGENT",
+      "capabilities": [
+        "0095"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 147,
+      "offsets_over_50": [
+        {
+          "hunk": 1,
+          "at": 2414,
+          "offset": 129
+        },
+        {
+          "hunk": 2,
+          "at": 2443,
+          "offset": 129
+        },
+        {
+          "hunk": 1,
+          "at": 1324,
+          "offset": 110
+        },
+        {
+          "hunk": 2,
+          "at": 2725,
+          "offset": 147
+        }
+      ]
+    },
+    {
+      "id": "0098-omp-tls-verify-transient-retry",
+      "root": "AI",
+      "capabilities": [
+        "0098"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 0,
+      "offsets_over_50": []
+    },
+    {
+      "id": "0099-omp-retry-slow-schedule",
+      "root": "AGENT",
+      "capabilities": [
+        "0099"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 0,
+      "offsets_over_50": []
+    },
+    {
+      "id": "0101-omp-subagent-warm-revival-persisted-prompt",
+      "root": "AGENT",
+      "capabilities": [
+        "0101"
+      ],
+      "applied": false,
+      "failed_hunks": 2,
+      "failures": [
+        {
+          "hunk": 1,
+          "at": 79
+        },
+        {
+          "hunk": 2,
+          "at": 4171
+        }
+      ],
+      "max_offset": 126,
+      "offsets_over_50": [
+        {
+          "hunk": 3,
+          "at": 4339,
+          "offset": 126
+        },
+        {
+          "hunk": 4,
+          "at": 4352,
+          "offset": 126
+        },
+        {
+          "hunk": 5,
+          "at": 4374,
+          "offset": 126
+        }
+      ]
+    },
+    {
+      "id": "0102-omp-computer-control-confirm-deadline",
+      "root": "AGENT",
+      "capabilities": [
+        "0102"
+      ],
+      "applied": true,
+      "failed_hunks": 0,
+      "failures": [],
+      "max_offset": 0,
+      "offsets_over_50": []
+    }
+  ]
+}

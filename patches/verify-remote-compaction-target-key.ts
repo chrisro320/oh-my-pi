@@ -27,7 +27,9 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const CORE_ROOT = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
-assert.equal(process.env.OMP_PATCH_VERSION, "18.16.0", "this gate is registered for the 18.16.0 plan only");
+const PLAN = process.env.OMP_PATCH_VERSION;
+const PLAN_VERSIONS = ["18.16.0", "18.18.0"];
+assert.ok(PLAN !== undefined && PLAN_VERSIONS.includes(PLAN), "this gate is registered for the 18.16.0/18.18.0 plans only");
 
 // HOME must be private before process startup; Bun caches os.homedir().
 if (process.env.OMP_REMOTE_COMPACTION_KEY_CHILD !== "1") {
@@ -42,7 +44,7 @@ if (process.env.OMP_REMOTE_COMPACTION_KEY_CHILD !== "1") {
 				XDG_CACHE_HOME: join(home, "cache"),
 				XDG_DATA_HOME: join(home, "data"),
 				XDG_STATE_HOME: join(home, "state"),
-				OMP_PATCH_VERSION: "18.16.0",
+				OMP_PATCH_VERSION: PLAN,
 				OMP_PATCH_VERIFY_AGENT_ROOT: AGENT_ROOT,
 				OMP_PATCH_VERIFY_CORE_ROOT: CORE_ROOT,
 				OMP_PATCH_VERIFY_CATALOG_ROOT: CATALOG_ROOT,
@@ -66,7 +68,7 @@ globalThis.fetch = (() => {
 }) as typeof fetch;
 
 const agentVersion: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.equal(agentVersion, "18.16.0", `unsupported pi-coding-agent tree for the remote compaction target-key gate: ${agentVersion}`);
+assert.ok(["18.16.0", "18.18.0"].includes(agentVersion), `unsupported pi-coding-agent tree for the remote compaction target-key gate: ${agentVersion}`);
 
 interface Model extends Record<string, unknown> {
 	id: string;

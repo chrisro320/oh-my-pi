@@ -60,7 +60,7 @@ const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 // Fail closed on a plan this gate has no arm for. 18.16.0 takes the 18.12.6
 // arms below: the native summary shape, whole-chain live replay, and the target
 // public live-cache callback.
-const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"];
+const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"];
 const selectedPlan = process.env.OMP_PATCH_VERSION;
 assert.ok(
 	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
@@ -126,7 +126,7 @@ function nativeCompactionResponse(requestModel: Model): AssistantMessage {
 			type: "anthropicCompaction",
 			provider: requestModel.provider,
 			content: "NATIVE_SUMMARY",
-			...(["18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
+			...(["18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion) ? {} : { encryptedContent: "opaque" }),
 			signature: "offline-signed-summary",
 		},
 	} as AssistantMessage;
@@ -173,7 +173,7 @@ assert.ok(preparation, "fixture must prepare compaction");
 // gate has always pinned on it -- the whole-chain fixture and its `recent-user`
 // boundary are 0088-only, and replacing the older fixture rather than selecting
 // per plan is what broke the older branch.
-const wholeChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion);
+const wholeChainPlan = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion);
 const livePreparation = {
 	...preparation,
 	firstKeptEntryId: "recent-user",
@@ -319,7 +319,7 @@ assert.equal(result.summary, "NATIVE_SUMMARY", "native summary must become the c
 // operator must not see a warning for it.
 assert.deepEqual(cacheColdLogReasons(), [], "an accepted native live chain must not warn");
 
-if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(coreVersion)) {
+if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(coreVersion)) {
 	const { getPreservedAnthropicCompactionData } = await import(`${CORE_ROOT}/src/compaction/anthropic.ts`);
 	assert.equal(
 		result.firstKeptEntryId,
@@ -429,7 +429,7 @@ if (localLiveLegs) {
 		"the native fallback must warn with the same named reason",
 	);
 }
-if (["18.12.6", "18.16.0"].includes(coreVersion)) {
+if (["18.12.6", "18.16.0", "18.18.0"].includes(coreVersion)) {
 	// Consume the target public callback rather than supplying only the custom
 	// live-cache callback: the native fallback must thread its actual model.
 	providerContextCalls = 0;

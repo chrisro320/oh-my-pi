@@ -19,7 +19,7 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AGENT_ROOT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const AI_ROOT = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const agentVersion = (await Bun.file(`${AGENT_ROOT}/package.json`).json()).version;
-assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion),
+assert.ok(["18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion),
 	`unsupported eval persistence gate version: ${agentVersion}`);
 const privateProcess = process.env.OMP_DURABILITY_BOOT === "1";
 const privateHome = mkdtempSync(join(tmpdir(), "omp-eval-home-"));
@@ -64,7 +64,7 @@ type Message = Record<string, unknown> & { role: string; customType?: string; co
 async function openSession(sessionManager: Manager) {
 	const agentDir = join(root, "agent");
 	const authStorage = await discoverAuthStorage(agentDir);
-	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
+	if (["18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion)) authStorage.keys.setRuntime("mock", "test");
 	else authStorage.setRuntimeApiKey("mock", "test");
 	const { session } = await createAgentSession({
 		cwd,
@@ -156,7 +156,7 @@ try {
 	// 18.16.0 upstream persists only at construction and at history rewrites
 	// (`SessionMaintenanceHost.persistEvalStateContext`); the prefix family
 	// restores the opt-out so a read-only rebuild can prove it never writes.
-	const modelFirstContext = agentVersion === "18.12.6" || agentVersion === "18.16.0";
+	const modelFirstContext = ["18.12.6", "18.16.0", "18.18.0"].includes(agentVersion);
 	const rebuild = (persistEvalStateContext?: boolean) => {
 		if (persistEvalStateContext === undefined) return resumed.buildDisplaySessionContext();
 		return modelFirstContext

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const root = mkdtempSync(join(tmpdir(), "omp-anthropic-audit-verify-"));
 process.env.PI_CODING_AGENT_DIR = root;
@@ -11,6 +14,7 @@ const NM = process.env.OMP_PATCH_VERIFY_NM ?? `${homedir()}/.bun/install/global/
 const AI = process.env.OMP_PATCH_VERIFY_AI_ROOT ?? `${NM}/pi-ai`;
 const AGENT = process.env.OMP_PATCH_VERIFY_AGENT_ROOT ?? `${NM}/pi-coding-agent`;
 const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
+const CORE = process.env.OMP_PATCH_VERIFY_CORE_ROOT ?? `${NM}/pi-agent-core`;
 // 18.3.5 moved prompt-cache warming out of the provider stream options into
 // pi-coding-agent's session-level CacheWarmer, so only trees at or above that
 // version can produce a warm replay. The branch keys on the selected pi-ai
@@ -19,7 +23,7 @@ const CATALOG = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-catalog`;
 // Fail closed on a plan this gate has no arm for. 18.16.0 keeps the 18.12.6
 // arms: the 18.10.x-only compaction-control branches below stay off, exactly as
 // they are for 18.12.6, and the warmer decides through the >= 18.3.5 path.
-const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"];
+const SUPPORTED_PLANS = ["18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"];
 const selectedPlan = process.env.OMP_PATCH_VERSION;
 assert.ok(
 	selectedPlan === undefined || SUPPORTED_PLANS.includes(selectedPlan),
@@ -34,6 +38,11 @@ assert.ok(
 	SUPPORTED_PLANS.includes(aiVersion),
 	`unsupported pi-ai tree version for the anthropic request audit gate: ${aiVersion} (supported: ${SUPPORTED_PLANS.join(", ")})`,
 );
+if (aiVersion === "18.18.0") {
+	// Worker embeddings may preload pi-utils before this fixture sets its HOME.
+	const { refreshDirsFromEnv } = await import(Bun.resolveSync("@oh-my-pi/pi-utils", AI));
+	refreshDirsFromEnv();
+}
 const [aiMajor, aiMinor, aiPatch] = aiVersion.split(".").map(Number);
 const hasSessionCacheWarmer =
 	aiMajor > 18 || (aiMajor === 18 && (aiMinor > 3 || (aiMinor === 3 && aiPatch >= 5)));
@@ -194,7 +203,7 @@ try {
 			},
 			getPromptTokens: () => 100_000,
 			getMode: () => "idle",
-			decide: async () => ["18.7.0", "18.10.0", "18.10.1"].includes(aiVersion) ? "warm" : true,
+			decide: async () => ["18.7.0", "18.10.0", "18.10.1", "18.18.0"].includes(aiVersion) ? "warm" : true,
 		} as never);
 		warmer.start(
 			{
@@ -214,12 +223,16 @@ try {
 					cacheRetention: "long",
 				} as never,
 			} as never,
-			() => true,
+			// 18.18.0 replaced `isCurrent: () => boolean` with
+			// `change: () => PromptCacheChange | undefined`: a non-undefined change
+			// stops warming. `true` would mean "changed" and stop before the replay.
+			aiVersion === "18.18.0" ? () => undefined : () => true,
 		);
 		for (let i = 0; i < 600 && !warmOptions; i++) await Bun.sleep(10);
 		assert.ok(warmOptions, "the real warmer must replay through its stream dependency");
 		assert.equal(warmOptions.maxTokens, 1, "the warmer's only override is the one-token cap");
 		assert.equal(warmOptions.sessionId, warmSession, "a warm replay keeps the live session identity");
+		if (aiVersion === "18.18.0") assert.equal(warmOptions.requestPurpose, "side", "the real warmer declares its replay side work, whatever options it was armed with");
 
 		const beforeWarm = wire.length;
 		const warmResult = await streamAnthropic(
@@ -253,10 +266,318 @@ try {
 			`pi-ai ${aiVersion} predates the session cache warmer: legacy stream-level refresh classification unchanged`,
 		);
 	}
+	if (aiVersion === "18.18.0") {
+		// Request compression (gzip, bodies of 1 KiB or more to the official host) must not blind the audit: the archive
+		// holds the uncompressed logical body, byte for byte what the compressor was given, while the wire stays compressed.
+		const compressionSession = "audit-compression-session";
+		const compressionDir = join(root, "payloads", compressionSession, "anthropic-wire");
+		const sent: { body: Uint8Array; headers: Headers }[] = [];
+		const compressedSink = async (input: unknown, init?: RequestInit) => {
+			assert.ok(init?.body instanceof Uint8Array, "a body of 1 KiB or more to the official host leaves compressed");
+			sent.push({ body: init.body, headers: new Headers(init.headers) });
+			return sink(input, { ...init, body: gunzipSync(init.body).toString("utf8") });
+		};
+		const compressed = await streamAnthropic(model, { systemPrompt: "Stable rules ".repeat(400), messages: [{ role: "user", content: [{ type: "text", text: "large body" }], timestamp: 1 }] }, {
+			apiKey: "sk-ant-oat01-offline-audit-fixture", sessionId: compressionSession, fetch: compressedSink as typeof fetch, maxTokens: 16, maxRetries: 0, cacheRetention: "long",
+		}).result();
+		assert.equal(compressed.stopReason, "stop", compressed.errorMessage);
+		assert.equal(sent.length, 1, "one request reaches the transport");
+		assert.equal(sent[0]!.headers.get("content-encoding"), "gzip", "the wire body stays compressed");
+		const logical = gunzipSync(sent[0]!.body).toString("utf8");
+		assert.ok(logical.length >= 1024, "the fixture body is large enough to compress");
+		assert.ok(existsSync(compressionDir), "the audit must see the uncompressed body: a compressed request left no archive");
+		const metaNames = readdirSync(compressionDir).filter(name => name.endsWith(".meta.json"));
+		assert.equal(metaNames.length, 1, "the compressed request is archived, not lost to a parse failure");
+		const archived = readFileSync(join(compressionDir, metaNames[0]!.replace(".meta.json", ".body.json")), "utf8");
+		assert.equal(archived, logical, "the archive holds the uncompressed logical body exactly as it was compressed for the wire");
+		const compressedMeta: { kind: string; wire: { bytes: number; logicalBytes: number; encoding: string; sends: number; truncated: boolean } } = JSON.parse(readFileSync(join(compressionDir, metaNames[0]!), "utf8"));
+		assert.equal(compressedMeta.kind, "main", "a compressed primary request keeps its classification");
+		assert.equal(readdirSync(compressionDir).filter(name => name.endsWith(".baseline.json")).length, 1, "a compressed primary request still advances the baseline");
+		// meta.wire.bytes is what the transport was actually handed: the gzip byte array, not the JSON it came from.
+		assert.equal(compressedMeta.wire.bytes, sent[0]!.body.byteLength, "meta.wire.bytes is the length of the real gzip byte array");
+		assert.ok(compressedMeta.wire.bytes < Buffer.byteLength(logical), "the gzip body is smaller than the logical body, so the two lengths cannot be confused");
+		assert.equal(compressedMeta.wire.logicalBytes, Buffer.byteLength(logical), "the logical (pre-compression) length is kept separately");
+		assert.equal(compressedMeta.wire.encoding, "gzip", "the record names the encoding the bytes were sent in");
+		assert.equal(compressedMeta.wire.sends, 1, "one send reached the transport");
+
+		// Side work sharing the session id and model never replaces the baseline, whatever its transport: a compressed
+		// `requestPurpose: "side"` request is side work, while an unmarked request is the session's own main turn.
+		const readMetaKind = (file: string): string => {
+			const meta: { kind: string } = JSON.parse(readFileSync(file, "utf8"));
+			return meta.kind;
+		};
+		const readPointerFile = (file: string): string => {
+			const pointer: { file: string } = JSON.parse(readFileSync(file, "utf8"));
+			return pointer.file;
+		};
+		const pointerOf = () => readFileSync(join(compressionDir, readdirSync(compressionDir).find(name => name.endsWith(".baseline.json"))!), "utf8");
+		const compressedKinds = () => readdirSync(compressionDir).filter(name => name.endsWith(".meta.json")).map(name => readMetaKind(join(compressionDir, name))).sort();
+		const compressedBaseline = pointerOf();
+		const sendSide = async (purpose: "side" | undefined) => {
+			const beforeSent = sent.length;
+			const result = await streamAnthropic(model, { systemPrompt: "Stable rules ".repeat(400), messages: [{ role: "user", content: [{ type: "text", text: `side work ${beforeSent}` }], timestamp: 1 }] }, {
+				apiKey: "sk-ant-oat01-offline-audit-fixture", sessionId: compressionSession, fetch: compressedSink as typeof fetch, maxTokens: 16, maxRetries: 0, cacheRetention: "long",
+				...(purpose ? { requestPurpose: purpose } : {}),
+			}).result();
+			assert.equal(result.stopReason, "stop", result.errorMessage);
+			assert.equal(sent.length, beforeSent + 1, "the request reaches the transport once, compressed");
+		};
+		await sendSide("side");
+		assert.deepEqual(compressedKinds(), ["main", "side"], "an explicit side request is archived as side work");
+		assert.equal(pointerOf(), compressedBaseline, "a compressed same-session side request must not replace the main baseline");
+		await sendSide(undefined);
+		assert.deepEqual(compressedKinds(), ["main", "main", "side"], "an unmarked request is the session's own main turn");
+		assert.notEqual(pointerOf(), compressedBaseline, "an unmarked compressed request advances the baseline");
+
+		// `statefulResponses: false` only chooses the transport's threading: an unmarked request that sends in full is
+		// still a main turn and owns the baseline, and the same option on an explicit side request is still side work.
+		const statelessSession = "audit-stateless-main-session";
+		const statelessDir = join(root, "payloads", statelessSession, "anthropic-wire");
+		const sendStateless = async (text: string, purpose: "side" | undefined) => {
+			const before = wire.length;
+			const result = await streamAnthropic(model, { systemPrompt: "Stable rules", messages: [{ role: "user", content: [{ type: "text", text }], timestamp: 1 }] }, {
+				apiKey: "sk-ant-oat01-offline-audit-fixture", sessionId: statelessSession, fetch: sink, maxTokens: 16, maxRetries: 0, cacheRetention: "long",
+				statefulResponses: false, ...(purpose ? { requestPurpose: purpose } : {}),
+			}).result();
+			assert.equal(result.stopReason, "stop", result.errorMessage);
+			assert.equal(wire.length, before + 1);
+			const name = readdirSync(statelessDir).filter(file => file.endsWith(".meta.json")).find(file => readFileSync(join(statelessDir, file.replace(".meta.json", ".body.json")), "utf8") === wire[before]);
+			assert.ok(name, "the stateless request is archived");
+			return { kind: readMetaKind(join(statelessDir, name)), bodyFile: join(statelessDir, name.replace(".meta.json", ".body.json")) };
+		};
+		const baselineOf = () => readPointerFile(join(statelessDir, readdirSync(statelessDir).find(name => name.endsWith(".baseline.json"))!));
+		const statelessFirst = await sendStateless("stateless one", undefined);
+		assert.equal(statelessFirst.kind, "main", "a stateless main turn is archived as main");
+		assert.equal(baselineOf(), statelessFirst.bodyFile, "a stateless main turn establishes the baseline");
+		const statelessSecond = await sendStateless("stateless two", undefined);
+		assert.equal(baselineOf(), statelessSecond.bodyFile, "a stateless main turn advances the baseline");
+		assert.equal((await sendStateless("stateless side", "side")).kind, "side", "an explicit side request is side work even when it sends in full");
+		assert.equal(baselineOf(), statelessSecond.bodyFile, "an explicit side request never replaces the baseline");
+	}
+	if (aiVersion === "18.18.0") {
+		// Producers, through their real entry points. An unmarked request is the session's own main turn (the pre-change
+		// default); every same-session side producer declares itself side. A real standalone `pi-agent-core` Agent turn
+		// through the built-in Anthropic provider establishes the baseline; local summaries, edit auto-repair, a memory job
+		// and a cache-warmer replay, all on that session id and model, must each be archived as non-main work and leave the
+		// baseline alone. Run over a loopback endpoint (plain body) and against the official host (gzip body).
+		const { Agent } = await import(`${CORE}/src/agent.ts`);
+		const { compact, prepareCompaction } = await import(`${CORE}/src/compaction/compaction.ts`);
+		const { Settings: ProducerSettings } = await import(`${AGENT}/src/config/settings.ts`);
+		const { attemptEditAutoRepair } = await import(`${AGENT}/src/edit/auto-repair.ts`);
+		const { startMemoryStartupTask } = await import(`${AGENT}/src/memories/index.ts`);
+		const { CacheWarmer: ProducerWarmer } = await import(`${AGENT}/src/session/cache-warmer.ts`);
+		const { streamSimple } = await import(`${AI}/src/stream.ts`);
+		const { chatTextBackend } = await import(`${AI}/src/judgment/chat.ts`);
+		const producerKey = "sk-ant-oat01-offline-audit-fixture";
+		const runProducerLineage = async (label: string, baseUrl: string | undefined) => {
+			const compressed = baseUrl === undefined;
+			const lineModel = { ...(model as Record<string, unknown>), ...(baseUrl ? { baseUrl } : {}) } as typeof model;
+			const lineOrigin = new URL(lineModel.baseUrl).origin;
+			const sessionId = `audit-producers-${label}`;
+			const lineDir = join(root, "payloads", sessionId, "anthropic-wire");
+			const records = () => existsSync(lineDir)
+				? readdirSync(lineDir).filter(name => name.endsWith(".meta.json")).sort().map(name => {
+					const meta: { kind: string; wire?: { encoding?: string } } = JSON.parse(readFileSync(join(lineDir, name), "utf8"));
+					return { kind: meta.kind, encoding: meta.wire?.encoding };
+				})
+				: [];
+			const pointer = () => {
+				const name = existsSync(lineDir) ? readdirSync(lineDir).find(entry => entry.endsWith(".baseline.json")) : undefined;
+				return name ? readFileSync(join(lineDir, name), "utf8") : undefined;
+			};
+			let transportFailure: unknown;
+			const lineageFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+				try {
+					const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+					assert.equal(url.origin, lineOrigin, `${label}: every request goes to the lineage endpoint`);
+					if (!compressed) assert.ok(url.hostname === "127.0.0.1", `${label}: the loopback lineage stays on loopback`);
+					const gzip = new Headers(init?.headers).get("content-encoding") === "gzip";
+					assert.equal(gzip, compressed, `${label}: the body is ${compressed ? "gzip-compressed" : "sent plain"}`);
+					const body = init?.body instanceof Uint8Array ? (gzip ? gunzipSync(init.body).toString("utf8") : new TextDecoder().decode(init.body)) : init?.body;
+					return await sink(input, { ...init, body });
+				} catch (error) {
+					transportFailure = error;
+					throw error;
+				}
+			}) as typeof fetch;
+			globalThis.fetch = lineageFetch;
+			// The official host is reached by the provider's own https transport, never the global fetch, so the producers
+			// that expose a fetch seam (the Agent's stream function, summaries, the warmer's stream) receive the stub there.
+			const seam = compressed ? { fetch: lineageFetch } : {};
+			// One producer step: it must add records, all of `kind`, in the transport's encoding, and leave the baseline alone.
+			const sideStep = async (what: string, kind: string, produce: () => Promise<unknown> | void, waitForSend = false) => {
+				const recordsBefore = records().length;
+				const wireBefore = wire.length;
+				const baselineBefore = pointer();
+				await produce();
+				if (waitForSend) {
+					for (let i = 0; i < 1000 && wire.length === wireBefore; i++) await Bun.sleep(10);
+					await Bun.sleep(300);
+				}
+				const added = records().slice(recordsBefore);
+				assert.ok(added.length > 0, `${label}: ${what} must reach the provider`);
+				assert.deepEqual(added.map(record => record.kind), added.map(() => kind), `${label}: ${what} is archived as ${kind} work`);
+				assert.ok(added.every(record => record.encoding === (compressed ? "gzip" : "identity")), `${label}: ${what} leaves the transport ${compressed ? "gzip-compressed" : "uncompressed"}`);
+				assert.equal(pointer(), baselineBefore, `${label}: ${what} must not replace the main baseline`);
+			};
+
+			const agent = new Agent({
+				initialState: { systemPrompt: ["Producer rules. ".repeat(120)], model: lineModel, tools: [] }, sessionId, getApiKey: () => producerKey,
+				...(compressed ? { streamFn: (streamModel: never, streamContext: never, streamOptions: Record<string, unknown>) => streamSimple(streamModel, streamContext, { ...streamOptions, ...seam } as never) } : {}),
+			});
+			const mainTurn = async (text: string) => {
+				await agent.prompt(text);
+				await agent.waitForIdle();
+				const last = agent.state.messages.at(-1) as { stopReason?: string; errorMessage?: string };
+				assert.equal(last.stopReason, "stop", `${last.errorMessage} ${String(transportFailure)}`);
+			};
+			await mainTurn("main turn one");
+			assert.deepEqual(records().map(record => record.kind), ["main"], `${label}: an unmarked standalone Agent turn is archived as main`);
+			const baselineOne = pointer();
+			assert.ok(baselineOne, `${label}: the standalone Agent turn establishes the baseline`);
+
+			// Local compaction summaries (history summary + short summary).
+			const entries = [
+				{ type: "message", id: "e1", parentId: null, timestamp: 1, message: { role: "user", content: "first question", timestamp: 1 } },
+				{ type: "message", id: "e2", parentId: "e1", timestamp: 2, message: { role: "assistant", content: [{ type: "text", text: "first answer" }], timestamp: 2, usage: { input: 5, output: 2 } } },
+				{ type: "message", id: "e3", parentId: "e2", timestamp: 3, message: { role: "user", content: "second question", timestamp: 3 } },
+				{ type: "message", id: "e4", parentId: "e3", timestamp: 4, message: { role: "user", content: "third question", timestamp: 4 } },
+			];
+			const plan = prepareCompaction(entries as never, { enabled: true, keepRecentTokens: 1, remoteEnabled: false } as never, lineModel as never);
+			assert.ok(plan, "the fixture must prepare a compaction");
+			await sideStep("a local summary", "side", () => compact(
+				{ ...plan, isSplitTurn: false, messagesToSummarize: [entries[0]!.message, entries[1]!.message], recentMessages: [entries[1]!.message, entries[2]!.message] } as never,
+				lineModel as never, producerKey, undefined, undefined, { sessionId, ...seam } as never,
+			));
+
+			// Edit auto-repair and the memory job reach the provider only through its own transport (no fetch seam), so they
+			// run over the loopback endpoint; the classification they declare is independent of the body's encoding.
+			if (!compressed) {
+				// Edit auto-repair: a committed edit that broke the parse, repaired by the smol role on this session id.
+				const repairFile = join(root, `repair-${label}.js`);
+				const before = Array.from({ length: 60 }, (_, i) => `const value${i} = ${i} + 1;`).join("\n") + "\n";
+				const after = before.replace("const value30 = 30 + 1;", "const value30 = (30 + ;");
+				assert.notEqual(after, before);
+				writeFileSync(repairFile, after);
+				const repairSettings = ProducerSettings.isolated({ "edit.autoRepair.enabled": true, "memory.backend": "off" });
+				repairSettings.overrideModelRoles({ smol: `${lineModel.provider}/${lineModel.id}` });
+				const registry = { getAvailable: () => [lineModel], getAll: () => [lineModel], getApiKey: async () => producerKey, resolver: () => producerKey };
+				await sideStep("edit auto-repair", "side", () => attemptEditAutoRepair({
+					session: { settings: repairSettings, modelRegistry: registry, getSessionId: () => sessionId } as never,
+					snapshot: { path: repairFile, prev: before, next: after },
+					writethrough: (async () => undefined) as never,
+				}));
+
+				// Memory job: stage-1 extraction of an older rollout, sharing this session's id.
+				const memoryRoot = join(root, `memory-${label}`);
+				const memorySessions = join(memoryRoot, "sessions");
+				mkdirSync(memorySessions, { recursive: true });
+				mkdirSync(join(memoryRoot, "agent"), { recursive: true });
+				const rollout = join(memorySessions, "old-thread.jsonl");
+				writeFileSync(rollout, [
+					{ type: "session", id: "old-thread", cwd: memoryRoot },
+					{ type: "message", message: { role: "user", content: "remember the deploy checklist", timestamp: 1 } },
+					{ type: "message", message: { role: "assistant", content: [{ type: "text", text: "noted" }], timestamp: 2 } },
+				].map(row => JSON.stringify(row)).join("\n") + "\n");
+				const longAgo = new Date(Date.now() - 3 * 24 * 3600 * 1000);
+				utimesSync(rollout, longAgo, longAgo);
+				const memorySettings = ProducerSettings.isolated({ "memory.backend": "local" });
+				memorySettings.overrideModelRoles({ default: `${lineModel.provider}/${lineModel.id}` });
+				await sideStep("a memory job", "side", () => startMemoryStartupTask({
+					session: {
+						settings: memorySettings, model: lineModel, sessionId, isDisposed: false, agent: { metadataForProvider: () => undefined },
+						sessionManager: { getSessionFile: () => join(memorySessions, "current.jsonl"), getSessionDir: () => memorySessions, getCwd: () => memoryRoot, getSessionId: () => sessionId },
+					} as never,
+					settings: memorySettings, modelRegistry: registry as never, agentDir: join(memoryRoot, "agent"), taskDepth: 0,
+				}), true);
+
+				// A chat-model judgment (smol/tiny judge) on the same session id and model.
+				await sideStep("a same-session judgment", "side", () => chatTextBackend(lineModel, { apiKey: producerKey, sessionId }).complete({ system: "Judge rules. ".repeat(120), user: "state: ok" }, {}));
+			}
+
+			// Cache-warmer replay through the real `streamSimple`.
+			let replay: Record<string, unknown> | undefined;
+			const warmer = new ProducerWarmer({
+				stream: (warmModel: never, warmContext: never, warmOptions: Record<string, unknown>) => { replay = warmOptions; return streamSimple(warmModel, warmContext, { ...warmOptions, ...seam } as never); },
+				getPromptTokens: () => 100_000, getMode: () => "idle", decide: async () => "warm",
+			} as never);
+			try {
+				await sideStep("a cache-warmer replay", "cache-refresh", () => {
+					warmer.start({
+						model: { ...(lineModel as Record<string, unknown>), promptCache: { short: 11, long: 11 } } as never,
+						context: { systemPrompt: "Producer rules. ".repeat(120), messages: [{ role: "user", content: [{ type: "text", text: "main turn one" }], timestamp: 1 }] } as never,
+						options: { apiKey: producerKey, sessionId, maxTokens: 16, maxRetries: 0, cacheRetention: "long" } as never,
+					} as never, () => undefined);
+				}, true);
+			} finally {
+				warmer.cancel();
+			}
+			assert.equal(replay?.requestPurpose, "side", `${label}: the warm replay declares itself side work`);
+
+			// An unmarked turn after all that side work is still a main turn and advances the baseline.
+			await mainTurn("main turn two");
+			assert.equal(records().at(-1)?.kind, "main", `${label}: the next unmarked Agent turn is archived as main`);
+			assert.notEqual(pointer(), baselineOne, `${label}: the next main turn advances the baseline`);
+		};
+		try {
+			await runProducerLineage("loopback", "http://127.0.0.1:47836");
+			await runProducerLineage("official", undefined);
+		} finally {
+			globalThis.fetch = sink as typeof fetch;
+		}
+	}
+	if (aiVersion === "18.18.0") {
+		// Producers, through the real session: its own agent-loop turn carries no purpose (an unmarked request is main),
+		// and the real side-channel path (an ephemeral turn on the same session) declares itself side. The mock provider
+		// records the options each request reached the provider with.
+		const { Settings } = await import(`${AGENT}/src/config/settings.ts`);
+		const { ModelRegistry } = await import(`${AGENT}/src/config/model-registry.ts`);
+		const { SessionManager } = await import(`${AGENT}/src/session/session-manager.ts`);
+		const { createAgentSession, discoverAuthStorage } = await import(`${AGENT}/src/sdk.ts`);
+		const { createMockModel, registerMockApi } = await import(`${AI}/src/providers/mock.ts`);
+		registerMockApi("audit-request-purpose");
+		const purposeDir = join(root, "purpose-session");
+		mkdirSync(purposeDir, { recursive: true });
+		const authStorage = await discoverAuthStorage(join(purposeDir, "agent"));
+		authStorage.keys.setRuntime("mock", "fixture");
+		const mock = createMockModel({ id: "audit-request-purpose", handler: () => ({ content: ["ok"] }) });
+		const modelRegistry = new ModelRegistry(authStorage);
+		modelRegistry.find = (provider: string, id: string) => (provider === "mock" && id === mock.id ? mock : undefined);
+		modelRegistry.getAvailable = () => [mock];
+		modelRegistry.hasConfiguredAuth = () => true;
+		const { session } = await createAgentSession({
+			cwd: purposeDir, agentDir: join(purposeDir, "agent"), authStorage, modelRegistry, model: mock, systemPrompt: "PURPOSE",
+			settings: Settings.isolated({ "memory.backend": "off", "computer.enabled": false }), sessionManager: SessionManager.inMemory(purposeDir),
+			enableMCP: false, enableLsp: false, enableIrc: false, cacheWarming: false, autoTitle: false, disableExtensionDiscovery: true,
+			skills: [], rules: [], contextFiles: [], promptTemplates: [], slashCommands: [],
+		});
+		try {
+			await session.prompt("main turn");
+			await session.waitForIdle();
+			assert.equal(mock.calls.length, 1, "the main turn reaches the provider once");
+			assert.notEqual(mock.calls[0]!.options?.requestPurpose, "side", "the session's own agent-loop turn is not side work");
+			await session.runEphemeralTurn({ promptText: "side question" });
+			assert.equal(mock.calls.length, 2, "the ephemeral side turn reaches the provider once");
+			assert.equal(mock.calls[1]!.options?.requestPurpose, "side", "a same-session side-channel turn declares itself side work");
+		} finally {
+			await session.dispose();
+		}
+	}
 	process.env.OMP_PAYLOAD_ARCHIVE_OFF = "1";
 	assert.equal(createAnthropicRequestAudit({ sessionId: "disabled", provider: "anthropic", sideRequest: false, refresh: false }), undefined);
 	console.log("PASS Anthropic final-wire audit: exact OAuth bytes, native prefix diff, side/session isolation, raw usage/request ID, real cache-warmer baseline isolation, I/O failure isolation, opt-out; zero network");
 } finally {
 	globalThis.fetch = originalFetch;
 	rmSync(root, { recursive: true, force: true });
+}
+
+if (aiVersion === "18.18.0") {
+	// Shared fixture compares the real logical hook with final fetch deltas and
+	// mutates a continue-origin message, including the redaction/record bound.
+	const child = spawnSync(process.execPath, [fileURLToPath(new URL("./verify-anthropic-threads-cache-shape.ts", import.meta.url))], {
+		env: { ...process.env, OMP_THREADS_SHAPE_LEGS: "audit-history,hooks-vs-wire,record-safety,mutation,disabled" }, encoding: "utf8",
+	});
+	process.stdout.write(child.stdout ?? "");
+	process.stderr.write(child.stderr ?? "");
+	assert.equal(child.status, 0, "0074 complete accepted thread history and bounded final-wire records must pass");
 }

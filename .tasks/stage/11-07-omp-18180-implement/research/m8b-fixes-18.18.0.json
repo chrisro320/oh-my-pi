@@ -1,0 +1,27 @@
+{
+  "step": "M8b family-level fixes: proof summary",
+  "candidate_tree_sha256": "45f8a88791ceedbb3964eee645f1a5e105553e1b8c3ec22757274df83dd1a3ab",
+  "compression_origin": "request-compression (gzip, bodies >= 1 KiB to the official Anthropic host, catalog rule request-encodings \"gzip\", pi-ai/src/utils/request-compression.ts) exists byte-identically in pristine 18.16.0 (added in 18.12.0, PR 16086) with the same wrap order in anthropic.ts: compression wrapped the audit-wrapped fetch. Not new in 18.18.0; the 0074 audit was already blind to compressed bodies on 18.16.0.",
+  "fix": "AnthropicClientOptionsArgs.wrapRequestFetch (src + published d.ts): the audit now wraps the compressor from above and sits below the cch rewriter, so it records the exact logical body while the wire stays compressed. Owners: 0094 (anthropic.ts), 0074 (dist/types/providers/anthropic.d.ts).",
+  "mutations_red": {
+    "audit-below-compression": "verify-anthropic-request-audit: the audit must see the uncompressed body",
+    "audit-summary-primary (sideRequest only initiatorOverride)": "verify-anthropic-request-audit: manual summary requests archived as side work",
+    "fsync-global-full": "Q7-fsync ordinary=22; Q7-stress swallowed AgentStorage failure",
+    "fsync no-full-{reserve,stage,commit,release}": "Q7-fsync-controls (self-driven in the repo gate): exactly the dropped transaction red",
+    "route-notify-dropped": "Q7 (RemoteAgentStorage route)",
+    "sets-widen-empty / publisher-drop / remote-drop / statusline-drop / auth-main-drop": "verify-usage-thread-providers behaviour legs",
+    "sets-dts-mirror-singular": "verify-usage-thread-providers declaration check"
+  },
+  "worker_runtime_15_legs": "PASS on disk-backed TMPDIR and on tmpfs (default, Q3, 0081, Devin, payload, Q7, Q7-stress, Q7-fsync, Q7-fsync-controls, Q8, Q5, threads, Q2, bridges, OAuth9)",
+  "fsync_counts": {
+    "ordinary": 2,
+    "reserve": 3,
+    "stage": 3,
+    "commit": 3,
+    "release": 3
+  },
+  "smoke": "m8b-smoke-18.18.0.json PASS (6 checks)",
+  "version_control_18.18.1": {
+    "apply.sh --print-gates": "refused, exit 2 (\"unsupported\")"
+  }
+}

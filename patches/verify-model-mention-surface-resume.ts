@@ -31,7 +31,7 @@ try {
 }
 // Version-scoped: the freeze/notice split this gate defends exists from 18.3.4 on, and the
 // fixture tag syntax is 18.4.1's. A tree without the behavior must fail, never skip.
-assert.ok(["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(version), `unsupported advertised-surface resume gate version: ${version}`);
+assert.ok(["18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(version), `unsupported advertised-surface resume gate version: ${version}`);
 
 const LAB_ROOT = process.env.OMP_PATCH_VERIFY_MODEL_MENTION_LAB ?? mkdtempSync(join(tmpdir(), "model-mention-surface-"));
 const PROBE = join(AGENT_ROOT, ".verify-model-mention-surface-resume.probe.ts");
@@ -41,6 +41,7 @@ type Capture = {
 	mode: string;
 	sessionFile: string;
 	turns: { label: string; system: string; tools: string; messages: string[]; codexHead: string }[];
+	sessionAgents: { name: string; model?: string[]; thinkingLevel?: string }[];
 	fetchAttempts: number;
 };
 
@@ -61,7 +62,10 @@ const siblingRoot = dirname(NM);
 const aiRoot = join(siblingRoot, "pi-ai");
 const catalogRoot = join(siblingRoot, "pi-catalog");
 const [mode, resumeFile] = process.argv.slice(2);
-assert.ok(mode === "tag-live" || mode === "resume" || mode === "control-live" || mode === "control-resume", "unknown mode " + mode);
+const evalCase = mode === "eval-live" || mode === "eval-resume";
+const effortCase = mode === "effort-live" || mode === "effort-resume";
+const resumeMode = mode === "resume" || mode === "control-resume" || mode === "eval-resume" || mode === "effort-resume";
+assert.ok(resumeMode || mode === "tag-live" || mode === "control-live" || mode === "eval-live" || mode === "effort-live", "unknown mode " + mode);
 
 let fetchAttempts = 0;
 globalThis.fetch = () => {
@@ -110,8 +114,10 @@ const provider = {
 	models: [
 		{ id: "vision-model", name: "V", reasoning: false, input: ["text"], contextWindow: 200000, maxTokens: 4096,
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
-		{ id: "tag-model", name: "T", reasoning: false, input: ["text"], contextWindow: 200000, maxTokens: 4096,
-			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
+		// The effort leg tags "<selector>:high", which only resolves on a model that declares efforts.
+		{ id: "tag-model", name: "T", reasoning: effortCase, input: ["text"], contextWindow: 200000, maxTokens: 4096,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			...(effortCase ? { thinking: { mode: "effort", efforts: ["low", "medium", "high"] } } : {}) },
 	],
 	streamSimple(model, context, options) {
 		const call = {
@@ -140,6 +146,16 @@ const provider = {
 };
 const extension = pi => pi.registerProvider("mention-fixture", provider);
 
+if (resumeMode && evalCase) {
+	// The resumed process derives the eval surface from a construction-time tool view that lacks a
+	// tool the live session published later (MCP mounts and late enables behave the same way).
+	// Only the journaled surface can carry that tool back into the eval description.
+	const { SessionTools } = await import(agentRoot + "/src/session/session-tools.ts");
+	const realNames = SessionTools.prototype.getEvalBridgeToolNames;
+	SessionTools.prototype.getEvalBridgeToolNames = function () {
+		return realNames.call(this).filter(name => name !== "write");
+	};
+}
 const manager = resumeFile ? await SessionManager.open(resumeFile) : SessionManager.create(cwd, join(lab, "sessions"));
 const { session } = await createAgentSession({
 	cwd,
@@ -158,7 +174,7 @@ const { session } = await createAgentSession({
 	preloadedCustomToolPaths: [],
 	enableLsp: false,
 	skipPythonPreflight: true,
-	toolNames: ["read", "edit", "task"],
+	toolNames: evalCase ? ["read", "edit", "task", "eval", "write"] : ["read", "edit", "task"],
 	extensions: [extension],
 });
 
@@ -172,15 +188,16 @@ async function turn(label, text) {
 	await Promise.all(pending);
 }
 
-if (mode === "resume" || mode === "control-resume") {
+if (resumeMode) {
 	await turn("resumed-1", "After resume: reply briefly. " + filler(60));
 	await turn("resumed-2", "After resume, second request. " + filler(60));
 } else {
 	await turn("t1", "First turn. " + filler(60));
 	await turn("t2", mode === "tag-live" ? "Second turn. Tag ^mention-fixture/tag-model now. " + filler(60)
+		: effortCase ? "Second turn. Tag ^mention-fixture/tag-model:high now. " + filler(60)
 		: "Second turn. No tag here. " + filler(60));
 	await turn("t3", "Third turn. " + filler(60));
-	if (mode === "tag-live") {
+	if (mode === "tag-live" || effortCase || evalCase) {
 		// The base-prompt rebuild every natural trigger funnels through (model switch, tool or
 		// skill reload, workspace/session change, memory promotion).
 		await session.refreshBaseSystemPrompt();
@@ -201,6 +218,8 @@ const result = {
 		messages: call.messages,
 		codexHead: call.codexHead,
 	})),
+	// Dispatch reads the live registry; the advertised list only renders the description.
+	sessionAgents: session.getSessionAgents().map(agent => ({ name: agent.name, model: agent.model, thinkingLevel: agent.thinkingLevel })),
 	fetchAttempts,
 };
 await session.dispose();
@@ -216,6 +235,11 @@ function stripErrorId(messages: readonly string[]): string[] {
 		delete parsed.errorId;
 		return JSON.stringify(parsed);
 	});
+}
+
+/** The description of one provider-facing tool in a captured request. */
+function toolDescription(tools: string, name: string): string | undefined {
+	return (JSON.parse(tools) as { name: string; description: string }[]).find(tool => tool.name === name)?.description;
 }
 
 function runProbe(mode: string, sessionFile?: string): Capture {
@@ -302,6 +326,41 @@ try {
 	assert.equal(controlResumed.turns[0].tools, controlLast.tools, "control: tools must match across resume");
 	assert.equal(controlResumed.turns[0].codexHead, controlLast.codexHead, "control: codex head must match across resume");
 
+	// 18.18.0 `PromptSurface.evalToolNames`: the eval description lists the tools cells may call and is
+	// frozen with the cached prefix. A resume must reproduce the list the live rebuild published, not
+	// whatever the construction-time tool view yields (the resume probe hides `write` from that view).
+	const evalLive = runProbe("eval-live");
+	const evalLast = evalLive.turns.at(-1);
+	assert.ok(evalLast, "eval live process must capture the post-rebuild request");
+	const liveEval = toolDescription(evalLast.tools, "eval");
+	assert.ok(liveEval, "fixture: the live session must expose the eval tool");
+	assert.ok(liveEval.includes("`write`"), "fixture: the live eval description must list write among the session tool names");
+	assert.ok(
+		readFileSync(evalLive.sessionFile, "utf8").includes('"evalToolNames"'),
+		"a base-prompt rebuild must journal the advertised eval tool names beside the model agents",
+	);
+	const evalResumed = runProbe("eval-resume", evalLive.sessionFile);
+	for (const [index, request] of evalResumed.turns.entries()) {
+		const label = `eval-resumed-${index + 1}`;
+		assert.equal(toolDescription(request.tools, "eval"), liveEval, `${label}: the eval description must keep the live tool-name list`);
+		assert.equal(request.tools, evalLast.tools, `${label}: the provider-facing tools block must match the live one byte for byte`);
+		assert.equal(request.codexHead, evalLast.codexHead, `${label}: the Codex body head (cache key) must match the live one`);
+	}
+
+	// A `^model:level` tag keeps its effort across a resume: dispatch reads the live registry that
+	// replays the `model_mention` journal, so the persisted advertised list never has to carry it.
+	const effortLive = runProbe("effort-live");
+	const liveTagged = effortLive.sessionAgents.find(agent => agent.name === "m1");
+	assert.equal(liveTagged?.thinkingLevel, "high", "fixture: the live tag resolves to high effort");
+	assert.deepEqual(liveTagged?.model, ["mention-fixture/tag-model:high"], "fixture: the live tag pins the selector with its level");
+	const effortResumed = runProbe("effort-resume", effortLive.sessionFile);
+	const resumedTagged = effortResumed.sessionAgents.find(agent => agent.name === "m1");
+	assert.deepEqual(resumedTagged, liveTagged, "the tagged agent's effort and selector must survive a fresh-process resume");
+	const effortLast = effortLive.turns.at(-1);
+	assert.ok(effortLast, "effort live process must capture the post-rebuild request");
+	for (const request of effortResumed.turns) {
+		assert.equal(request.tools, effortLast.tools, "effort: the advertised description must match the live one byte for byte");
+	}
 	console.log(
 		`PASS model-mention surface resume: ${resumed.turns.length} resumed requests carry the advertised surface (${liveLast.tools.length} tool bytes, codex head ${liveLast.codexHead.length} bytes), control unchanged`,
 	);

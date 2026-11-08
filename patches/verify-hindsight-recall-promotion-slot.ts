@@ -53,7 +53,7 @@ globalThis.fetch = (() => { throw new Error("Network forbidden in recall promoti
 // never carried it must fail closed rather than measure a pristine tree.
 const agentVersion: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
 assert.ok(
-	["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0"].includes(agentVersion),
+	["18.2.3", "18.2.10", "18.3.3", "18.4.1", "18.4.4", "18.7.0", "18.10.0", "18.10.1", "18.12.6", "18.16.0", "18.18.0"].includes(agentVersion),
 	`verify-hindsight-recall-promotion-slot: 0075 is not part of the ${agentVersion} plan`,
 );
 
@@ -69,7 +69,7 @@ const instructionState = { mentalModelsSnippet: "<mental_models>stable</mental_m
 // plans keep three arguments.
 const instructionArgs = [
 	privateHome,
-	...(["18.12.6", "18.16.0"].includes(agentVersion) ? [privateHome] : []),
+	...(["18.12.6", "18.16.0", "18.18.0"].includes(agentVersion) ? [privateHome] : []),
 	Settings.isolated({ "memory.backend": "hindsight", "hindsight.apiUrl": "http://127.0.0.1:1" }),
 	{ getHindsightSessionState: () => instructionState, getXdevToolEntries: () => [] },
 ];

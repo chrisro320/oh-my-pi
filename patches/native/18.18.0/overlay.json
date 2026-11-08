@@ -1,0 +1,27 @@
+{
+  "version": "18.18.0",
+  "package": "pi-natives-linux-x64",
+  "upstream_commit": "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+  "toolchain": "rust-toolchain.toml channel (nightly-2026-10-06); cargo --release --locked --offline; CMAKE_GENERATOR=Unix Makefiles",
+  "patches": [
+    {
+      "file": "0001-ax-atspi-timeout-chrome-title.patch",
+      "sha256": "829219f184b1a97029ecd6b116157be8ce6b549121e669141fdca47d48e891c0",
+      "summary": "Linux AT-SPI: bound the optional accessibility connection at 2 s and match Chrome profile-decorated AX frame titles without relaxing PID or ambiguity checks. The Escape MappingNotify half is retired: upstream bc706beb10 owns it."
+    }
+  ],
+  "files": [
+    {
+      "file": "pi_natives.linux-x64-modern.node",
+      "target_cpu": "x86-64-v3",
+      "original_sha256": "02781df2a519fd9504e555a5b53ff731b049dd32be39d0edb1d2f09046014e14",
+      "rebuilt_sha256": "805c244b98c29242ac850a555b804f8fef5a7b20521b2df89bbebf11c17a953a"
+    },
+    {
+      "file": "pi_natives.linux-x64-baseline.node",
+      "target_cpu": "x86-64-v2",
+      "original_sha256": "22674b30f0caa60292f130c3678f75bb4d6a1fcb8b2bf5f0cb86f052bef2e977",
+      "rebuilt_sha256": "187d620616526161c37b93649c0a722ea8d89082811d756c85685d0c47164ae1"
+    }
+  ]
+}

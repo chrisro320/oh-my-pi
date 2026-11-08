@@ -8,7 +8,7 @@
 // doubled that credit, which admitted the ceiling-priced case as well.
 // Never inspect private source or reproduce the guard's decision formula.
 import assert from "node:assert/strict";
-import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -25,8 +25,9 @@ const CATALOG_ROOT = process.env.OMP_PATCH_VERIFY_CATALOG_ROOT ?? `${NM}/pi-cata
 const { getBundledModel } = await import(`${CATALOG_ROOT}/src/models.ts`);
 const { classifyModel } = await import(`${CATALOG_ROOT}/src/compat/taxonomy.ts`);
 const VERSION: string = JSON.parse(readFileSync(`${AGENT_ROOT}/package.json`, "utf8")).version;
-// 18.16.0 owns the contract upstream; older plans still carry 0045/0062.
-const PRICED_PAIR = VERSION === "18.16.0";
+// 18.16.0 owns the contract upstream; older plans still carry 0045/0062, and
+// 18.18.0 re-bases the same reader-priced pair (adoptions-recheck 0062).
+const PRICED_PAIR = ["18.16.0", "18.18.0"].includes(VERSION);
 const root = mkdtempSync(join(tmpdir(), "omp-snapcompact-consumer-"));
 const cwd = join(root, "work");
 const agentDir = join(root, "agent");
@@ -210,6 +211,76 @@ try {
 		await assert.rejects(session.compact(undefined, { mode: "snapcompact" }), /would not reduce context/);
 		assert.equal(manager.getBranch().findLast((entry: { type: string }) => entry.type === "compaction")?.id,
 			first.id, "the ceiling-priced successor must leave the committed archive unchanged");
+		await session.dispose();
+		session = undefined;
+
+		// 0062 legacy-archive legs (plan §2.2): a pre-16.1 frames-only archive
+		// carries no text fields, so its source text cannot be reconstructed. The
+		// pass may still commit when the projection genuinely reduces, and the
+		// unreconstructable frame content is counted as truncated.
+		const legacyText = readFileSync(sessionFile, "utf8");
+		const legacyFile = join(root, "legacy.jsonl");
+		writeFileSync(legacyFile, legacyText.split("\n").filter(Boolean).map(line => {
+			const entry = JSON.parse(line) as { type?: string; preserveData?: { snapcompact?: Record<string, unknown> } };
+			const slot = entry.preserveData?.snapcompact;
+			if (entry.type !== "compaction" || !slot) return line;
+			delete slot.text;
+			delete slot.textHead;
+			delete slot.textTail;
+			return JSON.stringify(entry);
+		}).join("\n") + "\n");
+		// (a) A large enough new region still reduces: the legacy pass commits.
+		const legacyReducing = join(root, "legacy-reducing.jsonl");
+		copyFileSync(legacyFile, legacyReducing);
+		manager = await SessionManager.open(legacyReducing);
+		seedProse(240_000, 0xdead, "user");
+		seedProse(40_000, 0xd00d, "assistant");
+		session = await open(manager);
+		await session.compact(undefined, { mode: "snapcompact" });
+		const legacyPass = manager.getBranch().findLast((entry: { type: string }) => entry.type === "compaction");
+		assert.ok(legacyPass && legacyPass.id !== first.id, "a legacy archive with a large reducing region must commit");
+		const legacyArchive = getPreservedArchive(legacyPass.preserveData);
+		assert.ok(legacyArchive && legacyArchive.frames.length > 0, "the legacy successor stays image-backed");
+		assert.ok((legacyArchive?.truncatedChars ?? 0) > 0, "unreconstructable legacy frame content counts as truncated");
+		await session.dispose();
+		session = undefined;
+		// (b) A small region cannot reconstruct the lost credit: the explicit mode
+		// rejects and names the next configured manual method (pinned order).
+		const legacyRejecting = join(root, "legacy-rejecting.jsonl");
+		copyFileSync(legacyFile, legacyRejecting);
+		manager = await SessionManager.open(legacyRejecting);
+		seedProse(12_000, 0xbead, "user");
+		session = await open(manager);
+		await assert.rejects(
+			session.compact(undefined, { mode: "snapcompact" }),
+			/snapcompact would not reduce context\. Run \/compact soft instead\./,
+		);
+		assert.equal(manager.getBranch().findLast((entry: { type: string }) => entry.type === "compaction")?.id,
+			first.id, "the rejected legacy pass must leave the committed archive unchanged");
+		await session.dispose();
+		session = undefined;
+		// (c) Pinned order with no fallback method: configured as snapcompact-only,
+		// a non-explicit pass rejects without advertising a `/compact` mode.
+		const pinnedSettings = await Settings.loadIsolated({ cwd, agentDir, overrides: {
+			"memory.backend": "off", "computer.enabled": false, "secrets.enabled": false,
+			"compaction.enabled": false, "compaction.keepRecentTokens": 2000,
+			"compaction.methodOrder": ["snapcompact"], "snapcompact.shape": "11on16-bw",
+		} });
+		const pinnedFile = join(root, "legacy-pinned.jsonl");
+		copyFileSync(legacyFile, pinnedFile);
+		manager = await SessionManager.open(pinnedFile);
+		seedProse(12_000, 0xfeed, "user");
+		session = (await createAgentSession({
+			cwd, agentDir, settings: pinnedSettings, authStorage, modelRegistry, model,
+			sessionManager: manager, skills: [], rules: [], contextFiles: [], promptTemplates: [],
+			slashCommands: [], disableExtensionDiscovery: true, enableMCP: false, enableLsp: false,
+			preloadedCustomToolPaths: [], skipPythonPreflight: true, toolNames: [],
+		})).session;
+		await assert.rejects(session.compact(undefined, {}), (error: Error) => {
+			assert.match(error.message, /snapcompact would not reduce context/);
+			assert.ok(!error.message.includes("Run /compact"), "a snapcompact-only plan has no fallback mode to advertise");
+			return true;
+		});
 		await session.dispose();
 		session = undefined;
 	} else {

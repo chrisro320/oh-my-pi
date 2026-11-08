@@ -38,10 +38,10 @@ const NATIVES_ROOT = realpathSync(process.env.OMP_PATCH_VERIFY_NATIVES_ROOT ?? `
 // for pointing the gate at a fixture measured elsewhere.
 const CORPUS = process.env.OMP_TOKENIZER_PARITY_CORPUS ?? join(import.meta.dir, "fixtures", "tokenizer-parity-corpus.txt");
 
-// One arm only: this gate is registered inside the 18.16.0 guard, so any other
-// plan must fail closed rather than borrow an assertion it never had.
+// Two arms only: this gate is registered inside the 18.16.0/18.18.0 guard, so any
+// other plan must fail closed rather than borrow an assertion it never had.
 const version: string = JSON.parse(readFileSync(join(AGENT_ROOT, "package.json"), "utf8")).version;
-assert.equal(version, "18.16.0", `tokenizer parity gate has no arm for pi-coding-agent ${version}`);
+assert.ok(["18.16.0", "18.18.0"].includes(version), `tokenizer parity gate has no arm for pi-coding-agent ${version}`);
 if (process.env.OMP_PATCH_VERSION) {
 	assert.equal(version, process.env.OMP_PATCH_VERSION, "tokenizer parity fixture must match the selected plan");
 }
