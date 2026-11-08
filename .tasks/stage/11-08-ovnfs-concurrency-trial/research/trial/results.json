@@ -1,0 +1,4161 @@
+{
+ "machine": {
+  "cpu": "Intel(R) Core(TM) i5-14600KF",
+  "cores": 20,
+  "mem_gib": 78.3,
+  "kernel": "7.0.0-31-generic",
+  "scratch_fs": "ext4   /dev/nvme2n1p2",
+  "ovnfs": "ovnfs v0.2.3 go1.27.3 linux/amd64",
+  "git": "git version 2.43.0",
+  "bun": "1.4.4"
+ },
+ "started": "2026-11-08T03:15:49-0500",
+ "repeat": 5,
+ "only": [
+  "C1",
+  "C2",
+  "C3",
+  "C4",
+  "C5",
+  "C6",
+  "C7",
+  "C8",
+  "C9",
+  "C10"
+ ],
+ "baseline": {
+  "user_daemon": {
+   "pid": 2760573,
+   "mount": "/home/chris/checkouts",
+   "state": "/home/chris/.local/state/ovnfs",
+   "checkouts": 0,
+   "snapshots": 1,
+   "bases": 1,
+   "layers": 1
+  },
+  "user_o2_config_exists": false,
+  "repo_git_status": "?? .tasks/stage/11-08-ovnfs-concurrency-trial/\n"
+ },
+ "claims": {
+  "C1": {
+   "title": "Fast creates independent of folder size; reuse, prepared checkouts, shared capture",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/checkouts.md:17-28",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:92-99",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:158-191"
+   ],
+   "verdict": "holds",
+   "subclaims": {
+    "50k cold create about 1 s": "holds",
+    "size-independent (50k vs 2k cold)": "holds",
+    "repeat creates reuse the capture": "holds",
+    "at least 8 prepared": "holds",
+    "simultaneous first creates share one capture": "holds",
+    "all concurrent creates succeed": "holds",
+    "new checkout right after a source edit sees it": "holds"
+   },
+   "measurements": {
+    "2k": {
+     "source_files": 2002,
+     "cold_create_s": {
+      "n": 5,
+      "median": 0.1181,
+      "max": 0.1386,
+      "min": 0.116
+     },
+     "cold_capture_s": {
+      "n": 5,
+      "median": 0.0756,
+      "max": 0.0905,
+      "min": 0.0686
+     },
+     "cold_hashed_files": [
+      1,
+      1,
+      1,
+      1,
+      1
+     ],
+     "prepared_after_first_capture": 8,
+     "warm_sequential_create_s": {
+      "n": 12,
+      "median": 0.0192,
+      "max": 0.0307,
+      "min": 0.0066
+     },
+     "warm_sequential_each_s": [
+      0.0238,
+      0.0219,
+      0.02,
+      0.0208,
+      0.0217,
+      0.0307,
+      0.0184,
+      0.0174,
+      0.0168,
+      0.0076,
+      0.0074,
+      0.0066
+     ],
+     "warm_bases_distinct": 1,
+     "warm_reuses_cold_capture": true,
+     "git_status_in_checkout_s": {
+      "first": 0.016,
+      "n": 5,
+      "median": 0.0161,
+      "max": 0.036,
+      "min": 0.0077
+     },
+     "create_after_source_edit_s": {
+      "n": 5,
+      "median": 0.0576,
+      "max": 0.0721,
+      "min": 0.0335
+     },
+     "create_after_edit_sees_edit": true,
+     "concurrent8_warm": {
+      "runs": [
+       {
+        "ok": 8,
+        "wall_s": 0.0315,
+        "per_call": {
+         "n": 8,
+         "median": 0.0279,
+         "max": 0.0302,
+         "min": 0.0224
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0203,
+        "per_call": {
+         "n": 8,
+         "median": 0.0188,
+         "max": 0.0202,
+         "min": 0.0169
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0295,
+        "per_call": {
+         "n": 8,
+         "median": 0.0268,
+         "max": 0.0282,
+         "min": 0.0227
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0304,
+        "per_call": {
+         "n": 8,
+         "median": 0.0284,
+         "max": 0.0302,
+         "min": 0.0252
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0229,
+        "per_call": {
+         "n": 8,
+         "median": 0.0207,
+         "max": 0.0219,
+         "min": 0.0186
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.0295,
+       "max": 0.0315,
+       "min": 0.0203
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.0268,
+       "max": 0.0284,
+       "min": 0.0188
+      },
+      "per_call_max": 0.0302,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     },
+     "concurrent8_cold": {
+      "runs": [
+       {
+        "ok": 8,
+        "wall_s": 0.0982,
+        "per_call": {
+         "n": 8,
+         "median": 0.0969,
+         "max": 0.0978,
+         "min": 0.0954
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.1083,
+        "per_call": {
+         "n": 8,
+         "median": 0.1068,
+         "max": 0.1081,
+         "min": 0.1051
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.1091,
+        "per_call": {
+         "n": 8,
+         "median": 0.1086,
+         "max": 0.1089,
+         "min": 0.1075
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.1043,
+        "per_call": {
+         "n": 8,
+         "median": 0.1029,
+         "max": 0.104,
+         "min": 0.1019
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0864,
+        "per_call": {
+         "n": 8,
+         "median": 0.0845,
+         "max": 0.0856,
+         "min": 0.082
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.1043,
+       "max": 0.1091,
+       "min": 0.0864
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.1029,
+       "max": 0.1086,
+       "min": 0.0845
+      },
+      "per_call_max": 0.1089,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     },
+     "concurrent32_warm": {
+      "runs": [
+       {
+        "ok": 32,
+        "wall_s": 0.0476,
+        "per_call": {
+         "n": 32,
+         "median": 0.0342,
+         "max": 0.0433,
+         "min": 0.0214
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0711,
+        "per_call": {
+         "n": 32,
+         "median": 0.0548,
+         "max": 0.0645,
+         "min": 0.0389
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0425,
+        "per_call": {
+         "n": 32,
+         "median": 0.0357,
+         "max": 0.0422,
+         "min": 0.0239
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0753,
+        "per_call": {
+         "n": 32,
+         "median": 0.0558,
+         "max": 0.0736,
+         "min": 0.0322
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.022,
+        "per_call": {
+         "n": 32,
+         "median": 0.0144,
+         "max": 0.022,
+         "min": 0.0105
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.0476,
+       "max": 0.0753,
+       "min": 0.022
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.0357,
+       "max": 0.0558,
+       "min": 0.0144
+      },
+      "per_call_max": 0.0736,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     },
+     "concurrent32_cold": {
+      "runs": [
+       {
+        "ok": 32,
+        "wall_s": 0.1078,
+        "per_call": {
+         "n": 32,
+         "median": 0.1028,
+         "max": 0.107,
+         "min": 0.085
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0769,
+        "per_call": {
+         "n": 32,
+         "median": 0.0748,
+         "max": 0.0768,
+         "min": 0.0662
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.086,
+        "per_call": {
+         "n": 32,
+         "median": 0.0807,
+         "max": 0.0856,
+         "min": 0.0665
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.1192,
+        "per_call": {
+         "n": 32,
+         "median": 0.1143,
+         "max": 0.1185,
+         "min": 0.0892
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.1103,
+        "per_call": {
+         "n": 32,
+         "median": 0.1054,
+         "max": 0.1095,
+         "min": 0.0987
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.1078,
+       "max": 0.1192,
+       "min": 0.0769
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.1028,
+       "max": 0.1143,
+       "min": 0.0748
+      },
+      "per_call_max": 0.1185,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     }
+    },
+    "50k": {
+     "source_files": 50002,
+     "cold_create_s": {
+      "n": 5,
+      "median": 0.3707,
+      "max": 0.4426,
+      "min": 0.336
+     },
+     "cold_capture_s": {
+      "n": 5,
+      "median": 0.2365,
+      "max": 0.2762,
+      "min": 0.2215
+     },
+     "cold_hashed_files": [
+      1,
+      1,
+      1,
+      1,
+      1
+     ],
+     "prepared_after_first_capture": 8,
+     "warm_sequential_create_s": {
+      "n": 12,
+      "median": 0.0156,
+      "max": 0.0236,
+      "min": 0.0071
+     },
+     "warm_sequential_each_s": [
+      0.0236,
+      0.0176,
+      0.0097,
+      0.0194,
+      0.0136,
+      0.01,
+      0.0138,
+      0.0071,
+      0.0187,
+      0.0219,
+      0.017,
+      0.0142
+     ],
+     "warm_bases_distinct": 1,
+     "warm_reuses_cold_capture": true,
+     "git_status_in_checkout_s": {
+      "first": 0.542,
+      "n": 5,
+      "median": 0.5056,
+      "max": 0.5422,
+      "min": 0.3427
+     },
+     "create_after_source_edit_s": {
+      "n": 5,
+      "median": 0.1929,
+      "max": 0.2496,
+      "min": 0.182
+     },
+     "create_after_edit_sees_edit": true,
+     "concurrent8_warm": {
+      "runs": [
+       {
+        "ok": 8,
+        "wall_s": 0.0347,
+        "per_call": {
+         "n": 8,
+         "median": 0.032,
+         "max": 0.0343,
+         "min": 0.0289
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0233,
+        "per_call": {
+         "n": 8,
+         "median": 0.0219,
+         "max": 0.023,
+         "min": 0.0152
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0267,
+        "per_call": {
+         "n": 8,
+         "median": 0.0229,
+         "max": 0.0254,
+         "min": 0.0192
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0248,
+        "per_call": {
+         "n": 8,
+         "median": 0.0228,
+         "max": 0.0244,
+         "min": 0.0152
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0318,
+        "per_call": {
+         "n": 8,
+         "median": 0.0273,
+         "max": 0.0318,
+         "min": 0.023
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.0267,
+       "max": 0.0347,
+       "min": 0.0233
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.0229,
+       "max": 0.032,
+       "min": 0.0219
+      },
+      "per_call_max": 0.0343,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     },
+     "concurrent8_cold": {
+      "runs": [
+       {
+        "ok": 8,
+        "wall_s": 0.3964,
+        "per_call": {
+         "n": 8,
+         "median": 0.3954,
+         "max": 0.3963,
+         "min": 0.3903
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.376,
+        "per_call": {
+         "n": 8,
+         "median": 0.375,
+         "max": 0.3755,
+         "min": 0.3728
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.3967,
+        "per_call": {
+         "n": 8,
+         "median": 0.3952,
+         "max": 0.3966,
+         "min": 0.3925
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.391,
+        "per_call": {
+         "n": 8,
+         "median": 0.3899,
+         "max": 0.3907,
+         "min": 0.3874
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.4485,
+        "per_call": {
+         "n": 8,
+         "median": 0.4471,
+         "max": 0.4479,
+         "min": 0.4449
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.3964,
+       "max": 0.4485,
+       "min": 0.376
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.3952,
+       "max": 0.4471,
+       "min": 0.375
+      },
+      "per_call_max": 0.4479,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     },
+     "concurrent32_warm": {
+      "runs": [
+       {
+        "ok": 32,
+        "wall_s": 0.0421,
+        "per_call": {
+         "n": 32,
+         "median": 0.0315,
+         "max": 0.0366,
+         "min": 0.0265
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0588,
+        "per_call": {
+         "n": 32,
+         "median": 0.0426,
+         "max": 0.0588,
+         "min": 0.0242
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0436,
+        "per_call": {
+         "n": 32,
+         "median": 0.035,
+         "max": 0.0408,
+         "min": 0.014
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0748,
+        "per_call": {
+         "n": 32,
+         "median": 0.0631,
+         "max": 0.0695,
+         "min": 0.0409
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0737,
+        "per_call": {
+         "n": 32,
+         "median": 0.0581,
+         "max": 0.0716,
+         "min": 0.041
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.0588,
+       "max": 0.0748,
+       "min": 0.0421
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.0426,
+       "max": 0.0631,
+       "min": 0.0315
+      },
+      "per_call_max": 0.0716,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     },
+     "concurrent32_cold": {
+      "runs": [
+       {
+        "ok": 32,
+        "wall_s": 0.3986,
+        "per_call": {
+         "n": 32,
+         "median": 0.3886,
+         "max": 0.3985,
+         "min": 0.375
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.4185,
+        "per_call": {
+         "n": 32,
+         "median": 0.4115,
+         "max": 0.4177,
+         "min": 0.4064
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.3954,
+        "per_call": {
+         "n": 32,
+         "median": 0.3863,
+         "max": 0.3929,
+         "min": 0.3645
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.3736,
+        "per_call": {
+         "n": 32,
+         "median": 0.3653,
+         "max": 0.373,
+         "min": 0.3429
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.391,
+        "per_call": {
+         "n": 32,
+         "median": 0.378,
+         "max": 0.3878,
+         "min": 0.3571
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.3954,
+       "max": 0.4185,
+       "min": 0.3736
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.3863,
+       "max": 0.4115,
+       "min": 0.3653
+      },
+      "per_call_max": 0.4177,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     }
+    },
+    "omp-move": {
+     "source_files": 2104,
+     "cold_create_s": {
+      "n": 5,
+      "median": 0.1234,
+      "max": 0.1436,
+      "min": 0.0738
+     },
+     "cold_capture_s": {
+      "n": 5,
+      "median": 0.0651,
+      "max": 0.0993,
+      "min": 0.0366
+     },
+     "cold_hashed_files": [
+      6,
+      6,
+      6,
+      6,
+      6
+     ],
+     "prepared_after_first_capture": 8,
+     "warm_sequential_create_s": {
+      "n": 12,
+      "median": 0.0182,
+      "max": 0.0216,
+      "min": 0.0062
+     },
+     "warm_sequential_each_s": [
+      0.0216,
+      0.0214,
+      0.0171,
+      0.0173,
+      0.0181,
+      0.0184,
+      0.0199,
+      0.0188,
+      0.0192,
+      0.0062,
+      0.0068,
+      0.0063
+     ],
+     "warm_bases_distinct": 1,
+     "warm_reuses_cold_capture": true,
+     "git_status_in_checkout_s": {
+      "first": 0.06,
+      "n": 5,
+      "median": 0.0308,
+      "max": 0.1051,
+      "min": 0.0259
+     },
+     "create_after_source_edit_s": {
+      "n": 5,
+      "median": 0.0859,
+      "max": 0.0999,
+      "min": 0.0412
+     },
+     "create_after_edit_sees_edit": true,
+     "concurrent8_warm": {
+      "runs": [
+       {
+        "ok": 8,
+        "wall_s": 0.0226,
+        "per_call": {
+         "n": 8,
+         "median": 0.0206,
+         "max": 0.022,
+         "min": 0.0179
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0245,
+        "per_call": {
+         "n": 8,
+         "median": 0.0222,
+         "max": 0.0241,
+         "min": 0.0196
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0314,
+        "per_call": {
+         "n": 8,
+         "median": 0.0268,
+         "max": 0.0301,
+         "min": 0.0219
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0305,
+        "per_call": {
+         "n": 8,
+         "median": 0.027,
+         "max": 0.029,
+         "min": 0.0217
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.0278,
+        "per_call": {
+         "n": 8,
+         "median": 0.0258,
+         "max": 0.0269,
+         "min": 0.0219
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.0278,
+       "max": 0.0314,
+       "min": 0.0226
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.0258,
+       "max": 0.027,
+       "min": 0.0206
+      },
+      "per_call_max": 0.0301,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     },
+     "concurrent8_cold": {
+      "runs": [
+       {
+        "ok": 8,
+        "wall_s": 0.1409,
+        "per_call": {
+         "n": 8,
+         "median": 0.1396,
+         "max": 0.1408,
+         "min": 0.1387
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.1568,
+        "per_call": {
+         "n": 8,
+         "median": 0.1558,
+         "max": 0.1559,
+         "min": 0.1538
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.1731,
+        "per_call": {
+         "n": 8,
+         "median": 0.1714,
+         "max": 0.1728,
+         "min": 0.1685
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.1287,
+        "per_call": {
+         "n": 8,
+         "median": 0.128,
+         "max": 0.1284,
+         "min": 0.1255
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 8,
+        "wall_s": 0.1578,
+        "per_call": {
+         "n": 8,
+         "median": 0.1562,
+         "max": 0.1576,
+         "min": 0.1519
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.1568,
+       "max": 0.1731,
+       "min": 0.1287
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.1558,
+       "max": 0.1714,
+       "min": 0.128
+      },
+      "per_call_max": 0.1728,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     },
+     "concurrent32_warm": {
+      "runs": [
+       {
+        "ok": 32,
+        "wall_s": 0.0272,
+        "per_call": {
+         "n": 32,
+         "median": 0.023,
+         "max": 0.0269,
+         "min": 0.0154
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0307,
+        "per_call": {
+         "n": 32,
+         "median": 0.0248,
+         "max": 0.0305,
+         "min": 0.0218
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0318,
+        "per_call": {
+         "n": 32,
+         "median": 0.022,
+         "max": 0.0307,
+         "min": 0.0164
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0668,
+        "per_call": {
+         "n": 32,
+         "median": 0.0582,
+         "max": 0.0668,
+         "min": 0.0376
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0309,
+        "per_call": {
+         "n": 32,
+         "median": 0.0272,
+         "max": 0.0307,
+         "min": 0.0191
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.0309,
+       "max": 0.0668,
+       "min": 0.0272
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.0248,
+       "max": 0.0582,
+       "min": 0.022
+      },
+      "per_call_max": 0.0668,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     },
+     "concurrent32_cold": {
+      "runs": [
+       {
+        "ok": 32,
+        "wall_s": 0.1497,
+        "per_call": {
+         "n": 32,
+         "median": 0.1457,
+         "max": 0.1492,
+         "min": 0.1378
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.1422,
+        "per_call": {
+         "n": 32,
+         "median": 0.1379,
+         "max": 0.1401,
+         "min": 0.1312
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.1032,
+        "per_call": {
+         "n": 32,
+         "median": 0.1003,
+         "max": 0.1029,
+         "min": 0.0859
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.0828,
+        "per_call": {
+         "n": 32,
+         "median": 0.0808,
+         "max": 0.0824,
+         "min": 0.0702
+        },
+        "bases_distinct": 1,
+        "errors": []
+       },
+       {
+        "ok": 32,
+        "wall_s": 0.1352,
+        "per_call": {
+         "n": 32,
+         "median": 0.1291,
+         "max": 0.1329,
+         "min": 0.1083
+        },
+        "bases_distinct": 1,
+        "errors": []
+       }
+      ],
+      "wall_s": {
+       "n": 5,
+       "median": 0.1352,
+       "max": 0.1497,
+       "min": 0.0828
+      },
+      "per_call_median_of_runs": {
+       "n": 5,
+       "median": 0.1291,
+       "max": 0.1457,
+       "min": 0.0808
+      },
+      "per_call_max": 0.1492,
+      "bases_distinct_per_run": [
+       1,
+       1,
+       1,
+       1,
+       1
+      ],
+      "all_ok": true
+     }
+    }
+   },
+   "notes": {},
+   "repeat": 5,
+   "seconds": 76.7,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C1"
+  },
+  "C2": {
+   "title": "Concurrent writers to the same path stay isolated; folder untouched before apply",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/README.md:64-65",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/configuration.md:36-37"
+   ],
+   "verdict": "holds",
+   "subclaims": {
+    "concurrent same-path writes isolated, folder untouched": "holds"
+   },
+   "measurements": {
+    "8_checkouts": [
+     {
+      "source_unchanged": true,
+      "source_has_c2": false,
+      "write_errors": [],
+      "isolation_violations": [],
+      "ok": true
+     },
+     {
+      "source_unchanged": true,
+      "source_has_c2": false,
+      "write_errors": [],
+      "isolation_violations": [],
+      "ok": true
+     },
+     {
+      "source_unchanged": true,
+      "source_has_c2": false,
+      "write_errors": [],
+      "isolation_violations": [],
+      "ok": true
+     },
+     {
+      "source_unchanged": true,
+      "source_has_c2": false,
+      "write_errors": [],
+      "isolation_violations": [],
+      "ok": true
+     },
+     {
+      "source_unchanged": true,
+      "source_has_c2": false,
+      "write_errors": [],
+      "isolation_violations": [],
+      "ok": true
+     }
+    ],
+    "32_checkouts": [
+     {
+      "source_unchanged": true,
+      "source_has_c2": false,
+      "write_errors": [],
+      "isolation_violations": [],
+      "ok": true
+     },
+     {
+      "source_unchanged": true,
+      "source_has_c2": false,
+      "write_errors": [],
+      "isolation_violations": [],
+      "ok": true
+     },
+     {
+      "source_unchanged": true,
+      "source_has_c2": false,
+      "write_errors": [],
+      "isolation_violations": [],
+      "ok": true
+     },
+     {
+      "source_unchanged": true,
+      "source_has_c2": false,
+      "write_errors": [],
+      "isolation_violations": [],
+      "ok": true
+     },
+     {
+      "source_unchanged": true,
+      "source_has_c2": false,
+      "write_errors": [],
+      "isolation_violations": [],
+      "ok": true
+     }
+    ]
+   },
+   "notes": {},
+   "repeat": 5,
+   "seconds": 11.8,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C2"
+  },
+  "C3": {
+   "title": "Folder edits while checkouts are open: new checkouts see them, open ones are best effort",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/limitations.md:4-6",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/configuration.md:32-36",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:160-167"
+   ],
+   "verdict": "holds with conditions",
+   "subclaims": {
+    "new checkout sees folder changes": "holds",
+    "open checkout: best effort, not a frozen snapshot": "holds with conditions",
+    "user edits never appear as checkout changes": "holds"
+   },
+   "measurements": {
+    "legend": {
+     "src/d0001/f000100.txt": "tracked, content+size changed",
+     "src/d0001/f000101.txt": "tracked, rewritten in place: same size, inode and mtime",
+     "src/d0001/f000102.txt": "tracked, deleted",
+     "untracked-notes.txt": "untracked, changed",
+     "added-later.txt": "created after open",
+     "node_modules/pkg0/index.js": "node_modules (cache class), changed"
+    },
+    "open_checkout_A": {
+     "src/d0001/f000100.txt": "orig",
+     "src/d0001/f000101.txt": "new",
+     "src/d0001/f000102.txt": "orig",
+     "untracked-notes.txt": "orig",
+     "added-later.txt": "absent",
+     "node_modules/pkg0/index.js": "new"
+    },
+    "new_checkout_B": {
+     "src/d0001/f000100.txt": "new",
+     "src/d0001/f000101.txt": "new",
+     "src/d0001/f000102.txt": "absent",
+     "untracked-notes.txt": "new",
+     "added-later.txt": "new",
+     "node_modules/pkg0/index.js": "new"
+    },
+    "A_paths_showing_user_change": [
+     "src/d0001/f000101.txt"
+    ],
+    "A_diff_after_user_edits": [],
+    "A_git_status": "?? untracked-notes.txt\n",
+    "rewrite_race_3s": {
+     "rewrites": 12309,
+     "reads": {
+      "orig": 14755,
+      "A": 0,
+      "B": 0,
+      "empty": 0,
+      "mixed": 0,
+      "error": 0
+     }
+    }
+   },
+   "notes": {},
+   "repeat": 5,
+   "seconds": 3.3,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C3"
+  },
+  "C4": {
+   "title": "Three-way apply of many checkouts into one folder",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/checkouts.md:203-225"
+   ],
+   "verdict": "partly fails",
+   "subclaims": {
+    "disjoint files merge (sequential)": "holds",
+    "disjoint files merge (simultaneous applies)": "holds",
+    "same file, different lines (sequential)": "holds",
+    "same file, different lines (simultaneous applies)": "fails",
+    "same-line conflict: markers + exit 1": "holds",
+    "resolution kept on later applies": "holds",
+    "same-line simultaneous applies: nothing lost silently": "fails",
+    "delete-vs-edit and binary both sides left alone + reported": "holds",
+    "apply twice is a no-op": "holds",
+    "--dry-run writes nothing": "holds"
+   },
+   "measurements": {
+    "disjoint_sequential_32": {
+     "rc": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "lost": [],
+     "errors": []
+    },
+    "disjoint_simultaneous": {
+     "8": [
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      }
+     ],
+     "32": [
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      }
+     ]
+    },
+    "lines_sequential_32": {
+     "rc": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "edits_present": 32,
+     "lost_while_reporting_success": [],
+     "conflict_markers": false,
+     "errors": [],
+     "sequential_reapply_of_missing": {
+      "rc": [],
+      "applied_paths": [],
+      "edits_present_after": 32
+     }
+    },
+    "lines_simultaneous": {
+     "8": [
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 3,
+       "lost_while_reporting_success": [
+        0,
+        1,
+        3,
+        5,
+        6
+       ],
+       "conflict_markers": false,
+       "errors": [],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 8
+       }
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 3,
+       "lost_while_reporting_success": [
+        0,
+        1,
+        4,
+        5,
+        7
+       ],
+       "conflict_markers": false,
+       "errors": [],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 8
+       }
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 3,
+       "lost_while_reporting_success": [
+        3,
+        4,
+        5,
+        6,
+        7
+       ],
+       "conflict_markers": false,
+       "errors": [],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 8
+       }
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 4,
+       "lost_while_reporting_success": [
+        0,
+        2,
+        4,
+        6
+       ],
+       "conflict_markers": false,
+       "errors": [],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 8
+       }
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 4,
+       "lost_while_reporting_success": [
+        1,
+        2,
+        3,
+        4
+       ],
+       "conflict_markers": false,
+       "errors": [],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 8
+       }
+      }
+     ],
+     "32": [
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 17,
+       "lost_while_reporting_success": [
+        2,
+        3,
+        5,
+        6,
+        7,
+        10,
+        11,
+        12,
+        13,
+        16,
+        18,
+        25,
+        26,
+        28,
+        31
+       ],
+       "conflict_markers": false,
+       "errors": [],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 32
+       }
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 17,
+       "lost_while_reporting_success": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        11,
+        13,
+        16,
+        17,
+        20,
+        21,
+        23,
+        25,
+        26
+       ],
+       "conflict_markers": false,
+       "errors": [],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 32
+       }
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 19,
+       "lost_while_reporting_success": [
+        0,
+        3,
+        5,
+        6,
+        8,
+        9,
+        12,
+        18,
+        24,
+        27,
+        28,
+        29,
+        30
+       ],
+       "conflict_markers": false,
+       "errors": [],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 32
+       }
+      },
+      {
+       "rc": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 17,
+       "lost_while_reporting_success": [
+        0,
+        4,
+        5,
+        6,
+        10,
+        13,
+        14,
+        15,
+        17,
+        23,
+        24,
+        25,
+        30,
+        31
+       ],
+       "conflict_markers": false,
+       "errors": [
+        "not_found: shared.txt: rename /var/tmp/ovnfs-trial/work/c4lin-34/.ovnfs-apply-shared.txt /var/tmp/ovnfs-trial/work/c4lin-34/shared.txt: no such file or directory"
+       ],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 32
+       }
+      },
+      {
+       "rc": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1
+       ],
+       "edits_present": 23,
+       "lost_while_reporting_success": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        27,
+        29,
+        30
+       ],
+       "conflict_markers": false,
+       "errors": [
+        "not_found: shared.txt: rename /var/tmp/ovnfs-trial/work/c4lin-35/.ovnfs-apply-shared.txt /var/tmp/ovnfs-trial/work/c4lin-35/shared.txt: no such file or directory",
+        "not_found: shared.txt: rename /var/tmp/ovnfs-trial/work/c4lin-35/.ovnfs-apply-shared.txt /var/tmp/ovnfs-trial/work/c4lin-35/shared.txt: no such file or directory"
+       ],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 32
+       }
+      }
+     ]
+    },
+    "same_line_simultaneous": {
+     "8": [
+      {
+       "rc0": 1,
+       "conflict_reported": 7,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+       ],
+       "marker_blocks": 1
+      },
+      {
+       "rc0": 1,
+       "conflict_reported": 7,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        1,
+        2,
+        3,
+        4,
+        6,
+        7
+       ],
+       "marker_blocks": 1
+      },
+      {
+       "rc0": 1,
+       "conflict_reported": 7,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        2,
+        4,
+        5,
+        6,
+        7
+       ],
+       "marker_blocks": 1
+      },
+      {
+       "rc0": 1,
+       "conflict_reported": 7,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+       ],
+       "marker_blocks": 1
+      },
+      {
+       "rc0": 1,
+       "conflict_reported": 7,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        1,
+        2,
+        3,
+        4,
+        6,
+        7
+       ],
+       "marker_blocks": 1
+      }
+     ],
+     "32": [
+      {
+       "rc0": 1,
+       "conflict_reported": 31,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        16,
+        17,
+        18,
+        19,
+        20,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+       ],
+       "marker_blocks": 1
+      },
+      {
+       "rc0": 1,
+       "conflict_reported": 31,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+       ],
+       "marker_blocks": 1
+      },
+      {
+       "rc0": 1,
+       "conflict_reported": 30,
+       "failed_otherwise": [
+        "not_found: conflict.txt: rename /var/tmp/ovnfs-trial/work/c4sl-43/.ovnfs-apply-conflict.txt /var/tmp/ovnfs-trial/work/c4sl-43/conflict.txt: no such file or directory"
+       ],
+       "failed_otherwise_count": 1,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6,
+        7,
+        8,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+       ],
+       "marker_blocks": 1
+      },
+      {
+       "rc0": 1,
+       "conflict_reported": 31,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+       ],
+       "marker_blocks": 1
+      },
+      {
+       "rc0": 1,
+       "conflict_reported": 31,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        13,
+        14,
+        15,
+        16,
+        17,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+       ],
+       "marker_blocks": 1
+      }
+     ]
+    },
+    "same_line_conflict": {
+     "first_apply_rc": 0,
+     "second_apply_rc": 1,
+     "second_apply_reply": {
+      "snapshot": {
+       "id": "s756",
+       "checkout": "c4y",
+       "label": "apply",
+       "created": "2026-11-08T08:17:42.319568399Z",
+       "tree": "2ab19b31418fd26d8d37f15fb2e4a449662e97ad"
+      },
+      "source": "/var/tmp/ovnfs-trial/work/c4conf-46",
+      "applied": [],
+      "merged": [],
+      "conflicts": [
+       {
+        "path": "conflict.txt",
+        "reason": "changed on both sides",
+        "markers": true
+       }
+      ]
+     },
+     "markers_written": true,
+     "reapply_while_marked_rc": 1,
+     "reapply_while_marked_msg": "1 file has conflict markers: resolve them, then run `ovnfs apply c4y` again\n{\"snapshot\":{\"id\":\"s757\",\"checkout\":\"c4y\",\"parent\":\"s756\",\"label\":\"apply\",\"created\":\"2026-11-08T08:17:42.372826888Z\",\"tree\":\"2ab19b31418fd26d8d37f15fb2e4a449662e97ad\"},\"source\":\"/var/tmp/ovnfs-trial/work/c4conf-46\",\"applied\"",
+     "file_untouched_while_marked": true,
+     "apply_after_resolve_rc": 0,
+     "resolution_kept_after_apply": true,
+     "later_edit_apply_rc": 0,
+     "later_edit_merged_and_resolution_kept": true
+    },
+    "delete_edit_binary": {
+     "rc": 1,
+     "reply": {
+      "snapshot": {
+       "id": "s760",
+       "checkout": "c4del",
+       "label": "apply",
+       "created": "2026-11-08T08:17:42.558686499Z",
+       "tree": "fad9aecaaf638571470cd71f119a05dd46404483"
+      },
+      "source": "/var/tmp/ovnfs-trial/work/c4misc-47",
+      "applied": [
+       {
+        "path": "bin/c.bin",
+        "status": "M"
+       }
+      ],
+      "merged": [],
+      "conflicts": [
+       {
+        "path": "bin/b.bin",
+        "reason": "changed on both sides (git merge-file: error: Cannot merge binary files: /var/tmp/ovnfs-trial/tmp/ovnfs-merge-1874319575/ours: exit status 255)"
+       },
+       {
+        "path": "del/d1.txt",
+        "reason": "deleted in the checkout but changed in the source folder"
+       },
+       {
+        "path": "del/d2.txt",
+        "reason": "changed in the checkout but deleted in the source folder"
+       }
+      ]
+     },
+     "d1_checkout_deleted_folder_edited_untouched": true,
+     "d2_checkout_edited_folder_deleted_stays_absent": true,
+     "b_bin_both_sides_untouched": true,
+     "c_bin_checkout_only_applied": true,
+     "reported_conflicts": {
+      "bin/b.bin": "changed on both sides (git merge-file: error: Cannot merge binary files: /var/tmp/ovnfs-trial/tmp/ovnfs-merge-1874319575/ours: exit status 255)",
+      "del/d1.txt": "deleted in the checkout but changed in the source folder",
+      "del/d2.txt": "changed in the checkout but deleted in the source folder"
+     }
+    },
+    "apply_twice": {
+     "first_rc": 0,
+     "first_applied": 2,
+     "second_rc": 0,
+     "second_applied": [],
+     "second_merged": [],
+     "folder_unchanged_by_second": true
+    },
+    "dry_run": {
+     "rc": 1,
+     "reply": {
+      "snapshot": {
+       "id": "",
+       "checkout": "",
+       "created": "0001-01-01T00:00:00Z"
+      },
+      "source": "/var/tmp/ovnfs-trial/work/c4dry-49",
+      "applied": [
+       {
+        "path": "files/f01.txt",
+        "status": "M"
+       },
+       {
+        "path": "new/dry.txt",
+        "status": "A"
+       }
+      ],
+      "merged": [],
+      "conflicts": [
+       {
+        "path": "conflict.txt",
+        "reason": "changed on both sides",
+        "markers": true
+       }
+      ]
+     },
+     "folder_unchanged": true,
+     "real_apply_after_rc": 1,
+     "real_applied": [
+      "files/f01.txt",
+      "new/dry.txt"
+     ]
+    }
+   },
+   "notes": {},
+   "repeat": 5,
+   "seconds": 21.6,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C4"
+  },
+  "C5": {
+   "title": "Private git dir per checkout; apply --branch; checked-out branch fast-forward only",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/checkouts.md:5-15",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/README.md:65-66"
+   ],
+   "verdict": "holds",
+   "subclaims": {
+    "commits stay private to each checkout (8 committing at once)": "holds",
+    "apply --branch brings commits back (8 at once)": "holds",
+    "checked-out branch: fast-forward, worktree files untouched": "holds",
+    "non-fast-forward and staged same path refused": "holds",
+    "--branch --dry-run writes nothing": "holds"
+   },
+   "measurements": {
+    "concurrent_commits": {
+     "checkouts": 8,
+     "rc": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "errors": [],
+     "distinct_heads": 8,
+     "commit_objects_visible_in_source": 0,
+     "source_refs_unchanged": true,
+     "source_head_unchanged": true,
+     "source_object_count_unchanged": true,
+     "source_status_unchanged": true
+    },
+    "branch_dry_run": {
+     "rc": 1,
+     "msg": "invalid: --branch has no dry run",
+     "ref_created": false
+    },
+    "branch_apply_simultaneous": {
+     "rc": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "errors": [],
+     "branches_match_checkout_heads": 8,
+     "worktree_status_unchanged": true,
+     "head_unchanged": true
+    },
+    "checked_out_branch_ff": {
+     "dry_run_rc": 0,
+     "dry_run_left_head": true,
+     "rc": 0,
+     "err": "",
+     "main_now_checkout_head": true,
+     "worktree_file_untouched": true,
+     "index_updated_worktree_not": true,
+     "status_after": " M files/f10.txt\n"
+    },
+    "non_fast_forward": {
+     "rc": 1,
+     "err": "conflict: branch conflict: main is not an ancestor of the checkout's HEAD; choose a different branch name",
+     "main_unchanged": true
+    },
+    "staged_same_path": {
+     "rc": 1,
+     "err": "conflict: branch conflict: staged changes in files/f13.txt; choose a different branch name",
+     "main_unchanged": true
+    }
+   },
+   "notes": {},
+   "repeat": 5,
+   "seconds": 1.3,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C5"
+  },
+  "C6": {
+   "title": "Cache/ignored paths visible, read-only, always live",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/README.md:57-62",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/configuration.md:25-37",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/rules/rules.go:19-22"
+   ],
+   "verdict": "partly fails",
+   "subclaims": {
+    "cache/local paths are read-only in a checkout": "fails",
+    "cache/local paths always show the folder as it is now": "holds with conditions",
+    "cache writes never reach the folder, diff or apply": "holds"
+   },
+   "measurements": {
+    "classes": {
+     "node_modules": "cache    builtin:3  cache cachedir | dir & (node_modules | .venv | __pycache__ | .next | .nuxt | .turbo | .gradle | .pytest_cache | .mypy_cache | .ruff_cache | .tox)",
+     "dist": "cache    builtin:4  cache ignored & dir",
+     "build.log": "local    builtin:5  local ignored"
+    },
+    "write_attempts_in_A": {
+     "overwrite node_modules/pkg0/index.js": "ok",
+     "create node_modules/new.js": "ok",
+     "overwrite build.log (ignored file, local class)": "ok",
+     "build-like command (rm -rf dist; write dist/ and node_modules/.cache/)": "rc=0 "
+    },
+    "folder_cache_paths_untouched_by_A": true,
+    "B_sees_folder_versions": true,
+    "after_folder_changes": {
+     "B node_modules/pkg0/index.js": "folder v2",
+     "B node_modules/pkg1/added.js exists": true,
+     "B dist/late.js exists": true,
+     "B build.log": "log v2",
+     "A node_modules/pkg0/index.js (A wrote it)": "checkout A",
+     "A node_modules/pkg1/index.js (A did not)": "folder v2",
+     "A dist/late.js exists (A rebuilt dist)": false,
+     "A build.log (A wrote it)": "checkout A"
+    },
+    "A_diff_paths": [],
+    "apply_A_rc": 0,
+    "after_apply_A": {
+     "folder has node_modules/new.js": false,
+     "folder dist/out.js": "built v1"
+    }
+   },
+   "notes": {},
+   "repeat": 5,
+   "seconds": 1.8,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C6"
+  },
+  "C7": {
+   "title": "Search vs snap/rm/writes; a stalled checkout vs others; concurrent start",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:7-8",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:41-44"
+   ],
+   "verdict": "holds with conditions",
+   "subclaims": {
+    "snap waits for an active grep": "holds",
+    "ordinary writes continue during grep": "holds with conditions",
+    "rm waits for an active grep": "holds",
+    "a stalled checkout does not stall others": "holds",
+    "concurrent starts share one daemon": "holds"
+   },
+   "measurements": {
+    "grep_alone_s": [
+     3.841,
+     3.842
+    ],
+    "grep_with_snap_and_writes": [
+     {
+      "grep_end": 3.834,
+      "grep_rc": 0,
+      "snap_same_checkout": {
+       "start": 1.301,
+       "end": 3.841,
+       "rc": 0
+      },
+      "snap_waited_for_grep": true,
+      "writes_during_grep_only_s": {
+       "n": 33,
+       "median": 0.0004,
+       "max": 0.0012,
+       "min": 0.0002
+      },
+      "writes_while_snap_waits_s": {
+       "n": 1,
+       "median": 2.5335,
+       "max": 2.5335,
+       "min": 2.5335
+      },
+      "other_checkout_ops_while_snap_waits_s": {
+       "snap": 0.012,
+       "ls": 0.007,
+       "new (other folder)": 0.012,
+       "diff": 0.006
+      },
+      "other_ops_finished_before_grep_end": true
+     },
+     {
+      "grep_end": 3.9,
+      "grep_rc": 0,
+      "snap_same_checkout": {
+       "start": 1.304,
+       "end": 3.906,
+       "rc": 0
+      },
+      "snap_waited_for_grep": true,
+      "writes_during_grep_only_s": {
+       "n": 33,
+       "median": 0.0006,
+       "max": 0.0088,
+       "min": 0.0002
+      },
+      "writes_while_snap_waits_s": {
+       "n": 1,
+       "median": 2.5794,
+       "max": 2.5794,
+       "min": 2.5794
+      },
+      "other_checkout_ops_while_snap_waits_s": {
+       "snap": 0.013,
+       "ls": 0.011,
+       "new (other folder)": 0.016,
+       "diff": 0.011
+      },
+      "other_ops_finished_before_grep_end": true
+     },
+     {
+      "grep_end": 3.876,
+      "grep_rc": 0,
+      "snap_same_checkout": {
+       "start": 1.302,
+       "end": 3.882,
+       "rc": 0
+      },
+      "snap_waited_for_grep": true,
+      "writes_during_grep_only_s": {
+       "n": 33,
+       "median": 0.0004,
+       "max": 0.0006,
+       "min": 0.0002
+      },
+      "writes_while_snap_waits_s": {
+       "n": 1,
+       "median": 2.5741,
+       "max": 2.5741,
+       "min": 2.5741
+      },
+      "other_checkout_ops_while_snap_waits_s": {
+       "snap": 0.01,
+       "ls": 0.011,
+       "new (other folder)": 0.015,
+       "diff": 0.012
+      },
+      "other_ops_finished_before_grep_end": true
+     },
+     {
+      "grep_end": 3.886,
+      "grep_rc": 0,
+      "snap_same_checkout": {
+       "start": 1.302,
+       "end": 3.893,
+       "rc": 0
+      },
+      "snap_waited_for_grep": true,
+      "writes_during_grep_only_s": {
+       "n": 33,
+       "median": 0.0005,
+       "max": 0.0011,
+       "min": 0.0003
+      },
+      "writes_while_snap_waits_s": {
+       "n": 1,
+       "median": 2.5827,
+       "max": 2.5827,
+       "min": 2.5827
+      },
+      "other_checkout_ops_while_snap_waits_s": {
+       "snap": 0.013,
+       "ls": 0.006,
+       "new (other folder)": 0.013,
+       "diff": 0.014
+      },
+      "other_ops_finished_before_grep_end": true
+     },
+     {
+      "grep_end": 3.859,
+      "grep_rc": 0,
+      "snap_same_checkout": {
+       "start": 1.302,
+       "end": 3.866,
+       "rc": 0
+      },
+      "snap_waited_for_grep": true,
+      "writes_during_grep_only_s": {
+       "n": 33,
+       "median": 0.0005,
+       "max": 0.0009,
+       "min": 0.0002
+      },
+      "writes_while_snap_waits_s": {
+       "n": 1,
+       "median": 2.5532,
+       "max": 2.5532,
+       "min": 2.5532
+      },
+      "other_checkout_ops_while_snap_waits_s": {
+       "snap": 0.012,
+       "ls": 0.013,
+       "new (other folder)": 0.017,
+       "diff": 0.014
+      },
+      "other_ops_finished_before_grep_end": true
+     }
+    ],
+    "rm_during_grep": [
+     {
+      "rm_rc": 0,
+      "rm_end_minus_grep_end_s": -0.0,
+      "grep_rc": 0,
+      "grep_err": ""
+     },
+     {
+      "rm_rc": 0,
+      "rm_end_minus_grep_end_s": -0.0,
+      "grep_rc": 0,
+      "grep_err": ""
+     },
+     {
+      "rm_rc": 0,
+      "rm_end_minus_grep_end_s": -0.0,
+      "grep_rc": 0,
+      "grep_err": ""
+     },
+     {
+      "rm_rc": 0,
+      "rm_end_minus_grep_end_s": -0.0,
+      "grep_rc": 0,
+      "grep_err": ""
+     },
+     {
+      "rm_rc": 0,
+      "rm_end_minus_grep_end_s": -0.0,
+      "grep_rc": 0,
+      "grep_err": ""
+     }
+    ],
+    "concurrent_start": {
+     "8": [
+      {
+       "ok": 8,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      },
+      {
+       "ok": 8,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      },
+      {
+       "ok": 8,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      },
+      {
+       "ok": 8,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      },
+      {
+       "ok": 8,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      }
+     ],
+     "32": [
+      {
+       "ok": 32,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      },
+      {
+       "ok": 32,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      },
+      {
+       "ok": 32,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      },
+      {
+       "ok": 32,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      },
+      {
+       "ok": 32,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      }
+     ]
+    }
+   },
+   "notes": {},
+   "repeat": 5,
+   "seconds": 68.0,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C7"
+  },
+  "C8": {
+   "title": "snap/fork during writes; snapshot O(1)",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/checkouts.md:101-116",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:195-201"
+   ],
+   "verdict": "holds with conditions",
+   "subclaims": {
+    "snap/fork succeed during active writes": "holds",
+    "forks taken during writes are consistent (prefix, no torn files)": "holds",
+    "snap is O(1) in changed bytes (settled)": "holds",
+    "snap is O(1) in changed files (settled)": "holds",
+    "snap right after writing many files (hot)": "holds with conditions"
+   },
+   "measurements": {
+    "during_writes": {
+     "files_written": 16749,
+     "writer_errors": [],
+     "ops": [
+      {
+       "snap_s": 0.069,
+       "snap_rc": 0,
+       "fork_s": 0.014,
+       "fork_rc": 0
+      },
+      {
+       "snap_s": 0.066,
+       "snap_rc": 0,
+       "fork_s": 0.018,
+       "fork_rc": 0
+      },
+      {
+       "snap_s": 0.094,
+       "snap_rc": 0,
+       "fork_s": 0.015,
+       "fork_rc": 0
+      },
+      {
+       "snap_s": 0.104,
+       "snap_rc": 0,
+       "fork_s": 0.014,
+       "fork_rc": 0
+      },
+      {
+       "snap_s": 0.102,
+       "snap_rc": 0,
+       "fork_s": 0.022,
+       "fork_rc": 0
+      }
+     ],
+     "snap_s": {
+      "n": 5,
+      "median": 0.094,
+      "max": 0.104,
+      "min": 0.066
+     },
+     "fork_s": {
+      "n": 5,
+      "median": 0.015,
+      "max": 0.022,
+      "min": 0.014
+     },
+     "fork_contents": [
+      {
+       "fork": 0,
+       "files": 743,
+       "files_are_prefix": true,
+       "files_with_wrong_content": [],
+       "log_entries": 742,
+       "log_entries_consecutive": true,
+       "log_torn_tail": false,
+       "files_vs_log_entries": 1
+      },
+      {
+       "fork": 1,
+       "files": 2041,
+       "files_are_prefix": true,
+       "files_with_wrong_content": [],
+       "log_entries": 2040,
+       "log_entries_consecutive": true,
+       "log_torn_tail": false,
+       "files_vs_log_entries": 1
+      },
+      {
+       "fork": 2,
+       "files": 5451,
+       "files_are_prefix": true,
+       "files_with_wrong_content": [],
+       "log_entries": 5450,
+       "log_entries_consecutive": true,
+       "log_torn_tail": false,
+       "files_vs_log_entries": 1
+      },
+      {
+       "fork": 3,
+       "files": 9221,
+       "files_are_prefix": true,
+       "files_with_wrong_content": [],
+       "log_entries": 9221,
+       "log_entries_consecutive": true,
+       "log_torn_tail": false,
+       "files_vs_log_entries": 0
+      },
+      {
+       "fork": 4,
+       "files": 12993,
+       "files_are_prefix": true,
+       "files_with_wrong_content": [],
+       "log_entries": 12992,
+       "log_entries_consecutive": true,
+       "log_torn_tail": false,
+       "files_vs_log_entries": 1
+      }
+     ]
+    },
+    "snap_wait_last_reply_per_size": {
+     "10 files x 1KB": {
+      "secs": 0.0353,
+      "reply": {
+       "snapshot": {
+        "id": "s800",
+        "checkout": "c8s40setw",
+        "created": "2026-11-08T08:19:25.043061074Z",
+        "tree": "b59b7d7930646d4798925897e635069a95d7a760"
+       }
+      }
+     },
+     "1000 files x 1KB": {
+      "secs": 0.0539,
+      "reply": {
+       "snapshot": {
+        "id": "s815",
+        "checkout": "c8s41setw",
+        "created": "2026-11-08T08:19:52.303157261Z",
+        "tree": "b352f031bccb061c0a46da7c3601530c0766c69d"
+       }
+      }
+     },
+     "10000 files x 1KB": {
+      "secs": 0.2421,
+      "reply": {
+       "snapshot": {
+        "id": "s830",
+        "checkout": "c8s42setw",
+        "created": "2026-11-08T08:20:29.813503822Z",
+        "tree": "942482f6daa866d31c69a75a9ce351460bf94076"
+       }
+      }
+     },
+     "1 file 10MB": {
+      "secs": 0.0661,
+      "reply": {
+       "snapshot": {
+        "id": "s845",
+        "checkout": "c8s43setw",
+        "created": "2026-11-08T08:20:56.870357184Z",
+        "tree": "bcb92b32c860f9fd178d0187d702661a621f8633"
+       }
+      }
+     },
+     "1 file 100MB": {
+      "secs": 0.0359,
+      "reply": {
+       "snapshot": {
+        "id": "s860",
+        "checkout": "c8s44setw",
+        "created": "2026-11-08T08:21:26.329340068Z",
+        "tree": "f74d076d3f456382b78663ef32f73ba3faec5556"
+       }
+      }
+     },
+     "1 file 500MB": {
+      "secs": 0.0334,
+      "reply": {
+       "snapshot": {
+        "id": "s875",
+        "checkout": "c8s45setw",
+        "created": "2026-11-08T08:22:07.567205295Z",
+        "tree": "f74d076d3f456382b78663ef32f73ba3faec5556"
+       }
+      }
+     }
+    },
+    "snap_vs_size": {
+     "10 files x 1KB": {
+      "settled_snap_s": {
+       "n": 5,
+       "median": 0.0343,
+       "max": 0.0387,
+       "min": 0.0259
+      },
+      "hot_snap_s": {
+       "n": 5,
+       "median": 0.0394,
+       "max": 0.0526,
+       "min": 0.0374
+      },
+      "settled --wait_snap_s": {
+       "n": 5,
+       "median": 0.0361,
+       "max": 0.0441,
+       "min": 0.0192
+      }
+     },
+     "1000 files x 1KB": {
+      "settled_snap_s": {
+       "n": 5,
+       "median": 0.0383,
+       "max": 0.0428,
+       "min": 0.0225
+      },
+      "hot_snap_s": {
+       "n": 5,
+       "median": 0.033,
+       "max": 0.0434,
+       "min": 0.032
+      },
+      "settled --wait_snap_s": {
+       "n": 5,
+       "median": 0.0539,
+       "max": 0.0648,
+       "min": 0.0496
+      }
+     },
+     "10000 files x 1KB": {
+      "settled_snap_s": {
+       "n": 5,
+       "median": 0.0291,
+       "max": 0.0385,
+       "min": 0.0241
+      },
+      "hot_snap_s": {
+       "n": 5,
+       "median": 0.2313,
+       "max": 0.2675,
+       "min": 0.2265
+      },
+      "settled --wait_snap_s": {
+       "n": 5,
+       "median": 0.2221,
+       "max": 0.2953,
+       "min": 0.205
+      }
+     },
+     "1 file 10MB": {
+      "settled_snap_s": {
+       "n": 5,
+       "median": 0.0264,
+       "max": 0.0435,
+       "min": 0.014
+      },
+      "hot_snap_s": {
+       "n": 5,
+       "median": 0.088,
+       "max": 0.1302,
+       "min": 0.0731
+      },
+      "settled --wait_snap_s": {
+       "n": 5,
+       "median": 0.0737,
+       "max": 0.0855,
+       "min": 0.0409
+      }
+     },
+     "1 file 100MB": {
+      "settled_snap_s": {
+       "n": 5,
+       "median": 0.0328,
+       "max": 0.0369,
+       "min": 0.0119
+      },
+      "hot_snap_s": {
+       "n": 5,
+       "median": 0.0121,
+       "max": 0.0322,
+       "min": 0.011
+      },
+      "settled --wait_snap_s": {
+       "n": 5,
+       "median": 0.036,
+       "max": 0.0411,
+       "min": 0.0246
+      }
+     },
+     "1 file 500MB": {
+      "settled_snap_s": {
+       "n": 5,
+       "median": 0.0333,
+       "max": 0.0536,
+       "min": 0.0105
+      },
+      "hot_snap_s": {
+       "n": 5,
+       "median": 0.0118,
+       "max": 0.0172,
+       "min": 0.0106
+      },
+      "settled --wait_snap_s": {
+       "n": 5,
+       "median": 0.0361,
+       "max": 0.0481,
+       "min": 0.0246
+      }
+     }
+    },
+    "scratch_bytes_after": 2573786711
+   },
+   "notes": {},
+   "repeat": 5,
+   "seconds": 193.6,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C8"
+  },
+  "C9": {
+   "title": "kill -9: unflushed (<2 s) files lost, the rest and conflict resolutions kept",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:195-207",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:68-79",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/checkouts.md:217-222"
+   ],
+   "verdict": "partly fails",
+   "subclaims": {
+    "files untouched >2 s survive kill -9": "holds",
+    "files written <2 s before kill -9 are lost (documented loss)": "holds",
+    "conflict resolutions kept across restarts": "holds",
+    "plain `ovnfs start` works after kill -9": "fails"
+   },
+   "measurements": {
+    "survival_after_kill9_by_delay_s": {
+     "0.2": {
+      "n": 5,
+      "new_file": 0,
+      "tracked_overwrite": 0,
+      "big_new_file_over_1MiB": 5
+     },
+     "1.0": {
+      "n": 5,
+      "new_file": 0,
+      "tracked_overwrite": 0,
+      "big_new_file_over_1MiB": 5
+     },
+     "1.8": {
+      "n": 5,
+      "new_file": 0,
+      "tracked_overwrite": 0,
+      "big_new_file_over_1MiB": 5
+     },
+     "2.5": {
+      "n": 5,
+      "new_file": 5,
+      "tracked_overwrite": 5,
+      "big_new_file_over_1MiB": 5
+     },
+     "4.0": {
+      "n": 5,
+      "new_file": 5,
+      "tracked_overwrite": 5,
+      "big_new_file_over_1MiB": 5
+     }
+    },
+    "restart_after_kill9": {
+     "plain_start_failed": 25,
+     "of": 25,
+     "first_error": "mnt\n2026/11/08 03:18:47 mounted at /var/tmp/ovnfs-trial/mnt\n2026/11/08 03:18:48 mounted at /var/tmp/ovnfs-trial/mnt\n2026/11/08 03:18:49 mounted at /var/tmp/ovnfs-trial/mnt\n2026/11/08 03:18:50 mounted at /var/tmp/ovnfs-trial/mnt\n2026/11/08 03:18:52 mounted at /var/tmp/ovnfs-trial/mnt\n2026/11/08 03:18:53 mounted at /var/tmp/ovnfs-trial/mnt\nmount directory: mkdir /var/tmp/ovnfs-trial/mnt: file exists",
+     "worked_after_fusermount3_u": true
+    },
+    "checkout_listed_after_crashes": true,
+    "conflict_resolution_across_restart": {
+     "kill9": {
+      "marked_rc": 1,
+      "restart": {
+       "start_rc": 1,
+       "start_err": "tory: mkdir /var/tmp/ovnfs-trial/mnt: file exists\n2026/11/08 03:23:25 mounted at /var/tmp/ovnfs-trial/mnt\nmount directory: mkdir /var/tmp/ovnfs-trial/mnt: file exists\n2026/11/08 03:23:29 mounted at /var/tmp/ovnfs-trial/mnt\nmount directory: mkdir /var/tmp/ovnfs-trial/mnt: file exists\n2026/11/08 03:23:35 mounted at /var/tmp/ovnfs-trial/mnt\nmount directory: mkdir /var/tmp/ovnfs-trial/mnt: file exists",
+       "fusermount_u_rc": 0,
+       "second_start_rc": 0
+      },
+      "apply_after_restart_rc": 0,
+      "apply_after_restart_msg": "{\"snapshot\":{\"id\":\"s878\",\"checkout\":\"c9yk\",\"parent\":\"s877\",\"label\":\"apply\",\"created\":\"2026-11-08T08:23:37.349477347Z\",\"tree\":\"2ab19b31418fd26d8d37f15fb2e4a449662e97ad\"},\"source\":\"/var/tmp/ovnfs-trial/work/c9k-56\",\"applied\":[],\"merged\":[],\"conflicts\":[]}",
+      "resolution_untouched": true,
+      "later_edit_rc": 0,
+      "final_has_resolution_and_later_edit": true
+     },
+     "planned restart": {
+      "marked_rc": 1,
+      "restart": {
+       "restart_rc": 0
+      },
+      "apply_after_restart_rc": 0,
+      "apply_after_restart_msg": "{\"snapshot\":{\"id\":\"s882\",\"checkout\":\"c9yp\",\"parent\":\"s881\",\"label\":\"apply\",\"created\":\"2026-11-08T08:23:38.483563433Z\",\"tree\":\"2ab19b31418fd26d8d37f15fb2e4a449662e97ad\"},\"source\":\"/var/tmp/ovnfs-trial/work/c9p-57\",\"applied\":[],\"merged\":[],\"conflicts\":[]}",
+      "resolution_untouched": true,
+      "later_edit_rc": 0,
+      "final_has_resolution_and_later_edit": true
+     }
+    }
+   },
+   "notes": {},
+   "repeat": 5,
+   "seconds": 90.7,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C9"
+  },
+  "C10": {
+   "title": "omp isolated parallel subagents on ovnfs checkouts",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:53-64",
+    "omp 18.18.0 pi-coding-agent/src/task/ovnfs.ts",
+    "omp 18.18.0 pi-coding-agent/src/task/structured-subagent.ts:889-894,1106-1118",
+    "omp 18.18.0 pi-coding-agent/src/task/isolation-runner.ts:741-786"
+   ],
+   "verdict": "partly fails",
+   "subclaims": {
+    "each isolated subagent gets its own ovnfs checkout": "holds",
+    "edits do not leak between checkouts or into the folder before merge": "holds",
+    "merge-back correct, different files": "holds",
+    "merge-back, same file different lines: every edit lands": "fails",
+    "merge-back never reports success for an edit it lost": "fails",
+    "checkouts removed afterwards": "holds"
+   },
+   "measurements": {
+    "disjoint_8": [
+     {
+      "seconds": 0.71,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 8,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 8,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 0.73,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 8,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 8,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 0.7,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 8,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 8,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 0.72,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 8,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 8,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 0.63,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 8,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 8,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     }
+    ],
+    "disjoint_32": [
+     {
+      "seconds": 1.57,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 32,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 32,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 1.7,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 32,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 32,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 1.64,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 32,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 32,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 1.84,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 32,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 32,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 1.72,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 32,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 32,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     }
+    ],
+    "shared_8": [
+     {
+      "seconds": 0.72,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 7,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 7,
+      "edits_missing_in_source": 5,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 1,
+      "reported_applied_but_lost": [
+       2,
+       4,
+       6,
+       7
+      ],
+      "sample_not_applied_summary": "&lt;system-notification>Patches were not applied and must be handled manually.&lt;/system-notification>\n\nPatch artifact:\n- /var/tmp/ovnfs-trial/c10tmp/omp-task-15c5ddc8a135b26c/C10Worker1.patch"
+     },
+     {
+      "seconds": 0.66,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 6,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 6,
+      "edits_missing_in_source": 6,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 2,
+      "reported_applied_but_lost": [
+       2,
+       3,
+       4,
+       5
+      ],
+      "sample_not_applied_summary": "&lt;system-notification>Patches were not applied and must be handled manually.&lt;/system-notification>\n\nPatch artifact:\n- /var/tmp/ovnfs-trial/c10tmp/omp-task-15c5ddca12482c92/C10Worker6.patch"
+     },
+     {
+      "seconds": 0.61,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 7,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 7,
+      "edits_missing_in_source": 5,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 1,
+      "reported_applied_but_lost": [
+       0,
+       2,
+       4,
+       6
+      ],
+      "sample_not_applied_summary": "&lt;system-notification>Patches were not applied and must be handled manually.&lt;/system-notification>\n\nPatch artifact:\n- /var/tmp/ovnfs-trial/c10tmp/omp-task-15c5ddcb5a182813/C10Worker5.patch"
+     },
+     {
+      "seconds": 0.69,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 8,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 8,
+      "edits_missing_in_source": 4,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [
+       2,
+       4,
+       6,
+       7
+      ],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 0.73,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 7,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 7,
+      "edits_missing_in_source": 4,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 1,
+      "reported_applied_but_lost": [
+       0,
+       2,
+       3
+      ],
+      "sample_not_applied_summary": "&lt;system-notification>Patches were not applied and must be handled manually.&lt;/system-notification>\n\nPatch artifact:\n- /var/tmp/ovnfs-trial/c10tmp/omp-task-15c5ddcdfa6e7f74/C10Worker4.patch"
+     }
+    ],
+    "shared_32": [
+     {
+      "seconds": 1.6,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 29,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 29,
+      "edits_missing_in_source": 17,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 3,
+      "reported_applied_but_lost": [
+       1,
+       3,
+       5,
+       8,
+       13,
+       16,
+       17,
+       18,
+       20,
+       21,
+       24,
+       27,
+       30,
+       31
+      ],
+      "sample_not_applied_summary": "&lt;system-notification>Patches were not applied and must be handled manually.&lt;/system-notification>\n\nPatch artifact:\n- /var/tmp/ovnfs-trial/c10tmp/omp-task-15c5ddcf6640dc15/C10Worker2.patch"
+     },
+     {
+      "seconds": 1.57,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 28,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 28,
+      "edits_missing_in_source": 18,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 4,
+      "reported_applied_but_lost": [
+       2,
+       4,
+       5,
+       7,
+       8,
+       10,
+       13,
+       17,
+       18,
+       21,
+       23,
+       24,
+       30,
+       31
+      ],
+      "sample_not_applied_summary": "&lt;system-notification>Patches were not applied and must be handled manually.&lt;/system-notification>\n\nPatch artifact:\n- /var/tmp/ovnfs-trial/c10tmp/omp-task-15c5ddd1c46ec10b/C10Worker0.patch"
+     },
+     {
+      "seconds": 1.51,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 32,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 32,
+      "edits_missing_in_source": 17,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [
+       0,
+       3,
+       4,
+       6,
+       8,
+       12,
+       18,
+       19,
+       20,
+       22,
+       23,
+       24,
+       25,
+       26,
+       27,
+       29,
+       31
+      ],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 1.5,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 25,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 25,
+      "edits_missing_in_source": 21,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 7,
+      "reported_applied_but_lost": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       8,
+       10,
+       13,
+       14,
+       16,
+       20,
+       25,
+       27,
+       30
+      ],
+      "sample_not_applied_summary": "&lt;system-notification>Patches were not applied and must be handled manually.&lt;/system-notification>\n\nPatch artifact:\n- /var/tmp/ovnfs-trial/c10tmp/omp-task-15c5ddd62ca6ca86/C10Worker6.patch"
+     },
+     {
+      "seconds": 1.48,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 31,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 31,
+      "edits_missing_in_source": 17,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 1,
+      "reported_applied_but_lost": [
+       0,
+       3,
+       8,
+       10,
+       12,
+       15,
+       19,
+       21,
+       22,
+       24,
+       25,
+       26,
+       27,
+       28,
+       29,
+       31
+      ],
+      "sample_not_applied_summary": "&lt;system-notification>Patches were not applied and must be handled manually.&lt;/system-notification>\n\nPatch artifact:\n- /var/tmp/ovnfs-trial/c10tmp/omp-task-15c5ddd84d6c6ae5/C10Worker13.patch"
+     }
+    ]
+   },
+   "notes": {},
+   "repeat": 5,
+   "seconds": 37.3,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C10"
+  }
+ },
+ "teardown": {
+  "private_serve_processes_left": [],
+  "private_mount_left": false,
+  "scratch_removed": true
+ },
+ "after": {
+  "user_daemon": {
+   "pid": 2760573,
+   "mount": "/home/chris/checkouts",
+   "state": "/home/chris/.local/state/ovnfs",
+   "checkouts": 0,
+   "snapshots": 1,
+   "bases": 1,
+   "layers": 1
+  },
+  "user_o2_config_exists": false,
+  "repo_git_status": "?? .tasks/stage/11-08-ovnfs-concurrency-trial/\n"
+ },
+ "tmp_leftovers_from_trial": [],
+ "user_state_unchanged": {
+  "user_daemon": true,
+  "user_o2_config_exists": true,
+  "repo_git_status": true
+ },
+ "wall_seconds": 508.5
+}

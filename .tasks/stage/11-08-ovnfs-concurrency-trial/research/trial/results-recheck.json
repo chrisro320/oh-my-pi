@@ -1,0 +1,1617 @@
+{
+ "machine": {
+  "cpu": "Intel(R) Core(TM) i5-14600KF",
+  "cores": 20,
+  "mem_gib": 78.3,
+  "kernel": "7.0.0-31-generic",
+  "scratch_fs": "ext4   /dev/nvme2n1p2",
+  "ovnfs": "ovnfs v0.2.3 go1.27.3 linux/amd64",
+  "git": "git version 2.43.0",
+  "bun": "1.4.4"
+ },
+ "started": "2026-11-08T03:12:37-0500",
+ "repeat": 2,
+ "only": [
+  "C3",
+  "C4",
+  "C6",
+  "C7",
+  "C8",
+  "C9",
+  "C10"
+ ],
+ "baseline": {
+  "user_daemon": {
+   "pid": 2760573,
+   "mount": "/home/chris/checkouts",
+   "state": "/home/chris/.local/state/ovnfs",
+   "checkouts": 0,
+   "snapshots": 1,
+   "bases": 1,
+   "layers": 1
+  },
+  "user_o2_config_exists": false,
+  "repo_git_status": "?? .tasks/stage/11-08-ovnfs-concurrency-trial/\n"
+ },
+ "claims": {
+  "C3": {
+   "title": "Folder edits while checkouts are open: new checkouts see them, open ones are best effort",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/limitations.md:4-6",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/configuration.md:32-36",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:160-167"
+   ],
+   "verdict": "holds with conditions",
+   "subclaims": {
+    "new checkout sees folder changes": "holds",
+    "open checkout: best effort, not a frozen snapshot": "holds with conditions",
+    "user edits never appear as checkout changes": "holds"
+   },
+   "measurements": {
+    "legend": {
+     "src/d0001/f000100.txt": "tracked, content+size changed",
+     "src/d0001/f000101.txt": "tracked, rewritten in place: same size, inode and mtime",
+     "src/d0001/f000102.txt": "tracked, deleted",
+     "untracked-notes.txt": "untracked, changed",
+     "added-later.txt": "created after open",
+     "node_modules/pkg0/index.js": "node_modules (cache class), changed"
+    },
+    "open_checkout_A": {
+     "src/d0001/f000100.txt": "orig",
+     "src/d0001/f000101.txt": "new",
+     "src/d0001/f000102.txt": "orig",
+     "untracked-notes.txt": "orig",
+     "added-later.txt": "absent",
+     "node_modules/pkg0/index.js": "new"
+    },
+    "new_checkout_B": {
+     "src/d0001/f000100.txt": "new",
+     "src/d0001/f000101.txt": "new",
+     "src/d0001/f000102.txt": "absent",
+     "untracked-notes.txt": "new",
+     "added-later.txt": "new",
+     "node_modules/pkg0/index.js": "new"
+    },
+    "A_paths_showing_user_change": [
+     "src/d0001/f000101.txt"
+    ],
+    "A_diff_after_user_edits": [],
+    "A_git_status": "?? untracked-notes.txt\n",
+    "rewrite_race_3s": {
+     "rewrites": 12079,
+     "reads": {
+      "orig": 14550,
+      "A": 0,
+      "B": 0,
+      "empty": 0,
+      "mixed": 0,
+      "error": 0
+     }
+    }
+   },
+   "notes": {},
+   "repeat": 2,
+   "seconds": 3.5,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C3"
+  },
+  "C4": {
+   "title": "Three-way apply of many checkouts into one folder",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/checkouts.md:203-225"
+   ],
+   "verdict": "partly fails",
+   "subclaims": {
+    "disjoint files merge (sequential)": "holds",
+    "disjoint files merge (simultaneous applies)": "holds",
+    "same file, different lines (sequential)": "holds",
+    "same file, different lines (simultaneous applies)": "fails",
+    "same-line conflict: markers + exit 1": "holds",
+    "resolution kept on later applies": "holds",
+    "same-line simultaneous applies: nothing lost silently": "fails",
+    "delete-vs-edit and binary both sides left alone + reported": "holds",
+    "apply twice is a no-op": "holds",
+    "--dry-run writes nothing": "holds"
+   },
+   "measurements": {
+    "disjoint_sequential_32": {
+     "rc": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "lost": [],
+     "errors": []
+    },
+    "disjoint_simultaneous": {
+     "8": [
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      }
+     ],
+     "32": [
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "lost": [],
+       "errors": []
+      }
+     ]
+    },
+    "lines_sequential_32": {
+     "rc": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "edits_present": 32,
+     "lost_while_reporting_success": [],
+     "conflict_markers": false,
+     "errors": [],
+     "sequential_reapply_of_missing": {
+      "rc": [],
+      "applied_paths": [],
+      "edits_present_after": 32
+     }
+    },
+    "lines_simultaneous": {
+     "8": [
+      {
+       "rc": [
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 4,
+       "lost_while_reporting_success": [
+        3,
+        5,
+        6
+       ],
+       "conflict_markers": false,
+       "errors": [
+        "not_found: shared.txt: rename /var/tmp/ovnfs-trial/work/c4lin-8/.ovnfs-apply-shared.txt /var/tmp/ovnfs-trial/work/c4lin-8/shared.txt: no such file or directory",
+        "not_found: shared.txt: rename /var/tmp/ovnfs-trial/work/c4lin-8/.ovnfs-apply-shared.txt /var/tmp/ovnfs-trial/work/c4lin-8/shared.txt: no such file or directory"
+       ],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 8
+       }
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1
+       ],
+       "edits_present": 3,
+       "lost_while_reporting_success": [
+        0,
+        3,
+        4,
+        5
+       ],
+       "conflict_markers": false,
+       "errors": [
+        "not_found: shared.txt: rename /var/tmp/ovnfs-trial/work/c4lin-9/.ovnfs-apply-shared.txt /var/tmp/ovnfs-trial/work/c4lin-9/shared.txt: no such file or directory"
+       ],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 8
+       }
+      }
+     ],
+     "32": [
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 14,
+       "lost_while_reporting_success": [
+        0,
+        2,
+        3,
+        4,
+        6,
+        8,
+        9,
+        10,
+        12,
+        13,
+        14,
+        16,
+        19,
+        20,
+        21,
+        25,
+        26,
+        28
+       ],
+       "conflict_markers": false,
+       "errors": [],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 32
+       }
+      },
+      {
+       "rc": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "edits_present": 14,
+       "lost_while_reporting_success": [
+        0,
+        2,
+        5,
+        6,
+        8,
+        9,
+        11,
+        15,
+        16,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        27,
+        28,
+        31
+       ],
+       "conflict_markers": false,
+       "errors": [],
+       "sequential_reapply_of_missing": {
+        "rc": [
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "applied_paths": [
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1,
+         1
+        ],
+        "edits_present_after": 32
+       }
+      }
+     ]
+    },
+    "same_line_simultaneous": {
+     "8": [
+      {
+       "rc0": 1,
+       "conflict_reported": 7,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        3,
+        4,
+        5,
+        6,
+        7
+       ],
+       "marker_blocks": 1
+      },
+      {
+       "rc0": 1,
+       "conflict_reported": 6,
+       "failed_otherwise": [
+        "not_found: conflict.txt: rename /var/tmp/ovnfs-trial/work/c4sl-13/.ovnfs-apply-conflict.txt /var/tmp/ovnfs-trial/work/c4sl-13/conflict.txt: no such file or directory"
+       ],
+       "failed_otherwise_count": 1,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        3,
+        5,
+        6,
+        7
+       ],
+       "marker_blocks": 1
+      }
+     ],
+     "32": [
+      {
+       "rc0": 1,
+       "conflict_reported": 31,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        30,
+        31
+       ],
+       "marker_blocks": 1
+      },
+      {
+       "rc0": 1,
+       "conflict_reported": 31,
+       "failed_otherwise": [],
+       "failed_otherwise_count": 0,
+       "texts_in_file": 2,
+       "reported_ok_but_absent": [],
+       "reported_conflict_but_absent": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+       ],
+       "marker_blocks": 1
+      }
+     ]
+    },
+    "same_line_conflict": {
+     "first_apply_rc": 0,
+     "second_apply_rc": 1,
+     "second_apply_reply": {
+      "snapshot": {
+       "id": "s351",
+       "checkout": "c4y",
+       "label": "apply",
+       "created": "2026-11-08T08:12:50.030434027Z",
+       "tree": "2ab19b31418fd26d8d37f15fb2e4a449662e97ad"
+      },
+      "source": "/var/tmp/ovnfs-trial/work/c4conf-16",
+      "applied": [],
+      "merged": [],
+      "conflicts": [
+       {
+        "path": "conflict.txt",
+        "reason": "changed on both sides",
+        "markers": true
+       }
+      ]
+     },
+     "markers_written": true,
+     "reapply_while_marked_rc": 1,
+     "reapply_while_marked_msg": "1 file has conflict markers: resolve them, then run `ovnfs apply c4y` again\n{\"snapshot\":{\"id\":\"s352\",\"checkout\":\"c4y\",\"parent\":\"s351\",\"label\":\"apply\",\"created\":\"2026-11-08T08:12:50.066543201Z\",\"tree\":\"2ab19b31418fd26d8d37f15fb2e4a449662e97ad\"},\"source\":\"/var/tmp/ovnfs-trial/work/c4conf-16\",\"applied\"",
+     "file_untouched_while_marked": true,
+     "apply_after_resolve_rc": 0,
+     "resolution_kept_after_apply": true,
+     "later_edit_apply_rc": 0,
+     "later_edit_merged_and_resolution_kept": true
+    },
+    "delete_edit_binary": {
+     "rc": 1,
+     "reply": {
+      "snapshot": {
+       "id": "s355",
+       "checkout": "c4del",
+       "label": "apply",
+       "created": "2026-11-08T08:12:50.226888629Z",
+       "tree": "fad9aecaaf638571470cd71f119a05dd46404483"
+      },
+      "source": "/var/tmp/ovnfs-trial/work/c4misc-17",
+      "applied": [
+       {
+        "path": "bin/c.bin",
+        "status": "M"
+       }
+      ],
+      "merged": [],
+      "conflicts": [
+       {
+        "path": "bin/b.bin",
+        "reason": "changed on both sides (git merge-file: error: Cannot merge binary files: /var/tmp/ovnfs-trial/tmp/ovnfs-merge-2097747936/ours: exit status 255)"
+       },
+       {
+        "path": "del/d1.txt",
+        "reason": "deleted in the checkout but changed in the source folder"
+       },
+       {
+        "path": "del/d2.txt",
+        "reason": "changed in the checkout but deleted in the source folder"
+       }
+      ]
+     },
+     "d1_checkout_deleted_folder_edited_untouched": true,
+     "d2_checkout_edited_folder_deleted_stays_absent": true,
+     "b_bin_both_sides_untouched": true,
+     "c_bin_checkout_only_applied": true,
+     "reported_conflicts": {
+      "bin/b.bin": "changed on both sides (git merge-file: error: Cannot merge binary files: /var/tmp/ovnfs-trial/tmp/ovnfs-merge-2097747936/ours: exit status 255)",
+      "del/d1.txt": "deleted in the checkout but changed in the source folder",
+      "del/d2.txt": "changed in the checkout but deleted in the source folder"
+     }
+    },
+    "apply_twice": {
+     "first_rc": 0,
+     "first_applied": 2,
+     "second_rc": 0,
+     "second_applied": [],
+     "second_merged": [],
+     "folder_unchanged_by_second": true
+    },
+    "dry_run": {
+     "rc": 1,
+     "reply": {
+      "snapshot": {
+       "id": "",
+       "checkout": "",
+       "created": "0001-01-01T00:00:00Z"
+      },
+      "source": "/var/tmp/ovnfs-trial/work/c4dry-19",
+      "applied": [
+       {
+        "path": "files/f01.txt",
+        "status": "M"
+       },
+       {
+        "path": "new/dry.txt",
+        "status": "A"
+       }
+      ],
+      "merged": [],
+      "conflicts": [
+       {
+        "path": "conflict.txt",
+        "reason": "changed on both sides",
+        "markers": true
+       }
+      ]
+     },
+     "folder_unchanged": true,
+     "real_apply_after_rc": 1,
+     "real_applied": [
+      "files/f01.txt",
+      "new/dry.txt"
+     ]
+    }
+   },
+   "notes": {},
+   "repeat": 2,
+   "seconds": 9.2,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C4"
+  },
+  "C6": {
+   "title": "Cache/ignored paths visible, read-only, always live",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/README.md:57-62",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/configuration.md:25-37",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/rules/rules.go:19-22"
+   ],
+   "verdict": "partly fails",
+   "subclaims": {
+    "cache/local paths are read-only in a checkout": "fails",
+    "cache/local paths always show the folder as it is now": "holds with conditions",
+    "cache writes never reach the folder, diff or apply": "holds"
+   },
+   "measurements": {
+    "classes": {
+     "node_modules": "cache    builtin:3  cache cachedir | dir & (node_modules | .venv | __pycache__ | .next | .nuxt | .turbo | .gradle | .pytest_cache | .mypy_cache | .ruff_cache | .tox)",
+     "dist": "cache    builtin:4  cache ignored & dir",
+     "build.log": "local    builtin:5  local ignored"
+    },
+    "write_attempts_in_A": {
+     "overwrite node_modules/pkg0/index.js": "ok",
+     "create node_modules/new.js": "ok",
+     "overwrite build.log (ignored file, local class)": "ok",
+     "build-like command (rm -rf dist; write dist/ and node_modules/.cache/)": "rc=0 "
+    },
+    "folder_cache_paths_untouched_by_A": true,
+    "B_sees_folder_versions": true,
+    "after_folder_changes": {
+     "B node_modules/pkg0/index.js": "folder v2",
+     "B node_modules/pkg1/added.js exists": true,
+     "B dist/late.js exists": true,
+     "B build.log": "log v2",
+     "A node_modules/pkg0/index.js (A wrote it)": "checkout A",
+     "A node_modules/pkg1/index.js (A did not)": "folder v2",
+     "A dist/late.js exists (A rebuilt dist)": false,
+     "A build.log (A wrote it)": "checkout A"
+    },
+    "A_diff_paths": [],
+    "apply_A_rc": 0,
+    "after_apply_A": {
+     "folder has node_modules/new.js": false,
+     "folder dist/out.js": "built v1"
+    }
+   },
+   "notes": {},
+   "repeat": 2,
+   "seconds": 1.8,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C6"
+  },
+  "C7": {
+   "title": "Search vs snap/rm/writes; a stalled checkout vs others; concurrent start",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:7-8",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:41-44"
+   ],
+   "verdict": "holds with conditions",
+   "subclaims": {
+    "snap waits for an active grep": "holds",
+    "ordinary writes continue during grep": "holds with conditions",
+    "rm waits for an active grep": "holds",
+    "a stalled checkout does not stall others": "holds",
+    "concurrent starts share one daemon": "holds"
+   },
+   "measurements": {
+    "grep_alone_s": [
+     3.839,
+     3.85
+    ],
+    "grep_with_snap_and_writes": [
+     {
+      "grep_end": 3.85,
+      "grep_rc": 0,
+      "snap_same_checkout": {
+       "start": 1.301,
+       "end": 3.882,
+       "rc": 0
+      },
+      "snap_waited_for_grep": true,
+      "writes_during_grep_only_s": {
+       "n": 33,
+       "median": 0.0004,
+       "max": 0.001,
+       "min": 0.0003
+      },
+      "writes_while_snap_waits_s": {
+       "n": 1,
+       "median": 2.5753,
+       "max": 2.5753,
+       "min": 2.5753
+      },
+      "other_checkout_ops_while_snap_waits_s": {
+       "snap": 0.025,
+       "ls": 0.006,
+       "new (other folder)": 0.025,
+       "diff": 0.008
+      },
+      "other_ops_finished_before_grep_end": true
+     },
+     {
+      "grep_end": 3.881,
+      "grep_rc": 0,
+      "snap_same_checkout": {
+       "start": 1.302,
+       "end": 3.898,
+       "rc": 0
+      },
+      "snap_waited_for_grep": true,
+      "writes_during_grep_only_s": {
+       "n": 33,
+       "median": 0.0003,
+       "max": 0.0005,
+       "min": 0.0002
+      },
+      "writes_while_snap_waits_s": {
+       "n": 2,
+       "median": 1.2815,
+       "max": 2.5626,
+       "min": 0.0004
+      },
+      "other_checkout_ops_while_snap_waits_s": {
+       "snap": 0.01,
+       "ls": 0.006,
+       "new (other folder)": 0.01,
+       "diff": 0.012
+      },
+      "other_ops_finished_before_grep_end": true
+     }
+    ],
+    "rm_during_grep": [
+     {
+      "rm_rc": 0,
+      "rm_end_minus_grep_end_s": -0.0,
+      "grep_rc": 0,
+      "grep_err": ""
+     },
+     {
+      "rm_rc": 0,
+      "rm_end_minus_grep_end_s": -0.0,
+      "grep_rc": 0,
+      "grep_err": ""
+     }
+    ],
+    "concurrent_start": {
+     "8": [
+      {
+       "ok": 8,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      },
+      {
+       "ok": 8,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      }
+     ],
+     "32": [
+      {
+       "ok": 32,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      },
+      {
+       "ok": 32,
+       "distinct_pids_reported": 1,
+       "serve_processes": 1,
+       "errors": []
+      }
+     ]
+    }
+   },
+   "notes": {},
+   "repeat": 2,
+   "seconds": 35.5,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C7"
+  },
+  "C8": {
+   "title": "snap/fork during writes; snapshot O(1)",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/checkouts.md:101-116",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:195-201"
+   ],
+   "verdict": "holds with conditions",
+   "subclaims": {
+    "snap/fork succeed during active writes": "holds",
+    "forks taken during writes are consistent (prefix, no torn files)": "holds",
+    "snap is O(1) in changed bytes (settled)": "holds",
+    "snap is O(1) in changed files (settled)": "holds",
+    "snap right after writing many files (hot)": "holds with conditions"
+   },
+   "measurements": {
+    "during_writes": {
+     "files_written": 7343,
+     "writer_errors": [],
+     "ops": [
+      {
+       "snap_s": 0.064,
+       "snap_rc": 0,
+       "fork_s": 0.013,
+       "fork_rc": 0
+      },
+      {
+       "snap_s": 0.112,
+       "snap_rc": 0,
+       "fork_s": 0.013,
+       "fork_rc": 0
+      }
+     ],
+     "snap_s": {
+      "n": 2,
+      "median": 0.088,
+      "max": 0.112,
+      "min": 0.064
+     },
+     "fork_s": {
+      "n": 2,
+      "median": 0.013,
+      "max": 0.013,
+      "min": 0.013
+     },
+     "fork_contents": [
+      {
+       "fork": 0,
+       "files": 1163,
+       "files_are_prefix": true,
+       "files_with_wrong_content": [],
+       "log_entries": 1162,
+       "log_entries_consecutive": true,
+       "log_torn_tail": false,
+       "files_vs_log_entries": 1
+      },
+      {
+       "fork": 1,
+       "files": 5271,
+       "files_are_prefix": true,
+       "files_with_wrong_content": [],
+       "log_entries": 5270,
+       "log_entries_consecutive": true,
+       "log_torn_tail": false,
+       "files_vs_log_entries": 1
+      }
+     ]
+    },
+    "snap_wait_last_reply_per_size": {
+     "10 files x 1KB": {
+      "secs": 0.0317,
+      "reply": {
+       "snapshot": {
+        "id": "s374",
+        "checkout": "c8s10setw",
+        "created": "2026-11-08T08:13:40.525152841Z",
+        "tree": "11ba66df55e9947c8451706d481d82b4abf581f1"
+       }
+      }
+     },
+     "1000 files x 1KB": {
+      "secs": 0.0671,
+      "reply": {
+       "snapshot": {
+        "id": "s380",
+        "checkout": "c8s11setw",
+        "created": "2026-11-08T08:13:51.333511141Z",
+        "tree": "9138d51a1b4db58690627bd577754d479c6787dd"
+       }
+      }
+     },
+     "10000 files x 1KB": {
+      "secs": 0.1991,
+      "reply": {
+       "snapshot": {
+        "id": "s386",
+        "checkout": "c8s12setw",
+        "created": "2026-11-08T08:14:06.990923747Z",
+        "tree": "5c67f4d9ab27722d4ba287ebbb6d5e76d0162477"
+       }
+      }
+     },
+     "1 file 10MB": {
+      "secs": 0.0644,
+      "reply": {
+       "snapshot": {
+        "id": "s392",
+        "checkout": "c8s13setw",
+        "created": "2026-11-08T08:14:17.702951167Z",
+        "tree": "7b256233e0f05fa21d38705e2e6fe739aab3c389"
+       }
+      }
+     },
+     "1 file 100MB": {
+      "secs": 0.029,
+      "reply": {
+       "snapshot": {
+        "id": "s398",
+        "checkout": "c8s14setw",
+        "created": "2026-11-08T08:14:29.359058507Z",
+        "tree": "f74d076d3f456382b78663ef32f73ba3faec5556"
+       }
+      }
+     },
+     "1 file 500MB": {
+      "secs": 0.0269,
+      "reply": {
+       "snapshot": {
+        "id": "s404",
+        "checkout": "c8s15setw",
+        "created": "2026-11-08T08:14:45.883429436Z",
+        "tree": "f74d076d3f456382b78663ef32f73ba3faec5556"
+       }
+      }
+     }
+    },
+    "snap_vs_size": {
+     "10 files x 1KB": {
+      "settled_snap_s": {
+       "n": 2,
+       "median": 0.0284,
+       "max": 0.0308,
+       "min": 0.026
+      },
+      "hot_snap_s": {
+       "n": 2,
+       "median": 0.0234,
+       "max": 0.0243,
+       "min": 0.0225
+      },
+      "settled --wait_snap_s": {
+       "n": 2,
+       "median": 0.0324,
+       "max": 0.033,
+       "min": 0.0317
+      }
+     },
+     "1000 files x 1KB": {
+      "settled_snap_s": {
+       "n": 2,
+       "median": 0.0152,
+       "max": 0.0195,
+       "min": 0.0109
+      },
+      "hot_snap_s": {
+       "n": 2,
+       "median": 0.0467,
+       "max": 0.0495,
+       "min": 0.044
+      },
+      "settled --wait_snap_s": {
+       "n": 2,
+       "median": 0.046,
+       "max": 0.0671,
+       "min": 0.0249
+      }
+     },
+     "10000 files x 1KB": {
+      "settled_snap_s": {
+       "n": 2,
+       "median": 0.0259,
+       "max": 0.0286,
+       "min": 0.0232
+      },
+      "hot_snap_s": {
+       "n": 2,
+       "median": 0.2488,
+       "max": 0.256,
+       "min": 0.2416
+      },
+      "settled --wait_snap_s": {
+       "n": 2,
+       "median": 0.2327,
+       "max": 0.2664,
+       "min": 0.1991
+      }
+     },
+     "1 file 10MB": {
+      "settled_snap_s": {
+       "n": 2,
+       "median": 0.0249,
+       "max": 0.0285,
+       "min": 0.0213
+      },
+      "hot_snap_s": {
+       "n": 2,
+       "median": 0.0301,
+       "max": 0.0499,
+       "min": 0.0104
+      },
+      "settled --wait_snap_s": {
+       "n": 2,
+       "median": 0.0625,
+       "max": 0.0644,
+       "min": 0.0607
+      }
+     },
+     "1 file 100MB": {
+      "settled_snap_s": {
+       "n": 2,
+       "median": 0.0253,
+       "max": 0.0282,
+       "min": 0.0225
+      },
+      "hot_snap_s": {
+       "n": 2,
+       "median": 0.0082,
+       "max": 0.0096,
+       "min": 0.0067
+      },
+      "settled --wait_snap_s": {
+       "n": 2,
+       "median": 0.0291,
+       "max": 0.0293,
+       "min": 0.029
+      }
+     },
+     "1 file 500MB": {
+      "settled_snap_s": {
+       "n": 2,
+       "median": 0.0475,
+       "max": 0.0624,
+       "min": 0.0327
+      },
+      "hot_snap_s": {
+       "n": 2,
+       "median": 0.0185,
+       "max": 0.0189,
+       "min": 0.0181
+      },
+      "settled --wait_snap_s": {
+       "n": 2,
+       "median": 0.0258,
+       "max": 0.0269,
+       "min": 0.0247
+      }
+     }
+    },
+    "scratch_bytes_after": 1422954692
+   },
+   "notes": {},
+   "repeat": 2,
+   "seconds": 78.0,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C8"
+  },
+  "C9": {
+   "title": "kill -9: unflushed (<2 s) files lost, the rest and conflict resolutions kept",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:195-207",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:68-79",
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/checkouts.md:217-222"
+   ],
+   "verdict": "partly fails",
+   "subclaims": {
+    "files untouched >2 s survive kill -9": "holds",
+    "files written <2 s before kill -9 are lost (documented loss)": "holds",
+    "conflict resolutions kept across restarts": "holds",
+    "plain `ovnfs start` works after kill -9": "fails"
+   },
+   "measurements": {
+    "survival_after_kill9_by_delay_s": {
+     "0.2": {
+      "n": 2,
+      "new_file": 0,
+      "tracked_overwrite": 0,
+      "big_new_file_over_1MiB": 2
+     },
+     "1.0": {
+      "n": 2,
+      "new_file": 0,
+      "tracked_overwrite": 0,
+      "big_new_file_over_1MiB": 2
+     },
+     "1.8": {
+      "n": 2,
+      "new_file": 0,
+      "tracked_overwrite": 0,
+      "big_new_file_over_1MiB": 2
+     },
+     "2.5": {
+      "n": 2,
+      "new_file": 2,
+      "tracked_overwrite": 2,
+      "big_new_file_over_1MiB": 2
+     },
+     "4.0": {
+      "n": 2,
+      "new_file": 2,
+      "tracked_overwrite": 2,
+      "big_new_file_over_1MiB": 2
+     }
+    },
+    "restart_after_kill9": {
+     "plain_start_failed": 10,
+     "of": 10,
+     "first_error": "l/mnt\n2026/11/08 03:13:23 mounted at /var/tmp/ovnfs-trial/mnt\n2026/11/08 03:13:25 mounted at /var/tmp/ovnfs-trial/mnt\n2026/11/08 03:13:26 mounted at /var/tmp/ovnfs-trial/mnt\n2026/11/08 03:13:27 mounted at /var/tmp/ovnfs-trial/mnt\n/usr/bin/fusermount3: failed to access mountpoint /var/tmp/ovnfs-trial/mnt: Permission denied\nmount: fuse: mount /var/tmp/ovnfs-trial/mnt: fusermount exited with code 256",
+     "worked_after_fusermount3_u": true
+    },
+    "checkout_listed_after_crashes": true,
+    "conflict_resolution_across_restart": {
+     "kill9": {
+      "marked_rc": 1,
+      "restart": {
+       "start_rc": 1,
+       "start_err": "t directory: mkdir /var/tmp/ovnfs-trial/mnt: file exists\n2026/11/08 03:15:10 mounted at /var/tmp/ovnfs-trial/mnt\nmount directory: mkdir /var/tmp/ovnfs-trial/mnt: file exists\n2026/11/08 03:15:15 mounted at /var/tmp/ovnfs-trial/mnt\n/usr/bin/fusermount3: failed to access mountpoint /var/tmp/ovnfs-trial/mnt: Permission denied\nmount: fuse: mount /var/tmp/ovnfs-trial/mnt: fusermount exited with code 256",
+       "fusermount_u_rc": 0,
+       "second_start_rc": 0
+      },
+      "apply_after_restart_rc": 0,
+      "apply_after_restart_msg": "{\"snapshot\":{\"id\":\"s407\",\"checkout\":\"c9yk\",\"parent\":\"s406\",\"label\":\"apply\",\"created\":\"2026-11-08T08:15:16.24709084Z\",\"tree\":\"2ab19b31418fd26d8d37f15fb2e4a449662e97ad\"},\"source\":\"/var/tmp/ovnfs-trial/work/c9k-24\",\"applied\":[],\"merged\":[],\"conflicts\":[]}",
+      "resolution_untouched": true,
+      "later_edit_rc": 0,
+      "final_has_resolution_and_later_edit": true
+     },
+     "planned restart": {
+      "marked_rc": 1,
+      "restart": {
+       "restart_rc": 0
+      },
+      "apply_after_restart_rc": 0,
+      "apply_after_restart_msg": "{\"snapshot\":{\"id\":\"s411\",\"checkout\":\"c9yp\",\"parent\":\"s410\",\"label\":\"apply\",\"created\":\"2026-11-08T08:15:17.334423941Z\",\"tree\":\"2ab19b31418fd26d8d37f15fb2e4a449662e97ad\"},\"source\":\"/var/tmp/ovnfs-trial/work/c9p-25\",\"applied\":[],\"merged\":[],\"conflicts\":[]}",
+      "resolution_untouched": true,
+      "later_edit_rc": 0,
+      "final_has_resolution_and_later_edit": true
+     }
+    }
+   },
+   "notes": {},
+   "repeat": 2,
+   "seconds": 31.5,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C9"
+  },
+  "C10": {
+   "title": "omp isolated parallel subagents on ovnfs checkouts",
+   "doc": [
+    "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3/docs/internals.md:53-64",
+    "omp 18.18.0 pi-coding-agent/src/task/ovnfs.ts",
+    "omp 18.18.0 pi-coding-agent/src/task/structured-subagent.ts:889-894,1106-1118",
+    "omp 18.18.0 pi-coding-agent/src/task/isolation-runner.ts:741-786"
+   ],
+   "verdict": "partly fails",
+   "subclaims": {
+    "each isolated subagent gets its own ovnfs checkout": "holds",
+    "edits do not leak between checkouts or into the folder before merge": "holds",
+    "merge-back correct, different files": "holds",
+    "merge-back, same file different lines: every edit lands": "fails",
+    "merge-back never reports success for an edit it lost": "fails",
+    "checkouts removed afterwards": "holds"
+   },
+   "measurements": {
+    "disjoint_8": [
+     {
+      "seconds": 0.68,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 8,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 8,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 0.7,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 8,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 8,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     }
+    ],
+    "disjoint_32": [
+     {
+      "seconds": 1.73,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 32,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 32,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     },
+     {
+      "seconds": 1.98,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 32,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 32,
+      "edits_missing_in_source": 0,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\town/o0.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/own/o0.txt\n+++ b/own/o0.txt\n@@ -1 +1 @@\n-own 0\n+edited by worker 0\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [],
+      "sample_not_applied_summary": ""
+     }
+    ],
+    "shared_8": [
+     {
+      "seconds": 0.58,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 4,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 4,
+      "edits_missing_in_source": 7,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 4,
+      "reported_applied_but_lost": [
+       1,
+       6,
+       7
+      ],
+      "sample_not_applied_summary": "&lt;system-notification>Patches were not applied and must be handled manually.&lt;/system-notification>\n\nPatch artifact:\n- /var/tmp/ovnfs-trial/c10tmp/omp-task-15c5dbd47d76b43b/C10Worker0.patch"
+     },
+     {
+      "seconds": 0.68,
+      "workers_completed": 8,
+      "reported_applied_patches_yes": 8,
+      "open_checkouts_at_barrier": 8,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 8,
+      "edits_missing_in_source": 4,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 0,
+      "reported_applied_but_lost": [
+       0,
+       2,
+       4,
+       7
+      ],
+      "sample_not_applied_summary": ""
+     }
+    ],
+    "shared_32": [
+     {
+      "seconds": 1.61,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 31,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 31,
+      "edits_missing_in_source": 12,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 1,
+      "reported_applied_but_lost": [
+       3,
+       5,
+       11,
+       12,
+       13,
+       14,
+       15,
+       18,
+       23,
+       26,
+       28
+      ],
+      "sample_not_applied_summary": "&lt;system-notification>Patches were not applied and must be handled manually.&lt;/system-notification>\n\nPatch artifact:\n- /var/tmp/ovnfs-trial/c10tmp/omp-task-15c5dbd7227cf023/C10Worker1.patch"
+     },
+     {
+      "seconds": 1.52,
+      "workers_completed": 32,
+      "reported_applied_patches_yes": 31,
+      "open_checkouts_at_barrier": 32,
+      "all_under_private_mount": true,
+      "each_checkout_sees_only_own_edits": true,
+      "source_untouched_before_merge": true,
+      "checkouts_left_after": [],
+      "new_files_in_source": 31,
+      "edits_missing_in_source": 22,
+      "conflict_markers": false,
+      "error": null,
+      "sample_checkout_diff": "A\tc10/w0.txt\nM\tshared.txt\n--- /dev/null\n+++ b/c10/w0.txt\n@@ -0,0 +1 @@\n+worker 0\n--- a/shared.txt\n+++ b/shared.txt\n@@ -3,7 +3,7 @@\n line 3\n line 4\n line 5\n-line 6\n+edited by worker 0\n line 7\n line 8\n line 9\n",
+      "reported_not_applied": 1,
+      "reported_applied_but_lost": [
+       0,
+       2,
+       5,
+       9,
+       10,
+       11,
+       13,
+       15,
+       16,
+       17,
+       18,
+       19,
+       20,
+       21,
+       22,
+       23,
+       24,
+       25,
+       26,
+       27,
+       31
+      ],
+      "sample_not_applied_summary": "&lt;system-notification>Patches were not applied and must be handled manually.&lt;/system-notification>\n\nPatch artifact:\n- /var/tmp/ovnfs-trial/c10tmp/omp-task-15c5dbd961134308/C10Worker1.patch"
+     }
+    ]
+   },
+   "notes": {},
+   "repeat": 2,
+   "seconds": 15.2,
+   "command": "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C10"
+  }
+ },
+ "teardown": {
+  "private_serve_processes_left": [],
+  "private_mount_left": false,
+  "scratch_removed": true
+ },
+ "after": {
+  "user_daemon": {
+   "pid": 2760573,
+   "mount": "/home/chris/checkouts",
+   "state": "/home/chris/.local/state/ovnfs",
+   "checkouts": 0,
+   "snapshots": 1,
+   "bases": 1,
+   "layers": 1
+  },
+  "user_o2_config_exists": false,
+  "repo_git_status": "?? .tasks/stage/11-08-ovnfs-concurrency-trial/\n"
+ },
+ "tmp_leftovers_from_trial": [],
+ "user_state_unchanged": {
+  "user_daemon": true,
+  "user_o2_config_exists": true,
+  "repo_git_status": true
+ },
+ "wall_seconds": 175.5
+}
