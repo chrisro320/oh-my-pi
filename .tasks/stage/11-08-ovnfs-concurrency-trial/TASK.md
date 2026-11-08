@@ -61,3 +61,4 @@ RESUME: （待驗收）
 - 2026-11-08 使用者決定略過 reviewer 重現，改由 main 重跑不成立／有條件的項目
 - 2026-11-08 taskex 實測完成；main 重跑 7 項＋第二次完整重跑，判定一致；結論頁完成
 - 2026-11-08 送交驗收
+- 2026-11-08 使用者要求回報上游：已開 omp issue https://github.com/can1357/oh-my-pi/issues/18483（C10 patch 合併無鎖）；內文與獨立重現腳本存 research/upstream/。ovnfs 的 C4/C9/C6 尚未回報
