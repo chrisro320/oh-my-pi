@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const extensionPath = resolve(process.env.OMP_TRELLIS_EXTENSION ?? ".omp/extensions/trellis/index.ts");
+const extensionPath = resolve(process.env.OMP_TRELLIS_EXTENSION ?? ".trellis/legacy-omp/extensions/trellis/index.ts");
 // Runtime selection loads the saved pre-fix control with the same behavioral assertions.
 const { default: loadExtension } = await import(pathToFileURL(extensionPath).href);
 const root = mkdtempSync(join(tmpdir(), "omp-trellis-refill-"));

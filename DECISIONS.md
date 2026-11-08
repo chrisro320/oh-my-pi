@@ -730,6 +730,12 @@ Historical cutover below; the later "45% notebook midpoint checkpoint" decision 
 - Updated the project companion and the live companion with the same narrow change; retained their pre-existing schema differences. Clarified the absent/already-read case in `APPEND_SYSTEM.md`. A normal OMP restart is required for the installed extension to take effect; existing sessions are not restarted.
 - The real-SDK consumer regression reproduced four provider requests for an empty read before the fix and passes for empty and existing notebooks afterward. Project retention verifier: 16/16; original 45% reminder verifier: PASS and five mutation controls rejected. Against the live companion the read regression and 14 other scenarios pass; its pre-existing older schema produces a field-specific-error mismatch with the newer project verifier.
 
+## omp-move 停用 Trellis，改用 Task（2026-11-07）
+
+- 決定：僅在 `omp-move` 停用 Trellis 的自動載入入口，往後使用 `tasks` 管理新任務。既有 `.trellis/tasks/`、`.trellis/workspace/` 與 `.trellis/spec/` 保留原處供查閱；原整合檔保存在 `.trellis/legacy-omp/`。
+- 否決轉換或自動恢復舊任務：使用者選擇保留歷史紀錄，不改寫原有任務狀態。也不更動其他專案或全域設定，以免擴大切換範圍。
+- 封存版的歷史驗證器改為讀取 `.trellis/legacy-omp/`，仍可獨立驗證舊行為，但不重新啟用 Trellis。新會話與重新開啟的會話採用新設定；已在執行的會話不視為已即時切換。
+
 ## OMP 18.18.0 升級計畫（2026-11-07）
 
 - 目標鎖定確切的 `18.18.0`；鎖定後即使出了 18.18.x 也不追。考慮過 18.17.0：已發布 3 天、比較成熟，但缺少 18.18.0 對背景子代理崩潰的修正，而且兩版本工作量幾乎一樣（補丁擁有的檔案中，改動分別是 74 和 75 個），所以不選。也不選「等 18.18.x 穩定」，因為差距只會變大。這一輪只做計畫，實作、安裝、上線各自另外批准。任務：`.tasks/stage/11-07-omp-18180-upgrade-plan/`。

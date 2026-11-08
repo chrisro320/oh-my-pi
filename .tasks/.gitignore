@@ -1,0 +1,4 @@
+# regenerable: tasks.py plan <task>
+plan.packed.html
+# regenerable: tasks.py rewrites it whenever a task moves
+.locations.json
