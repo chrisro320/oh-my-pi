@@ -246,6 +246,7 @@ canonical 15（缺一即停，多出的啟用 `.ts` 也會一起 stage 並載入
 - **家族維護**：同族維修是「封存上一修訂版、取代淨 diff」，不是疊新層；跟隨 `.trellis/spec/backend/patch-rollup-contracts.md`，歷史回滾位元組不得改動。
 - **gate 選取**：優先 capability 驅動（`_omp_gate <id> <gate>`），新增版本時除了真正改變的 arm 不必改 `apply.sh`。
 - **驗證**：每個 gate 的負對照要能轉紅（突變必須被抓）；改 gate 後 `--print-gates`／`--print-capabilities` 必須與基準逐位元組相同。離線、私有 HOME、不碰 live install／DB／憑證。
+- **OMP2 遷移**：OMP2 是重寫（Rust 核心、Python 擴充、單一由 journal 推導的 session 樹），任何 family 或 TypeScript companion 都不能直接搬。OMP2 出來時要讀它的原始碼，不只看發布說明或設計文；把 §2、§8 每項能力連同封存檔的故障簽名逐項判定：OMP2 已處理、概念仍適用需重新設計、或可放掉。先查 cache／前綴穩定與憑證（OAuth 更新、帳號輪替、被拒請求重送），使用者預估多 provider harness 一定還會再碰到這兩類問題。現有走公開入口的 gate 情境當作行為規格。決策見 `DECISIONS.md`「OMP2 遷移原則」。
 - **文件**：本文件只寫現況；歷史寫進 `patches/.retired/11-07-PATCHES-history.md` 對應小節，不要讓現況文件重新長成事故編年史。
 
 ## 10. 封存
