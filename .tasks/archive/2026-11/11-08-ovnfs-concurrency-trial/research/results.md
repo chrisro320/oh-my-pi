@@ -22,7 +22,7 @@ private mount, user daemon `ovnfs status` = pid 2760573, checkouts 0, snapshots 
 layers 1 (as before), `~/.o2/ovnfs.yml` still absent, repo `git status --porcelain` unchanged
 (`?? .tasks/stage/11-08-ovnfs-concurrency-trial/`). Peak scratch ≈ 2.6 GB.
 
-Rerun one claim: `cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C4`
+Rerun one claim: `cd .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C4`
 (any comma list, `--repeat N`).
 
 ## Verdicts
@@ -189,7 +189,7 @@ patch is applied when it finishes, by `mergeIsolatedChanges` → `canApplyPatch`
 (task/worktree.ts:1064-1065). ovnfs `apply` is not used on this path (omp diffs the checkout and
 `git apply`s the patch), so this is an omp race, independent of C4.
 
-Reproduction: `cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C10`
+Reproduction: `cd .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only C10`
 (≈40 s); per-run numbers in `results.json` → `claims.C10.measurements.shared_8|shared_32`.
 
 ### C3 (conditional): an open checkout is mostly a stable capture, with one leak

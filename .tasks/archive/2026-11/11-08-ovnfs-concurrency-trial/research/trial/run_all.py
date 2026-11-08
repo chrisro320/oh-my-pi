@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parents[3]
+REPO_ROOT = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=HERE, capture_output=True, text=True, check=True).stdout.strip())
 T = Path("/var/tmp/ovnfs-trial")
 STATE = T / "state"
 MNT = T / "mnt"
@@ -43,7 +43,7 @@ OV = [OVNFS, "--state", str(STATE), "--mount", str(MNT)]
 RUNTIME = Path.home() / ".bun/install/omp-releases/18.18.0-f74e59923d16-3b2faede-9ac28b0e/runtime/node_modules/@oh-my-pi"
 BUN = shutil.which("bun") or str(Path.home() / ".bun/bin/bun")
 DOCS = "~/go/pkg/mod/github.com/stencil-hq/ovnfs@v0.2.3"
-RERUN = "cd .tasks/stage/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only {}"
+RERUN = "cd .tasks/archive/2026-11/11-08-ovnfs-concurrency-trial && python3 research/trial/run_all.py --only {}"
 
 # Every child: no user/system git config (deterministic markers, no hooks or signing), a fixed
 # identity, and the private daemon pinned by env as well as by flags. The daemon inherits this

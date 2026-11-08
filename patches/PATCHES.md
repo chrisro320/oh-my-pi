@@ -247,6 +247,7 @@ canonical 15（缺一即停，多出的啟用 `.ts` 也會一起 stage 並載入
 - **gate 選取**：優先 capability 驅動（`_omp_gate <id> <gate>`），新增版本時除了真正改變的 arm 不必改 `apply.sh`。
 - **驗證**：每個 gate 的負對照要能轉紅（突變必須被抓）；改 gate 後 `--print-gates`／`--print-capabilities` 必須與基準逐位元組相同。離線、私有 HOME、不碰 live install／DB／憑證。
 - **OMP2 遷移**：OMP2 是重寫，family 與 TypeScript companion 都不能直接搬；評估程序在暫停中的任務 `.tasks/11-08-omp2-migration-review/`（OMP2 發布時恢復）。
+- **升級時待驗的上游修正**：omp #18483（平行隔離子代理 patch 合併無鎖，修正 PR #18484）。升級 omp 時跑 `.tasks/archive/2026-11/11-08-ovnfs-concurrency-trial/research/trial/run_all.py --only C10 --repeat 1`，32/32 修改都在才算修好（18.18.0 基準：失敗）；腳本會改寫同目錄的 `results.json`，跑完從 git 取回。修好後刪掉這一行。
 - **文件**：本文件只寫現況；歷史寫進 `patches/.retired/11-07-PATCHES-history.md` 對應小節，不要讓現況文件重新長成事故編年史。
 
 ## 10. 封存
