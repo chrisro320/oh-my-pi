@@ -47,9 +47,9 @@ RESUME: 暫緩，未開工。恢復時先確認 OMP2 是否已發布、它的 se
 ### 恢復時先做
 - 確認 OMP2 的 session／壓縮／子代理架構；若筆記、rollover、子代理 spawn 的機制已變，上面的程式位置作廢，只保留需求、風險與 Q1–Q7。
 - 第 4 項若上游 PR #18484 已隨 omp 正式版發布，直接刪掉此項，只跑 C10 驗證。
+- 對照 omp² 設計文 https://stencil.so/blog/harness-playbook （2026-09-02；文中說「從已上線到仍在構思」都有，未列逐項狀態、發布日與遷移路徑）：session 是單一 DOM、由 journal 推導，rewind／fork 是 DOM diff；子代理預設繼承父的全部設定變數（convars）；自動壓縮改為提早約 10% 分岔先做摘要，到上限時才提交；擴充改用內嵌 Python，並以 Director 疊層管控每一步（提醒、驗證屬此類）；子代理用 copy-on-write 隔離，父代理收 diff。對應：第 1 項可能變成一個 Director；第 3 項可能變成「在指定 journal 點物化父 DOM 再投影」；第 4 項仍要確認 diff 合併有沒有鎖。我們現有的 TypeScript 補丁與擴充都無法直接沿用。
 
 ## 分工
-- 對照 omp² 設計文 https://stencil.so/blog/harness-playbook （2026-09-02；文中說「從已上線到仍在構思」都有，未列逐項狀態、發布日與遷移路徑）：session 是單一 DOM、由 journal 推導，rewind／fork 是 DOM diff；子代理預設繼承父的全部設定變數（convars）；自動壓縮改為提早約 10% 分岔先做摘要，到上限時才提交；擴充改用內嵌 Python，並以 Director 疊層管控每一步（提醒、驗證屬此類）；子代理用 copy-on-write 隔離，父代理收 diff。對應：第 1 項可能變成一個 Director；第 3 項可能變成「在指定 journal 點物化父 DOM 再投影」；第 4 項仍要確認 diff 合併有沒有鎖。我們現有的 TypeScript 補丁與擴充都無法直接沿用。
 | 切片 | 職責 | 代理 | 驗收 |
 |---|---|---|---|
 
