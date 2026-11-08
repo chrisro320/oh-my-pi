@@ -63,3 +63,4 @@ RESUME: （待驗收）
 - 2026-11-08 送交驗收
 - 2026-11-08 使用者要求回報上游：已開 omp issue https://github.com/can1357/oh-my-pi/issues/18483（C10 patch 合併無鎖）；內文與獨立重現腳本存 research/upstream/。ovnfs 的 C4/C9/C6 尚未回報
 - 2026-11-08 上游 roboomp 重現 #18483（標 bug、prio:p1、triaged），修正 PR https://github.com/can1357/oh-my-pi/pull/18484（patch 合併改在 withRepoLock 下，巢狀 patch 依 repo 序列化，32/32、加回歸測試；PR 也改了兩個 spotlight 提示檔）。下次升級時用 `run_all.py --only C10` 驗證
+- 2026-11-08 使用者選 A：已開 ovnfs issue（依該 repo 慣例一問題一則）：#25 同時 apply 掉修改 https://github.com/stencil-hq/ovnfs/issues/25 、#26 kill -9 後起不來 https://github.com/stencil-hq/ovnfs/issues/26 、#27 文件說 cache 唯讀 https://github.com/stencil-hq/ovnfs/issues/27 ；重現腳本各跑過（私有服務，使用者服務不變），內文與腳本存 research/upstream/。omp 修正選 1：等正式版，升級時跑 `--only C10`
